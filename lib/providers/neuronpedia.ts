@@ -7,8 +7,10 @@ type SteeringInput = {
   steering: SteeringConfig
 }
 
+const DEFAULT_NEURONPEDIA_BASE_URL = 'https://www.neuronpedia.org'
+
 export async function runNeuronpediaSteering(input: SteeringInput): Promise<SteeringResult> {
-  const baseUrl = optionalEnv('NEURONPEDIA_BASE_URL') ?? 'https://www.neuronpedia.org/api'
+  const baseUrl = optionalEnv('NEURONPEDIA_BASE_URL') ?? DEFAULT_NEURONPEDIA_BASE_URL
   const apiKey = optionalEnv('NEURONPEDIA_API_KEY')
 
   if (!apiKey) {
@@ -23,7 +25,7 @@ export async function runNeuronpediaSteering(input: SteeringInput): Promise<Stee
     }
   }
 
-  const response = await fetch(`${baseUrl}/steer`, {
+  const response = await fetch(buildNeuronpediaSteerUrl(baseUrl), {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -45,4 +47,20 @@ export async function runNeuronpediaSteering(input: SteeringInput): Promise<Stee
     ...result,
     status: result.status ?? 'applied'
   }
+}
+
+export function buildNeuronpediaSteerUrl(baseUrl: string): string {
+  const parsed = new URL(baseUrl)
+  const trimmedPath = parsed.pathname.replace(/\/$/, '')
+  const isLocalhost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '::1'
+
+  if (trimmedPath.endsWith('/api')) {
+    parsed.pathname = `${trimmedPath}/steer`
+  } else if (isLocalhost) {
+    parsed.pathname = `${trimmedPath}/steer`
+  } else {
+    parsed.pathname = `${trimmedPath}/api/steer`
+  }
+
+  return parsed.toString()
 }

@@ -62,6 +62,20 @@ Current stub behavior:
 
 The stub is intentionally conservative: no live recall, no durable writeback, no raw payload storage.
 
+## Neuronpedia / local steering endpoint
+
+Code:
+
+- `lib/providers/neuronpedia.ts`
+- `app/api/steer/route.ts`
+
+Noetica supports two endpoint postures through `NEURONPEDIA_BASE_URL`:
+
+- hosted: `https://www.neuronpedia.org` resolves to hosted `/api/steer`
+- local: `http://localhost:<port>` resolves to local `/steer` for Agent Machine inference server experiments
+
+The base URL is an endpoint selection knob only. It does not admit steering, does not provision credentials, and does not prove `status: "applied"`. M2b still requires a configured steering backend and a recorded real steering proof.
+
 ## Non-goals
 
 This contract hardening does not:
@@ -72,6 +86,7 @@ This contract hardening does not:
 - authorize model routes
 - admit provider access
 - change M2a live smoke status
+- change M2b steering proof status
 - change M3 Superconscious runtime status
 
 ## Future integration

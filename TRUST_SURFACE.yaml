@@ -55,9 +55,10 @@ network:
       production_admitted: false
       grant_ref: call:openai
       evidence_required: ExternalModelProviderRouteEvidence
-    - target: www.neuronpedia.org
-      destination: www.neuronpedia.org
-      purpose: SAE feature steering for full-tier models only
+    - target: NEURONPEDIA_BASE_URL
+      destination: NEURONPEDIA_BASE_URL
+      default_destination: www.neuronpedia.org
+      purpose: SAE feature steering for full-tier models only; destination may be localhost for Agent Machine local inference
       credential_source: env:NEURONPEDIA_API_KEY
       admitted: false
       production_admitted: false
@@ -142,6 +143,7 @@ known_risks:
   - Standalone runtime may egress to external model providers when corresponding environment credentials are configured.
   - SSE streaming exposes a browser-facing response stream that must not be mistaken for backend provider admission.
   - Neuronpedia steering is not production-admitted until M2b records a real applied steering proof.
+  - NEURONPEDIA_BASE_URL may target localhost for Agent Machine local inference; this is not production admission.
   - SourceOS mode is contract-only and must not be represented as live Superconscious integration.
   - Runtime environment variables may exist outside Noetica's repository control.
 
