@@ -6,5 +6,8 @@ export interface GovernanceTrace {
   memory_scope?: string
   memory_written: boolean
   evidence_ref?: string
+  request_hash?: string
+  evidence_hash?: string
+  timestamp?: string
   latency_ms: number
 }

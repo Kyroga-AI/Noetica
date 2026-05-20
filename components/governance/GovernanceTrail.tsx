@@ -10,7 +10,7 @@ export function GovernanceTrail({ trace }: GovernanceTrailProps) {
       <summary className="cursor-pointer font-semibold text-blue-700">Governance trail</summary>
       <dl className="mt-3 grid grid-cols-[130px_1fr] gap-x-3 gap-y-2">
         <dt className="text-slate-500">run</dt>
-        <dd className="font-mono">{trace.run_id}</dd>
+        <dd className="break-all font-mono">{trace.run_id}</dd>
         <dt className="text-slate-500">model</dt>
         <dd>{trace.model_routed}</dd>
         <dt className="text-slate-500">provider</dt>
@@ -19,8 +19,12 @@ export function GovernanceTrail({ trace }: GovernanceTrailProps) {
         <dd>{trace.policy_admitted ? 'admitted' : 'blocked'}</dd>
         <dt className="text-slate-500">memory</dt>
         <dd>{trace.memory_written ? 'written' : 'not written'}</dd>
+        <dt className="text-slate-500">request hash</dt>
+        <dd className="break-all font-mono">{trace.request_hash ?? 'pending'}</dd>
+        <dt className="text-slate-500">evidence hash</dt>
+        <dd className="break-all font-mono">{trace.evidence_hash ?? 'pending'}</dd>
         <dt className="text-slate-500">evidence</dt>
-        <dd className="font-mono">{trace.evidence_ref ?? 'none'}</dd>
+        <dd className="break-all font-mono">{trace.evidence_ref ?? 'none'}</dd>
         <dt className="text-slate-500">latency</dt>
         <dd>{trace.latency_ms} ms</dd>
       </dl>

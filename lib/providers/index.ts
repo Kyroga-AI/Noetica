@@ -1,6 +1,8 @@
+import type { ChatMessage } from '@/lib/types/message'
+
 export type ProviderCallInput = {
   model: string
-  messages: Array<{ role: string; content: string }>
+  messages: ChatMessage[]
 }
 
 export type ProviderCallResult = {
@@ -11,3 +13,5 @@ export type ProviderCallResult = {
   memory_written: boolean
   latency_ms: number
 }
+
+export type ProviderStreamInput = ProviderCallInput

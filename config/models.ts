@@ -2,22 +2,31 @@ import type { ModelConfig } from '@/lib/types/model'
 
 export const models: ModelConfig[] = [
   {
-    id: 'gpt-4.1-mini',
-    label: 'GPT-4.1 mini',
-    provider: 'openai',
-    steering: 'none',
-    local_capable: false,
-    context_window: 1047576,
-    description: 'Standalone OpenAI model for governed blackbox chat with provenance only.'
-  },
-  {
-    id: 'claude-3-5-sonnet-latest',
-    label: 'Claude 3.5 Sonnet',
+    id: 'claude-sonnet-4-6',
+    label: 'Claude Sonnet 4.6',
     provider: 'anthropic',
     steering: 'none',
     local_capable: false,
-    context_window: 200000,
-    description: 'Standalone Anthropic model for governed blackbox chat with provenance only.'
+    context_window: 1000000,
+    description: 'Anthropic blackbox provider for live standalone chat with provenance only.'
+  },
+  {
+    id: 'gpt-4o',
+    label: 'GPT-4o',
+    provider: 'openai',
+    steering: 'none',
+    local_capable: false,
+    context_window: 128000,
+    description: 'OpenAI blackbox provider for live standalone chat with provenance only.'
+  },
+  {
+    id: 'gpt-4o-mini',
+    label: 'GPT-4o mini',
+    provider: 'openai',
+    steering: 'none',
+    local_capable: false,
+    context_window: 128000,
+    description: 'Lower-cost OpenAI blackbox provider for live standalone chat with provenance only.'
   },
   {
     id: 'gpt2-small-neuronpedia',
@@ -59,8 +68,8 @@ export const models: ModelConfig[] = [
     description: 'Hosted Mistral provider placeholder; governed provenance only in standalone API mode.'
   },
   {
-    id: 'gemini-1.5-pro',
-    label: 'Gemini 1.5 Pro',
+    id: 'gemini-2.5-pro',
+    label: 'Gemini 2.5 Pro',
     provider: 'google',
     steering: 'none',
     local_capable: false,
@@ -69,4 +78,4 @@ export const models: ModelConfig[] = [
   }
 ]
 
-export const defaultModelId = models[0]?.id ?? 'gpt-4.1-mini'
+export const defaultModelId = models[0]?.id ?? 'claude-sonnet-4-6'
