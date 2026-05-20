@@ -1,0 +1,153 @@
+schema_version: "1.0"
+component: noetica
+repo: SocioProphet/Noetica
+owner: SocioProphet
+agent: noetica
+version: m2a
+runtime_classes:
+  - library
+  - model_gateway
+authority_summary: >-
+  Noetica is the governed chat surface for SocioProphet / SourceOS. In the
+  current M2a posture it exposes a Next.js UI/API surface, streams responses to
+  the browser, and may call standalone external model providers from runtime
+  environment credentials. No provider egress, Neuronpedia steering, or
+  SourceOS task submission is production-admitted yet.
+
+entrypoints:
+  - type: nextjs_page
+    path: app/page.tsx
+    purpose: Human-facing governed chat surface.
+  - type: nextjs_api_route
+    path: app/api/chat/route.ts
+    purpose: Standalone chat route and SourceOS-mode contract stub.
+  - type: nextjs_api_route
+    path: app/api/steer/route.ts
+    purpose: Neuronpedia steering route boundary.
+
+launch_services: []
+containers: []
+
+network:
+  plaintext_non_loopback_allowed: false
+  listeners:
+    - protocol: http-sse
+      bind: runtime-host
+      port: null
+      auth: application-session
+      purpose: Stream assistant responses from the Noetica API route to the browser UI.
+      admitted: true
+      production_admitted: false
+  egress:
+    - target: api.anthropic.com
+      destination: api.anthropic.com
+      purpose: standalone chat inference
+      credential_source: env:ANTHROPIC_API_KEY
+      admitted: false
+      production_admitted: false
+      grant_ref: call:anthropic
+      evidence_required: ExternalModelProviderRouteEvidence
+    - target: api.openai.com
+      destination: api.openai.com
+      purpose: standalone chat inference
+      credential_source: env:OPENAI_API_KEY
+      admitted: false
+      production_admitted: false
+      grant_ref: call:openai
+      evidence_required: ExternalModelProviderRouteEvidence
+    - target: www.neuronpedia.org
+      destination: www.neuronpedia.org
+      purpose: SAE feature steering for full-tier models only
+      credential_source: env:NEURONPEDIA_API_KEY
+      admitted: false
+      production_admitted: false
+      grant_ref: call:neuronpedia:steer
+      evidence_required: ExternalModelProviderRouteEvidence
+      gate: M2b real steering proof not closed
+    - target: superconscious
+      destination: superconscious
+      purpose: SourceOS mode task submission
+      credential_source: agent-registry grant resolution
+      admitted: false
+      production_admitted: false
+      grant_ref: sourceos:superconscious:submit-task
+      evidence_required: AgentPlane evidence and replay refs
+      gate: M3 live SourceOS integration not wired
+
+filesystem:
+  host_mounts: []
+  writable_paths: []
+  cache_paths:
+    - .next/
+  log_paths: []
+
+credentials:
+  expected_secrets:
+    - ANTHROPIC_API_KEY
+    - OPENAI_API_KEY
+    - NEURONPEDIA_API_KEY
+  secret_locations:
+    - type: env
+      path_or_ref: ANTHROPIC_API_KEY
+      purpose: Runtime-only standalone Anthropic provider credential; never stored by Noetica.
+    - type: env
+      path_or_ref: OPENAI_API_KEY
+      purpose: Runtime-only standalone OpenAI provider credential; never stored by Noetica.
+    - type: env
+      path_or_ref: NEURONPEDIA_API_KEY
+      purpose: Runtime-only Neuronpedia steering credential; required before M2b can close.
+  inherits_ssh_agent: false
+  redaction_required: true
+
+policy:
+  filesystem: no_host_mounts_no_runtime_writeback
+  network: explicit_egress_only_not_production_admitted
+  execution: nextjs_runtime_only_no_process_control
+  approval: provider_egress_requires_operator_smoke_or_registry_grant
+  workspace_scope: noetica
+
+model_providers:
+  - anthropic
+  - openai
+  - neuronpedia
+browser_surfaces:
+  - type: noetica-chat-ui
+    enabled: true
+    auth: application-session
+    bind: browser
+update_channels: []
+remote_config: []
+
+purge:
+  commands:
+    - rm -rf .next
+    - rm -rf node_modules
+  removes:
+    - local Next.js build cache
+    - local dependency install tree
+
+prove_clean:
+  checks:
+    - test ! -d .next
+    - test ! -d node_modules
+    - git status --short
+
+starts_processes: false
+opens_sockets: true
+controls_browser: false
+stores_credentials: false
+memory_writes: false
+
+known_risks:
+  - Standalone runtime may egress to external model providers when corresponding environment credentials are configured.
+  - SSE streaming exposes a browser-facing response stream that must not be mistaken for backend provider admission.
+  - Neuronpedia steering is not production-admitted until M2b records a real applied steering proof.
+  - SourceOS mode is contract-only and must not be represented as live Superconscious integration.
+  - Runtime environment variables may exist outside Noetica's repository control.
+
+compensating_controls:
+  - All provider egress entries are explicitly marked admitted false and production_admitted false.
+  - Noetica does not store credentials, prompts, completions, memory payloads, or durable memory writes by default.
+  - Agentplane-compatible route evidence is emitted alongside local request/evidence hashes.
+  - Agent-registry Noetica manifest declares future grants as not-admitted.
+  - SourceOS mode returns typed unavailable results until live integration is admitted.
