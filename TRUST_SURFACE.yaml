@@ -59,7 +59,8 @@ network:
       destination: NEURONPEDIA_BASE_URL
       default_destination: www.neuronpedia.org
       purpose: SAE feature steering for full-tier models only; destination may be localhost for Agent Machine local inference
-      credential_source: env:NEURONPEDIA_API_KEY
+      credential_source: env:NEURONPEDIA_API_KEY for hosted; none required for loopback Agent Machine stub
+      loopback_without_credential_allowed: true
       admitted: false
       production_admitted: false
       grant_ref: call:neuronpedia:steer
@@ -96,7 +97,7 @@ credentials:
       purpose: Runtime-only standalone OpenAI provider credential; never stored by Noetica.
     - type: env
       path_or_ref: NEURONPEDIA_API_KEY
-      purpose: Runtime-only Neuronpedia steering credential; required before M2b can close.
+      purpose: Runtime-only hosted Neuronpedia steering credential; local loopback Agent Machine stub testing may omit it.
   inherits_ssh_agent: false
   redaction_required: true
 
@@ -144,6 +145,7 @@ known_risks:
   - SSE streaming exposes a browser-facing response stream that must not be mistaken for backend provider admission.
   - Neuronpedia steering is not production-admitted until M2b records a real applied steering proof.
   - NEURONPEDIA_BASE_URL may target localhost for Agent Machine local inference; this is not production admission.
+  - Loopback steering stub testing can omit NEURONPEDIA_API_KEY; hosted Neuronpedia still requires the key.
   - SourceOS mode is contract-only and must not be represented as live Superconscious integration.
   - Runtime environment variables may exist outside Noetica's repository control.
 

@@ -71,10 +71,10 @@ Code:
 
 Noetica supports two endpoint postures through `NEURONPEDIA_BASE_URL`:
 
-- hosted: `https://www.neuronpedia.org` resolves to hosted `/api/steer`
-- local: `http://localhost:<port>` resolves to local `/steer` for Agent Machine inference server experiments
+- hosted: `https://www.neuronpedia.org` resolves to hosted `/api/steer` and requires `NEURONPEDIA_API_KEY`
+- local: `http://localhost:<port>` resolves to local `/steer` for Agent Machine inference server experiments and may be called without `NEURONPEDIA_API_KEY`
 
-The base URL is an endpoint selection knob only. It does not admit steering, does not provision credentials, and does not prove `status: "applied"`. M2b still requires a configured steering backend and a recorded real steering proof.
+The base URL is an endpoint selection knob only. It does not admit steering, does not provision credentials, and does not prove `status: "applied"`. Localhost keyless dispatch exists only so Noetica can exercise Agent Machine's local contract stub and future local inference server. M2b still requires a configured steering backend and a recorded real steering proof.
 
 ## Non-goals
 

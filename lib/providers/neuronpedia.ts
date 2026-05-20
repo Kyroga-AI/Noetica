@@ -12,8 +12,9 @@ const DEFAULT_NEURONPEDIA_BASE_URL = 'https://www.neuronpedia.org'
 export async function runNeuronpediaSteering(input: SteeringInput): Promise<SteeringResult> {
   const baseUrl = optionalEnv('NEURONPEDIA_BASE_URL') ?? DEFAULT_NEURONPEDIA_BASE_URL
   const apiKey = optionalEnv('NEURONPEDIA_API_KEY')
+  const steerUrl = buildNeuronpediaSteerUrl(baseUrl)
 
-  if (!apiKey) {
+  if (!apiKey && !isLoopbackUrl(steerUrl)) {
     return {
       status: 'not_configured',
       baseline: input.prompt,
@@ -25,12 +26,17 @@ export async function runNeuronpediaSteering(input: SteeringInput): Promise<Stee
     }
   }
 
-  const response = await fetch(buildNeuronpediaSteerUrl(baseUrl), {
+  const headers: Record<string, string> = {
+    'content-type': 'application/json'
+  }
+
+  if (apiKey) {
+    headers.authorization = `Bearer ${apiKey}`
+  }
+
+  const response = await fetch(steerUrl, {
     method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${apiKey}`
-    },
+    headers,
     body: JSON.stringify(input)
   })
 
@@ -52,7 +58,7 @@ export async function runNeuronpediaSteering(input: SteeringInput): Promise<Stee
 export function buildNeuronpediaSteerUrl(baseUrl: string): string {
   const parsed = new URL(baseUrl)
   const trimmedPath = parsed.pathname.replace(/\/$/, '')
-  const isLocalhost = parsed.hostname === 'localhost' || parsed.hostname === '127.0.0.1' || parsed.hostname === '::1'
+  const isLocalhost = isLoopbackHost(parsed.hostname)
 
   if (trimmedPath.endsWith('/api')) {
     parsed.pathname = `${trimmedPath}/steer`
@@ -63,4 +69,13 @@ export function buildNeuronpediaSteerUrl(baseUrl: string): string {
   }
 
   return parsed.toString()
+}
+
+export function isLoopbackUrl(url: string): boolean {
+  return isLoopbackHost(new URL(url).hostname)
+}
+
+function isLoopbackHost(hostname: string): boolean {
+  const normalized = hostname.toLowerCase().replace(/^\[/, '').replace(/\]$/, '')
+  return normalized === 'localhost' || normalized.endsWith('.localhost') || normalized === '127.0.0.1' || normalized === '::1'
 }
