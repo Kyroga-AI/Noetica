@@ -5,6 +5,8 @@ type GovernanceTrailProps = {
 }
 
 export function GovernanceTrail({ trace }: GovernanceTrailProps) {
+  const routeEvidence = trace.provider_route_evidence
+
   return (
     <details className="mt-3 rounded-xl border border-blue-100 bg-white/80 p-3 text-xs text-slate-700">
       <summary className="cursor-pointer font-semibold text-blue-700">Governance trail</summary>
@@ -23,6 +25,16 @@ export function GovernanceTrail({ trace }: GovernanceTrailProps) {
         <dd className="break-all font-mono">{trace.request_hash ?? 'pending'}</dd>
         <dt className="text-slate-500">evidence hash</dt>
         <dd className="break-all font-mono">{trace.evidence_hash ?? 'pending'}</dd>
+        <dt className="text-slate-500">route evidence</dt>
+        <dd>{routeEvidence ? `${routeEvidence.kind} / ${routeEvidence.status}` : 'pending'}</dd>
+        <dt className="text-slate-500">prompt egress</dt>
+        <dd>{routeEvidence?.promptEgressDefault ?? 'pending'}</dd>
+        <dt className="text-slate-500">side effects</dt>
+        <dd>
+          {routeEvidence
+            ? `contacted=${Boolean(routeEvidence.sideEffects?.contactedExternalProvider)} sentPrompt=${Boolean(routeEvidence.sideEffects?.sentPrompt)}`
+            : 'pending'}
+        </dd>
         <dt className="text-slate-500">evidence</dt>
         <dd className="break-all font-mono">{trace.evidence_ref ?? 'none'}</dd>
         <dt className="text-slate-500">latency</dt>

@@ -33,6 +33,14 @@ Do not use a boolean steering abstraction. Model steering is a three-tier capabi
 
 Never represent prompt engineering, system prompts, or few-shot examples as SAE steering. Those are behavioral controls, not mechanistic activation steering.
 
+## Model registry authority
+
+`config/models.ts` is a temporary local registry for M1/M2 development. It is not the long-term authority for model capabilities. As Agentplane's `capability-registry` matures, steering capability declarations should migrate there and Noetica should become a read-through adapter or cached view over Agentplane capability records.
+
+## Agentplane evidence alignment
+
+Standalone external-provider calls should emit Agentplane-compatible `ExternalModelProviderRouteEvidence` alongside Noetica's local request/evidence hashes. Keep the Agentplane object schema-compatible: do not add unsupported completion or exchange fields inside it. Completion/exchange commitments remain Noetica governance fields until Agentplane defines a compatible completion evidence schema.
+
 ## Steering result states
 
 `SteeringResult.status` must be explicit:

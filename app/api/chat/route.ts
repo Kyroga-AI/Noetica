@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { models } from '@/config/models'
+import { buildExternalModelProviderRouteEvidence } from '@/lib/evidence/agentplane'
 import { evidenceHash } from '@/lib/evidence/hash'
 import type { ChatMessage } from '@/lib/types/message'
 import type { ModelConfig } from '@/lib/types/model'
@@ -120,6 +121,15 @@ export async function POST(request: Request) {
           response: content,
           timestamp
         })
+        const provider_route_evidence = buildExternalModelProviderRouteEvidence({
+          model,
+          providerModelId,
+          runId: run_id,
+          capturedAt: timestamp,
+          prompt: latest.content,
+          latencyMs: latency_ms,
+          status: 'success'
+        })
 
         send('done', {
           result: {
@@ -131,13 +141,27 @@ export async function POST(request: Request) {
             memory_written: false,
             request_hash,
             evidence_hash,
+            provider_route_evidence,
             timestamp,
             latency_ms
           }
         })
       } catch (error) {
+        const latency_ms = Date.now() - started
+        const provider_route_evidence = buildExternalModelProviderRouteEvidence({
+          model,
+          providerModelId,
+          runId: run_id,
+          capturedAt: timestamp,
+          prompt: latest.content,
+          latencyMs: latency_ms,
+          status: 'failure',
+          errorRef: 'provider-route-error'
+        })
+
         send('error', {
-          error: error instanceof Error ? error.message : 'unknown_provider_error'
+          error: error instanceof Error ? error.message : 'unknown_provider_error',
+          provider_route_evidence
         })
       } finally {
         controller.close()

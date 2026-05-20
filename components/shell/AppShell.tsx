@@ -81,6 +81,7 @@ export function AppShell() {
               memory_written: result.memory_written,
               request_hash: result.request_hash,
               evidence_hash: result.evidence_hash,
+              provider_route_evidence: result.provider_route_evidence,
               timestamp: result.timestamp,
               latency_ms: result.latency_ms
             },
@@ -176,6 +177,7 @@ type StreamDoneResult = {
   memory_written: boolean
   request_hash?: string
   evidence_hash?: string
+  provider_route_evidence?: GovernanceTrace['provider_route_evidence']
   timestamp?: string
   latency_ms: number
   steering_applied?: ChatMessage['steering_result']
