@@ -37,6 +37,20 @@ Never represent prompt engineering, system prompts, or few-shot examples as SAE 
 
 `config/models.ts` is a temporary local registry for M1/M2 development. It is not the long-term authority for model capabilities. As Agentplane's `capability-registry` matures, steering capability declarations should migrate there and Noetica should become a read-through adapter or cached view over Agentplane capability records.
 
+## Model-router and memory-mesh adapter contracts
+
+`lib/model-router/adapter.ts` and `lib/memory-mesh/adapter.ts` are contract stubs. They must never imply live authority unless the authority repos are actually called and evidence is recorded.
+
+Model routing authority belongs to `SocioProphet/model-router`. Noetica may request or display model routes but does not own budget/resource optimization, provider-health checks, quota checks, route escalation, or prompt-egress policy.
+
+Memory authority belongs to `SocioProphet/memory-mesh`. Noetica may display scopes, request recall, or submit write proposals, but it does not own durable writeback, recall policy, sensitive payload storage, or memory admission.
+
+Current adapter stubs must remain fail-closed:
+
+- `routeModel()` returns `status: "stubbed"` and `live_route_performed: false`.
+- `recallMemory()` returns no entries and `recall_performed: false`.
+- `proposeMemoryWrite()` returns `not-submitted`, `durable_write_performed: false`, and `review_required: true`.
+
 ## Agentplane evidence alignment
 
 Standalone external-provider calls should emit Agentplane-compatible `ExternalModelProviderRouteEvidence` alongside Noetica's local request/evidence hashes. Keep the Agentplane object schema-compatible: do not add unsupported completion or exchange fields inside it. Completion/exchange commitments remain Noetica governance fields until Agentplane defines a compatible completion evidence schema.
