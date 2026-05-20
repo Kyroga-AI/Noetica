@@ -1,0 +1,36 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --noetica-blue: #2563EB;
+  --noetica-blue-light: #EFF6FF;
+  --noetica-blue-mid: #BFDBFE;
+  --noetica-ink: #0F172A;
+  --noetica-muted: #64748B;
+  --noetica-line: #DBEAFE;
+  --background: #FFFFFF;
+  --foreground: #0F172A;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+  background: var(--background);
+  color: var(--foreground);
+}
+
+body {
+  margin: 0;
+}
+
+button,
+textarea,
+select,
+input {
+  font: inherit;
+}
