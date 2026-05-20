@@ -77,11 +77,19 @@ export function AppShell() {
               run_id: result.run_id,
               model_routed: result.model_routed,
               provider: result.provider,
+              model_overridden: result.model_overridden,
               policy_admitted: result.policy_admitted,
+              policy_ref: result.policy_ref,
+              memory_scope_ref: result.memory_scope_ref,
               memory_written: result.memory_written,
+              evidence_ref: result.evidence_ref,
+              replay_ref: result.replay_ref,
+              agentplane_run_id: result.agentplane_run_id,
               request_hash: result.request_hash,
               evidence_hash: result.evidence_hash,
               provider_route_evidence: result.provider_route_evidence,
+              grant_refs: result.grant_refs,
+              sourceos_status: result.status,
               timestamp: result.timestamp,
               latency_ms: result.latency_ms
             },
@@ -173,11 +181,20 @@ type StreamDoneResult = {
   content: string
   model_routed: string
   provider: string
+  model_overridden?: boolean
   policy_admitted: boolean
+  policy_ref?: string
+  memory_scope_ref?: string
   memory_written: boolean
+  evidence_ref?: string
+  replay_ref?: string
+  agentplane_run_id?: string
   request_hash?: string
   evidence_hash?: string
   provider_route_evidence?: GovernanceTrace['provider_route_evidence']
+  grant_refs?: GovernanceTrace['grant_refs']
+  sourceos_status?: GovernanceTrace['sourceos_status']
+  status?: GovernanceTrace['sourceos_status']
   timestamp?: string
   latency_ms: number
   steering_applied?: ChatMessage['steering_result']

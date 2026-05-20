@@ -41,6 +41,19 @@ Never represent prompt engineering, system prompts, or few-shot examples as SAE 
 
 Standalone external-provider calls should emit Agentplane-compatible `ExternalModelProviderRouteEvidence` alongside Noetica's local request/evidence hashes. Keep the Agentplane object schema-compatible: do not add unsupported completion or exchange fields inside it. Completion/exchange commitments remain Noetica governance fields until Agentplane defines a compatible completion evidence schema.
 
+## M3 Superconscious contract
+
+M3 prep defines contract shape, not live SourceOS runtime. `NoeticaTaskInput` and `NoeticaTaskResult` live in `lib/types/task.ts` and are the canonical Noetica-side SourceOS contract until a shared schema exists.
+
+The SourceOS path must carry explicit authority references:
+
+- `agent_id: "noetica"` anchors to the agent-registry manifest.
+- `tool_grant_refs` declares required grants without claiming admission.
+- `request_hash` is computed before Superconscious receives the task.
+- model routing, policy admission, memory decisions, replay, and evidence refs must remain separate fields.
+
+SourceOS mode is currently stubbed. The stub must return a typed `NoeticaTaskResult` with `status: "unavailable"` and `policy_admitted: false`, not throw. Live Superconscious submission, model-router calls, memory writes, grant resolution, credentials, and Agentplane replay emission are M3 runtime work and must not be claimed in M3 prep.
+
 ## Steering result states
 
 `SteeringResult.status` must be explicit:

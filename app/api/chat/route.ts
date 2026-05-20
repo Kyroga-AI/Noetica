@@ -5,6 +5,7 @@ import { evidenceHash } from '@/lib/evidence/hash'
 import type { ChatMessage } from '@/lib/types/message'
 import type { ModelConfig } from '@/lib/types/model'
 import type { SteeringConfig } from '@/lib/types/steering'
+import type { NoeticaTaskResult } from '@/lib/types/task'
 import { streamAnthropic } from '@/lib/providers/anthropic'
 import { streamOpenAI } from '@/lib/providers/openai'
 import { submitTask } from '@/lib/superconscious/adapter'
@@ -47,16 +48,39 @@ export async function POST(request: Request) {
   }
 
   if (mode === 'sourceos') {
+    const timestamp = new Date().toISOString()
+    const toolGrantRefs = inferToolGrantRefs(model, body.steering)
+    const steeringHintForHash = body.steering
+      ? {
+          feature_id: body.steering.feature_id,
+          layer: body.steering.layer,
+          preset: body.steering.preset ?? null,
+          strength: body.steering.strength
+        }
+      : null
+    const requestHash = evidenceHash({
+      agent_id: 'noetica',
+      mode,
+      model_hint: model.id,
+      prompt: latest.content,
+      steering_hint: steeringHintForHash,
+      tool_grant_refs: toolGrantRefs,
+      timestamp
+    })
     const result = await submitTask({
+      schema_version: 'noetica.task.v0.1',
       session_id: body.session_id ?? crypto.randomUUID(),
+      agent_id: 'noetica',
       message: latest.content,
       mode,
       model_hint: model.id,
-      steering: body.steering,
-      memory_scope: body.memory_scope
+      steering_hint: body.steering,
+      tool_grant_refs: toolGrantRefs,
+      memory_scope_ref: body.memory_scope,
+      request_hash: requestHash
     })
 
-    return NextResponse.json({ result })
+    return streamTaskResult(result)
   }
 
   if (model.provider !== 'openai' && model.provider !== 'anthropic') {
@@ -176,6 +200,56 @@ export async function POST(request: Request) {
       connection: 'keep-alive'
     }
   })
+}
+
+function streamTaskResult(result: NoeticaTaskResult): Response {
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      const encoder = new TextEncoder()
+      const governance = {
+        run_id: result.run_id,
+        model_routed: result.model_routed,
+        provider: result.provider,
+        model_overridden: result.model_overridden,
+        policy_admitted: result.policy_admitted,
+        policy_ref: result.policy_ref,
+        memory_scope_ref: result.memory_scope_ref,
+        memory_written: result.memory_written,
+        evidence_ref: result.evidence_ref,
+        replay_ref: result.replay_ref,
+        agentplane_run_id: result.agentplane_run_id,
+        request_hash: result.request_hash,
+        evidence_hash: result.evidence_hash,
+        provider_route_evidence: result.provider_route_evidence,
+        grant_refs: result.grant_refs,
+        sourceos_status: result.status,
+        timestamp: result.timestamp,
+        latency_ms: result.latency_ms
+      }
+
+      controller.enqueue(encoder.encode(`event: meta\ndata: ${JSON.stringify({ governance })}\n\n`))
+      controller.enqueue(encoder.encode(`event: done\ndata: ${JSON.stringify({ result })}\n\n`))
+      controller.close()
+    }
+  })
+
+  return new Response(stream, {
+    headers: {
+      'content-type': 'text/event-stream; charset=utf-8',
+      'cache-control': 'no-cache, no-transform',
+      connection: 'keep-alive'
+    }
+  })
+}
+
+function inferToolGrantRefs(model: ModelConfig, steering?: SteeringConfig): string[] {
+  const refs: string[] = []
+
+  if (model.provider === 'anthropic') refs.push('call:anthropic')
+  if (model.provider === 'openai') refs.push('call:openai')
+  if (model.provider === 'neuronpedia' || steering) refs.push('call:neuronpedia:steer')
+
+  return Array.from(new Set(refs))
 }
 
 function resolveProviderModelId(model: ModelConfig): string {

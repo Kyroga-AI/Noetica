@@ -15,12 +15,20 @@ export function GovernanceTrail({ trace }: GovernanceTrailProps) {
         <dd className="break-all font-mono">{trace.run_id}</dd>
         <dt className="text-slate-500">model</dt>
         <dd>{trace.model_routed}</dd>
+        <dt className="text-slate-500">override</dt>
+        <dd>{trace.model_overridden === undefined ? 'n/a' : trace.model_overridden ? 'yes' : 'no'}</dd>
         <dt className="text-slate-500">provider</dt>
         <dd>{trace.provider}</dd>
         <dt className="text-slate-500">policy</dt>
         <dd>{trace.policy_admitted ? 'admitted' : 'blocked'}</dd>
+        <dt className="text-slate-500">policy ref</dt>
+        <dd className="break-all font-mono">{trace.policy_ref ?? 'none'}</dd>
         <dt className="text-slate-500">memory</dt>
         <dd>{trace.memory_written ? 'written' : 'not written'}</dd>
+        <dt className="text-slate-500">memory scope</dt>
+        <dd className="break-all font-mono">{trace.memory_scope_ref ?? trace.memory_scope ?? 'none'}</dd>
+        <dt className="text-slate-500">grants</dt>
+        <dd>{trace.grant_refs ? `requested=${trace.grant_refs.requested.length} resolved=${trace.grant_refs.resolved.length} missing=${trace.grant_refs.missing.length}` : 'none'}</dd>
         <dt className="text-slate-500">request hash</dt>
         <dd className="break-all font-mono">{trace.request_hash ?? 'pending'}</dd>
         <dt className="text-slate-500">evidence hash</dt>
@@ -35,8 +43,14 @@ export function GovernanceTrail({ trace }: GovernanceTrailProps) {
             ? `contacted=${Boolean(routeEvidence.sideEffects?.contactedExternalProvider)} sentPrompt=${Boolean(routeEvidence.sideEffects?.sentPrompt)}`
             : 'pending'}
         </dd>
+        <dt className="text-slate-500">agentplane</dt>
+        <dd className="break-all font-mono">{trace.agentplane_run_id ?? 'none'}</dd>
         <dt className="text-slate-500">evidence</dt>
         <dd className="break-all font-mono">{trace.evidence_ref ?? 'none'}</dd>
+        <dt className="text-slate-500">replay</dt>
+        <dd className="break-all font-mono">{trace.replay_ref ?? 'none'}</dd>
+        <dt className="text-slate-500">status</dt>
+        <dd>{trace.sourceos_status ?? 'n/a'}</dd>
         <dt className="text-slate-500">latency</dt>
         <dd>{trace.latency_ms} ms</dd>
       </dl>
