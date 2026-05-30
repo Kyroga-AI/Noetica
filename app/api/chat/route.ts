@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { models } from '@/config/models'
 import { buildExternalModelProviderRouteEvidence } from '@/lib/evidence/agentplane'
 import { evidenceHash } from '@/lib/evidence/hash'
+import { buildSourceOSTaskInteractionEvent, buildStandaloneInteractionEvent } from '@/lib/sourceos/interaction'
 import type { ChatMessage } from '@/lib/types/message'
 import type { ModelConfig } from '@/lib/types/model'
 import type { SteeringConfig } from '@/lib/types/steering'
@@ -26,6 +27,8 @@ export async function POST(request: Request) {
   const mode = body.mode ?? 'standalone'
   const messages = body.messages ?? []
   const latest = messages[messages.length - 1]
+  const sessionId = body.session_id ?? crypto.randomUUID()
+  const memoryScope = body.memory_scope ?? 'noetica-session-local'
 
   if (!latest?.content?.trim()) {
     return NextResponse.json({ error: 'message_required' }, { status: 400 })
@@ -69,15 +72,24 @@ export async function POST(request: Request) {
     })
     const result = await submitTask({
       schema_version: 'noetica.task.v0.1',
-      session_id: body.session_id ?? crypto.randomUUID(),
+      session_id: sessionId,
       agent_id: 'noetica',
       message: latest.content,
       mode,
       model_hint: model.id,
       steering_hint: body.steering,
       tool_grant_refs: toolGrantRefs,
-      memory_scope_ref: body.memory_scope,
+      memory_scope_ref: memoryScope,
       request_hash: requestHash
+    })
+
+    result.sourceos_interaction_event = buildSourceOSTaskInteractionEvent({
+      sessionId,
+      mode,
+      result,
+      modelHint: model.id,
+      steeringConfig: body.steering,
+      payloadSummary: result.content
     })
 
     return streamTaskResult(result)
@@ -114,6 +126,25 @@ export async function POST(request: Request) {
         controller.enqueue(encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`))
       }
 
+      const submittedInteraction = buildStandaloneInteractionEvent({
+        sessionId,
+        mode,
+        eventClass: 'interaction.task_submitted',
+        runId: run_id,
+        modelHint: model.id,
+        modelRouted: providerModelId,
+        provider: model.provider,
+        latencyMs: 0,
+        policyAdmitted: true,
+        grantRefs: inferToolGrantRefs(model, body.steering),
+        memoryScopeRef: memoryScope,
+        memoryWritten: false,
+        requestHash: request_hash,
+        status: 'submitted',
+        steeringConfig: body.steering,
+        payloadSummary: 'Noetica submitted a standalone provider call.'
+      })
+
       send('meta', {
         governance: {
           run_id,
@@ -121,7 +152,9 @@ export async function POST(request: Request) {
           provider: model.provider,
           policy_admitted: true,
           memory_written: false,
+          memory_scope_ref: memoryScope,
           request_hash,
+          sourceos_interaction_event: submittedInteraction,
           timestamp,
           latency_ms: 0
         }
@@ -154,6 +187,26 @@ export async function POST(request: Request) {
           latencyMs: latency_ms,
           status: 'success'
         })
+        const sourceos_interaction_event = buildStandaloneInteractionEvent({
+          sessionId,
+          mode,
+          eventClass: 'interaction.task_completed',
+          runId: run_id,
+          modelHint: model.id,
+          modelRouted: providerModelId,
+          provider: model.provider,
+          latencyMs: latency_ms,
+          policyAdmitted: true,
+          grantRefs: inferToolGrantRefs(model, body.steering),
+          memoryScopeRef: memoryScope,
+          memoryWritten: false,
+          requestHash: request_hash,
+          evidenceHashValue: evidence_hash,
+          providerRouteEvidence: provider_route_evidence,
+          steeringConfig: body.steering,
+          status: 'success',
+          payloadSummary: 'Noetica completed a standalone provider call and emitted a SourceOS interaction event.'
+        })
 
         send('done', {
           result: {
@@ -163,9 +216,11 @@ export async function POST(request: Request) {
             provider: model.provider,
             policy_admitted: true,
             memory_written: false,
+            memory_scope_ref: memoryScope,
             request_hash,
             evidence_hash,
             provider_route_evidence,
+            sourceos_interaction_event,
             timestamp,
             latency_ms
           }
@@ -182,10 +237,30 @@ export async function POST(request: Request) {
           status: 'failure',
           errorRef: 'provider-route-error'
         })
+        const sourceos_interaction_event = buildStandaloneInteractionEvent({
+          sessionId,
+          mode,
+          eventClass: 'interaction.task_failed',
+          runId: run_id,
+          modelHint: model.id,
+          modelRouted: providerModelId,
+          provider: model.provider,
+          latencyMs: latency_ms,
+          policyAdmitted: true,
+          grantRefs: inferToolGrantRefs(model, body.steering),
+          memoryScopeRef: memoryScope,
+          memoryWritten: false,
+          requestHash: request_hash,
+          providerRouteEvidence: provider_route_evidence,
+          steeringConfig: body.steering,
+          status: 'failure',
+          payloadSummary: 'Noetica standalone provider call failed.'
+        })
 
         send('error', {
           error: error instanceof Error ? error.message : 'unknown_provider_error',
-          provider_route_evidence
+          provider_route_evidence,
+          sourceos_interaction_event
         })
       } finally {
         controller.close()
@@ -221,6 +296,7 @@ function streamTaskResult(result: NoeticaTaskResult): Response {
         request_hash: result.request_hash,
         evidence_hash: result.evidence_hash,
         provider_route_evidence: result.provider_route_evidence,
+        sourceos_interaction_event: result.sourceos_interaction_event,
         grant_refs: result.grant_refs,
         sourceos_status: result.status,
         timestamp: result.timestamp,

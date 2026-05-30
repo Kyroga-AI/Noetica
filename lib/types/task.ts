@@ -1,4 +1,5 @@
 import type { ExternalModelProviderRouteEvidence } from '@/lib/types/agentplane'
+import type { SourceOSInteractionEvent } from '@/lib/types/sourceos-interaction'
 import type { SteeringConfig, SteeringResult } from '@/lib/types/steering'
 
 export type NoeticaTaskSchemaVersion = 'noetica.task.v0.1'
@@ -44,6 +45,7 @@ export interface NoeticaTaskResult {
   evidence_ref?: string
   replay_ref?: string
   provider_route_evidence?: ExternalModelProviderRouteEvidence
+  sourceos_interaction_event?: SourceOSInteractionEvent
   request_hash?: string
   evidence_hash?: string
   timestamp?: string

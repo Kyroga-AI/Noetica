@@ -35,8 +35,11 @@ const deltas = events.filter((event) => event.event === 'delta')
 
 if (error) fail(`Provider route emitted error: ${error.error}`)
 if (!meta?.governance) fail('Missing meta governance event.')
+if (!meta.governance.sourceos_interaction_event) fail('Missing meta SourceOS interaction event.')
 if (!deltas.length) fail('Missing streamed delta events.')
 if (!done?.result?.content?.trim()) fail('Missing completed response content.')
+if (!done.result.sourceos_interaction_event) fail('Missing completed SourceOS interaction event.')
+if (done.result.sourceos_interaction_event.type !== 'SourceOSInteractionEvent') fail('Invalid SourceOS interaction event type.')
 if (!done.result.request_hash || !isSha256(done.result.request_hash)) fail('Missing or invalid request_hash.')
 if (!done.result.evidence_hash || !isSha256(done.result.evidence_hash)) fail('Missing or invalid evidence_hash.')
 if (!done.result.latency_ms || done.result.latency_ms <= 0) fail('Missing positive latency_ms.')
@@ -51,6 +54,7 @@ const summary = {
   latency_ms: done.result.latency_ms,
   request_hash: done.result.request_hash,
   evidence_hash: done.result.evidence_hash,
+  sourceos_interaction_event_id: done.result.sourceos_interaction_event.interactionEventId,
   deltas: deltas.length,
   content_preview: done.result.content.slice(0, 160)
 }

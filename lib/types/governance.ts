@@ -1,4 +1,5 @@
 import type { ExternalModelProviderRouteEvidence } from '@/lib/types/agentplane'
+import type { SourceOSInteractionEvent } from '@/lib/types/sourceos-interaction'
 import type { GrantResolutionRefs, NoeticaTaskStatus } from '@/lib/types/task'
 
 export interface GovernanceTrace {
@@ -17,6 +18,7 @@ export interface GovernanceTrace {
   request_hash?: string
   evidence_hash?: string
   provider_route_evidence?: ExternalModelProviderRouteEvidence
+  sourceos_interaction_event?: SourceOSInteractionEvent
   grant_refs?: GrantResolutionRefs
   sourceos_status?: NoeticaTaskStatus
   timestamp?: string
