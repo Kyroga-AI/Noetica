@@ -1,0 +1,33 @@
+name: SourceOS Contract Sync
+
+on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "lib/contracts/sourceos/generated/sourceos-interaction-event.ts"
+      - "scripts/sync-sourceos-contracts.mjs"
+      - ".github/workflows/sourceos-contract-sync.yml"
+  push:
+    branches: ["main", "work/sourceos-contract-sync"]
+    paths:
+      - "lib/contracts/sourceos/generated/sourceos-interaction-event.ts"
+      - "scripts/sync-sourceos-contracts.mjs"
+      - ".github/workflows/sourceos-contract-sync.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  check-sourceos-contract-sync:
+    name: Check SourceOS contract sync
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Check vendored SourceOS contracts
+        run: node scripts/sync-sourceos-contracts.mjs --check
