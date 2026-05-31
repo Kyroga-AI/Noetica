@@ -8,19 +8,15 @@ import { InputArea } from '@/components/chat/InputArea'
 import { SteeringPanel } from '@/components/steering/SteeringPanel'
 import { models, defaultModelId } from '@/config/models'
 import { initialMessages } from '@/lib/chat/mockConversation'
+import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
 import type { ChatMessage } from '@/lib/types/message'
-import type { GovernanceTrace } from '@/lib/types/governance'
 import type { SteeringConfig } from '@/lib/types/steering'
-
-type StreamEvent = {
-  event: string
-  data: string
-}
+import type { NoeticaMode } from '@/lib/client/noeticaTransport'
 
 export function AppShell() {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
   const [modelId, setModelId] = useState(defaultModelId)
-  const [mode, setMode] = useState<'standalone' | 'sourceos'>('standalone')
+  const [mode, setMode] = useState<NoeticaMode>('standalone')
   const [steering, setSteering] = useState<SteeringConfig | undefined>()
   const [isStreaming, setIsStreaming] = useState(false)
   const activeModel = useMemo(
@@ -48,55 +44,46 @@ export function AppShell() {
     setIsStreaming(true)
 
     try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
+      await sendNoeticaChat(
+        {
           session_id: 'local-session',
           mode,
           model_id: modelId,
           messages: outboundMessages,
           steering,
           memory_scope: 'noetica-session-local'
-        })
-      })
-
-      if (!response.ok || !response.body) {
-        const payload = await response.json().catch(() => ({ error: 'unknown_route_error' }))
-        updateAssistant(assistantId, { content: `Noetica route error: ${payload.error}` })
-        return
-      }
-
-      await readEventStream(response, {
-        onMeta: (governance) => updateAssistant(assistantId, { governance }),
-        onDelta: (delta) => appendAssistantContent(assistantId, delta),
-        onDone: (result) =>
-          updateAssistant(assistantId, {
-            content: result.content,
-            governance: {
-              run_id: result.run_id,
-              model_routed: result.model_routed,
-              provider: result.provider,
-              model_overridden: result.model_overridden,
-              policy_admitted: result.policy_admitted,
-              policy_ref: result.policy_ref,
-              memory_scope_ref: result.memory_scope_ref,
-              memory_written: result.memory_written,
-              evidence_ref: result.evidence_ref,
-              replay_ref: result.replay_ref,
-              agentplane_run_id: result.agentplane_run_id,
-              request_hash: result.request_hash,
-              evidence_hash: result.evidence_hash,
-              provider_route_evidence: result.provider_route_evidence,
-              grant_refs: result.grant_refs,
-              sourceos_status: result.status,
-              timestamp: result.timestamp,
-              latency_ms: result.latency_ms
-            },
-            steering_result: result.steering_applied
-          }),
-        onError: (error) => updateAssistant(assistantId, { content: `Noetica route error: ${error}` })
-      })
+        },
+        {
+          onMeta: (governance) => updateAssistant(assistantId, { governance }),
+          onDelta: (delta) => appendAssistantContent(assistantId, delta),
+          onDone: (result) =>
+            updateAssistant(assistantId, {
+              content: result.content,
+              governance: {
+                run_id: result.run_id,
+                model_routed: result.model_routed,
+                provider: result.provider,
+                model_overridden: result.model_overridden,
+                policy_admitted: result.policy_admitted,
+                policy_ref: result.policy_ref,
+                memory_scope_ref: result.memory_scope_ref,
+                memory_written: result.memory_written,
+                evidence_ref: result.evidence_ref,
+                replay_ref: result.replay_ref,
+                agentplane_run_id: result.agentplane_run_id,
+                request_hash: result.request_hash,
+                evidence_hash: result.evidence_hash,
+                provider_route_evidence: result.provider_route_evidence,
+                grant_refs: result.grant_refs,
+                sourceos_status: result.status,
+                timestamp: result.timestamp,
+                latency_ms: result.latency_ms
+              },
+              steering_result: result.steering_applied
+            }),
+          onError: (error) => updateAssistant(assistantId, { content: `Noetica route error: ${error}` })
+        }
+      )
     } finally {
       setIsStreaming(false)
     }
@@ -129,73 +116,4 @@ export function AppShell() {
       </section>
     </main>
   )
-}
-
-async function readEventStream(
-  response: Response,
-  handlers: {
-    onMeta: (governance: GovernanceTrace) => void
-    onDelta: (delta: string) => void
-    onDone: (result: StreamDoneResult) => void
-    onError: (error: string) => void
-  }
-) {
-  const reader = response.body?.getReader()
-  if (!reader) return
-
-  const decoder = new TextDecoder()
-  let buffer = ''
-
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-
-    buffer += decoder.decode(value, { stream: true })
-    const parts = buffer.split('\n\n')
-    buffer = parts.pop() ?? ''
-
-    for (const part of parts) {
-      const parsed = parseSseEvent(part)
-      if (!parsed) continue
-
-      const payload = JSON.parse(parsed.data)
-      if (parsed.event === 'meta') handlers.onMeta(payload.governance)
-      if (parsed.event === 'delta') handlers.onDelta(payload.delta)
-      if (parsed.event === 'done') handlers.onDone(payload.result)
-      if (parsed.event === 'error') handlers.onError(payload.error)
-    }
-  }
-}
-
-function parseSseEvent(raw: string): StreamEvent | undefined {
-  const lines = raw.split('\n')
-  const event = lines.find((line) => line.startsWith('event:'))?.slice(6).trim()
-  const data = lines.find((line) => line.startsWith('data:'))?.slice(5).trim()
-
-  if (!event || !data) return undefined
-  return { event, data }
-}
-
-type StreamDoneResult = {
-  run_id: string
-  content: string
-  model_routed: string
-  provider: string
-  model_overridden?: boolean
-  policy_admitted: boolean
-  policy_ref?: string
-  memory_scope_ref?: string
-  memory_written: boolean
-  evidence_ref?: string
-  replay_ref?: string
-  agentplane_run_id?: string
-  request_hash?: string
-  evidence_hash?: string
-  provider_route_evidence?: GovernanceTrace['provider_route_evidence']
-  grant_refs?: GovernanceTrace['grant_refs']
-  sourceos_status?: GovernanceTrace['sourceos_status']
-  status?: GovernanceTrace['sourceos_status']
-  timestamp?: string
-  latency_ms: number
-  steering_applied?: ChatMessage['steering_result']
 }
