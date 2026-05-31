@@ -10,15 +10,16 @@ This is an architecture gate. It is not UX polish, SourceOS route integration, A
 
 ## Current evidence
 
-### Tauri still points at a Next build artifact
+### Tauri now points at static export output
 
-`src-tauri/tauri.conf.json` currently uses:
+`src-tauri/tauri.conf.json` now uses:
 
 ```json
-"frontendDist": "../.next"
+"beforeBuildCommand": "npm run build:static",
+"frontendDist": "../out"
 ```
 
-That is sufficient for feasibility CI, but it is not the intended final static frontend boundary. The next target should be a static export directory such as `../out` after the server/API responsibilities are split out.
+This validates the intended desktop shape: Tauri loads the static UI bundle from `out`. Dynamic chat/API execution remains service-boundary work and is not treated as bundled static authority.
 
 ### The UI shell is mostly static-capable
 
@@ -36,7 +37,7 @@ The primary frontend blocker was transport authority: `AppShell` posted chat exe
 export const runtime = 'nodejs'
 ```
 
-It owns request validation, provider/model dispatch, external execution calls, SourceOS-mode task submission, evidence envelope creation, and SSE framing. Therefore Noetica is not yet statically exportable as a complete product while retaining live chat behavior.
+It owns request validation, provider/model dispatch, external execution calls, SourceOS-mode task submission, evidence envelope creation, and SSE framing. Therefore Noetica is not yet a fully static product while retaining live chat behavior.
 
 ## Implemented so far
 
@@ -77,7 +78,17 @@ artifacts/static-export-probe.md
 artifacts/static-export-probe.log
 ```
 
-CI runs the probe after the normal Next build and uploads the report/log as artifacts. The probe records pass/fail evidence but does not fail the whole validation workflow.
+CI runs the probe after the normal Next build and uploads the report/log as artifacts. The probe classifies the result as `static-export-fail`, `static-ui-pass-with-dynamic-api-caveat`, or `static-ui-pass`.
+
+### Static Tauri output path
+
+Tauri build validation now uses the static export output:
+
+```text
+out/index.html
+```
+
+CI verifies that `out/index.html` exists before running the Tauri static build feasibility gate.
 
 ## Decision
 
@@ -124,8 +135,8 @@ SourceOS / Agent Machine / model-router / policy / memory
 | Provider calls | `lib/providers/openai.ts`, `lib/providers/anthropic.ts` | No | Local service / model-router/provider layer | Requires external runtime authority. |
 | SourceOS task submission | `lib/superconscious/adapter.ts` via `/api/chat` | No | SourceOS / Agent Machine endpoint | Adapter should remain an interface, not UI authority. |
 | CLI foreground server | `noetica start` | Not product UI | Operational local service/server mode | Must not be the primary desktop UX. |
-| Tauri shell | `src-tauri/*` | Yes | Noetica desktop shell | Should eventually load static UI from export output. |
-| Static export probe | `scripts/probe-static-export.mjs` | Evidence pending | Noetica UI | CI artifact records whether `output: 'export'` currently succeeds. |
+| Tauri shell | `src-tauri/*` | Yes | Noetica desktop shell | Now points at static `out` for build. |
+| Static export probe | `scripts/probe-static-export.mjs` | Evidence captured | Noetica UI | CI artifact classifies dynamic API caveats explicitly. |
 
 ## Remaining implementation shape
 
@@ -135,7 +146,9 @@ Do not delete the route in the first static-boundary patch. Reclassify it as bro
 
 ### 2. Interpret static export probe output
 
-If the static export probe passes, the next tranche can point a Tauri-specific build path at static output and validate `frontendDist` against the exported directory.
+If the static export probe passes with no dynamic API caveat, the UI/static layer is clean.
+
+If the static export probe passes with a dynamic API caveat, the UI bundle can be static, but those API routes remain service-boundary work.
 
 If the probe fails, the static-export report/log becomes the blocker register input. Each blocker must be assigned to one owner:
 

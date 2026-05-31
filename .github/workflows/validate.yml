@@ -55,10 +55,10 @@ jobs:
       - name: Materialize Tauri context inputs
         run: |
           npm run tauri:icon
-          mkdir -p .next
-          touch .next/.ci-tauri-rust-check-placeholder
+          mkdir -p out
+          touch out/.ci-tauri-rust-check-placeholder
           file src-tauri/icons/icon.png
-          test -d .next
+          test -d out
       - name: Tauri Rust lockfile
         working-directory: src-tauri
         run: cargo generate-lockfile
@@ -98,13 +98,15 @@ jobs:
           npm run tauri:icon
           test -f src-tauri/icons/icon.png
           file src-tauri/icons/icon.png
-      - name: Next build for Tauri
-        run: npm run build
+      - name: Static Next build for Tauri
+        run: npm run build:static
+      - name: Verify static output for Tauri
+        run: test -f out/index.html
       - name: Tauri Rust lockfile
         working-directory: src-tauri
         run: cargo generate-lockfile
       - name: Tauri Rust check
         working-directory: src-tauri
         run: cargo check --locked --quiet
-      - name: Tauri build feasibility
+      - name: Tauri static build feasibility
         run: npm run tauri:build

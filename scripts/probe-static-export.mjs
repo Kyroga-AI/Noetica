@@ -15,6 +15,12 @@ const { status, output } = await run('npx', ['next', 'build'], {
 });
 const finishedAt = new Date().toISOString();
 const passed = status === 0;
+const dynamicApiRoutes = findDynamicApiRoutes(output);
+const classification = !passed
+  ? 'static-export-fail'
+  : dynamicApiRoutes.length > 0
+    ? 'static-ui-pass-with-dynamic-api-caveat'
+    : 'static-ui-pass';
 
 await writeFile(logPath, output);
 await writeFile(
@@ -25,13 +31,16 @@ await writeFile(
     `Started: ${startedAt}`,
     `Finished: ${finishedAt}`,
     `Status: ${passed ? 'pass' : 'fail'}`,
+    `Classification: ${classification}`,
     `Exit code: ${status}`,
+    '',
+    '## Dynamic API routes observed',
+    '',
+    dynamicApiRoutes.length > 0 ? dynamicApiRoutes.map((route) => `- ${route}`).join('\n') : 'None observed.',
     '',
     '## Interpretation',
     '',
-    passed
-      ? 'The current UI can complete `next build` with `output: export` enabled. This does not yet mean Tauri should switch to static output; it means the next tranche can test `frontendDist` against the exported `out` directory.'
-      : 'The current app cannot complete `next build` with `output: export` enabled. The log artifact identifies the first static-export blocker that must be assigned to UI refactor, local service, SourceOS endpoint, Agent Machine endpoint, or model-router/policy/memory work.',
+    interpret(classification),
     '',
     '## Command',
     '',
@@ -49,8 +58,12 @@ await writeFile(
 );
 
 console.log(`static-export-probe-status=${passed ? 'pass' : 'fail'}`);
+console.log(`static-export-probe-classification=${classification}`);
 console.log(`static-export-probe-exit=${status}`);
 console.log(`static-export-probe-report=${reportPath}`);
+if (dynamicApiRoutes.length > 0) {
+  console.log(`static-export-dynamic-api-routes=${dynamicApiRoutes.join(',')}`);
+}
 console.log('--- static-export-probe-tail ---');
 console.log(tail(output, 80));
 console.log('--- end-static-export-probe-tail ---');
@@ -72,6 +85,26 @@ function run(command, args, env) {
       resolveRun({ status: status ?? 1, output });
     });
   });
+}
+
+function findDynamicApiRoutes(output) {
+  const routes = new Set();
+  for (const line of output.split('\n')) {
+    const trimmed = line.trim();
+    const match = trimmed.match(/^ƒ\s+(\/api\/\S+)/);
+    if (match) routes.add(match[1]);
+  }
+  return [...routes].sort();
+}
+
+function interpret(classification) {
+  if (classification === 'static-export-fail') {
+    return 'Static export failed. The log artifact identifies the first blocker to assign to UI refactor, local service, SourceOS endpoint, Agent Machine endpoint, or model-router/policy/memory work.';
+  }
+  if (classification === 'static-ui-pass-with-dynamic-api-caveat') {
+    return 'The root UI can complete static export, but dynamic API routes are still present. Tauri can load the static UI from `out`, while chat/API execution remains service-boundary work and must not be treated as bundled static authority.';
+  }
+  return 'The current app completed static export and no dynamic API routes were observed in the build output.';
 }
 
 function tail(text, maxLines) {

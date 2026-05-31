@@ -6,8 +6,8 @@
   "build": {
     "beforeDevCommand": "npm run dev -- --hostname 127.0.0.1 --port 3737",
     "devUrl": "http://127.0.0.1:3737",
-    "beforeBuildCommand": "npm run build",
-    "frontendDist": "../.next"
+    "beforeBuildCommand": "npm run build:static",
+    "frontendDist": "../out"
   },
   "app": {
     "windows": [

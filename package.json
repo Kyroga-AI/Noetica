@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:static": "NOETICA_STATIC_EXPORT=1 next build",
     "build:static:probe": "node scripts/probe-static-export.mjs",
     "start": "next start",
     "lint": "next lint",
@@ -18,7 +19,8 @@
     "cli:smoke": "node cli/noetica.mjs smoke --dry-run",
     "tauri:icon": "node scripts/ensure-tauri-icon.mjs",
     "tauri:dev": "npm run tauri:icon && tauri dev",
-    "tauri:build": "npm run tauri:icon && tauri build"
+    "tauri:build": "npm run tauri:icon && tauri build",
+    "tauri:build:static": "npm run tauri:icon && npm run build:static && tauri build"
   },
   "dependencies": {
     "next": "^14.2.23",
