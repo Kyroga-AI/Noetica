@@ -133,7 +133,7 @@ async function doctor(args = []) {
   if (providers.length > 0) {
     console.log('providers:')
     for (const provider of providers) {
-      const key = provider.apiKeyEnv ? ` key=${provider.keyPresent ? 'present' : 'missing'} env=${provider.apiKeyEnv}` : ''
+      const key = provider.keyRequired ? ` key=${provider.keyPresent ? 'present' : 'missing'}` : ''
       console.log(`- ${provider.id}: ${provider.status} kind=${provider.kind}${key}`)
     }
   }
@@ -282,7 +282,12 @@ async function smokeProvider(providerId) {
   }
 
   if (route.apiKeyEnv && !process.env[route.apiKeyEnv]) {
-    return providerSmokeResult(providerId, 'missing_key', { apiKeyEnv: route.apiKeyEnv })
+    return providerSmokeResult(providerId, 'missing_key', { keyRequired: true })
+  }
+
+  const urlValidation = validateProviderBaseUrl(route.baseUrl)
+  if (!urlValidation.ok) {
+    return providerSmokeResult(providerId, 'provider_url_refused', { reason: urlValidation.reason })
   }
 
   if (route.kind === 'openai-compatible') {
@@ -298,7 +303,7 @@ async function smokeProvider(providerId) {
 
 async function smokeOpenAICompatible(route) {
   const startedAt = Date.now()
-  const url = joinUrl(route.baseUrl, '/models')
+  const url = buildProviderUrl(route.baseUrl, '/models')
   const response = await fetchWithTimeout(url, {
     headers: route.apiKeyEnv ? { Authorization: `Bearer ${process.env[route.apiKeyEnv]}` } : {},
   })
@@ -309,7 +314,7 @@ async function smokeOpenAICompatible(route) {
     providerId: route.id,
     providerKind: route.kind,
     status: response.ok ? 'ok' : 'provider_error',
-    endpoint: redactUrl(url),
+    endpoint: redactUrl(url.href),
     httpStatus: response.status,
     latencyMs: Date.now() - startedAt,
     evidence: summarizeBody(body),
@@ -318,7 +323,7 @@ async function smokeOpenAICompatible(route) {
 
 async function smokeAnthropic(route) {
   const startedAt = Date.now()
-  const url = joinUrl(route.baseUrl, '/v1/models')
+  const url = buildProviderUrl(route.baseUrl, '/v1/models')
   const response = await fetchWithTimeout(url, {
     headers: {
       'anthropic-version': '2023-06-01',
@@ -332,7 +337,7 @@ async function smokeAnthropic(route) {
     providerId: route.id,
     providerKind: route.kind,
     status: response.ok ? 'ok' : 'provider_error',
-    endpoint: redactUrl(url),
+    endpoint: redactUrl(url.href),
     httpStatus: response.status,
     latencyMs: Date.now() - startedAt,
     evidence: summarizeBody(body),
@@ -419,8 +424,40 @@ function valueAfter(args, name) {
   return args[index + 1] ?? null
 }
 
-function joinUrl(baseUrl, path) {
-  return `${baseUrl.replace(/\/$/, '')}/${path.replace(/^\//, '')}`
+function buildProviderUrl(baseUrl, path) {
+  const url = new URL(baseUrl)
+  const normalizedPath = path.replace(/^\//, '')
+  url.pathname = `${url.pathname.replace(/\/$/, '')}/${normalizedPath}`
+  url.search = ''
+  url.hash = ''
+  return url
+}
+
+function validateProviderBaseUrl(baseUrl) {
+  let url
+  try {
+    url = new URL(baseUrl)
+  } catch {
+    return { ok: false, reason: 'invalid_url' }
+  }
+
+  if (!['https:', 'http:'].includes(url.protocol)) {
+    return { ok: false, reason: 'unsupported_protocol' }
+  }
+
+  if (url.username || url.password) {
+    return { ok: false, reason: 'embedded_credentials_forbidden' }
+  }
+
+  if (url.protocol === 'http:' && !isLoopbackHost(url.hostname)) {
+    return { ok: false, reason: 'cleartext_non_loopback_forbidden' }
+  }
+
+  return { ok: true }
+}
+
+function isLoopbackHost(host) {
+  return host === 'localhost' || host === '127.0.0.1' || host === '::1'
 }
 
 function redactUrl(url) {
