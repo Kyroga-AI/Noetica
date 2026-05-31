@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { closeSync, existsSync, mkdirSync, openSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { homedir } from 'node:os'
 
@@ -97,7 +97,24 @@ export function writeDefaultConfig({ path = CONFIG_PATH, force = false } = {}) {
 
   const config = defaultConfig()
   mkdirSync(dirname(path), { recursive: true })
-  writeFileSync(path, `${JSON.stringify(config, null, 2)}\n`, { mode: 0o600 })
+
+  let fd = null
+  try {
+    fd = openSync(path, force ? 'w' : 'wx', 0o600)
+    writeFileSync(fd, `${JSON.stringify(config, null, 2)}\n`)
+  } catch (error) {
+    if (error?.code === 'EEXIST' && !force) {
+      return {
+        path,
+        status: 'exists',
+        wrote: false,
+        config: readConfig(path).config,
+      }
+    }
+    throw error
+  } finally {
+    if (fd !== null) closeSync(fd)
+  }
 
   return {
     path,
@@ -171,12 +188,13 @@ export function providerStatuses(config) {
   if (!Array.isArray(routes)) return []
 
   return routes.map((route) => {
-    const keyPresent = route.apiKeyEnv ? Boolean(process.env[route.apiKeyEnv]) : null
+    const keyRequired = typeof route.apiKeyEnv === 'string' && route.apiKeyEnv.length > 0
+    const keyPresent = keyRequired ? Boolean(process.env[route.apiKeyEnv]) : null
     let status = 'not_configured'
 
     if (route.phase === 'deferred') {
       status = 'deferred'
-    } else if (route.enabled === true && route.apiKeyEnv && !keyPresent) {
+    } else if (route.enabled === true && keyRequired && !keyPresent) {
       status = 'missing_key'
     } else if (route.enabled === true) {
       status = 'configured'
@@ -189,7 +207,7 @@ export function providerStatuses(config) {
       kind: route.kind,
       baseUrl: route.baseUrl,
       enabled: route.enabled === true,
-      apiKeyEnv: route.apiKeyEnv ?? null,
+      keyRequired,
       keyPresent,
       phase: route.phase ?? 'phase-1',
       status,
