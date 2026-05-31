@@ -1,15 +1,11 @@
 import { NextResponse } from 'next/server'
 import { runNeuronpediaSteering } from '@/lib/providers/neuronpedia'
-import type { SteeringConfig } from '@/lib/types/steering'
+import type { NoeticaSteerRequest } from '@/lib/contracts/noeticaService'
 
-type SteerRequest = {
-  prompt?: string
-  model_id?: string
-  steering?: SteeringConfig
-}
+// Browser/dev fallback implementation of the Noetica steering service contract.
 
 export async function POST(request: Request) {
-  const body = (await request.json()) as SteerRequest
+  const body = (await request.json()) as Partial<NoeticaSteerRequest>
 
   if (!body.prompt?.trim()) {
     return NextResponse.json({ error: 'prompt_required' }, { status: 400 })

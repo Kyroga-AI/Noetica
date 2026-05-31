@@ -1,52 +1,18 @@
+import type {
+  NoeticaChatRequest,
+  NoeticaMode,
+  NoeticaStreamDoneResult,
+  NoeticaStreamEvent
+} from '@/lib/contracts/noeticaService'
 import type { GovernanceTrace } from '@/lib/types/governance'
-import type { ChatMessage } from '@/lib/types/message'
-import type { SteeringConfig } from '@/lib/types/steering'
 
-export type NoeticaMode = 'standalone' | 'sourceos'
-
-export type NoeticaChatRequest = {
-  session_id: string
-  mode: NoeticaMode
-  model_id: string
-  messages: ChatMessage[]
-  steering?: SteeringConfig
-  memory_scope: string
-}
+export type { NoeticaChatRequest, NoeticaMode, NoeticaStreamDoneResult, NoeticaStreamEvent }
 
 export type NoeticaChatTransportHandlers = {
   onMeta: (governance: GovernanceTrace) => void
   onDelta: (delta: string) => void
   onDone: (result: NoeticaStreamDoneResult) => void
   onError: (error: string) => void
-}
-
-export type NoeticaStreamEvent = {
-  event: string
-  data: string
-}
-
-export type NoeticaStreamDoneResult = {
-  run_id: string
-  content: string
-  model_routed: string
-  provider: string
-  model_overridden?: boolean
-  policy_admitted: boolean
-  policy_ref?: string
-  memory_scope_ref?: string
-  memory_written: boolean
-  evidence_ref?: string
-  replay_ref?: string
-  agentplane_run_id?: string
-  request_hash?: string
-  evidence_hash?: string
-  provider_route_evidence?: GovernanceTrace['provider_route_evidence']
-  grant_refs?: GovernanceTrace['grant_refs']
-  sourceos_status?: GovernanceTrace['sourceos_status']
-  status?: GovernanceTrace['sourceos_status']
-  timestamp?: string
-  latency_ms: number
-  steering_applied?: ChatMessage['steering_result']
 }
 
 export type NoeticaTransportConfig = {

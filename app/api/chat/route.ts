@@ -13,6 +13,11 @@ import { submitTask } from '@/lib/superconscious/adapter'
 
 export const runtime = 'nodejs'
 
+// Browser/dev fallback implementation of the Noetica chat service contract.
+// The static desktop UI must call this through lib/client/noeticaTransport.ts,
+// and durable runtime authority should move behind a local service, SourceOS
+// endpoint, Agent Machine endpoint, or model-router boundary.
+
 type ChatRequest = {
   session_id?: string
   mode?: 'standalone' | 'sourceos'
