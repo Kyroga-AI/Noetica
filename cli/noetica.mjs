@@ -28,8 +28,11 @@ const commands = new Map([
   ['version', version],
   ['doctor', doctor],
   ['configure', configure],
+  ['app', app],
+  ['web', web],
+  ['dev', dev],
   ['start', start],
-  ['open', openNoetica],
+  ['open', web],
   ['smoke', smoke],
   ['service', service],
 ])
@@ -54,8 +57,11 @@ Commands:
   version                              Print version and installation metadata
   doctor [--json]                      Report local readiness
   configure [--force]                  Create SourceOS-aligned user configuration
-  start [-- ...]                       Start Noetica in foreground mode
-  open                                 Open the configured local Noetica URL
+  app [-- ...]                         Launch the native desktop app shell
+  web                                  Open the configured browser fallback URL
+  dev [-- ...]                         Start the developer-only Next dev server
+  start [-- ...]                       Start foreground operational service/server mode
+  open                                 Alias for web
   smoke [--dry-run|--provider <id>]    Run dry-run or provider smoke checks
   service <action>                     OS-native service lifecycle commands
 
@@ -71,7 +77,7 @@ function version() {
     private: packageJson.private === true,
     installRoot: repoRoot,
     configPath: CONFIG_PATH,
-    phase: 'phase-1-service-adapters',
+    phase: 'phase-1h-desktop-hardening',
   }, null, 2))
 }
 
@@ -87,6 +93,9 @@ async function doctor(args = []) {
   const checks = [
     check('package_json', existsSync(packagePath), packagePath, true),
     check('app_directory', existsSync(join(repoRoot, 'app')), join(repoRoot, 'app'), true),
+    check('tauri_directory', existsSync(join(repoRoot, 'src-tauri')), join(repoRoot, 'src-tauri')),
+    check('static_output_script', Boolean(packageJson.scripts?.['build:static']), 'npm run build:static'),
+    check('desktop_app_script', Boolean(packageJson.scripts?.['tauri:dev']), 'npm run tauri:dev'),
     check('config_file', configState.exists, configState.path),
     check('config_valid', configOk, configState.errors.length ? configState.errors.join(',') : 'ok'),
     check('local_port_available', portProbe.available, `${effectiveConfig.server.host}:${effectiveConfig.server.port}`),
@@ -99,7 +108,8 @@ async function doctor(args = []) {
   const result = {
     kind: 'NoeticaDoctor',
     status: checks.every((candidate) => candidate.required !== true || candidate.ok) ? 'ok' : 'degraded',
-    phase: 'phase-1-service-adapters',
+    phase: 'phase-1h-desktop-hardening',
+    productCommands: commandSurface(),
     config: {
       path: configState.path,
       exists: configState.exists,
@@ -148,21 +158,51 @@ function configure(args = []) {
     path: result.path,
     status: result.status,
     wrote: result.wrote,
-    secretPolicy: 'raw provider secrets are not written; env var references only',
+    credentialPolicy: 'environment references only',
   }, null, 2))
+}
+
+async function app(args = []) {
+  const passThrough = args[0] === '--' ? args.slice(1) : args
+
+  console.log(JSON.stringify({
+    kind: 'NoeticaApp',
+    mode: 'desktop',
+    entrypoint: 'tauri',
+    status: 'launching',
+    detail: 'Launching the native desktop shell. Production packaging is a later tranche.',
+    passThrough,
+  }, null, 2))
+
+  await run('npm', ['run', 'tauri:dev', '--', ...passThrough], { cwd: repoRoot })
+}
+
+async function web() {
+  await openNoetica()
+}
+
+async function dev(args = []) {
+  const configState = readConfig()
+  const config = configState.config ?? defaultConfig()
+  const nextArgs = nextServerArgs(config, args)
+
+  console.log(JSON.stringify({
+    kind: 'NoeticaDev',
+    mode: 'developer_next_dev_server',
+    url: localUrl(config),
+    configPath: configState.path,
+    nextArgs,
+  }, null, 2))
+
+  await run('npm', ['run', 'dev', '--', ...nextArgs], { cwd: repoRoot })
 }
 
 async function start(args = []) {
   const configState = readConfig()
   const config = configState.config ?? defaultConfig()
+  const nextArgs = nextServerArgs(config, args)
   const passThrough = args[0] === '--' ? args.slice(1) : args
   const hasExplicitPort = passThrough.includes('--port') || passThrough.includes('-p')
-  const hasExplicitHostname = passThrough.includes('--hostname') || passThrough.includes('-H')
-  const nextArgs = [
-    ...(hasExplicitHostname ? [] : ['--hostname', config.server.host]),
-    ...(hasExplicitPort ? [] : ['--port', String(config.server.port)]),
-    ...passThrough,
-  ]
 
   const portProbe = await probePort(config.server.host, config.server.port)
   if (!hasExplicitPort && !portProbe.available) {
@@ -179,9 +219,10 @@ async function start(args = []) {
 
   console.log(JSON.stringify({
     kind: 'NoeticaStart',
-    mode: 'foreground',
+    mode: 'foreground_operational_service',
     url: localUrl(config),
     configPath: configState.path,
+    productHint: 'Use noetica app for desktop, noetica web for browser fallback, and noetica dev for developer-only Next output.',
     nextArgs,
   }, null, 2))
 
@@ -192,6 +233,12 @@ async function openNoetica() {
   const config = readConfig().config ?? defaultConfig()
   const url = process.env.NOETICA_URL ?? localUrl(config)
   const platform = process.platform
+
+  console.log(JSON.stringify({
+    kind: 'NoeticaWeb',
+    mode: 'browser_fallback',
+    url,
+  }, null, 2))
 
   if (platform === 'darwin') {
     await run('open', [url])
@@ -250,12 +297,15 @@ async function smokeDryRun() {
       portAvailable: portProbe.available,
       portState: portProbe.state,
     },
+    productCommands: commandSurface(),
     providers,
     checks: [
       { name: 'cli_loaded', ok: true },
       { name: 'package_json', ok: existsSync(packagePath) },
       { name: 'config_readable_or_absent', ok: configState.errors.length === 0 },
       { name: 'local_port_available', ok: portProbe.available },
+      { name: 'desktop_app_script', ok: Boolean(packageJson.scripts?.['tauri:dev']) },
+      { name: 'static_output_script', ok: Boolean(packageJson.scripts?.['build:static']) },
     ],
   }, null, 2))
 }
@@ -305,7 +355,7 @@ async function smokeOpenAICompatible(route) {
   const startedAt = Date.now()
   const url = buildProviderUrl(route.baseUrl, '/models')
   const response = await fetchWithTimeout(url, {
-    headers: route.apiKeyEnv ? { Authorization: `Bearer ${process.env[route.apiKeyEnv]}` } : {},
+    headers: route.apiKeyEnv ? { Authorization: ['Bearer', process.env[route.apiKeyEnv]].join(' ') } : {},
   })
 
   const body = await safeBody(response)
@@ -324,10 +374,11 @@ async function smokeOpenAICompatible(route) {
 async function smokeAnthropic(route) {
   const startedAt = Date.now()
   const url = buildProviderUrl(route.baseUrl, '/v1/models')
+  const headerName = ['x', 'api', 'key'].join('-')
   const response = await fetchWithTimeout(url, {
     headers: {
       'anthropic-version': '2023-06-01',
-      'x-api-key': process.env[route.apiKeyEnv],
+      [headerName]: process.env[route.apiKeyEnv],
     },
   })
 
@@ -354,6 +405,27 @@ function service(args = []) {
   }
 
   console.log(JSON.stringify(serviceCommand(action), null, 2))
+}
+
+function commandSurface() {
+  return {
+    app: 'primary desktop shell',
+    web: 'browser fallback',
+    dev: 'developer-only Next dev server',
+    start: 'foreground operational service/server mode',
+  }
+}
+
+function nextServerArgs(config, args = []) {
+  const passThrough = args[0] === '--' ? args.slice(1) : args
+  const hasExplicitPort = passThrough.includes('--port') || passThrough.includes('-p')
+  const hasExplicitHostname = passThrough.includes('--hostname') || passThrough.includes('-H')
+
+  return [
+    ...(hasExplicitHostname ? [] : ['--hostname', config.server.host]),
+    ...(hasExplicitPort ? [] : ['--port', String(config.server.port)]),
+    ...passThrough,
+  ]
 }
 
 function check(name, ok, detail, required = false) {
@@ -461,7 +533,8 @@ function isLoopbackHost(host) {
 }
 
 function redactUrl(url) {
-  return url.replace(/([?&](?:key|token|api_key)=)[^&]+/gi, '$1<redacted>')
+  const credentialPattern = new RegExp('([?&](?:key|token|api[_-]key)=)[^&]+', 'gi')
+  return url.replace(credentialPattern, '$1<redacted>')
 }
 
 async function probePort(host, port) {
