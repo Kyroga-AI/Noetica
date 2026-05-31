@@ -2,13 +2,19 @@
   "name": "noetica",
   "version": "0.1.0",
   "private": true,
+  "bin": {
+    "noetica": "cli/noetica.mjs"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "smoke:standalone": "node scripts/smoke-standalone.mjs"
+    "smoke:standalone": "node scripts/smoke-standalone.mjs",
+    "cli": "node cli/noetica.mjs",
+    "cli:doctor": "node cli/noetica.mjs doctor --json",
+    "cli:smoke": "node cli/noetica.mjs smoke --dry-run"
   },
   "dependencies": {
     "next": "^14.2.23",

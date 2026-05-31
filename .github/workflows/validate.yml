@@ -18,6 +18,10 @@ jobs:
           node-version: 20
       - name: Install dependencies
         run: npm install
+      - name: CLI doctor
+        run: npm run cli:doctor
+      - name: CLI smoke
+        run: npm run cli:smoke
       - name: Typecheck
         run: npm run typecheck
       - name: Lint
