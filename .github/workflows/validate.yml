@@ -22,9 +22,83 @@ jobs:
         run: npm run cli:doctor
       - name: CLI smoke
         run: npm run cli:smoke
+      - name: Tauri icon materializer
+        run: |
+          npm run tauri:icon
+          node -e "const fs=require('fs'); const b=fs.readFileSync('src-tauri/icons/icon.png'); const sig='89504e470d0a1a0a'; if (b.subarray(0,8).toString('hex') !== sig) { throw new Error('src-tauri/icons/icon.png is not a PNG'); }"
       - name: Typecheck
         run: npm run typecheck
       - name: Lint
         run: npm run lint
       - name: Build
         run: npm run build
+
+  tauri-rust-macos:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Materialize Tauri context inputs
+        run: |
+          npm run tauri:icon
+          mkdir -p .next
+          touch .next/.ci-tauri-rust-check-placeholder
+          file src-tauri/icons/icon.png
+          test -d .next
+      - name: Tauri Rust lockfile
+        working-directory: src-tauri
+        run: cargo generate-lockfile
+      - name: Tauri Rust check diagnostics
+        working-directory: src-tauri
+        run: |
+          set +e
+          cargo check --locked > ../tauri-rust-check.log 2>&1
+          status=$?
+          echo "cargo-check-exit=$status"
+          echo "--- tauri-rust-check-tail ---"
+          tail -n 80 ../tauri-rust-check.log
+          echo "--- end-tauri-rust-check-tail ---"
+          exit $status
+      - name: Upload Tauri Rust check log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tauri-rust-check-log
+          path: tauri-rust-check.log
+
+  tauri-macos:
+    runs-on: macos-latest
+    needs:
+      - tauri-rust-macos
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install dependencies
+        run: npm install
+      - name: Tauri icon materializer
+        run: |
+          npm run tauri:icon
+          test -f src-tauri/icons/icon.png
+          file src-tauri/icons/icon.png
+      - name: Next build for Tauri
+        run: npm run build
+      - name: Tauri Rust lockfile
+        working-directory: src-tauri
+        run: cargo generate-lockfile
+      - name: Tauri Rust check
+        working-directory: src-tauri
+        run: cargo check --locked --quiet
+      - name: Tauri build feasibility
+        run: npm run tauri:build

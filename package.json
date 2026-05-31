@@ -14,7 +14,10 @@
     "smoke:standalone": "node scripts/smoke-standalone.mjs",
     "cli": "node cli/noetica.mjs",
     "cli:doctor": "node cli/noetica.mjs doctor --json",
-    "cli:smoke": "node cli/noetica.mjs smoke --dry-run"
+    "cli:smoke": "node cli/noetica.mjs smoke --dry-run",
+    "tauri:icon": "node scripts/ensure-tauri-icon.mjs",
+    "tauri:dev": "npm run tauri:icon && tauri dev",
+    "tauri:build": "npm run tauri:icon && tauri build"
   },
   "dependencies": {
     "next": "^14.2.23",
@@ -23,6 +26,7 @@
     "zustand": "^5.0.2"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.0.0",
     "@types/node": "^20.17.10",
     "@types/react": "^18.3.17",
     "@types/react-dom": "^18.3.5",
