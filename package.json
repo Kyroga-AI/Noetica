@@ -8,6 +8,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:static:probe": "node scripts/probe-static-export.mjs",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",

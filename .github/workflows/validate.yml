@@ -32,6 +32,14 @@ jobs:
         run: npm run lint
       - name: Build
         run: npm run build
+      - name: Static export probe
+        run: npm run build:static:probe
+      - name: Upload static export probe artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: static-export-probe
+          path: artifacts/
 
   tauri-rust-macos:
     runs-on: macos-latest
@@ -61,9 +69,7 @@ jobs:
           cargo check --locked > ../tauri-rust-check.log 2>&1
           status=$?
           echo "cargo-check-exit=$status"
-          echo "--- tauri-rust-check-tail ---"
           tail -n 80 ../tauri-rust-check.log
-          echo "--- end-tauri-rust-check-tail ---"
           exit $status
       - name: Upload Tauri Rust check log
         if: always()
