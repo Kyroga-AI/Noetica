@@ -1,47 +1,58 @@
 # Noetica Tauri Desktop Shell
 
-Status: Phase 1H feasibility shell
+Status: Phase 1H static desktop shell
 
-This is the first Tauri-first desktop hardening tranche. It proves that Noetica can open a native desktop window without treating the browser as the primary product experience.
+Noetica now has a Tauri-first desktop shell with a CI-proven static UI build path. The desktop build uses the exported static UI bundle rather than treating the browser/dev server as the production desktop artifact.
 
 ## Commands
 
 ```bash
 npm run tauri:dev
 npm run tauri:build
+npm run tauri:build:static
 ```
 
-Both commands first run `npm run tauri:icon`, which materializes a minimal placeholder at `src-tauri/icons/icon.png` for Tauri context generation.
+All Tauri commands first run `npm run tauri:icon`, which materializes a minimal placeholder at `src-tauri/icons/icon.png` for Tauri context generation.
 
 ## Current boundary
 
-This tranche intentionally uses the existing Next.js development server as the Tauri dev URL:
+Development mode still uses the Next.js development server as the Tauri dev URL:
 
 ```text
 http://127.0.0.1:3737
 ```
 
-That is a feasibility bridge, not the final product architecture.
+Build mode uses static output:
+
+```text
+out/index.html
+```
+
+The static desktop shell is real. Runtime chat/steering authority remains behind fallback service endpoints until a local service, SourceOS endpoint, Agent Machine endpoint, or model-router boundary replaces those routes.
 
 ## Feasibility icon
 
-Tauri context generation may resolve `src-tauri/icons/icon.png` even when production bundling is disabled. This tranche therefore creates a minimal transparent placeholder icon before `tauri dev` and `tauri build`.
+Tauri context generation may resolve `src-tauri/icons/icon.png` even when production bundling is disabled. This tranche therefore creates a minimal transparent placeholder icon before Tauri commands.
 
 The placeholder is not a production asset. Real app icons, ICNS/ICO generation, signing, notarization, cask/app packaging, and branding belong to the packaging hardening tranche.
 
-## Next tranche
+## Packaging split
 
-The next tranche must decide whether Noetica can be built as a Tauri-compatible static UI. If not, server/API authority must move behind a local service or SourceOS/Agent Machine-owned endpoint.
-
-Target split:
+Packaging is split by responsibility:
 
 ```text
-noetica app        primary desktop app UX
-noetica start      operational foreground local service/server mode
-noetica open       web fallback
-noetica service    OS-native background service lifecycle
-noetica dev        developer-only Next dev server
+sourceos-linux/tap/noetica
+  CLI, diagnostics, configuration, foreground service/server mode, service lifecycle commands
+
+sourceos-linux/tap/noetica-app
+  native desktop app bundle / cask-style artifact
 ```
+
+`noetica app` remains the current desktop bridge while hardening continues. It should not be confused with a final signed/notarized app artifact.
+
+## Next tranche
+
+The next product tranche should add onboarding/remediation states for missing or deferred runtime capabilities.
 
 ## Non-goals
 
