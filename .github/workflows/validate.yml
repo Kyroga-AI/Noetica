@@ -22,6 +22,8 @@ jobs:
         run: npm run cli:doctor
       - name: CLI smoke
         run: npm run cli:smoke
+      - name: SourceOS interaction artifact export
+        run: npm run sourceos:events:export
       - name: Tauri icon materializer
         run: |
           npm run tauri:icon
