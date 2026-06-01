@@ -1,0 +1,22 @@
+{
+  "schema_version": "noetica.macos.release-metadata.v0.1",
+  "product_name": "Noetica",
+  "bundle_identifier": "ai.noetica.app",
+  "bundle_type": "tauri-app",
+  "signing": {
+    "implemented": false,
+    "team_identifier": null,
+    "certificate_label": null,
+    "hardened_runtime": true,
+    "entitlements_path": "packaging/macos/noetica.entitlements.plist"
+  },
+  "notarization": {
+    "implemented": false,
+    "profile_name": null,
+    "staple_required": true
+  },
+  "notes": [
+    "This is packaging metadata only.",
+    "No signing or notarization credentials belong in repository files."
+  ]
+}

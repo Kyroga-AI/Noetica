@@ -13,6 +13,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "packaging:validate": "node scripts/validate-packaging-metadata.mjs",
     "smoke:standalone": "node scripts/smoke-standalone.mjs",
     "cli": "node cli/noetica.mjs",
     "cli:doctor": "node cli/noetica.mjs doctor --json",

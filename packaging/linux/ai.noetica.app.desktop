@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Noetica
+Comment=Governed workstation desktop shell
+Exec=noetica-app
+Icon=ai.noetica.app
+Terminal=false
+Type=Application
+Categories=Development;Utility;
+StartupWMClass=Noetica

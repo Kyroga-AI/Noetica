@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>ai.noetica.app</id>
+  <name>Noetica</name>
+  <summary>Governed workstation desktop shell</summary>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <description>
+    <p>Noetica is the workstation UX shell for governed local and routed AI workflows.</p>
+  </description>
+  <launchable type="desktop-id">ai.noetica.app.desktop</launchable>
+  <provides>
+    <binary>noetica-app</binary>
+  </provides>
+</component>

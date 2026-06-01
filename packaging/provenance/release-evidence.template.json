@@ -1,0 +1,13 @@
+{
+  "schema_version": "noetica.release-evidence.v0.1",
+  "source_commit": "<git-sha>",
+  "workflow_run": "<github-actions-run-id>",
+  "node_lockfile_hash": "<sha256>",
+  "cargo_lockfile_hash": "<sha256>",
+  "static_ui_artifact_hash": "<sha256>",
+  "tauri_bundle_artifact_hash": "<sha256>",
+  "sbom_path": "<path>",
+  "provenance_attestation_path": "<path>",
+  "notarization_evidence_path": null,
+  "linux_metadata_validation_path": null
+}
