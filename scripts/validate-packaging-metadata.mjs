@@ -9,6 +9,8 @@ await checkFile('packaging/linux/ai.noetica.app.metainfo.xml', validateMetainfo)
 await checkFile('packaging/macos/release-metadata.json', validateMacosMetadata)
 await checkFile('packaging/macos/noetica.entitlements.plist', validateEntitlements)
 await checkFile('packaging/provenance/release-evidence.template.json', validateReleaseEvidenceTemplate)
+await checkFile('packaging/icons/icon-manifest.json', validateIconManifest)
+await checkFile('packaging/icons/source/noetica-icon.source.svg', validateSourceIcon)
 
 const failed = checks.filter((check) => !check.ok)
 for (const check of checks) {
@@ -111,6 +113,54 @@ function validateReleaseEvidenceTemplate(content) {
 
   if (value.schema_version !== 'noetica.release-evidence.v0.1') return { ok: false, detail: 'schema_version_mismatch' }
   return { ok: true }
+}
+
+function validateIconManifest(content) {
+  const metadata = parseJson(content)
+  if (!metadata.ok) return metadata
+  const value = metadata.value
+
+  if (value.schema_version !== 'noetica.icon-manifest.v0.1') return { ok: false, detail: 'schema_version_mismatch' }
+  if (value.app_id !== 'ai.noetica.app') return { ok: false, detail: 'app_id_mismatch' }
+  if (value.product_name !== 'Noetica') return { ok: false, detail: 'product_name_mismatch' }
+  if (value.source_asset?.path !== 'packaging/icons/source/noetica-icon.source.svg') return { ok: false, detail: 'source_asset_path_mismatch' }
+  if (value.source_asset?.status !== 'placeholder') return { ok: false, detail: 'source_asset_status_must_be_placeholder_in_phase_1h' }
+  if (value.release_policy?.placeholder_allowed_in_phase_1h !== true) return { ok: false, detail: 'phase_1h_placeholder_policy_missing' }
+  if (value.release_policy?.placeholder_allowed_for_production_release !== false) return { ok: false, detail: 'production_placeholder_policy_invalid' }
+
+  const linuxPng = value.outputs?.linux_png
+  if (!Array.isArray(linuxPng)) return { ok: false, detail: 'linux_png_outputs_missing' }
+  const requiredSizes = [16, 32, 48, 64, 128, 256, 512]
+  const foundSizes = linuxPng.map((item) => item.size).sort((a, b) => a - b)
+  if (JSON.stringify(foundSizes) !== JSON.stringify(requiredSizes)) return { ok: false, detail: 'linux_png_sizes_mismatch' }
+
+  for (const item of linuxPng) {
+    if (!item.path?.includes(`${item.size}x${item.size}/apps/ai.noetica.app.png`)) {
+      return { ok: false, detail: `linux_png_path_mismatch_${item.size}` }
+    }
+    if (item.status !== 'pending_generation') return { ok: false, detail: `linux_png_status_mismatch_${item.size}` }
+  }
+
+  if (value.outputs?.macos_icns?.path !== 'packaging/icons/macos/noetica.icns') return { ok: false, detail: 'macos_icns_path_mismatch' }
+  if (value.outputs?.macos_icns?.status !== 'pending_generation') return { ok: false, detail: 'macos_icns_status_mismatch' }
+
+  const marketing = value.outputs?.marketing
+  if (!Array.isArray(marketing) || marketing.length !== 2) return { ok: false, detail: 'marketing_outputs_missing' }
+  if (!marketing.some((item) => item.size === 512) || !marketing.some((item) => item.size === 1024)) {
+    return { ok: false, detail: 'marketing_sizes_mismatch' }
+  }
+
+  return { ok: true }
+}
+
+function validateSourceIcon(content) {
+  const required = [
+    '<svg',
+    'viewBox="0 0 1024 1024"',
+    'Noetica placeholder icon',
+    'Replace before production release.'
+  ]
+  return requireContains(content, required)
 }
 
 function requireContains(content, required) {

@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" role="img" aria-labelledby="title desc">
+  <title id="title">Noetica placeholder icon</title>
+  <desc id="desc">Placeholder source icon for Phase 1H packaging validation. Replace before production release.</desc>
+  <rect width="1024" height="1024" rx="224" fill="#0f172a"/>
+  <circle cx="512" cy="512" r="304" fill="none" stroke="#e2e8f0" stroke-width="56"/>
+  <path d="M316 568c72 112 320 112 392 0" fill="none" stroke="#38bdf8" stroke-width="64" stroke-linecap="round"/>
+  <path d="M348 424h328" fill="none" stroke="#f8fafc" stroke-width="64" stroke-linecap="round"/>
+</svg>
