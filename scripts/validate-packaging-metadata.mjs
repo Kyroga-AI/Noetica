@@ -11,6 +11,7 @@ await checkFile('packaging/macos/noetica.entitlements.plist', validateEntitlemen
 await checkFile('packaging/provenance/release-evidence.template.json', validateReleaseEvidenceTemplate)
 await checkFile('packaging/icons/icon-manifest.json', validateIconManifest)
 await checkFile('packaging/icons/source/noetica-icon.source.svg', validateSourceIcon)
+await checkGeneratedSvgOutputs('packaging/icons/icon-manifest.json')
 
 const failed = checks.filter((check) => !check.ok)
 for (const check of checks) {
@@ -30,6 +31,16 @@ async function checkFile(path, validator) {
   const content = await readFile(path, 'utf8')
   const result = validator(content)
   checks.push({ path, ...result })
+}
+
+async function checkGeneratedSvgOutputs(manifestPath) {
+  if (!existsSync(manifestPath)) return
+  const manifest = JSON.parse(await readFile(manifestPath, 'utf8'))
+  const outputs = [...(manifest.outputs?.linux_svg ?? []), ...(manifest.outputs?.marketing_svg ?? [])]
+
+  for (const output of outputs) {
+    await checkFile(output.path, (content) => validateGeneratedSvg(content, output.size))
+  }
 }
 
 function validateDesktopFile(content) {
@@ -127,28 +138,41 @@ function validateIconManifest(content) {
   if (value.source_asset?.status !== 'placeholder') return { ok: false, detail: 'source_asset_status_must_be_placeholder_in_phase_1h' }
   if (value.release_policy?.placeholder_allowed_in_phase_1h !== true) return { ok: false, detail: 'phase_1h_placeholder_policy_missing' }
   if (value.release_policy?.placeholder_allowed_for_production_release !== false) return { ok: false, detail: 'production_placeholder_policy_invalid' }
+  if (value.release_policy?.generated_svg_outputs_required_in_phase_1h !== true) return { ok: false, detail: 'phase_1h_svg_generation_policy_missing' }
+
+  const requiredSizes = [16, 32, 48, 64, 128, 256, 512]
+  const linuxSvg = value.outputs?.linux_svg
+  if (!Array.isArray(linuxSvg)) return { ok: false, detail: 'linux_svg_outputs_missing' }
+  const foundSvgSizes = linuxSvg.map((item) => item.size).sort((a, b) => a - b)
+  if (JSON.stringify(foundSvgSizes) !== JSON.stringify(requiredSizes)) return { ok: false, detail: 'linux_svg_sizes_mismatch' }
+
+  for (const item of linuxSvg) {
+    if (!item.path?.includes(`${item.size}x${item.size}/apps/ai.noetica.app.svg`)) return { ok: false, detail: `linux_svg_path_mismatch_${item.size}` }
+    if (item.status !== 'generated_by_script') return { ok: false, detail: `linux_svg_status_mismatch_${item.size}` }
+  }
 
   const linuxPng = value.outputs?.linux_png
   if (!Array.isArray(linuxPng)) return { ok: false, detail: 'linux_png_outputs_missing' }
-  const requiredSizes = [16, 32, 48, 64, 128, 256, 512]
-  const foundSizes = linuxPng.map((item) => item.size).sort((a, b) => a - b)
-  if (JSON.stringify(foundSizes) !== JSON.stringify(requiredSizes)) return { ok: false, detail: 'linux_png_sizes_mismatch' }
+  const foundPngSizes = linuxPng.map((item) => item.size).sort((a, b) => a - b)
+  if (JSON.stringify(foundPngSizes) !== JSON.stringify(requiredSizes)) return { ok: false, detail: 'linux_png_sizes_mismatch' }
 
   for (const item of linuxPng) {
-    if (!item.path?.includes(`${item.size}x${item.size}/apps/ai.noetica.app.png`)) {
-      return { ok: false, detail: `linux_png_path_mismatch_${item.size}` }
-    }
-    if (item.status !== 'pending_generation') return { ok: false, detail: `linux_png_status_mismatch_${item.size}` }
+    if (!item.path?.includes(`${item.size}x${item.size}/apps/ai.noetica.app.png`)) return { ok: false, detail: `linux_png_path_mismatch_${item.size}` }
+    if (item.status !== 'pending_raster_generation') return { ok: false, detail: `linux_png_status_mismatch_${item.size}` }
   }
 
   if (value.outputs?.macos_icns?.path !== 'packaging/icons/macos/noetica.icns') return { ok: false, detail: 'macos_icns_path_mismatch' }
   if (value.outputs?.macos_icns?.status !== 'pending_generation') return { ok: false, detail: 'macos_icns_status_mismatch' }
 
+  const marketingSvg = value.outputs?.marketing_svg
+  if (!Array.isArray(marketingSvg) || marketingSvg.length !== 2) return { ok: false, detail: 'marketing_svg_outputs_missing' }
+  if (!marketingSvg.some((item) => item.size === 512) || !marketingSvg.some((item) => item.size === 1024)) return { ok: false, detail: 'marketing_svg_sizes_mismatch' }
+  if (marketingSvg.some((item) => item.status !== 'generated_by_script')) return { ok: false, detail: 'marketing_svg_status_mismatch' }
+
   const marketing = value.outputs?.marketing
   if (!Array.isArray(marketing) || marketing.length !== 2) return { ok: false, detail: 'marketing_outputs_missing' }
-  if (!marketing.some((item) => item.size === 512) || !marketing.some((item) => item.size === 1024)) {
-    return { ok: false, detail: 'marketing_sizes_mismatch' }
-  }
+  if (!marketing.some((item) => item.size === 512) || !marketing.some((item) => item.size === 1024)) return { ok: false, detail: 'marketing_sizes_mismatch' }
+  if (marketing.some((item) => item.status !== 'pending_raster_generation')) return { ok: false, detail: 'marketing_status_mismatch' }
 
   return { ok: true }
 }
@@ -159,6 +183,17 @@ function validateSourceIcon(content) {
     'viewBox="0 0 1024 1024"',
     'Noetica placeholder icon',
     'Replace before production release.'
+  ]
+  return requireContains(content, required)
+}
+
+function validateGeneratedSvg(content, size) {
+  const required = [
+    '<svg',
+    `width="${size}"`,
+    `height="${size}"`,
+    'data-generated-at=',
+    'Noetica placeholder icon'
   ]
   return requireContains(content, required)
 }

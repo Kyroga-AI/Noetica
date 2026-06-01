@@ -12,23 +12,38 @@
       "path": "packaging/icons/macos/noetica.icns",
       "status": "pending_generation"
     },
+    "linux_svg": [
+      { "size": 16, "path": "packaging/icons/linux/16x16/apps/ai.noetica.app.svg", "status": "generated_by_script" },
+      { "size": 32, "path": "packaging/icons/linux/32x32/apps/ai.noetica.app.svg", "status": "generated_by_script" },
+      { "size": 48, "path": "packaging/icons/linux/48x48/apps/ai.noetica.app.svg", "status": "generated_by_script" },
+      { "size": 64, "path": "packaging/icons/linux/64x64/apps/ai.noetica.app.svg", "status": "generated_by_script" },
+      { "size": 128, "path": "packaging/icons/linux/128x128/apps/ai.noetica.app.svg", "status": "generated_by_script" },
+      { "size": 256, "path": "packaging/icons/linux/256x256/apps/ai.noetica.app.svg", "status": "generated_by_script" },
+      { "size": 512, "path": "packaging/icons/linux/512x512/apps/ai.noetica.app.svg", "status": "generated_by_script" }
+    ],
     "linux_png": [
-      { "size": 16, "path": "packaging/icons/linux/16x16/apps/ai.noetica.app.png", "status": "pending_generation" },
-      { "size": 32, "path": "packaging/icons/linux/32x32/apps/ai.noetica.app.png", "status": "pending_generation" },
-      { "size": 48, "path": "packaging/icons/linux/48x48/apps/ai.noetica.app.png", "status": "pending_generation" },
-      { "size": 64, "path": "packaging/icons/linux/64x64/apps/ai.noetica.app.png", "status": "pending_generation" },
-      { "size": 128, "path": "packaging/icons/linux/128x128/apps/ai.noetica.app.png", "status": "pending_generation" },
-      { "size": 256, "path": "packaging/icons/linux/256x256/apps/ai.noetica.app.png", "status": "pending_generation" },
-      { "size": 512, "path": "packaging/icons/linux/512x512/apps/ai.noetica.app.png", "status": "pending_generation" }
+      { "size": 16, "path": "packaging/icons/linux/16x16/apps/ai.noetica.app.png", "status": "pending_raster_generation" },
+      { "size": 32, "path": "packaging/icons/linux/32x32/apps/ai.noetica.app.png", "status": "pending_raster_generation" },
+      { "size": 48, "path": "packaging/icons/linux/48x48/apps/ai.noetica.app.png", "status": "pending_raster_generation" },
+      { "size": 64, "path": "packaging/icons/linux/64x64/apps/ai.noetica.app.png", "status": "pending_raster_generation" },
+      { "size": 128, "path": "packaging/icons/linux/128x128/apps/ai.noetica.app.png", "status": "pending_raster_generation" },
+      { "size": 256, "path": "packaging/icons/linux/256x256/apps/ai.noetica.app.png", "status": "pending_raster_generation" },
+      { "size": 512, "path": "packaging/icons/linux/512x512/apps/ai.noetica.app.png", "status": "pending_raster_generation" }
+    ],
+    "marketing_svg": [
+      { "size": 512, "path": "packaging/icons/marketing/noetica-512.svg", "status": "generated_by_script" },
+      { "size": 1024, "path": "packaging/icons/marketing/noetica-1024.svg", "status": "generated_by_script" }
     ],
     "marketing": [
-      { "size": 512, "path": "packaging/icons/marketing/noetica-512.png", "status": "pending_generation" },
-      { "size": 1024, "path": "packaging/icons/marketing/noetica-1024.png", "status": "pending_generation" }
+      { "size": 512, "path": "packaging/icons/marketing/noetica-512.png", "status": "pending_raster_generation" },
+      { "size": 1024, "path": "packaging/icons/marketing/noetica-1024.png", "status": "pending_raster_generation" }
     ]
   },
   "release_policy": {
     "placeholder_allowed_in_phase_1h": true,
     "placeholder_allowed_for_production_release": false,
-    "generated_outputs_required_for_production_release": true
+    "generated_svg_outputs_required_in_phase_1h": true,
+    "generated_png_outputs_required_for_production_release": true,
+    "generated_icns_required_for_production_release": true
   }
 }
