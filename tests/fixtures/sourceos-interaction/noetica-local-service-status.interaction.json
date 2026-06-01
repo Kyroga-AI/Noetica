@@ -1,0 +1,81 @@
+{
+  "interactionEventId": "urn:srcos:interaction-event:noetica-local-service-status-0001",
+  "type": "SourceOSInteractionEvent",
+  "specVersion": "2.0.0",
+  "eventClass": "interaction.governance_trace",
+  "occurredAt": "2026-05-31T19:45:00Z",
+  "surface": {
+    "surfaceKind": "noetica",
+    "sourcePlane": "SocioProphet/Noetica",
+    "clientRef": "noetica-tauri-static-shell"
+  },
+  "mode": "standalone",
+  "session": {
+    "sessionId": "noetica-local-service-session",
+    "conversationRef": null,
+    "roomRef": null,
+    "threadRef": "urn:srcos:thread:noetica-local-service-status",
+    "workroomRef": "urn:srcos:workroom:noetica-desktop-phase-1h",
+    "topicRef": "urn:srcos:topic:noetica-local-service-boundary",
+    "opsHistoryEventRef": null
+  },
+  "actor": {
+    "actorRef": "urn:srcos:subject:user:operator",
+    "actorKind": "human",
+    "agentRegistryRef": null,
+    "onBehalfOfRef": null
+  },
+  "participants": [
+    {
+      "role": "user",
+      "participantRef": "urn:srcos:subject:user:operator",
+      "agentRegistryRef": null
+    },
+    {
+      "role": "service",
+      "participantRef": "urn:srcos:service:noetica-local-service",
+      "agentRegistryRef": null
+    }
+  ],
+  "task": {
+    "taskRef": "urn:srcos:task:noetica-local-service-status-0001",
+    "status": "success",
+    "modelHint": null,
+    "modelRouted": null,
+    "provider": "noetica-local-service",
+    "latencyMs": 12
+  },
+  "steeringIntent": {
+    "steeringKind": "none",
+    "featureRef": null,
+    "strength": null,
+    "status": "noop"
+  },
+  "governanceTrace": {
+    "policyAdmitted": true,
+    "policyRef": "urn:srcos:policy:noetica-standalone-status-read",
+    "policyDecisionRefs": [
+      "urn:srcos:decision:noetica-local-service-status-admit-0001"
+    ],
+    "grantRefs": [],
+    "memoryScopeRef": null,
+    "memoryWritten": false,
+    "contextPackRefs": [],
+    "requestHash": "sha256:noetica-local-service-status-request-placeholder",
+    "evidenceHash": "sha256:noetica-local-service-status-evidence-placeholder",
+    "providerRouteEvidenceRef": null,
+    "agentPlaneRunRef": null,
+    "evidenceRefs": [],
+    "replayRef": null
+  },
+  "payloadMode": "summary",
+  "payload": {
+    "summary": "Noetica local service boundary status check succeeded. This fixture is non-authoritative until the local service runtime path is implemented.",
+    "serviceStatus": "ok",
+    "desktopShell": "tauri",
+    "staticUi": true
+  },
+  "sourceEventRefs": [],
+  "redactionRefs": [],
+  "integrity": null
+}

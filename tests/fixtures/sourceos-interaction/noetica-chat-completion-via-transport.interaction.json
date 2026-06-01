@@ -1,0 +1,82 @@
+{
+  "interactionEventId": "urn:srcos:interaction-event:noetica-chat-completion-via-transport-0001",
+  "type": "SourceOSInteractionEvent",
+  "specVersion": "2.0.0",
+  "eventClass": "interaction.task_completed",
+  "occurredAt": "2026-05-31T19:46:00Z",
+  "surface": {
+    "surfaceKind": "noetica",
+    "sourcePlane": "SocioProphet/Noetica",
+    "clientRef": "lib/client/noeticaTransport.ts"
+  },
+  "mode": "standalone",
+  "session": {
+    "sessionId": "noetica-transport-session",
+    "conversationRef": "urn:srcos:conversation:noetica-transport-demo",
+    "roomRef": null,
+    "threadRef": "urn:srcos:thread:noetica-transport-demo",
+    "workroomRef": "urn:srcos:workroom:noetica-desktop-phase-1h",
+    "topicRef": "urn:srcos:topic:noetica-transport-boundary",
+    "opsHistoryEventRef": null
+  },
+  "actor": {
+    "actorRef": "urn:srcos:subject:user:operator",
+    "actorKind": "human",
+    "agentRegistryRef": null,
+    "onBehalfOfRef": null
+  },
+  "participants": [
+    {
+      "role": "user",
+      "participantRef": "urn:srcos:subject:user:operator",
+      "agentRegistryRef": null
+    },
+    {
+      "role": "assistant",
+      "participantRef": "urn:srcos:assistant:noetica-standalone-provider",
+      "agentRegistryRef": null
+    }
+  ],
+  "task": {
+    "taskRef": "urn:srcos:task:noetica-chat-completion-via-transport-0001",
+    "status": "success",
+    "modelHint": "local-or-provider-model-hint",
+    "modelRouted": "fallback-route",
+    "provider": "noetica-transport-fallback",
+    "latencyMs": 640
+  },
+  "steeringIntent": {
+    "steeringKind": "none",
+    "featureRef": null,
+    "strength": null,
+    "status": "noop"
+  },
+  "governanceTrace": {
+    "policyAdmitted": true,
+    "policyRef": "urn:srcos:policy:noetica-standalone-chat",
+    "policyDecisionRefs": [
+      "urn:srcos:decision:noetica-chat-transport-admit-0001"
+    ],
+    "grantRefs": [],
+    "memoryScopeRef": "urn:srcos:memory-scope:noetica-transport-session",
+    "memoryWritten": false,
+    "contextPackRefs": [],
+    "requestHash": "sha256:noetica-chat-transport-request-placeholder",
+    "evidenceHash": "sha256:noetica-chat-transport-evidence-placeholder",
+    "providerRouteEvidenceRef": "urn:srcos:evidence:noetica-transport-route-0001",
+    "agentPlaneRunRef": null,
+    "evidenceRefs": [
+      "urn:srcos:evidence:noetica-transport-response-0001"
+    ],
+    "replayRef": null
+  },
+  "payloadMode": "summary",
+  "payload": {
+    "summary": "Noetica chat completion returned through the typed transport boundary. This fixture is non-authoritative until runtime emission is implemented.",
+    "transportBoundary": "lib/client/noeticaTransport.ts",
+    "runtimeBoundary": "local-service-or-next-fallback"
+  },
+  "sourceEventRefs": [],
+  "redactionRefs": [],
+  "integrity": null
+}
