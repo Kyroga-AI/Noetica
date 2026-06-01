@@ -1,3 +1,4 @@
+import { RuntimeStatus } from '@/components/status/RuntimeStatus'
 import { ModelPicker } from '@/components/providers/ModelPicker'
 import { models } from '@/config/models'
 
@@ -23,10 +24,11 @@ export function Topbar({ modelId, mode, onModelChange, onModeChange }: TopbarPro
   const badgeClass = badgeByProvider[model.provider] ?? badgeByProvider.xai
 
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-noetica-line bg-white px-5">
+    <header className="flex h-20 shrink-0 items-center justify-between gap-3 border-b border-noetica-line bg-white px-5">
       <div className="min-w-0 flex-1">
         <ModelPicker value={modelId} onChange={onModelChange} />
       </div>
+      <RuntimeStatus />
       <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${badgeClass}`}>{model.provider}</span>
       <select
         className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm text-slate-700"
