@@ -28,6 +28,12 @@ sourceos-linux/tap/noetica-app
 
 This decision does not require implementing the cask in this tranche. It records the target packaging boundary so future work does not fold desktop packaging concerns into the CLI formula.
 
+Detailed production packaging metadata requirements are maintained in:
+
+```text
+docs/production-packaging-metadata.md
+```
+
 ## Why split
 
 ### Different lifecycle semantics
@@ -132,4 +138,4 @@ The app/cask path is acceptable only when it has:
 
 ## Next tranche
 
-Add the first onboarding/remediation empty state for missing or deferred capabilities. The UI should not only show `deferred`; it should explain what is missing and which command or setup path resolves it.
+Add repository placeholders for packaging metadata paths and validation scripts for icon presence, Linux desktop metadata, and release evidence manifests.
