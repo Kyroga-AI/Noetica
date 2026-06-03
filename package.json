@@ -16,6 +16,8 @@
     "icons:generate": "node scripts/generate-icons.mjs",
     "packaging:validate": "npm run icons:generate && node scripts/validate-packaging-metadata.mjs",
     "sourceos:events:export": "node scripts/export-sourceos-interaction-events.mjs",
+    "sourceos:events:path": "node scripts/sourceos-event-export-path.mjs --json",
+    "sourceos:events:path:check": "node scripts/check-sourceos-event-export-paths.mjs",
     "smoke:standalone": "node scripts/smoke-standalone.mjs",
     "cli": "node cli/noetica.mjs",
     "cli:doctor": "node cli/noetica.mjs doctor --json",

@@ -2,8 +2,10 @@
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 
+import { resolveSourceOSEventExportDir } from './sourceos-event-export-path.mjs'
+
 const fixtureDir = 'tests/fixtures/sourceos-interaction'
-const outputDir = '.noetica/events'
+const outputDir = resolveSourceOSEventExportDir()
 const fixtures = [
   'noetica-local-service-status.interaction.json',
   'noetica-chat-completion-via-transport.interaction.json'
