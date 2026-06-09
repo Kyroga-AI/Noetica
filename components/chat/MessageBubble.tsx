@@ -12,7 +12,7 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   if (isUser) {
     return (
       <article className="flex justify-end">
-        <div className="max-w-[78%] rounded-3xl bg-[#e9dfd2] px-4 py-3 text-sm leading-6 text-[#1f1b16] shadow-sm">
+        <div className="max-w-[78%] rounded-3xl bg-[#dbeafe] px-4 py-3 text-sm leading-6 text-[#0f172a] shadow-sm">
           <p className="whitespace-pre-wrap">{message.content}</p>
         </div>
       </article>
@@ -21,10 +21,10 @@ export function MessageBubble({ message }: MessageBubbleProps) {
 
   return (
     <article className="flex gap-4">
-      <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#2f261d] text-xs font-semibold text-[#f7f3ec]">
+      <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#0f172a] text-xs font-semibold text-white">
         N
       </div>
-      <div className="min-w-0 flex-1 text-[#1f1b16]">
+      <div className="min-w-0 flex-1 text-[#111827]">
         <p className="whitespace-pre-wrap text-[15px] leading-7">{message.content || ' '}</p>
         {message.steering_result ? <SteeringDiff result={message.steering_result} /> : null}
         {message.governance ? <GovernanceTrail trace={message.governance} /> : null}
