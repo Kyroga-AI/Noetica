@@ -9,17 +9,23 @@ type MessageBubbleProps = {
 export function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === 'user'
 
+  if (isUser) {
+    return (
+      <article className="flex justify-end">
+        <div className="max-w-[78%] rounded-3xl bg-[#e9dfd2] px-4 py-3 text-sm leading-6 text-[#1f1b16] shadow-sm">
+          <p className="whitespace-pre-wrap">{message.content}</p>
+        </div>
+      </article>
+    )
+  }
+
   return (
-    <article className={`flex ${isUser ? 'justify-end' : 'justify-start'}`}>
-      <div
-        className={`max-w-3xl rounded-2xl border px-4 py-3 shadow-sm ${
-          isUser
-            ? 'border-blue-600 bg-blue-600 text-white'
-            : 'border-blue-100 bg-white text-slate-900'
-        }`}
-      >
-        <div className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] opacity-70">{message.role}</div>
-        <p className="whitespace-pre-wrap text-sm leading-6">{message.content}</p>
+    <article className="flex gap-4">
+      <div className="mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#2f261d] text-xs font-semibold text-[#f7f3ec]">
+        N
+      </div>
+      <div className="min-w-0 flex-1 text-[#1f1b16]">
+        <p className="whitespace-pre-wrap text-[15px] leading-7">{message.content || ' '}</p>
         {message.steering_result ? <SteeringDiff result={message.steering_result} /> : null}
         {message.governance ? <GovernanceTrail trace={message.governance} /> : null}
       </div>
