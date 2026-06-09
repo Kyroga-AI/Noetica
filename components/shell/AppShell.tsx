@@ -102,12 +102,12 @@ export function AppShell() {
   }
 
   return (
-    <main className="flex min-h-screen bg-white text-slate-950">
+    <main className="flex min-h-screen bg-[#f7f3ec] text-[#1f1b16]">
       <Sidebar />
       <section className="flex min-w-0 flex-1 flex-col">
         <Topbar modelId={modelId} mode={mode} onModeChange={setMode} onModelChange={setModelId} />
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-0 lg:grid-cols-[1fr_360px]">
-          <section className="flex min-h-0 flex-col border-r border-noetica-line">
+        <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px]">
+          <section className="flex min-h-0 flex-col">
             <MessageList messages={messages} isStreaming={isStreaming} />
             <InputArea onSend={handleSend} disabled={isStreaming} />
           </section>
