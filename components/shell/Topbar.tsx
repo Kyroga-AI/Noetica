@@ -9,35 +9,39 @@ type TopbarProps = {
   onModeChange: (mode: 'standalone' | 'sourceos') => void
 }
 
-const badgeByProvider: Record<string, string> = {
-  anthropic: 'bg-violet-50 text-violet-700 border-violet-200',
-  openai: 'bg-green-50 text-green-700 border-green-200',
-  neuronpedia: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  google: 'bg-sky-50 text-sky-700 border-sky-200',
-  meta: 'bg-orange-50 text-orange-700 border-orange-200',
-  mistral: 'bg-rose-50 text-rose-700 border-rose-200',
-  xai: 'bg-slate-50 text-slate-700 border-slate-200'
-}
-
 export function Topbar({ modelId, mode, onModelChange, onModeChange }: TopbarProps) {
   const model = models.find((candidate) => candidate.id === modelId) ?? models[0]
-  const badgeClass = badgeByProvider[model.provider] ?? badgeByProvider.xai
 
   return (
-    <header className="flex h-20 shrink-0 items-center justify-between gap-3 border-b border-noetica-line bg-white px-5">
-      <div className="min-w-0 flex-1">
-        <ModelPicker value={modelId} onChange={onModelChange} />
+    <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-[#e7e0d8] bg-[#f7f3ec]/95 px-4 backdrop-blur">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="hidden h-8 w-8 items-center justify-center rounded-full bg-[#2f261d] text-sm font-semibold text-[#f7f3ec] sm:flex">
+          N
+        </div>
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-[#1f1b16]">Noetica</div>
+          <div className="truncate text-xs text-[#7d746b]">{model.label}</div>
+        </div>
       </div>
-      <RuntimeStatus />
-      <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${badgeClass}`}>{model.provider}</span>
-      <select
-        className="rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm text-slate-700"
-        value={mode}
-        onChange={(event) => onModeChange(event.target.value as 'standalone' | 'sourceos')}
-      >
-        <option value="standalone">standalone</option>
-        <option value="sourceos">sourceos</option>
-      </select>
+
+      <div className="flex min-w-0 flex-1 justify-center px-2">
+        <div className="w-full max-w-md">
+          <ModelPicker value={modelId} onChange={onModelChange} />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <RuntimeStatus />
+        <select
+          className="rounded-full border border-[#d8ccbd] bg-[#fcfaf7] px-3 py-1.5 text-xs font-medium text-[#4f463d] outline-none transition hover:bg-white"
+          value={mode}
+          onChange={(event) => onModeChange(event.target.value as 'standalone' | 'sourceos')}
+          aria-label="Runtime mode"
+        >
+          <option value="standalone">Standalone</option>
+          <option value="sourceos">SourceOS</option>
+        </select>
+      </div>
     </header>
   )
 }
