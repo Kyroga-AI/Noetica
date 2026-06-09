@@ -22,6 +22,7 @@
     "cli": "node cli/noetica.mjs",
     "cli:doctor": "node cli/noetica.mjs doctor --json",
     "cli:smoke": "node cli/noetica.mjs smoke --dry-run",
+    "tauri": "tauri",
     "tauri:icon": "node scripts/ensure-tauri-icon.mjs",
     "tauri:dev": "npm run tauri:icon && tauri dev",
     "tauri:build": "npm run tauri:icon && tauri build",
