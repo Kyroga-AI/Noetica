@@ -2,17 +2,20 @@
 
 import { useState } from 'react'
 
+export type WorkspaceMode = 'Chat' | 'Cowork' | 'Code' | 'Benchmark'
+
 type InputAreaProps = {
   onSend: (content: string) => Promise<void>
   disabled?: boolean
+  workspaceMode: WorkspaceMode
+  onWorkspaceModeChange: (mode: WorkspaceMode) => void
 }
 
-const modes = ['Chat', 'Cowork', 'Code', 'Benchmark']
+const modes: WorkspaceMode[] = ['Chat', 'Cowork', 'Code', 'Benchmark']
 
-export function InputArea({ onSend, disabled = false }: InputAreaProps) {
+export function InputArea({ onSend, disabled = false, workspaceMode, onWorkspaceModeChange }: InputAreaProps) {
   const [content, setContent] = useState('')
   const [sending, setSending] = useState(false)
-  const [mode, setMode] = useState(modes[0])
 
   async function submit() {
     const trimmed = content.trim()
@@ -49,9 +52,9 @@ export function InputArea({ onSend, disabled = false }: InputAreaProps) {
               <button
                 key={candidate}
                 className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                  candidate === mode ? 'bg-[#0f172a] text-white' : 'bg-[#eff6ff] text-[#334155] hover:bg-[#dbeafe]'
+                  candidate === workspaceMode ? 'bg-[#0f172a] text-white' : 'bg-[#eff6ff] text-[#334155] hover:bg-[#dbeafe]'
                 }`}
-                onClick={() => setMode(candidate)}
+                onClick={() => onWorkspaceModeChange(candidate)}
                 type="button"
               >
                 {candidate}
