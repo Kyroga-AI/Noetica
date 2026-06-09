@@ -102,7 +102,7 @@ export function AppShell() {
   }
 
   return (
-    <main className="flex min-h-screen bg-[#f7f3ec] text-[#1f1b16]">
+    <main className="flex min-h-screen bg-[#f3f6fa] text-[#111827]">
       <Sidebar />
       <section className="flex min-w-0 flex-1 flex-col">
         <Topbar modelId={modelId} mode={mode} onModeChange={setMode} onModelChange={setModelId} />
