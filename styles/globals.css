@@ -3,17 +3,17 @@
 @tailwind utilities;
 
 :root {
-  --noetica-blue: #2563EB;
+  --noetica-blue: #1D4ED8;
   --noetica-blue-light: #EFF6FF;
   --noetica-blue-mid: #BFDBFE;
-  --noetica-ink: #1F1B16;
-  --noetica-muted: #756D64;
-  --noetica-line: #E7E0D8;
-  --noetica-warm: #F7F3EC;
-  --noetica-panel: #FCFAF7;
-  --noetica-accent: #8A5A2B;
-  --background: #F7F3EC;
-  --foreground: #1F1B16;
+  --noetica-navy: #0F172A;
+  --noetica-ink: #111827;
+  --noetica-muted: #64748B;
+  --noetica-line: #D7DEE8;
+  --noetica-surface: #F8FAFC;
+  --noetica-panel: #FFFFFF;
+  --background: #F3F6FA;
+  --foreground: #111827;
 }
 
 * {
@@ -41,5 +41,5 @@ input {
 }
 
 ::selection {
-  background: #EADFCC;
+  background: #BFDBFE;
 }
