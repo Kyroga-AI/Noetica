@@ -49,6 +49,32 @@ function IconEvaluate() {
     </svg>
   )
 }
+function IconProjects() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <rect x="2" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.4" />
+      <rect x="9" y="2" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.4" />
+      <rect x="2" y="9" width="5" height="5" rx="1" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M9 11.5h6M12 8.5v6" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+function IconArtifacts() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M4 2h5l3 3v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+      <path d="M9 2v3h3M6 8h4M6 11h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  )
+}
+function IconOperate() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M2 11 5 6l3 4 2-3 3 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="13" cy="4" r="1.5" stroke="currentColor" strokeWidth="1.2" />
+    </svg>
+  )
+}
 function IconGovern() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
@@ -85,7 +111,7 @@ const surfaceItems: SurfaceItem[] = [
     id: 'chat',
     label: 'Chat',
     icon: <IconChat />,
-    items: ['New conversation', 'Build readiness pass', 'Runtime status review']
+    items: ['New conversation', 'Recent threads', 'Pinned']
   },
   {
     id: 'cowork',
@@ -94,16 +120,34 @@ const surfaceItems: SurfaceItem[] = [
     items: ['Shared task room', 'Decision review', 'Artifact planning']
   },
   {
+    id: 'projects',
+    label: 'Projects',
+    icon: <IconProjects />,
+    items: ['Active projects', 'Workrooms', 'Backlog', 'Sprints']
+  },
+  {
+    id: 'artifacts',
+    label: 'Artifacts',
+    icon: <IconArtifacts />,
+    items: ['Documents', 'Code files', 'Evidence bundles']
+  },
+  {
     id: 'code',
-    label: 'Code',
+    label: 'Source',
     icon: <IconCode />,
-    items: ['Repo navigator', 'Patch queue', 'Build logs']
+    items: ['Gitea Sovereign', 'Local Git', 'Repository graph']
   },
   {
     id: 'evaluate',
     label: 'Evaluate',
     icon: <IconEvaluate />,
     items: ['Task benchmarks', 'Model families', 'Outcome traces']
+  },
+  {
+    id: 'operate',
+    label: 'Operate',
+    icon: <IconOperate />,
+    items: ['Graph health', 'Time service', 'Sync queues', 'Event ledger']
   },
   {
     id: 'govern',

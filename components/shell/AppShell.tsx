@@ -10,10 +10,14 @@ import { CoworkSurface } from '@/components/surfaces/CoworkSurface'
 import { CodeSurface } from '@/components/surfaces/CodeSurface'
 import { EvaluateSurface } from '@/components/surfaces/EvaluateSurface'
 import { GovernSurface } from '@/components/surfaces/GovernSurface'
+import { ProjectsSurface } from '@/components/surfaces/ProjectsSurface'
+import { ArtifactsSurface } from '@/components/surfaces/ArtifactsSurface'
+import { OperateSurface } from '@/components/surfaces/OperateSurface'
 import { CoworkPanel } from '@/components/panels/CoworkPanel'
 import { CodePanel } from '@/components/panels/CodePanel'
 import { EvaluatePanel } from '@/components/panels/EvaluatePanel'
 import { GovernPanel } from '@/components/panels/GovernPanel'
+import { UtilityRail, type UtilityPanelId } from '@/components/rail/UtilityRail'
 import { SettingsModal } from '@/components/settings/SettingsModal'
 import { CommandPalette } from '@/components/palette/CommandPalette'
 import { models, defaultModelId } from '@/config/models'
@@ -27,11 +31,14 @@ import type { ActiveSurface } from '@/lib/types/surface'
 import type { ModelConfig } from '@/lib/types/model'
 
 const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
-  chat: 'Chat',
-  cowork: 'Cowork',
-  code: 'Code',
-  evaluate: 'Benchmark',
-  govern: 'Chat',
+  chat:      'Chat',
+  cowork:    'Cowork',
+  projects:  'Cowork',
+  artifacts: 'Chat',
+  code:      'Code',
+  evaluate:  'Benchmark',
+  operate:   'Chat',
+  govern:    'Chat',
 }
 
 export function AppShell() {
@@ -44,6 +51,7 @@ export function AppShell() {
   const [isStreaming, setIsStreaming] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [inspectorVisible, setInspectorVisible] = useState(true)
+  const [utilityPanel, setUtilityPanel] = useState<UtilityPanelId | null>(null)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsCategory, setSettingsCategory] = useState('appearance')
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -211,31 +219,37 @@ export function AppShell() {
             onOpenPalette={() => setPaletteOpen(true)}
           />
 
-          <div
-            className={`grid min-h-0 flex-1 ${
-              inspectorVisible
-                ? 'grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px]'
-                : 'grid-cols-1'
-            }`}
-          >
-            <CenterWorkspace
-              activeSurface={activeSurface}
-              messages={messages}
-              isStreaming={isStreaming}
-              workspaceMode={workspaceMode}
-              onSend={handleSend}
-              onWorkspaceModeChange={setWorkspaceMode}
-            />
-
-            {inspectorVisible && (
-              <RightPanel
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            {/* Center workspace */}
+            <div
+              className={`grid min-h-0 flex-1 ${
+                inspectorVisible && !utilityPanel
+                  ? 'grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px]'
+                  : 'grid-cols-1'
+              }`}
+            >
+              <CenterWorkspace
                 activeSurface={activeSurface}
-                model={activeModel}
-                steering={steering}
+                messages={messages}
+                isStreaming={isStreaming}
                 workspaceMode={workspaceMode}
-                onSteeringChange={setSteering}
+                onSend={handleSend}
+                onWorkspaceModeChange={setWorkspaceMode}
               />
-            )}
+
+              {inspectorVisible && !utilityPanel && (
+                <RightPanel
+                  activeSurface={activeSurface}
+                  model={activeModel}
+                  steering={steering}
+                  workspaceMode={workspaceMode}
+                  onSteeringChange={setSteering}
+                />
+              )}
+            </div>
+
+            {/* Utility rail — icon strip + optional panel, always on far right */}
+            <UtilityRail activePanel={utilityPanel} onSelect={setUtilityPanel} />
           </div>
         </section>
       </main>
@@ -268,11 +282,14 @@ type CollapsedRailProps = {
 }
 
 const surfaceIcons: { id: ActiveSurface; label: string; icon: string }[] = [
-  { id: 'chat',     label: 'Chat',     icon: '💬' },
-  { id: 'cowork',   label: 'Cowork',   icon: '👥' },
-  { id: 'code',     label: 'Code',     icon: '⌥'  },
-  { id: 'evaluate', label: 'Evaluate', icon: '📊' },
-  { id: 'govern',   label: 'Govern',   icon: '🛡' },
+  { id: 'chat',      label: 'Chat',      icon: '💬' },
+  { id: 'cowork',    label: 'Cowork',    icon: '👥' },
+  { id: 'projects',  label: 'Projects',  icon: '⊞'  },
+  { id: 'artifacts', label: 'Artifacts', icon: '📄' },
+  { id: 'code',      label: 'Source',    icon: '⌥'  },
+  { id: 'evaluate',  label: 'Evaluate',  icon: '📊' },
+  { id: 'operate',   label: 'Operate',   icon: '📈' },
+  { id: 'govern',    label: 'Govern',    icon: '🛡' },
 ]
 
 function CollapsedRail({ activeSurface, onSurfaceChange, onExpand }: CollapsedRailProps) {
@@ -319,10 +336,13 @@ type CenterProps = {
 }
 
 function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, onSend, onWorkspaceModeChange }: CenterProps) {
-  if (activeSurface === 'cowork')   return <CoworkSurface />
-  if (activeSurface === 'code')     return <CodeSurface />
-  if (activeSurface === 'evaluate') return <EvaluateSurface />
-  if (activeSurface === 'govern')   return <GovernSurface />
+  if (activeSurface === 'cowork')    return <CoworkSurface />
+  if (activeSurface === 'projects')  return <ProjectsSurface />
+  if (activeSurface === 'artifacts') return <ArtifactsSurface />
+  if (activeSurface === 'code')      return <CodeSurface />
+  if (activeSurface === 'evaluate')  return <EvaluateSurface />
+  if (activeSurface === 'operate')   return <OperateSurface />
+  if (activeSurface === 'govern')    return <GovernSurface />
 
   return (
     <section className="flex min-h-0 flex-col">
@@ -348,10 +368,13 @@ type RightPanelProps = {
 }
 
 function RightPanel({ activeSurface, model, steering, workspaceMode, onSteeringChange }: RightPanelProps) {
-  if (activeSurface === 'cowork')   return <CoworkPanel />
-  if (activeSurface === 'code')     return <CodePanel />
-  if (activeSurface === 'evaluate') return <EvaluatePanel />
-  if (activeSurface === 'govern')   return <GovernPanel />
+  if (activeSurface === 'cowork')    return <CoworkPanel />
+  if (activeSurface === 'projects')  return <CoworkPanel />
+  if (activeSurface === 'artifacts') return null
+  if (activeSurface === 'code')      return <CodePanel />
+  if (activeSurface === 'evaluate')  return <EvaluatePanel />
+  if (activeSurface === 'operate')   return <GovernPanel />
+  if (activeSurface === 'govern')    return <GovernPanel />
 
   return (
     <SteeringPanel
