@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react'
 import { Sidebar } from '@/components/shell/Sidebar'
 import { Topbar } from '@/components/shell/Topbar'
 import { MessageList } from '@/components/chat/MessageList'
-import { InputArea } from '@/components/chat/InputArea'
+import { InputArea, type WorkspaceMode } from '@/components/chat/InputArea'
 import { SteeringPanel } from '@/components/steering/SteeringPanel'
 import { models, defaultModelId } from '@/config/models'
 import { initialMessages } from '@/lib/chat/mockConversation'
@@ -17,6 +17,7 @@ export function AppShell() {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
   const [modelId, setModelId] = useState(defaultModelId)
   const [mode, setMode] = useState<NoeticaMode>('standalone')
+  const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('Chat')
   const [steering, setSteering] = useState<SteeringConfig | undefined>()
   const [isStreaming, setIsStreaming] = useState(false)
   const activeModel = useMemo(
@@ -28,7 +29,7 @@ export function AppShell() {
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
-      content,
+      content: `[${workspaceMode}] ${content}`,
       created_at: new Date().toISOString()
     }
     const assistantId = crypto.randomUUID()
@@ -51,7 +52,7 @@ export function AppShell() {
           model_id: modelId,
           messages: outboundMessages,
           steering,
-          memory_scope: 'noetica-session-local'
+          memory_scope: `noetica-session-local:${workspaceMode.toLowerCase()}`
         },
         {
           onMeta: (governance) => updateAssistant(assistantId, { governance }),
@@ -109,9 +110,14 @@ export function AppShell() {
         <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px]">
           <section className="flex min-h-0 flex-col">
             <MessageList messages={messages} isStreaming={isStreaming} />
-            <InputArea onSend={handleSend} disabled={isStreaming} />
+            <InputArea
+              onSend={handleSend}
+              disabled={isStreaming}
+              workspaceMode={workspaceMode}
+              onWorkspaceModeChange={setWorkspaceMode}
+            />
           </section>
-          <SteeringPanel model={activeModel} steering={steering} onChange={setSteering} />
+          <SteeringPanel model={activeModel} steering={steering} workspaceMode={workspaceMode} onChange={setSteering} />
         </div>
       </section>
     </main>
