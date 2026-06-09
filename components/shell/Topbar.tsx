@@ -7,9 +7,20 @@ type TopbarProps = {
   mode: 'standalone' | 'sourceos'
   onModelChange: (modelId: string) => void
   onModeChange: (mode: 'standalone' | 'sourceos') => void
+  onOpenSettings: () => void
+  onOpenPalette: () => void
 }
 
-export function Topbar({ modelId, mode, onModelChange, onModeChange }: TopbarProps) {
+function IconSettings() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <circle cx="8" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.42 1.42M11.53 11.53l1.42 1.42M3.05 12.95l1.42-1.42M11.53 4.47l1.42-1.42" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+export function Topbar({ modelId, mode, onModelChange, onModeChange, onOpenSettings, onOpenPalette }: TopbarProps) {
   const model = models.find((candidate) => candidate.id === modelId) ?? models[0]
 
   return (
@@ -30,7 +41,7 @@ export function Topbar({ modelId, mode, onModelChange, onModeChange }: TopbarPro
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5">
         <RuntimeStatus />
         <select
           className="rounded-full border border-[#bfdbfe] bg-white px-3 py-1.5 text-xs font-medium text-[#334155] outline-none transition hover:bg-[#eff6ff]"
@@ -41,6 +52,25 @@ export function Topbar({ modelId, mode, onModelChange, onModeChange }: TopbarPro
           <option value="standalone">Standalone</option>
           <option value="sourceos">SourceOS</option>
         </select>
+        <button
+          onClick={onOpenPalette}
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-[#bfdbfe] bg-white text-[#64748b] transition hover:bg-[#eff6ff] hover:text-[#0f172a]"
+          aria-label="Command palette (⌘K)"
+          title="Command palette (⌘K)"
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+            <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.5" />
+            <path d="M10 10l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+        </button>
+        <button
+          onClick={onOpenSettings}
+          className="flex h-8 w-8 items-center justify-center rounded-full border border-[#bfdbfe] bg-white text-[#64748b] transition hover:bg-[#eff6ff] hover:text-[#0f172a]"
+          aria-label="Settings (⌘,)"
+          title="Settings (⌘,)"
+        >
+          <IconSettings />
+        </button>
       </div>
     </header>
   )

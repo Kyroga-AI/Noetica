@@ -27,7 +27,14 @@
     }
   },
   "bundle": {
-    "active": false,
-    "targets": []
+    "active": true,
+    "targets": ["dmg", "app"],
+    "icon": ["icons/icon.png"],
+    "macOS": {
+      "entitlements": "../packaging/macos/noetica.entitlements.plist",
+      "signingIdentity": null,
+      "providerShortName": null,
+      "hardenedRuntime": true
+    }
   }
 }

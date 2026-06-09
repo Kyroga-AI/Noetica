@@ -6,6 +6,7 @@ import type { ActiveSurface } from '@/lib/types/surface'
 type SidebarProps = {
   activeSurface: ActiveSurface
   onSurfaceChange: (surface: ActiveSurface) => void
+  onOpenSettings: () => void
 }
 
 type SurfaceItem = {
@@ -112,7 +113,7 @@ const surfaceItems: SurfaceItem[] = [
   }
 ]
 
-export function Sidebar({ activeSurface, onSurfaceChange }: SidebarProps) {
+export function Sidebar({ activeSurface, onSurfaceChange, onOpenSettings }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
 
   if (collapsed) {
@@ -209,7 +210,10 @@ export function Sidebar({ activeSurface, onSurfaceChange }: SidebarProps) {
 
       {/* Account footer */}
       <div className="mt-3 border-t border-[#d7dee8] pt-3 px-1 space-y-0.5">
-        <button className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-xs text-[#64748b] transition hover:bg-white hover:text-[#0f172a]">
+        <button
+          onClick={onOpenSettings}
+          className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-xs text-[#64748b] transition hover:bg-white hover:text-[#0f172a]"
+        >
           <IconSettings />
           <span>Settings</span>
         </button>
