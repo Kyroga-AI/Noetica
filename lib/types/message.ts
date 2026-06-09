@@ -8,6 +8,7 @@ export interface ChatMessage {
   role: ChatRole
   content: string
   created_at: string
+  workspace_mode?: string
   governance?: GovernanceTrace
   steering_result?: SteeringResult
 }

@@ -12,8 +12,17 @@ export function MessageBubble({ message }: MessageBubbleProps) {
   if (isUser) {
     return (
       <article className="flex justify-end">
-        <div className="max-w-[78%] rounded-3xl bg-[#dbeafe] px-4 py-3 text-sm leading-6 text-[#0f172a] shadow-sm">
-          <p className="whitespace-pre-wrap">{message.content}</p>
+        <div className="max-w-[78%] space-y-1">
+          {message.workspace_mode && message.workspace_mode !== 'Chat' && (
+            <div className="flex justify-end">
+              <span className="rounded-full bg-[#0f172a] px-2.5 py-0.5 text-[11px] font-semibold text-white">
+                {message.workspace_mode}
+              </span>
+            </div>
+          )}
+          <div className="rounded-3xl bg-[#dbeafe] px-4 py-3 text-sm leading-6 text-[#0f172a] shadow-sm">
+            <p className="whitespace-pre-wrap">{message.content}</p>
+          </div>
         </div>
       </article>
     )

@@ -6,17 +6,37 @@ import { Topbar } from '@/components/shell/Topbar'
 import { MessageList } from '@/components/chat/MessageList'
 import { InputArea, type WorkspaceMode } from '@/components/chat/InputArea'
 import { SteeringPanel } from '@/components/steering/SteeringPanel'
+import { CoworkSurface } from '@/components/surfaces/CoworkSurface'
+import { CodeSurface } from '@/components/surfaces/CodeSurface'
+import { EvaluateSurface } from '@/components/surfaces/EvaluateSurface'
+import { GovernSurface } from '@/components/surfaces/GovernSurface'
+import { CoworkPanel } from '@/components/panels/CoworkPanel'
+import { CodePanel } from '@/components/panels/CodePanel'
+import { EvaluatePanel } from '@/components/panels/EvaluatePanel'
+import { GovernPanel } from '@/components/panels/GovernPanel'
 import { models, defaultModelId } from '@/config/models'
 import { initialMessages } from '@/lib/chat/mockConversation'
 import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
 import type { ChatMessage } from '@/lib/types/message'
 import type { SteeringConfig } from '@/lib/types/steering'
 import type { NoeticaMode } from '@/lib/client/noeticaTransport'
+import type { ActiveSurface } from '@/lib/types/surface'
+import type { ModelConfig } from '@/lib/types/model'
+
+// Map left-rail surface to the composer WorkspaceMode used in requests
+const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
+  chat: 'Chat',
+  cowork: 'Cowork',
+  code: 'Code',
+  evaluate: 'Benchmark',
+  govern: 'Chat'
+}
 
 export function AppShell() {
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
   const [modelId, setModelId] = useState(defaultModelId)
   const [mode, setMode] = useState<NoeticaMode>('standalone')
+  const [activeSurface, setActiveSurface] = useState<ActiveSurface>('chat')
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('Chat')
   const [steering, setSteering] = useState<SteeringConfig | undefined>()
   const [isStreaming, setIsStreaming] = useState(false)
@@ -25,11 +45,17 @@ export function AppShell() {
     [modelId]
   )
 
+  function handleSurfaceChange(surface: ActiveSurface) {
+    setActiveSurface(surface)
+    setWorkspaceMode(surfaceToWorkspaceMode[surface])
+  }
+
   async function handleSend(content: string) {
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
-      content: `[${workspaceMode}] ${content}`,
+      content,
+      workspace_mode: workspaceMode,
       created_at: new Date().toISOString()
     }
     const assistantId = crypto.randomUUID()
@@ -39,7 +65,12 @@ export function AppShell() {
       content: '',
       created_at: new Date().toISOString()
     }
-    const outboundMessages = [...messages, userMessage]
+    // Include workspace_mode as a prefix only in the outbound API payload, not in display content
+    const outboundUserMessage: ChatMessage = {
+      ...userMessage,
+      content: workspaceMode !== 'Chat' ? `[${workspaceMode}] ${content}` : content
+    }
+    const outboundMessages = [...messages, outboundUserMessage]
 
     setMessages((current) => [...current, userMessage, assistantMessage])
     setIsStreaming(true)
@@ -104,22 +135,87 @@ export function AppShell() {
 
   return (
     <main className="flex min-h-screen bg-[#f3f6fa] text-[#111827]">
-      <Sidebar />
+      <Sidebar activeSurface={activeSurface} onSurfaceChange={handleSurfaceChange} />
+
       <section className="flex min-w-0 flex-1 flex-col">
         <Topbar modelId={modelId} mode={mode} onModeChange={setMode} onModelChange={setModelId} />
-        <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px]">
-          <section className="flex min-h-0 flex-col">
-            <MessageList messages={messages} isStreaming={isStreaming} />
-            <InputArea
-              onSend={handleSend}
-              disabled={isStreaming}
-              workspaceMode={workspaceMode}
-              onWorkspaceModeChange={setWorkspaceMode}
-            />
-          </section>
-          <SteeringPanel model={activeModel} steering={steering} workspaceMode={workspaceMode} onChange={setSteering} />
+
+        <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px]">
+          {/* Center workspace — switches per surface */}
+          <CenterWorkspace
+            activeSurface={activeSurface}
+            messages={messages}
+            isStreaming={isStreaming}
+            workspaceMode={workspaceMode}
+            onSend={handleSend}
+            onWorkspaceModeChange={setWorkspaceMode}
+          />
+
+          {/* Right panel — contextual per surface */}
+          <RightPanel
+            activeSurface={activeSurface}
+            model={activeModel}
+            steering={steering}
+            workspaceMode={workspaceMode}
+            onSteeringChange={setSteering}
+          />
         </div>
       </section>
     </main>
+  )
+}
+
+// --- Sub-renderers (kept in this file to avoid prop-drilling explosion) ---
+
+type CenterProps = {
+  activeSurface: ActiveSurface
+  messages: ChatMessage[]
+  isStreaming: boolean
+  workspaceMode: WorkspaceMode
+  onSend: (content: string) => Promise<void>
+  onWorkspaceModeChange: (mode: WorkspaceMode) => void
+}
+
+function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, onSend, onWorkspaceModeChange }: CenterProps) {
+  if (activeSurface === 'cowork') return <CoworkSurface />
+  if (activeSurface === 'code') return <CodeSurface />
+  if (activeSurface === 'evaluate') return <EvaluateSurface />
+  if (activeSurface === 'govern') return <GovernSurface />
+
+  // Default: chat
+  return (
+    <section className="flex min-h-0 flex-col">
+      <MessageList messages={messages} isStreaming={isStreaming} />
+      <InputArea
+        onSend={onSend}
+        disabled={isStreaming}
+        workspaceMode={workspaceMode}
+        onWorkspaceModeChange={onWorkspaceModeChange}
+      />
+    </section>
+  )
+}
+
+type RightPanelProps = {
+  activeSurface: ActiveSurface
+  model: ModelConfig
+  steering: SteeringConfig | undefined
+  workspaceMode: WorkspaceMode
+  onSteeringChange: (config: SteeringConfig | undefined) => void
+}
+
+function RightPanel({ activeSurface, model, steering, workspaceMode, onSteeringChange }: RightPanelProps) {
+  if (activeSurface === 'cowork') return <CoworkPanel />
+  if (activeSurface === 'code') return <CodePanel />
+  if (activeSurface === 'evaluate') return <EvaluatePanel />
+  if (activeSurface === 'govern') return <GovernPanel />
+
+  return (
+    <SteeringPanel
+      model={model}
+      steering={steering}
+      workspaceMode={workspaceMode}
+      onChange={onSteeringChange}
+    />
   )
 }
