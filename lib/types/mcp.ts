@@ -1,0 +1,80 @@
+// ─── MCP Server configuration ─────────────────────────────────────────────────
+
+export type McpTransport = 'stdio' | 'sse'
+
+export interface McpServerConfig {
+  id: string
+  name: string
+  transport: McpTransport
+  /** stdio: path or command name, e.g. "npx" */
+  command?: string
+  /** stdio: argument list, e.g. ["-y", "@modelcontextprotocol/server-filesystem"] */
+  args?: string[]
+  /** stdio: extra env vars forwarded to the child process */
+  env?: Record<string, string>
+  /** sse: server URL, e.g. "http://localhost:3100/sse" */
+  url?: string
+  /** sse: extra request headers (auth tokens etc.) */
+  headers?: Record<string, string>
+  enabled: boolean
+  createdAt: string
+}
+
+// ─── Runtime state ────────────────────────────────────────────────────────────
+
+export type McpConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error'
+
+export interface McpTool {
+  name: string
+  description?: string
+  // eslint-disable-next-line
+  inputSchema: Record<string, any>
+  /** denormalized: which server owns this tool */
+  serverId: string
+  serverName: string
+}
+
+export interface McpResource {
+  uri: string
+  name?: string
+  description?: string
+  mimeType?: string
+  serverId: string
+}
+
+export interface McpServerState {
+  config: McpServerConfig
+  status: McpConnectionStatus
+  tools: McpTool[]
+  resources: McpResource[]
+  error?: string
+  connectedAt?: string
+  serverInfo?: { name: string; version: string }
+}
+
+// ─── Persistence ──────────────────────────────────────────────────────────────
+
+export interface McpConfigStore {
+  servers: McpServerConfig[]
+  version: number
+}
+
+export const MCP_STORE_VERSION = 1
+export const MCP_STORE_KEY = 'noetica:mcp'
+
+// ─── Tool call ────────────────────────────────────────────────────────────────
+
+export interface McpToolCall {
+  serverId: string
+  toolName: string
+  // eslint-disable-next-line
+  args: Record<string, any>
+}
+
+export interface McpToolResult {
+  serverId: string
+  toolName: string
+  // eslint-disable-next-line
+  content: any[]
+  isError?: boolean
+}

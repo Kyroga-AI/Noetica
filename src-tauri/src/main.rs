@@ -18,6 +18,7 @@ fn noetica_desktop_status() -> serde_json::Value {
 
 fn main() {
     tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
         .setup(|app| {
             let h = app.handle();
 

@@ -26,7 +26,9 @@ import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
 import { listenTauri } from '@/lib/tauri/bridge'
 import { useSession } from '@/lib/session/useSession'
 import { useArtifacts } from '@/lib/artifacts/useArtifacts'
+import { useMcp } from '@/lib/mcp/useMcp'
 import type { PendingAttachment } from '@/lib/types/attachment'
+import type { McpTool } from '@/lib/types/mcp'
 import type { ChatMessage } from '@/lib/types/message'
 import type { SteeringConfig } from '@/lib/types/steering'
 import type { NoeticaMode } from '@/lib/client/noeticaTransport'
@@ -78,6 +80,9 @@ export function AppShell() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated])
+
+  // ── MCP ───────────────────────────────────────────────────────────────────
+  const { tools: mcpTools } = useMcp()
 
   // ── Artifacts ─────────────────────────────────────────────────────────────
   const { createArtifact } = useArtifacts()
@@ -182,7 +187,7 @@ export function AppShell() {
     setModelId(s.modelId)
   }
 
-  async function handleSend(content: string, attachments: PendingAttachment[] = []) {
+  async function handleSend(content: string, attachments: PendingAttachment[] = [], selectedMcpTools?: string[]) {
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
@@ -318,6 +323,7 @@ export function AppShell() {
                 onSend={handleSend}
                 onWorkspaceModeChange={setWorkspaceMode}
                 onExtractArtifact={handleExtractArtifact}
+                mcpTools={mcpTools}
               />
               {inspectorVisible && !utilityPanel && (
                 <RightPanel
@@ -410,12 +416,13 @@ type CenterProps = {
   messages: ChatMessage[]
   isStreaming: boolean
   workspaceMode: WorkspaceMode
-  onSend: (content: string, attachments: PendingAttachment[]) => Promise<void>
+  onSend: (content: string, attachments: PendingAttachment[], mcpTools?: string[]) => Promise<void>
   onWorkspaceModeChange: (mode: WorkspaceMode) => void
   onExtractArtifact: (content: string, messageId: string) => void
+  mcpTools: McpTool[]
 }
 
-function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, onSend, onWorkspaceModeChange, onExtractArtifact }: CenterProps) {
+function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, onSend, onWorkspaceModeChange, onExtractArtifact, mcpTools }: CenterProps) {
   if (activeSurface === 'cowork')    return <CoworkSurface />
   if (activeSurface === 'projects')  return <ProjectsSurface />
   if (activeSurface === 'artifacts') return <ArtifactsSurface />
@@ -432,6 +439,7 @@ function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, 
         disabled={isStreaming}
         workspaceMode={workspaceMode}
         onWorkspaceModeChange={onWorkspaceModeChange}
+        mcpTools={mcpTools}
       />
     </section>
   )

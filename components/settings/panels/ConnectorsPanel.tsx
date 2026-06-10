@@ -1,144 +1,300 @@
 'use client'
 
 import { useState } from 'react'
-import { useSettings } from '@/lib/settings/context'
-import type { McpServerConfig } from '@/lib/settings/types'
+import { useMcp } from '@/lib/mcp/useMcp'
+import type { McpServerConfig, McpServerState, McpTransport } from '@/lib/types/mcp'
+import { isTauri } from '@/lib/tauri/bridge'
 
-type ConnectorDef = {
-  id: string
-  label: string
-  authority: 'Native authority' | 'External connector'
-  trust: 'Native' | 'Organization trusted' | 'External' | 'Unverified'
-  syncModes: string[]
-  defaultSync: string
-  description: string
-}
-
-const NATIVE_CONNECTORS: ConnectorDef[] = [
-  { id: 'sourceos',      label: 'SourceOS',              authority: 'Native authority', trust: 'Native',               syncModes: ['native'],         defaultSync: 'native',         description: 'SourceOS substrate — graph, event ledger, policy fabric, agent registry.' },
-  { id: 'gitea',         label: 'Gitea Sovereign',        authority: 'Native authority', trust: 'Native',               syncModes: ['bidirectional'],   defaultSync: 'bidirectional',  description: 'Native source-control forge. First-class repository authority.' },
-  { id: 'prophet_mail',  label: 'Prophet Mail',           authority: 'Native authority', trust: 'Native',               syncModes: ['bidirectional'],   defaultSync: 'bidirectional',  description: 'Native workspace mail. Gmail and IMAP are optional external connectors.' },
-  { id: 'prophet_ws',    label: 'Prophet Workspace',      authority: 'Native authority', trust: 'Native',               syncModes: ['bidirectional'],   defaultSync: 'bidirectional',  description: 'Native workspace calendar, tasks, and documents.' },
-  { id: 'sociosphere',   label: 'Sociosphere Graph',      authority: 'Native authority', trust: 'Native',               syncModes: ['bidirectional'],   defaultSync: 'bidirectional',  description: 'Graph intelligence, entity index, time service, and reasoning.' },
-  { id: 'matrix',        label: 'Matrix',                 authority: 'Native authority', trust: 'Organization trusted', syncModes: ['bidirectional'],   defaultSync: 'bidirectional',  description: 'Workspace chat rooms, workroom rooms, agent ChatOps.' },
-  { id: 'agent_registry',label: 'Agent Registry',         authority: 'Native authority', trust: 'Native',               syncModes: ['native'],         defaultSync: 'native',         description: 'Authoritative agent identity and dispatch registry.' },
+const NATIVE_CONNECTORS = [
+  { id: 'sourceos',  label: 'SourceOS',            trust: 'Native',               description: 'Primary substrate. All data flows, governance, and agent runtime.' },
+  { id: 'gitea',     label: 'Gitea Sovereign',      trust: 'Native',               description: 'Self-hosted sovereign Git forge. Canonical source control authority.' },
+  { id: 'mail',      label: 'Prophet Mail',         trust: 'Native',               description: 'Noetica-native encrypted mail. Inbox lives in your sovereign workspace.' },
+  { id: 'workspace', label: 'Prophet Workspace',    trust: 'Native',               description: 'Sovereign document workspace. Notes, wikis, and collaborative docs.' },
+  { id: 'graph',     label: 'Sociosphere Graph',    trust: 'Native',               description: 'Knowledge graph of your org, repos, people, and events.' },
+  { id: 'matrix',    label: 'Matrix',               trust: 'Organization trusted', description: 'Federated chat and chatops. Native Workrooms substrate.' },
+  { id: 'agents',    label: 'Agent Registry',       trust: 'Native',               description: 'AgentPlane registry. Defines, schedules, and dispatches agents.' },
 ]
 
-const EXTERNAL_CONNECTORS: ConnectorDef[] = [
-  { id: 'github',   label: 'GitHub',        authority: 'External connector', trust: 'External', syncModes: ['read_only', 'import', 'webhook_only'], defaultSync: 'import',       description: 'Mirror, import, or hook into GitHub repositories. Not source of truth.' },
-  { id: 'gmail',    label: 'Gmail',         authority: 'External connector', trust: 'External', syncModes: ['read_only', 'import'],                  defaultSync: 'import',       description: 'Import Gmail threads. Prophet Mail is native.' },
-  { id: 'gdrive',   label: 'Google Drive',  authority: 'External connector', trust: 'External', syncModes: ['read_only', 'import'],                  defaultSync: 'read_only',    description: 'Read or import Drive documents.' },
-  { id: 'gcal',     label: 'Google Calendar', authority: 'External connector', trust: 'External', syncModes: ['read_only', 'import'],               defaultSync: 'read_only',    description: 'Read Google Calendar events. Prophet Calendar is native.' },
-  { id: 'slack',    label: 'Slack',         authority: 'External connector', trust: 'External', syncModes: ['read_only', 'webhook_only'],             defaultSync: 'webhook_only', description: 'Webhook integration or read-only channel sync.' },
-  { id: 'gitlab',   label: 'GitLab',        authority: 'External connector', trust: 'External', syncModes: ['read_only', 'import', 'webhook_only'], defaultSync: 'import',       description: 'Mirror or import GitLab repositories. Gitea Sovereign is native.' },
-  { id: 'forgejo',  label: 'Forgejo',       authority: 'External connector', trust: 'External', syncModes: ['read_only', 'import'],                  defaultSync: 'import',       description: 'Import or hook into Forgejo/Codeberg.' },
-  { id: 'jira',     label: 'Jira',          authority: 'External connector', trust: 'External', syncModes: ['import', 'bidirectional', 'webhook_only'], defaultSync: 'import',    description: 'Import Jira issues. Native work management is source of truth.' },
-  { id: 'linear',   label: 'Linear',        authority: 'External connector', trust: 'External', syncModes: ['import', 'webhook_only'],               defaultSync: 'import',       description: 'Import Linear issues.' },
-  { id: 'notion',   label: 'Notion',        authority: 'External connector', trust: 'External', syncModes: ['read_only', 'import'],                  defaultSync: 'import',       description: 'Import Notion pages and databases.' },
+const EXTERNAL_CONNECTORS = [
+  { id: 'github',  label: 'GitHub',          trust: 'External',    description: 'External Git hosting. Mirror into Gitea Sovereign for sovereign control.' },
+  { id: 'gmail',   label: 'Gmail',           trust: 'External',    description: 'External email. Use Prophet Mail for sovereign alternative.' },
+  { id: 'gdrive',  label: 'Google Drive',    trust: 'External',    description: 'Cloud file storage import. Use Prophet Workspace natively.' },
+  { id: 'gcal',    label: 'Google Calendar', trust: 'External',    description: 'Calendar sync. Noetica native calendar available as default.' },
+  { id: 'slack',   label: 'Slack',           trust: 'External',    description: 'External chat. Use Matrix Workrooms for sovereign alternative.' },
+  { id: 'gitlab',  label: 'GitLab',          trust: 'External',    description: 'External Git forge connector.' },
+  { id: 'forgejo', label: 'Forgejo',         trust: 'Organization trusted', description: 'Forgejo / Codeberg. Organization-trusted forge.' },
+  { id: 'jira',    label: 'Jira',            trust: 'External',    description: 'External issue tracker. Noetica Projects is the native alternative.' },
+  { id: 'linear',  label: 'Linear',          trust: 'External',    description: 'External issue tracker.' },
+  { id: 'notion',  label: 'Notion',          trust: 'Unverified',  description: 'External knowledge base. Use Prophet Workspace natively.' },
 ]
 
 const TRUST_COLORS: Record<string, string> = {
-  'Native':               'bg-[#dcfce7] text-[#16a34a]',
-  'Organization trusted': 'bg-[#dbeafe] text-[#1d4ed8]',
-  'External':             'bg-[#f1f5f9] text-[#64748b]',
-  'Unverified':           'bg-[#fef2f2] text-[#dc2626]',
+  'Native':               'bg-[#dcfce7] text-[#166534]',
+  'Organization trusted': 'bg-[#dbeafe] text-[#1e40af]',
+  'External':             'bg-[#f1f5f9] text-[#475569]',
+  'Unverified':           'bg-[#fee2e2] text-[#991b1b]',
 }
 
-function ConnectorRow({ c }: { c: ConnectorDef }) {
+function ConnectorRow({ label, trust, description }: { label: string; trust: string; description: string }) {
   return (
-    <div className="flex items-start justify-between gap-4 rounded-xl border border-[#e2e8f0] bg-white p-3">
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <span className="text-sm font-semibold text-[#0f172a]">{c.label}</span>
-          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${TRUST_COLORS[c.trust]}`}>{c.trust}</span>
+    <div className="flex items-start justify-between gap-3 rounded-xl border border-[#e2e8f0] bg-white px-4 py-3">
+      <div className="min-w-0 flex-1 space-y-0.5">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-semibold text-[#0f172a]">{label}</span>
+          <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${TRUST_COLORS[trust] ?? ''}`}>{trust}</span>
         </div>
-        <div className="mt-0.5 text-xs text-[#64748b]">{c.description}</div>
+        <p className="text-xs text-[#64748b]">{description}</p>
       </div>
-      <button className="shrink-0 rounded-lg border border-[#e2e8f0] bg-[#f8fafc] px-2.5 py-1.5 text-xs font-medium text-[#334155] transition hover:bg-white">
+      <button className="shrink-0 rounded-lg border border-[#e2e8f0] bg-[#f8fafc] px-3 py-1.5 text-xs font-medium text-[#334155] transition hover:border-[#bfdbfe] hover:bg-[#eff6ff] hover:text-[#1d4ed8]">
         Configure
       </button>
     </div>
   )
 }
 
-const MCP_PLACEHOLDER = JSON.stringify(
-  { filesystem: { command: 'npx', args: ['-y', '@modelcontextprotocol/server-filesystem', '/path'] } },
-  null, 2
-)
+const STATUS_DOT: Record<string, string> = {
+  disconnected: 'bg-[#94a3b8]',
+  connecting:   'bg-[#fbbf24] animate-pulse',
+  connected:    'bg-[#22c55e]',
+  error:        'bg-[#ef4444]',
+}
 
-export function ConnectorsPanel() {
-  const { settings, update } = useSettings()
-  const [tab, setTab] = useState<'native' | 'external' | 'mcp'>('native')
-  const [raw, setRaw] = useState(() =>
-    Object.keys(settings.mcpServers).length > 0 ? JSON.stringify(settings.mcpServers, null, 2) : ''
+function McpStatusChip({ status }: { status: string }) {
+  return (
+    <span className="flex items-center gap-1.5 text-xs text-[#64748b]">
+      <span className={`h-2 w-2 rounded-full ${STATUS_DOT[status] ?? STATUS_DOT.disconnected}`} />
+      {status === 'connecting' ? 'Connecting…' : status.charAt(0).toUpperCase() + status.slice(1)}
+    </span>
   )
-  const [error, setError] = useState('')
+}
 
-  function applyMcp() {
-    try {
-      const parsed = raw.trim() ? JSON.parse(raw) : {}
-      for (const [key, val] of Object.entries(parsed)) {
-        const v = val as McpServerConfig
-        if (typeof v.command !== 'string') throw new Error(`"${key}" must have a string command`)
-      }
-      update({ mcpServers: parsed })
-      setError('')
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Invalid JSON')
+type AddForm = { name: string; transport: McpTransport; url: string; command: string; args: string; env: string }
+const EMPTY_FORM: AddForm = { name: '', transport: 'sse', url: '', command: '', args: '', env: '' }
+
+function AddServerForm({ onAdd, onCancel }: {
+  onAdd: (cfg: Omit<McpServerConfig, 'id' | 'createdAt'>) => void
+  onCancel: () => void
+}) {
+  const [form, setForm] = useState<AddForm>(EMPTY_FORM)
+  const [error, setError] = useState('')
+  const canStdio = isTauri()
+
+  function set<K extends keyof AddForm>(k: K, v: AddForm[K]) { setForm((f) => ({ ...f, [k]: v })); setError('') }
+
+  function submit() {
+    if (!form.name.trim()) { setError('Name is required'); return }
+    if (form.transport === 'sse' && !form.url.trim()) { setError('URL is required for SSE transport'); return }
+    if (form.transport === 'stdio' && !form.command.trim()) { setError('Command is required for stdio transport'); return }
+    let env: Record<string, string> | undefined
+    if (form.env.trim()) {
+      try { env = JSON.parse(form.env) }
+      catch { setError('Env must be valid JSON object'); return }
     }
+    onAdd({
+      name: form.name.trim(), transport: form.transport, enabled: true,
+      url: form.transport === 'sse' ? form.url.trim() : undefined,
+      command: form.transport === 'stdio' ? form.command.trim() : undefined,
+      args: form.transport === 'stdio' && form.args.trim() ? form.args.trim().split(/\s+/) : undefined,
+      env,
+    })
   }
 
   return (
-    <div className="space-y-4">
-      <div>
-        <div className="text-sm font-semibold text-[#0f172a]">Connectors</div>
-        <p className="mt-0.5 text-xs text-[#64748b]">
-          Native connectors are the authoritative substrate. External connectors are optional import/mirror/hook integrations.
-        </p>
+    <div className="rounded-xl border border-[#bfdbfe] bg-[#eff6ff] p-4 space-y-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-[#1d4ed8]">Add MCP Server</p>
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-[#334155]">Display name</label>
+        <input className="w-full rounded-lg border border-[#e2e8f0] bg-white px-3 py-1.5 text-sm outline-none focus:border-[#93c5fd]"
+          placeholder="My MCP server" value={form.name} onChange={(e) => set('name', e.target.value)} />
       </div>
+      <div className="space-y-1">
+        <label className="text-xs font-medium text-[#334155]">Transport</label>
+        <div className="flex gap-2">
+          {(['sse', 'stdio'] as McpTransport[]).map((t) => (
+            <button key={t} type="button" disabled={t === 'stdio' && !canStdio}
+              onClick={() => set('transport', t)}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${form.transport === t ? 'border-[#1d4ed8] bg-[#1d4ed8] text-white' : 'border-[#e2e8f0] bg-white text-[#334155] hover:border-[#bfdbfe]'}`}>
+              {t === 'sse' ? 'SSE / HTTP' : 'stdio (Tauri)'}
+            </button>
+          ))}
+        </div>
+        {form.transport === 'stdio' && !canStdio && (
+          <p className="text-[11px] text-[#f59e0b]">stdio transport requires the Tauri desktop app</p>
+        )}
+      </div>
+      {form.transport === 'sse' && (
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-[#334155]">Server URL</label>
+          <input className="w-full rounded-lg border border-[#e2e8f0] bg-white px-3 py-1.5 font-mono text-xs outline-none focus:border-[#93c5fd]"
+            placeholder="http://localhost:3100/sse" value={form.url} onChange={(e) => set('url', e.target.value)} />
+        </div>
+      )}
+      {form.transport === 'stdio' && (<>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-[#334155]">Command</label>
+          <input className="w-full rounded-lg border border-[#e2e8f0] bg-white px-3 py-1.5 font-mono text-xs outline-none focus:border-[#93c5fd]"
+            placeholder="npx" value={form.command} onChange={(e) => set('command', e.target.value)} />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-[#334155]">Arguments <span className="font-normal text-[#94a3b8]">(space-separated)</span></label>
+          <input className="w-full rounded-lg border border-[#e2e8f0] bg-white px-3 py-1.5 font-mono text-xs outline-none focus:border-[#93c5fd]"
+            placeholder="-y @modelcontextprotocol/server-filesystem /path" value={form.args} onChange={(e) => set('args', e.target.value)} />
+        </div>
+        <div className="space-y-1">
+          <label className="text-xs font-medium text-[#334155]">Env vars <span className="font-normal text-[#94a3b8]">(JSON, optional)</span></label>
+          <input className="w-full rounded-lg border border-[#e2e8f0] bg-white px-3 py-1.5 font-mono text-xs outline-none focus:border-[#93c5fd]"
+            placeholder='{"API_KEY": "..."}' value={form.env} onChange={(e) => set('env', e.target.value)} />
+        </div>
+      </>)}
+      {error && <p className="rounded-lg border border-[#fecaca] bg-[#fef2f2] px-3 py-1.5 text-xs text-[#dc2626]">{error}</p>}
+      <div className="flex justify-end gap-2 pt-1">
+        <button type="button" onClick={onCancel} className="rounded-lg border border-[#e2e8f0] bg-white px-4 py-1.5 text-xs font-medium text-[#334155] transition hover:bg-[#f1f5f9]">Cancel</button>
+        <button type="button" onClick={submit} className="rounded-lg bg-[#1d4ed8] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1e40af]">Add &amp; Connect</button>
+      </div>
+    </div>
+  )
+}
 
+function McpServerRow({ state, onConnect, onDisconnect, onRemove }: {
+  state: McpServerState; onConnect: () => void; onDisconnect: () => void; onRemove: () => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const { config, status, tools, resources, error } = state
+  return (
+    <div className="rounded-xl border border-[#e2e8f0] bg-white">
+      <div className="flex items-center gap-3 px-4 py-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-semibold text-[#0f172a]">{config.name}</span>
+            <span className="rounded-full border border-[#e2e8f0] px-2 py-0.5 text-[11px] font-mono text-[#64748b]">{config.transport}</span>
+            <McpStatusChip status={status} />
+          </div>
+          <p className="mt-0.5 truncate text-xs text-[#94a3b8]">
+            {config.transport === 'sse' ? config.url : `${config.command} ${(config.args ?? []).join(' ')}`}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {tools.length > 0 && (
+            <button onClick={() => setExpanded((v) => !v)}
+              className="rounded-lg border border-[#e2e8f0] px-2 py-1 text-[11px] font-medium text-[#64748b] transition hover:border-[#bfdbfe] hover:text-[#1d4ed8]">
+              {tools.length} tool{tools.length !== 1 ? 's' : ''} {expanded ? '▲' : '▼'}
+            </button>
+          )}
+          {status === 'connected'
+            ? <button onClick={onDisconnect} className="rounded-lg border border-[#e2e8f0] px-2.5 py-1 text-[11px] font-medium text-[#64748b] transition hover:border-[#fecaca] hover:text-[#dc2626]">Disconnect</button>
+            : <button onClick={onConnect} className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2.5 py-1 text-[11px] font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe]">Connect</button>}
+          <button onClick={onRemove} title="Remove"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-[#94a3b8] transition hover:bg-[#fee2e2] hover:text-[#dc2626]">
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+              <path d="M1.5 3h9M5 3V2h2v1M4.5 9.5V5m3 4.5V5M2 3l.5 7.5h7L10 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      {error && <div className="border-t border-[#fee2e2] bg-[#fef2f2] px-4 py-2 text-xs text-[#dc2626]">{error}</div>}
+      {expanded && tools.length > 0 && (
+        <div className="border-t border-[#e2e8f0] px-4 py-3 space-y-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-[#64748b]">Tools</p>
+          {tools.map((t) => (
+            <div key={t.name} className="rounded-lg border border-[#e2e8f0] bg-[#f8fafc] px-3 py-2">
+              <p className="text-xs font-semibold text-[#0f172a]">{t.name}</p>
+              {t.description && <p className="text-xs text-[#64748b]">{t.description}</p>}
+            </div>
+          ))}
+          {resources.length > 0 && (<>
+            <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-[#64748b]">Resources ({resources.length})</p>
+            {resources.slice(0, 5).map((r) => (
+              <div key={r.uri} className="rounded-lg border border-[#e2e8f0] bg-[#f8fafc] px-3 py-1.5">
+                <p className="truncate font-mono text-[11px] text-[#334155]">{r.uri}</p>
+              </div>
+            ))}
+          </>)}
+        </div>
+      )}
+    </div>
+  )
+}
+
+type TabId = 'native' | 'external' | 'mcp'
+
+export function ConnectorsPanel() {
+  const [tab, setTab] = useState<TabId>('native')
+  const [showAdd, setShowAdd] = useState(false)
+  const { serverStates, tools, addServer, connect, disconnect, removeServer, hydrated } = useMcp()
+
+  const tabs: { id: TabId; label: string; badge?: string }[] = [
+    { id: 'native',   label: 'Native' },
+    { id: 'external', label: 'External' },
+    { id: 'mcp',      label: 'MCP Servers', badge: tools.length > 0 ? String(tools.length) : undefined },
+  ]
+
+  return (
+    <div className="space-y-4">
       <div className="flex gap-1 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-1">
-        {([['native', 'Native'], ['external', 'External'], ['mcp', 'MCP servers']] as const).map(([id, label]) => (
-          <button
-            key={id}
-            onClick={() => setTab(id)}
-            className={`flex-1 rounded-lg py-1.5 text-xs font-medium transition ${tab === id ? 'bg-white shadow-sm text-[#0f172a]' : 'text-[#64748b] hover:text-[#0f172a]'}`}
-          >
-            {label}
+        {tabs.map((t) => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium transition ${tab === t.id ? 'bg-white font-semibold text-[#0f172a] shadow-sm' : 'text-[#64748b] hover:text-[#0f172a]'}`}>
+            {t.label}
+            {t.badge && <span className="rounded-full bg-[#22c55e] px-1.5 py-0.5 text-[10px] font-bold text-white">{t.badge}</span>}
           </button>
         ))}
       </div>
 
       {tab === 'native' && (
         <div className="space-y-2">
-          {NATIVE_CONNECTORS.map((c) => <ConnectorRow key={c.id} c={c} />)}
+          <p className="text-xs text-[#64748b]">Native substrates are first-class authorities within SourceOS — not optional connectors.</p>
+          {NATIVE_CONNECTORS.map((c) => <ConnectorRow key={c.id} {...c} />)}
         </div>
       )}
 
       {tab === 'external' && (
         <div className="space-y-2">
-          <p className="text-xs text-[#94a3b8]">External connectors are never default authorities. They import, mirror, or hook into native substrate.</p>
-          {EXTERNAL_CONNECTORS.map((c) => <ConnectorRow key={c.id} c={c} />)}
+          <div className="rounded-xl border border-[#fef9c3] bg-[#fefce8] px-4 py-2.5 text-xs text-[#854d0e]">
+            External connectors are optional integrations. Native SourceOS alternatives exist for all of these.
+          </div>
+          {EXTERNAL_CONNECTORS.map((c) => <ConnectorRow key={c.id} {...c} />)}
         </div>
       )}
 
       {tab === 'mcp' && (
         <div className="space-y-3">
-          <p className="text-xs text-[#64748b]">
-            MCP servers use the same format as Claude Desktop&apos;s <code className="rounded bg-[#f1f5f9] px-1">claude_desktop_config.json</code>.
-          </p>
-          <textarea
-            rows={10}
-            value={raw}
-            onChange={(e) => setRaw(e.target.value)}
-            placeholder={MCP_PLACEHOLDER}
-            spellCheck={false}
-            className="w-full rounded-xl border border-[#bfdbfe] bg-[#f8fafc] px-3 py-2.5 font-mono text-xs text-[#0f172a] outline-none focus:border-[#1d4ed8] focus:bg-white"
-          />
-          {error && <p className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-3 py-2 text-xs text-[#dc2626]">{error}</p>}
-          <button onClick={applyMcp} className="rounded-xl bg-[#1d4ed8] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1e40af]">
-            Apply
-          </button>
+          <div className="rounded-xl border border-[#e2e8f0] bg-[#f8fafc] px-4 py-3 text-xs leading-5 text-[#334155] space-y-1">
+            <p className="font-semibold text-[#0f172a]">Model Context Protocol servers</p>
+            <p>Connect any MCP-compatible server to expose tools and resources in the Noetica chat. SSE/HTTP works everywhere; stdio requires the Tauri desktop app.</p>
+          </div>
+          {!hydrated && <p className="py-4 text-center text-xs text-[#94a3b8]">Loading…</p>}
+          {hydrated && serverStates.length === 0 && !showAdd && (
+            <div className="rounded-xl border border-dashed border-[#bfdbfe] bg-[#eff6ff] py-8 text-center">
+              <p className="text-sm font-medium text-[#334155]">No MCP servers configured</p>
+              <p className="mt-1 text-xs text-[#64748b]">Add a server to expose tools and resources to the chat</p>
+            </div>
+          )}
+          {hydrated && serverStates.map((state) => (
+            <McpServerRow key={state.config.id} state={state}
+              onConnect={() => void connect(state.config.id)}
+              onDisconnect={() => void disconnect(state.config.id)}
+              onRemove={() => void removeServer(state.config.id)} />
+          ))}
+          {showAdd
+            ? <AddServerForm onAdd={(cfg) => { void addServer(cfg); setShowAdd(false) }} onCancel={() => setShowAdd(false)} />
+            : <button onClick={() => setShowAdd(true)}
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#bfdbfe] py-2.5 text-xs font-semibold text-[#1d4ed8] transition hover:border-[#1d4ed8] hover:bg-[#eff6ff]">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden><path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+                Add MCP server
+              </button>}
+          {tools.length > 0 && (
+            <div className="rounded-xl border border-[#dcfce7] bg-[#f0fdf4] px-4 py-3 space-y-1.5">
+              <p className="text-xs font-semibold text-[#166534]">{tools.length} tool{tools.length !== 1 ? 's' : ''} available</p>
+              <div className="flex flex-wrap gap-1.5">
+                {tools.map((t) => (
+                  <span key={`${t.serverId}:${t.name}`}
+                    className="rounded-full border border-[#bbf7d0] bg-[#dcfce7] px-2.5 py-0.5 font-mono text-[11px] text-[#166534]">
+                    {t.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

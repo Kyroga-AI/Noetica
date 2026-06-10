@@ -3,5 +3,9 @@
   "identifier": "default",
   "description": "Default Noetica desktop shell capability for the Phase 1H Tauri feasibility window.",
   "windows": ["main"],
-  "permissions": []
+  "permissions": [
+    "shell:allow-spawn",
+    "shell:allow-kill",
+    "shell:allow-stdin-write"
+  ]
 }

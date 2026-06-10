@@ -5,14 +5,17 @@ import type { PendingAttachment } from '@/lib/types/attachment'
 import { MAX_ATTACHMENTS } from '@/lib/types/attachment'
 import { readFilesAsAttachments, openNativeFilePicker } from '@/lib/attachments/reader'
 import { isTauri } from '@/lib/tauri/bridge'
+import type { McpTool } from '@/lib/types/mcp'
+import { McpToolPicker } from '@/components/mcp/McpToolPicker'
 
 export type WorkspaceMode = 'Chat' | 'Cowork' | 'Code' | 'Benchmark'
 
 type InputAreaProps = {
-  onSend: (content: string, attachments: PendingAttachment[]) => Promise<void>
+  onSend: (content: string, attachments: PendingAttachment[], mcpTools?: string[]) => Promise<void>
   disabled?: boolean
   workspaceMode: WorkspaceMode
   onWorkspaceModeChange: (mode: WorkspaceMode) => void
+  mcpTools?: McpTool[]
 }
 
 const modes: WorkspaceMode[] = ['Chat', 'Cowork', 'Code', 'Benchmark']
@@ -44,13 +47,18 @@ function AttachmentChip({ attachment, onRemove }: { attachment: PendingAttachmen
   )
 }
 
-export function InputArea({ onSend, disabled = false, workspaceMode, onWorkspaceModeChange }: InputAreaProps) {
+export function InputArea({ onSend, disabled = false, workspaceMode, onWorkspaceModeChange, mcpTools = [] }: InputAreaProps) {
   const [content, setContent] = useState('')
   const [sending, setSending] = useState(false)
   const [attachments, setAttachments] = useState<PendingAttachment[]>([])
   const [attachError, setAttachError] = useState('')
   const [dragOver, setDragOver] = useState(false)
+  const [selectedTools, setSelectedTools] = useState<string[]>([])
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  function toggleTool(key: string) {
+    setSelectedTools((prev) => prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key])
+  }
 
   function removeAttachment(clientId: string) {
     setAttachments((prev) => prev.filter((a) => a.clientId !== clientId))
@@ -81,11 +89,13 @@ export function InputArea({ onSend, disabled = false, workspaceMode, onWorkspace
     if ((!trimmed && attachments.length === 0) || sending || disabled) return
     setSending(true)
     const toSend = [...attachments]
+    const toolsToSend = [...selectedTools]
     setContent('')
     setAttachments([])
+    setSelectedTools([])
     setAttachError('')
     try {
-      await onSend(trimmed, toSend)
+      await onSend(trimmed, toSend, toolsToSend.length > 0 ? toolsToSend : undefined)
     } finally {
       setSending(false)
     }
@@ -141,6 +151,9 @@ export function InputArea({ onSend, disabled = false, workspaceMode, onWorkspace
         {/* Toolbar */}
         <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#e2e8f0] pt-3">
           <div className="flex flex-wrap items-center gap-1">
+            {/* MCP tool picker */}
+            <McpToolPicker tools={mcpTools} selected={selectedTools} onToggle={toggleTool} />
+
             {/* Attach button */}
             <button
               type="button"
