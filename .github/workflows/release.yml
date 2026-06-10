@@ -11,6 +11,8 @@ permissions:
 jobs:
   release-macos:
     runs-on: macos-latest
+    env:
+      APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
     outputs:
       version: ${{ steps.version.outputs.version }}
     steps:
@@ -49,9 +51,8 @@ jobs:
       # Import Apple Developer certificate and export signing env vars only when secrets are present.
       # When APPLE_CERTIFICATE is absent, none of the signing env vars are set, so Tauri skips codesign.
       - name: Import signing certificate
-        if: ${{ secrets.APPLE_CERTIFICATE != '' }}
+        if: env.APPLE_CERTIFICATE != ''
         env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
         run: |
           echo "$APPLE_CERTIFICATE" | base64 --decode > certificate.p12
@@ -63,7 +64,7 @@ jobs:
           rm certificate.p12
 
       - name: Export Apple signing env vars
-        if: ${{ secrets.APPLE_CERTIFICATE != '' }}
+        if: env.APPLE_CERTIFICATE != ''
         run: |
           echo "APPLE_SIGNING_IDENTITY=${{ secrets.APPLE_SIGNING_IDENTITY }}" >> "$GITHUB_ENV"
           echo "APPLE_ID=${{ secrets.APPLE_ID }}" >> "$GITHUB_ENV"
