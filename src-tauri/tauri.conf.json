@@ -28,7 +28,10 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["dmg", "app"],
+    "targets": [
+      "dmg",
+      "app"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -37,10 +40,10 @@
       "icons/icon.ico"
     ],
     "macOS": {
-      "entitlements": "../packaging/macos/noetica.entitlements.plist",
-      "signingIdentity": null,
+      "entitlements": null,
+      "signingIdentity": "-",
       "providerShortName": null,
-      "hardenedRuntime": true
+      "hardenedRuntime": false
     }
   }
 }
