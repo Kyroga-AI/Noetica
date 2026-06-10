@@ -1,5 +1,6 @@
 import type { GovernanceTrace } from '@/lib/types/governance'
 import type { SteeringResult } from '@/lib/types/steering'
+import type { PendingAttachment } from '@/lib/types/attachment'
 
 export type ChatRole = 'system' | 'user' | 'assistant'
 
@@ -11,4 +12,5 @@ export interface ChatMessage {
   workspace_mode?: string
   governance?: GovernanceTrace
   steering_result?: SteeringResult
+  attachments?: PendingAttachment[]
 }

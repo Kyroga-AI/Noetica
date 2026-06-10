@@ -26,6 +26,7 @@ import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
 import { listenTauri } from '@/lib/tauri/bridge'
 import { useSession } from '@/lib/session/useSession'
 import { useArtifacts } from '@/lib/artifacts/useArtifacts'
+import type { PendingAttachment } from '@/lib/types/attachment'
 import type { ChatMessage } from '@/lib/types/message'
 import type { SteeringConfig } from '@/lib/types/steering'
 import type { NoeticaMode } from '@/lib/client/noeticaTransport'
@@ -181,13 +182,14 @@ export function AppShell() {
     setModelId(s.modelId)
   }
 
-  async function handleSend(content: string) {
+  async function handleSend(content: string, attachments: PendingAttachment[] = []) {
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
       content,
       workspace_mode: workspaceMode,
       created_at: new Date().toISOString(),
+      attachments: attachments.length > 0 ? attachments : undefined,
     }
     const assistantId = crypto.randomUUID()
     const assistantMessage: ChatMessage = {
@@ -408,7 +410,7 @@ type CenterProps = {
   messages: ChatMessage[]
   isStreaming: boolean
   workspaceMode: WorkspaceMode
-  onSend: (content: string) => Promise<void>
+  onSend: (content: string, attachments: PendingAttachment[]) => Promise<void>
   onWorkspaceModeChange: (mode: WorkspaceMode) => void
   onExtractArtifact: (content: string, messageId: string) => void
 }

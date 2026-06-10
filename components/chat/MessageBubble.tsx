@@ -4,6 +4,40 @@ import { useState } from 'react'
 import { GovernanceTrail } from '@/components/governance/GovernanceTrail'
 import { SteeringDiff } from '@/components/steering/SteeringDiff'
 import type { ChatMessage } from '@/lib/types/message'
+import type { PendingAttachment } from '@/lib/types/attachment'
+
+const KIND_ICON: Record<string, string> = {
+  image: '🖼',
+  pdf: '📄',
+  text: '📝',
+  code: '⌥',
+  binary: '📦',
+}
+
+function AttachmentList({ attachments }: { attachments: PendingAttachment[] }) {
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {attachments.map((a) => (
+        <div
+          key={a.clientId}
+          className="flex items-center gap-1.5 rounded-xl border border-[#93c5fd] bg-[#eff6ff] px-2.5 py-1.5 text-xs"
+        >
+          {a.kind === 'image' ? (
+            <img
+              src={`data:${a.mimeType};base64,${a.base64}`}
+              alt={a.name}
+              className="h-8 w-8 rounded-lg object-cover"
+            />
+          ) : (
+            <span>{KIND_ICON[a.kind] ?? '📎'}</span>
+          )}
+          <span className="max-w-[120px] truncate font-medium text-[#0f172a]">{a.name}</span>
+          <span className="text-[#64748b]">{a.sizeLabel}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 type MessageBubbleProps = {
   message: ChatMessage
@@ -26,7 +60,10 @@ export function MessageBubble({ message, onExtractArtifact }: MessageBubbleProps
             </div>
           )}
           <div className="rounded-3xl bg-[#dbeafe] px-4 py-3 text-sm leading-6 text-[#0f172a] shadow-sm">
-            <p className="whitespace-pre-wrap">{message.content}</p>
+            {message.content && <p className="whitespace-pre-wrap">{message.content}</p>}
+            {message.attachments && message.attachments.length > 0 && (
+              <AttachmentList attachments={message.attachments} />
+            )}
           </div>
         </div>
       </article>

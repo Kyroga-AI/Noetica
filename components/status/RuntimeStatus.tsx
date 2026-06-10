@@ -1,5 +1,7 @@
 'use client'
 
+'use client'
+
 import { useEffect, useState } from 'react'
 import { loadNoeticaStatus, type NoeticaStatusState } from '@/lib/client/noeticaStatus'
 import { buildRuntimeRemediations, type RemediationItem } from '@/lib/client/remediation'
@@ -88,39 +90,67 @@ function StatusShell({
   tone?: NoeticaServiceCapabilityStatus | 'loading' | 'error'
   remediations?: RemediationItem[]
 }) {
+  const [open, setOpen] = useState(false)
   const toneClass = badgeClassByStatus[tone] ?? badgeClassByStatus.loading
   const visibleRemediations = remediations.slice(0, 3)
+  const hasRemediations = visibleRemediations.length > 0
 
   return (
-    <div className={`hidden min-w-[320px] max-w-[420px] rounded-2xl border px-3 py-2 text-xs shadow-sm xl:block ${toneClass}`}>
-      <div className="mb-1 flex items-center justify-between gap-2">
+    <div className="relative hidden xl:block">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={`flex items-center gap-2 rounded-2xl border px-3 py-1.5 text-xs shadow-sm transition ${toneClass}`}
+      >
         <span className="font-semibold">{title}</span>
-        <span className="rounded-full bg-white/70 px-2 py-0.5 font-medium">status</span>
-      </div>
-      <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
-        {items.map(([label, value]) => (
-          <div key={label} className="contents">
-            <dt className="text-slate-500">{label}</dt>
-            <dd className="truncate font-medium text-slate-800">{value}</dd>
-          </div>
-        ))}
-      </dl>
-      {visibleRemediations.length > 0 ? (
-        <div className="mt-2 space-y-1 border-t border-white/70 pt-2 text-slate-700">
-          {visibleRemediations.map((item) => (
-            <div key={item.key} className="rounded-xl bg-white/60 px-2 py-1">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold text-slate-800">{item.label}</span>
-                <span className="rounded-full bg-white px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
-                  {item.status}
-                </span>
-              </div>
-              <p className="mt-0.5 leading-snug text-slate-600">{item.summary}</p>
-              {item.command ? <code className="mt-1 block truncate text-[11px] text-slate-800">{item.command}</code> : null}
-            </div>
+        <dl className="flex items-center gap-2">
+          {items.slice(0, 3).map(([label, value]) => (
+            <span key={label} className="truncate font-medium text-slate-700">
+              {label}:<span className="ml-0.5 text-slate-900">{value}</span>
+            </span>
           ))}
-        </div>
-      ) : null}
+        </dl>
+        {hasRemediations && (
+          <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+            {visibleRemediations.length}
+          </span>
+        )}
+      </button>
+
+      {open && (
+        <>
+          {/* backdrop */}
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          {/* popover */}
+          <div className={`absolute right-0 top-full z-50 mt-1 w-80 rounded-2xl border shadow-xl ${toneClass} p-3 text-xs`}>
+            <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
+              {items.map(([label, value]) => (
+                <div key={label} className="contents">
+                  <dt className="text-slate-500">{label}</dt>
+                  <dd className="truncate font-medium text-slate-800">{value}</dd>
+                </div>
+              ))}
+            </dl>
+            {hasRemediations && (
+              <div className="mt-2 space-y-1 border-t border-white/70 pt-2">
+                {visibleRemediations.map((item) => (
+                  <div key={item.key} className="rounded-xl bg-white/60 px-2 py-1.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="font-semibold text-slate-800">{item.label}</span>
+                      <span className="rounded-full bg-white px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
+                        {item.status}
+                      </span>
+                    </div>
+                    <p className="mt-0.5 leading-snug text-slate-600">{item.summary}</p>
+                    {item.command && (
+                      <code className="mt-1 block truncate text-[11px] text-slate-800">{item.command}</code>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </>
+      )}
     </div>
   )
 }
