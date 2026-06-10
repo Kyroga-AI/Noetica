@@ -1,6 +1,7 @@
 export type ActiveSurface =
   | 'chat'
   | 'notes'
+  | 'workrooms'
   | 'cowork'
   | 'projects'
   | 'artifacts'

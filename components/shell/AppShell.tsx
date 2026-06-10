@@ -7,6 +7,7 @@ import { MessageList } from '@/components/chat/MessageList'
 import { InputArea, type WorkspaceMode } from '@/components/chat/InputArea'
 import { SteeringPanel } from '@/components/steering/SteeringPanel'
 import { NotesSurface } from '@/components/surfaces/NotesSurface'
+import { WorkroomsSurface } from '@/components/surfaces/WorkroomsSurface'
 import { CoworkSurface } from '@/components/surfaces/CoworkSurface'
 import { CodeSurface } from '@/components/surfaces/CodeSurface'
 import { EvaluateSurface } from '@/components/surfaces/EvaluateSurface'
@@ -40,6 +41,7 @@ import type { ModelConfig } from '@/lib/types/model'
 const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
   chat:      'Chat',
   notes:     'Chat',
+  workrooms: 'Cowork',
   cowork:    'Cowork',
   projects:  'Cowork',
   artifacts: 'Chat',
@@ -390,6 +392,7 @@ type CollapsedRailProps = {
 const surfaceIcons: { id: ActiveSurface; label: string; icon: string }[] = [
   { id: 'chat',      label: 'Chat',      icon: '💬' },
   { id: 'notes',     label: 'Notes',     icon: '📝' },
+  { id: 'workrooms', label: 'Workrooms', icon: '⬡'  },
   { id: 'cowork',    label: 'Cowork',    icon: '👥' },
   { id: 'projects',  label: 'Projects',  icon: '⊞'  },
   { id: 'artifacts', label: 'Artifacts', icon: '📄' },
@@ -446,6 +449,7 @@ type CenterProps = {
 
 function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, onSend, onWorkspaceModeChange, onExtractArtifact, mcpTools }: CenterProps) {
   if (activeSurface === 'notes')     return <NotesSurface />
+  if (activeSurface === 'workrooms') return <WorkroomsSurface />
   if (activeSurface === 'cowork')    return <CoworkSurface />
   if (activeSurface === 'projects')  return <ProjectsSurface />
   if (activeSurface === 'artifacts') return <ArtifactsSurface />
@@ -480,6 +484,7 @@ type RightPanelProps = {
 
 function RightPanel({ activeSurface, model, steering, workspaceMode, onSteeringChange }: RightPanelProps) {
   if (activeSurface === 'notes')     return null
+  if (activeSurface === 'workrooms') return null
   if (activeSurface === 'cowork')    return <CoworkPanel />
   if (activeSurface === 'projects')  return <CoworkPanel />
   if (activeSurface === 'artifacts') return null

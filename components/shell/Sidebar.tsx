@@ -38,6 +38,16 @@ function IconNotes() {
     </svg>
   )
 }
+function IconWorkrooms() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M2 4h12v8a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+      <path d="M2 4l6-2.5L14 4" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+      <circle cx="8" cy="8.5" r="1.5" stroke="currentColor" strokeWidth="1.2"/>
+      <path d="M5.5 12c0-1.38 1.12-2.5 2.5-2.5s2.5 1.12 2.5 2.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+    </svg>
+  )
+}
 function IconCowork() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
@@ -133,6 +143,12 @@ const surfaceItems: SurfaceItem[] = [
     label: 'Notes',
     icon: <IconNotes />,
     items: ['All notes', 'Pinned', 'Note chats']
+  },
+  {
+    id: 'workrooms',
+    label: 'Workrooms',
+    icon: <IconWorkrooms />,
+    items: ['All rooms', 'Pinned rooms', 'Recent dispatches']
   },
   {
     id: 'cowork',
