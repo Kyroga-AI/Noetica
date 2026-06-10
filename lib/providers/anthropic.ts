@@ -19,8 +19,8 @@ export async function callAnthropic(input: ProviderCallInput): Promise<ProviderC
   }
 }
 
-export async function* streamAnthropic(input: ProviderStreamInput): AsyncGenerator<string> {
-  const apiKey = requireEnv('ANTHROPIC_API_KEY')
+export async function* streamAnthropic(input: ProviderStreamInput & { apiKey?: string }): AsyncGenerator<string> {
+  const apiKey = input.apiKey?.trim() || requireEnv('ANTHROPIC_API_KEY')
   const system = input.messages.find((message) => message.role === 'system')?.content
   const messages = input.messages
     .filter((message) => message.role === 'user' || message.role === 'assistant')

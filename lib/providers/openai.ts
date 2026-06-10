@@ -19,8 +19,8 @@ export async function callOpenAI(input: ProviderCallInput): Promise<ProviderCall
   }
 }
 
-export async function* streamOpenAI(input: ProviderStreamInput): AsyncGenerator<string> {
-  const apiKey = requireEnv('OPENAI_API_KEY')
+export async function* streamOpenAI(input: ProviderStreamInput & { apiKey?: string }): AsyncGenerator<string> {
+  const apiKey = input.apiKey?.trim() || requireEnv('OPENAI_API_KEY')
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',

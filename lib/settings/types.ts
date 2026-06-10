@@ -19,9 +19,11 @@ export interface NoeticaSettings {
   anthropicApiKey: string
   openaiApiKey: string
   googleApiKey: string
+  mistralApiKey: string
+  neuronpediaApiKey: string
 
   // Runtime
-  runtimeMode: 'standalone' | 'sourceos'
+  runtimeMode: 'standalone' | 'agent-machine' | 'sourceos'
   agentMachineEndpoint: string
 
   // Connectors — MCP servers keyed by name, matching Claude Desktop format

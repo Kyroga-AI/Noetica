@@ -8,6 +8,15 @@ export type NoeticaServiceEndpointKind = 'browser-fallback' | 'local-service' | 
 
 export type NoeticaServiceCapabilityStatus = 'ready' | 'not_configured' | 'disabled' | 'deferred' | 'error'
 
+/** Provider API keys forwarded from browser settings (desktop-local; not transmitted externally). */
+export type NoeticaProviderKeys = {
+  anthropic?: string
+  openai?: string
+  google?: string
+  mistral?: string
+  neuronpedia?: string
+}
+
 export type NoeticaChatRequest = {
   session_id: string
   mode: NoeticaMode
@@ -15,6 +24,10 @@ export type NoeticaChatRequest = {
   messages: ChatMessage[]
   steering?: SteeringConfig
   memory_scope: string
+  /** User-supplied API keys from browser settings — used when server env vars are absent. */
+  provider_keys?: NoeticaProviderKeys
+  /** When set, chat requests are proxied to this Agent Machine endpoint instead of calling providers directly. */
+  agent_machine_endpoint?: string
 }
 
 export type NoeticaSteerRequest = {

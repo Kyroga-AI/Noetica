@@ -52,21 +52,16 @@ export function ModelsPanel() {
       <div className="space-y-4">
         <div className="text-sm font-semibold text-[#0f172a]">Provider API keys</div>
         <p className="text-xs text-[#64748b]">Keys are stored in browser localStorage. Do not use on shared machines.</p>
-        <MaskedInput
-          label="Anthropic"
-          value={settings.anthropicApiKey}
-          onChange={(v) => update({ anthropicApiKey: v })}
-        />
-        <MaskedInput
-          label="OpenAI"
-          value={settings.openaiApiKey}
-          onChange={(v) => update({ openaiApiKey: v })}
-        />
-        <MaskedInput
-          label="Google"
-          value={settings.googleApiKey}
-          onChange={(v) => update({ googleApiKey: v })}
-        />
+        <MaskedInput label="Anthropic" value={settings.anthropicApiKey} onChange={(v) => update({ anthropicApiKey: v })} />
+        <MaskedInput label="OpenAI" value={settings.openaiApiKey} onChange={(v) => update({ openaiApiKey: v })} />
+        <MaskedInput label="Google (Gemini)" value={settings.googleApiKey} onChange={(v) => update({ googleApiKey: v })} />
+        <MaskedInput label="Mistral" value={settings.mistralApiKey} onChange={(v) => update({ mistralApiKey: v })} />
+        <MaskedInput label="Neuronpedia" value={settings.neuronpediaApiKey} onChange={(v) => update({ neuronpediaApiKey: v })} />
+      </div>
+
+      <div className="rounded-xl border border-[#e2e8f0] bg-[#f8fafc] px-4 py-3 text-xs text-[#64748b] leading-5">
+        Keys are forwarded to the local Next.js API route on send — they are never transmitted to third parties beyond the selected provider.
+        In Tauri desktop mode the route runs entirely on your machine.
       </div>
     </div>
   )

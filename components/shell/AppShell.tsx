@@ -27,6 +27,7 @@ import { listenTauri } from '@/lib/tauri/bridge'
 import { useSession } from '@/lib/session/useSession'
 import { useArtifacts } from '@/lib/artifacts/useArtifacts'
 import { useMcp } from '@/lib/mcp/useMcp'
+import { useSettings } from '@/lib/settings/context'
 import type { PendingAttachment } from '@/lib/types/attachment'
 import type { McpTool } from '@/lib/types/mcp'
 import type { ChatMessage } from '@/lib/types/message'
@@ -80,6 +81,9 @@ export function AppShell() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated])
+
+  // ── Settings (provider keys, runtime mode) ───────────────────────────────
+  const { settings } = useSettings()
 
   // ── MCP ───────────────────────────────────────────────────────────────────
   const { tools: mcpTools } = useMcp()
@@ -213,6 +217,19 @@ export function AppShell() {
     setIsStreaming(true)
 
     try {
+      // Build provider keys from settings — forwarded to the local API route only.
+      const providerKeys = {
+        anthropic:  settings.anthropicApiKey  || undefined,
+        openai:     settings.openaiApiKey     || undefined,
+        google:     settings.googleApiKey     || undefined,
+        mistral:    settings.mistralApiKey    || undefined,
+        neuronpedia: settings.neuronpediaApiKey || undefined,
+      }
+      const agentMachineEndpoint =
+        settings.runtimeMode === 'agent-machine' && settings.agentMachineEndpoint
+          ? settings.agentMachineEndpoint
+          : undefined
+
       await sendNoeticaChat(
         {
           session_id: activeSession?.id ?? 'local-session',
@@ -221,6 +238,8 @@ export function AppShell() {
           messages: [...messages, outbound],
           steering,
           memory_scope: `noetica-session-local:${workspaceMode.toLowerCase()}`,
+          provider_keys: providerKeys,
+          agent_machine_endpoint: agentMachineEndpoint,
         },
         {
           onMeta: (governance) => updateAssistant(assistantId, { governance }),
