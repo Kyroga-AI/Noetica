@@ -16,7 +16,7 @@ async function getTauriStore() {
     }
     // Dynamic import — @tauri-apps/plugin-store not in devDependencies; guarded by isTauri()
     // eslint-disable-next-line
-    const mod: any = await import('@tauri-apps/plugin-store' as string)
+    const mod: any = await import(/* webpackIgnore: true */ '@tauri-apps/plugin-store' as string)
     // eslint-disable-next-line
     return (mod.load('noetica-sessions.json', { autoSave: true }) as Promise<StoreHandle>)
   } catch {

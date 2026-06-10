@@ -17,7 +17,7 @@ export async function loadWorkStore(): Promise<WorkStore> {
   try {
     if (isTauri()) {
       // eslint-disable-next-line
-      const mod: any = await import('@tauri-apps/plugin-store' as string)
+      const mod: any = await import(/* webpackIgnore: true */ '@tauri-apps/plugin-store' as string)
       // eslint-disable-next-line
       const store: any = await mod.load('noetica-work.json', { autoSave: true })
       // eslint-disable-next-line
@@ -39,7 +39,7 @@ export async function saveWorkStore(store: WorkStore): Promise<void> {
   try {
     if (isTauri()) {
       // eslint-disable-next-line
-      const mod: any = await import('@tauri-apps/plugin-store' as string)
+      const mod: any = await import(/* webpackIgnore: true */ '@tauri-apps/plugin-store' as string)
       // eslint-disable-next-line
       const s: any = await mod.load('noetica-work.json', { autoSave: true })
       await s.set(WORK_STORE_KEY, store)

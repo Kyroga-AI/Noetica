@@ -49,7 +49,7 @@ export async function openNativeFilePicker(): Promise<PendingAttachment[]> {
   if (!isTauri()) return []
   try {
     // eslint-disable-next-line
-    const mod: any = await import('@tauri-apps/plugin-dialog' as string)
+    const mod: any = await import(/* webpackIgnore: true */ '@tauri-apps/plugin-dialog' as string)
     // eslint-disable-next-line
     const paths: string[] | null = await mod.open({
       multiple: true,
@@ -63,7 +63,7 @@ export async function openNativeFilePicker(): Promise<PendingAttachment[]> {
     if (!paths || paths.length === 0) return []
 
     // eslint-disable-next-line
-    const fsMod: any = await import('@tauri-apps/plugin-fs' as string)
+    const fsMod: any = await import(/* webpackIgnore: true */ '@tauri-apps/plugin-fs' as string)
     const results: PendingAttachment[] = []
     for (const path of paths) {
       try {

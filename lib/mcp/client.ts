@@ -53,7 +53,7 @@ async function makeTauriStdioTransport(config: McpServerConfig): Promise<AnyTran
   if (!isTauri() || !config.command) return null
   try {
     // eslint-disable-next-line
-    const shellMod: any = await import('@tauri-apps/plugin-shell' as string)
+    const shellMod: any = await import(/* webpackIgnore: true */ '@tauri-apps/plugin-shell' as string)
     const cmd = shellMod.Command.create(config.command, config.args ?? [], {
       env: config.env ?? {},
     })

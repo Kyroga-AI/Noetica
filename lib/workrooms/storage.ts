@@ -7,7 +7,7 @@ export async function loadWorkroomStore(): Promise<WorkroomStore> {
   try {
     if (isTauri()) {
       // eslint-disable-next-line
-      const mod: any = await import('@tauri-apps/plugin-store' as string)
+      const mod: any = await import(/* webpackIgnore: true */ '@tauri-apps/plugin-store' as string)
       // eslint-disable-next-line
       const store: any = await mod.load('noetica-workrooms.json', { autoSave: true })
       // eslint-disable-next-line
@@ -29,7 +29,7 @@ export async function saveWorkroomStore(store: WorkroomStore): Promise<void> {
   try {
     if (isTauri()) {
       // eslint-disable-next-line
-      const mod: any = await import('@tauri-apps/plugin-store' as string)
+      const mod: any = await import(/* webpackIgnore: true */ '@tauri-apps/plugin-store' as string)
       // eslint-disable-next-line
       const s: any = await mod.load('noetica-workrooms.json', { autoSave: true })
       await s.set(WORKROOM_STORE_KEY, store)
