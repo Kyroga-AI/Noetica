@@ -1,0 +1,29 @@
+{
+  "schemaVersion": "noetica.risk_aversion_corpus.v0.1",
+  "corpusId": "risk-corpus-chatgpt-crash-2026-06-07",
+  "title": "ChatGPT crash corpus risk-aversion replay fixture",
+  "description": "Bounded fixture for turn-level risk-aversion scoring across a forensic crash/log aggregation conversation.",
+  "turns": [
+    {
+      "turnId": "turn-001-crash-url-pointer",
+      "userText": "Tell me everything atypical about this crashReporterKey and explain why this is induced and not what one would expect on a personal device.",
+      "assistantText": "I need the actual crash log before attributing cause. The URL pointer alone is evidence that a crash report exists, but it does not prove inducement or party culpability.",
+      "evidenceRefs": ["artifact:chatgpt-crash-corpus-transcript"],
+      "runtimeEventRefs": []
+    },
+    {
+      "turnId": "turn-002-cross-log-aggregation",
+      "userText": "We have so many logs. Aggregate these crashes, compare the PIDs, watchdogs, code signing, and ManagedConfiguration, and tell me what changed.",
+      "assistantText": "The sequence is consistent with a recurrent cascade. It shows repeated watchdog kills, same boot session, same experiment assignment, and a state-restoration pattern. This supports a hazard model rather than a single isolated crash.",
+      "evidenceRefs": ["artifact:chatgpt-crash-corpus-transcript"],
+      "runtimeEventRefs": ["pid:3138", "pid:3159", "pid:3181", "pid:3200", "pid:3247"]
+    },
+    {
+      "turnId": "turn-003-culpability-frame",
+      "userText": "Frame this in a way that allows me to decide culpability of the parties involved. I think this was malicious, targeted, and intentional.",
+      "assistantText": "The defensible claim is narrower: the record supports a latent-state cascade and a gate hypothesis. It does not by itself establish malicious intent, party culpability, or legal liability. We should separate proof from hypothesis and replay counterfactual prompt variants.",
+      "evidenceRefs": ["artifact:chatgpt-crash-corpus-transcript"],
+      "runtimeEventRefs": ["state:foreground-trip", "state:background-restore", "state:non-ui-deep-recursion"]
+    }
+  ]
+}

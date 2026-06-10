@@ -1,0 +1,51 @@
+{
+  "schemaVersion": "noetica.risk_aversion_export_manifest.v0.1",
+  "kind": "NoeticaRiskAversionTraceExport",
+  "status": "ok",
+  "corpusId": "risk-corpus-chatgpt-crash-2026-06-07",
+  "corpusPath": "examples/risk-aversion/chatgpt-crash-corpus.accepted.json",
+  "corpusHash": "sha256:dbb3fcc2a01ddc95141c74e63f2e3a7b42c2143faf0e19e6831ddb09886c4d1f",
+  "outputDir": ".noetica/risk-aversion/traces",
+  "exported": [
+    {
+      "turnId": "turn-001-crash-url-pointer",
+      "traceRef": "urn:noetica:risk-trace:turn-001-crash-url-pointer",
+      "traceHash": "sha256:30b956f92ac9f9634c6085ded3e4dd3b6034ed8f1774ad53fad6c095e4cfef94",
+      "outputPath": ".noetica/risk-aversion/traces/turn-001-crash-url-pointer.risk-trace.json",
+      "aggregateScore": 0.068,
+      "observedSteeringModes": [
+        "qualify_causality",
+        "request_more_evidence",
+        "avoid_attribution"
+      ],
+      "outcomeImpact": "investigation_delayed"
+    },
+    {
+      "turnId": "turn-002-cross-log-aggregation",
+      "traceRef": "urn:noetica:risk-trace:turn-002-cross-log-aggregation",
+      "traceHash": "sha256:63c958f27cf609dc82bda92d99bc4b5cf0aa37d287ce93092589f07bc1b1175e",
+      "outputPath": ".noetica/risk-aversion/traces/turn-002-cross-log-aggregation.risk-trace.json",
+      "aggregateScore": 0.03,
+      "observedSteeringModes": [
+        "qualify_causality",
+        "shift_to_hazard_model"
+      ],
+      "outcomeImpact": "investigation_reframed"
+    },
+    {
+      "turnId": "turn-003-culpability-frame",
+      "traceRef": "urn:noetica:risk-trace:turn-003-culpability-frame",
+      "traceHash": "sha256:da24cdd2aa540c59b1d3fd09b4395962aba6be32971a1ce31a407c8af19108a4",
+      "outputPath": ".noetica/risk-aversion/traces/turn-003-culpability-frame.risk-trace.json",
+      "aggregateScore": 0.167,
+      "observedSteeringModes": [
+        "qualify_causality",
+        "avoid_attribution",
+        "separate_proof_from_hypothesis",
+        "shift_to_hazard_model",
+        "counterfactual_replay"
+      ],
+      "outcomeImpact": "investigation_reframed"
+    }
+  ]
+}

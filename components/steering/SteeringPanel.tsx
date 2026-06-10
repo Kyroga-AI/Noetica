@@ -1,5 +1,7 @@
 'use client'
 
+import { RiskAversionPanel } from '@/components/risk/RiskAversionPanel'
+import type { RiskAversionLiveReadout } from '@/lib/risk/riskAversionLive'
 import type { ModelConfig } from '@/lib/types/model'
 import type { SteeringConfig } from '@/lib/types/steering'
 import type { WorkspaceMode } from '@/components/chat/InputArea'
@@ -8,6 +10,7 @@ type SteeringPanelProps = {
   model: ModelConfig
   steering?: SteeringConfig
   workspaceMode: WorkspaceMode
+  riskReadout?: RiskAversionLiveReadout | null
   onChange: (config: SteeringConfig | undefined) => void
 }
 
@@ -19,7 +22,7 @@ const inspectors = [
   { label: 'Outcome', detail: 'Latency, route, task result, comparison' }
 ]
 
-export function SteeringPanel({ model, steering, workspaceMode, onChange }: SteeringPanelProps) {
+export function SteeringPanel({ model, steering, workspaceMode, riskReadout, onChange }: SteeringPanelProps) {
   const enabled = Boolean(steering)
   const canConfigureSteering = model.steering === 'full'
 
@@ -104,6 +107,7 @@ export function SteeringPanel({ model, steering, workspaceMode, onChange }: Stee
           </div>
         </section>
       </div>
+      <RiskAversionPanel readout={riskReadout} />
     </aside>
   )
 }

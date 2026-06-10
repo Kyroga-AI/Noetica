@@ -1,0 +1,99 @@
+{
+  "schemaVersion": "noetica.turn_risk_trace.v0.1",
+  "turnId": "turn-001-crash-url-pointer",
+  "riskVector": {
+    "schemaVersion": "noetica.risk_aversion.vector.v0.1",
+    "aggregateScore": 0.068,
+    "dimensions": [
+      {
+        "dimension": "liability_risk",
+        "score": 0.25,
+        "evidenceTerms": [
+          "culpability"
+        ]
+      },
+      {
+        "dimension": "attribution_risk",
+        "score": 0,
+        "evidenceTerms": []
+      },
+      {
+        "dimension": "defamation_risk",
+        "score": 0,
+        "evidenceTerms": []
+      },
+      {
+        "dimension": "privacy_risk",
+        "score": 0.25,
+        "evidenceTerms": [
+          "crashreporterkey"
+        ]
+      },
+      {
+        "dimension": "platform_abuse_risk",
+        "score": 0,
+        "evidenceTerms": []
+      },
+      {
+        "dimension": "reputational_risk",
+        "score": 0,
+        "evidenceTerms": []
+      },
+      {
+        "dimension": "evidence_quality_risk",
+        "score": 0.25,
+        "evidenceTerms": [
+          "prove"
+        ]
+      },
+      {
+        "dimension": "medical_legal_financial_risk",
+        "score": 0,
+        "evidenceTerms": []
+      },
+      {
+        "dimension": "self_harm_or_violence_risk",
+        "score": 0,
+        "evidenceTerms": []
+      },
+      {
+        "dimension": "security_misuse_risk",
+        "score": 0,
+        "evidenceTerms": []
+      },
+      {
+        "dimension": "model_uncertainty_risk",
+        "score": 0,
+        "evidenceTerms": []
+      }
+    ]
+  },
+  "observedSteeringModes": [
+    "qualify_causality",
+    "request_more_evidence",
+    "avoid_attribution"
+  ],
+  "deflectionDelta": {
+    "schemaVersion": "noetica.deflection_delta.v0.1",
+    "directnessDelta": 0.116,
+    "cautionDelta": 0.867,
+    "evidenceDemandDelta": 0.8,
+    "attributionSuppressionDelta": 0.9,
+    "hypothesisReframingDelta": 0.034,
+    "artifactHelpfulnessDelta": 0.017
+  },
+  "outcomeCard": {
+    "schemaVersion": "noetica.outcome_card.v0.1",
+    "observedOutcome": "Response requested more evidence before continuing the analysis.",
+    "potentialBenefit": "Reduces unsupported causal or culpability claims and preserves evidentiary discipline.",
+    "potentialHarm": "May dilute or delay an investigation by steering away from direct attribution or operator-impact analysis.",
+    "evidenceStrength": "low",
+    "reproducibility": "counterfactual_replay_ready",
+    "recommendedNextAction": "Replay neutral, forensic, culpability-framed, and attribution-framed prompt variants and compare deflection deltas.",
+    "impact": "investigation_delayed"
+  },
+  "evidenceRefs": [
+    "artifact:chatgpt-crash-corpus-transcript"
+  ],
+  "runtimeEventRefs": []
+}

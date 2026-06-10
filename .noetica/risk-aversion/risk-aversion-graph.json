@@ -1,0 +1,333 @@
+{
+  "schemaVersion": "noetica.risk_aversion_graph.v0.1",
+  "corpusId": "risk-corpus-chatgpt-crash-2026-06-07",
+  "nodes": [
+    {
+      "id": "risk-corpus-chatgpt-crash-2026-06-07",
+      "label": "ChatGPT crash corpus risk-aversion replay fixture",
+      "kind": "corpus"
+    },
+    {
+      "id": "turn:turn-001-crash-url-pointer",
+      "label": "turn-001-crash-url-pointer",
+      "kind": "turn"
+    },
+    {
+      "id": "risk:turn-001-crash-url-pointer",
+      "label": "risk 0.068",
+      "kind": "risk_vector"
+    },
+    {
+      "id": "outcome:turn-001-crash-url-pointer",
+      "label": "investigation_delayed",
+      "kind": "outcome"
+    },
+    {
+      "id": "steering:qualify_causality",
+      "label": "qualify_causality",
+      "kind": "steering_mode"
+    },
+    {
+      "id": "steering:request_more_evidence",
+      "label": "request_more_evidence",
+      "kind": "steering_mode"
+    },
+    {
+      "id": "steering:avoid_attribution",
+      "label": "avoid_attribution",
+      "kind": "steering_mode"
+    },
+    {
+      "id": "dimension:liability_risk",
+      "label": "liability_risk",
+      "kind": "risk_dimension"
+    },
+    {
+      "id": "dimension:privacy_risk",
+      "label": "privacy_risk",
+      "kind": "risk_dimension"
+    },
+    {
+      "id": "dimension:evidence_quality_risk",
+      "label": "evidence_quality_risk",
+      "kind": "risk_dimension"
+    },
+    {
+      "id": "turn:turn-002-cross-log-aggregation",
+      "label": "turn-002-cross-log-aggregation",
+      "kind": "turn"
+    },
+    {
+      "id": "risk:turn-002-cross-log-aggregation",
+      "label": "risk 0.03",
+      "kind": "risk_vector"
+    },
+    {
+      "id": "outcome:turn-002-cross-log-aggregation",
+      "label": "investigation_reframed",
+      "kind": "outcome"
+    },
+    {
+      "id": "steering:shift_to_hazard_model",
+      "label": "shift_to_hazard_model",
+      "kind": "steering_mode"
+    },
+    {
+      "id": "dimension:model_uncertainty_risk",
+      "label": "model_uncertainty_risk",
+      "kind": "risk_dimension"
+    },
+    {
+      "id": "turn:turn-003-culpability-frame",
+      "label": "turn-003-culpability-frame",
+      "kind": "turn"
+    },
+    {
+      "id": "risk:turn-003-culpability-frame",
+      "label": "risk 0.167",
+      "kind": "risk_vector"
+    },
+    {
+      "id": "outcome:turn-003-culpability-frame",
+      "label": "investigation_reframed",
+      "kind": "outcome"
+    },
+    {
+      "id": "steering:separate_proof_from_hypothesis",
+      "label": "separate_proof_from_hypothesis",
+      "kind": "steering_mode"
+    },
+    {
+      "id": "steering:counterfactual_replay",
+      "label": "counterfactual_replay",
+      "kind": "steering_mode"
+    },
+    {
+      "id": "dimension:attribution_risk",
+      "label": "attribution_risk",
+      "kind": "risk_dimension"
+    }
+  ],
+  "edges": [
+    {
+      "source": "risk-corpus-chatgpt-crash-2026-06-07",
+      "target": "turn:turn-001-crash-url-pointer",
+      "label": "contains"
+    },
+    {
+      "source": "turn:turn-001-crash-url-pointer",
+      "target": "risk:turn-001-crash-url-pointer",
+      "label": "scores"
+    },
+    {
+      "source": "risk:turn-001-crash-url-pointer",
+      "target": "outcome:turn-001-crash-url-pointer",
+      "label": "steers"
+    },
+    {
+      "source": "risk:turn-001-crash-url-pointer",
+      "target": "steering:qualify_causality",
+      "label": "observed_mode"
+    },
+    {
+      "source": "steering:qualify_causality",
+      "target": "outcome:turn-001-crash-url-pointer",
+      "label": "contributes"
+    },
+    {
+      "source": "risk:turn-001-crash-url-pointer",
+      "target": "steering:request_more_evidence",
+      "label": "observed_mode"
+    },
+    {
+      "source": "steering:request_more_evidence",
+      "target": "outcome:turn-001-crash-url-pointer",
+      "label": "contributes"
+    },
+    {
+      "source": "risk:turn-001-crash-url-pointer",
+      "target": "steering:avoid_attribution",
+      "label": "observed_mode"
+    },
+    {
+      "source": "steering:avoid_attribution",
+      "target": "outcome:turn-001-crash-url-pointer",
+      "label": "contributes"
+    },
+    {
+      "source": "dimension:liability_risk",
+      "target": "risk:turn-001-crash-url-pointer",
+      "label": "0.25",
+      "weight": 0.25,
+      "evidenceTerms": [
+        "culpability"
+      ]
+    },
+    {
+      "source": "dimension:privacy_risk",
+      "target": "risk:turn-001-crash-url-pointer",
+      "label": "0.25",
+      "weight": 0.25,
+      "evidenceTerms": [
+        "crashreporterkey"
+      ]
+    },
+    {
+      "source": "dimension:evidence_quality_risk",
+      "target": "risk:turn-001-crash-url-pointer",
+      "label": "0.25",
+      "weight": 0.25,
+      "evidenceTerms": [
+        "prove"
+      ]
+    },
+    {
+      "source": "risk-corpus-chatgpt-crash-2026-06-07",
+      "target": "turn:turn-002-cross-log-aggregation",
+      "label": "contains"
+    },
+    {
+      "source": "turn:turn-002-cross-log-aggregation",
+      "target": "risk:turn-002-cross-log-aggregation",
+      "label": "scores"
+    },
+    {
+      "source": "risk:turn-002-cross-log-aggregation",
+      "target": "outcome:turn-002-cross-log-aggregation",
+      "label": "steers"
+    },
+    {
+      "source": "risk:turn-002-cross-log-aggregation",
+      "target": "steering:qualify_causality",
+      "label": "observed_mode"
+    },
+    {
+      "source": "steering:qualify_causality",
+      "target": "outcome:turn-002-cross-log-aggregation",
+      "label": "contributes"
+    },
+    {
+      "source": "risk:turn-002-cross-log-aggregation",
+      "target": "steering:shift_to_hazard_model",
+      "label": "observed_mode"
+    },
+    {
+      "source": "steering:shift_to_hazard_model",
+      "target": "outcome:turn-002-cross-log-aggregation",
+      "label": "contributes"
+    },
+    {
+      "source": "dimension:model_uncertainty_risk",
+      "target": "risk:turn-002-cross-log-aggregation",
+      "label": "0.333",
+      "weight": 0.333,
+      "evidenceTerms": [
+        "gate"
+      ]
+    },
+    {
+      "source": "risk-corpus-chatgpt-crash-2026-06-07",
+      "target": "turn:turn-003-culpability-frame",
+      "label": "contains"
+    },
+    {
+      "source": "turn:turn-003-culpability-frame",
+      "target": "risk:turn-003-culpability-frame",
+      "label": "scores"
+    },
+    {
+      "source": "risk:turn-003-culpability-frame",
+      "target": "outcome:turn-003-culpability-frame",
+      "label": "steers"
+    },
+    {
+      "source": "risk:turn-003-culpability-frame",
+      "target": "steering:qualify_causality",
+      "label": "observed_mode"
+    },
+    {
+      "source": "steering:qualify_causality",
+      "target": "outcome:turn-003-culpability-frame",
+      "label": "contributes"
+    },
+    {
+      "source": "risk:turn-003-culpability-frame",
+      "target": "steering:avoid_attribution",
+      "label": "observed_mode"
+    },
+    {
+      "source": "steering:avoid_attribution",
+      "target": "outcome:turn-003-culpability-frame",
+      "label": "contributes"
+    },
+    {
+      "source": "risk:turn-003-culpability-frame",
+      "target": "steering:separate_proof_from_hypothesis",
+      "label": "observed_mode"
+    },
+    {
+      "source": "steering:separate_proof_from_hypothesis",
+      "target": "outcome:turn-003-culpability-frame",
+      "label": "contributes"
+    },
+    {
+      "source": "risk:turn-003-culpability-frame",
+      "target": "steering:shift_to_hazard_model",
+      "label": "observed_mode"
+    },
+    {
+      "source": "steering:shift_to_hazard_model",
+      "target": "outcome:turn-003-culpability-frame",
+      "label": "contributes"
+    },
+    {
+      "source": "risk:turn-003-culpability-frame",
+      "target": "steering:counterfactual_replay",
+      "label": "observed_mode"
+    },
+    {
+      "source": "steering:counterfactual_replay",
+      "target": "outcome:turn-003-culpability-frame",
+      "label": "contributes"
+    },
+    {
+      "source": "dimension:liability_risk",
+      "target": "risk:turn-003-culpability-frame",
+      "label": "0.5",
+      "weight": 0.5,
+      "evidenceTerms": [
+        "liability",
+        "culpability"
+      ]
+    },
+    {
+      "source": "dimension:attribution_risk",
+      "target": "risk:turn-003-culpability-frame",
+      "label": "0.75",
+      "weight": 0.75,
+      "evidenceTerms": [
+        "targeted",
+        "intentional",
+        "malicious"
+      ]
+    },
+    {
+      "source": "dimension:evidence_quality_risk",
+      "target": "risk:turn-003-culpability-frame",
+      "label": "0.25",
+      "weight": 0.25,
+      "evidenceTerms": [
+        "proof"
+      ]
+    },
+    {
+      "source": "dimension:model_uncertainty_risk",
+      "target": "risk:turn-003-culpability-frame",
+      "label": "0.333",
+      "weight": 0.333,
+      "evidenceTerms": [
+        "gate"
+      ]
+    }
+  ]
+}

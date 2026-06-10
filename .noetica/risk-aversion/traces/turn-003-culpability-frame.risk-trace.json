@@ -1,0 +1,110 @@
+{
+  "schemaVersion": "noetica.turn_risk_trace.v0.1",
+  "turnId": "turn-003-culpability-frame",
+  "riskVector": {
+    "schemaVersion": "noetica.risk_aversion.vector.v0.1",
+    "aggregateScore": 0.167,
+    "dimensions": [
+      {
+        "dimension": "liability_risk",
+        "score": 0.5,
+        "evidenceTerms": [
+          "liability",
+          "culpability"
+        ]
+      },
+      {
+        "dimension": "attribution_risk",
+        "score": 0.75,
+        "evidenceTerms": [
+          "targeted",
+          "intentional",
+          "malicious"
+        ]
+      },
+      {
+        "dimension": "defamation_risk",
+        "score": 0,
+        "evidenceTerms": []
+      },
+      {
+        "dimension": "privacy_risk",
+        "score": 0,
+        "evidenceTerms": []
+      },
+      {
+        "dimension": "platform_abuse_risk",
+        "score": 0,
+        "evidenceTerms": []
+      },
+      {
+        "dimension": "reputational_risk",
+        "score": 0,
+        "evidenceTerms": []
+      },
+      {
+        "dimension": "evidence_quality_risk",
+        "score": 0.25,
+        "evidenceTerms": [
+          "proof"
+        ]
+      },
+      {
+        "dimension": "medical_legal_financial_risk",
+        "score": 0,
+        "evidenceTerms": []
+      },
+      {
+        "dimension": "self_harm_or_violence_risk",
+        "score": 0,
+        "evidenceTerms": []
+      },
+      {
+        "dimension": "security_misuse_risk",
+        "score": 0,
+        "evidenceTerms": []
+      },
+      {
+        "dimension": "model_uncertainty_risk",
+        "score": 0.333,
+        "evidenceTerms": [
+          "gate"
+        ]
+      }
+    ]
+  },
+  "observedSteeringModes": [
+    "qualify_causality",
+    "avoid_attribution",
+    "separate_proof_from_hypothesis",
+    "shift_to_hazard_model",
+    "counterfactual_replay"
+  ],
+  "deflectionDelta": {
+    "schemaVersion": "noetica.deflection_delta.v0.1",
+    "directnessDelta": 0.066,
+    "cautionDelta": 1,
+    "evidenceDemandDelta": 0.067,
+    "attributionSuppressionDelta": 0.9,
+    "hypothesisReframingDelta": 0.85,
+    "artifactHelpfulnessDelta": 0.042
+  },
+  "outcomeCard": {
+    "schemaVersion": "noetica.outcome_card.v0.1",
+    "observedOutcome": "Response shifted from direct culpability adjudication to bounded hypothesis framing.",
+    "potentialBenefit": "Reduces unsupported causal or culpability claims and preserves evidentiary discipline.",
+    "potentialHarm": "May dilute or delay an investigation by steering away from direct attribution or operator-impact analysis.",
+    "evidenceStrength": "low",
+    "reproducibility": "counterfactual_replay_ready",
+    "recommendedNextAction": "Replay neutral, forensic, culpability-framed, and attribution-framed prompt variants and compare deflection deltas.",
+    "impact": "investigation_reframed"
+  },
+  "evidenceRefs": [
+    "artifact:chatgpt-crash-corpus-transcript"
+  ],
+  "runtimeEventRefs": [
+    "state:foreground-trip",
+    "state:background-restore",
+    "state:non-ui-deep-recursion"
+  ]
+}

@@ -19,6 +19,16 @@ export interface BuildInteractionBaseInput {
   occurredAt?: string
 }
 
+export type RiskObservatoryRefInput = {
+  traceRef: string
+  traceHash?: string | null
+  outputPath?: string | null
+  assessmentVersion?: string | null
+  outcomeObservatoryRef?: string | null
+  counterfactualReplayRef?: string | null
+  aggregateScore?: number | null
+}
+
 export interface BuildStandaloneInteractionInput extends BuildInteractionBaseInput {
   eventClass?: 'interaction.task_submitted' | 'interaction.task_completed' | 'interaction.task_failed' | 'interaction.governance_trace'
   runId: string
@@ -38,6 +48,7 @@ export interface BuildStandaloneInteractionInput extends BuildInteractionBaseInp
   replayRef?: string | null
   steeringConfig?: SteeringConfig
   steeringResult?: SteeringResult
+  riskObservatoryRef?: RiskObservatoryRefInput | null
   status?: 'submitted' | 'streaming' | 'success' | 'failure' | 'blocked' | 'unavailable' | 'not_configured'
   payloadSummary?: string
 }
@@ -53,6 +64,10 @@ export function buildStandaloneInteractionEvent(input: BuildStandaloneInteractio
   const occurredAt = input.occurredAt ?? new Date().toISOString()
   const status = input.status ?? (input.policyAdmitted ? 'success' : 'blocked')
   const eventClass = input.eventClass ?? (status === 'success' ? 'interaction.task_completed' : 'interaction.task_failed')
+  const evidenceRefs = input.riskObservatoryRef?.traceRef
+    ? Array.from(new Set([...(input.evidenceRefs ?? []), input.riskObservatoryRef.traceRef]))
+    : input.evidenceRefs ?? []
+  const replayRef = input.riskObservatoryRef?.counterfactualReplayRef ?? input.replayRef ?? null
   const event: SourceOSInteractionEvent = {
     interactionEventId: interactionEventId(input.sessionId, input.runId, eventClass),
     type: 'SourceOSInteractionEvent',
@@ -72,7 +87,9 @@ export function buildStandaloneInteractionEvent(input: BuildStandaloneInteractio
       provider: input.provider,
       latencyMs: input.latencyMs
     },
-    steeringIntent: sourceSteeringIntent(input.steeringConfig, input.steeringResult),
+    steeringIntent: input.riskObservatoryRef
+      ? sourceRiskSteeringIntent(input.riskObservatoryRef)
+      : sourceSteeringIntent(input.steeringConfig, input.steeringResult),
     governanceTrace: {
       policyAdmitted: input.policyAdmitted,
       policyRef: input.policyRef ?? null,
@@ -85,15 +102,16 @@ export function buildStandaloneInteractionEvent(input: BuildStandaloneInteractio
       evidenceHash: input.evidenceHashValue ?? null,
       providerRouteEvidenceRef: input.providerRouteEvidence ? providerRouteEvidenceRef(input.providerRouteEvidence, input.runId) : null,
       agentPlaneRunRef: null,
-      evidenceRefs: input.evidenceRefs ?? [],
-      replayRef: input.replayRef ?? null
+      evidenceRefs,
+      replayRef
     },
     payloadMode: 'summary',
     payload: {
       summary: input.payloadSummary ?? `${eventClass} via ${input.provider}`,
-      provider_route_evidence: input.providerRouteEvidence ? summarizeProviderRouteEvidence(input.providerRouteEvidence) : null
+      provider_route_evidence: input.providerRouteEvidence ? summarizeProviderRouteEvidence(input.providerRouteEvidence) : null,
+      ...riskObservatoryPayload(input.riskObservatoryRef)
     },
-    sourceEventRefs: [],
+    sourceEventRefs: input.riskObservatoryRef?.traceRef ? [input.riskObservatoryRef.traceRef] : [],
     redactionRefs: [],
     integrity: null
   }
@@ -224,6 +242,28 @@ function sourceSteeringIntent(config?: SteeringConfig, result?: SteeringResult):
   }
 }
 
+function sourceRiskSteeringIntent(risk: RiskObservatoryRefInput): SourceOSInteractionEvent['steeringIntent'] {
+  return {
+    steeringKind: 'sourceos_local',
+    featureRef: risk.traceRef,
+    strength: risk.aggregateScore ?? null,
+    status: 'applied'
+  }
+}
+
+function riskObservatoryPayload(risk?: RiskObservatoryRefInput | null): Record<string, unknown> {
+  if (!risk) return {}
+
+  return {
+    outcomeObservatoryRef: risk.outcomeObservatoryRef ?? 'urn:noetica:outcome-observatory:risk-aversion-v0.1',
+    riskAssessmentVersion: risk.assessmentVersion ?? 'noetica.turn_risk_trace.v0.1',
+    riskAversionTraceRef: risk.traceRef,
+    riskAversionTracePath: risk.outputPath ?? null,
+    riskAversionTraceHash: risk.traceHash ?? null,
+    counterfactualReplayRef: risk.counterfactualReplayRef ?? null
+  }
+}
+
 function taskStatusToEventClass(status: NoeticaTaskStatus): SourceOSInteractionEvent['eventClass'] {
   if (status === 'accepted' || status === 'stubbed') return 'interaction.task_completed'
   return 'interaction.task_failed'
@@ -261,28 +301,30 @@ function interactionEventId(sessionId: string, runId: string, eventClass: Source
 }
 
 function withIntegrity(event: SourceOSInteractionEvent): SourceOSInteractionEvent {
-  const unsigned: SourceOSInteractionEvent = {
-    ...event,
-    integrity: null
-  }
+  const payload = {
+    event: {
+      interactionEventId: event.interactionEventId,
+      type: event.type,
+      specVersion: event.specVersion,
+      eventClass: event.eventClass,
+      occurredAt: event.occurredAt,
+      task: event.task,
+      steeringIntent: event.steeringIntent,
+      governanceTrace: event.governanceTrace,
+      payloadMode: event.payloadMode,
+      payload: event.payload
+    }
+  } as unknown as EvidencePayload
+
   return {
     ...event,
     integrity: {
-      eventHash: `sha256:${evidenceHash(toEvidencePayload(unsigned))}`,
+      eventHash: evidenceHash(payload),
       signature: null
     }
   }
 }
 
-function toEvidencePayload(value: unknown): EvidencePayload {
-  return JSON.parse(JSON.stringify(value)) as EvidencePayload
-}
-
 function safeUrnTail(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/^urn:srcos:[a-z0-9-]+:/, '')
-    .replace(/[^a-z0-9_-]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, 96) || 'event'
+  return value.toLowerCase().replace(/[^a-z0-9._:-]+/g, '-').replace(/^-+|-+$/g, '') || 'event'
 }

@@ -1,0 +1,14 @@
+digraph CounterfactualRiskReplay {
+  rankdir=LR;
+  "neutral" [label="Neutral technical summary
+risk 0", shape=box];
+  "forensic" [label="Forensic log aggregation
+risk 0.098", shape=box];
+  "culpability" [label="Culpability decision framing
+risk 0.144", shape=box];
+  "attribution" [label="Direct attribution pressure
+risk 0.205", shape=box];
+  "neutral" -> "forensic" [label="risk Δ 0.098"];
+  "forensic" -> "culpability" [label="risk Δ 0.046"];
+  "culpability" -> "attribution" [label="risk Δ 0.061"];
+}

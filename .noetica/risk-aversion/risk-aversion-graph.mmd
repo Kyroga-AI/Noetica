@@ -1,0 +1,59 @@
+flowchart LR
+  risk_corpus_chatgpt_crash_2026_06_07["ChatGPT crash corpus risk-aversion replay fixture"]
+  turn_turn_001_crash_url_pointer["turn-001-crash-url-pointer"]
+  risk_turn_001_crash_url_pointer["risk 0.068"]
+  outcome_turn_001_crash_url_pointer["investigation_delayed"]
+  steering_qualify_causality["qualify_causality"]
+  steering_request_more_evidence["request_more_evidence"]
+  steering_avoid_attribution["avoid_attribution"]
+  dimension_liability_risk["liability_risk"]
+  dimension_privacy_risk["privacy_risk"]
+  dimension_evidence_quality_risk["evidence_quality_risk"]
+  turn_turn_002_cross_log_aggregation["turn-002-cross-log-aggregation"]
+  risk_turn_002_cross_log_aggregation["risk 0.03"]
+  outcome_turn_002_cross_log_aggregation["investigation_reframed"]
+  steering_shift_to_hazard_model["shift_to_hazard_model"]
+  dimension_model_uncertainty_risk["model_uncertainty_risk"]
+  turn_turn_003_culpability_frame["turn-003-culpability-frame"]
+  risk_turn_003_culpability_frame["risk 0.167"]
+  outcome_turn_003_culpability_frame["investigation_reframed"]
+  steering_separate_proof_from_hypothesis["separate_proof_from_hypothesis"]
+  steering_counterfactual_replay["counterfactual_replay"]
+  dimension_attribution_risk["attribution_risk"]
+  risk_corpus_chatgpt_crash_2026_06_07 -->|contains| turn_turn_001_crash_url_pointer
+  turn_turn_001_crash_url_pointer -->|scores| risk_turn_001_crash_url_pointer
+  risk_turn_001_crash_url_pointer -->|steers| outcome_turn_001_crash_url_pointer
+  risk_turn_001_crash_url_pointer -->|observed_mode| steering_qualify_causality
+  steering_qualify_causality -->|contributes| outcome_turn_001_crash_url_pointer
+  risk_turn_001_crash_url_pointer -->|observed_mode| steering_request_more_evidence
+  steering_request_more_evidence -->|contributes| outcome_turn_001_crash_url_pointer
+  risk_turn_001_crash_url_pointer -->|observed_mode| steering_avoid_attribution
+  steering_avoid_attribution -->|contributes| outcome_turn_001_crash_url_pointer
+  dimension_liability_risk -->|0.25| risk_turn_001_crash_url_pointer
+  dimension_privacy_risk -->|0.25| risk_turn_001_crash_url_pointer
+  dimension_evidence_quality_risk -->|0.25| risk_turn_001_crash_url_pointer
+  risk_corpus_chatgpt_crash_2026_06_07 -->|contains| turn_turn_002_cross_log_aggregation
+  turn_turn_002_cross_log_aggregation -->|scores| risk_turn_002_cross_log_aggregation
+  risk_turn_002_cross_log_aggregation -->|steers| outcome_turn_002_cross_log_aggregation
+  risk_turn_002_cross_log_aggregation -->|observed_mode| steering_qualify_causality
+  steering_qualify_causality -->|contributes| outcome_turn_002_cross_log_aggregation
+  risk_turn_002_cross_log_aggregation -->|observed_mode| steering_shift_to_hazard_model
+  steering_shift_to_hazard_model -->|contributes| outcome_turn_002_cross_log_aggregation
+  dimension_model_uncertainty_risk -->|0.333| risk_turn_002_cross_log_aggregation
+  risk_corpus_chatgpt_crash_2026_06_07 -->|contains| turn_turn_003_culpability_frame
+  turn_turn_003_culpability_frame -->|scores| risk_turn_003_culpability_frame
+  risk_turn_003_culpability_frame -->|steers| outcome_turn_003_culpability_frame
+  risk_turn_003_culpability_frame -->|observed_mode| steering_qualify_causality
+  steering_qualify_causality -->|contributes| outcome_turn_003_culpability_frame
+  risk_turn_003_culpability_frame -->|observed_mode| steering_avoid_attribution
+  steering_avoid_attribution -->|contributes| outcome_turn_003_culpability_frame
+  risk_turn_003_culpability_frame -->|observed_mode| steering_separate_proof_from_hypothesis
+  steering_separate_proof_from_hypothesis -->|contributes| outcome_turn_003_culpability_frame
+  risk_turn_003_culpability_frame -->|observed_mode| steering_shift_to_hazard_model
+  steering_shift_to_hazard_model -->|contributes| outcome_turn_003_culpability_frame
+  risk_turn_003_culpability_frame -->|observed_mode| steering_counterfactual_replay
+  steering_counterfactual_replay -->|contributes| outcome_turn_003_culpability_frame
+  dimension_liability_risk -->|0.5| risk_turn_003_culpability_frame
+  dimension_attribution_risk -->|0.75| risk_turn_003_culpability_frame
+  dimension_evidence_quality_risk -->|0.25| risk_turn_003_culpability_frame
+  dimension_model_uncertainty_risk -->|0.333| risk_turn_003_culpability_frame

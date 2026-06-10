@@ -1,11 +1,14 @@
 import type { NoeticaChatRequest, NoeticaServiceStatus, NoeticaStreamDoneResult } from '@/lib/contracts/noeticaService'
 import type { SourceOSInteractionEvent } from '@/lib/contracts/sourceos/generated/sourceos-interaction-event'
+import type { TurnRiskTrace } from '@/lib/risk/riskAversion'
 
 export type NoeticaInteractionEventBuildContext = {
   occurredAt?: string
   actorRef?: string
   workroomRef?: string | null
   topicRef?: string | null
+  riskTrace?: TurnRiskTrace | null
+  outcomeObservatoryRef?: string | null
 }
 
 const DEFAULT_ACTOR_REF = 'urn:srcos:subject:user:operator'
@@ -106,6 +109,7 @@ export function buildNoeticaChatCompletionInteractionEvent(
   const occurredAt = context.occurredAt ?? result.timestamp ?? new Date().toISOString()
   const eventSlug = safeSlug(result.run_id)
   const memoryScopeRef = result.memory_scope_ref ?? `urn:srcos:memory-scope:${safeSlug(request.memory_scope)}`
+  const riskPayload = buildRiskAversionPayload(context)
 
   return {
     interactionEventId: `urn:srcos:interaction-event:noetica-chat-completion-${eventSlug}`,
@@ -156,8 +160,8 @@ export function buildNoeticaChatCompletionInteractionEvent(
     },
     steeringIntent: {
       steeringKind: request.steering ? 'sourceos_local' : 'none',
-      featureRef: null,
-      strength: null,
+      featureRef: context.riskTrace ? `urn:noetica:risk-trace:${safeSlug(context.riskTrace.turnId)}` : null,
+      strength: context.riskTrace?.riskVector.aggregateScore ?? null,
       status: result.steering_applied ? 'applied' : 'noop'
     },
     governanceTrace: {
@@ -180,7 +184,8 @@ export function buildNoeticaChatCompletionInteractionEvent(
       summary: 'Noetica chat completion returned through the typed transport boundary.',
       transportBoundary: 'lib/client/noeticaTransport.ts',
       runtimeBoundary: 'local-service-or-next-fallback',
-      contentLength: result.content.length
+      contentLength: result.content.length,
+      ...riskPayload
     },
     sourceEventRefs: [],
     redactionRefs: [],
@@ -203,6 +208,18 @@ export function assertNoeticaInteractionEventIsExportable(event: SourceOSInterac
 
   if (event.payloadMode === 'summary' && typeof event.payload?.summary !== 'string') {
     throw new Error('summary payload requires payload.summary')
+  }
+}
+
+function buildRiskAversionPayload(context: NoeticaInteractionEventBuildContext): Record<string, unknown> {
+  if (!context.riskTrace && !context.outcomeObservatoryRef) {
+    return {}
+  }
+
+  return {
+    outcomeObservatoryRef: context.outcomeObservatoryRef ?? null,
+    riskAversionTrace: context.riskTrace ?? null,
+    riskAssessmentVersion: context.riskTrace?.schemaVersion ?? 'noetica.turn_risk_trace.v0.1'
   }
 }
 

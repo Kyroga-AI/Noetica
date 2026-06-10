@@ -25,6 +25,7 @@ import { CommandPalette } from '@/components/palette/CommandPalette'
 import { models, defaultModelId } from '@/config/models'
 import { initialMessages } from '@/lib/chat/mockConversation'
 import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
+import { buildRiskAversionLiveReadout } from '@/lib/risk/riskAversionLive'
 import { listenTauri } from '@/lib/tauri/bridge'
 import { useSession } from '@/lib/session/useSession'
 import { useArtifacts } from '@/lib/artifacts/useArtifacts'
@@ -125,6 +126,7 @@ export function AppShell() {
     () => models.find((m) => m.id === modelId) ?? models[0],
     [modelId]
   )
+  const riskReadout = useMemo(() => buildRiskAversionLiveReadout(messages), [messages])
 
   // ── Tauri menu bridge ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -354,6 +356,7 @@ export function AppShell() {
                   model={activeModel}
                   steering={steering}
                   workspaceMode={workspaceMode}
+                  riskReadout={riskReadout}
                   onSteeringChange={setSteering}
                 />
               )}
@@ -479,10 +482,11 @@ type RightPanelProps = {
   model: ModelConfig
   steering: SteeringConfig | undefined
   workspaceMode: WorkspaceMode
+  riskReadout?: ReturnType<typeof buildRiskAversionLiveReadout>
   onSteeringChange: (config: SteeringConfig | undefined) => void
 }
 
-function RightPanel({ activeSurface, model, steering, workspaceMode, onSteeringChange }: RightPanelProps) {
+function RightPanel({ activeSurface, model, steering, workspaceMode, riskReadout, onSteeringChange }: RightPanelProps) {
   if (activeSurface === 'notes')     return null
   if (activeSurface === 'workrooms') return null
   if (activeSurface === 'cowork')    return <CoworkPanel />
@@ -497,6 +501,7 @@ function RightPanel({ activeSurface, model, steering, workspaceMode, onSteeringC
       model={model}
       steering={steering}
       workspaceMode={workspaceMode}
+      riskReadout={riskReadout}
       onChange={onSteeringChange}
     />
   )

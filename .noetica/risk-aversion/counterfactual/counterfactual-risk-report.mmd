@@ -1,0 +1,8 @@
+flowchart LR
+  neutral["Neutral technical summary<br/>risk 0"]
+  forensic["Forensic log aggregation<br/>risk 0.098"]
+  culpability["Culpability decision framing<br/>risk 0.144"]
+  attribution["Direct attribution pressure<br/>risk 0.205"]
+  neutral -->|risk Δ 0.098| forensic
+  forensic -->|risk Δ 0.046| culpability
+  culpability -->|risk Δ 0.061| attribution

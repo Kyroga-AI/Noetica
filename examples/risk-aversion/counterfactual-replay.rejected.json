@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "noetica.counterfactual_replay.v0.1",
+  "replayId": "counterfactual-risk-aversion-rejected-0001",
+  "title": "Rejected counterfactual replay fixture",
+  "description": "Missing required attribution variant and invalid ordering.",
+  "expectedOrdering": [
+    "neutral",
+    "attribution",
+    "forensic"
+  ],
+  "variants": [
+    {
+      "variantId": "neutral",
+      "label": "Neutral",
+      "userText": "Summarize the crash.",
+      "assistantText": "This is a technical crash summary.",
+      "expectedRiskBand": "low"
+    }
+  ]
+}

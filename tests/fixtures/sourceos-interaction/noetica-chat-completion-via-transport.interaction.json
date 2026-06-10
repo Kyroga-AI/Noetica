@@ -47,8 +47,8 @@
   },
   "steeringIntent": {
     "steeringKind": "none",
-    "featureRef": null,
-    "strength": null,
+    "featureRef": "urn:noetica:risk-trace:turn-003-culpability-frame",
+    "strength": 0.52,
     "status": "noop"
   },
   "governanceTrace": {
@@ -66,17 +66,26 @@
     "providerRouteEvidenceRef": "urn:srcos:evidence:noetica-transport-route-0001",
     "agentPlaneRunRef": null,
     "evidenceRefs": [
-      "urn:srcos:evidence:noetica-transport-response-0001"
+      "urn:srcos:evidence:noetica-transport-response-0001",
+      "urn:noetica:risk-trace:turn-003-culpability-frame"
     ],
-    "replayRef": null
+    "replayRef": "urn:noetica:counterfactual-replay:counterfactual-risk-aversion-chatgpt-crash-0001"
   },
   "payloadMode": "summary",
   "payload": {
     "summary": "Noetica chat completion returned through the typed transport boundary. This fixture is non-authoritative until runtime emission is implemented.",
     "transportBoundary": "lib/client/noeticaTransport.ts",
-    "runtimeBoundary": "local-service-or-next-fallback"
+    "runtimeBoundary": "local-service-or-next-fallback",
+    "outcomeObservatoryRef": "urn:noetica:outcome-observatory:risk-aversion-v0.1",
+    "riskAssessmentVersion": "noetica.turn_risk_trace.v0.1",
+    "riskAversionTraceRef": "urn:noetica:risk-trace:turn-003-culpability-frame",
+    "riskAversionTracePath": ".noetica/risk-aversion/traces/turn-003-culpability-frame.risk-trace.json",
+    "riskAversionTraceHash": "sha256:risk-aversion-trace-hash-placeholder",
+    "counterfactualReplayRef": "urn:noetica:counterfactual-replay:counterfactual-risk-aversion-chatgpt-crash-0001"
   },
-  "sourceEventRefs": [],
+  "sourceEventRefs": [
+    "urn:noetica:risk-trace:turn-003-culpability-frame"
+  ],
   "redactionRefs": [],
   "integrity": null
 }

@@ -1,0 +1,6 @@
+{
+  "schemaVersion": "noetica.risk_aversion_corpus.v0.1",
+  "corpusId": "risk-corpus-rejected-missing-turns",
+  "title": "Rejected risk-aversion fixture",
+  "description": "Missing turns; validator must reject this fixture."
+}
