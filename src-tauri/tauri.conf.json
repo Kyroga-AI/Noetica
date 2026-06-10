@@ -41,7 +41,7 @@
     ],
     "macOS": {
       "entitlements": null,
-      "signingIdentity": "-",
+      "signingIdentity": null,
       "providerShortName": null,
       "hardenedRuntime": false
     }
