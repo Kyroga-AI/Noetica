@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Sidebar } from '@/components/shell/Sidebar'
 import { Topbar } from '@/components/shell/Topbar'
 import { MessageList } from '@/components/chat/MessageList'
@@ -24,6 +24,7 @@ import { models, defaultModelId } from '@/config/models'
 import { initialMessages } from '@/lib/chat/mockConversation'
 import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
 import { listenTauri } from '@/lib/tauri/bridge'
+import { useSession } from '@/lib/session/useSession'
 import type { ChatMessage } from '@/lib/types/message'
 import type { SteeringConfig } from '@/lib/types/steering'
 import type { NoeticaMode } from '@/lib/client/noeticaTransport'
@@ -42,11 +43,42 @@ const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
 }
 
 export function AppShell() {
-  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
-  const [modelId, setModelId] = useState(defaultModelId)
-  const [mode, setMode] = useState<NoeticaMode>('standalone')
+  // ── Session persistence ────────────────────────────────────────────────────
+  const {
+    hydrated,
+    activeSession,
+    sessions,
+    newSession,
+    switchSession,
+    removeSession,
+    updateMessages,
+    updateSurface,
+    updateModelId,
+  } = useSession(defaultModelId)
+
+  // ── Derive surface / messages from active session (with local overrides) ──
   const [activeSurface, setActiveSurface] = useState<ActiveSurface>('chat')
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('Chat')
+  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
+  const [modelId, setModelId] = useState(defaultModelId)
+
+  // Hydrate local state from restored session once on mount
+  useEffect(() => {
+    if (!hydrated) return
+    if (activeSession) {
+      setActiveSurface(activeSession.surface)
+      setWorkspaceMode(activeSession.workspaceMode)
+      setMessages(activeSession.messages.length > 0 ? activeSession.messages : initialMessages)
+      setModelId(activeSession.modelId)
+    } else {
+      // No saved session — create one for the current initial state
+      newSession({ surface: 'chat', workspaceMode: 'Chat', messages: initialMessages })
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated])
+
+  // ── Shell state ────────────────────────────────────────────────────────────
+  const [mode, setMode] = useState<NoeticaMode>('standalone')
   const [steering, setSteering] = useState<SteeringConfig | undefined>()
   const [isStreaming, setIsStreaming] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -61,15 +93,15 @@ export function AppShell() {
     [modelId]
   )
 
-  // --- Tauri menu event bridge ---
+  // ── Tauri menu bridge ──────────────────────────────────────────────────────
   useEffect(() => {
     let unlisten: (() => void) | undefined
     listenTauri('noetica:menu', (id) => {
       switch (id) {
-        case 'settings':      openSettings(); break
-        case 'new_chat':      handleNewChat(); break
-        case 'command_palette': setPaletteOpen(true); break
-        case 'toggle_sidebar':  setSidebarCollapsed((c) => !c); break
+        case 'settings':         openSettings(); break
+        case 'new_chat':         handleNewChat(); break
+        case 'command_palette':  setPaletteOpen(true); break
+        case 'toggle_sidebar':   setSidebarCollapsed((c) => !c); break
         case 'toggle_inspector': setInspectorVisible((v) => !v); break
       }
     }).then((fn) => { unlisten = fn })
@@ -77,7 +109,7 @@ export function AppShell() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // --- Keyboard shortcuts (browser + Tauri webview) ---
+  // ── Keyboard shortcuts ─────────────────────────────────────────────────────
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       const mod = e.metaKey || e.ctrlKey
@@ -93,20 +125,41 @@ export function AppShell() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // ── Actions ────────────────────────────────────────────────────────────────
+
   function openSettings(category = 'appearance') {
     setSettingsCategory(category)
     setSettingsOpen(true)
   }
 
   function handleNewChat() {
-    setMessages(initialMessages)
+    const msgs = initialMessages
+    setMessages(msgs)
     setActiveSurface('chat')
     setWorkspaceMode('Chat')
+    newSession({ surface: 'chat', workspaceMode: 'Chat', messages: msgs })
   }
 
   function handleSurfaceChange(surface: ActiveSurface) {
+    const wm = surfaceToWorkspaceMode[surface]
     setActiveSurface(surface)
-    setWorkspaceMode(surfaceToWorkspaceMode[surface])
+    setWorkspaceMode(wm)
+    updateSurface(surface, wm)
+  }
+
+  function handleModelChange(id: string) {
+    setModelId(id)
+    updateModelId(id)
+  }
+
+  function handleSwitchSession(id: string) {
+    const s = sessions.find((sess) => sess.id === id)
+    if (!s) return
+    switchSession(id)
+    setActiveSurface(s.surface)
+    setWorkspaceMode(s.workspaceMode)
+    setMessages(s.messages.length > 0 ? s.messages : initialMessages)
+    setModelId(s.modelId)
   }
 
   async function handleSend(content: string) {
@@ -124,28 +177,29 @@ export function AppShell() {
       content: '',
       created_at: new Date().toISOString(),
     }
-    const outboundUserMessage: ChatMessage = {
+    const outbound: ChatMessage = {
       ...userMessage,
       content: workspaceMode !== 'Chat' ? `[${workspaceMode}] ${content}` : content,
     }
 
-    setMessages((current) => [...current, userMessage, assistantMessage])
+    const next = [...messages, userMessage, assistantMessage]
+    setMessages(next)
     setIsStreaming(true)
 
     try {
       await sendNoeticaChat(
         {
-          session_id: 'local-session',
+          session_id: activeSession?.id ?? 'local-session',
           mode,
           model_id: modelId,
-          messages: [...messages, outboundUserMessage],
+          messages: [...messages, outbound],
           steering,
           memory_scope: `noetica-session-local:${workspaceMode.toLowerCase()}`,
         },
         {
           onMeta: (governance) => updateAssistant(assistantId, { governance }),
           onDelta: (delta) => appendAssistantContent(assistantId, delta),
-          onDone: (result) =>
+          onDone: (result) => {
             updateAssistant(assistantId, {
               content: result.content,
               governance: {
@@ -169,13 +223,16 @@ export function AppShell() {
                 latency_ms: result.latency_ms,
               },
               steering_result: result.steering_applied,
-            }),
+            })
+          },
           onError: (error) =>
             updateAssistant(assistantId, { content: `Noetica route error: ${error}` }),
         }
       )
     } finally {
       setIsStreaming(false)
+      // Persist after streaming completes so we capture the full assistant message
+      setMessages((current) => { updateMessages(current); return current })
     }
   }
 
@@ -199,6 +256,11 @@ export function AppShell() {
             activeSurface={activeSurface}
             onSurfaceChange={handleSurfaceChange}
             onOpenSettings={() => openSettings()}
+            sessions={sessions}
+            activeSessionId={activeSession?.id ?? null}
+            onSwitchSession={handleSwitchSession}
+            onRemoveSession={removeSession}
+            onNewChat={handleNewChat}
           />
         )}
         {sidebarCollapsed && (
@@ -214,13 +276,12 @@ export function AppShell() {
             modelId={modelId}
             mode={mode}
             onModeChange={setMode}
-            onModelChange={setModelId}
+            onModelChange={handleModelChange}
             onOpenSettings={() => openSettings()}
             onOpenPalette={() => setPaletteOpen(true)}
           />
 
           <div className="flex min-h-0 flex-1 overflow-hidden">
-            {/* Center workspace */}
             <div
               className={`grid min-h-0 flex-1 ${
                 inspectorVisible && !utilityPanel
@@ -236,7 +297,6 @@ export function AppShell() {
                 onSend={handleSend}
                 onWorkspaceModeChange={setWorkspaceMode}
               />
-
               {inspectorVisible && !utilityPanel && (
                 <RightPanel
                   activeSurface={activeSurface}
@@ -247,8 +307,6 @@ export function AppShell() {
                 />
               )}
             </div>
-
-            {/* Utility rail — icon strip + optional panel, always on far right */}
             <UtilityRail activePanel={utilityPanel} onSelect={setUtilityPanel} />
           </div>
         </section>
@@ -259,7 +317,6 @@ export function AppShell() {
         onClose={() => setSettingsOpen(false)}
         initialCategory={settingsCategory}
       />
-
       <CommandPalette
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}
@@ -273,7 +330,7 @@ export function AppShell() {
   )
 }
 
-// --- Collapsed icon-only sidebar ---
+// ─── Collapsed icon rail ──────────────────────────────────────────────────────
 
 type CollapsedRailProps = {
   activeSurface: ActiveSurface
@@ -289,7 +346,7 @@ const surfaceIcons: { id: ActiveSurface; label: string; icon: string }[] = [
   { id: 'code',      label: 'Source',    icon: '⌥'  },
   { id: 'evaluate',  label: 'Evaluate',  icon: '📊' },
   { id: 'operate',   label: 'Operate',   icon: '📈' },
-  { id: 'govern',    label: 'Govern',    icon: '🛡' },
+  { id: 'govern',    label: 'Govern',    icon: '🛡'  },
 ]
 
 function CollapsedRail({ activeSurface, onSurfaceChange, onExpand }: CollapsedRailProps) {
@@ -324,7 +381,7 @@ function CollapsedRail({ activeSurface, onSurfaceChange, onExpand }: CollapsedRa
   )
 }
 
-// --- Center workspace ---
+// ─── Center workspace ─────────────────────────────────────────────────────────
 
 type CenterProps = {
   activeSurface: ActiveSurface
@@ -357,7 +414,7 @@ function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, 
   )
 }
 
-// --- Right panel ---
+// ─── Right panel ──────────────────────────────────────────────────────────────
 
 type RightPanelProps = {
   activeSurface: ActiveSurface
@@ -375,7 +432,6 @@ function RightPanel({ activeSurface, model, steering, workspaceMode, onSteeringC
   if (activeSurface === 'evaluate')  return <EvaluatePanel />
   if (activeSurface === 'operate')   return <GovernPanel />
   if (activeSurface === 'govern')    return <GovernPanel />
-
   return (
     <SteeringPanel
       model={model}

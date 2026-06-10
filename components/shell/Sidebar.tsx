@@ -3,10 +3,17 @@
 import { useState } from 'react'
 import type { ActiveSurface } from '@/lib/types/surface'
 
+import type { WorkspaceSession } from '@/lib/session/types'
+
 type SidebarProps = {
   activeSurface: ActiveSurface
   onSurfaceChange: (surface: ActiveSurface) => void
   onOpenSettings: () => void
+  sessions?: WorkspaceSession[]
+  activeSessionId?: string | null
+  onSwitchSession?: (id: string) => void
+  onRemoveSession?: (id: string) => void
+  onNewChat?: () => void
 }
 
 type SurfaceItem = {
@@ -157,7 +164,11 @@ const surfaceItems: SurfaceItem[] = [
   }
 ]
 
-export function Sidebar({ activeSurface, onSurfaceChange, onOpenSettings }: SidebarProps) {
+export function Sidebar({
+  activeSurface, onSurfaceChange, onOpenSettings,
+  sessions = [], activeSessionId = null,
+  onSwitchSession, onRemoveSession, onNewChat,
+}: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
 
   if (collapsed) {
@@ -202,7 +213,7 @@ export function Sidebar({ activeSurface, onSurfaceChange, onOpenSettings }: Side
       <div className="flex items-center justify-between px-2 pb-3">
         <button
           className="flex w-full items-center justify-center rounded-xl border border-[#bfdbfe] bg-white px-3 py-2 text-xs font-semibold text-[#0f172a] shadow-sm transition hover:bg-[#f8fafc]"
-          onClick={() => onSurfaceChange('chat')}
+          onClick={onNewChat ?? (() => onSurfaceChange('chat'))}
         >
           + New workspace
         </button>
@@ -217,6 +228,36 @@ export function Sidebar({ activeSurface, onSurfaceChange, onOpenSettings }: Side
 
       {/* Navigation */}
       <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-1">
+        {/* Recent sessions — shown when Chat surface is active */}
+        {activeSurface === 'chat' && sessions.length > 0 && (
+          <div className="mb-2">
+            <div className="px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#94a3b8]">Recent</div>
+            {sessions.slice(0, 8).map((s) => (
+              <div key={s.id} className="group flex items-center gap-1">
+                <button
+                  onClick={() => onSwitchSession?.(s.id)}
+                  className={`flex min-w-0 flex-1 items-center gap-2 rounded-xl px-2.5 py-1.5 text-left text-xs transition ${
+                    s.id === activeSessionId
+                      ? 'bg-[#dbeafe] font-semibold text-[#0f172a]'
+                      : 'text-[#64748b] hover:bg-white hover:text-[#0f172a]'
+                  }`}
+                >
+                  <span className="truncate">{s.title}</span>
+                </button>
+                <button
+                  onClick={() => onRemoveSession?.(s.id)}
+                  className="hidden shrink-0 h-5 w-5 items-center justify-center rounded text-[#94a3b8] transition hover:text-[#ef4444] group-hover:flex"
+                  title="Remove"
+                >
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
+                    <path d="M2 2l6 6M8 2L2 8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                  </svg>
+                </button>
+              </div>
+            ))}
+            <div className="my-1.5 border-t border-[#d7dee8]" />
+          </div>
+        )}
         {surfaceItems.map((item) => {
           const isActive = activeSurface === item.id
           return (
