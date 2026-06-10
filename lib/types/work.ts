@@ -21,6 +21,8 @@ export interface WorkItem {
   workroomId?: string
   sprintId?: string
   epicId?: string
+  tags: string[]
+  order: number
   relatedArtifactIds: string[]
   relatedNoteIds: string[]
   sourceosEventRef?: string
