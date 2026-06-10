@@ -25,6 +25,7 @@ import { initialMessages } from '@/lib/chat/mockConversation'
 import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
 import { listenTauri } from '@/lib/tauri/bridge'
 import { useSession } from '@/lib/session/useSession'
+import { useArtifacts } from '@/lib/artifacts/useArtifacts'
 import type { ChatMessage } from '@/lib/types/message'
 import type { SteeringConfig } from '@/lib/types/steering'
 import type { NoeticaMode } from '@/lib/client/noeticaTransport'
@@ -76,6 +77,24 @@ export function AppShell() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated])
+
+  // ── Artifacts ─────────────────────────────────────────────────────────────
+  const { createArtifact } = useArtifacts()
+
+  function handleExtractArtifact(content: string, messageId: string) {
+    // Auto-detect type: HTML if starts with <, code block if has ``` fence, else document
+    const trimmed = content.trim()
+    const isHtml = trimmed.startsWith('<') && trimmed.includes('</')
+    const codeMatch = trimmed.match(/^```(\w+)?\n([\s\S]+?)```/)
+    if (isHtml) {
+      createArtifact({ type: 'html', title: 'HTML artifact', content: trimmed, messageId })
+    } else if (codeMatch) {
+      const lang = codeMatch[1] ?? 'other'
+      createArtifact({ type: 'code', title: `Code — ${lang}`, language: lang, content: codeMatch[2], messageId })
+    } else {
+      createArtifact({ type: 'document', title: content.slice(0, 50).trim() || 'Document', content: trimmed, messageId })
+    }
+  }
 
   // ── Shell state ────────────────────────────────────────────────────────────
   const [mode, setMode] = useState<NoeticaMode>('standalone')
@@ -296,6 +315,7 @@ export function AppShell() {
                 workspaceMode={workspaceMode}
                 onSend={handleSend}
                 onWorkspaceModeChange={setWorkspaceMode}
+                onExtractArtifact={handleExtractArtifact}
               />
               {inspectorVisible && !utilityPanel && (
                 <RightPanel
@@ -390,9 +410,10 @@ type CenterProps = {
   workspaceMode: WorkspaceMode
   onSend: (content: string) => Promise<void>
   onWorkspaceModeChange: (mode: WorkspaceMode) => void
+  onExtractArtifact: (content: string, messageId: string) => void
 }
 
-function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, onSend, onWorkspaceModeChange }: CenterProps) {
+function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, onSend, onWorkspaceModeChange, onExtractArtifact }: CenterProps) {
   if (activeSurface === 'cowork')    return <CoworkSurface />
   if (activeSurface === 'projects')  return <ProjectsSurface />
   if (activeSurface === 'artifacts') return <ArtifactsSurface />
@@ -403,7 +424,7 @@ function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, 
 
   return (
     <section className="flex min-h-0 flex-col">
-      <MessageList messages={messages} isStreaming={isStreaming} />
+      <MessageList messages={messages} isStreaming={isStreaming} onExtractArtifact={onExtractArtifact} />
       <InputArea
         onSend={onSend}
         disabled={isStreaming}
