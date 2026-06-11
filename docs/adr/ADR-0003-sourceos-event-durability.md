@@ -1,6 +1,6 @@
 # ADR-0003: SourceOS Interaction Event Durability
 
-Status: proposed  
+Status: accepted  
 Issue: `SocioProphet/Noetica#51`
 
 ## Context
