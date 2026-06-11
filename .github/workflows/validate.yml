@@ -6,9 +6,15 @@ on:
     branches:
       - main
 
+permissions:
+  contents: read
+
 jobs:
   nextjs:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -49,6 +55,9 @@ jobs:
 
   tauri-rust-macos:
     runs-on: macos-latest
+    permissions:
+      contents: read
+      actions: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -57,7 +66,9 @@ jobs:
         with:
           node-version: 20
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b
+        with:
+          toolchain: stable
       - name: Materialize Tauri context inputs
         run: |
           npm run tauri:icon
@@ -96,7 +107,9 @@ jobs:
         with:
           node-version: 20
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b
+        with:
+          toolchain: stable
       - name: Install dependencies
         run: npm install
       - name: Tauri icon materializer
