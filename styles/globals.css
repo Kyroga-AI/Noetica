@@ -170,6 +170,7 @@ html:not([data-theme="light"]) .hover\:bg-\[\#bbf7d0\]:hover  { background-color
 html:not([data-theme="light"]) .hover\:bg-\[\#c7d2fe\]:hover  { background-color: rgba(165,180,252,0.20) !important; }
 html:not([data-theme="light"]) .hover\:bg-\[\#f0fdf4\]:hover  { background-color: rgba(34,197,94,0.10) !important; }
 html:not([data-theme="light"]) .hover\:bg-\[\#fef9c3\]:hover  { background-color: rgba(161,98,7,0.12) !important; }
+html:not([data-theme="light"]) .focus\:bg-white:focus          { background-color: var(--color-background-primary) !important; }
 
 /* Additional semantic color gaps found in settings panels */
 html:not([data-theme="light"]) .bg-\[\#fefce8\]    { background-color: rgba(161,98,7,0.10) !important; }
@@ -192,10 +193,16 @@ html:not([data-theme="light"]) .text-\[\#b91c1c\]    { color: #ef4444 !important
 html:not([data-theme="light"]) .bg-white\/80 { background-color: var(--color-background-secondary) !important; }
 html:not([data-theme="light"]) .bg-white\/60 { background-color: var(--color-background-secondary) !important; }
 
-/* Tailwind semantic color names used in GovernanceTrail / RuntimeStatus / RiskAversionPanel */
+/* Tailwind semantic color names (GovernanceTrail / RuntimeStatus / RiskAversionPanel / SteeringDiff / ModelPicker) */
+html:not([data-theme="light"]) .bg-blue-50        { background-color: rgba(29,78,216,0.10) !important; }
+html:not([data-theme="light"]) .text-blue-700     { color: #60a5fa !important; }
 html:not([data-theme="light"]) .text-amber-700    { color: #d97706 !important; }
+html:not([data-theme="light"]) .text-slate-900    { color: var(--color-text-primary) !important; }
+html:not([data-theme="light"]) .text-slate-800    { color: var(--color-text-primary) !important; }
 html:not([data-theme="light"]) .text-slate-700    { color: var(--color-text-primary) !important; }
+html:not([data-theme="light"]) .text-slate-600    { color: var(--color-text-secondary) !important; }
 html:not([data-theme="light"]) .text-slate-500    { color: var(--color-text-secondary) !important; }
+html:not([data-theme="light"]) .border-blue-200   { border-color: rgba(147,197,253,0.30) !important; }
 html:not([data-theme="light"]) .border-blue-100   { border-color: rgba(147,197,253,0.20) !important; }
 html:not([data-theme="light"]) .border-slate-200  { border-color: var(--color-border-tertiary) !important; }
 

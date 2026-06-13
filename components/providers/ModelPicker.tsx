@@ -20,7 +20,7 @@ const providerLabel: Record<Provider, string> = {
 export function ModelPicker({ value, onChange }: ModelPickerProps) {
   return (
     <select
-      className="w-full max-w-md rounded-xl border border-blue-200 bg-white px-3 py-2 text-sm font-medium text-slate-800"
+      className="w-full max-w-md rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm font-medium text-[var(--color-text-primary)]"
       value={value}
       onChange={(event) => onChange(event.target.value)}
     >
