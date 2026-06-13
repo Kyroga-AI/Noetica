@@ -195,13 +195,22 @@ html:not([data-theme="light"]) .bg-white\/60 { background-color: var(--color-bac
 
 /* Tailwind semantic color names (GovernanceTrail / RuntimeStatus / RiskAversionPanel / SteeringDiff / ModelPicker) */
 html:not([data-theme="light"]) .bg-blue-50        { background-color: rgba(29,78,216,0.10) !important; }
+html:not([data-theme="light"]) .bg-amber-50       { background-color: rgba(251,191,36,0.10) !important; }
+html:not([data-theme="light"]) .bg-slate-50       { background-color: var(--color-background-secondary) !important; }
+html:not([data-theme="light"]) .bg-slate-100      { background-color: var(--color-background-tertiary) !important; }
+html:not([data-theme="light"]) .bg-slate-200      { background-color: var(--color-background-tertiary) !important; }
+html:not([data-theme="light"]) .bg-slate-700      { background-color: var(--color-text-tertiary) !important; }
 html:not([data-theme="light"]) .text-blue-700     { color: #60a5fa !important; }
+html:not([data-theme="light"]) .text-blue-600     { color: #60a5fa !important; }
+html:not([data-theme="light"]) .text-amber-900    { color: #d97706 !important; }
 html:not([data-theme="light"]) .text-amber-700    { color: #d97706 !important; }
+html:not([data-theme="light"]) .text-slate-950    { color: var(--color-text-primary) !important; }
 html:not([data-theme="light"]) .text-slate-900    { color: var(--color-text-primary) !important; }
 html:not([data-theme="light"]) .text-slate-800    { color: var(--color-text-primary) !important; }
 html:not([data-theme="light"]) .text-slate-700    { color: var(--color-text-primary) !important; }
 html:not([data-theme="light"]) .text-slate-600    { color: var(--color-text-secondary) !important; }
 html:not([data-theme="light"]) .text-slate-500    { color: var(--color-text-secondary) !important; }
+html:not([data-theme="light"]) .border-amber-200  { border-color: rgba(251,191,36,0.25) !important; }
 html:not([data-theme="light"]) .border-blue-200   { border-color: rgba(147,197,253,0.30) !important; }
 html:not([data-theme="light"]) .border-blue-100   { border-color: rgba(147,197,253,0.20) !important; }
 html:not([data-theme="light"]) .border-slate-200  { border-color: var(--color-border-tertiary) !important; }
