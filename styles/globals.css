@@ -192,11 +192,16 @@ html:not([data-theme="light"]) .text-\[\#b91c1c\]    { color: #ef4444 !important
 html:not([data-theme="light"]) .bg-white\/80 { background-color: var(--color-background-secondary) !important; }
 html:not([data-theme="light"]) .bg-white\/60 { background-color: var(--color-background-secondary) !important; }
 
-/* Tailwind semantic color names used in GovernanceTrail / RuntimeStatus */
-html:not([data-theme="light"]) .text-amber-700  { color: #d97706 !important; }
-html:not([data-theme="light"]) .text-slate-700  { color: var(--color-text-primary) !important; }
-html:not([data-theme="light"]) .text-slate-500  { color: var(--color-text-secondary) !important; }
-html:not([data-theme="light"]) .border-blue-100 { border-color: rgba(147,197,253,0.20) !important; }
+/* Tailwind semantic color names used in GovernanceTrail / RuntimeStatus / RiskAversionPanel */
+html:not([data-theme="light"]) .text-amber-700    { color: #d97706 !important; }
+html:not([data-theme="light"]) .text-slate-700    { color: var(--color-text-primary) !important; }
+html:not([data-theme="light"]) .text-slate-500    { color: var(--color-text-secondary) !important; }
+html:not([data-theme="light"]) .border-blue-100   { border-color: rgba(147,197,253,0.20) !important; }
+html:not([data-theme="light"]) .border-slate-200  { border-color: var(--color-border-tertiary) !important; }
+
+/* disabled: state overrides (SteeringPanel inputs) */
+html:not([data-theme="light"]) .disabled\:bg-\[\#f8fafc\]:disabled { background-color: var(--color-background-secondary) !important; }
+html:not([data-theme="light"]) .disabled\:text-\[\#94a3b8\]:disabled { color: var(--color-text-tertiary) !important; }
 
 * {
   box-sizing: border-box;
