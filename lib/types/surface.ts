@@ -5,7 +5,10 @@ export type ActiveSurface =
   | 'cowork'
   | 'projects'
   | 'artifacts'
-  | 'code'       // Source / Forge Workspace
+  | 'code'
   | 'evaluate'
-  | 'operate'    // Operational Intelligence
+  | 'operate'
   | 'govern'
+  | 'tune'
+  | 'holographme'
+  | 'marketplace'

@@ -14,4 +14,7 @@ export type ProviderCallResult = {
   latency_ms: number
 }
 
-export type ProviderStreamInput = ProviderCallInput
+export type ProviderStreamInput = ProviderCallInput & {
+  thinking_budget?: number
+  apiKey?: string
+}

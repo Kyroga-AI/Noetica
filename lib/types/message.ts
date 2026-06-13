@@ -10,6 +10,8 @@ export interface ChatMessage {
   content: string
   created_at: string
   workspace_mode?: string
+  thinking?: string
+  fanout_model?: string
   governance?: GovernanceTrace
   steering_result?: SteeringResult
   attachments?: PendingAttachment[]

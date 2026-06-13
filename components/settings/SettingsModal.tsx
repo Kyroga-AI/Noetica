@@ -6,6 +6,7 @@ import { ModelsPanel } from './panels/ModelsPanel'
 import { RuntimePanel } from './panels/RuntimePanel'
 import { ConnectorsPanel } from './panels/ConnectorsPanel'
 import { MemoryPanel } from './panels/MemoryPanel'
+import { FanoutPanel } from './panels/FanoutPanel'
 import { DeveloperPanel } from './panels/DeveloperPanel'
 
 type Category = {
@@ -59,6 +60,17 @@ function IconMemory() {
     </svg>
   )
 }
+function IconFanout() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <circle cx="2.5" cy="8" r="1.5" stroke="currentColor" strokeWidth="1.3" />
+      <circle cx="13.5" cy="3.5" r="1.5" stroke="currentColor" strokeWidth="1.3" />
+      <circle cx="13.5" cy="8" r="1.5" stroke="currentColor" strokeWidth="1.3" />
+      <circle cx="13.5" cy="12.5" r="1.5" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M4 8h3.5M7.5 8l4.5-4M7.5 8h4.5M7.5 8l4.5 4.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  )
+}
 function IconDeveloper() {
   return (
     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
@@ -73,6 +85,7 @@ const categories: Category[] = [
   { id: 'runtime', label: 'Runtime', icon: <IconRuntime />, panel: <RuntimePanel /> },
   { id: 'connectors', label: 'Connectors', icon: <IconConnectors />, panel: <ConnectorsPanel />, badge: 'MCP' },
   { id: 'memory', label: 'Memory', icon: <IconMemory />, panel: <MemoryPanel /> },
+  { id: 'fanout', label: 'Fan-out', icon: <IconFanout />, panel: <FanoutPanel /> },
   { id: 'developer', label: 'Developer', icon: <IconDeveloper />, panel: <DeveloperPanel /> },
 ]
 

@@ -24,6 +24,19 @@ export const defaultSettings: NoeticaSettings = {
   defaultEvidenceLevel: 'standard',
   defaultPolicyProfile: 'default',
 
+  fanoutModels: ['claude-sonnet-4-6', 'gpt-4o'],
+  fanoutConcurrency: 3,
+
+  wakeWordEnabled: true,
+  voiceLanguage: 'en-US',
+
+  agentSlots: {
+    context: 'claude-sonnet-4-6',
+    mail: 'claude-sonnet-4-6',
+    calendar: 'claude-sonnet-4-6',
+    tasks: 'claude-sonnet-4-6',
+  },
+
   apiEndpointOverride: '',
   showRawEvents: false,
 }

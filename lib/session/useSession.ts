@@ -38,7 +38,7 @@ export function useSession(defaultModelId: string) {
     store.activeSessionId ? (store.sessions[store.activeSessionId] ?? null) : null
 
   const newSession = useCallback(
-    (opts: { surface: ActiveSurface; workspaceMode: WorkspaceMode; messages?: ChatMessage[] }) => {
+    (opts: { surface: ActiveSurface; workspaceMode: WorkspaceMode; messages?: ChatMessage[]; title?: string; parentId?: string }) => {
       const { store: next, session } = createSession(store, { ...opts, modelId: defaultModelId })
       mutate(next)
       return session
@@ -86,6 +86,15 @@ export function useSession(defaultModelId: string) {
     [store]
   )
 
+  const updateTitle = useCallback(
+    (title: string) => {
+      if (!store.activeSessionId) return
+      mutate(updateSession(store, store.activeSessionId, { title }))
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [store]
+  )
+
   return {
     hydrated,
     store,
@@ -97,5 +106,6 @@ export function useSession(defaultModelId: string) {
     updateMessages,
     updateSurface,
     updateModelId,
+    updateTitle,
   }
 }

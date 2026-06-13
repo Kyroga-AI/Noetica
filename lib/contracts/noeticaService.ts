@@ -24,6 +24,7 @@ export type NoeticaChatRequest = {
   messages: ChatMessage[]
   steering?: SteeringConfig
   memory_scope: string
+  thinking_budget?: number
   /** User-supplied API keys from browser settings — used when server env vars are absent. */
   provider_keys?: NoeticaProviderKeys
   /** When set, chat requests are proxied to this Agent Machine endpoint instead of calling providers directly. */

@@ -9,9 +9,11 @@ import type { WorkspaceMode } from '@/components/chat/InputArea'
 type SteeringPanelProps = {
   model: ModelConfig
   steering?: SteeringConfig
+  thinkingBudget?: number
   workspaceMode: WorkspaceMode
   riskReadout?: RiskAversionLiveReadout | null
   onChange: (config: SteeringConfig | undefined) => void
+  onThinkingBudgetChange: (budget: number | undefined) => void
 }
 
 const inspectors = [
@@ -22,9 +24,10 @@ const inspectors = [
   { label: 'Outcome', detail: 'Latency, route, task result, comparison' }
 ]
 
-export function SteeringPanel({ model, steering, workspaceMode, riskReadout, onChange }: SteeringPanelProps) {
+export function SteeringPanel({ model, steering, thinkingBudget, workspaceMode, riskReadout, onChange, onThinkingBudgetChange }: SteeringPanelProps) {
   const enabled = Boolean(steering)
   const canConfigureSteering = model.steering === 'full'
+  const supportsThinking = Boolean(model.extended_thinking)
 
   return (
     <aside className="hidden min-h-0 overflow-y-auto border-l border-[#d7dee8] bg-[#f8fafc] p-4 lg:block">
@@ -60,6 +63,33 @@ export function SteeringPanel({ model, steering, workspaceMode, riskReadout, onC
             ))}
           </div>
         </section>
+
+        {supportsThinking && (
+          <section className="rounded-2xl border border-[#d7dee8] bg-white p-4 shadow-sm">
+            <label className="flex items-center gap-2 text-sm text-[#334155]">
+              <input
+                type="checkbox"
+                checked={Boolean(thinkingBudget)}
+                onChange={(e) => onThinkingBudgetChange(e.target.checked ? 8000 : undefined)}
+              />
+              Extended thinking
+            </label>
+            {thinkingBudget && (
+              <div className="mt-3 space-y-1">
+                <input
+                  type="range"
+                  min="1000"
+                  max="32000"
+                  step="1000"
+                  value={thinkingBudget}
+                  className="w-full accent-[#1d4ed8]"
+                  onChange={(e) => onThinkingBudgetChange(Number(e.target.value))}
+                />
+                <div className="text-xs text-[#64748b]">Budget: {thinkingBudget.toLocaleString()} tokens</div>
+              </div>
+            )}
+          </section>
+        )}
 
         <section className="rounded-2xl border border-[#d7dee8] bg-white p-4 shadow-sm">
           <label className="flex items-center gap-2 text-sm text-[#334155]">

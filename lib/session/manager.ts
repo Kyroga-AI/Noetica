@@ -18,15 +18,16 @@ export function emptyStore(): SessionStore {
 
 export function createSession(
   store: SessionStore,
-  opts: { surface: ActiveSurface; workspaceMode: WorkspaceMode; modelId: string; messages?: ChatMessage[] }
+  opts: { surface: ActiveSurface; workspaceMode: WorkspaceMode; modelId: string; messages?: ChatMessage[]; title?: string; parentId?: SessionId }
 ): { store: SessionStore; session: WorkspaceSession } {
   const id: SessionId = crypto.randomUUID()
   const messages = (opts.messages ?? []).slice(-MAX_MESSAGES_PER_SESSION)
   const session: WorkspaceSession = {
-    id, title: deriveTitle(messages),
+    id, title: opts.title ?? deriveTitle(messages),
     surface: opts.surface, workspaceMode: opts.workspaceMode,
     messages, modelId: opts.modelId,
     createdAt: now(), updatedAt: now(),
+    ...(opts.parentId ? { parentId: opts.parentId } : {}),
   }
   let sessions = { ...store.sessions, [id]: session }
   // evict oldest non-pinned if over limit

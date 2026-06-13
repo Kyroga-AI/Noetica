@@ -7,36 +7,42 @@ import { readFilesAsAttachments, openNativeFilePicker } from '@/lib/attachments/
 import { isTauri } from '@/lib/tauri/bridge'
 import type { McpTool } from '@/lib/types/mcp'
 import { McpToolPicker } from '@/components/mcp/McpToolPicker'
+import { models } from '@/config/models'
 
 export type WorkspaceMode = 'Chat' | 'Cowork' | 'Code' | 'Benchmark'
 
 type InputAreaProps = {
   onSend: (content: string, attachments: PendingAttachment[], mcpTools?: string[]) => Promise<void>
+  onFanout?: (content: string, attachments: PendingAttachment[]) => Promise<void>
+  onStop?: () => void
   disabled?: boolean
+  fanoutModelCount?: number
   workspaceMode: WorkspaceMode
   onWorkspaceModeChange: (mode: WorkspaceMode) => void
   mcpTools?: McpTool[]
+  modelId?: string
+  onModelChange?: (id: string) => void
+  thinkingBudget?: number
+  onOpenPalette?: () => void
 }
-
-const modes: WorkspaceMode[] = ['Chat', 'Cowork', 'Code', 'Benchmark']
 
 const KIND_ICON: Record<string, string> = {
   image: '🖼',
-  pdf:   '📄',
-  text:  '📝',
-  code:  '⌥',
-  binary:'📦',
+  pdf: '📄',
+  text: '📝',
+  code: '⌥',
+  binary: '📦',
 }
 
 function AttachmentChip({ attachment, onRemove }: { attachment: PendingAttachment; onRemove: () => void }) {
   return (
-    <div className="flex items-center gap-1.5 rounded-xl border border-[#bfdbfe] bg-[#eff6ff] px-2.5 py-1.5 text-xs">
+    <div className="flex items-center gap-1.5 rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-2 py-1 text-xs">
       <span>{KIND_ICON[attachment.kind] ?? '📎'}</span>
-      <span className="max-w-[120px] truncate font-medium text-[#0f172a]">{attachment.name}</span>
-      <span className="text-[#94a3b8]">{attachment.sizeLabel}</span>
+      <span className="max-w-[120px] truncate text-[var(--color-text-primary)]">{attachment.name}</span>
+      <span className="text-[var(--color-text-tertiary)]">{attachment.sizeLabel}</span>
       <button
         onClick={onRemove}
-        className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full text-[#94a3b8] transition hover:bg-[#dbeafe] hover:text-[#1d4ed8]"
+        className="ml-0.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
         title="Remove"
       >
         <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
@@ -47,14 +53,34 @@ function AttachmentChip({ attachment, onRemove }: { attachment: PendingAttachmen
   )
 }
 
-export function InputArea({ onSend, disabled = false, workspaceMode, onWorkspaceModeChange, mcpTools = [] }: InputAreaProps) {
+export function InputArea({
+  onSend, onFanout, onStop,
+  disabled = false,
+  fanoutModelCount = 0,
+  workspaceMode, onWorkspaceModeChange,
+  mcpTools = [],
+  modelId, onModelChange, thinkingBudget, onOpenPalette,
+}: InputAreaProps) {
   const [content, setContent] = useState('')
   const [sending, setSending] = useState(false)
+  const [fanoutActive, setFanoutActive] = useState(false)
   const [attachments, setAttachments] = useState<PendingAttachment[]>([])
   const [attachError, setAttachError] = useState('')
   const [dragOver, setDragOver] = useState(false)
   const [selectedTools, setSelectedTools] = useState<string[]>([])
+  const [showModes, setShowModes] = useState(false)
+  const [showModelPicker, setShowModelPicker] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+
+  const activeModel = models.find((m) => m.id === modelId) ?? models[0]
+  // Short display name: "Sonnet 4.6", "GPT-4o", etc — strip "Claude " prefix
+  const modelShortName = (activeModel?.label ?? modelId).replace(/^Claude\s+/i, '')
+  const thinkingLabel = thinkingBudget == null ? null
+    : thinkingBudget === 0 ? null
+    : thinkingBudget <= 5000 ? 'Low'
+    : thinkingBudget <= 15000 ? 'Medium'
+    : 'High'
 
   function toggleTool(key: string) {
     setSelectedTools((prev) => prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key])
@@ -84,6 +110,11 @@ export function InputArea({ onSend, disabled = false, workspaceMode, onWorkspace
     }
   }
 
+  function autoResize(el: HTMLTextAreaElement) {
+    el.style.height = 'auto'
+    el.style.height = `${Math.min(el.scrollHeight, 200)}px`
+  }
+
   async function submit() {
     const trimmed = content.trim()
     if ((!trimmed && attachments.length === 0) || sending || disabled) return
@@ -94,16 +125,25 @@ export function InputArea({ onSend, disabled = false, workspaceMode, onWorkspace
     setAttachments([])
     setSelectedTools([])
     setAttachError('')
+    if (textareaRef.current) {
+      textareaRef.current.style.height = 'auto'
+    }
     try {
-      await onSend(trimmed, toSend, toolsToSend.length > 0 ? toolsToSend : undefined)
+      if (fanoutActive && onFanout) {
+        await onFanout(trimmed, toSend)
+      } else {
+        await onSend(trimmed, toSend, toolsToSend.length > 0 ? toolsToSend : undefined)
+      }
     } finally {
       setSending(false)
     }
   }
 
+  const canSend = (content.trim().length > 0 || attachments.length > 0) && !sending && !disabled
+
   return (
     <div
-      className={`bg-gradient-to-t from-[#f3f6fa] via-[#f3f6fa] to-transparent px-4 pb-5 pt-3 sm:px-8 transition ${dragOver ? 'opacity-80' : ''}`}
+      className={`px-4 pb-5 pt-2 transition ${dragOver ? 'opacity-80' : ''}`}
       onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
       onDragLeave={() => setDragOver(false)}
       onDrop={async (e) => {
@@ -112,33 +152,64 @@ export function InputArea({ onSend, disabled = false, workspaceMode, onWorkspace
         await addFiles(e.dataTransfer.files)
       }}
     >
-      <div className={`mx-auto w-full max-w-3xl rounded-3xl border bg-white p-3 shadow-[0_18px_50px_rgba(15,23,42,0.10)] transition ${dragOver ? 'border-[#1d4ed8]' : 'border-[#bfdbfe]'}`}>
+      <div className={`mx-auto w-full max-w-3xl rounded-2xl border bg-[var(--color-background-primary)] transition ${
+        dragOver ? 'border-[var(--color-border-primary)]' : 'border-[var(--color-border-secondary)]'
+      }`}>
 
         {/* Attachment chips */}
         {attachments.length > 0 && (
-          <div className="mb-2.5 flex flex-wrap gap-1.5 px-1">
+          <div className="flex flex-wrap gap-1.5 px-3 pt-2.5">
             {attachments.map((a) => (
               <AttachmentChip key={a.clientId} attachment={a} onRemove={() => removeAttachment(a.clientId)} />
             ))}
           </div>
         )}
 
-        {/* Attachment error */}
         {attachError && (
-          <div className="mb-2 rounded-xl border border-[#fecaca] bg-[#fef2f2] px-3 py-1.5 text-xs text-[#dc2626]">
+          <div className="mx-3 mt-2 rounded-lg border border-[#fecaca] bg-[#fef2f2] px-2.5 py-1.5 text-xs text-[#dc2626]">
             {attachError}
           </div>
         )}
 
-        {/* Text area */}
+        {/* Mode badge — only when non-Chat mode is active */}
+        {workspaceMode !== 'Chat' && (
+          <div className="flex items-center gap-1.5 px-3 pt-2.5">
+            <span className="flex items-center gap-1 rounded-md border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-2 py-0.5 text-xs font-medium text-[var(--color-text-primary)]">
+              {workspaceMode}
+              <button onClick={() => onWorkspaceModeChange('Chat')} className="ml-0.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">
+                <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden><path d="M1 1l6 6M7 1L1 7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+              </button>
+            </span>
+            {fanoutActive && (
+              <span className="flex items-center gap-1 rounded-md border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-2 py-0.5 text-xs font-medium text-[var(--color-text-primary)]">
+                Fan-out ×{fanoutModelCount}
+                <button onClick={() => setFanoutActive(false)} className="ml-0.5 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">
+                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden><path d="M1 1l6 6M7 1L1 7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+                </button>
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Textarea */}
         <textarea
-          className="min-h-24 w-full resize-none border-0 bg-transparent px-1 text-[15px] leading-6 text-[#111827] outline-none placeholder:text-[#94a3b8] disabled:opacity-60"
-          placeholder={dragOver ? 'Drop files to attach…' : 'Ask Noetica to reason, cowork, code, or benchmark…'}
+          ref={textareaRef}
+          rows={1}
+          className="w-full resize-none border-0 bg-transparent px-3 py-3 text-[13px] leading-6 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] disabled:opacity-60"
+          placeholder={dragOver ? 'Drop files to attach…' : 'Type / for commands'}
           value={content}
           disabled={disabled}
-          onChange={(e) => setContent(e.target.value)}
+          onChange={(e) => {
+            const val = e.target.value
+            if (val === '/' && onOpenPalette) { setContent(''); onOpenPalette(); return }
+            setContent(val); autoResize(e.target)
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void submit()
+            if (e.key === 'Enter' && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
+              e.preventDefault()
+              void submit()
+            }
           }}
           onPaste={async (e) => {
             if (e.clipboardData.files.length > 0) {
@@ -148,58 +219,90 @@ export function InputArea({ onSend, disabled = false, workspaceMode, onWorkspace
           }}
         />
 
-        {/* Toolbar */}
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-[#e2e8f0] pt-3">
-          <div className="flex flex-wrap items-center gap-1">
-            {/* MCP tool picker */}
-            <McpToolPicker tools={mcpTools} selected={selectedTools} onToggle={toggleTool} />
+        {/* Bottom toolbar */}
+        <div className="flex items-center gap-1 border-t border-[var(--color-border-tertiary)] px-2 py-1.5">
+          {/* Attach — plus icon */}
+          <button
+            type="button"
+            onClick={handleAttachClick}
+            disabled={disabled || attachments.length >= MAX_ATTACHMENTS}
+            title="Attach file"
+            style={{ border: 'none', background: 'none', outline: 'none' }}
+            className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-secondary)] disabled:opacity-40"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+              <path d="M8 2v12M2 8h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </button>
 
-            {/* Attach button */}
+          {/* MCP tools */}
+          <McpToolPicker tools={mcpTools} selected={selectedTools} onToggle={toggleTool} />
+
+          <div className="flex-1" />
+
+          {/* Model picker — tiny muted text at bottom right, like Claude.ai */}
+          {modelId && onModelChange && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowModelPicker((v) => !v)}
+                className="flex h-7 items-center gap-0.5 border-0 bg-transparent px-1.5 text-[11px] font-normal text-[var(--color-text-tertiary)] outline-none transition hover:text-[var(--color-text-secondary)]"
+              >
+                {modelShortName}
+                {thinkingLabel && (
+                  <span className="ml-1 text-[10px] text-[var(--color-text-tertiary)]">{thinkingLabel}</span>
+                )}
+                <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
+                  <path d="M1.5 3l2 2 2-2" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+              {showModelPicker && (
+                <div className="absolute bottom-10 right-0 z-50 w-52 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] py-1 shadow-lg">
+                  {models.map((m) => (
+                    <button key={m.id} type="button"
+                      onClick={() => { onModelChange(m.id); setShowModelPicker(false) }}
+                      className={`flex w-full items-center gap-2 px-3 py-1.5 text-xs transition hover:bg-[var(--color-background-secondary)] ${m.id === modelId ? 'font-medium text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'}`}
+                    >
+                      {m.id === modelId && <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden><circle cx="4" cy="4" r="3" fill="currentColor"/></svg>}
+                      {m.id !== modelId && <span className="w-2" />}
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Send / Stop */}
+          {disabled ? (
             <button
               type="button"
-              onClick={handleAttachClick}
-              disabled={disabled || attachments.length >= MAX_ATTACHMENTS}
-              title="Attach file"
-              className="flex h-8 w-8 items-center justify-center rounded-full text-[#64748b] transition hover:bg-[#eff6ff] hover:text-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-40"
+              onClick={onStop}
+              style={{ border: 'none', outline: 'none' }}
+              className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] transition hover:text-[#dc2626]"
+              title="Stop"
             >
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
-                <path d="M13.5 8.5l-5.5 5.5a4 4 0 0 1-5.657-5.657l6.364-6.364a2.5 2.5 0 0 1 3.535 3.535L6.12 11.88a1 1 0 0 1-1.414-1.414L10.5 4.67" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+              <svg width="9" height="9" viewBox="0 0 10 10" fill="currentColor" aria-hidden>
+                <rect x="1.5" y="1.5" width="7" height="7" rx="1.5"/>
               </svg>
             </button>
-
-            {/* Mode pills */}
-            {modes.map((m) => (
-              <button
-                key={m}
-                type="button"
-                className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                  m === workspaceMode ? 'bg-[#0f172a] text-white' : 'bg-[#eff6ff] text-[#334155] hover:bg-[#dbeafe]'
-                }`}
-                onClick={() => onWorkspaceModeChange(m)}
-              >
-                {m}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex items-center gap-2">
-            {attachments.length > 0 && (
-              <span className="text-xs text-[#64748b]">{attachments.length} file{attachments.length > 1 ? 's' : ''}</span>
-            )}
-            <span className="hidden text-xs text-[#64748b] sm:inline">⌘/Ctrl + Enter</span>
+          ) : (
             <button
               type="button"
-              className="rounded-full bg-[#1d4ed8] px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-[#1e40af] disabled:cursor-not-allowed disabled:opacity-50"
-              disabled={sending || disabled || (!content.trim() && attachments.length === 0)}
+              disabled={!canSend}
               onClick={() => void submit()}
+              style={{ border: 'none', outline: 'none' }}
+              className="flex h-7 w-7 items-center justify-center rounded-md bg-[var(--color-text-primary)] text-[var(--color-background-primary)] transition disabled:cursor-not-allowed disabled:opacity-30"
+              title="Send (Enter)"
             >
-              {sending || disabled ? 'Routing…' : 'Send'}
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden>
+                <path d="M8 13V3M3 8l5-5 5 5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
             </button>
-          </div>
+          )}
         </div>
       </div>
 
-      {/* Hidden browser file input */}
       <input
         ref={fileInputRef}
         type="file"

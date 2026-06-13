@@ -19,27 +19,37 @@ export async function callAnthropic(input: ProviderCallInput): Promise<ProviderC
   }
 }
 
-export async function* streamAnthropic(input: ProviderStreamInput & { apiKey?: string }): AsyncGenerator<string> {
+export const THINKING_PREFIX = '\x00thinking\x00'
+
+export async function* streamAnthropic(input: ProviderStreamInput): AsyncGenerator<string> {
   const apiKey = input.apiKey?.trim() || requireEnv('ANTHROPIC_API_KEY')
   const system = input.messages.find((message) => message.role === 'system')?.content
   const messages = input.messages
     .filter((message) => message.role === 'user' || message.role === 'assistant')
     .map(({ role, content }) => ({ role, content }))
 
+  const body: Record<string, unknown> = {
+    model: input.model,
+    max_tokens: input.thinking_budget ? input.thinking_budget + 4096 : 2048,
+    stream: true,
+    system,
+    messages
+  }
+
+  if (input.thinking_budget) {
+    body.thinking = { type: 'enabled', budget_tokens: input.thinking_budget }
+    body['betas'] = ['interleaved-thinking-2025-05-14']
+  }
+
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
       'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01'
+      'anthropic-version': '2023-06-01',
+      ...(input.thinking_budget ? { 'anthropic-beta': 'interleaved-thinking-2025-05-14' } : {})
     },
-    body: JSON.stringify({
-      model: input.model,
-      max_tokens: 2048,
-      stream: true,
-      system,
-      messages
-    })
+    body: JSON.stringify(body)
   })
 
   if (!response.ok) {
@@ -54,6 +64,7 @@ export async function* streamAnthropic(input: ProviderStreamInput & { apiKey?: s
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  let inThinkingBlock = false
 
   while (true) {
     const { done, value } = await reader.read()
@@ -72,11 +83,25 @@ export async function* streamAnthropic(input: ProviderStreamInput & { apiKey?: s
 
       const payload = JSON.parse(data) as {
         type?: string
-        delta?: { text?: string }
+        index?: number
+        content_block?: { type?: string }
+        delta?: { type?: string; text?: string; thinking?: string }
       }
 
-      if (payload.type === 'content_block_delta' && payload.delta?.text) {
-        yield payload.delta.text
+      if (payload.type === 'content_block_start') {
+        inThinkingBlock = payload.content_block?.type === 'thinking'
+      }
+
+      if (payload.type === 'content_block_stop') {
+        inThinkingBlock = false
+      }
+
+      if (payload.type === 'content_block_delta') {
+        if (inThinkingBlock && payload.delta?.thinking) {
+          yield THINKING_PREFIX + payload.delta.thinking
+        } else if (!inThinkingBlock && payload.delta?.text) {
+          yield payload.delta.text
+        }
       }
     }
   }

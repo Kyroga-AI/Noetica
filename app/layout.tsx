@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import { SettingsProvider } from '@/lib/settings/context'
+import { ThemeProvider } from '@/contexts/ThemeContext'
 import '@/styles/globals.css'
 
 export const metadata: Metadata = {
@@ -9,9 +10,15 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Apply saved theme before first paint — prevents flash */}
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('noetica-theme');if(t&&['claude','navy','light'].includes(t))document.documentElement.setAttribute('data-theme',t)}catch(e){}})()` }} />
+      </head>
       <body>
-        <SettingsProvider>{children}</SettingsProvider>
+        <ThemeProvider>
+          <SettingsProvider>{children}</SettingsProvider>
+        </ThemeProvider>
       </body>
     </html>
   )

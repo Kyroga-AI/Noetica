@@ -2,6 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── CLAUDE THEME (default — no data-theme or data-theme="claude") ─────────── */
 :root {
   --noetica-blue: #1D4ED8;
   --noetica-blue-light: #EFF6FF;
@@ -10,11 +11,83 @@
   --noetica-ink: #111827;
   --noetica-muted: #64748B;
   --noetica-line: #D7DEE8;
-  --noetica-surface: #F8FAFC;
-  --noetica-panel: #FFFFFF;
-  --background: #F3F6FA;
-  --foreground: #111827;
+  --noetica-surface: #262626;
+  --noetica-panel: #1e1e1e;
+  --background: #1e1e1e;
+  --foreground: #ece9e3;
+
+  --color-background-primary:   #1e1e1e;
+  --color-background-secondary: #262626;
+  --color-background-tertiary:  #2d2d2d;
+  --color-text-primary:         #ece9e3;
+  --color-text-secondary:       #a8a29e;
+  --color-text-tertiary:        #78716c;
+  --color-border-primary:       rgba(255,255,255,0.12);
+  --color-border-secondary:     rgba(255,255,255,0.08);
+  --color-border-tertiary:      rgba(255,255,255,0.04);
+  --border-radius-sm:  4px;
+  --border-radius-md:  8px;
+  --border-radius-lg:  12px;
+  --border-radius-xl:  16px;
+  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', monospace;
 }
+
+/* ─── NAVY THEME ─────────────────────────────────────────────────────────────── */
+[data-theme="navy"] {
+  --background: #0f1117;
+  --foreground: #dde1ea;
+  --noetica-surface: #171923;
+  --noetica-panel: #1e2130;
+
+  --color-background-primary:   #1e2130;
+  --color-background-secondary: #171923;
+  --color-background-tertiary:  #0f1117;
+  --color-text-primary:         #dde1ea;
+  --color-text-secondary:       #8b95a8;
+  --color-text-tertiary:        #5c6478;
+  --color-border-primary:       rgba(255,255,255,0.15);
+  --color-border-secondary:     rgba(255,255,255,0.09);
+  --color-border-tertiary:      rgba(255,255,255,0.05);
+}
+
+/* ─── LIGHT THEME ────────────────────────────────────────────────────────────── */
+[data-theme="light"] {
+  --background: #f3f6fa;
+  --foreground: #111827;
+  --noetica-surface: #f8fafc;
+  --noetica-panel: #ffffff;
+
+  --color-background-primary:   #ffffff;
+  --color-background-secondary: #f3f6fa;
+  --color-background-tertiary:  #eaf1f8;
+  --color-text-primary:         #111827;
+  --color-text-secondary:       #64748b;
+  --color-text-tertiary:        #94a3b8;
+  --color-border-primary:       rgba(0,0,0,0.18);
+  --color-border-secondary:     rgba(0,0,0,0.12);
+  --color-border-tertiary:      rgba(0,0,0,0.07);
+}
+
+/* ─── DARK-THEME CATCH-ALL ────────────────────────────────────────────────────
+   Flip hardcoded light Tailwind classes in both dark themes and the default
+   (unset data-theme) state. Light theme is excluded via :not([data-theme="light"]).
+   ─────────────────────────────────────────────────────────────────────────── */
+html:not([data-theme="light"]) .bg-white,
+html:not([data-theme="light"]) .bg-\[\#ffffff\] { background-color: var(--color-background-primary) !important; }
+html:not([data-theme="light"]) .bg-\[\#f8fafc\] { background-color: var(--color-background-secondary) !important; }
+html:not([data-theme="light"]) .bg-\[\#f3f6fa\] { background-color: var(--color-background-secondary) !important; }
+html:not([data-theme="light"]) .bg-\[\#f1f5f9\] { background-color: var(--color-background-secondary) !important; }
+html:not([data-theme="light"]) .bg-\[\#eaf1f8\] { background-color: var(--color-background-tertiary) !important; }
+html:not([data-theme="light"]) .text-\[\#0f172a\]  { color: var(--color-text-primary) !important; }
+html:not([data-theme="light"]) .text-\[\#111827\]  { color: var(--color-text-primary) !important; }
+html:not([data-theme="light"]) .text-\[\#1e293b\]  { color: var(--color-text-primary) !important; }
+html:not([data-theme="light"]) .text-\[\#334155\]  { color: var(--color-text-primary) !important; }
+html:not([data-theme="light"]) .text-\[\#64748b\]  { color: var(--color-text-secondary) !important; }
+html:not([data-theme="light"]) .text-\[\#94a3b8\]  { color: var(--color-text-tertiary) !important; }
+html:not([data-theme="light"]) .border-\[\#e2e8f0\] { border-color: var(--color-border-tertiary) !important; }
+html:not([data-theme="light"]) .border-\[\#d7dee8\] { border-color: var(--color-border-tertiary) !important; }
+html:not([data-theme="light"]) .border-\[\#cbd5e1\] { border-color: var(--color-border-secondary) !important; }
 
 * {
   box-sizing: border-box;

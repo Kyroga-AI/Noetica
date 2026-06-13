@@ -27,6 +27,8 @@ type ChatRequest = {
   messages?: ChatMessage[]
   steering?: SteeringConfig
   memory_scope?: string
+  thinking_budget?: number
+  provider_keys?: { anthropic?: string; openai?: string; google?: string; mistral?: string; neuronpedia?: string }
 }
 
 export async function POST(request: Request) {
@@ -170,11 +172,21 @@ export async function POST(request: Request) {
       try {
         const providerStream = model.provider === 'openai'
           ? streamOpenAI({ model: providerModelId, messages })
-          : streamAnthropic({ model: providerModelId, messages })
+          : streamAnthropic({ model: providerModelId, messages, thinking_budget: body.thinking_budget, apiKey: body.provider_keys?.anthropic })
 
+        let thinkingContent = ''
         for await (const delta of providerStream) {
-          content += delta
-          send('delta', { delta })
+          if (delta.startsWith('\x00thinking\x00')) {
+            const chunk = delta.slice('\x00thinking\x00'.length)
+            thinkingContent += chunk
+            send('thinking_delta', { delta: chunk })
+          } else {
+            content += delta
+            send('delta', { delta })
+          }
+        }
+        if (thinkingContent) {
+          send('thinking_done', { thinking: thinkingContent })
         }
 
         const latency_ms = Date.now() - started

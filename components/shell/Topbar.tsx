@@ -1,14 +1,20 @@
-import { RuntimeStatus } from '@/components/status/RuntimeStatus'
-import { ModelPicker } from '@/components/providers/ModelPicker'
-import { models } from '@/config/models'
+import { WarmingLevel } from '@/components/risk/WarmingLevel'
+import { ThemePicker } from '@/components/shell/ThemePicker'
+import type { RiskAversionLiveReadout } from '@/lib/risk/riskAversionLive'
+import type { VoiceState } from '@/lib/voice/useVoice'
 
 type TopbarProps = {
   modelId: string
   mode: 'standalone' | 'sourceos'
+  riskReadout?: RiskAversionLiveReadout | null
+  voiceState?: VoiceState
   onModelChange: (modelId: string) => void
   onModeChange: (mode: 'standalone' | 'sourceos') => void
   onOpenSettings: () => void
   onOpenPalette: () => void
+  onOpenInspector?: () => void
+  onVoiceStart?: () => void
+  onVoiceStop?: () => void
 }
 
 function IconSettings() {
@@ -20,41 +26,43 @@ function IconSettings() {
   )
 }
 
-export function Topbar({ modelId, mode, onModelChange, onModeChange, onOpenSettings, onOpenPalette }: TopbarProps) {
-  const model = models.find((candidate) => candidate.id === modelId) ?? models[0]
+export function Topbar({ modelId, mode, riskReadout, voiceState, onModelChange, onModeChange, onOpenSettings, onOpenPalette, onOpenInspector, onVoiceStart, onVoiceStop }: TopbarProps) {
+  const isListening = voiceState === 'listening'
 
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-[#d7dee8] bg-[#f3f6fa]/95 px-4 backdrop-blur">
-      <div className="flex min-w-0 items-center gap-3">
-        <div className="hidden h-8 w-8 items-center justify-center rounded-full bg-[#0f172a] text-sm font-semibold text-white sm:flex">
+    <header className="flex h-10 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] px-4">
+      <div className="flex min-w-0 items-center gap-2">
+        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-text-primary)] text-[9px] font-semibold text-[var(--color-background-primary)]">
           N
         </div>
-        <div className="min-w-0">
-          <div className="text-sm font-semibold text-[#0f172a]">Noetica</div>
-          <div className="truncate text-xs text-[#64748b]">{model.label}</div>
-        </div>
+        <span className="text-[13px] font-medium text-[var(--color-text-primary)]">Noetica</span>
       </div>
 
-      <div className="flex min-w-0 flex-1 justify-center px-2">
-        <div className="w-full max-w-md">
-          <ModelPicker value={modelId} onChange={onModelChange} />
-        </div>
-      </div>
-
-      <div className="flex items-center gap-1.5">
-        <RuntimeStatus />
-        <select
-          className="rounded-full border border-[#bfdbfe] bg-white px-3 py-1.5 text-xs font-medium text-[#334155] outline-none transition hover:bg-[#eff6ff]"
-          value={mode}
-          onChange={(event) => onModeChange(event.target.value as 'standalone' | 'sourceos')}
-          aria-label="Runtime mode"
+      <div className="flex items-center gap-1">
+        {/* Voice button — compact, salmon pink */}
+        <button
+          onClick={isListening ? onVoiceStop : onVoiceStart}
+          title={isListening ? 'Listening… click to stop' : 'Speak to Claude'}
+          aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
+          style={{ border: '0.5px solid #fda4af' }}
+          className={`relative flex h-[22px] w-[22px] items-center justify-center rounded-full transition ${
+            isListening ? 'bg-[#fff1f2] text-[#f43f5e]' : 'bg-[#fff1f2] text-[#fb7185] hover:bg-[#ffe4e6]'
+          }`}
         >
-          <option value="standalone">Standalone</option>
-          <option value="sourceos">SourceOS</option>
-        </select>
+          {isListening && (
+            <span className="absolute inset-0 rounded-full animate-ping bg-[#fda4af] opacity-30" />
+          )}
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden>
+            <rect x="6" y="1" width="4" height="8" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+            <path d="M3 8a5 5 0 0 0 10 0M8 13v2M6 15h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
+        </button>
+        <WarmingLevel readout={riskReadout} onOpenInspector={onOpenInspector} />
+        <ThemePicker />
         <button
           onClick={onOpenPalette}
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-[#bfdbfe] bg-white text-[#64748b] transition hover:bg-[#eff6ff] hover:text-[#0f172a]"
+          style={{ border: 'none', background: 'none' }}
+          className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-secondary)]"
           aria-label="Command palette (⌘K)"
           title="Command palette (⌘K)"
         >
@@ -65,7 +73,8 @@ export function Topbar({ modelId, mode, onModelChange, onModeChange, onOpenSetti
         </button>
         <button
           onClick={onOpenSettings}
-          className="flex h-8 w-8 items-center justify-center rounded-full border border-[#bfdbfe] bg-white text-[#64748b] transition hover:bg-[#eff6ff] hover:text-[#0f172a]"
+          style={{ border: 'none', background: 'none' }}
+          className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-secondary)]"
           aria-label="Settings (⌘,)"
           title="Settings (⌘,)"
         >

@@ -13,4 +13,5 @@ export interface ModelConfig {
   local_capable: boolean
   context_window: number
   description: string
+  extended_thinking?: boolean
 }

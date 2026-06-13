@@ -108,6 +108,34 @@ function IconGovern() {
     </svg>
   )
 }
+function IconHolograph() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <circle cx="8" cy="6" r="2.5" stroke="currentColor" strokeWidth="1.4"/>
+      <path d="M3 13c0-2.2 2.2-4 5-4s5 1.8 5 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      <path d="M1 8l2-2M15 8l-2-2M1 10l2 2M15 10l-2 2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+    </svg>
+  )
+}
+function IconMarketplace() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M2 5h12l-1.5 7H3.5L2 5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/>
+      <path d="M5 5V3.5a3 3 0 0 1 6 0V5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      <circle cx="6" cy="9" r="1" fill="currentColor"/>
+      <circle cx="10" cy="9" r="1" fill="currentColor"/>
+    </svg>
+  )
+}
+function IconTune() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <circle cx="5" cy="5" r="1.8" stroke="currentColor" strokeWidth="1.3"/>
+      <circle cx="11" cy="11" r="1.8" stroke="currentColor" strokeWidth="1.3"/>
+      <path d="M5 1v2.2M5 6.8V15M11 1v7.2M11 12.8V15" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+    </svg>
+  )
+}
 function IconSettings() {
   return (
     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
@@ -134,27 +162,9 @@ function IconChevronLeft() {
 const surfaceItems: SurfaceItem[] = [
   {
     id: 'chat',
-    label: 'Chat',
+    label: 'Workspace',
     icon: <IconChat />,
     items: ['New conversation', 'Recent threads', 'Pinned']
-  },
-  {
-    id: 'notes',
-    label: 'Notes',
-    icon: <IconNotes />,
-    items: ['All notes', 'Pinned', 'Note chats']
-  },
-  {
-    id: 'workrooms',
-    label: 'Workrooms',
-    icon: <IconWorkrooms />,
-    items: ['All rooms', 'Pinned rooms', 'Recent dispatches']
-  },
-  {
-    id: 'cowork',
-    label: 'Cowork',
-    icon: <IconCowork />,
-    items: ['Shared task room', 'Decision review', 'Artifact planning']
   },
   {
     id: 'projects',
@@ -169,16 +179,16 @@ const surfaceItems: SurfaceItem[] = [
     items: ['Documents', 'Code files', 'Evidence bundles']
   },
   {
-    id: 'code',
-    label: 'Source',
-    icon: <IconCode />,
-    items: ['Gitea Sovereign', 'Local Git', 'Repository graph']
-  },
-  {
     id: 'evaluate',
     label: 'Evaluate',
     icon: <IconEvaluate />,
     items: ['Task benchmarks', 'Model families', 'Outcome traces']
+  },
+  {
+    id: 'tune',
+    label: 'Tune & Train',
+    icon: <IconTune />,
+    items: ['Comparative runs', 'Preference pairs', 'DPO export']
   },
   {
     id: 'operate',
@@ -191,8 +201,125 @@ const surfaceItems: SurfaceItem[] = [
     label: 'Govern',
     icon: <IconGovern />,
     items: ['Policy trace', 'Memory scope', 'Evidence export']
-  }
+  },
+  {
+    id: 'holographme',
+    label: 'HolographMe',
+    icon: <IconHolograph />,
+    items: []
+  },
+  {
+    id: 'marketplace',
+    label: 'Marketplace',
+    icon: <IconMarketplace />,
+    items: []
+  },
 ]
+
+type SessionTreeProps = {
+  sessions: WorkspaceSession[]
+  activeSessionId?: string | null
+  search: string
+  onSwitchSession?: (id: string) => void
+  onRemoveSession?: (id: string) => void
+}
+
+function SessionRow({ s, depth, activeSessionId, onSwitchSession, onRemoveSession, children }: {
+  s: WorkspaceSession
+  depth: number
+  activeSessionId?: string | null
+  onSwitchSession?: (id: string) => void
+  onRemoveSession?: (id: string) => void
+  children?: React.ReactNode
+}) {
+  const [open, setOpen] = useState(true)
+  const hasBranches = !!children
+  return (
+    <div>
+      <div className="group flex items-center gap-1" style={{ paddingLeft: depth * 12 }}>
+        {hasBranches && (
+          <button onClick={() => setOpen((v) => !v)}
+            className="shrink-0 flex h-4 w-4 items-center justify-center rounded text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
+            title={open ? 'Collapse branches' : 'Expand branches'}
+          >
+            <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden
+              style={{ transform: open ? 'rotate(90deg)' : undefined, transition: 'transform 0.1s' }}>
+              <path d="M2 1l4 3-4 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        )}
+        {!hasBranches && depth > 0 && (
+          <span className="shrink-0 flex h-4 w-4 items-center justify-center text-[var(--color-border-secondary)]">
+            <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
+              <path d="M1 1v4a2 2 0 0 0 2 2h4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+            </svg>
+          </span>
+        )}
+        {depth === 0 && !hasBranches && <span className="w-4 shrink-0" />}
+        <button
+          onClick={() => onSwitchSession?.(s.id)}
+          className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-xl px-2 py-1.5 text-left text-xs transition ${
+            s.id === activeSessionId
+              ? 'bg-[#dbeafe] font-semibold text-[var(--color-text-primary)]'
+              : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]'
+          }`}
+        >
+          {depth > 0 && (
+            <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden className="shrink-0 text-[#93c5fd]">
+              <circle cx="4.5" cy="4.5" r="3.5" stroke="currentColor" strokeWidth="1.2"/>
+              <circle cx="4.5" cy="4.5" r="1.5" fill="currentColor"/>
+            </svg>
+          )}
+          <span className="truncate">{s.title}</span>
+        </button>
+        <button
+          onClick={() => onRemoveSession?.(s.id)}
+          className="hidden shrink-0 h-5 w-5 items-center justify-center rounded text-[var(--color-text-tertiary)] transition hover:text-[#ef4444] group-hover:flex"
+          title="Remove"
+        >
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
+            <path d="M2 2l6 6M8 2L2 8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+          </svg>
+        </button>
+      </div>
+      {hasBranches && open && children}
+    </div>
+  )
+}
+
+function SessionTree({ sessions, activeSessionId, search, onSwitchSession, onRemoveSession }: SessionTreeProps) {
+  const limit = search ? 20 : 8
+  const displaySessions = sessions.slice(0, limit)
+
+  const childMap = new Map<string, WorkspaceSession[]>()
+  const roots: WorkspaceSession[] = []
+  for (const s of displaySessions) {
+    if (s.parentId && sessions.find((p) => p.id === s.parentId)) {
+      const arr = childMap.get(s.parentId) ?? []
+      arr.push(s)
+      childMap.set(s.parentId, arr)
+    } else {
+      roots.push(s)
+    }
+  }
+
+  function renderNode(s: WorkspaceSession, depth: number): React.ReactNode {
+    const kids = childMap.get(s.id)
+    return (
+      <SessionRow key={s.id} s={s} depth={depth} activeSessionId={activeSessionId}
+        onSwitchSession={onSwitchSession} onRemoveSession={onRemoveSession}
+      >{kids ? <>{kids.map((k) => renderNode(k, depth + 1))}</> : undefined}</SessionRow>
+    )
+  }
+
+  return (
+    <div className="mb-2">
+      <div className="px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">{search ? 'Results' : 'Recent'}</div>
+      {roots.map((s) => renderNode(s, 0))}
+      <div className="my-1.5 border-t border-[var(--color-border-tertiary)]" />
+    </div>
+  )
+}
 
 export function Sidebar({
   activeSurface, onSurfaceChange, onOpenSettings,
@@ -200,13 +327,19 @@ export function Sidebar({
   onSwitchSession, onRemoveSession, onNewChat,
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState(false)
+  const [search, setSearch] = useState('')
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+
+  const filteredSessions = search.trim()
+    ? sessions.filter((s) => s.title.toLowerCase().includes(search.toLowerCase()))
+    : sessions
 
   if (collapsed) {
     return (
-      <aside className="hidden w-14 shrink-0 flex-col items-center border-r border-[#d7dee8] bg-[#eaf1f8] py-3 lg:flex">
+      <aside className="hidden w-14 shrink-0 flex-col items-center border-r border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] py-3 lg:flex">
         <button
           onClick={() => setCollapsed(false)}
-          className="mb-4 flex h-8 w-8 items-center justify-center rounded-lg text-[#64748b] transition hover:bg-white hover:text-[#0f172a]"
+          className="mb-4 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]"
           aria-label="Expand sidebar"
         >
           <IconChevronRight />
@@ -218,8 +351,8 @@ export function Sidebar({
               onClick={() => onSurfaceChange(item.id)}
               className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${
                 activeSurface === item.id
-                  ? 'bg-[#dbeafe] text-[#0f172a]'
-                  : 'text-[#64748b] hover:bg-white hover:text-[#0f172a]'
+                  ? 'bg-[#dbeafe] text-[var(--color-text-primary)]'
+                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]'
               }`}
               title={item.label}
             >
@@ -228,7 +361,7 @@ export function Sidebar({
           ))}
         </nav>
         <button
-          className="flex h-9 w-9 items-center justify-center rounded-xl text-[#64748b] transition hover:bg-white hover:text-[#0f172a]"
+          className="flex h-9 w-9 items-center justify-center rounded-xl text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]"
           title="Settings"
         >
           <IconSettings />
@@ -238,106 +371,163 @@ export function Sidebar({
   }
 
   return (
-    <aside className="hidden w-56 shrink-0 flex-col border-r border-[#d7dee8] bg-[#eaf1f8] px-2 py-3 lg:flex">
+    <aside className="hidden w-56 shrink-0 flex-col border-r border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] px-2 py-2 lg:flex h-full overflow-y-auto">
       {/* Header row */}
-      <div className="flex items-center justify-between px-2 pb-3">
+      <div className="flex items-center gap-1 pb-1">
         <button
-          className="flex w-full items-center justify-center rounded-xl border border-[#bfdbfe] bg-white px-3 py-2 text-xs font-semibold text-[#0f172a] shadow-sm transition hover:bg-[#f8fafc]"
+          className="flex flex-1 items-center gap-1.5 rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-text-primary)] transition hover:bg-[var(--color-background-secondary)]"
           onClick={onNewChat ?? (() => onSurfaceChange('chat'))}
         >
-          + New workspace
+          <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden><path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
+          New workspace
         </button>
         <button
           onClick={() => setCollapsed(true)}
-          className="ml-2 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[#64748b] transition hover:bg-white hover:text-[#0f172a]"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]"
           aria-label="Collapse sidebar"
         >
           <IconChevronLeft />
         </button>
       </div>
 
+      {/* Search */}
+      {activeSurface === 'chat' && sessions.length > 0 && (
+        <div className="px-1 pb-1">
+          <div className="flex items-center gap-1.5 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] px-2.5 py-1">
+            <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden className="shrink-0 text-[var(--color-text-tertiary)]">
+              <circle cx="4.5" cy="4.5" r="3.5" stroke="currentColor" strokeWidth="1.3"/>
+              <path d="M7.5 7.5l2 2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+            </svg>
+            <input
+              type="text"
+              placeholder="Search chats…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="min-w-0 flex-1 bg-transparent text-xs text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
+            />
+            {search && (
+              <button onClick={() => setSearch('')} className="shrink-0 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
+                  <path d="M2 2l6 6M8 2L2 8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                </svg>
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Navigation */}
       <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-1">
         {/* Recent sessions — shown when Chat surface is active */}
-        {activeSurface === 'chat' && sessions.length > 0 && (
-          <div className="mb-2">
-            <div className="px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#94a3b8]">Recent</div>
-            {sessions.slice(0, 8).map((s) => (
-              <div key={s.id} className="group flex items-center gap-1">
-                <button
-                  onClick={() => onSwitchSession?.(s.id)}
-                  className={`flex min-w-0 flex-1 items-center gap-2 rounded-xl px-2.5 py-1.5 text-left text-xs transition ${
-                    s.id === activeSessionId
-                      ? 'bg-[#dbeafe] font-semibold text-[#0f172a]'
-                      : 'text-[#64748b] hover:bg-white hover:text-[#0f172a]'
-                  }`}
-                >
-                  <span className="truncate">{s.title}</span>
-                </button>
-                <button
-                  onClick={() => onRemoveSession?.(s.id)}
-                  className="hidden shrink-0 h-5 w-5 items-center justify-center rounded text-[#94a3b8] transition hover:text-[#ef4444] group-hover:flex"
-                  title="Remove"
-                >
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
-                    <path d="M2 2l6 6M8 2L2 8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-                  </svg>
-                </button>
-              </div>
-            ))}
-            <div className="my-1.5 border-t border-[#d7dee8]" />
-          </div>
+        {activeSurface === 'chat' && filteredSessions.length > 0 && (
+          <SessionTree
+            sessions={filteredSessions}
+            activeSessionId={activeSessionId}
+            search={search}
+            onSwitchSession={onSwitchSession}
+            onRemoveSession={onRemoveSession}
+          />
         )}
-        {surfaceItems.map((item) => {
-          const isActive = activeSurface === item.id
+        {(['chat','projects','artifacts','evaluate','tune','operate','govern'] as ActiveSurface[]).map((id) => {
+          const item = surfaceItems.find(s => s.id === id)!
+          const isActive = activeSurface === id
           return (
-            <div key={item.id}>
-              <button
-                onClick={() => onSurfaceChange(item.id)}
-                className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm font-semibold transition ${
-                  isActive
-                    ? 'bg-[#dbeafe] text-[#0f172a]'
-                    : 'text-[#334155] hover:bg-white hover:text-[#0f172a]'
-                }`}
-              >
-                <span className={isActive ? 'text-[#1d4ed8]' : 'text-[#64748b]'}>{item.icon}</span>
-                <span className="flex-1 truncate">{item.label}</span>
-                <IconChevronRight
-                  className={`shrink-0 transition-transform ${isActive ? 'rotate-90' : ''}`}
-                />
-              </button>
-              {isActive && (
-                <div className="mb-1 mt-0.5 space-y-0.5 pl-9">
-                  {item.items.map((sub) => (
-                    <button
-                      key={sub}
-                      className="w-full truncate rounded-lg px-2.5 py-1.5 text-left text-xs text-[#64748b] transition hover:bg-white hover:text-[#0f172a]"
-                    >
-                      {sub}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <button
+              key={id}
+              onClick={() => onSurfaceChange(id)}
+              className={`flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[11px] transition ${
+                isActive
+                  ? 'bg-[#dbeafe] font-medium text-[var(--color-text-primary)]'
+                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]'
+              }`}
+            >
+              <span className={`shrink-0 ${isActive ? 'text-[#1d4ed8]' : ''}`}>{item.icon}</span>
+              <span className="truncate">{item.label}</span>
+            </button>
+          )
+        })}
+        <div className="px-2 pt-2 pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Platform</div>
+        {(['holographme','marketplace'] as ActiveSurface[]).map((id) => {
+          const item = surfaceItems.find(s => s.id === id)!
+          const isActive = activeSurface === id
+          return (
+            <button
+              key={id}
+              onClick={() => onSurfaceChange(id)}
+              className={`flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[11px] transition ${
+                isActive
+                  ? 'bg-[#dbeafe] font-medium text-[var(--color-text-primary)]'
+                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]'
+              }`}
+            >
+              <span className={`shrink-0 ${isActive ? 'text-[#1d4ed8]' : ''}`}>{item.icon}</span>
+              <span className="truncate">{item.label}</span>
+              <span className="ml-auto rounded bg-[var(--color-background-secondary)] px-1 py-px text-[8px] font-medium text-[var(--color-text-tertiary)]">soon</span>
+            </button>
           )
         })}
       </nav>
 
       {/* Account footer */}
-      <div className="mt-3 border-t border-[#d7dee8] pt-3 px-1 space-y-0.5">
-        <button
-          onClick={onOpenSettings}
-          className="flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-xs text-[#64748b] transition hover:bg-white hover:text-[#0f172a]"
-        >
-          <IconSettings />
-          <span>Settings</span>
-        </button>
-        <div className="flex items-center gap-2.5 rounded-xl px-2.5 py-2">
-          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#0f172a] text-xs font-semibold text-white">
-            N
+      <div className="relative border-t border-[var(--color-border-tertiary)] pt-1 mt-1">
+        {userMenuOpen && (
+          <div className="absolute bottom-full left-0 right-0 mb-1 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-lg z-50 py-1 overflow-hidden">
+            <div className="px-3 py-2 text-[11px] text-[var(--color-text-tertiary)] border-b border-[var(--color-border-tertiary)] mb-1">
+              michael@socioprophet.ai
+            </div>
+            {[
+              { label: 'Settings', hint: '⌘,', icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="8" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.05 3.05l1.06 1.06M11.89 11.89l1.06 1.06M3.05 12.95l1.06-1.06M11.89 4.11l1.06-1.06" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, action: onOpenSettings },
+              { label: 'Organization settings', badge: '1', icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M2 13V5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v8M1 13h14M6 12V9h4v3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>, action: () => {} },
+              { label: 'Analytics', icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M2 13h12M4 13V9m3 4V6m3 7V3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, action: () => {} },
+              { label: 'Language', arrow: true, icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 1.5c-2 2-3 4-3 6.5s1 4.5 3 6.5M8 1.5c2 2 3 4 3 6.5s-1 4.5-3 6.5M1.5 8h13" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, action: () => {} },
+              { label: 'Get help', icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/><path d="M6 6c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2v1.5M8 11.5v.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, action: () => {} },
+            ].map((item) => (
+              <button key={item.label} onClick={() => { item.action(); setUserMenuOpen(false) }}
+                className="flex w-full items-center gap-2.5 px-3 py-1.5 text-[12px] text-[var(--color-text-primary)] hover:bg-[var(--color-background-secondary)] transition text-left">
+                <span className="text-[var(--color-text-secondary)]">{item.icon}</span>
+                <span className="flex-1">{item.label}</span>
+                {item.hint && <span className="text-[10px] text-[var(--color-text-tertiary)]">{item.hint}</span>}
+                {item.badge && <span className="flex h-4 w-4 items-center justify-center rounded bg-[#ef4444] text-[9px] font-bold text-white">{item.badge}</span>}
+                {item.arrow && <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden><path d="M3 2l2.5 2.5L3 7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+              </button>
+            ))}
+            <div className="border-t border-[var(--color-border-tertiary)] my-1"/>
+            {[
+              { label: 'Upgrade plan', blue: true, icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 11V5M5.5 7.5L8 5l2.5 2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>, action: () => {} },
+              { label: 'Get apps and extensions', icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M3 11V5l5 3 5-3v6l-5 3-5-3z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>, action: () => {} },
+              { label: 'View changelog', icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M5 6h6M5 9h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, action: () => {} },
+              { label: 'Learn more', arrow: true, icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 7.5V11M8 5.5v-.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, action: () => {} },
+            ].map((item) => (
+              <button key={item.label} onClick={() => { item.action(); setUserMenuOpen(false) }}
+                className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-[12px] hover:bg-[var(--color-background-secondary)] transition text-left ${item.blue ? 'text-[#3b82f6]' : 'text-[var(--color-text-primary)]'}`}>
+                <span className={item.blue ? 'text-[#3b82f6]' : 'text-[var(--color-text-secondary)]'}>{item.icon}</span>
+                <span className="flex-1">{item.label}</span>
+                {item.arrow && <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden><path d="M3 2l2.5 2.5L3 7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+              </button>
+            ))}
+            <div className="border-t border-[var(--color-border-tertiary)] my-1"/>
+            <button onClick={() => setUserMenuOpen(false)}
+              className="flex w-full items-center gap-2.5 px-3 py-1.5 text-[12px] text-[var(--color-text-primary)] hover:bg-[var(--color-background-secondary)] transition text-left">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M6 3H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h3M11 11l3-3-3-3M14 8H6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <span>Log out</span>
+            </button>
           </div>
-          <span className="flex-1 truncate text-xs font-semibold text-[#0f172a]">Noetica</span>
-        </div>
+        )}
+        <button
+          onClick={() => setUserMenuOpen((v) => !v)}
+          className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-[var(--color-background-secondary)]"
+        >
+          <div
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white"
+            style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' }}
+          >
+            M
+          </div>
+          <span className="flex-1 truncate text-[11px] font-medium text-[var(--color-text-primary)]">Michael</span>
+          <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden className="shrink-0 text-[var(--color-text-tertiary)]">
+            <path d="M2 4l3.5 3.5L9 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
+        </button>
       </div>
     </aside>
   )

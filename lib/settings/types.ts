@@ -37,6 +37,17 @@ export interface NoeticaSettings {
   defaultEvidenceLevel: 'minimal' | 'standard' | 'full'
   defaultPolicyProfile: string
 
+  // Fan-out
+  fanoutModels: string[]
+  fanoutConcurrency: number
+
+  // Voice
+  wakeWordEnabled: boolean
+  voiceLanguage: string
+
+  // Agent slots — maps slot id to agent/model id
+  agentSlots: Record<string, string>
+
   // Developer
   apiEndpointOverride: string
   showRawEvents: boolean

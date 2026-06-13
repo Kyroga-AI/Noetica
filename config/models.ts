@@ -8,6 +8,7 @@ export const models: ModelConfig[] = [
     steering: 'none',
     local_capable: false,
     context_window: 1000000,
+    extended_thinking: true,
     description: 'Anthropic blackbox provider for live standalone chat with provenance only.'
   },
   {
