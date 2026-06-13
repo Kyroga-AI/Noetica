@@ -178,6 +178,26 @@ html:not([data-theme="light"]) .text-\[\#1e40af\]   { color: #60a5fa !important;
 html:not([data-theme="light"]) .text-\[\#15803d\]   { color: #16a34a !important; }
 html:not([data-theme="light"]) .text-\[\#713f12\]   { color: #d97706 !important; }
 
+/* WarmingLevel status palette — orange/hot/critical */
+html:not([data-theme="light"]) .bg-\[\#fff7ed\]     { background-color: rgba(249,115,22,0.12) !important; }
+html:not([data-theme="light"]) .bg-\[\#fafafa\]     { background-color: var(--color-background-secondary) !important; }
+html:not([data-theme="light"]) .bg-\[\#e2e8f0\]     { background-color: var(--color-background-tertiary) !important; }
+html:not([data-theme="light"]) .border-\[\#fdba74\]  { border-color: rgba(249,115,22,0.35) !important; }
+html:not([data-theme="light"]) .border-\[\#fde047\]  { border-color: rgba(250,204,21,0.30) !important; }
+html:not([data-theme="light"]) .text-\[\#a16207\]    { color: #d97706 !important; }
+html:not([data-theme="light"]) .text-\[\#c2410c\]    { color: #f97316 !important; }
+html:not([data-theme="light"]) .text-\[\#b91c1c\]    { color: #ef4444 !important; }
+
+/* bg-white opacity variants (glassmorphism in GovernanceTrail / RuntimeStatus) */
+html:not([data-theme="light"]) .bg-white\/80 { background-color: var(--color-background-secondary) !important; }
+html:not([data-theme="light"]) .bg-white\/60 { background-color: var(--color-background-secondary) !important; }
+
+/* Tailwind semantic color names used in GovernanceTrail / RuntimeStatus */
+html:not([data-theme="light"]) .text-amber-700  { color: #d97706 !important; }
+html:not([data-theme="light"]) .text-slate-700  { color: var(--color-text-primary) !important; }
+html:not([data-theme="light"]) .text-slate-500  { color: var(--color-text-secondary) !important; }
+html:not([data-theme="light"]) .border-blue-100 { border-color: rgba(147,197,253,0.20) !important; }
+
 * {
   box-sizing: border-box;
 }
