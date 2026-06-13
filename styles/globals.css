@@ -73,21 +73,50 @@
    Flip hardcoded light Tailwind classes in both dark themes and the default
    (unset data-theme) state. Light theme is excluded via :not([data-theme="light"]).
    ─────────────────────────────────────────────────────────────────────────── */
+
+/* Surface backgrounds */
 html:not([data-theme="light"]) .bg-white,
 html:not([data-theme="light"]) .bg-\[\#ffffff\] { background-color: var(--color-background-primary) !important; }
 html:not([data-theme="light"]) .bg-\[\#f8fafc\] { background-color: var(--color-background-secondary) !important; }
 html:not([data-theme="light"]) .bg-\[\#f3f6fa\] { background-color: var(--color-background-secondary) !important; }
 html:not([data-theme="light"]) .bg-\[\#f1f5f9\] { background-color: var(--color-background-secondary) !important; }
 html:not([data-theme="light"]) .bg-\[\#eaf1f8\] { background-color: var(--color-background-tertiary) !important; }
+
+/* Blue accent tints — soften to translucent in dark */
+html:not([data-theme="light"]) .bg-\[\#eff6ff\] { background-color: rgba(29,78,216,0.12) !important; }
+html:not([data-theme="light"]) .bg-\[\#dbeafe\] { background-color: rgba(29,78,216,0.18) !important; }
+html:not([data-theme="light"]) .bg-\[\#bfdbfe\] { background-color: rgba(29,78,216,0.22) !important; }
+
+/* Amber / warning tints */
+html:not([data-theme="light"]) .bg-\[\#fffbeb\] { background-color: rgba(180,83,9,0.12) !important; }
+html:not([data-theme="light"]) .bg-\[\#fef9c3\] { background-color: rgba(161,98,7,0.12) !important; }
+
+/* Dark primary-action buttons (#0f172a / #1e293b used as button bg) — use elevated surface in dark */
+html:not([data-theme="light"]) .bg-\[\#0f172a\]  { background-color: var(--color-background-secondary) !important; }
+html:not([data-theme="light"]) .bg-\[\#1e293b\]  { background-color: var(--color-background-tertiary) !important; }
+
+/* Text colors */
 html:not([data-theme="light"]) .text-\[\#0f172a\]  { color: var(--color-text-primary) !important; }
 html:not([data-theme="light"]) .text-\[\#111827\]  { color: var(--color-text-primary) !important; }
 html:not([data-theme="light"]) .text-\[\#1e293b\]  { color: var(--color-text-primary) !important; }
 html:not([data-theme="light"]) .text-\[\#334155\]  { color: var(--color-text-primary) !important; }
+html:not([data-theme="light"]) .text-\[\#475569\]  { color: var(--color-text-secondary) !important; }
 html:not([data-theme="light"]) .text-\[\#64748b\]  { color: var(--color-text-secondary) !important; }
 html:not([data-theme="light"]) .text-\[\#94a3b8\]  { color: var(--color-text-tertiary) !important; }
-html:not([data-theme="light"]) .border-\[\#e2e8f0\] { border-color: var(--color-border-tertiary) !important; }
-html:not([data-theme="light"]) .border-\[\#d7dee8\] { border-color: var(--color-border-tertiary) !important; }
-html:not([data-theme="light"]) .border-\[\#cbd5e1\] { border-color: var(--color-border-secondary) !important; }
+html:not([data-theme="light"]) .text-\[\#cbd5e1\]  { color: var(--color-text-tertiary) !important; }
+html:not([data-theme="light"]) .text-\[\#78350f\]  { color: var(--color-text-secondary) !important; }
+
+/* Borders */
+html:not([data-theme="light"]) .border-\[\#e2e8f0\]  { border-color: var(--color-border-tertiary) !important; }
+html:not([data-theme="light"]) .border-\[\#d7dee8\]  { border-color: var(--color-border-tertiary) !important; }
+html:not([data-theme="light"]) .border-\[\#cbd5e1\]  { border-color: var(--color-border-secondary) !important; }
+html:not([data-theme="light"]) .border-\[\#bfdbfe\]  { border-color: rgba(147,197,253,0.20) !important; }
+html:not([data-theme="light"]) .border-\[\#fde68a\]  { border-color: rgba(251,191,36,0.25) !important; }
+html:not([data-theme="light"]) .border-\[\#fecaca\]  { border-color: rgba(252,165,165,0.30) !important; }
+
+/* Dividers (Tailwind divide-* uses border-color on children) */
+html:not([data-theme="light"]) .divide-\[\#f1f5f9\] > * { border-color: var(--color-border-tertiary) !important; }
+html:not([data-theme="light"]) .divide-\[\#e2e8f0\] > * { border-color: var(--color-border-tertiary) !important; }
 
 * {
   box-sizing: border-box;
