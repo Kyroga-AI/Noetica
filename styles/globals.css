@@ -126,6 +126,34 @@ html:not([data-theme="light"]) .bg-\[\#fef2f2\] { background-color: rgba(239,68,
 html:not([data-theme="light"]) .border-\[\#86efac\] { border-color: rgba(134,239,172,0.30) !important; }
 html:not([data-theme="light"]) .border-\[\#ddd6fe\] { border-color: rgba(196,181,253,0.22) !important; }
 html:not([data-theme="light"]) .border-\[\#d1d5db\] { border-color: var(--color-border-secondary) !important; }
+html:not([data-theme="light"]) .border-\[\#93c5fd\] { border-color: rgba(147,197,253,0.35) !important; }
+html:not([data-theme="light"]) .border-\[\#bbf7d0\] { border-color: rgba(134,239,172,0.20) !important; }
+html:not([data-theme="light"]) .border-\[\#c7d2fe\] { border-color: rgba(165,180,252,0.22) !important; }
+html:not([data-theme="light"]) .border-\[\#fde68a\] { border-color: rgba(251,191,36,0.25) !important; }
+
+/* Additional surface backgrounds */
+html:not([data-theme="light"]) .bg-\[\#f0fdf4\] { background-color: rgba(34,197,94,0.08) !important; }
+html:not([data-theme="light"]) .bg-\[\#fee2e2\] { background-color: rgba(239,68,68,0.10) !important; }
+
+/* Status text: dark semantic colors → lighter equivalents for dark backgrounds */
+html:not([data-theme="light"]) .text-\[\#166534\] { color: #16a34a !important; }
+html:not([data-theme="light"]) .text-\[\#854d0e\] { color: #d97706 !important; }
+html:not([data-theme="light"]) .text-\[\#991b1b\] { color: #dc2626 !important; }
+html:not([data-theme="light"]) .text-\[\#92400e\] { color: #d97706 !important; }
+
+/* Ring colors */
+html:not([data-theme="light"]) .ring-\[\#bfdbfe\] { --tw-ring-color: rgba(147,197,253,0.20) !important; }
+
+/* Indigo badge/tag backgrounds */
+html:not([data-theme="light"]) .bg-\[\#e0e7ff\] { background-color: rgba(99,102,241,0.12) !important; }
+html:not([data-theme="light"]) .bg-\[\#c7d2fe\] { background-color: rgba(165,180,252,0.18) !important; }
+
+/* Indigo text colors → lighter equivalents for dark backgrounds */
+html:not([data-theme="light"]) .text-\[\#3730a3\] { color: #818cf8 !important; }
+html:not([data-theme="light"]) .text-\[\#6366f1\] { color: #818cf8 !important; }
+
+/* Red delete/danger border */
+html:not([data-theme="light"]) .border-\[\#fee2e2\] { border-color: rgba(239,68,68,0.25) !important; }
 
 * {
   box-sizing: border-box;
