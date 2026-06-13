@@ -118,6 +118,15 @@ html:not([data-theme="light"]) .border-\[\#fecaca\]  { border-color: rgba(252,16
 html:not([data-theme="light"]) .divide-\[\#f1f5f9\] > * { border-color: var(--color-border-tertiary) !important; }
 html:not([data-theme="light"]) .divide-\[\#e2e8f0\] > * { border-color: var(--color-border-tertiary) !important; }
 
+/* Status / badge backgrounds */
+html:not([data-theme="light"]) .bg-\[\#dcfce7\] { background-color: rgba(34,197,94,0.12) !important; }
+html:not([data-theme="light"]) .bg-\[\#fef2f2\] { background-color: rgba(239,68,68,0.10) !important; }
+
+/* Additional borders */
+html:not([data-theme="light"]) .border-\[\#86efac\] { border-color: rgba(134,239,172,0.30) !important; }
+html:not([data-theme="light"]) .border-\[\#ddd6fe\] { border-color: rgba(196,181,253,0.22) !important; }
+html:not([data-theme="light"]) .border-\[\#d1d5db\] { border-color: var(--color-border-secondary) !important; }
+
 * {
   box-sizing: border-box;
 }
