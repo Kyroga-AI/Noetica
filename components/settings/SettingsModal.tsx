@@ -127,10 +127,10 @@ export function SettingsModal({ open, onClose, initialCategory = 'appearance' }:
       <div
         role="dialog"
         aria-label="Settings"
-        className="flex h-[600px] w-[820px] max-h-[90vh] max-w-[95vw] overflow-hidden rounded-2xl border border-[#d7dee8] bg-white shadow-2xl"
+        className="flex h-[600px] w-[820px] max-h-[90vh] max-w-[95vw] overflow-hidden rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-2xl"
       >
         {/* Left nav */}
-        <nav className="flex w-48 shrink-0 flex-col border-r border-[#d7dee8] bg-[#f8fafc] py-4">
+        <nav className="flex w-48 shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] py-4">
           <div className="px-4 pb-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">
             Settings
           </div>
@@ -141,16 +141,16 @@ export function SettingsModal({ open, onClose, initialCategory = 'appearance' }:
                 onClick={() => setActiveId(cat.id)}
                 className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left text-sm transition ${
                   activeId === cat.id
-                    ? 'bg-[#dbeafe] font-semibold text-[#0f172a]'
-                    : 'text-[#334155] hover:bg-[#e2e8f0] hover:text-[#0f172a]'
+                    ? 'bg-[rgba(29,78,216,0.15)] font-semibold text-[var(--color-text-primary)]'
+                    : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-primary)]'
                 }`}
               >
-                <span className={activeId === cat.id ? 'text-[#1d4ed8]' : 'text-[#94a3b8]'}>
+                <span className={activeId === cat.id ? 'text-[#1d4ed8]' : 'text-[var(--color-text-tertiary)]'}>
                   {cat.icon}
                 </span>
                 <span className="flex-1">{cat.label}</span>
                 {cat.badge && (
-                  <span className="rounded-full bg-[#eff6ff] px-1.5 py-0.5 text-[10px] font-semibold text-[#1d4ed8]">
+                  <span className="rounded-full bg-[rgba(29,78,216,0.10)] px-1.5 py-0.5 text-[10px] font-semibold text-[#1d4ed8]">
                     {cat.badge}
                   </span>
                 )}
@@ -161,11 +161,11 @@ export function SettingsModal({ open, onClose, initialCategory = 'appearance' }:
 
         {/* Content */}
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="flex items-center justify-between border-b border-[#d7dee8] px-6 py-4">
-            <h2 className="text-base font-semibold text-[#0f172a]">{active.label}</h2>
+          <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-6 py-4">
+            <h2 className="text-base font-semibold text-[var(--color-text-primary)]">{active.label}</h2>
             <button
               onClick={onClose}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-[#94a3b8] transition hover:bg-[#f1f5f9] hover:text-[#0f172a]"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-primary)]"
               aria-label="Close settings"
             >
               <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
