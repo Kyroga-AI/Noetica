@@ -2,6 +2,9 @@
 
 import { useState } from 'react'
 import { models } from '@/config/models'
+import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
+import { useSettings } from '@/lib/settings/context'
+import type { ChatMessage } from '@/lib/types/message'
 
 type RunStatus = 'idle' | 'running' | 'done'
 type PreferenceLabel = 'preferred' | 'rejected' | null
@@ -17,7 +20,28 @@ interface ComparisonRun {
   createdAt: string
 }
 
+function runModelPromise(
+  modelId: string,
+  prompt: string,
+  providerKeys: Record<string, string | undefined>
+): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    let text = ''
+    const msgs: ChatMessage[] = [{ id: 'u', role: 'user', content: prompt, created_at: new Date().toISOString() }]
+    sendNoeticaChat(
+      { session_id: `tune:${crypto.randomUUID()}`, mode: 'standalone', model_id: modelId, messages: msgs, memory_scope: 'noetica-tune', provider_keys: providerKeys },
+      {
+        onMeta: () => {},
+        onDelta: (delta) => { text += delta },
+        onDone: (result) => resolve(result.content || text || '(empty response)'),
+        onError: (err) => reject(new Error(err)),
+      }
+    ).catch(reject)
+  })
+}
+
 export function TuneSurface() {
+  const { settings } = useSettings()
   const [teacherModelId, setTeacherModelId] = useState(models[0]?.id ?? '')
   const [studentModelId, setStudentModelId] = useState(models[1]?.id ?? '')
   const [prompt, setPrompt] = useState('')
@@ -43,58 +67,32 @@ export function TuneSurface() {
     setActiveRunId(id)
     setPrompt('')
 
+    const providerKeys = {
+      anthropic:   settings.anthropicApiKey   || undefined,
+      openai:      settings.openaiApiKey      || undefined,
+      google:      settings.googleApiKey      || undefined,
+      mistral:     settings.mistralApiKey     || undefined,
+      neuronpedia: settings.neuronpediaApiKey || undefined,
+    }
+
     try {
-      const [teacherRes, studentRes] = await Promise.all([
-        fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: [{ role: 'user', content: placeholder.prompt }], model: teacherModelId }),
-        }),
-        fetch('/api/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: [{ role: 'user', content: placeholder.prompt }], model: studentModelId }),
-        }),
+      const [teacherText, studentText] = await Promise.all([
+        runModelPromise(teacherModelId, placeholder.prompt, providerKeys),
+        runModelPromise(studentModelId, placeholder.prompt, providerKeys),
       ])
-
-      const teacherText = await collectStream(teacherRes)
-      const studentText = await collectStream(studentRes)
-
       setRuns((prev) => prev.map((r) => r.id === id
         ? { ...r, teacherResponse: teacherText, studentResponse: studentText }
         : r
       ))
-    } catch {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error fetching response.'
       setRuns((prev) => prev.map((r) => r.id === id
-        ? { ...r, teacherResponse: 'Error fetching response.', studentResponse: 'Error fetching response.' }
+        ? { ...r, teacherResponse: msg, studentResponse: msg }
         : r
       ))
     } finally {
       setRunStatus('done')
     }
-  }
-
-  async function collectStream(res: Response): Promise<string> {
-    if (!res.ok) return `Error ${res.status}`
-    const reader = res.body?.getReader()
-    if (!reader) return ''
-    const decoder = new TextDecoder()
-    let text = ''
-    while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
-      const chunk = decoder.decode(value, { stream: true })
-      for (const line of chunk.split('\n')) {
-        if (line.startsWith('data: ')) {
-          try {
-            const d = JSON.parse(line.slice(6))
-            if (d.event === 'delta' && d.text) text += d.text
-            if (d.event === 'done') break
-          } catch { /* skip */ }
-        }
-      }
-    }
-    return text || '(no response)'
   }
 
   function markPreference(runId: string, label: PreferenceLabel) {

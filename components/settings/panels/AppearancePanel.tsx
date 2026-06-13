@@ -1,35 +1,56 @@
 'use client'
 
 import { useSettings } from '@/lib/settings/context'
-import type { Theme, SidebarDensity } from '@/lib/settings/types'
+import { useTheme } from '@/contexts/ThemeContext'
+import { themes } from '@/config/themes'
+import type { SidebarDensity } from '@/lib/settings/types'
 
 export function AppearancePanel() {
   const { settings, update } = useSettings()
+  const { themeId, setTheme } = useTheme()
 
   return (
     <div className="space-y-6">
+      {/* Theme */}
       <div>
-        <label className="block text-sm font-semibold text-[#0f172a]">Theme</label>
-        <p className="mt-0.5 text-xs text-[#64748b]">Full dark mode requires a style pass — currently sets the preference for when that lands.</p>
+        <label className="block text-sm font-semibold text-[var(--color-text-primary)]">Theme</label>
+        <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Choose a color theme for the interface.</p>
         <div className="mt-3 flex gap-2">
-          {(['light', 'dark', 'system'] as Theme[]).map((t) => (
-            <button
-              key={t}
-              onClick={() => update({ theme: t })}
-              className={`rounded-xl border px-4 py-2 text-sm capitalize transition ${
-                settings.theme === t
-                  ? 'border-[#1d4ed8] bg-[#eff6ff] font-semibold text-[#1d4ed8]'
-                  : 'border-[#e2e8f0] bg-white text-[#334155] hover:bg-[#f8fafc]'
-              }`}
-            >
-              {t}
-            </button>
-          ))}
+          {themes.map((t) => {
+            const active = themeId === t.id
+            return (
+              <button
+                key={t.id}
+                onClick={() => setTheme(t.id)}
+                className={`flex flex-col items-start gap-2 rounded-xl border p-3 text-left transition ${
+                  active
+                    ? 'border-[#1d4ed8] bg-[rgba(29,78,216,0.08)]'
+                    : 'border-[var(--color-border-tertiary)] hover:border-[var(--color-border-secondary)]'
+                }`}
+                style={{ minWidth: 88 }}
+              >
+                {/* Color swatch */}
+                <span
+                  className="flex h-7 w-full items-center justify-center overflow-hidden rounded-lg border border-[var(--color-border-tertiary)]"
+                  style={{ background: t.preview.bg }}
+                >
+                  <span
+                    className="block h-4 w-4 rounded"
+                    style={{ background: t.preview.sidebar }}
+                  />
+                </span>
+                <span className={`text-xs font-semibold ${active ? 'text-[#1d4ed8]' : 'text-[var(--color-text-secondary)]'}`}>
+                  {t.label}
+                </span>
+              </button>
+            )
+          })}
         </div>
       </div>
 
+      {/* Sidebar density */}
       <div>
-        <label className="block text-sm font-semibold text-[#0f172a]">Sidebar density</label>
+        <label className="block text-sm font-semibold text-[var(--color-text-primary)]">Sidebar density</label>
         <div className="mt-3 flex gap-2">
           {(['comfortable', 'compact'] as SidebarDensity[]).map((d) => (
             <button
@@ -37,8 +58,8 @@ export function AppearancePanel() {
               onClick={() => update({ sidebarDensity: d })}
               className={`rounded-xl border px-4 py-2 text-sm capitalize transition ${
                 settings.sidebarDensity === d
-                  ? 'border-[#1d4ed8] bg-[#eff6ff] font-semibold text-[#1d4ed8]'
-                  : 'border-[#e2e8f0] bg-white text-[#334155] hover:bg-[#f8fafc]'
+                  ? 'border-[#1d4ed8] bg-[rgba(29,78,216,0.08)] font-semibold text-[#1d4ed8]'
+                  : 'border-[var(--color-border-tertiary)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-secondary)]'
               }`}
             >
               {d}
@@ -47,8 +68,9 @@ export function AppearancePanel() {
         </div>
       </div>
 
+      {/* Font size */}
       <div>
-        <label className="block text-sm font-semibold text-[#0f172a]">Font size</label>
+        <label className="block text-sm font-semibold text-[var(--color-text-primary)]">Font size</label>
         <div className="mt-3 flex gap-2">
           {([['sm', 'Small'], ['md', 'Medium'], ['lg', 'Large']] as const).map(([val, label]) => (
             <button
@@ -56,8 +78,8 @@ export function AppearancePanel() {
               onClick={() => update({ fontSize: val })}
               className={`rounded-xl border px-4 py-2 text-sm transition ${
                 settings.fontSize === val
-                  ? 'border-[#1d4ed8] bg-[#eff6ff] font-semibold text-[#1d4ed8]'
-                  : 'border-[#e2e8f0] bg-white text-[#334155] hover:bg-[#f8fafc]'
+                  ? 'border-[#1d4ed8] bg-[rgba(29,78,216,0.08)] font-semibold text-[#1d4ed8]'
+                  : 'border-[var(--color-border-tertiary)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-secondary)]'
               }`}
             >
               {label}
