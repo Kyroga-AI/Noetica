@@ -37,6 +37,14 @@ export const defaultSettings: NoeticaSettings = {
     tasks: 'claude-sonnet-4-6',
   },
 
+  oauthGoogleClientId: '',
+  oauthGithubClientId: '',
+  oauthSlackClientId: '',
+  oauthLinearClientId: '',
+  oauthNotionClientId: '',
+
+  matrixHomeserver: 'https://matrix.org',
+
   apiEndpointOverride: '',
   showRawEvents: false,
 }

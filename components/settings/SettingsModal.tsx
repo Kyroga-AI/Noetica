@@ -5,6 +5,7 @@ import { AppearancePanel } from './panels/AppearancePanel'
 import { ModelsPanel } from './panels/ModelsPanel'
 import { RuntimePanel } from './panels/RuntimePanel'
 import { ConnectorsPanel } from './panels/ConnectorsPanel'
+import { ConnectionsPanel } from './panels/ConnectionsPanel'
 import { MemoryPanel } from './panels/MemoryPanel'
 import { FanoutPanel } from './panels/FanoutPanel'
 import { DeveloperPanel } from './panels/DeveloperPanel'
@@ -86,11 +87,22 @@ function IconOrganization() {
     </svg>
   )
 }
+function IconConnections() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <circle cx="4" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.4" />
+      <circle cx="12" cy="4" r="2" stroke="currentColor" strokeWidth="1.3" />
+      <circle cx="12" cy="12" r="2" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M6.5 8h1.5M10 4.5l-2 2.5M10 11.5l-2-2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  )
+}
 
 const categories: Category[] = [
   { id: 'appearance', label: 'Appearance', icon: <IconAppearance />, panel: <AppearancePanel /> },
   { id: 'models', label: 'Models', icon: <IconModels />, panel: <ModelsPanel /> },
   { id: 'runtime', label: 'Runtime', icon: <IconRuntime />, panel: <RuntimePanel /> },
+  { id: 'connections', label: 'Connections', icon: <IconConnections />, panel: <ConnectionsPanel /> },
   { id: 'connectors', label: 'Connectors', icon: <IconConnectors />, panel: <ConnectorsPanel />, badge: 'MCP' },
   { id: 'memory', label: 'Memory', icon: <IconMemory />, panel: <MemoryPanel /> },
   { id: 'fanout', label: 'Fan-out', icon: <IconFanout />, panel: <FanoutPanel /> },

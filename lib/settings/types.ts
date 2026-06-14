@@ -48,6 +48,16 @@ export interface NoeticaSettings {
   // Agent slots — maps slot id to agent/model id
   agentSlots: Record<string, string>
 
+  // OAuth credentials (user-registered OAuth app client IDs)
+  oauthGoogleClientId: string
+  oauthGithubClientId: string
+  oauthSlackClientId: string
+  oauthLinearClientId: string
+  oauthNotionClientId: string
+
+  // Matrix homeserver
+  matrixHomeserver: string
+
   // Developer
   apiEndpointOverride: string
   showRawEvents: boolean

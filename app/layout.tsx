@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { SettingsProvider } from '@/lib/settings/context'
 import { ThemeProvider } from '@/contexts/ThemeContext'
+import { ConnectorAuthProvider } from '@/lib/auth/context'
 import '@/styles/globals.css'
 
 export const metadata: Metadata = {
@@ -17,7 +18,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body>
         <ThemeProvider>
-          <SettingsProvider>{children}</SettingsProvider>
+          <SettingsProvider>
+            <ConnectorAuthProvider>{children}</ConnectorAuthProvider>
+          </SettingsProvider>
         </ThemeProvider>
       </body>
     </html>
