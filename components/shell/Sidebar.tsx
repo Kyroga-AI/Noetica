@@ -368,6 +368,7 @@ export function Sidebar({
           ))}
         </nav>
         <button
+          onClick={() => onOpenSettings()}
           className="flex h-9 w-9 items-center justify-center rounded-xl text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]"
           title="Settings"
         >
