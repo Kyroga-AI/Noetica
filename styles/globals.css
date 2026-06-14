@@ -219,6 +219,31 @@ html:not([data-theme="light"]) .border-slate-200  { border-color: var(--color-bo
 html:not([data-theme="light"]) .disabled\:bg-\[\#f8fafc\]:disabled { background-color: var(--color-background-secondary) !important; }
 html:not([data-theme="light"]) .disabled\:text-\[\#94a3b8\]:disabled { color: var(--color-text-tertiary) !important; }
 
+/* hover:text overrides — dark text would vanish on hover in dark mode */
+html:not([data-theme="light"]) .hover\:text-\[\#0f172a\]:hover   { color: var(--color-text-primary) !important; }
+html:not([data-theme="light"]) .hover\:text-\[\#1e293b\]:hover   { color: var(--color-text-primary) !important; }
+html:not([data-theme="light"]) .hover\:text-\[\#334155\]:hover   { color: var(--color-text-primary) !important; }
+html:not([data-theme="light"]) .hover\:text-\[\#475569\]:hover   { color: var(--color-text-secondary) !important; }
+html:not([data-theme="light"]) .hover\:text-\[\#64748b\]:hover   { color: var(--color-text-secondary) !important; }
+html:not([data-theme="light"]) .hover\:text-\[\#3730a3\]:hover   { color: #818cf8 !important; }
+
+/* hover:border overrides — light borders need dark-mode equivalents */
+html:not([data-theme="light"]) .hover\:border-\[\#bfdbfe\]:hover { border-color: rgba(147,197,253,0.40) !important; }
+html:not([data-theme="light"]) .hover\:border-\[\#fecaca\]:hover { border-color: rgba(239,68,68,0.35) !important; }
+html:not([data-theme="light"]) .hover\:border-\[\#fca5a5\]:hover { border-color: rgba(239,68,68,0.30) !important; }
+html:not([data-theme="light"]) .hover\:border-\[\#e2e8f0\]:hover { border-color: var(--color-border-secondary) !important; }
+
+/* light-rose backgrounds (voice button, alerts) */
+html:not([data-theme="light"]) .bg-\[\#fff1f2\]          { background-color: rgba(244,63,94,0.12) !important; }
+html:not([data-theme="light"]) .bg-\[\#ffe4e6\]          { background-color: rgba(244,63,94,0.16) !important; }
+html:not([data-theme="light"]) .hover\:bg-\[\#ffe4e6\]:hover { background-color: rgba(244,63,94,0.20) !important; }
+html:not([data-theme="light"]) .bg-\[\#fda4af\]          { background-color: rgba(251,113,133,0.30) !important; }
+html:not([data-theme="light"]) .border-\[\#fda4af\]      { border-color: rgba(251,113,133,0.40) !important; }
+
+/* group-hover: text variants */
+html:not([data-theme="light"]) .group-hover\:text-\[\#0f172a\]  { color: var(--color-text-primary) !important; }
+html:not([data-theme="light"]) .group-hover\:text-\[\#334155\]  { color: var(--color-text-primary) !important; }
+
 * {
   box-sizing: border-box;
 }

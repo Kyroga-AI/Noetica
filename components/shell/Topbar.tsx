@@ -44,9 +44,10 @@ export function Topbar({ modelId, mode, riskReadout, voiceState, onModelChange, 
           onClick={isListening ? onVoiceStop : onVoiceStart}
           title={isListening ? 'Listening… click to stop' : 'Speak to Claude'}
           aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
-          style={{ border: '0.5px solid #fda4af' }}
-          className={`relative flex h-[22px] w-[22px] items-center justify-center rounded-full transition ${
-            isListening ? 'bg-[#fff1f2] text-[#f43f5e]' : 'bg-[#fff1f2] text-[#fb7185] hover:bg-[#ffe4e6]'
+          className={`relative flex h-[22px] w-[22px] items-center justify-center rounded-full border transition ${
+            isListening
+              ? 'border-[#fda4af] bg-[#fff1f2] text-[#f43f5e]'
+              : 'border-[#fda4af] bg-[#fff1f2] text-[#fb7185] hover:bg-[#ffe4e6]'
           }`}
         >
           {isListening && (
