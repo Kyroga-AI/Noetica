@@ -166,6 +166,17 @@ function ArtifactRenderer({ artifact, onUpdate }: { artifact: Artifact; onUpdate
 
 // ─── Pane shell ───────────────────────────────────────────────────────────────
 
+function artifactExtension(artifact: Artifact): string {
+  if (artifact.type === 'html')     return '.html'
+  if (artifact.type === 'document') return '.md'
+  if (artifact.type === 'data')     return '.json'
+  if (artifact.type === 'code') {
+    const ext: Record<string, string> = { python: '.py', typescript: '.ts', javascript: '.js', rust: '.rs', go: '.go', css: '.css', sql: '.sql', bash: '.sh', yaml: '.yaml', toml: '.toml' }
+    return ext[artifact.language ?? ''] ?? '.txt'
+  }
+  return '.txt'
+}
+
 export function ArtifactPane({ artifact, onClose, onUpdate, onDelete }: ArtifactPaneProps) {
   const [confirmDelete, setConfirmDelete] = useState(false)
 
@@ -173,6 +184,18 @@ export function ArtifactPane({ artifact, onClose, onUpdate, onDelete }: Artifact
     if (!confirmDelete) { setConfirmDelete(true); setTimeout(() => setConfirmDelete(false), 3000); return }
     onDelete(artifact.id)
     onClose()
+  }
+
+  function handleDownload() {
+    const ext = artifactExtension(artifact)
+    const slug = artifact.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'artifact'
+    const blob = new Blob([artifact.content], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `${slug}${ext}`
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   return (
@@ -203,6 +226,15 @@ export function ArtifactPane({ artifact, onClose, onUpdate, onDelete }: Artifact
               Finalise
             </button>
           )}
+          <button
+            onClick={handleDownload}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-secondary)]"
+            title="Download"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+              <path d="M6 1v7M3 5.5l3 3 3-3M2 10.5h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
           <button
             onClick={handleDelete}
             className={`rounded-lg border px-2 py-1 text-[10px] font-semibold transition ${
