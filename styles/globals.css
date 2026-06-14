@@ -219,6 +219,10 @@ html:not([data-theme="light"]) .border-slate-200  { border-color: var(--color-bo
 html:not([data-theme="light"]) .disabled\:bg-\[\#f8fafc\]:disabled { background-color: var(--color-background-secondary) !important; }
 html:not([data-theme="light"]) .disabled\:text-\[\#94a3b8\]:disabled { color: var(--color-text-tertiary) !important; }
 
+/* focus: state overrides */
+html:not([data-theme="light"]) .focus\:border-\[\#93c5fd\]:focus { border-color: #1d4ed8 !important; }
+html:not([data-theme="light"]) .focus\:border-\[\#1d4ed8\]:focus { border-color: #1d4ed8 !important; }
+
 /* hover:text overrides — dark text would vanish on hover in dark mode */
 html:not([data-theme="light"]) .hover\:text-\[\#0f172a\]:hover   { color: var(--color-text-primary) !important; }
 html:not([data-theme="light"]) .hover\:text-\[\#1e293b\]:hover   { color: var(--color-text-primary) !important; }

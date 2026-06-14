@@ -162,60 +162,19 @@ function IconChevronLeft() {
 }
 
 const surfaceItems: SurfaceItem[] = [
-  {
-    id: 'chat',
-    label: 'Workspace',
-    icon: <IconChat />,
-    items: ['New conversation', 'Recent threads', 'Pinned']
-  },
-  {
-    id: 'projects',
-    label: 'Projects',
-    icon: <IconProjects />,
-    items: ['Active projects', 'Workrooms', 'Backlog', 'Sprints']
-  },
-  {
-    id: 'artifacts',
-    label: 'Artifacts',
-    icon: <IconArtifacts />,
-    items: ['Documents', 'Code files', 'Evidence bundles']
-  },
-  {
-    id: 'evaluate',
-    label: 'Evaluate',
-    icon: <IconEvaluate />,
-    items: ['Task benchmarks', 'Model families', 'Outcome traces']
-  },
-  {
-    id: 'tune',
-    label: 'Tune & Train',
-    icon: <IconTune />,
-    items: ['Comparative runs', 'Preference pairs', 'DPO export']
-  },
-  {
-    id: 'operate',
-    label: 'Operate',
-    icon: <IconOperate />,
-    items: ['Graph health', 'Time service', 'Sync queues', 'Event ledger']
-  },
-  {
-    id: 'govern',
-    label: 'Govern',
-    icon: <IconGovern />,
-    items: ['Policy trace', 'Memory scope', 'Evidence export']
-  },
-  {
-    id: 'holographme',
-    label: 'HolographMe',
-    icon: <IconHolograph />,
-    items: []
-  },
-  {
-    id: 'marketplace',
-    label: 'Marketplace',
-    icon: <IconMarketplace />,
-    items: []
-  },
+  { id: 'chat',        label: 'Workspace',   icon: <IconChat />,       items: ['New conversation', 'Recent threads', 'Pinned'] },
+  { id: 'notes',       label: 'Notes',       icon: <IconNotes />,      items: ['My notes', 'Shared', 'Archived'] },
+  { id: 'cowork',      label: 'Cowork',      icon: <IconCowork />,     items: ['Active sessions', 'Task decomposition', 'Decision log'] },
+  { id: 'workrooms',   label: 'Workrooms',   icon: <IconWorkrooms />,  items: ['My rooms', 'Shared rooms', 'Archived'] },
+  { id: 'projects',    label: 'Projects',    icon: <IconProjects />,   items: ['Active projects', 'Backlog', 'Sprints'] },
+  { id: 'artifacts',   label: 'Artifacts',   icon: <IconArtifacts />,  items: ['Documents', 'Code files', 'Evidence bundles'] },
+  { id: 'code',        label: 'Source',      icon: <IconCode />,       items: ['Repositories', 'Gitea Sovereign', 'External forges'] },
+  { id: 'evaluate',    label: 'Evaluate',    icon: <IconEvaluate />,   items: ['Task benchmarks', 'Model families', 'Outcome traces'] },
+  { id: 'tune',        label: 'Tune & Train',icon: <IconTune />,       items: ['Comparative runs', 'Preference pairs', 'DPO export'] },
+  { id: 'govern',      label: 'Govern',      icon: <IconGovern />,     items: ['Policy trace', 'Memory scope', 'Evidence export'] },
+  { id: 'operate',     label: 'Operate',     icon: <IconOperate />,    items: ['Graph health', 'Time service', 'Event ledger'] },
+  { id: 'holographme', label: 'HolographMe', icon: <IconHolograph />,  items: [] },
+  { id: 'marketplace', label: 'Marketplace', icon: <IconMarketplace />,items: [] },
 ]
 
 type SessionTreeProps = {
@@ -437,13 +396,13 @@ export function Sidebar({
             onRemoveSession={onRemoveSession}
           />
         )}
-        {(['chat','projects','artifacts','evaluate','tune','operate','govern'] as ActiveSurface[]).map((id) => {
+
+        {/* Workspace group */}
+        {(['chat','notes','cowork','workrooms'] as ActiveSurface[]).map((id) => {
           const item = surfaceItems.find(s => s.id === id)!
           const isActive = activeSurface === id
           return (
-            <button
-              key={id}
-              onClick={() => onSurfaceChange(id)}
+            <button key={id} onClick={() => onSurfaceChange(id)}
               className={`flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[11px] transition ${
                 isActive
                   ? 'bg-[#dbeafe] font-medium text-[var(--color-text-primary)]'
@@ -455,14 +414,52 @@ export function Sidebar({
             </button>
           )
         })}
+
+        {/* Build group */}
+        <div className="px-2 pt-2 pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Build</div>
+        {(['projects','artifacts','code'] as ActiveSurface[]).map((id) => {
+          const item = surfaceItems.find(s => s.id === id)!
+          const isActive = activeSurface === id
+          return (
+            <button key={id} onClick={() => onSurfaceChange(id)}
+              className={`flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[11px] transition ${
+                isActive
+                  ? 'bg-[#dbeafe] font-medium text-[var(--color-text-primary)]'
+                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]'
+              }`}
+            >
+              <span className={`shrink-0 ${isActive ? 'text-[#1d4ed8]' : ''}`}>{item.icon}</span>
+              <span className="truncate">{item.label}</span>
+            </button>
+          )
+        })}
+
+        {/* Intelligence group */}
+        <div className="px-2 pt-2 pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Intelligence</div>
+        {(['evaluate','tune','govern','operate'] as ActiveSurface[]).map((id) => {
+          const item = surfaceItems.find(s => s.id === id)!
+          const isActive = activeSurface === id
+          return (
+            <button key={id} onClick={() => onSurfaceChange(id)}
+              className={`flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[11px] transition ${
+                isActive
+                  ? 'bg-[#dbeafe] font-medium text-[var(--color-text-primary)]'
+                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]'
+              }`}
+            >
+              <span className={`shrink-0 ${isActive ? 'text-[#1d4ed8]' : ''}`}>{item.icon}</span>
+              <span className="truncate">{item.label}</span>
+            </button>
+          )
+        })}
+
+        {/* Platform group */}
         <div className="px-2 pt-2 pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Platform</div>
         {(['holographme','marketplace'] as ActiveSurface[]).map((id) => {
           const item = surfaceItems.find(s => s.id === id)!
           const isActive = activeSurface === id
           return (
-            <button
-              key={id}
-              onClick={() => onSurfaceChange(id)}
+            <button key={id} onClick={() => onSurfaceChange(id)}
               className={`flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[11px] transition ${
                 isActive
                   ? 'bg-[#dbeafe] font-medium text-[var(--color-text-primary)]'
