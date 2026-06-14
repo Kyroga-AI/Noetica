@@ -4,6 +4,17 @@ import { useState } from 'react'
 import { useMcp } from '@/lib/mcp/useMcp'
 import type { McpServerConfig, McpServerState, McpTransport } from '@/lib/types/mcp'
 import { isTauri } from '@/lib/tauri/bridge'
+import { useConnectorAuth } from '@/lib/auth/context'
+import type { ConnectorId } from '@/lib/auth/types'
+
+// Map connector list IDs to ConnectorId where auth exists
+const AUTH_CONNECTOR_MAP: Record<string, ConnectorId> = {
+  github: 'github',
+  slack:  'slack',
+  gmail:  'google',
+  gdrive: 'google',
+  gcal:   'google',
+}
 
 const NATIVE_CONNECTORS = [
   { id: 'sourceos',  label: 'SourceOS',            trust: 'Native',               description: 'Primary substrate. All data flows, governance, and agent runtime.' },
@@ -35,18 +46,32 @@ const TRUST_COLORS: Record<string, string> = {
   'Unverified':           'bg-[#fee2e2] text-[#991b1b]',
 }
 
-function ConnectorRow({ label, trust, description }: { label: string; trust: string; description: string }) {
+function ConnectorRow({
+  label, trust, description, authConnected, authUser
+}: {
+  label: string
+  trust: string
+  description: string
+  authConnected?: boolean
+  authUser?: string
+}) {
   return (
     <div className="flex items-start justify-between gap-3 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-4 py-3">
       <div className="min-w-0 flex-1 space-y-0.5">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-semibold text-[var(--color-text-primary)]">{label}</span>
           <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${TRUST_COLORS[trust] ?? ''}`}>{trust}</span>
+          {authConnected && (
+            <span className="rounded-full bg-[#dcfce7] px-2 py-0.5 text-[10px] font-semibold text-[#16a34a]">Connected</span>
+          )}
         </div>
         <p className="text-xs text-[var(--color-text-secondary)]">{description}</p>
+        {authConnected && authUser && (
+          <p className="text-[10px] text-[var(--color-text-tertiary)]">{authUser}</p>
+        )}
       </div>
       <button className="shrink-0 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:border-[#bfdbfe] hover:bg-[#eff6ff] hover:text-[#1d4ed8]">
-        Configure
+        {authConnected ? 'Manage' : 'Configure'}
       </button>
     </div>
   )
@@ -221,6 +246,7 @@ export function ConnectorsPanel() {
   const [tab, setTab] = useState<TabId>('native')
   const [showAdd, setShowAdd] = useState(false)
   const { serverStates, tools, addServer, connect, disconnect, removeServer, hydrated } = useMcp()
+  const { store } = useConnectorAuth()
 
   const tabs: { id: TabId; label: string; badge?: string }[] = [
     { id: 'native',   label: 'Native' },
@@ -252,7 +278,19 @@ export function ConnectorsPanel() {
           <div className="rounded-xl border border-[#fef9c3] bg-[#fefce8] px-4 py-2.5 text-xs text-[#854d0e]">
             External connectors are optional integrations. Native SourceOS alternatives exist for all of these.
           </div>
-          {EXTERNAL_CONNECTORS.map((c) => <ConnectorRow key={c.id} {...c} />)}
+          {EXTERNAL_CONNECTORS.map((c) => {
+            const authId = AUTH_CONNECTOR_MAP[c.id]
+            const authState = authId ? store[authId] : undefined
+            const connected = authState?.status === 'connected'
+            return (
+              <ConnectorRow
+                key={c.id}
+                {...c}
+                authConnected={connected}
+                authUser={connected ? authState?.userInfo?.email ?? authState?.userInfo?.login : undefined}
+              />
+            )
+          })}
         </div>
       )}
 

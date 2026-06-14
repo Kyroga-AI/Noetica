@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { ForgeProvider } from '@/lib/types/forge'
 import { FORGE_META } from '@/lib/types/forge'
+import { useConnectorAuth } from '@/lib/auth/context'
 
 type ForgeFilter = ForgeProvider | 'all'
 type CodeView = 'overview' | 'gitea_detail' | 'github_detail'
@@ -178,15 +179,62 @@ function GiteaDetail({ onBack }: { onBack: () => void }) {
 
 // ─── GitHub connector detail ──────────────────────────────────────────────────
 
+type GithubRepo = {
+  id: number
+  name: string
+  full_name: string
+  description: string | null
+  stargazers_count: number
+  language: string | null
+  updated_at: string
+  private: boolean
+  html_url: string
+  open_issues_count: number
+  default_branch: string
+}
+
+async function fetchGithubRepos(token: string): Promise<GithubRepo[]> {
+  const res = await fetch(
+    'https://api.github.com/user/repos?sort=updated&per_page=30&type=all',
+    { headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' } }
+  )
+  if (!res.ok) throw new Error(`GitHub API ${res.status}`)
+  return res.json() as Promise<GithubRepo[]>
+}
+
+function fmtRelative(iso: string): string {
+  try {
+    const diff = Date.now() - new Date(iso).getTime()
+    const days = Math.floor(diff / 86400000)
+    if (days === 0) return 'today'
+    if (days === 1) return 'yesterday'
+    if (days < 30) return `${days}d ago`
+    return new Date(iso).toLocaleDateString([], { month: 'short', day: 'numeric' })
+  } catch { return '' }
+}
+
 function GitHubDetail({ onBack }: { onBack: () => void }) {
-  const capabilities = [
-    'Import repositories into workspace',
-    'Register webhooks for push / PR / issue events',
-    'Pull PR, issue, and Actions metadata',
-    'Link GitHub repos to projects and workrooms',
-    'Mirror selected repositories to Gitea Sovereign',
-    'Sync read-only or bidirectional based on explicit grant',
-  ]
+  const { store, clearAuth } = useConnectorAuth()
+  const github = store.github
+  const isConnected = github?.status === 'connected' && !!github.accessToken
+
+  const [repos, setRepos] = useState<GithubRepo[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [repoSearch, setRepoSearch] = useState('')
+
+  useEffect(() => {
+    if (!isConnected || !github?.accessToken) { setRepos([]); return }
+    setLoading(true)
+    fetchGithubRepos(github.accessToken)
+      .then((r) => { setRepos(r); setError('') })
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Failed'))
+      .finally(() => setLoading(false))
+  }, [isConnected, github?.accessToken])
+
+  const filtered = repos.filter((r) =>
+    !repoSearch || r.full_name.toLowerCase().includes(repoSearch.toLowerCase()) || (r.description ?? '').toLowerCase().includes(repoSearch.toLowerCase())
+  )
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
@@ -202,12 +250,17 @@ function GitHubDetail({ onBack }: { onBack: () => void }) {
               <path d="M9 3L5 7l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
-          <div>
+          <div className="flex-1">
             <div className="flex items-center gap-2">
               <span className="text-lg font-semibold text-[var(--color-text-primary)]">GitHub Connector</span>
               <TrustBadge tier="external" />
+              {isConnected && <span className="rounded-full bg-[#dcfce7] px-2 py-0.5 text-[10px] font-semibold text-[#16a34a]">Connected</span>}
             </div>
-            <div className="text-xs text-[var(--color-text-secondary)]">Optional external connector — not source of truth</div>
+            <div className="text-xs text-[var(--color-text-secondary)]">
+              {isConnected && github?.userInfo?.login
+                ? `Signed in as ${github.userInfo.login} · ${repos.length} repos`
+                : 'Optional external connector — not source of truth'}
+            </div>
           </div>
         </div>
 
@@ -215,54 +268,94 @@ function GitHubDetail({ onBack }: { onBack: () => void }) {
         <div className="rounded-2xl border border-[#fde68a] bg-[#fffbeb] px-5 py-4">
           <div className="text-xs font-semibold text-[#92400e]">External connector</div>
           <p className="mt-1 text-xs text-[#78350f]">
-            Noetica uses the native SourceOS / Gitea Sovereign source substrate by default. GitHub is an optional import and mirror connector. It does not own repository identity, source graph truth, or repository health authority.
+            GitHub is an optional import and mirror connector. It does not own repository identity or source graph truth — those belong to the native Gitea Sovereign substrate.
           </p>
         </div>
 
-        {/* Status */}
-        <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm">
-          <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-5 py-3">
-            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Status</div>
-            <span className="flex items-center gap-1.5 text-xs text-[var(--color-text-tertiary)]">
-              <StatusDot ok={null} />
-              Not connected
-            </span>
+        {/* Connection status / connect prompt */}
+        {!isConnected ? (
+          <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm">
+            <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-5 py-3">
+              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Status</div>
+              <span className="flex items-center gap-1.5 text-xs text-[var(--color-text-tertiary)]">
+                <StatusDot ok={null} />
+                Not connected
+              </span>
+            </div>
+            <div className="px-5 py-4 text-xs text-[var(--color-text-secondary)]">
+              Go to <strong>Settings → Connections</strong> to connect your GitHub account.
+            </div>
           </div>
-          <div className="px-5 py-4">
-            <button className="rounded-xl bg-[#0f172a] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#1e293b]">
-              Add GitHub as external source
-            </button>
+        ) : (
+          /* Repo list */
+          <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm overflow-hidden">
+            <div className="flex items-center gap-3 border-b border-[var(--color-border-secondary)] px-5 py-3">
+              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] shrink-0">Repositories</div>
+              <input
+                value={repoSearch}
+                onChange={(e) => setRepoSearch(e.target.value)}
+                placeholder="Filter repos…"
+                className="flex-1 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1 text-xs outline-none focus:border-[#bfdbfe]"
+              />
+            </div>
+            {loading ? (
+              <div className="space-y-2 p-4">
+                {[1,2,3,4].map((i) => <div key={i} className="h-12 animate-pulse rounded-xl bg-[var(--color-background-secondary)]" />)}
+              </div>
+            ) : error ? (
+              <div className="px-5 py-3 text-xs text-[#dc2626]">{error}</div>
+            ) : filtered.length === 0 ? (
+              <div className="px-5 py-6 text-center text-xs text-[var(--color-text-tertiary)]">No repos match.</div>
+            ) : (
+              <ul className="divide-y divide-[var(--color-border-secondary)] max-h-[420px] overflow-y-auto">
+                {filtered.map((repo) => (
+                  <li key={repo.id} className="flex items-start gap-3 px-5 py-3 transition hover:bg-[var(--color-background-secondary)]">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-semibold text-[var(--color-text-primary)]">{repo.full_name}</span>
+                        {repo.private && <span className="rounded-full border border-[var(--color-border-secondary)] px-1.5 py-0.5 text-[9px] font-medium text-[var(--color-text-tertiary)]">private</span>}
+                        {repo.language && <span className="text-[10px] text-[var(--color-text-tertiary)]">{repo.language}</span>}
+                      </div>
+                      {repo.description && (
+                        <div className="mt-0.5 truncate text-[11px] text-[var(--color-text-secondary)]">{repo.description}</div>
+                      )}
+                      <div className="mt-1 flex items-center gap-3 text-[10px] text-[var(--color-text-tertiary)]">
+                        <span>Updated {fmtRelative(repo.updated_at)}</span>
+                        {repo.stargazers_count > 0 && <span>★ {repo.stargazers_count}</span>}
+                        {repo.open_issues_count > 0 && <span>{repo.open_issues_count} issues</span>}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 gap-1.5">
+                      <button className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2 py-1 text-[10px] font-medium text-[var(--color-text-secondary)] transition hover:border-[#bfdbfe] hover:text-[#1d4ed8]">
+                        Import
+                      </button>
+                      <button className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2 py-1 text-[10px] font-medium text-[var(--color-text-secondary)] transition hover:border-[#bfdbfe] hover:text-[#1d4ed8]">
+                        Mirror
+                      </button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
-        </div>
+        )}
 
-        {/* Capabilities */}
-        <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm">
-          <div className="border-b border-[var(--color-border-secondary)] px-5 py-3">
-            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Connector capabilities</div>
-          </div>
-          <ul className="divide-y divide-[#f1f5f9]">
-            {capabilities.map((c) => (
-              <li key={c} className="flex items-center gap-2.5 px-5 py-2.5 text-xs text-[var(--color-text-secondary)]">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-                  <path d="M2 6l3 3 5-5" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
-                {c}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        {/* Actions (disabled until connected) */}
+        {/* Actions */}
         <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm px-5 py-4">
           <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] mb-3">Actions</div>
           <div className="flex flex-wrap gap-2">
-            {['Import repositories', 'Configure hooks', 'Mirror to native forge', 'Disconnect'].map((a) => (
-              <button key={a} disabled className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-tertiary)] cursor-not-allowed">
+            {(['Configure hooks', 'Mirror to native forge'] as const).map((a) => (
+              <button key={a} disabled={!isConnected} className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:border-[#bfdbfe] hover:bg-[#eff6ff] hover:text-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-40">
                 {a}
               </button>
             ))}
+            {isConnected && (
+              <button onClick={() => clearAuth('github')} className="rounded-xl border border-[#fecaca] bg-[var(--color-background-primary)] px-3 py-1.5 text-xs font-medium text-[#dc2626] transition hover:bg-[#fef2f2]">
+                Disconnect
+              </button>
+            )}
           </div>
-          <p className="mt-2 text-[10px] text-[var(--color-text-tertiary)]">Connect GitHub to enable these actions.</p>
+          {!isConnected && <p className="mt-2 text-[10px] text-[var(--color-text-tertiary)]">Connect GitHub in Settings → Connections to enable these actions.</p>}
         </div>
       </div>
     </div>
