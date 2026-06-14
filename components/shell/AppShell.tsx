@@ -42,6 +42,7 @@ import type { SteeringConfig } from '@/lib/types/steering'
 import type { NoeticaMode } from '@/lib/client/noeticaTransport'
 import type { ActiveSurface } from '@/lib/types/surface'
 import type { ModelConfig } from '@/lib/types/model'
+import type { GovernanceTrace } from '@/lib/types/governance'
 
 const SURFACE_ORDER: ActiveSurface[] = ['chat', 'notes', 'workrooms', 'cowork', 'projects', 'artifacts', 'code', 'evaluate', 'operate']
 
@@ -140,6 +141,10 @@ export function AppShell() {
     [modelId]
   )
   const riskReadout = useMemo(() => buildRiskAversionLiveReadout(messages), [messages])
+  const lastGovernance = useMemo<GovernanceTrace | undefined>(
+    () => [...messages].reverse().find((m) => m.governance !== undefined)?.governance,
+    [messages]
+  )
   const fanoutModelCount = Math.min(settings.fanoutModels.length, settings.fanoutConcurrency)
 
   const { state: voiceState, startListening, stopListening } = useVoice((transcript) => {
@@ -554,7 +559,7 @@ export function AppShell() {
                 />
               )}
             </div>
-            <UtilityRail activePanel={utilityPanel} onSelect={setUtilityPanel} />
+            <UtilityRail activePanel={utilityPanel} onSelect={setUtilityPanel} lastGovernance={lastGovernance} />
           </div>
         </section>
 

@@ -8,6 +8,7 @@ import { RelatedPanel }     from './panels/RelatedPanel'
 import { EvidenceRailPanel } from './panels/EvidenceRailPanel'
 import { SourceOSRailPanel } from './panels/SourceOSRailPanel'
 import { GraphRailPanel }   from './panels/GraphRailPanel'
+import type { GovernanceTrace } from '@/lib/types/governance'
 
 export type UtilityPanelId =
   | 'calendar'
@@ -30,14 +31,14 @@ const RAIL_ITEMS: { id: UtilityPanelId; label: string; icon: React.ReactNode }[]
   { id: 'graph',    label: 'Graph',      icon: <IconGraph /> },
 ]
 
-function renderPanel(id: UtilityPanelId) {
+function renderPanel(id: UtilityPanelId, lastGovernance?: GovernanceTrace) {
   switch (id) {
     case 'calendar': return <CalendarPanel />
     case 'mail':     return <MailPanel />
     case 'matrix':   return <MatrixPanel />
     case 'agents':   return <AgentsPanel />
     case 'related':  return <RelatedPanel />
-    case 'evidence': return <EvidenceRailPanel />
+    case 'evidence': return <EvidenceRailPanel governance={lastGovernance} />
     case 'sourceos': return <SourceOSRailPanel />
     case 'graph':    return <GraphRailPanel />
   }
@@ -46,15 +47,16 @@ function renderPanel(id: UtilityPanelId) {
 type UtilityRailProps = {
   activePanel: UtilityPanelId | null
   onSelect: (id: UtilityPanelId | null) => void
+  lastGovernance?: GovernanceTrace
 }
 
-export function UtilityRail({ activePanel, onSelect }: UtilityRailProps) {
+export function UtilityRail({ activePanel, onSelect, lastGovernance }: UtilityRailProps) {
   return (
     <>
       {/* Expanded panel */}
       {activePanel && (
         <div className="hidden w-72 shrink-0 flex-col border-l border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] lg:flex">
-          {renderPanel(activePanel)}
+          {renderPanel(activePanel, lastGovernance)}
         </div>
       )}
 
