@@ -567,6 +567,7 @@ export function AppShell() {
           collapsed={rightSidebarCollapsed}
           onCollapse={() => setRightSidebarCollapsed(true)}
           onExpand={() => setRightSidebarCollapsed(false)}
+          riskReadout={riskReadout}
         />
       </main>
 

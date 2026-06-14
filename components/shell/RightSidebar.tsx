@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useSettings } from '@/lib/settings/context'
 import { models } from '@/config/models'
+import type { RiskAversionLiveReadout } from '@/lib/risk/riskAversionLive'
 
 export type AgentSlotId = 'context' | 'mail' | 'calendar' | 'tasks' | 'graph' | 'lattice' | 'feed' | 'risk'
 
@@ -139,7 +140,7 @@ function SlotRow({ children, accent }: { children: React.ReactNode; accent?: 'wa
   )
 }
 
-const MOCK_CONTENT: Record<AgentSlotId, React.ReactNode> = {
+const MOCK_CONTENT: Record<AgentSlotId, React.ReactNode | null> = {
   context: (
     <div className="space-y-1 p-2">
       <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-0.5">In scope</div>
@@ -202,25 +203,7 @@ const MOCK_CONTENT: Record<AgentSlotId, React.ReactNode> = {
       <SlotRow><span className="flex items-center justify-between w-full"><span className="font-medium text-[var(--color-text-primary)]">Today</span><span className="font-semibold text-[var(--color-text-primary)]">$73.50</span></span></SlotRow>
     </div>
   ),
-  risk: (
-    <div className="space-y-1.5 p-2">
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-0.5">Dominant dimensions</div>
-      {([['Liability','0.67'],['Attribution','0.72'],['Evidence quality','0.83'],['Security misuse','0.44'],['Model uncertainty','0.61']] as [string,string][]).map(([label,val])=>(
-        <div key={label} className="text-[11px] text-[var(--color-text-primary)]">
-          <div className="flex justify-between mb-0.5"><span>{label}</span><span className="font-medium">{val}</span></div>
-          <div className="h-1 w-full rounded-full bg-[var(--color-border-tertiary)]"><div className="h-1 rounded-full bg-[var(--color-text-secondary)]" style={{width:`${parseFloat(val)*100}%`}}/></div>
-        </div>
-      ))}
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Caution delta</div>
-      <div className="flex gap-2">
-        <SlotRow><span className="block text-[9px] text-[var(--color-text-tertiary)]">Directness</span><span className="font-semibold text-[var(--color-text-primary)]">0.18</span></SlotRow>
-        <SlotRow><span className="block text-[9px] text-[var(--color-text-tertiary)]">Caution</span><span className="font-semibold text-[var(--color-text-primary)]">0.87</span></SlotRow>
-      </div>
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Observed steering</div>
-      <SlotRow>avoid attribution</SlotRow>
-      <SlotRow>separate proof from hypothesis</SlotRow>
-    </div>
-  ),
+  risk: null,
   feed: (
     <div className="space-y-1 p-2">
       <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-0.5">Top signals</div>
@@ -234,10 +217,59 @@ const MOCK_CONTENT: Record<AgentSlotId, React.ReactNode> = {
   ),
 }
 
+function RiskSlot({ riskReadout }: { riskReadout?: RiskAversionLiveReadout | null }) {
+  if (!riskReadout) {
+    return (
+      <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
+        <div className="text-[10px] text-[var(--color-text-tertiary)]">Risk readout populates after the first exchange.</div>
+      </div>
+    )
+  }
+  const { dimensions, latestTurn } = riskReadout
+  return (
+    <div className="space-y-1.5 p-2">
+      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-0.5">Dominant dimensions</div>
+      {dimensions.map(({ label, value }) => (
+        <div key={label} className="text-[11px] text-[var(--color-text-primary)]">
+          <div className="flex justify-between mb-0.5">
+            <span>{label}</span>
+            <span className="font-medium">{value.toFixed(2)}</span>
+          </div>
+          <div className="h-1 w-full rounded-full bg-[var(--color-border-tertiary)]">
+            <div className="h-1 rounded-full bg-[var(--color-text-secondary)]" style={{ width: `${value * 100}%` }} />
+          </div>
+        </div>
+      ))}
+      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Caution delta</div>
+      <div className="flex gap-2">
+        <SlotRow>
+          <span className="block text-[9px] text-[var(--color-text-tertiary)]">Directness</span>
+          <span className="font-semibold text-[var(--color-text-primary)]">{latestTurn.directnessDelta.toFixed(2)}</span>
+        </SlotRow>
+        <SlotRow>
+          <span className="block text-[9px] text-[var(--color-text-tertiary)]">Caution</span>
+          <span className="font-semibold text-[var(--color-text-primary)]">{latestTurn.cautionDelta.toFixed(2)}</span>
+        </SlotRow>
+      </div>
+      {latestTurn.steeringModes.length > 0 && latestTurn.steeringModes[0] !== 'direct_answer' && (
+        <>
+          <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Observed steering</div>
+          {latestTurn.steeringModes.map((mode) => (
+            <SlotRow key={mode}>{mode.replace(/_/g, ' ')}</SlotRow>
+          ))}
+        </>
+      )}
+      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Turn</div>
+      <SlotRow><span className="truncate block">{latestTurn.label}</span></SlotRow>
+    </div>
+  )
+}
+
 type RightSidebarProps = {
   collapsed: boolean
   onCollapse: () => void
   onExpand: () => void
+  riskReadout?: RiskAversionLiveReadout | null
 }
 
 function AgentSlotConfig({ slotId, onClose }: { slotId: AgentSlotId; onClose: () => void }) {
@@ -273,7 +305,7 @@ function AgentSlotConfig({ slotId, onClose }: { slotId: AgentSlotId; onClose: ()
   )
 }
 
-export function RightSidebar({ collapsed, onCollapse, onExpand }: RightSidebarProps) {
+export function RightSidebar({ collapsed, onCollapse, onExpand, riskReadout }: RightSidebarProps) {
   const [activeSlot, setActiveSlot] = useState<AgentSlotId>('context')
   const [configuringSlot, setConfiguringSlot] = useState<AgentSlotId | null>(null)
   const { settings } = useSettings()
@@ -374,7 +406,9 @@ export function RightSidebar({ collapsed, onCollapse, onExpand }: RightSidebarPr
 
       {/* Slot content */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {MOCK_CONTENT[activeSlot]}
+        {activeSlot === 'risk'
+          ? <RiskSlot riskReadout={riskReadout} />
+          : MOCK_CONTENT[activeSlot]}
       </div>
     </aside>
   )
