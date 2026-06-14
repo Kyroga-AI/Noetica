@@ -33,6 +33,8 @@ import { useMcp } from '@/lib/mcp/useMcp'
 import { useSettings } from '@/lib/settings/context'
 import { useVoice } from '@/lib/voice/useVoice'
 import { RightSidebar } from '@/components/shell/RightSidebar'
+import { UtilityRail, type UtilityPanelId } from '@/components/rail/UtilityRail'
+import { RuntimeStatus } from '@/components/status/RuntimeStatus'
 import type { PendingAttachment } from '@/lib/types/attachment'
 import type { McpTool } from '@/lib/types/mcp'
 import type { ChatMessage } from '@/lib/types/message'
@@ -40,6 +42,8 @@ import type { SteeringConfig } from '@/lib/types/steering'
 import type { NoeticaMode } from '@/lib/client/noeticaTransport'
 import type { ActiveSurface } from '@/lib/types/surface'
 import type { ModelConfig } from '@/lib/types/model'
+
+const SURFACE_ORDER: ActiveSurface[] = ['chat', 'notes', 'workrooms', 'cowork', 'projects', 'artifacts', 'code', 'evaluate', 'operate']
 
 const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
   chat:         'Chat',
@@ -125,6 +129,7 @@ export function AppShell() {
   const abortControllerRef = useRef<AbortController | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false)
+  const [utilityPanel, setUtilityPanel] = useState<UtilityPanelId | null>(null)
   const [inspectorVisible, setInspectorVisible] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsCategory, setSettingsCategory] = useState('appearance')
@@ -173,6 +178,11 @@ export function AppShell() {
       if (e.key === 'n' || e.key === 'N') { e.preventDefault(); handleNewChat() }
       if (e.key === '\\')                  { e.preventDefault(); setSidebarCollapsed((c) => !c) }
       if (e.key === 'i' || e.key === 'I') { e.preventDefault(); setInspectorVisible((v) => !v) }
+      const digit = parseInt(e.key, 10)
+      if (digit >= 1 && digit <= 9 && SURFACE_ORDER[digit - 1]) {
+        e.preventDefault()
+        handleSurfaceChange(SURFACE_ORDER[digit - 1])
+      }
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
@@ -544,6 +554,7 @@ export function AppShell() {
                 />
               )}
             </div>
+            <UtilityRail activePanel={utilityPanel} onSelect={setUtilityPanel} />
           </div>
         </section>
 
@@ -731,7 +742,9 @@ function RightPanel({ activeSurface, model, steering, thinkingBudget, workspaceM
   if (activeSurface === 'code')      return <CodePanel />
   if (activeSurface === 'evaluate')  return <EvaluatePanel />
   if (activeSurface === 'operate')   return null
-  if (activeSurface === 'govern')    return <GovernPanel />
+  if (activeSurface === 'govern')      return <GovernPanel />
+  if (activeSurface === 'holographme') return null
+  if (activeSurface === 'marketplace') return null
   return (
     <SteeringPanel
       model={model}

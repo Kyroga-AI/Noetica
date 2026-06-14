@@ -1,5 +1,6 @@
 import { WarmingLevel } from '@/components/risk/WarmingLevel'
 import { ThemePicker } from '@/components/shell/ThemePicker'
+import { RuntimeStatus } from '@/components/status/RuntimeStatus'
 import type { RiskAversionLiveReadout } from '@/lib/risk/riskAversionLive'
 import type { VoiceState } from '@/lib/voice/useVoice'
 
@@ -38,7 +39,8 @@ export function Topbar({ modelId, mode, riskReadout, voiceState, onModelChange, 
         <span className="text-[13px] font-medium text-[var(--color-text-primary)]">Noetica</span>
       </div>
 
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-2">
+        <RuntimeStatus />
         {/* Voice button — compact, salmon pink */}
         <button
           onClick={isListening ? onVoiceStop : onVoiceStart}
