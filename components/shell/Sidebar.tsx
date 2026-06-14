@@ -2,13 +2,15 @@
 
 import { useState } from 'react'
 import type { ActiveSurface } from '@/lib/types/surface'
-
 import type { WorkspaceSession } from '@/lib/session/types'
+import { HelpModal } from '@/components/shell/HelpModal'
+import { UpgradeModal } from '@/components/shell/UpgradeModal'
+import { ChangelogModal } from '@/components/shell/ChangelogModal'
 
 type SidebarProps = {
   activeSurface: ActiveSurface
   onSurfaceChange: (surface: ActiveSurface) => void
-  onOpenSettings: () => void
+  onOpenSettings: (category?: string) => void
   sessions?: WorkspaceSession[]
   activeSessionId?: string | null
   onSwitchSession?: (id: string) => void
@@ -329,6 +331,11 @@ export function Sidebar({
   const [collapsed, setCollapsed] = useState(false)
   const [search, setSearch] = useState('')
   const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
+  const [changelogOpen, setChangelogOpen] = useState(false)
+  const [subView, setSubView] = useState<'language' | 'learn-more' | null>(null)
+  const closeMenu = () => { setUserMenuOpen(false); setSubView(null) }
 
   const filteredSessions = search.trim()
     ? sessions.filter((s) => s.title.toLowerCase().includes(search.toLowerCase()))
@@ -371,6 +378,7 @@ export function Sidebar({
   }
 
   return (
+    <>
     <aside className="hidden w-56 shrink-0 flex-col border-r border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] px-2 py-2 lg:flex h-full overflow-y-auto">
       {/* Header row */}
       <div className="flex items-center gap-1 pb-1">
@@ -472,45 +480,97 @@ export function Sidebar({
       <div className="relative border-t border-[var(--color-border-tertiary)] pt-1 mt-1">
         {userMenuOpen && (
           <div className="absolute bottom-full left-0 right-0 mb-1 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-lg z-50 py-1 overflow-hidden">
-            <div className="px-3 py-2 text-[11px] text-[var(--color-text-tertiary)] border-b border-[var(--color-border-tertiary)] mb-1">
-              michael@socioprophet.ai
-            </div>
-            {[
-              { label: 'Settings', hint: '⌘,', icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="8" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.05 3.05l1.06 1.06M11.89 11.89l1.06 1.06M3.05 12.95l1.06-1.06M11.89 4.11l1.06-1.06" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, action: onOpenSettings },
-              { label: 'Organization settings', badge: '1', icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M2 13V5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v8M1 13h14M6 12V9h4v3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>, action: () => {} },
-              { label: 'Analytics', icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M2 13h12M4 13V9m3 4V6m3 7V3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, action: () => {} },
-              { label: 'Language', arrow: true, icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 1.5c-2 2-3 4-3 6.5s1 4.5 3 6.5M8 1.5c2 2 3 4 3 6.5s-1 4.5-3 6.5M1.5 8h13" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, action: () => {} },
-              { label: 'Get help', icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/><path d="M6 6c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2v1.5M8 11.5v.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, action: () => {} },
-            ].map((item) => (
-              <button key={item.label} onClick={() => { item.action(); setUserMenuOpen(false) }}
-                className="flex w-full items-center gap-2.5 px-3 py-1.5 text-[12px] text-[var(--color-text-primary)] hover:bg-[var(--color-background-secondary)] transition text-left">
-                <span className="text-[var(--color-text-secondary)]">{item.icon}</span>
-                <span className="flex-1">{item.label}</span>
-                {item.hint && <span className="text-[10px] text-[var(--color-text-tertiary)]">{item.hint}</span>}
-                {item.badge && <span className="flex h-4 w-4 items-center justify-center rounded bg-[#ef4444] text-[9px] font-bold text-white">{item.badge}</span>}
-                {item.arrow && <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden><path d="M3 2l2.5 2.5L3 7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-              </button>
-            ))}
-            <div className="border-t border-[var(--color-border-tertiary)] my-1"/>
-            {[
-              { label: 'Upgrade plan', blue: true, icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 11V5M5.5 7.5L8 5l2.5 2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>, action: () => {} },
-              { label: 'Get apps and extensions', icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M3 11V5l5 3 5-3v6l-5 3-5-3z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>, action: () => {} },
-              { label: 'View changelog', icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M5 6h6M5 9h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, action: () => {} },
-              { label: 'Learn more', arrow: true, icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 7.5V11M8 5.5v-.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, action: () => {} },
-            ].map((item) => (
-              <button key={item.label} onClick={() => { item.action(); setUserMenuOpen(false) }}
-                className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-[12px] hover:bg-[var(--color-background-secondary)] transition text-left ${item.blue ? 'text-[#3b82f6]' : 'text-[var(--color-text-primary)]'}`}>
-                <span className={item.blue ? 'text-[#3b82f6]' : 'text-[var(--color-text-secondary)]'}>{item.icon}</span>
-                <span className="flex-1">{item.label}</span>
-                {item.arrow && <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden><path d="M3 2l2.5 2.5L3 7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-              </button>
-            ))}
-            <div className="border-t border-[var(--color-border-tertiary)] my-1"/>
-            <button onClick={() => setUserMenuOpen(false)}
-              className="flex w-full items-center gap-2.5 px-3 py-1.5 text-[12px] text-[var(--color-text-primary)] hover:bg-[var(--color-background-secondary)] transition text-left">
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M6 3H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h3M11 11l3-3-3-3M14 8H6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
-              <span>Log out</span>
-            </button>
+            {subView === 'language' ? (
+              <>
+                <button onClick={() => setSubView(null)}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)] transition">
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden><path d="M7 2L3 5.5 7 9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  Back
+                </button>
+                <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Language</div>
+                {[
+                  { code: 'en', native: 'English', current: true },
+                  { code: 'es', native: 'Español', current: false },
+                  { code: 'fr', native: 'Français', current: false },
+                  { code: 'de', native: 'Deutsch', current: false },
+                  { code: 'ja', native: '日本語', current: false },
+                  { code: 'zh', native: '简体中文', current: false },
+                ].map((lang) => (
+                  <button key={lang.code} onClick={() => closeMenu()}
+                    className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-[12px] hover:bg-[var(--color-background-secondary)] transition text-left ${lang.current ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'}`}>
+                    <span className="flex-1">{lang.native}</span>
+                    {lang.current && <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden className="text-[#1d4ed8]"><path d="M2 5.5l3 3 4.5-4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </button>
+                ))}
+              </>
+            ) : subView === 'learn-more' ? (
+              <>
+                <button onClick={() => setSubView(null)}
+                  className="flex w-full items-center gap-2 px-3 py-1.5 text-[11px] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)] transition">
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden><path d="M7 2L3 5.5 7 9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  Back
+                </button>
+                <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Resources</div>
+                {[
+                  { label: 'Noetica documentation', desc: 'User guide and surface reference' },
+                  { label: 'Anthropic API docs', desc: 'Claude API integration reference' },
+                  { label: 'Community forum', desc: 'Ask questions and share feedback' },
+                  { label: 'Keyboard shortcuts', desc: 'View all shortcuts — press ⌘,' },
+                ].map((link) => (
+                  <button key={link.label} onClick={() => { if (link.label === 'Keyboard shortcuts') { setHelpOpen(true) } closeMenu() }}
+                    className="flex w-full flex-col items-start px-3 py-1.5 text-left hover:bg-[var(--color-background-secondary)] transition">
+                    <span className="text-[12px] text-[var(--color-text-primary)]">{link.label}</span>
+                    <span className="text-[10px] text-[var(--color-text-tertiary)]">{link.desc}</span>
+                  </button>
+                ))}
+              </>
+            ) : (
+              <>
+                <div className="px-3 py-2 text-[11px] text-[var(--color-text-tertiary)] border-b border-[var(--color-border-tertiary)] mb-1">
+                  michael@socioprophet.ai
+                </div>
+                {[
+                  { label: 'Settings', hint: '⌘,', icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="8" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.05 3.05l1.06 1.06M11.89 11.89l1.06 1.06M3.05 12.95l1.06-1.06M11.89 4.11l1.06-1.06" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, action: () => { onOpenSettings(); closeMenu() } },
+                  { label: 'Organization settings', badge: '1', icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M2 13V5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v8M1 13h14M6 12V9h4v3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>, action: () => { onOpenSettings('organization'); closeMenu() } },
+                  { label: 'Analytics', icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M2 13h12M4 13V9m3 4V6m3 7V3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, action: () => { onSurfaceChange('evaluate'); closeMenu() } },
+                  { label: 'Language', arrow: true, icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 1.5c-2 2-3 4-3 6.5s1 4.5 3 6.5M8 1.5c2 2 3 4 3 6.5s-1 4.5-3 6.5M1.5 8h13" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, action: () => setSubView('language') },
+                  { label: 'Get help', icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/><path d="M6 6c0-1.1.9-2 2-2s2 .9 2 2-.9 2-2 2v1.5M8 11.5v.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, action: () => { setHelpOpen(true); closeMenu() } },
+                ].map((item) => (
+                  <button key={item.label} onClick={item.action}
+                    className="flex w-full items-center gap-2.5 px-3 py-1.5 text-[12px] text-[var(--color-text-primary)] hover:bg-[var(--color-background-secondary)] transition text-left">
+                    <span className="text-[var(--color-text-secondary)]">{item.icon}</span>
+                    <span className="flex-1">{item.label}</span>
+                    {item.hint && <span className="text-[10px] text-[var(--color-text-tertiary)]">{item.hint}</span>}
+                    {item.badge && <span className="flex h-4 w-4 items-center justify-center rounded bg-[#ef4444] text-[9px] font-bold text-white">{item.badge}</span>}
+                    {item.arrow && <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden><path d="M3 2l2.5 2.5L3 7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </button>
+                ))}
+                <div className="border-t border-[var(--color-border-tertiary)] my-1"/>
+                {[
+                  { label: 'Upgrade plan', blue: true, icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 11V5M5.5 7.5L8 5l2.5 2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>, action: () => { setUpgradeOpen(true); closeMenu() } },
+                  { label: 'Get apps and extensions', icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M3 11V5l5 3 5-3v6l-5 3-5-3z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>, action: () => { onOpenSettings('connectors'); closeMenu() } },
+                  { label: 'View changelog', icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" strokeWidth="1.3"/><path d="M5 6h6M5 9h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, action: () => { setChangelogOpen(true); closeMenu() } },
+                  { label: 'Learn more', arrow: true, icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 7.5V11M8 5.5v-.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, action: () => setSubView('learn-more') },
+                ].map((item) => (
+                  <button key={item.label} onClick={item.action}
+                    className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-[12px] hover:bg-[var(--color-background-secondary)] transition text-left ${item.blue ? 'text-[#3b82f6]' : 'text-[var(--color-text-primary)]'}`}>
+                    <span className={item.blue ? 'text-[#3b82f6]' : 'text-[var(--color-text-secondary)]'}>{item.icon}</span>
+                    <span className="flex-1">{item.label}</span>
+                    {item.arrow && <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden><path d="M3 2l2.5 2.5L3 7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                  </button>
+                ))}
+                <div className="border-t border-[var(--color-border-tertiary)] my-1"/>
+                <button
+                  onClick={() => {
+                    Object.keys(localStorage).filter(k => k.startsWith('noetica:')).forEach(k => localStorage.removeItem(k))
+                    window.location.reload()
+                  }}
+                  className="flex w-full items-center gap-2.5 px-3 py-1.5 text-[12px] text-[var(--color-text-primary)] hover:bg-[var(--color-background-secondary)] transition text-left">
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M6 3H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h3M11 11l3-3-3-3M14 8H6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  <span>Log out</span>
+                </button>
+              </>
+            )}
           </div>
         )}
         <button
@@ -530,5 +590,9 @@ export function Sidebar({
         </button>
       </div>
     </aside>
+    {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
+    {upgradeOpen && <UpgradeModal onClose={() => setUpgradeOpen(false)} />}
+    {changelogOpen && <ChangelogModal onClose={() => setChangelogOpen(false)} />}
+    </>
   )
 }

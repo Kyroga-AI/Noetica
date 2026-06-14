@@ -8,6 +8,7 @@ import { ConnectorsPanel } from './panels/ConnectorsPanel'
 import { MemoryPanel } from './panels/MemoryPanel'
 import { FanoutPanel } from './panels/FanoutPanel'
 import { DeveloperPanel } from './panels/DeveloperPanel'
+import { OrgPanel } from './panels/OrgPanel'
 
 type Category = {
   id: string
@@ -78,6 +79,13 @@ function IconDeveloper() {
     </svg>
   )
 }
+function IconOrganization() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M2 13V5a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v8M1 13h14M6 12V9h4v3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
 
 const categories: Category[] = [
   { id: 'appearance', label: 'Appearance', icon: <IconAppearance />, panel: <AppearancePanel /> },
@@ -87,6 +95,7 @@ const categories: Category[] = [
   { id: 'memory', label: 'Memory', icon: <IconMemory />, panel: <MemoryPanel /> },
   { id: 'fanout', label: 'Fan-out', icon: <IconFanout />, panel: <FanoutPanel /> },
   { id: 'developer', label: 'Developer', icon: <IconDeveloper />, panel: <DeveloperPanel /> },
+  { id: 'organization', label: 'Organization', icon: <IconOrganization />, panel: <OrgPanel /> },
 ]
 
 type SettingsModalProps = {

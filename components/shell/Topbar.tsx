@@ -10,7 +10,7 @@ type TopbarProps = {
   voiceState?: VoiceState
   onModelChange: (modelId: string) => void
   onModeChange: (mode: 'standalone' | 'sourceos') => void
-  onOpenSettings: () => void
+  onOpenSettings: (category?: string) => void
   onOpenPalette: () => void
   onOpenInspector?: () => void
   onVoiceStart?: () => void
@@ -72,7 +72,7 @@ export function Topbar({ modelId, mode, riskReadout, voiceState, onModelChange, 
           </svg>
         </button>
         <button
-          onClick={onOpenSettings}
+          onClick={() => onOpenSettings()}
           style={{ border: 'none', background: 'none' }}
           className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-secondary)]"
           aria-label="Settings (⌘,)"

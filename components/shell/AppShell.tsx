@@ -464,7 +464,7 @@ export function AppShell() {
           <Sidebar
             activeSurface={activeSurface}
             onSurfaceChange={handleSurfaceChange}
-            onOpenSettings={() => openSettings()}
+            onOpenSettings={(cat) => openSettings(cat)}
             sessions={sessions}
             activeSessionId={activeSession?.id ?? null}
             onSwitchSession={handleSwitchSession}
@@ -488,7 +488,7 @@ export function AppShell() {
             voiceState={voiceState}
             onModeChange={setMode}
             onModelChange={handleModelChange}
-            onOpenSettings={() => openSettings()}
+            onOpenSettings={(cat) => openSettings(cat)}
             onOpenPalette={() => setPaletteOpen(true)}
             onOpenInspector={() => setInspectorVisible(true)}
             onVoiceStart={startListening}
