@@ -4,6 +4,16 @@ import { useEffect } from 'react'
 
 const CHANGELOG = [
   {
+    version: '0.6.0',
+    date: '2026-06-14',
+    changes: [
+      'EvidenceRailPanel wired to live governance data — request_hash, evidence_ref, replay_ref, policy_ref, evidence_hash, policy_admitted badge',
+      'SourceOSRailPanel wired to loadNoeticaStatus() — live runtime, sourceos_route, agent_machine, prophet_mesh, policy_fabric, endpoint_kind with color-coded status',
+      'Status values use semantic color (green=ready, amber=not_configured, blue=deferred, red=error)',
+      'SourceOSRailPanel shows service notes from status endpoint when present',
+    ],
+  },
+  {
     version: '0.5.0',
     date: '2026-06-13',
     changes: [
