@@ -4,6 +4,17 @@ import { useEffect } from 'react'
 
 const CHANGELOG = [
   {
+    version: '0.5.0',
+    date: '2026-06-13',
+    changes: [
+      'UtilityRail wired into AppShell — calendar, mail, matrix, agents, sourceos, evidence, graph panels',
+      'RuntimeStatus component live in Topbar — desktop mode, runtime, provider, agent, mesh readout',
+      '⌘1–9 keyboard shortcuts for surface switching; shortcuts listed in CommandPalette and HelpModal',
+      'fontSize (sm/md/lg) and sidebarDensity (comfortable/compact) wired to DOM via data attributes',
+      'Sidebar group headers use dynamic gap via density prop; placeholder surfaces get null right panels',
+    ],
+  },
+  {
     version: '0.4.0',
     date: '2026-06-13',
     changes: [

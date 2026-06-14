@@ -52,7 +52,7 @@ export function DeveloperPanel() {
           </div>
           <div className="flex justify-between">
             <span>Phase</span>
-            <span>phase-4-appearance-settings</span>
+            <span>phase-5-utility-rail-shortcuts</span>
           </div>
         </div>
       </div>

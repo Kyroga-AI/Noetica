@@ -3,12 +3,13 @@
 import { useEffect } from 'react'
 
 const SHORTCUTS = [
-  { keys: '⌘K',  desc: 'Command palette' },
-  { keys: '⌘,',  desc: 'Open settings' },
-  { keys: '⌘N',  desc: 'New chat' },
-  { keys: '⌘\\', desc: 'Toggle sidebar' },
-  { keys: '⌘I',  desc: 'Toggle inspector' },
-  { keys: 'Esc', desc: 'Close modal / palette' },
+  { keys: '⌘K',   desc: 'Command palette' },
+  { keys: '⌘,',   desc: 'Open settings' },
+  { keys: '⌘N',   desc: 'New chat' },
+  { keys: '⌘\\',  desc: 'Toggle sidebar' },
+  { keys: '⌘I',   desc: 'Toggle inspector' },
+  { keys: '⌘1–9', desc: 'Switch to surface 1–9' },
+  { keys: 'Esc',  desc: 'Close modal / palette' },
 ]
 
 export function HelpModal({ onClose }: { onClose: () => void }) {
@@ -63,12 +64,17 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
             <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#1d4ed8]">Surfaces</div>
             <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[var(--color-text-secondary)]">
               {[
-                ['Chat', 'Main AI conversation workspace'],
-                ['Evaluate', 'Benchmark models across task families'],
-                ['Tune', 'DPO comparison and preference labelling'],
-                ['Govern', 'Policy, audit trail, evidence bundles'],
-                ['Cowork', 'AI-decomposed task collaboration'],
-                ['Projects', 'Kanban board and sprint planning'],
+                ['⌘1 Chat',      'Main AI conversation workspace'],
+                ['⌘2 Notes',     'Per-note memory scope with AI chat'],
+                ['⌘3 Workrooms', 'Multi-agent and multi-user rooms'],
+                ['⌘4 Cowork',    'AI task decomposition and collaboration'],
+                ['⌘5 Projects',  'Kanban board and sprint planning'],
+                ['⌘6 Artifacts', 'Code, document, and HTML artifacts'],
+                ['⌘7 Code',      'Source file browser and AI code review'],
+                ['⌘8 Evaluate',  'Benchmark models across task families'],
+                ['⌘9 Operate',   'Live agent orchestration dashboard'],
+                ['Tune',         'DPO comparison and preference labelling'],
+                ['Govern',       'Policy, audit trail, evidence bundles'],
               ].map(([name, desc]) => (
                 <div key={name} className="rounded-lg border border-[var(--color-border-tertiary)] px-3 py-2">
                   <div className="font-medium text-[var(--color-text-primary)]">{name}</div>
