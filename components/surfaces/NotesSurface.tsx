@@ -27,12 +27,12 @@ function NoteListItem({ note, active, onClick }: { note: Note; active: boolean; 
     <button
       onClick={onClick}
       className={`flex w-full flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left transition ${
-        active ? 'bg-[#dbeafe]' : 'hover:bg-[#f1f5f9]'
+        active ? 'bg-[#dbeafe]' : 'hover:bg-[var(--color-background-tertiary)]'
       }`}
     >
       <div className="flex items-center gap-1.5">
         {note.pinned && <span className="text-[10px] text-[#f59e0b]">★</span>}
-        <span className={`truncate text-sm font-medium ${active ? 'text-[#1d4ed8]' : 'text-[#0f172a]'}`}>
+        <span className={`truncate text-sm font-medium ${active ? 'text-[#1d4ed8]' : 'text-[var(--color-text-primary)]'}`}>
           {note.title || 'Untitled'}
         </span>
         {note.messages.length > 0 && (
@@ -41,7 +41,7 @@ function NoteListItem({ note, active, onClick }: { note: Note; active: boolean; 
           </span>
         )}
       </div>
-      <p className="truncate text-xs text-[#94a3b8]">{preview || 'Empty note'}</p>
+      <p className="truncate text-xs text-[var(--color-text-tertiary)]">{preview || 'Empty note'}</p>
       <p className="text-[10px] text-[#cbd5e1]">{timeAgo(note.updatedAt)}</p>
     </button>
   )
@@ -79,7 +79,7 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-8 py-6">
       {/* Title */}
       <input
-        className="mb-4 w-full border-0 bg-transparent text-2xl font-bold text-[#0f172a] outline-none placeholder:text-[#cbd5e1]"
+        className="mb-4 w-full border-0 bg-transparent text-2xl font-bold text-[var(--color-text-primary)] outline-none placeholder:text-[#cbd5e1]"
         placeholder="Note title"
         value={note.title}
         onChange={(e) => onUpdate({ title: e.target.value })}
@@ -90,11 +90,11 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
         {note.tags.map((tag) => (
           <span key={tag} className="flex items-center gap-1 rounded-full bg-[#eff6ff] px-2.5 py-0.5 text-xs font-medium text-[#1d4ed8]">
             {tag}
-            <button onClick={() => removeTag(tag)} className="ml-0.5 text-[#94a3b8] hover:text-[#dc2626]">×</button>
+            <button onClick={() => removeTag(tag)} className="ml-0.5 text-[var(--color-text-tertiary)] hover:text-[#dc2626]">×</button>
           </span>
         ))}
         <input
-          className="h-6 min-w-[80px] rounded-full border border-dashed border-[#bfdbfe] bg-transparent px-2.5 text-xs text-[#334155] outline-none placeholder:text-[#cbd5e1] focus:border-[#1d4ed8]"
+          className="h-6 min-w-[80px] rounded-full border border-dashed border-[#bfdbfe] bg-transparent px-2.5 text-xs text-[var(--color-text-secondary)] outline-none placeholder:text-[#cbd5e1] focus:border-[#1d4ed8]"
           placeholder="Add tag…"
           value={tagInput}
           onChange={(e) => setTagInput(e.target.value)}
@@ -103,26 +103,26 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
       </div>
 
       {/* Preview toggle */}
-      <div className="mb-3 flex items-center gap-1 rounded-lg border border-[#e2e8f0] bg-[#f8fafc] p-0.5 w-fit">
+      <div className="mb-3 flex items-center gap-1 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-0.5 w-fit">
         <button onClick={() => setPreview(false)}
-          className={`rounded-md px-3 py-1 text-xs font-medium transition ${!preview ? 'bg-white shadow-sm text-[#0f172a]' : 'text-[#64748b] hover:text-[#0f172a]'}`}>
+          className={`rounded-md px-3 py-1 text-xs font-medium transition ${!preview ? 'bg-[var(--color-background-primary)] shadow-sm text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}>
           Edit
         </button>
         <button onClick={() => setPreview(true)}
-          className={`rounded-md px-3 py-1 text-xs font-medium transition ${preview ? 'bg-white shadow-sm text-[#0f172a]' : 'text-[#64748b] hover:text-[#0f172a]'}`}>
+          className={`rounded-md px-3 py-1 text-xs font-medium transition ${preview ? 'bg-[var(--color-background-primary)] shadow-sm text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}>
           Preview
         </button>
       </div>
 
       {/* Body */}
       {preview ? (
-        <div className="min-h-48 rounded-xl border border-[#e2e8f0] bg-white p-4 text-sm leading-7 text-[#0f172a] whitespace-pre-wrap">
-          {note.body || <span className="text-[#94a3b8]">Nothing to preview.</span>}
+        <div className="min-h-48 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 text-sm leading-7 text-[var(--color-text-primary)] whitespace-pre-wrap">
+          {note.body || <span className="text-[var(--color-text-tertiary)]">Nothing to preview.</span>}
         </div>
       ) : (
         <textarea
           ref={bodyRef}
-          className="min-h-48 w-full resize-none border-0 bg-transparent text-sm leading-7 text-[#0f172a] outline-none placeholder:text-[#94a3b8]"
+          className="min-h-48 w-full resize-none border-0 bg-transparent text-sm leading-7 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
           placeholder={`Write your note in markdown…\n\n# Heading\n\n**Bold**, _italic_, \`code\`\n\n- List item`}
           value={note.body}
           onChange={(e) => onUpdate({ body: e.target.value })}
@@ -227,12 +227,12 @@ function NoteChat({ note, onAppendMessages }: {
   }
 
   return (
-    <div className="flex w-80 shrink-0 flex-col border-l border-[#d7dee8] bg-[#f8fafc]">
+    <div className="flex w-80 shrink-0 flex-col border-l border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-[#d7dee8] px-4 py-3">
+      <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-4 py-3">
         <div>
-          <p className="text-xs font-semibold text-[#0f172a]">Note Chat</p>
-          <p className="text-[11px] text-[#94a3b8]">Context: this note</p>
+          <p className="text-xs font-semibold text-[var(--color-text-primary)]">Note Chat</p>
+          <p className="text-[11px] text-[var(--color-text-tertiary)]">Context: this note</p>
         </div>
         {messages.length > 0 && (
           <span className="rounded-full bg-[#eff6ff] px-2 py-0.5 text-[10px] font-semibold text-[#1d4ed8]">
@@ -245,8 +245,8 @@ function NoteChat({ note, onAppendMessages }: {
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {messages.length === 0 ? (
           <div className="py-8 text-center">
-            <p className="text-xs font-medium text-[#334155]">Ask about this note</p>
-            <p className="mt-1 text-[11px] text-[#94a3b8]">Summarise, extend, find gaps, or brainstorm based on its content.</p>
+            <p className="text-xs font-medium text-[var(--color-text-secondary)]">Ask about this note</p>
+            <p className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">Summarise, extend, find gaps, or brainstorm based on its content.</p>
           </div>
         ) : (
           messages.map((m) => (
@@ -256,8 +256,8 @@ function NoteChat({ note, onAppendMessages }: {
               )}
               <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-5 ${
                 m.role === 'user'
-                  ? 'bg-[#dbeafe] text-[#0f172a]'
-                  : 'bg-white shadow-sm border border-[#e2e8f0] text-[#0f172a]'
+                  ? 'bg-[#dbeafe] text-[var(--color-text-primary)]'
+                  : 'bg-[var(--color-background-primary)] shadow-sm border border-[var(--color-border-secondary)] text-[var(--color-text-primary)]'
               }`}>
                 <p className="whitespace-pre-wrap">{m.content || (streaming ? '…' : '')}</p>
               </div>
@@ -268,10 +268,10 @@ function NoteChat({ note, onAppendMessages }: {
       </div>
 
       {/* Input */}
-      <div className="border-t border-[#d7dee8] p-3">
-        <div className="flex items-end gap-2 rounded-xl border border-[#bfdbfe] bg-white p-2 shadow-sm">
+      <div className="border-t border-[var(--color-border-secondary)] p-3">
+        <div className="flex items-end gap-2 rounded-xl border border-[#bfdbfe] bg-[var(--color-background-primary)] p-2 shadow-sm">
           <textarea
-            className="min-h-[2.5rem] flex-1 resize-none bg-transparent text-xs leading-5 text-[#0f172a] outline-none placeholder:text-[#94a3b8]"
+            className="min-h-[2.5rem] flex-1 resize-none bg-transparent text-xs leading-5 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
             placeholder="Ask about this note…"
             value={input}
             disabled={streaming}
@@ -301,8 +301,8 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
       <div className="rounded-2xl border border-dashed border-[#bfdbfe] bg-[#eff6ff] p-10">
-        <p className="text-sm font-semibold text-[#334155]">No note selected</p>
-        <p className="mt-1 text-xs text-[#64748b]">Select a note to edit it and chat about its content.</p>
+        <p className="text-sm font-semibold text-[var(--color-text-secondary)]">No note selected</p>
+        <p className="mt-1 text-xs text-[var(--color-text-secondary)]">Select a note to edit it and chat about its content.</p>
         <button
           onClick={onCreate}
           className="mt-4 rounded-xl bg-[#1d4ed8] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#1e40af]"
@@ -356,13 +356,13 @@ export function NotesSurface() {
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden">
       {/* ── Note list ── */}
-      <aside className="flex w-56 shrink-0 flex-col border-r border-[#d7dee8] bg-[#eaf1f8]">
+      <aside className="flex w-56 shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[#eaf1f8]">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#d7dee8] px-3 py-3">
+        <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-3 py-3">
           <span className="text-xs font-semibold uppercase tracking-wide text-[#1d4ed8]">Notes</span>
           <button
             onClick={handleCreate}
-            className="flex h-6 w-6 items-center justify-center rounded-lg text-[#64748b] transition hover:bg-white hover:text-[#1d4ed8]"
+            className="flex h-6 w-6 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[#1d4ed8]"
             title="New note"
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
@@ -374,7 +374,7 @@ export function NotesSurface() {
         {/* Search */}
         <div className="px-3 py-2">
           <input
-            className="w-full rounded-lg border border-[#d7dee8] bg-white px-2.5 py-1.5 text-xs outline-none placeholder:text-[#94a3b8] focus:border-[#93c5fd]"
+            className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-xs outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#93c5fd]"
             placeholder="Search notes…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -383,9 +383,9 @@ export function NotesSurface() {
 
         {/* List */}
         <div className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
-          {!hydrated && <p className="px-2 py-4 text-center text-xs text-[#94a3b8]">Loading…</p>}
+          {!hydrated && <p className="px-2 py-4 text-center text-xs text-[var(--color-text-tertiary)]">Loading…</p>}
           {hydrated && filtered.length === 0 && (
-            <p className="px-2 py-4 text-center text-xs text-[#94a3b8]">
+            <p className="px-2 py-4 text-center text-xs text-[var(--color-text-tertiary)]">
               {search ? 'No matches' : 'No notes yet'}
             </p>
           )}
@@ -401,14 +401,14 @@ export function NotesSurface() {
                 <button
                   onClick={(e) => { e.stopPropagation(); pinNote(note.id, !note.pinned) }}
                   title={note.pinned ? 'Unpin' : 'Pin'}
-                  className="flex h-5 w-5 items-center justify-center rounded text-[#94a3b8] hover:bg-white hover:text-[#f59e0b]"
+                  className="flex h-5 w-5 items-center justify-center rounded text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-primary)] hover:text-[#f59e0b]"
                 >
                   <span className="text-[10px]">★</span>
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(note.id) }}
                   title="Delete"
-                  className="flex h-5 w-5 items-center justify-center rounded text-[#94a3b8] hover:bg-white hover:text-[#dc2626]"
+                  className="flex h-5 w-5 items-center justify-center rounded text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-primary)] hover:text-[#dc2626]"
                 >
                   <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
                     <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -418,16 +418,16 @@ export function NotesSurface() {
 
               {/* Delete confirm popover */}
               {showDeleteConfirm === note.id && (
-                <div className="absolute left-0 right-0 z-10 top-full mt-1 mx-2 rounded-xl border border-[#fecaca] bg-white p-3 shadow-lg">
-                  <p className="text-xs font-medium text-[#0f172a]">Delete this note?</p>
-                  <p className="mt-0.5 text-[11px] text-[#64748b]">This cannot be undone.</p>
+                <div className="absolute left-0 right-0 z-10 top-full mt-1 mx-2 rounded-xl border border-[#fecaca] bg-[var(--color-background-primary)] p-3 shadow-lg">
+                  <p className="text-xs font-medium text-[var(--color-text-primary)]">Delete this note?</p>
+                  <p className="mt-0.5 text-[11px] text-[var(--color-text-secondary)]">This cannot be undone.</p>
                   <div className="mt-2 flex gap-2">
                     <button onClick={() => handleDelete(note.id)}
                       className="flex-1 rounded-lg bg-[#dc2626] py-1 text-xs font-semibold text-white hover:bg-[#b91c1c]">
                       Delete
                     </button>
                     <button onClick={() => setShowDeleteConfirm(null)}
-                      className="flex-1 rounded-lg border border-[#e2e8f0] py-1 text-xs font-medium text-[#334155] hover:bg-[#f8fafc]">
+                      className="flex-1 rounded-lg border border-[var(--color-border-secondary)] py-1 text-xs font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]">
                       Cancel
                     </button>
                   </div>
@@ -439,7 +439,7 @@ export function NotesSurface() {
 
         {/* Footer count */}
         {hydrated && notes.length > 0 && (
-          <div className="border-t border-[#d7dee8] px-3 py-2 text-[10px] text-[#94a3b8]">
+          <div className="border-t border-[var(--color-border-secondary)] px-3 py-2 text-[10px] text-[var(--color-text-tertiary)]">
             {notes.length} note{notes.length !== 1 ? 's' : ''}
           </div>
         )}

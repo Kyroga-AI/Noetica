@@ -113,12 +113,12 @@ function GraphMini() {
       {edges.map(([s, t]) => {
         const sn = nodes.find(n => n.id === s)!
         const tn = nodes.find(n => n.id === t)!
-        return <line key={s+t} x1={sn.x} y1={sn.y} x2={tn.x} y2={tn.y} stroke="#cbd5e1" strokeWidth="1"/>
+        return <line key={s+t} x1={sn.x} y1={sn.y} x2={tn.x} y2={tn.y} stroke="var(--color-border-secondary)" strokeWidth="1"/>
       })}
       {nodes.map(n => (
         <g key={n.id} style={{ cursor: 'pointer' }}>
-          <circle cx={n.x} cy={n.y} r={n.r} fill="#f1f5f9" stroke="#94a3b8" strokeWidth="1"/>
-          <text x={n.x} y={n.y + 1} textAnchor="middle" dominantBaseline="middle" fontSize="7" fill="#334155" fontFamily="sans-serif">{n.label}</text>
+          <circle cx={n.x} cy={n.y} r={n.r} fill="var(--color-background-tertiary)" stroke="var(--color-text-tertiary)" strokeWidth="1"/>
+          <text x={n.x} y={n.y + 1} textAnchor="middle" dominantBaseline="middle" fontSize="7" fill="var(--color-text-secondary)" fontFamily="sans-serif">{n.label}</text>
         </g>
       ))}
     </svg>

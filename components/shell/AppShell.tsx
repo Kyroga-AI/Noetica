@@ -157,6 +157,12 @@ export function AppShell() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // ── Apply appearance settings to document ─────────────────────────────────
+  useEffect(() => {
+    const sizes: Record<string, string> = { sm: 'sm', md: 'md', lg: 'lg' }
+    document.documentElement.setAttribute('data-font-size', sizes[settings.fontSize] ?? 'md')
+  }, [settings.fontSize])
+
   // ── Keyboard shortcuts ─────────────────────────────────────────────────────
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -470,6 +476,7 @@ export function AppShell() {
             onSwitchSession={handleSwitchSession}
             onRemoveSession={removeSession}
             onNewChat={handleNewChat}
+            density={settings.sidebarDensity}
           />
         )}
         {sidebarCollapsed && (
@@ -717,12 +724,13 @@ type RightPanelProps = {
 function RightPanel({ activeSurface, model, steering, thinkingBudget, workspaceMode, riskReadout, onSteeringChange, onThinkingBudgetChange }: RightPanelProps) {
   if (activeSurface === 'notes')     return null
   if (activeSurface === 'workrooms') return null
+  if (activeSurface === 'tune')      return null
   if (activeSurface === 'cowork')    return <CoworkPanel />
   if (activeSurface === 'projects')  return <CoworkPanel />
   if (activeSurface === 'artifacts') return null
   if (activeSurface === 'code')      return <CodePanel />
   if (activeSurface === 'evaluate')  return <EvaluatePanel />
-  if (activeSurface === 'operate')   return <GovernPanel />
+  if (activeSurface === 'operate')   return null
   if (activeSurface === 'govern')    return <GovernPanel />
   return (
     <SteeringPanel

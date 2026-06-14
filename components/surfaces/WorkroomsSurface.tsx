@@ -44,18 +44,18 @@ function RoomListItem({ room, active, onClick }: { room: Workroom; active: boole
   const last = room.messages[room.messages.length - 1]
   return (
     <button onClick={onClick}
-      className={`flex w-full flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left transition ${active ? 'bg-[#dbeafe]' : 'hover:bg-[#f1f5f9]'}`}>
+      className={`flex w-full flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left transition ${active ? 'bg-[#dbeafe]' : 'hover:bg-[var(--color-background-tertiary)]'}`}>
       <div className="flex items-center gap-1.5">
         {room.pinned && <span className="text-[10px] text-[#f59e0b]">★</span>}
-        <span className={`truncate text-sm font-medium ${active ? 'text-[#1d4ed8]' : 'text-[#0f172a]'}`}>
+        <span className={`truncate text-sm font-medium ${active ? 'text-[#1d4ed8]' : 'text-[var(--color-text-primary)]'}`}>
           {room.name}
         </span>
         <span className="ml-auto shrink-0 text-[10px] text-[#cbd5e1]">{timeAgo(room.updatedAt)}</span>
       </div>
-      <p className="truncate text-xs text-[#94a3b8]">
+      <p className="truncate text-xs text-[var(--color-text-tertiary)]">
         {last ? `${last.participantName}: ${last.content.slice(0, 45)}` : room.description || 'No messages yet'}
       </p>
-      <div className="flex items-center gap-1 text-[10px] text-[#94a3b8]">
+      <div className="flex items-center gap-1 text-[10px] text-[var(--color-text-tertiary)]">
         <span>{room.participants.length} participant{room.participants.length !== 1 ? 's' : ''}</span>
         {room.dispatches.length > 0 && (
           <span>· {room.dispatches.filter((d) => d.status === 'done').length}/{room.dispatches.length} dispatches</span>
@@ -71,7 +71,7 @@ function MessageRow({ msg }: { msg: WorkroomMessage }) {
   if (msg.kind === 'system') {
     return (
       <div className="flex justify-center py-1">
-        <span className="rounded-full bg-[#f1f5f9] px-3 py-0.5 text-[11px] italic text-[#94a3b8]">
+        <span className="rounded-full bg-[var(--color-background-tertiary)] px-3 py-0.5 text-[11px] italic text-[var(--color-text-tertiary)]">
           {msg.content}
         </span>
       </div>
@@ -83,7 +83,7 @@ function MessageRow({ msg }: { msg: WorkroomMessage }) {
       <div className="flex justify-center py-1">
         <div className="rounded-xl border border-[#bfdbfe] bg-[#eff6ff] px-4 py-2 text-xs">
           <span className="font-semibold text-[#1d4ed8]">→ Dispatched to {msg.participantName}</span>
-          <p className="mt-0.5 text-[#334155]">{msg.content}</p>
+          <p className="mt-0.5 text-[var(--color-text-secondary)]">{msg.content}</p>
         </div>
       </div>
     )
@@ -107,16 +107,16 @@ function MessageRow({ msg }: { msg: WorkroomMessage }) {
       {/* Bubble */}
       <div className={`max-w-[72%] space-y-0.5 ${isUser ? 'items-end' : 'items-start'} flex flex-col`}>
         <div className="flex items-baseline gap-2">
-          {!isUser && <span className="text-[11px] font-semibold text-[#334155]">{msg.participantName}</span>}
+          {!isUser && <span className="text-[11px] font-semibold text-[var(--color-text-secondary)]">{msg.participantName}</span>}
           <span className="text-[10px] text-[#cbd5e1]">{formatTime(msg.createdAt)}</span>
-          {isUser && <span className="text-[11px] font-semibold text-[#334155]">{msg.participantName}</span>}
+          {isUser && <span className="text-[11px] font-semibold text-[var(--color-text-secondary)]">{msg.participantName}</span>}
         </div>
         <div className={`rounded-2xl px-3.5 py-2.5 text-sm leading-6 ${
           isUser
-            ? 'bg-[#dbeafe] text-[#0f172a]'
+            ? 'bg-[#dbeafe] text-[var(--color-text-primary)]'
             : msg.participantKind === 'agent'
-            ? 'border border-[#e2e8f0] bg-white text-[#0f172a] shadow-sm'
-            : 'bg-[#f1f5f9] text-[#0f172a]'
+            ? 'border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] text-[var(--color-text-primary)] shadow-sm'
+            : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-primary)]'
         }`}>
           <p className="whitespace-pre-wrap">{msg.content}</p>
         </div>
@@ -151,31 +151,31 @@ function AgentDispatchPanel({ room, onDispatch }: {
   }
 
   return (
-    <div className="flex w-72 shrink-0 flex-col border-l border-[#d7dee8] bg-[#f8fafc]">
+    <div className="flex w-72 shrink-0 flex-col border-l border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
       {/* Header */}
-      <div className="border-b border-[#d7dee8] px-4 py-3">
-        <p className="text-xs font-semibold text-[#0f172a]">Agent Dispatch</p>
-        <p className="text-[11px] text-[#94a3b8]">Assign tasks to specialist agents</p>
+      <div className="border-b border-[var(--color-border-secondary)] px-4 py-3">
+        <p className="text-xs font-semibold text-[var(--color-text-primary)]">Agent Dispatch</p>
+        <p className="text-[11px] text-[var(--color-text-tertiary)]">Assign tasks to specialist agents</p>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-4">
         {/* Active agents */}
         {room.participants.filter((p) => p.kind === 'agent').length > 0 && (
           <div className="space-y-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#64748b]">In this room</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">In this room</p>
             {room.participants.filter((p) => p.kind === 'agent').map((p) => {
               const arch = AGENT_ARCHETYPES.find((a) => a.id === p.agentId)
               return (
                 <button key={p.id} onClick={() => setSelectedAgent(p.agentId ?? null)}
                   className={`flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition ${
-                    selectedAgent === p.agentId ? 'border-[#1d4ed8] bg-[#eff6ff]' : 'border-[#e2e8f0] bg-white hover:border-[#bfdbfe]'
+                    selectedAgent === p.agentId ? 'border-[#1d4ed8] bg-[#eff6ff]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] hover:border-[#bfdbfe]'
                   }`}>
                   <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${arch?.color ?? 'bg-[#64748b]'}`}>
                     {initials(p.name)}
                   </div>
                   <div>
-                    <p className="text-xs font-semibold text-[#0f172a]">{p.name}</p>
-                    {arch && <p className="text-[11px] text-[#64748b]">{arch.description}</p>}
+                    <p className="text-xs font-semibold text-[var(--color-text-primary)]">{p.name}</p>
+                    {arch && <p className="text-[11px] text-[var(--color-text-secondary)]">{arch.description}</p>}
                   </div>
                   {selectedAgent === p.agentId && (
                     <svg className="ml-auto shrink-0" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
@@ -191,20 +191,20 @@ function AgentDispatchPanel({ room, onDispatch }: {
         {/* Available agents to add */}
         {inactiveAgents.length > 0 && (
           <div className="space-y-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#64748b]">Available agents</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Available agents</p>
             {AGENT_ARCHETYPES.map((arch) => {
               const isActive = activeAgentIds.includes(arch.id)
               return (
                 <div key={arch.id}
-                  className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 ${isActive ? 'border-[#dcfce7] bg-[#f0fdf4]' : 'border-[#e2e8f0] bg-white'}`}>
+                  className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 ${isActive ? 'border-[#dcfce7] bg-[#f0fdf4]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]'}`}>
                   <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${arch.color}`}>
                     {initials(arch.name)}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-[#0f172a]">{arch.name}</p>
+                    <p className="text-xs font-semibold text-[var(--color-text-primary)]">{arch.name}</p>
                     <div className="mt-0.5 flex flex-wrap gap-1">
                       {arch.tags.map((t) => (
-                        <span key={t} className="rounded-full bg-[#f1f5f9] px-1.5 text-[10px] text-[#64748b]">{t}</span>
+                        <span key={t} className="rounded-full bg-[var(--color-background-tertiary)] px-1.5 text-[10px] text-[var(--color-text-secondary)]">{t}</span>
                       ))}
                     </div>
                   </div>
@@ -225,18 +225,18 @@ function AgentDispatchPanel({ room, onDispatch }: {
         {/* Dispatch history */}
         {room.dispatches.length > 0 && (
           <div className="space-y-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-[#64748b]">Recent dispatches</p>
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Recent dispatches</p>
             {[...room.dispatches].reverse().slice(0, 5).map((d) => (
-              <div key={d.id} className="rounded-xl border border-[#e2e8f0] bg-white px-3 py-2 text-xs">
+              <div key={d.id} className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-xs">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold text-[#0f172a]">{d.agentName}</span>
+                  <span className="font-semibold text-[var(--color-text-primary)]">{d.agentName}</span>
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                     d.status === 'done'    ? 'bg-[#dcfce7] text-[#166534]' :
                     d.status === 'running' ? 'bg-[#fef9c3] text-[#854d0e] animate-pulse' :
                     'bg-[#fee2e2] text-[#991b1b]'
                   }`}>{d.status}</span>
                 </div>
-                <p className="mt-0.5 text-[#64748b] line-clamp-2">{d.task}</p>
+                <p className="mt-0.5 text-[var(--color-text-secondary)] line-clamp-2">{d.task}</p>
                 <p className="mt-0.5 text-[10px] text-[#cbd5e1]">{timeAgo(d.dispatchedAt)}</p>
               </div>
             ))}
@@ -246,7 +246,7 @@ function AgentDispatchPanel({ room, onDispatch }: {
 
       {/* Dispatch form */}
       {selectedAgent && (
-        <div className="border-t border-[#d7dee8] p-3 space-y-2">
+        <div className="border-t border-[var(--color-border-secondary)] p-3 space-y-2">
           {(() => {
             const arch = AGENT_ARCHETYPES.find((a) => a.id === selectedAgent)
             return arch ? (
@@ -254,8 +254,8 @@ function AgentDispatchPanel({ room, onDispatch }: {
                 <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${arch.color}`}>
                   {initials(arch.name)}
                 </div>
-                <p className="text-xs font-semibold text-[#0f172a]">Dispatch to {arch.name}</p>
-                <button onClick={() => setSelectedAgent(null)} className="ml-auto text-[#94a3b8] hover:text-[#0f172a]">
+                <p className="text-xs font-semibold text-[var(--color-text-primary)]">Dispatch to {arch.name}</p>
+                <button onClick={() => setSelectedAgent(null)} className="ml-auto text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]">
                   <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
                     <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                   </svg>
@@ -264,7 +264,7 @@ function AgentDispatchPanel({ room, onDispatch }: {
             ) : null
           })()}
           <textarea
-            className="w-full resize-none rounded-xl border border-[#bfdbfe] bg-white px-3 py-2 text-xs leading-5 text-[#0f172a] outline-none placeholder:text-[#94a3b8] focus:border-[#1d4ed8]"
+            className="w-full resize-none rounded-xl border border-[#bfdbfe] bg-[var(--color-background-primary)] px-3 py-2 text-xs leading-5 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#1d4ed8]"
             placeholder="Describe the task…"
             rows={3}
             value={task}
@@ -419,10 +419,10 @@ function RoomView({ room, onAppendMessage, onUpdateDispatch }: {
       {/* Chat column */}
       <div className="flex min-h-0 flex-1 flex-col">
         {/* Room header */}
-        <div className="flex items-center gap-3 border-b border-[#d7dee8] px-6 py-3">
+        <div className="flex items-center gap-3 border-b border-[var(--color-border-secondary)] px-6 py-3">
           <div>
-            <p className="text-sm font-semibold text-[#0f172a]">{room.name}</p>
-            <p className="text-xs text-[#94a3b8]">
+            <p className="text-sm font-semibold text-[var(--color-text-primary)]">{room.name}</p>
+            <p className="text-xs text-[var(--color-text-tertiary)]">
               {room.participants.length} participant{room.participants.length !== 1 ? 's' : ''}
               {room.description ? ` · ${room.description}` : ''}
             </p>
@@ -448,10 +448,10 @@ function RoomView({ room, onAppendMessage, onUpdateDispatch }: {
         </div>
 
         {/* Input */}
-        <div className="border-t border-[#d7dee8] px-6 py-4">
-          <div className="flex items-end gap-3 rounded-2xl border border-[#bfdbfe] bg-white px-4 py-3 shadow-sm">
+        <div className="border-t border-[var(--color-border-secondary)] px-6 py-4">
+          <div className="flex items-end gap-3 rounded-2xl border border-[#bfdbfe] bg-[var(--color-background-primary)] px-4 py-3 shadow-sm">
             <textarea
-              className="min-h-[2.5rem] flex-1 resize-none bg-transparent text-sm leading-6 text-[#0f172a] outline-none placeholder:text-[#94a3b8]"
+              className="min-h-[2.5rem] flex-1 resize-none bg-transparent text-sm leading-6 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
               placeholder="Send a message to the workroom… (⌘ + Enter)"
               value={input}
               disabled={sending}
@@ -483,19 +483,19 @@ function NewRoomForm({ onCreate, onCancel }: { onCreate: (name: string, desc: st
     <div className="rounded-xl border border-[#bfdbfe] bg-[#eff6ff] p-4 space-y-3">
       <p className="text-xs font-semibold uppercase tracking-wide text-[#1d4ed8]">New Workroom</p>
       <div className="space-y-1">
-        <label className="text-xs font-medium text-[#334155]">Name</label>
-        <input className="w-full rounded-lg border border-[#e2e8f0] bg-white px-3 py-1.5 text-sm outline-none focus:border-[#93c5fd]"
+        <label className="text-xs font-medium text-[var(--color-text-secondary)]">Name</label>
+        <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 text-sm outline-none focus:border-[#93c5fd]"
           placeholder="Team planning room" value={name} onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && name.trim()) onCreate(name, desc) }}
           autoFocus />
       </div>
       <div className="space-y-1">
-        <label className="text-xs font-medium text-[#334155]">Description <span className="font-normal text-[#94a3b8]">(optional)</span></label>
-        <input className="w-full rounded-lg border border-[#e2e8f0] bg-white px-3 py-1.5 text-sm outline-none focus:border-[#93c5fd]"
+        <label className="text-xs font-medium text-[var(--color-text-secondary)]">Description <span className="font-normal text-[var(--color-text-tertiary)]">(optional)</span></label>
+        <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 text-sm outline-none focus:border-[#93c5fd]"
           placeholder="What's this room for?" value={desc} onChange={(e) => setDesc(e.target.value)} />
       </div>
       <div className="flex justify-end gap-2 pt-1">
-        <button onClick={onCancel} className="rounded-lg border border-[#e2e8f0] bg-white px-4 py-1.5 text-xs font-medium text-[#334155] transition hover:bg-[#f1f5f9]">Cancel</button>
+        <button onClick={onCancel} className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-4 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-tertiary)]">Cancel</button>
         <button onClick={() => { if (name.trim()) onCreate(name, desc) }}
           disabled={!name.trim()}
           className="rounded-lg bg-[#1d4ed8] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1e40af] disabled:opacity-50">
@@ -512,8 +512,8 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
       <div className="rounded-2xl border border-dashed border-[#bfdbfe] bg-[#eff6ff] p-10 max-w-sm">
-        <p className="text-sm font-semibold text-[#334155]">No workroom selected</p>
-        <p className="mt-1 text-xs text-[#64748b]">
+        <p className="text-sm font-semibold text-[var(--color-text-secondary)]">No workroom selected</p>
+        <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
           Workrooms are persistent collaboration spaces where you and specialist agents work together on tasks.
         </p>
         <button onClick={onCreate}
@@ -563,11 +563,11 @@ export function WorkroomsSurface() {
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden">
       {/* ── Room list ── */}
-      <aside className="flex w-56 shrink-0 flex-col border-r border-[#d7dee8] bg-[#eaf1f8]">
-        <div className="flex items-center justify-between border-b border-[#d7dee8] px-3 py-3">
+      <aside className="flex w-56 shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[#eaf1f8]">
+        <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-3 py-3">
           <span className="text-xs font-semibold uppercase tracking-wide text-[#1d4ed8]">Workrooms</span>
           <button onClick={() => setShowNew(true)} title="New workroom"
-            className="flex h-6 w-6 items-center justify-center rounded-lg text-[#64748b] transition hover:bg-white hover:text-[#1d4ed8]">
+            className="flex h-6 w-6 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[#1d4ed8]">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
               <path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
@@ -575,19 +575,19 @@ export function WorkroomsSurface() {
         </div>
 
         <div className="px-3 py-2">
-          <input className="w-full rounded-lg border border-[#d7dee8] bg-white px-2.5 py-1.5 text-xs outline-none placeholder:text-[#94a3b8] focus:border-[#93c5fd]"
+          <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-xs outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#93c5fd]"
             placeholder="Search rooms…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
 
         <div className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
-          {!hydrated && <p className="py-4 text-center text-xs text-[#94a3b8]">Loading…</p>}
+          {!hydrated && <p className="py-4 text-center text-xs text-[var(--color-text-tertiary)]">Loading…</p>}
           {hydrated && showNew && (
             <div className="p-2">
               <NewRoomForm onCreate={handleCreate} onCancel={() => setShowNew(false)} />
             </div>
           )}
           {hydrated && filtered.length === 0 && !showNew && (
-            <p className="px-2 py-4 text-center text-xs text-[#94a3b8]">{search ? 'No matches' : 'No workrooms yet'}</p>
+            <p className="px-2 py-4 text-center text-xs text-[var(--color-text-tertiary)]">{search ? 'No matches' : 'No workrooms yet'}</p>
           )}
           {filtered.map((room) => (
             <RoomListItem key={room.id} room={room} active={activeId === room.id} onClick={() => setActiveId(room.id)} />
@@ -595,7 +595,7 @@ export function WorkroomsSurface() {
         </div>
 
         {hydrated && workrooms.length > 0 && (
-          <div className="border-t border-[#d7dee8] px-3 py-2 text-[10px] text-[#94a3b8]">
+          <div className="border-t border-[var(--color-border-secondary)] px-3 py-2 text-[10px] text-[var(--color-text-tertiary)]">
             {workrooms.length} room{workrooms.length !== 1 ? 's' : ''}
           </div>
         )}

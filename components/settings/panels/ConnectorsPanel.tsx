@@ -31,21 +31,21 @@ const EXTERNAL_CONNECTORS = [
 const TRUST_COLORS: Record<string, string> = {
   'Native':               'bg-[#dcfce7] text-[#166534]',
   'Organization trusted': 'bg-[#dbeafe] text-[#1e40af]',
-  'External':             'bg-[#f1f5f9] text-[#475569]',
+  'External':             'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]',
   'Unverified':           'bg-[#fee2e2] text-[#991b1b]',
 }
 
 function ConnectorRow({ label, trust, description }: { label: string; trust: string; description: string }) {
   return (
-    <div className="flex items-start justify-between gap-3 rounded-xl border border-[#e2e8f0] bg-white px-4 py-3">
+    <div className="flex items-start justify-between gap-3 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-4 py-3">
       <div className="min-w-0 flex-1 space-y-0.5">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-semibold text-[#0f172a]">{label}</span>
+          <span className="text-sm font-semibold text-[var(--color-text-primary)]">{label}</span>
           <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${TRUST_COLORS[trust] ?? ''}`}>{trust}</span>
         </div>
-        <p className="text-xs text-[#64748b]">{description}</p>
+        <p className="text-xs text-[var(--color-text-secondary)]">{description}</p>
       </div>
-      <button className="shrink-0 rounded-lg border border-[#e2e8f0] bg-[#f8fafc] px-3 py-1.5 text-xs font-medium text-[#334155] transition hover:border-[#bfdbfe] hover:bg-[#eff6ff] hover:text-[#1d4ed8]">
+      <button className="shrink-0 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:border-[#bfdbfe] hover:bg-[#eff6ff] hover:text-[#1d4ed8]">
         Configure
       </button>
     </div>
@@ -61,7 +61,7 @@ const STATUS_DOT: Record<string, string> = {
 
 function McpStatusChip({ status }: { status: string }) {
   return (
-    <span className="flex items-center gap-1.5 text-xs text-[#64748b]">
+    <span className="flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)]">
       <span className={`h-2 w-2 rounded-full ${STATUS_DOT[status] ?? STATUS_DOT.disconnected}`} />
       {status === 'connecting' ? 'Connecting…' : status.charAt(0).toUpperCase() + status.slice(1)}
     </span>
@@ -103,17 +103,17 @@ function AddServerForm({ onAdd, onCancel }: {
     <div className="rounded-xl border border-[#bfdbfe] bg-[#eff6ff] p-4 space-y-3">
       <p className="text-xs font-semibold uppercase tracking-wide text-[#1d4ed8]">Add MCP Server</p>
       <div className="space-y-1">
-        <label className="text-xs font-medium text-[#334155]">Display name</label>
-        <input className="w-full rounded-lg border border-[#e2e8f0] bg-white px-3 py-1.5 text-sm outline-none focus:border-[#93c5fd]"
+        <label className="text-xs font-medium text-[var(--color-text-secondary)]">Display name</label>
+        <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 text-sm outline-none focus:border-[#93c5fd]"
           placeholder="My MCP server" value={form.name} onChange={(e) => set('name', e.target.value)} />
       </div>
       <div className="space-y-1">
-        <label className="text-xs font-medium text-[#334155]">Transport</label>
+        <label className="text-xs font-medium text-[var(--color-text-secondary)]">Transport</label>
         <div className="flex gap-2">
           {(['sse', 'stdio'] as McpTransport[]).map((t) => (
             <button key={t} type="button" disabled={t === 'stdio' && !canStdio}
               onClick={() => set('transport', t)}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${form.transport === t ? 'border-[#1d4ed8] bg-[#1d4ed8] text-white' : 'border-[#e2e8f0] bg-white text-[#334155] hover:border-[#bfdbfe]'}`}>
+              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${form.transport === t ? 'border-[#1d4ed8] bg-[#1d4ed8] text-white' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] text-[var(--color-text-secondary)] hover:border-[#bfdbfe]'}`}>
               {t === 'sse' ? 'SSE / HTTP' : 'stdio (Tauri)'}
             </button>
           ))}
@@ -124,31 +124,31 @@ function AddServerForm({ onAdd, onCancel }: {
       </div>
       {form.transport === 'sse' && (
         <div className="space-y-1">
-          <label className="text-xs font-medium text-[#334155]">Server URL</label>
-          <input className="w-full rounded-lg border border-[#e2e8f0] bg-white px-3 py-1.5 font-mono text-xs outline-none focus:border-[#93c5fd]"
+          <label className="text-xs font-medium text-[var(--color-text-secondary)]">Server URL</label>
+          <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 font-mono text-xs outline-none focus:border-[#93c5fd]"
             placeholder="http://localhost:3100/sse" value={form.url} onChange={(e) => set('url', e.target.value)} />
         </div>
       )}
       {form.transport === 'stdio' && (<>
         <div className="space-y-1">
-          <label className="text-xs font-medium text-[#334155]">Command</label>
-          <input className="w-full rounded-lg border border-[#e2e8f0] bg-white px-3 py-1.5 font-mono text-xs outline-none focus:border-[#93c5fd]"
+          <label className="text-xs font-medium text-[var(--color-text-secondary)]">Command</label>
+          <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 font-mono text-xs outline-none focus:border-[#93c5fd]"
             placeholder="npx" value={form.command} onChange={(e) => set('command', e.target.value)} />
         </div>
         <div className="space-y-1">
-          <label className="text-xs font-medium text-[#334155]">Arguments <span className="font-normal text-[#94a3b8]">(space-separated)</span></label>
-          <input className="w-full rounded-lg border border-[#e2e8f0] bg-white px-3 py-1.5 font-mono text-xs outline-none focus:border-[#93c5fd]"
+          <label className="text-xs font-medium text-[var(--color-text-secondary)]">Arguments <span className="font-normal text-[var(--color-text-tertiary)]">(space-separated)</span></label>
+          <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 font-mono text-xs outline-none focus:border-[#93c5fd]"
             placeholder="-y @modelcontextprotocol/server-filesystem /path" value={form.args} onChange={(e) => set('args', e.target.value)} />
         </div>
         <div className="space-y-1">
-          <label className="text-xs font-medium text-[#334155]">Env vars <span className="font-normal text-[#94a3b8]">(JSON, optional)</span></label>
-          <input className="w-full rounded-lg border border-[#e2e8f0] bg-white px-3 py-1.5 font-mono text-xs outline-none focus:border-[#93c5fd]"
+          <label className="text-xs font-medium text-[var(--color-text-secondary)]">Env vars <span className="font-normal text-[var(--color-text-tertiary)]">(JSON, optional)</span></label>
+          <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 font-mono text-xs outline-none focus:border-[#93c5fd]"
             placeholder='{"API_KEY": "..."}' value={form.env} onChange={(e) => set('env', e.target.value)} />
         </div>
       </>)}
       {error && <p className="rounded-lg border border-[#fecaca] bg-[#fef2f2] px-3 py-1.5 text-xs text-[#dc2626]">{error}</p>}
       <div className="flex justify-end gap-2 pt-1">
-        <button type="button" onClick={onCancel} className="rounded-lg border border-[#e2e8f0] bg-white px-4 py-1.5 text-xs font-medium text-[#334155] transition hover:bg-[#f1f5f9]">Cancel</button>
+        <button type="button" onClick={onCancel} className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-4 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-tertiary)]">Cancel</button>
         <button type="button" onClick={submit} className="rounded-lg bg-[#1d4ed8] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1e40af]">Add &amp; Connect</button>
       </div>
     </div>
@@ -161,30 +161,30 @@ function McpServerRow({ state, onConnect, onDisconnect, onRemove }: {
   const [expanded, setExpanded] = useState(false)
   const { config, status, tools, resources, error } = state
   return (
-    <div className="rounded-xl border border-[#e2e8f0] bg-white">
+    <div className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]">
       <div className="flex items-center gap-3 px-4 py-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-semibold text-[#0f172a]">{config.name}</span>
-            <span className="rounded-full border border-[#e2e8f0] px-2 py-0.5 text-[11px] font-mono text-[#64748b]">{config.transport}</span>
+            <span className="text-sm font-semibold text-[var(--color-text-primary)]">{config.name}</span>
+            <span className="rounded-full border border-[var(--color-border-secondary)] px-2 py-0.5 text-[11px] font-mono text-[var(--color-text-secondary)]">{config.transport}</span>
             <McpStatusChip status={status} />
           </div>
-          <p className="mt-0.5 truncate text-xs text-[#94a3b8]">
+          <p className="mt-0.5 truncate text-xs text-[var(--color-text-tertiary)]">
             {config.transport === 'sse' ? config.url : `${config.command} ${(config.args ?? []).join(' ')}`}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
           {tools.length > 0 && (
             <button onClick={() => setExpanded((v) => !v)}
-              className="rounded-lg border border-[#e2e8f0] px-2 py-1 text-[11px] font-medium text-[#64748b] transition hover:border-[#bfdbfe] hover:text-[#1d4ed8]">
+              className="rounded-lg border border-[var(--color-border-secondary)] px-2 py-1 text-[11px] font-medium text-[var(--color-text-secondary)] transition hover:border-[#bfdbfe] hover:text-[#1d4ed8]">
               {tools.length} tool{tools.length !== 1 ? 's' : ''} {expanded ? '▲' : '▼'}
             </button>
           )}
           {status === 'connected'
-            ? <button onClick={onDisconnect} className="rounded-lg border border-[#e2e8f0] px-2.5 py-1 text-[11px] font-medium text-[#64748b] transition hover:border-[#fecaca] hover:text-[#dc2626]">Disconnect</button>
+            ? <button onClick={onDisconnect} className="rounded-lg border border-[var(--color-border-secondary)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-text-secondary)] transition hover:border-[#fecaca] hover:text-[#dc2626]">Disconnect</button>
             : <button onClick={onConnect} className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2.5 py-1 text-[11px] font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe]">Connect</button>}
           <button onClick={onRemove} title="Remove"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-[#94a3b8] transition hover:bg-[#fee2e2] hover:text-[#dc2626]">
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-text-tertiary)] transition hover:bg-[#fee2e2] hover:text-[#dc2626]">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
               <path d="M1.5 3h9M5 3V2h2v1M4.5 9.5V5m3 4.5V5M2 3l.5 7.5h7L10 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
             </svg>
@@ -193,19 +193,19 @@ function McpServerRow({ state, onConnect, onDisconnect, onRemove }: {
       </div>
       {error && <div className="border-t border-[#fee2e2] bg-[#fef2f2] px-4 py-2 text-xs text-[#dc2626]">{error}</div>}
       {expanded && tools.length > 0 && (
-        <div className="border-t border-[#e2e8f0] px-4 py-3 space-y-1.5">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-[#64748b]">Tools</p>
+        <div className="border-t border-[var(--color-border-secondary)] px-4 py-3 space-y-1.5">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Tools</p>
           {tools.map((t) => (
-            <div key={t.name} className="rounded-lg border border-[#e2e8f0] bg-[#f8fafc] px-3 py-2">
-              <p className="text-xs font-semibold text-[#0f172a]">{t.name}</p>
-              {t.description && <p className="text-xs text-[#64748b]">{t.description}</p>}
+            <div key={t.name} className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2">
+              <p className="text-xs font-semibold text-[var(--color-text-primary)]">{t.name}</p>
+              {t.description && <p className="text-xs text-[var(--color-text-secondary)]">{t.description}</p>}
             </div>
           ))}
           {resources.length > 0 && (<>
-            <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-[#64748b]">Resources ({resources.length})</p>
+            <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Resources ({resources.length})</p>
             {resources.slice(0, 5).map((r) => (
-              <div key={r.uri} className="rounded-lg border border-[#e2e8f0] bg-[#f8fafc] px-3 py-1.5">
-                <p className="truncate font-mono text-[11px] text-[#334155]">{r.uri}</p>
+              <div key={r.uri} className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5">
+                <p className="truncate font-mono text-[11px] text-[var(--color-text-secondary)]">{r.uri}</p>
               </div>
             ))}
           </>)}
@@ -230,10 +230,10 @@ export function ConnectorsPanel() {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-1 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-1">
+      <div className="flex gap-1 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-1">
         {tabs.map((t) => (
           <button key={t.id} onClick={() => setTab(t.id)}
-            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium transition ${tab === t.id ? 'bg-white font-semibold text-[#0f172a] shadow-sm' : 'text-[#64748b] hover:text-[#0f172a]'}`}>
+            className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium transition ${tab === t.id ? 'bg-[var(--color-background-primary)] font-semibold text-[var(--color-text-primary)] shadow-sm' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}>
             {t.label}
             {t.badge && <span className="rounded-full bg-[#22c55e] px-1.5 py-0.5 text-[10px] font-bold text-white">{t.badge}</span>}
           </button>
@@ -242,7 +242,7 @@ export function ConnectorsPanel() {
 
       {tab === 'native' && (
         <div className="space-y-2">
-          <p className="text-xs text-[#64748b]">Native substrates are first-class authorities within SourceOS — not optional connectors.</p>
+          <p className="text-xs text-[var(--color-text-secondary)]">Native substrates are first-class authorities within SourceOS — not optional connectors.</p>
           {NATIVE_CONNECTORS.map((c) => <ConnectorRow key={c.id} {...c} />)}
         </div>
       )}
@@ -258,15 +258,15 @@ export function ConnectorsPanel() {
 
       {tab === 'mcp' && (
         <div className="space-y-3">
-          <div className="rounded-xl border border-[#e2e8f0] bg-[#f8fafc] px-4 py-3 text-xs leading-5 text-[#334155] space-y-1">
-            <p className="font-semibold text-[#0f172a]">Model Context Protocol servers</p>
+          <div className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 text-xs leading-5 text-[var(--color-text-secondary)] space-y-1">
+            <p className="font-semibold text-[var(--color-text-primary)]">Model Context Protocol servers</p>
             <p>Connect any MCP-compatible server to expose tools and resources in the Noetica chat. SSE/HTTP works everywhere; stdio requires the Tauri desktop app.</p>
           </div>
-          {!hydrated && <p className="py-4 text-center text-xs text-[#94a3b8]">Loading…</p>}
+          {!hydrated && <p className="py-4 text-center text-xs text-[var(--color-text-tertiary)]">Loading…</p>}
           {hydrated && serverStates.length === 0 && !showAdd && (
             <div className="rounded-xl border border-dashed border-[#bfdbfe] bg-[#eff6ff] py-8 text-center">
-              <p className="text-sm font-medium text-[#334155]">No MCP servers configured</p>
-              <p className="mt-1 text-xs text-[#64748b]">Add a server to expose tools and resources to the chat</p>
+              <p className="text-sm font-medium text-[var(--color-text-secondary)]">No MCP servers configured</p>
+              <p className="mt-1 text-xs text-[var(--color-text-secondary)]">Add a server to expose tools and resources to the chat</p>
             </div>
           )}
           {hydrated && serverStates.map((state) => (

@@ -16,6 +16,7 @@ type SidebarProps = {
   onSwitchSession?: (id: string) => void
   onRemoveSession?: (id: string) => void
   onNewChat?: () => void
+  density?: 'comfortable' | 'compact'
 }
 
 type SurfaceItem = {
@@ -285,8 +286,10 @@ function SessionTree({ sessions, activeSessionId, search, onSwitchSession, onRem
 export function Sidebar({
   activeSurface, onSurfaceChange, onOpenSettings,
   sessions = [], activeSessionId = null,
-  onSwitchSession, onRemoveSession, onNewChat,
+  onSwitchSession, onRemoveSession, onNewChat, density = 'comfortable',
 }: SidebarProps) {
+  const itemPy = density === 'compact' ? 'py-1' : 'py-1.5'
+  const groupGap = density === 'compact' ? 'mt-2' : 'mt-3'
   const [collapsed, setCollapsed] = useState(false)
   const [search, setSearch] = useState('')
   const [userMenuOpen, setUserMenuOpen] = useState(false)
@@ -339,7 +342,7 @@ export function Sidebar({
 
   return (
     <>
-    <aside className="hidden w-56 shrink-0 flex-col border-r border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] px-2 py-2 lg:flex h-full overflow-y-auto">
+    <aside className="hidden w-56 shrink-0 flex-col border-r border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] px-2 py-2 lg:flex h-full overflow-y-auto" data-density={density}>
       {/* Header row */}
       <div className="flex items-center gap-1 pb-1">
         <button
@@ -416,7 +419,7 @@ export function Sidebar({
         })}
 
         {/* Build group */}
-        <div className="px-2 pt-2 pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Build</div>
+        <div className={`px-2 ${groupGap} pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>Build</div>
         {(['projects','artifacts','code'] as ActiveSurface[]).map((id) => {
           const item = surfaceItems.find(s => s.id === id)!
           const isActive = activeSurface === id
@@ -435,7 +438,7 @@ export function Sidebar({
         })}
 
         {/* Intelligence group */}
-        <div className="px-2 pt-2 pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Intelligence</div>
+        <div className={`px-2 ${groupGap} pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>Intelligence</div>
         {(['evaluate','tune','govern','operate'] as ActiveSurface[]).map((id) => {
           const item = surfaceItems.find(s => s.id === id)!
           const isActive = activeSurface === id
@@ -454,7 +457,7 @@ export function Sidebar({
         })}
 
         {/* Platform group */}
-        <div className="px-2 pt-2 pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Platform</div>
+        <div className={`px-2 ${groupGap} pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>Platform</div>
         {(['holographme','marketplace'] as ActiveSurface[]).map((id) => {
           const item = surfaceItems.find(s => s.id === id)!
           const isActive = activeSurface === id

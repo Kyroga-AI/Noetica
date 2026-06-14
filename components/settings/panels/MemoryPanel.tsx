@@ -16,7 +16,7 @@ export function MemoryPanel() {
   return (
     <div className="space-y-6">
       <div>
-        <div className="text-sm font-semibold text-[#0f172a]">Memory scope</div>
+        <div className="text-sm font-semibold text-[var(--color-text-primary)]">Memory scope</div>
         <div className="mt-3 space-y-2">
           {scopes.map(({ value, label, desc }) => (
             <button
@@ -25,7 +25,7 @@ export function MemoryPanel() {
               className={`flex w-full items-start gap-3 rounded-xl border p-3 text-left transition ${
                 settings.memoryScope === value
                   ? 'border-[#1d4ed8] bg-[#eff6ff]'
-                  : 'border-[#e2e8f0] bg-white hover:bg-[#f8fafc]'
+                  : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] hover:bg-[var(--color-background-secondary)]'
               }`}
             >
               <span
@@ -34,14 +34,14 @@ export function MemoryPanel() {
                 }`}
               >
                 {settings.memoryScope === value && (
-                  <span className="h-1.5 w-1.5 rounded-full bg-white" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-background-primary)]" />
                 )}
               </span>
               <div>
-                <div className={`text-sm font-semibold ${settings.memoryScope === value ? 'text-[#1d4ed8]' : 'text-[#0f172a]'}`}>
+                <div className={`text-sm font-semibold ${settings.memoryScope === value ? 'text-[#1d4ed8]' : 'text-[var(--color-text-primary)]'}`}>
                   {label}
                 </div>
-                <div className="text-xs text-[#64748b]">{desc}</div>
+                <div className="text-xs text-[var(--color-text-secondary)]">{desc}</div>
               </div>
             </button>
           ))}
@@ -49,7 +49,7 @@ export function MemoryPanel() {
       </div>
 
       <div>
-        <label className="block text-sm font-semibold text-[#0f172a]">
+        <label className="block text-sm font-semibold text-[var(--color-text-primary)]">
           Retention — {settings.memoryRetentionDays} days
         </label>
         <input
@@ -61,7 +61,7 @@ export function MemoryPanel() {
           className="mt-3 w-full accent-[#1d4ed8]"
           disabled={settings.memoryScope === 'disabled'}
         />
-        <div className="mt-1 flex justify-between text-xs text-[#94a3b8]">
+        <div className="mt-1 flex justify-between text-xs text-[var(--color-text-tertiary)]">
           <span>1 day</span>
           <span>1 year</span>
         </div>
@@ -74,7 +74,7 @@ export function MemoryPanel() {
             keys.forEach((k) => window.localStorage.removeItem(k))
           }
         }}
-        className="rounded-xl border border-[#fecaca] bg-white px-4 py-2 text-sm font-semibold text-[#dc2626] transition hover:bg-[#fef2f2]"
+        className="rounded-xl border border-[#fecaca] bg-[var(--color-background-primary)] px-4 py-2 text-sm font-semibold text-[#dc2626] transition hover:bg-[#fef2f2]"
       >
         Clear all memory
       </button>

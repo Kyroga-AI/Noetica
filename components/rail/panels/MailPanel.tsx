@@ -35,12 +35,12 @@ export function MailPanel() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="border-b border-[#d7dee8] px-4 py-3">
+      <div className="border-b border-[var(--color-border-secondary)] px-4 py-3">
         <div className="flex items-center justify-between">
           <div>
             <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Mail</div>
             <div className="mt-0.5 flex items-center gap-1.5">
-              <span className="text-xs text-[#334155] font-medium truncate max-w-[140px]">{account.address}</span>
+              <span className="text-xs text-[var(--color-text-secondary)] font-medium truncate max-w-[140px]">{account.address}</span>
               {meta.native && (
                 <span className="rounded-full bg-[#dcfce7] px-1.5 py-0.5 text-[9px] font-semibold text-[#16a34a]">Native</span>
               )}
@@ -48,7 +48,7 @@ export function MailPanel() {
           </div>
           <button
             onClick={() => setShowAccounts((v) => !v)}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-[#64748b] transition hover:bg-[#f1f5f9]"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-tertiary)]"
             title="Switch account"
           >
             <svg width="13" height="13" viewBox="0 0 13 13" fill="none" aria-hidden>
@@ -59,27 +59,27 @@ export function MailPanel() {
 
         {/* Account switcher */}
         {showAccounts && (
-          <div className="mt-2 rounded-xl border border-[#e2e8f0] bg-white shadow-sm overflow-hidden">
+          <div className="mt-2 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm overflow-hidden">
             {/* Native accounts */}
-            <div className="px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#1d4ed8] bg-[#f8fafc]">
+            <div className="px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#1d4ed8] bg-[var(--color-background-secondary)]">
               Native
             </div>
             {STUB_ACCOUNTS.filter((a) => a.native).map((a) => (
               <button
                 key={a.id}
                 onClick={() => { setActiveAccount(a.id); setShowAccounts(false) }}
-                className={`flex w-full items-center gap-2 px-3 py-2 text-xs transition hover:bg-[#f8fafc] ${a.id === activeAccount ? 'bg-[#eff6ff] font-semibold text-[#0f172a]' : 'text-[#334155]'}`}
+                className={`flex w-full items-center gap-2 px-3 py-2 text-xs transition hover:bg-[var(--color-background-secondary)] ${a.id === activeAccount ? 'bg-[#eff6ff] font-semibold text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'}`}
               >
                 <span className="h-1.5 w-1.5 rounded-full bg-[#22c55e] shrink-0" />
                 <span className="truncate">{a.address}</span>
               </button>
             ))}
             {/* External accounts (empty by default) */}
-            <div className="px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#94a3b8] bg-[#f8fafc] border-t border-[#f1f5f9]">
+            <div className="px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] bg-[var(--color-background-secondary)] border-t border-[#f1f5f9]">
               External connectors
             </div>
             <div className="px-3 py-2">
-              <button className="w-full rounded-lg border border-dashed border-[#e2e8f0] py-1.5 text-[10px] text-[#94a3b8] transition hover:text-[#64748b]">
+              <button className="w-full rounded-lg border border-dashed border-[var(--color-border-secondary)] py-1.5 text-[10px] text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-secondary)]">
                 + Add Gmail / IMAP
               </button>
             </div>
@@ -96,13 +96,13 @@ export function MailPanel() {
       </div>
 
       {/* Folder tabs */}
-      <div className="flex gap-0.5 overflow-x-auto border-b border-[#d7dee8] px-2 py-1.5 scrollbar-hide">
+      <div className="flex gap-0.5 overflow-x-auto border-b border-[var(--color-border-secondary)] px-2 py-1.5 scrollbar-hide">
         {FOLDERS.map((f) => (
           <button
             key={f}
             onClick={() => setFolder(f)}
             className={`shrink-0 rounded-lg px-2 py-1 text-[10px] font-medium transition whitespace-nowrap ${
-              folder === f ? 'bg-[#dbeafe] text-[#0f172a]' : 'text-[#64748b] hover:bg-[#f1f5f9]'
+              folder === f ? 'bg-[#dbeafe] text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)]'
             }`}
           >
             {f}
@@ -120,8 +120,8 @@ export function MailPanel() {
                 <path d="M2 5l6 5 6-5" stroke="#93c5fd" strokeWidth="1.4" strokeLinecap="round"/>
               </svg>
             </div>
-            <div className="text-xs font-semibold text-[#334155]">No mail in {folder}</div>
-            <div className="mt-1 text-[10px] text-[#94a3b8] leading-relaxed">
+            <div className="text-xs font-semibold text-[var(--color-text-secondary)]">No mail in {folder}</div>
+            <div className="mt-1 text-[10px] text-[var(--color-text-tertiary)] leading-relaxed">
               {folder === 'Inbox'
                 ? 'Prophet Mail is native. Configure endpoint in Settings → Runtime.'
                 : 'No messages in this folder.'}
@@ -130,14 +130,14 @@ export function MailPanel() {
         ) : (
           <ul className="divide-y divide-[#f1f5f9]">
             {STUB_THREADS.map((t) => (
-              <li key={t.id} className={`px-4 py-3 cursor-pointer transition hover:bg-[#f8fafc] ${t.unread ? 'bg-white' : 'bg-[#fafafa]'}`}>
+              <li key={t.id} className={`px-4 py-3 cursor-pointer transition hover:bg-[var(--color-background-secondary)] ${t.unread ? 'bg-[var(--color-background-primary)]' : 'bg-[#fafafa]'}`}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <div className={`truncate text-xs ${t.unread ? 'font-semibold text-[#0f172a]' : 'text-[#334155]'}`}>{t.subject}</div>
-                    <div className="truncate text-[10px] text-[#64748b]">{t.from}</div>
-                    <div className="truncate text-[10px] text-[#94a3b8]">{t.preview}</div>
+                    <div className={`truncate text-xs ${t.unread ? 'font-semibold text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'}`}>{t.subject}</div>
+                    <div className="truncate text-[10px] text-[var(--color-text-secondary)]">{t.from}</div>
+                    <div className="truncate text-[10px] text-[var(--color-text-tertiary)]">{t.preview}</div>
                   </div>
-                  <div className="shrink-0 text-[10px] text-[#94a3b8]">{t.time}</div>
+                  <div className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">{t.time}</div>
                 </div>
               </li>
             ))}
@@ -146,9 +146,9 @@ export function MailPanel() {
       </div>
 
       {/* Quick actions */}
-      <div className="border-t border-[#d7dee8] px-3 py-2 space-y-1">
+      <div className="border-t border-[var(--color-border-secondary)] px-3 py-2 space-y-1">
         {['Attach to note', 'Create task from email', 'Create artifact from thread'].map((action) => (
-          <button key={action} className="w-full rounded-xl border border-[#e2e8f0] bg-white px-3 py-2 text-left text-[10px] text-[#334155] transition hover:bg-[#f8fafc]">
+          <button key={action} className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-left text-[10px] text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]">
             {action}
           </button>
         ))}

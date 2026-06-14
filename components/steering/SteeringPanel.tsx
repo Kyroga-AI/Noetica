@@ -30,43 +30,43 @@ export function SteeringPanel({ model, steering, thinkingBudget, workspaceMode, 
   const supportsThinking = Boolean(model.extended_thinking)
 
   return (
-    <aside className="hidden min-h-0 overflow-y-auto border-l border-[#d7dee8] bg-[#f8fafc] p-4 lg:block">
+    <aside className="hidden min-h-0 overflow-y-auto border-l border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 lg:block">
       <div className="space-y-3">
-        <section className="rounded-2xl border border-[#d7dee8] bg-white p-4 shadow-sm">
+        <section className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 shadow-sm">
           <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#1d4ed8]">Inspector</div>
-          <h2 className="mt-2 text-lg font-semibold text-[#0f172a]">Noetica Workbench</h2>
-          <p className="mt-2 text-sm leading-6 text-[#64748b]">
-            Current mode: <span className="font-semibold text-[#0f172a]">{workspaceMode}</span>. Noetica extends the chat workspace with steering, benchmarks, governance, evidence, and model-family outcomes.
+          <h2 className="mt-2 text-lg font-semibold text-[var(--color-text-primary)]">Noetica Workbench</h2>
+          <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">
+            Current mode: <span className="font-semibold text-[var(--color-text-primary)]">{workspaceMode}</span>. Noetica extends the chat workspace with steering, benchmarks, governance, evidence, and model-family outcomes.
           </p>
         </section>
 
-        <section className="rounded-2xl border border-[#d7dee8] bg-white p-4 shadow-sm">
+        <section className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 shadow-sm">
           <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#1d4ed8]">Model</div>
-          <div className="mt-3 rounded-xl border border-[#bfdbfe] bg-[#eff6ff] p-3 text-xs leading-5 text-[#334155]">
-            Active model: <span className="font-semibold text-[#0f172a]">{model.label}</span>
+          <div className="mt-3 rounded-xl border border-[#bfdbfe] bg-[#eff6ff] p-3 text-xs leading-5 text-[var(--color-text-secondary)]">
+            Active model: <span className="font-semibold text-[var(--color-text-primary)]">{model.label}</span>
             <br />
-            Steering tier: <span className="font-semibold text-[#0f172a]">{model.steering}</span>
+            Steering tier: <span className="font-semibold text-[var(--color-text-primary)]">{model.steering}</span>
             <br />
-            SAE source: <span className="font-semibold text-[#0f172a]">{model.sae_source ?? 'none'}</span>
+            SAE source: <span className="font-semibold text-[var(--color-text-primary)]">{model.sae_source ?? 'none'}</span>
           </div>
           <CapabilityNotice model={model} />
         </section>
 
-        <section className="rounded-2xl border border-[#d7dee8] bg-white p-4 shadow-sm">
+        <section className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 shadow-sm">
           <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#1d4ed8]">Workspace depth</div>
           <div className="mt-3 space-y-2">
             {inspectors.map((item) => (
-              <div key={item.label} className="rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-3">
-                <div className="text-sm font-semibold text-[#0f172a]">{item.label}</div>
-                <p className="mt-1 text-xs leading-5 text-[#64748b]">{item.detail}</p>
+              <div key={item.label} className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
+                <div className="text-sm font-semibold text-[var(--color-text-primary)]">{item.label}</div>
+                <p className="mt-1 text-xs leading-5 text-[var(--color-text-secondary)]">{item.detail}</p>
               </div>
             ))}
           </div>
         </section>
 
         {supportsThinking && (
-          <section className="rounded-2xl border border-[#d7dee8] bg-white p-4 shadow-sm">
-            <label className="flex items-center gap-2 text-sm text-[#334155]">
+          <section className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 shadow-sm">
+            <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
               <input
                 type="checkbox"
                 checked={Boolean(thinkingBudget)}
@@ -85,14 +85,14 @@ export function SteeringPanel({ model, steering, thinkingBudget, workspaceMode, 
                   className="w-full accent-[#1d4ed8]"
                   onChange={(e) => onThinkingBudgetChange(Number(e.target.value))}
                 />
-                <div className="text-xs text-[#64748b]">Budget: {thinkingBudget.toLocaleString()} tokens</div>
+                <div className="text-xs text-[var(--color-text-secondary)]">Budget: {thinkingBudget.toLocaleString()} tokens</div>
               </div>
             )}
           </section>
         )}
 
-        <section className="rounded-2xl border border-[#d7dee8] bg-white p-4 shadow-sm">
-          <label className="flex items-center gap-2 text-sm text-[#334155]">
+        <section className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 shadow-sm">
+          <label className="flex items-center gap-2 text-sm text-[var(--color-text-secondary)]">
             <input
               type="checkbox"
               checked={enabled}
@@ -110,14 +110,14 @@ export function SteeringPanel({ model, steering, thinkingBudget, workspaceMode, 
 
           <div className="mt-4 space-y-3 opacity-100">
             <input
-              className="w-full rounded-xl border border-[#bfdbfe] px-3 py-2 text-sm disabled:bg-[#f8fafc] disabled:text-[#94a3b8]"
+              className="w-full rounded-xl border border-[#bfdbfe] px-3 py-2 text-sm disabled:bg-[var(--color-background-secondary)] disabled:text-[var(--color-text-tertiary)]"
               placeholder="Feature ID"
               value={steering?.feature_id ?? ''}
               disabled={!enabled || !canConfigureSteering}
               onChange={(event) => onChange({ ...(steering ?? defaultSteering()), feature_id: event.target.value })}
             />
             <input
-              className="w-full rounded-xl border border-[#bfdbfe] px-3 py-2 text-sm disabled:bg-[#f8fafc] disabled:text-[#94a3b8]"
+              className="w-full rounded-xl border border-[#bfdbfe] px-3 py-2 text-sm disabled:bg-[var(--color-background-secondary)] disabled:text-[var(--color-text-tertiary)]"
               placeholder="Layer"
               value={steering?.layer ?? ''}
               disabled={!enabled || !canConfigureSteering}
@@ -133,7 +133,7 @@ export function SteeringPanel({ model, steering, thinkingBudget, workspaceMode, 
               disabled={!enabled || !canConfigureSteering}
               onChange={(event) => onChange({ ...(steering ?? defaultSteering()), strength: Number(event.target.value) })}
             />
-            <div className="text-xs text-[#64748b]">Strength: {steering?.strength ?? 0}</div>
+            <div className="text-xs text-[var(--color-text-secondary)]">Strength: {steering?.strength ?? 0}</div>
           </div>
         </section>
       </div>
@@ -145,7 +145,7 @@ export function SteeringPanel({ model, steering, thinkingBudget, workspaceMode, 
 function CapabilityNotice({ model }: { model: ModelConfig }) {
   if (model.steering === 'full') {
     return (
-      <div className="mt-4 rounded-xl border border-[#d7dee8] bg-white p-3 text-xs leading-5 text-[#64748b]">
+      <div className="mt-4 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3 text-xs leading-5 text-[var(--color-text-secondary)]">
         Full SAE steering path. M2b may apply hosted SAE features through {model.sae_source ?? 'a configured SAE source'}.
       </div>
     )
@@ -153,14 +153,14 @@ function CapabilityNotice({ model }: { model: ModelConfig }) {
 
   if (model.steering === 'local') {
     return (
-      <div className="mt-4 rounded-xl border border-[#d7dee8] bg-white p-3 text-xs leading-5 text-[#64748b]">
+      <div className="mt-4 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3 text-xs leading-5 text-[var(--color-text-secondary)]">
         Local SAE path. Requires SourceOS mode and Agent Machine local inference before steering can be applied.
       </div>
     )
   }
 
   return (
-    <div className="mt-4 rounded-xl border border-[#d7dee8] bg-white p-3 text-xs leading-5 text-[#64748b]">
+    <div className="mt-4 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3 text-xs leading-5 text-[var(--color-text-secondary)]">
       Blackbox provider path. SAE steering is unavailable; Noetica should show provenance and tamper-evidence instead.
     </div>
   )

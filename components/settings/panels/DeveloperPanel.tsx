@@ -9,14 +9,14 @@ export function DeveloperPanel() {
   return (
     <div className="space-y-6">
       <div>
-        <label className="block text-sm font-semibold text-[#0f172a]">API endpoint override</label>
-        <p className="mt-0.5 text-xs text-[#64748b]">Leave blank to use the default route. Set to a local proxy for debugging.</p>
+        <label className="block text-sm font-semibold text-[var(--color-text-primary)]">API endpoint override</label>
+        <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Leave blank to use the default route. Set to a local proxy for debugging.</p>
         <input
           type="url"
           value={settings.apiEndpointOverride}
           onChange={(e) => update({ apiEndpointOverride: e.target.value })}
           placeholder="https://api.anthropic.com"
-          className="mt-3 w-full rounded-xl border border-[#bfdbfe] bg-[#f8fafc] px-3 py-2 text-sm text-[#0f172a] outline-none focus:border-[#1d4ed8] focus:bg-white"
+          className="mt-3 w-full rounded-xl border border-[#bfdbfe] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8] focus:bg-[var(--color-background-primary)]"
         />
       </div>
 
@@ -32,16 +32,16 @@ export function DeveloperPanel() {
             className={`flex h-6 w-11 items-center rounded-full transition-colors ${settings.showRawEvents ? 'bg-[#1d4ed8]' : 'bg-[#cbd5e1]'}`}
           >
             <span
-              className={`ml-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${settings.showRawEvents ? 'translate-x-5' : 'translate-x-0'}`}
+              className={`ml-0.5 h-5 w-5 rounded-full bg-[var(--color-background-primary)] shadow transition-transform ${settings.showRawEvents ? 'translate-x-5' : 'translate-x-0'}`}
             />
           </span>
         </label>
-        <span className="text-sm text-[#334155]">Show raw SSE events in chat</span>
+        <span className="text-sm text-[var(--color-text-secondary)]">Show raw SSE events in chat</span>
       </div>
 
-      <div className="rounded-2xl border border-[#d7dee8] bg-[#f8fafc] p-4">
+      <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
         <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Build info</div>
-        <div className="mt-3 space-y-1.5 font-mono text-xs text-[#334155]">
+        <div className="mt-3 space-y-1.5 font-mono text-xs text-[var(--color-text-secondary)]">
           <div className="flex justify-between">
             <span>Version</span>
             <span>0.1.0</span>
@@ -52,7 +52,7 @@ export function DeveloperPanel() {
           </div>
           <div className="flex justify-between">
             <span>Phase</span>
-            <span>phase-2-menus-settings-palette</span>
+            <span>phase-4-appearance-settings</span>
           </div>
         </div>
       </div>
@@ -72,7 +72,7 @@ export function DeveloperPanel() {
           a.click()
           URL.revokeObjectURL(url)
         }}
-        className="rounded-xl border border-[#e2e8f0] bg-white px-4 py-2 text-sm font-semibold text-[#334155] transition hover:bg-[#f8fafc]"
+        className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-4 py-2 text-sm font-semibold text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]"
       >
         Export diagnostics
       </button>

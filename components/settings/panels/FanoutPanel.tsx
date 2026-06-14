@@ -32,8 +32,8 @@ export function FanoutPanel() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-sm font-semibold text-[#0f172a]">Fan-out models</h3>
-        <p className="mt-1 text-xs leading-5 text-[#64748b]">
+        <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Fan-out models</h3>
+        <p className="mt-1 text-xs leading-5 text-[var(--color-text-secondary)]">
           When fan-out mode is active in a chat, your prompt is sent to all selected models in parallel. Each response appears as a labelled bubble in the same thread.
         </p>
       </div>
@@ -41,7 +41,7 @@ export function FanoutPanel() {
       <div className="space-y-4">
         {Object.entries(byFamily).map(([provider, providerModels]) => (
           <div key={provider}>
-            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#94a3b8]">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">
               {MODEL_FAMILY_LABELS[provider] ?? provider}
             </div>
             <div className="space-y-1.5">
@@ -53,7 +53,7 @@ export function FanoutPanel() {
                     className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${
                       checked
                         ? 'border-[#bfdbfe] bg-[#eff6ff]'
-                        : 'border-[#e2e8f0] bg-white hover:border-[#bfdbfe]'
+                        : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] hover:border-[#bfdbfe]'
                     }`}
                   >
                     <input
@@ -63,8 +63,8 @@ export function FanoutPanel() {
                       onChange={() => toggleModel(m.id)}
                     />
                     <div className="min-w-0">
-                      <div className="text-sm font-medium text-[#0f172a]">{m.label}</div>
-                      <div className="mt-0.5 text-xs text-[#64748b]">{m.description}</div>
+                      <div className="text-sm font-medium text-[var(--color-text-primary)]">{m.label}</div>
+                      <div className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{m.description}</div>
                       {m.extended_thinking && (
                         <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#dbeafe] px-2 py-0.5 text-[10px] font-medium text-[#1d4ed8]">
                           Extended thinking
@@ -85,8 +85,8 @@ export function FanoutPanel() {
       </div>
 
       <div>
-        <h3 className="text-sm font-semibold text-[#0f172a]">Concurrency limit</h3>
-        <p className="mt-1 text-xs leading-5 text-[#64748b]">
+        <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Concurrency limit</h3>
+        <p className="mt-1 text-xs leading-5 text-[var(--color-text-secondary)]">
           Maximum parallel requests when fanning out. Higher values are faster but consume more API quota.
         </p>
         <div className="mt-3 flex items-center gap-3">
@@ -99,7 +99,7 @@ export function FanoutPanel() {
             className="flex-1 accent-[#1d4ed8]"
             onChange={(e) => update({ fanoutConcurrency: Number(e.target.value) })}
           />
-          <span className="w-6 text-center text-sm font-semibold text-[#0f172a]">
+          <span className="w-6 text-center text-sm font-semibold text-[var(--color-text-primary)]">
             {settings.fanoutConcurrency}
           </span>
         </div>

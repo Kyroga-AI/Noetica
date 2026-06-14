@@ -14,7 +14,7 @@ const THRESHOLDS: [number, Level][] = [
 ]
 
 const LEVEL_META: Record<Level, { label: string; bg: string; border: string; text: string; dot: string; desc: string }> = {
-  cool:     { label: 'Cool',     bg: 'bg-[#f1f5f9]',   border: 'border-[#cbd5e1]', text: 'text-[#64748b]', dot: 'bg-[#94a3b8]',  desc: 'No risk pressure detected in the current conversation.' },
+  cool:     { label: 'Cool',     bg: 'bg-[var(--color-background-tertiary)]',   border: 'border-[#cbd5e1]', text: 'text-[var(--color-text-secondary)]', dot: 'bg-[#94a3b8]',  desc: 'No risk pressure detected in the current conversation.' },
   nominal:  { label: 'Nominal',  bg: 'bg-[#f0fdf4]',   border: 'border-[#86efac]', text: 'text-[#16a34a]', dot: 'bg-[#4ade80]',  desc: 'Low risk pressure. Response patterns appear unmodified.' },
   elevated: { label: 'Elevated', bg: 'bg-[#fefce8]',   border: 'border-[#fde047]', text: 'text-[#a16207]', dot: 'bg-[#facc15]',  desc: 'Moderate risk pressure. Some caution or qualification detected.' },
   hot:      { label: 'Hot',      bg: 'bg-[#fff7ed]',   border: 'border-[#fdba74]', text: 'text-[#c2410c]', dot: 'bg-[#f97316]',  desc: 'High risk pressure. Response steering or deflection likely present.' },
@@ -74,8 +74,8 @@ export function WarmingLevel({ readout, onOpenInspector }: WarmingLevelProps) {
                 <div className="mt-3 space-y-2">
                   {readout.dimensions.map((d) => (
                     <div key={d.label} className="flex items-center gap-2">
-                      <div className="w-24 shrink-0 text-[11px] text-[#64748b]">{d.label}</div>
-                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[#e2e8f0]">
+                      <div className="w-24 shrink-0 text-[11px] text-[var(--color-text-secondary)]">{d.label}</div>
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
                         <div
                           className={`h-full rounded-full transition-all ${
                             d.value >= 0.3 ? 'bg-[#ef4444]' :
@@ -86,16 +86,16 @@ export function WarmingLevel({ readout, onOpenInspector }: WarmingLevelProps) {
                           style={{ width: `${Math.min(100, d.value * 100 * 3)}%` }}
                         />
                       </div>
-                      <div className="w-8 text-right text-[11px] text-[#64748b]">{d.value.toFixed(2)}</div>
+                      <div className="w-8 text-right text-[11px] text-[var(--color-text-secondary)]">{d.value.toFixed(2)}</div>
                     </div>
                   ))}
                 </div>
 
-                <div className="mt-3 rounded-xl border border-[#e2e8f0] bg-white/60 p-2.5">
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[#94a3b8]">Observed modes</div>
+                <div className="mt-3 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]/60 p-2.5">
+                  <div className="text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Observed modes</div>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {readout.latestTurn.steeringModes.map((mode) => (
-                      <span key={mode} className="rounded-full bg-[#f1f5f9] px-2 py-0.5 text-[11px] text-[#475569]">
+                      <span key={mode} className="rounded-full bg-[var(--color-background-tertiary)] px-2 py-0.5 text-[11px] text-[var(--color-text-secondary)]">
                         {mode.replace(/_/g, ' ')}
                       </span>
                     ))}
@@ -113,7 +113,7 @@ export function WarmingLevel({ readout, onOpenInspector }: WarmingLevelProps) {
             {onOpenInspector && (
               <button
                 onClick={() => { setExpanded(false); onOpenInspector() }}
-                className="mt-3 w-full rounded-xl border border-[#e2e8f0] bg-white py-2 text-xs font-medium text-[#334155] transition hover:bg-[#f8fafc]"
+                className="mt-3 w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] py-2 text-xs font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]"
               >
                 Open Observatory →
               </button>

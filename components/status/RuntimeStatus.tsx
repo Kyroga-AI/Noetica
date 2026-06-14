@@ -1,19 +1,17 @@
 'use client'
 
-'use client'
-
 import { useEffect, useState } from 'react'
 import { loadNoeticaStatus, type NoeticaStatusState } from '@/lib/client/noeticaStatus'
 import { buildRuntimeRemediations, type RemediationItem } from '@/lib/client/remediation'
 import type { NoeticaServiceCapabilityStatus } from '@/lib/contracts/noeticaService'
 
 const badgeClassByStatus: Record<NoeticaServiceCapabilityStatus | 'loading' | 'error', string> = {
-  ready: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-  not_configured: 'border-amber-200 bg-amber-50 text-amber-700',
-  disabled: 'border-slate-200 bg-slate-50 text-slate-600',
-  deferred: 'border-blue-200 bg-blue-50 text-blue-700',
-  error: 'border-rose-200 bg-rose-50 text-rose-700',
-  loading: 'border-slate-200 bg-slate-50 text-slate-600'
+  ready:          'border-[#86efac] bg-[#dcfce7] text-[#16a34a]',
+  not_configured: 'border-[#fde68a] bg-[#fef9c3] text-[#92400e]',
+  disabled:       'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)]',
+  deferred:       'border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8]',
+  error:          'border-[#fca5a5] bg-[#fef2f2] text-[#dc2626]',
+  loading:        'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)]',
 }
 
 export function RuntimeStatus() {
@@ -104,13 +102,13 @@ function StatusShell({
         <span className="font-semibold">{title}</span>
         <dl className="flex items-center gap-2">
           {items.slice(0, 3).map(([label, value]) => (
-            <span key={label} className="truncate font-medium text-slate-700">
-              {label}:<span className="ml-0.5 text-slate-900">{value}</span>
+            <span key={label} className="truncate font-medium text-[var(--color-text-secondary)]">
+              {label}:<span className="ml-0.5 text-[var(--color-text-primary)]">{value}</span>
             </span>
           ))}
         </dl>
         {hasRemediations && (
-          <span className="rounded-full bg-white/80 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+          <span className="rounded-full bg-[var(--color-background-primary)] px-1.5 py-0.5 text-[10px] font-semibold text-[#d97706]">
             {visibleRemediations.length}
           </span>
         )}
@@ -118,31 +116,29 @@ function StatusShell({
 
       {open && (
         <>
-          {/* backdrop */}
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          {/* popover */}
           <div className={`absolute right-0 top-full z-50 mt-1 w-80 rounded-2xl border shadow-xl ${toneClass} p-3 text-xs`}>
             <dl className="grid grid-cols-2 gap-x-3 gap-y-1">
               {items.map(([label, value]) => (
                 <div key={label} className="contents">
-                  <dt className="text-slate-500">{label}</dt>
-                  <dd className="truncate font-medium text-slate-800">{value}</dd>
+                  <dt className="text-[var(--color-text-tertiary)]">{label}</dt>
+                  <dd className="truncate font-medium text-[var(--color-text-primary)]">{value}</dd>
                 </div>
               ))}
             </dl>
             {hasRemediations && (
-              <div className="mt-2 space-y-1 border-t border-white/70 pt-2">
+              <div className="mt-2 space-y-1 border-t border-[var(--color-border-secondary)] pt-2">
                 {visibleRemediations.map((item) => (
-                  <div key={item.key} className="rounded-xl bg-white/60 px-2 py-1.5">
+                  <div key={item.key} className="rounded-xl bg-[var(--color-background-primary)] px-2 py-1.5">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="font-semibold text-slate-800">{item.label}</span>
-                      <span className="rounded-full bg-white px-2 py-0.5 text-[10px] uppercase tracking-wide text-slate-500">
+                      <span className="font-semibold text-[var(--color-text-primary)]">{item.label}</span>
+                      <span className="rounded-full bg-[var(--color-background-secondary)] px-2 py-0.5 text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">
                         {item.status}
                       </span>
                     </div>
-                    <p className="mt-0.5 leading-snug text-slate-600">{item.summary}</p>
+                    <p className="mt-0.5 leading-snug text-[var(--color-text-secondary)]">{item.summary}</p>
                     {item.command && (
-                      <code className="mt-1 block truncate text-[11px] text-slate-800">{item.command}</code>
+                      <code className="mt-1 block truncate font-mono text-[11px] text-[var(--color-text-primary)]">{item.command}</code>
                     )}
                   </div>
                 ))}

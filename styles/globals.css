@@ -118,9 +118,7 @@ html:not([data-theme="light"]) .border-\[\#fecaca\]  { border-color: rgba(252,16
 html:not([data-theme="light"]) .divide-\[\#f1f5f9\] > * { border-color: var(--color-border-tertiary) !important; }
 html:not([data-theme="light"]) .divide-\[\#e2e8f0\] > * { border-color: var(--color-border-tertiary) !important; }
 
-/* Status / badge backgrounds */
-html:not([data-theme="light"]) .bg-\[\#dcfce7\] { background-color: rgba(34,197,94,0.12) !important; }
-html:not([data-theme="light"]) .bg-\[\#fef2f2\] { background-color: rgba(239,68,68,0.10) !important; }
+/* Status / badge backgrounds — see consolidated tint rules below */
 
 /* Additional borders */
 html:not([data-theme="light"]) .border-\[\#86efac\] { border-color: rgba(134,239,172,0.30) !important; }
@@ -131,9 +129,8 @@ html:not([data-theme="light"]) .border-\[\#bbf7d0\] { border-color: rgba(134,239
 html:not([data-theme="light"]) .border-\[\#c7d2fe\] { border-color: rgba(165,180,252,0.22) !important; }
 html:not([data-theme="light"]) .border-\[\#fde68a\] { border-color: rgba(251,191,36,0.25) !important; }
 
-/* Additional surface backgrounds */
+/* Additional surface backgrounds — see consolidated tint rules below */
 html:not([data-theme="light"]) .bg-\[\#f0fdf4\] { background-color: rgba(34,197,94,0.08) !important; }
-html:not([data-theme="light"]) .bg-\[\#fee2e2\] { background-color: rgba(239,68,68,0.10) !important; }
 
 /* Status text: dark semantic colors → lighter equivalents for dark backgrounds */
 html:not([data-theme="light"]) .text-\[\#166534\] { color: #16a34a !important; }
@@ -165,8 +162,7 @@ html:not([data-theme="light"]) .hover\:bg-\[\#f1f5f9\]:hover  { background-color
 html:not([data-theme="light"]) .hover\:bg-\[\#e2e8f0\]:hover  { background-color: var(--color-background-tertiary) !important; }
 html:not([data-theme="light"]) .hover\:bg-\[\#dbeafe\]:hover  { background-color: rgba(29,78,216,0.22) !important; }
 html:not([data-theme="light"]) .hover\:bg-\[\#eff6ff\]:hover  { background-color: rgba(29,78,216,0.14) !important; }
-html:not([data-theme="light"]) .hover\:bg-\[\#fee2e2\]:hover  { background-color: rgba(239,68,68,0.12) !important; }
-html:not([data-theme="light"]) .hover\:bg-\[\#bbf7d0\]:hover  { background-color: rgba(134,239,172,0.18) !important; }
+/* hover:bg-[#fee2e2] and hover:bg-[#bbf7d0] consolidated below */
 html:not([data-theme="light"]) .hover\:bg-\[\#c7d2fe\]:hover  { background-color: rgba(165,180,252,0.20) !important; }
 html:not([data-theme="light"]) .hover\:bg-\[\#f0fdf4\]:hover  { background-color: rgba(34,197,94,0.10) !important; }
 html:not([data-theme="light"]) .hover\:bg-\[\#fef9c3\]:hover  { background-color: rgba(161,98,7,0.12) !important; }
@@ -244,9 +240,52 @@ html:not([data-theme="light"]) .hover\:bg-\[\#ffe4e6\]:hover { background-color:
 html:not([data-theme="light"]) .bg-\[\#fda4af\]          { background-color: rgba(251,113,133,0.30) !important; }
 html:not([data-theme="light"]) .border-\[\#fda4af\]      { border-color: rgba(251,113,133,0.40) !important; }
 
+/* blue accent text — dark-700 is illegible on dark backgrounds */
+html:not([data-theme="light"]) .text-\[\#1d4ed8\] { color: #93c5fd !important; }
+html:not([data-theme="light"]) .text-\[\#7c3aed\] { color: #c4b5fd !important; }
+
+/* base border variants not yet covered */
+html:not([data-theme="light"]) .border-\[\#fca5a5\]  { border-color: rgba(239,68,68,0.28) !important; }
+html:not([data-theme="light"]) .border-\[\#dcfce7\]  { border-color: rgba(34,197,94,0.20) !important; }
+
 /* group-hover: text variants */
 html:not([data-theme="light"]) .group-hover\:text-\[\#0f172a\]  { color: var(--color-text-primary) !important; }
 html:not([data-theme="light"]) .group-hover\:text-\[\#334155\]  { color: var(--color-text-primary) !important; }
+
+/* light-blue tint backgrounds (selection states, active rows) */
+html:not([data-theme="light"]) .bg-\[\#eff6ff\]              { background-color: rgba(29,78,216,0.14) !important; }
+html:not([data-theme="light"]) .bg-\[\#dbeafe\]              { background-color: rgba(29,78,216,0.22) !important; }
+html:not([data-theme="light"]) .bg-\[\#e0e7ff\]              { background-color: rgba(99,102,241,0.16) !important; }
+html:not([data-theme="light"]) .bg-\[\#eaf1f8\]              { background-color: rgba(29,78,216,0.12) !important; }
+html:not([data-theme="light"]) .hover\:bg-\[\#eff6ff\]:hover { background-color: rgba(29,78,216,0.18) !important; }
+html:not([data-theme="light"]) .hover\:bg-\[\#dbeafe\]:hover { background-color: rgba(29,78,216,0.26) !important; }
+html:not([data-theme="light"]) .hover\:bg-\[\#c7d2fe\]:hover { background-color: rgba(99,102,241,0.22) !important; }
+
+/* light-green tint backgrounds */
+html:not([data-theme="light"]) .bg-\[\#dcfce7\]              { background-color: rgba(34,197,94,0.14) !important; }
+html:not([data-theme="light"]) .bg-\[\#f0fdf4\]              { background-color: rgba(34,197,94,0.10) !important; }
+html:not([data-theme="light"]) .hover\:bg-\[\#bbf7d0\]:hover { background-color: rgba(34,197,94,0.18) !important; }
+
+/* light-red tint backgrounds */
+html:not([data-theme="light"]) .bg-\[\#fef2f2\]              { background-color: rgba(239,68,68,0.12) !important; }
+html:not([data-theme="light"]) .bg-\[\#fee2e2\]              { background-color: rgba(239,68,68,0.16) !important; }
+html:not([data-theme="light"]) .hover\:bg-\[\#fef2f2\]:hover { background-color: rgba(239,68,68,0.16) !important; }
+html:not([data-theme="light"]) .hover\:bg-\[\#fee2e2\]:hover { background-color: rgba(239,68,68,0.20) !important; }
+
+/* light-yellow tint backgrounds */
+html:not([data-theme="light"]) .bg-\[\#fefce8\]              { background-color: rgba(234,179,8,0.10) !important; }
+html:not([data-theme="light"]) .bg-\[\#fef9c3\]              { background-color: rgba(234,179,8,0.14) !important; }
+html:not([data-theme="light"]) .bg-\[\#fffbeb\]              { background-color: rgba(245,158,11,0.10) !important; }
+html:not([data-theme="light"]) .bg-\[\#fff7ed\]              { background-color: rgba(249,115,22,0.10) !important; }
+
+/* slate-300 used as bg (e.g. skeleton/dividers) — too light on dark */
+html:not([data-theme="light"]) .bg-\[\#cbd5e1\]              { background-color: var(--color-background-tertiary) !important; }
+html:not([data-theme="light"]) .bg-\[\#94a3b8\]              { background-color: rgba(148,163,184,0.20) !important; }
+html:not([data-theme="light"]) .bg-\[\#d1d5db\]              { background-color: rgba(148,163,184,0.20) !important; }
+
+/* slate-900 bg — already dark, remap to bg-primary so it stays consistent */
+html:not([data-theme="light"]) .bg-\[\#1e293b\]              { background-color: var(--color-background-secondary) !important; }
+html:not([data-theme="light"]) .hover\:bg-\[\#1e293b\]:hover { background-color: var(--color-background-tertiary) !important; }
 
 * {
   box-sizing: border-box;
@@ -275,3 +314,8 @@ input {
 ::selection {
   background: #BFDBFE;
 }
+
+/* ── Font size scaling ──────────────────────────────────────────────────── */
+html[data-font-size="sm"] { font-size: 13px; }
+html[data-font-size="md"] { font-size: 14px; }
+html[data-font-size="lg"] { font-size: 16px; }

@@ -67,18 +67,18 @@ export function ArtifactsSurface() {
       {/* Left column: browser */}
       <div className={`flex flex-col ${selectedArtifact ? 'w-[420px] shrink-0' : 'flex-1'} min-h-0 overflow-hidden`}>
         {/* Toolbar */}
-        <div className="border-b border-[#d7dee8] bg-white px-5 py-3">
+        <div className="border-b border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-5 py-3">
           <div className="flex items-center justify-between gap-3">
             <div>
-              <div className="text-sm font-semibold text-[#0f172a]">Artifacts</div>
-              <div className="text-xs text-[#64748b]">{artifacts.length} total</div>
+              <div className="text-sm font-semibold text-[var(--color-text-primary)]">Artifacts</div>
+              <div className="text-xs text-[var(--color-text-secondary)]">{artifacts.length} total</div>
             </div>
             <div className="flex gap-2">
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search…"
-                className="w-40 rounded-xl border border-[#bfdbfe] bg-[#f8fafc] px-3 py-1.5 text-xs outline-none focus:border-[#1d4ed8] focus:bg-white"
+                className="w-40 rounded-xl border border-[#bfdbfe] bg-[var(--color-background-secondary)] px-3 py-1.5 text-xs outline-none focus:border-[#1d4ed8] focus:bg-[var(--color-background-primary)]"
               />
               <button
                 onClick={() => setShowNewForm(true)}
@@ -96,7 +96,7 @@ export function ArtifactsSurface() {
                 key={type}
                 onClick={() => setFilter(type)}
                 className={`shrink-0 rounded-lg px-2.5 py-1 text-[10px] font-medium whitespace-nowrap transition ${
-                  filter === type ? 'bg-[#dbeafe] text-[#0f172a]' : 'text-[#64748b] hover:bg-[#f1f5f9]'
+                  filter === type ? 'bg-[#dbeafe] text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)]'
                 }`}
               >
                 {label}
@@ -114,12 +114,12 @@ export function ArtifactsSurface() {
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               placeholder="Title…"
-              className="w-full rounded-xl border border-[#bfdbfe] bg-white px-3 py-2 text-xs outline-none focus:border-[#1d4ed8]"
+              className="w-full rounded-xl border border-[#bfdbfe] bg-[var(--color-background-primary)] px-3 py-2 text-xs outline-none focus:border-[#1d4ed8]"
             />
             <select
               value={newType}
               onChange={(e) => setNewType(e.target.value as ArtifactType)}
-              className="w-full rounded-xl border border-[#bfdbfe] bg-white px-3 py-2 text-xs outline-none"
+              className="w-full rounded-xl border border-[#bfdbfe] bg-[var(--color-background-primary)] px-3 py-2 text-xs outline-none"
             >
               {TYPE_FILTERS.slice(1).map(({ type, label }) => (
                 <option key={type} value={type}>{label}</option>
@@ -130,13 +130,13 @@ export function ArtifactsSurface() {
               onChange={(e) => setNewContent(e.target.value)}
               placeholder="Content (optional — you can edit after creation)…"
               rows={4}
-              className="w-full resize-none rounded-xl border border-[#bfdbfe] bg-white px-3 py-2 font-mono text-xs outline-none focus:border-[#1d4ed8]"
+              className="w-full resize-none rounded-xl border border-[#bfdbfe] bg-[var(--color-background-primary)] px-3 py-2 font-mono text-xs outline-none focus:border-[#1d4ed8]"
             />
             <div className="flex gap-2">
               <button onClick={handleCreate} className="rounded-xl bg-[#1d4ed8] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1e40af]">
                 Create
               </button>
-              <button onClick={() => setShowNewForm(false)} className="rounded-xl border border-[#bfdbfe] bg-white px-3 py-1.5 text-xs font-medium text-[#334155] transition hover:bg-white">
+              <button onClick={() => setShowNewForm(false)} className="rounded-xl border border-[#bfdbfe] bg-[var(--color-background-primary)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)]">
                 Cancel
               </button>
             </div>
@@ -147,26 +147,26 @@ export function ArtifactsSurface() {
         {filter === 'all' && !search && artifacts.length === 0 && (
           <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center">
             <div className="text-3xl mb-3">📄</div>
-            <div className="text-sm font-semibold text-[#334155]">No artifacts yet</div>
-            <p className="mt-1 text-xs text-[#94a3b8] max-w-xs leading-5">
+            <div className="text-sm font-semibold text-[var(--color-text-secondary)]">No artifacts yet</div>
+            <p className="mt-1 text-xs text-[var(--color-text-tertiary)] max-w-xs leading-5">
               Artifacts are generated from chat, code, benchmarks, or governance sessions. Click <strong>+ New</strong> to create one manually.
             </p>
           </div>
         )}
 
         {filter === 'all' && !search && artifacts.length > 0 && (
-          <div className="border-b border-[#d7dee8] bg-[#f8fafc] px-5 py-3">
+          <div className="border-b border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-5 py-3">
             <div className="grid grid-cols-3 gap-2">
               {typeCounts.filter((t) => t.count > 0).map(({ type, label, count }) => (
                 <button
                   key={type}
                   onClick={() => setFilter(type as ArtifactType)}
-                  className="flex items-center gap-2 rounded-xl border border-[#e2e8f0] bg-white px-3 py-2 text-left transition hover:border-[#bfdbfe] hover:bg-[#eff6ff]"
+                  className="flex items-center gap-2 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-left transition hover:border-[#bfdbfe] hover:bg-[#eff6ff]"
                 >
                   <span className="text-base">{artifactTypeIcon(type as ArtifactType)}</span>
                   <div>
-                    <div className="text-xs font-semibold text-[#0f172a]">{count}</div>
-                    <div className="text-[10px] text-[#64748b]">{label}</div>
+                    <div className="text-xs font-semibold text-[var(--color-text-primary)]">{count}</div>
+                    <div className="text-[10px] text-[var(--color-text-secondary)]">{label}</div>
                   </div>
                 </button>
               ))}
@@ -189,7 +189,7 @@ export function ArtifactsSurface() {
         )}
 
         {filtered.length === 0 && artifacts.length > 0 && (
-          <div className="flex-1 flex items-center justify-center text-sm text-[#94a3b8]">
+          <div className="flex-1 flex items-center justify-center text-sm text-[var(--color-text-tertiary)]">
             No artifacts match this filter.
           </div>
         )}
@@ -215,26 +215,26 @@ function ArtifactRow({ artifact, selected, onSelect }: { artifact: Artifact; sel
     <button
       onClick={onSelect}
       className={`flex w-full items-start gap-3 px-5 py-3 text-left transition ${
-        selected ? 'bg-[#eff6ff]' : 'hover:bg-[#f8fafc]'
+        selected ? 'bg-[#eff6ff]' : 'hover:bg-[var(--color-background-secondary)]'
       }`}
     >
       <span className="mt-0.5 text-lg shrink-0">{artifactTypeIcon(artifact.type)}</span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="truncate text-sm font-semibold text-[#0f172a]">{artifact.title}</span>
+          <span className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{artifact.title}</span>
           <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${
             artifact.status === 'final'    ? 'bg-[#dcfce7] text-[#16a34a]' :
-            artifact.status === 'archived' ? 'bg-[#f1f5f9] text-[#64748b]' :
+            artifact.status === 'archived' ? 'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]' :
             'bg-[#fef9c3] text-[#92400e]'
           }`}>{artifact.status}</span>
         </div>
-        <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-[#94a3b8]">
+        <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-[var(--color-text-tertiary)]">
           <span>{artifactTypeLabel(artifact.type)}</span>
           <span>·</span>
           <span>{timeAgo(artifact.updatedAt)}</span>
           {artifact.tags.length > 0 && <><span>·</span><span>{artifact.tags.map((t) => `#${t}`).join(' ')}</span></>}
         </div>
-        <div className="mt-1 truncate text-[11px] text-[#64748b]">
+        <div className="mt-1 truncate text-[11px] text-[var(--color-text-secondary)]">
           {artifact.content.slice(0, 80)}
         </div>
       </div>

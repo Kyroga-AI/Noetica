@@ -47,6 +47,8 @@ export function CommandPalette({
     { id: 'surface_tune',         label: 'Switch to Tune & Train',                     group: 'Surfaces', run: () => { onSwitchSurface('tune');        onClose() } },
     { id: 'surface_govern',       label: 'Switch to Govern',                           group: 'Surfaces', run: () => { onSwitchSurface('govern');      onClose() } },
     { id: 'surface_operate',      label: 'Switch to Operate',                          group: 'Surfaces', run: () => { onSwitchSurface('operate');     onClose() } },
+    { id: 'surface_holographme',  label: 'Switch to HolographMe',                      group: 'Surfaces', run: () => { onSwitchSurface('holographme'); onClose() } },
+    { id: 'surface_marketplace',  label: 'Switch to Marketplace',                      group: 'Surfaces', run: () => { onSwitchSurface('marketplace'); onClose() } },
     { id: 'toggle_sidebar',  label: 'Toggle sidebar',        shortcut: '⌘\\',  group: 'View',     run: () => { onToggleSidebar();  onClose() } },
     { id: 'toggle_inspector',label: 'Toggle inspector',      shortcut: '⌘I',   group: 'View',     run: () => { onToggleInspector(); onClose() } },
     { id: 'settings',        label: 'Open settings',         shortcut: '⌘,',   group: 'App',      run: () => { onOpenSettings();           onClose() } },
@@ -103,12 +105,12 @@ export function CommandPalette({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-xl overflow-hidden rounded-2xl border border-[#d7dee8] bg-white shadow-2xl"
+        className="w-full max-w-xl overflow-hidden rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search input */}
-        <div className="flex items-center gap-3 border-b border-[#e2e8f0] px-4 py-3">
-          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="shrink-0 text-[#94a3b8]" aria-hidden>
+        <div className="flex items-center gap-3 border-b border-[var(--color-border-secondary)] px-4 py-3">
+          <svg width="15" height="15" viewBox="0 0 16 16" fill="none" className="shrink-0 text-[var(--color-text-tertiary)]" aria-hidden>
             <circle cx="6.5" cy="6.5" r="4.5" stroke="currentColor" strokeWidth="1.5" />
             <path d="M10 10l3.5 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
@@ -117,19 +119,19 @@ export function CommandPalette({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search commands…"
-            className="flex-1 bg-transparent text-sm text-[#0f172a] outline-none placeholder:text-[#94a3b8]"
+            className="flex-1 bg-transparent text-sm text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
           />
-          <kbd className="rounded border border-[#e2e8f0] bg-[#f8fafc] px-1.5 py-0.5 text-[11px] text-[#94a3b8]">Esc</kbd>
+          <kbd className="rounded border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-1.5 py-0.5 text-[11px] text-[var(--color-text-tertiary)]">Esc</kbd>
         </div>
 
         {/* Results */}
         <div className="max-h-80 overflow-y-auto py-2">
           {filtered.length === 0 ? (
-            <div className="px-4 py-6 text-center text-sm text-[#94a3b8]">No commands match &ldquo;{query}&rdquo;</div>
+            <div className="px-4 py-6 text-center text-sm text-[var(--color-text-tertiary)]">No commands match &ldquo;{query}&rdquo;</div>
           ) : (
             Object.entries(groups).map(([group, items]) => (
               <div key={group}>
-                <div className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[#94a3b8]">
+                <div className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">
                   {group}
                 </div>
                 {items.map((action) => {
@@ -140,12 +142,12 @@ export function CommandPalette({
                       onClick={action.run}
                       onMouseEnter={() => setSelectedIndex(idx)}
                       className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition ${
-                        selectedIndex === idx ? 'bg-[#eff6ff] text-[#0f172a]' : 'text-[#334155] hover:bg-[#f8fafc]'
+                        selectedIndex === idx ? 'bg-[#eff6ff] text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'
                       }`}
                     >
                       <span>{action.label}</span>
                       {action.shortcut && (
-                        <kbd className="rounded border border-[#e2e8f0] bg-[#f8fafc] px-1.5 py-0.5 text-[11px] text-[#94a3b8]">
+                        <kbd className="rounded border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-1.5 py-0.5 text-[11px] text-[var(--color-text-tertiary)]">
                           {action.shortcut}
                         </kbd>
                       )}

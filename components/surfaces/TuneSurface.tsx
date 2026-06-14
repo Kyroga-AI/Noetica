@@ -243,7 +243,7 @@ export function TuneSurface() {
                       className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
                         activeRun.preference === 'preferred'
                           ? 'bg-[#22c55e] text-white'
-                          : 'border border-[#d1d5db] text-[#64748b] hover:border-[#22c55e] hover:text-[#16a34a]'
+                          : 'border border-[#d1d5db] text-[var(--color-text-secondary)] hover:border-[#22c55e] hover:text-[#16a34a]'
                       }`}
                     >
                       {activeRun.preference === 'preferred' ? '✓ Preferred' : 'Prefer'}
@@ -261,7 +261,7 @@ export function TuneSurface() {
                       className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
                         activeRun.preference === 'rejected'
                           ? 'bg-[#ef4444] text-white'
-                          : 'border border-[#d1d5db] text-[#64748b] hover:border-[#fca5a5] hover:text-[#dc2626]'
+                          : 'border border-[#d1d5db] text-[var(--color-text-secondary)] hover:border-[#fca5a5] hover:text-[#dc2626]'
                       }`}
                     >
                       {activeRun.preference === 'rejected' ? '✗ Rejected' : 'Reject'}

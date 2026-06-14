@@ -53,13 +53,13 @@ export function UtilityRail({ activePanel, onSelect }: UtilityRailProps) {
     <>
       {/* Expanded panel */}
       {activePanel && (
-        <div className="hidden w-72 shrink-0 flex-col border-l border-[#d7dee8] bg-white lg:flex">
+        <div className="hidden w-72 shrink-0 flex-col border-l border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] lg:flex">
           {renderPanel(activePanel)}
         </div>
       )}
 
       {/* Icon strip */}
-      <aside className="hidden w-11 shrink-0 flex-col items-center border-l border-[#d7dee8] bg-[#f8fafc] py-3 lg:flex">
+      <aside className="hidden w-11 shrink-0 flex-col items-center border-l border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] py-3 lg:flex">
         <nav className="flex flex-1 flex-col items-center gap-1">
           {RAIL_ITEMS.map(({ id, label, icon }) => (
             <button
@@ -69,7 +69,7 @@ export function UtilityRail({ activePanel, onSelect }: UtilityRailProps) {
               className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${
                 activePanel === id
                   ? 'bg-[#dbeafe] text-[#1d4ed8]'
-                  : 'text-[#94a3b8] hover:bg-[#e2e8f0] hover:text-[#334155]'
+                  : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-secondary)]'
               }`}
             >
               {icon}

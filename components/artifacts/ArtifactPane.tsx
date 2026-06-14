@@ -26,13 +26,13 @@ function CodeRenderer({ artifact }: { artifact: Artifact }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center justify-between border-b border-[#e2e8f0] bg-[#f8fafc] px-4 py-2">
-        <span className="text-xs font-medium text-[#64748b]">
+      <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-2">
+        <span className="text-xs font-medium text-[var(--color-text-secondary)]">
           {LANGUAGE_LABELS[lang] ?? lang}
         </span>
         <button
           onClick={copy}
-          className="rounded-lg border border-[#e2e8f0] bg-white px-2.5 py-1 text-xs font-medium text-[#334155] transition hover:bg-[#f1f5f9]"
+          className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1 text-xs font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-tertiary)]"
         >
           {copied ? 'Copied!' : 'Copy'}
         </button>
@@ -50,13 +50,13 @@ function HtmlRenderer({ artifact }: { artifact: Artifact }) {
   const [mode, setMode] = useState<'preview' | 'source'>('preview')
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center gap-1 border-b border-[#e2e8f0] bg-[#f8fafc] px-4 py-2">
+      <div className="flex items-center gap-1 border-b border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-2">
         {(['preview', 'source'] as const).map((m) => (
           <button
             key={m}
             onClick={() => setMode(m)}
             className={`rounded-lg px-2.5 py-1 text-xs font-medium transition capitalize ${
-              mode === m ? 'bg-white shadow-sm text-[#0f172a]' : 'text-[#64748b] hover:text-[#0f172a]'
+              mode === m ? 'bg-[var(--color-background-primary)] shadow-sm text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
             }`}
           >
             {m}
@@ -67,7 +67,7 @@ function HtmlRenderer({ artifact }: { artifact: Artifact }) {
         <iframe
           srcDoc={artifact.content}
           sandbox="allow-scripts"
-          className="min-h-0 flex-1 border-0 bg-white"
+          className="min-h-0 flex-1 border-0 bg-[var(--color-background-primary)]"
           title={artifact.title}
         />
       ) : (
@@ -92,16 +92,16 @@ function DocumentRenderer({ artifact, onUpdate }: { artifact: Artifact; onUpdate
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex items-center justify-between border-b border-[#e2e8f0] bg-[#f8fafc] px-4 py-2">
-        <span className="text-xs text-[#64748b]">Markdown document</span>
+      <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-2">
+        <span className="text-xs text-[var(--color-text-secondary)]">Markdown document</span>
         <div className="flex gap-1.5">
           {editing ? (
             <>
               <button onClick={save} className="rounded-lg bg-[#1d4ed8] px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-[#1e40af]">Save</button>
-              <button onClick={() => { setDraft(artifact.content); setEditing(false) }} className="rounded-lg border border-[#e2e8f0] bg-white px-2.5 py-1 text-xs font-medium text-[#334155] transition hover:bg-[#f1f5f9]">Cancel</button>
+              <button onClick={() => { setDraft(artifact.content); setEditing(false) }} className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1 text-xs font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-tertiary)]">Cancel</button>
             </>
           ) : (
-            <button onClick={() => setEditing(true)} className="rounded-lg border border-[#e2e8f0] bg-white px-2.5 py-1 text-xs font-medium text-[#334155] transition hover:bg-[#f1f5f9]">Edit</button>
+            <button onClick={() => setEditing(true)} className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1 text-xs font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-tertiary)]">Edit</button>
           )}
         </div>
       </div>
@@ -109,12 +109,12 @@ function DocumentRenderer({ artifact, onUpdate }: { artifact: Artifact; onUpdate
         <textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          className="min-h-0 flex-1 resize-none bg-white p-4 font-mono text-xs text-[#0f172a] outline-none"
+          className="min-h-0 flex-1 resize-none bg-[var(--color-background-primary)] p-4 font-mono text-xs text-[var(--color-text-primary)] outline-none"
           spellCheck={false}
         />
       ) : (
         <div className="min-h-0 flex-1 overflow-auto p-5">
-          <div className="prose prose-sm max-w-none text-[#334155]">
+          <div className="prose prose-sm max-w-none text-[var(--color-text-secondary)]">
             <pre className="whitespace-pre-wrap font-sans text-sm leading-7">{artifact.content}</pre>
           </div>
         </div>
@@ -130,8 +130,8 @@ function DataRenderer({ artifact }: { artifact: Artifact }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="border-b border-[#e2e8f0] bg-[#f8fafc] px-4 py-2">
-        <span className="text-xs text-[#64748b]">JSON / Data</span>
+      <div className="border-b border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-2">
+        <span className="text-xs text-[var(--color-text-secondary)]">JSON / Data</span>
       </div>
       {parseError ? (
         <div className="p-4 text-xs text-[#ef4444]">{parseError}</div>
@@ -149,7 +149,7 @@ function DataRenderer({ artifact }: { artifact: Artifact }) {
 function GenericRenderer({ artifact }: { artifact: Artifact }) {
   return (
     <div className="min-h-0 flex-1 overflow-auto p-5">
-      <pre className="whitespace-pre-wrap text-xs leading-6 text-[#334155] font-mono">{artifact.content}</pre>
+      <pre className="whitespace-pre-wrap text-xs leading-6 text-[var(--color-text-secondary)] font-mono">{artifact.content}</pre>
     </div>
   )
 }
@@ -176,18 +176,18 @@ export function ArtifactPane({ artifact, onClose, onUpdate, onDelete }: Artifact
   }
 
   return (
-    <div className="flex h-full flex-col border-l border-[#d7dee8] bg-white">
+    <div className="flex h-full flex-col border-l border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]">
       {/* Header */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-[#d7dee8] px-4 py-3">
+      <div className="flex shrink-0 items-center gap-2 border-b border-[var(--color-border-secondary)] px-4 py-3">
         <span className="text-base">{artifactTypeIcon(artifact.type)}</span>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold text-[#0f172a]">{artifact.title}</div>
+          <div className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{artifact.title}</div>
           <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="text-[10px] text-[#94a3b8]">{artifactTypeLabel(artifact.type)}</span>
-            <span className="h-1 w-1 rounded-full bg-[#d7dee8]" />
+            <span className="text-[10px] text-[var(--color-text-tertiary)]">{artifactTypeLabel(artifact.type)}</span>
+            <span className="h-1 w-1 rounded-full bg-[var(--color-border-secondary)]" />
             <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${
               artifact.status === 'final' ? 'bg-[#dcfce7] text-[#16a34a]' :
-              artifact.status === 'archived' ? 'bg-[#f1f5f9] text-[#64748b]' :
+              artifact.status === 'archived' ? 'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]' :
               'bg-[#fef9c3] text-[#92400e]'
             }`}>
               {artifact.status}
@@ -208,14 +208,14 @@ export function ArtifactPane({ artifact, onClose, onUpdate, onDelete }: Artifact
             className={`rounded-lg border px-2 py-1 text-[10px] font-semibold transition ${
               confirmDelete
                 ? 'border-[#fecaca] bg-[#fef2f2] text-[#dc2626]'
-                : 'border-[#e2e8f0] bg-[#f8fafc] text-[#94a3b8] hover:text-[#ef4444]'
+                : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)] hover:text-[#ef4444]'
             }`}
           >
             {confirmDelete ? 'Confirm?' : 'Delete'}
           </button>
           <button
             onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-[#94a3b8] transition hover:bg-[#f1f5f9] hover:text-[#334155]"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-secondary)]"
             title="Close"
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
@@ -229,7 +229,7 @@ export function ArtifactPane({ artifact, onClose, onUpdate, onDelete }: Artifact
       <ArtifactRenderer artifact={artifact} onUpdate={onUpdate} />
 
       {/* Footer */}
-      <div className="shrink-0 border-t border-[#e2e8f0] bg-[#f8fafc] px-4 py-2 text-[10px] text-[#94a3b8]">
+      <div className="shrink-0 border-t border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-2 text-[10px] text-[var(--color-text-tertiary)]">
         Created {new Date(artifact.createdAt).toLocaleString()} · Updated {new Date(artifact.updatedAt).toLocaleString()}
         {artifact.tags.length > 0 && (
           <span className="ml-2">{artifact.tags.map((t) => `#${t}`).join(' ')}</span>
