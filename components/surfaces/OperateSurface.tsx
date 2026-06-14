@@ -1,7 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { GraphHealthStatus, TimeServiceStatus } from '@/lib/types/graph'
+import type { NoeticaServiceStatus, NoeticaServiceCapabilityStatus } from '@/lib/contracts/noeticaService'
+import { loadNoeticaStatus } from '@/lib/client/noeticaStatus'
+import { useConnectorAuth } from '@/lib/auth/context'
 
 type HealthStatus = 'healthy' | 'degraded' | 'failed' | 'unknown'
 
@@ -236,15 +239,81 @@ function TimeServiceTab({ time }: { time: TimeServiceStatus }) {
 
 // ─── Connector Health tab ─────────────────────────────────────────────────────
 
-function ConnectorHealthTab() {
-  const connectors = [
-    { label: 'SourceOS',          status: 'unknown' as HealthStatus, detail: 'Standalone mode' },
-    { label: 'Gitea Sovereign',   status: 'unknown' as HealthStatus, detail: 'Not configured' },
-    { label: 'Prophet Mail',      status: 'unknown' as HealthStatus, detail: 'Not configured' },
-    { label: 'Sociosphere Graph', status: 'unknown' as HealthStatus, detail: 'Not configured' },
-    { label: 'Matrix',            status: 'unknown' as HealthStatus, detail: 'Not configured' },
-    { label: 'Agent Registry',    status: 'unknown' as HealthStatus, detail: 'Not configured' },
+function capToHealth(cap: NoeticaServiceCapabilityStatus | undefined): HealthStatus {
+  if (!cap) return 'unknown'
+  if (cap === 'ready') return 'healthy'
+  if (cap === 'error') return 'failed'
+  return 'unknown'
+}
+
+function capToDetail(cap: NoeticaServiceCapabilityStatus | undefined, readyLabel: string): string {
+  if (!cap) return 'Not loaded'
+  if (cap === 'ready') return readyLabel
+  if (cap === 'error') return 'Error'
+  if (cap === 'not_configured') return 'Not configured'
+  if (cap === 'disabled') return 'Disabled'
+  if (cap === 'deferred') return 'Deferred'
+  return 'Unknown'
+}
+
+function ConnectorHealthTab({ noeticaStatus, statusLoading }: { noeticaStatus: NoeticaServiceStatus | null; statusLoading: boolean }) {
+  const { store } = useConnectorAuth()
+
+  const matrixAuth = store.matrix
+  const googleAuth = store.google
+  const githubAuth = store.github
+
+  function authHealth(status: string | undefined): HealthStatus {
+    if (status === 'connected') return 'healthy'
+    if (status === 'connecting') return 'degraded'
+    if (status === 'error') return 'failed'
+    return 'unknown'
+  }
+  function authDetail(status: string | undefined, userLabel?: string): string {
+    if (status === 'connected') return userLabel ?? 'Connected'
+    if (status === 'connecting') return 'Connecting…'
+    if (status === 'error') return 'Auth error'
+    return 'Not connected — Settings → Connections'
+  }
+
+  const connectors: { label: string; status: HealthStatus; detail: string }[] = [
+    {
+      label:  'SourceOS',
+      status: statusLoading ? 'unknown' : capToHealth(noeticaStatus?.sourceos_route),
+      detail: statusLoading ? 'Loading…' : capToDetail(noeticaStatus?.sourceos_route, 'Route active'),
+    },
+    {
+      label:  'Gitea Sovereign',
+      status: 'unknown',
+      detail: 'Not configured',
+    },
+    {
+      label:  'Prophet Mail / Gmail',
+      status: authHealth(googleAuth?.status),
+      detail: authDetail(googleAuth?.status, googleAuth?.userInfo?.email ?? 'Google connected'),
+    },
+    {
+      label:  'Sociosphere Graph',
+      status: statusLoading ? 'unknown' : capToHealth(noeticaStatus?.prophet_mesh),
+      detail: statusLoading ? 'Loading…' : capToDetail(noeticaStatus?.prophet_mesh, 'Mesh active'),
+    },
+    {
+      label:  'Matrix',
+      status: authHealth(matrixAuth?.status),
+      detail: authDetail(matrixAuth?.status, (matrixAuth as { userId?: string } | undefined)?.userId ?? 'Matrix connected'),
+    },
+    {
+      label:  'Agent Registry',
+      status: statusLoading ? 'unknown' : capToHealth(noeticaStatus?.agent_machine),
+      detail: statusLoading ? 'Loading…' : capToDetail(noeticaStatus?.agent_machine, 'Agent machine active'),
+    },
+    {
+      label:  'GitHub',
+      status: authHealth(githubAuth?.status),
+      detail: authDetail(githubAuth?.status, githubAuth?.userInfo?.login ? `@${githubAuth.userInfo.login}` : 'GitHub connected'),
+    },
   ]
+
   return (
     <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm">
       <div className="border-b border-[var(--color-border-tertiary)] px-5 py-3">
@@ -307,11 +376,28 @@ export function OperateSurface() {
   const graph = STUB_GRAPH
   const time  = STUB_TIME
 
+  const [noeticaStatus, setNoeticaStatus] = useState<NoeticaServiceStatus | null>(null)
+  const [statusLoading, setStatusLoading] = useState(true)
+
+  useEffect(() => {
+    loadNoeticaStatus()
+      .then((s) => { setNoeticaStatus(s); setStatusLoading(false) })
+      .catch(() => setStatusLoading(false))
+  }, [])
+
   const topCards: { label: string; status: HealthStatus; detail: string }[] = [
     { label: 'Sociosphere Graph', status: graph.status, detail: graph.status === 'unknown' ? 'Not connected' : `${graph.nodeCount} nodes` },
     { label: 'Time Service',      status: time.status,  detail: time.status  === 'unknown' ? 'Not configured' : time.logicalTime },
-    { label: 'SourceOS',          status: 'unknown',    detail: 'Standalone mode' },
-    { label: 'Agent Mesh',        status: 'unknown',    detail: 'No agents registered' },
+    {
+      label:  'SourceOS',
+      status: statusLoading ? 'unknown' : capToHealth(noeticaStatus?.sourceos_route),
+      detail: statusLoading ? 'Loading…' : capToDetail(noeticaStatus?.sourceos_route, 'Route active'),
+    },
+    {
+      label:  'Agent Mesh',
+      status: statusLoading ? 'unknown' : capToHealth(noeticaStatus?.agent_machine),
+      detail: statusLoading ? 'Loading…' : capToDetail(noeticaStatus?.agent_machine, 'Agent machine active'),
+    },
   ]
 
   return (
@@ -370,7 +456,7 @@ export function OperateSurface() {
         {/* Tab content */}
         {tab === 'Graph Health'     && <GraphHealthTab    graph={graph} onTabChange={setTab} />}
         {tab === 'Time Service'     && <TimeServiceTab    time={time}   />}
-        {tab === 'Connector Health' && <ConnectorHealthTab />}
+        {tab === 'Connector Health' && <ConnectorHealthTab noeticaStatus={noeticaStatus} statusLoading={statusLoading} />}
         {tab === 'Sync Queues'      && <SyncQueuesTab />}
         {tab === 'Event Ledger'     && <EventLedgerTab />}
       </div>
