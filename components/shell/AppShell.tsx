@@ -21,6 +21,7 @@ import { CodePanel } from '@/components/panels/CodePanel'
 import { EvaluatePanel } from '@/components/panels/EvaluatePanel'
 import { GovernPanel } from '@/components/panels/GovernPanel'
 import { SettingsModal } from '@/components/settings/SettingsModal'
+import { ProviderSetupModal } from '@/components/shell/ProviderSetupModal'
 import { CommandPalette } from '@/components/palette/CommandPalette'
 import { models, defaultModelId } from '@/config/models'
 import { initialMessages } from '@/lib/chat/mockConversation'
@@ -135,6 +136,14 @@ export function AppShell() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsCategory, setSettingsCategory] = useState('appearance')
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [providerSetupOpen, setProviderSetupOpen] = useState(false)
+
+  // Show provider setup on first load when no keys configured
+  useEffect(() => {
+    if (settings.anthropicApiKey || settings.openaiApiKey) return
+    const dismissed = sessionStorage.getItem('noetica-provider-setup-dismissed')
+    if (!dismissed) setProviderSetupOpen(true)
+  }, [settings.anthropicApiKey, settings.openaiApiKey])
 
   const activeModel = useMemo(
     () => models.find((m) => m.id === modelId) ?? models[0],
@@ -571,6 +580,14 @@ export function AppShell() {
         />
       </main>
 
+      {providerSetupOpen && (
+        <ProviderSetupModal
+          onClose={() => {
+            sessionStorage.setItem('noetica-provider-setup-dismissed', '1')
+            setProviderSetupOpen(false)
+          }}
+        />
+      )}
       <SettingsModal
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}

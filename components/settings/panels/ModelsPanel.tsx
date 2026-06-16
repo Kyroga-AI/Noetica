@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useSettings } from '@/lib/settings/context'
 import { models } from '@/config/models'
+import { ProviderSetupModal } from '@/components/shell/ProviderSetupModal'
 
 function MaskedInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
   const [revealed, setRevealed] = useState(false)
@@ -31,9 +32,11 @@ function MaskedInput({ label, value, onChange }: { label: string; value: string;
 
 export function ModelsPanel() {
   const { settings, update } = useSettings()
+  const [setupOpen, setSetupOpen] = useState(false)
 
   return (
     <div className="space-y-6">
+      {setupOpen && <ProviderSetupModal onClose={() => setSetupOpen(false)} />}
       <div>
         <label className="block text-sm font-semibold text-[var(--color-text-primary)]">Default model</label>
         <select
@@ -50,7 +53,15 @@ export function ModelsPanel() {
       </div>
 
       <div className="space-y-4">
-        <div className="text-sm font-semibold text-[var(--color-text-primary)]">Provider API keys</div>
+        <div className="flex items-center justify-between">
+          <div className="text-sm font-semibold text-[var(--color-text-primary)]">Provider API keys</div>
+          <button
+            onClick={() => setSetupOpen(true)}
+            className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2.5 py-1 text-[11px] font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe]"
+          >
+            Setup guide
+          </button>
+        </div>
         <p className="text-xs text-[var(--color-text-secondary)]">Keys are stored in browser localStorage. Do not use on shared machines.</p>
         <MaskedInput label="Anthropic" value={settings.anthropicApiKey} onChange={(v) => update({ anthropicApiKey: v })} />
         <MaskedInput label="OpenAI" value={settings.openaiApiKey} onChange={(v) => update({ openaiApiKey: v })} />
