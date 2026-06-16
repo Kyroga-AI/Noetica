@@ -1,6 +1,90 @@
 import type { ConnectorAuthState } from '../types'
 import { makePkceParams } from '../pkce'
 
+// ─── Slack API types ──────────────────────────────────────────────────────────
+
+export type SlackChannel = {
+  id: string
+  name: string
+  isMember: boolean
+  isPrivate: boolean
+  numMembers: number
+  topic?: string
+  purpose?: string
+  unreadCount?: number
+}
+
+export type SlackMessage = {
+  ts: string
+  userId: string
+  userName?: string
+  text: string
+  reactions?: Array<{ name: string; count: number }>
+}
+
+// ─── Slack API helpers ────────────────────────────────────────────────────────
+
+async function slackGet<T>(path: string, token: string, params?: Record<string, string>): Promise<T> {
+  const url = new URL(`https://slack.com/api/${path}`)
+  if (params) Object.entries(params).forEach(([k, v]) => url.searchParams.set(k, v))
+  const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } })
+  if (!res.ok) throw new Error(`Slack API ${path} ${res.status}`)
+  const data = await res.json() as { ok: boolean; error?: string } & T
+  if (!data.ok) throw new Error(`Slack error on ${path}: ${data.error ?? 'unknown'}`)
+  return data
+}
+
+export async function fetchSlackChannels(token: string): Promise<SlackChannel[]> {
+  const data = await slackGet<{
+    channels: Array<{
+      id: string; name: string; is_member: boolean; is_private: boolean
+      num_members: number; topic?: { value: string }; purpose?: { value: string }
+      unread_count?: number
+    }>
+  }>('conversations.list', token, { limit: '100', exclude_archived: 'true', types: 'public_channel,private_channel' })
+
+  return data.channels.map((c) => ({
+    id: c.id,
+    name: c.name,
+    isMember: c.is_member,
+    isPrivate: c.is_private,
+    numMembers: c.num_members,
+    topic: c.topic?.value || undefined,
+    purpose: c.purpose?.value || undefined,
+    unreadCount: c.unread_count,
+  }))
+}
+
+export async function fetchSlackChannelHistory(token: string, channelId: string, limit = 30): Promise<SlackMessage[]> {
+  const data = await slackGet<{
+    messages: Array<{
+      ts: string; user?: string; text: string; bot_id?: string; username?: string
+      reactions?: Array<{ name: string; count: number }>
+    }>
+  }>('conversations.history', token, { channel: channelId, limit: String(limit) })
+
+  return data.messages.map((m) => ({
+    ts: m.ts,
+    userId: m.user ?? m.bot_id ?? 'unknown',
+    userName: m.username,
+    text: m.text,
+    reactions: m.reactions,
+  }))
+}
+
+export async function fetchSlackUserNames(token: string, userIds: string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>()
+  await Promise.allSettled(
+    [...new Set(userIds)].filter((id) => id !== 'unknown').map(async (id) => {
+      try {
+        const data = await slackGet<{ user: { real_name?: string; name: string } }>('users.info', token, { user: id })
+        map.set(id, data.user.real_name ?? data.user.name)
+      } catch { /* skip */ }
+    })
+  )
+  return map
+}
+
 export const SLACK_SCOPES = 'channels:read,channels:history,im:read,im:history,users:read,users.profile:read'
 export const SLACK_USER_SCOPES = 'channels:read,channels:history,im:read,users.profile:read'
 

@@ -3,10 +3,18 @@
 import { useEffect, useRef, useState } from 'react'
 import { useWorkrooms } from '@/lib/workrooms/useWorkrooms'
 import { useSettings } from '@/lib/settings/context'
+import { useConnectorAuth } from '@/lib/auth/context'
 import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
 import type { Workroom, WorkroomMessage, AgentDispatch } from '@/lib/types/workroom'
 import { AGENT_ARCHETYPES } from '@/lib/types/workroom'
 import type { ChatMessage } from '@/lib/types/message'
+import {
+  fetchSlackChannels,
+  fetchSlackChannelHistory,
+  fetchSlackUserNames,
+  type SlackChannel,
+  type SlackMessage,
+} from '@/lib/auth/providers/slack'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -474,6 +482,126 @@ function RoomView({ room, onAppendMessage, onUpdateDispatch }: {
   )
 }
 
+// ─── Slack channel view ───────────────────────────────────────────────────────
+
+function fmtSlackTs(ts: string): string {
+  const d = new Date(parseFloat(ts) * 1000)
+  const now = new Date()
+  if (d.toDateString() === now.toDateString()) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+}
+
+function SlackChannelView({ channel, token }: { channel: SlackChannel; token: string }) {
+  const [messages, setMessages] = useState<SlackMessage[]>([])
+  const [userNames, setUserNames] = useState<Map<string, string>>(new Map())
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    setError('')
+    fetchSlackChannelHistory(token, channel.id)
+      .then(async (msgs) => {
+        const ids = msgs.map((m) => m.userId)
+        const names = await fetchSlackUserNames(token, ids)
+        setMessages([...msgs].reverse())
+        setUserNames(names)
+      })
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Failed to load channel'))
+      .finally(() => setLoading(false))
+  }, [channel.id, token])
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages.length])
+
+  function resolveUser(msg: SlackMessage): string {
+    return userNames.get(msg.userId) ?? msg.userName ?? msg.userId
+  }
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* Header */}
+      <div className="flex items-center gap-3 border-b border-[var(--color-border-secondary)] px-6 py-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-[var(--color-text-primary)]">
+              {channel.isPrivate ? '🔒' : '#'}{channel.name}
+            </span>
+            <span className="rounded-full bg-[#f5f0ff] px-2 py-0.5 text-[9px] font-semibold text-[#7c3aed]">Slack</span>
+          </div>
+          <p className="text-xs text-[var(--color-text-tertiary)]">
+            {channel.numMembers} members{channel.topic ? ` · ${channel.topic}` : ''}
+          </p>
+        </div>
+        <div className="ml-auto text-[10px] text-[var(--color-text-tertiary)]">Read-only — post from Slack</div>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
+        {loading ? (
+          <div className="space-y-3">
+            {[1,2,3,4].map((i) => (
+              <div key={i} className="flex items-start gap-2.5">
+                <div className="h-7 w-7 shrink-0 animate-pulse rounded-full bg-[var(--color-background-tertiary)]" />
+                <div className="flex-1 space-y-1.5">
+                  <div className="h-3 w-24 animate-pulse rounded bg-[var(--color-background-tertiary)]" />
+                  <div className="h-10 animate-pulse rounded-xl bg-[var(--color-background-tertiary)]" />
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : error ? (
+          <div className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-4 py-3 text-xs text-[#dc2626]">
+            {error}
+            {error.includes('not_in_channel') && (
+              <p className="mt-1 text-[11px] text-[#dc2626]/70">The bot needs to be invited to #{channel.name} in Slack first.</p>
+            )}
+          </div>
+        ) : messages.length === 0 ? (
+          <div className="py-10 text-center text-xs text-[var(--color-text-tertiary)]">No messages in this channel.</div>
+        ) : (
+          messages.map((msg) => {
+            const name = resolveUser(msg)
+            return (
+              <div key={msg.ts} className="flex items-start gap-2.5">
+                <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${avatarColor(name)}`}>
+                  {initials(name)}
+                </div>
+                <div className="min-w-0 flex-1 space-y-0.5">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-[11px] font-semibold text-[var(--color-text-secondary)]">{name}</span>
+                    <span className="text-[10px] text-[#cbd5e1]">{fmtSlackTs(msg.ts)}</span>
+                  </div>
+                  <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3.5 py-2.5 text-sm leading-6 text-[var(--color-text-primary)] shadow-sm">
+                    <p className="whitespace-pre-wrap">{msg.text}</p>
+                    {msg.reactions && msg.reactions.length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {msg.reactions.map((r) => (
+                          <span key={r.name} className="rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2 py-0.5 text-[11px]">
+                            :{r.name}: {r.count}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })
+        )}
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Footer note */}
+      <div className="border-t border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-6 py-2.5 text-[11px] text-[var(--color-text-tertiary)]">
+        Showing last 30 messages · Connected via Slack OAuth · Post replies from Slack
+      </div>
+    </div>
+  )
+}
+
 // ─── New workroom form ────────────────────────────────────────────────────────
 
 function NewRoomForm({ onCreate, onCancel }: { onCreate: (name: string, desc: string) => void; onCancel: () => void }) {
@@ -527,13 +655,39 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
 
 // ─── Main surface ─────────────────────────────────────────────────────────────
 
+type ActiveView =
+  | { kind: 'workroom'; id: string }
+  | { kind: 'slack'; channel: SlackChannel }
+
 export function WorkroomsSurface() {
   const { hydrated, workrooms, createWorkroom, deleteWorkroom, appendMessage, updateDispatch } = useWorkrooms()
-  const [activeId, setActiveId] = useState<string | null>(null)
+  const { store } = useConnectorAuth()
+  const [active, setActive] = useState<ActiveView | null>(null)
   const [showNew, setShowNew] = useState(false)
   const [search, setSearch] = useState('')
 
-  const activeRoom = workrooms.find((r) => r.id === activeId) ?? null
+  // Slack state
+  const slackAuth = store.slack
+  const slackConnected = slackAuth?.status === 'connected' && !!slackAuth.accessToken
+  const [slackChannels, setSlackChannels] = useState<SlackChannel[]>([])
+  const [slackLoading, setSlackLoading] = useState(false)
+  const [slackExpanded, setSlackExpanded] = useState(true)
+
+  useEffect(() => {
+    if (!slackConnected || !slackAuth?.accessToken) { setSlackChannels([]); return }
+    setSlackLoading(true)
+    fetchSlackChannels(slackAuth.accessToken)
+      .then((channels) => {
+        setSlackChannels(channels.sort((a, b) => (b.unreadCount ?? 0) - (a.unreadCount ?? 0)))
+        setSlackLoading(false)
+      })
+      .catch(() => setSlackLoading(false))
+  }, [slackConnected, slackAuth?.accessToken])
+
+  const activeRoom = active?.kind === 'workroom'
+    ? workrooms.find((r) => r.id === active.id) ?? null
+    : null
+  const activeSlackChannel = active?.kind === 'slack' ? active.channel : null
 
   const filtered = search.trim()
     ? workrooms.filter((r) =>
@@ -544,11 +698,11 @@ export function WorkroomsSurface() {
 
   function handleCreate(name: string, desc: string) {
     const room = createWorkroom(name, desc)
-    setActiveId(room.id)
+    setActive({ kind: 'workroom', id: room.id })
     setShowNew(false)
   }
 
-  // Deduplicate streaming result messages — keep only the latest version of each message id
+  // Deduplicate streaming result messages
   const dedupedRoom = activeRoom
     ? {
         ...activeRoom,
@@ -579,30 +733,92 @@ export function WorkroomsSurface() {
             placeholder="Search rooms…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
 
-        <div className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
-          {!hydrated && <p className="py-4 text-center text-xs text-[var(--color-text-tertiary)]">Loading…</p>}
-          {hydrated && showNew && (
-            <div className="p-2">
-              <NewRoomForm onCreate={handleCreate} onCancel={() => setShowNew(false)} />
+        <div className="flex-1 overflow-y-auto">
+          {/* Local workrooms */}
+          <div className="px-2 py-1 space-y-0.5">
+            {!hydrated && <p className="py-4 text-center text-xs text-[var(--color-text-tertiary)]">Loading…</p>}
+            {hydrated && showNew && (
+              <div className="p-2">
+                <NewRoomForm onCreate={handleCreate} onCancel={() => setShowNew(false)} />
+              </div>
+            )}
+            {hydrated && filtered.length === 0 && !showNew && (
+              <p className="px-2 py-4 text-center text-xs text-[var(--color-text-tertiary)]">{search ? 'No matches' : 'No workrooms yet'}</p>
+            )}
+            {filtered.map((room) => (
+              <RoomListItem key={room.id} room={room}
+                active={active?.kind === 'workroom' && active.id === room.id}
+                onClick={() => setActive({ kind: 'workroom', id: room.id })} />
+            ))}
+          </div>
+
+          {/* Slack channels section */}
+          {slackConnected && (
+            <div className="mt-2">
+              <button
+                onClick={() => setSlackExpanded((v) => !v)}
+                className="flex w-full items-center gap-1.5 border-t border-[var(--color-border-secondary)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7c3aed] transition hover:bg-[var(--color-background-secondary)]"
+              >
+                <svg width="8" height="8" viewBox="0 0 8 8" fill="none" className={`transition-transform ${slackExpanded ? 'rotate-90' : ''}`} aria-hidden>
+                  <path d="M2 1l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                Slack
+                {slackAuth?.userInfo?.name && <span className="ml-auto font-normal normal-case tracking-normal text-[var(--color-text-tertiary)]">{slackAuth.userInfo.name}</span>}
+              </button>
+              {slackExpanded && (
+                <div className="px-2 pb-1 space-y-0.5">
+                  {slackLoading ? (
+                    <p className="py-2 text-center text-[10px] text-[var(--color-text-tertiary)]">Loading channels…</p>
+                  ) : slackChannels.length === 0 ? (
+                    <p className="px-2 py-2 text-[10px] text-[var(--color-text-tertiary)]">No channels found.<br/>Invite the app to channels in Slack.</p>
+                  ) : (
+                    slackChannels.map((ch) => {
+                      const isActive = active?.kind === 'slack' && active.channel.id === ch.id
+                      return (
+                        <button key={ch.id}
+                          onClick={() => setActive({ kind: 'slack', channel: ch })}
+                          className={`flex w-full items-center gap-1.5 rounded-xl px-3 py-2 text-left transition ${isActive ? 'bg-[#ede9fe]' : 'hover:bg-[var(--color-background-tertiary)]'}`}>
+                          <span className={`shrink-0 text-xs ${isActive ? 'text-[#7c3aed]' : 'text-[var(--color-text-tertiary)]'}`}>
+                            {ch.isPrivate ? '🔒' : '#'}
+                          </span>
+                          <span className={`truncate text-xs font-medium ${isActive ? 'text-[#7c3aed]' : 'text-[var(--color-text-primary)]'}`}>
+                            {ch.name}
+                          </span>
+                          {(ch.unreadCount ?? 0) > 0 && (
+                            <span className="ml-auto shrink-0 rounded-full bg-[#7c3aed] px-1.5 py-0.5 text-[9px] font-bold text-white">
+                              {ch.unreadCount}
+                            </span>
+                          )}
+                        </button>
+                      )
+                    })
+                  )}
+                </div>
+              )}
             </div>
           )}
-          {hydrated && filtered.length === 0 && !showNew && (
-            <p className="px-2 py-4 text-center text-xs text-[var(--color-text-tertiary)]">{search ? 'No matches' : 'No workrooms yet'}</p>
+
+          {!slackConnected && (
+            <div className="border-t border-[var(--color-border-secondary)] px-3 py-2.5">
+              <p className="text-[10px] text-[var(--color-text-tertiary)]">
+                Connect Slack in Settings → Connections to see channels here.
+              </p>
+            </div>
           )}
-          {filtered.map((room) => (
-            <RoomListItem key={room.id} room={room} active={activeId === room.id} onClick={() => setActiveId(room.id)} />
-          ))}
         </div>
 
         {hydrated && workrooms.length > 0 && (
           <div className="border-t border-[var(--color-border-secondary)] px-3 py-2 text-[10px] text-[var(--color-text-tertiary)]">
-            {workrooms.length} room{workrooms.length !== 1 ? 's' : ''}
+            {workrooms.length} workroom{workrooms.length !== 1 ? 's' : ''}
+            {slackConnected && slackChannels.length > 0 && ` · ${slackChannels.length} Slack`}
           </div>
         )}
       </aside>
 
-      {/* ── Room or empty state ── */}
-      {dedupedRoom ? (
+      {/* ── Main view ── */}
+      {activeSlackChannel && slackAuth?.accessToken ? (
+        <SlackChannelView channel={activeSlackChannel} token={slackAuth.accessToken} />
+      ) : dedupedRoom ? (
         <RoomView
           room={dedupedRoom}
           onAppendMessage={(msg) => appendMessage(dedupedRoom.id, msg)}
