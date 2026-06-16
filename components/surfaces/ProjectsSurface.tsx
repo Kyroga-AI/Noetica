@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { useWork } from '@/lib/tasks/useWork'
+import { useConnectorAuth } from '@/lib/auth/context'
 import type { WorkItem, WorkItemStatus, WorkItemPriority, WorkItemType, Sprint } from '@/lib/types/work'
+import { fetchLinearMyIssues, fetchLinearTeams, fetchLinearTeamIssues, type LinearIssue, type LinearTeam } from '@/lib/auth/providers/linear'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -434,6 +436,156 @@ function QuickAddForm({ defaultStatus, onAdd, onCancel }: {
   )
 }
 
+// ─── Linear view ─────────────────────────────────────────────────────────────
+
+const LINEAR_PRIORITY_COLORS: Record<number, string> = {
+  0: 'text-[var(--color-text-tertiary)]',
+  1: 'text-[#dc2626]',
+  2: 'text-[#d97706]',
+  3: 'text-[#2563eb]',
+  4: 'text-[var(--color-text-secondary)]',
+}
+const LINEAR_PRIORITY_LABELS: Record<number, string> = {
+  0: 'No priority', 1: 'Urgent', 2: 'High', 3: 'Medium', 4: 'Low',
+}
+
+function LinearIssueRow({ issue }: { issue: LinearIssue }) {
+  return (
+    <a
+      href={issue.url}
+      target="_blank"
+      rel="noreferrer"
+      className="flex items-start gap-3 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-4 py-3 text-left shadow-sm transition hover:border-[#c7d2fe] hover:shadow-md"
+    >
+      <div className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded" style={{ background: issue.state.color + '33' }}>
+        <div className="h-2 w-2 rounded-full" style={{ background: issue.state.color }} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[10px] text-[var(--color-text-tertiary)]">{issue.identifier}</span>
+          <span className={`text-[10px] font-semibold ${LINEAR_PRIORITY_COLORS[issue.priority] ?? ''}`}>
+            {LINEAR_PRIORITY_LABELS[issue.priority] ?? issue.priorityLabel}
+          </span>
+          {issue.dueDate && (
+            <span className="rounded-full bg-[#fef3c7] px-1.5 text-[10px] text-[#92400e]">
+              due {issue.dueDate}
+            </span>
+          )}
+        </div>
+        <p className="mt-0.5 truncate text-sm font-medium text-[var(--color-text-primary)]">{issue.title}</p>
+        <div className="mt-1 flex items-center gap-2">
+          <span className="rounded-full border border-[var(--color-border-secondary)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-secondary)]">{issue.state.name}</span>
+          {issue.project && (
+            <span className="rounded-full px-1.5 py-0.5 text-[10px] text-white" style={{ background: issue.project.color ?? '#5E6AD2' }}>
+              {issue.project.name}
+            </span>
+          )}
+          <span className="ml-auto text-[10px] text-[#cbd5e1]">{timeAgo(issue.updatedAt)}</span>
+        </div>
+      </div>
+    </a>
+  )
+}
+
+type LinearFilter = 'mine' | string  // 'mine' = assigned to me, else teamId
+
+function LinearView({ token, userName }: { token: string; userName?: string }) {
+  const [filter, setFilter] = useState<LinearFilter>('mine')
+  const [teams, setTeams] = useState<LinearTeam[]>([])
+  const [issues, setIssues] = useState<LinearIssue[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    fetchLinearTeams(token)
+      .then(setTeams)
+      .catch(() => {})
+  }, [token])
+
+  useEffect(() => {
+    setLoading(true)
+    setError('')
+    const fetch = filter === 'mine'
+      ? fetchLinearMyIssues(token)
+      : fetchLinearTeamIssues(token, filter)
+    fetch
+      .then((i) => { setIssues(i); setLoading(false) })
+      .catch((err: unknown) => {
+        setError(err instanceof Error ? err.message : 'Failed to load issues')
+        setLoading(false)
+      })
+  }, [token, filter])
+
+  return (
+    <div className="flex min-h-0 flex-1 overflow-hidden">
+      {/* Team sidebar */}
+      <aside className="flex w-44 shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[#eaf1f8]">
+        <div className="border-b border-[var(--color-border-secondary)] px-3 py-3">
+          <div className="flex items-center gap-1.5">
+            <div className="h-3 w-3 rounded bg-[#5E6AD2]" />
+            <span className="text-xs font-semibold text-[#5E6AD2]">Linear</span>
+          </div>
+          {userName && <p className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)] truncate">{userName}</p>}
+        </div>
+        <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
+          <button
+            onClick={() => setFilter('mine')}
+            className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs transition ${filter === 'mine' ? 'bg-[#e0e7ff] font-semibold text-[#3730a3]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)]'}`}
+          >
+            <span>Assigned to me</span>
+          </button>
+          {teams.length > 0 && (
+            <div className="mt-2 px-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Teams</div>
+          )}
+          {teams.map((team) => (
+            <button
+              key={team.id}
+              onClick={() => setFilter(team.id)}
+              className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs transition ${filter === team.id ? 'bg-[#e0e7ff] font-semibold text-[#3730a3]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)]'}`}
+            >
+              <span className="font-mono text-[10px] text-[var(--color-text-tertiary)] shrink-0">{team.key}</span>
+              <span className="flex-1 truncate">{team.name}</span>
+              <span className="shrink-0 text-[10px]">{team.issueCount}</span>
+            </button>
+          ))}
+        </div>
+      </aside>
+
+      {/* Issue list */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div className="flex items-center gap-3 border-b border-[var(--color-border-secondary)] px-6 py-3">
+          <p className="text-sm font-semibold text-[var(--color-text-primary)]">
+            {filter === 'mine' ? 'Assigned to me' : (teams.find((t) => t.id === filter)?.name ?? 'Team issues')}
+          </p>
+          {!loading && <span className="text-xs text-[var(--color-text-tertiary)]">{issues.length} issues</span>}
+          <a href="https://linear.app" target="_blank" rel="noreferrer"
+            className="ml-auto text-[10px] text-[#5E6AD2] transition hover:underline">
+            Open in Linear ↗
+          </a>
+        </div>
+
+        <div className="flex-1 overflow-y-auto p-4">
+          {loading ? (
+            <div className="space-y-2">
+              {[1,2,3,4].map((i) => <div key={i} className="h-16 animate-pulse rounded-xl bg-[var(--color-background-secondary)]" />)}
+            </div>
+          ) : error ? (
+            <div className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-4 py-3 text-xs text-[#dc2626]">{error}</div>
+          ) : issues.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-[var(--color-border-secondary)] py-12 text-center">
+              <p className="text-sm text-[var(--color-text-tertiary)]">No open issues</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {issues.map((issue) => <LinearIssueRow key={issue.id} issue={issue} />)}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── New project form ─────────────────────────────────────────────────────────
 
 function NewProjectForm({ onCreate, onCancel }: { onCreate: (name: string, desc: string) => void; onCancel: () => void }) {
@@ -458,7 +610,7 @@ function NewProjectForm({ onCreate, onCancel }: { onCreate: (name: string, desc:
 
 // ─── Main surface ─────────────────────────────────────────────────────────────
 
-type ViewTab = 'board' | 'backlog' | 'sprints'
+type ViewTab = 'board' | 'backlog' | 'sprints' | 'linear'
 
 export function ProjectsSurface() {
   const {
@@ -467,6 +619,10 @@ export function ProjectsSurface() {
     createSprint, updateSprint, deleteSprint,
     createProject,
   } = useWork()
+  const { store } = useConnectorAuth()
+
+  const linearAuth = store.linear
+  const linearConnected = linearAuth?.status === 'connected' && !!linearAuth.accessToken
 
   const [view, setView] = useState<ViewTab>('board')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -497,10 +653,11 @@ export function ProjectsSurface() {
     setShowNewProject(false)
   }
 
-  const tabs: { id: ViewTab; label: string }[] = [
+  const tabs: { id: ViewTab; label: string; hidden?: boolean }[] = [
     { id: 'board',    label: 'Board' },
     { id: 'backlog',  label: 'Backlog' },
     { id: 'sprints',  label: 'Sprints' },
+    { id: 'linear',   label: 'Linear', hidden: !linearConnected },
   ]
 
   return (
@@ -553,12 +710,25 @@ export function ProjectsSurface() {
         {/* External connectors footer */}
         <div className="border-t border-[var(--color-border-secondary)] p-3">
           <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">External</p>
-          <div className="mt-1.5 flex flex-wrap gap-1">
-            {['Jira', 'Linear', 'GitHub'].map((c) => (
+          <div className="mt-1.5 flex flex-col gap-1">
+            <button
+              onClick={() => linearConnected ? setView('linear') : undefined}
+              className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] transition ${
+                linearConnected
+                  ? 'border-[#c7d2fe] bg-[#e0e7ff] text-[#3730a3] hover:bg-[#c7d2fe] cursor-pointer'
+                  : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] text-[var(--color-text-tertiary)] cursor-default'
+              }`}
+            >
+              <span className={`h-1.5 w-1.5 rounded-full ${linearConnected ? 'bg-[#5E6AD2]' : 'bg-[#cbd5e1]'}`} />
+              Linear {linearConnected ? '· connected' : ''}
+            </button>
+            {['Jira', 'GitHub'].map((c) => (
               <span key={c} className="rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2 py-0.5 text-[10px] text-[var(--color-text-tertiary)]">{c}</span>
             ))}
           </div>
-          <p className="mt-1 text-[10px] text-[#cbd5e1]">Import only — native is source of truth.</p>
+          {!linearConnected && (
+            <p className="mt-1 text-[10px] text-[#cbd5e1]">Connect Linear in Settings → Connections.</p>
+          )}
         </div>
       </aside>
 
@@ -573,7 +743,7 @@ export function ProjectsSurface() {
             )}
           </div>
           <div className="ml-4 flex gap-1 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-1">
-            {tabs.map((t) => (
+            {tabs.filter((t) => !t.hidden).map((t) => (
               <button key={t.id} onClick={() => setView(t.id)}
                 className={`rounded-lg px-3 py-1 text-xs font-medium transition ${view === t.id ? 'bg-[var(--color-background-primary)] text-[var(--color-text-primary)] shadow-sm' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}>
                 {t.label}
@@ -634,8 +804,16 @@ export function ProjectsSurface() {
               onUpdateItem={updateItem} />
           )}
 
-          {/* Task detail panel */}
-          {selectedItem && (
+          {/* Linear view */}
+          {view === 'linear' && linearConnected && linearAuth?.accessToken && (
+            <LinearView
+              token={linearAuth.accessToken}
+              userName={linearAuth.userInfo?.name ?? linearAuth.userInfo?.email}
+            />
+          )}
+
+          {/* Task detail panel — only for local views */}
+          {selectedItem && view !== 'linear' && (
             <TaskDetail item={selectedItem}
               onUpdate={updateItem}
               onDelete={(id) => { deleteItem(id); setSelectedId(null) }}

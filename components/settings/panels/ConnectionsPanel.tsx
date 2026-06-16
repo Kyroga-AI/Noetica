@@ -7,6 +7,7 @@ import type { ConnectorId } from '@/lib/auth/types'
 import { initiateGoogleOAuth, exchangeGoogleCode } from '@/lib/auth/providers/google'
 import { initiateGithubOAuth, exchangeGithubCode } from '@/lib/auth/providers/github'
 import { initiateSlackOAuth, exchangeSlackCode } from '@/lib/auth/providers/slack'
+import { initiateLinearOAuth, exchangeLinearCode } from '@/lib/auth/providers/linear'
 import { loginMatrix, logoutMatrix } from '@/lib/auth/providers/matrix'
 
 function getRedirectUri() {
@@ -51,6 +52,15 @@ const OAUTH_PROVIDERS: OAuthProvider[] = [
     initiate: initiateSlackOAuth,
     exchange: exchangeSlackCode,
     color: '#4A154B',
+  },
+  {
+    id: 'linear',
+    label: 'Linear',
+    description: 'Read assigned issues, teams, and projects.',
+    clientIdKey: 'oauthLinearClientId',
+    initiate: initiateLinearOAuth,
+    exchange: exchangeLinearCode,
+    color: '#5E6AD2',
   },
 ]
 
