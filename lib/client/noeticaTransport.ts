@@ -15,6 +15,7 @@ export type NoeticaChatTransportHandlers = {
   onDelta: (delta: string) => void
   onThinkingDelta?: (delta: string) => void
   onThinkingDone?: (thinking: string) => void
+  onToolCalls?: (calls: import('@/lib/providers').ToolUseBlock[]) => void
   onDone: (result: NoeticaStreamDoneResult) => void
   onError: (error: string) => void
 }
@@ -91,6 +92,7 @@ async function readNoeticaEventStream(response: Response, handlers: NoeticaChatT
       if (parsed.event === 'delta') handlers.onDelta(payload.delta)
       if (parsed.event === 'thinking_delta') handlers.onThinkingDelta?.(payload.delta)
       if (parsed.event === 'thinking_done') handlers.onThinkingDone?.(payload.thinking)
+      if (parsed.event === 'tool_calls') handlers.onToolCalls?.(payload.tool_calls)
       if (parsed.event === 'done') handlers.onDone(payload.result)
       if (parsed.event === 'error') handlers.onError(payload.error)
     }

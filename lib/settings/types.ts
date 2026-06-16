@@ -21,6 +21,7 @@ export interface NoeticaSettings {
   googleApiKey: string
   mistralApiKey: string
   neuronpediaApiKey: string
+  serperApiKey: string
 
   // Runtime
   runtimeMode: 'standalone' | 'agent-machine' | 'sourceos'

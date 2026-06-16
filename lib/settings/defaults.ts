@@ -12,6 +12,7 @@ export const defaultSettings: NoeticaSettings = {
   googleApiKey: '',
   mistralApiKey: '',
   neuronpediaApiKey: '',
+  serperApiKey: '',
 
   runtimeMode: 'standalone',
   agentMachineEndpoint: 'http://localhost:8080',

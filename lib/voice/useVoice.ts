@@ -111,5 +111,19 @@ export function useVoice(onTranscript: (text: string) => void) {
     }
   }, [settings.wakeWordEnabled, SpeechRecognitionCtor, startListening])
 
-  return { state, error, isSupported, startListening, stopListening }
+  const speak = useCallback((text: string) => {
+    if (typeof window === 'undefined' || !window.speechSynthesis) return
+    window.speechSynthesis.cancel()
+    const utterance = new SpeechSynthesisUtterance(text)
+    utterance.lang = settings.voiceLanguage ?? 'en-US'
+    window.speechSynthesis.speak(utterance)
+  }, [settings.voiceLanguage])
+
+  const stopSpeaking = useCallback(() => {
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      window.speechSynthesis.cancel()
+    }
+  }, [])
+
+  return { state, error, isSupported, startListening, stopListening, speak, stopSpeaking }
 }

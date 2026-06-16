@@ -44,6 +44,8 @@ import type { NoeticaMode } from '@/lib/client/noeticaTransport'
 import type { ActiveSurface } from '@/lib/types/surface'
 import type { ModelConfig } from '@/lib/types/model'
 import type { GovernanceTrace } from '@/lib/types/governance'
+import type { ProviderTool, ToolUseBlock } from '@/lib/providers'
+import { mcpManager } from '@/lib/mcp/client'
 
 const SURFACE_ORDER: ActiveSurface[] = ['chat', 'notes', 'workrooms', 'cowork', 'projects', 'artifacts', 'code', 'evaluate', 'operate']
 
@@ -127,6 +129,7 @@ export function AppShell() {
   const [mode, setMode] = useState<NoeticaMode>('standalone')
   const [steering, setSteering] = useState<SteeringConfig | undefined>()
   const [thinkingBudget, setThinkingBudget] = useState<number | undefined>()
+  const [systemPrompt, setSystemPrompt] = useState<string>('')
   const [isStreaming, setIsStreaming] = useState(false)
   const abortControllerRef = useRef<AbortController | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
@@ -156,7 +159,7 @@ export function AppShell() {
   )
   const fanoutModelCount = Math.min(settings.fanoutModels.length, settings.fanoutConcurrency)
 
-  const { state: voiceState, startListening, stopListening } = useVoice((transcript) => {
+  const { state: voiceState, startListening, stopListening, speak, stopSpeaking } = useVoice((transcript) => {
     void handleSendRaw(transcript, [], messages)
   })
 
@@ -240,12 +243,56 @@ export function AppShell() {
     setModelId(s.modelId)
   }
 
-  async function handleSend(content: string, attachments: PendingAttachment[] = [], _selectedMcpTools?: string[]) {
-    await handleSendRaw(content, attachments, messages)
+  function buildBuiltinTools(s: typeof settings): ProviderTool[] {
+    const tools: ProviderTool[] = []
+    if (s.serperApiKey || s.openaiApiKey) {
+      tools.push({
+        name: 'web_search',
+        description: 'Search the web for current information. Returns a list of relevant results with titles, URLs, and snippets.',
+        input_schema: {
+          type: 'object',
+          properties: { query: { type: 'string', description: 'The search query' } },
+          required: ['query'],
+        },
+      })
+    }
+    if (s.openaiApiKey) {
+      tools.push({
+        name: 'generate_image',
+        description: 'Generate an image using DALL-E 3. Returns a URL to the generated image.',
+        input_schema: {
+          type: 'object',
+          properties: { prompt: { type: 'string', description: 'A detailed description of the image to generate' } },
+          required: ['prompt'],
+        },
+      })
+    }
+    return tools
+  }
+
+  async function handleSend(content: string, attachments: PendingAttachment[] = [], selectedMcpToolNames?: string[]) {
+    // Build ProviderTool list from selected MCP tools
+    const selectedTools: ProviderTool[] = selectedMcpToolNames?.length
+      ? mcpTools
+          .filter((t) => selectedMcpToolNames.includes(`${t.serverId}:${t.name}`))
+          .map((t) => ({
+            name: t.name,
+            description: t.description ?? '',
+            input_schema: t.inputSchema,
+            serverId: t.serverId,
+          }))
+      : []
+
+    // Always include built-in tools
+    const builtinTools = buildBuiltinTools(settings)
+    const tools = [...builtinTools, ...selectedTools]
+
+    await handleSendRaw(content, attachments, messages, tools)
   }
 
   function handleStop() {
     abortControllerRef.current?.abort()
+    stopSpeaking()
   }
 
   async function handleFanout(content: string, attachments: PendingAttachment[]) {
@@ -375,7 +422,7 @@ export function AppShell() {
     updateTitle(words || 'Chat')
   }
 
-  async function handleSendRaw(content: string, attachments: PendingAttachment[], baseMessages: ChatMessage[]) {
+  async function handleSendRaw(content: string, attachments: PendingAttachment[], baseMessages: ChatMessage[], tools?: ProviderTool[]) {
     autoTitle(content)
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
@@ -402,71 +449,170 @@ export function AppShell() {
     const abort = new AbortController()
     abortControllerRef.current = abort
     const providerKeys = {
-      anthropic:  settings.anthropicApiKey  || undefined,
-      openai:     settings.openaiApiKey     || undefined,
-      google:     settings.googleApiKey     || undefined,
-      mistral:    settings.mistralApiKey    || undefined,
+      anthropic:   settings.anthropicApiKey   || undefined,
+      openai:      settings.openaiApiKey      || undefined,
+      google:      settings.googleApiKey      || undefined,
+      mistral:     settings.mistralApiKey     || undefined,
       neuronpedia: settings.neuronpediaApiKey || undefined,
+      serper:      settings.serperApiKey      || undefined,
     }
     const agentMachineEndpoint =
       settings.runtimeMode === 'agent-machine' && settings.agentMachineEndpoint
         ? settings.agentMachineEndpoint
         : undefined
+
+    // Agentic tool-use loop: keep calling until stop_reason is not 'tool_use'
+    let conversationMessages: ChatMessage[] = [...baseMessages, outbound]
+    let pendingToolCalls: ToolUseBlock[] | undefined
+    const MAX_TOOL_TURNS = 10
+
     try {
-      await sendNoeticaChat(
-        {
-          session_id: activeSession?.id ?? 'local-session',
-          mode,
-          model_id: modelId,
-          messages: [...baseMessages, outbound],
-          steering,
-          thinking_budget: thinkingBudget,
-          memory_scope: `noetica-session-local:${workspaceMode.toLowerCase()}`,
-          provider_keys: providerKeys,
-          agent_machine_endpoint: agentMachineEndpoint,
-        },
-        {
-          onMeta: (governance) => updateAssistant(assistantId, { governance }),
-          onDelta: (delta) => appendAssistantContent(assistantId, delta),
-          onThinkingDelta: (delta) => appendAssistantThinking(assistantId, delta),
-          onThinkingDone: (thinking) => updateAssistant(assistantId, { thinking }),
-          onDone: (result) => {
-            updateAssistant(assistantId, {
-              content: result.content,
-              governance: {
-                run_id: result.run_id,
-                model_routed: result.model_routed,
-                provider: result.provider,
-                model_overridden: result.model_overridden,
-                policy_admitted: result.policy_admitted,
-                policy_ref: result.policy_ref,
-                memory_scope_ref: result.memory_scope_ref,
-                memory_written: result.memory_written,
-                evidence_ref: result.evidence_ref,
-                replay_ref: result.replay_ref,
-                agentplane_run_id: result.agentplane_run_id,
-                request_hash: result.request_hash,
-                evidence_hash: result.evidence_hash,
-                provider_route_evidence: result.provider_route_evidence,
-                grant_refs: result.grant_refs,
-                sourceos_status: result.status,
-                timestamp: result.timestamp,
-                latency_ms: result.latency_ms,
-              },
-              steering_result: result.steering_applied,
-            })
+      for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
+        pendingToolCalls = undefined
+
+        await sendNoeticaChat(
+          {
+            session_id: activeSession?.id ?? 'local-session',
+            mode,
+            model_id: modelId,
+            messages: conversationMessages,
+            steering,
+            thinking_budget: thinkingBudget,
+            memory_scope: `noetica-session-local:${workspaceMode.toLowerCase()}`,
+            provider_keys: providerKeys,
+            agent_machine_endpoint: agentMachineEndpoint,
+            tools: tools?.length ? tools : undefined,
+            system_prompt: systemPrompt || undefined,
           },
-          onError: (error) =>
-            updateAssistant(assistantId, { content: `Noetica route error: ${error}` }),
-        },
-        {},
-        abort.signal
-      )
+          {
+            onMeta: (governance) => updateAssistant(assistantId, { governance }),
+            onDelta: (delta) => appendAssistantContent(assistantId, delta),
+            onThinkingDelta: (delta) => appendAssistantThinking(assistantId, delta),
+            onThinkingDone: (thinking) => updateAssistant(assistantId, { thinking }),
+            onToolCalls: (calls) => { pendingToolCalls = calls },
+            onDone: (result) => {
+              updateAssistant(assistantId, {
+                content: result.content,
+                governance: {
+                  run_id: result.run_id,
+                  model_routed: result.model_routed,
+                  provider: result.provider,
+                  model_overridden: result.model_overridden,
+                  policy_admitted: result.policy_admitted,
+                  policy_ref: result.policy_ref,
+                  memory_scope_ref: result.memory_scope_ref,
+                  memory_written: result.memory_written,
+                  evidence_ref: result.evidence_ref,
+                  replay_ref: result.replay_ref,
+                  agentplane_run_id: result.agentplane_run_id,
+                  request_hash: result.request_hash,
+                  evidence_hash: result.evidence_hash,
+                  provider_route_evidence: result.provider_route_evidence,
+                  grant_refs: result.grant_refs,
+                  sourceos_status: result.status,
+                  timestamp: result.timestamp,
+                  latency_ms: result.latency_ms,
+                },
+                steering_result: result.steering_applied,
+              })
+            },
+            onError: (error) =>
+              updateAssistant(assistantId, { content: `Noetica route error: ${error}` }),
+          },
+          {},
+          abort.signal
+        )
+
+        // If no tool calls or aborted, done
+        const activeCalls = pendingToolCalls as ToolUseBlock[] | undefined
+        if (!activeCalls?.length || abort.signal.aborted) break
+
+        // Execute tool calls and append results to conversation
+        const toolResults = await executeToolCalls(activeCalls, providerKeys)
+        const toolNames = activeCalls.map((c) => c.name).join(', ')
+
+        // Append assistant message (with tool_use indication) + tool results as user message
+        const assistantToolMsg: ChatMessage = {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: `[Calling tools: ${toolNames}]`,
+          created_at: new Date().toISOString(),
+        }
+        const toolResultMsg: ChatMessage = {
+          id: crypto.randomUUID(),
+          role: 'user',
+          content: toolResults.map((r) => `**${r.name}** result:\n${r.result}`).join('\n\n'),
+          created_at: new Date().toISOString(),
+        }
+        conversationMessages = [...conversationMessages, assistantToolMsg, toolResultMsg]
+
+        // Show tool activity in the assistant message
+        appendAssistantContent(assistantId, `\n\n*[Executed tools: ${toolNames}]*\n\n`)
+      }
     } finally {
       abortControllerRef.current = null
       setIsStreaming(false)
-      setMessages((current) => { updateMessages(current); return current })
+      setMessages((current) => {
+        // TTS: read final assistant message aloud when voice was active
+        if (voiceState !== 'idle') {
+          const last = [...current].reverse().find((m: ChatMessage) => m.role === 'assistant')
+          if (last?.content) speak(last.content.replace(/\[.*?\]/g, '').trim())
+        }
+        updateMessages(current)
+        return current
+      })
     }
+  }
+
+  async function executeToolCalls(
+    calls: ToolUseBlock[],
+    providerKeys: { serper?: string; openai?: string; [k: string]: string | undefined }
+  ): Promise<Array<{ id: string; name: string; result: string }>> {
+    return Promise.all(calls.map(async (call) => {
+      try {
+        // Built-in tools
+        if (call.name === 'web_search') {
+          const query = (call.input.query as string | undefined) ?? ''
+          const res = await fetch('/api/search', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ query, provider_keys: { serper: providerKeys.serper } }),
+          })
+          const data = await res.json() as { results?: Array<{ title: string; url: string; snippet: string }> }
+          const results = (data.results ?? []).map((r) => `- [${r.title}](${r.url}): ${r.snippet}`).join('\n')
+          return { id: call.id, name: call.name, result: results || 'No results found.' }
+        }
+
+        if (call.name === 'generate_image') {
+          const prompt = (call.input.prompt as string | undefined) ?? ''
+          const res = await fetch('/api/generate-image', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ prompt, provider_keys: { openai: providerKeys.openai } }),
+          })
+          const data = await res.json() as { url?: string; revised_prompt?: string; error?: string }
+          if (data.error) return { id: call.id, name: call.name, result: `Error: ${data.error}` }
+          return { id: call.id, name: call.name, result: `Image generated: ${data.url}\n${data.revised_prompt ? `Revised prompt: ${data.revised_prompt}` : ''}` }
+        }
+
+        // MCP tools
+        if (call.serverId) {
+          const mcpResult = await mcpManager.callTool({
+            serverId: call.serverId,
+            toolName: call.name,
+            args: call.input,
+          })
+          const resultText = mcpResult.content
+            .map((c: { type?: string; text?: string }) => (c.type === 'text' ? c.text ?? '' : JSON.stringify(c)))
+            .join('\n')
+          return { id: call.id, name: call.name, result: resultText || '(empty result)' }
+        }
+
+        return { id: call.id, name: call.name, result: `Unknown tool: ${call.name}` }
+      } catch (err) {
+        return { id: call.id, name: call.name, result: `Error: ${err instanceof Error ? err.message : String(err)}` }
+      }
+    }))
   }
 
   function updateAssistant(id: string, patch: Partial<ChatMessage>) {
@@ -554,6 +700,8 @@ export function AppShell() {
                 onModelChange={handleModelChange}
                 onOpenPalette={() => setPaletteOpen(true)}
                 mcpTools={mcpTools}
+                systemPrompt={systemPrompt}
+                onSystemPromptChange={setSystemPrompt}
               />
               {inspectorVisible && (
                 <RightPanel
@@ -688,9 +836,11 @@ type CenterProps = {
   onModelChange: (id: string) => void
   onOpenPalette: () => void
   mcpTools: McpTool[]
+  systemPrompt?: string
+  onSystemPromptChange?: (prompt: string) => void
 }
 
-function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools }: CenterProps) {
+function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange }: CenterProps) {
   if (activeSurface === 'notes')        return <NotesSurface />
   if (activeSurface === 'workrooms')    return <WorkroomsSurface />
   if (activeSurface === 'cowork')       return <CoworkSurface />
@@ -720,6 +870,8 @@ function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, 
         onModelChange={onModelChange}
         thinkingBudget={thinkingBudget}
         onOpenPalette={onOpenPalette}
+        systemPrompt={systemPrompt}
+        onSystemPromptChange={onSystemPromptChange}
       />
     </section>
   )

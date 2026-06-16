@@ -24,6 +24,8 @@ type InputAreaProps = {
   onModelChange?: (id: string) => void
   thinkingBudget?: number
   onOpenPalette?: () => void
+  systemPrompt?: string
+  onSystemPromptChange?: (prompt: string) => void
 }
 
 const KIND_ICON: Record<string, string> = {
@@ -60,6 +62,7 @@ export function InputArea({
   workspaceMode, onWorkspaceModeChange,
   mcpTools = [],
   modelId, onModelChange, thinkingBudget, onOpenPalette,
+  systemPrompt = '', onSystemPromptChange,
 }: InputAreaProps) {
   const [content, setContent] = useState('')
   const [sending, setSending] = useState(false)
@@ -70,6 +73,7 @@ export function InputArea({
   const [selectedTools, setSelectedTools] = useState<string[]>([])
   const [showModes, setShowModes] = useState(false)
   const [showModelPicker, setShowModelPicker] = useState(false)
+  const [showSystemPrompt, setShowSystemPrompt] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -191,6 +195,28 @@ export function InputArea({
           </div>
         )}
 
+        {/* System prompt panel */}
+        {showSystemPrompt && onSystemPromptChange && (
+          <div className="border-b border-[var(--color-border-tertiary)] px-3 py-2">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">System prompt</span>
+              <button
+                onClick={() => { setShowSystemPrompt(false); onSystemPromptChange('') }}
+                className="text-[10px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
+              >
+                clear ×
+              </button>
+            </div>
+            <textarea
+              rows={3}
+              value={systemPrompt}
+              onChange={(e) => onSystemPromptChange(e.target.value)}
+              placeholder="You are a helpful assistant…"
+              className="w-full resize-none border-0 bg-transparent text-[12px] leading-5 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
+            />
+          </div>
+        )}
+
         {/* Textarea */}
         <textarea
           ref={textareaRef}
@@ -237,6 +263,28 @@ export function InputArea({
 
           {/* MCP tools */}
           <McpToolPicker tools={mcpTools} selected={selectedTools} onToggle={toggleTool} />
+
+          {/* System prompt toggle */}
+          {onSystemPromptChange && (
+            <button
+              type="button"
+              onClick={() => setShowSystemPrompt((v) => !v)}
+              title="System prompt"
+              style={{ border: 'none', background: 'none', outline: 'none' }}
+              className={`flex h-7 items-center gap-1 rounded-md px-1.5 text-[11px] transition ${
+                systemPrompt
+                  ? 'text-[var(--color-text-primary)]'
+                  : showSystemPrompt
+                  ? 'text-[var(--color-text-secondary)]'
+                  : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
+              }`}
+            >
+              <svg width="11" height="11" viewBox="0 0 14 14" fill="none" aria-hidden>
+                <path d="M2 4h10M2 7h7M2 10h5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              </svg>
+              {systemPrompt ? 'sys' : ''}
+            </button>
+          )}
 
           <div className="flex-1" />
 

@@ -1,6 +1,7 @@
 import type { GovernanceTrace } from '@/lib/types/governance'
 import type { ChatMessage } from '@/lib/types/message'
 import type { SteeringConfig, SteeringResult } from '@/lib/types/steering'
+import type { ProviderTool, ToolUseBlock } from '@/lib/providers'
 
 export type NoeticaMode = 'standalone' | 'sourceos'
 
@@ -15,7 +16,10 @@ export type NoeticaProviderKeys = {
   google?: string
   mistral?: string
   neuronpedia?: string
+  serper?: string
 }
+
+export type { ProviderTool, ToolUseBlock }
 
 export type NoeticaChatRequest = {
   session_id: string
@@ -29,6 +33,10 @@ export type NoeticaChatRequest = {
   provider_keys?: NoeticaProviderKeys
   /** When set, chat requests are proxied to this Agent Machine endpoint instead of calling providers directly. */
   agent_machine_endpoint?: string
+  /** Tool definitions to pass to the model (MCP + built-in). */
+  tools?: ProviderTool[]
+  /** Optional system prompt override for this request. */
+  system_prompt?: string
 }
 
 export type NoeticaSteerRequest = {
@@ -77,6 +85,9 @@ export type NoeticaStreamDoneResult = {
   timestamp?: string
   latency_ms: number
   steering_applied?: ChatMessage['steering_result']
+  /** Set when model requested tool execution — client handles the agentic loop */
+  tool_calls?: ToolUseBlock[]
+  stop_reason?: 'end_turn' | 'tool_use' | 'max_tokens' | string
 }
 
 export type NoeticaSteerResponse = {

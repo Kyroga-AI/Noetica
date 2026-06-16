@@ -9,8 +9,9 @@ import type { ChatMessage } from '@/lib/types/message'
 import type { ModelConfig } from '@/lib/types/model'
 import type { SteeringConfig } from '@/lib/types/steering'
 import type { NoeticaTaskResult } from '@/lib/types/task'
-import { streamAnthropic } from '@/lib/providers/anthropic'
-import { streamOpenAI } from '@/lib/providers/openai'
+import type { ProviderTool, ToolUseBlock } from '@/lib/providers'
+import { streamAnthropic, TOOL_CALLS_PREFIX as ANTHROPIC_TOOL_CALLS_PREFIX } from '@/lib/providers/anthropic'
+import { streamOpenAI, TOOL_CALLS_PREFIX as OPENAI_TOOL_CALLS_PREFIX } from '@/lib/providers/openai'
 import { submitTask } from '@/lib/superconscious/adapter'
 
 export const runtime = 'nodejs'
@@ -28,7 +29,9 @@ type ChatRequest = {
   steering?: SteeringConfig
   memory_scope?: string
   thinking_budget?: number
-  provider_keys?: { anthropic?: string; openai?: string; google?: string; mistral?: string; neuronpedia?: string }
+  provider_keys?: { anthropic?: string; openai?: string; google?: string; mistral?: string; neuronpedia?: string; serper?: string }
+  tools?: ProviderTool[]
+  system_prompt?: string
 }
 
 export async function POST(request: Request) {
@@ -170,16 +173,22 @@ export async function POST(request: Request) {
       })
 
       try {
+        const THINKING_PFX = '\x00thinking\x00'
+        const TOOL_PFX = ANTHROPIC_TOOL_CALLS_PREFIX  // same value as OPENAI prefix
+
         const providerStream = model.provider === 'openai'
-          ? streamOpenAI({ model: providerModelId, messages })
-          : streamAnthropic({ model: providerModelId, messages, thinking_budget: body.thinking_budget, apiKey: body.provider_keys?.anthropic })
+          ? streamOpenAI({ model: providerModelId, messages, tools: body.tools, systemPrompt: body.system_prompt, apiKey: body.provider_keys?.openai })
+          : streamAnthropic({ model: providerModelId, messages, thinking_budget: body.thinking_budget, tools: body.tools, systemPrompt: body.system_prompt, apiKey: body.provider_keys?.anthropic })
 
         let thinkingContent = ''
+        let toolCalls: ToolUseBlock[] | undefined
         for await (const delta of providerStream) {
-          if (delta.startsWith('\x00thinking\x00')) {
-            const chunk = delta.slice('\x00thinking\x00'.length)
+          if (delta.startsWith(THINKING_PFX)) {
+            const chunk = delta.slice(THINKING_PFX.length)
             thinkingContent += chunk
             send('thinking_delta', { delta: chunk })
+          } else if (delta.startsWith(TOOL_PFX)) {
+            toolCalls = JSON.parse(delta.slice(TOOL_PFX.length)) as ToolUseBlock[]
           } else {
             content += delta
             send('delta', { delta })
@@ -187,6 +196,9 @@ export async function POST(request: Request) {
         }
         if (thinkingContent) {
           send('thinking_done', { thinking: thinkingContent })
+        }
+        if (toolCalls?.length) {
+          send('tool_calls', { tool_calls: toolCalls })
         }
 
         const latency_ms = Date.now() - started
@@ -261,6 +273,8 @@ export async function POST(request: Request) {
             evidence_hash,
             provider_route_evidence,
             sourceos_interaction_event,
+            tool_calls: toolCalls,
+            stop_reason: toolCalls?.length ? 'tool_use' : 'end_turn',
             timestamp,
             latency_ms
           }
