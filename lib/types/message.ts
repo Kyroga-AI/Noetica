@@ -4,6 +4,18 @@ import type { PendingAttachment } from '@/lib/types/attachment'
 
 export type ChatRole = 'system' | 'user' | 'assistant'
 
+export interface ToolCallRecord {
+  id: string
+  name: string
+  input: Record<string, unknown>
+}
+
+export interface ToolResultRecord {
+  id: string
+  name: string
+  result: string
+}
+
 export interface ChatMessage {
   id: string
   role: ChatRole
@@ -15,4 +27,8 @@ export interface ChatMessage {
   governance?: GovernanceTrace
   steering_result?: SteeringResult
   attachments?: PendingAttachment[]
+  /** Tool calls the model requested during this turn */
+  tool_calls?: ToolCallRecord[]
+  /** Results returned to the model for each tool call */
+  tool_results?: ToolResultRecord[]
 }

@@ -42,6 +42,9 @@
     "next": "^14.2.23",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-markdown": "10.1.0",
+    "react-syntax-highlighter": "16.1.1",
+    "remark-gfm": "4.0.1",
     "zustand": "^5.0.2"
   },
   "devDependencies": {
@@ -49,6 +52,7 @@
     "@types/node": "^20.17.10",
     "@types/react": "^18.3.17",
     "@types/react-dom": "^18.3.5",
+    "@types/react-syntax-highlighter": "15.5.13",
     "autoprefixer": "^10.4.20",
     "eslint": "^8.57.1",
     "eslint-config-next": "^14.2.23",

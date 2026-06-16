@@ -76,12 +76,14 @@ async function sendToNoeticaEndpoint(
   handlers: NoeticaChatTransportHandlers,
   signal?: AbortSignal
 ) {
+  // Strip agent_machine_endpoint to prevent recursion if the AM calls back via /api/chat
+  const { agent_machine_endpoint: _dropped, ...forwardRequest } = request
   let response: Response
   try {
     response = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(request),
+      body: JSON.stringify(forwardRequest),
       signal,
     })
   } catch (err) {

@@ -408,12 +408,15 @@ function providerRouteEvidenceRef(evidence: ReturnType<typeof buildExternalModel
 
 // Proxy a request to an agent-machine endpoint that speaks the Noetica SSE protocol.
 async function proxyToAgentMachine(url: string, body: ChatRequest, signal: AbortSignal): Promise<Response> {
+  // Strip agent_machine_endpoint from the forwarded body to prevent infinite recursion
+  // if the agent machine itself proxies to /api/chat.
+  const { agent_machine_endpoint: _dropped, ...forwardBody } = body
   let upstream: Response
   try {
     upstream = await fetch(url, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(body),
+      body: JSON.stringify(forwardBody),
       signal,
     })
   } catch (err) {

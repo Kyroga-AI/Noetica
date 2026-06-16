@@ -1,10 +1,18 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import React, { useRef, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+// eslint-disable-next-line
+import oneLight from 'react-syntax-highlighter/dist/cjs/styles/prism/one-light'
+// eslint-disable-next-line
+import oneDark from 'react-syntax-highlighter/dist/cjs/styles/prism/one-dark'
 import { GovernanceTrail } from '@/components/governance/GovernanceTrail'
 import { SteeringDiff } from '@/components/steering/SteeringDiff'
-import type { ChatMessage } from '@/lib/types/message'
+import type { ChatMessage, ToolCallRecord, ToolResultRecord } from '@/lib/types/message'
 import type { PendingAttachment } from '@/lib/types/attachment'
+import { useSettings } from '@/lib/settings/context'
 
 const KIND_ICON: Record<string, string> = {
   image: '🖼',
@@ -18,16 +26,9 @@ function AttachmentList({ attachments }: { attachments: PendingAttachment[] }) {
   return (
     <div className="mt-2 flex flex-wrap gap-1.5">
       {attachments.map((a) => (
-        <div
-          key={a.clientId}
-          className="flex items-center gap-1.5 rounded-xl border border-[#93c5fd] bg-[#eff6ff] px-2.5 py-1.5 text-xs"
-        >
+        <div key={a.clientId} className="flex items-center gap-1.5 rounded-xl border border-[#93c5fd] bg-[#eff6ff] px-2.5 py-1.5 text-xs">
           {a.kind === 'image' ? (
-            <img
-              src={`data:${a.mimeType};base64,${a.base64}`}
-              alt={a.name}
-              className="h-8 w-8 rounded-lg object-cover"
-            />
+            <img src={`data:${a.mimeType};base64,${a.base64}`} alt={a.name} className="h-8 w-8 rounded-lg object-cover" />
           ) : (
             <span>{KIND_ICON[a.kind] ?? '📎'}</span>
           )}
@@ -36,6 +37,193 @@ function AttachmentList({ attachments }: { attachments: PendingAttachment[] }) {
         </div>
       ))}
     </div>
+  )
+}
+
+function ToolCallCard({ call, result }: { call: ToolCallRecord; result?: ToolResultRecord }) {
+  const [open, setOpen] = useState(false)
+  const inputStr = JSON.stringify(call.input, null, 2)
+  const isError = result?.result.startsWith('Error:')
+
+  return (
+    <div className="my-1.5 overflow-hidden rounded-xl border border-[var(--color-border-secondary)]">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className="flex w-full items-center gap-2 px-3 py-2 text-left transition hover:bg-[var(--color-background-secondary)]"
+      >
+        {/* status dot */}
+        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${
+          !result ? 'bg-[#fbbf24] animate-pulse' :
+          isError ? 'bg-[#ef4444]' : 'bg-[#22c55e]'
+        }`} />
+        {/* tool icon */}
+        <svg width="11" height="11" viewBox="0 0 14 14" fill="none" aria-hidden className="shrink-0 text-[var(--color-text-tertiary)]">
+          <path d="M2 7h10M7 2v10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+          <rect x="1" y="1" width="12" height="12" rx="3" stroke="currentColor" strokeWidth="1.2"/>
+        </svg>
+        <span className="flex-1 font-mono text-[11px] font-semibold text-[var(--color-text-primary)]">{call.name}</span>
+        <span className="text-[10px] text-[var(--color-text-tertiary)]">{open ? '▲' : '▼'}</span>
+      </button>
+
+      {open && (
+        <div className="border-t border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)]">
+          {/* Input */}
+          <div className="px-3 py-2">
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Input</div>
+            <pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-5 text-[var(--color-text-secondary)]">{inputStr}</pre>
+          </div>
+          {/* Result */}
+          {result && (
+            <div className="border-t border-[var(--color-border-tertiary)] px-3 py-2">
+              <div className={`mb-1 text-[10px] font-semibold uppercase tracking-wide ${isError ? 'text-[#ef4444]' : 'text-[var(--color-text-tertiary)]'}`}>
+                {isError ? 'Error' : 'Result'}
+              </div>
+              <MarkdownContent content={result.result} compact />
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ToolCallList({ calls, results }: { calls: ToolCallRecord[]; results?: ToolResultRecord[] }) {
+  return (
+    <div className="my-2">
+      {calls.map((call) => (
+        <ToolCallCard
+          key={call.id}
+          call={call}
+          result={results?.find((r) => r.id === call.id)}
+        />
+      ))}
+    </div>
+  )
+}
+
+function MarkdownContent({ content, compact = false }: { content: string; compact?: boolean }) {
+  const { settings } = useSettings()
+  const isDark = settings.theme === 'dark'
+  // eslint-disable-next-line
+  const codeStyle = (isDark ? oneDark : oneLight) as unknown as { [key: string]: React.CSSProperties }
+
+  return (
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={{
+        // Paragraphs
+        p: ({ children }) => (
+          <p className={`text-[var(--color-text-primary)] ${compact ? 'text-[12px] leading-5' : 'text-[14px] leading-[1.75]'} mb-2 last:mb-0`}>
+            {children}
+          </p>
+        ),
+        // Headings
+        h1: ({ children }) => <h1 className="mb-3 mt-4 text-xl font-bold text-[var(--color-text-primary)] first:mt-0">{children}</h1>,
+        h2: ({ children }) => <h2 className="mb-2 mt-4 text-lg font-semibold text-[var(--color-text-primary)] first:mt-0">{children}</h2>,
+        h3: ({ children }) => <h3 className="mb-2 mt-3 text-base font-semibold text-[var(--color-text-primary)] first:mt-0">{children}</h3>,
+        // Lists
+        ul: ({ children }) => <ul className="mb-2 ml-4 list-disc space-y-1 text-[14px] text-[var(--color-text-primary)]">{children}</ul>,
+        ol: ({ children }) => <ol className="mb-2 ml-4 list-decimal space-y-1 text-[14px] text-[var(--color-text-primary)]">{children}</ol>,
+        li: ({ children }) => <li className="leading-[1.7]">{children}</li>,
+        // Blockquote
+        blockquote: ({ children }) => (
+          <blockquote className="my-2 border-l-2 border-[var(--color-border-primary)] pl-3 text-[var(--color-text-secondary)] italic">
+            {children}
+          </blockquote>
+        ),
+        // Horizontal rule
+        hr: () => <hr className="my-4 border-[var(--color-border-secondary)]" />,
+        // Emphasis
+        strong: ({ children }) => <strong className="font-semibold text-[var(--color-text-primary)]">{children}</strong>,
+        em: ({ children }) => <em className="italic text-[var(--color-text-primary)]">{children}</em>,
+        del: ({ children }) => <del className="text-[var(--color-text-secondary)]">{children}</del>,
+        // Links
+        a: ({ href, children }) => (
+          <a
+            href={href}
+            onClick={(e) => { e.preventDefault(); if (href) window.open(href, '_blank', 'noopener,noreferrer') }}
+            className="text-[#1d4ed8] underline decoration-[#bfdbfe] hover:decoration-[#1d4ed8] transition-colors"
+          >
+            {children}
+          </a>
+        ),
+        // Images — render inline
+        img: ({ src, alt }) => src ? (
+          <span className="block my-3">
+            <img
+              src={src}
+              alt={alt ?? ''}
+              className="max-w-full rounded-xl border border-[var(--color-border-secondary)] shadow-sm"
+              style={{ maxHeight: '480px', objectFit: 'contain' }}
+            />
+            {alt && <span className="mt-1 block text-[11px] text-[var(--color-text-tertiary)]">{alt}</span>}
+          </span>
+        ) : null,
+        // Tables
+        table: ({ children }) => (
+          <div className="my-3 overflow-x-auto rounded-xl border border-[var(--color-border-secondary)]">
+            <table className="min-w-full text-[13px]">{children}</table>
+          </div>
+        ),
+        thead: ({ children }) => <thead className="bg-[var(--color-background-secondary)]">{children}</thead>,
+        tbody: ({ children }) => <tbody className="divide-y divide-[var(--color-border-tertiary)]">{children}</tbody>,
+        tr: ({ children }) => <tr>{children}</tr>,
+        th: ({ children }) => <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">{children}</th>,
+        td: ({ children }) => <td className="px-3 py-2 text-[var(--color-text-primary)]">{children}</td>,
+        // Inline code
+        code: ({ children, className, node }) => {
+          const match = /language-(\w+)/.exec(className ?? '')
+          const isBlock = node?.position?.start?.line !== node?.position?.end?.line
+            || String(children).includes('\n')
+
+          if (isBlock || match) {
+            const lang = match?.[1] ?? ''
+            return (
+              <div className="group relative my-3 overflow-hidden rounded-xl border border-[var(--color-border-secondary)]">
+                {lang && (
+                  <div className="flex items-center justify-between border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-1.5">
+                    <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">{lang}</span>
+                  </div>
+                )}
+                <SyntaxHighlighter
+                  // eslint-disable-next-line
+                  style={codeStyle as any}
+                  language={lang || 'text'}
+                  PreTag="div"
+                  customStyle={{
+                    margin: 0,
+                    borderRadius: 0,
+                    fontSize: '12px',
+                    lineHeight: '1.6',
+                    background: 'transparent',
+                    padding: '12px 14px',
+                  }}
+                  codeTagProps={{ style: { fontFamily: 'var(--font-mono, ui-monospace, monospace)' } }}
+                >
+                  {String(children).replace(/\n$/, '')}
+                </SyntaxHighlighter>
+              </div>
+            )
+          }
+
+          return (
+            <code className="rounded-md bg-[var(--color-background-secondary)] border border-[var(--color-border-tertiary)] px-1.5 py-0.5 font-mono text-[12px] text-[var(--color-text-primary)]">
+              {children}
+            </code>
+          )
+        },
+        // Pre — used when code blocks are in pre tags without language class
+        pre: ({ children }) => (
+          <div className="my-3 overflow-hidden rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
+            <pre className="overflow-x-auto p-3 font-mono text-[12px] leading-[1.6] text-[var(--color-text-primary)]">
+              {children}
+            </pre>
+          </div>
+        ),
+      }}
+    >
+      {content}
+    </ReactMarkdown>
   )
 }
 
@@ -85,10 +273,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
                 autoFocus
                 onChange={(e) => setEditContent(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
-                    onEdit?.(message.id, editContent.trim())
-                    setEditing(false)
-                  }
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { onEdit?.(message.id, editContent.trim()); setEditing(false) }
                   if (e.key === 'Escape') { setEditing(false); setEditContent(message.content) }
                 }}
               />
@@ -149,11 +334,8 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
         <div className="mb-1 text-[11px] font-medium text-[var(--color-text-secondary)]">
           {message.fanout_model ?? 'Noetica'}
         </div>
-        {message.fanout_model && (
-          <div className="mb-1.5 inline-flex items-center gap-1.5 rounded-md border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)]">
-            {message.fanout_model}
-          </div>
-        )}
+
+        {/* Extended thinking */}
         {message.thinking && (
           <details className="mb-3 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)]">
             <summary className="cursor-pointer select-none px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
@@ -162,15 +344,25 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
             <p className="px-3 pb-3 pt-1 whitespace-pre-wrap text-xs leading-6 text-[var(--color-text-secondary)]">{message.thinking}</p>
           </details>
         )}
-        <p className="whitespace-pre-wrap text-[14px] leading-[1.75] text-[var(--color-text-primary)]">{message.content || ' '}</p>
 
-        {/* Action bar — shown on hover when there's content */}
+        {/* Tool calls */}
+        {message.tool_calls && message.tool_calls.length > 0 && (
+          <ToolCallList calls={message.tool_calls} results={message.tool_results} />
+        )}
+
+        {/* Main content — markdown rendered */}
+        {message.content && <MarkdownContent content={message.content} />}
+
+        {/* Streaming placeholder */}
+        {!message.content && !message.tool_calls?.length && (
+          <span className="inline-block h-4 w-4 animate-pulse rounded-sm bg-[var(--color-text-tertiary)]" />
+        )}
+
+        {/* Action bar */}
         {message.content && (
           <div className="mt-1.5 flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
-            <button
-              onClick={handleCopy}
-              className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-secondary)]"
-            >
+            <button onClick={handleCopy}
+              className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-secondary)]">
               <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden>
                 <rect x="1" y="3" width="6" height="7" rx="1" stroke="currentColor" strokeWidth="1.3"/>
                 <path d="M3.5 3V2a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1H8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
@@ -178,10 +370,8 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
               {copied ? 'Copied' : 'Copy'}
             </button>
             {onExtractArtifact && (
-              <button
-                onClick={handleExtract}
-                className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-secondary)]"
-              >
+              <button onClick={handleExtract}
+                className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-secondary)]">
                 <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden>
                   <path d="M2 9h7M5.5 1v6M3 4.5l2.5-2.5 2.5 2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
@@ -189,10 +379,8 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
               </button>
             )}
             {isLast && onRegenerate && (
-              <button
-                onClick={onRegenerate}
-                className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-secondary)]"
-              >
+              <button onClick={onRegenerate}
+                className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-secondary)]">
                 <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden>
                   <path d="M1.5 5.5A4 4 0 0 1 9 3M9.5 5.5A4 4 0 0 1 2 8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
                   <path d="M9 1.5v2h-2M2 9.5v-2h2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
@@ -201,10 +389,8 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
               </button>
             )}
             {onFork && (
-              <button
-                onClick={() => onFork(message.id)}
-                className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-secondary)]"
-              >
+              <button onClick={() => onFork(message.id)}
+                className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-secondary)]">
                 <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden>
                   <circle cx="2" cy="2.5" r="1.3" stroke="currentColor" strokeWidth="1.2"/>
                   <circle cx="9" cy="2.5" r="1.3" stroke="currentColor" strokeWidth="1.2"/>

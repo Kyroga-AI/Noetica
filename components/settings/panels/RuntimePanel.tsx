@@ -5,6 +5,15 @@ import { useSettings } from '@/lib/settings/context'
 
 type PingStatus = 'idle' | 'checking' | 'reachable' | 'unreachable'
 
+// Shape of the /api/status response from an agent machine
+type AgentMachineStatus = {
+  version?: string
+  models?: string[]
+  tools?: string[]
+  mode?: string
+  description?: string
+}
+
 function StatusDot({ status }: { status: PingStatus }) {
   const cls = {
     idle:        'bg-[#94a3b8]',
@@ -32,32 +41,40 @@ function StatusLabel({ status }: { status: PingStatus }) {
 export function RuntimePanel() {
   const { settings, update } = useSettings()
   const [amPing, setAmPing] = useState<PingStatus>('idle')
+  const [amInfo, setAmInfo] = useState<AgentMachineStatus | null>(null)
 
   const pingAgentMachine = useCallback(async () => {
     const ep = settings.agentMachineEndpoint?.trim()
-    if (!ep) { setAmPing('unreachable'); return }
+    if (!ep) { setAmPing('unreachable'); setAmInfo(null); return }
     setAmPing('checking')
+    setAmInfo(null)
     try {
       const url = ep.replace(/\/$/, '') + '/api/status'
-      const res = await fetch(url, { method: 'GET', signal: AbortSignal.timeout(3000) })
-      setAmPing(res.ok ? 'reachable' : 'unreachable')
+      const res = await fetch(url, { method: 'GET', signal: AbortSignal.timeout(4000) })
+      if (res.ok) {
+        const data = await res.json().catch(() => ({})) as AgentMachineStatus
+        setAmInfo(data)
+        setAmPing('reachable')
+      } else {
+        setAmPing('unreachable')
+      }
     } catch {
       setAmPing('unreachable')
     }
   }, [settings.agentMachineEndpoint])
 
-  // Auto-ping when endpoint changes
   useEffect(() => {
     if (settings.runtimeMode === 'agent-machine') {
       void pingAgentMachine()
     } else {
       setAmPing('idle')
+      setAmInfo(null)
     }
   }, [settings.runtimeMode, settings.agentMachineEndpoint, pingAgentMachine])
 
   const modes = [
-    { id: 'standalone',    label: 'Standalone',    description: 'Direct provider calls via local Next.js API routes.' },
-    { id: 'agent-machine', label: 'Agent Machine',  description: 'Proxy all requests through your local Agent Machine.' },
+    { id: 'standalone',    label: 'Standalone',    description: 'Direct provider calls. API keys from Settings → API Keys.' },
+    { id: 'agent-machine', label: 'Agent Machine',  description: 'Proxy all requests through a local Agent Machine service.' },
     { id: 'sourceos',      label: 'SourceOS',       description: 'Full SourceOS runtime — task ledger, replay, evidence.' },
   ] as const
 
@@ -87,10 +104,10 @@ export function RuntimePanel() {
       {/* Agent Machine endpoint */}
       <div>
         <label className="block text-sm font-semibold text-[var(--color-text-primary)]">Agent Machine endpoint</label>
-        <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Local agent-machine HTTP service. Used when mode is set to Agent Machine.</p>
+        <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">URL of the local agent-machine HTTP service.</p>
         <div className="mt-3 flex gap-2">
           <input type="url" value={settings.agentMachineEndpoint}
-            onChange={(e) => { update({ agentMachineEndpoint: e.target.value }); setAmPing('idle') }}
+            onChange={(e) => { update({ agentMachineEndpoint: e.target.value }); setAmPing('idle'); setAmInfo(null) }}
             placeholder="http://localhost:8080"
             className="flex-1 rounded-xl border border-[#bfdbfe] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8] focus:bg-[var(--color-background-primary)]" />
           <button onClick={() => void pingAgentMachine()}
@@ -99,6 +116,38 @@ export function RuntimePanel() {
           </button>
         </div>
       </div>
+
+      {/* Agent Machine capability card — shown when connected */}
+      {amPing === 'reachable' && amInfo && (
+        <div className="rounded-xl border border-[#bbf7d0] bg-[#f0fdf4] px-4 py-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <StatusDot status="reachable" />
+            <span className="text-xs font-semibold text-[#166534]">Agent Machine connected</span>
+            {amInfo.version && <span className="ml-auto font-mono text-[10px] text-[#166534]">v{amInfo.version}</span>}
+          </div>
+          {amInfo.description && <p className="text-xs text-[#15803d]">{amInfo.description}</p>}
+          {amInfo.models && amInfo.models.length > 0 && (
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-[#166534] mb-1">Available models</div>
+              <div className="flex flex-wrap gap-1">
+                {amInfo.models.map((m) => (
+                  <span key={m} className="rounded-md bg-[#dcfce7] px-2 py-0.5 font-mono text-[10px] text-[#166534]">{m}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          {amInfo.tools && amInfo.tools.length > 0 && (
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-[#166534] mb-1">Available tools</div>
+              <div className="flex flex-wrap gap-1">
+                {amInfo.tools.map((t) => (
+                  <span key={t} className="rounded-md bg-[#dcfce7] px-2 py-0.5 font-mono text-[10px] text-[#166534]">{t}</span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Live status */}
       <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
@@ -134,12 +183,13 @@ export function RuntimePanel() {
         </div>
       </div>
 
-      {/* Agent Machine info when active */}
+      {/* Agent Machine usage note */}
       {settings.runtimeMode === 'agent-machine' && (
-        <div className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 text-xs leading-5 text-[var(--color-text-secondary)] space-y-1">
-          <p className="font-semibold text-[var(--color-text-primary)]">Agent Machine mode</p>
-          <p>All chat requests are proxied to <span className="font-mono text-[#1d4ed8]">{settings.agentMachineEndpoint || 'http://localhost:8080'}/api/chat</span>. The Agent Machine handles model routing, steering, and evidence internally.</p>
-          <p className="text-[var(--color-text-secondary)]">Start the agent machine with: <span className="font-mono">sourceos agent-machine start</span></p>
+        <div className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 text-xs leading-5 text-[var(--color-text-secondary)] space-y-1.5">
+          <p className="font-semibold text-[var(--color-text-primary)]">How Agent Machine mode works</p>
+          <p>All chat requests are forwarded to <span className="font-mono text-[#1d4ed8]">{(settings.agentMachineEndpoint || 'http://localhost:8080').replace(/\/$/, '')}/api/chat</span>. The machine handles model routing, tool execution, and evidence internally.</p>
+          <p>The machine must speak the <span className="font-mono">Noetica SSE protocol</span> — streaming <code className="rounded bg-[var(--color-background-primary)] px-1">meta</code>, <code className="rounded bg-[var(--color-background-primary)] px-1">delta</code>, <code className="rounded bg-[var(--color-background-primary)] px-1">tool_calls</code>, and <code className="rounded bg-[var(--color-background-primary)] px-1">done</code> events.</p>
+          <p className="text-[var(--color-text-tertiary)]">Start with: <span className="font-mono">sourceos agent-machine start</span></p>
         </div>
       )}
     </div>

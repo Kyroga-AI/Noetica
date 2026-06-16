@@ -34,12 +34,13 @@ import { useArtifacts } from '@/lib/artifacts/useArtifacts'
 import { useMcp } from '@/lib/mcp/useMcp'
 import { useSettings } from '@/lib/settings/context'
 import { useVoice } from '@/lib/voice/useVoice'
+import { useMemory } from '@/lib/memory/useMemory'
 import { RightSidebar } from '@/components/shell/RightSidebar'
 import { UtilityRail, type UtilityPanelId } from '@/components/rail/UtilityRail'
 import { RuntimeStatus } from '@/components/status/RuntimeStatus'
 import type { PendingAttachment } from '@/lib/types/attachment'
 import type { McpTool } from '@/lib/types/mcp'
-import type { ChatMessage } from '@/lib/types/message'
+import type { ChatMessage, ToolCallRecord, ToolResultRecord } from '@/lib/types/message'
 import type { SteeringConfig } from '@/lib/types/steering'
 import type { NoeticaMode } from '@/lib/client/noeticaTransport'
 import type { ActiveSurface } from '@/lib/types/surface'
@@ -107,6 +108,9 @@ export function AppShell() {
 
   // ── MCP ───────────────────────────────────────────────────────────────────
   const { tools: mcpTools } = useMcp()
+
+  // ── Memory ────────────────────────────────────────────────────────────────
+  const { memoryContext, remember } = useMemory()
 
   // ── Artifacts ─────────────────────────────────────────────────────────────
   const { createArtifact } = useArtifacts()
@@ -242,6 +246,17 @@ export function AppShell() {
     setWorkspaceMode(s.workspaceMode)
     setMessages(s.messages.length > 0 ? s.messages : initialMessages)
     setModelId(s.modelId)
+  }
+
+  function buildEffectiveSystemPrompt(
+    userSystemPrompt: string,
+    memCtx: string | null,
+    memScope: string
+  ): string | undefined {
+    const parts: string[] = []
+    if (memCtx && memScope !== 'disabled') parts.push(memCtx)
+    if (userSystemPrompt.trim()) parts.push(userSystemPrompt.trim())
+    return parts.length > 0 ? parts.join('\n\n') : undefined
   }
 
   function buildBuiltinTools(s: typeof settings): ProviderTool[] {
@@ -483,7 +498,7 @@ export function AppShell() {
             provider_keys: providerKeys,
             agent_machine_endpoint: agentMachineEndpoint,
             tools: tools?.length ? tools : undefined,
-            system_prompt: systemPrompt || undefined,
+            system_prompt: buildEffectiveSystemPrompt(systemPrompt, memoryContext, settings.memoryScope),
           },
           {
             onMeta: (governance) => updateAssistant(assistantId, { governance }),
@@ -528,37 +543,54 @@ export function AppShell() {
         const activeCalls = pendingToolCalls as ToolUseBlock[] | undefined
         if (!activeCalls?.length || abort.signal.aborted) break
 
-        // Execute tool calls and append results to conversation
+        // Execute all tool calls
         const toolResults = await executeToolCalls(activeCalls, providerKeys)
-        const toolNames = activeCalls.map((c) => c.name).join(', ')
 
-        // Append assistant message (with tool_use indication) + tool results as user message
+        // Store tool calls and results on the visible assistant message for display
+        updateAssistant(assistantId, {
+          tool_calls: activeCalls.map((c): ToolCallRecord => ({ id: c.id, name: c.name, input: c.input })),
+          tool_results: toolResults.map((r): ToolResultRecord => ({ id: r.id, name: r.name, result: r.result })),
+        })
+
+        // Build conversation messages for the follow-up request
+        // Assistant turn: content + tool_use markers (Anthropic-style)
         const assistantToolMsg: ChatMessage = {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: `[Calling tools: ${toolNames}]`,
+          content: activeCalls.map((c) => `[tool_use:${c.name}]`).join(' '),
           created_at: new Date().toISOString(),
+          tool_calls: activeCalls.map((c): ToolCallRecord => ({ id: c.id, name: c.name, input: c.input })),
         }
+        // User turn: tool results
         const toolResultMsg: ChatMessage = {
           id: crypto.randomUUID(),
           role: 'user',
-          content: toolResults.map((r) => `**${r.name}** result:\n${r.result}`).join('\n\n'),
+          content: toolResults.map((r) => `[tool_result:${r.name}]\n${r.result}`).join('\n\n'),
           created_at: new Date().toISOString(),
+          tool_results: toolResults.map((r): ToolResultRecord => ({ id: r.id, name: r.name, result: r.result })),
         }
         conversationMessages = [...conversationMessages, assistantToolMsg, toolResultMsg]
-
-        // Show tool activity in the assistant message
-        appendAssistantContent(assistantId, `\n\n*[Executed tools: ${toolNames}]*\n\n`)
       }
     } finally {
       abortControllerRef.current = null
       setIsStreaming(false)
       setMessages((current) => {
+        const last = [...current].reverse().find((m: ChatMessage) => m.role === 'assistant')
+
         // TTS: read final assistant message aloud when voice was active
-        if (voiceState !== 'idle') {
-          const last = [...current].reverse().find((m: ChatMessage) => m.role === 'assistant')
-          if (last?.content) speak(last.content.replace(/\[.*?\]/g, '').trim())
+        if (voiceState !== 'idle' && last?.content) {
+          speak(last.content.replace(/\[.*?\]/g, '').trim())
         }
+
+        // Auto-memory: extract [REMEMBER: ...] markers from the response
+        if (last?.content && settings.memoryScope !== 'disabled') {
+          const markerRe = /\[REMEMBER:\s*(.+?)\]/gi
+          let m: RegExpExecArray | null
+          while ((m = markerRe.exec(last.content)) !== null) {
+            if (m[1]) remember(m[1].trim(), { sessionId: activeSession?.id, source: 'auto' })
+          }
+        }
+
         updateMessages(current)
         return current
       })
@@ -604,7 +636,8 @@ export function AppShell() {
           })
           const data = await res.json() as { url?: string; revised_prompt?: string; error?: string }
           if (data.error) return { id: call.id, name: call.name, result: `Error: ${data.error}` }
-          return { id: call.id, name: call.name, result: `Image generated: ${data.url}\n${data.revised_prompt ? `Revised prompt: ${data.revised_prompt}` : ''}` }
+          const caption = data.revised_prompt ? `\n*${data.revised_prompt}*` : ''
+          return { id: call.id, name: call.name, result: `![Generated image](${data.url})${caption}` }
         }
 
         // MCP tools

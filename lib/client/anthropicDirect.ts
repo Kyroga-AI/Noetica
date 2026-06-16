@@ -122,7 +122,8 @@ export async function executeBuiltinToolDirect(
     const prompt = (input.prompt as string | undefined) ?? ''
     if (!keys.openai) return 'Error: OpenAI API key required for image generation.'
     const img = await generateImage(prompt, keys.openai)
-    return `Image generated: ${img.url}${img.revised_prompt ? `\nRevised prompt: ${img.revised_prompt}` : ''}`
+    const caption = img.revised_prompt ? `\n*${img.revised_prompt}*` : ''
+    return `![Generated image](${img.url})${caption}`
   }
 
   return `Unknown built-in tool: ${toolName}`
