@@ -42,6 +42,7 @@ export const defaultSettings: NoeticaSettings = {
   oauthSlackClientId: '',
   oauthLinearClientId: '',
   oauthNotionClientId: '',
+  oauthNotionClientSecret: '',
 
   matrixHomeserver: 'https://matrix.org',
 

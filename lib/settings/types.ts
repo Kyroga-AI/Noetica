@@ -54,6 +54,7 @@ export interface NoeticaSettings {
   oauthSlackClientId: string
   oauthLinearClientId: string
   oauthNotionClientId: string
+  oauthNotionClientSecret: string
 
   // Matrix homeserver
   matrixHomeserver: string

@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNotes } from '@/lib/notes/useNotes'
 import { useSettings } from '@/lib/settings/context'
+import { useConnectorAuth } from '@/lib/auth/context'
+import { fetchNotionPages, fetchNotionPageContent, type NotionPage } from '@/lib/auth/providers/notion'
 import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
 import type { Note } from '@/lib/types/note'
 import type { ChatMessage } from '@/lib/types/message'
@@ -312,6 +314,44 @@ function NoteChat({ note, onAppendMessages }: {
   )
 }
 
+// ─── Notion page view ─────────────────────────────────────────────────────────
+
+function NotionPageView({ page, token }: { page: NotionPage; token: string }) {
+  const [content, setContent] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    setLoading(true)
+    setContent(null)
+    setError('')
+    fetchNotionPageContent(token, page.id)
+      .then((md) => setContent(md))
+      .catch((err: unknown) => setError(err instanceof Error ? err.message : 'Failed to load page'))
+      .finally(() => setLoading(false))
+  }, [page.id, token])
+
+  return (
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-8 py-6">
+      <div className="mb-4 flex items-center gap-3">
+        {page.icon && <span className="text-2xl">{page.icon}</span>}
+        <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">{page.title}</h1>
+        <a href={page.url} target="_blank" rel="noopener noreferrer"
+          className="ml-auto shrink-0 rounded-lg border border-[var(--color-border-secondary)] px-2.5 py-1 text-xs text-[var(--color-text-secondary)] transition hover:border-[#000] hover:text-[var(--color-text-primary)]">
+          Open in Notion ↗
+        </a>
+      </div>
+      {loading && <p className="text-xs text-[var(--color-text-tertiary)]">Loading…</p>}
+      {error && <p className="text-xs text-[#dc2626]">{error}</p>}
+      {content !== null && (
+        <div className="whitespace-pre-wrap text-sm leading-7 text-[var(--color-text-primary)]">
+          {content || <span className="text-[var(--color-text-tertiary)]">Empty page</span>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Empty state ──────────────────────────────────────────────────────────────
 
 function EmptyState({ onCreate }: { onCreate: () => void }) {
@@ -333,13 +373,34 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
 
 // ─── Main surface ─────────────────────────────────────────────────────────────
 
+type ActiveView =
+  | { kind: 'note'; id: string }
+  | { kind: 'notion'; page: NotionPage }
+
 export function NotesSurface() {
   const { hydrated, notes, createNote, updateNote, deleteNote, appendMessages, pinNote } = useNotes()
-  const [activeId, setActiveId] = useState<string | null>(null)
+  const { store } = useConnectorAuth()
+  const [activeView, setActiveView] = useState<ActiveView | null>(null)
   const [search, setSearch] = useState('')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
+  const [notionPages, setNotionPages] = useState<NotionPage[]>([])
+  const [notionLoading, setNotionLoading] = useState(false)
+  const [notionExpanded, setNotionExpanded] = useState(true)
 
-  const activeNote = notes.find((n) => n.id === activeId) ?? null
+  const notionAuth = store.notion
+  const notionToken = notionAuth?.status === 'connected' ? notionAuth.accessToken : null
+
+  useEffect(() => {
+    if (!notionToken) { setNotionPages([]); return }
+    setNotionLoading(true)
+    fetchNotionPages(notionToken)
+      .then(setNotionPages)
+      .catch(() => setNotionPages([]))
+      .finally(() => setNotionLoading(false))
+  }, [notionToken])
+
+  const activeNoteId = activeView?.kind === 'note' ? activeView.id : null
+  const activeNote = notes.find((n) => n.id === activeNoteId) ?? null
 
   const filtered = search.trim()
     ? notes.filter((n) =>
@@ -351,28 +412,28 @@ export function NotesSurface() {
 
   function handleCreate() {
     const note = createNote()
-    setActiveId(note.id)
+    setActiveView({ kind: 'note', id: note.id })
   }
 
   function handleUpdate(patch: Partial<Note>) {
-    if (!activeId) return
-    updateNote(activeId, patch)
+    if (!activeNoteId) return
+    updateNote(activeNoteId, patch)
   }
 
   function handleDelete(id: string) {
     deleteNote(id)
-    if (activeId === id) setActiveId(null)
+    if (activeView?.kind === 'note' && activeView.id === id) setActiveView(null)
     setShowDeleteConfirm(null)
   }
 
   const handleAppendMessages = useCallback((msgs: ChatMessage[]) => {
-    if (!activeId) return
-    appendMessages(activeId, msgs)
-  }, [activeId, appendMessages])
+    if (!activeNoteId) return
+    appendMessages(activeNoteId, msgs)
+  }, [activeNoteId, appendMessages])
 
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden">
-      {/* ── Note list ── */}
+      {/* ── Sidebar ── */}
       <aside className="flex w-56 shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[#eaf1f8]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-3 py-3">
@@ -398,8 +459,8 @@ export function NotesSurface() {
           />
         </div>
 
-        {/* List */}
-        <div className="flex-1 overflow-y-auto px-2 py-1 space-y-0.5">
+        {/* Local notes list */}
+        <div className="overflow-y-auto px-2 py-1 space-y-0.5" style={{ flex: notionToken ? '0 0 auto' : '1 1 auto', maxHeight: notionToken ? '45%' : undefined }}>
           {!hydrated && <p className="px-2 py-4 text-center text-xs text-[var(--color-text-tertiary)]">Loading…</p>}
           {hydrated && filtered.length === 0 && (
             <p className="px-2 py-4 text-center text-xs text-[var(--color-text-tertiary)]">
@@ -410,8 +471,8 @@ export function NotesSurface() {
             <div key={note.id} className="group relative">
               <NoteListItem
                 note={note}
-                active={activeId === note.id}
-                onClick={() => setActiveId(note.id)}
+                active={activeView?.kind === 'note' && activeView.id === note.id}
+                onClick={() => setActiveView({ kind: 'note', id: note.id })}
               />
               {/* Hover actions */}
               <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition">
@@ -454,20 +515,63 @@ export function NotesSurface() {
           ))}
         </div>
 
+        {/* Notion section */}
+        {notionToken && (
+          <div className="flex min-h-0 flex-1 flex-col border-t border-[var(--color-border-secondary)]">
+            <button
+              onClick={() => setNotionExpanded((v) => !v)}
+              className="flex items-center gap-1.5 px-3 py-2 text-left"
+            >
+              <span className="text-[9px] text-[var(--color-text-tertiary)] transition-transform" style={{ display: 'inline-block', transform: notionExpanded ? 'rotate(90deg)' : 'none' }}>▶</span>
+              <span className="flex h-4 w-4 items-center justify-center rounded bg-[#000] text-[8px] font-bold text-white">N</span>
+              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]">Notion</span>
+              {notionLoading && <span className="ml-auto text-[10px] text-[var(--color-text-tertiary)]">…</span>}
+              {!notionLoading && notionPages.length > 0 && (
+                <span className="ml-auto text-[10px] text-[var(--color-text-tertiary)]">{notionPages.length}</span>
+              )}
+            </button>
+            {notionExpanded && (
+              <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
+                {notionPages.length === 0 && !notionLoading && (
+                  <p className="px-2 py-2 text-center text-[11px] text-[var(--color-text-tertiary)]">No pages found</p>
+                )}
+                {notionPages.map((page) => {
+                  const active = activeView?.kind === 'notion' && activeView.page.id === page.id
+                  return (
+                    <button
+                      key={page.id}
+                      onClick={() => setActiveView({ kind: 'notion', page })}
+                      className={`flex w-full items-start gap-1.5 rounded-xl px-2.5 py-2 text-left transition ${active ? 'bg-[#f0fdf4]' : 'hover:bg-[var(--color-background-tertiary)]'}`}
+                    >
+                      <span className="mt-0.5 shrink-0 text-sm">{page.icon ?? '📄'}</span>
+                      <div className="min-w-0">
+                        <p className={`truncate text-xs font-medium ${active ? 'text-[#15803d]' : 'text-[var(--color-text-primary)]'}`}>{page.title}</p>
+                        <p className="text-[10px] text-[#cbd5e1]">{timeAgo(page.lastEdited)}</p>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Footer count */}
-        {hydrated && notes.length > 0 && (
+        {hydrated && notes.length > 0 && !notionToken && (
           <div className="border-t border-[var(--color-border-secondary)] px-3 py-2 text-[10px] text-[var(--color-text-tertiary)]">
             {notes.length} note{notes.length !== 1 ? 's' : ''}
           </div>
         )}
       </aside>
 
-      {/* ── Editor + Chat ── */}
-      {activeNote ? (
+      {/* ── Main area ── */}
+      {activeView?.kind === 'note' && activeNote ? (
         <>
           <NoteEditor note={activeNote} onUpdate={handleUpdate} />
           <NoteChat note={activeNote} onAppendMessages={handleAppendMessages} />
         </>
+      ) : activeView?.kind === 'notion' && notionToken ? (
+        <NotionPageView page={activeView.page} token={notionToken} />
       ) : (
         <EmptyState onCreate={handleCreate} />
       )}

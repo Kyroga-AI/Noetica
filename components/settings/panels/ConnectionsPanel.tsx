@@ -8,6 +8,7 @@ import { initiateGoogleOAuth, exchangeGoogleCode } from '@/lib/auth/providers/go
 import { initiateGithubOAuth, exchangeGithubCode } from '@/lib/auth/providers/github'
 import { initiateSlackOAuth, exchangeSlackCode } from '@/lib/auth/providers/slack'
 import { initiateLinearOAuth, exchangeLinearCode } from '@/lib/auth/providers/linear'
+import { initiateNotionOAuth, exchangeNotionCode } from '@/lib/auth/providers/notion'
 import { loginMatrix, logoutMatrix } from '@/lib/auth/providers/matrix'
 
 function getRedirectUri() {
@@ -323,19 +324,125 @@ function MatrixLoginRow() {
   )
 }
 
+function NotionOAuthRow() {
+  const { settings, update } = useSettings()
+  const { store, setAuth, clearAuth } = useConnectorAuth()
+  const [editingKeys, setEditingKeys] = useState(false)
+  const [idDraft, setIdDraft] = useState('')
+  const [secretDraft, setSecretDraft] = useState('')
+  const [error, setError] = useState('')
+
+  const clientId = settings.oauthNotionClientId ?? ''
+  const clientSecret = settings.oauthNotionClientSecret ?? ''
+  const auth = store.notion
+  const status = auth?.status ?? 'disconnected'
+
+  useEffect(() => {
+    function handleMessage(event: MessageEvent) {
+      if (event.origin !== window.location.origin) return
+      const { type, code, error: cbError } = event.data as { type?: string; code?: string; error?: string }
+      if (type !== 'oauth_callback') return
+      if (cbError) { setAuth('notion', { status: 'error', error: cbError }); return }
+      if (!code) return
+      setAuth('notion', { status: 'connecting' })
+      exchangeNotionCode(code, clientId, getRedirectUri(), clientSecret)
+        .then((s) => { setAuth('notion', s); setError('') })
+        .catch((err: unknown) => {
+          const msg = err instanceof Error ? err.message : 'Connection failed'
+          setAuth('notion', { status: 'error', error: msg })
+          setError(msg)
+        })
+    }
+    window.addEventListener('message', handleMessage)
+    return () => window.removeEventListener('message', handleMessage)
+  }, [clientId, clientSecret, setAuth])
+
+  function connect() {
+    if (!clientId || !clientSecret) { setEditingKeys(true); return }
+    setError('')
+    setAuth('notion', { status: 'connecting' })
+    initiateNotionOAuth(clientId, getRedirectUri()).catch((err: unknown) => {
+      setAuth('notion', { status: 'error', error: err instanceof Error ? err.message : 'Failed' })
+    })
+  }
+
+  function saveKeys() {
+    update({ oauthNotionClientId: idDraft.trim(), oauthNotionClientSecret: secretDraft.trim() } as Record<string, string>)
+    setEditingKeys(false)
+  }
+
+  return (
+    <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] overflow-hidden">
+      <div className="flex items-start gap-3 px-4 py-3">
+        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#000000] text-[10px] font-bold text-white">N</div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-[var(--color-text-primary)]">Notion</span>
+            <StatusChip status={status} />
+          </div>
+          <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Read pages and databases from your workspace.</p>
+          {auth?.userInfo?.name && (
+            <p className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">
+              {auth.userInfo.name}{auth.userInfo.email ? ` (${auth.userInfo.email})` : ''}
+            </p>
+          )}
+          {auth?.status === 'error' && auth.error && (
+            <p className="mt-1 text-[11px] text-[#dc2626]">{auth.error}</p>
+          )}
+        </div>
+        <div className="shrink-0">
+          {status === 'connected'
+            ? <button onClick={() => clearAuth('notion')} className="rounded-lg border border-[var(--color-border-secondary)] px-2.5 py-1 text-xs font-medium text-[var(--color-text-secondary)] transition hover:border-[#fecaca] hover:text-[#dc2626]">Disconnect</button>
+            : <button onClick={connect} disabled={status === 'connecting'} className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2.5 py-1 text-xs font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe] disabled:opacity-50">
+                {status === 'connecting' ? 'Connecting…' : 'Connect'}
+              </button>}
+        </div>
+      </div>
+
+      <div className="border-t border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-2.5">
+        {editingKeys ? (
+          <div className="space-y-2">
+            <input autoFocus value={idDraft} onChange={(e) => setIdDraft(e.target.value)} placeholder="OAuth Client ID…"
+              className="w-full rounded-lg border border-[#bfdbfe] bg-[var(--color-background-primary)] px-2.5 py-1.5 font-mono text-xs outline-none focus:border-[#1d4ed8]" />
+            <input type="password" value={secretDraft} onChange={(e) => setSecretDraft(e.target.value)} placeholder="OAuth Client Secret…"
+              className="w-full rounded-lg border border-[#bfdbfe] bg-[var(--color-background-primary)] px-2.5 py-1.5 font-mono text-xs outline-none focus:border-[#1d4ed8]"
+              onKeyDown={(e) => { if (e.key === 'Enter') saveKeys() }} />
+            <div className="flex gap-2">
+              <button onClick={saveKeys} className="rounded-lg bg-[#1d4ed8] px-2.5 py-1.5 text-xs font-semibold text-white">Save</button>
+              <button onClick={() => setEditingKeys(false)} className="rounded-lg border border-[var(--color-border-secondary)] px-2.5 py-1.5 text-xs text-[var(--color-text-secondary)]">Cancel</button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-2">
+            <span className="font-mono text-[11px] text-[var(--color-text-tertiary)]">
+              {clientId ? `Client ID: ${clientId.slice(0, 14)}… · secret set` : 'No credentials configured'}
+            </span>
+            <button onClick={() => { setIdDraft(clientId); setSecretDraft(clientSecret); setEditingKeys(true) }}
+              className="text-[11px] text-[#1d4ed8] transition hover:underline">
+              {clientId ? 'Edit' : 'Add credentials'}
+            </button>
+          </div>
+        )}
+        {error && <p className="mt-1 text-[11px] text-[#dc2626]">{error}</p>}
+      </div>
+    </div>
+  )
+}
+
 export function ConnectionsPanel() {
   return (
     <div className="space-y-5">
       <div>
         <p className="text-xs text-[var(--color-text-secondary)]">
-          Connect external accounts to populate the Mail, Calendar, and Matrix rail panels.
-          OAuth client IDs come from your own registered apps — credentials stay on your machine.
+          Connect external accounts to populate the Mail, Calendar, Notes, and Matrix rail panels.
+          Credentials stay on your machine and are never transmitted to third parties.
         </p>
       </div>
 
       <div className="space-y-3">
         <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">OAuth providers</div>
         {OAUTH_PROVIDERS.map((p) => <OAuthProviderRow key={p.id} provider={p} />)}
+        <NotionOAuthRow />
       </div>
 
       <div className="space-y-3">
@@ -345,7 +452,7 @@ export function ConnectionsPanel() {
 
       <div className="rounded-xl border border-[#fef9c3] bg-[#fefce8] px-4 py-3 text-xs leading-5 text-[#854d0e]">
         <p className="font-semibold">How to get a client ID</p>
-        <p className="mt-1">Register an OAuth app with each provider, set the redirect URI to <code className="font-mono">{typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/oauth/callback</code>, and paste the client ID above. No client secret is stored or required.</p>
+        <p className="mt-1">Register an OAuth app with each provider, set the redirect URI to <code className="font-mono">{typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/oauth/callback</code>, and paste the credentials above. Notion requires a client secret; all other providers use PKCE and need only a client ID.</p>
       </div>
     </div>
   )
