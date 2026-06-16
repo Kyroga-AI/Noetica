@@ -1,0 +1,13 @@
+# HellGraph OpenCog sidecar — HTTP service deps.
+fastapi>=0.110
+uvicorn[standard]>=0.29
+pydantic>=2.0
+rdflib>=6.3
+pyshacl>=0.25
+
+# The OpenCog stack itself is NOT pip-installable as a simple wheel on all
+# platforms. Install it via one of:
+#   • conda:   conda install -c opencog atomspace cogutil opencog
+#   • source:  https://github.com/opencog/atomspace  (build cogutil → atomspace → ure → pln → attention)
+#   • docker:  opencog/opencog-deps  base image
+# The sidecar detects availability at runtime and degrades gracefully when absent.

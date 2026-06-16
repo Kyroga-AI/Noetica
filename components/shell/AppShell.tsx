@@ -7,6 +7,8 @@ import { MessageList } from '@/components/chat/MessageList'
 import { InputArea, type WorkspaceMode } from '@/components/chat/InputArea'
 import { SteeringPanel } from '@/components/steering/SteeringPanel'
 import { NotesSurface } from '@/components/surfaces/NotesSurface'
+import { CanvasSurface } from '@/components/surfaces/CanvasSurface'
+import { ComputerUseSurface } from '@/components/surfaces/ComputerUseSurface'
 import { WorkroomsSurface } from '@/components/surfaces/WorkroomsSurface'
 import { CoworkSurface } from '@/components/surfaces/CoworkSurface'
 import { CodeSurface } from '@/components/surfaces/CodeSurface'
@@ -14,6 +16,7 @@ import { EvaluateSurface } from '@/components/surfaces/EvaluateSurface'
 import { GovernSurface } from '@/components/surfaces/GovernSurface'
 import { ProjectsSurface } from '@/components/surfaces/ProjectsSurface'
 import { ArtifactsSurface } from '@/components/surfaces/ArtifactsSurface'
+import { ArtifactPane } from '@/components/artifacts/ArtifactPane'
 import { OperateSurface } from '@/components/surfaces/OperateSurface'
 import { TuneSurface } from '@/components/surfaces/TuneSurface'
 import { CoworkPanel } from '@/components/panels/CoworkPanel'
@@ -22,6 +25,7 @@ import { EvaluatePanel } from '@/components/panels/EvaluatePanel'
 import { GovernPanel } from '@/components/panels/GovernPanel'
 import { SettingsModal } from '@/components/settings/SettingsModal'
 import { ProviderSetupModal } from '@/components/shell/ProviderSetupModal'
+import { ModelSetupModal } from '@/components/shell/ModelSetupModal'
 import { CommandPalette } from '@/components/palette/CommandPalette'
 import { models, defaultModelId } from '@/config/models'
 import { initialMessages } from '@/lib/chat/mockConversation'
@@ -31,16 +35,21 @@ import { listenTauri, isTauri } from '@/lib/tauri/bridge'
 import { executeBuiltinToolDirect } from '@/lib/client/anthropicDirect'
 import { useSession } from '@/lib/session/useSession'
 import { useArtifacts } from '@/lib/artifacts/useArtifacts'
+import { useProjects } from '@/lib/projects/useProjects'
+import { ProjectsPanel } from '@/components/projects/ProjectsPanel'
 import { useMcp } from '@/lib/mcp/useMcp'
 import { useSettings } from '@/lib/settings/context'
 import { useVoice } from '@/lib/voice/useVoice'
 import { useMemory } from '@/lib/memory/useMemory'
+import { buildMemoryContext } from '@/lib/memory/manager'
+import { appendLedgerEntry } from '@/lib/evidence/ledger-store'
 import { RightSidebar } from '@/components/shell/RightSidebar'
 import { UtilityRail, type UtilityPanelId } from '@/components/rail/UtilityRail'
 import { RuntimeStatus } from '@/components/status/RuntimeStatus'
 import type { PendingAttachment } from '@/lib/types/attachment'
 import type { McpTool } from '@/lib/types/mcp'
 import type { ChatMessage, ToolCallRecord, ToolResultRecord } from '@/lib/types/message'
+import type { Artifact } from '@/lib/types/artifact'
 import type { SteeringConfig } from '@/lib/types/steering'
 import type { NoeticaMode } from '@/lib/client/noeticaTransport'
 import type { ActiveSurface } from '@/lib/types/surface'
@@ -49,11 +58,12 @@ import type { GovernanceTrace } from '@/lib/types/governance'
 import type { ProviderTool, ToolUseBlock } from '@/lib/providers'
 import { mcpManager } from '@/lib/mcp/client'
 
-const SURFACE_ORDER: ActiveSurface[] = ['chat', 'notes', 'workrooms', 'cowork', 'projects', 'artifacts', 'code', 'evaluate', 'operate']
+const SURFACE_ORDER: ActiveSurface[] = ['chat', 'notes', 'canvas', 'workrooms', 'cowork', 'projects', 'artifacts', 'code', 'evaluate', 'operate', 'computer']
 
 const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
   chat:         'Chat',
   notes:        'Chat',
+  canvas:       'Chat',
   workrooms:    'Cowork',
   cowork:       'Cowork',
   projects:     'Cowork',
@@ -65,6 +75,7 @@ const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
   tune:         'Chat',
   holographme:  'Chat',
   marketplace:  'Chat',
+  computer:     'Chat',
 }
 
 export function AppShell() {
@@ -104,36 +115,50 @@ export function AppShell() {
   }, [hydrated])
 
   // ── Settings (provider keys, runtime mode) ───────────────────────────────
-  const { settings } = useSettings()
+  const { settings, update: updateSettings } = useSettings()
 
   // ── MCP ───────────────────────────────────────────────────────────────────
   const { tools: mcpTools } = useMcp()
 
+  // ── Projects ──────────────────────────────────────────────────────────────
+  const { activeProject } = useProjects()
+
   // ── Memory ────────────────────────────────────────────────────────────────
-  const { memoryContext, remember } = useMemory()
+  const { memoryContext, remember, search: searchMemory, entries: memoryEntries, purgeExpired, hydrated: memoryHydrated } = useMemory()
 
   // ── Artifacts ─────────────────────────────────────────────────────────────
-  const { createArtifact } = useArtifacts()
+  const { createArtifact, updateArtifact, deleteArtifact } = useArtifacts()
+  const [activeArtifact, setActiveArtifact] = useState<Artifact | null>(null)
 
   function handleExtractArtifact(content: string, messageId: string) {
-    // Auto-detect type: HTML if starts with <, code block if has ``` fence, else document
     const trimmed = content.trim()
     const isHtml = trimmed.startsWith('<') && trimmed.includes('</')
     const codeMatch = trimmed.match(/^```(\w+)?\n([\s\S]+?)```/)
+    let artifact: Artifact
     if (isHtml) {
-      createArtifact({ type: 'html', title: 'HTML artifact', content: trimmed, messageId })
+      artifact = createArtifact({ type: 'html', title: 'HTML artifact', content: trimmed, messageId })
     } else if (codeMatch) {
       const lang = codeMatch[1] ?? 'other'
-      createArtifact({ type: 'code', title: `Code — ${lang}`, language: lang, content: codeMatch[2], messageId })
+      artifact = createArtifact({ type: 'code', title: `Code — ${lang}`, language: lang, content: codeMatch[2], messageId })
     } else {
-      createArtifact({ type: 'document', title: content.slice(0, 50).trim() || 'Document', content: trimmed, messageId })
+      artifact = createArtifact({ type: 'document', title: content.slice(0, 50).trim() || 'Document', content: trimmed, messageId })
     }
+    // Auto-open the artifact panel in the chat view
+    setActiveArtifact(artifact)
+  }
+
+  function handleOpenArtifact(artifact: Artifact) {
+    setActiveArtifact(artifact)
+    // Switch to chat surface so the panel is visible
+    if (activeSurface !== 'chat') handleSurfaceChange('chat')
   }
 
   // ── Shell state ────────────────────────────────────────────────────────────
   const [mode, setMode] = useState<NoeticaMode>('standalone')
   const [steering, setSteering] = useState<SteeringConfig | undefined>()
   const [thinkingBudget, setThinkingBudget] = useState<number | undefined>()
+  const [temperature, setTemperature] = useState<number | undefined>()
+  const [maxTokens, setMaxTokens] = useState<number | undefined>()
   const [systemPrompt, setSystemPrompt] = useState<string>('')
   const [isStreaming, setIsStreaming] = useState(false)
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -145,13 +170,30 @@ export function AppShell() {
   const [settingsCategory, setSettingsCategory] = useState('appearance')
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [providerSetupOpen, setProviderSetupOpen] = useState(false)
+  const [modelSetupOpen, setModelSetupOpen] = useState(false)
+  const [rawEventLog, setRawEventLog] = useState<Array<{ ts: string; kind: string; payload: unknown }>>([])
+  const rawEventLogRef = useRef(rawEventLog)
+  rawEventLogRef.current = rawEventLog
 
-  // Show provider setup on first load when no keys configured
+  // Show provider setup on first load when no keys configured AND not in local-first mode
   useEffect(() => {
     if (settings.anthropicApiKey || settings.openaiApiKey) return
+    if (settings.runtimeMode === 'agent-machine' && settings.agentMachineEndpoint) return
     const dismissed = sessionStorage.getItem('noetica-provider-setup-dismissed')
     if (!dismissed) setProviderSetupOpen(true)
-  }, [settings.anthropicApiKey, settings.openaiApiKey])
+  }, [settings.anthropicApiKey, settings.openaiApiKey, settings.runtimeMode, settings.agentMachineEndpoint])
+
+  // Show model setup when agent machine connects and models haven't been pulled yet
+  useEffect(() => {
+    if (!settings.agentMachineEndpoint) return
+    const dismissed = localStorage.getItem('noetica-model-setup-dismissed')
+    if (dismissed) return
+    void fetch(`${settings.agentMachineEndpoint}/api/models`)
+      .then((r) => r.ok ? r.json() as Promise<{ allPulled: boolean }> : null)
+      .then((data) => { if (data && !data.allPulled) setModelSetupOpen(true) })
+      .catch(() => { /* agent machine not running yet */ })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.agentMachineEndpoint])
 
   const activeModel = useMemo(
     () => models.find((m) => m.id === modelId) ?? models[0],
@@ -163,6 +205,37 @@ export function AppShell() {
     [messages]
   )
   const fanoutModelCount = Math.min(settings.fanoutModels.length, settings.fanoutConcurrency)
+
+  function exportConversation() {
+    const lines: string[] = []
+    const now = new Date().toISOString().slice(0, 10)
+    lines.push(`# Noetica Conversation — ${now}`)
+    lines.push(`Model: ${modelId}`)
+    lines.push('')
+    for (const msg of messages) {
+      if (msg.role === 'system') continue
+      const role = msg.role === 'user' ? '**You**' : '**Noetica**'
+      lines.push(`${role}`)
+      if (msg.thinking) {
+        lines.push(`<details><summary>Extended thinking</summary>\n\n${msg.thinking}\n\n</details>`)
+      }
+      lines.push(msg.content)
+      if (msg.governance?.latency_ms) {
+        const toks = msg.governance.input_tokens || msg.governance.output_tokens
+          ? ` · ${msg.governance.input_tokens ?? '–'} in / ${msg.governance.output_tokens ?? '–'} out`
+          : ''
+        lines.push(`*${(msg.governance.latency_ms / 1000).toFixed(1)}s${toks}*`)
+      }
+      lines.push('')
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/markdown' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `noetica-conversation-${now}.md`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   const { state: voiceState, startListening, stopListening, speak, stopSpeaking } = useVoice((transcript) => {
     void handleSendRaw(transcript, [], messages)
@@ -184,11 +257,45 @@ export function AppShell() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // ── Agent Machine auto-connect ────────────────────────────────────────────
+  // In Tauri: listen for the sidecar started event.
+  // In browser: probe the default port on startup so dev mode just works.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined
+    listenTauri('noetica:am:started', (payload) => {
+      const { url } = payload as { url: string }
+      updateSettings({ agentMachineEndpoint: url, runtimeMode: 'agent-machine' })
+    }).then((fn) => { unlisten = fn })
+
+    // Browser probe — only if not already configured
+    if (!settings.agentMachineEndpoint) {
+      const AM_DEFAULT = 'http://127.0.0.1:8080'
+      void fetch(`${AM_DEFAULT}/api/status`, { signal: AbortSignal.timeout(2_000) })
+        .then((r) => r.ok ? r.json() as Promise<{ version: string }> : null)
+        .then((data) => {
+          if (data?.version) {
+            updateSettings({ agentMachineEndpoint: AM_DEFAULT, runtimeMode: 'agent-machine' })
+          }
+        })
+        .catch(() => { /* not running — stay in browser-fallback */ })
+    }
+
+    return () => unlisten?.()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   // ── Apply appearance settings to document ─────────────────────────────────
   useEffect(() => {
     const sizes: Record<string, string> = { sm: 'sm', md: 'md', lg: 'lg' }
     document.documentElement.setAttribute('data-font-size', sizes[settings.fontSize] ?? 'md')
   }, [settings.fontSize])
+
+  // Enforce memory retention policy after hydration
+  useEffect(() => {
+    if (memoryHydrated && settings.memoryRetentionDays > 0) {
+      purgeExpired(settings.memoryRetentionDays)
+    }
+  }, [memoryHydrated, settings.memoryRetentionDays, purgeExpired])
 
   // ── Keyboard shortcuts ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -255,6 +362,9 @@ export function AppShell() {
   ): string | undefined {
     const parts: string[] = []
     if (memCtx && memScope !== 'disabled') parts.push(memCtx)
+    // Active project system prompt takes precedence over the manual system prompt field
+    const projectPrompt = activeProject?.systemPrompt?.trim()
+    if (projectPrompt) parts.push(`## Project: ${activeProject!.title}\n${projectPrompt}`)
     if (userSystemPrompt.trim()) parts.push(userSystemPrompt.trim())
     return parts.length > 0 ? parts.join('\n\n') : undefined
   }
@@ -283,6 +393,51 @@ export function AppShell() {
         },
       })
     }
+    // code_execute — persistent Python sessions, matplotlib auto-saves charts
+    tools.push({
+      name: 'code_execute',
+      description: 'Execute Python or JavaScript code. Python sessions are persistent — variables and imports survive between calls. matplotlib.pyplot.show() auto-saves charts. Returns stdout and any generated files.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          language:   { type: 'string', enum: ['python', 'javascript'] },
+          code:       { type: 'string', description: 'Code to execute' },
+          session_id: { type: 'string', description: 'Session ID for persistent Python state (optional)' },
+        },
+        required: ['language', 'code'],
+      },
+    })
+    // filesystem tools — available in Tauri desktop
+    tools.push({
+      name: 'read_file',
+      description: 'Read a local file as text (≤ 2 MB). Use absolute or ~/relative paths.',
+      input_schema: {
+        type: 'object',
+        properties: { path: { type: 'string', description: 'File path' } },
+        required: ['path'],
+      },
+    })
+    tools.push({
+      name: 'write_file',
+      description: 'Write text content to a local file. Creates parent directories as needed.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          path:    { type: 'string', description: 'File path' },
+          content: { type: 'string', description: 'Text content to write' },
+        },
+        required: ['path', 'content'],
+      },
+    })
+    tools.push({
+      name: 'list_directory',
+      description: 'List files and subdirectories at a path.',
+      input_schema: {
+        type: 'object',
+        properties: { path: { type: 'string', description: 'Directory path' } },
+        required: ['path'],
+      },
+    })
     return tools
   }
 
@@ -477,6 +632,13 @@ export function AppShell() {
         ? settings.agentMachineEndpoint
         : undefined
 
+    // Per-turn semantic memory retrieval — selects relevant memories for this specific query
+    let turnMemoryContext = memoryContext
+    if (settings.memoryScope !== 'disabled' && memoryEntries.length > 0) {
+      const relevant = await searchMemory(content, 8, settings.openaiApiKey || undefined)
+      turnMemoryContext = buildMemoryContext({ version: 1, entries: [] }, relevant)
+    }
+
     // Agentic tool-use loop: keep calling until stop_reason is not 'tool_use'
     let conversationMessages: ChatMessage[] = [...baseMessages, outbound]
     let pendingToolCalls: ToolUseBlock[] | undefined
@@ -494,19 +656,63 @@ export function AppShell() {
             messages: conversationMessages,
             steering,
             thinking_budget: thinkingBudget,
+            temperature,
+            max_tokens: maxTokens,
             memory_scope: `noetica-session-local:${workspaceMode.toLowerCase()}`,
             provider_keys: providerKeys,
             agent_machine_endpoint: agentMachineEndpoint,
             tools: tools?.length ? tools : undefined,
-            system_prompt: buildEffectiveSystemPrompt(systemPrompt, memoryContext, settings.memoryScope),
+            system_prompt: buildEffectiveSystemPrompt(systemPrompt, turnMemoryContext, settings.memoryScope),
+            policy_profile: settings.defaultPolicyProfile,
+            api_endpoint_override: settings.apiEndpointOverride || undefined,
           },
           {
-            onMeta: (governance) => updateAssistant(assistantId, { governance }),
-            onDelta: (delta) => appendAssistantContent(assistantId, delta),
-            onThinkingDelta: (delta) => appendAssistantThinking(assistantId, delta),
+            onMeta: (governance) => {
+              updateAssistant(assistantId, { governance })
+              if (settings.showRawEvents) {
+                setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'meta', payload: governance }, ...prev].slice(0, 80))
+              }
+            },
+            onDelta: (delta) => {
+              appendAssistantContent(assistantId, delta)
+              if (settings.showRawEvents) {
+                setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'delta', payload: delta.slice(0, 60) }, ...prev].slice(0, 80))
+              }
+            },
+            onThinkingDelta: (delta) => {
+              appendAssistantThinking(assistantId, delta)
+              if (settings.showRawEvents) {
+                setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'thinking_delta', payload: delta.slice(0, 60) }, ...prev].slice(0, 80))
+              }
+            },
             onThinkingDone: (thinking) => updateAssistant(assistantId, { thinking }),
-            onToolCalls: (calls) => { pendingToolCalls = calls },
+            onToolCalls: (calls) => {
+              pendingToolCalls = calls
+              if (settings.showRawEvents) {
+                setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'tool_calls', payload: calls }, ...prev].slice(0, 80))
+              }
+            },
             onDone: (result) => {
+              if (settings.showRawEvents) {
+                setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'done', payload: { run_id: result.run_id, model: result.model_routed, latency_ms: result.latency_ms } }, ...prev].slice(0, 80))
+              }
+              void appendLedgerEntry({
+                id: result.run_id ?? crypto.randomUUID(),
+                timestamp: result.timestamp ?? new Date().toISOString(),
+                session_id: activeSession?.id ?? 'local',
+                kind: 'chat_request',
+                model_id: result.model_routed ?? modelId,
+                provider: result.provider ?? 'unknown',
+                latency_ms: result.latency_ms ?? 0,
+                input_tokens: result.input_tokens,
+                output_tokens: result.output_tokens,
+                request_hash: result.request_hash,
+                evidence_hash: result.evidence_hash,
+                content_preview: result.content.slice(0, 120),
+                memory_scope: `noetica-session-local:${workspaceMode.toLowerCase()}`,
+                policy_admitted: result.policy_admitted,
+                policy_profile: settings.defaultPolicyProfile,
+              })
               updateAssistant(assistantId, {
                 content: result.content,
                 governance: {
@@ -528,6 +734,8 @@ export function AppShell() {
                   sourceos_status: result.status,
                   timestamp: result.timestamp,
                   latency_ms: result.latency_ms,
+                  ...(result.input_tokens !== undefined ? { input_tokens: result.input_tokens } : {}),
+                  ...(result.output_tokens !== undefined ? { output_tokens: result.output_tokens } : {}),
                 },
                 steering_result: result.steering_applied,
               })
@@ -539,9 +747,11 @@ export function AppShell() {
           abort.signal
         )
 
-        // If no tool calls or aborted, done
+        // If no tool calls or aborted, done.
+        // When the AM is handling the loop server-side, tool_calls events are informational only
+        // (for UI display). The AM continues the loop itself and emits done when finished.
         const activeCalls = pendingToolCalls as ToolUseBlock[] | undefined
-        if (!activeCalls?.length || abort.signal.aborted) break
+        if (!activeCalls?.length || abort.signal.aborted || agentMachineEndpoint) break
 
         // Execute all tool calls
         const toolResults = await executeToolCalls(activeCalls, providerKeys)
@@ -603,8 +813,25 @@ export function AppShell() {
   ): Promise<Array<{ id: string; name: string; result: string }>> {
     return Promise.all(calls.map(async (call) => {
       try {
+        // Filesystem tools — Tauri only (no browser equivalent)
+        if (call.name === 'read_file' || call.name === 'write_file' || call.name === 'list_directory') {
+          if (isTauri()) {
+            const result = await executeBuiltinToolDirect(call.name, call.input, {})
+            return { id: call.id, name: call.name, result }
+          }
+          // Browser fallback via Agent Machine proxy
+          const res = await fetch('/api/agent-tool', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ tool: call.name, input: call.input }),
+          })
+          if (!res.ok) return { id: call.id, name: call.name, result: `Error: ${res.statusText}` }
+          const data = await res.json() as { result?: string; error?: string }
+          return { id: call.id, name: call.name, result: data.result ?? data.error ?? '(empty)' }
+        }
+
         // Built-in tools — call APIs directly in Tauri (no /api/* routes in static export)
-        if (call.name === 'web_search' || call.name === 'generate_image') {
+        if (call.name === 'web_search' || call.name === 'generate_image' || call.name === 'code_execute') {
           if (isTauri()) {
             const result = await executeBuiltinToolDirect(call.name, call.input, {
               serper: providerKeys.serper,
@@ -627,17 +854,42 @@ export function AppShell() {
             return { id: call.id, name: call.name, result: results || 'No results found.' }
           }
 
-          // generate_image
-          const prompt = (call.input.prompt as string | undefined) ?? ''
-          const res = await fetch('/api/generate-image', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ prompt, provider_keys: { openai: providerKeys.openai } }),
-          })
-          const data = await res.json() as { url?: string; revised_prompt?: string; error?: string }
-          if (data.error) return { id: call.id, name: call.name, result: `Error: ${data.error}` }
-          const caption = data.revised_prompt ? `\n*${data.revised_prompt}*` : ''
-          return { id: call.id, name: call.name, result: `![Generated image](${data.url})${caption}` }
+          if (call.name === 'generate_image') {
+            const prompt = (call.input.prompt as string | undefined) ?? ''
+            const res = await fetch('/api/generate-image', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ prompt, provider_keys: { openai: providerKeys.openai } }),
+            })
+            const data = await res.json() as { url?: string; revised_prompt?: string; error?: string }
+            if (data.error) return { id: call.id, name: call.name, result: `Error: ${data.error}` }
+            const caption = data.revised_prompt ? `\n*${data.revised_prompt}*` : ''
+            return { id: call.id, name: call.name, result: `![Generated image](${data.url})${caption}` }
+          }
+
+          // code_execute
+          if (call.name === 'code_execute') {
+            const language = (call.input.language as 'python' | 'javascript' | undefined) ?? 'javascript'
+            const code = (call.input.code as string | undefined) ?? ''
+            const session_id = (call.input.session_id as string | undefined) ?? activeSession?.id ?? 'default'
+            const res = await fetch('/api/execute', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ language, code, session_id }),
+            })
+            const data = await res.json() as { output?: string; exit_code?: number; runtime_ms?: number; files?: Array<{ name: string; base64: string; mimeType: string }>; error?: string }
+            if (data.error) return { id: call.id, name: call.name, result: `Error: ${data.error}` }
+            const header = `[${language} · ${data.runtime_ms ?? 0}ms · exit ${data.exit_code ?? 0}]`
+            let result = `${header}\n${data.output ?? '(no output)'}`
+            for (const f of data.files ?? []) {
+              if (f.mimeType.startsWith('image/')) {
+                result += `\n![${f.name}](data:${f.mimeType};base64,${f.base64})`
+              } else {
+                result += `\n[File: ${f.name} (${f.mimeType})]`
+              }
+            }
+            return { id: call.id, name: call.name, result }
+          }
         }
 
         // MCP tools
@@ -708,13 +960,18 @@ export function AppShell() {
             mode={mode}
             riskReadout={riskReadout}
             voiceState={voiceState}
+            openaiApiKey={settings.openaiApiKey || undefined}
+            hasMessages={messages.filter((m) => m.role !== 'system').length > 0}
             onModeChange={setMode}
             onModelChange={handleModelChange}
             onOpenSettings={(cat) => openSettings(cat)}
             onOpenPalette={() => setPaletteOpen(true)}
             onOpenInspector={() => setInspectorVisible(true)}
+            onExportConversation={exportConversation}
             onVoiceStart={startListening}
             onVoiceStop={stopListening}
+            onRealtimeTranscript={(text) => void handleSendRaw(text, [], messages)}
+            onRealtimeSpeechStart={stopSpeaking}
           />
 
           <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -747,6 +1004,10 @@ export function AppShell() {
                 mcpTools={mcpTools}
                 systemPrompt={systemPrompt}
                 onSystemPromptChange={setSystemPrompt}
+                activeArtifact={activeArtifact}
+                onCloseArtifact={() => setActiveArtifact(null)}
+                onArtifactUpdate={updateArtifact}
+                onArtifactDelete={(id) => { deleteArtifact(id); setActiveArtifact(null) }}
               />
               {inspectorVisible && (
                 <RightPanel
@@ -754,10 +1015,14 @@ export function AppShell() {
                   model={activeModel}
                   steering={steering}
                   thinkingBudget={thinkingBudget}
+                  temperature={temperature}
+                  maxTokens={maxTokens}
                   workspaceMode={workspaceMode}
                   riskReadout={riskReadout}
                   onSteeringChange={setSteering}
                   onThinkingBudgetChange={setThinkingBudget}
+                  onTemperatureChange={setTemperature}
+                  onMaxTokensChange={setMaxTokens}
                 />
               )}
             </div>
@@ -781,6 +1046,15 @@ export function AppShell() {
           }}
         />
       )}
+      {modelSetupOpen && settings.agentMachineEndpoint && (
+        <ModelSetupModal
+          agentMachineEndpoint={settings.agentMachineEndpoint}
+          onDismiss={() => {
+            localStorage.setItem('noetica-model-setup-dismissed', '1')
+            setModelSetupOpen(false)
+          }}
+        />
+      )}
       <SettingsModal
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
@@ -795,6 +1069,35 @@ export function AppShell() {
         onToggleSidebar={() => setSidebarCollapsed((c) => !c)}
         onToggleInspector={() => setInspectorVisible((v) => !v)}
       />
+      {settings.showRawEvents && rawEventLog.length > 0 && (
+        <div
+          style={{
+            position: 'fixed', bottom: 8, right: 8, zIndex: 9999,
+            width: 420, maxHeight: 280,
+            background: 'rgba(0,0,0,0.88)', color: '#a3e635',
+            fontFamily: 'monospace', fontSize: 11, borderRadius: 6,
+            overflow: 'hidden', display: 'flex', flexDirection: 'column',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 8px', borderBottom: '1px solid #333' }}>
+            <span style={{ color: '#fbbf24', fontWeight: 700 }}>SSE events</span>
+            <button onClick={() => setRawEventLog([])} style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: 11 }}>clear</button>
+          </div>
+          <div style={{ overflowY: 'auto', flex: 1, padding: '4px 8px' }}>
+            {rawEventLog.map((e, i) => (
+              <div key={i} style={{ borderBottom: '1px solid #222', paddingBottom: 2, marginBottom: 2 }}>
+                <span style={{ color: '#94a3b8' }}>{e.ts.slice(11, 23)}</span>
+                {' '}
+                <span style={{ color: '#38bdf8', fontWeight: 700 }}>{e.kind}</span>
+                {' '}
+                <span style={{ color: '#d1fae5', wordBreak: 'break-all' }}>
+                  {typeof e.payload === 'string' ? e.payload : JSON.stringify(e.payload)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </>
   )
 }
@@ -818,11 +1121,13 @@ function IconSm({ path, d2 }: { path: string; d2?: string }) {
 
 const surfaceIcons: { id: ActiveSurface; label: string; icon: React.ReactNode }[] = [
   { id: 'chat',      label: 'Workspace',    icon: <IconSm path="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H5l-3 2V3Z" /> },
+  { id: 'canvas',    label: 'Canvas',       icon: <IconSm path="M3 2h8l2 2v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" d2="M5 6h6M5 9h4" /> },
   { id: 'projects',  label: 'Projects',     icon: <IconSm path="M2 2h5v5H2zM9 2h5v5H9z" d2="M2 9h5v5H2zM9 11h6M12 8.5v5" /> },
   { id: 'artifacts', label: 'Artifacts',    icon: <IconSm path="M4 2h5l3 3v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" d2="M9 2v3h3M6 8h4M6 11h3" /> },
   { id: 'evaluate',  label: 'Evaluate',     icon: <IconSm path="M2 9h3v5H2zM6.5 6h3v8h-3zM11 3h3v11h-3z" /> },
   { id: 'tune',      label: 'Tune & Train', icon: <IconSm path="M5 1v12M11 1v12" d2="M3 5h4M9 11h4" /> },
   { id: 'govern',    label: 'Govern',       icon: <IconSm path="M8 2 2 5v3c0 3 2.5 5.5 6 6.5 3.5-1 6-3.5 6-6.5V5L8 2z" d2="M5.5 8l2 2 3.5-3.5" /> },
+  { id: 'computer',     label: 'Computer Use', icon: <IconSm path="M1.5 3h13a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" d2="M5 15h6M8 12v3" /> },
   { id: 'holographme',  label: 'HolographMe',  icon: <IconSm path="M8 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM3 14c0-2.8 2.2-5 5-5s5 2.2 5 5" /> },
   { id: 'marketplace',  label: 'Marketplace',  icon: <IconSm path="M2 5h12l-1.5 7H3.5L2 5z" d2="M5 5V3.5a3 3 0 0 1 6 0V5" /> },
 ]
@@ -883,42 +1188,64 @@ type CenterProps = {
   mcpTools: McpTool[]
   systemPrompt?: string
   onSystemPromptChange?: (prompt: string) => void
+  activeArtifact?: Artifact | null
+  onCloseArtifact?: () => void
+  onArtifactUpdate?: (id: string, patch: Partial<Artifact>) => void
+  onArtifactDelete?: (id: string) => void
 }
 
-function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange }: CenterProps) {
+function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete }: CenterProps) {
   if (activeSurface === 'notes')        return <NotesSurface />
-  if (activeSurface === 'workrooms')    return <WorkroomsSurface />
-  if (activeSurface === 'cowork')       return <CoworkSurface />
-  if (activeSurface === 'projects')     return <ProjectsSurface />
+  if (activeSurface === 'canvas')       return <CanvasSurface />
+  if (activeSurface === 'workrooms')    return <WorkroomsSurface thinkingBudget={thinkingBudget} />
+  if (activeSurface === 'cowork')       return <CoworkSurface thinkingBudget={thinkingBudget} />
+  if (activeSurface === 'projects')     return <ProjectsPanel />
   if (activeSurface === 'artifacts')    return <ArtifactsSurface />
   if (activeSurface === 'code')         return <CodeSurface />
-  if (activeSurface === 'evaluate')     return <EvaluateSurface />
+  if (activeSurface === 'evaluate')     return <EvaluateSurface thinkingBudget={thinkingBudget} />
   if (activeSurface === 'operate')      return <OperateSurface />
-  if (activeSurface === 'govern')       return <GovernSurface />
-  if (activeSurface === 'tune')         return <TuneSurface />
+  if (activeSurface === 'govern') {
+    const traces = messages
+      .filter((m) => m.role === 'assistant' && m.governance)
+      .map((m) => ({ messageId: m.id, content: m.content.slice(0, 80), governance: m.governance! }))
+    return <GovernSurface recentTraces={traces} />
+  }
+  if (activeSurface === 'tune')         return <TuneSurface thinkingBudget={thinkingBudget} />
+  if (activeSurface === 'computer')     return <ComputerUseSurface />
   if (activeSurface === 'holographme')  return <PlaceholderSurface title="HolographMe" description="Your persistent agent-facing identity and digital work presence." badge="Coming soon" />
   if (activeSurface === 'marketplace')  return <PlaceholderSurface title="Agent Supervisor Marketplace" description="Post availability as an agent supervisor. Browse and hire supervisors. Reputation accrues from agent performance." badge="Coming soon" />
 
   return (
-    <section className="flex min-h-0 flex-col">
-      <MessageList messages={messages} isStreaming={isStreaming} onExtractArtifact={onExtractArtifact} onRegenerate={onRegenerate} onFork={onFork} onEdit={onEdit} onRecombine={onRecombine} />
-      <InputArea
-        onSend={onSend}
-        onFanout={onFanout}
-        onStop={onStop}
-        disabled={isStreaming}
-        fanoutModelCount={fanoutModelCount}
-        workspaceMode={workspaceMode}
-        onWorkspaceModeChange={onWorkspaceModeChange}
-        mcpTools={mcpTools}
-        modelId={modelId}
-        onModelChange={onModelChange}
-        thinkingBudget={thinkingBudget}
-        onOpenPalette={onOpenPalette}
-        systemPrompt={systemPrompt}
-        onSystemPromptChange={onSystemPromptChange}
-      />
-    </section>
+    <div className={`grid min-h-0 flex-1 overflow-hidden transition-[grid-template-columns] duration-300 ${activeArtifact ? 'grid-cols-[minmax(320px,1fr)_480px]' : 'grid-cols-1'}`}>
+      <section className="flex min-h-0 flex-col overflow-hidden">
+        <MessageList messages={messages} isStreaming={isStreaming} onExtractArtifact={onExtractArtifact} onRegenerate={onRegenerate} onFork={onFork} onEdit={onEdit} onRecombine={onRecombine} />
+        <InputArea
+          onSend={onSend}
+          onFanout={onFanout}
+          onStop={onStop}
+          disabled={isStreaming}
+          fanoutModelCount={fanoutModelCount}
+          workspaceMode={workspaceMode}
+          onWorkspaceModeChange={onWorkspaceModeChange}
+          mcpTools={mcpTools}
+          modelId={modelId}
+          onModelChange={onModelChange}
+          thinkingBudget={thinkingBudget}
+          onOpenPalette={onOpenPalette}
+          systemPrompt={systemPrompt}
+          onSystemPromptChange={onSystemPromptChange}
+        />
+      </section>
+
+      {activeArtifact && onCloseArtifact && (
+        <ArtifactPane
+          artifact={activeArtifact}
+          onClose={onCloseArtifact}
+          onUpdate={onArtifactUpdate ?? (() => {})}
+          onDelete={onArtifactDelete ?? (() => {})}
+        />
+      )}
+    </div>
   )
 }
 
@@ -946,13 +1273,17 @@ type RightPanelProps = {
   model: ModelConfig
   steering: SteeringConfig | undefined
   thinkingBudget: number | undefined
+  temperature: number | undefined
+  maxTokens: number | undefined
   workspaceMode: WorkspaceMode
   riskReadout?: ReturnType<typeof buildRiskAversionLiveReadout>
   onSteeringChange: (config: SteeringConfig | undefined) => void
   onThinkingBudgetChange: (budget: number | undefined) => void
+  onTemperatureChange: (v: number | undefined) => void
+  onMaxTokensChange: (v: number | undefined) => void
 }
 
-function RightPanel({ activeSurface, model, steering, thinkingBudget, workspaceMode, riskReadout, onSteeringChange, onThinkingBudgetChange }: RightPanelProps) {
+function RightPanel({ activeSurface, model, steering, thinkingBudget, temperature, maxTokens, workspaceMode, riskReadout, onSteeringChange, onThinkingBudgetChange, onTemperatureChange, onMaxTokensChange }: RightPanelProps) {
   if (activeSurface === 'notes')     return null
   if (activeSurface === 'workrooms') return null
   if (activeSurface === 'tune')      return null
@@ -970,10 +1301,14 @@ function RightPanel({ activeSurface, model, steering, thinkingBudget, workspaceM
       model={model}
       steering={steering}
       thinkingBudget={thinkingBudget}
+      temperature={temperature}
+      maxTokens={maxTokens}
       workspaceMode={workspaceMode}
       riskReadout={riskReadout}
       onChange={onSteeringChange}
       onThinkingBudgetChange={onThinkingBudgetChange}
+      onTemperatureChange={onTemperatureChange}
+      onMaxTokensChange={onMaxTokensChange}
     />
   )
 }

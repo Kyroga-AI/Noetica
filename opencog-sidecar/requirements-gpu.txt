@@ -1,0 +1,29 @@
+# GPU deps for SAE patching + distillation servers.
+# CPU-only machines can omit torch[cuda] and use the default torch index.
+#
+# Install:
+#   pip install -r requirements-gpu.txt
+# GPU (CUDA 12.1):
+#   pip install -r requirements-gpu.txt --extra-index-url https://download.pytorch.org/whl/cu121
+
+# Core ML
+torch>=2.2.0
+transformers>=4.40.0
+accelerate>=0.30.0
+datasets>=2.18.0
+
+# Mechanistic interp (SAE patching)
+transformer-lens>=1.15.0
+sae-lens>=3.12.0
+
+# Fine-tuning adapters (distillation)
+peft>=0.10.0
+
+# Serving (shared by all sidecar servers)
+fastapi>=0.111.0
+uvicorn[standard]>=0.29.0
+pydantic>=2.0.0
+
+# SHACL (opencog-sidecar/server.py)
+rdflib>=6.3
+pyshacl>=0.25

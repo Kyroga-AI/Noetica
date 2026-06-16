@@ -1,6 +1,6 @@
 {
   "name": "noetica",
-  "version": "0.1.0",
+  "version": "0.4.7",
   "private": true,
   "bin": {
     "noetica": "cli/noetica.mjs"
@@ -30,11 +30,16 @@
     "cli": "node cli/noetica.mjs",
     "cli:doctor": "node cli/noetica.mjs doctor --json",
     "cli:smoke": "node cli/noetica.mjs smoke --dry-run",
+    "agent-machine": "cd agent-machine && npx tsx server.ts",
+    "agent-machine:install": "cd agent-machine && npm install",
+    "agent-machine:build": "cd agent-machine && npm install && npm run build",
+    "agent-machine:build:binary": "bun build agent-machine/server.ts --compile --target bun-darwin-arm64 --outfile src-tauri/binaries/agent-machine-aarch64-apple-darwin && bun build agent-machine/server.ts --compile --target bun-darwin-x64 --outfile src-tauri/binaries/agent-machine-x86_64-apple-darwin",
     "tauri": "tauri",
     "tauri:icon": "node scripts/ensure-tauri-icon.mjs",
     "tauri:dev": "npm run tauri:icon && tauri dev",
     "tauri:build": "npm run tauri:icon && tauri build",
-    "tauri:build:static": "npm run tauri:icon && npm run build:static && tauri build"
+    "tauri:build:static": "npm run tauri:icon && npm run build:static && tauri build",
+    "tauri:build:full": "npm run agent-machine:build:binary && node scripts/inject-am-sidecar-config.mjs && npm run tauri:build:static && node scripts/inject-am-sidecar-config.mjs --restore"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",

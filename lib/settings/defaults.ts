@@ -2,7 +2,7 @@ import { defaultModelId } from '@/config/models'
 import type { NoeticaSettings } from './types'
 
 export const defaultSettings: NoeticaSettings = {
-  theme: 'light',
+  theme: 'claude',
   sidebarDensity: 'comfortable',
   fontSize: 'md',
 
@@ -16,6 +16,9 @@ export const defaultSettings: NoeticaSettings = {
 
   runtimeMode: 'standalone',
   agentMachineEndpoint: 'http://localhost:8080',
+
+  giteaEndpoint: '',
+  githubPat: '',
 
   mcpServers: {},
 

@@ -48,8 +48,27 @@ jobs:
       - name: Materialize Tauri icon
         run: npm run tauri:icon
 
-      # Import Apple Developer certificate and export signing env vars only when secrets are present.
-      # When APPLE_CERTIFICATE is absent, none of the signing env vars are set, so Tauri skips codesign.
+      # ── Sidecar binaries ───────────────────────────────────────────────────
+      # Build agent-machine and download Ollama before tauri build so that
+      # externalBin entries resolve correctly when Tauri bundles the app.
+
+      - name: Install bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Build agent-machine binary
+        run: npm run agent-machine:build:binary
+
+      - name: Download Ollama sidecar
+        env:
+          OLLAMA_VERSION: "0.30.8"
+        run: bash scripts/download-sidecars.sh
+
+      # ── Code signing ───────────────────────────────────────────────────────
+      # Import Apple Developer certificate when the secret is present.
+      # When absent, tauri build proceeds unsigned and we ad-hoc sign afterward.
+
       - name: Import signing certificate
         if: env.APPLE_CERTIFICATE != ''
         env:
@@ -75,6 +94,7 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NOETICA_STATIC_EXPORT: "1"
         with:
           tagName: ${{ github.ref_name }}
           releaseName: "Noetica ${{ github.ref_name }}"
@@ -91,34 +111,57 @@ jobs:
           releaseDraft: false
           prerelease: false
 
+      # Ad-hoc sign the DMG when no Apple Developer cert is available.
+      # This removes the broken signature that Gatekeeper silently rejects.
+      - name: Ad-hoc sign DMG (no cert fallback)
+        if: env.APPLE_CERTIFICATE == ''
+        run: |
+          DMG=$(find src-tauri/target/release/bundle/dmg -name "*.dmg" | head -1)
+          if [ -n "$DMG" ]; then
+            echo "Ad-hoc signing: $DMG"
+            # Mount, strip broken sig from app, re-sign ad-hoc, repack
+            MOUNT=$(hdiutil attach "$DMG" -nobrowse -quiet | awk '/Apple_HFS/ {print $NF}')
+            APP=$(find "$MOUNT" -name "*.app" -maxdepth 1 | head -1)
+            codesign --remove-signature "$APP" || true
+            codesign --force --deep --sign - "$APP"
+            hdiutil detach "$MOUNT" -quiet
+            echo "Ad-hoc signing complete"
+          fi
+
   update-cask:
     needs: release-macos
     runs-on: ubuntu-latest
     steps:
       - name: Wait for release asset propagation
-        run: sleep 45
+        run: sleep 60
 
-      - name: Resolve dmg URL and SHA256
+      - name: Resolve DMG download URL and SHA256
         id: asset
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           VERSION=${{ needs.release-macos.outputs.version }}
           TAG=${{ github.ref_name }}
+
+          # Use browserDownloadUrl (the actual CDN download URL, not the API URL)
           DMG_URL=$(gh release view "$TAG" \
             --repo "${{ github.repository }}" \
             --json assets \
-            --jq '.assets[] | select(.name | endswith(".dmg")) | .url' \
+            --jq '.assets[] | select(.name | endswith(".dmg")) | .browserDownloadUrl' \
             | head -1)
+
           if [ -z "$DMG_URL" ]; then
             echo "No dmg asset found — skipping cask update"
             exit 0
           fi
-          curl -sL "$DMG_URL" -o noetica.dmg
+
+          curl -fsSL "$DMG_URL" -o noetica.dmg
           SHA256=$(shasum -a 256 noetica.dmg | awk '{print $1}')
           echo "url=$DMG_URL" >> "$GITHUB_OUTPUT"
           echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "DMG URL: $DMG_URL"
+          echo "SHA256:  $SHA256"
 
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -144,7 +187,6 @@ jobs:
           git diff --staged --quiet || git commit -m "cask: noetica ${{ steps.asset.outputs.version }}"
           git push
 
-      # Also update a separate tap repo when configured
       - name: Checkout homebrew tap
         if: ${{ vars.TAP_REPO != '' }}
         uses: actions/checkout@v4

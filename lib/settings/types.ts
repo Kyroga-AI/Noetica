@@ -1,4 +1,4 @@
-export type Theme = 'light' | 'dark' | 'system'
+export type Theme = 'claude' | 'navy' | 'light' | 'dark' | 'system'
 export type SidebarDensity = 'comfortable' | 'compact'
 export type MemoryScope = 'session' | 'project' | 'global' | 'disabled'
 
@@ -26,6 +26,10 @@ export interface NoeticaSettings {
   // Runtime
   runtimeMode: 'standalone' | 'agent-machine' | 'sourceos'
   agentMachineEndpoint: string
+
+  // Source forge
+  giteaEndpoint: string
+  githubPat: string
 
   // Connectors — MCP servers keyed by name, matching Claude Desktop format
   mcpServers: Record<string, McpServerConfig>

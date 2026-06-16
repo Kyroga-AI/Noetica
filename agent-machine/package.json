@@ -1,0 +1,18 @@
+{
+  "name": "@noetica/agent-machine",
+  "version": "0.4.6",
+  "description": "Noetica Agent Machine — local agentic runtime speaking the Noetica SSE protocol",
+  "main": "dist/server.js",
+  "scripts": {
+    "dev": "tsx watch server.ts",
+    "build": "esbuild server.ts --bundle --platform=node --target=node18 --outfile=dist/server.js --external:node:* --external:child_process --external:vm --external:fs --external:path --external:http --external:url --external:crypto --external:stream --external:os --external:net",
+    "start": "node dist/server.js",
+    "start:dev": "tsx server.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "esbuild": "^0.21.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  }
+}

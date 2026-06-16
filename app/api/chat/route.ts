@@ -11,8 +11,19 @@ import type { SteeringConfig } from '@/lib/types/steering'
 import type { NoeticaTaskResult } from '@/lib/types/task'
 import type { ProviderTool, ToolUseBlock } from '@/lib/providers'
 import { streamAnthropic, TOOL_CALLS_PREFIX as ANTHROPIC_TOOL_CALLS_PREFIX } from '@/lib/providers/anthropic'
-import { streamOpenAI, TOOL_CALLS_PREFIX as OPENAI_TOOL_CALLS_PREFIX } from '@/lib/providers/openai'
+import { streamOpenAI } from '@/lib/providers/openai'
+import { streamGoogle } from '@/lib/providers/google'
+import { streamMistral } from '@/lib/providers/mistral'
+import { streamOllama } from '@/lib/providers/ollama'
 import { submitTask } from '@/lib/superconscious/adapter'
+import { routeModel } from '@/lib/model-router/adapter'
+import { resolveProviderModelId } from '@/lib/providers/resolver'
+import { recallMemory, storeMemoryContent, proposeMemoryWrite } from '@/lib/memory-mesh/adapter'
+import { checkContentPolicy } from '@/lib/policy/contentPolicy'
+import { runLocalSteering } from '@/lib/sae/localSteering'
+import { saeSteer } from '@/lib/sae/saeClient'
+import type { SteeringResult } from '@/lib/types/steering'
+import { ingestInteraction, ingestMessage, ingestMemory } from '@/lib/hellgraph/ingest'
 
 export const runtime = 'nodejs'
 
@@ -29,10 +40,15 @@ type ChatRequest = {
   steering?: SteeringConfig
   memory_scope?: string
   thinking_budget?: number
+  temperature?: number
+  max_tokens?: number
+  top_p?: number
   provider_keys?: { anthropic?: string; openai?: string; google?: string; mistral?: string; neuronpedia?: string; serper?: string }
   tools?: ProviderTool[]
   system_prompt?: string
   agent_machine_endpoint?: string
+  policy_profile?: string
+  api_endpoint_override?: string
 }
 
 export async function POST(request: Request) {
@@ -53,7 +69,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'message_required' }, { status: 400 })
   }
 
-  const model = models.find((candidate) => candidate.id === body.model_id) ?? models[0]
+  // Content policy check — runs before provider selection or memory recall
+  const policyResult = checkContentPolicy(latest.content, body.policy_profile ?? 'default')
+  if (!policyResult.admitted) {
+    return NextResponse.json(
+      {
+        error: 'policy_blocked',
+        reason: policyResult.reason,
+        profile: policyResult.profile,
+        flagged_pattern: policyResult.flagged_pattern,
+      },
+      { status: 403 }
+    )
+  }
+
+  let model = models.find((candidate) => candidate.id === body.model_id) ?? models[0]
 
   if (body.steering && model.steering === 'none') {
     return NextResponse.json(
@@ -99,7 +129,10 @@ export async function POST(request: Request) {
       steering_hint: body.steering,
       tool_grant_refs: toolGrantRefs,
       memory_scope_ref: memoryScope,
-      request_hash: requestHash
+      request_hash: requestHash,
+      provider_keys: body.provider_keys,
+      messages,
+      system_prompt: body.system_prompt,
     })
 
     result.sourceos_interaction_event = buildSourceOSTaskInteractionEvent({
@@ -114,15 +147,134 @@ export async function POST(request: Request) {
     return streamTaskResult(result)
   }
 
-  if (model.provider !== 'openai' && model.provider !== 'anthropic') {
+  // Determine which providers the caller has keys for
+  const availableProviders = Object.entries(body.provider_keys ?? {})
+    .filter(([, v]) => Boolean(v))
+    .map(([k]) => k) as import('@/lib/types/model').Provider[]
+
+  const routeDecision = await routeModel({
+    schema_version: 'noetica.model_route.v0.1',
+    request_id: crypto.randomUUID(),
+    session_id: sessionId,
+    agent_id: 'noetica',
+    mode,
+    task_class: 'standalone-chat',
+    model_hint: model.id,
+    available_providers: availableProviders.length > 0 ? availableProviders : undefined,
+  })
+
+  if (routeDecision.status === 'blocked') {
     return NextResponse.json(
       {
-        error: 'provider_not_implemented_in_m2a',
+        error: 'model_route_blocked',
+        blocked_reason: routeDecision.blocked_reason,
+        model_id: model.id,
+        route_decision: routeDecision,
+      },
+      { status: 503 }
+    )
+  }
+
+  // Apply routing override — downstream code continues using `model`
+  if (routeDecision.model_routed !== model.id) {
+    model = models.find((m) => m.id === routeDecision.model_routed) ?? model
+  }
+
+  const SERVED_PROVIDERS = new Set(['openai', 'anthropic', 'google', 'mistral', 'meta'])
+  if (!SERVED_PROVIDERS.has(model.provider)) {
+    // 'neuronpedia' targets are steering/feature-inspection surfaces (see /api/steer),
+    // not general chat-completion providers; 'xai' is not yet implemented. Route those
+    // through the local Agent Machine (Ollama) or SourceOS instead.
+    return NextResponse.json(
+      {
+        error: 'provider_not_chat_capable',
         provider: model.provider,
-        model_id: model.id
+        model_id: model.id,
+        hint: model.provider === 'neuronpedia'
+          ? 'Neuronpedia models are steering targets — use the Steer surface, or run the open-weight base locally via Ollama (provider: meta).'
+          : 'Provider not yet implemented for standalone chat.',
       },
       { status: 501 }
     )
+  }
+
+  // Memory-mesh recall — inject relevant prior context into the system prompt
+  let systemPromptWithMemory = body.system_prompt
+  if (memoryScope && memoryScope !== 'disabled' && latest.content) {
+    const recalled = await recallMemory({
+      schema_version: 'noetica.memory.v0.1',
+      request_id: crypto.randomUUID(),
+      session_id: sessionId,
+      agent_id: 'noetica',
+      scope_id: memoryScope,
+      query_hash: latest.content,
+      limit: 6,
+    })
+    if (recalled.entries.length > 0) {
+      const snippets = recalled.entries
+        .filter((e) => e.text)
+        .map((e) => `- ${e.text}`)
+        .join('\n')
+      const meshBlock = `\n\n[Memory mesh — scope: ${memoryScope}]\n${snippets}`
+      systemPromptWithMemory = body.system_prompt ? `${body.system_prompt}${meshBlock}` : meshBlock.trimStart()
+    }
+  }
+
+  // SAE steering — real activation patching via sae_patch.py sidecar when available,
+  // falling back to prompt-injection approximation.
+  let steeringResult: SteeringResult | null = null
+  if (body.steering && (model.steering === 'full' || model.steering === 'local')) {
+    const numericFeatureId = parseInt(body.steering.feature_id, 10)
+    if (!isNaN(numericFeatureId)) {
+      const saeResult = await saeSteer(
+        latest.content,
+        numericFeatureId,
+        body.steering.strength,
+        body.max_tokens ?? 200,
+      )
+      if (saeResult?.ok) {
+        // SAE sidecar performed full generation — stream its completion back and short-circuit.
+        const saeCompletion = saeResult.steered_completion
+        const saeStream = new ReadableStream<Uint8Array>({
+          start(ctrl) {
+            const enc = new TextEncoder()
+            const emit = (event: string, data: unknown) =>
+              ctrl.enqueue(enc.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`))
+            emit('meta', {
+              governance: { run_id: crypto.randomUUID(), sae_patch: true, feature_id: numericFeatureId, hook: saeResult.hook },
+              steering: { source: 'sae_patch', original_activation: saeResult.original_feature_activation, resid_delta_norm: saeResult.resid_delta_norm },
+            })
+            emit('delta', { delta: saeCompletion })
+            emit('done', {
+              result: {
+                run_id: crypto.randomUUID(),
+                content: saeCompletion,
+                model_routed: 'sae_patch',
+                provider: 'local',
+                policy_admitted: true,
+                memory_written: false,
+                stop_reason: 'end_turn',
+                steering_result: { source: 'sae_patch', feature_id: numericFeatureId, hook: saeResult.hook },
+                timestamp: new Date().toISOString(),
+                latency_ms: 0,
+              },
+            })
+            ctrl.close()
+          },
+        })
+        return new Response(saeStream, {
+          headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' },
+        })
+      }
+    }
+    // Sidecar unavailable or non-numeric feature_id — fall back to prompt-injection
+    steeringResult = runLocalSteering(latest.content, body.steering)
+    if (steeringResult.status === 'applied') {
+      const steeringPrefix = steeringResult.steered.slice(0, steeringResult.steered.length - latest.content.length)
+      systemPromptWithMemory = systemPromptWithMemory
+        ? `${steeringPrefix.trim()}\n\n${systemPromptWithMemory}`
+        : steeringPrefix.trim()
+    }
   }
 
   const providerModelId = resolveProviderModelId(model)
@@ -182,13 +334,44 @@ export async function POST(request: Request) {
       try {
         const THINKING_PFX = '\x00thinking\x00'
         const TOOL_PFX = ANTHROPIC_TOOL_CALLS_PREFIX  // same value as OPENAI prefix
+        const USAGE_PFX = '\x00usage\x00'
 
-        const providerStream = model.provider === 'openai'
-          ? streamOpenAI({ model: providerModelId, messages, tools: body.tools, systemPrompt: body.system_prompt, apiKey: body.provider_keys?.openai })
-          : streamAnthropic({ model: providerModelId, messages, thinking_budget: body.thinking_budget, tools: body.tools, systemPrompt: body.system_prompt, apiKey: body.provider_keys?.anthropic })
+        const baseUrl = body.api_endpoint_override || undefined
+        const common = {
+          model: providerModelId,
+          messages,
+          tools: body.tools,
+          systemPrompt: systemPromptWithMemory,
+          temperature: body.temperature,
+          max_tokens: body.max_tokens,
+          top_p: body.top_p,
+          baseUrl,
+        }
+        let providerStream: AsyncGenerator<string>
+        switch (model.provider) {
+          case 'openai':
+            providerStream = streamOpenAI({ ...common, apiKey: body.provider_keys?.openai })
+            break
+          case 'google':
+            providerStream = streamGoogle({ ...common, apiKey: body.provider_keys?.google })
+            break
+          case 'mistral':
+            providerStream = streamMistral({ ...common, apiKey: body.provider_keys?.mistral })
+            break
+          case 'meta':
+            // Local Ollama runtime — keyless. Base URL falls back to OLLAMA_BASE_URL / localhost.
+            providerStream = streamOllama({ ...common })
+            break
+          case 'anthropic':
+          default:
+            providerStream = streamAnthropic({ ...common, thinking_budget: body.thinking_budget, apiKey: body.provider_keys?.anthropic })
+            break
+        }
 
         let thinkingContent = ''
         let toolCalls: ToolUseBlock[] | undefined
+        let inputTokens: number | undefined
+        let outputTokens: number | undefined
         for await (const delta of providerStream) {
           if (delta.startsWith(THINKING_PFX)) {
             const chunk = delta.slice(THINKING_PFX.length)
@@ -196,6 +379,10 @@ export async function POST(request: Request) {
             send('thinking_delta', { delta: chunk })
           } else if (delta.startsWith(TOOL_PFX)) {
             toolCalls = JSON.parse(delta.slice(TOOL_PFX.length)) as ToolUseBlock[]
+          } else if (delta.startsWith(USAGE_PFX)) {
+            const usage = JSON.parse(delta.slice(USAGE_PFX.length)) as { input_tokens?: number; output_tokens?: number }
+            inputTokens = usage.input_tokens
+            outputTokens = usage.output_tokens
           } else {
             content += delta
             send('delta', { delta })
@@ -267,6 +454,62 @@ export async function POST(request: Request) {
           payloadSummary: 'Noetica completed a standalone provider call and emitted a SourceOS interaction event.'
         })
 
+        // Store the turn in the memory mesh so future turns can recall it
+        let memoryWritten = false
+        if (memoryScope && memoryScope !== 'disabled' && content.trim()) {
+          const turnText = `[turn] user: ${latest.content.slice(0, 200)} | assistant: ${content.slice(0, 400)}`
+          const hash = storeMemoryContent(memoryScope, sessionId, turnText, [evidence_hash])
+          await proposeMemoryWrite({
+            schema_version: 'noetica.memory.v0.1',
+            proposal_id: crypto.randomUUID(),
+            session_id: sessionId,
+            agent_id: 'noetica',
+            scope_id: memoryScope,
+            content_hash: hash,
+            source_evidence_refs: [evidence_hash],
+          }).catch(() => null)
+          memoryWritten = true
+
+          // Index the turn into HellGraph (memory entry grounded by evidence).
+          try {
+            ingestMemory({ scopeId: memoryScope, contentHash: hash, text: turnText, sessionId, evidenceRefs: [evidence_hash] })
+          } catch { /* graph ingest is best-effort */ }
+        }
+
+        // Index this interaction and its turn into the HellGraph substrate.
+        try {
+          ingestInteraction({
+            runId: run_id,
+            sessionId,
+            modelRouted: providerModelId,
+            provider: model.provider,
+            promptSummary: latest.content,
+            responseSummary: content,
+            evidenceHash: evidence_hash,
+            policyAdmitted: true,
+            steeringFeatureId: body.steering?.feature_id,
+            latencyMs: latency_ms,
+            timestamp,
+          })
+          ingestMessage({
+            messageId: `${run_id}:user`,
+            conversationId: sessionId,
+            role: 'user',
+            content: latest.content,
+            createdAt: timestamp,
+          })
+          ingestMessage({
+            messageId: run_id,
+            conversationId: sessionId,
+            role: 'assistant',
+            content,
+            createdAt: timestamp,
+            precededBy: `${run_id}:user`,
+            modelRouted: providerModelId,
+            evidenceHash: evidence_hash,
+          })
+        } catch { /* graph ingest is best-effort */ }
+
         send('done', {
           result: {
             run_id,
@@ -274,7 +517,7 @@ export async function POST(request: Request) {
             model_routed: providerModelId,
             provider: model.provider,
             policy_admitted: true,
-            memory_written: false,
+            memory_written: memoryWritten,
             memory_scope_ref: memoryScope,
             request_hash,
             evidence_hash,
@@ -282,8 +525,11 @@ export async function POST(request: Request) {
             sourceos_interaction_event,
             tool_calls: toolCalls,
             stop_reason: toolCalls?.length ? 'tool_use' : 'end_turn',
+            steering_result: steeringResult,
             timestamp,
-            latency_ms
+            latency_ms,
+            ...(inputTokens !== undefined ? { input_tokens: inputTokens } : {}),
+            ...(outputTokens !== undefined ? { output_tokens: outputTokens } : {}),
           }
         })
       } catch (error) {
@@ -389,17 +635,6 @@ function inferToolGrantRefs(model: ModelConfig, steering?: SteeringConfig): stri
   return Array.from(new Set(refs))
 }
 
-function resolveProviderModelId(model: ModelConfig): string {
-  if (model.provider === 'anthropic') {
-    return process.env.ANTHROPIC_MODEL_ID?.trim() || model.id
-  }
-
-  if (model.provider === 'openai') {
-    return process.env.OPENAI_MODEL_ID?.trim() || model.id
-  }
-
-  return model.id
-}
 
 function providerRouteEvidenceRef(evidence: ReturnType<typeof buildExternalModelProviderRouteEvidence>, runId: string): string {
   const provider = evidence.providerRef || evidence.providerClass || 'provider'

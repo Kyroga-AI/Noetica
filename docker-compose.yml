@@ -1,0 +1,94 @@
+version: "3.9"
+
+services:
+  hellgraph:
+    build:
+      context: ./opencog-sidecar
+      dockerfile: Dockerfile
+    command: uvicorn server:app --host 0.0.0.0 --port 8137
+    ports:
+      - "127.0.0.1:8137:8137"
+    environment:
+      - HELLGRAPH_SIDECAR_PORT=8137
+      - HELLGRAPH_DB=/data/hellgraph.db
+    volumes:
+      - noetica-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8137/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  sae-patch:
+    build:
+      context: ./opencog-sidecar
+      dockerfile: Dockerfile.gpu
+    command: uvicorn sae_patch:app --host 0.0.0.0 --port 8138
+    ports:
+      - "127.0.0.1:8138:8138"
+    environment:
+      - SAE_MODEL_ID=${SAE_MODEL_ID:-gpt2}
+      - SAE_RELEASE=${SAE_RELEASE:-gpt2-small-res-jb}
+      - SAE_ID=${SAE_ID:-blocks.8.hook_resid_pre}
+      - SAE_PATCH_PORT=8138
+    volumes:
+      - hf-cache:/root/.cache/huggingface
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  distill:
+    build:
+      context: ./opencog-sidecar
+      dockerfile: Dockerfile.gpu
+    command: uvicorn distill_server:app --host 0.0.0.0 --port 8139
+    ports:
+      - "127.0.0.1:8139:8139"
+    environment:
+      - DISTILL_PORT=8139
+      - DISTILL_OUTPUT_DIR=/data/distill
+    volumes:
+      - noetica-data:/data
+      - hf-cache:/root/.cache/huggingface
+    restart: unless-stopped
+
+  teacher-cache:
+    build:
+      context: ./opencog-sidecar
+      dockerfile: Dockerfile.gpu
+    command: uvicorn teacher_cache:app --host 0.0.0.0 --port 8140
+    ports:
+      - "127.0.0.1:8140:8140"
+    environment:
+      - TEACHER_PORT=8140
+    volumes:
+      - hf-cache:/root/.cache/huggingface
+    restart: unless-stopped
+
+  agent-machine:
+    build:
+      context: ./agent-machine
+      dockerfile: Dockerfile
+    command: node dist/server.js
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      - AM_PORT=8080
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  noetica-data:
+  hf-cache:

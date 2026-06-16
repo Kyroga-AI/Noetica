@@ -14,7 +14,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     <html lang="en" suppressHydrationWarning>
       <head>
         {/* Apply saved theme before first paint — prevents flash */}
-        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('noetica-theme');if(t&&['claude','navy','light'].includes(t))document.documentElement.setAttribute('data-theme',t)}catch(e){}})()` }} />
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('noetica-theme')||'claude';if(['claude','navy','light'].includes(t))document.documentElement.setAttribute('data-theme',t)}catch(e){}})()` }} />
       </head>
       <body>
         <ThemeProvider>

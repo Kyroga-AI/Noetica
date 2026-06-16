@@ -1,6 +1,6 @@
 [package]
 name = "noetica"
-version = "0.1.0"
+version = "0.4.7"
 description = "Noetica governed workstation desktop shell"
 authors = ["SocioProphet"]
 edition = "2021"
@@ -11,5 +11,7 @@ tauri-build = { version = "2", features = [] }
 [dependencies]
 tauri = { version = "2", features = [] }
 tauri-plugin-shell = "2"
+tauri-plugin-global-shortcut = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+base64 = "0.22"
