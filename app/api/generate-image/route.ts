@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { generateImage } from '@/lib/tools/generateImage'
 
 export const runtime = 'nodejs'
 
@@ -8,25 +9,11 @@ export async function POST(req: NextRequest) {
     const prompt = body.prompt?.trim()
     if (!prompt) return NextResponse.json({ error: 'prompt_required' }, { status: 400 })
 
-    const apiKey = body.provider_keys?.openai?.trim() || process.env.OPENAI_API_KEY
+    const apiKey = (body.provider_keys?.openai?.trim() || process.env.OPENAI_API_KEY)?.trim()
     if (!apiKey) return NextResponse.json({ error: 'openai_key_required' }, { status: 400 })
 
-    const res = await fetch('https://api.openai.com/v1/images/generations', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: 'dall-e-3', prompt, n: 1, size: '1024x1024', response_format: 'url' }),
-    })
-
-    if (!res.ok) {
-      const err = await res.text()
-      throw new Error(`OpenAI images API ${res.status}: ${err}`)
-    }
-
-    const data = await res.json() as { data?: Array<{ url?: string; revised_prompt?: string }> }
-    const image = data.data?.[0]
-    if (!image?.url) throw new Error('No image URL in response')
-
-    return NextResponse.json({ url: image.url, revised_prompt: image.revised_prompt })
+    const result = await generateImage(prompt, apiKey)
+    return NextResponse.json(result)
   } catch (err) {
     return NextResponse.json({ error: err instanceof Error ? err.message : 'generation_failed' }, { status: 502 })
   }

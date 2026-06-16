@@ -27,7 +27,8 @@ import { models, defaultModelId } from '@/config/models'
 import { initialMessages } from '@/lib/chat/mockConversation'
 import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
 import { buildRiskAversionLiveReadout } from '@/lib/risk/riskAversionLive'
-import { listenTauri } from '@/lib/tauri/bridge'
+import { listenTauri, isTauri } from '@/lib/tauri/bridge'
+import { executeBuiltinToolDirect } from '@/lib/client/anthropicDirect'
 import { useSession } from '@/lib/session/useSession'
 import { useArtifacts } from '@/lib/artifacts/useArtifacts'
 import { useMcp } from '@/lib/mcp/useMcp'
@@ -570,20 +571,31 @@ export function AppShell() {
   ): Promise<Array<{ id: string; name: string; result: string }>> {
     return Promise.all(calls.map(async (call) => {
       try {
-        // Built-in tools
-        if (call.name === 'web_search') {
-          const query = (call.input.query as string | undefined) ?? ''
-          const res = await fetch('/api/search', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify({ query, provider_keys: { serper: providerKeys.serper } }),
-          })
-          const data = await res.json() as { results?: Array<{ title: string; url: string; snippet: string }> }
-          const results = (data.results ?? []).map((r) => `- [${r.title}](${r.url}): ${r.snippet}`).join('\n')
-          return { id: call.id, name: call.name, result: results || 'No results found.' }
-        }
+        // Built-in tools — call APIs directly in Tauri (no /api/* routes in static export)
+        if (call.name === 'web_search' || call.name === 'generate_image') {
+          if (isTauri()) {
+            const result = await executeBuiltinToolDirect(call.name, call.input, {
+              serper: providerKeys.serper,
+              openai: providerKeys.openai,
+            })
+            return { id: call.id, name: call.name, result }
+          }
 
-        if (call.name === 'generate_image') {
+          // Browser / dev server path via API routes
+          if (call.name === 'web_search') {
+            const query = (call.input.query as string | undefined) ?? ''
+            const res = await fetch('/api/search', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ query, provider_keys: { serper: providerKeys.serper } }),
+            })
+            const data = await res.json() as { results?: Array<{ title: string; url: string; snippet: string }>; error?: string }
+            if (data.error) return { id: call.id, name: call.name, result: `Error: ${data.error}` }
+            const results = (data.results ?? []).map((r) => `- [${r.title}](${r.url}): ${r.snippet}`).join('\n')
+            return { id: call.id, name: call.name, result: results || 'No results found.' }
+          }
+
+          // generate_image
           const prompt = (call.input.prompt as string | undefined) ?? ''
           const res = await fetch('/api/generate-image', {
             method: 'POST',

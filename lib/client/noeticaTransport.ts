@@ -31,9 +31,15 @@ export async function sendNoeticaChat(
   signal?: AbortSignal
 ) {
   if (isTauri()) {
+    // In Tauri, if an agent-machine endpoint is configured, POST directly to it.
+    // The endpoint must speak the Noetica SSE wire protocol.
+    if (request.agent_machine_endpoint) {
+      return sendToNoeticaEndpoint(request.agent_machine_endpoint, request, handlers, signal)
+    }
     return sendNoeticaChatDirect(request, handlers, signal)
   }
 
+  // Browser path — /api/chat handles agent_machine_endpoint proxying server-side (avoids CORS).
   const endpoint = resolveNoeticaChatEndpoint(config)
   let response: Response
   try {
@@ -60,6 +66,37 @@ export async function sendNoeticaChat(
 
 export function resolveNoeticaChatEndpoint(config: NoeticaTransportConfig = {}) {
   return config.endpoint ?? process.env.NEXT_PUBLIC_NOETICA_CHAT_ENDPOINT ?? '/api/chat'
+}
+
+// Send a request to any endpoint that speaks the Noetica SSE protocol.
+// Used for agent-machine direct routing in Tauri mode.
+async function sendToNoeticaEndpoint(
+  url: string,
+  request: NoeticaChatRequest,
+  handlers: NoeticaChatTransportHandlers,
+  signal?: AbortSignal
+) {
+  let response: Response
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(request),
+      signal,
+    })
+  } catch (err) {
+    if (err instanceof DOMException && err.name === 'AbortError') return
+    handlers.onError(err instanceof Error ? err.message : 'agent_machine_unreachable')
+    return
+  }
+
+  if (!response.ok || !response.body) {
+    const payload = await response.json().catch(() => ({ error: 'agent_machine_error' }))
+    handlers.onError(String(payload.error ?? 'agent_machine_error'))
+    return
+  }
+
+  await readNoeticaEventStream(response, handlers, signal)
 }
 
 async function readNoeticaEventStream(response: Response, handlers: NoeticaChatTransportHandlers, signal?: AbortSignal) {

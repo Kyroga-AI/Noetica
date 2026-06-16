@@ -32,6 +32,7 @@ type ChatRequest = {
   provider_keys?: { anthropic?: string; openai?: string; google?: string; mistral?: string; neuronpedia?: string; serper?: string }
   tools?: ProviderTool[]
   system_prompt?: string
+  agent_machine_endpoint?: string
 }
 
 export async function POST(request: Request) {
@@ -41,6 +42,12 @@ export async function POST(request: Request) {
   const latest = messages[messages.length - 1]
   const sessionId = body.session_id ?? crypto.randomUUID()
   const memoryScope = body.memory_scope ?? 'noetica-session-local'
+
+  // Agent-machine proxy — forward to the configured endpoint and pipe the SSE stream back.
+  // This avoids CORS issues when the agent machine is a local service.
+  if (body.agent_machine_endpoint && mode !== 'sourceos') {
+    return proxyToAgentMachine(body.agent_machine_endpoint, body, request.signal)
+  }
 
   if (!latest?.content?.trim()) {
     return NextResponse.json({ error: 'message_required' }, { status: 400 })
@@ -397,4 +404,33 @@ function resolveProviderModelId(model: ModelConfig): string {
 function providerRouteEvidenceRef(evidence: ReturnType<typeof buildExternalModelProviderRouteEvidence>, runId: string): string {
   const provider = evidence.providerRef || evidence.providerClass || 'provider'
   return `urn:srcos:evidence:provider-route:${provider}-${runId}`.toLowerCase().replace(/[^a-z0-9._:~-]+/g, '-')
+}
+
+// Proxy a request to an agent-machine endpoint that speaks the Noetica SSE protocol.
+async function proxyToAgentMachine(url: string, body: ChatRequest, signal: AbortSignal): Promise<Response> {
+  let upstream: Response
+  try {
+    upstream = await fetch(url, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+      signal,
+    })
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'agent_machine_unreachable'
+    return NextResponse.json({ error: msg }, { status: 502 })
+  }
+
+  if (!upstream.ok || !upstream.body) {
+    const text = await upstream.text().catch(() => 'unknown')
+    return NextResponse.json({ error: `agent_machine: ${text}` }, { status: 502 })
+  }
+
+  return new Response(upstream.body, {
+    headers: {
+      'content-type': 'text/event-stream; charset=utf-8',
+      'cache-control': 'no-cache, no-transform',
+      connection: 'keep-alive',
+    },
+  })
 }

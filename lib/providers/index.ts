@@ -18,8 +18,7 @@ export type ProviderCallResult = {
 export type ProviderTool = {
   name: string
   description: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  input_schema: Record<string, any>
+  input_schema: Record<string, unknown>
   /** Set for MCP tools — used by client to route execution */
   serverId?: string
 }
@@ -28,8 +27,7 @@ export type ProviderTool = {
 export type ToolUseBlock = {
   id: string
   name: string
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  input: Record<string, any>
+  input: Record<string, unknown>
   serverId?: string
 }
 

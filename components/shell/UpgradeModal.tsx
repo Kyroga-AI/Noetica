@@ -66,7 +66,7 @@ export function UpgradeModal({ onClose }: { onClose: () => void }) {
           </div>
 
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)] mb-2">What's included</div>
+            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)] mb-2">{"What's included"}</div>
             <div className="space-y-0.5">
               {FEATURES.map(({ label, available, tag }) => (
                 <div key={label} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">

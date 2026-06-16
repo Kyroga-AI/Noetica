@@ -68,6 +68,7 @@ export function ModelsPanel() {
         <MaskedInput label="Google (Gemini)" value={settings.googleApiKey} onChange={(v) => update({ googleApiKey: v })} />
         <MaskedInput label="Mistral" value={settings.mistralApiKey} onChange={(v) => update({ mistralApiKey: v })} />
         <MaskedInput label="Neuronpedia" value={settings.neuronpediaApiKey} onChange={(v) => update({ neuronpediaApiKey: v })} />
+        <MaskedInput label="Serper (web search)" value={settings.serperApiKey} onChange={(v) => update({ serperApiKey: v })} />
       </div>
 
       <div className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 text-xs text-[var(--color-text-secondary)] leading-5">
