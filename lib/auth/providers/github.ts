@@ -23,7 +23,8 @@ export async function initiateGithubOAuth(clientId: string, redirectUri: string)
 export async function exchangeGithubCode(
   code: string,
   clientId: string,
-  redirectUri: string
+  redirectUri: string,
+  clientSecret?: string
 ): Promise<ConnectorAuthState> {
   const pending = sessionStorage.getItem(PENDING_KEY)
   if (!pending) throw new Error('No pending GitHub OAuth session')
@@ -31,13 +32,14 @@ export async function exchangeGithubCode(
   sessionStorage.removeItem(PENDING_KEY)
 
   // GitHub token exchange must go through a server-side proxy to avoid CORS.
-  // In Tauri mode this works directly; in browser mode use a local Next.js route.
+  // Standard OAuth Apps require client_secret; GitHub App public clients use PKCE only.
   const body = new URLSearchParams({
     client_id: clientId,
     code,
     redirect_uri: redirectUri,
     code_verifier: codeVerifier,
   })
+  if (clientSecret) body.set('client_secret', clientSecret)
 
   const proxyUrl = '/api/oauth/github/token'
   const res = await fetch(proxyUrl, {

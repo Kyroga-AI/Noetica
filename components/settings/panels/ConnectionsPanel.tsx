@@ -21,8 +21,10 @@ type OAuthProvider = {
   label: string
   description: string
   clientIdKey: keyof ReturnType<typeof useSettings>['settings']
+  clientSecretKey?: keyof ReturnType<typeof useSettings>['settings']
+  clientSecretLabel?: string
   initiate: (clientId: string, redirectUri: string) => Promise<void>
-  exchange: (code: string, clientId: string, redirectUri: string) => Promise<unknown>
+  exchange: (code: string, clientId: string, redirectUri: string, clientSecret?: string) => Promise<unknown>
   color: string
 }
 
@@ -41,6 +43,8 @@ const OAUTH_PROVIDERS: OAuthProvider[] = [
     label: 'GitHub',
     description: 'Read repos, issues, and user profile.',
     clientIdKey: 'oauthGithubClientId',
+    clientSecretKey: 'oauthGithubClientSecret',
+    clientSecretLabel: 'Client Secret (OAuth Apps only — leave blank for GitHub App public clients)',
     initiate: initiateGithubOAuth,
     exchange: exchangeGithubCode,
     color: '#24292e',
@@ -86,9 +90,11 @@ function OAuthProviderRow({ provider }: { provider: OAuthProvider }) {
   const { store, setAuth, clearAuth } = useConnectorAuth()
   const [editingKey, setEditingKey] = useState(false)
   const [keyDraft, setKeyDraft] = useState('')
+  const [secretDraft, setSecretDraft] = useState('')
   const [error, setError] = useState('')
 
   const clientId = (settings[provider.clientIdKey] as string) ?? ''
+  const clientSecret = provider.clientSecretKey ? ((settings[provider.clientSecretKey] as string) ?? '') : ''
   const auth = store[provider.id]
   const status = auth?.status ?? 'disconnected'
 
@@ -107,7 +113,7 @@ function OAuthProviderRow({ provider }: { provider: OAuthProvider }) {
       if (!code) return
 
       setAuth(provider.id, { status: 'connecting' })
-      provider.exchange(code, clientId, getRedirectUri())
+      provider.exchange(code, clientId, getRedirectUri(), clientSecret || undefined)
         .then((authState) => {
           setAuth(provider.id, authState as Parameters<typeof setAuth>[1])
           setError('')
@@ -120,7 +126,7 @@ function OAuthProviderRow({ provider }: { provider: OAuthProvider }) {
     }
     window.addEventListener('message', handleMessage)
     return () => window.removeEventListener('message', handleMessage)
-  }, [provider, clientId, setAuth])
+  }, [provider, clientId, clientSecret, setAuth])
 
   function connect() {
     if (!clientId) { setEditingKey(true); return }
@@ -136,7 +142,9 @@ function OAuthProviderRow({ provider }: { provider: OAuthProvider }) {
   }
 
   function saveClientId() {
-    update({ [provider.clientIdKey]: keyDraft.trim() } as Record<string, string>)
+    const patch: Record<string, string> = { [provider.clientIdKey]: keyDraft.trim() }
+    if (provider.clientSecretKey) patch[provider.clientSecretKey as string] = secretDraft.trim()
+    update(patch)
     setEditingKey(false)
   }
 
@@ -174,28 +182,42 @@ function OAuthProviderRow({ provider }: { provider: OAuthProvider }) {
         </div>
       </div>
 
-      {/* Client ID config */}
+      {/* Client ID (+ optional secret) config */}
       <div className="border-t border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-2.5">
         {editingKey ? (
-          <div className="flex gap-2">
+          <div className="space-y-2">
             <input
               autoFocus
               value={keyDraft}
               onChange={(e) => setKeyDraft(e.target.value)}
               placeholder="OAuth Client ID…"
-              className="flex-1 rounded-lg border border-[#bfdbfe] bg-[var(--color-background-primary)] px-2.5 py-1.5 font-mono text-xs text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8]"
-              onKeyDown={(e) => { if (e.key === 'Enter') saveClientId(); if (e.key === 'Escape') setEditingKey(false) }}
+              className="w-full rounded-lg border border-[#bfdbfe] bg-[var(--color-background-primary)] px-2.5 py-1.5 font-mono text-xs text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8]"
+              onKeyDown={(e) => { if (e.key === 'Escape') setEditingKey(false) }}
             />
-            <button onClick={saveClientId} className="rounded-lg bg-[#1d4ed8] px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1e40af]">Save</button>
-            <button onClick={() => setEditingKey(false)} className="rounded-lg border border-[var(--color-border-secondary)] px-2.5 py-1.5 text-xs text-[var(--color-text-secondary)]">Cancel</button>
+            {provider.clientSecretKey && (
+              <input
+                type="password"
+                value={secretDraft}
+                onChange={(e) => setSecretDraft(e.target.value)}
+                placeholder={provider.clientSecretLabel ?? 'Client Secret (optional)…'}
+                className="w-full rounded-lg border border-[#bfdbfe] bg-[var(--color-background-primary)] px-2.5 py-1.5 font-mono text-xs text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8]"
+                onKeyDown={(e) => { if (e.key === 'Enter') saveClientId() }}
+              />
+            )}
+            <div className="flex gap-2">
+              <button onClick={saveClientId} className="rounded-lg bg-[#1d4ed8] px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1e40af]">Save</button>
+              <button onClick={() => setEditingKey(false)} className="rounded-lg border border-[var(--color-border-secondary)] px-2.5 py-1.5 text-xs text-[var(--color-text-secondary)]">Cancel</button>
+            </div>
           </div>
         ) : (
           <div className="flex items-center justify-between gap-2">
             <span className="font-mono text-[11px] text-[var(--color-text-tertiary)]">
-              {clientId ? `Client ID: ${clientId.slice(0, 16)}…` : 'No client ID configured'}
+              {clientId
+                ? `${clientId.slice(0, 16)}…${provider.clientSecretKey && clientSecret ? ' · secret set' : ''}`
+                : 'No client ID configured'}
             </span>
             <button
-              onClick={() => { setKeyDraft(clientId); setEditingKey(true) }}
+              onClick={() => { setKeyDraft(clientId); setSecretDraft(clientSecret); setEditingKey(true) }}
               className="text-[11px] text-[#1d4ed8] transition hover:underline"
             >
               {clientId ? 'Edit' : 'Add client ID'}

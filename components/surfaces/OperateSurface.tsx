@@ -336,14 +336,83 @@ function ConnectorHealthTab({ noeticaStatus, statusLoading }: { noeticaStatus: N
 
 // ─── Sync Queues tab ──────────────────────────────────────────────────────────
 
+const CONNECTOR_META: { id: string; label: string; color: string }[] = [
+  { id: 'google',  label: 'Google (Gmail + Calendar)', color: '#4285F4' },
+  { id: 'github',  label: 'GitHub',                    color: '#24292e' },
+  { id: 'slack',   label: 'Slack',                     color: '#4A154B' },
+  { id: 'linear',  label: 'Linear',                    color: '#5E6AD2' },
+  { id: 'notion',  label: 'Notion',                    color: '#000000' },
+  { id: 'matrix',  label: 'Matrix',                    color: '#0DBD8B' },
+]
+
+function connectorHealth(status: string | undefined): HealthStatus {
+  if (status === 'connected') return 'healthy'
+  if (status === 'error') return 'failed'
+  if (status === 'connecting') return 'degraded'
+  return 'unknown'
+}
+
 function SyncQueuesTab() {
+  const { store } = useConnectorAuth()
+  const now = Date.now()
+
+  const rows = CONNECTOR_META.map(({ id, label, color }) => {
+    const auth = store[id as keyof typeof store]
+    const health = connectorHealth(auth?.status)
+    const connectedAt = auth?.connectedAt ? new Date(auth.connectedAt) : null
+    const ageMs = connectedAt ? now - connectedAt.getTime() : null
+    const ageLabel = ageMs == null ? '—'
+      : ageMs < 60_000 ? 'just now'
+      : ageMs < 3_600_000 ? `${Math.floor(ageMs / 60_000)}m ago`
+      : ageMs < 86_400_000 ? `${Math.floor(ageMs / 3_600_000)}h ago`
+      : `${Math.floor(ageMs / 86_400_000)}d ago`
+
+    return { id, label, color, health, auth, connectedAt, ageLabel }
+  })
+
+  const connected = rows.filter((r) => r.health === 'healthy').length
+  const total = rows.length
+
   return (
-    <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm">
-      <div className="border-b border-[var(--color-border-tertiary)] px-5 py-3">
-        <SectionHeader title="Sync queues" />
+    <div className="space-y-4">
+      <div className="grid grid-cols-3 gap-3">
+        <StatCard label="Active syncs" value={connected} sub={`of ${total} connectors`} accent={connected > 0} />
+        <StatCard label="Errored" value={rows.filter((r) => r.health === 'failed').length} />
+        <StatCard label="Disconnected" value={rows.filter((r) => r.health === 'unknown').length} />
       </div>
-      <div className="px-5 py-10 text-center text-sm text-[var(--color-text-tertiary)]">
-        Sync queue data will populate once SourceOS substrate is connected.
+
+      <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm overflow-hidden">
+        <div className="border-b border-[var(--color-border-tertiary)] px-5 py-3">
+          <SectionHeader title="Connector sync state" />
+        </div>
+        <div className="divide-y divide-[var(--color-border-tertiary)]">
+          {rows.map(({ id, label, color, health, auth, ageLabel }) => (
+            <div key={id} className="flex items-center gap-3 px-5 py-3">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold text-white"
+                style={{ background: color }}>
+                {label[0]}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <StatusDot status={health} />
+                  <span className="text-sm font-medium text-[var(--color-text-primary)]">{label}</span>
+                </div>
+                {auth?.userInfo?.name && (
+                  <p className="text-[11px] text-[var(--color-text-tertiary)]">{auth.userInfo.name}</p>
+                )}
+              </div>
+              <div className="text-right">
+                <div className="text-xs font-semibold capitalize text-[var(--color-text-secondary)]">
+                  {auth?.status ?? 'disconnected'}
+                </div>
+                <div className="text-[10px] text-[var(--color-text-tertiary)]">{ageLabel}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="border-t border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-5 py-2.5 text-[10px] text-[var(--color-text-tertiary)]">
+          Connector sync state derived from local auth store. SourceOS substrate will add queue depth and processing rates.
+        </div>
       </div>
     </div>
   )
@@ -351,14 +420,81 @@ function SyncQueuesTab() {
 
 // ─── Event Ledger tab ─────────────────────────────────────────────────────────
 
+type LedgerEvent = { id: string; ts: number; kind: string; subject: string; detail: string; level: 'info' | 'warn' | 'error' }
+
+function buildLedger(store: ReturnType<typeof useConnectorAuth>['store']): LedgerEvent[] {
+  const events: LedgerEvent[] = []
+  for (const { id, label } of CONNECTOR_META) {
+    const auth = store[id as keyof typeof store]
+    if (!auth) continue
+    if (auth.connectedAt) {
+      events.push({
+        id: `${id}-connected`,
+        ts: new Date(auth.connectedAt).getTime(),
+        kind: 'auth',
+        subject: label,
+        detail: `Connected${auth.userInfo?.name ? ` as ${auth.userInfo.name}` : ''}`,
+        level: 'info',
+      })
+    }
+    if (auth.status === 'error' && auth.error) {
+      events.push({
+        id: `${id}-error`,
+        ts: auth.connectedAt ? new Date(auth.connectedAt).getTime() + 1 : Date.now(),
+        kind: 'error',
+        subject: label,
+        detail: auth.error,
+        level: 'error',
+      })
+    }
+  }
+  return events.sort((a, b) => b.ts - a.ts)
+}
+
+function fmtTs(ts: number): string {
+  const d = new Date(ts)
+  return d.toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+}
+
 function EventLedgerTab() {
+  const { store } = useConnectorAuth()
+  const events = buildLedger(store)
+
+  const levelColor: Record<LedgerEvent['level'], string> = {
+    info:  'bg-[#dcfce7] text-[#16a34a]',
+    warn:  'bg-[#fef9c3] text-[#92400e]',
+    error: 'bg-[#fef2f2] text-[#dc2626]',
+  }
+
   return (
-    <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm">
+    <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm overflow-hidden">
       <div className="border-b border-[var(--color-border-tertiary)] px-5 py-3">
-        <SectionHeader title="Event ledger" />
+        <SectionHeader title="Event ledger" action={
+          <span className="text-[10px] text-[var(--color-text-tertiary)]">{events.length} event{events.length !== 1 ? 's' : ''}</span>
+        } />
       </div>
-      <div className="px-5 py-10 text-center text-sm text-[var(--color-text-tertiary)]">
-        Event ledger will populate once SourceOS substrate is connected.
+      {events.length === 0 ? (
+        <div className="px-5 py-10 text-center text-sm text-[var(--color-text-tertiary)]">
+          No events yet. Events will appear here as connectors authenticate and sync.
+        </div>
+      ) : (
+        <div className="divide-y divide-[var(--color-border-tertiary)]">
+          {events.map((evt) => (
+            <div key={evt.id} className="flex items-start gap-3 px-5 py-3">
+              <span className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${levelColor[evt.level]}`}>
+                {evt.kind}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="text-xs font-semibold text-[var(--color-text-primary)]">{evt.subject}</div>
+                <div className="text-[11px] text-[var(--color-text-secondary)]">{evt.detail}</div>
+              </div>
+              <div className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">{fmtTs(evt.ts)}</div>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="border-t border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-5 py-2.5 text-[10px] text-[var(--color-text-tertiary)]">
+        Browser-local auth events. SourceOS substrate will add durable, ordered ledger entries.
       </div>
     </div>
   )

@@ -39,6 +39,7 @@ export const defaultSettings: NoeticaSettings = {
 
   oauthGoogleClientId: '',
   oauthGithubClientId: '',
+  oauthGithubClientSecret: '',
   oauthSlackClientId: '',
   oauthLinearClientId: '',
   oauthNotionClientId: '',

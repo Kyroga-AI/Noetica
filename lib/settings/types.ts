@@ -51,6 +51,7 @@ export interface NoeticaSettings {
   // OAuth credentials (user-registered OAuth app client IDs)
   oauthGoogleClientId: string
   oauthGithubClientId: string
+  oauthGithubClientSecret: string
   oauthSlackClientId: string
   oauthLinearClientId: string
   oauthNotionClientId: string
