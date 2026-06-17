@@ -133,6 +133,7 @@ jobs:
       # This removes the broken signature that Gatekeeper silently rejects.
       - name: Ad-hoc sign DMG (no cert fallback)
         if: env.APPLE_CERTIFICATE == ''
+        continue-on-error: true
         run: |
           DMG=$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name "*.dmg" 2>/dev/null | head -1)
           [ -z "$DMG" ] && DMG=$(find src-tauri/target/release/bundle/dmg -name "*.dmg" 2>/dev/null | head -1)
