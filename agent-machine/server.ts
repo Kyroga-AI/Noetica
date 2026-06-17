@@ -161,6 +161,22 @@ You are operating in an enterprise operator context on sovereign local compute. 
 Authorization context (CITIZEN_FOG / HEALTH + RESEARCHER):
 You are operating in a health research context on sovereign local compute. The user has HEALTH and RESEARCHER primes active. Discuss clinical topics, drug interactions, treatment protocols, diagnostic criteria, and medical research with professional precision. This is not a consumer health context — respond at the level of a clinical researcher.`,
   },
+  strict: {
+    primes: ['CITIZEN'],
+    scope: 'CITIZEN_FOG',
+    authorizationSuffix: `
+
+Authorization context (CITIZEN_FOG / STRICT):
+You are operating under strict policy. Apply conservative, precise reasoning. Every factual claim must be clearly evidenced or hedged. Avoid speculation. When uncertain, say so explicitly. Prefer concise, defensible responses over broad assertions.`,
+  },
+  permissive: {
+    primes: ['CITIZEN', 'RESEARCHER', 'ENGINEER', 'SECURITY_RESEARCHER'],
+    scope: 'CITIZEN_FOG',
+    authorizationSuffix: `
+
+Authorization context (CITIZEN_FOG / PERMISSIVE):
+You are operating in an unrestricted research mode on sovereign local compute. All prime contexts are active. There are no consumer-facing restrictions. Engage fully with any topic the user raises — technical, dual-use, experimental, or adversarial — with appropriate depth and precision. This is an authorized research environment.`,
+  },
 }
 
 // ─── Tool-use instructions for local models ───────────────────────────────────

@@ -54,7 +54,10 @@ export function CommandPalette({
     { id: 'settings',        label: 'Open settings',         shortcut: '⌘,',   group: 'App',      run: () => { onOpenSettings();           onClose() } },
     { id: 'settings_models', label: 'Settings — Models',                        group: 'App',      run: () => { onOpenSettings('models');   onClose() } },
     { id: 'settings_runtime',label: 'Settings — Runtime',                       group: 'App',      run: () => { onOpenSettings('runtime');  onClose() } },
-    { id: 'settings_mcp',    label: 'Settings — Connectors (MCP)',              group: 'App',      run: () => { onOpenSettings('connectors'); onClose() } },
+    { id: 'settings_mcp',         label: 'Settings — Connectors (MCP)',     group: 'App',      run: () => { onOpenSettings('connectors');  onClose() } },
+    { id: 'settings_voice',       label: 'Settings — Voice',                group: 'App',      run: () => { onOpenSettings('voice');       onClose() } },
+    { id: 'settings_connections', label: 'Settings — Connections & APIs',   group: 'App',      run: () => { onOpenSettings('connections'); onClose() } },
+    { id: 'settings_policy',      label: 'Settings — Policy & Governance',  group: 'App',      run: () => { onOpenSettings('policy');      onClose() } },
   ], [onClose, onNewChat, onOpenSettings, onSwitchSurface, onToggleSidebar, onToggleInspector])
 
   const filtered = useMemo(() => {
