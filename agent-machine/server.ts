@@ -1269,6 +1269,32 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`[noetica-am] Agent Machine v${VERSION} listening on http://127.0.0.1:${PORT}`)
   console.log(`[noetica-am] Status: http://127.0.0.1:${PORT}/api/status`)
+
+  // Background model warm-up: ensure the two primary local models are pulled.
+  // Runs silently after startup — never blocks the server.
+  void (async () => {
+    try {
+      const up = await isOllamaRunning()
+      if (!up) return
+      const installed = await listLocalModels()
+      const { pullModel } = await import('./lib/ollama.js')
+      const priority = ['qwen2.5:7b', 'llama3.2:3b']
+      for (const model of priority) {
+        const base = model.split(':')[0]!
+        const present = installed.some((m) => m === model || m.startsWith(base))
+        if (!present) {
+          console.log(`[noetica-am] Auto-pulling ${model}…`)
+          await pullModel(model, (status, pct) => {
+            if (pct !== null && pct % 20 === 0) console.log(`[noetica-am]   ${model} ${pct}%`)
+            else if (!pct) console.log(`[noetica-am]   ${model}: ${status}`)
+          })
+          console.log(`[noetica-am] ${model} ready.`)
+        }
+      }
+    } catch (e) {
+      console.warn('[noetica-am] Model warm-up error:', e)
+    }
+  })()
 })
 
 server.on('error', (err: NodeJS.ErrnoException) => {

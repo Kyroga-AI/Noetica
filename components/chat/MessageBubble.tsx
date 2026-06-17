@@ -403,6 +403,24 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
           </div>
         )}
 
+        {message.governance && (message.governance.model_routed || message.governance.input_tokens || message.governance.output_tokens || message.governance.latency_ms) && (
+          <div className="mt-1.5 flex items-center gap-3 text-[10px] text-[var(--color-text-tertiary)]">
+            {message.governance.model_routed && (
+              <span className="flex items-center gap-1">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#22c55e]" />
+                {message.governance.model_routed}
+              </span>
+            )}
+            {message.governance.latency_ms > 0 && (
+              <span>{(message.governance.latency_ms / 1000).toFixed(1)}s</span>
+            )}
+            {(message.governance.input_tokens || message.governance.output_tokens) && (
+              <span>
+                {message.governance.input_tokens?.toLocaleString() ?? '–'} in · {message.governance.output_tokens?.toLocaleString() ?? '–'} out
+              </span>
+            )}
+          </div>
+        )}
         {message.steering_result ? <SteeringDiff result={message.steering_result} /> : null}
         {message.governance ? <GovernanceTrail trace={message.governance} /> : null}
       </div>

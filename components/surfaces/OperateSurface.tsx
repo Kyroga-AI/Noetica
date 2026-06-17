@@ -50,6 +50,42 @@ function useFlash() {
   return { state, trigger }
 }
 
+type HealthCheckResult = { ok: boolean; latency_ms: number; detail?: string }
+
+function amUrl(path: string): string {
+  const isTauri = typeof window !== 'undefined' &&
+    ('__TAURI_INTERNALS__' in window || '__TAURI__' in window)
+  return isTauri ? `http://127.0.0.1:8080${path}` : path
+}
+
+function useHealthCheck(endpoint: string) {
+  const [state, setState] = useState<'idle' | 'running' | 'done' | 'failed'>('idle')
+  const [result, setResult] = useState<HealthCheckResult | null>(null)
+
+  async function trigger() {
+    setState('running')
+    setResult(null)
+    const started = Date.now()
+    try {
+      const res = await fetch(endpoint, { cache: 'no-store', signal: AbortSignal.timeout(5000) })
+      const latency_ms = Date.now() - started
+      if (res.ok) {
+        setResult({ ok: true, latency_ms })
+        setState('done')
+      } else {
+        setResult({ ok: false, latency_ms, detail: `HTTP ${res.status}` })
+        setState('failed')
+      }
+    } catch (err) {
+      setResult({ ok: false, latency_ms: Date.now() - started, detail: err instanceof Error ? err.message : 'unreachable' })
+      setState('failed')
+    }
+    setTimeout(() => setState('idle'), 3000)
+  }
+
+  return { state, result, trigger }
+}
+
 const STUB_GRAPH: GraphHealthStatus = {
   graphId: 'sociosphere-primary',
   status: 'unknown',
@@ -507,10 +543,12 @@ type ViewTab = typeof VIEW_TABS[number]
 
 export function OperateSurface() {
   const [tab, setTab] = useState<ViewTab>('Graph Health')
-  const healthCheck = useFlash()
+  const healthCheck = useHealthCheck(amUrl('/api/status'))
   const exportSnap = useFlash()
-  const graph = STUB_GRAPH
-  const time  = STUB_TIME
+
+  // Live HellGraph health — falls back to the unknown stub until first fetch.
+  const [graph, setGraph] = useState<GraphHealthStatus>(STUB_GRAPH)
+  const [time, setTime]   = useState<TimeServiceStatus>(STUB_TIME)
 
   const [noeticaStatus, setNoeticaStatus] = useState<NoeticaServiceStatus | null>(null)
   const [statusLoading, setStatusLoading] = useState(true)
@@ -519,6 +557,23 @@ export function OperateSurface() {
     loadNoeticaStatus()
       .then((s) => { setNoeticaStatus(s); setStatusLoading(false) })
       .catch(() => setStatusLoading(false))
+  }, [])
+
+  useEffect(() => {
+    let active = true
+    const fetchHealth = () => {
+      fetch(amUrl('/api/graph/health'))
+        .then((r) => r.ok ? r.json() : null)
+        .then((data: { graph?: GraphHealthStatus; time?: TimeServiceStatus } | null) => {
+          if (!active || !data) return
+          if (data.graph) setGraph(data.graph)
+          if (data.time) setTime(data.time)
+        })
+        .catch(() => { /* keep last-known/stub */ })
+    }
+    fetchHealth()
+    const interval = setInterval(fetchHealth, 5000)
+    return () => { active = false; clearInterval(interval) }
   }, [])
 
   const topCards: { label: string; status: HealthStatus; detail: string }[] = [
@@ -549,7 +604,7 @@ export function OperateSurface() {
             <button
               onClick={healthCheck.trigger}
               className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs font-semibold text-[var(--color-text-primary)] transition hover:border-[#1d4ed8] hover:text-[#1d4ed8]">
-              {healthCheck.state === 'running' ? 'Checking…' : healthCheck.state === 'done' ? 'All clear' : 'Run health check'}
+              {healthCheck.state === 'running' ? 'Checking…' : healthCheck.state === 'done' ? `All clear · ${healthCheck.result?.latency_ms ?? 0}ms` : healthCheck.state === 'failed' ? `Failed · ${healthCheck.result?.detail ?? 'error'}` : 'Run health check'}
             </button>
             <button
               onClick={exportSnap.trigger}
