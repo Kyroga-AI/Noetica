@@ -344,6 +344,10 @@ function RoomView({ room, thinkingBudget, onAppendMessage, onUpdateMessage, onUp
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const activeAbortsRef = useRef<Set<AbortController>>(new Set())
+
+  // Abort all in-flight dispatches on unmount
+  useEffect(() => () => { activeAbortsRef.current.forEach((a) => a.abort()) }, [])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -427,6 +431,9 @@ function RoomView({ room, thinkingBudget, onAppendMessage, onUpdateMessage, onUp
     onAppendMessage(resultMsg)
 
     // Stream response — update the result message slot in place rather than appending
+    const abort = new AbortController()
+    activeAbortsRef.current.add(abort)
+
     let fullContent = ''
     try {
       await sendNoeticaChat(
@@ -456,11 +463,17 @@ function RoomView({ room, thinkingBudget, onAppendMessage, onUpdateMessage, onUp
             onUpdateMessage(resultMsgId, { content: `Error: ${err}` })
             onUpdateDispatch({ ...dispatch, status: 'error', completedAt: new Date().toISOString() })
           },
-        }
+        },
+        {},
+        abort.signal
       )
     } catch (e) {
-      onUpdateMessage(resultMsgId, { content: 'Error: request failed' })
-      onUpdateDispatch({ ...dispatch, status: 'error', completedAt: new Date().toISOString() })
+      if (!(e instanceof DOMException && (e as DOMException).name === 'AbortError')) {
+        onUpdateMessage(resultMsgId, { content: 'Error: request failed' })
+        onUpdateDispatch({ ...dispatch, status: 'error', completedAt: new Date().toISOString() })
+      }
+    } finally {
+      activeAbortsRef.current.delete(abort)
     }
   }
 
