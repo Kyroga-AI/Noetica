@@ -40,6 +40,7 @@ import { recordAttentionSnapshot, pushSnapshotToPrometheusd, ingestPrometheusCan
 import { isOllamaRunning, listLocalModels, pullModel, streamOllama } from './lib/ollama.js'
 import { retrieve } from './lib/retrieval.js'
 import { getGraph, graphHealth, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
+import { getHellGraph } from '../lib/hellgraph/store.js'
 import { runGremlin } from '../lib/hellgraph/gremlin.js'
 import { buildWorkspacePrefix, invalidatePrefix } from './lib/context-cache.js'
 
@@ -1460,6 +1461,35 @@ const server = http.createServer((req, res) => {
             const nodeId = ingestPrometheusCandidate(candidate)
             res.writeHead(200, { 'content-type': 'application/json' })
             res.end(JSON.stringify({ ok: true, nodeId }))
+            return
+          }
+          else if (type === 'tool_result') {
+            // MCP/built-in tool results become first-class knowledge atoms in HellGraph
+            const { ingestEntities } = await import('./lib/graph.js')
+            const p = parsed.payload as { interaction_id: string; session_id: string; content: string; timestamp: string }
+            ingestEntities(p.interaction_id, p.session_id, p.content, p.timestamp)
+            res.writeHead(200, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ ok: true }))
+            return
+          }
+          else if (type === 'tool_grant_check') {
+            // A2A zero-trust: write ToolGrantCheck governance atom to HellGraph
+            const p = parsed.payload as {
+              check_id: string; grant_id: string; operation: string;
+              checked_at: string; actor: { spiffe_id: string }; result: { valid: boolean }; policy_hash: string
+            }
+            const g = getHellGraph()
+            g.addNode(p.check_id, ['ToolGrantCheck', 'GovernanceEvent'], {
+              operation: p.operation,
+              grant_id: p.grant_id,
+              checked_at: p.checked_at,
+              spiffe_id: p.actor.spiffe_id,
+              valid: p.result.valid,
+              policy_hash: p.policy_hash,
+              kind: 'governance',
+            })
+            res.writeHead(200, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ ok: true, nodeId: p.check_id }))
             return
           }
           else throw new Error(`unknown ingest type: ${type}`)

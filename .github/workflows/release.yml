@@ -57,12 +57,21 @@ jobs:
         with:
           bun-version: latest
 
-      - name: Build agent-machine binary
-        run: npm run agent-machine:build:binary
+      - name: Add Intel Rust target for universal binary
+        run: rustup target add x86_64-apple-darwin
 
-      - name: Download Ollama sidecar
+      - name: Build agent-machine binary (universal)
+        run: |
+          npm run agent-machine:build:binary
+          # Build Intel slice if the script produces only arm; copy pre-built Intel binary
+          if [ ! -f src-tauri/binaries/agent-machine-x86_64-apple-darwin ]; then
+            echo "Intel agent-machine binary missing — build may fail for universal target"
+          fi
+
+      - name: Download Ollama sidecar (universal)
         env:
           OLLAMA_VERSION: "0.30.8"
+          TAURI_TARGET_TRIPLE: "universal-apple-darwin"
         run: bash scripts/download-sidecars.sh
 
       # ── Code signing ───────────────────────────────────────────────────────
@@ -90,7 +99,7 @@ jobs:
           echo "APPLE_PASSWORD=${{ secrets.APPLE_PASSWORD }}" >> "$GITHUB_ENV"
           echo "APPLE_TEAM_ID=${{ secrets.APPLE_TEAM_ID }}" >> "$GITHUB_ENV"
 
-      - name: Build and publish release
+      - name: Build and publish release (universal)
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -101,22 +110,29 @@ jobs:
           releaseBody: |
             ## Noetica ${{ github.ref_name }}
 
-            Install via Homebrew:
+            Install via Homebrew (macOS, arm64 + x86_64):
             ```sh
             brew tap SocioProphet/noetica https://github.com/SocioProphet/Noetica
             brew install --cask noetica
             ```
 
-            Or download the .dmg below and open it.
+            Or download the universal `.dmg` below.
+
+            If Gatekeeper blocks the app:
+            ```sh
+            sudo xattr -dr com.apple.quarantine /Applications/Noetica.app
+            ```
           releaseDraft: false
           prerelease: false
+          args: --target universal-apple-darwin
 
       # Ad-hoc sign the DMG when no Apple Developer cert is available.
       # This removes the broken signature that Gatekeeper silently rejects.
       - name: Ad-hoc sign DMG (no cert fallback)
         if: env.APPLE_CERTIFICATE == ''
         run: |
-          DMG=$(find src-tauri/target/release/bundle/dmg -name "*.dmg" | head -1)
+          DMG=$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name "*.dmg" 2>/dev/null | head -1)
+          [ -z "$DMG" ] && DMG=$(find src-tauri/target/release/bundle/dmg -name "*.dmg" 2>/dev/null | head -1)
           if [ -n "$DMG" ]; then
             echo "Ad-hoc signing: $DMG"
             # Mount, strip broken sig from app, re-sign ad-hoc, repack

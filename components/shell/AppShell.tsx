@@ -989,6 +989,13 @@ export function AppShell() {
 
         // MCP tools
         if (call.serverId) {
+          const amBase = isTauri() ? 'http://127.0.0.1:8080' : ''
+          const sessionId = activeSession?.id ?? 'local'
+
+          // A2A zero-trust: emit ToolGrantCheck governance atom before dispatch
+          const { emitToolGrantCheck } = await import('@/lib/a2a/grantCheck')
+          emitToolGrantCheck(call.serverId, call.name, sessionId, amBase)
+
           const mcpResult = await mcpManager.callTool({
             serverId: call.serverId,
             toolName: call.name,
@@ -997,6 +1004,24 @@ export function AppShell() {
           const resultText = mcpResult.content
             .map((c: { type?: string; text?: string }) => (c.type === 'text' ? c.text ?? '' : JSON.stringify(c)))
             .join('\n')
+
+          // Ingest tool result into HellGraph as first-class knowledge atoms
+          if (resultText && resultText.length > 10) {
+            fetch(`${amBase}/api/graph/ingest`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                type: 'tool_result',
+                payload: {
+                  interaction_id: call.id,
+                  session_id: sessionId,
+                  content: `${call.name}: ${resultText.slice(0, 2000)}`,
+                  timestamp: new Date().toISOString(),
+                },
+              }),
+            }).catch(() => {})
+          }
+
           return { id: call.id, name: call.name, result: resultText || '(empty result)' }
         }
 
@@ -1103,6 +1128,7 @@ export function AppShell() {
                 onCloseArtifact={() => setActiveArtifact(null)}
                 onArtifactUpdate={updateArtifact}
                 onArtifactDelete={(id) => { deleteArtifact(id); setActiveArtifact(null) }}
+                onAtomSelect={(query) => { setActiveSurface('chat'); void handleSend(query, []) }}
               />
               {inspectorVisible && (
                 <RightPanel
@@ -1287,9 +1313,10 @@ type CenterProps = {
   onCloseArtifact?: () => void
   onArtifactUpdate?: (id: string, patch: Partial<Artifact>) => void
   onArtifactDelete?: (id: string) => void
+  onAtomSelect?: (query: string) => void
 }
 
-function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete }: CenterProps) {
+function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect }: CenterProps) {
   if (activeSurface === 'notes')        return <NotesSurface />
   if (activeSurface === 'canvas')       return <CanvasSurface />
   if (activeSurface === 'workrooms')    return <WorkroomsSurface thinkingBudget={thinkingBudget} />
@@ -1298,7 +1325,7 @@ function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, 
   if (activeSurface === 'artifacts')    return <ArtifactsSurface />
   if (activeSurface === 'code')         return <CodeSurface />
   if (activeSurface === 'evaluate')     return <EvaluateSurface thinkingBudget={thinkingBudget} />
-  if (activeSurface === 'operate')      return <OperateSurface />
+  if (activeSurface === 'operate')      return <OperateSurface onAtomSelect={onAtomSelect} />
   if (activeSurface === 'govern') {
     const traces = messages
       .filter((m) => m.role === 'assistant' && m.governance)

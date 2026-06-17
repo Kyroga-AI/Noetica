@@ -65,7 +65,7 @@ const KIND_COLORS: Record<string, string> = {
   default:       '#64748b',
 }
 
-function GraphViz() {
+function GraphViz({ onNodeClick }: { onNodeClick?: (node: VizNode) => void }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [nodes, setNodes] = useState<VizNode[]>([])
   const [edges, setEdges] = useState<VizEdge[]>([])
@@ -73,6 +73,7 @@ function GraphViz() {
   const frameRef = useRef<number>(0)
   const nodesRef = useRef<VizNode[]>([])
   const edgesRef = useRef<VizEdge[]>([])
+  const hoveredRef = useRef<VizNode | null>(null)
 
   const fetchNodes = useCallback(() => {
     fetch(amUrl('/api/graph/nodes'))
@@ -184,6 +185,34 @@ function GraphViz() {
     return () => cancelAnimationFrame(frameRef.current)
   }, [nodes, edges])
 
+  function _hitTest(e: React.MouseEvent<HTMLCanvasElement>): VizNode | null {
+    const canvas = canvasRef.current
+    if (!canvas) return null
+    const rect = canvas.getBoundingClientRect()
+    const scaleX = canvas.width / rect.width
+    const scaleY = canvas.height / rect.height
+    const cx = (e.clientX - rect.left) * scaleX
+    const cy = (e.clientY - rect.top) * scaleY
+    let best: VizNode | null = null
+    let bestDist = 12 * Math.max(scaleX, scaleY)
+    for (const n of nodesRef.current) {
+      const d = Math.sqrt((n.x - cx) ** 2 + (n.y - cy) ** 2)
+      if (d < bestDist) { bestDist = d; best = n }
+    }
+    return best
+  }
+
+  function handleCanvasMove(e: React.MouseEvent<HTMLCanvasElement>) {
+    const hit = _hitTest(e)
+    hoveredRef.current = hit
+    if (canvasRef.current) canvasRef.current.style.cursor = hit ? 'pointer' : 'default'
+  }
+
+  function handleCanvasClick(e: React.MouseEvent<HTMLCanvasElement>) {
+    const hit = _hitTest(e)
+    if (hit) onNodeClick?.(hit)
+  }
+
   if (loading) return <div className="flex h-48 items-center justify-center text-xs text-[var(--color-text-tertiary)]">Loading graph…</div>
   if (nodes.length === 0) return <div className="flex h-48 items-center justify-center text-xs text-[var(--color-text-tertiary)]">No graph data yet — start chatting to build your memory graph.</div>
 
@@ -195,6 +224,8 @@ function GraphViz() {
         height={320}
         className="w-full"
         style={{ background: 'var(--color-background-secondary)' }}
+        onMouseMove={handleCanvasMove}
+        onClick={handleCanvasClick}
       />
       <div className="flex flex-wrap gap-2 border-t border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2">
         {Object.entries(KIND_COLORS).filter(([k]) => k !== 'default').map(([kind, color]) => (
@@ -268,7 +299,7 @@ const STUB_TIME: TimeServiceStatus = {
 
 // ─── Graph Health tab ─────────────────────────────────────────────────────────
 
-function GraphHealthTab({ graph, onTabChange }: { graph: GraphHealthStatus; onTabChange: (tab: ViewTab) => void }) {
+function GraphHealthTab({ graph, onTabChange, onAtomSelect }: { graph: GraphHealthStatus; onTabChange: (tab: ViewTab) => void; onAtomSelect?: (query: string) => void }) {
   const recentEvents: string[] = []
   const stalePartitions: string[] = []
   const healthCheck = useFlash()
@@ -305,7 +336,7 @@ function GraphHealthTab({ graph, onTabChange }: { graph: GraphHealthStatus; onTa
         ))}
       </div>
 
-      <GraphViz />
+      <GraphViz onNodeClick={onAtomSelect ? (n) => onAtomSelect(`Explore the knowledge graph for "${n.surface || n.label}" — what entities, relationships, and insights connect to this atom?`) : undefined} />
 
       <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm">
         <div className="border-b border-[var(--color-border-tertiary)] px-5 py-3">
@@ -701,7 +732,7 @@ function EventLedgerTab() {
 const VIEW_TABS = ['Graph Health', 'Time Service', 'Connector Health', 'Sync Queues', 'Event Ledger'] as const
 type ViewTab = typeof VIEW_TABS[number]
 
-export function OperateSurface() {
+export function OperateSurface({ onAtomSelect }: { onAtomSelect?: (query: string) => void } = {}) {
   const [tab, setTab] = useState<ViewTab>('Graph Health')
   const healthCheck = useHealthCheck(amUrl('/api/status'))
   const exportSnap = useFlash()
@@ -805,7 +836,7 @@ export function OperateSurface() {
         </div>
 
         {/* Tab content */}
-        {tab === 'Graph Health'     && <GraphHealthTab    graph={graph} onTabChange={setTab} />}
+        {tab === 'Graph Health'     && <GraphHealthTab    graph={graph} onTabChange={setTab} onAtomSelect={onAtomSelect} />}
         {tab === 'Time Service'     && <TimeServiceTab    time={time}   />}
         {tab === 'Connector Health' && <ConnectorHealthTab noeticaStatus={noeticaStatus} statusLoading={statusLoading} />}
         {tab === 'Sync Queues'      && <SyncQueuesTab />}

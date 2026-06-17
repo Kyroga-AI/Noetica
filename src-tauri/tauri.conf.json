@@ -44,10 +44,10 @@
             "binaries/ollama"
         ],
         "macOS": {
-            "entitlements": null,
+            "entitlements": "packaging/macos/noetica.entitlements.plist",
             "signingIdentity": null,
             "providerShortName": null,
-            "hardenedRuntime": false
+            "hardenedRuntime": true
         }
     }
 }

@@ -38,27 +38,39 @@ case "$OS" in
     ;;
 esac
 
-# Allow CI to override triple (e.g. cross-compilation)
+# Allow CI to override triple (e.g. cross-compilation or universal builds)
 TRIPLE="${TAURI_TARGET_TRIPLE:-$TRIPLE}"
-
-echo "==> Downloading Ollama ${OLLAMA_VERSION} for ${TRIPLE}..."
 
 TMPDIR="$(mktemp -d)"
 trap 'rm -rf "$TMPDIR"' EXIT
 
-echo "==> Fetching ${OLLAMA_URL}"
-curl -fsSL "$OLLAMA_URL" -o "$TMPDIR/ollama.tgz"
-tar -xzf "$TMPDIR/ollama.tgz" -C "$TMPDIR"
+_extract_ollama() {
+  local url="$1" tmpdir="$2"
+  echo "==> Fetching ${url}"
+  curl -fsSL "$url" -o "$tmpdir/ollama.tgz"
+  tar -xzf "$tmpdir/ollama.tgz" -C "$tmpdir"
+  local bin="$tmpdir/ollama"
+  [[ ! -f "$bin" ]] && bin="$tmpdir/bin/ollama"
+  echo "$bin"
+}
 
-# The tgz extracts to `ollama` or `bin/ollama` depending on release
-OLLAMA_BINARY="$TMPDIR/ollama"
-if [[ ! -f "$OLLAMA_BINARY" ]]; then
-  OLLAMA_BINARY="$TMPDIR/bin/ollama"
+if [[ "$TRIPLE" == "universal-apple-darwin" ]]; then
+  # Universal macOS build: ollama-darwin.tgz is already a universal fat binary.
+  # Tauri expects both triple-suffixed copies in binaries/.
+  echo "==> Downloading Ollama ${OLLAMA_VERSION} (universal — both triples)..."
+  BIN=$(_extract_ollama "$OLLAMA_URL" "$TMPDIR")
+  for arch_triple in aarch64-apple-darwin x86_64-apple-darwin; do
+    DEST="$BINARIES_DIR/ollama-${arch_triple}"
+    cp "$BIN" "$DEST"
+    chmod +x "$DEST"
+    echo "==> Written: ${DEST}"
+  done
+else
+  echo "==> Downloading Ollama ${OLLAMA_VERSION} for ${TRIPLE}..."
+  BIN=$(_extract_ollama "$OLLAMA_URL" "$TMPDIR")
+  DEST="$BINARIES_DIR/ollama-${TRIPLE}"
+  cp "$BIN" "$DEST"
+  chmod +x "$DEST"
+  echo "==> Ollama binary written to ${DEST}"
+  ls -lh "$DEST"
 fi
-
-DEST="$BINARIES_DIR/ollama-${TRIPLE}"
-cp "$OLLAMA_BINARY" "$DEST"
-chmod +x "$DEST"
-
-echo "==> Ollama binary written to ${DEST}"
-ls -lh "$DEST"
