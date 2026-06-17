@@ -39,7 +39,7 @@ import { getGraph, graphHealth, ingestInteraction, ingestConversation, ingestMes
 import { buildWorkspacePrefix, invalidatePrefix } from './lib/context-cache.js'
 
 const PORT = parseInt(process.env['NOETICA_AM_PORT'] ?? '8080', 10)
-const VERSION = '0.4.8'
+const VERSION = '0.5.0'
 
 // ─── Noetica identity ─────────────────────────────────────────────────────────
 
@@ -967,6 +967,8 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           if (event.type === 'text') {
             turnContent += event.text
             sse(res, 'delta', { delta: event.text })
+          } else if (event.type === 'thinking') {
+            sse(res, 'thinking_delta', { delta: event.text })
           } else if (event.type === 'tool_calls') {
             turnToolCalls = event.calls
           }

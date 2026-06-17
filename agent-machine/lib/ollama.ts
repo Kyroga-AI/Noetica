@@ -136,6 +136,42 @@ export async function* streamOllama(params: {
   type PartialCall = { id: string; name: string; argsJson: string }
   const toolCallMap = new Map<number, PartialCall>()
 
+  // DeepSeek R1 and other reasoning models emit <think>...</think> blocks.
+  // Buffer the accumulated text to detect and route them as thinking events.
+  let textAccum = ''
+  let inThink = false
+
+  function flushText(chunk: string): Array<{ type: 'text' | 'thinking'; text: string }> {
+    const events: Array<{ type: 'text' | 'thinking'; text: string }> = []
+    textAccum += chunk
+    while (true) {
+      if (!inThink) {
+        const open = textAccum.indexOf('<think>')
+        if (open === -1) {
+          // No think block — emit everything as text
+          if (textAccum) { events.push({ type: 'text', text: textAccum }); textAccum = '' }
+          break
+        }
+        // Emit text before <think>
+        if (open > 0) events.push({ type: 'text', text: textAccum.slice(0, open) })
+        textAccum = textAccum.slice(open + 7)
+        inThink = true
+      } else {
+        const close = textAccum.indexOf('</think>')
+        if (close === -1) {
+          // Still inside think block — emit as thinking
+          if (textAccum) { events.push({ type: 'thinking', text: textAccum }); textAccum = '' }
+          break
+        }
+        // Emit thinking content up to </think>
+        if (close > 0) events.push({ type: 'thinking', text: textAccum.slice(0, close) })
+        textAccum = textAccum.slice(close + 8)
+        inThink = false
+      }
+    }
+    return events
+  }
+
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
@@ -148,6 +184,8 @@ export async function* streamOllama(params: {
       if (!line.startsWith('data:')) continue
       const raw = line.slice(5).trim()
       if (raw === '[DONE]') {
+        // Flush remaining buffered text
+        for (const ev of flushText('')) yield ev
         if (toolCallMap.size) {
           const calls: ToolUseBlock[] = Array.from(toolCallMap.entries())
             .sort(([a], [b]) => a - b)
@@ -179,7 +217,9 @@ export async function* streamOllama(params: {
       }
 
       const delta = p.choices?.[0]?.delta
-      if (delta?.content) yield { type: 'text', text: delta.content }
+      if (delta?.content) {
+        for (const ev of flushText(delta.content)) yield ev
+      }
 
       if (delta?.tool_calls) {
         for (const tc of delta.tool_calls) {
