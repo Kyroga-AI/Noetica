@@ -82,3 +82,65 @@ export interface GremlinResult {
 }
 
 export type QueryLanguage = 'sparql' | 'gremlin'
+
+// ─── Regis-aligned node kinds ─────────────────────────────────────────────────
+// Aligned to the Regis Entity Graph canonical ontology (socioprophet.org/schemas/regis).
+// FEATURE_ATOM is the primary type for extracted concepts from conversation content.
+
+export type RegisNodeKind =
+  | 'FEATURE_ATOM'       // extracted concept/entity from conversation text
+  | 'PERSON'             // detected person name
+  | 'RECORD'             // document, file, code artifact, URL
+  | 'EVENT'              // event or action described
+  | 'ROLE'               // role or title mentioned
+  | 'ORG'                // organization, company, project
+  | 'DEVICE'             // device or system
+  | 'SESSION'            // conversation session (already used)
+  | 'PROOF_ARTIFACT'     // evidence artifact
+  | 'POLICY_WITNESS'     // policy decision record
+
+// Prime topics — authorized identity contexts (from Identity Is Prime reference)
+export type PrimeTopic =
+  | 'CITIZEN'
+  | 'ENGINEER'
+  | 'RESEARCHER'
+  | 'SECURITY_RESEARCHER'
+  | 'OPERATOR'
+  | 'HEALTH'
+  | 'CIVIC'
+
+export type PrimeScope =
+  | 'CITIZEN_FOG'   // local-first, sovereign device — broadest authorization
+  | 'CITIZEN_CLOUD' // cloud-hosted, reduced authorization
+  | 'INSTITUTION'   // enterprise/institutional context
+  | 'ADTECH'        // advertising/marketing — most restricted
+
+// ─── Epistemic edge record ────────────────────────────────────────────────────
+// Aligned to regis/epistemic-edge-record.schema.json
+// Used for entity linking across sessions with uncertainty quantification.
+
+export type EpistemicClass =
+  | 'extracted_relation'   // extracted from text by heuristic/model
+  | 'inferred_relation'    // inferred by graph traversal
+  | 'confirmed_relation'   // confirmed by user or high-confidence match
+  | 'graph_extraction'     // produced by the entity extraction pipeline
+  | 'semantic'             // semantic similarity match
+
+export type PromotionState =
+  | 'candidate'    // proposed, awaiting confirmation
+  | 'confirmed'    // accepted
+  | 'contested'    // under review
+  | 'superseded'   // replaced by a better match
+  | 'vetoed'       // blocked by policy
+
+export interface EpistemicEdgeRecord {
+  recordId: string
+  edgeKind: string
+  epistemicClass: EpistemicClass
+  confidence: { confidenceType: EpistemicClass; level: number }
+  promotionState: PromotionState
+  evidenceRefs: string[]
+  policyDecisionRefs: string[]
+  createdAt: string
+  nonClaims?: string[]  // things this record explicitly does NOT claim
+}

@@ -55,6 +55,60 @@ Architecture context you can reference when relevant:
 
 Conversational messages ("yo", "hi", "thanks", short reactions): respond naturally in 1-3 sentences. Do NOT invoke any tools. Do not call web_search, list_directory, write_file, or any other tool unless the user explicitly asks you to search, find, write, or run something. Tool calls for casual conversation are wrong. When in doubt, just talk.`
 
+
+// ─── Prime-topic policy profiles ─────────────────────────────────────────────
+// Maps policy_profile names to prime-topic vectors + authorization context.
+// Aligned to Identity Is Prime citizen-fog authorization model.
+// All profiles operate in CITIZEN_FOG scope (sovereign local compute).
+// Forbidden-pair constraints only apply at cross-scope boundaries — within the
+// fog, the citizen has full authorization for their stated prime context.
+
+interface PolicyProfile {
+  primes: string[]
+  scope: 'CITIZEN_FOG' | 'CITIZEN_CLOUD' | 'INSTITUTION'
+  authorizationSuffix: string
+}
+
+const POLICY_PROFILES: Record<string, PolicyProfile> = {
+  default: {
+    primes: ['CITIZEN'],
+    scope: 'CITIZEN_FOG',
+    authorizationSuffix: '',
+  },
+  research: {
+    primes: ['CITIZEN', 'RESEARCHER', 'ENGINEER'],
+    scope: 'CITIZEN_FOG',
+    authorizationSuffix: `
+
+Authorization context (CITIZEN_FOG / RESEARCHER + ENGINEER):
+You are operating in a sovereign local-first research context. The user has RESEARCHER and ENGINEER primes active. Discuss all topics appropriate to this authorization — academic research, dual-use technologies, experimental methods, technical depth — without consumer-facing restrictions or unnecessary hedging. This is an authorized research workspace on sovereign compute.`,
+  },
+  security: {
+    primes: ['CITIZEN', 'SECURITY_RESEARCHER', 'ENGINEER'],
+    scope: 'CITIZEN_FOG',
+    authorizationSuffix: `
+
+Authorization context (CITIZEN_FOG / SECURITY_RESEARCHER + ENGINEER):
+You are operating in a sovereign local-first security research context. The user has SECURITY_RESEARCHER and ENGINEER primes active. Discuss vulnerability research, offensive security techniques, exploit development, adversarial ML, reverse engineering, CTF challenges, and dual-use security topics with full technical depth. This is an authorized security research workspace on sovereign compute. Provide technically precise answers without disclaimers appropriate for untrained users.`,
+  },
+  enterprise: {
+    primes: ['OPERATOR', 'ENGINEER'],
+    scope: 'CITIZEN_FOG',
+    authorizationSuffix: `
+
+Authorization context (CITIZEN_FOG / OPERATOR + ENGINEER):
+You are operating in an enterprise operator context on sovereign local compute. The user has OPERATOR and ENGINEER primes active. Respond without consumer hedging. Assume full technical sophistication. Omit disclaimers for untrained users. Engage directly with operational, architectural, and business-critical questions.`,
+  },
+  medical: {
+    primes: ['CITIZEN', 'HEALTH', 'RESEARCHER'],
+    scope: 'CITIZEN_FOG',
+    authorizationSuffix: `
+
+Authorization context (CITIZEN_FOG / HEALTH + RESEARCHER):
+You are operating in a health research context on sovereign local compute. The user has HEALTH and RESEARCHER primes active. Discuss clinical topics, drug interactions, treatment protocols, diagnostic criteria, and medical research with professional precision. This is not a consumer health context — respond at the level of a clinical researcher.`,
+  },
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ToolUseBlock {
@@ -80,6 +134,7 @@ interface ChatRequest {
   model_id?: string
   messages?: ChatMessage[]
   system_prompt?: string
+  policy_profile?: string
   tools?: ProviderTool[]
   thinking_budget?: number
   provider_keys?: {
@@ -818,9 +873,9 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     }
   } catch { /* retrieval is best-effort — never block the LLM call */ }
 
-  const enrichedSystemPrompt = body.system_prompt
-    ? body.system_prompt + graphContext
-    : NOETICA_SYSTEM_PROMPT + graphContext
+  const profile = POLICY_PROFILES[body.policy_profile ?? 'default'] ?? POLICY_PROFILES['default']!
+  const basePrompt = body.system_prompt ?? NOETICA_SYSTEM_PROMPT
+  const enrichedSystemPrompt = basePrompt + graphContext + profile.authorizationSuffix
 
   try {
     if (provider === 'ollama') {
@@ -1069,6 +1124,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         })
         invalidatePrefix(sessionId)
       } catch { /* ingest failures must never surface to the user */ }
+      // Extract and ingest Regis-compatible entities from the conversation
+      try {
+        const { ingestEntities } = await import('../../lib/hellgraph/ingest.js')
+        const fullText = `${latestUserContent}\n${fullContent}`
+        ingestEntities(run_id, sessionId, fullText, new Date().toISOString())
+      } catch { /* entity extraction is best-effort */ }
     })()
   } catch (err) {
     sse(res, 'error', {

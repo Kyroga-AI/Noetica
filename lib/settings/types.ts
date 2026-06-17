@@ -40,7 +40,7 @@ export interface NoeticaSettings {
 
   // Governance
   defaultEvidenceLevel: 'minimal' | 'standard' | 'full'
-  defaultPolicyProfile: string
+  defaultPolicyProfile: 'default' | 'research' | 'security' | 'enterprise' | 'medical'
 
   // Fan-out
   fanoutModels: string[]

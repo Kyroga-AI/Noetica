@@ -1,5 +1,196 @@
 import { getHellGraph } from './store'
 
+// ─── Prime topic vocabulary ───────────────────────────────────────────────────
+// Used to tag extracted entities with the prime context they belong to.
+// Aligned to Identity Is Prime prime-topic decomposition.
+
+const ENGINEER_TERMS = new Set([
+  'api','sdk','cli','git','repo','branch','commit','merge','deploy','build',
+  'docker','kubernetes','k8s','terraform','ci','cd','pipeline','webhook',
+  'function','class','interface','type','schema','endpoint','middleware',
+  'database','migration','query','index','cache','redis','postgres','mysql',
+  'typescript','javascript','python','rust','go','java','c++','swift',
+  'react','nextjs','node','bun','deno','webpack','vite','tailwind',
+  'algorithm','complexity','runtime','memory','thread','async','promise',
+  'test','spec','lint','typecheck','coverage','benchmark',
+])
+
+const RESEARCHER_TERMS = new Set([
+  'paper','arxiv','doi','citation','hypothesis','experiment','dataset',
+  'model','training','fine-tuning','inference','embedding','vector',
+  'neural','transformer','attention','layer','weight','gradient',
+  'loss','accuracy','precision','recall','f1','benchmark','evaluation',
+  'ablation','baseline','sota','prior work','related work',
+])
+
+const SECURITY_TERMS = new Set([
+  'vulnerability','cve','exploit','payload','injection','xss','sqli',
+  'overflow','rop','shellcode','backdoor','malware','ransomware',
+  'pentest','red team','blue team','ctf','reverse engineering',
+  'fuzzing','afl','sanitizer','heap','stack','canary','aslr','pie',
+  'authentication','authorization','privilege','escalation','bypass',
+  'cipher','hash','signature','certificate','tls','ssl','mitm',
+])
+
+const HEALTH_TERMS = new Set([
+  'patient','diagnosis','treatment','medication','dosage','symptom',
+  'clinical','trial','ehr','icd','cpt','hipaa','phi','fhir',
+  'drug','therapy','protocol','biomarker','genomics','phenotype',
+])
+
+function classifyPrimes(text: string): string[] {
+  const lower = text.toLowerCase()
+  const tokens = lower.split(/[\s\-_./\\()[\]{},;:'"!?<>@#$%^&*+=|~`]+/)
+  const primes: Set<string> = new Set()
+  for (const tok of tokens) {
+    if (ENGINEER_TERMS.has(tok)) primes.add('ENGINEER')
+    if (RESEARCHER_TERMS.has(tok)) primes.add('RESEARCHER')
+    if (SECURITY_TERMS.has(tok)) primes.add('SECURITY_RESEARCHER')
+    if (HEALTH_TERMS.has(tok)) primes.add('HEALTH')
+  }
+  if (primes.size === 0) primes.add('CITIZEN')
+  return [...primes]
+}
+
+function classifyNodeKind(text: string, _tokens: string[]): string {
+  // File paths
+  if (/^[~/.]/.test(text) || /\.(ts|js|py|rs|go|json|yaml|md|sh|txt)$/.test(text)) return 'RECORD'
+  // URLs
+  if (/^https?:\/\//.test(text)) return 'RECORD'
+  // Person-like: "First Last" pattern
+  if (/^[A-Z][a-z]+ [A-Z][a-z]+$/.test(text)) return 'PERSON'
+  // Role-like: ends with common role suffixes
+  if (/(?:engineer|researcher|developer|manager|analyst|scientist|architect|founder|cto|ceo|vp|director)$/i.test(text)) return 'ROLE'
+  // Org-like: Inc, LLC, Corp, Ltd suffix
+  if (/(?:inc\.?|llc\.?|corp\.?|ltd\.?|company|organization|foundation)$/i.test(text)) return 'ORG'
+  // Default: FEATURE_ATOM
+  return 'FEATURE_ATOM'
+}
+
+export interface ExtractedEntity {
+  surface: string        // the text as it appeared
+  normalised: string     // lowercase, trimmed
+  kind: string           // Regis node kind
+  primeSupport: string[] // which prime topics this entity belongs to
+  confidence: number     // 0–1 extraction confidence
+}
+
+export function extractEntities(content: string): ExtractedEntity[] {
+  const results: ExtractedEntity[] = []
+  const seen = new Set<string>()
+
+  function add(surface: string, confidence: number) {
+    const norm = surface.trim().toLowerCase().replace(/\s+/g, ' ')
+    if (norm.length < 3 || seen.has(norm)) return
+    seen.add(norm)
+    const kind = classifyNodeKind(surface.trim(), norm.split(' '))
+    const primeSupport = classifyPrimes(surface.trim())
+    results.push({ surface: surface.trim(), normalised: norm, kind, primeSupport, confidence })
+  }
+
+  // Quoted strings (highest confidence — user explicitly named them)
+  const quotedRe = /"([^"]{2,80})"|'([^']{2,80})'/g
+  let m: RegExpExecArray | null
+  while ((m = quotedRe.exec(content)) !== null) {
+    const s = m[1] ?? m[2] ?? ''
+    if (s) add(s, 0.9)
+  }
+
+  // Backtick code references
+  const btRe = /`([^`]{2,60})`/g
+  while ((m = btRe.exec(content)) !== null) {
+    if (m[1]) add(m[1], 0.85)
+  }
+
+  // File paths
+  const pathRe = /(?:^|\s)((?:[~.]\/|\/)[^\s,;:'"(){}\[\]]{3,80})/gm
+  while ((m = pathRe.exec(content)) !== null) {
+    if (m[1]) add(m[1], 0.8)
+  }
+
+  // CamelCase identifiers (code symbols)
+  const camelRe = /\b([A-Z][a-z]+(?:[A-Z][a-z]+)+)\b/g
+  while ((m = camelRe.exec(content)) !== null) {
+    if (m[1] && m[1].length <= 60) add(m[1], 0.75)
+  }
+
+  // snake_case / kebab-case identifiers
+  const snakeRe = /\b([a-z][a-z0-9]*(?:[_-][a-z][a-z0-9]+){1,8})\b/g
+  while ((m = snakeRe.exec(content)) !== null) {
+    if (m[1] && m[1].length >= 6 && m[1].length <= 60) add(m[1], 0.7)
+  }
+
+  // Capitalised multi-word phrases (project names, people, orgs)
+  const capRe = /\b([A-Z][a-zA-Z]{1,}(?:\s+[A-Z][a-zA-Z]{1,}){1,4})\b/g
+  while ((m = capRe.exec(content)) !== null) {
+    if (m[1] && m[1].length <= 80) add(m[1], 0.65)
+  }
+
+  return results
+}
+
+export function ingestEntities(
+  interactionId: string,
+  _sessionId: string,
+  content: string,
+  timestamp: string,
+): void {
+  const g = getHellGraph()
+  const entities = extractEntities(content)
+
+  for (const ent of entities) {
+    const atomId = `urn:regis:feature-atom:${ent.normalised.replace(/[^a-z0-9]/g, '-').slice(0, 80)}`
+
+    // Upsert the FEATURE_ATOM node — prime_support is cumulative across sessions
+    const existing = g.getNode(atomId)
+    const existingPrimes: string[] = existing
+      ? String(existing.properties['prime_support'] ?? '').split(',').filter(Boolean)
+      : []
+    const mergedPrimes = [...new Set([...existingPrimes, ...ent.primeSupport])].join(',')
+
+    g.addNode(atomId, [ent.kind, 'FeatureAtom'], {
+      surface: ent.surface,
+      normalised: ent.normalised,
+      prime_support: mergedPrimes,
+      confidence: ent.confidence,
+      kind: ent.kind,
+    })
+
+    // Epistemic MENTIONED_IN edge: atom → interaction
+    g.addEdge('MENTIONED_IN', atomId, `urn:noetica:interaction:${interactionId}`, {
+      epistemicClass: 'graph_extraction',
+      confidence: ent.confidence,
+      promotionState: 'confirmed',
+      createdAt: timestamp,
+    })
+
+    // Cross-session MERGE_PROPOSAL: look for similar atoms with sufficient overlap
+    // Simple token Jaccard similarity — if > 0.5, propose a merge
+    const candidateTokens = new Set(ent.normalised.split(/\s+/))
+    const allNodes = g.allNodes().filter(n =>
+      n.labels.includes('FeatureAtom') &&
+      n.id !== atomId &&
+      n.properties['normalised']
+    )
+    for (const candidate of allNodes) {
+      const candNorm = String(candidate.properties['normalised'] ?? '')
+      if (!candNorm) continue
+      const candTokens = new Set(candNorm.split(/\s+/))
+      const intersection = [...candidateTokens].filter(t => candTokens.has(t)).length
+      const union = new Set([...candidateTokens, ...candTokens]).size
+      const jaccard = union > 0 ? intersection / union : 0
+      if (jaccard >= 0.5 && jaccard < 1.0) {
+        g.addEdge('MERGE_PROPOSAL', atomId, candidate.id, {
+          epistemicClass: 'semantic',
+          confidence: jaccard,
+          promotionState: 'candidate',
+          createdAt: timestamp,
+        })
+      }
+    }
+  }
+}
+
 /**
  * Ingestion: project Noetica runtime activity into the HellGraph substrate.
  *
