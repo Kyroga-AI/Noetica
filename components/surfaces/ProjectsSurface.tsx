@@ -616,10 +616,16 @@ function ProjectSettings({ project, onUpdate }: { project: import('@/lib/types/w
   const [systemPrompt, setSystemPrompt] = useState(project.systemPrompt ?? '')
   const [saved, setSaved] = useState(false)
 
+  const isDirty =
+    name.trim() !== project.name ||
+    desc.trim() !== (project.description ?? '') ||
+    systemPrompt.trim() !== (project.systemPrompt ?? '')
+
   useEffect(() => {
     setName(project.name)
     setDesc(project.description ?? '')
     setSystemPrompt(project.systemPrompt ?? '')
+    setSaved(false)
   }, [project.id, project.name, project.description, project.systemPrompt])
 
   function save() {
@@ -691,9 +697,11 @@ function ProjectSettings({ project, onUpdate }: { project: import('@/lib/types/w
 
         <div className="flex items-center justify-end gap-3">
           {saved && <span className="text-xs text-[#22c55e]">Saved</span>}
+          {isDirty && !saved && <span className="text-xs text-[#f59e0b]">Unsaved changes</span>}
           <button
             onClick={save}
-            className="rounded-xl bg-[#1d4ed8] px-5 py-2 text-xs font-semibold text-white transition hover:bg-[#1e40af]">
+            disabled={!isDirty}
+            className="rounded-xl bg-[#1d4ed8] px-5 py-2 text-xs font-semibold text-white transition hover:bg-[#1e40af] disabled:opacity-40">
             Save changes
           </button>
         </div>

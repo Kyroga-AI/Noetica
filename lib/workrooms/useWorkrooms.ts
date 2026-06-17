@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import type { Workroom, WorkroomMessage, WorkroomStore, AgentDispatch } from '@/lib/types/workroom'
+import type { Workroom, WorkroomMessage, WorkroomStore, AgentDispatch, WorkroomParticipant } from '@/lib/types/workroom'
 import { WORKROOM_STORE_VERSION } from '@/lib/types/workroom'
 import { loadWorkroomStore, saveWorkroomStore } from '@/lib/workrooms/storage'
 
@@ -11,6 +11,7 @@ export interface UseWorkroomsReturn {
   createWorkroom: (name: string, description?: string) => Workroom
   updateWorkroom: (id: string, patch: Partial<Pick<Workroom, 'name' | 'description' | 'pinned'>>) => void
   deleteWorkroom: (id: string) => void
+  addParticipant: (workroomId: string, participant: WorkroomParticipant) => void
   appendMessage: (id: string, msg: WorkroomMessage) => void
   updateMessage: (workroomId: string, msgId: string, patch: Partial<WorkroomMessage>) => void
   updateDispatch: (workroomId: string, dispatch: AgentDispatch) => void
@@ -87,6 +88,21 @@ export function useWorkrooms(): UseWorkroomsReturn {
     })
   }, [])
 
+  const addParticipant = useCallback((workroomId: string, participant: WorkroomParticipant) => {
+    mutate((s) => {
+      const r = s.workrooms[workroomId]
+      if (!r) return s
+      if (r.participants.some((p) => p.id === participant.id || (participant.agentId && p.agentId === participant.agentId))) return s
+      return {
+        ...s,
+        workrooms: {
+          ...s.workrooms,
+          [workroomId]: { ...r, participants: [...r.participants, participant], updatedAt: new Date().toISOString() },
+        },
+      }
+    })
+  }, [])
+
   const appendMessage = useCallback((id: string, msg: WorkroomMessage) => {
     mutate((s) => {
       const r = s.workrooms[id]
@@ -127,5 +143,5 @@ export function useWorkrooms(): UseWorkroomsReturn {
     return b.updatedAt.localeCompare(a.updatedAt)
   })
 
-  return { hydrated, workrooms, createWorkroom, updateWorkroom, deleteWorkroom, appendMessage, updateMessage, updateDispatch }
+  return { hydrated, workrooms, createWorkroom, updateWorkroom, deleteWorkroom, addParticipant, appendMessage, updateMessage, updateDispatch }
 }

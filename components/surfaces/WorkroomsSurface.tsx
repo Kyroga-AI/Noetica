@@ -332,12 +332,13 @@ function AgentDispatchPanel({ room, onDispatch }: {
 
 const YOU: WorkroomMessage['participantId'] = 'user'
 
-function RoomView({ room, thinkingBudget, onAppendMessage, onUpdateMessage, onUpdateDispatch }: {
+function RoomView({ room, thinkingBudget, onAppendMessage, onUpdateMessage, onUpdateDispatch, onAddParticipant }: {
   room: Workroom
   thinkingBudget?: number
   onAppendMessage: (msg: WorkroomMessage) => void
   onUpdateMessage: (msgId: string, patch: Partial<WorkroomMessage>) => void
   onUpdateDispatch: (dispatch: AgentDispatch) => void
+  onAddParticipant: (participant: import('@/lib/types/workroom').WorkroomParticipant) => void
 }) {
   const { settings } = useSettings()
   const [input, setInput] = useState('')
@@ -377,10 +378,10 @@ function RoomView({ room, thinkingBudget, onAppendMessage, onUpdateMessage, onUp
     const arch = AGENT_ARCHETYPES.find((a) => a.id === agentId)
     if (!arch) return
 
-    // Ensure agent is in participants
+    // Ensure agent is in participants — auto-add if dispatching to an inactive agent
     const alreadyIn = room.participants.some((p) => p.agentId === agentId)
     if (!alreadyIn) {
-      // We can't mutate participants here (workroom hook needed) so just proceed
+      onAddParticipant({ id: agentId, name: arch.name, kind: 'agent', agentId, joinedAt: new Date().toISOString() })
     }
 
     // Add dispatch message to thread
@@ -701,7 +702,7 @@ type ActiveView =
   | { kind: 'slack'; channel: SlackChannel }
 
 export function WorkroomsSurface({ thinkingBudget }: { thinkingBudget?: number }) {
-  const { hydrated, workrooms, createWorkroom, deleteWorkroom, appendMessage, updateMessage, updateDispatch } = useWorkrooms()
+  const { hydrated, workrooms, createWorkroom, deleteWorkroom, addParticipant, appendMessage, updateMessage, updateDispatch } = useWorkrooms()
   const { store } = useConnectorAuth()
   const [active, setActive] = useState<ActiveView | null>(null)
   const [showNew, setShowNew] = useState(false)
@@ -866,6 +867,7 @@ export function WorkroomsSurface({ thinkingBudget }: { thinkingBudget?: number }
           onAppendMessage={(msg) => appendMessage(dedupedRoom.id, msg)}
           onUpdateMessage={(msgId, patch) => updateMessage(dedupedRoom.id, msgId, patch)}
           onUpdateDispatch={(dispatch) => updateDispatch(dedupedRoom.id, dispatch)}
+          onAddParticipant={(p) => addParticipant(dedupedRoom.id, p)}
         />
       ) : (
         <EmptyState onCreate={() => setShowNew(true)} />
