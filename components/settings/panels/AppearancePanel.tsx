@@ -87,6 +87,29 @@ export function AppearancePanel() {
           ))}
         </div>
       </div>
+
+      {/* TTS voice */}
+      <div>
+        <label className="block text-sm font-semibold text-[var(--color-text-primary)]">Voice</label>
+        <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
+          Spoken responses use OpenAI TTS when an API key is set (Settings → Models). Nova and Shimmer sound the most natural.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {(['nova', 'shimmer', 'alloy', 'echo', 'fable', 'onyx'] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => update({ ttsVoice: v })}
+              className={`rounded-xl border px-4 py-2 text-sm capitalize transition ${
+                (settings.ttsVoice ?? 'nova') === v
+                  ? 'border-[#1d4ed8] bg-[rgba(29,78,216,0.08)] font-semibold text-[#1d4ed8]'
+                  : 'border-[var(--color-border-tertiary)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-secondary)]'
+              }`}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }

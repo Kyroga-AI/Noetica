@@ -111,15 +111,57 @@ export function useVoice(onTranscript: (text: string) => void) {
     }
   }, [settings.wakeWordEnabled, SpeechRecognitionCtor, startListening])
 
-  const speak = useCallback((text: string) => {
-    if (typeof window === 'undefined' || !window.speechSynthesis) return
-    window.speechSynthesis.cancel()
-    const utterance = new SpeechSynthesisUtterance(text)
-    utterance.lang = settings.voiceLanguage ?? 'en-US'
-    window.speechSynthesis.speak(utterance)
-  }, [settings.voiceLanguage])
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+
+  const speak = useCallback(async (text: string) => {
+    if (typeof window === 'undefined') return
+
+    // Stop any in-progress playback
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
+    window.speechSynthesis?.cancel()
+
+    const openaiKey = settings.openaiApiKey
+
+    // Tier 1: OpenAI TTS via agent-machine (nova voice — genuinely sounds great)
+    if (openaiKey) {
+      try {
+        const res = await fetch('http://127.0.0.1:8080/api/tts', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ text: text.slice(0, 4096), voice: settings.ttsVoice ?? 'nova', api_key: openaiKey }),
+          signal: AbortSignal.timeout(15_000),
+        })
+        if (res.ok) {
+          const blob = await res.blob()
+          const url = URL.createObjectURL(blob)
+          const audio = new Audio(url)
+          audioRef.current = audio
+          audio.onended = () => { URL.revokeObjectURL(url); audioRef.current = null }
+          await audio.play()
+          return
+        }
+      } catch { /* fall through to system voice */ }
+    }
+
+    // Tier 2: macOS enhanced Web Speech API — pick best available neural voice
+    if (window.speechSynthesis) {
+      const utterance = new SpeechSynthesisUtterance(text)
+      utterance.lang = settings.voiceLanguage ?? 'en-US'
+      const preferred = ['Zoe', 'Nicky', 'Samantha', 'Karen', 'Moira', 'Tessa']
+      const voices = window.speechSynthesis.getVoices()
+      const best = preferred
+        .flatMap(name => voices.filter(v => v.name.includes(name)))
+        .find(Boolean)
+        ?? voices.find(v => v.localService && v.lang.startsWith('en'))
+      if (best) utterance.voice = best
+      utterance.rate = 1.0
+      utterance.pitch = 1.0
+      window.speechSynthesis.speak(utterance)
+    }
+  }, [settings.voiceLanguage, settings.openaiApiKey, settings.ttsVoice])
 
   const stopSpeaking = useCallback(() => {
+    if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel()
     }

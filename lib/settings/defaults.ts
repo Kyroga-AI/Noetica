@@ -33,6 +33,7 @@ export const defaultSettings: NoeticaSettings = {
 
   wakeWordEnabled: true,
   voiceLanguage: 'en-US',
+  ttsVoice: 'nova',
 
   agentSlots: {
     context: 'claude-sonnet-4-6',

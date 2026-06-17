@@ -1207,6 +1207,46 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // POST /api/tts  — OpenAI text-to-speech, returns audio/mpeg
+  if (req.method === 'POST' && url.pathname === '/api/tts') {
+    let body = ''
+    req.on('data', (chunk: Buffer) => { body += chunk.toString() })
+    req.on('end', () => {
+      ;(async () => {
+        let parsed: { text: string; voice?: string; api_key?: string } = { text: '' }
+        try { parsed = JSON.parse(body) } catch {
+          res.writeHead(400); res.end(JSON.stringify({ error: 'invalid_json' })); return
+        }
+        const key = parsed.api_key ?? process.env['OPENAI_API_KEY']
+        if (!key) {
+          res.writeHead(503); res.end(JSON.stringify({ error: 'no_openai_key' })); return
+        }
+        const voice = parsed.voice ?? 'nova'
+        const text = parsed.text?.slice(0, 4096) ?? ''
+        if (!text) {
+          res.writeHead(400); res.end(JSON.stringify({ error: 'empty_text' })); return
+        }
+        try {
+          const oaiRes = await fetch('https://api.openai.com/v1/audio/speech', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: 'tts-1', input: text, voice, response_format: 'mp3' }),
+          })
+          if (!oaiRes.ok) {
+            const err = await oaiRes.text()
+            res.writeHead(502); res.end(JSON.stringify({ error: err })); return
+          }
+          res.writeHead(200, { 'content-type': 'audio/mpeg', 'cache-control': 'no-store' })
+          const buf = await oaiRes.arrayBuffer()
+          res.end(Buffer.from(buf))
+        } catch (err) {
+          res.writeHead(502); res.end(JSON.stringify({ error: String(err) }))
+        }
+      })()
+    })
+    return
+  }
+
   // 404
   res.writeHead(404, { 'content-type': 'application/json' })
   res.end(JSON.stringify({ error: 'not_found', path: url.pathname }))

@@ -49,6 +49,7 @@ export interface NoeticaSettings {
   // Voice
   wakeWordEnabled: boolean
   voiceLanguage: string
+  ttsVoice: 'nova' | 'shimmer' | 'alloy' | 'echo' | 'fable' | 'onyx'
 
   // Agent slots — maps slot id to agent/model id
   agentSlots: Record<string, string>
