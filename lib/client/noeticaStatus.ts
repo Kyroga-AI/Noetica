@@ -8,7 +8,7 @@ export type NoeticaStatusState =
 // In Tauri desktop mode, fetch from agent-machine's live /api/status so the
 // status bar reflects the real runtime (not the static browser-fallback stub).
 function resolveStatusEndpoint(): string {
-  if (typeof window !== 'undefined' && '__TAURI_INTERNALS__' in window) {
+  if (typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window)) {
     return 'http://127.0.0.1:8080/api/status'
   }
   return '/api/status'
