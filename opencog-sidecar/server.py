@@ -57,6 +57,7 @@ from atomese_bridge import load_atomese as _load_atomese_lite
 import importlib.util as _ilu
 _GRAPHBRAIN_PATH = Path(__file__).parent.parent / "graphbrain-contract" / "code"
 _GRAPHBRAIN_AVAILABLE = False
+_LDA_AVAILABLE = False
 _cskg_normalizer = None
 _hyperlift = None
 
@@ -69,6 +70,30 @@ if _GRAPHBRAIN_PATH.exists():
         _GRAPHBRAIN_AVAILABLE = True
     except Exception as _e:
         pass  # graphbrain-contract optional — degrade gracefully
+
+    if _GRAPHBRAIN_AVAILABLE:
+        try:
+            from latent_track_a_online_lda_hdp import OnlineLDAMaintainer  # type: ignore
+            from memory_runtime_api import EpisodeBundle as _EpisodeBundle  # type: ignore
+            _LDA_AVAILABLE = True
+        except Exception:
+            pass  # latent module optional
+
+# ── Prometheus symbolic regression (SINDy fast path) ─────────────────────────
+_PROMETHEUS_PATH = Path(__file__).parent.parent.parent / "prophet-platform" / "tools"
+_PROMETHEUS_AVAILABLE = False
+_sindy_finite_difference = None
+_sindy_fit_linear = None
+
+if _PROMETHEUS_PATH.exists():
+    try:
+        import sys as _sys
+        _sys.path.insert(0, str(_PROMETHEUS_PATH))
+        from prometheus_sindy_fast_path import finite_difference as _sindy_finite_difference  # type: ignore
+        from prometheus_sindy_fast_path import fit_linear_dynamics as _sindy_fit_linear  # type: ignore
+        _PROMETHEUS_AVAILABLE = True
+    except Exception:
+        pass  # prometheus optional — degrade gracefully
 
 # In-process AtomSpaceLite — always available for Cypher + fallback when OpenCog absent
 _lite = _LiteStore()
@@ -234,6 +259,8 @@ def health() -> dict[str, Any]:
         "ecan": _has_module("opencog.attention"),
         "cskg_normalization": _GRAPHBRAIN_AVAILABLE,
         "hyperlift": _GRAPHBRAIN_AVAILABLE,
+        "latent_topic_drift": _LDA_AVAILABLE,
+        "prometheus_sindy": _PROMETHEUS_AVAILABLE,
         "cypher": True,
         "pln_derived": True,
     }
@@ -519,6 +546,130 @@ def cypher_query(payload: CypherPayload) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail=str(exc))
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+class PrometheusSeriesPoint(BaseModel):
+    t: float
+    y: float
+
+
+class PrometheusSINDyPayload(BaseModel):
+    series: list[PrometheusSeriesPoint]
+    stateVariable: str = "sti"
+    datasetUri: str = "urn:hellgraph:attention-series"
+
+
+class LatentConsumePayload(BaseModel):
+    episodes: list[dict[str, Any]]
+    corpusDeltaIds: list[str] = []
+
+
+@app.post("/prometheus/sindy")
+def prometheus_sindy(payload: PrometheusSINDyPayload) -> dict[str, Any]:
+    """SINDy fast-path symbolic regression over a time series.
+
+    Takes a [{t, y}] series (e.g. ECAN attention statistics), discovers the
+    governing linear dynamics dy/dt = coeff*y + intercept, and returns a
+    PlatformDynamicsCandidate JSON. Used by HellGraph to derive an adaptive
+    decay coefficient for ECAN instead of a hardcoded constant.
+    """
+    if not _PROMETHEUS_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="prometheus_sindy_fast_path not available (check prophet-platform path)",
+        )
+    if len(payload.series) < 3:
+        raise HTTPException(status_code=422, detail="SINDy requires at least 3 data points")
+
+    import hashlib as _hashlib
+    import datetime as _dt
+
+    raw_series = [(p.t, p.y) for p in sorted(payload.series, key=lambda p: p.t)]
+    try:
+        derivative_points = _sindy_finite_difference(raw_series)  # type: ignore[call-arg]
+        coefficient, intercept, nmse = _sindy_fit_linear(derivative_points)  # type: ignore[call-arg]
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    equation = f"d{payload.stateVariable}/dt = {coefficient:.12g} {payload.stateVariable} + {intercept:.12g}"
+    series_hash = _hashlib.sha256(str(raw_series).encode()).hexdigest()[:16]
+
+    candidate: dict[str, Any] = {
+        "artifactType": "PlatformDynamicsCandidate",
+        "applicationMode": "platform_dynamics",
+        "candidateId": f"urn:prometheus:platform-dynamics-candidate:{series_hash}",
+        "methodFamily": "sindy",
+        "implementationMode": "sindy_linear_fast_path",
+        "datasetRef": {
+            "uri": payload.datasetUri,
+            "contentHash": series_hash,
+            "hashAlgorithm": "sha256_prefix",
+        },
+        "timeColumn": "t",
+        "stateVariable": payload.stateVariable,
+        "equationLatex": equation,
+        "coefficient": coefficient,
+        "intercept": intercept,
+        "fitMetric": {"name": "nmse", "value": nmse},
+        "complexity": 3,
+        "unitsStatus": "unknown",
+        "promotionState": "candidate",
+        "controlAuthority": False,
+        "nonAuthorityDeclaration": "This is a PlatformDynamicsCandidate only. It is not an autoscaling policy, routing policy, remediation policy, controller, or runtime authority.",
+        "issuedAt": _dt.datetime.now(_dt.timezone.utc).isoformat().replace("+00:00", "Z"),
+        "sampleCount": len(raw_series),
+    }
+    return candidate
+
+
+@app.post("/latent/consume")
+def latent_consume(payload: LatentConsumePayload) -> dict[str, Any]:
+    """Pass EpisodeBundles through OnlineLDAMaintainer to produce a DriftReport.
+
+    The latent topic drift module consumes retrieval episode records and produces
+    candidate TopicDelta signals. These are staged (not applied) — downstream
+    consolidation decides promotion. Returns a serialized DriftReport.
+    """
+    if not _LDA_AVAILABLE:
+        raise HTTPException(
+            status_code=503,
+            detail="latent_track_a_online_lda_hdp not available (check graphbrain-contract path)",
+        )
+
+    # Hydrate episode dicts into EpisodeBundle dataclass instances
+    episodes = []
+    for ep in payload.episodes:
+        try:
+            bundle = _EpisodeBundle(  # type: ignore[call-arg]
+                episode_id=ep.get("episode_id", ""),
+                working_memory_ref=ep.get("working_memory_ref", ""),
+                request_metadata=ep.get("request_metadata", {}),
+                retrieval_path=ep.get("retrieval_path", []),
+                recommendation_object_refs=ep.get("recommendation_object_refs", []),
+            )
+            episodes.append(bundle)
+        except Exception:
+            continue  # skip malformed episodes gracefully
+
+    maintainer = OnlineLDAMaintainer()  # type: ignore[call-arg]
+    report = maintainer.consume(episodes, payload.corpusDeltaIds)
+
+    return {
+        "report_id": report.report_id,
+        "corpus_delta_ids": report.corpus_delta_ids,
+        "episode_refs": report.episode_refs,
+        "candidate_topic_deltas": [
+            {
+                "topic_id": d.topic_id,
+                "delta_type": d.delta_type,
+                "weight": d.weight,
+                "evidence_refs": d.evidence_refs,
+            }
+            for d in report.candidate_topic_deltas
+        ],
+        "notes": report.notes,
+        "created_at": report.created_at,
+    }
 
 
 def _has_module(name: str) -> bool:

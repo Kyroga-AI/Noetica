@@ -3,7 +3,7 @@ import { findMatches, V, N, L } from './patternMatcher'
 import type { Pattern } from './patternMatcher'
 import { stimulate, spreadAttention } from './ecan'
 import { forwardChain } from './pln'
-import { syncToSidecar, pullFromSidecar } from './sidecar'
+import { syncToSidecar, pullFromSidecar, normalizeThroughSidecar } from './sidecar'
 import { recordEntityExtraction, assertDecisionLedgerEntry } from './acr'
 
 // ─── Async enrichment: embeddings + LLM entity extraction ────────────────────
@@ -109,6 +109,8 @@ async function _enrichAsync(
     n.labels.includes('FeatureAtom') && n.properties['ecan:embedding']
   )
 
+  const highSimEdges: Array<{ node1: string; relation: string; node2: string; sim: number }> = []
+
   for (const [newId, newEmb] of embeddingCache) {
     for (const candidate of existingAtoms) {
       if (candidate.id === newId) continue
@@ -118,13 +120,14 @@ async function _enrichAsync(
       try { candEmb = JSON.parse(cachedRaw) } catch { continue }
       const sim = _cosine(newEmb, candEmb)
       if (sim >= 0.92) {
-        // Very high similarity — promote directly to RELATED_TO
+        // Very high similarity — promote directly to RELATED_TO + queue for CSKG normalization
         g.addEdge('RELATED_TO', newId, candidate.id, {
           epistemicClass: 'semantic',
           confidence: sim,
           promotionState: 'confirmed',
           createdAt: timestamp,
         })
+        highSimEdges.push({ node1: newId, relation: 'RELATED_TO', node2: candidate.id, sim })
       } else if (sim >= 0.85) {
         g.addEdge('MERGE_PROPOSAL', newId, candidate.id, {
           epistemicClass: 'semantic',
@@ -134,6 +137,26 @@ async function _enrichAsync(
         })
       }
     }
+  }
+
+  // CSKG normalization: canonicalize new high-confidence RELATED_TO edges via sidecar.
+  // Best-effort — normalizer failure never breaks the graph write.
+  if (highSimEdges.length > 0) {
+    normalizeThroughSidecar(
+      highSimEdges.map(e => ({ node1: e.node1, relation: e.relation, node2: e.node2 }))
+    ).then(normalized => {
+      if (!normalized) return
+      for (const edge of normalized) {
+        // addEdge is idempotent (AtomSpace structural hash) — merge cskg metadata back
+        g.addEdge('RELATED_TO', edge.node1, edge.node2, {
+          epistemicClass: 'semantic',
+          promotionState: 'confirmed',
+          createdAt: timestamp,
+          cskg_edge_id: edge.edge_id,
+          cskg_normalized: true,
+        })
+      }
+    }).catch(() => {/* sidecar unavailable */})
   }
 
   // ── Job 2: LLM entity extraction ──────────────────────────────────────────

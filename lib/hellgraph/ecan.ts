@@ -82,12 +82,26 @@ export function spreadAttention(atomId: string, decayFactor = 0.65): void {
   }
 }
 
+// Adaptive decay factor — set by Prometheus SINDy pass when enough data exists.
+// Falls back to 0.85 (static default) until SINDy has enough history to fit.
+let _adaptiveDecayFactor: number | null = null
+
+export function setAdaptiveDecayFactor(factor: number): void {
+  if (factor > 0 && factor < 1) _adaptiveDecayFactor = factor
+}
+
+export function getAdaptiveDecayFactor(): number {
+  return _adaptiveDecayFactor ?? 0.85
+}
+
 /**
  * Decay all FeatureAtom STI values by `factor`.
  * Call at session boundary to simulate forgetting.
  * VLTI atoms are exempt — they never decay below 10% of STI_MAX.
+ * If Prometheus SINDy has fitted a decay coefficient, uses it automatically.
  */
-export function decayAll(factor = 0.85): number {
+export function decayAll(factor?: number): number {
+  const f = factor ?? _adaptiveDecayFactor ?? 0.85
   const g = getHellGraph()
   const atoms = g.allNodes().filter(n => n.labels.includes('FeatureAtom'))
   let decayed = 0
@@ -96,7 +110,7 @@ export function decayAll(factor = 0.85): number {
     if (sti <= 0) continue
     const vlti = Boolean(atom.properties[VLTI_PROP])
     const floor = vlti ? STI_MAX * 0.1 : 0
-    g.setNodeProperty(atom.id, STI_PROP, Math.max(sti * factor, floor))
+    g.setNodeProperty(atom.id, STI_PROP, Math.max(sti * f, floor))
     decayed++
   }
   return decayed

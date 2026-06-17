@@ -1,6 +1,7 @@
 import { getAtomSpace } from './atomspace'
 import { dumpAtomese } from './atomese'
 import { getHellGraph } from './store'
+import type { SINDySeries, PlatformDynamicsCandidate } from './prometheus'
 
 /**
  * Client for the OpenCog sidecar (opencog-sidecar/server.py).
@@ -137,6 +138,109 @@ export async function shaclApplyRules(shapesText: string): Promise<{ added: numb
     return await call<{ added: number }>('/shacl/rules', {
       method: 'POST',
       body: JSON.stringify({ shapes: shapesText, atomese }),
+    })
+  } catch {
+    return null
+  }
+}
+
+// ─── CSKG normalization ───────────────────────────────────────────────────────
+
+export interface RawRelationEdge {
+  node1: string
+  relation: string
+  node2: string
+  provenance_ref?: string
+  source_evidence_ref?: string
+}
+
+export interface CSKGEdge {
+  edge_id: string
+  node1: string
+  relation: string
+  node2: string
+  provenance_refs: string[]
+  source_evidence_refs: string[]
+}
+
+/**
+ * Normalize raw relation triples through the graphbrain-contract CSKG normalizer.
+ * Returns the canonicalized edges, or null if the sidecar is unavailable.
+ */
+export async function normalizeThroughSidecar(edges: RawRelationEdge[]): Promise<CSKGEdge[] | null> {
+  if (edges.length === 0) return []
+  try {
+    const result = await call<{ edges: CSKGEdge[]; count: number }>('/cskg/normalize', {
+      method: 'POST',
+      body: JSON.stringify({ relations: edges }),
+    })
+    return result.edges
+  } catch {
+    return null
+  }
+}
+
+// ─── Prometheus SINDy ─────────────────────────────────────────────────────────
+
+/**
+ * Run the SINDy fast-path symbolic regression on a time series via the sidecar.
+ * Returns a PlatformDynamicsCandidate, or null if the sidecar is unavailable.
+ */
+export async function runSINDy(
+  series: SINDySeries[],
+  stateVariable: string,
+  datasetUri: string,
+): Promise<PlatformDynamicsCandidate | null> {
+  if (series.length < 3) return null
+  try {
+    return await call<PlatformDynamicsCandidate>('/prometheus/sindy', {
+      method: 'POST',
+      body: JSON.stringify({ series, stateVariable, datasetUri }),
+    })
+  } catch {
+    return null
+  }
+}
+
+// ─── Latent topic drift ───────────────────────────────────────────────────────
+
+export interface EpisodeRef {
+  episode_id: string
+  working_memory_ref: string
+  request_metadata: Record<string, unknown>
+  retrieval_path?: unknown[]
+  recommendation_object_refs?: string[]
+}
+
+export interface TopicDelta {
+  topic_id: string
+  delta_type: string
+  weight: number
+  evidence_refs: string[]
+}
+
+export interface DriftReport {
+  report_id: string
+  corpus_delta_ids: string[]
+  episode_refs: string[]
+  candidate_topic_deltas: TopicDelta[]
+  notes: string
+  created_at: string
+}
+
+/**
+ * Consume EpisodeBundles through OnlineLDAMaintainer to produce a DriftReport.
+ * Returns null if the sidecar is unavailable or the latent module isn't loaded.
+ */
+export async function consumeEpisodeDrift(
+  episodes: EpisodeRef[],
+  corpusDeltaIds: string[] = [],
+): Promise<DriftReport | null> {
+  if (episodes.length === 0) return null
+  try {
+    return await call<DriftReport>('/latent/consume', {
+      method: 'POST',
+      body: JSON.stringify({ episodes, corpusDeltaIds }),
     })
   } catch {
     return null

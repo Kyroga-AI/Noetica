@@ -30,6 +30,7 @@ import * as crypto from 'node:crypto'
 import { getHellGraph } from './store'
 import { forwardChain } from './pln'
 import { getLTI, getVLTI } from './ecan'
+import { recordAttentionSnapshot, runSINDyPass } from './prometheus'
 
 const DECAY_AFTER_DAYS       = 14
 const DECAY_RATE             = 0.85    // confidence *= 0.85 per day beyond threshold
@@ -47,6 +48,7 @@ export interface ConsolidationResult {
   vltiPromoted:       number
   memoryReleaseId:    string
   durationMs:         number
+  prometheusCandidate?: string  // candidateId if SINDy ran successfully
 }
 
 export function consolidate(): ConsolidationResult {
@@ -150,6 +152,17 @@ export function consolidate(): ConsolidationResult {
     promotion_status: 'completed',
     createdAt:     ts,
   })
+
+  // ── 6. Prometheus attention snapshot + SINDy adaptive decay ────────────────
+  // Record the current avg_sti state as a data point for SINDy time-series fitting.
+  // When >= 3 snapshots exist, SINDy fits the decay equation and updates ECAN's
+  // adaptive decay factor automatically.
+  recordAttentionSnapshot()
+  runSINDyPass().then(candidate => {
+    if (candidate) {
+      g.setNodeProperty(memoryReleaseId, 'prometheusCandidate', candidate.candidateId)
+    }
+  }).catch(() => {/* sidecar unavailable — degrade gracefully */})
 
   return {
     decayedTruthValues,
