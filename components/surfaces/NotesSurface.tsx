@@ -163,6 +163,10 @@ function NoteChat({ note, onAppendMessages }: {
   const [messages, setMessages] = useState<ChatMessage[]>(note.messages)
   const thinkingRef = useRef<string>('')
   const bottomRef = useRef<HTMLDivElement>(null)
+  const abortRef = useRef<AbortController | null>(null)
+
+  // Abort in-flight stream on unmount
+  useEffect(() => () => { abortRef.current?.abort() }, [])
 
   // Sync when note changes
   useEffect(() => { setMessages(note.messages) }, [note.id])
@@ -192,6 +196,9 @@ function NoteChat({ note, onAppendMessages }: {
       created_at: new Date().toISOString(),
     }
 
+    abortRef.current?.abort()
+    const abort = new AbortController()
+    abortRef.current = abort
     thinkingRef.current = ''
     setMessages((prev) => [...prev, userMsg, assistantMsg])
     setInput('')
@@ -255,11 +262,20 @@ function NoteChat({ note, onAppendMessages }: {
               prev.map((m) => m.id === assistantId ? { ...m, content: `Error: ${err}` } : m)
             )
           },
-        }
+        },
+        {},
+        abort.signal
       )
     } finally {
+      abortRef.current = null
       setStreaming(false)
     }
+  }
+
+  function stop() {
+    abortRef.current?.abort()
+    abortRef.current = null
+    setStreaming(false)
   }
 
   return (
@@ -317,13 +333,23 @@ function NoteChat({ note, onAppendMessages }: {
               if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void send()
             }}
           />
-          <button
-            onClick={() => void send()}
-            disabled={!input.trim() || streaming}
-            className="shrink-0 rounded-lg bg-[#1d4ed8] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#1e40af] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {streaming ? '…' : 'Ask'}
-          </button>
+          {streaming ? (
+            <button
+              onClick={stop}
+              className="shrink-0 rounded-lg bg-[#ef4444] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#dc2626]"
+              title="Stop generation"
+            >
+              Stop
+            </button>
+          ) : (
+            <button
+              onClick={() => void send()}
+              disabled={!input.trim()}
+              className="shrink-0 rounded-lg bg-[#1d4ed8] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#1e40af] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Ask
+            </button>
+          )}
         </div>
         <p className="mt-1.5 text-center text-[10px] text-[#cbd5e1]">⌘ + Enter</p>
       </div>
