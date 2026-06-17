@@ -63,10 +63,13 @@ jobs:
       - name: Build agent-machine binary (universal)
         run: |
           npm run agent-machine:build:binary
-          # Build Intel slice if the script produces only arm; copy pre-built Intel binary
-          if [ ! -f src-tauri/binaries/agent-machine-x86_64-apple-darwin ]; then
-            echo "Intel agent-machine binary missing — build may fail for universal target"
-          fi
+          lipo -create \
+            src-tauri/binaries/agent-machine-aarch64-apple-darwin \
+            src-tauri/binaries/agent-machine-x86_64-apple-darwin \
+            -output src-tauri/binaries/agent-machine-universal-apple-darwin
+          chmod +x src-tauri/binaries/agent-machine-universal-apple-darwin
+          echo "Universal agent-machine binary:"
+          lipo -info src-tauri/binaries/agent-machine-universal-apple-darwin
 
       - name: Download Ollama sidecar (universal)
         env:
