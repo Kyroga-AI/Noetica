@@ -10,3 +10,15 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 .vercel
+
+# Rust build artifacts
+src-tauri/target/
+
+# Agent machine compiled output
+agent-machine/dist/
+
+# Sidecar binaries (downloaded at build time)
+src-tauri/binaries/
+
+# Tauri generated schemas
+src-tauri/gen/
