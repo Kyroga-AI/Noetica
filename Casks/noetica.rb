@@ -1,6 +1,6 @@
 cask "noetica" do
-  version "0.4.9"
-  sha256 "147efc72a07218af016d38807ab8e14db6c3111e2eedc6db9fe408b8ad27366b"
+  version "0.4.10"
+  sha256 "0000000000000000000000000000000000000000000000000000000000000000"
 
   url "https://github.com/SocioProphet/Noetica/releases/download/v#{version}/Noetica_#{version}_universal.dmg"
   # sha256 and url are updated automatically by the update-cask CI job after each tagged release.

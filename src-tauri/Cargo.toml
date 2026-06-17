@@ -1,6 +1,6 @@
 [package]
 name = "noetica"
-version = "0.4.9"
+version = "0.4.10"
 description = "Noetica governed workstation desktop shell"
 authors = ["SocioProphet"]
 edition = "2021"
