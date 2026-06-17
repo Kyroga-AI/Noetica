@@ -34,6 +34,24 @@ fn get_agent_machine_url(state: tauri::State<Mutex<AgentMachineState>>) -> Optio
     s.port.map(|p| format!("http://127.0.0.1:{}", p))
 }
 
+/// Speak text using macOS `say` command — much better quality than Web Speech API.
+/// Spawns non-blocking so the UI doesn't freeze. Pass voice="" for system default.
+#[tauri::command]
+fn speak_text(text: String, voice: String) {
+    let mut cmd = std::process::Command::new("say");
+    if !voice.is_empty() {
+        cmd.arg("-v").arg(&voice);
+    }
+    cmd.arg(&text);
+    let _ = cmd.spawn();
+}
+
+/// Stop any in-progress `say` process.
+#[tauri::command]
+fn stop_speaking() {
+    let _ = std::process::Command::new("killall").arg("say").spawn();
+}
+
 /// Probes port 8080 via TCP — works whether AM started as a sidecar or manually.
 /// Called from the frontend settings context; bypasses WKWebView ATS restrictions.
 #[tauri::command]
@@ -500,6 +518,8 @@ fn main() {
             noetica_desktop_status,
             get_agent_machine_url,
             probe_agent_machine,
+            speak_text,
+            stop_speaking,
             take_screenshot,
             execute_computer_action,
             read_local_file,

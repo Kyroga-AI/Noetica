@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSettings } from '@/lib/settings/context'
+import { isTauri, invokeTauri } from '@/lib/tauri/bridge'
 
 export type VoiceState = 'idle' | 'listening' | 'processing' | 'wake-listening'
 
@@ -143,7 +144,15 @@ export function useVoice(onTranscript: (text: string) => void) {
       } catch { /* fall through to system voice */ }
     }
 
-    // Tier 2: macOS enhanced Web Speech API — pick best available neural voice
+    // Tier 2: macOS `say` command via Tauri — much better than Web Speech API
+    if (isTauri()) {
+      // Best macOS enhanced voices in preference order
+      const macVoice = 'Zoe'
+      await invokeTauri('speak_text', { text: text.slice(0, 4096), voice: macVoice })
+      return
+    }
+
+    // Tier 3: Web Speech API with best available local voice
     if (window.speechSynthesis) {
       const utterance = new SpeechSynthesisUtterance(text)
       utterance.lang = settings.voiceLanguage ?? 'en-US'
@@ -162,7 +171,9 @@ export function useVoice(onTranscript: (text: string) => void) {
 
   const stopSpeaking = useCallback(() => {
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
+    if (isTauri()) {
+      void invokeTauri('stop_speaking')
+    } else if (typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel()
     }
   }, [])

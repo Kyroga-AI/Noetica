@@ -19,7 +19,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const saved = localStorage.getItem('noetica-theme') as ThemeId | null
-      const initial = saved ?? DEFAULT_THEME
+      // Only restore saved theme if it's a valid known theme ID
+      const valid: ThemeId[] = ['claude', 'navy', 'light']
+      const initial = (saved && valid.includes(saved)) ? saved : DEFAULT_THEME
+      if (!saved || !valid.includes(saved)) {
+        // Clear any invalid/stale value so we don't fight it on next load
+        localStorage.setItem('noetica-theme', DEFAULT_THEME)
+      }
       setThemeId(initial)
       document.documentElement.setAttribute('data-theme', initial)
     } catch {

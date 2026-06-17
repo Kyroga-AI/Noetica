@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { MessageBubble } from '@/components/chat/MessageBubble'
 import { TypingIndicator } from '@/components/chat/TypingIndicator'
 import type { ChatMessage } from '@/lib/types/message'
@@ -19,9 +19,20 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
   const lastAssistantIdx = messages.reduce((acc, m, i) => m.role === 'assistant' ? i : acc, -1)
   const [selectedFanout, setSelectedFanout] = useState<Set<string>>(new Set())
   const bottomRef = useRef<HTMLDivElement>(null)
+  const initialScrollDone = useRef(false)
+
+  // Instant scroll on first render (session restore) — smooth during live streaming
+  useLayoutEffect(() => {
+    if (!initialScrollDone.current && messages.length > 0) {
+      bottomRef.current?.scrollIntoView({ behavior: 'instant' })
+      initialScrollDone.current = true
+    }
+  }, [messages.length])
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    if (initialScrollDone.current) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+    }
   }, [messages.length, isStreaming])
 
   const fanoutIds = new Set(messages.filter((m) => m.fanout_model).map((m) => m.id))
