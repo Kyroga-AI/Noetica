@@ -1677,6 +1677,7 @@ server.listen(PORT, '127.0.0.1', () => {
             PROMETHEUSD_DB: path.join(os.homedir(), '.noetica', 'prometheusd.db'),
           },
         })
+        proc.on('error', (e: Error) => console.warn('[noetica-am] prometheusd spawn error (python3 required):', e.message))
         proc.stderr?.on('data', (d: Buffer) => {
           const line = d.toString().trim()
           if (line && !line.includes('INFO')) console.warn(`[prometheusd] ${line}`)
@@ -1703,6 +1704,7 @@ server.listen(PORT, '127.0.0.1', () => {
           detached: false,
           stdio: ['ignore', 'pipe', 'pipe'],
         })
+        proc.on('error', (e: Error) => console.warn('[noetica-am] OpenCog sidecar spawn error (python3 required):', e.message))
         proc.stderr?.on('data', (d: Buffer) => {
           const line = d.toString().trim()
           if (line && !line.includes('INFO')) console.warn(`[sidecar] ${line}`)
