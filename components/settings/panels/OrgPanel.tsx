@@ -4,9 +4,24 @@ import { useState } from 'react'
 
 const MEMBER = { name: 'Michael Heller', email: 'michael@socioprophet.ai', role: 'Owner' }
 
+function isValidEmail(v: string) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()) }
+
 export function OrgPanel() {
   const [inviteOpen, setInviteOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteSent, setInviteSent] = useState(false)
+
+  function sendInvite() {
+    const email = inviteEmail.trim()
+    if (!isValidEmail(email)) return
+    const subject = encodeURIComponent('Invitation to join Socioprophet on Noetica')
+    const body = encodeURIComponent(
+      `Hi,\n\nI'd like to invite you to collaborate with me on Noetica.\n\nPlease reach out to michael@socioprophet.ai to get access.\n\nBest,\nMichael`
+    )
+    window.open(`mailto:${email}?subject=${subject}&body=${body}`, '_blank')
+    setInviteSent(true)
+    setTimeout(() => { setInviteSent(false); setInviteEmail(''); setInviteOpen(false) }, 2000)
+  }
 
   return (
     <div className="space-y-6">
@@ -61,14 +76,15 @@ export function OrgPanel() {
                 onChange={(e) => setInviteEmail(e.target.value)}
                 placeholder="colleague@example.com"
                 className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-xs text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#1d4ed8]"
-                onKeyDown={(e) => { if (e.key === 'Escape') setInviteOpen(false) }}
+                onKeyDown={(e) => { if (e.key === 'Escape') setInviteOpen(false); if (e.key === 'Enter') sendInvite() }}
               />
               <div className="flex gap-2">
                 <button
-                  onClick={() => { setInviteEmail(''); setInviteOpen(false) }}
-                  className="rounded-lg bg-[#1d4ed8] px-3 py-1 text-xs font-semibold text-white transition hover:bg-[#1e40af]"
+                  onClick={sendInvite}
+                  disabled={!isValidEmail(inviteEmail) || inviteSent}
+                  className="rounded-lg bg-[#1d4ed8] px-3 py-1 text-xs font-semibold text-white transition hover:bg-[#1e40af] disabled:opacity-50"
                 >
-                  Send invite
+                  {inviteSent ? 'Sent ✓' : 'Send invite'}
                 </button>
                 <button
                   onClick={() => setInviteOpen(false)}
