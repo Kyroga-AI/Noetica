@@ -1,4 +1,6 @@
 import { getHellGraph } from './store'
+import { findMatches, V, N, L } from './patternMatcher'
+import type { Pattern } from './patternMatcher'
 
 // ─── Prime topic vocabulary ───────────────────────────────────────────────────
 // Used to tag extracted entities with the prime context they belong to.
@@ -189,6 +191,53 @@ export function ingestEntities(
       }
     }
   }
+
+  // ─── Derive COOCCURS_WITH edges for entities co-occurring in this interaction ─
+  // Entities mentioned in the same exchange are structurally related — linking them
+  // enables the pattern matcher to expand retrieval context across co-occurrence chains.
+  const atomIds = entities.map(ent =>
+    `urn:regis:feature-atom:${ent.normalised.replace(/[^a-z0-9]/g, '-').slice(0, 80)}`
+  )
+  const coMax = Math.min(atomIds.length, 20) // cap to keep edge growth linear
+  for (let i = 0; i < coMax; i++) {
+    for (let j = i + 1; j < coMax; j++) {
+      g.addEdge('COOCCURS_WITH', atomIds[i]!, atomIds[j]!, {
+        epistemicClass: 'co_occurrence',
+        confidence: 0.8,
+        promotionState: 'confirmed',
+        createdAt: timestamp,
+      })
+    }
+  }
+
+  // ─── Promote high-confidence MERGE_PROPOSAL → RELATED_TO via pattern matcher ─
+  // Jaccard ≥ 0.7 is strong enough to treat as a confirmed semantic relation.
+  // Promotes candidates to a traversable RELATED_TO edge that retrieval uses directly.
+  const as = g.atomspace()
+  const mergePattern: Pattern = {
+    clauses: [
+      L('EvaluationLink', N('PredicateNode', 'MERGE_PROPOSAL'), L('ListLink', V('src'), V('tgt'))),
+    ],
+    select: ['src', 'tgt'],
+  }
+  try {
+    const mergeResult = findMatches(as, mergePattern)
+    for (const grounding of mergeResult.groundings) {
+      const srcAtom = grounding['src'] ? as.getAtom(grounding['src']) : undefined
+      const tgtAtom = grounding['tgt'] ? as.getAtom(grounding['tgt']) : undefined
+      if (!srcAtom?.name || !tgtAtom?.name) continue
+      const edges = g.outEdges(srcAtom.name, 'MERGE_PROPOSAL')
+      const edge = edges.find(e => e.to === tgtAtom.name)
+      if (edge && Number(edge.properties['confidence'] ?? 0) >= 0.7) {
+        g.addEdge('RELATED_TO', srcAtom.name, tgtAtom.name, {
+          epistemicClass: 'semantic',
+          confidence: edge.properties['confidence'],
+          promotionState: 'confirmed',
+          createdAt: timestamp,
+        })
+      }
+    }
+  } catch { /* skip if pattern space is empty */ }
 }
 
 /**

@@ -13,6 +13,8 @@
 
 import { getGraph, graphSparql } from './graph.js'
 import { buildWorkspacePrefix } from './context-cache.js'
+import { findMatches, V, N, L } from '../../lib/hellgraph/patternMatcher.js'
+import type { Pattern } from '../../lib/hellgraph/patternMatcher.js'
 import type { PropertyValue } from '../../lib/hellgraph/types.js'
 
 // ─── Public types ─────────────────────────────────────────────────────────────
@@ -174,9 +176,31 @@ async function runGraphPattern(
   }
 }
 
+function escapeRegex(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 async function runTemporalPattern(
   query: string,
 ): Promise<{ text: string; sources: Array<{ id: string; label: string; score: number }> }> {
+  // Extract keywords for SPARQL FILTER (push down into graph layer, not post-hoc JS)
+  const STOP = new Set(['with', 'that', 'this', 'from', 'have', 'will', 'been', 'were', 'they', 'them', 'what', 'when', 'where', 'which', 'your', 'about'])
+  const keywords = query
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .split(/\s+/)
+    .filter((w) => w.length >= 4 && !STOP.has(w))
+    .slice(0, 5)  // keep FILTER clause compact
+
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+  // Build FILTER: always restrict to 7-day window; add keyword regex when terms exist
+  const dateFilter = `?ts >= "${sevenDaysAgo}"`
+  const kwFilter = keywords.length > 0
+    ? ` && (${keywords.map(kw => `regex(?content, "${escapeRegex(kw)}", "i")`).join(' || ')})`
+    : ''
+  const filterClause = `FILTER(${dateFilter}${kwFilter})`
+
   let result
   try {
     result = graphSparql(`
@@ -185,43 +209,29 @@ async function runTemporalPattern(
         ?msg <content> ?content .
         ?msg <role> ?role .
         ?msg <createdAt> ?ts .
+        ${filterClause}
       }
-      ORDER BY DESC(?ts) LIMIT 10
+      ORDER BY DESC(?ts) LIMIT 15
     `)
   } catch {
     return { text: '', sources: [] }
   }
 
-  // Extract keywords from query (lowercase words ≥ 4 chars, skip stop words)
-  const STOP = new Set(['with', 'that', 'this', 'from', 'have', 'will', 'been', 'were', 'they', 'them', 'what', 'when', 'where', 'which', 'your', 'about'])
-  const keywords = query
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
-    .split(/\s+/)
-    .filter((w) => w.length >= 4 && !STOP.has(w))
-
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-
   const lines: string[] = []
   const sources: Array<{ id: string; label: string; score: number }> = []
 
   for (const binding of result.bindings) {
-    const ts = String(binding.ts ?? '')
-    if (ts && ts < sevenDaysAgo) continue
-
     const content = String(binding.content ?? '')
-    const lc = content.toLowerCase()
-    const matchCount = keywords.filter((kw) => lc.includes(kw)).length
-    if (matchCount === 0 && keywords.length > 0) continue
-
     const role = String(binding.role ?? '')
     const msgId = String(binding.msg ?? '')
+    const ts = String(binding.ts ?? '')
+    // Score by how many keywords matched (SPARQL already filtered to at least 1)
+    const lc = content.toLowerCase()
+    const matchCount = keywords.length > 0
+      ? keywords.filter((kw) => lc.includes(kw)).length
+      : 1
     lines.push(`[${ts}] ${role}: ${content.slice(0, 200)}`)
-    sources.push({
-      id: msgId,
-      label: 'Message',
-      score: Math.min(1, 0.5 + matchCount * 0.1),
-    })
+    sources.push({ id: msgId, label: 'Message', score: Math.min(1, 0.5 + matchCount * 0.1) })
   }
 
   return {
@@ -347,9 +357,53 @@ async function runAtomsPattern(
     sources.push({ id: node.id, label: kind, score })
   }
 
+  // Expand via pattern matcher: find neighbors connected by COOCCURS_WITH or RELATED_TO
+  // These are entities that co-occurred or were semantically related in past interactions.
+  const as = g.atomspace()
+  const seen = new Set(top.map(({ node }) => node.id))
+  const neighborLines: string[] = []
+  const neighborSources: Array<{ id: string; label: string; score: number }> = []
+
+  for (const { node } of top.slice(0, 5)) {
+    for (const edgeLabel of ['COOCCURS_WITH', 'RELATED_TO'] as const) {
+      const pat: Pattern = {
+        clauses: [
+          L('EvaluationLink',
+            N('PredicateNode', edgeLabel),
+            L('ListLink', N('ConceptNode', node.id), V('neighbor'))
+          ),
+        ],
+        select: ['neighbor'],
+      }
+      try {
+        const result = findMatches(as, pat)
+        for (const grounding of result.groundings) {
+          const h = grounding['neighbor']
+          if (!h) continue
+          const nAtom = as.getAtom(h)
+          if (!nAtom?.name || seen.has(nAtom.name)) continue
+          seen.add(nAtom.name)
+          const nNode = g.getNode(nAtom.name)
+          if (!nNode?.labels.includes('FeatureAtom')) continue
+          const surface = String(nNode.properties['surface'] ?? nNode.id)
+          const kind = String(nNode.properties['kind'] ?? 'FEATURE_ATOM')
+          const primes = String(nNode.properties['prime_support'] ?? '')
+          const primesTag = primes ? ` [${primes}]` : ''
+          neighborLines.push(`• ${surface}  ${kind}${primesTag} ← ${edgeLabel}`)
+          neighborSources.push({ id: nNode.id, label: kind, score: 0.5 })
+          if (neighborLines.length >= 10) break
+        }
+      } catch { /* skip if pattern matcher unavailable */ }
+      if (neighborLines.length >= 10) break
+    }
+    if (neighborLines.length >= 10) break
+  }
+
+  const allLines = [...lines, ...(neighborLines.length > 0 ? ['', '  Related:'] : []), ...neighborLines]
+
   return {
-    text: `### Known Entities (from memory)\n${lines.join('\n')}`,
-    sources,
+    text: `### Known Entities (from memory)\n${allLines.join('\n')}`,
+    sources: [...sources, ...neighborSources],
   }
 }
 
