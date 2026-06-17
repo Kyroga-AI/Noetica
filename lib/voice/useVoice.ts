@@ -6,7 +6,7 @@ import { isTauri, invokeTauri } from '@/lib/tauri/bridge'
 
 export type VoiceState = 'idle' | 'listening' | 'processing' | 'wake-listening'
 
-const WAKE_WORD = 'hey claude'
+const WAKE_WORD = 'hey noetica'
 
 type SR = {
   continuous: boolean
