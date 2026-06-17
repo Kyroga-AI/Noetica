@@ -306,9 +306,12 @@ function GraphHealthTab({ graph, onTabChange, onAtomSelect }: { graph: GraphHeal
   useEffect(() => {
     fetch(amUrl('/api/graph/nodes'), { signal: AbortSignal.timeout(4000) })
       .then(r => r.ok ? r.json() : null)
-      .then((data: { nodes?: Array<{ id: string; label: string; kind: string; surface: string; clock?: number }> } | null) => {
+      .then((data: { nodes?: Array<{ id: string; label: string; kind: string; surface: string; clock?: number; createdAt?: string }> } | null) => {
         if (!data?.nodes?.length) return
-        const sorted = [...data.nodes].sort((a, b) => (b.clock ?? 0) - (a.clock ?? 0)).slice(0, 8)
+        const sorted = [...data.nodes].sort((a, b) => {
+          if ((b.clock ?? 0) !== (a.clock ?? 0)) return (b.clock ?? 0) - (a.clock ?? 0)
+          return new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()
+        }).slice(0, 8)
         setRecentEvents(sorted.map(n => `${n.kind ?? 'Node'} · ${n.label ?? n.id}${n.surface ? ` [${n.surface}]` : ''}`))
       })
       .catch(() => { /* agent-machine not running */ })

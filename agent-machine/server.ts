@@ -1482,6 +1482,8 @@ const server = http.createServer((req, res) => {
           kind: n.properties['kind'] ?? n.labels[0] ?? 'node',
           surface: n.properties['surface'] ?? n.properties['sessionId'] ?? n.properties['filename'] ?? n.id.split(':').pop() ?? n.id.slice(-16),
           primes: n.properties['prime_support'] ?? '',
+          clock: Number(n.properties['timestamp'] ?? 0),
+          createdAt: n.createdAt,
         }))
         const edges = g.allEdges().slice(0, 200).map(e => ({
           from: e.from,
