@@ -63,11 +63,12 @@ _download_ollama() {
 
 if [[ "$TRIPLE" == "universal-apple-darwin" ]]; then
   # Universal macOS build: ollama-darwin.tgz is already a universal fat binary.
-  # Tauri expects both triple-suffixed copies in binaries/.
-  echo "==> Downloading Ollama ${OLLAMA_VERSION} (universal — both triples)..."
+  # Tauri's universal bundler resolves sidecars as <name>-universal-apple-darwin.
+  # Also write the per-arch copies so local dev builds work on either slice.
+  echo "==> Downloading Ollama ${OLLAMA_VERSION} (universal — all triples)..."
   BIN="$(_download_ollama "$OLLAMA_URL")"
-  for arch_triple in aarch64-apple-darwin x86_64-apple-darwin; do
-    DEST="$BINARIES_DIR/ollama-${arch_triple}"
+  for triple in universal-apple-darwin aarch64-apple-darwin x86_64-apple-darwin; do
+    DEST="$BINARIES_DIR/ollama-${triple}"
     cp "$BIN" "$DEST"
     chmod +x "$DEST"
     echo "==> Written: ${DEST}"
