@@ -18,6 +18,7 @@ export const defaultSettings: NoeticaSettings = {
   agentMachineEndpoint: 'http://127.0.0.1:8080',
 
   giteaEndpoint: '',
+  giteaToken: '',
   githubPat: '',
 
   mcpServers: {},

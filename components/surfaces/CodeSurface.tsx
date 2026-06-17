@@ -34,12 +34,47 @@ function StatusDot({ ok }: { ok: boolean | null }) {
 
 // ─── Gitea Sovereign detail ───────────────────────────────────────────────────
 
-function GiteaDetail({ onBack }: { onBack: () => void }) {
+type GiteaRepo = {
+  id: number
+  name: string
+  full_name: string
+  description: string | null
+  private: boolean
+  updated: string
+  language: string | null
+  stars_count: number
+  open_issues_count: number
+  default_branch: string
+  html_url: string
+}
+
+function GiteaDetail({
+  onBack,
+  onOpenSettings,
+  onNavigateToOperate,
+}: {
+  onBack: () => void
+  onOpenSettings?: () => void
+  onNavigateToOperate?: () => void
+}) {
   const { settings } = useSettings()
   const [repoSearch, setRepoSearch] = useState('')
   const [apiReachable, setApiReachable] = useState<boolean | null>(null)
   const [apiLatency, setApiLatency] = useState<number | null>(null)
   const [checking, setChecking] = useState(false)
+  const [repos, setRepos] = useState<GiteaRepo[]>([])
+  const [reposLoading, setReposLoading] = useState(false)
+  const [reposError, setReposError] = useState('')
+
+  async function fetchGiteaRepos(endpoint: string) {
+    const base = endpoint.replace(/\/$/, '')
+    const token = settings.giteaToken?.trim()
+    const headers: Record<string, string> = token ? { Authorization: `token ${token}` } : {}
+    const res = await fetch(`${base}/api/v1/repos/search?limit=50&sort=updated`, { headers, signal: AbortSignal.timeout(6000) })
+    if (!res.ok) throw new Error(`Gitea API ${res.status}${res.status === 401 ? ' — add a token in Settings → Connections' : ''}`)
+    const data = (await res.json()) as { data: GiteaRepo[] }
+    return data.data ?? []
+  }
 
   async function checkGiteaApi() {
     const endpoint = settings.giteaEndpoint.trim()
@@ -51,6 +86,14 @@ function GiteaDetail({ onBack }: { onBack: () => void }) {
       const res = await fetch(`${base}/api/v1/version`, { signal: AbortSignal.timeout(4000) })
       setApiReachable(res.ok)
       setApiLatency(Date.now() - started)
+      if (res.ok) {
+        setReposLoading(true)
+        setReposError('')
+        fetchGiteaRepos(endpoint)
+          .then((r) => { setRepos(r); setReposError('') })
+          .catch((e: unknown) => setReposError(e instanceof Error ? e.message : 'Failed to load repos'))
+          .finally(() => setReposLoading(false))
+      }
     } catch {
       setApiReachable(false)
       setApiLatency(Date.now() - started)
@@ -59,16 +102,19 @@ function GiteaDetail({ onBack }: { onBack: () => void }) {
     }
   }
 
-  useEffect(() => { void checkGiteaApi() }, [settings.giteaEndpoint]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void checkGiteaApi() }, [settings.giteaEndpoint, settings.giteaToken]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const configured = Boolean(settings.giteaEndpoint.trim())
+  const filteredRepos = repos.filter((r) =>
+    !repoSearch || r.full_name.toLowerCase().includes(repoSearch.toLowerCase()) || (r.description ?? '').toLowerCase().includes(repoSearch.toLowerCase())
+  )
   const statusRows: { label: string; ok: boolean | null; detail: string }[] = [
     { label: 'API reachable', ok: configured ? apiReachable : null, detail: !configured ? 'Not configured' : checking ? 'Checking…' : apiReachable === true ? `OK · ${apiLatency}ms` : apiReachable === false ? 'Unreachable' : 'Unknown' },
     { label: 'SSH reachable',      ok: null,  detail: 'Not configured' },
     { label: 'Webhook receiver',   ok: null,  detail: 'Not configured' },
     { label: 'Mirror queue',       ok: null,  detail: '—' },
     { label: 'Last graph sync',    ok: null,  detail: '—' },
-    { label: 'Repository count',   ok: null,  detail: '0 indexed' },
+    { label: 'Repository count',   ok: repos.length > 0 ? true : null,  detail: repos.length > 0 ? `${repos.length} indexed` : '0 indexed' },
     { label: 'Failed syncs',       ok: null,  detail: '0' },
   ]
   const hookTypes = ['push', 'pull_request', 'issue', 'release', 'workflow / status']
@@ -121,11 +167,18 @@ function GiteaDetail({ onBack }: { onBack: () => void }) {
           </div>
           <div className="border-t border-[var(--color-border-secondary)] px-5 py-3">
             <div className="flex gap-2">
-              <button className="rounded-xl border border-[#bfdbfe] bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe]">
+              <button
+                onClick={() => onOpenSettings?.()}
+                className="rounded-xl border border-[#bfdbfe] bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe]"
+              >
                 Configure endpoint
               </button>
-              <button className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]">
-                Test connection
+              <button
+                onClick={() => void checkGiteaApi()}
+                disabled={checking || !configured}
+                className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)] disabled:opacity-50"
+              >
+                {checking ? 'Checking…' : 'Test connection'}
               </button>
             </div>
           </div>
@@ -153,10 +206,34 @@ function GiteaDetail({ onBack }: { onBack: () => void }) {
                 <div className="text-xs text-[var(--color-text-tertiary)]">No Gitea endpoint configured.</div>
                 <div className="mt-2 text-[11px] text-[var(--color-text-tertiary)]">Set your Gitea URL in <strong>Settings → Connections</strong> to enable repository indexing.</div>
               </div>
-            ) : (
-              <div className="rounded-xl border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-8 text-center text-sm text-[var(--color-text-tertiary)]">
-                No repositories indexed. Gitea endpoint: <code className="text-[11px]">{settings.giteaEndpoint}</code>
+            ) : reposLoading ? (
+              <div className="space-y-2">
+                {[1,2,3].map((i) => <div key={i} className="h-10 animate-pulse rounded-xl bg-[var(--color-background-secondary)]" />)}
               </div>
+            ) : reposError ? (
+              <div className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-4 py-3 text-xs text-[#dc2626]">{reposError}</div>
+            ) : filteredRepos.length === 0 && repos.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-8 text-center text-xs text-[var(--color-text-tertiary)]">
+                No repositories found at <code>{settings.giteaEndpoint}</code>
+              </div>
+            ) : filteredRepos.length === 0 ? (
+              <div className="py-4 text-center text-xs text-[var(--color-text-tertiary)]">No repos match your search.</div>
+            ) : (
+              <ul className="max-h-[340px] divide-y divide-[var(--color-border-secondary)] overflow-y-auto rounded-xl border border-[var(--color-border-secondary)]">
+                {filteredRepos.map((repo) => (
+                  <li key={repo.id} className="flex items-center gap-3 px-4 py-2.5 transition hover:bg-[var(--color-background-secondary)]">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-semibold text-[var(--color-text-primary)]">{repo.full_name}</span>
+                        {repo.private && <span className="rounded-full border border-[var(--color-border-secondary)] px-1.5 py-0.5 text-[9px] font-medium text-[var(--color-text-tertiary)]">private</span>}
+                        {repo.language && <span className="text-[10px] text-[var(--color-text-tertiary)]">{repo.language}</span>}
+                      </div>
+                      {repo.description && <div className="mt-0.5 truncate text-[11px] text-[var(--color-text-secondary)]">{repo.description}</div>}
+                    </div>
+                    {repo.stars_count > 0 && <span className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">★ {repo.stars_count}</span>}
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         </div>
@@ -200,7 +277,10 @@ function GiteaDetail({ onBack }: { onBack: () => void }) {
               <button className="rounded-xl border border-[#bfdbfe] bg-[#eff6ff] px-3 py-1.5 text-xs font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe]">
                 Enable ingestion
               </button>
-              <button className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]">
+              <button
+                onClick={() => onNavigateToOperate?.()}
+                className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]"
+              >
                 View graph nodes
               </button>
             </div>
@@ -589,12 +669,18 @@ function SourceOverview({
 
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
-export function CodeSurface() {
+export function CodeSurface({
+  onOpenSettings,
+  onNavigateToOperate,
+}: {
+  onOpenSettings?: () => void
+  onNavigateToOperate?: () => void
+}) {
   const [view, setView] = useState<CodeView>('overview')
   const [filter, setFilter] = useState<ForgeFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
 
-  if (view === 'gitea_detail') return <GiteaDetail onBack={() => setView('overview')} />
+  if (view === 'gitea_detail') return <GiteaDetail onBack={() => setView('overview')} onOpenSettings={onOpenSettings} onNavigateToOperate={onNavigateToOperate} />
   if (view === 'github_detail') return <GitHubDetail onBack={() => setView('overview')} />
 
   return (

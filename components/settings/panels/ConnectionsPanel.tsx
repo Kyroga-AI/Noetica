@@ -467,6 +467,17 @@ function ForgeSettingsSection() {
         />
       </div>
       <div>
+        <label className="block text-xs font-semibold text-[var(--color-text-primary)]">Gitea API token</label>
+        <div className="text-[11px] text-[var(--color-text-tertiary)] mt-0.5 mb-1">Personal access token for your Gitea instance. Used to list and manage repositories.</div>
+        <input
+          type="password"
+          value={settings.giteaToken}
+          onChange={(e) => update({ giteaToken: e.target.value })}
+          placeholder="Paste Gitea API token…"
+          className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs outline-none focus:border-[#bfdbfe]"
+        />
+      </div>
+      <div>
         <label className="block text-xs font-semibold text-[var(--color-text-primary)]">GitHub PAT</label>
         <div className="text-[11px] text-[var(--color-text-tertiary)] mt-0.5 mb-1">Personal access token for GitHub API. Used as fallback when OAuth is not connected.</div>
         <input

@@ -58,6 +58,29 @@ function broadcastModelProgress(payload: object): void {
   }
 }
 
+// ─── Governance run ring buffer ───────────────────────────────────────────────
+// Keeps the last 100 completed run traces for the Govern surface.
+interface GovernanceRun {
+  run_id: string
+  model_routed: string
+  provider: string
+  policy_admitted: boolean
+  memory_written: boolean
+  timestamp: string
+  latency_ms: number
+  input_tokens?: number
+  output_tokens?: number
+  task?: string
+  session_id?: string
+}
+const _governanceRuns: GovernanceRun[] = []
+const GOVERNANCE_RING_SIZE = 100
+
+function recordGovernanceRun(run: GovernanceRun): void {
+  _governanceRuns.push(run)
+  if (_governanceRuns.length > GOVERNANCE_RING_SIZE) _governanceRuns.shift()
+}
+
 // ─── Noetica identity ─────────────────────────────────────────────────────────
 
 const NOETICA_SYSTEM_PROMPT = `You are Michael. You are a local AI agent running inside the Noetica platform — a sovereign local-first AI workstation built by SocioProphet. Noetica is the platform. You are Michael, the agent that runs inside it. You are not ChatGPT, not Claude, not Gemini, not Ollama. If asked what you are, say you are Michael — an AI agent running locally on the user's machine via the Noetica platform.
@@ -1185,6 +1208,19 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     }
 
     const latencyMs = Date.now() - started
+
+    recordGovernanceRun({
+      run_id,
+      model_routed: model,
+      provider,
+      policy_admitted: true,
+      memory_written: false,
+      timestamp,
+      latency_ms: latencyMs,
+      task: routerDecision.task,
+      session_id: sessionId,
+    })
+
     sse(res, 'done', {
       result: {
         run_id,
@@ -1395,9 +1431,20 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // GET /api/governance/recent — last N completed run traces for Govern surface
+  if (req.method === 'GET' && url.pathname === '/api/governance/recent') {
+    setCORSHeaders(res)
+    const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '50', 10), GOVERNANCE_RING_SIZE)
+    const runs = _governanceRuns.slice(-limit).reverse()
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ runs }))
+    return
+  }
+
   // GET /api/graph/nodes — raw node/edge data for visualization
   if (req.method === 'GET' && url.pathname === '/api/graph/nodes') {
     void (async () => {
+      setCORSHeaders(res)
       try {
         const g = getGraph()
         const nodes = g.allNodes().map(n => ({
@@ -1459,10 +1506,36 @@ const server = http.createServer((req, res) => {
   // GET /api/graph/health
   if (req.method === 'GET' && url.pathname === '/api/graph/health') {
     void (async () => {
+      setCORSHeaders(res)
       try {
-        const health = await graphHealth()
+        const h = await graphHealth()
+        // Shape matches OperateSurface GraphHealthStatus + TimeServiceStatus wrapper
+        const payload = {
+          graph: {
+            graphId: 'sociosphere-primary',
+            status: h.nodeCount > 0 ? 'ok' : 'degraded',
+            nodeCount: h.nodeCount,
+            edgeCount: h.edgeCount,
+            pendingIngestCount: 0,
+            failedIngestCount: 0,
+            orphanNodeCount: h.orphans,
+            duplicateEntityCount: 0,
+            stalePartitionCount: 0,
+            vectorIndexStatus: h.nodeCount > 0 ? 'indexed' : 'empty',
+            walPath: h.walPath,
+            logicalClock: h.logicalClock,
+          },
+          time: {
+            serviceId: 'time-primary',
+            status: 'ok',
+            logicalTime: String(h.logicalClock),
+            latestEventTime: new Date().toISOString(),
+            ledgerLagMs: 0,
+            clockSkewMs: 0,
+          },
+        }
         res.writeHead(200, { 'content-type': 'application/json' })
-        res.end(JSON.stringify(health))
+        res.end(JSON.stringify(payload))
       } catch (err) {
         res.writeHead(500, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ error: String(err) }))

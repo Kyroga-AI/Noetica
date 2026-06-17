@@ -1144,6 +1144,8 @@ export function AppShell() {
                 onArtifactUpdate={updateArtifact}
                 onArtifactDelete={(id) => { deleteArtifact(id); setActiveArtifact(null) }}
                 onAtomSelect={(query) => { setActiveSurface('chat'); void handleSend(query, []) }}
+                onOpenSettings={() => openSettings('connections')}
+                onNavigateToOperate={() => setActiveSurface('operate')}
               />
               {inspectorVisible && (
                 <RightPanel
@@ -1329,16 +1331,18 @@ type CenterProps = {
   onArtifactUpdate?: (id: string, patch: Partial<Artifact>) => void
   onArtifactDelete?: (id: string) => void
   onAtomSelect?: (query: string) => void
+  onOpenSettings?: () => void
+  onNavigateToOperate?: () => void
 }
 
-function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect }: CenterProps) {
+function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate }: CenterProps) {
   if (activeSurface === 'notes')        return <NotesSurface />
   if (activeSurface === 'canvas')       return <CanvasSurface />
   if (activeSurface === 'workrooms')    return <WorkroomsSurface thinkingBudget={thinkingBudget} />
   if (activeSurface === 'cowork')       return <CoworkSurface thinkingBudget={thinkingBudget} />
   if (activeSurface === 'projects')     return <ProjectsPanel />
   if (activeSurface === 'artifacts')    return <ArtifactsSurface />
-  if (activeSurface === 'code')         return <CodeSurface />
+  if (activeSurface === 'code')         return <CodeSurface onOpenSettings={onOpenSettings} onNavigateToOperate={onNavigateToOperate} />
   if (activeSurface === 'evaluate')     return <EvaluateSurface thinkingBudget={thinkingBudget} />
   if (activeSurface === 'operate')      return <OperateSurface onAtomSelect={onAtomSelect} />
   if (activeSurface === 'govern') {

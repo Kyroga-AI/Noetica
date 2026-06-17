@@ -29,6 +29,7 @@ export interface NoeticaSettings {
 
   // Source forge
   giteaEndpoint: string
+  giteaToken: string
   githubPat: string
 
   // Connectors — MCP servers keyed by name, matching Claude Desktop format

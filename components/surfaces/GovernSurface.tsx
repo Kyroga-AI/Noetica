@@ -103,6 +103,34 @@ function ledgerToBundles(entries: LedgerEntry[], level: EvidenceLevel): Evidence
 
 type RunTrace = { messageId: string; content: string; governance: GovernanceTrace }
 
+interface AgentMachineRun {
+  run_id: string
+  model_routed: string
+  provider: string
+  policy_admitted: boolean
+  memory_written: boolean
+  timestamp: string
+  latency_ms: number
+  task?: string
+  session_id?: string
+}
+
+function amUrl(path: string): string {
+  const isTauri = typeof window !== 'undefined' &&
+    ('__TAURI_INTERNALS__' in window || '__TAURI__' in window)
+  return isTauri ? `http://127.0.0.1:8080${path}` : path
+}
+
+function amRunToAuditEvent(r: AgentMachineRun): AuditEvent {
+  return {
+    id: r.run_id,
+    ts: r.timestamp,
+    kind: 'chat_request',
+    detail: `${r.model_routed} · ${r.latency_ms}ms · ${r.task ?? 'chat'}`,
+    verdict: r.policy_admitted ? 'admitted' : 'blocked',
+  }
+}
+
 export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[] }) {
   const { settings, update: updateSettings } = useSettings()
   const [policyMode, setPolicyMode]   = useState<PolicyMode>('default')
@@ -113,16 +141,50 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   const [ledgerLoading, setLedgerLoading] = useState(true)
   const [expandedId, setExpandedId]       = useState<string | null>(null)
   const [confirmClear, setConfirmClear]   = useState(false)
+  const [amRuns, setAmRuns]               = useState<AgentMachineRun[]>([])
 
   useEffect(() => {
     readLedgerEntries(200).then((entries) => {
       setLedgerEntries(entries)
       setLedgerLoading(false)
     })
+    // Fetch persisted runs from agent-machine ring buffer
+    fetch(amUrl('/api/governance/recent?limit=50'), { signal: AbortSignal.timeout(3000) })
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { runs?: AgentMachineRun[] } | null) => {
+        if (data?.runs?.length) setAmRuns(data.runs)
+      })
+      .catch(() => { /* agent-machine not running — silently skip */ })
   }, [])
 
-  const events: AuditEvent[] = ledgerEntries.map(ledgerToAuditEvent)
+  // Merge local ledger events with agent-machine run history, deduped by id, sorted newest-first
+  const amEvents: AuditEvent[] = amRuns.map(amRunToAuditEvent)
+  const seenIds = new Set(ledgerEntries.map(e => e.id))
+  const mergedEvents: AuditEvent[] = [
+    ...ledgerEntries.map(ledgerToAuditEvent),
+    ...amEvents.filter(e => !seenIds.has(e.id)),
+  ].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())
+  const events = mergedEvents
   const bundles: EvidenceBundle[] = ledgerToBundles(ledgerEntries, evidenceLevel)
+
+  // Build run traces from agent-machine history if session has none
+  const allTraces: RunTrace[] = recentTraces.length > 0
+    ? recentTraces
+    : amRuns.slice(0, 20).map(r => ({
+        messageId: r.run_id,
+        content: `${r.model_routed} · ${r.task ?? 'chat'}`,
+        governance: {
+          run_id: r.run_id,
+          model_routed: r.model_routed,
+          provider: r.provider,
+          policy_admitted: r.policy_admitted,
+          memory_written: r.memory_written,
+          timestamp: r.timestamp,
+          latency_ms: r.latency_ms,
+          agent_machine: true,
+          agent_machine_version: '0.4.10',
+        } as GovernanceTrace,
+      }))
 
   function syncPolicyMode(mode: PolicyMode) {
     setPolicyMode(mode)
@@ -143,7 +205,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   }
 
   const scopeCounts = {
-    session: ledgerEntries.filter((e) => e.kind === 'chat_request').length,
+    session: ledgerEntries.filter((e) => e.kind === 'chat_request').length + amRuns.length,
     project: ledgerEntries.filter((e) => e.kind === 'memory_write').length,
     global:  ledgerEntries.filter((e) => e.evidence_hash).length,
   }
@@ -203,15 +265,15 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
           </div>
         </div>
 
-        {/* Run details — from real conversation */}
-        {recentTraces.length > 0 && (
+        {/* Run details — current session + agent-machine history */}
+        {allTraces.length > 0 && (
           <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] shadow-sm">
             <div className="border-b border-[var(--color-border-tertiary)] px-5 py-3">
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Run Details</div>
-              <p className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">{recentTraces.length} run{recentTraces.length !== 1 ? 's' : ''} this session</p>
+              <p className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">{allTraces.length} run{allTraces.length !== 1 ? 's' : ''}{recentTraces.length === 0 && amRuns.length > 0 ? ' (from history)' : ' this session'}</p>
             </div>
             <div className="divide-y divide-[var(--color-border-tertiary)]">
-              {[...recentTraces].reverse().map((trace, idx) => {
+              {[...allTraces].reverse().map((trace, idx) => {
                 const g = trace.governance
                 const [expanded, setExpanded] = [
                   expandedId === trace.messageId,
@@ -223,7 +285,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                       onClick={() => setExpanded(expanded ? null : trace.messageId)}
                       className="flex w-full items-center gap-3 px-5 py-3 text-left transition hover:bg-[var(--color-background-secondary)]"
                     >
-                      <span className="w-5 shrink-0 text-center text-[10px] font-mono text-[var(--color-text-tertiary)]">#{recentTraces.length - idx}</span>
+                      <span className="w-5 shrink-0 text-center text-[10px] font-mono text-[var(--color-text-tertiary)]">#{allTraces.length - idx}</span>
                       <span className="flex-1 truncate text-xs text-[var(--color-text-primary)]">{trace.content || '…'}</span>
                       <span className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">{g.latency_ms > 0 ? `${(g.latency_ms / 1000).toFixed(1)}s` : ''}</span>
                       {(g.input_tokens || g.output_tokens) && (
