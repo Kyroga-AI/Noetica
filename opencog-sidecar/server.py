@@ -53,6 +53,23 @@ from cypher_gw.limits import QueryLimitError
 from cypher_gw.config import load_settings as _load_cypher_settings
 from atomese_bridge import load_atomese as _load_atomese_lite
 
+# ── graphbrain-contract CSKG normalization + hyperlift ────────────────────────
+import importlib.util as _ilu
+_GRAPHBRAIN_PATH = Path(__file__).parent.parent / "graphbrain-contract" / "code"
+_GRAPHBRAIN_AVAILABLE = False
+_cskg_normalizer = None
+_hyperlift = None
+
+if _GRAPHBRAIN_PATH.exists():
+    try:
+        import sys as _sys
+        _sys.path.insert(0, str(_GRAPHBRAIN_PATH))
+        from cskg_normalizer import normalize_relation, normalize_relations, RawRelation  # type: ignore
+        from graphbrain_hyperlift import hyperlift_edges, HyperliftRule  # type: ignore
+        _GRAPHBRAIN_AVAILABLE = True
+    except Exception as _e:
+        pass  # graphbrain-contract optional — degrade gracefully
+
 # In-process AtomSpaceLite — always available for Cypher + fallback when OpenCog absent
 _lite = _LiteStore()
 _cypher_settings = _load_cypher_settings()
@@ -215,6 +232,10 @@ def health() -> dict[str, Any]:
         "pln": _has_module("opencog.pln"),
         "ure": _has_module("opencog.ure"),
         "ecan": _has_module("opencog.attention"),
+        "cskg_normalization": _GRAPHBRAIN_AVAILABLE,
+        "hyperlift": _GRAPHBRAIN_AVAILABLE,
+        "cypher": True,
+        "pln_derived": True,
     }
     return {
         "available": OPENCOG_AVAILABLE,
@@ -348,6 +369,84 @@ def shacl_rules_endpoint(payload: SHACLPayload) -> dict[str, Any]:
         abort_on_first=False,
     )
     return {"added": len(data_graph), "ok": True}
+
+
+class CSKGNormalizePayload(BaseModel):
+    relations: list[dict[str, Any]]
+
+
+class HyperliftPayload(BaseModel):
+    edges: list[dict[str, Any]]
+    rules: list[dict[str, Any]] = []
+
+
+@app.post("/cskg/normalize")
+def cskg_normalize(payload: CSKGNormalizePayload) -> dict[str, Any]:
+    """Normalize raw relations into CSKG canonical form via graphbrain-contract."""
+    if not _GRAPHBRAIN_AVAILABLE:
+        raise HTTPException(status_code=503, detail="graphbrain-contract not available at expected path")
+    raw = [
+        RawRelation(  # type: ignore[name-defined]
+            node1=r.get("node1", ""),
+            relation=r.get("relation", ""),
+            node2=r.get("node2", ""),
+            provenance_ref=r.get("provenance_ref"),
+            source_evidence_ref=r.get("source_evidence_ref"),
+        )
+        for r in payload.relations
+        if r.get("node1") and r.get("node2")
+    ]
+    edges = normalize_relations(raw)  # type: ignore[name-defined]
+    return {
+        "edges": [
+            {
+                "edge_id": e.edge_id,
+                "node1": e.node1,
+                "relation": e.relation,
+                "node2": e.node2,
+                "provenance_refs": e.provenance_refs,
+                "source_evidence_refs": e.source_evidence_refs,
+            }
+            for e in edges
+        ],
+        "count": len(edges),
+    }
+
+
+@app.post("/cskg/hyperlift")
+def cskg_hyperlift(payload: HyperliftPayload) -> dict[str, Any]:
+    """Lift CSKG binary edges to hyperedge bundles via graphbrain-contract."""
+    if not _GRAPHBRAIN_AVAILABLE:
+        raise HTTPException(status_code=503, detail="graphbrain-contract not available at expected path")
+    from memory_runtime_api import CSKGEdge  # type: ignore
+    edges = [
+        CSKGEdge(
+            edge_id=e.get("edge_id", f"e-{i}"),
+            node1=e.get("node1", ""),
+            relation=e.get("relation", ""),
+            node2=e.get("node2", ""),
+        )
+        for i, e in enumerate(payload.edges)
+        if e.get("node1") and e.get("node2")
+    ]
+    rules = [
+        HyperliftRule(rule_id=r.get("rule_id", "default"), match_relation=r.get("match_relation"), lift_type=r.get("lift_type", "hybrid"))  # type: ignore
+        for r in payload.rules
+    ] or None
+    bundles = hyperlift_edges(edges, rules)  # type: ignore
+    return {
+        "bundles": [
+            {
+                "bundle_id": b.bundle_id,
+                "source_cskg_edge_refs": b.source_cskg_edge_refs,
+                "lift_type": b.lift_type,
+                "hyperedge_refs": b.hyperedge_refs,
+                "notes": b.notes,
+            }
+            for b in bundles
+        ],
+        "count": len(bundles),
+    }
 
 
 @app.get("/pln/derived")

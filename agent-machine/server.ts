@@ -1280,6 +1280,25 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // GET /api/memory/health — memoryd + HellGraph memory layer status
+  if (req.method === 'GET' && url.pathname === '/api/memory/health') {
+    void (async () => {
+      setCORSHeaders(res)
+      const memorydUrl = process.env['MEMORYD_URL'] ?? 'http://127.0.0.1:8787'
+      const memorydHealth = await fetch(`${memorydUrl}/healthz`, { signal: AbortSignal.timeout(1500) })
+        .then(r => r.ok ? r.json() : null).catch(() => null)
+      const g = getGraph()
+      const atoms = g.allNodes().filter(n => n.labels.includes('FeatureAtom')).length
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({
+        memoryd: { available: memorydHealth !== null, url: memorydUrl, ...(memorydHealth ?? {}) },
+        hellgraph: { feature_atoms: atoms, total_nodes: g.allNodes().length, total_edges: g.allEdges().length },
+        tiers: { tier1_memoryd: memorydHealth !== null, tier2_hellgraph: true, tier3_map: true },
+      }))
+    })()
+    return
+  }
+
   // POST /api/graph/gremlin — Gremlin/TinkerPop traversal over HellGraph property graph
   if (req.method === 'POST' && url.pathname === '/api/graph/gremlin') {
     void (async () => {
@@ -1549,6 +1568,41 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`[noetica-am] Agent Machine v${VERSION} listening on http://127.0.0.1:${PORT}`)
   console.log(`[noetica-am] Status: http://127.0.0.1:${PORT}/api/status`)
+
+  // Auto-start memoryd (memory-mesh runtime) if not already running.
+  // memoryd provides durable local memory storage for the three-tier recall adapter.
+  void (async () => {
+    const memorydUrl = process.env['MEMORYD_URL'] ?? 'http://127.0.0.1:8787'
+    try {
+      const h = await fetch(`${memorydUrl}/healthz`, { signal: AbortSignal.timeout(1500) })
+      if (h.ok) {
+        console.log(`[noetica-am] memoryd already running at ${memorydUrl}`)
+        return
+      }
+    } catch { /* not running — try to start */ }
+    const memorydDir = path.join(path.dirname(process.argv[1] ?? __filename), '..', 'memory-mesh', 'services', 'memoryd')
+    const python = process.env['HELLGRAPH_PYTHON'] ?? 'python3'
+    if (fs.existsSync(memorydDir)) {
+      try {
+        const proc = cp.spawn(python, ['-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', '8787', '--log-level', 'warning'], {
+          cwd: memorydDir,
+          detached: false,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          env: { ...process.env, MEMORYD_STORE: 'sqlite', MEMORYD_DB_PATH: path.join(os.homedir(), '.noetica', 'memoryd.db') },
+        })
+        proc.stderr?.on('data', (d: Buffer) => {
+          const line = d.toString().trim()
+          if (line && !line.includes('INFO')) console.warn(`[memoryd] ${line}`)
+        })
+        await new Promise(r => setTimeout(r, 2500))
+        const h2 = await fetch(`${memorydUrl}/healthz`, { signal: AbortSignal.timeout(1500) }).catch(() => null)
+        if (h2?.ok) console.log('[noetica-am] memoryd started (SQLite, local-first)')
+        else console.warn('[noetica-am] memoryd started but not responding — memory-mesh Tier 1 will degrade to Tier 2/3')
+      } catch (e) {
+        console.warn('[noetica-am] Could not start memoryd:', e)
+      }
+    }
+  })()
 
   // Auto-start the HellGraph OpenCog sidecar if not already running.
   void (async () => {
