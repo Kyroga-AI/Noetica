@@ -22,3 +22,5 @@ src-tauri/binaries/
 
 # Tauri generated schemas
 src-tauri/gen/
+opencog-sidecar/__pycache__/
+opencog-sidecar/cypher_gw/__pycache__/

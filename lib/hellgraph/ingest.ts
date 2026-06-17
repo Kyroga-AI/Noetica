@@ -1,6 +1,9 @@
 import { getHellGraph } from './store'
 import { findMatches, V, N, L } from './patternMatcher'
 import type { Pattern } from './patternMatcher'
+import { stimulate, spreadAttention } from './ecan'
+import { forwardChain } from './pln'
+import { syncToSidecar } from './sidecar'
 
 // ─── Prime topic vocabulary ───────────────────────────────────────────────────
 // Used to tag extracted entities with the prime context they belong to.
@@ -166,6 +169,10 @@ export function ingestEntities(
       createdAt: timestamp,
     })
 
+    // ECAN: stimulate attention on this atom, scaled by extraction confidence
+    stimulate(atomId, Math.round(ent.confidence * 120))
+    if (ent.confidence >= 0.8) spreadAttention(atomId)
+
     // Cross-session MERGE_PROPOSAL: look for similar atoms with sufficient overlap
     // Simple token Jaccard similarity — if > 0.5, propose a merge
     const candidateTokens = new Set(ent.normalised.split(/\s+/))
@@ -238,7 +245,21 @@ export function ingestEntities(
       }
     }
   } catch { /* skip if pattern space is empty */ }
+
+  // PLN forward chaining: run every 5th ingest to derive 2-hop RELATED_TO edges.
+  // Throttled because it scans all RELATED_TO edges — too expensive per message.
+  _ingestCount++
+  if (_ingestCount % 5 === 0) {
+    try { forwardChain() } catch { /* skip if graph is empty */ }
+  }
+
+  // Sync to sidecar: fire-and-forget after every 10th ingest so Cypher + OpenCog PLN stay current.
+  if (_ingestCount % 10 === 0) {
+    syncToSidecar().catch(() => {/* sidecar unavailable — degrade gracefully */})
+  }
 }
+
+let _ingestCount = 0
 
 /**
  * Ingestion: project Noetica runtime activity into the HellGraph substrate.

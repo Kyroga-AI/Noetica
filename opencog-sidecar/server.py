@@ -34,12 +34,28 @@ from __future__ import annotations
 
 import io
 import os
+import sys
 import sqlite3
 from pathlib import Path
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+
+# ── Cypher gateway (always available — embedded from atomspace_cypher_gateway) ─
+sys.path.insert(0, str(Path(__file__).parent))
+from cypher_gw.lite import AtomSpaceLite as _LiteStore
+from cypher_gw.base import Edge as _Edge
+from cypher_gw.parser import parse_cypher
+from cypher_gw.translator import plan_from_ast, TranslationError
+from cypher_gw.executor import execute_plan, ExecutionError
+from cypher_gw.limits import QueryLimitError
+from cypher_gw.config import load_settings as _load_cypher_settings
+from atomese_bridge import load_atomese as _load_atomese_lite
+
+# In-process AtomSpaceLite — always available for Cypher + fallback when OpenCog absent
+_lite = _LiteStore()
+_cypher_settings = _load_cypher_settings()
 
 # ── SHACL / rdflib (always available — no OpenCog dependency) ─────────────────
 try:
@@ -184,11 +200,16 @@ class SHACLPayload(BaseModel):
     atomese: str | None = None
 
 
+class CypherPayload(BaseModel):
+    query: str
+    params: dict = {}
+
+
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    atom_count = atomspace.size() if (OPENCOG_AVAILABLE and atomspace is not None) else 0
+    atom_count = atomspace.size() if (OPENCOG_AVAILABLE and atomspace is not None) else (_lite.stats()["nodes"] + _lite.stats()["edges"])
     capabilities = {
         "pattern_matcher": OPENCOG_AVAILABLE,
         "pln": _has_module("opencog.pln"),
@@ -206,14 +227,17 @@ def health() -> dict[str, Any]:
 
 @app.post("/atomese/load")
 def load_atomese(payload: AtomesePayload) -> dict[str, Any]:
-    _require_opencog()
+    # Always sync into AtomSpaceLite so Cypher queries work regardless of OpenCog state.
+    lite_added = _load_atomese_lite(_lite, payload.atomese)
+    if not OPENCOG_AVAILABLE:
+        stats = _lite.stats()
+        return {"ok": True, "added": lite_added, "atom_count": stats["nodes"] + stats["edges"], "backend": "lite"}
     assert atomspace is not None
     before = atomspace.size()
-    # Wrap in a begin so multiple top-level forms evaluate.
     _eval(f"(begin {payload.atomese} )")
     after = atomspace.size()
     _db_save()
-    return {"ok": True, "added": after - before, "atom_count": after}
+    return {"ok": True, "added": after - before, "atom_count": after, "backend": "opencog", "lite_synced": lite_added}
 
 
 @app.get("/atomese/dump")
@@ -324,6 +348,20 @@ def shacl_rules_endpoint(payload: SHACLPayload) -> dict[str, Any]:
         abort_on_first=False,
     )
     return {"added": len(data_graph), "ok": True}
+
+
+@app.post("/cypher")
+def cypher_query(payload: CypherPayload) -> dict[str, Any]:
+    """Cypher traversal over the AtomSpaceLite store (always available)."""
+    try:
+        ast = parse_cypher(payload.query)
+        plan = plan_from_ast(ast, payload.params or {})
+        rows = execute_plan(_lite, _cypher_settings, plan)
+        return {"rows": rows, "plan": plan, "backend": "lite"}
+    except (TranslationError, ExecutionError, QueryLimitError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 def _has_module(name: str) -> bool:

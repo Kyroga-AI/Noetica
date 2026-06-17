@@ -15,6 +15,7 @@ import { getGraph, graphSparql } from './graph.js'
 import { buildWorkspacePrefix } from './context-cache.js'
 import { findMatches, V, N, L } from '../../lib/hellgraph/patternMatcher.js'
 import type { Pattern } from '../../lib/hellgraph/patternMatcher.js'
+import { stiNorm } from '../../lib/hellgraph/ecan.js'
 import type { PropertyValue } from '../../lib/hellgraph/types.js'
 
 // ─── Public types ─────────────────────────────────────────────────────────────
@@ -336,7 +337,11 @@ async function runAtomsPattern(
     const substrMatches = [...queryTokens].filter((t) => norm.includes(t)).length
 
     const rawScore = (exactMatches * 1.0 + substrMatches * 0.4) / queryTokens.size
-    if (rawScore > 0) scored.push({ node: atom, score: Math.min(rawScore, 1) })
+    if (rawScore > 0) {
+      // Boost by ECAN STI — atoms the graph has been "thinking about" recently rank higher
+      const sti = stiNorm(atom.id)
+      scored.push({ node: atom, score: Math.min(rawScore * (1 + sti * 0.5), 1) })
+    }
   }
 
   scored.sort((a, b) => b.score - a.score)

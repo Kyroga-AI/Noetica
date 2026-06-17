@@ -33,6 +33,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import { buildRouterDecision, LOCAL_MODEL_SUITE } from './lib/router.js'
+import { syncToSidecar, sidecarHealth } from '../lib/hellgraph/sidecar.js'
 import { isOllamaRunning, listLocalModels, pullModel, streamOllama } from './lib/ollama.js'
 import { retrieve } from './lib/retrieval.js'
 import { getGraph, graphHealth, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
@@ -1276,6 +1277,35 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // POST /api/graph/cypher — Cypher query proxy to the HellGraph sidecar
+  if (req.method === 'POST' && url.pathname === '/api/graph/cypher') {
+    void (async () => {
+      setCORSHeaders(res)
+      try {
+        const body = await new Promise<string>((resolve, reject) => {
+          let d = ''
+          req.on('data', (c: Buffer) => { d += c.toString() })
+          req.on('end', () => resolve(d))
+          req.on('error', reject)
+        })
+        const payload = JSON.parse(body) as { query: string; params?: Record<string, unknown> }
+        const upstream = await fetch('http://127.0.0.1:8137/cypher', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: AbortSignal.timeout(5_000),
+        })
+        const result = await upstream.json()
+        res.writeHead(upstream.ok ? 200 : upstream.status, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(result))
+      } catch (err) {
+        res.writeHead(503, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: 'Sidecar unavailable', detail: String(err) }))
+      }
+    })()
+    return
+  }
+
   // GET /api/graph/nodes — raw node/edge data for visualization
   if (req.method === 'GET' && url.pathname === '/api/graph/nodes') {
     void (async () => {
@@ -1488,6 +1518,40 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`[noetica-am] Agent Machine v${VERSION} listening on http://127.0.0.1:${PORT}`)
   console.log(`[noetica-am] Status: http://127.0.0.1:${PORT}/api/status`)
+
+  // Auto-start the HellGraph OpenCog sidecar if not already running.
+  void (async () => {
+    const health = await sidecarHealth()
+    if (!health) {
+      const sidecarDir = path.join(path.dirname(process.argv[1] ?? __filename), '..', 'opencog-sidecar')
+      const python = process.env['HELLGRAPH_PYTHON'] ?? 'python3'
+      try {
+        const proc = cp.spawn(python, ['-m', 'uvicorn', 'server:app', '--host', '127.0.0.1', '--port', '8137', '--log-level', 'warning'], {
+          cwd: sidecarDir,
+          detached: false,
+          stdio: ['ignore', 'pipe', 'pipe'],
+        })
+        proc.stderr?.on('data', (d: Buffer) => {
+          const line = d.toString().trim()
+          if (line && !line.includes('INFO')) console.warn(`[sidecar] ${line}`)
+        })
+        // Give it 3s to boot, then sync HellGraph atoms into it
+        await new Promise(r => setTimeout(r, 3000))
+        const h2 = await sidecarHealth()
+        if (h2) {
+          console.log(`[noetica-am] HellGraph sidecar ready (atoms: ${h2.atom_count}, opencog: ${h2.available})`)
+          syncToSidecar().catch(() => {/* first sync best-effort */})
+        } else {
+          console.warn('[noetica-am] Sidecar started but not responding — OpenCog features will degrade gracefully')
+        }
+      } catch (e) {
+        console.warn('[noetica-am] Could not start sidecar (Python/uvicorn required):', e)
+      }
+    } else {
+      console.log(`[noetica-am] HellGraph sidecar already running (atoms: ${health.atom_count})`)
+      syncToSidecar().catch(() => {/* best-effort */})
+    }
+  })()
 
   // Background model warm-up: pull the full prophet-mesh model suite in priority order.
   // dolphin3:8b (uncensored, security profile) is opt-in — excluded from auto-pull.
