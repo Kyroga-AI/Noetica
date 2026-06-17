@@ -366,52 +366,59 @@ const FULL_CONTROLS = {
 
 export const LOCAL_MODEL_SUITE = [
   {
+    name: 'nomic-embed-text',
+    role: 'embedding',
+    description: 'Text embedding model — used for semantic similarity and MERGE_PROPOSAL',
+    priority: 1,
+    sizeGb: 0.3,
+  },
+  {
     name: 'llama3.2:3b',
     role: 'conductor',
     description: 'Fast conversational model — handles chat and routing',
-    priority: 1,   // pull first so app is usable immediately
+    priority: 2,
     sizeGb: 2.0,
   },
   {
     name: 'qwen2.5:7b',
     role: 'general',
     description: 'General-purpose workhorse — writing, research, open-ended tasks',
-    priority: 2,
+    priority: 3,
     sizeGb: 4.7,
   },
   {
     name: 'qwen2.5-coder:7b',
     role: 'coding',
     description: 'Code-specialized model — implementation, debugging, review',
-    priority: 3,
+    priority: 4,
     sizeGb: 4.7,
   },
   {
     name: 'deepseek-r1:8b',
     role: 'reasoning',
     description: 'Reasoning model — analysis, complex problem solving',
-    priority: 4,
+    priority: 5,
     sizeGb: 4.9,
   },
   {
     name: 'qwen2.5:14b',
     role: 'general-large',
     description: 'Strongest local general model — writing, research, complex open-ended tasks',
-    priority: 5,
+    priority: 6,
     sizeGb: 9.0,
   },
   {
     name: 'dolphin3:8b',
     role: 'uncensored',
     description: 'Uncensored local model — activated automatically under security policy profile',
-    priority: 6,
+    priority: 7,
     sizeGb: 4.9,
   },
   {
     name: 'llava:13b',
     role: 'vision',
     description: 'Vision model — activated automatically when images are pasted or attached',
-    priority: 7,
+    priority: 8,
     sizeGb: 8.0,
   },
 ] as const

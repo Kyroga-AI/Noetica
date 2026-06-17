@@ -47,6 +47,17 @@ import { buildWorkspacePrefix, invalidatePrefix } from './lib/context-cache.js'
 const PORT = parseInt(process.env['NOETICA_AM_PORT'] ?? '8080', 10)
 const VERSION = '0.5.0'
 
+// ─── Model progress SSE ───────────────────────────────────────────────────────
+
+const _modelProgressClients = new Set<http.ServerResponse>()
+
+function broadcastModelProgress(payload: object): void {
+  const msg = `data: ${JSON.stringify(payload)}\n\n`
+  for (const res of _modelProgressClients) {
+    try { (res as unknown as { write: (s: string) => void }).write(msg) } catch { _modelProgressClients.delete(res) }
+  }
+}
+
 // ─── Noetica identity ─────────────────────────────────────────────────────────
 
 const NOETICA_SYSTEM_PROMPT = `You are Noetica — a local-first AI workstation built for deep research, code, and reasoning. You run entirely on the user's machine using local models via the prophet-mesh routing layer. You are NOT ChatGPT, Claude, or any other cloud assistant. You do not have access to the internet unless a web_search tool call is made explicitly. You do not pretend to search the web for casual conversation.
@@ -1408,6 +1419,23 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // GET /api/models/stream — SSE feed of model pull progress for first-run UI
+  if (req.method === 'GET' && url.pathname === '/api/models/stream') {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+    })
+    res.write('data: {"type":"connected"}\n\n')
+    _modelProgressClients.add(res)
+    const heartbeat = setInterval(() => {
+      try { res.write(':heartbeat\n\n') } catch { clearInterval(heartbeat); _modelProgressClients.delete(res) }
+    }, 15000)
+    req.on('close', () => { clearInterval(heartbeat); _modelProgressClients.delete(res) })
+    return
+  }
+
   // GET /api/graph/health
   if (req.method === 'GET' && url.pathname === '/api/graph/health') {
     void (async () => {
@@ -1772,19 +1800,33 @@ server.listen(PORT, '127.0.0.1', () => {
       const suite = LOCAL_MODEL_SUITE
         .filter((m) => m.name !== 'dolphin3:8b')   // opt-in only
         .sort((a, b) => a.priority - b.priority)    // pull in priority order
+
+      // Clients that connect after some models are already installed need to know immediately.
+      for (const entry of suite) {
+        const base = entry.name.split(':')[0]!
+        const alreadyPresent = installed.some((m) => m === entry.name || m.startsWith(base))
+        if (alreadyPresent) {
+          broadcastModelProgress({ model: entry.name, status: 'ready', pct: 100, role: entry.role, sizeGb: entry.sizeGb })
+        }
+      }
+
       for (const entry of suite) {
         const base = entry.name.split(':')[0]!
         const present = installed.some((m) => m === entry.name || m.startsWith(base))
         if (!present) {
           console.log(`[noetica-am] Auto-pulling ${entry.name} (${entry.sizeGb}GB, ${entry.role})…`)
+          broadcastModelProgress({ model: entry.name, status: 'starting', pct: 0, role: entry.role, sizeGb: entry.sizeGb })
           await pullModel(entry.name, (status, pct) => {
             if (pct !== null && pct % 20 === 0) console.log(`[noetica-am]   ${entry.name} ${pct}%`)
             else if (!pct) console.log(`[noetica-am]   ${entry.name}: ${status}`)
+            broadcastModelProgress({ model: entry.name, status: 'pulling', pct: pct ?? 0, role: entry.role, sizeGb: entry.sizeGb })
           })
           console.log(`[noetica-am] ${entry.name} ready.`)
+          broadcastModelProgress({ model: entry.name, status: 'ready', pct: 100, role: entry.role, sizeGb: entry.sizeGb })
         }
       }
       console.log('[noetica-am] Prophet-mesh model suite ready.')
+      broadcastModelProgress({ type: 'suite_ready' })
     } catch (e) {
       console.warn('[noetica-am] Model warm-up error:', e)
     }

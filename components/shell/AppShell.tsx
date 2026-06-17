@@ -26,6 +26,7 @@ import { GovernPanel } from '@/components/panels/GovernPanel'
 import { SettingsModal } from '@/components/settings/SettingsModal'
 import { ProviderSetupModal } from '@/components/shell/ProviderSetupModal'
 import { ModelSetupModal } from '@/components/shell/ModelSetupModal'
+import { ModelSetupOverlay } from '@/components/setup/ModelSetupOverlay'
 import { CommandPalette } from '@/components/palette/CommandPalette'
 import { models, visibleModels, defaultModelId } from '@/config/models'
 import { initialMessages } from '@/lib/chat/mockConversation'
@@ -250,6 +251,7 @@ export function AppShell() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [providerSetupOpen, setProviderSetupOpen] = useState(false)
   const [modelSetupOpen, setModelSetupOpen] = useState(false)
+  const [showSetup, setShowSetup] = useState(false)
   const [rawEventLog, setRawEventLog] = useState<Array<{ ts: string; kind: string; payload: unknown }>>([])
   const rawEventLogRef = useRef(rawEventLog)
   rawEventLogRef.current = rawEventLog
@@ -270,6 +272,16 @@ export function AppShell() {
     void fetch(`${settings.agentMachineEndpoint}/api/models`)
       .then((r) => r.ok ? r.json() as Promise<{ allPulled: boolean }> : null)
       .then((data) => { if (data && !data.allPulled) setModelSetupOpen(true) })
+      .catch(() => { /* agent machine not running yet */ })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.agentMachineEndpoint])
+
+  useEffect(() => {
+    if (!settings.agentMachineEndpoint) return
+    if (localStorage.getItem('noetica:setup:skipped') === '1') return
+    void fetch(`${settings.agentMachineEndpoint}/api/models`)
+      .then((r) => r.ok ? r.json() as Promise<{ allPulled: boolean }> : null)
+      .then((data) => { if (data && !data.allPulled) setShowSetup(true) })
       .catch(() => { /* agent machine not running yet */ })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings.agentMachineEndpoint])
@@ -1052,6 +1064,14 @@ export function AppShell() {
 
   return (
     <>
+      {showSetup && (
+        <ModelSetupOverlay
+          onDismiss={() => {
+            localStorage.setItem('noetica:setup:skipped', '1')
+            setShowSetup(false)
+          }}
+        />
+      )}
       <main className="flex h-screen overflow-hidden bg-[var(--color-background-tertiary)] text-[var(--color-text-primary)]">
         {!sidebarCollapsed && (
           <Sidebar
