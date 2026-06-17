@@ -6,8 +6,12 @@
  * client receives only streaming text — it does not need to execute tools itself.
  *
  * Endpoints:
- *   GET  /api/status  → capability metadata (used by RuntimePanel to verify connectivity)
- *   POST /api/chat    → full agentic loop, streams Noetica SSE events
+ *   GET  /api/status          → capability metadata (Ollama state, model suite)
+ *   GET  /api/models          → per-model pull status
+ *   GET  /api/graph/health    → HellGraph node/edge counts + WAL path
+ *   GET  /api/graph/query     → multi-pattern RAG retrieval
+ *   POST /api/graph/ingest    → index an interaction, message, or conversation
+ *   POST /api/chat            → full agentic loop, streams Noetica SSE events
  *
  * Built-in tools:
  *   web_search      — DuckDuckGo fallback, Serper when SERPER_API_KEY or request key provided
@@ -30,9 +34,12 @@ import * as path from 'node:path'
 import * as os from 'node:os'
 import { buildRouterDecision, LOCAL_MODEL_SUITE } from './lib/router.js'
 import { isOllamaRunning, listLocalModels, streamOllama } from './lib/ollama.js'
+import { retrieve } from './lib/retrieval.js'
+import { graphHealth, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
+import { buildWorkspacePrefix, invalidatePrefix } from './lib/context-cache.js'
 
 const PORT = parseInt(process.env['NOETICA_AM_PORT'] ?? '8080', 10)
-const VERSION = '0.4.7'
+const VERSION = '0.4.8'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -55,6 +62,7 @@ interface ChatMessage {
 
 interface ChatRequest {
   session_id?: string
+  conversation_id?: string
   model_id?: string
   messages?: ChatMessage[]
   system_prompt?: string
@@ -772,6 +780,34 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   let fullContent = ''
   let lastToolCalls: ToolUseBlock[] | undefined
 
+  // ── HellGraph retrieval ──────────────────────────────────────────────────────
+  // Run multi-pattern retrieval against the metagraph and inject relevant
+  // context into the system prompt before the LLM call. For Ollama requests
+  // the cache-augmented prefix is stable across a session so the KV cache
+  // warms after the first turn and subsequent turns are faster.
+  const sessionId = body.session_id ?? run_id
+  const patterns: Array<'graph' | 'temporal' | 'sparql' | 'cache-augmented'> =
+    provider === 'ollama'
+      ? ['cache-augmented', 'graph', 'temporal']
+      : ['graph', 'temporal']
+
+  let graphContext = ''
+  try {
+    const retrieved = await retrieve(latestUserContent, {
+      patterns,
+      sessionId,
+      conversationId: body.conversation_id,
+      maxTokens: provider === 'ollama' ? 1200 : 800,
+    })
+    if (retrieved.text.trim()) {
+      graphContext = `\n\n---\n**Memory context (HellGraph)**\n${retrieved.text}`
+    }
+  } catch { /* retrieval is best-effort — never block the LLM call */ }
+
+  const enrichedSystemPrompt = body.system_prompt
+    ? body.system_prompt + graphContext
+    : graphContext || undefined
+
   try {
     if (provider === 'ollama') {
       // ── Local Ollama path (primary) ──────────────────────────────────────────
@@ -782,8 +818,8 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         | { role: 'tool'; content: string; tool_call_id: string }
 
       const ollamaMessages: OllamaMsg[] = []
-      if (body.system_prompt) {
-        ollamaMessages.push({ role: 'system', content: body.system_prompt })
+      if (enrichedSystemPrompt) {
+        ollamaMessages.push({ role: 'system', content: enrichedSystemPrompt })
       }
       for (const m of incomingMessages) {
         if (m.role === 'user') ollamaMessages.push({ role: 'user', content: m.content })
@@ -857,7 +893,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         for await (const event of streamAnthropic({
           model,
           messages: anthropicMessages,
-          system: body.system_prompt,
+          system: enrichedSystemPrompt,
           tools: allTools,
           apiKey,
           thinkingBudget: body.thinking_budget,
@@ -915,8 +951,8 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     } else {
       // OpenAI path
       const oaiMessages: OpenAIMessage[] = []
-      if (body.system_prompt) {
-        oaiMessages.push({ role: 'system', content: body.system_prompt })
+      if (enrichedSystemPrompt) {
+        oaiMessages.push({ role: 'system', content: enrichedSystemPrompt })
       }
       for (const m of incomingMessages) {
         if (m.role === 'user') oaiMessages.push({ role: 'user', content: m.content })
@@ -980,6 +1016,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       }
     }
 
+    const latencyMs = Date.now() - started
     sse(res, 'done', {
       result: {
         run_id,
@@ -991,11 +1028,34 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         tool_calls: lastToolCalls,
         stop_reason: 'end_turn',
         timestamp,
-        latency_ms: Date.now() - started,
+        latency_ms: latencyMs,
         agent_machine: true,
         agent_machine_version: VERSION,
       },
     })
+
+    // ── Auto-ingest into HellGraph (fire-and-forget) ──────────────────────────
+    // Index this interaction so future retrieval can surface it. The promptHash
+    // is used for deduplication in the WAL. invalidatePrefix forces a fresh
+    // cache-augmented prefix on the next turn (new graph state).
+    void (async () => {
+      try {
+        const promptHash = crypto.createHash('sha256').update(latestUserContent).digest('hex').slice(0, 16)
+        await ingestInteraction({
+          runId: run_id,
+          sessionId,
+          modelRouted: model,
+          provider,
+          promptSummary: latestUserContent.slice(0, 280),
+          responseSummary: fullContent.slice(0, 280),
+          evidenceHash: promptHash,
+          policyAdmitted: true,
+          latencyMs,
+          timestamp,
+        })
+        invalidatePrefix(sessionId)
+      } catch { /* ingest failures must never surface to the user */ }
+    })()
   } catch (err) {
     sse(res, 'error', {
       error: err instanceof Error ? err.message : String(err),
@@ -1053,6 +1113,64 @@ const server = http.createServer((req, res) => {
       res.writeHead(200, { 'content-type': 'application/json' })
       res.end(JSON.stringify({ ollamaRunning: ollamaUp, allPulled, models: suite }))
     })()
+    return
+  }
+
+  // GET /api/graph/health
+  if (req.method === 'GET' && url.pathname === '/api/graph/health') {
+    void (async () => {
+      try {
+        const health = await graphHealth()
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(health))
+      } catch (err) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: String(err) }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/graph/query?q=...&patterns=graph,temporal&maxTokens=1500&sessionId=...
+  if (req.method === 'GET' && url.pathname === '/api/graph/query') {
+    void (async () => {
+      try {
+        const q = url.searchParams.get('q') ?? ''
+        const rawPatterns = url.searchParams.get('patterns') ?? 'graph,temporal'
+        const patterns = rawPatterns.split(',').filter(Boolean) as Array<'graph' | 'temporal' | 'sparql' | 'cache-augmented'>
+        const maxTokens = parseInt(url.searchParams.get('maxTokens') ?? '2000', 10)
+        const sessionId = url.searchParams.get('sessionId') ?? undefined
+        const result = await retrieve(q, { patterns, maxTokens, sessionId })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(result))
+      } catch (err) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: String(err) }))
+      }
+    })()
+    return
+  }
+
+  // POST /api/graph/ingest  — { type: 'interaction'|'message'|'conversation', payload: {...} }
+  if (req.method === 'POST' && url.pathname === '/api/graph/ingest') {
+    let body = ''
+    req.on('data', (chunk: Buffer) => { body += chunk.toString() })
+    req.on('end', () => {
+      void (async () => {
+        try {
+          const { type, payload } = JSON.parse(body) as { type: string; payload: Record<string, unknown> }
+          if (type === 'interaction') await ingestInteraction(payload as unknown as Parameters<typeof ingestInteraction>[0])
+          else if (type === 'message') await ingestMessage(payload as unknown as Parameters<typeof ingestMessage>[0])
+          else if (type === 'conversation') await ingestConversation(payload as unknown as Parameters<typeof ingestConversation>[0])
+          else throw new Error(`unknown ingest type: ${type}`)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ok: true }))
+        } catch (err) {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: String(err) }))
+        }
+      })()
+    })
     return
   }
 

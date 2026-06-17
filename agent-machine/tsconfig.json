@@ -8,9 +8,12 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "outDir": "dist",
-    "rootDir": ".",
-    "resolveJsonModule": true
+    "rootDir": "..",
+    "resolveJsonModule": true,
+    "paths": {
+      "@/*": ["../*"]
+    }
   },
-  "include": ["*.ts"],
+  "include": ["*.ts", "lib/*.ts", "../lib/hellgraph/*.ts"],
   "exclude": ["node_modules", "dist"]
 }
