@@ -1361,7 +1361,8 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(`[noetica-am] Agent Machine v${VERSION} listening on http://127.0.0.1:${PORT}`)
   console.log(`[noetica-am] Status: http://127.0.0.1:${PORT}/api/status`)
 
-  // Background model warm-up: ensure the two primary local models are pulled.
+  // Background model warm-up: pull the full prophet-mesh model suite in priority order.
+  // dolphin3:8b (uncensored, security profile) is opt-in — excluded from auto-pull.
   // Runs silently after startup — never blocks the server.
   void (async () => {
     try {
@@ -1369,19 +1370,22 @@ server.listen(PORT, '127.0.0.1', () => {
       if (!up) return
       const installed = await listLocalModels()
       const { pullModel } = await import('./lib/ollama.js')
-      const priority = ['qwen2.5:7b', 'llama3.2:3b']
-      for (const model of priority) {
-        const base = model.split(':')[0]!
-        const present = installed.some((m) => m === model || m.startsWith(base))
+      const suite = LOCAL_MODEL_SUITE
+        .filter((m) => m.name !== 'dolphin3:8b')   // opt-in only
+        .sort((a, b) => a.priority - b.priority)    // pull in priority order
+      for (const entry of suite) {
+        const base = entry.name.split(':')[0]!
+        const present = installed.some((m) => m === entry.name || m.startsWith(base))
         if (!present) {
-          console.log(`[noetica-am] Auto-pulling ${model}…`)
-          await pullModel(model, (status, pct) => {
-            if (pct !== null && pct % 20 === 0) console.log(`[noetica-am]   ${model} ${pct}%`)
-            else if (!pct) console.log(`[noetica-am]   ${model}: ${status}`)
+          console.log(`[noetica-am] Auto-pulling ${entry.name} (${entry.sizeGb}GB, ${entry.role})…`)
+          await pullModel(entry.name, (status, pct) => {
+            if (pct !== null && pct % 20 === 0) console.log(`[noetica-am]   ${entry.name} ${pct}%`)
+            else if (!pct) console.log(`[noetica-am]   ${entry.name}: ${status}`)
           })
-          console.log(`[noetica-am] ${model} ready.`)
+          console.log(`[noetica-am] ${entry.name} ready.`)
         }
       }
+      console.log('[noetica-am] Prophet-mesh model suite ready.')
     } catch (e) {
       console.warn('[noetica-am] Model warm-up error:', e)
     }
