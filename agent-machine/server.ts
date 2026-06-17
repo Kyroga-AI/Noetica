@@ -33,9 +33,9 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import { buildRouterDecision, LOCAL_MODEL_SUITE } from './lib/router.js'
-import { isOllamaRunning, listLocalModels, streamOllama } from './lib/ollama.js'
+import { isOllamaRunning, listLocalModels, pullModel, streamOllama } from './lib/ollama.js'
 import { retrieve } from './lib/retrieval.js'
-import { graphHealth, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
+import { getGraph, graphHealth, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
 import { buildWorkspacePrefix, invalidatePrefix } from './lib/context-cache.js'
 
 const PORT = parseInt(process.env['NOETICA_AM_PORT'] ?? '8080', 10)
@@ -108,6 +108,23 @@ Authorization context (CITIZEN_FOG / HEALTH + RESEARCHER):
 You are operating in a health research context on sovereign local compute. The user has HEALTH and RESEARCHER primes active. Discuss clinical topics, drug interactions, treatment protocols, diagnostic criteria, and medical research with professional precision. This is not a consumer health context — respond at the level of a clinical researcher.`,
   },
 }
+
+// ─── Tool-use instructions for local models ───────────────────────────────────
+// Local models (Ollama) frequently hallucinate tool call formats or forget to
+// use tools entirely. These few-shot instructions dramatically improve reliability.
+
+const TOOL_USE_INSTRUCTIONS = `
+
+When you need to use a tool, respond ONLY with a tool call in this exact JSON format — no other text before or after:
+<tool_call>
+{"name": "tool_name", "arguments": {"param": "value"}}
+</tool_call>
+
+Rules:
+- Call ONE tool at a time
+- Wait for the result before proceeding
+- If you don't need a tool, just respond in plain text
+- Never invent tool results — wait for the actual response`
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -902,8 +919,9 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         | { role: 'tool'; content: string; tool_call_id: string }
 
       const ollamaMessages: OllamaMsg[] = []
-      if (enrichedSystemPrompt) {
-        ollamaMessages.push({ role: 'system', content: enrichedSystemPrompt })
+      const ollamaSystemPrompt = enrichedSystemPrompt + (allTools.length > 0 ? TOOL_USE_INSTRUCTIONS : '')
+      if (ollamaSystemPrompt) {
+        ollamaMessages.push({ role: 'system', content: ollamaSystemPrompt })
       }
       for (const m of incomingMessages) {
         if (m.role === 'user') {
@@ -1216,6 +1234,73 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // POST /api/models/pull — pull a model from Ollama registry with SSE progress
+  if (req.method === 'POST' && url.pathname === '/api/models/pull') {
+    let body = ''
+    req.on('data', (chunk: Buffer) => { body += chunk.toString() })
+    req.on('end', () => {
+      void (async () => {
+        let model: string
+        try {
+          const parsed = JSON.parse(body) as { model?: unknown }
+          model = String(parsed.model ?? '')
+        } catch {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: 'invalid_json' }))
+          return
+        }
+        if (!model || !LOCAL_MODEL_SUITE.some((m) => m.name === model)) {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: `model not in LOCAL_MODEL_SUITE: ${model}` }))
+          return
+        }
+        res.writeHead(200, {
+          'content-type': 'text/event-stream; charset=utf-8',
+          'cache-control': 'no-cache, no-transform',
+          connection: 'keep-alive',
+        })
+        try {
+          await pullModel(model, (status, pct) => {
+            sse(res, 'progress', { model, status, pct, done: false })
+          })
+          sse(res, 'progress', { model, status: 'complete', pct: 100, done: true })
+        } catch (e) {
+          sse(res, 'progress', { model, status: 'error', pct: null, done: true, error: String(e) })
+        } finally {
+          try { res.end() } catch { /* ignore */ }
+        }
+      })()
+    })
+    return
+  }
+
+  // GET /api/graph/nodes — raw node/edge data for visualization
+  if (req.method === 'GET' && url.pathname === '/api/graph/nodes') {
+    void (async () => {
+      try {
+        const g = getGraph()
+        const nodes = g.allNodes().map(n => ({
+          id: n.id,
+          label: n.labels[0] ?? 'node',
+          kind: n.properties['kind'] ?? n.labels[0] ?? 'node',
+          surface: n.properties['surface'] ?? n.properties['sessionId'] ?? n.properties['filename'] ?? n.id.split(':').pop() ?? n.id.slice(-16),
+          primes: n.properties['prime_support'] ?? '',
+        }))
+        const edges = g.allEdges().slice(0, 200).map(e => ({
+          from: e.from,
+          to: e.to,
+          label: e.label,
+        }))
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ nodes, edges }))
+      } catch (err) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: String(err) }))
+      }
+    })()
+    return
+  }
+
   // GET /api/models — model suite status for first-run UI
   if (req.method === 'GET' && url.pathname === '/api/models') {
     void (async () => {
@@ -1410,7 +1495,6 @@ server.listen(PORT, '127.0.0.1', () => {
       const up = await isOllamaRunning()
       if (!up) return
       const installed = await listLocalModels()
-      const { pullModel } = await import('./lib/ollama.js')
       const suite = LOCAL_MODEL_SUITE
         .filter((m) => m.name !== 'dolphin3:8b')   // opt-in only
         .sort((a, b) => a.priority - b.priority)    // pull in priority order

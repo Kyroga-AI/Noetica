@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import type { GraphHealthStatus, TimeServiceStatus } from '@/lib/types/graph'
 import type { NoeticaServiceStatus, NoeticaServiceCapabilityStatus } from '@/lib/contracts/noeticaService'
 import { loadNoeticaStatus } from '@/lib/client/noeticaStatus'
@@ -48,6 +48,164 @@ function useFlash() {
     setTimeout(() => { setState('done'); setTimeout(() => setState('idle'), 1000) }, 1400)
   }
   return { state, trigger }
+}
+
+type VizNode = { id: string; label: string; kind: string; surface: string; primes: string; x: number; y: number; vx: number; vy: number }
+type VizEdge = { from: string; to: string; label: string }
+
+const KIND_COLORS: Record<string, string> = {
+  FeatureAtom:   '#1d4ed8',
+  FEATURE_ATOM:  '#1d4ed8',
+  RECORD:        '#7e22ce',
+  Document:      '#7e22ce',
+  Session:       '#0891b2',
+  Interaction:   '#059669',
+  PERSON:        '#dc2626',
+  ORG:           '#ea580c',
+  default:       '#64748b',
+}
+
+function GraphViz() {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [nodes, setNodes] = useState<VizNode[]>([])
+  const [edges, setEdges] = useState<VizEdge[]>([])
+  const [loading, setLoading] = useState(true)
+  const frameRef = useRef<number>(0)
+  const nodesRef = useRef<VizNode[]>([])
+  const edgesRef = useRef<VizEdge[]>([])
+
+  const fetchNodes = useCallback(() => {
+    fetch(amUrl('/api/graph/nodes'))
+      .then(r => r.json())
+      .then((data: { nodes: Array<{id: string; label: string; kind: string; surface: string; primes: string}>; edges: VizEdge[] }) => {
+        const W = 600, H = 320
+        const initialized = data.nodes.map(n => ({
+          ...n,
+          x: W/2 + (Math.random() - 0.5) * W * 0.8,
+          y: H/2 + (Math.random() - 0.5) * H * 0.8,
+          vx: 0,
+          vy: 0,
+        }))
+        setNodes(initialized)
+        setEdges(data.edges)
+        nodesRef.current = initialized
+        edgesRef.current = data.edges
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [])
+
+  useEffect(() => { fetchNodes() }, [fetchNodes])
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas || nodes.length === 0) return
+    const ctxOrNull = canvas.getContext('2d')
+    if (!ctxOrNull) return
+    const ctx: CanvasRenderingContext2D = ctxOrNull
+
+    const W = canvas.width
+    const H = canvas.height
+    const nodeMap = new Map(nodesRef.current.map(n => [n.id, n]))
+
+    function tick() {
+      const ns = nodesRef.current
+      const es = edgesRef.current
+
+      for (const n of ns) {
+        n.vx += (W/2 - n.x) * 0.001
+        n.vy += (H/2 - n.y) * 0.001
+        for (const m of ns) {
+          if (m === n) continue
+          const dx = n.x - m.x
+          const dy = n.y - m.y
+          const dist = Math.sqrt(dx*dx + dy*dy) || 1
+          const force = Math.min(500 / (dist * dist), 2)
+          n.vx += (dx / dist) * force
+          n.vy += (dy / dist) * force
+        }
+      }
+      for (const e of es) {
+        const a = nodeMap.get(e.from)
+        const b = nodeMap.get(e.to)
+        if (!a || !b) continue
+        const dx = b.x - a.x
+        const dy = b.y - a.y
+        const dist = Math.sqrt(dx*dx + dy*dy) || 1
+        const target = 80
+        const strength = (dist - target) * 0.005
+        a.vx += (dx / dist) * strength
+        a.vy += (dy / dist) * strength
+        b.vx -= (dx / dist) * strength
+        b.vy -= (dy / dist) * strength
+      }
+      for (const n of ns) {
+        n.vx *= 0.85
+        n.vy *= 0.85
+        n.x = Math.max(20, Math.min(W - 20, n.x + n.vx))
+        n.y = Math.max(20, Math.min(H - 20, n.y + n.vy))
+      }
+
+      ctx.clearRect(0, 0, W, H)
+
+      ctx.lineWidth = 0.7
+      for (const e of es) {
+        const a = nodeMap.get(e.from)
+        const b = nodeMap.get(e.to)
+        if (!a || !b) continue
+        ctx.strokeStyle = 'rgba(100,116,139,0.25)'
+        ctx.beginPath()
+        ctx.moveTo(a.x, a.y)
+        ctx.lineTo(b.x, b.y)
+        ctx.stroke()
+      }
+
+      for (const n of ns) {
+        const color = KIND_COLORS[n.kind] ?? KIND_COLORS['default']!
+        ctx.beginPath()
+        ctx.arc(n.x, n.y, 5, 0, Math.PI * 2)
+        ctx.fillStyle = color + '33'
+        ctx.fill()
+        ctx.strokeStyle = color
+        ctx.lineWidth = 1.5
+        ctx.stroke()
+
+        if (n.surface && n.surface.length < 24) {
+          ctx.fillStyle = 'rgba(100,116,139,0.85)'
+          ctx.font = '9px monospace'
+          ctx.fillText(n.surface.slice(0, 20), n.x + 7, n.y + 3)
+        }
+      }
+
+      frameRef.current = requestAnimationFrame(tick)
+    }
+
+    frameRef.current = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(frameRef.current)
+  }, [nodes, edges])
+
+  if (loading) return <div className="flex h-48 items-center justify-center text-xs text-[var(--color-text-tertiary)]">Loading graph…</div>
+  if (nodes.length === 0) return <div className="flex h-48 items-center justify-center text-xs text-[var(--color-text-tertiary)]">No graph data yet — start chatting to build your memory graph.</div>
+
+  return (
+    <div className="rounded-xl overflow-hidden border border-[var(--color-border-secondary)]">
+      <canvas
+        ref={canvasRef}
+        width={600}
+        height={320}
+        className="w-full"
+        style={{ background: 'var(--color-background-secondary)' }}
+      />
+      <div className="flex flex-wrap gap-2 border-t border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2">
+        {Object.entries(KIND_COLORS).filter(([k]) => k !== 'default').map(([kind, color]) => (
+          <span key={kind} className="flex items-center gap-1 text-[10px] text-[var(--color-text-tertiary)]">
+            <span className="inline-block h-2 w-2 rounded-full" style={{ background: color }} />
+            {kind.replace('FEATURE_ATOM','atom').replace('FeatureAtom','atom').toLowerCase()}
+          </span>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 type HealthCheckResult = { ok: boolean; latency_ms: number; detail?: string }
@@ -146,6 +304,8 @@ function GraphHealthTab({ graph, onTabChange }: { graph: GraphHealthStatus; onTa
           <StatCard key={label} label={label} value={value} sub={sub} accent={accent} />
         ))}
       </div>
+
+      <GraphViz />
 
       <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm">
         <div className="border-b border-[var(--color-border-tertiary)] px-5 py-3">
