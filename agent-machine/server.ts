@@ -759,7 +759,7 @@ async function* streamAnthropic(params: {
           name: b.name,
           input: (() => {
             try { return JSON.parse(b.inputJson) as Record<string, unknown> }
-            catch { return {} }
+            catch (e) { console.error('[anthropic] tool arg parse failed', b.name, String(e)); return {} }
           })(),
         }))
         if (calls.length) yield { type: 'tool_calls', calls }
@@ -835,7 +835,7 @@ async function* streamOpenAI(params: {
               name: tc.name,
               input: (() => {
                 try { return JSON.parse(tc.argsJson) as Record<string, unknown> }
-                catch { return {} }
+                catch (e) { console.error('[openai] tool arg parse failed', tc.name, String(e)); return {} }
               })(),
             }))
           yield { type: 'tool_calls', calls }

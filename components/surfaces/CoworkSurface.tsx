@@ -23,13 +23,26 @@ const AGENT_PERSONAS: Record<string, string> = {
     'You are a critical review agent. Your job is to evaluate the given task or artifact for correctness, completeness, edge cases, and quality. Provide specific, actionable feedback.',
 }
 
+const COWORK_STORAGE_KEY = 'noetica:cowork:v1'
+
+function loadCoworkState(): { objective: string; tasks: Task[]; decisions: Decision[] } {
+  try {
+    const raw = typeof window !== 'undefined' ? localStorage.getItem(COWORK_STORAGE_KEY) : null
+    if (!raw) return { objective: '', tasks: [], decisions: [] }
+    return JSON.parse(raw) as { objective: string; tasks: Task[]; decisions: Decision[] }
+  } catch {
+    return { objective: '', tasks: [], decisions: [] }
+  }
+}
+
 export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
   const { settings } = useSettings()
-  const [objective, setObjective] = useState('')
+  const initial = loadCoworkState()
+  const [objective, setObjectiveState] = useState(initial.objective)
   const [editingObjective, setEditingObjective] = useState(false)
   const [draftObjective, setDraftObjective] = useState('')
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [decisions, setDecisions] = useState<Decision[]>([])
+  const [tasks, setTasks] = useState<Task[]>(initial.tasks)
+  const [decisions, setDecisions] = useState<Decision[]>(initial.decisions)
   const [decomposing, setDecomposing] = useState(false)
   const [newTaskText, setNewTaskText] = useState('')
   const [addingTask, setAddingTask] = useState(false)
@@ -37,6 +50,15 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
 
   // Abort all in-flight streams on unmount
   useEffect(() => () => { abortRef.current?.abort() }, [])
+
+  // Persist objective + tasks + decisions whenever they change
+  useEffect(() => {
+    try {
+      localStorage.setItem(COWORK_STORAGE_KEY, JSON.stringify({ objective, tasks, decisions }))
+    } catch { /* storage quota exceeded — ignore */ }
+  }, [objective, tasks, decisions])
+
+  function setObjective(v: string) { setObjectiveState(v) }
 
   function providerKeys() {
     return {
@@ -248,12 +270,25 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
           <div className="flex items-center justify-between">
             <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Objective</div>
             {!editingObjective && (
-              <button
-                onClick={() => { setDraftObjective(objective); setEditingObjective(true) }}
-                className="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition"
-              >
-                {objective ? 'Edit' : 'Set objective'}
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => { setDraftObjective(objective); setEditingObjective(true) }}
+                  className="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition"
+                >
+                  {objective ? 'Edit' : 'Set objective'}
+                </button>
+                {(objective || tasks.length > 0) && (
+                  <button
+                    onClick={() => {
+                      if (!window.confirm('Clear this session? All tasks, decisions, and the objective will be removed.')) return
+                      setObjectiveState(''); setTasks([]); setDecisions([])
+                    }}
+                    className="text-xs text-[var(--color-text-tertiary)] hover:text-red-500 transition"
+                  >
+                    New session
+                  </button>
+                )}
+              </div>
             )}
           </div>
 
