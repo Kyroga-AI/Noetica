@@ -32,10 +32,8 @@ export async function sendNoeticaChat(
 ) {
   if (isTauri()) {
     // Always route through agent-machine in Tauri — it's always local on 8080.
-    // agent_machine_endpoint from settings is used if set; fall back to the default
-    // address so chat works even if the probe/settings race hasn't resolved yet.
-    const amEndpoint = request.agent_machine_endpoint ?? 'http://127.0.0.1:8080'
-    return sendToNoeticaEndpoint(amEndpoint, request, handlers, signal)
+    const amBase = (request.agent_machine_endpoint ?? 'http://127.0.0.1:8080').replace(/\/$/, '')
+    return sendToNoeticaEndpoint(`${amBase}/api/chat`, request, handlers, signal)
   }
 
   // Browser path — /api/chat handles agent_machine_endpoint proxying server-side (avoids CORS).

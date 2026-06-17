@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { MessageBubble } from '@/components/chat/MessageBubble'
 import { TypingIndicator } from '@/components/chat/TypingIndicator'
 import type { ChatMessage } from '@/lib/types/message'
@@ -18,6 +18,11 @@ type MessageListProps = {
 export function MessageList({ messages, isStreaming = false, onExtractArtifact, onRegenerate, onFork, onEdit, onRecombine }: MessageListProps) {
   const lastAssistantIdx = messages.reduce((acc, m, i) => m.role === 'assistant' ? i : acc, -1)
   const [selectedFanout, setSelectedFanout] = useState<Set<string>>(new Set())
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages.length, isStreaming])
 
   const fanoutIds = new Set(messages.filter((m) => m.fanout_model).map((m) => m.id))
   const hasFanout = fanoutIds.size > 1
@@ -75,6 +80,7 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
           </div>
         ))}
         {isStreaming ? <TypingIndicator /> : null}
+        <div ref={bottomRef} />
       </div>
 
       {selectedFanout.size >= 2 && (
