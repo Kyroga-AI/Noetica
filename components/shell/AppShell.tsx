@@ -657,9 +657,7 @@ export function AppShell() {
             mode,
             // In agent-machine mode, only pass model_id for known Ollama/Anthropic/OpenAI
             // models — let prophet-mesh routing decide for everything else.
-            model_id: agentMachineEndpoint
-              ? (['claude', 'gpt', 'o1', 'o3', 'o4', 'qwen', 'llama3', 'deepseek', 'mistral'].some(p => modelId.startsWith(p)) ? modelId : undefined)
-              : modelId,
+            model_id: modelId === 'auto' ? undefined : modelId,
             messages: conversationMessages,
             steering,
             thinking_budget: thinkingBudget,

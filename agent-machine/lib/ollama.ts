@@ -98,6 +98,10 @@ export async function* streamOllama(params: {
     model: params.model,
     stream: true,
     messages: params.messages,
+    options: {
+      num_ctx: 16384,
+      temperature: 0.7,
+    },
   }
 
   if (params.tools?.length) {

@@ -1,6 +1,17 @@
 import type { ModelConfig } from '@/lib/types/model'
 
 export const models: ModelConfig[] = [
+  // ── Auto mesh routing (prophet-mesh) ─────────────────────────────────────────
+  {
+    id: 'auto',
+    label: 'Auto (prophet-mesh)',
+    provider: 'meta',
+    steering: 'local',
+    local_capable: true,
+    context_window: 131072,
+    description: 'Prophet-mesh routes each message to the best available local specialist. Coding → qwen2.5-coder, reasoning → deepseek-r1, writing → qwen2.5. Falls back to cloud if Ollama is unavailable and a key is set.',
+  },
+
   // ── Anthropic ────────────────────────────────────────────────────────────────
   {
     id: 'claude-sonnet-4-6',
@@ -321,6 +332,15 @@ export const models: ModelConfig[] = [
     context_window: 65536,
     description: 'Local DeepSeek R1 8B via Ollama — reasoning and complex analysis.'
   },
+  {
+    id: 'qwen2.5:14b',
+    label: 'Qwen 2.5 14B (local)',
+    provider: 'meta',
+    steering: 'local',
+    local_capable: true,
+    context_window: 131072,
+    description: 'Local Qwen 2.5 14B via Ollama — strongest local general model, ~GPT-3.5 Turbo tier. Requires ~9GB VRAM.',
+  },
 
   // ── Hosted API providers (blackbox) ─────────────────────────────────────────
   {
@@ -343,12 +363,12 @@ export const models: ModelConfig[] = [
   },
 ]
 
-export const defaultModelId = 'llama3.2:3b'
+export const defaultModelId = 'auto'
 
 // Models shown in the picker by default (local-first). All others require showAllModels=true.
 export function visibleModels(showAll: boolean) {
   if (showAll) return models
   return models.filter(
-    (m) => m.provider === 'meta' || m.id === 'claude-sonnet-4-6'
+    (m) => m.id === 'auto' || m.provider === 'meta'
   )
 }

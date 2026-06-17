@@ -110,8 +110,8 @@ const ROUTING_TABLE: Record<TaskType, Omit<ModelRoute, 'task'>> = {
   },
   reasoning: {
     domain: 'analysis',
-    localModel: 'deepseek-r1:8b',
-    fallbackModel: 'qwen2.5:7b',
+    localModel: 'qwen2.5:14b',
+    fallbackModel: 'deepseek-r1:8b',
     cloudModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
     specialistAgents: ['planning-agent', 'analytics-agent', 'governance-sentinel'],
     policyDecision: 'allow',
@@ -120,8 +120,8 @@ const ROUTING_TABLE: Record<TaskType, Omit<ModelRoute, 'task'>> = {
   },
   writing: {
     domain: 'communications',
-    localModel: 'qwen2.5:7b',
-    fallbackModel: 'llama3.2:3b',
+    localModel: 'qwen2.5:14b',
+    fallbackModel: 'qwen2.5:7b',
     cloudModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
     specialistAgents: ['writing-agent', 'governance-sentinel'],
     policyDecision: 'allow',
@@ -130,8 +130,8 @@ const ROUTING_TABLE: Record<TaskType, Omit<ModelRoute, 'task'>> = {
   },
   research: {
     domain: 'knowledge',
-    localModel: 'qwen2.5:7b',
-    fallbackModel: 'llama3.2:3b',
+    localModel: 'qwen2.5:14b',
+    fallbackModel: 'qwen2.5:7b',
     cloudModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
     specialistAgents: ['research-agent', 'governance-sentinel'],
     policyDecision: 'allow',
@@ -140,8 +140,8 @@ const ROUTING_TABLE: Record<TaskType, Omit<ModelRoute, 'task'>> = {
   },
   general: {
     domain: 'general',
-    localModel: 'qwen2.5:7b',
-    fallbackModel: 'llama3.2:3b',
+    localModel: 'qwen2.5:14b',
+    fallbackModel: 'qwen2.5:7b',
     cloudModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
     specialistAgents: ['governance-sentinel'],
     policyDecision: 'allow',
@@ -338,6 +338,13 @@ export const LOCAL_MODEL_SUITE = [
     description: 'Reasoning model — analysis, complex problem solving',
     priority: 4,
     sizeGb: 4.9,
+  },
+  {
+    name: 'qwen2.5:14b',
+    role: 'general-large',
+    description: 'Strongest local general model — writing, research, complex open-ended tasks',
+    priority: 5,
+    sizeGb: 9.0,
   },
 ] as const
 
