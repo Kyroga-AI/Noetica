@@ -3,7 +3,162 @@ import { findMatches, V, N, L } from './patternMatcher'
 import type { Pattern } from './patternMatcher'
 import { stimulate, spreadAttention } from './ecan'
 import { forwardChain } from './pln'
-import { syncToSidecar } from './sidecar'
+import { syncToSidecar, pullFromSidecar } from './sidecar'
+
+// ─── Async enrichment: embeddings + LLM entity extraction ────────────────────
+//
+// These run fire-and-forget after the synchronous ingest so the graph gets richer
+// over time without blocking the response path.
+
+const OLLAMA_BASE = process.env['OLLAMA_HOST'] ?? 'http://127.0.0.1:11434'
+const EMBED_MODEL = 'nomic-embed-text'
+const LLM_EXTRACT_MODEL = 'llama3.2:3b'
+
+async function _getEmbedding(text: string): Promise<number[] | null> {
+  try {
+    const res = await fetch(`${OLLAMA_BASE}/api/embeddings`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ model: EMBED_MODEL, prompt: text }),
+      signal: AbortSignal.timeout(8_000),
+    })
+    if (!res.ok) return null
+    const j = await res.json() as { embedding?: number[] }
+    return j.embedding ?? null
+  } catch {
+    return null
+  }
+}
+
+function _cosine(a: number[], b: number[]): number {
+  let dot = 0, na = 0, nb = 0
+  for (let i = 0; i < a.length; i++) {
+    dot += (a[i] ?? 0) * (b[i] ?? 0)
+    na  += (a[i] ?? 0) ** 2
+    nb  += (b[i] ?? 0) ** 2
+  }
+  return na > 0 && nb > 0 ? dot / (Math.sqrt(na) * Math.sqrt(nb)) : 0
+}
+
+async function _extractEntitiesLLM(content: string): Promise<ExtractedEntity[]> {
+  const prompt = `Extract named entities from the text below. Return ONLY a JSON array of objects with fields: text (string), type (one of: PERSON, ORG, ROLE, CONCEPT, TOOL, RECORD). Include technical concepts, product names, proper nouns, and domain-specific terms the user seems to care about. Omit common words. Respond with only the JSON array, no other text.
+
+Text: ${content.slice(0, 800)}
+
+JSON:`
+  try {
+    const res = await fetch(`${OLLAMA_BASE}/api/generate`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ model: LLM_EXTRACT_MODEL, prompt, stream: false }),
+      signal: AbortSignal.timeout(15_000),
+    })
+    if (!res.ok) return []
+    const j = await res.json() as { response?: string }
+    const raw = (j.response ?? '').trim()
+    // Extract JSON array from response (model may wrap in markdown)
+    const match = raw.match(/\[[\s\S]*\]/)
+    if (!match) return []
+    const parsed = JSON.parse(match[0]) as Array<{ text?: string; type?: string }>
+    return parsed
+      .filter(e => e.text && e.text.length >= 2)
+      .map(e => ({
+        surface: String(e.text),
+        normalised: String(e.text).toLowerCase().trim().replace(/\s+/g, ' '),
+        kind: String(e.type ?? 'FEATURE_ATOM'),
+        primeSupport: classifyPrimes(String(e.text)),
+        confidence: 0.72,
+      }))
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Async enrichment pass fired fire-and-forget from ingestEntities().
+ * Two jobs: (1) replace token Jaccard MERGE_PROPOSAL with Ollama cosine similarity,
+ * (2) LLM entity extraction to catch semantic entities regex missed.
+ */
+async function _enrichAsync(
+  atomIds: string[],
+  entities: ExtractedEntity[],
+  timestamp: string,
+): Promise<void> {
+  const g = getHellGraph()
+
+  // ── Job 1: Embedding-based MERGE_PROPOSAL ──────────────────────────────────
+  // Fetch embeddings for all new entities, compare against cached embeddings on
+  // existing atoms. nomic-embed-text is 274MB and fast locally.
+  const embeddingCache = new Map<string, number[]>()
+
+  for (let i = 0; i < entities.length && i < atomIds.length; i++) {
+    const atomId = atomIds[i]!
+    const ent = entities[i]!
+    const emb = await _getEmbedding(ent.normalised)
+    if (!emb) continue
+    embeddingCache.set(atomId, emb)
+    // Cache on the atom node so future comparisons can skip the Ollama call
+    g.setNodeProperty(atomId, 'ecan:embedding', JSON.stringify(emb))
+  }
+
+  if (embeddingCache.size === 0) return  // Ollama not available — skip
+
+  // Compare new embeddings against all existing FeatureAtoms that have cached embeddings
+  const existingAtoms = g.allNodes().filter(n =>
+    n.labels.includes('FeatureAtom') && n.properties['ecan:embedding']
+  )
+
+  for (const [newId, newEmb] of embeddingCache) {
+    for (const candidate of existingAtoms) {
+      if (candidate.id === newId) continue
+      const cachedRaw = candidate.properties['ecan:embedding']
+      if (!cachedRaw || typeof cachedRaw !== 'string') continue
+      let candEmb: number[]
+      try { candEmb = JSON.parse(cachedRaw) } catch { continue }
+      const sim = _cosine(newEmb, candEmb)
+      if (sim >= 0.92) {
+        // Very high similarity — promote directly to RELATED_TO
+        g.addEdge('RELATED_TO', newId, candidate.id, {
+          epistemicClass: 'semantic',
+          confidence: sim,
+          promotionState: 'confirmed',
+          createdAt: timestamp,
+        })
+      } else if (sim >= 0.85) {
+        g.addEdge('MERGE_PROPOSAL', newId, candidate.id, {
+          epistemicClass: 'semantic',
+          confidence: sim,
+          promotionState: 'candidate',
+          createdAt: timestamp,
+        })
+      }
+    }
+  }
+
+  // ── Job 2: LLM entity extraction ──────────────────────────────────────────
+  // Fire llama3.2:3b to find semantic entities the regex pass missed.
+  const llmEntities = await _extractEntitiesLLM(
+    entities.map(e => e.surface).join(', '),
+  )
+  for (const ent of llmEntities) {
+    const atomId = `urn:regis:feature-atom:${ent.normalised.replace(/[^a-z0-9]/g, '-').slice(0, 80)}`
+    if (g.getNode(atomId)) continue  // already in graph from regex pass — skip
+    const existing = g.getNode(atomId)
+    const existingPrimes: string[] = existing
+      ? String(existing.properties['prime_support'] ?? '').split(',').filter(Boolean)
+      : []
+    const mergedPrimes = [...new Set([...existingPrimes, ...ent.primeSupport])].join(',')
+    g.addNode(atomId, [ent.kind, 'FeatureAtom'], {
+      surface: ent.surface,
+      normalised: ent.normalised,
+      prime_support: mergedPrimes,
+      confidence: ent.confidence,
+      kind: ent.kind,
+      extractedBy: 'llm',
+    })
+    stimulate(atomId, Math.round(ent.confidence * 100))
+  }
+}
 
 // ─── Prime topic vocabulary ───────────────────────────────────────────────────
 // Used to tag extracted entities with the prime context they belong to.
@@ -173,31 +328,14 @@ export function ingestEntities(
     stimulate(atomId, Math.round(ent.confidence * 120))
     if (ent.confidence >= 0.8) spreadAttention(atomId)
 
-    // Cross-session MERGE_PROPOSAL: look for similar atoms with sufficient overlap
-    // Simple token Jaccard similarity — if > 0.5, propose a merge
-    const candidateTokens = new Set(ent.normalised.split(/\s+/))
-    const allNodes = g.allNodes().filter(n =>
-      n.labels.includes('FeatureAtom') &&
-      n.id !== atomId &&
-      n.properties['normalised']
-    )
-    for (const candidate of allNodes) {
-      const candNorm = String(candidate.properties['normalised'] ?? '')
-      if (!candNorm) continue
-      const candTokens = new Set(candNorm.split(/\s+/))
-      const intersection = [...candidateTokens].filter(t => candTokens.has(t)).length
-      const union = new Set([...candidateTokens, ...candTokens]).size
-      const jaccard = union > 0 ? intersection / union : 0
-      if (jaccard >= 0.5 && jaccard < 1.0) {
-        g.addEdge('MERGE_PROPOSAL', atomId, candidate.id, {
-          epistemicClass: 'semantic',
-          confidence: jaccard,
-          promotionState: 'candidate',
-          createdAt: timestamp,
-        })
-      }
-    }
   }
+
+  // ─── Async enrichment: embedding similarity + LLM extraction ──────────────────
+  // Fire-and-forget: enriches the graph after the synchronous pass without blocking.
+  const _atomIds = entities.map(ent =>
+    `urn:regis:feature-atom:${ent.normalised.replace(/[^a-z0-9]/g, '-').slice(0, 80)}`
+  )
+  _enrichAsync(_atomIds, entities, timestamp).catch(() => {})
 
   // ─── Derive COOCCURS_WITH edges for entities co-occurring in this interaction ─
   // Entities mentioned in the same exchange are structurally related — linking them
@@ -253,9 +391,12 @@ export function ingestEntities(
     try { forwardChain() } catch { /* skip if graph is empty */ }
   }
 
-  // Sync to sidecar: fire-and-forget after every 10th ingest so Cypher + OpenCog PLN stay current.
+  // Sync to sidecar every 10th ingest, then pull back any PLN-derived edges the Python
+  // side computed that the TypeScript graph doesn't have yet (bidirectional sync).
   if (_ingestCount % 10 === 0) {
-    syncToSidecar().catch(() => {/* sidecar unavailable — degrade gracefully */})
+    syncToSidecar()
+      .then(() => pullFromSidecar())
+      .catch(() => {/* sidecar unavailable — degrade gracefully */})
   }
 }
 

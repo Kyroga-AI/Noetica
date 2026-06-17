@@ -1,5 +1,6 @@
 import { getAtomSpace } from './atomspace'
 import { dumpAtomese } from './atomese'
+import { getHellGraph } from './store'
 
 /**
  * Client for the OpenCog sidecar (opencog-sidecar/server.py).
@@ -87,6 +88,45 @@ export async function shaclValidate(shapesText: string): Promise<SHACLValidateRe
     })
   } catch {
     return null
+  }
+}
+
+interface DerivedEdge {
+  from: string
+  relation: string
+  to: string
+  strength: number
+  confidence: number
+  epistemicClass: string
+}
+
+/**
+ * Pull PLN-derived edges from the sidecar's 2-hop derivation pass and write them
+ * back into the TypeScript HellGraph. This closes the bidirectionality gap: the
+ * Python side runs an independent PLN derivation on its AtomSpaceLite mirror and
+ * returns any RELATED_TO edges it found that HellGraph doesn't have yet.
+ */
+export async function pullFromSidecar(): Promise<{ imported: number }> {
+  try {
+    const result = await call<{ edges: DerivedEdge[]; count: number }>('/pln/derived')
+    if (result.count === 0) return { imported: 0 }
+    const g = getHellGraph()
+    const ts = new Date().toISOString()
+    let imported = 0
+    for (const edge of result.edges) {
+      // Only import if both endpoint atoms already exist in HellGraph
+      if (!g.getNode(edge.from) || !g.getNode(edge.to)) continue
+      g.addEdge(edge.relation, edge.from, edge.to, {
+        epistemicClass: edge.epistemicClass,
+        confidence: edge.confidence,
+        promotionState: 'inferred',
+        createdAt: ts,
+      })
+      imported++
+    }
+    return { imported }
+  } catch {
+    return { imported: 0 }
   }
 }
 

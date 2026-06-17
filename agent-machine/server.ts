@@ -34,6 +34,7 @@ import * as path from 'node:path'
 import * as os from 'node:os'
 import { buildRouterDecision, LOCAL_MODEL_SUITE } from './lib/router.js'
 import { syncToSidecar, sidecarHealth } from '../lib/hellgraph/sidecar.js'
+import { decayAll } from '../lib/hellgraph/ecan.js'
 import { isOllamaRunning, listLocalModels, pullModel, streamOllama } from './lib/ollama.js'
 import { retrieve } from './lib/retrieval.js'
 import { getGraph, graphHealth, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
@@ -1552,6 +1553,14 @@ server.listen(PORT, '127.0.0.1', () => {
       syncToSidecar().catch(() => {/* best-effort */})
     }
   })()
+
+  // ECAN session-boundary decay: STI values accumulated in prior sessions fade on boot.
+  // This makes "working memory" actually behave like working memory — recent mentions
+  // surface, stale ones fade. VLTI atoms are exempt (see ecan.ts floor logic).
+  const decayed = decayAll()
+  if (decayed > 0) console.log(`[noetica-am] ECAN: decayed STI on ${decayed} atoms`)
+  // Gentle intra-session decay every 30 min so long sessions don't freeze attention.
+  setInterval(() => { decayAll(0.92) }, 30 * 60 * 1000).unref()
 
   // Background model warm-up: pull the full prophet-mesh model suite in priority order.
   // dolphin3:8b (uncensored, security profile) is opt-in — excluded from auto-pull.

@@ -17,6 +17,30 @@ import { findMatches, V, N, L } from '../../lib/hellgraph/patternMatcher.js'
 import type { Pattern } from '../../lib/hellgraph/patternMatcher.js'
 import { stiNorm } from '../../lib/hellgraph/ecan.js'
 import type { PropertyValue } from '../../lib/hellgraph/types.js'
+import { ingestInteraction } from '../../lib/hellgraph/ingest.js'
+import * as crypto from 'node:crypto'
+
+// ─── WorkingMemoryState — mirrors graphbrain-contract/memory_runtime_api.py ──
+// Principled memory lifecycle: every retrieve() call produces a WorkingMemoryState
+// that is audited as an EpisodeBundle in HellGraph. This replaces ad-hoc context
+// string concatenation with a tracked, replayable memory operation.
+
+interface WorkingMemoryState {
+  memory_id: string
+  query: string
+  policy_mode: string
+  phase: string
+  active_graph_neighborhood: string[]   // FeatureAtom ids from atoms pattern
+  active_vector_neighborhood: string[]  // reserved for future embedding search
+  query_reformulations: string[]        // keywords extracted from query
+  top_k_documents: string[]             // source ids from graph pattern
+  top_k_edges: string[]                 // COOCCURS_WITH / RELATED_TO expansions
+  top_k_hyperedges: string[]            // reserved for hyperedge lift
+  retrieval_path: Array<{ pattern: string; durationMs: number; hits: number }>
+  channel: string
+  ttl_seconds: number
+  created_at: string
+}
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
@@ -27,6 +51,7 @@ export interface RetrievedContext {
   sources: Array<{ id: string; label: string; score: number }>
   patterns: RetrievalPattern[]
   tokenEstimate: number
+  workingMemory?: WorkingMemoryState
 }
 
 // ─── Main entry point ─────────────────────────────────────────────────────────
@@ -44,32 +69,40 @@ export async function retrieve(
   const patterns: RetrievalPattern[] = opts?.patterns ?? ['atoms', 'graph', 'temporal', 'cache-augmented']
   const maxChars = (opts?.maxTokens ?? 2000) * 4  // ~4 chars per token
 
-  // Run all patterns with a shared 500 ms timeout
+  // Extract keywords for WorkingMemoryState.query_reformulations
+  const STOP = new Set(['with','that','this','from','have','will','been','were','they','them',
+    'what','when','where','which','your','about','like','just','know','some'])
+  const queryKeywords = query.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/)
+    .filter(w => w.length >= 4 && !STOP.has(w)).slice(0, 8)
+
+  const memoryId = crypto.randomUUID()
+  const createdAt = new Date().toISOString()
+  const retrievalPath: WorkingMemoryState['retrieval_path'] = []
+
   type PatternResult = { text: string; sources: Array<{ id: string; label: string; score: number }> }
 
   const timeout = <T>(ms: number, p: Promise<T>): Promise<T | null> =>
     Promise.race([p, new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))])
 
-  const tasks: Promise<PatternResult | null>[] = patterns.map((pattern) => {
+  const tasks: Array<Promise<PatternResult | null>> = patterns.map((pattern) => {
+    const start = Date.now()
+    let inner: Promise<PatternResult>
     switch (pattern) {
-      case 'graph':
-        return timeout(500, runGraphPattern(query))
-      case 'temporal':
-        return timeout(500, runTemporalPattern(query))
-      case 'sparql':
-        return timeout(500, runSparqlPattern(query, opts?.sessionId))
-      case 'atoms':
-        return timeout(500, runAtomsPattern(query))
-      case 'cache-augmented':
-        return timeout(500, runCacheAugmentedPattern(opts?.sessionId ?? opts?.workspaceId ?? 'default'))
-      default:
-        return Promise.resolve(null)
+      case 'graph':        inner = runGraphPattern(query); break
+      case 'temporal':     inner = runTemporalPattern(query); break
+      case 'sparql':       inner = runSparqlPattern(query, opts?.sessionId); break
+      case 'atoms':        inner = runAtomsPattern(query); break
+      case 'cache-augmented': inner = runCacheAugmentedPattern(opts?.sessionId ?? opts?.workspaceId ?? 'default'); break
+      default:             return Promise.resolve(null)
     }
+    return timeout(500, inner.then(r => {
+      retrievalPath.push({ pattern, durationMs: Date.now() - start, hits: r.sources.length })
+      return r
+    }))
   })
 
   const results = await Promise.all(tasks)
 
-  // Concatenate results up to maxChars, tracking sources
   const usedPatterns: RetrievalPattern[] = []
   const allSources: Array<{ id: string; label: string; score: number }> = []
   const parts: string[] = []
@@ -83,12 +116,11 @@ export async function retrieve(
     if (!chunk) continue
 
     if (totalChars + chunk.length > maxChars) {
-      // Include truncated chunk up to the limit
       const remaining = maxChars - totalChars
       if (remaining > 0) {
         parts.push(chunk.slice(0, remaining))
         totalChars += remaining
-        usedPatterns.push(patterns[i])
+        usedPatterns.push(patterns[i]!)
         allSources.push(...result.sources)
       }
       break
@@ -96,16 +128,58 @@ export async function retrieve(
 
     parts.push(chunk)
     totalChars += chunk.length
-    usedPatterns.push(patterns[i])
+    usedPatterns.push(patterns[i]!)
     allSources.push(...result.sources)
   }
 
   const text = parts.join('\n\n')
+  const deduped = dedupeSources(allSources)
+
+  // Build WorkingMemoryState — principled memory lifecycle record
+  const atomsResult = results[patterns.indexOf('atoms')]
+  const graphResult = results[patterns.indexOf('graph')]
+  const workingMemory: WorkingMemoryState = {
+    memory_id: memoryId,
+    query,
+    policy_mode: 'retrieval',
+    phase: 'completed',
+    active_graph_neighborhood: (atomsResult?.sources ?? []).map(s => s.id).slice(0, 20),
+    active_vector_neighborhood: [],
+    query_reformulations: queryKeywords,
+    top_k_documents: (graphResult?.sources ?? []).map(s => s.id).slice(0, 10),
+    top_k_edges: deduped.filter(s => s.label !== 'WorkspacePrefix').map(s => s.id).slice(0, 20),
+    top_k_hyperedges: [],
+    retrieval_path: retrievalPath,
+    channel: opts?.sessionId ?? opts?.workspaceId ?? 'default',
+    ttl_seconds: 3600,
+    created_at: createdAt,
+  }
+
+  // Emit EpisodeBundle to HellGraph as an audit trail — fire-and-forget
+  if (opts?.conversationId || opts?.sessionId) {
+    const episodeHash = crypto.createHash('sha1').update(memoryId).digest('hex').slice(0, 12)
+    try {
+      ingestInteraction({
+        runId: `episode:${episodeHash}`,
+        sessionId: opts.sessionId ?? 'unknown',
+        modelRouted: 'retrieval',
+        provider: 'hellgraph',
+        promptSummary: query.slice(0, 280),
+        responseSummary: `patterns:${usedPatterns.join(',')} sources:${deduped.length}`,
+        evidenceHash: episodeHash,
+        policyAdmitted: true,
+        latencyMs: retrievalPath.reduce((s, p) => s + p.durationMs, 0),
+        timestamp: createdAt,
+      })
+    } catch { /* graph unavailable — skip audit */ }
+  }
+
   return {
     text,
-    sources: dedupeSources(allSources),
+    sources: deduped,
     patterns: usedPatterns,
     tokenEstimate: Math.ceil(text.length / 4),
+    workingMemory,
   }
 }
 
