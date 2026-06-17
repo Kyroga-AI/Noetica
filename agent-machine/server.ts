@@ -1126,7 +1126,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       } catch { /* ingest failures must never surface to the user */ }
       // Extract and ingest Regis-compatible entities from the conversation
       try {
-        const { ingestEntities } = await import('../../lib/hellgraph/ingest.js')
+        const { ingestEntities } = await import('./lib/graph.js')
         const fullText = `${latestUserContent}\n${fullContent}`
         ingestEntities(run_id, sessionId, fullText, new Date().toISOString())
       } catch { /* entity extraction is best-effort */ }

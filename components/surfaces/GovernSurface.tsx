@@ -1,6 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import type { GovernanceTrace } from '@/lib/types/governance'
+import { readLedgerEntries, clearLedger, type LedgerEntry } from '@/lib/evidence/ledger-store'
+import { useSettings } from '@/lib/settings/context'
 
 type PolicyMode = 'default' | 'strict' | 'permissive'
 type EvidenceLevel = 'standard' | 'full_hash' | 'minimal'
@@ -9,7 +12,7 @@ type PolicyVerdict = 'admitted' | 'flagged' | 'blocked'
 interface AuditEvent {
   id: string
   ts: string
-  kind: 'session_init' | 'chat_request' | 'policy_check' | 'memory_read' | 'memory_write' | 'evidence_ref' | 'policy_emit'
+  kind: 'session_init' | 'chat_request' | 'tool_call' | 'policy_check' | 'memory_read' | 'memory_write' | 'evidence_ref' | 'policy_emit'
   detail: string
   hash?: string
   verdict?: PolicyVerdict
@@ -27,6 +30,7 @@ interface EvidenceBundle {
 const KIND_LABELS: Record<AuditEvent['kind'], string> = {
   session_init: 'Session init',
   chat_request: 'Chat req',
+  tool_call:    'Tool call',
   policy_check: 'Policy',
   memory_read:  'Mem read',
   memory_write: 'Mem write',
@@ -37,6 +41,7 @@ const KIND_LABELS: Record<AuditEvent['kind'], string> = {
 const KIND_COLOR: Record<AuditEvent['kind'], string> = {
   session_init: '#1d4ed8',
   chat_request: '#7c3aed',
+  tool_call:    '#9333ea',
   policy_check: '#f59e0b',
   memory_read:  '#0891b2',
   memory_write: '#0891b2',
@@ -62,69 +67,89 @@ const EVIDENCE_LEVEL_LABEL: Record<EvidenceLevel, string> = {
   minimal:   'Minimal',
 }
 
-const NOW = Date.now()
-
-const SEED_EVENTS: AuditEvent[] = [
-  { id: '1', ts: new Date(NOW - 18 * 60000).toISOString(), kind: 'session_init',  detail: 'Noetica session opened', hash: 'a1b2c3d4' },
-  { id: '2', ts: new Date(NOW - 15 * 60000).toISOString(), kind: 'memory_read',   detail: 'noetica-eval · 3 entries loaded', hash: 'e5f6a7b8' },
-  { id: '3', ts: new Date(NOW - 12 * 60000).toISOString(), kind: 'chat_request',  detail: 'claude-sonnet-4-6 · 1 message', hash: 'c9d0e1f2' },
-  { id: '4', ts: new Date(NOW -  9 * 60000).toISOString(), kind: 'policy_check',  detail: 'Default policy · refusal check', hash: 'a3b4c5d6', verdict: 'admitted' },
-  { id: '5', ts: new Date(NOW -  6 * 60000).toISOString(), kind: 'evidence_ref',  detail: 'SourceOS event #e-2041 linked', hash: 'f7g8h9i0' },
-  { id: '6', ts: new Date(NOW -  3 * 60000).toISOString(), kind: 'memory_write',  detail: 'noetica-cowork · task decomposition stored', hash: 'j1k2l3m4' },
-]
-
-const SEED_BUNDLES: EvidenceBundle[] = [
-  { id: '1', hash: 'sha256:a1b2c3d4e5f6', source: 'SourceOS event #e-2041', level: 'standard',  status: 'verified', createdAt: new Date(NOW - 6 * 60000).toISOString() },
-  { id: '2', hash: 'sha256:7c8d9e0f1a2b', source: 'Chat session · noetica-eval', level: 'full_hash', status: 'pending', createdAt: new Date(NOW - 2 * 60000).toISOString() },
-]
-
-const EVENT_TEMPLATES: Array<{ kind: AuditEvent['kind']; detail: string; verdict?: PolicyVerdict }> = [
-  { kind: 'chat_request',  detail: 'claude-sonnet-4-6 · 2 messages' },
-  { kind: 'policy_check',  detail: 'Strict policy · content filter', verdict: 'admitted' },
-  { kind: 'memory_read',   detail: 'noetica-cowork · 2 entries loaded' },
-  { kind: 'evidence_ref',  detail: 'SourceOS event #e-2043 linked' },
-  { kind: 'policy_emit',   detail: 'Policy verdict emitted → admitted', verdict: 'admitted' },
-  { kind: 'memory_write',  detail: 'noetica-tune · preference pair stored' },
-  { kind: 'policy_check',  detail: 'Default policy · attribution check', verdict: 'flagged' },
-]
-
-function fakeHash() {
-  return Math.random().toString(16).slice(2, 10)
+function ledgerToAuditEvent(e: LedgerEntry): AuditEvent {
+  const detail = e.kind === 'chat_request'
+    ? `${e.model_id} · ${e.latency_ms}ms${e.input_tokens ? ` · ${e.input_tokens}→${e.output_tokens ?? 0} tok` : ''}`
+    : e.kind === 'policy_check'
+    ? `${e.policy_profile ?? 'default'} policy · ${e.policy_admitted ? 'admitted' : 'blocked'}`
+    : e.kind === 'session_init'
+    ? 'Noetica session opened'
+    : e.content_preview || e.kind
+  return {
+    id: e.id,
+    ts: e.timestamp,
+    kind: e.kind === 'error' ? 'policy_check' : e.kind,
+    detail,
+    hash: e.evidence_hash?.slice(0, 8),
+    verdict: e.kind === 'policy_check' || e.kind === 'chat_request'
+      ? (e.policy_admitted === false ? 'blocked' : 'admitted')
+      : undefined,
+  }
 }
 
-export function GovernSurface() {
-  const [policyMode, setPolicyMode]       = useState<PolicyMode>('default')
-  const [evidenceLevel, setEvidenceLevel] = useState<EvidenceLevel>('standard')
-  const [events, setEvents]               = useState<AuditEvent[]>(SEED_EVENTS)
-  const [bundles]                         = useState<EvidenceBundle[]>(SEED_BUNDLES)
-  const [expandedId, setExpandedId]       = useState<string | null>(null)
-  const [generating, setGenerating]       = useState(false)
+function ledgerToBundles(entries: LedgerEntry[], level: EvidenceLevel): EvidenceBundle[] {
+  return entries
+    .filter((e) => e.evidence_hash)
+    .map((e) => ({
+      id: e.id,
+      hash: e.evidence_hash!,
+      source: `${e.model_id} · ${e.session_id.slice(0, 12)}`,
+      level,
+      status: e.policy_admitted === false ? ('failed' as const) : ('verified' as const),
+      createdAt: e.timestamp,
+    }))
+    .slice(0, 20)
+}
 
-  const scopeCounts = {
-    session: events.filter((e) => e.kind === 'chat_request' || e.kind === 'policy_check').length,
-    project: 12 + events.filter((e) => e.kind === 'memory_write').length,
-    global:  7,
+type RunTrace = { messageId: string; content: string; governance: GovernanceTrace }
+
+export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[] }) {
+  const { settings, update: updateSettings } = useSettings()
+  const [policyMode, setPolicyMode]   = useState<PolicyMode>('default')
+  const [evidenceLevel, setEvidenceLevel] = useState<EvidenceLevel>(
+    (settings.defaultEvidenceLevel === 'full' ? 'full_hash' : settings.defaultEvidenceLevel) as EvidenceLevel ?? 'standard'
+  )
+  const [ledgerEntries, setLedgerEntries] = useState<LedgerEntry[]>([])
+  const [ledgerLoading, setLedgerLoading] = useState(true)
+  const [expandedId, setExpandedId]       = useState<string | null>(null)
+  const [confirmClear, setConfirmClear]   = useState(false)
+
+  useEffect(() => {
+    readLedgerEntries(200).then((entries) => {
+      setLedgerEntries(entries)
+      setLedgerLoading(false)
+    })
+  }, [])
+
+  const events: AuditEvent[] = ledgerEntries.map(ledgerToAuditEvent)
+  const bundles: EvidenceBundle[] = ledgerToBundles(ledgerEntries, evidenceLevel)
+
+  function syncPolicyMode(mode: PolicyMode) {
+    setPolicyMode(mode)
+    // GovernSurface PolicyMode is internal; map to settings profile where applicable
+    if (mode === 'default') updateSettings({ defaultPolicyProfile: 'default' })
+  }
+  function syncEvidenceLevel(level: EvidenceLevel) {
+    setEvidenceLevel(level)
+    updateSettings({ defaultEvidenceLevel: level === 'full_hash' ? 'full' : level as 'minimal' | 'standard' })
   }
 
-  function generateTrace() {
-    if (generating) return
-    setGenerating(true)
-    setTimeout(() => {
-      const t = EVENT_TEMPLATES[Math.floor(Math.random() * EVENT_TEMPLATES.length)]
-      setEvents((prev) => [...prev, {
-        id: crypto.randomUUID(),
-        ts: new Date().toISOString(),
-        kind: t.kind,
-        detail: t.detail,
-        hash: fakeHash(),
-        verdict: t.verdict,
-      }])
-      setGenerating(false)
-    }, 700)
+  function refreshLedger() {
+    setLedgerLoading(true)
+    readLedgerEntries(200).then((entries) => {
+      setLedgerEntries(entries)
+      setLedgerLoading(false)
+    })
+  }
+
+  const scopeCounts = {
+    session: ledgerEntries.filter((e) => e.kind === 'chat_request').length,
+    project: ledgerEntries.filter((e) => e.kind === 'memory_write').length,
+    global:  ledgerEntries.filter((e) => e.evidence_hash).length,
   }
 
   function exportAuditTrail() {
-    const data = JSON.stringify({ policy: policyMode, evidenceLevel, events, bundles }, null, 2)
+    const data = JSON.stringify({ policy: policyMode, evidenceLevel, events: ledgerEntries, bundles }, null, 2)
     const blob = new Blob([data], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -147,7 +172,7 @@ export function GovernSurface() {
               {([['default', 'Default'], ['strict', 'Strict'], ['permissive', 'Permissive']] as const).map(([val, label]) => (
                 <button
                   key={val}
-                  onClick={() => setPolicyMode(val)}
+                  onClick={() => syncPolicyMode(val)}
                   className={`rounded-full border px-2.5 py-1 text-xs transition ${
                     policyMode === val
                       ? 'border-[#1d4ed8] bg-[rgba(29,78,216,0.12)] font-semibold text-[#1d4ed8]'
@@ -161,7 +186,7 @@ export function GovernSurface() {
               {([['minimal', 'Minimal'], ['standard', 'Standard'], ['full_hash', 'Full hash']] as const).map(([val, label]) => (
                 <button
                   key={val}
-                  onClick={() => setEvidenceLevel(val)}
+                  onClick={() => syncEvidenceLevel(val)}
                   className={`rounded-full border px-2.5 py-1 text-xs transition ${
                     evidenceLevel === val
                       ? 'border-[#1d4ed8] bg-[rgba(29,78,216,0.12)] font-semibold text-[#1d4ed8]'
@@ -177,6 +202,72 @@ export function GovernSurface() {
             {policyMode === 'permissive' && 'Research mode: minimal restrictions, policy checks recorded but non-blocking.'}
           </div>
         </div>
+
+        {/* Run details — from real conversation */}
+        {recentTraces.length > 0 && (
+          <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] shadow-sm">
+            <div className="border-b border-[var(--color-border-tertiary)] px-5 py-3">
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Run Details</div>
+              <p className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">{recentTraces.length} run{recentTraces.length !== 1 ? 's' : ''} this session</p>
+            </div>
+            <div className="divide-y divide-[var(--color-border-tertiary)]">
+              {[...recentTraces].reverse().map((trace, idx) => {
+                const g = trace.governance
+                const [expanded, setExpanded] = [
+                  expandedId === trace.messageId,
+                  (v: string | null) => setExpandedId(v),
+                ]
+                return (
+                  <div key={trace.messageId}>
+                    <button
+                      onClick={() => setExpanded(expanded ? null : trace.messageId)}
+                      className="flex w-full items-center gap-3 px-5 py-3 text-left transition hover:bg-[var(--color-background-secondary)]"
+                    >
+                      <span className="w-5 shrink-0 text-center text-[10px] font-mono text-[var(--color-text-tertiary)]">#{recentTraces.length - idx}</span>
+                      <span className="flex-1 truncate text-xs text-[var(--color-text-primary)]">{trace.content || '…'}</span>
+                      <span className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">{g.latency_ms > 0 ? `${(g.latency_ms / 1000).toFixed(1)}s` : ''}</span>
+                      {(g.input_tokens || g.output_tokens) && (
+                        <span className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">
+                          {g.input_tokens?.toLocaleString() ?? '–'}/{g.output_tokens?.toLocaleString() ?? '–'}
+                        </span>
+                      )}
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold ${g.policy_admitted ? VERDICT_STYLE.admitted : VERDICT_STYLE.blocked}`}>
+                        {g.policy_admitted ? 'admitted' : 'blocked'}
+                      </span>
+                    </button>
+                    {expanded && (
+                      <div className="border-t border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-5 py-3">
+                        <div className="grid grid-cols-2 gap-x-6 gap-y-2 text-[11px]">
+                          <div><span className="text-[var(--color-text-tertiary)]">Run ID </span><span className="font-mono text-[var(--color-text-primary)]">{g.run_id?.slice(0, 16) ?? '—'}</span></div>
+                          <div><span className="text-[var(--color-text-tertiary)]">Model </span><span className="font-mono text-[var(--color-text-primary)]">{g.model_routed ?? '—'}</span></div>
+                          <div><span className="text-[var(--color-text-tertiary)]">Provider </span><span className="font-mono text-[var(--color-text-primary)]">{g.provider ?? '—'}</span></div>
+                          <div><span className="text-[var(--color-text-tertiary)]">Latency </span><span className="font-mono text-[var(--color-text-primary)]">{g.latency_ms}ms</span></div>
+                          {g.input_tokens !== undefined && (
+                            <div><span className="text-[var(--color-text-tertiary)]">Tokens in </span><span className="font-mono text-[var(--color-text-primary)]">{g.input_tokens.toLocaleString()}</span></div>
+                          )}
+                          {g.output_tokens !== undefined && (
+                            <div><span className="text-[var(--color-text-tertiary)]">Tokens out </span><span className="font-mono text-[var(--color-text-primary)]">{g.output_tokens.toLocaleString()}</span></div>
+                          )}
+                          <div><span className="text-[var(--color-text-tertiary)]">Memory scope </span><span className="font-mono text-[var(--color-text-primary)]">{g.memory_scope_ref ?? '—'}</span></div>
+                          <div><span className="text-[var(--color-text-tertiary)]">Memory written </span><span className="font-mono text-[var(--color-text-primary)]">{String(g.memory_written)}</span></div>
+                          {g.request_hash && (
+                            <div className="col-span-2"><span className="text-[var(--color-text-tertiary)]">Request hash </span><span className="font-mono text-[var(--color-text-primary)]">{g.request_hash.slice(0, 32)}…</span></div>
+                          )}
+                          {g.evidence_hash && (
+                            <div className="col-span-2"><span className="text-[var(--color-text-tertiary)]">Evidence hash </span><span className="font-mono text-[var(--color-text-primary)]">{g.evidence_hash.slice(0, 32)}…</span></div>
+                          )}
+                          {g.timestamp && (
+                            <div className="col-span-2"><span className="text-[var(--color-text-tertiary)]">Timestamp </span><span className="font-mono text-[var(--color-text-primary)]">{new Date(g.timestamp).toLocaleString()}</span></div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Memory scope */}
         <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
@@ -195,26 +286,50 @@ export function GovernSurface() {
         {/* Audit trail */}
         <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] shadow-sm">
           <div className="flex items-center justify-between border-b border-[var(--color-border-tertiary)] px-5 py-3">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Audit trail</div>
+            <div className="flex items-center gap-3">
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Audit trail</div>
+              <span className="text-[10px] text-[var(--color-text-tertiary)]">{events.length} event{events.length !== 1 ? 's' : ''}</span>
+            </div>
             <div className="flex items-center gap-2">
               <button
-                onClick={generateTrace}
-                disabled={generating}
+                onClick={refreshLedger}
+                disabled={ledgerLoading}
                 className="flex items-center gap-1.5 rounded-full border border-[var(--color-border-tertiary)] px-3 py-1 text-xs text-[var(--color-text-secondary)] transition hover:border-[#1d4ed8] hover:text-[#1d4ed8] disabled:opacity-50"
               >
-                {generating ? (
-                  <><span className="h-1.5 w-1.5 rounded-full bg-[#1d4ed8] animate-pulse" /> Generating…</>
-                ) : '+ Trace'}
+                {ledgerLoading ? <span className="h-1.5 w-1.5 rounded-full bg-[#1d4ed8] animate-pulse" /> : '↻'} Refresh
               </button>
-              <button
-                onClick={exportAuditTrail}
-                className="rounded-full bg-[rgba(29,78,216,0.10)] px-3 py-1 text-xs font-medium text-[#1d4ed8] transition hover:bg-[rgba(29,78,216,0.18)]"
-              >
-                Export JSON
-              </button>
+              {events.length > 0 && (
+                <button
+                  onClick={exportAuditTrail}
+                  className="rounded-full bg-[rgba(29,78,216,0.10)] px-3 py-1 text-xs font-medium text-[#1d4ed8] transition hover:bg-[rgba(29,78,216,0.18)]"
+                >
+                  Export JSON
+                </button>
+              )}
+              {events.length > 0 && (
+                confirmClear ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-[#dc2626]">Clear {events.length}?</span>
+                    <button onClick={() => { void clearLedger().then(refreshLedger); setConfirmClear(false) }}
+                      className="text-[10px] font-semibold text-[#dc2626] hover:underline">Yes</button>
+                    <button onClick={() => setConfirmClear(false)}
+                      className="text-[10px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]">No</button>
+                  </div>
+                ) : (
+                  <button onClick={() => setConfirmClear(true)}
+                    className="rounded-full border border-[#fecaca] px-3 py-1 text-[10px] text-[#dc2626] transition hover:bg-[#fef2f2]">
+                    Clear
+                  </button>
+                )
+              )}
             </div>
           </div>
           <div className="divide-y divide-[var(--color-border-tertiary)]">
+            {events.length === 0 && (
+              <div className="px-5 py-10 text-center text-sm text-[var(--color-text-tertiary)]">
+                {ledgerLoading ? 'Loading audit trail…' : 'No events yet. Start a conversation in the Chat surface to populate the audit trail.'}
+              </div>
+            )}
             {events.map((ev) => (
               <div key={ev.id}>
                 <button
