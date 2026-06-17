@@ -27,11 +27,11 @@ import { SettingsModal } from '@/components/settings/SettingsModal'
 import { ProviderSetupModal } from '@/components/shell/ProviderSetupModal'
 import { ModelSetupModal } from '@/components/shell/ModelSetupModal'
 import { CommandPalette } from '@/components/palette/CommandPalette'
-import { models, defaultModelId } from '@/config/models'
+import { models, visibleModels, defaultModelId } from '@/config/models'
 import { initialMessages } from '@/lib/chat/mockConversation'
 import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
 import { buildRiskAversionLiveReadout } from '@/lib/risk/riskAversionLive'
-import { listenTauri, isTauri } from '@/lib/tauri/bridge'
+import { listenTauri, isTauri, invokeTauri } from '@/lib/tauri/bridge'
 import { executeBuiltinToolDirect } from '@/lib/client/anthropicDirect'
 import { useSession } from '@/lib/session/useSession'
 import { useArtifacts } from '@/lib/artifacts/useArtifacts'
@@ -106,7 +106,11 @@ export function AppShell() {
       setActiveSurface(activeSession.surface)
       setWorkspaceMode(activeSession.workspaceMode)
       setMessages(activeSession.messages.length > 0 ? activeSession.messages : initialMessages)
-      setModelId(activeSession.modelId)
+      // Only restore model if it's in the currently-visible list (guards against
+      // Neuronpedia/cloud models that were saved before showAllModels was toggled off)
+      const allowed = visibleModels(settings.showAllModels)
+      const isUsable = allowed.some((m) => m.id === activeSession.modelId)
+      setModelId(isUsable ? activeSession.modelId : defaultModelId)
     } else {
       // No saved session — create one for the current initial state
       newSession({ surface: 'chat', workspaceMode: 'Chat', messages: initialMessages })
@@ -197,6 +201,7 @@ export function AppShell() {
 
   const activeModel = useMemo(
     () => models.find((m) => m.id === modelId) ?? models[0],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [modelId]
   )
   const riskReadout = useMemo(() => buildRiskAversionLiveReadout(messages), [messages])
@@ -267,17 +272,13 @@ export function AppShell() {
       updateSettings({ agentMachineEndpoint: url, runtimeMode: 'agent-machine' })
     }).then((fn) => { unlisten = fn })
 
-    // Browser probe — only if not already configured
-    if (!settings.agentMachineEndpoint) {
-      const AM_DEFAULT = 'http://127.0.0.1:8080'
-      void fetch(`${AM_DEFAULT}/api/status`, { signal: AbortSignal.timeout(2_000) })
-        .then((r) => r.ok ? r.json() as Promise<{ version: string }> : null)
-        .then((data) => {
-          if (data?.version) {
-            updateSettings({ agentMachineEndpoint: AM_DEFAULT, runtimeMode: 'agent-machine' })
-          }
+    // Use Tauri command to get AM URL — avoids WKWebView mixed-content blocking.
+    if (isTauri()) {
+      void invokeTauri<string | null>('probe_agent_machine')
+        .then((url) => {
+          if (url) updateSettings({ agentMachineEndpoint: url, runtimeMode: 'agent-machine' })
         })
-        .catch(() => { /* not running — stay in browser-fallback */ })
+        .catch(() => {})
     }
 
     return () => unlisten?.()
@@ -352,7 +353,8 @@ export function AppShell() {
     setActiveSurface(s.surface)
     setWorkspaceMode(s.workspaceMode)
     setMessages(s.messages.length > 0 ? s.messages : initialMessages)
-    setModelId(s.modelId)
+    const allowed = visibleModels(settings.showAllModels)
+    setModelId(allowed.some((m) => m.id === s.modelId) ? s.modelId : defaultModelId)
   }
 
   function buildEffectiveSystemPrompt(
@@ -554,7 +556,8 @@ export function AppShell() {
     setMessages(forkedMessages)
     setActiveSurface(activeSurface)
     setWorkspaceMode(workspaceMode)
-    setModelId(sess.modelId)
+    const allowed = visibleModels(settings.showAllModels)
+    setModelId(allowed.some((m) => m.id === sess.modelId) ? sess.modelId : defaultModelId)
   }
 
   async function handleRecombine(selected: ChatMessage[]) {
@@ -652,7 +655,11 @@ export function AppShell() {
           {
             session_id: activeSession?.id ?? 'local-session',
             mode,
-            model_id: modelId,
+            // In agent-machine mode, only pass model_id for known Ollama/Anthropic/OpenAI
+            // models — let prophet-mesh routing decide for everything else.
+            model_id: agentMachineEndpoint
+              ? (['claude', 'gpt', 'o1', 'o3', 'o4', 'qwen', 'llama3', 'deepseek', 'mistral'].some(p => modelId.startsWith(p)) ? modelId : undefined)
+              : modelId,
             messages: conversationMessages,
             steering,
             thinking_budget: thinkingBudget,

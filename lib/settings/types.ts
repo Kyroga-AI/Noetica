@@ -68,4 +68,7 @@ export interface NoeticaSettings {
   // Developer
   apiEndpointOverride: string
   showRawEvents: boolean
+
+  // Model picker
+  showAllModels: boolean
 }

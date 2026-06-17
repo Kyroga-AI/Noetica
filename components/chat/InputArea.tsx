@@ -7,7 +7,8 @@ import { readFilesAsAttachments, openNativeFilePicker } from '@/lib/attachments/
 import { isTauri } from '@/lib/tauri/bridge'
 import type { McpTool } from '@/lib/types/mcp'
 import { McpToolPicker } from '@/components/mcp/McpToolPicker'
-import { models } from '@/config/models'
+import { visibleModels } from '@/config/models'
+import { useSettings } from '@/lib/settings/context'
 
 export type WorkspaceMode = 'Chat' | 'Cowork' | 'Code' | 'Benchmark'
 
@@ -76,8 +77,10 @@ export function InputArea({
   const [showSystemPrompt, setShowSystemPrompt] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const { settings } = useSettings()
+  const modelList = visibleModels(settings.showAllModels)
 
-  const activeModel = models.find((m) => m.id === modelId) ?? models[0]
+  const activeModel = modelList.find((m) => m.id === modelId) ?? modelList[0]
   // Short display name: "Sonnet 4.6", "GPT-4o", etc — strip "Claude " prefix
   const modelShortName = (activeModel?.label ?? modelId).replace(/^Claude\s+/i, '')
   const thinkingLabel = thinkingBudget == null ? null
@@ -306,7 +309,7 @@ export function InputArea({
               </button>
               {showModelPicker && (
                 <div className="absolute bottom-10 right-0 z-50 w-52 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] py-1 shadow-lg">
-                  {models.map((m) => (
+                  {modelList.map((m) => (
                     <button key={m.id} type="button"
                       onClick={() => { onModelChange(m.id); setShowModelPicker(false) }}
                       className={`flex w-full items-center gap-2 px-3 py-1.5 text-xs transition hover:bg-[var(--color-background-secondary)] ${m.id === modelId ? 'font-medium text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'}`}

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { useSettings } from '@/lib/settings/context'
-import { models } from '@/config/models'
+import { visibleModels } from '@/config/models'
 import { ProviderSetupModal } from '@/components/shell/ProviderSetupModal'
 
 function MaskedInput({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
@@ -33,10 +33,28 @@ function MaskedInput({ label, value, onChange }: { label: string; value: string;
 export function ModelsPanel() {
   const { settings, update } = useSettings()
   const [setupOpen, setSetupOpen] = useState(false)
+  const modelList = visibleModels(settings.showAllModels)
 
   return (
     <div className="space-y-6">
       {setupOpen && <ProviderSetupModal onClose={() => setSetupOpen(false)} />}
+
+      <div className="flex items-center justify-between rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3">
+        <div>
+          <div className="text-sm font-semibold text-[var(--color-text-primary)]">Show all models</div>
+          <div className="text-xs text-[var(--color-text-secondary)]">Includes cloud, Neuronpedia, and SAE-target models. Local Ollama models are always shown.</div>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={settings.showAllModels}
+          onClick={() => update({ showAllModels: !settings.showAllModels })}
+          className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${settings.showAllModels ? 'bg-[#1d4ed8]' : 'bg-[var(--color-border-secondary)]'}`}
+        >
+          <span className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${settings.showAllModels ? 'translate-x-4' : 'translate-x-0'}`} />
+        </button>
+      </div>
+
       <div>
         <label className="block text-sm font-semibold text-[var(--color-text-primary)]">Default model</label>
         <select
@@ -44,7 +62,7 @@ export function ModelsPanel() {
           onChange={(e) => update({ defaultModelId: e.target.value })}
           className="mt-3 w-full rounded-xl border border-[#bfdbfe] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8] focus:bg-[var(--color-background-primary)]"
         >
-          {models.map((m) => (
+          {modelList.map((m) => (
             <option key={m.id} value={m.id}>
               {m.label} — {m.provider}
             </option>

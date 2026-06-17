@@ -34,6 +34,22 @@ fn get_agent_machine_url(state: tauri::State<Mutex<AgentMachineState>>) -> Optio
     s.port.map(|p| format!("http://127.0.0.1:{}", p))
 }
 
+/// Probes port 8080 via TCP — works whether AM started as a sidecar or manually.
+/// Called from the frontend settings context; bypasses WKWebView ATS restrictions.
+#[tauri::command]
+fn probe_agent_machine() -> Option<String> {
+    use std::net::TcpStream;
+    use std::time::Duration;
+    if TcpStream::connect_timeout(
+        &"127.0.0.1:8080".parse().unwrap(),
+        Duration::from_millis(500),
+    ).is_ok() {
+        Some("http://127.0.0.1:8080".to_string())
+    } else {
+        None
+    }
+}
+
 /// Captures the full screen and returns a base64-encoded PNG.
 /// Uses `screencapture` on macOS, `scrot` on Linux.
 /// Returns an error string if the capture fails (e.g., no screen-recording permission).
@@ -483,6 +499,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             noetica_desktop_status,
             get_agent_machine_url,
+            probe_agent_machine,
             take_screenshot,
             execute_computer_action,
             read_local_file,

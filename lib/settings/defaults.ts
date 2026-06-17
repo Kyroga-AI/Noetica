@@ -14,8 +14,8 @@ export const defaultSettings: NoeticaSettings = {
   neuronpediaApiKey: '',
   serperApiKey: '',
 
-  runtimeMode: 'standalone',
-  agentMachineEndpoint: 'http://localhost:8080',
+  runtimeMode: 'agent-machine',
+  agentMachineEndpoint: 'http://127.0.0.1:8080',
 
   giteaEndpoint: '',
   githubPat: '',
@@ -53,4 +53,6 @@ export const defaultSettings: NoeticaSettings = {
 
   apiEndpointOverride: '',
   showRawEvents: false,
+
+  showAllModels: false,
 }
