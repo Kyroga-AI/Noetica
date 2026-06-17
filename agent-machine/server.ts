@@ -76,6 +76,15 @@ interface GovernanceRun {
 const _governanceRuns: GovernanceRun[] = []
 const GOVERNANCE_RING_SIZE = 100
 
+// Tracks how many async ingest tasks are currently in-flight, so the health
+// endpoint can report a real pendingIngestCount instead of a hardcoded 0.
+let _pendingIngestCount = 0
+
+function trackIngest<T>(p: Promise<T> | T): Promise<T> {
+  _pendingIngestCount++
+  return Promise.resolve(p).finally(() => { _pendingIngestCount = Math.max(0, _pendingIngestCount - 1) })
+}
+
 function recordGovernanceRun(run: GovernanceRun): void {
   _governanceRuns.push(run)
   if (_governanceRuns.length > GOVERNANCE_RING_SIZE) _governanceRuns.shift()
@@ -1261,7 +1270,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     void (async () => {
       try {
         const promptHash = crypto.createHash('sha256').update(latestUserContent).digest('hex').slice(0, 16)
-        await ingestInteraction({
+        await trackIngest(ingestInteraction({
           runId: run_id,
           sessionId,
           modelRouted: model,
@@ -1272,14 +1281,14 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           policyAdmitted: true,
           latencyMs,
           timestamp,
-        })
+        }))
         invalidatePrefix(sessionId)
       } catch { /* ingest failures must never surface to the user */ }
       // Extract and ingest Regis-compatible entities from the conversation
       try {
         const { ingestEntities } = await import('./lib/graph.js')
         const fullText = `${latestUserContent}\n${fullContent}`
-        ingestEntities(run_id, sessionId, fullText, new Date().toISOString())
+        trackIngest(ingestEntities(run_id, sessionId, fullText, new Date().toISOString()))
       } catch { /* entity extraction is best-effort */ }
     })()
   } catch (err) {
@@ -1547,7 +1556,7 @@ const server = http.createServer((req, res) => {
             status: h.nodeCount > 0 ? 'ok' : 'degraded',
             nodeCount: h.nodeCount,
             edgeCount: h.edgeCount,
-            pendingIngestCount: 0,
+            pendingIngestCount: _pendingIngestCount,
             failedIngestCount: 0,
             orphanNodeCount: h.orphans,
             duplicateEntityCount: 0,
@@ -1604,9 +1613,9 @@ const server = http.createServer((req, res) => {
         try {
           const parsed = JSON.parse(body) as { type: string; payload?: Record<string, unknown>; candidate?: Record<string, unknown> }
           const { type } = parsed
-          if (type === 'interaction') await ingestInteraction(parsed.payload as unknown as Parameters<typeof ingestInteraction>[0])
-          else if (type === 'message') await ingestMessage(parsed.payload as unknown as Parameters<typeof ingestMessage>[0])
-          else if (type === 'conversation') await ingestConversation(parsed.payload as unknown as Parameters<typeof ingestConversation>[0])
+          if (type === 'interaction') await trackIngest(ingestInteraction(parsed.payload as unknown as Parameters<typeof ingestInteraction>[0]))
+          else if (type === 'message') await trackIngest(ingestMessage(parsed.payload as unknown as Parameters<typeof ingestMessage>[0]))
+          else if (type === 'conversation') await trackIngest(ingestConversation(parsed.payload as unknown as Parameters<typeof ingestConversation>[0]))
           else if (type === 'prometheus_candidate') {
             // prometheusd writes discovered dynamics equations into HellGraph as first-class atoms
             const candidate = parsed.candidate as unknown as Parameters<typeof ingestPrometheusCandidate>[0]
