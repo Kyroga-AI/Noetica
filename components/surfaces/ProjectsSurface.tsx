@@ -723,7 +723,7 @@ export function ProjectsSurface() {
     createProject, updateProject,
   } = useWork()
   const { store } = useConnectorAuth()
-  const { settings, update: updateSettings } = useSettings()
+  const { settings } = useSettings()
 
   const linearAuth = store.linear
   const linearConnected = linearAuth?.status === 'connected' && !!linearAuth.accessToken
