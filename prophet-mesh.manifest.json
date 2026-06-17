@@ -1,0 +1,79 @@
+{
+  "version": "1",
+  "ollama_port": 11435,
+  "ollama_models_dir": "~/.noetica/models",
+  "models": [
+    {
+      "name": "nomic-embed-text",
+      "role": "embedding",
+      "description": "Text embedding model for semantic similarity and MERGE_PROPOSAL graph operations",
+      "priority": 1,
+      "size_gb": 0.3,
+      "required": true,
+      "tool_use": false
+    },
+    {
+      "name": "llama3.2:3b",
+      "role": "conductor",
+      "description": "Fast conductor model — conversational routing only, no tool use",
+      "priority": 2,
+      "size_gb": 2.0,
+      "required": true,
+      "tool_use": false
+    },
+    {
+      "name": "qwen2.5:7b",
+      "role": "general",
+      "description": "General-purpose workhorse — writing, research, open-ended tasks",
+      "priority": 3,
+      "size_gb": 4.7,
+      "required": true,
+      "tool_use": true
+    },
+    {
+      "name": "qwen2.5-coder:7b",
+      "role": "coding",
+      "description": "Code-specialized model — implementation, debugging, review",
+      "priority": 4,
+      "size_gb": 4.7,
+      "required": true,
+      "tool_use": true
+    },
+    {
+      "name": "deepseek-r1:8b",
+      "role": "reasoning",
+      "description": "Reasoning model — analysis, comparison, complex multi-step problems",
+      "priority": 5,
+      "size_gb": 4.9,
+      "required": true,
+      "tool_use": true
+    },
+    {
+      "name": "llava:13b",
+      "role": "vision",
+      "description": "Vision model — activated automatically when images are attached",
+      "priority": 6,
+      "size_gb": 8.0,
+      "required": false,
+      "tool_use": false
+    },
+    {
+      "name": "qwen2.5:14b",
+      "role": "general-large",
+      "description": "Strongest local general model — pull when you need maximum local quality",
+      "priority": 7,
+      "size_gb": 9.0,
+      "required": false,
+      "tool_use": true
+    },
+    {
+      "name": "dolphin3:8b",
+      "role": "uncensored",
+      "description": "Uncensored local model — opt-in, security profile only",
+      "priority": 8,
+      "size_gb": 4.9,
+      "required": false,
+      "tool_use": true
+    }
+  ]
+}

@@ -162,6 +162,7 @@ export function buildRouterDecision(opts: {
   explicitModelId?: string
   policyProfile?: string
   hasImages?: boolean
+  hasTools?: boolean
 }): RouterDecision & { resolvedModel: string; resolvedProvider: 'ollama' | 'anthropic' | 'openai' } {
   const {
     requestId, content, ollamaAvailable, availableModels,
@@ -251,9 +252,26 @@ export function buildRouterDecision(opts: {
   if (ollamaAvailable) {
     const primary = route.localModel
     const fallback = route.fallbackModel
-    const modelToUse = isModelAvailable(primary, availableModels) ? primary
+
+    // If this request carries tools, never route to a model that can't use them.
+    // Upgrade the conductor (llama3.2:3b) to the first available tool-capable model.
+    const needsToolUse = opts.hasTools ?? false
+    const resolveToolCapable = () => {
+      const capable = LOCAL_MODEL_SUITE
+        .filter(m => m.toolUse)
+        .sort((a, b) => a.priority - b.priority)
+      return capable.find(m => isModelAvailable(m.name, availableModels))?.name
+        ?? capable[0]?.name
+        ?? 'qwen2.5:7b'
+    }
+
+    const candidatePrimary = (needsToolUse && !LOCAL_MODEL_SUITE.find(m => m.name === primary)?.toolUse)
+      ? resolveToolCapable()
+      : primary
+
+    const modelToUse = isModelAvailable(candidatePrimary, availableModels) ? candidatePrimary
       : isModelAvailable(fallback, availableModels) ? fallback
-      : primary // will trigger auto-pull by Ollama
+      : candidatePrimary // will trigger auto-pull by Ollama
 
     return {
       requestId,
@@ -364,6 +382,9 @@ const FULL_CONTROLS = {
 // ─── Model suite definition ───────────────────────────────────────────────────
 // Used by the first-run setup and status API.
 
+// Derived from prophet-mesh.manifest.json — this is the canonical model list.
+// tool_use: false means the model cannot reliably execute function calls and must
+// be restricted to chat/conductor tasks only.
 export const LOCAL_MODEL_SUITE = [
   {
     name: 'nomic-embed-text',
@@ -371,13 +392,15 @@ export const LOCAL_MODEL_SUITE = [
     description: 'Text embedding model — used for semantic similarity and MERGE_PROPOSAL',
     priority: 1,
     sizeGb: 0.3,
+    toolUse: false,
   },
   {
     name: 'llama3.2:3b',
     role: 'conductor',
-    description: 'Fast conversational model — handles chat and routing',
+    description: 'Fast conductor — conversational routing only, no tool use',
     priority: 2,
     sizeGb: 2.0,
+    toolUse: false,
   },
   {
     name: 'qwen2.5:7b',
@@ -385,6 +408,7 @@ export const LOCAL_MODEL_SUITE = [
     description: 'General-purpose workhorse — writing, research, open-ended tasks',
     priority: 3,
     sizeGb: 4.7,
+    toolUse: true,
   },
   {
     name: 'qwen2.5-coder:7b',
@@ -392,6 +416,7 @@ export const LOCAL_MODEL_SUITE = [
     description: 'Code-specialized model — implementation, debugging, review',
     priority: 4,
     sizeGb: 4.7,
+    toolUse: true,
   },
   {
     name: 'deepseek-r1:8b',
@@ -399,6 +424,7 @@ export const LOCAL_MODEL_SUITE = [
     description: 'Reasoning model — analysis, complex problem solving',
     priority: 5,
     sizeGb: 4.9,
+    toolUse: true,
   },
   {
     name: 'qwen2.5:14b',
@@ -406,6 +432,7 @@ export const LOCAL_MODEL_SUITE = [
     description: 'Strongest local general model — writing, research, complex open-ended tasks',
     priority: 6,
     sizeGb: 9.0,
+    toolUse: true,
   },
   {
     name: 'dolphin3:8b',
@@ -413,6 +440,7 @@ export const LOCAL_MODEL_SUITE = [
     description: 'Uncensored local model — activated automatically under security policy profile',
     priority: 7,
     sizeGb: 4.9,
+    toolUse: true,
   },
   {
     name: 'llava:13b',

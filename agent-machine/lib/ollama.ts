@@ -8,7 +8,9 @@
 
 import type { ProviderTool, ToolUseBlock, ProviderEvent } from '../server.js'
 
-export const OLLAMA_BASE = process.env['OLLAMA_HOST'] ?? 'http://127.0.0.1:11434'
+// 11435 is Noetica's isolated Ollama port — separate from any system Ollama on 11434.
+// OLLAMA_HOST env can override for dev (e.g. point at system Ollama during local iteration).
+export const OLLAMA_BASE = process.env['OLLAMA_HOST'] ?? 'http://127.0.0.1:11435'
 
 // ─── Health & model inventory ─────────────────────────────────────────────────
 

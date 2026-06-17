@@ -329,12 +329,22 @@ fn main() {
             // ── Ollama sidecar ────────────────────────────────────────────────
             // Start bundled Ollama before the Agent Machine so local models
             // are available when AM's first request arrives.
+            // Noetica's Ollama runs on 11435 (not 11434) with its own model store
+            // so it never collides with a user's system Ollama installation.
+            let noetica_models = std::env::var("HOME")
+                .map(|h| format!("{h}/.noetica/models"))
+                .unwrap_or_else(|_| "~/.noetica/models".to_string());
             match h.shell().sidecar("ollama") {
                 Ok(cmd) => {
-                    match cmd.args(["serve"]).spawn() {
+                    match cmd
+                        .args(["serve"])
+                        .env("OLLAMA_HOST", "127.0.0.1:11435")
+                        .env("OLLAMA_MODELS", &noetica_models)
+                        .spawn()
+                    {
                         Ok((mut rx, _child)) => {
                             let _ = h.emit("noetica:ollama:started", serde_json::json!({
-                                "host": "http://127.0.0.1:11434"
+                                "host": "http://127.0.0.1:11435"
                             }));
                             tauri::async_runtime::spawn(async move {
                                 use tauri_plugin_shell::process::CommandEvent;
@@ -376,6 +386,7 @@ fn main() {
                 Ok(cmd) => {
                     match cmd
                         .env("NOETICA_AM_PORT", am_port.to_string())
+                        .env("OLLAMA_HOST", "http://127.0.0.1:11435")
                         .spawn()
                     {
                         Ok((mut rx, _child)) => {
