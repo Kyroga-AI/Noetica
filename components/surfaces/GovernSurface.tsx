@@ -133,7 +133,11 @@ function amRunToAuditEvent(r: AgentMachineRun): AuditEvent {
 
 export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[] }) {
   const { settings, update: updateSettings } = useSettings()
-  const [policyMode, setPolicyMode]   = useState<PolicyMode>('default')
+  const [policyMode, setPolicyMode]   = useState<PolicyMode>(
+    (['default', 'strict', 'permissive'] as string[]).includes(settings.defaultPolicyProfile)
+      ? settings.defaultPolicyProfile as PolicyMode
+      : 'default'
+  )
   const [evidenceLevel, setEvidenceLevel] = useState<EvidenceLevel>(
     (settings.defaultEvidenceLevel === 'full' ? 'full_hash' : settings.defaultEvidenceLevel) as EvidenceLevel ?? 'standard'
   )
@@ -188,8 +192,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
 
   function syncPolicyMode(mode: PolicyMode) {
     setPolicyMode(mode)
-    // GovernSurface PolicyMode is internal; map to settings profile where applicable
-    if (mode === 'default') updateSettings({ defaultPolicyProfile: 'default' })
+    updateSettings({ defaultPolicyProfile: mode })
   }
   function syncEvidenceLevel(level: EvidenceLevel) {
     setEvidenceLevel(level)

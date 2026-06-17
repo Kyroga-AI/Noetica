@@ -234,9 +234,10 @@ type MessageBubbleProps = {
   onRegenerate?: () => void
   onFork?: (messageId: string) => void
   onEdit?: (messageId: string, newContent: string) => void
+  onSpeak?: (content: string) => void
 }
 
-export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate, onFork, onEdit }: MessageBubbleProps) {
+export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate, onFork, onEdit, onSpeak }: MessageBubbleProps) {
   const isUser = message.role === 'user'
   const [extracted, setExtracted] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -398,6 +399,18 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
                   <path d="M2 3.8v1.5a2 2 0 0 0 2 2h3a2 2 0 0 0 2-2V3.8M5.5 7.7V5.3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
                 </svg>
                 Fork
+              </button>
+            )}
+            {onSpeak && message.content && (
+              <button onClick={() => onSpeak(message.content.replace(/\[.*?\]/g, '').trim())}
+                className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-secondary)]"
+                title="Speak aloud">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden>
+                  <path d="M2 4H1v3h1l3 2.5V1.5L2 4z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+                  <path d="M8 3.5c.8.6 1.3 1.3 1.3 2s-.5 1.4-1.3 2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                  <path d="M7 4.5c.4.3.7.6.7 1s-.3.7-.7 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                </svg>
+                Speak
               </button>
             )}
           </div>

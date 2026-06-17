@@ -1146,6 +1146,7 @@ export function AppShell() {
                 onAtomSelect={(query) => { setActiveSurface('chat'); void handleSend(query, []) }}
                 onOpenSettings={() => openSettings('connections')}
                 onNavigateToOperate={() => setActiveSurface('operate')}
+                onSpeak={speak}
               />
               {inspectorVisible && (
                 <RightPanel
@@ -1333,9 +1334,10 @@ type CenterProps = {
   onAtomSelect?: (query: string) => void
   onOpenSettings?: () => void
   onNavigateToOperate?: () => void
+  onSpeak?: (content: string) => void
 }
 
-function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate }: CenterProps) {
+function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onSpeak }: CenterProps) {
   if (activeSurface === 'notes')        return <NotesSurface />
   if (activeSurface === 'canvas')       return <CanvasSurface />
   if (activeSurface === 'workrooms')    return <WorkroomsSurface thinkingBudget={thinkingBudget} />
@@ -1359,7 +1361,7 @@ function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, 
   return (
     <div className={`grid min-h-0 flex-1 overflow-hidden transition-[grid-template-columns] duration-300 ${activeArtifact ? 'grid-cols-[minmax(320px,1fr)_480px]' : 'grid-cols-1'}`}>
       <section className="flex min-h-0 flex-col overflow-hidden">
-        <MessageList messages={messages} isStreaming={isStreaming} onExtractArtifact={onExtractArtifact} onRegenerate={onRegenerate} onFork={onFork} onEdit={onEdit} onRecombine={onRecombine} />
+        <MessageList messages={messages} isStreaming={isStreaming} onExtractArtifact={onExtractArtifact} onRegenerate={onRegenerate} onFork={onFork} onEdit={onEdit} onRecombine={onRecombine} onSpeak={onSpeak} />
         <InputArea
           onSend={onSend}
           onFanout={onFanout}

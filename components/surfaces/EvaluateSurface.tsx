@@ -74,13 +74,32 @@ Respond with ONLY valid JSON — no preamble, no markdown:
 }
 
 function parseJudgeResponse(text: string): { score: number; label: string; reasoning: string } | null {
-  try {
-    const cleaned = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
-    const json = JSON.parse(cleaned) as { score?: unknown; label?: unknown; reasoning?: unknown }
-    if (typeof json.score === 'number' && typeof json.label === 'string') {
-      return { score: Math.max(0, Math.min(1, json.score)), label: json.label, reasoning: String(json.reasoning ?? '') }
-    }
-  } catch {}
+  // Strip markdown fences then try direct parse
+  const stripped = text.replace(/```(?:json)?\n?/g, '').replace(/```\n?/g, '').trim()
+  const attempts = [
+    stripped,
+    // Extract first JSON object from prose
+    (stripped.match(/\{[\s\S]*?\}/)?.[0] ?? ''),
+    // Extract last JSON object (models sometimes put JSON at end)
+    (stripped.match(/(\{[\s\S]*?\})/g)?.at(-1) ?? ''),
+  ]
+  for (const candidate of attempts) {
+    if (!candidate) continue
+    try {
+      const json = JSON.parse(candidate) as { score?: unknown; label?: unknown; reasoning?: unknown }
+      const scoreRaw = typeof json.score === 'number' ? json.score : parseFloat(String(json.score ?? ''))
+      if (!isNaN(scoreRaw) && typeof json.label === 'string') {
+        return { score: Math.max(0, Math.min(1, scoreRaw)), label: json.label, reasoning: String(json.reasoning ?? '') }
+      }
+    } catch {}
+  }
+  // Last resort: regex extract score from prose like "Score: 0.8" or "score=0.7"
+  const scoreMatch = text.match(/\bscore[:\s=]+([0-9]*\.?[0-9]+)/i)
+  const labelMatch = text.match(/\blabel[:\s"]+([A-Za-z ]{2,30})/i)
+  if (scoreMatch) {
+    const score = Math.max(0, Math.min(1, parseFloat(scoreMatch[1])))
+    return { score, label: labelMatch?.[1]?.trim() ?? (score >= 0.8 ? 'Good' : score >= 0.5 ? 'Acceptable' : 'Poor'), reasoning: '' }
+  }
   return null
 }
 
