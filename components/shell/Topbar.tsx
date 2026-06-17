@@ -1,6 +1,7 @@
 import { WarmingLevel } from '@/components/risk/WarmingLevel'
 import { ThemePicker } from '@/components/shell/ThemePicker'
 import { RuntimeStatus } from '@/components/status/RuntimeStatus'
+import { RealtimeVoiceButton } from '@/components/voice/RealtimeVoiceButton'
 import type { RiskAversionLiveReadout } from '@/lib/risk/riskAversionLive'
 import type { VoiceState } from '@/lib/voice/useVoice'
 
@@ -9,13 +10,18 @@ type TopbarProps = {
   mode: 'standalone' | 'sourceos'
   riskReadout?: RiskAversionLiveReadout | null
   voiceState?: VoiceState
+  openaiApiKey?: string
+  hasMessages?: boolean
   onModelChange: (modelId: string) => void
   onModeChange: (mode: 'standalone' | 'sourceos') => void
   onOpenSettings: (category?: string) => void
   onOpenPalette: () => void
   onOpenInspector?: () => void
+  onExportConversation?: () => void
   onVoiceStart?: () => void
   onVoiceStop?: () => void
+  onRealtimeTranscript?: (text: string) => void
+  onRealtimeSpeechStart?: () => void
 }
 
 function IconSettings() {
@@ -27,7 +33,7 @@ function IconSettings() {
   )
 }
 
-export function Topbar({ modelId, mode, riskReadout, voiceState, onModelChange, onModeChange, onOpenSettings, onOpenPalette, onOpenInspector, onVoiceStart, onVoiceStop }: TopbarProps) {
+export function Topbar({ modelId, mode, riskReadout, voiceState, openaiApiKey, hasMessages, onModelChange, onModeChange, onOpenSettings, onOpenPalette, onOpenInspector, onExportConversation, onVoiceStart, onVoiceStop, onRealtimeTranscript, onRealtimeSpeechStart }: TopbarProps) {
   const isListening = voiceState === 'listening'
 
   return (
@@ -41,7 +47,7 @@ export function Topbar({ modelId, mode, riskReadout, voiceState, onModelChange, 
 
       <div className="flex items-center gap-2">
         <RuntimeStatus />
-        {/* Voice button — compact, salmon pink */}
+        {/* Basic STT voice button — compact, salmon pink */}
         <button
           onClick={isListening ? onVoiceStop : onVoiceStart}
           title={isListening ? 'Listening… click to stop' : 'Speak to Claude'}
@@ -60,8 +66,25 @@ export function Topbar({ modelId, mode, riskReadout, voiceState, onModelChange, 
             <path d="M3 8a5 5 0 0 0 10 0M8 13v2M6 15h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
           </svg>
         </button>
+        {/* Real-time voice (OpenAI Realtime API) — only shown when API key is available */}
+        {openaiApiKey && (
+          <RealtimeVoiceButton apiKey={openaiApiKey} onTranscript={onRealtimeTranscript} onSpeechStart={onRealtimeSpeechStart} />
+        )}
         <WarmingLevel readout={riskReadout} onOpenInspector={onOpenInspector} />
         <ThemePicker />
+        {hasMessages && onExportConversation && (
+          <button
+            onClick={onExportConversation}
+            style={{ border: 'none', background: 'none' }}
+            className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-secondary)]"
+            aria-label="Export conversation"
+            title="Export conversation"
+          >
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
+              <path d="M8 1v9M5 7l3 3 3-3M3 13h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+        )}
         <button
           onClick={onOpenPalette}
           style={{ border: 'none', background: 'none' }}

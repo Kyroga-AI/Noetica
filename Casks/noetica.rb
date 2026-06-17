@@ -3,11 +3,12 @@ cask "noetica" do
   sha256 "f0f15f354bf5eb870f72cd30d336f54aeaaa020fad170758d41f58c3508ba5a8"
 
   url "https://github.com/SocioProphet/Noetica/releases/download/v#{version}/Noetica_0.1.0_aarch64.dmg"
+  # NOTE: DMG filename uses package.json version (0.1.0); align with tauri version on next release bump.
   name "Noetica"
   desc "Governed AI workstation shell with steering, benchmarking, and evidence"
   homepage "https://github.com/SocioProphet/Noetica"
 
-  depends_on macos: ">= :ventura"
+  depends_on macos: :ventura
 
   app "Noetica.app"
 

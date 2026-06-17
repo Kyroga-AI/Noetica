@@ -24,11 +24,14 @@ export type { ProviderTool, ToolUseBlock }
 export type NoeticaChatRequest = {
   session_id: string
   mode: NoeticaMode
-  model_id: string
+  model_id?: string
   messages: ChatMessage[]
   steering?: SteeringConfig
   memory_scope: string
   thinking_budget?: number
+  temperature?: number
+  max_tokens?: number
+  top_p?: number
   /** User-supplied API keys from browser settings — used when server env vars are absent. */
   provider_keys?: NoeticaProviderKeys
   /** When set, chat requests are proxied to this Agent Machine endpoint instead of calling providers directly. */
@@ -37,6 +40,10 @@ export type NoeticaChatRequest = {
   tools?: ProviderTool[]
   /** Optional system prompt override for this request. */
   system_prompt?: string
+  /** Policy profile from GovernSurface settings — 'default' | 'strict' | 'permissive' */
+  policy_profile?: string
+  /** Override provider API base URL — supports local proxies and OpenAI-compatible endpoints */
+  api_endpoint_override?: string
 }
 
 export type NoeticaSteerRequest = {
@@ -84,6 +91,8 @@ export type NoeticaStreamDoneResult = {
   status?: GovernanceTrace['sourceos_status']
   timestamp?: string
   latency_ms: number
+  input_tokens?: number
+  output_tokens?: number
   steering_applied?: ChatMessage['steering_result']
   /** Set when model requested tool execution — client handles the agentic loop */
   tool_calls?: ToolUseBlock[]

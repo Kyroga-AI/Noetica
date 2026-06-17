@@ -808,6 +808,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       hasAnthropicKey: Boolean(anthropicKey),
       hasOpenAIKey: Boolean(openaiKey),
       explicitModelId: body.model_id,
+      policyProfile: body.policy_profile,
     })
   } catch (err) {
     sse(res, 'error', { error: err instanceof Error ? err.message : String(err) })
@@ -1240,6 +1241,35 @@ const server = http.createServer((req, res) => {
           else throw new Error(`unknown ingest type: ${type}`)
           res.writeHead(200, { 'content-type': 'application/json' })
           res.end(JSON.stringify({ ok: true }))
+        } catch (err) {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: String(err) }))
+        }
+      })()
+    })
+    return
+  }
+
+  // POST /api/ingest/document
+  // Accepts { content: string, filename: string, mimeType?: string }
+  // Chunks, stores as RECORD nodes in HellGraph, returns chunk count + preview.
+  if (req.method === 'POST' && url.pathname === '/api/ingest/document') {
+    setCORSHeaders(res)
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => {
+      ;(async () => {
+        try {
+          const { content, filename, mimeType } = JSON.parse(body) as {
+            content: string
+            filename: string
+            mimeType?: string
+          }
+          if (!content || typeof content !== 'string') throw new Error('content required')
+          const { ingestDocumentChunks } = await import('./lib/graph.js')
+          const result = await ingestDocumentChunks(content, filename, mimeType ?? 'text/plain')
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify(result))
         } catch (err) {
           res.writeHead(400, { 'content-type': 'application/json' })
           res.end(JSON.stringify({ error: String(err) }))

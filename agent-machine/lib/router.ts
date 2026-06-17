@@ -160,14 +160,39 @@ export function buildRouterDecision(opts: {
   hasAnthropicKey: boolean
   hasOpenAIKey: boolean
   explicitModelId?: string
+  policyProfile?: string
 }): RouterDecision & { resolvedModel: string; resolvedProvider: 'ollama' | 'anthropic' | 'openai' } {
   const {
     requestId, content, ollamaAvailable, availableModels,
-    hasAnthropicKey, hasOpenAIKey, explicitModelId,
+    hasAnthropicKey, hasOpenAIKey, explicitModelId, policyProfile,
   } = opts
 
   const task = classifyTask(content)
   const route = ROUTING_TABLE[task]
+
+  // Security profile: route to uncensored model for technical depth
+  if (!explicitModelId && policyProfile === 'security' && ollamaAvailable) {
+    const secModel = isModelAvailable('dolphin3:8b', availableModels) ? 'dolphin3:8b'
+      : isModelAvailable('qwen2.5:14b', availableModels) ? 'qwen2.5:14b'
+      : route.localModel
+    return {
+      requestId,
+      conductorId: 'noetica-conductor',
+      task,
+      domain: 'security',
+      selectedRoute: secModel,
+      routeType: 'local_model',
+      fallbackRoute: 'qwen2.5:14b',
+      specialistAgents: ['security-agent', 'governance-sentinel'],
+      policyDecision: 'allow',
+      rationale: `CITIZEN_FOG / SECURITY_RESEARCHER profile — routing to uncensored local model (${secModel}).`,
+      evidenceRef: `evidence:${requestId}`,
+      auditRef: `audit:${requestId}`,
+      controls: FULL_CONTROLS,
+      resolvedModel: secModel,
+      resolvedProvider: 'ollama',
+    }
+  }
 
   // If caller explicitly named a model, respect it
   if (explicitModelId) {
@@ -345,6 +370,13 @@ export const LOCAL_MODEL_SUITE = [
     description: 'Strongest local general model — writing, research, complex open-ended tasks',
     priority: 5,
     sizeGb: 9.0,
+  },
+  {
+    name: 'dolphin3:8b',
+    role: 'uncensored',
+    description: 'Uncensored local model — activated automatically under security policy profile',
+    priority: 6,
+    sizeGb: 4.9,
   },
 ] as const
 

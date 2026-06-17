@@ -3,6 +3,7 @@ import type { ProviderCallInput, ProviderCallResult, ProviderStreamInput, Provid
 import type { PendingAttachment } from '@/lib/types/attachment'
 
 export const TOOL_CALLS_PREFIX = '\x00tool_calls\x00'
+export const USAGE_PREFIX = '\x00usage\x00'
 
 export async function callOpenAI(input: ProviderCallInput): Promise<ProviderCallResult> {
   const started = Date.now()
@@ -87,13 +88,19 @@ export async function* streamOpenAI(input: ProviderStreamInput & { apiKey?: stri
     model: input.model,
     stream: true,
     messages,
+    ...(input.temperature !== undefined ? { temperature: input.temperature } : {}),
+    ...(input.max_tokens  !== undefined ? { max_tokens:  input.max_tokens  } : {}),
+    ...(input.top_p       !== undefined ? { top_p:       input.top_p       } : {}),
   }
   if (tools?.length) {
     body.tools = tools
     body.tool_choice = 'auto'
   }
 
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+  const endpoint = input.baseUrl
+    ? `${input.baseUrl.replace(/\/$/, '')}/v1/chat/completions`
+    : 'https://api.openai.com/v1/chat/completions'
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -111,6 +118,8 @@ export async function* streamOpenAI(input: ProviderStreamInput & { apiKey?: stri
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
   let buffer = ''
+  let inputTokens = 0
+  let outputTokens = 0
 
   // Accumulate streaming tool_calls
   type PartialToolCall = { id: string; name: string; argsJson: string }
@@ -145,6 +154,9 @@ export async function* streamOpenAI(input: ProviderStreamInput & { apiKey?: stri
             })
           yield TOOL_CALLS_PREFIX + JSON.stringify(calls)
         }
+        if (inputTokens > 0 || outputTokens > 0) {
+          yield USAGE_PREFIX + JSON.stringify({ input_tokens: inputTokens, output_tokens: outputTokens })
+        }
         return
       }
 
@@ -160,6 +172,13 @@ export async function* streamOpenAI(input: ProviderStreamInput & { apiKey?: stri
           }
           finish_reason?: string
         }>
+        usage?: { prompt_tokens?: number; completion_tokens?: number }
+      }
+
+      // Capture usage (sent in stream_options: {include_usage: true} or on final chunk)
+      if (payload.usage) {
+        inputTokens = payload.usage.prompt_tokens ?? inputTokens
+        outputTokens = payload.usage.completion_tokens ?? outputTokens
       }
 
       const choice = payload.choices?.[0]

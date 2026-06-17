@@ -13,6 +13,7 @@ import {
   ingestConversation,
   ingestMessage,
   ingestEntities,
+  ingestDocumentChunks,
 } from '../../lib/hellgraph/ingest.js'
 import type {
   InteractionFact,
@@ -29,6 +30,7 @@ export {
   ingestConversation,
   ingestMessage,
   ingestEntities,
+  ingestDocumentChunks,
   HellGraphStore,
 }
 

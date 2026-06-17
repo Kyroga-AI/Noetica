@@ -451,6 +451,36 @@ function NotionOAuthRow() {
   )
 }
 
+function ForgeSettingsSection() {
+  const { settings, update } = useSettings()
+  return (
+    <div className="space-y-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
+      <div>
+        <label className="block text-xs font-semibold text-[var(--color-text-primary)]">Gitea endpoint</label>
+        <div className="text-[11px] text-[var(--color-text-tertiary)] mt-0.5 mb-1">URL of your Gitea Sovereign instance, e.g. http://localhost:3000</div>
+        <input
+          type="url"
+          value={settings.giteaEndpoint}
+          onChange={(e) => update({ giteaEndpoint: e.target.value })}
+          placeholder="http://localhost:3000"
+          className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs outline-none focus:border-[#bfdbfe]"
+        />
+      </div>
+      <div>
+        <label className="block text-xs font-semibold text-[var(--color-text-primary)]">GitHub PAT</label>
+        <div className="text-[11px] text-[var(--color-text-tertiary)] mt-0.5 mb-1">Personal access token for GitHub API. Used as fallback when OAuth is not connected.</div>
+        <input
+          type="password"
+          value={settings.githubPat}
+          onChange={(e) => update({ githubPat: e.target.value })}
+          placeholder="ghp_…"
+          className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs outline-none focus:border-[#bfdbfe]"
+        />
+      </div>
+    </div>
+  )
+}
+
 export function ConnectionsPanel() {
   return (
     <div className="space-y-5">
@@ -470,6 +500,11 @@ export function ConnectionsPanel() {
       <div className="space-y-3">
         <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Direct login</div>
         <MatrixLoginRow />
+      </div>
+
+      <div className="space-y-3">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Source forge</div>
+        <ForgeSettingsSection />
       </div>
 
       <div className="rounded-xl border border-[#fef9c3] bg-[#fefce8] px-4 py-3 text-xs leading-5 text-[#854d0e]">

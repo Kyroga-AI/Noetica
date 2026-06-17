@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import type { ForgeProvider } from '@/lib/types/forge'
 import { FORGE_META } from '@/lib/types/forge'
 import { useConnectorAuth } from '@/lib/auth/context'
+import { useSettings } from '@/lib/settings/context'
 
 type ForgeFilter = ForgeProvider | 'all'
 type CodeView = 'overview' | 'gitea_detail' | 'github_detail'
@@ -34,9 +35,35 @@ function StatusDot({ ok }: { ok: boolean | null }) {
 // ─── Gitea Sovereign detail ───────────────────────────────────────────────────
 
 function GiteaDetail({ onBack }: { onBack: () => void }) {
+  const { settings } = useSettings()
   const [repoSearch, setRepoSearch] = useState('')
+  const [apiReachable, setApiReachable] = useState<boolean | null>(null)
+  const [apiLatency, setApiLatency] = useState<number | null>(null)
+  const [checking, setChecking] = useState(false)
+
+  async function checkGiteaApi() {
+    const endpoint = settings.giteaEndpoint.trim()
+    if (!endpoint) return
+    setChecking(true)
+    const started = Date.now()
+    try {
+      const base = endpoint.replace(/\/$/, '')
+      const res = await fetch(`${base}/api/v1/version`, { signal: AbortSignal.timeout(4000) })
+      setApiReachable(res.ok)
+      setApiLatency(Date.now() - started)
+    } catch {
+      setApiReachable(false)
+      setApiLatency(Date.now() - started)
+    } finally {
+      setChecking(false)
+    }
+  }
+
+  useEffect(() => { void checkGiteaApi() }, [settings.giteaEndpoint]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const configured = Boolean(settings.giteaEndpoint.trim())
   const statusRows: { label: string; ok: boolean | null; detail: string }[] = [
-    { label: 'API reachable',      ok: null,  detail: 'Not configured' },
+    { label: 'API reachable', ok: configured ? apiReachable : null, detail: !configured ? 'Not configured' : checking ? 'Checking…' : apiReachable === true ? `OK · ${apiLatency}ms` : apiReachable === false ? 'Unreachable' : 'Unknown' },
     { label: 'SSH reachable',      ok: null,  detail: 'Not configured' },
     { label: 'Webhook receiver',   ok: null,  detail: 'Not configured' },
     { label: 'Mirror queue',       ok: null,  detail: '—' },
@@ -121,9 +148,16 @@ function GiteaDetail({ onBack }: { onBack: () => void }) {
             />
           </div>
           <div className="px-5 pb-5">
-            <div className="rounded-xl border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-8 text-center text-sm text-[var(--color-text-tertiary)]">
-              No repositories indexed. Configure Gitea endpoint to begin.
-            </div>
+            {!configured ? (
+              <div className="rounded-xl border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-6 text-center">
+                <div className="text-xs text-[var(--color-text-tertiary)]">No Gitea endpoint configured.</div>
+                <div className="mt-2 text-[11px] text-[var(--color-text-tertiary)]">Set your Gitea URL in <strong>Settings → Connections</strong> to enable repository indexing.</div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-8 text-center text-sm text-[var(--color-text-tertiary)]">
+                No repositories indexed. Gitea endpoint: <code className="text-[11px]">{settings.giteaEndpoint}</code>
+              </div>
+            )}
           </div>
         </div>
 
@@ -189,6 +223,7 @@ type GithubRepo = {
   updated_at: string
   private: boolean
   html_url: string
+  clone_url: string
   open_issues_count: number
   default_branch: string
 }
@@ -215,8 +250,63 @@ function fmtRelative(iso: string): string {
 
 function GitHubDetail({ onBack }: { onBack: () => void }) {
   const { store, clearAuth } = useConnectorAuth()
+  const { settings } = useSettings()
   const github = store.github
   const isConnected = github?.status === 'connected' && !!github.accessToken
+  const [actionStatus, setActionStatus] = useState<Record<string, 'idle' | 'running' | 'done' | 'error'>>({})
+
+  function setRepoAction(repoId: number, key: string, status: 'idle' | 'running' | 'done' | 'error') {
+    setActionStatus((prev) => ({ ...prev, [`${repoId}:${key}`]: status }))
+  }
+
+  async function handleImport(repo: GithubRepo) {
+    const k = `${repo.id}:import`
+    setRepoAction(repo.id, 'import', 'running')
+    const endpoint = settings.giteaEndpoint.trim()
+    if (!endpoint) {
+      alert('Set a Gitea endpoint in Settings → Connections to import repositories.')
+      setRepoAction(repo.id, 'import', 'idle')
+      return
+    }
+    try {
+      const base = endpoint.replace(/\/$/, '')
+      const token = github?.accessToken ?? settings.githubPat
+      const res = await fetch(`${base}/api/v1/repos/migrate`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ clone_addr: repo.clone_url, repo_name: repo.name, private: repo.private, mirror: false, auth_token: token }),
+      })
+      setRepoAction(repo.id, 'import', res.ok ? 'done' : 'error')
+    } catch {
+      setRepoAction(repo.id, 'import', 'error')
+    }
+    setTimeout(() => setRepoAction(repo.id, 'import', 'idle'), 3000)
+    void k
+  }
+
+  async function handleMirror(repo: GithubRepo) {
+    setRepoAction(repo.id, 'mirror', 'running')
+    const endpoint = settings.giteaEndpoint.trim()
+    if (!endpoint) {
+      alert('Set a Gitea endpoint in Settings → Connections to mirror repositories.')
+      setRepoAction(repo.id, 'mirror', 'idle')
+      return
+    }
+    try {
+      const base = endpoint.replace(/\/$/, '')
+      const token = github?.accessToken ?? settings.githubPat
+      const res = await fetch(`${base}/api/v1/repos/migrate`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ clone_addr: repo.clone_url, repo_name: repo.name, private: repo.private, mirror: true, mirror_interval: '8h0m0s', auth_token: token }),
+      })
+      setRepoAction(repo.id, 'mirror', res.ok ? 'done' : 'error')
+    } catch {
+      setRepoAction(repo.id, 'mirror', 'error')
+    }
+    setTimeout(() => setRepoAction(repo.id, 'mirror', 'idle'), 3000)
+  }
+
 
   const [repos, setRepos] = useState<GithubRepo[]>([])
   const [loading, setLoading] = useState(false)
@@ -326,11 +416,19 @@ function GitHubDetail({ onBack }: { onBack: () => void }) {
                       </div>
                     </div>
                     <div className="flex shrink-0 gap-1.5">
-                      <button className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2 py-1 text-[10px] font-medium text-[var(--color-text-secondary)] transition hover:border-[#bfdbfe] hover:text-[#1d4ed8]">
-                        Import
+                      <button
+                        onClick={() => void handleImport(repo)}
+                        disabled={actionStatus[`${repo.id}:import`] === 'running'}
+                        className={`rounded-lg border px-2 py-1 text-[10px] font-medium transition ${actionStatus[`${repo.id}:import`] === 'done' ? 'border-[#bbf7d0] bg-[#f0fdf4] text-[#16a34a]' : actionStatus[`${repo.id}:import`] === 'error' ? 'border-[#fecaca] bg-[#fef2f2] text-[#dc2626]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] hover:border-[#bfdbfe] hover:text-[#1d4ed8]'}`}
+                      >
+                        {actionStatus[`${repo.id}:import`] === 'running' ? '…' : actionStatus[`${repo.id}:import`] === 'done' ? 'Imported' : actionStatus[`${repo.id}:import`] === 'error' ? 'Failed' : 'Import'}
                       </button>
-                      <button className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2 py-1 text-[10px] font-medium text-[var(--color-text-secondary)] transition hover:border-[#bfdbfe] hover:text-[#1d4ed8]">
-                        Mirror
+                      <button
+                        onClick={() => void handleMirror(repo)}
+                        disabled={actionStatus[`${repo.id}:mirror`] === 'running'}
+                        className={`rounded-lg border px-2 py-1 text-[10px] font-medium transition ${actionStatus[`${repo.id}:mirror`] === 'done' ? 'border-[#bbf7d0] bg-[#f0fdf4] text-[#16a34a]' : actionStatus[`${repo.id}:mirror`] === 'error' ? 'border-[#fecaca] bg-[#fef2f2] text-[#dc2626]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] hover:border-[#bfdbfe] hover:text-[#1d4ed8]'}`}
+                      >
+                        {actionStatus[`${repo.id}:mirror`] === 'running' ? '…' : actionStatus[`${repo.id}:mirror`] === 'done' ? 'Mirroring' : actionStatus[`${repo.id}:mirror`] === 'error' ? 'Failed' : 'Mirror'}
                       </button>
                     </div>
                   </li>

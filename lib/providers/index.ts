@@ -33,8 +33,13 @@ export type ToolUseBlock = {
 
 export type ProviderStreamInput = ProviderCallInput & {
   thinking_budget?: number
+  temperature?: number
+  max_tokens?: number
+  top_p?: number
   apiKey?: string
   tools?: ProviderTool[]
   /** System prompt override — prepended before conversation */
   systemPrompt?: string
+  /** Override the provider API base URL — supports local proxies and OpenAI-compatible endpoints */
+  baseUrl?: string
 }

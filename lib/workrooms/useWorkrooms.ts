@@ -12,6 +12,7 @@ export interface UseWorkroomsReturn {
   updateWorkroom: (id: string, patch: Partial<Pick<Workroom, 'name' | 'description' | 'pinned'>>) => void
   deleteWorkroom: (id: string) => void
   appendMessage: (id: string, msg: WorkroomMessage) => void
+  updateMessage: (workroomId: string, msgId: string, patch: Partial<WorkroomMessage>) => void
   updateDispatch: (workroomId: string, dispatch: AgentDispatch) => void
 }
 
@@ -100,6 +101,15 @@ export function useWorkrooms(): UseWorkroomsReturn {
     })
   }, [])
 
+  const updateMessage = useCallback((workroomId: string, msgId: string, patch: Partial<WorkroomMessage>) => {
+    mutate((s) => {
+      const r = s.workrooms[workroomId]
+      if (!r) return s
+      const messages = r.messages.map((m) => m.id === msgId ? { ...m, ...patch } : m)
+      return { ...s, workrooms: { ...s.workrooms, [workroomId]: { ...r, messages, updatedAt: new Date().toISOString() } } }
+    })
+  }, [])
+
   const updateDispatch = useCallback((workroomId: string, dispatch: AgentDispatch) => {
     mutate((s) => {
       const r = s.workrooms[workroomId]
@@ -117,5 +127,5 @@ export function useWorkrooms(): UseWorkroomsReturn {
     return b.updatedAt.localeCompare(a.updatedAt)
   })
 
-  return { hydrated, workrooms, createWorkroom, updateWorkroom, deleteWorkroom, appendMessage, updateDispatch }
+  return { hydrated, workrooms, createWorkroom, updateWorkroom, deleteWorkroom, appendMessage, updateMessage, updateDispatch }
 }

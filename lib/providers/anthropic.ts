@@ -22,6 +22,7 @@ export async function callAnthropic(input: ProviderCallInput): Promise<ProviderC
 
 export const THINKING_PREFIX = '\x00thinking\x00'
 export const TOOL_CALLS_PREFIX = '\x00tool_calls\x00'
+export const USAGE_PREFIX = '\x00usage\x00'
 
 // ─── Content block builders ───────────────────────────────────────────────────
 
@@ -79,10 +80,12 @@ export async function* streamAnthropic(input: ProviderStreamInput): AsyncGenerat
 
   const body: Record<string, unknown> = {
     model: input.model,
-    max_tokens: input.thinking_budget ? input.thinking_budget + 4096 : 4096,
+    max_tokens: input.max_tokens ?? (input.thinking_budget ? input.thinking_budget + 4096 : 8192),
     stream: true,
     system: systemMessage,
     messages,
+    ...(input.temperature !== undefined ? { temperature: input.temperature } : {}),
+    ...(input.top_p       !== undefined ? { top_p:       input.top_p       } : {}),
   }
 
   if (tools?.length) body.tools = tools
@@ -90,7 +93,10 @@ export async function* streamAnthropic(input: ProviderStreamInput): AsyncGenerat
     body.thinking = { type: 'enabled', budget_tokens: input.thinking_budget }
   }
 
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
+  const endpoint = input.baseUrl
+    ? `${input.baseUrl.replace(/\/$/, '')}/v1/messages`
+    : 'https://api.anthropic.com/v1/messages'
+  const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -111,6 +117,8 @@ export async function* streamAnthropic(input: ProviderStreamInput): AsyncGenerat
   const decoder = new TextDecoder()
   let buffer = ''
   let inThinkingBlock = false
+  let inputTokens = 0
+  let outputTokens = 0
 
   // Tool use tracking
   type PartialToolUse = { id: string; name: string; inputJson: string; serverId?: string }
@@ -137,8 +145,18 @@ export async function* streamAnthropic(input: ProviderStreamInput): AsyncGenerat
         type?: string
         index?: number
         content_block?: { type?: string; id?: string; name?: string }
-        delta?: { type?: string; text?: string; thinking?: string; partial_json?: string }
-        message?: { stop_reason?: string }
+        delta?: { type?: string; text?: string; thinking?: string; partial_json?: string; usage?: { output_tokens?: number } }
+        message?: { stop_reason?: string; usage?: { input_tokens?: number; output_tokens?: number } }
+        usage?: { input_tokens?: number; output_tokens?: number }
+      }
+
+      if (payload.type === 'message_start' && payload.message?.usage) {
+        inputTokens = payload.message.usage.input_tokens ?? 0
+        outputTokens = payload.message.usage.output_tokens ?? 0
+      }
+
+      if (payload.type === 'message_delta' && payload.usage) {
+        outputTokens = payload.usage.output_tokens ?? outputTokens
       }
 
       if (payload.type === 'content_block_start') {
@@ -188,5 +206,8 @@ export async function* streamAnthropic(input: ProviderStreamInput): AsyncGenerat
         }
       }
     }
+  }
+  if (inputTokens > 0 || outputTokens > 0) {
+    yield USAGE_PREFIX + JSON.stringify({ input_tokens: inputTokens, output_tokens: outputTokens })
   }
 }

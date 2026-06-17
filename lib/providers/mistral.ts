@@ -1,57 +1,36 @@
-import { optionalEnv } from '@/lib/utils/env'
-import type { ProviderStreamInput } from '@/lib/providers'
+import { requireEnv } from '@/lib/utils/env'
+import type { ProviderCallInput, ProviderCallResult, ProviderStreamInput } from '@/lib/providers'
+import { streamOpenAI } from './openai'
 
-export async function* streamMistral(
-  input: ProviderStreamInput & { apiKey?: string }
-): AsyncGenerator<string> {
-  const apiKey = input.apiKey?.trim() || optionalEnv('MISTRAL_API_KEY')
-  if (!apiKey) throw new Error('Mistral API key not configured — add it in Settings → Models.')
+// Mistral's hosted API is OpenAI-compatible (same /v1/chat/completions schema,
+// Bearer auth, SSE streaming, function-calling tool format). We delegate to the
+// OpenAI streamer with Mistral's base URL and key so tool-call/usage parsing,
+// attachment handling, and system-prompt logic stay in one place.
+const MISTRAL_BASE_URL = 'https://api.mistral.ai'
 
-  const response = await fetch('https://api.mistral.ai/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: input.model,
-      stream: true,
-      messages: input.messages.map(({ role, content }) => ({ role, content })),
-    }),
+export { TOOL_CALLS_PREFIX, USAGE_PREFIX } from './openai'
+
+export async function* streamMistral(input: ProviderStreamInput): AsyncGenerator<string> {
+  const apiKey = input.apiKey?.trim() || requireEnv('MISTRAL_API_KEY')
+  yield* streamOpenAI({
+    ...input,
+    apiKey,
+    baseUrl: input.baseUrl?.trim() || MISTRAL_BASE_URL,
   })
+}
 
-  if (!response.ok) {
-    const details = await response.text()
-    throw new Error(`Mistral request failed: ${response.status} ${details}`)
+export async function callMistral(input: ProviderCallInput): Promise<ProviderCallResult> {
+  const started = Date.now()
+  let content = ''
+  for await (const delta of streamMistral(input)) {
+    if (!delta.startsWith('\x00')) content += delta
   }
-  if (!response.body) throw new Error('Mistral response body was empty.')
-
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-
-    buffer += decoder.decode(value, { stream: true })
-    const lines = buffer.split('\n')
-    buffer = lines.pop() ?? ''
-
-    for (const line of lines) {
-      const trimmed = line.trim()
-      if (!trimmed.startsWith('data:')) continue
-
-      const data = trimmed.slice(5).trim()
-      if (data === '[DONE]') return
-
-      try {
-        const payload = JSON.parse(data) as {
-          choices?: Array<{ delta?: { content?: string } }>
-        }
-        const delta = payload.choices?.[0]?.delta?.content
-        if (delta) yield delta
-      } catch { /* skip malformed chunk */ }
-    }
+  return {
+    content,
+    model_routed: input.model,
+    provider: 'mistral',
+    policy_admitted: true,
+    memory_written: false,
+    latency_ms: Date.now() - started,
   }
 }

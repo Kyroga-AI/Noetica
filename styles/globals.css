@@ -2,8 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── CLAUDE THEME (default — no data-theme or data-theme="claude") ─────────── */
-:root {
+/* ─── CLAUDE THEME (default) ─────────────────────────────────────────────────── */
+:root,
+[data-theme="claude"] {
   --noetica-blue: #1D4ED8;
   --noetica-blue-light: #EFF6FF;
   --noetica-blue-mid: #BFDBFE;

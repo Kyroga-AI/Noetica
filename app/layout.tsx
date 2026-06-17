@@ -11,10 +11,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" data-theme="claude" suppressHydrationWarning>
       <head>
-        {/* Apply saved theme before first paint — prevents flash */}
-        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('noetica-theme')||'claude';if(['claude','navy','light'].includes(t))document.documentElement.setAttribute('data-theme',t)}catch(e){}})()` }} />
+        {/* Override data-theme from localStorage if user has saved a preference */}
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('noetica-theme');if(t&&['claude','navy','light'].includes(t))document.documentElement.setAttribute('data-theme',t)}catch(e){}})()` }} />
       </head>
       <body>
         <ThemeProvider>

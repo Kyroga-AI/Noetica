@@ -9,6 +9,19 @@ import type { ChatMessage } from '@/lib/types/message'
 type RunStatus = 'idle' | 'running' | 'done'
 type PreferenceLabel = 'preferred' | 'rejected' | null
 
+type DistillJobStatus = 'queued' | 'running' | 'done' | 'error' | 'cancelled'
+
+interface DistillJob {
+  id: string
+  status: DistillJobStatus
+  step: number
+  total_steps: number
+  loss: number | null
+  error: string | null
+  adapter_path: string | null
+  log: string[]
+}
+
 interface ComparisonRun {
   id: string
   prompt: string
@@ -23,16 +36,18 @@ interface ComparisonRun {
 function runModelPromise(
   modelId: string,
   prompt: string,
-  providerKeys: Record<string, string | undefined>
+  providerKeys: Record<string, string | undefined>,
+  thinkingBudget?: number
 ): Promise<string> {
   return new Promise<string>((resolve, reject) => {
     let text = ''
     const msgs: ChatMessage[] = [{ id: 'u', role: 'user', content: prompt, created_at: new Date().toISOString() }]
     sendNoeticaChat(
-      { session_id: `tune:${crypto.randomUUID()}`, mode: 'standalone', model_id: modelId, messages: msgs, memory_scope: 'noetica-tune', provider_keys: providerKeys },
+      { session_id: `tune:${crypto.randomUUID()}`, mode: 'standalone', model_id: modelId, messages: msgs, memory_scope: 'noetica-tune', provider_keys: providerKeys, thinking_budget: thinkingBudget },
       {
         onMeta: () => {},
         onDelta: (delta) => { text += delta },
+        onThinkingDelta: () => {},
         onDone: (result) => resolve(result.content || text || '(empty response)'),
         onError: (err) => reject(new Error(err)),
       }
@@ -40,17 +55,135 @@ function runModelPromise(
   })
 }
 
-export function TuneSurface() {
+const whiteboxModels = models.filter((m) => m.local_capable)
+
+export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
   const { settings } = useSettings()
   const [teacherModelId, setTeacherModelId] = useState(models[0]?.id ?? '')
-  const [studentModelId, setStudentModelId] = useState(models[1]?.id ?? '')
+  const [studentModelId, setStudentModelId] = useState(whiteboxModels[0]?.id ?? '')
   const [prompt, setPrompt] = useState('')
   const [runStatus, setRunStatus] = useState<RunStatus>('idle')
   const [runs, setRuns] = useState<ComparisonRun[]>([])
   const [activeRunId, setActiveRunId] = useState<string | null>(null)
   const [exportStatus, setExportStatus] = useState<'idle' | 'done'>('idle')
+  const [distillJob, setDistillJob] = useState<DistillJob | null>(null)
+  const [distillSendStatus, setDistillSendStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+  const [distillTrainStatus, setDistillTrainStatus] = useState<'idle' | 'starting' | 'polling' | 'done' | 'error'>('idle')
+  const [distillTeacherType, setDistillTeacherType] = useState<'blackbox' | 'whitebox'>('blackbox')
+  const [distillLoraR, setDistillLoraR] = useState(8)
+  const [distillMaxSteps, setDistillMaxSteps] = useState(100)
+  const [cacheStatus, setCacheStatus] = useState<'idle' | 'loading-model' | 'caching' | 'done' | 'error'>('idle')
+  const [cacheStats, setCacheStats] = useState<{ total: number; withLogits: number } | null>(null)
 
   const activeRun = runs.find((r) => r.id === activeRunId) ?? runs[0] ?? null
+
+  async function handleCacheTeacherLogits() {
+    const labelled = runs.filter((r) => r.preference !== null)
+    if (labelled.length === 0) return
+    setCacheStatus('loading-model')
+    setCacheStats(null)
+    // Load the whitebox teacher model into the cache server
+    const loadRes = await fetch('/api/tune/teacher-cache', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ op: 'load', model_id: studentModelId }),
+    })
+    const loadData = await loadRes.json() as { ok?: boolean; error?: string }
+    if (!loadData.ok) {
+      setCacheStatus('error')
+      return
+    }
+    setCacheStatus('caching')
+    const pairs = labelled.map((r) => ({
+      prompt: r.prompt,
+      chosen: r.preference === 'preferred' ? r.teacherResponse : r.studentResponse,
+      rejected: r.preference === 'preferred' ? r.studentResponse : r.teacherResponse,
+      teacher_model: r.teacherModel,
+      student_model: r.studentModel,
+    }))
+    const cacheRes = await fetch('/api/tune/teacher-cache', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ op: 'cache', pairs }),
+    })
+    const cacheData = await cacheRes.json() as { ok?: boolean; annotated?: unknown[]; with_logits?: number; total?: number; error?: string }
+    if (!cacheData.ok) { setCacheStatus('error'); return }
+    // Submit annotated pairs (with logits) to distill server
+    await fetch('/api/tune/distill', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ op: 'pairs', pairs: cacheData.annotated ?? [] }),
+    })
+    setCacheStats({ total: cacheData.total ?? 0, withLogits: cacheData.with_logits ?? 0 })
+    setCacheStatus('done')
+    setDistillTeacherType('whitebox')
+  }
+
+  async function handleSendToDistill() {
+    const labelled = runs.filter((r) => r.preference !== null)
+    if (labelled.length === 0) return
+    setDistillSendStatus('sending')
+    const pairs = labelled.map((r) => ({
+      prompt: r.prompt,
+      chosen: r.preference === 'preferred' ? r.teacherResponse : r.studentResponse,
+      rejected: r.preference === 'preferred' ? r.studentResponse : r.teacherResponse,
+      teacher_model: r.teacherModel,
+      student_model: r.studentModel,
+    }))
+    try {
+      const res = await fetch('/api/tune/distill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ op: 'pairs', pairs }),
+      })
+      if (res.ok) {
+        setDistillSendStatus('sent')
+        setTimeout(() => setDistillSendStatus('idle'), 2500)
+      } else {
+        setDistillSendStatus('error')
+      }
+    } catch {
+      setDistillSendStatus('error')
+    }
+  }
+
+  async function handleStartTraining() {
+    if (distillTrainStatus === 'polling') return
+    setDistillTrainStatus('starting')
+    try {
+      const res = await fetch('/api/tune/distill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          op: 'train',
+          student_model_id: studentModelId,
+          teacher_type: distillTeacherType,
+          lora_r: distillLoraR,
+          max_steps: distillMaxSteps,
+        }),
+      })
+      const data = await res.json() as { ok?: boolean; job_id?: string; error?: string }
+      if (!data.ok || !data.job_id) {
+        setDistillTrainStatus('error')
+        return
+      }
+      setDistillTrainStatus('polling')
+      const jobId = data.job_id
+      const poll = async () => {
+        const r = await fetch(`/api/tune/distill?job_id=${encodeURIComponent(jobId)}`)
+        const job = await r.json() as DistillJob
+        setDistillJob(job)
+        if (job.status === 'running' || job.status === 'queued') {
+          setTimeout(() => void poll(), 1500)
+        } else {
+          setDistillTrainStatus(job.status === 'done' ? 'done' : 'error')
+        }
+      }
+      void poll()
+    } catch {
+      setDistillTrainStatus('error')
+    }
+  }
 
   async function handleRun() {
     if (!prompt.trim() || runStatus === 'running') return
@@ -77,8 +210,8 @@ export function TuneSurface() {
 
     try {
       const [teacherText, studentText] = await Promise.all([
-        runModelPromise(teacherModelId, placeholder.prompt, providerKeys),
-        runModelPromise(studentModelId, placeholder.prompt, providerKeys),
+        runModelPromise(teacherModelId, placeholder.prompt, providerKeys, thinkingBudget),
+        runModelPromise(studentModelId, placeholder.prompt, providerKeys, thinkingBudget),
       ])
       setRuns((prev) => prev.map((r) => r.id === id
         ? { ...r, teacherResponse: teacherText, studentResponse: studentText }
@@ -136,44 +269,78 @@ export function TuneSurface() {
             <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Run comparative prompts between models, mark preferences, export DPO training data.</p>
           </div>
           {labelledCount > 0 && (
-            <button
-              onClick={exportDPO}
-              className="flex items-center gap-2 rounded-full bg-[#1d4ed8] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#1e40af]"
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-                <path d="M6 1v7M3 6l3 3 3-3M1 10h10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              {exportStatus === 'done' ? 'Saved!' : `Export ${labelledCount} pair${labelledCount !== 1 ? 's' : ''} JSONL`}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => void handleCacheTeacherLogits()}
+                disabled={cacheStatus === 'loading-model' || cacheStatus === 'caching'}
+                title="Run teacher model to extract logits for whitebox KD"
+                className="flex items-center gap-2 rounded-full bg-[#0f766e] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#0d9488] disabled:opacity-50"
+              >
+                {cacheStatus === 'loading-model' ? 'Loading model…' : cacheStatus === 'caching' ? 'Caching…' : cacheStatus === 'done' ? `Logits cached (${cacheStats?.withLogits ?? 0}/${cacheStats?.total ?? 0})` : 'Cache teacher logits'}
+              </button>
+              <button
+                onClick={() => void handleSendToDistill()}
+                disabled={distillSendStatus === 'sending'}
+                className="flex items-center gap-2 rounded-full bg-[#7c3aed] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#6d28d9] disabled:opacity-50"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+                  <path d="M6 1v7M3 6l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                  <circle cx="6" cy="10" r="1.5" fill="currentColor"/>
+                </svg>
+                {distillSendStatus === 'sending' ? 'Sending…' : distillSendStatus === 'sent' ? 'Sent to KD Server' : distillSendStatus === 'error' ? 'Send failed' : `Send ${labelledCount} pair${labelledCount !== 1 ? 's' : ''} to KD`}
+              </button>
+              <button
+                onClick={exportDPO}
+                className="flex items-center gap-2 rounded-full bg-[#1d4ed8] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#1e40af]"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+                  <path d="M6 1v7M3 6l3 3 3-3M1 10h10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                {exportStatus === 'done' ? 'Saved!' : `Export ${labelledCount} JSONL`}
+              </button>
+            </div>
           )}
         </div>
 
         {/* Model pair config */}
         <div className="mt-4 flex flex-wrap items-center gap-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-1">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-[#1d4ed8]">Teacher</span>
             <select
               value={teacherModelId}
               onChange={(e) => setTeacherModelId(e.target.value)}
               className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none"
             >
-              {models.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+              {models.map((m) => <option key={m.id} value={m.id}>{m.label}{m.local_capable ? ' (open)' : ''}</option>)}
             </select>
+            <span className="text-[10px] text-[var(--color-text-tertiary)]">blackbox or open-weight</span>
           </div>
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="text-[var(--color-text-tertiary)]">
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="mt-2 self-center text-[var(--color-text-tertiary)]">
             <path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-1">
             <span className="text-[11px] font-semibold uppercase tracking-wide text-[#7c3aed]">Student</span>
-            <select
-              value={studentModelId}
-              onChange={(e) => setStudentModelId(e.target.value)}
-              className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none"
-            >
-              {models.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-            </select>
+            {whiteboxModels.length === 0 ? (
+              <div className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-2.5 py-1.5 text-xs text-[#dc2626]">
+                No open-weight models available
+              </div>
+            ) : (
+              <select
+                value={studentModelId}
+                onChange={(e) => setStudentModelId(e.target.value)}
+                className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none"
+              >
+                {whiteboxModels.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+              </select>
+            )}
+            <span className="text-[10px] text-[var(--color-text-tertiary)]">open-weight only — weights needed for fine-tuning</span>
           </div>
         </div>
+        {whiteboxModels.length === 0 && (
+          <p className="mt-2 text-[11px] text-[#dc2626]">
+            DPO fine-tuning requires an open-weight student model (Llama, Gemma, GPT-2…). Add one via Agent Machine or Neuronpedia to enable distillation.
+          </p>
+        )}
 
         {/* Prompt input */}
         <div className="mt-3 flex gap-2">
@@ -186,11 +353,80 @@ export function TuneSurface() {
           />
           <button
             onClick={() => void handleRun()}
-            disabled={!prompt.trim() || runStatus === 'running'}
+            disabled={!prompt.trim() || runStatus === 'running' || whiteboxModels.length === 0}
             className="self-end rounded-full bg-[#1d4ed8] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1e40af] disabled:opacity-50"
           >
             {runStatus === 'running' ? 'Running…' : 'Run'}
           </button>
+        </div>
+
+        {/* KD Training panel */}
+        <div className="mt-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-4 py-3">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Teacher type</span>
+              <select
+                value={distillTeacherType}
+                onChange={(e) => setDistillTeacherType(e.target.value as 'blackbox' | 'whitebox')}
+                className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none"
+              >
+                <option value="blackbox">Blackbox → Whitebox (behavioral cloning)</option>
+                <option value="whitebox">Whitebox → Whitebox (KD loss + logits)</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">LoRA rank</span>
+              <input
+                type="number" min={1} max={64} value={distillLoraR}
+                onChange={(e) => setDistillLoraR(parseInt(e.target.value) || 8)}
+                className="w-16 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none"
+              />
+            </div>
+            <div className="flex flex-col gap-1">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Max steps</span>
+              <input
+                type="number" min={1} max={10000} value={distillMaxSteps}
+                onChange={(e) => setDistillMaxSteps(parseInt(e.target.value) || 100)}
+                className="w-20 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none"
+              />
+            </div>
+            <button
+              onClick={() => void handleStartTraining()}
+              disabled={distillTrainStatus === 'polling' || distillTrainStatus === 'starting' || whiteboxModels.length === 0}
+              className="rounded-full bg-[#7c3aed] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#6d28d9] disabled:opacity-50"
+            >
+              {distillTrainStatus === 'starting' ? 'Starting…' : distillTrainStatus === 'polling' ? 'Training…' : distillTrainStatus === 'done' ? 'Done' : 'Start KD Training'}
+            </button>
+          </div>
+
+          {/* Training progress */}
+          {distillJob && (
+            <div className="mt-3 space-y-1.5">
+              <div className="flex items-center gap-2">
+                <span className={`h-2 w-2 rounded-full ${distillJob.status === 'running' ? 'animate-pulse bg-[#7c3aed]' : distillJob.status === 'done' ? 'bg-[#22c55e]' : distillJob.status === 'error' ? 'bg-[#ef4444]' : 'bg-[#d1d5db]'}`} />
+                <span className="text-xs font-medium text-[var(--color-text-primary)]">
+                  {distillJob.status === 'running' || distillJob.status === 'queued'
+                    ? `Step ${distillJob.step}/${distillJob.total_steps}${distillJob.loss !== null ? ` — loss ${distillJob.loss.toFixed(4)}` : ''}`
+                    : distillJob.status === 'done'
+                    ? `Training complete — ${distillJob.total_steps} steps`
+                    : distillJob.status === 'error'
+                    ? `Error: ${distillJob.error}`
+                    : distillJob.status}
+                </span>
+              </div>
+              {distillJob.total_steps > 0 && (
+                <div className="h-1 w-full rounded-full bg-[var(--color-background-secondary)]">
+                  <div
+                    className="h-1 rounded-full bg-[#7c3aed] transition-all"
+                    style={{ width: `${Math.min(100, (distillJob.step / distillJob.total_steps) * 100)}%` }}
+                  />
+                </div>
+              )}
+              {distillJob.adapter_path && (
+                <p className="text-[10px] text-[var(--color-text-tertiary)]">Adapter saved: {distillJob.adapter_path}</p>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

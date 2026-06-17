@@ -14,11 +14,13 @@ const scopes: { value: MemoryScope; label: string; desc: string }[] = [
 
 export function MemoryPanel() {
   const { settings, update } = useSettings()
-  const { entries, remember, forget, edit, hydrated } = useMemory()
+  const { entries, embeddedCount, remember, forget, edit, hydrated, embedAll } = useMemory()
   const [newText, setNewText] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editText, setEditText] = useState('')
   const [confirmClear, setConfirmClear] = useState(false)
+  const [indexing, setIndexing] = useState(false)
+  const [indexResult, setIndexResult] = useState<{ embedded: number; failed: number } | null>(null)
 
   function handleAdd() {
     const text = newText.trim()
@@ -78,7 +80,7 @@ export function MemoryPanel() {
             )}
           </div>
         </div>
-        <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Facts and preferences injected as context at the start of each conversation.</p>
+        <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Facts injected as context per turn — semantically ranked when indexed.</p>
 
         {/* Add new */}
         <div className="mt-3 flex gap-2">
@@ -115,6 +117,11 @@ export function MemoryPanel() {
               <span className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">
                 {entry.source === 'auto' ? '🤖' : '👤'}
               </span>
+              {/* Embedding status dot */}
+              <div
+                className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${entry.embedding ? 'bg-[#1d4ed8]' : 'bg-[#cbd5e1]'}`}
+                title={entry.embedding ? 'Semantically indexed' : 'Not indexed'}
+              />
               {editingId === entry.id ? (
                 <input
                   autoFocus
@@ -145,6 +152,61 @@ export function MemoryPanel() {
           ))}
         </div>
       </div>
+
+      {/* Semantic index */}
+      {hydrated && entries.length > 0 && (
+        <div className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-semibold text-[var(--color-text-primary)]">Semantic index</p>
+              <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">
+                {embeddedCount}/{entries.length} memories indexed
+                {embeddedCount === entries.length && entries.length > 0 ? ' · all indexed' : embeddedCount > 0 ? ' · partial index' : ' · keyword-only'}
+              </p>
+            </div>
+            {/* Progress bar */}
+            <div className="w-20 h-1.5 rounded-full bg-[var(--color-background-tertiary)] overflow-hidden">
+              <div
+                className="h-full rounded-full bg-[#1d4ed8] transition-all"
+                style={{ width: entries.length > 0 ? `${(embeddedCount / entries.length) * 100}%` : '0%' }}
+              />
+            </div>
+          </div>
+          {embeddedCount < entries.length && (
+            <div className="space-y-2">
+              <p className="text-xs text-[var(--color-text-tertiary)]">
+                Build a vector index using OpenAI embeddings for semantic retrieval — conversations will receive the most relevant memories instead of all memories.
+                {!settings.openaiApiKey && ' Requires an OpenAI API key.'}
+              </p>
+              {indexResult && (
+                <p className="text-xs text-[#059669]">
+                  Indexed {indexResult.embedded} memories{indexResult.failed > 0 ? `, ${indexResult.failed} failed` : ''}.
+                </p>
+              )}
+              <button
+                onClick={async () => {
+                  if (!settings.openaiApiKey) return
+                  setIndexing(true)
+                  setIndexResult(null)
+                  try {
+                    const result = await embedAll(settings.openaiApiKey)
+                    setIndexResult(result)
+                  } finally {
+                    setIndexing(false)
+                  }
+                }}
+                disabled={indexing || !settings.openaiApiKey}
+                className="rounded-xl bg-[#1d4ed8] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#1e40af] disabled:opacity-40"
+              >
+                {indexing ? 'Indexing…' : 'Build semantic index'}
+              </button>
+            </div>
+          )}
+          {embeddedCount === entries.length && entries.length > 0 && (
+            <p className="text-xs text-[#059669]">Semantic retrieval active — memories are ranked by relevance each turn.</p>
+          )}
+        </div>
+      )}
 
       {/* Retention */}
       <div>

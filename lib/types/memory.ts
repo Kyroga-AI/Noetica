@@ -32,6 +32,10 @@ export interface MemoryRecallEntry {
   content_hash: string
   source_ref?: string
   score?: number
+  // Local implementation only — a live memory-mesh would serve content via
+  // content-addressable storage rather than inlining it in the recall response
+  text?: string
+  recorded_at?: string
 }
 
 export interface MemoryRecallResult {

@@ -161,6 +161,7 @@ function NoteChat({ note, onAppendMessages }: {
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
   const [messages, setMessages] = useState<ChatMessage[]>(note.messages)
+  const thinkingRef = useRef<string>('')
   const bottomRef = useRef<HTMLDivElement>(null)
 
   // Sync when note changes
@@ -191,6 +192,7 @@ function NoteChat({ note, onAppendMessages }: {
       created_at: new Date().toISOString(),
     }
 
+    thinkingRef.current = ''
     setMessages((prev) => [...prev, userMsg, assistantMsg])
     setInput('')
     setStreaming(true)
@@ -221,15 +223,30 @@ function NoteChat({ note, onAppendMessages }: {
         },
         {
           onMeta: () => {},
+          onThinkingDelta: (delta) => {
+            thinkingRef.current += delta
+            setMessages((prev) =>
+              prev.map((m) => m.id === assistantId ? { ...m, thinking: (m.thinking ?? '') + delta } : m)
+            )
+          },
+          onThinkingDone: (thinking) => {
+            thinkingRef.current = thinking
+          },
           onDelta: (delta) => {
             setMessages((prev) =>
               prev.map((m) => m.id === assistantId ? { ...m, content: m.content + delta } : m)
             )
           },
           onDone: (result) => {
-            const finalMsgs = [
+            const finalMsgs: ChatMessage[] = [
               { ...userMsg },
-              { id: assistantId, role: 'assistant' as const, content: result.content, created_at: new Date().toISOString() },
+              {
+                id: assistantId,
+                role: 'assistant',
+                content: result.content,
+                ...(thinkingRef.current ? { thinking: thinkingRef.current } : {}),
+                created_at: new Date().toISOString(),
+              },
             ]
             onAppendMessages(finalMsgs)
           },

@@ -53,6 +53,7 @@ export interface Project {
   id: string
   name: string
   description?: string
+  systemPrompt?: string
   status: 'active' | 'paused' | 'archived'
   workroomIds: string[]
   repositoryIds: string[]

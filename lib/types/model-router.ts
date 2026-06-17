@@ -16,6 +16,8 @@ export interface ModelRouteRequest {
   task_class: 'standalone-chat' | 'sourceos-chat' | 'steering' | 'comparison'
   model_hint?: string
   provider_hint?: Provider
+  // Providers for which the caller has valid API keys — used for live routing decisions
+  available_providers?: Provider[]
   prompt_hash?: string
   tool_grant_refs?: string[]
   steering_required?: SteeringCapability

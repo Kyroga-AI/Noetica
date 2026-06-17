@@ -608,16 +608,110 @@ function NewProjectForm({ onCreate, onCancel }: { onCreate: (name: string, desc:
   )
 }
 
+// ─── Project settings ─────────────────────────────────────────────────────────
+
+function ProjectSettings({ project, onUpdate }: { project: import('@/lib/types/work').Project; onUpdate: (id: string, patch: Partial<import('@/lib/types/work').Project>) => void }) {
+  const [name, setName] = useState(project.name)
+  const [desc, setDesc] = useState(project.description ?? '')
+  const [systemPrompt, setSystemPrompt] = useState(project.systemPrompt ?? '')
+  const [saved, setSaved] = useState(false)
+
+  useEffect(() => {
+    setName(project.name)
+    setDesc(project.description ?? '')
+    setSystemPrompt(project.systemPrompt ?? '')
+  }, [project.id, project.name, project.description, project.systemPrompt])
+
+  function save() {
+    onUpdate(project.id, {
+      name: name.trim() || project.name,
+      description: desc.trim() || undefined,
+      systemPrompt: systemPrompt.trim() || undefined,
+    })
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  return (
+    <div className="flex-1 overflow-y-auto p-6">
+      <div className="mx-auto max-w-2xl space-y-6">
+        <div>
+          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Project Settings</h2>
+          <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Configure identity and AI context for {project.name}</p>
+        </div>
+
+        {/* Name + description */}
+        <section className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 space-y-4">
+          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#1d4ed8]">Identity</div>
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Name</label>
+            <input
+              className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm font-medium text-[var(--color-text-primary)] outline-none focus:border-[#93c5fd]"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Description</label>
+            <input
+              className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#93c5fd]"
+              placeholder="What is this project about?"
+              value={desc}
+              onChange={(e) => setDesc(e.target.value)}
+            />
+          </div>
+        </section>
+
+        {/* System prompt editor */}
+        <section className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 space-y-3">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#1d4ed8]">System Prompt</div>
+            <p className="mt-1 text-xs leading-5 text-[var(--color-text-secondary)]">
+              Injected at the start of every conversation while this project is active. Use it to set role, context, constraints, and output format expectations.
+            </p>
+          </div>
+          <textarea
+            className="w-full resize-none rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2.5 font-mono text-xs leading-6 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#93c5fd]"
+            placeholder={"You are an expert assistant for the " + project.name + " project.\n\nContext:\n- ...\n\nAlways:\n- ...\n\nNever:\n- ..."}
+            rows={14}
+            value={systemPrompt}
+            onChange={(e) => setSystemPrompt(e.target.value)}
+          />
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] text-[var(--color-text-tertiary)]">{systemPrompt.length} chars</span>
+            {systemPrompt && (
+              <button
+                onClick={() => setSystemPrompt('')}
+                className="text-xs text-[var(--color-text-tertiary)] hover:text-[#ef4444]">
+                Clear
+              </button>
+            )}
+          </div>
+        </section>
+
+        <div className="flex items-center justify-end gap-3">
+          {saved && <span className="text-xs text-[#22c55e]">Saved</span>}
+          <button
+            onClick={save}
+            className="rounded-xl bg-[#1d4ed8] px-5 py-2 text-xs font-semibold text-white transition hover:bg-[#1e40af]">
+            Save changes
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main surface ─────────────────────────────────────────────────────────────
 
-type ViewTab = 'board' | 'backlog' | 'sprints' | 'linear'
+type ViewTab = 'board' | 'backlog' | 'sprints' | 'linear' | 'settings'
 
 export function ProjectsSurface() {
   const {
     hydrated, items, sprints, projects, activeProject, setActiveProjectId,
     createItem, updateItem, deleteItem, moveItem,
     createSprint, updateSprint, deleteSprint,
-    createProject,
+    createProject, updateProject,
   } = useWork()
   const { store } = useConnectorAuth()
 
@@ -658,6 +752,7 @@ export function ProjectsSurface() {
     { id: 'backlog',  label: 'Backlog' },
     { id: 'sprints',  label: 'Sprints' },
     { id: 'linear',   label: 'Linear', hidden: !linearConnected },
+    { id: 'settings', label: 'Settings', hidden: !activeProject },
   ]
 
   return (
@@ -812,8 +907,13 @@ export function ProjectsSurface() {
             />
           )}
 
+          {/* Settings view */}
+          {view === 'settings' && activeProject && (
+            <ProjectSettings project={activeProject} onUpdate={updateProject} />
+          )}
+
           {/* Task detail panel — only for local views */}
-          {selectedItem && view !== 'linear' && (
+          {selectedItem && view !== 'linear' && view !== 'settings' && (
             <TaskDetail item={selectedItem}
               onUpdate={updateItem}
               onDelete={(id) => { deleteItem(id); setSelectedId(null) }}

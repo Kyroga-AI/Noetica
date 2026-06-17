@@ -1,6 +1,11 @@
 'use client'
 
 import { useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+// eslint-disable-next-line
+import oneDark from 'react-syntax-highlighter/dist/cjs/styles/prism/one-dark'
 import type { Artifact } from '@/lib/types/artifact'
 import { artifactTypeLabel, artifactTypeIcon, LANGUAGE_LABELS } from '@/lib/types/artifact'
 
@@ -15,7 +20,7 @@ type ArtifactPaneProps = {
 
 function CodeRenderer({ artifact }: { artifact: Artifact }) {
   const [copied, setCopied] = useState(false)
-  const lang = artifact.language ?? 'other'
+  const lang = artifact.language ?? 'text'
 
   function copy() {
     navigator.clipboard.writeText(artifact.content).then(() => {
@@ -27,7 +32,7 @@ function CodeRenderer({ artifact }: { artifact: Artifact }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-2">
-        <span className="text-xs font-medium text-[var(--color-text-secondary)]">
+        <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
           {LANGUAGE_LABELS[lang] ?? lang}
         </span>
         <button
@@ -37,10 +42,17 @@ function CodeRenderer({ artifact }: { artifact: Artifact }) {
           {copied ? 'Copied!' : 'Copy'}
         </button>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto bg-[#0f172a] p-4">
-        <pre className="text-xs leading-6 text-[#e2e8f0] whitespace-pre-wrap break-all font-mono">
+      <div className="min-h-0 flex-1 overflow-auto">
+        <SyntaxHighlighter
+          // eslint-disable-next-line
+          style={oneDark as any}
+          language={lang}
+          PreTag="div"
+          customStyle={{ margin: 0, borderRadius: 0, fontSize: '12px', lineHeight: '1.65', minHeight: '100%', padding: '16px' }}
+          codeTagProps={{ style: { fontFamily: 'var(--font-mono, ui-monospace, monospace)' } }}
+        >
           {artifact.content}
-        </pre>
+        </SyntaxHighlighter>
       </div>
     </div>
   )
@@ -66,7 +78,7 @@ function HtmlRenderer({ artifact }: { artifact: Artifact }) {
       {mode === 'preview' ? (
         <iframe
           srcDoc={artifact.content}
-          sandbox="allow-scripts"
+          sandbox="allow-scripts allow-forms allow-modals allow-popups allow-same-origin"
           className="min-h-0 flex-1 border-0 bg-[var(--color-background-primary)]"
           title={artifact.title}
         />
@@ -113,9 +125,49 @@ function DocumentRenderer({ artifact, onUpdate }: { artifact: Artifact; onUpdate
           spellCheck={false}
         />
       ) : (
-        <div className="min-h-0 flex-1 overflow-auto p-5">
-          <div className="prose prose-sm max-w-none text-[var(--color-text-secondary)]">
-            <pre className="whitespace-pre-wrap font-sans text-sm leading-7">{artifact.content}</pre>
+        <div className="min-h-0 flex-1 overflow-auto px-6 py-5">
+          <div className="prose prose-sm max-w-none">
+            <ReactMarkdown
+              remarkPlugins={[remarkGfm]}
+              components={{
+                p: ({ children }) => <p className="mb-3 text-sm leading-7 text-[var(--color-text-primary)]">{children}</p>,
+                h1: ({ children }) => <h1 className="mb-3 mt-5 text-xl font-bold text-[var(--color-text-primary)] first:mt-0">{children}</h1>,
+                h2: ({ children }) => <h2 className="mb-2 mt-4 text-lg font-semibold text-[var(--color-text-primary)] first:mt-0">{children}</h2>,
+                h3: ({ children }) => <h3 className="mb-2 mt-3 text-base font-semibold text-[var(--color-text-primary)] first:mt-0">{children}</h3>,
+                ul: ({ children }) => <ul className="mb-3 ml-5 list-disc space-y-1 text-sm text-[var(--color-text-primary)]">{children}</ul>,
+                ol: ({ children }) => <ol className="mb-3 ml-5 list-decimal space-y-1 text-sm text-[var(--color-text-primary)]">{children}</ol>,
+                li: ({ children }) => <li className="leading-7">{children}</li>,
+                blockquote: ({ children }) => <blockquote className="my-2 border-l-2 border-[var(--color-border-primary)] pl-3 italic text-[var(--color-text-secondary)]">{children}</blockquote>,
+                strong: ({ children }) => <strong className="font-semibold text-[var(--color-text-primary)]">{children}</strong>,
+                hr: () => <hr className="my-4 border-[var(--color-border-secondary)]" />,
+                a: ({ href, children }) => <a href={href} onClick={(e) => { e.preventDefault(); href && window.open(href, '_blank', 'noopener,noreferrer') }} className="text-[#1d4ed8] underline">{children}</a>,
+                code: ({ children, className }) => {
+                  const lang = /language-(\w+)/.exec(className ?? '')?.[1] ?? ''
+                  const isBlock = String(children).includes('\n') || !!lang
+                  if (isBlock) return (
+                    <div className="my-3 overflow-hidden rounded-xl border border-[var(--color-border-secondary)]">
+                      {lang && <div className="border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">{lang}</div>}
+                      <SyntaxHighlighter
+                        // eslint-disable-next-line
+                        style={oneDark as any}
+                        language={lang || 'text'}
+                        PreTag="div"
+                        customStyle={{ margin: 0, borderRadius: 0, fontSize: '11px', lineHeight: '1.6', padding: '12px 14px' }}
+                        codeTagProps={{ style: { fontFamily: 'var(--font-mono, ui-monospace, monospace)' } }}
+                      >{String(children).replace(/\n$/, '')}</SyntaxHighlighter>
+                    </div>
+                  )
+                  return <code className="rounded-md bg-[var(--color-background-secondary)] border border-[var(--color-border-tertiary)] px-1.5 py-0.5 font-mono text-[11px]">{children}</code>
+                },
+                table: ({ children }) => <div className="my-3 overflow-x-auto rounded-xl border border-[var(--color-border-secondary)]"><table className="min-w-full text-sm">{children}</table></div>,
+                thead: ({ children }) => <thead className="bg-[var(--color-background-secondary)]">{children}</thead>,
+                tbody: ({ children }) => <tbody className="divide-y divide-[var(--color-border-tertiary)]">{children}</tbody>,
+                th: ({ children }) => <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">{children}</th>,
+                td: ({ children }) => <td className="px-3 py-2 text-[var(--color-text-primary)]">{children}</td>,
+              }}
+            >
+              {artifact.content}
+            </ReactMarkdown>
           </div>
         </div>
       )}

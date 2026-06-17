@@ -41,6 +41,16 @@ function IconNotes() {
     </svg>
   )
 }
+function IconCanvas() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <rect x="2" y="1.5" width="12" height="13" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
+      <path d="M5 5.5h6M5 8.5h6M5 11.5h3.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      <circle cx="12.5" cy="11.5" r="2.5" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="1.1"/>
+      <path d="M12 11.5h1M12.5 11v1" stroke="currentColor" strokeWidth="1" strokeLinecap="round"/>
+    </svg>
+  )
+}
 function IconWorkrooms() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
@@ -139,6 +149,16 @@ function IconTune() {
     </svg>
   )
 }
+function IconComputerUse() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <rect x="1" y="2.5" width="14" height="9" rx="1.5" stroke="currentColor" strokeWidth="1.4"/>
+      <path d="M5 14.5h6M8 11.5v3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+      <path d="M5 6.5l2 2-2 2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
+      <path d="M9 10.5h2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+    </svg>
+  )
+}
 function IconSettings() {
   return (
     <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
@@ -165,6 +185,7 @@ function IconChevronLeft() {
 const surfaceItems: SurfaceItem[] = [
   { id: 'chat',        label: 'Workspace',   icon: <IconChat />,       items: ['New conversation', 'Recent threads', 'Pinned'] },
   { id: 'notes',       label: 'Notes',       icon: <IconNotes />,      items: ['My notes', 'Shared', 'Archived'] },
+  { id: 'canvas',      label: 'Canvas',      icon: <IconCanvas />,     items: ['My documents', 'Shared', 'Archived'] },
   { id: 'cowork',      label: 'Cowork',      icon: <IconCowork />,     items: ['Active sessions', 'Task decomposition', 'Decision log'] },
   { id: 'workrooms',   label: 'Workrooms',   icon: <IconWorkrooms />,  items: ['My rooms', 'Shared rooms', 'Archived'] },
   { id: 'projects',    label: 'Projects',    icon: <IconProjects />,   items: ['Active projects', 'Backlog', 'Sprints'] },
@@ -174,6 +195,7 @@ const surfaceItems: SurfaceItem[] = [
   { id: 'tune',        label: 'Tune & Train',icon: <IconTune />,       items: ['Comparative runs', 'Preference pairs', 'DPO export'] },
   { id: 'govern',      label: 'Govern',      icon: <IconGovern />,     items: ['Policy trace', 'Memory scope', 'Evidence export'] },
   { id: 'operate',     label: 'Operate',     icon: <IconOperate />,    items: ['Graph health', 'Time service', 'Event ledger'] },
+  { id: 'computer',    label: 'Computer Use',icon: <IconComputerUse />, items: ['Screenshot', 'Actions', 'History'] },
   { id: 'holographme', label: 'HolographMe', icon: <IconHolograph />,  items: [] },
   { id: 'marketplace', label: 'Marketplace', icon: <IconMarketplace />,items: [] },
 ]

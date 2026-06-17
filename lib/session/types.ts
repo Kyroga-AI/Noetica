@@ -15,6 +15,7 @@ export interface WorkspaceSession {
   updatedAt: string
   pinned?: boolean
   parentId?: SessionId
+  projectId?: string
 }
 
 export interface SessionStore {

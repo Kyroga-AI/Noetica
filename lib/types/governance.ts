@@ -23,4 +23,6 @@ export interface GovernanceTrace {
   sourceos_status?: NoeticaTaskStatus
   timestamp?: string
   latency_ms: number
+  input_tokens?: number
+  output_tokens?: number
 }

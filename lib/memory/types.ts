@@ -5,6 +5,7 @@ export interface MemoryEntry {
   created_at: string
   session_id?: string
   source: 'user' | 'auto'
+  embedding?: number[]
 }
 
 export interface MemoryStore {

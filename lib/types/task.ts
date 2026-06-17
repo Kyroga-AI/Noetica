@@ -5,7 +5,7 @@ import type { SteeringConfig, SteeringResult } from '@/lib/types/steering'
 export type NoeticaTaskSchemaVersion = 'noetica.task.v0.1'
 export type NoeticaAgentId = 'noetica'
 export type NoeticaTaskMode = 'standalone' | 'sourceos'
-export type NoeticaTaskStatus = 'accepted' | 'blocked' | 'unavailable' | 'stubbed'
+export type NoeticaTaskStatus = 'success' | 'accepted' | 'blocked' | 'unavailable' | 'stubbed'
 
 export interface GrantResolutionRefs {
   requested: string[]
@@ -25,6 +25,11 @@ export interface NoeticaTaskInput {
   memory_scope_ref?: string
   request_hash: string
   agentplane_evidence_ref?: string
+  // Passed through for local direct-provider fallback when no live superconscious endpoint is available
+  provider_keys?: { anthropic?: string; openai?: string; google?: string; mistral?: string }
+  // Full message history for multi-turn context in direct-provider fallback
+  messages?: import('@/lib/types/message').ChatMessage[]
+  system_prompt?: string
 }
 
 export interface NoeticaTaskResult {

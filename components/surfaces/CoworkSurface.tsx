@@ -5,12 +5,25 @@ import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
 import { useSettings } from '@/lib/settings/context'
 import type { ChatMessage } from '@/lib/types/message'
 
-type Task = { id: string; title: string; status: 'todo' | 'doing' | 'done'; agent?: string }
+type Task = { id: string; title: string; status: 'todo' | 'doing' | 'done'; agent?: string; result?: string; running?: boolean; inputFrom?: string }
 type Decision = { id: string; text: string; createdAt: string }
 
 const AGENT_OPTIONS = ['Researcher', 'Engineer', 'Analyst', 'Writer', 'Reviewer']
 
-export function CoworkSurface() {
+const AGENT_PERSONAS: Record<string, string> = {
+  Researcher:
+    'You are a research agent. Your job is to investigate the given task thoroughly. Provide key facts, relevant context, potential approaches, and sources of uncertainty. Be concise and structured.',
+  Engineer:
+    'You are a software engineering agent. Your job is to implement or design the technical solution for the given task. Provide concrete code, architecture decisions, and implementation steps.',
+  Analyst:
+    'You are a data and systems analyst. Your job is to break down the given task, identify risks, dependencies, success metrics, and trade-offs. Be systematic and rigorous.',
+  Writer:
+    'You are a writing and communication agent. Your job is to produce clear, well-structured written output for the given task. Match tone and format to the intended audience.',
+  Reviewer:
+    'You are a critical review agent. Your job is to evaluate the given task or artifact for correctness, completeness, edge cases, and quality. Provide specific, actionable feedback.',
+}
+
+export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
   const { settings } = useSettings()
   const [objective, setObjective] = useState('')
   const [editingObjective, setEditingObjective] = useState(false)
@@ -57,10 +70,11 @@ export function CoworkSurface() {
     let output = ''
     try {
       await sendNoeticaChat(
-        { session_id: `cowork:${crypto.randomUUID()}`, mode: 'standalone', model_id: settings.defaultModelId, messages: msgs, memory_scope: 'noetica-cowork', provider_keys: providerKeys() },
+        { session_id: `cowork:${crypto.randomUUID()}`, mode: 'standalone', model_id: settings.defaultModelId, messages: msgs, memory_scope: 'noetica-cowork', provider_keys: providerKeys(), thinking_budget: thinkingBudget },
         {
           onMeta: () => {},
           onDelta: (d) => { output += d },
+          onThinkingDelta: () => {},
           onDone: () => {
             const lines = output.split('\n')
               .map((l) => l.replace(/^\d+[\.\)]\s*/, '').trim())
@@ -105,6 +119,100 @@ export function CoworkSurface() {
       { id: crypto.randomUUID(), text: `"${tasks.find((t) => t.id === id)?.title?.slice(0,40)}" assigned to ${agent}`, createdAt: new Date().toISOString() },
       ...prev,
     ])
+  }
+
+  async function runTask(task: Task, taskList?: Task[]) {
+    if (!task.agent || task.running) return
+    const persona = AGENT_PERSONAS[task.agent] ?? `You are a ${task.agent} agent. Complete the following task to the best of your ability.`
+    setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, running: true, status: 'doing', result: '' } : t))
+
+    // Task chaining — inject predecessor result as context
+    const predecessorTask = task.inputFrom ? (taskList ?? tasks).find((t) => t.id === task.inputFrom) : null
+    const predecessorContext = predecessorTask?.result
+      ? `\n\nPrior task result (from ${predecessorTask.agent ?? 'agent'} — "${predecessorTask.title}"):\n${predecessorTask.result}`
+      : ''
+
+    const msgs: ChatMessage[] = [
+      {
+        id: 'sys', role: 'system',
+        content: `${persona}\n\nObjective context: ${objective || '(not set)'}${predecessorContext}`,
+        created_at: new Date().toISOString(),
+      },
+      {
+        id: 'user', role: 'user',
+        content: `Complete this task: ${task.title}`,
+        created_at: new Date().toISOString(),
+      },
+    ]
+
+    let output = ''
+    try {
+      await sendNoeticaChat(
+        {
+          session_id: `cowork:task:${task.id}`,
+          mode: 'standalone',
+          model_id: settings.defaultModelId,
+          messages: msgs,
+          memory_scope: 'noetica-cowork',
+          provider_keys: providerKeys(),
+          thinking_budget: thinkingBudget,
+        },
+        {
+          onMeta: () => {},
+          onDelta: (d) => {
+            output += d
+            setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, result: output } : t))
+          },
+          onThinkingDelta: () => {},
+          onDone: (result) => {
+            const final = result.content || output
+            setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, result: final, running: false, status: 'done' } : t))
+            setDecisions((prev) => [
+              { id: crypto.randomUUID(), text: `${task.agent} completed: "${task.title.slice(0, 40)}"`, createdAt: new Date().toISOString() },
+              ...prev,
+            ])
+          },
+          onError: (err) => {
+            setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, running: false, result: `Error: ${err}` } : t))
+          },
+        }
+      )
+    } catch {
+      setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, running: false } : t))
+    }
+  }
+
+  // Run all assigned tasks in dependency order (topological sort by inputFrom)
+  async function runChain() {
+    const pending = tasks.filter((t) => t.agent && t.status !== 'done' && !t.running)
+    if (pending.length === 0) return
+    // Topological order: tasks with no inputFrom first, then tasks whose predecessor is done
+    const ordered: Task[] = []
+    const remaining = [...pending]
+    const maxIter = remaining.length * 2
+    let iter = 0
+    while (remaining.length > 0 && iter++ < maxIter) {
+      const idx = remaining.findIndex((t) => {
+        if (!t.inputFrom) return true
+        return ordered.some((o) => o.id === t.inputFrom) || tasks.find((p) => p.id === t.inputFrom)?.status === 'done'
+      })
+      if (idx === -1) { ordered.push(...remaining); break }
+      ordered.push(remaining.splice(idx, 1)[0])
+    }
+    // Execute sequentially
+    let currentTasks = tasks
+    for (const task of ordered) {
+      const latest = currentTasks.find((t) => t.id === task.id) ?? task
+      await runTask(latest, currentTasks)
+      // Re-read tasks after each run
+      await new Promise<void>((resolve) => {
+        setTasks((prev) => { currentTasks = prev; resolve(); return prev })
+      })
+    }
+  }
+
+  function setInputFrom(id: string, fromId: string | undefined) {
+    setTasks((prev) => prev.map((t) => t.id === id ? { ...t, inputFrom: fromId } : t))
   }
 
   const todoCount  = tasks.filter((t) => t.status === 'todo').length
@@ -189,12 +297,23 @@ export function CoworkSurface() {
                 </div>
               )}
             </div>
-            <button
-              onClick={() => setAddingTask(true)}
-              className="flex items-center gap-1 rounded-lg border border-[var(--color-border-tertiary)] px-2.5 py-1 text-xs text-[var(--color-text-secondary)] transition hover:border-[#1d4ed8] hover:text-[#1d4ed8]"
-            >
-              + Add task
-            </button>
+            <div className="flex items-center gap-2">
+              {tasks.some((t) => t.agent && t.status !== 'done' && !t.running) && (
+                <button
+                  onClick={() => void runChain()}
+                  className="flex items-center gap-1 rounded-lg bg-[#1d4ed8] px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-[#1e40af]"
+                  title="Run all assigned tasks in chain order"
+                >
+                  ⛓ Run chain
+                </button>
+              )}
+              <button
+                onClick={() => setAddingTask(true)}
+                className="flex items-center gap-1 rounded-lg border border-[var(--color-border-tertiary)] px-2.5 py-1 text-xs text-[var(--color-text-secondary)] transition hover:border-[#1d4ed8] hover:text-[#1d4ed8]"
+              >
+                + Add task
+              </button>
+            </div>
           </div>
 
           {addingTask && (
@@ -221,38 +340,82 @@ export function CoworkSurface() {
           ) : (
             <div className="divide-y divide-[var(--color-border-tertiary)]">
               {tasks.map((task) => (
-                <div key={task.id} className="flex items-center gap-3 px-5 py-3 group">
-                  <button
-                    onClick={() => cycleStatus(task.id)}
-                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold transition ${STATUS_STYLE[task.status]}`}
-                    title="Click to cycle status"
-                  >
-                    {task.status}
-                  </button>
-                  <span className={`flex-1 text-sm ${task.status === 'done' ? 'line-through text-[var(--color-text-tertiary)]' : 'text-[var(--color-text-primary)]'}`}>
-                    {task.title}
-                  </span>
-                  {/* Agent assign */}
-                  <select
-                    value={task.agent ?? ''}
-                    onChange={(e) => e.target.value && assignAgent(task.id, e.target.value)}
-                    className="rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-2 py-1 text-[10px] text-[var(--color-text-secondary)] outline-none opacity-0 group-hover:opacity-100 transition"
-                    title="Assign agent"
-                  >
-                    <option value="">Assign…</option>
-                    {AGENT_OPTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
-                  </select>
-                  {task.agent && (
-                    <span className="shrink-0 rounded-full bg-[rgba(29,78,216,0.10)] px-2 py-0.5 text-[10px] text-[#1d4ed8]">{task.agent}</span>
+                <div key={task.id} className="group">
+                  <div className="flex items-center gap-3 px-5 py-3">
+                    <button
+                      onClick={() => cycleStatus(task.id)}
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold transition ${STATUS_STYLE[task.status]}`}
+                      title="Click to cycle status"
+                    >
+                      {task.running ? (
+                        <span className="flex items-center gap-1">
+                          <span className="h-1.5 w-1.5 rounded-full bg-[#1d4ed8] animate-pulse" />
+                          running
+                        </span>
+                      ) : task.status}
+                    </button>
+                    <span className={`flex-1 text-sm ${task.status === 'done' ? 'text-[var(--color-text-tertiary)]' : 'text-[var(--color-text-primary)]'}`}>
+                      {task.title}
+                    </span>
+                    {/* Agent assign */}
+                    <select
+                      value={task.agent ?? ''}
+                      onChange={(e) => e.target.value && assignAgent(task.id, e.target.value)}
+                      className="rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-2 py-1 text-[10px] text-[var(--color-text-secondary)] outline-none opacity-0 group-hover:opacity-100 transition"
+                      title="Assign agent"
+                    >
+                      <option value="">Assign…</option>
+                      {AGENT_OPTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                    {task.agent && (
+                      <span className="shrink-0 rounded-full bg-[rgba(29,78,216,0.10)] px-2 py-0.5 text-[10px] text-[#1d4ed8]">{task.agent}</span>
+                    )}
+                    {/* Chain-from selector */}
+                    {tasks.filter((t) => t.id !== task.id && t.result).length > 0 && (
+                      <select
+                        value={task.inputFrom ?? ''}
+                        onChange={(e) => setInputFrom(task.id, e.target.value || undefined)}
+                        className="shrink-0 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-secondary)] opacity-0 group-hover:opacity-100 transition"
+                        title="Chain input from a prior task result"
+                      >
+                        <option value="">chain from…</option>
+                        {tasks.filter((t) => t.id !== task.id && t.result).map((t) => (
+                          <option key={t.id} value={t.id}>{t.title.slice(0, 30)}</option>
+                        ))}
+                      </select>
+                    )}
+                    {task.inputFrom && (
+                      <span className="shrink-0 rounded-full bg-[rgba(16,185,129,0.10)] px-2 py-0.5 text-[10px] text-[#059669]" title="Chains from prior task">⛓</span>
+                    )}
+                    {task.agent && !task.running && task.status !== 'done' && (
+                      <button
+                        onClick={() => void runTask(task)}
+                        className="shrink-0 rounded-lg bg-[#1d4ed8] px-2.5 py-1 text-[10px] font-semibold text-white opacity-0 group-hover:opacity-100 transition hover:bg-[#1e40af]"
+                        title={`Run with ${task.agent}`}
+                      >
+                        Run
+                      </button>
+                    )}
+                    <button
+                      onClick={() => removeTask(task.id)}
+                      className="shrink-0 text-[var(--color-text-tertiary)] opacity-0 group-hover:opacity-100 transition hover:text-[#ef4444]"
+                    >
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
+                        <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                  {/* Agent result */}
+                  {task.result && (
+                    <div className="border-t border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-5 py-3">
+                      <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold text-[#1d4ed8]">
+                        <span className="h-1.5 w-1.5 rounded-full bg-[#1d4ed8]" />
+                        {task.agent}
+                        {task.running && <span className="animate-pulse">…</span>}
+                      </div>
+                      <p className="whitespace-pre-wrap text-xs leading-5 text-[var(--color-text-primary)]">{task.result}</p>
+                    </div>
                   )}
-                  <button
-                    onClick={() => removeTask(task.id)}
-                    className="shrink-0 text-[var(--color-text-tertiary)] opacity-0 group-hover:opacity-100 transition hover:text-[#ef4444]"
-                  >
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
-                      <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-                    </svg>
-                  </button>
                 </div>
               ))}
             </div>

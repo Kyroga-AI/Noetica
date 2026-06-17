@@ -139,45 +139,85 @@ function AgentDispatchPanel({ room, onDispatch }: {
   room: Workroom
   onDispatch: (agentId: string, task: string) => Promise<void>
 }) {
-  const [selectedAgent, setSelectedAgent] = useState<string | null>(null)
+  const [selectedAgents, setSelectedAgents] = useState<Set<string>>(new Set())
   const [task, setTask] = useState('')
-  const [dispatching, setDispatching] = useState(false)
 
   const activeAgentIds = room.participants.filter((p) => p.kind === 'agent').map((p) => p.agentId)
   const inactiveAgents = AGENT_ARCHETYPES.filter((a) => !activeAgentIds.includes(a.id))
 
-  async function handleDispatch() {
-    if (!selectedAgent || !task.trim() || dispatching) return
-    setDispatching(true)
-    try {
-      await onDispatch(selectedAgent, task.trim())
-      setTask('')
-      setSelectedAgent(null)
-    } finally {
-      setDispatching(false)
+  function toggleAgent(agentId: string) {
+    setSelectedAgents((prev) => {
+      const next = new Set(prev)
+      if (next.has(agentId)) next.delete(agentId)
+      else next.add(agentId)
+      return next
+    })
+  }
+
+  function selectAll() {
+    setSelectedAgents(new Set(activeAgentIds.filter((id): id is string => !!id)))
+  }
+
+  function handleDispatch() {
+    if (selectedAgents.size === 0 || !task.trim()) return
+    const ids = [...selectedAgents]
+    const taskText = task.trim()
+    // Clear immediately — each dispatch streams independently in the background
+    setSelectedAgents(new Set())
+    setTask('')
+    for (const id of ids) {
+      void onDispatch(id, taskText)
     }
   }
+
+  const canDispatch = selectedAgents.size > 0 && task.trim().length > 0
+  const dispatchLabel = selectedAgents.size > 1
+    ? `Dispatch to ${selectedAgents.size} agents`
+    : selectedAgents.size === 1
+    ? `Dispatch to ${AGENT_ARCHETYPES.find((a) => a.id === [...selectedAgents][0])?.name ?? 'agent'}`
+    : 'Select agents above'
 
   return (
     <div className="flex w-72 shrink-0 flex-col border-l border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
       {/* Header */}
       <div className="border-b border-[var(--color-border-secondary)] px-4 py-3">
-        <p className="text-xs font-semibold text-[var(--color-text-primary)]">Agent Dispatch</p>
-        <p className="text-[11px] text-[var(--color-text-tertiary)]">Assign tasks to specialist agents</p>
+        <div className="flex items-center justify-between">
+          <p className="text-xs font-semibold text-[var(--color-text-primary)]">Agent Dispatch</p>
+          {activeAgentIds.length > 1 && (
+            <button onClick={selectAll}
+              className="text-[10px] font-semibold text-[#1d4ed8] hover:underline">
+              Select all
+            </button>
+          )}
+        </div>
+        <p className="text-[11px] text-[var(--color-text-tertiary)]">
+          {selectedAgents.size === 0 ? 'Pick one or more agents, then describe the task' : `${selectedAgents.size} agent${selectedAgents.size !== 1 ? 's' : ''} selected`}
+        </p>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-4">
-        {/* Active agents */}
+        {/* Active agents — multi-select checkboxes */}
         {room.participants.filter((p) => p.kind === 'agent').length > 0 && (
           <div className="space-y-1.5">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">In this room</p>
             {room.participants.filter((p) => p.kind === 'agent').map((p) => {
               const arch = AGENT_ARCHETYPES.find((a) => a.id === p.agentId)
+              const isSelected = p.agentId ? selectedAgents.has(p.agentId) : false
               return (
-                <button key={p.id} onClick={() => setSelectedAgent(p.agentId ?? null)}
+                <button key={p.id} onClick={() => p.agentId && toggleAgent(p.agentId)}
                   className={`flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition ${
-                    selectedAgent === p.agentId ? 'border-[#1d4ed8] bg-[#eff6ff]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] hover:border-[#bfdbfe]'
+                    isSelected ? 'border-[#1d4ed8] bg-[#eff6ff]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] hover:border-[#bfdbfe]'
                   }`}>
+                  {/* Checkbox */}
+                  <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition ${
+                    isSelected ? 'border-[#1d4ed8] bg-[#1d4ed8]' : 'border-[#cbd5e1] bg-transparent'
+                  }`}>
+                    {isSelected && (
+                      <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden>
+                        <path d="M1.5 4.5l2 2 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    )}
+                  </div>
                   <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${arch?.color ?? 'bg-[#64748b]'}`}>
                     {initials(p.name)}
                   </div>
@@ -185,11 +225,6 @@ function AgentDispatchPanel({ room, onDispatch }: {
                     <p className="text-xs font-semibold text-[var(--color-text-primary)]">{p.name}</p>
                     {arch && <p className="text-[11px] text-[var(--color-text-secondary)]">{arch.description}</p>}
                   </div>
-                  {selectedAgent === p.agentId && (
-                    <svg className="ml-auto shrink-0" width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-                      <path d="M2 6l3 3 5-5" stroke="#1d4ed8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  )}
                 </button>
               )
             })}
@@ -202,6 +237,7 @@ function AgentDispatchPanel({ room, onDispatch }: {
             <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Available agents</p>
             {AGENT_ARCHETYPES.map((arch) => {
               const isActive = activeAgentIds.includes(arch.id)
+              const isSelected = selectedAgents.has(arch.id)
               return (
                 <div key={arch.id}
                   className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 ${isActive ? 'border-[#dcfce7] bg-[#f0fdf4]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]'}`}>
@@ -219,9 +255,11 @@ function AgentDispatchPanel({ room, onDispatch }: {
                   {isActive ? (
                     <span className="shrink-0 text-[10px] font-semibold text-[#22c55e]">Active</span>
                   ) : (
-                    <button onClick={() => setSelectedAgent(arch.id)}
-                      className="shrink-0 rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2 py-1 text-[10px] font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe]">
-                      Use
+                    <button onClick={() => toggleAgent(arch.id)}
+                      className={`shrink-0 rounded-lg border px-2 py-1 text-[10px] font-semibold transition ${
+                        isSelected ? 'border-[#1d4ed8] bg-[#1d4ed8] text-white' : 'border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8] hover:bg-[#dbeafe]'
+                      }`}>
+                      {isSelected ? 'Selected' : 'Use'}
                     </button>
                   )}
                 </div>
@@ -252,41 +290,40 @@ function AgentDispatchPanel({ room, onDispatch }: {
         )}
       </div>
 
-      {/* Dispatch form */}
-      {selectedAgent && (
-        <div className="border-t border-[var(--color-border-secondary)] p-3 space-y-2">
-          {(() => {
-            const arch = AGENT_ARCHETYPES.find((a) => a.id === selectedAgent)
-            return arch ? (
-              <div className="flex items-center gap-2">
-                <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${arch.color}`}>
-                  {initials(arch.name)}
-                </div>
-                <p className="text-xs font-semibold text-[var(--color-text-primary)]">Dispatch to {arch.name}</p>
-                <button onClick={() => setSelectedAgent(null)} className="ml-auto text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]">
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
-                    <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                  </svg>
-                </button>
-              </div>
-            ) : null
-          })()}
-          <textarea
-            className="w-full resize-none rounded-xl border border-[#bfdbfe] bg-[var(--color-background-primary)] px-3 py-2 text-xs leading-5 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#1d4ed8]"
-            placeholder="Describe the task…"
-            rows={3}
-            value={task}
-            disabled={dispatching}
-            onChange={(e) => setTask(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void handleDispatch() }}
-          />
-          <button onClick={() => void handleDispatch()}
-            disabled={!task.trim() || dispatching}
-            className="w-full rounded-xl bg-[#1d4ed8] py-2 text-xs font-semibold text-white transition hover:bg-[#1e40af] disabled:cursor-not-allowed disabled:opacity-50">
-            {dispatching ? 'Dispatching…' : 'Dispatch'}
-          </button>
-        </div>
-      )}
+      {/* Dispatch form — always visible */}
+      <div className="border-t border-[var(--color-border-secondary)] p-3 space-y-2">
+        {selectedAgents.size > 0 && (
+          <div className="flex flex-wrap gap-1">
+            {[...selectedAgents].map((id) => {
+              const arch = AGENT_ARCHETYPES.find((a) => a.id === id)
+              if (!arch) return null
+              return (
+                <span key={id} className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white ${arch.color}`}>
+                  {arch.name}
+                  <button onClick={() => toggleAgent(id)} className="opacity-70 hover:opacity-100" aria-label={`Remove ${arch.name}`}>
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
+                      <path d="M1 1l6 6M7 1L1 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                    </svg>
+                  </button>
+                </span>
+              )
+            })}
+          </div>
+        )}
+        <textarea
+          className="w-full resize-none rounded-xl border border-[#bfdbfe] bg-[var(--color-background-primary)] px-3 py-2 text-xs leading-5 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#1d4ed8]"
+          placeholder="Describe the task…"
+          rows={3}
+          value={task}
+          onChange={(e) => setTask(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleDispatch() }}
+        />
+        <button onClick={handleDispatch}
+          disabled={!canDispatch}
+          className="w-full rounded-xl bg-[#1d4ed8] py-2 text-xs font-semibold text-white transition hover:bg-[#1e40af] disabled:cursor-not-allowed disabled:opacity-40">
+          {dispatchLabel}
+        </button>
+      </div>
     </div>
   )
 }
@@ -295,9 +332,11 @@ function AgentDispatchPanel({ room, onDispatch }: {
 
 const YOU: WorkroomMessage['participantId'] = 'user'
 
-function RoomView({ room, onAppendMessage, onUpdateDispatch }: {
+function RoomView({ room, thinkingBudget, onAppendMessage, onUpdateMessage, onUpdateDispatch }: {
   room: Workroom
+  thinkingBudget?: number
   onAppendMessage: (msg: WorkroomMessage) => void
+  onUpdateMessage: (msgId: string, patch: Partial<WorkroomMessage>) => void
   onUpdateDispatch: (dispatch: AgentDispatch) => void
 }) {
   const { settings } = useSettings()
@@ -386,7 +425,7 @@ function RoomView({ room, onAppendMessage, onUpdateDispatch }: {
     }
     onAppendMessage(resultMsg)
 
-    // Stream response
+    // Stream response — update the result message slot in place rather than appending
     let fullContent = ''
     try {
       await sendNoeticaChat(
@@ -397,6 +436,7 @@ function RoomView({ room, onAppendMessage, onUpdateDispatch }: {
           messages: [systemMsg, ...recentMessages, taskMsg],
           memory_scope: `noetica-workroom:${room.id}`,
           provider_keys: providerKeys(),
+          thinking_budget: thinkingBudget,
           agent_machine_endpoint:
             settings.runtimeMode === 'agent-machine' ? settings.agentMachineEndpoint : undefined,
         },
@@ -404,20 +444,21 @@ function RoomView({ room, onAppendMessage, onUpdateDispatch }: {
           onMeta: () => {},
           onDelta: (delta) => {
             fullContent += delta
-            // Update the result message content in place
-            onAppendMessage({ ...resultMsg, content: fullContent })
+            onUpdateMessage(resultMsgId, { content: fullContent })
           },
+          onThinkingDelta: () => {},
           onDone: (result) => {
+            onUpdateMessage(resultMsgId, { content: result.content })
             onUpdateDispatch({ ...dispatch, status: 'done', completedAt: new Date().toISOString(), messageId: resultMsgId })
-            onAppendMessage({ ...resultMsg, content: result.content })
           },
           onError: (err) => {
+            onUpdateMessage(resultMsgId, { content: `Error: ${err}` })
             onUpdateDispatch({ ...dispatch, status: 'error', completedAt: new Date().toISOString() })
-            onAppendMessage({ ...resultMsg, content: `Error: ${err}` })
           },
         }
       )
     } catch (e) {
+      onUpdateMessage(resultMsgId, { content: 'Error: request failed' })
       onUpdateDispatch({ ...dispatch, status: 'error', completedAt: new Date().toISOString() })
     }
   }
@@ -659,8 +700,8 @@ type ActiveView =
   | { kind: 'workroom'; id: string }
   | { kind: 'slack'; channel: SlackChannel }
 
-export function WorkroomsSurface() {
-  const { hydrated, workrooms, createWorkroom, deleteWorkroom, appendMessage, updateDispatch } = useWorkrooms()
+export function WorkroomsSurface({ thinkingBudget }: { thinkingBudget?: number }) {
+  const { hydrated, workrooms, createWorkroom, deleteWorkroom, appendMessage, updateMessage, updateDispatch } = useWorkrooms()
   const { store } = useConnectorAuth()
   const [active, setActive] = useState<ActiveView | null>(null)
   const [showNew, setShowNew] = useState(false)
@@ -821,7 +862,9 @@ export function WorkroomsSurface() {
       ) : dedupedRoom ? (
         <RoomView
           room={dedupedRoom}
+          thinkingBudget={thinkingBudget}
           onAppendMessage={(msg) => appendMessage(dedupedRoom.id, msg)}
+          onUpdateMessage={(msgId, patch) => updateMessage(dedupedRoom.id, msgId, patch)}
           onUpdateDispatch={(dispatch) => updateDispatch(dedupedRoom.id, dispatch)}
         />
       ) : (

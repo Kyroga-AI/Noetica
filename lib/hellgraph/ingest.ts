@@ -420,3 +420,105 @@ export function ingestCausalTriad(fact: CausalTriadFact): string {
 function roleLabel(role: 'user' | 'assistant' | 'system'): string {
   return role === 'user' ? 'UserMessage' : role === 'assistant' ? 'AssistantMessage' : 'SystemMessage'
 }
+
+// ─── Document ingest ──────────────────────────────────────────────────────────
+// Chunks a document, stores each chunk as a RECORD node in HellGraph,
+// and extracts entities from the full text. Returns a preview for the UI.
+
+const CHUNK_SIZE = 1500     // chars per chunk
+const CHUNK_OVERLAP = 200   // overlap between adjacent chunks
+
+function chunkText(text: string): string[] {
+  const chunks: string[] = []
+  let start = 0
+  while (start < text.length) {
+    const end = Math.min(start + CHUNK_SIZE, text.length)
+    chunks.push(text.slice(start, end))
+    if (end === text.length) break
+    start = end - CHUNK_OVERLAP
+  }
+  return chunks
+}
+
+export interface DocumentIngestResult {
+  documentId: string
+  filename: string
+  chunks: number
+  nodeIds: string[]
+  preview: string[]    // first 3 chunk previews (first 120 chars each)
+  entities: number
+}
+
+export function ingestDocumentChunks(
+  content: string,
+  filename: string,
+  mimeType = 'text/plain',
+): DocumentIngestResult {
+  const g = getHellGraph()
+  const timestamp = new Date().toISOString()
+  const docId = `urn:regis:record:${filename.replace(/[^a-z0-9]/gi, '-').toLowerCase()}-${Date.now()}`
+
+  // Root document node
+  g.addNode(docId, ['RECORD', 'Document'], {
+    filename,
+    mimeType,
+    ingestedAt: timestamp,
+    charCount: content.length,
+  })
+
+  const chunks = chunkText(content)
+  const nodeIds: string[] = [docId]
+
+  for (let i = 0; i < chunks.length; i++) {
+    const chunkId = `${docId}:chunk:${i}`
+    g.addNode(chunkId, ['RECORD', 'DocumentChunk'], {
+      filename,
+      chunkIndex: i,
+      content: chunks[i]!.slice(0, 800),  // store first 800 chars per chunk
+      charCount: chunks[i]!.length,
+      createdAt: timestamp,
+    })
+    g.addEdge('HAS_CHUNK', docId, chunkId, {
+      chunkIndex: i,
+      epistemicClass: 'confirmed_relation',
+      confidence: 1.0,
+      promotionState: 'confirmed',
+      createdAt: timestamp,
+    })
+    nodeIds.push(chunkId)
+  }
+
+  // Entity extraction on full document text
+  const entities = extractEntities(content)
+  for (const ent of entities) {
+    const atomId = `urn:regis:feature-atom:${ent.normalised.replace(/[^a-z0-9]/g, '-').slice(0, 80)}`
+    const existing = g.getNode(atomId)
+    const existingPrimes: string[] = existing
+      ? String(existing.properties['prime_support'] ?? '').split(',').filter(Boolean)
+      : []
+    const mergedPrimes = [...new Set([...existingPrimes, ...ent.primeSupport])].join(',')
+
+    g.addNode(atomId, [ent.kind, 'FeatureAtom'], {
+      surface: ent.surface,
+      normalised: ent.normalised,
+      prime_support: mergedPrimes,
+      confidence: ent.confidence,
+      kind: ent.kind,
+    })
+    g.addEdge('MENTIONED_IN', atomId, docId, {
+      epistemicClass: 'graph_extraction',
+      confidence: ent.confidence,
+      promotionState: 'confirmed',
+      createdAt: timestamp,
+    })
+  }
+
+  return {
+    documentId: docId,
+    filename,
+    chunks: chunks.length,
+    nodeIds,
+    preview: chunks.slice(0, 3).map((c) => c.slice(0, 120).replace(/\n+/g, ' ')),
+    entities: entities.length,
+  }
+}

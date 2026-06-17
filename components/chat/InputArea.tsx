@@ -1,10 +1,10 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useRef, useState, useCallback } from 'react'
 import type { PendingAttachment } from '@/lib/types/attachment'
 import { MAX_ATTACHMENTS } from '@/lib/types/attachment'
 import { readFilesAsAttachments, openNativeFilePicker } from '@/lib/attachments/reader'
-import { isTauri } from '@/lib/tauri/bridge'
+import { isTauri, amUrl } from '@/lib/tauri/bridge'
 import type { McpTool } from '@/lib/types/mcp'
 import { McpToolPicker } from '@/components/mcp/McpToolPicker'
 import { visibleModels } from '@/config/models'
@@ -71,6 +71,9 @@ export function InputArea({
   const [attachments, setAttachments] = useState<PendingAttachment[]>([])
   const [attachError, setAttachError] = useState('')
   const [dragOver, setDragOver] = useState(false)
+  const [ingestedDocs, setIngestedDocs] = useState<Array<{
+    filename: string; chunks: number; entities: number; preview: string[]
+  }>>([])
   const [selectedTools, setSelectedTools] = useState<string[]>([])
   const [showModes, setShowModes] = useState(false)
   const [showModelPicker, setShowModelPicker] = useState(false)
@@ -97,14 +100,54 @@ export function InputArea({
     setAttachments((prev) => prev.filter((a) => a.clientId !== clientId))
   }
 
+  const TEXT_TYPES = new Set(['text/plain','text/markdown','text/csv','application/json',
+    'application/javascript','text/javascript','text/typescript','text/html','text/css',
+    'application/xml','text/xml','application/x-yaml','text/x-python','text/x-java',
+    'text/x-c','text/x-c++','text/x-rust','text/x-go','text/x-sh'])
+  const TEXT_EXTS = /\.(ts|tsx|js|jsx|py|rs|go|java|c|cpp|h|hpp|cs|rb|php|swift|kt|md|mdx|txt|json|yaml|yml|toml|xml|html|css|sh|bash|zsh|sql|env|gitignore|dockerfile)$/i
+
+  async function ingestTextFile(file: File) {
+    const text = await file.text()
+    try {
+      const res = await fetch(amUrl('/api/ingest/document'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ content: text, filename: file.name, mimeType: file.type || 'text/plain' }),
+      })
+      if (res.ok) {
+        const data = await res.json() as { chunks: number; entities: number; preview: string[] }
+        setIngestedDocs((prev) => [...prev, {
+          filename: file.name,
+          chunks: data.chunks,
+          entities: data.entities,
+          preview: data.preview,
+        }])
+        return true
+      }
+    } catch { /* best-effort */ }
+    return false
+  }
+
   async function addFiles(files: FileList | File[]) {
     setAttachError('')
-    const remaining = MAX_ATTACHMENTS - attachments.length
-    if (remaining <= 0) { setAttachError(`Max ${MAX_ATTACHMENTS} attachments`); return }
-    const limited = Array.from(files).slice(0, remaining)
-    const { ok, errors } = await readFilesAsAttachments(limited)
-    setAttachments((prev) => [...prev, ...ok])
-    if (errors.length > 0) setAttachError(errors.join('; '))
+    const fileArr = Array.from(files)
+    // Separate text/code files → ingest into HellGraph
+    const textFiles = fileArr.filter((f) =>
+      TEXT_TYPES.has(f.type) || TEXT_EXTS.test(f.name),
+    )
+    const attachFiles = fileArr.filter((f) =>
+      !TEXT_TYPES.has(f.type) && !TEXT_EXTS.test(f.name),
+    )
+    for (const tf of textFiles) {
+      await ingestTextFile(tf)
+    }
+    if (attachFiles.length > 0) {
+      const remaining = MAX_ATTACHMENTS - attachments.length
+      if (remaining <= 0) { setAttachError(`Max ${MAX_ATTACHMENTS} attachments`); return }
+      const { ok, errors } = await readFilesAsAttachments(attachFiles.slice(0, remaining))
+      setAttachments((prev) => [...prev, ...ok])
+      if (errors.length > 0) setAttachError(errors.join('; '))
+    }
   }
 
   async function handleAttachClick() {
@@ -124,29 +167,39 @@ export function InputArea({
 
   async function submit() {
     const trimmed = content.trim()
-    if ((!trimmed && attachments.length === 0) || sending || disabled) return
+    if ((!trimmed && attachments.length === 0 && ingestedDocs.length === 0) || sending || disabled) return
     setSending(true)
     const toSend = [...attachments]
     const toolsToSend = [...selectedTools]
+    const docs = [...ingestedDocs]
     setContent('')
     setAttachments([])
     setSelectedTools([])
     setAttachError('')
+    setIngestedDocs([])
     if (textareaRef.current) {
       textareaRef.current.style.height = 'auto'
     }
+    // Prepend ingested document context if any docs were loaded
+    let finalContent = trimmed
+    if (docs.length > 0) {
+      const docContext = docs.map((d) =>
+        `[Document: ${d.filename} — ${d.chunks} chunks, ${d.entities} entities extracted]\n${d.preview.map((p, i) => `Chunk ${i + 1}: ${p}…`).join('\n')}`,
+      ).join('\n\n')
+      finalContent = docContext + (trimmed ? `\n\n${trimmed}` : '\n\nI have loaded the above document(s) into memory. What would you like to know?')
+    }
     try {
       if (fanoutActive && onFanout) {
-        await onFanout(trimmed, toSend)
+        await onFanout(finalContent, toSend)
       } else {
-        await onSend(trimmed, toSend, toolsToSend.length > 0 ? toolsToSend : undefined)
+        await onSend(finalContent, toSend, toolsToSend.length > 0 ? toolsToSend : undefined)
       }
     } finally {
       setSending(false)
     }
   }
 
-  const canSend = (content.trim().length > 0 || attachments.length > 0) && !sending && !disabled
+  const canSend = (content.trim().length > 0 || attachments.length > 0 || ingestedDocs.length > 0) && !sending && !disabled
 
   return (
     <div
@@ -162,6 +215,33 @@ export function InputArea({
       <div className={`mx-auto w-full max-w-3xl rounded-2xl border bg-[var(--color-background-primary)] transition ${
         dragOver ? 'border-[var(--color-border-primary)]' : 'border-[var(--color-border-secondary)]'
       }`}>
+
+        {/* Ingested document chips */}
+        {ingestedDocs.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 px-3 pt-2.5">
+            {ingestedDocs.map((d, i) => (
+              <div key={i} className="flex items-center gap-1.5 rounded-lg border border-[#166534] bg-[#f0fdf4] px-2 py-1 text-xs dark:border-[#166534] dark:bg-[rgba(22,101,52,0.15)]">
+                <span className="text-[#16a34a]">
+                  <svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden>
+                    <path d="M2 1h5.5L10 3.5V11H2V1z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+                    <path d="M6 1v3h4" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+                  </svg>
+                </span>
+                <span className="max-w-[140px] truncate text-[#166534] dark:text-[#4ade80]">{d.filename}</span>
+                <span className="text-[#15803d] dark:text-[#4ade80]">{d.chunks}ch · {d.entities}ent</span>
+                <button
+                  onClick={() => setIngestedDocs((prev) => prev.filter((_, j) => j !== i))}
+                  className="ml-0.5 text-[#15803d] hover:text-[#166534]"
+                  title="Remove"
+                >
+                  <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
+                    <path d="M1 1l6 6M7 1L1 7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         {/* Attachment chips */}
         {attachments.length > 0 && (

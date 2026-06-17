@@ -26,6 +26,13 @@ export async function listenTauri(
 }
 
 /**
+ * Resolve an Agent Machine URL — absolute in Tauri, relative in browser.
+ */
+export function amUrl(path: string): string {
+  return isTauri() ? `http://127.0.0.1:8080${path}` : path
+}
+
+/**
  * Invoke a Tauri command. Returns null in browser (non-Tauri) environments.
  */
 export async function invokeTauri<T>(command: string, args?: Record<string, unknown>): Promise<T | null> {
