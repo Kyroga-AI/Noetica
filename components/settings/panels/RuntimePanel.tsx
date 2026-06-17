@@ -183,6 +183,18 @@ export function RuntimePanel() {
         </div>
       </div>
 
+      {/* Time Service endpoint */}
+      <div>
+        <label className="block text-sm font-semibold text-[var(--color-text-primary)]">Time Service endpoint</label>
+        <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Optional — enables replay controls in Operate → Time Service.</p>
+        <div className="mt-3">
+          <input type="url" value={settings.timeServiceEndpoint}
+            onChange={(e) => update({ timeServiceEndpoint: e.target.value })}
+            placeholder="http://localhost:9090"
+            className="w-full rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8] focus:bg-[var(--color-background-primary)]" />
+        </div>
+      </div>
+
       {/* Agent Machine usage note */}
       {settings.runtimeMode === 'agent-machine' && (
         <div className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 text-xs leading-5 text-[var(--color-text-secondary)] space-y-1.5">

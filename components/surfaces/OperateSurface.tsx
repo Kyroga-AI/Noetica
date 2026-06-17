@@ -5,6 +5,7 @@ import type { GraphHealthStatus, TimeServiceStatus } from '@/lib/types/graph'
 import type { NoeticaServiceStatus, NoeticaServiceCapabilityStatus } from '@/lib/contracts/noeticaService'
 import { loadNoeticaStatus } from '@/lib/client/noeticaStatus'
 import { useConnectorAuth } from '@/lib/auth/context'
+import { useSettings } from '@/lib/settings/context'
 
 type HealthStatus = 'healthy' | 'degraded' | 'failed' | 'unknown'
 
@@ -425,7 +426,44 @@ function GraphHealthTab({ graph, onTabChange, onAtomSelect }: { graph: GraphHeal
 
 // ─── Time Service tab ─────────────────────────────────────────────────────────
 
-function TimeServiceTab({ time }: { time: TimeServiceStatus }) {
+function TimeServiceTab({ time, timeServiceEndpoint }: { time: TimeServiceStatus; timeServiceEndpoint?: string }) {
+  const [replayStart, setReplayStart] = useState('')
+  const [replayEnd, setReplayEnd] = useState('')
+  const [replayStatus, setReplayStatus] = useState<'idle' | 'requesting' | 'done' | 'error'>('idle')
+  const tsEnabled = !!(timeServiceEndpoint?.trim())
+
+  async function requestReplay() {
+    if (!tsEnabled || !replayStart || !replayEnd) return
+    setReplayStatus('requesting')
+    try {
+      const ep = timeServiceEndpoint!.replace(/\/$/, '')
+      const res = await fetch(`${ep}/replay`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ window_start: replayStart, window_end: replayEnd }),
+        signal: AbortSignal.timeout(10000),
+      })
+      setReplayStatus(res.ok ? 'done' : 'error')
+    } catch {
+      setReplayStatus('error')
+    }
+    setTimeout(() => setReplayStatus('idle'), 3000)
+  }
+
+  async function exportCheckpoint() {
+    if (!tsEnabled) return
+    try {
+      const ep = timeServiceEndpoint!.replace(/\/$/, '')
+      const res = await fetch(`${ep}/checkpoint`, { method: 'POST', signal: AbortSignal.timeout(10000) })
+      if (res.ok) {
+        const blob = await res.blob()
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url; a.download = `checkpoint-${Date.now()}.json`; a.click()
+        URL.revokeObjectURL(url)
+      }
+    } catch { /* best-effort */ }
+  }
   const metrics = [
     { label: 'Logical time',    value: time.logicalTime,                         sub: time.status },
     { label: 'Latest event',    value: time.latestEventTime },
@@ -452,26 +490,42 @@ function TimeServiceTab({ time }: { time: TimeServiceStatus }) {
           <div className="flex gap-3">
             <div className="flex-1 space-y-1">
               <label className="text-xs text-[var(--color-text-secondary)]">Window start</label>
-              <input disabled placeholder="—"
-                className="w-full rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs text-[var(--color-text-tertiary)] cursor-not-allowed" />
+              <input
+                type="datetime-local"
+                disabled={!tsEnabled}
+                value={replayStart}
+                onChange={(e) => setReplayStart(e.target.value)}
+                placeholder="—"
+                className={`w-full rounded-xl border px-3 py-2 text-xs outline-none ${tsEnabled ? 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-primary)] focus:border-[#1d4ed8]' : 'border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)] cursor-not-allowed'}`} />
             </div>
             <div className="flex-1 space-y-1">
               <label className="text-xs text-[var(--color-text-secondary)]">Window end</label>
-              <input disabled placeholder="—"
-                className="w-full rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs text-[var(--color-text-tertiary)] cursor-not-allowed" />
+              <input
+                type="datetime-local"
+                disabled={!tsEnabled}
+                value={replayEnd}
+                onChange={(e) => setReplayEnd(e.target.value)}
+                placeholder="—"
+                className={`w-full rounded-xl border px-3 py-2 text-xs outline-none ${tsEnabled ? 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-primary)] focus:border-[#1d4ed8]' : 'border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)] cursor-not-allowed'}`} />
             </div>
           </div>
-          <div className="flex gap-2">
-            <button disabled
-              className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs font-semibold text-[var(--color-text-tertiary)] cursor-not-allowed">
-              Open replay view
+          <div className="flex gap-2 items-center">
+            <button
+              disabled={!tsEnabled || !replayStart || !replayEnd || replayStatus === 'requesting'}
+              onClick={() => void requestReplay()}
+              className={`rounded-xl border px-3 py-2 text-xs font-semibold transition ${tsEnabled && replayStart && replayEnd ? 'border-[#1d4ed8] bg-[#eff6ff] text-[#1d4ed8] hover:bg-[#dbeafe]' : 'border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)] cursor-not-allowed'} disabled:opacity-60`}>
+              {replayStatus === 'requesting' ? 'Requesting…' : replayStatus === 'done' ? 'Requested ✓' : replayStatus === 'error' ? 'Error ✗' : 'Request replay'}
             </button>
-            <button disabled
-              className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs font-semibold text-[var(--color-text-tertiary)] cursor-not-allowed">
+            <button
+              disabled={!tsEnabled}
+              onClick={() => void exportCheckpoint()}
+              className={`rounded-xl border px-3 py-2 text-xs font-semibold transition ${tsEnabled ? 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] text-[var(--color-text-secondary)] hover:border-[#1d4ed8] hover:text-[#1d4ed8]' : 'border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)] cursor-not-allowed'}`}>
               Export checkpoint
             </button>
           </div>
-          <p className="text-[10px] text-[var(--color-text-tertiary)]">Configure Time Service endpoint in Settings → Runtime to enable replay.</p>
+          {!tsEnabled && (
+            <p className="text-[10px] text-[var(--color-text-tertiary)]">Configure Time Service endpoint in Settings → Runtime to enable replay.</p>
+          )}
         </div>
       </div>
     </div>
@@ -748,6 +802,7 @@ type ViewTab = typeof VIEW_TABS[number]
 
 export function OperateSurface({ onAtomSelect }: { onAtomSelect?: (query: string) => void } = {}) {
   const [tab, setTab] = useState<ViewTab>('Graph Health')
+  const { settings } = useSettings()
   const healthCheck = useHealthCheck(amUrl('/api/status'))
   const exportSnap = useFlash()
 
@@ -851,7 +906,7 @@ export function OperateSurface({ onAtomSelect }: { onAtomSelect?: (query: string
 
         {/* Tab content */}
         {tab === 'Graph Health'     && <GraphHealthTab    graph={graph} onTabChange={setTab} onAtomSelect={onAtomSelect} />}
-        {tab === 'Time Service'     && <TimeServiceTab    time={time}   />}
+        {tab === 'Time Service'     && <TimeServiceTab    time={time}   timeServiceEndpoint={settings.timeServiceEndpoint}  />}
         {tab === 'Connector Health' && <ConnectorHealthTab noeticaStatus={noeticaStatus} statusLoading={statusLoading} />}
         {tab === 'Sync Queues'      && <SyncQueuesTab />}
         {tab === 'Event Ledger'     && <EventLedgerTab />}

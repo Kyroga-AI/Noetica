@@ -26,6 +26,7 @@ export interface NoeticaSettings {
   // Runtime
   runtimeMode: 'standalone' | 'agent-machine' | 'sourceos'
   agentMachineEndpoint: string
+  timeServiceEndpoint: string
 
   // Source forge
   giteaEndpoint: string
