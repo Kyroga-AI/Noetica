@@ -881,11 +881,6 @@ export function AppShell() {
       setMessages((current) => {
         const last = [...current].reverse().find((m: ChatMessage) => m.role === 'assistant')
 
-        // TTS: read final assistant message aloud when voice was active
-        if (voiceState !== 'idle' && last?.content) {
-          speak(last.content.replace(/\[.*?\]/g, '').trim())
-        }
-
         // Auto-memory: extract [REMEMBER: ...] markers from the response
         if (last?.content && settings.memoryScope !== 'disabled') {
           const markerRe = /\[REMEMBER:\s*(.+?)\]/gi

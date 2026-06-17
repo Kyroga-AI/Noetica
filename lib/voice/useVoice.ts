@@ -121,53 +121,75 @@ export function useVoice(onTranscript: (text: string) => void) {
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
     window.speechSynthesis?.cancel()
 
-    const openaiKey = settings.openaiApiKey
+    const amBase = 'http://127.0.0.1:8080'
+    const truncated = text.slice(0, 4096)
 
-    // Tier 1: OpenAI TTS via agent-machine (nova voice — genuinely sounds great)
-    if (openaiKey) {
-      try {
-        const res = await fetch('http://127.0.0.1:8080/api/tts', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ text: text.slice(0, 4096), voice: settings.ttsVoice ?? 'nova', api_key: openaiKey }),
-          signal: AbortSignal.timeout(15_000),
-        })
-        if (res.ok) {
-          const blob = await res.blob()
-          const url = URL.createObjectURL(blob)
-          const audio = new Audio(url)
-          audioRef.current = audio
-          audio.onended = () => { URL.revokeObjectURL(url); audioRef.current = null }
-          await audio.play()
-          return
-        }
-      } catch { /* fall through to system voice */ }
+    async function playAudioBlob(blob: Blob) {
+      const url = URL.createObjectURL(blob)
+      const audio = new Audio(url)
+      audioRef.current = audio
+      audio.onended = () => { URL.revokeObjectURL(url); audioRef.current = null }
+      await audio.play()
     }
 
-    // Tier 2: macOS `say` command via Tauri — much better than Web Speech API
+    const provider = settings.ttsProvider ?? 'openai'
+
+    // Tier 1: ElevenLabs — highest quality, supports accent/voice variety
+    if (provider === 'elevenlabs' && settings.elevenlabsApiKey && settings.elevenlabsVoiceId) {
+      try {
+        const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${settings.elevenlabsVoiceId}`, {
+          method: 'POST',
+          headers: {
+            'content-type': 'application/json',
+            'xi-api-key': settings.elevenlabsApiKey,
+          },
+          body: JSON.stringify({
+            text: truncated,
+            model_id: 'eleven_turbo_v2_5',
+            voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+          }),
+          signal: AbortSignal.timeout(20_000),
+        })
+        if (res.ok) { await playAudioBlob(await res.blob()); return }
+      } catch { /* fall through */ }
+    }
+
+    // Tier 2: OpenAI TTS via agent-machine proxy
+    if (provider !== 'system' && settings.openaiApiKey) {
+      try {
+        const res = await fetch(`${amBase}/api/tts`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ text: truncated, voice: settings.ttsVoice ?? 'nova', api_key: settings.openaiApiKey }),
+          signal: AbortSignal.timeout(15_000),
+        })
+        if (res.ok) { await playAudioBlob(await res.blob()); return }
+      } catch { /* fall through */ }
+    }
+
+    // Tier 3: macOS `say` via Tauri — configurable voice name
     if (isTauri()) {
-      // Best macOS enhanced voices in preference order
-      const macVoice = 'Zoe'
-      await invokeTauri('speak_text', { text: text.slice(0, 4096), voice: macVoice })
+      const macVoice = settings.macVoice || 'Ava'
+      await invokeTauri('speak_text', { text: truncated, voice: macVoice })
       return
     }
 
-    // Tier 3: Web Speech API with best available local voice
+    // Tier 4: Web Speech API — last resort, picks best available en voice
     if (window.speechSynthesis) {
       const utterance = new SpeechSynthesisUtterance(text)
       utterance.lang = settings.voiceLanguage ?? 'en-US'
-      const preferred = ['Zoe', 'Nicky', 'Samantha', 'Karen', 'Moira', 'Tessa']
       const voices = window.speechSynthesis.getVoices()
-      const best = preferred
-        .flatMap(name => voices.filter(v => v.name.includes(name)))
-        .find(Boolean)
+      const macVoice = settings.macVoice || 'Ava'
+      const best = voices.find(v => v.name === macVoice)
+        ?? voices.find(v => v.localService && v.lang.startsWith('en-AU'))
         ?? voices.find(v => v.localService && v.lang.startsWith('en'))
       if (best) utterance.voice = best
       utterance.rate = 1.0
       utterance.pitch = 1.0
       window.speechSynthesis.speak(utterance)
     }
-  }, [settings.voiceLanguage, settings.openaiApiKey, settings.ttsVoice])
+  }, [settings.voiceLanguage, settings.openaiApiKey, settings.ttsVoice, settings.ttsProvider,
+      settings.elevenlabsApiKey, settings.elevenlabsVoiceId, settings.macVoice])
 
   const stopSpeaking = useCallback(() => {
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }

@@ -90,13 +90,13 @@ export function classifyTask(content: string): TaskType {
 const ROUTING_TABLE: Record<TaskType, Omit<ModelRoute, 'task'>> = {
   chat: {
     domain: 'conversation',
-    localModel: 'llama3.2:3b',
-    fallbackModel: 'qwen2.5:7b',
+    localModel: 'qwen2.5:7b',
+    fallbackModel: 'llama3.2:3b',
     cloudModel: { provider: 'anthropic', model: 'claude-haiku-4-5-20251001' },
     specialistAgents: ['governance-sentinel'],
     policyDecision: 'allow',
     evidenceRequired: true,
-    rationale: 'Fast conversational exchange — conductor model for low-latency response.',
+    rationale: 'General conversational exchange — qwen2.5:7b is capable and fast enough for chat.',
   },
   coding: {
     domain: 'engineering',
@@ -110,18 +110,18 @@ const ROUTING_TABLE: Record<TaskType, Omit<ModelRoute, 'task'>> = {
   },
   reasoning: {
     domain: 'analysis',
-    localModel: 'qwen2.5:14b',
-    fallbackModel: 'deepseek-r1:8b',
+    localModel: 'deepseek-r1:8b',
+    fallbackModel: 'qwen2.5:7b',
     cloudModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
     specialistAgents: ['planning-agent', 'analytics-agent', 'governance-sentinel'],
     policyDecision: 'allow',
     evidenceRequired: true,
-    rationale: 'Reasoning-specialized model for complex analysis and multi-step problems.',
+    rationale: 'DeepSeek R1 reasoning model for complex analysis and multi-step problems.',
   },
   writing: {
     domain: 'communications',
-    localModel: 'qwen2.5:14b',
-    fallbackModel: 'qwen2.5:7b',
+    localModel: 'qwen2.5:7b',
+    fallbackModel: 'deepseek-r1:8b',
     cloudModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
     specialistAgents: ['writing-agent', 'governance-sentinel'],
     policyDecision: 'allow',
@@ -130,8 +130,8 @@ const ROUTING_TABLE: Record<TaskType, Omit<ModelRoute, 'task'>> = {
   },
   research: {
     domain: 'knowledge',
-    localModel: 'qwen2.5:14b',
-    fallbackModel: 'qwen2.5:7b',
+    localModel: 'qwen2.5:7b',
+    fallbackModel: 'deepseek-r1:8b',
     cloudModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
     specialistAgents: ['research-agent', 'governance-sentinel'],
     policyDecision: 'allow',
@@ -140,8 +140,8 @@ const ROUTING_TABLE: Record<TaskType, Omit<ModelRoute, 'task'>> = {
   },
   general: {
     domain: 'general',
-    localModel: 'qwen2.5:14b',
-    fallbackModel: 'qwen2.5:7b',
+    localModel: 'qwen2.5:7b',
+    fallbackModel: 'deepseek-r1:8b',
     cloudModel: { provider: 'anthropic', model: 'claude-sonnet-4-6' },
     specialistAgents: ['governance-sentinel'],
     policyDecision: 'allow',
@@ -448,6 +448,7 @@ export const LOCAL_MODEL_SUITE = [
     description: 'Vision model — activated automatically when images are pasted or attached',
     priority: 8,
     sizeGb: 8.0,
+    toolUse: false,
   },
 ] as const
 

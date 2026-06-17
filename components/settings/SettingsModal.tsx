@@ -11,6 +11,7 @@ import { FanoutPanel } from './panels/FanoutPanel'
 import { DeveloperPanel } from './panels/DeveloperPanel'
 import { OrgPanel } from './panels/OrgPanel'
 import { PolicyPanel } from './panels/PolicyPanel'
+import { VoicePanel } from './panels/VoicePanel'
 
 type Category = {
   id: string
@@ -106,6 +107,16 @@ function IconPolicy() {
     </svg>
   )
 }
+function IconVoice() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <rect x="5.5" y="1.5" width="5" height="8" rx="2.5" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M3 8a5 5 0 0 0 10 0" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <line x1="8" y1="13" x2="8" y2="15" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <line x1="5.5" y1="15" x2="10.5" y2="15" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  )
+}
 
 const categories: Category[] = [
   { id: 'appearance', label: 'Appearance', icon: <IconAppearance />, panel: <AppearancePanel /> },
@@ -114,6 +125,7 @@ const categories: Category[] = [
   { id: 'connections', label: 'Connections', icon: <IconConnections />, panel: <ConnectionsPanel /> },
   { id: 'connectors', label: 'Connectors', icon: <IconConnectors />, panel: <ConnectorsPanel />, badge: 'MCP' },
   { id: 'memory', label: 'Memory', icon: <IconMemory />, panel: <MemoryPanel /> },
+  { id: 'voice', label: 'Voice', icon: <IconVoice />, panel: <VoicePanel /> },
   { id: 'fanout', label: 'Fan-out', icon: <IconFanout />, panel: <FanoutPanel /> },
   { id: 'developer', label: 'Developer', icon: <IconDeveloper />, panel: <DeveloperPanel /> },
   { id: 'organization', label: 'Organization', icon: <IconOrganization />, panel: <OrgPanel /> },

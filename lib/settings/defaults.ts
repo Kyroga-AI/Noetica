@@ -33,7 +33,11 @@ export const defaultSettings: NoeticaSettings = {
 
   wakeWordEnabled: true,
   voiceLanguage: 'en-US',
+  ttsProvider: 'openai',
   ttsVoice: 'nova',
+  macVoice: 'Ava',
+  elevenlabsApiKey: '',
+  elevenlabsVoiceId: '',
 
   agentSlots: {
     context: 'claude-sonnet-4-6',

@@ -49,7 +49,11 @@ export interface NoeticaSettings {
   // Voice
   wakeWordEnabled: boolean
   voiceLanguage: string
+  ttsProvider: 'elevenlabs' | 'openai' | 'system'
   ttsVoice: 'nova' | 'shimmer' | 'alloy' | 'echo' | 'fable' | 'onyx'
+  macVoice: string
+  elevenlabsApiKey: string
+  elevenlabsVoiceId: string
 
   // Agent slots — maps slot id to agent/model id
   agentSlots: Record<string, string>

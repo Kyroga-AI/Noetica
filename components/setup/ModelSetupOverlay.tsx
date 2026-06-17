@@ -1,5 +1,5 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 
 const AM_BASE =
   typeof window !== 'undefined' && (window as unknown as Record<string, unknown>)['__TAURI_INTERNALS__']
@@ -18,6 +18,8 @@ interface ModelStatus {
 
 export function ModelSetupOverlay({ onDismiss }: { onDismiss: () => void }) {
   const [models, setModels] = useState<ModelStatus[]>([])
+  const [pulling, setPulling] = useState(false)
+  const [pullError, setPullError] = useState<string | null>(null)
   const esRef = useRef<EventSource | null>(null)
   const dismissedRef = useRef(false)
 
@@ -110,6 +112,42 @@ export function ModelSetupOverlay({ onDismiss }: { onDismiss: () => void }) {
     }
   }, [])
 
+  // Pull all required models that are not yet pulled.
+  // Called automatically once the model list loads if any are missing.
+  const startPulling = useCallback(async () => {
+    setPulling(true)
+    setPullError(null)
+    try {
+      const res = await fetch(`${AM_BASE}/api/models`)
+      if (!res.ok) throw new Error('Cannot reach agent-machine')
+      const data = (await res.json()) as {
+        models: Array<{ name: string; pulled: boolean; required: boolean }>
+      }
+      const needed = data.models.filter((m) => m.required && !m.pulled)
+      for (const m of needed) {
+        // Fire-and-forget each pull — SSE stream reports progress
+        void fetch(`${AM_BASE}/api/models/pull`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ model: m.name }),
+        })
+        // Small delay between pulls so Ollama doesn't queue-saturate
+        await new Promise((r) => setTimeout(r, 500))
+      }
+    } catch (e) {
+      setPullError(String(e))
+      setPulling(false)
+    }
+  }, [])
+
+  // Kick off pulls once model list is loaded and any are missing
+  useEffect(() => {
+    if (models.length === 0) return
+    const anyMissing = models.some((m) => m.status === 'waiting')
+    if (anyMissing && !pulling) void startPulling()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [models.length])
+
   // Auto-dismiss once every model is ready
   useEffect(() => {
     if (models.length === 0) return
@@ -187,7 +225,41 @@ export function ModelSetupOverlay({ onDismiss }: { onDismiss: () => void }) {
           )}
         </div>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+        {pullError && (
+          <div style={{ padding: '10px 12px', fontSize: '12px', color: '#f87171', background: 'rgba(248,113,113,0.08)', borderRadius: 6 }}>
+            {pullError}{' '}
+            <button
+              onClick={() => void startPulling()}
+              style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', textDecoration: 'underline', fontSize: '12px', padding: 0 }}
+            >
+              Retry
+            </button>
+          </div>
+        )}
+
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          {pulling && !pullError && (
+            <span style={{ fontSize: '12px', color: 'var(--color-text-secondary, #888)' }}>
+              Downloading models…
+            </span>
+          )}
+          {!pulling && !pullError && models.some(m => m.status === 'waiting') && (
+            <button
+              onClick={() => void startPulling()}
+              style={{
+                background: 'var(--color-accent, #6366f1)',
+                border: 'none',
+                borderRadius: '6px',
+                padding: '6px 14px',
+                fontSize: '12px',
+                color: '#fff',
+                cursor: 'pointer',
+              }}
+            >
+              Download models
+            </button>
+          )}
+          {(!pulling || pullError) && <span />}
           <button
             onClick={onDismiss}
             style={{
