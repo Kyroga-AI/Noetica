@@ -1441,6 +1441,19 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // /api/tune/* — KD training stubs (real distillation requires separate distill server)
+  if (url.pathname.startsWith('/api/tune/')) {
+    setCORSHeaders(res)
+    if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return }
+    res.writeHead(503, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({
+      ok: false,
+      error: 'Distillation server not running. Start the Noetica distillation server (separate process) to enable KD training.',
+      hint: 'See docs/tune-server.md for setup instructions.',
+    }))
+    return
+  }
+
   // GET /api/graph/nodes — raw node/edge data for visualization
   if (req.method === 'GET' && url.pathname === '/api/graph/nodes') {
     void (async () => {

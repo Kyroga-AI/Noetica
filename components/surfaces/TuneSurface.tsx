@@ -4,7 +4,12 @@ import { useState } from 'react'
 import { models } from '@/config/models'
 import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
 import { useSettings } from '@/lib/settings/context'
+import { isTauri } from '@/lib/tauri/bridge'
 import type { ChatMessage } from '@/lib/types/message'
+
+function tuneUrl(path: string): string {
+  return isTauri() ? `http://127.0.0.1:8080${path}` : path
+}
 
 type RunStatus = 'idle' | 'running' | 'done'
 type PreferenceLabel = 'preferred' | 'rejected' | null
@@ -77,20 +82,30 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
 
   const activeRun = runs.find((r) => r.id === activeRunId) ?? runs[0] ?? null
 
+  const [cacheError, setCacheError] = useState<string | null>(null)
+
   async function handleCacheTeacherLogits() {
     const labelled = runs.filter((r) => r.preference !== null)
     if (labelled.length === 0) return
     setCacheStatus('loading-model')
     setCacheStats(null)
-    // Load the whitebox teacher model into the cache server
-    const loadRes = await fetch('/api/tune/teacher-cache', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ op: 'load', model_id: studentModelId }),
-    })
-    const loadData = await loadRes.json() as { ok?: boolean; error?: string }
+    setCacheError(null)
+    let loadData: { ok?: boolean; error?: string }
+    try {
+      const loadRes = await fetch(tuneUrl('/api/tune/teacher-cache'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ op: 'load', model_id: studentModelId }),
+      })
+      loadData = await loadRes.json() as { ok?: boolean; error?: string }
+    } catch (e) {
+      setCacheStatus('error')
+      setCacheError(e instanceof Error ? e.message : 'Network error — distillation server unreachable')
+      return
+    }
     if (!loadData.ok) {
       setCacheStatus('error')
+      setCacheError(loadData.error ?? 'Failed to load teacher model')
       return
     }
     setCacheStatus('caching')
@@ -101,7 +116,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
       teacher_model: r.teacherModel,
       student_model: r.studentModel,
     }))
-    const cacheRes = await fetch('/api/tune/teacher-cache', {
+    const cacheRes = await fetch(tuneUrl('/api/tune/teacher-cache'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ op: 'cache', pairs }),
@@ -109,7 +124,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
     const cacheData = await cacheRes.json() as { ok?: boolean; annotated?: unknown[]; with_logits?: number; total?: number; error?: string }
     if (!cacheData.ok) { setCacheStatus('error'); return }
     // Submit annotated pairs (with logits) to distill server
-    await fetch('/api/tune/distill', {
+    await fetch(tuneUrl('/api/tune/distill'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ op: 'pairs', pairs: cacheData.annotated ?? [] }),
@@ -131,7 +146,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
       student_model: r.studentModel,
     }))
     try {
-      const res = await fetch('/api/tune/distill', {
+      const res = await fetch(tuneUrl('/api/tune/distill'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ op: 'pairs', pairs }),
@@ -151,7 +166,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
     if (distillTrainStatus === 'polling') return
     setDistillTrainStatus('starting')
     try {
-      const res = await fetch('/api/tune/distill', {
+      const res = await fetch(tuneUrl('/api/tune/distill'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -170,7 +185,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
       setDistillTrainStatus('polling')
       const jobId = data.job_id
       const poll = async () => {
-        const r = await fetch(`/api/tune/distill?job_id=${encodeURIComponent(jobId)}`)
+        const r = await fetch(tuneUrl(`/api/tune/distill?job_id=${encodeURIComponent(jobId)}`))
         const job = await r.json() as DistillJob
         setDistillJob(job)
         if (job.status === 'running' || job.status === 'queued') {
@@ -276,8 +291,11 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                 title="Run teacher model to extract logits for whitebox KD"
                 className="flex items-center gap-2 rounded-full bg-[#0f766e] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#0d9488] disabled:opacity-50"
               >
-                {cacheStatus === 'loading-model' ? 'Loading model…' : cacheStatus === 'caching' ? 'Caching…' : cacheStatus === 'done' ? `Logits cached (${cacheStats?.withLogits ?? 0}/${cacheStats?.total ?? 0})` : 'Cache teacher logits'}
+                {cacheStatus === 'loading-model' ? 'Loading model…' : cacheStatus === 'caching' ? 'Caching…' : cacheStatus === 'error' ? 'Failed' : cacheStatus === 'done' ? `Logits cached (${cacheStats?.withLogits ?? 0}/${cacheStats?.total ?? 0})` : 'Cache teacher logits'}
               </button>
+              {cacheStatus === 'error' && cacheError && (
+                <p className="text-[10px] text-[#ef4444]">{cacheError}</p>
+              )}
               <button
                 onClick={() => void handleSendToDistill()}
                 disabled={distillSendStatus === 'sending'}
