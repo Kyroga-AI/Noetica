@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNotes } from '@/lib/notes/useNotes'
 import { useSettings } from '@/lib/settings/context'
 import { useConnectorAuth } from '@/lib/auth/context'
-import { fetchNotionPages, fetchNotionPageContent, type NotionPage } from '@/lib/auth/providers/notion'
+import { fetchNotionPages, fetchNotionPageContent, createNotionPage, type NotionPage } from '@/lib/auth/providers/notion'
 import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
 import type { Note } from '@/lib/types/note'
 import type { ChatMessage } from '@/lib/types/message'
@@ -403,6 +403,8 @@ export function NotesSurface() {
   const [notionPages, setNotionPages] = useState<NotionPage[]>([])
   const [notionLoading, setNotionLoading] = useState(false)
   const [notionExpanded, setNotionExpanded] = useState(true)
+  const [notionPushState, setNotionPushState] = useState<'idle' | 'pushing' | 'done' | 'error'>('idle')
+  const [notionPushUrl, setNotionPushUrl] = useState<string | null>(null)
 
   const notionAuth = store.notion
   const notionToken = notionAuth?.status === 'connected' ? notionAuth.accessToken : null
@@ -437,6 +439,20 @@ export function NotesSurface() {
     updateNote(activeNoteId, patch)
   }
 
+  async function handlePushToNotion() {
+    if (!activeNote || !notionToken) return
+    setNotionPushState('pushing')
+    setNotionPushUrl(null)
+    try {
+      const url = await createNotionPage(notionToken, activeNote.title || 'Untitled', activeNote.body)
+      setNotionPushUrl(url)
+      setNotionPushState('done')
+    } catch {
+      setNotionPushState('error')
+    }
+    setTimeout(() => setNotionPushState('idle'), 4000)
+  }
+
   function handleDelete(id: string) {
     deleteNote(id)
     if (activeView?.kind === 'note' && activeView.id === id) setActiveView(null)
@@ -449,7 +465,7 @@ export function NotesSurface() {
   }, [activeNoteId, appendMessages])
 
   return (
-    <div className="flex min-h-0 flex-1 overflow-hidden">
+    <div className="relative flex min-h-0 flex-1 overflow-hidden">
       {/* ── Sidebar ── */}
       <aside className="flex w-56 shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[#eaf1f8]">
         {/* Header */}
@@ -585,6 +601,32 @@ export function NotesSurface() {
       {activeView?.kind === 'note' && activeNote ? (
         <>
           <NoteEditor note={activeNote} onUpdate={handleUpdate} />
+          {notionToken && (
+            <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', alignItems: 'center', gap: 8, zIndex: 10 }}>
+              {notionPushState === 'done' && notionPushUrl && (
+                <a href={notionPushUrl} target="_blank" rel="noopener noreferrer"
+                  style={{ fontSize: 11, color: '#6366f1', textDecoration: 'underline' }}>
+                  Open in Notion ↗
+                </a>
+              )}
+              {notionPushState === 'error' && (
+                <span style={{ fontSize: 11, color: '#ef4444' }}>Push failed</span>
+              )}
+              <button
+                onClick={() => void handlePushToNotion()}
+                disabled={notionPushState === 'pushing'}
+                style={{
+                  background: notionPushState === 'done' ? '#f0fdf4' : 'var(--color-background-secondary)',
+                  border: `1px solid ${notionPushState === 'done' ? '#bbf7d0' : 'var(--color-border-secondary)'}`,
+                  borderRadius: 6, padding: '4px 10px', fontSize: 11, cursor: 'pointer',
+                  color: notionPushState === 'done' ? '#16a34a' : 'var(--color-text-secondary)',
+                  opacity: notionPushState === 'pushing' ? 0.6 : 1,
+                }}
+              >
+                {notionPushState === 'pushing' ? 'Pushing…' : notionPushState === 'done' ? 'Pushed to Notion' : '↑ Push to Notion'}
+              </button>
+            </div>
+          )}
           <NoteChat note={activeNote} onAppendMessages={handleAppendMessages} />
         </>
       ) : activeView?.kind === 'notion' && notionToken ? (

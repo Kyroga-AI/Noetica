@@ -198,3 +198,28 @@ export async function fetchNotionPageContent(token: string, pageId: string): Pro
   const data = await notionGet<{ results: NotionBlock[] }>(token, `blocks/${pageId}/children?page_size=100`)
   return data.results.map(blockToMarkdown).join('')
 }
+
+// Creates a new Notion page in the user's workspace root with plain-text content.
+// Splits content into paragraph blocks (max 2000 chars each per Notion limits).
+export async function createNotionPage(token: string, title: string, content: string): Promise<string> {
+  const MAX_BLOCK_LEN = 2000
+  const chunks: string[] = []
+  let remaining = content
+  while (remaining.length > 0) {
+    chunks.push(remaining.slice(0, MAX_BLOCK_LEN))
+    remaining = remaining.slice(MAX_BLOCK_LEN)
+  }
+  const children = chunks.map((chunk) => ({
+    object: 'block',
+    type: 'paragraph',
+    paragraph: { rich_text: [{ type: 'text', text: { content: chunk } }] },
+  }))
+  const page = await notionPost<{ id: string; url: string }>(token, 'pages', {
+    parent: { type: 'workspace', workspace: true },
+    properties: {
+      title: { title: [{ type: 'text', text: { content: title || 'Untitled' } }] },
+    },
+    children,
+  })
+  return page.url
+}

@@ -300,8 +300,19 @@ const STUB_TIME: TimeServiceStatus = {
 // ─── Graph Health tab ─────────────────────────────────────────────────────────
 
 function GraphHealthTab({ graph, onTabChange, onAtomSelect }: { graph: GraphHealthStatus; onTabChange: (tab: ViewTab) => void; onAtomSelect?: (query: string) => void }) {
-  const recentEvents: string[] = []
+  const [recentEvents, setRecentEvents] = useState<string[]>([])
   const stalePartitions: string[] = []
+
+  useEffect(() => {
+    fetch(amUrl('/api/graph/nodes'), { signal: AbortSignal.timeout(4000) })
+      .then(r => r.ok ? r.json() : null)
+      .then((data: { nodes?: Array<{ id: string; label: string; kind: string; surface: string; clock?: number }> } | null) => {
+        if (!data?.nodes?.length) return
+        const sorted = [...data.nodes].sort((a, b) => (b.clock ?? 0) - (a.clock ?? 0)).slice(0, 8)
+        setRecentEvents(sorted.map(n => `${n.kind ?? 'Node'} · ${n.label ?? n.id}${n.surface ? ` [${n.surface}]` : ''}`))
+      })
+      .catch(() => { /* agent-machine not running */ })
+  }, [graph.nodeCount])
   const healthCheck = useFlash()
   const refresh = useFlash()
   const exportSnap = useFlash()
