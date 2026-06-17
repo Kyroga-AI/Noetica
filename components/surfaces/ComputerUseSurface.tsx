@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useSettings } from '@/lib/settings/context'
 import { useComputerUse, describeAction } from '@/lib/computer-use/useComputerUse'
 import type { ComputerStep, CUProvider } from '@/lib/computer-use/useComputerUse'
@@ -168,6 +168,7 @@ function MemoryPanel({ onClose }: { onClose: () => void }) {
   const [traces, setTraces] = useState(() => getAllTraces())
 
   function handleClear() {
+    if (!window.confirm(`Delete all ${traces.length} episodic memory trace${traces.length !== 1 ? 's' : ''}? This cannot be undone.`)) return
     clearMemory()
     setTraces([])
   }
@@ -249,6 +250,15 @@ export function ComputerUseSurface() {
   })
 
   const isRunning = status === 'running' || status === 'awaiting_approval' || status === 'planning'
+
+  // Auto-stop if stuck in running/planning for more than 5 minutes
+  useEffect(() => {
+    if (status !== 'running' && status !== 'planning') return
+    const t = setTimeout(() => {
+      stopSession()
+    }, 5 * 60 * 1000)
+    return () => clearTimeout(t)
+  }, [status, stopSession])
 
   if (!isSupported) return <NotTauriNotice />
 

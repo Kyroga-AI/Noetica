@@ -110,7 +110,9 @@ async function readNoeticaEventStream(response: Response, handlers: NoeticaChatT
     let done: boolean, value: Uint8Array | undefined
     try {
       ;({ done, value } = await reader.read())
-    } catch {
+    } catch (err) {
+      if (signal?.aborted) break
+      handlers.onError(err instanceof Error ? err.message : 'stream_read_error')
       break
     }
     if (done) break
@@ -123,14 +125,15 @@ async function readNoeticaEventStream(response: Response, handlers: NoeticaChatT
       const parsed = parseSseEvent(part)
       if (!parsed) continue
 
-      const payload = JSON.parse(parsed.data)
-      if (parsed.event === 'meta') handlers.onMeta(payload.governance)
-      if (parsed.event === 'delta') handlers.onDelta(payload.delta)
-      if (parsed.event === 'thinking_delta') handlers.onThinkingDelta?.(payload.delta)
-      if (parsed.event === 'thinking_done') handlers.onThinkingDone?.(payload.thinking)
-      if (parsed.event === 'tool_calls') handlers.onToolCalls?.(payload.tool_calls)
-      if (parsed.event === 'done') handlers.onDone(payload.result)
-      if (parsed.event === 'error') handlers.onError(payload.error)
+      let payload: Record<string, unknown>
+      try { payload = JSON.parse(parsed.data) } catch { continue }
+      if (parsed.event === 'meta') handlers.onMeta(payload['governance'] as GovernanceTrace)
+      if (parsed.event === 'delta') handlers.onDelta(payload['delta'] as string)
+      if (parsed.event === 'thinking_delta') handlers.onThinkingDelta?.(payload['delta'] as string)
+      if (parsed.event === 'thinking_done') handlers.onThinkingDone?.(payload['thinking'] as string)
+      if (parsed.event === 'tool_calls') handlers.onToolCalls?.(payload['tool_calls'] as import('@/lib/providers').ToolUseBlock[])
+      if (parsed.event === 'done') handlers.onDone(payload['result'] as NoeticaStreamDoneResult)
+      if (parsed.event === 'error') handlers.onError(payload['error'] as string)
     }
   }
 }

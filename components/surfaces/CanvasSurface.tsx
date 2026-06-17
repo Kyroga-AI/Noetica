@@ -177,12 +177,26 @@ function CanvasChat({ doc, onDocUpdate }: {
   const { settings } = useSettings()
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
+  const historyRef = useRef<Map<string, ChatMessage[]>>(new Map())
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const thinkingRef = useRef<string>('')
   const bottomRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => { setMessages([]); thinkingRef.current = '' }, [doc.id])
+  // Persist chat history per doc and restore when switching
+  useEffect(() => {
+    setMessages(historyRef.current.get(doc.id) ?? [])
+    thinkingRef.current = ''
+  }, [doc.id])
+
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
+
+  function setAndPersistMessages(updater: (prev: ChatMessage[]) => ChatMessage[]) {
+    setMessages((prev) => {
+      const next = updater(prev)
+      historyRef.current.set(doc.id, next)
+      return next
+    })
+  }
 
   const canvasWriteTool = {
     name: 'canvas_write',
@@ -213,7 +227,7 @@ function CanvasChat({ doc, onDocUpdate }: {
     }
 
     const history = [...messages, userMsg]
-    setMessages((prev) => [...prev, userMsg, assistantMsg])
+    setAndPersistMessages((prev) => [...prev, userMsg, assistantMsg])
     setInput('')
     setStreaming(true)
 
@@ -248,14 +262,14 @@ function CanvasChat({ doc, onDocUpdate }: {
           onMeta: () => {},
           onThinkingDelta: (delta) => {
             thinkingRef.current += delta
-            setMessages((prev) =>
+            setAndPersistMessages((prev) =>
               prev.map((m) => m.id === assistantId ? { ...m, thinking: (m.thinking ?? '') + delta } : m)
             )
           },
           onThinkingDone: (thinking) => { thinkingRef.current = thinking },
           onDelta: (delta) => {
             finalContent += delta
-            setMessages((prev) =>
+            setAndPersistMessages((prev) =>
               prev.map((m) => m.id === assistantId ? { ...m, content: m.content + delta } : m)
             )
           },
@@ -270,7 +284,7 @@ function CanvasChat({ doc, onDocUpdate }: {
               try {
                 const args = JSON.parse(toolCallBuffer.input) as { content: string; title?: string }
                 onDocUpdate({ content: args.content, ...(args.title ? { title: args.title } : {}) })
-                setMessages((prev) =>
+                setAndPersistMessages((prev) =>
                   prev.map((m) => m.id === assistantId
                     ? {
                         ...m,
@@ -287,7 +301,7 @@ function CanvasChat({ doc, onDocUpdate }: {
             }
           },
           onError: (err) => {
-            setMessages((prev) =>
+            setAndPersistMessages((prev) =>
               prev.map((m) => m.id === assistantId ? { ...m, content: `Error: ${err}` } : m)
             )
           },
