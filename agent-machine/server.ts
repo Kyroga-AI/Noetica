@@ -36,6 +36,7 @@ import { buildRouterDecision, LOCAL_MODEL_SUITE } from './lib/router.js'
 import { syncToSidecar, sidecarHealth } from '../lib/hellgraph/sidecar.js'
 import { decayAll } from '../lib/hellgraph/ecan.js'
 import { consolidate } from '../lib/hellgraph/consolidate.js'
+import { recordAttentionSnapshot, pushSnapshotToPrometheusd, ingestPrometheusCandidate } from '../lib/hellgraph/prometheus.js'
 import { isOllamaRunning, listLocalModels, pullModel, streamOllama } from './lib/ollama.js'
 import { retrieve } from './lib/retrieval.js'
 import { getGraph, graphHealth, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
@@ -1280,18 +1281,24 @@ const server = http.createServer((req, res) => {
     return
   }
 
-  // GET /api/memory/health — memoryd + HellGraph memory layer status
+  // GET /api/memory/health — memoryd + prometheusd + HellGraph memory layer status
   if (req.method === 'GET' && url.pathname === '/api/memory/health') {
     void (async () => {
       setCORSHeaders(res)
       const memorydUrl = process.env['MEMORYD_URL'] ?? 'http://127.0.0.1:8787'
-      const memorydHealth = await fetch(`${memorydUrl}/healthz`, { signal: AbortSignal.timeout(1500) })
-        .then(r => r.ok ? r.json() : null).catch(() => null)
+      const prometheusdUrl = process.env['PROMETHEUSD_URL'] ?? 'http://127.0.0.1:8890'
+      const [memorydHealth, prometheusdHealth] = await Promise.all([
+        fetch(`${memorydUrl}/healthz`, { signal: AbortSignal.timeout(1500) })
+          .then(r => r.ok ? r.json() : null).catch(() => null),
+        fetch(`${prometheusdUrl}/healthz`, { signal: AbortSignal.timeout(1500) })
+          .then(r => r.ok ? r.json() : null).catch(() => null),
+      ])
       const g = getGraph()
       const atoms = g.allNodes().filter(n => n.labels.includes('FeatureAtom')).length
       res.writeHead(200, { 'content-type': 'application/json' })
       res.end(JSON.stringify({
         memoryd: { available: memorydHealth !== null, url: memorydUrl, ...(memorydHealth ?? {}) },
+        prometheusd: { available: prometheusdHealth !== null, url: prometheusdUrl, ...(prometheusdHealth ?? {}) },
         hellgraph: { feature_atoms: atoms, total_nodes: g.allNodes().length, total_edges: g.allEdges().length },
         tiers: { tier1_memoryd: memorydHealth !== null, tier2_hellgraph: true, tier3_map: true },
       }))
@@ -1442,10 +1449,19 @@ const server = http.createServer((req, res) => {
     req.on('end', () => {
       void (async () => {
         try {
-          const { type, payload } = JSON.parse(body) as { type: string; payload: Record<string, unknown> }
-          if (type === 'interaction') await ingestInteraction(payload as unknown as Parameters<typeof ingestInteraction>[0])
-          else if (type === 'message') await ingestMessage(payload as unknown as Parameters<typeof ingestMessage>[0])
-          else if (type === 'conversation') await ingestConversation(payload as unknown as Parameters<typeof ingestConversation>[0])
+          const parsed = JSON.parse(body) as { type: string; payload?: Record<string, unknown>; candidate?: Record<string, unknown> }
+          const { type } = parsed
+          if (type === 'interaction') await ingestInteraction(parsed.payload as unknown as Parameters<typeof ingestInteraction>[0])
+          else if (type === 'message') await ingestMessage(parsed.payload as unknown as Parameters<typeof ingestMessage>[0])
+          else if (type === 'conversation') await ingestConversation(parsed.payload as unknown as Parameters<typeof ingestConversation>[0])
+          else if (type === 'prometheus_candidate') {
+            // prometheusd writes discovered dynamics equations into HellGraph as first-class atoms
+            const candidate = parsed.candidate as unknown as Parameters<typeof ingestPrometheusCandidate>[0]
+            const nodeId = ingestPrometheusCandidate(candidate)
+            res.writeHead(200, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ ok: true, nodeId }))
+            return
+          }
           else throw new Error(`unknown ingest type: ${type}`)
           res.writeHead(200, { 'content-type': 'application/json' })
           res.end(JSON.stringify({ ok: true }))
@@ -1604,6 +1620,47 @@ server.listen(PORT, '127.0.0.1', () => {
     }
   })()
 
+  // Auto-start prometheusd (Prometheus SR daemon) if not already running.
+  // prometheusd accumulates attention time-series across sessions and discovers
+  // the governing decay equations for HellGraph's ECAN dynamics.
+  void (async () => {
+    const prometheusdUrl = process.env['PROMETHEUSD_URL'] ?? 'http://127.0.0.1:8890'
+    try {
+      const h = await fetch(`${prometheusdUrl}/healthz`, { signal: AbortSignal.timeout(1500) })
+      if (h.ok) {
+        const status = await h.json() as { store?: { attention_snapshots?: number; sr_candidates?: number } }
+        console.log(`[noetica-am] prometheusd already running (snapshots:${status.store?.attention_snapshots ?? '?'} candidates:${status.store?.sr_candidates ?? '?'})`)
+        return
+      }
+    } catch { /* not running — try to start */ }
+    const prometheusdDir = path.join(path.dirname(process.argv[1] ?? __filename), '..', 'prometheusd')
+    const python = process.env['HELLGRAPH_PYTHON'] ?? 'python3'
+    if (fs.existsSync(prometheusdDir)) {
+      try {
+        const proc = cp.spawn(python, ['-m', 'uvicorn', 'main:app', '--host', '127.0.0.1', '--port', '8890', '--log-level', 'warning'], {
+          cwd: prometheusdDir,
+          detached: false,
+          stdio: ['ignore', 'pipe', 'pipe'],
+          env: {
+            ...process.env,
+            AGENT_MACHINE_URL: `http://127.0.0.1:${PORT}`,
+            PROMETHEUSD_DB: path.join(os.homedir(), '.noetica', 'prometheusd.db'),
+          },
+        })
+        proc.stderr?.on('data', (d: Buffer) => {
+          const line = d.toString().trim()
+          if (line && !line.includes('INFO')) console.warn(`[prometheusd] ${line}`)
+        })
+        await new Promise(r => setTimeout(r, 2500))
+        const h2 = await fetch(`${prometheusdUrl}/healthz`, { signal: AbortSignal.timeout(1500) }).catch(() => null)
+        if (h2?.ok) console.log('[noetica-am] prometheusd started (local SR daemon, SINDy collective history)')
+        else console.warn('[noetica-am] prometheusd started but not responding — Prometheus SR will use sidecar fallback')
+      } catch (e) {
+        console.warn('[noetica-am] Could not start prometheusd:', e)
+      }
+    }
+  })()
+
   // Auto-start the HellGraph OpenCog sidecar if not already running.
   void (async () => {
     const health = await sidecarHealth()
@@ -1659,7 +1716,18 @@ server.listen(PORT, '127.0.0.1', () => {
   const decayed = decayAll()
   if (decayed > 0) console.log(`[noetica-am] ECAN: decayed STI on ${decayed} atoms`)
   // Gentle intra-session decay every 30 min so long sessions don't freeze attention.
-  setInterval(() => { decayAll(0.92) }, 30 * 60 * 1000).unref()
+  // Each tick also records an attention snapshot for the Prometheus SR corpus —
+  // this is what makes prometheusd collective: it accumulates data across every session.
+  setInterval(() => {
+    decayAll(0.92)
+    recordAttentionSnapshot()
+    const g = getGraph()
+    const atoms = g.allNodes().filter((n: { labels: string[] }) => n.labels.includes('FeatureAtom'))
+    if (atoms.length > 0) {
+      const avgSTI = atoms.reduce((s: number, a: { properties: Record<string, unknown> }) => s + Number(a.properties['ecan:sti'] ?? 0), 0) / atoms.length
+      pushSnapshotToPrometheusd(Date.now(), avgSTI, atoms.length).catch(() => {})
+    }
+  }, 30 * 60 * 1000).unref()
 
   // Background model warm-up: pull the full prophet-mesh model suite in priority order.
   // dolphin3:8b (uncensored, security profile) is opt-in — excluded from auto-pull.
