@@ -19,6 +19,7 @@ import { ArtifactsSurface } from '@/components/surfaces/ArtifactsSurface'
 import { ArtifactPane } from '@/components/artifacts/ArtifactPane'
 import { OperateSurface } from '@/components/surfaces/OperateSurface'
 import { TuneSurface } from '@/components/surfaces/TuneSurface'
+import { HolographMeSurface } from '@/components/surfaces/HolographMeSurface'
 import { CoworkPanel } from '@/components/panels/CoworkPanel'
 import { CodePanel } from '@/components/panels/CodePanel'
 import { EvaluatePanel } from '@/components/panels/EvaluatePanel'
@@ -1355,7 +1356,7 @@ function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, 
   }
   if (activeSurface === 'tune')         return <TuneSurface thinkingBudget={thinkingBudget} />
   if (activeSurface === 'computer')     return <ComputerUseSurface />
-  if (activeSurface === 'holographme')  return <PlaceholderSurface title="HolographMe" description="Your persistent agent-facing identity and digital work presence." badge="Coming soon" />
+  if (activeSurface === 'holographme')  return <HolographMeSurface />
   if (activeSurface === 'marketplace')  return <PlaceholderSurface title="Agent Supervisor Marketplace" description="Post availability as an agent supervisor. Browse and hire supervisors. Reputation accrues from agent performance." badge="Coming soon" />
 
   return (

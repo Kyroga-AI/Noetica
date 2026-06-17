@@ -43,6 +43,12 @@ import { getGraph, graphHealth, ingestInteraction, ingestConversation, ingestMes
 import { getHellGraph } from '../lib/hellgraph/store.js'
 import { runGremlin } from '../lib/hellgraph/gremlin.js'
 import { buildWorkspacePrefix, invalidatePrefix } from './lib/context-cache.js'
+import {
+  ensureMichaelTwin, ingestGaiaObservation, getRecentObservations,
+  writeBeliefSnapshot, writeWorldStateSnapshot, writeCycleNode,
+  getTwinState, getRecentBeliefs, getRecentLaws, getRecentWorldStates,
+  type GaiaObservationPayload, type BeliefSynthesis,
+} from './lib/gaia.js'
 
 const PORT = parseInt(process.env['NOETICA_AM_PORT'] ?? '8080', 10)
 const VERSION = '0.4.10'
@@ -88,6 +94,133 @@ function trackIngest<T>(p: Promise<T> | T): Promise<T> {
 function recordGovernanceRun(run: GovernanceRun): void {
   _governanceRuns.push(run)
   if (_governanceRuns.length > GOVERNANCE_RING_SIZE) _governanceRuns.shift()
+}
+
+// ─── GAIA / Superconscious loop ───────────────────────────────────────────────
+// Runs every LOOP_INTERVAL_MS. Reads recent GaiaObservations from HellGraph,
+// synthesises a belief snapshot via LLM, extracts candidate laws, and writes
+// a WorldStateSnapshot — closing the observe → believe → model cycle.
+
+const LOOP_INTERVAL_MS = 5 * 60 * 1000 // 5 minutes
+let _loopRunning = false
+let _loopEnabled = false
+let _lastLoopAt: string | null = null
+
+interface LoopProviderKeys {
+  anthropic?: string
+  openai?: string
+}
+
+// The prompt that drives the superconscious synthesis step.
+function buildSuperconsciousPrompt(observations: Array<{ id: string; props: Record<string, unknown> }>, previousBelief: string): string {
+  const obsLines = observations.map((o, i) =>
+    `[${i + 1}] ${o.props['captured_at']} | app: ${o.props['app_context']} | goal: ${o.props['goal']} | summary: ${o.props['step_summary']} | tags: ${o.props['attention_tags']}`
+  ).join('\n')
+
+  return `You are the superconscious synthesis layer for Michael Heller's digital twin. Your role is to integrate recent computer-use observations into a coherent, updated belief state about what Michael is focused on, what patterns are emerging, and how his world model should be updated.
+
+Previous belief summary: ${previousBelief || '(none — first cycle)'}
+
+Recent observations (most recent last):
+${obsLines}
+
+Respond with a JSON object matching this schema exactly:
+{
+  "current_focus": "short phrase describing Michael's primary current focus",
+  "focus_confidence": 0.0-1.0,
+  "posterior_atoms": [{"claim": "string", "weight": 0.0-1.0}],
+  "weighted_rules": [{"pattern": "if X then Y", "support": 0.0-1.0}],
+  "hypotheses": [{"hypothesis": "string", "evidence": ["obs ref"]}],
+  "candidate_laws": [{"law": "string", "trigger": "what triggers this pattern", "confidence": 0.0-1.0}],
+  "world_state_summary": "2-3 sentence description of Michael's world state right now"
+}
+
+Rules:
+- posterior_atoms: 3-7 weighted belief statements about what Michael is doing/thinking
+- weighted_rules: 1-4 behavioural patterns you can infer (e.g. "when Michael opens email, Slack is usually already active")
+- hypotheses: 1-3 higher-level hypotheses worth tracking
+- candidate_laws: 0-3 durable patterns worth remembering across sessions (high bar — only emit if pattern is clear)
+- Respond ONLY with valid JSON. No preamble.`
+}
+
+async function runSuperconsciousLoop(keys: LoopProviderKeys): Promise<void> {
+  if (_loopRunning) return
+  _loopRunning = true
+  try {
+    ensureMichaelTwin()
+    const observations = getRecentObservations(20)
+    if (observations.length === 0) return
+
+    // Get previous belief summary for continuity
+    const prevBeliefs = getRecentBeliefs(1)
+    const prevSummary = prevBeliefs[0] ? String(prevBeliefs[0].props['world_summary'] ?? '') : ''
+
+    const prompt = buildSuperconsciousPrompt(observations, prevSummary)
+    const cycleId = `urn:gaia:cycle:${Date.now()}`
+
+    // Run synthesis — prefer Anthropic, fall back to OpenAI
+    let synthesisText = ''
+    if (keys.anthropic) {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-api-key': keys.anthropic, 'anthropic-version': '2023-06-01' },
+        body: JSON.stringify({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 1024,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+        signal: AbortSignal.timeout(30000),
+      })
+      if (res.ok) {
+        const data = await res.json() as { content?: Array<{ type: string; text: string }> }
+        synthesisText = data.content?.find((b) => b.type === 'text')?.text ?? ''
+      }
+    } else if (keys.openai) {
+      const res = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'authorization': `Bearer ${keys.openai}` },
+        body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], max_tokens: 1024 }),
+        signal: AbortSignal.timeout(30000),
+      })
+      if (res.ok) {
+        const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> }
+        synthesisText = data.choices?.[0]?.message?.content ?? ''
+      }
+    }
+
+    if (!synthesisText) return
+
+    // Parse synthesis — extract JSON from potential prose wrapping
+    let synthesis: BeliefSynthesis | null = null
+    try {
+      const jsonMatch = synthesisText.match(/\{[\s\S]*\}/)
+      if (jsonMatch) synthesis = JSON.parse(jsonMatch[0]) as BeliefSynthesis
+    } catch (e) {
+      console.error('[gaia] superconscious synthesis parse failed', String(e))
+      return
+    }
+    if (!synthesis) return
+
+    const beliefId     = writeBeliefSnapshot(synthesis, cycleId)
+    const worldStateId = writeWorldStateSnapshot(synthesis.world_state_summary, observations.map((o) => o.id), cycleId)
+    writeCycleNode(cycleId, observations.map((o) => o.id), beliefId, worldStateId)
+    _lastLoopAt = new Date().toISOString()
+    console.log(`[gaia] superconscious cycle complete — focus: "${synthesis.current_focus}" laws: ${synthesis.candidate_laws.length}`)
+  } catch (err) {
+    console.error('[gaia] superconscious loop error', String(err))
+  } finally {
+    _loopRunning = false
+  }
+}
+
+function startSuperconsciousLoop(keys: LoopProviderKeys): void {
+  if (_loopEnabled) return
+  _loopEnabled = true
+  ensureMichaelTwin()
+  // Run immediately then on interval
+  void runSuperconsciousLoop(keys)
+  setInterval(() => { void runSuperconsciousLoop(keys) }, LOOP_INTERVAL_MS)
+  console.log(`[gaia] superconscious loop started (interval: ${LOOP_INTERVAL_MS / 60000}m)`)
 }
 
 // ─── Noetica identity ─────────────────────────────────────────────────────────
@@ -1463,6 +1596,162 @@ const server = http.createServer((req, res) => {
     const runs = _governanceRuns.slice(-limit).reverse()
     res.writeHead(200, { 'content-type': 'application/json' })
     res.end(JSON.stringify({ runs }))
+    return
+  }
+
+  // ── GAIA twin API ─────────────────────────────────────────────────────────────
+
+  // GET /api/gaia/twin — current HumanTwinState
+  if (req.method === 'GET' && url.pathname === '/api/gaia/twin') {
+    setCORSHeaders(res)
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify(getTwinState()))
+    return
+  }
+
+  // GET /api/gaia/beliefs — recent BeliefSnapshots
+  if (req.method === 'GET' && url.pathname === '/api/gaia/beliefs') {
+    setCORSHeaders(res)
+    const limit = parseInt(url.searchParams.get('limit') ?? '5', 10)
+    const beliefs = getRecentBeliefs(limit).map((b) => ({
+      id: b.id,
+      created_at:      b.props['created_at'],
+      current_focus:   b.props['current_focus'],
+      focus_confidence: b.props['focus_confidence'],
+      posterior_atoms: (() => { try { return JSON.parse(String(b.props['posterior_atoms'] ?? '[]')) } catch { return [] } })(),
+      weighted_rules:  (() => { try { return JSON.parse(String(b.props['weighted_rules']  ?? '[]')) } catch { return [] } })(),
+      hypotheses:      (() => { try { return JSON.parse(String(b.props['hypotheses']       ?? '[]')) } catch { return [] } })(),
+      world_summary:   b.props['world_summary'],
+    }))
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ beliefs }))
+    return
+  }
+
+  // GET /api/gaia/laws — recent CandidateLaws
+  if (req.method === 'GET' && url.pathname === '/api/gaia/laws') {
+    setCORSHeaders(res)
+    const limit = parseInt(url.searchParams.get('limit') ?? '20', 10)
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ laws: getRecentLaws(limit) }))
+    return
+  }
+
+  // GET /api/gaia/world — recent WorldStateSnapshots
+  if (req.method === 'GET' && url.pathname === '/api/gaia/world') {
+    setCORSHeaders(res)
+    const limit = parseInt(url.searchParams.get('limit') ?? '10', 10)
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ snapshots: getRecentWorldStates(limit) }))
+    return
+  }
+
+  // GET /api/gaia/observations — recent GaiaObservations
+  if (req.method === 'GET' && url.pathname === '/api/gaia/observations') {
+    setCORSHeaders(res)
+    const limit = parseInt(url.searchParams.get('limit') ?? '20', 10)
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ observations: getRecentObservations(limit) }))
+    return
+  }
+
+  // POST /api/gaia/observe — ingest a ComputerUse observation
+  if (req.method === 'POST' && url.pathname === '/api/gaia/observe') {
+    setCORSHeaders(res)
+    let body = ''
+    req.on('data', (chunk: Buffer) => { body += chunk.toString() })
+    req.on('end', () => {
+      void (async () => {
+        try {
+          const raw = JSON.parse(body) as GaiaObservationPayload & { anthropic_key?: string; openai_key?: string }
+          const { anthropic_key, openai_key, ...payload } = raw
+          if (!payload.session_id || !payload.captured_at) {
+            res.writeHead(400, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ error: 'session_id and captured_at required' }))
+            return
+          }
+          const obsId = ingestGaiaObservation(payload)
+
+          // Trigger a superconscious loop run on new observation if we have keys
+          const providerKeys: LoopProviderKeys = {}
+          if (anthropic_key) providerKeys.anthropic = anthropic_key
+          else if (openai_key) providerKeys.openai = openai_key
+          if (providerKeys.anthropic || providerKeys.openai) {
+            void runSuperconsciousLoop(providerKeys)
+          }
+
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ok: true, observation_id: obsId }))
+        } catch (err) {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: String(err) }))
+        }
+      })()
+    })
+    return
+  }
+
+  // POST /api/gaia/loop/trigger — manually trigger one superconscious cycle
+  if (req.method === 'POST' && url.pathname === '/api/gaia/loop/trigger') {
+    setCORSHeaders(res)
+    let body = ''
+    req.on('data', (chunk: Buffer) => { body += chunk.toString() })
+    req.on('end', () => {
+      void (async () => {
+        try {
+          const { anthropic_key, openai_key } = JSON.parse(body) as { anthropic_key?: string; openai_key?: string }
+          const keys: LoopProviderKeys = {}
+          if (anthropic_key) keys.anthropic = anthropic_key
+          if (openai_key)    keys.openai    = openai_key
+          if (!keys.anthropic && !keys.openai) {
+            res.writeHead(400, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ error: 'anthropic_key or openai_key required' }))
+            return
+          }
+          res.writeHead(202, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ok: true, message: 'Superconscious cycle triggered', last_loop_at: _lastLoopAt }))
+          void runSuperconsciousLoop(keys)
+        } catch (err) {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: String(err) }))
+        }
+      })()
+    })
+    return
+  }
+
+  // POST /api/gaia/loop/start — start the background loop
+  if (req.method === 'POST' && url.pathname === '/api/gaia/loop/start') {
+    setCORSHeaders(res)
+    let body = ''
+    req.on('data', (chunk: Buffer) => { body += chunk.toString() })
+    req.on('end', () => {
+      try {
+        const { anthropic_key, openai_key } = JSON.parse(body) as { anthropic_key?: string; openai_key?: string }
+        const keys: LoopProviderKeys = {}
+        if (anthropic_key) keys.anthropic = anthropic_key
+        if (openai_key)    keys.openai    = openai_key
+        if (!keys.anthropic && !keys.openai) {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: 'anthropic_key or openai_key required' }))
+          return
+        }
+        startSuperconsciousLoop(keys)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ok: true, enabled: _loopEnabled, interval_ms: LOOP_INTERVAL_MS }))
+      } catch (err) {
+        res.writeHead(400, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: String(err) }))
+      }
+    })
+    return
+  }
+
+  // GET /api/gaia/loop/status
+  if (req.method === 'GET' && url.pathname === '/api/gaia/loop/status') {
+    setCORSHeaders(res)
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ enabled: _loopEnabled, running: _loopRunning, last_loop_at: _lastLoopAt, interval_ms: LOOP_INTERVAL_MS }))
     return
   }
 

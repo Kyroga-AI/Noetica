@@ -5,6 +5,7 @@ import { invokeTauri, isTauri } from '@/lib/tauri/bridge'
 import { planGoal, fetchUiHints } from './planner'
 import type { Plan, SubTask } from './planner'
 import { saveTrace, getRelevantTraces } from './memory'
+import { emitGaiaObservation } from './gaiaObserver'
 
 export type ComputerUseStatus =
   | 'idle'
@@ -526,13 +527,18 @@ export function useComputerUse({
       if (!succeeded) { allSucceeded = false; break }
     }
 
-    // Save episodic trace
+    // Save episodic trace + emit GAIA observation
     const appContext = currentPlan.subTasks.map((t) => t.appContext).join(', ')
-    saveTrace({
+    const stepSummary = taskResults.join('; ')
+    saveTrace({ goal, appContext, stepSummary, succeeded: allSucceeded })
+    emitGaiaObservation({
+      session_id:    crypto.randomUUID(),
       goal,
-      appContext,
-      stepSummary: taskResults.join('; '),
-      succeeded: allSucceeded,
+      app_context:   appContext || 'unknown',
+      step_summary:  stepSummary,
+      succeeded:     allSucceeded,
+      anthropic_key: anthropicApiKey,
+      openai_key:    openaiApiKey,
     })
 
     if (!abortRef.current) setStatus('done')
