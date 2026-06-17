@@ -74,22 +74,24 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     loadSettings().then(async (loaded) => {
-      // Use Tauri command to get AM URL — bypasses WKWebView ATS/mixed-content
-      // restrictions that block plain fetch() to http://127.0.0.1.
-      // Falls back to HTTP probe in browser (non-Tauri) mode.
-      let amUrl: string | null = null
       if (isTauri()) {
-        // probe_agent_machine does a TCP connect — works for sidecar OR external AM
-        amUrl = await invokeTauri<string | null>('probe_agent_machine').catch(() => null)
+        // In Tauri, agent-machine is always the runtime — force it regardless of
+        // what's stored. probe_agent_machine is best-effort for confirming liveness
+        // but we don't gate on it; the transport hardcodes 127.0.0.1:8080 anyway.
+        const amUrl = await invokeTauri<string | null>('probe_agent_machine').catch(() => null)
+        setSettings({
+          ...loaded,
+          runtimeMode: 'agent-machine',
+          agentMachineEndpoint: amUrl ?? 'http://127.0.0.1:8080',
+        })
       } else {
-        amUrl = await fetch('http://127.0.0.1:8080/api/status', { signal: AbortSignal.timeout(3_000) })
+        const amUrl = await fetch('http://127.0.0.1:8080/api/status', { signal: AbortSignal.timeout(3_000) })
           .then(r => r.ok ? 'http://127.0.0.1:8080' : null)
           .catch(() => null)
-      }
-      if (amUrl) {
-        setSettings({ ...loaded, runtimeMode: 'agent-machine', agentMachineEndpoint: amUrl })
-      } else {
-        setSettings(loaded)
+        setSettings(amUrl
+          ? { ...loaded, runtimeMode: 'agent-machine', agentMachineEndpoint: amUrl }
+          : loaded
+        )
       }
     })
   }, [])

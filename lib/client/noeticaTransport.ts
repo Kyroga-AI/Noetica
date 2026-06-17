@@ -31,12 +31,11 @@ export async function sendNoeticaChat(
   signal?: AbortSignal
 ) {
   if (isTauri()) {
-    // In Tauri, if an agent-machine endpoint is configured, POST directly to it.
-    // The endpoint must speak the Noetica SSE wire protocol.
-    if (request.agent_machine_endpoint) {
-      return sendToNoeticaEndpoint(request.agent_machine_endpoint, request, handlers, signal)
-    }
-    return sendNoeticaChatDirect(request, handlers, signal)
+    // Always route through agent-machine in Tauri — it's always local on 8080.
+    // agent_machine_endpoint from settings is used if set; fall back to the default
+    // address so chat works even if the probe/settings race hasn't resolved yet.
+    const amEndpoint = request.agent_machine_endpoint ?? 'http://127.0.0.1:8080'
+    return sendToNoeticaEndpoint(amEndpoint, request, handlers, signal)
   }
 
   // Browser path — /api/chat handles agent_machine_endpoint proxying server-side (avoids CORS).
