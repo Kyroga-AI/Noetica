@@ -1,5 +1,5 @@
 cask "noetica" do
-  version "0.4.8"
+  version "0.4.9"
   sha256 "0000000000000000000000000000000000000000000000000000000000000000"
 
   url "https://github.com/SocioProphet/Noetica/releases/download/v#{version}/Noetica_#{version}_universal.dmg"
