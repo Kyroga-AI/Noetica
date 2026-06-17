@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { models } from '@/config/models'
 import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
 import { useSettings } from '@/lib/settings/context'
@@ -107,9 +107,11 @@ function runPromise(
   modelId: string,
   prompt: string,
   providerKeys: Record<string, string | undefined>,
-  thinkingBudget?: number
+  thinkingBudget?: number,
+  signal?: AbortSignal
 ): Promise<{ text: string; latencyMs: number }> {
   return new Promise((resolve, reject) => {
+    if (signal?.aborted) { reject(new Error('aborted')); return }
     const start = Date.now()
     let text = ''
     const msgs: ChatMessage[] = [{ id: 'u', role: 'user', content: prompt, created_at: new Date().toISOString() }]
@@ -121,7 +123,9 @@ function runPromise(
         onThinkingDelta: () => {},
         onDone: (r) => resolve({ text: r.content || text, latencyMs: Date.now() - start }),
         onError: (e) => reject(new Error(e)),
-      }
+      },
+      {},
+      signal
     ).catch(reject)
   })
 }
@@ -151,6 +155,16 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
   const [results, setResults] = useState<RunResult[]>([])
   const [running, setRunning] = useState(false)
   const [activeCell, setActiveCell] = useState<{ modelId: string; taskId: string } | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
+
+  useEffect(() => () => { abortRef.current?.abort() }, [])
+
+  function cancelBenchmark() {
+    abortRef.current?.abort()
+    abortRef.current = null
+    setRunning(false)
+    setResults((prev) => prev.map((r) => r.status === 'running' ? { ...r, status: 'error', output: 'Cancelled' } : r))
+  }
 
   function toggleModel(id: string) {
     setSelectedModelIds((prev) => prev.includes(id) ? prev.filter((m) => m !== id) : [...prev, id])
@@ -161,6 +175,9 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
 
   async function runBenchmark() {
     if (running || selectedModelIds.length === 0 || selectedTaskIds.length === 0) return
+    abortRef.current?.abort()
+    const abort = new AbortController()
+    abortRef.current = abort
     setRunning(true)
     setResults([])
     setActiveCell(null)
@@ -187,7 +204,7 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
         const task = DEFAULT_TASK_FAMILIES.find((t) => t.id === taskId)
         if (!task) return
         try {
-          const { text, latencyMs } = await runPromise(modelId, task.prompt, providerKeys, thinkingBudget)
+          const { text, latencyMs } = await runPromise(modelId, task.prompt, providerKeys, thinkingBudget, abort.signal)
           setResults((prev) => prev.map((r) =>
             r.modelId === modelId && r.taskId === taskId
               ? { ...r, output: text, latencyMs, status: 'done', judgeStatus: judgeEnabled ? 'pending' : undefined }
@@ -214,7 +231,7 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
             r.modelId === modelId && r.taskId === taskId ? { ...r, judgeStatus: 'scoring' } : r
           ))
           try {
-            const { text } = await runPromise(judgeModelId, buildJudgePrompt(task.prompt, output, task.rubric), providerKeys)
+            const { text } = await runPromise(judgeModelId, buildJudgePrompt(task.prompt, output, task.rubric), providerKeys, undefined, abort.signal)
             const parsed = parseJudgeResponse(text)
             setResults((prev) => prev.map((r) =>
               r.modelId === modelId && r.taskId === taskId
@@ -322,13 +339,22 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
           <div className="text-xs text-[var(--color-text-tertiary)]">
             {selectedModelIds.length} model{selectedModelIds.length !== 1 ? 's' : ''} × {selectedTaskIds.length} task{selectedTaskIds.length !== 1 ? 's' : ''} = {selectedModelIds.length * selectedTaskIds.length} runs
           </div>
-          <button
-            onClick={() => void runBenchmark()}
-            disabled={running || selectedModelIds.length === 0 || selectedTaskIds.length === 0}
-            className="rounded-xl bg-[var(--color-background-secondary)] px-5 py-2 text-xs font-semibold text-[var(--color-text-primary)] transition hover:bg-[var(--color-background-tertiary)] disabled:opacity-50"
-          >
-            {running ? 'Running…' : 'Run benchmark'}
-          </button>
+          {running ? (
+            <button
+              onClick={cancelBenchmark}
+              className="rounded-xl bg-[#ef4444] px-5 py-2 text-xs font-semibold text-white transition hover:bg-[#dc2626]"
+            >
+              Cancel
+            </button>
+          ) : (
+            <button
+              onClick={() => void runBenchmark()}
+              disabled={selectedModelIds.length === 0 || selectedTaskIds.length === 0}
+              className="rounded-xl bg-[var(--color-background-secondary)] px-5 py-2 text-xs font-semibold text-[var(--color-text-primary)] transition hover:bg-[var(--color-background-tertiary)] disabled:opacity-50"
+            >
+              Run benchmark
+            </button>
+          )}
         </div>
 
         {/* Results matrix */}
