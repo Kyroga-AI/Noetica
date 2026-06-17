@@ -181,9 +181,16 @@ function CanvasChat({ doc, onDocUpdate }: {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const thinkingRef = useRef<string>('')
   const bottomRef = useRef<HTMLDivElement>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
-  // Persist chat history per doc and restore when switching
+  // Abort in-flight stream on unmount
+  useEffect(() => () => { abortRef.current?.abort() }, [])
+
+  // Abort in-flight stream and restore history when switching docs
   useEffect(() => {
+    abortRef.current?.abort()
+    abortRef.current = null
+    setStreaming(false)
     setMessages(historyRef.current.get(doc.id) ?? [])
     thinkingRef.current = ''
   }, [doc.id])
@@ -241,6 +248,9 @@ function CanvasChat({ doc, onDocUpdate }: {
     const agentMachineEndpoint =
       settings.runtimeMode === 'agent-machine' && settings.agentMachineEndpoint
         ? settings.agentMachineEndpoint : undefined
+
+    const abort = new AbortController()
+    abortRef.current = abort
 
     let toolCallBuffer: { id: string; name: string; input: string } | null = null
     let finalContent = ''
@@ -305,11 +315,20 @@ function CanvasChat({ doc, onDocUpdate }: {
               prev.map((m) => m.id === assistantId ? { ...m, content: `Error: ${err}` } : m)
             )
           },
-        }
+        },
+        {},
+        abort.signal
       )
     } finally {
+      abortRef.current = null
       setStreaming(false)
     }
+  }
+
+  function stop() {
+    abortRef.current?.abort()
+    abortRef.current = null
+    setStreaming(false)
   }
 
   return (
@@ -368,13 +387,23 @@ function CanvasChat({ doc, onDocUpdate }: {
             rows={2}
             onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void send() }}
           />
-          <button
-            onClick={() => void send()}
-            disabled={!input.trim() || streaming}
-            className="shrink-0 rounded-lg bg-[#1d4ed8] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#1e40af] disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            {streaming ? '…' : 'Ask'}
-          </button>
+          {streaming ? (
+            <button
+              onClick={stop}
+              className="shrink-0 rounded-lg bg-[#ef4444] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#dc2626]"
+              title="Stop generation"
+            >
+              Stop
+            </button>
+          ) : (
+            <button
+              onClick={() => void send()}
+              disabled={!input.trim()}
+              className="shrink-0 rounded-lg bg-[#1d4ed8] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#1e40af] disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Ask
+            </button>
+          )}
         </div>
         <p className="mt-1.5 text-center text-[10px] text-[#cbd5e1]">⌘ + Enter</p>
       </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
 import { useSettings } from '@/lib/settings/context'
 import type { ChatMessage } from '@/lib/types/message'
@@ -33,6 +33,10 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
   const [decomposing, setDecomposing] = useState(false)
   const [newTaskText, setNewTaskText] = useState('')
   const [addingTask, setAddingTask] = useState(false)
+  const abortRef = useRef<AbortController | null>(null)
+
+  // Abort all in-flight streams on unmount
+  useEffect(() => () => { abortRef.current?.abort() }, [])
 
   function providerKeys() {
     return {
@@ -54,6 +58,9 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
 
   async function decompose() {
     if (!objective || decomposing) return
+    abortRef.current?.abort()
+    const abort = new AbortController()
+    abortRef.current = abort
     setDecomposing(true)
     const msgs: ChatMessage[] = [
       {
@@ -87,7 +94,9 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
             ])
           },
           onError: (e) => { output = `Error: ${e}` },
-        }
+        },
+        {},
+        abort.signal
       )
     } finally {
       setDecomposing(false)
@@ -145,6 +154,9 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
       },
     ]
 
+    const abort = new AbortController()
+    abortRef.current = abort
+
     let output = ''
     try {
       await sendNoeticaChat(
@@ -175,7 +187,9 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
           onError: (err) => {
             setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, running: false, result: `Error: ${err}` } : t))
           },
-        }
+        },
+        {},
+        abort.signal
       )
     } catch {
       setTasks((prev) => prev.map((t) => t.id === task.id ? { ...t, running: false } : t))
