@@ -4,6 +4,7 @@ import type { Pattern } from './patternMatcher'
 import { stimulate, spreadAttention } from './ecan'
 import { forwardChain } from './pln'
 import { syncToSidecar, pullFromSidecar } from './sidecar'
+import { recordEntityExtraction, assertDecisionLedgerEntry } from './acr'
 
 // ─── Async enrichment: embeddings + LLM entity extraction ────────────────────
 //
@@ -308,6 +309,7 @@ export function ingestEntities(
       : []
     const mergedPrimes = [...new Set([...existingPrimes, ...ent.primeSupport])].join(',')
 
+    const isNew = !existing
     g.addNode(atomId, [ent.kind, 'FeatureAtom'], {
       surface: ent.surface,
       normalised: ent.normalised,
@@ -328,6 +330,21 @@ export function ingestEntities(
     stimulate(atomId, Math.round(ent.confidence * 120))
     if (ent.confidence >= 0.8) spreadAttention(atomId)
 
+    // ACR: record full extraction lifecycle for new high-confidence entities
+    if (isNew && ent.confidence >= 0.8) {
+      try {
+        recordEntityExtraction({
+          surface: ent.surface,
+          normalised: ent.normalised,
+          kind: ent.kind,
+          confidence: ent.confidence,
+          extractedBy: 'regex',
+          interactionId,
+          primeScopes: ent.primeSupport,
+          timestamp,
+        })
+      } catch { /* ACR failure must never break the ingest path */ }
+    }
   }
 
   // ─── Async enrichment: embedding similarity + LLM extraction ──────────────────
@@ -374,12 +391,26 @@ export function ingestEntities(
       const edges = g.outEdges(srcAtom.name, 'MERGE_PROPOSAL')
       const edge = edges.find(e => e.to === tgtAtom.name)
       if (edge && Number(edge.properties['confidence'] ?? 0) >= 0.7) {
+        const conf = Number(edge.properties['confidence'] ?? 0)
         g.addEdge('RELATED_TO', srcAtom.name, tgtAtom.name, {
           epistemicClass: 'semantic',
-          confidence: edge.properties['confidence'],
+          confidence: conf,
           promotionState: 'confirmed',
           createdAt: timestamp,
         })
+        // ACR: every merge requires a DecisionLedgerEntry per contract invariant
+        try {
+          assertDecisionLedgerEntry({
+            decision_id:   `${srcAtom.name.split(':').pop()}:${tgtAtom.name.split(':').pop()}:${Date.now()}`,
+            decision_type: 'merge',
+            subject_refs:  [srcAtom.name, tgtAtom.name],
+            confidence:    conf,
+            reason:        'merge_proposal_promotion',
+            policy_id:     'policy://hellgraph/default-promotion@0.1.0',
+            created_by:    'system',
+            created_at:    timestamp,
+          })
+        } catch { /* governance failure must never break ingest */ }
       }
     }
   } catch { /* skip if pattern space is empty */ }

@@ -35,9 +35,11 @@ import * as os from 'node:os'
 import { buildRouterDecision, LOCAL_MODEL_SUITE } from './lib/router.js'
 import { syncToSidecar, sidecarHealth } from '../lib/hellgraph/sidecar.js'
 import { decayAll } from '../lib/hellgraph/ecan.js'
+import { consolidate } from '../lib/hellgraph/consolidate.js'
 import { isOllamaRunning, listLocalModels, pullModel, streamOllama } from './lib/ollama.js'
 import { retrieve } from './lib/retrieval.js'
 import { getGraph, graphHealth, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
+import { runGremlin } from '../lib/hellgraph/gremlin.js'
 import { buildWorkspacePrefix, invalidatePrefix } from './lib/context-cache.js'
 
 const PORT = parseInt(process.env['NOETICA_AM_PORT'] ?? '8080', 10)
@@ -1278,6 +1280,34 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // POST /api/graph/gremlin — Gremlin/TinkerPop traversal over HellGraph property graph
+  if (req.method === 'POST' && url.pathname === '/api/graph/gremlin') {
+    void (async () => {
+      setCORSHeaders(res)
+      try {
+        const body = await new Promise<string>((resolve, reject) => {
+          let d = ''
+          req.on('data', (c: Buffer) => { d += c.toString() })
+          req.on('end', () => resolve(d))
+          req.on('error', reject)
+        })
+        const { query } = JSON.parse(body) as { query: string }
+        if (!query || typeof query !== 'string') {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: 'query field required' }))
+          return
+        }
+        const result = runGremlin(getGraph(), query)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(result))
+      } catch (err) {
+        res.writeHead(400, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: String(err) }))
+      }
+    })()
+    return
+  }
+
   // POST /api/graph/cypher — Cypher query proxy to the HellGraph sidecar
   if (req.method === 'POST' && url.pathname === '/api/graph/cypher') {
     void (async () => {
@@ -1551,6 +1581,21 @@ server.listen(PORT, '127.0.0.1', () => {
     } else {
       console.log(`[noetica-am] HellGraph sidecar already running (atoms: ${health.atom_count})`)
       syncToSidecar().catch(() => {/* best-effort */})
+    }
+  })()
+
+  // Memory consolidation sleep pass: temporal decay, MERGE_PROPOSAL promotion, deep PLN,
+  // VLTI promotion. Runs in background — never blocks the server from accepting requests.
+  void (async () => {
+    try {
+      const cr = consolidate()
+      console.log(
+        `[noetica-am] Consolidation complete in ${cr.durationMs}ms — ` +
+        `decayed:${cr.decayedTruthValues} merged:${cr.mergedProposals} ` +
+        `pln:${cr.plnDerived}+${cr.plnRevised}rev+${cr.plnAbduced}abd vlti:${cr.vltiPromoted}`
+      )
+    } catch (e) {
+      console.warn('[noetica-am] Consolidation error (non-fatal):', e)
     }
   })()
 
