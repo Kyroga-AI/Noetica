@@ -123,9 +123,17 @@ interface ProviderTool {
   input_schema: Record<string, unknown>
 }
 
+interface ChatMessageAttachment {
+  kind: 'image' | 'pdf' | 'text' | 'code' | 'binary'
+  base64: string
+  mimeType: string
+  name: string
+}
+
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system'
   content: string
+  attachments?: ChatMessageAttachment[]
 }
 
 interface ChatRequest {
@@ -798,6 +806,11 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   const latestUserContent = [...(body.messages ?? [])]
     .filter((m) => m.role === 'user').at(-1)?.content ?? ''
 
+  // Detect whether any user message carries image attachments (→ vision routing)
+  const hasImages = (body.messages ?? []).some(
+    (m) => m.role === 'user' && m.attachments?.some((a) => a.kind === 'image'),
+  )
+
   let routing: ReturnType<typeof buildRouterDecision>
   try {
     routing = buildRouterDecision({
@@ -809,6 +822,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       hasOpenAIKey: Boolean(openaiKey),
       explicitModelId: body.model_id,
       policyProfile: body.policy_profile,
+      hasImages,
     })
   } catch (err) {
     sse(res, 'error', { error: err instanceof Error ? err.message : String(err) })
@@ -892,8 +906,35 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         ollamaMessages.push({ role: 'system', content: enrichedSystemPrompt })
       }
       for (const m of incomingMessages) {
-        if (m.role === 'user') ollamaMessages.push({ role: 'user', content: m.content })
-        else if (m.role === 'assistant') ollamaMessages.push({ role: 'assistant', content: m.content })
+        if (m.role === 'user') {
+          const images = m.attachments
+            ?.filter((a) => a.kind === 'image')
+            .map((a) => a.base64) ?? []
+          // Non-image attachments: decode and append as text
+          const textParts = m.attachments
+            ?.filter((a) => a.kind !== 'image')
+            .map((a) => {
+              try { return `**${a.name}**\n\`\`\`\n${Buffer.from(a.base64, 'base64').toString('utf-8')}\n\`\`\`` }
+              catch { return '' }
+            })
+            .filter(Boolean) ?? []
+          const fullContent = [m.content, ...textParts].filter(Boolean).join('\n\n')
+          // Vision: use OpenAI-compat content array when images present
+          if (images.length > 0) {
+            const contentParts: Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }> = [
+              { type: 'text', text: fullContent || 'Describe the image(s).' },
+              ...images.map((b64) => ({
+                type: 'image_url' as const,
+                image_url: { url: `data:image/jpeg;base64,${b64}` },
+              })),
+            ]
+            ollamaMessages.push({ role: 'user', content: contentParts as unknown as string })
+          } else {
+            ollamaMessages.push({ role: 'user', content: fullContent })
+          }
+        } else if (m.role === 'assistant') {
+          ollamaMessages.push({ role: 'assistant', content: m.content })
+        }
       }
 
       for (let turn = 0; turn < MAX_TURNS; turn++) {

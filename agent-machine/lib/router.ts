@@ -161,14 +161,43 @@ export function buildRouterDecision(opts: {
   hasOpenAIKey: boolean
   explicitModelId?: string
   policyProfile?: string
+  hasImages?: boolean
 }): RouterDecision & { resolvedModel: string; resolvedProvider: 'ollama' | 'anthropic' | 'openai' } {
   const {
     requestId, content, ollamaAvailable, availableModels,
-    hasAnthropicKey, hasOpenAIKey, explicitModelId, policyProfile,
+    hasAnthropicKey, hasOpenAIKey, explicitModelId, policyProfile, hasImages,
   } = opts
 
   const task = classifyTask(content)
   const route = ROUTING_TABLE[task]
+
+  // Vision: route to LLaVA when images are present
+  if (!explicitModelId && hasImages && ollamaAvailable) {
+    const visionModel = isModelAvailable('llava:13b', availableModels) ? 'llava:13b'
+      : isModelAvailable('llava:7b', availableModels) ? 'llava:7b'
+      : isModelAvailable('llava', availableModels) ? 'llava'
+      : null
+    if (visionModel) {
+      return {
+        requestId,
+        conductorId: 'noetica-conductor',
+        task,
+        domain: 'vision',
+        selectedRoute: visionModel,
+        routeType: 'local_model',
+        fallbackRoute: 'llava:7b',
+        specialistAgents: ['vision-agent'],
+        policyDecision: 'allow',
+        rationale: `Vision request — routing to ${visionModel} for image understanding.`,
+        evidenceRef: `evidence:${requestId}`,
+        auditRef: `audit:${requestId}`,
+        controls: FULL_CONTROLS,
+        resolvedModel: visionModel,
+        resolvedProvider: 'ollama',
+      }
+    }
+    // LLaVA not installed — fall through to cloud path with vision capable model
+  }
 
   // Security profile: route to uncensored model for technical depth
   if (!explicitModelId && policyProfile === 'security' && ollamaAvailable) {
@@ -377,6 +406,13 @@ export const LOCAL_MODEL_SUITE = [
     description: 'Uncensored local model — activated automatically under security policy profile',
     priority: 6,
     sizeGb: 4.9,
+  },
+  {
+    name: 'llava:13b',
+    role: 'vision',
+    description: 'Vision model — activated automatically when images are pasted or attached',
+    priority: 7,
+    sizeGb: 8.0,
   },
 ] as const
 

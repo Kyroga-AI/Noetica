@@ -134,6 +134,81 @@ export function AppShell() {
   const { createArtifact, updateArtifact, deleteArtifact } = useArtifacts()
   const [activeArtifact, setActiveArtifact] = useState<Artifact | null>(null)
 
+  // Context compaction — keeps the last KEEP_TURNS turns verbatim + a compressed
+  // summary of older turns to stay under the 16K local context window.
+  // Compression uses key nouns/terms extracted from older messages.
+  const KEEP_TURNS = 16  // ~8 exchanges — covers typical working context
+  const COMPACTION_CHAR_LIMIT = 40_000  // ~10K tokens at 4 chars/token
+
+  function compactContext(messages: ChatMessage[]): ChatMessage[] {
+    // Estimate total size
+    const totalChars = messages.reduce((acc, m) => acc + m.content.length, 0)
+    if (messages.length <= KEEP_TURNS || totalChars < COMPACTION_CHAR_LIMIT) return messages
+
+    const keep = messages.slice(-KEEP_TURNS)
+    const older = messages.slice(0, -KEEP_TURNS)
+
+    // Extract key terms from older messages for the summary
+    const STOP = new Set(['with','that','this','from','have','will','been','were','they',
+      'them','what','when','where','which','your','about','like','just','know'])
+    const termFreq = new Map<string, number>()
+    for (const m of older) {
+      const tokens = m.content.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/)
+      for (const t of tokens) {
+        if (t.length >= 4 && !STOP.has(t)) termFreq.set(t, (termFreq.get(t) ?? 0) + 1)
+      }
+    }
+    const topTerms = [...termFreq.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 30)
+      .map(([t]) => t)
+      .join(', ')
+
+    const turnCount = Math.floor(older.length / 2)
+    const summaryMsg: ChatMessage = {
+      id: `compacted-${Date.now()}`,
+      role: 'system',
+      content: `[Context compacted — ${turnCount} earlier exchange${turnCount !== 1 ? 's' : ''} summarized. Key topics: ${topTerms}. Full history available in memory graph.]`,
+      created_at: new Date().toISOString(),
+    }
+
+    return [summaryMsg, ...keep]
+  }
+
+  // Auto-extract artifacts from assistant response content.
+  // Creates artifacts for HTML and substantial code blocks (>80 chars).
+  // Skips shell output, logs, and trivially short snippets.
+  function extractArtifactsFromResponse(
+    content: string,
+    messageId: string,
+  ): Array<Parameters<typeof createArtifact>[0]> {
+    const results: Array<Parameters<typeof createArtifact>[0]> = []
+    const SKIP_LANGS = new Set(['bash', 'sh', 'shell', 'console', 'output', 'log', 'text', 'plain', ''])
+
+    // Full HTML document
+    const trimmed = content.trim()
+    if (/<!DOCTYPE html>/i.test(trimmed) || (trimmed.startsWith('<html') && trimmed.includes('</html>'))) {
+      return [{ type: 'html', title: 'HTML page', content: trimmed, messageId }]
+    }
+
+    // Fenced code blocks ≥80 chars
+    const codeRe = /```(\w*)\n([\s\S]+?)```/g
+    let m: RegExpExecArray | null
+    while ((m = codeRe.exec(content)) !== null) {
+      const lang = (m[1] ?? '').toLowerCase()
+      const code = m[2] ?? ''
+      if (code.trim().length < 80) continue
+      if (SKIP_LANGS.has(lang)) continue
+      if (lang === 'html') {
+        results.push({ type: 'html', title: 'HTML snippet', content: code.trim(), messageId })
+      } else {
+        results.push({ type: 'code', title: `${lang || 'code'} snippet`, language: lang || 'text', content: code.trim(), messageId })
+      }
+      if (results.length >= 3) break  // cap at 3 per response
+    }
+    return results
+  }
+
   function handleExtractArtifact(content: string, messageId: string) {
     const trimmed = content.trim()
     const isHtml = trimmed.startsWith('<') && trimmed.includes('</')
@@ -643,7 +718,9 @@ export function AppShell() {
     }
 
     // Agentic tool-use loop: keep calling until stop_reason is not 'tool_use'
-    let conversationMessages: ChatMessage[] = [...baseMessages, outbound]
+    // Compact context before sending — preserve last 16 turns + summary of earlier turns
+    // to stay well under the 16K local context window.
+    let conversationMessages: ChatMessage[] = compactContext([...baseMessages, outbound])
     let pendingToolCalls: ToolUseBlock[] | undefined
     const MAX_TOOL_TURNS = 10
 
@@ -803,6 +880,19 @@ export function AppShell() {
           let m: RegExpExecArray | null
           while ((m = markerRe.exec(last.content)) !== null) {
             if (m[1]) remember(m[1].trim(), { sessionId: activeSession?.id, source: 'auto' })
+          }
+        }
+
+        // Auto-artifact: extract code blocks and HTML from completed responses
+        if (last?.content) {
+          const extracted = extractArtifactsFromResponse(last.content, last.id)
+          if (extracted.length > 0) {
+            const created = extracted.map((a) => createArtifact(a))
+            // Auto-open panel for HTML or large standalone code blocks
+            const toOpen = created.find((a) =>
+              a.type === 'html' || (a.type === 'code' && (a.content?.length ?? 0) > 400)
+            )
+            if (toOpen && extracted.length === 1) setActiveArtifact(toOpen)
           }
         }
 
