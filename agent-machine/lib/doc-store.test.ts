@@ -42,3 +42,12 @@ test('ingestDocument → semanticSearch round-trips (lexical fallback, no Ollama
   assert.match(hits[0]!.text, /Baxter|Helene|flood/i)
   assert.equal(hits[0]!.filename, 'incident.txt')
 })
+
+test('ingestDocument is idempotent — re-uploading identical content adds no chunks', async () => {
+  const text = 'Idempotency check: the Carolinas investment was announced in Q2 2026.'
+  const first = await ingestDocument('dup.txt', text)
+  const countAfterFirst = documentChunkCount()
+  const second = await ingestDocument('dup.txt', text) // same content again
+  assert.equal(second.documentId, first.documentId, 'same content → same content-addressed id')
+  assert.equal(documentChunkCount(), countAfterFirst, 're-ingest did not duplicate chunks')
+})

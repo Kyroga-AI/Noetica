@@ -8,6 +8,7 @@
  * the graph/temporal/belief retrieval patterns lacked.
  */
 
+import { createHash } from 'node:crypto'
 import { getHellGraph } from '@socioprophet/hellgraph'
 import { embedText, cosineSim } from './ollama.js'
 
@@ -77,10 +78,18 @@ function slug(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60)
 }
 
-/** Chunk → embed → store as DocumentChunk atoms (text + vector + provenance). */
+/** Chunk → embed → store as DocumentChunk atoms (text + vector + provenance).
+ *  Content-addressed + idempotent: re-uploading identical content is a no-op
+ *  (no duplicate chunks skewing retrieval). */
 export async function ingestDocument(filename: string, text: string): Promise<IngestResult> {
   const g = getHellGraph()
-  const docId = `urn:noetica:doc:${slug(filename)}-${Date.now()}`
+  const hash = createHash('sha1').update(text).digest('hex').slice(0, 12)
+  const docId = `urn:noetica:doc:${slug(filename)}-${hash}`
+  // Already ingested this exact content? Return the existing record (idempotent).
+  if (g.getNode(docId)) {
+    const existing = g.nodesByLabel(CHUNK_LABEL).filter((n) => n.properties['doc_id'] === docId)
+    return { documentId: docId, filename, chunks: existing.length, embedded: existing.filter((n) => String(n.properties['embedding'] ?? '')).length, preview: existing.slice(0, 2).map((n) => String(n.properties['text'] ?? '').slice(0, 120)) }
+  }
   const chunks = chunkText(text)
   let embedded = 0
   for (let idx = 0; idx < chunks.length; idx++) {

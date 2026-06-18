@@ -35,6 +35,23 @@ test('classifyTask: genuinely casual short messages stay chat', () => {
   assert.equal(classifyTask('great job'), 'chat')
 })
 
+test('router invariant: substantive questions never resolve to the 3B when 7B is available', () => {
+  const all = ['qwen2.5:7b', 'qwen2.5-coder:7b', 'deepseek-r1:8b', 'llama3.2:3b', 'nomic-embed-text:latest']
+  const queries = [
+    'What does a data scientist in pharma in NYC earn?',
+    'Why did the Baxter facility shut down?',
+    'Compare drought risk in Texas vs Indiana.',
+    'Summarize the water deficiency report.',
+  ]
+  for (const content of queries) {
+    const d = buildRouterDecision({
+      requestId: 'r', content, ollamaAvailable: true, availableModels: all,
+      hasAnthropicKey: false, hasOpenAIKey: false,
+    })
+    assert.notEqual(d.resolvedModel, 'llama3.2:3b', `"${content}" must not route to the 3B (got ${d.resolvedModel})`)
+  }
+})
+
 // ── Model-capability contract (the deepseek-r1 bug class) ───────────────────
 test('deepseek-r1 is declared tool-incapable (Ollama 400s on tools)', () => {
   assert.equal(toolUseOf('deepseek-r1:8b'), false, 'deepseek-r1:8b must be toolUse:false')
