@@ -86,3 +86,19 @@ test('broken primary Ollama → chat falls back and streams the answer', async (
   const text = await r.text()
   assert.ok(text.includes(ANSWER), `fallback answer should appear in the stream; got:\n${text.slice(0, 400)}`)
 })
+
+test('RAG: ingested document surfaces as semantic-documents in chat', async () => {
+  // Mock Ollama lets the chat proceed past the availability gate to retrieval.
+  const ing = await fetch(`${BASE}/api/ingest/document`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ filename: 'baxter.txt', content: 'The Baxter facility shut down after Hurricane Helene flooding in September 2024.' }),
+  })
+  assert.equal(ing.status, 200)
+  const r = await fetch(`${BASE}/api/chat`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'What caused the Baxter facility shutdown?' }] }),
+    signal: AbortSignal.timeout(15_000),
+  })
+  const text = await r.text()
+  assert.ok(text.includes('semantic-documents'), `chat should inject the ingested doc as semantic-documents; got:\n${text.slice(0, 400)}`)
+})

@@ -32,7 +32,10 @@ async function post(path: string, payload: unknown): Promise<{ status: number; b
 before(async () => {
   server = spawn('node', ['--import', 'tsx', 'server.ts'], {
     cwd: new URL('..', import.meta.url).pathname,
-    env: { ...process.env, NODE_ENV: 'test', NOETICA_AM_PORT: String(PORT) },
+    // Dead Ollama hosts → embeddings fail fast (lexical fallback), so the suite is
+    // hermetic and not flaky under load: ingest stays instant and RAG retrieval
+    // still works via lexical search without depending on a live Ollama.
+    env: { ...process.env, NODE_ENV: 'test', NOETICA_AM_PORT: String(PORT), OLLAMA_HOST: 'http://127.0.0.1:1', OLLAMA_FALLBACK_HOST: 'http://127.0.0.1:1' },
     stdio: 'ignore',
   })
   // Poll until the server is listening.
@@ -86,36 +89,18 @@ test('learning trends endpoint exposes quality/bandit/graph axes', async () => {
   assert.ok('avg_worth' in body.history[0] && 'derived_edges' in body.history[0], 'snapshot shape')
 })
 
-test('RAG: ingested document is retrieved into chat context (semantic-documents)', async () => {
-  // Ingest a tiny doc, then start a chat whose query matches it. The retrieval
-  // event fires before the LLM call, so we can assert document grounding even
-  // without Ollama in CI (semanticSearch lexical fallback surfaces the chunk).
+test('RAG: document ingest chunks + stores (retrieval-into-chat asserted in fallback suite)', async () => {
+  // This suite runs with no Ollama (hermetic), so the chat handler short-circuits
+  // at the availability gate before retrieval. We assert ingest here; the full
+  // "doc surfaces as semantic-documents in chat" assertion lives in the fallback
+  // suite, which has a mock Ollama that lets the chat proceed to retrieval.
   const ing = await post('/api/ingest/document', {
     filename: 'baxter.txt',
     content: 'The Baxter facility in North Cove shut down after Hurricane Helene flooding in September 2024.',
   })
   assert.equal(ing.status, 200)
   assert.ok(ing.body.chunks >= 1, 'document chunked')
-
-  // Read the SSE stream and look for a semantic-documents retrieval event.
-  const r = await fetch(`${BASE}/api/chat`, {
-    method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ messages: [{ role: 'user', content: 'What caused the Baxter facility shutdown?' }] }),
-    signal: AbortSignal.timeout(8000),
-  }).catch(() => null)
-  let docHit = false
-  if (r && r.body) {
-    const reader = r.body.getReader(); const dec = new TextDecoder(); let buf = ''
-    const deadline = Date.now() + 7000
-    while (Date.now() < deadline) {
-      const { done, value } = await reader.read().catch(() => ({ done: true, value: undefined }))
-      if (done) break
-      buf += dec.decode(value as Uint8Array, { stream: true })
-      if (/semantic-documents/.test(buf)) { docHit = true; break }
-    }
-    await reader.cancel().catch(() => {})
-  }
-  assert.ok(docHit, 'chat retrieval surfaced the ingested document')
+  assert.ok(typeof ing.body.embedded === 'number', 'embedded count reported')
 })
 
 test('flags endpoint reports feature-flag state + graduation status', async () => {
