@@ -45,7 +45,7 @@ import { recordAttentionSnapshot, pushSnapshotToPrometheusd, ingestPrometheusCan
 import { isOllamaRunning, listLocalModels, pullModel, streamOllama, getModelContextLength, OLLAMA_BASE, generateOllamaText } from './lib/ollama.js'
 import { retrieve } from './lib/retrieval.js'
 import { getGraph, graphHealth, graphSparql, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
-import { getHellGraph } from '@socioprophet/hellgraph'
+import { getHellGraph, attachRocksDB } from '@socioprophet/hellgraph'
 import { runGremlin } from '@socioprophet/hellgraph'
 import { buildWorkspacePrefix, invalidatePrefix } from './lib/context-cache.js'
 import { estimateCostUsd, tokensEgressed } from '../lib/pricing/modelPricing.js'
@@ -3058,40 +3058,52 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(`[noetica-am] Agent Machine v${VERSION} listening on http://127.0.0.1:${PORT}`)
   console.log(`[noetica-am] Status: http://127.0.0.1:${PORT}/api/status`)
 
-  // Restore compounding learning state, then persist it periodically + on exit.
-  loadLearningState()
-  setInterval(saveLearningState, 60_000).unref()
-  for (const sig of ['SIGINT', 'SIGTERM'] as const) {
-    process.on(sig, () => { saveLearningState(); process.exit(0) })
+  // ── AtomSpace backend selection + StorageNode federation ─────────────────
+  // Backend precedence: RocksDB (HELLGRAPH_BACKEND=rocksdb — the convergence
+  // store, aligned to OpenCog's atomspace-rocks so Noetica + hellgraph-service +
+  // future services share one on-disk model) → SQLite (bun) → JSONL WAL (default).
+  // Learning state is loaded AFTER the backend is attached, so it hydrates from
+  // the durable store rather than the about-to-be-replaced default.
+  const finishBoot = () => {
+    loadLearningState()
+    setInterval(saveLearningState, 60_000).unref()
+    for (const sig of ['SIGINT', 'SIGTERM'] as const) {
+      process.on(sig, () => { saveLearningState(); process.exit(0) })
+    }
   }
 
-  // ── AtomSpace SQLite backend + StorageNode federation ────────────────────
-  // Upgrades the default JSONL WAL to SQLite (O(log n) lookups, atomic writes,
-  // WAL-mode concurrent reads, crash recovery). Migrates JSONL on first run.
-  // The StorageNode HTTP API (/api/atomspace/*) is always active — the SSE
-  // change feed enables real-time sync with remote nodes.
   void (async () => {
+    const space = getAtomSpace()
     try {
+      if (process.env['HELLGRAPH_BACKEND'] === 'rocksdb') {
+        const baseDir = process.env['HELLGRAPH_STORE_DIR'] || path.join(os.homedir(), '.noetica', 'hellgraph')
+        const rocks = await attachRocksDB(space, baseDir)
+        if (rocks) {
+          console.log(`[atomspace] RocksDB backend active (${getHellGraph().nodeCount()} nodes) — ${rocks.storagePath()}`)
+          registerStorageNodeRoutes(space)
+          console.log(`[atomspace] StorageNode federation API ready at /api/atomspace/*`)
+          finishBoot()
+          return
+        }
+        console.warn('[atomspace] RocksDB requested but binding unavailable — falling back')
+      }
       const sqliteBackend = createSQLiteBackend()
       if (sqliteBackend) {
         const migrated = migrateJSONLToSQLite(sqliteBackend)
-        if (migrated > 0) {
-          console.log(`[atomspace] Migrated ${migrated} JSONL entries → SQLite`)
-        }
-        const space = getAtomSpace()
+        if (migrated > 0) console.log(`[atomspace] Migrated ${migrated} JSONL entries → SQLite`)
         space.setBackend(sqliteBackend)
         console.log(`[atomspace] SQLite backend active (${sqliteBackend.atomCount()} atoms) — ${sqliteBackend.storagePath()}`)
         registerStorageNodeRoutes(space)
         console.log(`[atomspace] StorageNode federation API ready at /api/atomspace/*`)
       } else {
-        const space = getAtomSpace()
         registerStorageNodeRoutes(space)
         console.log(`[atomspace] JSONL backend (bun:sqlite unavailable) — ${space.storagePath}`)
       }
     } catch (e) {
       console.warn('[atomspace] Backend init error (non-fatal):', e)
-      try { registerStorageNodeRoutes(getAtomSpace()) } catch { /* ignore */ }
+      try { registerStorageNodeRoutes(space) } catch { /* ignore */ }
     }
+    finishBoot()
   })()
 
   // Auto-start memoryd (memory-mesh runtime) if not already running.

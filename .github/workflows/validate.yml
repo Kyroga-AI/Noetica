@@ -46,6 +46,8 @@ jobs:
           npm test
       - name: Integration tests (live HTTP surface, no Ollama)
         run: npm --prefix agent-machine run test:integration
+      - name: Integration tests (RocksDB persistence + auth gate)
+        run: npm --prefix agent-machine run test:integration:rocks
       - name: Engine version sync (hellgraph pin parity across manifests)
         run: node scripts/check-engine-version.mjs
       - name: Build
