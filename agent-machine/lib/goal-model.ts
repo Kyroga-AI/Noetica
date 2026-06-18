@@ -30,10 +30,29 @@ export interface Goal {
 // goal-setting phrasing so we don't mistake every message for a new objective.
 const GOAL_RE = /\b(?:my goal is to|i want to|i'?d like to|i would like to|help me|i'?m trying to|i am trying to|i need to|can you help me)\s+(.+)/i
 
+/**
+ * Neutralise prompt-injection in free text that will be placed into the system
+ * prompt (goal objective, slot values). Collapses newlines (so injected content
+ * can't start a new "instruction" block), strips role/markdown markers, drops
+ * common override phrases, and caps length. Defence-in-depth — the objective is
+ * the user's own, but it crosses from data into instruction context.
+ */
+export function sanitizeGoalText(text: string, max = 200): string {
+  return text
+    .replace(/[\r\n\t]+/g, ' ')                                   // no line breaks → no fake instruction blocks
+    .replace(/```+/g, ' ')                                        // no fenced blocks
+    .replace(/^\s*#{1,6}\s*/g, '')                                // no markdown headings
+    .replace(/\b(system|assistant|developer)\s*:/gi, '$1 ')       // defang role markers
+    .replace(/\b(ignore|disregard|forget)\s+(all\s+)?(previous|prior|above)\s+(instructions?|prompts?)\b/gi, '[redacted]')
+    .replace(/\s{2,}/g, ' ')
+    .trim()
+    .slice(0, max)
+}
+
 export function detectGoalIntent(text: string): { objective: string } | null {
   const m = text.match(GOAL_RE)
   if (!m || !m[1]) return null
-  const objective = m[1].trim().replace(/[.?!]+$/, '').slice(0, 200)
+  const objective = sanitizeGoalText(m[1].trim().replace(/[.?!]+$/, ''))
   if (objective.length < 4) return null
   return { objective }
 }
@@ -59,7 +78,7 @@ export function goalProgress(goal: Goal): GoalProgress {
 // Context block injected into the system prompt for the active goal.
 export function buildGoalContext(goal: Goal): string {
   const p = goalProgress(goal)
-  const lines = [`\n\n---\n**Active goal**: ${goal.objective}`]
+  const lines = [`\n\n---\n**Active goal**: ${sanitizeGoalText(goal.objective)}`]
   if (goal.subtasks.length > 0) {
     lines.push(`Plan (${p.subtasksDone}/${p.subtasksTotal} done): ` +
       goal.subtasks.map((s) => `${s.done ? '✓' : '○'} ${s.title}`).join('; '))

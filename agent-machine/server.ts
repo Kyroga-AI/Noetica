@@ -666,6 +666,24 @@ function setCORSHeaders(res: http.ServerResponse): void {
 }
 
 /**
+ * Feature-flag registry — the single source of truth for the NOETICA_* behavioural
+ * flags so they're observable (GET /api/flags) instead of scattered env reads. Each
+ * carries a graduation `status`: 'default-on' (graduated), 'opt-in' (experimental,
+ * earning its keep), or 'experimental' (unproven). Telemetry: the endpoint reports
+ * live state so the UI/governance can see what's actually active in a run.
+ */
+const FEATURE_FLAGS: Array<{ env: string; status: 'default-on' | 'opt-in' | 'experimental'; desc: string }> = [
+  { env: 'NOETICA_GOAL_TRACKING',      status: 'opt-in',       desc: 'Goal/plan state machine + slot-filling across turns' },
+  { env: 'NOETICA_PLN_GROUNDING',      status: 'opt-in',       desc: 'PLN-backed graph grounding in Value Judgment' },
+  { env: 'NOETICA_BANDIT_ROUTING',     status: 'opt-in',       desc: 'UCB1 bandit selection over local model arms' },
+  { env: 'NOETICA_CAPABILITY_ROUTING', status: 'opt-in',       desc: 'Escalate off local model when success rate is poor' },
+  { env: 'NOETICA_CAIRNPATH_RETRIEVAL',status: 'experimental', desc: 'CairnPath EXPAND→DEDUP→RANK→CAP retrieval executor' },
+  { env: 'NOETICA_DELIBERATION',       status: 'experimental', desc: 'BG→WM→VJ→select deliberation loop (multi-candidate)' },
+  { env: 'NOETICA_SHACL_ENFORCE',      status: 'experimental', desc: 'Ontogenesis SHACL gate on graph writes (quarantine)' },
+  { env: 'NOETICA_GAIA_AUTO_LOOP',     status: 'experimental', desc: 'GAIA background observation/consolidation loop' },
+]
+
+/**
  * Optional bearer-token gate for mutating/destructive endpoints. Off by default
  * (local-first, single-user) — set NOETICA_API_TOKEN to require it. When set, the
  * caller must send `Authorization: Bearer <token>`. Returns true if allowed; on
@@ -2366,6 +2384,24 @@ const server = http.createServer((req, res) => {
         by_epistemic_class: byClass,
       },
       drivers: analyzeDrivers().drivers.slice(0, 3),
+    }))
+    return
+  }
+
+  // GET /api/flags — observability for the NOETICA_* feature flags: live state +
+  // graduation status. Lets the UI/governance see what's actually active and which
+  // experiments are candidates to graduate (default-on) or retire.
+  if (req.method === 'GET' && url.pathname === '/api/flags') {
+    setCORSHeaders(res)
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({
+      flags: FEATURE_FLAGS.map((f) => ({
+        env: f.env,
+        enabled: process.env[f.env] === '1',
+        status: f.status,
+        description: f.desc,
+      })),
+      auth_required: !!process.env['NOETICA_API_TOKEN'],
     }))
     return
   }

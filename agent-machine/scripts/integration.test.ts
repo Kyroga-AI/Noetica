@@ -83,6 +83,15 @@ test('learning trends endpoint exposes quality/bandit/graph axes', async () => {
   assert.ok(body.graph && typeof body.graph.derived_edges === 'number', 'graph derived-edge count present')
 })
 
+test('flags endpoint reports feature-flag state + graduation status', async () => {
+  const { status, body } = await get('/api/flags')
+  assert.equal(status, 200)
+  assert.ok(Array.isArray(body.flags) && body.flags.length >= 8)
+  const f = body.flags[0]
+  assert.ok('env' in f && 'enabled' in f && 'status' in f && 'description' in f)
+  assert.equal(body.auth_required, false)
+})
+
 test('self/reset prunes learned state (auth disabled by default)', async () => {
   const { status, body } = await post('/api/self/reset', {})
   assert.equal(status, 200)
