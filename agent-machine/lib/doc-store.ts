@@ -28,7 +28,16 @@ export async function extractText(filename: string, mimeType: string, buf: Buffe
     return value.replace(/\n{3,}/g, '\n\n').trim()
   }
   if (lower.endsWith('.pdf') || mimeType === 'application/pdf') {
-    throw new Error('PDF extraction not yet supported — export to .docx or paste the text')
+    const { PDFParse } = await import('pdf-parse')
+    const parser = new PDFParse({ data: new Uint8Array(buf) })
+    try {
+      const { text } = await parser.getText()
+      const out = (text ?? '').replace(/\n{3,}/g, '\n\n').trim()
+      if (!out) throw new Error('PDF has no extractable text (scanned image?) — paste the text or run OCR')
+      return out
+    } finally {
+      await parser.destroy().catch(() => {})
+    }
   }
   // Everything else: treat as UTF-8 text (txt, md, csv, json, code).
   return buf.toString('utf8')

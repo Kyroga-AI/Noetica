@@ -23,9 +23,9 @@ test('chunkText: no chunk exceeds ~2x window (boundary logic sane)', () => {
   for (const c of chunks) assert.ok(c.length <= 2300, `chunk len ${c.length}`)
 })
 
-test('extractText: plain text passes through; pdf is rejected clearly', async () => {
+test('extractText: plain text passes through; malformed pdf rejects', async () => {
   assert.equal(await extractText('notes.txt', 'text/plain', Buffer.from('hello world')), 'hello world')
-  await assert.rejects(() => extractText('paper.pdf', 'application/pdf', Buffer.from('%PDF-1.7')), /PDF/)
+  await assert.rejects(() => extractText('paper.pdf', 'application/pdf', Buffer.from('not a real pdf')))
 })
 
 test('ingestDocument → semanticSearch round-trips (lexical fallback, no Ollama)', async () => {

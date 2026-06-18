@@ -1552,7 +1552,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       const hits = await semanticSearch(latestUserContent, 6)
       if (hits.length > 0) {
         const docBlock = hits.map((h, i) => `[${i + 1}] (${h.filename}) ${h.text}`).join('\n\n')
-        graphContext = `\n\n---\n**Document context (uploaded sources — answer from these when relevant)**\n${docBlock}${graphContext}`
+        graphContext = `\n\n---\n**Document context (uploaded sources)**\nAnswer from these sources when relevant and cite them inline as [n]. If the sources don't cover the question, say so.\n\n${docBlock}${graphContext}`
         sse(res, 'retrieval', {
           trace: { patterns: ['semantic-documents'], sources: hits.map((h) => ({ id: h.docId, label: h.filename, score: Number(h.score.toFixed(3)) })), token_estimate: docBlock.length >> 2, beliefs_injected: 0 },
         })
@@ -3161,6 +3161,17 @@ server.listen(PORT, '127.0.0.1', () => {
   const finishBoot = () => {
     loadLearningState()
     recordTrendSnapshot() // capture/refresh today's point on boot
+    // Embed-model preflight: document RAG depends on the embedding model. Warn loudly
+    // if it's missing so semantic retrieval doesn't silently degrade to lexical-only.
+    void (async () => {
+      try {
+        const { EMBED_MODEL } = await import('./lib/ollama.js')
+        const models = await listLocalModels()
+        if (models.length > 0 && !models.some((m) => m.startsWith(EMBED_MODEL))) {
+          console.warn(`[rag] embedding model "${EMBED_MODEL}" not installed — document search will use lexical fallback. Run: ollama pull ${EMBED_MODEL}`)
+        }
+      } catch { /* best-effort */ }
+    })()
     setInterval(saveLearningState, 60_000).unref()
     setInterval(recordTrendSnapshot, 6 * 60 * 60_000).unref() // refresh today's snapshot every 6h
     for (const sig of ['SIGINT', 'SIGTERM'] as const) {
