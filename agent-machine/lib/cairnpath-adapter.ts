@@ -346,11 +346,15 @@ function executeStep(
   let newFrontier = rt.currentFrontier
   let metrics: CairnMetrics = { fanout: 0, dedup_ratio: 0, cap_hit: false, elapsed_ms: 0 }
 
-  // Policy checks
-  if (rt.hops >= DEFAULT_POLICY.max_hops) warnings.push('max_hops reached')
-  if (rootCtx.constraints.max_hops && rt.hops >= rootCtx.constraints.max_hops) {
-    warnings.push('context max_hops reached')
+  // Policy / constraint enforcement — hard stops, not just warnings
+  if (rt.hops >= DEFAULT_POLICY.max_hops) {
+    throw new Error(`max_hops policy limit reached (${DEFAULT_POLICY.max_hops})`)
   }
+  if (rootCtx.constraints.max_hops && rt.hops >= rootCtx.constraints.max_hops) {
+    throw new Error(`context max_hops constraint reached (${rootCtx.constraints.max_hops})`)
+  }
+  const costBudgetMs = rootCtx.constraints.cost_budget?.max_ms
+  const costDeadline = costBudgetMs ? t0 + costBudgetMs : Infinity
 
   switch (opcode) {
     case 'expand':
@@ -454,8 +458,19 @@ function executeStep(
       let bytes = 0
       let hits = 0
       for (const h of rt.currentFrontier) {
+        if (Date.now() > costDeadline) {
+          throw new Error(`cost_budget.max_ms exceeded during materialize (${costBudgetMs}ms)`)
+        }
         const atom = space.getAtom(h)
         if (atom) { bytes += JSON.stringify(atom).length; hits++ }
+        const maxRows = rootCtx.constraints.cost_budget?.max_rows
+        if (maxRows && hits > maxRows) {
+          throw new Error(`cost_budget.max_rows (${maxRows}) exceeded during materialize`)
+        }
+      }
+      const maxBytes = rootCtx.constraints.max_materialize_bytes ?? DEFAULT_POLICY.max_materialize_bytes
+      if (bytes > maxBytes) {
+        throw new Error(`materialized_bytes ${bytes} exceeds limit ${maxBytes}`)
       }
       newFrontier = rt.currentFrontier
       metrics = {
@@ -466,13 +481,12 @@ function executeStep(
         db_hits: hits,
         materialized_bytes: bytes,
       }
-      if (rootCtx.constraints.max_materialize_bytes && bytes > rootCtx.constraints.max_materialize_bytes) {
-        warnings.push(`materialized_bytes ${bytes} exceeds constraint ${rootCtx.constraints.max_materialize_bytes}`)
-      }
       break
     }
 
     case 'commit_view': {
+      if (rt.line.status === 'complete') throw new Error('line already committed')
+      if (rt.line.status === 'failed')   throw new Error('cannot commit a failed line')
       rt.line.status = 'complete'
       newFrontier = rt.currentFrontier
       metrics = { fanout: rt.currentFrontier.length, dedup_ratio: 0, cap_hit: false, elapsed_ms: Date.now() - t0 }
@@ -483,6 +497,12 @@ function executeStep(
       warnings.push(`unknown opcode: ${opcode as string}`)
       newFrontier = rt.currentFrontier
       metrics = { fanout: 0, dedup_ratio: 0, cap_hit: false, elapsed_ms: 0 }
+  }
+
+  // Post-step cost_budget.max_ms check (covers opcodes that don't check inline)
+  if (Date.now() > costDeadline) {
+    warnings.push(`cost_budget.max_ms (${costBudgetMs}ms) exceeded after ${opcode}`)
+    newFrontier = []  // empty frontier prevents further traversal on a busted budget
   }
 
   // Build out Context capturing new frontier state
@@ -645,7 +665,20 @@ export function handleCairnPathRequest(
           throw new Error(`opcode not allowed: ${req_.opcode}`)
         }
 
-        const { step, result, warnings } = executeStep(space, rt, req_.opcode, req_.args ?? {})
+        // Validate numeric args: must be positive integers within policy bounds
+        const args = req_.args ?? {}
+        if (args.cap_k !== undefined) {
+          const k = Number(args.cap_k)
+          if (!Number.isInteger(k) || k < 1) throw new Error('args.cap_k must be a positive integer')
+          args.cap_k = Math.min(k, DEFAULT_POLICY.max_cap_k)
+        }
+        if (args.max_level !== undefined) {
+          const l = Number(args.max_level)
+          if (!Number.isInteger(l) || l < 1) throw new Error('args.max_level must be a positive integer')
+          args.max_level = Math.min(l, DEFAULT_POLICY.max_hops)
+        }
+
+        const { step, result, warnings } = executeStep(space, rt, req_.opcode, args)
         if (req_.notes) step.notes = req_.notes
 
         res.writeHead(201, { 'content-type': 'application/json' })

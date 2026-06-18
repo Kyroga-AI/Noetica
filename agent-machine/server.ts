@@ -149,6 +149,10 @@ Rules:
 }
 
 async function runSuperconsciousLoop(keys: LoopProviderKeys): Promise<void> {
+  if (!keys.anthropic?.trim() && !keys.openai?.trim()) {
+    console.error('[gaia] runSuperconsciousLoop: no valid API keys — synthesis disabled')
+    return
+  }
   if (_loopRunning) return
   _loopRunning = true
   try {
@@ -1167,9 +1171,11 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     }
   }
 
-  const incomingMessages = (body.messages ?? []).filter(
-    (m) => m.role === 'user' || m.role === 'assistant',
-  )
+  // Filter to valid roles with non-empty content; hard-cap history to 100 turns
+  // to prevent quadratic token estimation on adversarially long sessions.
+  const incomingMessages = (body.messages ?? [])
+    .filter((m) => (m.role === 'user' || m.role === 'assistant') && String(m.content ?? '').trim().length > 0)
+    .slice(-100)
 
   const MAX_TURNS = 10
   let fullContent = ''
@@ -2344,7 +2350,13 @@ server.listen(PORT, '127.0.0.1', () => {
 
   // Memory consolidation sleep pass: temporal decay, MERGE_PROPOSAL promotion, deep PLN,
   // VLTI promotion. Runs at boot and every 6 hours — never blocks the server.
+  let _consolidationRunning = false
   function runConsolidation(): void {
+    if (_consolidationRunning) {
+      console.warn('[noetica-am] Consolidation already running — skipping this interval')
+      return
+    }
+    _consolidationRunning = true
     try {
       const cr = consolidate()
       console.log(
@@ -2354,6 +2366,8 @@ server.listen(PORT, '127.0.0.1', () => {
       )
     } catch (e) {
       console.warn('[noetica-am] Consolidation error (non-fatal):', e)
+    } finally {
+      _consolidationRunning = false
     }
   }
   void (async () => { runConsolidation() })()
@@ -2365,8 +2379,8 @@ server.listen(PORT, '127.0.0.1', () => {
   // The loop uses ANTHROPIC_API_KEY or OPENAI_API_KEY from env.
   if (process.env['NOETICA_GAIA_AUTO_LOOP'] === '1') {
     const loopKeys: { anthropic?: string; openai?: string } = {}
-    if (process.env['ANTHROPIC_API_KEY']) loopKeys.anthropic = process.env['ANTHROPIC_API_KEY']
-    if (process.env['OPENAI_API_KEY'])    loopKeys.openai    = process.env['OPENAI_API_KEY']
+    if (process.env['ANTHROPIC_API_KEY']?.trim()) loopKeys.anthropic = process.env['ANTHROPIC_API_KEY']!.trim()
+    if (process.env['OPENAI_API_KEY']?.trim())    loopKeys.openai    = process.env['OPENAI_API_KEY']!.trim()
     if (loopKeys.anthropic || loopKeys.openai) {
       startSuperconsciousLoop(loopKeys)
       console.log('[noetica-am] GAIA superconscious loop auto-started (NOETICA_GAIA_AUTO_LOOP=1)')
