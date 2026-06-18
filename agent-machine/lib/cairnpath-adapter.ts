@@ -265,6 +265,24 @@ function expandInvariant(
   }
 }
 
+/**
+ * Reusable CairnPath expansion for the retrieval pipeline. Runs the full
+ * EXPAND → DEDUP → RANK(ecan_sti) → CAP invariant over the AtomSpace and returns
+ * the ranked neighbor handles. This is the same engine the /api/cairnpath routes
+ * use — wiring it into retrieval makes the protocol load-bearing, not decorative.
+ */
+export function cairnPathExpand(
+  space: AtomSpace,
+  seeds: Handle[],
+  capK = 15,
+): { handles: Handle[]; metrics: CairnMetrics } {
+  if (seeds.length === 0) {
+    return { handles: [], metrics: { fanout: 0, dedup_ratio: 0, cap_hit: false, elapsed_ms: 0, db_hits: 0 } }
+  }
+  const { result, metrics } = expandInvariant(space, seeds, {}, capK)
+  return { handles: result, metrics }
+}
+
 // ─── Line creation ────────────────────────────────────────────────────────────
 
 function createLine(

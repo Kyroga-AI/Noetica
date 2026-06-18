@@ -18,6 +18,7 @@ import type { Pattern } from '../../lib/hellgraph/patternMatcher.js'
 import { stiNorm } from '../../lib/hellgraph/ecan.js'
 import type { PropertyValue } from '../../lib/hellgraph/types.js'
 import { ingestInteraction } from '../../lib/hellgraph/ingest.js'
+import { cairnPathExpand } from './cairnpath-adapter.js'
 import * as crypto from 'node:crypto'
 
 // ─── WorkingMemoryState — mirrors graphbrain-contract/memory_runtime_api.py ──
@@ -44,7 +45,7 @@ interface WorkingMemoryState {
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
-export type RetrievalPattern = 'graph' | 'temporal' | 'sparql' | 'cache-augmented' | 'atoms' | 'beliefs'
+export type RetrievalPattern = 'graph' | 'temporal' | 'sparql' | 'cache-augmented' | 'atoms' | 'beliefs' | 'cairnpath'
 
 export interface RetrievedContext {
   text: string
@@ -90,6 +91,7 @@ export async function retrieve(
     'graph':           800,
     'temporal':        600,
     'sparql':          700,
+    'cairnpath':       900,
   }
 
   const timeout = <T>(ms: number, p: Promise<T>): Promise<T | null> =>
@@ -103,6 +105,7 @@ export async function retrieve(
       case 'temporal':     inner = runTemporalPattern(query); break
       case 'sparql':       inner = runSparqlPattern(query, opts?.sessionId); break
       case 'atoms':        inner = runAtomsPattern(query); break
+      case 'cairnpath':    inner = runCairnPathPattern(query); break
       case 'beliefs':      inner = runBeliefsPattern(); break
       case 'cache-augmented': inner = runCacheAugmentedPattern(opts?.sessionId ?? opts?.workspaceId ?? 'default'); break
       default:             return Promise.resolve(null)
@@ -506,6 +509,73 @@ async function runAtomsPattern(
   return {
     text: `### Known Entities (from memory)\n${allLines.join('\n')}`,
     sources: [...sources, ...neighborSources],
+  }
+}
+
+// ─── CairnPath pattern — entity retrieval via the CairnPath traversal protocol ─
+// Seeds from query-matched FeatureAtoms, then runs the CairnPath
+// EXPAND → DEDUP → RANK(ecan_sti) → CAP invariant to gather the attention-ranked
+// neighborhood. Same engine as the /api/cairnpath routes — makes the protocol
+// load-bearing in normal chat (gated by NOETICA_CAIRNPATH_RETRIEVAL in server.ts).
+async function runCairnPathPattern(
+  query: string,
+): Promise<{ text: string; sources: Array<{ id: string; label: string; score: number }> }> {
+  const g = getGraph()
+  const as = g.atomspace()
+
+  const queryTokens = new Set(
+    query.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/)
+      .filter((w) => w.length >= 3 && !ATOM_STOP.has(w)),
+  )
+  if (queryTokens.size === 0) return { text: '', sources: [] }
+
+  const atoms = g.allNodes().filter((n) => n.labels.includes('FeatureAtom'))
+  if (atoms.length === 0) return { text: '', sources: [] }
+
+  // Seed selection: same surface-token matching as the atoms pattern.
+  const seeds: Array<{ id: string; score: number }> = []
+  for (const atom of atoms) {
+    const norm = String(atom.properties['normalised'] ?? '').toLowerCase()
+    if (!norm || norm.length < 3) continue
+    const atomTokens = norm.split(/[\s\-_]+/).filter((w) => w.length >= 3)
+    const exact = atomTokens.filter((t) => queryTokens.has(t)).length
+    const substr = [...queryTokens].filter((t) => norm.includes(t)).length
+    const raw = (exact * 1.0 + substr * 0.4) / queryTokens.size
+    if (raw > 0) seeds.push({ id: atom.id, score: Math.min(raw * (1 + stiNorm(atom.id) * 0.5), 1) })
+  }
+  if (seeds.length === 0) return { text: '', sources: [] }
+  seeds.sort((a, b) => b.score - a.score)
+
+  // Resolve seed concept nodes to AtomSpace handles, then run the CairnPath invariant.
+  const seedHandles = seeds.slice(0, 8)
+    .map((s) => as.getNode('ConceptNode', s.id)?.handle)
+    .filter((h): h is string => Boolean(h))
+  if (seedHandles.length === 0) return { text: '', sources: [] }
+
+  const { handles, metrics } = cairnPathExpand(as, seedHandles, 15)
+
+  const lines: string[] = []
+  const sources: Array<{ id: string; label: string; score: number }> = []
+  const seen = new Set<string>()
+  // Score expanded neighbors by descending rank position (CairnPath returns ranked order).
+  handles.forEach((h, idx) => {
+    const atom = as.getAtom(h)
+    const name = atom?.name
+    if (!name || seen.has(name)) return
+    seen.add(name)
+    const node = g.getNode(name)
+    if (!node?.labels.includes('FeatureAtom')) return
+    const surface = String(node.properties['surface'] ?? node.id)
+    const kind = String(node.properties['kind'] ?? 'FEATURE_ATOM')
+    const score = Math.max(0.3, 1 - idx / Math.max(handles.length, 1))
+    lines.push(`• ${surface}  ${kind}`)
+    sources.push({ id: node.id, label: kind, score })
+  })
+
+  if (lines.length === 0) return { text: '', sources: [] }
+  return {
+    text: `### CairnPath neighborhood (EXPAND→DEDUP→RANK→CAP, fanout ${metrics.fanout})\n${lines.join('\n')}`,
+    sources,
   }
 }
 

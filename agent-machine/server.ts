@@ -50,6 +50,8 @@ import { runGremlin } from '../lib/hellgraph/gremlin.js'
 import { buildWorkspacePrefix, invalidatePrefix } from './lib/context-cache.js'
 import { estimateCostUsd, tokensEgressed } from '../lib/pricing/modelPricing.js'
 import { recordCapability, capabilitySummary, capabilityHint } from './lib/capability-model.js'
+import { validateGraph } from '../lib/hellgraph/shacl.js'
+import { CANONICAL_SHAPES } from './lib/canonical-shapes.js'
 import {
   ensureMichaelTwin, ingestGaiaObservation, getRecentObservations,
   writeBeliefSnapshot, writeWorldStateSnapshot, writeCycleNode,
@@ -91,6 +93,27 @@ interface GovernanceRun {
 }
 const _governanceRuns: GovernanceRun[] = []
 const GOVERNANCE_RING_SIZE = 100
+
+// Ontogenesis SHACL write-validation gate (report-only). Last validation result,
+// refreshed after ingest when NOETICA_SHACL_ENFORCE=1.
+let _lastShaclReport: { conforms: boolean; violations: number; checked_at: string } | null = null
+
+function runShaclGate(): void {
+  if (process.env['NOETICA_SHACL_ENFORCE'] !== '1') return
+  try {
+    const report = validateGraph(getHellGraph(), CANONICAL_SHAPES)
+    _lastShaclReport = {
+      conforms: report.conforms,
+      violations: report.violations.length,
+      checked_at: new Date().toISOString(),
+    }
+    if (!report.conforms) {
+      console.warn(`[ontogenesis] SHACL gate: ${report.violations.length} violation(s) in graph`)
+    }
+  } catch (e) {
+    console.warn('[ontogenesis] SHACL gate error', e instanceof Error ? e.message : String(e))
+  }
+}
 
 // Tracks how many async ingest tasks are currently in-flight, so the health
 // endpoint can report a real pendingIngestCount instead of a hardcoded 0.
@@ -1324,10 +1347,18 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
 
   // Always include beliefs to connect the digital twin to every chat turn.
   // Ollama gets the cache-augmented prefix too (stable KV cache warm-up).
-  const patterns: Array<'beliefs' | 'graph' | 'temporal' | 'sparql' | 'cache-augmented'> =
+  // CairnPath retrieval (opt-in via NOETICA_CAIRNPATH_RETRIEVAL=1) routes entity
+  // neighborhood expansion through the CairnPath EXPAND→DEDUP→RANK→CAP invariant
+  // instead of the ad-hoc graph BFS. Default OFF — the proven path is unchanged.
+  const useCairnPath = process.env['NOETICA_CAIRNPATH_RETRIEVAL'] === '1'
+  const patterns: Array<'beliefs' | 'graph' | 'temporal' | 'sparql' | 'cache-augmented' | 'cairnpath'> =
     provider === 'ollama'
-      ? ['beliefs', 'cache-augmented', 'graph', 'temporal']
-      : ['beliefs', 'graph', 'temporal']
+      ? (useCairnPath
+          ? ['beliefs', 'cache-augmented', 'cairnpath', 'temporal']
+          : ['beliefs', 'cache-augmented', 'graph', 'temporal'])
+      : (useCairnPath
+          ? ['beliefs', 'cairnpath', 'temporal']
+          : ['beliefs', 'graph', 'temporal'])
 
   let graphContext = ''
   try {
@@ -1752,7 +1783,9 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       try {
         const { ingestEntities } = await import('./lib/graph.js')
         const fullText = `${latestUserContent}\n${fullContent}`
-        trackIngest(ingestEntities(run_id, sessionId, fullText, new Date().toISOString()))
+        await trackIngest(ingestEntities(run_id, sessionId, fullText, new Date().toISOString()))
+        // Ontogenesis: validate the freshly-written entities (report-only, flagged).
+        runShaclGate()
       } catch { /* entity extraction is best-effort */ }
     })()
   } catch (err) {
@@ -2047,6 +2080,17 @@ const server = http.createServer((req, res) => {
     res.end(JSON.stringify({
       capabilities: capabilitySummary(),
       capability_routing: process.env['NOETICA_CAPABILITY_ROUTING'] === '1',
+    }))
+    return
+  }
+
+  // GET /api/graph/shacl/report — last Ontogenesis write-validation result
+  if (req.method === 'GET' && url.pathname === '/api/graph/shacl/report') {
+    setCORSHeaders(res)
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({
+      enabled: process.env['NOETICA_SHACL_ENFORCE'] === '1',
+      report: _lastShaclReport,
     }))
     return
   }
