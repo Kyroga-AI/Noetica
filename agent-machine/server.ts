@@ -52,6 +52,7 @@ import { estimateCostUsd, tokensEgressed } from '../lib/pricing/modelPricing.js'
 import { recordCapability, capabilitySummary, capabilityHint } from './lib/capability-model.js'
 import { validateGraph } from '../lib/hellgraph/shacl.js'
 import { CANONICAL_SHAPES } from './lib/canonical-shapes.js'
+import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
 import {
   ensureMichaelTwin, ingestGaiaObservation, getRecentObservations,
   writeBeliefSnapshot, writeWorldStateSnapshot, writeCycleNode,
@@ -97,6 +98,37 @@ const GOVERNANCE_RING_SIZE = 100
 // Ontogenesis SHACL write-validation gate (report-only). Last validation result,
 // refreshed after ingest when NOETICA_SHACL_ENFORCE=1.
 let _lastShaclReport: { conforms: boolean; violations: number; checked_at: string } | null = null
+
+// Contradiction ledger (ProCybernetica EpiCybernetica): when Value Judgment finds
+// an answer at odds with a promoted belief/law we PRESERVE it as a control signal
+// rather than discard it. Bounded ring; surfaced via /api/epistemic/contradictions.
+interface ContradictionRecord {
+  id: string
+  run_id: string
+  session_id: string
+  kind: 'belief' | 'law'
+  statement: string
+  detail: string
+  answer_preview: string
+  timestamp: string
+}
+const _contradictions: ContradictionRecord[] = []
+const CONTRADICTION_RING_SIZE = 200
+function recordContradictions(runId: string, sessionId: string, vj: ValueJudgment, answer: string): void {
+  for (const c of vj.contradictions) {
+    _contradictions.push({
+      id: crypto.randomUUID(),
+      run_id: runId,
+      session_id: sessionId,
+      kind: c.kind,
+      statement: c.statement,
+      detail: c.detail,
+      answer_preview: answer.slice(0, 200),
+      timestamp: new Date().toISOString(),
+    })
+    if (_contradictions.length > CONTRADICTION_RING_SIZE) _contradictions.shift()
+  }
+}
 
 function runShaclGate(): void {
   if (process.env['NOETICA_SHACL_ENFORCE'] !== '1') return
@@ -1336,6 +1368,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
 
   const MAX_TURNS = 10
   let fullContent = ''
+  let fullThinking = ''
   let lastToolCalls: ToolUseBlock[] | undefined
 
   // ── HellGraph retrieval ──────────────────────────────────────────────────────
@@ -1390,7 +1423,14 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // Inject current datetime so the model always has accurate temporal context
   const nowUtc = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC'
   const dateLine = `\n\nCurrent date/time: ${nowUtc}`
-  const enrichedSystemPrompt = basePrompt + dateLine + graphContext + profile.authorizationSuffix
+  // Reasoning directive (R5): tell the reasoning model to actively USE the injected
+  // belief/law state and to self-flag contradictions in its reasoning. This makes
+  // the neural reasoner and the symbolic substrate complement each other rather
+  // than run side by side. Added only when there is memory context to reason over.
+  const reasoningDirective = (routerDecision.task === 'reasoning' && graphContext)
+    ? `\n\n## Reasoning directive\nGround your reasoning in the Memory context and Belief state above. If your conclusion contradicts a stated belief or candidate law, say so explicitly and explain which one and why — do not silently override it.`
+    : ''
+  const enrichedSystemPrompt = basePrompt + dateLine + graphContext + reasoningDirective + profile.authorizationSuffix
 
   // Token budget: rough estimate (4 chars ≈ 1 token). If message history + system prompt
   // exceeds 70% of the model's context window, trim oldest non-system messages.
@@ -1484,6 +1524,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
             turnContent += event.text
             sse(res, 'delta', { delta: event.text })
           } else if (event.type === 'thinking') {
+            fullThinking += event.text
             sse(res, 'thinking_delta', { delta: event.text })
           } else if (event.type === 'tool_calls') {
             turnToolCalls = event.calls
@@ -1572,6 +1613,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
             turnContent += event.text
             sse(res, 'delta', { delta: event.text })
           } else if (event.type === 'thinking') {
+            fullThinking += event.text
             sse(res, 'thinking_delta', { delta: event.text })
           } else if (event.type === 'tool_calls') {
             turnToolCalls = event.calls
@@ -1721,6 +1763,41 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     const costUsd = estimateCostUsd({ provider, model, inputTokens, outputTokens })
     const egressed = tokensEgressed({ provider, inputTokens, outputTokens })
 
+    // ── Value Judgment (4D/RCS VJ) ────────────────────────────────────────────
+    // Score the produced answer against the world model (retrieved memory +
+    // GAIA beliefs + candidate laws). Explicit, inspectable value layer over the
+    // neural output — and the close of the neural→symbolic loop, since it also
+    // judges the model's captured reasoning.
+    let valueJudgment: ValueJudgment | undefined
+    try {
+      const beliefSnap = getRecentBeliefs(1)[0]
+      const beliefClaims: Array<{ claim: string }> = []
+      if (beliefSnap) {
+        const focus = String(beliefSnap.props['current_focus'] ?? '').trim()
+        if (focus) beliefClaims.push({ claim: focus })
+        try {
+          const posts = JSON.parse(String(beliefSnap.props['posterior_atoms'] ?? '[]')) as Array<{ claim?: string }>
+          for (const p of posts) if (p.claim) beliefClaims.push({ claim: p.claim })
+        } catch { /* posterior_atoms not parseable — skip */ }
+      }
+      const laws = getRecentLaws(20).map((l) => ({
+        law: String(l.props['law'] ?? ''),
+        confidence: Number(l.props['confidence'] ?? 0),
+      })).filter((l) => l.law)
+
+      valueJudgment = judgeAnswer({
+        answer: fullContent,
+        reasoning: fullThinking || undefined,
+        contextText: graphContext,
+        beliefs: beliefClaims,
+        laws,
+      })
+      sse(res, 'value_judgment', { value_judgment: valueJudgment })
+      if (valueJudgment.contradictions.length > 0) {
+        recordContradictions(run_id, sessionId, valueJudgment, fullContent)
+      }
+    } catch { /* VJ is best-effort — never block the response */ }
+
     recordGovernanceRun({
       run_id,
       model_routed: model,
@@ -1753,6 +1830,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         output_tokens: outputTokens,
         cost_usd: costUsd,
         tokens_egressed: egressed,
+        value_judgment: valueJudgment,
         agent_machine: true,
         agent_machine_version: VERSION,
       },
@@ -2092,6 +2170,16 @@ const server = http.createServer((req, res) => {
       enabled: process.env['NOETICA_SHACL_ENFORCE'] === '1',
       report: _lastShaclReport,
     }))
+    return
+  }
+
+  // GET /api/epistemic/contradictions — preserved Value-Judgment contradictions
+  // (EpiCybernetica contradiction ledger). Control signals, not erased.
+  if (req.method === 'GET' && url.pathname === '/api/epistemic/contradictions') {
+    setCORSHeaders(res)
+    const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '50', 10), CONTRADICTION_RING_SIZE)
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ contradictions: _contradictions.slice(-limit).reverse(), total: _contradictions.length }))
     return
   }
 

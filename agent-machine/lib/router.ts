@@ -424,7 +424,9 @@ export const LOCAL_MODEL_SUITE = [
     description: 'Reasoning model — analysis, complex problem solving',
     priority: 5,
     sizeGb: 4.9,
-    toolUse: true,
+    // DeepSeek-R1 does NOT support the tools API in Ollama (returns 400 if tools
+    // are sent). It reasons natively instead — never pass it a tool schema.
+    toolUse: false,
   },
   {
     name: 'qwen2.5:14b',

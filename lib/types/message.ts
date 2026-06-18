@@ -35,6 +35,17 @@ export interface ChatMessage {
   stopped?: boolean
   /** Neurosymbolic retrieval trace — why this answer was grounded the way it was */
   retrieval_trace?: RetrievalTrace
+  /** Value Judgment — explicit 4D/RCS-style scoring of the answer vs the world model */
+  value_judgment?: ValueJudgment
+}
+
+export interface ValueJudgment {
+  worth: number
+  grounding: number
+  belief_alignment: number
+  contradictions: Array<{ kind: 'belief' | 'law'; statement: string; detail: string }>
+  verdict: 'grounded' | 'speculative' | 'contradiction'
+  notes: string[]
 }
 
 export interface RetrievalTrace {

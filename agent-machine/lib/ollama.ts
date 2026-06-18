@@ -265,6 +265,11 @@ export async function* streamOllama(params: {
         choices?: Array<{
           delta?: {
             content?: string
+            // DeepSeek-R1 (and other reasoning models) emit chain-of-thought in a
+            // dedicated field over Ollama's OpenAI-compat endpoint — NOT inline
+            // <think> tags. Capture both so reasoning is never silently dropped.
+            reasoning?: string
+            reasoning_content?: string
             tool_calls?: Array<{
               index: number
               id?: string
@@ -280,6 +285,11 @@ export async function* streamOllama(params: {
       }
 
       const delta = p.choices?.[0]?.delta
+      // Native reasoning field → thinking event (deepseek-r1 via Ollama).
+      const reasoningChunk = delta?.reasoning ?? delta?.reasoning_content
+      if (reasoningChunk) {
+        yield { type: 'thinking', text: reasoningChunk }
+      }
       if (delta?.content) {
         for (const ev of flushText(delta.content)) yield ev
       }
