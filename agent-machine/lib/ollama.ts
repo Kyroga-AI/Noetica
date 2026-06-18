@@ -104,7 +104,9 @@ export async function embedText(text: string): Promise<number[]> {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ model: EMBED_MODEL, prompt: text.slice(0, 8000) }),
-        signal: AbortSignal.timeout(30_000),
+        // Keep this short: a slow query-embedding must not block retrieval — it
+        // falls back to lexical search instead of hanging the whole chat turn.
+        signal: AbortSignal.timeout(8_000),
       })
       if (res.ok) {
         const json = (await res.json()) as { embedding?: number[] }
