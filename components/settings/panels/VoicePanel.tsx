@@ -150,7 +150,7 @@ export function VoicePanel() {
       <div>
         <h3 style={{ margin: '0 0 4px', fontSize: '14px', fontWeight: 600, color: 'var(--color-text-primary)' }}>Voice</h3>
         <p style={{ margin: 0, fontSize: '12px', color: 'var(--color-text-secondary)' }}>
-          Text-to-speech settings for Michael's spoken responses.
+          Text-to-speech settings for Michael&apos;s spoken responses.
         </p>
       </div>
 
@@ -195,7 +195,7 @@ export function VoicePanel() {
               placeholder="Voice ID"
             />
             <p style={{ margin: '4px 0 0', fontSize: '11px', color: 'var(--color-text-secondary)' }}>
-              For Australian male: search "Australian" at elevenlabs.io/voice-lab and paste the voice ID here.
+              For Australian male: search &quot;Australian&quot; at elevenlabs.io/voice-lab and paste the voice ID here.
             </p>
           </div>
         </div>
@@ -230,7 +230,7 @@ export function VoicePanel() {
             <option value="custom">Custom…</option>
           </Select>
           <div style={{ marginTop: 8 }}>
-            <Label>Custom voice name (run `say -v '?' in Terminal to list all)</Label>
+            <Label>Custom voice name (run `say -v &apos;?&apos; in Terminal to list all)</Label>
             <TextInput
               value={settings.macVoice}
               onChange={v => update({ macVoice: v })}
@@ -238,7 +238,7 @@ export function VoicePanel() {
             />
           </div>
           <p style={{ margin: '6px 0 0', fontSize: '11px', color: 'var(--color-text-secondary)' }}>
-            For Australian male: download "Gordon" in System Settings → Accessibility → Spoken Content → System Voice.
+            For Australian male: download &quot;Gordon&quot; in System Settings → Accessibility → Spoken Content → System Voice.
           </p>
         </div>
       )}
@@ -248,7 +248,7 @@ export function VoicePanel() {
         <div>
           <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--color-text-primary)' }}>Wake word</span>
           <p style={{ margin: '2px 0 0', fontSize: '12px', color: 'var(--color-text-secondary)' }}>
-            Listen for "hey noetica" to start voice input
+            Listen for &quot;hey noetica&quot; to start voice input
           </p>
         </div>
         <button

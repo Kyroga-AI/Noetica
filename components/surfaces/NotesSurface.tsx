@@ -320,7 +320,6 @@ function NoteChat({ note, onAppendMessages }: {
                   <ReactMarkdown
                     remarkPlugins={[remarkGfm]}
                     components={{
-                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       code({ className, children, ...props }: any) {
                         const match = /language-(\w+)/.exec(className ?? '')
                         if (!match) return <code className="rounded bg-black/[0.06] px-1 py-0.5 font-mono text-[11px]" {...props}>{children}</code>
