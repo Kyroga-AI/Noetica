@@ -16,15 +16,33 @@ interface ModelStatus {
   status: 'waiting' | 'starting' | 'pulling' | 'ready'
 }
 
+interface Isolation {
+  tier: 'vm' | 'container' | 'process'
+  provider: string
+  gpu: string
+  rationale: string
+}
+
 export function ModelSetupOverlay({ onDismiss }: { onDismiss: () => void }) {
   const [models, setModels] = useState<ModelStatus[]>([])
   const [pulling, setPulling] = useState(false)
   const [pullError, setPullError] = useState<string | null>(null)
+  const [iso, setIso] = useState<Isolation | null>(null)
   const esRef = useRef<EventSource | null>(null)
   const dismissedRef = useRef(false)
 
   useEffect(() => {
     let cancelled = false
+
+    // Hardware-profiled isolation tier — shows the user how their box is sandboxed.
+    void (async () => {
+      try {
+        const r = await fetch(`${AM_BASE}/api/host/profile`)
+        if (!r.ok || cancelled) return
+        const d = (await r.json()) as { isolation?: Isolation }
+        if (!cancelled && d.isolation) setIso(d.isolation)
+      } catch { /* non-fatal */ }
+    })()
 
     async function init() {
       try {
@@ -205,6 +223,28 @@ export function ModelSetupOverlay({ onDismiss }: { onDismiss: () => void }) {
             Downloading once. Models run entirely on your machine — no cloud, no data leaving your device.
           </p>
         </div>
+
+        {iso && (
+          <div
+            style={{
+              display: 'flex', alignItems: 'flex-start', gap: '10px',
+              padding: '11px 13px', borderRadius: '8px',
+              background: 'var(--color-background-secondary, #1a1a1a)',
+              border: '1px solid var(--color-border-tertiary, #2a2a2a)',
+            }}
+          >
+            <span style={{ fontSize: '15px', lineHeight: 1.2 }}>🛡️</span>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text-primary, #f0f0f0)' }}>
+                Isolation: {iso.tier === 'vm' ? 'virtual machine' : iso.tier === 'container' ? 'sandboxed runtime' : 'host process'}
+                {iso.gpu !== 'none' && ` · ${iso.gpu === 'metal' ? 'Metal GPU' : iso.gpu === 'vulkan-venus' ? 'GPU (Vulkan)' : iso.gpu === 'nvidia' ? 'NVIDIA GPU' : iso.gpu}`}
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--color-text-secondary, #888)', lineHeight: 1.45, marginTop: '2px' }}>
+                {iso.rationale}
+              </div>
+            </div>
+          </div>
+        )}
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
           {models.map((model) => (
