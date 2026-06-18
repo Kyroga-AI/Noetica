@@ -103,7 +103,7 @@ if [[ "$TRIPLE" == "universal-apple-darwin" ]]; then
     echo "==> Written: ${DEST}"
     ls -lh "$DEST"
   done
-  _stage_runner_lib || true
+  _stage_runner_lib || { [ "${REQUIRE_OLLAMA_RUNNER:-}" = "1" ] && { echo "FATAL: Ollama runner (lib/ollama) missing — refusing to build a crippled bundle"; exit 1; } || true; }
 else
   echo "==> Downloading Ollama ${OLLAMA_VERSION} for ${TRIPLE}..."
   BIN="$(_download_ollama "$OLLAMA_URL")"
@@ -112,5 +112,5 @@ else
   chmod +x "$DEST"
   echo "==> Ollama binary written to ${DEST}"
   ls -lh "$DEST"
-  _stage_runner_lib || true
+  _stage_runner_lib || { [ "${REQUIRE_OLLAMA_RUNNER:-}" = "1" ] && { echo "FATAL: Ollama runner (lib/ollama) missing — refusing to build a crippled bundle"; exit 1; } || true; }
 fi

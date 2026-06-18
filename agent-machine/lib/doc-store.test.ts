@@ -1,6 +1,6 @@
 // Keep the graph in-memory and force the lexical path (dead Ollama hosts → empty
 // embeddings, fast) so the test is hermetic and deterministic in CI.
-process.env['NODE_ENV'] = 'test'
+;(process.env as Record<string, string>)['NODE_ENV'] = 'test'
 process.env['OLLAMA_HOST'] = 'http://127.0.0.1:1'
 process.env['OLLAMA_FALLBACK_HOST'] = 'http://127.0.0.1:1'
 
