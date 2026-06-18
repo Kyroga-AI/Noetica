@@ -333,7 +333,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
       </div>
       <div className="min-w-0 flex-1">
         <div className="mb-1 text-[11px] font-medium text-[var(--color-text-secondary)]">
-          {message.fanout_model ?? 'Noetica'}
+          {message.governance?.model_routed ?? message.fanout_model ?? 'Noetica'}
         </div>
 
         {/* Extended thinking */}

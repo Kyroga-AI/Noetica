@@ -24,6 +24,8 @@ export type NoeticaTransportConfig = {
   endpoint?: string
 }
 
+const SSE_RECONNECT_DELAYS_MS = [1000, 2000, 4000, 8000]
+
 export async function sendNoeticaChat(
   request: NoeticaChatRequest,
   handlers: NoeticaChatTransportHandlers,
@@ -38,27 +40,45 @@ export async function sendNoeticaChat(
 
   // Browser path — /api/chat handles agent_machine_endpoint proxying server-side (avoids CORS).
   const endpoint = resolveNoeticaChatEndpoint(config)
-  let response: Response
-  try {
-    response = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(request),
-      signal,
-    })
-  } catch (err) {
-    if (err instanceof DOMException && err.name === 'AbortError') return
-    handlers.onError(err instanceof Error ? err.message : 'fetch_failed')
+
+  for (let attempt = 0; attempt <= SSE_RECONNECT_DELAYS_MS.length; attempt++) {
+    if (signal?.aborted) return
+    if (attempt > 0) {
+      const delay = SSE_RECONNECT_DELAYS_MS[attempt - 1]!
+      await new Promise<void>((resolve, reject) => {
+        const timer = setTimeout(resolve, delay)
+        signal?.addEventListener('abort', () => { clearTimeout(timer); reject(new DOMException('AbortError', 'AbortError')) }, { once: true })
+      }).catch(() => { return })
+      if (signal?.aborted) return
+    }
+
+    let response: Response
+    try {
+      response = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(request),
+        signal,
+      })
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return
+      // Transient network error — retry if attempts remain
+      if (attempt < SSE_RECONNECT_DELAYS_MS.length) continue
+      handlers.onError(err instanceof Error ? err.message : 'fetch_failed')
+      return
+    }
+
+    if (!response.ok || !response.body) {
+      const payload = await response.json().catch(() => ({ error: 'unknown_route_error' }))
+      // Retry on 502/503/504 gateway errors; surface all others immediately
+      if ((response.status === 502 || response.status === 503 || response.status === 504) && attempt < SSE_RECONNECT_DELAYS_MS.length) continue
+      handlers.onError(String(payload.error ?? 'unknown_route_error'))
+      return
+    }
+
+    await readNoeticaEventStream(response, handlers, signal)
     return
   }
-
-  if (!response.ok || !response.body) {
-    const payload = await response.json().catch(() => ({ error: 'unknown_route_error' }))
-    handlers.onError(String(payload.error ?? 'unknown_route_error'))
-    return
-  }
-
-  await readNoeticaEventStream(response, handlers, signal)
 }
 
 export function resolveNoeticaChatEndpoint(config: NoeticaTransportConfig = {}) {
@@ -104,6 +124,7 @@ async function readNoeticaEventStream(response: Response, handlers: NoeticaChatT
 
   const decoder = new TextDecoder()
   let buffer = ''
+  let receivedDone = false
 
   while (true) {
     if (signal?.aborted) { reader.cancel(); break }
@@ -112,7 +133,10 @@ async function readNoeticaEventStream(response: Response, handlers: NoeticaChatT
       ;({ done, value } = await reader.read())
     } catch (err) {
       if (signal?.aborted) break
-      handlers.onError(err instanceof Error ? err.message : 'stream_read_error')
+      // Only surface as error if we never got a done event (partial stream loss)
+      if (!receivedDone) {
+        handlers.onError(err instanceof Error ? err.message : 'stream_read_error')
+      }
       break
     }
     if (done) break
@@ -132,7 +156,10 @@ async function readNoeticaEventStream(response: Response, handlers: NoeticaChatT
       if (parsed.event === 'thinking_delta') handlers.onThinkingDelta?.(payload['delta'] as string)
       if (parsed.event === 'thinking_done') handlers.onThinkingDone?.(payload['thinking'] as string)
       if (parsed.event === 'tool_calls') handlers.onToolCalls?.(payload['tool_calls'] as import('@/lib/providers').ToolUseBlock[])
-      if (parsed.event === 'done') handlers.onDone(payload['result'] as NoeticaStreamDoneResult)
+      if (parsed.event === 'done') {
+        receivedDone = true
+        handlers.onDone(payload['result'] as NoeticaStreamDoneResult)
+      }
       if (parsed.event === 'error') handlers.onError(payload['error'] as string)
     }
   }

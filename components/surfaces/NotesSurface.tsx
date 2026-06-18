@@ -1,6 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import ReactMarkdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
+import oneDark from 'react-syntax-highlighter/dist/cjs/styles/prism/one-dark'
 import { useNotes } from '@/lib/notes/useNotes'
 import { useSettings } from '@/lib/settings/context'
 import { useConnectorAuth } from '@/lib/auth/context'
@@ -302,7 +306,7 @@ function NoteChat({ note, onAppendMessages }: {
           </div>
         ) : (
           messages.map((m) => (
-            <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div key={m.id} className={`group flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {m.role === 'assistant' && (
                 <div className="mr-2 mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#0f172a] text-[10px] font-bold text-white">N</div>
               )}
@@ -311,8 +315,39 @@ function NoteChat({ note, onAppendMessages }: {
                   ? 'bg-[#dbeafe] text-[var(--color-text-primary)]'
                   : 'bg-[var(--color-background-primary)] shadow-sm border border-[var(--color-border-secondary)] text-[var(--color-text-primary)]'
               }`}>
-                <p className="whitespace-pre-wrap">{m.content || (streaming ? '…' : '')}</p>
+                {m.role === 'assistant' && m.content ? (
+                  <div className="prose prose-xs max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      code({ className, children, ...props }: any) {
+                        const match = /language-(\w+)/.exec(className ?? '')
+                        if (!match) return <code className="rounded bg-black/[0.06] px-1 py-0.5 font-mono text-[11px]" {...props}>{children}</code>
+                        return (
+                          <SyntaxHighlighter language={match[1]} style={oneDark as Record<string, React.CSSProperties>} customStyle={{ borderRadius: '0.5rem', fontSize: '11px', margin: '0.5rem 0' }} PreTag="div">
+                            {String(children).replace(/\n$/, '')}
+                          </SyntaxHighlighter>
+                        )
+                      },
+                    }}
+                  >
+                    {m.content}
+                  </ReactMarkdown>
+                  </div>
+                ) : (
+                  <p className="whitespace-pre-wrap">{m.content || (streaming && m.role === 'assistant' ? '…' : '')}</p>
+                )}
               </div>
+              {m.role === 'assistant' && m.content && (
+                <button
+                  onClick={() => void navigator.clipboard.writeText(m.content)}
+                  className="ml-1 mt-1 self-start rounded p-1 text-[var(--color-text-tertiary)] opacity-0 transition-opacity hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-primary)] group-hover:opacity-100"
+                  title="Copy"
+                >
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-1v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h1V2zm1 3H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-1H6a2 2 0 0 1-2-2V5zm6-4H6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h5v-2h2V2a1 1 0 0 0-1-1z"/></svg>
+                </button>
+              )}
             </div>
           ))
         )}

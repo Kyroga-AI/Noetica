@@ -897,27 +897,38 @@ async function* streamAnthropic(params: {
     body['thinking'] = { type: 'enabled', budget_tokens: params.thinkingBudget }
   }
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-api-key': params.apiKey,
-      'anthropic-version': '2023-06-01',
-      ...(params.thinkingBudget
-        ? { 'anthropic-beta': 'interleaved-thinking-2025-05-14' }
-        : {}),
-    },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(120_000),
-  })
-
-  if (!res.ok) {
-    const detail = await res.text()
-    throw new Error(`Anthropic ${res.status}: ${detail}`)
+  const anthropicHeaders = {
+    'content-type': 'application/json',
+    'x-api-key': params.apiKey,
+    'anthropic-version': '2023-06-01',
+    ...(params.thinkingBudget ? { 'anthropic-beta': 'interleaved-thinking-2025-05-14' } : {}),
   }
-  if (!res.body) throw new Error('Anthropic response body was empty.')
 
-  const reader = res.body.getReader()
+  let res: Response
+  let lastStatus = 0
+  for (let attempt = 0; attempt < 3; attempt++) {
+    res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: anthropicHeaders,
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(120_000),
+    })
+    lastStatus = res.status
+    if (res.status !== 429) break
+    // Honor Retry-After header if present, else exponential backoff
+    const retryAfterSec = parseFloat(res.headers.get('retry-after') ?? '')
+    const waitMs = !isNaN(retryAfterSec) ? retryAfterSec * 1000 : (attempt === 0 ? 2000 : 8000)
+    console.warn(`[streamAnthropic] 429 rate-limited, waiting ${waitMs}ms (attempt ${attempt + 1})`)
+    await new Promise<void>((r) => setTimeout(r, waitMs))
+  }
+
+  if (!res!.ok) {
+    const detail = await res!.text()
+    throw new Error(`Anthropic ${lastStatus}: ${detail}`)
+  }
+  if (!res!.body) throw new Error('Anthropic response body was empty.')
+
+  const reader = res!.body.getReader()
   const dec = new TextDecoder()
   let buf = ''
   let inThinking = false

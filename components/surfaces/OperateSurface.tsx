@@ -71,14 +71,19 @@ function GraphViz({ onNodeClick }: { onNodeClick?: (node: VizNode) => void }) {
   const [nodes, setNodes] = useState<VizNode[]>([])
   const [edges, setEdges] = useState<VizEdge[]>([])
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
   const frameRef = useRef<number>(0)
   const nodesRef = useRef<VizNode[]>([])
   const edgesRef = useRef<VizEdge[]>([])
   const hoveredRef = useRef<VizNode | null>(null)
 
   const fetchNodes = useCallback(() => {
+    setFetchError(null)
     fetch(amUrl('/api/graph/nodes'))
-      .then(r => r.json())
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
       .then((data: { nodes: Array<{id: string; label: string; kind: string; surface: string; primes: string}>; edges: VizEdge[] }) => {
         const W = 600, H = 320
         const initialized = data.nodes.map(n => ({
@@ -94,7 +99,10 @@ function GraphViz({ onNodeClick }: { onNodeClick?: (node: VizNode) => void }) {
         edgesRef.current = data.edges
         setLoading(false)
       })
-      .catch(() => setLoading(false))
+      .catch((err: unknown) => {
+        setFetchError(err instanceof Error ? err.message : 'Failed to load graph')
+        setLoading(false)
+      })
   }, [])
 
   useEffect(() => { fetchNodes() }, [fetchNodes])
@@ -215,6 +223,12 @@ function GraphViz({ onNodeClick }: { onNodeClick?: (node: VizNode) => void }) {
   }
 
   if (loading) return <div className="flex h-48 items-center justify-center text-xs text-[var(--color-text-tertiary)]">Loading graph…</div>
+  if (fetchError) return (
+    <div className="flex items-center gap-3 rounded-lg border border-[#fecaca] bg-[#fef2f2] px-4 py-3 text-sm text-[#dc2626]">
+      <span className="flex-1 text-xs">{fetchError}</span>
+      <button onClick={fetchNodes} className="rounded border border-[#fca5a5] px-3 py-1 text-xs font-medium hover:bg-[#fee2e2]">Retry</button>
+    </div>
+  )
   if (nodes.length === 0) return <div className="flex h-48 items-center justify-center text-xs text-[var(--color-text-tertiary)]">No graph data yet — start chatting to build your memory graph.</div>
 
   return (
