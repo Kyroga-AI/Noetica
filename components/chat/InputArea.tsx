@@ -167,7 +167,7 @@ export function InputArea({
     // In a browser, the HTML input works.
     if (isTauri()) {
       try {
-        const dlg: any = await import(/* webpackIgnore: true */ '@tauri-apps/plugin-dialog' as string)
+        const dlg: any = await import('@tauri-apps/plugin-dialog')
         const selected: string | string[] | null = await dlg.open({
           multiple: true,
           filters: [{ name: 'Documents & code', extensions: ['pdf', 'docx', 'txt', 'md', 'csv', 'json', 'ts', 'js', 'py', 'rs', 'go', 'yaml', 'yml', 'sql'] }],
