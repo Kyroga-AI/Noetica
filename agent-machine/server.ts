@@ -56,6 +56,7 @@ import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
 import { detectGoalIntent, slotFill, buildGoalContext, getActiveGoal, listGoals, saveGoal, type Goal } from './lib/goal-model.js'
 import { assessAgainstGraph } from './lib/pln-judgment.js'
 import { saveCheckpoint, listCheckpoints, getCheckpoint, buildResumeMessages } from './lib/checkpoint-model.js'
+import { recordQualitySample, analyzeDrivers, qualitySamples } from './lib/quality-sr.js'
 import {
   ensureMichaelTwin, ingestGaiaObservation, getRecentObservations,
   writeBeliefSnapshot, writeWorldStateSnapshot, writeCycleNode,
@@ -1934,6 +1935,17 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       sse(res, 'value_judgment', { value_judgment: valueJudgment })
       // Feed VJ worth back into the bandit as the automatic reward signal.
       recordReward({ task: routerDecision.task, provider, model, reward: valueJudgment.worth })
+      // Record a quality sample for symbolic-regression driver analysis.
+      recordQualitySample({
+        worth: valueJudgment.worth,
+        grounding: valueJudgment.grounding,
+        graph_grounding: valueJudgment.graph_grounding ?? 0,
+        belief_alignment: valueJudgment.belief_alignment,
+        latency_ms: latencyMs,
+        input_tokens: inputTokens,
+        provider, model, task: routerDecision.task ?? 'general',
+        ts: new Date().toISOString(),
+      })
       if (valueJudgment.contradictions.length > 0) {
         recordContradictions(run_id, sessionId, valueJudgment, fullContent)
       }
@@ -2289,6 +2301,15 @@ const server = http.createServer((req, res) => {
     })).sort((x, y) => y.runs - x.runs)
     res.writeHead(200, { 'content-type': 'application/json' })
     res.end(JSON.stringify({ summary, ring_size: _governanceRuns.length }))
+    return
+  }
+
+  // GET /api/quality/drivers — symbolic-regression driver analysis: which
+  // signals most drive answer quality (Value-Judgment worth).
+  if (req.method === 'GET' && url.pathname === '/api/quality/drivers') {
+    setCORSHeaders(res)
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ ...analyzeDrivers(), total_samples: qualitySamples().length }))
     return
   }
 
