@@ -75,4 +75,6 @@ export interface RetrievalTrace {
   token_estimate: number
   /** How many belief snapshots were injected from the world model */
   beliefs_injected: number
+  /** Uploaded-document chunks cited for this answer (semantic RAG), shown as source chips */
+  document_sources?: Array<{ id: string; label: string; score: number }>
 }

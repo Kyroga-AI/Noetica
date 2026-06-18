@@ -804,7 +804,7 @@ export function AppShell() {
               }
             },
             onRetrieval: (trace) => {
-              updateAssistant(assistantId, { retrieval_trace: trace })
+              mergeRetrieval(assistantId, trace)
               if (settings.showRawEvents) {
                 setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'retrieval', payload: trace }, ...prev].slice(0, 80))
               }
@@ -1079,6 +1079,23 @@ export function AppShell() {
   function updateAssistant(id: string, patch: Partial<ChatMessage>) {
     setMessages((current) =>
       current.map((m) => (m.id === id ? { ...m, ...patch } : m))
+    )
+  }
+
+  // Merge retrieval events instead of overwriting: the graph/belief "substrate"
+  // trace and the semantic-document sources arrive as separate events — keep both
+  // so the answer shows graph grounding AND the cited uploaded documents.
+  function mergeRetrieval(id: string, trace: import('@/lib/types/message').RetrievalTrace) {
+    const isDocs = trace.patterns?.includes('semantic-documents')
+    setMessages((current) =>
+      current.map((m) => {
+        if (m.id !== id) return m
+        const prev = m.retrieval_trace
+        const combined = isDocs
+          ? { ...(prev ?? trace), document_sources: trace.sources }
+          : { ...trace, document_sources: prev?.document_sources }
+        return { ...m, retrieval_trace: combined }
+      })
     )
   }
 

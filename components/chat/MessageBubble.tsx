@@ -546,6 +546,19 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
                   </div>
                 </div>
               )}
+              {/* Cited uploaded documents (semantic RAG) */}
+              {message.retrieval_trace.document_sources && message.retrieval_trace.document_sources.length > 0 && (
+                <div>
+                  <div className="mb-1 text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Sources (your documents)</div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {message.retrieval_trace.document_sources.map((s, i) => (
+                      <span key={`${s.id}-${i}`} className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)]" title={`${s.label} · ${(s.score * 100).toFixed(0)}% match`}>
+                        <span className="text-[#16a34a]">📄</span><span className="max-w-[160px] truncate">{s.label || 'document'}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
               <p className="text-[10px] text-[var(--color-text-tertiary)]">
                 ~{message.retrieval_trace.token_estimate} tokens of graph context injected · this is the neurosymbolic substrate cloud models don&apos;t have.
               </p>
