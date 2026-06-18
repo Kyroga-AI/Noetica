@@ -1,0 +1,29 @@
+import { test } from 'node:test'
+import assert from 'node:assert/strict'
+import { recordCapability, capabilitySummary, capabilityHint } from './capability-model.js'
+
+test('records success/error rates and latency per task/model', () => {
+  const task = `unit-${Math.random().toString(36).slice(2)}`
+  for (let i = 0; i < 8; i++) recordCapability({ task, provider: 'ollama', model: 'qwen2.5:7b', latencyMs: 1000, error: false })
+  for (let i = 0; i < 2; i++) recordCapability({ task, provider: 'ollama', model: 'qwen2.5:7b', latencyMs: 1000, error: true })
+  const row = capabilitySummary().find((r) => r.task === task && r.model === 'qwen2.5:7b')
+  assert.ok(row)
+  assert.equal(row!.runs, 10)
+  assert.equal(row!.success_rate, 0.8)
+  assert.equal(row!.is_local, true)
+})
+
+test('capabilityHint recommends escalation when local success is poor over enough runs', () => {
+  const task = `poor-${Math.random().toString(36).slice(2)}`
+  for (let i = 0; i < 10; i++) recordCapability({ task, provider: 'ollama', model: 'qwen2.5:7b', latencyMs: 500, error: i < 7 }) // 30% success
+  const hint = capabilityHint(task)
+  assert.equal(hint.recommendEscalation, true)
+  assert.ok((hint.localSuccessRate ?? 1) < 0.6)
+})
+
+test('capabilityHint does NOT escalate without enough signal', () => {
+  const task = `sparse-${Math.random().toString(36).slice(2)}`
+  recordCapability({ task, provider: 'ollama', model: 'qwen2.5:7b', latencyMs: 500, error: true })
+  const hint = capabilityHint(task)
+  assert.equal(hint.recommendEscalation, false) // only 1 run < MIN_RUNS
+})

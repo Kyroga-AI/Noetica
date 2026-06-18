@@ -265,12 +265,19 @@ export function buildRouterDecision(opts: {
         ?? 'qwen2.5:7b'
     }
 
-    const candidatePrimary = (needsToolUse && !LOCAL_MODEL_SUITE.find(m => m.name === primary)?.toolUse)
+    const toolCapable = (name: string) => LOCAL_MODEL_SUITE.find(m => m.name === name)?.toolUse !== false
+    const candidatePrimary = (needsToolUse && !toolCapable(primary))
       ? resolveToolCapable()
       : primary
+    // The fallback must ALSO respect the tool requirement — otherwise a tool
+    // request whose upgraded primary isn't installed could fall back to a
+    // tool-incapable model (e.g. deepseek-r1), which Ollama 400s on.
+    const safeFallback = (needsToolUse && !toolCapable(fallback))
+      ? resolveToolCapable()
+      : fallback
 
     const modelToUse = isModelAvailable(candidatePrimary, availableModels) ? candidatePrimary
-      : isModelAvailable(fallback, availableModels) ? fallback
+      : isModelAvailable(safeFallback, availableModels) ? safeFallback
       : candidatePrimary // will trigger auto-pull by Ollama
 
     return {

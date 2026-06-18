@@ -40,6 +40,10 @@ jobs:
         run: npm run typecheck
       - name: Lint
         run: npm run lint
+      - name: Unit tests (router contract, value-judgment, capability, pricing)
+        run: |
+          npm --prefix agent-machine install
+          npm test
       - name: Build
         run: npm run build
       - name: Static export probe

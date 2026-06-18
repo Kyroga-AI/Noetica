@@ -13,6 +13,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
+    "test": "cd agent-machine && npm test",
     "icons:generate": "node scripts/generate-icons.mjs",
     "packaging:validate": "npm run icons:generate && node scripts/validate-packaging-metadata.mjs",
     "sourceos:events:export": "node scripts/export-sourceos-interaction-events.mjs",

@@ -7,7 +7,9 @@
     "dev": "tsx watch server.ts",
     "build": "esbuild server.ts --bundle --platform=node --target=node18 --outfile=dist/server.js --external:node:* --external:child_process --external:vm --external:fs --external:path --external:http --external:url --external:crypto --external:stream --external:os --external:net",
     "start": "node dist/server.js",
-    "start:dev": "tsx server.ts"
+    "start:dev": "tsx server.ts",
+    "test": "node --import tsx --test lib/*.test.ts",
+    "test:models": "tsx scripts/smoke-models.ts"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
