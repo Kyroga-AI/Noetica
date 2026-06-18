@@ -345,10 +345,24 @@ export async function ensureCpuVariant(model: string): Promise<string> {
   }
 }
 
-/** The model the chat path should actually call: CPU-pinned on low-memory hosts. */
+/** The model the chat path should actually call: CPU-pinned on low-memory hosts.
+ *  On low-memory hosts we ALWAYS return the `-cpu` name (the variants are
+ *  pre-provisioned at runtime boot) and only fire the create in the background —
+ *  never await it, so a slow/failed request-time create can't silently fall the
+ *  chat back to the GPU base model (which then OOMs and returns empty). */
 export async function resolveChatModel(model: string): Promise<string> {
   if (!isLowMemoryHost()) return model
-  return ensureCpuVariant(model)
+  if (model.endsWith('-cpu')) return model
+  const variant = `${model}-cpu`
+  if (!_cpuVariants.has(model)) void ensureCpuVariant(model) // background, idempotent
+  return variant
+}
+
+/** Pre-provision CPU variants for the given models (called at runtime boot on
+ *  low-memory hosts so the request path never needs a create round-trip). */
+export async function provisionCpuVariants(models: string[]): Promise<void> {
+  if (!isLowMemoryHost()) return
+  for (const m of models) { try { await ensureCpuVariant(m) } catch { /* best-effort */ } }
 }
 
 export async function* streamOllama(params: {
