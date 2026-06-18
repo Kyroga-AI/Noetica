@@ -1,0 +1,47 @@
+name: nightly
+
+# Cuts a nightly prerelease so you can `brew update && brew upgrade --cask
+# noetica-nightly` each morning. Pushes a dated nightly tag, which the `release`
+# workflow builds (universal signed .dmg) and whose update-cask job points the
+# noetica-nightly cask at the fresh build.
+on:
+  schedule:
+    # 08:00 UTC daily ≈ early US morning. Adjust to your timezone as desired.
+    - cron: "0 8 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  tag-nightly:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Skip if no commits since last nightly
+        id: gate
+        run: |
+          LAST=$(git tag -l 'v*-nightly.*' --sort=-creatordate | head -1)
+          if [ -n "$LAST" ] && [ "$(git rev-list -n1 "$LAST")" = "$(git rev-parse HEAD)" ]; then
+            echo "HEAD unchanged since $LAST — skipping nightly"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create and push nightly tag
+        if: steps.gate.outputs.skip != 'true'
+        run: |
+          BASE=$(node -p "require('./package.json').version")
+          TAG="v${BASE}-nightly.$(date -u +%Y%m%d)"
+          # If today's nightly tag already exists (manual re-run), append a counter.
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            TAG="${TAG}.$(date -u +%H%M%S)"
+          fi
+          echo "Tagging $TAG"
+          git tag "$TAG"
+          git push origin "$TAG"

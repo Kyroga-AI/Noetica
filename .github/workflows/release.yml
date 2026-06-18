@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+"
+      - "v[0-9]+.[0-9]+.[0-9]+-nightly.*"
 
 permissions:
   contents: write
@@ -126,7 +127,7 @@ jobs:
             sudo xattr -dr com.apple.quarantine /Applications/Noetica.app
             ```
           releaseDraft: false
-          prerelease: false
+          prerelease: ${{ contains(github.ref_name, 'nightly') }}
           args: --target universal-apple-darwin
 
       # Ad-hoc sign the DMG when no Apple Developer cert is available.
@@ -251,22 +252,26 @@ jobs:
           ref: main
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update Casks/noetica.rb
+      - name: Update cask (stable → noetica, nightly → noetica-nightly)
         run: |
-          FILE=Casks/noetica.rb
-          VERSION=${{ steps.asset.outputs.version }}
+          TAG=${{ github.ref_name }}
+          if [[ "$TAG" == *nightly* ]]; then FILE=Casks/noetica-nightly.rb; else FILE=Casks/noetica.rb; fi
+          # Version comes from the tag (so each nightly is a distinct brew upgrade);
+          # url/sha come from the just-published release asset.
+          VERSION=${TAG#v}
           SHA256=${{ steps.asset.outputs.sha256 }}
           URL=${{ steps.asset.outputs.url }}
           sed -i "s|version \".*\"|version \"$VERSION\"|g" "$FILE"
           sed -i "s|sha256 \".*\"|sha256 \"$SHA256\"|g" "$FILE"
           sed -i "s|url \".*\"|url \"$URL\"|g" "$FILE"
+          echo "CASK_FILE=$FILE" >> "$GITHUB_ENV"
 
       - name: Commit cask update to main
         run: |
           git config user.name "noetica-bot"
           git config user.email "noetica-bot@users.noreply.github.com"
-          git add Casks/noetica.rb
-          git diff --staged --quiet || git commit -m "cask: noetica ${{ steps.asset.outputs.version }}"
+          git add "$CASK_FILE"
+          git diff --staged --quiet || git commit -m "cask: $(basename "$CASK_FILE" .rb) ${{ github.ref_name }}"
           git push
 
       - name: Checkout homebrew tap
