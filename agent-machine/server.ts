@@ -42,7 +42,7 @@ import { getAtomSpace } from '@socioprophet/hellgraph'
 import { decayAll } from '@socioprophet/hellgraph'
 import { consolidate } from '@socioprophet/hellgraph'
 import { recordAttentionSnapshot, pushSnapshotToPrometheusd, ingestPrometheusCandidate } from '@socioprophet/hellgraph'
-import { isOllamaRunning, listLocalModels, pullModel, streamOllama, getModelContextLength, OLLAMA_BASE, generateOllamaText } from './lib/ollama.js'
+import { isOllamaRunning, listLocalModels, pullModel, streamOllama, getModelContextLength, ollamaBase, generateOllamaText } from './lib/ollama.js'
 import { retrieve } from './lib/retrieval.js'
 import { getGraph, graphHealth, graphSparql, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
 import { getHellGraph, attachRocksDB } from '@socioprophet/hellgraph'
@@ -264,7 +264,7 @@ async function synthesizeViaOllama(prompt: string): Promise<string> {
   const preferred = ['qwen2.5:14b', 'qwen2.5:7b', 'deepseek-r1:8b', 'llama3.2:3b']
   const model = preferred.find((p) => installed.includes(p)) ?? installed[0]!
   try {
-    const res = await fetch(`${OLLAMA_BASE}/v1/chat/completions`, {
+    const res = await fetch(`${ollamaBase()}/v1/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

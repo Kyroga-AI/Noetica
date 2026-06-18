@@ -10,24 +10,96 @@ import type { ProviderTool, ToolUseBlock, ProviderEvent } from '../server.js'
 
 // 11435 is Noetica's isolated Ollama port — separate from any system Ollama on 11434.
 // OLLAMA_HOST env can override for dev (e.g. point at system Ollama during local iteration).
-export const OLLAMA_BASE = process.env['OLLAMA_HOST'] ?? 'http://127.0.0.1:11435'
+const OLLAMA_PRIMARY = process.env['OLLAMA_HOST'] ?? 'http://127.0.0.1:11435'
+// Fallback to a system Ollama (default port) when the primary can list models but
+// can't actually run inference — e.g. a bundled Ollama shipped without its
+// llama-server runner. This keeps chat working instead of hard-freezing mid-demo.
+const OLLAMA_FALLBACK = process.env['OLLAMA_FALLBACK_HOST'] ?? 'http://127.0.0.1:11434'
+let _activeBase = OLLAMA_PRIMARY
+
+/** The Ollama base URL currently in use (may switch to the fallback after a failure). */
+export function ollamaBase(): string { return _activeBase }
+// Back-compat for existing imports; prefer ollamaBase() for the live value.
+export const OLLAMA_BASE = OLLAMA_PRIMARY
+
+// A 5xx whose body names the missing inference runner means "can list models but
+// cannot generate" — exactly the bundled-Ollama-missing-llama-server failure.
+export function isRunnerMissing(status: number, body: string): boolean {
+  return status >= 500 && /llama-server|no runner|runner.*not found|binary not found/i.test(body)
+}
+function isUnreachable(err: unknown): boolean {
+  const cause = (err as { cause?: { code?: string } })?.cause?.code
+  return cause === 'ECONNREFUSED' || (err instanceof Error && /fetch failed|ECONNREFUSED/i.test(err.message))
+}
+
+/**
+ * POST to /v1/chat/completions against the active Ollama, with a one-time automatic
+ * fallback to the system Ollama if the active backend is unreachable or can't run
+ * inference. Returns an OK Response (caller streams/reads it) or throws a clear,
+ * actionable error. On a successful fallback the active base sticks for the session.
+ */
+async function postChat(body: unknown, timeoutMs = 120_000): Promise<Response> {
+  const bases = (_activeBase === OLLAMA_PRIMARY && OLLAMA_FALLBACK !== OLLAMA_PRIMARY)
+    ? [OLLAMA_PRIMARY, OLLAMA_FALLBACK]
+    : [_activeBase]
+  for (let i = 0; i < bases.length; i++) {
+    const base = bases[i]!
+    const isLast = i === bases.length - 1
+    try {
+      const res = await fetch(`${base}/v1/chat/completions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(timeoutMs),
+      })
+      if (res.ok) { _activeBase = base; return res }
+      const detail = await res.text()
+      if (!isLast && isRunnerMissing(res.status, detail)) {
+        console.warn(`[ollama] ${base} can't run inference (${res.status}: runner missing) — falling back to ${bases[i + 1]}`)
+        continue
+      }
+      _activeBase = base
+      if (isRunnerMissing(res.status, detail)) {
+        throw new Error(`Ollama at ${base} is missing its inference runner (llama-server). Reinstall the app or run a system \`ollama serve\`.`)
+      }
+      throw new Error(`Ollama ${res.status}: ${detail}`)
+    } catch (err) {
+      if (!isLast && isUnreachable(err)) {
+        console.warn(`[ollama] ${base} unreachable — falling back to ${bases[i + 1]}`)
+        continue
+      }
+      if (isUnreachable(err)) {
+        throw new Error(`Ollama is not reachable at ${base}. Start it with \`ollama serve\` or switch to a cloud provider.`)
+      }
+      if (err instanceof Error && err.name === 'TimeoutError') {
+        throw new Error(`Ollama timed out after ${Math.round(timeoutMs / 1000)}s at ${base} — the model may be loading. Try again or use a cloud provider.`)
+      }
+      throw err
+    }
+  }
+  throw new Error('Ollama request failed against all configured hosts')
+}
 
 // ─── Health & model inventory ─────────────────────────────────────────────────
 
 export async function isOllamaRunning(): Promise<boolean> {
-  try {
-    const res = await fetch(`${OLLAMA_BASE}/api/tags`, {
-      signal: AbortSignal.timeout(2_000),
-    })
-    return res.ok
-  } catch {
-    return false
+  // Probe primary then fallback; pin the active base to the first that responds so
+  // the preflight gate doesn't block when only the system Ollama is up. (Note: a
+  // primary that lists models but can't generate still passes here — the
+  // missing-runner fallback then kicks in inside postChat during streaming.)
+  const candidates = OLLAMA_FALLBACK !== OLLAMA_PRIMARY ? [OLLAMA_PRIMARY, OLLAMA_FALLBACK] : [OLLAMA_PRIMARY]
+  for (const base of candidates) {
+    try {
+      const res = await fetch(`${base}/api/tags`, { signal: AbortSignal.timeout(2_000) })
+      if (res.ok) { _activeBase = base; return true }
+    } catch { /* try next candidate */ }
   }
+  return false
 }
 
 export async function listLocalModels(): Promise<string[]> {
   try {
-    const res = await fetch(`${OLLAMA_BASE}/api/tags`, {
+    const res = await fetch(`${ollamaBase()}/api/tags`, {
       signal: AbortSignal.timeout(3_000),
     })
     if (!res.ok) return []
@@ -46,7 +118,7 @@ const _ctxCache = new Map<string, number>()
 export async function getModelContextLength(model: string): Promise<number | null> {
   if (_ctxCache.has(model)) return _ctxCache.get(model)!
   try {
-    const res = await fetch(`${OLLAMA_BASE}/api/show`, {
+    const res = await fetch(`${ollamaBase()}/api/show`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: model }),
@@ -73,7 +145,7 @@ export async function pullModel(
   model: string,
   onProgress: (status: string, pct: number | null) => void,
 ): Promise<void> {
-  const res = await fetch(`${OLLAMA_BASE}/api/pull`, {
+  const res = await fetch(`${ollamaBase()}/api/pull`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name: model, stream: true }),
@@ -134,18 +206,12 @@ export async function generateOllamaText(params: {
   temperature?: number
   numCtx?: number
 }): Promise<{ content: string; reasoning: string }> {
-  const res = await fetch(`${OLLAMA_BASE}/v1/chat/completions`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: params.model,
-      stream: false,
-      messages: params.messages,
-      options: { num_ctx: params.numCtx ?? 8192, temperature: params.temperature ?? 0.7 },
-    }),
-    signal: AbortSignal.timeout(120_000),
+  const res = await postChat({
+    model: params.model,
+    stream: false,
+    messages: params.messages,
+    options: { num_ctx: params.numCtx ?? 8192, temperature: params.temperature ?? 0.7 },
   })
-  if (!res.ok) throw new Error(`Ollama ${res.status}: ${await res.text()}`)
   const data = await res.json() as {
     choices?: Array<{ message?: { content?: string; reasoning?: string; reasoning_content?: string } }>
   }
@@ -187,31 +253,9 @@ export async function* streamOllama(params: {
     body['tool_choice'] = 'auto'
   }
 
-  let res: Response
-  try {
-    res = await fetch(`${OLLAMA_BASE}/v1/chat/completions`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-      signal: AbortSignal.timeout(120_000),
-    })
-  } catch (err) {
-    // Most common demo failure: Ollama isn't running. Surface a clear, actionable error
-    // (the raw "fetch failed" / ECONNREFUSED is opaque to the user).
-    const cause = (err as { cause?: { code?: string } })?.cause?.code
-    if (cause === 'ECONNREFUSED' || (err instanceof Error && /fetch failed|ECONNREFUSED/i.test(err.message))) {
-      throw new Error(`Ollama is not reachable at ${OLLAMA_BASE}. Start it with \`ollama serve\` or switch to a cloud provider.`)
-    }
-    if (err instanceof Error && err.name === 'TimeoutError') {
-      throw new Error(`Ollama timed out after 120s at ${OLLAMA_BASE} — the model may be loading. Try again or use a cloud provider.`)
-    }
-    throw err
-  }
-
-  if (!res.ok) {
-    const detail = await res.text()
-    throw new Error(`Ollama ${res.status}: ${detail}`)
-  }
+  // postChat handles unreachable / missing-runner fallback to the system Ollama and
+  // surfaces a clear, actionable error otherwise. Returns an OK response.
+  const res = await postChat(body)
   if (!res.body) throw new Error('Ollama response body was empty.')
 
   const reader = res.body.getReader()
