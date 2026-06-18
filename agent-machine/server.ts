@@ -1542,6 +1542,24 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     })
   } catch { /* retrieval is best-effort — never block the LLM call */ }
 
+  // ── Semantic document retrieval (real RAG over uploaded files) ──────────────
+  // Embed the query and pull the most relevant DocumentChunks. This is what makes
+  // "upload a doc and ask about it" actually work — the graph patterns above are
+  // structural, not semantic. Injected as authoritative source context.
+  try {
+    const { semanticSearch, documentChunkCount } = await import('./lib/doc-store.js')
+    if (documentChunkCount() > 0) {
+      const hits = await semanticSearch(latestUserContent, 6)
+      if (hits.length > 0) {
+        const docBlock = hits.map((h, i) => `[${i + 1}] (${h.filename}) ${h.text}`).join('\n\n')
+        graphContext = `\n\n---\n**Document context (uploaded sources — answer from these when relevant)**\n${docBlock}${graphContext}`
+        sse(res, 'retrieval', {
+          trace: { patterns: ['semantic-documents'], sources: hits.map((h) => ({ id: h.docId, label: h.filename, score: Number(h.score.toFixed(3)) })), token_estimate: docBlock.length >> 2, beliefs_injected: 0 },
+        })
+      }
+    }
+  } catch { /* document RAG is best-effort */ }
+
   const profile = POLICY_PROFILES[body.policy_profile ?? 'default'] ?? POLICY_PROFILES['default']!
   const basePrompt = body.system_prompt ?? NOETICA_SYSTEM_PROMPT
   // Inject current datetime so the model always has accurate temporal context
@@ -2886,9 +2904,9 @@ const server = http.createServer((req, res) => {
     return
   }
 
-  // POST /api/ingest/document
-  // Accepts { content: string, filename: string, mimeType?: string }
-  // Chunks, stores as RECORD nodes in HellGraph, returns chunk count + preview.
+  // POST /api/ingest/document — pre-extracted text { content, filename, mimeType? }
+  // Embeds + stores semantically-searchable DocumentChunks (real RAG), AND keeps the
+  // engine's entity/record ingest for graph structure.
   if (req.method === 'POST' && url.pathname === '/api/ingest/document') {
     setCORSHeaders(res)
     let body = ''
@@ -2896,19 +2914,45 @@ const server = http.createServer((req, res) => {
     req.on('end', () => {
       ;(async () => {
         try {
-          const { content, filename, mimeType } = JSON.parse(body) as {
-            content: string
-            filename: string
-            mimeType?: string
-          }
+          const { content, filename, mimeType } = JSON.parse(body) as { content: string; filename: string; mimeType?: string }
           if (!content || typeof content !== 'string') throw new Error('content required')
-          const { ingestDocumentChunks } = await import('./lib/graph.js')
-          const result = await ingestDocumentChunks(content, filename, mimeType ?? 'text/plain')
+          const { ingestDocument } = await import('./lib/doc-store.js')
+          const result = await ingestDocument(filename || 'document.txt', content)
+          // Best-effort: also run the engine's entity/record extraction for graph structure.
+          try { const { ingestDocumentChunks } = await import('./lib/graph.js'); await ingestDocumentChunks(content, filename, mimeType ?? 'text/plain') } catch { /* non-fatal */ }
           res.writeHead(200, { 'content-type': 'application/json' })
-          res.end(JSON.stringify(result))
+          res.end(JSON.stringify({ ...result, entities: 0 }))
         } catch (err) {
           res.writeHead(400, { 'content-type': 'application/json' })
           res.end(JSON.stringify({ error: String(err) }))
+        }
+      })()
+    })
+    return
+  }
+
+  // POST /api/ingest/file — raw binary upload { filename, mimeType, dataBase64 }.
+  // Extracts text SERVER-SIDE (so .docx works without a browser parser), then
+  // embeds + stores it. This is the path the chat composer uses for documents.
+  if (req.method === 'POST' && url.pathname === '/api/ingest/file') {
+    setCORSHeaders(res)
+    const chunks: Buffer[] = []
+    req.on('data', (c: Buffer) => chunks.push(c))
+    req.on('end', () => {
+      ;(async () => {
+        try {
+          const { filename, mimeType, dataBase64 } = JSON.parse(Buffer.concat(chunks).toString()) as { filename: string; mimeType?: string; dataBase64: string }
+          if (!filename || !dataBase64) throw new Error('filename and dataBase64 required')
+          const buf = Buffer.from(dataBase64, 'base64')
+          const { extractText, ingestDocument } = await import('./lib/doc-store.js')
+          const text = await extractText(filename, mimeType ?? '', buf)
+          if (!text.trim()) throw new Error('no extractable text in file')
+          const result = await ingestDocument(filename, text)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ...result, entities: 0 }))
+        } catch (err) {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }))
         }
       })()
     })

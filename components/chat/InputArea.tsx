@@ -105,42 +105,52 @@ export function InputArea({
     'application/xml','text/xml','application/x-yaml','text/x-python','text/x-java',
     'text/x-c','text/x-c++','text/x-rust','text/x-go','text/x-sh'])
   const TEXT_EXTS = /\.(ts|tsx|js|jsx|py|rs|go|java|c|cpp|h|hpp|cs|rb|php|swift|kt|md|mdx|txt|json|yaml|yml|toml|xml|html|css|sh|bash|zsh|sql|env|gitignore|dockerfile)$/i
+  // Documents whose text must be extracted SERVER-SIDE (binary — browser can't read as text).
+  const DOC_EXTS = /\.(docx|pdf)$/i
 
-  async function ingestTextFile(file: File) {
+  // Plain-text/code files: read in the browser and ingest the text.
+  async function ingestTextFile(file: File): Promise<boolean> {
     const text = await file.text()
+    return postIngest('/api/ingest/document', { content: text, filename: file.name, mimeType: file.type || 'text/plain' }, file.name)
+  }
+
+  // Binary documents (.docx/.pdf): send raw bytes (base64) — the server extracts text.
+  async function ingestBinaryDoc(file: File): Promise<boolean> {
+    const buf = new Uint8Array(await file.arrayBuffer())
+    let bin = ''
+    for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]!)
+    const dataBase64 = btoa(bin)
+    return postIngest('/api/ingest/file', { filename: file.name, mimeType: file.type, dataBase64 }, file.name)
+  }
+
+  async function postIngest(path: string, payload: unknown, filename: string): Promise<boolean> {
     try {
-      const res = await fetch(amUrl('/api/ingest/document'), {
-        method: 'POST',
-        headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ content: text, filename: file.name, mimeType: file.type || 'text/plain' }),
+      const res = await fetch(amUrl(path), {
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(payload),
       })
       if (res.ok) {
-        const data = await res.json() as { chunks: number; entities: number; preview: string[] }
-        setIngestedDocs((prev) => [...prev, {
-          filename: file.name,
-          chunks: data.chunks,
-          entities: data.entities,
-          preview: data.preview,
-        }])
+        const data = await res.json() as { chunks: number; entities?: number; preview: string[] }
+        setIngestedDocs((prev) => [...prev, { filename, chunks: data.chunks, entities: data.entities ?? 0, preview: data.preview }])
         return true
       }
-    } catch { /* best-effort */ }
+      const err = await res.json().catch(() => ({})) as { error?: string }
+      setAttachError(`Couldn't ingest ${filename}: ${err.error ?? res.status}`)
+    } catch (e) {
+      setAttachError(`Couldn't ingest ${filename}: ${e instanceof Error ? e.message : 'upload failed'}`)
+    }
     return false
   }
 
   async function addFiles(files: FileList | File[]) {
     setAttachError('')
     const fileArr = Array.from(files)
-    // Separate text/code files → ingest into HellGraph
-    const textFiles = fileArr.filter((f) =>
-      TEXT_TYPES.has(f.type) || TEXT_EXTS.test(f.name),
-    )
+    const textFiles = fileArr.filter((f) => TEXT_TYPES.has(f.type) || TEXT_EXTS.test(f.name))
+    const docFiles = fileArr.filter((f) => DOC_EXTS.test(f.name))      // .docx/.pdf → server extract
     const attachFiles = fileArr.filter((f) =>
-      !TEXT_TYPES.has(f.type) && !TEXT_EXTS.test(f.name),
+      !TEXT_TYPES.has(f.type) && !TEXT_EXTS.test(f.name) && !DOC_EXTS.test(f.name),
     )
-    for (const tf of textFiles) {
-      await ingestTextFile(tf)
-    }
+    for (const tf of textFiles) await ingestTextFile(tf)
+    for (const df of docFiles) await ingestBinaryDoc(df)
     if (attachFiles.length > 0) {
       const remaining = MAX_ATTACHMENTS - attachments.length
       if (remaining <= 0) { setAttachError(`Max ${MAX_ATTACHMENTS} attachments`); return }

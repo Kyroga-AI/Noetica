@@ -80,6 +80,41 @@ async function postChat(body: unknown, timeoutMs = 120_000): Promise<Response> {
   throw new Error('Ollama request failed against all configured hosts')
 }
 
+// ─── Embeddings (semantic retrieval) ───────────────────────────────────────────
+
+/** Embedding model for document/chunk vectors. nomic-embed-text → 768-dim. */
+export const EMBED_MODEL = process.env['NOETICA_EMBED_MODEL'] ?? 'nomic-embed-text'
+
+/**
+ * Embed text → vector via Ollama. Returns [] on failure so callers degrade to
+ * lexical retrieval rather than throwing. Uses the active Ollama base.
+ */
+export async function embedText(text: string): Promise<number[]> {
+  try {
+    const res = await fetch(`${ollamaBase()}/api/embeddings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: EMBED_MODEL, prompt: text.slice(0, 8000) }),
+      signal: AbortSignal.timeout(30_000),
+    })
+    if (!res.ok) return []
+    const json = (await res.json()) as { embedding?: number[] }
+    return Array.isArray(json.embedding) ? json.embedding : []
+  } catch {
+    return []
+  }
+}
+
+/** Cosine similarity of two equal-length vectors. 0 if either is empty/zero. */
+export function cosineSim(a: number[], b: number[]): number {
+  const n = Math.min(a.length, b.length)
+  if (n === 0) return 0
+  let dot = 0, na = 0, nb = 0
+  for (let i = 0; i < n; i++) { dot += a[i]! * b[i]!; na += a[i]! * a[i]!; nb += b[i]! * b[i]! }
+  if (na === 0 || nb === 0) return 0
+  return dot / (Math.sqrt(na) * Math.sqrt(nb))
+}
+
 // ─── Health & model inventory ─────────────────────────────────────────────────
 
 export async function isOllamaRunning(): Promise<boolean> {
