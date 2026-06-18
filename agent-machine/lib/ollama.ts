@@ -118,12 +118,26 @@ export async function* streamOllama(params: {
     body['tool_choice'] = 'auto'
   }
 
-  const res = await fetch(`${OLLAMA_BASE}/v1/chat/completions`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(120_000),
-  })
+  let res: Response
+  try {
+    res = await fetch(`${OLLAMA_BASE}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(120_000),
+    })
+  } catch (err) {
+    // Most common demo failure: Ollama isn't running. Surface a clear, actionable error
+    // (the raw "fetch failed" / ECONNREFUSED is opaque to the user).
+    const cause = (err as { cause?: { code?: string } })?.cause?.code
+    if (cause === 'ECONNREFUSED' || (err instanceof Error && /fetch failed|ECONNREFUSED/i.test(err.message))) {
+      throw new Error(`Ollama is not reachable at ${OLLAMA_BASE}. Start it with \`ollama serve\` or switch to a cloud provider.`)
+    }
+    if (err instanceof Error && err.name === 'TimeoutError') {
+      throw new Error(`Ollama timed out after 120s at ${OLLAMA_BASE} — the model may be loading. Try again or use a cloud provider.`)
+    }
+    throw err
+  }
 
   if (!res.ok) {
     const detail = await res.text()
@@ -205,7 +219,7 @@ export async function* streamOllama(params: {
       }
       if (!raw) continue
 
-      const p = JSON.parse(raw) as {
+      let p: {
         choices?: Array<{
           delta?: {
             content?: string
@@ -216,6 +230,11 @@ export async function* streamOllama(params: {
             }>
           }
         }>
+      }
+      try {
+        p = JSON.parse(raw)
+      } catch {
+        continue  // skip malformed SSE line — never crash the stream on a partial chunk
       }
 
       const delta = p.choices?.[0]?.delta

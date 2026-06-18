@@ -506,7 +506,15 @@ const BUILTIN_TOOLS: ProviderTool[] = [
 // ─── SSE helper ───────────────────────────────────────────────────────────────
 
 function sse(res: http.ServerResponse, event: string, data: unknown): void {
-  res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+  // Guard against writes after the client disconnected — res.write() throws
+  // ERR_STREAM_WRITE_AFTER_END / EPIPE otherwise, crashing the chat handler
+  // mid-turn and corrupting the governance record.
+  if (res.writableEnded || res.destroyed) return
+  try {
+    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+  } catch {
+    /* client went away mid-stream — nothing to do */
+  }
 }
 
 function setCORSHeaders(res: http.ServerResponse): void {
@@ -832,9 +840,19 @@ except ImportError:
     let stderr = ''
     let timedOut = false
 
+    // Filtered env — never expose API keys or arbitrary host secrets to model-authored code.
+    // Only pass what a typical python script legitimately needs.
+    const safeEnv: Record<string, string | undefined> = {
+      PATH: process.env['PATH'],
+      HOME: os.homedir(),
+      LANG: process.env['LANG'],
+      TMPDIR: process.env['TMPDIR'],
+      PYTHONDONTWRITEBYTECODE: '1',
+      MPLBACKEND: 'Agg',
+    }
     const proc = cp.spawn('python3', ['-c', fullCode], {
       cwd: sessionDir,
-      env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1', MPLBACKEND: 'Agg' },
+      env: safeEnv as NodeJS.ProcessEnv,
     })
 
     const timer = setTimeout(() => {
@@ -917,7 +935,7 @@ async function* streamAnthropic(params: {
     if (res.status !== 429) break
     // Honor Retry-After header if present, else exponential backoff
     const retryAfterSec = parseFloat(res.headers.get('retry-after') ?? '')
-    const waitMs = !isNaN(retryAfterSec) ? retryAfterSec * 1000 : (attempt === 0 ? 2000 : 8000)
+    const waitMs = !isNaN(retryAfterSec) ? Math.min(retryAfterSec, 60) * 1000 : (attempt === 0 ? 2000 : 8000)
     console.warn(`[streamAnthropic] 429 rate-limited, waiting ${waitMs}ms (attempt ${attempt + 1})`)
     await new Promise<void>((r) => setTimeout(r, waitMs))
   }
@@ -1033,23 +1051,33 @@ async function* streamOpenAI(params: {
     body['tool_choice'] = 'auto'
   }
 
-  const res = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${params.apiKey}`,
-    },
-    body: JSON.stringify(body),
-    signal: AbortSignal.timeout(120_000),
-  })
-
-  if (!res.ok) {
-    const detail = await res.text()
-    throw new Error(`OpenAI ${res.status}: ${detail}`)
+  let res: Response
+  let lastStatus = 0
+  for (let attempt = 0; attempt < 3; attempt++) {
+    res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        authorization: `Bearer ${params.apiKey}`,
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(120_000),
+    })
+    lastStatus = res.status
+    if (res.status !== 429) break
+    const retryAfterSec = parseFloat(res.headers.get('retry-after') ?? '')
+    const waitMs = !isNaN(retryAfterSec) ? Math.min(retryAfterSec, 60) * 1000 : (attempt === 0 ? 2000 : 8000)
+    console.warn(`[streamOpenAI] 429 rate-limited, waiting ${waitMs}ms (attempt ${attempt + 1})`)
+    await new Promise<void>((r) => setTimeout(r, waitMs))
   }
-  if (!res.body) throw new Error('OpenAI response body was empty.')
 
-  const reader = res.body.getReader()
+  if (!res!.ok) {
+    const detail = await res!.text()
+    throw new Error(`OpenAI ${lastStatus}: ${detail}`)
+  }
+  if (!res!.body) throw new Error('OpenAI response body was empty.')
+
+  const reader = res!.body.getReader()
   const dec = new TextDecoder()
   let buf = ''
 
@@ -1615,6 +1643,8 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
 
 // ─── HTTP server ──────────────────────────────────────────────────────────────
 
+const MAX_REQUEST_BYTES = 32 * 1024 * 1024 // 32 MB — generous for base64 image/doc attachments, blocks OOM
+
 const server = http.createServer((req, res) => {
   setCORSHeaders(res)
 
@@ -1623,6 +1653,27 @@ const server = http.createServer((req, res) => {
     res.writeHead(204)
     res.end()
     return
+  }
+
+  // Global request body-size guard. Every POST handler accumulates the body in memory;
+  // without this a single oversized upload could OOM the process. Reject early via
+  // Content-Length when advertised, and hard-stop the socket if the stream overruns.
+  if (req.method === 'POST') {
+    const declared = Number(req.headers['content-length'])
+    if (!isNaN(declared) && declared > MAX_REQUEST_BYTES) {
+      res.writeHead(413, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ error: 'request body too large (max 32MB)' }))
+      return
+    }
+    let seen = 0
+    req.on('data', (chunk: Buffer) => {
+      seen += chunk.length
+      if (seen > MAX_REQUEST_BYTES) {
+        res.writeHead(413, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: 'request body too large (max 32MB)' }))
+        req.destroy()
+      }
+    })
   }
 
   const url = new URL(req.url ?? '/', `http://localhost:${PORT}`)

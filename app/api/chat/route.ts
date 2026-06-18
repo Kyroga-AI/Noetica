@@ -642,7 +642,21 @@ function providerRouteEvidenceRef(evidence: ReturnType<typeof buildExternalModel
 }
 
 // Proxy a request to an agent-machine endpoint that speaks the Noetica SSE protocol.
+// SSRF guard: the agent_machine_endpoint is user-supplied, so we only allow it to
+// point at the local loopback interface. Without this, a crafted request could make
+// the server fetch arbitrary internal hosts (cloud metadata, other localhost services).
+function isAllowedAgentMachineUrl(raw: string): boolean {
+  let u: URL
+  try { u = new URL(raw) } catch { return false }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return false
+  const host = u.hostname.toLowerCase()
+  return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]'
+}
+
 async function proxyToAgentMachine(url: string, body: ChatRequest, signal: AbortSignal): Promise<Response> {
+  if (!isAllowedAgentMachineUrl(url)) {
+    return NextResponse.json({ error: 'agent_machine_endpoint must be a localhost URL' }, { status: 400 })
+  }
   // Strip agent_machine_endpoint from the forwarded body to prevent infinite recursion
   // if the agent machine itself proxies to /api/chat.
   const { agent_machine_endpoint: _dropped, ...forwardBody } = body
