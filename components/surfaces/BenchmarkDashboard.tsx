@@ -44,6 +44,7 @@ type LearningTrends = {
   bandit: Array<{ task: string; provider: string; model: string; plays: number; mean_reward: number; leading: boolean }>
   graph: { total_edges: number; derived_edges: number; by_epistemic_class: Record<string, number> }
   drivers: Array<{ feature: string; correlation: number }>
+  history?: Array<{ date: string; avg_worth: number; derived_edges: number; total_edges: number }>
 }
 
 // ─── Aggregation ────────────────────────────────────────────────────────────────
@@ -255,6 +256,12 @@ export function BenchmarkDashboard() {
               </div>
             </div>
           </div>
+          {trends.history && trends.history.length > 0 && (
+            <p className="mt-2 text-[10px] text-[var(--color-text-tertiary)]">
+              Long-horizon record: {trends.history.length} daily snapshot{trends.history.length > 1 ? 's' : ''} since {trends.history[0]!.date}
+              {trends.history.length > 1 && ` · derived edges ${trends.history[0]!.derived_edges} → ${trends.history[trends.history.length - 1]!.derived_edges}`}
+            </p>
+          )}
         </Section>
       )}
 

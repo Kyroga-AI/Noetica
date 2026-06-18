@@ -2378,24 +2378,18 @@ const server = http.createServer((req, res) => {
   // and the symbolic substrate growing (PLN-derived edges accreting in the graph).
   if (req.method === 'GET' && url.pathname === '/api/self/trends') {
     setCORSHeaders(res)
-    // PLN-derived structure: count edges by epistemicClass so derived inference is visible.
-    const edges = getHellGraph().allEdges()
-    const byClass: Record<string, number> = {}
-    for (const e of edges) {
-      const c = String(e.properties?.['epistemicClass'] ?? 'unknown')
-      byClass[c] = (byClass[c] ?? 0) + 1
-    }
-    const derived = (byClass['pln_deduction'] ?? 0) + (byClass['pln_revision'] ?? 0) + (byClass['pln_abduction'] ?? 0)
+    const { total, derived, byClass } = graphEdgeStats()
     res.writeHead(200, { 'content-type': 'application/json' })
     res.end(JSON.stringify({
       quality: worthTrend(),
       bandit: banditStandings(),
       graph: {
-        total_edges: edges.length,
+        total_edges: total,
         derived_edges: derived,
         by_epistemic_class: byClass,
       },
       drivers: analyzeDrivers().drivers.slice(0, 3),
+      history: _trendHistory.slice(-90), // long-horizon: last 90 daily snapshots
     }))
     return
   }
@@ -3021,6 +3015,41 @@ const server = http.createServer((req, res) => {
 const LEARN_CAPABILITIES = 'urn:noetica:learning:capabilities'
 const LEARN_QUALITY      = 'urn:noetica:learning:quality'
 const LEARN_CONTRA       = 'urn:noetica:learning:contradictions'
+const LEARN_TREND        = 'urn:noetica:learning:trend-history'
+
+// Long-horizon compounding history: one snapshot per day (avg worth + symbolic
+// structure growth), persisted so the trend spans weeks/months — not just the
+// 500-sample quality ring. This is the real "is it getting better over time" record.
+interface TrendSnapshot { date: string; ts: string; avg_worth: number; samples: number; derived_edges: number; total_edges: number }
+const TREND_HISTORY_MAX = 730 // ~2 years of daily points
+const _trendHistory: TrendSnapshot[] = []
+
+/** Total + PLN-derived edge counts from the live graph. */
+function graphEdgeStats(): { total: number; derived: number; byClass: Record<string, number> } {
+  const edges = getHellGraph().allEdges()
+  const byClass: Record<string, number> = {}
+  for (const e of edges) {
+    const c = String(e.properties?.['epistemicClass'] ?? 'unknown')
+    byClass[c] = (byClass[c] ?? 0) + 1
+  }
+  const derived = (byClass['pln_deduction'] ?? 0) + (byClass['pln_revision'] ?? 0) + (byClass['pln_abduction'] ?? 0)
+  return { total: edges.length, derived, byClass }
+}
+
+/** Capture (or refresh today's) compounding snapshot. Idempotent within a calendar day. */
+function recordTrendSnapshot(): void {
+  try {
+    const samples = qualitySamples()
+    const avg_worth = samples.length ? Number((samples.reduce((a, s) => a + s.worth, 0) / samples.length).toFixed(3)) : 0
+    const { total, derived } = graphEdgeStats()
+    const date = new Date().toISOString().slice(0, 10)
+    const snap: TrendSnapshot = { date, ts: new Date().toISOString(), avg_worth, samples: samples.length, derived_edges: derived, total_edges: total }
+    const last = _trendHistory[_trendHistory.length - 1]
+    if (last && last.date === date) _trendHistory[_trendHistory.length - 1] = snap // one point per day
+    else _trendHistory.push(snap)
+    if (_trendHistory.length > TREND_HISTORY_MAX) _trendHistory.shift()
+  } catch { /* best-effort */ }
+}
 // Bump when a persisted blob's shape changes incompatibly. On mismatch we SKIP
 // hydration (rebuild fresh) rather than mis-parse old data into new structures.
 const LEARN_SCHEMA_VERSION = 1
@@ -3052,6 +3081,14 @@ function loadLearningState(): void {
         console.log(`[learning] restored ${_contradictions.length} contradictions`)
       } catch { /* skip */ }
     }
+    const th = readLearnBlob(LEARN_TREND)
+    if (th) {
+      try {
+        const arr = JSON.parse(th) as TrendSnapshot[]
+        _trendHistory.push(...arr.slice(-TREND_HISTORY_MAX))
+        console.log(`[learning] restored ${_trendHistory.length} trend snapshots`)
+      } catch { /* skip */ }
+    }
   } catch (e) { console.warn('[learning] load failed', e instanceof Error ? e.message : String(e)) }
 }
 
@@ -3063,6 +3100,7 @@ function saveLearningState(): void {
     g.addNode(LEARN_CAPABILITIES, ['LearningState'], { ...meta, data: serializeCapabilities() })
     g.addNode(LEARN_QUALITY,      ['LearningState'], { ...meta, data: serializeQuality() })
     g.addNode(LEARN_CONTRA,       ['LearningState'], { ...meta, data: JSON.stringify(_contradictions) })
+    g.addNode(LEARN_TREND,        ['LearningState'], { ...meta, data: JSON.stringify(_trendHistory) })
   } catch (e) { console.warn('[learning] save failed', e instanceof Error ? e.message : String(e)) }
 }
 
@@ -3078,9 +3116,11 @@ server.listen(PORT, '127.0.0.1', () => {
   // the durable store rather than the about-to-be-replaced default.
   const finishBoot = () => {
     loadLearningState()
+    recordTrendSnapshot() // capture/refresh today's point on boot
     setInterval(saveLearningState, 60_000).unref()
+    setInterval(recordTrendSnapshot, 6 * 60 * 60_000).unref() // refresh today's snapshot every 6h
     for (const sig of ['SIGINT', 'SIGTERM'] as const) {
-      process.on(sig, () => { saveLearningState(); process.exit(0) })
+      process.on(sig, () => { recordTrendSnapshot(); saveLearningState(); process.exit(0) })
     }
   }
 

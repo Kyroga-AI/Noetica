@@ -81,6 +81,9 @@ test('learning trends endpoint exposes quality/bandit/graph axes', async () => {
   assert.ok(body.quality && Array.isArray(body.quality.buckets), 'quality trend present')
   assert.ok(Array.isArray(body.bandit), 'bandit standings present')
   assert.ok(body.graph && typeof body.graph.derived_edges === 'number', 'graph derived-edge count present')
+  assert.ok(Array.isArray(body.history), 'long-horizon trend history present')
+  assert.ok(body.history.length >= 1, 'boot snapshot recorded')
+  assert.ok('avg_worth' in body.history[0] && 'derived_edges' in body.history[0], 'snapshot shape')
 })
 
 test('flags endpoint reports feature-flag state + graduation status', async () => {
