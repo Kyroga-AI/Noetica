@@ -3435,6 +3435,29 @@ server.listen(PORT, '127.0.0.1', () => {
       console.warn('[noetica-am] Model warm-up error:', e)
     }
   })()
+
+  // Demo pre-warm: actually LOAD the primary chat model(s) into RAM with a long
+  // keep_alive so the first query isn't a cold-load stall (Ollama otherwise loads
+  // on first use — 5–60s for an 8B — and unloads after 5 min idle). Best-effort,
+  // non-blocking. Configure with NOETICA_PREWARM_MODELS="qwen2.5:7b,deepseek-r1:8b".
+  void (async () => {
+    const wanted = (process.env['NOETICA_PREWARM_MODELS'] ?? 'qwen2.5:7b').split(',').map((s) => s.trim()).filter(Boolean)
+    try {
+      const installed = await listLocalModels()
+      for (const m of wanted) {
+        const base = m.split(':')[0]!
+        if (!installed.some((x) => x === m || x.startsWith(base))) continue
+        try {
+          await fetch(`${ollamaBase()}/api/generate`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model: m, prompt: 'ok', stream: false, keep_alive: '30m' }),
+            signal: AbortSignal.timeout(120_000),
+          })
+          console.log(`[prewarm] loaded ${m} into RAM (keep_alive 30m)`)
+        } catch { /* best-effort */ }
+      }
+    } catch { /* ignore */ }
+  })()
 })
 
 server.on('error', (err: NodeJS.ErrnoException) => {
