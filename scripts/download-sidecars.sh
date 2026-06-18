@@ -27,9 +27,9 @@ case "$OS" in
   Linux)
     case "$ARCH" in
       aarch64) TRIPLE="aarch64-unknown-linux-gnu"
-               OLLAMA_URL="https://github.com/ollama/ollama/releases/download/v${OLLAMA_VERSION}/ollama-linux-arm64.tgz" ;;
+               OLLAMA_URL="https://github.com/ollama/ollama/releases/download/v${OLLAMA_VERSION}/ollama-linux-arm64.tar.zst" ;;
       *)       TRIPLE="x86_64-unknown-linux-gnu"
-               OLLAMA_URL="https://github.com/ollama/ollama/releases/download/v${OLLAMA_VERSION}/ollama-linux-amd64.tgz" ;;
+               OLLAMA_URL="https://github.com/ollama/ollama/releases/download/v${OLLAMA_VERSION}/ollama-linux-amd64.tar.zst" ;;
     esac
     ;;
   *)
@@ -47,9 +47,16 @@ trap 'rm -rf "$WORK"' EXIT
 _download_ollama() {
   local url="$1"
   echo "==> Fetching ${url}" >&2
-  curl -fsSL "$url" -o "$WORK/ollama.tgz"
-  tar -xzf "$WORK/ollama.tgz" -C "$WORK"
-  # tgz extracts to `ollama` or `bin/ollama` depending on release
+  local archive="$WORK/ollama.archive"
+  curl -fsSL "$url" -o "$archive"
+  # macOS ships .tgz (gzip); Linux switched to .tar.zst (zstd). Pick the right
+  # decompressor by extension so both platforms extract cleanly.
+  if [[ "$url" == *.zst ]]; then
+    tar --zstd -xf "$archive" -C "$WORK"
+  else
+    tar -xzf "$archive" -C "$WORK"
+  fi
+  # Archives extract to `ollama` or `bin/ollama` depending on release/platform.
   if [[ -f "$WORK/ollama" ]]; then
     echo "$WORK/ollama"
   elif [[ -f "$WORK/bin/ollama" ]]; then

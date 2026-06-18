@@ -152,9 +152,9 @@ jobs:
   release-linux:
     runs-on: ubuntu-latest
     needs: [release-macos]
-    # Nightly is the macOS/brew channel — skip the Linux job (currently failing
-    # on its own; tracked separately). Stable tags still build Linux artifacts.
-    if: ${{ !contains(github.ref_name, 'nightly') }}
+    # Builds .deb/.rpm for both stable and nightly. (Ollama sidecar download was
+    # 404ing — Ollama moved Linux packaging from .tgz to .tar.zst; fixed in
+    # scripts/download-sidecars.sh.)
     steps:
       - uses: actions/checkout@v4
 
