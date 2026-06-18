@@ -49,6 +49,18 @@ interface LoopStatus {
   interval_ms: number
 }
 
+interface CapabilityRow {
+  task: string
+  provider: string
+  model: string
+  is_local: boolean
+  runs: number
+  success_rate: number
+  avg_latency_ms: number
+  avg_cost_usd: number
+  last_updated: string
+}
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function timeAgo(iso: string | null): string {
@@ -88,7 +100,8 @@ export function HolographMeSurface() {
   const [loading, setLoading]         = useState(true)
   const [triggering, setTriggering]   = useState(false)
   const [selectedBelief, setSelectedBelief] = useState<BeliefSnapshot | null>(null)
-  const [tab, setTab] = useState<'overview' | 'beliefs' | 'laws' | 'world'>('overview')
+  const [tab, setTab] = useState<'overview' | 'beliefs' | 'laws' | 'world' | 'self'>('overview')
+  const [capabilities, setCapabilities] = useState<CapabilityRow[]>([])
   // Observer errors + manual ingest
   const [observerError, setObserverError] = useState<string | null>(null)
   const [logInput, setLogInput]           = useState('')
@@ -98,12 +111,13 @@ export function HolographMeSurface() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [twinRes, beliefsRes, lawsRes, worldRes, loopRes] = await Promise.all([
+      const [twinRes, beliefsRes, lawsRes, worldRes, loopRes, capRes] = await Promise.all([
         fetch(amUrl('/api/gaia/twin'),           { signal: AbortSignal.timeout(5000) }),
         fetch(amUrl('/api/gaia/beliefs?limit=5'),{ signal: AbortSignal.timeout(5000) }),
         fetch(amUrl('/api/gaia/laws?limit=15'),  { signal: AbortSignal.timeout(5000) }),
         fetch(amUrl('/api/gaia/world?limit=8'),  { signal: AbortSignal.timeout(5000) }),
         fetch(amUrl('/api/gaia/loop/status'),    { signal: AbortSignal.timeout(5000) }),
+        fetch(amUrl('/api/self/capabilities'),   { signal: AbortSignal.timeout(5000) }),
       ])
       if (!twinRes.ok && !beliefsRes.ok) {
         setObserverError(`Agent-machine not responding (HTTP ${twinRes.status})`)
@@ -115,6 +129,7 @@ export function HolographMeSurface() {
       if (lawsRes.ok)    { const d = await lawsRes.json() as { laws: CandidateLaw[] }; setLaws(d.laws) }
       if (worldRes.ok)   { const d = await worldRes.json() as { snapshots: WorldSnapshot[] }; setWorldStates(d.snapshots) }
       if (loopRes.ok)    setLoopStatus(await loopRes.json() as LoopStatus)
+      if (capRes.ok)     { const d = await capRes.json() as { capabilities: CapabilityRow[] }; setCapabilities(d.capabilities) }
     } catch (err) {
       setObserverError(`Cannot reach agent-machine: ${err instanceof Error ? err.message : String(err)}`)
     }
@@ -290,7 +305,7 @@ export function HolographMeSurface() {
 
         {/* Tabs */}
         <div className="mt-4 flex gap-1 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-1 w-fit">
-          {(['overview', 'beliefs', 'laws', 'world'] as const).map((t) => (
+          {(['overview', 'beliefs', 'laws', 'world', 'self'] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}
               className={`rounded-lg px-3 py-1 text-xs font-medium capitalize transition ${tab === t ? 'bg-[var(--color-background-primary)] text-[var(--color-text-primary)] shadow-sm' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}>
               {t}
@@ -509,6 +524,50 @@ export function HolographMeSurface() {
                 <p className="text-sm leading-6 text-[var(--color-text-secondary)]">{ws.props.summary}</p>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* ── Self-model ── */}
+        {tab === 'self' && (
+          <div className="mx-auto max-w-2xl space-y-3">
+            <p className="text-xs text-[var(--color-text-tertiary)]">
+              The agent&apos;s model of its own performance — per task family and model, learned from completed runs. A stateless cloud chat has no equivalent introspection.
+            </p>
+            {capabilities.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-[var(--color-border-secondary)] p-8 text-center text-sm text-[var(--color-text-tertiary)]">
+                No capability data yet — run a few chats and the self-model populates.
+              </div>
+            ) : (
+              <div className="overflow-x-auto rounded-2xl border border-[var(--color-border-tertiary)]">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="border-b border-[var(--color-border-tertiary)] text-left text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                      <th className="px-3 py-2 font-medium">Task</th>
+                      <th className="px-3 py-2 font-medium">Model</th>
+                      <th className="px-3 py-2 font-medium">Runs</th>
+                      <th className="px-3 py-2 font-medium">Success</th>
+                      <th className="px-3 py-2 font-medium">Avg latency</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {capabilities.map((c, i) => (
+                      <tr key={i} className="border-b border-[var(--color-border-tertiary)] last:border-0">
+                        <td className="px-3 py-2 font-medium">{c.task}</td>
+                        <td className="px-3 py-2">
+                          <span className="flex items-center gap-1.5">
+                            <span className={`h-1.5 w-1.5 rounded-full ${c.is_local ? 'bg-[#16a34a]' : 'bg-[#d97706]'}`} />
+                            {c.model}
+                          </span>
+                        </td>
+                        <td className="px-3 py-2 tabular-nums">{c.runs}</td>
+                        <td className="px-3 py-2 tabular-nums">{(c.success_rate * 100).toFixed(0)}%</td>
+                        <td className="px-3 py-2 tabular-nums">{(c.avg_latency_ms / 1000).toFixed(1)}s</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </div>

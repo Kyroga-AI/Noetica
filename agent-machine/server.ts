@@ -49,6 +49,7 @@ import { getHellGraph } from '../lib/hellgraph/store.js'
 import { runGremlin } from '../lib/hellgraph/gremlin.js'
 import { buildWorkspacePrefix, invalidatePrefix } from './lib/context-cache.js'
 import { estimateCostUsd, tokensEgressed } from '../lib/pricing/modelPricing.js'
+import { recordCapability, capabilitySummary, capabilityHint } from './lib/capability-model.js'
 import {
   ensureMichaelTwin, ingestGaiaObservation, getRecentObservations,
   writeBeliefSnapshot, writeWorldStateSnapshot, writeCycleNode,
@@ -103,6 +104,15 @@ function trackIngest<T>(p: Promise<T> | T): Promise<T> {
 function recordGovernanceRun(run: GovernanceRun): void {
   _governanceRuns.push(run)
   if (_governanceRuns.length > GOVERNANCE_RING_SIZE) _governanceRuns.shift()
+  // Update the self-model: track per-task/model success + latency over time.
+  recordCapability({
+    task: run.task,
+    provider: run.provider,
+    model: run.model_routed,
+    latencyMs: run.latency_ms,
+    error: Boolean(run.error),
+    costUsd: run.cost_usd,
+  })
 }
 
 // ─── GAIA / Superconscious loop ───────────────────────────────────────────────
@@ -1242,7 +1252,23 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     return
   }
 
-  const { resolvedModel: model, resolvedProvider: provider, ...routerDecision } = routing
+  let { resolvedModel: model, resolvedProvider: provider } = routing
+  const { resolvedModel: _rm, resolvedProvider: _rp, ...routerDecision } = routing
+
+  // Self-model routing hook (opt-in via NOETICA_CAPABILITY_ROUTING=1). If the
+  // local model has a poor track record on this task family and a cloud key is
+  // available, escalate. Default OFF so demo routing is unchanged unless enabled.
+  if (process.env['NOETICA_CAPABILITY_ROUTING'] === '1' && provider === 'ollama') {
+    const hint = capabilityHint(routerDecision.task ?? 'general')
+    if (hint.recommendEscalation) {
+      let escalated = false
+      if (anthropicKey) { provider = 'anthropic'; model = 'claude-haiku-4-5-20251001'; escalated = true }
+      else if (openaiKey) { provider = 'openai'; model = 'gpt-4o-mini'; escalated = true }
+      if (escalated) {
+        console.log(`[self-model] escalated task="${routerDecision.task}" → ${provider}:${model} (local success ${(hint.localSuccessRate ?? 0).toFixed(2)} over ${hint.localRuns} runs)`)
+      }
+    }
+  }
   const apiKey = provider === 'openai' ? openaiKey : anthropicKey
 
   const run_id = crypto.randomUUID()
@@ -2010,6 +2036,18 @@ const server = http.createServer((req, res) => {
     })).sort((x, y) => y.runs - x.runs)
     res.writeHead(200, { 'content-type': 'application/json' })
     res.end(JSON.stringify({ summary, ring_size: _governanceRuns.length }))
+    return
+  }
+
+  // GET /api/self/capabilities — the agent's self-model: per-task/model
+  // success rate + latency. This is introspection a stateless cloud chat lacks.
+  if (req.method === 'GET' && url.pathname === '/api/self/capabilities') {
+    setCORSHeaders(res)
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({
+      capabilities: capabilitySummary(),
+      capability_routing: process.env['NOETICA_CAPABILITY_ROUTING'] === '1',
+    }))
     return
   }
 
