@@ -49,14 +49,14 @@ import { getHellGraph } from '@socioprophet/hellgraph'
 import { runGremlin } from '@socioprophet/hellgraph'
 import { buildWorkspacePrefix, invalidatePrefix } from './lib/context-cache.js'
 import { estimateCostUsd, tokensEgressed } from '../lib/pricing/modelPricing.js'
-import { recordCapability, capabilitySummary, capabilityHint, recordReward, selectArmUCB } from './lib/capability-model.js'
+import { recordCapability, capabilitySummary, capabilityHint, recordReward, selectArmUCB, serializeCapabilities, hydrateCapabilities } from './lib/capability-model.js'
 import { validateGraph } from '@socioprophet/hellgraph'
 import { CANONICAL_SHAPES, QUARANTINE_PROP } from './lib/canonical-shapes.js'
 import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
 import { detectGoalIntent, slotFill, buildGoalContext, getActiveGoal, listGoals, saveGoal, type Goal } from './lib/goal-model.js'
 import { assessAgainstGraph } from './lib/pln-judgment.js'
 import { saveCheckpoint, listCheckpoints, getCheckpoint, buildResumeMessages } from './lib/checkpoint-model.js'
-import { recordQualitySample, analyzeDrivers, qualitySamples } from './lib/quality-sr.js'
+import { recordQualitySample, analyzeDrivers, qualitySamples, serializeQuality, hydrateQuality } from './lib/quality-sr.js'
 import {
   ensureMichaelTwin, ingestGaiaObservation, getRecentObservations,
   writeBeliefSnapshot, writeWorldStateSnapshot, writeCycleNode,
@@ -2907,9 +2907,52 @@ const server = http.createServer((req, res) => {
   res.end(JSON.stringify({ error: 'not_found', path: url.pathname }))
 })
 
+// ── Learning-state persistence ─────────────────────────────────────────────────
+// The bandit/self-model, quality-SR corpus, and contradiction ledger are
+// in-memory; persist them to HellGraph so the system COMPOUNDS across restarts
+// instead of relearning every morning. Stored as JSON blobs on LearningState nodes.
+const LEARN_CAPABILITIES = 'urn:noetica:learning:capabilities'
+const LEARN_QUALITY      = 'urn:noetica:learning:quality'
+const LEARN_CONTRA       = 'urn:noetica:learning:contradictions'
+
+function loadLearningState(): void {
+  try {
+    const g = getHellGraph()
+    const cap = g.getNode(LEARN_CAPABILITIES)?.properties['data']
+    if (cap) console.log(`[learning] restored ${hydrateCapabilities(String(cap))} capability rows`)
+    const q = g.getNode(LEARN_QUALITY)?.properties['data']
+    if (q) console.log(`[learning] restored ${hydrateQuality(String(q))} quality samples`)
+    const c = g.getNode(LEARN_CONTRA)?.properties['data']
+    if (c) {
+      try {
+        const arr = JSON.parse(String(c)) as ContradictionRecord[]
+        _contradictions.push(...arr.slice(-CONTRADICTION_RING_SIZE))
+        console.log(`[learning] restored ${_contradictions.length} contradictions`)
+      } catch { /* skip */ }
+    }
+  } catch (e) { console.warn('[learning] load failed', e instanceof Error ? e.message : String(e)) }
+}
+
+function saveLearningState(): void {
+  try {
+    const g = getHellGraph()
+    const now = new Date().toISOString()
+    g.addNode(LEARN_CAPABILITIES, ['LearningState'], { data: serializeCapabilities(), updated_at: now })
+    g.addNode(LEARN_QUALITY,      ['LearningState'], { data: serializeQuality(),      updated_at: now })
+    g.addNode(LEARN_CONTRA,       ['LearningState'], { data: JSON.stringify(_contradictions), updated_at: now })
+  } catch (e) { console.warn('[learning] save failed', e instanceof Error ? e.message : String(e)) }
+}
+
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`[noetica-am] Agent Machine v${VERSION} listening on http://127.0.0.1:${PORT}`)
   console.log(`[noetica-am] Status: http://127.0.0.1:${PORT}/api/status`)
+
+  // Restore compounding learning state, then persist it periodically + on exit.
+  loadLearningState()
+  setInterval(saveLearningState, 60_000).unref()
+  for (const sig of ['SIGINT', 'SIGTERM'] as const) {
+    process.on(sig, () => { saveLearningState(); process.exit(0) })
+  }
 
   // ── AtomSpace SQLite backend + StorageNode federation ────────────────────
   // Upgrades the default JSONL WAL to SQLite (O(log n) lookups, atomic writes,

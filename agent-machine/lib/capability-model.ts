@@ -127,6 +127,25 @@ export function capabilitySummary(): CapabilityRow[] {
  * local success rate is genuinely poor. Used only when capability routing is
  * explicitly enabled (NOETICA_CAPABILITY_ROUTING=1).
  */
+// ── Persistence (serialize/hydrate so the self-model compounds across restarts) ──
+
+export function serializeCapabilities(): string {
+  return JSON.stringify([..._caps.values()])
+}
+
+export function hydrateCapabilities(json: string): number {
+  try {
+    const arr = JSON.parse(json) as CapabilityStat[]
+    let n = 0
+    for (const s of arr) {
+      if (!s || !s.model || !s.provider) continue
+      _caps.set(keyOf(s.task ?? 'general', s.provider, s.model), s)
+      n++
+    }
+    return n
+  } catch { return 0 }
+}
+
 export function capabilityHint(task: string): {
   recommendEscalation: boolean
   localSuccessRate: number | null

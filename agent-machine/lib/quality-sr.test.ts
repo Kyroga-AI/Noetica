@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { pearson, analyzeDrivers, type QualitySample } from './quality-sr.js'
+import { pearson, analyzeDrivers, serializeQuality, hydrateQuality, type QualitySample } from './quality-sr.js'
 
 test('pearson: perfect positive / negative / none', () => {
   assert.equal(pearson([1, 2, 3], [2, 4, 6]), 1)
@@ -30,4 +30,10 @@ test('analyzeDrivers needs >= 3 samples', () => {
   const r = analyzeDrivers([mk(0.5, 0.5, 100), mk(0.6, 0.6, 100)])
   assert.equal(r.drivers.length, 0)
   assert.match(r.summary, /not enough/)
+})
+
+test('serialize → hydrate round-trips quality samples (persistence)', () => {
+  const s = { worth: 0.7, grounding: 0.6, graph_grounding: 0.5, belief_alignment: 0.4, latency_ms: 100, input_tokens: 200, provider: 'ollama', model: 'm', task: 't', ts: '2026' }
+  assert.ok(hydrateQuality(JSON.stringify([s])) >= 1)
+  assert.match(serializeQuality(), /0.7/)
 })

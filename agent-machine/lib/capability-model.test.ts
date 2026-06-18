@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { recordCapability, capabilitySummary, capabilityHint, recordReward, selectArmUCB } from './capability-model.js'
+import { recordCapability, capabilitySummary, capabilityHint, recordReward, selectArmUCB, serializeCapabilities, hydrateCapabilities } from './capability-model.js'
 
 test('records success/error rates and latency per task/model', () => {
   const task = `unit-${Math.random().toString(36).slice(2)}`
@@ -47,4 +47,13 @@ test('selectArmUCB exploits the higher-reward arm once both are explored', () =>
 test('selectArmUCB handles single/zero candidates', () => {
   assert.equal(selectArmUCB('t', []), undefined)
   assert.equal(selectArmUCB('t', ['only']), 'only')
+})
+
+test('serialize → hydrate round-trips capability rows (persistence)', () => {
+  const json = JSON.stringify([{ task: 'rt-task', provider: 'ollama', model: 'm1', runs: 5, errors: 1, totalLatencyMs: 500, totalCostUsd: 0, totalReward: 2, rewardCount: 3, lastUpdated: '' }])
+  assert.equal(hydrateCapabilities(json), 1)
+  const row = capabilitySummary().find((r) => r.task === 'rt-task' && r.model === 'm1')
+  assert.ok(row)
+  assert.equal(row!.runs, 5)
+  assert.match(serializeCapabilities(), /rt-task/)
 })

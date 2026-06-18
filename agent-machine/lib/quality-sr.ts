@@ -35,6 +35,16 @@ export function recordQualitySample(s: QualitySample): void {
 
 export function qualitySamples(): QualitySample[] { return _samples.slice() }
 
+// Persistence so the quality corpus compounds across restarts.
+export function serializeQuality(): string { return JSON.stringify(_samples) }
+export function hydrateQuality(json: string): number {
+  try {
+    const arr = JSON.parse(json) as QualitySample[]
+    _samples.splice(0, _samples.length, ...arr.slice(-RING))
+    return _samples.length
+  } catch { return 0 }
+}
+
 // ── Pure stats ────────────────────────────────────────────────────────────────
 
 /** Pearson correlation of two equal-length series. 0 if undefined (no variance). */
