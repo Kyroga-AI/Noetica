@@ -3174,6 +3174,21 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(`[noetica-am] Agent Machine v${VERSION} listening on http://127.0.0.1:${PORT}`)
   console.log(`[noetica-am] Status: http://127.0.0.1:${PORT}/api/status`)
 
+  // ── Managed model runtime (macOS T2) ────────────────────────────────────
+  // Own the model plane: ensure a COMPLETE, sandboxed Ollama on the isolated port
+  // so the shipped app works without a host Ollama and regardless of the bundled
+  // sidecar. Skipped when OLLAMA_HOST points elsewhere (dev override) or disabled.
+  const _managedTargetsIsolated = !process.env['OLLAMA_HOST'] || process.env['OLLAMA_HOST'].includes(':11435')
+  if (process.platform === 'darwin' && process.env['NOETICA_MANAGED_RUNTIME'] !== '0' && _managedTargetsIsolated) {
+    void (async () => {
+      try {
+        const { ensureManagedRuntime } = await import('./lib/managed-runtime.js')
+        const rt = await ensureManagedRuntime()
+        if (rt) for (const sig of ['SIGINT', 'SIGTERM'] as const) process.on(sig, () => rt.child.kill('SIGKILL'))
+      } catch (e) { console.warn('[managed-runtime] init error (non-fatal):', e instanceof Error ? e.message : e) }
+    })()
+  }
+
   // ── AtomSpace backend selection + StorageNode federation ─────────────────
   // Backend precedence: RocksDB (HELLGRAPH_BACKEND=rocksdb — the convergence
   // store, aligned to OpenCog's atomspace-rocks so Noetica + hellgraph-service +

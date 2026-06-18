@@ -13,6 +13,10 @@
  */
 import * as os from 'node:os'
 import * as path from 'node:path'
+import * as fs from 'node:fs'
+import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
+const _exec = promisify(execFile)
 
 export const MANAGED_PORT = 11435
 export const MODELS_DIR = path.join(os.homedir(), '.noetica', 'models')
@@ -62,6 +66,38 @@ export function resolveManagedOllamaBinary(env: Record<string, string | undefine
   ].filter((c): c is string => Boolean(c))
   // Existence is checked by the caller (fs); resolution order is the policy under test.
   return candidates[0] ?? null
+}
+
+/** The inference runner (`llama-server`) sits flat beside `ollama` on macOS, or
+ *  under lib/ollama/ on Linux. Completeness = binary + a runner. */
+export function runtimeComplete(binary = path.join(RUNTIME_DIR, 'ollama')): boolean {
+  if (!fs.existsSync(binary)) return false
+  const dir = path.dirname(binary)
+  return fs.existsSync(path.join(dir, 'llama-server')) || fs.existsSync(path.join(dir, 'lib', 'ollama', 'llama-server'))
+}
+
+/**
+ * Download the COMPLETE Ollama (binary + llama-server runner + dylibs) into the app
+ * runtime dir. Idempotent (version stamp). macOS only — Linux uses the container
+ * image. Returns the binary path, or null on failure.
+ */
+export async function provisionOllamaRuntime(version = process.env['OLLAMA_VERSION'] ?? '0.30.8'): Promise<string | null> {
+  if (process.platform !== 'darwin') return null
+  const bin = path.join(RUNTIME_DIR, 'ollama')
+  const stamp = path.join(RUNTIME_DIR, '.version')
+  if (runtimeComplete(bin) && fs.existsSync(stamp) && fs.readFileSync(stamp, 'utf8').trim() === version) return bin
+  fs.mkdirSync(RUNTIME_DIR, { recursive: true })
+  const url = `https://github.com/ollama/ollama/releases/download/v${version}/ollama-darwin.tgz`
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'noetica-rt-'))
+  try {
+    const archive = path.join(tmp, 'o.tgz')
+    await _exec('curl', ['-fsSL', url, '-o', archive], { maxBuffer: 1 << 26 })
+    await _exec('tar', ['-xzf', archive, '-C', RUNTIME_DIR], { maxBuffer: 1 << 26 })
+    fs.chmodSync(bin, 0o755)
+    if (!runtimeComplete(bin)) return null
+    fs.writeFileSync(stamp, version)
+    return bin
+  } catch { return null } finally { fs.rmSync(tmp, { recursive: true, force: true }) }
 }
 
 /** The sandbox-exec launch recipe for the managed Ollama. */
