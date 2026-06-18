@@ -5,6 +5,37 @@ import { models } from '@/config/models'
 import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
 import { useSettings } from '@/lib/settings/context'
 import type { ChatMessage } from '@/lib/types/message'
+import { appendLedgerEntry } from '@/lib/evidence/ledger-store'
+import { estimateCostUsd, tokensEgressed } from '@/lib/pricing/modelPricing'
+
+// Persist a finished benchmark cell to the evidence ledger so the local-vs-frontier
+// dashboard can aggregate quality/cost/latency across sessions. Token counts are
+// estimated (4 chars ≈ 1 token) since the judge runs client-side.
+function persistBenchmarkResult(args: {
+  modelId: string; taskId: string; promptLen: number; output: string
+  latencyMs: number; judgeScore?: number; judgeLabel?: string
+}): void {
+  const provider = models.find((m) => m.id === args.modelId)?.provider ?? 'unknown'
+  const inputTokens = Math.ceil(args.promptLen / 4)
+  const outputTokens = Math.ceil(args.output.length / 4)
+  void appendLedgerEntry({
+    id: crypto.randomUUID(),
+    timestamp: new Date().toISOString(),
+    session_id: 'noetica-eval',
+    kind: 'benchmark_result',
+    model_id: args.modelId,
+    provider,
+    latency_ms: args.latencyMs,
+    input_tokens: inputTokens,
+    output_tokens: outputTokens,
+    cost_usd: estimateCostUsd({ provider, model: args.modelId, inputTokens, outputTokens }),
+    tokens_egressed: tokensEgressed({ provider, inputTokens, outputTokens }),
+    content_preview: args.output.slice(0, 120),
+    task_id: args.taskId,
+    judge_score: args.judgeScore,
+    judge_label: args.judgeLabel,
+  })
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -197,7 +228,7 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
     // Mark all as running
     setResults(pairs.map(({ modelId, taskId }) => ({ modelId, taskId, output: '', latencyMs: 0, status: 'running' })))
 
-    const completedPairs: Array<{ modelId: string; taskId: string; output: string }> = []
+    const completedPairs: Array<{ modelId: string; taskId: string; output: string; latencyMs: number }> = []
 
     await Promise.all(
       pairs.map(async ({ modelId, taskId }) => {
@@ -210,7 +241,7 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
               ? { ...r, output: text, latencyMs, status: 'done', judgeStatus: judgeEnabled ? 'pending' : undefined }
               : r
           ))
-          completedPairs.push({ modelId, taskId, output: text })
+          completedPairs.push({ modelId, taskId, output: text, latencyMs })
         } catch (err) {
           setResults((prev) => prev.map((r) =>
             r.modelId === modelId && r.taskId === taskId
@@ -224,7 +255,7 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
     // LLM-as-judge: score each completed run using the judge model
     if (judgeEnabled && completedPairs.length > 0) {
       await Promise.all(
-        completedPairs.map(async ({ modelId, taskId, output }) => {
+        completedPairs.map(async ({ modelId, taskId, output, latencyMs }) => {
           const task = DEFAULT_TASK_FAMILIES.find((t) => t.id === taskId)
           if (!task) return
           setResults((prev) => prev.map((r) =>
@@ -238,6 +269,10 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
                 ? { ...r, judgeScore: parsed?.score, judgeLabel: parsed?.label, judgeReasoning: parsed?.reasoning, judgeStatus: 'done' }
                 : r
             ))
+            persistBenchmarkResult({
+              modelId, taskId, promptLen: task.prompt.length, output,
+              latencyMs, judgeScore: parsed?.score, judgeLabel: parsed?.label,
+            })
           } catch {
             setResults((prev) => prev.map((r) =>
               r.modelId === modelId && r.taskId === taskId ? { ...r, judgeStatus: 'error' } : r
@@ -245,6 +280,14 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
           }
         })
       )
+    } else {
+      // No judge — still persist latency/cost so the dashboard has data.
+      for (const { modelId, taskId, output, latencyMs } of completedPairs) {
+        const task = DEFAULT_TASK_FAMILIES.find((t) => t.id === taskId)
+        persistBenchmarkResult({
+          modelId, taskId, promptLen: task?.prompt.length ?? 0, output, latencyMs,
+        })
+      }
     }
 
     setRunning(false)

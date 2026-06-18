@@ -809,6 +809,8 @@ export function AppShell() {
                 latency_ms: result.latency_ms ?? 0,
                 input_tokens: result.input_tokens,
                 output_tokens: result.output_tokens,
+                cost_usd: result.cost_usd,
+                tokens_egressed: result.tokens_egressed,
                 request_hash: result.request_hash,
                 evidence_hash: result.evidence_hash,
                 content_preview: result.content.slice(0, 120),

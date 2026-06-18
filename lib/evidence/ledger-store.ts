@@ -8,18 +8,29 @@ export interface LedgerEntry {
   id: string
   timestamp: string
   session_id: string
-  kind: 'chat_request' | 'tool_call' | 'policy_check' | 'memory_read' | 'memory_write' | 'session_init' | 'error'
+  kind: 'chat_request' | 'tool_call' | 'policy_check' | 'memory_read' | 'memory_write' | 'session_init' | 'error' | 'benchmark_result'
   model_id: string
   provider: string
   latency_ms: number
   input_tokens?: number
   output_tokens?: number
+  /** Estimated USD cost for this run (0 for local providers). */
+  cost_usd?: number
+  /** Tokens that left the device (0 for local — full sovereignty). */
+  tokens_egressed?: number
   request_hash?: string
   evidence_hash?: string
   content_preview: string
   memory_scope?: string
   policy_admitted?: boolean
   policy_profile?: string
+  // ── benchmark_result fields (populated by EvaluateSurface) ──
+  /** Benchmark task id, e.g. "reasoning", "code" */
+  task_id?: string
+  /** LLM-as-judge score 0..1 */
+  judge_score?: number
+  /** Optional judge label/verdict */
+  judge_label?: string
 }
 
 const DB_NAME = 'noetica-evidence'

@@ -93,6 +93,8 @@ export type NoeticaStreamDoneResult = {
   latency_ms: number
   input_tokens?: number
   output_tokens?: number
+  cost_usd?: number
+  tokens_egressed?: number
   steering_applied?: ChatMessage['steering_result']
   /** Set when model requested tool execution — client handles the agentic loop */
   tool_calls?: ToolUseBlock[]

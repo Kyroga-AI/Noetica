@@ -48,6 +48,7 @@ import { getGraph, graphHealth, graphSparql, ingestInteraction, ingestConversati
 import { getHellGraph } from '../lib/hellgraph/store.js'
 import { runGremlin } from '../lib/hellgraph/gremlin.js'
 import { buildWorkspacePrefix, invalidatePrefix } from './lib/context-cache.js'
+import { estimateCostUsd, tokensEgressed } from '../lib/pricing/modelPricing.js'
 import {
   ensureMichaelTwin, ingestGaiaObservation, getRecentObservations,
   writeBeliefSnapshot, writeWorldStateSnapshot, writeCycleNode,
@@ -81,6 +82,8 @@ interface GovernanceRun {
   latency_ms: number
   input_tokens?: number
   output_tokens?: number
+  cost_usd?: number          // estimated USD cost (0 for local providers)
+  tokens_egressed?: number   // tokens that left the device (0 for local — sovereignty)
   task?: string
   session_id?: string
   error?: string   // set on failed runs — enables error-rate visibility in GovernSurface
@@ -1641,6 +1644,14 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
 
     const latencyMs = Date.now() - started
 
+    // Token/cost accounting. The agent-machine doesn't get exact provider usage
+    // counts, so estimate: input ≈ trimmed system+history budget already computed,
+    // output ≈ generated content. Cost/egress are 0 for local providers.
+    const inputTokens = systemTokens + msgTokens
+    const outputTokens = estimateTokens(fullContent)
+    const costUsd = estimateCostUsd({ provider, model, inputTokens, outputTokens })
+    const egressed = tokensEgressed({ provider, inputTokens, outputTokens })
+
     recordGovernanceRun({
       run_id,
       model_routed: model,
@@ -1649,6 +1660,10 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       memory_written: false,
       timestamp,
       latency_ms: latencyMs,
+      input_tokens: inputTokens,
+      output_tokens: outputTokens,
+      cost_usd: costUsd,
+      tokens_egressed: egressed,
       task: routerDecision.task,
       session_id: sessionId,
     })
@@ -1665,6 +1680,10 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         stop_reason: 'end_turn',
         timestamp,
         latency_ms: latencyMs,
+        input_tokens: inputTokens,
+        output_tokens: outputTokens,
+        cost_usd: costUsd,
+        tokens_egressed: egressed,
         agent_machine: true,
         agent_machine_version: VERSION,
       },
@@ -1933,6 +1952,52 @@ const server = http.createServer((req, res) => {
     const runs = _governanceRuns.slice(-limit).reverse()
     res.writeHead(200, { 'content-type': 'application/json' })
     res.end(JSON.stringify({ runs }))
+    return
+  }
+
+  // GET /api/benchmark/summary — per-model aggregates from the governance ring
+  // for the local-vs-frontier dashboard: runs, avg latency, total cost, egress.
+  if (req.method === 'GET' && url.pathname === '/api/benchmark/summary') {
+    setCORSHeaders(res)
+    type Agg = {
+      model: string; provider: string; runs: number; errors: number
+      total_latency_ms: number; total_cost_usd: number
+      total_in_tokens: number; total_out_tokens: number; total_egressed: number
+      is_local: boolean
+    }
+    const byModel = new Map<string, Agg>()
+    for (const r of _governanceRuns) {
+      const key = `${r.provider}:${r.model_routed}`
+      const a = byModel.get(key) ?? {
+        model: r.model_routed, provider: r.provider, runs: 0, errors: 0,
+        total_latency_ms: 0, total_cost_usd: 0, total_in_tokens: 0,
+        total_out_tokens: 0, total_egressed: 0,
+        is_local: r.provider === 'ollama' || r.provider === 'meta',
+      }
+      a.runs += 1
+      if (r.error) a.errors += 1
+      a.total_latency_ms += r.latency_ms ?? 0
+      a.total_cost_usd += r.cost_usd ?? 0
+      a.total_in_tokens += r.input_tokens ?? 0
+      a.total_out_tokens += r.output_tokens ?? 0
+      a.total_egressed += r.tokens_egressed ?? 0
+      byModel.set(key, a)
+    }
+    const summary = [...byModel.values()].map((a) => ({
+      model: a.model,
+      provider: a.provider,
+      is_local: a.is_local,
+      runs: a.runs,
+      error_rate: a.runs ? a.errors / a.runs : 0,
+      avg_latency_ms: a.runs ? Math.round(a.total_latency_ms / a.runs) : 0,
+      total_cost_usd: a.total_cost_usd,
+      avg_cost_usd: a.runs ? a.total_cost_usd / a.runs : 0,
+      total_in_tokens: a.total_in_tokens,
+      total_out_tokens: a.total_out_tokens,
+      total_tokens_egressed: a.total_egressed,
+    })).sort((x, y) => y.runs - x.runs)
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ summary, ring_size: _governanceRuns.length }))
     return
   }
 

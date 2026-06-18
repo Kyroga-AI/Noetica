@@ -78,7 +78,7 @@ function ledgerToAuditEvent(e: LedgerEntry): AuditEvent {
   return {
     id: e.id,
     ts: e.timestamp,
-    kind: e.kind === 'error' ? 'policy_check' : e.kind,
+    kind: e.kind === 'error' ? 'policy_check' : e.kind === 'benchmark_result' ? 'tool_call' : e.kind,
     detail,
     hash: e.evidence_hash?.slice(0, 8),
     verdict: e.kind === 'policy_check' || e.kind === 'chat_request'
@@ -171,7 +171,8 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   const amEvents: AuditEvent[] = amRuns.map(amRunToAuditEvent)
   const seenIds = new Set(ledgerEntries.map(e => e.id))
   const allEvents: AuditEvent[] = [
-    ...ledgerEntries.map(ledgerToAuditEvent),
+    // benchmark_result entries belong to the Evaluate dashboard, not the audit trail
+    ...ledgerEntries.filter((e) => e.kind !== 'benchmark_result').map(ledgerToAuditEvent),
     ...amEvents.filter(e => !seenIds.has(e.id)),
   ].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())
 
