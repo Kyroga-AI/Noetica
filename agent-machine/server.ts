@@ -53,6 +53,7 @@ import { recordCapability, capabilitySummary, capabilityHint, recordReward, sele
 import { validateGraph } from '../lib/hellgraph/shacl.js'
 import { CANONICAL_SHAPES } from './lib/canonical-shapes.js'
 import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
+import { detectGoalIntent, slotFill, buildGoalContext, getActiveGoal, listGoals, saveGoal, type Goal } from './lib/goal-model.js'
 import {
   ensureMichaelTwin, ingestGaiaObservation, getRecentObservations,
   writeBeliefSnapshot, writeWorldStateSnapshot, writeCycleNode,
@@ -1472,7 +1473,29 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   const reasoningDirective = (routerDecision.task === 'reasoning' && graphContext)
     ? `\n\n## Reasoning directive\nGround your reasoning in the Memory context and Belief state above. If your conclusion contradicts a stated belief or candidate law, say so explicitly and explain which one and why — do not silently override it.`
     : ''
-  const enrichedSystemPrompt = basePrompt + dateLine + graphContext + reasoningDirective + profile.authorizationSuffix
+
+  // Goal / plan state: keep the session's active objective in context across turns
+  // (orchestration). Explicit API goals always inject; auto-detection from chat is
+  // gated behind NOETICA_GOAL_TRACKING to avoid mistaking chatter for objectives.
+  let goalContext = ''
+  try {
+    let activeGoal = getActiveGoal(sessionId)
+    if (!activeGoal && process.env['NOETICA_GOAL_TRACKING'] === '1') {
+      const intent = detectGoalIntent(latestUserContent)
+      if (intent) {
+        const now = new Date().toISOString()
+        activeGoal = { id: `urn:goal:${crypto.randomUUID()}`, session_id: sessionId, objective: intent.objective, status: 'active', subtasks: [], slots: [], created_at: now, updated_at: now }
+      }
+    }
+    if (activeGoal) {
+      activeGoal.slots = slotFill(activeGoal.slots, latestUserContent)
+      activeGoal.updated_at = new Date().toISOString()
+      saveGoal(activeGoal)
+      goalContext = buildGoalContext(activeGoal)
+    }
+  } catch { /* goal tracking is best-effort — never block the turn */ }
+
+  const enrichedSystemPrompt = basePrompt + dateLine + graphContext + goalContext + reasoningDirective + profile.authorizationSuffix
 
   // Token budget: rough estimate (4 chars ≈ 1 token). If message history + system prompt
   // exceeds 70% of the model's context window, trim oldest non-system messages.
@@ -2271,6 +2294,47 @@ const server = http.createServer((req, res) => {
         recordReward({ task: f.task, provider: f.provider, model: f.model, reward: f.reward })
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ ok: true }))
+      } catch (e) {
+        res.writeHead(400, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: String(e) }))
+      }
+    })
+    return
+  }
+
+  // GET /api/goals?session=... — list goals (active objective + plan + slots)
+  if (req.method === 'GET' && url.pathname === '/api/goals') {
+    setCORSHeaders(res)
+    const session = url.searchParams.get('session') ?? undefined
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ goals: listGoals(session) }))
+    return
+  }
+
+  // POST /api/goals — create or update a goal (objective, subtasks, slots, status)
+  if (req.method === 'POST' && url.pathname === '/api/goals') {
+    setCORSHeaders(res)
+    let body = ''
+    req.on('data', (chunk: Buffer) => { body += chunk.toString() })
+    req.on('end', () => {
+      try {
+        const b = JSON.parse(body) as Partial<Goal> & { session_id?: string; objective?: string }
+        if (!b.session_id || !b.objective) throw new Error('session_id and objective required')
+        const now = new Date().toISOString()
+        const existing = b.id ? listGoals().find((g) => g.id === b.id) : undefined
+        const goal: Goal = {
+          id: b.id ?? `urn:goal:${crypto.randomUUID()}`,
+          session_id: b.session_id,
+          objective: b.objective,
+          status: b.status ?? existing?.status ?? 'active',
+          subtasks: b.subtasks ?? existing?.subtasks ?? [],
+          slots: b.slots ?? existing?.slots ?? [],
+          created_at: existing?.created_at ?? now,
+          updated_at: now,
+        }
+        saveGoal(goal)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ok: true, goal }))
       } catch (e) {
         res.writeHead(400, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ error: String(e) }))
