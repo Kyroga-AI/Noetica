@@ -326,11 +326,15 @@ fn main() {
         .setup(|app| {
             let h = app.handle();
 
-            // ── Ollama sidecar ────────────────────────────────────────────────
-            // Start bundled Ollama before the Agent Machine so local models
-            // are available when AM's first request arrives.
-            // Noetica's Ollama runs on 11435 (not 11434) with its own model store
-            // so it never collides with a user's system Ollama installation.
+            // ── Ollama sidecar (opt-in, default OFF) ──────────────────────────
+            // The Agent Machine now OWNS its model runtime: on boot it provisions a
+            // COMPLETE Ollama into ~/.noetica/runtime and runs it under a sandbox
+            // (managed-runtime). Spawning the bundled Ollama here is redundant — and
+            // historically harmful: the bundled binary ships without its inference
+            // runner, so it answers /api/tags but 500s on generation, which used to
+            // shadow the managed runtime. Default OFF; set NOETICA_SPAWN_BUNDLED_OLLAMA=1
+            // only for debugging the bundled binary.
+            if std::env::var("NOETICA_SPAWN_BUNDLED_OLLAMA").is_ok() {
             let noetica_models = std::env::var("HOME")
                 .map(|h| format!("{h}/.noetica/models"))
                 .unwrap_or_else(|_| "~/.noetica/models".to_string());
@@ -371,6 +375,9 @@ fn main() {
                 Err(e) => {
                     eprintln!("[noetica-ollama] sidecar not configured: {}", e);
                 }
+            }
+            } else {
+                eprintln!("[noetica-ollama] bundled Ollama spawn skipped — the Agent Machine provisions + manages its own runtime (set NOETICA_SPAWN_BUNDLED_OLLAMA=1 to override)");
             }
 
             // ── Agent Machine sidecar ──────────────────────────────────────────
