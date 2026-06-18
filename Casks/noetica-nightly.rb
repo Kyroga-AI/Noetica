@@ -1,5 +1,5 @@
 cask "noetica-nightly" do
-  version ""
+  version "0.4.10-nightly.20260618.050156"
   sha256 ""
 
   url ""
