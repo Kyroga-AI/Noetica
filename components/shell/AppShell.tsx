@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Sidebar } from '@/components/shell/Sidebar'
 import { Topbar } from '@/components/shell/Topbar'
 import { MessageList } from '@/components/chat/MessageList'
+import { GoalBanner } from '@/components/chat/GoalBanner'
 import { InputArea, type WorkspaceMode } from '@/components/chat/InputArea'
 import { SteeringPanel } from '@/components/steering/SteeringPanel'
 import { NotesSurface } from '@/components/surfaces/NotesSurface'
@@ -1155,6 +1156,7 @@ export function AppShell() {
             >
               <CenterWorkspace
                 activeSurface={activeSurface}
+                sessionId={activeSession?.id}
                 messages={messages}
                 isStreaming={isStreaming}
                 workspaceMode={workspaceMode}
@@ -1353,6 +1355,7 @@ type CenterProps = {
   onSend: (content: string, attachments: PendingAttachment[], mcpTools?: string[]) => Promise<void>
   onFanout: (content: string, attachments: PendingAttachment[]) => Promise<void>
   onStop: () => void
+  sessionId?: string
   onRegenerate: () => void
   onResume: () => void
   onFork: (messageId: string) => void
@@ -1375,7 +1378,7 @@ type CenterProps = {
   onSpeak?: (content: string) => void
 }
 
-function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onSpeak }: CenterProps) {
+function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onSpeak }: CenterProps) {
   if (activeSurface === 'notes')        return <NotesSurface />
   if (activeSurface === 'canvas')       return <CanvasSurface />
   if (activeSurface === 'workrooms')    return <WorkroomsSurface thinkingBudget={thinkingBudget} />
@@ -1399,6 +1402,7 @@ function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, 
   return (
     <div className={`grid min-h-0 flex-1 overflow-hidden transition-[grid-template-columns] duration-300 ${activeArtifact ? 'grid-cols-[minmax(320px,1fr)_480px]' : 'grid-cols-1'}`}>
       <section className="flex min-h-0 flex-col overflow-hidden">
+        <GoalBanner sessionId={sessionId} />
         <MessageList messages={messages} isStreaming={isStreaming} onExtractArtifact={onExtractArtifact} onRegenerate={onRegenerate} onResume={onResume} onFork={onFork} onEdit={onEdit} onRecombine={onRecombine} onSpeak={onSpeak} />
         <InputArea
           onSend={onSend}
