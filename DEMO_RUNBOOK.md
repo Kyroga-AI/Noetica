@@ -26,6 +26,24 @@ xattr -dr com.apple.quarantine /Applications/Noetica.app   # if Gatekeeper block
 open -a Noetica
 ```
 
+## 2b. Zero-setup model runtime (new — the Agent Machine owns it)
+On macOS the agent-machine **stands up its own model runtime on boot** — no host
+Ollama, no `ollama pull` by you:
+- It provisions a *complete* Ollama (binary + `llama-server` runner) into
+  `~/.noetica/runtime/` if missing, then runs it under a `seatbelt` sandbox (Metal),
+  on the isolated port, and points itself at it.
+- Disable with `NOETICA_MANAGED_RUNTIME=0`; override target with `OLLAMA_HOST`.
+- Manual equivalents:
+  ```sh
+  cd agent-machine
+  npm run bootstrap            # dry-run: show the plan for this box (tier, models)
+  npm run bootstrap -- --execute   # provision runtime + pull RAM-appropriate models
+  npm run provision:runtime    # just download the complete runtime
+  npm run start:managed-ollama # launch the sandboxed runtime standalone
+  ```
+- Isolation tier is hardware-profiled (`GET /api/host/profile`): ≥16 GB Mac +
+  krunkit → Podman VM + Vulkan GPU; otherwise → sandboxed native + Metal.
+
 ## 3. Resilience built in (you usually don't touch these)
 - **Ollama fallback** — if the bundled Ollama can't run inference (missing runner)
   or is unreachable, the agent-machine auto-falls back to a system Ollama. A

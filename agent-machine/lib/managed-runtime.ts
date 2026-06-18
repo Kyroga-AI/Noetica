@@ -35,6 +35,19 @@ async function provisionIfNeeded(): Promise<string | null> {
   return provisionOllamaRuntime()  // download the complete runtime into ~/.noetica/runtime
 }
 
+/**
+ * Should the agent-machine stand up its own managed runtime on boot? Yes on macOS
+ * when targeting the isolated port and not explicitly disabled. Skips when a dev
+ * OLLAMA_HOST points elsewhere (e.g. dev:backend → :11434) or NOETICA_MANAGED_RUNTIME=0.
+ * Pure + unit-tested so the boot decision can't silently regress.
+ */
+export function shouldManageRuntime(env: Record<string, string | undefined>, platform: string = process.platform): boolean {
+  if (platform !== 'darwin') return false
+  if (env['NOETICA_MANAGED_RUNTIME'] === '0') return false
+  const host = env['OLLAMA_HOST']
+  return !host || host.includes(':11435')
+}
+
 export interface ManagedRuntime { child: ChildProcess; port: number; base: string }
 
 /**
