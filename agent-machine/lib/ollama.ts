@@ -11,10 +11,14 @@ import type { ProviderTool, ToolUseBlock, ProviderEvent } from '../server.js'
 // 11435 is Noetica's isolated Ollama port — separate from any system Ollama on 11434.
 // OLLAMA_HOST env can override for dev (e.g. point at system Ollama during local iteration).
 const OLLAMA_PRIMARY = process.env['OLLAMA_HOST'] ?? 'http://127.0.0.1:11435'
-// Fallback to a system Ollama (default port) when the primary can list models but
-// can't actually run inference — e.g. a bundled Ollama shipped without its
-// llama-server runner. This keeps chat working instead of hard-freezing mid-demo.
-const OLLAMA_FALLBACK = process.env['OLLAMA_FALLBACK_HOST'] ?? 'http://127.0.0.1:11434'
+// The primary is the app's OWN managed runtime (provisioned complete + sandboxed).
+// We no longer IMPLICITLY fall back to the user's system Ollama — that reintroduces
+// the host dependency the Agent Machine exists to remove. A fallback is used ONLY
+// when explicitly configured (OLLAMA_FALLBACK_HOST), e.g. dev or a deliberate HA
+// peer. Empty ⇒ no fallback (errors surface clearly instead of silently using a
+// host install). The bundled-runner freeze is now fixed at the provisioning layer.
+const OLLAMA_FALLBACK = process.env['OLLAMA_FALLBACK_HOST'] ?? ''
+const HAS_FALLBACK = OLLAMA_FALLBACK !== '' && OLLAMA_FALLBACK !== OLLAMA_PRIMARY
 let _activeBase = OLLAMA_PRIMARY
 
 /** The Ollama base URL currently in use (may switch to the fallback after a failure). */
@@ -39,7 +43,7 @@ function isUnreachable(err: unknown): boolean {
  * actionable error. On a successful fallback the active base sticks for the session.
  */
 async function postChat(body: unknown, timeoutMs = 120_000): Promise<Response> {
-  const bases = (_activeBase === OLLAMA_PRIMARY && OLLAMA_FALLBACK !== OLLAMA_PRIMARY)
+  const bases = (_activeBase === OLLAMA_PRIMARY && HAS_FALLBACK)
     ? [OLLAMA_PRIMARY, OLLAMA_FALLBACK]
     : [_activeBase]
   for (let i = 0; i < bases.length; i++) {
@@ -94,7 +98,7 @@ export async function embedText(text: string): Promise<number[]> {
   // still be a broken bundled Ollama (lists models, can't run the model), so try
   // the fallback before giving up — otherwise embeddings silently fail and
   // retrieval degrades to lexical-only.
-  const bases = (_activeBase === OLLAMA_PRIMARY && OLLAMA_FALLBACK !== OLLAMA_PRIMARY)
+  const bases = (_activeBase === OLLAMA_PRIMARY && HAS_FALLBACK)
     ? [OLLAMA_PRIMARY, OLLAMA_FALLBACK]
     : [_activeBase]
   for (let i = 0; i < bases.length; i++) {
@@ -136,7 +140,7 @@ export async function isOllamaRunning(): Promise<boolean> {
   // the preflight gate doesn't block when only the system Ollama is up. (Note: a
   // primary that lists models but can't generate still passes here — the
   // missing-runner fallback then kicks in inside postChat during streaming.)
-  const candidates = OLLAMA_FALLBACK !== OLLAMA_PRIMARY ? [OLLAMA_PRIMARY, OLLAMA_FALLBACK] : [OLLAMA_PRIMARY]
+  const candidates = HAS_FALLBACK ? [OLLAMA_PRIMARY, OLLAMA_FALLBACK] : [OLLAMA_PRIMARY]
   for (const base of candidates) {
     try {
       const res = await fetch(`${base}/api/tags`, { signal: AbortSignal.timeout(2_000) })
