@@ -441,6 +441,29 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
           </div>
         )}
 
+        {message.deliberation && message.deliberation.candidates.length > 1 && (
+          <details className="mt-2 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)]">
+            <summary className="cursor-pointer select-none px-3 py-2 text-[11px] font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#2563eb]" />
+                Deliberation
+                <span className="text-[10px] text-[var(--color-text-tertiary)]">· selected best of {message.deliberation.candidates.length} candidates</span>
+              </span>
+            </summary>
+            <div className="space-y-1 px-3 pb-3 pt-1 text-[11px]">
+              {message.deliberation.candidates.map((c) => (
+                <div key={c.rank} className={`flex items-center gap-2 rounded-lg px-2 py-1 ${c.rank === message.deliberation!.selected_rank ? 'bg-[rgba(37,99,235,0.1)]' : ''}`}>
+                  <span className="w-10 text-[10px] text-[var(--color-text-tertiary)]">{c.rank === message.deliberation!.selected_rank ? '✓ best' : `#${c.rank + 1}`}</span>
+                  <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
+                    <div className="h-full rounded-full bg-[#2563eb]" style={{ width: `${Math.max(4, c.worth * 100)}%` }} />
+                  </div>
+                  <span className="w-24 text-right tabular-nums text-[var(--color-text-tertiary)]">worth {(c.worth * 100).toFixed(0)}% · T{c.temperature}</span>
+                </div>
+              ))}
+            </div>
+          </details>
+        )}
+
         {message.value_judgment && (
           <div className="mt-2 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2 text-[11px]">
             <div className="flex items-center gap-2">

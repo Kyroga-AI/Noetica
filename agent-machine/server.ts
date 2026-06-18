@@ -42,7 +42,7 @@ import { getAtomSpace } from '../lib/hellgraph/atomspace.js'
 import { decayAll } from '../lib/hellgraph/ecan.js'
 import { consolidate } from '../lib/hellgraph/consolidate.js'
 import { recordAttentionSnapshot, pushSnapshotToPrometheusd, ingestPrometheusCandidate } from '../lib/hellgraph/prometheus.js'
-import { isOllamaRunning, listLocalModels, pullModel, streamOllama, getModelContextLength, OLLAMA_BASE } from './lib/ollama.js'
+import { isOllamaRunning, listLocalModels, pullModel, streamOllama, getModelContextLength, OLLAMA_BASE, generateOllamaText } from './lib/ollama.js'
 import { retrieve } from './lib/retrieval.js'
 import { getGraph, graphHealth, graphSparql, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
 import { getHellGraph } from '../lib/hellgraph/store.js'
@@ -114,6 +114,30 @@ interface ContradictionRecord {
 }
 const _contradictions: ContradictionRecord[] = []
 const CONTRADICTION_RING_SIZE = 200
+// Load the symbolic world model (GAIA beliefs + candidate laws) for Value Judgment.
+function loadWorldModelForVJ(): { beliefs: Array<{ claim: string }>; laws: Array<{ law: string; confidence: number }> } {
+  const beliefs: Array<{ claim: string }> = []
+  try {
+    const snap = getRecentBeliefs(1)[0]
+    if (snap) {
+      const focus = String(snap.props['current_focus'] ?? '').trim()
+      if (focus) beliefs.push({ claim: focus })
+      try {
+        const posts = JSON.parse(String(snap.props['posterior_atoms'] ?? '[]')) as Array<{ claim?: string }>
+        for (const p of posts) if (p.claim) beliefs.push({ claim: p.claim })
+      } catch { /* unparseable posterior_atoms */ }
+    }
+  } catch { /* beliefs unavailable */ }
+  let laws: Array<{ law: string; confidence: number }> = []
+  try {
+    laws = getRecentLaws(20).map((l) => ({
+      law: String(l.props['law'] ?? ''),
+      confidence: Number(l.props['confidence'] ?? 0),
+    })).filter((l) => l.law)
+  } catch { /* laws unavailable */ }
+  return { beliefs, laws }
+}
+
 function recordContradictions(runId: string, sessionId: string, vj: ValueJudgment, answer: string): void {
   for (const c of vj.contradictions) {
     _contradictions.push({
@@ -1508,7 +1532,52 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         }
       }
 
-      for (let turn = 0; turn < MAX_TURNS; turn++) {
+      // ── 4D/RCS deliberation loop (flagged: NOETICA_DELIBERATION=1) ───────────
+      // Behavior Generation proposes K candidate answers; the World Model
+      // (retrieved memory) + Value Judgment score each on worth; select the best.
+      // Technique over horsepower: several cheap local samples + symbolic
+      // selection instead of one large model call.
+      let deliberated = false
+      if (process.env['NOETICA_DELIBERATION'] === '1' && routerDecision.task === 'reasoning' && allTools.length === 0) {
+        try {
+          const wm = loadWorldModelForVJ()
+          const temps = [0.3, 0.7, 1.0]
+          // Ollama serves one generation at a time per model — generate candidates
+          // sequentially (parallel calls queue/fail). Deliberation is an opt-in
+          // "think harder" mode, so K× latency is an accepted trade.
+          const candidates: Array<{ content: string; reasoning: string; temperature: number }> = []
+          for (const t of temps) {
+            try {
+              const r = await generateOllamaText({ model, messages: ollamaMessages, temperature: t, numCtx: ollamaNumCtx })
+              if (r.content.trim()) candidates.push({ ...r, temperature: t })
+            } catch { /* skip a failed candidate */ }
+          }
+          const judged = candidates
+            .map((c) => ({ c, vj: judgeAnswer({ answer: c.content, reasoning: c.reasoning || undefined, contextText: graphContext, beliefs: wm.beliefs, laws: wm.laws }) }))
+            .sort((a, b) => b.vj.worth - a.vj.worth)
+          if (judged.length > 0) {
+            const best = judged[0]!
+            sse(res, 'deliberation', {
+              deliberation: {
+                candidates: judged.map((j, i) => ({
+                  rank: i, worth: j.vj.worth, grounding: j.vj.grounding,
+                  verdict: j.vj.verdict, temperature: j.c.temperature,
+                  preview: j.c.content.slice(0, 100),
+                })),
+                selected_rank: 0,
+              },
+            })
+            if (best.c.reasoning) sse(res, 'thinking_delta', { delta: best.c.reasoning })
+            sse(res, 'delta', { delta: best.c.content })
+            fullContent += best.c.content
+            fullThinking += best.c.reasoning
+            deliberated = true
+            console.log(`[deliberation] ${judged.length} candidates, selected worth=${best.vj.worth} (grounding=${best.vj.grounding})`)
+          }
+        } catch { /* deliberation is best-effort — fall through to normal streaming */ }
+      }
+
+      if (!deliberated) for (let turn = 0; turn < MAX_TURNS; turn++) {
         let turnContent = ''
         let turnToolCalls: ToolUseBlock[] | undefined
 
@@ -1770,27 +1839,13 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     // judges the model's captured reasoning.
     let valueJudgment: ValueJudgment | undefined
     try {
-      const beliefSnap = getRecentBeliefs(1)[0]
-      const beliefClaims: Array<{ claim: string }> = []
-      if (beliefSnap) {
-        const focus = String(beliefSnap.props['current_focus'] ?? '').trim()
-        if (focus) beliefClaims.push({ claim: focus })
-        try {
-          const posts = JSON.parse(String(beliefSnap.props['posterior_atoms'] ?? '[]')) as Array<{ claim?: string }>
-          for (const p of posts) if (p.claim) beliefClaims.push({ claim: p.claim })
-        } catch { /* posterior_atoms not parseable — skip */ }
-      }
-      const laws = getRecentLaws(20).map((l) => ({
-        law: String(l.props['law'] ?? ''),
-        confidence: Number(l.props['confidence'] ?? 0),
-      })).filter((l) => l.law)
-
+      const wm = loadWorldModelForVJ()
       valueJudgment = judgeAnswer({
         answer: fullContent,
         reasoning: fullThinking || undefined,
         contextText: graphContext,
-        beliefs: beliefClaims,
-        laws,
+        beliefs: wm.beliefs,
+        laws: wm.laws,
       })
       sse(res, 'value_judgment', { value_judgment: valueJudgment })
       if (valueJudgment.contradictions.length > 0) {

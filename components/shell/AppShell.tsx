@@ -807,6 +807,12 @@ export function AppShell() {
                 setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'value_judgment', payload: vj }, ...prev].slice(0, 80))
               }
             },
+            onDeliberation: (d) => {
+              updateAssistant(assistantId, { deliberation: d })
+              if (settings.showRawEvents) {
+                setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'deliberation', payload: d }, ...prev].slice(0, 80))
+              }
+            },
             onDone: (result) => {
               if (settings.showRawEvents) {
                 setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'done', payload: { run_id: result.run_id, model: result.model_routed, latency_ms: result.latency_ms } }, ...prev].slice(0, 80))

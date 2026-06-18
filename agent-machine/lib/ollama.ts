@@ -126,6 +126,33 @@ interface OAIToolCall {
   function: { name: string; arguments: string }
 }
 
+// Non-streaming single completion — used by the 4D/RCS deliberation loop to
+// generate candidate answers cheaply and judge them before selecting one.
+export async function generateOllamaText(params: {
+  model: string
+  messages: Array<{ role: string; content: string | null | unknown[] }>
+  temperature?: number
+  numCtx?: number
+}): Promise<{ content: string; reasoning: string }> {
+  const res = await fetch(`${OLLAMA_BASE}/v1/chat/completions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: params.model,
+      stream: false,
+      messages: params.messages,
+      options: { num_ctx: params.numCtx ?? 8192, temperature: params.temperature ?? 0.7 },
+    }),
+    signal: AbortSignal.timeout(120_000),
+  })
+  if (!res.ok) throw new Error(`Ollama ${res.status}: ${await res.text()}`)
+  const data = await res.json() as {
+    choices?: Array<{ message?: { content?: string; reasoning?: string; reasoning_content?: string } }>
+  }
+  const msg = data.choices?.[0]?.message
+  return { content: msg?.content ?? '', reasoning: msg?.reasoning ?? msg?.reasoning_content ?? '' }
+}
+
 export async function* streamOllama(params: {
   model: string
   messages: OllamaMessage[]

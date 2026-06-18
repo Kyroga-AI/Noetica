@@ -18,6 +18,7 @@ export type NoeticaChatTransportHandlers = {
   onToolCalls?: (calls: import('@/lib/providers').ToolUseBlock[]) => void
   onRetrieval?: (trace: import('@/lib/types/message').RetrievalTrace) => void
   onValueJudgment?: (vj: import('@/lib/types/message').ValueJudgment) => void
+  onDeliberation?: (d: import('@/lib/types/message').Deliberation) => void
   onDone: (result: NoeticaStreamDoneResult) => void
   onError: (error: string) => void
 }
@@ -160,6 +161,7 @@ async function readNoeticaEventStream(response: Response, handlers: NoeticaChatT
       if (parsed.event === 'tool_calls') handlers.onToolCalls?.(payload['tool_calls'] as import('@/lib/providers').ToolUseBlock[])
       if (parsed.event === 'retrieval') handlers.onRetrieval?.(payload['trace'] as import('@/lib/types/message').RetrievalTrace)
       if (parsed.event === 'value_judgment') handlers.onValueJudgment?.(payload['value_judgment'] as import('@/lib/types/message').ValueJudgment)
+      if (parsed.event === 'deliberation') handlers.onDeliberation?.(payload['deliberation'] as import('@/lib/types/message').Deliberation)
       if (parsed.event === 'done') {
         receivedDone = true
         handlers.onDone(payload['result'] as NoeticaStreamDoneResult)

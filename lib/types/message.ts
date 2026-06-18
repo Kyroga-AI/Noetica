@@ -37,6 +37,20 @@ export interface ChatMessage {
   retrieval_trace?: RetrievalTrace
   /** Value Judgment — explicit 4D/RCS-style scoring of the answer vs the world model */
   value_judgment?: ValueJudgment
+  /** Deliberation scoreboard — candidates generated and scored before selection */
+  deliberation?: Deliberation
+}
+
+export interface Deliberation {
+  candidates: Array<{
+    rank: number
+    worth: number
+    grounding: number
+    verdict: 'grounded' | 'speculative' | 'contradiction'
+    temperature: number
+    preview: string
+  }>
+  selected_rank: number
 }
 
 export interface ValueJudgment {
