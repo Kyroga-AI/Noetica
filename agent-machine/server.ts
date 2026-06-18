@@ -55,6 +55,7 @@ import { CANONICAL_SHAPES } from './lib/canonical-shapes.js'
 import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
 import { detectGoalIntent, slotFill, buildGoalContext, getActiveGoal, listGoals, saveGoal, type Goal } from './lib/goal-model.js'
 import { assessAgainstGraph } from './lib/pln-judgment.js'
+import { saveCheckpoint, listCheckpoints, getCheckpoint, buildResumeMessages } from './lib/checkpoint-model.js'
 import {
   ensureMichaelTwin, ingestGaiaObservation, getRecentObservations,
   writeBeliefSnapshot, writeWorldStateSnapshot, writeCycleNode,
@@ -1413,6 +1414,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   const MAX_TURNS = 10
   let fullContent = ''
   let fullThinking = ''
+  let liveContent = '' // accumulates streamed deltas in real time (for checkpoint-on-abort)
   let lastToolCalls: ToolUseBlock[] | undefined
 
   // ── HellGraph retrieval ──────────────────────────────────────────────────────
@@ -1421,6 +1423,25 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // the cache-augmented prefix is stable across a session so the KV cache
   // warms after the first turn and subsequent turns are faster.
   const sessionId = body.session_id ?? run_id
+
+  // Checkpoint on interruption: if the client aborts (stop button / disconnect)
+  // before the run completes, persist the partial state so it can be resumed.
+  let runCompleted = false
+  res.on('close', () => {
+    if (runCompleted || !liveContent.trim()) return
+    try {
+      saveCheckpoint({
+        id: `urn:checkpoint:${run_id}`,
+        run_id, session_id: sessionId, status: 'interrupted',
+        model, provider, task: routerDecision.task,
+        messages: incomingMessages.map((m) => ({ role: m.role, content: String(m.content ?? '') })),
+        partial_content: liveContent,
+        partial_thinking: fullThinking,
+        created_at: new Date().toISOString(),
+      })
+      console.log(`[checkpoint] saved interrupted run ${run_id} (${liveContent.length} chars, ${fullThinking.length} thinking)`)
+    } catch { /* checkpointing is best-effort */ }
+  })
 
   // Always include beliefs to connect the digital twin to every chat turn.
   // Ollama gets the cache-augmented prefix too (stable KV cache warm-up).
@@ -1633,6 +1654,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         })) {
           if (event.type === 'text') {
             turnContent += event.text
+            liveContent += event.text
             sse(res, 'delta', { delta: event.text })
           } else if (event.type === 'thinking') {
             fullThinking += event.text
@@ -1722,6 +1744,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         })) {
           if (event.type === 'text') {
             turnContent += event.text
+            liveContent += event.text
             sse(res, 'delta', { delta: event.text })
           } else if (event.type === 'thinking') {
             fullThinking += event.text
@@ -1819,6 +1842,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         })) {
           if (event.type === 'text') {
             turnContent += event.text
+            liveContent += event.text
             sse(res, 'delta', { delta: event.text })
           } else if (event.type === 'tool_calls') {
             turnToolCalls = event.calls
@@ -1941,6 +1965,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         agent_machine_version: VERSION,
       },
     })
+    runCompleted = true // run finished cleanly — the close handler must not checkpoint
 
     // ── Auto-ingest into HellGraph (fire-and-forget) ──────────────────────────
     // Index this interaction so future retrieval can surface it. The promptHash
@@ -2307,6 +2332,28 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ error: String(e) }))
       }
     })
+    return
+  }
+
+  // GET /api/checkpoints?session=... — interrupted runs available to resume
+  if (req.method === 'GET' && url.pathname === '/api/checkpoints') {
+    setCORSHeaders(res)
+    const session = url.searchParams.get('session') ?? undefined
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ checkpoints: listCheckpoints(session) }))
+    return
+  }
+
+  // GET /api/checkpoints/:id/resume — the message array to resume a run.
+  // The client sends these back to /api/chat (optionally with ?context=...) to continue.
+  if (req.method === 'GET' && url.pathname.startsWith('/api/checkpoints/') && url.pathname.endsWith('/resume')) {
+    setCORSHeaders(res)
+    const id = decodeURIComponent(url.pathname.slice('/api/checkpoints/'.length, -'/resume'.length))
+    const cp = getCheckpoint(id)
+    if (!cp) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'not_found' })); return }
+    const added = url.searchParams.get('context') ?? undefined
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ checkpoint: cp, resume_messages: buildResumeMessages(cp, added) }))
     return
   }
 
