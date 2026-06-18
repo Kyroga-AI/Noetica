@@ -857,6 +857,7 @@ async function webSearch(query: string, serperKey?: string): Promise<string> {
         method: 'POST',
         headers: { 'X-API-KEY': serperKey, 'content-type': 'application/json' },
         body: JSON.stringify({ q: query, num: 6 }),
+        signal: AbortSignal.timeout(6_000),
       })
       if (res.ok) {
         const data = (await res.json()) as {
@@ -880,7 +881,7 @@ async function webSearch(query: string, serperKey?: string): Promise<string> {
     url.searchParams.set('no_html', '1')
     url.searchParams.set('skip_disambig', '1')
 
-    const res = await fetch(url.toString(), { headers: { Accept: 'application/json' } })
+    const res = await fetch(url.toString(), { headers: { Accept: 'application/json' }, signal: AbortSignal.timeout(6_000) })
     if (res.ok) {
       const data = (await res.json()) as {
         AbstractText?: string
@@ -900,7 +901,9 @@ async function webSearch(query: string, serperKey?: string): Promise<string> {
     // continue
   }
 
-  return `No results found for: "${query}"`
+  // No connectivity / no result: tell the model to proceed rather than stall or
+  // wait on the tool. Without this it tends to say "let me search…" and hang.
+  return `Web search is unavailable (offline or no result) for "${query}". Do not retry the search — answer from your own knowledge and any provided document context, and note that live data could not be retrieved.`
 }
 
 // ─── generate_image ───────────────────────────────────────────────────────────
