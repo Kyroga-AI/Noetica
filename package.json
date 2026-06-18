@@ -41,7 +41,8 @@
     "tauri:dev": "npm run tauri:icon && tauri dev",
     "tauri:build": "npm run tauri:icon && tauri build",
     "tauri:build:static": "npm run tauri:icon && npm run build:static && tauri build",
-    "tauri:build:full": "npm run agent-machine:build:binary && node scripts/inject-am-sidecar-config.mjs && npm run tauri:build:static && node scripts/inject-am-sidecar-config.mjs --restore"
+    "tauri:build:full": "npm run agent-machine:build:binary && node scripts/inject-am-sidecar-config.mjs && npm run tauri:build:static && node scripts/inject-am-sidecar-config.mjs --restore",
+    "prepare": "husky"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",
@@ -64,6 +65,7 @@
     "autoprefixer": "^10.4.20",
     "eslint": "^8.57.1",
     "eslint-config-next": "^14.2.23",
+    "husky": "9.1.7",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.7.2"

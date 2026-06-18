@@ -1,0 +1,13 @@
+# Pre-push gate: mirror CI so the compounding loop can't silently regress.
+# Order is fast→slow so the cheapest check fails first.
+echo "▸ engine version sync"
+node scripts/check-engine-version.mjs || exit 1
+echo "▸ typecheck"
+npm run typecheck || exit 1
+echo "▸ lint"
+npm run lint || exit 1
+echo "▸ unit tests"
+npm --prefix agent-machine install --silent && npm test || exit 1
+echo "▸ integration tests"
+npm --prefix agent-machine run test:integration || exit 1
+echo "✓ pre-push checks passed"
