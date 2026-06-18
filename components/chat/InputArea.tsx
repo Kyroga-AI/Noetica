@@ -160,12 +160,26 @@ export function InputArea({
     }
   }
 
-  function handleAttachClick() {
-    // Always use the webview's native <input type=file> picker. The Tauri dialog
-    // plugin (@tauri-apps/plugin-dialog) is not bundled/registered, so the old
-    // isTauri() branch failed silently and uploads appeared broken. The HTML input
-    // opens the OS picker fine inside the Tauri webview and routes through addFiles.
-    fileInputRef.current?.click()
+  async function handleAttachClick() {
+    // In the Tauri app the webview can't open an HTML <input type=file> (wry has no
+    // open-panel delegate), so use the native dialog plugin to get file PATHS, then
+    // let the sidecar (full fs access) read + extract them via /api/ingest/path.
+    // In a browser, the HTML input works.
+    if (isTauri()) {
+      try {
+        const dlg: any = await import(/* webpackIgnore: true */ '@tauri-apps/plugin-dialog' as string)
+        const selected: string | string[] | null = await dlg.open({
+          multiple: true,
+          filters: [{ name: 'Documents & code', extensions: ['pdf', 'docx', 'txt', 'md', 'csv', 'json', 'ts', 'js', 'py', 'rs', 'go', 'yaml', 'yml', 'sql'] }],
+        })
+        const paths = Array.isArray(selected) ? selected : selected ? [selected] : []
+        for (const p of paths) await postIngest('/api/ingest/path', { path: p }, p.split('/').pop() ?? p)
+      } catch (e) {
+        setAttachError(`Couldn't open file picker: ${e instanceof Error ? e.message : String(e)}`)
+      }
+    } else {
+      fileInputRef.current?.click()
+    }
   }
 
   function autoResize(el: HTMLTextAreaElement) {

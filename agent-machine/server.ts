@@ -3205,6 +3205,37 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // POST /api/ingest/path — ingest a LOCAL file by absolute path { path }. Used by
+  // the Tauri picker (the webview can't read files; the native dialog returns a
+  // path and the sidecar — full fs access — reads + extracts + embeds it).
+  if (req.method === 'POST' && url.pathname === '/api/ingest/path') {
+    setCORSHeaders(res)
+    const chunks: Buffer[] = []
+    req.on('data', (c: Buffer) => chunks.push(c))
+    req.on('end', () => {
+      ;(async () => {
+        try {
+          const { path: filePath } = JSON.parse(Buffer.concat(chunks).toString()) as { path: string }
+          if (!filePath) throw new Error('path required')
+          const fs = await import('node:fs')
+          const pathMod = await import('node:path')
+          const buf = fs.readFileSync(filePath)
+          const filename = pathMod.basename(filePath)
+          const { extractText, ingestDocument } = await import('./lib/doc-store.js')
+          const text = await extractText(filename, '', buf)
+          if (!text.trim()) throw new Error('no extractable text in file')
+          const result = await ingestDocument(filename, text)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ...result, entities: 0 }))
+        } catch (err) {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }))
+        }
+      })()
+    })
+    return
+  }
+
   // POST /api/chat
   if (req.method === 'POST' && url.pathname === '/api/chat') {
     let body = ''

@@ -451,6 +451,20 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
           </div>
         )}
 
+        {(message.value_judgment || (message.deliberation && message.deliberation.candidates.length > 1) || message.retrieval_trace || message.governance) && (
+        <details className="group mt-1.5">
+          <summary className="flex cursor-pointer list-none select-none items-center gap-1.5 text-[10px] text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-secondary)] [&::-webkit-details-marker]:hidden">
+            {message.value_judgment && (
+              <span className={`inline-block h-1.5 w-1.5 rounded-full ${
+                message.value_judgment.verdict === 'grounded' ? 'bg-[#16a34a]'
+                : message.value_judgment.verdict === 'contradiction' ? 'bg-[#dc2626]'
+                : 'bg-[#d97706]'
+              }`} />
+            )}
+            <span className="transition group-open:rotate-90">▸</span>
+            <span>details{message.value_judgment ? ` · ${message.value_judgment.verdict}` : ''}{message.retrieval_trace?.sources.length ? ` · ${message.retrieval_trace.sources.length} atoms` : ''}</span>
+          </summary>
+          <div className="mt-1.5 space-y-2">
         {message.deliberation && message.deliberation.candidates.length > 1 && (
           <details className="mt-2 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)]">
             <summary className="cursor-pointer select-none px-3 py-2 text-[11px] font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
@@ -567,6 +581,9 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
         )}
         {message.steering_result ? <SteeringDiff result={message.steering_result} /> : null}
         {message.governance ? <GovernanceTrail trace={message.governance} /> : null}
+          </div>
+        </details>
+        )}
       </div>
     </article>
   )
