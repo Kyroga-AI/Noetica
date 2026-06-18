@@ -14,16 +14,19 @@ import * as fs from 'node:fs'
 import { spawn, execFile, type ChildProcess } from 'node:child_process'
 import { promisify } from 'node:util'
 import { seatbeltProfile, resolveManagedOllamaBinary, buildLaunchRecipe, provisionOllamaRuntime, runtimeComplete, PROFILE_PATH, RUNTIME_DIR, MODELS_DIR, MANAGED_PORT } from './managed-ollama.js'
+import { setOllamaBase } from './ollama.js'
 
 const exec = promisify(execFile)
 
-async function freePort(port: number): Promise<void> {
-  try {
-    const { stdout } = await exec('/usr/sbin/lsof', ['-ti', `TCP:${port}`, '-sTCP:LISTEN'])
-    const pids = stdout.trim().split('\n').filter(Boolean)
-    for (const pid of pids) { try { process.kill(Number(pid), 'SIGKILL') } catch { /* gone */ } }
-    if (pids.length) await new Promise((r) => setTimeout(r, 800))
-  } catch { /* nothing listening */ }
+async function portInUse(port: number): Promise<boolean> {
+  try { const { stdout } = await exec('/usr/sbin/lsof', ['-ti', `TCP:${port}`, '-sTCP:LISTEN']); return stdout.trim().length > 0 } catch { return false }
+}
+
+/** Pick a free port near the isolated one — avoids fighting a Rust-spawned bundled
+ *  Ollama on the default port (and the startup race that would cause). */
+async function pickPort(preferred: number): Promise<number> {
+  for (const p of [preferred, preferred + 1, preferred + 2]) { if (!(await portInUse(p))) return p }
+  return preferred
 }
 
 async function provisionIfNeeded(): Promise<string | null> {
@@ -39,7 +42,7 @@ export interface ManagedRuntime { child: ChildProcess; port: number; base: strin
  * handle, or null if it couldn't be established (caller logs and continues — chat
  * will surface a clear error rather than silently using a host install).
  */
-export async function ensureManagedRuntime(port = MANAGED_PORT): Promise<ManagedRuntime | null> {
+export async function ensureManagedRuntime(preferredPort = MANAGED_PORT): Promise<ManagedRuntime | null> {
   if (process.platform !== 'darwin') return null
   const binary = await provisionIfNeeded()
   if (!binary) { console.warn('[managed-runtime] no complete Ollama runtime available — skipping'); return null }
@@ -47,7 +50,7 @@ export async function ensureManagedRuntime(port = MANAGED_PORT): Promise<Managed
   fs.mkdirSync(RUNTIME_DIR, { recursive: true })
   fs.mkdirSync(MODELS_DIR, { recursive: true })
   fs.writeFileSync(PROFILE_PATH, seatbeltProfile())
-  await freePort(port)   // evict any incumbent (e.g. an incomplete bundled Ollama)
+  const port = await pickPort(preferredPort)   // a free port — no fight with a bundled Ollama
 
   const { cmd, args, env } = buildLaunchRecipe(binary)
   const child = spawn(cmd, args, { env: { ...process.env, ...env, OLLAMA_HOST: `127.0.0.1:${port}` }, stdio: 'ignore', detached: false })
@@ -57,11 +60,12 @@ export async function ensureManagedRuntime(port = MANAGED_PORT): Promise<Managed
   const deadline = Date.now() + 60_000  // generous: cold launch under RAM pressure can be slow
   while (Date.now() < deadline) {
     try { const r = await fetch(`${base}/api/tags`, { signal: AbortSignal.timeout(1500) }); if (r.ok) {
+      setOllamaBase(base)   // repoint the agent-machine at the app-owned runtime
       console.log(`[managed-runtime] sandboxed Ollama (Metal) serving on ${base} — app-owned, no host dependency`)
       return { child, port, base }
     } } catch { /* not up yet */ }
     await new Promise((r) => setTimeout(r, 500))
   }
-  console.warn('[managed-runtime] sandboxed Ollama did not become ready in 30s')
+  console.warn('[managed-runtime] sandboxed Ollama did not become ready in 60s')
   return { child, port, base }
 }

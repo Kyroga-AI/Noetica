@@ -23,6 +23,8 @@ let _activeBase = OLLAMA_PRIMARY
 
 /** The Ollama base URL currently in use (may switch to the fallback after a failure). */
 export function ollamaBase(): string { return _activeBase }
+/** Repoint the active Ollama base (e.g. the boot managed-runtime picks a free port). */
+export function setOllamaBase(url: string): void { _activeBase = url }
 // Back-compat for existing imports; prefer ollamaBase() for the live value.
 export const OLLAMA_BASE = OLLAMA_PRIMARY
 
