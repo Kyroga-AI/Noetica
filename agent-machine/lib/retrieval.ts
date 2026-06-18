@@ -44,7 +44,7 @@ interface WorkingMemoryState {
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
-export type RetrievalPattern = 'graph' | 'temporal' | 'sparql' | 'cache-augmented' | 'atoms'
+export type RetrievalPattern = 'graph' | 'temporal' | 'sparql' | 'cache-augmented' | 'atoms' | 'beliefs'
 
 export interface RetrievedContext {
   text: string
@@ -66,7 +66,7 @@ export async function retrieve(
     conversationId?: string
   },
 ): Promise<RetrievedContext> {
-  const patterns: RetrievalPattern[] = opts?.patterns ?? ['atoms', 'graph', 'temporal', 'cache-augmented']
+  const patterns: RetrievalPattern[] = opts?.patterns ?? ['beliefs', 'atoms', 'graph', 'temporal', 'cache-augmented']
   const maxChars = (opts?.maxTokens ?? 2000) * 4  // ~4 chars per token
 
   // Extract keywords for WorkingMemoryState.query_reformulations
@@ -92,6 +92,7 @@ export async function retrieve(
       case 'temporal':     inner = runTemporalPattern(query); break
       case 'sparql':       inner = runSparqlPattern(query, opts?.sessionId); break
       case 'atoms':        inner = runAtomsPattern(query); break
+      case 'beliefs':      inner = runBeliefsPattern(); break
       case 'cache-augmented': inner = runCacheAugmentedPattern(opts?.sessionId ?? opts?.workspaceId ?? 'default'); break
       default:             return Promise.resolve(null)
     }
@@ -396,7 +397,6 @@ async function runAtomsPattern(
   const atoms = g.allNodes().filter((n) => n.labels.includes('FeatureAtom'))
   if (atoms.length === 0) return { text: '', sources: [] }
 
-  type Scored = { node: typeof atoms[0]; score: number }
   const scored: Scored[] = []
 
   for (const atom of atoms) {
@@ -419,8 +419,10 @@ async function runAtomsPattern(
   }
 
   scored.sort((a, b) => b.score - a.score)
-  const top = scored.slice(0, 12)
-  if (top.length === 0) return { text: '', sources: [] }
+  // MMR reranking: take top-20 candidates and apply Maximum Marginal Relevance
+  // to eliminate redundant atoms while maximising query coverage.
+  // Uses Jaccard similarity of token sets as the redundancy signal (zero dependencies).
+  const top = mmrRerank(scored.slice(0, 20), 12)
 
   const lines: string[] = []
   const sources: Array<{ id: string; label: string; score: number }> = []
@@ -484,6 +486,93 @@ async function runAtomsPattern(
     text: `### Known Entities (from memory)\n${allLines.join('\n')}`,
     sources: [...sources, ...neighborSources],
   }
+}
+
+// ─── Belief pattern — inject Michael's current belief state into chat context ─
+// Queries the most recent BeliefSnapshot from HellGraph (written by the GAIA
+// superconscious loop). This is the digital twin's world model entering chat:
+// "Michael is currently focused on X, believes Y with 80% confidence".
+
+async function runBeliefsPattern(): Promise<{ text: string; sources: Array<{ id: string; label: string; score: number }> }> {
+  const g = getGraph()
+  const beliefs = g.allNodes()
+    .filter((n) => n.labels.includes('BeliefSnapshot'))
+    .sort((a, b) => String(b.properties['created_at'] ?? b.properties['captured_at'] ?? '').localeCompare(
+      String(a.properties['created_at'] ?? a.properties['captured_at'] ?? ''),
+    ))
+    .slice(0, 1)
+
+  if (beliefs.length === 0) return { text: '', sources: [] }
+
+  const belief = beliefs[0]!
+  const lines: string[] = []
+  const focus   = String(belief.properties['current_focus'] ?? '').trim()
+  const summary = String(belief.properties['world_summary'] ?? belief.properties['summary'] ?? '').trim()
+
+  if (focus)   lines.push(`Current focus: ${focus}`)
+  if (summary) lines.push(`World state: ${summary}`)
+
+  try {
+    const atoms = JSON.parse(String(belief.properties['posterior_atoms'] ?? '[]')) as Array<{ claim: string; weight: number }>
+    for (const a of atoms.slice(0, 5)) {
+      lines.push(`• (${Math.round(a.weight * 100)}%) ${a.claim}`)
+    }
+  } catch { /* malformed JSON — skip */ }
+
+  if (lines.length === 0) return { text: '', sources: [] }
+
+  return {
+    text: `### Michael's Belief State\n${lines.join('\n')}`,
+    sources: [{ id: belief.id, label: 'BeliefSnapshot', score: 0.95 }],
+  }
+}
+
+// ─── MMR reranking — Maximum Marginal Relevance ───────────────────────────────
+// Greedily selects up to `k` candidates that maximise coverage and minimise
+// redundancy. Uses Jaccard token overlap as the similarity proxy (zero deps).
+// lambda: weight given to relevance vs diversity (0.7 = 70% relevance, 30% novelty).
+
+type Scored = { node: { id: string; properties: Record<string, unknown>; labels: string[] }; score: number }
+
+function tokenize(s: string): Set<string> {
+  return new Set(s.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((w) => w.length >= 3))
+}
+
+function jaccardSim(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 && b.size === 0) return 1
+  let intersection = 0
+  for (const t of a) if (b.has(t)) intersection++
+  return intersection / (a.size + b.size - intersection)
+}
+
+function mmrRerank(candidates: Scored[], k: number, lambda = 0.7): Scored[] {
+  if (candidates.length === 0) return []
+  if (candidates.length <= k) return candidates
+
+  const tokenSets = candidates.map(({ node }) =>
+    tokenize(String(node.properties['normalised'] ?? node.properties['surface'] ?? node.id)),
+  )
+
+  const selected: number[] = []
+  const remaining = candidates.map((_, i) => i)
+
+  while (selected.length < k && remaining.length > 0) {
+    let bestIdx = 0
+    let bestMMR = -Infinity
+    for (let ri = 0; ri < remaining.length; ri++) {
+      const ci = remaining[ri]!
+      const rel = candidates[ci]!.score
+      const maxSim = selected.length === 0
+        ? 0
+        : Math.max(...selected.map((si) => jaccardSim(tokenSets[ci]!, tokenSets[si]!)))
+      const mmr = lambda * rel - (1 - lambda) * maxSim
+      if (mmr > bestMMR) { bestMMR = mmr; bestIdx = ri }
+    }
+    selected.push(remaining[bestIdx]!)
+    remaining.splice(bestIdx, 1)
+  }
+
+  return selected.map((i) => candidates[i]!)
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

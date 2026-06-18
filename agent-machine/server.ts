@@ -512,6 +512,37 @@ function setCORSHeaders(res: http.ServerResponse): void {
 
 // ─── Tool execution ───────────────────────────────────────────────────────────
 
+// Retry wrapper for transient tool failures (network, rate limits).
+// Retryable tools: web_search, generate_image — these make external HTTP calls.
+// Non-retryable tools (file ops, code_execute) fail fast — retrying would be wrong.
+const RETRYABLE_TOOLS = new Set(['web_search', 'generate_image'])
+
+async function executeToolWithRetry(
+  name: string,
+  input: Record<string, unknown>,
+  keys: { anthropic?: string; openai?: string; serper?: string },
+  maxRetries = 2,
+): Promise<string> {
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await executeTool(name, input, keys)
+      // If the tool itself returned an error string and it's retryable, try again
+      if (result.startsWith('Error:') && RETRYABLE_TOOLS.has(name) && attempt < maxRetries) {
+        await new Promise<void>((r) => setTimeout(r, 400 * Math.pow(2, attempt)))
+        continue
+      }
+      return result
+    } catch (e) {
+      if (RETRYABLE_TOOLS.has(name) && attempt < maxRetries) {
+        await new Promise<void>((r) => setTimeout(r, 400 * Math.pow(2, attempt)))
+        continue
+      }
+      return `Error: ${e instanceof Error ? e.message : String(e)}`
+    }
+  }
+  return 'Error: tool max retries exceeded'
+}
+
 async function executeTool(
   name: string,
   input: Record<string, unknown>,
@@ -1110,10 +1141,13 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // the cache-augmented prefix is stable across a session so the KV cache
   // warms after the first turn and subsequent turns are faster.
   const sessionId = body.session_id ?? run_id
-  const patterns: Array<'graph' | 'temporal' | 'sparql' | 'cache-augmented'> =
+
+  // Always include beliefs to connect the digital twin to every chat turn.
+  // Ollama gets the cache-augmented prefix too (stable KV cache warm-up).
+  const patterns: Array<'beliefs' | 'graph' | 'temporal' | 'sparql' | 'cache-augmented'> =
     provider === 'ollama'
-      ? ['cache-augmented', 'graph', 'temporal']
-      : ['graph', 'temporal']
+      ? ['beliefs', 'cache-augmented', 'graph', 'temporal']
+      : ['beliefs', 'graph', 'temporal']
 
   let graphContext = ''
   try {
@@ -1121,7 +1155,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       patterns,
       sessionId,
       conversationId: body.conversation_id,
-      maxTokens: provider === 'ollama' ? 1200 : 800,
+      maxTokens: provider === 'ollama' ? 1200 : 900,
     })
     if (retrieved.text.trim()) {
       graphContext = `\n\n---\n**Memory context (HellGraph)**\n${retrieved.text}`
@@ -1131,6 +1165,20 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   const profile = POLICY_PROFILES[body.policy_profile ?? 'default'] ?? POLICY_PROFILES['default']!
   const basePrompt = body.system_prompt ?? NOETICA_SYSTEM_PROMPT
   const enrichedSystemPrompt = basePrompt + graphContext + profile.authorizationSuffix
+
+  // Token budget: rough estimate (4 chars ≈ 1 token). If message history + system prompt
+  // exceeds 70% of the model's context window, trim oldest non-system messages.
+  // Model context windows: Anthropic claude-haiku-4-5/sonnet-4-6 = 200K, Ollama varies.
+  const MODEL_CONTEXT_TOKENS = provider === 'ollama' ? 8192 : 180_000
+  const TOKEN_BUDGET = Math.floor(MODEL_CONTEXT_TOKENS * 0.70)
+  function estimateTokens(s: string): number { return Math.ceil(s.length / 4) }
+  let systemTokens = estimateTokens(enrichedSystemPrompt)
+  let msgTokens = incomingMessages.reduce((s, m) => s + estimateTokens(String(m.content ?? '')), 0)
+  // Trim oldest user+assistant pairs if over budget
+  while (systemTokens + msgTokens > TOKEN_BUDGET && incomingMessages.length > 2) {
+    const removed = incomingMessages.shift()
+    msgTokens -= estimateTokens(String(removed?.content ?? ''))
+  }
 
   try {
     if (provider === 'ollama') {
@@ -1208,7 +1256,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           turnToolCalls.map(async (tc) => ({
             toolCallId: tc.id,
             name: tc.name,
-            result: await executeTool(tc.name, tc.input, {
+            result: await executeToolWithRetry(tc.name, tc.input, {
               anthropic: anthropicKey,
               openai: openaiKey,
               serper: keys.serper,
@@ -1275,7 +1323,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           turnToolCalls.map(async (tc) => ({
             toolUseId: tc.id,
             name: tc.name,
-            result: await executeTool(tc.name, tc.input, {
+            result: await executeToolWithRetry(tc.name, tc.input, {
               anthropic: anthropicKey,
               openai: openaiKey,
               serper: keys.serper,
@@ -1342,7 +1390,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           turnToolCalls.map(async (tc) => ({
             toolCallId: tc.id,
             name: tc.name,
-            result: await executeTool(tc.name, tc.input, {
+            result: await executeToolWithRetry(tc.name, tc.input, {
               anthropic: anthropicKey,
               openai: openaiKey,
               serper: keys.serper,
