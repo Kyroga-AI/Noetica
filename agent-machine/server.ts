@@ -1541,11 +1541,16 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
 
   let graphContext = ''
   try {
+    // On low-memory CPU hosts, cap injected memory context hard — prompt-eval of a
+    // big context dominates latency for a local 3B on CPU. Smaller context = much
+    // faster responses (the main "speed it up" lever on an 8GB box).
+    const { isLowMemoryHost } = await import('./lib/ollama.js')
+    const memCap = provider === 'ollama' ? (isLowMemoryHost() ? 400 : 1200) : 900
     const retrieved = await retrieve(latestUserContent, {
       patterns,
       sessionId,
       conversationId: body.conversation_id,
-      maxTokens: provider === 'ollama' ? 1200 : 900,
+      maxTokens: memCap,
     })
     if (retrieved.text.trim()) {
       graphContext = `\n\n---\n**Memory context (HellGraph)**\n${retrieved.text}`
