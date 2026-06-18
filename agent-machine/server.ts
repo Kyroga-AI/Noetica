@@ -2415,6 +2415,25 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // GET /api/host/profile — hardware profile + the isolation tier the box should
+  // default to. The app shows this at setup; selection is opinionated (stronger
+  // hardware ⇒ stronger isolation, never a default that's unusably slow).
+  if (req.method === 'GET' && url.pathname === '/api/host/profile') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { profileHost, selectIsolationTier } = await import('./lib/host-profile.js')
+        const profile = await profileHost()
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ profile, isolation: selectIsolationTier(profile) }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+      }
+    })()
+    return
+  }
+
   // GET /api/flags — observability for the NOETICA_* feature flags: live state +
   // graduation status. Lets the UI/governance see what's actually active and which
   // experiments are candidates to graduate (default-on) or retire.
@@ -3173,6 +3192,14 @@ server.listen(PORT, '127.0.0.1', () => {
         if (models.length > 0 && !models.some((m) => m.startsWith(EMBED_MODEL))) {
           console.warn(`[rag] embedding model "${EMBED_MODEL}" not installed — document search will use lexical fallback. Run: ollama pull ${EMBED_MODEL}`)
         }
+      } catch { /* best-effort */ }
+    })()
+    // Report the hardware-selected isolation tier (informational; provisioning is PM3).
+    void (async () => {
+      try {
+        const { profileHost, selectIsolationTier } = await import('./lib/host-profile.js')
+        const sel = selectIsolationTier(await profileHost())
+        console.log(`[isolation] recommended tier: ${sel.tier} via ${sel.provider} (gpu: ${sel.gpu}) — ${sel.rationale}`)
       } catch { /* best-effort */ }
     })()
     setInterval(saveLearningState, 60_000).unref()

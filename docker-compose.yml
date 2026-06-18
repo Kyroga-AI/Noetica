@@ -71,15 +71,42 @@ services:
       - hf-cache:/root/.cache/huggingface
     restart: unless-stopped
 
+  # Containerized model plane — the model runtime lives INSIDE the Agent Machine
+  # boundary (no host Ollama; models persist in the in-VM volume). On Linux+NVIDIA
+  # uncomment deploy.gpu; on a macOS Podman machine this runs CPU (krunkit/venus
+  # GPU is selected by the host-profile provider, not modeled here).
+  ollama:
+    image: docker.io/ollama/ollama:latest
+    command: serve
+    environment:
+      - OLLAMA_HOST=0.0.0.0:11434
+      - OLLAMA_KEEP_ALIVE=30m
+    volumes:
+      - ollama-models:/root/.ollama
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # deploy:                      # Linux + NVIDIA only
+    #   resources:
+    #     reservations:
+    #       devices: [{ driver: nvidia, count: all, capabilities: [gpu] }]
+
   agent-machine:
     build:
       context: ./agent-machine
       dockerfile: Dockerfile
     command: node dist/server.js
+    depends_on:
+      ollama:
+        condition: service_healthy
     ports:
       - "127.0.0.1:8080:8080"
     environment:
       - AM_PORT=8080
+      - OLLAMA_HOST=http://ollama:11434   # model plane via compose-internal DNS — no host Ollama
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
     restart: unless-stopped
@@ -92,3 +119,4 @@ services:
 volumes:
   noetica-data:
   hf-cache:
+  ollama-models:
