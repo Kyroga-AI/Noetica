@@ -28,13 +28,14 @@ export function keywordScore(query: string, text: string): number {
   return matches / qTokens.size
 }
 
-// Fetch embedding(s) from the Noetica embed API route
-export async function fetchEmbedding(text: string, openaiKey: string): Promise<number[] | null> {
+// Fetch embedding(s) from the Noetica embed API route.
+// openaiKey is optional — when absent the route falls back to a local Ollama model.
+export async function fetchEmbedding(text: string, openaiKey?: string): Promise<number[] | null> {
   try {
     const res = await fetch('/api/embed', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text, openai_key: openaiKey }),
+      body: JSON.stringify({ text, ...(openaiKey ? { openai_key: openaiKey } : {}) }),
     })
     if (!res.ok) return null
     const data = await res.json() as { embedding: number[] }
@@ -44,13 +45,13 @@ export async function fetchEmbedding(text: string, openaiKey: string): Promise<n
   }
 }
 
-export async function fetchEmbeddings(texts: string[], openaiKey: string): Promise<number[][] | null> {
+export async function fetchEmbeddings(texts: string[], openaiKey?: string): Promise<number[][] | null> {
   if (texts.length === 0) return []
   try {
     const res = await fetch('/api/embed', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ texts, openai_key: openaiKey }),
+      body: JSON.stringify({ texts, ...(openaiKey ? { openai_key: openaiKey } : {}) }),
     })
     if (!res.ok) return null
     const data = await res.json() as { embeddings: number[][] }

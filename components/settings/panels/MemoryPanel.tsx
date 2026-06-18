@@ -175,8 +175,10 @@ export function MemoryPanel() {
           {embeddedCount < entries.length && (
             <div className="space-y-2">
               <p className="text-xs text-[var(--color-text-tertiary)]">
-                Build a vector index using OpenAI embeddings for semantic retrieval — conversations will receive the most relevant memories instead of all memories.
-                {!settings.openaiApiKey && ' Requires an OpenAI API key.'}
+                Build a vector index for semantic retrieval — conversations will receive the most relevant memories instead of all memories.
+                {settings.openaiApiKey
+                  ? ' Uses OpenAI embeddings.'
+                  : ' Uses a local Ollama embedding model (no key needed).'}
               </p>
               {indexResult && (
                 <p className="text-xs text-[#059669]">
@@ -185,17 +187,16 @@ export function MemoryPanel() {
               )}
               <button
                 onClick={async () => {
-                  if (!settings.openaiApiKey) return
                   setIndexing(true)
                   setIndexResult(null)
                   try {
-                    const result = await embedAll(settings.openaiApiKey)
+                    const result = await embedAll(settings.openaiApiKey || undefined)
                     setIndexResult(result)
                   } finally {
                     setIndexing(false)
                   }
                 }}
-                disabled={indexing || !settings.openaiApiKey}
+                disabled={indexing}
                 className="rounded-xl bg-[#1d4ed8] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#1e40af] disabled:opacity-40"
               >
                 {indexing ? 'Indexing…' : 'Build semantic index'}

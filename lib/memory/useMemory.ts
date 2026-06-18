@@ -48,8 +48,9 @@ export function useMemory() {
     setStore((current) => { const next = updateEntry(current, id, { text, tags }); persist(next); return next })
   }, [persist])
 
-  // Compute embedding for a single entry and persist it
-  const embedEntry = useCallback(async (id: string, openaiKey: string): Promise<void> => {
+  // Compute embedding for a single entry and persist it.
+  // openaiKey optional — the embed route falls back to a local model when absent.
+  const embedEntry = useCallback(async (id: string, openaiKey?: string): Promise<void> => {
     const entry = store.entries.find((e) => e.id === id)
     if (!entry || entry.embedding) return
     const embedding = await fetchEmbedding(entry.text, openaiKey)
@@ -62,7 +63,7 @@ export function useMemory() {
   }, [store.entries, persist])
 
   // Compute embeddings for all entries missing one — batch request
-  const embedAll = useCallback(async (openaiKey: string): Promise<{ embedded: number; failed: number }> => {
+  const embedAll = useCallback(async (openaiKey?: string): Promise<{ embedded: number; failed: number }> => {
     const missing = store.entries.filter((e) => !e.embedding)
     if (missing.length === 0) return { embedded: 0, failed: 0 }
     const texts = missing.map((e) => e.text)
@@ -90,7 +91,9 @@ export function useMemory() {
     const all = sortedEntries(store)
     if (all.length === 0) return []
     let queryEmbedding: number[] | undefined
-    if (openaiKey && all.some((e) => e.embedding)) {
+    // Embed the query whenever any entry has an embedding — the route uses the
+    // local model when no key is given, so semantic search works offline too.
+    if (all.some((e) => e.embedding)) {
       const emb = await fetchEmbedding(query, openaiKey)
       if (emb) queryEmbedding = emb
     }
