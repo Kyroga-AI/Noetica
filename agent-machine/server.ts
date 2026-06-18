@@ -49,7 +49,7 @@ import { getHellGraph } from '../lib/hellgraph/store.js'
 import { runGremlin } from '../lib/hellgraph/gremlin.js'
 import { buildWorkspacePrefix, invalidatePrefix } from './lib/context-cache.js'
 import { estimateCostUsd, tokensEgressed } from '../lib/pricing/modelPricing.js'
-import { recordCapability, capabilitySummary, capabilityHint } from './lib/capability-model.js'
+import { recordCapability, capabilitySummary, capabilityHint, recordReward, selectArmUCB } from './lib/capability-model.js'
 import { validateGraph } from '../lib/hellgraph/shacl.js'
 import { CANONICAL_SHAPES } from './lib/canonical-shapes.js'
 import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
@@ -1348,6 +1348,24 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       }
     }
   }
+
+  // Bandit routing (opt-in via NOETICA_BANDIT_ROUTING=1). Choose between the
+  // router's primary and fallback for this task using a UCB1 bandit over learned
+  // reward (VJ worth + user feedback). The model that produces better-judged
+  // answers for a task family gets used more — self-improving, technique-driven.
+  if (process.env['NOETICA_BANDIT_ROUTING'] === '1' && provider === 'ollama') {
+    const fallbackModel = routerDecision.fallbackRoute
+    const toolOk = (m: string) => LOCAL_MODEL_SUITE.find((x) => x.name === m)?.toolUse !== false
+    const needTools = (body.tools?.length ?? 0) > 0
+    const arms = [model, fallbackModel]
+      .filter((m, i, a): m is string => Boolean(m) && a.indexOf(m) === i)
+      .filter((m) => availableModels.includes(m) && (!needTools || toolOk(m)))
+    const pick = selectArmUCB(routerDecision.task ?? 'general', arms)
+    if (pick && pick !== model) {
+      console.log(`[bandit] task="${routerDecision.task}" ${model} → ${pick} (arms: ${arms.join(', ')})`)
+      model = pick
+    }
+  }
   const apiKey = provider === 'openai' ? openaiKey : anthropicKey
 
   const run_id = crypto.randomUUID()
@@ -1848,6 +1866,8 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         laws: wm.laws,
       })
       sse(res, 'value_judgment', { value_judgment: valueJudgment })
+      // Feed VJ worth back into the bandit as the automatic reward signal.
+      recordReward({ task: routerDecision.task, provider, model, reward: valueJudgment.worth })
       if (valueJudgment.contradictions.length > 0) {
         recordContradictions(run_id, sessionId, valueJudgment, fullContent)
       }
@@ -2235,6 +2255,27 @@ const server = http.createServer((req, res) => {
     const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '50', 10), CONTRADICTION_RING_SIZE)
     res.writeHead(200, { 'content-type': 'application/json' })
     res.end(JSON.stringify({ contradictions: _contradictions.slice(-limit).reverse(), total: _contradictions.length }))
+    return
+  }
+
+  // POST /api/self/feedback — user reward signal for preference learning.
+  // Body: { task, provider, model, reward (0..1) }. Feeds the bandit.
+  if (req.method === 'POST' && url.pathname === '/api/self/feedback') {
+    setCORSHeaders(res)
+    let body = ''
+    req.on('data', (chunk: Buffer) => { body += chunk.toString() })
+    req.on('end', () => {
+      try {
+        const f = JSON.parse(body) as { task?: string; provider?: string; model?: string; reward?: number }
+        if (!f.provider || !f.model || typeof f.reward !== 'number') throw new Error('provider, model, reward required')
+        recordReward({ task: f.task, provider: f.provider, model: f.model, reward: f.reward })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ok: true }))
+      } catch (e) {
+        res.writeHead(400, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: String(e) }))
+      }
+    })
     return
   }
 

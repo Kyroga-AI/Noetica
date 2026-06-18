@@ -15,6 +15,9 @@ export interface CapabilityStat {
   errors: number
   totalLatencyMs: number
   totalCostUsd: number
+  /** Sum of reward signals (VJ worth + user feedback), for bandit routing. */
+  totalReward: number
+  rewardCount: number
   lastUpdated: string
 }
 
@@ -40,7 +43,7 @@ export function recordCapability(o: {
   const k = keyOf(task, o.provider, o.model)
   const s = _caps.get(k) ?? {
     task, provider: o.provider, model: o.model,
-    runs: 0, errors: 0, totalLatencyMs: 0, totalCostUsd: 0, lastUpdated: '',
+    runs: 0, errors: 0, totalLatencyMs: 0, totalCostUsd: 0, totalReward: 0, rewardCount: 0, lastUpdated: '',
   }
   s.runs += 1
   if (o.error) s.errors += 1
@@ -48,6 +51,48 @@ export function recordCapability(o: {
   s.totalCostUsd += o.costUsd ?? 0
   s.lastUpdated = new Date().toISOString()
   _caps.set(k, s)
+}
+
+// Reward signal for bandit routing: VJ worth (auto) or user feedback (manual),
+// in [0,1]. Errors should record a 0 reward so the arm is penalised.
+export function recordReward(o: { task?: string; provider: string; model: string; reward: number }): void {
+  const task = o.task || 'general'
+  const k = keyOf(task, o.provider, o.model)
+  const s = _caps.get(k) ?? {
+    task, provider: o.provider, model: o.model,
+    runs: 0, errors: 0, totalLatencyMs: 0, totalCostUsd: 0, totalReward: 0, rewardCount: 0, lastUpdated: '',
+  }
+  s.totalReward += Math.max(0, Math.min(1, o.reward))
+  s.rewardCount += 1
+  s.lastUpdated = new Date().toISOString()
+  _caps.set(k, s)
+}
+
+/**
+ * UCB1 multi-armed bandit selection over candidate local models for a task.
+ * Balances exploitation (high mean reward) with exploration (under-tried arms).
+ * Untried candidates are selected first (Infinity score). Returns the chosen
+ * model name, or undefined if no candidates were given.
+ */
+export function selectArmUCB(task: string, candidates: string[], provider = 'ollama'): string | undefined {
+  if (candidates.length === 0) return undefined
+  if (candidates.length === 1) return candidates[0]
+  const stats = candidates.map((model) => _caps.get(keyOf(task, provider, model)))
+  const totalPlays = stats.reduce((s, st) => s + (st?.rewardCount ?? 0), 0)
+  // Cold start: if nothing has been tried, pick the first candidate deterministically.
+  if (totalPlays === 0) return candidates[0]
+  const C = 1.4 // exploration constant (~sqrt(2))
+  let best = candidates[0]!
+  let bestScore = -Infinity
+  for (let i = 0; i < candidates.length; i++) {
+    const st = stats[i]
+    const plays = st?.rewardCount ?? 0
+    if (plays === 0) return candidates[i]! // explore untried arm immediately
+    const mean = (st!.totalReward) / plays
+    const score = mean + C * Math.sqrt(Math.log(totalPlays) / plays)
+    if (score > bestScore) { bestScore = score; best = candidates[i]! }
+  }
+  return best
 }
 
 export interface CapabilityRow {
