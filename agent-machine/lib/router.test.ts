@@ -22,6 +22,19 @@ test('classifyTask routes code phrasing to coding', () => {
   assert.equal(classifyTask('write a function to reverse a linked list'), 'coding')
 })
 
+test('classifyTask: short factual questions are knowledge tasks, NOT fast chat', () => {
+  // The exact demo regression: a short factual question must not land in 'chat'
+  // (the only bucket that can degrade to llama3.2:3b).
+  assert.equal(classifyTask('What does a data scientist in pharma in NYC earn?'), 'research')
+  assert.equal(classifyTask('how much does a nurse make in Texas?'), 'research')
+  assert.equal(classifyTask('who is the CEO of Pfizer?'), 'research')
+})
+
+test('classifyTask: genuinely casual short messages stay chat', () => {
+  assert.equal(classifyTask('thanks, that works'), 'chat')
+  assert.equal(classifyTask('great job'), 'chat')
+})
+
 // ── Model-capability contract (the deepseek-r1 bug class) ───────────────────
 test('deepseek-r1 is declared tool-incapable (Ollama 400s on tools)', () => {
   assert.equal(toolUseOf('deepseek-r1:8b'), false, 'deepseek-r1:8b must be toolUse:false')

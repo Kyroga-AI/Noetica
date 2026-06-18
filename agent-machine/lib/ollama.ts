@@ -97,16 +97,24 @@ export async function isOllamaRunning(): Promise<boolean> {
   return false
 }
 
+// Last-known-good model inventory. A transient empty/partial /api/tags response
+// (Ollama slow, mid-load, or just restarted) must NOT make the router think a
+// model vanished — that's what silently downgraded substantive questions to the
+// tiny fallback. Serve the cache on any non-positive result.
+let _modelInventory: string[] = []
+
 export async function listLocalModels(): Promise<string[]> {
   try {
     const res = await fetch(`${ollamaBase()}/api/tags`, {
       signal: AbortSignal.timeout(3_000),
     })
-    if (!res.ok) return []
+    if (!res.ok) return _modelInventory
     const json = (await res.json()) as { models?: Array<{ name: string }> }
-    return json.models?.map((m) => m.name) ?? []
+    const models = json.models?.map((m) => m.name) ?? []
+    if (models.length > 0) _modelInventory = models // only refresh cache on a real list
+    return models.length > 0 ? models : _modelInventory
   } catch {
-    return []
+    return _modelInventory
   }
 }
 

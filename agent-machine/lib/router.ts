@@ -68,6 +68,12 @@ const WRITING_RE = /\b(write|draft|email|letter|essay|blog|post|message|summariz
 
 const RESEARCH_RE = /\b(research|find|search|look up|what is|who is|when did|how does|latest|news|current|recent|tell me about|overview of|history of|explain)\b/i
 
+// A question — by '?' or a leading interrogative — is a KNOWLEDGE task regardless
+// of length. Short factual questions ("what does a DS earn?", "how much is X?")
+// must NOT be dumped into the fast 'chat' bucket, which is the only route that can
+// degrade to the tiny llama3.2:3b. Length ≠ triviality.
+const QUESTION_LEAD_RE = /^(what|which|who|whom|whose|when|where|why|how|is|are|was|were|do|does|did|can|could|should|would|will|tell me|give me|list|name|define|how much|how many)\b/i
+
 export function classifyTask(content: string): TaskType {
   const t = content.toLowerCase()
 
@@ -76,7 +82,10 @@ export function classifyTask(content: string): TaskType {
   if (WRITING_RE.test(t)) return 'writing'
   if (RESEARCH_RE.test(t)) return 'research'
 
-  // Short messages without a question → fast chat
+  // Any interrogative → knowledge task on a capable model, even if short.
+  if (content.includes('?') || QUESTION_LEAD_RE.test(content.trim())) return 'research'
+
+  // Only genuinely casual, non-question short messages (greetings, acks) → fast chat.
   const words = content.trim().split(/\s+/).length
   if (words < 25) return 'chat'
 
