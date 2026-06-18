@@ -42,7 +42,7 @@ import { getAtomSpace } from '../lib/hellgraph/atomspace.js'
 import { decayAll } from '../lib/hellgraph/ecan.js'
 import { consolidate } from '../lib/hellgraph/consolidate.js'
 import { recordAttentionSnapshot, pushSnapshotToPrometheusd, ingestPrometheusCandidate } from '../lib/hellgraph/prometheus.js'
-import { isOllamaRunning, listLocalModels, pullModel, streamOllama } from './lib/ollama.js'
+import { isOllamaRunning, listLocalModels, pullModel, streamOllama, getModelContextLength } from './lib/ollama.js'
 import { retrieve } from './lib/retrieval.js'
 import { getGraph, graphHealth, graphSparql, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
 import { getHellGraph } from '../lib/hellgraph/store.js'
@@ -384,6 +384,8 @@ interface ChatRequest {
   policy_profile?: string
   tools?: ProviderTool[]
   thinking_budget?: number
+  temperature?: number
+  max_tokens?: number
   provider_keys?: {
     anthropic?: string
     openai?: string
@@ -896,12 +898,21 @@ async function* streamAnthropic(params: {
   tools?: ProviderTool[]
   apiKey: string
   thinkingBudget?: number
+  temperature?: number
+  maxTokens?: number
 }): AsyncGenerator<ProviderEvent> {
+  // Honor request max_tokens; fall back to thinking-budget-derived ceiling, then 8192.
+  const maxTokens = params.maxTokens
+    ?? (params.thinkingBudget ? params.thinkingBudget + 8192 : 8192)
   const body: Record<string, unknown> = {
     model: params.model,
-    max_tokens: params.thinkingBudget ? params.thinkingBudget + 8192 : 8192,
+    max_tokens: maxTokens,
     stream: true,
     messages: params.messages,
+  }
+  // Extended thinking requires temperature=1; only set temperature when not thinking.
+  if (typeof params.temperature === 'number' && !params.thinkingBudget) {
+    body['temperature'] = params.temperature
   }
   if (params.system) body['system'] = params.system
   if (params.tools?.length) {
@@ -1033,12 +1044,16 @@ async function* streamOpenAI(params: {
   messages: OpenAIMessage[]
   tools?: ProviderTool[]
   apiKey: string
+  temperature?: number
+  maxTokens?: number
 }): AsyncGenerator<ProviderEvent> {
   const body: Record<string, unknown> = {
     model: params.model,
     stream: true,
     messages: params.messages,
   }
+  if (typeof params.temperature === 'number') body['temperature'] = params.temperature
+  if (params.maxTokens && params.maxTokens > 0) body['max_tokens'] = params.maxTokens
   if (params.tools?.length) {
     body['tools'] = params.tools.map((t) => ({
       type: 'function',
@@ -1216,7 +1231,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // tools to a model that can't handle them causes it to output raw JSON blobs.
   const modelSupportsTools = provider !== 'ollama'
     || LOCAL_MODEL_SUITE.find((m) => m.name === model)?.toolUse !== false
-  const allTools: ProviderTool[] = modelSupportsTools ? [...BUILTIN_TOOLS] : []
+  // generate_image requires an OpenAI (DALL·E) key. In a pure-local setup with no key,
+  // drop it so the model never calls a tool that can only return an error.
+  const imageGenAvailable = Boolean(openaiKey)
+  const allTools: ProviderTool[] = modelSupportsTools
+    ? BUILTIN_TOOLS.filter((t) => t.name !== 'generate_image' || imageGenAvailable)
+    : []
   if (modelSupportsTools) {
     for (const t of body.tools ?? []) {
       if (!allTools.some((b) => b.name === t.name)) allTools.push(t)
@@ -1270,8 +1290,21 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // Token budget: rough estimate (4 chars ≈ 1 token). If message history + system prompt
   // exceeds 70% of the model's context window, trim oldest non-system messages.
   // Model context windows: Anthropic claude-haiku-4-5/sonnet-4-6 = 200K, Ollama varies.
-  const MODEL_CONTEXT_TOKENS = provider === 'ollama' ? 8192 : 180_000
+  // For Ollama, read the model's REAL context length from /api/show rather than
+  // hardcoding — modern local models ship 32k–128k and were being capped at 8k.
+  // Cap at 32k for demo memory safety (num_ctx allocates a KV cache proportional to this).
+  let ollamaNumCtx = 16384
+  if (provider === 'ollama') {
+    const realCtx = await getModelContextLength(model)
+    if (realCtx) ollamaNumCtx = Math.min(realCtx, 32_768)
+  }
+  const MODEL_CONTEXT_TOKENS = provider === 'ollama' ? ollamaNumCtx : 180_000
   const TOKEN_BUDGET = Math.floor(MODEL_CONTEXT_TOKENS * 0.70)
+  // Sanitize request-level sampling params (apply across all providers).
+  const reqTemperature = typeof body.temperature === 'number'
+    ? Math.max(0, Math.min(body.temperature, 2)) : undefined
+  const reqMaxTokens = typeof body.max_tokens === 'number' && body.max_tokens > 0
+    ? Math.min(Math.floor(body.max_tokens), 16_000) : undefined
   function estimateTokens(s: string): number { return Math.ceil(s.length / 4) }
   let systemTokens = estimateTokens(enrichedSystemPrompt)
   let msgTokens = incomingMessages.reduce((s, m) => s + estimateTokens(String(m.content ?? '')), 0)
@@ -1284,9 +1317,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   try {
     if (provider === 'ollama') {
       // ── Local Ollama path (primary) ──────────────────────────────────────────
+      type OllamaContentPart =
+        | { type: 'text'; text: string }
+        | { type: 'image_url'; image_url: { url: string } }
       type OllamaMsg =
-        | { role: 'system'; content: string }
-        | { role: 'user'; content: string }
+        | { role: 'system'; content: string | OllamaContentPart[] }
+        | { role: 'user'; content: string | OllamaContentPart[] }
         | { role: 'assistant'; content: string | null; tool_calls?: Array<{ id: string; type: 'function'; function: { name: string; arguments: string } }> }
         | { role: 'tool'; content: string; tool_call_id: string }
 
@@ -1299,7 +1335,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         if (m.role === 'user') {
           const images = m.attachments
             ?.filter((a) => a.kind === 'image')
-            .map((a) => a.base64) ?? []
+            .map((a) => ({ base64: a.base64, mimeType: a.mimeType || 'image/jpeg' })) ?? []
           // Non-image attachments: decode and append as text
           const textParts = m.attachments
             ?.filter((a) => a.kind !== 'image')
@@ -1313,12 +1349,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           if (images.length > 0) {
             const contentParts: Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }> = [
               { type: 'text', text: fullContent || 'Describe the image(s).' },
-              ...images.map((b64) => ({
+              ...images.map((img) => ({
                 type: 'image_url' as const,
-                image_url: { url: `data:image/jpeg;base64,${b64}` },
+                image_url: { url: `data:${img.mimeType};base64,${img.base64}` },
               })),
             ]
-            ollamaMessages.push({ role: 'user', content: contentParts as unknown as string })
+            ollamaMessages.push({ role: 'user', content: contentParts })
           } else {
             ollamaMessages.push({ role: 'user', content: fullContent })
           }
@@ -1335,6 +1371,9 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           model,
           messages: ollamaMessages,
           tools: allTools,
+          numCtx: ollamaNumCtx,
+          temperature: reqTemperature,
+          maxTokens: reqMaxTokens,
         })) {
           if (event.type === 'text') {
             turnContent += event.text
@@ -1421,6 +1460,8 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           tools: allTools,
           apiKey,
           thinkingBudget: body.thinking_budget,
+          temperature: reqTemperature,
+          maxTokens: reqMaxTokens,
         })) {
           if (event.type === 'text') {
             turnContent += event.text
@@ -1515,6 +1556,8 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           messages: oaiMessages,
           tools: allTools,
           apiKey,
+          temperature: reqTemperature,
+          maxTokens: reqMaxTokens,
         })) {
           if (event.type === 'text') {
             turnContent += event.text

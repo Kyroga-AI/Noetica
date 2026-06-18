@@ -38,6 +38,36 @@ export async function listLocalModels(): Promise<string[]> {
   }
 }
 
+// Per-model context length, read live from Ollama's /api/show and cached.
+// Without this we'd hardcode a one-size num_ctx — too small for modern local
+// models (qwen2.5/deepseek-r1 ship 32k–128k) and wasteful for tiny ones.
+const _ctxCache = new Map<string, number>()
+
+export async function getModelContextLength(model: string): Promise<number | null> {
+  if (_ctxCache.has(model)) return _ctxCache.get(model)!
+  try {
+    const res = await fetch(`${OLLAMA_BASE}/api/show`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: model }),
+      signal: AbortSignal.timeout(3_000),
+    })
+    if (!res.ok) return null
+    const json = (await res.json()) as { model_info?: Record<string, unknown> }
+    const info = json.model_info ?? {}
+    // The key is architecture-prefixed, e.g. "qwen2.context_length", "llama.context_length"
+    const key = Object.keys(info).find((k) => k.endsWith('.context_length'))
+    const ctx = key ? Number(info[key]) : NaN
+    if (!isNaN(ctx) && ctx > 0) {
+      _ctxCache.set(model, ctx)
+      return ctx
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 // Pull a model and stream progress back via a callback.
 export async function pullModel(
   model: string,
@@ -79,9 +109,14 @@ export async function pullModel(
 
 // ─── Streaming completions ────────────────────────────────────────────────────
 
+// Vision/multi-part content uses the OpenAI-compat array shape; plain turns use a string.
+type OllamaContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } }
+
 type OllamaMessage =
-  | { role: 'system'; content: string }
-  | { role: 'user'; content: string }
+  | { role: 'system'; content: string | OllamaContentPart[] }
+  | { role: 'user'; content: string | OllamaContentPart[] }
   | { role: 'assistant'; content: string | null; tool_calls?: OAIToolCall[] }
   | { role: 'tool'; content: string; tool_call_id: string }
 
@@ -95,15 +130,22 @@ export async function* streamOllama(params: {
   model: string
   messages: OllamaMessage[]
   tools?: ProviderTool[]
+  numCtx?: number
+  temperature?: number
+  maxTokens?: number
 }): AsyncGenerator<ProviderEvent> {
+  const options: Record<string, unknown> = {
+    num_ctx: params.numCtx ?? 16384,
+    temperature: params.temperature ?? 0.7,
+  }
+  // num_predict caps output tokens (Ollama's equivalent of max_tokens).
+  if (params.maxTokens && params.maxTokens > 0) options['num_predict'] = params.maxTokens
+
   const body: Record<string, unknown> = {
     model: params.model,
     stream: true,
     messages: params.messages,
-    options: {
-      num_ctx: 16384,
-      temperature: 0.7,
-    },
+    options,
   }
 
   if (params.tools?.length) {
