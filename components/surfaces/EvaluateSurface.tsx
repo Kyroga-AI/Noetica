@@ -7,6 +7,7 @@ import { useSettings } from '@/lib/settings/context'
 import type { ChatMessage } from '@/lib/types/message'
 import { appendLedgerEntry } from '@/lib/evidence/ledger-store'
 import { estimateCostUsd, tokensEgressed } from '@/lib/pricing/modelPricing'
+import { BenchmarkDashboard } from '@/components/surfaces/BenchmarkDashboard'
 
 // Persist a finished benchmark cell to the evidence ledger so the local-vs-frontier
 // dashboard can aggregate quality/cost/latency across sessions. Token counts are
@@ -185,6 +186,7 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
   const [judgeEnabled, setJudgeEnabled] = useState(true)
   const [results, setResults] = useState<RunResult[]>([])
   const [running, setRunning] = useState(false)
+  const [view, setView] = useState<'run' | 'dashboard'>('run')
   const [activeCell, setActiveCell] = useState<{ modelId: string; taskId: string } | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
@@ -303,6 +305,24 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
       <div className="mx-auto w-full max-w-5xl space-y-4">
+
+        {/* View toggle: Run benchmarks vs Local-vs-Frontier dashboard */}
+        <div className="flex items-center gap-1 rounded-full border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-1 text-xs w-fit">
+          {(['run', 'dashboard'] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              className={`rounded-full px-3 py-1 font-medium transition ${
+                view === v ? 'bg-[#1d4ed8] text-white' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+              }`}
+            >
+              {v === 'run' ? 'Run' : 'Dashboard'}
+            </button>
+          ))}
+        </div>
+
+        {view === 'dashboard' ? <BenchmarkDashboard /> : (
+        <>
 
         {/* Config row */}
         <div className="grid grid-cols-2 gap-4">
@@ -499,6 +519,8 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
               Select models and task families above, then click <strong className="text-[var(--color-text-secondary)]">Run benchmark</strong>.
             </div>
           </div>
+        )}
+        </>
         )}
       </div>
     </div>
