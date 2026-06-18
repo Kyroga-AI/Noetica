@@ -21,16 +21,16 @@ if (!existsSync(binDir)) {
   const entries = readdirSync(binDir)
   if (!entries.some((e) => e.startsWith('ollama-'))) problems.push('no ollama-<triple> binary staged')
 
-  const runnerDir = join(binDir, 'lib', 'ollama')
-  if (!existsSync(runnerDir)) {
-    problems.push('lib/ollama runner dir missing — bundled Ollama would be unable to run inference')
+  // The inference runner is `llama-server` + dylibs. macOS extracts these FLAT
+  // alongside `ollama`; Linux puts them under lib/ollama/. (Preferred path is now
+  // first-run provisioning into ~/.noetica/runtime — this guard only matters if the
+  // runtime is bundled in the app instead.)
+  const flat = existsSync(join(binDir, 'llama-server'))
+  const nested = existsSync(join(binDir, 'lib', 'ollama', 'llama-server'))
+  if (!flat && !nested) {
+    problems.push('llama-server runner missing (flat or lib/ollama/) — bundled Ollama could not run inference')
   } else {
-    const runners = readdirSync(runnerDir)
-    if (runners.length === 0) problems.push('lib/ollama is empty — no inference runner')
-    else {
-      const total = runners.reduce((n, f) => { try { return n + statSync(join(runnerDir, f)).size } catch { return n } }, 0)
-      console.log(`  lib/ollama: ${runners.length} entries, ${(total / 1e6).toFixed(1)} MB`)
-    }
+    console.log(`  runner present (${flat ? 'flat macOS layout' : 'lib/ollama'})`)
   }
 }
 
