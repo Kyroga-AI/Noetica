@@ -1603,18 +1603,28 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   let moatContext = ''
   let moatEpisodeId = ''
   try {
-    const { buildQuestionContext } = await import('./lib/question-context.js')
     const { classifyComplexity, calibratedConfidence } = await import('./lib/complexity-discipline.js')
-    const qctx = await buildQuestionContext(latestUserContent)
-    moatEpisodeId = qctx.episodeId
-    if (qctx.grounding) moatContext = qctx.grounding
+    // Cheap, always-on: posture classification (regex, no model/embedding call).
     const verdict = classifyComplexity(latestUserContent)
-    const confidence = calibratedConfidence(verdict, { grounded: qctx.recalled.length > 0 })
+    let primeSig = ''; let primeFactors: string[] = []
+    // Heavy, opt-in (NOETICA_MOAT_CONTEXT=1): per-question embedding + graph
+    // linking + episodic KG + grounding injection. OFF by default because on a
+    // low-memory CPU box it adds an embedding call + a large prompt to EVERY turn,
+    // which makes simple chats slow. The moat code is shipped; this just keeps the
+    // hot path light until we have the headroom / async pre-fetch.
+    if (isFlagOn('NOETICA_MOAT_CONTEXT')) {
+      const { buildQuestionContext } = await import('./lib/question-context.js')
+      const qctx = await buildQuestionContext(latestUserContent)
+      moatEpisodeId = qctx.episodeId
+      if (qctx.grounding) moatContext = qctx.grounding
+      primeSig = qctx.primeSignature
+      primeFactors = qctx.primeFactors.map((f) => `${f.code}^${f.exp}`)
+    }
+    const confidence = calibratedConfidence(verdict, { grounded: moatContext.length > 0 })
     sse(res, 'discipline', { discipline: {
       posture: verdict.posture, strategy: verdict.strategy, barriers: verdict.barriers,
       morphology: verdict.morphology, calibrated_confidence: confidence,
-      prime_signature: qctx.primeSignature, prime_factors: qctx.primeFactors.map((f) => `${f.code}^${f.exp}`),
-      non_claims: verdict.nonClaims,
+      prime_signature: primeSig, prime_factors: primeFactors, non_claims: verdict.nonClaims,
     } })
   } catch { /* moat enrichment is best-effort */ }
 
