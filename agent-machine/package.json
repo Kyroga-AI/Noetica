@@ -15,7 +15,9 @@
     "test:models": "tsx scripts/smoke-models.ts",
     "predemo": "node scripts/predemo-check.mjs",
     "provision:runtime": "node --import tsx scripts/provision-runtime.ts",
-    "dev:backend": "bash scripts/dev-backend.sh"
+    "dev:backend": "bash scripts/dev-backend.sh",
+    "bootstrap": "node --import tsx scripts/bootstrap.ts",
+    "start:managed-ollama": "node --import tsx scripts/managed-ollama.ts"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
