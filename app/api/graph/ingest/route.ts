@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { ingestInteraction, type InteractionFact } from '@/lib/hellgraph/ingest'
+import { ingestInteraction, type InteractionFact } from '@socioprophet/hellgraph'
 
 export const runtime = 'nodejs'
 

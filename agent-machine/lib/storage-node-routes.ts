@@ -17,8 +17,8 @@
  */
 
 import * as http from 'node:http'
-import type { AtomSpace } from '../../lib/hellgraph/atomspace.js'
-import type { AtomChangeEvent, AtomLogEntry } from '../../lib/hellgraph/atomspace.js'
+import type { AtomSpace } from '@socioprophet/hellgraph'
+import type { AtomChangeEvent, AtomLogEntry } from '@socioprophet/hellgraph'
 
 // ─── SSE client registry ─────────────────────────────────────────────────────
 

@@ -23,9 +23,9 @@
 
 import * as http from 'node:http'
 import * as crypto from 'node:crypto'
-import type { AtomSpace, Atom, Handle, AtomLogEntry } from '../../lib/hellgraph/atomspace.js'
-import { findMatches } from '../../lib/hellgraph/patternMatcher.js'
-import type { Pattern, MatchResult } from '../../lib/hellgraph/patternMatcher.js'
+import type { AtomSpace, Atom, Handle, AtomLogEntry } from '@socioprophet/hellgraph'
+import { findMatches } from '@socioprophet/hellgraph'
+import type { Pattern, MatchResult } from '@socioprophet/hellgraph'
 
 // ─── MeshRush session model ───────────────────────────────────────────────────
 // Maps directly to spec objects: GraphView, AgentContext, DiffusionState, Artifact

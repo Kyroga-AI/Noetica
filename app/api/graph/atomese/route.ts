@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getAtomSpace } from '@/lib/hellgraph/atomspace'
-import { dumpAtomese, parseAtomese } from '@/lib/hellgraph/atomese'
+import { getAtomSpace } from '@socioprophet/hellgraph'
+import { dumpAtomese, parseAtomese } from '@socioprophet/hellgraph'
 
 export const runtime = 'nodejs'
 

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { saeCausalTriad } from '@/lib/sae/saeClient'
-import { ingestCausalTriad } from '@/lib/hellgraph/ingest'
+import { ingestCausalTriad } from '@socioprophet/hellgraph'
 
 export const runtime = 'nodejs'
 

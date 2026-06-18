@@ -1,9 +1,9 @@
 import { NextResponse } from 'next/server'
-import { getHellGraph } from '@/lib/hellgraph/store'
-import { getAtomSpace } from '@/lib/hellgraph/atomspace'
-import { runSparql } from '@/lib/hellgraph/sparql'
-import { runGremlin } from '@/lib/hellgraph/gremlin'
-import { findMatches, type Pattern } from '@/lib/hellgraph/patternMatcher'
+import { getHellGraph } from '@socioprophet/hellgraph'
+import { getAtomSpace } from '@socioprophet/hellgraph'
+import { runSparql } from '@socioprophet/hellgraph'
+import { runGremlin } from '@socioprophet/hellgraph'
+import { findMatches, type Pattern } from '@socioprophet/hellgraph'
 
 export const runtime = 'nodejs'
 

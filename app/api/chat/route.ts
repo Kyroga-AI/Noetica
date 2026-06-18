@@ -23,7 +23,7 @@ import { checkContentPolicy } from '@/lib/policy/contentPolicy'
 import { runLocalSteering } from '@/lib/sae/localSteering'
 import { saeSteer } from '@/lib/sae/saeClient'
 import type { SteeringResult } from '@/lib/types/steering'
-import { ingestInteraction, ingestMessage, ingestMemory } from '@/lib/hellgraph/ingest'
+import { ingestInteraction, ingestMessage, ingestMemory } from '@socioprophet/hellgraph'
 
 export const runtime = 'nodejs'
 

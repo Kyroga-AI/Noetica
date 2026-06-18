@@ -5,22 +5,22 @@
  * SPARQL query helper, and all ingest entry points used by the agent layer.
  */
 
-import { getHellGraph, HellGraphStore } from '../../lib/hellgraph/store.js'
-import { getAtomSpace } from '../../lib/hellgraph/atomspace.js'
-import { runSparql } from '../../lib/hellgraph/sparql.js'
-import type { SparqlResult } from '../../lib/hellgraph/sparql.js'
+import { getHellGraph, HellGraphStore } from '@socioprophet/hellgraph'
+import { getAtomSpace } from '@socioprophet/hellgraph'
+import { runSparql } from '@socioprophet/hellgraph'
+import type { SparqlResult } from '@socioprophet/hellgraph'
 import {
   ingestInteraction,
   ingestConversation,
   ingestMessage,
   ingestEntities,
   ingestDocumentChunks,
-} from '../../lib/hellgraph/ingest.js'
+} from '@socioprophet/hellgraph'
 import type {
   InteractionFact,
   ConversationFact,
   MessageFact,
-} from '../../lib/hellgraph/ingest.js'
+} from '@socioprophet/hellgraph'
 // ─── Re-exports ───────────────────────────────────────────────────────────────
 
 export {
