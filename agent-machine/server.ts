@@ -83,6 +83,7 @@ interface GovernanceRun {
   output_tokens?: number
   task?: string
   session_id?: string
+  error?: string   // set on failed runs — enables error-rate visibility in GovernSurface
 }
 const _governanceRuns: GovernanceRun[] = []
 const GOVERNANCE_RING_SIZE = 100
@@ -907,6 +908,7 @@ async function* streamAnthropic(params: {
         : {}),
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(120_000),
   })
 
   if (!res.ok) {
@@ -938,12 +940,17 @@ async function* streamAnthropic(params: {
       const raw = line.slice(5).trim()
       if (!raw || raw === '[DONE]') continue
 
-      const p = JSON.parse(raw) as {
+      let p: {
         type?: string
         index?: number
         content_block?: { type?: string; id?: string; name?: string }
         delta?: { type?: string; text?: string; thinking?: string; partial_json?: string }
         message?: { stop_reason?: string }
+      }
+      try {
+        p = JSON.parse(raw) as typeof p
+      } catch {
+        continue  // skip malformed SSE line — provider occasionally sends incomplete JSON
       }
 
       if (p.type === 'content_block_start') {
@@ -1022,6 +1029,7 @@ async function* streamOpenAI(params: {
       authorization: `Bearer ${params.apiKey}`,
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(120_000),
   })
 
   if (!res.ok) {
@@ -1066,7 +1074,7 @@ async function* streamOpenAI(params: {
       }
       if (!raw) continue
 
-      const p = JSON.parse(raw) as {
+      let p: {
         choices?: Array<{
           delta?: {
             content?: string
@@ -1078,6 +1086,11 @@ async function* streamOpenAI(params: {
           }
         }>
       }
+      try {
+        p = JSON.parse(raw) as typeof p
+      } catch {
+        continue  // skip malformed SSE line
+      }
 
       const delta = p.choices?.[0]?.delta
       if (delta?.content) yield { type: 'text', text: delta.content }
@@ -1087,7 +1100,7 @@ async function* streamOpenAI(params: {
           const ex = toolCallMap.get(tc.index)
           if (!ex) {
             toolCallMap.set(tc.index, {
-              id: tc.id ?? '',
+              id: tc.id ?? `tc-${tc.index}`,  // provider sends id only on first chunk
               name: tc.function?.name ?? '',
               argsJson: tc.function?.arguments ?? '',
             })
@@ -1210,7 +1223,10 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
 
   const profile = POLICY_PROFILES[body.policy_profile ?? 'default'] ?? POLICY_PROFILES['default']!
   const basePrompt = body.system_prompt ?? NOETICA_SYSTEM_PROMPT
-  const enrichedSystemPrompt = basePrompt + graphContext + profile.authorizationSuffix
+  // Inject current datetime so the model always has accurate temporal context
+  const nowUtc = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC'
+  const dateLine = `\n\nCurrent date/time: ${nowUtc}`
+  const enrichedSystemPrompt = basePrompt + dateLine + graphContext + profile.authorizationSuffix
 
   // Token budget: rough estimate (4 chars ≈ 1 token). If message history + system prompt
   // exceeds 70% of the model's context window, trim oldest non-system messages.
@@ -1328,11 +1344,32 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         }
       }
     } else if (provider === 'anthropic') {
-      // Build Anthropic message array — start with conversation history
-      const anthropicMessages: AnthropicMessage[] = incomingMessages.map((m) => ({
-        role: m.role as 'user' | 'assistant',
-        content: m.content,
-      }))
+      // Build Anthropic message array — with vision and attachment support
+      const anthropicMessages: AnthropicMessage[] = incomingMessages.map((m) => {
+        if (m.role !== 'user' || !m.attachments?.length) {
+          return { role: m.role as 'user' | 'assistant', content: m.content }
+        }
+        // Build multi-part content block for user messages with attachments
+        const blocks: AnthropicContentBlock[] = []
+        // Non-image attachments → text blocks
+        for (const att of m.attachments.filter((a) => a.kind !== 'image')) {
+          try {
+            const decoded = Buffer.from(att.base64, 'base64').toString('utf-8')
+            blocks.push({ type: 'text', text: `**${att.name}**\n\`\`\`\n${decoded}\n\`\`\`` })
+          } catch { /* skip undecodable attachments */ }
+        }
+        // Leading text block for message content
+        if (m.content.trim()) blocks.unshift({ type: 'text', text: m.content })
+        // Image attachments → Anthropic base64 image blocks
+        for (const att of m.attachments.filter((a) => a.kind === 'image')) {
+          const mediaType = (att.mimeType || 'image/jpeg') as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
+          blocks.push({
+            type: 'image',
+            source: { type: 'base64', media_type: mediaType, data: att.base64 },
+          } as unknown as AnthropicContentBlock)
+        }
+        return { role: 'user', content: blocks.length === 1 && blocks[0]?.type === 'text' ? (blocks[0] as { type: 'text'; text: string }).text : (blocks as unknown as string) }
+      })
 
       for (let turn = 0; turn < MAX_TURNS; turn++) {
         let turnContent = ''
@@ -1403,8 +1440,31 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         oaiMessages.push({ role: 'system', content: enrichedSystemPrompt })
       }
       for (const m of incomingMessages) {
-        if (m.role === 'user') oaiMessages.push({ role: 'user', content: m.content })
-        else if (m.role === 'assistant') oaiMessages.push({ role: 'assistant', content: m.content })
+        if (m.role === 'user') {
+          const images = m.attachments?.filter((a) => a.kind === 'image') ?? []
+          const textParts = (m.attachments?.filter((a) => a.kind !== 'image') ?? [])
+            .map((a) => {
+              try { return `**${a.name}**\n\`\`\`\n${Buffer.from(a.base64, 'base64').toString('utf-8')}\n\`\`\`` }
+              catch { return '' }
+            })
+            .filter(Boolean)
+          const textContent = [m.content, ...textParts].filter(Boolean).join('\n\n')
+          if (images.length > 0) {
+            // OpenAI vision: multi-part content array
+            const contentParts: Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }> = [
+              { type: 'text', text: textContent || 'Describe the image(s).' },
+              ...images.map((a) => ({
+                type: 'image_url' as const,
+                image_url: { url: `data:${a.mimeType || 'image/jpeg'};base64,${a.base64}` },
+              })),
+            ]
+            oaiMessages.push({ role: 'user', content: contentParts as unknown as string })
+          } else {
+            oaiMessages.push({ role: 'user', content: textContent })
+          }
+        } else if (m.role === 'assistant') {
+          oaiMessages.push({ role: 'assistant', content: m.content })
+        }
       }
 
       for (let turn = 0; turn < MAX_TURNS; turn++) {
@@ -1524,9 +1584,21 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       } catch { /* entity extraction is best-effort */ }
     })()
   } catch (err) {
-    sse(res, 'error', {
-      error: err instanceof Error ? err.message : String(err),
+    const errMsg = err instanceof Error ? err.message : String(err)
+    // Record failed run so GovernSurface shows error-rate alongside success-rate
+    recordGovernanceRun({
+      run_id,
+      model_routed: model,
+      provider,
+      policy_admitted: false,
+      memory_written: false,
+      timestamp,
+      latency_ms: Date.now() - started,
+      task: routerDecision.task,
+      session_id: sessionId,
+      error: errMsg,
     })
+    sse(res, 'error', { error: errMsg })
   }
 }
 

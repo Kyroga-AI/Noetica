@@ -113,6 +113,7 @@ interface AgentMachineRun {
   latency_ms: number
   task?: string
   session_id?: string
+  error?: string
 }
 
 function amUrl(path: string): string {
@@ -122,11 +123,14 @@ function amUrl(path: string): string {
 }
 
 function amRunToAuditEvent(r: AgentMachineRun): AuditEvent {
+  const detail = r.error
+    ? `${r.model_routed} · ${r.latency_ms}ms · ERROR: ${r.error.slice(0, 80)}`
+    : `${r.model_routed} · ${r.latency_ms}ms · ${r.task ?? 'chat'}`
   return {
     id: r.run_id,
     ts: r.timestamp,
     kind: 'chat_request',
-    detail: `${r.model_routed} · ${r.latency_ms}ms · ${r.task ?? 'chat'}`,
+    detail,
     verdict: r.policy_admitted ? 'admitted' : 'blocked',
   }
 }
