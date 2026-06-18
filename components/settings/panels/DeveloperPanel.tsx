@@ -2,6 +2,7 @@
 
 import { useSettings } from '@/lib/settings/context'
 import { isTauri } from '@/lib/tauri/bridge'
+import { FeatureFlagsSection } from './FeatureFlagsSection'
 
 export function DeveloperPanel() {
   const { settings, update } = useSettings()
@@ -56,6 +57,8 @@ export function DeveloperPanel() {
           </div>
         </div>
       </div>
+
+      <FeatureFlagsSection />
 
       <button
         onClick={() => {

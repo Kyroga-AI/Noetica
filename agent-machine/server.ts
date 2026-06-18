@@ -673,15 +673,27 @@ function setCORSHeaders(res: http.ServerResponse): void {
  * live state so the UI/governance can see what's actually active in a run.
  */
 const FEATURE_FLAGS: Array<{ env: string; status: 'default-on' | 'opt-in' | 'experimental'; desc: string }> = [
-  { env: 'NOETICA_GOAL_TRACKING',      status: 'opt-in',       desc: 'Goal/plan state machine + slot-filling across turns' },
-  { env: 'NOETICA_PLN_GROUNDING',      status: 'opt-in',       desc: 'PLN-backed graph grounding in Value Judgment' },
-  { env: 'NOETICA_BANDIT_ROUTING',     status: 'opt-in',       desc: 'UCB1 bandit selection over local model arms' },
+  { env: 'NOETICA_GOAL_TRACKING',      status: 'default-on',   desc: 'Goal/plan state machine + slot-filling across turns' },
+  { env: 'NOETICA_PLN_GROUNDING',      status: 'default-on',   desc: 'PLN-backed graph grounding in Value Judgment' },
+  { env: 'NOETICA_BANDIT_ROUTING',     status: 'default-on',   desc: 'UCB1 bandit selection over local model arms' },
   { env: 'NOETICA_CAPABILITY_ROUTING', status: 'opt-in',       desc: 'Escalate off local model when success rate is poor' },
   { env: 'NOETICA_CAIRNPATH_RETRIEVAL',status: 'experimental', desc: 'CairnPath EXPAND→DEDUP→RANK→CAP retrieval executor' },
   { env: 'NOETICA_DELIBERATION',       status: 'experimental', desc: 'BG→WM→VJ→select deliberation loop (multi-candidate)' },
   { env: 'NOETICA_SHACL_ENFORCE',      status: 'experimental', desc: 'Ontogenesis SHACL gate on graph writes (quarantine)' },
   { env: 'NOETICA_GAIA_AUTO_LOOP',     status: 'experimental', desc: 'GAIA background observation/consolidation loop' },
 ]
+
+/**
+ * Resolve a feature flag's live state from the registry. Graduated ('default-on')
+ * flags are ON unless explicitly disabled with '0'; opt-in/experimental flags are
+ * OFF unless explicitly enabled with '1'. Single source of truth for both the
+ * call sites and GET /api/flags.
+ */
+function isFlagOn(env: string): boolean {
+  const f = FEATURE_FLAGS.find((x) => x.env === env)
+  const v = process.env[env]
+  return f?.status === 'default-on' ? v !== '0' : v === '1'
+}
 
 /**
  * Optional bearer-token gate for mutating/destructive endpoints. Off by default
@@ -1403,7 +1415,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // router's primary and fallback for this task using a UCB1 bandit over learned
   // reward (VJ worth + user feedback). The model that produces better-judged
   // answers for a task family gets used more — self-improving, technique-driven.
-  if (process.env['NOETICA_BANDIT_ROUTING'] === '1' && provider === 'ollama') {
+  if (isFlagOn('NOETICA_BANDIT_ROUTING') && provider === 'ollama') {
     const fallbackModel = routerDecision.fallbackRoute
     const toolOk = (m: string) => LOCAL_MODEL_SUITE.find((x) => x.name === m)?.toolUse !== false
     const needTools = (body.tools?.length ?? 0) > 0
@@ -1549,7 +1561,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   let goalContext = ''
   try {
     let activeGoal = getActiveGoal(sessionId)
-    if (!activeGoal && process.env['NOETICA_GOAL_TRACKING'] === '1') {
+    if (!activeGoal && isFlagOn('NOETICA_GOAL_TRACKING')) {
       const intent = detectGoalIntent(latestUserContent)
       if (intent) {
         const now = new Date().toISOString()
@@ -1957,7 +1969,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       // knowledge graph (incl. transitive PLN-derived relations), not just the
       // retrieved snippet. NOETICA_PLN_GROUNDING=1 also runs a bounded forward-chain.
       let gg: { graphGrounding: number; novel: string[] } | undefined
-      try { gg = assessAgainstGraph(fullContent, { runPln: process.env['NOETICA_PLN_GROUNDING'] === '1' }) } catch { /* best-effort */ }
+      try { gg = assessAgainstGraph(fullContent, { runPln: isFlagOn('NOETICA_PLN_GROUNDING') }) } catch { /* best-effort */ }
       valueJudgment = judgeAnswer({
         answer: fullContent,
         reasoning: fullThinking || undefined,
@@ -2397,7 +2409,7 @@ const server = http.createServer((req, res) => {
     res.end(JSON.stringify({
       flags: FEATURE_FLAGS.map((f) => ({
         env: f.env,
-        enabled: process.env[f.env] === '1',
+        enabled: isFlagOn(f.env),
         status: f.status,
         description: f.desc,
       })),

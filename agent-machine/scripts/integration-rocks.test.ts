@@ -22,7 +22,9 @@ const STORE = fs.mkdtempSync(path.join(os.tmpdir(), 'noetica-rocks-it-'))
 const cwd = new URL('..', import.meta.url).pathname
 
 async function rocksAvailable(): Promise<boolean> {
-  try { await import('rocksdb'); return true } catch { return false }
+  // non-literal specifier so tsc doesn't try to type-resolve the optional native dep
+  const mod = 'rocksdb'
+  try { await import(mod); return true } catch { return false }
 }
 
 function boot(extraEnv: Record<string, string>): ChildProcess {
