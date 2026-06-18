@@ -42,7 +42,7 @@ import { getAtomSpace } from '../lib/hellgraph/atomspace.js'
 import { decayAll } from '../lib/hellgraph/ecan.js'
 import { consolidate } from '../lib/hellgraph/consolidate.js'
 import { recordAttentionSnapshot, pushSnapshotToPrometheusd, ingestPrometheusCandidate } from '../lib/hellgraph/prometheus.js'
-import { isOllamaRunning, listLocalModels, pullModel, streamOllama, getModelContextLength } from './lib/ollama.js'
+import { isOllamaRunning, listLocalModels, pullModel, streamOllama, getModelContextLength, OLLAMA_BASE } from './lib/ollama.js'
 import { retrieve } from './lib/retrieval.js'
 import { getGraph, graphHealth, graphSparql, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
 import { getHellGraph } from '../lib/hellgraph/store.js'
@@ -149,9 +149,39 @@ Rules:
 - Respond ONLY with valid JSON. No preamble.`
 }
 
+// Local synthesis fallback so the GAIA belief loop runs in a pure-local setup.
+// Picks a tool-capable general model from what's installed; non-streaming call.
+async function synthesizeViaOllama(prompt: string): Promise<string> {
+  const installed = await listLocalModels()
+  if (installed.length === 0) return ''
+  const preferred = ['qwen2.5:14b', 'qwen2.5:7b', 'deepseek-r1:8b', 'llama3.2:3b']
+  const model = preferred.find((p) => installed.includes(p)) ?? installed[0]!
+  try {
+    const res = await fetch(`${OLLAMA_BASE}/v1/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model,
+        stream: false,
+        messages: [{ role: 'user', content: prompt }],
+        options: { num_ctx: 8192, temperature: 0.4 },
+      }),
+      signal: AbortSignal.timeout(60_000),
+    })
+    if (!res.ok) return ''
+    const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> }
+    // Strip any <think> reasoning block local models may emit before the JSON.
+    return (data.choices?.[0]?.message?.content ?? '').replace(/<think>[\s\S]*?<\/think>/g, '').trim()
+  } catch {
+    return ''
+  }
+}
+
 async function runSuperconsciousLoop(keys: LoopProviderKeys): Promise<void> {
-  if (!keys.anthropic?.trim() && !keys.openai?.trim()) {
-    console.error('[gaia] runSuperconsciousLoop: no valid API keys — synthesis disabled')
+  const hasCloud = Boolean(keys.anthropic?.trim() || keys.openai?.trim())
+  const ollamaUp = hasCloud ? false : await isOllamaRunning()
+  if (!hasCloud && !ollamaUp) {
+    console.error('[gaia] runSuperconsciousLoop: no cloud keys and Ollama not running — synthesis disabled')
     return
   }
   if (_loopRunning) return
@@ -196,6 +226,9 @@ async function runSuperconsciousLoop(keys: LoopProviderKeys): Promise<void> {
         const data = await res.json() as { choices?: Array<{ message?: { content?: string } }> }
         synthesisText = data.choices?.[0]?.message?.content ?? ''
       }
+    } else {
+      // Pure-local synthesis via Ollama.
+      synthesisText = await synthesizeViaOllama(prompt)
     }
 
     if (!synthesisText) return
@@ -2553,17 +2586,22 @@ server.listen(PORT, '127.0.0.1', () => {
 
   // GAIA superconscious loop auto-start from env.
   // Set NOETICA_GAIA_AUTO_LOOP=1 to start automatically on boot.
-  // The loop uses ANTHROPIC_API_KEY or OPENAI_API_KEY from env.
+  // Prefers ANTHROPIC_API_KEY / OPENAI_API_KEY; falls back to a local Ollama model
+  // so belief synthesis runs fully offline (the loop itself picks the backend).
   if (process.env['NOETICA_GAIA_AUTO_LOOP'] === '1') {
     const loopKeys: { anthropic?: string; openai?: string } = {}
     if (process.env['ANTHROPIC_API_KEY']?.trim()) loopKeys.anthropic = process.env['ANTHROPIC_API_KEY']!.trim()
     if (process.env['OPENAI_API_KEY']?.trim())    loopKeys.openai    = process.env['OPENAI_API_KEY']!.trim()
-    if (loopKeys.anthropic || loopKeys.openai) {
-      startSuperconsciousLoop(loopKeys)
-      console.log('[noetica-am] GAIA superconscious loop auto-started (NOETICA_GAIA_AUTO_LOOP=1)')
-    } else {
-      console.warn('[noetica-am] NOETICA_GAIA_AUTO_LOOP=1 but no ANTHROPIC_API_KEY or OPENAI_API_KEY found — loop not started')
-    }
+    void (async () => {
+      const localReady = await isOllamaRunning()
+      if (loopKeys.anthropic || loopKeys.openai || localReady) {
+        startSuperconsciousLoop(loopKeys)
+        const backend = loopKeys.anthropic || loopKeys.openai ? 'cloud' : 'local Ollama'
+        console.log(`[noetica-am] GAIA superconscious loop auto-started (${backend})`)
+      } else {
+        console.warn('[noetica-am] NOETICA_GAIA_AUTO_LOOP=1 but no cloud key and Ollama not running — loop not started')
+      }
+    })()
   }
 
   // ECAN session-boundary decay: STI values accumulated in prior sessions fade on boot.
