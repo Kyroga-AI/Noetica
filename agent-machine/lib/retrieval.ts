@@ -13,11 +13,11 @@
 
 import { getGraph, graphSparql } from './graph.js'
 import { buildWorkspacePrefix } from './context-cache.js'
-import { findMatches, V, N, L } from '../../lib/hellgraph/patternMatcher.js'
-import type { Pattern } from '../../lib/hellgraph/patternMatcher.js'
-import { stiNorm } from '../../lib/hellgraph/ecan.js'
-import type { PropertyValue } from '../../lib/hellgraph/types.js'
-import { ingestInteraction } from '../../lib/hellgraph/ingest.js'
+import { findMatches, V, N, L } from '@socioprophet/hellgraph'
+import type { Pattern } from '@socioprophet/hellgraph'
+import { stiNorm } from '@socioprophet/hellgraph'
+import type { PropertyValue } from '@socioprophet/hellgraph'
+import { ingestInteraction } from '@socioprophet/hellgraph'
 import { cairnPathExpand } from './cairnpath-adapter.js'
 import * as crypto from 'node:crypto'
 

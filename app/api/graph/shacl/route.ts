@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { validateGraph, applyRules } from '@/lib/hellgraph/shacl'
-import { getHellGraph } from '@/lib/hellgraph/store'
-import { shaclValidate, shaclApplyRules } from '@/lib/hellgraph/sidecar'
+import { validateGraph, applyRules } from '@socioprophet/hellgraph'
+import { getHellGraph } from '@socioprophet/hellgraph'
+import { shaclValidate, shaclApplyRules } from '@socioprophet/hellgraph'
 
 export const runtime = 'nodejs'
 

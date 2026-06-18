@@ -12,7 +12,7 @@
  */
 
 import { getGraph } from './graph.js'
-import type { GraphNode } from '../../lib/hellgraph/types.js'
+import type { GraphNode } from '@socioprophet/hellgraph'
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 

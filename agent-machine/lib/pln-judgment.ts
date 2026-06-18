@@ -10,7 +10,7 @@
  */
 
 import { getGraph } from './graph.js'
-import { forwardChain } from '../../lib/hellgraph/pln.js'
+import { forwardChain } from '@socioprophet/hellgraph'
 
 const STOP = new Set([
   'The','This','That','These','Those','When','Where','While','With','From','Into',

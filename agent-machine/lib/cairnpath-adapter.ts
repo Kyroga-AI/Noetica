@@ -20,7 +20,7 @@
 
 import * as http from 'node:http'
 import * as crypto from 'node:crypto'
-import type { AtomSpace, Atom, Handle } from '../../lib/hellgraph/atomspace.js'
+import type { AtomSpace, Atom, Handle } from '@socioprophet/hellgraph'
 
 // ─── Schema types (mirrors cairnpath-mesh schemas exactly) ────────────────────
 

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { sidecarHealth, syncToSidecar, runBindLink, plnForwardChain, ecanStimulate } from '@/lib/hellgraph/sidecar'
+import { sidecarHealth, syncToSidecar, runBindLink, plnForwardChain, ecanStimulate } from '@socioprophet/hellgraph'
 
 export const runtime = 'nodejs'
 

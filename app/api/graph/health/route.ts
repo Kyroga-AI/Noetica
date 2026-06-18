@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
-import { computeGraphHealth, computeTimeService } from '@/lib/hellgraph/health'
-import { getHellGraph } from '@/lib/hellgraph/store'
+import { computeGraphHealth, computeTimeService } from '@socioprophet/hellgraph'
+import { getHellGraph } from '@socioprophet/hellgraph'
 
 export const runtime = 'nodejs'
 

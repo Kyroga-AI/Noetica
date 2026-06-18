@@ -13,7 +13,7 @@
 import type {
   AtomSpaceBackend, AtomLogEntry, AtomLogOp,
   Handle, TruthValue, AttentionValue, Value,
-} from '../../lib/hellgraph/atomspace.js'
+} from '@socioprophet/hellgraph'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import * as fs from 'node:fs'
