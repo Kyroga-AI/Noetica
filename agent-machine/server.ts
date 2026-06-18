@@ -1314,6 +1314,18 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     if (retrieved.text.trim()) {
       graphContext = `\n\n---\n**Memory context (HellGraph)**\n${retrieved.text}`
     }
+    // Emit the neurosymbolic reasoning trace so the UI can show *why* this answer
+    // was grounded — attention-ranked atoms, pattern timings, beliefs injected.
+    const beliefHits = retrieved.workingMemory?.retrieval_path?.find((p) => p.pattern === 'beliefs')?.hits ?? 0
+    sse(res, 'retrieval', {
+      trace: {
+        patterns: retrieved.patterns,
+        timings: retrieved.workingMemory?.retrieval_path ?? [],
+        sources: retrieved.sources.slice(0, 8),
+        token_estimate: retrieved.tokenEstimate,
+        beliefs_injected: beliefHits,
+      },
+    })
   } catch { /* retrieval is best-effort — never block the LLM call */ }
 
   const profile = POLICY_PROFILES[body.policy_profile ?? 'default'] ?? POLICY_PROFILES['default']!

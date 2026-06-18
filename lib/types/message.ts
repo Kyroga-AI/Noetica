@@ -33,4 +33,19 @@ export interface ChatMessage {
   tool_results?: ToolResultRecord[]
   /** True when the user cancelled generation mid-stream */
   stopped?: boolean
+  /** Neurosymbolic retrieval trace — why this answer was grounded the way it was */
+  retrieval_trace?: RetrievalTrace
+}
+
+export interface RetrievalTrace {
+  /** Retrieval patterns that contributed context (e.g. beliefs, atoms, graph) */
+  patterns: string[]
+  /** Per-pattern execution: which ran, how long, how many hits */
+  timings: Array<{ pattern: string; durationMs: number; hits: number }>
+  /** Top attention-ranked sources (atoms/edges) with their scores */
+  sources: Array<{ id: string; label: string; score: number }>
+  /** Estimated tokens of injected context */
+  token_estimate: number
+  /** How many belief snapshots were injected from the world model */
+  beliefs_injected: number
 }

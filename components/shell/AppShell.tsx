@@ -795,6 +795,12 @@ export function AppShell() {
                 setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'tool_calls', payload: calls }, ...prev].slice(0, 80))
               }
             },
+            onRetrieval: (trace) => {
+              updateAssistant(assistantId, { retrieval_trace: trace })
+              if (settings.showRawEvents) {
+                setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'retrieval', payload: trace }, ...prev].slice(0, 80))
+              }
+            },
             onDone: (result) => {
               if (settings.showRawEvents) {
                 setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'done', payload: { run_id: result.run_id, model: result.model_routed, latency_ms: result.latency_ms } }, ...prev].slice(0, 80))
