@@ -68,26 +68,22 @@ _download_ollama() {
   fi
 }
 
-# Stage Ollama's inference runner libraries (lib/ollama/*, incl. the llama-server
-# backend). Ollama 0.30+ split the runner out of the main binary — shipping only
-# the `ollama` binary yields a server that can LIST models but 500s on every
-# generation ("llama-server binary not found"). Returns nonzero if absent so the
-# build fails loudly instead of producing a crippled bundle.
+# Stage Ollama's inference runner. Layout differs by OS: macOS extracts it FLAT
+# (llama-server + dylibs alongside `ollama`); Linux puts it under lib/ollama/.
+# NOTE: the shipped app does NOT depend on the bundled runner — the agent-machine
+# provisions a COMPLETE runtime into ~/.noetica/runtime at first boot (managed-runtime
+# / provision-runtime). So this staging is best-effort and NEVER fatal; the bundle
+# only needs the `ollama` binary for Tauri's externalBin resolution.
 _stage_runner_lib() {
-  local libsrc=""
-  if [[ -d "$WORK/lib/ollama" ]]; then libsrc="$WORK/lib"
-  elif [[ -d "$WORK/lib" ]]; then libsrc="$WORK/lib"; fi
-  if [[ -z "$libsrc" ]]; then
-    echo "WARNING: no lib/ollama runner dir in this Ollama archive — the bundled" >&2
-    echo "         Ollama will be unable to run inference. (Runtime falls back to a" >&2
-    echo "         system Ollama, but the standalone bundle is incomplete.)" >&2
-    return 1
+  if [[ -d "$WORK/lib/ollama" || -d "$WORK/lib" ]]; then
+    rm -rf "$BINARIES_DIR/lib"; cp -R "$WORK/lib" "$BINARIES_DIR/lib"
+    echo "==> Staged Ollama runner (Linux lib/ layout) → $BINARIES_DIR/lib"
+  elif [[ -f "$WORK/llama-server" ]]; then
+    echo "==> Ollama runner is flat (macOS layout); runtime provisioning supplies the complete runtime at first boot"
+  else
+    echo "WARNING: no recognizable Ollama runner in archive — runtime will provision one at first boot" >&2
   fi
-  rm -rf "$BINARIES_DIR/lib"
-  cp -R "$libsrc" "$BINARIES_DIR/lib"
-  echo "==> Staged Ollama runner libs → $BINARIES_DIR/lib/ollama"
-  echo "    NOTE: a post-bundle step must copy this into Noetica.app/Contents/MacOS/lib/"
-  echo "    (where the ollama binary searches) — verify in a real Tauri build."
+  return 0
 }
 
 if [[ "$TRIPLE" == "universal-apple-darwin" ]]; then
@@ -103,7 +99,7 @@ if [[ "$TRIPLE" == "universal-apple-darwin" ]]; then
     echo "==> Written: ${DEST}"
     ls -lh "$DEST"
   done
-  _stage_runner_lib || { [ "${REQUIRE_OLLAMA_RUNNER:-}" = "1" ] && { echo "FATAL: Ollama runner (lib/ollama) missing — refusing to build a crippled bundle"; exit 1; } || true; }
+  _stage_runner_lib   # best-effort; runtime provisions the complete runtime at first boot
 else
   echo "==> Downloading Ollama ${OLLAMA_VERSION} for ${TRIPLE}..."
   BIN="$(_download_ollama "$OLLAMA_URL")"
@@ -112,5 +108,5 @@ else
   chmod +x "$DEST"
   echo "==> Ollama binary written to ${DEST}"
   ls -lh "$DEST"
-  _stage_runner_lib || { [ "${REQUIRE_OLLAMA_RUNNER:-}" = "1" ] && { echo "FATAL: Ollama runner (lib/ollama) missing — refusing to build a crippled bundle"; exit 1; } || true; }
+  _stage_runner_lib   # best-effort; runtime provisions the complete runtime at first boot
 fi

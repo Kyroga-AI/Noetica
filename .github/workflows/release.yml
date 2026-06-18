@@ -76,10 +76,11 @@ jobs:
         env:
           OLLAMA_VERSION: "0.30.8"
           TAURI_TARGET_TRIPLE: "universal-apple-darwin"
-          REQUIRE_OLLAMA_RUNNER: "1"   # fail the build if the lib/ollama runner isn't staged
         run: bash scripts/download-sidecars.sh
-      - name: Verify Ollama sidecar is complete (binary + runner)
-        run: node scripts/verify-ollama-runner.mjs
+        # The bundle ships only the `ollama` binary (for Tauri externalBin). The
+        # COMPLETE runtime (binary + llama-server runner) is provisioned into
+        # ~/.noetica/runtime at first boot by the agent-machine (managed-runtime),
+        # so a runner is NOT required in the bundle — no runner-completeness gate here.
 
       # ── Code signing ───────────────────────────────────────────────────────
       # Import Apple Developer certificate when the secret is present.
