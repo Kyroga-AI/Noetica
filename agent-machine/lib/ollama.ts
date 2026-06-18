@@ -90,19 +90,31 @@ export const EMBED_MODEL = process.env['NOETICA_EMBED_MODEL'] ?? 'nomic-embed-te
  * lexical retrieval rather than throwing. Uses the active Ollama base.
  */
 export async function embedText(text: string): Promise<number[]> {
-  try {
-    const res = await fetch(`${ollamaBase()}/api/embeddings`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model: EMBED_MODEL, prompt: text.slice(0, 8000) }),
-      signal: AbortSignal.timeout(30_000),
-    })
-    if (!res.ok) return []
-    const json = (await res.json()) as { embedding?: number[] }
-    return Array.isArray(json.embedding) ? json.embedding : []
-  } catch {
-    return []
+  // Same primary→fallback resilience as chat: at ingest time the active base may
+  // still be a broken bundled Ollama (lists models, can't run the model), so try
+  // the fallback before giving up — otherwise embeddings silently fail and
+  // retrieval degrades to lexical-only.
+  const bases = (_activeBase === OLLAMA_PRIMARY && OLLAMA_FALLBACK !== OLLAMA_PRIMARY)
+    ? [OLLAMA_PRIMARY, OLLAMA_FALLBACK]
+    : [_activeBase]
+  for (let i = 0; i < bases.length; i++) {
+    const base = bases[i]!
+    try {
+      const res = await fetch(`${base}/api/embeddings`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: EMBED_MODEL, prompt: text.slice(0, 8000) }),
+        signal: AbortSignal.timeout(30_000),
+      })
+      if (res.ok) {
+        const json = (await res.json()) as { embedding?: number[] }
+        const vec = Array.isArray(json.embedding) ? json.embedding : []
+        if (vec.length) { _activeBase = base; return vec }
+      }
+      // non-ok or empty → try fallback if any
+    } catch { /* try fallback */ }
   }
+  return []
 }
 
 /** Cosine similarity of two equal-length vectors. 0 if either is empty/zero. */
