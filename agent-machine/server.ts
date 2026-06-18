@@ -51,7 +51,7 @@ import { buildWorkspacePrefix, invalidatePrefix } from './lib/context-cache.js'
 import { estimateCostUsd, tokensEgressed } from '../lib/pricing/modelPricing.js'
 import { recordCapability, capabilitySummary, capabilityHint, recordReward, selectArmUCB } from './lib/capability-model.js'
 import { validateGraph } from '@socioprophet/hellgraph'
-import { CANONICAL_SHAPES } from './lib/canonical-shapes.js'
+import { CANONICAL_SHAPES, QUARANTINE_PROP } from './lib/canonical-shapes.js'
 import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
 import { detectGoalIntent, slotFill, buildGoalContext, getActiveGoal, listGoals, saveGoal, type Goal } from './lib/goal-model.js'
 import { assessAgainstGraph } from './lib/pln-judgment.js'
@@ -160,14 +160,25 @@ function recordContradictions(runId: string, sessionId: string, vj: ValueJudgmen
 function runShaclGate(): void {
   if (process.env['NOETICA_SHACL_ENFORCE'] !== '1') return
   try {
-    const report = validateGraph(getHellGraph(), CANONICAL_SHAPES)
+    const g = getHellGraph()
+    const report = validateGraph(g, CANONICAL_SHAPES)
+    // Enforce by QUARANTINE: tag violating entities so retrieval/reasoning skip
+    // them. This never blocks a chat — malformed atoms just stop polluting context.
+    let quarantined = 0
+    for (const v of report.violations) {
+      const node = g.getNode(v.focusNode)
+      if (node && node.properties[QUARANTINE_PROP] !== 'true') {
+        g.addNode(v.focusNode, [], { [QUARANTINE_PROP]: 'true' })
+        quarantined++
+      }
+    }
     _lastShaclReport = {
       conforms: report.conforms,
       violations: report.violations.length,
       checked_at: new Date().toISOString(),
     }
     if (!report.conforms) {
-      console.warn(`[ontogenesis] SHACL gate: ${report.violations.length} violation(s) in graph`)
+      console.warn(`[ontogenesis] SHACL gate: ${report.violations.length} violation(s); quarantined ${quarantined} entity(ies)`)
     }
   } catch (e) {
     console.warn('[ontogenesis] SHACL gate error', e instanceof Error ? e.message : String(e))

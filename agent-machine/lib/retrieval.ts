@@ -418,7 +418,7 @@ async function runAtomsPattern(
 
   if (queryTokens.size === 0) return { text: '', sources: [] }
 
-  const atoms = g.allNodes().filter((n) => n.labels.includes('FeatureAtom'))
+  const atoms = g.allNodes().filter((n) => n.labels.includes('FeatureAtom') && n.properties['shacl_quarantined'] !== 'true')
   if (atoms.length === 0) return { text: '', sources: [] }
 
   const scored: Scored[] = []
@@ -529,7 +529,7 @@ async function runCairnPathPattern(
   )
   if (queryTokens.size === 0) return { text: '', sources: [] }
 
-  const atoms = g.allNodes().filter((n) => n.labels.includes('FeatureAtom'))
+  const atoms = g.allNodes().filter((n) => n.labels.includes('FeatureAtom') && n.properties['shacl_quarantined'] !== 'true')
   if (atoms.length === 0) return { text: '', sources: [] }
 
   // Seed selection: same surface-token matching as the atoms pattern.
