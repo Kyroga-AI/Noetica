@@ -20,7 +20,10 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          # A PAT (not the default GITHUB_TOKEN) is required: tags pushed with
+          # GITHUB_TOKEN do NOT trigger the release workflow (GitHub recursion
+          # guard). Reuses the existing cross-repo TAP token if RELEASE_PAT is unset.
+          token: ${{ secrets.RELEASE_PAT || secrets.TAP_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
 
       - name: Skip if no commits since last nightly
         id: gate

@@ -152,6 +152,9 @@ jobs:
   release-linux:
     runs-on: ubuntu-latest
     needs: [release-macos]
+    # Nightly is the macOS/brew channel — skip the Linux job (currently failing
+    # on its own; tracked separately). Stable tags still build Linux artifacts.
+    if: ${{ !contains(github.ref_name, 'nightly') }}
     steps:
       - uses: actions/checkout@v4
 
