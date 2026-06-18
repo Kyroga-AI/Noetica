@@ -551,6 +551,13 @@ export function AppShell() {
     await handleSendRaw(content, attachments, messages, tools)
   }
 
+  // Resume an interrupted (stopped) response. The partial assistant content is
+  // already in the visible transcript, so we send the same continue instruction
+  // the server's checkpoint resume uses — the model picks up where it stopped.
+  function handleResume() {
+    void handleSend('Continue your previous response from exactly where it stopped — do not repeat what you already wrote.')
+  }
+
   function handleStop() {
     abortControllerRef.current?.abort()
     stopSpeaking()
@@ -1158,6 +1165,7 @@ export function AppShell() {
                 onFanout={handleFanout}
                 onStop={handleStop}
                 onRegenerate={handleRegenerate}
+                onResume={handleResume}
                 onFork={handleFork}
                 onEdit={handleEdit}
                 onRecombine={handleRecombine}
@@ -1346,6 +1354,7 @@ type CenterProps = {
   onFanout: (content: string, attachments: PendingAttachment[]) => Promise<void>
   onStop: () => void
   onRegenerate: () => void
+  onResume: () => void
   onFork: (messageId: string) => void
   onEdit: (messageId: string, newContent: string) => void
   onRecombine: (selected: ChatMessage[]) => void
@@ -1366,7 +1375,7 @@ type CenterProps = {
   onSpeak?: (content: string) => void
 }
 
-function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onSpeak }: CenterProps) {
+function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onSpeak }: CenterProps) {
   if (activeSurface === 'notes')        return <NotesSurface />
   if (activeSurface === 'canvas')       return <CanvasSurface />
   if (activeSurface === 'workrooms')    return <WorkroomsSurface thinkingBudget={thinkingBudget} />
@@ -1390,7 +1399,7 @@ function CenterWorkspace({ activeSurface, messages, isStreaming, workspaceMode, 
   return (
     <div className={`grid min-h-0 flex-1 overflow-hidden transition-[grid-template-columns] duration-300 ${activeArtifact ? 'grid-cols-[minmax(320px,1fr)_480px]' : 'grid-cols-1'}`}>
       <section className="flex min-h-0 flex-col overflow-hidden">
-        <MessageList messages={messages} isStreaming={isStreaming} onExtractArtifact={onExtractArtifact} onRegenerate={onRegenerate} onFork={onFork} onEdit={onEdit} onRecombine={onRecombine} onSpeak={onSpeak} />
+        <MessageList messages={messages} isStreaming={isStreaming} onExtractArtifact={onExtractArtifact} onRegenerate={onRegenerate} onResume={onResume} onFork={onFork} onEdit={onEdit} onRecombine={onRecombine} onSpeak={onSpeak} />
         <InputArea
           onSend={onSend}
           onFanout={onFanout}

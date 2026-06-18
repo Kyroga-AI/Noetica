@@ -232,12 +232,13 @@ type MessageBubbleProps = {
   isLast?: boolean
   onExtractArtifact?: (content: string, messageId: string) => void
   onRegenerate?: () => void
+  onResume?: () => void
   onFork?: (messageId: string) => void
   onEdit?: (messageId: string, newContent: string) => void
   onSpeak?: (content: string) => void
 }
 
-export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate, onFork, onEdit, onSpeak }: MessageBubbleProps) {
+export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onSpeak }: MessageBubbleProps) {
   const isUser = message.role === 'user'
   const [extracted, setExtracted] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -435,9 +436,18 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
           </div>
         )}
         {message.stopped && (
-          <div className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-tertiary)]">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#d97706]" />
-            Stopped
+          <div className="mt-1.5 inline-flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-tertiary)]">
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#d97706]" />
+              Stopped
+            </span>
+            {isLast && onResume && (
+              <button onClick={onResume}
+                className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-secondary)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-secondary)] transition hover:text-[var(--color-text-primary)] hover:border-[var(--color-border-primary)]"
+                title="Continue this response from where it stopped">
+                ▶ Resume
+              </button>
+            )}
           </div>
         )}
 
