@@ -39,6 +39,13 @@ type GraphSubstrate = {
 
 type FrontierRow = { name: string; metric: string; value: number | string }
 
+type LearningTrends = {
+  quality: { buckets: Array<{ index: number; n: number; avg_worth: number; avg_grounding: number }>; delta: number; improving: boolean; samples: number }
+  bandit: Array<{ task: string; provider: string; model: string; plays: number; mean_reward: number; leading: boolean }>
+  graph: { total_edges: number; derived_edges: number; by_epistemic_class: Record<string, number> }
+  drivers: Array<{ feature: string; correlation: number }>
+}
+
 // ─── Aggregation ────────────────────────────────────────────────────────────────
 
 function aggregateBenchmarks(entries: LedgerEntry[]): ModelAgg[] {
@@ -76,6 +83,7 @@ export function BenchmarkDashboard() {
   const [live, setLive] = useState<LiveSummaryRow[]>([])
   const [substrate, setSubstrate] = useState<GraphSubstrate | null>(null)
   const [frontier, setFrontier] = useState<FrontierRow[] | null>(null)
+  const [trends, setTrends] = useState<LearningTrends | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -102,6 +110,12 @@ export function BenchmarkDashboard() {
         const laws = l.status === 'fulfilled' ? (l.value?.laws?.length ?? 0) : 0
         if (graph) setSubstrate({ nodeCount: graph.nodeCount ?? 0, edgeCount: graph.edgeCount ?? 0, beliefs, laws })
       }).catch(() => { /* best-effort */ })
+
+      // Learning trends — is the compounding loop actually improving?
+      fetch(amUrl('/api/self/trends'), { signal: AbortSignal.timeout(3000) })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: LearningTrends | null) => { if (!cancelled && d) setTrends(d) })
+        .catch(() => { /* offline — section stays hidden */ })
 
       // Optional EvalFabric frontier connector — only if configured + reachable
       const efBase = process.env['NEXT_PUBLIC_EVALFABRIC_URL']
@@ -198,6 +212,52 @@ export function BenchmarkDashboard() {
         </Section>
       )}
 
+      {/* Learning trends — the compounding loop made observable */}
+      {trends && trends.quality.samples > 0 && (
+        <Section title="Learning trends (compounding loop)" hint="Does Noetica get better as it runs? Answer quality over time, where routing converged, and symbolic structure derived. A cloud chat has none of this.">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-[var(--color-text-secondary)]">Answer worth over time</span>
+                <span className={`text-xs tabular-nums ${trends.quality.improving ? 'text-green-500' : 'text-[var(--color-text-tertiary)]'}`}>
+                  {trends.quality.delta >= 0 ? '+' : ''}{trends.quality.delta.toFixed(2)} {trends.quality.improving ? '▲' : ''}
+                </span>
+              </div>
+              <WorthBars buckets={trends.quality.buckets} />
+              <p className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">{trends.quality.samples} judged runs</p>
+            </div>
+
+            <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3">
+              <span className="text-xs font-medium text-[var(--color-text-secondary)]">Routing convergence (bandit)</span>
+              <div className="mt-2 flex flex-col gap-1">
+                {trends.bandit.slice(0, 5).map((a, i) => (
+                  <div key={i} className="flex items-center justify-between text-[11px]">
+                    <span className="truncate text-[var(--color-text-tertiary)]">
+                      {a.leading && <span className="text-green-500">★ </span>}{a.task}/{a.model}
+                    </span>
+                    <span className="tabular-nums">{a.mean_reward.toFixed(2)} <span className="text-[var(--color-text-tertiary)]">×{a.plays}</span></span>
+                  </div>
+                ))}
+                {trends.bandit.length === 0 && <span className="text-[11px] text-[var(--color-text-tertiary)]">no rewards recorded yet</span>}
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3">
+              <span className="text-xs font-medium text-[var(--color-text-secondary)]">Symbolic structure</span>
+              <div className="mt-2 flex flex-col gap-1 text-[11px]">
+                <div className="flex justify-between"><span className="text-[var(--color-text-tertiary)]">PLN-derived edges</span><span className="tabular-nums text-green-500">{trends.graph.derived_edges.toLocaleString()}</span></div>
+                <div className="flex justify-between"><span className="text-[var(--color-text-tertiary)]">Total edges</span><span className="tabular-nums">{trends.graph.total_edges.toLocaleString()}</span></div>
+                {trends.drivers[0] && (
+                  <div className="mt-1 border-t border-[var(--color-border-tertiary)] pt-1 text-[10px] text-[var(--color-text-tertiary)]">
+                    top quality driver: <span className="text-[var(--color-text-secondary)]">{trends.drivers[0].feature}</span> (r={trends.drivers[0].correlation})
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </Section>
+      )}
+
       {/* Optional EvalFabric frontier radar */}
       {frontier && frontier.length > 0 && (
         <Section title="Frontier radar (EvalFabric)" hint="Live from the Prophet Platform eval lane.">
@@ -234,6 +294,19 @@ function StatCard({ label, value, sub, accent }: { label: string; value: string;
       </div>
       <div className="mt-1 text-lg font-semibold tabular-nums">{value}</div>
       {sub && <div className="text-[10px] text-[var(--color-text-tertiary)]">{sub}</div>}
+    </div>
+  )
+}
+
+function WorthBars({ buckets }: { buckets: Array<{ index: number; avg_worth: number }> }) {
+  if (buckets.length === 0) return <div className="mt-2 text-[11px] text-[var(--color-text-tertiary)]">gathering samples…</div>
+  return (
+    <div className="mt-2 flex h-16 items-end gap-1">
+      {buckets.map((b) => (
+        <div key={b.index} className="flex-1" title={`worth ${b.avg_worth.toFixed(2)}`}>
+          <div className="rounded-t bg-[#16a34a]" style={{ height: `${Math.max(4, b.avg_worth * 64)}px` }} />
+        </div>
+      ))}
     </div>
   )
 }

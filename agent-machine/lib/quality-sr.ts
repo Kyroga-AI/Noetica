@@ -35,6 +35,9 @@ export function recordQualitySample(s: QualitySample): void {
 
 export function qualitySamples(): QualitySample[] { return _samples.slice() }
 
+/** Prune the in-memory quality corpus (used by /api/self/reset). Returns count cleared. */
+export function resetQuality(): number { const n = _samples.length; _samples.length = 0; return n }
+
 // Persistence so the quality corpus compounds across restarts.
 export function serializeQuality(): string { return JSON.stringify(_samples) }
 export function hydrateQuality(json: string): number {
@@ -72,6 +75,40 @@ export interface DriverResult {
 }
 
 const FEATURES: Array<keyof QualitySample> = ['grounding', 'graph_grounding', 'belief_alignment', 'latency_ms', 'input_tokens']
+
+export interface WorthTrend {
+  buckets: Array<{ index: number; n: number; avg_worth: number; avg_grounding: number; from: string; to: string }>
+  /** avg worth of the most recent bucket minus the oldest — >0 means quality is compounding. */
+  delta: number
+  improving: boolean
+  samples: number
+}
+
+/**
+ * Bucket worth over time (chronological) so the compounding loop is *observable*:
+ * is answer quality actually trending up as the self-model and graph accrete?
+ */
+export function worthTrend(nBuckets = 5, samples: QualitySample[] = _samples): WorthTrend {
+  const sorted = samples.slice().sort((a, b) => a.ts.localeCompare(b.ts))
+  if (sorted.length < nBuckets) {
+    return { buckets: [], delta: 0, improving: false, samples: sorted.length }
+  }
+  const size = Math.floor(sorted.length / nBuckets)
+  const buckets = []
+  for (let i = 0; i < nBuckets; i++) {
+    const slice = i === nBuckets - 1 ? sorted.slice(i * size) : sorted.slice(i * size, (i + 1) * size)
+    const n = slice.length
+    const avg = (sel: (s: QualitySample) => number) => n ? slice.reduce((a, s) => a + sel(s), 0) / n : 0
+    buckets.push({
+      index: i, n,
+      avg_worth: Number(avg((s) => s.worth).toFixed(3)),
+      avg_grounding: Number(avg((s) => s.grounding).toFixed(3)),
+      from: slice[0]!.ts, to: slice[n - 1]!.ts,
+    })
+  }
+  const delta = Number((buckets[buckets.length - 1]!.avg_worth - buckets[0]!.avg_worth).toFixed(3))
+  return { buckets, delta, improving: delta > 0.02, samples: sorted.length }
+}
 
 export function analyzeDrivers(samples: QualitySample[] = _samples): DriverResult {
   if (samples.length < 3) {

@@ -49,14 +49,14 @@ import { getHellGraph } from '@socioprophet/hellgraph'
 import { runGremlin } from '@socioprophet/hellgraph'
 import { buildWorkspacePrefix, invalidatePrefix } from './lib/context-cache.js'
 import { estimateCostUsd, tokensEgressed } from '../lib/pricing/modelPricing.js'
-import { recordCapability, capabilitySummary, capabilityHint, recordReward, selectArmUCB, serializeCapabilities, hydrateCapabilities } from './lib/capability-model.js'
+import { recordCapability, capabilitySummary, capabilityHint, recordReward, selectArmUCB, serializeCapabilities, hydrateCapabilities, banditStandings, resetCapabilities } from './lib/capability-model.js'
 import { validateGraph } from '@socioprophet/hellgraph'
 import { CANONICAL_SHAPES, QUARANTINE_PROP } from './lib/canonical-shapes.js'
 import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
 import { detectGoalIntent, slotFill, buildGoalContext, getActiveGoal, listGoals, saveGoal, type Goal } from './lib/goal-model.js'
 import { assessAgainstGraph } from './lib/pln-judgment.js'
 import { saveCheckpoint, listCheckpoints, getCheckpoint, buildResumeMessages } from './lib/checkpoint-model.js'
-import { recordQualitySample, analyzeDrivers, qualitySamples, serializeQuality, hydrateQuality } from './lib/quality-sr.js'
+import { recordQualitySample, analyzeDrivers, qualitySamples, serializeQuality, hydrateQuality, worthTrend, resetQuality } from './lib/quality-sr.js'
 import {
   ensureMichaelTwin, ingestGaiaObservation, getRecentObservations,
   writeBeliefSnapshot, writeWorldStateSnapshot, writeCycleNode,
@@ -663,6 +663,23 @@ function setCORSHeaders(res: http.ServerResponse): void {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
   res.setHeader('Access-Control-Allow-Headers', 'content-type, authorization')
+}
+
+/**
+ * Optional bearer-token gate for mutating/destructive endpoints. Off by default
+ * (local-first, single-user) — set NOETICA_API_TOKEN to require it. When set, the
+ * caller must send `Authorization: Bearer <token>`. Returns true if allowed; on
+ * denial it writes 401 and returns false so the handler can early-return.
+ */
+function requireApiToken(req: http.IncomingMessage, res: http.ServerResponse): boolean {
+  const expected = process.env['NOETICA_API_TOKEN']
+  if (!expected) return true // auth disabled
+  const auth = req.headers['authorization'] ?? ''
+  const got = Array.isArray(auth) ? auth[0] : auth
+  if (got === `Bearer ${expected}`) return true
+  res.writeHead(401, { 'content-type': 'application/json' })
+  res.end(JSON.stringify({ error: 'unauthorized', hint: 'set Authorization: Bearer <NOETICA_API_TOKEN>' }))
+  return false
 }
 
 // ─── Tool execution ───────────────────────────────────────────────────────────
@@ -2322,6 +2339,48 @@ const server = http.createServer((req, res) => {
       capabilities: capabilitySummary(),
       capability_routing: process.env['NOETICA_CAPABILITY_ROUTING'] === '1',
     }))
+    return
+  }
+
+  // GET /api/self/trends — make the compounding loop OBSERVABLE. Three axes of
+  // "is the system actually getting better as it runs": answer-quality worth over
+  // time (quality-SR), bandit routing convergence (which arm each task settled on),
+  // and the symbolic substrate growing (PLN-derived edges accreting in the graph).
+  if (req.method === 'GET' && url.pathname === '/api/self/trends') {
+    setCORSHeaders(res)
+    // PLN-derived structure: count edges by epistemicClass so derived inference is visible.
+    const edges = getHellGraph().allEdges()
+    const byClass: Record<string, number> = {}
+    for (const e of edges) {
+      const c = String(e.properties?.['epistemicClass'] ?? 'unknown')
+      byClass[c] = (byClass[c] ?? 0) + 1
+    }
+    const derived = (byClass['pln_deduction'] ?? 0) + (byClass['pln_revision'] ?? 0) + (byClass['pln_abduction'] ?? 0)
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({
+      quality: worthTrend(),
+      bandit: banditStandings(),
+      graph: {
+        total_edges: edges.length,
+        derived_edges: derived,
+        by_epistemic_class: byClass,
+      },
+      drivers: analyzeDrivers().drivers.slice(0, 3),
+    }))
+    return
+  }
+
+  // POST /api/self/reset — prune learned state (self-model + quality corpus) and
+  // persist the cleared state so it doesn't rehydrate on restart. The escape hatch
+  // for when the compounding loop has learned something wrong and must start fresh.
+  if (req.method === 'POST' && url.pathname === '/api/self/reset') {
+    setCORSHeaders(res)
+    if (!requireApiToken(req, res)) return
+    const caps = resetCapabilities()
+    const samples = resetQuality()
+    try { saveLearningState() } catch { /* persistence best-effort */ }
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ ok: true, cleared: { capabilities: caps, quality_samples: samples } }))
     return
   }
 

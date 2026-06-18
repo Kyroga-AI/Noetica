@@ -74,3 +74,18 @@ test('quality drivers, checkpoints, contradictions, benchmark, graph health all 
   const b = await get('/api/benchmark/summary'); assert.equal(b.status, 200); assert.ok(Array.isArray(b.body.summary))
   const h = await get('/api/graph/health'); assert.equal(h.status, 200); assert.ok(h.body.graph)
 })
+
+test('learning trends endpoint exposes quality/bandit/graph axes', async () => {
+  const { status, body } = await get('/api/self/trends')
+  assert.equal(status, 200)
+  assert.ok(body.quality && Array.isArray(body.quality.buckets), 'quality trend present')
+  assert.ok(Array.isArray(body.bandit), 'bandit standings present')
+  assert.ok(body.graph && typeof body.graph.derived_edges === 'number', 'graph derived-edge count present')
+})
+
+test('self/reset prunes learned state (auth disabled by default)', async () => {
+  const { status, body } = await post('/api/self/reset', {})
+  assert.equal(status, 200)
+  assert.equal(body.ok, true)
+  assert.ok(body.cleared && typeof body.cleared.capabilities === 'number')
+})

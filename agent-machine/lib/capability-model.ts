@@ -95,6 +95,43 @@ export function selectArmUCB(task: string, candidates: string[], provider = 'oll
   return best
 }
 
+/** Clear the in-memory self-model (used by /api/self/reset). Returns count cleared. */
+export function resetCapabilities(): number { const n = _caps.size; _caps.clear(); return n }
+
+export interface BanditArm {
+  task: string
+  provider: string
+  model: string
+  plays: number
+  mean_reward: number
+  /** True for the arm UCB currently exploits (highest mean among tried arms in its task). */
+  leading: boolean
+}
+
+/**
+ * Current bandit standings per task — makes routing convergence observable: which
+ * arm each task has settled on, how confident (plays), and the reward gap. This is
+ * the "where has the system learned to route" view for the learning dashboard.
+ */
+export function banditStandings(): BanditArm[] {
+  const arms = [..._caps.values()]
+    .filter((s) => s.rewardCount > 0)
+    .map((s) => ({
+      task: s.task, provider: s.provider, model: s.model,
+      plays: s.rewardCount,
+      mean_reward: Number((s.totalReward / s.rewardCount).toFixed(3)),
+      leading: false,
+    }))
+  // Mark the leading arm within each task.
+  const byTask = new Map<string, BanditArm[]>()
+  for (const a of arms) { (byTask.get(a.task) ?? byTask.set(a.task, []).get(a.task)!).push(a) }
+  for (const group of byTask.values()) {
+    const best = group.reduce((m, a) => (a.mean_reward > m.mean_reward ? a : m), group[0]!)
+    best.leading = true
+  }
+  return arms.sort((a, b) => (a.task === b.task ? b.mean_reward - a.mean_reward : a.task.localeCompare(b.task)))
+}
+
 export interface CapabilityRow {
   task: string
   provider: string
