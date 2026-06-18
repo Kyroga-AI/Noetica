@@ -146,6 +146,8 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   const [expandedId, setExpandedId]       = useState<string | null>(null)
   const [confirmClear, setConfirmClear]   = useState(false)
   const [amRuns, setAmRuns]               = useState<AgentMachineRun[]>([])
+  const [filterVerdict, setFilterVerdict] = useState<'all' | PolicyVerdict>('all')
+  const [filterModel, setFilterModel]     = useState<string>('all')
 
   useEffect(() => {
     readLedgerEntries(200).then((entries) => {
@@ -164,11 +166,33 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   // Merge local ledger events with agent-machine run history, deduped by id, sorted newest-first
   const amEvents: AuditEvent[] = amRuns.map(amRunToAuditEvent)
   const seenIds = new Set(ledgerEntries.map(e => e.id))
-  const mergedEvents: AuditEvent[] = [
+  const allEvents: AuditEvent[] = [
     ...ledgerEntries.map(ledgerToAuditEvent),
     ...amEvents.filter(e => !seenIds.has(e.id)),
   ].sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())
-  const events = mergedEvents
+
+  // Analytics derived from amRuns
+  const chatRuns = amRuns.filter(r => r.model_routed)
+  const admittedCount  = chatRuns.filter(r => r.policy_admitted).length
+  const admissionRate  = chatRuns.length > 0 ? (admittedCount / chatRuns.length) * 100 : 0
+  const avgLatency     = chatRuns.length > 0 ? chatRuns.reduce((s, r) => s + r.latency_ms, 0) / chatRuns.length : 0
+  const modelCounts    = chatRuns.reduce<Record<string, number>>((acc, r) => {
+    const m = r.model_routed.split(':')[0] ?? r.model_routed
+    acc[m] = (acc[m] ?? 0) + 1
+    return acc
+  }, {})
+  const modelList      = Object.entries(modelCounts).sort(([, a], [, b]) => b - a)
+  const uniqueModels   = ['all', ...modelList.map(([m]) => m)]
+
+  // Apply filters
+  const events = allEvents.filter(ev => {
+    if (filterVerdict !== 'all' && ev.verdict && ev.verdict !== filterVerdict) return false
+    if (filterModel !== 'all' && ev.kind === 'chat_request') {
+      if (!ev.detail.toLowerCase().includes(filterModel.toLowerCase())) return false
+    }
+    return true
+  })
+
   const bundles: EvidenceBundle[] = ledgerToBundles(ledgerEntries, evidenceLevel)
 
   // Build run traces from agent-machine history if session has none
@@ -227,6 +251,43 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
       <div className="mx-auto w-full max-w-3xl space-y-4">
+
+        {/* Analytics metrics */}
+        {chatRuns.length > 0 && (
+          <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8] mb-3">Analytics</div>
+            <div className="grid grid-cols-3 gap-3 mb-4">
+              <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
+                <div className="text-2xl font-semibold text-[var(--color-text-primary)]">{chatRuns.length}</div>
+                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Total runs</div>
+              </div>
+              <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
+                <div className={`text-2xl font-semibold ${admissionRate > 90 ? 'text-[#16a34a]' : admissionRate > 70 ? 'text-[#d97706]' : 'text-[#dc2626]'}`}>{admissionRate.toFixed(0)}%</div>
+                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Admission rate</div>
+              </div>
+              <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
+                <div className="text-2xl font-semibold text-[var(--color-text-primary)]">{(avgLatency / 1000).toFixed(1)}s</div>
+                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Avg latency</div>
+              </div>
+            </div>
+            {modelList.length > 0 && (
+              <div>
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)] mb-2">Model breakdown</div>
+                <div className="space-y-1.5">
+                  {modelList.map(([model, count]) => (
+                    <div key={model} className="flex items-center gap-2">
+                      <span className="w-28 truncate text-[11px] text-[var(--color-text-secondary)]">{model}</span>
+                      <div className="h-1.5 flex-1 rounded-full bg-[var(--color-background-tertiary)] overflow-hidden">
+                        <div className="h-full rounded-full bg-[#1d4ed8]" style={{ width: `${(count / chatRuns.length) * 100}%` }} />
+                      </div>
+                      <span className="w-8 text-right text-[10px] tabular-nums text-[var(--color-text-tertiary)]">{count}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Policy profile */}
         <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
@@ -350,11 +411,12 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
 
         {/* Audit trail */}
         <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] shadow-sm">
-          <div className="flex items-center justify-between border-b border-[var(--color-border-tertiary)] px-5 py-3">
-            <div className="flex items-center gap-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Audit trail</div>
-              <span className="text-[10px] text-[var(--color-text-tertiary)]">{events.length} event{events.length !== 1 ? 's' : ''}</span>
-            </div>
+          <div className="border-b border-[var(--color-border-tertiary)] px-5 py-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Audit trail</div>
+                <span className="text-[10px] text-[var(--color-text-tertiary)]">{events.length} event{events.length !== 1 ? 's' : ''}{(filterVerdict !== 'all' || filterModel !== 'all') ? ' (filtered)' : ''}</span>
+              </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={refreshLedger}
@@ -363,6 +425,25 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
               >
                 {ledgerLoading ? <span className="h-1.5 w-1.5 rounded-full bg-[#1d4ed8] animate-pulse" /> : '↻'} Refresh
               </button>
+            </div>
+            </div>
+            {/* Filter bar */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] text-[var(--color-text-tertiary)]">Filter:</span>
+              {(['all', 'admitted', 'flagged', 'blocked'] as const).map((v) => (
+                <button key={v} onClick={() => setFilterVerdict(v)}
+                  className={`rounded-full border px-2 py-0.5 text-[10px] capitalize transition ${filterVerdict === v ? 'border-[#1d4ed8] bg-[rgba(29,78,216,0.10)] font-semibold text-[#1d4ed8]' : 'border-[var(--color-border-tertiary)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-secondary)]'}`}>
+                  {v}
+                </button>
+              ))}
+              {uniqueModels.length > 2 && uniqueModels.slice(0, 6).map((m) => (
+                <button key={m} onClick={() => setFilterModel(m)}
+                  className={`rounded-full border px-2 py-0.5 text-[10px] transition ${filterModel === m ? 'border-[#7c3aed] bg-[rgba(124,58,237,0.10)] font-semibold text-[#7c3aed]' : 'border-[var(--color-border-tertiary)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-secondary)]'}`}>
+                  {m === 'all' ? 'All models' : m}
+                </button>
+              ))}
+            </div>
+          <div className="flex items-center gap-2 mt-0">
               {events.length > 0 && (
                 <button
                   onClick={exportAuditTrail}

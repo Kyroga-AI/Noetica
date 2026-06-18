@@ -89,6 +89,12 @@ export function HolographMeSurface() {
   const [triggering, setTriggering]   = useState(false)
   const [selectedBelief, setSelectedBelief] = useState<BeliefSnapshot | null>(null)
   const [tab, setTab] = useState<'overview' | 'beliefs' | 'laws' | 'world'>('overview')
+  // Observer errors + manual ingest
+  const [observerError, setObserverError] = useState<string | null>(null)
+  const [logInput, setLogInput]           = useState('')
+  const [logGoal, setLogGoal]             = useState('')
+  const [logging, setLogging]             = useState(false)
+  const [lastIngestId, setLastIngestId]   = useState<string | null>(null)
 
   const fetchAll = useCallback(async () => {
     try {
@@ -99,12 +105,19 @@ export function HolographMeSurface() {
         fetch(amUrl('/api/gaia/world?limit=8'),  { signal: AbortSignal.timeout(5000) }),
         fetch(amUrl('/api/gaia/loop/status'),    { signal: AbortSignal.timeout(5000) }),
       ])
+      if (!twinRes.ok && !beliefsRes.ok) {
+        setObserverError(`Agent-machine not responding (HTTP ${twinRes.status})`)
+      } else {
+        setObserverError(null)
+      }
       if (twinRes.ok)    setTwinState(await twinRes.json() as TwinState)
       if (beliefsRes.ok) { const d = await beliefsRes.json() as { beliefs: BeliefSnapshot[] }; setBeliefs(d.beliefs); if (d.beliefs[0] && !selectedBelief) setSelectedBelief(d.beliefs[0]) }
       if (lawsRes.ok)    { const d = await lawsRes.json() as { laws: CandidateLaw[] }; setLaws(d.laws) }
       if (worldRes.ok)   { const d = await worldRes.json() as { snapshots: WorldSnapshot[] }; setWorldStates(d.snapshots) }
       if (loopRes.ok)    setLoopStatus(await loopRes.json() as LoopStatus)
-    } catch { /* agent-machine may not be running */ }
+    } catch (err) {
+      setObserverError(`Cannot reach agent-machine: ${err instanceof Error ? err.message : String(err)}`)
+    }
     setLoading(false)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -131,6 +144,38 @@ export function HolographMeSurface() {
       setTimeout(() => { void fetchAll() }, 3000)
     } catch { /* ignore */ }
     setTriggering(false)
+  }
+
+  async function logActivity() {
+    if (logging || !logInput.trim()) return
+    setLogging(true)
+    try {
+      const res = await fetch(amUrl('/api/gaia/observe'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          step_summary: logInput.trim(),
+          goal: logGoal.trim() || 'manual log',
+          app_context: 'HolographMe manual',
+          attention_tags: ['manual', 'user-logged'],
+          captured_at: new Date().toISOString(),
+        }),
+        signal: AbortSignal.timeout(8000),
+      })
+      if (res.ok) {
+        const data = await res.json() as { observation_id?: string }
+        setLastIngestId(data.observation_id ?? null)
+        setLogInput('')
+        setLogGoal('')
+        setObserverError(null)
+        setTimeout(() => { void fetchAll() }, 500)
+      } else {
+        setObserverError(`Observe failed: HTTP ${res.status}`)
+      }
+    } catch (err) {
+      setObserverError(`Log failed: ${err instanceof Error ? err.message : String(err)}`)
+    }
+    setLogging(false)
   }
 
   async function startLoop() {
@@ -160,6 +205,24 @@ export function HolographMeSurface() {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+
+      {/* Observer error banner */}
+      {observerError && (
+        <div className="flex items-center gap-3 border-b border-[#fecaca] bg-[#fef2f2] px-6 py-2.5">
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#dc2626]" />
+          <p className="flex-1 text-xs text-[#dc2626]">{observerError}</p>
+          <button onClick={() => setObserverError(null)} className="text-[10px] text-[#dc2626] hover:underline">Dismiss</button>
+        </div>
+      )}
+
+      {/* Observation receipt */}
+      {lastIngestId && (
+        <div className="flex items-center gap-3 border-b border-[#dcfce7] bg-[#f0fdf4] px-6 py-2">
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#22c55e]" />
+          <p className="flex-1 text-xs text-[#16a34a]">Observation logged · <span className="font-mono">{lastIngestId.slice(0, 24)}</span></p>
+          <button onClick={() => setLastIngestId(null)} className="text-[10px] text-[#16a34a] hover:underline">×</button>
+        </div>
+      )}
 
       {/* Header */}
       <div className="border-b border-[var(--color-border-secondary)] px-6 py-4">
@@ -242,6 +305,35 @@ export function HolographMeSurface() {
         {/* ── Overview ── */}
         {tab === 'overview' && (
           <div className="mx-auto max-w-2xl space-y-5">
+
+            {/* Manual activity log */}
+            <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5">
+              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] mb-3">Log activity</div>
+              <div className="space-y-2">
+                <input
+                  value={logInput}
+                  onChange={(e) => setLogInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void logActivity() } }}
+                  placeholder="What are you working on? (Enter to log)"
+                  className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#6366f1]"
+                />
+                <div className="flex items-center gap-2">
+                  <input
+                    value={logGoal}
+                    onChange={(e) => setLogGoal(e.target.value)}
+                    placeholder="Goal (optional)"
+                    className="flex-1 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-xs text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#6366f1]"
+                  />
+                  <button
+                    onClick={() => void logActivity()}
+                    disabled={logging || !logInput.trim()}
+                    className="rounded-xl bg-[#6366f1] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#4f46e5] disabled:opacity-40"
+                  >
+                    {logging ? 'Logging…' : 'Log'}
+                  </button>
+                </div>
+              </div>
+            </div>
 
             {/* Current focus */}
             {latestBelief ? (

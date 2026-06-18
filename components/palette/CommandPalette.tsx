@@ -19,6 +19,11 @@ type CommandPaletteProps = {
   onSwitchSurface: (surface: ActiveSurface) => void
   onToggleSidebar: () => void
   onToggleInspector: () => void
+  // Optional quick-create callbacks — if absent, fall back to surface navigation
+  onNewNote?: () => void
+  onNewArtifact?: () => void
+  onNewWorkroom?: () => void
+  onRunGaiaLoop?: () => void
 }
 
 export function CommandPalette({
@@ -29,13 +34,21 @@ export function CommandPalette({
   onSwitchSurface,
   onToggleSidebar,
   onToggleInspector,
+  onNewNote,
+  onNewArtifact,
+  onNewWorkroom,
+  onRunGaiaLoop,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const actions = useMemo<PaletteAction[]>(() => [
-    { id: 'new_chat',              label: 'New chat',                   shortcut: '⌘N', group: 'Chat',     run: () => { onNewChat(); onClose() } },
+    { id: 'new_chat',     label: 'New chat',     shortcut: '⌘N', group: 'Create', run: () => { onNewChat(); onClose() } },
+    { id: 'new_note',     label: 'New note',                     group: 'Create', run: () => { if (onNewNote) { onNewNote(); onClose() } else { onSwitchSurface('notes'); onClose() } } },
+    { id: 'new_workroom', label: 'New workroom',                 group: 'Create', run: () => { if (onNewWorkroom) { onNewWorkroom(); onClose() } else { onSwitchSurface('workrooms'); onClose() } } },
+    { id: 'new_artifact', label: 'New artifact',                 group: 'Create', run: () => { if (onNewArtifact) { onNewArtifact(); onClose() } else { onSwitchSurface('artifacts'); onClose() } } },
+    { id: 'run_gaia',     label: 'Run GAIA synthesis now',       group: 'Create', run: () => { onRunGaiaLoop?.(); onSwitchSurface('holographme'); onClose() } },
     { id: 'surface_chat',         label: 'Switch to Workspace',        shortcut: '⌘1', group: 'Surfaces', run: () => { onSwitchSurface('chat');       onClose() } },
     { id: 'surface_notes',        label: 'Switch to Notes',            shortcut: '⌘2', group: 'Surfaces', run: () => { onSwitchSurface('notes');       onClose() } },
     { id: 'surface_workrooms',    label: 'Switch to Workrooms',        shortcut: '⌘3', group: 'Surfaces', run: () => { onSwitchSurface('workrooms');   onClose() } },

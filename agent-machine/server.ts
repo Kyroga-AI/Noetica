@@ -44,7 +44,7 @@ import { consolidate } from '../lib/hellgraph/consolidate.js'
 import { recordAttentionSnapshot, pushSnapshotToPrometheusd, ingestPrometheusCandidate } from '../lib/hellgraph/prometheus.js'
 import { isOllamaRunning, listLocalModels, pullModel, streamOllama } from './lib/ollama.js'
 import { retrieve } from './lib/retrieval.js'
-import { getGraph, graphHealth, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
+import { getGraph, graphHealth, graphSparql, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
 import { getHellGraph } from '../lib/hellgraph/store.js'
 import { runGremlin } from '../lib/hellgraph/gremlin.js'
 import { buildWorkspacePrefix, invalidatePrefix } from './lib/context-cache.js'
@@ -1565,6 +1565,34 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // POST /api/graph/sparql — SPARQL SELECT/CONSTRUCT/ASK over HellGraph property graph
+  if (req.method === 'POST' && url.pathname === '/api/graph/sparql') {
+    void (async () => {
+      setCORSHeaders(res)
+      try {
+        const body = await new Promise<string>((resolve, reject) => {
+          let d = ''
+          req.on('data', (c: Buffer) => { d += c.toString() })
+          req.on('end', () => resolve(d))
+          req.on('error', reject)
+        })
+        const { query } = JSON.parse(body) as { query: string }
+        if (!query || typeof query !== 'string') {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: 'query field required' }))
+          return
+        }
+        const result = graphSparql(query)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(result))
+      } catch (err) {
+        res.writeHead(400, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: String(err) }))
+      }
+    })()
+    return
+  }
+
   // POST /api/graph/cypher — Cypher query proxy to the HellGraph sidecar
   if (req.method === 'POST' && url.pathname === '/api/graph/cypher') {
     void (async () => {
@@ -2227,8 +2255,8 @@ server.listen(PORT, '127.0.0.1', () => {
   })()
 
   // Memory consolidation sleep pass: temporal decay, MERGE_PROPOSAL promotion, deep PLN,
-  // VLTI promotion. Runs in background — never blocks the server from accepting requests.
-  void (async () => {
+  // VLTI promotion. Runs at boot and every 6 hours — never blocks the server.
+  function runConsolidation(): void {
     try {
       const cr = consolidate()
       console.log(
@@ -2239,7 +2267,25 @@ server.listen(PORT, '127.0.0.1', () => {
     } catch (e) {
       console.warn('[noetica-am] Consolidation error (non-fatal):', e)
     }
-  })()
+  }
+  void (async () => { runConsolidation() })()
+  // Re-run every 6 hours for continuous memory hygiene
+  setInterval(runConsolidation, 6 * 60 * 60 * 1000).unref()
+
+  // GAIA superconscious loop auto-start from env.
+  // Set NOETICA_GAIA_AUTO_LOOP=1 to start automatically on boot.
+  // The loop uses ANTHROPIC_API_KEY or OPENAI_API_KEY from env.
+  if (process.env['NOETICA_GAIA_AUTO_LOOP'] === '1') {
+    const loopKeys: { anthropic?: string; openai?: string } = {}
+    if (process.env['ANTHROPIC_API_KEY']) loopKeys.anthropic = process.env['ANTHROPIC_API_KEY']
+    if (process.env['OPENAI_API_KEY'])    loopKeys.openai    = process.env['OPENAI_API_KEY']
+    if (loopKeys.anthropic || loopKeys.openai) {
+      startSuperconsciousLoop(loopKeys)
+      console.log('[noetica-am] GAIA superconscious loop auto-started (NOETICA_GAIA_AUTO_LOOP=1)')
+    } else {
+      console.warn('[noetica-am] NOETICA_GAIA_AUTO_LOOP=1 but no ANTHROPIC_API_KEY or OPENAI_API_KEY found — loop not started')
+    }
+  }
 
   // ECAN session-boundary decay: STI values accumulated in prior sessions fade on boot.
   // This makes "working memory" actually behave like working memory — recent mentions

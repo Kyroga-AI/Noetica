@@ -53,9 +53,15 @@ export interface CairnContext {
   created_at: string
 }
 
+export interface CairnSequenceStep {
+  kind: 'node_filter' | 'edge_filter'
+  expr: string
+}
+
 export interface CairnStepArgs {
   dir?: 'out' | 'in' | 'both'
   max_level?: number
+  sequence?: CairnSequenceStep[]
   relationship_filter?: string
   predicate_filter?: string
   terminators?: string[]
@@ -404,6 +410,42 @@ function executeStep(
       const before = rt.currentFrontier.length
       newFrontier = rt.currentFrontier.slice(0, k)
       metrics = { fanout: before, dedup_ratio: 0, cap_hit: before > k, elapsed_ms: Date.now() - t0 }
+      break
+    }
+
+    case 'sequence_expand': {
+      // Multi-hop sequence expansion with per-hop boundary discipline.
+      // args.sequence defines alternating node/edge filter passes; absent sequence
+      // falls back to args.max_level hops of plain expand with the CairnPath invariant.
+      const hops = args.max_level ?? 1
+      let seq = rt.currentFrontier
+      let totalFanout = 0
+      let totalDeduped = 0
+      let capped = false
+
+      for (let hop = 0; hop < hops; hop++) {
+        const hopArgs: CairnStepArgs = {
+          ...args,
+          dir: args.dir ?? 'both',
+          relationship_filter: args.sequence?.[hop * 2 + 1]?.expr ?? args.relationship_filter,
+        }
+        const { result, metrics: m } = expandInvariant(space, seq, hopArgs, cap_k)
+        totalFanout += m.fanout
+        totalDeduped += Math.round(m.fanout * m.dedup_ratio)
+        capped = capped || m.cap_hit
+        seq = result
+        if (seq.length === 0) break
+      }
+
+      newFrontier = seq
+      metrics = {
+        fanout: totalFanout,
+        dedup_ratio: totalFanout > 0 ? totalDeduped / totalFanout : 0,
+        cap_hit: capped,
+        elapsed_ms: Date.now() - t0,
+        db_hits: totalFanout,
+      }
+      rt.hops += hops
       break
     }
 
