@@ -229,20 +229,32 @@ jobs:
           VERSION=${{ needs.release-macos.outputs.version }}
           TAG=${{ github.ref_name }}
 
-          # Use browserDownloadUrl (the actual CDN download URL, not the API URL)
-          DMG_URL=$(gh release view "$TAG" \
-            --repo "${{ github.repository }}" \
-            --json assets \
-            --jq '.assets[] | select(.name | endswith(".dmg")) | .browserDownloadUrl' \
-            | head -1)
+          # Retry asset resolution — the dmg can take a moment to propagate after
+          # tauri-action publishes the release.
+          DMG_URL=""
+          for attempt in 1 2 3 4 5 6; do
+            DMG_URL=$(gh release view "$TAG" \
+              --repo "${{ github.repository }}" \
+              --json assets \
+              --jq '.assets[] | select(.name | endswith(".dmg")) | .browserDownloadUrl' \
+              | head -1)
+            [ -n "$DMG_URL" ] && break
+            echo "dmg not found yet (attempt $attempt) — waiting 20s"; sleep 20
+          done
 
+          # Complete-or-fail: never commit a half-populated cask (version set but
+          # url/sha empty = broken `brew install`). Fail loudly instead.
           if [ -z "$DMG_URL" ]; then
-            echo "No dmg asset found — skipping cask update"
-            exit 0
+            echo "::error::No .dmg asset found for $TAG after retries — refusing to write an incomplete cask"
+            exit 1
           fi
 
           curl -fsSL "$DMG_URL" -o noetica.dmg
           SHA256=$(shasum -a 256 noetica.dmg | awk '{print $1}')
+          if [ -z "$SHA256" ]; then
+            echo "::error::Failed to compute dmg sha256 — refusing to write an incomplete cask"
+            exit 1
+          fi
           echo "url=$DMG_URL" >> "$GITHUB_OUTPUT"
           echo "sha256=$SHA256" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
@@ -264,6 +276,10 @@ jobs:
           VERSION=${TAG#v}
           SHA256=${{ steps.asset.outputs.sha256 }}
           URL=${{ steps.asset.outputs.url }}
+          if [ -z "$SHA256" ] || [ -z "$URL" ]; then
+            echo "::error::cask url/sha empty — aborting (the resolve step should have failed first)"
+            exit 1
+          fi
           sed -i "s|version \".*\"|version \"$VERSION\"|g" "$FILE"
           sed -i "s|sha256 \".*\"|sha256 \"$SHA256\"|g" "$FILE"
           sed -i "s|url \".*\"|url \"$URL\"|g" "$FILE"
