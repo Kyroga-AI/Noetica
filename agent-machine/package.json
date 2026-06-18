@@ -20,6 +20,6 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "@socioprophet/hellgraph": "github:SocioProphet/hellgraph#v0.4.1"
+    "@socioprophet/hellgraph": "github:SocioProphet/hellgraph#v0.4.2"
   }
 }
