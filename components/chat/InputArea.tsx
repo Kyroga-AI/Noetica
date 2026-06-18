@@ -160,14 +160,12 @@ export function InputArea({
     }
   }
 
-  async function handleAttachClick() {
-    if (isTauri()) {
-      const picked = await openNativeFilePicker()
-      const remaining = MAX_ATTACHMENTS - attachments.length
-      setAttachments((prev) => [...prev, ...picked.slice(0, remaining)])
-    } else {
-      fileInputRef.current?.click()
-    }
+  function handleAttachClick() {
+    // Always use the webview's native <input type=file> picker. The Tauri dialog
+    // plugin (@tauri-apps/plugin-dialog) is not bundled/registered, so the old
+    // isTauri() branch failed silently and uploads appeared broken. The HTML input
+    // opens the OS picker fine inside the Tauri webview and routes through addFiles.
+    fileInputRef.current?.click()
   }
 
   function autoResize(el: HTMLTextAreaElement) {
