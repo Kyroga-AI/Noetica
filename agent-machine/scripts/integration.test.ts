@@ -86,6 +86,38 @@ test('learning trends endpoint exposes quality/bandit/graph axes', async () => {
   assert.ok('avg_worth' in body.history[0] && 'derived_edges' in body.history[0], 'snapshot shape')
 })
 
+test('RAG: ingested document is retrieved into chat context (semantic-documents)', async () => {
+  // Ingest a tiny doc, then start a chat whose query matches it. The retrieval
+  // event fires before the LLM call, so we can assert document grounding even
+  // without Ollama in CI (semanticSearch lexical fallback surfaces the chunk).
+  const ing = await post('/api/ingest/document', {
+    filename: 'baxter.txt',
+    content: 'The Baxter facility in North Cove shut down after Hurricane Helene flooding in September 2024.',
+  })
+  assert.equal(ing.status, 200)
+  assert.ok(ing.body.chunks >= 1, 'document chunked')
+
+  // Read the SSE stream and look for a semantic-documents retrieval event.
+  const r = await fetch(`${BASE}/api/chat`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'What caused the Baxter facility shutdown?' }] }),
+    signal: AbortSignal.timeout(8000),
+  }).catch(() => null)
+  let docHit = false
+  if (r && r.body) {
+    const reader = r.body.getReader(); const dec = new TextDecoder(); let buf = ''
+    const deadline = Date.now() + 7000
+    while (Date.now() < deadline) {
+      const { done, value } = await reader.read().catch(() => ({ done: true, value: undefined }))
+      if (done) break
+      buf += dec.decode(value as Uint8Array, { stream: true })
+      if (/semantic-documents/.test(buf)) { docHit = true; break }
+    }
+    await reader.cancel().catch(() => {})
+  }
+  assert.ok(docHit, 'chat retrieval surfaced the ingested document')
+})
+
 test('flags endpoint reports feature-flag state + graduation status', async () => {
   const { status, body } = await get('/api/flags')
   assert.equal(status, 200)
