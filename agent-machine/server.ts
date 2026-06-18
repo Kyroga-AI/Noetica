@@ -2914,18 +2914,33 @@ const server = http.createServer((req, res) => {
 const LEARN_CAPABILITIES = 'urn:noetica:learning:capabilities'
 const LEARN_QUALITY      = 'urn:noetica:learning:quality'
 const LEARN_CONTRA       = 'urn:noetica:learning:contradictions'
+// Bump when a persisted blob's shape changes incompatibly. On mismatch we SKIP
+// hydration (rebuild fresh) rather than mis-parse old data into new structures.
+const LEARN_SCHEMA_VERSION = 1
+
+// Read a LearningState blob only if its schema_version matches; else skip safely.
+function readLearnBlob(id: string): string | null {
+  const node = getHellGraph().getNode(id)
+  if (!node) return null
+  const v = Number(node.properties['schema_version'] ?? 0)
+  if (v !== LEARN_SCHEMA_VERSION) {
+    console.warn(`[learning] ${id}: schema v${v} != v${LEARN_SCHEMA_VERSION} — skipping (will rebuild)`)
+    return null
+  }
+  const data = node.properties['data']
+  return data ? String(data) : null
+}
 
 function loadLearningState(): void {
   try {
-    const g = getHellGraph()
-    const cap = g.getNode(LEARN_CAPABILITIES)?.properties['data']
-    if (cap) console.log(`[learning] restored ${hydrateCapabilities(String(cap))} capability rows`)
-    const q = g.getNode(LEARN_QUALITY)?.properties['data']
-    if (q) console.log(`[learning] restored ${hydrateQuality(String(q))} quality samples`)
-    const c = g.getNode(LEARN_CONTRA)?.properties['data']
+    const cap = readLearnBlob(LEARN_CAPABILITIES)
+    if (cap) console.log(`[learning] restored ${hydrateCapabilities(cap)} capability rows`)
+    const q = readLearnBlob(LEARN_QUALITY)
+    if (q) console.log(`[learning] restored ${hydrateQuality(q)} quality samples`)
+    const c = readLearnBlob(LEARN_CONTRA)
     if (c) {
       try {
-        const arr = JSON.parse(String(c)) as ContradictionRecord[]
+        const arr = JSON.parse(c) as ContradictionRecord[]
         _contradictions.push(...arr.slice(-CONTRADICTION_RING_SIZE))
         console.log(`[learning] restored ${_contradictions.length} contradictions`)
       } catch { /* skip */ }
@@ -2937,9 +2952,10 @@ function saveLearningState(): void {
   try {
     const g = getHellGraph()
     const now = new Date().toISOString()
-    g.addNode(LEARN_CAPABILITIES, ['LearningState'], { data: serializeCapabilities(), updated_at: now })
-    g.addNode(LEARN_QUALITY,      ['LearningState'], { data: serializeQuality(),      updated_at: now })
-    g.addNode(LEARN_CONTRA,       ['LearningState'], { data: JSON.stringify(_contradictions), updated_at: now })
+    const meta = { schema_version: LEARN_SCHEMA_VERSION, updated_at: now }
+    g.addNode(LEARN_CAPABILITIES, ['LearningState'], { ...meta, data: serializeCapabilities() })
+    g.addNode(LEARN_QUALITY,      ['LearningState'], { ...meta, data: serializeQuality() })
+    g.addNode(LEARN_CONTRA,       ['LearningState'], { ...meta, data: JSON.stringify(_contradictions) })
   } catch (e) { console.warn('[learning] save failed', e instanceof Error ? e.message : String(e)) }
 }
 
