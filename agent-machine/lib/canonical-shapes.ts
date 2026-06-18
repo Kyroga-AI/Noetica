@@ -20,5 +20,5 @@ ex:FeatureAtomShape a sh:NodeShape ;
 
 ex:InteractionShape a sh:NodeShape ;
   sh:targetClass ex:Interaction ;
-  sh:property [ sh:path ex:run_id ; sh:minCount 1 ] .
+  sh:property [ sh:path ex:runId ; sh:minCount 1 ] .
 `.trim()
