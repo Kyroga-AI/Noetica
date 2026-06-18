@@ -554,6 +554,14 @@ export function AppShell() {
   function handleStop() {
     abortControllerRef.current?.abort()
     stopSpeaking()
+    // Mark the in-flight assistant message(s) — those after the last user turn —
+    // as stopped so the UI shows a clear "Stopped" badge instead of a frozen stream.
+    setMessages((current) => {
+      const lastUserIdx = current.map((m) => m.role).lastIndexOf('user')
+      return current.map((m, i) =>
+        i > lastUserIdx && m.role === 'assistant' ? { ...m, stopped: true } : m,
+      )
+    })
   }
 
   async function handleFanout(content: string, attachments: PendingAttachment[]) {

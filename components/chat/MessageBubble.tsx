@@ -434,6 +434,12 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
             )}
           </div>
         )}
+        {message.stopped && (
+          <div className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-tertiary)]">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#d97706]" />
+            Stopped
+          </div>
+        )}
         {message.steering_result ? <SteeringDiff result={message.steering_result} /> : null}
         {message.governance ? <GovernanceTrail trace={message.governance} /> : null}
       </div>

@@ -20,16 +20,24 @@ export function RuntimeStatus() {
   useEffect(() => {
     let cancelled = false
 
-    loadNoeticaStatus()
-      .then((status) => {
-        if (!cancelled) setState({ state: 'ready', status })
-      })
-      .catch((error) => {
-        if (!cancelled) setState({ state: 'error', error: error instanceof Error ? error.message : 'status_unavailable' })
-      })
+    const poll = () => {
+      loadNoeticaStatus()
+        .then((status) => {
+          if (!cancelled) setState({ state: 'ready', status })
+        })
+        .catch((error) => {
+          if (!cancelled) setState({ state: 'error', error: error instanceof Error ? error.message : 'status_unavailable' })
+        })
+    }
+
+    poll()
+    // Re-poll so the badge reflects the live runtime — if agent-machine drops
+    // mid-session the dot turns red instead of staying stale-green.
+    const interval = setInterval(poll, 10_000)
 
     return () => {
       cancelled = true
+      clearInterval(interval)
     }
   }, [])
 
@@ -92,6 +100,13 @@ function StatusShell({
   const toneClass = badgeClassByStatus[tone] ?? badgeClassByStatus.loading
   const visibleRemediations = remediations.slice(0, 3)
   const hasRemediations = visibleRemediations.length > 0
+  // Live connection dot: green = ready, red = error/offline, amber = degraded, gray = loading.
+  const dotClass =
+    tone === 'error' ? 'bg-[#dc2626]'
+    : tone === 'loading' ? 'bg-[var(--color-text-tertiary)] animate-pulse'
+    : tone === 'not_configured' ? 'bg-[#d97706]'
+    : tone === 'ready' ? 'bg-[#16a34a]'
+    : 'bg-[#16a34a]'
 
   return (
     <div className="relative hidden xl:block">
@@ -99,6 +114,7 @@ function StatusShell({
         onClick={() => setOpen((v) => !v)}
         className={`flex items-center gap-2 rounded-2xl border px-3 py-1.5 text-xs shadow-sm transition ${toneClass}`}
       >
+        <span className={`h-2 w-2 shrink-0 rounded-full ${dotClass}`} aria-hidden />
         <span className="font-semibold">{title}</span>
         <dl className="flex items-center gap-2">
           {items.slice(0, 3).map(([label, value]) => (

@@ -31,4 +31,6 @@ export interface ChatMessage {
   tool_calls?: ToolCallRecord[]
   /** Results returned to the model for each tool call */
   tool_results?: ToolResultRecord[]
+  /** True when the user cancelled generation mid-stream */
+  stopped?: boolean
 }
