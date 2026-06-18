@@ -63,6 +63,30 @@ interface CrystallizedArtifact {
 
 const _sessions = new Map<string, MeshRushSession>()
 
+// GC: purge sessions idle for more than SESSION_TTL_MS.
+// Prevents unbounded memory growth when clients disconnect without cleanup.
+const SESSION_TTL_MS = 60 * 60 * 1000  // 1 hour
+
+function touchSession(session: MeshRushSession): void {
+  session.updatedAt = new Date().toISOString()
+}
+
+function getSession(id: string): MeshRushSession | undefined {
+  const s = _sessions.get(id)
+  if (s) touchSession(s)
+  return s
+}
+
+setInterval(() => {
+  const cutoff = Date.now() - SESSION_TTL_MS
+  for (const [id, session] of _sessions) {
+    if (new Date(session.updatedAt).getTime() < cutoff) {
+      _sessions.delete(id)
+      console.log(`[meshrush] Expired idle session ${id}`)
+    }
+  }
+}, 60_000).unref()
+
 // ─── BFS subgraph extraction ──────────────────────────────────────────────────
 // MeshRush "graph view" = n-hop neighborhood of seed atoms, ECAN-weighted
 // (atoms with higher STI are expanded first — attention guides diffusion).
@@ -154,10 +178,12 @@ export function handleMeshRushRequest(
         const seeds = req_.seed_handles
         if (!Array.isArray(seeds) || seeds.length === 0) throw new Error('seed_handles required')
 
+        const MAX_ATOMS_HARD_LIMIT = 5000
+        const maxAtoms = Math.min(req_.max_atoms ?? 200, MAX_ATOMS_HARD_LIMIT)
         const graphView = extractSubgraph(
           space, seeds,
-          req_.max_depth ?? 3,
-          req_.max_atoms ?? 200,
+          Math.min(req_.max_depth ?? 3, 10),
+          maxAtoms,
         )
 
         const session: MeshRushSession = {
@@ -196,7 +222,7 @@ export function handleMeshRushRequest(
   if (req.method === 'GET' && /^\/api\/meshrush\/session\/[^/]+$/.test(pathname)) {
     setCORS()
     const sessionId = pathname.split('/').pop()!
-    const session = _sessions.get(sessionId)
+    const session = getSession(sessionId)
     if (!session) {
       res.writeHead(404, { 'content-type': 'application/json' })
       res.end(JSON.stringify({ error: 'session_not_found' }))
@@ -218,7 +244,7 @@ export function handleMeshRushRequest(
     const sessionId = pathname.split('/')[4]!
     readBody(req).then((body) => {
       try {
-        const session = _sessions.get(sessionId)
+        const session = getSession(sessionId)
         if (!session) throw new Error('session_not_found')
         if (session.status !== 'active') throw new Error(`session_${session.status}`)
 
@@ -276,7 +302,7 @@ export function handleMeshRushRequest(
     const sessionId = pathname.split('/')[4]!
     readBody(req).then((body) => {
       try {
-        const session = _sessions.get(sessionId)
+        const session = getSession(sessionId)
         if (!session) throw new Error('session_not_found')
 
         const req_ = JSON.parse(body) as {
@@ -355,7 +381,7 @@ export function handleMeshRushRequest(
   if (req.method === 'GET' && /^\/api\/meshrush\/session\/[^/]+\/evidence$/.test(pathname)) {
     setCORS()
     const sessionId = pathname.split('/')[4]!
-    const session = _sessions.get(sessionId)
+    const session = getSession(sessionId)
     if (!session) {
       res.writeHead(404, { 'content-type': 'application/json' })
       res.end(JSON.stringify({ error: 'session_not_found' }))

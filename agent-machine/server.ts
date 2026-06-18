@@ -543,31 +543,71 @@ async function executeToolWithRetry(
   return 'Error: tool max retries exceeded'
 }
 
+// Hard 25-second ceiling per tool call — prevents a single hung tool from
+// blocking the entire chat turn indefinitely.
+const TOOL_TIMEOUT_MS = 25_000
+
+async function executeToolWithTimeout(
+  name: string,
+  input: Record<string, unknown>,
+  keys: { anthropic?: string; openai?: string; serper?: string },
+): Promise<string> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<string>((resolve) => {
+    timer = setTimeout(() => resolve(`Error: tool ${name} timed out after ${TOOL_TIMEOUT_MS}ms`), TOOL_TIMEOUT_MS)
+  })
+  try {
+    const result = await Promise.race([executeToolWithRetry(name, input, keys), timeout])
+    return result
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 async function executeTool(
   name: string,
   input: Record<string, unknown>,
   keys: { anthropic?: string; openai?: string; serper?: string },
 ): Promise<string> {
+  // Resolve a user-supplied path safely: expand ~, then ensure it stays
+  // within the home directory or /tmp. Blocks traversal attacks ("../../etc").
+  function safePath(raw: string): { resolved: string; error?: string } {
+    if (!raw.trim()) return { resolved: '', error: 'path required' }
+    const expanded = raw.startsWith('~') ? path.join(os.homedir(), raw.slice(1)) : raw
+    const resolved = path.resolve(expanded)
+    const home = path.resolve(os.homedir())
+    if (!resolved.startsWith(home) && !resolved.startsWith('/tmp')) {
+      return { resolved, error: `path must be under home directory or /tmp (got ${resolved})` }
+    }
+    return { resolved }
+  }
+
   switch (name) {
     case 'web_search': {
-      const query = String(input['query'] ?? '')
+      const query = String(input['query'] ?? '').trim().slice(0, 500)
+      if (!query) return 'Error: query is required'
       return webSearch(query, keys.serper ?? process.env['SERPER_API_KEY'])
     }
     case 'generate_image': {
-      const prompt = String(input['prompt'] ?? '')
+      const prompt = String(input['prompt'] ?? '').trim().slice(0, 1000)
+      if (!prompt) return 'Error: prompt is required'
       const openaiKey = keys.openai ?? process.env['OPENAI_API_KEY']
       if (!openaiKey) return 'Error: No OpenAI API key — cannot generate image.'
       return generateImage(prompt, openaiKey)
     }
     case 'code_execute': {
-      const language  = String(input['language'] ?? 'javascript') as 'python' | 'javascript'
-      const code      = String(input['code'] ?? '')
-      const sessionId = input['session_id'] ? String(input['session_id']) : undefined
-      return executeCode(language, code, sessionId)
+      const language = String(input['language'] ?? 'javascript')
+      if (language !== 'python' && language !== 'javascript') {
+        return `Error: language must be 'python' or 'javascript', got '${language}'`
+      }
+      const code = String(input['code'] ?? '').slice(0, 50_000)
+      if (!code.trim()) return 'Error: code is required'
+      const sessionId = input['session_id'] ? String(input['session_id']).slice(0, 100) : undefined
+      return executeCode(language as 'python' | 'javascript', code, sessionId)
     }
     case 'read_file': {
-      const rawPath = String(input['path'] ?? '')
-      const resolved = rawPath.startsWith('~') ? path.join(os.homedir(), rawPath.slice(1)) : rawPath
+      const { resolved, error } = safePath(String(input['path'] ?? ''))
+      if (error) return `Error: ${error}`
       try {
         const stat = fs.statSync(resolved)
         if (stat.size > 2 * 1024 * 1024) return `Error: File too large (${stat.size} bytes). Max 2 MB.`
@@ -577,9 +617,9 @@ async function executeTool(
       }
     }
     case 'write_file': {
-      const rawPath = String(input['path'] ?? '')
-      const content = String(input['content'] ?? '')
-      const resolved = rawPath.startsWith('~') ? path.join(os.homedir(), rawPath.slice(1)) : rawPath
+      const { resolved, error } = safePath(String(input['path'] ?? ''))
+      if (error) return `Error: ${error}`
+      const content = String(input['content'] ?? '').slice(0, 10 * 1024 * 1024)
       try {
         fs.mkdirSync(path.dirname(resolved), { recursive: true })
         fs.writeFileSync(resolved, content, 'utf-8')
@@ -589,8 +629,8 @@ async function executeTool(
       }
     }
     case 'list_directory': {
-      const rawPath = String(input['path'] ?? '.')
-      const resolved = rawPath.startsWith('~') ? path.join(os.homedir(), rawPath.slice(1)) : rawPath
+      const { resolved, error } = safePath(String(input['path'] ?? '.'))
+      if (error) return `Error: ${error}`
       try {
         const entries = fs.readdirSync(resolved).map((name) => {
           const stat = fs.statSync(path.join(resolved, name))
@@ -1256,7 +1296,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           turnToolCalls.map(async (tc) => ({
             toolCallId: tc.id,
             name: tc.name,
-            result: await executeToolWithRetry(tc.name, tc.input, {
+            result: await executeToolWithTimeout(tc.name, tc.input, {
               anthropic: anthropicKey,
               openai: openaiKey,
               serper: keys.serper,
@@ -1323,7 +1363,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           turnToolCalls.map(async (tc) => ({
             toolUseId: tc.id,
             name: tc.name,
-            result: await executeToolWithRetry(tc.name, tc.input, {
+            result: await executeToolWithTimeout(tc.name, tc.input, {
               anthropic: anthropicKey,
               openai: openaiKey,
               serper: keys.serper,
@@ -1390,7 +1430,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           turnToolCalls.map(async (tc) => ({
             toolCallId: tc.id,
             name: tc.name,
-            result: await executeToolWithRetry(tc.name, tc.input, {
+            result: await executeToolWithTimeout(tc.name, tc.input, {
               anthropic: anthropicKey,
               openai: openaiKey,
               serper: keys.serper,
@@ -1693,7 +1733,7 @@ const server = http.createServer((req, res) => {
   // GET /api/gaia/beliefs — recent BeliefSnapshots
   if (req.method === 'GET' && url.pathname === '/api/gaia/beliefs') {
     setCORSHeaders(res)
-    const limit = parseInt(url.searchParams.get('limit') ?? '5', 10)
+    const limit = Math.max(1, Math.min(parseInt(url.searchParams.get('limit') ?? '5', 10), 100))
     const beliefs = getRecentBeliefs(limit).map((b) => ({
       id: b.id,
       created_at:      b.props['created_at'],
@@ -1712,7 +1752,7 @@ const server = http.createServer((req, res) => {
   // GET /api/gaia/laws — recent CandidateLaws
   if (req.method === 'GET' && url.pathname === '/api/gaia/laws') {
     setCORSHeaders(res)
-    const limit = parseInt(url.searchParams.get('limit') ?? '20', 10)
+    const limit = Math.max(1, Math.min(parseInt(url.searchParams.get('limit') ?? '20', 10), 500))
     res.writeHead(200, { 'content-type': 'application/json' })
     res.end(JSON.stringify({ laws: getRecentLaws(limit) }))
     return
@@ -1721,7 +1761,7 @@ const server = http.createServer((req, res) => {
   // GET /api/gaia/world — recent WorldStateSnapshots
   if (req.method === 'GET' && url.pathname === '/api/gaia/world') {
     setCORSHeaders(res)
-    const limit = parseInt(url.searchParams.get('limit') ?? '10', 10)
+    const limit = Math.max(1, Math.min(parseInt(url.searchParams.get('limit') ?? '10', 10), 200))
     res.writeHead(200, { 'content-type': 'application/json' })
     res.end(JSON.stringify({ snapshots: getRecentWorldStates(limit) }))
     return
@@ -1730,7 +1770,7 @@ const server = http.createServer((req, res) => {
   // GET /api/gaia/observations — recent GaiaObservations
   if (req.method === 'GET' && url.pathname === '/api/gaia/observations') {
     setCORSHeaders(res)
-    const limit = parseInt(url.searchParams.get('limit') ?? '20', 10)
+    const limit = Math.max(1, Math.min(parseInt(url.searchParams.get('limit') ?? '20', 10), 500))
     res.writeHead(200, { 'content-type': 'application/json' })
     res.end(JSON.stringify({ observations: getRecentObservations(limit) }))
     return
@@ -1961,7 +2001,7 @@ const server = http.createServer((req, res) => {
         const q = url.searchParams.get('q') ?? ''
         const rawPatterns = url.searchParams.get('patterns') ?? 'graph,temporal'
         const patterns = rawPatterns.split(',').filter(Boolean) as Array<'graph' | 'temporal' | 'sparql' | 'cache-augmented'>
-        const maxTokens = parseInt(url.searchParams.get('maxTokens') ?? '2000', 10)
+        const maxTokens = Math.max(100, Math.min(parseInt(url.searchParams.get('maxTokens') ?? '2000', 10), 16_000))
         const sessionId = url.searchParams.get('sessionId') ?? undefined
         const result = await retrieve(q, { patterns, maxTokens, sessionId })
         res.writeHead(200, { 'content-type': 'application/json' })

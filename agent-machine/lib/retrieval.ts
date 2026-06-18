@@ -81,6 +81,17 @@ export async function retrieve(
 
   type PatternResult = { text: string; sources: Array<{ id: string; label: string; score: number }> }
 
+  // Per-pattern budgets: fast in-memory patterns (beliefs, cache-augmented) get tight
+  // timeouts to avoid blocking on degenerate graph sizes; BFS-heavy patterns get more.
+  const PATTERN_TIMEOUT_MS: Record<RetrievalPattern, number> = {
+    'beliefs':         150,
+    'cache-augmented': 100,
+    'atoms':           900,
+    'graph':           800,
+    'temporal':        600,
+    'sparql':          700,
+  }
+
   const timeout = <T>(ms: number, p: Promise<T>): Promise<T | null> =>
     Promise.race([p, new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))])
 
@@ -96,13 +107,19 @@ export async function retrieve(
       case 'cache-augmented': inner = runCacheAugmentedPattern(opts?.sessionId ?? opts?.workspaceId ?? 'default'); break
       default:             return Promise.resolve(null)
     }
-    return timeout(500, inner.then(r => {
+    const ms = PATTERN_TIMEOUT_MS[pattern] ?? 500
+    return timeout(ms, inner.then(r => {
       retrievalPath.push({ pattern, durationMs: Date.now() - start, hits: r.sources.length })
       return r
     }))
   })
 
   const results = await Promise.all(tasks)
+
+  const timedOut = results.filter(r => r === null).length
+  if (timedOut === patterns.length && patterns.length > 0) {
+    console.warn(`[retrieval] All ${patterns.length} patterns timed out for query: "${query.slice(0, 120)}"`)
+  }
 
   const usedPatterns: RetrievalPattern[] = []
   const allSources: Array<{ id: string; label: string; score: number }> = []
@@ -222,11 +239,15 @@ async function runGraphPattern(
   const seen = new Set<string>()
 
   const SNIPPET_PROPS = ['promptSummary', 'responseSummary', 'content', 'text']
+  // Hard caps to prevent O(n) blowup on dense star-topology graphs
+  const MAX_PER_ENTITY = 15
+  const MAX_TOTAL = 60
 
   for (const entity of entities.slice(0, 8)) {
-    const adjacent = [...g.out(entity), ...g.in(entity)]
+    if (sources.length >= MAX_TOTAL) break
+    const adjacent = [...g.out(entity), ...g.in(entity)].slice(0, MAX_PER_ENTITY)
     for (const node of adjacent) {
-      if (seen.has(node.id)) continue
+      if (seen.has(node.id) || sources.length >= MAX_TOTAL) continue
       seen.add(node.id)
 
       let snippet: string | null = null

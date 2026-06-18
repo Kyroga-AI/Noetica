@@ -96,10 +96,12 @@ export function handleStorageNodeRequest(
     readBody(req).then((body) => {
       try {
         const { handles } = JSON.parse(body) as { handles: string[] }
-        if (!Array.isArray(handles)) throw new Error('handles array required')
+        if (!Array.isArray(handles) || handles.length === 0) throw new Error('handles array required and non-empty')
+        if (handles.length > 1000) throw new Error('handles exceeds maximum batch size of 1,000')
         const atoms = handles.map((h) => space.getAtom(h)).filter(Boolean)
+        const missing = handles.filter((_, i) => !space.getAtom(handles[i]!))
         res.writeHead(200, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ atoms }))
+        res.end(JSON.stringify({ atoms, count: atoms.length, ...(missing.length > 0 ? { missing } : {}) }))
       } catch (e) {
         res.writeHead(400, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ error: String(e) }))
@@ -139,6 +141,16 @@ export function handleStorageNodeRequest(
       'x-atomspace-id':              space.id,
       'x-logical-clock':             String(space.logicalClock),
     })
+    // Evict oldest client if pool is full to prevent unbounded memory growth.
+    const MAX_SSE_CLIENTS = 100
+    if (_streamClients.size >= MAX_SSE_CLIENTS) {
+      const oldest = _streamClients.values().next().value as http.ServerResponse | undefined
+      if (oldest) {
+        _streamClients.delete(oldest)
+        try { oldest.end() } catch { /* already closed */ }
+        console.warn('[storage-node] SSE client pool full — evicted oldest client')
+      }
+    }
     res.write('data: {"type":"connected","spaceId":"' + space.id + '"}\n\n')
     _streamClients.add(res)
     const heartbeat = setInterval(() => {
@@ -156,23 +168,32 @@ export function handleStorageNodeRequest(
       try {
         const { entries, source } = JSON.parse(body) as { entries: AtomLogEntry[]; source?: string }
         if (!Array.isArray(entries)) throw new Error('entries array required')
+        if (entries.length > 10_000) throw new Error('entries exceeds maximum batch size of 10,000')
         const importedAt = new Date().toISOString()
         const peerSource = source ?? req.headers['x-atomspace-id'] ?? 'unknown'
         let imported = 0
-        for (const entry of entries) {
+        const failed: Array<{ index: number; error: string }> = []
+        for (let i = 0; i < entries.length; i++) {
           try {
-            space.importEntry(entry)
+            space.importEntry(entries[i]!)
             // Tag each imported atom with federation provenance
-            if (entry.op === 'add_atom' && entry.payload['handle']) {
-              const h = entry.payload['handle'] as string
+            if (entries[i]!.op === 'add_atom' && entries[i]!.payload['handle']) {
+              const h = entries[i]!.payload['handle'] as string
               space.setValue(h, 'federation:source',      { kind: 'string', value: [String(peerSource)] })
               space.setValue(h, 'federation:imported_at', { kind: 'string', value: [importedAt] })
             }
             imported++
-          } catch { /* skip bad entry */ }
+          } catch (e) {
+            failed.push({ index: i, error: (e as Error).message })
+          }
         }
         res.writeHead(200, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ ok: true, imported }))
+        res.end(JSON.stringify({
+          ok: true,
+          imported,
+          total: entries.length,
+          ...(failed.length > 0 ? { failed } : {}),
+        }))
       } catch (e) {
         res.writeHead(400, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ error: String(e) }))
