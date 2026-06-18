@@ -20,11 +20,16 @@ const OLLAMA_PRIMARY = process.env['OLLAMA_HOST'] ?? 'http://127.0.0.1:11435'
 const OLLAMA_FALLBACK = process.env['OLLAMA_FALLBACK_HOST'] ?? ''
 const HAS_FALLBACK = OLLAMA_FALLBACK !== '' && OLLAMA_FALLBACK !== OLLAMA_PRIMARY
 let _activeBase = OLLAMA_PRIMARY
+// When the managed runtime pins the base, the health probe must NOT wander back to
+// OLLAMA_PRIMARY — the bundled Ollama there answers /api/tags but can't generate, so
+// an unpinned probe would re-select the broken backend. Pinning makes the app-owned
+// runtime authoritative.
+let _pinned = false
 
 /** The Ollama base URL currently in use (may switch to the fallback after a failure). */
 export function ollamaBase(): string { return _activeBase }
-/** Repoint the active Ollama base (e.g. the boot managed-runtime picks a free port). */
-export function setOllamaBase(url: string): void { _activeBase = url }
+/** Repoint AND pin the active Ollama base (the boot managed-runtime owns the model plane). */
+export function setOllamaBase(url: string): void { _activeBase = url; _pinned = true }
 // Back-compat for existing imports; prefer ollamaBase() for the live value.
 export const OLLAMA_BASE = OLLAMA_PRIMARY
 
@@ -142,7 +147,11 @@ export async function isOllamaRunning(): Promise<boolean> {
   // the preflight gate doesn't block when only the system Ollama is up. (Note: a
   // primary that lists models but can't generate still passes here — the
   // missing-runner fallback then kicks in inside postChat during streaming.)
-  const candidates = HAS_FALLBACK ? [OLLAMA_PRIMARY, OLLAMA_FALLBACK] : [OLLAMA_PRIMARY]
+  // Pinned (managed runtime active) → probe ONLY the pinned base, never wander to
+  // the bundled Ollama on the primary port (it lists models but can't generate).
+  const candidates = _pinned
+    ? [_activeBase]
+    : (HAS_FALLBACK ? [OLLAMA_PRIMARY, OLLAMA_FALLBACK] : [OLLAMA_PRIMARY])
   for (const base of candidates) {
     try {
       const res = await fetch(`${base}/api/tags`, { signal: AbortSignal.timeout(2_000) })

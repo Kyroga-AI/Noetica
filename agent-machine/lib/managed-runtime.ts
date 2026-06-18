@@ -22,6 +22,15 @@ async function portInUse(port: number): Promise<boolean> {
   try { const { stdout } = await exec('/usr/sbin/lsof', ['-ti', `TCP:${port}`, '-sTCP:LISTEN']); return stdout.trim().length > 0 } catch { return false }
 }
 
+/** Kill whatever is listening on a port (used to reclaim the bundled Ollama's RAM
+ *  once the managed runtime is authoritative). Best-effort. */
+async function freePort(port: number): Promise<void> {
+  try {
+    const { stdout } = await exec('/usr/sbin/lsof', ['-ti', `TCP:${port}`, '-sTCP:LISTEN'])
+    for (const pid of stdout.trim().split('\n').filter(Boolean)) { try { process.kill(Number(pid), 'SIGKILL') } catch { /* gone */ } }
+  } catch { /* nothing listening */ }
+}
+
 /** Pick a free port near the isolated one — avoids fighting a Rust-spawned bundled
  *  Ollama on the default port (and the startup race that would cause). */
 async function pickPort(preferred: number): Promise<number> {
@@ -64,17 +73,23 @@ export async function ensureManagedRuntime(preferredPort = MANAGED_PORT): Promis
   fs.mkdirSync(MODELS_DIR, { recursive: true })
   fs.writeFileSync(PROFILE_PATH, seatbeltProfile())
   const port = await pickPort(preferredPort)   // a free port — no fight with a bundled Ollama
+  const base = `http://127.0.0.1:${port}`
+  // PIN the base NOW (before the runtime is even ready) so the chat preflight targets
+  // the app-owned runtime from the first request — never the bundled Ollama on the
+  // primary port (which lists models but can't generate). Chats during startup see
+  // "not ready yet" on the managed port instead of a runner-missing error.
+  setOllamaBase(base)
 
   const { cmd, args, env } = buildLaunchRecipe(binary)
   const child = spawn(cmd, args, { env: { ...process.env, ...env, OLLAMA_HOST: `127.0.0.1:${port}` }, stdio: 'ignore', detached: false })
   child.on('exit', (code) => console.log(`[managed-runtime] sandboxed Ollama exited: ${code}`))
 
-  const base = `http://127.0.0.1:${port}`
   const deadline = Date.now() + 60_000  // generous: cold launch under RAM pressure can be slow
   while (Date.now() < deadline) {
     try { const r = await fetch(`${base}/api/tags`, { signal: AbortSignal.timeout(1500) }); if (r.ok) {
-      setOllamaBase(base)   // repoint the agent-machine at the app-owned runtime
       console.log(`[managed-runtime] sandboxed Ollama (Metal) serving on ${base} — app-owned, no host dependency`)
+      // Reclaim RAM: the bundled Ollama on the primary port is now unused (we're pinned here).
+      if (preferredPort !== port) await freePort(preferredPort)
       return { child, port, base }
     } } catch { /* not up yet */ }
     await new Promise((r) => setTimeout(r, 500))
