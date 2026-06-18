@@ -44,6 +44,28 @@ test('worth is penalised by contradictions (same world model, agree vs negate)',
   assert.ok(conflicted.worth < clean.worth, `expected ${conflicted.worth} < ${clean.worth}`)
 })
 
+test('PLN graph grounding lifts a token-ungrounded answer out of speculative', () => {
+  // token grounding is ~0 (no overlap with contextText), but the graph knows the claims
+  const vj = judgeAnswer({
+    answer: 'Kubernetes orchestrates the Redis cluster',
+    contextText: 'unrelated snippet about coffee',
+    beliefs: [], laws: [],
+    graphGrounding: 0.8, novelClaims: [],
+  })
+  assert.equal(vj.graph_grounding, 0.8)
+  assert.equal(vj.verdict, 'grounded')
+  assert.ok(vj.worth >= 0.48)
+})
+
+test('novel claims (not in graph) are surfaced in notes', () => {
+  const vj = judgeAnswer({
+    answer: 'Atlantis powers the mainframe', contextText: '', beliefs: [], laws: [],
+    graphGrounding: 0, novelClaims: ['Atlantis'],
+  })
+  assert.deepEqual(vj.novel_claims, ['Atlantis'])
+  assert.ok(vj.notes.some((n) => n.includes('not found in the knowledge graph')))
+})
+
 test('handles empty world model without throwing', () => {
   const vj = judgeAnswer({ answer: 'hello', contextText: '', beliefs: [], laws: [] })
   assert.ok(vj.worth >= 0 && vj.worth <= 1)

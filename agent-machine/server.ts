@@ -54,6 +54,7 @@ import { validateGraph } from '../lib/hellgraph/shacl.js'
 import { CANONICAL_SHAPES } from './lib/canonical-shapes.js'
 import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
 import { detectGoalIntent, slotFill, buildGoalContext, getActiveGoal, listGoals, saveGoal, type Goal } from './lib/goal-model.js'
+import { assessAgainstGraph } from './lib/pln-judgment.js'
 import {
   ensureMichaelTwin, ingestGaiaObservation, getRecentObservations,
   writeBeliefSnapshot, writeWorldStateSnapshot, writeCycleNode,
@@ -1881,12 +1882,19 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     let valueJudgment: ValueJudgment | undefined
     try {
       const wm = loadWorldModelForVJ()
+      // PLN-backed grounding: check the answer's claim entities against the whole
+      // knowledge graph (incl. transitive PLN-derived relations), not just the
+      // retrieved snippet. NOETICA_PLN_GROUNDING=1 also runs a bounded forward-chain.
+      let gg: { graphGrounding: number; novel: string[] } | undefined
+      try { gg = assessAgainstGraph(fullContent, { runPln: process.env['NOETICA_PLN_GROUNDING'] === '1' }) } catch { /* best-effort */ }
       valueJudgment = judgeAnswer({
         answer: fullContent,
         reasoning: fullThinking || undefined,
         contextText: graphContext,
         beliefs: wm.beliefs,
         laws: wm.laws,
+        graphGrounding: gg?.graphGrounding,
+        novelClaims: gg?.novel,
       })
       sse(res, 'value_judgment', { value_judgment: valueJudgment })
       // Feed VJ worth back into the bandit as the automatic reward signal.

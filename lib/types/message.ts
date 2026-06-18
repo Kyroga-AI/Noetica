@@ -56,6 +56,8 @@ export interface Deliberation {
 export interface ValueJudgment {
   worth: number
   grounding: number
+  graph_grounding?: number
+  novel_claims?: string[]
   belief_alignment: number
   contradictions: Array<{ kind: 'belief' | 'law'; statement: string; detail: string }>
   verdict: 'grounded' | 'speculative' | 'contradiction'

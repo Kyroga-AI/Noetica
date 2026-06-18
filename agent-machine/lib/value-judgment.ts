@@ -47,6 +47,10 @@ export interface ValueJudgment {
   worth: number
   /** Fraction of the answer's distinctive terms supported by retrieved memory. */
   grounding: number
+  /** PLN-backed: confidence-weighted fraction of claim entities known to the graph. */
+  graph_grounding?: number
+  /** Claim entities not found anywhere in the knowledge graph. */
+  novel_claims?: string[]
   /** How much the answer engages with the current belief/law state, [0,1]. */
   belief_alignment: number
   /** Potential contradictions with promoted beliefs/laws (flagged, not definitive). */
@@ -62,6 +66,10 @@ export interface VJInputs {
   contextText: string
   beliefs: Array<{ claim: string }>
   laws: Array<{ law: string; confidence: number }>
+  /** PLN-backed graph grounding (0..1) from pln-judgment.assessAgainstGraph. */
+  graphGrounding?: number
+  /** Claim entities not present in the knowledge graph. */
+  novelClaims?: string[]
 }
 
 /** Detect a potential contradiction: the statement's key terms appear in the
@@ -117,8 +125,12 @@ export function judgeAnswer(input: VJInputs): ValueJudgment {
   }
   const belief_alignment = statements.length > 0 ? engaged / statements.length : 0
 
+  // Effective grounding blends token-overlap with PLN graph grounding (stronger
+  // evidence: the claim entity is actually known to the knowledge graph).
+  const effectiveGrounding = Math.max(grounding, input.graphGrounding ?? 0)
+
   // Worth: grounded + belief-engaged, penalised for contradictions.
-  let worth = 0.6 * grounding + 0.4 * belief_alignment
+  let worth = 0.6 * effectiveGrounding + 0.4 * belief_alignment
   if (contradictions.length > 0) worth = Math.max(0, worth - 0.3 * contradictions.length)
   worth = Math.max(0, Math.min(1, worth))
 
@@ -126,18 +138,23 @@ export function judgeAnswer(input: VJInputs): ValueJudgment {
   if (contradictions.length > 0) {
     verdict = 'contradiction'
     notes.push(`${contradictions.length} potential contradiction(s) with promoted belief/law state`)
-  } else if (grounding < 0.2) {
+  } else if (effectiveGrounding < 0.2) {
     verdict = 'speculative'
-    notes.push('answer is weakly grounded in retrieved memory — treat as speculative')
+    notes.push('answer is weakly grounded in memory + knowledge graph — treat as speculative')
   } else {
     verdict = 'grounded'
-    notes.push('answer is grounded in retrieved memory and consistent with belief state')
+    notes.push('answer is grounded in memory/graph and consistent with belief state')
   }
   if (statements.length === 0) notes.push('no belief/law state available to judge against')
+  if (input.novelClaims && input.novelClaims.length > 0) {
+    notes.push(`${input.novelClaims.length} claim(s) not found in the knowledge graph`)
+  }
 
   return {
     worth: Number(worth.toFixed(3)),
     grounding: Number(grounding.toFixed(3)),
+    ...(input.graphGrounding !== undefined ? { graph_grounding: input.graphGrounding } : {}),
+    ...(input.novelClaims && input.novelClaims.length > 0 ? { novel_claims: input.novelClaims.slice(0, 10) } : {}),
     belief_alignment: Number(belief_alignment.toFixed(3)),
     contradictions,
     verdict,

@@ -476,8 +476,14 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
               <span className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">{message.value_judgment.verdict}</span>
               <span className="ml-auto text-[10px] text-[var(--color-text-tertiary)]">
                 worth {(message.value_judgment.worth * 100).toFixed(0)}% · grounding {(message.value_judgment.grounding * 100).toFixed(0)}%
+                {message.value_judgment.graph_grounding !== undefined ? ` · graph ${(message.value_judgment.graph_grounding * 100).toFixed(0)}%` : ''}
               </span>
             </div>
+            {message.value_judgment.novel_claims && message.value_judgment.novel_claims.length > 0 && (
+              <div className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">
+                Novel (not in graph): {message.value_judgment.novel_claims.slice(0, 5).join(', ')}
+              </div>
+            )}
             {message.value_judgment.contradictions.length > 0 && (
               <div className="mt-1.5 space-y-1">
                 {message.value_judgment.contradictions.map((c, i) => (
