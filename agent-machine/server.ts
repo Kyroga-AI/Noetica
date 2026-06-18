@@ -33,7 +33,12 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import { buildRouterDecision, LOCAL_MODEL_SUITE } from './lib/router.js'
+import { createSQLiteBackend, migrateJSONLToSQLite } from './lib/sqlite-backend.js'
+import { registerStorageNodeRoutes, handleStorageNodeRequest } from './lib/storage-node-routes.js'
+import { handleMeshRushRequest } from './lib/meshrush-bridge.js'
+import { handleCairnPathRequest } from './lib/cairnpath-adapter.js'
 import { syncToSidecar, sidecarHealth } from '../lib/hellgraph/sidecar.js'
+import { getAtomSpace } from '../lib/hellgraph/atomspace.js'
 import { decayAll } from '../lib/hellgraph/ecan.js'
 import { consolidate } from '../lib/hellgraph/consolidate.js'
 import { recordAttentionSnapshot, pushSnapshotToPrometheusd, ingestPrometheusCandidate } from '../lib/hellgraph/prometheus.js'
@@ -2056,6 +2061,21 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // AtomSpace federation API (/api/atomspace/*)
+  if (url.pathname.startsWith('/api/atomspace/')) {
+    if (handleStorageNodeRequest(req, res, url.pathname, getAtomSpace())) return
+  }
+
+  // MeshRush agent runtime API (/api/meshrush/*)
+  if (url.pathname.startsWith('/api/meshrush/')) {
+    if (handleMeshRushRequest(req, res, url.pathname, getAtomSpace())) return
+  }
+
+  // CairnPath traversal API (/api/cairnpath/*)
+  if (url.pathname.startsWith('/api/cairnpath')) {
+    if (handleCairnPathRequest(req, res, url.pathname, getAtomSpace())) return
+  }
+
   // 404
   res.writeHead(404, { 'content-type': 'application/json' })
   res.end(JSON.stringify({ error: 'not_found', path: url.pathname }))
@@ -2064,6 +2084,35 @@ const server = http.createServer((req, res) => {
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`[noetica-am] Agent Machine v${VERSION} listening on http://127.0.0.1:${PORT}`)
   console.log(`[noetica-am] Status: http://127.0.0.1:${PORT}/api/status`)
+
+  // ── AtomSpace SQLite backend + StorageNode federation ────────────────────
+  // Upgrades the default JSONL WAL to SQLite (O(log n) lookups, atomic writes,
+  // WAL-mode concurrent reads, crash recovery). Migrates JSONL on first run.
+  // The StorageNode HTTP API (/api/atomspace/*) is always active — the SSE
+  // change feed enables real-time sync with remote nodes.
+  void (async () => {
+    try {
+      const sqliteBackend = createSQLiteBackend()
+      if (sqliteBackend) {
+        const migrated = migrateJSONLToSQLite(sqliteBackend)
+        if (migrated > 0) {
+          console.log(`[atomspace] Migrated ${migrated} JSONL entries → SQLite`)
+        }
+        const space = getAtomSpace()
+        space.setBackend(sqliteBackend)
+        console.log(`[atomspace] SQLite backend active (${sqliteBackend.atomCount()} atoms) — ${sqliteBackend.storagePath()}`)
+        registerStorageNodeRoutes(space)
+        console.log(`[atomspace] StorageNode federation API ready at /api/atomspace/*`)
+      } else {
+        const space = getAtomSpace()
+        registerStorageNodeRoutes(space)
+        console.log(`[atomspace] JSONL backend (bun:sqlite unavailable) — ${space.storagePath}`)
+      }
+    } catch (e) {
+      console.warn('[atomspace] Backend init error (non-fatal):', e)
+      try { registerStorageNodeRoutes(getAtomSpace()) } catch { /* ignore */ }
+    }
+  })()
 
   // Auto-start memoryd (memory-mesh runtime) if not already running.
   // memoryd provides durable local memory storage for the three-tier recall adapter.

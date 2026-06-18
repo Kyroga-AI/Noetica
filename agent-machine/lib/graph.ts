@@ -6,6 +6,7 @@
  */
 
 import { getHellGraph, HellGraphStore } from '../../lib/hellgraph/store.js'
+import { getAtomSpace } from '../../lib/hellgraph/atomspace.js'
 import { runSparql } from '../../lib/hellgraph/sparql.js'
 import type { SparqlResult } from '../../lib/hellgraph/sparql.js'
 import {
@@ -20,9 +21,6 @@ import type {
   ConversationFact,
   MessageFact,
 } from '../../lib/hellgraph/ingest.js'
-import * as path from 'node:path'
-import * as os from 'node:os'
-
 // ─── Re-exports ───────────────────────────────────────────────────────────────
 
 export {
@@ -54,17 +52,11 @@ export interface GraphHealth {
 
 export function graphHealth(): GraphHealth {
   const g = getGraph()
-  const walPath = path.join(
-    os.homedir(),
-    '.noetica',
-    'hellgraph',
-    'sociosphere-primary.atomspace.jsonl',
-  )
   return {
     nodeCount: g.nodeCount(),
     edgeCount: g.edgeCount(),
     orphans: g.orphanNodeCount(),
-    walPath,
+    walPath: getAtomSpace().storagePath,
     logicalClock: g.logicalClock,
   }
 }
