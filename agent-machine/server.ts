@@ -1431,6 +1431,25 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       model = pick
     }
   }
+  // ── Chat-first concierge (O1) ───────────────────────────────────────────────
+  // Plan the turn once: small-talk / self-questions / trivial asks are handled
+  // inline by the fast concierge model (snappy, never a heavy-model wait); heavy
+  // work keeps its routed worker model and is acknowledged + dispatched (below),
+  // serialized through the capacity gate so the box never overcommits memory.
+  let turnPlan: { mode: 'direct' | 'dispatch'; capability: string; ack?: string; reason: string } | null = null
+  let dispatchGateRef: import('./lib/orchestrator.js').CapacityGate | null = null
+  if (provider === 'ollama') {
+    try {
+      const { planTurn, dispatchGate } = await import('./lib/orchestrator.js')
+      dispatchGateRef = dispatchGate
+      turnPlan = planTurn(latestUserContent)
+      if (turnPlan.mode === 'direct') {
+        const fast = ['llama3.2:3b', 'qwen2.5:7b'].find((m) => availableModels.includes(m))
+        if (fast) { model = fast; console.log(`[concierge] direct turn → ${model} (${turnPlan.reason})`) }
+      }
+    } catch { /* orchestration is best-effort — fall back to routed model */ }
+  }
+
   const apiKey = provider === 'openai' ? openaiKey : anthropicKey
 
   const run_id = crypto.randomUUID()
@@ -1563,6 +1582,42 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     }
   } catch { /* document RAG is best-effort */ }
 
+  // ── Self-model grounding ────────────────────────────────────────────────────
+  // When the user asks about the agent itself / how it works, inject the verified
+  // construction self-model so it answers from fact (the repos that build it),
+  // not speculation. The structured block is always accurate; ingested self-docs
+  // also surface via the RAG block above once /api/self/ingest-construction runs.
+  let selfContext = ''
+  try {
+    const { isSelfQuery, selfGroundingBlock } = await import('./lib/self-model.js')
+    if (isSelfQuery(latestUserContent)) {
+      selfContext = `\n\n---\n${selfGroundingBlock()}\nAnswer questions about yourself and your construction from this self-model. Be concrete about which repository does what.`
+    }
+  } catch { /* self-model grounding is best-effort */ }
+
+  // ── Moat 3: prime-topic context graph + complexity discipline ───────────────
+  // Build the per-question context graph + episodic KG entry (KB vector recall +
+  // graph linking + prime-topic decomposition), classify the task's complexity
+  // posture, and surface calibrated confidence + proof barriers in the governance
+  // trail. Makes the neurosymbolic moat the agent's everyday behavior.
+  let moatContext = ''
+  let moatEpisodeId = ''
+  try {
+    const { buildQuestionContext } = await import('./lib/question-context.js')
+    const { classifyComplexity, calibratedConfidence } = await import('./lib/complexity-discipline.js')
+    const qctx = await buildQuestionContext(latestUserContent)
+    moatEpisodeId = qctx.episodeId
+    if (qctx.grounding) moatContext = qctx.grounding
+    const verdict = classifyComplexity(latestUserContent)
+    const confidence = calibratedConfidence(verdict, { grounded: qctx.recalled.length > 0 })
+    sse(res, 'discipline', { discipline: {
+      posture: verdict.posture, strategy: verdict.strategy, barriers: verdict.barriers,
+      morphology: verdict.morphology, calibrated_confidence: confidence,
+      prime_signature: qctx.primeSignature, prime_factors: qctx.primeFactors.map((f) => `${f.code}^${f.exp}`),
+      non_claims: verdict.nonClaims,
+    } })
+  } catch { /* moat enrichment is best-effort */ }
+
   const profile = POLICY_PROFILES[body.policy_profile ?? 'default'] ?? POLICY_PROFILES['default']!
   const basePrompt = body.system_prompt ?? NOETICA_SYSTEM_PROMPT
   // Inject current datetime so the model always has accurate temporal context
@@ -1597,7 +1652,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     }
   } catch { /* goal tracking is best-effort — never block the turn */ }
 
-  const enrichedSystemPrompt = basePrompt + dateLine + graphContext + goalContext + reasoningDirective + profile.authorizationSuffix
+  const enrichedSystemPrompt = basePrompt + dateLine + graphContext + selfContext + moatContext + goalContext + reasoningDirective + profile.authorizationSuffix
 
   // Token budget: rough estimate (4 chars ≈ 1 token). If message history + system prompt
   // exceeds 70% of the model's context window, trim oldest non-system messages.
@@ -1720,6 +1775,24 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         } catch { /* deliberation is best-effort — fall through to normal streaming */ }
       }
 
+      // Concierge dispatch: for heavy work, acknowledge conversationally *now*
+      // ("let me research this for you…"), surface queue position, then acquire a
+      // capacity-gate lease so the worker stream runs serialized (one heavy job at
+      // a time on small boxes) — keeping the front-of-house responsive while never
+      // overcommitting the GPU-shared memory. The lease is released in finally.
+      let releaseLease: (() => void) | null = null
+      if (!deliberated && turnPlan?.mode === 'dispatch') {
+        if (turnPlan.ack) {
+          sse(res, 'delta', { delta: turnPlan.ack + '\n\n' })
+          fullContent += turnPlan.ack + '\n\n'
+        }
+        if (dispatchGateRef) {
+          sse(res, 'dispatch', { dispatch: { capability: turnPlan.capability, reason: turnPlan.reason, queue_position: dispatchGateRef.nextQueuePosition, ...dispatchGateRef.status } })
+          try { releaseLease = await dispatchGateRef.acquireLease() } catch { /* gate is best-effort */ }
+        }
+      }
+
+      try {
       if (!deliberated) for (let turn = 0; turn < MAX_TURNS; turn++) {
         let turnContent = ''
         let turnToolCalls: ToolUseBlock[] | undefined
@@ -1780,6 +1853,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           })
         }
       }
+      } finally { releaseLease?.() }
     } else if (provider === 'anthropic') {
       // Build Anthropic message array — with vision and attachment support
       const anthropicMessages: AnthropicMessage[] = incomingMessages.map((m) => {
@@ -2034,6 +2108,15 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       task: routerDecision.task,
       session_id: sessionId,
     })
+
+    // Moat 3: close the episodic KG entry with the answer (episodic memory of
+    // what was asked + how the agent responded — feeds the compounding loop).
+    if (moatEpisodeId) {
+      try {
+        const { recordEpisodeOutcome } = await import('./lib/question-context.js')
+        recordEpisodeOutcome(moatEpisodeId, { answer: fullContent.slice(0, 400), correct: valueJudgment?.verdict !== 'contradiction', lane: `${provider}:${model}` })
+      } catch { /* episodic write-back is best-effort */ }
+    }
 
     sse(res, 'done', {
       result: {
@@ -2449,6 +2532,132 @@ const server = http.createServer((req, res) => {
       })),
       auth_required: !!process.env['NOETICA_API_TOKEN'],
     }))
+    return
+  }
+
+  // GET /api/domains — the symbolic moat: domain knowledge bundles consumed from
+  // the graphbrain latent engine. Lists each Domain atom with its topic/glossary
+  // counts and the governing SHACL shape id.
+  if (req.method === 'GET' && url.pathname === '/api/domains') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const g = getGraph()
+        const domains = g.nodesByLabel('Domain').map((d) => {
+          const did = d.id
+          const topics = g.nodesByLabel('Topic').filter((n) => n.properties['domain_id'] === did)
+          const terms = g.nodesByLabel('GlossaryTerm').filter((n) => String(n.properties['domains'] ?? '').includes(String(d.properties['corpus_release_ref'] ?? '')))
+          return {
+            domain_id: did,
+            corpus_release_ref: d.properties['corpus_release_ref'] ?? null,
+            basis_family: d.properties['basis_family'] ?? null,
+            dimension_count: d.properties['dimension_count'] ?? null,
+            n_documents: d.properties['n_documents'] ?? null,
+            topics: topics.length,
+            glossary_terms: terms.length,
+            shape_id: `${did}#shape`,
+          }
+        })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ domains }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/domains/match?q=... — the moat informing reasoning: which consumed
+  // domain(s) a query touches, with the matching Topics + glossary terms. Used to
+  // bias retrieval and inject domain vocabulary/laws as grounding into the prompt.
+  if (req.method === 'GET' && url.pathname === '/api/domains/match') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const q = url.searchParams.get('q') ?? ''
+        const { matchDomains } = await import('./lib/graphbrain-bridge.js')
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ query: q, matches: matchDomains(q, 3) }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+      }
+    })()
+    return
+  }
+
+  // POST /api/domains/consume — consume a graphbrain LatentBasisArtifact into the
+  // local HellGraph as a domain knowledge bundle (Domain + 22 Topics + GlossaryTerms
+  // + SHACL law). Accepts an inline { artifact } object or an { artifactPath } to a
+  // LatentBasisArtifact22 JSON file. Idempotent per corpus release.
+  if (req.method === 'POST' && url.pathname === '/api/domains/consume') {
+    void (async () => {
+      setCORSHeaders(res)
+      if (!requireApiToken(req, res)) return
+      try {
+        const body = await new Promise<string>((resolve, reject) => {
+          let d = ''
+          req.on('data', (c: Buffer) => { d += c.toString() })
+          req.on('end', () => resolve(d))
+          req.on('error', reject)
+        })
+        const { artifact, artifactPath } = JSON.parse(body || '{}') as { artifact?: unknown; artifactPath?: string }
+        const { consumeLatentArtifact } = await import('./lib/graphbrain-bridge.js')
+        let art = artifact as Record<string, unknown> | undefined
+        if (!art && artifactPath) {
+          const fs = await import('node:fs')
+          art = JSON.parse(fs.readFileSync(artifactPath, 'utf8'))
+        }
+        if (!art || typeof art !== 'object' || !('corpus_release_ref' in art)) {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: 'provide { artifact } or { artifactPath } to a LatentBasisArtifact22' }))
+          return
+        }
+        const summary = consumeLatentArtifact(art as unknown as Parameters<typeof consumeLatentArtifact>[0])
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(summary))
+      } catch (err) {
+        res.writeHead(400, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: String(err) }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/self/construction — the agent's grounded self-model: the repos that
+  // build it + their architecture relations.
+  if (req.method === 'GET' && url.pathname === '/api/self/construction') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { selfModelSummary } = await import('./lib/self-model.js')
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(selfModelSummary()))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+      }
+    })()
+    return
+  }
+
+  // POST /api/self/ingest-construction — ingest the construction repos into RAG +
+  // the HellGraph self-model so the agent can explain how it works from fact.
+  if (req.method === 'POST' && url.pathname === '/api/self/ingest-construction') {
+    void (async () => {
+      setCORSHeaders(res)
+      if (!requireApiToken(req, res)) return
+      try {
+        const { ingestSelfModel } = await import('./lib/self-model.js')
+        const summary = await ingestSelfModel()
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(summary))
+      } catch (err) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: String(err) }))
+      }
+    })()
     return
   }
 
@@ -3208,6 +3417,18 @@ server.listen(PORT, '127.0.0.1', () => {
         }
       } catch { /* best-effort */ }
     })()
+    // Self-model: keep the agent's knowledge of its own construction fresh so it
+    // can explain how it works from fact. Deferred + best-effort so it never
+    // blocks boot; disable with NOETICA_SELF_MODEL=0.
+    if (process.env['NOETICA_SELF_MODEL'] !== '0') {
+      setTimeout(() => { void (async () => {
+        try {
+          const { ingestSelfModel } = await import('./lib/self-model.js')
+          const r = await ingestSelfModel()
+          console.log(`[self-model] ingested ${r.reposIngested} construction repos (${r.chunksEmbedded} chunks, ${r.atoms} atoms)`)
+        } catch { /* best-effort */ }
+      })() }, 8000)
+    }
     // Report the hardware-selected isolation tier (informational; provisioning is PM3).
     void (async () => {
       try {
