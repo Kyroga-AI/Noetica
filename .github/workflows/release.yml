@@ -322,21 +322,21 @@ jobs:
 
       - name: Update tap Cask formula
         if: ${{ vars.TAP_REPO != '' }}
+        continue-on-error: true   # secondary channel — never fail the release on the tap
         run: |
-          FILE=tap/Casks/noetica.rb
-          VERSION=${{ steps.asset.outputs.version }}
-          SHA256=${{ steps.asset.outputs.sha256 }}
-          URL=${{ steps.asset.outputs.url }}
-          sed -i "s|version \".*\"|version \"$VERSION\"|g" "$FILE"
-          sed -i "s|sha256 \".*\"|sha256 \"$SHA256\"|g" "$FILE"
-          sed -i "s|url \".*\"|url \"$URL\"|g" "$FILE"
+          # Copy the cask we just updated on main into the tap, creating it if the tap
+          # doesn't have it yet (the previous sed-in-place failed when the file was
+          # absent). $CASK_FILE is the stable/nightly cask path set above.
+          mkdir -p "tap/$(dirname "$CASK_FILE")"
+          cp "$CASK_FILE" "tap/$CASK_FILE"
 
       - name: Commit tap update
         if: ${{ vars.TAP_REPO != '' }}
+        continue-on-error: true
         working-directory: tap
         run: |
           git config user.name "noetica-bot"
           git config user.email "noetica-bot@users.noreply.github.com"
-          git add Casks/noetica.rb
-          git diff --staged --quiet || git commit -m "noetica ${{ steps.asset.outputs.version }}"
+          git add Casks
+          git diff --staged --quiet || git commit -m "noetica ${{ github.ref_name }}"
           git push
