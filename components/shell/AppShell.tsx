@@ -27,7 +27,6 @@ import { EvaluatePanel } from '@/components/panels/EvaluatePanel'
 import { GovernPanel } from '@/components/panels/GovernPanel'
 import { SettingsModal } from '@/components/settings/SettingsModal'
 import { ProviderSetupModal } from '@/components/shell/ProviderSetupModal'
-import { ModelSetupModal } from '@/components/shell/ModelSetupModal'
 import { ModelSetupOverlay } from '@/components/setup/ModelSetupOverlay'
 import { CommandPalette } from '@/components/palette/CommandPalette'
 import { models, visibleModels, defaultModelId } from '@/config/models'
@@ -252,7 +251,6 @@ export function AppShell() {
   const [settingsCategory, setSettingsCategory] = useState('appearance')
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [providerSetupOpen, setProviderSetupOpen] = useState(false)
-  const [modelSetupOpen, setModelSetupOpen] = useState(false)
   const [showSetup, setShowSetup] = useState(false)
   const [rawEventLog, setRawEventLog] = useState<Array<{ ts: string; kind: string; payload: unknown }>>([])
   const rawEventLogRef = useRef(rawEventLog)
@@ -267,17 +265,6 @@ export function AppShell() {
   }, [settings.anthropicApiKey, settings.openaiApiKey, settings.runtimeMode, settings.agentMachineEndpoint])
 
   // Show model setup when agent machine connects and models haven't been pulled yet
-  useEffect(() => {
-    if (!settings.agentMachineEndpoint) return
-    const dismissed = localStorage.getItem('noetica-model-setup-dismissed')
-    if (dismissed) return
-    void fetch(`${settings.agentMachineEndpoint}/api/models`)
-      .then((r) => r.ok ? r.json() as Promise<{ allPulled: boolean }> : null)
-      .then((data) => { if (data && !data.allPulled) setModelSetupOpen(true) })
-      .catch(() => { /* agent machine not running yet */ })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.agentMachineEndpoint])
-
   useEffect(() => {
     if (!settings.agentMachineEndpoint) return
     if (localStorage.getItem('noetica:setup:skipped') === '1') return
@@ -1238,15 +1225,6 @@ export function AppShell() {
           onClose={() => {
             sessionStorage.setItem('noetica-provider-setup-dismissed', '1')
             setProviderSetupOpen(false)
-          }}
-        />
-      )}
-      {modelSetupOpen && settings.agentMachineEndpoint && (
-        <ModelSetupModal
-          agentMachineEndpoint={settings.agentMachineEndpoint}
-          onDismiss={() => {
-            localStorage.setItem('noetica-model-setup-dismissed', '1')
-            setModelSetupOpen(false)
           }}
         />
       )}
