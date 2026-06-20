@@ -2777,6 +2777,10 @@ const server = http.createServer((req, res) => {
       const pulledModels = ollamaUp ? await listLocalModels() : []
       const suite = LOCAL_MODEL_SUITE.map((m) => ({
         ...m,
+        // Essential first-run set (manifest: priority 1–5 are required). The first-run
+        // UI auto-pulls only required models; the rest are on-demand. Without this the
+        // overlay's `m.required` filter matches nothing and never pulls anything.
+        required: m.priority <= 5,
         pulled: pulledModels.some((p) => p === m.name || p.startsWith(m.name.split(':')[0]!)),
         ollamaRunning: ollamaUp,
       }))
