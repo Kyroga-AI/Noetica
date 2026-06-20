@@ -9,6 +9,7 @@ import oneLight from 'react-syntax-highlighter/dist/cjs/styles/prism/one-light'
 // eslint-disable-next-line
 import oneDark from 'react-syntax-highlighter/dist/cjs/styles/prism/one-dark'
 import { GovernanceTrail } from '@/components/governance/GovernanceTrail'
+import { HopfLoader } from '@/components/chat/TypingIndicator'
 import { SteeringDiff } from '@/components/steering/SteeringDiff'
 import type { ChatMessage, ToolCallRecord, ToolResultRecord } from '@/lib/types/message'
 import type { PendingAttachment } from '@/lib/types/attachment'
@@ -355,9 +356,9 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
         {/* Main content — markdown rendered */}
         {message.content && <MarkdownContent content={message.content} />}
 
-        {/* Streaming placeholder */}
+        {/* Streaming placeholder — Hopf loader while the response is still empty */}
         {!message.content && !message.tool_calls?.length && (
-          <span className="inline-block h-4 w-4 animate-pulse rounded-sm bg-[var(--color-text-tertiary)]" />
+          <HopfLoader size={22} />
         )}
 
         {/* Action bar */}
@@ -417,7 +418,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
           </div>
         )}
 
-        {message.governance && (message.governance.model_routed || message.governance.input_tokens || message.governance.output_tokens || message.governance.latency_ms) && (
+        {message.content && message.governance && (message.governance.model_routed || message.governance.input_tokens || message.governance.output_tokens || message.governance.latency_ms) && (
           <div className="mt-1.5 flex items-center gap-3 text-[10px] text-[var(--color-text-tertiary)]">
             {message.governance.model_routed && (
               <span className="flex items-center gap-1">
@@ -474,7 +475,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
           </details>
         )}
 
-        {message.value_judgment && (
+        {message.content && message.value_judgment && (
           <>
             {/* Contradictions are a real warning — keep them visible. Everything else
                 (worth/grounding scores) is tucked into a collapsible so the chat stays
@@ -509,7 +510,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
           </>
         )}
 
-        {message.retrieval_trace && (message.retrieval_trace.sources.length > 0 || message.retrieval_trace.beliefs_injected > 0) && (
+        {message.content && message.retrieval_trace && (message.retrieval_trace.sources.length > 0 || message.retrieval_trace.beliefs_injected > 0) && (
           <details className="mt-2 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)]">
             <summary className="cursor-pointer select-none px-3 py-2 text-[11px] font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
               <span className="inline-flex items-center gap-1.5">
@@ -569,7 +570,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
           </details>
         )}
         {message.steering_result ? <SteeringDiff result={message.steering_result} /> : null}
-        {message.governance ? <GovernanceTrail trace={message.governance} /> : null}
+        {message.content && message.governance ? <GovernanceTrail trace={message.governance} /> : null}
       </div>
     </article>
   )
