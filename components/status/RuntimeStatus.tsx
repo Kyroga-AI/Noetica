@@ -19,14 +19,28 @@ export function RuntimeStatus() {
 
   useEffect(() => {
     let cancelled = false
+    let failures = 0
+    let lastGood: NoeticaStatusState['status'] = undefined
 
     const poll = () => {
       loadNoeticaStatus()
         .then((status) => {
-          if (!cancelled) setState({ state: 'ready', status })
+          if (cancelled) return
+          failures = 0
+          lastGood = status
+          setState({ state: 'ready', status })
         })
         .catch((error) => {
-          if (!cancelled) setState({ state: 'error', error: error instanceof Error ? error.message : 'status_unavailable' })
+          if (cancelled) return
+          failures += 1
+          // Tolerate a single transient blip (slow/booting agent-machine) — keep the
+          // last-good status (or stay loading) and only flip the badge red after two
+          // consecutive failures, so it still catches a real mid-session drop.
+          if (failures < 2) {
+            setState(lastGood ? { state: 'ready', status: lastGood } : { state: 'loading' })
+            return
+          }
+          setState({ state: 'error', error: error instanceof Error ? error.message : 'status_unavailable' })
         })
     }
 
