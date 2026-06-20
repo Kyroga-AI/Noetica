@@ -285,6 +285,20 @@ export function AppShell() {
     () => [...messages].reverse().find((m) => m.governance !== undefined)?.governance,
     [messages]
   )
+  // Real "in scope" files for the Context panel: paths touched by this session's
+  // filesystem tool calls (read_file / write_file / list_directory), most recent first.
+  const inScopeFiles = useMemo(() => {
+    const seen = new Set<string>()
+    for (const m of messages) {
+      for (const tc of m.tool_calls ?? []) {
+        if (tc.name === 'read_file' || tc.name === 'write_file' || tc.name === 'list_directory') {
+          const p = (tc.input as { path?: string } | undefined)?.path
+          if (typeof p === 'string' && p.trim()) seen.add(p.trim())
+        }
+      }
+    }
+    return Array.from(seen).reverse().slice(0, 12)
+  }, [messages])
   const fanoutModelCount = Math.min(settings.fanoutModels.length, settings.fanoutConcurrency)
 
   function exportConversation() {
@@ -1217,6 +1231,7 @@ export function AppShell() {
           onCollapse={() => setRightSidebarCollapsed(true)}
           onExpand={() => setRightSidebarCollapsed(false)}
           riskReadout={riskReadout}
+          inScopeFiles={inScopeFiles}
         />
       </main>
 

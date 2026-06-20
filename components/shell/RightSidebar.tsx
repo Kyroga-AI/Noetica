@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useSettings } from '@/lib/settings/context'
 import { models } from '@/config/models'
 import type { RiskAversionLiveReadout } from '@/lib/risk/riskAversionLive'
+import { useMemory } from '@/lib/memory/useMemory'
 
 export type AgentSlotId = 'context' | 'mail' | 'calendar' | 'tasks' | 'graph' | 'lattice' | 'feed' | 'risk'
 
@@ -99,6 +100,43 @@ const SLOTS: { id: AgentSlotId; label: string; icon: React.ReactNode; descriptio
     ),
   },
 ]
+
+// Slots actually shown. The rest of SLOTS/MOCK_CONTENT were placeholder demos with
+// hardcoded data; the right panel now shows only real, live context.
+const ENABLED_SLOTS: AgentSlotId[] = ['context']
+
+// Real Context panel: files referenced by this session's tool calls + the actual
+// stored memories. No mock data.
+function ContextSlot({ inScopeFiles }: { inScopeFiles: string[] }) {
+  const { entries, hydrated } = useMemory()
+  const recent = entries.slice(0, 6)
+  return (
+    <div className="space-y-1 p-2">
+      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-0.5">
+        In scope{inScopeFiles.length > 0 ? ` · ${inScopeFiles.length}` : ''}
+      </div>
+      {inScopeFiles.length === 0 ? (
+        <SlotRow><span className="text-[var(--color-text-tertiary)]">No files referenced yet</span></SlotRow>
+      ) : (
+        inScopeFiles.map((f) => (
+          <SlotRow key={f}><span className="text-[var(--color-text-secondary)] mr-1.5">—</span><span className="truncate">{f}</span></SlotRow>
+        ))
+      )}
+      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">
+        Memory{hydrated ? ` · ${entries.length}` : ''}
+      </div>
+      {!hydrated ? (
+        <SlotRow><span className="text-[var(--color-text-tertiary)]">Loading…</span></SlotRow>
+      ) : entries.length === 0 ? (
+        <SlotRow><span className="text-[var(--color-text-tertiary)]">No memories stored yet</span></SlotRow>
+      ) : (
+        recent.map((m) => (
+          <SlotRow key={m.id}><span className="line-clamp-2 leading-snug">{m.text}</span></SlotRow>
+        ))
+      )}
+    </div>
+  )
+}
 
 function GraphMini() {
   const nodes = [
@@ -270,6 +308,7 @@ type RightSidebarProps = {
   onCollapse: () => void
   onExpand: () => void
   riskReadout?: RiskAversionLiveReadout | null
+  inScopeFiles?: string[]
 }
 
 function AgentSlotConfig({ slotId, onClose }: { slotId: AgentSlotId; onClose: () => void }) {
@@ -305,7 +344,7 @@ function AgentSlotConfig({ slotId, onClose }: { slotId: AgentSlotId; onClose: ()
   )
 }
 
-export function RightSidebar({ collapsed, onCollapse, onExpand, riskReadout }: RightSidebarProps) {
+export function RightSidebar({ collapsed, onCollapse, onExpand, riskReadout, inScopeFiles = [] }: RightSidebarProps) {
   const [activeSlot, setActiveSlot] = useState<AgentSlotId>('context')
   const [configuringSlot, setConfiguringSlot] = useState<AgentSlotId | null>(null)
   const { settings } = useSettings()
@@ -324,7 +363,7 @@ export function RightSidebar({ collapsed, onCollapse, onExpand, riskReadout }: R
           </svg>
         </button>
         <nav className="flex flex-col items-center gap-1">
-          {SLOTS.map((slot) => (
+          {SLOTS.filter((s) => ENABLED_SLOTS.includes(s.id)).map((slot) => (
             <button
               key={slot.id}
               onClick={() => { setActiveSlot(slot.id); onExpand() }}
@@ -348,20 +387,24 @@ export function RightSidebar({ collapsed, onCollapse, onExpand, riskReadout }: R
     <aside className="hidden w-56 shrink-0 flex-col border-l border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] lg:flex">
       {/* Slot tabs — scrollable row */}
       <div className="flex items-center border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)]">
-        <div className="flex min-w-0 flex-1 overflow-x-auto scrollbar-none gap-px px-1 pt-1">
-          {SLOTS.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => { setActiveSlot(s.id); setConfiguringSlot(null) }}
-              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-t-md transition ${
-                activeSlot === s.id ? 'bg-[var(--color-background-primary)] text-[var(--color-text-primary)]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
-              }`}
-              title={s.label}
-            >
-              {s.icon}
-            </button>
-          ))}
-        </div>
+        {ENABLED_SLOTS.length > 1 ? (
+          <div className="flex min-w-0 flex-1 overflow-x-auto scrollbar-none gap-px px-1 pt-1">
+            {SLOTS.filter((s) => ENABLED_SLOTS.includes(s.id)).map((s) => (
+              <button
+                key={s.id}
+                onClick={() => { setActiveSlot(s.id); setConfiguringSlot(null) }}
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-t-md transition ${
+                  activeSlot === s.id ? 'bg-[var(--color-background-primary)] text-[var(--color-text-primary)]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
+                }`}
+                title={s.label}
+              >
+                {s.icon}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="flex-1" />
+        )}
         <button
           onClick={onCollapse}
           className="shrink-0 flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-secondary)]"
@@ -406,7 +449,9 @@ export function RightSidebar({ collapsed, onCollapse, onExpand, riskReadout }: R
 
       {/* Slot content */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {activeSlot === 'risk'
+        {activeSlot === 'context'
+          ? <ContextSlot inScopeFiles={inScopeFiles} />
+          : activeSlot === 'risk'
           ? <RiskSlot riskReadout={riskReadout} />
           : MOCK_CONTENT[activeSlot]}
       </div>
