@@ -22,6 +22,72 @@ const KIND_ICON: Record<string, string> = {
   binary: '📦',
 }
 
+// ── Execution timeline ────────────────────────────────────────────────────────
+// Live, legible view of the agent's plan and progress. Streams in the moment the
+// intent is classified, then each step flips running → done as the backend works
+// the pipeline — so a slow local turn reads as visible motion, not a dead spinner.
+function ExecutionTimeline({ plan, grounding, onOpenSurface }: { plan: NonNullable<ChatMessage['plan']>; grounding?: ChatMessage['grounding']; onOpenSurface?: (surface: string) => void }) {
+  const allDone = plan.steps.every((s) => s.status === 'done')
+  return (
+    <details
+      open={!allDone}
+      className="mb-3 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)]"
+    >
+      <summary className="flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
+        <span>{allDone ? 'Plan & execution' : 'Working…'}</span>
+        <span className="rounded-full bg-[var(--color-background-tertiary)] px-1.5 py-0.5 text-[10px] font-normal text-[var(--color-text-tertiary)]">
+          {plan.intent.replace(/_/g, ' ')} · {plan.capability}
+          {plan.skill ? ` · ${plan.skill}` : ''}
+          {plan.surface ? ` → ${plan.surface}` : ''}
+        </span>
+      </summary>
+      <ol className="space-y-1.5 px-3 pb-3 pt-1">
+        {plan.steps.map((s) => (
+          <li key={s.id} className="flex items-start gap-2 text-xs leading-5">
+            <span className="mt-0.5 w-3.5 shrink-0 text-center">
+              {s.status === 'done' ? (
+                <span className="text-[var(--color-accent-primary,#16a34a)]">✓</span>
+              ) : s.status === 'running' ? (
+                <span className="inline-block h-3 w-3 animate-spin rounded-full border border-[var(--color-text-tertiary)] border-t-transparent align-middle" />
+              ) : (
+                <span className="text-[var(--color-text-tertiary)]">○</span>
+              )}
+            </span>
+            <span className={s.status === 'pending' ? 'text-[var(--color-text-tertiary)]' : 'text-[var(--color-text-secondary)]'}>
+              {s.label}
+              {s.detail ? <span className="text-[var(--color-text-tertiary)]"> — {s.detail}</span> : null}
+            </span>
+          </li>
+        ))}
+      </ol>
+      {plan.surface && onOpenSurface && (
+        <div className="border-t border-[var(--color-border-tertiary)] px-3 py-2">
+          <button
+            onClick={() => onOpenSurface(plan.surface!)}
+            className="rounded-md border border-[var(--color-border-secondary)] px-2 py-1 text-[11px] font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-primary)]"
+          >
+            Open in {plan.surface} surface →
+          </button>
+        </div>
+      )}
+      {grounding && grounding.terms.length > 0 && (
+        <div className="border-t border-[var(--color-border-tertiary)] px-3 py-2">
+          <div className="mb-1 text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">
+            Recognized · {grounding.domain}
+          </div>
+          <div className="flex flex-wrap gap-1">
+            {grounding.terms.map((t) => (
+              <span key={t} className="rounded bg-[var(--color-background-tertiary)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-secondary)]">
+                {t}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+    </details>
+  )
+}
+
 function AttachmentList({ attachments }: { attachments: PendingAttachment[] }) {
   return (
     <div className="mt-2 flex flex-wrap gap-1.5">
@@ -236,9 +302,10 @@ type MessageBubbleProps = {
   onFork?: (messageId: string) => void
   onEdit?: (messageId: string, newContent: string) => void
   onSpeak?: (content: string) => void
+  onOpenSurface?: (surface: string) => void
 }
 
-export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onSpeak }: MessageBubbleProps) {
+export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onSpeak, onOpenSurface }: MessageBubbleProps) {
   const isUser = message.role === 'user'
   const [extracted, setExtracted] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -337,6 +404,21 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
           {message.governance?.model_routed ?? message.fanout_model ?? 'Noetica'}
         </div>
 
+        {/* Announcer narration — running commentary of what the agent is doing */}
+        {message.narration && message.narration.length > 0 && (
+          <div className="mb-3 space-y-1 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2">
+            {message.narration.map((n, i) => (
+              <div key={i} className="flex items-start gap-2 text-xs leading-5 text-[var(--color-text-secondary)]">
+                <span className="select-none opacity-60">🗣</span>
+                <span>{n.text}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Plan & execution timeline — visible while the turn runs */}
+        {message.plan && <ExecutionTimeline plan={message.plan} grounding={message.grounding} onOpenSurface={onOpenSurface} />}
+
         {/* Extended thinking */}
         {message.thinking && (
           <details className="mb-3 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)]">
@@ -355,8 +437,8 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
         {/* Main content — markdown rendered */}
         {message.content && <MarkdownContent content={message.content} />}
 
-        {/* Streaming placeholder */}
-        {!message.content && !message.tool_calls?.length && (
+        {/* Streaming placeholder — only when nothing else signals activity */}
+        {!message.content && !message.tool_calls?.length && !message.plan && (
           <span className="inline-block h-4 w-4 animate-pulse rounded-sm bg-[var(--color-text-tertiary)]" />
         )}
 

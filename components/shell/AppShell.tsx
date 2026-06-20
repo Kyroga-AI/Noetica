@@ -803,6 +803,36 @@ export function AppShell() {
                 setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'tool_calls', payload: calls }, ...prev].slice(0, 80))
               }
             },
+            onIntent: (intent) => {
+              updateAssistant(assistantId, { intent })
+              if (settings.showRawEvents) {
+                setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'intent', payload: intent }, ...prev].slice(0, 80))
+              }
+            },
+            onPlan: (plan) => {
+              updateAssistant(assistantId, { plan })
+              if (settings.showRawEvents) {
+                setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'plan', payload: plan }, ...prev].slice(0, 80))
+              }
+            },
+            onGrounding: (grounding) => {
+              updateAssistant(assistantId, { grounding })
+              if (settings.showRawEvents) {
+                setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'grounding', payload: grounding }, ...prev].slice(0, 80))
+              }
+            },
+            onNarration: (line) => {
+              appendNarration(assistantId, line)
+              if (settings.showRawEvents) {
+                setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'narration', payload: line }, ...prev].slice(0, 80))
+              }
+            },
+            onStep: (step) => {
+              mergePlanStep(assistantId, step)
+              if (settings.showRawEvents) {
+                setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'step', payload: step }, ...prev].slice(0, 80))
+              }
+            },
             onRetrieval: (trace) => {
               mergeRetrieval(assistantId, trace)
               if (settings.showRawEvents) {
@@ -1099,6 +1129,27 @@ export function AppShell() {
     )
   }
 
+  // Merge a streamed step status update into the message's plan by step id, so the
+  // execution timeline flips running → done live as the backend works the pipeline.
+  function mergePlanStep(id: string, update: import('@/lib/types/message').PlanStepUpdate) {
+    setMessages((current) =>
+      current.map((m) => {
+        if (m.id !== id || !m.plan) return m
+        const steps = m.plan.steps.map((s) =>
+          s.id === update.id ? { ...s, status: update.status, detail: update.detail ?? s.detail } : s
+        )
+        return { ...m, plan: { ...m.plan, steps } }
+      })
+    )
+  }
+
+  // Append a narration line — the announcer's running commentary, in arrival order.
+  function appendNarration(id: string, line: import('@/lib/types/message').NarrationLine) {
+    setMessages((current) =>
+      current.map((m) => (m.id === id ? { ...m, narration: [...(m.narration ?? []), line] } : m))
+    )
+  }
+
   function appendAssistantContent(id: string, delta: string) {
     setMessages((current) =>
       current.map((m) => (m.id === id ? { ...m, content: `${m.content}${delta}` } : m))
@@ -1202,6 +1253,7 @@ export function AppShell() {
                 onAtomSelect={(query) => { setActiveSurface('chat'); void handleSend(query, []) }}
                 onOpenSettings={() => openSettings('connections')}
                 onNavigateToOperate={() => setActiveSurface('operate')}
+                onOpenSurface={(s) => handleSurfaceChange(s as ActiveSurface)}
                 onSpeak={speak}
               />
               {inspectorVisible && (
@@ -1392,10 +1444,11 @@ type CenterProps = {
   onAtomSelect?: (query: string) => void
   onOpenSettings?: () => void
   onNavigateToOperate?: () => void
+  onOpenSurface?: (surface: string) => void
   onSpeak?: (content: string) => void
 }
 
-function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onSpeak }: CenterProps) {
+function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onOpenSurface, onSpeak }: CenterProps) {
   if (activeSurface === 'notes')        return <NotesSurface />
   if (activeSurface === 'canvas')       return <CanvasSurface />
   if (activeSurface === 'workrooms')    return <WorkroomsSurface thinkingBudget={thinkingBudget} />
@@ -1420,7 +1473,7 @@ function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, work
     <div className={`grid min-h-0 flex-1 overflow-hidden transition-[grid-template-columns] duration-300 ${activeArtifact ? 'grid-cols-[minmax(320px,1fr)_480px]' : 'grid-cols-1'}`}>
       <section className="flex min-h-0 flex-col overflow-hidden">
         <GoalBanner sessionId={sessionId} />
-        <MessageList messages={messages} isStreaming={isStreaming} onExtractArtifact={onExtractArtifact} onRegenerate={onRegenerate} onResume={onResume} onFork={onFork} onEdit={onEdit} onRecombine={onRecombine} onSpeak={onSpeak} />
+        <MessageList messages={messages} isStreaming={isStreaming} onExtractArtifact={onExtractArtifact} onRegenerate={onRegenerate} onResume={onResume} onFork={onFork} onEdit={onEdit} onRecombine={onRecombine} onSpeak={onSpeak} onOpenSurface={onOpenSurface} />
         <InputArea
           onSend={onSend}
           onFanout={onFanout}

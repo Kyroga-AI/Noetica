@@ -33,6 +33,9 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import { buildRouterDecision, LOCAL_MODEL_SUITE } from './lib/router.js'
+import { classifyIntent, capabilityToTask, wantsVectorRag, intentByName, planFromIntent, intentToAction } from './lib/intent-router.js'
+import { routeForAction, meshrushPhase } from './lib/action-cell.js'
+import { selectSurface } from './lib/graph-surface.js'
 import { createSQLiteBackend, migrateJSONLToSQLite } from './lib/sqlite-backend.js'
 import { registerStorageNodeRoutes, handleStorageNodeRequest } from './lib/storage-node-routes.js'
 import { handleMeshRushRequest } from './lib/meshrush-bridge.js'
@@ -681,6 +684,12 @@ const FEATURE_FLAGS: Array<{ env: string; status: 'default-on' | 'opt-in' | 'exp
   { env: 'NOETICA_DELIBERATION',       status: 'experimental', desc: 'BG→WM→VJ→select deliberation loop (multi-candidate)' },
   { env: 'NOETICA_SHACL_ENFORCE',      status: 'experimental', desc: 'Ontogenesis SHACL gate on graph writes (quarantine)' },
   { env: 'NOETICA_GAIA_AUTO_LOOP',     status: 'experimental', desc: 'GAIA background observation/consolidation loop' },
+  { env: 'NOETICA_QA_FEWSHOT',         status: 'opt-in',       desc: 'Inject gold Q/A exemplars (Pareto head) as few-shot training memory' },
+  { env: 'NOETICA_RESPONSIVE',         status: 'default-on',   desc: 'Fast 3B base + lean RAG for substantive turns (CPU latency); escalation climbs on struggle' },
+  { env: 'NOETICA_EMBED_INTENT',       status: 'default-on',   desc: 'Tier-0 embedding intent classifier (nomic) — confidence + paraphrase robustness' },
+  { env: 'NOETICA_EXTRACTIVE',         status: 'default-on',   desc: 'Extractive grounded answers for doc intents (cited verbatim, no hallucination, instant)' },
+  { env: 'NOETICA_FABRIC',             status: 'default-on',   desc: 'Context fabric on the atomspace — STI-gated live brief shared across voice/chat/agents' },
+  { env: 'NOETICA_LOGIC_FIRST',        status: 'default-on',   desc: 'Compute the answer by logic first (recall→extract); generate only the undecidable remainder' },
 ]
 
 /**
@@ -1362,6 +1371,7 @@ async function* streamOpenAI(params: {
 // ─── Agentic chat handler ─────────────────────────────────────────────────────
 
 async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<void> {
+  const turnStart = Date.now() // request-received clock (used by the fast clarify path)
   const keys = body.provider_keys ?? {}
   const anthropicKey = keys.anthropic?.trim() || process.env['ANTHROPIC_API_KEY'] || ''
   const openaiKey = keys.openai?.trim() || process.env['OPENAI_API_KEY'] || ''
@@ -1377,6 +1387,147 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     (m) => m.role === 'user' && m.attachments?.some((a) => a.kind === 'image'),
   )
 
+  // ── Structured intent classification (the 22-intent plan layer) ─────────────
+  // Run the fast, local, cue-based classifier FIRST. It maps the turn to one of
+  // the 22 conversational intents, each carrying a plan: model capability +
+  // retrieval strategy + slots. We feed its capability into the router as an
+  // authoritative task override (so e.g. a doc summary goes to 'general', not the
+  // coder), and use its retrieval flag to force doc-grounding below. Pure pattern
+  // scoring — no model call, safe on the hot path even on a CPU box.
+  let hasDoc = false
+  try {
+    const { documentChunkCount } = await import('./lib/doc-store.js')
+    hasDoc = documentChunkCount() > 0
+  } catch { /* doc-store optional */ }
+  let intentPlan = classifyIntent(latestUserContent, { hasDoc })
+  // Tier-0 cascade (NOETICA_EMBED_INTENT): a tiny embedding model refines the intent
+  // when the regex cues are weak/ambiguous — calibrated confidence + paraphrase
+  // robustness (e.g. "what is a clinical trial?" with no literal cue). An exact strong
+  // cue (regex score ≥ 2) is trusted as-is; otherwise a confident, decisive embedding
+  // wins. Best-effort — falls back to the regex result if the embed model is down.
+  if (isFlagOn('NOETICA_EMBED_INTENT')) {
+    try {
+      const { classifyEmbed } = await import('./lib/intent-embed.js')
+      const emb = await classifyEmbed(latestUserContent)
+      const regexStrong = intentPlan.score >= 2 && intentPlan.name !== 'general'
+      if (emb && !regexStrong && emb.confidence >= 0.55 && emb.margin >= 0.02) {
+        const it = intentByName(emb.name)
+        if (it) {
+          intentPlan = planFromIntent(it, 1 + emb.confidence * 2) // map cosine → score band
+          console.log(`[embed-intent] ${emb.name} (conf ${emb.confidence}, margin ${emb.margin})`)
+        }
+      }
+    } catch { /* embedding classifier best-effort */ }
+  }
+  // 'continue'/'ingest' carry no model task — let the keyword router decide those.
+  const intentTaskOverride = (intentPlan.model === 'continue' || intentPlan.model === 'ingest')
+    ? undefined
+    : (capabilityToTask(intentPlan.model) as Parameters<typeof buildRouterDecision>[0]['taskOverride'])
+  sse(res, 'intent', { intent: {
+    id: intentPlan.id, name: intentPlan.name, capability: intentPlan.model,
+    retrieval: intentPlan.retrieval, slots: intentPlan.slots, score: intentPlan.score,
+    surface: intentPlan.surface, tools: intentPlan.tools, skill: intentPlan.skill,
+  } })
+
+  // ── First meshrush edge: project the intent onto the action basis, derive the route ──
+  // The request becomes a tangent vector (action) whose polarity routes it: read →
+  // interactive/faithful tier, write → deliberate/generative tier; substrate → node.
+  // This grounds model selection in the algebra and is the first admissible hop.
+  const action = intentToAction(intentPlan.name)
+  const actionRoute = action === 'meta' ? { tier: 'embedding', target: 'concierge' } : routeForAction(action)
+  const polarity = ['retrieve', 'evaluate', 'sense'].includes(action) ? 'read' : action === 'meta' ? 'meta' : 'write'
+  const phase = action === 'meta' ? null : meshrushPhase(action) // where this turn sits in the MeshRush loop
+  sse(res, 'action', { action: { verb: action, polarity, tier: actionRoute.tier, target: actionRoute.target, meshrush_phase: phase } })
+
+  // ── Visible plan + execution timeline ───────────────────────────────────────
+  // Make the turn legible while it runs: stream an ordered checklist the moment we
+  // know the intent, then flip each step's status (running → done) as we hit it.
+  // Even when generation is slow, the user watches the agent move through its plan
+  // instead of waiting on a blank spinner. Steps mirror the real pipeline below.
+  const willRetrieveDocs = wantsVectorRag(intentPlan.retrieval) && hasDoc
+  const planSteps = [
+    { id: 'classify', label: 'Understanding the request', status: 'done', detail: intentPlan.name.replace(/_/g, ' ') },
+    { id: 'retrieve', label: willRetrieveDocs ? 'Retrieving relevant document passages' : 'Gathering memory & grounding', status: 'running', detail: '' },
+    { id: 'generate', label: 'Composing the answer', status: 'pending', detail: '' },
+  ]
+  sse(res, 'plan', { plan: {
+    intent: intentPlan.name, capability: intentPlan.model,
+    retrieval: intentPlan.retrieval, slots: intentPlan.slots, steps: planSteps,
+    surface: intentPlan.surface, skill: intentPlan.skill, tools: intentPlan.tools,
+  } })
+  const step = (id: string, status: 'running' | 'done', detail = '') =>
+    sse(res, 'step', { step: { id, status, detail } })
+  // The announcer: stream plain narration of WHAT the agent is doing and WHY — which
+  // model, for what purpose, why it's adapting — so the user follows the reasoning and
+  // never sees a silent gap (the "not frozen" signal).
+  const narrate = (n: import('./lib/narration.js').Narration) => sse(res, 'narration', { narration: n })
+  let docHitCount = 0  // chunks pulled by semantic RAG — surfaced in the retrieve step
+  let docHits: import('./lib/doc-store.js').ChunkHit[] = [] // captured for extractive QA
+
+  // ── Glossary-grounded NLU (Rasa-style lookup tables, already worked out) ─────
+  // Overlap the turn against our induced GlossaryTerm vocabulary (Domain→Topic×22→
+  // GlossaryTerm) to recognize which domain + topics + terms it touches. Pure token
+  // overlap — no model, safe on the hot path. We use the matched terms to (a) bias
+  // document retrieval toward on-topic chunks and (b) anchor the model to the right
+  // domain vocabulary. This is standard dialogue-management grounding; the leverage
+  // is that the glossary is pre-built, so recognition needs no training.
+  let glossaryTerms: string[] = []
+  let glossaryTopics: string[] = []
+  let groundingContext = ''
+  try {
+    const { matchDomains } = await import('./lib/graphbrain-bridge.js')
+    const matches = matchDomains(latestUserContent, 2)
+    if (matches.length > 0) {
+      glossaryTerms = [...new Set(matches.flatMap((m) => m.matchedTerms))].slice(0, 12)
+      glossaryTopics = [...new Set(matches.flatMap((m) => m.topics.map((t) => t.code)))].slice(0, 6)
+      if (glossaryTerms.length > 0) {
+        groundingContext = `\n\n---\n**Domain grounding**\nThis question is in the "${matches[0]!.corpusRelease}" domain. Salient topics: ${glossaryTopics.join(', ')}. Key glossary terms in play: ${glossaryTerms.join(', ')}. Use this established vocabulary precisely and ground every claim in the cited document sources.`
+      }
+      sse(res, 'grounding', { grounding: { domain: matches[0]!.corpusRelease, topics: glossaryTopics, terms: glossaryTerms } })
+      step('classify', 'done', glossaryTopics.length ? `${intentPlan.name.replace(/_/g, ' ')} · ${glossaryTopics.join('/')}` : intentPlan.name.replace(/_/g, ' '))
+    }
+  } catch { /* glossary grounding is best-effort */ }
+
+  // ── Context fabric: inject the live brief (STI-gated, shared across surfaces) ─
+  // The brief shapes engagement — what we're working on across voice/chat/agents —
+  // without flooding context. It's the high-salience slice of the atomspace.
+  let fabricContext = ''
+  if (isFlagOn('NOETICA_FABRIC')) {
+    try {
+      const { readBrief, briefContext } = await import('./lib/fabric.js')
+      fabricContext = briefContext(readBrief({ session: body.session_id ?? 'local', limit: 10 }))
+    } catch { /* fabric is best-effort */ }
+  }
+
+  // ── Dialogue policy: forms + fallback clarification (decide before answering) ─
+  // A form-gated intent missing its critical slot, or a very-low-confidence turn,
+  // is answered with a CLARIFYING QUESTION rather than a guess. Fast path — no model
+  // call, no retrieval — and recorded so the analytics show clarify/slot-fill rates.
+  const { decidePolicy } = await import('./lib/dialogue-policy.js')
+  const policy = decidePolicy(intentPlan, latestUserContent, { hasDoc, entities: glossaryTerms })
+  if (policy.action === 'clarify' && policy.prompt) {
+    step('retrieve', 'done', 'clarification needed')
+    step('generate', 'done', 'asked for missing info')
+    sse(res, 'delta', { delta: policy.prompt })
+    try {
+      const { recordTurn } = await import('./lib/dialogue-tracker.js')
+      recordTurn({
+        session_id: body.session_id ?? 'local', intent: intentPlan.name, intent_score: intentPlan.score,
+        fallback: policy.reason === 'low intent confidence',
+        slots_expected: intentPlan.slots, slots_filled: policy.filled, fill_rate: policy.fillRate,
+        clarified: true, entities: glossaryTerms, surface: intentPlan.surface, skill: intentPlan.skill,
+        tools: intentPlan.tools, capability: intentPlan.model, model: 'concierge', retrieval: 'none',
+        grounded: false, latency_ms: Date.now() - turnStart,
+      })
+    } catch { /* tracker best-effort */ }
+    sse(res, 'done', { result: {
+      run_id: crypto.randomUUID(), content: policy.prompt, model_routed: 'concierge', provider: 'noetica',
+      policy_admitted: true, memory_written: false, stop_reason: 'clarify', timestamp: new Date().toISOString(),
+      latency_ms: Date.now() - turnStart, agent_machine: true, agent_machine_version: VERSION, clarification: true,
+    } })
+    return
+  }
+
   let routing: ReturnType<typeof buildRouterDecision>
   try {
     routing = buildRouterDecision({
@@ -1390,6 +1541,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       policyProfile: body.policy_profile,
       hasImages,
       hasTools: (body.tools?.length ?? 0) > 0,
+      taskOverride: intentTaskOverride,
     })
   } catch (err) {
     sse(res, 'error', { error: err instanceof Error ? err.message : String(err) })
@@ -1425,6 +1577,10 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     const arms = [model, fallbackModel]
       .filter((m, i, a): m is string => Boolean(m) && a.indexOf(m) === i)
       .filter((m) => availableModels.includes(m) && (!needTools || toolOk(m)))
+      // Latency guard: never let the bandit explore the slow CPU reasoner (deepseek-r1
+      // emits long <think> chains) for non-reasoning tasks. A "what is X?" must not
+      // land on it and stall the turn for minutes — that's what froze the demo.
+      .filter((m) => routerDecision.task === 'reasoning' || !/deepseek-r1/i.test(m))
     const pick = selectArmUCB(routerDecision.task ?? 'general', arms)
     if (pick && pick !== model) {
       console.log(`[bandit] task="${routerDecision.task}" ${model} → ${pick} (arms: ${arms.join(', ')})`)
@@ -1443,12 +1599,79 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       const { planTurn, dispatchGate } = await import('./lib/orchestrator.js')
       dispatchGateRef = dispatchGate
       turnPlan = planTurn(latestUserContent)
-      if (turnPlan.mode === 'direct') {
+      // The 22-intent classifier is authoritative over planTurn's keyword guess, so
+      // the two can't silently disagree. ONLY genuinely trivial intents get the fast
+      // concierge model; substantive work (doc summary/QA, research, reasoning, build)
+      // keeps its routed 7b worker — otherwise "summarize this report" falls into
+      // planTurn's default "direct" bucket and gets quietly downgraded to the 3B.
+      const conciergeIntents = new Set(['converse_smalltalk', 'confirm_steer', 'meta_capability', 'self_identity'])
+      if (turnPlan.mode === 'direct' && conciergeIntents.has(intentPlan.name)) {
         const fast = ['llama3.2:3b', 'qwen2.5:7b'].find((m) => availableModels.includes(m))
-        if (fast) { model = fast; console.log(`[concierge] direct turn → ${model} (${turnPlan.reason})`) }
+        if (fast) { model = fast; console.log(`[concierge] direct turn → ${model} (${intentPlan.name})`) }
       }
     } catch { /* orchestration is best-effort — fall back to routed model */ }
   }
+
+  // ── Responsive base (NOETICA_RESPONSIVE, default-on) ────────────────────────
+  // Technique over horsepower: on this CPU box the 7B's ~5 tok/s prompt-eval makes
+  // any RAG turn unusable (a 3K-token prompt = minutes just to READ it). The 3B runs
+  // ~5× faster end-to-end (measured: 8.6s vs 21.9s on a 640-tok RAG prompt) and, with
+  // our grounding + forms, answers accurately. So START substantive general/research/
+  // writing turns on the 3B; the escalation step below climbs to a 7B only when the
+  // turn actually struggles. Code/reasoning keep their routed worker.
+  if (isFlagOn('NOETICA_RESPONSIVE') && provider === 'ollama') {
+    // Fast 3B for NON-grounded turns (chat, quick general). But doc-grounded intents
+    // (vector-rag) keep the 7B: the dry-run proved a 3B confabulates on specific-entity
+    // questions even with the right chunks in context and a strict-grounding instruction
+    // — it pattern-matches the entity to training instead of reading the sources. For
+    // grounded Q&A, fidelity beats the ~10s we'd save. Escalation still climbs on struggle.
+    // Non-doc-grounded reasoning (plan/compute/explain) goes fast too — the !docGrounded
+    // guard below is what protects retrieval fidelity, so reasoning only stays heavy when
+    // it's actually grounding on a document. Otherwise plan_nextsteps stalls on deepseek-r1.
+    const fastTasks = new Set(['general', 'writing', 'chat', 'reasoning'])
+    const docGrounded = wantsVectorRag(intentPlan.retrieval)
+    const fast = 'llama3.2:3b'
+    if (!docGrounded && fastTasks.has(routerDecision.task ?? 'general') && availableModels.includes(fast) && model !== fast) {
+      console.log(`[responsive] ${routerDecision.task} ${model} → ${fast} (fast base)`)
+      model = fast
+    }
+  }
+
+  // ── Escalation: climb to a more capable model when the cheap flow is failing ──
+  // After 2 unresolved turns in a session — or 1 turn when intent/path confidence is
+  // low — fall back to a more capable model (cloud when a key is present, else the
+  // best available local). The final word on routing, overriding bandit/concierge.
+  let escalated = false
+  const trivialIntent = ['converse_smalltalk', 'confirm_steer', 'meta_capability', 'self_identity'].includes(intentPlan.name)
+  if (provider === 'ollama' && !trivialIntent) {
+    try {
+      const { sessionStruggle } = await import('./lib/dialogue-tracker.js')
+      const { decideEscalation } = await import('./lib/dialogue-policy.js')
+      const struggle = sessionStruggle(body.session_id ?? 'local')
+      const esc = decideEscalation({
+        intentScore: intentPlan.score,
+        consecutiveUnresolved: struggle.consecutiveUnresolved,
+        hasAnthropic: Boolean(anthropicKey), hasOpenAI: Boolean(openaiKey),
+        availableModels, currentModel: model,
+      })
+      if (esc.escalate && esc.model) {
+        provider = esc.provider as typeof provider; model = esc.model; escalated = true
+        sse(res, 'escalation', { escalation: { to: `${provider}:${model}`, reason: esc.reason } })
+        const { narrateEscalation } = await import('./lib/narration.js')
+        narrate(narrateEscalation(model, intentPlan.name, esc.reason ?? ''))
+        console.log(`[escalation] → ${provider}:${model} (${esc.reason})`)
+      }
+    } catch { /* escalation is best-effort */ }
+  }
+
+  // Announce the final model choice + purpose (the "using X to do Y" the user asked
+  // for). Reflects every prior adjustment — responsive downgrade, escalation, concierge.
+  try {
+    const { narrateRoute } = await import('./lib/narration.js')
+    const isFast = /llama3.2:3b|3b/i.test(model)
+    const isConcierge = turnPlan?.mode === 'direct' && ['converse_smalltalk', 'confirm_steer', 'meta_capability', 'self_identity'].includes(intentPlan.name)
+    narrate(narrateRoute(model, intentPlan.name, { fast: isFast && !isConcierge, concierge: isConcierge }))
+  } catch { /* narration best-effort */ }
 
   const apiKey = provider === 'openai' ? openaiKey : anthropicKey
 
@@ -1477,8 +1700,13 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // generate_image requires an OpenAI (DALL·E) key. In a pure-local setup with no key,
   // drop it so the model never calls a tool that can only return an error.
   const imageGenAvailable = Boolean(openaiKey)
+  // Scope the agent's builtin tools to what THIS intent should reach for (the
+  // intent→tools map), instead of exposing every tool on every turn — a doc summary
+  // shouldn't be offered code_execute, etc. Trivial intents (smalltalk/confirm) map
+  // to no tools. User-supplied (MCP) tools always pass through regardless of intent.
+  const intentToolSet = new Set<string>(intentPlan.tools)
   const allTools: ProviderTool[] = modelSupportsTools
-    ? BUILTIN_TOOLS.filter((t) => t.name !== 'generate_image' || imageGenAvailable)
+    ? BUILTIN_TOOLS.filter((t) => intentToolSet.has(t.name) && (t.name !== 'generate_image' || imageGenAvailable))
     : []
   if (modelSupportsTools) {
     for (const t of body.tools ?? []) {
@@ -1575,11 +1803,44 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // structural, not semantic. Injected as authoritative source context.
   try {
     const { semanticSearch, documentChunkCount } = await import('./lib/doc-store.js')
-    if (documentChunkCount() > 0) {
-      const hits = await semanticSearch(latestUserContent, 6)
+    // Skip doc retrieval entirely for intents that want no grounding (greetings,
+    // confirmations, file ops) — otherwise a plain "hello" wastefully pulls passages
+    // and shows a misleading "retrieving" step.
+    if (documentChunkCount() > 0 && intentPlan.retrieval !== 'none') {
+      // Intent-aware retrieval. Doc-focused intents (summarize_doc / qa_over_doc /
+      // research) get a tight top-k of the MOST relevant chunks instead of stuffing
+      // the whole document into context — this is the fix for the 300–500s latency
+      // (CPU prompt-eval scales with prompt size) AND the hallucination (a focused,
+      // on-topic context keeps a small local model from drifting to training priors).
+      const docFocused = wantsVectorRag(intentPlan.retrieval)
+      // Responsive mode keeps the prompt lean — prompt-eval is the CPU bottleneck, so
+      // fewer + shorter passages directly cut time-to-first-token. Full mode retrieves
+      // wider for richer grounding when latency isn't the constraint.
+      const lean = isFlagOn('NOETICA_RESPONSIVE')
+      // 4 passages even in lean mode: 2 was too few — the question-specific chunk could
+      // miss the cut, and a small model with no grounding fabricates (saw it invent a
+      // fake "Hurricane Helene 2008"). Recall protects correctness; the 480-char cap
+      // keeps the token budget (and latency) in check.
+      const topK = lean ? 4 : (docFocused ? 5 : 3)
+      const chunkCap = lean ? 480 : 1200
+      // Bias retrieval with the recognized glossary terms so the chunks we pull are
+      // topically on-target (better grounding + more relevant citations), not just
+      // lexically near the raw phrasing.
+      const ragQuery = glossaryTerms.length > 0
+        ? `${latestUserContent}\n${glossaryTerms.join(' ')}`
+        : latestUserContent
+      const hits = await semanticSearch(ragQuery, topK)
       if (hits.length > 0) {
-        const docBlock = hits.map((h, i) => `[${i + 1}] (${h.filename}) ${h.text}`).join('\n\n')
-        graphContext = `\n\n---\n**Document context (uploaded sources)**\nAnswer from these sources when relevant and cite them inline as [n]. If the sources don't cover the question, say so.\n\n${docBlock}${graphContext}`
+        docHitCount = hits.length
+        docHits = hits
+        const docBlock = hits.map((h, i) => `[${i + 1}] (${h.filename}) ${h.text.slice(0, chunkCap)}`).join('\n\n')
+        // For doc-focused intents, demand strict grounding: answer ONLY from the
+        // sources, name the gap rather than invent. This is what stops the model
+        // from fabricating facts that contradict the uploaded document.
+        const instruction = docFocused
+          ? `Answer ONLY from these sources. Do NOT use prior knowledge — if the sources don't contain the answer, say exactly what's missing, and never state a fact that isn't in a source. Cite rigorously: end every factual sentence with its source marker, e.g. "80% of plants rely on municipal tap water [1]." A claim without a [n] marker is not allowed.`
+          : `Answer from these sources when relevant and end each grounded sentence with its source marker, e.g. "… [1]." If the sources don't cover the question, say so.`
+        graphContext = `\n\n---\n**Document context (uploaded sources)**\n${instruction}\n\n${docBlock}${graphContext}`
         sse(res, 'retrieval', {
           trace: { patterns: ['semantic-documents'], sources: hits.map((h) => ({ id: h.docId, label: h.filename, score: Number(h.score.toFixed(3)) })), token_estimate: docBlock.length >> 2, beliefs_injected: 0 },
         })
@@ -1667,7 +1928,119 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     }
   } catch { /* goal tracking is best-effort — never block the turn */ }
 
-  const enrichedSystemPrompt = basePrompt + dateLine + graphContext + selfContext + moatContext + goalContext + reasoningDirective + profile.authorizationSuffix
+  // Few-shot training memory: inject the best gold Q/A exemplars for this intent —
+  // in-context "training" on the Pareto-head cases, no model update needed. Opt-in
+  // (NOETICA_QA_FEWSHOT) because each exemplar adds prompt tokens (latency) on CPU.
+  let qaContext = ''
+  if (isFlagOn('NOETICA_QA_FEWSHOT')) {
+    try {
+      const { bestExemplars } = await import('./lib/qa-pairs.js')
+      const ex = bestExemplars(intentPlan.name, 2)
+      if (ex.length > 0) {
+        qaContext = `\n\n---\n**Worked examples (gold answers for ${intentPlan.name.replace(/_/g, ' ')})**\nMatch this style and rigor.\n\n` +
+          ex.map((e) => `Q: ${e.question}\nA: ${e.answer.slice(0, 300)}`).join('\n\n')
+      }
+    } catch { /* few-shot memory is best-effort */ }
+  }
+
+  // Context assembled — close out the retrieve step.
+  step('retrieve', 'done', docHitCount > 0 ? `${docHitCount} passage${docHitCount === 1 ? '' : 's'}` : (graphContext ? 'memory grounding' : 'no extra context'))
+  if (docHitCount > 0 || wantsVectorRag(intentPlan.retrieval)) { try { const { narrateRetrieve } = await import('./lib/narration.js'); narrate(narrateRetrieve(docHitCount)) } catch { /* best-effort */ } }
+
+  // ── Logic-first front (NOETICA_LOGIC_FIRST, default-on): RECALL ─────────────
+  // The cheapest decidable path — the question's key → a crystallized, ATTESTED prior
+  // proof. Instant, deterministic, replayable (POS@T1). This is solveByLogic step 1;
+  // extract (below) is step 2; generation is the undecidable remainder. The decidable
+  // region expands with use: each generated answer crystallizes, so it recalls next time.
+  if (isFlagOn('NOETICA_LOGIC_FIRST')) {
+    try {
+      const { recallArtifact } = await import('./lib/crystallize.js')
+      const hit = recallArtifact(latestUserContent)
+      if (hit && hit.answer) {
+        const lat = Date.now() - turnStart
+        step('generate', 'done', 'computed by logic (recall)')
+        narrate({ stage: 'extract', text: 'I already worked this out — reusing the verified, replayable answer.' })
+        sse(res, 'delta', { delta: hit.answer })
+        try {
+          const { recordDispatch, contentHash } = await import('./lib/dispatch-ledger.js')
+          recordDispatch({ session: body.session_id ?? 'local', requestHash: contentHash(latestUserContent), action, polarity, tier: actionRoute.tier, target: actionRoute.target, phase, barCleared: true, residual: [], model: 'recall', answerHash: contentHash(hit.answer), latencyMs: lat, grounded: true, verdict: 'POS' })
+          const { recordTurn } = await import('./lib/dialogue-tracker.js')
+          recordTurn({ session_id: body.session_id ?? 'local', intent: intentPlan.name, intent_score: intentPlan.score, fallback: false, slots_expected: intentPlan.slots, slots_filled: policy.filled, fill_rate: policy.fillRate, clarified: false, entities: glossaryTerms, surface: intentPlan.surface, skill: intentPlan.skill, tools: intentPlan.tools, capability: intentPlan.model, model: 'recall', retrieval: intentPlan.retrieval, grounded: true, latency_ms: lat, worth: 0.85, reward: 0.85, escalated: false })
+        } catch { /* tracking best-effort */ }
+        sse(res, 'done', { result: { run_id: crypto.randomUUID(), content: hit.answer, model_routed: 'recall', provider: 'noetica', policy_admitted: true, memory_written: false, stop_reason: 'computed', timestamp: new Date().toISOString(), latency_ms: lat, agent_machine: true, agent_machine_version: VERSION, decidable: true, method: 'recall' } })
+        return
+      }
+    } catch { /* recall is best-effort — fall through to extract/generation */ }
+  }
+
+  // ── Extractive grounded answering (NOETICA_EXTRACTIVE, default-on): EXTRACT ───
+  // For doc-grounded intents, answer by EXTRACTING the doc's own cited sentences
+  // instead of asking a weak/slow local model to generate. It cannot hallucinate
+  // (every word is from the source — the fix for the 3B's fabricated facts) and is
+  // ~instant (no token generation). Falls through to model generation only if nothing
+  // in the passages matches the question.
+  // Gate on hasDoc (not semantic docHits): extraction scans a LEXICAL pool internally,
+  // so it must run whenever a doc is loaded even if the weak-embedding semantic pass
+  // returned nothing — that's how entity questions land in the decidable region. The
+  // extractor returns null safely (cannot fabricate) when nothing lexically matches.
+  if (isFlagOn('NOETICA_EXTRACTIVE') && wantsVectorRag(intentPlan.retrieval) && hasDoc) {
+    try {
+      const { extractiveAnswer } = await import('./lib/extractive-qa.js')
+      // Extraction scans a WIDER lexical pool (term-matched, reliable for entity Qs)
+      // rather than only the 4 weak-embedding hits — that's how the Baxter/Helene
+      // passage actually surfaces. Sentence ranking then picks the on-point lines.
+      const { lexicalSearch } = await import('./lib/doc-store.js')
+      const pool = lexicalSearch(latestUserContent, 15)
+      const exHits = pool.length > 0 ? pool : docHits
+      const ex = extractiveAnswer(latestUserContent, exHits, { maxSentences: intentPlan.name === 'summarize_doc' ? 6 : 5 })
+      if (ex) {
+        step('generate', 'done', 'extracted from sources')
+        try { const { narrateExtract } = await import('./lib/narration.js'); narrate(narrateExtract()) } catch { /* best-effort */ }
+        sse(res, 'delta', { delta: ex.answer })
+        const exLatency = Date.now() - turnStart
+        try {
+          const { recordTurn } = await import('./lib/dialogue-tracker.js')
+          const { computeReward } = await import('./lib/symbolic-policy.js')
+          const worth = 0.85 // grounded + cited by construction
+          const reward = computeReward({ worth, latencyMs: exLatency, grounded: true, fillRate: policy.fillRate })
+          recordTurn({
+            session_id: body.session_id ?? 'local', intent: intentPlan.name, intent_score: intentPlan.score,
+            fallback: false, slots_expected: intentPlan.slots, slots_filled: policy.filled, fill_rate: policy.fillRate,
+            clarified: false, entities: glossaryTerms, surface: intentPlan.surface, skill: intentPlan.skill,
+            tools: intentPlan.tools, capability: intentPlan.model, model: 'extractive', retrieval: intentPlan.retrieval,
+            grounded: true, latency_ms: exLatency, worth, reward, escalated: false,
+          })
+          const { recordQAPair } = await import('./lib/qa-pairs.js')
+          recordQAPair({ question: latestUserContent, answer: ex.answer, intent: intentPlan.name, worth, reward, grounded: true, model: 'extractive' })
+          if (isFlagOn('NOETICA_FABRIC')) {
+            const { writeFabricEntry } = await import('./lib/fabric.js')
+            writeFabricEntry({ kind: 'thread', text: latestUserContent, provenance: 'concierge', session: body.session_id ?? 'local', confidence: worth })
+          }
+          // §10.3 Evidence: the extractive (read/diffuse, fully deterministic) dispatch — POS@T1.
+          const { recordDispatch, contentHash } = await import('./lib/dispatch-ledger.js')
+          const dispatchEntry = recordDispatch({
+            session: body.session_id ?? 'local', requestHash: contentHash(latestUserContent),
+            action, polarity, tier: actionRoute.tier, target: actionRoute.target, phase,
+            barCleared: true, residual: [], model: 'extractive',
+            answerHash: contentHash(ex.answer), latencyMs: exLatency, grounded: true, verdict: 'POS',
+          })
+          // Crystallize the (deterministic, grounded) extractive answer as a durable artifact.
+          const { crystallizeAnswer } = await import('./lib/crystallize.js')
+          crystallizeAnswer({ question: latestUserContent, answer: ex.answer, session: body.session_id ?? 'local', action, attestation: dispatchEntry.attestation, worth })
+        } catch { /* tracking best-effort */ }
+        sse(res, 'done', { result: {
+          run_id: crypto.randomUUID(), content: ex.answer, model_routed: 'extractive', provider: 'noetica',
+          policy_admitted: true, memory_written: false, stop_reason: 'extractive', timestamp: new Date().toISOString(),
+          latency_ms: exLatency, agent_machine: true, agent_machine_version: VERSION, extractive: true,
+        } })
+        return
+      }
+    } catch { /* extractive is best-effort — fall through to generation */ }
+  }
+
+  step('generate', 'running', `${provider}:${model}`)
+
+  const enrichedSystemPrompt = basePrompt + dateLine + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + goalContext + reasoningDirective + profile.authorizationSuffix
 
   // Token budget: rough estimate (4 chars ≈ 1 token). If message history + system prompt
   // exceeds 70% of the model's context window, trim oldest non-system messages.
@@ -1686,7 +2059,10 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   const reqTemperature = typeof body.temperature === 'number'
     ? Math.max(0, Math.min(body.temperature, 2)) : undefined
   const reqMaxTokens = typeof body.max_tokens === 'number' && body.max_tokens > 0
-    ? Math.min(Math.floor(body.max_tokens), 16_000) : undefined
+    ? Math.min(Math.floor(body.max_tokens), 16_000)
+    // Responsive mode caps output so a turn completes promptly instead of rambling
+    // (generation is also CPU-bound); full mode lets the model run to its natural stop.
+    : (isFlagOn('NOETICA_RESPONSIVE') && provider === 'ollama' ? 384 : undefined)
   function estimateTokens(s: string): number { return Math.ceil(s.length / 4) }
   let systemTokens = estimateTokens(enrichedSystemPrompt)
   let msgTokens = incomingMessages.reduce((s, m) => s + estimateTokens(String(m.content ?? '')), 0)
@@ -1694,6 +2070,20 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   while (systemTokens + msgTokens > TOKEN_BUDGET && incomingMessages.length > 2) {
     const removed = incomingMessages.shift()
     msgTokens -= estimateTokens(String(removed?.content ?? ''))
+  }
+
+  // ── Right-size the KV cache to the ACTUAL prompt (CPU latency fix) ───────────
+  // num_ctx drives both KV-cache allocation and per-token prompt-eval cost. On a
+  // CPU box, always allocating the model's full 32K window for a focused 2–3K RAG
+  // prompt is the single biggest avoidable cost — it's much of the 300–500s tail.
+  // Bucket the size (so similar turns reuse the SAME loaded model — varying num_ctx
+  // forces Ollama to reload) to just cover prompt + expected output + headroom.
+  if (provider === 'ollama') {
+    const desiredOutput = reqMaxTokens ?? 2048
+    const needed = systemTokens + msgTokens + desiredOutput + 512
+    const BUCKETS = [2048, 4096, 8192, 16384, 32768]
+    const fitted = BUCKETS.find((b) => b >= needed) ?? ollamaNumCtx
+    ollamaNumCtx = Math.min(ollamaNumCtx, fitted)
   }
 
   try {
@@ -1797,10 +2187,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       // overcommitting the GPU-shared memory. The lease is released in finally.
       let releaseLease: (() => void) | null = null
       if (!deliberated && turnPlan?.mode === 'dispatch') {
-        if (turnPlan.ack) {
-          sse(res, 'delta', { delta: turnPlan.ack + '\n\n' })
-          fullContent += turnPlan.ack + '\n\n'
-        }
+        // Surface the acknowledgement as an ephemeral status, NOT as answer content.
+        // It used to be appended to fullContent, which polluted the saved answer (the
+        // "Let me research this…" preamble) and broke citation flow. The live plan/step
+        // timeline now carries the "acknowledged, working" signal, so the ack rides
+        // alongside the dispatch event instead of inside the model's reply.
+        if (turnPlan.ack) sse(res, 'ack', { ack: turnPlan.ack })
         if (dispatchGateRef) {
           sse(res, 'dispatch', { dispatch: { capability: turnPlan.capability, reason: turnPlan.reason, queue_position: dispatchGateRef.nextQueuePosition, ...dispatchGateRef.status } })
           try { releaseLease = await dispatchGateRef.acquireLease() } catch { /* gate is best-effort */ }
@@ -2058,6 +2450,10 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     }
 
     const latencyMs = Date.now() - started
+    // Captured for the dialogue-tracker / symbolic-policy loop (set when VJ runs).
+    let turnWorth: number | undefined
+    let turnReward: number | undefined
+    const turnGrounded = docHitCount > 0 || glossaryTerms.length > 0 || graphContext.length > 0
 
     // Token/cost accounting. The agent-machine doesn't get exact provider usage
     // counts, so estimate: input ≈ trimmed system+history budget already computed,
@@ -2090,8 +2486,14 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         novelClaims: gg?.novel,
       })
       sse(res, 'value_judgment', { value_judgment: valueJudgment })
-      // Feed VJ worth back into the bandit as the automatic reward signal.
-      recordReward({ task: routerDecision.task, provider, model, reward: valueJudgment.worth })
+      // Feed a LATENCY-AWARE, multi-objective reward back into the bandit — quality
+      // (VJ worth) docked for slowness, bonused for grounding + slot-fill. This is
+      // what makes the bandit LEARN to avoid the slow reasoner instead of exploring
+      // into a multi-minute stall. The same reward is logged for the symbolic policy.
+      const { computeReward } = await import('./lib/symbolic-policy.js')
+      turnWorth = valueJudgment.worth
+      turnReward = computeReward({ worth: valueJudgment.worth, latencyMs, grounded: turnGrounded, fillRate: policy.fillRate })
+      recordReward({ task: routerDecision.task, provider, model, reward: turnReward })
       // Record a quality sample for symbolic-regression driver analysis.
       recordQualitySample({
         worth: valueJudgment.worth,
@@ -2132,6 +2534,75 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         recordEpisodeOutcome(moatEpisodeId, { answer: fullContent.slice(0, 400), correct: valueJudgment?.verdict !== 'contradiction', lane: `${provider}:${model}` })
       } catch { /* episodic write-back is best-effort */ }
     }
+
+    step('generate', 'done', `${fullContent.length >> 2} tokens`)
+
+    // Conversation analytics: record the turn into the dialogue tracker (typed
+    // TurnRecord → flow metrics). Best-effort; never blocks the response.
+    try {
+      const { recordTurn } = await import('./lib/dialogue-tracker.js')
+      recordTurn({
+        session_id: sessionId,
+        intent: intentPlan.name,
+        intent_score: intentPlan.score,
+        fallback: intentPlan.score < 1.2 || intentPlan.name === 'general',
+        slots_expected: intentPlan.slots,
+        slots_filled: policy.filled,
+        fill_rate: policy.fillRate,
+        clarified: false,
+        entities: glossaryTerms,
+        surface: intentPlan.surface,
+        skill: intentPlan.skill,
+        tools: intentPlan.tools,
+        capability: intentPlan.model,
+        model,
+        retrieval: intentPlan.retrieval,
+        grounded: turnGrounded,
+        latency_ms: latencyMs,
+        worth: turnWorth,
+        reward: turnReward,
+        escalated,
+      })
+      // §10.3 Evidence: append this dispatch to the hash-chained ledger so it replays.
+      try {
+        const { recordDispatch, contentHash } = await import('./lib/dispatch-ledger.js')
+        const dispatchEntry = recordDispatch({
+          session: sessionId, requestHash: contentHash(latestUserContent),
+          action, polarity, tier: actionRoute.tier, target: actionRoute.target, phase,
+          barCleared: true, residual: [], // proceeded past the policy gate
+          model, answerHash: contentHash(fullContent), latencyMs, grounded: turnGrounded, verdict: 'POS',
+        })
+        // Crystallize a high-worth answer into a durable, attested artifact (loop closes).
+        if (typeof turnWorth === 'number') {
+          const { crystallizeAnswer } = await import('./lib/crystallize.js')
+          crystallizeAnswer({ question: latestUserContent, answer: fullContent, session: sessionId, action, attestation: dispatchEntry.attestation, worth: turnWorth })
+        }
+      } catch { /* ledger/crystallize is best-effort */ }
+      // Harvest high-reward turns as gold Q/A training pairs (the flywheel). Gated on
+      // reward inside recordQAPair, so only genuinely good answers become training data.
+      if (typeof turnReward === 'number' && typeof turnWorth === 'number') {
+        const { recordQAPair } = await import('./lib/qa-pairs.js')
+        recordQAPair({
+          question: latestUserContent, answer: fullContent, intent: intentPlan.name,
+          worth: turnWorth, reward: turnReward, grounded: turnGrounded, model,
+        })
+      }
+      // Write the salient turn to the context fabric (the concierge observing into the
+      // shared brief). Intent maps to a FabricEntry kind; reinforcement raises STI so
+      // recurring threads rise in the brief. Skipped for pure chitchat/steering.
+      if (isFlagOn('NOETICA_FABRIC') && !['converse_smalltalk', 'confirm_steer'].includes(intentPlan.name)) {
+        const { writeFabricEntry } = await import('./lib/fabric.js')
+        const FABRIC_KIND: Record<string, 'goal' | 'thread' | 'decision' | 'assumption' | 'question'> = {
+          plan_nextsteps: 'goal', build_implement: 'goal', review_audit: 'decision',
+          compare_benchmark: 'decision', preferences_memory: 'assumption',
+        }
+        writeFabricEntry({
+          kind: FABRIC_KIND[intentPlan.name] ?? 'thread',
+          text: latestUserContent, provenance: 'concierge',
+          session: sessionId, confidence: typeof turnWorth === 'number' ? turnWorth : 0.7,
+        })
+      }
+    } catch { /* tracker is best-effort */ }
 
     sse(res, 'done', {
       result: {
@@ -2535,6 +3006,119 @@ const server = http.createServer((req, res) => {
   // GET /api/flags — observability for the NOETICA_* feature flags: live state +
   // graduation status. Lets the UI/governance see what's actually active and which
   // experiments are candidates to graduate (default-on) or retire.
+  // GET /api/analytics/flow — conversation analytics + flow metrics over recorded
+  // turns: intent distribution, the transition matrix (conversation flow), fallback
+  // & grounding rates, latency-by-intent, and common paths. The Rasa-X equivalent.
+  if (req.method === 'GET' && url.pathname === '/api/analytics/flow') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { computeFlowMetrics } = await import('./lib/dialogue-tracker.js')
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(computeFlowMetrics()))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/analytics/energy — measured device (T1) vs derived cloud baseline (T2)
+  // energy over recorded dispatches. The honest §9 accounting: reads are near-zero,
+  // generation is the cost, the win is the read_share (amortization). Methodology inline.
+  if (req.method === 'GET' && url.pathname === '/api/analytics/energy') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { readDispatches } = await import('./lib/dispatch-ledger.js')
+        const { aggregateEnergy } = await import('./lib/energy.js')
+        const entries = readDispatches().map((d) => ({ method: d.model, latencyMs: d.latencyMs }))
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(aggregateEnergy(entries)))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/ledger/replay — replay the dispatch hash-chain. ok:true ⇒ every dispatch
+  // recomputes to its recorded attestation and links to its predecessor = POS@T1, the
+  // deterministic proof. brokenAt names the first tampered/divergent entry.
+  if (req.method === 'GET' && url.pathname === '/api/ledger/replay') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { replayLedger } = await import('./lib/dispatch-ledger.js')
+        const r = replayLedger()
+        res.writeHead(r.ok ? 200 : 409, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ...r, verdict: r.ok ? 'POS' : 'NEG', tier: 'T1' }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/fabric/brief — the live context fabric brief (STI-gated, cross-surface).
+  // Reads the running server's in-memory atomspace so voice/chat/UI share one state.
+  if (req.method === 'GET' && url.pathname === '/api/fabric/brief') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { readBrief, fabricCount } = await import('./lib/fabric.js')
+        const session = url.searchParams.get('session') ?? undefined
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ brief: readBrief({ session, limit: 12 }), total: fabricCount() }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/analytics/policy — the fitted symbolic reward policy: a readable
+  // formula (reward ≈ Σ wᵢ·featureᵢ) over recorded turns, its R², and the top
+  // drivers. This is the interpretable reward model the bandit optimizes against.
+  if (req.method === 'GET' && url.pathname === '/api/analytics/policy') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { readTurns } = await import('./lib/dialogue-tracker.js')
+        const { fitPolicy } = await import('./lib/symbolic-policy.js')
+        const policy = fitPolicy(readTurns())
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(policy ?? { formula: null, reason: 'need ≥8 rewarded turns to fit', n: 0 }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/training/qa — the harvested gold Q/A training pairs as a Pareto +
+  // hierarchy report: head intents (cumulative ≤80% of volume) vs the long tail,
+  // each with its top exemplars. The training-data flywheel, made inspectable.
+  if (req.method === 'GET' && url.pathname === '/api/training/qa') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { paretoReport } = await import('./lib/qa-pairs.js')
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(paretoReport()))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+      }
+    })()
+    return
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/flags') {
     setCORSHeaders(res)
     res.writeHead(200, { 'content-type': 'application/json' })
@@ -2994,6 +3578,28 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // GET /api/graph/surface — legible, view-scoped subgraph for the force-graph UI.
+  // Shares lib/graph-surface with the Next route so web + Tauri desktop agree.
+  if (req.method === 'GET' && url.pathname === '/api/graph/surface') {
+    void (async () => {
+      setCORSHeaders(res)
+      try {
+        const g = getGraph()
+        const result = selectSurface(g.allNodes(), g.allEdges(), {
+          view: url.searchParams.get('view') ?? 'all',
+          limit: Number(url.searchParams.get('limit') ?? 34),
+          root: url.searchParams.get('root') ?? '',
+        })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(result))
+      } catch (err) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ nodes: [], links: [], error: String(err) }))
+      }
+    })()
+    return
+  }
+
   // GET /api/models — model suite status for first-run UI
   if (req.method === 'GET' && url.pathname === '/api/models') {
     void (async () => {
@@ -3167,7 +3773,7 @@ const server = http.createServer((req, res) => {
           // Best-effort: also run the engine's entity/record extraction for graph structure.
           try { const { ingestDocumentChunks } = await import('./lib/graph.js'); await ingestDocumentChunks(content, filename, mimeType ?? 'text/plain') } catch { /* non-fatal */ }
           res.writeHead(200, { 'content-type': 'application/json' })
-          res.end(JSON.stringify({ ...result, entities: 0 }))
+          res.end(JSON.stringify(result))
         } catch (err) {
           res.writeHead(400, { 'content-type': 'application/json' })
           res.end(JSON.stringify({ error: String(err) }))
@@ -3195,7 +3801,7 @@ const server = http.createServer((req, res) => {
           if (!text.trim()) throw new Error('no extractable text in file')
           const result = await ingestDocument(filename, text)
           res.writeHead(200, { 'content-type': 'application/json' })
-          res.end(JSON.stringify({ ...result, entities: 0 }))
+          res.end(JSON.stringify(result))
         } catch (err) {
           res.writeHead(400, { 'content-type': 'application/json' })
           res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }))
@@ -3226,7 +3832,7 @@ const server = http.createServer((req, res) => {
           if (!text.trim()) throw new Error('no extractable text in file')
           const result = await ingestDocument(filename, text)
           res.writeHead(200, { 'content-type': 'application/json' })
-          res.end(JSON.stringify({ ...result, entities: 0 }))
+          res.end(JSON.stringify(result))
         } catch (err) {
           res.writeHead(400, { 'content-type': 'application/json' })
           res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }))
@@ -3762,6 +4368,15 @@ server.listen(PORT, '127.0.0.1', () => {
             signal: AbortSignal.timeout(120_000),
           })
           console.log(`[prewarm] loaded ${m} into RAM (keep_alive 30m)`)
+        } catch { /* best-effort */ }
+      }
+      // Prewarm the Tier-0 embedding intent centroids so the first turn doesn't pay
+      // the one-time build (≈110 exemplar embeds).
+      if (isFlagOn('NOETICA_EMBED_INTENT')) {
+        try {
+          const { buildCentroids } = await import('./lib/intent-embed.js')
+          await buildCentroids()
+          console.log('[prewarm] intent embedding centroids built')
         } catch { /* best-effort */ }
       }
     } catch { /* ignore */ }

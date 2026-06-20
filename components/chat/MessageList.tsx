@@ -15,9 +15,10 @@ type MessageListProps = {
   onEdit?: (messageId: string, newContent: string) => void
   onRecombine?: (selectedMessages: ChatMessage[]) => void
   onSpeak?: (content: string) => void
+  onOpenSurface?: (surface: string) => void
 }
 
-export function MessageList({ messages, isStreaming = false, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onRecombine, onSpeak }: MessageListProps) {
+export function MessageList({ messages, isStreaming = false, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onRecombine, onSpeak, onOpenSurface }: MessageListProps) {
   const lastAssistantIdx = messages.reduce((acc, m, i) => m.role === 'assistant' ? i : acc, -1)
   const [selectedFanout, setSelectedFanout] = useState<Set<string>>(new Set())
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -91,6 +92,7 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
               onFork={onFork}
               onEdit={message.role === 'user' ? onEdit : undefined}
               onSpeak={message.role === 'assistant' ? onSpeak : undefined}
+              onOpenSurface={onOpenSurface}
             />
           </div>
         ))}

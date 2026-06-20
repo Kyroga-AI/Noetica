@@ -372,6 +372,7 @@ export async function* streamOllama(params: {
   numCtx?: number
   temperature?: number
   maxTokens?: number
+  keepAlive?: string
 }): AsyncGenerator<ProviderEvent> {
   const options: Record<string, unknown> = {
     num_ctx: params.numCtx ?? 16384,
@@ -386,6 +387,9 @@ export async function* streamOllama(params: {
     stream: true,
     messages: params.messages,
     options,
+    // Keep the model resident between turns so the next query doesn't cold-load
+    // (the default 5m unload is a frequent source of surprise multi-second stalls).
+    keep_alive: params.keepAlive ?? '30m',
   }
 
   if (params.tools?.length) {
