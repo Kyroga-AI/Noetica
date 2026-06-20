@@ -110,7 +110,7 @@ type FileChange = { id: string; path: string; content: string }
 
 // Real Context panel: files referenced by this session's tool calls + the actual
 // stored memories. No mock data.
-function ContextSlot({ inScopeFiles, activity, changes }: { inScopeFiles: string[]; activity: ToolActivityItem[]; changes: FileChange[] }) {
+export function ContextSlot({ inScopeFiles, activity, changes }: { inScopeFiles: string[]; activity: ToolActivityItem[]; changes: FileChange[] }) {
   const { entries, hydrated } = useMemory()
   const recent = entries.slice(0, 6)
   const [openChange, setOpenChange] = useState<string | null>(null)

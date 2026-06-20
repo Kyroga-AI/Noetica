@@ -245,7 +245,7 @@ export function AppShell() {
   const abortControllerRef = useRef<AbortController | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false)
-  const [utilityPanel, setUtilityPanel] = useState<UtilityPanelId | null>(null)
+  const [utilityPanel, setUtilityPanel] = useState<UtilityPanelId | null>('context')
   const [inspectorVisible, setInspectorVisible] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsCategory, setSettingsCategory] = useState('appearance')
@@ -1257,11 +1257,10 @@ export function AppShell() {
           </div>
         </section>
 
-        <RightSidebar
-          collapsed={rightSidebarCollapsed}
-          onCollapse={() => setRightSidebarCollapsed(true)}
-          onExpand={() => setRightSidebarCollapsed(false)}
-          riskReadout={riskReadout}
+        <UtilityRail
+          activePanel={utilityPanel}
+          onSelect={setUtilityPanel}
+          lastGovernance={lastGovernance}
           inScopeFiles={inScopeFiles}
           toolActivity={toolActivity}
           fileChanges={fileChanges}

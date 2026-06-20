@@ -1,43 +1,36 @@
 'use client'
 
-import { CalendarPanel }    from './panels/CalendarPanel'
-import { MailPanel }        from './panels/MailPanel'
-import { MatrixPanel }      from './panels/MatrixPanel'
-import { AgentsPanel }      from './panels/AgentsPanel'
-import { RelatedPanel }     from './panels/RelatedPanel'
 import { EvidenceRailPanel } from './panels/EvidenceRailPanel'
 import { SourceOSRailPanel } from './panels/SourceOSRailPanel'
 import { GraphRailPanel }   from './panels/GraphRailPanel'
+import { ContextSlot }      from '@/components/shell/RightSidebar'
 import type { GovernanceTrace } from '@/lib/types/governance'
 
+// The single right rail. Hosts the real panels — Context plus Noetica's governance /
+// sovereignty surfaces (Graph, Evidence, SourceOS). The old demo panels (Calendar /
+// Mail / Matrix / Agents / Related) were placeholder shells and are intentionally out.
 export type UtilityPanelId =
-  | 'calendar'
-  | 'mail'
-  | 'matrix'
-  | 'agents'
-  | 'related'
+  | 'context'
   | 'evidence'
   | 'sourceos'
   | 'graph'
 
 const RAIL_ITEMS: { id: UtilityPanelId; label: string; icon: React.ReactNode }[] = [
-  { id: 'calendar', label: 'Calendar',   icon: <IconCalendar /> },
-  { id: 'mail',     label: 'Mail',       icon: <IconMail /> },
-  { id: 'matrix',   label: 'Matrix',     icon: <IconMatrix /> },
-  { id: 'agents',   label: 'Agents',     icon: <IconAgents /> },
-  { id: 'related',  label: 'Related',    icon: <IconRelated /> },
-  { id: 'evidence', label: 'Evidence',   icon: <IconEvidence /> },
-  { id: 'sourceos', label: 'SourceOS',   icon: <IconSourceOS /> },
-  { id: 'graph',    label: 'Graph',      icon: <IconGraph /> },
+  { id: 'context',  label: 'Context',  icon: <IconContext /> },
+  { id: 'graph',    label: 'Graph',    icon: <IconGraph /> },
+  { id: 'evidence', label: 'Evidence', icon: <IconEvidence /> },
+  { id: 'sourceos', label: 'SourceOS', icon: <IconSourceOS /> },
 ]
 
-function renderPanel(id: UtilityPanelId, lastGovernance?: GovernanceTrace) {
+type ContextData = {
+  inScopeFiles: string[]
+  toolActivity: { id: string; name: string; target: string }[]
+  fileChanges: { id: string; path: string; content: string }[]
+}
+
+function renderPanel(id: UtilityPanelId, lastGovernance: GovernanceTrace | undefined, ctx: ContextData) {
   switch (id) {
-    case 'calendar': return <CalendarPanel />
-    case 'mail':     return <MailPanel />
-    case 'matrix':   return <MatrixPanel />
-    case 'agents':   return <AgentsPanel />
-    case 'related':  return <RelatedPanel />
+    case 'context':  return <ContextSlot inScopeFiles={ctx.inScopeFiles} activity={ctx.toolActivity} changes={ctx.fileChanges} />
     case 'evidence': return <EvidenceRailPanel governance={lastGovernance} />
     case 'sourceos': return <SourceOSRailPanel />
     case 'graph':    return <GraphRailPanel />
@@ -48,15 +41,22 @@ type UtilityRailProps = {
   activePanel: UtilityPanelId | null
   onSelect: (id: UtilityPanelId | null) => void
   lastGovernance?: GovernanceTrace
+  inScopeFiles?: string[]
+  toolActivity?: { id: string; name: string; target: string }[]
+  fileChanges?: { id: string; path: string; content: string }[]
 }
 
-export function UtilityRail({ activePanel, onSelect, lastGovernance }: UtilityRailProps) {
+export function UtilityRail({ activePanel, onSelect, lastGovernance, inScopeFiles = [], toolActivity = [], fileChanges = [] }: UtilityRailProps) {
+  const ctx: ContextData = { inScopeFiles, toolActivity, fileChanges }
   return (
     <>
       {/* Expanded panel */}
       {activePanel && (
-        <div className="hidden w-72 shrink-0 flex-col border-l border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] lg:flex">
-          {renderPanel(activePanel, lastGovernance)}
+        <div className="hidden w-72 shrink-0 flex-col overflow-y-auto border-l border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] lg:flex">
+          <div className="border-b border-[var(--color-border-tertiary)] px-3 py-2.5 text-xs font-semibold text-[var(--color-text-primary)]">
+            {RAIL_ITEMS.find((r) => r.id === activePanel)?.label}
+          </div>
+          {renderPanel(activePanel, lastGovernance, ctx)}
         </div>
       )}
 
@@ -84,6 +84,9 @@ export function UtilityRail({ activePanel, onSelect, lastGovernance }: UtilityRa
 }
 
 // Icons
+function IconContext() {
+  return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M8 2l5.5 3L8 8 2.5 5 8 2z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/><path d="M2.5 8L8 11l5.5-3M2.5 11L8 14l5.5-3" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg>
+}
 function IconCalendar() {
   return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden><rect x="2" y="3" width="12" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.4"/><path d="M5 2v2M11 2v2M2 7h12" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
 }
