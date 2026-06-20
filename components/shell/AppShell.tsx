@@ -303,6 +303,19 @@ export function AppShell() {
     }
     return Array.from(seen).reverse().slice(0, 12)
   }, [messages])
+  // Real tool-activity feed for the Context panel: every tool the agent ran this
+  // session, most recent first, with a short target (path / query / etc.).
+  const toolActivity = useMemo(() => {
+    const acts: Array<{ id: string; name: string; target: string }> = []
+    for (const m of messages) {
+      for (const tc of m.tool_calls ?? []) {
+        const inp = (tc.input ?? {}) as Record<string, unknown>
+        const raw = inp['path'] ?? inp['query'] ?? inp['url'] ?? inp['prompt'] ?? (inp['code'] ? 'code' : '')
+        acts.push({ id: tc.id, name: tc.name, target: typeof raw === 'string' ? raw : '' })
+      }
+    }
+    return acts.reverse().slice(0, 20)
+  }, [messages])
   const fanoutModelCount = Math.min(settings.fanoutModels.length, settings.fanoutConcurrency)
 
   function exportConversation() {
@@ -1236,6 +1249,7 @@ export function AppShell() {
           onExpand={() => setRightSidebarCollapsed(false)}
           riskReadout={riskReadout}
           inScopeFiles={inScopeFiles}
+          toolActivity={toolActivity}
         />
       </main>
 

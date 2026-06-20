@@ -105,9 +105,11 @@ const SLOTS: { id: AgentSlotId; label: string; icon: React.ReactNode; descriptio
 // hardcoded data; the right panel now shows only real, live context.
 const ENABLED_SLOTS: AgentSlotId[] = ['context']
 
+type ToolActivityItem = { id: string; name: string; target: string }
+
 // Real Context panel: files referenced by this session's tool calls + the actual
 // stored memories. No mock data.
-function ContextSlot({ inScopeFiles }: { inScopeFiles: string[] }) {
+function ContextSlot({ inScopeFiles, activity }: { inScopeFiles: string[]; activity: ToolActivityItem[] }) {
   const { entries, hydrated } = useMemory()
   const recent = entries.slice(0, 6)
   return (
@@ -120,6 +122,21 @@ function ContextSlot({ inScopeFiles }: { inScopeFiles: string[] }) {
       ) : (
         inScopeFiles.map((f) => (
           <SlotRow key={f}><span className="text-[var(--color-text-secondary)] mr-1.5">—</span><span className="truncate">{f}</span></SlotRow>
+        ))
+      )}
+      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">
+        Activity{activity.length > 0 ? ` · ${activity.length}` : ''}
+      </div>
+      {activity.length === 0 ? (
+        <SlotRow><span className="text-[var(--color-text-tertiary)]">No tool calls yet</span></SlotRow>
+      ) : (
+        activity.map((a, i) => (
+          <SlotRow key={`${a.id}-${i}`}>
+            <span className="flex items-center gap-1.5 min-w-0">
+              <span className="font-mono text-[10px] text-[var(--color-text-primary)] shrink-0">{a.name}</span>
+              {a.target && <span className="truncate text-[var(--color-text-tertiary)]">{a.target}</span>}
+            </span>
+          </SlotRow>
         ))
       )}
       <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">
@@ -309,6 +326,7 @@ type RightSidebarProps = {
   onExpand: () => void
   riskReadout?: RiskAversionLiveReadout | null
   inScopeFiles?: string[]
+  toolActivity?: ToolActivityItem[]
 }
 
 function AgentSlotConfig({ slotId, onClose }: { slotId: AgentSlotId; onClose: () => void }) {
@@ -344,7 +362,7 @@ function AgentSlotConfig({ slotId, onClose }: { slotId: AgentSlotId; onClose: ()
   )
 }
 
-export function RightSidebar({ collapsed, onCollapse, onExpand, riskReadout, inScopeFiles = [] }: RightSidebarProps) {
+export function RightSidebar({ collapsed, onCollapse, onExpand, riskReadout, inScopeFiles = [], toolActivity = [] }: RightSidebarProps) {
   const [activeSlot, setActiveSlot] = useState<AgentSlotId>('context')
   const [configuringSlot, setConfiguringSlot] = useState<AgentSlotId | null>(null)
   const { settings } = useSettings()
@@ -450,7 +468,7 @@ export function RightSidebar({ collapsed, onCollapse, onExpand, riskReadout, inS
       {/* Slot content */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         {activeSlot === 'context'
-          ? <ContextSlot inScopeFiles={inScopeFiles} />
+          ? <ContextSlot inScopeFiles={inScopeFiles} activity={toolActivity} />
           : activeSlot === 'risk'
           ? <RiskSlot riskReadout={riskReadout} />
           : MOCK_CONTENT[activeSlot]}
