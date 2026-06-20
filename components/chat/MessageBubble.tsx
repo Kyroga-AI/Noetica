@@ -358,7 +358,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
 
         {/* Streaming placeholder — stop-motion Hopf fibration while the response is empty */}
         {!message.content && !message.tool_calls?.length && (
-          <HopfFibration size={26} phases={6} holdMs={150} />
+          <HopfFibration size={26} />
         )}
 
         {/* Action bar */}

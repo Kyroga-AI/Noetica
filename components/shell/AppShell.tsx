@@ -1254,7 +1254,6 @@ export function AppShell() {
                 />
               )}
             </div>
-            <UtilityRail activePanel={utilityPanel} onSelect={setUtilityPanel} lastGovernance={lastGovernance} />
           </div>
         </section>
 

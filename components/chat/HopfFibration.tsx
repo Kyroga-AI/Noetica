@@ -6,39 +6,23 @@ import { useEffect, useRef } from 'react'
 // something. Wire more states in as they're surfaced (a running tool, research, etc.).
 export type HopfState = 'thinking' | 'tool' | 'research' | 'writing' | 'idle'
 
-// Each palette maps a fiber's base-point azimuth φ (0..2π) to a stroke color.
 const PALETTES: Record<HopfState, (phi: number) => string> = {
-  thinking: (phi) => `hsl(${(phi / (2 * Math.PI)) * 360}, 85%, 62%)`,            // full rainbow
-  tool:     (phi) => `hsl(${195 + 45 * Math.sin(phi)}, 85%, 62%)`,               // cyan/blue
-  research: (phi) => `hsl(${120 + 55 * Math.sin(phi)}, 70%, 56%)`,               // greens
-  writing:  (phi) => `hsl(${25 + 40 * Math.sin(phi)}, 88%, 62%)`,                // warm
+  thinking: (phi) => `hsl(${(phi / (2 * Math.PI)) * 360}, 85%, 62%)`,
+  tool:     (phi) => `hsl(${195 + 45 * Math.sin(phi)}, 85%, 62%)`,
+  research: (phi) => `hsl(${120 + 55 * Math.sin(phi)}, 70%, 56%)`,
+  writing:  (phi) => `hsl(${25 + 40 * Math.sin(phi)}, 88%, 62%)`,
   idle:     () => 'hsl(0, 0%, 58%)',
 }
 
 type Vec3 = [number, number, number]
 
 /**
- * The Hopf fibration as a STOP-MOTION loader. The fibers (great circles on S³ over
- * sampled base points on S²) are stereographically projected to R³ — where they become
- * the linked Villarceau circles — and the figure is rendered at a small number of
- * discrete tumble phases, snapping between them with a hold on each (claymation /
- * old-school frame animation) rather than a smooth spin. Color comes from each fiber's
- * base point, and the palette is chosen by `state`.
+ * The Hopf fibration drawn once (linked Villarceau circles, a fixed 3/4 view), then
+ * folded in a simple stop-motion loop: full → collapsed → half → full. No per-frame
+ * redraw — the figure is static and the *whole thing* folds via a stepped CSS scaleY.
  */
-export function HopfFibration({
-  size = 40,
-  state = 'thinking',
-  phases = 6,
-  holdMs = 150,
-}: {
-  size?: number
-  state?: HopfState
-  phases?: number
-  holdMs?: number
-}) {
+export function HopfFibration({ size = 36, state = 'thinking' }: { size?: number; state?: HopfState }) {
   const ref = useRef<HTMLCanvasElement>(null)
-  const stateRef = useRef<HopfState>(state)
-  stateRef.current = state
 
   useEffect(() => {
     const canvas = ref.current
@@ -48,15 +32,14 @@ export function HopfFibration({
     const dpr = Math.min(window.devicePixelRatio || 1, 2)
     canvas.width = size * dpr
     canvas.height = size * dpr
-    ctx.scale(dpr, dpr)
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
     ctx.lineJoin = 'round'
     ctx.lineCap = 'round'
+    ctx.clearRect(0, 0, size, size)
 
-    // Keep it simple: two latitude rings of fibers. (θ→π is avoided — that fiber runs
-    // through the projection pole and flies off to infinity.)
-    const thetas = [0.36 * Math.PI, 0.62 * Math.PI]
-    const phiCount = 6
-    const psiCount = 40
+    const thetas = [0.3 * Math.PI, 0.5 * Math.PI, 0.68 * Math.PI]
+    const phiCount = 10
+    const psiCount = 48
     const fibers: { phi: number; pts: Vec3[] }[] = []
     let maxR = 1e-4
     for (const theta of thetas) {
@@ -70,7 +53,7 @@ export function HopfFibration({
           const b = Math.cos(eta) * Math.sin(phi / 2 + psi)
           const c = Math.sin(eta) * Math.cos(-phi / 2 + psi)
           const d = Math.sin(eta) * Math.sin(-phi / 2 + psi)
-          const s = 1 / (1.0001 - d) // stereographic from pole (0,0,0,1)
+          const s = 1 / (1.0001 - d)
           const p: Vec3 = [a * s, b * s, c * s]
           const r = Math.hypot(p[0], p[1], p[2])
           if (r > maxR) maxR = r
@@ -82,56 +65,59 @@ export function HopfFibration({
     const scale = (size * 0.4) / maxR
     const cx = size / 2
     const cy = size / 2
-    const tilt = 0.62 // fixed 3/4 view so it never sits dead-on
+    const ay = 0.7
+    const ax = 0.5
+    const cb = Math.cos(ay)
+    const sb = Math.sin(ay)
+    const ca = Math.cos(ax)
+    const sa = Math.sin(ax)
+    const palette = PALETTES[state] ?? PALETTES.thinking
 
-    const drawPhase = (phase: number) => {
-      const ang = (phase / Math.max(1, phases)) * 2 * Math.PI // discrete spin about Y
-      const cb = Math.cos(ang)
-      const sb = Math.sin(ang)
-      const ca = Math.cos(tilt)
-      const sa = Math.sin(tilt)
-      const palette = PALETTES[stateRef.current] ?? PALETTES.thinking
-      ctx.clearRect(0, 0, size, size)
-      const drawn = fibers
-        .map((f) => {
-          let zSum = 0
-          const proj = f.pts.map(([X, Y, Z]): Vec3 => {
-            const x = X * cb + Z * sb
-            let z = -X * sb + Z * cb
-            const y = Y * ca - z * sa
-            z = Y * sa + z * ca
-            zSum += z
-            const persp = 1 / (1.7 - z * 0.16)
-            return [cx + x * scale * persp, cy + y * scale * persp, z]
-          })
-          return { proj, z: zSum / f.pts.length, color: palette(f.phi) }
+    const drawn = fibers
+      .map((f) => {
+        let zSum = 0
+        const proj = f.pts.map(([X, Y, Z]): Vec3 => {
+          const x = X * cb + Z * sb
+          let z = -X * sb + Z * cb
+          const y = Y * ca - z * sa
+          z = Y * sa + z * ca
+          zSum += z
+          const persp = 1 / (1.7 - z * 0.16)
+          return [cx + x * scale * persp, cy + y * scale * persp, z]
         })
-        .sort((p, q) => p.z - q.z)
-      for (const f of drawn) {
-        ctx.beginPath()
-        for (let k = 0; k < f.proj.length; k++) {
-          const px = f.proj[k]![0]
-          const py = f.proj[k]![1]
-          if (k === 0) ctx.moveTo(px, py)
-          else ctx.lineTo(px, py)
-        }
-        const depth = (f.z + maxR) / (2 * maxR)
-        ctx.globalAlpha = 0.32 + 0.6 * depth
-        ctx.lineWidth = 0.8 + 1.3 * depth
-        ctx.strokeStyle = f.color
-        ctx.stroke()
+        return { proj, z: zSum / f.pts.length, color: palette(f.phi) }
+      })
+      .sort((p, q) => p.z - q.z)
+
+    for (const f of drawn) {
+      ctx.beginPath()
+      for (let k = 0; k < f.proj.length; k++) {
+        const px = f.proj[k]![0]
+        const py = f.proj[k]![1]
+        if (k === 0) ctx.moveTo(px, py)
+        else ctx.lineTo(px, py)
       }
-      ctx.globalAlpha = 1
+      const depth = (f.z + maxR) / (2 * maxR)
+      ctx.globalAlpha = 0.3 + 0.6 * depth
+      ctx.lineWidth = 0.7 + 1.2 * depth
+      ctx.strokeStyle = f.color
+      ctx.stroke()
     }
+    ctx.globalAlpha = 1
+  }, [size, state])
 
-    let phase = 0
-    drawPhase(phase)
-    const id = setInterval(() => {
-      phase = (phase + 1) % phases
-      drawPhase(phase)
-    }, holdMs)
-    return () => clearInterval(id)
-  }, [size, phases, holdMs])
-
-  return <canvas ref={ref} style={{ width: size, height: size, display: 'block' }} aria-hidden />
+  return (
+    <span className="inline-flex shrink-0" style={{ width: size, height: size }}>
+      <canvas ref={ref} className="hopf-fold" style={{ width: size, height: size, display: 'block' }} aria-hidden />
+      <style>{`
+        .hopf-fold { transform-box: fill-box; transform-origin: center; animation: hopfFold 1.8s step-end infinite; }
+        @keyframes hopfFold {
+          0%, 24%   { transform: scaleY(1); }
+          25%, 49%  { transform: scaleY(0.07); }
+          50%, 74%  { transform: scaleY(0.5); }
+          75%, 100% { transform: scaleY(1); }
+        }
+      `}</style>
+    </span>
+  )
 }
