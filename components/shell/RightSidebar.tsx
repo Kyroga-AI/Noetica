@@ -15,8 +15,8 @@ const SLOTS: { id: AgentSlotId; label: string; icon: React.ReactNode; descriptio
     description: 'Active files, memory, and artifacts in scope for the current workspace.',
     icon: (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-        <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.4"/>
-        <path d="M8 5v3.5l2.5 1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+        <path d="M8 2l5.5 3L8 8 2.5 5 8 2z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+        <path d="M2.5 8L8 11l5.5-3M2.5 11L8 14l5.5-3" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
       </svg>
     ),
   },

@@ -334,7 +334,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
       </div>
       <div className="min-w-0 flex-1">
         <div className="mb-1 text-[11px] font-medium text-[var(--color-text-secondary)]">
-          {message.governance?.model_routed ?? message.fanout_model ?? 'Noetica'}
+          Noetica
         </div>
 
         {/* Extended thinking */}
@@ -475,27 +475,12 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
         )}
 
         {message.value_judgment && (
-          <div className="mt-2 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2 text-[11px]">
-            <div className="flex items-center gap-2">
-              <span className={`inline-block h-1.5 w-1.5 rounded-full ${
-                message.value_judgment.verdict === 'grounded' ? 'bg-[#16a34a]'
-                : message.value_judgment.verdict === 'contradiction' ? 'bg-[#dc2626]'
-                : 'bg-[#d97706]'
-              }`} />
-              <span className="font-medium text-[var(--color-text-secondary)]">Value judgment</span>
-              <span className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">{message.value_judgment.verdict}</span>
-              <span className="ml-auto text-[10px] text-[var(--color-text-tertiary)]">
-                worth {(message.value_judgment.worth * 100).toFixed(0)}% · grounding {(message.value_judgment.grounding * 100).toFixed(0)}%
-                {message.value_judgment.graph_grounding !== undefined ? ` · graph ${(message.value_judgment.graph_grounding * 100).toFixed(0)}%` : ''}
-              </span>
-            </div>
-            {message.value_judgment.novel_claims && message.value_judgment.novel_claims.length > 0 && (
-              <div className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">
-                Novel (not in graph): {message.value_judgment.novel_claims.slice(0, 5).join(', ')}
-              </div>
-            )}
+          <>
+            {/* Contradictions are a real warning — keep them visible. Everything else
+                (worth/grounding scores) is tucked into a collapsible so the chat stays
+                clean by default instead of shouting low scores on every message. */}
             {message.value_judgment.contradictions.length > 0 && (
-              <div className="mt-1.5 space-y-1">
+              <div className="mt-2 space-y-1">
                 {message.value_judgment.contradictions.map((c, i) => (
                   <div key={i} className="rounded-lg border border-[#fca5a5] bg-[#fef2f2] px-2 py-1 text-[10px] text-[#b91c1c]">
                     ⚠ contradicts {c.kind}: <span className="italic">{c.statement.slice(0, 90)}</span>
@@ -503,7 +488,25 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
                 ))}
               </div>
             )}
-          </div>
+            <details className="mt-2 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] text-[11px]">
+              <summary className="flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
+                <span className={`inline-block h-1.5 w-1.5 rounded-full ${
+                  message.value_judgment.verdict === 'grounded' ? 'bg-[#16a34a]'
+                  : message.value_judgment.verdict === 'contradiction' ? 'bg-[#dc2626]'
+                  : 'bg-[#d97706]'
+                }`} />
+                <span className="font-medium">Value judgment</span>
+                <span className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">{message.value_judgment.verdict}</span>
+              </summary>
+              <div className="px-3 pb-2 text-[10px] text-[var(--color-text-tertiary)]">
+                worth {(message.value_judgment.worth * 100).toFixed(0)}% · grounding {(message.value_judgment.grounding * 100).toFixed(0)}%
+                {message.value_judgment.graph_grounding !== undefined ? ` · graph ${(message.value_judgment.graph_grounding * 100).toFixed(0)}%` : ''}
+                {message.value_judgment.novel_claims && message.value_judgment.novel_claims.length > 0 && (
+                  <div className="mt-1">Novel (not in graph): {message.value_judgment.novel_claims.slice(0, 5).join(', ')}</div>
+                )}
+              </div>
+            </details>
+          </>
         )}
 
         {message.retrieval_trace && (message.retrieval_trace.sources.length > 0 || message.retrieval_trace.beliefs_injected > 0) && (
