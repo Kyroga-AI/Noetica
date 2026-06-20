@@ -86,6 +86,12 @@ jobs:
         # ~/.noetica/runtime at first boot by the agent-machine (managed-runtime),
         # so a runner is NOT required in the bundle — no runner-completeness gate here.
 
+      - name: Inject sidecar externalBin into tauri.conf.json
+        # The committed config is the dev default (no externalBin). Production builds
+        # MUST inject it, otherwise the agent-machine + ollama sidecars are not
+        # bundled and the app ships dead (the ~9MB-vs-~130MB DMG regression).
+        run: node scripts/inject-am-sidecar-config.mjs
+
       # ── Code signing ───────────────────────────────────────────────────────
       # Import Apple Developer certificate when the secret is present.
       # When absent, tauri build proceeds unsigned and we ad-hoc sign afterward.
@@ -211,6 +217,9 @@ jobs:
           OLLAMA_VERSION: "0.30.8"
         run: bash scripts/download-sidecars.sh
 
+      - name: Inject sidecar externalBin into tauri.conf.json
+        run: node scripts/inject-am-sidecar-config.mjs
+
       - name: Build Tauri (deb + rpm)
         env:
           NOETICA_STATIC_EXPORT: "1"
@@ -246,7 +255,7 @@ jobs:
             DMG_URL=$(gh release view "$TAG" \
               --repo "${{ github.repository }}" \
               --json assets \
-              --jq '.assets[] | select(.name | endswith(".dmg")) | .browserDownloadUrl' \
+              --jq '.assets[] | select(.name | endswith(".dmg")) | .url' \
               | head -1)
             [ -n "$DMG_URL" ] && break
             echo "dmg not found yet (attempt $attempt) — waiting 20s"; sleep 20
