@@ -26,7 +26,7 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "@socioprophet/hellgraph": "github:SocioProphet/hellgraph#v0.4.2",
+    "@socioprophet/hellgraph": "github:SocioProphet/hellgraph#main",
     "mammoth": "1.12.0",
     "pdf-parse": "2.4.5"
   }

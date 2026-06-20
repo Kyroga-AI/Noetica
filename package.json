@@ -46,7 +46,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",
-    "@socioprophet/hellgraph": "github:SocioProphet/hellgraph#v0.4.2",
+    "@socioprophet/hellgraph": "github:SocioProphet/hellgraph#main",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-dialog": "2.7.1",
     "next": "^14.2.23",
