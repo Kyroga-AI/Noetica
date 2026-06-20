@@ -264,13 +264,17 @@ export function AppShell() {
     if (!dismissed) setProviderSetupOpen(true)
   }, [settings.anthropicApiKey, settings.openaiApiKey, settings.runtimeMode, settings.agentMachineEndpoint])
 
-  // Show model setup when agent machine connects and models haven't been pulled yet
+  // Show first-run model setup only when a REQUIRED model is missing (the optional
+  // models never auto-pull, so gating on "all pulled" would re-show it every launch).
   useEffect(() => {
     if (!settings.agentMachineEndpoint) return
     if (localStorage.getItem('noetica:setup:skipped') === '1') return
     void fetch(`${settings.agentMachineEndpoint}/api/models`)
-      .then((r) => r.ok ? r.json() as Promise<{ allPulled: boolean }> : null)
-      .then((data) => { if (data && !data.allPulled) setShowSetup(true) })
+      .then((r) => r.ok ? r.json() as Promise<{ models?: Array<{ required?: boolean; pulled?: boolean }> }> : null)
+      .then((data) => {
+        const requiredMissing = (data?.models ?? []).some((m) => m.required && !m.pulled)
+        if (requiredMissing) setShowSetup(true)
+      })
       .catch(() => { /* agent machine not running yet */ })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings.agentMachineEndpoint])
