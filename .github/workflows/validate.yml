@@ -23,7 +23,11 @@ jobs:
         with:
           node-version: 20
       - name: Install dependencies
-        run: npm install
+        run: |
+          npm install
+          # Root tsconfig includes agent-machine/**/*.ts, so typecheck and
+          # next build need agent-machine's deps (mammoth, pdf-parse, …).
+          npm --prefix agent-machine install
       - name: CLI doctor
         run: npm run cli:doctor
       - name: CLI smoke
@@ -123,7 +127,11 @@ jobs:
         with:
           toolchain: stable
       - name: Install dependencies
-        run: npm install
+        run: |
+          npm install
+          # Root tsconfig includes agent-machine/**/*.ts, so typecheck and
+          # next build need agent-machine's deps (mammoth, pdf-parse, …).
+          npm --prefix agent-machine install
       - name: Tauri icon materializer
         run: |
           npm run tauri:icon

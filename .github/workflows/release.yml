@@ -38,7 +38,11 @@ jobs:
           workspaces: src-tauri
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
+          # agent-machine deps (mammoth, pdf-parse, …) are needed for the root
+          # typecheck, which includes agent-machine/**/*.ts via tsconfig.
+          npm --prefix agent-machine ci
 
       - name: Typecheck
         run: npm run typecheck
@@ -187,7 +191,9 @@ jobs:
           workspaces: src-tauri
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
+          npm --prefix agent-machine ci
 
       - name: Materialize Tauri icon
         run: npm run tauri:icon
