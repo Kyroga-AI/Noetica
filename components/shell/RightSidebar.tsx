@@ -106,12 +106,14 @@ const SLOTS: { id: AgentSlotId; label: string; icon: React.ReactNode; descriptio
 const ENABLED_SLOTS: AgentSlotId[] = ['context']
 
 type ToolActivityItem = { id: string; name: string; target: string }
+type FileChange = { id: string; path: string; content: string }
 
 // Real Context panel: files referenced by this session's tool calls + the actual
 // stored memories. No mock data.
-function ContextSlot({ inScopeFiles, activity }: { inScopeFiles: string[]; activity: ToolActivityItem[] }) {
+function ContextSlot({ inScopeFiles, activity, changes }: { inScopeFiles: string[]; activity: ToolActivityItem[]; changes: FileChange[] }) {
   const { entries, hydrated } = useMemory()
   const recent = entries.slice(0, 6)
+  const [openChange, setOpenChange] = useState<string | null>(null)
   return (
     <div className="space-y-1 p-2">
       <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-0.5">
@@ -137,6 +139,28 @@ function ContextSlot({ inScopeFiles, activity }: { inScopeFiles: string[]; activ
               {a.target && <span className="truncate text-[var(--color-text-tertiary)]">{a.target}</span>}
             </span>
           </SlotRow>
+        ))
+      )}
+      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">
+        Changes{changes.length > 0 ? ` · ${changes.length}` : ''}
+      </div>
+      {changes.length === 0 ? (
+        <SlotRow><span className="text-[var(--color-text-tertiary)]">No files written yet</span></SlotRow>
+      ) : (
+        changes.map((c) => (
+          <div key={c.id}>
+            <button
+              onClick={() => setOpenChange(openChange === c.id ? null : c.id)}
+              className="flex w-full items-center justify-between gap-1.5 rounded-md px-2 py-1 text-left text-[11px] text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)]"
+              title={c.path}
+            >
+              <span className="truncate font-mono text-[10px] text-[var(--color-text-primary)]">{c.path.split('/').pop()}</span>
+              <span className="shrink-0 text-[10px] text-[#4ade80]">+{c.content ? c.content.split('\n').length : 0}</span>
+            </button>
+            {openChange === c.id && (
+              <pre className="mt-0.5 max-h-44 overflow-auto rounded-md bg-[var(--color-background-primary)] p-2 text-[10px] leading-snug text-[var(--color-text-secondary)] whitespace-pre-wrap">{c.content || '(empty file)'}</pre>
+            )}
+          </div>
         ))
       )}
       <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">
@@ -327,6 +351,7 @@ type RightSidebarProps = {
   riskReadout?: RiskAversionLiveReadout | null
   inScopeFiles?: string[]
   toolActivity?: ToolActivityItem[]
+  fileChanges?: FileChange[]
 }
 
 function AgentSlotConfig({ slotId, onClose }: { slotId: AgentSlotId; onClose: () => void }) {
@@ -362,7 +387,7 @@ function AgentSlotConfig({ slotId, onClose }: { slotId: AgentSlotId; onClose: ()
   )
 }
 
-export function RightSidebar({ collapsed, onCollapse, onExpand, riskReadout, inScopeFiles = [], toolActivity = [] }: RightSidebarProps) {
+export function RightSidebar({ collapsed, onCollapse, onExpand, riskReadout, inScopeFiles = [], toolActivity = [], fileChanges = [] }: RightSidebarProps) {
   const [activeSlot, setActiveSlot] = useState<AgentSlotId>('context')
   const [configuringSlot, setConfiguringSlot] = useState<AgentSlotId | null>(null)
   const { settings } = useSettings()
@@ -468,7 +493,7 @@ export function RightSidebar({ collapsed, onCollapse, onExpand, riskReadout, inS
       {/* Slot content */}
       <div className="min-h-0 flex-1 overflow-y-auto">
         {activeSlot === 'context'
-          ? <ContextSlot inScopeFiles={inScopeFiles} activity={toolActivity} />
+          ? <ContextSlot inScopeFiles={inScopeFiles} activity={toolActivity} changes={fileChanges} />
           : activeSlot === 'risk'
           ? <RiskSlot riskReadout={riskReadout} />
           : MOCK_CONTENT[activeSlot]}

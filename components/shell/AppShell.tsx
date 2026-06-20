@@ -316,6 +316,21 @@ export function AppShell() {
     }
     return acts.reverse().slice(0, 20)
   }, [messages])
+  // Real file changes for the Context panel: what the agent actually wrote this
+  // session (write_file calls), with content, most recent first.
+  const fileChanges = useMemo(() => {
+    const out: Array<{ id: string; path: string; content: string }> = []
+    for (const m of messages) {
+      for (const tc of m.tool_calls ?? []) {
+        if (tc.name !== 'write_file') continue
+        const inp = (tc.input ?? {}) as Record<string, unknown>
+        const path = typeof inp['path'] === 'string' ? (inp['path'] as string) : ''
+        const content = typeof inp['content'] === 'string' ? (inp['content'] as string) : ''
+        if (path) out.push({ id: tc.id, path, content })
+      }
+    }
+    return out.reverse().slice(0, 12)
+  }, [messages])
   const fanoutModelCount = Math.min(settings.fanoutModels.length, settings.fanoutConcurrency)
 
   function exportConversation() {
@@ -1250,6 +1265,7 @@ export function AppShell() {
           riskReadout={riskReadout}
           inScopeFiles={inScopeFiles}
           toolActivity={toolActivity}
+          fileChanges={fileChanges}
         />
       </main>
 
