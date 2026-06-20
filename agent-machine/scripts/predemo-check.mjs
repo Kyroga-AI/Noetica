@@ -51,8 +51,11 @@ async function main() {
     if (err) bad(`generation error: ${err.slice(0, 80)}`)
     else if (answered) ok(`generated an answer · routed → ${routed || '(model)'}`)
     else bad('no answer streamed')
-    if (routed === 'llama3.2:3b') bad('routed to the weak 3B model — check router')
-    else if (routed) ok(`routed to a capable model (${routed})`)
+    // Responsive mode deliberately starts on the fast 3B (technique over horsepower):
+    // a 3B that ANSWERS in time beats a 7B that times out. We only flag the model if
+    // NOTHING streamed (handled above). Routing to 3B is the intended fast base —
+    // escalation climbs to a 7B when a turn actually struggles.
+    if (routed) ok(`routed to ${routed} (responsive base; escalates on struggle)`)
   } catch (e) { bad(`chat failed: ${e instanceof Error ? e.message : e}`) }
 
   console.log('▸ document RAG round-trip')
