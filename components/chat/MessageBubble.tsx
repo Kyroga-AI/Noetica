@@ -9,7 +9,6 @@ import oneLight from 'react-syntax-highlighter/dist/cjs/styles/prism/one-light'
 // eslint-disable-next-line
 import oneDark from 'react-syntax-highlighter/dist/cjs/styles/prism/one-dark'
 import { GovernanceTrail } from '@/components/governance/GovernanceTrail'
-import { HopfFibration } from '@/components/chat/HopfFibration'
 import { SteeringDiff } from '@/components/steering/SteeringDiff'
 import type { ChatMessage, ToolCallRecord, ToolResultRecord } from '@/lib/types/message'
 import type { PendingAttachment } from '@/lib/types/attachment'
@@ -328,6 +327,11 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
     setTimeout(() => setExtracted(false), 2000)
   }
 
+  // An empty assistant message is just the streaming placeholder. Don't render an empty
+  // bubble (it would show a second loader) — the TypingIndicator below is the single
+  // streaming indicator.
+  if (!message.content && !message.tool_calls?.length && !message.thinking) return null
+
   return (
     <article className="group flex gap-3">
       <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-text-primary)] text-[9px] font-semibold text-[var(--color-background-primary)]">
@@ -356,10 +360,6 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
         {/* Main content — markdown rendered */}
         {message.content && <MarkdownContent content={message.content} />}
 
-        {/* Streaming placeholder — stop-motion Hopf fibration while the response is empty */}
-        {!message.content && !message.tool_calls?.length && (
-          <HopfFibration size={26} />
-        )}
 
         {/* Action bar */}
         {message.content && (

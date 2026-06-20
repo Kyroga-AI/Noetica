@@ -31,6 +31,7 @@ import { ModelSetupOverlay } from '@/components/setup/ModelSetupOverlay'
 import { CommandPalette } from '@/components/palette/CommandPalette'
 import { models, visibleModels, defaultModelId } from '@/config/models'
 import { initialMessages } from '@/lib/chat/mockConversation'
+import { matchDialogue } from '@/lib/chat/dialogue'
 import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
 import { buildRiskAversionLiveReadout } from '@/lib/risk/riskAversionLive'
 import { listenTauri, isTauri, invokeTauri } from '@/lib/tauri/bridge'
@@ -577,6 +578,19 @@ export function AppShell() {
             serverId: t.serverId,
           }))
       : []
+
+    // Local-first dialogue layer: answer small-talk / app-help instantly and
+    // deterministically — no model call, so it works even while the runtime is still
+    // warming up. Only turns that genuinely need generation fall through to the model.
+    const canned = matchDialogue(content, { userName: settings.userName })
+    if (canned && attachments.length === 0 && !selectedMcpToolNames?.length) {
+      const now = new Date().toISOString()
+      const userMsg: ChatMessage = { id: crypto.randomUUID(), role: 'user', content, workspace_mode: workspaceMode, created_at: now }
+      const asstMsg: ChatMessage = { id: crypto.randomUUID(), role: 'assistant', content: canned, created_at: now }
+      autoTitle(content)
+      setMessages((cur) => { const next = [...cur, userMsg, asstMsg]; updateMessages(next); return next })
+      return
+    }
 
     // Always include built-in tools
     const builtinTools = buildBuiltinTools(settings)
