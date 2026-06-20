@@ -5,6 +5,7 @@ export const defaultSettings: NoeticaSettings = {
   theme: 'claude',
   sidebarDensity: 'comfortable',
   fontSize: 'md',
+  userName: 'Lord Michael',
 
   defaultModelId,
   anthropicApiKey: '',

@@ -4,6 +4,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { MessageBubble } from '@/components/chat/MessageBubble'
 import { TypingIndicator } from '@/components/chat/TypingIndicator'
 import type { ChatMessage } from '@/lib/types/message'
+import { useSettings } from '@/lib/settings/context'
 
 type MessageListProps = {
   messages: ChatMessage[]
@@ -19,6 +20,7 @@ type MessageListProps = {
 }
 
 export function MessageList({ messages, isStreaming = false, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onRecombine, onSpeak, onQuickPrompt }: MessageListProps) {
+  const { settings } = useSettings()
   const lastAssistantIdx = messages.reduce((acc, m, i) => m.role === 'assistant' ? i : acc, -1)
   const [selectedFanout, setSelectedFanout] = useState<Set<string>>(new Set())
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -69,11 +71,11 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 px-4 text-center">
         <div className="flex items-center gap-3">
           <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-text-primary)] text-xs font-semibold text-[var(--color-background-primary)]">N</span>
-          <h1 className="text-2xl font-medium tracking-tight text-[var(--color-text-primary)]">{greeting}, Michael</h1>
+          <h1 className="text-2xl font-medium tracking-tight text-[var(--color-text-primary)]">{greeting}{settings.userName ? `, ${settings.userName}` : ''}</h1>
         </div>
         <p className="-mt-3 text-[13px] text-[var(--color-text-tertiary)]">Local-first · your data never leaves this device</p>
         {onQuickPrompt && (
-          <div className="flex max-w-md flex-wrap items-center justify-center gap-2">
+          <div className="flex flex-wrap items-center justify-center gap-2">
             {quickActions.map((a) => (
               <button
                 key={a.label}
