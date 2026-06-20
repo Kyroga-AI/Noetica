@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useSettings } from '@/lib/settings/context'
 import { models } from '@/config/models'
 import type { RiskAversionLiveReadout } from '@/lib/risk/riskAversionLive'
+import { useMemory } from '@/lib/memory/useMemory'
 
 export type AgentSlotId = 'context' | 'mail' | 'calendar' | 'tasks' | 'graph' | 'lattice' | 'feed' | 'risk'
 
@@ -14,8 +15,8 @@ const SLOTS: { id: AgentSlotId; label: string; icon: React.ReactNode; descriptio
     description: 'Active files, memory, and artifacts in scope for the current workspace.',
     icon: (
       <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-        <circle cx="8" cy="8" r="6" stroke="currentColor" strokeWidth="1.4"/>
-        <path d="M8 5v3.5l2.5 1.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+        <path d="M8 2l5.5 3L8 8 2.5 5 8 2z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+        <path d="M2.5 8L8 11l5.5-3M2.5 11L8 14l5.5-3" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
       </svg>
     ),
   },
@@ -99,6 +100,84 @@ const SLOTS: { id: AgentSlotId; label: string; icon: React.ReactNode; descriptio
     ),
   },
 ]
+
+// Slots actually shown. The rest of SLOTS/MOCK_CONTENT were placeholder demos with
+// hardcoded data; the right panel now shows only real, live context.
+const ENABLED_SLOTS: AgentSlotId[] = ['context']
+
+type ToolActivityItem = { id: string; name: string; target: string }
+type FileChange = { id: string; path: string; content: string }
+
+// Real Context panel: files referenced by this session's tool calls + the actual
+// stored memories. No mock data.
+function ContextSlot({ inScopeFiles, activity, changes }: { inScopeFiles: string[]; activity: ToolActivityItem[]; changes: FileChange[] }) {
+  const { entries, hydrated } = useMemory()
+  const recent = entries.slice(0, 6)
+  const [openChange, setOpenChange] = useState<string | null>(null)
+  return (
+    <div className="space-y-1 p-2">
+      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-0.5">
+        In scope{inScopeFiles.length > 0 ? ` · ${inScopeFiles.length}` : ''}
+      </div>
+      {inScopeFiles.length === 0 ? (
+        <SlotRow><span className="text-[var(--color-text-tertiary)]">No files referenced yet</span></SlotRow>
+      ) : (
+        inScopeFiles.map((f) => (
+          <SlotRow key={f}><span className="text-[var(--color-text-secondary)] mr-1.5">—</span><span className="truncate">{f}</span></SlotRow>
+        ))
+      )}
+      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">
+        Activity{activity.length > 0 ? ` · ${activity.length}` : ''}
+      </div>
+      {activity.length === 0 ? (
+        <SlotRow><span className="text-[var(--color-text-tertiary)]">No tool calls yet</span></SlotRow>
+      ) : (
+        activity.map((a, i) => (
+          <SlotRow key={`${a.id}-${i}`}>
+            <span className="flex items-center gap-1.5 min-w-0">
+              <span className="font-mono text-[10px] text-[var(--color-text-primary)] shrink-0">{a.name}</span>
+              {a.target && <span className="truncate text-[var(--color-text-tertiary)]">{a.target}</span>}
+            </span>
+          </SlotRow>
+        ))
+      )}
+      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">
+        Changes{changes.length > 0 ? ` · ${changes.length}` : ''}
+      </div>
+      {changes.length === 0 ? (
+        <SlotRow><span className="text-[var(--color-text-tertiary)]">No files written yet</span></SlotRow>
+      ) : (
+        changes.map((c) => (
+          <div key={c.id}>
+            <button
+              onClick={() => setOpenChange(openChange === c.id ? null : c.id)}
+              className="flex w-full items-center justify-between gap-1.5 rounded-md px-2 py-1 text-left text-[11px] text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)]"
+              title={c.path}
+            >
+              <span className="truncate font-mono text-[10px] text-[var(--color-text-primary)]">{c.path.split('/').pop()}</span>
+              <span className="shrink-0 text-[10px] text-[#4ade80]">+{c.content ? c.content.split('\n').length : 0}</span>
+            </button>
+            {openChange === c.id && (
+              <pre className="mt-0.5 max-h-44 overflow-auto rounded-md bg-[var(--color-background-primary)] p-2 text-[10px] leading-snug text-[var(--color-text-secondary)] whitespace-pre-wrap">{c.content || '(empty file)'}</pre>
+            )}
+          </div>
+        ))
+      )}
+      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">
+        Memory{hydrated ? ` · ${entries.length}` : ''}
+      </div>
+      {!hydrated ? (
+        <SlotRow><span className="text-[var(--color-text-tertiary)]">Loading…</span></SlotRow>
+      ) : entries.length === 0 ? (
+        <SlotRow><span className="text-[var(--color-text-tertiary)]">No memories stored yet</span></SlotRow>
+      ) : (
+        recent.map((m) => (
+          <SlotRow key={m.id}><span className="line-clamp-2 leading-snug">{m.text}</span></SlotRow>
+        ))
+      )}
+    </div>
+  )
+}
 
 function GraphMini() {
   const nodes = [
@@ -270,6 +349,9 @@ type RightSidebarProps = {
   onCollapse: () => void
   onExpand: () => void
   riskReadout?: RiskAversionLiveReadout | null
+  inScopeFiles?: string[]
+  toolActivity?: ToolActivityItem[]
+  fileChanges?: FileChange[]
 }
 
 function AgentSlotConfig({ slotId, onClose }: { slotId: AgentSlotId; onClose: () => void }) {
@@ -305,7 +387,7 @@ function AgentSlotConfig({ slotId, onClose }: { slotId: AgentSlotId; onClose: ()
   )
 }
 
-export function RightSidebar({ collapsed, onCollapse, onExpand, riskReadout }: RightSidebarProps) {
+export function RightSidebar({ collapsed, onCollapse, onExpand, riskReadout, inScopeFiles = [], toolActivity = [], fileChanges = [] }: RightSidebarProps) {
   const [activeSlot, setActiveSlot] = useState<AgentSlotId>('context')
   const [configuringSlot, setConfiguringSlot] = useState<AgentSlotId | null>(null)
   const { settings } = useSettings()
@@ -324,7 +406,7 @@ export function RightSidebar({ collapsed, onCollapse, onExpand, riskReadout }: R
           </svg>
         </button>
         <nav className="flex flex-col items-center gap-1">
-          {SLOTS.map((slot) => (
+          {SLOTS.filter((s) => ENABLED_SLOTS.includes(s.id)).map((slot) => (
             <button
               key={slot.id}
               onClick={() => { setActiveSlot(slot.id); onExpand() }}
@@ -348,20 +430,24 @@ export function RightSidebar({ collapsed, onCollapse, onExpand, riskReadout }: R
     <aside className="hidden w-56 shrink-0 flex-col border-l border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] lg:flex">
       {/* Slot tabs — scrollable row */}
       <div className="flex items-center border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)]">
-        <div className="flex min-w-0 flex-1 overflow-x-auto scrollbar-none gap-px px-1 pt-1">
-          {SLOTS.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => { setActiveSlot(s.id); setConfiguringSlot(null) }}
-              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-t-md transition ${
-                activeSlot === s.id ? 'bg-[var(--color-background-primary)] text-[var(--color-text-primary)]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
-              }`}
-              title={s.label}
-            >
-              {s.icon}
-            </button>
-          ))}
-        </div>
+        {ENABLED_SLOTS.length > 1 ? (
+          <div className="flex min-w-0 flex-1 overflow-x-auto scrollbar-none gap-px px-1 pt-1">
+            {SLOTS.filter((s) => ENABLED_SLOTS.includes(s.id)).map((s) => (
+              <button
+                key={s.id}
+                onClick={() => { setActiveSlot(s.id); setConfiguringSlot(null) }}
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-t-md transition ${
+                  activeSlot === s.id ? 'bg-[var(--color-background-primary)] text-[var(--color-text-primary)]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
+                }`}
+                title={s.label}
+              >
+                {s.icon}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="flex-1" />
+        )}
         <button
           onClick={onCollapse}
           className="shrink-0 flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-secondary)]"
@@ -406,7 +492,9 @@ export function RightSidebar({ collapsed, onCollapse, onExpand, riskReadout }: R
 
       {/* Slot content */}
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {activeSlot === 'risk'
+        {activeSlot === 'context'
+          ? <ContextSlot inScopeFiles={inScopeFiles} activity={toolActivity} changes={fileChanges} />
+          : activeSlot === 'risk'
           ? <RiskSlot riskReadout={riskReadout} />
           : MOCK_CONTENT[activeSlot]}
       </div>

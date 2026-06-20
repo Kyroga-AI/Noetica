@@ -13,6 +13,7 @@ export interface NoeticaSettings {
   theme: Theme
   sidebarDensity: SidebarDensity
   fontSize: 'sm' | 'md' | 'lg'
+  userName: string
 
   // Models
   defaultModelId: string

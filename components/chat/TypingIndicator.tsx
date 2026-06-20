@@ -1,12 +1,25 @@
+'use client'
+
+import { useEffect, useRef, useState } from 'react'
+import { HopfFibration } from '@/components/chat/HopfFibration'
+
+// Streaming indicator — the stop-motion Hopf fibration plus a quiet, Claude-style
+// elapsed read-out.
 export function TypingIndicator() {
+  const [elapsed, setElapsed] = useState(0)
+  const start = useRef(Date.now())
+  useEffect(() => {
+    start.current = Date.now()
+    const id = setInterval(() => setElapsed(Math.floor((Date.now() - start.current) / 1000)), 1000)
+    return () => clearInterval(id)
+  }, [])
+  const m = Math.floor(elapsed / 60)
+  const s = elapsed % 60
+  const t = m > 0 ? `${m}m ${s}s` : `${s}s`
   return (
-    <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-[#1d4ed8]">
-      <span className="inline-flex gap-1">
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#1d4ed8]" />
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#1d4ed8] [animation-delay:120ms]" />
-        <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#1d4ed8] [animation-delay:240ms]" />
-      </span>
-      Streaming response
+    <div className="flex items-center gap-2.5 text-[13px] text-[var(--color-text-tertiary)]">
+      <HopfFibration size={34} />
+      <span>{t} · thinking…</span>
     </div>
   )
 }

@@ -11,6 +11,7 @@ interface ModelStatus {
   role: string
   sizeGb: number
   description: string
+  required: boolean
   pulled: boolean
   pct: number
   status: 'waiting' | 'starting' | 'pulling' | 'ready'
@@ -49,7 +50,7 @@ export function ModelSetupOverlay({ onDismiss }: { onDismiss: () => void }) {
         const res = await fetch(`${AM_BASE}/api/models`)
         if (!res.ok || cancelled) return
         const data = (await res.json()) as {
-          models: Array<{ name: string; role: string; sizeGb: number; description: string; pulled: boolean }>
+          models: Array<{ name: string; role: string; sizeGb: number; description: string; pulled: boolean; required?: boolean }>
         }
         if (cancelled) return
         setModels(
@@ -58,6 +59,7 @@ export function ModelSetupOverlay({ onDismiss }: { onDismiss: () => void }) {
             role: m.role,
             sizeGb: m.sizeGb,
             description: m.description,
+            required: m.required ?? false,
             pulled: m.pulled,
             pct: m.pulled ? 100 : 0,
             status: m.pulled ? 'ready' : 'waiting',
@@ -104,6 +106,7 @@ export function ModelSetupOverlay({ onDismiss }: { onDismiss: () => void }) {
                   role: payload.role ?? '',
                   sizeGb: payload.sizeGb ?? 0,
                   description: '',
+                  required: false,
                   pulled: payload.status === 'ready',
                   pct: payload.pct ?? 0,
                   status: payload.status!,
@@ -166,10 +169,12 @@ export function ModelSetupOverlay({ onDismiss }: { onDismiss: () => void }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [models.length])
 
-  // Auto-dismiss once every model is ready
+  // Auto-dismiss once the REQUIRED models are ready (optional ones never auto-pull,
+  // so waiting for all of them would keep this open forever).
   useEffect(() => {
     if (models.length === 0) return
-    const allReady = models.every((m) => m.status === 'ready')
+    const required = models.filter((m) => m.required)
+    const allReady = required.length > 0 && required.every((m) => m.status === 'ready')
     if (allReady && !dismissedRef.current) {
       dismissedRef.current = true
       const t = setTimeout(onDismiss, 1000)
@@ -186,11 +191,26 @@ export function ModelSetupOverlay({ onDismiss }: { onDismiss: () => void }) {
         background: 'var(--color-background-primary, #0f0f0f)',
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '24px',
       }}
     >
+      {/* Always-visible close — never trap the user behind a long list */}
+      <button
+        onClick={onDismiss}
+        aria-label="Close setup"
+        title="Close"
+        style={{
+          position: 'absolute', top: 14, right: 16, zIndex: 1,
+          height: 28, width: 28, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          borderRadius: 8, border: '1px solid var(--color-border-tertiary, #333)',
+          background: 'var(--color-background-secondary, #1a1a1a)',
+          color: 'var(--color-text-secondary, #888)', cursor: 'pointer', fontSize: 14, lineHeight: 1,
+        }}
+      >
+        ✕
+      </button>
+
+      {/* Scrollable content */}
+      <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '24px' }}>
       <div
         style={{
           width: '100%',
@@ -277,43 +297,40 @@ export function ModelSetupOverlay({ onDismiss }: { onDismiss: () => void }) {
           </div>
         )}
 
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-          {pulling && !pullError && (
-            <span style={{ fontSize: '12px', color: 'var(--color-text-secondary, #888)' }}>
-              Downloading models…
-            </span>
-          )}
-          {!pulling && !pullError && models.some(m => m.status === 'waiting') && (
+      </div>
+      </div>
+
+      {/* Sticky action bar — always reachable regardless of list length */}
+      <div
+        style={{
+          flexShrink: 0,
+          borderTop: '1px solid var(--color-border-tertiary, #2a2a2a)',
+          background: 'var(--color-background-primary, #0f0f0f)',
+          display: 'flex',
+          justifyContent: 'center',
+          padding: '12px 24px',
+        }}
+      >
+        <div style={{ width: '100%', maxWidth: '560px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+          <span style={{ fontSize: '12px', color: 'var(--color-text-secondary, #888)' }}>
+            {pulling && !pullError ? 'Downloading models…' : 'You can skip and download later from Settings.'}
+          </span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            {!pulling && !pullError && models.some((m) => m.status === 'waiting') && (
+              <button
+                onClick={() => void startPulling()}
+                style={{ background: 'var(--color-accent, #6366f1)', border: 'none', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', color: '#fff', cursor: 'pointer' }}
+              >
+                Download models
+              </button>
+            )}
             <button
-              onClick={() => void startPulling()}
-              style={{
-                background: 'var(--color-accent, #6366f1)',
-                border: 'none',
-                borderRadius: '6px',
-                padding: '6px 14px',
-                fontSize: '12px',
-                color: '#fff',
-                cursor: 'pointer',
-              }}
+              onClick={onDismiss}
+              style={{ background: 'none', border: '1px solid var(--color-border-tertiary, #333)', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', color: 'var(--color-text-secondary, #888)', cursor: 'pointer' }}
             >
-              Download models
+              Skip for now
             </button>
-          )}
-          {(!pulling || pullError) && <span />}
-          <button
-            onClick={onDismiss}
-            style={{
-              background: 'none',
-              border: '1px solid var(--color-border-tertiary, #333)',
-              borderRadius: '6px',
-              padding: '6px 14px',
-              fontSize: '12px',
-              color: 'var(--color-text-secondary, #888)',
-              cursor: 'pointer',
-            }}
-          >
-            Skip for now (use cloud models)
-          </button>
+          </div>
         </div>
       </div>
     </div>

@@ -46,6 +46,7 @@ import { decayAll } from '@socioprophet/hellgraph'
 import { consolidate } from '@socioprophet/hellgraph'
 import { recordAttentionSnapshot, pushSnapshotToPrometheusd, ingestPrometheusCandidate } from '@socioprophet/hellgraph'
 import { isOllamaRunning, listLocalModels, pullModel, streamOllama, getModelContextLength, ollamaBase, generateOllamaText } from './lib/ollama.js'
+import { parseInlineToolCalls } from './lib/tool-calls.js'
 import { retrieve } from './lib/retrieval.js'
 import { getGraph, graphHealth, graphSparql, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
 import { getHellGraph, attachRocksDB } from '@socioprophet/hellgraph'
@@ -68,7 +69,7 @@ import {
 } from './lib/gaia.js'
 
 const PORT = parseInt(process.env['NOETICA_AM_PORT'] ?? '8080', 10)
-const VERSION = '0.4.10'
+const VERSION = '0.4.11'
 
 // ─── Model progress SSE ───────────────────────────────────────────────────────
 
@@ -2199,9 +2200,16 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         }
       }
 
+      const ollamaToolNames = new Set(allTools.map((t) => t.name))
+      // Matches the moment the stream enters a tool call (so we stop showing raw
+      // JSON): a <tool_call> tag, a code fence, or the turn opening with a bare `{`.
+      const TOOL_CALL_ONSET = /<tool_call|```|^\s*\{/i
+
       try {
       if (!deliberated) for (let turn = 0; turn < MAX_TURNS; turn++) {
         let turnContent = ''
+        let streamedLen = 0          // chars already streamed to the UI this turn
+        let suppressed = false       // stopped streaming — text looks like a tool call
         let turnToolCalls: ToolUseBlock[] | undefined
 
         for await (const event of streamOllama({
@@ -2214,8 +2222,15 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         })) {
           if (event.type === 'text') {
             turnContent += event.text
-            liveContent += event.text
-            sse(res, 'delta', { delta: event.text })
+            if (!suppressed) {
+              if (TOOL_CALL_ONSET.test(turnContent.slice(streamedLen ? streamedLen - 16 : 0))) {
+                suppressed = true   // hold the rest back; fallback parser handles it
+              } else {
+                liveContent += event.text
+                sse(res, 'delta', { delta: event.text })
+                streamedLen = turnContent.length
+              }
+            }
           } else if (event.type === 'thinking') {
             fullThinking += event.text
             sse(res, 'thinking_delta', { delta: event.text })
@@ -2224,7 +2239,21 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           }
         }
 
-        fullContent += turnContent
+        // Fallback: the model emitted the tool call as text, not via the API.
+        let assistantText = turnContent
+        if (!turnToolCalls?.length) {
+          const parsed = parseInlineToolCalls(turnContent, ollamaToolNames)
+          if (parsed.calls.length) {
+            turnToolCalls = parsed.calls
+            assistantText = parsed.cleaned
+          } else if (suppressed) {
+            // It wasn't a tool call after all — flush the held-back remainder.
+            const rest = turnContent.slice(streamedLen)
+            if (rest) { liveContent += rest; sse(res, 'delta', { delta: rest }) }
+          }
+        }
+
+        fullContent += assistantText
 
         if (!turnToolCalls?.length) break
 
@@ -2245,7 +2274,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
 
         ollamaMessages.push({
           role: 'assistant',
-          content: turnContent || null,
+          content: assistantText || null,
           tool_calls: turnToolCalls.map((tc) => ({
             id: tc.id,
             type: 'function' as const,
@@ -3607,6 +3636,10 @@ const server = http.createServer((req, res) => {
       const pulledModels = ollamaUp ? await listLocalModels() : []
       const suite = LOCAL_MODEL_SUITE.map((m) => ({
         ...m,
+        // Essential first-run set (manifest: priority 1–5 are required). The first-run
+        // UI auto-pulls only required models; the rest are on-demand. Without this the
+        // overlay's `m.required` filter matches nothing and never pulls anything.
+        required: m.priority <= 5,
         pulled: pulledModels.some((p) => p === m.name || p.startsWith(m.name.split(':')[0]!)),
         ollamaRunning: ollamaUp,
       }))

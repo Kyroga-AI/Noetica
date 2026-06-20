@@ -9,6 +9,7 @@ import oneLight from 'react-syntax-highlighter/dist/cjs/styles/prism/one-light'
 // eslint-disable-next-line
 import oneDark from 'react-syntax-highlighter/dist/cjs/styles/prism/one-dark'
 import { GovernanceTrail } from '@/components/governance/GovernanceTrail'
+import { HopfFibration } from '@/components/chat/HopfFibration'
 import { SteeringDiff } from '@/components/steering/SteeringDiff'
 import type { ChatMessage, ToolCallRecord, ToolResultRecord } from '@/lib/types/message'
 import type { PendingAttachment } from '@/lib/types/attachment'
@@ -20,72 +21,6 @@ const KIND_ICON: Record<string, string> = {
   text: '📝',
   code: '⌥',
   binary: '📦',
-}
-
-// ── Execution timeline ────────────────────────────────────────────────────────
-// Live, legible view of the agent's plan and progress. Streams in the moment the
-// intent is classified, then each step flips running → done as the backend works
-// the pipeline — so a slow local turn reads as visible motion, not a dead spinner.
-function ExecutionTimeline({ plan, grounding, onOpenSurface }: { plan: NonNullable<ChatMessage['plan']>; grounding?: ChatMessage['grounding']; onOpenSurface?: (surface: string) => void }) {
-  const allDone = plan.steps.every((s) => s.status === 'done')
-  return (
-    <details
-      open={!allDone}
-      className="mb-3 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)]"
-    >
-      <summary className="flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
-        <span>{allDone ? 'Plan & execution' : 'Working…'}</span>
-        <span className="rounded-full bg-[var(--color-background-tertiary)] px-1.5 py-0.5 text-[10px] font-normal text-[var(--color-text-tertiary)]">
-          {plan.intent.replace(/_/g, ' ')} · {plan.capability}
-          {plan.skill ? ` · ${plan.skill}` : ''}
-          {plan.surface ? ` → ${plan.surface}` : ''}
-        </span>
-      </summary>
-      <ol className="space-y-1.5 px-3 pb-3 pt-1">
-        {plan.steps.map((s) => (
-          <li key={s.id} className="flex items-start gap-2 text-xs leading-5">
-            <span className="mt-0.5 w-3.5 shrink-0 text-center">
-              {s.status === 'done' ? (
-                <span className="text-[var(--color-accent-primary,#16a34a)]">✓</span>
-              ) : s.status === 'running' ? (
-                <span className="inline-block h-3 w-3 animate-spin rounded-full border border-[var(--color-text-tertiary)] border-t-transparent align-middle" />
-              ) : (
-                <span className="text-[var(--color-text-tertiary)]">○</span>
-              )}
-            </span>
-            <span className={s.status === 'pending' ? 'text-[var(--color-text-tertiary)]' : 'text-[var(--color-text-secondary)]'}>
-              {s.label}
-              {s.detail ? <span className="text-[var(--color-text-tertiary)]"> — {s.detail}</span> : null}
-            </span>
-          </li>
-        ))}
-      </ol>
-      {plan.surface && onOpenSurface && (
-        <div className="border-t border-[var(--color-border-tertiary)] px-3 py-2">
-          <button
-            onClick={() => onOpenSurface(plan.surface!)}
-            className="rounded-md border border-[var(--color-border-secondary)] px-2 py-1 text-[11px] font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-primary)]"
-          >
-            Open in {plan.surface} surface →
-          </button>
-        </div>
-      )}
-      {grounding && grounding.terms.length > 0 && (
-        <div className="border-t border-[var(--color-border-tertiary)] px-3 py-2">
-          <div className="mb-1 text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">
-            Recognized · {grounding.domain}
-          </div>
-          <div className="flex flex-wrap gap-1">
-            {grounding.terms.map((t) => (
-              <span key={t} className="rounded bg-[var(--color-background-tertiary)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-secondary)]">
-                {t}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
-    </details>
-  )
 }
 
 function AttachmentList({ attachments }: { attachments: PendingAttachment[] }) {
@@ -302,10 +237,9 @@ type MessageBubbleProps = {
   onFork?: (messageId: string) => void
   onEdit?: (messageId: string, newContent: string) => void
   onSpeak?: (content: string) => void
-  onOpenSurface?: (surface: string) => void
 }
 
-export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onSpeak, onOpenSurface }: MessageBubbleProps) {
+export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onSpeak }: MessageBubbleProps) {
   const isUser = message.role === 'user'
   const [extracted, setExtracted] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -401,23 +335,8 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
       </div>
       <div className="min-w-0 flex-1">
         <div className="mb-1 text-[11px] font-medium text-[var(--color-text-secondary)]">
-          {message.governance?.model_routed ?? message.fanout_model ?? 'Noetica'}
+          Noetica
         </div>
-
-        {/* Announcer narration — running commentary of what the agent is doing */}
-        {message.narration && message.narration.length > 0 && (
-          <div className="mb-3 space-y-1 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2">
-            {message.narration.map((n, i) => (
-              <div key={i} className="flex items-start gap-2 text-xs leading-5 text-[var(--color-text-secondary)]">
-                <span className="select-none opacity-60">🗣</span>
-                <span>{n.text}</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Plan & execution timeline — visible while the turn runs */}
-        {message.plan && <ExecutionTimeline plan={message.plan} grounding={message.grounding} onOpenSurface={onOpenSurface} />}
 
         {/* Extended thinking */}
         {message.thinking && (
@@ -437,9 +356,9 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
         {/* Main content — markdown rendered */}
         {message.content && <MarkdownContent content={message.content} />}
 
-        {/* Streaming placeholder — only when nothing else signals activity */}
-        {!message.content && !message.tool_calls?.length && !message.plan && (
-          <span className="inline-block h-4 w-4 animate-pulse rounded-sm bg-[var(--color-text-tertiary)]" />
+        {/* Streaming placeholder — stop-motion Hopf fibration while the response is empty */}
+        {!message.content && !message.tool_calls?.length && (
+          <HopfFibration size={26} />
         )}
 
         {/* Action bar */}
@@ -499,7 +418,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
           </div>
         )}
 
-        {message.governance && (message.governance.model_routed || message.governance.input_tokens || message.governance.output_tokens || message.governance.latency_ms) && (
+        {message.content && message.governance && (message.governance.model_routed || message.governance.input_tokens || message.governance.output_tokens || message.governance.latency_ms) && (
           <div className="mt-1.5 flex items-center gap-3 text-[10px] text-[var(--color-text-tertiary)]">
             {message.governance.model_routed && (
               <span className="flex items-center gap-1">
@@ -533,20 +452,6 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
           </div>
         )}
 
-        {(message.value_judgment || (message.deliberation && message.deliberation.candidates.length > 1) || message.retrieval_trace || message.governance) && (
-        <details className="group mt-1.5">
-          <summary className="flex cursor-pointer list-none select-none items-center gap-1.5 text-[10px] text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-secondary)] [&::-webkit-details-marker]:hidden">
-            {message.value_judgment && (
-              <span className={`inline-block h-1.5 w-1.5 rounded-full ${
-                message.value_judgment.verdict === 'grounded' ? 'bg-[#16a34a]'
-                : message.value_judgment.verdict === 'contradiction' ? 'bg-[#dc2626]'
-                : 'bg-[#d97706]'
-              }`} />
-            )}
-            <span className="transition group-open:rotate-90">▸</span>
-            <span>details{message.value_judgment ? ` · ${message.value_judgment.verdict}` : ''}{message.retrieval_trace?.sources.length ? ` · ${message.retrieval_trace.sources.length} atoms` : ''}</span>
-          </summary>
-          <div className="mt-1.5 space-y-2">
         {message.deliberation && message.deliberation.candidates.length > 1 && (
           <details className="mt-2 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)]">
             <summary className="cursor-pointer select-none px-3 py-2 text-[11px] font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
@@ -570,28 +475,13 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
           </details>
         )}
 
-        {message.value_judgment && (
-          <div className="mt-2 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2 text-[11px]">
-            <div className="flex items-center gap-2">
-              <span className={`inline-block h-1.5 w-1.5 rounded-full ${
-                message.value_judgment.verdict === 'grounded' ? 'bg-[#16a34a]'
-                : message.value_judgment.verdict === 'contradiction' ? 'bg-[#dc2626]'
-                : 'bg-[#d97706]'
-              }`} />
-              <span className="font-medium text-[var(--color-text-secondary)]">Value judgment</span>
-              <span className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">{message.value_judgment.verdict}</span>
-              <span className="ml-auto text-[10px] text-[var(--color-text-tertiary)]">
-                worth {(message.value_judgment.worth * 100).toFixed(0)}% · grounding {(message.value_judgment.grounding * 100).toFixed(0)}%
-                {message.value_judgment.graph_grounding !== undefined ? ` · graph ${(message.value_judgment.graph_grounding * 100).toFixed(0)}%` : ''}
-              </span>
-            </div>
-            {message.value_judgment.novel_claims && message.value_judgment.novel_claims.length > 0 && (
-              <div className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">
-                Novel (not in graph): {message.value_judgment.novel_claims.slice(0, 5).join(', ')}
-              </div>
-            )}
+        {message.content && message.value_judgment && (
+          <>
+            {/* Contradictions are a real warning — keep them visible. Everything else
+                (worth/grounding scores) is tucked into a collapsible so the chat stays
+                clean by default instead of shouting low scores on every message. */}
             {message.value_judgment.contradictions.length > 0 && (
-              <div className="mt-1.5 space-y-1">
+              <div className="mt-2 space-y-1">
                 {message.value_judgment.contradictions.map((c, i) => (
                   <div key={i} className="rounded-lg border border-[#fca5a5] bg-[#fef2f2] px-2 py-1 text-[10px] text-[#b91c1c]">
                     ⚠ contradicts {c.kind}: <span className="italic">{c.statement.slice(0, 90)}</span>
@@ -599,10 +489,28 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
                 ))}
               </div>
             )}
-          </div>
+            <details className="mt-2 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] text-[11px]">
+              <summary className="flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
+                <span className={`inline-block h-1.5 w-1.5 rounded-full ${
+                  message.value_judgment.verdict === 'grounded' ? 'bg-[#16a34a]'
+                  : message.value_judgment.verdict === 'contradiction' ? 'bg-[#dc2626]'
+                  : 'bg-[#d97706]'
+                }`} />
+                <span className="font-medium">Value judgment</span>
+                <span className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">{message.value_judgment.verdict}</span>
+              </summary>
+              <div className="px-3 pb-2 text-[10px] text-[var(--color-text-tertiary)]">
+                worth {(message.value_judgment.worth * 100).toFixed(0)}% · grounding {(message.value_judgment.grounding * 100).toFixed(0)}%
+                {message.value_judgment.graph_grounding !== undefined ? ` · graph ${(message.value_judgment.graph_grounding * 100).toFixed(0)}%` : ''}
+                {message.value_judgment.novel_claims && message.value_judgment.novel_claims.length > 0 && (
+                  <div className="mt-1">Novel (not in graph): {message.value_judgment.novel_claims.slice(0, 5).join(', ')}</div>
+                )}
+              </div>
+            </details>
+          </>
         )}
 
-        {message.retrieval_trace && (message.retrieval_trace.sources.length > 0 || message.retrieval_trace.beliefs_injected > 0) && (
+        {message.content && message.retrieval_trace && (message.retrieval_trace.sources.length > 0 || message.retrieval_trace.beliefs_injected > 0) && (
           <details className="mt-2 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)]">
             <summary className="cursor-pointer select-none px-3 py-2 text-[11px] font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
               <span className="inline-flex items-center gap-1.5">
@@ -662,10 +570,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
           </details>
         )}
         {message.steering_result ? <SteeringDiff result={message.steering_result} /> : null}
-        {message.governance ? <GovernanceTrail trace={message.governance} /> : null}
-          </div>
-        </details>
-        )}
+        {message.content && message.governance ? <GovernanceTrail trace={message.governance} /> : null}
       </div>
     </article>
   )

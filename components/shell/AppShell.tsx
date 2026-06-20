@@ -27,7 +27,6 @@ import { EvaluatePanel } from '@/components/panels/EvaluatePanel'
 import { GovernPanel } from '@/components/panels/GovernPanel'
 import { SettingsModal } from '@/components/settings/SettingsModal'
 import { ProviderSetupModal } from '@/components/shell/ProviderSetupModal'
-import { ModelSetupModal } from '@/components/shell/ModelSetupModal'
 import { ModelSetupOverlay } from '@/components/setup/ModelSetupOverlay'
 import { CommandPalette } from '@/components/palette/CommandPalette'
 import { models, visibleModels, defaultModelId } from '@/config/models'
@@ -252,7 +251,6 @@ export function AppShell() {
   const [settingsCategory, setSettingsCategory] = useState('appearance')
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [providerSetupOpen, setProviderSetupOpen] = useState(false)
-  const [modelSetupOpen, setModelSetupOpen] = useState(false)
   const [showSetup, setShowSetup] = useState(false)
   const [rawEventLog, setRawEventLog] = useState<Array<{ ts: string; kind: string; payload: unknown }>>([])
   const rawEventLogRef = useRef(rawEventLog)
@@ -266,24 +264,17 @@ export function AppShell() {
     if (!dismissed) setProviderSetupOpen(true)
   }, [settings.anthropicApiKey, settings.openaiApiKey, settings.runtimeMode, settings.agentMachineEndpoint])
 
-  // Show model setup when agent machine connects and models haven't been pulled yet
-  useEffect(() => {
-    if (!settings.agentMachineEndpoint) return
-    const dismissed = localStorage.getItem('noetica-model-setup-dismissed')
-    if (dismissed) return
-    void fetch(`${settings.agentMachineEndpoint}/api/models`)
-      .then((r) => r.ok ? r.json() as Promise<{ allPulled: boolean }> : null)
-      .then((data) => { if (data && !data.allPulled) setModelSetupOpen(true) })
-      .catch(() => { /* agent machine not running yet */ })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.agentMachineEndpoint])
-
+  // Show first-run model setup only when a REQUIRED model is missing (the optional
+  // models never auto-pull, so gating on "all pulled" would re-show it every launch).
   useEffect(() => {
     if (!settings.agentMachineEndpoint) return
     if (localStorage.getItem('noetica:setup:skipped') === '1') return
     void fetch(`${settings.agentMachineEndpoint}/api/models`)
-      .then((r) => r.ok ? r.json() as Promise<{ allPulled: boolean }> : null)
-      .then((data) => { if (data && !data.allPulled) setShowSetup(true) })
+      .then((r) => r.ok ? r.json() as Promise<{ models?: Array<{ required?: boolean; pulled?: boolean }> }> : null)
+      .then((data) => {
+        const requiredMissing = (data?.models ?? []).some((m) => m.required && !m.pulled)
+        if (requiredMissing) setShowSetup(true)
+      })
       .catch(() => { /* agent machine not running yet */ })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings.agentMachineEndpoint])
@@ -298,6 +289,48 @@ export function AppShell() {
     () => [...messages].reverse().find((m) => m.governance !== undefined)?.governance,
     [messages]
   )
+  // Real "in scope" files for the Context panel: paths touched by this session's
+  // filesystem tool calls (read_file / write_file / list_directory), most recent first.
+  const inScopeFiles = useMemo(() => {
+    const seen = new Set<string>()
+    for (const m of messages) {
+      for (const tc of m.tool_calls ?? []) {
+        if (tc.name === 'read_file' || tc.name === 'write_file' || tc.name === 'list_directory') {
+          const p = (tc.input as { path?: string } | undefined)?.path
+          if (typeof p === 'string' && p.trim()) seen.add(p.trim())
+        }
+      }
+    }
+    return Array.from(seen).reverse().slice(0, 12)
+  }, [messages])
+  // Real tool-activity feed for the Context panel: every tool the agent ran this
+  // session, most recent first, with a short target (path / query / etc.).
+  const toolActivity = useMemo(() => {
+    const acts: Array<{ id: string; name: string; target: string }> = []
+    for (const m of messages) {
+      for (const tc of m.tool_calls ?? []) {
+        const inp = (tc.input ?? {}) as Record<string, unknown>
+        const raw = inp['path'] ?? inp['query'] ?? inp['url'] ?? inp['prompt'] ?? (inp['code'] ? 'code' : '')
+        acts.push({ id: tc.id, name: tc.name, target: typeof raw === 'string' ? raw : '' })
+      }
+    }
+    return acts.reverse().slice(0, 20)
+  }, [messages])
+  // Real file changes for the Context panel: what the agent actually wrote this
+  // session (write_file calls), with content, most recent first.
+  const fileChanges = useMemo(() => {
+    const out: Array<{ id: string; path: string; content: string }> = []
+    for (const m of messages) {
+      for (const tc of m.tool_calls ?? []) {
+        if (tc.name !== 'write_file') continue
+        const inp = (tc.input ?? {}) as Record<string, unknown>
+        const path = typeof inp['path'] === 'string' ? (inp['path'] as string) : ''
+        const content = typeof inp['content'] === 'string' ? (inp['content'] as string) : ''
+        if (path) out.push({ id: tc.id, path, content })
+      }
+    }
+    return out.reverse().slice(0, 12)
+  }, [messages])
   const fanoutModelCount = Math.min(settings.fanoutModels.length, settings.fanoutConcurrency)
 
   function exportConversation() {
@@ -803,36 +836,6 @@ export function AppShell() {
                 setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'tool_calls', payload: calls }, ...prev].slice(0, 80))
               }
             },
-            onIntent: (intent) => {
-              updateAssistant(assistantId, { intent })
-              if (settings.showRawEvents) {
-                setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'intent', payload: intent }, ...prev].slice(0, 80))
-              }
-            },
-            onPlan: (plan) => {
-              updateAssistant(assistantId, { plan })
-              if (settings.showRawEvents) {
-                setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'plan', payload: plan }, ...prev].slice(0, 80))
-              }
-            },
-            onGrounding: (grounding) => {
-              updateAssistant(assistantId, { grounding })
-              if (settings.showRawEvents) {
-                setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'grounding', payload: grounding }, ...prev].slice(0, 80))
-              }
-            },
-            onNarration: (line) => {
-              appendNarration(assistantId, line)
-              if (settings.showRawEvents) {
-                setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'narration', payload: line }, ...prev].slice(0, 80))
-              }
-            },
-            onStep: (step) => {
-              mergePlanStep(assistantId, step)
-              if (settings.showRawEvents) {
-                setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'step', payload: step }, ...prev].slice(0, 80))
-              }
-            },
             onRetrieval: (trace) => {
               mergeRetrieval(assistantId, trace)
               if (settings.showRawEvents) {
@@ -1129,27 +1132,6 @@ export function AppShell() {
     )
   }
 
-  // Merge a streamed step status update into the message's plan by step id, so the
-  // execution timeline flips running → done live as the backend works the pipeline.
-  function mergePlanStep(id: string, update: import('@/lib/types/message').PlanStepUpdate) {
-    setMessages((current) =>
-      current.map((m) => {
-        if (m.id !== id || !m.plan) return m
-        const steps = m.plan.steps.map((s) =>
-          s.id === update.id ? { ...s, status: update.status, detail: update.detail ?? s.detail } : s
-        )
-        return { ...m, plan: { ...m.plan, steps } }
-      })
-    )
-  }
-
-  // Append a narration line — the announcer's running commentary, in arrival order.
-  function appendNarration(id: string, line: import('@/lib/types/message').NarrationLine) {
-    setMessages((current) =>
-      current.map((m) => (m.id === id ? { ...m, narration: [...(m.narration ?? []), line] } : m))
-    )
-  }
-
   function appendAssistantContent(id: string, delta: string) {
     setMessages((current) =>
       current.map((m) => (m.id === id ? { ...m, content: `${m.content}${delta}` } : m))
@@ -1253,7 +1235,6 @@ export function AppShell() {
                 onAtomSelect={(query) => { setActiveSurface('chat'); void handleSend(query, []) }}
                 onOpenSettings={() => openSettings('connections')}
                 onNavigateToOperate={() => setActiveSurface('operate')}
-                onOpenSurface={(s) => handleSurfaceChange(s as ActiveSurface)}
                 onSpeak={speak}
               />
               {inspectorVisible && (
@@ -1273,7 +1254,6 @@ export function AppShell() {
                 />
               )}
             </div>
-            <UtilityRail activePanel={utilityPanel} onSelect={setUtilityPanel} lastGovernance={lastGovernance} />
           </div>
         </section>
 
@@ -1282,6 +1262,9 @@ export function AppShell() {
           onCollapse={() => setRightSidebarCollapsed(true)}
           onExpand={() => setRightSidebarCollapsed(false)}
           riskReadout={riskReadout}
+          inScopeFiles={inScopeFiles}
+          toolActivity={toolActivity}
+          fileChanges={fileChanges}
         />
       </main>
 
@@ -1290,15 +1273,6 @@ export function AppShell() {
           onClose={() => {
             sessionStorage.setItem('noetica-provider-setup-dismissed', '1')
             setProviderSetupOpen(false)
-          }}
-        />
-      )}
-      {modelSetupOpen && settings.agentMachineEndpoint && (
-        <ModelSetupModal
-          agentMachineEndpoint={settings.agentMachineEndpoint}
-          onDismiss={() => {
-            localStorage.setItem('noetica-model-setup-dismissed', '1')
-            setModelSetupOpen(false)
           }}
         />
       )}
@@ -1444,11 +1418,10 @@ type CenterProps = {
   onAtomSelect?: (query: string) => void
   onOpenSettings?: () => void
   onNavigateToOperate?: () => void
-  onOpenSurface?: (surface: string) => void
   onSpeak?: (content: string) => void
 }
 
-function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onOpenSurface, onSpeak }: CenterProps) {
+function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onSpeak }: CenterProps) {
   if (activeSurface === 'notes')        return <NotesSurface />
   if (activeSurface === 'canvas')       return <CanvasSurface />
   if (activeSurface === 'workrooms')    return <WorkroomsSurface thinkingBudget={thinkingBudget} />
@@ -1473,7 +1446,7 @@ function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, work
     <div className={`grid min-h-0 flex-1 overflow-hidden transition-[grid-template-columns] duration-300 ${activeArtifact ? 'grid-cols-[minmax(320px,1fr)_480px]' : 'grid-cols-1'}`}>
       <section className="flex min-h-0 flex-col overflow-hidden">
         <GoalBanner sessionId={sessionId} />
-        <MessageList messages={messages} isStreaming={isStreaming} onExtractArtifact={onExtractArtifact} onRegenerate={onRegenerate} onResume={onResume} onFork={onFork} onEdit={onEdit} onRecombine={onRecombine} onSpeak={onSpeak} onOpenSurface={onOpenSurface} />
+        <MessageList messages={messages} isStreaming={isStreaming} onExtractArtifact={onExtractArtifact} onRegenerate={onRegenerate} onResume={onResume} onFork={onFork} onEdit={onEdit} onRecombine={onRecombine} onSpeak={onSpeak} onQuickPrompt={(t) => onSend(t, [])} />
         <InputArea
           onSend={onSend}
           onFanout={onFanout}

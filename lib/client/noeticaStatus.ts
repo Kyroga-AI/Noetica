@@ -16,7 +16,17 @@ function resolveStatusEndpoint(): string {
 
 export async function loadNoeticaStatus(endpoint?: string): Promise<NoeticaServiceStatus> {
   const url = endpoint ?? resolveStatusEndpoint()
-  const response = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(2000) })
+  let response: Response
+  try {
+    // 5s tolerates the agent-machine being busy or still booting; a 2s timeout
+    // tripped constantly and surfaced a cryptic "Fetch is aborted" error.
+    response = await fetch(url, { cache: 'no-store', signal: AbortSignal.timeout(5000) })
+  } catch (e) {
+    if (e instanceof DOMException && (e.name === 'TimeoutError' || e.name === 'AbortError')) {
+      throw new Error('agent_machine_unreachable')
+    }
+    throw e
+  }
 
   if (!response.ok) {
     throw new Error(`status_endpoint_${response.status}`)

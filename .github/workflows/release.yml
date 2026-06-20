@@ -38,7 +38,11 @@ jobs:
           workspaces: src-tauri
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
+          # agent-machine deps (mammoth, pdf-parse, …) are needed for the root
+          # typecheck, which includes agent-machine/**/*.ts via tsconfig.
+          npm --prefix agent-machine ci
 
       - name: Typecheck
         run: npm run typecheck
@@ -81,6 +85,12 @@ jobs:
         # COMPLETE runtime (binary + llama-server runner) is provisioned into
         # ~/.noetica/runtime at first boot by the agent-machine (managed-runtime),
         # so a runner is NOT required in the bundle — no runner-completeness gate here.
+
+      - name: Inject sidecar externalBin into tauri.conf.json
+        # The committed config is the dev default (no externalBin). Production builds
+        # MUST inject it, otherwise the agent-machine + ollama sidecars are not
+        # bundled and the app ships dead (the ~9MB-vs-~130MB DMG regression).
+        run: node scripts/inject-am-sidecar-config.mjs
 
       # ── Code signing ───────────────────────────────────────────────────────
       # Import Apple Developer certificate when the secret is present.
@@ -187,7 +197,9 @@ jobs:
           workspaces: src-tauri
 
       - name: Install dependencies
-        run: npm ci
+        run: |
+          npm ci
+          npm --prefix agent-machine ci
 
       - name: Materialize Tauri icon
         run: npm run tauri:icon
@@ -204,6 +216,9 @@ jobs:
         env:
           OLLAMA_VERSION: "0.30.8"
         run: bash scripts/download-sidecars.sh
+
+      - name: Inject sidecar externalBin into tauri.conf.json
+        run: node scripts/inject-am-sidecar-config.mjs
 
       - name: Build Tauri (deb + rpm)
         env:
@@ -240,7 +255,7 @@ jobs:
             DMG_URL=$(gh release view "$TAG" \
               --repo "${{ github.repository }}" \
               --json assets \
-              --jq '.assets[] | select(.name | endswith(".dmg")) | .browserDownloadUrl' \
+              --jq '.assets[] | select(.name | endswith(".dmg")) | .url' \
               | head -1)
             [ -n "$DMG_URL" ] && break
             echo "dmg not found yet (attempt $attempt) — waiting 20s"; sleep 20
@@ -307,21 +322,21 @@ jobs:
 
       - name: Update tap Cask formula
         if: ${{ vars.TAP_REPO != '' }}
+        continue-on-error: true   # secondary channel — never fail the release on the tap
         run: |
-          FILE=tap/Casks/noetica.rb
-          VERSION=${{ steps.asset.outputs.version }}
-          SHA256=${{ steps.asset.outputs.sha256 }}
-          URL=${{ steps.asset.outputs.url }}
-          sed -i "s|version \".*\"|version \"$VERSION\"|g" "$FILE"
-          sed -i "s|sha256 \".*\"|sha256 \"$SHA256\"|g" "$FILE"
-          sed -i "s|url \".*\"|url \"$URL\"|g" "$FILE"
+          # Copy the cask we just updated on main into the tap, creating it if the tap
+          # doesn't have it yet (the previous sed-in-place failed when the file was
+          # absent). $CASK_FILE is the stable/nightly cask path set above.
+          mkdir -p "tap/$(dirname "$CASK_FILE")"
+          cp "$CASK_FILE" "tap/$CASK_FILE"
 
       - name: Commit tap update
         if: ${{ vars.TAP_REPO != '' }}
+        continue-on-error: true
         working-directory: tap
         run: |
           git config user.name "noetica-bot"
           git config user.email "noetica-bot@users.noreply.github.com"
-          git add Casks/noetica.rb
-          git diff --staged --quiet || git commit -m "noetica ${{ steps.asset.outputs.version }}"
+          git add Casks
+          git diff --staged --quiet || git commit -m "noetica ${{ github.ref_name }}"
           git push

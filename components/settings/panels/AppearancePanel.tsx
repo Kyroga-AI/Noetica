@@ -11,6 +11,19 @@ export function AppearancePanel() {
 
   return (
     <div className="space-y-6">
+      {/* Your name */}
+      <div>
+        <label className="block text-sm font-semibold text-[var(--color-text-primary)]">Your name</label>
+        <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">How Noetica greets you (e.g. on the home screen and in the sidebar).</p>
+        <input
+          type="text"
+          value={settings.userName}
+          onChange={(e) => update({ userName: e.target.value })}
+          placeholder="Your name"
+          className="mt-3 w-full max-w-xs rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--color-border-secondary)]"
+        />
+      </div>
+
       {/* Theme */}
       <div>
         <label className="block text-sm font-semibold text-[var(--color-text-primary)]">Theme</label>

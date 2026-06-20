@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useSettings } from '@/lib/settings/context'
 import type { ActiveSurface } from '@/lib/types/surface'
 import type { WorkspaceSession } from '@/lib/session/types'
 import { HelpModal } from '@/components/shell/HelpModal'
@@ -310,6 +311,8 @@ export function Sidebar({
   sessions = [], activeSessionId = null,
   onSwitchSession, onRemoveSession, onNewChat, density = 'comfortable',
 }: SidebarProps) {
+  const { settings } = useSettings()
+  const displayName = settings.userName?.trim() || 'You'
   const itemPy = density === 'compact' ? 'py-1' : 'py-1.5'
   const groupGap = density === 'compact' ? 'mt-2' : 'mt-3'
   const [collapsed, setCollapsed] = useState(false)
@@ -604,9 +607,9 @@ export function Sidebar({
             className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white"
             style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' }}
           >
-            M
+            {displayName.charAt(0).toUpperCase()}
           </div>
-          <span className="flex-1 truncate text-[11px] font-medium text-[var(--color-text-primary)]">Michael</span>
+          <span className="flex-1 truncate text-[11px] font-medium text-[var(--color-text-primary)]">{displayName}</span>
           <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden className="shrink-0 text-[var(--color-text-tertiary)]">
             <path d="M2 4l3.5 3.5L9 4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
