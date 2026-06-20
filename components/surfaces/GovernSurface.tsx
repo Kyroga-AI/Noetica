@@ -215,7 +215,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
           timestamp: r.timestamp,
           latency_ms: r.latency_ms,
           agent_machine: true,
-          agent_machine_version: '0.4.10',
+          agent_machine_version: '0.4.11',
         } as GovernanceTrace,
       }))
 

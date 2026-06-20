@@ -65,7 +65,7 @@ import {
 } from './lib/gaia.js'
 
 const PORT = parseInt(process.env['NOETICA_AM_PORT'] ?? '8080', 10)
-const VERSION = '0.4.10'
+const VERSION = '0.4.11'
 
 // ─── Model progress SSE ───────────────────────────────────────────────────────
 
