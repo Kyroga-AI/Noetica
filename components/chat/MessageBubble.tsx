@@ -452,125 +452,113 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
           </div>
         )}
 
-        {message.deliberation && message.deliberation.candidates.length > 1 && (
-          <details className="mt-2 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)]">
-            <summary className="cursor-pointer select-none px-3 py-2 text-[11px] font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
-              <span className="inline-flex items-center gap-1.5">
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#2563eb]" />
-                Deliberation
-                <span className="text-[10px] text-[var(--color-text-tertiary)]">· selected best of {message.deliberation.candidates.length} candidates</span>
-              </span>
-            </summary>
-            <div className="space-y-1 px-3 pb-3 pt-1 text-[11px]">
-              {message.deliberation.candidates.map((c) => (
-                <div key={c.rank} className={`flex items-center gap-2 rounded-lg px-2 py-1 ${c.rank === message.deliberation!.selected_rank ? 'bg-[rgba(37,99,235,0.1)]' : ''}`}>
-                  <span className="w-10 text-[10px] text-[var(--color-text-tertiary)]">{c.rank === message.deliberation!.selected_rank ? '✓ best' : `#${c.rank + 1}`}</span>
-                  <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
-                    <div className="h-full rounded-full bg-[#2563eb]" style={{ width: `${Math.max(4, c.worth * 100)}%` }} />
-                  </div>
-                  <span className="w-24 text-right tabular-nums text-[var(--color-text-tertiary)]">worth {(c.worth * 100).toFixed(0)}% · T{c.temperature}</span>
-                </div>
-              ))}
-            </div>
-          </details>
+        {/* Contradictions are a real warning — always visible, outside the disclosure. */}
+        {message.content && message.value_judgment && message.value_judgment.contradictions.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {message.value_judgment.contradictions.map((c, i) => (
+              <div key={i} className="rounded-lg border border-[#fca5a5] bg-[#fef2f2] px-2 py-1 text-[10px] text-[#b91c1c]">
+                ⚠ contradicts {c.kind}: <span className="italic">{c.statement.slice(0, 90)}</span>
+              </div>
+            ))}
+          </div>
         )}
 
-        {message.content && message.value_judgment && (
-          <>
-            {/* Contradictions are a real warning — keep them visible. Everything else
-                (worth/grounding scores) is tucked into a collapsible so the chat stays
-                clean by default instead of shouting low scores on every message. */}
-            {message.value_judgment.contradictions.length > 0 && (
-              <div className="mt-2 space-y-1">
-                {message.value_judgment.contradictions.map((c, i) => (
-                  <div key={i} className="rounded-lg border border-[#fca5a5] bg-[#fef2f2] px-2 py-1 text-[10px] text-[#b91c1c]">
-                    ⚠ contradicts {c.kind}: <span className="italic">{c.statement.slice(0, 90)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-            <details className="mt-2 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] text-[11px]">
-              <summary className="flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
+        {/* One disclosure for all the governance / trace depth — keeps the thread clean. */}
+        {message.content && (
+          (message.deliberation && message.deliberation.candidates.length > 1) ||
+          message.value_judgment ||
+          (message.retrieval_trace && (message.retrieval_trace.sources.length > 0 || message.retrieval_trace.beliefs_injected > 0)) ||
+          message.steering_result ||
+          message.governance
+        ) && (
+          <details className="group/trace mt-2 text-[11px]">
+            <summary className="flex cursor-pointer select-none items-center gap-1.5 py-1 text-[11px] text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-secondary)]">
+              <span className="text-[9px] transition group-open/trace:rotate-90">▶</span>
+              {message.value_judgment && (
                 <span className={`inline-block h-1.5 w-1.5 rounded-full ${
                   message.value_judgment.verdict === 'grounded' ? 'bg-[#16a34a]'
                   : message.value_judgment.verdict === 'contradiction' ? 'bg-[#dc2626]'
                   : 'bg-[#d97706]'
                 }`} />
-                <span className="font-medium">Value judgment</span>
-                <span className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">{message.value_judgment.verdict}</span>
-              </summary>
-              <div className="px-3 pb-2 text-[10px] text-[var(--color-text-tertiary)]">
-                worth {(message.value_judgment.worth * 100).toFixed(0)}% · grounding {(message.value_judgment.grounding * 100).toFixed(0)}%
-                {message.value_judgment.graph_grounding !== undefined ? ` · graph ${(message.value_judgment.graph_grounding * 100).toFixed(0)}%` : ''}
-                {message.value_judgment.novel_claims && message.value_judgment.novel_claims.length > 0 && (
-                  <div className="mt-1">Novel (not in graph): {message.value_judgment.novel_claims.slice(0, 5).join(', ')}</div>
-                )}
-              </div>
-            </details>
-          </>
-        )}
-
-        {message.content && message.retrieval_trace && (message.retrieval_trace.sources.length > 0 || message.retrieval_trace.beliefs_injected > 0) && (
-          <details className="mt-2 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)]">
-            <summary className="cursor-pointer select-none px-3 py-2 text-[11px] font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]">
-              <span className="inline-flex items-center gap-1.5">
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#7c3aed]" />
-                Reasoning trace
-                <span className="text-[10px] text-[var(--color-text-tertiary)]">
-                  · {message.retrieval_trace.beliefs_injected > 0 ? `${message.retrieval_trace.beliefs_injected} belief${message.retrieval_trace.beliefs_injected > 1 ? 's' : ''}, ` : ''}
-                  {message.retrieval_trace.sources.length} atom{message.retrieval_trace.sources.length === 1 ? '' : 's'}
-                </span>
+              )}
+              <span className="font-medium">Trace</span>
+              <span className="text-[10px] text-[var(--color-text-tertiary)]">
+                {message.value_judgment ? message.value_judgment.verdict : ''}
+                {message.retrieval_trace && message.retrieval_trace.sources.length > 0 ? ` · ${message.retrieval_trace.sources.length} atom${message.retrieval_trace.sources.length === 1 ? '' : 's'}` : ''}
               </span>
             </summary>
-            <div className="space-y-2 px-3 pb-3 pt-1 text-[11px]">
-              {/* Pattern timings */}
-              {message.retrieval_trace.timings.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {message.retrieval_trace.timings.map((t) => (
-                    <span key={t.pattern} className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-tertiary)] px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)]">
-                      {t.pattern} · {t.durationMs}ms · {t.hits} hit{t.hits === 1 ? '' : 's'}
-                    </span>
+            <div className="mt-1 space-y-3 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2.5">
+              {/* Value judgment */}
+              {message.value_judgment && (
+                <div className="text-[10px] text-[var(--color-text-tertiary)]">
+                  <span className="font-medium uppercase tracking-wide text-[var(--color-text-secondary)]">Value judgment</span>
+                  {' '}— {message.value_judgment.verdict} · worth {(message.value_judgment.worth * 100).toFixed(0)}% · grounding {(message.value_judgment.grounding * 100).toFixed(0)}%
+                  {message.value_judgment.graph_grounding !== undefined ? ` · graph ${(message.value_judgment.graph_grounding * 100).toFixed(0)}%` : ''}
+                  {message.value_judgment.novel_claims && message.value_judgment.novel_claims.length > 0 && (
+                    <div className="mt-1">Novel (not in graph): {message.value_judgment.novel_claims.slice(0, 5).join(', ')}</div>
+                  )}
+                </div>
+              )}
+              {/* Reasoning trace */}
+              {message.retrieval_trace && (message.retrieval_trace.sources.length > 0 || message.retrieval_trace.beliefs_injected > 0) && (
+                <div className="space-y-2">
+                  <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">Reasoning trace</div>
+                  {message.retrieval_trace.timings.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {message.retrieval_trace.timings.map((t) => (
+                        <span key={t.pattern} className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-tertiary)] px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)]">
+                          {t.pattern} · {t.durationMs}ms · {t.hits} hit{t.hits === 1 ? '' : 's'}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {message.retrieval_trace.sources.length > 0 && (
+                    <div className="space-y-1">
+                      {message.retrieval_trace.sources.map((s) => (
+                        <div key={s.id} className="flex items-center gap-2">
+                          <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
+                            <div className="h-full rounded-full bg-[#7c3aed]" style={{ width: `${Math.max(4, Math.min(100, s.score * 100))}%` }} />
+                          </div>
+                          <span className="w-40 truncate text-[var(--color-text-secondary)]" title={s.label}>{s.label}</span>
+                          <span className="w-9 text-right tabular-nums text-[var(--color-text-tertiary)]">{(s.score * 100).toFixed(0)}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {message.retrieval_trace.document_sources && message.retrieval_trace.document_sources.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {message.retrieval_trace.document_sources.map((s, i) => (
+                        <span key={`${s.id}-${i}`} className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)]" title={`${s.label} · ${(s.score * 100).toFixed(0)}% match`}>
+                          <span className="text-[#16a34a]">📄</span><span className="max-w-[160px] truncate">{s.label || 'document'}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-[10px] text-[var(--color-text-tertiary)]">
+                    ~{message.retrieval_trace.token_estimate} tokens of graph context injected · the neurosymbolic substrate cloud models don&apos;t have.
+                  </p>
+                </div>
+              )}
+              {/* Deliberation */}
+              {message.deliberation && message.deliberation.candidates.length > 1 && (
+                <div className="space-y-1">
+                  <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">Deliberation · best of {message.deliberation.candidates.length}</div>
+                  {message.deliberation.candidates.map((c) => (
+                    <div key={c.rank} className={`flex items-center gap-2 rounded-lg px-2 py-1 ${c.rank === message.deliberation!.selected_rank ? 'bg-[rgba(37,99,235,0.1)]' : ''}`}>
+                      <span className="w-10 text-[10px] text-[var(--color-text-tertiary)]">{c.rank === message.deliberation!.selected_rank ? '✓ best' : `#${c.rank + 1}`}</span>
+                      <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
+                        <div className="h-full rounded-full bg-[#2563eb]" style={{ width: `${Math.max(4, c.worth * 100)}%` }} />
+                      </div>
+                      <span className="w-24 text-right tabular-nums text-[var(--color-text-tertiary)]">worth {(c.worth * 100).toFixed(0)}% · T{c.temperature}</span>
+                    </div>
                   ))}
                 </div>
               )}
-              {/* Attention-ranked atoms */}
-              {message.retrieval_trace.sources.length > 0 && (
-                <div>
-                  <div className="mb-1 text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Attention-ranked memory</div>
-                  <div className="space-y-1">
-                    {message.retrieval_trace.sources.map((s) => (
-                      <div key={s.id} className="flex items-center gap-2">
-                        <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
-                          <div className="h-full rounded-full bg-[#7c3aed]" style={{ width: `${Math.max(4, Math.min(100, s.score * 100))}%` }} />
-                        </div>
-                        <span className="w-40 truncate text-[var(--color-text-secondary)]" title={s.label}>{s.label}</span>
-                        <span className="w-9 text-right tabular-nums text-[var(--color-text-tertiary)]">{(s.score * 100).toFixed(0)}%</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {/* Cited uploaded documents (semantic RAG) */}
-              {message.retrieval_trace.document_sources && message.retrieval_trace.document_sources.length > 0 && (
-                <div>
-                  <div className="mb-1 text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Sources (your documents)</div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {message.retrieval_trace.document_sources.map((s, i) => (
-                      <span key={`${s.id}-${i}`} className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)]" title={`${s.label} · ${(s.score * 100).toFixed(0)}% match`}>
-                        <span className="text-[#16a34a]">📄</span><span className="max-w-[160px] truncate">{s.label || 'document'}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <p className="text-[10px] text-[var(--color-text-tertiary)]">
-                ~{message.retrieval_trace.token_estimate} tokens of graph context injected · this is the neurosymbolic substrate cloud models don&apos;t have.
-              </p>
+              {message.steering_result ? <SteeringDiff result={message.steering_result} /> : null}
+              {message.governance ? <GovernanceTrail trace={message.governance} /> : null}
             </div>
           </details>
         )}
-        {message.steering_result ? <SteeringDiff result={message.steering_result} /> : null}
-        {message.content && message.governance ? <GovernanceTrail trace={message.governance} /> : null}
       </div>
     </article>
   )
