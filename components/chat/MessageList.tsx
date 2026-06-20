@@ -15,9 +15,10 @@ type MessageListProps = {
   onEdit?: (messageId: string, newContent: string) => void
   onRecombine?: (selectedMessages: ChatMessage[]) => void
   onSpeak?: (content: string) => void
+  onQuickPrompt?: (text: string) => void
 }
 
-export function MessageList({ messages, isStreaming = false, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onRecombine, onSpeak }: MessageListProps) {
+export function MessageList({ messages, isStreaming = false, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onRecombine, onSpeak, onQuickPrompt }: MessageListProps) {
   const lastAssistantIdx = messages.reduce((acc, m, i) => m.role === 'assistant' ? i : acc, -1)
   const [selectedFanout, setSelectedFanout] = useState<Set<string>>(new Set())
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -56,13 +57,34 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
   }
 
   if (messages.length === 0) {
+    const hour = new Date().getHours()
+    const greeting = hour < 5 ? 'Good night' : hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
+    const quickActions = [
+      { label: 'Show my files', prompt: 'List the files in my home directory.' },
+      { label: 'Write code', prompt: 'Write a Python function that reverses a string, then run it and show the output.' },
+      { label: 'Research', prompt: 'Search the web for the latest on local-first AI and summarize what you find.' },
+      { label: 'What can you do?', prompt: 'What can you do, and how are you different from cloud AI assistants?' },
+    ]
     return (
-      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 px-4 text-center">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[var(--color-text-primary)] text-sm font-semibold text-[var(--color-background-primary)]">N</div>
-        <div>
-          <p className="text-base font-medium text-[var(--color-text-primary)]">How can I help you today?</p>
-          <p className="mt-1 text-sm text-[var(--color-text-tertiary)]">Type / for commands</p>
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 px-4 text-center">
+        <div className="flex items-center gap-3">
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-text-primary)] text-xs font-semibold text-[var(--color-background-primary)]">N</span>
+          <h1 className="text-2xl font-medium tracking-tight text-[var(--color-text-primary)]">{greeting}, Michael</h1>
         </div>
+        <p className="-mt-3 text-[13px] text-[var(--color-text-tertiary)]">Local-first · your data never leaves this device</p>
+        {onQuickPrompt && (
+          <div className="flex max-w-md flex-wrap items-center justify-center gap-2">
+            {quickActions.map((a) => (
+              <button
+                key={a.label}
+                onClick={() => onQuickPrompt(a.prompt)}
+                className="rounded-full border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3.5 py-1.5 text-[13px] text-[var(--color-text-secondary)] transition hover:border-[var(--color-border-secondary)] hover:text-[var(--color-text-primary)]"
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     )
   }

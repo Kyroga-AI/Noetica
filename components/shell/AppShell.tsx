@@ -1447,7 +1447,7 @@ function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, work
     <div className={`grid min-h-0 flex-1 overflow-hidden transition-[grid-template-columns] duration-300 ${activeArtifact ? 'grid-cols-[minmax(320px,1fr)_480px]' : 'grid-cols-1'}`}>
       <section className="flex min-h-0 flex-col overflow-hidden">
         <GoalBanner sessionId={sessionId} />
-        <MessageList messages={messages} isStreaming={isStreaming} onExtractArtifact={onExtractArtifact} onRegenerate={onRegenerate} onResume={onResume} onFork={onFork} onEdit={onEdit} onRecombine={onRecombine} onSpeak={onSpeak} />
+        <MessageList messages={messages} isStreaming={isStreaming} onExtractArtifact={onExtractArtifact} onRegenerate={onRegenerate} onResume={onResume} onFork={onFork} onEdit={onEdit} onRecombine={onRecombine} onSpeak={onSpeak} onQuickPrompt={(t) => onSend(t, [])} />
         <InputArea
           onSend={onSend}
           onFanout={onFanout}
