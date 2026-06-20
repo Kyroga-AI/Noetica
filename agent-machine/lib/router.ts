@@ -172,13 +172,16 @@ export function buildRouterDecision(opts: {
   policyProfile?: string
   hasImages?: boolean
   hasTools?: boolean
+  taskOverride?: TaskType  // from the 22-intent classifier; wins over keyword classifyTask
 }): RouterDecision & { resolvedModel: string; resolvedProvider: 'ollama' | 'anthropic' | 'openai' } {
   const {
     requestId, content, ollamaAvailable, availableModels,
     hasAnthropicKey, hasOpenAIKey, explicitModelId, policyProfile, hasImages,
   } = opts
 
-  const task = classifyTask(content)
+  // The structured intent classifier (intent-router) is authoritative when it
+  // resolves a task; classifyTask is the keyword fallback for when it doesn't.
+  const task = opts.taskOverride ?? classifyTask(content)
   const route = ROUTING_TABLE[task]
 
   // Vision: route to LLaVA when images are present

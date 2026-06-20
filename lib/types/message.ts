@@ -39,6 +39,70 @@ export interface ChatMessage {
   value_judgment?: ValueJudgment
   /** Deliberation scoreboard — candidates generated and scored before selection */
   deliberation?: Deliberation
+  /** Structured intent the turn was classified as (22-intent router) */
+  intent?: IntentTrace
+  /** Live plan + execution timeline streamed as the turn runs */
+  plan?: ExecutionPlan
+  /** Glossary-grounded NLU: domain + topics + terms recognized in the turn */
+  grounding?: GroundingTrace
+  /** The announcer's plain-language narration of what the agent is doing, per stage */
+  narration?: NarrationLine[]
+}
+
+/** One line of the concierge's announcer narration — which model, for what purpose. */
+export interface NarrationLine {
+  stage: string
+  text: string
+  model?: string
+  purpose?: string
+}
+
+/** What the glossary lookup recognized in the turn (Rasa-style entity grounding). */
+export interface GroundingTrace {
+  domain: string
+  topics: string[]
+  terms: string[]
+}
+
+/** The classified intent + its routing plan (from the 22-intent router). */
+export interface IntentTrace {
+  id: number
+  name: string
+  capability: string
+  retrieval: string
+  slots: string[]
+  score: number
+}
+
+export type PlanStepStatus = 'pending' | 'running' | 'done'
+
+export interface PlanStep {
+  id: string
+  label: string
+  status: PlanStepStatus
+  detail?: string
+}
+
+/** A step status update streamed mid-turn — merged into the plan by `id`. */
+export interface PlanStepUpdate {
+  id: string
+  status: PlanStepStatus
+  detail?: string
+}
+
+/** The ordered, live-updating execution timeline for a turn. */
+export interface ExecutionPlan {
+  intent: string
+  capability: string
+  retrieval: string
+  slots: string[]
+  steps: PlanStep[]
+  /** Product surface this intent routes to (components/surfaces/*); '' = stay put */
+  surface?: string
+  /** Specialist agent ("skill") that fulfills the intent; '' = concierge */
+  skill?: string
+  /** Builtin tools scoped to this intent */
+  tools?: string[]
 }
 
 export interface Deliberation {

@@ -16,6 +16,11 @@ export type NoeticaChatTransportHandlers = {
   onThinkingDelta?: (delta: string) => void
   onThinkingDone?: (thinking: string) => void
   onToolCalls?: (calls: import('@/lib/providers').ToolUseBlock[]) => void
+  onIntent?: (intent: import('@/lib/types/message').IntentTrace) => void
+  onGrounding?: (grounding: import('@/lib/types/message').GroundingTrace) => void
+  onNarration?: (line: import('@/lib/types/message').NarrationLine) => void
+  onPlan?: (plan: import('@/lib/types/message').ExecutionPlan) => void
+  onStep?: (step: import('@/lib/types/message').PlanStepUpdate) => void
   onRetrieval?: (trace: import('@/lib/types/message').RetrievalTrace) => void
   onValueJudgment?: (vj: import('@/lib/types/message').ValueJudgment) => void
   onDeliberation?: (d: import('@/lib/types/message').Deliberation) => void
@@ -159,6 +164,11 @@ async function readNoeticaEventStream(response: Response, handlers: NoeticaChatT
       if (parsed.event === 'thinking_delta') handlers.onThinkingDelta?.(payload['delta'] as string)
       if (parsed.event === 'thinking_done') handlers.onThinkingDone?.(payload['thinking'] as string)
       if (parsed.event === 'tool_calls') handlers.onToolCalls?.(payload['tool_calls'] as import('@/lib/providers').ToolUseBlock[])
+      if (parsed.event === 'intent') handlers.onIntent?.(payload['intent'] as import('@/lib/types/message').IntentTrace)
+      if (parsed.event === 'grounding') handlers.onGrounding?.(payload['grounding'] as import('@/lib/types/message').GroundingTrace)
+      if (parsed.event === 'narration') handlers.onNarration?.(payload['narration'] as import('@/lib/types/message').NarrationLine)
+      if (parsed.event === 'plan') handlers.onPlan?.(payload['plan'] as import('@/lib/types/message').ExecutionPlan)
+      if (parsed.event === 'step') handlers.onStep?.(payload['step'] as import('@/lib/types/message').PlanStepUpdate)
       if (parsed.event === 'retrieval') handlers.onRetrieval?.(payload['trace'] as import('@/lib/types/message').RetrievalTrace)
       if (parsed.event === 'value_judgment') handlers.onValueJudgment?.(payload['value_judgment'] as import('@/lib/types/message').ValueJudgment)
       if (parsed.event === 'deliberation') handlers.onDeliberation?.(payload['deliberation'] as import('@/lib/types/message').Deliberation)

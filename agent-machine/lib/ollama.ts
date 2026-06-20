@@ -6,6 +6,7 @@
  * and no Authorization header required.
  */
 
+import * as os from 'node:os'
 import type { ProviderTool, ToolUseBlock, ProviderEvent } from '../server.js'
 
 // 11435 is Noetica's isolated Ollama port — separate from any system Ollama on 11434.
@@ -49,7 +50,16 @@ function isUnreachable(err: unknown): boolean {
  * inference. Returns an OK Response (caller streams/reads it) or throws a clear,
  * actionable error. On a successful fallback the active base sticks for the session.
  */
-async function postChat(body: unknown, timeoutMs = 120_000): Promise<Response> {
+/** CPU inference (low-memory hosts) is much slower than Metal, especially on a
+ *  cold load; the default 120s timeout cuts off legitimate generations. Allow a
+ *  longer budget on low-memory hosts and an explicit override. */
+export function chatTimeoutMs(): number {
+  const env = Number(process.env['NOETICA_OLLAMA_TIMEOUT_MS'])
+  if (env > 0) return env
+  return isLowMemoryHost() ? 600_000 : 120_000
+}
+
+async function postChat(body: unknown, timeoutMs = chatTimeoutMs()): Promise<Response> {
   const bases = (_activeBase === OLLAMA_PRIMARY && HAS_FALLBACK)
     ? [OLLAMA_PRIMARY, OLLAMA_FALLBACK]
     : [_activeBase]
@@ -279,7 +289,7 @@ export async function generateOllamaText(params: {
   numCtx?: number
 }): Promise<{ content: string; reasoning: string }> {
   const res = await postChat({
-    model: params.model,
+    model: await resolveChatModel(params.model),
     stream: false,
     messages: params.messages,
     options: { num_ctx: params.numCtx ?? 8192, temperature: params.temperature ?? 0.7 },
@@ -291,6 +301,70 @@ export async function generateOllamaText(params: {
   return { content: msg?.content ?? '', reasoning: msg?.reasoning ?? msg?.reasoning_content ?? '' }
 }
 
+// ─── Low-memory (small Apple Silicon) inference safety ──────────────────────
+// On Apple Silicon the GPU shares system RAM. On 8GB-class boxes, offloading a
+// model to Metal then allocating the KV/compute buffers exhausts GPU memory at
+// decode time — the runner fails with kIOGPUCommandBufferCallbackErrorOutOfMemory
+// and returns an empty zero-value response (the "0 out" empty-bubble bug). The
+// fix that works through Ollama's OpenAI-compat /v1 endpoint (which ignores
+// per-request num_gpu/num_ctx) is to pin the model to CPU at *load* time via a
+// Modelfile-derived variant. We provision a `<model>-cpu` (num_gpu 0, capped
+// num_ctx) lazily and route to it on small hosts.
+
+const LOW_MEM_GB = Number(process.env['NOETICA_LOWMEM_THRESHOLD_GB'] ?? 10)
+const CPU_NUM_CTX = Number(process.env['NOETICA_CPU_NUM_CTX'] ?? 4096)
+const _cpuVariants = new Map<string, string>() // base model -> ensured variant
+
+/** True on boxes where Metal offload is unsafe (≤ ~10GB unified memory).
+ *  Override: NOETICA_FORCE_GPU=1 (never pin CPU), NOETICA_FORCE_CPU=1 (always). */
+export function isLowMemoryHost(): boolean {
+  if (process.env['NOETICA_FORCE_GPU'] === '1') return false
+  if (process.env['NOETICA_FORCE_CPU'] === '1') return true
+  return os.totalmem() / 1024 ** 3 <= LOW_MEM_GB
+}
+
+/** Ensure a CPU-pinned variant of `model` exists; return its name. Idempotent
+ *  and best-effort: on any failure returns the original model so chat proceeds. */
+export async function ensureCpuVariant(model: string): Promise<string> {
+  if (model.endsWith('-cpu')) return model
+  if (_cpuVariants.has(model)) return _cpuVariants.get(model)!
+  const variant = `${model}-cpu`
+  try {
+    const res = await fetch(`${ollamaBase()}/api/create`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: variant, from: model, parameters: { num_gpu: 0, num_ctx: CPU_NUM_CTX } }),
+      signal: AbortSignal.timeout(120_000),
+    })
+    if (!res.ok) return model
+    await res.text() // drain the create status stream to completion
+    _cpuVariants.set(model, variant)
+    return variant
+  } catch {
+    return model
+  }
+}
+
+/** The model the chat path should actually call: CPU-pinned on low-memory hosts.
+ *  On low-memory hosts we ALWAYS return the `-cpu` name (the variants are
+ *  pre-provisioned at runtime boot) and only fire the create in the background —
+ *  never await it, so a slow/failed request-time create can't silently fall the
+ *  chat back to the GPU base model (which then OOMs and returns empty). */
+export async function resolveChatModel(model: string): Promise<string> {
+  if (!isLowMemoryHost()) return model
+  if (model.endsWith('-cpu')) return model
+  const variant = `${model}-cpu`
+  if (!_cpuVariants.has(model)) void ensureCpuVariant(model) // background, idempotent
+  return variant
+}
+
+/** Pre-provision CPU variants for the given models (called at runtime boot on
+ *  low-memory hosts so the request path never needs a create round-trip). */
+export async function provisionCpuVariants(models: string[]): Promise<void> {
+  if (!isLowMemoryHost()) return
+  for (const m of models) { try { await ensureCpuVariant(m) } catch { /* best-effort */ } }
+}
+
 export async function* streamOllama(params: {
   model: string
   messages: OllamaMessage[]
@@ -298,6 +372,7 @@ export async function* streamOllama(params: {
   numCtx?: number
   temperature?: number
   maxTokens?: number
+  keepAlive?: string
 }): AsyncGenerator<ProviderEvent> {
   const options: Record<string, unknown> = {
     num_ctx: params.numCtx ?? 16384,
@@ -306,11 +381,15 @@ export async function* streamOllama(params: {
   // num_predict caps output tokens (Ollama's equivalent of max_tokens).
   if (params.maxTokens && params.maxTokens > 0) options['num_predict'] = params.maxTokens
 
+  const model = await resolveChatModel(params.model)
   const body: Record<string, unknown> = {
-    model: params.model,
+    model,
     stream: true,
     messages: params.messages,
     options,
+    // Keep the model resident between turns so the next query doesn't cold-load
+    // (the default 5m unload is a frequent source of surprise multi-second stalls).
+    keep_alive: params.keepAlive ?? '30m',
   }
 
   if (params.tools?.length) {
@@ -341,6 +420,13 @@ export async function* streamOllama(params: {
   // Buffer the accumulated text to detect and route them as thinking events.
   let textAccum = ''
   let inThink = false
+  // Track whether the model ever emitted a *visible* answer. Reasoning models
+  // (deepseek-r1) can exhaust their generation budget inside chain-of-thought —
+  // emitted via reasoning_content or unclosed <think> — and never produce any
+  // `content`. Without recovery that renders as an empty bubble (the "0 out"
+  // failure). We accumulate the reasoning so we can surface it as the answer.
+  let emittedVisible = false
+  let reasoningAccum = ''
 
   function flushText(chunk: string): Array<{ type: 'text' | 'thinking'; text: string }> {
     const events: Array<{ type: 'text' | 'thinking'; text: string }> = []
@@ -373,6 +459,21 @@ export async function* streamOllama(params: {
     return events
   }
 
+  // Final flush + empty-answer recovery. If the model produced reasoning but no
+  // visible content (budget exhausted inside chain-of-thought), surface the
+  // reasoning as the answer rather than rendering an empty bubble.
+  function* finalize(): Generator<{ type: 'text' | 'thinking'; text: string }> {
+    for (const ev of flushText('')) {
+      if (ev.type === 'text' && ev.text.trim()) emittedVisible = true
+      else if (ev.type === 'thinking') reasoningAccum += ev.text
+      yield ev
+    }
+    if (!emittedVisible && reasoningAccum.trim()) {
+      yield { type: 'text', text: reasoningAccum.trim() }
+      emittedVisible = true
+    }
+  }
+
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
@@ -385,8 +486,8 @@ export async function* streamOllama(params: {
       if (!line.startsWith('data:')) continue
       const raw = line.slice(5).trim()
       if (raw === '[DONE]') {
-        // Flush remaining buffered text
-        for (const ev of flushText('')) yield ev
+        // Flush remaining buffered text + recover an empty answer if needed.
+        yield* finalize()
         if (toolCallMap.size) {
           const calls: ToolUseBlock[] = Array.from(toolCallMap.entries())
             .sort(([a], [b]) => a - b)
@@ -431,10 +532,15 @@ export async function* streamOllama(params: {
       // Native reasoning field → thinking event (deepseek-r1 via Ollama).
       const reasoningChunk = delta?.reasoning ?? delta?.reasoning_content
       if (reasoningChunk) {
+        reasoningAccum += reasoningChunk
         yield { type: 'thinking', text: reasoningChunk }
       }
       if (delta?.content) {
-        for (const ev of flushText(delta.content)) yield ev
+        for (const ev of flushText(delta.content)) {
+          if (ev.type === 'text' && ev.text.trim()) emittedVisible = true
+          else if (ev.type === 'thinking') reasoningAccum += ev.text
+          yield ev
+        }
       }
 
       if (delta?.tool_calls) {
@@ -455,4 +561,7 @@ export async function* streamOllama(params: {
       }
     }
   }
+  // Stream ended without a [DONE] marker (reader closed): finalize here too so a
+  // reasoning-only response is still recovered instead of vanishing.
+  yield* finalize()
 }

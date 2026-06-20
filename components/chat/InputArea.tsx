@@ -161,10 +161,22 @@ export function InputArea({
   }
 
   async function handleAttachClick() {
+    // In the Tauri app the webview can't open an HTML <input type=file> (wry has no
+    // open-panel delegate), so use the native dialog plugin to get file PATHS, then
+    // let the sidecar (full fs access) read + extract them via /api/ingest/path.
+    // In a browser, the HTML input works.
     if (isTauri()) {
-      const picked = await openNativeFilePicker()
-      const remaining = MAX_ATTACHMENTS - attachments.length
-      setAttachments((prev) => [...prev, ...picked.slice(0, remaining)])
+      try {
+        const dlg: any = await import('@tauri-apps/plugin-dialog')
+        const selected: string | string[] | null = await dlg.open({
+          multiple: true,
+          filters: [{ name: 'Documents & code', extensions: ['pdf', 'docx', 'txt', 'md', 'csv', 'json', 'ts', 'js', 'py', 'rs', 'go', 'yaml', 'yml', 'sql'] }],
+        })
+        const paths = Array.isArray(selected) ? selected : selected ? [selected] : []
+        for (const p of paths) await postIngest('/api/ingest/path', { path: p }, p.split('/').pop() ?? p)
+      } catch (e) {
+        setAttachError(`Couldn't open file picker: ${e instanceof Error ? e.message : String(e)}`)
+      }
     } else {
       fileInputRef.current?.click()
     }

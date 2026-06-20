@@ -8,6 +8,7 @@ import type { ChatMessage } from '@/lib/types/message'
 import { appendLedgerEntry } from '@/lib/evidence/ledger-store'
 import { estimateCostUsd, tokensEgressed } from '@/lib/pricing/modelPricing'
 import { BenchmarkDashboard } from '@/components/surfaces/BenchmarkDashboard'
+import { FlowAnalytics } from '@/components/surfaces/FlowAnalytics'
 
 // Persist a finished benchmark cell to the evidence ledger so the local-vs-frontier
 // dashboard can aggregate quality/cost/latency across sessions. Token counts are
@@ -186,7 +187,7 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
   const [judgeEnabled, setJudgeEnabled] = useState(true)
   const [results, setResults] = useState<RunResult[]>([])
   const [running, setRunning] = useState(false)
-  const [view, setView] = useState<'run' | 'dashboard'>('run')
+  const [view, setView] = useState<'run' | 'dashboard' | 'flow'>('run')
   const [activeCell, setActiveCell] = useState<{ modelId: string; taskId: string } | null>(null)
   const abortRef = useRef<AbortController | null>(null)
 
@@ -308,7 +309,7 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
 
         {/* View toggle: Run benchmarks vs Local-vs-Frontier dashboard */}
         <div className="flex items-center gap-1 rounded-full border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-1 text-xs w-fit">
-          {(['run', 'dashboard'] as const).map((v) => (
+          {(['run', 'dashboard', 'flow'] as const).map((v) => (
             <button
               key={v}
               onClick={() => setView(v)}
@@ -316,12 +317,12 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
                 view === v ? 'bg-[#1d4ed8] text-white' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
               }`}
             >
-              {v === 'run' ? 'Run' : 'Dashboard'}
+              {v === 'run' ? 'Run' : v === 'dashboard' ? 'Dashboard' : 'Flow'}
             </button>
           ))}
         </div>
 
-        {view === 'dashboard' ? <BenchmarkDashboard /> : (
+        {view === 'flow' ? <FlowAnalytics /> : view === 'dashboard' ? <BenchmarkDashboard /> : (
         <>
 
         {/* Config row */}

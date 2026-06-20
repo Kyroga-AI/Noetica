@@ -27,3 +27,4 @@ opencog-sidecar/cypher_gw/__pycache__/
 
 # bun --compile scratch files
 *.bun-build
+tsconfig.tsbuildinfo

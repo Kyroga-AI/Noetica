@@ -9,8 +9,11 @@
  */
 
 import { createHash } from 'node:crypto'
-import { getHellGraph } from '@socioprophet/hellgraph'
-import { embedText, cosineSim } from './ollama.js'
+import {
+  getHellGraph, extractEntities, ingestEntities,
+  putChunk as hgPutChunk, semanticSearch as hgSemanticSearch, cosineSim,
+} from '@socioprophet/hellgraph'
+import { embedText } from './ollama.js'
 
 const CHUNK_LABEL = 'DocumentChunk'
 
@@ -72,7 +75,35 @@ export function chunkText(text: string): string[] {
 
 // ─── Ingest ─────────────────────────────────────────────────────────────────
 
-export interface IngestResult { documentId: string; filename: string; chunks: number; embedded: number; preview: string[] }
+export interface IngestResult {
+  documentId: string; filename: string; chunks: number; embedded: number; preview: string[]
+  entities: number                                  // grounded entities recognized on ingest
+  grounding?: { confirmed: number; residual: number } // confirmed = grounded to prime basis; residual = surprise
+}
+
+/**
+ * Ground a document THROUGH the ontology on ingest — the perception half of the
+ * epistemic loop. extractEntities recognizes entities and reports the prime topics
+ * each one supports (grounding to the existing basis); ingestEntities writes them
+ * into the atomspace as CanonicalEntity atoms with TruthValues, so PLN/ECAN can then
+ * revise and decay them. Entities with prime support = CONFIRMED (the ontology
+ * predicted them); the rest = RESIDUAL (surprise the basis couldn't place yet).
+ * This is also the fix for the UI's "0 entities" — ingest never grounded before.
+ */
+function groundThroughOntology(docId: string, text: string): { entities: number; confirmed: number; residual: number } {
+  try {
+    const ents = extractEntities(text)
+    let confirmed = 0
+    for (const e of ents) {
+      if (e.primeSupport.length > 0 && e.confidence >= 0.5) confirmed++
+    }
+    // Native write into the epistemic substrate (CanonicalEntity atoms + epistemic class).
+    ingestEntities(docId, 'ingest', text.slice(0, 20_000), new Date().toISOString())
+    return { entities: ents.length, confirmed, residual: ents.length - confirmed }
+  } catch {
+    return { entities: 0, confirmed: 0, residual: 0 }
+  }
+}
 
 function slug(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60)
@@ -86,9 +117,11 @@ export async function ingestDocument(filename: string, text: string): Promise<In
   const hash = createHash('sha1').update(text).digest('hex').slice(0, 12)
   const docId = `urn:noetica:doc:${slug(filename)}-${hash}`
   // Already ingested this exact content? Return the existing record (idempotent).
+  // Re-grounding is fine — interned atoms collapse + TruthValues revise (reinforcement).
   if (g.getNode(docId)) {
     const existing = g.nodesByLabel(CHUNK_LABEL).filter((n) => n.properties['doc_id'] === docId)
-    return { documentId: docId, filename, chunks: existing.length, embedded: existing.filter((n) => String(n.properties['embedding'] ?? '')).length, preview: existing.slice(0, 2).map((n) => String(n.properties['text'] ?? '').slice(0, 120)) }
+    const gr = groundThroughOntology(docId, text)
+    return { documentId: docId, filename, chunks: existing.length, embedded: existing.filter((n) => String(n.properties['embedding'] ?? '')).length, preview: existing.slice(0, 2).map((n) => String(n.properties['text'] ?? '').slice(0, 120)), entities: gr.entities, grounding: { confirmed: gr.confirmed, residual: gr.residual } }
   }
   const chunks = chunkText(text)
   let embedded = 0
@@ -96,54 +129,133 @@ export async function ingestDocument(filename: string, text: string): Promise<In
     const chunk = chunks[idx]!
     const vec = await embedText(chunk)
     if (vec.length) embedded++
-    g.addNode(`${docId}:chunk:${idx}`, [CHUNK_LABEL], {
-      text: chunk,
-      embedding: vec.length ? JSON.stringify(vec) : '',
-      doc_id: docId,
-      filename,
-      chunk_index: idx,
-      created_at: new Date().toISOString(),
-    })
+    // Store via HellGraph's canonical vector pipeline (one chunk representation everywhere).
+    hgPutChunk({ docId, idx, text: chunk, vec, filename })
   }
   g.addNode(docId, ['Document'], { filename, chunk_count: chunks.length, created_at: new Date().toISOString() })
-  return { documentId: docId, filename, chunks: chunks.length, embedded, preview: chunks.slice(0, 2).map((c) => c.slice(0, 120)) }
+  // Ground the doc through the ontology (perception → epistemic substrate).
+  const gr = groundThroughOntology(docId, text)
+  return { documentId: docId, filename, chunks: chunks.length, embedded, preview: chunks.slice(0, 2).map((c) => c.slice(0, 120)), entities: gr.entities, grounding: { confirmed: gr.confirmed, residual: gr.residual } }
 }
 
 // ─── Semantic retrieval ─────────────────────────────────────────────────────
+// The cosine/scoring engine + the precomputed-vector "brain" import now live natively
+// in HellGraph (`semantic` module). Noetica delegates to it, passing its own embedder
+// (CPU-variant aware) and the NOETICA_DEMO_DOC scope — so there is ONE vector store and
+// ONE search implementation. Brain injection: see scripts/inject-brain.ts → importBrainShard.
 
 export interface ChunkHit { text: string; filename: string; score: number; docId: string }
 
-/**
- * Top-k document chunks by cosine similarity to the query embedding. Falls back to
- * lexical (token-overlap) scoring for any chunk that lacks an embedding so retrieval
- * still works if embeddings were unavailable at ingest.
- */
+/** Top-k document chunks by cosine to the query — delegated to HellGraph's vector engine. */
 export async function semanticSearch(query: string, k = 5): Promise<ChunkHit[]> {
-  const g = getHellGraph()
-  const nodes = g.nodesByLabel(CHUNK_LABEL)
-  if (nodes.length === 0) return []
-  const qvec = await embedText(query)
-  const qTokens = new Set(query.toLowerCase().split(/\W+/).filter((t) => t.length > 2))
+  return hgSemanticSearch(query, k, embedText, { scope: process.env['NOETICA_DEMO_DOC'] || undefined })
+}
 
+/**
+ * Pure-lexical chunk search (no embedding) — scores every (scoped) chunk by how many
+ * distinct query terms it contains. Far more discriminative than the weak embedding
+ * cosine for ENTITY questions ("Baxter", "Helene"): the term literally appears in the
+ * right chunk. Used by extractive QA so the on-topic passage actually surfaces.
+ */
+export function lexicalSearch(query: string, k = 15): ChunkHit[] {
+  const g = getHellGraph()
+  let nodes = g.nodesByLabel(CHUNK_LABEL)
+  const scope = process.env['NOETICA_DEMO_DOC']
+  if (scope) {
+    const f = nodes.filter((n) => String(n.properties['filename'] ?? '').toLowerCase().includes(scope.toLowerCase()))
+    if (f.length > 0) nodes = f
+  }
+  const qTerms = [...new Set(query.toLowerCase().split(/\W+/).filter((t) => t.length > 2))]
+  if (qTerms.length === 0) return []
   const scored: ChunkHit[] = []
   for (const n of nodes) {
     const text = String(n.properties['text'] ?? '')
     if (!text) continue
-    const raw = String(n.properties['embedding'] ?? '')
-    let score = 0
-    if (raw && qvec.length) {
-      try { score = cosineSim(qvec, JSON.parse(raw) as number[]) } catch { /* fall through */ }
-    }
-    if (score === 0) {
-      // Lexical fallback: Jaccard-ish token overlap.
-      const cTokens = new Set(text.toLowerCase().split(/\W+/).filter((t) => t.length > 2))
-      let overlap = 0
-      for (const t of qTokens) if (cTokens.has(t)) overlap++
-      score = qTokens.size ? overlap / qTokens.size * 0.5 : 0 // scaled below semantic
-    }
-    scored.push({ text, filename: String(n.properties['filename'] ?? ''), score, docId: String(n.properties['doc_id'] ?? '') })
+    const lc = text.toLowerCase()
+    let hits = 0
+    for (const t of qTerms) if (lc.includes(t)) hits++
+    if (hits === 0) continue
+    scored.push({ text, filename: String(n.properties['filename'] ?? ''), score: hits / qTerms.length, docId: String(n.properties['doc_id'] ?? '') })
   }
-  return scored.sort((a, b) => b.score - a.score).slice(0, k).filter((h) => h.score > 0.05)
+  return scored.sort((a, b) => b.score - a.score).slice(0, k)
+}
+
+export interface ChartHit extends ChunkHit {
+  chart: string       // the document (chart) this section came from
+  localZ: number      // standardized score WITHIN its chart — recovers flat-global signal
+  chartScore: number  // chart-level relevance (mean of its top sections)
+}
+
+/**
+ * Sheaf-style charted retrieval — the fix for the "0.51 plateau" (a flat global
+ * embedding space holding multiple domains collapses every cosine to the noise
+ * floor). Instead of one global ranking it: (1) groups chunks by document = CHART,
+ * (2) scores each chart, (3) selects the covering charts for the query, (4) ranks
+ * sections by their LOCAL z-score within their chart — a section that's globally
+ * 0.55-vs-0.51 noise but locally +2σ in its doc is the real signal — then (5) GLUES
+ * the local sections with provenance. "Meaning is local; rank in the chart, then glue."
+ */
+export async function sheafSearch(query: string, opts: { charts?: number; k?: number } = {}): Promise<ChartHit[]> {
+  const maxCharts = opts.charts ?? 3
+  const k = opts.k ?? 6
+  const g = getHellGraph()
+  let nodes = g.nodesByLabel(CHUNK_LABEL)
+  const scope = process.env['NOETICA_DEMO_DOC']
+  if (scope) {
+    const f = nodes.filter((n) => String(n.properties['filename'] ?? '').toLowerCase().includes(scope.toLowerCase()))
+    if (f.length > 0) nodes = f
+  }
+  if (nodes.length === 0) return []
+
+  const qvec = await embedText(query)
+  const qTerms = new Set(query.toLowerCase().split(/\W+/).filter((t) => t.length > 2))
+
+  // 1) hybrid-score every section (semantic cosine + lexical term coverage), by chart
+  type Raw = { text: string; filename: string; docId: string; score: number }
+  const byChart = new Map<string, Raw[]>()
+  for (const n of nodes) {
+    const text = String(n.properties['text'] ?? ''); if (!text) continue
+    const docId = String(n.properties['doc_id'] ?? 'unknown')
+    let sem = 0
+    const raw = String(n.properties['embedding'] ?? '')
+    if (raw && qvec.length) { try { sem = cosineSim(qvec, JSON.parse(raw) as number[]) } catch { /* lexical only */ } }
+    const lc = text.toLowerCase()
+    let lex = 0; for (const t of qTerms) if (lc.includes(t)) lex++
+    // Lexical-dominant hybrid: when the embedding distribution is flat (the 0.51
+    // plateau), cosine is noise and z-scoring it amplifies noise. Exact term coverage
+    // is the signal that actually discriminates — especially for entity questions
+    // ("Baxter", "Helene"). Semantic rides as a minor tiebreak.
+    const score = (qTerms.size ? lex / qTerms.size : 0) + 0.3 * sem
+    if (!byChart.has(docId)) byChart.set(docId, [])
+    byChart.get(docId)!.push({ text, filename: String(n.properties['filename'] ?? ''), docId, score })
+  }
+
+  // 2) per-chart distribution + relevance (mean of the chart's top sections)
+  type Chart = { filename: string; mean: number; sd: number; chartScore: number; chunks: Raw[] }
+  const charts: Chart[] = []
+  for (const chunks of byChart.values()) {
+    const s = chunks.map((c) => c.score)
+    const mean = s.reduce((a, b) => a + b, 0) / s.length
+    const sd = Math.sqrt(s.reduce((a, b) => a + (b - mean) ** 2, 0) / s.length) || 1e-6
+    const top = [...s].sort((a, b) => b - a).slice(0, 3)
+    charts.push({ filename: chunks[0]!.filename, mean, sd, chartScore: top.reduce((a, b) => a + b, 0) / top.length, chunks })
+  }
+
+  // 3) covering family: the charts that actually cover this query
+  charts.sort((a, b) => b.chartScore - a.chartScore)
+  const covering = charts.slice(0, maxCharts)
+
+  // 4) local z within each covering chart, then 5) glue with provenance
+  const glued: ChartHit[] = []
+  for (const c of covering) {
+    for (const ch of c.chunks) {
+      const localZ = (ch.score - c.mean) / c.sd
+      glued.push({ text: ch.text, filename: ch.filename, score: ch.score, docId: ch.docId, chart: c.filename, localZ: Number(localZ.toFixed(2)), chartScore: Number(c.chartScore.toFixed(3)) })
+    }
+  }
+  // chart relevance gates; local distinctiveness orders within the covering set
+  glued.sort((a, b) => (b.chartScore + b.localZ) - (a.chartScore + a.localZ))
+  return glued.slice(0, k)
 }
 
 export function documentChunkCount(): number {

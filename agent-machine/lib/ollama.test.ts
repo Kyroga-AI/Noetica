@@ -22,3 +22,12 @@ test('pinned managed base is authoritative — health probe must NOT revert to t
   await isOllamaRunning()              // probes only the pinned base (fails), must NOT reselect primary
   assert.equal(ollamaBase(), 'http://127.0.0.1:9', 'pinned base held; did not revert to OLLAMA_PRIMARY')
 })
+
+test('resolveChatModel ALWAYS returns -cpu on low-memory host (no request-time create dependency)', async () => {
+  process.env['NOETICA_FORCE_CPU'] = '1'
+  const { resolveChatModel } = await import('./ollama.js')
+  assert.equal(await resolveChatModel('llama3.2:3b'), 'llama3.2:3b-cpu')
+  assert.equal(await resolveChatModel('qwen2.5:7b'), 'qwen2.5:7b-cpu')
+  assert.equal(await resolveChatModel('llama3.2:3b-cpu'), 'llama3.2:3b-cpu') // idempotent
+  delete process.env['NOETICA_FORCE_CPU']
+})

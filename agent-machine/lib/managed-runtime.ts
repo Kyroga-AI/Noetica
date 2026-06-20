@@ -14,7 +14,7 @@ import * as fs from 'node:fs'
 import { spawn, execFile, type ChildProcess } from 'node:child_process'
 import { promisify } from 'node:util'
 import { seatbeltProfile, resolveManagedOllamaBinary, buildLaunchRecipe, provisionOllamaRuntime, runtimeComplete, PROFILE_PATH, RUNTIME_DIR, MODELS_DIR, MANAGED_PORT } from './managed-ollama.js'
-import { setOllamaBase } from './ollama.js'
+import { setOllamaBase, isLowMemoryHost, provisionCpuVariants } from './ollama.js'
 
 const exec = promisify(execFile)
 
@@ -81,7 +81,13 @@ export async function ensureManagedRuntime(preferredPort = MANAGED_PORT): Promis
   setOllamaBase(base)
 
   const { cmd, args, env } = buildLaunchRecipe(binary)
-  const child = spawn(cmd, args, { env: { ...process.env, ...env, OLLAMA_HOST: `127.0.0.1:${port}` }, stdio: 'ignore', detached: false })
+  // On small Apple Silicon boxes, keep only one model resident and unload it
+  // promptly — stacking models exhausts the unified memory the GPU shares and
+  // pushes the runner into the Metal OOM that yields empty responses.
+  const memEnv = isLowMemoryHost()
+    ? { OLLAMA_MAX_LOADED_MODELS: '1', OLLAMA_NUM_PARALLEL: '1', OLLAMA_KEEP_ALIVE: '5m' }
+    : {}
+  const child = spawn(cmd, args, { env: { ...process.env, ...env, ...memEnv, OLLAMA_HOST: `127.0.0.1:${port}` }, stdio: 'ignore', detached: false })
   child.on('exit', (code) => console.log(`[managed-runtime] sandboxed Ollama exited: ${code}`))
 
   const deadline = Date.now() + 60_000  // generous: cold launch under RAM pressure can be slow
@@ -90,6 +96,11 @@ export async function ensureManagedRuntime(preferredPort = MANAGED_PORT): Promis
       console.log(`[managed-runtime] sandboxed Ollama (Metal) serving on ${base} — app-owned, no host dependency`)
       // Reclaim RAM: the bundled Ollama on the primary port is now unused (we're pinned here).
       if (preferredPort !== port) await freePort(preferredPort)
+      // Low-memory hosts: pre-provision CPU-pinned variants so the chat path never
+      // needs a request-time create and never falls back to the GPU base model.
+      void provisionCpuVariants(['llama3.2:3b', 'qwen2.5:7b', 'qwen2.5-coder:7b', 'deepseek-r1:8b'])
+        .then(() => console.log('[managed-runtime] CPU-pinned variants provisioned'))
+        .catch(() => {})
       return { child, port, base }
     } } catch { /* not up yet */ }
     await new Promise((r) => setTimeout(r, 500))

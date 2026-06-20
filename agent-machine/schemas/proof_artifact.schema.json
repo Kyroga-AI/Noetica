@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.org/pfk/schemas/proof_artifact.schema.json",
+  "title": "PFK ProofArtifact",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["artifact_id", "artifact_type", "claim_class", "inputs", "outputs", "non_claim_boundary"],
+  "properties": {
+    "artifact_id": {"type": "string"},
+    "artifact_type": {"type": "string"},
+    "claim_class": {"type": "string"},
+    "inputs": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+    "outputs": {"type": "array", "items": {"type": "object", "additionalProperties": true}},
+    "non_claim_boundary": {"type": "array", "items": {"type": "string"}}
+  }
+}

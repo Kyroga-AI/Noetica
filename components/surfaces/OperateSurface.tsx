@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { SurfaceGraph, type GraphNode, type GraphLink } from '@/components/graph/SurfaceGraph'
 import type { GraphHealthStatus, TimeServiceStatus } from '@/lib/types/graph'
 import type { NoeticaServiceStatus, NoeticaServiceCapabilityStatus } from '@/lib/contracts/noeticaService'
 import { loadNoeticaStatus } from '@/lib/client/noeticaStatus'
@@ -54,202 +55,65 @@ function useFlash() {
 type VizNode = { id: string; label: string; kind: string; surface: string; primes: string; x: number; y: number; vx: number; vy: number }
 type VizEdge = { from: string; to: string; label: string }
 
-const KIND_COLORS: Record<string, string> = {
-  FeatureAtom:   '#1d4ed8',
-  FEATURE_ATOM:  '#1d4ed8',
-  RECORD:        '#7e22ce',
-  Document:      '#7e22ce',
-  Session:       '#0891b2',
-  Interaction:   '#059669',
-  PERSON:        '#dc2626',
-  ORG:           '#ea580c',
-  default:       '#64748b',
-}
-
 function GraphViz({ onNodeClick }: { onNodeClick?: (node: VizNode) => void }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-  const [nodes, setNodes] = useState<VizNode[]>([])
-  const [edges, setEdges] = useState<VizEdge[]>([])
-  const [loading, setLoading] = useState(true)
-  const [fetchError, setFetchError] = useState<string | null>(null)
-  const frameRef = useRef<number>(0)
-  const nodesRef = useRef<VizNode[]>([])
-  const edgesRef = useRef<VizEdge[]>([])
-  const hoveredRef = useRef<VizNode | null>(null)
-
-  const fetchNodes = useCallback(() => {
-    setFetchError(null)
-    fetch(amUrl('/api/graph/nodes'))
-      .then(r => {
-        if (!r.ok) throw new Error(`HTTP ${r.status}`)
-        return r.json()
-      })
-      .then((data: { nodes: Array<{id: string; label: string; kind: string; surface: string; primes: string}>; edges: VizEdge[] }) => {
-        const W = 600, H = 320
-        const initialized = data.nodes.map(n => ({
-          ...n,
-          x: W/2 + (Math.random() - 0.5) * W * 0.8,
-          y: H/2 + (Math.random() - 0.5) * H * 0.8,
-          vx: 0,
-          vy: 0,
-        }))
-        setNodes(initialized)
-        setEdges(data.edges)
-        nodesRef.current = initialized
-        edgesRef.current = data.edges
-        setLoading(false)
-      })
-      .catch((err: unknown) => {
-        setFetchError(err instanceof Error ? err.message : 'Failed to load graph')
-        setLoading(false)
-      })
-  }, [])
-
-  useEffect(() => { fetchNodes() }, [fetchNodes])
+  const VIEWS = [
+    { key: 'document', label: 'Docs' },
+    { key: 'domain', label: 'Domain' },
+    { key: 'chat', label: 'Chat' },
+    { key: 'all', label: 'All' },
+  ] as const
+  const [view, setView] = useState<string>('document')
+  const [root, setRoot] = useState<string>('')
+  const [g, setG] = useState<{ nodes: GraphNode[]; links: GraphLink[] }>({ nodes: [], links: [] })
+  const [err, setErr] = useState(false)
 
   useEffect(() => {
-    const canvas = canvasRef.current
-    if (!canvas || nodes.length === 0) return
-    const ctxOrNull = canvas.getContext('2d')
-    if (!ctxOrNull) return
-    const ctx: CanvasRenderingContext2D = ctxOrNull
+    let on = true
+    const q = amUrl(`/api/graph/surface?view=${view}&limit=44${root ? `&root=${encodeURIComponent(root)}` : ''}`)
+    fetch(q)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('graph'))))
+      .then((d: { nodes?: GraphNode[]; links?: GraphLink[] }) => { if (on) { setG({ nodes: d.nodes ?? [], links: d.links ?? [] }); setErr(false) } })
+      .catch(() => { if (on) setErr(true) })
+    return () => { on = false }
+  }, [view, root])
 
-    const W = canvas.width
-    const H = canvas.height
-    const nodeMap = new Map(nodesRef.current.map(n => [n.id, n]))
-
-    function tick() {
-      const ns = nodesRef.current
-      const es = edgesRef.current
-
-      for (const n of ns) {
-        n.vx += (W/2 - n.x) * 0.001
-        n.vy += (H/2 - n.y) * 0.001
-        for (const m of ns) {
-          if (m === n) continue
-          const dx = n.x - m.x
-          const dy = n.y - m.y
-          const dist = Math.sqrt(dx*dx + dy*dy) || 1
-          const force = Math.min(500 / (dist * dist), 2)
-          n.vx += (dx / dist) * force
-          n.vy += (dy / dist) * force
-        }
-      }
-      for (const e of es) {
-        const a = nodeMap.get(e.from)
-        const b = nodeMap.get(e.to)
-        if (!a || !b) continue
-        const dx = b.x - a.x
-        const dy = b.y - a.y
-        const dist = Math.sqrt(dx*dx + dy*dy) || 1
-        const target = 80
-        const strength = (dist - target) * 0.005
-        a.vx += (dx / dist) * strength
-        a.vy += (dy / dist) * strength
-        b.vx -= (dx / dist) * strength
-        b.vy -= (dy / dist) * strength
-      }
-      for (const n of ns) {
-        n.vx *= 0.85
-        n.vy *= 0.85
-        n.x = Math.max(20, Math.min(W - 20, n.x + n.vx))
-        n.y = Math.max(20, Math.min(H - 20, n.y + n.vy))
-      }
-
-      ctx.clearRect(0, 0, W, H)
-
-      ctx.lineWidth = 0.7
-      for (const e of es) {
-        const a = nodeMap.get(e.from)
-        const b = nodeMap.get(e.to)
-        if (!a || !b) continue
-        ctx.strokeStyle = 'rgba(100,116,139,0.25)'
-        ctx.beginPath()
-        ctx.moveTo(a.x, a.y)
-        ctx.lineTo(b.x, b.y)
-        ctx.stroke()
-      }
-
-      for (const n of ns) {
-        const color = KIND_COLORS[n.kind] ?? KIND_COLORS['default']!
-        ctx.beginPath()
-        ctx.arc(n.x, n.y, 5, 0, Math.PI * 2)
-        ctx.fillStyle = color + '33'
-        ctx.fill()
-        ctx.strokeStyle = color
-        ctx.lineWidth = 1.5
-        ctx.stroke()
-
-        if (n.surface && n.surface.length < 24) {
-          ctx.fillStyle = 'rgba(100,116,139,0.85)'
-          ctx.font = '9px monospace'
-          ctx.fillText(n.surface.slice(0, 20), n.x + 7, n.y + 3)
-        }
-      }
-
-      frameRef.current = requestAnimationFrame(tick)
-    }
-
-    frameRef.current = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(frameRef.current)
-  }, [nodes, edges])
-
-  function _hitTest(e: React.MouseEvent<HTMLCanvasElement>): VizNode | null {
-    const canvas = canvasRef.current
-    if (!canvas) return null
-    const rect = canvas.getBoundingClientRect()
-    const scaleX = canvas.width / rect.width
-    const scaleY = canvas.height / rect.height
-    const cx = (e.clientX - rect.left) * scaleX
-    const cy = (e.clientY - rect.top) * scaleY
-    let best: VizNode | null = null
-    let bestDist = 12 * Math.max(scaleX, scaleY)
-    for (const n of nodesRef.current) {
-      const d = Math.sqrt((n.x - cx) ** 2 + (n.y - cy) ** 2)
-      if (d < bestDist) { bestDist = d; best = n }
-    }
-    return best
-  }
-
-  function handleCanvasMove(e: React.MouseEvent<HTMLCanvasElement>) {
-    const hit = _hitTest(e)
-    hoveredRef.current = hit
-    if (canvasRef.current) canvasRef.current.style.cursor = hit ? 'pointer' : 'default'
-  }
-
-  function handleCanvasClick(e: React.MouseEvent<HTMLCanvasElement>) {
-    const hit = _hitTest(e)
-    if (hit) onNodeClick?.(hit)
-  }
-
-  if (loading) return <div className="flex h-48 items-center justify-center text-xs text-[var(--color-text-tertiary)]">Loading graph…</div>
-  if (fetchError) return (
-    <div className="flex items-center gap-3 rounded-lg border border-[#fecaca] bg-[#fef2f2] px-4 py-3 text-sm text-[#dc2626]">
-      <span className="flex-1 text-xs">{fetchError}</span>
-      <button onClick={fetchNodes} className="rounded border border-[#fca5a5] px-3 py-1 text-xs font-medium hover:bg-[#fee2e2]">Retry</button>
-    </div>
-  )
-  if (nodes.length === 0) return <div className="flex h-48 items-center justify-center text-xs text-[var(--color-text-tertiary)]">No graph data yet — start chatting to build your memory graph.</div>
+  const focus = root ? g.nodes.find((n) => n.id === root) : undefined
 
   return (
-    <div className="rounded-xl overflow-hidden border border-[var(--color-border-secondary)]">
-      <canvas
-        ref={canvasRef}
-        width={600}
-        height={320}
-        className="w-full"
-        style={{ background: 'var(--color-background-secondary)' }}
-        onMouseMove={handleCanvasMove}
-        onClick={handleCanvasClick}
-      />
-      <div className="flex flex-wrap gap-2 border-t border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2">
-        {Object.entries(KIND_COLORS).filter(([k]) => k !== 'default').map(([kind, color]) => (
-          <span key={kind} className="flex items-center gap-1 text-[10px] text-[var(--color-text-tertiary)]">
-            <span className="inline-block h-2 w-2 rounded-full" style={{ background: color }} />
-            {kind.replace('FEATURE_ATOM','atom').replace('FeatureAtom','atom').toLowerCase()}
-          </span>
+    <div className="rounded-xl overflow-hidden border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
+      <div className="flex flex-wrap items-center gap-1 border-b border-[var(--color-border-tertiary)] px-3 py-2">
+        {VIEWS.map((v) => (
+          <button
+            key={v.key}
+            onClick={() => { setView(v.key); setRoot('') }}
+            className="rounded-full px-2.5 py-1 text-[10px] font-semibold transition"
+            style={{
+              border: '1px solid ' + (view === v.key ? '#1d4ed8' : 'var(--color-border-secondary)'),
+              background: view === v.key ? '#1d4ed8' : 'transparent',
+              color: view === v.key ? '#fff' : 'var(--color-text-secondary)',
+            }}
+          >{v.label}</button>
         ))}
+        {focus && (
+          <span className="ml-auto flex items-center gap-2 text-[10px] text-[var(--color-text-secondary)]">
+            <span className="truncate max-w-[160px]">focused: <b>{focus.label}</b></span>
+            <button onClick={() => setRoot('')} className="font-semibold text-[#1d4ed8]">clear</button>
+            {onNodeClick && (
+              <button
+                onClick={() => onNodeClick({ id: focus.id, label: focus.label, kind: focus.category, surface: focus.label, primes: '', x: 0, y: 0, vx: 0, vy: 0 })}
+                className="font-semibold text-[#1d4ed8]"
+              >explore in chat →</button>
+            )}
+          </span>
+        )}
       </div>
+      {err ? (
+        <div className="flex h-48 items-center justify-center text-xs text-[var(--color-text-tertiary)]">Graph unavailable.</div>
+      ) : g.nodes.length === 0 ? (
+        <div className="flex h-48 items-center justify-center text-xs text-[var(--color-text-tertiary)]">No atoms for this lens yet — try another view.</div>
+      ) : (
+        <SurfaceGraph nodes={g.nodes} links={g.links} width={600} height={340} onNodeClick={setRoot} />
+      )}
     </div>
   )
 }
