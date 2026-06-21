@@ -26,13 +26,21 @@ bun build agent-machine/server.ts --compile --target "bun-${TARGET/aarch64/darwi
   || { echo "  ✗ agent-machine build failed:"; tail -15 /tmp/noetica-am-build.log; exit 1; }
 BUILT_HASH=$(sha "$BIN"); echo "  ✓ built ${BUILT_HASH:0:12}"
 
-echo "▸ 2/5 building desktop bundle…"
+echo "▸ 2/5 building frontend export + desktop bundle…"
+# Build the static export EXPLICITLY and FAIL LOUD — a silent build:static failure (e.g. an
+# unresolved import) freezes the embedded desktop frontend at the last good export.
+rm -rf out
+NOETICA_STATIC_EXPORT=1 npm run build:static >/tmp/noetica-next-build.log 2>&1 \
+  || { echo "  ✗ frontend export FAILED:"; grep -iE "can't resolve|error|failed" /tmp/noetica-next-build.log | head -8; exit 1; }
+grep -rl "out" out/index.html >/dev/null 2>&1 || [ -f out/index.html ] || { echo "  ✗ export produced no out/index.html"; exit 1; }
+touch src-tauri/src/main.rs   # force the GUI binary to recompile so it RE-EMBEDS the fresh frontend
 node scripts/inject-am-sidecar-config.mjs >/dev/null
-NOETICA_STATIC_EXPORT=1 ./node_modules/.bin/tauri build >/tmp/noetica-tauri-build.log 2>&1 || true
+NOETICA_STATIC_EXPORT=1 ./node_modules/.bin/tauri build >/tmp/noetica-tauri-build.log 2>&1
+TAURI_RC=$?
 node scripts/inject-am-sidecar-config.mjs --restore >/dev/null
-[ -d "$APP_BUILT" ] || { echo "  ✗ bundle missing:"; grep -iE "error" /tmp/noetica-tauri-build.log | head; exit 1; }
+[ -d "$APP_BUILT" ] || { echo "  ✗ bundle missing (rc=$TAURI_RC):"; grep -iE "error" /tmp/noetica-tauri-build.log | head; exit 1; }
 cp -f "$BIN" "$APP_BUILT/Contents/MacOS/agent-machine"   # defeat the externalBin cache
-echo "  ✓ bundled"
+echo "  ✓ bundled (frontend + binary fresh)"
 
 echo "▸ 3/5 stopping running instances…"
 osascript -e 'quit app "Noetica"' 2>/dev/null
