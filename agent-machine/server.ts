@@ -50,6 +50,7 @@ import { parseInlineToolCalls } from './lib/tool-calls.js'
 import { retrieve } from './lib/retrieval.js'
 import { getGraph, graphHealth, graphSparql, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
 import { isVoiceProvisioned, ensureVoiceSidecar, voiceFetch } from './lib/voice-runtime.js'
+import { runOcr } from './lib/ocr.js'
 import { getHellGraph, attachRocksDB } from '@socioprophet/hellgraph'
 import { runGremlin } from '@socioprophet/hellgraph'
 import { buildWorkspacePrefix, invalidatePrefix } from './lib/context-cache.js'
@@ -619,6 +620,18 @@ const BUILTIN_TOOLS: ProviderTool[] = [
     },
   },
   {
+    name: 'ocr',
+    description:
+      'Extract text from an image FILE on disk using on-device OCR (macOS Vision — fully local, no network). Use to read text in a screenshot, photo, scanned doc, or diagram. Returns the recognized text.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        image_path: { type: 'string', description: 'Absolute path to the image file (png, jpg, etc.).' },
+      },
+      required: ['image_path'],
+    },
+  },
+  {
     name: 'generate_image',
     description:
       'Generate an image from a text description using DALL-E 3. Returns a markdown image tag with the URL.',
@@ -883,6 +896,11 @@ async function executeTool(
       } catch (e) {
         return `Error listing directory: ${(e as Error).message}`
       }
+    }
+    case 'ocr': {
+      const { resolved, error } = safePath(String(input['image_path'] ?? ''))
+      if (error) return `OCR error: ${error}`
+      return await runOcr(resolved)
     }
     case 'remember': {
       const content = String(input['content'] ?? '').trim()
