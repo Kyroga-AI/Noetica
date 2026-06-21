@@ -52,7 +52,8 @@ export function classifyLabel(label: string, lexicon: (w: string) => boolean): L
   if (!l) return 'nonsemantic'
   if (l.includes('/') || l.includes('\\') || /^[.~]/.test(l) || /\.(md|json|txt|log|tmp|lock|ts|js|py|rs|toml|yaml|yml)$/i.test(l)) return 'path'
   const ws = toks(l)
-  if (ws.length && ws.every((w) => COMMANDS.has(w))) return 'command'
+  // A command invocation = head token is a shell tool ("npm install", "git commit") OR every token is.
+  if (ws.length && (COMMANDS.has(ws[0]!) || ws.every((w) => COMMANDS.has(w)))) return 'command'
   if (/^[a-f0-9]{6,}$/i.test(l.replace(/[\s_-]/g, '')) || /^[a-z]?\d{3,}[a-z]?$/i.test(l)) return 'hash'
   if (isActionLabel(l)) return 'verb'   // action, not a noun-phrase topic → separate layer
   // entity: looks like a proper noun / identifier (snake_case, CamelCase, or capitalized multiword)

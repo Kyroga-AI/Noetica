@@ -5692,6 +5692,29 @@ server.listen(PORT, '127.0.0.1', () => {
           console.log('[prewarm] intent embedding centroids built')
         } catch { /* best-effort */ }
       }
+      // Durable cleanup: re-run the cheap, idempotent hygiene pass on boot, but ONLY when the graph
+      // changed since the last run (incremental — node-count gated). Marks persist via the WAL, so
+      // pruned junk, merged duplicates, and verb/path noise never creep back across launches.
+      try {
+        const g0 = getGraph()
+        const stateFile = path.join(os.homedir(), '.noetica', 'cache', 'hygiene-state.json')
+        const count = g0.allNodes().length
+        let last = -1
+        try { last = JSON.parse(fs.readFileSync(stateFile, 'utf8')).count } catch { /* first run */ }
+        if (count !== last) {
+          const hn = g0.allNodes().map((n) => ({ id: n.id, label: cleanLabel(n) ?? (n.labels[0] ?? n.id), labelType: n.labels[0] ?? '', degree: 0 }))
+          const edges = g0.allEdges().map((e) => ({ from: e.from, to: e.to }))
+          const report = buildReport(hn, edges, TAXONOMY_WORDS)
+          const gx = g0 as unknown as { setNodeProperty: (i: string, k: string, v: unknown) => void; addEdge: (t: string, f: string, to: string, p?: Record<string, unknown>) => void }
+          let pruned = 0, merged = 0, attached = 0
+          for (const id of report.prunable) { try { gx.setNodeProperty(id, 'hygiene_pruned', true); pruned++ } catch { /* */ } }
+          for (const m of report.mergeActions) { try { gx.setNodeProperty(m.id, 'hygiene_pruned', true); gx.setNodeProperty(m.id, 'hygiene_merged_into', m.into); merged++ } catch { /* */ } }
+          for (const a of report.attachActions) { try { gx.addEdge('HYGIENE_ATTACH', a.id, a.to, {}); attached++ } catch { /* */ } }
+          try { fs.mkdirSync(path.dirname(stateFile), { recursive: true }); fs.writeFileSync(stateFile, JSON.stringify({ count })) } catch { /* */ }
+          console.log(`[prewarm] hygiene applied: pruned ${pruned}, merged ${merged}, attached ${attached}`)
+        }
+      } catch { /* best-effort */ }
+
       // Prewarm the graph topic clustering so the Graph panel shows clean topics instantly on
       // first open, instead of serving the raw degree-rank fallback while embeddings warm.
       try {

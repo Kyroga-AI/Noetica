@@ -10,6 +10,7 @@
 
 import type { GraphNode, GraphEdge } from '@socioprophet/hellgraph'
 import { coreTokens } from './topic-closure.js'
+import { isActionLabel } from './graph-hygiene.js'
 type GNode = GraphNode
 type GEdge = GraphEdge
 export interface SurfaceNode { id: string; label: string; category: string; kind: string; featured: boolean; degree: number }
@@ -20,6 +21,7 @@ export interface SurfaceResult { nodes: SurfaceNode[]; links: SurfaceLink[]; tot
 // filtering. Coarser than the raw atom type so the legend stays legible.
 export function kindOf(label: string): string {
   const l = (label ?? '').toLowerCase()
+  if (isActionLabel(label ?? '')) return 'Action'   // verbs are their OWN class (filterable), not topics
   if (/cluster/.test(l)) return 'Cluster'
   if (/person|human|twin|user|persona|pseudonym/.test(l)) return 'Person'
   if (/org|company|institution|team/.test(l)) return 'Org'

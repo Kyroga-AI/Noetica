@@ -16,6 +16,7 @@ const COLOR: Record<string, string> = {
 // Entity-CLASS palette (regis kinds) — what a node IS. Drives node colour + the legend/filter.
 export const KIND_COLOR: Record<string, string> = {
   Concept:  '#7c3aed',
+  Action:   '#ea580c',
   Document: '#0ea5e9',
   Code:     '#2563eb',
   Service:  '#0f766e',
@@ -25,7 +26,7 @@ export const KIND_COLOR: Record<string, string> = {
   Entity:   '#16a34a',
   Cluster:  '#e11d48',
 }
-export const KIND_ORDER = ['Concept', 'Service', 'Code', 'Document', 'Session', 'Entity', 'Person', 'Org', 'Cluster']
+export const KIND_ORDER = ['Concept', 'Service', 'Code', 'Document', 'Session', 'Entity', 'Person', 'Org', 'Action', 'Cluster']
 
 export interface GraphNode {
   id: string; label: string; category: string; kind?: string; featured?: boolean; degree?: number
