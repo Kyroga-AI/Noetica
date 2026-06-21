@@ -3441,6 +3441,56 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // ── Memory curation: surface memories in the graph + pin into the long-term brain ──
+  // A memory-curation store over HellGraph. setLti boosts the atom's ECAN long-term
+  // importance (best-effort — the durable signal is the node's pinned/lti property, which
+  // persists via the live node reference; the attention-value boost is a bonus when the
+  // handle resolves).
+  const memoryStore = () => {
+    const g = getHellGraph()
+    return {
+      nodesByLabel: (l: string) => g.nodesByLabel(l) as Array<{ id: string; labels: string[]; properties: Record<string, unknown> }>,
+      getNode: (id: string) => g.getNode(id) as { id: string; labels: string[]; properties: Record<string, unknown> } | null,
+      out: (id: string, e?: string) => g.out(id, e) as Array<{ id: string; labels: string[]; properties: Record<string, unknown> }>,
+      setLti: (id: string, lti: number) => { try { const sp: any = getAtomSpace(); sp.setAttentionValue?.(id, { sti: 0, lti, vlti: 0 }) } catch { /* attention boost best-effort */ } },
+    }
+  }
+
+  // GET /api/memory/graph — memories as curatable records (for the Memory lens).
+  if (req.method === 'GET' && url.pathname === '/api/memory/graph') {
+    void (async () => {
+      setCORSHeaders(res)
+      try {
+        const { listMemories } = await import('./lib/memory-curation.js')
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ memories: listMemories(memoryStore()) }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e), memories: [] }))
+      }
+    })()
+    return
+  }
+
+  // POST /api/memory/pin — curate a memory into / out of the long-term brain. Body: {id, pinned?}.
+  if (req.method === 'POST' && url.pathname === '/api/memory/pin') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      setCORSHeaders(res)
+      let p: { id?: string; pinned?: boolean } = {}
+      try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+      if (!p.id) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'id required' })); return }
+      try {
+        const { pinMemory, unpinMemory } = await import('./lib/memory-curation.js')
+        const ok = (p.pinned === false ? unpinMemory : pinMemory)(memoryStore(), p.id)
+        res.writeHead(ok ? 200 : 404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok, id: p.id, pinned: p.pinned !== false }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+      }
+    })() })
+    return
+  }
+
   // POST /api/tool — run ONE built-in tool directly, no model loop. The fast path for
   // tool-shaped intents (e.g. research → web_search): the dialogue layer fires the tool
   // and shows results in ~2s instead of spinning up the slow generative agent to decide.
