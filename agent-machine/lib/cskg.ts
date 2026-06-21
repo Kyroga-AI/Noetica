@@ -99,6 +99,6 @@ const tsvCell = (v: unknown): string => String(v ?? '').replace(/[\t\n\r]/g, ' '
 /** Serialize CSKG edges to the canonical KGTK edge-TSV (tab-separated, spec column order). */
 export function toKgtkTsv(edges: CskgEdge[]): string {
   const header = KGTK_COLUMNS.join('\t')
-  const rows = edges.map((e) => KGTK_COLUMNS.map((c) => tsvCell((e as Record<string, unknown>)[c])).join('\t'))
+  const rows = edges.map((e) => KGTK_COLUMNS.map((c) => tsvCell((e as unknown as Record<string, unknown>)[c])).join('\t'))
   return [header, ...rows].join('\n')
 }
