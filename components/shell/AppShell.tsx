@@ -1054,8 +1054,16 @@ export function AppShell() {
                 steering_result: result.steering_applied,
               })
             },
-            onError: (error) =>
-              updateAssistant(assistantId, { content: `Noetica route error: ${error}` }),
+            onError: (error) => {
+              // Self-aware: a connection/load failure right after launch means the local model
+              // is still priming — caution the user gracefully instead of dumping a raw error.
+              const warming = /load failed|fetch failed|econnrefused|not reachable|connection|503|timeout|loading|warm/i.test(String(error))
+              updateAssistant(assistantId, {
+                content: warming
+                  ? '⏳ The local model is still warming up — this happens for a few seconds right after launch. Give it a moment and resend, or ask me something I can answer instantly (small talk, your files, a quick calc).'
+                  : `Noetica route error: ${error}`,
+              })
+            },
           },
           {},
           abort.signal

@@ -1162,7 +1162,9 @@ async function executeTool(
       return await runOcr(resolved)
     }
     case 'render_chart': {
-      const data = Array.isArray(input['data']) ? (input['data'] as Record<string, unknown>[]) : []
+      let data: Record<string, unknown>[] = []
+      if (Array.isArray(input['data'])) data = input['data'] as Record<string, unknown>[]
+      else if (typeof input['data'] === 'string') { try { const parsed = JSON.parse(input['data'] as string); if (Array.isArray(parsed)) data = parsed as Record<string, unknown>[] } catch { /* not json */ } }
       if (!data.length) return 'Error: render_chart needs a non-empty data array (row objects).'
       let type = String(input['type'] ?? '')
       if (!['line', 'bar', 'area', 'scatter', 'pie', 'histogram'].includes(type)) {

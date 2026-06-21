@@ -205,6 +205,20 @@ const LANG_GREETINGS: Array<{ re: RegExp; replies: string[] }> = [
   { re: /^(안녕|안녕하세요|여보세요)$/, replies: ['안녕하세요! 무엇을 도와드릴까요?'] },
 ]
 
+// Parse "Jan 120, Feb 150, Mar 135" (or "A: 10; B: 22", or bare numbers) → chart rows.
+function parseInlineChartData(s: string): { label: string; value: number }[] | null {
+  const after = s.replace(/^[\s\S]*?\bdata\b\s*[:\-]\s*/i, '')
+  const parts = after.split(/[,;\n]+/).map((p) => p.trim()).filter(Boolean)
+  const rows: { label: string; value: number }[] = []
+  for (const p of parts) {
+    let m = p.match(/^(.*?)[\s:=]+(-?\d[\d.]*)$/)
+    if (m && m[1] && m[2]) { rows.push({ label: m[1].trim(), value: parseFloat(m[2]) }); continue }
+    m = p.match(/^(-?\d[\d.]*)$/)
+    if (m && m[1]) rows.push({ label: String(rows.length + 1), value: parseFloat(m[1]) })
+  }
+  return rows.length >= 2 && rows.every((r) => Number.isFinite(r.value)) ? rows : null
+}
+
 export function matchDialogue(input: string, ctx?: DialogueCtx): DialogueResult | null {
   const raw = input.trim()
   if (!raw) return null
@@ -346,6 +360,16 @@ export function matchDialogue(input: string, ctx?: DialogueCtx): DialogueResult 
   if (any(/^(do some |can you |please )?(research|look up|search( the web)?)( something| stuff| online)?$/) || fuzzyVerb(s, ['research', 'reserch', 'reasearch']))
     return r(pick('ask-research', ['Sure — what should I research?', 'On it. What topic?', 'Happy to — what should I look into?']),
       { form: { slot: 'topic', tool: { name: 'web_search', input: { query: 'latest news and developments on {value}' } }, followups: ['Summarize these for me'] } })
+  // Chart-from-data — deterministic, NO model: parse inline data and render a chart directly.
+  // Works even while the model is still priming (dialogue-flow-first + self-aware).
+  if (/\b(chart|plot|graph|visuali[sz]e)\b/i.test(input) && /\bdata\b\s*[:\-]/i.test(input)) {
+    const rows = parseInlineChartData(input)
+    if (rows) {
+      const type = /\bline\b/i.test(input) ? 'line' : /\bpie\b/i.test(input) ? 'pie' : /\bscatter\b/i.test(input) ? 'scatter' : /\barea\b/i.test(input) ? 'area' : 'bar'
+      return r('', { runTool: { name: 'render_chart', input: { data: JSON.stringify(rows), x: 'label', y: 'value', type } } })
+    }
+  }
+
   // Build clarifier — for UI/app/site scaffolds, clarify the framework deterministically (no
   // model) and run a REAL scaffold, instead of letting the model narrate setup steps.
   if (any(/\b(build|create|make|scaffold|spin ?up|set ?up|generate|give me)\b.{0,28}\b(ui|app|web ?app|web ?site|website|front-?end|landing( ?page)?|dashboard|spa|admin (panel|dashboard)|portal|interface)\b/i))
