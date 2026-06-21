@@ -32,10 +32,85 @@ function lineDiff(before: string, after: string): { t: 'ctx' | 'add' | 'del'; s:
   return out
 }
 
+// ── NERDTree-style file tree ────────────────────────────────────────────────
+interface TreeNode { name: string; path: string; dir: boolean; children: TreeNode[] }
+
+/** Build a nested folder tree from the flat path list (folders implied by file paths). */
+function buildTree(files: FileEntry[]): TreeNode[] {
+  const root: TreeNode = { name: '', path: '', dir: true, children: [] }
+  for (const f of files.filter((x) => !x.dir)) {
+    const parts = f.path.split('/').filter(Boolean)
+    let cur = root
+    parts.forEach((part, i) => {
+      const path = parts.slice(0, i + 1).join('/')
+      let child = cur.children.find((c) => c.name === part)
+      if (!child) { child = { name: part, path, dir: i < parts.length - 1, children: [] }; cur.children.push(child) }
+      cur = child
+    })
+  }
+  const sort = (n: TreeNode) => { n.children.sort((a, b) => (Number(b.dir) - Number(a.dir)) || a.name.localeCompare(b.name)); n.children.forEach(sort) }
+  sort(root)
+  return root.children
+}
+const allDirPaths = (nodes: TreeNode[], acc: string[] = []): string[] => {
+  for (const n of nodes) if (n.dir) { acc.push(n.path); allDirPaths(n.children, acc) }
+  return acc
+}
+const EXT_TINT: Record<string, string> = {
+  ts: '#3178c6', tsx: '#3178c6', js: '#f1d000', jsx: '#f1d000', json: '#a0a0a0', py: '#3572a5',
+  rs: '#dea584', go: '#00add8', md: '#6b7280', sh: '#89e051', css: '#563d7c', html: '#e34c26', toml: '#9c4221', yaml: '#cb171e', yml: '#cb171e',
+}
+function FileGlyph({ name }: { name: string }) {
+  const ext = name.split('.').pop() ?? ''
+  const tint = EXT_TINT[ext.toLowerCase()] ?? 'var(--color-text-tertiary)'
+  return (
+    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden className="shrink-0">
+      <path d="M3 1.5h5l3 3V12a.5.5 0 0 1-.5.5h-7A.5.5 0 0 1 3 12V2a.5.5 0 0 1 .5-.5Z" stroke={tint} strokeWidth="1.1" strokeLinejoin="round" />
+      <path d="M8 1.5v3h3" stroke={tint} strokeWidth="1.1" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function FileTreeNode({ node, depth, sel, onOpen, expanded, toggle }: {
+  node: TreeNode; depth: number; sel: string; onOpen: (p: string) => void
+  expanded: Set<string>; toggle: (p: string) => void
+}) {
+  if (node.dir) {
+    const open = expanded.has(node.path)
+    return (
+      <div>
+        <button onClick={() => toggle(node.path)} style={{ paddingLeft: 8 + depth * 12 }}
+          className="flex w-full items-center gap-1.5 py-1 pr-3 text-left text-[12px] text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-tertiary)]">
+          <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden className="shrink-0 text-[var(--color-text-tertiary)]"
+            style={{ transform: open ? 'rotate(90deg)' : undefined, transition: 'transform 0.1s' }}>
+            <path d="M2.5 1.5l3 3-3 3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden className="shrink-0 text-[#d9a441]">
+            <path d="M1.5 3.5a1 1 0 0 1 1-1h2.5l1.2 1.2H11.5a1 1 0 0 1 1 1V11a1 1 0 0 1-1 1h-9a1 1 0 0 1-1-1V3.5Z" stroke="currentColor" strokeWidth="1.1" strokeLinejoin="round" />
+          </svg>
+          <span className="truncate font-medium">{node.name}</span>
+        </button>
+        {open && node.children.map((c) => (
+          <FileTreeNode key={c.path} node={c} depth={depth + 1} sel={sel} onOpen={onOpen} expanded={expanded} toggle={toggle} />
+        ))}
+      </div>
+    )
+  }
+  return (
+    <button onClick={() => onOpen(node.path)} style={{ paddingLeft: 8 + depth * 12 }}
+      className={`flex w-full items-center gap-1.5 py-1 pr-3 text-left text-[12px] transition ${sel === node.path ? 'bg-[#dbeafe] text-[#1d4ed8]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)]'}`}>
+      <span className="w-[9px] shrink-0" />
+      <FileGlyph name={node.name} />
+      <span className="truncate">{node.name}</span>
+    </button>
+  )
+}
+
 export function WorkspaceSurface() {
   const [workspaces, setWorkspaces] = useState<string[]>([])
   const [ws, setWs] = useState<string>('')
   const [files, setFiles] = useState<FileEntry[]>([])
+  const [expanded, setExpanded] = useState<Set<string>>(new Set())
   const [sel, setSel] = useState<string>('')
   const [content, setContent] = useState<string>('')
   const [loading, setLoading] = useState(false)
@@ -115,7 +190,9 @@ export function WorkspaceSurface() {
     try {
       const r = await fetch(`${amBase()}/api/workspace/list?ws=${encodeURIComponent(name)}`, { signal: AbortSignal.timeout(8000) })
       const j = (await r.json()) as { files?: FileEntry[] }
-      setFiles((j.files ?? []).filter((f) => !f.dir))
+      const fs = (j.files ?? []).filter((f) => !f.dir)
+      setFiles(fs)
+      setExpanded(new Set(allDirPaths(buildTree(fs))))   // NERDTree: folders open by default
     } catch { setFiles([]) } finally { setLoading(false) }
   }
   async function openFile(p: string) {
@@ -162,17 +239,11 @@ export function WorkspaceSurface() {
         <div className="w-64 shrink-0 overflow-y-auto border-r border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] py-2">
           {loading && <div className="px-4 py-2 text-[12px] text-[var(--color-text-tertiary)]">loading…</div>}
           {!loading && files.length === 0 && <div className="px-4 py-2 text-[12px] text-[var(--color-text-tertiary)]">Empty — ask the agent to build something (it scaffolds into a workspace).</div>}
-          {files.map((f) => {
-            const depth = f.path.split('/').length - 1
-            const name = f.path.split('/').pop()
-            return (
-              <button key={f.path} onClick={() => void openFile(f.path)}
-                style={{ paddingLeft: 12 + depth * 12 }}
-                className={`block w-full truncate py-1 pr-3 text-left text-[12px] transition ${sel === f.path ? 'bg-[#dbeafe] text-[#1d4ed8]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)]'}`}>
-                <span className="text-[var(--color-text-tertiary)]">{depth > 0 ? '· ' : ''}</span>{name}
-              </button>
-            )
-          })}
+          {!loading && buildTree(files).map((node) => (
+            <FileTreeNode key={node.path} node={node} depth={0} sel={sel} onOpen={(p) => void openFile(p)}
+              expanded={expanded}
+              toggle={(p) => setExpanded((cur) => { const n = new Set(cur); n.has(p) ? n.delete(p) : n.add(p); return n })} />
+          ))}
         </div>
         <div className="min-h-0 flex-1 overflow-auto bg-[var(--color-background-primary)]">
           {!sel && steps.length === 0 && diffs.length === 0 && <div className="flex h-full items-center justify-center text-[13px] text-[var(--color-text-tertiary)]">Select a file, or describe a build above.</div>}
