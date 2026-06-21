@@ -2,6 +2,7 @@
 
 import React, { useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
+import { PlanChecklist } from '@/components/chat/PlanChecklist'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 // eslint-disable-next-line
@@ -384,7 +385,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
   // before any answer. Don't render its bubble: the single TypingIndicator below is the
   // one streaming loader. Once real content arrives, the bubble renders (thinking folds
   // into its own disclosure). This kills the "two icons" double-loader.
-  if (!message.content && !message.tool_calls?.length) return null
+  if (!message.content && !message.tool_calls?.length && !message.plan?.steps?.length) return null
 
   return (
     <article className="group flex gap-3">
@@ -405,6 +406,9 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
             <p className="px-3 pb-3 pt-1 whitespace-pre-wrap text-xs leading-6 text-[var(--color-text-secondary)]">{message.thinking}</p>
           </details>
         )}
+
+        {/* Live todo checklist (streamed plan + step updates) */}
+        {message.plan && <PlanChecklist plan={message.plan} />}
 
         {/* Tool calls */}
         {message.tool_calls && message.tool_calls.length > 0 && (

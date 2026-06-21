@@ -1012,6 +1012,9 @@ export function AppShell() {
                 setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'deliberation', payload: d }, ...prev].slice(0, 80))
               }
             },
+            // Live todo checklist (the AM streams plan + step events; render them as a checklist).
+            onPlan: (plan) => updateAssistant(assistantId, { plan }),
+            onStep: (step) => mergePlanStep(assistantId, step),
             onDone: (result) => {
               // Voice loop: if this turn was spoken, speak the reply (and live mode re-listens).
               if (voiceReplyRef.current) { voiceReplyRef.current = false; if (result.content) void speak(result.content) }
@@ -1308,6 +1311,17 @@ export function AppShell() {
   function appendAssistantContent(id: string, delta: string) {
     setMessages((current) =>
       current.map((m) => (m.id === id ? { ...m, content: `${m.content}${delta}` } : m))
+    )
+  }
+
+  // Live todo checklist: merge a streamed step status update into the message's plan by id.
+  function mergePlanStep(id: string, step: import('@/lib/types/message').PlanStepUpdate) {
+    setMessages((current) =>
+      current.map((m) => {
+        if (m.id !== id || !m.plan) return m
+        const steps = m.plan.steps.map((s) => (s.id === step.id ? { ...s, status: step.status, detail: step.detail ?? s.detail } : s))
+        return { ...m, plan: { ...m.plan, steps } }
+      })
     )
   }
 
