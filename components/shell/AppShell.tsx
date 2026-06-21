@@ -264,7 +264,7 @@ export function AppShell() {
   const abortControllerRef = useRef<AbortController | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false)
-  const [utilityPanel, setUtilityPanel] = useState<UtilityPanelId | null>('context')
+  const [utilityPanel, setUtilityPanel] = useState<UtilityPanelId | null>('graph')
   const [inspectorVisible, setInspectorVisible] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsCategory, setSettingsCategory] = useState('appearance')

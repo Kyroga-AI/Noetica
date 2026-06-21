@@ -48,7 +48,7 @@ export function cleanLabel(n: GNode): string | null {
     const s = String(v)
       .replace(/\s+/g, ' ')
       .replace(/^\[[^\]]*\]\s*/, '')
-      .replace(/\.(pdf|txt|md|json|vtt|srt|docx|pptx|xlsx|csv|html?)$/i, '')
+      .replace(/\.(pdf|txt|md|json|vtt|srt|docx|pptx|xlsx|csv|html?|dmg|app|pkg|exe|zip|tar|gz)$/i, '')
       .replace(/^[#>.\-\s]+/, '')
       .trim()
     if (s && !isHashy(s) && !isProse(s)) return s.slice(0, 22)

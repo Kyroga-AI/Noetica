@@ -20,6 +20,9 @@ const NOISE = new Set([
   'true', 'false', 'null', 'none', 'todo', 'note', 'tmp', 'temp', 'trash', 'cache', 'log', 'logs',
   'node', 'next', 'env', 'src', 'lib', 'bin', 'dist', 'main', 'index', 'config', 'data', 'file', 'files',
   'package', 'lock', 'json', 'yaml', 'toml', 'md', 'txt', 'operation', 'write', 'read', 'string', 'number',
+  // CSS properties / installers / generic UI+message nouns that kept leaking in as fake topics.
+  'margin', 'padding', 'top', 'bottom', 'left', 'right', 'width', 'height', 'color', 'border', 'flex',
+  'app', 'apps', 'dmg', 'pkg', 'exe', 'message', 'high', 'low', 'level', 'item', 'list', 'view', 'page',
 ])
 // Natural-language words → the label is a description/comment fragment, not a topic.
 const STOP = new Set([
@@ -41,6 +44,36 @@ function isClean(label: string): boolean {
   if (words.some((w) => NOISE.has(w) || STOP.has(w))) return false           // any generic/sentence word → not a topic
   if (words.length >= 2 && words.every((w) => w === words[0])) return false  // "Noetica Noetica"
   return true
+}
+
+// Synthesize a CLASS name for a cluster from the theme its members share, instead of picking
+// one member (always an instance). Split member labels into tokens, drop noise/stopwords, and
+// take the token(s) shared by ≥2 members as the abstract class — {tauri-apps, plugin-dialog,
+// plugin-shell} → "Plugin", {model-router, model-store} → "Model". Returns null when members
+// share no theme (caller then falls back to the centroid-closest member label).
+function tokenize(s: string): string[] {
+  // Split camelCase BEFORE lowercasing, or "GovernanceTrail" collapses to one token.
+  return s.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().split(/[\s\-_./]+/).filter(Boolean)
+}
+function className(memberLabels: string[]): string | null {
+  if (memberLabels.length < 2) return null
+  const freq = new Map<string, number>()
+  for (const lab of memberLabels) {
+    const seen = new Set<string>()
+    for (const t of tokenize(lab)) {
+      if (t.length < 3 || NOISE.has(t) || STOP.has(t)) continue
+      if (seen.has(t)) continue
+      seen.add(t)
+      freq.set(t, (freq.get(t) ?? 0) + 1)
+    }
+  }
+  const ranked = [...freq.entries()].filter(([, c]) => c >= 2).sort((a, b) => b[1] - a[1] || b[0].length - a[0].length)
+  if (!ranked.length) return null
+  const cap = (w: string) => w.charAt(0).toUpperCase() + w.slice(1)
+  // Primary theme, plus a distinct secondary if it's nearly as common — "Model Router".
+  const primary = ranked[0]!
+  const secondary = ranked.find(([t, c]) => t !== primary[0] && c >= Math.max(2, primary[1] - 1))
+  return secondary ? `${cap(primary[0])} ${cap(secondary[0])}` : cap(primary[0])
 }
 
 // Deterministic PRNG (mulberry32) so topic discovery is STABLE across calls/restarts —
@@ -131,7 +164,7 @@ function discoverK(V: number[][], kMin: number, kMax: number): { assign: number[
   return best
 }
 
-interface Clustering { reps: string[]; members: Map<string, string[]>; clusterOf: Map<string, string> }
+interface Clustering { reps: string[]; members: Map<string, string[]>; clusterOf: Map<string, string>; classNames: Map<string, string> }
 const clusterCache = new Map<string, Clustering>()
 
 /** Async, clustered replacement for selectSurface on a category lens (tech/knowledge). */
@@ -165,6 +198,7 @@ export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[
     const vecs: number[][] = []; const valid: GraphNode[] = []
     cands.forEach((x, i) => { if (embeds[i]) { vecs.push(normalize(embeds[i]!)); valid.push(x.n) } })
     const reps: string[] = []; const members = new Map<string, string[]>(); const clusterOf = new Map<string, string>()
+    const classNames = new Map<string, string>()
     const labelOf = new Map(cands.map((x) => [x.n.id, x.label]))
     const usedLabels = new Set<string>()
     if (valid.length === 0) {
@@ -196,13 +230,18 @@ export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[
           const score = dot(vecOf.get(m.id)!, cc) + (lab.includes('-') ? 0.04 : 0) - (usedLabels.has(lab) ? 1 : 0)
           if (score > best) { best = score; rep = m }
         }
-        const repLabel = (labelOf.get(rep.id) ?? '').toLowerCase()
-        if (usedLabels.has(repLabel)) continue   // drop a cluster that only duplicates an existing topic
-        usedLabels.add(repLabel)
+        // CLASS name from the theme the members share — falls back to the centroid member's
+        // own label when the cluster has no shared theme. This is what makes the top layer read
+        // as topic CLASSES ("Model Router", "Plugin") rather than instances ("tauri-apps").
+        const cname = className(g.map((m) => labelOf.get(m.id) ?? '')) ?? (labelOf.get(rep.id) ?? '')
+        const dedupKey = cname.toLowerCase()
+        if (usedLabels.has(dedupKey)) continue   // drop a cluster that only duplicates an existing topic
+        usedLabels.add(dedupKey)
+        classNames.set(rep.id, cname)
         reps.push(rep.id); members.set(rep.id, g.map((n) => n.id)); for (const m of g) clusterOf.set(m.id, rep.id)
       }
     }
-    cl = { reps, members, clusterOf }
+    cl = { reps, members, clusterOf, classNames }
     clusterCache.set(cacheKey, cl)
   }
 
@@ -235,7 +274,9 @@ export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[
     const n = allById.get(id); if (!n) return []
     const deg = degree.get(id) ?? 0
     const isTopic = cl.members.has(id)   // a representative = a topic (class layer)
-    return [{ id, label: cleanLabel(n) ?? (n.labels[0] ?? 'node'), category: categoryFor(n.labels[0] ?? ''), featured: isTopic || deg >= maxDeg * 0.6, degree: deg }]
+    // Topic reps render as their synthesized CLASS name; instances (drill-down) keep their own.
+    const label = (isTopic ? cl.classNames.get(id) : null) ?? cleanLabel(n) ?? (n.labels[0] ?? 'node')
+    return [{ id, label, category: categoryFor(n.labels[0] ?? ''), featured: isTopic || deg >= maxDeg * 0.6, degree: deg }]
   })
 
   const links: SurfaceLink[] = []
