@@ -23,9 +23,11 @@ export interface GraphLink { source: string; target: string; primary?: boolean }
 // abbreviation (customer_data → custmr_dta): keep the first 1–2 chars + last char of each
 // word, drop interior vowels. Recognizable at a glance without truncating to "self n…".
 function squeezeWord(w: string): string {
-  if (w.length <= 4) return w
-  const head = w.slice(0, 2), last = w[w.length - 1]!
-  const mid = w.slice(2, -1).replace(/[aeiou]/gi, '')
+  // Only abbreviate genuinely long words — squeezing short ones (hellgraph→hellgrph,
+  // retrieval→retrvl, primary→prmry) made real words read as misspellings. Keep ≤10 intact.
+  if (w.length <= 10) return w
+  const head = w.slice(0, 3), last = w[w.length - 1]!
+  const mid = w.slice(3, -1).replace(/[aeiou]/gi, '')
   return head + mid + last
 }
 function squeeze(label: string): string {

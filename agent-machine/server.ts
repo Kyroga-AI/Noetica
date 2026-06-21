@@ -36,9 +36,11 @@ import { buildRouterDecision, LOCAL_MODEL_SUITE } from './lib/router.js'
 import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTelemetry, type MeshTier } from './lib/scope-d.js'
 import { classifyIntent, capabilityToTask, wantsVectorRag, intentByName, planFromIntent, intentToAction } from './lib/intent-router.js'
 import { routeForAction, meshrushPhase } from './lib/action-cell.js'
-import { selectSurface } from './lib/graph-surface.js'
+import { selectSurface, cleanLabel } from './lib/graph-surface.js'
 import { generateSovereign, meshLadder } from './lib/mesh.js'
 import { AGENT_ROLES, DISPATCHABLE_ROLES, resolveRole } from './lib/sub-agent.js'
+import { buildReport } from './lib/graph-hygiene.js'
+import { TAXONOMY_WORDS } from './lib/slash-topics.js'
 import { createSQLiteBackend, migrateJSONLToSQLite } from './lib/sqlite-backend.js'
 import { registerStorageNodeRoutes, handleStorageNodeRequest } from './lib/storage-node-routes.js'
 import { handleMeshRushRequest } from './lib/meshrush-bridge.js'
@@ -4954,6 +4956,35 @@ const server = http.createServer((req, res) => {
     const tiers = meshLadder({ hasAnthropicKey: !!process.env['ANTHROPIC_API_KEY'] })
     res.writeHead(200, { 'content-type': 'application/json' })
     res.end(JSON.stringify({ tiers }))
+    return
+  }
+
+  // GET/POST /api/graph/hygiene — the graph cleanup pass. GET = dry-run report (the plan:
+  // class breakdown, spell flags, near-duplicate groups, orphan dispositions). POST {apply:true}
+  // non-destructively marks junk-class nodes hygiene_pruned=true (reversible; the surface hides
+  // them). Merges are reported for review, not auto-applied.
+  if (url.pathname === '/api/graph/hygiene' && (req.method === 'GET' || req.method === 'POST')) {
+    const run = (apply: boolean) => {
+      setCORSHeaders(res)
+      try {
+        const g = getGraph()
+        const hn = g.allNodes().map((n) => ({ id: n.id, label: cleanLabel(n) ?? (n.labels[0] ?? n.id), labelType: n.labels[0] ?? '', degree: 0 }))
+        const edges = g.allEdges().map((e) => ({ from: e.from, to: e.to }))
+        const report = buildReport(hn, edges, TAXONOMY_WORDS)
+        let pruned = 0
+        if (apply) {
+          for (const id of report.prunable) { try { (g as unknown as { setNodeProperty: (i: string, k: string, v: unknown) => void }).setNodeProperty(id, 'hygiene_pruned', true); pruned++ } catch { /* */ } }
+        }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ...report, applied: apply ? { pruned } : null }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e).slice(0, 200) }))
+      }
+    }
+    if (req.method === 'GET') { run(false); return }
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { let p: { apply?: boolean } = {}; try { p = JSON.parse(body || '{}') } catch { /* */ } run(!!p.apply) })
     return
   }
 

@@ -29,6 +29,9 @@ for (const t of TOPICS) {
 /** The 19 top-level categories — the coarse class layer. */
 export const SLASH_CATEGORIES = [...new Set(TOPICS.map((t) => t.category))]
 
+/** Every token across all topic names — a real-word lexicon for spell-check / hygiene. */
+export const TAXONOMY_WORDS = new Set<string>([...topicTokens.values()].flat())
+
 export interface TopicMatch { topic: string; category: string; score: number; matched: string[] }
 
 /**
