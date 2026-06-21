@@ -1668,13 +1668,24 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     // Non-doc-grounded reasoning (plan/compute/explain) goes fast too — the !docGrounded
     // guard below is what protects retrieval fidelity, so reasoning only stays heavy when
     // it's actually grounding on a document. Otherwise plan_nextsteps stalls on deepseek-r1.
-    const fastTasks = new Set(['general', 'writing', 'chat', 'reasoning'])
+    // Quality-aware responsiveness: only small-talk / quick drafts get the fast 3B. Code
+    // and reasoning NEVER run on the 3B (it fabricates output instead of doing the work) —
+    // code goes to the dedicated coder, reasoning to a capable 7B (beats the 3B on quality
+    // and deepseek-r1 on latency). Doc-grounded turns keep their routed 7B for fidelity.
     const docGrounded = wantsVectorRag(intentPlan.retrieval)
-    const fast = 'llama3.2:3b'
-    if (!docGrounded && fastTasks.has(routerDecision.task ?? 'general') && availableModels.includes(fast) && model !== fast) {
-      console.log(`[responsive] ${routerDecision.task} ${model} → ${fast} (fast base)`)
-      model = fast
+    const has = (m: string) => availableModels.includes(m)
+    const task = routerDecision.task ?? 'general'
+    const before = model
+    if (!docGrounded) {
+      if (['general', 'writing', 'chat'].includes(task) && has('llama3.2:3b')) {
+        model = 'llama3.2:3b'
+      } else if (task === 'coding') {
+        model = has('qwen2.5-coder:7b') ? 'qwen2.5-coder:7b' : has('qwen2.5:7b') ? 'qwen2.5:7b' : model
+      } else if (task === 'reasoning') {
+        model = has('qwen2.5:7b') ? 'qwen2.5:7b' : has('qwen2.5-coder:7b') ? 'qwen2.5-coder:7b' : model
+      }
     }
+    if (model !== before) console.log(`[responsive] ${task} ${before} → ${model}`)
   }
 
   // ── Escalation: climb to a more capable model when the cheap flow is failing ──

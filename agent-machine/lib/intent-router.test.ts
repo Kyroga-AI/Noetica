@@ -31,7 +31,7 @@ test('write-and-run-code routes to a code intent with code_execute (not write_dr
   const r = classifyIntent('Write a Python function that reverses a string, then run it and show the output.')
   assert.equal(r.name, 'build_implement')
   assert.ok(r.tools.includes('code_execute'), 'must be able to actually execute')
-  assert.equal(capabilityToTask(r.model), 'reasoning') // a capable model, not the draft writer
+  assert.equal(capabilityToTask(r.model), 'coding') // the dedicated coder, not the 3B draft writer
 
   // prose writing still routes to write_draft (we did not swallow real writing tasks)
   assert.equal(classifyIntent('write me a poem about the sea').name, 'write_draft')
