@@ -23,6 +23,7 @@ const NOISE = new Set([
   // CSS properties / installers / generic UI+message nouns that kept leaking in as fake topics.
   'margin', 'padding', 'top', 'bottom', 'left', 'right', 'width', 'height', 'color', 'border', 'flex',
   'app', 'apps', 'dmg', 'pkg', 'exe', 'message', 'high', 'low', 'level', 'item', 'list', 'view', 'page',
+  'output', 'plaintext', 'call', 'result', 'error', 'tool', 'hello', 'reverse', 'reversed', 'reverse_string',
 ])
 // Natural-language words → the label is a description/comment fragment, not a topic.
 const STOP = new Set([
@@ -38,12 +39,27 @@ function isClean(label: string): boolean {
   if (l.includes('/') || /^[.~]/.test(l)) return false           // paths / dotfiles
   if (l.includes('_')) return false                               // snake_case code identifiers
   if (/^\d/.test(l) || /^\d+\s*b$/i.test(l)) return false         // numbers, model tags (7b, 3b)
-  if (/[(){}[\]<>$="']/.test(l)) return false                     // code/param fragments
+  if (/[(){}[\]<>$="'!?:;]/.test(l)) return false                 // code/param/output fragments ("Output:", "!acitoeN")
   const lc = l.toLowerCase()
-  const words = lc.split(/[\s-]+/)
+  const words = lc.split(/[\s,-]+/).filter(Boolean)
+  if (words.some((w) => /\d/.test(w))) return false                          // version/output tokens ("8.15.0", "v16.1")
   if (words.some((w) => NOISE.has(w) || STOP.has(w))) return false           // any generic/sentence word → not a topic
   if (words.length >= 2 && words.every((w) => w === words[0])) return false  // "Noetica Noetica"
   return true
+}
+
+// Provenance / operational exhaust that should NOT surface as a concept in the graph — session
+// file/symbol atoms, paths, temp/trash, bare shell commands, hash-y ids. Used to keep the
+// drill-down "instance layer" as legible sub-topics rather than the agent's own tool activity.
+const OPERATIONAL_TYPES = /^(File|Symbol|Session|Turn|Claim|Probe|Event|Run|Heartbeat|Lock)$/i
+// A drilled neighbour is junk if it's a provenance/operational atom type OR its label doesn't
+// read as a clean concept (paths, snake_case code, commands, output fragments, version strings,
+// reversed gibberish all fail isClean). Keeps the instance layer to legible sub-topics.
+function isJunkNode(n: GraphNode | undefined): boolean {
+  if (!n) return true
+  if (OPERATIONAL_TYPES.test(n.labels?.[0] ?? '')) return true
+  const l = (cleanLabel(n) ?? '').trim()
+  return !l || !isClean(l)
 }
 
 // Synthesize a CLASS name for a cluster from the theme its members share, instead of picking
@@ -299,6 +315,7 @@ export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[
   // Drill-down → LAYERED: the concept's own cluster members PLUS their 1-hop graph neighbours,
   // i.e. the concrete INSTANCE layer (files, code, raw nodes) sitting beneath the abstract topic.
   // This is the outer(class)/inner(instance) distinction made visible.
+  const allById = new Map(allNodes.map((n) => [n.id, n]))   // for drill-neighbour lookup + junk filtering
   let ids: string[]
   if (opts.root && cl.members.has(opts.root)) {
     const members = cl.members.get(opts.root)!
@@ -306,15 +323,15 @@ export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[
     const set = new Set(members)
     for (const e of allEdges) {
       if (set.size >= 28) break
-      if (memberSet.has(e.from) && !set.has(e.to)) set.add(e.to)
-      else if (memberSet.has(e.to) && !set.has(e.from)) set.add(e.from)
+      // Only surface CONCEPT neighbours — skip file/symbol/path/command provenance so the
+      // instance layer reads as sub-topics, not the agent's operational exhaust.
+      if (memberSet.has(e.from) && !set.has(e.to) && !isJunkNode(allById.get(e.to))) set.add(e.to)
+      else if (memberSet.has(e.to) && !set.has(e.from) && !isJunkNode(allById.get(e.from))) set.add(e.from)
     }
     ids = [...set].slice(0, 28)
   } else {
     ids = topicReps
   }
-
-  const allById = new Map(allNodes.map((n) => [n.id, n]))   // drill neighbours aren't in the candidate set
   const keep = new Set(ids)
   const maxDeg = Math.max(1, ...ids.map((id) => degree.get(id) ?? 0))
   const nodes: SurfaceNode[] = ids.flatMap((id) => {

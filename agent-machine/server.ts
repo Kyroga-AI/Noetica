@@ -3592,6 +3592,34 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // ── Session persistence via the always-on AM: chats survive quit independent of the
+  // WebKit localStorage flush + the (uninstalled) Tauri store plugin. Durable file at
+  // ~/.noetica/sessions.json. ──
+  if (req.method === 'GET' && url.pathname === '/api/sessions') {
+    void (async () => {
+      setCORSHeaders(res)
+      try {
+        const { readFileSync } = await import('fs'); const { homedir } = await import('os'); const { join } = await import('path')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(readFileSync(join(homedir(), '.noetica', 'sessions.json'), 'utf8'))
+      } catch { res.writeHead(200, { 'content-type': 'application/json' }); res.end('null') }
+    })()
+    return
+  }
+  if (req.method === 'POST' && url.pathname === '/api/sessions') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      setCORSHeaders(res)
+      try {
+        const { writeFileSync, mkdirSync } = await import('fs'); const { homedir } = await import('os'); const { join } = await import('path')
+        const dir = join(homedir(), '.noetica'); mkdirSync(dir, { recursive: true })
+        writeFileSync(join(dir, 'sessions.json'), body || 'null')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end('{"ok":true}')
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) })) }
+    })() })
+    return
+  }
+
   // GET /api/graph/search — fast topic/instance recall over the graph, fusing cosine +
   // Jaccard + link expansion (a company on "Hospital Way" surfaces for "hospital"). Query:
   // ?q=…&limit=…  Cosine kicks in when the query embeds and atoms carry vectors.
