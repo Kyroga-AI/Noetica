@@ -382,10 +382,20 @@ export function AppShell() {
   }
 
   const voiceReplyRef = useRef(false)
-  const { state: voiceState, isLive, startListening, stopListening, startLive, stopLive, speak, stopSpeaking } = useVoice((transcript) => {
+  const { state: voiceState, isLive, error: voiceError, startListening, stopListening, startLive, stopLive, speak, stopSpeaking } = useVoice((transcript) => {
     voiceReplyRef.current = true   // this turn was voice-initiated → speak the reply
     void handleSendRaw(transcript, [], messages)
   })
+
+  // Surface voice errors (backend offline, mic denied, STT unavailable) as a transient
+  // notice — a voice feature must never fail as a silent no-op.
+  const [voiceNotice, setVoiceNotice] = useState<string | null>(null)
+  useEffect(() => {
+    if (!voiceError) return
+    setVoiceNotice(voiceError)
+    const t = setTimeout(() => setVoiceNotice(null), 6000)
+    return () => clearTimeout(t)
+  }, [voiceError])
 
   // ── Tauri menu bridge ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -1306,6 +1316,15 @@ export function AppShell() {
 
   return (
     <>
+      {voiceNotice && (
+        <div
+          role="status"
+          onClick={() => setVoiceNotice(null)}
+          className="fixed right-4 top-12 z-[100] max-w-sm cursor-pointer rounded-lg border border-[#fda4af] bg-[#fff1f2] px-3 py-2 text-xs text-[#9f1239] shadow-lg"
+        >
+          🎙️ {voiceNotice}
+        </div>
+      )}
       {showSetup && (
         <ModelSetupOverlay
           onDismiss={() => {
