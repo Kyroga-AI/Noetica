@@ -60,6 +60,7 @@ import { recordCapability, capabilitySummary, capabilityHint, recordReward, sele
 import { validateGraph } from '@socioprophet/hellgraph'
 import { CANONICAL_SHAPES, QUARANTINE_PROP } from './lib/canonical-shapes.js'
 import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
+import { critique, bestOfTemps, type Candidate as CriticCandidate } from './lib/critic.js'
 import { detectGoalIntent, slotFill, buildGoalContext, getActiveGoal, listGoals, saveGoal, type Goal } from './lib/goal-model.js'
 import { assessAgainstGraph } from './lib/pln-judgment.js'
 import { saveCheckpoint, listCheckpoints, getCheckpoint, buildResumeMessages } from './lib/checkpoint-model.js'
@@ -924,8 +925,11 @@ const LOGIN_SHELL = (() => {
 function runInWorkspace(command: string, cwd: string, timeoutMs: number): Promise<{ out: string; err: string; code: string }> {
   return new Promise((resolve) => {
     let out = '', err = '', done = false
-    // Bound the timer to a safe range regardless of caller input (resource-exhaustion guard).
-    const safeTimeout = Math.min(300_000, Math.max(1_000, Number.isFinite(timeoutMs) ? timeoutMs : 60_000))
+    // Bound the timer with explicit guard comparisons (CodeQL-recognized sanitizer for
+    // resource-exhaustion) so a caller-supplied duration can never create an unbounded timer.
+    let safeTimeout = Number.isFinite(timeoutMs) ? timeoutMs : 60_000
+    if (safeTimeout > 300_000) safeTimeout = 300_000
+    if (safeTimeout < 1_000) safeTimeout = 1_000
     const child = cp.spawn(LOGIN_SHELL, ['-lc', command], { cwd, env: { ...process.env } })
     const timer = setTimeout(() => { if (!done) { done = true; try { child.kill('SIGKILL') } catch { /* */ } resolve({ out, err, code: `timeout after ${safeTimeout}ms` }) } }, safeTimeout)
     child.stdout.on('data', (d: Buffer) => { if (out.length < 200_000) out += d.toString() })
@@ -1162,7 +1166,9 @@ async function executeTool(
       return await runOcr(resolved)
     }
     case 'render_chart': {
-      const data = Array.isArray(input['data']) ? (input['data'] as Record<string, unknown>[]) : []
+      let data: Record<string, unknown>[] = []
+      if (Array.isArray(input['data'])) data = input['data'] as Record<string, unknown>[]
+      else if (typeof input['data'] === 'string') { try { const parsed = JSON.parse(input['data'] as string); if (Array.isArray(parsed)) data = parsed as Record<string, unknown>[] } catch { /* not json */ } }
       if (!data.length) return 'Error: render_chart needs a non-empty data array (row objects).'
       let type = String(input['type'] ?? '')
       if (!['line', 'bar', 'area', 'scatter', 'pie', 'histogram'].includes(type)) {
@@ -5170,6 +5176,20 @@ server.listen(PORT, '127.0.0.1', () => {
           await clusterSurface(g.allNodes(), g.allEdges(), { view, category }).catch(() => {})
         }
         console.log('[prewarm] graph topic clusters built')
+      } catch { /* best-effort */ }
+      // Upgrade the coder to the RAM-appropriate model (14b on ≥18GB, 30b on ≥30GB) by pulling
+      // it once in the background — non-blocking, only sizes that fit, so no OOM. Until it lands
+      // the router stays on 7b; once present, coding routes to the stronger model automatically.
+      try {
+        const { preferredCoderForRam } = await import('./lib/router.js')
+        const want = preferredCoderForRam()
+        if (want && process.env['NOETICA_NO_AUTO_CODER'] !== '1') {
+          const have = await listLocalModels()
+          if (!have.includes(want)) {
+            console.log(`[prewarm] pulling upgraded coder ${want} in background (one-time)…`)
+            void pullModel(want, () => {}).then(() => console.log(`[prewarm] coder ${want} ready — coding now routes to it`)).catch(() => {})
+          }
+        }
       } catch { /* best-effort */ }
     } catch { /* ignore */ }
   })()

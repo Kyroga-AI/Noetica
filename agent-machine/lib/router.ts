@@ -6,6 +6,8 @@
  * evidence trail — mirroring the prophet-mesh model-task-policy contract.
  */
 
+import * as os from 'node:os'
+
 // ─── Task taxonomy (from prophet-mesh model-task-policy.yaml) ────────────────
 
 export type TaskType =
@@ -233,7 +235,13 @@ export function buildRouterDecision(opts: {
   // The structured intent classifier (intent-router) is authoritative when it
   // resolves a task; classifyTask is the keyword fallback for when it doesn't.
   const task = opts.taskOverride ?? classifyTask(content)
-  const route = ROUTING_TABLE[task]
+  // RAM-gated coder upgrade: prefer a bigger coder when it FITS and is pulled — out-model where
+  // we safely can. 30b (~19GB) needs ≥30GB unified RAM (else OOM crashes ollama); 14b (~9GB) is
+  // the safe upgrade on a 24GB box. Per-request copy so the shared table isn't mutated.
+  const baseRoute = ROUTING_TABLE[task]
+  const route = task === 'coding'
+    ? { ...baseRoute, localModel: bestCoder(availableModels, baseRoute.localModel) }
+    : baseRoute
 
   // Vision: route to LLaVA when images are present
   if (!explicitModelId && hasImages && ollamaAvailable) {
@@ -461,6 +469,25 @@ export function buildRouterDecision(opts: {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+/** Best coder that fits this box's RAM and is actually pulled, else the given fallback. */
+export function bestCoder(available: string[], fallback: string): string {
+  const ramGb = os.totalmem() / 1e9
+  const prefs: string[] = []
+  if (ramGb >= 30) prefs.push('qwen3-coder:30b', 'qwen2.5-coder:32b')
+  if (ramGb >= 18) prefs.push('qwen2.5-coder:14b')
+  prefs.push('qwen2.5-coder:7b')
+  for (const m of prefs) if (isModelAvailable(m, available)) return m
+  return fallback
+}
+
+/** The coder this box SHOULD run by RAM (independent of what's pulled) — for background pull. */
+export function preferredCoderForRam(): string | null {
+  const ramGb = os.totalmem() / 1e9
+  if (ramGb >= 30) return 'qwen3-coder:30b'
+  if (ramGb >= 18) return 'qwen2.5-coder:14b'
+  return null  // 7b is the floor and already shipped — nothing to pull
+}
+
 function isModelAvailable(model: string, available: string[]): boolean {
   const base = model.split(':')[0]!
   return available.some((m) => m === model || m.startsWith(base))
@@ -513,6 +540,22 @@ export const LOCAL_MODEL_SUITE = [
     description: 'Code-specialized model — implementation, debugging, review',
     priority: 4,
     sizeGb: 4.7,
+    toolUse: true,
+  },
+  {
+    name: 'qwen2.5-coder:14b',
+    role: 'coding-large',
+    description: 'Stronger code model — the preferred coder on ≥18GB-RAM boxes',
+    priority: 4,
+    sizeGb: 9.0,
+    toolUse: true,
+  },
+  {
+    name: 'qwen3-coder:30b',
+    role: 'coding-xl',
+    description: 'Best local agentic coder (MoE, ~3B active) — only on ≥30GB RAM (OOM risk below)',
+    priority: 4,
+    sizeGb: 19.0,
     toolUse: true,
   },
   {
