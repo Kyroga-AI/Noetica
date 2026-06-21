@@ -154,10 +154,12 @@ export function selectSurface(allNodes: GNode[], allEdges: GEdge[], opts: { view
       }
       picked = [...seen].map((id) => byId.get(id)!).filter(Boolean)
     } else {
-      // Top-level: the highest-degree clean entities of this category.
+      // Top-level: the highest-degree clean entities of this category. Drop orphans (degree 0)
+      // — an isolated dot adds nothing to a relationship view (21% of atoms are orphans).
       picked = labeled
         .filter((n) => categoryFor(n.labels[0] ?? '') === catTarget)
         .filter(isClean)
+        .filter((n) => (degree.get(n.id) ?? 0) > 0)
         .sort((a, b) => (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0) || Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0))
         .slice(0, limit)
     }
@@ -176,7 +178,8 @@ export function selectSurface(allNodes: GNode[], allEdges: GEdge[], opts: { view
     }
     picked = [...seen].map((id) => byId.get(id)!).filter(Boolean)
   } else {
-    const ranked = labeled.slice().sort((a, b) => (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0) || Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0))
+    const ranked = labeled.filter((n) => (degree.get(n.id) ?? 0) > 0)   // 'all' is a relationship view — drop orphans
+      .slice().sort((a, b) => (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0) || Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0))
     const byLabel = new Map<string, GNode[]>()
     for (const n of ranked) { const l = n.labels[0] ?? 'node'; const arr = byLabel.get(l); if (arr) arr.push(n); else byLabel.set(l, [n]) }
     picked = []
