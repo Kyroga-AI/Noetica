@@ -118,8 +118,11 @@ export function selectSurface(allNodes: GNode[], allEdges: GEdge[], opts: { view
     ;(adj.get(e.from) ?? adj.set(e.from, new Set()).get(e.from)!).add(e.to)
     ;(adj.get(e.to) ?? adj.set(e.to, new Set()).get(e.to)!).add(e.from)
   }
-  // Drop anything the hygiene pass marked pruned (junk classes), so cleanups take effect everywhere.
-  const labeled = allNodes.filter((n) => cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true)
+  // Drop anything the hygiene pass marked pruned (junk classes) AND test-corpus pollution
+  // (corpus-test-* atoms from graphbrain-bridge tests that leaked into the live graph — they
+  // surface as duplicate/orphan "corpus test" nodes). `corpus-test` is a reserved test prefix.
+  const labeled = allNodes.filter((n) =>
+    cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id)))
   const byId = new Map(labeled.map((n) => [n.id, n]))
 
   let picked: GNode[]
