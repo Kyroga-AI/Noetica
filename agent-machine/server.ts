@@ -5042,6 +5042,58 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // POST /api/research/solve — answer a question GROUNDED in the brain, VERIFIED (grounding check)
+  // with a repair loop. The research analogue of /api/code/solve, compounding the same way: verified
+  // answers are stored + reused, and outcomes feed the SAME quality curve. Body: { question, max_attempts? }.
+  if (req.method === 'POST' && url.pathname === '/api/research/solve') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      setCORSHeaders(res)
+      try {
+        const p = JSON.parse(body || '{}') as { question?: string; max_attempts?: number }
+        const question = String(p.question ?? '').trim()
+        if (!question) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'question_required' })); return }
+        const maxAttempts = Math.min(4, Math.max(1, Number(p.max_attempts ?? 3)))
+        const { semanticSearch, lexicalSearch } = await import('./lib/doc-store.js')
+        const sem = await semanticSearch(question, 6).catch(() => [] as { text: string; filename: string }[])
+        const lex = lexicalSearch(question, 6)
+        const seen = new Set<string>(); const sources: { text: string; filename: string }[] = []
+        for (const h of [...sem, ...lex]) { const key = h.text.slice(0, 80); if (h.text && !seen.has(key)) { seen.add(key); sources.push({ text: h.text, filename: h.filename }) } }
+        const { verifyGrounding } = await import('./lib/research-verify.js')
+        const { retrieveSimilar, fewShot, recordSolve, recordVerified } = await import('./lib/solution-memory.js')
+        const memory = await retrieveSimilar(question, 1).catch(() => [])
+        const usedMemory = memory.length > 0
+        if (!sources.length) {
+          recordSolve({ task: question, solved: false, attempts: 0, escalated: false, model: 'research', usedMemory })
+          res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ grounded: false, score: 0, answer: 'Nothing in my knowledge base grounds an answer to this — import or ingest relevant material first.', sources: [], attempts: 0, usedMemory }))
+          return
+        }
+        const srcBlock = sources.slice(0, 8).map((s, i) => `[${i + 1}] (${s.filename}) ${s.text.slice(0, 600)}`).join('\n\n')
+        const SYS = `You are a research assistant. Answer the question using ONLY the SOURCES below. Ground every statement in them; do NOT add facts the sources don't support. Be concise. If the sources don't answer it, say so.\n\nSOURCES:\n${srcBlock}` + (usedMemory ? `\n\n${fewShot(memory)}` : '')
+        let answer = ''
+        let grounding = { grounded: false, score: 0, supported: 0, total: 0, unsupported: [] as string[] }
+        let attempts = 0, prior = ''
+        for (let a = 1; a <= maxAttempts; a++) {
+          attempts = a
+          const user = a === 1 ? `Question: ${question}` : `Question: ${question}\n\nYour previous answer made claims the sources DON'T support:\n${prior}\nRewrite using ONLY supported facts.`
+          try { ({ content: answer } = await generateOllamaText({ model: 'qwen2.5:7b', messages: [{ role: 'system', content: SYS }, { role: 'user', content: user }], temperature: a === 1 ? 0.2 : 0.4 })) }
+          catch (e) { answer = `[generation error: ${String(e).slice(0, 80)}]`; break }
+          grounding = verifyGrounding(answer, sources)
+          if (grounding.grounded) break
+          prior = grounding.unsupported.slice(0, 4).map((u) => `- ${u}`).join('\n')
+        }
+        recordSolve({ task: question, solved: grounding.grounded, attempts, escalated: false, model: 'research', usedMemory })
+        if (grounding.grounded) void recordVerified(question, [{ path: 'research/answer.md', content: answer }], 'grounding-verified').catch(() => {})
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ grounded: grounding.grounded, score: grounding.score, answer, attempts, usedMemory, sources: sources.slice(0, 8).map((s, i) => ({ n: i + 1, filename: s.filename })), unsupported: grounding.unsupported }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e).slice(0, 160) }))
+      }
+    })() })
+    return
+  }
+
   // GET /api/mesh/status — the prophet-cloud-mesh tier ladder and which tiers are armed.
   // GET /api/graph/path?from=<id>&to=<id> — shortest path (BFS) between two nodes: the "how is X
   // related to Y?" query. Returns the chain of {id,label} (or empty if disconnected).
