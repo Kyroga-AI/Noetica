@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { listMemories, pinMemory, unpinMemory, forgetMemory, findSimilarMemory, selectRelevantMemories, PINNED_LTI, type MemoryStore, type MemoryNode } from './memory-curation.js'
+import { listMemories, pinMemory, unpinMemory, forgetMemory, findSimilarMemory, findConflictingMemory, selectRelevantMemories, PINNED_LTI, type MemoryStore, type MemoryNode } from './memory-curation.js'
 
 class FakeStore implements MemoryStore {
   nodes = new Map<string, MemoryNode>()
@@ -84,6 +84,19 @@ test('findSimilarMemory catches near-duplicates (dedup-on-write)', () => {
   const s = seed()  // doc:mem1 preview = "Michael prefers concise answers."
   assert.equal(findSimilarMemory(s, 'Michael prefers concise short answers'), 'doc:mem1')   // near-dup
   assert.equal(findSimilarMemory(s, 'the weather in Tokyo is rainy'), null)                 // unrelated
+})
+
+test('findConflictingMemory flags same-subject-different-value (possible update)', () => {
+  const s = new FakeStore()
+  s.add('doc:title', ['Document'], { filename: 'memory/identity-1.md', created_at: '2026-06-21T10:00:00Z', preview: 'Michael title is Lord' })
+  // same subject (Michael/title), different value → conflict, not exact dup
+  const conflict = findConflictingMemory(s, 'Michael title is King')
+  assert.ok(conflict, 'flags the possible update')
+  assert.equal(conflict!.id, 'doc:title')
+  // an unrelated statement does not conflict
+  assert.equal(findConflictingMemory(s, 'the capital of France is Paris'), null)
+  // a near-duplicate is NOT a conflict (it's caught by dedup, score ≥ 0.6)
+  assert.equal(findConflictingMemory(s, 'Michael title is Lord'), null)
 })
 
 test('selectRelevantMemories: pinned always in, unpinned only when relevant', () => {

@@ -1299,7 +1299,7 @@ async function executeTool(
       const kind = ['preference', 'fact', 'identity'].includes(String(input['kind'])) ? String(input['kind']) : 'fact'
       try {
         // Dedup-on-write: don't store a near-duplicate of something already remembered.
-        const { findSimilarMemory, listMemories } = await import('./lib/memory-curation.js')
+        const { findSimilarMemory, findConflictingMemory, listMemories } = await import('./lib/memory-curation.js')
         const gMem = getHellGraph()
         const mStore = { nodesByLabel: (l: string) => gMem.nodesByLabel(l) as any[], getNode: (id: string) => gMem.getNode(id) as any, out: (id: string, e?: string) => gMem.out(id, e) as any[], setProperty: () => { /* read-only */ } }
         const dupId = findSimilarMemory(mStore, content)
@@ -1307,10 +1307,13 @@ async function executeTool(
           const existing = listMemories(mStore).find((m) => m.id === dupId)
           return `Already remembered something similar: "${(existing?.preview ?? '').slice(0, 120)}". Not duplicating it.`
         }
+        // Contradiction-aware: a memory sharing the subject but differing may be a stale fact.
+        const conflict = findConflictingMemory(mStore, content)
         const { ingestDocument } = await import('./lib/doc-store.js')
         const stamp = new Date().toISOString().replace(/[:.]/g, '-')
         await ingestDocument(`memory/${kind}-${stamp}.md`, content)
-        return `Saved to memory (${kind}): "${content.slice(0, 140)}". I'll recall this on future relevant turns.`
+        const note = conflict ? ` ⚠️ This may update an earlier memory: "${conflict.preview.slice(0, 110)}" — tell me to forget that one if it's now wrong.` : ''
+        return `Saved to memory (${kind}): "${content.slice(0, 140)}". I'll recall this on future relevant turns.${note}`
       } catch (e) {
         return `Could not save to memory: ${e instanceof Error ? e.message : String(e)} (is the local embedding model available?)`
       }

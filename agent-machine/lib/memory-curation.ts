@@ -100,6 +100,28 @@ export function forgetMemory(store: MemoryStore, id: string): boolean {
   return true
 }
 
+/**
+ * Find a memory that shares a subject with `content` but is NOT a near-duplicate — a possible
+ * contradiction / update (e.g. "title is Lord" vs "title is King"). Returns the closest such
+ * memory in the band [minOverlap, dupThreshold), or null. Used to warn on remember.
+ */
+export function findConflictingMemory(
+  store: MemoryStore,
+  content: string,
+  opts: { minOverlap?: number; dupThreshold?: number } = {},
+): { id: string; preview: string } | null {
+  const qt = tokensOf(content)
+  if (qt.size < 2) return null
+  const minOverlap = opts.minOverlap ?? 0.34
+  const dupThreshold = opts.dupThreshold ?? 0.6
+  let best: { id: string; preview: string; score: number } | null = null
+  for (const m of listMemories(store)) {
+    const score = jaccard(qt, tokensOf(m.preview))
+    if (score >= minOverlap && score < dupThreshold && (!best || score > best.score)) best = { id: m.id, preview: m.preview, score }
+  }
+  return best ? { id: best.id, preview: best.preview } : null
+}
+
 /** Find an existing memory whose preview is a near-duplicate of `content` (for dedup-on-write). */
 export function findSimilarMemory(store: MemoryStore, content: string, threshold = 0.6): string | null {
   const qt = tokensOf(content)
