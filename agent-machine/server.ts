@@ -883,6 +883,34 @@ async function webSearch(query: string, serperKey?: string): Promise<string> {
     }
   }
 
+  // Keyless REAL web results via DuckDuckGo HTML (the Instant Answer API below only has
+  // Wikipedia-style abstracts — useless for general queries). This returns actual ranked
+  // results with snippets, no API key needed.
+  try {
+    const res = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, {
+      headers: { 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36', accept: 'text/html' },
+      signal: AbortSignal.timeout(8_000),
+    })
+    if (res.ok) {
+      const html = await res.text()
+      const titles = [...html.matchAll(/<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)]
+      const snippets = [...html.matchAll(/<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g)]
+      const strip = (h: string) => h.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&#x2F;/g, '/').trim()
+      const out: string[] = []
+      for (let i = 0; i < titles.length && out.length < 6; i++) {
+        let link = titles[i]![1]!
+        const uddg = link.match(/uddg=([^&]+)/)
+        if (uddg) { try { link = decodeURIComponent(uddg[1]!) } catch { /* keep raw */ } }
+        const title = strip(titles[i]![2]!)
+        const snip = snippets[i] ? strip(snippets[i]![1]!) : ''
+        if (title && link.startsWith('http')) out.push(`- [${title}](${link})${snip ? ` — ${snip.slice(0, 180)}` : ''}`)
+      }
+      if (out.length) return out.join('\n')
+    }
+  } catch {
+    // fall through to the Instant Answer API
+  }
+
   // DuckDuckGo Instant Answer API (no key required)
   try {
     const url = new URL('https://api.duckduckgo.com/')
@@ -2836,6 +2864,39 @@ const server = http.createServer((req, res) => {
         hellgraph: { feature_atoms: atoms, total_nodes: g.allNodes().length, total_edges: g.allEdges().length },
         tiers: { tier1_memoryd: memorydHealth !== null, tier2_hellgraph: true, tier3_map: true },
       }))
+    })()
+    return
+  }
+
+  // POST /api/tool — run ONE built-in tool directly, no model loop. The fast path for
+  // tool-shaped intents (e.g. research → web_search): the dialogue layer fires the tool
+  // and shows results in ~2s instead of spinning up the slow generative agent to decide.
+  if (req.method === 'POST' && url.pathname === '/api/tool') {
+    void (async () => {
+      setCORSHeaders(res)
+      try {
+        const body = await new Promise<string>((resolve, reject) => {
+          let d = ''
+          req.on('data', (c: Buffer) => { d += c.toString() })
+          req.on('end', () => resolve(d))
+          req.on('error', reject)
+        })
+        const { name, input, provider_keys } = JSON.parse(body || '{}') as {
+          name?: string; input?: Record<string, unknown>
+          provider_keys?: { anthropic?: string; openai?: string; serper?: string }
+        }
+        if (!name || !BUILTIN_TOOLS.some((t) => t.name === name)) {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: `unknown built-in tool: ${name}` }))
+          return
+        }
+        const result = await executeTool(name, input ?? {}, provider_keys ?? {})
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ result }))
+      } catch (err) {
+        res.writeHead(400, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: String(err) }))
+      }
     })()
     return
   }

@@ -48,7 +48,12 @@ const SURFACE_ALIASES: Record<string, string> = {
 }
 export interface DialogueForm {
   slot: string
-  template: string
+  /** Model dispatch: {value} substituted into the template, sent to the generative model. */
+  template?: string
+  /** Direct tool execution (fast, no model): {value} substituted into each input value. */
+  tool?: { name: string; input: Record<string, string> }
+  /** Quick-reply chips offered after the result (e.g. "Summarize these"). */
+  followups?: string[]
 }
 
 export interface DialogueCtx {
@@ -335,8 +340,8 @@ export function matchDialogue(input: string, ctx?: DialogueCtx): DialogueResult 
 
   // ── Slot-filling forms (fuzzy-tolerant) ───────────────────────────────────
   if (any(/^(do some |can you |please )?(research|look up|search( the web)?)( something| stuff| online)?$/) || fuzzyVerb(s, ['research', 'reserch', 'reasearch']))
-    return r(pick('ask-research', ['Sure — research what?', 'On it. What should I look into?', 'Happy to. What topic?']),
-      { form: { slot: 'topic', template: 'Search the web for the latest on {value} and summarize what you find, with sources.' } })
+    return r(pick('ask-research', ['Sure — what should I research?', 'On it. What topic?', 'Happy to — what should I look into?']),
+      { form: { slot: 'topic', tool: { name: 'web_search', input: { query: 'latest news and developments on {value}' } }, followups: ['Summarize these for me'] } })
   if (any(/^(write|generate|make|build) (me )?(some )?code$/, /^(let'?s )?code$/, /^write a (script|program|function)$/))
     return r(pick('ask-code', ['What should it do?', 'Sure — what should the code do?', 'Describe it and I’ll write + run it.']),
       { form: { slot: 'spec', template: 'Write code that does the following, then run it and show the output: {value}' } })

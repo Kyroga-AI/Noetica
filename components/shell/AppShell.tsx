@@ -485,6 +485,38 @@ export function AppShell() {
     }
   }
 
+  // Goal-oriented form whose action is a DIRECT TOOL (e.g. research → web_search): fire
+  // the built-in tool at the agent-machine and show results in ~2s — no slow generative
+  // round-trip. The model only gets involved if the user taps a follow-up like "Summarize".
+  async function runToolForm(form: DialogueForm, value: string) {
+    if (!form.tool) return
+    const now = new Date().toISOString()
+    const userMsg: ChatMessage = { id: crypto.randomUUID(), role: 'user', content: value, workspace_mode: workspaceMode, created_at: now }
+    const assistantId = crypto.randomUUID()
+    autoTitle(value)
+    setMessages((cur) => [...cur, userMsg, { id: assistantId, role: 'assistant', content: '', created_at: now }])
+    setIsStreaming(true)
+    try {
+      const input: Record<string, string> = {}
+      for (const [k, v] of Object.entries(form.tool.input)) input[k] = v.replace('{value}', value)
+      const base = (settings.agentMachineEndpoint || 'http://127.0.0.1:8080').replace(/\/$/, '')
+      const resp = await fetch(`${base}/api/tool`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: form.tool.name, input, provider_keys: { serper: settings.serperApiKey || undefined, openai: settings.openaiApiKey || undefined } }),
+      })
+      const data = await resp.json().catch(() => ({} as { result?: string; error?: string }))
+      const text = String(data.result ?? data.error ?? 'No results found.')
+      const header = form.tool.name === 'web_search' ? `Here's what I found on **${value}**:\n\n` : ''
+      updateAssistant(assistantId, { content: header + text, quick_replies: form.followups })
+    } catch (e) {
+      updateAssistant(assistantId, { content: `That search couldn't run: ${e instanceof Error ? e.message : String(e)}. The runtime may still be warming up — try again in a moment.` })
+    } finally {
+      setIsStreaming(false)
+      setMessages((cur) => { updateMessages(cur); return cur })
+    }
+  }
+
   function handleSwitchSession(id: string) {
     const s = sessions.find((sess) => sess.id === id)
     if (!s) return
@@ -614,8 +646,12 @@ export function AppShell() {
       }
       if (aside?.cancelForm) { setPendingForm(null); appendPair(aside.reply); return }
       if (aside && !aside.form) { appendPair(`${aside.reply}\n\nBack to it — what ${pendingForm.slot}?`, aside.quickReplies); return } // keep form
-      const filled = pendingForm.template.replace('{value}', content.trim())
+      const form = pendingForm
       setPendingForm(null)
+      // Tool form (e.g. research → web_search): fire the tool directly, fast. Otherwise
+      // it's a model-dispatch form — fill the template and send to the generative model.
+      if (form.tool) { await runToolForm(form, content.trim()); return }
+      const filled = (form.template ?? '{value}').replace('{value}', content.trim())
       await handleSendRaw(filled, [], messages, tools)
       return
     }
