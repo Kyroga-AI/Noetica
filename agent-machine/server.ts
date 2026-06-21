@@ -2624,8 +2624,10 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       // posture — arithmetic/quantitative word problems where a small model's mental
       // math is unreliable — translate the problem to a program, RUN it, and trust the
       // executed result instead of voting over guesses. Deterministic, not popular.
-      // Disable with NOETICA_EXEC_VERIFY=0.
-      if (criticEnabled && process.env['NOETICA_EXEC_VERIFY'] !== '0'
+      // NOT gated on no-tools: a compute question is best answered by computing it even
+      // when other tools are on offer (PoT returns null and falls through if it can't,
+      // e.g. the answer needs live data a program can't reach). Disable: NOETICA_EXEC_VERIFY=0.
+      if (process.env['NOETICA_EXEC_VERIFY'] !== '0' && routerDecision.task !== 'chat'
           && classifyComplexityPosture(latestUserContent).posture === 'compute') {
         try {
           const pot = await programOfThought(latestUserContent, {
