@@ -2514,6 +2514,27 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     }
   } catch { /* goal tracking is best-effort — never block the turn */ }
 
+  // Active long-term memory: inject what the user has asked the agent to remember (the
+  // `remember`-tool facts), pinned-first, every turn. This is the fix for "memory stored but
+  // not recalled" — facts now actually surface in context. Bounded to 8 short lines so it's
+  // cheap; pinned (curated into the long-term brain) are marked and always lead.
+  let memoryContext = ''
+  try {
+    const { listMemories } = await import('./lib/memory-curation.js')
+    const g = getHellGraph()
+    const memStore = {
+      nodesByLabel: (l: string) => g.nodesByLabel(l) as any[],
+      getNode: (id: string) => g.getNode(id) as any,
+      out: (id: string, e?: string) => g.out(id, e) as any[],
+      setProperty: () => { /* read-only here */ },
+    }
+    const mems = listMemories(memStore).slice(0, 8)
+    if (mems.length > 0) {
+      memoryContext = `\n\n---\n**Long-term memory (what you've been asked to remember — honor these)**\n` +
+        mems.map((m) => `- ${m.pinned ? '📌 ' : ''}(${m.kind}) ${m.preview}`).join('\n')
+    }
+  } catch { /* memory injection best-effort */ }
+
   // Few-shot training memory: inject the best gold Q/A exemplars for this intent —
   // in-context "training" on the Pareto-head cases, no model update needed. Opt-in
   // (NOETICA_QA_FEWSHOT) because each exemplar adds prompt tokens (latency) on CPU.
@@ -2646,7 +2667,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       ? '\n\nASK MODE: Before running any command, writing/modifying any file, or taking any irreversible action, first state concisely what you intend to do and ask the user to confirm. Read-only steps are fine without asking.'
       : ''
 
-  const enrichedSystemPrompt = basePrompt + dateLine + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + goalContext + reasoningDirective + verbosityNote + modeNote + profile.authorizationSuffix
+  const enrichedSystemPrompt = basePrompt + dateLine + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + goalContext + reasoningDirective + verbosityNote + modeNote + profile.authorizationSuffix
 
   // Token budget: rough estimate (4 chars ≈ 1 token). If message history + system prompt
   // exceeds 70% of the model's context window, trim oldest non-system messages.
