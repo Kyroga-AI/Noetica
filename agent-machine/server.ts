@@ -4935,8 +4935,15 @@ const server = http.createServer((req, res) => {
       try { fs.mkdirSync(ws, { recursive: true }) } catch { /* */ }
       const maxAttempts = Math.min(6, Math.max(1, Number(p.max_attempts ?? 4)))
       const model = String(p.model ?? 'qwen2.5-coder:7b')
-      const SYS = 'You are a coding agent. Solve the task by writing files and ONE verification command that exits 0 only if the solution is correct (e.g. runs a test). Respond with ONLY a JSON object, no prose and no markdown fences:\n{"files":[{"path":"rel/path.ext","content":"..."}],"verify":"shell command"}\nUse tools available on the machine (python3, node). Paths are relative to the project root.'
+      // Compounding loop (select): pull the most-similar PROVEN solutions and inject them as
+      // few-shot, so the agent reuses what already worked instead of re-deriving from scratch.
+      const { retrieveSimilar, fewShot, recordSolve, recordVerified } = await import('./lib/solution-memory.js')
+      const memory = await retrieveSimilar(task, 2).catch(() => [])
+      const memBlock = fewShot(memory)
+      const usedMemory = memory.length > 0
+      const SYS = 'You are a coding agent. Solve the task by writing files and ONE verification command that exits 0 only if the solution is correct (e.g. runs a test). Respond with ONLY a JSON object, no prose and no markdown fences:\n{"files":[{"path":"rel/path.ext","content":"..."}],"verify":"shell command"}\nUse tools available on the machine (python3, node). Paths are relative to the project root.' + (memBlock ? `\n\n${memBlock}` : '')
       const steps: Array<{ attempt: number; verify: string; exit: string; ok: boolean; files: string[]; output: string }> = []
+      let solvedFiles: { path: string; content: string }[] = []; let solvedVerify = ''
       // Capture each touched file's ORIGINAL content the first time we write it, so the UI can
       // show a real diff and the user can reject (revert) a file back to its pre-solve state.
       const touched = new Map<string, string | null>()
@@ -4959,7 +4966,7 @@ const server = http.createServer((req, res) => {
         const ok = code === '0'
         const output = `${out}${err ? `\n${err}` : ''}`.trim()
         steps.push({ attempt, verify: sol.verify, exit: code, ok, files: sol.files.map((f) => f.path), output: output.slice(-1200) })
-        if (ok) { solved = true; break }
+        if (ok) { solved = true; solvedFiles = sol.files; solvedVerify = sol.verify; break }
         prior = `Files: ${sol.files.map((f) => f.path).join(', ')}\nVerify: ${sol.verify}\nExit: ${code}\nOutput:\n${output.slice(-1500)}`
       }
       // prophet-cloud-mesh escape hatch: the local loop exhausted its budget unsolved. If a
@@ -4989,7 +4996,7 @@ const server = http.createServer((req, res) => {
             const ok = code === '0'
             const output = `${out}${err ? `\n${err}` : ''}`.trim()
             steps.push({ attempt: steps.length + 1, verify: sol.verify, exit: code, ok, files: sol.files.map((f) => f.path), output: `[sovereign:${esc.model}] ${output}`.slice(-1200) })
-            if (ok) solved = true
+            if (ok) { solved = true; solvedFiles = sol.files; solvedVerify = sol.verify }
           }
         }
       }
@@ -5001,9 +5008,28 @@ const server = http.createServer((req, res) => {
         try { if (fs.existsSync(fp)) after = fs.readFileSync(fp, 'utf8') } catch { /* */ }
         return { path: rel, before, after, isNew: before === null }
       })
+      // Compounding loop (memory + measure): log this outcome for the quality curve, and persist
+      // the VERIFIED solution into the retrieval corpus so future similar tasks reuse it.
+      recordSolve({ task, solved, attempts: steps.length, escalated, model, usedMemory })
+      if (solved && solvedFiles.length) { void recordVerified(task, solvedFiles, solvedVerify).catch(() => {}) }
       res.writeHead(200, { 'content-type': 'application/json' })
-      res.end(JSON.stringify({ solved, workspace: wsName, attempts: steps.length, steps, diffs, escalated }))
+      res.end(JSON.stringify({ solved, workspace: wsName, attempts: steps.length, steps, diffs, escalated, usedMemory }))
     })() })
+    return
+  }
+
+  // GET /api/metrics/quality — the COMPOUNDING CURVE: solve-rate + avg-attempts over time, so we can
+  // SHOW the loop improves with use (memory + retrieval), not just claim it.
+  if (req.method === 'GET' && url.pathname === '/api/metrics/quality') {
+    void (async () => {
+      setCORSHeaders(res)
+      try {
+        const { qualityMetrics } = await import('./lib/solution-memory.js')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(qualityMetrics()))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e).slice(0, 120) }))
+      }
+    })()
     return
   }
 
