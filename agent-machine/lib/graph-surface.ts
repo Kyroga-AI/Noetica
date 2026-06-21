@@ -9,11 +9,37 @@
  */
 
 import type { GraphNode, GraphEdge } from '@socioprophet/hellgraph'
+import { coreTokens } from './topic-closure.js'
 type GNode = GraphNode
 type GEdge = GraphEdge
-export interface SurfaceNode { id: string; label: string; category: string; featured: boolean; degree: number }
-export interface SurfaceLink { source: string; target: string; primary: boolean }
+export interface SurfaceNode { id: string; label: string; category: string; kind: string; featured: boolean; degree: number }
+export interface SurfaceLink { source: string; target: string; primary: boolean; epistemic: string }
 export interface SurfaceResult { nodes: SurfaceNode[]; links: SurfaceLink[]; total: { nodes: number; edges: number } }
+
+// Entity CLASS (regis-aligned) for an atom's primary label — what the node IS, for styling/legend/
+// filtering. Coarser than the raw atom type so the legend stays legible.
+export function kindOf(label: string): string {
+  const l = (label ?? '').toLowerCase()
+  if (/cluster/.test(l)) return 'Cluster'
+  if (/person|human|twin|user|persona|pseudonym/.test(l)) return 'Person'
+  if (/org|company|institution|team/.test(l)) return 'Org'
+  if (/session|turn|conversation|message|event|run|dispatch/.test(l)) return 'Session'
+  if (/file|symbol|repo|code|module/.test(l)) return 'Code'
+  if (/model|provider|tool|action|service|workload|app|device/.test(l)) return 'Service'
+  if (/document|record|chunk|source|evidence|episode|proof/.test(l)) return 'Document'
+  if (/domain|topic|glossary|concept|feature|vector|learningstate|candidate/.test(l)) return 'Concept'
+  if (/entity|canonical|role|gaia|belief/.test(l)) return 'Entity'
+  return 'Concept'
+}
+// Epistemic class of a relationship (regis edge typing): how much we should TRUST it. Algorithm/
+// cluster-derived edges are 'inferred'; structural/ingested ones are 'extracted'.
+export function epistemicOf(edgeKind: string): string {
+  const k = (edgeKind ?? '').toLowerCase()
+  if (/hygiene|match|merge|similar|cluster|infer|derive/.test(k)) return 'inferred'
+  if (/has_|in_|contains|topic|term|symbol|chunk|cite|ref/.test(k)) return 'extracted'
+  if (/confirm|attest|verified|consent|proof/.test(k)) return 'confirmed'
+  return 'extracted'
+}
 
 // label → colour category (docs/learning/technical/trust/deployment palette)
 export function categoryFor(label: string): string {
@@ -41,19 +67,30 @@ function isProse(s: string): boolean {
   if (s.trim().split(/\s+/).length > 4) return true
   return false
 }
+// A label that's a path or carries operational stopwords (self/ntca, /tmp/ntca prbe,
+// self notca md) should display as its core concept, not the raw path. Only rewrites such
+// labels — a clean label (no path separator, no self/tmp/probe noise) is returned as-is.
+function tidyTopicLabel(s: string): string {
+  if (!/[/\\]/.test(s) && !/\b(self|tmp|probe|prbe)\b/i.test(s)) return s
+  const core = coreTokens(s)                                   // splits on /\_-.:, drops stopwords + len<3
+  if (core.length) return core.join(' ')
+  return (s.split(/[/\\]/).pop() ?? s).trim()                 // fallback: basename
+}
+
 export function cleanLabel(n: GNode): string | null {
   for (const key of ['title', 'name', 'surface', 'normalised', 'filename']) {
     const v = n.properties[key]
     if (v == null) continue
-    const s = String(v)
+    const cleaned = String(v)
       .replace(/\s+/g, ' ')
       .replace(/^\[[^\]]*\]\s*/, '')
       .replace(/\.(pdf|txt|md|json|vtt|srt|docx|pptx|xlsx|csv|html?|dmg|app|pkg|exe|zip|tar|gz)$/i, '')
       .replace(/^[#>.\-\s]+/, '')
       .trim()
+    const s = tidyTopicLabel(cleaned)
     if (s && !isHashy(s) && !isProse(s)) return s.slice(0, 22)
   }
-  const last = (n.id.split(':').pop() ?? '').replace(/-[0-9a-f]{4,}$/i, '').replace(/-/g, ' ').trim()
+  const last = tidyTopicLabel((n.id.split(':').pop() ?? '').replace(/-[0-9a-f]{4,}$/i, '').replace(/-/g, ' ').trim())
   return last && !isHashy(last) && !isProse(last) ? last.slice(0, 22) : null
 }
 
