@@ -5008,6 +5008,34 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // POST /api/import/chats — ingest a Claude/ChatGPT data-EXPORT (the conversations JSON) into the
+  // brain: each conversation becomes a Document (chunked + embedded + atoms), searchable + in the
+  // graph. History is NOT reachable via an API key — this is the export-file path. Body: the raw
+  // export array/object, or { data: <export> }.
+  if (req.method === 'POST' && url.pathname === '/api/import/chats') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      setCORSHeaders(res)
+      try {
+        let data: unknown
+        try { data = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const payload = (data && typeof data === 'object' && !Array.isArray(data) && 'data' in (data as Record<string, unknown>)) ? (data as Record<string, unknown>)['data'] : data
+        const { parseChatExport, transcript } = await import('./lib/chat-import.js')
+        const convs = parseChatExport(payload)
+        const { ingestDocument } = await import('./lib/doc-store.js')
+        let imported = 0, messages = 0
+        for (const conv of convs.slice(0, 5000)) {
+          try { await ingestDocument(`chats/${conv.title.replace(/[^a-z0-9 _-]/gi, '_').slice(0, 60)}.md`, transcript(conv)); imported++; messages += conv.messages.length } catch { /* skip one bad conv */ }
+        }
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ conversations: convs.length, imported, messages }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e).slice(0, 160) }))
+      }
+    })() })
+    return
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/mesh/status') {
     setCORSHeaders(res)
     const tiers = meshLadder({ hasAnthropicKey: !!process.env['ANTHROPIC_API_KEY'] })
