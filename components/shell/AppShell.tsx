@@ -381,7 +381,9 @@ export function AppShell() {
     URL.revokeObjectURL(url)
   }
 
-  const { state: voiceState, startListening, stopListening, speak, stopSpeaking } = useVoice((transcript) => {
+  const voiceReplyRef = useRef(false)
+  const { state: voiceState, isLive, startListening, stopListening, startLive, stopLive, speak, stopSpeaking } = useVoice((transcript) => {
+    voiceReplyRef.current = true   // this turn was voice-initiated → speak the reply
     void handleSendRaw(transcript, [], messages)
   })
 
@@ -998,6 +1000,8 @@ export function AppShell() {
               }
             },
             onDone: (result) => {
+              // Voice loop: if this turn was spoken, speak the reply (and live mode re-listens).
+              if (voiceReplyRef.current) { voiceReplyRef.current = false; if (result.content) void speak(result.content) }
               if (settings.showRawEvents) {
                 setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'done', payload: { run_id: result.run_id, model: result.model_routed, latency_ms: result.latency_ms } }, ...prev].slice(0, 80))
               }
@@ -1330,6 +1334,9 @@ export function AppShell() {
             mode={mode}
             riskReadout={riskReadout}
             voiceState={voiceState}
+            isLive={isLive}
+            onLiveStart={startLive}
+            onLiveStop={stopLive}
             openaiApiKey={settings.openaiApiKey || undefined}
             hasMessages={messages.filter((m) => m.role !== 'system').length > 0}
             onModeChange={setMode}

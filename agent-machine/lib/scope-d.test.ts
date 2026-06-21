@@ -7,7 +7,8 @@ import * as path from 'node:path'
 // Self-contained EngagementPolicy fixture (shape per scope-d engagement-policy.schema.json):
 // authorizes only a local lab target; third-party-services are out-of-scope → any cloud
 // LLM egress must be denied and routed back to local.
-const POLICY_PATH = path.join(os.tmpdir(), 'scope-d-test-policy.json')
+// Unique per-run temp dir (mkdtemp) — no predictable shared temp path.
+const POLICY_PATH = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'scope-d-test-')), 'policy.json')
 fs.writeFileSync(POLICY_PATH, JSON.stringify({
   policyId: 'engagement-policy-test-lab',
   name: 'test lab policy',

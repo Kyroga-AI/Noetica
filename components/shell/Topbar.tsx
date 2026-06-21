@@ -2,7 +2,6 @@ import { NoeticaMark } from '@/components/brand/NoeticaMark'
 import { WarmingLevel } from '@/components/risk/WarmingLevel'
 import { ThemePicker } from '@/components/shell/ThemePicker'
 import { RuntimeStatus } from '@/components/status/RuntimeStatus'
-import { RealtimeVoiceButton } from '@/components/voice/RealtimeVoiceButton'
 import type { RiskAversionLiveReadout } from '@/lib/risk/riskAversionLive'
 import type { VoiceState } from '@/lib/voice/useVoice'
 
@@ -11,6 +10,9 @@ type TopbarProps = {
   mode: 'standalone' | 'sourceos'
   riskReadout?: RiskAversionLiveReadout | null
   voiceState?: VoiceState
+  isLive?: boolean
+  onLiveStart?: () => void
+  onLiveStop?: () => void
   openaiApiKey?: string
   hasMessages?: boolean
   onModelChange: (modelId: string) => void
@@ -34,7 +36,7 @@ function IconSettings() {
   )
 }
 
-export function Topbar({ modelId, mode, riskReadout, voiceState, openaiApiKey, hasMessages, onModelChange, onModeChange, onOpenSettings, onOpenPalette, onOpenInspector, onExportConversation, onVoiceStart, onVoiceStop, onRealtimeTranscript, onRealtimeSpeechStart }: TopbarProps) {
+export function Topbar({ modelId, mode, riskReadout, voiceState, isLive, onLiveStart, onLiveStop, openaiApiKey, hasMessages, onModelChange, onModeChange, onOpenSettings, onOpenPalette, onOpenInspector, onExportConversation, onVoiceStart, onVoiceStop, onRealtimeTranscript, onRealtimeSpeechStart }: TopbarProps) {
   const isListening = voiceState === 'listening'
 
   return (
@@ -48,39 +50,49 @@ export function Topbar({ modelId, mode, riskReadout, voiceState, openaiApiKey, h
 
       <div className="flex items-center gap-2">
         <RuntimeStatus />
-        {/* Basic STT voice button — compact, salmon pink */}
+        {/* Mic — push-to-talk dictation (single turn). Stays a mic. */}
         <button
-          onClick={isListening ? onVoiceStop : onVoiceStart}
-          title={isListening ? 'Listening… click to stop' : 'Speak to Noetica'}
-          aria-label={isListening ? 'Stop voice input' : 'Start voice input'}
+          onClick={isListening && !isLive ? onVoiceStop : onVoiceStart}
+          title={isListening && !isLive ? 'Listening… click to stop' : 'Speak (dictate)'}
+          aria-label="Voice dictation"
           className={`relative flex h-[22px] w-[22px] items-center justify-center rounded-full border transition ${
-            isListening
-              ? 'border-[#f43f5e] bg-[#fff1f2] text-[#f43f5e]'
-              : 'border-[#fda4af] bg-[#fff1f2] text-[#fb7185] hover:bg-[#ffe4e6]'
+            isListening && !isLive ? 'border-[#f43f5e] bg-[#fff1f2] text-[#f43f5e]' : 'border-[#fda4af] bg-[#fff1f2] text-[#fb7185] hover:bg-[#ffe4e6]'
           }`}
         >
-          {isListening && (
-            <span className="absolute inset-0 rounded-full animate-ping bg-[#fda4af] opacity-30" />
-          )}
-          {/* When listening, the mic SWAPS to a live animated waveform. */}
-          {isListening ? (
-            <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
-              <rect x="2.2" width="1.6" rx="0.8" fill="currentColor"><animate attributeName="height" values="4;9;4" dur="0.8s" repeatCount="indefinite"/><animate attributeName="y" values="6;3.5;6" dur="0.8s" repeatCount="indefinite"/></rect>
-              <rect x="5.4" width="1.6" rx="0.8" fill="currentColor"><animate attributeName="height" values="8;3;8" dur="0.7s" repeatCount="indefinite"/><animate attributeName="y" values="4;6.5;4" dur="0.7s" repeatCount="indefinite"/></rect>
-              <rect x="8.6" width="1.6" rx="0.8" fill="currentColor"><animate attributeName="height" values="6;11;6" dur="0.9s" repeatCount="indefinite"/><animate attributeName="y" values="5;2.5;5" dur="0.9s" repeatCount="indefinite"/></rect>
-              <rect x="11.8" width="1.6" rx="0.8" fill="currentColor"><animate attributeName="height" values="4;7;4" dur="0.6s" repeatCount="indefinite"/><animate attributeName="y" values="6;4.5;6" dur="0.6s" repeatCount="indefinite"/></rect>
-            </svg>
-          ) : (
-            <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden>
-              <rect x="6" y="1" width="4" height="8" rx="2" stroke="currentColor" strokeWidth="1.5"/>
-              <path d="M3 8a5 5 0 0 0 10 0M8 13v2M6 15h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-          )}
+          {isListening && !isLive && <span className="absolute inset-0 rounded-full animate-ping bg-[#fda4af] opacity-30" />}
+          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden>
+            <rect x="6" y="1" width="4" height="8" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+            <path d="M3 8a5 5 0 0 0 10 0M8 13v2M6 15h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          </svg>
         </button>
-        {/* Real-time voice (OpenAI Realtime API) — only shown when API key is available */}
-        {openaiApiKey && (
-          <RealtimeVoiceButton apiKey={openaiApiKey} onTranscript={onRealtimeTranscript} onSpeechStart={onRealtimeSpeechStart} />
-        )}
+        {/* Live chat — continuous hands-free conversation (waveform), fully local. */}
+        <button
+          onClick={isLive ? onLiveStop : onLiveStart}
+          title={isLive ? 'Live chat on — click to stop' : 'Start live voice chat'}
+          aria-label="Live voice chat"
+          className={`relative flex h-[22px] w-[22px] items-center justify-center rounded-full border transition ${
+            isLive ? 'border-[#6366f1] bg-[#eef2ff] text-[#4f46e5]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
+          }`}
+        >
+          {isLive && <span className="absolute inset-0 rounded-full animate-ping bg-[#a5b4fc] opacity-30" />}
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden>
+            {isLive ? (
+              <>
+                <rect x="2.2" width="1.6" rx="0.8" fill="currentColor"><animate attributeName="height" values="4;9;4" dur="0.8s" repeatCount="indefinite"/><animate attributeName="y" values="6;3.5;6" dur="0.8s" repeatCount="indefinite"/></rect>
+                <rect x="5.4" width="1.6" rx="0.8" fill="currentColor"><animate attributeName="height" values="8;3;8" dur="0.7s" repeatCount="indefinite"/><animate attributeName="y" values="4;6.5;4" dur="0.7s" repeatCount="indefinite"/></rect>
+                <rect x="8.6" width="1.6" rx="0.8" fill="currentColor"><animate attributeName="height" values="6;11;6" dur="0.9s" repeatCount="indefinite"/><animate attributeName="y" values="5;2.5;5" dur="0.9s" repeatCount="indefinite"/></rect>
+                <rect x="11.8" width="1.6" rx="0.8" fill="currentColor"><animate attributeName="height" values="4;7;4" dur="0.6s" repeatCount="indefinite"/><animate attributeName="y" values="6;4.5;6" dur="0.6s" repeatCount="indefinite"/></rect>
+              </>
+            ) : (
+              <>
+                <rect x="2.2" y="6" width="1.6" height="4" rx="0.8" fill="currentColor"/>
+                <rect x="5.4" y="4" width="1.6" height="8" rx="0.8" fill="currentColor"/>
+                <rect x="8.6" y="5" width="1.6" height="6" rx="0.8" fill="currentColor"/>
+                <rect x="11.8" y="6" width="1.6" height="4" rx="0.8" fill="currentColor"/>
+              </>
+            )}
+          </svg>
+        </button>
         <WarmingLevel readout={riskReadout} onOpenInspector={onOpenInspector} />
         <ThemePicker />
         {hasMessages && onExportConversation && (
