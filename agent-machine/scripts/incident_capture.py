@@ -133,7 +133,50 @@ def find_similar(symptom, incidents=None, k=3):
     return scored[:k]
 
 
+# Resolutions live in their own ledger so tagging a fix is decoupled from capturing failures:
+# each line {match:[symbols], skill:"Skill:...", evidence:{}} resolves any incident whose
+# signature ⊇ match. (Written by the repair loop on a POS postcondition; hand-seedable too.)
+RESOLUTIONS = os.path.expanduser("~/.noetica/resolutions.jsonl")
+
+
+def _resolutions():
+    if not os.path.exists(RESOLUTIONS):
+        return []
+    return [json.loads(l) for l in open(RESOLUTIONS) if l.strip()]
+
+
+def emit_graph(out_path, window_s=120):
+    """Cluster + correlate + apply resolutions, then dump a single graph JSON the atomspace
+    ingester consumes — so the windowing/correlation logic stays single-sourced here in Python."""
+    atoms = _load()
+    for i, a in enumerate(atoms):
+        a.setdefault("id", f"f{i}")
+    incidents = cluster_incidents(window_s, atoms)
+    res = _resolutions()
+    out_incs = []
+    for j, inc in enumerate(incidents):
+        sig = set(inc["signature"])
+        rb, ev = None, {}
+        for r in res:
+            if set(r.get("match", [])) <= sig and r.get("skill"):
+                rb, ev = r["skill"], r.get("evidence", {})
+                break
+        out_incs.append({"id": f"i{j}", "signature": inc["signature"], "window": inc["window"],
+                         "member_ids": [m["id"] for m in inc["members"]],
+                         "status": "resolved" if rb else "open", "resolved_by": rb,
+                         "resolution_evidence": ev})
+    graph = {"atoms": atoms, "incidents": out_incs, "edges": correlate(incidents)}
+    with open(out_path, "w") as f:
+        json.dump(graph, f, indent=2)
+    print(f"# emitted {len(atoms)} atoms · {len(out_incs)} incidents "
+          f"({sum(1 for i in out_incs if i['resolved_by'])} resolved) · {len(graph['edges'])} edges → {out_path}")
+    return graph
+
+
 def main():
+    if len(sys.argv) > 2 and sys.argv[1] == "--emit":
+        return emit_graph(sys.argv[2])
+
     # Fresh demo store so the self-test is deterministic.
     global STORE
     STORE = os.path.expanduser("~/.noetica/incidents-demo.jsonl")
