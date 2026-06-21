@@ -110,7 +110,7 @@ export function WorkspaceSurface() {
   const [workspaces, setWorkspaces] = useState<string[]>([])
   const [ws, setWs] = useState<string>('')
   const [files, setFiles] = useState<FileEntry[]>([])
-  const [expanded, setExpanded] = useState<Set<string>>(new Set())
+  const [expandedDirs, setExpandedDirs] = useState<Set<string>>(new Set())
   const [sel, setSel] = useState<string>('')
   const [content, setContent] = useState<string>('')
   const [loading, setLoading] = useState(false)
@@ -192,7 +192,7 @@ export function WorkspaceSurface() {
       const j = (await r.json()) as { files?: FileEntry[] }
       const fs = (j.files ?? []).filter((f) => !f.dir)
       setFiles(fs)
-      setExpanded(new Set(allDirPaths(buildTree(fs))))   // NERDTree: folders open by default
+      setExpandedDirs(new Set(allDirPaths(buildTree(fs))))   // NERDTree: folders open by default
     } catch { setFiles([]) } finally { setLoading(false) }
   }
   async function openFile(p: string) {
@@ -241,8 +241,8 @@ export function WorkspaceSurface() {
           {!loading && files.length === 0 && <div className="px-4 py-2 text-[12px] text-[var(--color-text-tertiary)]">Empty — ask the agent to build something (it scaffolds into a workspace).</div>}
           {!loading && buildTree(files).map((node) => (
             <FileTreeNode key={node.path} node={node} depth={0} sel={sel} onOpen={(p) => void openFile(p)}
-              expanded={expanded}
-              toggle={(p) => setExpanded((cur) => { const n = new Set(cur); n.has(p) ? n.delete(p) : n.add(p); return n })} />
+              expanded={expandedDirs}
+              toggle={(p) => setExpandedDirs((cur) => { const n = new Set(cur); if (n.has(p)) n.delete(p); else n.add(p); return n })} />
           ))}
         </div>
         <div className="min-h-0 flex-1 overflow-auto bg-[var(--color-background-primary)]">
