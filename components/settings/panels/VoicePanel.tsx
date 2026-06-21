@@ -157,7 +157,8 @@ export function VoicePanel() {
       {/* TTS Provider */}
       <div>
         <Label>TTS Provider</Label>
-        <Select value={provider} onChange={v => update({ ttsProvider: v as 'elevenlabs' | 'openai' | 'system' })}>
+        <Select value={provider} onChange={v => update({ ttsProvider: v as 'cloned' | 'elevenlabs' | 'openai' | 'system' })}>
+          <option value="cloned">Cloned voice (local — train in Tune &amp; Train)</option>
           <option value="elevenlabs">ElevenLabs (highest quality, accents)</option>
           <option value="openai">OpenAI TTS (good quality, needs API key)</option>
           <option value="system">System voice (macOS say / Web Speech)</option>

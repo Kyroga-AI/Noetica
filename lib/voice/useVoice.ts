@@ -134,6 +134,19 @@ export function useVoice(onTranscript: (text: string) => void) {
 
     const provider = settings.ttsProvider ?? 'openai'
 
+    // Tier 0: Cloned voice — the user's own locally-trained XTTS-v2 voice (fully local)
+    if (provider === 'cloned' && settings.clonedVoiceId) {
+      try {
+        const res = await fetch(`${amBase}/api/voice/tts`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ text: truncated, voice_id: settings.clonedVoiceId, language: (settings.voiceLanguage ?? 'en-US').slice(0, 2) }),
+          signal: AbortSignal.timeout(60_000),
+        })
+        if (res.ok) { await playAudioBlob(await res.blob()); return }
+      } catch { /* fall through to other tiers */ }
+    }
+
     // Tier 1: ElevenLabs — highest quality, supports accent/voice variety
     if (provider === 'elevenlabs' && settings.elevenlabsApiKey && settings.elevenlabsVoiceId) {
       try {

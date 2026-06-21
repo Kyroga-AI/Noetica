@@ -5,6 +5,7 @@ import { models } from '@/config/models'
 import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
 import { useSettings } from '@/lib/settings/context'
 import { isTauri } from '@/lib/tauri/bridge'
+import { VoiceTrainer } from '@/components/voice/VoiceTrainer'
 import type { ChatMessage } from '@/lib/types/message'
 
 function tuneUrl(path: string): string {
@@ -475,6 +476,9 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
 
         {/* Detail pane */}
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
+          <div className="mx-auto mb-4 max-w-4xl">
+            <VoiceTrainer />
+          </div>
           {!activeRun && (
             <div className="flex h-full items-center justify-center text-sm text-[var(--color-text-tertiary)]">
               Run a prompt to compare model responses.

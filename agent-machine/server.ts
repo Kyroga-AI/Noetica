@@ -49,6 +49,7 @@ import { isOllamaRunning, listLocalModels, pullModel, streamOllama, getModelCont
 import { parseInlineToolCalls } from './lib/tool-calls.js'
 import { retrieve } from './lib/retrieval.js'
 import { getGraph, graphHealth, graphSparql, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
+import { isVoiceProvisioned, ensureVoiceSidecar, voiceFetch } from './lib/voice-runtime.js'
 import { getHellGraph, attachRocksDB } from '@socioprophet/hellgraph'
 import { runGremlin } from '@socioprophet/hellgraph'
 import { buildWorkspacePrefix, invalidatePrefix } from './lib/context-cache.js'
@@ -4113,6 +4114,48 @@ const server = http.createServer((req, res) => {
   // CairnPath traversal API (/api/cairnpath/*)
   if (url.pathname.startsWith('/api/cairnpath')) {
     if (handleCairnPathRequest(req, res, url.pathname, getAtomSpace())) return
+  }
+
+  // ── Voice cloning (local XTTS-v2 sidecar) ──────────────────────────────────
+  if (url.pathname.startsWith('/api/voice/')) {
+    const sub = url.pathname.slice('/api/voice/'.length)
+    if (req.method === 'GET' && sub === 'status') {
+      ;(async () => {
+        const provisioned = isVoiceProvisioned()
+        let voices: Array<{ id: string; name: string }> = []
+        if (provisioned && (await ensureVoiceSidecar())) {
+          try { const j = (await (await voiceFetch('/voices')).json()) as { voices?: typeof voices }; voices = j.voices ?? [] } catch { /* sidecar warming */ }
+        }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ provisioned, voices }))
+      })()
+      return
+    }
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => {
+      ;(async () => {
+        if (!(await ensureVoiceSidecar())) {
+          res.writeHead(503, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: 'voice_not_provisioned', hint: 'run scripts/provision-voice.sh' })); return
+        }
+        try {
+          if (req.method === 'POST' && sub === 'clone') {
+            const r = await voiceFetch('/clone', { method: 'POST', headers: { 'content-type': 'application/json' }, body })
+            res.writeHead(r.status, { 'content-type': 'application/json' }); res.end(Buffer.from(await r.arrayBuffer())); return
+          }
+          if (req.method === 'POST' && sub === 'tts') {
+            const r = await voiceFetch('/tts', { method: 'POST', headers: { 'content-type': 'application/json' }, body })
+            if (!r.ok) { res.writeHead(r.status, { 'content-type': 'application/json' }); res.end(Buffer.from(await r.arrayBuffer())); return }
+            res.writeHead(200, { 'content-type': 'audio/wav', 'cache-control': 'no-store' }); res.end(Buffer.from(await r.arrayBuffer())); return
+          }
+          res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'not_found' }))
+        } catch (e) {
+          res.writeHead(502, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+        }
+      })()
+    })
+    return
   }
 
   // 404
