@@ -12,9 +12,42 @@ import type { GraphNode, GraphEdge } from '@socioprophet/hellgraph'
 import { embedText } from './ollama.js'
 import { cleanLabel, categoryFor, type SurfaceResult, type SurfaceNode, type SurfaceLink } from './graph-surface.js'
 
-const PARAM_NOISE = new Set(['name', 'arguments', 'path', 'content', 'query', 'input', 'output', 'type', 'properties', 'required', 'description', 'parameters', 'value', 'key', 'id', 'args', 'params', 'prompt', 'language'])
+// Words that are tool params, shell/command fragments, or generic instance noise — never topics.
+const NOISE = new Set([
+  'name', 'arguments', 'path', 'content', 'query', 'input', 'output', 'type', 'properties', 'required',
+  'description', 'parameters', 'value', 'key', 'id', 'args', 'params', 'prompt', 'language',
+  'copy', 'bash', 'sh', 'zsh', 'npm', 'install', 'run', 'dev', 'build', 'test', 'hello', 'world',
+  'true', 'false', 'null', 'none', 'todo', 'note', 'tmp', 'temp', 'trash', 'cache', 'log', 'logs',
+  'node', 'next', 'env', 'src', 'lib', 'bin', 'dist', 'main', 'index', 'config', 'data', 'file', 'files',
+  'package', 'lock', 'json', 'yaml', 'toml', 'md', 'txt', 'operation', 'write', 'read', 'string', 'number',
+])
+// Natural-language words → the label is a description/comment fragment, not a topic.
+const STOP = new Set([
+  'a', 'an', 'the', 'this', 'that', 'these', 'those', 'is', 'are', 'was', 'were', 'be', 'it', 'its',
+  'takes', 'take', 'defines', 'define', 'returns', 'return', 'your', 'you', 'with', 'for', 'of', 'to',
+  'and', 'or', 'in', 'on', 'code', 'function', 'method', 'class', 'uses', 'use', 'using', 'when', 'if',
+])
+// A label is a TOPIC (a class), not an instance, if it reads like a concept — not a file path,
+// dotfile, code identifier (snake_case), model tag (7b/3b), number, command, or generic noun.
 function isClean(label: string): boolean {
-  return label.length > 1 && !label.includes('/') && !/^[.~]/.test(label) && !PARAM_NOISE.has(label.toLowerCase())
+  const l = label.trim()
+  if (l.length < 3 || l.length > 40) return false
+  if (l.includes('/') || /^[.~]/.test(l)) return false           // paths / dotfiles
+  if (l.includes('_')) return false                               // snake_case code identifiers
+  if (/^\d/.test(l) || /^\d+\s*b$/i.test(l)) return false         // numbers, model tags (7b, 3b)
+  if (/[(){}[\]<>$="']/.test(l)) return false                     // code/param fragments
+  const lc = l.toLowerCase()
+  const words = lc.split(/[\s-]+/)
+  if (words.some((w) => NOISE.has(w) || STOP.has(w))) return false           // any generic/sentence word → not a topic
+  if (words.length >= 2 && words.every((w) => w === words[0])) return false  // "Noetica Noetica"
+  return true
+}
+
+// Deterministic PRNG (mulberry32) so topic discovery is STABLE across calls/restarts —
+// k-means++ init must not use Math.random or the same graph yields different topics each load.
+function rng(seed: number): () => number {
+  let a = seed >>> 0
+  return () => { a |= 0; a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296 }
 }
 
 // ── Embeddings (cached per node, reuses any stored vector) ──────────────────
@@ -37,10 +70,11 @@ function kmeans(V: number[][], k: number, iters = 18): number[] {
   const n = V.length
   if (n <= k) return V.map((_, i) => i)
   const d = V[0]!.length
-  const centers: number[][] = [V[Math.floor(Math.random() * n)]!.slice()]
+  const rand = rng(0x9e3779b1 ^ (n * 2654435761))   // seed from size → deterministic per dataset
+  const centers: number[][] = [V[Math.floor(rand() * n)]!.slice()]
   while (centers.length < k) {
     const dist = V.map((v) => { let best = -1; for (const c of centers) { const s = dot(v, c); if (s > best) best = s } return Math.max(1e-6, 1 - best) })
-    let sum = 0; for (const x of dist) sum += x; let r = Math.random() * sum, idx = 0
+    let sum = 0; for (const x of dist) sum += x; let r = rand() * sum, idx = 0
     for (let i = 0; i < n; i++) { r -= dist[i]!; if (r <= 0) { idx = i; break } }
     centers.push(V[idx]!.slice())
   }
@@ -81,14 +115,35 @@ export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[
     const vecs: number[][] = []; const valid: GraphNode[] = []
     cands.forEach((x, i) => { if (embeds[i]) { vecs.push(normalize(embeds[i]!)); valid.push(x.n) } })
     const reps: string[] = []; const members = new Map<string, string[]>(); const clusterOf = new Map<string, string>()
-    if (valid.length <= k) {
+    const labelOf = new Map(cands.map((x) => [x.n.id, x.label]))
+    const usedLabels = new Set<string>()
+    if (valid.length === 0) {
+      // Embeddings cold → clean degree-rank so we still surface TOPICS (clean, in-category
+      // labels), never letting the route fall back to raw file-path/instance noise.
+      for (const x of cands.slice(0, k)) { reps.push(x.n.id); members.set(x.n.id, [x.n.id]); clusterOf.set(x.n.id, x.n.id) }
+    } else if (valid.length <= k) {
       for (const n of valid) { reps.push(n.id); members.set(n.id, [n.id]); clusterOf.set(n.id, n.id) }
     } else {
+      const vecOf = new Map<string, number[]>(); valid.forEach((n, i) => vecOf.set(n.id, vecs[i]!))
       const assign = kmeans(vecs, k)
       const groups = new Map<number, GraphNode[]>()
       valid.forEach((n, i) => { const g = groups.get(assign[i]) ?? []; g.push(n); groups.set(assign[i], g) })
       for (const g of groups.values()) {
-        const rep = g.reduce((a, b) => (degree.get(b.id) ?? 0) > (degree.get(a.id) ?? 0) ? b : a)
+        // Representative = member CLOSEST to the cluster centroid (the most representative
+        // concept), not the highest-degree hub (which tends to be a noisy instance).
+        const dim = vecOf.get(g[0]!.id)!.length
+        const centroid = new Array(dim).fill(0)
+        for (const m of g) { const v = vecOf.get(m.id)!; for (let j = 0; j < dim; j++) centroid[j] += v[j]! }
+        const cc = normalize(centroid)
+        let rep = g[0]!, best = -2
+        for (const m of g) {
+          const lab = (labelOf.get(m.id) ?? '').toLowerCase()
+          const score = dot(vecOf.get(m.id)!, cc) + (lab.includes('-') ? 0.04 : 0) - (usedLabels.has(lab) ? 1 : 0)
+          if (score > best) { best = score; rep = m }
+        }
+        const repLabel = (labelOf.get(rep.id) ?? '').toLowerCase()
+        if (usedLabels.has(repLabel)) continue   // drop a cluster that only duplicates an existing topic
+        usedLabels.add(repLabel)
         reps.push(rep.id); members.set(rep.id, g.map((n) => n.id)); for (const m of g) clusterOf.set(m.id, rep.id)
       }
     }

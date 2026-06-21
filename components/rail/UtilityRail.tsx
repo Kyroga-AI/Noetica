@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import { EvidenceRailPanel } from './panels/EvidenceRailPanel'
 import { SourceOSRailPanel } from './panels/SourceOSRailPanel'
 import { GraphRailPanel }   from './panels/GraphRailPanel'
@@ -46,13 +47,43 @@ type UtilityRailProps = {
   fileChanges?: { id: string; path: string; content: string }[]
 }
 
+const RAIL_MIN = 240
+const RAIL_MAX = 760
+
 export function UtilityRail({ activePanel, onSelect, lastGovernance, inScopeFiles = [], toolActivity = [], fileChanges = [] }: UtilityRailProps) {
   const ctx: ContextData = { inScopeFiles, toolActivity, fileChanges }
+  const [width, setWidth] = useState(288)
+  useEffect(() => {
+    const s = Number(localStorage.getItem('noetica-rail-w'))
+    if (s >= RAIL_MIN && s <= RAIL_MAX) setWidth(s)
+  }, [])
+
+  function startResize(e: React.MouseEvent) {
+    e.preventDefault()
+    const startX = e.clientX, startW = width
+    let latest = startW
+    const move = (ev: MouseEvent) => { latest = Math.min(RAIL_MAX, Math.max(RAIL_MIN, startW + (startX - ev.clientX))); setWidth(latest) }
+    const up = () => {
+      document.removeEventListener('mousemove', move); document.removeEventListener('mouseup', up)
+      document.body.style.userSelect = ''; document.body.style.cursor = ''
+      localStorage.setItem('noetica-rail-w', String(latest))
+    }
+    document.body.style.userSelect = 'none'; document.body.style.cursor = 'col-resize'
+    document.addEventListener('mousemove', move); document.addEventListener('mouseup', up)
+  }
+
   return (
     <>
-      {/* Expanded panel */}
+      {/* Expanded panel — resizable via the left-edge handle */}
       {activePanel && (
-        <div className="hidden w-72 shrink-0 flex-col overflow-y-auto border-l border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] lg:flex">
+        <div className="relative hidden shrink-0 flex-col overflow-y-auto border-l border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] lg:flex" style={{ width }}>
+          <div
+            onMouseDown={startResize}
+            title="Drag to resize"
+            className="group absolute left-0 top-0 z-20 h-full w-1.5 cursor-col-resize hover:bg-[#3b82f6]/40"
+          >
+            <div className="absolute left-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-full bg-[var(--color-border-secondary)] group-hover:bg-[#3b82f6]" />
+          </div>
           <div className="border-b border-[var(--color-border-tertiary)] px-3 py-2.5 text-xs font-semibold text-[var(--color-text-primary)]">
             {RAIL_ITEMS.find((r) => r.id === activePanel)?.label}
           </div>
