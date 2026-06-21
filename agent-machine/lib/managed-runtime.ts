@@ -11,10 +11,11 @@
  * Disable with NOETICA_MANAGED_RUNTIME=0 (e.g. when OLLAMA_HOST points elsewhere).
  */
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import { spawn, execFile, type ChildProcess } from 'node:child_process'
 import { promisify } from 'node:util'
 import { seatbeltProfile, resolveManagedOllamaBinary, buildLaunchRecipe, provisionOllamaRuntime, runtimeComplete, PROFILE_PATH, RUNTIME_DIR, MODELS_DIR, MANAGED_PORT } from './managed-ollama.js'
-import { setOllamaBase, isLowMemoryHost, provisionCpuVariants } from './ollama.js'
+import { setOllamaBase, provisionCpuVariants } from './ollama.js'
 
 const exec = promisify(execFile)
 
@@ -89,12 +90,18 @@ export async function ensureManagedRuntime(preferredPort = MANAGED_PORT): Promis
   setOllamaBase(base)
 
   const { cmd, args, env } = buildLaunchRecipe(binary)
-  // On small Apple Silicon boxes, keep only one model resident and unload it
-  // promptly — stacking models exhausts the unified memory the GPU shares and
-  // pushes the runner into the Metal OOM that yields empty responses.
-  const memEnv = isLowMemoryHost()
+  // Keep the resident model count bounded by RAM. Stacking models exhausts the
+  // unified memory the GPU shares and pushes the runner into the Metal OOM that
+  // yields empty responses — or kills the whole app (a 14b coder is ~9GB; loading
+  // it alongside the 7b general + embedder on a 24GB box overcommits and crashes).
+  // So we cap *resident* models — ollama unloads-before-loading — on anything
+  // short of a workstation-class box, not just the tiny ones.
+  const totalGb = os.totalmem() / 1e9
+  const memEnv = totalGb < 16
     ? { OLLAMA_MAX_LOADED_MODELS: '1', OLLAMA_NUM_PARALLEL: '1', OLLAMA_KEEP_ALIVE: '5m' }
-    : {}
+    : totalGb < 32
+    ? { OLLAMA_MAX_LOADED_MODELS: '1', OLLAMA_NUM_PARALLEL: '2', OLLAMA_KEEP_ALIVE: '5m' }
+    : { OLLAMA_MAX_LOADED_MODELS: '2', OLLAMA_NUM_PARALLEL: '4', OLLAMA_KEEP_ALIVE: '10m' }
   const child = spawn(cmd, args, { env: { ...process.env, ...env, ...memEnv, OLLAMA_HOST: `127.0.0.1:${port}` }, stdio: 'ignore', detached: false })
   child.on('exit', (code) => console.log(`[managed-runtime] sandboxed Ollama exited: ${code}`))
 
