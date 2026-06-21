@@ -115,6 +115,7 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
               onFork={onFork}
               onEdit={message.role === 'user' ? onEdit : undefined}
               onSpeak={message.role === 'assistant' ? onSpeak : undefined}
+              onQuickPrompt={onQuickPrompt}
             />
           </div>
         ))}

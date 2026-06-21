@@ -1378,7 +1378,18 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   const openaiKey = keys.openai?.trim() || process.env['OPENAI_API_KEY'] || ''
 
   // ── Prophet-mesh conductor routing ──────────────────────────────────────────
-  const ollamaUp = await isOllamaRunning()
+  // A cold managed-runtime launch can take ~15-20s before Ollama is serving. If a chat
+  // request lands inside that window, DON'T throw the scary "no local Ollama runtime"
+  // error — wait for the runtime to come up (the request just takes a little longer on a
+  // cold start). Only wait when there's no cloud key to fall back to.
+  let ollamaUp = await isOllamaRunning()
+  if (!ollamaUp && !anthropicKey && !openaiKey) {
+    const deadline = Date.now() + 25_000
+    while (Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 1000))
+      if (await isOllamaRunning()) { ollamaUp = true; break }
+    }
+  }
   const availableModels = ollamaUp ? await listLocalModels() : []
   const latestUserContent = [...(body.messages ?? [])]
     .filter((m) => m.role === 'user').at(-1)?.content ?? ''

@@ -47,6 +47,8 @@ export interface ChatMessage {
   grounding?: GroundingTrace
   /** The announcer's plain-language narration of what the agent is doing, per stage */
   narration?: NarrationLine[]
+  /** Local dialogue-layer quick replies — clickable suggestions that send their text. */
+  quick_replies?: string[]
 }
 
 /** One line of the concierge's announcer narration — which model, for what purpose. */

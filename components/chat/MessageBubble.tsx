@@ -236,9 +236,10 @@ type MessageBubbleProps = {
   onFork?: (messageId: string) => void
   onEdit?: (messageId: string, newContent: string) => void
   onSpeak?: (content: string) => void
+  onQuickPrompt?: (text: string) => void
 }
 
-export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onSpeak }: MessageBubbleProps) {
+export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onSpeak, onQuickPrompt }: MessageBubbleProps) {
   const isUser = message.role === 'user'
   const [extracted, setExtracted] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -362,6 +363,20 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
         {/* Main content — markdown rendered */}
         {message.content && <MarkdownContent content={message.content} />}
 
+        {/* Quick replies — local dialogue-layer suggestion chips (Rasa-style buttons) */}
+        {message.quick_replies && message.quick_replies.length > 0 && onQuickPrompt && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {message.quick_replies.map((qr) => (
+              <button
+                key={qr}
+                onClick={() => onQuickPrompt(qr)}
+                className="rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1 text-[12px] text-[var(--color-text-secondary)] transition hover:border-[var(--color-border-primary)] hover:text-[var(--color-text-primary)]"
+              >
+                {qr}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Action bar */}
         {message.content && (

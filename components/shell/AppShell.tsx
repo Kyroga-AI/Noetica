@@ -31,7 +31,7 @@ import { ModelSetupOverlay } from '@/components/setup/ModelSetupOverlay'
 import { CommandPalette } from '@/components/palette/CommandPalette'
 import { models, visibleModels, defaultModelId } from '@/config/models'
 import { initialMessages } from '@/lib/chat/mockConversation'
-import { matchDialogue } from '@/lib/chat/dialogue'
+import { matchDialogue, type DialogueForm } from '@/lib/chat/dialogue'
 import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
 import { buildRiskAversionLiveReadout } from '@/lib/risk/riskAversionLive'
 import { listenTauri, isTauri, invokeTauri } from '@/lib/tauri/bridge'
@@ -100,6 +100,8 @@ export function AppShell() {
   const [activeSurface, setActiveSurface] = useState<ActiveSurface>('chat')
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('Chat')
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
+  // Local dialogue form: when set, the next user turn fills the slot → dispatches to model.
+  const [pendingForm, setPendingForm] = useState<DialogueForm | null>(null)
   const [modelId, setModelId] = useState(defaultModelId)
 
   // Hydrate local state from restored session once on mount
@@ -579,22 +581,35 @@ export function AppShell() {
           }))
       : []
 
-    // Local-first dialogue layer: answer small-talk / app-help instantly and
-    // deterministically — no model call, so it works even while the runtime is still
-    // warming up. Only turns that genuinely need generation fall through to the model.
-    const canned = matchDialogue(content, { userName: settings.userName })
-    if (canned && attachments.length === 0 && !selectedMcpToolNames?.length) {
-      const now = new Date().toISOString()
-      const userMsg: ChatMessage = { id: crypto.randomUUID(), role: 'user', content, workspace_mode: workspaceMode, created_at: now }
-      const asstMsg: ChatMessage = { id: crypto.randomUUID(), role: 'assistant', content: canned, created_at: now }
-      autoTitle(content)
-      setMessages((cur) => { const next = [...cur, userMsg, asstMsg]; updateMessages(next); return next })
-      return
-    }
-
     // Always include built-in tools
     const builtinTools = buildBuiltinTools(settings)
     const tools = [...builtinTools, ...selectedTools]
+
+    // Slot-filling form: if we asked for a slot last turn ("Research what?"), this turn is
+    // the answer — fill the template and dispatch the real prompt to the model.
+    if (pendingForm && attachments.length === 0) {
+      const filled = pendingForm.template.replace('{value}', content.trim())
+      setPendingForm(null)
+      await handleSendRaw(filled, [], messages, tools)
+      return
+    }
+
+    // Local-first dialogue layer: answer small-talk / app-help / utilities / form-starts
+    // instantly and deterministically — no model call, so it works even while the runtime
+    // is warming up. Only turns that genuinely need generation fall through to the model.
+    const dlg = matchDialogue(content, {
+      userName: settings.userName,
+      modelLabel: modelId === 'auto' ? 'your local models (Auto)' : modelId,
+    })
+    if (dlg && attachments.length === 0 && !selectedMcpToolNames?.length) {
+      const now = new Date().toISOString()
+      const userMsg: ChatMessage = { id: crypto.randomUUID(), role: 'user', content, workspace_mode: workspaceMode, created_at: now }
+      const asstMsg: ChatMessage = { id: crypto.randomUUID(), role: 'assistant', content: dlg.reply, quick_replies: dlg.quickReplies, created_at: now }
+      autoTitle(content)
+      setMessages((cur) => { const next = [...cur, userMsg, asstMsg]; updateMessages(next); return next })
+      if (dlg.form) setPendingForm(dlg.form)
+      return
+    }
 
     await handleSendRaw(content, attachments, messages, tools)
   }
