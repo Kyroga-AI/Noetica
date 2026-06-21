@@ -16,6 +16,11 @@ export interface WorkspaceSession {
   pinned?: boolean
   parentId?: SessionId
   projectId?: string
+  // Ephemeral sessions are created while the security lane is armed. They are
+  // obliterated (removed from the store AND from disk) once ephemeralExpiresAt
+  // passes — a sliding window refreshed on every message. No memory is written.
+  ephemeral?: boolean
+  ephemeralExpiresAt?: string
 }
 
 export interface SessionStore {

@@ -31,6 +31,8 @@ export type NoeticaChatRequest = {
   thinking_budget?: number
   temperature?: number
   max_tokens?: number
+  reply_length?: 'short' | 'medium' | 'long'
+  agent_mode?: 'auto' | 'plan' | 'ask'
   top_p?: number
   /** User-supplied API keys from browser settings — used when server env vars are absent. */
   provider_keys?: NoeticaProviderKeys
@@ -42,6 +44,8 @@ export type NoeticaChatRequest = {
   system_prompt?: string
   /** Policy profile from GovernSurface settings — 'default' | 'strict' | 'permissive' */
   policy_profile?: string
+  /** Operator self-attestation — arms the uncensored security lane under the 'security' profile. */
+  security_attested?: boolean
   /** Override provider API base URL — supports local proxies and OpenAI-compatible endpoints */
   api_endpoint_override?: string
 }

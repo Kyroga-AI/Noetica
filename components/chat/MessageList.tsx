@@ -64,10 +64,16 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
     // No "Good night" — if they're here they're awake; late hours read as evening, not a farewell.
     const greeting = hour < 5 ? 'Good evening' : hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
     const quickActions = [
-      { label: 'Show my files', prompt: 'show my files' },
-      { label: 'Write code', prompt: 'write code' },
-      { label: 'Research', prompt: 'research' },
-      { label: 'What can you do?', prompt: 'What can you do?' },
+      { label: 'Show my files', prompt: 'show my files', color: '#0891b2',
+        icon: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 4.5A1.5 1.5 0 0 1 3.5 3h2.8l1.2 1.5h5A1.5 1.5 0 0 1 14 6v6a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 12V4.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/></svg> },
+      { label: 'Write code', prompt: 'write code', color: '#7c3aed',
+        icon: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 4 2.5 8 6 12M10 4l3.5 4-3.5 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg> },
+      { label: 'Research', prompt: 'research', color: '#ea580c',
+        icon: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.2" stroke="currentColor" strokeWidth="1.4"/><path d="m10.5 10.5 3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg> },
+      { label: 'Chart data', prompt: 'make a chart from this data: Jan 120, Feb 150, Mar 135, Apr 190', color: '#16a34a',
+        icon: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 14V2M2 14h12M5 11V8M8 11V5M11 11V7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg> },
+      { label: 'What can you do?', prompt: 'What can you do?', color: '#d97706',
+        icon: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1.5v3M8 11.5v3M1.5 8h3M11.5 8h3M3.5 3.5l2 2M10.5 10.5l2 2M12.5 3.5l-2 2M5.5 10.5l-2 2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg> },
     ]
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 px-4 text-center">
@@ -82,8 +88,9 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
               <button
                 key={a.label}
                 onClick={() => onQuickPrompt(a.prompt)}
-                className="rounded-full border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3.5 py-1.5 text-[13px] text-[var(--color-text-secondary)] transition hover:border-[var(--color-border-secondary)] hover:text-[var(--color-text-primary)]"
+                className="flex items-center gap-1.5 rounded-full border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3.5 py-1.5 text-[13px] text-[var(--color-text-secondary)] transition hover:border-[var(--color-border-secondary)] hover:text-[var(--color-text-primary)]"
               >
+                <span style={{ color: a.color }}>{a.icon}</span>
                 {a.label}
               </button>
             ))}

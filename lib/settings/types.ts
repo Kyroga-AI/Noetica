@@ -44,8 +44,17 @@ export interface NoeticaSettings {
   // Governance
   defaultEvidenceLevel: 'minimal' | 'standard' | 'full'
   defaultPolicyProfile: 'default' | 'strict' | 'permissive' | 'research' | 'security' | 'enterprise' | 'medical'
+  // Operator self-attestation for the SECURITY_RESEARCHER profile. The uncensored
+  // security lane (WhiteRabbitNeo / Foundation-Sec / dolphin) arms ONLY when this is
+  // accepted — local-first: the operator attests, the mesh records it. Revocable.
+  securityAttestation?: { accepted: boolean; statement: string; acceptedAt: string }
+  // When the security lane is armed, chats become ephemeral and are obliterated
+  // after this many minutes of inactivity (sliding window). 0 disables ephemerality.
+  securityEphemeralMinutes: number
 
   // Fan-out
+  replyLength: 'short' | 'medium' | 'long'
+  agentMode: 'auto' | 'plan' | 'ask'
   fanoutModels: string[]
   fanoutConcurrency: number
 

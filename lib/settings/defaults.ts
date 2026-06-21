@@ -30,7 +30,10 @@ export const defaultSettings: NoeticaSettings = {
 
   defaultEvidenceLevel: 'standard',
   defaultPolicyProfile: 'default',
+  securityEphemeralMinutes: 15,
 
+  replyLength: 'medium',
+  agentMode: 'auto',
   fanoutModels: ['claude-sonnet-4-6', 'gpt-4o'],
   fanoutConcurrency: 3,
 

@@ -33,6 +33,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import { buildRouterDecision, LOCAL_MODEL_SUITE } from './lib/router.js'
+import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTelemetry, type MeshTier } from './lib/scope-d.js'
 import { classifyIntent, capabilityToTask, wantsVectorRag, intentByName, planFromIntent, intentToAction } from './lib/intent-router.js'
 import { routeForAction, meshrushPhase } from './lib/action-cell.js'
 import { selectSurface } from './lib/graph-surface.js'
@@ -107,6 +108,27 @@ const GOVERNANCE_RING_SIZE = 100
 // Persist the ring to disk so the Govern surface's audit trail survives a relaunch —
 // it was in-memory only, so Govern was always empty after restart even after chatting.
 const GOVERNANCE_FILE = path.join(os.homedir(), '.noetica', 'governance.json')
+
+// Cross-process signal for the SourceOS surface (e.g. bearbrowser): when the
+// security lane is armed, bearbrowser auto-enables Tor for anonymized egress.
+// Written to the shared SourceOS config dir so the browser can poll it without
+// coupling to this server. tor mirrors armed — armed work routes over Tor.
+const SECURITY_STATE_FILE = path.join(os.homedir(), '.config', 'sourceos', 'noetica', 'security-state.json')
+let lastSecurityArmed: boolean | null = null
+function writeSecurityState(armed: boolean): void {
+  if (armed === lastSecurityArmed) return  // only write on transition
+  lastSecurityArmed = armed
+  try {
+    fs.mkdirSync(path.dirname(SECURITY_STATE_FILE), { recursive: true })
+    fs.writeFileSync(SECURITY_STATE_FILE, JSON.stringify({
+      armed, tor: armed, updated_at: new Date().toISOString(), source: 'noetica-agent-machine',
+    }, null, 2))
+  } catch { /* signal is best-effort — never block a chat on it */ }
+}
+function readSecurityState(): unknown {
+  try { return JSON.parse(fs.readFileSync(SECURITY_STATE_FILE, 'utf8')) }
+  catch { return { armed: false, tor: false, updated_at: null, source: 'noetica-agent-machine' } }
+}
 try {
   const arr = JSON.parse(fs.readFileSync(GOVERNANCE_FILE, 'utf8'))
   if (Array.isArray(arr)) _governanceRuns.push(...(arr as GovernanceRun[]).slice(-GOVERNANCE_RING_SIZE))
@@ -545,10 +567,13 @@ interface ChatRequest {
   messages?: ChatMessage[]
   system_prompt?: string
   policy_profile?: string
+  security_attested?: boolean  // operator self-attestation — arms the uncensored security lane
   tools?: ProviderTool[]
   thinking_budget?: number
   temperature?: number
   max_tokens?: number
+  reply_length?: 'short' | 'medium' | 'long'
+  agent_mode?: 'auto' | 'plan' | 'ask'
   provider_keys?: {
     anthropic?: string
     openai?: string
@@ -607,6 +632,44 @@ const BUILTIN_TOOLS: ProviderTool[] = [
     },
   },
   {
+    name: 'public_data',
+    description:
+      'Fetch a time series from a FREE public data source (no API key) and return rows ready to chart with render_chart. Sources: "crypto" (CoinGecko — coin price history), "fx" (Frankfurter — currency exchange-rate history), "worldbank" (economic indicators by country, e.g. GDP, population), or "csv" (any public CSV URL). Use for "chart bitcoin over 30 days", "USD to EUR this year", "US GDP since 2000", or charting any open dataset.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        source: { type: 'string', enum: ['crypto', 'fx', 'worldbank', 'csv'], description: 'Which public source to pull from.' },
+        coin: { type: 'string', description: 'crypto: CoinGecko id, e.g. bitcoin, ethereum, solana.' },
+        vs: { type: 'string', description: 'crypto: quote currency (default usd).' },
+        days: { type: 'string', description: 'crypto: history length in days (default 30; or "max").' },
+        from: { type: 'string', description: 'fx: base currency, e.g. USD.' },
+        to: { type: 'string', description: 'fx: quote currency, e.g. EUR.' },
+        start: { type: 'string', description: 'fx: start date YYYY-MM-DD.' },
+        end: { type: 'string', description: 'fx: end date YYYY-MM-DD.' },
+        indicator: { type: 'string', description: 'worldbank: indicator code, e.g. NY.GDP.MKTP.CD (GDP), SP.POP.TOTL (population).' },
+        country: { type: 'string', description: 'worldbank: ISO country code, e.g. US, CN, DE (default US).' },
+        url: { type: 'string', description: 'csv: full https URL to a public CSV file.' },
+      },
+      required: ['source'],
+    },
+  },
+  {
+    name: 'render_chart',
+    description:
+      'Render a chart INLINE from data rows. Provide the data + which fields map to axes; give a chart type or a charting intent (resolved against the catalogue). Use this to SHOW analysis as a chart instead of a table. Pair with code_execute (compute the data) + registry_lookup (pick the spec).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        type: { type: 'string', enum: ['line', 'bar', 'area', 'scatter', 'pie', 'histogram'] },
+        query: { type: 'string', description: 'Charting intent if type omitted, e.g. "revenue over time".' },
+        data: { type: 'array', items: { type: 'object' }, description: 'Row objects, e.g. [{"month":"Jan","revenue":120}, …].' },
+        x: { type: 'string' }, y: { type: 'string' }, category: { type: 'string' }, value: { type: 'string' },
+        title: { type: 'string' },
+      },
+      required: ['data'],
+    },
+  },
+  {
     name: 'remember',
     description:
       'Save a durable fact, preference, or piece of context to your own LOCAL memory so you recall it in future conversations. Use whenever the user tells you something to keep ("remember that…", "I prefer…", "from now on…", "my name is…") or when you learn a stable fact worth retaining. Memory is stored in the local knowledge graph and surfaced automatically on future relevant turns.',
@@ -655,6 +718,33 @@ const BUILTIN_TOOLS: ProviderTool[] = [
         session_id: { type: 'string', description: 'Optional session ID for persistent Python state' },
       },
       required: ['language', 'code'],
+    },
+  },
+  {
+    name: 'run_command',
+    description:
+      'Run a shell command in a sandboxed PROJECT WORKSPACE (a real working directory under ~/.noetica/workspaces). Use this to scaffold projects, install deps, build, run tests, lint, git, and run dev tasks (npm, node, pnpm, python, cargo, git…). Returns stdout, stderr, and the exit code. Confined to the workspace; privileged/destructive commands are blocked. Commands in the same workspace share state (created files persist).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        command: { type: 'string', description: 'The shell command to run.' },
+        workspace: { type: 'string', description: 'Workspace name (default "default") — all commands for one project should share it.' },
+        timeout_ms: { type: 'number', description: 'Max runtime in ms (default 60000, max 300000).' },
+      },
+      required: ['command'],
+    },
+  },
+  {
+    name: 'registry_lookup',
+    description:
+      'Look up reusable CATALOGUE entries (chart specs by domain/intent, project scaffolds, connectors) before building analysis, charts, or apps from scratch. E.g. "revenue over time" → a ready time-series chart spec to populate with data; "build a dashboard" → the scaffold template. Returns matching entries with their fillable params + spec.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'What you want to make (intent/domain), e.g. "compare sales by region".' },
+        kind: { type: 'string', enum: ['chart', 'template', 'connector', 'asset', 'crawl'], description: 'Optional filter.' },
+      },
+      required: ['query'],
     },
   },
   {
@@ -820,6 +910,134 @@ async function executeToolWithTimeout(
   }
 }
 
+// Portable login shell — zsh isn't guaranteed on Linux (the future primary target). Prefer
+// $SHELL, then bash, then sh. Resolved once.
+const LOGIN_SHELL = (() => {
+  const cands = [process.env['SHELL'], '/bin/zsh', '/bin/bash', '/bin/sh']
+  for (const s of cands) { try { if (s && fs.existsSync(s)) return s } catch { /* */ } }
+  return '/bin/sh'
+})()
+
+// Run a shell command in a workspace dir, non-blocking, with a hard timeout + output caps.
+// Used by the run_command tool (the sandboxed shell that lets the agent actually scaffold/run).
+function runInWorkspace(command: string, cwd: string, timeoutMs: number): Promise<{ out: string; err: string; code: string }> {
+  return new Promise((resolve) => {
+    let out = '', err = '', done = false
+    const child = cp.spawn(LOGIN_SHELL, ['-lc', command], { cwd, env: { ...process.env } })
+    const timer = setTimeout(() => { if (!done) { done = true; try { child.kill('SIGKILL') } catch { /* */ } resolve({ out, err, code: `timeout after ${timeoutMs}ms` }) } }, timeoutMs)
+    child.stdout.on('data', (d: Buffer) => { if (out.length < 200_000) out += d.toString() })
+    child.stderr.on('data', (d: Buffer) => { if (err.length < 100_000) err += d.toString() })
+    child.on('error', (e) => { if (!done) { done = true; clearTimeout(timer); resolve({ out, err: String(e), code: 'error' }) } })
+    child.on('close', (c, sig) => { if (!done) { done = true; clearTimeout(timer); resolve({ out, err, code: c != null ? String(c) : (sig ? `signal ${sig}` : '?') }) } })
+  })
+}
+
+// Start a long-running dev server, resolve once it prints its Local URL (or on timeout). The
+// process keeps running so the UI can preview it; tracked for reaping on teardown.
+const _devServers = new Set<number>()
+function startDevServer(command: string, cwd: string, timeoutMs: number): Promise<{ url?: string; pid?: number }> {
+  return new Promise((resolve) => {
+    const child = cp.spawn(LOGIN_SHELL, ['-lc', command], { cwd, env: { ...process.env } })
+    if (child.pid) _devServers.add(child.pid)
+    let resolved = false
+    const finish = (u?: string) => { if (!resolved) { resolved = true; clearTimeout(timer); resolve({ url: u, pid: child.pid }) } }
+    const timer = setTimeout(() => finish(undefined), timeoutMs)
+    const onData = (d: Buffer) => { const m = d.toString().match(/Local:\s*(https?:\/\/\S+)/i); if (m?.[1]) finish(m[1].replace(/\/+$/, '')) }
+    child.stdout?.on('data', onData)
+    child.stderr?.on('data', onData)
+    child.on('exit', () => { if (child.pid) _devServers.delete(child.pid); finish(undefined) })
+  })
+}
+
+// Parse a code-agent solution: {files:[{path,content}], verify:"cmd"} — tolerant of fences/prose.
+function parseSolveOutput(text: string): { files: { path: string; content: string }[]; verify: string } | null {
+  let t = text.trim()
+  const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/)
+  if (fence?.[1]) t = fence[1].trim()
+  const open = t.indexOf('{'), close = t.lastIndexOf('}')
+  if (open >= 0 && close > open) t = t.slice(open, close + 1)
+  try {
+    const o = JSON.parse(t) as { files?: unknown; verify?: unknown }
+    if (Array.isArray(o.files) && typeof o.verify === 'string' && o.verify.trim()) {
+      const files = (o.files as unknown[])
+        .filter((f): f is { path: string; content: string } => !!f && typeof (f as { path?: unknown }).path === 'string' && typeof (f as { content?: unknown }).content === 'string')
+        .map((f) => ({ path: f.path, content: f.content }))
+      if (files.length) return { files, verify: o.verify }
+    }
+  } catch { /* unparseable */ }
+  return null
+}
+
+// public_data — pull a time series from a free, no-key public source and return
+// rows ready for render_chart. Sources: crypto (CoinGecko), fx (Frankfurter),
+// worldbank (economic indicators), csv (any public CSV URL).
+async function publicData(args: Record<string, unknown>): Promise<string> {
+  const source = String(args['source'] ?? '').trim()
+  const UA = 'Mozilla/5.0 (compatible; noetica/1.0)'
+  const getJson = async (url: string): Promise<any> => {
+    const res = await fetch(url, { headers: { 'user-agent': UA, accept: 'application/json' }, signal: AbortSignal.timeout(15_000) })
+    if (!res.ok) throw new Error(`source returned ${res.status}`)
+    return res.json()
+  }
+  const cap = (rows: any[]): any[] => { const step = Math.max(1, Math.ceil(rows.length / 400)); return rows.filter((_, i) => i % step === 0) }
+  const chartHint = (x: string, y: string) => `\n\nSeries — to chart, call render_chart with type "line", x "${x}", y "${y}":\n`
+
+  try {
+    if (source === 'crypto') {
+      const coin = String(args['coin'] ?? 'bitcoin').toLowerCase()
+      const vs = String(args['vs'] ?? 'usd').toLowerCase()
+      const days = String(args['days'] ?? '30')
+      const j = await getJson(`https://api.coingecko.com/api/v3/coins/${encodeURIComponent(coin)}/market_chart?vs_currency=${encodeURIComponent(vs)}&days=${encodeURIComponent(days)}`)
+      const prices: Array<[number, number]> = j?.prices ?? []
+      if (!prices.length) return `Error: no price data for ${coin}/${vs} (check the coin id).`
+      const rows = prices.map(([ms, p]) => ({ date: new Date(ms).toISOString().slice(0, 10), price: Number(p.toFixed(2)) }))
+      return `${coin}/${vs} — ${rows.length} points (${days}d), latest ${rows[rows.length - 1]!.price} ${vs.toUpperCase()}${chartHint('date', 'price')}${JSON.stringify(cap(rows))}`
+    }
+    if (source === 'fx') {
+      const from = String(args['from'] ?? 'USD').toUpperCase()
+      const to = String(args['to'] ?? 'EUR').toUpperCase()
+      const start = String(args['start'] ?? '')
+      const end = String(args['end'] ?? '')
+      const range = start && end ? `${start}..${end}` : start ? `${start}..` : '2024-01-01..'
+      const j = await getJson(`https://api.frankfurter.app/${range}?from=${from}&to=${to}`)
+      const rates: Record<string, Record<string, number>> = j?.rates ?? {}
+      const rows = Object.keys(rates).sort().map((d) => ({ date: d, rate: rates[d]![to]! })).filter((r) => typeof r.rate === 'number')
+      if (!rows.length) return `Error: no FX data for ${from}→${to}.`
+      return `${from}→${to} — ${rows.length} points, latest ${rows[rows.length - 1]!.rate}${chartHint('date', 'rate')}${JSON.stringify(cap(rows))}`
+    }
+    if (source === 'worldbank') {
+      const indicator = String(args['indicator'] ?? 'NY.GDP.MKTP.CD')
+      const country = String(args['country'] ?? 'US').toUpperCase()
+      const j = await getJson(`https://api.worldbank.org/v2/country/${encodeURIComponent(country)}/indicator/${encodeURIComponent(indicator)}?format=json&per_page=400`)
+      const series: any[] = Array.isArray(j) ? (j[1] ?? []) : []
+      const rows = series.filter((d) => d?.value != null).map((d) => ({ year: d.date, value: d.value })).reverse()
+      if (!rows.length) return `Error: no World Bank data for ${indicator} / ${country}.`
+      const label = series[0]?.indicator?.value ?? indicator
+      return `${label} — ${country} — ${rows.length} points (${rows[0]!.year}–${rows[rows.length - 1]!.year})${chartHint('year', 'value')}${JSON.stringify(rows)}`
+    }
+    if (source === 'csv') {
+      const url = String(args['url'] ?? '').trim()
+      if (!/^https:\/\//.test(url)) return 'Error: csv source requires a full https URL.'
+      const res = await fetch(url, { headers: { 'user-agent': UA }, signal: AbortSignal.timeout(15_000) })
+      if (!res.ok) return `Error: CSV URL returned ${res.status}.`
+      const text = await res.text()
+      if (text.trim().startsWith('<')) return 'Error: that URL returned HTML, not CSV (it may require a browser/JS).'
+      const lines = text.trim().split(/\r?\n/)
+      const header = (lines.shift() ?? '').split(',').map((h) => h.trim())
+      const rows = lines.slice(0, 2000).map((ln) => {
+        const cells = ln.split(',')
+        const o: Record<string, string | number> = {}
+        header.forEach((h, i) => { const v = cells[i]; const n = Number(v); o[h] = v !== undefined && v !== '' && !isNaN(n) ? n : (v ?? '') })
+        return o
+      })
+      return `CSV ${url} — columns: ${header.join(', ')} — ${rows.length} rows.\nPick x/y columns and call render_chart:\n${JSON.stringify(cap(rows))}`
+    }
+    return `Error: unknown source "${source}". Use crypto, fx, worldbank, or csv.`
+  } catch (e) {
+    return `Error fetching ${source} data: ${e instanceof Error ? e.message : String(e)}`
+  }
+}
+
 async function executeTool(
   name: string,
   input: Record<string, unknown>,
@@ -838,6 +1056,25 @@ async function executeTool(
     return { resolved }
   }
 
+  // scope-d capability confinement (facet 4): authorize side-effecting tools
+  // against the active EngagementPolicy. Read-only tools pass; network/write/exec
+  // actions are gated and fail-closed when the policy doesn't permit them.
+  const TOOL_ACTION_CLASS: Record<string, import('./lib/scope-d.js').ActionClass> = {
+    web_search: 'network_call',
+    generate_image: 'network_call',
+    public_data: 'network_call',
+    code_execute: 'write',
+    run_command: 'write',
+  }
+  const actionClass = TOOL_ACTION_CLASS[name]
+  if (actionClass) {
+    const verdict = scopedAuthorizeAction(actionClass)
+    emitScopedTelemetry({ kind: 'capability', allow: verdict.allow, provider: 'tool', model: name, scope: actionClass, reason: verdict.reason, source: verdict.source })
+    if (!verdict.allow) {
+      return `Blocked by scope-d engagement policy: ${verdict.reason}. This action (${name} → ${actionClass}) is not authorized under the active policy.`
+    }
+  }
+
   switch (name) {
     case 'web_search': {
       const query = String(input['query'] ?? '').trim().slice(0, 500)
@@ -851,6 +1088,9 @@ async function executeTool(
       if (!openaiKey) return 'Error: No OpenAI API key — cannot generate image.'
       return generateImage(prompt, openaiKey)
     }
+    case 'public_data': {
+      return publicData(input)
+    }
     case 'code_execute': {
       const language = String(input['language'] ?? 'javascript')
       if (language !== 'python' && language !== 'javascript') {
@@ -860,6 +1100,22 @@ async function executeTool(
       if (!code.trim()) return 'Error: code is required'
       const sessionId = input['session_id'] ? String(input['session_id']).slice(0, 100) : undefined
       return executeCode(language as 'python' | 'javascript', code, sessionId)
+    }
+    case 'run_command': {
+      const command = String(input['command'] ?? '').trim()
+      if (!command) return 'Error: command is required.'
+      // Block privileged / destructive / pipe-to-shell. The cwd is the sandbox so a `rm -rf .`
+      // only nukes the workspace (recoverable); these patterns reach OUTSIDE it or escalate.
+      const DENY = /(\bsudo\b|\bdoas\b|rm\s+-rf?\s+[~/]|rm\s+-rf?\s+\/|\bmkfs\b|\bdd\s+if=|:\(\)\s*\{|\bshutdown\b|\breboot\b|\bhalt\b|chown\s+-R\s+\/|chmod\s+-R\s+0?777\s+\/|>\s*\/dev\/(sd|disk)|(curl|wget)\b[^|]*\|\s*(sudo\s+)?(ba|z)?sh)/i
+      if (DENY.test(command)) return `Blocked: that command is privileged or reaches outside the sandbox and isn't allowed. Keep it inside the workspace.`
+      const wsName = (String(input['workspace'] ?? 'default').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 40)) || 'default'
+      const ws = path.join(os.homedir(), '.noetica', 'workspaces', wsName)
+      try { fs.mkdirSync(ws, { recursive: true }) } catch { /* */ }
+      const timeout = Math.min(300_000, Math.max(1_000, Number(input['timeout_ms'] ?? 60_000)))
+      const { out, err, code } = await runInWorkspace(command, ws, timeout)
+      const header = `$ ${command}\n[workspace: ${wsName}  exit: ${code}]`
+      const body = `${out}${err ? `\n--- stderr ---\n${err}` : ''}`.trim()
+      return `${header}\n${body || '(no output)'}`.slice(0, 14_000)
     }
     case 'read_file': {
       const { resolved, error } = safePath(String(input['path'] ?? ''))
@@ -901,6 +1157,25 @@ async function executeTool(
       const { resolved, error } = safePath(String(input['image_path'] ?? ''))
       if (error) return `OCR error: ${error}`
       return await runOcr(resolved)
+    }
+    case 'render_chart': {
+      const data = Array.isArray(input['data']) ? (input['data'] as Record<string, unknown>[]) : []
+      if (!data.length) return 'Error: render_chart needs a non-empty data array (row objects).'
+      let type = String(input['type'] ?? '')
+      if (!['line', 'bar', 'area', 'scatter', 'pie', 'histogram'].includes(type)) {
+        const { queryRegistry } = await import('./lib/registry.js')
+        const top = queryRegistry({ kind: 'chart', q: String(input['query'] ?? ''), limit: 1 })[0]
+        const map: Record<string, string> = { 'chart.timeseries.line': 'line', 'chart.area.trend': 'area', 'chart.bar.comparison': 'bar', 'chart.hist.distribution': 'histogram', 'chart.box.distribution': 'bar', 'chart.scatter.correlation': 'scatter', 'chart.pie.proportion': 'pie', 'chart.heatmap.matrix': 'bar', 'chart.candlestick.ohlc': 'line', 'chart.choropleth.geo': 'bar' }
+        type = (top && map[top.id]) || 'bar'
+      }
+      const payload = { type, data: data.slice(0, 200), x: input['x'], y: input['y'], category: input['category'], value: input['value'], title: input['title'] }
+      return '```noetica-chart\n' + JSON.stringify(payload) + '\n```'
+    }
+    case 'registry_lookup': {
+      const { queryRegistry } = await import('./lib/registry.js')
+      const entries = queryRegistry({ q: String(input['query'] ?? ''), kind: input['kind'] as 'chart' | 'template' | 'connector' | 'asset' | 'crawl' | undefined, limit: 5 })
+      if (!entries.length) return 'No catalogue entries matched — build it from scratch, or register a reusable entry afterward.'
+      return entries.map((e) => `[${e.kind}] ${e.id} — ${e.title}\n  ${e.description}\n  params: ${e.params.join(', ')}${e.spec ? `\n  spec: ${JSON.stringify(e.spec)}` : ''}`).join('\n\n')
     }
     case 'remember': {
       const content = String(input['content'] ?? '').trim()
@@ -1336,6 +1611,7 @@ async function* streamOpenAI(params: {
   apiKey: string
   temperature?: number
   maxTokens?: number
+  baseUrl?: string   // OpenAI-compatible base (…/v1); defaults to api.openai.com. Used for scope-d-hosted endpoints.
 }): AsyncGenerator<ProviderEvent> {
   const body: Record<string, unknown> = {
     model: params.model,
@@ -1358,8 +1634,9 @@ async function* streamOpenAI(params: {
 
   let res: Response
   let lastStatus = 0
+  const endpoint = `${(params.baseUrl ?? 'https://api.openai.com/v1').replace(/\/$/, '')}/chat/completions`
   for (let attempt = 0; attempt < 3; attempt++) {
-    res = await fetch('https://api.openai.com/v1/chat/completions', {
+    res = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -1641,6 +1918,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       hasOpenAIKey: Boolean(openaiKey),
       explicitModelId: body.model_id,
       policyProfile: body.policy_profile,
+      securityAttested: body.security_attested === true,
       hasImages,
       hasTools: (body.tools?.length ?? 0) > 0,
       taskOverride: intentTaskOverride,
@@ -1652,6 +1930,10 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
 
   let { resolvedModel: model, resolvedProvider: provider } = routing
   const { resolvedModel: _rm, resolvedProvider: _rp, ...routerDecision } = routing
+
+  // Signal the SourceOS surface (bearbrowser) so it can auto-enable Tor while the
+  // security lane is armed, and drop back when disarmed.
+  writeSecurityState(routerDecision.securityLane?.armed === true)
 
   // Self-model routing hook (opt-in via NOETICA_CAPABILITY_ROUTING=1). If the
   // local model has a poor track record on this task family and a cloud key is
@@ -1689,6 +1971,41 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       model = pick
     }
   }
+
+  // ── scope-d: engagement-policy gate across local + cloud ────────────────────
+  // Before ANY cloud egress, gate against the scope-d EngagementPolicy. Local
+  // routes perform no egress (always allowed — the sovereignty floor). When the
+  // policy denies the egress — or is configured but missing/expired (fail-closed)
+  // — route DOWN to local. Every decision is written as a scope-d Event-IR audit.
+  {
+    const scopeName = (POLICY_PROFILES[body.policy_profile ?? 'default'] ?? POLICY_PROFILES['default']!).scope
+    const armed = routerDecision.securityLane?.armed === true
+    if (provider !== 'ollama') {
+      const tier: MeshTier = 'frontier'
+      const target = provider === 'anthropic' ? 'api.anthropic.com' : 'api.openai.com'
+      const verdict = checkEgress({
+        scope: scopeName, policyProfile: body.policy_profile, securityArmed: armed,
+        tier, provider, model, target,
+        sensitivityTags: armed ? ['sovereign-only'] : [],
+      })
+      emitScopedTelemetry({ kind: 'egress', allow: verdict.allow, provider, model, tier, scope: scopeName, reason: verdict.reason, source: verdict.source })
+      if (!verdict.allow) {
+        // Route DOWN to local — the sovereignty floor. Best installed local model.
+        const localPick = [routerDecision.fallbackRoute, 'qwen2.5:7b', ...availableModels]
+          .find((m) => m && !m.startsWith('claude') && !m.startsWith('gpt') && availableModels.includes(m))
+        if (ollamaUp && localPick) {
+          console.warn(`[scope-d] egress denied (${verdict.reason}) → routing down to local ${localPick}`)
+          provider = 'ollama'; model = localPick
+        } else {
+          sse(res, 'error', { error: `scope-d denied egress and no local model is available: ${verdict.reason}` })
+          return
+        }
+      }
+    } else {
+      emitScopedTelemetry({ kind: 'route', provider, model, tier: 'local', scope: scopeName })
+    }
+  }
+
   // ── Chat-first concierge (O1) ───────────────────────────────────────────────
   // Plan the turn once: small-talk / self-questions / trivial asks are handled
   // inline by the fast concierge model (snappy, never a heavy-model wait); heavy
@@ -1818,7 +2135,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // shouldn't be offered code_execute, etc. Trivial intents (smalltalk/confirm) map
   // to no tools. User-supplied (MCP) tools always pass through regardless of intent.
   const intentToolSet = new Set<string>(intentPlan.tools)
-  const allTools: ProviderTool[] = modelSupportsTools
+  // Finance rides along wherever web_search is offered (finance questions are
+  // research-shaped), and pulls render_chart with it so "chart AAPL" can plot.
+  if (intentToolSet.has('web_search')) { intentToolSet.add('public_data'); intentToolSet.add('render_chart') }
+  // Agent mode: 'plan' produces a plan WITHOUT executing (no tools offered); 'ask'/'auto' keep tools.
+  const agentMode = body.agent_mode === 'plan' || body.agent_mode === 'ask' ? body.agent_mode : 'auto'
+  const allTools: ProviderTool[] = (modelSupportsTools && agentMode !== 'plan')
     ? BUILTIN_TOOLS.filter((t) => intentToolSet.has(t.name) && (t.name !== 'generate_image' || imageGenAvailable))
     : []
   if (modelSupportsTools) {
@@ -1970,7 +2292,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   try {
     const { isSelfQuery, selfGroundingBlock } = await import('./lib/self-model.js')
     if (isSelfQuery(latestUserContent)) {
-      selfContext = `\n\n---\n${selfGroundingBlock()}\nAnswer questions about yourself and your construction from this self-model. Be concrete about which repository does what.`
+      selfContext = `\n\n---\n${selfGroundingBlock()}\nAnswer questions about yourself, your construction, and how you compare to other providers from this self-model. Be concrete about which repository does what, and when comparing to Claude/GPT/others, give a real honest comparison (local-first sovereignty + the out-loop system vs their frontier raw power) — never a vague surface description.`
     }
   } catch { /* self-model grounding is best-effort */ }
 
@@ -2007,7 +2329,13 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     } })
   } catch { /* moat enrichment is best-effort */ }
 
-  const profile = POLICY_PROFILES[body.policy_profile ?? 'default'] ?? POLICY_PROFILES['default']!
+  // The SECURITY_RESEARCHER authorization suffix arms only under self-attestation —
+  // mirrors the router's lane gate. Unattested 'security' degrades to the 'research'
+  // prompt (dual-use depth, but not the full no-disclaimers security context).
+  const profileKey = (body.policy_profile === 'security' && body.security_attested !== true)
+    ? 'research'
+    : (body.policy_profile ?? 'default')
+  const profile = POLICY_PROFILES[profileKey] ?? POLICY_PROFILES['default']!
   const basePrompt = body.system_prompt ?? NOETICA_SYSTEM_PROMPT
   // Inject current datetime so the model always has accurate temporal context
   const nowUtc = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC'
@@ -2153,7 +2481,23 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
 
   step('generate', 'running', `${provider}:${model}`)
 
-  const enrichedSystemPrompt = basePrompt + dateLine + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + goalContext + reasoningDirective + profile.authorizationSuffix
+  // Reply length is user-tunable (short/medium/long): a verbosity instruction here + a token
+  // ceiling below, so the model writes the right amount rather than truncating mid-sentence.
+  const replyLen = body.reply_length === 'short' || body.reply_length === 'medium' || body.reply_length === 'long' ? body.reply_length : undefined
+  const verbosityNote = replyLen === 'short'
+    ? '\n\nReply BRIEFLY — a few sentences, no preamble, no filler. Get to the point.'
+    : replyLen === 'long'
+      ? '\n\nReply THOROUGHLY — explain in depth, with structure and concrete examples where useful.'
+      : ''
+
+  // Agent mode shapes autonomy: plan = propose only, ask = confirm before acting, auto = just do it.
+  const modeNote = agentMode === 'plan'
+    ? '\n\nPLAN MODE: Do NOT execute anything, run commands, write files, or call tools. Produce a clear, numbered step-by-step PLAN of what you would do, then stop and wait for the user to approve before any action.'
+    : agentMode === 'ask'
+      ? '\n\nASK MODE: Before running any command, writing/modifying any file, or taking any irreversible action, first state concisely what you intend to do and ask the user to confirm. Read-only steps are fine without asking.'
+      : ''
+
+  const enrichedSystemPrompt = basePrompt + dateLine + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + goalContext + reasoningDirective + verbosityNote + modeNote + profile.authorizationSuffix
 
   // Token budget: rough estimate (4 chars ≈ 1 token). If message history + system prompt
   // exceeds 70% of the model's context window, trim oldest non-system messages.
@@ -2171,11 +2515,14 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // Sanitize request-level sampling params (apply across all providers).
   const reqTemperature = typeof body.temperature === 'number'
     ? Math.max(0, Math.min(body.temperature, 2)) : undefined
+  const REPLY_TOKENS: Record<string, number> = { short: 450, medium: 1400, long: 4000 }
   const reqMaxTokens = typeof body.max_tokens === 'number' && body.max_tokens > 0
     ? Math.min(Math.floor(body.max_tokens), 16_000)
-    // Responsive mode caps output so a turn completes promptly instead of rambling
-    // (generation is also CPU-bound); full mode lets the model run to its natural stop.
-    : (isFlagOn('NOETICA_RESPONSIVE') && provider === 'ollama' ? 384 : undefined)
+    : replyLen
+      ? REPLY_TOKENS[replyLen]
+      // Responsive mode caps output so a turn completes promptly instead of rambling
+      // (generation is also CPU-bound); full mode lets the model run to its natural stop.
+      : (isFlagOn('NOETICA_RESPONSIVE') && provider === 'ollama' ? 384 : undefined)
   function estimateTokens(s: string): number { return Math.ceil(s.length / 4) }
   let systemTokens = estimateTokens(enrichedSystemPrompt)
   let msgTokens = incomingMessages.reduce((s, m) => s + estimateTokens(String(m.content ?? '')), 0)
@@ -2864,6 +3211,13 @@ const server = http.createServer((req, res) => {
   }
 
   const url = new URL(req.url ?? '/', `http://localhost:${PORT}`)
+
+  // GET /api/security/state — bearbrowser polls this to auto-enable Tor when armed.
+  if (req.method === 'GET' && url.pathname === '/api/security/state') {
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
+    res.end(JSON.stringify(readSecurityState()))
+    return
+  }
 
   // GET /api/status
   if (req.method === 'GET' && url.pathname === '/api/status') {
@@ -4134,6 +4488,139 @@ const server = http.createServer((req, res) => {
     if (handleCairnPathRequest(req, res, url.pathname, getAtomSpace())) return
   }
 
+  // ── Verify-repair coding loop ───────────────────────────────────────────────
+  // Out-LOOP, not out-model: generate → run the verifier → on fail, feed the error back and
+  // repair, up to a budget. A small local model in this loop beats a big model one-shot because
+  // code is verifiable and errors are recoverable. Returns the full step trace (the narration).
+  if (req.method === 'POST' && url.pathname === '/api/code/solve') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      let p: { task?: string; workspace?: string; max_attempts?: number; model?: string } = {}
+      try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+      const task = String(p.task ?? '').trim()
+      if (!task) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'task_required' })); return }
+      const wsName = (String(p.workspace ?? 'solve').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 40)) || 'solve'
+      const ws = path.join(os.homedir(), '.noetica', 'workspaces', wsName)
+      try { fs.mkdirSync(ws, { recursive: true }) } catch { /* */ }
+      const maxAttempts = Math.min(6, Math.max(1, Number(p.max_attempts ?? 4)))
+      const model = String(p.model ?? 'qwen2.5-coder:7b')
+      const SYS = 'You are a coding agent. Solve the task by writing files and ONE verification command that exits 0 only if the solution is correct (e.g. runs a test). Respond with ONLY a JSON object, no prose and no markdown fences:\n{"files":[{"path":"rel/path.ext","content":"..."}],"verify":"shell command"}\nUse tools available on the machine (python3, node). Paths are relative to the project root.'
+      const steps: Array<{ attempt: number; verify: string; exit: string; ok: boolean; files: string[]; output: string }> = []
+      let prior = '', solved = false
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const user = attempt === 1 ? `Task: ${task}` : `Task: ${task}\n\nYour previous attempt FAILED:\n${prior}\nFix the code. Respond with the same JSON format.`
+        let content = ''
+        try { ({ content } = await generateOllamaText({ model, messages: [{ role: 'system', content: SYS }, { role: 'user', content: user }], temperature: attempt === 1 ? 0.2 : 0.55 })) }
+        catch (e) { steps.push({ attempt, verify: '', exit: 'gen_error', ok: false, files: [], output: String(e).slice(0, 200) }); break }
+        const sol = parseSolveOutput(content)
+        if (!sol) { steps.push({ attempt, verify: '', exit: 'parse_error', ok: false, files: [], output: content.slice(0, 300) }); prior = "Your output didn't parse as the required JSON object."; continue }
+        for (const f of sol.files) {
+          const fp = path.resolve(ws, f.path.replace(/^\/+/, ''))
+          if (!fp.startsWith(ws + path.sep) && fp !== ws) continue
+          try { fs.mkdirSync(path.dirname(fp), { recursive: true }); fs.writeFileSync(fp, f.content) } catch { /* */ }
+        }
+        const { out, err, code } = await runInWorkspace(sol.verify, ws, 60_000)
+        const ok = code === '0'
+        const output = `${out}${err ? `\n${err}` : ''}`.trim()
+        steps.push({ attempt, verify: sol.verify, exit: code, ok, files: sol.files.map((f) => f.path), output: output.slice(-1200) })
+        if (ok) { solved = true; break }
+        prior = `Files: ${sol.files.map((f) => f.path).join(', ')}\nVerify: ${sol.verify}\nExit: ${code}\nOutput:\n${output.slice(-1500)}`
+      }
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ solved, workspace: wsName, attempts: steps.length, steps }))
+    })() })
+    return
+  }
+
+  // ── Deterministic project scaffold (framework boilerplate is NOT a generative task) ──
+  // Clarify (dialogue flow) → scaffold (here, deterministic) → customize (model) → run.
+  if (req.method === 'POST' && url.pathname === '/api/code/scaffold') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      let p: { framework?: string; name?: string; workspace?: string; typescript?: boolean; install?: boolean; dev?: boolean } = {}
+      try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+      const FW: Record<string, string> = { vue: 'vue', react: 'react', svelte: 'svelte', vanilla: 'vanilla', preact: 'preact', lit: 'lit', solid: 'solid' }
+      const base = FW[String(p.framework ?? 'vue').toLowerCase()] ?? 'vue'
+      const template = p.typescript ? `${base}-ts` : base
+      const name = (String(p.name ?? 'app').replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 40)) || 'app'
+      const wsName = (String(p.workspace ?? 'build').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 40)) || 'build'
+      const ws = path.join(os.homedir(), '.noetica', 'workspaces', wsName)
+      try { fs.mkdirSync(ws, { recursive: true }) } catch { /* */ }
+      const steps: Array<{ step: string; ok: boolean; output: string }> = []
+      const sc = await runInWorkspace(`npm create vite@latest ${name} -- --template ${template}`, ws, 120_000)
+      steps.push({ step: `scaffold · vite + ${template}`, ok: sc.code === '0', output: `${sc.out}${sc.err}`.slice(-400) })
+      const projDir = path.join(ws, name)
+      let devUrl: string | undefined
+      if (sc.code === '0' && p.install !== false) {
+        const ins = await runInWorkspace('npm install', projDir, 300_000)
+        steps.push({ step: 'npm install', ok: ins.code === '0', output: `${ins.out}${ins.err}`.slice(-300) })
+        if (ins.code === '0') {
+          if (p.dev) {
+            const d = await startDevServer('npm run dev', projDir, 35_000)
+            devUrl = d.url
+            steps.push({ step: 'npm run dev', ok: !!d.url, output: d.url ? `live at ${d.url}` : 'dev server did not report a URL in time' })
+          } else {
+            const b = await runInWorkspace('npm run build', projDir, 180_000)
+            steps.push({ step: 'npm run build', ok: b.code === '0', output: `${b.out}${b.err}`.slice(-300) })
+          }
+        }
+      }
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ ok: steps.every((s) => s.ok), framework: base, typescript: !!p.typescript, workspace: wsName, name, path: projDir, devUrl, devCommand: `cd ${projDir} && npm run dev`, steps }))
+    })() })
+    return
+  }
+
+  // ── Speech-to-text (whisper.cpp, on-device, cross-platform) ──────────────────
+  if (req.method === 'GET' && url.pathname === '/api/stt/status') {
+    void (async () => {
+      const { isSttAvailable } = await import('./lib/stt.js')
+      res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ available: isSttAvailable() }))
+    })()
+    return
+  }
+  if (req.method === 'POST' && url.pathname === '/api/stt') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      let p: { audio_b64?: string } = {}
+      try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+      const b64 = String(p.audio_b64 ?? '').split(',').pop() ?? ''
+      if (!b64) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'no_audio' })); return }
+      const tmp = path.join(os.tmpdir(), `noetica-stt-${Date.now()}.webm`)
+      try { fs.writeFileSync(tmp, Buffer.from(b64, 'base64')) } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'write_failed' })); return }
+      const { transcribe } = await import('./lib/stt.js')
+      const r = await transcribe(tmp)
+      try { fs.unlinkSync(tmp) } catch { /* */ }
+      res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(r))
+    })() })
+    return
+  }
+
+  // ── Registry — the catalogue (charts/templates/connectors), queryable by intent ──
+  if (req.method === 'GET' && url.pathname === '/api/registry') {
+    void (async () => {
+      setCORSHeaders(res)
+      try {
+        const { queryRegistry } = await import('./lib/registry.js')
+        const kindParam = url.searchParams.get('kind')
+        const entries = queryRegistry({
+          kind: (kindParam as 'chart' | 'template' | 'connector' | 'asset' | 'crawl') || undefined,
+          q: url.searchParams.get('q') ?? undefined,
+          domain: url.searchParams.get('domain') ?? undefined,
+          limit: Number(url.searchParams.get('limit') ?? 12),
+        })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ entries }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e), entries: [] }))
+      }
+    })()
+    return
+  }
+
   // ── Voice cloning (local XTTS-v2 sidecar) ──────────────────────────────────
   if (url.pathname.startsWith('/api/voice/')) {
     const sub = url.pathname.slice('/api/voice/'.length)
@@ -4308,6 +4795,8 @@ server.listen(PORT, '127.0.0.1', () => {
     try { cp.execFileSync('/usr/bin/pkill', ['-9', '-f', `${process.env['HOME'] ?? ''}/.noetica/runtime/llama-server`], { stdio: 'ignore' }) } catch { /* none running */ }
     // Reap our own embed sidecar so it doesn't orphan.
     try { cp.execFileSync('/usr/bin/pkill', ['-9', '-f', 'noetica-embed'], { stdio: 'ignore' }) } catch { /* none running */ }
+    // Reap any dev servers started by the scaffold/build flow.
+    for (const pid of _devServers) { try { process.kill(pid, 'SIGKILL') } catch { /* gone */ } }
     if (booted) { try { recordTrendSnapshot(); saveLearningState() } catch { /* best-effort */ } }
     process.exit(0)
   }
@@ -4603,8 +5092,9 @@ server.listen(PORT, '127.0.0.1', () => {
       const up = await isOllamaRunning()
       if (!up) return
       const installed = await listLocalModels()
+      const OPT_IN_ONLY = new Set(['dolphin3:8b', 'huihui_ai/foundation-sec-abliterated:8b', 'jimscard/whiterabbit-neo:13b'])
       const suite = LOCAL_MODEL_SUITE
-        .filter((m) => m.name !== 'dolphin3:8b')   // opt-in only
+        .filter((m) => !OPT_IN_ONLY.has(m.name))    // uncensored/security models are opt-in
         .sort((a, b) => a.priority - b.priority)    // pull in priority order
 
       // Clients that connect after some models are already installed need to know immediately.

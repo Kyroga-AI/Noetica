@@ -22,6 +22,8 @@ export interface DialogueResult {
   command?: DialogueCommand
   /** Run a built-in tool IMMEDIATELY (no slot, no generation) — e.g. show my files. */
   runTool?: { name: string; input: Record<string, string> }
+  /** A build clarifier — multiple-choice card that deterministically scaffolds + runs a project. */
+  build?: { intro: string; questions: { id: string; label: string; options: string[] }[] }
 }
 export type DialogueCommand =
   | { kind: 'navigate'; surface: string }
@@ -344,6 +346,16 @@ export function matchDialogue(input: string, ctx?: DialogueCtx): DialogueResult 
   if (any(/^(do some |can you |please )?(research|look up|search( the web)?)( something| stuff| online)?$/) || fuzzyVerb(s, ['research', 'reserch', 'reasearch']))
     return r(pick('ask-research', ['Sure — what should I research?', 'On it. What topic?', 'Happy to — what should I look into?']),
       { form: { slot: 'topic', tool: { name: 'web_search', input: { query: 'latest news and developments on {value}' } }, followups: ['Summarize these for me'] } })
+  // Build clarifier — for UI/app/site scaffolds, clarify the framework deterministically (no
+  // model) and run a REAL scaffold, instead of letting the model narrate setup steps.
+  if (any(/\b(build|create|make|scaffold|spin ?up|set ?up|generate|give me)\b.{0,28}\b(ui|app|web ?app|web ?site|website|front-?end|landing( ?page)?|dashboard|spa|admin (panel|dashboard)|portal|interface)\b/i))
+    return r('', { build: {
+      intro: 'Let’s actually build and run it — quick choices:',
+      questions: [
+        { id: 'framework', label: 'Framework', options: ['Vue', 'React', 'Svelte', 'Solid', 'Vanilla'] },
+        { id: 'typescript', label: 'Language', options: ['TypeScript', 'JavaScript'] },
+      ],
+    } })
   if (any(/^(write|generate|make|build) (me )?(some )?code$/, /^(let'?s )?code$/, /^write a (script|program|function)$/, /^i want to (build|develop|make|create)( something)?$/, /^build something$/))
     return r(pick('ask-code', [
       `What would you like to develop${name ? ', ' + name : ''}?`,

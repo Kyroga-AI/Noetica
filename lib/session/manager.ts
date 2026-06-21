@@ -16,9 +16,17 @@ export function emptyStore(): SessionStore {
   return { activeSessionId: null, sessions: {}, version: SESSION_STORE_VERSION }
 }
 
+// Compute the ephemeral stamp for a session when the security lane is armed.
+// Returns {} when ttl is null/0 (lane disarmed → ordinary durable session).
+export function ephemeralStamp(ttlMinutes: number | null | undefined, nowMs: number):
+  Pick<WorkspaceSession, 'ephemeral' | 'ephemeralExpiresAt'> {
+  if (!ttlMinutes || ttlMinutes <= 0) return {}
+  return { ephemeral: true, ephemeralExpiresAt: new Date(nowMs + ttlMinutes * 60_000).toISOString() }
+}
+
 export function createSession(
   store: SessionStore,
-  opts: { surface: ActiveSurface; workspaceMode: WorkspaceMode; modelId: string; messages?: ChatMessage[]; title?: string; parentId?: SessionId }
+  opts: { surface: ActiveSurface; workspaceMode: WorkspaceMode; modelId: string; messages?: ChatMessage[]; title?: string; parentId?: SessionId; ephemeralTtlMinutes?: number | null }
 ): { store: SessionStore; session: WorkspaceSession } {
   const id: SessionId = crypto.randomUUID()
   const messages = (opts.messages ?? []).slice(-MAX_MESSAGES_PER_SESSION)
@@ -28,6 +36,7 @@ export function createSession(
     messages, modelId: opts.modelId,
     createdAt: now(), updatedAt: now(),
     ...(opts.parentId ? { parentId: opts.parentId } : {}),
+    ...ephemeralStamp(opts.ephemeralTtlMinutes, Date.now()),
   }
   let sessions = { ...store.sessions, [id]: session }
   // evict oldest non-pinned if over limit
@@ -39,7 +48,7 @@ export function createSession(
 
 export function updateSession(
   store: SessionStore, id: SessionId,
-  patch: Partial<Pick<WorkspaceSession, 'messages' | 'surface' | 'workspaceMode' | 'modelId' | 'title' | 'pinned'>>
+  patch: Partial<Pick<WorkspaceSession, 'messages' | 'surface' | 'workspaceMode' | 'modelId' | 'title' | 'pinned' | 'ephemeral' | 'ephemeralExpiresAt'>>
 ): SessionStore {
   const existing = store.sessions[id]
   if (!existing) return store
@@ -64,6 +73,37 @@ export function deleteSession(store: SessionStore, id: SessionId): SessionStore 
 export function setActiveSession(store: SessionStore, id: SessionId): SessionStore {
   if (!store.sessions[id]) return store
   return { ...store, activeSessionId: id }
+}
+
+// Obliterate every ephemeral session whose window has passed. Returns the new
+// store and the ids removed (for audit/UX). If the active session is purged,
+// activeSessionId falls back to the most-recent survivor.
+export function purgeExpiredEphemeral(store: SessionStore, nowMs: number): { store: SessionStore; removed: SessionId[] } {
+  const removed: SessionId[] = []
+  const sessions = { ...store.sessions }
+  for (const s of Object.values(store.sessions)) {
+    if (s.ephemeral && s.ephemeralExpiresAt && Date.parse(s.ephemeralExpiresAt) <= nowMs) {
+      delete sessions[s.id]
+      removed.push(s.id)
+    }
+  }
+  if (removed.length === 0) return { store, removed }
+  const activeSessionId = store.activeSessionId && sessions[store.activeSessionId]
+    ? store.activeSessionId
+    : (Object.values(sessions).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]?.id ?? null)
+  return { store: { ...store, sessions, activeSessionId }, removed }
+}
+
+// Obliterate ALL ephemeral sessions immediately (panic / disarm).
+export function obliterateAllEphemeral(store: SessionStore): { store: SessionStore; removed: SessionId[] } {
+  const removed = Object.values(store.sessions).filter((s) => s.ephemeral).map((s) => s.id)
+  if (removed.length === 0) return { store, removed }
+  const sessions = { ...store.sessions }
+  for (const id of removed) delete sessions[id]
+  const activeSessionId = store.activeSessionId && sessions[store.activeSessionId]
+    ? store.activeSessionId
+    : (Object.values(sessions).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]?.id ?? null)
+  return { store: { ...store, sessions, activeSessionId }, removed }
 }
 
 export function sortedSessions(store: SessionStore): WorkspaceSession[] {

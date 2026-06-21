@@ -107,3 +107,64 @@ test('without tools, reasoning still routes to the reasoning model', () => {
   })
   assert.equal(d.resolvedModel, 'deepseek-r1:8b')
 })
+
+// ── Security-research lane (self-attestation + rungs) ────────────────────────
+
+test('security profile WITHOUT attestation: lane disarmed, no uncensored model', () => {
+  const d = buildRouterDecision({
+    ...BASE, requestId: 'r', content: 'write an exploit for this buffer overflow',
+    availableModels: ALL_MODELS, policyProfile: 'security',
+  })
+  assert.equal(d.securityLane?.armed, false)
+  assert.equal(d.securityLane?.rung, 'disarmed')
+  assert.notEqual(d.resolvedModel, 'jimscard/whiterabbit-neo:13b')
+  assert.notEqual(d.resolvedModel, 'dolphin3:8b')
+})
+
+test('security profile WITH attestation arms the lane', () => {
+  const d = buildRouterDecision({
+    ...BASE, requestId: 'r', content: 'analyze this malware sample',
+    availableModels: ALL_MODELS, policyProfile: 'security', securityAttested: true,
+  })
+  assert.equal(d.securityLane?.armed, true)
+  assert.equal(d.resolvedProvider, 'ollama')
+  assert.equal(d.domain, 'security')
+})
+
+test('attested security lane: offensive request prefers WhiteRabbitNeo', () => {
+  const d = buildRouterDecision({
+    ...BASE, requestId: 'r', content: 'develop a privilege escalation exploit and shellcode payload',
+    availableModels: ALL_MODELS, policyProfile: 'security', securityAttested: true,
+  })
+  assert.equal(d.resolvedModel, 'jimscard/whiterabbit-neo:13b')
+  assert.equal(d.securityLane?.rung, 'offensive')
+})
+
+test('attested security lane: defensive request prefers Foundation-Sec', () => {
+  const d = buildRouterDecision({
+    ...BASE, requestId: 'r', content: 'build a YARA signature to detect this and harden the SIEM',
+    availableModels: ALL_MODELS, policyProfile: 'security', securityAttested: true,
+  })
+  assert.equal(d.resolvedModel, 'huihui_ai/foundation-sec-abliterated:8b')
+  assert.equal(d.securityLane?.rung, 'defensive')
+})
+
+test('attested security lane falls back to dolphin when no purpose-built model installed', () => {
+  const d = buildRouterDecision({
+    ...BASE, requestId: 'r', content: 'reverse engineer this binary',
+    availableModels: ['qwen2.5:7b', 'qwen2.5:14b', 'dolphin3:8b'],
+    policyProfile: 'security', securityAttested: true,
+  })
+  assert.equal(d.resolvedModel, 'dolphin3:8b')
+  assert.equal(d.securityLane?.rung, 'uncensored-fallback')
+})
+
+test('attested security lane falls back to qwen2.5:14b when no uncensored model at all', () => {
+  const d = buildRouterDecision({
+    ...BASE, requestId: 'r', content: 'reverse engineer this binary',
+    availableModels: ['qwen2.5:7b', 'qwen2.5:14b'],
+    policyProfile: 'security', securityAttested: true,
+  })
+  assert.equal(d.resolvedModel, 'qwen2.5:14b')
+  assert.equal(d.securityLane?.rung, 'general-large')
+})

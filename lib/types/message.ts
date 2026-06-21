@@ -49,6 +49,14 @@ export interface ChatMessage {
   narration?: NarrationLine[]
   /** Local dialogue-layer quick replies — clickable suggestions that send their text. */
   quick_replies?: string[]
+  /** Build clarifier — a deterministic multiple-choice card that scaffolds + runs a project. */
+  build?: BuildSpec
+}
+
+/** A build-clarifier card: ask framework/language (no model), then deterministically scaffold. */
+export interface BuildSpec {
+  intro: string
+  questions: { id: string; label: string; options: string[] }[]
 }
 
 /** One line of the concierge's announcer narration — which model, for what purpose. */

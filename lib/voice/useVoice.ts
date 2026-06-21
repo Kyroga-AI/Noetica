@@ -29,6 +29,8 @@ export function useVoice(onTranscript: (text: string) => void) {
   const recognitionRef = useRef<SR | null>(null)
   const wakeListenerRef = useRef<SR | null>(null)
   const stateRef = useRef<VoiceState>('idle')
+  const mediaRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
 
   stateRef.current = state
 
@@ -40,32 +42,57 @@ export function useVoice(onTranscript: (text: string) => void) {
 
   const isSupported = !!SpeechRecognitionCtor
 
-  const startListening = useCallback(() => {
-    if (!SpeechRecognitionCtor) { setError('Speech recognition not supported'); return }
-    if (recognitionRef.current) recognitionRef.current.abort()
-
-    const rec = new SpeechRecognitionCtor()
-    rec.continuous = false
-    rec.interimResults = false
-    rec.lang = 'en-US'
-
-    rec.onstart = () => setState('listening')
-    rec.onresult = (e) => {
-      const transcript = (e.results[0]?.[0]?.transcript ?? '').trim()
-      setState('processing')
-      if (transcript) onTranscript(transcript)
-      setTimeout(() => setState('idle'), 300)
+  const startListening = useCallback(async () => {
+    // Plain browser: Web Speech (streaming). In Tauri (no Web Speech) — and for local-first by
+    // default — record with MediaRecorder and transcribe locally via whisper (/api/stt).
+    if (SpeechRecognitionCtor && !isTauri()) {
+      if (recognitionRef.current) recognitionRef.current.abort()
+      const rec = new SpeechRecognitionCtor()
+      rec.continuous = false; rec.interimResults = false; rec.lang = 'en-US'
+      rec.onstart = () => setState('listening')
+      rec.onresult = (e) => {
+        const transcript = (e.results[0]?.[0]?.transcript ?? '').trim()
+        setState('processing')
+        if (transcript) onTranscript(transcript)
+        setTimeout(() => setState('idle'), 300)
+      }
+      rec.onerror = () => { setState('idle'); setError(null) }
+      rec.onend = () => { if (stateRef.current === 'listening') setState('idle') }
+      recognitionRef.current = rec
+      rec.start()
+      return
     }
-    rec.onerror = () => { setState('idle'); setError(null) }
-    rec.onend = () => { if (stateRef.current === 'listening') setState('idle') }
-
-    recognitionRef.current = rec
-    rec.start()
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      chunksRef.current = []
+      const rec = new MediaRecorder(stream)
+      rec.ondataavailable = (e) => { if (e.data.size) chunksRef.current.push(e.data) }
+      rec.onstop = () => {
+        stream.getTracks().forEach((t) => t.stop())
+        setState('processing')
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        const reader = new FileReader()
+        reader.onloadend = async () => {
+          try {
+            const amBase = isTauri() ? 'http://127.0.0.1:8080' : ''
+            const res = await fetch(`${amBase}/api/stt`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ audio_b64: String(reader.result) }), signal: AbortSignal.timeout(90_000) })
+            const j = (await res.json()) as { text?: string; error?: string }
+            if (j.text?.trim()) onTranscript(j.text.trim())
+            else if (j.error) setError(j.error)
+          } catch { setError('Transcription failed') } finally { setState('idle') }
+        }
+        reader.readAsDataURL(blob)
+      }
+      mediaRef.current = rec
+      rec.start()
+      setState('listening')
+    } catch { setError('Microphone access denied'); setState('idle') }
   }, [SpeechRecognitionCtor, onTranscript])
 
   const stopListening = useCallback(() => {
-    recognitionRef.current?.stop()
-    setState('idle')
+    if (recognitionRef.current) { try { recognitionRef.current.stop() } catch { /* */ } }
+    if (mediaRef.current && mediaRef.current.state !== 'inactive') { try { mediaRef.current.stop() } catch { /* */ } }
+    else setState('idle')
   }, [])
 
   // Wake word listener — runs continuously in background
