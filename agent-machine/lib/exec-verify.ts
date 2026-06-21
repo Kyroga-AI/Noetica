@@ -73,6 +73,66 @@ export async function programOfThought(question: string, deps: ExecVerifyDeps): 
   return { answer, code, output }
 }
 
+// ── Code-posture verify-repair ────────────────────────────────────────────────
+// For "write code" tasks, the verifier is execution against tests. We ask the model
+// for a self-contained solution PLUS assert-based tests, run them, and repair on
+// failure — keeping the candidate that actually passes. This is the out-loop coding
+// lever: a small model + a real test loop beats a bigger model one-shot, because code
+// is verifiable. Scope: self-contained Python/JS the sandbox can run (algorithmic /
+// scripting). Repo-scale multi-file edits in unrunnable languages abstain (→ null).
+
+const PASS_MARKER = 'ALL_TESTS_PASSED'
+const ERR_RE = /\b(Traceback|SyntaxError|NameError|TypeError|AssertionError|ReferenceError|Error:|FAILED)\b/
+
+/** Choose a sandbox-runnable language, or null to abstain (unrunnable → normal path). */
+export function pickRunnableLanguage(question: string): 'python' | 'javascript' | null {
+  const q = question.toLowerCase()
+  if (/\b(typescript|\bts\b|rust|golang|\bgo\b|c\+\+|\bjava\b|\bc#\b|kotlin|swift|sql|bash|shell)\b/.test(q)) return null
+  if (/\b(javascript|\bjs\b|node|typescript|react|typescript)\b/.test(q)) return 'javascript'
+  return 'python'
+}
+
+/** Did the executed solution+tests pass? Marker present AND no error/failure in output. */
+export function testsPassed(output: string): boolean {
+  return output.includes(PASS_MARKER) && !ERR_RE.test(output.replace(PASS_MARKER, ''))
+}
+
+const codeVerifyPrompt = (question: string, lang: 'python' | 'javascript', priorFailure?: string) => {
+  const printPass = lang === 'python' ? `print("${PASS_MARKER}")` : `console.log("${PASS_MARKER}")`
+  const testStyle = lang === 'python' ? 'assert-based tests' : 'console.assert / throw-based tests'
+  return `${question}\n\nWrite a complete, self-contained ${lang} solution, then 3–6 ${testStyle} that exercise it (including edge cases). Everything must run top-to-bottom; on success print exactly ${printPass} on the last line. ${priorFailure ? `\n\nYour previous attempt FAILED with:\n${priorFailure}\n\nFix the bug and return a corrected version.` : ''}\nReturn ONLY one \`\`\`${lang} code block.`
+}
+
+export interface CodeVerifyResult {
+  solution: string
+  language: 'python' | 'javascript'
+  output: string
+  passed: boolean
+  attempts: number
+}
+
+/** Generate → run tests → repair, up to maxRepairs extra rounds. Returns the passing
+ *  solution, or the best failing attempt, or null if no runnable code was produced. */
+export async function codeVerifyRepair(question: string, deps: ExecVerifyDeps, maxRepairs = 1): Promise<CodeVerifyResult | null> {
+  const language = pickRunnableLanguage(question)
+  if (!language) return null
+  let prior: string | undefined
+  let last: { code: string; output: string } | null = null
+  for (let attempt = 0; attempt <= maxRepairs; attempt++) {
+    let text: string
+    try { text = await deps.generate(codeVerifyPrompt(question, language, prior), attempt === 0 ? 0.2 : 0.45) } catch { break }
+    const code = extractCode(text)
+    if (!code) continue
+    let output: string
+    try { output = await deps.execute(language, code) } catch { output = 'execution failed to run' }
+    last = { code, output }
+    if (testsPassed(output)) return { solution: code, language, output, passed: true, attempts: attempt + 1 }
+    prior = output.slice(-700)
+  }
+  if (last) return { solution: last.code, language, output: last.output, passed: false, attempts: maxRepairs + 1 }
+  return null
+}
+
 /** Does a natural-language candidate's final answer match the verified one? */
 export function candidateAgreesWithVerified(candidate: string, verified: string): boolean {
   const v = normalizeAnswer(verified)

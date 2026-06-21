@@ -61,7 +61,7 @@ import { validateGraph } from '@socioprophet/hellgraph'
 import { CANONICAL_SHAPES, QUARANTINE_PROP } from './lib/canonical-shapes.js'
 import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
 import { critique, bestOfTemps, type Candidate as CriticCandidate } from './lib/critic.js'
-import { programOfThought } from './lib/exec-verify.js'
+import { programOfThought, codeVerifyRepair } from './lib/exec-verify.js'
 import { classifyComplexity as classifyComplexityPosture } from './lib/complexity-discipline.js'
 import { detectGoalIntent, slotFill, buildGoalContext, getActiveGoal, listGoals, saveGoal, type Goal } from './lib/goal-model.js'
 import { assessAgainstGraph } from './lib/pln-judgment.js'
@@ -2643,6 +2643,32 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
             console.log(`[critic] program-of-thought verified answer=${pot.answer}`)
           }
         } catch { /* exec-verify best-effort — fall through to best-of-N */ }
+      }
+
+      // Code-posture verify-repair: for self-contained "write code" tasks, generate a
+      // solution + tests, RUN them, and repair on failure — keep what passes. The
+      // out-loop coding lever (a small model + a real test loop). Abstains for unrunnable
+      // languages / repo-scale edits, which fall through to the normal path.
+      // Disable with NOETICA_CODE_VERIFY=0.
+      if (!deliberated && process.env['NOETICA_CODE_VERIFY'] !== '0'
+          && routerDecision.task !== 'chat' && classifyComplexityPosture(latestUserContent).posture === 'code') {
+        try {
+          const cv = await codeVerifyRepair(latestUserContent, {
+            generate: (p, t) => generateOllamaText({ model, messages: [{ role: 'user', content: p }], temperature: t, numCtx: ollamaNumCtx }).then((r) => r.content),
+            execute: (lang, code) => executeCode(lang, code),
+          })
+          if (cv) {
+            const head = cv.passed
+              ? `✓ Verified — generated tests pass (${cv.attempts} attempt${cv.attempts > 1 ? 's' : ''}).`
+              : `⚠️ Tests didn't all pass after repair — best attempt below; review before use.`
+            const answer = `${head}\n\n\`\`\`${cv.language}\n${cv.solution}\n\`\`\``
+            sse(res, 'deliberation', { deliberation: { critic: { action: cv.passed ? 'accept' : 'clarify', score: cv.passed ? 1 : 0.4, agreement: 1, posture: 'code', reason: cv.passed ? 'verified by tests (generate→run→repair)' : 'tests did not all pass' } } })
+            sse(res, 'delta', { delta: answer })
+            fullContent += answer
+            deliberated = true
+            console.log(`[critic] code-verify passed=${cv.passed} attempts=${cv.attempts} lang=${cv.language}`)
+          }
+        } catch { /* code-verify best-effort — fall through */ }
       }
 
       if (!deliberated && criticEnabled) {
