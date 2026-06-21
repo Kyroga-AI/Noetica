@@ -33,6 +33,10 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import { buildRouterDecision, LOCAL_MODEL_SUITE } from './lib/router.js'
+import {
+  scopedConfigured, checkEgress, listScopedEndpoints, emitScopedTelemetry,
+  type MeshTier, type ScopedEndpoint,
+} from './lib/scope-d.js'
 import { classifyIntent, capabilityToTask, wantsVectorRag, intentByName, planFromIntent, intentToAction } from './lib/intent-router.js'
 import { routeForAction, meshrushPhase } from './lib/action-cell.js'
 import { selectSurface } from './lib/graph-surface.js'
@@ -1438,6 +1442,7 @@ async function* streamOpenAI(params: {
   apiKey: string
   temperature?: number
   maxTokens?: number
+  baseUrl?: string   // OpenAI-compatible base (…/v1); defaults to api.openai.com. Used for scope-d-hosted endpoints.
 }): AsyncGenerator<ProviderEvent> {
   const body: Record<string, unknown> = {
     model: params.model,
@@ -1460,8 +1465,9 @@ async function* streamOpenAI(params: {
 
   let res: Response
   let lastStatus = 0
+  const endpoint = `${(params.baseUrl ?? 'https://api.openai.com/v1').replace(/\/$/, '')}/chat/completions`
   for (let attempt = 0; attempt < 3; attempt++) {
-    res = await fetch('https://api.openai.com/v1/chat/completions', {
+    res = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'content-type': 'application/json',
@@ -1796,6 +1802,53 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       model = pick
     }
   }
+
+  // ── scope-d: sovereignty gate across local + cloud ──────────────────────────
+  // Before ANY cloud egress, consult the scope-d daemon. Local routes never
+  // egress (no round-trip). When scope-d refuses — or is configured but
+  // unreachable (fail-closed) — route DOWN to a local model. Cloud that IS
+  // allowed prefers a scope-d-hosted endpoint (governed egress) over a direct
+  // vendor call. Every decision is emitted to scope-d telemetry.
+  let scopedEndpointBaseUrl: string | undefined
+  let scopedEndpointKey: string | undefined
+  {
+    const scopeName = (POLICY_PROFILES[body.policy_profile ?? 'default'] ?? POLICY_PROFILES['default']!).scope
+    const armed = routerDecision.securityLane?.armed === true
+    if (provider !== 'ollama') {
+      // Facet 2 — route cloud THROUGH a scope-d endpoint when one advertises this model.
+      if (scopedConfigured()) {
+        try {
+          const ep = (await listScopedEndpoints()).find((e: ScopedEndpoint) => e.models.includes(model) || e.models.includes('*'))
+          if (ep) { scopedEndpointBaseUrl = ep.baseUrl; scopedEndpointKey = ep.apiKey; provider = 'openai' }
+        } catch { /* endpoint discovery best-effort */ }
+      }
+      // Facet 1 — egress gate.
+      const tier: MeshTier = scopedEndpointBaseUrl ? 'sovereign-host' : 'frontier'
+      const target = scopedEndpointBaseUrl ?? (provider === 'anthropic' ? 'api.anthropic.com' : 'api.openai.com')
+      const verdict = await checkEgress({
+        scope: scopeName, policyProfile: body.policy_profile, securityArmed: armed,
+        tier, provider, model, target,
+        sensitivityTags: armed ? ['sovereign-only'] : [],
+      })
+      emitScopedTelemetry({ kind: 'egress', allow: verdict.allow, provider, model, tier, scope: scopeName, reason: verdict.reason, source: verdict.source })
+      if (!verdict.allow) {
+        // Route DOWN to local — the sovereignty floor. Best installed local model.
+        const localPick = [routerDecision.fallbackRoute, 'qwen2.5:7b', ...availableModels]
+          .find((m) => m && !m.startsWith('claude') && !m.startsWith('gpt') && availableModels.includes(m))
+        if (ollamaUp && localPick) {
+          console.warn(`[scope-d] egress denied (${verdict.reason}) → routing down to local ${localPick}`)
+          provider = 'ollama'; model = localPick
+          scopedEndpointBaseUrl = undefined; scopedEndpointKey = undefined
+        } else {
+          sse(res, 'error', { error: `scope-d denied egress and no local model is available: ${verdict.reason}` })
+          return
+        }
+      }
+    } else {
+      emitScopedTelemetry({ kind: 'route', provider, model, tier: 'local', scope: scopeName })
+    }
+  }
+
   // ── Chat-first concierge (O1) ───────────────────────────────────────────────
   // Plan the turn once: small-talk / self-questions / trivial asks are handled
   // inline by the fast concierge model (snappy, never a heavy-model wait); heavy
@@ -1893,7 +1946,8 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     narrate(narrateRoute(model, intentPlan.name, { fast: isFast && !isConcierge, concierge: isConcierge }))
   } catch { /* narration best-effort */ }
 
-  const apiKey = provider === 'openai' ? openaiKey : anthropicKey
+  // scope-d-hosted endpoints carry their own key + base URL (governed cloud egress).
+  const apiKey = scopedEndpointKey ?? (provider === 'openai' ? openaiKey : anthropicKey)
 
   const run_id = crypto.randomUUID()
   const timestamp = new Date().toISOString()
@@ -2077,7 +2131,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   try {
     const { isSelfQuery, selfGroundingBlock } = await import('./lib/self-model.js')
     if (isSelfQuery(latestUserContent)) {
-      selfContext = `\n\n---\n${selfGroundingBlock()}\nAnswer questions about yourself and your construction from this self-model. Be concrete about which repository does what.`
+      selfContext = `\n\n---\n${selfGroundingBlock()}\nAnswer questions about yourself, your construction, and how you compare to other providers from this self-model. Be concrete about which repository does what, and when comparing to Claude/GPT/others, give a real honest comparison (local-first sovereignty + the out-loop system vs their frontier raw power) — never a vague surface description.`
     }
   } catch { /* self-model grounding is best-effort */ }
 
@@ -2665,6 +2719,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           apiKey,
           temperature: reqTemperature,
           maxTokens: reqMaxTokens,
+          baseUrl: scopedEndpointBaseUrl,
         })) {
           if (event.type === 'text') {
             turnContent += event.text

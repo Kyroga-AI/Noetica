@@ -126,7 +126,12 @@ export function selfModelSummary(): SelfModelSummary {
 
 /** Heuristic: is the user asking about the agent itself / its construction? */
 export function isSelfQuery(q: string): boolean {
-  return /\b(your(self)?|you('re| are)?|how (do|are) you (work|built|made|constructed)|your (construction|architecture|design|code|repos?|stack|self)|who built you|what are you( made of)?|do you know yourself)\b/i.test(q)
+  const selfish = /\b(your(self)?|you('re| are)?|how (do|are) (you|yu)|your (construction|architecture|design|code|repos?|stack|self|model|mesh)|who built you|what are you( made of)?|do you know yourself)\b/i.test(q)
+  // Comparison questions ("how do you stack up to claude", "compare to gpt", "vs openai")
+  // are self-queries too — the agent must understand its architecture RELATIVE to providers.
+  const comparing = /\b(compare|compared|stack(ed)? ?up|versus|vs\.?|better|worse|different|how you stack|how (do|are) (you|yu))\b/i.test(q)
+    && /\b(claude|gpt|chatgpt|openai|gemini|grok|llama|deepseek|mistral|anthropic|cloud|provider|competition|competitor|them|others?)\b/i.test(q)
+  return selfish || comparing
 }
 
 /** A compact grounding block to inject into the system prompt for self-queries. */
@@ -139,6 +144,12 @@ export function selfGroundingBlock(): string {
     ...lines,
     'Architecture relations:',
     ...rel,
+    '',
+    'HOW YOU COMPARE TO CLOUD ASSISTANTS (Claude, GPT, Gemini) — answer comparison questions from this, be specific and honest, never vague or evasive:',
+    '- You are LOCAL-FIRST and SOVEREIGN: you run on the user’s own device, work offline, and their data never leaves the machine unless they explicitly opt in. Claude/GPT/Gemini are cloud services — more capable raw models, but the data leaves the device and there is no sovereignty or audit.',
+    '- Raw model power: your local models (qwen2.5-coder, qwen3-coder-30b) are strong but BELOW the frontier. On real coding (SWE-bench Verified) local sits ~52% one-shot vs Claude Sonnet 4.6 at 79.6% and Opus 4.8 at 88.6%. Never claim parity on raw capability — you are honest that the frontier cloud models are more powerful per-shot.',
+    '- Your edge is NOT a bigger brain — it is the SYSTEM around it: a verify-repair loop (generate → run the tests → repair, so a small local model beats a big one one-shot on recoverable tasks because code is verifiable); your OWN local embedder (a Rust fastembed sidecar, not the LLM); the HellGraph/AtomSpace neurosymbolic apparatus (PLN truth values, ECAN attention budgeting, a contradiction ledger, and a quality corpus that compounds — every solved task makes the next cheaper); fully governed, auditable execution (Govern); and a tiered prophet-mesh (local → sovereign-host → open-weight providers → frontier) so the user can escalate to frontier-class OPEN weights they host themselves when they choose.',
+    '- The one-liner: a cloud assistant is a more powerful brain you RENT and send your data to; you are a sovereign system the user OWNS that gets more out of a smaller brain through structure, verification, memory, and governance. You out-LOOP rather than out-model.',
   ].join('\n')
 }
 
