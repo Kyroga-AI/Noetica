@@ -146,19 +146,22 @@ export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[
     .map((n) => ({ n, label: cleanLabel(n) }))
     .filter((x): x is { n: GraphNode; label: string } => !!x.label && isClean(x.label) && categoryFor(x.n.labels[0] ?? '') === opts.category)
     .sort((a, b) => (degree.get(b.n.id) ?? 0) - (degree.get(a.n.id) ?? 0))
-    .slice(0, 320)
+    .slice(0, 120)   // bound embed cost — 120 top clean concepts is plenty for topic discovery
   const byId = new Map(cands.map((x) => [x.n.id, x.n]))
 
   const cacheKey = `${opts.view}:${cands.length}`
   let cl = clusterCache.get(cacheKey)
   if (!cl) {
-    // Embed in bounded batches — firing all ~320 at once overwhelms the local embed model
-    // and most calls fail (we'd cluster only the handful that survive).
+    // Embed in bounded batches under a hard time budget — firing all at once overwhelms the
+    // local embed model (most calls fail), but unbounded sequential batching is too slow and
+    // times out the request. Cap concurrency at 16 and bail after ~10s, clustering what we have.
     const embeds: (number[] | null)[] = []
-    const BATCH = 12
+    const BATCH = 16
+    const deadline = Date.now() + 10_000
     for (let i = 0; i < cands.length; i += BATCH) {
       const chunk = cands.slice(i, i + BATCH)
       embeds.push(...await Promise.all(chunk.map((x) => embedNode(x.n, x.label))))
+      if (Date.now() > deadline) break   // use whatever embedded; the rest degrade to degree-rank
     }
     const vecs: number[][] = []; const valid: GraphNode[] = []
     cands.forEach((x, i) => { if (embeds[i]) { vecs.push(normalize(embeds[i]!)); valid.push(x.n) } })

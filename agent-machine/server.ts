@@ -4665,6 +4665,16 @@ server.listen(PORT, '127.0.0.1', () => {
           console.log('[prewarm] intent embedding centroids built')
         } catch { /* best-effort */ }
       }
+      // Prewarm the graph topic clustering so the Graph panel shows clean topics instantly on
+      // first open, instead of serving the raw degree-rank fallback while embeddings warm.
+      try {
+        const { clusterSurface } = await import('./lib/graph-cluster.js')
+        const g = getGraph()
+        for (const [view, category] of [['tech', 'technical'], ['knowledge', 'learning']] as const) {
+          await clusterSurface(g.allNodes(), g.allEdges(), { view, category }).catch(() => {})
+        }
+        console.log('[prewarm] graph topic clusters built')
+      } catch { /* best-effort */ }
     } catch { /* ignore */ }
   })()
 })
