@@ -37,6 +37,7 @@ import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTeleme
 import { classifyIntent, capabilityToTask, wantsVectorRag, intentByName, planFromIntent, intentToAction } from './lib/intent-router.js'
 import { routeForAction, meshrushPhase } from './lib/action-cell.js'
 import { selectSurface } from './lib/graph-surface.js'
+import { generateSovereign, meshLadder } from './lib/mesh.js'
 import { createSQLiteBackend, migrateJSONLToSQLite } from './lib/sqlite-backend.js'
 import { registerStorageNodeRoutes, handleStorageNodeRequest } from './lib/storage-node-routes.js'
 import { handleMeshRushRequest } from './lib/meshrush-bridge.js'
@@ -4641,6 +4642,9 @@ const server = http.createServer((req, res) => {
       const model = String(p.model ?? 'qwen2.5-coder:7b')
       const SYS = 'You are a coding agent. Solve the task by writing files and ONE verification command that exits 0 only if the solution is correct (e.g. runs a test). Respond with ONLY a JSON object, no prose and no markdown fences:\n{"files":[{"path":"rel/path.ext","content":"..."}],"verify":"shell command"}\nUse tools available on the machine (python3, node). Paths are relative to the project root.'
       const steps: Array<{ attempt: number; verify: string; exit: string; ok: boolean; files: string[]; output: string }> = []
+      // Capture each touched file's ORIGINAL content the first time we write it, so the UI can
+      // show a real diff and the user can reject (revert) a file back to its pre-solve state.
+      const touched = new Map<string, string | null>()
       let prior = '', solved = false
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         const user = attempt === 1 ? `Task: ${task}` : `Task: ${task}\n\nYour previous attempt FAILED:\n${prior}\nFix the code. Respond with the same JSON format.`
@@ -4650,8 +4654,10 @@ const server = http.createServer((req, res) => {
         const sol = parseSolveOutput(content)
         if (!sol) { steps.push({ attempt, verify: '', exit: 'parse_error', ok: false, files: [], output: content.slice(0, 300) }); prior = "Your output didn't parse as the required JSON object."; continue }
         for (const f of sol.files) {
-          const fp = path.resolve(ws, f.path.replace(/^\/+/, ''))
+          const rel = f.path.replace(/^\/+/, '')
+          const fp = path.resolve(ws, rel)
           if (!fp.startsWith(ws + path.sep) && fp !== ws) continue
+          if (!touched.has(rel)) { try { touched.set(rel, fs.existsSync(fp) ? fs.readFileSync(fp, 'utf8') : null) } catch { touched.set(rel, null) } }
           try { fs.mkdirSync(path.dirname(fp), { recursive: true }); fs.writeFileSync(fp, f.content) } catch { /* */ }
         }
         const { out, err, code } = await runInWorkspace(sol.verify, ws, 60_000)
@@ -4661,9 +4667,84 @@ const server = http.createServer((req, res) => {
         if (ok) { solved = true; break }
         prior = `Files: ${sol.files.map((f) => f.path).join(', ')}\nVerify: ${sol.verify}\nExit: ${code}\nOutput:\n${output.slice(-1500)}`
       }
+      // prophet-cloud-mesh escape hatch: the local loop exhausted its budget unsolved. If a
+      // sovereign tier is configured (NOETICA_SOVEREIGN_URL), escalate ONE attempt to it —
+      // frontier-parity on your own infra. No-op (and zero cost) when the tier isn't armed.
+      let escalated = false
+      if (!solved) {
+        const esc = await generateSovereign({
+          messages: [
+            { role: 'system', content: SYS },
+            { role: 'user', content: `Task: ${task}\n\nA smaller local model failed after ${steps.length} attempts. Last failure:\n${prior}\nSolve it correctly. Same JSON format.` },
+          ],
+          temperature: 0.3,
+        })
+        if (esc) {
+          escalated = true
+          const sol = parseSolveOutput(esc.content)
+          if (sol) {
+            for (const f of sol.files) {
+              const rel = f.path.replace(/^\/+/, '')
+              const fp = path.resolve(ws, rel)
+              if (!fp.startsWith(ws + path.sep) && fp !== ws) continue
+              if (!touched.has(rel)) { try { touched.set(rel, fs.existsSync(fp) ? fs.readFileSync(fp, 'utf8') : null) } catch { touched.set(rel, null) } }
+              try { fs.mkdirSync(path.dirname(fp), { recursive: true }); fs.writeFileSync(fp, f.content) } catch { /* */ }
+            }
+            const { out, err, code } = await runInWorkspace(sol.verify, ws, 60_000)
+            const ok = code === '0'
+            const output = `${out}${err ? `\n${err}` : ''}`.trim()
+            steps.push({ attempt: steps.length + 1, verify: sol.verify, exit: code, ok, files: sol.files.map((f) => f.path), output: `[sovereign:${esc.model}] ${output}`.slice(-1200) })
+            if (ok) solved = true
+          }
+        }
+      }
+
+      // Per-file diffs (original vs final-on-disk) so the workspace can render an apply/reject review.
+      const diffs = [...touched.entries()].map(([rel, before]) => {
+        const fp = path.resolve(ws, rel)
+        let after: string | null = null
+        try { if (fs.existsSync(fp)) after = fs.readFileSync(fp, 'utf8') } catch { /* */ }
+        return { path: rel, before, after, isNew: before === null }
+      })
       res.writeHead(200, { 'content-type': 'application/json' })
-      res.end(JSON.stringify({ solved, workspace: wsName, attempts: steps.length, steps }))
+      res.end(JSON.stringify({ solved, workspace: wsName, attempts: steps.length, steps, diffs, escalated }))
     })() })
+    return
+  }
+
+  // GET /api/mesh/status — the prophet-cloud-mesh tier ladder and which tiers are armed.
+  if (req.method === 'GET' && url.pathname === '/api/mesh/status') {
+    setCORSHeaders(res)
+    const tiers = meshLadder({ hasAnthropicKey: !!process.env['ANTHROPIC_API_KEY'] })
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ tiers }))
+    return
+  }
+
+  // POST /api/workspace/write — apply/revert a single file in a workspace (reject = write the
+  // pre-solve content; delete=true removes a file the agent newly created). Sandboxed to the
+  // workspace dir. Backs the diff review panel's accept/reject.
+  if (req.method === 'POST' && url.pathname === '/api/workspace/write') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => {
+      setCORSHeaders(res)
+      let p: { ws?: string; path?: string; content?: string; delete?: boolean } = {}
+      try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+      const wsName = String(p.ws ?? '').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 40)
+      const rel = String(p.path ?? '').replace(/^\/+/, '')
+      if (!wsName || !rel) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'ws_and_path_required' })); return }
+      const ws = path.join(os.homedir(), '.noetica', 'workspaces', wsName)
+      const fp = path.resolve(ws, rel)
+      if (!fp.startsWith(ws + path.sep)) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'path_escape' })); return }
+      try {
+        if (p.delete) { if (fs.existsSync(fp)) fs.rmSync(fp) }
+        else { fs.mkdirSync(path.dirname(fp), { recursive: true }); fs.writeFileSync(fp, String(p.content ?? '')) }
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'write_failed', detail: String(e).slice(0, 120) }))
+      }
+    })
     return
   }
 

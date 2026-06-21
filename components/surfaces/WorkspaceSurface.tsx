@@ -11,6 +11,26 @@ import { isTauri } from '@/lib/tauri/bridge'
 
 function amBase(): string { return isTauri() ? 'http://127.0.0.1:8080' : '' }
 interface FileEntry { path: string; dir: boolean; size: number }
+interface Diff { path: string; before: string | null; after: string | null; isNew: boolean }
+
+// Compact LCS line diff — enough for the small files the solve loop produces. Capped so a
+// pathological large file can't lock the UI.
+function lineDiff(before: string, after: string): { t: 'ctx' | 'add' | 'del'; s: string }[] {
+  const a = (before ?? '').split('\n').slice(0, 600), b = (after ?? '').split('\n').slice(0, 600)
+  const n = a.length, m = b.length
+  const dp: number[][] = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0))
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) dp[i]![j] = a[i] === b[j] ? dp[i + 1]![j + 1]! + 1 : Math.max(dp[i + 1]![j]!, dp[i]![j + 1]!)
+  const out: { t: 'ctx' | 'add' | 'del'; s: string }[] = []
+  let i = 0, j = 0
+  while (i < n && j < m) {
+    if (a[i] === b[j]) { out.push({ t: 'ctx', s: a[i]! }); i++; j++ }
+    else if (dp[i + 1]![j]! >= dp[i]![j + 1]!) { out.push({ t: 'del', s: a[i]! }); i++ }
+    else { out.push({ t: 'add', s: b[j]! }); j++ }
+  }
+  while (i < n) { out.push({ t: 'del', s: a[i]! }); i++ }
+  while (j < m) { out.push({ t: 'add', s: b[j]! }); j++ }
+  return out
+}
 
 export function WorkspaceSurface() {
   const [workspaces, setWorkspaces] = useState<string[]>([])
@@ -27,19 +47,36 @@ export function WorkspaceSurface() {
   const [solving, setSolving] = useState(false)
   const [steps, setSteps] = useState<{ attempt: number; verify: string; exit: string; ok: boolean; files: string[]; output: string }[]>([])
   const [solved, setSolved] = useState<boolean | null>(null)
+  const [diffs, setDiffs] = useState<Diff[]>([])
+  const [reviewed, setReviewed] = useState<Record<string, 'accepted' | 'rejected'>>({})
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({})
+
+  async function rejectFile(d: Diff) {
+    try {
+      await fetch(`${amBase()}/api/workspace/write`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ws, path: d.path, content: d.before ?? '', delete: d.isNew }),
+        signal: AbortSignal.timeout(8000),
+      })
+      setReviewed((r) => ({ ...r, [d.path]: 'rejected' }))
+      void loadFiles(ws)
+      if (sel === d.path) { setSel(''); setContent('') }
+    } catch { /* offline */ }
+  }
+  function acceptFile(d: Diff) { setReviewed((r) => ({ ...r, [d.path]: 'accepted' })) }
 
   async function runSolve() {
     const t = task.trim()
     if (!t || !ws || solving) return
-    setSolving(true); setSteps([]); setSolved(null)
+    setSolving(true); setSteps([]); setSolved(null); setDiffs([]); setReviewed({}); setExpanded({})
     try {
       const r = await fetch(`${amBase()}/api/code/solve`, {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ task: t, workspace: ws, max_attempts: 4 }),
         signal: AbortSignal.timeout(600_000),
       })
-      const j = (await r.json()) as { solved?: boolean; steps?: typeof steps }
-      setSteps(j.steps ?? []); setSolved(j.solved ?? false)
+      const j = (await r.json()) as { solved?: boolean; steps?: typeof steps; diffs?: Diff[] }
+      setSteps(j.steps ?? []); setSolved(j.solved ?? false); setDiffs(j.diffs ?? [])
       void loadFiles(ws)
     } catch {
       setSolved(false); setSteps([{ attempt: 1, verify: '', exit: 'error', ok: false, files: [], output: 'backend offline or timed out' }])
@@ -138,7 +175,48 @@ export function WorkspaceSurface() {
           })}
         </div>
         <div className="min-h-0 flex-1 overflow-auto bg-[var(--color-background-primary)]">
-          {!sel && steps.length === 0 && <div className="flex h-full items-center justify-center text-[13px] text-[var(--color-text-tertiary)]">Select a file, or describe a build above.</div>}
+          {!sel && steps.length === 0 && diffs.length === 0 && <div className="flex h-full items-center justify-center text-[13px] text-[var(--color-text-tertiary)]">Select a file, or describe a build above.</div>}
+          {!sel && diffs.length > 0 && (
+            <div className="p-4">
+              <div className="mb-3 flex items-center gap-2 text-[13px] font-semibold text-[var(--color-text-primary)]">
+                <span>{solved ? '✅' : '⚠️'} Review changes</span>
+                <span className="text-[11px] font-normal text-[var(--color-text-tertiary)]">{diffs.length} file{diffs.length > 1 ? 's' : ''} · accept or reject each</span>
+              </div>
+              {diffs.map((d) => {
+                const status = reviewed[d.path]
+                const lines = lineDiff(d.before ?? '', d.after ?? '')
+                const adds = lines.filter((l) => l.t === 'add').length, dels = lines.filter((l) => l.t === 'del').length
+                const open = expanded[d.path] ?? true
+                return (
+                  <div key={d.path} className="mb-2 overflow-hidden rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)]">
+                    <div className="flex items-center gap-2 px-3 py-2 text-[12px]">
+                      <button onClick={() => setExpanded((e) => ({ ...e, [d.path]: !open }))} className="text-[var(--color-text-tertiary)]">{open ? '▾' : '▸'}</button>
+                      <span className="font-mono text-[var(--color-text-primary)]">{d.path}</span>
+                      {d.isNew && <span className="rounded bg-[#dcfce7] px-1 text-[10px] text-[#15803d]">new</span>}
+                      <span className="text-[10px] text-[#16a34a]">+{adds}</span><span className="text-[10px] text-[#dc2626]">−{dels}</span>
+                      <div className="ml-auto flex items-center gap-1.5">
+                        {status === 'accepted' && <span className="text-[11px] text-[#15803d]">✓ accepted</span>}
+                        {status === 'rejected' && <span className="text-[11px] text-[#b91c1c]">⟲ reverted</span>}
+                        {!status && (<>
+                          <button onClick={() => acceptFile(d)} className="rounded bg-[#16a34a] px-2 py-0.5 text-[11px] font-semibold text-white">Accept</button>
+                          <button onClick={() => void rejectFile(d)} className="rounded border border-[#dc2626] px-2 py-0.5 text-[11px] font-semibold text-[#dc2626]">Reject</button>
+                        </>)}
+                      </div>
+                    </div>
+                    {open && (
+                      <pre className="max-h-72 overflow-auto border-t border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] px-3 py-2 font-mono text-[11px] leading-relaxed">
+                        {lines.map((l, i) => (
+                          <div key={i} className={l.t === 'add' ? 'bg-[#16a34a]/10 text-[#15803d]' : l.t === 'del' ? 'bg-[#dc2626]/10 text-[#b91c1c]' : 'text-[var(--color-text-secondary)]'}>
+                            <span className="select-none opacity-50">{l.t === 'add' ? '+' : l.t === 'del' ? '−' : ' '} </span>{l.s || ' '}
+                          </div>
+                        ))}
+                      </pre>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
           {!sel && steps.length > 0 && (
             <div className="p-4">
               <div className="mb-3 text-[13px] font-semibold text-[var(--color-text-primary)]">{solving ? '⏳ Building…' : solved ? '✅ Built & verified' : '⚠️ Needs another pass'}</div>

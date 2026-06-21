@@ -76,6 +76,28 @@ function className(memberLabels: string[]): string | null {
   return secondary ? `${cap(primary[0])} ${cap(secondary[0])}` : cap(primary[0])
 }
 
+// Friendly names for the raw HellGraph atom types, so a theme-less cluster is still named by
+// its ONTOLOGICAL class (the type its members actually are) instead of a member instance.
+const TYPE_CLASS: Record<string, string> = {
+  Model: 'Models', Provider: 'Providers', Repo: 'Repositories', Repository: 'Repositories',
+  Tool: 'Tools', Action: 'Actions', Artifact: 'Artifacts', Feature: 'Features', Vector: 'Vectors',
+  Candidate: 'Candidates', Checkpoint: 'Checkpoints', Attention: 'Attention', Topic: 'Topics',
+  Domain: 'Domains', GlossaryTerm: 'Glossary', Concept: 'Concepts', Document: 'Documents',
+  Entity: 'Entities', Person: 'People', Org: 'Organizations', Session: 'Sessions', Event: 'Events',
+}
+// The dominant atom-type among a cluster's members, humanized into a class label. Falls back to
+// splitting a camelCase/suffixed type so an unmapped type still reads as a class.
+function typeClass(members: GraphNode[]): string | null {
+  const freq = new Map<string, number>()
+  for (const m of members) { const t = (m.labels?.[0] ?? '').trim(); if (t) freq.set(t, (freq.get(t) ?? 0) + 1) }
+  const top = [...freq.entries()].sort((a, b) => b[1] - a[1])[0]
+  if (!top) return null
+  const raw = top[0]
+  if (TYPE_CLASS[raw]) return TYPE_CLASS[raw]!
+  const h = raw.replace(/([a-z])([A-Z])/g, '$1 $2').trim()
+  return h ? h.charAt(0).toUpperCase() + h.slice(1) : null
+}
+
 // Deterministic PRNG (mulberry32) so topic discovery is STABLE across calls/restarts —
 // k-means++ init must not use Math.random or the same graph yields different topics each load.
 function rng(seed: number): () => number {
@@ -233,9 +255,17 @@ export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[
         // CLASS name from the theme the members share — falls back to the centroid member's
         // own label when the cluster has no shared theme. This is what makes the top layer read
         // as topic CLASSES ("Model Router", "Plugin") rather than instances ("tauri-apps").
-        const cname = className(g.map((m) => labelOf.get(m.id) ?? '')) ?? (labelOf.get(rep.id) ?? '')
-        const dedupKey = cname.toLowerCase()
-        if (usedLabels.has(dedupKey)) continue   // drop a cluster that only duplicates an existing topic
+        // Class name: shared-theme first, then the cluster's dominant ONTOLOGICAL type, and
+        // only as a last resort the rep's own (instance) label — so the top layer is classes.
+        let cname = className(g.map((m) => labelOf.get(m.id) ?? '')) ?? typeClass(g) ?? (labelOf.get(rep.id) ?? '')
+        let dedupKey = cname.toLowerCase()
+        if (usedLabels.has(dedupKey)) {
+          // Two clusters landed on the same class (e.g. "Models"): disambiguate with the rep's
+          // most distinctive token instead of dropping a whole topic.
+          const distinct = tokenize(labelOf.get(rep.id) ?? '').find((t) => t.length >= 3 && !NOISE.has(t) && !STOP.has(t) && !dedupKey.includes(t))
+          if (distinct) { cname = `${cname} · ${distinct.charAt(0).toUpperCase() + distinct.slice(1)}`; dedupKey = cname.toLowerCase() }
+          if (usedLabels.has(dedupKey)) continue
+        }
         usedLabels.add(dedupKey)
         classNames.set(rep.id, cname)
         reps.push(rep.id); members.set(rep.id, g.map((n) => n.id)); for (const m of g) clusterOf.set(m.id, rep.id)
