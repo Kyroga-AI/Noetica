@@ -62,6 +62,7 @@ import { CANONICAL_SHAPES, QUARANTINE_PROP } from './lib/canonical-shapes.js'
 import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
 import { critique, bestOfTemps, type Candidate as CriticCandidate } from './lib/critic.js'
 import { programOfThought, codeVerifyRepair } from './lib/exec-verify.js'
+import { applyEdit, editSummary } from './lib/apply-patch.js'
 import { classifyComplexity as classifyComplexityPosture } from './lib/complexity-discipline.js'
 import { detectGoalIntent, slotFill, buildGoalContext, getActiveGoal, listGoals, saveGoal, type Goal } from './lib/goal-model.js'
 import { assessAgainstGraph } from './lib/pln-judgment.js'
@@ -775,6 +776,20 @@ const BUILTIN_TOOLS: ProviderTool[] = [
     },
   },
   {
+    name: 'edit_file',
+    description: 'Make a SURGICAL edit to a file: replace an exact string with a new one. Prefer this over write_file for changing existing code — it edits precisely instead of regenerating the whole file. old_string must match the file EXACTLY (including whitespace/indentation) and be UNIQUE; if it matches more than once, add surrounding lines to disambiguate or set replace_all.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        path:        { type: 'string', description: 'Absolute or home-relative (~) path to the file' },
+        old_string:  { type: 'string', description: 'The exact text to replace (copy it verbatim, including indentation)' },
+        new_string:  { type: 'string', description: 'The replacement text' },
+        replace_all: { type: 'boolean', description: 'Replace every occurrence instead of requiring a unique match (default false)' },
+      },
+      required: ['path', 'old_string', 'new_string'],
+    },
+  },
+  {
     name: 'list_directory',
     description: 'List files and subdirectories at a path. Returns names, sizes, and types.',
     input_schema: {
@@ -1145,6 +1160,24 @@ async function executeTool(
         fs.mkdirSync(path.dirname(resolved), { recursive: true })
         fs.writeFileSync(resolved, content, 'utf-8')
         return `Written ${content.length} characters to ${resolved}`
+      } catch (e) {
+        return `Error writing file: ${(e as Error).message}`
+      }
+    }
+    case 'edit_file': {
+      const { resolved, error } = safePath(String(input['path'] ?? ''))
+      if (error) return `Error: ${error}`
+      const oldString = String(input['old_string'] ?? '')
+      const newString = String(input['new_string'] ?? '')
+      const replaceAll = input['replace_all'] === true
+      let before: string
+      try { before = fs.readFileSync(resolved, 'utf-8') }
+      catch (e) { return `Error reading file: ${(e as Error).message}` }
+      const r = applyEdit(before, oldString, newString, { replaceAll })
+      if (!r.ok) return `Edit not applied: ${r.error}`
+      try {
+        fs.writeFileSync(resolved, r.content, 'utf-8')
+        return `Edited ${resolved} — ${editSummary(before, r.content, r.replacements)}`
       } catch (e) {
         return `Error writing file: ${(e as Error).message}`
       }
