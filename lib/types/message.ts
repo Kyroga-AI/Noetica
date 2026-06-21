@@ -151,4 +151,8 @@ export interface RetrievalTrace {
   beliefs_injected: number
   /** Uploaded-document chunks cited for this answer (semantic RAG), shown as source chips */
   document_sources?: Array<{ id: string; label: string; score: number }>
+  /** Long-term memories injected this turn (provenance: what the agent "remembered") */
+  memory_sources?: Array<{ kind: string; preview: string; pinned: boolean }>
+  /** Prior cross-session exchanges recalled this turn */
+  episode_sources?: Array<{ question: string }>
 }

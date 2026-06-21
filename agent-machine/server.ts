@@ -2530,6 +2530,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // not recalled" — facts now actually surface in context. Bounded to 8 short lines so it's
   // cheap; pinned (curated into the long-term brain) are marked and always lead.
   let memoryContext = ''
+  let recalledMems: Array<{ kind: string; preview: string; pinned: boolean }> = []
   try {
     const { selectRelevantMemories } = await import('./lib/memory-curation.js')
     const g = getHellGraph()
@@ -2542,6 +2543,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     // Relevance-ranked recall: pinned always, unpinned only when relevant to this turn's query
     // (no more "ask the weather, get 'prefers coffee'").
     const mems = selectRelevantMemories(memStore, latestUserContent, 8)
+    recalledMems = mems.map((m) => ({ kind: m.kind, preview: m.preview.slice(0, 100), pinned: m.pinned }))
     if (mems.length > 0) {
       memoryContext = `\n\n---\n**Long-term memory (what you've been asked to remember — honor these)**\n` +
         mems.map((m) => `- ${m.pinned ? '📌 ' : ''}(${m.kind}) ${m.preview}`).join('\n')
@@ -2551,11 +2553,20 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // Cross-session episodic recall: prior exchanges relevant to this question, so the agent
   // remembers what was discussed in EARLIER sessions (the Interaction layer was write-only).
   let episodeContext = ''
+  let recalledEpisodes: Array<{ question: string }> = []
   try {
     const { recallExchanges, formatExchanges } = await import('./lib/episodic.js')
     const gEp = getHellGraph()
-    episodeContext = formatExchanges(recallExchanges({ nodesByLabel: (l: string) => gEp.nodesByLabel(l) as any[] }, latestUserContent, { limit: 3 }))
+    const exchanges = recallExchanges({ nodesByLabel: (l: string) => gEp.nodesByLabel(l) as any[] }, latestUserContent, { limit: 3 })
+    recalledEpisodes = exchanges.map((e) => ({ question: e.question.slice(0, 120) }))
+    episodeContext = formatExchanges(exchanges)
   } catch { /* episodic recall best-effort */ }
+
+  // Provenance: surface what the agent REMEMBERED + RECALLED for this answer (merges into the
+  // retrieval trace shown in the UI). Best-effort.
+  if (recalledMems.length > 0 || recalledEpisodes.length > 0) {
+    sse(res, 'retrieval', { trace: { patterns: [], timings: [], sources: [], token_estimate: 0, beliefs_injected: 0, memory_sources: recalledMems, episode_sources: recalledEpisodes } })
+  }
 
   // Few-shot training memory: inject the best gold Q/A exemplars for this intent —
   // in-context "training" on the Pareto-head cases, no model update needed. Opt-in

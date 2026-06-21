@@ -1296,13 +1296,16 @@ export function AppShell() {
   // so the answer shows graph grounding AND the cited uploaded documents.
   function mergeRetrieval(id: string, trace: import('@/lib/types/message').RetrievalTrace) {
     const isDocs = trace.patterns?.includes('semantic-documents')
+    const isProvenance = (trace.memory_sources?.length ?? 0) > 0 || (trace.episode_sources?.length ?? 0) > 0
     setMessages((current) =>
       current.map((m) => {
         if (m.id !== id) return m
         const prev = m.retrieval_trace
-        const combined = isDocs
-          ? { ...(prev ?? trace), document_sources: trace.sources }
-          : { ...trace, document_sources: prev?.document_sources }
+        const combined = isProvenance
+          ? { ...(prev ?? trace), memory_sources: trace.memory_sources, episode_sources: trace.episode_sources }
+          : isDocs
+            ? { ...(prev ?? trace), document_sources: trace.sources }
+            : { ...trace, document_sources: prev?.document_sources, memory_sources: prev?.memory_sources, episode_sources: prev?.episode_sources }
         return { ...m, retrieval_trace: combined }
       })
     )

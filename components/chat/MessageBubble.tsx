@@ -542,7 +542,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
         {message.content && (
           (message.deliberation && message.deliberation.candidates.length > 1) ||
           message.value_judgment ||
-          (message.retrieval_trace && (message.retrieval_trace.sources.length > 0 || message.retrieval_trace.beliefs_injected > 0)) ||
+          (message.retrieval_trace && (message.retrieval_trace.sources.length > 0 || message.retrieval_trace.beliefs_injected > 0 || (message.retrieval_trace.memory_sources?.length ?? 0) > 0 || (message.retrieval_trace.episode_sources?.length ?? 0) > 0)) ||
           message.steering_result ||
           message.governance
         ) && (
@@ -575,7 +575,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
                 </div>
               )}
               {/* Reasoning trace */}
-              {message.retrieval_trace && (message.retrieval_trace.sources.length > 0 || message.retrieval_trace.beliefs_injected > 0) && (
+              {message.retrieval_trace && (message.retrieval_trace.sources.length > 0 || message.retrieval_trace.beliefs_injected > 0 || (message.retrieval_trace.memory_sources?.length ?? 0) > 0 || (message.retrieval_trace.episode_sources?.length ?? 0) > 0) && (
                 <div className="space-y-2">
                   <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">Reasoning trace</div>
                   {message.retrieval_trace.timings.length > 0 && (
@@ -605,6 +605,25 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
                       {message.retrieval_trace.document_sources.map((s, i) => (
                         <span key={`${s.id}-${i}`} className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)]" title={`${s.label} · ${(s.score * 100).toFixed(0)}% match`}>
                           <span className="text-[#16a34a]">📄</span><span className="max-w-[160px] truncate">{s.label || 'document'}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {/* Provenance: what the agent remembered + recalled (local, never left this machine) */}
+                  {message.retrieval_trace.memory_sources && message.retrieval_trace.memory_sources.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {message.retrieval_trace.memory_sources.map((s, i) => (
+                        <span key={`mem-${i}`} className="inline-flex items-center gap-1 rounded-full border border-[#7c3aed]/40 bg-[#7c3aed]/5 px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)]" title={`memory (${s.kind})`}>
+                          <span>{s.pinned ? '📌' : '🧠'}</span><span className="max-w-[180px] truncate">{s.preview}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {message.retrieval_trace.episode_sources && message.retrieval_trace.episode_sources.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {message.retrieval_trace.episode_sources.map((s, i) => (
+                        <span key={`ep-${i}`} className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)]" title="recalled from an earlier session">
+                          <span className="text-[#0ea5e9]">↩</span><span className="max-w-[180px] truncate">{s.question}</span>
                         </span>
                       ))}
                     </div>
