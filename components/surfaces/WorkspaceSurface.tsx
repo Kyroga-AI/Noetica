@@ -19,6 +19,28 @@ export function WorkspaceSurface() {
   const [sel, setSel] = useState<string>('')
   const [content, setContent] = useState<string>('')
   const [loading, setLoading] = useState(false)
+  const [term, setTerm] = useState<{ cmd: string; out: string }[]>([])
+  const [cmd, setCmd] = useState('')
+  const [running, setRunning] = useState(false)
+
+  async function runCmd() {
+    const c = cmd.trim()
+    if (!c || !ws || running) return
+    setCmd(''); setRunning(true)
+    setTerm((t) => [...t, { cmd: c, out: '…running' }])
+    try {
+      const r = await fetch(`${amBase()}/api/tool`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name: 'run_command', input: { command: c, workspace: ws } }),
+        signal: AbortSignal.timeout(300_000),
+      })
+      const j = (await r.json()) as { result?: string }
+      setTerm((t) => t.map((e, i) => (i === t.length - 1 ? { ...e, out: j.result ?? '(no output)' } : e)))
+      void loadFiles(ws)  // a command may have created/changed files
+    } catch {
+      setTerm((t) => t.map((e, i) => (i === t.length - 1 ? { ...e, out: '(command failed / backend offline)' } : e)))
+    } finally { setRunning(false) }
+  }
 
   async function loadWorkspaces() {
     try {
@@ -85,6 +107,32 @@ export function WorkspaceSurface() {
               <pre className="overflow-auto px-4 py-3 font-mono text-[12px] leading-relaxed text-[var(--color-text-primary)]"><code>{content}</code></pre>
             </>
           )}
+        </div>
+      </div>
+      {/* Terminal — run commands in the selected workspace and watch the output. */}
+      <div className="flex h-52 shrink-0 flex-col border-t border-[var(--color-border-tertiary)] bg-[#0b0f17]">
+        <div className="flex items-center justify-between border-b border-[var(--color-border-tertiary)] px-3 py-1">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-[#94a3b8]">Terminal · {ws || '(no workspace)'}</span>
+          {term.length > 0 && <button onClick={() => setTerm([])} className="text-[10px] text-[#64748b] hover:text-[#94a3b8]">clear</button>}
+        </div>
+        <div className="min-h-0 flex-1 overflow-auto px-3 py-2 font-mono text-[11px] leading-relaxed text-[#cbd5e1]">
+          {term.length === 0 && <div className="text-[#475569]">Run a command in this workspace — e.g. <span className="text-[#94a3b8]">npm run build</span>, <span className="text-[#94a3b8]">ls -la</span>, <span className="text-[#94a3b8]">git status</span>.</div>}
+          {term.map((e, i) => (
+            <div key={i} className="mb-1.5">
+              <div className="text-[#34d399]">$ {e.cmd}</div>
+              <pre className="whitespace-pre-wrap text-[#cbd5e1]">{e.out}</pre>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 border-t border-[var(--color-border-tertiary)] px-3 py-1.5">
+          <span className="font-mono text-[12px] text-[#34d399]">$</span>
+          <input
+            value={cmd} onChange={(e) => setCmd(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') void runCmd() }}
+            placeholder={ws ? 'command…' : 'pick a workspace first'} disabled={!ws || running}
+            className="flex-1 bg-transparent font-mono text-[12px] text-[#e2e8f0] outline-none placeholder:text-[#475569]"
+          />
+          {running && <span className="h-3 w-3 animate-spin rounded-full border-2 border-[#34d399] border-t-transparent" />}
         </div>
       </div>
     </div>
