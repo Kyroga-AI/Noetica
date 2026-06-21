@@ -33,7 +33,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import { buildRouterDecision, LOCAL_MODEL_SUITE } from './lib/router.js'
-import { checkEgress, emitScopedTelemetry, type MeshTier } from './lib/scope-d.js'
+import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTelemetry, type MeshTier } from './lib/scope-d.js'
 import { classifyIntent, capabilityToTask, wantsVectorRag, intentByName, planFromIntent, intentToAction } from './lib/intent-router.js'
 import { routeForAction, meshrushPhase } from './lib/action-cell.js'
 import { selectSurface } from './lib/graph-surface.js'
@@ -631,6 +631,28 @@ const BUILTIN_TOOLS: ProviderTool[] = [
     },
   },
   {
+    name: 'public_data',
+    description:
+      'Fetch a time series from a FREE public data source (no API key) and return rows ready to chart with render_chart. Sources: "crypto" (CoinGecko — coin price history), "fx" (Frankfurter — currency exchange-rate history), "worldbank" (economic indicators by country, e.g. GDP, population), or "csv" (any public CSV URL). Use for "chart bitcoin over 30 days", "USD to EUR this year", "US GDP since 2000", or charting any open dataset.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        source: { type: 'string', enum: ['crypto', 'fx', 'worldbank', 'csv'], description: 'Which public source to pull from.' },
+        coin: { type: 'string', description: 'crypto: CoinGecko id, e.g. bitcoin, ethereum, solana.' },
+        vs: { type: 'string', description: 'crypto: quote currency (default usd).' },
+        days: { type: 'string', description: 'crypto: history length in days (default 30; or "max").' },
+        from: { type: 'string', description: 'fx: base currency, e.g. USD.' },
+        to: { type: 'string', description: 'fx: quote currency, e.g. EUR.' },
+        start: { type: 'string', description: 'fx: start date YYYY-MM-DD.' },
+        end: { type: 'string', description: 'fx: end date YYYY-MM-DD.' },
+        indicator: { type: 'string', description: 'worldbank: indicator code, e.g. NY.GDP.MKTP.CD (GDP), SP.POP.TOTL (population).' },
+        country: { type: 'string', description: 'worldbank: ISO country code, e.g. US, CN, DE (default US).' },
+        url: { type: 'string', description: 'csv: full https URL to a public CSV file.' },
+      },
+      required: ['source'],
+    },
+  },
+  {
     name: 'render_chart',
     description:
       'Render a chart INLINE from data rows. Provide the data + which fields map to axes; give a chart type or a charting intent (resolved against the catalogue). Use this to SHOW analysis as a chart instead of a table. Pair with code_execute (compute the data) + registry_lookup (pick the spec).',
@@ -937,6 +959,76 @@ function parseSolveOutput(text: string): { files: { path: string; content: strin
   return null
 }
 
+// public_data — pull a time series from a free, no-key public source and return
+// rows ready for render_chart. Sources: crypto (CoinGecko), fx (Frankfurter),
+// worldbank (economic indicators), csv (any public CSV URL).
+async function publicData(args: Record<string, unknown>): Promise<string> {
+  const source = String(args['source'] ?? '').trim()
+  const UA = 'Mozilla/5.0 (compatible; noetica/1.0)'
+  const getJson = async (url: string): Promise<any> => {
+    const res = await fetch(url, { headers: { 'user-agent': UA, accept: 'application/json' }, signal: AbortSignal.timeout(15_000) })
+    if (!res.ok) throw new Error(`source returned ${res.status}`)
+    return res.json()
+  }
+  const cap = (rows: any[]): any[] => { const step = Math.max(1, Math.ceil(rows.length / 400)); return rows.filter((_, i) => i % step === 0) }
+  const chartHint = (x: string, y: string) => `\n\nSeries — to chart, call render_chart with type "line", x "${x}", y "${y}":\n`
+
+  try {
+    if (source === 'crypto') {
+      const coin = String(args['coin'] ?? 'bitcoin').toLowerCase()
+      const vs = String(args['vs'] ?? 'usd').toLowerCase()
+      const days = String(args['days'] ?? '30')
+      const j = await getJson(`https://api.coingecko.com/api/v3/coins/${encodeURIComponent(coin)}/market_chart?vs_currency=${encodeURIComponent(vs)}&days=${encodeURIComponent(days)}`)
+      const prices: Array<[number, number]> = j?.prices ?? []
+      if (!prices.length) return `Error: no price data for ${coin}/${vs} (check the coin id).`
+      const rows = prices.map(([ms, p]) => ({ date: new Date(ms).toISOString().slice(0, 10), price: Number(p.toFixed(2)) }))
+      return `${coin}/${vs} — ${rows.length} points (${days}d), latest ${rows[rows.length - 1]!.price} ${vs.toUpperCase()}${chartHint('date', 'price')}${JSON.stringify(cap(rows))}`
+    }
+    if (source === 'fx') {
+      const from = String(args['from'] ?? 'USD').toUpperCase()
+      const to = String(args['to'] ?? 'EUR').toUpperCase()
+      const start = String(args['start'] ?? '')
+      const end = String(args['end'] ?? '')
+      const range = start && end ? `${start}..${end}` : start ? `${start}..` : '2024-01-01..'
+      const j = await getJson(`https://api.frankfurter.app/${range}?from=${from}&to=${to}`)
+      const rates: Record<string, Record<string, number>> = j?.rates ?? {}
+      const rows = Object.keys(rates).sort().map((d) => ({ date: d, rate: rates[d]![to]! })).filter((r) => typeof r.rate === 'number')
+      if (!rows.length) return `Error: no FX data for ${from}→${to}.`
+      return `${from}→${to} — ${rows.length} points, latest ${rows[rows.length - 1]!.rate}${chartHint('date', 'rate')}${JSON.stringify(cap(rows))}`
+    }
+    if (source === 'worldbank') {
+      const indicator = String(args['indicator'] ?? 'NY.GDP.MKTP.CD')
+      const country = String(args['country'] ?? 'US').toUpperCase()
+      const j = await getJson(`https://api.worldbank.org/v2/country/${encodeURIComponent(country)}/indicator/${encodeURIComponent(indicator)}?format=json&per_page=400`)
+      const series: any[] = Array.isArray(j) ? (j[1] ?? []) : []
+      const rows = series.filter((d) => d?.value != null).map((d) => ({ year: d.date, value: d.value })).reverse()
+      if (!rows.length) return `Error: no World Bank data for ${indicator} / ${country}.`
+      const label = series[0]?.indicator?.value ?? indicator
+      return `${label} — ${country} — ${rows.length} points (${rows[0]!.year}–${rows[rows.length - 1]!.year})${chartHint('year', 'value')}${JSON.stringify(rows)}`
+    }
+    if (source === 'csv') {
+      const url = String(args['url'] ?? '').trim()
+      if (!/^https:\/\//.test(url)) return 'Error: csv source requires a full https URL.'
+      const res = await fetch(url, { headers: { 'user-agent': UA }, signal: AbortSignal.timeout(15_000) })
+      if (!res.ok) return `Error: CSV URL returned ${res.status}.`
+      const text = await res.text()
+      if (text.trim().startsWith('<')) return 'Error: that URL returned HTML, not CSV (it may require a browser/JS).'
+      const lines = text.trim().split(/\r?\n/)
+      const header = (lines.shift() ?? '').split(',').map((h) => h.trim())
+      const rows = lines.slice(0, 2000).map((ln) => {
+        const cells = ln.split(',')
+        const o: Record<string, string | number> = {}
+        header.forEach((h, i) => { const v = cells[i]; const n = Number(v); o[h] = v !== undefined && v !== '' && !isNaN(n) ? n : (v ?? '') })
+        return o
+      })
+      return `CSV ${url} — columns: ${header.join(', ')} — ${rows.length} rows.\nPick x/y columns and call render_chart:\n${JSON.stringify(cap(rows))}`
+    }
+    return `Error: unknown source "${source}". Use crypto, fx, worldbank, or csv.`
+  } catch (e) {
+    return `Error fetching ${source} data: ${e instanceof Error ? e.message : String(e)}`
+  }
+}
+
 async function executeTool(
   name: string,
   input: Record<string, unknown>,
@@ -955,6 +1047,25 @@ async function executeTool(
     return { resolved }
   }
 
+  // scope-d capability confinement (facet 4): authorize side-effecting tools
+  // against the active EngagementPolicy. Read-only tools pass; network/write/exec
+  // actions are gated and fail-closed when the policy doesn't permit them.
+  const TOOL_ACTION_CLASS: Record<string, import('./lib/scope-d.js').ActionClass> = {
+    web_search: 'network_call',
+    generate_image: 'network_call',
+    public_data: 'network_call',
+    code_execute: 'write',
+    run_command: 'write',
+  }
+  const actionClass = TOOL_ACTION_CLASS[name]
+  if (actionClass) {
+    const verdict = scopedAuthorizeAction(actionClass)
+    emitScopedTelemetry({ kind: 'capability', allow: verdict.allow, provider: 'tool', model: name, scope: actionClass, reason: verdict.reason, source: verdict.source })
+    if (!verdict.allow) {
+      return `Blocked by scope-d engagement policy: ${verdict.reason}. This action (${name} → ${actionClass}) is not authorized under the active policy.`
+    }
+  }
+
   switch (name) {
     case 'web_search': {
       const query = String(input['query'] ?? '').trim().slice(0, 500)
@@ -967,6 +1078,9 @@ async function executeTool(
       const openaiKey = keys.openai ?? process.env['OPENAI_API_KEY']
       if (!openaiKey) return 'Error: No OpenAI API key — cannot generate image.'
       return generateImage(prompt, openaiKey)
+    }
+    case 'public_data': {
+      return publicData(input)
     }
     case 'code_execute': {
       const language = String(input['language'] ?? 'javascript')
@@ -2012,6 +2126,9 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // shouldn't be offered code_execute, etc. Trivial intents (smalltalk/confirm) map
   // to no tools. User-supplied (MCP) tools always pass through regardless of intent.
   const intentToolSet = new Set<string>(intentPlan.tools)
+  // Finance rides along wherever web_search is offered (finance questions are
+  // research-shaped), and pulls render_chart with it so "chart AAPL" can plot.
+  if (intentToolSet.has('web_search')) { intentToolSet.add('public_data'); intentToolSet.add('render_chart') }
   const allTools: ProviderTool[] = modelSupportsTools
     ? BUILTIN_TOOLS.filter((t) => intentToolSet.has(t.name) && (t.name !== 'generate_image' || imageGenAvailable))
     : []

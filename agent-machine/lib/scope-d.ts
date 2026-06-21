@@ -125,6 +125,48 @@ export function checkEgress(req: ScopedEgressRequest): ScopedEgressVerdict {
   return { allow: true, reason: `scope-d: egress to ${req.target} authorized under ${policy.policyId}`, source: 'scope-d' }
 }
 
+export type ActionClass =
+  | 'read' | 'synthetic_event' | 'dry_run' | 'network_call'
+  | 'write' | 'deployment' | 'destructive_action'
+  | 'credential_access' | 'memory_write' | 'identity_write'
+
+export interface ScopedActionVerdict {
+  allow: boolean
+  reason: string
+  source: 'scope-d' | 'not-configured' | 'fail-closed'
+}
+
+/**
+ * Capability confinement (facet 4) — authorize a tool/side-effect action class
+ * against the active EngagementPolicy's approvalRules. Anything beyond gate
+ * 'none' has no inline approver in the mesh, so it fails closed. Read-class
+ * actions are always permitted. No policy configured → unchanged (allow).
+ */
+export function authorizeAction(actionClass: ActionClass): ScopedActionVerdict {
+  if (actionClass === 'read' || actionClass === 'synthetic_event') {
+    return { allow: true, reason: `${actionClass} — no confinement needed`, source: 'not-configured' }
+  }
+  if (!scopedConfigured()) {
+    return { allow: true, reason: 'scope-d engagement policy not configured', source: 'not-configured' }
+  }
+  const policy = loadEngagementPolicy()
+  if (!policy) {
+    return { allow: false, reason: 'scope-d policy unreadable — action denied (fail-closed)', source: 'fail-closed' }
+  }
+  if (policy.expiresAt && Date.parse(policy.expiresAt) <= Date.now()) {
+    return { allow: false, reason: `scope-d policy ${policy.policyId} expired — action denied`, source: 'scope-d' }
+  }
+  const gate = policy.approvalRules?.find((r) => r.actionClass === actionClass)?.requiredGate
+  if (gate === 'none') {
+    return { allow: true, reason: `scope-d: ${actionClass} authorized (gate none) under ${policy.policyId}`, source: 'scope-d' }
+  }
+  return {
+    allow: false,
+    reason: `scope-d: ${actionClass} requires gate '${gate ?? 'unspecified'}' (no inline approver) under ${policy.policyId}`,
+    source: 'scope-d',
+  }
+}
+
 /**
  * Emit a scope-d Event-IR audit record for a routing/egress decision.
  * Conforms to config/schemas/event-ir.schema.json. Fire-and-forget; never throws.
