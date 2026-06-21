@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { SurfaceGraph, type GraphNode, type GraphLink } from '@/components/graph/SurfaceGraph'
+import { SurfaceGraph, KIND_COLOR, KIND_ORDER, type GraphNode, type GraphLink } from '@/components/graph/SurfaceGraph'
 
 interface GraphHealth {
   status: 'healthy' | 'degraded' | 'unknown'
@@ -31,6 +31,8 @@ export function GraphRailPanel() {
   const [expanded, setExpanded] = useState(false)
   const [searchQ, setSearchQ] = useState('')
   const [searchHits, setSearchHits] = useState<Array<{ id: string; label: string; surface: string; score: number; via: string }>>([])
+  const [hiddenKinds, setHiddenKinds] = useState<Set<string>>(new Set())
+  const [hideInferred, setHideInferred] = useState(false)
 
   // Esc closes the expanded graph overlay (when drilled into a node, first Esc backs
   // out to topics, second closes) — matches the ← back / ✕ affordances.
@@ -165,12 +167,39 @@ export function GraphRailPanel() {
         {/* lens switcher: scope the graph by tech / knowledge / memory / all */}
         <div className="mt-2">{searchBox}</div>
         <div className="mt-2">{lensButtons}</div>
+        {/* Entity-class legend + filter, and a trust toggle. Click a class to hide it; "confirmed
+            only" hides inferred (dashed) edges so you see what the graph KNOWS vs guesses. */}
+        {(() => {
+          const present = KIND_ORDER.filter((k) => graph.nodes.some((n) => (n.kind ?? 'Concept') === k))
+          if (present.length === 0) return null
+          const count = (k: string) => graph.nodes.filter((n) => (n.kind ?? 'Concept') === k).length
+          return (
+            <div className="mt-2 flex flex-wrap items-center gap-1">
+              {present.map((k) => {
+                const off = hiddenKinds.has(k)
+                return (
+                  <button key={k} title={`${count(k)} ${k}`}
+                    onClick={() => setHiddenKinds((s) => { const n = new Set(s); n.has(k) ? n.delete(k) : n.add(k); return n })}
+                    className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition ${off ? 'border-[var(--color-border-tertiary)] text-[var(--color-text-tertiary)] opacity-50' : 'border-[var(--color-border-secondary)] text-[var(--color-text-secondary)]'}`}>
+                    <span className="h-2 w-2 rounded-full" style={{ background: KIND_COLOR[k], opacity: off ? 0.4 : 1 }} />{k}<span className="text-[var(--color-text-tertiary)]">{count(k)}</span>
+                  </button>
+                )
+              })}
+              <button onClick={() => setHideInferred((v) => !v)} title="Hide inferred (low-trust, dashed) edges"
+                className={`ml-auto rounded-full border px-2 py-0.5 text-[10px] transition ${hideInferred ? 'border-[#16a34a] text-[#16a34a]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-tertiary)]'}`}>
+                {hideInferred ? '✓ confirmed only' : 'confirmed only'}
+              </button>
+            </div>
+          )
+        })()}
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-2 p-3">
         {graph.nodes.length > 0 ? (
           <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
-            <SurfaceGraph nodes={graph.nodes} links={graph.links} fill onNodeClick={setRoot} />
+            <SurfaceGraph nodes={graph.nodes} links={graph.links} fill onNodeClick={setRoot}
+              visibleKinds={hiddenKinds.size ? new Set(graph.nodes.map((n) => n.kind ?? 'Concept').filter((k) => !hiddenKinds.has(k))) : undefined}
+              hideInferred={hideInferred} />
             {root && (
               <div className="absolute inset-x-2 bottom-1 flex items-center justify-between rounded-md bg-[var(--color-background-primary)]/80 px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)] backdrop-blur">
                 <span className="truncate">focused: <b>{focusLabel || root.split(':').pop()}</b></span>
@@ -223,7 +252,9 @@ export function GraphRailPanel() {
           </div>
           <div className="relative min-h-0 flex-1 bg-[var(--color-background-secondary)]">
             {graph.nodes.length > 0 ? (
-              <SurfaceGraph nodes={graph.nodes} links={graph.links} fill onNodeClick={setRoot} />
+              <SurfaceGraph nodes={graph.nodes} links={graph.links} fill onNodeClick={setRoot}
+              visibleKinds={hiddenKinds.size ? new Set(graph.nodes.map((n) => n.kind ?? 'Concept').filter((k) => !hiddenKinds.has(k))) : undefined}
+              hideInferred={hideInferred} />
             ) : (
               <div className="flex h-full items-center justify-center text-[12px] text-[var(--color-text-tertiary)]">No nodes for this lens yet.</div>
             )}

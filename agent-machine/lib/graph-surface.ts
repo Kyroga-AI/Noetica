@@ -186,7 +186,7 @@ export function selectSurface(allNodes: GNode[], allEdges: GEdge[], opts: { view
   const nodes: SurfaceNode[] = picked.map((n) => {
     const lbl = n.labels[0] ?? 'node'
     const deg = degree.get(n.id) ?? 0
-    return { id: n.id, label: cleanLabel(n) ?? lbl, category: categoryFor(lbl), featured: deg >= maxDeg * 0.6, degree: deg }
+    return { id: n.id, label: cleanLabel(n) ?? lbl, category: categoryFor(lbl), kind: kindOf(lbl), featured: deg >= maxDeg * 0.6, degree: deg }
   })
 
   const shown = new Map<string, number>()
@@ -197,7 +197,7 @@ export function selectSurface(allNodes: GNode[], allEdges: GEdge[], opts: { view
     if ((shown.get(e.from) ?? 0) >= CAP || (shown.get(e.to) ?? 0) >= CAP) continue
     shown.set(e.from, (shown.get(e.from) ?? 0) + 1)
     shown.set(e.to, (shown.get(e.to) ?? 0) + 1)
-    links.push({ source: e.from, target: e.to, primary: (degree.get(e.from) ?? 0) >= maxDeg * 0.6 || (degree.get(e.to) ?? 0) >= maxDeg * 0.6 })
+    links.push({ source: e.from, target: e.to, primary: (degree.get(e.from) ?? 0) >= maxDeg * 0.6 || (degree.get(e.to) ?? 0) >= maxDeg * 0.6, epistemic: 'extracted' })
   }
 
   return { nodes, links, total: { nodes: allNodes.length, edges: allEdges.length } }

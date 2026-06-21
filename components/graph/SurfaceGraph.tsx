@@ -13,11 +13,25 @@ const COLOR: Record<string, string> = {
   other: '#64748b',
 }
 
+// Entity-CLASS palette (regis kinds) — what a node IS. Drives node colour + the legend/filter.
+export const KIND_COLOR: Record<string, string> = {
+  Concept:  '#7c3aed',
+  Document: '#0ea5e9',
+  Code:     '#2563eb',
+  Service:  '#0f766e',
+  Session:  '#f59e0b',
+  Person:   '#db2777',
+  Org:      '#9333ea',
+  Entity:   '#16a34a',
+  Cluster:  '#e11d48',
+}
+export const KIND_ORDER = ['Concept', 'Service', 'Code', 'Document', 'Session', 'Entity', 'Person', 'Org', 'Cluster']
+
 export interface GraphNode {
-  id: string; label: string; category: string; featured?: boolean; degree?: number
+  id: string; label: string; category: string; kind?: string; featured?: boolean; degree?: number
   x0?: number; y0?: number
 }
-export interface GraphLink { source: string; target: string; primary?: boolean }
+export interface GraphLink { source: string; target: string; primary?: boolean; epistemic?: string }
 
 // Disemvowel a label so the whole concept fits in/under a small node — like a DB column
 // abbreviation (customer_data → custmr_dta): keep the first 1–2 chars + last char of each
@@ -42,9 +56,15 @@ interface Sim extends GraphNode { x: number; y: number; vx: number; vy: number; 
  * Charge repulsion + link springs + anchor/centering + collision, SVG-rendered,
  * draggable. Feed it nodes/links from /api/graph/surface.
  */
-export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick }: {
+export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick, visibleKinds, hideInferred }: {
   nodes: GraphNode[]; links: GraphLink[]; width?: number; height?: number; fill?: boolean; onNodeClick?: (id: string) => void
+  visibleKinds?: Set<string>; hideInferred?: boolean
 }) {
+  // Faceted filtering: hide whole entity classes, and/or hide low-trust (inferred) edges.
+  const fNodes = useMemo(() => (visibleKinds ? nodes.filter((n) => visibleKinds.has(n.kind ?? 'Concept')) : nodes), [nodes, visibleKinds])
+  const fIds = useMemo(() => new Set(fNodes.map((n) => n.id)), [fNodes])
+  const fLinks = useMemo(() => links.filter((l) => fIds.has(l.source) && fIds.has(l.target) && (!hideInferred || l.epistemic !== 'inferred')), [links, fIds, hideInferred])
+  nodes = fNodes; links = fLinks
   // In `fill` mode, measure the container and use the FULL available space as the
   // simulation canvas (so the graph expands to fill the panel instead of a fixed box).
   const wrapRef = useRef<HTMLDivElement>(null)
@@ -204,14 +224,17 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick }:
         {links.map((l, i) => {
           const s = byId.get(l.source), t = byId.get(l.target)
           if (!s || !t) return null
-          return <line key={i} x1={s.x} y1={s.y} x2={t.x} y2={t.y} strokeWidth={l.primary ? 2.5 : 1.4} />
+          // Inferred (algorithm-derived) edges read as dashed + faint; extracted/confirmed as solid —
+          // so you can SEE which links to trust and filter the guesses out.
+          const inferred = l.epistemic === 'inferred'
+          return <line key={i} x1={s.x} y1={s.y} x2={t.x} y2={t.y} strokeWidth={l.primary ? 2.5 : 1.4} strokeDasharray={inferred ? '5 4' : undefined} strokeOpacity={inferred ? 0.5 : 0.95} />
         })}
       </g>
       {ns.map((n) => (
         <g key={n.id} transform={`translate(${n.x},${n.y})`} cursor="grab"
           onPointerDown={(e) => { dragRef.current = { id: n.id }; movedRef.current = false; (e.target as Element).setPointerCapture?.(e.pointerId); alphaRef.current = Math.max(alphaRef.current, 0.3); ensureRunningRef.current() }}>
           <title>{n.label}</title>
-          <circle r={n.r} fill={COLOR[n.category] ?? COLOR.other} stroke="#fff" strokeWidth={n.featured ? 3 : 2} filter="url(#spNodeGlow)" />
+          <circle r={n.r} fill={KIND_COLOR[n.kind ?? ''] ?? COLOR[n.category] ?? COLOR.other} stroke="#fff" strokeWidth={n.featured ? 3 : 2} filter="url(#spNodeGlow)" />
           {/* readable label BELOW the node: featured hubs show the full concept, others the
               disemvowelled form so the whole word is recognizable (no "self n…" truncation). */}
           <text textAnchor="middle" dy={n.r + 11} fontSize={n.featured ? 11 : 9.5} fontWeight={n.featured ? 700 : 600}

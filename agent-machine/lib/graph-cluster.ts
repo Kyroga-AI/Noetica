@@ -13,7 +13,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import type { GraphNode, GraphEdge } from '@socioprophet/hellgraph'
 import { embedBatchLocal } from './embed-runtime.js'
-import { cleanLabel, categoryFor, type SurfaceResult, type SurfaceNode, type SurfaceLink } from './graph-surface.js'
+import { cleanLabel, categoryFor, kindOf, type SurfaceResult, type SurfaceNode, type SurfaceLink } from './graph-surface.js'
 import { classifyTerms, titleCaseTopic } from './slash-topics.js'
 import { isActionLabel } from './graph-hygiene.js'
 
@@ -377,7 +377,7 @@ export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[
     const isTopic = cl.members.has(id)   // a representative = a topic (class layer)
     // Topic reps render as their synthesized CLASS name; instances (drill-down) keep their own.
     const label = (isTopic ? cl.classNames.get(id) : null) ?? cleanLabel(n) ?? (n.labels[0] ?? 'node')
-    return [{ id, label, category: categoryFor(n.labels[0] ?? ''), featured: isTopic || deg >= maxDeg * 0.6, degree: deg }]
+    return [{ id, label, category: categoryFor(n.labels[0] ?? ''), kind: isTopic ? 'Concept' : kindOf(n.labels[0] ?? ''), featured: isTopic || deg >= maxDeg * 0.6, degree: deg }]
   })
 
   const links: SurfaceLink[] = []
@@ -388,7 +388,7 @@ export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[
       if (!keep.has(e.from) || !keep.has(e.to) || e.from === e.to) continue
       if ((shown.get(e.from) ?? 0) >= CAP || (shown.get(e.to) ?? 0) >= CAP) continue
       shown.set(e.from, (shown.get(e.from) ?? 0) + 1); shown.set(e.to, (shown.get(e.to) ?? 0) + 1)
-      links.push({ source: e.from, target: e.to, primary: (degree.get(e.from) ?? 0) >= maxDeg * 0.6 })
+      links.push({ source: e.from, target: e.to, primary: (degree.get(e.from) ?? 0) >= maxDeg * 0.6, epistemic: 'extracted' })
     }
   } else {
     // topic view: inter-cluster connectivity (A↔B if any member edge crosses)
@@ -398,7 +398,7 @@ export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[
       if (!ra || !rb || ra === rb || !keep.has(ra) || !keep.has(rb)) continue
       const key = ra < rb ? `${ra}|${rb}` : `${rb}|${ra}`
       if (seen.has(key)) continue; seen.add(key)
-      links.push({ source: ra, target: rb, primary: false })
+      links.push({ source: ra, target: rb, primary: false, epistemic: 'inferred' })
     }
   }
 
