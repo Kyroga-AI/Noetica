@@ -2,7 +2,9 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
@@ -18,6 +20,92 @@ struct AgentMachineState {
     /// PID of the Agent Machine sidecar, so we can gracefully SIGTERM it on app exit
     /// — its own handler then tears down the managed Ollama (no orphaned `ollama serve`).
     am_pid: Option<u32>,
+}
+
+/// Set once the app is genuinely quitting (Cmd+Q / tray Quit / RunEvent::Exit) so the
+/// Agent Machine watchdog does NOT resurrect the backend during a deliberate shutdown.
+static SHUTTING_DOWN: AtomicBool = AtomicBool::new(false);
+/// Cold crash-loop budget. A backend that stays up >60s refreshes this; a hard loop stops.
+const MAX_AM_RETRIES: u32 = 5;
+
+/// Spawn the Agent Machine sidecar and watch it. On unexpected termination — most often an
+/// OOM kill under heavy local-model load — re-spawn after a short backoff so the app
+/// self-heals instead of dead-ending at "Load failed". A process that stayed up past 60s is
+/// treated as healthy and refreshes the retry budget; otherwise the budget decrements so a
+/// genuine crash-loop eventually gives up rather than thrashing forever.
+fn spawn_agent_machine(app_handle: tauri::AppHandle, am_port: u16, retries_left: u32) {
+    use tauri_plugin_shell::process::CommandEvent;
+    let cmd = match app_handle.shell().sidecar("agent-machine") {
+        Ok(c) => c,
+        Err(e) => {
+            eprintln!("[noetica-am] sidecar not found (build agent-machine first): {}", e);
+            return;
+        }
+    };
+    let (mut rx, child) = match cmd
+        .env("NOETICA_AM_PORT", am_port.to_string())
+        .env("OLLAMA_HOST", "http://127.0.0.1:11435")
+        // Our PID, so the sidecar can poll our existence and tear itself (and the managed
+        // Ollama) down if we die — even by crash. bun sidecars reparent to launchd, so they
+        // can't rely on their own ppid.
+        .env("NOETICA_PARENT_PID", std::process::id().to_string())
+        .spawn()
+    {
+        Ok(s) => s,
+        Err(e) => {
+            eprintln!("[noetica-am] sidecar spawn failed (dev mode?): {}", e);
+            return;
+        }
+    };
+    // Keep the PID (dropping the handle does NOT kill the process) so we can SIGTERM it on
+    // app exit and reap the Ollama it owns.
+    let am_pid = child.pid();
+    if let Ok(mut state) = app_handle.state::<Mutex<AgentMachineState>>().lock() {
+        state.port = Some(am_port);
+        state.am_pid = Some(am_pid);
+    }
+    let _ = app_handle.emit("noetica:am:started", serde_json::json!({
+        "port": am_port,
+        "url": format!("http://127.0.0.1:{}", am_port)
+    }));
+    let started_at = Instant::now();
+    tauri::async_runtime::spawn(async move {
+        while let Some(event) = rx.recv().await {
+            match event {
+                CommandEvent::Stdout(line) => {
+                    eprintln!("[noetica-am] {}", String::from_utf8_lossy(&line));
+                }
+                CommandEvent::Stderr(line) => {
+                    eprintln!("[noetica-am:err] {}", String::from_utf8_lossy(&line));
+                }
+                CommandEvent::Error(e) => {
+                    eprintln!("[noetica-am] process error: {}", e);
+                }
+                CommandEvent::Terminated(status) => {
+                    eprintln!("[noetica-am] terminated: {:?}", status);
+                    let _ = app_handle.emit("noetica:am:stopped", ());
+                    if !SHUTTING_DOWN.load(Ordering::SeqCst) {
+                        let healthy = started_at.elapsed().as_secs() > 60;
+                        let next = if healthy { MAX_AM_RETRIES } else { retries_left.saturating_sub(1) };
+                        if next > 0 {
+                            let ah = app_handle.clone();
+                            std::thread::spawn(move || {
+                                std::thread::sleep(Duration::from_secs(2));
+                                if SHUTTING_DOWN.load(Ordering::SeqCst) { return; }
+                                eprintln!("[noetica-am] watchdog: restarting backend ({} tries left)", next);
+                                let _ = ah.emit("noetica:am:restarting", ());
+                                spawn_agent_machine(ah, am_port, next);
+                            });
+                        } else {
+                            eprintln!("[noetica-am] watchdog: retry budget exhausted — not restarting");
+                        }
+                    }
+                    break;
+                }
+                _ => {}
+            }
+        }
+    });
 }
 
 #[tauri::command]
@@ -350,17 +438,29 @@ fn main() {
                 let show = MenuItemBuilder::with_id("tray_show", "Show Noetica").build(app)?;
                 let quit = MenuItemBuilder::with_id("tray_quit", "Quit Noetica").build(app)?;
                 let tray_menu = MenuBuilder::new(app).items(&[&show, &quit]).build()?;
-                let _tray = TrayIconBuilder::with_id("noetica-tray")
-                    .icon(app.default_window_icon().cloned().unwrap())
+                let mut tray_builder = TrayIconBuilder::with_id("noetica-tray")
                     .icon_as_template(true)
                     .tooltip("Noetica")
                     .menu(&tray_menu)
-                    .show_menu_on_left_click(false)
+                    .show_menu_on_left_click(false);
+                // Dedicated ℵ₀ glyph (aleph-null — the cardinality the wordmark N₀ always
+                // gestured at). A single bold mark reads at menu-bar scale where the full
+                // app icon turns to mush; embedded so there's no resource-path dependency.
+                // Falls back to the window icon if the bytes ever fail to decode.
+                match tauri::image::Image::from_bytes(include_bytes!("../icons/tray-aleph-template.png")) {
+                    Ok(icon) => { tray_builder = tray_builder.icon(icon); }
+                    Err(_) => {
+                        if let Some(icon) = app.default_window_icon().cloned() {
+                            tray_builder = tray_builder.icon(icon);  // no unwrap — never panic on startup
+                        }
+                    }
+                }
+                let _tray = tray_builder
                     .on_menu_event(|app, event| match event.id().as_ref() {
                         "tray_show" => {
                             if let Some(w) = app.get_webview_window("main") { let _ = w.show(); let _ = w.set_focus(); }
                         }
-                        "tray_quit" => { app.exit(0); }
+                        "tray_quit" => { SHUTTING_DOWN.store(true, Ordering::SeqCst); app.exit(0); }
                         _ => {}
                     })
                     .on_tray_icon_event(|tray, event| {
@@ -438,64 +538,11 @@ fn main() {
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(8080);
 
-            match h.shell().sidecar("agent-machine") {
-                Ok(cmd) => {
-                    match cmd
-                        .env("NOETICA_AM_PORT", am_port.to_string())
-                        .env("OLLAMA_HOST", "http://127.0.0.1:11435")
-                        // Our PID, so the sidecar can poll our existence and tear itself
-                        // (and the managed Ollama) down if we die — even by crash. bun
-                        // sidecars reparent to launchd, so they can't rely on their own ppid.
-                        .env("NOETICA_PARENT_PID", std::process::id().to_string())
-                        .spawn()
-                    {
-                        Ok((mut rx, child)) => {
-                            // Keep the PID (dropping the handle does NOT kill the process)
-                            // so we can SIGTERM it on app exit and reap the Ollama it owns.
-                            let am_pid = child.pid();
-                            if let Ok(mut state) = app.state::<Mutex<AgentMachineState>>().lock() {
-                                state.port = Some(am_port);
-                                state.am_pid = Some(am_pid);
-                            }
-
-                            let app_handle = h.clone();
-                            tauri::async_runtime::spawn(async move {
-                                use tauri_plugin_shell::process::CommandEvent;
-                                while let Some(event) = rx.recv().await {
-                                    match event {
-                                        CommandEvent::Stdout(line) => {
-                                            eprintln!("[noetica-am] {}", String::from_utf8_lossy(&line));
-                                        }
-                                        CommandEvent::Stderr(line) => {
-                                            eprintln!("[noetica-am:err] {}", String::from_utf8_lossy(&line));
-                                        }
-                                        CommandEvent::Error(e) => {
-                                            eprintln!("[noetica-am] process error: {}", e);
-                                        }
-                                        CommandEvent::Terminated(status) => {
-                                            eprintln!("[noetica-am] terminated: {:?}", status);
-                                            let _ = app_handle.emit("noetica:am:stopped", ());
-                                            break;
-                                        }
-                                        _ => {}
-                                    }
-                                }
-                            });
-
-                            let _ = h.emit("noetica:am:started", serde_json::json!({
-                                "port": am_port,
-                                "url": format!("http://127.0.0.1:{}", am_port)
-                            }));
-                        }
-                        Err(e) => {
-                            eprintln!("[noetica-am] sidecar spawn failed (dev mode?): {}", e);
-                        }
-                    }
-                }
-                Err(e) => {
-                    eprintln!("[noetica-am] sidecar not found (build agent-machine first): {}", e);
-                }
-            }
+            // Spawn the Agent Machine under a watchdog: a backend crash (most often an OOM
+            // under heavy local-model load) re-spawns itself instead of dead-ending the UI
+            // at "Load failed". Long-lived runs refresh the retry budget; rapid crash-loops
+            // are bounded.
+            spawn_agent_machine(h.clone(), am_port, MAX_AM_RETRIES);
 
             // ── App menu ───────────────────────────────────────────────────────
             let noetica_submenu = SubmenuBuilder::new(h, "Noetica")
@@ -610,6 +657,7 @@ fn main() {
             // Machine run its own teardown (which SIGKILLs the managed Ollama), so we
             // don't accumulate a leaked llama server on every launch.
             if let tauri::RunEvent::Exit = event {
+                SHUTTING_DOWN.store(true, Ordering::SeqCst);  // stop the watchdog resurrecting it
                 let pid = app_handle
                     .try_state::<Mutex<AgentMachineState>>()
                     .and_then(|s| s.lock().ok().and_then(|g| g.am_pid));

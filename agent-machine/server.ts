@@ -2166,7 +2166,11 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     .filter((m) => (m.role === 'user' || m.role === 'assistant') && String(m.content ?? '').trim().length > 0)
     .slice(-100)
 
-  const MAX_TURNS = 10
+  // Long-horizon agentic loop: coding tasks legitimately chain many tool calls
+  // (read → edit → run tests → repair), so give them more headroom; keep other
+  // tasks tighter. Tunable via NOETICA_MAX_TURNS.
+  const MAX_TURNS = Math.max(1, Math.min(40, Number(process.env['NOETICA_MAX_TURNS'])
+    || (routerDecision.task === 'coding' ? 24 : 12)))
   let fullContent = ''
   let fullThinking = ''
   let liveContent = '' // accumulates streamed deltas in real time (for checkpoint-on-abort)
@@ -2746,6 +2750,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
 
       try {
       const ollamaToolSeen = new Map<string, number>()
+      let divergenceNudges = 0
       if (!deliberated) for (let turn = 0; turn < MAX_TURNS; turn++) {
         let turnContent = ''
         let streamedLen = 0          // chars already streamed to the UI this turn
@@ -2797,15 +2802,31 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
 
         if (!turnToolCalls?.length) break
 
-        // Divergence guard: if every tool call this turn repeats one the model already made
-        // twice, it's stuck — stop instead of spinning through all MAX_TURNS.
+        // Divergence RECOVERY (Claude-Code behavior): if every tool call this turn
+        // repeats one already made twice, the model is stuck. Don't just stop — feed
+        // the repetition back as a corrective and let it try a DIFFERENT approach.
+        // Only give up after a couple of nudges fail to break the loop.
         const sig = (tc: { name: string; input: unknown }) => `${tc.name}:${JSON.stringify(tc.input)}`
-        if (turnToolCalls.every((tc) => (ollamaToolSeen.get(sig(tc)) ?? 0) >= 2)) {
-          const note = '\n\n_(Stopped — the model kept repeating the same tool call without making progress.)_'
-          fullContent += note; liveContent += note; sse(res, 'delta', { delta: note })
-          break
-        }
+        const allRepeated = turnToolCalls.every((tc) => (ollamaToolSeen.get(sig(tc)) ?? 0) >= 2)
         for (const tc of turnToolCalls) ollamaToolSeen.set(sig(tc), (ollamaToolSeen.get(sig(tc)) ?? 0) + 1)
+        if (allRepeated) {
+          divergenceNudges++
+          if (divergenceNudges >= 3) {
+            const note = '\n\n_(Stopped — repeated the same tool call without making progress.)_'
+            fullContent += note; liveContent += note; sse(res, 'delta', { delta: note })
+            break
+          }
+          // Recover: acknowledge the repeated calls, answer each with a corrective nudge
+          // instead of re-executing, and continue the loop so the model can change tack.
+          ollamaMessages.push({
+            role: 'assistant', content: assistantText || null,
+            tool_calls: turnToolCalls.map((tc) => ({ id: tc.id, type: 'function' as const, function: { name: tc.name, arguments: JSON.stringify(tc.input) } })),
+          })
+          for (const tc of turnToolCalls) {
+            ollamaMessages.push({ role: 'tool', tool_call_id: tc.id, content: `You already ran ${tc.name} with those exact arguments and it did not move the task forward. Do NOT repeat it — try a different tool, different arguments, or give your final answer now.` })
+          }
+          continue
+        }
 
         sse(res, 'tool_calls', { tool_calls: turnToolCalls })
         lastToolCalls = turnToolCalls
