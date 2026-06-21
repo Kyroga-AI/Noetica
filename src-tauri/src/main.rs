@@ -355,8 +355,17 @@ fn main() {
                     .tooltip("Noetica")
                     .menu(&tray_menu)
                     .show_menu_on_left_click(false);
-                if let Some(icon) = app.default_window_icon().cloned() {
-                    tray_builder = tray_builder.icon(icon);  // no unwrap — never panic on startup
+                // Dedicated ℵ₀ glyph (aleph-null — the cardinality the wordmark N₀ always
+                // gestured at). A single bold mark reads at menu-bar scale where the full
+                // app icon turns to mush; embedded so there's no resource-path dependency.
+                // Falls back to the window icon if the bytes ever fail to decode.
+                match tauri::image::Image::from_bytes(include_bytes!("../icons/tray-aleph-template.png")) {
+                    Ok(icon) => { tray_builder = tray_builder.icon(icon); }
+                    Err(_) => {
+                        if let Some(icon) = app.default_window_icon().cloned() {
+                            tray_builder = tray_builder.icon(icon);  // no unwrap — never panic on startup
+                        }
+                    }
                 }
                 let _tray = tray_builder
                     .on_menu_event(|app, event| match event.id().as_ref() {
