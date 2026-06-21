@@ -107,6 +107,27 @@ const GOVERNANCE_RING_SIZE = 100
 // Persist the ring to disk so the Govern surface's audit trail survives a relaunch —
 // it was in-memory only, so Govern was always empty after restart even after chatting.
 const GOVERNANCE_FILE = path.join(os.homedir(), '.noetica', 'governance.json')
+
+// Cross-process signal for the SourceOS surface (e.g. bearbrowser): when the
+// security lane is armed, bearbrowser auto-enables Tor for anonymized egress.
+// Written to the shared SourceOS config dir so the browser can poll it without
+// coupling to this server. tor mirrors armed — armed work routes over Tor.
+const SECURITY_STATE_FILE = path.join(os.homedir(), '.config', 'sourceos', 'noetica', 'security-state.json')
+let lastSecurityArmed: boolean | null = null
+function writeSecurityState(armed: boolean): void {
+  if (armed === lastSecurityArmed) return  // only write on transition
+  lastSecurityArmed = armed
+  try {
+    fs.mkdirSync(path.dirname(SECURITY_STATE_FILE), { recursive: true })
+    fs.writeFileSync(SECURITY_STATE_FILE, JSON.stringify({
+      armed, tor: armed, updated_at: new Date().toISOString(), source: 'noetica-agent-machine',
+    }, null, 2))
+  } catch { /* signal is best-effort — never block a chat on it */ }
+}
+function readSecurityState(): unknown {
+  try { return JSON.parse(fs.readFileSync(SECURITY_STATE_FILE, 'utf8')) }
+  catch { return { armed: false, tor: false, updated_at: null, source: 'noetica-agent-machine' } }
+}
 try {
   const arr = JSON.parse(fs.readFileSync(GOVERNANCE_FILE, 'utf8'))
   if (Array.isArray(arr)) _governanceRuns.push(...(arr as GovernanceRun[]).slice(-GOVERNANCE_RING_SIZE))
@@ -847,6 +868,25 @@ function runInWorkspace(command: string, cwd: string, timeoutMs: number): Promis
     child.on('error', (e) => { if (!done) { done = true; clearTimeout(timer); resolve({ out, err: String(e), code: 'error' }) } })
     child.on('close', (c, sig) => { if (!done) { done = true; clearTimeout(timer); resolve({ out, err, code: c != null ? String(c) : (sig ? `signal ${sig}` : '?') }) } })
   })
+}
+
+// Parse a code-agent solution: {files:[{path,content}], verify:"cmd"} — tolerant of fences/prose.
+function parseSolveOutput(text: string): { files: { path: string; content: string }[]; verify: string } | null {
+  let t = text.trim()
+  const fence = t.match(/```(?:json)?\s*([\s\S]*?)```/)
+  if (fence?.[1]) t = fence[1].trim()
+  const open = t.indexOf('{'), close = t.lastIndexOf('}')
+  if (open >= 0 && close > open) t = t.slice(open, close + 1)
+  try {
+    const o = JSON.parse(t) as { files?: unknown; verify?: unknown }
+    if (Array.isArray(o.files) && typeof o.verify === 'string' && o.verify.trim()) {
+      const files = (o.files as unknown[])
+        .filter((f): f is { path: string; content: string } => !!f && typeof (f as { path?: unknown }).path === 'string' && typeof (f as { content?: unknown }).content === 'string')
+        .map((f) => ({ path: f.path, content: f.content }))
+      if (files.length) return { files, verify: o.verify }
+    }
+  } catch { /* unparseable */ }
+  return null
 }
 
 async function executeTool(
@@ -1698,6 +1738,10 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
 
   let { resolvedModel: model, resolvedProvider: provider } = routing
   const { resolvedModel: _rm, resolvedProvider: _rp, ...routerDecision } = routing
+
+  // Signal the SourceOS surface (bearbrowser) so it can auto-enable Tor while the
+  // security lane is armed, and drop back when disarmed.
+  writeSecurityState(routerDecision.securityLane?.armed === true)
 
   // Self-model routing hook (opt-in via NOETICA_CAPABILITY_ROUTING=1). If the
   // local model has a poor track record on this task family and a cloud key is
@@ -2916,6 +2960,13 @@ const server = http.createServer((req, res) => {
   }
 
   const url = new URL(req.url ?? '/', `http://localhost:${PORT}`)
+
+  // GET /api/security/state — bearbrowser polls this to auto-enable Tor when armed.
+  if (req.method === 'GET' && url.pathname === '/api/security/state') {
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
+    res.end(JSON.stringify(readSecurityState()))
+    return
+  }
 
   // GET /api/status
   if (req.method === 'GET' && url.pathname === '/api/status') {
@@ -4184,6 +4235,51 @@ const server = http.createServer((req, res) => {
   // CairnPath traversal API (/api/cairnpath/*)
   if (url.pathname.startsWith('/api/cairnpath')) {
     if (handleCairnPathRequest(req, res, url.pathname, getAtomSpace())) return
+  }
+
+  // ── Verify-repair coding loop ───────────────────────────────────────────────
+  // Out-LOOP, not out-model: generate → run the verifier → on fail, feed the error back and
+  // repair, up to a budget. A small local model in this loop beats a big model one-shot because
+  // code is verifiable and errors are recoverable. Returns the full step trace (the narration).
+  if (req.method === 'POST' && url.pathname === '/api/code/solve') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      let p: { task?: string; workspace?: string; max_attempts?: number; model?: string } = {}
+      try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+      const task = String(p.task ?? '').trim()
+      if (!task) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'task_required' })); return }
+      const wsName = (String(p.workspace ?? 'solve').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 40)) || 'solve'
+      const ws = path.join(os.homedir(), '.noetica', 'workspaces', wsName)
+      try { fs.mkdirSync(ws, { recursive: true }) } catch { /* */ }
+      const maxAttempts = Math.min(6, Math.max(1, Number(p.max_attempts ?? 4)))
+      const model = String(p.model ?? 'qwen2.5-coder:7b')
+      const SYS = 'You are a coding agent. Solve the task by writing files and ONE verification command that exits 0 only if the solution is correct (e.g. runs a test). Respond with ONLY a JSON object, no prose and no markdown fences:\n{"files":[{"path":"rel/path.ext","content":"..."}],"verify":"shell command"}\nUse tools available on the machine (python3, node). Paths are relative to the project root.'
+      const steps: Array<{ attempt: number; verify: string; exit: string; ok: boolean; files: string[]; output: string }> = []
+      let prior = '', solved = false
+      for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+        const user = attempt === 1 ? `Task: ${task}` : `Task: ${task}\n\nYour previous attempt FAILED:\n${prior}\nFix the code. Respond with the same JSON format.`
+        let content = ''
+        try { ({ content } = await generateOllamaText({ model, messages: [{ role: 'system', content: SYS }, { role: 'user', content: user }], temperature: attempt === 1 ? 0.2 : 0.55 })) }
+        catch (e) { steps.push({ attempt, verify: '', exit: 'gen_error', ok: false, files: [], output: String(e).slice(0, 200) }); break }
+        const sol = parseSolveOutput(content)
+        if (!sol) { steps.push({ attempt, verify: '', exit: 'parse_error', ok: false, files: [], output: content.slice(0, 300) }); prior = "Your output didn't parse as the required JSON object."; continue }
+        for (const f of sol.files) {
+          const fp = path.resolve(ws, f.path.replace(/^\/+/, ''))
+          if (!fp.startsWith(ws + path.sep) && fp !== ws) continue
+          try { fs.mkdirSync(path.dirname(fp), { recursive: true }); fs.writeFileSync(fp, f.content) } catch { /* */ }
+        }
+        const { out, err, code } = await runInWorkspace(sol.verify, ws, 60_000)
+        const ok = code === '0'
+        const output = `${out}${err ? `\n${err}` : ''}`.trim()
+        steps.push({ attempt, verify: sol.verify, exit: code, ok, files: sol.files.map((f) => f.path), output: output.slice(-1200) })
+        if (ok) { solved = true; break }
+        prior = `Files: ${sol.files.map((f) => f.path).join(', ')}\nVerify: ${sol.verify}\nExit: ${code}\nOutput:\n${output.slice(-1500)}`
+      }
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ solved, workspace: wsName, attempts: steps.length, steps }))
+    })() })
+    return
   }
 
   // ── Voice cloning (local XTTS-v2 sidecar) ──────────────────────────────────
