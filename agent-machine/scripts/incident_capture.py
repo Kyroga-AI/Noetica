@@ -23,14 +23,15 @@ EXTRACT = [
     ("err",    re.compile(r"\b(E[A-Z]{3,}|ETIMEDOUT|ECONNREFUSED|ENOENT|EACCES|OOM|SIG[A-Z]+)\b")),
     ("http",   re.compile(r"\b([45]\d\d)\b")),
     ("port",   re.compile(r"(?:port\s+|:)(\d{2,5})\b")),
-    ("svc",    re.compile(r"\b([a-z][a-z0-9_-]*\.service|prometheusd|ollama|noetica\w*|hellgraph\w*|[a-z][a-z0-9_]{2,}d)\b")),
+    # "<name>d" catches daemons (sshd, dockerd, prometheusd, systemd) but NOT -ed past-tense
+    # words: the (?<!e)d lookbehind drops "crashed/executed/deferred/prohibited" cleanly.
+    ("svc",    re.compile(r"\b([a-z][a-z0-9_-]*\.service|prometheusd|ollama|noetica\w*|hellgraph\w*|[a-z][a-z0-9_]{2,}(?<!e)d)\b")),
     ("file",   re.compile(r"(/[\w./-]+\.\w+)")),
     ("exit",   re.compile(r"\bexit(?:\s+code)?\s+(\d+)\b")),
 ]
-# the trailing "<name>d" heuristic catches daemons but also English words ending in -d; drop those.
-SVC_STOP = {"could", "would", "should", "crashed", "reached", "learned", "named", "killed",
-            "failed", "passed", "missed", "closed", "opened", "loaded", "needed", "tried",
-            "exited", "blocked", "stored", "expired", "denied", "skipped", "wired"}
+# residual non-daemon words ending -ld/-rd/-nd (the lookbehind only kills -ed).
+SVC_STOP = {"could", "would", "should", "world", "build", "field", "child", "guard", "board",
+            "record", "found", "around", "behind", "beyond", "second", "command", "inbound"}
 
 
 def extract_symbols(text):
