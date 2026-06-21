@@ -545,6 +545,7 @@ interface ChatRequest {
   messages?: ChatMessage[]
   system_prompt?: string
   policy_profile?: string
+  security_attested?: boolean  // operator self-attestation — arms the uncensored security lane
   tools?: ProviderTool[]
   thinking_budget?: number
   temperature?: number
@@ -655,6 +656,20 @@ const BUILTIN_TOOLS: ProviderTool[] = [
         session_id: { type: 'string', description: 'Optional session ID for persistent Python state' },
       },
       required: ['language', 'code'],
+    },
+  },
+  {
+    name: 'run_command',
+    description:
+      'Run a shell command in a sandboxed PROJECT WORKSPACE (a real working directory under ~/.noetica/workspaces). Use this to scaffold projects, install deps, build, run tests, lint, git, and run dev tasks (npm, node, pnpm, python, cargo, git…). Returns stdout, stderr, and the exit code. Confined to the workspace; privileged/destructive commands are blocked. Commands in the same workspace share state (created files persist).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        command: { type: 'string', description: 'The shell command to run.' },
+        workspace: { type: 'string', description: 'Workspace name (default "default") — all commands for one project should share it.' },
+        timeout_ms: { type: 'number', description: 'Max runtime in ms (default 60000, max 300000).' },
+      },
+      required: ['command'],
     },
   },
   {
@@ -820,6 +835,20 @@ async function executeToolWithTimeout(
   }
 }
 
+// Run a shell command in a workspace dir, non-blocking, with a hard timeout + output caps.
+// Used by the run_command tool (the sandboxed shell that lets the agent actually scaffold/run).
+function runInWorkspace(command: string, cwd: string, timeoutMs: number): Promise<{ out: string; err: string; code: string }> {
+  return new Promise((resolve) => {
+    let out = '', err = '', done = false
+    const child = cp.spawn('/bin/zsh', ['-lc', command], { cwd, env: { ...process.env } })
+    const timer = setTimeout(() => { if (!done) { done = true; try { child.kill('SIGKILL') } catch { /* */ } resolve({ out, err, code: `timeout after ${timeoutMs}ms` }) } }, timeoutMs)
+    child.stdout.on('data', (d: Buffer) => { if (out.length < 200_000) out += d.toString() })
+    child.stderr.on('data', (d: Buffer) => { if (err.length < 100_000) err += d.toString() })
+    child.on('error', (e) => { if (!done) { done = true; clearTimeout(timer); resolve({ out, err: String(e), code: 'error' }) } })
+    child.on('close', (c, sig) => { if (!done) { done = true; clearTimeout(timer); resolve({ out, err, code: c != null ? String(c) : (sig ? `signal ${sig}` : '?') }) } })
+  })
+}
+
 async function executeTool(
   name: string,
   input: Record<string, unknown>,
@@ -860,6 +889,22 @@ async function executeTool(
       if (!code.trim()) return 'Error: code is required'
       const sessionId = input['session_id'] ? String(input['session_id']).slice(0, 100) : undefined
       return executeCode(language as 'python' | 'javascript', code, sessionId)
+    }
+    case 'run_command': {
+      const command = String(input['command'] ?? '').trim()
+      if (!command) return 'Error: command is required.'
+      // Block privileged / destructive / pipe-to-shell. The cwd is the sandbox so a `rm -rf .`
+      // only nukes the workspace (recoverable); these patterns reach OUTSIDE it or escalate.
+      const DENY = /(\bsudo\b|\bdoas\b|rm\s+-rf?\s+[~/]|rm\s+-rf?\s+\/|\bmkfs\b|\bdd\s+if=|:\(\)\s*\{|\bshutdown\b|\breboot\b|\bhalt\b|chown\s+-R\s+\/|chmod\s+-R\s+0?777\s+\/|>\s*\/dev\/(sd|disk)|(curl|wget)\b[^|]*\|\s*(sudo\s+)?(ba|z)?sh)/i
+      if (DENY.test(command)) return `Blocked: that command is privileged or reaches outside the sandbox and isn't allowed. Keep it inside the workspace.`
+      const wsName = (String(input['workspace'] ?? 'default').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 40)) || 'default'
+      const ws = path.join(os.homedir(), '.noetica', 'workspaces', wsName)
+      try { fs.mkdirSync(ws, { recursive: true }) } catch { /* */ }
+      const timeout = Math.min(300_000, Math.max(1_000, Number(input['timeout_ms'] ?? 60_000)))
+      const { out, err, code } = await runInWorkspace(command, ws, timeout)
+      const header = `$ ${command}\n[workspace: ${wsName}  exit: ${code}]`
+      const body = `${out}${err ? `\n--- stderr ---\n${err}` : ''}`.trim()
+      return `${header}\n${body || '(no output)'}`.slice(0, 14_000)
     }
     case 'read_file': {
       const { resolved, error } = safePath(String(input['path'] ?? ''))
@@ -1641,6 +1686,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       hasOpenAIKey: Boolean(openaiKey),
       explicitModelId: body.model_id,
       policyProfile: body.policy_profile,
+      securityAttested: body.security_attested === true,
       hasImages,
       hasTools: (body.tools?.length ?? 0) > 0,
       taskOverride: intentTaskOverride,
@@ -2007,7 +2053,13 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     } })
   } catch { /* moat enrichment is best-effort */ }
 
-  const profile = POLICY_PROFILES[body.policy_profile ?? 'default'] ?? POLICY_PROFILES['default']!
+  // The SECURITY_RESEARCHER authorization suffix arms only under self-attestation —
+  // mirrors the router's lane gate. Unattested 'security' degrades to the 'research'
+  // prompt (dual-use depth, but not the full no-disclaimers security context).
+  const profileKey = (body.policy_profile === 'security' && body.security_attested !== true)
+    ? 'research'
+    : (body.policy_profile ?? 'default')
+  const profile = POLICY_PROFILES[profileKey] ?? POLICY_PROFILES['default']!
   const basePrompt = body.system_prompt ?? NOETICA_SYSTEM_PROMPT
   // Inject current datetime so the model always has accurate temporal context
   const nowUtc = new Date().toISOString().replace('T', ' ').slice(0, 19) + ' UTC'
@@ -4603,8 +4655,9 @@ server.listen(PORT, '127.0.0.1', () => {
       const up = await isOllamaRunning()
       if (!up) return
       const installed = await listLocalModels()
+      const OPT_IN_ONLY = new Set(['dolphin3:8b', 'huihui_ai/foundation-sec-abliterated:8b', 'jimscard/whiterabbit-neo:13b'])
       const suite = LOCAL_MODEL_SUITE
-        .filter((m) => m.name !== 'dolphin3:8b')   // opt-in only
+        .filter((m) => !OPT_IN_ONLY.has(m.name))    // uncensored/security models are opt-in
         .sort((a, b) => a.priority - b.priority)    // pull in priority order
 
       // Clients that connect after some models are already installed need to know immediately.
