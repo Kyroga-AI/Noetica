@@ -32,6 +32,38 @@ function lineDiff(before: string, after: string): { t: 'ctx' | 'add' | 'del'; s:
   return out
 }
 
+type DiffLine = { t: 'ctx' | 'add' | 'del'; s: string }
+type Seg = { kind: 'ctx'; s: string } | { kind: 'hunk'; id: number; lines: DiffLine[] }
+// Group a line diff into HUNKS (consecutive add/del runs) so each change can be accepted or
+// rejected on its own — finer-grained than whole-file accept/reject.
+function buildHunks(lines: DiffLine[]): Seg[] {
+  const out: Seg[] = []
+  let cur: DiffLine[] | null = null
+  let hid = 0
+  for (const l of lines) {
+    if (l.t === 'ctx') {
+      if (cur) { out.push({ kind: 'hunk', id: hid++, lines: cur }); cur = null }
+      out.push({ kind: 'ctx', s: l.s })
+    } else { (cur ??= []).push(l) }
+  }
+  if (cur) out.push({ kind: 'hunk', id: hid++, lines: cur })
+  return out
+}
+// Reconstruct the file applying only the ACCEPTED hunks: accepted → keep the new (add) lines;
+// rejected → keep the original (del) lines. Context is always kept.
+function reconstruct(lines: DiffLine[], rejected: Set<number>): string {
+  const out: string[] = []
+  for (const seg of buildHunks(lines)) {
+    if (seg.kind === 'ctx') { out.push(seg.s); continue }
+    const rej = rejected.has(seg.id)
+    for (const l of seg.lines) {
+      if (l.t === 'add' && !rej) out.push(l.s)
+      if (l.t === 'del' && rej) out.push(l.s)
+    }
+  }
+  return out.join('\n')
+}
+
 // ── NERDTree-style file tree ────────────────────────────────────────────────
 interface TreeNode { name: string; path: string; dir: boolean; children: TreeNode[] }
 
@@ -124,6 +156,7 @@ export function WorkspaceSurface() {
   const [solved, setSolved] = useState<boolean | null>(null)
   const [diffs, setDiffs] = useState<Diff[]>([])
   const [reviewed, setReviewed] = useState<Record<string, 'accepted' | 'rejected'>>({})
+  const [rejectedHunks, setRejectedHunks] = useState<Record<string, number[]>>({})  // path → rejected hunk ids
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
 
   async function rejectFile(d: Diff) {
@@ -139,6 +172,23 @@ export function WorkspaceSurface() {
     } catch { /* offline */ }
   }
   function acceptFile(d: Diff) { setReviewed((r) => ({ ...r, [d.path]: 'accepted' })) }
+  const toggleHunk = (path: string, id: number) =>
+    setRejectedHunks((r) => { const cur = new Set(r[path] ?? []); cur.has(id) ? cur.delete(id) : cur.add(id); return { ...r, [path]: [...cur] } })
+  // Apply only the accepted hunks — write the reconstructed file (rejected hunks reverted).
+  async function applyHunks(d: Diff) {
+    const rejected = new Set(rejectedHunks[d.path] ?? [])
+    const content = reconstruct(lineDiff(d.before ?? '', d.after ?? ''), rejected)
+    try {
+      await fetch(`${amBase()}/api/workspace/write`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ ws, path: d.path, content }),
+        signal: AbortSignal.timeout(8000),
+      })
+      setReviewed((r) => ({ ...r, [d.path]: 'accepted' }))
+      void loadFiles(ws)
+      if (sel === d.path) void openFile(d.path)
+    } catch { /* offline */ }
+  }
 
   async function runSolve() {
     const t = task.trim()
@@ -258,6 +308,9 @@ export function WorkspaceSurface() {
                 const lines = lineDiff(d.before ?? '', d.after ?? '')
                 const adds = lines.filter((l) => l.t === 'add').length, dels = lines.filter((l) => l.t === 'del').length
                 const open = expanded[d.path] ?? true
+                const segs = buildHunks(lines)
+                const rej = new Set(rejectedHunks[d.path] ?? [])
+                const hunkCount = segs.filter((s) => s.kind === 'hunk').length
                 return (
                   <div key={d.path} className="mb-2 overflow-hidden rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)]">
                     <div className="flex items-center gap-2 px-3 py-2 text-[12px]">
@@ -265,20 +318,34 @@ export function WorkspaceSurface() {
                       <span className="font-mono text-[var(--color-text-primary)]">{d.path}</span>
                       {d.isNew && <span className="rounded bg-[#dcfce7] px-1 text-[10px] text-[#15803d]">new</span>}
                       <span className="text-[10px] text-[#16a34a]">+{adds}</span><span className="text-[10px] text-[#dc2626]">−{dels}</span>
+                      {hunkCount > 1 && <span className="text-[10px] text-[var(--color-text-tertiary)]">{hunkCount} hunks</span>}
                       <div className="ml-auto flex items-center gap-1.5">
                         {status === 'accepted' && <span className="text-[11px] text-[#15803d]">✓ accepted</span>}
                         {status === 'rejected' && <span className="text-[11px] text-[#b91c1c]">⟲ reverted</span>}
                         {!status && (<>
-                          <button onClick={() => acceptFile(d)} className="rounded bg-[#16a34a] px-2 py-0.5 text-[11px] font-semibold text-white">Accept</button>
-                          <button onClick={() => void rejectFile(d)} className="rounded border border-[#dc2626] px-2 py-0.5 text-[11px] font-semibold text-[#dc2626]">Reject</button>
+                          {rej.size > 0 && <button onClick={() => void applyHunks(d)} className="rounded bg-[#1d4ed8] px-2 py-0.5 text-[11px] font-semibold text-white">Apply {hunkCount - rej.size}/{hunkCount}</button>}
+                          <button onClick={() => acceptFile(d)} className="rounded bg-[#16a34a] px-2 py-0.5 text-[11px] font-semibold text-white">Accept all</button>
+                          <button onClick={() => void rejectFile(d)} className="rounded border border-[#dc2626] px-2 py-0.5 text-[11px] font-semibold text-[#dc2626]">Reject all</button>
                         </>)}
                       </div>
                     </div>
                     {open && (
                       <pre className="max-h-72 overflow-auto border-t border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] px-3 py-2 font-mono text-[11px] leading-relaxed">
-                        {lines.map((l, i) => (
-                          <div key={i} className={l.t === 'add' ? 'bg-[#16a34a]/10 text-[#15803d]' : l.t === 'del' ? 'bg-[#dc2626]/10 text-[#b91c1c]' : 'text-[var(--color-text-secondary)]'}>
-                            <span className="select-none opacity-50">{l.t === 'add' ? '+' : l.t === 'del' ? '−' : ' '} </span>{l.s || ' '}
+                        {segs.map((seg, si) => seg.kind === 'ctx' ? (
+                          <div key={si} className="text-[var(--color-text-secondary)]"><span className="select-none opacity-50">  </span>{seg.s || ' '}</div>
+                        ) : (
+                          <div key={si} className={`group relative my-0.5 rounded border-l-2 pl-1 ${rej.has(seg.id) ? 'border-[#9ca3af] opacity-50' : 'border-[#16a34a]'}`}>
+                            {!status && (
+                              <button onClick={() => toggleHunk(d.path, seg.id)} title={rej.has(seg.id) ? 'keep this change' : 'reject this hunk'}
+                                className="absolute right-1 top-0 z-10 hidden rounded bg-[var(--color-background-secondary)] px-1 text-[9px] text-[var(--color-text-tertiary)] transition group-hover:block hover:text-[#dc2626]">
+                                {rej.has(seg.id) ? 'restore' : 'reject hunk'}
+                              </button>
+                            )}
+                            {seg.lines.map((l, i) => (
+                              <div key={i} className={l.t === 'add' ? `bg-[#16a34a]/10 text-[#15803d] ${rej.has(seg.id) ? 'line-through' : ''}` : 'bg-[#dc2626]/10 text-[#b91c1c]'}>
+                                <span className="select-none opacity-50">{l.t === 'add' ? '+' : '−'} </span>{l.s || ' '}
+                              </div>
+                            ))}
                           </div>
                         ))}
                       </pre>
