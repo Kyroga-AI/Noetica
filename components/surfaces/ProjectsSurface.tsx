@@ -727,7 +727,6 @@ export function ProjectsSurface() {
 
   const linearAuth = store.linear
   const linearConnected = linearAuth?.status === 'connected' && !!linearAuth.accessToken
-  const githubConnected = !!settings.githubPat
 
   const [view, setView] = useState<ViewTab>('board')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -828,22 +827,12 @@ export function ProjectsSurface() {
               <span className={`h-1.5 w-1.5 rounded-full ${linearConnected ? 'bg-[#5E6AD2]' : 'bg-[#cbd5e1]'}`} />
               Linear {linearConnected ? '· connected' : ''}
             </button>
-            <button
-              onClick={() => githubConnected ? window.open('https://github.com', '_blank') : undefined}
-              className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] transition text-left ${
-                githubConnected
-                  ? 'border-[#d1fae5] bg-[#ecfdf5] text-[#065f46] hover:bg-[#d1fae5] cursor-pointer'
-                  : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] text-[var(--color-text-tertiary)] cursor-default'
-              }`}
-            >
-              <span className={`h-1.5 w-1.5 rounded-full ${githubConnected ? 'bg-[#22c55e]' : 'bg-[#cbd5e1]'}`} />
-              GitHub {githubConnected ? '· connected' : ''}
-            </button>
-            <span className="rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2 py-0.5 text-[10px] text-[var(--color-text-tertiary)]">Jira</span>
+            <span className="rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2 py-0.5 text-[10px] text-[var(--color-text-tertiary)]">GitHub · soon</span>
+            <span className="rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2 py-0.5 text-[10px] text-[var(--color-text-tertiary)]">Jira · soon</span>
           </div>
-          {(!linearConnected || !githubConnected) && (
+          {!linearConnected && (
             <p className="mt-1 text-[10px] text-[#cbd5e1]">
-              {!linearConnected && !githubConnected ? 'Connect Linear or GitHub in Settings → Connections.' : !linearConnected ? 'Connect Linear in Settings → Connections.' : 'Add a GitHub PAT in Settings → Connections.'}
+              Connect Linear in Settings → Connections to sync issues.
             </p>
           )}
         </div>

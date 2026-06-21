@@ -102,6 +102,22 @@ interface GovernanceRun {
 }
 const _governanceRuns: GovernanceRun[] = []
 const GOVERNANCE_RING_SIZE = 100
+// Persist the ring to disk so the Govern surface's audit trail survives a relaunch —
+// it was in-memory only, so Govern was always empty after restart even after chatting.
+const GOVERNANCE_FILE = path.join(os.homedir(), '.noetica', 'governance.json')
+try {
+  const arr = JSON.parse(fs.readFileSync(GOVERNANCE_FILE, 'utf8'))
+  if (Array.isArray(arr)) _governanceRuns.push(...(arr as GovernanceRun[]).slice(-GOVERNANCE_RING_SIZE))
+} catch { /* no prior governance log */ }
+let _govSaveTimer: ReturnType<typeof setTimeout> | null = null
+function saveGovernance(): void {
+  if (_govSaveTimer) return
+  _govSaveTimer = setTimeout(() => {
+    _govSaveTimer = null
+    try { fs.mkdirSync(path.dirname(GOVERNANCE_FILE), { recursive: true }); fs.writeFileSync(GOVERNANCE_FILE, JSON.stringify(_governanceRuns)) } catch { /* best-effort */ }
+  }, 1500)
+  _govSaveTimer.unref?.()
+}
 
 // Ontogenesis SHACL write-validation gate (report-only). Last validation result,
 // refreshed after ingest when NOETICA_SHACL_ENFORCE=1.
@@ -202,6 +218,7 @@ function trackIngest<T>(p: Promise<T> | T): Promise<T> {
 function recordGovernanceRun(run: GovernanceRun): void {
   _governanceRuns.push(run)
   if (_governanceRuns.length > GOVERNANCE_RING_SIZE) _governanceRuns.shift()
+  saveGovernance()
   // Update the self-model: track per-task/model success + latency over time.
   recordCapability({
     task: run.task,

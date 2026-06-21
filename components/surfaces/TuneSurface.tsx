@@ -122,7 +122,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
       body: JSON.stringify({ op: 'cache', pairs }),
     })
     const cacheData = await cacheRes.json() as { ok?: boolean; annotated?: unknown[]; with_logits?: number; total?: number; error?: string }
-    if (!cacheData.ok) { setCacheStatus('error'); return }
+    if (!cacheData.ok) { setCacheError(cacheData.error ?? 'Teacher-logit caching failed — is the distillation server running?'); setCacheStatus('error'); return }
     // Submit annotated pairs (with logits) to distill server
     await fetch(tuneUrl('/api/tune/distill'), {
       method: 'POST',
