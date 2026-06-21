@@ -19,24 +19,21 @@ mkdir -p "$STAGING"
 count() { grep -cE '"status":"(ok|empty)"' "$MANIFEST" 2>/dev/null || echo 0; }
 staged_zips() { ls "$STAGING"/*.zip 2>/dev/null | wc -l | tr -d ' '; }
 
+GCS_ZIPS="${OCW_ZIP_BUCKET:-gs://sourceos-artifacts-socioprophet/ocw-corpus/ocw-zips}"
 drain() {
-  local archroot="${OCW_ARCHIVE:-/Volumes/LaCie}"
-  if [ ! -d "$archroot" ] || ! timeout 8 bash -c "touch '$archroot/.w' && rm -f '$archroot/.w'" 2>/dev/null; then
-    echo "# drain: LaCie not mounted/writable — keeping $(staged_zips) zips staged for next pass"
-    return 1
-  fi
   local n; n=$(staged_zips)
   [ "$n" -eq 0 ] && return 0
-  echo "# drain: moving $n full zips → LaCie/ocw-zips ($(du -sh "$STAGING" 2>/dev/null | cut -f1)) …"
-  mkdir -p "$ARCHIVE"
-  # rsync --remove-source-files: deletes each source only after it fully transfers;
-  # --timeout aborts on a LaCie stall, leaving un-transferred zips safely staged.
-  rsync -a --remove-source-files --timeout=180 --exclude='*.tmp' "$STAGING"/*.zip "$ARCHIVE"/ 2>>/tmp/ocw-drain.log \
-    && echo "# drain: done — $(ls "$ARCHIVE"/*.zip 2>/dev/null | wc -l | tr -d ' ') zips on LaCie" \
-    || echo "# drain: LaCie stalled mid-batch — $(staged_zips) zips kept staged, will retry next pass"
+  echo "# drain: $n full zips → GCS ($(du -sh "$STAGING" 2>/dev/null | cut -f1)) …"
+  # gsutil -m cp: parallel upload, no checksum-rsync slowness. Only clear staging on success.
+  if gsutil -m cp "$STAGING"/*.zip "$GCS_ZIPS"/ 2>>/tmp/ocw-drain.log; then
+    rm -f "$STAGING"/*.zip
+    echo "# drain: done — staging cleared, zips backed up to GCS"
+  else
+    echo "# drain: GCS upload failed — $(staged_zips) zips kept staged, will retry next pass"
+  fi
 }
 
-echo "# ocw-grind started $(date '+%H:%M:%S') — keep-zips, batch-drain to LaCie on low disk"
+echo "# ocw-grind started $(date '+%H:%M:%S') — keep-zips, batch-drain to GCS on low disk"
 while true; do
   before=$(count)
   # capture: keep full zips locally, no inline LaCie, self-pause when local free < 15GB

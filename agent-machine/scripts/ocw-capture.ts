@@ -22,6 +22,8 @@
  *   OCW_ARCHIVE   4TB disk path for raw zips (default '' → delete zip after extract)
  *   OCW_KEEP_ZIPS '1' → keep zips in staging even without an archive disk
  *   OCW_MAX_TIER  highest tier to capture (default 4 = all)
+ *   OCW_DEPTS   restrict to these dept codes, comma list (e.g. "18,8,5,7,20,6,12"
+ *               = MMLU-STEM only); empty = whole catalog
  *   OCW_DELAY_MS  polite delay between courses (default 3000)
  *   OCW_MIN_FREE_GB  pause below this free space on staging fs (default 15)
  *
@@ -58,6 +60,10 @@ function dept(slug: string): string {
   return m ? m[1]! : '?'
 }
 const tierOf = (slug: string) => TIER[dept(slug)] ?? 4
+// Optional dept whitelist (OCW_DEPTS="18,8,5,7,20,6,12" = MMLU-STEM only) — capture
+// just the test-relevant departments now and defer the rest of the catalog.
+const DEPTS = new Set((process.env['OCW_DEPTS'] || '').split(',').map((d) => d.trim()).filter(Boolean))
+const deptAllowed = (slug: string) => DEPTS.size === 0 || DEPTS.has(dept(slug))
 
 interface ManifestRow { slug: string; tier: number; status: string; zip_mb?: number; kept_kb?: number; files?: number; archived?: boolean; ts: string }
 function loadDone(): Set<string> {
@@ -94,7 +100,7 @@ async function main() {
   const all = fs.readFileSync(CATALOG, 'utf8').trim().split('\n').map((s) => s.trim()).filter(Boolean)
   const done = loadDone()
   // priority order: tier asc, then slug
-  const queue = all.filter((s) => tierOf(s) <= argTier && !done.has(s)).sort((a, b) => tierOf(a) - tierOf(b) || a.localeCompare(b))
+  const queue = all.filter((s) => tierOf(s) <= argTier && deptAllowed(s) && !done.has(s)).sort((a, b) => tierOf(a) - tierOf(b) || a.localeCompare(b))
   console.log(`# OCW capture — ${all.length} catalog · ${done.size} done · ${queue.length} queued (tier ≤ ${argTier})`)
   console.log(`# corpus=${CORPUS}  staging=${STAGING}  archive=${archiveOK ? ARCHIVE : '(none)'}  delay=${DELAY_MS}ms\n`)
   if (DRY) { const byT: Record<number, number> = {}; for (const s of queue) byT[tierOf(s)] = (byT[tierOf(s)] || 0) + 1; console.log('queued by tier:', byT); return }

@@ -19,6 +19,8 @@
  *   OCW_BRAIN   output brain dir (default /Volumes/LaCie/ocw-brain if mounted, else local _brain)
  *   BRAIN_CONCURRENCY  parallel embeds (default 4)
  *   OCW_MAX_TIER  highest tier to vectorize (default 4 = all)
+ *   OCW_DEPTS   restrict to these dept codes, comma list (e.g. "18,8,5,7,20,6,12"
+ *               = MMLU-STEM only); empty = all departments
  *
  * Usage:  npx tsx scripts/build-corpus.ts [--tier N] [--limit N]
  */
@@ -65,6 +67,11 @@ function dept(slug: string): string {
 }
 const tierOf = (s: string) => TIER[dept(s)] ?? 4
 const fieldOf = (s: string) => FIELD[dept(s)] ?? 'other'
+// Optional dept whitelist — vectorize ONLY these departments. Set OCW_DEPTS to a
+// comma list of dept codes (e.g. "18,8,5,7,20,6,12" = the MMLU-STEM departments) to
+// spend every embed cycle on test-relevant material and skip the rest until later.
+const DEPTS = new Set((process.env['OCW_DEPTS'] || '').split(',').map((d) => d.trim()).filter(Boolean))
+const deptAllowed = (s: string) => DEPTS.size === 0 || DEPTS.has(dept(s))
 // Equation-dense depts (math, physics, chem, EECS, stats-prob via 18/6) vectorize FIRST
 // within their tier — they carry the governing-model signal we validate the thesis on.
 const DENSE = new Set(['18', '8', '5', '6', '16', '22'])
@@ -144,7 +151,7 @@ async function main() {
   fs.mkdirSync(BRAIN, { recursive: true })
   const built = loadBuilt()
   const slugs = fs.readdirSync(CORPUS, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name)
-    .filter((s) => tierOf(s) <= MAX_TIER && !built.has(s)).sort((a, b) => tierOf(a) - tierOf(b) || denseRank(a) - denseRank(b) || a.localeCompare(b))
+    .filter((s) => tierOf(s) <= MAX_TIER && deptAllowed(s) && !built.has(s)).sort((a, b) => tierOf(a) - tierOf(b) || denseRank(a) - denseRank(b) || a.localeCompare(b))
   console.log(`# build-corpus → BRAIN=${BRAIN}`)
   console.log(`# ${built.size} courses already vectorized · ${slugs.length} to do (tier ≤ ${MAX_TIER}) · embed=${EMBED_MODEL} conc=${CONC}\n`)
 
