@@ -33,10 +33,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 import { buildRouterDecision, LOCAL_MODEL_SUITE } from './lib/router.js'
-import {
-  scopedConfigured, checkEgress, listScopedEndpoints, emitScopedTelemetry,
-  type MeshTier, type ScopedEndpoint,
-} from './lib/scope-d.js'
+import { checkEgress, emitScopedTelemetry, type MeshTier } from './lib/scope-d.js'
 import { classifyIntent, capabilityToTask, wantsVectorRag, intentByName, planFromIntent, intentToAction } from './lib/intent-router.js'
 import { routeForAction, meshrushPhase } from './lib/action-cell.js'
 import { selectSurface } from './lib/graph-surface.js'
@@ -699,6 +696,19 @@ const BUILTIN_TOOLS: ProviderTool[] = [
     },
   },
   {
+    name: 'registry_lookup',
+    description:
+      'Look up reusable CATALOGUE entries (chart specs by domain/intent, project scaffolds, connectors) before building analysis, charts, or apps from scratch. E.g. "revenue over time" → a ready time-series chart spec to populate with data; "build a dashboard" → the scaffold template. Returns matching entries with their fillable params + spec.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'What you want to make (intent/domain), e.g. "compare sales by region".' },
+        kind: { type: 'string', enum: ['chart', 'template', 'connector', 'asset', 'crawl'], description: 'Optional filter.' },
+      },
+      required: ['query'],
+    },
+  },
+  {
     name: 'read_file',
     description: 'Read a local file as text (≤ 2 MB). Returns the file content.',
     input_schema: {
@@ -1008,6 +1018,12 @@ async function executeTool(
       const { resolved, error } = safePath(String(input['image_path'] ?? ''))
       if (error) return `OCR error: ${error}`
       return await runOcr(resolved)
+    }
+    case 'registry_lookup': {
+      const { queryRegistry } = await import('./lib/registry.js')
+      const entries = queryRegistry({ q: String(input['query'] ?? ''), kind: input['kind'] as 'chart' | 'template' | 'connector' | 'asset' | 'crawl' | undefined, limit: 5 })
+      if (!entries.length) return 'No catalogue entries matched — build it from scratch, or register a reusable entry afterward.'
+      return entries.map((e) => `[${e.kind}] ${e.id} — ${e.title}\n  ${e.description}\n  params: ${e.params.join(', ')}${e.spec ? `\n  spec: ${JSON.stringify(e.spec)}` : ''}`).join('\n\n')
     }
     case 'remember': {
       const content = String(input['content'] ?? '').trim()
@@ -1804,29 +1820,18 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     }
   }
 
-  // ── scope-d: sovereignty gate across local + cloud ──────────────────────────
-  // Before ANY cloud egress, consult the scope-d daemon. Local routes never
-  // egress (no round-trip). When scope-d refuses — or is configured but
-  // unreachable (fail-closed) — route DOWN to a local model. Cloud that IS
-  // allowed prefers a scope-d-hosted endpoint (governed egress) over a direct
-  // vendor call. Every decision is emitted to scope-d telemetry.
-  let scopedEndpointBaseUrl: string | undefined
-  let scopedEndpointKey: string | undefined
+  // ── scope-d: engagement-policy gate across local + cloud ────────────────────
+  // Before ANY cloud egress, gate against the scope-d EngagementPolicy. Local
+  // routes perform no egress (always allowed — the sovereignty floor). When the
+  // policy denies the egress — or is configured but missing/expired (fail-closed)
+  // — route DOWN to local. Every decision is written as a scope-d Event-IR audit.
   {
     const scopeName = (POLICY_PROFILES[body.policy_profile ?? 'default'] ?? POLICY_PROFILES['default']!).scope
     const armed = routerDecision.securityLane?.armed === true
     if (provider !== 'ollama') {
-      // Facet 2 — route cloud THROUGH a scope-d endpoint when one advertises this model.
-      if (scopedConfigured()) {
-        try {
-          const ep = (await listScopedEndpoints()).find((e: ScopedEndpoint) => e.models.includes(model) || e.models.includes('*'))
-          if (ep) { scopedEndpointBaseUrl = ep.baseUrl; scopedEndpointKey = ep.apiKey; provider = 'openai' }
-        } catch { /* endpoint discovery best-effort */ }
-      }
-      // Facet 1 — egress gate.
-      const tier: MeshTier = scopedEndpointBaseUrl ? 'sovereign-host' : 'frontier'
-      const target = scopedEndpointBaseUrl ?? (provider === 'anthropic' ? 'api.anthropic.com' : 'api.openai.com')
-      const verdict = await checkEgress({
+      const tier: MeshTier = 'frontier'
+      const target = provider === 'anthropic' ? 'api.anthropic.com' : 'api.openai.com'
+      const verdict = checkEgress({
         scope: scopeName, policyProfile: body.policy_profile, securityArmed: armed,
         tier, provider, model, target,
         sensitivityTags: armed ? ['sovereign-only'] : [],
@@ -1839,7 +1844,6 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         if (ollamaUp && localPick) {
           console.warn(`[scope-d] egress denied (${verdict.reason}) → routing down to local ${localPick}`)
           provider = 'ollama'; model = localPick
-          scopedEndpointBaseUrl = undefined; scopedEndpointKey = undefined
         } else {
           sse(res, 'error', { error: `scope-d denied egress and no local model is available: ${verdict.reason}` })
           return
@@ -1947,8 +1951,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     narrate(narrateRoute(model, intentPlan.name, { fast: isFast && !isConcierge, concierge: isConcierge }))
   } catch { /* narration best-effort */ }
 
-  // scope-d-hosted endpoints carry their own key + base URL (governed cloud egress).
-  const apiKey = scopedEndpointKey ?? (provider === 'openai' ? openaiKey : anthropicKey)
+  const apiKey = provider === 'openai' ? openaiKey : anthropicKey
 
   const run_id = crypto.randomUUID()
   const timestamp = new Date().toISOString()
@@ -2732,7 +2735,6 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           apiKey,
           temperature: reqTemperature,
           maxTokens: reqMaxTokens,
-          baseUrl: scopedEndpointBaseUrl,
         })) {
           if (event.type === 'text') {
             turnContent += event.text
@@ -4404,6 +4406,28 @@ const server = http.createServer((req, res) => {
       res.writeHead(200, { 'content-type': 'application/json' })
       res.end(JSON.stringify({ ok: steps.every((s) => s.ok), framework: base, typescript: !!p.typescript, workspace: wsName, name, path: projDir, devUrl, devCommand: `cd ${projDir} && npm run dev`, steps }))
     })() })
+    return
+  }
+
+  // ── Registry — the catalogue (charts/templates/connectors), queryable by intent ──
+  if (req.method === 'GET' && url.pathname === '/api/registry') {
+    void (async () => {
+      setCORSHeaders(res)
+      try {
+        const { queryRegistry } = await import('./lib/registry.js')
+        const kindParam = url.searchParams.get('kind')
+        const entries = queryRegistry({
+          kind: (kindParam as 'chart' | 'template' | 'connector' | 'asset' | 'crawl') || undefined,
+          q: url.searchParams.get('q') ?? undefined,
+          domain: url.searchParams.get('domain') ?? undefined,
+          limit: Number(url.searchParams.get('limit') ?? 12),
+        })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ entries }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e), entries: [] }))
+      }
+    })()
     return
   }
 
