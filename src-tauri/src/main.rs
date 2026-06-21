@@ -5,7 +5,8 @@ use base64::{engine::general_purpose::STANDARD as B64, Engine as _};
 use std::sync::Mutex;
 use tauri::{
     menu::{MenuBuilder, MenuItemBuilder, PredefinedMenuItem, SubmenuBuilder},
-    Emitter, Manager,
+    tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
+    Emitter, Manager, WindowEvent,
 };
 use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, ShortcutState};
 use tauri_plugin_shell::ShellExt;
@@ -330,6 +331,50 @@ fn main() {
         .setup(|app| {
             let h = app.handle();
 
+            // ── Run in background like Claude Desktop ─────────────────────────
+            // Closing the window HIDES it (the Agent Machine, voice loop, and model
+            // keep running). Real quit is Cmd+Q or the tray's Quit — both fire
+            // RunEvent::Exit, which tears the sidecars down.
+            if let Some(win) = app.get_webview_window("main") {
+                let w = win.clone();
+                win.on_window_event(move |event| {
+                    if let WindowEvent::CloseRequested { api, .. } = event {
+                        api.prevent_close();
+                        let _ = w.hide();
+                    }
+                });
+            }
+
+            // ── Menu-bar (tray) icon — Show / Quit; left-click toggles the window ──
+            {
+                let show = MenuItemBuilder::with_id("tray_show", "Show Noetica").build(app)?;
+                let quit = MenuItemBuilder::with_id("tray_quit", "Quit Noetica").build(app)?;
+                let tray_menu = MenuBuilder::new(app).items(&[&show, &quit]).build()?;
+                let _tray = TrayIconBuilder::with_id("noetica-tray")
+                    .icon(app.default_window_icon().cloned().unwrap())
+                    .icon_as_template(true)
+                    .tooltip("Noetica")
+                    .menu(&tray_menu)
+                    .show_menu_on_left_click(false)
+                    .on_menu_event(|app, event| match event.id().as_ref() {
+                        "tray_show" => {
+                            if let Some(w) = app.get_webview_window("main") { let _ = w.show(); let _ = w.set_focus(); }
+                        }
+                        "tray_quit" => { app.exit(0); }
+                        _ => {}
+                    })
+                    .on_tray_icon_event(|tray, event| {
+                        if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = event {
+                            let app = tray.app_handle();
+                            if let Some(w) = app.get_webview_window("main") {
+                                if w.is_visible().unwrap_or(false) { let _ = w.hide(); }
+                                else { let _ = w.show(); let _ = w.set_focus(); }
+                            }
+                        }
+                    })
+                    .build(app)?;
+            }
+
             // ── Ollama sidecar (opt-in, default OFF) ──────────────────────────
             // The Agent Machine now OWNS its model runtime: on boot it provisions a
             // COMPLETE Ollama into ~/.noetica/runtime and runs it under a sandbox
@@ -573,6 +618,13 @@ fn main() {
                         .arg("-TERM")
                         .arg(pid.to_string())
                         .status();
+                }
+            }
+            // Clicking the dock icon while hidden (macOS) re-shows the window.
+            if let tauri::RunEvent::Reopen { .. } = event {
+                if let Some(w) = app_handle.get_webview_window("main") {
+                    let _ = w.show();
+                    let _ = w.set_focus();
                 }
             }
         });
