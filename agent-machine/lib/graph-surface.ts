@@ -11,10 +11,11 @@
 import type { GraphNode, GraphEdge } from '@socioprophet/hellgraph'
 import { coreTokens } from './topic-closure.js'
 import { isActionLabel } from './graph-hygiene.js'
+import { dimensionOf } from './cskg.js'
 type GNode = GraphNode
 type GEdge = GraphEdge
 export interface SurfaceNode { id: string; label: string; category: string; kind: string; featured: boolean; degree: number }
-export interface SurfaceLink { source: string; target: string; primary: boolean; epistemic: string }
+export interface SurfaceLink { source: string; target: string; primary: boolean; epistemic: string; dimension: string }
 export interface SurfaceResult { nodes: SurfaceNode[]; links: SurfaceLink[]; total: { nodes: number; edges: number } }
 
 // Entity CLASS (regis-aligned) for an atom's primary label — what the node IS, for styling/legend/
@@ -202,7 +203,7 @@ export function selectSurface(allNodes: GNode[], allEdges: GEdge[], opts: { view
     if ((shown.get(e.from) ?? 0) >= CAP || (shown.get(e.to) ?? 0) >= CAP) continue
     shown.set(e.from, (shown.get(e.from) ?? 0) + 1)
     shown.set(e.to, (shown.get(e.to) ?? 0) + 1)
-    links.push({ source: e.from, target: e.to, primary: (degree.get(e.from) ?? 0) >= maxDeg * 0.6 || (degree.get(e.to) ?? 0) >= maxDeg * 0.6, epistemic: 'extracted' })
+    links.push({ source: e.from, target: e.to, primary: (degree.get(e.from) ?? 0) >= maxDeg * 0.6 || (degree.get(e.to) ?? 0) >= maxDeg * 0.6, epistemic: epistemicOf(e.label), dimension: dimensionOf(e.label) })
   }
 
   return { nodes, links, total: { nodes: allNodes.length, edges: allEdges.length } }

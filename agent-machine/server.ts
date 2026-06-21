@@ -3643,6 +3643,32 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // GET /api/graph/cskg — export the graph's edges in the CSKG / KGTK edge format (every edge
+  // dimensioned + lifted-labelled + sourced). ?format=tsv|json (default tsv), ?limit=N.
+  if (req.method === 'GET' && url.pathname === '/api/graph/cskg') {
+    void (async () => {
+      setCORSHeaders(res)
+      const format = url.searchParams.get('format') === 'json' ? 'json' : 'tsv'
+      const limit = Math.min(50000, Math.max(1, Number(url.searchParams.get('limit')) || 10000))
+      try {
+        const { toCskgEdge, toKgtkTsv } = await import('./lib/cskg.js')
+        const g = getHellGraph()
+        const edges = (g.allEdges() as Array<{ id?: string; label: string; from: string; to: string; properties?: Record<string, unknown> }>).slice(0, limit)
+        const nameOf = (id: string) => { const n = g.getNode(id); return (n?.properties?.['name'] ?? n?.properties?.['title'] ?? n?.properties?.['surface']) as string | undefined }
+        const cskg = edges.map((e) => toCskgEdge(e, { node1: nameOf(e.from), node2: nameOf(e.to) }))
+        if (format === 'json') {
+          res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ count: cskg.length, edges: cskg }))
+        } else {
+          res.writeHead(200, { 'content-type': 'text/tab-separated-values', 'content-disposition': 'attachment; filename="noetica-cskg.tsv"' })
+          res.end(toKgtkTsv(cskg))
+        }
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+      }
+    })()
+    return
+  }
+
   // GET /api/graph/search — fast topic/instance recall over the graph, fusing cosine +
   // Jaccard + link expansion (a company on "Hospital Way" surfaces for "hospital"). Query:
   // ?q=…&limit=…  Cosine kicks in when the query embeds and atoms carry vectors.

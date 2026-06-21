@@ -15,6 +15,7 @@ import type { GraphNode, GraphEdge } from '@socioprophet/hellgraph'
 import { embedBatchLocal } from './embed-runtime.js'
 import { cleanLabel, categoryFor, kindOf, type SurfaceResult, type SurfaceNode, type SurfaceLink } from './graph-surface.js'
 import { classifyTerms, titleCaseTopic } from './slash-topics.js'
+import { dimensionOf } from './cskg.js'
 import { isActionLabel } from './graph-hygiene.js'
 
 // Words that are tool params, shell/command fragments, or generic instance noise — never topics.
@@ -388,7 +389,7 @@ export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[
       if (!keep.has(e.from) || !keep.has(e.to) || e.from === e.to) continue
       if ((shown.get(e.from) ?? 0) >= CAP || (shown.get(e.to) ?? 0) >= CAP) continue
       shown.set(e.from, (shown.get(e.from) ?? 0) + 1); shown.set(e.to, (shown.get(e.to) ?? 0) + 1)
-      links.push({ source: e.from, target: e.to, primary: (degree.get(e.from) ?? 0) >= maxDeg * 0.6, epistemic: 'extracted' })
+      links.push({ source: e.from, target: e.to, primary: (degree.get(e.from) ?? 0) >= maxDeg * 0.6, epistemic: 'extracted', dimension: dimensionOf(e.label) })
     }
   } else {
     // topic view: inter-cluster connectivity (A↔B if any member edge crosses)
@@ -398,7 +399,7 @@ export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[
       if (!ra || !rb || ra === rb || !keep.has(ra) || !keep.has(rb)) continue
       const key = ra < rb ? `${ra}|${rb}` : `${rb}|${ra}`
       if (seen.has(key)) continue; seen.add(key)
-      links.push({ source: ra, target: rb, primary: false, epistemic: 'inferred' })
+      links.push({ source: ra, target: rb, primary: false, epistemic: 'inferred', dimension: 'co-occurrence' })
     }
   }
 

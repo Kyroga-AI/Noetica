@@ -30,6 +30,9 @@ const REL_DIMENSION: Record<string, CskgDimension> = {
   WORLD_STATE_OF: 'temporal', CYCLE_OF: 'temporal', PROCESSED_OBS: 'temporal', CLAIMS: 'social', CLAIMED_BY: 'social',
   REMEDIATES: 'causation', PART_OF_SELF: 'part-whole', CERTIFIED_BY: 'utility', COOCCURS_WITH: 'co-occurrence',
   RELATED_TO: 'similarity', SAME_AS: 'similarity', MERGE_PROPOSAL: 'similarity',
+  // discovered in the live graph:
+  MENTIONED_IN: 'co-occurrence', HAS_EVIDENCE: 'utility', CONCORDANCE: 'similarity', HAS_CHUNK: 'part-whole',
+  HAS_INTERACTION: 'part-whole', OFFERED_BY: 'utility', ROUTED_TO: 'functional', HAS_DOMAIN: 'part-whole',
 }
 
 /** The CSKG semantic dimension of a relation: explicit map first, then keyword fallback. */
