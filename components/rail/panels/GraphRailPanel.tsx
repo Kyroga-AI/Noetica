@@ -112,6 +112,25 @@ export function GraphRailPanel() {
     return () => { cancelled = true; clearTimeout(t) }
   }, [searchQ])
 
+  // Memory curation: which graph nodes are memories + their pinned state (for the node-detail
+  // pin button → POST /api/memory/pin → LTI boost = "inject into the long-term brain").
+  const [memMap, setMemMap] = useState<Record<string, { pinned: boolean; kind: string; preview: string }>>({})
+  const loadMemories = async () => {
+    try {
+      const res = await fetch('/api/memory/graph'); if (!res.ok) return
+      const j = (await res.json()) as { memories?: Array<{ id: string; pinned: boolean; kind: string; preview: string }> }
+      const m: Record<string, { pinned: boolean; kind: string; preview: string }> = {}
+      for (const x of j.memories ?? []) m[x.id] = { pinned: x.pinned, kind: x.kind, preview: x.preview }
+      setMemMap(m)
+    } catch { /* offline */ }
+  }
+  useEffect(() => { void loadMemories() }, [])
+  const togglePin = async (id: string, pinned: boolean) => {
+    setMemMap((cur) => ({ ...cur, [id]: { ...(cur[id] ?? { kind: 'memory', preview: '' }), pinned } }))  // optimistic
+    try { await fetch('/api/memory/pin', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id, pinned }) }) } catch { /* */ }
+    void loadMemories()
+  }
+
   const fmt = (n: number | undefined) => (n !== undefined ? n.toLocaleString() : '—')
   const statusColor = health?.status === 'healthy' ? '#16a34a' : health?.status === 'degraded' ? '#d97706' : '#6b7280'
   const focusLabel = root ? graph.nodes.find((n) => n.id === root)?.label : ''
@@ -228,12 +247,31 @@ export function GraphRailPanel() {
             <SurfaceGraph nodes={graph.nodes} links={graph.links} fill onNodeClick={handleNodeClick} layout={layout} pathIds={pathIds}
               visibleKinds={hiddenKinds.size ? new Set(graph.nodes.map((n) => n.kind ?? 'Concept').filter((k) => !hiddenKinds.has(k))) : undefined}
               hideInferred={hideInferred} />
-            {root && (
-              <div className="absolute inset-x-2 bottom-1 flex items-center justify-between rounded-md bg-[var(--color-background-primary)]/80 px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)] backdrop-blur">
-                <span className="truncate">focused: <b>{focusLabel || root.split(':').pop()}</b></span>
-                <button onClick={() => setRoot('')} className="font-semibold text-[#1d4ed8]">clear</button>
-              </div>
-            )}
+            {root && (() => {
+              const fn = graph.nodes.find((n) => n.id === root)
+              const mem = memMap[root]
+              return (
+                <div className="absolute inset-x-2 bottom-1 rounded-md bg-[var(--color-background-primary)]/90 px-2.5 py-1.5 text-[10px] text-[var(--color-text-secondary)] backdrop-blur">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate font-semibold text-[var(--color-text-primary)]">{focusLabel || root.split(':').pop()}</span>
+                    <button onClick={() => setRoot('')} className="shrink-0 font-semibold text-[#1d4ed8]">clear</button>
+                  </div>
+                  <div className="mt-0.5 flex items-center gap-1.5 text-[9px] text-[var(--color-text-tertiary)]">
+                    {fn?.kind && <span className="rounded bg-[var(--color-background-secondary)] px-1 py-px">{fn.kind}</span>}
+                    {fn && <span>{fn.degree} link{fn.degree === 1 ? '' : 's'}</span>}
+                  </div>
+                  {mem && (
+                    <div className="mt-1 flex items-center justify-between gap-2 border-t border-[var(--color-border-secondary)] pt-1">
+                      <span className="truncate text-[9px] text-[var(--color-text-tertiary)]">({mem.kind}) {mem.preview}</span>
+                      <button onClick={() => void togglePin(root, !mem.pinned)}
+                        className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold transition ${mem.pinned ? 'bg-[#7c3aed] text-white' : 'border border-[var(--color-border-secondary)] text-[var(--color-text-secondary)] hover:border-[#7c3aed] hover:text-[#7c3aed]'}`}>
+                        {mem.pinned ? '📌 Pinned' : 'Pin to brain'}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 items-center justify-center rounded-xl border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 text-center text-[11px] text-[var(--color-text-tertiary)]">
