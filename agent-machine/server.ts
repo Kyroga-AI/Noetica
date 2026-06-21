@@ -1298,6 +1298,15 @@ async function executeTool(
       if (!content) return 'Error: nothing to remember — content is required.'
       const kind = ['preference', 'fact', 'identity'].includes(String(input['kind'])) ? String(input['kind']) : 'fact'
       try {
+        // Dedup-on-write: don't store a near-duplicate of something already remembered.
+        const { findSimilarMemory, listMemories } = await import('./lib/memory-curation.js')
+        const gMem = getHellGraph()
+        const mStore = { nodesByLabel: (l: string) => gMem.nodesByLabel(l) as any[], getNode: (id: string) => gMem.getNode(id) as any, out: (id: string, e?: string) => gMem.out(id, e) as any[], setProperty: () => { /* read-only */ } }
+        const dupId = findSimilarMemory(mStore, content)
+        if (dupId) {
+          const existing = listMemories(mStore).find((m) => m.id === dupId)
+          return `Already remembered something similar: "${(existing?.preview ?? '').slice(0, 120)}". Not duplicating it.`
+        }
         const { ingestDocument } = await import('./lib/doc-store.js')
         const stamp = new Date().toISOString().replace(/[:.]/g, '-')
         await ingestDocument(`memory/${kind}-${stamp}.md`, content)
@@ -3610,6 +3619,26 @@ const server = http.createServer((req, res) => {
         const { pinMemory, unpinMemory } = await import('./lib/memory-curation.js')
         const ok = (p.pinned === false ? unpinMemory : pinMemory)(memoryStore(), p.id)
         res.writeHead(ok ? 200 : 404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok, id: p.id, pinned: p.pinned !== false }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+      }
+    })() })
+    return
+  }
+
+  // POST /api/memory/forget — soft-delete a memory (excluded from recall + LTI dropped). Body: {id}.
+  if (req.method === 'POST' && url.pathname === '/api/memory/forget') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      setCORSHeaders(res)
+      let p: { id?: string } = {}
+      try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+      if (!p.id) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'id required' })); return }
+      try {
+        const { forgetMemory } = await import('./lib/memory-curation.js')
+        const ok = forgetMemory(memoryStore(), p.id)
+        res.writeHead(ok ? 200 : 404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok, id: p.id }))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
       }

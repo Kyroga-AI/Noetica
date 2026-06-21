@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { listMemories, pinMemory, unpinMemory, selectRelevantMemories, PINNED_LTI, type MemoryStore, type MemoryNode } from './memory-curation.js'
+import { listMemories, pinMemory, unpinMemory, forgetMemory, findSimilarMemory, selectRelevantMemories, PINNED_LTI, type MemoryStore, type MemoryNode } from './memory-curation.js'
 
 class FakeStore implements MemoryStore {
   nodes = new Map<string, MemoryNode>()
@@ -67,6 +67,23 @@ test('pinning a non-memory node is refused', () => {
   const s = seed()
   assert.equal(pinMemory(s, 'doc:report'), false)
   assert.equal(pinMemory(s, 'nonexistent'), false)
+})
+
+test('forgetMemory soft-deletes — excluded from recall, LTI dropped', () => {
+  const s = seed()
+  assert.equal(listMemories(s).length, 2)
+  assert.equal(forgetMemory(s, 'doc:mem1'), true)
+  const after = listMemories(s)
+  assert.equal(after.length, 1)
+  assert.ok(!after.some((m) => m.id === 'doc:mem1'))   // gone from recall
+  assert.equal(s.getNode('doc:mem1')!.properties['deleted'], true)
+  assert.equal(forgetMemory(s, 'doc:report'), false)   // non-memory refused
+})
+
+test('findSimilarMemory catches near-duplicates (dedup-on-write)', () => {
+  const s = seed()  // doc:mem1 preview = "Michael prefers concise answers."
+  assert.equal(findSimilarMemory(s, 'Michael prefers concise short answers'), 'doc:mem1')   // near-dup
+  assert.equal(findSimilarMemory(s, 'the weather in Tokyo is rainy'), null)                 // unrelated
 })
 
 test('selectRelevantMemories: pinned always in, unpinned only when relevant', () => {

@@ -130,6 +130,12 @@ export function GraphRailPanel() {
     try { await fetch('/api/memory/pin', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id, pinned }) }) } catch { /* */ }
     void loadMemories()
   }
+  const forgetMem = async (id: string) => {
+    setMemMap((cur) => { const n = { ...cur }; delete n[id]; return n })  // optimistic remove
+    setRoot('')                                                          // node leaves the graph on next load
+    try { await fetch('/api/memory/forget', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id }) }) } catch { /* */ }
+    void loadMemories()
+  }
 
   const fmt = (n: number | undefined) => (n !== undefined ? n.toLocaleString() : '—')
   const statusColor = health?.status === 'healthy' ? '#16a34a' : health?.status === 'degraded' ? '#d97706' : '#6b7280'
@@ -278,10 +284,16 @@ export function GraphRailPanel() {
                   {mem && (
                     <div className="mt-1 flex items-center justify-between gap-2 border-t border-[var(--color-border-secondary)] pt-1">
                       <span className="truncate text-[9px] text-[var(--color-text-tertiary)]">({mem.kind}) {mem.preview}</span>
-                      <button onClick={() => void togglePin(root, !mem.pinned)}
-                        className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold transition ${mem.pinned ? 'bg-[#7c3aed] text-white' : 'border border-[var(--color-border-secondary)] text-[var(--color-text-secondary)] hover:border-[#7c3aed] hover:text-[#7c3aed]'}`}>
-                        {mem.pinned ? '📌 Pinned' : 'Pin to brain'}
-                      </button>
+                      <div className="flex shrink-0 items-center gap-1">
+                        <button onClick={() => void togglePin(root, !mem.pinned)}
+                          className={`rounded-full px-2 py-0.5 text-[9px] font-semibold transition ${mem.pinned ? 'bg-[#7c3aed] text-white' : 'border border-[var(--color-border-secondary)] text-[var(--color-text-secondary)] hover:border-[#7c3aed] hover:text-[#7c3aed]'}`}>
+                          {mem.pinned ? '📌 Pinned' : 'Pin to brain'}
+                        </button>
+                        <button onClick={() => void forgetMem(root)} title="Forget this memory"
+                          className="rounded-full border border-[var(--color-border-secondary)] px-1.5 py-0.5 text-[9px] text-[var(--color-text-tertiary)] transition hover:border-[#ef4444] hover:text-[#ef4444]">
+                          Forget
+                        </button>
+                      </div>
                     </div>
                   )}
                 </div>

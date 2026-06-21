@@ -59,9 +59,9 @@ function previewOf(store: MemoryStore, n: MemoryNode): string {
   return String(n.properties['filename'] ?? n.id)
 }
 
-/** All memory atoms as curatable records, pinned-first then newest-first. */
+/** All (non-forgotten) memory atoms as curatable records, pinned-first then newest-first. */
 export function listMemories(store: MemoryStore): MemoryRecord[] {
-  const docs = store.nodesByLabel('Document').filter(isMemoryDoc)
+  const docs = store.nodesByLabel('Document').filter(isMemoryDoc).filter((n) => n.properties['deleted'] !== true)
   const recs = docs.map((n): MemoryRecord => ({
     id: n.id,
     kind: kindOf(String(n.properties['filename'] ?? '')),
@@ -89,6 +89,28 @@ function setPin(store: MemoryStore, id: string, pinned: boolean): boolean {
 export function pinMemory(store: MemoryStore, id: string): boolean { return setPin(store, id, true) }
 /** Unpin a memory (lower LTI so it can decay out of the long-term set). */
 export function unpinMemory(store: MemoryStore, id: string): boolean { return setPin(store, id, false) }
+
+/** Forget a memory: soft-delete (the store is append-only) — excluded from recall + LTI dropped. */
+export function forgetMemory(store: MemoryStore, id: string): boolean {
+  const n = store.getNode(id)
+  if (!n || !isMemoryDoc(n)) return false
+  store.setProperty(id, 'deleted', true)
+  store.setProperty(id, 'curated_at', new Date().toISOString())
+  store.setLti?.(id, UNPINNED_LTI)
+  return true
+}
+
+/** Find an existing memory whose preview is a near-duplicate of `content` (for dedup-on-write). */
+export function findSimilarMemory(store: MemoryStore, content: string, threshold = 0.6): string | null {
+  const qt = tokensOf(content)
+  if (qt.size === 0) return null
+  let best: { id: string; score: number } | null = null
+  for (const m of listMemories(store)) {
+    const score = jaccard(qt, tokensOf(m.preview))
+    if (score >= threshold && (!best || score > best.score)) best = { id: m.id, score }
+  }
+  return best?.id ?? null
+}
 
 /**
  * Select the memories to inject for THIS turn — relevance-ranked, not a dump.
