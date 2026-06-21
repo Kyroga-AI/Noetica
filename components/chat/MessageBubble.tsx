@@ -43,10 +43,54 @@ function AttachmentList({ attachments }: { attachments: PendingAttachment[] }) {
   )
 }
 
+// Dispatched sub-agents get their own recognizable card (role badge + task + result), so a
+// delegation reads as "the concierge handed this to a specialist", not a generic tool call.
+const DISPATCH_ROLE_META: Record<string, { icon: string; color: string }> = {
+  researcher: { icon: '🔎', color: '#0ea5e9' },
+  coder:      { icon: '⌨️', color: '#8b5cf6' },
+  reviewer:   { icon: '🛡️', color: '#f59e0b' },
+  analyst:    { icon: '📊', color: '#10b981' },
+  planner:    { icon: '🗺️', color: '#6366f1' },
+  general:    { icon: '🤖', color: '#64748b' },
+}
+function DispatchCard({ call, result }: { call: ToolCallRecord; result?: ToolResultRecord }) {
+  const [open, setOpen] = useState(false)
+  const input = (call.input ?? {}) as { role?: string; task?: string }
+  const role = String(input.role ?? 'general')
+  const task = String(input.task ?? '')
+  const meta = DISPATCH_ROLE_META[role] ?? DISPATCH_ROLE_META.general!
+  const running = !result
+  const body = (result?.result ?? '').replace(/^\[[^\]]*sub-agent[^\]]*\]\s*/i, '')
+  return (
+    <div className="my-1.5 overflow-hidden rounded-xl border" style={{ borderColor: `${meta.color}55` }}>
+      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-2 px-3 py-2 text-left transition hover:bg-[var(--color-background-secondary)]">
+        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${running ? 'animate-pulse' : ''}`} style={{ background: running ? '#fbbf24' : meta.color }} />
+        <span className="shrink-0 text-[13px] leading-none">{meta.icon}</span>
+        <span className="shrink-0 text-[11px] font-semibold capitalize" style={{ color: meta.color }}>Dispatched {role}</span>
+        <span className="min-w-0 flex-1 truncate text-[10px] text-[var(--color-text-tertiary)]">{task}</span>
+        <span className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">{running ? 'running…' : (open ? '▲' : '▼')}</span>
+      </button>
+      {open && (
+        <div className="border-t border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Task</div>
+          <p className="mb-2 whitespace-pre-wrap text-[12px] text-[var(--color-text-secondary)]">{task}</p>
+          {result && (
+            <>
+              <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Result</div>
+              <MarkdownContent content={body} compact />
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ToolCallCard({ call, result }: { call: ToolCallRecord; result?: ToolResultRecord }) {
   const [open, setOpen] = useState(false)
   const inputStr = JSON.stringify(call.input, null, 2)
   const isError = result?.result.startsWith('Error:')
+  if (call.name === 'dispatch_agent') return <DispatchCard call={call} result={result} />
 
   return (
     <div className="my-1.5 overflow-hidden rounded-xl border border-[var(--color-border-secondary)]">
