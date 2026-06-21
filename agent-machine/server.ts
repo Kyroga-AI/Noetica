@@ -4599,6 +4599,55 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // ── Code workspace — list/read project files for the workspace surface ───────
+  if (req.method === 'GET' && url.pathname === '/api/workspace/list') {
+    void (async () => {
+      setCORSHeaders(res)
+      const root = path.join(os.homedir(), '.noetica', 'workspaces')
+      const ws = (url.searchParams.get('ws') ?? '').replace(/[^a-zA-Z0-9._-]/g, '_')
+      const SKIP = new Set(['node_modules', '.git', 'dist', '.next', '__pycache__', '.cache', 'target'])
+      try {
+        if (!ws) {
+          const dirs = fs.existsSync(root) ? fs.readdirSync(root).filter((d) => { try { return fs.statSync(path.join(root, d)).isDirectory() } catch { return false } }) : []
+          res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ workspaces: dirs })); return
+        }
+        const base = path.join(root, ws)
+        const files: { path: string; dir: boolean; size: number }[] = []
+        const walk = (dir: string, rel: string, depth: number) => {
+          if (depth > 6 || files.length > 2000) return
+          let entries: string[] = []
+          try { entries = fs.readdirSync(dir) } catch { return }
+          for (const name of entries.sort()) {
+            if (SKIP.has(name) || name.startsWith('.')) continue
+            const abs = path.join(dir, name), r = rel ? `${rel}/${name}` : name
+            let st: fs.Stats; try { st = fs.statSync(abs) } catch { continue }
+            files.push({ path: r, dir: st.isDirectory(), size: st.size })
+            if (st.isDirectory()) walk(abs, r, depth + 1)
+          }
+        }
+        if (fs.existsSync(base)) walk(base, '', 0)
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ws, files }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'list_failed', files: [] })) }
+    })()
+    return
+  }
+  if (req.method === 'GET' && url.pathname === '/api/workspace/read') {
+    void (async () => {
+      setCORSHeaders(res)
+      const ws = (url.searchParams.get('ws') ?? '').replace(/[^a-zA-Z0-9._-]/g, '_')
+      const rel = (url.searchParams.get('path') ?? '').replace(/^\/+/, '')
+      const base = path.join(os.homedir(), '.noetica', 'workspaces', ws)
+      const target = path.resolve(base, rel)
+      if (!target.startsWith(base + path.sep)) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'bad_path' })); return }
+      try {
+        const st = fs.statSync(target)
+        if (st.size > 1024 * 1024) { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ content: `(file too large: ${st.size} bytes)`, truncated: true })); return }
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ content: fs.readFileSync(target, 'utf8') }))
+      } catch { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'not_found' })) }
+    })()
+    return
+  }
+
   // ── Speech-to-text (whisper.cpp, on-device, cross-platform) ──────────────────
   if (req.method === 'GET' && url.pathname === '/api/stt/status') {
     void (async () => {

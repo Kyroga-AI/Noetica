@@ -13,6 +13,7 @@ import { ComputerUseSurface } from '@/components/surfaces/ComputerUseSurface'
 import { WorkroomsSurface } from '@/components/surfaces/WorkroomsSurface'
 import { CoworkSurface } from '@/components/surfaces/CoworkSurface'
 import { CodeSurface } from '@/components/surfaces/CodeSurface'
+import { WorkspaceSurface } from '@/components/surfaces/WorkspaceSurface'
 import { EvaluateSurface } from '@/components/surfaces/EvaluateSurface'
 import { GovernSurface } from '@/components/surfaces/GovernSurface'
 import { ProjectsSurface } from '@/components/surfaces/ProjectsSurface'
@@ -72,6 +73,7 @@ const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
   projects:     'Cowork',
   artifacts:    'Chat',
   code:         'Code',
+  workspace:    'Code',
   evaluate:     'Benchmark',
   operate:      'Chat',
   govern:       'Chat',
@@ -1610,6 +1612,7 @@ function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, work
   if (activeSurface === 'projects')     return <ProjectsPanel />
   if (activeSurface === 'artifacts')    return <ArtifactsSurface />
   if (activeSurface === 'code')         return <CodeSurface onOpenSettings={onOpenSettings} onNavigateToOperate={onNavigateToOperate} />
+  if (activeSurface === 'workspace')    return <WorkspaceSurface />
   if (activeSurface === 'evaluate')     return <EvaluateSurface thinkingBudget={thinkingBudget} />
   if (activeSurface === 'operate')      return <OperateSurface onAtomSelect={onAtomSelect} />
   if (activeSurface === 'govern') {
