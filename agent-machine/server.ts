@@ -573,6 +573,7 @@ interface ChatRequest {
   temperature?: number
   max_tokens?: number
   reply_length?: 'short' | 'medium' | 'long'
+  agent_mode?: 'auto' | 'plan' | 'ask'
   provider_keys?: {
     anthropic?: string
     openai?: string
@@ -2129,7 +2130,9 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // Finance rides along wherever web_search is offered (finance questions are
   // research-shaped), and pulls render_chart with it so "chart AAPL" can plot.
   if (intentToolSet.has('web_search')) { intentToolSet.add('public_data'); intentToolSet.add('render_chart') }
-  const allTools: ProviderTool[] = modelSupportsTools
+  // Agent mode: 'plan' produces a plan WITHOUT executing (no tools offered); 'ask'/'auto' keep tools.
+  const agentMode = body.agent_mode === 'plan' || body.agent_mode === 'ask' ? body.agent_mode : 'auto'
+  const allTools: ProviderTool[] = (modelSupportsTools && agentMode !== 'plan')
     ? BUILTIN_TOOLS.filter((t) => intentToolSet.has(t.name) && (t.name !== 'generate_image' || imageGenAvailable))
     : []
   if (modelSupportsTools) {
@@ -2479,7 +2482,14 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       ? '\n\nReply THOROUGHLY — explain in depth, with structure and concrete examples where useful.'
       : ''
 
-  const enrichedSystemPrompt = basePrompt + dateLine + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + goalContext + reasoningDirective + verbosityNote + profile.authorizationSuffix
+  // Agent mode shapes autonomy: plan = propose only, ask = confirm before acting, auto = just do it.
+  const modeNote = agentMode === 'plan'
+    ? '\n\nPLAN MODE: Do NOT execute anything, run commands, write files, or call tools. Produce a clear, numbered step-by-step PLAN of what you would do, then stop and wait for the user to approve before any action.'
+    : agentMode === 'ask'
+      ? '\n\nASK MODE: Before running any command, writing/modifying any file, or taking any irreversible action, first state concisely what you intend to do and ask the user to confirm. Read-only steps are fine without asking.'
+      : ''
+
+  const enrichedSystemPrompt = basePrompt + dateLine + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + goalContext + reasoningDirective + verbosityNote + modeNote + profile.authorizationSuffix
 
   // Token budget: rough estimate (4 chars ≈ 1 token). If message history + system prompt
   // exceeds 70% of the model's context window, trim oldest non-system messages.

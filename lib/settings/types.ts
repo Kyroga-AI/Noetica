@@ -54,6 +54,7 @@ export interface NoeticaSettings {
 
   // Fan-out
   replyLength: 'short' | 'medium' | 'long'
+  agentMode: 'auto' | 'plan' | 'ask'
   fanoutModels: string[]
   fanoutConcurrency: number
 

@@ -77,6 +77,7 @@ export function InputArea({
   const [selectedTools, setSelectedTools] = useState<string[]>([])
   const [showModes, setShowModes] = useState(false)
   const [showModelPicker, setShowModelPicker] = useState(false)
+  const [showModePicker, setShowModePicker] = useState(false)
   const [showSystemPrompt, setShowSystemPrompt] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
@@ -392,6 +393,34 @@ export function InputArea({
           )}
 
           <div className="flex-1" />
+
+          {/* Agent mode — Auto / Plan / Ask (autonomy level) */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowModePicker((v) => !v)}
+              title="Agent mode — how autonomously it acts"
+              className={`flex h-7 items-center gap-1 rounded-md border-0 bg-transparent px-1.5 text-[11px] font-medium capitalize outline-none transition ${settings.agentMode === 'plan' ? 'text-[#d97706]' : settings.agentMode === 'ask' ? 'text-[#0891b2]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'}`}
+            >
+              {settings.agentMode ?? 'auto'}
+              <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden><path d="M1.5 3l2 2 2-2" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </button>
+            {showModePicker && (
+              <div className="absolute bottom-10 right-0 z-50 w-48 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] py-1 shadow-lg">
+                {([['auto', 'Acts autonomously'], ['plan', 'Plans only — no actions'], ['ask', 'Confirms before acting']] as const).map(([m, desc]) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => { update({ agentMode: m }); setShowModePicker(false) }}
+                    className={`flex w-full flex-col items-start px-3 py-1.5 text-left transition hover:bg-[var(--color-background-secondary)] ${settings.agentMode === m ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'}`}
+                  >
+                    <span className="text-xs font-medium capitalize">{m}{settings.agentMode === m ? ' ✓' : ''}</span>
+                    <span className="text-[10px] text-[var(--color-text-tertiary)]">{desc}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Reply length — cycles short → medium → long, tunes how much the model writes */}
           <button

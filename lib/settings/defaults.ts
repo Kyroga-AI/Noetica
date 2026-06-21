@@ -33,6 +33,7 @@ export const defaultSettings: NoeticaSettings = {
   securityEphemeralMinutes: 15,
 
   replyLength: 'medium',
+  agentMode: 'auto',
   fanoutModels: ['claude-sonnet-4-6', 'gpt-4o'],
   fanoutConcurrency: 3,
 

@@ -943,6 +943,7 @@ export function AppShell() {
             temperature,
             max_tokens: maxTokens,
             reply_length: settings.replyLength,
+            agent_mode: settings.agentMode,
             memory_scope: `noetica-session-local:${workspaceMode.toLowerCase()}`,
             provider_keys: providerKeys,
             agent_machine_endpoint: agentMachineEndpoint,

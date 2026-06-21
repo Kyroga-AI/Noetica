@@ -32,6 +32,7 @@ export type NoeticaChatRequest = {
   temperature?: number
   max_tokens?: number
   reply_length?: 'short' | 'medium' | 'long'
+  agent_mode?: 'auto' | 'plan' | 'ask'
   top_p?: number
   /** User-supplied API keys from browser settings — used when server env vars are absent. */
   provider_keys?: NoeticaProviderKeys
