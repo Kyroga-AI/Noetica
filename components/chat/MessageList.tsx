@@ -61,7 +61,8 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
 
   if (messages.length === 0) {
     const hour = new Date().getHours()
-    const greeting = hour < 5 ? 'Good night' : hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
+    // No "Good night" — if they're here they're awake; late hours read as evening, not a farewell.
+    const greeting = hour < 5 ? 'Good evening' : hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
     const quickActions = [
       { label: 'Show my files', prompt: 'show my files' },
       { label: 'Write code', prompt: 'write code' },
