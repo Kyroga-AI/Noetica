@@ -2548,6 +2548,15 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     }
   } catch { /* memory injection best-effort */ }
 
+  // Cross-session episodic recall: prior exchanges relevant to this question, so the agent
+  // remembers what was discussed in EARLIER sessions (the Interaction layer was write-only).
+  let episodeContext = ''
+  try {
+    const { recallExchanges, formatExchanges } = await import('./lib/episodic.js')
+    const gEp = getHellGraph()
+    episodeContext = formatExchanges(recallExchanges({ nodesByLabel: (l: string) => gEp.nodesByLabel(l) as any[] }, latestUserContent, { limit: 3 }))
+  } catch { /* episodic recall best-effort */ }
+
   // Few-shot training memory: inject the best gold Q/A exemplars for this intent —
   // in-context "training" on the Pareto-head cases, no model update needed. Opt-in
   // (NOETICA_QA_FEWSHOT) because each exemplar adds prompt tokens (latency) on CPU.
@@ -2680,7 +2689,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       ? '\n\nASK MODE: Before running any command, writing/modifying any file, or taking any irreversible action, first state concisely what you intend to do and ask the user to confirm. Read-only steps are fine without asking.'
       : ''
 
-  const enrichedSystemPrompt = basePrompt + dateLine + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + goalContext + reasoningDirective + verbosityNote + modeNote + profile.authorizationSuffix
+  const enrichedSystemPrompt = basePrompt + dateLine + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + episodeContext + goalContext + reasoningDirective + verbosityNote + modeNote + profile.authorizationSuffix
 
   // Token budget: rough estimate (4 chars ≈ 1 token). If message history + system prompt
   // exceeds 70% of the model's context window, trim oldest non-system messages.
