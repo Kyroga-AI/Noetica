@@ -3492,6 +3492,42 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // GET /api/graph/search — fast topic/instance recall over the graph, fusing cosine +
+  // Jaccard + link expansion (a company on "Hospital Way" surfaces for "hospital"). Query:
+  // ?q=…&limit=…  Cosine kicks in when the query embeds and atoms carry vectors.
+  if (req.method === 'GET' && url.pathname === '/api/graph/search') {
+    void (async () => {
+      setCORSHeaders(res)
+      const q = (url.searchParams.get('q') ?? '').trim()
+      const limit = Math.min(50, Math.max(1, Number(url.searchParams.get('limit')) || 12))
+      if (!q) { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ query: q, hits: [] })); return }
+      try {
+        const { graphSearch } = await import('./lib/graph-search.js')
+        const g = getHellGraph()
+        const store = {
+          nodesByLabel: (l: string) => g.nodesByLabel(l) as any[],
+          out: (id: string, e?: string) => g.out(id, e) as any[],
+          in: (id: string, e?: string) => g.in(id, e) as any[],
+        }
+        // Best-effort query embedding for the cosine signal (lexical + link work without it).
+        let queryVector: number[] | undefined
+        try {
+          const { embedBatchLocal } = await import('./lib/embed-runtime.js')
+          const v = await embedBatchLocal([q]); const vec = v?.[0]; if (vec) queryVector = vec
+        } catch { /* cosine optional */ }
+        const vectorOf = (n: { properties: Record<string, unknown> }) => {
+          const raw = n.properties['embedding']; if (!raw) return null
+          try { return typeof raw === 'string' ? JSON.parse(raw) as number[] : (raw as number[]) } catch { return null }
+        }
+        const hits = graphSearch(store, q, { limit, ...(queryVector ? { queryVector, vectorOf } : {}) })
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ query: q, hits }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e), hits: [] }))
+      }
+    })()
+    return
+  }
+
   // POST /api/tool — run ONE built-in tool directly, no model loop. The fast path for
   // tool-shaped intents (e.g. research → web_search): the dialogue layer fires the tool
   // and shows results in ~2s instead of spinning up the slow generative agent to decide.
