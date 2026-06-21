@@ -88,8 +88,12 @@ export function selectSurface(allNodes: GNode[], allEdges: GEdge[], opts: { view
   const catTarget = CATEGORY_VIEWS[view]
   const rootMatch = VIEW_ROOTS[view]
   if (catTarget) {
+    // Drop tool-schema leaf atoms (a tool's parameter names) — they're "technical" but
+    // not ecosystem entities, just noise in the Tech lens.
+    const PARAM_NOISE = new Set(['name', 'arguments', 'path', 'content', 'query', 'input', 'output', 'type', 'properties', 'required', 'description', 'parameters', 'value', 'key', 'id', 'args', 'params', 'prompt', 'language'])
     picked = labeled
       .filter((n) => categoryFor(n.labels[0] ?? '') === catTarget)
+      .filter((n) => !PARAM_NOISE.has((cleanLabel(n) ?? '').toLowerCase()))
       .sort((a, b) => (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0) || Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0))
       .slice(0, limit)
   } else if (rootMatch) {
