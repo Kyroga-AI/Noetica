@@ -61,6 +61,8 @@ import { validateGraph } from '@socioprophet/hellgraph'
 import { CANONICAL_SHAPES, QUARANTINE_PROP } from './lib/canonical-shapes.js'
 import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
 import { critique, bestOfTemps, type Candidate as CriticCandidate } from './lib/critic.js'
+import { programOfThought } from './lib/exec-verify.js'
+import { classifyComplexity as classifyComplexityPosture } from './lib/complexity-discipline.js'
 import { detectGoalIntent, slotFill, buildGoalContext, getActiveGoal, listGoals, saveGoal, type Goal } from './lib/goal-model.js'
 import { assessAgainstGraph } from './lib/pln-judgment.js'
 import { saveCheckpoint, listCheckpoints, getCheckpoint, buildResumeMessages } from './lib/checkpoint-model.js'
@@ -2617,7 +2619,31 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       const bestOfN = Math.max(1, Math.min(8, Math.floor(Number(process.env['NOETICA_BESTOF_N'] ?? 3)) || 3))
       const criticEnabled = process.env['NOETICA_CRITIC'] !== '0' && bestOfN > 1
         && allTools.length === 0 && routerDecision.task !== 'chat'
-      if (criticEnabled) {
+
+      // Verify-by-execution (the strong test-time-compute lever): for a `compute`
+      // posture — arithmetic/quantitative word problems where a small model's mental
+      // math is unreliable — translate the problem to a program, RUN it, and trust the
+      // executed result instead of voting over guesses. Deterministic, not popular.
+      // Disable with NOETICA_EXEC_VERIFY=0.
+      if (criticEnabled && process.env['NOETICA_EXEC_VERIFY'] !== '0'
+          && classifyComplexityPosture(latestUserContent).posture === 'compute') {
+        try {
+          const pot = await programOfThought(latestUserContent, {
+            generate: (p, t) => generateOllamaText({ model, messages: [{ role: 'user', content: p }], temperature: t, numCtx: ollamaNumCtx }).then((r) => r.content),
+            execute: (lang, code) => executeCode(lang, code),
+          })
+          if (pot) {
+            const answer = `${pot.answer}\n\n_Verified by execution:_\n\`\`\`python\n${pot.code}\n\`\`\``
+            sse(res, 'deliberation', { deliberation: { critic: { action: 'accept', score: 1, agreement: 1, posture: 'compute', reason: 'verified by execution (program-of-thought)' } } })
+            sse(res, 'delta', { delta: answer })
+            fullContent += answer
+            deliberated = true
+            console.log(`[critic] program-of-thought verified answer=${pot.answer}`)
+          }
+        } catch { /* exec-verify best-effort — fall through to best-of-N */ }
+      }
+
+      if (!deliberated && criticEnabled) {
         try {
           const wm = loadWorldModelForVJ()
           const candidates: CriticCandidate[] = []
