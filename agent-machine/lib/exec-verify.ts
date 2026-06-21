@@ -129,6 +129,15 @@ export async function codeVerifyRepair(question: string, deps: ExecVerifyDeps, m
     if (testsPassed(output)) return { solution: code, language, output, passed: true, attempts: attempt + 1 }
     prior = output.slice(-700)
   }
+  // No attempt passed its tests. INVARIANT: verification only promotes, never demotes —
+  // a strong base model's clean first answer beats a solution mangled while chasing a
+  // flawed self-test (measured: verify-repair regressed qwen2.5-coder 8/8 → 6/8). So fall
+  // back to a clean baseline generation rather than shipping the test-failing attempt.
+  try {
+    const baseText = await deps.generate(`${question}\n\nReturn ONLY the ${language} solution in a single \`\`\`${language} code block.`, 0.2)
+    const baseCode = extractCode(baseText)
+    if (baseCode) return { solution: baseCode, language, output: last?.output ?? '', passed: false, attempts: maxRepairs + 2 }
+  } catch { /* fall through to the best failing attempt */ }
   if (last) return { solution: last.code, language, output: last.output, passed: false, attempts: maxRepairs + 1 }
   return null
 }

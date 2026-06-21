@@ -87,6 +87,24 @@ test('codeVerifyRepair repairs after a failing first attempt', async () => {
   assert.equal(cv!.attempts, 2)
 })
 
+test('codeVerifyRepair falls back to a clean baseline when tests never pass (promote-never-demote)', async () => {
+  let call = 0
+  const cv = await codeVerifyRepair('write a function f', {
+    generate: async () => {
+      call++
+      // first maxRepairs+1 calls = solution+tests that never pass; final call = baseline.
+      return call <= 2
+        ? '```python\ndef f(n): return n\nassert f(1)==2\nprint("ALL_TESTS_PASSED")\n```'
+        : '```python\ndef f(n): return n + 1\n```'  // clean baseline (no self-tests)
+    },
+    execute: async () => 'AssertionError\n',   // self-tests always fail
+  }, 1)
+  assert.ok(cv)
+  assert.equal(cv!.passed, false)
+  assert.match(cv!.solution, /return n \+ 1/)   // the clean baseline, NOT the failing attempt
+  assert.ok(!cv!.solution.includes('ALL_TESTS_PASSED'))
+})
+
 test('codeVerifyRepair abstains (null) for an unrunnable language', async () => {
   const cv = await codeVerifyRepair('write a Rust quicksort', { generate: async () => '```rust\nfn main(){}\n```', execute: async () => '' })
   assert.equal(cv, null)
