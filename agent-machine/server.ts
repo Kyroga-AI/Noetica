@@ -2604,49 +2604,66 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         }
       }
 
-      // ── 4D/RCS deliberation loop (flagged: NOETICA_DELIBERATION=1) ───────────
-      // Behavior Generation proposes K candidate answers; the World Model
-      // (retrieved memory) + Value Judgment score each on worth; select the best.
-      // Technique over horsepower: several cheap local samples + symbolic
-      // selection instead of one large model call.
+      // ── Critic: best-of-N → verify → select → GATE (default on) ───────────────
+      // Behavior Generation proposes N candidates; the Critic scores each against the
+      // world model + posture, SELECTS the best (self-consistency breaks ties toward
+      // consensus), and GATES: accept / escalate / clarify. "Out-loop, not out-model"
+      // — several cheap local samples + symbolic selection beat one first-token reply.
+      // On ESCALATE with real grounding, spend one sample on a stronger LOCAL model
+      // (sovereign 7B→14B) before any cloud egress. Tunable: NOETICA_BESTOF_N (default
+      // 3, set 1 to disable), NOETICA_CRITIC=0 to turn off. Skipped for tool turns,
+      // trivial chat, and non-Ollama providers (those have their own paths).
       let deliberated = false
-      if (process.env['NOETICA_DELIBERATION'] === '1' && routerDecision.task === 'reasoning' && allTools.length === 0) {
+      const bestOfN = Math.max(1, Math.min(8, Math.floor(Number(process.env['NOETICA_BESTOF_N'] ?? 3)) || 3))
+      const criticEnabled = process.env['NOETICA_CRITIC'] !== '0' && bestOfN > 1
+        && allTools.length === 0 && routerDecision.task !== 'chat'
+      if (criticEnabled) {
         try {
           const wm = loadWorldModelForVJ()
-          const temps = [0.3, 0.7, 1.0]
-          // Ollama serves one generation at a time per model — generate candidates
-          // sequentially (parallel calls queue/fail). Deliberation is an opt-in
-          // "think harder" mode, so K× latency is an accepted trade.
-          const candidates: Array<{ content: string; reasoning: string; temperature: number }> = []
-          for (const t of temps) {
+          const candidates: CriticCandidate[] = []
+          // Ollama serves one generation at a time per model — sample sequentially.
+          for (const t of bestOfTemps(bestOfN)) {
             try {
               const r = await generateOllamaText({ model, messages: ollamaMessages, temperature: t, numCtx: ollamaNumCtx })
-              if (r.content.trim()) candidates.push({ ...r, temperature: t })
+              if (r.content.trim()) candidates.push({ content: r.content, reasoning: r.reasoning, temperature: t, label: model })
             } catch { /* skip a failed candidate */ }
           }
-          const judged = candidates
-            .map((c) => ({ c, vj: judgeAnswer({ answer: c.content, reasoning: c.reasoning || undefined, contextText: graphContext, beliefs: wm.beliefs, laws: wm.laws }) }))
-            .sort((a, b) => b.vj.worth - a.vj.worth)
-          if (judged.length > 0) {
-            const best = judged[0]!
+          if (candidates.length > 0) {
+            const cctx = { question: latestUserContent, contextText: graphContext, beliefs: wm.beliefs, laws: wm.laws }
+            let verdict = critique(candidates, cctx)
+            // Sovereign escalation: only when there's real grounding material to judge
+            // against (otherwise the worth metric is uninformative and a bigger model
+            // won't help) AND a stronger local model is installed.
+            const haveGrounding = graphContext.trim().length > 200
+            if (verdict.action === 'escalate' && haveGrounding) {
+              const stronger = ['qwen2.5:32b', 'qwen2.5:14b'].find((m) => availableModels.includes(m) && m !== model)
+              if (stronger) {
+                try {
+                  const r = await generateOllamaText({ model: stronger, messages: ollamaMessages, temperature: 0.4, numCtx: ollamaNumCtx })
+                  if (r.content.trim()) candidates.push({ content: r.content, reasoning: r.reasoning, temperature: 0.4, label: `esc:${stronger}` })
+                  verdict = critique(candidates, cctx)
+                } catch { /* escalation best-effort */ }
+              }
+            }
+            const best = verdict.best
             sse(res, 'deliberation', {
               deliberation: {
-                candidates: judged.map((j, i) => ({
-                  rank: i, worth: j.vj.worth, grounding: j.vj.grounding,
-                  verdict: j.vj.verdict, temperature: j.c.temperature,
-                  preview: j.c.content.slice(0, 100),
+                candidates: verdict.ranked.map((j, i) => ({
+                  rank: i, worth: j.score, grounding: j.vj.grounding, verdict: j.vj.verdict,
+                  temperature: j.candidate.temperature, label: j.candidate.label,
+                  preview: j.candidate.content.slice(0, 100),
                 })),
-                selected_rank: 0,
+                selected_rank: Math.max(0, verdict.ranked.indexOf(best)),
+                critic: { action: verdict.action, score: best.score, agreement: verdict.agreement, posture: verdict.posture, reason: verdict.reason },
               },
             })
-            if (best.c.reasoning) sse(res, 'thinking_delta', { delta: best.c.reasoning })
-            sse(res, 'delta', { delta: best.c.content })
-            fullContent += best.c.content
-            fullThinking += best.c.reasoning
+            if (best.candidate.reasoning) { sse(res, 'thinking_delta', { delta: best.candidate.reasoning }); fullThinking += best.candidate.reasoning }
+            sse(res, 'delta', { delta: best.candidate.content })
+            fullContent += best.candidate.content
             deliberated = true
-            console.log(`[deliberation] ${judged.length} candidates, selected worth=${best.vj.worth} (grounding=${best.vj.grounding})`)
+            console.log(`[critic] N=${candidates.length} action=${verdict.action} worth=${best.score} agreement=${verdict.agreement} posture=${verdict.posture} model=${best.candidate.label}`)
           }
-        } catch { /* deliberation is best-effort — fall through to normal streaming */ }
+        } catch { /* critic is best-effort — fall through to normal streaming */ }
       }
 
       // Concierge dispatch: for heavy work, acknowledge conversationally *now*
