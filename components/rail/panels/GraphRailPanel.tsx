@@ -50,7 +50,8 @@ export function GraphRailPanel() {
     let cancelled = false
     const load = async () => {
       try {
-        const q = `/api/graph/surface?view=${view}&limit=40${root ? `&root=${encodeURIComponent(root)}` : ''}`
+        // 22 top-level topics; clicking one drills into its subtopics (a wider BFS).
+        const q = `/api/graph/surface?view=${view}&limit=${root ? 28 : 22}${root ? `&root=${encodeURIComponent(root)}` : ''}`
         const res = await fetch(q)
         if (!res.ok) return
         const json = (await res.json()) as { nodes: GraphNode[]; links: GraphLink[] }

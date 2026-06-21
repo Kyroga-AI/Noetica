@@ -88,14 +88,35 @@ export function selectSurface(allNodes: GNode[], allEdges: GEdge[], opts: { view
   const catTarget = CATEGORY_VIEWS[view]
   const rootMatch = VIEW_ROOTS[view]
   if (catTarget) {
-    // Drop tool-schema leaf atoms (a tool's parameter names) — they're "technical" but
-    // not ecosystem entities, just noise in the Tech lens.
+    // Drop tool-schema leaf atoms (parameter names) AND filesystem-path labels — both
+    // are "technical" by type but noise in the ecosystem lens. Applied to both the
+    // top-level list and the drill-down subtopics.
     const PARAM_NOISE = new Set(['name', 'arguments', 'path', 'content', 'query', 'input', 'output', 'type', 'properties', 'required', 'description', 'parameters', 'value', 'key', 'id', 'args', 'params', 'prompt', 'language'])
-    picked = labeled
-      .filter((n) => categoryFor(n.labels[0] ?? '') === catTarget)
-      .filter((n) => !PARAM_NOISE.has((cleanLabel(n) ?? '').toLowerCase()))
-      .sort((a, b) => (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0) || Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0))
-      .slice(0, limit)
+    const isClean = (n: GNode) => {
+      const l = cleanLabel(n) ?? ''
+      return l.length > 1 && !l.includes('/') && !/^[.~]/.test(l) && !PARAM_NOISE.has(l.toLowerCase())
+    }
+    if (root && byId.has(root)) {
+      // Drill-down: a clicked topic → its connected (clean) subtopics (BFS from the root).
+      const seen = new Set<string>([root])
+      const queue: string[] = [root]
+      while (queue.length && seen.size < limit) {
+        const id = queue.shift()!
+        for (const nb of adj.get(id) ?? []) {
+          if (seen.size >= limit) break
+          const nbNode = byId.get(nb)
+          if (!seen.has(nb) && nbNode && isClean(nbNode)) { seen.add(nb); queue.push(nb) }
+        }
+      }
+      picked = [...seen].map((id) => byId.get(id)!).filter(Boolean)
+    } else {
+      // Top-level: the highest-degree clean entities of this category.
+      picked = labeled
+        .filter((n) => categoryFor(n.labels[0] ?? '') === catTarget)
+        .filter(isClean)
+        .sort((a, b) => (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0) || Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0))
+        .slice(0, limit)
+    }
   } else if (rootMatch) {
     const roots = (root && byId.has(root) ? [byId.get(root)!] : labeled.filter((n) => rootMatch(n.labels[0] ?? '')))
       .sort((a, b) => (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0))
