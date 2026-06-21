@@ -4306,6 +4306,8 @@ server.listen(PORT, '127.0.0.1', () => {
     // `ollama serve`'s llama-server runner children do NOT die with it on SIGKILL — reap
     // the app-owned ones explicitly so they don't orphan and hold GPU/RAM.
     try { cp.execFileSync('/usr/bin/pkill', ['-9', '-f', `${process.env['HOME'] ?? ''}/.noetica/runtime/llama-server`], { stdio: 'ignore' }) } catch { /* none running */ }
+    // Reap our own embed sidecar so it doesn't orphan.
+    try { cp.execFileSync('/usr/bin/pkill', ['-9', '-f', 'noetica-embed'], { stdio: 'ignore' }) } catch { /* none running */ }
     if (booted) { try { recordTrendSnapshot(); saveLearningState() } catch { /* best-effort */ } }
     process.exit(0)
   }

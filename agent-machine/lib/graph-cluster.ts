@@ -9,7 +9,7 @@
  * reads as a real topic graph. Embeddings + cluster assignments are cached per process.
  */
 import type { GraphNode, GraphEdge } from '@socioprophet/hellgraph'
-import { embedText } from './ollama.js'
+import { embedBatchLocal } from './embed-runtime.js'
 import { cleanLabel, categoryFor, type SurfaceResult, type SurfaceNode, type SurfaceLink } from './graph-surface.js'
 
 // Words that are tool params, shell/command fragments, or generic instance noise — never topics.
@@ -52,13 +52,13 @@ function rng(seed: number): () => number {
 
 // ── Embeddings (cached per node, reuses any stored vector) ──────────────────
 const embedCache = new Map<string, number[]>()
-async function embedNode(n: GraphNode, label: string): Promise<number[] | null> {
+// Reuse a cached or node-stored vector (no embedder call). The batch embedder fills the rest.
+function readStored(n: GraphNode): number[] | null {
   const hit = embedCache.get(n.id); if (hit) return hit
   const stored = (n.properties as Record<string, unknown>)?.['embedding']
   if (stored != null) {
     try { const v = typeof stored === 'string' ? JSON.parse(stored) : stored; if (Array.isArray(v) && v.length) { embedCache.set(n.id, v as number[]); return v as number[] } } catch { /* fall through */ }
   }
-  try { const v = await embedText(`${n.labels[0] ?? ''}: ${label}`); if (v?.length) { embedCache.set(n.id, v); return v } } catch { /* embed model down */ }
   return null
 }
 
@@ -152,16 +152,15 @@ export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[
   const cacheKey = `${opts.view}:${cands.length}`
   let cl = clusterCache.get(cacheKey)
   if (!cl) {
-    // Embed in bounded batches under a hard time budget — firing all at once overwhelms the
-    // local embed model (most calls fail), but unbounded sequential batching is too slow and
-    // times out the request. Cap concurrency at 16 and bail after ~10s, clustering what we have.
-    const embeds: (number[] | null)[] = []
-    const BATCH = 16
-    const deadline = Date.now() + 10_000
-    for (let i = 0; i < cands.length; i += BATCH) {
-      const chunk = cands.slice(i, i + BATCH)
-      embeds.push(...await Promise.all(chunk.map((x) => embedNode(x.n, x.label))))
-      if (Date.now() > deadline) break   // use whatever embedded; the rest degrade to degree-rank
+    // Vectorize with OUR OWN embedder (the noetica-embed Rust sidecar) in a single batch call —
+    // no ollama. Reuse any cached/stored vector first; embed only what's missing. If the embedder
+    // isn't available, embeds stay null and we degrade to the clean degree-rank fallback below.
+    const embeds: (number[] | null)[] = new Array(cands.length).fill(null)
+    const need: number[] = []
+    cands.forEach((x, i) => { const s = readStored(x.n); if (s) embeds[i] = s; else need.push(i) })
+    if (need.length) {
+      const local = await embedBatchLocal(need.map((i) => `${cands[i]!.n.labels[0] ?? ''}: ${cands[i]!.label}`))
+      if (local) need.forEach((i, k) => { const v = local[k]; if (v) { embedCache.set(cands[i]!.n.id, v); embeds[i] = v } })
     }
     const vecs: number[][] = []; const valid: GraphNode[] = []
     cands.forEach((x, i) => { if (embeds[i]) { vecs.push(normalize(embeds[i]!)); valid.push(x.n) } })
