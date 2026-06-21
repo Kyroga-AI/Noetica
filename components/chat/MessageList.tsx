@@ -62,8 +62,8 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
     const hour = new Date().getHours()
     const greeting = hour < 5 ? 'Good night' : hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
     const quickActions = [
-      { label: 'Show my files', prompt: 'List the files in my home directory.' },
-      { label: 'Write code', prompt: 'Write a Python function that reverses a string, then run it and show the output.' },
+      { label: 'Show my files', prompt: 'show my files' },
+      { label: 'Write code', prompt: 'write code' },
       { label: 'Research', prompt: 'research' },
       { label: 'What can you do?', prompt: 'What can you do?' },
     ]

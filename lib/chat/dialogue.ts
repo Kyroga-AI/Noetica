@@ -20,6 +20,8 @@ export interface DialogueResult {
   cancelForm?: boolean
   /** A local app action to execute (navigation command) — chat as command palette. */
   command?: DialogueCommand
+  /** Run a built-in tool IMMEDIATELY (no slot, no generation) — e.g. show my files. */
+  runTool?: { name: string; input: Record<string, string> }
 }
 export type DialogueCommand =
   | { kind: 'navigate'; surface: string }
@@ -342,15 +344,18 @@ export function matchDialogue(input: string, ctx?: DialogueCtx): DialogueResult 
   if (any(/^(do some |can you |please )?(research|look up|search( the web)?)( something| stuff| online)?$/) || fuzzyVerb(s, ['research', 'reserch', 'reasearch']))
     return r(pick('ask-research', ['Sure — what should I research?', 'On it. What topic?', 'Happy to — what should I look into?']),
       { form: { slot: 'topic', tool: { name: 'web_search', input: { query: 'latest news and developments on {value}' } }, followups: ['Summarize these for me'] } })
-  if (any(/^(write|generate|make|build) (me )?(some )?code$/, /^(let'?s )?code$/, /^write a (script|program|function)$/))
-    return r(pick('ask-code', ['What should it do?', 'Sure — what should the code do?', 'Describe it and I’ll write + run it.']),
-      { form: { slot: 'spec', template: 'Write code that does the following, then run it and show the output: {value}' } })
+  if (any(/^(write|generate|make|build) (me )?(some )?code$/, /^(let'?s )?code$/, /^write a (script|program|function)$/, /^i want to (build|develop|make|create)( something)?$/, /^build something$/))
+    return r(pick('ask-code', [
+      `What would you like to develop${name ? ', ' + name : ''}?`,
+      `What should we build${name ? ', ' + name : ''}?`,
+      `Tell me what to build and I'll write it and run it.`,
+    ]), { form: { slot: 'spec', template: 'Write code that does the following, then run it and show the output: {value}' } })
   if (any(/^(summari[sz]e|tldr|sum up)( (this|it|that))?$/) || fuzzyVerb(s, ['summarize', 'summarise', 'sumarize']))
     return r('Summarize what — paste the text, or open a document first.', { quickReplies: ['Show my files'] })
 
-  // ── Disambiguation ────────────────────────────────────────────────────────
-  if (any(/^(find|show|get)( me)?( my)? files?$/))
-    return r('List your files, or search inside them?', { quickReplies: ['List my home directory', 'Search file contents'] })
+  // ── Direct tool: show my files → list_directory immediately (no model) ─────
+  if (any(/^(show|list|see|view)( me)?( my)? files?$/, /^(list|show) (the )?files( in)?( my)?( home)?( dir(ectory)?)?$/, /^what'?s in my home( dir(ectory)?)?$/, /^ls( ~)?$/))
+    return r('Your home directory:', { runTool: { name: 'list_directory', input: { path: '~' } } })
 
   const wordCount = s.split(' ').length
   if (wordCount > 7) return null
