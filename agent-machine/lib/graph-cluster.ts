@@ -12,6 +12,7 @@ import type { GraphNode, GraphEdge } from '@socioprophet/hellgraph'
 import { embedBatchLocal } from './embed-runtime.js'
 import { cleanLabel, categoryFor, type SurfaceResult, type SurfaceNode, type SurfaceLink } from './graph-surface.js'
 import { classifyTerms, titleCaseTopic } from './slash-topics.js'
+import { isActionLabel } from './graph-hygiene.js'
 
 // Words that are tool params, shell/command fragments, or generic instance noise — never topics.
 const NOISE = new Set([
@@ -223,7 +224,7 @@ export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[
   // Candidate set: clean, in-category, capped to the 320 highest-degree (bounds embed cost).
   const cands = allNodes
     .map((n) => ({ n, label: cleanLabel(n) }))
-    .filter((x): x is { n: GraphNode; label: string } => !!x.label && x.n.properties?.['hygiene_pruned'] !== true && isClean(x.label) && categoryFor(x.n.labels[0] ?? '') === opts.category)
+    .filter((x): x is { n: GraphNode; label: string } => !!x.label && x.n.properties?.['hygiene_pruned'] !== true && isClean(x.label) && !isActionLabel(x.label) && categoryFor(x.n.labels[0] ?? '') === opts.category)
     .sort((a, b) => (degree.get(b.n.id) ?? 0) - (degree.get(a.n.id) ?? 0))
     .slice(0, 120)   // bound embed cost — 120 top clean concepts is plenty for topic discovery
   const byId = new Map(cands.map((x) => [x.n.id, x.n]))

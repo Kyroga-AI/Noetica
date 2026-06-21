@@ -4971,12 +4971,15 @@ const server = http.createServer((req, res) => {
         const hn = g.allNodes().map((n) => ({ id: n.id, label: cleanLabel(n) ?? (n.labels[0] ?? n.id), labelType: n.labels[0] ?? '', degree: 0 }))
         const edges = g.allEdges().map((e) => ({ from: e.from, to: e.to }))
         const report = buildReport(hn, edges, TAXONOMY_WORDS)
-        let pruned = 0
+        let pruned = 0, merged = 0, attached = 0
         if (apply) {
-          for (const id of report.prunable) { try { (g as unknown as { setNodeProperty: (i: string, k: string, v: unknown) => void }).setNodeProperty(id, 'hygiene_pruned', true); pruned++ } catch { /* */ } }
+          const gx = g as unknown as { setNodeProperty: (i: string, k: string, v: unknown) => void; addEdge: (t: string, f: string, to: string, p?: Record<string, unknown>) => void }
+          for (const id of report.prunable) { try { gx.setNodeProperty(id, 'hygiene_pruned', true); pruned++ } catch { /* */ } }
+          for (const m of report.mergeActions) { try { gx.setNodeProperty(m.id, 'hygiene_pruned', true); gx.setNodeProperty(m.id, 'hygiene_merged_into', m.into); merged++ } catch { /* */ } }
+          for (const a of report.attachActions) { try { gx.addEdge('HYGIENE_ATTACH', a.id, a.to, {}); attached++ } catch { /* */ } }
         }
         res.writeHead(200, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ ...report, applied: apply ? { pruned } : null }))
+        res.end(JSON.stringify({ ...report, applied: apply ? { pruned, merged, attached } : null }))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e).slice(0, 200) }))
       }

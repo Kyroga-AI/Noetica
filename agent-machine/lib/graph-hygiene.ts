@@ -18,9 +18,20 @@
 
 export interface HygieneNode { id: string; label: string; labelType: string; degree: number }
 
-export type LabelClass = 'path' | 'command' | 'hash' | 'nonsemantic' | 'entity' | 'concept'
+export type LabelClass = 'path' | 'command' | 'hash' | 'verb' | 'nonsemantic' | 'entity' | 'concept'
 
 const COMMANDS = new Set(['bash', 'sh', 'zsh', 'npm', 'npx', 'node', 'git', 'python', 'python3', 'pip', 'pip3', 'cd', 'ls', 'cat', 'echo', 'rm', 'mkdir', 'touch', 'curl', 'wget', 'brew', 'cargo', 'bun', 'make', 'sudo', 'cp', 'mv', 'grep', 'sed', 'awk'])
+// Action verbs — a topic graph holds NOUN-phrase concepts; verb/action labels belong in a separate
+// action layer, not as topics. Head-verb (incl. -ing gerunds) ⇒ the label names an action.
+const VERBS = new Set(['verify', 'validate', 'install', 'build', 'run', 'probe', 'test', 'deploy', 'fetch', 'parse', 'render', 'compile', 'execute', 'generate', 'create', 'update', 'delete', 'remove', 'add', 'load', 'save', 'read', 'write', 'send', 'receive', 'process', 'analyze', 'classify', 'cluster', 'embed', 'index', 'search', 'query', 'train', 'tune', 'evaluate', 'monitor', 'ingest', 'extract', 'transform', 'merge', 'split', 'sort', 'filter', 'check', 'scan', 'clean', 'review', 'dispatch', 'route', 'attach', 'prune', 'normalize', 'encode', 'decode', 'sync', 'push', 'pull', 'commit', 'launch', 'start', 'stop', 'restart', 'kill', 'spawn', 'plan', 'plot', 'pin', 'tag', 'rank', 'score', 'match', 'detect', 'resolve', 'fix'])
+function deGerund(w: string): string { return w.endsWith('ing') ? [w.slice(0, -3), w.slice(0, -3) + 'e', w.slice(0, -4)].find((b) => VERBS.has(b)) ?? w : w }
+/** Does this label name an ACTION (verb-headed), not a noun-phrase topic? */
+export function isActionLabel(label: string): boolean {
+  const ws = label.toLowerCase().replace(/([a-z])([A-Z])/g, '$1 $2').split(/[^a-z]+/i).filter(Boolean)
+  if (!ws.length || ws.length > 3) return false
+  const head = ws[0]!
+  return VERBS.has(head) || VERBS.has(deGerund(head))
+}
 // Known project/tech terms that must NEVER be flagged as misspellings (they're real, just not in a dictionary).
 const LEXICON = new Set(['noetica', 'hellgraph', 'graphbrain', 'ollama', 'tauri', 'qwen', 'deepseek', 'llama', 'sidecar', 'concierge', 'prophet', 'sociosphere', 'socioprophet', 'membrane', 'embeddings', 'retrieval', 'governance', 'guardrail', 'provenance', 'taxonomy', 'cluster', 'vector', 'token', 'ngram', 'rocksdb', 'sqlite', 'webkit', 'rust', 'typescript', 'react', 'vite', 'css', 'html', 'api', 'cli', 'sdk', 'llm', 'rag', 'mesh', 'atom', 'atomspace'])
 
@@ -43,6 +54,7 @@ export function classifyLabel(label: string, lexicon: (w: string) => boolean): L
   const ws = toks(l)
   if (ws.length && ws.every((w) => COMMANDS.has(w))) return 'command'
   if (/^[a-f0-9]{6,}$/i.test(l.replace(/[\s_-]/g, '')) || /^[a-z]?\d{3,}[a-z]?$/i.test(l)) return 'hash'
+  if (isActionLabel(l)) return 'verb'   // action, not a noun-phrase topic → separate layer
   // entity: looks like a proper noun / identifier (snake_case, CamelCase, or capitalized multiword)
   if (l.includes('_') || /[a-z][A-Z]/.test(l) || (/^[A-Z]/.test(l) && ws.length >= 2)) return 'entity'
   // non-semantic: a word the lexicon doesn't know AND that's consonant-heavy (a disemvowelled/garbled token)
@@ -85,13 +97,23 @@ export interface DuplicateGroup { canonical: string; canonicalId: string; member
  * highest-degree, most-vowel-balanced, dictionary-valid member. Returns only groups with ≥2 members.
  */
 export function findDuplicateGroups(nodes: HygieneNode[], lexicon: (w: string) => boolean): DuplicateGroup[] {
-  const sorted = [...nodes].sort((a, b) => b.degree - a.degree)
+  const norm = (s: string) => s.toLowerCase().replace(/[\s_/-]+/g, ' ').trim()
+  // Bucket by normalized first-3 letters so the O(n²) comparison only runs WITHIN small buckets —
+  // keeps the pass near-linear and from blocking the event loop on a multi-thousand-node graph.
+  const buckets = new Map<string, HygieneNode[]>()
+  for (const n of nodes) {
+    const key = norm(n.label).replace(/[^a-z0-9]/g, '').slice(0, 3)
+    if (!key) continue
+    const arr = buckets.get(key) ?? []; arr.push(n); buckets.set(key, arr)
+  }
   const used = new Set<string>()
   const groups: DuplicateGroup[] = []
-  for (let i = 0; i < sorted.length; i++) {
+  for (const bucket of buckets.values()) {
+    if (bucket.length < 2 || bucket.length > 500) continue   // skip singletons + pathological buckets
+    const sorted = bucket.sort((a, b) => b.degree - a.degree)
+    for (let i = 0; i < sorted.length; i++) {
     const a = sorted[i]!
     if (used.has(a.id)) continue
-    const norm = (s: string) => s.toLowerCase().replace(/[\s_/-]+/g, ' ').trim()
     const an = norm(a.label)
     const members: HygieneNode[] = [a]
     for (let j = i + 1; j < sorted.length; j++) {
@@ -110,6 +132,7 @@ export function findDuplicateGroups(nodes: HygieneNode[], lexicon: (w: string) =
       for (const m of members) used.add(m.id)
       groups.push({ canonical: canon.label, canonicalId: canon.id, members })
     } else { used.add(a.id) }
+    }
   }
   return groups
 }
@@ -143,6 +166,8 @@ export interface HygieneReport {
   duplicateGroups: { canonical: string; members: string[] }[]
   orphans: { prune: number; attach: number; keep: number; samples: OrphanDisposition[] }
   prunable: string[]   // ids safe to prune (junk classes)
+  mergeActions: { id: string; into: string }[]   // non-canonical dup member → canonical id
+  attachActions: { id: string; to: string }[]     // orphan id → nearest concept to link it under
 }
 
 /** Build the full hygiene plan over a graph snapshot (read-only). */
@@ -152,7 +177,7 @@ export function buildReport(
   taxonomyWords: Set<string>,
 ): HygieneReport {
   const lexicon = (w: string) => w.length <= 2 || LEXICON.has(w) || taxonomyWords.has(w) || /^[a-z]+$/i.test(w) && vowelRatio(w) >= 0.3
-  const byClass: Record<LabelClass, number> = { path: 0, command: 0, hash: 0, nonsemantic: 0, entity: 0, concept: 0 }
+  const byClass: Record<LabelClass, number> = { path: 0, command: 0, hash: 0, verb: 0, nonsemantic: 0, entity: 0, concept: 0 }
   const prunable: string[] = []
   const spellFlags: { label: string; suggest: string | null }[] = []
   for (const n of nodes) {
@@ -172,9 +197,15 @@ export function buildReport(
   const withDeg = nodes.map((n) => ({ ...n, degree: deg.get(n.id) ?? 0 }))
   const groups = findDuplicateGroups(withDeg, lexicon)
   const orphanNodes = withDeg.filter((n) => n.degree === 0)
-  const connected = withDeg.filter((n) => n.degree > 0)
+  // Attach-search only against the most-connected concepts — bounds the O(orphans×connected) scan
+  // and anchors orphans to real hubs rather than other fringe nodes.
+  const connected = withDeg.filter((n) => n.degree > 0).sort((a, b) => b.degree - a.degree).slice(0, 300)
   const dispositions = analyzeOrphans(orphanNodes, connected, lexicon)
+  const mergeActions = groups.flatMap((g) => g.members.filter((m) => m.id !== g.canonicalId).map((m) => ({ id: m.id, into: g.canonicalId })))
+  const attachActions = dispositions.filter((d) => d.action === 'attach' && d.attachTo).map((d) => ({ id: d.id, to: d.attachTo! }))
   return {
+    mergeActions,
+    attachActions,
     total: nodes.length,
     byClass,
     spellFlags: spellFlags.slice(0, 50),
