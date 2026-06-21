@@ -575,6 +575,7 @@ interface ChatRequest {
   thinking_budget?: number
   temperature?: number
   max_tokens?: number
+  reply_length?: 'short' | 'medium' | 'long'
   provider_keys?: {
     anthropic?: string
     openai?: string
@@ -2320,7 +2321,16 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
 
   step('generate', 'running', `${provider}:${model}`)
 
-  const enrichedSystemPrompt = basePrompt + dateLine + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + goalContext + reasoningDirective + profile.authorizationSuffix
+  // Reply length is user-tunable (short/medium/long): a verbosity instruction here + a token
+  // ceiling below, so the model writes the right amount rather than truncating mid-sentence.
+  const replyLen = body.reply_length === 'short' || body.reply_length === 'medium' || body.reply_length === 'long' ? body.reply_length : undefined
+  const verbosityNote = replyLen === 'short'
+    ? '\n\nReply BRIEFLY — a few sentences, no preamble, no filler. Get to the point.'
+    : replyLen === 'long'
+      ? '\n\nReply THOROUGHLY — explain in depth, with structure and concrete examples where useful.'
+      : ''
+
+  const enrichedSystemPrompt = basePrompt + dateLine + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + goalContext + reasoningDirective + verbosityNote + profile.authorizationSuffix
 
   // Token budget: rough estimate (4 chars ≈ 1 token). If message history + system prompt
   // exceeds 70% of the model's context window, trim oldest non-system messages.
@@ -2338,11 +2348,14 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // Sanitize request-level sampling params (apply across all providers).
   const reqTemperature = typeof body.temperature === 'number'
     ? Math.max(0, Math.min(body.temperature, 2)) : undefined
+  const REPLY_TOKENS: Record<string, number> = { short: 450, medium: 1400, long: 4000 }
   const reqMaxTokens = typeof body.max_tokens === 'number' && body.max_tokens > 0
     ? Math.min(Math.floor(body.max_tokens), 16_000)
-    // Responsive mode caps output so a turn completes promptly instead of rambling
-    // (generation is also CPU-bound); full mode lets the model run to its natural stop.
-    : (isFlagOn('NOETICA_RESPONSIVE') && provider === 'ollama' ? 384 : undefined)
+    : replyLen
+      ? REPLY_TOKENS[replyLen]
+      // Responsive mode caps output so a turn completes promptly instead of rambling
+      // (generation is also CPU-bound); full mode lets the model run to its natural stop.
+      : (isFlagOn('NOETICA_RESPONSIVE') && provider === 'ollama' ? 384 : undefined)
   function estimateTokens(s: string): number { return Math.ceil(s.length / 4) }
   let systemTokens = estimateTokens(enrichedSystemPrompt)
   let msgTokens = incomingMessages.reduce((s, m) => s + estimateTokens(String(m.content ?? '')), 0)

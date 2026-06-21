@@ -80,7 +80,7 @@ export function InputArea({
   const [showSystemPrompt, setShowSystemPrompt] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  const { settings } = useSettings()
+  const { settings, update } = useSettings()
   const modelList = visibleModels(settings.showAllModels)
 
   const activeModel = modelList.find((m) => m.id === modelId) ?? modelList[0]
@@ -392,6 +392,17 @@ export function InputArea({
           )}
 
           <div className="flex-1" />
+
+          {/* Reply length — cycles short → medium → long, tunes how much the model writes */}
+          <button
+            type="button"
+            onClick={() => { const order = ['short', 'medium', 'long'] as const; const cur = settings.replyLength ?? 'medium'; update({ replyLength: order[(order.indexOf(cur) + 1) % 3] }) }}
+            title="Reply length — click to cycle short / medium / long"
+            className="flex h-7 items-center gap-1 border-0 bg-transparent px-1.5 text-[11px] font-normal capitalize text-[var(--color-text-tertiary)] outline-none transition hover:text-[var(--color-text-secondary)]"
+          >
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden><path d="M2 3h8M2 6h6M2 9h4" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+            {settings.replyLength ?? 'medium'}
+          </button>
 
           {/* Model picker — tiny muted text at bottom right, like Claude.ai */}
           {modelId && onModelChange && (
