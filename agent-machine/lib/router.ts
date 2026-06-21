@@ -46,6 +46,14 @@ export interface RouterDecision {
   rationale: string
   evidenceRef: string
   auditRef: string
+  // Set only on the security-research path. Carries the self-attestation state and
+  // which rung of the security lane was selected — recorded for the Govern audit.
+  securityLane?: {
+    armed: boolean       // true only when the operator self-attested
+    attested: boolean
+    rung: 'offensive' | 'defensive' | 'uncensored-fallback' | 'general-large' | 'disarmed'
+    model: string
+  }
   controls: {
     identity: boolean
     policy: boolean
@@ -90,6 +98,48 @@ export function classifyTask(content: string): TaskType {
   if (words < 25) return 'chat'
 
   return 'general'
+}
+
+// ─── Security-research lane ───────────────────────────────────────────────────
+// The compliance lane for the SECURITY_RESEARCHER profile. Arms ONLY under
+// self-attestation (local-first: the operator attests, the mesh records it — there
+// is no central vetter because there is no central server). The lane has three
+// rungs, resolved by the request's offensive/defensive lean and what's installed:
+//   1. purpose-built  — WhiteRabbitNeo (offensive lean) / Foundation-Sec (defensive)
+//   2. uncensored     — dolphin3 (generic abliterated fallback)
+//   3. general-large  — qwen2.5:14b (no uncensored model installed)
+// The content-policy floor (CBRN/CSAM/explosives) is enforced upstream and is NOT
+// lifted by this lane — it only changes which local model answers legitimate
+// security-research work.
+
+const OFFENSIVE_RE = /\b(exploit|payload|shellcode|reverse.?engineer|malware|ransomware|c2|command.and.control|privilege.escalation|rootkit|bypass|evasion|obfuscat|buffer.overflow|rop.chain|fuzz|pentest|red.?team|backdoor|keylogger|injection|xss|sqli|csrf|deserializ|disassembl|decompil)\b/i
+const DEFENSIVE_RE = /\b(detect|defen[sc]|harden|mitigat|blue.?team|incident.response|forensic|siem|threat.intel|signature|yara|audit|patch|remediat|monitor|hunt)\b/i
+
+// Canonical Ollama tags for the purpose-built security models. These are the
+// community GGUF builds that actually resolve in the registry:
+//   WhiteRabbitNeo — jimscard's well-maintained 13B GGUF
+//   Foundation-Sec — Cisco's model via the huihui_ai abliteration line (no refusals)
+export const SEC_OFFENSIVE_MODEL = 'jimscard/whiterabbit-neo:13b'
+export const SEC_DEFENSIVE_MODEL = 'huihui_ai/foundation-sec-abliterated:8b'
+
+function resolveSecurityModel(
+  content: string,
+  available: string[],
+): { model: string; rung: NonNullable<RouterDecision['securityLane']>['rung'] } {
+  const offensive = OFFENSIVE_RE.test(content)
+  const defensive = DEFENSIVE_RE.test(content)
+  // WhiteRabbitNeo covers both but leans offensive; Foundation-Sec leans defensive.
+  // Order the purpose-built rung by the detected lean; default to offensive-first.
+  const purposeBuilt: Array<[string, 'offensive' | 'defensive']> =
+    defensive && !offensive
+      ? [[SEC_DEFENSIVE_MODEL, 'defensive'], [SEC_OFFENSIVE_MODEL, 'offensive']]
+      : [[SEC_OFFENSIVE_MODEL, 'offensive'], [SEC_DEFENSIVE_MODEL, 'defensive']]
+
+  for (const [name, lean] of purposeBuilt) {
+    if (isModelAvailable(name, available)) return { model: name, rung: lean }
+  }
+  if (isModelAvailable('dolphin3:8b', available)) return { model: 'dolphin3:8b', rung: 'uncensored-fallback' }
+  return { model: 'qwen2.5:14b', rung: 'general-large' }
 }
 
 // ─── Model routing table ──────────────────────────────────────────────────────
@@ -170,6 +220,7 @@ export function buildRouterDecision(opts: {
   hasOpenAIKey: boolean
   explicitModelId?: string
   policyProfile?: string
+  securityAttested?: boolean  // operator self-attestation — arms the uncensored security lane
   hasImages?: boolean
   hasTools?: boolean
   taskOverride?: TaskType  // from the 22-intent classifier; wins over keyword classifyTask
@@ -212,11 +263,37 @@ export function buildRouterDecision(opts: {
     // LLaVA not installed — fall through to cloud path with vision capable model
   }
 
-  // Security profile: route to uncensored model for technical depth
+  // Security-research profile. Local-first self-attestation: the uncensored lane
+  // arms ONLY when the operator has attested (settings.securityAttestation). Without
+  // attestation the lane stays disarmed — we route to the standard local model and
+  // record the requested-but-disarmed state for the audit trail. Either way the
+  // decision is deterministic and carries a securityLane record for Govern.
   if (!explicitModelId && policyProfile === 'security' && ollamaAvailable) {
-    const secModel = isModelAvailable('dolphin3:8b', availableModels) ? 'dolphin3:8b'
-      : isModelAvailable('qwen2.5:14b', availableModels) ? 'qwen2.5:14b'
-      : route.localModel
+    if (!opts.securityAttested) {
+      const safe = isModelAvailable(route.localModel, availableModels)
+        ? route.localModel
+        : route.fallbackModel
+      return {
+        requestId,
+        conductorId: 'noetica-conductor',
+        task,
+        domain: 'security',
+        selectedRoute: safe,
+        routeType: 'local_model',
+        fallbackRoute: route.fallbackModel,
+        specialistAgents: ['governance-sentinel'],
+        policyDecision: 'allow',
+        rationale: `SECURITY_RESEARCHER profile requested WITHOUT self-attestation — security lane DISARMED; routing to standard local model (${safe}). Accept the attestation in Settings → Policy to arm the uncensored lane.`,
+        evidenceRef: `evidence:${requestId}`,
+        auditRef: `audit:${requestId}`,
+        controls: FULL_CONTROLS,
+        securityLane: { armed: false, attested: false, rung: 'disarmed', model: safe },
+        resolvedModel: safe,
+        resolvedProvider: 'ollama',
+      }
+    }
+
+    const { model: secModel, rung } = resolveSecurityModel(content, availableModels)
     return {
       requestId,
       conductorId: 'noetica-conductor',
@@ -224,13 +301,14 @@ export function buildRouterDecision(opts: {
       domain: 'security',
       selectedRoute: secModel,
       routeType: 'local_model',
-      fallbackRoute: 'qwen2.5:14b',
+      fallbackRoute: isModelAvailable('dolphin3:8b', availableModels) ? 'dolphin3:8b' : 'qwen2.5:14b',
       specialistAgents: ['security-agent', 'governance-sentinel'],
       policyDecision: 'allow',
-      rationale: `CITIZEN_FOG / SECURITY_RESEARCHER profile — routing to uncensored local model (${secModel}).`,
+      rationale: `CITIZEN_FOG / SECURITY_RESEARCHER profile (self-attested) — armed ${rung} security lane → ${secModel}. Sovereign local compute; CBRN/CSAM/explosives content floor still enforced upstream.`,
       evidenceRef: `evidence:${requestId}`,
       auditRef: `audit:${requestId}`,
       controls: FULL_CONTROLS,
+      securityLane: { armed: true, attested: true, rung, model: secModel },
       resolvedModel: secModel,
       resolvedProvider: 'ollama',
     }
@@ -458,9 +536,25 @@ export const LOCAL_MODEL_SUITE = [
   {
     name: 'dolphin3:8b',
     role: 'uncensored',
-    description: 'Uncensored local model — activated automatically under security policy profile',
+    description: 'Uncensored generic fallback — abliterated; security-lane rung 2 when no purpose-built security model is installed. Opt-in.',
     priority: 7,
     sizeGb: 4.9,
+    toolUse: true,
+  },
+  {
+    name: 'huihui_ai/foundation-sec-abliterated:8b',
+    role: 'security-defensive',
+    description: 'Cisco Foundation-Sec (huihui_ai abliterated) — defensive/blue-team security model (threat analysis, detection, hardening, forensics), refusal-free. Security-lane defensive rung. Opt-in under attested security profile.',
+    priority: 9,
+    sizeGb: 4.9,
+    toolUse: true,
+  },
+  {
+    name: 'jimscard/whiterabbit-neo:13b',
+    role: 'security-offensive',
+    description: 'WhiteRabbitNeo 13B (GGUF) — purpose-built offensive+defensive cybersecurity model (exploit dev, pentest, reverse engineering, CTF). Security-lane offensive rung. Opt-in under attested security profile.',
+    priority: 10,
+    sizeGb: 9.2,
     toolUse: true,
   },
   {

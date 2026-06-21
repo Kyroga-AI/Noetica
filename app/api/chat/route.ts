@@ -48,6 +48,7 @@ type ChatRequest = {
   system_prompt?: string
   agent_machine_endpoint?: string
   policy_profile?: string
+  security_attested?: boolean
   api_endpoint_override?: string
 }
 
