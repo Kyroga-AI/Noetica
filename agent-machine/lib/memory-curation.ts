@@ -19,6 +19,8 @@ export interface MemoryStore {
   nodesByLabel(label: string): MemoryNode[]
   getNode(id: string): MemoryNode | null
   out(id: string, edgeLabel?: string): MemoryNode[]
+  /** Persist a property change to the atom (projection mutation doesn't write back). */
+  setProperty(id: string, key: string, value: unknown): void
   /** Boost/lower long-term importance on the underlying atom (the long-term brain). */
   setLti?(id: string, lti: number): void
 }
@@ -73,9 +75,10 @@ function setPin(store: MemoryStore, id: string, pinned: boolean): boolean {
   const n = store.getNode(id)
   if (!n || !isMemoryDoc(n)) return false
   const lti = pinned ? PINNED_LTI : UNPINNED_LTI
-  n.properties['pinned'] = pinned
-  n.properties['lti'] = lti
-  n.properties['curated_at'] = new Date().toISOString()
+  // Persist via setProperty (mutating the projection wouldn't write back to the atom).
+  store.setProperty(id, 'pinned', pinned)
+  store.setProperty(id, 'lti', lti)
+  store.setProperty(id, 'curated_at', new Date().toISOString())
   store.setLti?.(id, lti)
   return true
 }

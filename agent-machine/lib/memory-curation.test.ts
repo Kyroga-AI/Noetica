@@ -11,6 +11,7 @@ class FakeStore implements MemoryStore {
   nodesByLabel(label: string) { return [...this.nodes.values()].filter((n) => n.labels.includes(label)) }
   getNode(id: string) { return this.nodes.get(id) ?? null }
   out(id: string, _e?: string) { return this.edges.filter((e) => e.from === id).map((e) => this.nodes.get(e.to)).filter(Boolean) as MemoryNode[] }
+  setProperty(id: string, key: string, value: unknown) { const n = this.nodes.get(id); if (n) n.properties[key] = value }
   setLti(id: string, lti: number) { this.ltiCalls.push({ id, lti }) }
 }
 

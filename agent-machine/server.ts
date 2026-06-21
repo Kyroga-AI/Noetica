@@ -3452,6 +3452,7 @@ const server = http.createServer((req, res) => {
       nodesByLabel: (l: string) => g.nodesByLabel(l) as Array<{ id: string; labels: string[]; properties: Record<string, unknown> }>,
       getNode: (id: string) => g.getNode(id) as { id: string; labels: string[]; properties: Record<string, unknown> } | null,
       out: (id: string, e?: string) => g.out(id, e) as Array<{ id: string; labels: string[]; properties: Record<string, unknown> }>,
+      setProperty: (id: string, key: string, value: unknown) => { try { (g as any).setNodeProperty(id, key, value) } catch { /* */ } },
       setLti: (id: string, lti: number) => { try { const sp: any = getAtomSpace(); sp.setAttentionValue?.(id, { sti: 0, lti, vlti: 0 }) } catch { /* attention boost best-effort */ } },
     }
   }
