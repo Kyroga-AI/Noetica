@@ -1,3 +1,4 @@
+import { NoeticaMark } from '@/components/brand/NoeticaMark'
 import { WarmingLevel } from '@/components/risk/WarmingLevel'
 import { ThemePicker } from '@/components/shell/ThemePicker'
 import { RuntimeStatus } from '@/components/status/RuntimeStatus'
@@ -39,8 +40,8 @@ export function Topbar({ modelId, mode, riskReadout, voiceState, openaiApiKey, h
   return (
     <header className="flex h-10 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] px-4">
       <div className="flex min-w-0 items-center gap-2">
-        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-text-primary)] text-[9px] font-semibold text-[var(--color-background-primary)]">
-          N
+        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-text-primary)] text-[var(--color-background-primary)]">
+          <NoeticaMark className="h-3.5 w-3.5" />
         </div>
         <span className="text-[13px] font-medium text-[var(--color-text-primary)]">Noetica</span>
       </div>

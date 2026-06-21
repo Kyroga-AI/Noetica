@@ -393,6 +393,11 @@ export function matchDialogue(input: string, ctx?: DialogueCtx): DialogueResult 
   if (any(/^(ok(ay)?|cool|nice|great|perfect|awesome|sweet|got it|sounds good|word|right on|gotcha|kk|yup|yep)$/))
     return r(pick('ack', ['👍', 'Got it.', 'On it.', '👌', 'Cool.']))
 
+  // Interjections / exclamations — answer instantly from the dialogue layer; never spend a
+  // 15s model call on "crikey". Dialogue-flow-first.
+  if (any(/^(crikey|blimey|wow+|whoa+|woah+|damn+|dang|yikes|geez|jeez|oof|yeesh|sheesh|omg|omfg|lmao+|haha+|hehe+|heh|phew|ugh|argh|welp|bruh|egad|gosh|golly|zoinks)[!.?\s]*$/i))
+    return r(pick('interj', ['Right?', 'Ha — what’s on your mind?', 'Go on.', 'I know. What do you need?', 'Tell me more.', 'Something I can help with?', 'What’s up?']))
+
   if (any(/^(bye+|goodbye|see ya|see you|later|cya|good ?night|gn|take care|peace|catch you later|laters)$/)) {
     const h = new Date().getHours(); const night = h >= 21 || h < 5
     return r(pick('bye', night

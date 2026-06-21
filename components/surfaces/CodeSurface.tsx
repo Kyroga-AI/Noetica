@@ -311,7 +311,7 @@ type GithubRepo = {
 async function fetchGithubRepos(token: string): Promise<GithubRepo[]> {
   const res = await fetch(
     'https://api.github.com/user/repos?sort=updated&per_page=30&type=all',
-    { headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' } }
+    { headers: { Authorization: `Bearer ${token}`, Accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(8000) }
   )
   if (!res.ok) throw new Error(`GitHub API ${res.status}`)
   return res.json() as Promise<GithubRepo[]>
@@ -340,12 +340,12 @@ function GitHubDetail({ onBack }: { onBack: () => void }) {
   }
 
   async function handleImport(repo: GithubRepo) {
-    const k = `${repo.id}:import`
     setRepoAction(repo.id, 'import', 'running')
     const endpoint = settings.giteaEndpoint.trim()
     if (!endpoint) {
-      alert('Set a Gitea endpoint in Settings → Connections to import repositories.')
-      setRepoAction(repo.id, 'import', 'idle')
+      // No Gitea configured — flag the button (non-blocking) instead of an alert() popup.
+      setRepoAction(repo.id, 'import', 'error')
+      setTimeout(() => setRepoAction(repo.id, 'import', 'idle'), 3000)
       return
     }
     try {
@@ -361,15 +361,14 @@ function GitHubDetail({ onBack }: { onBack: () => void }) {
       setRepoAction(repo.id, 'import', 'error')
     }
     setTimeout(() => setRepoAction(repo.id, 'import', 'idle'), 3000)
-    void k
   }
 
   async function handleMirror(repo: GithubRepo) {
     setRepoAction(repo.id, 'mirror', 'running')
     const endpoint = settings.giteaEndpoint.trim()
     if (!endpoint) {
-      alert('Set a Gitea endpoint in Settings → Connections to mirror repositories.')
-      setRepoAction(repo.id, 'mirror', 'idle')
+      setRepoAction(repo.id, 'mirror', 'error')
+      setTimeout(() => setRepoAction(repo.id, 'mirror', 'idle'), 3000)
       return
     }
     try {

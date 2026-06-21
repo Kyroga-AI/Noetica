@@ -1,0 +1,18 @@
+[package]
+name = "noetica-embed"
+version = "0.1.0"
+edition = "2021"
+description = "Noetica's own local embedding sidecar — fastembed (ONNX bge-small), no Python, no ollama."
+
+[[bin]]
+name = "noetica-embed"
+path = "src/main.rs"
+
+[dependencies]
+fastembed = "4"
+tiny_http = "0.12"
+serde_json = "1"
+
+[profile.release]
+opt-level = 2
+strip = true

@@ -41,6 +41,7 @@ export const defaultSettings: NoeticaSettings = {
   macVoice: 'Ava',
   elevenlabsApiKey: '',
   elevenlabsVoiceId: '',
+  clonedVoiceId: '',
 
   agentSlots: {
     context: 'claude-sonnet-4-6',

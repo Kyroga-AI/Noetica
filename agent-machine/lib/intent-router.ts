@@ -18,12 +18,12 @@
 export type Capability = 'reasoning' | 'code' | 'research' | 'general' | 'writing' | 'concierge' | 'continue' | 'ingest'
 export type Retrieval = 'vector-rag' | 'web+vector' | 'kb' | 'episodic' | 'self-model' | 'memory-write' | 'status' | 'program-aided' | 'program-aided+barriers' | 'none'
 // The builtin tools an intent is allowed to reach for (BUILTIN_TOOLS in server.ts).
-export type Tool = 'read_file' | 'write_file' | 'list_directory' | 'code_execute' | 'web_search' | 'generate_image'
+export type Tool = 'read_file' | 'write_file' | 'list_directory' | 'code_execute' | 'web_search' | 'generate_image' | 'remember' | 'ocr'
 // The product surface this intent belongs to — must match the UI's ActiveSurface
 // union (lib/types/surface.ts) so the client can route to it. '' = stay put.
 export type Surface = '' | 'code' | 'canvas' | 'artifacts' | 'notes' | 'projects' | 'govern' | 'evaluate' | 'operate' | 'holographme' | 'cowork' | 'computer'
 // The specialist agent ("skill") that fulfills this intent. '' = concierge handles it.
-export type Skill = '' | 'coding-agent' | 'research-agent' | 'analytics-agent' | 'writing-agent' | 'planning-agent' | 'governance-sentinel' | 'security-agent' | 'vision-agent'
+export type Skill = '' | 'coding-agent' | 'research-agent' | 'analytics-agent' | 'writing-agent' | 'planning-agent' | 'governance-sentinel' | 'security-agent' | 'vision-agent' | 'memory-keeper'
 
 export interface Intent { id: number; name: string; cues: RegExp; model: Capability; retrieval: Retrieval; slots: string[]; tools: Tool[]; surface: Surface; skill: Skill }
 export interface IntentPlan { id: number; name: string; model: Capability; retrieval: Retrieval; slots: string[]; tools: Tool[]; surface: Surface; skill: Skill; score: number }
@@ -41,10 +41,10 @@ const INTENTS: Intent[] = [
   { id: 7, name: 'review_audit', model: 'reasoning', retrieval: 'kb', slots: ['target', 'criteria'], tools: ['read_file', 'code_execute'], surface: 'govern', skill: 'governance-sentinel', cues: /\b(review|audit|harden|assess|critique|go over|reassess|gaps assessment)\b/i },
   { id: 8, name: 'compare_benchmark', model: 'reasoning', retrieval: 'kb', slots: ['items', 'dimension'], tools: ['web_search'], surface: 'evaluate', skill: 'analytics-agent', cues: /\b(compare|vs\.?|versus|parity|benchmark|better than|superiority|difference between|on par)\b/i },
   { id: 9, name: 'self_identity', model: 'general', retrieval: 'self-model', slots: ['aspect'], tools: [], surface: 'holographme', skill: 'governance-sentinel', cues: /\b(your ?self|how do you work|what are you|your (construction|architecture|design|self|repos?|stack)|do you know yourself|who built you)\b/i },
-  { id: 10, name: 'preferences_memory', model: 'general', retrieval: 'memory-write', slots: ['preference'], tools: [], surface: 'notes', skill: 'governance-sentinel', cues: /\b(remember (this|that)|my preference|i prefer|don'?t (do|add|use|ever)|from now on|always (use|do)|never (use|do))\b/i },
+  { id: 10, name: 'preferences_memory', model: 'general', retrieval: 'memory-write', slots: ['preference'], tools: ['remember'], surface: 'notes', skill: 'memory-keeper', cues: /\b(remember (this|that)|my preference|i prefer|don'?t (do|add|use|ever)|from now on|always (use|do)|never (use|do))\b/i },
   { id: 11, name: 'configure_ops', model: 'code', retrieval: 'kb', slots: ['target', 'env'], tools: ['code_execute', 'list_directory', 'write_file'], surface: 'operate', skill: 'security-agent', cues: /\b(install|set ?up|configure|provision|deploy|brew |npm |pip |docker|podman|build the app|reinstall|reboot)\b/i },
   { id: 12, name: 'file_ingest', model: 'ingest', retrieval: 'none', slots: ['path'], tools: ['read_file'], surface: 'artifacts', skill: 'writing-agent', cues: /\b((upload|ingest|attach|load|add)\s+(this\s+|the\s+|my\s+|a\s+|an\s+)?(file|doc|document|paper|pdf|report|attachment|spreadsheet)s?|drag\s+(and|&)\s+drop)\b/i },
-  { id: 13, name: 'file_ops', model: 'code', retrieval: 'none', slots: ['path', 'operation'], tools: ['list_directory', 'read_file', 'write_file'], surface: 'operate', skill: 'coding-agent', cues: /\b(read the file|find (the )?files?|list (the )?files?|directory|folder|move (the )?file|in my (downloads|documents|desktop))\b/i },
+  { id: 13, name: 'file_ops', model: 'code', retrieval: 'none', slots: ['path', 'operation'], tools: ['list_directory', 'read_file', 'write_file', 'ocr'], surface: 'operate', skill: 'coding-agent', cues: /\b(read the file|find (the )?files?|list (the )?files?|directory|folder|move (the )?file|in my (downloads|documents|desktop)|(read|extract|get) (the )?text (from|in)|what does (this|the) (image|screenshot|photo)|ocr)\b/i },
   { id: 14, name: 'status_check', model: 'general', retrieval: 'status', slots: ['component'], tools: [], surface: 'operate', skill: 'governance-sentinel', cues: /\b(is it (running|working|up|on)|status|does it work|did it (work|boot|build)|health|still (broke|busted|working))\b/i },
   { id: 15, name: 'code_review', model: 'code', retrieval: 'kb', slots: ['diff'], tools: ['read_file'], surface: 'code', skill: 'coding-agent', cues: /\b(review (this|my|the) (code|pr|diff|change)|code review|look at (this|my) (code|pr))\b/i },
   { id: 16, name: 'compute_math', model: 'reasoning', retrieval: 'program-aided', slots: ['expression'], tools: ['code_execute'], surface: 'canvas', skill: 'analytics-agent', cues: /\b(compute|calculate|evaluate|solve for|integral|derivative|determinant|probability of|what'?s \d)\b/i },

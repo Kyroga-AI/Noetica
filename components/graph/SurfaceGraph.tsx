@@ -19,6 +19,19 @@ export interface GraphNode {
 }
 export interface GraphLink { source: string; target: string; primary?: boolean }
 
+// Disemvowel a label so the whole concept fits in/under a small node — like a DB column
+// abbreviation (customer_data → custmr_dta): keep the first 1–2 chars + last char of each
+// word, drop interior vowels. Recognizable at a glance without truncating to "self n…".
+function squeezeWord(w: string): string {
+  if (w.length <= 4) return w
+  const head = w.slice(0, 2), last = w[w.length - 1]!
+  const mid = w.slice(2, -1).replace(/[aeiou]/gi, '')
+  return head + mid + last
+}
+function squeeze(label: string): string {
+  return label.split(/([\s_-]+)/).map((p) => (/^[\s_-]+$/.test(p) ? p : squeezeWord(p))).join('')
+}
+
 interface Sim extends GraphNode { x: number; y: number; vx: number; vy: number; r: number; fx?: number | null; fy?: number | null }
 
 /**
@@ -60,9 +73,9 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick }:
     const cx = W / 2, cy = H / 2
     return nodes.map<Sim>((n) => ({
       ...n,
-      r: n.featured ? 30 : 21,
-      x: cx + (n.x0 ?? (Math.random() - 0.5) * 200),
-      y: cy + (n.y0 ?? (Math.random() - 0.5) * 200),
+      r: n.featured ? 17 : 11,
+      x: cx + (n.x0 ?? (Math.random() - 0.5) * Math.min(W, H) * 0.7),
+      y: cy + (n.y0 ?? (Math.random() - 0.5) * Math.min(W, H) * 0.7),
       vx: 0, vy: 0,
     }))
   }, [nodes, W, H])
@@ -87,9 +100,9 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick }:
           const dx = a.x - b.x, dy = a.y - b.y
           const minD = a.r + b.r
           const d2 = Math.max(dx * dx + dy * dy, minD * minD)
-          const charge = a.featured || b.featured ? 1400 : 850
+          const charge = a.featured || b.featured ? 3200 : 2100
           const dist = Math.sqrt(d2)
-          const f = Math.min((charge * alpha) / d2, 40)   // cap per-pair impulse
+          const f = Math.min((charge * alpha) / d2, 90)   // cap per-pair impulse
           a.vx += (dx / dist) * f; a.vy += (dy / dist) * f
           b.vx -= (dx / dist) * f; b.vy -= (dy / dist) * f
         }
@@ -99,7 +112,7 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick }:
         const s = l.s!, t = l.t!
         const dx = t.x - s.x, dy = t.y - s.y
         const dist = Math.sqrt(dx * dx + dy * dy) || 1
-        const target = l.primary ? 128 : 92
+        const target = l.primary ? 165 : 120
         const k = (l.primary ? 1 : 0.55) * alpha
         const f = ((dist - target) / dist) * k * 0.5
         s.vx += dx * f; s.vy += dy * f
@@ -109,8 +122,8 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick }:
       for (const n of ns) {
         if (n.x0 != null) n.vx += (cx + n.x0 - n.x) * 0.16 * alpha
         if (n.y0 != null) n.vy += (cy + n.y0 - n.y) * 0.16 * alpha
-        n.vx += (cx - n.x) * 0.02 * alpha
-        n.vy += (cy - n.y) * 0.02 * alpha
+        n.vx += (cx - n.x) * 0.011 * alpha
+        n.vy += (cy - n.y) * 0.011 * alpha
       }
       // collision
       for (let i = 0; i < ns.length; i++) {
@@ -118,7 +131,7 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick }:
           const a = ns[i]!, b = ns[j]!
           const dx = b.x - a.x, dy = b.y - a.y
           const dist = Math.sqrt(dx * dx + dy * dy) || 1
-          const min = a.r + b.r + 8
+          const min = a.r + b.r + 16
           if (dist < min) {
             const push = ((min - dist) / dist) * 0.5
             a.x -= dx * push; a.y -= dy * push
@@ -186,13 +199,14 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick }:
           onClick={() => onNodeClick?.(n.id)}
           onPointerDown={(e) => { dragRef.current = { id: n.id }; (e.target as Element).setPointerCapture?.(e.pointerId); alphaRef.current = Math.max(alphaRef.current, 0.3); ensureRunningRef.current() }}>
           <title>{n.label}</title>
-          <circle r={n.r} fill={COLOR[n.category] ?? COLOR.other} stroke="#fff" strokeWidth={n.featured ? 4 : 3} filter="url(#spNodeGlow)" />
-          {/* short label inside the circle; full name on hover via <title> */}
-          <text textAnchor="middle" dy={3} fontSize={n.featured ? 11 : 9} fontWeight={700} fill="#fff" pointerEvents="none">
-            {n.label.length > (n.featured ? 9 : 7) ? n.label.slice(0, n.featured ? 8 : 6) + '…' : n.label}
+          <circle r={n.r} fill={COLOR[n.category] ?? COLOR.other} stroke="#fff" strokeWidth={n.featured ? 3 : 2} filter="url(#spNodeGlow)" />
+          {/* readable label BELOW the node: featured hubs show the full concept, others the
+              disemvowelled form so the whole word is recognizable (no "self n…" truncation). */}
+          <text textAnchor="middle" dy={n.r + 11} fontSize={n.featured ? 11 : 9.5} fontWeight={n.featured ? 700 : 600}
+            fill={n.featured ? 'var(--color-text-primary, #e5e7eb)' : 'var(--color-text-secondary, #94a3b8)'}
+            stroke="rgba(0,0,0,0.55)" strokeWidth={3} paintOrder="stroke" pointerEvents="none">
+            {n.featured ? (n.label.length > 22 ? n.label.slice(0, 21) + '…' : n.label) : squeeze(n.label)}
           </text>
-          {/* full caption below featured hubs for readability */}
-          {n.featured && <text textAnchor="middle" dy={n.r + 12} fontSize={9} fontWeight={600} fill="#475569" pointerEvents="none">{n.label.slice(0, 22)}</text>}
         </g>
       ))}
     </svg>

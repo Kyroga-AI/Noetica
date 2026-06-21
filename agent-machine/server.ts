@@ -49,6 +49,8 @@ import { isOllamaRunning, listLocalModels, pullModel, streamOllama, getModelCont
 import { parseInlineToolCalls } from './lib/tool-calls.js'
 import { retrieve } from './lib/retrieval.js'
 import { getGraph, graphHealth, graphSparql, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
+import { isVoiceProvisioned, ensureVoiceSidecar, voiceFetch } from './lib/voice-runtime.js'
+import { runOcr } from './lib/ocr.js'
 import { getHellGraph, attachRocksDB } from '@socioprophet/hellgraph'
 import { runGremlin } from '@socioprophet/hellgraph'
 import { buildWorkspacePrefix, invalidatePrefix } from './lib/context-cache.js'
@@ -102,6 +104,22 @@ interface GovernanceRun {
 }
 const _governanceRuns: GovernanceRun[] = []
 const GOVERNANCE_RING_SIZE = 100
+// Persist the ring to disk so the Govern surface's audit trail survives a relaunch —
+// it was in-memory only, so Govern was always empty after restart even after chatting.
+const GOVERNANCE_FILE = path.join(os.homedir(), '.noetica', 'governance.json')
+try {
+  const arr = JSON.parse(fs.readFileSync(GOVERNANCE_FILE, 'utf8'))
+  if (Array.isArray(arr)) _governanceRuns.push(...(arr as GovernanceRun[]).slice(-GOVERNANCE_RING_SIZE))
+} catch { /* no prior governance log */ }
+let _govSaveTimer: ReturnType<typeof setTimeout> | null = null
+function saveGovernance(): void {
+  if (_govSaveTimer) return
+  _govSaveTimer = setTimeout(() => {
+    _govSaveTimer = null
+    try { fs.mkdirSync(path.dirname(GOVERNANCE_FILE), { recursive: true }); fs.writeFileSync(GOVERNANCE_FILE, JSON.stringify(_governanceRuns)) } catch { /* best-effort */ }
+  }, 1500)
+  _govSaveTimer.unref?.()
+}
 
 // Ontogenesis SHACL write-validation gate (report-only). Last validation result,
 // refreshed after ingest when NOETICA_SHACL_ENFORCE=1.
@@ -202,6 +220,7 @@ function trackIngest<T>(p: Promise<T> | T): Promise<T> {
 function recordGovernanceRun(run: GovernanceRun): void {
   _governanceRuns.push(run)
   if (_governanceRuns.length > GOVERNANCE_RING_SIZE) _governanceRuns.shift()
+  saveGovernance()
   // Update the self-model: track per-task/model success + latency over time.
   recordCapability({
     task: run.task,
@@ -588,6 +607,31 @@ const BUILTIN_TOOLS: ProviderTool[] = [
     },
   },
   {
+    name: 'remember',
+    description:
+      'Save a durable fact, preference, or piece of context to your own LOCAL memory so you recall it in future conversations. Use whenever the user tells you something to keep ("remember that…", "I prefer…", "from now on…", "my name is…") or when you learn a stable fact worth retaining. Memory is stored in the local knowledge graph and surfaced automatically on future relevant turns.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        content: { type: 'string', description: 'The fact or preference to remember, written as a clear standalone sentence.' },
+        kind: { type: 'string', enum: ['preference', 'fact', 'identity'], description: 'What kind of memory this is (default: fact).' },
+      },
+      required: ['content'],
+    },
+  },
+  {
+    name: 'ocr',
+    description:
+      'Extract text from an image FILE on disk using on-device OCR (macOS Vision — fully local, no network). Use to read text in a screenshot, photo, scanned doc, or diagram. Returns the recognized text.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        image_path: { type: 'string', description: 'Absolute path to the image file (png, jpg, etc.).' },
+      },
+      required: ['image_path'],
+    },
+  },
+  {
     name: 'generate_image',
     description:
       'Generate an image from a text description using DALL-E 3. Returns a markdown image tag with the URL.',
@@ -851,6 +895,24 @@ async function executeTool(
         return entries.join('\n') || '(empty directory)'
       } catch (e) {
         return `Error listing directory: ${(e as Error).message}`
+      }
+    }
+    case 'ocr': {
+      const { resolved, error } = safePath(String(input['image_path'] ?? ''))
+      if (error) return `OCR error: ${error}`
+      return await runOcr(resolved)
+    }
+    case 'remember': {
+      const content = String(input['content'] ?? '').trim()
+      if (!content) return 'Error: nothing to remember — content is required.'
+      const kind = ['preference', 'fact', 'identity'].includes(String(input['kind'])) ? String(input['kind']) : 'fact'
+      try {
+        const { ingestDocument } = await import('./lib/doc-store.js')
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+        await ingestDocument(`memory/${kind}-${stamp}.md`, content)
+        return `Saved to memory (${kind}): "${content.slice(0, 140)}". I'll recall this on future relevant turns.`
+      } catch (e) {
+        return `Could not save to memory: ${e instanceof Error ? e.message : String(e)} (is the local embedding model available?)`
       }
     }
     default:
@@ -3708,11 +3770,26 @@ const server = http.createServer((req, res) => {
       setCORSHeaders(res)
       try {
         const g = getGraph()
-        const result = selectSurface(g.allNodes(), g.allEdges(), {
-          view: url.searchParams.get('view') ?? 'all',
-          limit: Number(url.searchParams.get('limit') ?? 34),
-          root: url.searchParams.get('root') ?? '',
-        })
+        const view = url.searchParams.get('view') ?? 'all'
+        const root = url.searchParams.get('root') ?? ''
+        const limit = Number(url.searchParams.get('limit') ?? 34)
+        // Category lenses (tech/knowledge) use TRUE topic discovery: vectorize → cluster
+        // → 22 cluster representatives, drill into a cluster's members. Falls back to the
+        // pure degree-ranked selection if embeddings/clustering aren't available.
+        const CAT: Record<string, string> = { tech: 'technical', knowledge: 'learning' }
+        let result
+        if (CAT[view]) {
+          try {
+            const { clusterSurface } = await import('./lib/graph-cluster.js')
+            result = await clusterSurface(g.allNodes(), g.allEdges(), { view, root, k: limit, category: CAT[view]! })
+            if (!result.nodes.length) result = selectSurface(g.allNodes(), g.allEdges(), { view, limit, root })
+          } catch (e) {
+            console.warn('[graph-cluster] falling back to degree-rank:', e instanceof Error ? e.message : e)
+            result = selectSurface(g.allNodes(), g.allEdges(), { view, limit, root })
+          }
+        } else {
+          result = selectSurface(g.allNodes(), g.allEdges(), { view, limit, root })
+        }
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify(result))
       } catch (err) {
@@ -4057,6 +4134,48 @@ const server = http.createServer((req, res) => {
     if (handleCairnPathRequest(req, res, url.pathname, getAtomSpace())) return
   }
 
+  // ── Voice cloning (local XTTS-v2 sidecar) ──────────────────────────────────
+  if (url.pathname.startsWith('/api/voice/')) {
+    const sub = url.pathname.slice('/api/voice/'.length)
+    if (req.method === 'GET' && sub === 'status') {
+      ;(async () => {
+        const provisioned = isVoiceProvisioned()
+        let voices: Array<{ id: string; name: string }> = []
+        if (provisioned && (await ensureVoiceSidecar())) {
+          try { const j = (await (await voiceFetch('/voices')).json()) as { voices?: typeof voices }; voices = j.voices ?? [] } catch { /* sidecar warming */ }
+        }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ provisioned, voices }))
+      })()
+      return
+    }
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => {
+      ;(async () => {
+        if (!(await ensureVoiceSidecar())) {
+          res.writeHead(503, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: 'voice_not_provisioned', hint: 'run scripts/provision-voice.sh' })); return
+        }
+        try {
+          if (req.method === 'POST' && sub === 'clone') {
+            const r = await voiceFetch('/clone', { method: 'POST', headers: { 'content-type': 'application/json' }, body })
+            res.writeHead(r.status, { 'content-type': 'application/json' }); res.end(Buffer.from(await r.arrayBuffer())); return
+          }
+          if (req.method === 'POST' && sub === 'tts') {
+            const r = await voiceFetch('/tts', { method: 'POST', headers: { 'content-type': 'application/json' }, body })
+            if (!r.ok) { res.writeHead(r.status, { 'content-type': 'application/json' }); res.end(Buffer.from(await r.arrayBuffer())); return }
+            res.writeHead(200, { 'content-type': 'audio/wav', 'cache-control': 'no-store' }); res.end(Buffer.from(await r.arrayBuffer())); return
+          }
+          res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'not_found' }))
+        } catch (e) {
+          res.writeHead(502, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+        }
+      })()
+    })
+    return
+  }
+
   // 404
   res.writeHead(404, { 'content-type': 'application/json' })
   res.end(JSON.stringify({ error: 'not_found', path: url.pathname }))
@@ -4187,6 +4306,8 @@ server.listen(PORT, '127.0.0.1', () => {
     // `ollama serve`'s llama-server runner children do NOT die with it on SIGKILL — reap
     // the app-owned ones explicitly so they don't orphan and hold GPU/RAM.
     try { cp.execFileSync('/usr/bin/pkill', ['-9', '-f', `${process.env['HOME'] ?? ''}/.noetica/runtime/llama-server`], { stdio: 'ignore' }) } catch { /* none running */ }
+    // Reap our own embed sidecar so it doesn't orphan.
+    try { cp.execFileSync('/usr/bin/pkill', ['-9', '-f', 'noetica-embed'], { stdio: 'ignore' }) } catch { /* none running */ }
     if (booted) { try { recordTrendSnapshot(); saveLearningState() } catch { /* best-effort */ } }
     process.exit(0)
   }
@@ -4546,6 +4667,16 @@ server.listen(PORT, '127.0.0.1', () => {
           console.log('[prewarm] intent embedding centroids built')
         } catch { /* best-effort */ }
       }
+      // Prewarm the graph topic clustering so the Graph panel shows clean topics instantly on
+      // first open, instead of serving the raw degree-rank fallback while embeddings warm.
+      try {
+        const { clusterSurface } = await import('./lib/graph-cluster.js')
+        const g = getGraph()
+        for (const [view, category] of [['tech', 'technical'], ['knowledge', 'learning']] as const) {
+          await clusterSurface(g.allNodes(), g.allEdges(), { view, category }).catch(() => {})
+        }
+        console.log('[prewarm] graph topic clusters built')
+      } catch { /* best-effort */ }
     } catch { /* ignore */ }
   })()
 })

@@ -27,7 +27,7 @@ function timeAgo(iso: string): string {
 }
 
 export function ArtifactsSurface() {
-  const { artifacts, createArtifact, updateArtifact, deleteArtifact } = useArtifacts()
+  const { hydrated, artifacts, createArtifact, updateArtifact, deleteArtifact } = useArtifacts()
   const [filter, setFilter] = useState<ArtifactType | 'all'>('all')
   const [search, setSearch] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -143,8 +143,12 @@ export function ArtifactsSurface() {
           </div>
         )}
 
+        {!hydrated && (
+          <div className="flex-1 flex items-center justify-center px-6 py-12 text-center text-xs text-[var(--color-text-tertiary)]">Loading artifacts…</div>
+        )}
+
         {/* Type summary tiles — only when no filter and not searching */}
-        {filter === 'all' && !search && artifacts.length === 0 && (
+        {hydrated && filter === 'all' && !search && artifacts.length === 0 && (
           <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center">
             <div className="text-3xl mb-3">📄</div>
             <div className="text-sm font-semibold text-[var(--color-text-secondary)]">No artifacts yet</div>

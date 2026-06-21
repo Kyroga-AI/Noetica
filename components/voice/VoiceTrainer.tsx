@@ -1,0 +1,154 @@
+'use client'
+
+/**
+ * VoiceTrainer — record or upload a short reference clip, clone it locally with XTTS-v2,
+ * and set it as the agent's speaking voice. Fully local: audio is sent only to the
+ * on-device voice sidecar (127.0.0.1:8124 via the agent-machine /api/voice/* proxy).
+ */
+import { useEffect, useRef, useState } from 'react'
+import { useSettings } from '@/lib/settings/context'
+import { isTauri } from '@/lib/tauri/bridge'
+
+function amUrl(path: string): string {
+  return isTauri() ? `http://127.0.0.1:8080${path}` : path
+}
+
+interface Voice { id: string; name: string }
+
+function blobToB64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader()
+    r.onloadend = () => resolve(String(r.result))
+    r.onerror = reject
+    r.readAsDataURL(blob)
+  })
+}
+
+export function VoiceTrainer() {
+  const { settings, update } = useSettings()
+  const [provisioned, setProvisioned] = useState<boolean | null>(null)
+  const [voices, setVoices] = useState<Voice[]>([])
+  const [recording, setRecording] = useState(false)
+  const [clip, setClip] = useState<Blob | null>(null)
+  const [name, setName] = useState('My voice')
+  const [status, setStatus] = useState('')
+  const [busy, setBusy] = useState(false)
+  const recRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
+
+  async function refresh() {
+    try {
+      const r = await fetch(amUrl('/api/voice/status'), { signal: AbortSignal.timeout(8000) })
+      const j = (await r.json()) as { provisioned: boolean; voices?: Voice[] }
+      setProvisioned(j.provisioned)
+      setVoices(j.voices ?? [])
+    } catch { setProvisioned(false) }
+  }
+  useEffect(() => { void refresh() }, [])
+
+  async function startRec() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      chunksRef.current = []
+      const rec = new MediaRecorder(stream)
+      rec.ondataavailable = (e) => { if (e.data.size) chunksRef.current.push(e.data) }
+      rec.onstop = () => { setClip(new Blob(chunksRef.current, { type: 'audio/webm' })); stream.getTracks().forEach((t) => t.stop()) }
+      rec.start(); recRef.current = rec; setRecording(true); setStatus('')
+    } catch { setStatus('Microphone access denied') }
+  }
+  function stopRec() { recRef.current?.stop(); setRecording(false) }
+
+  async function clone() {
+    if (!clip) return
+    setBusy(true); setStatus('Cloning your voice…')
+    try {
+      const b64 = await blobToB64(clip)
+      const r = await fetch(amUrl('/api/voice/clone'), {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name, audio_b64: b64 }),
+      })
+      if (!r.ok) {
+        const e = (await r.json().catch(() => ({}))) as { hint?: string; error?: string }
+        setStatus(`Clone failed: ${e.hint || e.error || r.status}`); return
+      }
+      const j = (await r.json()) as { voice_id: string }
+      setClip(null); setStatus('Cloned ✓ — set as your agent voice')
+      update({ ttsProvider: 'cloned', clonedVoiceId: j.voice_id })
+      await refresh()
+    } catch { setStatus('Clone failed') } finally { setBusy(false) }
+  }
+
+  async function test(id: string) {
+    setBusy(true); setStatus('Synthesizing… (first run loads the model — can take ~30s)')
+    try {
+      const r = await fetch(amUrl('/api/voice/tts'), {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ text: 'Hello. This is your cloned voice, speaking locally from Noetica.', voice_id: id }),
+        signal: AbortSignal.timeout(90_000),
+      })
+      if (!r.ok) { setStatus('Synthesis failed — if this is the first run, retry once the model has loaded.'); return }
+      const url = URL.createObjectURL(await r.blob())
+      const a = new Audio(url); a.onended = () => URL.revokeObjectURL(url); void a.play()
+      setStatus('')
+    } catch { setStatus('Synthesis timed out — the model may still be loading. Retry shortly.') } finally { setBusy(false) }
+  }
+
+  const activeId = settings.clonedVoiceId
+
+  return (
+    <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-4 py-3">
+      <div className="flex items-center justify-between">
+        <span className="text-[11px] font-semibold uppercase tracking-wide text-[#7c3aed]">Agent voice</span>
+        {settings.ttsProvider === 'cloned' && activeId
+          ? <span className="text-[10px] text-[var(--color-text-tertiary)]">speaking as “{voices.find((v) => v.id === activeId)?.name ?? activeId}”</span>
+          : <span className="text-[10px] text-[var(--color-text-tertiary)]">clone a voice to use it</span>}
+      </div>
+
+      {provisioned === false && (
+        <div className="mt-2 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-3 py-2 text-[12px] text-[#92400e]">
+          Voice cloning isn’t set up yet. Run this once (downloads the local model, a few GB):
+          <code className="mt-1 block rounded bg-[#fef3c7] px-2 py-1 font-mono text-[11px]">bash agent-machine/scripts/provision-voice.sh</code>
+          <button onClick={() => void refresh()} className="mt-1.5 text-[11px] font-medium text-[#b45309] underline">recheck</button>
+        </div>
+      )}
+
+      {provisioned && (
+        <>
+          <p className="mt-2 text-[12px] text-[var(--color-text-secondary)]">Record ~10 seconds of clear speech (or upload a clip), then clone it.</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            {!recording
+              ? <button onClick={() => void startRec()} disabled={busy} className="rounded-lg bg-[#7c3aed] px-3 py-1.5 text-[12px] font-medium text-white disabled:opacity-50">● Record</button>
+              : <button onClick={stopRec} className="rounded-lg bg-[#dc2626] px-3 py-1.5 text-[12px] font-medium text-white">■ Stop</button>}
+            <label className="cursor-pointer rounded-lg border border-[var(--color-border-secondary)] px-3 py-1.5 text-[12px] text-[var(--color-text-primary)]">
+              Upload clip
+              <input type="file" accept="audio/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) { setClip(f); setStatus('Clip ready') } }} />
+            </label>
+            {clip && <span className="text-[11px] text-[var(--color-text-tertiary)]">clip ready ({Math.round(clip.size / 1024)} KB)</span>}
+          </div>
+          {clip && (
+            <div className="mt-2 flex items-center gap-2">
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Voice name" className="w-40 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2 py-1 text-[12px] text-[var(--color-text-primary)]" />
+              <button onClick={() => void clone()} disabled={busy} className="rounded-lg bg-[#1d4ed8] px-3 py-1.5 text-[12px] font-medium text-white disabled:opacity-50">Clone voice</button>
+            </div>
+          )}
+
+          {voices.length > 0 && (
+            <div className="mt-3 space-y-1.5">
+              {voices.map((v) => (
+                <div key={v.id} className="flex items-center justify-between rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] px-2.5 py-1.5">
+                  <span className="text-[12px] text-[var(--color-text-primary)]">{v.name}{activeId === v.id && settings.ttsProvider === 'cloned' && <span className="ml-1.5 text-[10px] text-[#16a34a]">● active</span>}</span>
+                  <div className="flex items-center gap-1.5">
+                    <button onClick={() => void test(v.id)} disabled={busy} className="rounded-md px-2 py-1 text-[11px] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)] disabled:opacity-50">Test</button>
+                    <button onClick={() => update({ ttsProvider: 'cloned', clonedVoiceId: v.id })} className="rounded-md bg-[var(--color-background-secondary)] px-2 py-1 text-[11px] font-medium text-[var(--color-text-primary)]">Use</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {status && <p className="mt-2 text-[11px] text-[var(--color-text-tertiary)]">{status}</p>}
+    </div>
+  )
+}
