@@ -2522,7 +2522,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // cheap; pinned (curated into the long-term brain) are marked and always lead.
   let memoryContext = ''
   try {
-    const { listMemories } = await import('./lib/memory-curation.js')
+    const { selectRelevantMemories } = await import('./lib/memory-curation.js')
     const g = getHellGraph()
     const memStore = {
       nodesByLabel: (l: string) => g.nodesByLabel(l) as any[],
@@ -2530,7 +2530,9 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       out: (id: string, e?: string) => g.out(id, e) as any[],
       setProperty: () => { /* read-only here */ },
     }
-    const mems = listMemories(memStore).slice(0, 8)
+    // Relevance-ranked recall: pinned always, unpinned only when relevant to this turn's query
+    // (no more "ask the weather, get 'prefers coffee'").
+    const mems = selectRelevantMemories(memStore, latestUserContent, 8)
     if (mems.length > 0) {
       memoryContext = `\n\n---\n**Long-term memory (what you've been asked to remember — honor these)**\n` +
         mems.map((m) => `- ${m.pinned ? '📌 ' : ''}(${m.kind}) ${m.preview}`).join('\n')
@@ -5031,6 +5033,27 @@ const server = http.createServer((req, res) => {
         res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ conversations: convs.length, imported, messages }))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e).slice(0, 160) }))
+      }
+    })() })
+    return
+  }
+
+  // POST /api/providers/capabilities — { provider, key } → probe the vendor's /models with the key
+  // and return the supported feature matrix (vision/tools/prompt-caching/pdf/image-gen/realtime/
+  // batch). Lets the router + UI expose ONLY what the key actually supports, instead of breaking on
+  // a feature the key can't serve.
+  if (req.method === 'POST' && url.pathname === '/api/providers/capabilities') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      setCORSHeaders(res)
+      try {
+        const p = JSON.parse(body || '{}') as { provider?: string; key?: string }
+        const { probeProvider } = await import('./lib/provider-caps.js')
+        const caps = await probeProvider(p.provider ?? 'anthropic', p.key ?? '')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(caps))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e).slice(0, 120) }))
       }
     })() })
     return
