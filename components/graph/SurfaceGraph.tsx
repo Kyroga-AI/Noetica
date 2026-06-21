@@ -27,9 +27,25 @@ interface Sim extends GraphNode { x: number; y: number; vx: number; vy: number; 
  * Charge repulsion + link springs + anchor/centering + collision, SVG-rendered,
  * draggable. Feed it nodes/links from /api/graph/surface.
  */
-export function SurfaceGraph({ nodes, links, width = 760, height = 460, onNodeClick }: {
-  nodes: GraphNode[]; links: GraphLink[]; width?: number; height?: number; onNodeClick?: (id: string) => void
+export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick }: {
+  nodes: GraphNode[]; links: GraphLink[]; width?: number; height?: number; fill?: boolean; onNodeClick?: (id: string) => void
 }) {
+  // In `fill` mode, measure the container and use the FULL available space as the
+  // simulation canvas (so the graph expands to fill the panel instead of a fixed box).
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [dims, setDims] = useState({ w: width ?? 760, h: height ?? 460 })
+  useEffect(() => {
+    if (!fill || !wrapRef.current) return
+    const el = wrapRef.current
+    const ro = new ResizeObserver(() => {
+      const r = el.getBoundingClientRect()
+      if (r.width > 40 && r.height > 40) setDims({ w: Math.round(r.width), h: Math.round(r.height) })
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [fill])
+  const W = fill ? dims.w : (width ?? 760)
+  const H = fill ? dims.h : (height ?? 460)
   const [, setTick] = useState(0)
   const simRef = useRef<Sim[]>([])
   const dragRef = useRef<{ id: string } | null>(null)
@@ -41,7 +57,7 @@ export function SurfaceGraph({ nodes, links, width = 760, height = 460, onNodeCl
 
   // Build working sim nodes whenever the data changes.
   const built = useMemo(() => {
-    const cx = width / 2, cy = height / 2
+    const cx = W / 2, cy = H / 2
     return nodes.map<Sim>((n) => ({
       ...n,
       r: n.featured ? 30 : 21,
@@ -49,13 +65,13 @@ export function SurfaceGraph({ nodes, links, width = 760, height = 460, onNodeCl
       y: cy + (n.y0 ?? (Math.random() - 0.5) * 200),
       vx: 0, vy: 0,
     }))
-  }, [nodes, width, height])
+  }, [nodes, W, H])
 
   useEffect(() => {
     simRef.current = built
     const byId = new Map(simRef.current.map((n) => [n.id, n]))
     const L = links.map((l) => ({ ...l, s: byId.get(l.source), t: byId.get(l.target) })).filter((l) => l.s && l.t)
-    const cx = width / 2, cy = height / 2
+    const cx = W / 2, cy = H / 2
     const decay = 0.0228, velDecay = 0.6
     alphaRef.current = 1
 
@@ -114,8 +130,8 @@ export function SurfaceGraph({ nodes, links, width = 760, height = 460, onNodeCl
       for (const n of ns) {
         if (n.fx != null) { n.x = n.fx; n.vx = 0 } else { n.vx *= velDecay; n.x += n.vx }
         if (n.fy != null) { n.y = n.fy; n.vy = 0 } else { n.vy *= velDecay; n.y += n.vy }
-        n.x = Math.max(n.r, Math.min(width - n.r, n.x))
-        n.y = Math.max(n.r, Math.min(height - n.r, n.y))
+        n.x = Math.max(n.r, Math.min(W - n.r, n.x))
+        n.y = Math.max(n.r, Math.min(H - n.r, n.y))
       }
       alphaRef.current += (0 - alpha) * decay
       setTick((t) => (t + 1) & 0xffff)
@@ -126,14 +142,14 @@ export function SurfaceGraph({ nodes, links, width = 760, height = 460, onNodeCl
     ensureRunningRef.current = ensureRunning
     ensureRunning()
     return () => { cancelAnimationFrame(rafRef.current); runningRef.current = false }
-  }, [built, links, width, height])
+  }, [built, links, W, H])
 
   // Convert a pointer event to viewBox coordinates (the SVG is scaled to its container).
   const toViewBox = (e: React.PointerEvent): { x: number; y: number } => {
     const svg = svgRef.current
     if (!svg) return { x: 0, y: 0 }
     const rect = svg.getBoundingClientRect()
-    return { x: ((e.clientX - rect.left) / rect.width) * width, y: ((e.clientY - rect.top) / rect.height) * height }
+    return { x: ((e.clientX - rect.left) / rect.width) * W, y: ((e.clientY - rect.top) / rect.height) * H }
   }
   const onMove = (e: React.PointerEvent<SVGSVGElement>) => {
     if (!dragRef.current) return
@@ -149,7 +165,8 @@ export function SurfaceGraph({ nodes, links, width = 760, height = 460, onNodeCl
   const byId = new Map(ns.map((n) => [n.id, n]))
 
   return (
-    <svg ref={svgRef} width={width} height={height} viewBox={`0 0 ${width} ${height}`} style={{ width: '100%', height: 'auto', fontFamily: 'Inter, sans-serif', touchAction: 'none' }}
+    <div ref={wrapRef} style={{ width: '100%', height: fill ? '100%' : 'auto' }}>
+    <svg ref={svgRef} width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: fill ? '100%' : 'auto', display: 'block', fontFamily: 'Inter, sans-serif', touchAction: 'none' }}
       onPointerMove={onMove} onPointerUp={endDrag} onPointerLeave={endDrag}>
       <defs>
         <filter id="spNodeGlow">
@@ -179,6 +196,7 @@ export function SurfaceGraph({ nodes, links, width = 760, height = 460, onNodeCl
         </g>
       ))}
     </svg>
+    </div>
   )
 }
 

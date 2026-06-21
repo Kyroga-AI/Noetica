@@ -63,6 +63,11 @@ const VIEW_ROOTS: Record<string, (label: string) => boolean> = {
   chat: (l) => l === 'Conversation' || l === 'Message' || l.endsWith('Message'),
 }
 
+// Category lenses: show only nodes of one colour-category, ranked by degree. `tech` is
+// the ecosystem (repos / models / providers / tools) — what "Sociosphere" should mean,
+// not the memory-chunk soup of the document/chat lenses.
+const CATEGORY_VIEWS: Record<string, string> = { tech: 'technical', knowledge: 'learning' }
+
 export function selectSurface(allNodes: GNode[], allEdges: GEdge[], opts: { view?: string; limit?: number; root?: string } = {}): SurfaceResult {
   const limit = Math.min(120, Math.max(10, opts.limit ?? 34))
   const view = opts.view ?? 'all'
@@ -80,8 +85,14 @@ export function selectSurface(allNodes: GNode[], allEdges: GEdge[], opts: { view
   const byId = new Map(labeled.map((n) => [n.id, n]))
 
   let picked: GNode[]
+  const catTarget = CATEGORY_VIEWS[view]
   const rootMatch = VIEW_ROOTS[view]
-  if (rootMatch) {
+  if (catTarget) {
+    picked = labeled
+      .filter((n) => categoryFor(n.labels[0] ?? '') === catTarget)
+      .sort((a, b) => (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0) || Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0))
+      .slice(0, limit)
+  } else if (rootMatch) {
     const roots = (root && byId.has(root) ? [byId.get(root)!] : labeled.filter((n) => rootMatch(n.labels[0] ?? '')))
       .sort((a, b) => (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0))
     const seen = new Set<string>()
