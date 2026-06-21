@@ -10,6 +10,7 @@ import oneLight from 'react-syntax-highlighter/dist/cjs/styles/prism/one-light'
 import oneDark from 'react-syntax-highlighter/dist/cjs/styles/prism/one-dark'
 import { GovernanceTrail } from '@/components/governance/GovernanceTrail'
 import { NoeticaMark } from '@/components/brand/NoeticaMark'
+import { BuildCard } from '@/components/chat/BuildCard'
 import { SteeringDiff } from '@/components/steering/SteeringDiff'
 import type { ChatMessage, ToolCallRecord, ToolResultRecord } from '@/lib/types/message'
 import type { PendingAttachment } from '@/lib/types/attachment'
@@ -363,6 +364,9 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
 
         {/* Main content — markdown rendered */}
         {message.content && <MarkdownContent content={message.content} />}
+
+        {/* Build clarifier — deterministic multiple-choice scaffold card */}
+        {message.build && <BuildCard spec={message.build} />}
 
         {/* Quick replies — local dialogue-layer suggestion chips (Rasa-style buttons) */}
         {message.quick_replies && message.quick_replies.length > 0 && onQuickPrompt && (

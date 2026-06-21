@@ -870,6 +870,23 @@ function runInWorkspace(command: string, cwd: string, timeoutMs: number): Promis
   })
 }
 
+// Start a long-running dev server, resolve once it prints its Local URL (or on timeout). The
+// process keeps running so the UI can preview it; tracked for reaping on teardown.
+const _devServers = new Set<number>()
+function startDevServer(command: string, cwd: string, timeoutMs: number): Promise<{ url?: string; pid?: number }> {
+  return new Promise((resolve) => {
+    const child = cp.spawn('/bin/zsh', ['-lc', command], { cwd, env: { ...process.env } })
+    if (child.pid) _devServers.add(child.pid)
+    let resolved = false
+    const finish = (u?: string) => { if (!resolved) { resolved = true; clearTimeout(timer); resolve({ url: u, pid: child.pid }) } }
+    const timer = setTimeout(() => finish(undefined), timeoutMs)
+    const onData = (d: Buffer) => { const m = d.toString().match(/Local:\s*(https?:\/\/\S+)/i); if (m?.[1]) finish(m[1].replace(/\/+$/, '')) }
+    child.stdout?.on('data', onData)
+    child.stderr?.on('data', onData)
+    child.on('exit', () => { if (child.pid) _devServers.delete(child.pid); finish(undefined) })
+  })
+}
+
 // Parse a code-agent solution: {files:[{path,content}], verify:"cmd"} — tolerant of fences/prose.
 function parseSolveOutput(text: string): { files: { path: string; content: string }[]; verify: string } | null {
   let t = text.trim()
@@ -4282,6 +4299,46 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // ── Deterministic project scaffold (framework boilerplate is NOT a generative task) ──
+  // Clarify (dialogue flow) → scaffold (here, deterministic) → customize (model) → run.
+  if (req.method === 'POST' && url.pathname === '/api/code/scaffold') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      let p: { framework?: string; name?: string; workspace?: string; typescript?: boolean; install?: boolean; dev?: boolean } = {}
+      try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+      const FW: Record<string, string> = { vue: 'vue', react: 'react', svelte: 'svelte', vanilla: 'vanilla', preact: 'preact', lit: 'lit', solid: 'solid' }
+      const base = FW[String(p.framework ?? 'vue').toLowerCase()] ?? 'vue'
+      const template = p.typescript ? `${base}-ts` : base
+      const name = (String(p.name ?? 'app').replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 40)) || 'app'
+      const wsName = (String(p.workspace ?? 'build').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 40)) || 'build'
+      const ws = path.join(os.homedir(), '.noetica', 'workspaces', wsName)
+      try { fs.mkdirSync(ws, { recursive: true }) } catch { /* */ }
+      const steps: Array<{ step: string; ok: boolean; output: string }> = []
+      const sc = await runInWorkspace(`npm create vite@latest ${name} -- --template ${template}`, ws, 120_000)
+      steps.push({ step: `scaffold · vite + ${template}`, ok: sc.code === '0', output: `${sc.out}${sc.err}`.slice(-400) })
+      const projDir = path.join(ws, name)
+      let devUrl: string | undefined
+      if (sc.code === '0' && p.install !== false) {
+        const ins = await runInWorkspace('npm install', projDir, 300_000)
+        steps.push({ step: 'npm install', ok: ins.code === '0', output: `${ins.out}${ins.err}`.slice(-300) })
+        if (ins.code === '0') {
+          if (p.dev) {
+            const d = await startDevServer('npm run dev', projDir, 35_000)
+            devUrl = d.url
+            steps.push({ step: 'npm run dev', ok: !!d.url, output: d.url ? `live at ${d.url}` : 'dev server did not report a URL in time' })
+          } else {
+            const b = await runInWorkspace('npm run build', projDir, 180_000)
+            steps.push({ step: 'npm run build', ok: b.code === '0', output: `${b.out}${b.err}`.slice(-300) })
+          }
+        }
+      }
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ ok: steps.every((s) => s.ok), framework: base, typescript: !!p.typescript, workspace: wsName, name, path: projDir, devUrl, devCommand: `cd ${projDir} && npm run dev`, steps }))
+    })() })
+    return
+  }
+
   // ── Voice cloning (local XTTS-v2 sidecar) ──────────────────────────────────
   if (url.pathname.startsWith('/api/voice/')) {
     const sub = url.pathname.slice('/api/voice/'.length)
@@ -4456,6 +4513,8 @@ server.listen(PORT, '127.0.0.1', () => {
     try { cp.execFileSync('/usr/bin/pkill', ['-9', '-f', `${process.env['HOME'] ?? ''}/.noetica/runtime/llama-server`], { stdio: 'ignore' }) } catch { /* none running */ }
     // Reap our own embed sidecar so it doesn't orphan.
     try { cp.execFileSync('/usr/bin/pkill', ['-9', '-f', 'noetica-embed'], { stdio: 'ignore' }) } catch { /* none running */ }
+    // Reap any dev servers started by the scaffold/build flow.
+    for (const pid of _devServers) { try { process.kill(pid, 'SIGKILL') } catch { /* gone */ } }
     if (booted) { try { recordTrendSnapshot(); saveLearningState() } catch { /* best-effort */ } }
     process.exit(0)
   }

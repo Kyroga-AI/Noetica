@@ -82,6 +82,14 @@ const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
 }
 
 export function AppShell() {
+  // ── Settings (provider keys, runtime mode) ───────────────────────────────
+  const { settings, update: updateSettings } = useSettings()
+
+  // Security lane armed = 'security' profile + accepted self-attestation. While
+  // armed, chats are ephemeral and obliterated after securityEphemeralMinutes.
+  const securityArmed = settings.defaultPolicyProfile === 'security' && settings.securityAttestation?.accepted === true
+  const ephemeralTtlMinutes = securityArmed ? (settings.securityEphemeralMinutes ?? 15) : null
+
   // ── Session persistence ────────────────────────────────────────────────────
   const {
     hydrated,
@@ -94,7 +102,16 @@ export function AppShell() {
     updateSurface,
     updateModelId,
     updateTitle,
-  } = useSession(defaultModelId)
+    obliterateNow,
+  } = useSession(defaultModelId, { ephemeralTtlMinutes })
+
+  // Disarming the lane (revoke attestation / leave the security profile) obliterates
+  // any ephemeral sessions immediately — don't wait for the reaper window.
+  const wasArmedRef = useRef(securityArmed)
+  useEffect(() => {
+    if (wasArmedRef.current && !securityArmed) obliterateNow()
+    wasArmedRef.current = securityArmed
+  }, [securityArmed, obliterateNow])
 
   // ── Derive surface / messages from active session (with local overrides) ──
   const [activeSurface, setActiveSurface] = useState<ActiveSurface>('chat')
@@ -122,9 +139,6 @@ export function AppShell() {
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated])
-
-  // ── Settings (provider keys, runtime mode) ───────────────────────────────
-  const { settings, update: updateSettings } = useSettings()
 
   // ── MCP ───────────────────────────────────────────────────────────────────
   const { tools: mcpTools } = useMcp()
@@ -674,6 +688,15 @@ export function AppShell() {
         await runToolDirect(content, dlg.runTool.name, dlg.runTool.input, dlg.reply, dlg.quickReplies)
         return
       }
+      // Build clarifier — deterministic multiple-choice card that scaffolds + runs a project.
+      if (dlg.build) {
+        const now = new Date().toISOString()
+        const u: ChatMessage = { id: crypto.randomUUID(), role: 'user', content, workspace_mode: workspaceMode, created_at: now }
+        const a: ChatMessage = { id: crypto.randomUUID(), role: 'assistant', content: '', build: dlg.build, created_at: now }
+        autoTitle(content)
+        setMessages((cur) => { const next = [...cur, u, a]; updateMessages(next); return next })
+        return
+      }
       // Commands that clear/replace the chat: execute without leaving a stray turn behind.
       if (dlg.command?.kind === 'newWorkspace' || dlg.command?.kind === 'clearChat') {
         handleNewChat()
@@ -925,6 +948,7 @@ export function AppShell() {
             tools: tools?.length ? tools : undefined,
             system_prompt: buildEffectiveSystemPrompt(systemPrompt, turnMemoryContext, settings.memoryScope),
             policy_profile: settings.defaultPolicyProfile,
+            security_attested: settings.defaultPolicyProfile === 'security' && settings.securityAttestation?.accepted === true,
             api_endpoint_override: settings.apiEndpointOverride || undefined,
           },
           {
@@ -989,7 +1013,10 @@ export function AppShell() {
                 tokens_egressed: result.tokens_egressed,
                 request_hash: result.request_hash,
                 evidence_hash: result.evidence_hash,
-                content_preview: result.content.slice(0, 120),
+                // Armed sessions are content-redacted in the durable audit: the
+                // Govern metadata (model, time, policy) stays for accountability,
+                // but no chat content is persisted — it's obliterated, not logged.
+                content_preview: securityArmed ? '[obliterated — ephemeral security session]' : result.content.slice(0, 120),
                 memory_scope: `noetica-session-local:${workspaceMode.toLowerCase()}`,
                 policy_admitted: result.policy_admitted,
                 policy_profile: settings.defaultPolicyProfile,
@@ -1068,8 +1095,10 @@ export function AppShell() {
       setMessages((current) => {
         const last = [...current].reverse().find((m: ChatMessage) => m.role === 'assistant')
 
-        // Auto-memory: extract [REMEMBER: ...] markers from the response
-        if (last?.content && settings.memoryScope !== 'disabled') {
+        // Auto-memory: extract [REMEMBER: ...] markers from the response.
+        // Suppressed while the security lane is armed — armed sessions leave no
+        // durable memory trace (opsec): the chat is ephemeral, so is its memory.
+        if (last?.content && settings.memoryScope !== 'disabled' && !securityArmed) {
           const markerRe = /\[REMEMBER:\s*(.+?)\]/gi
           let m: RegExpExecArray | null
           while ((m = markerRe.exec(last.content)) !== null) {
