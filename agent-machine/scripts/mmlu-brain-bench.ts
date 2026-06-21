@@ -74,6 +74,26 @@ function shuffle<T>(arr: T[], rand: () => number): T[] {
   return a
 }
 
+// ── chunk hygiene ──────────────────────────────────────────────────────────────
+// OCW PDFs extract with glyph failures (U+FFFD �), control chars, and ragged
+// whitespace. Injecting that raw confuses a small model into never committing to an
+// answer. Clean it, then drop chunks that are mostly garbage so only legible material
+// reaches the prompt. (The stored embedding was computed on the raw text — that's fine
+// for retrieval; we only sanitize what we INJECT.)
+function cleanText(s: string): string {
+  return s
+    .replace(/\uFFFD/g, ' ')                                  // failed-glyph replacement char
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '') // control chars (keep tab/nl/cr)
+    .replace(/[ \t]+/g, ' ')                                   // collapse spaces/tabs
+    .replace(/ *\n[ \n]*/g, '\n')                              // collapse blank lines
+    .trim()
+}
+function usableChunk(text: string): boolean {
+  if (text.length < 100) return false
+  const letters = (text.match(/[A-Za-z]/g) || []).length
+  return letters >= 50   // enough real prose/symbols to be worth injecting
+}
+
 // ── brain: load a field's chunks into a compact in-memory index ────────────────
 const fieldCache = new Map<string, Chunk[]>()
 function fieldDir(field: string): string { return path.join(BRAIN, field) }
@@ -94,10 +114,12 @@ function loadField(field: string): Chunk[] {
         try {
           const o = JSON.parse(line) as { text?: string; slug?: string; material?: string; vec?: string; dims?: number }
           if (!o.text || !o.vec) continue
+          const text = cleanText(o.text)
+          if (!usableChunk(text)) continue   // drop garbled / near-empty chunks before they can be injected
           const buf = Buffer.from(o.vec, 'base64')
           const vec = new Float32Array(buf.buffer, buf.byteOffset, (o.dims || 768))
           let n = 0; for (let i = 0; i < vec.length; i++) n += vec[i]! * vec[i]!
-          chunks.push({ text: o.text, slug: o.slug || fn, material: o.material || 'reference', vec, norm: Math.sqrt(n) || 1 })
+          chunks.push({ text, slug: o.slug || fn, material: o.material || 'reference', vec, norm: Math.sqrt(n) || 1 })
         } catch { /* skip bad line */ }
       }
     }
@@ -135,8 +157,15 @@ async function ask(prompt: string): Promise<string> {
   } catch { return '' }
 }
 function extractLetter(raw: string): string {
-  const f = /FINAL:\s*\(?([A-D])\)?/i.exec(raw); if (f) return f[1]!.toUpperCase()
-  const m = /\b([A-D])\b(?![\s\S]*\b[A-D]\b)/.exec(raw.trim()); return m ? m[1]!.toUpperCase() : ''
+  const t = raw.trim()
+  // 1. explicit FINAL: directive (strongest) — tolerate **bold**, parens, spacing
+  let m = /FINAL:\s*\**\(?\s*([A-D])\b/i.exec(t); if (m) return m[1]!.toUpperCase()
+  // 2. "the answer is C", "answer: (C)", "correct answer = D"
+  m = /\bans(?:wer)?\b[^A-Da-d]{0,12}\(?\*?([A-D])\b/i.exec(t); if (m) return m[1]!.toUpperCase()
+  // 3. a parenthesized / trailing-paren letter near the end: "(C)" or "C)"
+  m = /\(\s*([A-D])\s*\)|\b([A-D])\)/.exec(t.slice(-50)); if (m) return (m[1] || m[2])!.toUpperCase()
+  // 4. fallback: the LAST standalone A–D anywhere in the reply
+  m = /\b([A-D])\b(?![\s\S]*\b[A-D]\b)/.exec(t); return m ? m[1]!.toUpperCase() : ''
 }
 function pct(a: number, b: number): string { return b ? (100 * a / b).toFixed(1) : '0.0' }
 
@@ -181,15 +210,18 @@ async function main() {
       if (ARMS.includes('brain')) {
         const qVec = await embedText(`${q.question}\n${q.choices.join(' ')}`)
         const hits = topK(qVec, pools, K)
-        context = hits.map((h, n) => `[${n + 1}] (${h.slug} · ${h.material})\n${h.text.slice(0, 700)}`).join('\n\n')
+        context = hits.map((h, n) => `[${n + 1}] ${h.text.slice(0, 500)}`).join('\n\n')
         row['sources'] = hits.map((h) => `${h.slug}:${h.material}`)
       }
 
+      // Same answer-format rule on BOTH arms — the only difference between arms is the
+      // injected context, so the comparison stays fair.
+      const ANSWER_RULE = '\n\nReason in ONE short sentence, then output exactly one final line: "FINAL: X" (X = A, B, C, or D).'
       const marks: string[] = []
       for (const arm of ARMS) {
         const prompt = arm === 'brain'
-          ? `Use the following MIT OpenCourseWare excerpts if relevant.\n\n=== COURSE MATERIAL ===\n${context}\n=== END ===\n\nNow answer this exam question.\n\n${base}`
-          : base
+          ? `Relevant MIT course notes (use only what helps; ignore noise and fragments):\n\n${context}\n\nExam question:\n${base}${ANSWER_RULE}`
+          : `${base}${ANSWER_RULE}`
         const letter = extractLetter(await ask(prompt))
         const ok = letter === gold
         const t = tally[arm]![subject]!; t.n++; if (ok) t.c++
