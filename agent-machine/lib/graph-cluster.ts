@@ -8,6 +8,9 @@
  * connectivity (cluster A links B if any member of A connects to any member of B), so it
  * reads as a real topic graph. Embeddings + cluster assignments are cached per process.
  */
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
 import type { GraphNode, GraphEdge } from '@socioprophet/hellgraph'
 import { embedBatchLocal } from './embed-runtime.js'
 import { cleanLabel, categoryFor, type SurfaceResult, type SurfaceNode, type SurfaceLink } from './graph-surface.js'
@@ -214,6 +217,28 @@ function discoverK(V: number[][], kMin: number, kMax: number): { assign: number[
 interface Clustering { reps: string[]; members: Map<string, string[]>; clusterOf: Map<string, string>; classNames: Map<string, string> }
 const clusterCache = new Map<string, Clustering>()
 
+// ── Incremental persistence ─────────────────────────────────────────────────
+// Topic discovery (embed + silhouette + k-means) is expensive and was rebuilt FROM SCRATCH every
+// launch. Persist the result to disk keyed by a content hash of the candidate set; an unchanged
+// graph reloads instantly instead of reprocessing. Recompute only when the candidates actually
+// change. (Full delta-level incrementality — regis graph_delta — is the next step up from this.)
+const CACHE_DIR = path.join(os.homedir(), '.noetica', 'cache')
+function cheapHash(s: string): string { let h = 5381; for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36) }
+function cacheFile(view: string): string { return path.join(CACHE_DIR, `graph-cluster-${view.replace(/[^a-z0-9]/gi, '_')}.json`) }
+function loadPersisted(view: string, hash: string): Clustering | null {
+  try {
+    const raw = JSON.parse(fs.readFileSync(cacheFile(view), 'utf8')) as { hash: string; reps: string[]; members: [string, string[]][]; clusterOf: [string, string][]; classNames: [string, string][] }
+    if (raw.hash !== hash) return null
+    return { reps: raw.reps, members: new Map(raw.members), clusterOf: new Map(raw.clusterOf), classNames: new Map(raw.classNames) }
+  } catch { return null }
+}
+function persist(view: string, hash: string, cl: Clustering): void {
+  try {
+    fs.mkdirSync(CACHE_DIR, { recursive: true })
+    fs.writeFileSync(cacheFile(view), JSON.stringify({ hash, reps: cl.reps, members: [...cl.members], clusterOf: [...cl.clusterOf], classNames: [...cl.classNames] }))
+  } catch { /* best-effort cache */ }
+}
+
 /** Async, clustered replacement for selectSurface on a category lens (tech/knowledge). */
 export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[], opts: { view: string; root?: string; k?: number; category: string }): Promise<SurfaceResult> {
   const limit = opts.k ?? 22   // display cap — the natural topic count is DISCOVERED below, then shown up to this
@@ -229,8 +254,12 @@ export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[
     .slice(0, 120)   // bound embed cost — 120 top clean concepts is plenty for topic discovery
   const byId = new Map(cands.map((x) => [x.n.id, x.n]))
 
-  const cacheKey = `${opts.view}:${cands.length}`
-  let cl = clusterCache.get(cacheKey)
+  // Content hash of the candidate set — the clustering is a pure function of it, so an unchanged
+  // graph reuses the in-memory OR on-disk result and never reprocesses on launch.
+  const sig = cheapHash(cands.map((x) => `${x.n.id}|${x.label}`).sort().join('\n'))
+  const cacheKey = `${opts.view}:${sig}`
+  let cl = clusterCache.get(cacheKey) ?? loadPersisted(opts.view, sig) ?? undefined
+  if (cl && !clusterCache.has(cacheKey)) clusterCache.set(cacheKey, cl)
   if (!cl) {
     // Vectorize with OUR OWN embedder (the noetica-embed Rust sidecar) in a single batch call —
     // no ollama. Reuse any cached/stored vector first; embed only what's missing. If the embedder
@@ -313,6 +342,7 @@ export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[
     }
     cl = { reps, members, clusterOf, classNames }
     clusterCache.set(cacheKey, cl)
+    persist(opts.view, sig, cl)   // survive restarts — no rebuild next launch unless the graph changed
   }
 
   // Top-level → the discovered topics (the CLASS layer), shown up to the display limit
