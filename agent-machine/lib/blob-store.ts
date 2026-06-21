@@ -1,0 +1,42 @@
+/**
+ * blob-store — a content-addressed local store for RAW source bytes.
+ *
+ * HellGraph stores a document's TEXT + vectors + entities, but the original bytes
+ * (the .pdf/.docx the user uploaded) are discarded after extraction — so you can never
+ * re-OCR, re-extract, audit, or re-process the source. This is the missing "raw" surface:
+ * a sha256-addressed blob dir under ~/.noetica/blobs, sharded, idempotent, local-first
+ * (no pgsql, no cloud — the bytes never leave the machine). HellGraph stays the index;
+ * a Document atom just carries the raw_hash pointing here.
+ */
+
+import { createHash } from 'crypto'
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'fs'
+import { homedir } from 'os'
+import { join, dirname } from 'path'
+
+// Resolved lazily so NOETICA_BLOB_DIR can be set at runtime (and tests can redirect it).
+const blobDir = (): string => process.env['NOETICA_BLOB_DIR'] || join(homedir(), '.noetica', 'blobs')
+
+export function blobPath(hash: string): string {
+  return join(blobDir(), hash.slice(0, 2), hash)   // sharded by first byte to keep dirs small
+}
+
+export interface BlobRef { hash: string; size: number; stored: boolean }
+
+/** Store raw bytes; returns the content hash. Idempotent — identical content is a no-op. */
+export function putBlob(data: Buffer | string): BlobRef {
+  const buf = typeof data === 'string' ? Buffer.from(data, 'utf8') : data
+  const hash = createHash('sha256').update(buf).digest('hex')
+  const p = blobPath(hash)
+  if (existsSync(p)) return { hash, size: buf.length, stored: false }
+  mkdirSync(dirname(p), { recursive: true })
+  writeFileSync(p, buf)
+  return { hash, size: buf.length, stored: true }
+}
+
+/** Retrieve raw bytes by hash, or null if absent. */
+export function getBlob(hash: string): Buffer | null {
+  try { return readFileSync(blobPath(hash)) } catch { return null }
+}
+
+export function hasBlob(hash: string): boolean { return existsSync(blobPath(hash)) }
