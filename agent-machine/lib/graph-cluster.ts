@@ -66,11 +66,12 @@ function normalize(v: number[]): number[] { let s = 0; for (const x of v) s += x
 function dot(a: number[], b: number[]): number { let s = 0; const n = Math.min(a.length, b.length); for (let i = 0; i < n; i++) s += a[i]! * b[i]!; return s }
 
 // Cosine k-means with k-means++ init. Vectors are pre-normalized so cosine == dot.
-function kmeans(V: number[][], k: number, iters = 18): number[] {
+// Returns assignments AND the final centroids (needed for silhouette + centroid reps).
+function kmeans(V: number[][], k: number, seed: number, iters = 18): { assign: number[]; centers: number[][] } {
   const n = V.length
-  if (n <= k) return V.map((_, i) => i)
+  if (n <= k) return { assign: V.map((_, i) => i), centers: V.map((v) => v.slice()) }
   const d = V[0]!.length
-  const rand = rng(0x9e3779b1 ^ (n * 2654435761))   // seed from size → deterministic per dataset
+  const rand = rng(seed)
   const centers: number[][] = [V[Math.floor(rand() * n)]!.slice()]
   while (centers.length < k) {
     const dist = V.map((v) => { let best = -1; for (const c of centers) { const s = dot(v, c); if (s > best) best = s } return Math.max(1e-6, 1 - best) })
@@ -87,7 +88,47 @@ function kmeans(V: number[][], k: number, iters = 18): number[] {
     for (let c = 0; c < k; c++) if (cnt[c] > 0) centers[c] = normalize(sums[c]!)
     if (!moved && it > 0) break
   }
-  return assign
+  return { assign, centers }
+}
+
+// TRUE pairwise silhouette (cosine). a(i) = mean intra-cluster distance to OTHER members;
+// b(i) = min over other clusters of mean distance. Singletons score 0 (convention) — this is
+// what kills the "split into all-singletons → score 1" degeneracy a centroid silhouette has.
+// O(n²) but n ≤ 320 and it's computed once per dataset (cached), so it's fine.
+function silhouette(V: number[][], assign: number[], k: number): number {
+  const n = V.length
+  if (n === 0) return -1
+  const groups: number[][] = Array.from({ length: k }, () => [])
+  for (let i = 0; i < n; i++) groups[assign[i]!]!.push(i)
+  let sum = 0
+  for (let i = 0; i < n; i++) {
+    const own = assign[i]!, g = groups[own]!
+    if (g.length <= 1) continue                                   // singleton → s=0
+    let a = 0; for (const j of g) if (j !== i) a += 1 - dot(V[i]!, V[j]!); a /= (g.length - 1)
+    let b = Infinity
+    for (let c = 0; c < k; c++) {
+      if (c === own || groups[c]!.length === 0) continue
+      let m = 0; for (const j of groups[c]!) m += 1 - dot(V[i]!, V[j]!); m /= groups[c]!.length
+      if (m < b) b = m
+    }
+    if (!isFinite(b)) continue
+    sum += (b - a) / (Math.max(a, b) || 1)
+  }
+  return sum / n
+}
+
+// Discover the NATURAL number of topics: sweep k ∈ [kMin,kMax], pick argmax mean silhouette.
+// Deterministic (seed varies per k but is fixed). Caller caps kMax ≪ n so clusters can't all
+// collapse to singletons; kMin ≥ a floor so we don't get 2–3 mega-blobs.
+function discoverK(V: number[][], kMin: number, kMax: number): { assign: number[]; centers: number[][]; k: number; score: number } {
+  const base = 0x9e3779b1 ^ (V.length * 2654435761)
+  let best = { assign: [] as number[], centers: [] as number[][], k: kMin, score: -2 }
+  for (let k = kMin; k <= kMax; k++) {
+    const { assign, centers } = kmeans(V, k, base ^ (k * 40503))
+    const score = silhouette(V, assign, k)
+    if (score > best.score) best = { assign, centers, k, score }
+  }
+  return best
 }
 
 interface Clustering { reps: string[]; members: Map<string, string[]>; clusterOf: Map<string, string> }
@@ -95,7 +136,7 @@ const clusterCache = new Map<string, Clustering>()
 
 /** Async, clustered replacement for selectSurface on a category lens (tech/knowledge). */
 export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[], opts: { view: string; root?: string; k?: number; category: string }): Promise<SurfaceResult> {
-  const k = opts.k ?? 22
+  const limit = opts.k ?? 22   // display cap — the natural topic count is DISCOVERED below, then shown up to this
 
   const degree = new Map<string, number>()
   for (const e of allEdges) { degree.set(e.from, (degree.get(e.from) ?? 0) + 1); degree.set(e.to, (degree.get(e.to) ?? 0) + 1) }
@@ -111,7 +152,14 @@ export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[
   const cacheKey = `${opts.view}:${cands.length}`
   let cl = clusterCache.get(cacheKey)
   if (!cl) {
-    const embeds = await Promise.all(cands.map((x) => embedNode(x.n, x.label)))
+    // Embed in bounded batches — firing all ~320 at once overwhelms the local embed model
+    // and most calls fail (we'd cluster only the handful that survive).
+    const embeds: (number[] | null)[] = []
+    const BATCH = 12
+    for (let i = 0; i < cands.length; i += BATCH) {
+      const chunk = cands.slice(i, i + BATCH)
+      embeds.push(...await Promise.all(chunk.map((x) => embedNode(x.n, x.label))))
+    }
     const vecs: number[][] = []; const valid: GraphNode[] = []
     cands.forEach((x, i) => { if (embeds[i]) { vecs.push(normalize(embeds[i]!)); valid.push(x.n) } })
     const reps: string[] = []; const members = new Map<string, string[]>(); const clusterOf = new Map<string, string>()
@@ -120,12 +168,17 @@ export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[
     if (valid.length === 0) {
       // Embeddings cold → clean degree-rank so we still surface TOPICS (clean, in-category
       // labels), never letting the route fall back to raw file-path/instance noise.
-      for (const x of cands.slice(0, k)) { reps.push(x.n.id); members.set(x.n.id, [x.n.id]); clusterOf.set(x.n.id, x.n.id) }
-    } else if (valid.length <= k) {
+      for (const x of cands.slice(0, limit)) { reps.push(x.n.id); members.set(x.n.id, [x.n.id]); clusterOf.set(x.n.id, x.n.id) }
+    } else if (valid.length <= 8) {
       for (const n of valid) { reps.push(n.id); members.set(n.id, [n.id]); clusterOf.set(n.id, n.id) }
     } else {
       const vecOf = new Map<string, number[]>(); valid.forEach((n, i) => vecOf.set(n.id, vecs[i]!))
-      const assign = kmeans(vecs, k)
+      // Discover the natural topic count by silhouette (not a hardcoded 22). kMax ≤ n/2 so
+      // clusters average ≥2 members (no all-singletons degeneracy).
+      const kMax = Math.min(40, Math.floor(valid.length / 2))
+      const kMin = Math.min(6, kMax)
+      const { assign, k: discoveredK, score } = discoverK(vecs, kMin, kMax)
+      console.warn(`[graph-cluster] ${opts.view}: discovered k=${discoveredK} (silhouette ${score.toFixed(3)}) from ${valid.length} nodes`)
       const groups = new Map<number, GraphNode[]>()
       valid.forEach((n, i) => { const g = groups.get(assign[i]) ?? []; g.push(n); groups.set(assign[i], g) })
       for (const g of groups.values()) {
@@ -151,8 +204,10 @@ export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[
     clusterCache.set(cacheKey, cl)
   }
 
-  // Drill-down → that cluster's members; top-level → the cluster representatives.
-  const ids = (opts.root && cl.members.has(opts.root)) ? cl.members.get(opts.root)!.slice(0, 30) : cl.reps
+  // Drill-down → that cluster's members; top-level → the discovered topics, shown up to the
+  // display limit (most-connected first) so a data-driven k > limit still renders cleanly.
+  const topicReps = cl.reps.slice().sort((a, b) => (degree.get(b) ?? 0) - (degree.get(a) ?? 0)).slice(0, limit)
+  const ids = (opts.root && cl.members.has(opts.root)) ? cl.members.get(opts.root)!.slice(0, 30) : topicReps
   const keep = new Set(ids)
   const maxDeg = Math.max(1, ...ids.map((id) => degree.get(id) ?? 0))
   const nodes: SurfaceNode[] = ids.map((id) => {
