@@ -92,10 +92,17 @@ function typeClass(members: GraphNode[]): string | null {
   for (const m of members) { const t = (m.labels?.[0] ?? '').trim(); if (t) freq.set(t, (freq.get(t) ?? 0) + 1) }
   const top = [...freq.entries()].sort((a, b) => b[1] - a[1])[0]
   if (!top) return null
-  const raw = top[0]
-  if (TYPE_CLASS[raw]) return TYPE_CLASS[raw]!
-  const h = raw.replace(/([a-z])([A-Z])/g, '$1 $2').trim()
-  return h ? h.charAt(0).toUpperCase() + h.slice(1) : null
+  // Normalize the raw atom type (SCREAMING_SNAKE like FEATURE_ATOM, camelCase, or PascalCase),
+  // dropping a structural _ATOM/_NODE suffix, into Title Case — then map to a friendly plural.
+  const words = top[0]
+    .replace(/_?(atom|node|entity)$/i, '')
+    .replace(/([a-z])([A-Z])/g, '$1 $2')
+    .split(/[\s_]+/)
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+  if (!words.length) return null
+  const titled = words.join(' ')
+  return TYPE_CLASS[titled] ?? titled
 }
 
 // Deterministic PRNG (mulberry32) so topic discovery is STABLE across calls/restarts —
