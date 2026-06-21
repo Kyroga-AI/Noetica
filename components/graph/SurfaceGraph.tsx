@@ -62,6 +62,7 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick }:
   const [, setTick] = useState(0)
   const simRef = useRef<Sim[]>([])
   const dragRef = useRef<{ id: string } | null>(null)
+  const movedRef = useRef(false)   // did this pointer-down become a real drag (vs a tap)?
   const rafRef = useRef<number>(0)
   const alphaRef = useRef(1)
   const runningRef = useRef(false)
@@ -100,7 +101,7 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick }:
           const dx = a.x - b.x, dy = a.y - b.y
           const minD = a.r + b.r
           const d2 = Math.max(dx * dx + dy * dy, minD * minD)
-          const charge = a.featured || b.featured ? 3200 : 2100
+          const charge = a.featured || b.featured ? 4400 : 2900
           const dist = Math.sqrt(d2)
           const f = Math.min((charge * alpha) / d2, 90)   // cap per-pair impulse
           a.vx += (dx / dist) * f; a.vy += (dy / dist) * f
@@ -112,7 +113,7 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick }:
         const s = l.s!, t = l.t!
         const dx = t.x - s.x, dy = t.y - s.y
         const dist = Math.sqrt(dx * dx + dy * dy) || 1
-        const target = l.primary ? 165 : 120
+        const target = l.primary ? 200 : 150
         const k = (l.primary ? 1 : 0.55) * alpha
         const f = ((dist - target) / dist) * k * 0.5
         s.vx += dx * f; s.vy += dy * f
@@ -131,7 +132,7 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick }:
           const a = ns[i]!, b = ns[j]!
           const dx = b.x - a.x, dy = b.y - a.y
           const dist = Math.sqrt(dx * dx + dy * dy) || 1
-          const min = a.r + b.r + 16
+          const min = a.r + b.r + 22
           if (dist < min) {
             const push = ((min - dist) / dist) * 0.5
             a.x -= dx * push; a.y -= dy * push
@@ -166,12 +167,22 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick }:
   }
   const onMove = (e: React.PointerEvent<SVGSVGElement>) => {
     if (!dragRef.current) return
+    movedRef.current = true
     const n = simRef.current.find((m) => m.id === dragRef.current!.id)
     if (n) { const p = toViewBox(e); n.fx = p.x; n.fy = p.y; alphaRef.current = Math.max(alphaRef.current, 0.15); ensureRunningRef.current() }
   }
+  // A real drag PINS the node where you drop it (fx/fy kept) — so pulling a cluster apart makes it
+  // STAY apart instead of springing back; you keep control of the layout. A tap (no movement) is a
+  // drill, not a drag. Double-click empty space to release every pin and let it reflow.
   const endDrag = () => {
-    if (dragRef.current) { const n = simRef.current.find((m) => m.id === dragRef.current!.id); if (n) { n.fx = null; n.fy = null } }
+    if (dragRef.current && !movedRef.current) onNodeClick?.(dragRef.current.id)
     dragRef.current = null
+    movedRef.current = false
+  }
+  const releaseAll = () => {
+    for (const n of simRef.current) { n.fx = null; n.fy = null }
+    alphaRef.current = 1
+    ensureRunningRef.current()
   }
 
   const ns = simRef.current
@@ -180,7 +191,7 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick }:
   return (
     <div ref={wrapRef} style={{ width: '100%', height: fill ? '100%' : 'auto' }}>
     <svg ref={svgRef} width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: fill ? '100%' : 'auto', display: 'block', fontFamily: 'Inter, sans-serif', touchAction: 'none' }}
-      onPointerMove={onMove} onPointerUp={endDrag} onPointerLeave={endDrag}>
+      onPointerMove={onMove} onPointerUp={endDrag} onPointerLeave={endDrag} onDoubleClick={releaseAll}>
       <defs>
         <filter id="spNodeGlow">
           <feGaussianBlur stdDeviation="6" result="b" />
@@ -195,9 +206,8 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick }:
         })}
       </g>
       {ns.map((n) => (
-        <g key={n.id} transform={`translate(${n.x},${n.y})`} cursor={onNodeClick ? 'pointer' : 'grab'}
-          onClick={() => onNodeClick?.(n.id)}
-          onPointerDown={(e) => { dragRef.current = { id: n.id }; (e.target as Element).setPointerCapture?.(e.pointerId); alphaRef.current = Math.max(alphaRef.current, 0.3); ensureRunningRef.current() }}>
+        <g key={n.id} transform={`translate(${n.x},${n.y})`} cursor="grab"
+          onPointerDown={(e) => { dragRef.current = { id: n.id }; movedRef.current = false; (e.target as Element).setPointerCapture?.(e.pointerId); alphaRef.current = Math.max(alphaRef.current, 0.3); ensureRunningRef.current() }}>
           <title>{n.label}</title>
           <circle r={n.r} fill={COLOR[n.category] ?? COLOR.other} stroke="#fff" strokeWidth={n.featured ? 3 : 2} filter="url(#spNodeGlow)" />
           {/* readable label BELOW the node: featured hubs show the full concept, others the

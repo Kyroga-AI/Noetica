@@ -11,6 +11,7 @@
 import type { GraphNode, GraphEdge } from '@socioprophet/hellgraph'
 import { embedBatchLocal } from './embed-runtime.js'
 import { cleanLabel, categoryFor, type SurfaceResult, type SurfaceNode, type SurfaceLink } from './graph-surface.js'
+import { classifyTerms, titleCaseTopic } from './slash-topics.js'
 
 // Words that are tool params, shell/command fragments, or generic instance noise — never topics.
 const NOISE = new Set([
@@ -284,10 +285,15 @@ export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[
         // repetitive "Features"; only as a last resort the rep's own label.
         const GENERIC_TYPES = new Set(['Features', 'Artifacts', 'Vectors', 'Nodes', 'Candidates', 'Entities', 'Concepts', 'Actions'])
         const cap = (w: string) => w.charAt(0).toUpperCase() + w.slice(1)
-        const themed = className(g.map((m) => labelOf.get(m.id) ?? ''))
+        const memberLabels = g.map((m) => labelOf.get(m.id) ?? '')
+        // GROUND in the slash-topic taxonomy first — a canonical blekko topic the cluster covers
+        // ("Artificial Intelligence", "Cloud", "Databases") beats an ad-hoc synthesized name.
+        const taxo = classifyTerms(memberLabels)
+        const themed = className(memberLabels)
         const tc = typeClass(g)
         const distinct = tokenize(labelOf.get(rep.id) ?? '').find((t) => t.length >= 3 && !NOISE.has(t) && !STOP.has(t))
-        let cname = themed
+        let cname = (taxo ? titleCaseTopic(taxo.topic) : null)
+          ?? themed
           ?? ((tc && GENERIC_TYPES.has(tc) && distinct) ? cap(distinct) : null)
           ?? tc
           ?? (labelOf.get(rep.id) ?? '')
