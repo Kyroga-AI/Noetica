@@ -75,6 +75,7 @@ export interface DomainMatch {
   score: number // fraction of query tokens covered by this domain's glossary
   topics: { code: string; terms: string[]; hits: number }[]
   matchedTerms: string[]
+  createdAt?: string // when the domain was learned — recency breaks score ties
 }
 
 /**
@@ -113,9 +114,13 @@ export function matchDomains(query: string, topK = 2): DomainMatch[] {
       score: matched.size / qTokens.size,
       topics,
       matchedTerms: [...matched],
+      createdAt: String(d.properties['created_at'] ?? ''),
     })
   }
-  return out.sort((a, b) => b.score - a.score).slice(0, topK)
+  // Rank by glossary-overlap score, then by recency so that when many domains cover a query
+  // equally (e.g. several corpus releases share vocabulary) the most recently learned wins —
+  // and a fresh domain is never buried behind older identical-scoring ones past the topK cut.
+  return out.sort((a, b) => b.score - a.score || (b.createdAt ?? '').localeCompare(a.createdAt ?? '')).slice(0, topK)
 }
 
 /** kebab slug for stable, content-addressable atom ids derived from a term. */
