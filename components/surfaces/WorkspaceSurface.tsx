@@ -23,6 +23,29 @@ export function WorkspaceSurface() {
   const [cmd, setCmd] = useState('')
   const [running, setRunning] = useState(false)
 
+  const [task, setTask] = useState('')
+  const [solving, setSolving] = useState(false)
+  const [steps, setSteps] = useState<{ attempt: number; verify: string; exit: string; ok: boolean; files: string[]; output: string }[]>([])
+  const [solved, setSolved] = useState<boolean | null>(null)
+
+  async function runSolve() {
+    const t = task.trim()
+    if (!t || !ws || solving) return
+    setSolving(true); setSteps([]); setSolved(null)
+    try {
+      const r = await fetch(`${amBase()}/api/code/solve`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ task: t, workspace: ws, max_attempts: 4 }),
+        signal: AbortSignal.timeout(600_000),
+      })
+      const j = (await r.json()) as { solved?: boolean; steps?: typeof steps }
+      setSteps(j.steps ?? []); setSolved(j.solved ?? false)
+      void loadFiles(ws)
+    } catch {
+      setSolved(false); setSteps([{ attempt: 1, verify: '', exit: 'error', ok: false, files: [], output: 'backend offline or timed out' }])
+    } finally { setSolving(false) }
+  }
+
   async function runCmd() {
     const c = cmd.trim()
     if (!c || !ws || running) return
@@ -83,6 +106,21 @@ export function WorkspaceSurface() {
         <button onClick={() => { void loadWorkspaces(); if (ws) void loadFiles(ws) }} className="text-[11px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">↻ refresh</button>
         <span className="ml-auto text-[11px] text-[var(--color-text-tertiary)]">{files.length} files</span>
       </div>
+      {/* Build — describe a task; the verify-repair loop generates → runs the test → repairs. */}
+      <div className="flex items-center gap-2 border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] px-6 py-2">
+        <span className="text-[11px] font-medium text-[#7c3aed]">Build</span>
+        <input
+          value={task} onChange={(e) => setTask(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') void runSolve() }}
+          placeholder={ws ? 'describe what to build — e.g. "fib.py with a test that asserts fib(10)==55"' : 'pick a workspace first'}
+          disabled={!ws || solving}
+          className="flex-1 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1 text-[12px] text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
+        />
+        <button onClick={() => void runSolve()} disabled={!ws || solving || !task.trim()}
+          className="rounded-lg bg-[#7c3aed] px-3 py-1 text-[12px] font-semibold text-white disabled:opacity-50">
+          {solving ? 'Building…' : 'Build →'}
+        </button>
+      </div>
       <div className="flex min-h-0 flex-1">
         <div className="w-64 shrink-0 overflow-y-auto border-r border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] py-2">
           {loading && <div className="px-4 py-2 text-[12px] text-[var(--color-text-tertiary)]">loading…</div>}
@@ -100,7 +138,24 @@ export function WorkspaceSurface() {
           })}
         </div>
         <div className="min-h-0 flex-1 overflow-auto bg-[var(--color-background-primary)]">
-          {!sel && <div className="flex h-full items-center justify-center text-[13px] text-[var(--color-text-tertiary)]">Select a file to view it.</div>}
+          {!sel && steps.length === 0 && <div className="flex h-full items-center justify-center text-[13px] text-[var(--color-text-tertiary)]">Select a file, or describe a build above.</div>}
+          {!sel && steps.length > 0 && (
+            <div className="p-4">
+              <div className="mb-3 text-[13px] font-semibold text-[var(--color-text-primary)]">{solving ? '⏳ Building…' : solved ? '✅ Built & verified' : '⚠️ Needs another pass'}</div>
+              {steps.map((s, i) => (
+                <div key={i} className="mb-2 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-2.5 text-[12px]">
+                  <div className="font-medium text-[var(--color-text-primary)]">{s.ok ? '✅' : '❌'} attempt {s.attempt} <span className="text-[var(--color-text-tertiary)]">· exit {s.exit}</span></div>
+                  {s.files.length > 0 && (
+                    <div className="mt-1 text-[var(--color-text-tertiary)]">files: {s.files.map((f, k) => (
+                      <button key={f} onClick={() => void openFile(f)} className="text-[#1d4ed8] underline">{f}{k < s.files.length - 1 ? ', ' : ''}</button>
+                    ))}</div>
+                  )}
+                  {s.verify && <div className="mt-1 font-mono text-[11px] text-[var(--color-text-tertiary)]">verify: {s.verify}</div>}
+                  {s.output && !s.ok && <pre className="mt-1 max-h-32 overflow-auto whitespace-pre-wrap rounded bg-[var(--color-background-primary)] p-1.5 font-mono text-[11px] text-[var(--color-text-secondary)]">{s.output.slice(0, 500)}</pre>}
+                </div>
+              ))}
+            </div>
+          )}
           {sel && (
             <>
               <div className="sticky top-0 border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-4 py-1.5 font-mono text-[11px] text-[var(--color-text-secondary)]">{sel} <span className="ml-1 text-[var(--color-text-tertiary)]">· {lang}</span></div>
