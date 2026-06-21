@@ -30,6 +30,20 @@ export function GraphRailPanel() {
   const [graph, setGraph] = useState<{ nodes: GraphNode[]; links: GraphLink[] }>({ nodes: [], links: [] })
   const [expanded, setExpanded] = useState(false)
 
+  // Esc closes the expanded graph overlay (when drilled into a node, first Esc backs
+  // out to topics, second closes) — matches the ← back / ✕ affordances.
+  useEffect(() => {
+    if (!expanded) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      if (root) setRoot('')
+      else setExpanded(false)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [expanded, root])
+
   // health poll
   useEffect(() => {
     let cancelled = false
