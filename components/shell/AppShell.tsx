@@ -13,6 +13,7 @@ import { ComputerUseSurface } from '@/components/surfaces/ComputerUseSurface'
 import { WorkroomsSurface } from '@/components/surfaces/WorkroomsSurface'
 import { CoworkSurface } from '@/components/surfaces/CoworkSurface'
 import { CodeSurface } from '@/components/surfaces/CodeSurface'
+import { WorkspaceSurface } from '@/components/surfaces/WorkspaceSurface'
 import { EvaluateSurface } from '@/components/surfaces/EvaluateSurface'
 import { GovernSurface } from '@/components/surfaces/GovernSurface'
 import { ProjectsSurface } from '@/components/surfaces/ProjectsSurface'
@@ -72,6 +73,7 @@ const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
   projects:     'Cowork',
   artifacts:    'Chat',
   code:         'Code',
+  workspace:    'Code',
   evaluate:     'Benchmark',
   operate:      'Chat',
   govern:       'Chat',
@@ -382,10 +384,20 @@ export function AppShell() {
   }
 
   const voiceReplyRef = useRef(false)
-  const { state: voiceState, isLive, startListening, stopListening, startLive, stopLive, speak, stopSpeaking } = useVoice((transcript) => {
+  const { state: voiceState, isLive, error: voiceError, startListening, stopListening, startLive, stopLive, speak, stopSpeaking } = useVoice((transcript) => {
     voiceReplyRef.current = true   // this turn was voice-initiated → speak the reply
     void handleSendRaw(transcript, [], messages)
   })
+
+  // Surface voice errors (backend offline, mic denied, STT unavailable) as a transient
+  // notice — a voice feature must never fail as a silent no-op.
+  const [voiceNotice, setVoiceNotice] = useState<string | null>(null)
+  useEffect(() => {
+    if (!voiceError) return
+    setVoiceNotice(voiceError)
+    const t = setTimeout(() => setVoiceNotice(null), 6000)
+    return () => clearTimeout(t)
+  }, [voiceError])
 
   // ── Tauri menu bridge ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -1306,6 +1318,15 @@ export function AppShell() {
 
   return (
     <>
+      {voiceNotice && (
+        <div
+          role="status"
+          onClick={() => setVoiceNotice(null)}
+          className="fixed right-4 top-12 z-[100] max-w-sm cursor-pointer rounded-lg border border-[#fda4af] bg-[#fff1f2] px-3 py-2 text-xs text-[#9f1239] shadow-lg"
+        >
+          🎙️ {voiceNotice}
+        </div>
+      )}
       {showSetup && (
         <ModelSetupOverlay
           onDismiss={() => {
@@ -1591,6 +1612,7 @@ function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, work
   if (activeSurface === 'projects')     return <ProjectsPanel />
   if (activeSurface === 'artifacts')    return <ArtifactsSurface />
   if (activeSurface === 'code')         return <CodeSurface onOpenSettings={onOpenSettings} onNavigateToOperate={onNavigateToOperate} />
+  if (activeSurface === 'workspace')    return <WorkspaceSurface />
   if (activeSurface === 'evaluate')     return <EvaluateSurface thinkingBudget={thinkingBudget} />
   if (activeSurface === 'operate')      return <OperateSurface onAtomSelect={onAtomSelect} />
   if (activeSurface === 'govern') {

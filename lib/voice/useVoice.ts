@@ -81,9 +81,15 @@ export function useVoice(onTranscript: (text: string) => void) {
             const amBase = isTauri() ? 'http://127.0.0.1:8080' : ''
             const res = await fetch(`${amBase}/api/stt`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ audio_b64: String(reader.result) }), signal: AbortSignal.timeout(90_000) })
             const j = (await res.json()) as { text?: string; error?: string }
-            if (j.text?.trim()) onTranscript(j.text.trim())
-            else if (j.error) setError(j.error)
-          } catch { setError('Transcription failed') } finally { setState('idle') }
+            if (j.text?.trim()) { setError(null); onTranscript(j.text.trim()) }
+            else if (j.error) setError(`Speech-to-text unavailable: ${j.error}`)
+            else setError('Heard nothing — try again, closer to the mic.')
+          } catch {
+            // fetch threw → the voice backend isn't reachable. Make that explicit
+            // instead of failing silently, and stop the live loop so it can't stall.
+            liveRef.current = false; setIsLive(false)
+            setError('Voice backend offline — start the Agent Machine (port 8080) and try again.')
+          } finally { setState('idle') }
         }
         reader.readAsDataURL(blob)
       }

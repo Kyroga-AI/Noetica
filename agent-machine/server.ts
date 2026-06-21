@@ -61,6 +61,8 @@ import { validateGraph } from '@socioprophet/hellgraph'
 import { CANONICAL_SHAPES, QUARANTINE_PROP } from './lib/canonical-shapes.js'
 import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
 import { critique, bestOfTemps, type Candidate as CriticCandidate } from './lib/critic.js'
+import { programOfThought, codeVerifyRepair } from './lib/exec-verify.js'
+import { classifyComplexity as classifyComplexityPosture } from './lib/complexity-discipline.js'
 import { detectGoalIntent, slotFill, buildGoalContext, getActiveGoal, listGoals, saveGoal, type Goal } from './lib/goal-model.js'
 import { assessAgainstGraph } from './lib/pln-judgment.js'
 import { saveCheckpoint, listCheckpoints, getCheckpoint, buildResumeMessages } from './lib/checkpoint-model.js'
@@ -2604,49 +2606,118 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         }
       }
 
-      // ── 4D/RCS deliberation loop (flagged: NOETICA_DELIBERATION=1) ───────────
-      // Behavior Generation proposes K candidate answers; the World Model
-      // (retrieved memory) + Value Judgment score each on worth; select the best.
-      // Technique over horsepower: several cheap local samples + symbolic
-      // selection instead of one large model call.
+      // ── Critic: best-of-N → verify → select → GATE (default on) ───────────────
+      // Behavior Generation proposes N candidates; the Critic scores each against the
+      // world model + posture, SELECTS the best (self-consistency breaks ties toward
+      // consensus), and GATES: accept / escalate / clarify. "Out-loop, not out-model"
+      // — several cheap local samples + symbolic selection beat one first-token reply.
+      // On ESCALATE with real grounding, spend one sample on a stronger LOCAL model
+      // (sovereign 7B→14B) before any cloud egress. Tunable: NOETICA_BESTOF_N (default
+      // 3, set 1 to disable), NOETICA_CRITIC=0 to turn off. Skipped for tool turns,
+      // trivial chat, and non-Ollama providers (those have their own paths).
       let deliberated = false
-      if (process.env['NOETICA_DELIBERATION'] === '1' && routerDecision.task === 'reasoning' && allTools.length === 0) {
+      const bestOfN = Math.max(1, Math.min(8, Math.floor(Number(process.env['NOETICA_BESTOF_N'] ?? 3)) || 3))
+      const criticEnabled = process.env['NOETICA_CRITIC'] !== '0' && bestOfN > 1
+        && allTools.length === 0 && routerDecision.task !== 'chat'
+
+      // Verify-by-execution (the strong test-time-compute lever): for a `compute`
+      // posture — arithmetic/quantitative word problems where a small model's mental
+      // math is unreliable — translate the problem to a program, RUN it, and trust the
+      // executed result instead of voting over guesses. Deterministic, not popular.
+      // NOT gated on no-tools: a compute question is best answered by computing it even
+      // when other tools are on offer (PoT returns null and falls through if it can't,
+      // e.g. the answer needs live data a program can't reach). Disable: NOETICA_EXEC_VERIFY=0.
+      if (process.env['NOETICA_EXEC_VERIFY'] !== '0' && routerDecision.task !== 'chat'
+          && classifyComplexityPosture(latestUserContent).posture === 'compute') {
+        try {
+          const pot = await programOfThought(latestUserContent, {
+            generate: (p, t) => generateOllamaText({ model, messages: [{ role: 'user', content: p }], temperature: t, numCtx: ollamaNumCtx }).then((r) => r.content),
+            execute: (lang, code) => executeCode(lang, code),
+          })
+          if (pot) {
+            const answer = `${pot.answer}\n\n_Verified by execution:_\n\`\`\`python\n${pot.code}\n\`\`\``
+            sse(res, 'deliberation', { deliberation: { critic: { action: 'accept', score: 1, agreement: 1, posture: 'compute', reason: 'verified by execution (program-of-thought)' } } })
+            sse(res, 'delta', { delta: answer })
+            fullContent += answer
+            deliberated = true
+            console.log(`[critic] program-of-thought verified answer=${pot.answer}`)
+          }
+        } catch { /* exec-verify best-effort — fall through to best-of-N */ }
+      }
+
+      // Code-posture verify-repair: for self-contained "write code" tasks, generate a
+      // solution + tests, RUN them, and repair on failure — keep what passes. The
+      // out-loop coding lever (a small model + a real test loop). Abstains for unrunnable
+      // languages / repo-scale edits, which fall through to the normal path.
+      // Disable with NOETICA_CODE_VERIFY=0.
+      if (!deliberated && process.env['NOETICA_CODE_VERIFY'] !== '0'
+          && routerDecision.task !== 'chat' && classifyComplexityPosture(latestUserContent).posture === 'code') {
+        try {
+          const cv = await codeVerifyRepair(latestUserContent, {
+            generate: (p, t) => generateOllamaText({ model, messages: [{ role: 'user', content: p }], temperature: t, numCtx: ollamaNumCtx }).then((r) => r.content),
+            execute: (lang, code) => executeCode(lang, code),
+          })
+          if (cv) {
+            const head = cv.passed
+              ? `✓ Verified — generated tests pass (${cv.attempts} attempt${cv.attempts > 1 ? 's' : ''}).`
+              : `⚠️ Tests didn't all pass after repair — best attempt below; review before use.`
+            const answer = `${head}\n\n\`\`\`${cv.language}\n${cv.solution}\n\`\`\``
+            sse(res, 'deliberation', { deliberation: { critic: { action: cv.passed ? 'accept' : 'clarify', score: cv.passed ? 1 : 0.4, agreement: 1, posture: 'code', reason: cv.passed ? 'verified by tests (generate→run→repair)' : 'tests did not all pass' } } })
+            sse(res, 'delta', { delta: answer })
+            fullContent += answer
+            deliberated = true
+            console.log(`[critic] code-verify passed=${cv.passed} attempts=${cv.attempts} lang=${cv.language}`)
+          }
+        } catch { /* code-verify best-effort — fall through */ }
+      }
+
+      if (!deliberated && criticEnabled) {
         try {
           const wm = loadWorldModelForVJ()
-          const temps = [0.3, 0.7, 1.0]
-          // Ollama serves one generation at a time per model — generate candidates
-          // sequentially (parallel calls queue/fail). Deliberation is an opt-in
-          // "think harder" mode, so K× latency is an accepted trade.
-          const candidates: Array<{ content: string; reasoning: string; temperature: number }> = []
-          for (const t of temps) {
+          const candidates: CriticCandidate[] = []
+          // Ollama serves one generation at a time per model — sample sequentially.
+          for (const t of bestOfTemps(bestOfN)) {
             try {
               const r = await generateOllamaText({ model, messages: ollamaMessages, temperature: t, numCtx: ollamaNumCtx })
-              if (r.content.trim()) candidates.push({ ...r, temperature: t })
+              if (r.content.trim()) candidates.push({ content: r.content, reasoning: r.reasoning, temperature: t, label: model })
             } catch { /* skip a failed candidate */ }
           }
-          const judged = candidates
-            .map((c) => ({ c, vj: judgeAnswer({ answer: c.content, reasoning: c.reasoning || undefined, contextText: graphContext, beliefs: wm.beliefs, laws: wm.laws }) }))
-            .sort((a, b) => b.vj.worth - a.vj.worth)
-          if (judged.length > 0) {
-            const best = judged[0]!
+          if (candidates.length > 0) {
+            const cctx = { question: latestUserContent, contextText: graphContext, beliefs: wm.beliefs, laws: wm.laws }
+            let verdict = critique(candidates, cctx)
+            // Sovereign escalation: only when there's real grounding material to judge
+            // against (otherwise the worth metric is uninformative and a bigger model
+            // won't help) AND a stronger local model is installed.
+            const haveGrounding = graphContext.trim().length > 200
+            if (verdict.action === 'escalate' && haveGrounding) {
+              const stronger = ['qwen2.5:32b', 'qwen2.5:14b'].find((m) => availableModels.includes(m) && m !== model)
+              if (stronger) {
+                try {
+                  const r = await generateOllamaText({ model: stronger, messages: ollamaMessages, temperature: 0.4, numCtx: ollamaNumCtx })
+                  if (r.content.trim()) candidates.push({ content: r.content, reasoning: r.reasoning, temperature: 0.4, label: `esc:${stronger}` })
+                  verdict = critique(candidates, cctx)
+                } catch { /* escalation best-effort */ }
+              }
+            }
+            const best = verdict.best
             sse(res, 'deliberation', {
               deliberation: {
-                candidates: judged.map((j, i) => ({
-                  rank: i, worth: j.vj.worth, grounding: j.vj.grounding,
-                  verdict: j.vj.verdict, temperature: j.c.temperature,
-                  preview: j.c.content.slice(0, 100),
+                candidates: verdict.ranked.map((j, i) => ({
+                  rank: i, worth: j.score, grounding: j.vj.grounding, verdict: j.vj.verdict,
+                  temperature: j.candidate.temperature, label: j.candidate.label,
+                  preview: j.candidate.content.slice(0, 100),
                 })),
-                selected_rank: 0,
+                selected_rank: Math.max(0, verdict.ranked.indexOf(best)),
+                critic: { action: verdict.action, score: best.score, agreement: verdict.agreement, posture: verdict.posture, reason: verdict.reason },
               },
             })
-            if (best.c.reasoning) sse(res, 'thinking_delta', { delta: best.c.reasoning })
-            sse(res, 'delta', { delta: best.c.content })
-            fullContent += best.c.content
-            fullThinking += best.c.reasoning
+            if (best.candidate.reasoning) { sse(res, 'thinking_delta', { delta: best.candidate.reasoning }); fullThinking += best.candidate.reasoning }
+            sse(res, 'delta', { delta: best.candidate.content })
+            fullContent += best.candidate.content
             deliberated = true
-            console.log(`[deliberation] ${judged.length} candidates, selected worth=${best.vj.worth} (grounding=${best.vj.grounding})`)
+            console.log(`[critic] N=${candidates.length} action=${verdict.action} worth=${best.score} agreement=${verdict.agreement} posture=${verdict.posture} model=${best.candidate.label}`)
           }
-        } catch { /* deliberation is best-effort — fall through to normal streaming */ }
+        } catch { /* critic is best-effort — fall through to normal streaming */ }
       }
 
       // Concierge dispatch: for heavy work, acknowledge conversationally *now*
@@ -4579,6 +4650,55 @@ const server = http.createServer((req, res) => {
       res.writeHead(200, { 'content-type': 'application/json' })
       res.end(JSON.stringify({ ok: steps.every((s) => s.ok), framework: base, typescript: !!p.typescript, workspace: wsName, name, path: projDir, devUrl, devCommand: `cd ${projDir} && npm run dev`, steps }))
     })() })
+    return
+  }
+
+  // ── Code workspace — list/read project files for the workspace surface ───────
+  if (req.method === 'GET' && url.pathname === '/api/workspace/list') {
+    void (async () => {
+      setCORSHeaders(res)
+      const root = path.join(os.homedir(), '.noetica', 'workspaces')
+      const ws = (url.searchParams.get('ws') ?? '').replace(/[^a-zA-Z0-9._-]/g, '_')
+      const SKIP = new Set(['node_modules', '.git', 'dist', '.next', '__pycache__', '.cache', 'target'])
+      try {
+        if (!ws) {
+          const dirs = fs.existsSync(root) ? fs.readdirSync(root).filter((d) => { try { return fs.statSync(path.join(root, d)).isDirectory() } catch { return false } }) : []
+          res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ workspaces: dirs })); return
+        }
+        const base = path.join(root, ws)
+        const files: { path: string; dir: boolean; size: number }[] = []
+        const walk = (dir: string, rel: string, depth: number) => {
+          if (depth > 6 || files.length > 2000) return
+          let entries: string[] = []
+          try { entries = fs.readdirSync(dir) } catch { return }
+          for (const name of entries.sort()) {
+            if (SKIP.has(name) || name.startsWith('.')) continue
+            const abs = path.join(dir, name), r = rel ? `${rel}/${name}` : name
+            let st: fs.Stats; try { st = fs.statSync(abs) } catch { continue }
+            files.push({ path: r, dir: st.isDirectory(), size: st.size })
+            if (st.isDirectory()) walk(abs, r, depth + 1)
+          }
+        }
+        if (fs.existsSync(base)) walk(base, '', 0)
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ws, files }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'list_failed', files: [] })) }
+    })()
+    return
+  }
+  if (req.method === 'GET' && url.pathname === '/api/workspace/read') {
+    void (async () => {
+      setCORSHeaders(res)
+      const ws = (url.searchParams.get('ws') ?? '').replace(/[^a-zA-Z0-9._-]/g, '_')
+      const rel = (url.searchParams.get('path') ?? '').replace(/^\/+/, '')
+      const base = path.join(os.homedir(), '.noetica', 'workspaces', ws)
+      const target = path.resolve(base, rel)
+      if (!target.startsWith(base + path.sep)) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'bad_path' })); return }
+      try {
+        const st = fs.statSync(target)
+        if (st.size > 1024 * 1024) { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ content: `(file too large: ${st.size} bytes)`, truncated: true })); return }
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ content: fs.readFileSync(target, 'utf8') }))
+      } catch { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'not_found' })) }
+    })()
     return
   }
 
