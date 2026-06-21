@@ -910,12 +910,20 @@ async function executeToolWithTimeout(
   }
 }
 
+// Portable login shell — zsh isn't guaranteed on Linux (the future primary target). Prefer
+// $SHELL, then bash, then sh. Resolved once.
+const LOGIN_SHELL = (() => {
+  const cands = [process.env['SHELL'], '/bin/zsh', '/bin/bash', '/bin/sh']
+  for (const s of cands) { try { if (s && fs.existsSync(s)) return s } catch { /* */ } }
+  return '/bin/sh'
+})()
+
 // Run a shell command in a workspace dir, non-blocking, with a hard timeout + output caps.
 // Used by the run_command tool (the sandboxed shell that lets the agent actually scaffold/run).
 function runInWorkspace(command: string, cwd: string, timeoutMs: number): Promise<{ out: string; err: string; code: string }> {
   return new Promise((resolve) => {
     let out = '', err = '', done = false
-    const child = cp.spawn('/bin/zsh', ['-lc', command], { cwd, env: { ...process.env } })
+    const child = cp.spawn(LOGIN_SHELL, ['-lc', command], { cwd, env: { ...process.env } })
     const timer = setTimeout(() => { if (!done) { done = true; try { child.kill('SIGKILL') } catch { /* */ } resolve({ out, err, code: `timeout after ${timeoutMs}ms` }) } }, timeoutMs)
     child.stdout.on('data', (d: Buffer) => { if (out.length < 200_000) out += d.toString() })
     child.stderr.on('data', (d: Buffer) => { if (err.length < 100_000) err += d.toString() })
@@ -929,7 +937,7 @@ function runInWorkspace(command: string, cwd: string, timeoutMs: number): Promis
 const _devServers = new Set<number>()
 function startDevServer(command: string, cwd: string, timeoutMs: number): Promise<{ url?: string; pid?: number }> {
   return new Promise((resolve) => {
-    const child = cp.spawn('/bin/zsh', ['-lc', command], { cwd, env: { ...process.env } })
+    const child = cp.spawn(LOGIN_SHELL, ['-lc', command], { cwd, env: { ...process.env } })
     if (child.pid) _devServers.add(child.pid)
     let resolved = false
     const finish = (u?: string) => { if (!resolved) { resolved = true; clearTimeout(timer); resolve({ url: u, pid: child.pid }) } }
