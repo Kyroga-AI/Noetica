@@ -113,11 +113,15 @@ detect failure (sense)
                  → NEG: rollback, fall through to synthesize
        NO/NEG → SYNTHESIZE a new fix (skill-synthesis pipeline, grounded in ops + estate)
              → verify → gate-execute → POS: CRYSTALLIZE (Incident --resolved_by--> new Skill)
+             → if opted in to SociOS: sanitize + sign → upload solution to the global brain
+                 (and pull fleet candidates for unseen failures) — see socios-global-brain-federation.md
 ```
 
 So the device **diagnoses from correlated history, fixes through the verified gate, and learns the
 fix** — and the agent's own failed attempts (gate NEGs) feed straight back as FailureAtoms, so it
-gets better at the *same* failure next time.
+gets better at the *same* failure next time. A crystallized solution is local-first; with **SociOS
+opt-in** it federates so a problem solved once, anywhere, inoculates the fleet — and pulled fixes are
+re-certified by *this* machine's gate before they ever run (socios-global-brain-federation.md).
 
 ---
 
