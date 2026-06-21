@@ -262,15 +262,25 @@ export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[
         // CLASS name from the theme the members share — falls back to the centroid member's
         // own label when the cluster has no shared theme. This is what makes the top layer read
         // as topic CLASSES ("Model Router", "Plugin") rather than instances ("tauri-apps").
-        // Class name: shared-theme first, then the cluster's dominant ONTOLOGICAL type, and
-        // only as a last resort the rep's own (instance) label — so the top layer is classes.
-        let cname = className(g.map((m) => labelOf.get(m.id) ?? '')) ?? typeClass(g) ?? (labelOf.get(rep.id) ?? '')
+        // Class name: shared-theme first; else the cluster's dominant ONTOLOGICAL type — but
+        // when that type is a generic container (most tech atoms are FEATURE_ATOM), the rep's
+        // distinctive token IS the real topic ("Memory", "Guardrail"), so prefer that over a
+        // repetitive "Features"; only as a last resort the rep's own label.
+        const GENERIC_TYPES = new Set(['Features', 'Artifacts', 'Vectors', 'Nodes', 'Candidates', 'Entities', 'Concepts', 'Actions'])
+        const cap = (w: string) => w.charAt(0).toUpperCase() + w.slice(1)
+        const themed = className(g.map((m) => labelOf.get(m.id) ?? ''))
+        const tc = typeClass(g)
+        const distinct = tokenize(labelOf.get(rep.id) ?? '').find((t) => t.length >= 3 && !NOISE.has(t) && !STOP.has(t))
+        let cname = themed
+          ?? ((tc && GENERIC_TYPES.has(tc) && distinct) ? cap(distinct) : null)
+          ?? tc
+          ?? (labelOf.get(rep.id) ?? '')
         let dedupKey = cname.toLowerCase()
         if (usedLabels.has(dedupKey)) {
-          // Two clusters landed on the same class (e.g. "Models"): disambiguate with the rep's
-          // most distinctive token instead of dropping a whole topic.
-          const distinct = tokenize(labelOf.get(rep.id) ?? '').find((t) => t.length >= 3 && !NOISE.has(t) && !STOP.has(t) && !dedupKey.includes(t))
-          if (distinct) { cname = `${cname} · ${distinct.charAt(0).toUpperCase() + distinct.slice(1)}`; dedupKey = cname.toLowerCase() }
+          // Two clusters landed on the same class (e.g. "Models"): disambiguate with a DIFFERENT
+          // distinctive token instead of dropping a whole topic.
+          const alt = tokenize(labelOf.get(rep.id) ?? '').find((t) => t.length >= 3 && !NOISE.has(t) && !STOP.has(t) && !dedupKey.includes(t))
+          if (alt) { cname = `${cname} · ${cap(alt)}`; dedupKey = cname.toLowerCase() }
           if (usedLabels.has(dedupKey)) continue
         }
         usedLabels.add(dedupKey)
