@@ -478,8 +478,10 @@ export function AppShell() {
       case 'navigate': handleSurfaceChange(cmd.surface as ActiveSurface); break
       case 'setModel': handleModelChange(cmd.model); break
       case 'openSettings': openSettings(cmd.category ?? 'appearance'); break
+      case 'setName': updateSettings({ userName: cmd.name }); break
       case 'newWorkspace':
       case 'clearChat': handleNewChat(); break
+      case 'repeatLast': break // handled in the send flow (needs to re-dispatch)
     }
   }
 
@@ -629,6 +631,16 @@ export function AppShell() {
       // Commands that clear/replace the chat: execute without leaving a stray turn behind.
       if (dlg.command?.kind === 'newWorkspace' || dlg.command?.kind === 'clearChat') {
         handleNewChat()
+        return
+      }
+      // "again"/"repeat" — re-dispatch the previous user request to the model.
+      if (dlg.command?.kind === 'repeatLast') {
+        const lastUser = [...messages].reverse().find((m) => m.role === 'user')
+        if (lastUser?.content) { await handleSendRaw(lastUser.content, [], messages, tools); return }
+        const now = new Date().toISOString()
+        const u: ChatMessage = { id: crypto.randomUUID(), role: 'user', content, workspace_mode: workspaceMode, created_at: now }
+        const a: ChatMessage = { id: crypto.randomUUID(), role: 'assistant', content: 'Nothing to repeat yet — ask me something first.', created_at: now }
+        setMessages((cur) => { const next = [...cur, u, a]; updateMessages(next); return next })
         return
       }
       const now = new Date().toISOString()

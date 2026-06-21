@@ -27,6 +27,8 @@ export type DialogueCommand =
   | { kind: 'newWorkspace' }
   | { kind: 'clearChat' }
   | { kind: 'openSettings'; category?: string }
+  | { kind: 'setName'; name: string }
+  | { kind: 'repeatLast' }
 
 // Natural-language surface names → ActiveSurface ids (kept as strings to stay decoupled).
 const SURFACE_ALIASES: Record<string, string> = {
@@ -198,6 +200,9 @@ export function matchDialogue(input: string, ctx?: DialogueCtx): DialogueResult 
   const raw = input.trim()
   if (!raw) return null
   const s = raw.toLowerCase().replace(/[!?.…]+$/g, '').replace(/\s+/g, ' ').trim()
+    .replace(/^(swich|swithc|swtich)\b/, 'switch')
+    .replace(/^(oepn|opne)\b/, 'open')
+    .replace(/^(claer|clera)\b/, 'clear')
   const name = ctx?.userName?.trim()
   const maybeName = name && Math.random() < 0.5 ? `, ${name}` : ''
   const excited = /[!]{2,}$/.test(raw) || (raw.length <= 14 && raw === raw.toUpperCase() && /[a-z]/i.test(raw))
@@ -226,6 +231,22 @@ export function matchDialogue(input: string, ctx?: DialogueCtx): DialogueResult 
     const sides = dm[1] ? Math.max(2, Math.min(1000, parseInt(dm[1], 10))) : 6
     return r(`🎲 ${1 + Math.floor(Math.random() * sides)} (d${sides}).`)
   }
+  let rn: RegExpMatchArray | null
+  if ((rn = s.match(/^(?:pick|choose|give me|generate|random)(?: a)?(?: random)? number(?: (?:between|from) (\d+) (?:and|to|-) (\d+))?$/))) {
+    const a = Math.min(Number(rn[1] ?? 1), Number(rn[2] ?? 100)), b = Math.max(Number(rn[1] ?? 1), Number(rn[2] ?? 100))
+    return r(`🎯 ${a + Math.floor(Math.random() * (b - a + 1))}  (${a}–${b})`)
+  }
+  if (any(/^(decide for me|you decide|yes or no|should i\b.*|is it (a )?good idea\b.*|magic 8.?ball|will (it|i|this)\b.*|do you think i should\b.*)$/))
+    return r(pick('decide', ['🎱 Yes.', '🎱 No.', '🎱 Maybe — your call.', '🎱 Signs point to yes.', '🎱 I wouldn’t count on it.', '🎱 Ask again later.', '🎱 Definitely.', '🎱 Better not tell you now.']))
+  if (any(/^(random colou?r|give me a colou?r|pick a colou?r)$/)) {
+    const hex = '#' + [0, 0, 0].map(() => Math.floor(Math.random() * 256).toString(16).padStart(2, '0')).join('')
+    return r(`🎨 ${hex}`)
+  }
+  let pc: RegExpMatchArray | null
+  if ((pc = s.match(/^(?:what('?s| is) )?(\d+\.?\d*)\s*(?:%|percent)\s+(of|off)\s+(\d+\.?\d*)$/))) {
+    const p = Number(pc[2]), base = Number(pc[4]), val = base * p / 100
+    return r(pc[3] === 'off' ? `${Math.round((base - val) * 100) / 100}  (${p}% off ${base})` : `${Math.round(val * 100) / 100}  (${p}% of ${base})`)
+  }
   const conv = convert(s.replace(/^(convert|how many \w+ (is|in)|what('?s| is)) /, ''))
   if (conv) return r(conv)
   const mathExpr = s.replace(/^(what('?s| is)|calculate|compute|eval(uate)?)\s+/, '')
@@ -241,6 +262,15 @@ export function matchDialogue(input: string, ctx?: DialogueCtx): DialogueResult 
       `Ugh, I hear you. What's not working? Let's fix it.`,
       `That's annoying — point me at it and I'll sort it out.`,
     ]), { quickReplies: ['Show my files', 'What can you do?'] })
+
+  // ── Personalization: remember the user's name ─────────────────────────────
+  let pn: RegExpMatchArray | null
+  if ((pn = raw.match(/^(?:call me|my name is|name'?s|you can call me|please call me)\s+([A-Za-z][A-Za-z'.\-]{0,20})$/i)))
+    return r(pick('setname', [`Nice to meet you, ${pn[1]}.`, `Got it — ${pn[1]} it is.`, `Will do, ${pn[1]}.`]), { command: { kind: 'setName', name: pn[1]!.trim() } })
+
+  // ── Repeat the last request ───────────────────────────────────────────────
+  if (any(/^(again|do (that|it) again|repeat( that| it)?|once more|same again|re-?run( it| that)?|redo( that| it)?)$/))
+    return r('Running that again.', { command: { kind: 'repeatLast' } })
 
   // ── Navigation / command intents (chat as a command palette) ──────────────
   if (any(/^(new|start (a )?new|create (a )?new|open (a )?new)\s+(workspace|chat|session)$/, /^(new chat|new workspace)$/))
@@ -281,6 +311,8 @@ export function matchDialogue(input: string, ctx?: DialogueCtx): DialogueResult 
     return r('First reply after launch is slow because the local model warms up (~15-20s). After that it’s fast. Smaller models (llama3.2:3b) are quickest; the coder/reasoner are heavier.')
   if (any(/what('?s| is) a workspace/, /how (do i|to) (make|create|start) a (new )?(workspace|chat)/))
     return r('A workspace is a chat + its context (files, memory, artifacts). Hit **+ New workspace** in the sidebar to start a fresh one.')
+  if (any(/^(what can i (say|type|ask|do here)|what commands|how do i (use|drive|control) (you|this|noetica)|show( me)? commands|what are my (options|commands))$/))
+    return r(`You can just talk — or drive the app from here, no model needed:\n- **Navigate**: "open notes", "go to projects", "switch to the coder model"\n- **Do**: "research <topic>", "write code", "show my files"\n- **Ask**: "what time is it", "15% of 80", "what day is tomorrow", "flip a coin"\n- **Manage**: "new workspace", "clear chat", "open settings", "call me <name>", "again"`)
 
   // ── Easter eggs + chitchat ────────────────────────────────────────────────
   if (any(/^(tell me a joke|joke|make me laugh|say something funny)$/))
