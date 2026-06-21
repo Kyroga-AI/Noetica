@@ -31,7 +31,7 @@ import { ModelSetupOverlay } from '@/components/setup/ModelSetupOverlay'
 import { CommandPalette } from '@/components/palette/CommandPalette'
 import { models, visibleModels, defaultModelId } from '@/config/models'
 import { initialMessages } from '@/lib/chat/mockConversation'
-import { matchDialogue, type DialogueForm } from '@/lib/chat/dialogue'
+import { matchDialogue, type DialogueForm, type DialogueCommand } from '@/lib/chat/dialogue'
 import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
 import { buildRiskAversionLiveReadout } from '@/lib/risk/riskAversionLive'
 import { listenTauri, isTauri, invokeTauri } from '@/lib/tauri/bridge'
@@ -471,6 +471,18 @@ export function AppShell() {
     updateModelId(id)
   }
 
+  // Execute a local dialogue command (natural-language navigation — chat as a command
+  // palette). new/clear are handled before message append so they don't leave a stray turn.
+  function executeDialogueCommand(cmd: DialogueCommand) {
+    switch (cmd.kind) {
+      case 'navigate': handleSurfaceChange(cmd.surface as ActiveSurface); break
+      case 'setModel': handleModelChange(cmd.model); break
+      case 'openSettings': openSettings(cmd.category ?? 'appearance'); break
+      case 'newWorkspace':
+      case 'clearChat': handleNewChat(); break
+    }
+  }
+
   function handleSwitchSession(id: string) {
     const s = sessions.find((sess) => sess.id === id)
     if (!s) return
@@ -614,12 +626,18 @@ export function AppShell() {
       modelLabel: modelId === 'auto' ? 'your local models (Auto)' : modelId,
     })
     if (dlg && attachments.length === 0 && !selectedMcpToolNames?.length) {
+      // Commands that clear/replace the chat: execute without leaving a stray turn behind.
+      if (dlg.command?.kind === 'newWorkspace' || dlg.command?.kind === 'clearChat') {
+        handleNewChat()
+        return
+      }
       const now = new Date().toISOString()
       const userMsg: ChatMessage = { id: crypto.randomUUID(), role: 'user', content, workspace_mode: workspaceMode, created_at: now }
       const asstMsg: ChatMessage = { id: crypto.randomUUID(), role: 'assistant', content: dlg.reply, quick_replies: dlg.quickReplies, created_at: now }
       autoTitle(content)
       setMessages((cur) => { const next = [...cur, userMsg, asstMsg]; updateMessages(next); return next })
       if (dlg.form) setPendingForm(dlg.form)
+      if (dlg.command) executeDialogueCommand(dlg.command)
       return
     }
 

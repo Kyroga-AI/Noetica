@@ -18,6 +18,31 @@ export interface DialogueResult {
   form?: DialogueForm
   /** Set when the user cancelled an in-progress form ("nevermind"). */
   cancelForm?: boolean
+  /** A local app action to execute (navigation command) — chat as command palette. */
+  command?: DialogueCommand
+}
+export type DialogueCommand =
+  | { kind: 'navigate'; surface: string }
+  | { kind: 'setModel'; model: string }
+  | { kind: 'newWorkspace' }
+  | { kind: 'clearChat' }
+  | { kind: 'openSettings'; category?: string }
+
+// Natural-language surface names → ActiveSurface ids (kept as strings to stay decoupled).
+const SURFACE_ALIASES: Record<string, string> = {
+  notes: 'notes', note: 'notes',
+  canvas: 'canvas',
+  cowork: 'cowork',
+  workrooms: 'workrooms', workroom: 'workrooms',
+  projects: 'projects', project: 'projects', kanban: 'projects',
+  artifacts: 'artifacts', artifact: 'artifacts',
+  source: 'code', code: 'code', repos: 'code', repositories: 'code',
+  evaluate: 'evaluate', evals: 'evaluate', eval: 'evaluate', benchmarks: 'evaluate',
+  operate: 'operate', ops: 'operate',
+  govern: 'govern', governance: 'govern',
+  tune: 'tune', train: 'tune', training: 'tune',
+  holographme: 'holographme',
+  chat: 'chat', workspace: 'chat', home: 'chat', conversation: 'chat',
 }
 export interface DialogueForm {
   slot: string
@@ -216,6 +241,32 @@ export function matchDialogue(input: string, ctx?: DialogueCtx): DialogueResult 
       `Ugh, I hear you. What's not working? Let's fix it.`,
       `That's annoying — point me at it and I'll sort it out.`,
     ]), { quickReplies: ['Show my files', 'What can you do?'] })
+
+  // ── Navigation / command intents (chat as a command palette) ──────────────
+  if (any(/^(new|start (a )?new|create (a )?new|open (a )?new)\s+(workspace|chat|session)$/, /^(new chat|new workspace)$/))
+    return r('New workspace.', { command: { kind: 'newWorkspace' } })
+  if (any(/^(clear|reset|wipe|empty)( the| this)?( chat| conversation| messages| screen)$/, /^(clear|reset) it$/))
+    return r('Cleared.', { command: { kind: 'clearChat' } })
+  if (any(/^(open |go to |show |take me to )?settings$/, /^(open |show )(preferences|config|options)$/))
+    return r('Opening Settings.', { command: { kind: 'openSettings' } })
+  let mm: RegExpMatchArray | null
+  if ((mm = s.match(/^(?:switch to|use|change to|set (?:the )?model to|switch model to|load)\s+(?:the\s+)?(.+?)(?:\s+model)?$/))) {
+    const want = mm[1]!.trim()
+    const model = /coder|coding|\bcode\b/.test(want) ? { id: 'qwen2.5-coder:7b', label: 'the coder model' }
+      : /reason|deepseek|think/.test(want) ? { id: 'deepseek-r1:8b', label: 'the reasoning model' }
+      : /\bfast\b|small|quick|llama/.test(want) ? { id: 'llama3.2:3b', label: 'the fast model' }
+      : /auto|default|prophet/.test(want) ? { id: 'auto', label: 'Auto (prophet-mesh)' }
+      : /qwen|balanced/.test(want) ? { id: 'qwen2.5:7b', label: 'qwen2.5:7b' }
+      : null
+    if (model) return r(`Switched to ${model.label}.`, { command: { kind: 'setModel', model: model.id } })
+    // not a known model → fall through (maybe it's a surface, handled next)
+  }
+  let nm: RegExpMatchArray | null
+  if ((nm = s.match(/^(?:open|go to|show|switch to|take me to|navigate to|jump to|bring up)\s+(?:the\s+|my\s+)?([a-z &]+?)(?:\s+(?:surface|page|tab|panel|view|section))?$/))) {
+    const key = nm[1]!.trim().replace(/\s+/g, '')
+    const surface = SURFACE_ALIASES[key] ?? SURFACE_ALIASES[nm[1]!.trim()]
+    if (surface) return r(`Opening ${nm[1]!.trim().replace(/^./, (c) => c.toUpperCase())}.`, { command: { kind: 'navigate', surface } })
+  }
 
   // ── FAQ / app-help retrieval (instant, no model) ──────────────────────────
   if (any(/how (do i|to) (add|install|pull|get) (a )?model/, /add models?$/))
