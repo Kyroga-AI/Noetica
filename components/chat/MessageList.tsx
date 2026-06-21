@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { MessageBubble } from '@/components/chat/MessageBubble'
 import { TypingIndicator } from '@/components/chat/TypingIndicator'
+import { NoeticaMark } from '@/components/brand/NoeticaMark'
 import type { ChatMessage } from '@/lib/types/message'
 import { useSettings } from '@/lib/settings/context'
 
@@ -70,7 +71,7 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 px-4 text-center">
         <div className="flex items-center gap-3">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-text-primary)] text-xs font-semibold text-[var(--color-background-primary)]">N</span>
+          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-text-primary)] text-[var(--color-background-primary)]"><NoeticaMark className="h-5 w-5" /></span>
           <h1 className="text-2xl font-medium tracking-tight text-[var(--color-text-primary)]">{greeting}{settings.userName ? `, ${settings.userName}` : ''}</h1>
         </div>
         <p className="-mt-3 text-[13px] text-[var(--color-text-tertiary)]">Local-first · your data never leaves this device</p>

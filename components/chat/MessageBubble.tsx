@@ -9,6 +9,7 @@ import oneLight from 'react-syntax-highlighter/dist/cjs/styles/prism/one-light'
 // eslint-disable-next-line
 import oneDark from 'react-syntax-highlighter/dist/cjs/styles/prism/one-dark'
 import { GovernanceTrail } from '@/components/governance/GovernanceTrail'
+import { NoeticaMark } from '@/components/brand/NoeticaMark'
 import { SteeringDiff } from '@/components/steering/SteeringDiff'
 import type { ChatMessage, ToolCallRecord, ToolResultRecord } from '@/lib/types/message'
 import type { PendingAttachment } from '@/lib/types/attachment'
@@ -337,8 +338,8 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
 
   return (
     <article className="group flex gap-3">
-      <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-text-primary)] text-[9px] font-semibold text-[var(--color-background-primary)]">
-        N
+      <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-text-primary)] text-[var(--color-background-primary)]">
+        <NoeticaMark className="h-4 w-4" />
       </div>
       <div className="min-w-0 flex-1">
         <div className="mb-1 text-[11px] font-medium text-[var(--color-text-secondary)]">
