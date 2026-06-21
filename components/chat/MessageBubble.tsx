@@ -327,10 +327,12 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
     setTimeout(() => setExtracted(false), 2000)
   }
 
-  // An empty assistant message is just the streaming placeholder. Don't render an empty
-  // bubble (it would show a second loader) — the TypingIndicator below is the single
-  // streaming indicator.
-  if (!message.content && !message.tool_calls?.length && !message.thinking) return null
+  // A content-less assistant message is just the streaming placeholder — including the
+  // thinking-only phase of reasoning models (deepseek-r1 etc.), which stream <think>
+  // before any answer. Don't render its bubble: the single TypingIndicator below is the
+  // one streaming loader. Once real content arrives, the bubble renders (thinking folds
+  // into its own disclosure). This kills the "two icons" double-loader.
+  if (!message.content && !message.tool_calls?.length) return null
 
   return (
     <article className="group flex gap-3">
