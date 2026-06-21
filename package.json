@@ -32,6 +32,7 @@
     "cli:doctor": "node cli/noetica.mjs doctor --json",
     "cli:smoke": "node cli/noetica.mjs smoke --dry-run",
     "agent-machine": "cd agent-machine && npx tsx server.ts",
+    "dev:app": "bash scripts/dev-app.sh",
     "agent-machine:install": "cd agent-machine && npm install",
     "agent-machine:build": "cd agent-machine && npm install && npm run build",
     "agent-machine:build:binary": "bun build agent-machine/server.ts --compile --target bun-darwin-arm64 --outfile src-tauri/binaries/agent-machine-aarch64-apple-darwin && bun build agent-machine/server.ts --compile --target bun-darwin-x64 --outfile src-tauri/binaries/agent-machine-x86_64-apple-darwin",

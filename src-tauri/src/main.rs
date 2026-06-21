@@ -35,6 +35,28 @@ const MAX_AM_RETRIES: u32 = 5;
 /// genuine crash-loop eventually gives up rather than thrashing forever.
 fn spawn_agent_machine(app_handle: tauri::AppHandle, am_port: u16, retries_left: u32) {
     use tauri_plugin_shell::process::CommandEvent;
+
+    // Dev ergonomics: if an Agent Machine is ALREADY listening on the port (e.g. one you ran
+    // from source via `npm run agent-machine` / `npm run dev:app`), reuse it instead of
+    // spawning the bundled sidecar — so source changes are live without rebuilding the binary.
+    {
+        use std::net::TcpStream;
+        use std::time::Duration;
+        if let Ok(sa) = format!("127.0.0.1:{}", am_port).parse::<std::net::SocketAddr>() {
+            if TcpStream::connect_timeout(&sa, Duration::from_millis(400)).is_ok() {
+                eprintln!("[noetica-am] reusing Agent Machine already on :{} (skipping bundled sidecar)", am_port);
+                if let Ok(mut state) = app_handle.state::<Mutex<AgentMachineState>>().lock() {
+                    state.port = Some(am_port);
+                    state.am_pid = None; // not our child — don't SIGTERM it on exit
+                }
+                let _ = app_handle.emit("noetica:am:started", serde_json::json!({
+                    "port": am_port, "url": format!("http://127.0.0.1:{}", am_port)
+                }));
+                return;
+            }
+        }
+    }
+
     let cmd = match app_handle.shell().sidecar("agent-machine") {
         Ok(c) => c,
         Err(e) => {
