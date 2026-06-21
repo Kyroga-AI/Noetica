@@ -924,8 +924,11 @@ const LOGIN_SHELL = (() => {
 function runInWorkspace(command: string, cwd: string, timeoutMs: number): Promise<{ out: string; err: string; code: string }> {
   return new Promise((resolve) => {
     let out = '', err = '', done = false
-    // Bound the timer to a safe range regardless of caller input (resource-exhaustion guard).
-    const safeTimeout = Math.min(300_000, Math.max(1_000, Number.isFinite(timeoutMs) ? timeoutMs : 60_000))
+    // Bound the timer with explicit guard comparisons (CodeQL-recognized sanitizer for
+    // resource-exhaustion) so a caller-supplied duration can never create an unbounded timer.
+    let safeTimeout = Number.isFinite(timeoutMs) ? timeoutMs : 60_000
+    if (safeTimeout > 300_000) safeTimeout = 300_000
+    if (safeTimeout < 1_000) safeTimeout = 1_000
     const child = cp.spawn(LOGIN_SHELL, ['-lc', command], { cwd, env: { ...process.env } })
     const timer = setTimeout(() => { if (!done) { done = true; try { child.kill('SIGKILL') } catch { /* */ } resolve({ out, err, code: `timeout after ${safeTimeout}ms` }) } }, safeTimeout)
     child.stdout.on('data', (d: Buffer) => { if (out.length < 200_000) out += d.toString() })
