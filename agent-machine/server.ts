@@ -2256,6 +2256,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       const TOOL_CALL_ONSET = /<tool_call|```|^\s*\{/i
 
       try {
+      const ollamaToolSeen = new Map<string, number>()
       if (!deliberated) for (let turn = 0; turn < MAX_TURNS; turn++) {
         let turnContent = ''
         let streamedLen = 0          // chars already streamed to the UI this turn
@@ -2306,6 +2307,16 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         fullContent += assistantText
 
         if (!turnToolCalls?.length) break
+
+        // Divergence guard: if every tool call this turn repeats one the model already made
+        // twice, it's stuck — stop instead of spinning through all MAX_TURNS.
+        const sig = (tc: { name: string; input: unknown }) => `${tc.name}:${JSON.stringify(tc.input)}`
+        if (turnToolCalls.every((tc) => (ollamaToolSeen.get(sig(tc)) ?? 0) >= 2)) {
+          const note = '\n\n_(Stopped — the model kept repeating the same tool call without making progress.)_'
+          fullContent += note; liveContent += note; sse(res, 'delta', { delta: note })
+          break
+        }
+        for (const tc of turnToolCalls) ollamaToolSeen.set(sig(tc), (ollamaToolSeen.get(sig(tc)) ?? 0) + 1)
 
         sse(res, 'tool_calls', { tool_calls: turnToolCalls })
         lastToolCalls = turnToolCalls
