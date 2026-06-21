@@ -77,6 +77,9 @@ export async function ensureManagedRuntime(preferredPort = MANAGED_PORT): Promis
   // :11435, :11436, … and each launch spawns yet another. This range is app-owned; the
   // user's own Ollama lives on :11434 and is never touched.
   for (const p of [preferredPort, preferredPort + 1, preferredPort + 2]) await freePort(p)
+  // …and reap orphaned llama-server runners from prior managed instances — they survive a
+  // hard kill of `ollama serve` and otherwise pile up holding GPU/RAM across launches.
+  try { await exec('/usr/bin/pkill', ['-9', '-f', `${process.env['HOME'] ?? ''}/.noetica/runtime/llama-server`]) } catch { /* none running */ }
   const port = await pickPort(preferredPort)   // a free port — no fight with a bundled Ollama
   const base = `http://127.0.0.1:${port}`
   // PIN the base NOW (before the runtime is even ready) so the chat preflight targets

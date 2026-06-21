@@ -4064,9 +4064,49 @@ function saveLearningState(): void {
   } catch (e) { console.warn('[learning] save failed', e instanceof Error ? e.message : String(e)) }
 }
 
+// Reclaim our own port from a stale predecessor — a prior agent-machine orphaned by an
+// app crash before its watchdog fired. The app owns this port, so anything still on it is
+// a leftover; killing it lets a fast relaunch bind cleanly instead of EADDRINUSE-exiting.
+try {
+  const out = cp.execFileSync('/usr/sbin/lsof', ['-ti', `TCP:${PORT}`, '-sTCP:LISTEN'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+  for (const pid of out.trim().split('\n').filter(Boolean)) {
+    if (Number(pid) !== process.pid) { try { process.kill(Number(pid), 'SIGKILL') } catch { /* already gone */ } }
+  }
+} catch { /* nothing listening — the normal case */ }
+
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`[noetica-am] Agent Machine v${VERSION} listening on http://127.0.0.1:${PORT}`)
   console.log(`[noetica-am] Status: http://127.0.0.1:${PORT}/api/status`)
+
+  // ── Graceful teardown ────────────────────────────────────────────────────
+  // ONE handler, registered synchronously, that tears down the managed Ollama BEFORE
+  // persisting state and exiting. Previously two SIGTERM handlers raced — the one that
+  // called process.exit(0) ran first and stopped the event loop before the kill,
+  // orphaning `ollama serve` (which then piled up on every launch).
+  let managedRuntime: { child: { kill: (sig?: NodeJS.Signals | number) => boolean } } | null = null
+  let booted = false
+  let teardownStarted = false
+  const teardown = () => {
+    if (teardownStarted) return
+    teardownStarted = true
+    try { managedRuntime?.child.kill('SIGKILL') } catch { /* already gone */ }
+    // `ollama serve`'s llama-server runner children do NOT die with it on SIGKILL — reap
+    // the app-owned ones explicitly so they don't orphan and hold GPU/RAM.
+    try { cp.execFileSync('/usr/bin/pkill', ['-9', '-f', `${process.env['HOME'] ?? ''}/.noetica/runtime/llama-server`], { stdio: 'ignore' }) } catch { /* none running */ }
+    if (booted) { try { recordTrendSnapshot(); saveLearningState() } catch { /* best-effort */ } }
+    process.exit(0)
+  }
+  for (const sig of ['SIGINT', 'SIGTERM'] as const) process.on(sig, teardown)
+
+  // Parent-death watchdog: the app can die in ways that send us NO signal — a crash, a
+  // force-quit, or a quit whose exit signal never reaches us. We can't use our own ppid
+  // (bun-compiled sidecars reparent to launchd immediately), so the app passes its PID and
+  // we poll its existence: process.kill(pid, 0) throws once it's gone → tear down. This is
+  // the reliable teardown path that stops orphaned agent-machine + Ollama piling up.
+  const parentPid = Number(process.env['NOETICA_PARENT_PID'] || '0')
+  if (parentPid > 1) {
+    setInterval(() => { try { process.kill(parentPid, 0) } catch { teardown() } }, 1500).unref()
+  }
 
   // ── Managed model runtime (macOS T2) ────────────────────────────────────
   // Own the model plane: ensure a COMPLETE, sandboxed Ollama on the isolated port
@@ -4077,7 +4117,7 @@ server.listen(PORT, '127.0.0.1', () => {
       const { ensureManagedRuntime, shouldManageRuntime } = await import('./lib/managed-runtime.js')
       if (shouldManageRuntime(process.env)) {
         const rt = await ensureManagedRuntime()
-        if (rt) for (const sig of ['SIGINT', 'SIGTERM'] as const) process.on(sig, () => rt.child.kill('SIGKILL'))
+        if (rt) managedRuntime = rt   // teardown() (registered above) SIGKILLs it on exit
       }
     } catch (e) { console.warn('[managed-runtime] init error (non-fatal):', e instanceof Error ? e.message : e) }
   })()
@@ -4090,6 +4130,7 @@ server.listen(PORT, '127.0.0.1', () => {
   // the durable store rather than the about-to-be-replaced default.
   const finishBoot = () => {
     loadLearningState()
+    booted = true // teardown() may now persist learning state on exit
     recordTrendSnapshot() // capture/refresh today's point on boot
     // Embed-model preflight: document RAG depends on the embedding model. Warn loudly
     // if it's missing so semantic retrieval doesn't silently degrade to lexical-only.
@@ -4124,9 +4165,8 @@ server.listen(PORT, '127.0.0.1', () => {
     })()
     setInterval(saveLearningState, 60_000).unref()
     setInterval(recordTrendSnapshot, 6 * 60 * 60_000).unref() // refresh today's snapshot every 6h
-    for (const sig of ['SIGINT', 'SIGTERM'] as const) {
-      process.on(sig, () => { recordTrendSnapshot(); saveLearningState(); process.exit(0) })
-    }
+    // SIGINT/SIGTERM teardown is registered once, synchronously, at the top of the
+    // listen callback (kills the managed Ollama before persisting + exiting).
   }
 
   void (async () => {

@@ -398,6 +398,10 @@ fn main() {
                     match cmd
                         .env("NOETICA_AM_PORT", am_port.to_string())
                         .env("OLLAMA_HOST", "http://127.0.0.1:11435")
+                        // Our PID, so the sidecar can poll our existence and tear itself
+                        // (and the managed Ollama) down if we die — even by crash. bun
+                        // sidecars reparent to launchd, so they can't rely on their own ppid.
+                        .env("NOETICA_PARENT_PID", std::process::id().to_string())
                         .spawn()
                     {
                         Ok((mut rx, child)) => {
