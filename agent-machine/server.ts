@@ -60,6 +60,7 @@ import { recordCapability, capabilitySummary, capabilityHint, recordReward, sele
 import { validateGraph } from '@socioprophet/hellgraph'
 import { CANONICAL_SHAPES, QUARANTINE_PROP } from './lib/canonical-shapes.js'
 import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
+import { critique, bestOfTemps, type Candidate as CriticCandidate } from './lib/critic.js'
 import { detectGoalIntent, slotFill, buildGoalContext, getActiveGoal, listGoals, saveGoal, type Goal } from './lib/goal-model.js'
 import { assessAgainstGraph } from './lib/pln-judgment.js'
 import { saveCheckpoint, listCheckpoints, getCheckpoint, buildResumeMessages } from './lib/checkpoint-model.js'
@@ -5175,6 +5176,20 @@ server.listen(PORT, '127.0.0.1', () => {
           await clusterSurface(g.allNodes(), g.allEdges(), { view, category }).catch(() => {})
         }
         console.log('[prewarm] graph topic clusters built')
+      } catch { /* best-effort */ }
+      // Upgrade the coder to the RAM-appropriate model (14b on ≥18GB, 30b on ≥30GB) by pulling
+      // it once in the background — non-blocking, only sizes that fit, so no OOM. Until it lands
+      // the router stays on 7b; once present, coding routes to the stronger model automatically.
+      try {
+        const { preferredCoderForRam } = await import('./lib/router.js')
+        const want = preferredCoderForRam()
+        if (want && process.env['NOETICA_NO_AUTO_CODER'] !== '1') {
+          const have = await listLocalModels()
+          if (!have.includes(want)) {
+            console.log(`[prewarm] pulling upgraded coder ${want} in background (one-time)…`)
+            void pullModel(want, () => {}).then(() => console.log(`[prewarm] coder ${want} ready — coding now routes to it`)).catch(() => {})
+          }
+        }
       } catch { /* best-effort */ }
     } catch { /* ignore */ }
   })()
