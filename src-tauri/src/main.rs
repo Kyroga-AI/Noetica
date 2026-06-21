@@ -350,12 +350,15 @@ fn main() {
                 let show = MenuItemBuilder::with_id("tray_show", "Show Noetica").build(app)?;
                 let quit = MenuItemBuilder::with_id("tray_quit", "Quit Noetica").build(app)?;
                 let tray_menu = MenuBuilder::new(app).items(&[&show, &quit]).build()?;
-                let _tray = TrayIconBuilder::with_id("noetica-tray")
-                    .icon(app.default_window_icon().cloned().unwrap())
+                let mut tray_builder = TrayIconBuilder::with_id("noetica-tray")
                     .icon_as_template(true)
                     .tooltip("Noetica")
                     .menu(&tray_menu)
-                    .show_menu_on_left_click(false)
+                    .show_menu_on_left_click(false);
+                if let Some(icon) = app.default_window_icon().cloned() {
+                    tray_builder = tray_builder.icon(icon);  // no unwrap — never panic on startup
+                }
+                let _tray = tray_builder
                     .on_menu_event(|app, event| match event.id().as_ref() {
                         "tray_show" => {
                             if let Some(w) = app.get_webview_window("main") { let _ = w.show(); let _ = w.set_focus(); }

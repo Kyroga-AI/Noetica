@@ -386,6 +386,7 @@ export function AppShell() {
   const voiceReplyRef = useRef(false)
   const { state: voiceState, isLive, error: voiceError, startListening, stopListening, startLive, stopLive, speak, stopSpeaking } = useVoice((transcript) => {
     voiceReplyRef.current = true   // this turn was voice-initiated → speak the reply
+    setActiveSurface('chat')       // make the spoken conversation visible (both sides as text)
     void handleSendRaw(transcript, [], messages)
   })
 
