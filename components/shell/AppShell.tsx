@@ -586,8 +586,20 @@ export function AppShell() {
     const tools = [...builtinTools, ...selectedTools]
 
     // Slot-filling form: if we asked for a slot last turn ("Research what?"), this turn is
-    // the answer — fill the template and dispatch the real prompt to the model.
+    // normally the answer — but first allow repair (cancel) and digression (an aside that
+    // gets answered while the form stays open and re-prompts).
     if (pendingForm && attachments.length === 0) {
+      const dlgCtx = { userName: settings.userName, modelLabel: modelId === 'auto' ? 'your local models (Auto)' : modelId, inForm: true }
+      const aside = matchDialogue(content, dlgCtx)
+      const stamp = () => new Date().toISOString()
+      const appendPair = (reply: string, quickReplies?: string[]) => {
+        const now = stamp()
+        const u: ChatMessage = { id: crypto.randomUUID(), role: 'user', content, workspace_mode: workspaceMode, created_at: now }
+        const a: ChatMessage = { id: crypto.randomUUID(), role: 'assistant', content: reply, quick_replies: quickReplies, created_at: now }
+        setMessages((cur) => { const next = [...cur, u, a]; updateMessages(next); return next })
+      }
+      if (aside?.cancelForm) { setPendingForm(null); appendPair(aside.reply); return }
+      if (aside && !aside.form) { appendPair(`${aside.reply}\n\nBack to it — what ${pendingForm.slot}?`, aside.quickReplies); return } // keep form
       const filled = pendingForm.template.replace('{value}', content.trim())
       setPendingForm(null)
       await handleSendRaw(filled, [], messages, tools)
