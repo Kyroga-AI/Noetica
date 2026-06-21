@@ -245,10 +245,9 @@ export function buildRouterDecision(opts: {
 
   // Vision: route to LLaVA when images are present
   if (!explicitModelId && hasImages && ollamaAvailable) {
-    const visionModel = isModelAvailable('llava:13b', availableModels) ? 'llava:13b'
-      : isModelAvailable('llava:7b', availableModels) ? 'llava:7b'
-      : isModelAvailable('llava', availableModels) ? 'llava'
-      : null
+    // Prefer a stronger modern VLM if present, else fall back to LLaVA. First installed wins.
+    const VISION_PREFS = ['qwen2.5vl:7b', 'qwen2.5vl', 'llama3.2-vision', 'minicpm-v', 'moondream', 'llava:13b', 'llava:7b', 'llava']
+    const visionModel = VISION_PREFS.find((m) => isModelAvailable(m, availableModels)) ?? null
     if (visionModel) {
       return {
         requestId,

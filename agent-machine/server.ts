@@ -38,6 +38,7 @@ import { classifyIntent, capabilityToTask, wantsVectorRag, intentByName, planFro
 import { routeForAction, meshrushPhase } from './lib/action-cell.js'
 import { selectSurface } from './lib/graph-surface.js'
 import { generateSovereign, meshLadder } from './lib/mesh.js'
+import { AGENT_ROLES, DISPATCHABLE_ROLES, resolveRole } from './lib/sub-agent.js'
 import { createSQLiteBackend, migrateJSONLToSQLite } from './lib/sqlite-backend.js'
 import { registerStorageNodeRoutes, handleStorageNodeRequest } from './lib/storage-node-routes.js'
 import { handleMeshRushRequest } from './lib/meshrush-bridge.js'
@@ -801,6 +802,21 @@ const BUILTIN_TOOLS: ProviderTool[] = [
       required: ['path'],
     },
   },
+  {
+    name: 'dispatch_agent',
+    description: 'Dispatch a focused SUB-AGENT to handle a self-contained sub-task and return its result — delegate to a specialist instead of doing everything yourself. Use when a chunk is best handled in isolation, or run several at once by emitting multiple dispatch_agent calls in ONE turn (they run in parallel). The sub-agent runs its own tool loop with no memory of this chat; you receive ONLY its final result. Roles — ' +
+      DISPATCHABLE_ROLES.map((r) => `${r}: ${AGENT_ROLES[r]!.description}`).join('  ') +
+      ' Don\'t dispatch for trivial things you can answer directly.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        role: { type: 'string', enum: DISPATCHABLE_ROLES, description: 'Which specialist to dispatch.' },
+        task: { type: 'string', description: 'The COMPLETE, self-contained task. The sub-agent has no memory of this conversation — include every needed detail: paths, names, the goal, and exactly what to return.' },
+        context: { type: 'string', description: 'Optional facts/constraints/prior findings to hand the sub-agent.' },
+      },
+      required: ['role', 'task'],
+    },
+  },
 ]
 
 // ─── SSE helper ───────────────────────────────────────────────────────────────
@@ -1063,6 +1079,51 @@ async function publicData(args: Record<string, unknown>): Promise<string> {
   }
 }
 
+// Run a dispatched sub-agent: a scoped, isolated tool loop for one role. Returns ONLY the
+// sub-agent's final message (the concierge never sees its intermediate turns). Mirrors the main
+// chat loop but headless (no SSE) and bounded by the role's maxTurns. dispatch_agent is excluded
+// from every sub-agent's toolset, so sub-agents can't recursively fan out.
+async function runSubAgent(
+  roleId: string,
+  task: string,
+  context: string,
+  keys: { anthropic?: string; openai?: string; serper?: string },
+): Promise<string> {
+  const role = resolveRole(roleId)
+  const subTools = BUILTIN_TOOLS.filter((t) => role.tools.includes(t.name) && t.name !== 'dispatch_agent')
+  const subToolNames = new Set(subTools.map((t) => t.name))
+  const model = role.model === 'coder' ? 'qwen2.5-coder:7b' : 'qwen2.5:7b'
+  const messages: Array<Record<string, unknown>> = [
+    { role: 'system', content: role.systemPrompt + (context.trim() ? `\n\nContext from the concierge:\n${context.trim()}` : '') },
+    { role: 'user', content: task },
+  ]
+  let final = ''
+  for (let turn = 0; turn < role.maxTurns; turn++) {
+    let text = ''
+    let toolCalls: ToolUseBlock[] | undefined
+    try {
+      for await (const ev of streamOllama({ model, messages: messages as never, tools: subTools, numCtx: 8192, temperature: 0.3 })) {
+        if (ev.type === 'text') text += ev.text
+        else if (ev.type === 'tool_calls') toolCalls = ev.calls
+      }
+    } catch (e) {
+      return `[${role.label} sub-agent error: ${String(e).slice(0, 160)}]`
+    }
+    if (!toolCalls?.length) {
+      const parsed = parseInlineToolCalls(text, subToolNames)
+      if (parsed.calls.length) { toolCalls = parsed.calls; text = parsed.cleaned }
+    }
+    if (!toolCalls?.length) { final = text; break }
+    messages.push({ role: 'assistant', content: text || null, tool_calls: toolCalls.map((tc) => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: JSON.stringify(tc.input) } })) })
+    for (const tc of toolCalls) {
+      const r = await executeToolWithTimeout(tc.name, tc.input, keys)
+      messages.push({ role: 'tool', content: r, tool_call_id: tc.id })
+    }
+    final = text || final
+  }
+  return final.trim() || `(${role.label} sub-agent finished without a final summary)`
+}
+
 async function executeTool(
   name: string,
   input: Record<string, unknown>,
@@ -1101,6 +1162,14 @@ async function executeTool(
   }
 
   switch (name) {
+    case 'dispatch_agent': {
+      const role = String(input['role'] ?? 'general')
+      const task = String(input['task'] ?? '').trim()
+      if (!task) return 'dispatch_agent: a task is required.'
+      const context = String(input['context'] ?? '')
+      const result = await runSubAgent(role, task, context, keys)
+      return `[${resolveRole(role).label} sub-agent → result]\n${result}`
+    }
     case 'web_search': {
       const query = String(input['query'] ?? '').trim().slice(0, 500)
       if (!query) return 'Error: query is required'
@@ -1976,6 +2045,29 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   let { resolvedModel: model, resolvedProvider: provider } = routing
   const { resolvedModel: _rm, resolvedProvider: _rp, ...routerDecision } = routing
 
+  // Honest vision fallback: an image is attached but no vision model is reachable — the
+  // router fell through (no local VLM installed) to a text model that literally can't see.
+  // Don't fake an answer from text the model can't read; tell the user how to give the mesh
+  // sight. (Cloud VLMs CAN see, so this only guards the blind local-text case.)
+  if (hasImages && provider === 'ollama' && (routerDecision as { domain?: string }).domain !== 'vision') {
+    const lat = Date.now() - turnStart
+    const msg = [
+      "There's an image attached, but I can't actually see it yet — no vision model is installed in the local mesh, so the router fell back to a text-only model that can't read pixels. Answering from text I can't see is exactly the wrong move.",
+      '',
+      'Give me sight by pulling a vision model:',
+      '',
+      '```',
+      'ollama pull llava:7b      # or a stronger VLM: qwen2.5vl, minicpm-v, llama3.2-vision',
+      '```',
+      '',
+      "Then re-send the screenshot and I'll analyze the actual interface.",
+    ].join('\n')
+    step('generate', 'done', 'no vision model installed')
+    sse(res, 'delta', { delta: msg })
+    sse(res, 'done', { result: { run_id: crypto.randomUUID(), content: msg, model_routed: 'none', provider: 'noetica', policy_admitted: true, memory_written: false, stop_reason: 'no_vision_model', timestamp: new Date().toISOString(), latency_ms: lat, agent_machine: true, agent_machine_version: VERSION, decidable: true, method: 'vision-fallback' } })
+    return
+  }
+
   // Signal the SourceOS surface (bearbrowser) so it can auto-enable Tor while the
   // security lane is armed, and drop back when disarmed.
   writeSecurityState(routerDecision.securityLane?.armed === true)
@@ -2183,6 +2275,10 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // Finance rides along wherever web_search is offered (finance questions are
   // research-shaped), and pulls render_chart with it so "chart AAPL" can plot.
   if (intentToolSet.has('web_search')) { intentToolSet.add('public_data'); intentToolSet.add('render_chart') }
+  // The concierge can delegate to focused sub-agents on any substantive (tool-bearing) turn —
+  // research/build/review/analysis chunks, fanned out in parallel. Not offered on trivial
+  // smalltalk/confirm intents (which carry no tools), so it never fires for chit-chat.
+  if (intentToolSet.size > 0) intentToolSet.add('dispatch_agent')
   // Agent mode: 'plan' produces a plan WITHOUT executing (no tools offered); 'ask'/'auto' keep tools.
   const agentMode = body.agent_mode === 'plan' || body.agent_mode === 'ask' ? body.agent_mode : 'auto'
   const allTools: ProviderTool[] = (modelSupportsTools && agentMode !== 'plan')
@@ -2442,7 +2538,9 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // proof. Instant, deterministic, replayable (POS@T1). This is solveByLogic step 1;
   // extract (below) is step 2; generation is the undecidable remainder. The decidable
   // region expands with use: each generated answer crystallizes, so it recalls next time.
-  if (isFlagOn('NOETICA_LOGIC_FIRST')) {
+  // Skip when an image is attached — the user wants the model to LOOK at the image, not
+  // reuse a cached text answer (vision must reach the model, not a recall short-circuit).
+  if (isFlagOn('NOETICA_LOGIC_FIRST') && !hasImages) {
     try {
       const { recallArtifact } = await import('./lib/crystallize.js')
       const hit = recallArtifact(latestUserContent)
@@ -2473,7 +2571,9 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // so it must run whenever a doc is loaded even if the weak-embedding semantic pass
   // returned nothing — that's how entity questions land in the decidable region. The
   // extractor returns null safely (cannot fabricate) when nothing lexically matches.
-  if (isFlagOn('NOETICA_EXTRACTIVE') && wantsVectorRag(intentPlan.retrieval) && hasDoc) {
+  // …but NOT when an image is attached: a screenshot + "how would you improve this?" must go
+  // to the vision model, not be answered by extracting sentences from an unrelated doc.
+  if (isFlagOn('NOETICA_EXTRACTIVE') && wantsVectorRag(intentPlan.retrieval) && hasDoc && !hasImages) {
     try {
       const { extractiveAnswer } = await import('./lib/extractive-qa.js')
       // Extraction scans a WIDER lexical pool (term-matched, reliable for entity Qs)
