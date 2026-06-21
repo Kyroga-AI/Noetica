@@ -3708,11 +3708,26 @@ const server = http.createServer((req, res) => {
       setCORSHeaders(res)
       try {
         const g = getGraph()
-        const result = selectSurface(g.allNodes(), g.allEdges(), {
-          view: url.searchParams.get('view') ?? 'all',
-          limit: Number(url.searchParams.get('limit') ?? 34),
-          root: url.searchParams.get('root') ?? '',
-        })
+        const view = url.searchParams.get('view') ?? 'all'
+        const root = url.searchParams.get('root') ?? ''
+        const limit = Number(url.searchParams.get('limit') ?? 34)
+        // Category lenses (tech/knowledge) use TRUE topic discovery: vectorize → cluster
+        // → 22 cluster representatives, drill into a cluster's members. Falls back to the
+        // pure degree-ranked selection if embeddings/clustering aren't available.
+        const CAT: Record<string, string> = { tech: 'technical', knowledge: 'learning' }
+        let result
+        if (CAT[view]) {
+          try {
+            const { clusterSurface } = await import('./lib/graph-cluster.js')
+            result = await clusterSurface(g.allNodes(), g.allEdges(), { view, root, k: limit, category: CAT[view]! })
+            if (!result.nodes.length) result = selectSurface(g.allNodes(), g.allEdges(), { view, limit, root })
+          } catch (e) {
+            console.warn('[graph-cluster] falling back to degree-rank:', e instanceof Error ? e.message : e)
+            result = selectSurface(g.allNodes(), g.allEdges(), { view, limit, root })
+          }
+        } else {
+          result = selectSurface(g.allNodes(), g.allEdges(), { view, limit, root })
+        }
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify(result))
       } catch (err) {
