@@ -72,11 +72,12 @@ function IconCowork() {
     </svg>
   )
 }
-function IconWorkspace() {
+function IconFiles() {
+  // Folder with a build/scaffold mark — distinct from Source (code), Artifacts (doc), Projects (grid).
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
-      <rect x="2" y="3" width="12" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
-      <path d="M2 6h12M5 3v3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M2 4.5a1 1 0 0 1 1-1h3l1.5 1.5H13a1 1 0 0 1 1 1V12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V4.5Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+      <path d="M6.5 9.5l1.5 1.5 2.5-2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
 }
@@ -200,7 +201,7 @@ const surfaceItems: SurfaceItem[] = [
   { id: 'projects',    label: 'Projects',    icon: <IconProjects />,   items: ['Active projects', 'Backlog', 'Sprints'] },
   { id: 'artifacts',   label: 'Artifacts',   icon: <IconArtifacts />,  items: ['Documents', 'Code files', 'Evidence bundles'] },
   { id: 'code',        label: 'Source',      icon: <IconCode />,       items: ['Repositories', 'Gitea Sovereign', 'External forges'] },
-  { id: 'workspace',   label: 'Workspace',   icon: <IconWorkspace />,  items: ['Project files', 'Scaffolds', 'Build output'] },
+  { id: 'workspace',   label: 'Project Files',icon: <IconFiles />,      items: ['Project files', 'Scaffolds', 'Build output'] },
   { id: 'evaluate',    label: 'Evaluate',    icon: <IconEvaluate />,   items: ['Task benchmarks', 'Model families', 'Outcome traces'] },
   { id: 'tune',        label: 'Tune & Train',icon: <IconTune />,       items: ['Comparative runs', 'Preference pairs', 'DPO export'] },
   { id: 'govern',      label: 'Govern',      icon: <IconGovern />,     items: ['Policy trace', 'Memory scope', 'Evidence export'] },
