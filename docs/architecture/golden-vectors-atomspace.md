@@ -73,6 +73,8 @@ vector DB.
   "slug": "18-06-linear-algebra-spring-2010",
   "domain": "linear_algebra",          // canonical-22
   "material": "lecture|exam|solution|reference",
+  "knowledge_type": "Definition|BasicFacts|CausesProcesses|Purpose|Algebraic|Experiments|PhysicalModel",
+                                        // ARC 7-type (Boratko 2018); routes to a solver — see neurosymbolic-learning-plan.md
   "doc_id": "<slug>", "filename": "...", "chunk_index": 0,
   "tv": { "strength": 1.0, "confidence": 0.95 },   // high, fixed
   "av": { "sti": "persistent" }                     // never decays
