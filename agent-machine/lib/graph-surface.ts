@@ -9,7 +9,7 @@
  */
 
 import type { GraphNode, GraphEdge } from '@socioprophet/hellgraph'
-import { coreTokens } from './topic-closure.js'
+import { coreTokens, clusterByLexicalClosure } from './topic-closure.js'
 import { isActionLabel } from './graph-hygiene.js'
 import { dimensionOf } from './cskg.js'
 type GNode = GraphNode
@@ -187,6 +187,26 @@ export function selectSurface(allNodes: GNode[], allEdges: GEdge[], opts: { view
     }
   }
 
+  // Collapse lexical-duplicate nodes so the same concept isn't drawn several times
+  // (corpus test ×2; noetica / notca / ntca → one). Keep the highest-degree node per cluster
+  // as the representative and remap the others' edges onto it. Display-only — store untouched.
+  const labelOf = new Map(picked.map((n) => [n.id, cleanLabel(n) ?? n.id]))
+  const { canonicalOf } = clusterByLexicalClosure([...new Set(labelOf.values())])
+  const repOf = new Map<string, GNode>()      // canonical label → representative node
+  const remap = new Map<string, string>()     // node id → representative id
+  for (const n of picked) {
+    const canon = canonicalOf.get(labelOf.get(n.id)!) ?? labelOf.get(n.id)!
+    const cur = repOf.get(canon)
+    if (!cur) { repOf.set(canon, n); remap.set(n.id, n.id); continue }
+    const keepN = (degree.get(n.id) ?? 0) > (degree.get(cur.id) ?? 0) ? n : cur
+    const dropN = keepN === n ? cur : n
+    repOf.set(canon, keepN)
+    for (const [k, v] of remap) if (v === dropN.id) remap.set(k, keepN.id)
+    remap.set(dropN.id, keepN.id); remap.set(keepN.id, keepN.id)
+  }
+  picked = [...repOf.values()]
+  const rid = (id: string) => remap.get(id) ?? id
+
   const keep = new Set(picked.map((n) => n.id))
   const maxDeg = Math.max(1, ...picked.map((n) => degree.get(n.id) ?? 0))
   const nodes: SurfaceNode[] = picked.map((n) => {
@@ -196,14 +216,19 @@ export function selectSurface(allNodes: GNode[], allEdges: GEdge[], opts: { view
   })
 
   const shown = new Map<string, number>()
+  const seenPair = new Set<string>()
   const CAP = 3
   const links: SurfaceLink[] = []
   for (const e of allEdges) {
-    if (!keep.has(e.from) || !keep.has(e.to) || e.from === e.to) continue
-    if ((shown.get(e.from) ?? 0) >= CAP || (shown.get(e.to) ?? 0) >= CAP) continue
-    shown.set(e.from, (shown.get(e.from) ?? 0) + 1)
-    shown.set(e.to, (shown.get(e.to) ?? 0) + 1)
-    links.push({ source: e.from, target: e.to, primary: (degree.get(e.from) ?? 0) >= maxDeg * 0.6 || (degree.get(e.to) ?? 0) >= maxDeg * 0.6, epistemic: epistemicOf(e.label), dimension: dimensionOf(e.label) })
+    const from = rid(e.from), to = rid(e.to)          // remap onto cluster representatives
+    if (!keep.has(from) || !keep.has(to) || from === to) continue
+    const pair = from < to ? `${from}|${to}` : `${to}|${from}`
+    if (seenPair.has(pair)) continue                  // dedupe parallel edges created by the collapse
+    if ((shown.get(from) ?? 0) >= CAP || (shown.get(to) ?? 0) >= CAP) continue
+    seenPair.add(pair)
+    shown.set(from, (shown.get(from) ?? 0) + 1)
+    shown.set(to, (shown.get(to) ?? 0) + 1)
+    links.push({ source: from, target: to, primary: (degree.get(from) ?? 0) >= maxDeg * 0.6 || (degree.get(to) ?? 0) >= maxDeg * 0.6, epistemic: epistemicOf(e.label), dimension: dimensionOf(e.label) })
   }
 
   return { nodes, links, total: { nodes: allNodes.length, edges: allEdges.length } }
