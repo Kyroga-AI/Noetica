@@ -204,15 +204,36 @@ export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[
     clusterCache.set(cacheKey, cl)
   }
 
-  // Drill-down → that cluster's members; top-level → the discovered topics, shown up to the
-  // display limit (most-connected first) so a data-driven k > limit still renders cleanly.
+  // Top-level → the discovered topics (the CLASS layer), shown up to the display limit
+  // (most-connected first) so a data-driven k > limit still renders cleanly.
   const topicReps = cl.reps.slice().sort((a, b) => (degree.get(b) ?? 0) - (degree.get(a) ?? 0)).slice(0, limit)
-  const ids = (opts.root && cl.members.has(opts.root)) ? cl.members.get(opts.root)!.slice(0, 30) : topicReps
+
+  // Drill-down → LAYERED: the concept's own cluster members PLUS their 1-hop graph neighbours,
+  // i.e. the concrete INSTANCE layer (files, code, raw nodes) sitting beneath the abstract topic.
+  // This is the outer(class)/inner(instance) distinction made visible.
+  let ids: string[]
+  if (opts.root && cl.members.has(opts.root)) {
+    const members = cl.members.get(opts.root)!
+    const memberSet = new Set(members)
+    const set = new Set(members)
+    for (const e of allEdges) {
+      if (set.size >= 28) break
+      if (memberSet.has(e.from) && !set.has(e.to)) set.add(e.to)
+      else if (memberSet.has(e.to) && !set.has(e.from)) set.add(e.from)
+    }
+    ids = [...set].slice(0, 28)
+  } else {
+    ids = topicReps
+  }
+
+  const allById = new Map(allNodes.map((n) => [n.id, n]))   // drill neighbours aren't in the candidate set
   const keep = new Set(ids)
   const maxDeg = Math.max(1, ...ids.map((id) => degree.get(id) ?? 0))
-  const nodes: SurfaceNode[] = ids.map((id) => {
-    const n = byId.get(id)!; const deg = degree.get(id) ?? 0
-    return { id, label: cleanLabel(n) ?? (n.labels[0] ?? 'node'), category: categoryFor(n.labels[0] ?? ''), featured: deg >= maxDeg * 0.6, degree: deg }
+  const nodes: SurfaceNode[] = ids.flatMap((id) => {
+    const n = allById.get(id); if (!n) return []
+    const deg = degree.get(id) ?? 0
+    const isTopic = cl.members.has(id)   // a representative = a topic (class layer)
+    return [{ id, label: cleanLabel(n) ?? (n.labels[0] ?? 'node'), category: categoryFor(n.labels[0] ?? ''), featured: isTopic || deg >= maxDeg * 0.6, degree: deg }]
   })
 
   const links: SurfaceLink[] = []
