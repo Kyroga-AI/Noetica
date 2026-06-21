@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { SurfaceGraph, KIND_COLOR, KIND_ORDER, type GraphNode, type GraphLink } from '@/components/graph/SurfaceGraph'
+import { SurfaceGraph, KIND_COLOR, KIND_ORDER, type GraphNode, type GraphLink, type GraphLayout } from '@/components/graph/SurfaceGraph'
 
 interface GraphHealth {
   status: 'healthy' | 'degraded' | 'unknown'
@@ -33,6 +33,21 @@ export function GraphRailPanel() {
   const [searchHits, setSearchHits] = useState<Array<{ id: string; label: string; surface: string; score: number; via: string }>>([])
   const [hiddenKinds, setHiddenKinds] = useState<Set<string>>(new Set())
   const [hideInferred, setHideInferred] = useState(false)
+  const [layout, setLayout] = useState<GraphLayout>('force')
+  const [pathMode, setPathMode] = useState(false)
+  const [pathFrom, setPathFrom] = useState('')
+  const [pathIds, setPathIds] = useState<string[]>([])
+
+  async function handleNodeClick(id: string) {
+    if (!pathMode) { setRoot(id); return }
+    if (!pathFrom) { setPathFrom(id); return }   // first pick = source
+    try {
+      const r = await fetch(`/api/graph/path?from=${encodeURIComponent(pathFrom)}&to=${encodeURIComponent(id)}`)
+      const j = (await r.json()) as { path?: { id: string }[] }
+      setPathIds((j.path ?? []).map((p) => p.id))
+    } catch { /* offline */ }
+    setPathFrom(''); setPathMode(false)
+  }
 
   // Esc closes the expanded graph overlay (when drilled into a node, first Esc backs
   // out to topics, second closes) — matches the ← back / ✕ affordances.
@@ -167,6 +182,19 @@ export function GraphRailPanel() {
         {/* lens switcher: scope the graph by tech / knowledge / memory / all */}
         <div className="mt-2">{searchBox}</div>
         <div className="mt-2">{lensButtons}</div>
+        {/* Layout (force / radial / hierarchical) + shortest-path finder. */}
+        <div className="mt-2 flex items-center gap-1 text-[10px]">
+          <span className="text-[var(--color-text-tertiary)]">layout</span>
+          {(['force', 'radial', 'hierarchy'] as GraphLayout[]).map((L) => (
+            <button key={L} onClick={() => setLayout(L)}
+              className={`rounded-full border px-2 py-0.5 capitalize transition ${layout === L ? 'border-[#1d4ed8] text-[#1d4ed8]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-tertiary)]'}`}>{L}</button>
+          ))}
+          <button onClick={() => { setPathMode((v) => !v); setPathFrom(''); if (pathMode) setPathIds([]) }} title="Pick two nodes to find the shortest path between them"
+            className={`ml-auto rounded-full border px-2 py-0.5 transition ${pathMode ? 'border-[#f59e0b] text-[#f59e0b]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-tertiary)]'}`}>
+            {pathMode ? (pathFrom ? 'pick target…' : 'pick source…') : '🔗 path'}
+          </button>
+          {pathIds.length > 0 && <button onClick={() => setPathIds([])} className="text-[#f59e0b]">clear</button>}
+        </div>
         {/* Entity-class legend + filter, and a trust toggle. Click a class to hide it; "confirmed
             only" hides inferred (dashed) edges so you see what the graph KNOWS vs guesses. */}
         {(() => {
@@ -197,7 +225,7 @@ export function GraphRailPanel() {
       <div className="flex min-h-0 flex-1 flex-col gap-2 p-3">
         {graph.nodes.length > 0 ? (
           <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
-            <SurfaceGraph nodes={graph.nodes} links={graph.links} fill onNodeClick={setRoot}
+            <SurfaceGraph nodes={graph.nodes} links={graph.links} fill onNodeClick={handleNodeClick} layout={layout} pathIds={pathIds}
               visibleKinds={hiddenKinds.size ? new Set(graph.nodes.map((n) => n.kind ?? 'Concept').filter((k) => !hiddenKinds.has(k))) : undefined}
               hideInferred={hideInferred} />
             {root && (
@@ -252,7 +280,7 @@ export function GraphRailPanel() {
           </div>
           <div className="relative min-h-0 flex-1 bg-[var(--color-background-secondary)]">
             {graph.nodes.length > 0 ? (
-              <SurfaceGraph nodes={graph.nodes} links={graph.links} fill onNodeClick={setRoot}
+              <SurfaceGraph nodes={graph.nodes} links={graph.links} fill onNodeClick={handleNodeClick} layout={layout} pathIds={pathIds}
               visibleKinds={hiddenKinds.size ? new Set(graph.nodes.map((n) => n.kind ?? 'Concept').filter((k) => !hiddenKinds.has(k))) : undefined}
               hideInferred={hideInferred} />
             ) : (

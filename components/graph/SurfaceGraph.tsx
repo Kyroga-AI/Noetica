@@ -57,9 +57,11 @@ interface Sim extends GraphNode { x: number; y: number; vx: number; vy: number; 
  * Charge repulsion + link springs + anchor/centering + collision, SVG-rendered,
  * draggable. Feed it nodes/links from /api/graph/surface.
  */
-export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick, visibleKinds, hideInferred }: {
+export type GraphLayout = 'force' | 'radial' | 'hierarchy'
+
+export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick, visibleKinds, hideInferred, layout = 'force', pathIds }: {
   nodes: GraphNode[]; links: GraphLink[]; width?: number; height?: number; fill?: boolean; onNodeClick?: (id: string) => void
-  visibleKinds?: Set<string>; hideInferred?: boolean
+  visibleKinds?: Set<string>; hideInferred?: boolean; layout?: GraphLayout; pathIds?: string[]
 }) {
   // Faceted filtering: hide whole entity classes, and/or hide low-trust (inferred) edges.
   const fNodes = useMemo(() => (visibleKinds ? nodes.filter((n) => visibleKinds.has(n.kind ?? 'Concept')) : nodes), [nodes, visibleKinds])
@@ -92,17 +94,56 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick, v
   const svgRef = useRef<SVGSVGElement>(null)
   const ensureRunningRef = useRef<() => void>(() => {})
 
+  // Layout seeding: radial = BFS-distance rings from the most-central node; hierarchy = top-down
+  // BFS layers; force = no anchor (organic). The anchor force then holds nodes near these seeds.
+  const seed = useMemo<Map<string, { x0: number; y0: number }> | null>(() => {
+    if (layout === 'force') return null
+    const adj = new Map<string, string[]>()
+    const deg = new Map<string, number>()
+    for (const l of links) {
+      ;(adj.get(l.source) ?? adj.set(l.source, []).get(l.source)!).push(l.target)
+      ;(adj.get(l.target) ?? adj.set(l.target, []).get(l.target)!).push(l.source)
+      deg.set(l.source, (deg.get(l.source) ?? 0) + 1); deg.set(l.target, (deg.get(l.target) ?? 0) + 1)
+    }
+    const center = nodes.slice().sort((a, b) => (deg.get(b.id) ?? 0) - (deg.get(a.id) ?? 0))[0]
+    const dist = new Map<string, number>()
+    if (center) { dist.set(center.id, 0); const q = [center.id]; while (q.length) { const u = q.shift()!; for (const v of adj.get(u) ?? []) if (!dist.has(v)) { dist.set(v, dist.get(u)! + 1); q.push(v) } } }
+    const known = [...dist.values()]; const maxD = known.length ? Math.max(...known) : 0
+    nodes.forEach((n) => { if (!dist.has(n.id)) dist.set(n.id, maxD + 1) })   // disconnected → outer ring
+    const layers = new Map<number, string[]>()
+    nodes.forEach((n) => { const d = dist.get(n.id)!; (layers.get(d) ?? layers.set(d, []).get(d)!).push(n.id) })
+    const maxLayer = Math.max(1, ...layers.keys())
+    const R = Math.min(W, H) * 0.43
+    const pos = new Map<string, { x0: number; y0: number }>()
+    for (const [d, ids] of layers) ids.forEach((id, i) => {
+      if (layout === 'radial') {
+        const radius = (d / maxLayer) * R
+        const ang = (i / Math.max(1, ids.length)) * Math.PI * 2 + d * 0.6
+        pos.set(id, { x0: Math.cos(ang) * radius, y0: Math.sin(ang) * radius })
+      } else {
+        const y = (d / maxLayer - 0.5) * H * 0.82
+        const x = (ids.length > 1 ? i / (ids.length - 1) - 0.5 : 0) * W * 0.82
+        pos.set(id, { x0: x, y0: y })
+      }
+    })
+    return pos
+  }, [nodes, links, layout, W, H])
+
   // Build working sim nodes whenever the data changes.
   const built = useMemo(() => {
     const cx = W / 2, cy = H / 2
-    return nodes.map<Sim>((n) => ({
-      ...n,
-      r: n.featured ? 17 : 11,
-      x: cx + (n.x0 ?? (Math.random() - 0.5) * Math.min(W, H) * 0.7),
-      y: cy + (n.y0 ?? (Math.random() - 0.5) * Math.min(W, H) * 0.7),
-      vx: 0, vy: 0,
-    }))
-  }, [nodes, W, H])
+    return nodes.map<Sim>((n) => {
+      const sp = seed?.get(n.id)
+      const x0 = sp?.x0 ?? n.x0, y0 = sp?.y0 ?? n.y0
+      return {
+        ...n, x0, y0,
+        r: n.featured ? 17 : 11,
+        x: cx + (x0 ?? (Math.random() - 0.5) * Math.min(W, H) * 0.7),
+        y: cy + (y0 ?? (Math.random() - 0.5) * Math.min(W, H) * 0.7),
+        vx: 0, vy: 0,
+      }
+    })
+  }, [nodes, W, H, seed])
 
   useEffect(() => {
     simRef.current = built
@@ -210,6 +251,10 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick, v
 
   const ns = simRef.current
   const byId = new Map(ns.map((n) => [n.id, n]))
+  // Path highlight: the shortest-path chain glows gold (nodes + the edges between consecutive hops).
+  const pathSet = new Set(pathIds ?? [])
+  const pathEdge = new Set<string>()
+  for (let i = 0; pathIds && i + 1 < pathIds.length; i++) { pathEdge.add(`${pathIds[i]}|${pathIds[i + 1]}`); pathEdge.add(`${pathIds[i + 1]}|${pathIds[i]}`) }
 
   return (
     <div ref={wrapRef} style={{ width: '100%', height: fill ? '100%' : 'auto' }}>
@@ -228,6 +273,8 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick, v
           // Inferred (algorithm-derived) edges read as dashed + faint; extracted/confirmed as solid —
           // so you can SEE which links to trust and filter the guesses out.
           const inferred = l.epistemic === 'inferred'
+          const onPath = pathEdge.has(`${l.source}|${l.target}`)
+          if (onPath) return <line key={i} x1={s.x} y1={s.y} x2={t.x} y2={t.y} stroke="#f59e0b" strokeWidth={4} strokeOpacity={1} />
           return <line key={i} x1={s.x} y1={s.y} x2={t.x} y2={t.y} strokeWidth={l.primary ? 2.5 : 1.4} strokeDasharray={inferred ? '5 4' : undefined} strokeOpacity={inferred ? 0.5 : 0.95} />
         })}
       </g>
@@ -235,6 +282,7 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick, v
         <g key={n.id} transform={`translate(${n.x},${n.y})`} cursor="grab"
           onPointerDown={(e) => { dragRef.current = { id: n.id }; movedRef.current = false; (e.target as Element).setPointerCapture?.(e.pointerId); alphaRef.current = Math.max(alphaRef.current, 0.3); ensureRunningRef.current() }}>
           <title>{n.label}</title>
+          {pathSet.has(n.id) && <circle r={n.r + 4} fill="none" stroke="#f59e0b" strokeWidth={2.5} />}
           <circle r={n.r} fill={KIND_COLOR[n.kind ?? ''] ?? COLOR[n.category] ?? COLOR.other} stroke="#fff" strokeWidth={n.featured ? 3 : 2} filter="url(#spNodeGlow)" />
           {/* readable label BELOW the node: featured hubs show the full concept, others the
               disemvowelled form so the whole word is recognizable (no "self n…" truncation). */}

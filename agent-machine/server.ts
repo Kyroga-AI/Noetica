@@ -4977,6 +4977,37 @@ const server = http.createServer((req, res) => {
   }
 
   // GET /api/mesh/status — the prophet-cloud-mesh tier ladder and which tiers are armed.
+  // GET /api/graph/path?from=<id>&to=<id> — shortest path (BFS) between two nodes: the "how is X
+  // related to Y?" query. Returns the chain of {id,label} (or empty if disconnected).
+  if (req.method === 'GET' && url.pathname === '/api/graph/path') {
+    setCORSHeaders(res)
+    try {
+      const from = url.searchParams.get('from') ?? '', to = url.searchParams.get('to') ?? ''
+      const g = getGraph()
+      const adj = new Map<string, string[]>()
+      for (const e of g.allEdges()) {
+        ;(adj.get(e.from) ?? adj.set(e.from, []).get(e.from)!).push(e.to)
+        ;(adj.get(e.to) ?? adj.set(e.to, []).get(e.to)!).push(e.from)
+      }
+      const prev = new Map<string, string>(); const seen = new Set([from]); const q = [from]; let found = from === to
+      while (q.length && !found) {
+        const u = q.shift()!
+        for (const v of adj.get(u) ?? []) { if (!seen.has(v)) { seen.add(v); prev.set(v, u); if (v === to) { found = true; break } q.push(v) } }
+      }
+      let pathOut: { id: string; label: string }[] = []
+      if (found) {
+        const ids = [to]; let cur = to
+        while (cur !== from && prev.has(cur)) { cur = prev.get(cur)!; ids.unshift(cur) }
+        const nodeById = new Map(g.allNodes().map((n) => [n.id, n]))
+        pathOut = ids.map((id) => { const n = nodeById.get(id); return { id, label: (n ? cleanLabel(n) : null) ?? id.split(':').pop() ?? id } })
+      }
+      res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ path: pathOut, length: pathOut.length ? pathOut.length - 1 : -1 }))
+    } catch (e) {
+      res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e).slice(0, 120) }))
+    }
+    return
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/mesh/status') {
     setCORSHeaders(res)
     const tiers = meshLadder({ hasAnthropicKey: !!process.env['ANTHROPIC_API_KEY'] })
