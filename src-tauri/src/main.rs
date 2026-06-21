@@ -434,7 +434,10 @@ fn main() {
             }
 
             // ── Menu-bar (tray) icon — Show / Quit; left-click toggles the window ──
-            {
+            // Non-fatal: a failure here must never propagate out of setup and abort the macOS
+            // launch path (a panic across did_finish_launching can't unwind → SIGABRT). Log and
+            // run on without a tray rather than taking the whole app down.
+            if let Err(e) = (|| -> tauri::Result<()> {
                 let show = MenuItemBuilder::with_id("tray_show", "Show Noetica").build(app)?;
                 let quit = MenuItemBuilder::with_id("tray_quit", "Quit Noetica").build(app)?;
                 let tray_menu = MenuBuilder::new(app).items(&[&show, &quit]).build()?;
@@ -473,6 +476,9 @@ fn main() {
                         }
                     })
                     .build(app)?;
+                Ok(())
+            })() {
+                eprintln!("[tray] setup failed (non-fatal): {}", e);
             }
 
             // ── Ollama sidecar (opt-in, default OFF) ──────────────────────────
