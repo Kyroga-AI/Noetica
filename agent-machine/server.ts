@@ -120,9 +120,10 @@ function writeSecurityState(armed: boolean): void {
   lastSecurityArmed = armed
   try {
     fs.mkdirSync(path.dirname(SECURITY_STATE_FILE), { recursive: true })
+    // Fixed path; only sanitized booleans are written — no untrusted content reaches the file.
     fs.writeFileSync(SECURITY_STATE_FILE, JSON.stringify({
-      armed, tor: armed, updated_at: new Date().toISOString(), source: 'noetica-agent-machine',
-    }, null, 2))
+      armed: armed === true, tor: armed === true, updated_at: new Date().toISOString(), source: 'noetica-agent-machine',
+    }, null, 2), { mode: 0o600 })
   } catch { /* signal is best-effort — never block a chat on it */ }
 }
 function readSecurityState(): unknown {
@@ -923,8 +924,10 @@ const LOGIN_SHELL = (() => {
 function runInWorkspace(command: string, cwd: string, timeoutMs: number): Promise<{ out: string; err: string; code: string }> {
   return new Promise((resolve) => {
     let out = '', err = '', done = false
+    // Bound the timer to a safe range regardless of caller input (resource-exhaustion guard).
+    const safeTimeout = Math.min(300_000, Math.max(1_000, Number.isFinite(timeoutMs) ? timeoutMs : 60_000))
     const child = cp.spawn(LOGIN_SHELL, ['-lc', command], { cwd, env: { ...process.env } })
-    const timer = setTimeout(() => { if (!done) { done = true; try { child.kill('SIGKILL') } catch { /* */ } resolve({ out, err, code: `timeout after ${timeoutMs}ms` }) } }, timeoutMs)
+    const timer = setTimeout(() => { if (!done) { done = true; try { child.kill('SIGKILL') } catch { /* */ } resolve({ out, err, code: `timeout after ${safeTimeout}ms` }) } }, safeTimeout)
     child.stdout.on('data', (d: Buffer) => { if (out.length < 200_000) out += d.toString() })
     child.stderr.on('data', (d: Buffer) => { if (err.length < 100_000) err += d.toString() })
     child.on('error', (e) => { if (!done) { done = true; clearTimeout(timer); resolve({ out, err: String(e), code: 'error' }) } })
@@ -4589,8 +4592,9 @@ const server = http.createServer((req, res) => {
       try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
       const b64 = String(p.audio_b64 ?? '').split(',').pop() ?? ''
       if (!b64) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'no_audio' })); return }
-      const tmp = path.join(os.tmpdir(), `noetica-stt-${Date.now()}.webm`)
-      try { fs.writeFileSync(tmp, Buffer.from(b64, 'base64')) } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'write_failed' })); return }
+      // Unpredictable name + owner-only perms → no temp-file pre-creation/symlink attack.
+      const tmp = path.join(os.tmpdir(), `noetica-stt-${crypto.randomUUID()}.webm`)
+      try { fs.writeFileSync(tmp, Buffer.from(b64, 'base64'), { mode: 0o600 }) } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'write_failed' })); return }
       const { transcribe } = await import('./lib/stt.js')
       const r = await transcribe(tmp)
       try { fs.unlinkSync(tmp) } catch { /* */ }
@@ -4614,8 +4618,8 @@ const server = http.createServer((req, res) => {
         })
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ entries }))
-      } catch (e) {
-        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e), entries: [] }))
+      } catch {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'registry_unavailable', entries: [] }))
       }
     })()
     return

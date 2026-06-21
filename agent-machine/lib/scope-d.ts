@@ -77,15 +77,20 @@ export function scopedConfigured(): boolean {
 let policyCache: { mtimeMs: number; policy: EngagementPolicy | null } | null = null
 function loadEngagementPolicy(): EngagementPolicy | null {
   if (!scopedConfigured()) return null
+  let fd: number | undefined
   try {
-    const stat = fs.statSync(POLICY_PATH)
+    // Open once; fstat + read from the SAME descriptor — no stat-then-read TOCTOU race.
+    fd = fs.openSync(POLICY_PATH, 'r')
+    const stat = fs.fstatSync(fd)
     if (policyCache && policyCache.mtimeMs === stat.mtimeMs) return policyCache.policy
-    const policy = JSON.parse(fs.readFileSync(POLICY_PATH, 'utf8')) as EngagementPolicy
+    const policy = JSON.parse(fs.readFileSync(fd, 'utf8')) as EngagementPolicy
     policyCache = { mtimeMs: stat.mtimeMs, policy }
     return policy
   } catch {
     policyCache = { mtimeMs: 0, policy: null }
     return null
+  } finally {
+    if (fd !== undefined) { try { fs.closeSync(fd) } catch { /* */ } }
   }
 }
 
