@@ -14,6 +14,8 @@
  * the durable substrate. Pure over a minimal store (the real HellGraph store satisfies it).
  */
 
+import { tokensOf, jaccard } from './graph-search.js'
+
 export interface MemoryNode { id: string; labels: string[]; properties: Record<string, unknown> }
 export interface MemoryStore {
   nodesByLabel(label: string): MemoryNode[]
@@ -87,3 +89,29 @@ function setPin(store: MemoryStore, id: string, pinned: boolean): boolean {
 export function pinMemory(store: MemoryStore, id: string): boolean { return setPin(store, id, true) }
 /** Unpin a memory (lower LTI so it can decay out of the long-term set). */
 export function unpinMemory(store: MemoryStore, id: string): boolean { return setPin(store, id, false) }
+
+/**
+ * Select the memories to inject for THIS turn — relevance-ranked, not a dump.
+ *   • pinned memories are ALWAYS included (the user curated them = always honor)
+ *   • unpinned memories surface only when relevant to the query (Jaccard over kind+preview),
+ *     highest-scored first — so "what's the weather?" no longer drags in "prefers coffee"
+ *   • if room remains and the query is empty/unmatched, fill with newest unpinned
+ * Replaces listMemories(...).slice(0, n) at the injection site.
+ */
+export function selectRelevantMemories(store: MemoryStore, query: string, limit = 8): MemoryRecord[] {
+  const all = listMemories(store)              // already pinned-first, newest-first
+  const pinned = all.filter((m) => m.pinned)
+  const unpinned = all.filter((m) => !m.pinned)
+  const out: MemoryRecord[] = [...pinned]
+  const qt = tokensOf(query)
+  if (qt.size === 0) {
+    for (const m of unpinned) { if (out.length >= limit) break; out.push(m) }   // no query → newest fill
+  } else {
+    const ranked = unpinned
+      .map((m) => ({ m, score: jaccard(qt, tokensOf(`${m.kind} ${m.preview}`)) }))
+      .filter((s) => s.score > 0)                                                // relevant ONLY — no irrelevant fill
+      .sort((a, b) => b.score - a.score)
+    for (const s of ranked) { if (out.length >= limit) break; out.push(s.m) }
+  }
+  return out.slice(0, limit)
+}

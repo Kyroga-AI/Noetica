@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { listMemories, pinMemory, unpinMemory, PINNED_LTI, type MemoryStore, type MemoryNode } from './memory-curation.js'
+import { listMemories, pinMemory, unpinMemory, selectRelevantMemories, PINNED_LTI, type MemoryStore, type MemoryNode } from './memory-curation.js'
 
 class FakeStore implements MemoryStore {
   nodes = new Map<string, MemoryNode>()
@@ -67,4 +67,23 @@ test('pinning a non-memory node is refused', () => {
   const s = seed()
   assert.equal(pinMemory(s, 'doc:report'), false)
   assert.equal(pinMemory(s, 'nonexistent'), false)
+})
+
+test('selectRelevantMemories: pinned always in, unpinned only when relevant', () => {
+  const s = new FakeStore()
+  s.add('doc:coffee', ['Document'], { filename: 'memory/preference-1.md', created_at: '2026-06-21T10:00:00Z', preview: 'Michael prefers coffee in the morning' })
+  s.add('doc:python', ['Document'], { filename: 'memory/fact-1.md', created_at: '2026-06-21T11:00:00Z', preview: 'Michael writes Python and Rust' })
+  s.add('doc:title', ['Document'], { filename: 'memory/identity-1.md', created_at: '2026-06-21T12:00:00Z', preview: 'His title is Lord' })
+  pinMemory(s, 'doc:title')  // pinned identity
+
+  // query about python → python memory surfaces, coffee does NOT; pinned title always present
+  const got = selectRelevantMemories(s, 'help me debug this python script', 8).map((m) => m.id)
+  assert.ok(got.includes('doc:title'), 'pinned always included')
+  assert.ok(got.includes('doc:python'), 'relevant unpinned surfaces')
+  assert.ok(!got.includes('doc:coffee'), 'irrelevant unpinned excluded')   // the "ask weather, get coffee" fix
+
+  // empty/unmatched query → pinned only (no irrelevant dump), then fill
+  const weather = selectRelevantMemories(s, 'what is the weather today', 8).map((m) => m.id)
+  assert.ok(weather.includes('doc:title'))   // pinned always
+  assert.ok(!weather.includes('doc:coffee') && !weather.includes('doc:python'))  // nothing matched
 })
