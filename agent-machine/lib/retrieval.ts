@@ -210,70 +210,46 @@ async function runGraphPattern(
   query: string,
 ): Promise<{ text: string; sources: Array<{ id: string; label: string; score: number }> }> {
   const g = getGraph()
-
-  // Extract capitalized words/phrases and quoted strings from query
-  const entities: string[] = []
-
-  // Quoted strings
-  const quotedRe = /"([^"]+)"/g
-  let m: RegExpExecArray | null
-  while ((m = quotedRe.exec(query)) !== null) {
-    if (m[1]) entities.push(m[1])
+  // Use the real graph search (cosine + Jaccard + link expansion) instead of capitalized-word
+  // regex + flat-0.7 BFS — the agent now grounds with the SAME search the UI uses, scored.
+  const { graphSearch } = await import('./graph-search.js')
+  const store = {
+    nodesByLabel: (l: string) => g.nodesByLabel(l) as Array<{ id: string; labels: string[]; properties: Record<string, unknown> }>,
+    out: (id: string, e?: string) => g.out(id, e) as Array<{ id: string; labels: string[]; properties: Record<string, unknown> }>,
+    in: (id: string, e?: string) => g.in(id, e) as Array<{ id: string; labels: string[]; properties: Record<string, unknown> }>,
+  }
+  // Best-effort query embedding → cosine over atoms that carry vectors (lexical + link still
+  // work without it).
+  let queryVector: number[] | undefined
+  try {
+    const { embedBatchLocal } = await import('./embed-runtime.js')
+    const v = await embedBatchLocal([query]); const vec = v?.[0]; if (vec) queryVector = vec
+  } catch { /* cosine optional */ }
+  const vectorOf = (n: { properties: Record<string, unknown> }) => {
+    const raw = n.properties['embedding']; if (!raw) return null
+    try { return typeof raw === 'string' ? JSON.parse(raw) as number[] : (raw as number[]) } catch { return null }
   }
 
-  // Capitalized multi-word phrases (2+ consecutive capitalized words)
-  const capPhraseRe = /\b([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+)+)\b/g
-  while ((m = capPhraseRe.exec(query)) !== null) {
-    if (m[1]) entities.push(m[1])
-  }
-
-  // Single capitalized words
-  const singleCapRe = /\b([A-Z][a-zA-Z]{2,})\b/g
-  while ((m = singleCapRe.exec(query)) !== null) {
-    if (m[1] && !entities.includes(m[1])) entities.push(m[1])
-  }
-
-  if (entities.length === 0) {
-    return { text: '', sources: [] }
-  }
-
-  const lines: string[] = []
-  const sources: Array<{ id: string; label: string; score: number }> = []
-  const seen = new Set<string>()
+  const all = graphSearch(store, query, { limit: 30, ...(queryVector ? { queryVector, vectorOf } : {}) })
+  // Dedupe by surface form (the store has lexical-variant atoms) — keep the highest-scored.
+  const bySurface = new Map<string, typeof all[number]>()
+  for (const h of all) { const k = h.surface.toLowerCase(); const p = bySurface.get(k); if (!p || p.score < h.score) bySurface.set(k, h) }
+  const hits = [...bySurface.values()].sort((a, b) => b.score - a.score).slice(0, 15)
+  if (hits.length === 0) return { text: '', sources: [] }
 
   const SNIPPET_PROPS = ['promptSummary', 'responseSummary', 'content', 'text']
-  // Hard caps to prevent O(n) blowup on dense star-topology graphs
-  const MAX_PER_ENTITY = 15
-  const MAX_TOTAL = 60
-
-  for (const entity of entities.slice(0, 8)) {
-    if (sources.length >= MAX_TOTAL) break
-    const adjacent = [...g.out(entity), ...g.in(entity)].slice(0, MAX_PER_ENTITY)
-    for (const node of adjacent) {
-      if (seen.has(node.id) || sources.length >= MAX_TOTAL) continue
-      seen.add(node.id)
-
-      let snippet: string | null = null
-      for (const prop of SNIPPET_PROPS) {
-        const val = node.properties[prop]
-        if (val && typeof val === 'string' && val.length > 0) {
-          snippet = val.slice(0, 200)
-          break
-        }
-      }
-      if (!snippet) continue
-
-      const shortId = node.id.length > 32 ? node.id.slice(-24) : node.id
-      const label = node.labels[0] ?? 'node'
-      lines.push(`• [${shortId}]: ${snippet}`)
-      sources.push({ id: node.id, label, score: 0.7 })
+  const lines: string[] = []
+  const sources = hits.map((h) => {
+    const n = g.getNode(h.id)
+    let snippet = h.surface
+    for (const prop of SNIPPET_PROPS) {
+      const val = n?.properties?.[prop]
+      if (typeof val === 'string' && val.length > 0) { snippet = val.slice(0, 180); break }
     }
-  }
-
-  return {
-    text: lines.length > 0 ? `### Graph Context\n${lines.join('\n')}` : '',
-    sources,
-  }
+    lines.push(`• ${h.surface} (${h.via} ${h.score})${snippet !== h.surface ? `: ${snippet}` : ''}`)
+    return { id: h.id, label: h.label, score: h.score }
+  })
+  return { text: `### Graph Context\n${lines.join('\n')}`, sources }
 }
 
 function escapeRegex(s: string): string {
