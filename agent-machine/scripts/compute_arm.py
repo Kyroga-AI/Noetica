@@ -17,7 +17,7 @@ than the model alone, and it *knows* which subset that is.
 Run:  OLLAMA_HOST=http://127.0.0.1:11434 python3 scripts/compute_arm.py
       MMLU_SUBJECTS=college_physics,high_school_physics MMLU_PER_SUBJECT=40 python3 ...
 """
-import os, re, json, urllib.request
+import os, sys, re, json, urllib.request
 import sympy as sp
 from units import parse_unit, to_si, dimension_of, DimError
 from model_verify import MODELS, DIMS, verify_and_solve
@@ -327,7 +327,24 @@ def solve_question(question, choices):
     return None, 'abstain'
 
 
+def _batch():
+    """Read JSONL {id, question, choices} on stdin; emit JSONL {id, answer, mode} — one process,
+    one sympy import, so the MMLU bench can score the whole compute arm in a single subprocess call."""
+    for line in sys.stdin:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            q = json.loads(line)
+            ans, mode = solve_question(q['question'], q['choices'])
+        except Exception:
+            q, ans, mode = {}, None, 'error'
+        print(json.dumps({'id': q.get('id'), 'answer': ans, 'mode': mode}), flush=True)
+
+
 def main():
+    if '--batch' in sys.argv:
+        return _batch()
     bank = json.load(open(BANK))
     grand = {'cov_n': 0, 'cov_correct': 0, 'base_on_attempted': 0, 'total': 0, 'base_total': 0}
     print(f'# COMPUTE arm — model={MODEL} | verified extract→solve→match→answer/abstain\n')

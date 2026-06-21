@@ -31,6 +31,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import { execFileSync } from 'node:child_process'
 import { embedText } from '../lib/ollama.js'
 
 const HOME = os.homedir()
@@ -169,6 +170,25 @@ function extractLetter(raw: string): string {
 }
 function pct(a: number, b: number): string { return b ? (100 * a / b).toFixed(1) : '0.0' }
 
+// ── verified-compute arm: the model only PARSES; units + the law catalog compute and certify ──
+const COMPUTE_PY = path.join(__dirname, 'compute_arm.py')
+interface CompRes { answer: string | null; mode: string }
+/** Score the whole compute arm for a subject in ONE python call (one sympy import). Each result
+ *  is the verified answer letter, or null=abstain when no law fits / units reject the extraction. */
+function computeBatch(qs: Q[]): CompRes[] {
+  const res: CompRes[] = qs.map(() => ({ answer: null, mode: 'abstain' }))
+  if (!qs.length) return res
+  const input = qs.map((q, i) => JSON.stringify({ id: i, question: q.question, choices: q.choices })).join('\n') + '\n'
+  try {
+    const out = execFileSync('python3', [COMPUTE_PY, '--batch'], { input, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env } })
+    for (const line of out.split('\n')) {
+      if (!line.trim()) continue
+      try { const r = JSON.parse(line) as { id: number; answer: string | null; mode: string }; if (typeof r.id === 'number' && r.id < res.length) res[r.id] = { answer: r.answer, mode: r.mode } } catch { /* skip a bad line */ }
+    }
+  } catch { return qs.map(() => ({ answer: null, mode: 'error' })) }
+  return res
+}
+
 async function main() {
   const mmlu = JSON.parse(fs.readFileSync(BANK, 'utf8')) as Record<string, Q[]>
   const rand = rng(SEED)
@@ -188,7 +208,7 @@ async function main() {
   console.log(`# transcript: ${TRANSCRIPT}\n`)
   if (!subjects.length) { console.log('No brain-ready subjects yet — let the vectorizer finish a field first.'); return }
 
-  const tally: Record<string, Record<string, { c: number; n: number }>> = {} // arm → subject → {c,n}
+  const tally: Record<string, Record<string, { c: number; n: number; a?: number }>> = {} // arm → subject → {c,n,attempted}
   for (const arm of ARMS) tally[arm] = {}
 
   for (const subject of subjects) {
@@ -197,7 +217,9 @@ async function main() {
     const poolN = pools.reduce((a, p) => a + p.length, 0)
     const sample = shuffle(mmlu[subject]!, rand).slice(0, PER > 0 ? PER : mmlu[subject]!.length)
     process.stdout.write(`\n## ${subject}  (fields: ${fields.join('+')} · ${poolN.toLocaleString()} chunks · ${sample.length} q)\n`)
-    for (const arm of ARMS) tally[arm]![subject] = { c: 0, n: 0 }
+    for (const arm of ARMS) tally[arm]![subject] = { c: 0, n: 0, a: 0 }
+    // verified-compute arm scored up front (one python call per subject); used by compute + route
+    const comp: CompRes[] = (ARMS.includes('compute') || ARMS.includes('route')) ? computeBatch(sample) : []
 
     for (let i = 0; i < sample.length; i++) {
       const q = sample[i]!
@@ -205,29 +227,38 @@ async function main() {
       const gold = LETTERS[q.answer]
       const row: Record<string, unknown> = { subject, i, gold }
 
-      // brain retrieval (shared across arms that need it)
+      // brain retrieval (shared by the brain arm AND the route arm's fallback)
       let context = ''
-      if (ARMS.includes('brain')) {
+      if (ARMS.includes('brain') || ARMS.includes('route')) {
         const qVec = await embedText(`${q.question}\n${q.choices.join(' ')}`)
         const hits = topK(qVec, pools, K)
         context = hits.map((h, n) => `[${n + 1}] ${h.text.slice(0, 500)}`).join('\n\n')
         row['sources'] = hits.map((h) => `${h.slug}:${h.material}`)
       }
 
-      // Same answer-format rule on BOTH arms — the only difference between arms is the
-      // injected context, so the comparison stays fair.
+      // Same answer-format rule on every model-answered arm — the only difference is the injected
+      // context (brain) or the path taken (route), so the comparison stays fair.
       const ANSWER_RULE = '\n\nReason in ONE short sentence, then output exactly one final line: "FINAL: X" (X = A, B, C, or D).'
+      const brainPrompt = `Relevant MIT course notes (use only what helps; ignore noise and fragments):\n\n${context}\n\nExam question:\n${base}${ANSWER_RULE}`
+      let brainLetter: string | undefined // memoize so brain + route don't double-ask the model
+      const askBrain = async (): Promise<string> => (brainLetter ??= extractLetter(await ask(brainPrompt)))
+      const ci = comp[i]
       const marks: string[] = []
       for (const arm of ARMS) {
-        const prompt = arm === 'brain'
-          ? `Relevant MIT course notes (use only what helps; ignore noise and fragments):\n\n${context}\n\nExam question:\n${base}${ANSWER_RULE}`
-          : `${base}${ANSWER_RULE}`
-        const letter = extractLetter(await ask(prompt))
+        let letter = ''; let mode = ''; let attempted = true
+        if (arm === 'compute') {                 // verified compute only (abstains where no law fits)
+          letter = ci?.answer ?? ''; mode = ci?.mode ?? 'abstain'; attempted = !!ci?.answer
+        } else if (arm === 'route') {             // the dispatch: compute where computable, else retrieve
+          if (ci?.answer) { letter = ci.answer; mode = ci.mode } else { letter = await askBrain(); mode = 'retrieve' }
+        } else if (arm === 'brain') {
+          letter = await askBrain()
+        } else {                                  // baseline (closed book)
+          letter = extractLetter(await ask(`${base}${ANSWER_RULE}`))
+        }
         const ok = letter === gold
-        const t = tally[arm]![subject]!; t.n++; if (ok) t.c++
-        row[`${arm}_pred`] = letter || '?'; row[`${arm}_ok`] = ok
-        const tag = arm === 'baseline' ? 'base' : arm === 'brain' ? 'brain' : arm
-        marks.push(`${tag}:${ok ? '✓' : '✗'}${letter || '?'}`)
+        const t = tally[arm]![subject]!; t.n++; if (ok) t.c++; if (arm === 'compute' && attempted) t.a = (t.a ?? 0) + 1
+        row[`${arm}_pred`] = letter || '?'; row[`${arm}_ok`] = ok; if (mode) row[`${arm}_mode`] = mode
+        marks.push(`${arm}:${ok ? '✓' : '✗'}${arm === 'compute' && !attempted ? '·' : (letter || '?')}`)
       }
       fs.appendFileSync(TRANSCRIPT, JSON.stringify(row) + '\n')
       console.log(`  ${String(i + 1).padStart(3)}. ${marks.join('  ')}  /${gold}`)
@@ -238,10 +269,10 @@ async function main() {
   console.log(`\n# ════════ results (model ${MODEL}) ════════`)
   const header = `  ${'subject'.padEnd(26)}` + ARMS.map((a) => a.padStart(10)).join('') + (ARMS.length === 2 ? '     Δ' : '')
   console.log(header)
-  const totals: Record<string, { c: number; n: number }> = {}
-  for (const arm of ARMS) totals[arm] = { c: 0, n: 0 }
+  const totals: Record<string, { c: number; n: number; a: number }> = {}
+  for (const arm of ARMS) totals[arm] = { c: 0, n: 0, a: 0 }
   for (const subject of subjects) {
-    const cells = ARMS.map((a) => { const t = tally[a]![subject]!; totals[a]!.c += t.c; totals[a]!.n += t.n; return `${pct(t.c, t.n)}%`.padStart(10) })
+    const cells = ARMS.map((a) => { const t = tally[a]![subject]!; totals[a]!.c += t.c; totals[a]!.n += t.n; totals[a]!.a += t.a ?? 0; return `${pct(t.c, t.n)}%`.padStart(10) })
     let delta = ''
     if (ARMS.length === 2 && tally['brain'] && tally['baseline']) {
       const b = tally['brain'][subject]!, base = tally['baseline'][subject]!
@@ -257,6 +288,10 @@ async function main() {
     totDelta = `  ${d >= 0 ? '+' : ''}${d.toFixed(1)}`
   }
   console.log(`  ${'── OVERALL'.padEnd(26)}${totLine}${totDelta}`)
+  if (totals['compute']) {
+    const cv = totals['compute']!
+    console.log(`  ${'   ↳ compute'.padEnd(26)}  fired on ${cv.a}/${cv.n} (${pct(cv.a, cv.n)}%) · accuracy-on-fired ${pct(cv.c, cv.a)}%  (the verified-compute moat; rest abstain${ARMS.includes('route') ? ' → routed to brain' : ''})`)
+  }
   console.log(`\n# reference (published overall MMLU):`)
   for (const [k, v] of Object.entries(FRONTIER)) console.log(`  ${k.padEnd(26)} ${v}%`)
   console.log(`\n# transcript: ${TRANSCRIPT}`)

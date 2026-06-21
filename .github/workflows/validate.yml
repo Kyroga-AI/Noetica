@@ -148,4 +148,7 @@ jobs:
         working-directory: src-tauri
         run: cargo check --locked --quiet
       - name: Tauri static build feasibility
-        run: npm run tauri:build
+        # App-only bundle: this check verifies the build COMPILES + the .app bundles. DMG packaging
+        # (hdiutil / bundle_dmg.sh) is flaky on hosted macOS runners and irrelevant to feasibility,
+        # so we skip it here. Release.yml still produces the full DMG for actual distribution.
+        run: npm run tauri:icon && npx tauri build --bundles app
