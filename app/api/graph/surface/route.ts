@@ -3,6 +3,10 @@ import { getHellGraph } from '@socioprophet/hellgraph'
 import { selectSurface } from '@/agent-machine/lib/graph-surface'
 
 export const runtime = 'nodejs'
+// Let the static export (Tauri desktop) prerender this to a stub — the desktop app calls
+// the agent-machine's own /api/graph/surface, never this one, so it's unused in the export.
+// Without this, `new URL(req.url)` makes the static build fail to prerender the route.
+export const dynamic = 'force-static'
 
 /**
  * GET /api/graph/surface?view=all|domain|document|chat&limit=N&root=<id>
