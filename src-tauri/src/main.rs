@@ -14,6 +14,9 @@ use tauri_plugin_shell::ShellExt;
 /// None means the sidecar failed to start (dev mode without binary, or error).
 struct AgentMachineState {
     port: Option<u16>,
+    /// PID of the Agent Machine sidecar, so we can gracefully SIGTERM it on app exit
+    /// — its own handler then tears down the managed Ollama (no orphaned `ollama serve`).
+    am_pid: Option<u32>,
 }
 
 #[tauri::command]
@@ -323,7 +326,7 @@ fn main() {
                 })
                 .build(),
         )
-        .manage(Mutex::new(AgentMachineState { port: None }))
+        .manage(Mutex::new(AgentMachineState { port: None, am_pid: None }))
         .setup(|app| {
             let h = app.handle();
 
@@ -397,9 +400,13 @@ fn main() {
                         .env("OLLAMA_HOST", "http://127.0.0.1:11435")
                         .spawn()
                     {
-                        Ok((mut rx, _child)) => {
+                        Ok((mut rx, child)) => {
+                            // Keep the PID (dropping the handle does NOT kill the process)
+                            // so we can SIGTERM it on app exit and reap the Ollama it owns.
+                            let am_pid = child.pid();
                             if let Ok(mut state) = app.state::<Mutex<AgentMachineState>>().lock() {
                                 state.port = Some(am_port);
+                                state.am_pid = Some(am_pid);
                             }
 
                             let app_handle = h.clone();
@@ -545,6 +552,24 @@ fn main() {
             list_directory,
             write_local_file,
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running Noetica desktop shell");
+        .build(tauri::generate_context!())
+        .expect("error while building Noetica desktop shell")
+        .run(|app_handle, event| {
+            // On exit, gracefully stop the Agent Machine sidecar. Tauri does NOT kill
+            // sidecar children on quit (they reparent to launchd), and a hard kill would
+            // orphan the managed `ollama serve` it spawned. SIGTERM lets the Agent
+            // Machine run its own teardown (which SIGKILLs the managed Ollama), so we
+            // don't accumulate a leaked llama server on every launch.
+            if let tauri::RunEvent::Exit = event {
+                let pid = app_handle
+                    .try_state::<Mutex<AgentMachineState>>()
+                    .and_then(|s| s.lock().ok().and_then(|g| g.am_pid));
+                if let Some(pid) = pid {
+                    let _ = std::process::Command::new("kill")
+                        .arg("-TERM")
+                        .arg(pid.to_string())
+                        .status();
+                }
+            }
+        });
 }

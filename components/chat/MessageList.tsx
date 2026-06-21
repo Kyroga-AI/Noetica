@@ -65,7 +65,7 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
       { label: 'Show my files', prompt: 'List the files in my home directory.' },
       { label: 'Write code', prompt: 'Write a Python function that reverses a string, then run it and show the output.' },
       { label: 'Research', prompt: 'Search the web for the latest on local-first AI and summarize what you find.' },
-      { label: 'What can you do?', prompt: 'What can you do, and how are you different from cloud AI assistants?' },
+      { label: 'What can you do?', prompt: 'What can you do?' },
     ]
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 px-4 text-center">

@@ -25,6 +25,22 @@ test('specialists only on real cues', () => {
   assert.equal(classifyIntent('how do you work? which repos build you?').name, 'self_identity')
 })
 
+test('write-and-run-code routes to a code intent with code_execute (not write_draft)', () => {
+  // The "Write code" quick action: was mis-routing to write_draft (writing model,
+  // no code_execute) → the model faked the output instead of running it.
+  const r = classifyIntent('Write a Python function that reverses a string, then run it and show the output.')
+  assert.equal(r.name, 'build_implement')
+  assert.ok(r.tools.includes('code_execute'), 'must be able to actually execute')
+  assert.equal(capabilityToTask(r.model), 'reasoning') // a capable model, not the draft writer
+
+  // prose writing still routes to write_draft (we did not swallow real writing tasks)
+  assert.equal(classifyIntent('write me a poem about the sea').name, 'write_draft')
+  assert.equal(classifyIntent('draft an email to my landlord').name, 'write_draft')
+  assert.equal(classifyIntent('write a blog post about local-first AI').name, 'write_draft')
+  // other code-artifact phrasings also reach a code-executing intent
+  assert.ok(classifyIntent('create a script to rename files').tools.includes('code_execute'))
+})
+
 test('vector-rag flag', () => {
   assert.equal(wantsVectorRag('vector-rag'), true)
   assert.equal(wantsVectorRag('kb'), false)

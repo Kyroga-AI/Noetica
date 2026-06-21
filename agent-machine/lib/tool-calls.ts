@@ -8,9 +8,12 @@
  * the call and just shows the raw JSON to the user (the "it dumped JSON and
  * stopped" bug). This module turns those text emissions back into tool calls.
  *
- * It is intentionally pure + dependency-free so it can be unit-tested against the
- * real-world malformed outputs we observe, deterministically (no model needed).
+ * Local models also emit INVALID JSON in those calls — single-quoted string values,
+ * unquoted keys, trailing commas — so parsing falls back to JSON5. Still pure and
+ * deterministically testable against the real malformed outputs we observe.
  */
+
+import JSON5 from 'json5'
 
 export interface InlineToolCall {
   id: string
@@ -26,8 +29,14 @@ export function parseInlineToolCalls(
   let cleaned = text
 
   const tryAdd = (raw: string): boolean => {
+    const trimmed = raw.trim()
     let obj: unknown
-    try { obj = JSON.parse(raw.trim()) } catch { return false }
+    try { obj = JSON.parse(trimmed) }
+    catch {
+      // Tolerate the invalid JSON local models emit: single-quoted string values
+      // (e.g. "code": 'def f(): ...'), unquoted keys, trailing commas.
+      try { obj = JSON5.parse(trimmed) } catch { return false }
+    }
     if (!obj || typeof obj !== 'object') return false
     const o = obj as Record<string, unknown>
     const name =
@@ -58,16 +67,18 @@ export function parseInlineToolCalls(
   //    the string tracking brace depth (ignoring braces inside strings) so it can
   //    pull out multiple back-to-back objects from a multi-step emission.
   const spans: Array<[number, number]> = []
-  let depth = 0, start = -1, inStr = false, esc = false
+  let depth = 0, start = -1, quote: string | null = null, esc = false
   for (let i = 0; i < cleaned.length; i++) {
     const ch = cleaned[i]!
-    if (inStr) {
+    if (quote) {
+      // Track single- AND double-quoted strings so braces inside a single-quoted
+      // value (e.g. python code) don't throw off the depth count.
       if (esc) esc = false
       else if (ch === '\\') esc = true
-      else if (ch === '"') inStr = false
+      else if (ch === quote) quote = null
       continue
     }
-    if (ch === '"') inStr = true
+    if (ch === '"' || ch === "'") quote = ch
     else if (ch === '{') { if (depth === 0) start = i; depth++ }
     else if (ch === '}' && depth > 0 && --depth === 0 && start >= 0) { spans.push([start, i + 1]); start = -1 }
   }
@@ -80,6 +91,10 @@ export function parseInlineToolCalls(
     rebuilt += cleaned.slice(last)
     cleaned = rebuilt
   }
+
+  // Strip any orphan tool-call tags the model left dangling (e.g. a closing
+  // </tool_call> with no opening) so they never leak into the visible response.
+  cleaned = cleaned.replace(/<\/?tool_call>/gi, '')
 
   return { calls, cleaned: cleaned.trim() }
 }

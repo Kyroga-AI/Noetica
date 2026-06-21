@@ -92,3 +92,32 @@ test('tool call embedded after prose keeps the prose in cleaned', () => {
   assert.equal(calls.length, 1)
   assert.equal(cleaned, 'Sure, let me check that for you.')
 })
+
+test('single-quoted string value (the qwen code_execute leak) is recovered via JSON5', () => {
+  // The exact malformed shape observed: code wrapped in single quotes (invalid JSON),
+  // containing embedded double quotes and \n escapes, plus an orphan closing tag.
+  const text = `{"name": "code_execute", "arguments": {"language": "python", "code": 'def reverse_string(s):\\n return s[::-1]\\nsentence = "hello world"\\nresult = reverse_string(sentence)\\nprint(result)'}}\n</tool_call>`
+  const { calls, cleaned } = parseInlineToolCalls(text, TOOLS)
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0]!.name, 'code_execute')
+  assert.equal(calls[0]!.input['language'], 'python')
+  assert.ok((calls[0]!.input['code'] as string).includes('return s[::-1]'))
+  assert.ok((calls[0]!.input['code'] as string).includes('"hello world"'))
+  // nothing leaks — including the orphan </tool_call> tag
+  assert.equal(cleaned, '')
+})
+
+test('unquoted keys and trailing commas are tolerated', () => {
+  const { calls } = parseInlineToolCalls("{name: 'web_search', arguments: {query: 'local-first ai',}}", TOOLS)
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0]!.name, 'web_search')
+  assert.equal(calls[0]!.input['query'], 'local-first ai')
+})
+
+test('orphan </tool_call> with no opening tag still yields the call and clean text', () => {
+  const text = `{"name": "list_directory", "arguments": {"path": "~"}}\n</tool_call>`
+  const { calls, cleaned } = parseInlineToolCalls(text, TOOLS)
+  assert.equal(calls.length, 1)
+  assert.equal(calls[0]!.name, 'list_directory')
+  assert.equal(cleaned, '')
+})
