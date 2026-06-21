@@ -11,6 +11,7 @@ import oneDark from 'react-syntax-highlighter/dist/cjs/styles/prism/one-dark'
 import { GovernanceTrail } from '@/components/governance/GovernanceTrail'
 import { NoeticaMark } from '@/components/brand/NoeticaMark'
 import { BuildCard } from '@/components/chat/BuildCard'
+import { ChartView } from '@/components/chat/ChartView'
 import { SteeringDiff } from '@/components/steering/SteeringDiff'
 import type { ChatMessage, ToolCallRecord, ToolResultRecord } from '@/lib/types/message'
 import type { PendingAttachment } from '@/lib/types/attachment'
@@ -180,6 +181,10 @@ function MarkdownContent({ content, compact = false }: { content: string; compac
 
           if (isBlock || match) {
             const lang = match?.[1] ?? ''
+            // Registry chart payload → render an actual chart instead of code.
+            if (lang === 'noetica-chart') {
+              try { return <ChartView spec={JSON.parse(String(children).replace(/\n$/, ''))} /> } catch { /* fall through to code */ }
+            }
             return (
               <div className="group relative my-3 overflow-hidden rounded-xl border border-[var(--color-border-secondary)]">
                 {lang && (

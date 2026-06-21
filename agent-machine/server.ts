@@ -631,6 +631,22 @@ const BUILTIN_TOOLS: ProviderTool[] = [
     },
   },
   {
+    name: 'render_chart',
+    description:
+      'Render a chart INLINE from data rows. Provide the data + which fields map to axes; give a chart type or a charting intent (resolved against the catalogue). Use this to SHOW analysis as a chart instead of a table. Pair with code_execute (compute the data) + registry_lookup (pick the spec).',
+    input_schema: {
+      type: 'object',
+      properties: {
+        type: { type: 'string', enum: ['line', 'bar', 'area', 'scatter', 'pie', 'histogram'] },
+        query: { type: 'string', description: 'Charting intent if type omitted, e.g. "revenue over time".' },
+        data: { type: 'array', items: { type: 'object' }, description: 'Row objects, e.g. [{"month":"Jan","revenue":120}, …].' },
+        x: { type: 'string' }, y: { type: 'string' }, category: { type: 'string' }, value: { type: 'string' },
+        title: { type: 'string' },
+      },
+      required: ['data'],
+    },
+  },
+  {
     name: 'remember',
     description:
       'Save a durable fact, preference, or piece of context to your own LOCAL memory so you recall it in future conversations. Use whenever the user tells you something to keep ("remember that…", "I prefer…", "from now on…", "my name is…") or when you learn a stable fact worth retaining. Memory is stored in the local knowledge graph and surfaced automatically on future relevant turns.',
@@ -1018,6 +1034,19 @@ async function executeTool(
       const { resolved, error } = safePath(String(input['image_path'] ?? ''))
       if (error) return `OCR error: ${error}`
       return await runOcr(resolved)
+    }
+    case 'render_chart': {
+      const data = Array.isArray(input['data']) ? (input['data'] as Record<string, unknown>[]) : []
+      if (!data.length) return 'Error: render_chart needs a non-empty data array (row objects).'
+      let type = String(input['type'] ?? '')
+      if (!['line', 'bar', 'area', 'scatter', 'pie', 'histogram'].includes(type)) {
+        const { queryRegistry } = await import('./lib/registry.js')
+        const top = queryRegistry({ kind: 'chart', q: String(input['query'] ?? ''), limit: 1 })[0]
+        const map: Record<string, string> = { 'chart.timeseries.line': 'line', 'chart.area.trend': 'area', 'chart.bar.comparison': 'bar', 'chart.hist.distribution': 'histogram', 'chart.box.distribution': 'bar', 'chart.scatter.correlation': 'scatter', 'chart.pie.proportion': 'pie', 'chart.heatmap.matrix': 'bar', 'chart.candlestick.ohlc': 'line', 'chart.choropleth.geo': 'bar' }
+        type = (top && map[top.id]) || 'bar'
+      }
+      const payload = { type, data: data.slice(0, 200), x: input['x'], y: input['y'], category: input['category'], value: input['value'], title: input['title'] }
+      return '```noetica-chart\n' + JSON.stringify(payload) + '\n```'
     }
     case 'registry_lookup': {
       const { queryRegistry } = await import('./lib/registry.js')
