@@ -29,6 +29,8 @@ export function GraphRailPanel() {
   const [root, setRoot] = useState<string>('')
   const [graph, setGraph] = useState<{ nodes: GraphNode[]; links: GraphLink[] }>({ nodes: [], links: [] })
   const [expanded, setExpanded] = useState(false)
+  const [searchQ, setSearchQ] = useState('')
+  const [searchHits, setSearchHits] = useState<Array<{ id: string; label: string; surface: string; score: number; via: string }>>([])
 
   // Esc closes the expanded graph overlay (when drilled into a node, first Esc backs
   // out to topics, second closes) — matches the ← back / ✕ affordances.
@@ -77,6 +79,22 @@ export function GraphRailPanel() {
     return () => { cancelled = true }
   }, [view, root])
 
+  // graph search — cosine + Jaccard + link expansion (debounced)
+  useEffect(() => {
+    const q = searchQ.trim()
+    if (q.length < 2) { setSearchHits([]); return }
+    let cancelled = false
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/graph/search?q=${encodeURIComponent(q)}&limit=8`)
+        if (!res.ok) return
+        const json = (await res.json()) as { hits?: typeof searchHits }
+        if (!cancelled) setSearchHits(json.hits ?? [])
+      } catch { /* leave */ }
+    }, 220)
+    return () => { cancelled = true; clearTimeout(t) }
+  }, [searchQ])
+
   const fmt = (n: number | undefined) => (n !== undefined ? n.toLocaleString() : '—')
   const statusColor = health?.status === 'healthy' ? '#16a34a' : health?.status === 'degraded' ? '#d97706' : '#6b7280'
   const focusLabel = root ? graph.nodes.find((n) => n.id === root)?.label : ''
@@ -94,6 +112,34 @@ export function GraphRailPanel() {
           {v.label}
         </button>
       ))}
+    </div>
+  )
+
+  // Search box: cosine + Jaccard + link expansion; click a hit to focus the graph on it.
+  const searchBox = (
+    <div className="relative">
+      <input
+        value={searchQ}
+        onChange={(e) => setSearchQ(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Escape') { setSearchQ(''); setSearchHits([]) } }}
+        placeholder="Search topics & instances…"
+        className="w-full rounded-md border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1 text-[11px] text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#1d4ed8]"
+      />
+      {searchHits.length > 0 && (
+        <div className="absolute z-20 mt-1 max-h-60 w-full overflow-auto rounded-md border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-lg">
+          {searchHits.map((h) => (
+            <button key={h.id} onClick={() => { setView('all'); setRoot(h.id); setSearchQ(''); setSearchHits([]); setExpanded(true) }}
+              className="flex w-full items-center justify-between gap-2 px-2.5 py-1.5 text-left transition hover:bg-[var(--color-background-secondary)]">
+              <span className="truncate text-[11px] text-[var(--color-text-primary)]">{h.surface}</span>
+              <span className="shrink-0 rounded-full px-1.5 text-[9px] font-semibold"
+                style={{ background: h.via === 'link' ? '#7c3aed22' : h.via === 'cosine' ? '#1d4ed822' : '#16a34a22',
+                         color: h.via === 'link' ? '#7c3aed' : h.via === 'cosine' ? '#1d4ed8' : '#16a34a' }}>
+                {h.via}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   )
 
@@ -117,6 +163,7 @@ export function GraphRailPanel() {
           </div>
         </div>
         {/* lens switcher: scope the graph by tech / knowledge / memory / all */}
+        <div className="mt-2">{searchBox}</div>
         <div className="mt-2">{lensButtons}</div>
       </div>
 
