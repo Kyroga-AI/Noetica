@@ -28,11 +28,20 @@ export const KIND_COLOR: Record<string, string> = {
 }
 export const KIND_ORDER = ['Concept', 'Service', 'Code', 'Document', 'Session', 'Entity', 'Person', 'Org', 'Action', 'Cluster']
 
+// Edge colour by CSKG semantic dimension — the graph reads as a relationship map, not a hairball.
+export const DIM_COLOR: Record<string, string> = {
+  taxonomic: '#3b82f6', 'part-whole': '#8b5cf6', causation: '#ef4444', temporal: '#06b6d4',
+  spatial: '#10b981', similarity: '#ec4899', creation: '#22c55e', utility: '#0ea5e9',
+  social: '#d946ef', 'co-occurrence': '#94a3b8', distinctness: '#6366f1', desire: '#eab308',
+  quality: '#84cc16', functional: '#cbd5e1',
+}
+export const DIM_ORDER = ['taxonomic', 'part-whole', 'causation', 'temporal', 'similarity', 'creation', 'utility', 'social', 'co-occurrence']
+
 export interface GraphNode {
   id: string; label: string; category: string; kind?: string; featured?: boolean; degree?: number
   x0?: number; y0?: number
 }
-export interface GraphLink { source: string; target: string; primary?: boolean; epistemic?: string }
+export interface GraphLink { source: string; target: string; primary?: boolean; epistemic?: string; dimension?: string }
 
 // Disemvowel a label so the whole concept fits in/under a small node — like a DB column
 // abbreviation (customer_data → custmr_dta): keep the first 1–2 chars + last char of each
@@ -275,7 +284,8 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick, v
           const inferred = l.epistemic === 'inferred'
           const onPath = pathEdge.has(`${l.source}|${l.target}`)
           if (onPath) return <line key={i} x1={s.x} y1={s.y} x2={t.x} y2={t.y} stroke="#f59e0b" strokeWidth={4} strokeOpacity={1} />
-          return <line key={i} x1={s.x} y1={s.y} x2={t.x} y2={t.y} strokeWidth={l.primary ? 2.5 : 1.4} strokeDasharray={inferred ? '5 4' : undefined} strokeOpacity={inferred ? 0.5 : 0.95} />
+          const dimColor = DIM_COLOR[l.dimension ?? 'functional'] ?? '#cbd5e1'
+          return <line key={i} x1={s.x} y1={s.y} x2={t.x} y2={t.y} stroke={dimColor} strokeWidth={l.primary ? 2.5 : 1.4} strokeDasharray={inferred ? '5 4' : undefined} strokeOpacity={inferred ? 0.45 : 0.8} />
         })}
       </g>
       {ns.map((n) => (

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { SurfaceGraph, KIND_COLOR, KIND_ORDER, type GraphNode, type GraphLink, type GraphLayout } from '@/components/graph/SurfaceGraph'
+import { SurfaceGraph, KIND_COLOR, KIND_ORDER, DIM_COLOR, DIM_ORDER, type GraphNode, type GraphLink, type GraphLayout } from '@/components/graph/SurfaceGraph'
 
 interface GraphHealth {
   status: 'healthy' | 'degraded' | 'unknown'
@@ -236,6 +236,21 @@ export function GraphRailPanel() {
                 className={`ml-auto rounded-full border px-2 py-0.5 text-[10px] transition ${hideInferred ? 'border-[#16a34a] text-[#16a34a]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-tertiary)]'}`}>
                 {hideInferred ? '✓ confirmed only' : 'confirmed only'}
               </button>
+            </div>
+          )
+        })()}
+        {/* Edge-dimension legend (CSKG semantic categories): edges are coloured by relation type. */}
+        {(() => {
+          const present = DIM_ORDER.filter((d) => graph.links.some((l) => (l.dimension ?? 'functional') === d))
+          if (present.length === 0) return null
+          return (
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+              <span className="text-[9px] uppercase tracking-wide text-[var(--color-text-tertiary)]">edges</span>
+              {present.map((d) => (
+                <span key={d} title={`${d} relations`} className="flex items-center gap-1 text-[9px] text-[var(--color-text-tertiary)]">
+                  <span className="h-[2px] w-3 rounded" style={{ background: DIM_COLOR[d] }} />{d}
+                </span>
+              ))}
             </div>
           )
         })()}
