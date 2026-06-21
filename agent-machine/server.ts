@@ -605,6 +605,19 @@ const BUILTIN_TOOLS: ProviderTool[] = [
     },
   },
   {
+    name: 'remember',
+    description:
+      'Save a durable fact, preference, or piece of context to your own LOCAL memory so you recall it in future conversations. Use whenever the user tells you something to keep ("remember that…", "I prefer…", "from now on…", "my name is…") or when you learn a stable fact worth retaining. Memory is stored in the local knowledge graph and surfaced automatically on future relevant turns.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        content: { type: 'string', description: 'The fact or preference to remember, written as a clear standalone sentence.' },
+        kind: { type: 'string', enum: ['preference', 'fact', 'identity'], description: 'What kind of memory this is (default: fact).' },
+      },
+      required: ['content'],
+    },
+  },
+  {
     name: 'generate_image',
     description:
       'Generate an image from a text description using DALL-E 3. Returns a markdown image tag with the URL.',
@@ -868,6 +881,19 @@ async function executeTool(
         return entries.join('\n') || '(empty directory)'
       } catch (e) {
         return `Error listing directory: ${(e as Error).message}`
+      }
+    }
+    case 'remember': {
+      const content = String(input['content'] ?? '').trim()
+      if (!content) return 'Error: nothing to remember — content is required.'
+      const kind = ['preference', 'fact', 'identity'].includes(String(input['kind'])) ? String(input['kind']) : 'fact'
+      try {
+        const { ingestDocument } = await import('./lib/doc-store.js')
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+        await ingestDocument(`memory/${kind}-${stamp}.md`, content)
+        return `Saved to memory (${kind}): "${content.slice(0, 140)}". I'll recall this on future relevant turns.`
+      } catch (e) {
+        return `Could not save to memory: ${e instanceof Error ? e.message : String(e)} (is the local embedding model available?)`
       }
     }
     default:
