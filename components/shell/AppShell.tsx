@@ -690,6 +690,31 @@ export function AppShell() {
       return
     }
 
+    // Grounded research mode: "research <q>" routes to /api/research/solve — a VERIFIED answer
+    // (grounding-checked against the brain, with a repair loop) carrying its sources + a trust
+    // score, not a free-form generation you have to second-guess.
+    const researchMatch = content.match(/^\s*(?:\/research|research[:\s])\s*(.+)/is)
+    if (researchMatch && attachments.length === 0) {
+      const q = researchMatch[1]!.trim()
+      const now = new Date().toISOString()
+      const u: ChatMessage = { id: crypto.randomUUID(), role: 'user', content, workspace_mode: workspaceMode, created_at: now }
+      const a: ChatMessage = { id: crypto.randomUUID(), role: 'assistant', content: '🔎 Researching the brain…', created_at: now }
+      autoTitle(content)
+      setMessages((cur) => { const next = [...cur, u, a]; updateMessages(next); return next })
+      try {
+        const r = await fetch('/api/research/solve', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question: q }) })
+        const j = (await r.json()) as { answer?: string; grounded?: boolean; score?: number; sources?: { n: number; filename: string }[] }
+        const pct = Math.round((j.score ?? 0) * 100)
+        const badge = j.grounded ? `✅ Grounded (${pct}%)` : `⚠️ Partially grounded (${pct}%) — treat with care`
+        const srcs = (j.sources ?? []).map((s) => `[${s.n}] ${s.filename}`).join('  ·  ')
+        const body = `${j.answer ?? '(no answer)'}\n\n---\n_${badge}${srcs ? `  ·  sources: ${srcs}` : ''}_`
+        setMessages((cur) => { const next = cur.map((m) => (m.id === a.id ? { ...m, content: body } : m)); updateMessages(next); return next })
+      } catch {
+        setMessages((cur) => { const next = cur.map((m) => (m.id === a.id ? { ...m, content: 'Research failed — backend offline.' } : m)); updateMessages(next); return next })
+      }
+      return
+    }
+
     // Local-first dialogue layer: answer small-talk / app-help / utilities / form-starts
     // instantly and deterministically — no model call, so it works even while the runtime
     // is warming up. Only turns that genuinely need generation fall through to the model.
