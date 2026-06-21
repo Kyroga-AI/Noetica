@@ -129,27 +129,25 @@ export async function retrieve(
   const parts: string[] = []
   let totalChars = 0
 
-  for (let i = 0; i < patterns.length; i++) {
-    const result = results[i]
-    if (!result || !result.text) continue
+  // Holistic re-ranking: order pattern results by their BEST source score so the highest-
+  // quality grounding survives the char budget. Was fixed pattern-order — a weak pattern
+  // (beliefs/cache) hitting the budget first truncated the strong ones (atoms/graph-search).
+  const ranked = results
+    .map((result, i) => ({ result, pattern: patterns[i]!, best: Math.max(0, ...(result?.sources ?? []).map((s) => s.score)) }))
+    .filter((r) => Boolean(r.result?.text?.trim()))
+    .sort((a, b) => b.best - a.best)
 
+  for (const { result, pattern } of ranked) {
+    if (!result) continue
     const chunk = result.text.trim()
-    if (!chunk) continue
-
     if (totalChars + chunk.length > maxChars) {
       const remaining = maxChars - totalChars
-      if (remaining > 0) {
-        parts.push(chunk.slice(0, remaining))
-        totalChars += remaining
-        usedPatterns.push(patterns[i]!)
-        allSources.push(...result.sources)
-      }
+      if (remaining > 0) { parts.push(chunk.slice(0, remaining)); totalChars += remaining; usedPatterns.push(pattern); allSources.push(...result.sources) }
       break
     }
-
     parts.push(chunk)
     totalChars += chunk.length
-    usedPatterns.push(patterns[i]!)
+    usedPatterns.push(pattern)
     allSources.push(...result.sources)
   }
 
@@ -647,10 +645,9 @@ function mmrRerank(candidates: Scored[], k: number, lambda = 0.7): Scored[] {
 function dedupeSources(
   sources: Array<{ id: string; label: string; score: number }>,
 ): Array<{ id: string; label: string; score: number }> {
-  const seen = new Set<string>()
-  return sources.filter(({ id }) => {
-    if (seen.has(id)) return false
-    seen.add(id)
-    return true
-  })
+  // Keep the HIGHEST score when an atom surfaces in multiple patterns (was first-seen, which
+  // could keep a lower score), then return highest-first.
+  const best = new Map<string, { id: string; label: string; score: number }>()
+  for (const s of sources) { const p = best.get(s.id); if (!p || p.score < s.score) best.set(s.id, s) }
+  return [...best.values()].sort((a, b) => b.score - a.score)
 }
