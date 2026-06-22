@@ -1,7 +1,18 @@
 /** Tests for blekko-style /topic chat commands. */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { parseSlashScope, isTopicCommand, withScope } from './slash-commands.js'
+import { parseSlashScope, isTopicCommand, withScope, parseIrcCommand } from './slash-commands.js'
+
+test('IRC /me emotes; /shrug; /nick sets name; /roll+/flip deterministic with rng; not topic scopes', () => {
+  assert.equal(parseIrcCommand('/me waves at the graph', 'michael')!.reply, '_michael waves at the graph_')
+  assert.ok(parseIrcCommand('/shrug')!.reply.includes('¯'))
+  const nick = parseIrcCommand('/nick bob', 'michael')!
+  assert.equal(nick.setName, 'bob')
+  assert.ok(parseIrcCommand('/roll d20', 'x', () => 0)!.reply.includes('**1**'))
+  assert.ok(parseIrcCommand('/flip', 'x', () => 0.9)!.reply.includes('tails'))
+  assert.equal(parseIrcCommand('/security threats'), null)
+  assert.equal(isTopicCommand('/me waves'), false)
+})
 
 test('parses /topic with a query', () => {
   const p = parseSlashScope('/security latest auth changes')

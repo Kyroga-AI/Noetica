@@ -10,7 +10,7 @@
 // FAQ corpus, system date/time entities, fuzzy/typo tolerance, returning-user awareness,
 // and chitchat — derived from the system clock + your input.
 
-import { parseSlashScope, isTopicCommand } from './slash-commands'
+import { parseSlashScope, isTopicCommand, parseIrcCommand } from './slash-commands'
 
 export interface DialogueResult {
   reply: string
@@ -234,6 +234,12 @@ export function matchDialogue(input: string, ctx?: DialogueCtx): DialogueResult 
   const excited = /[!]{2,}$/.test(raw) || (raw.length <= 14 && raw === raw.toUpperCase() && /[a-z]/i.test(raw))
   const any = (...res: RegExp[]) => res.some((r) => r.test(s))
   const r = (reply: string, extra?: Partial<DialogueResult>): DialogueResult => ({ reply, ...extra })
+
+  // ── IRC classics (/me, /shrug, /nick, /roll, /flip, /8ball) — those were epic ──
+  if (raw.startsWith('/')) {
+    const irc = parseIrcCommand(raw, name ?? undefined)
+    if (irc) return r(irc.reply, irc.setName ? { command: { kind: 'setName', name: irc.setName } } : undefined)
+  }
 
   // ── Blekko-style /topic scope commands (slash-topics in the chat surface) ──
   if (raw.startsWith('/')) {
