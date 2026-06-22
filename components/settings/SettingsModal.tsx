@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { cloneElement, useEffect, useRef, useState, type ReactElement } from 'react'
 import { AppearancePanel } from './panels/AppearancePanel'
 import { ModelsPanel } from './panels/ModelsPanel'
 import { RuntimePanel } from './panels/RuntimePanel'
@@ -217,7 +217,7 @@ export function SettingsModal({ open, onClose, initialCategory = 'appearance' }:
             </button>
           </div>
           <div className="flex-1 overflow-y-auto px-6 py-5">
-            {active.panel}
+            {cloneElement(active.panel as ReactElement<{ onNavigate?: (id: string) => void }>, { onNavigate: setActiveId })}
           </div>
         </div>
       </div>

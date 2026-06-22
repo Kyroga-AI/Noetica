@@ -40,9 +40,6 @@ export function OrgPanel() {
               <div className="text-sm font-semibold text-[var(--color-text-primary)]">Socioprophet</div>
               <div className="text-[11px] text-[var(--color-text-tertiary)]">michael@socioprophet.ai</div>
             </div>
-            <button className="ml-auto rounded-lg border border-[var(--color-border-tertiary)] px-3 py-1.5 text-xs text-[var(--color-text-secondary)] transition hover:border-[#1d4ed8] hover:text-[#1d4ed8]">
-              Edit
-            </button>
           </div>
         </div>
       </div>
@@ -123,21 +120,6 @@ export function OrgPanel() {
         </div>
       </div>
 
-      {/* Danger zone */}
-      <div>
-        <div className="text-sm font-semibold text-[var(--color-text-primary)]">Danger zone</div>
-        <div className="mt-3 rounded-2xl border border-[rgba(239,68,68,0.25)] bg-[var(--color-background-primary)] p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-xs font-medium text-[var(--color-text-primary)]">Delete organization</div>
-              <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">Permanently remove this org and all its data.</div>
-            </div>
-            <button className="shrink-0 rounded-lg border border-[rgba(239,68,68,0.35)] px-3 py-1.5 text-xs font-medium text-[#ef4444] transition hover:bg-[rgba(239,68,68,0.08)]">
-              Delete
-            </button>
-          </div>
-        </div>
-      </div>
     </div>
   )
 }

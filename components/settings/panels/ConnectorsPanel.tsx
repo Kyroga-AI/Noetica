@@ -47,13 +47,14 @@ const TRUST_COLORS: Record<string, string> = {
 }
 
 function ConnectorRow({
-  label, trust, description, authConnected, authUser
+  label, trust, description, authConnected, authUser, onConfigure
 }: {
   label: string
   trust: string
   description: string
   authConnected?: boolean
   authUser?: string
+  onConfigure?: () => void
 }) {
   return (
     <div className="flex items-start justify-between gap-3 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-4 py-3">
@@ -70,9 +71,11 @@ function ConnectorRow({
           <p className="text-[10px] text-[var(--color-text-tertiary)]">{authUser}</p>
         )}
       </div>
-      <button className="shrink-0 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:border-[#bfdbfe] hover:bg-[#eff6ff] hover:text-[#1d4ed8]">
-        {authConnected ? 'Manage' : 'Configure'}
-      </button>
+      {onConfigure && (
+        <button onClick={onConfigure} className="shrink-0 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:border-[#bfdbfe] hover:bg-[#eff6ff] hover:text-[#1d4ed8]">
+          {authConnected ? 'Manage' : 'Configure'}
+        </button>
+      )}
     </div>
   )
 }
@@ -242,8 +245,8 @@ function McpServerRow({ state, onConnect, onDisconnect, onRemove }: {
 
 type TabId = 'native' | 'external' | 'mcp'
 
-export function ConnectorsPanel() {
-  const [tab, setTab] = useState<TabId>('native')
+export function ConnectorsPanel({ onNavigate }: { onNavigate?: (id: string) => void } = {}) {
+  const [tab, setTab] = useState<TabId>('mcp')
   const [showAdd, setShowAdd] = useState(false)
   const { serverStates, tools, addServer, connect, disconnect, removeServer, hydrated } = useMcp()
   const { store } = useConnectorAuth()
@@ -288,6 +291,7 @@ export function ConnectorsPanel() {
                 {...c}
                 authConnected={connected}
                 authUser={connected ? authState?.userInfo?.email ?? authState?.userInfo?.login : undefined}
+                onConfigure={onNavigate ? () => onNavigate('connections') : undefined}
               />
             )
           })}

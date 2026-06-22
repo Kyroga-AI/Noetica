@@ -117,19 +117,45 @@ export function VoicePanel() {
 
   const provider = settings.ttsProvider ?? 'openai'
 
-  function testVoice() {
+  // Mirrors lib/voice/useVoice.ts speak() so Test exercises the ACTUAL selected provider (was missing the
+  // openai + cloned branches → it silently fell through to macOS `say` regardless of the chosen engine).
+  async function testVoice() {
     const text = "Hello, I'm your local AI agent Michael, running on Noetica."
-    if (provider === 'elevenlabs' && settings.elevenlabsApiKey && settings.elevenlabsVoiceId) {
-      void fetch(`https://api.elevenlabs.io/v1/text-to-speech/${settings.elevenlabsVoiceId}`, {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'xi-api-key': settings.elevenlabsApiKey },
-        body: JSON.stringify({ text, model_id: 'eleven_turbo_v2_5', voice_settings: { stability: 0.5, similarity_boost: 0.75 } }),
-      }).then(r => r.blob()).then(blob => {
-        const url = URL.createObjectURL(blob)
-        new Audio(url).play()
-      })
-      return
+    const amBase = isTauri() ? 'http://127.0.0.1:8080' : ''
+    const playBlob = (b: Blob) => new Audio(URL.createObjectURL(b)).play()
+
+    // Tier 0: cloned XTTS voice (fully local)
+    if (provider === 'cloned' && settings.clonedVoiceId) {
+      try {
+        const r = await fetch(`${amBase}/api/voice/tts`, {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ text, voice_id: settings.clonedVoiceId, language: (settings.voiceLanguage ?? 'en-US').slice(0, 2) }),
+        })
+        if (r.ok) { await playBlob(await r.blob()); return }
+      } catch { /* fall through */ }
     }
+    // Tier 1: ElevenLabs
+    if (provider === 'elevenlabs' && settings.elevenlabsApiKey && settings.elevenlabsVoiceId) {
+      try {
+        const r = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${settings.elevenlabsVoiceId}`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'xi-api-key': settings.elevenlabsApiKey },
+          body: JSON.stringify({ text, model_id: 'eleven_turbo_v2_5', voice_settings: { stability: 0.5, similarity_boost: 0.75 } }),
+        })
+        if (r.ok) { await playBlob(await r.blob()); return }
+      } catch { /* fall through */ }
+    }
+    // Tier 2: OpenAI TTS via the sidecar proxy (the DEFAULT provider)
+    if (provider !== 'system' && settings.openaiApiKey) {
+      try {
+        const r = await fetch(`${amBase}/api/tts`, {
+          method: 'POST', headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ text, voice: settings.ttsVoice ?? 'nova', api_key: settings.openaiApiKey }),
+        })
+        if (r.ok) { await playBlob(await r.blob()); return }
+      } catch { /* fall through */ }
+    }
+    // Tier 3: macOS `say` via Tauri
     if (isTauri()) {
       const macVoice = settings.macVoice || 'Ava'
       void invokeTauri('speak_text', { text, voice: macVoice })
