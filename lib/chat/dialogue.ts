@@ -11,6 +11,7 @@
 // and chitchat — derived from the system clock + your input.
 
 import { parseSlashScope, isTopicCommand, parseIrcCommand } from './slash-commands'
+import { matchCommand, formatHelp } from './command-registry'
 
 export interface DialogueResult {
   reply: string
@@ -239,6 +240,21 @@ export function matchDialogue(input: string, ctx?: DialogueCtx): DialogueResult 
   if (raw.startsWith('/')) {
     const irc = parseIrcCommand(raw, name ?? undefined)
     if (irc) return r(irc.reply, irc.setName ? { command: { kind: 'setName', name: irc.setName } } : undefined)
+  }
+
+  // ── Slash-command palette (Bloomberg/Raycast-style) — /help, /go, /studio, /rag, /lab, /model, … ──
+  if (raw.startsWith('/')) {
+    const hit = matchCommand(raw)
+    if (hit) {
+      const { cmd, args } = hit
+      if (cmd.action.kind === 'help') return r(formatHelp())
+      if (cmd.action.kind === 'soon') return r(`\`/${cmd.name}\` — ${cmd.desc} (${cmd.action.note}) is coming. For now, use the Capabilities lab.`, { command: { kind: 'navigate', surface: 'lab' } })
+      if (cmd.action.kind === 'navigate') {
+        const surface = cmd.action.surface || args.trim().toLowerCase()
+        if (surface) return r(`Opening ${cmd.name === 'go' ? surface : cmd.name}.`, { command: { kind: 'navigate', surface } })
+      }
+      // 'topic'/'irc' actions are handled by their own parsers below/above
+    }
   }
 
   // ── Blekko-style /topic scope commands (slash-topics in the chat surface) ──
