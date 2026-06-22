@@ -1,7 +1,7 @@
 {
   "name": "@noetica/agent-machine",
   "version": "0.4.6",
-  "description": "Noetica Agent Machine — local agentic runtime speaking the Noetica SSE protocol",
+  "description": "Noetica Agent Machine \u2014 local agentic runtime speaking the Noetica SSE protocol",
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch server.ts",
@@ -17,7 +17,8 @@
     "provision:runtime": "node --import tsx scripts/provision-runtime.ts",
     "dev:backend": "bash scripts/dev-backend.sh",
     "bootstrap": "node --import tsx scripts/bootstrap.ts",
-    "start:managed-ollama": "node --import tsx scripts/managed-ollama.ts"
+    "start:managed-ollama": "node --import tsx scripts/managed-ollama.ts",
+    "verify:offline": "tsx scripts/verify-offline.mts"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
