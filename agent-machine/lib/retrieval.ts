@@ -19,6 +19,7 @@ import { stiNorm } from '@socioprophet/hellgraph'
 import type { PropertyValue } from '@socioprophet/hellgraph'
 import { ingestInteraction } from '@socioprophet/hellgraph'
 import { cairnPathExpand } from './cairnpath-adapter.js'
+import { studyBrainRetrieve, studyBrainReady } from './study-brain.js'
 import * as crypto from 'node:crypto'
 
 /** Sanitize a user value for logging: strip CR/LF so input can't forge log lines. CodeQL
@@ -52,7 +53,7 @@ interface WorkingMemoryState {
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
-export type RetrievalPattern = 'graph' | 'temporal' | 'sparql' | 'cache-augmented' | 'atoms' | 'beliefs' | 'cairnpath'
+export type RetrievalPattern = 'graph' | 'temporal' | 'sparql' | 'cache-augmented' | 'atoms' | 'beliefs' | 'cairnpath' | 'study-brain'
 
 export interface RetrievedContext {
   text: string
@@ -99,6 +100,7 @@ export async function retrieve(
     'temporal':        600,
     'sparql':          700,
     'cairnpath':       900,
+    'study-brain':     3500,   // embeds the query + cosine over the OCW brain (disk-cached after first hit)
   }
 
   const timeout = <T>(ms: number, p: Promise<T>): Promise<T | null> =>
@@ -113,6 +115,7 @@ export async function retrieve(
       case 'sparql':       inner = runSparqlPattern(query, opts?.sessionId); break
       case 'atoms':        inner = runAtomsPattern(query); break
       case 'cairnpath':    inner = runCairnPathPattern(query); break
+      case 'study-brain':  inner = runStudyBrainPattern(query); break
       case 'beliefs':      inner = runBeliefsPattern(); break
       case 'cache-augmented': inner = runCacheAugmentedPattern(opts?.sessionId ?? opts?.workspaceId ?? 'default'); break
       default:             return Promise.resolve(null)
@@ -596,6 +599,27 @@ async function runBeliefsPattern(): Promise<{ text: string; sources: Array<{ id:
   return {
     text: `### Michael's Belief State\n${lines.join('\n')}`,
     sources: [{ id: belief.id, label: 'BeliefSnapshot', score: 0.95 }],
+  }
+}
+
+// ─── study-brain — OCW knowledge retrieval (the MMLU stack, finally in the lanes) ──
+// Grounds STEM/knowledge questions on the MIT-OpenCourseWare brain the benchmark proved
+// works (lib/study-brain.ts). The intent-router routes explain_teach / qa_over_doc /
+// compare_benchmark / research_lookup here. No-op (empty, fast) when the brain is absent,
+// so non-STEM deployments fall through to the HellGraph patterns unchanged.
+async function runStudyBrainPattern(
+  query: string,
+): Promise<{ text: string; sources: Array<{ id: string; label: string; score: number }> }> {
+  if (!studyBrainReady()) return { text: '', sources: [] }
+  const hits = await studyBrainRetrieve(query, [], 6)
+  // Only surface confidently-relevant chunks — below ~0.3 cosine it's noise, and grounding
+  // on noise is worse than not grounding (the RAFT failure mode).
+  const good = hits.filter((h) => h.score >= 0.30)
+  if (good.length === 0) return { text: '', sources: [] }
+  const lines = good.map((h, i) => `[${i + 1}] (${h.field}) ${h.text.replace(/\s+/g, ' ').trim()}`)
+  return {
+    text: `### MIT-OpenCourseWare context\n${lines.join('\n\n')}`,
+    sources: good.map((h) => ({ id: `ocw:${h.field}/${h.slug}`, label: h.field, score: h.score })),
   }
 }
 

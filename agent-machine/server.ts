@@ -2442,7 +2442,13 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // neighborhood expansion through the CairnPath EXPAND→DEDUP→RANK→CAP invariant
   // instead of the ad-hoc graph BFS. Default OFF — the proven path is unchanged.
   const useCairnPath = process.env['NOETICA_CAIRNPATH_RETRIEVAL'] === '1'
-  const patterns: Array<'beliefs' | 'graph' | 'temporal' | 'sparql' | 'cache-augmented' | 'cairnpath'> =
+  // Knowledge/teaching/research lanes ground on the MIT-OpenCourseWare brain — the MMLU
+  // reasoning stack, finally wired into the dialogue lanes instead of living only in the
+  // benchmark. Code/ops/memory lanes don't touch it. The pattern self-gates on brain
+  // presence + a relevance floor, so it no-ops cleanly; NOETICA_STUDY_BRAIN=0 disables.
+  const STUDY_BRAIN_LANES = new Set(['explain_teach', 'research_lookup', 'compare_benchmark', 'qa_over_doc', 'summarize_doc', 'general'])
+  const useStudyBrain = process.env['NOETICA_STUDY_BRAIN'] !== '0' && STUDY_BRAIN_LANES.has(intentPlan.name)
+  const patterns: Array<'beliefs' | 'graph' | 'temporal' | 'sparql' | 'cache-augmented' | 'cairnpath' | 'study-brain'> =
     provider === 'ollama'
       ? (useCairnPath
           ? ['beliefs', 'cache-augmented', 'cairnpath', 'temporal']
@@ -2450,6 +2456,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       : (useCairnPath
           ? ['beliefs', 'cairnpath', 'temporal']
           : ['beliefs', 'graph', 'temporal'])
+  if (useStudyBrain) patterns.push('study-brain')
 
   let graphContext = ''
   try {
