@@ -12,6 +12,7 @@
 
 import { parseSlashScope, isTopicCommand, parseIrcCommand } from './slash-commands'
 import { matchCommand, formatHelp } from './command-registry'
+import { dotToSlash, parseEntityRef, parseTagScope } from './sigils'
 
 export interface DialogueResult {
   reply: string
@@ -235,6 +236,22 @@ export function matchDialogue(input: string, ctx?: DialogueCtx): DialogueResult 
   const excited = /[!]{2,}$/.test(raw) || (raw.length <= 14 && raw === raw.toUpperCase() && /[a-z]/i.test(raw))
   const any = (...res: RegExp[]) => res.some((r) => r.test(s))
   const r = (reply: string, extra?: Partial<DialogueResult>): DialogueResult => ({ reply, ...extra })
+
+  // ── @entity references + #tag scopes + .dot-commands (multi-sigil grammar) ──
+  if (raw.startsWith('@')) {
+    const ref = parseEntityRef(raw)
+    if (ref) return r(`Looking up **@${ref.entity}** in the graph${ref.rest ? ` — ${ref.rest}` : ''}.`, { command: { kind: 'navigate', surface: 'operate' } })
+  }
+  if (raw.startsWith('#')) {
+    const tag = parseTagScope(raw)
+    if (tag) return r(`Scoped to #${tag.topic}.`, { command: { kind: 'setTopicScope', topic: tag.topic, query: tag.query } })
+  }
+  // .dot-commands are a terse alias for / — normalize and let the slash handlers below run.
+  if (raw.startsWith('.') && matchCommand(dotToSlash(raw))) {
+    const hit = matchCommand(dotToSlash(raw))!
+    if (hit.cmd.action.kind === 'help') return r(formatHelp())
+    if (hit.cmd.action.kind === 'navigate' && (hit.cmd.action.surface || hit.args)) return r(`Opening ${hit.cmd.name === 'go' ? hit.args : hit.cmd.name}.`, { command: { kind: 'navigate', surface: hit.cmd.action.surface || hit.args.toLowerCase() } })
+  }
 
   // ── IRC classics (/me, /shrug, /nick, /roll, /flip, /8ball) — those were epic ──
   if (raw.startsWith('/')) {
