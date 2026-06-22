@@ -138,6 +138,47 @@ function saveAnalyticsCache(c: AnalyticsCache): void {
   try { fs.mkdirSync(path.dirname(ANALYTICS_CACHE_FILE), { recursive: true }); fs.writeFileSync(ANALYTICS_CACHE_FILE, JSON.stringify(c)) } catch { /* best-effort */ }
 }
 
+// GraphRAG community reports are expensive (one LLM call per community) — cache by analytics sig + model.
+const COMMUNITIES_CACHE_FILE = path.join(os.homedir(), '.noetica', 'cache', 'graph-communities.json')
+type CommunitiesCache = { sig: string; model: string; reports: import('./lib/graph-rag.js').CommunityReport[]; builtAt: string }
+let _communitiesCache: CommunitiesCache | null = null
+function loadCommunitiesCache(): CommunitiesCache | null {
+  if (_communitiesCache) return _communitiesCache
+  try { _communitiesCache = JSON.parse(fs.readFileSync(COMMUNITIES_CACHE_FILE, 'utf8')) as CommunitiesCache; return _communitiesCache } catch { return null }
+}
+function saveCommunitiesCache(c: CommunitiesCache): void {
+  _communitiesCache = c
+  try { fs.mkdirSync(path.dirname(COMMUNITIES_CACHE_FILE), { recursive: true }); fs.writeFileSync(COMMUNITIES_CACHE_FILE, JSON.stringify(c)) } catch { /* best-effort */ }
+}
+
+// Pick the best locally-available chat model for GraphRAG summarization (prefer small+fast).
+async function pickChatModel(): Promise<string> {
+  const preferred = ['qwen2.5:7b', 'qwen2.5:14b', 'deepseek-r1:8b', 'llama3.2:3b', 'qwen2.5:3b']
+  try {
+    const local = await listLocalModels()
+    const names = (local as Array<{ name?: string } | string>).map((m) => (typeof m === 'string' ? m : (m.name ?? '')))
+    for (const p of preferred) { const hit = names.find((n) => n === p || n.startsWith(p)); if (hit) return hit }
+    if (names.length && names[0]) return names[0]
+  } catch { /* fall through */ }
+  return 'qwen2.5:7b'
+}
+
+// Shared GDS analytics over the hygiene-CLEAN node set (same filter the surface uses), cached by sig.
+async function analyticsForGraph(refresh = false): Promise<{ analytics: import('./lib/graph-analytics.js').GraphAnalytics; sig: string; labelOf: (id: string) => string }> {
+  const g = getGraph()
+  const allNodes = g.allNodes(), allEdges = g.allEdges()
+  const keep = new Set(allNodes.filter((n) => cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id))).map((n) => n.id))
+  const fNodes = allNodes.filter((n) => keep.has(n.id)); const fEdges = allEdges.filter((e) => keep.has(e.from) && keep.has(e.to))
+  const sig = `${fNodes.length}:${fEdges.length}`
+  const cached = loadAnalyticsCache()
+  let analytics: import('./lib/graph-analytics.js').GraphAnalytics
+  if (!refresh && cached && cached.sig === sig) analytics = cached.analytics
+  else { const { computeAnalytics } = await import('./lib/graph-analytics.js'); analytics = computeAnalytics(fNodes.map((n) => ({ id: n.id })), fEdges.map((e) => ({ from: e.from, to: e.to }))); saveAnalyticsCache({ sig, analytics, computedAt: new Date().toISOString() }) }
+  const nodeById = new Map(allNodes.map((n) => [n.id, n]))
+  const labelOf = (id: string) => { const n = nodeById.get(id); return (n ? cleanLabel(n) : null) ?? '' }
+  return { analytics, sig, labelOf }
+}
+
 // Cross-process signal for the SourceOS surface (e.g. bearbrowser): when the
 // security lane is armed, bearbrowser auto-enables Tor for anonymized egress.
 // Written to the shared SourceOS config dir so the browser can poll it without
@@ -5185,26 +5226,11 @@ const server = http.createServer((req, res) => {
     setCORSHeaders(res)
     void (async () => {
       try {
-        const g = getGraph()
-        const allNodes = g.allNodes(), allEdges = g.allEdges()
-        // Run GDS on the SAME clean node set the surface shows (drop hygiene-pruned, corpus-test, and
-        // unlabeled nodes) so importance/communities reflect real knowledge, not pruned junk.
-        const keep = new Set(allNodes.filter((n) => cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id))).map((n) => n.id))
-        const fNodes = allNodes.filter((n) => keep.has(n.id))
-        const fEdges = allEdges.filter((e) => keep.has(e.from) && keep.has(e.to))
-        const sig = `${fNodes.length}:${fEdges.length}`
         const refresh = url.searchParams.get('refresh') === '1'
-        const cached = loadAnalyticsCache()
-        const hit = !refresh && !!cached && cached.sig === sig
-        let analytics: import('./lib/graph-analytics.js').GraphAnalytics
-        if (hit) { analytics = cached!.analytics }
-        else {
-          const { computeAnalytics } = await import('./lib/graph-analytics.js')
-          analytics = computeAnalytics(fNodes.map((n) => ({ id: n.id })), fEdges.map((e) => ({ from: e.from, to: e.to })))
-          saveAnalyticsCache({ sig, analytics, computedAt: new Date().toISOString() })
-        }
-        const nodeById = new Map(allNodes.map((n) => [n.id, n]))
-        const label = (id: string) => { const n = nodeById.get(id); return (n ? cleanLabel(n) : null) ?? id.split(':').pop() ?? id }
+        const { analytics } = await analyticsForGraph(refresh)
+        const g = getGraph()
+        const nodeById = new Map(g.allNodes().map((n) => [n.id, n]))
+        const hit = !refresh
         // A node is "showable" as a concept only if it resolves to a real label — not a bare UUID,
         // timestamp, or junk. Metrics for ALL nodes still ship in `nodes` (for surface overlay); the
         // human-facing summary ranks just the meaningful concepts so session supernodes don't dominate.
@@ -5234,6 +5260,63 @@ const server = http.createServer((req, res) => {
         res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
+    return
+  }
+
+  // GET /api/graph/communities — GraphRAG community reports: one LLM-written, grounding-verified
+  // summary per Louvain community. Cached by analytics signature + model; ?refresh=1 rebuilds.
+  if (req.method === 'GET' && url.pathname === '/api/graph/communities') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const refresh = url.searchParams.get('refresh') === '1'
+        const { analytics, sig, labelOf } = await analyticsForGraph(refresh)
+        const model = url.searchParams.get('model') || await pickChatModel()
+        const cached = loadCommunitiesCache()
+        const hit = !refresh && !!cached && cached.sig === sig && cached.model === model
+        let reports: import('./lib/graph-rag.js').CommunityReport[]
+        if (hit) { reports = cached!.reports }
+        else {
+          const { buildCommunityReports } = await import('./lib/graph-rag.js')
+          reports = await buildCommunityReports(analytics, labelOf, { model, maxCommunities: 24, minSize: 3 })
+          saveCommunitiesCache({ sig, model, reports, builtAt: new Date().toISOString() })
+        }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ model, communities: reports, count: reports.length, cached: hit }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // POST /api/graph/global — GraphRAG global sensemaking: map a question over the community reports,
+  // reduce to one grounded answer with a trust score. Body: { question }. Builds reports if absent.
+  if (req.method === 'POST' && url.pathname === '/api/graph/global') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      setCORSHeaders(res)
+      try {
+        const p = JSON.parse(body || '{}') as { question?: string }
+        const question = String(p.question ?? '').trim()
+        if (!question) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'question_required' })); return }
+        const { analytics, sig, labelOf } = await analyticsForGraph(false)
+        const model = await pickChatModel()
+        let cached = loadCommunitiesCache()
+        if (!cached || cached.sig !== sig || cached.model !== model) {
+          const { buildCommunityReports } = await import('./lib/graph-rag.js')
+          const reports = await buildCommunityReports(analytics, labelOf, { model, maxCommunities: 24, minSize: 3 })
+          cached = { sig, model, reports, builtAt: new Date().toISOString() }; saveCommunitiesCache(cached)
+        }
+        const { globalSearch } = await import('./lib/graph-rag.js')
+        const result = await globalSearch(question, cached.reports, { model, maxCommunities: 6 })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ...result, model }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })() })
     return
   }
 
