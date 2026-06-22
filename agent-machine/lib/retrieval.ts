@@ -121,7 +121,7 @@ export async function retrieve(
 
   const timedOut = results.filter(r => r === null).length
   if (timedOut === patterns.length && patterns.length > 0) {
-    console.warn(`[retrieval] All ${patterns.length} patterns timed out for query: "${query.slice(0, 120)}"`)
+    console.warn(`[retrieval] All ${patterns.length} patterns timed out for query: "${query.replace(/[\n\r\t\x00-\x1f]/g, ' ').slice(0, 120)}"`)
   }
 
   const usedPatterns: RetrievalPattern[] = []
