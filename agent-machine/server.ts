@@ -2169,7 +2169,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       if (anthropicKey) { provider = 'anthropic'; model = 'claude-haiku-4-5-20251001'; escalated = true }
       else if (openaiKey) { provider = 'openai'; model = 'gpt-4o-mini'; escalated = true }
       if (escalated) {
-        console.log(`[self-model] escalated task="${String(routerDecision.task).replace(/\r/g, '').replace(/\n/g, '').slice(0, 120)}" → ${provider}:${model} (local success ${(hint.localSuccessRate ?? 0).toFixed(2)} over ${hint.localRuns} runs)`)
+        console.log(`[self-model] escalated task="${String(routerDecision.task)}" → ${provider}:${model} (local success ${(hint.localSuccessRate ?? 0).toFixed(2)} over ${hint.localRuns} runs)`.replace(/\r/g, '').replace(/\n/g, ''))
       }
     }
   }
@@ -2191,7 +2191,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       .filter((m) => routerDecision.task === 'reasoning' || !/deepseek-r1/i.test(m))
     const pick = selectArmUCB(routerDecision.task ?? 'general', arms)
     if (pick && pick !== model) {
-      console.log(`[bandit] task="${String(routerDecision.task).replace(/\r/g, '').replace(/\n/g, '').slice(0, 120)}" ${model} → ${pick} (arms: ${arms.join(', ')})`)
+      console.log(`[bandit] task="${String(routerDecision.task)}" ${model} → ${pick} (arms: ${arms.join(', ')})`.replace(/\r/g, '').replace(/\n/g, ''))
       model = pick
     }
   }
@@ -2288,7 +2288,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         model = has('qwen2.5:7b') ? 'qwen2.5:7b' : has('qwen2.5-coder:7b') ? 'qwen2.5-coder:7b' : model
       }
     }
-    if (model !== before) console.log(`[responsive] ${String(task).replace(/\r/g, '').replace(/\n/g, '').slice(0, 120)} ${before} → ${model}`)
+    if (model !== before) console.log(`[responsive] ${String(task)} ${before} → ${model}`.replace(/\r/g, '').replace(/\n/g, ''))
   }
 
   // ── Escalation: climb to a more capable model when the cheap flow is failing ──
