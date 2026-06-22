@@ -47,6 +47,8 @@ export function GraphRailPanel() {
   const [globalQ, setGlobalQ] = useState('')
   const [globalAnswer, setGlobalAnswer] = useState<{ answer: string; trust: number; grounded: boolean; communitiesUsed: Array<{ title: string }> } | null>(null)
   const [globalLoading, setGlobalLoading] = useState(false)
+  const [predictions, setPredictions] = useState<Array<{ source: string; target: string; sourceLabel: string; targetLabel: string; score: number; commonNeighbors: number; verified?: boolean; relation?: string; confidence?: number; rationale?: string }>>([])
+  const [predLoading, setPredLoading] = useState(false)
 
   async function loadThemes() {
     setThemesLoading(true)
@@ -63,6 +65,13 @@ export function GraphRailPanel() {
       const res = await fetch('/api/graph/global', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question }) })
       if (res.ok) setGlobalAnswer(await res.json() as NonNullable<typeof globalAnswer>)
     } catch { /* offline */ } finally { setGlobalLoading(false) }
+  }
+  async function loadPredictions() {
+    setPredLoading(true)
+    try {
+      const res = await fetch('/api/graph/predictions?verify=1&topK=10')
+      if (res.ok) { const j = await res.json() as { predictions?: typeof predictions }; setPredictions(j.predictions ?? []) }
+    } catch { /* offline */ } finally { setPredLoading(false) }
   }
 
   async function handleNodeClick(id: string) {
@@ -362,6 +371,23 @@ export function GraphRailPanel() {
                 </div>
                 <p className="mt-0.5 text-[10px] leading-snug text-[var(--color-text-secondary)]">{c.summary}</p>
                 <p className="mt-0.5 truncate text-[9px] text-[var(--color-text-tertiary)]">{c.topNodes.join(' · ')}</p>
+              </div>
+            ))}
+          </div>
+          {/* Predicted connections — structural link prediction (Adamic-Adar), each model-verified. */}
+          <div className="mt-2.5 flex items-center justify-between">
+            <span className="text-[9px] uppercase tracking-wide text-[var(--color-text-tertiary)]">predicted links {predictions.length ? `(${predictions.filter((p) => p.verified).length}✓/${predictions.length})` : ''}</span>
+            <button onClick={() => void loadPredictions()} disabled={predLoading} className="text-[9px] text-[#22d3ee] disabled:opacity-50">{predLoading ? 'verifying…' : 'predict'}</button>
+          </div>
+          <div className="mt-1 max-h-40 space-y-1 overflow-y-auto">
+            {predictions.length === 0 && !predLoading && <p className="text-[10px] text-[var(--color-text-tertiary)]">No predictions yet — propose + verify likely-missing edges.</p>}
+            {predictions.map((p, i) => (
+              <div key={i} className={`rounded-lg border px-2.5 py-1.5 ${p.verified ? 'border-[#16a34a]/40' : 'border-[var(--color-border-tertiary)] opacity-60'}`}>
+                <div className="flex items-center justify-between gap-2 text-[10px]">
+                  <span className="min-w-0 flex-1 truncate font-medium text-[var(--color-text-primary)]">{p.sourceLabel} <span className="text-[var(--color-text-tertiary)]">{p.relation ? `— ${p.relation} —` : '~'}</span> {p.targetLabel}</span>
+                  <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-semibold ${p.verified ? 'bg-[#16a34a]/15 text-[#16a34a]' : 'bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)]'}`}>{p.verified ? `✓ ${p.confidence ?? ''}` : '✗'}</span>
+                </div>
+                {p.rationale && <p className="mt-0.5 text-[9px] leading-snug text-[var(--color-text-tertiary)]">{p.rationale}</p>}
               </div>
             ))}
           </div>
