@@ -14,6 +14,7 @@
  */
 
 import JSON5 from 'json5'
+import { repairToolArgs } from './tool-validate.js'
 
 export interface InlineToolCall {
   id: string
@@ -35,7 +36,13 @@ export function parseInlineToolCalls(
     catch {
       // Tolerate the invalid JSON local models emit: single-quoted string values
       // (e.g. "code": 'def f(): ...'), unquoted keys, trailing commas.
-      try { obj = JSON5.parse(trimmed) } catch { return false }
+      try { obj = JSON5.parse(trimmed) }
+      catch {
+        // Deeper recovery (truncated objects, Python True/False/None, trailing prose) —
+        // strictly additive: only runs once JSON + JSON5 have both already failed.
+        obj = repairToolArgs(trimmed).value
+        if (!obj) return false
+      }
     }
     if (!obj || typeof obj !== 'object') return false
     const o = obj as Record<string, unknown>
