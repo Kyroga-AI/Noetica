@@ -4982,7 +4982,7 @@ const server = http.createServer((req, res) => {
         const user = attempt === 1 ? `Task: ${task}` : `Task: ${task}\n\nYour previous attempt FAILED:\n${prior}\nFix the code. Respond with the same JSON format.`
         let content = ''
         try { ({ content } = await generateOllamaText({ model, messages: [{ role: 'system', content: SYS }, { role: 'user', content: user }], temperature: attempt === 1 ? 0.2 : 0.55 })) }
-        catch (e) { steps.push({ attempt, verify: '', exit: 'gen_error', ok: false, files: [], output: String(e).slice(0, 200) }); break }
+        catch { steps.push({ attempt, verify: '', exit: 'gen_error', ok: false, files: [], output: 'generation error' }); break }
         const sol = parseSolveOutput(content)
         if (!sol) { steps.push({ attempt, verify: '', exit: 'parse_error', ok: false, files: [], output: content.slice(0, 300) }); prior = "Your output didn't parse as the required JSON object."; continue }
         for (const f of sol.files) {
