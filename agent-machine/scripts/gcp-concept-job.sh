@@ -16,7 +16,10 @@ GCS="gs://sourceos-artifacts-socioprophet/ocw-corpus"
 SA="${GCP_SA:-sourceos-ci@socioprophet-platform.iam.gserviceaccount.com}"
 PER_COURSE="${PER_COURSE:-800}"
 FIELDS="${FIELDS:-biology chemistry physics mathematics eecs biological_eng earth_planetary}"
-TERM_TIME="${TERM_TIME:-$(python3 -c "import datetime;print((datetime.datetime.now().astimezone()+datetime.timedelta(hours=3)).replace(microsecond=0).isoformat())")}"
+# Backstop hard-delete (the startup self-delete fails when the SA lacks compute.instances.delete →
+# the VM zombies until this fires). Capped at +1h (the glossary job finishes in ~25min). REAL FIX:
+# grant the SA roles/compute.instanceAdmin.v1 so the on-done self-delete works promptly.
+TERM_TIME="${TERM_TIME:-$(python3 -c "import datetime;print((datetime.datetime.now().astimezone()+datetime.timedelta(hours=1)).replace(microsecond=0).isoformat())")}"
 
 cat > /tmp/concept-startup.sh <<STARTUP
 #!/bin/bash

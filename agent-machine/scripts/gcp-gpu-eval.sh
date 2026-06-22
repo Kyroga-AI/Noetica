@@ -25,7 +25,11 @@ MAXCHUNKS="${MAXCHUNKS:-30000}"          # per-field pool cap — keeps JS cosin
 SUBJECTS="${SUBJECTS:-high_school_biology,conceptual_physics,electrical_engineering,college_chemistry,high_school_statistics,college_mathematics,abstract_algebra}"
 RUN_TAG="${RUN_TAG:-}"                                   # suffix to isolate parallel runs (log + VM)
 LOG="$GCS/eval-run${RUN_TAG:+-$RUN_TAG}.log"             # per-run GCS log path so two evals don't clobber each other
-TERM_TIME="${TERM_TIME:-$(python3 -c "import datetime;print((datetime.datetime.now().astimezone()+datetime.timedelta(hours=4)).replace(microsecond=0).isoformat())")}"
+# Backstop hard-delete. The startup self-delete (gcloud instances delete) FAILS when the VM SA
+# (sourceos-ci) lacks compute.instances.delete → the VM zombies until this guard fires. Capped at
+# +2h (a full T4 board finishes in <75min) so a self-delete failure wastes ≤2h, not 4h. REAL FIX:
+# grant the SA roles/compute.instanceAdmin.v1 so the on-done self-delete works promptly.
+TERM_TIME="${TERM_TIME:-$(python3 -c "import datetime;print((datetime.datetime.now().astimezone()+datetime.timedelta(hours=2)).replace(microsecond=0).isoformat())")}"
 
 cat > /tmp/gpu-eval-startup.sh <<STARTUP
 #!/bin/bash
