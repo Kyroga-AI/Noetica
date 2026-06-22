@@ -66,3 +66,43 @@ After each implement+measure pass: append new gaps, re-rank, re-survey for what 
 | 3 | **EAGLE-3 speculative decoding** — 1.4× faster inference (our cost/speed pain) | 2026 | infra |
 
 **Deepdive takeaway:** the field's real leverage moved to (1) a CURRENT embedder+reranker (we're on an old one — cheapest fix), (2) TRAINING the model to use RAG (RAFT) rather than coaxing it at inference. Both now actioned (RAFT wired; embedder one re-embed away).
+
+## Fresh deepdive (iter 6, 2026-06-22 — 3 parallel web survey agents, NOT from memory) + TOP 25
+
+**Honest verdict — is our stack ahead of / level with / behind peers?**
+- **Orchestration breadth: AHEAD/level.** council·CISC·hybrid(BM25/RRF)·MMR·CRAG·HippoRAG-lite·VSA·qgen(HyDE/step-back)·verified-compute(sympy)·glossary + the evidence-fabric moat is a genuinely strong, on-trend technique stack.
+- **Raw capability: BEHIND, ~1–1.5 generations.** Three concrete weak links the survey nailed: (a) **qwen2.5:7b is a generation behind** — a 4B *thinking* model (Qwen3-4B-Thinking-2507) scores **74.0 MMLU-Pro** vs our base ~56; (b) **dated embedder** (nomic — superseded by EmbeddingGemma/Granite-R2/ReasonEmbed); (c) **no reranker at all** (the field's table stakes, now reasoning-based). And the biggest lever — **reasoning distillation (technique→weights)** — is PREPPED (RAFT/STaR) but **not executed**. "Shipped" in 2026 means weights, not just an inference graph.
+- **Honest target:** technique + a current backbone realistically reaches **high-70s to low-80s MMLU-Pro** (near 2024-frontier knowledge on a 7B). Frontier closed models (~90 MMLU-Pro / ~88 GPQA-Diamond) stay ~10–15 pts beyond any 7B. The "technique not horsepower" thesis HOLDS (rStar-Math: a 7B rivaling o1 on math, no bigger teacher) but the backbone is now the weak link, not the thesis.
+
+**TOP 25 MOVES (merged + ranked; ✅=done this loop):**
+| # | Move | Source (lab · arXiv/date) | Gives us | Effort |
+|---|------|---------------------------|----------|--------|
+| 1 | **Backbone → Qwen3-4B-Thinking-2507 / Qwen3-8B** (enable_thinking dial now wired) | Alibaba 2505.09388 | 74.0 MMLU-Pro off the shelf; cheapest single jump | low |
+| 2 | **Execute On-Policy Distillation** on our RAFT/STaR data (adaptive fwd/rev-KL) | Thinking Machines 2025-10 + 2603.07079/2604.00626 | +15–25 MMLU-Pro; technique→WEIGHTS (the endgame) | med/high |
+| 3 | **Add a reasoning reranker — E²Rank (embedder doubles as reranker)** or ReasonRank | Renmin/Alibaba 2510.22733 · 2508.07050 | the missing table-stakes stage; free from our embedder | med |
+| 4 | **Replace nomic → EmbeddingGemma-308M** (on-device, Matryoshka) or **ReasonEmbed/ReasonIR** | Google 2025-09 · 2510.08252 · Meta/MIT 2504.20595 | +6.4% MMLU (reasoning retriever); shrinks 432K index | low/med (re-embed=GPU) |
+| 5 | **DeepConf** — confidence early-stop + conf-weighted vote (CISC successor) | Meta FAIR 2508.15260 | −84% tokens, top-tier acc; upgrades our council vote | low |
+| 6 | **Adaptive sampling controller — ReASC/Seer/CGES** (per-Q sample budget) | 2601.02970 · 2511.09345 · 2511.02603 | difficulty-adaptive compute (we run fixed-N) | low/med |
+| 7 | **SymCode** — LLM→SymPy→sandbox pass/fail + self-debug (generalize our CAS arm) | 2510.25975 | hard symbolic verifier w/ error-feedback repair | low/med |
+| 8 | **ThinkPRM** — generative step-verifier from ~1K CoTs (replace reflect/PRM-lite) | TMLR 2504.16828 | real process verifier, data-cheap; beats LLM-judge +7.2% | med |
+| 9 | **PRIME** — process rewards from OUTCOME labels only (MMLU gives this free) | 2502.01456 | dense process reward w/o step labels | med |
+| 10 | **Late Chunking** — embed doc then chunk (training-free context preservation) | Jina 2409.04701 | cheap index-side fix to our 432K chunk context-loss | low |
+| 11 | **DIVER-style iterative reasoning query-expansion** (beyond HyDE/step-back) | 2508.07995 (BRIGHT SOTA) | better query-gen | med |
+| 12 | **Adopt BRIGHT eval** (reasoning-intensive retrieval) alongside MMLU | 2407.12883 | the right lens for our reasoning-retrieval goal | low |
+| 13 | **GenPRM** — generative PRM w/ per-step CODE verification (neurosymbolic verifier) | 2504.00891 | 7B>72B-PRM on ProcessBench; fuses sympy into the reward | med/high |
+| 14 | **rStar-Math** — small-LLM MCTS + process-preference model, self-evolved | ICML 2501.04519 | the flagship "technique-not-horsepower" blueprint | high |
+| 15 | **Atom of Thoughts** — Markov atomic decomposition (under our ToT/L2M) | NeurIPS 2502.12018 | budget-limited reasoning focus | med |
+| 16 | **AdaQR / reasoner-router in embedding space** (cheap dense reasoning, route hard→LLM) | 2510.21727 | −28% reasoning cost; pairs with CRAG gate | med/high |
+| 17 | **DEDUP: bench imports `study-brain` loader** (kill the duplicate OCW loader) | audit | finish the extraction (bench still has inline copy) | low |
+| 18 | **DEDUP: unify embedder** (study-brain `ollama.embedText` ↔ graph `embedBatchLocal`) | audit | one embedding entry point | low |
+| 19 | **DEDUP: collapse 3–4 RRF/BM25 impls → one `rerank-rrf` primitive** | audit | kill triplication before wave-3 merges | low/med |
+| 20 | **DOUBLE-DIP: ✅ OCW brain → UI GraphRAG community reports** (PR #86) | audit | UI graph "knows" MIT-OCW | ✅ done |
+| 21 | **DOUBLE-DIP: HippoRAG `associativeRetrieve` as a study-brain expansion arm** | audit | multi-hop for the flat-cosine study-brain | med |
+| 22 | **DOUBLE-DIP: `semanticEntropy` (uncertainty.ts) into the council vote** | audit | principled abstain vs raw agreement count | low/med |
+| 23 | **CONVERGE: one `lib/knowledge-retrieve.ts`** (dense+HippoRAG+rerank, one embedder) | audit | the shared retrieval surface for lanes+bench+UI graph | med |
+| 24 | **GRPO corrections — Dr.GRPO (length-bias, near-free) + DAPO clip-higher + KL-Cov** | 2503.20783 · 2503.14476 · 2505.22617 | stop entropy-collapse/CoT-pathology in any RLVR | low→high |
+| 25 | **Soft Thinking** — training-free latent reasoning over concept-token distribution | 2505.15778 | deployable latent-reasoning extension of our VSA | med |
+
+**Backlog corrections (the loop caught our staleness):** "DeepSeek-R1 GRPO" → now GRPO + Dr.GRPO + DAPO + KL-Cov (the 2025 anti-collapse fixes). "Snell test-time-compute" → superseded by adaptive per-Q controllers (DeepConf/ReASC/Seer) + "Art of Scaling TTC" taxonomy (2512.02008: no single TTC strategy is optimal). "Self-verification" → 2025 work shows stated self-verify is often *fake* (use a SEPARATE verifier, not self-critique).
+
+**Iter-6 takeaway:** the two biggest levers are now (1) a **current thinking backbone** (Qwen3-4B-Thinking, ~free) and (2) **executing the distillation** we already prepped (technique→weights). Plus the two cheap table-stakes we're missing: a **reranker** and a **current embedder**. Everything else is orchestration polish on an already-strong stack.
