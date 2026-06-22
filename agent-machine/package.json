@@ -18,7 +18,8 @@
     "dev:backend": "bash scripts/dev-backend.sh",
     "bootstrap": "node --import tsx scripts/bootstrap.ts",
     "start:managed-ollama": "node --import tsx scripts/managed-ollama.ts",
-    "verify:offline": "tsx scripts/verify-offline.mts"
+    "verify:offline": "tsx scripts/verify-offline.mts",
+    "verify:audit": "tsx scripts/verify-audit.mts"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
