@@ -119,6 +119,13 @@ interface AgentMachineRun {
   error?: string
 }
 
+interface BanditArm { task: string; provider: string; model: string; plays: number; mean_reward: number; leading: boolean }
+interface MeshTrends {
+  quality?: { delta: number; improving: boolean; samples: number }
+  bandit?: BanditArm[]
+  graph?: { total_edges: number; derived_edges: number }
+}
+
 function amUrl(path: string): string {
   const isTauri = typeof window !== 'undefined' &&
     ('__TAURI_INTERNALS__' in window || '__TAURI__' in window)
@@ -153,6 +160,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   const [expandedId, setExpandedId]       = useState<string | null>(null)
   const [confirmClear, setConfirmClear]   = useState(false)
   const [amRuns, setAmRuns]               = useState<AgentMachineRun[]>([])
+  const [trends, setTrends]               = useState<MeshTrends | null>(null)
   const [filterVerdict, setFilterVerdict] = useState<'all' | PolicyVerdict>('all')
   const [filterModel, setFilterModel]     = useState<string>('all')
 
@@ -168,6 +176,11 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
         if (data?.runs?.length) setAmRuns(data.runs)
       })
       .catch(() => { /* agent-machine not running — silently skip */ })
+    // What the mesh has LEARNED — bandit routing convergence + quality trend + symbolic growth
+    fetch(amUrl('/api/self/trends'), { signal: AbortSignal.timeout(3000) })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: MeshTrends | null) => { if (d) setTrends(d) })
+      .catch(() => { /* not running — skip */ })
   }, [])
 
   // Merge local ledger events with agent-machine run history, deduped by id, sorted newest-first
@@ -343,6 +356,45 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                 </div>
               ))}
             </div>
+          )}
+        </div>
+
+        {/* Mesh learning — the verifier→selection loop made visible (introspection cloud chat lacks) */}
+        <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+          <div className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Mesh learning</div>
+          <div className="mb-3 text-[11px] text-[var(--color-text-tertiary)]">What the local mesh has taught itself — which model wins each task, whether answers are improving, and the symbolic substrate growing.</div>
+          <div className="mb-4 grid grid-cols-3 gap-3">
+            <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
+              <div className={`text-2xl font-semibold ${(trends?.quality?.delta ?? 0) > 0 ? 'text-[#16a34a]' : (trends?.quality?.delta ?? 0) < 0 ? 'text-[#dc2626]' : 'text-[var(--color-text-primary)]'}`}>
+                {trends?.quality ? `${trends.quality.delta > 0 ? '↑' : trends.quality.delta < 0 ? '↓' : '·'} ${(trends.quality.delta * 100).toFixed(0)}%` : '—'}
+              </div>
+              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">answer quality{trends?.quality ? ` · ${trends.quality.samples} samples` : ''}</div>
+            </div>
+            <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
+              <div className="text-2xl font-semibold text-[var(--color-text-primary)]">{(trends?.graph?.total_edges ?? 0).toLocaleString()}</div>
+              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">graph edges</div>
+            </div>
+            <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
+              <div className="text-2xl font-semibold text-[var(--color-text-primary)]">{(trends?.graph?.derived_edges ?? 0).toLocaleString()}</div>
+              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">inferred (symbolic)</div>
+            </div>
+          </div>
+          <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Learned routing (UCB bandit)</div>
+          {trends?.bandit && trends.bandit.length > 0 ? (
+            <div className="space-y-1.5">
+              {trends.bandit.map((a) => (
+                <div key={`${a.task}/${a.model}`} className="flex items-center gap-2 text-[11px]">
+                  <span className="w-20 shrink-0 truncate text-[var(--color-text-tertiary)]">{a.task}</span>
+                  <span className={`w-36 shrink-0 truncate ${a.leading ? 'font-semibold text-[#16a34a]' : 'text-[var(--color-text-secondary)]'}`}>{a.leading ? '⭐ ' : ''}{a.model}</span>
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
+                    <div className={`h-full rounded-full ${a.leading ? 'bg-[#16a34a]' : 'bg-[#94a3b8]'}`} style={{ width: `${Math.max(2, Math.min(100, a.mean_reward * 100))}%` }} />
+                  </div>
+                  <span className="w-16 shrink-0 text-right text-[10px] tabular-nums text-[var(--color-text-tertiary)]">{a.mean_reward.toFixed(2)} · {a.plays}×</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-[11px] text-[var(--color-text-tertiary)]">No routing learned yet — the bandit converges as you use local models across varied tasks. Every judged answer updates an arm.</div>
           )}
         </div>
 
