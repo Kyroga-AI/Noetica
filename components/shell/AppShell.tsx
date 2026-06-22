@@ -18,6 +18,7 @@ import { EvaluateSurface } from '@/components/surfaces/EvaluateSurface'
 import { StudioSurface } from '@/components/surfaces/StudioSurface'
 import { RagInspectSurface } from '@/components/surfaces/RagInspectSurface'
 import { LabSurface } from '@/components/surfaces/LabSurface'
+import { JitsiSurface } from '@/components/surfaces/JitsiSurface'
 import { GovernSurface } from '@/components/surfaces/GovernSurface'
 import { ProjectsSurface } from '@/components/surfaces/ProjectsSurface'
 import { ArtifactsSurface } from '@/components/surfaces/ArtifactsSurface'
@@ -81,6 +82,7 @@ const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
   studio:       'Chat',
   rag:          'Chat',
   lab:          'Chat',
+  jitsi:        'Chat',
   operate:      'Chat',
   govern:       'Chat',
   tune:         'Chat',
@@ -1674,6 +1676,7 @@ function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, work
   if (activeSurface === 'studio')       return <StudioSurface />
   if (activeSurface === 'rag')          return <RagInspectSurface />
   if (activeSurface === 'lab')          return <LabSurface />
+  if (activeSurface === 'jitsi')        return <JitsiSurface />
   if (activeSurface === 'operate')      return <OperateSurface onAtomSelect={onAtomSelect} />
   if (activeSurface === 'govern') {
     const traces = messages

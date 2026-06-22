@@ -28,6 +28,8 @@ const CAPS: Capability[] = [
   { id: 'pln-truth', label: 'PLN truth (deduction/revision)', group: 'OpenCog', sample: { op: 'deduction', a: { strength: 0.9, confidence: 0.8 }, b: { strength: 0.8, confidence: 0.7 } } },
   { id: 'cms-create', label: 'Artifact CMS — create (versioned)', group: 'CMS', sample: { title: 'Design Doc', type: 'document', content: '# v1\nfirst draft', tags: ['design'] } },
   { id: 'cms-list', label: 'Artifact CMS — list/search', group: 'CMS', sample: {} },
+  { id: 'office-detect', label: 'Office — detect LibreOffice', group: 'Office', sample: {} },
+  { id: 'porter-config', label: 'Porter — generate app spec', group: 'Deploy', sample: { name: 'my-noetica-app', run: 'npm start', port: 3000, method: 'pack' } },
 ]
 
 export function LabSurface() {

@@ -12,6 +12,7 @@ export type ActiveSurface =
   | 'studio'
   | 'rag'
   | 'lab'
+  | 'jitsi'
   | 'operate'
   | 'govern'
   | 'tune'

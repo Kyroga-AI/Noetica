@@ -158,6 +158,25 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
         idx.addMany((b.vectors ?? []) as Array<{ id: string; vec: number[] }>)
         return send(200, { results: idx.search((b.query ?? []) as number[], b.k ?? 10, b.excludeId) }), true
       }
+      // ── Office toolkit (LibreOffice) + Porter PaaS ──
+      case 'office-detect': {
+        const { detectLibreOffice } = await import('./office-toolkit.js')
+        return send(200, await detectLibreOffice()), true
+      }
+      case 'office-convert': {
+        const { convertWithLibreOffice, canView, viewTargetFor } = await import('./office-toolkit.js')
+        const input = String(b.path ?? '')
+        if (!input || !canView(input)) return send(400, { error: 'not_a_viewable_office_file' }), true
+        const to = (b.to as 'pdf' | 'html') ?? viewTargetFor(input)
+        const os = await import('node:os'); const path = await import('node:path')
+        const outdir = String(b.outdir ?? path.join(os.homedir(), '.noetica', 'office-cache'))
+        return send(200, await convertWithLibreOffice(input, to, outdir)), true
+      }
+      case 'porter-config': {
+        const { porterApp, porterCommands, toPorterYaml, conformsToPorter } = await import('./porter-paas.js')
+        const app = porterApp({ name: String(b.name ?? 'noetica-app'), run: b.run as string | undefined, port: b.port as number | undefined, method: b.method as 'pack' | 'docker' | undefined, env: b.env as Record<string, string> | undefined })
+        return send(200, { app, yaml: toPorterYaml(app), commands: porterCommands(app.name), conformance: conformsToPorter(app) }), true
+      }
       // ── Artifact CMS (versioned, content-addressed) + drive integration ──
       case 'cms-create': {
         const { getArtifactCMS, persistArtifactCMS } = await import('./artifact-cms.js')
