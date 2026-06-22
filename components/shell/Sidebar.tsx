@@ -537,10 +537,15 @@ export function Sidebar({
                   { code: 'ja', native: '日本語', current: false },
                   { code: 'zh', native: '简体中文', current: false },
                 ].map((lang) => (
-                  <button key={lang.code} onClick={() => closeMenu()}
-                    className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-[12px] hover:bg-[var(--color-background-secondary)] transition text-left ${lang.current ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'}`}>
+                  // Only English is implemented (no i18n layer yet) — show the rest as disabled "soon"
+                  // instead of fake-switching, so the control is honest.
+                  <button key={lang.code} disabled={!lang.current} onClick={() => closeMenu()}
+                    title={lang.current ? undefined : 'Translation coming soon'}
+                    className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-[12px] transition text-left ${lang.current ? 'text-[var(--color-text-primary)] hover:bg-[var(--color-background-secondary)]' : 'text-[var(--color-text-tertiary)] cursor-not-allowed opacity-60'}`}>
                     <span className="flex-1">{lang.native}</span>
-                    {lang.current && <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden className="text-[#1d4ed8]"><path d="M2 5.5l3 3 4.5-4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                    {lang.current
+                      ? <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden className="text-[#1d4ed8]"><path d="M2 5.5l3 3 4.5-4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      : <span className="text-[9px] uppercase tracking-wide text-[var(--color-text-tertiary)]">soon</span>}
                   </button>
                 ))}
               </>
@@ -553,12 +558,12 @@ export function Sidebar({
                 </button>
                 <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Resources</div>
                 {[
-                  { label: 'Noetica documentation', desc: 'User guide and surface reference' },
-                  { label: 'Anthropic API docs', desc: 'Claude API integration reference' },
-                  { label: 'Community forum', desc: 'Ask questions and share feedback' },
-                  { label: 'Keyboard shortcuts', desc: 'View all shortcuts — press ⌘,' },
+                  { label: 'Noetica documentation', desc: 'User guide and surface reference', url: 'https://github.com/SocioProphet/Noetica#readme' },
+                  { label: 'Anthropic API docs', desc: 'Claude API integration reference', url: 'https://docs.anthropic.com' },
+                  { label: 'Community forum', desc: 'Ask questions and share feedback', url: 'https://github.com/SocioProphet/Noetica/discussions' },
+                  { label: 'Keyboard shortcuts', desc: 'View all shortcuts — press ⌘,', url: undefined as string | undefined },
                 ].map((link) => (
-                  <button key={link.label} onClick={() => { if (link.label === 'Keyboard shortcuts') { setHelpOpen(true) } closeMenu() }}
+                  <button key={link.label} onClick={() => { if (link.label === 'Keyboard shortcuts') { setHelpOpen(true) } else if (link.url) { window.open(link.url, '_blank', 'noopener') } closeMenu() }}
                     className="flex w-full flex-col items-start px-3 py-1.5 text-left hover:bg-[var(--color-background-secondary)] transition">
                     <span className="text-[12px] text-[var(--color-text-primary)]">{link.label}</span>
                     <span className="text-[10px] text-[var(--color-text-tertiary)]">{link.desc}</span>

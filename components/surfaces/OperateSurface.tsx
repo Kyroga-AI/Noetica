@@ -745,9 +745,16 @@ export function OperateSurface({ onAtomSelect }: { onAtomSelect?: (query: string
               {healthCheck.state === 'running' ? 'Checking…' : healthCheck.state === 'done' ? `All clear · ${healthCheck.result?.latency_ms ?? 0}ms` : healthCheck.state === 'failed' ? `Failed · ${healthCheck.result?.detail ?? 'error'}` : 'Run health check'}
             </button>
             <button
-              onClick={exportSnap.trigger}
+              onClick={() => {
+                // Real export (was a fake-success flash): download the live operational snapshot as JSON.
+                const snap = { exportedAt: new Date().toISOString(), graph, time, noetica: noeticaStatus }
+                const blob = new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' })
+                const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
+                a.download = `noetica-operate-snapshot-${Date.now()}.json`; a.click(); URL.revokeObjectURL(a.href)
+                exportSnap.trigger()
+              }}
               className="rounded-xl bg-[#1d4ed8] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#1e40af]">
-              {exportSnap.state === 'running' ? 'Exporting…' : exportSnap.state === 'done' ? 'Exported' : 'Export snapshot'}
+              {exportSnap.state === 'running' ? 'Exporting…' : exportSnap.state === 'done' ? 'Exported ✓' : 'Export snapshot'}
             </button>
           </div>
         </div>
