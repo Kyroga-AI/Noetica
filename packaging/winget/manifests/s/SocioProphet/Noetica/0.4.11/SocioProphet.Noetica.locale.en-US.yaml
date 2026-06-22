@@ -1,0 +1,35 @@
+PackageIdentifier: SocioProphet.Noetica
+PackageVersion: 0.4.11
+PackageLocale: en-US
+Publisher: SocioProphet
+PublisherUrl: https://github.com/SocioProphet
+PublisherSupportUrl: https://github.com/SocioProphet/Noetica/issues
+PackageName: Noetica
+PackageUrl: https://github.com/SocioProphet/Noetica
+License: MIT
+LicenseUrl: https://github.com/SocioProphet/Noetica/blob/main/LICENSE
+Copyright: Copyright (c) 2024 SocioProphet
+ShortDescription: Self-hosted AI dialogue backend — 22-intent layer on localhost:8080
+Description: |
+  Noetica is a self-hosted AI dialogue management backend for sovereign,
+  cloud-free AI inference.
+
+  Features:
+  - 22-intent dialogue routing (chat, explain, fix, codegen, review, plan, etc.)
+  - HTTP API on localhost:8080 — /health, /api/chat, /api/intent, /api/complete
+  - No cloud dependency — runs fully offline
+  - Windows service via NSSM — auto-start on boot
+  - TurtleTerm co-pilot integration: turtle-copilot use noetica
+  - PowerShell management: Start-Noetica, Stop-Noetica, Get-NoeticalHealth
+Moniker: noetica
+Tags:
+  - ai
+  - nlp
+  - dialogue
+  - self-hosted
+  - local-llm
+  - sourceos
+  - inference
+ReleaseNotesUrl: https://github.com/SocioProphet/Noetica/releases/tag/v0.4.11
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

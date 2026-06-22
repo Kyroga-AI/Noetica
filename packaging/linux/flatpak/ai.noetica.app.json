@@ -1,0 +1,51 @@
+{
+  "app-id": "ai.noetica.app",
+  "runtime": "org.freedesktop.Platform",
+  "runtime-version": "23.08",
+  "sdk": "org.freedesktop.Sdk",
+  "sdk-extensions": [
+    "org.freedesktop.Sdk.Extension.node20"
+  ],
+  "command": "noetica-launch",
+  "finish-args": [
+    "--share=network",
+    "--filesystem=home",
+    "--persist=.config/noetica",
+    "--persist=.noetica",
+    "--env=NOETICA_AM_PORT=8080",
+    "--env=OLLAMA_HOST=http://127.0.0.1:11434",
+    "--env=NODE_ENV=production"
+  ],
+  "build-options": {
+    "append-path": "/usr/lib/sdk/node20/bin",
+    "env": {
+      "NPM_CONFIG_OFFLINE": "true",
+      "NPM_CONFIG_PREFER_OFFLINE": "true"
+    }
+  },
+  "modules": [
+    {
+      "name": "noetica",
+      "buildsystem": "simple",
+      "build-commands": [
+        "npm install --no-audit --no-fund 2>/dev/null || true",
+        "npm run agent-machine:build || (cd agent-machine && npm install && npm run build)",
+        "install -d /app/lib/noetica",
+        "cp -r agent-machine/dist /app/lib/noetica/dist",
+        "[ -d agent-machine/node_modules ] && cp -r agent-machine/node_modules /app/lib/noetica/node_modules || true",
+        "install -d /app/bin",
+        "printf '#!/bin/sh\\nexport NOETICA_AM_PORT=\"${NOETICA_AM_PORT:-8080}\"\\nexport OLLAMA_HOST=\"${OLLAMA_HOST:-http://127.0.0.1:11434}\"\\nexec /usr/lib/sdk/node20/bin/node /app/lib/noetica/dist/server.js \"$@\"\\n' > /app/bin/noetica-launch",
+        "chmod 755 /app/bin/noetica-launch",
+        "[ -f packaging/linux/ai.noetica.app.desktop ] && install -Dm644 packaging/linux/ai.noetica.app.desktop /app/share/applications/ai.noetica.app.desktop || true",
+        "[ -f packaging/linux/ai.noetica.app.metainfo.xml ] && install -Dm644 packaging/linux/ai.noetica.app.metainfo.xml /app/share/metainfo/ai.noetica.app.metainfo.xml || true"
+      ],
+      "sources": [
+        {
+          "type": "git",
+          "url": "https://github.com/SocioProphet/Noetica.git",
+          "branch": "main"
+        }
+      ]
+    }
+  ]
+}

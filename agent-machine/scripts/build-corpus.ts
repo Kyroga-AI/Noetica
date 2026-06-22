@@ -108,10 +108,12 @@ function classify(file: string, byMeta: Map<string, Material>): Material {
   return 'reference'
 }
 
-// pypdf can spin forever on a pathological PDF (this wedged a whole cloud vectorize run on one
-// course) and print() crashes with UnicodeEncodeError under a non-UTF-8 locale. Harden it:
-// SIGKILL timeout so a hung extract can't stall the loop, per-page + outer try/except so one bad
-// page/file degrades to '' instead of crashing, and forced UTF-8 stdout.
+// pypdf can spin forever on a pathological PDF (this wedged a whole cloud run) AND, on math-heavy
+// PDFs, emit malformed Unicode — lone surrogates (\ud835, mathematical bold/italic) that crash
+// even PYTHONIOENCODING=utf-8 under the strict handler, which silently zeroed a whole run.
+// Harden: SIGKILL timeout so a hung extract can't stall the loop; per-page + outer try/except so
+// one bad page degrades to ''; and write BYTES with errors='replace' (bypasses strict text stdout,
+// so lone surrogates become '?' instead of killing the extract).
 const PDF_PY = [
   'import sys',
   'from pypdf import PdfReader',
@@ -121,7 +123,7 @@ const PDF_PY = [
   '        try: out.append(p.extract_text() or "")',
   '        except Exception: pass',
   'except Exception: pass',
-  'sys.stdout.write("\\n".join(out))',
+  'sys.stdout.buffer.write("\\n".join(out).encode("utf-8","replace"))',
 ].join('\n')
 function pdfText(file: string): string {
   try {

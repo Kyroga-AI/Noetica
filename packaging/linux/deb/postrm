@@ -1,0 +1,10 @@
+#!/bin/bash
+set -e
+case "$1" in
+  purge)
+    rm -f /etc/systemd/system/noetica.service
+    rm -rf /etc/noetica /var/log/noetica
+    systemctl daemon-reload 2>/dev/null || true
+    ;;
+esac
+exit 0

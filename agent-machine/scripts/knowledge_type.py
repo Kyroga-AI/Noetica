@@ -17,7 +17,7 @@ definitions; swap a trained head in later. Run over the MMLU bank to see the typ
 
 Run:  python3 scripts/knowledge_type.py
 """
-import os, re, json
+import os, sys, re, json
 from collections import Counter
 
 UNIT = re.compile(r'\d\s*(m/s|kg|mol|N\b|J\b|W\b|V\b|A\b|Hz|cm|mm|km|°|K\b|Pa|ohm|Ω|g\b|L\b|eV|nm|watt|volt|joule|gram|meter|second)', re.I)
@@ -31,7 +31,10 @@ TYPES = {
                                        r'\bwhat (is|are) the\b', r'\bmade (up )?of\b', r'\bconsists? of\b']),
     'CausesProcesses':  ('chain',    [r'\bfirst step\b', r'\bprocess\b', r'\bsequence\b', r'\bstages?\b', r'\bcycle\b',
                                        r'\bwhat happens (when|after|next|if)\b', r'\bin order\b', r'\bsteps?\b',
-                                       r'\bleads? to\b', r'\bresults? in\b', r'\bcauses?\b']),
+                                       r'\bleads? to\b', r'\bresults? in\b', r'\bcauses?\b',
+                                       # concept-application (evolution/biology conceptual reasoning)
+                                       r'\bexemplif', r'\bexample of\b', r'\billustrat', r'\bdemonstrat',
+                                       r'\b(homolog|analog|convergent|divergent|vestigial)\w*\b', r'\bbest (describes|explains)\b']),
     'Purpose':          ('retrieve', [r'\bfunction of\b', r'\bpurpose of\b', r'\brole of\b', r'\bused (to|for)\b',
                                        r'\bwhy (do|does|are|is)\b', r'\bin order to\b', r'\bhelps? (to )?\b']),
     'Algebraic':        ('compute',  [r'\bcalculate\b', r'\bhow much\b', r'\bhow far\b', r'\bhow fast\b', r'\bhow long\b',
@@ -55,7 +58,28 @@ def classify(q):
     return hits or ['BasicFacts']   # default to a factual lookup
 
 
+def _batch():
+    """Read JSONL {id, question, choices}; emit {id, types, solver} so the exam can classify each
+    question BEFORE approaching it and route to the right method (the 'understand first' step)."""
+    for line in sys.stdin:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            q = json.loads(line)
+            types = classify(q['question'])
+            # pick the highest-PRIORITY solver among matched types, not types[0] — a question that
+            # is both 'which…' (BasicFacts) and computational must route to compute, not retrieve.
+            solvers = {TYPES[t][0] for t in types}
+            solver = next((s for s in ('compute', 'chain', 'spatial', 'experiment', 'retrieve') if s in solvers), 'retrieve')
+        except Exception:
+            q, types, solver = {}, ['BasicFacts'], 'retrieve'
+        print(json.dumps({'id': q.get('id'), 'types': types, 'solver': solver}), flush=True)
+
+
 def main():
+    if '--batch' in sys.argv:
+        return _batch()
     bank = json.load(open(os.path.expanduser('~/.noetica/corpus/benchmarks/mmlu_stem.json')))
     type_count = Counter(); solver_count = Counter(); n = 0; multi = 0
     by_subject = {}

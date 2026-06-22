@@ -18,10 +18,18 @@ import sys, json, re
 import sympy as sp
 
 
+# sympy callables/constants we must NOT shadow with a plain Symbol, or the function-based laws
+# (quadratic roots, combinatorics, reactance, logs) can't evaluate. Left out of the symtab,
+# sympify resolves them to the real sympy function/constant.
+_SYMPY_NS = {'sqrt', 'exp', 'log', 'factorial', 'binomial', 'sin', 'cos', 'tan',
+             'asin', 'acos', 'atan', 'pi', 'Rational', 'Abs', 'floor', 'ceiling'}
+
+
 def _symtab(eq_str):
     """Force every identifier to a plain Symbol — sympy otherwise reads I as the imaginary
-    unit, E as Euler's number, S as the SingletonRegistry, etc., which breaks physics vars."""
-    return {n: sp.Symbol(n) for n in set(re.findall(r"[A-Za-z_][A-Za-z0-9_]*", eq_str))}
+    unit, E as Euler's number, S as the SingletonRegistry, etc., which breaks physics vars.
+    Names in _SYMPY_NS are excluded so sympy keeps them as real functions/constants."""
+    return {n: sp.Symbol(n) for n in set(re.findall(r"[A-Za-z_][A-Za-z0-9_]*", eq_str)) if n not in _SYMPY_NS}
 
 # name -> (ascii sympy equation, domain, display, self-test {knowns} -> (target, expected))
 MODELS = {
@@ -79,6 +87,50 @@ MODELS = {
                                  ({"v0": 0, "a": 2, "d": 4}, "vf", None)),
     "Photon energy":           ("E = h*f",                 "electromagnetism",    "E = h·f",
                                  ({"f": 5e14}, "E", None)),
+
+    # ── extended catalog: the NUMERIC half of MMLU (statistics, math, circuits) ──
+    "Z-score":                 ("z = (x - mu)/sigma",      "statistics",          "z = (x − μ)/σ",
+                                 ({"x": 85, "mu": 75, "sigma": 5}, "z", 2)),
+    "Binomial mean":           ("mean = n*p",              "statistics",          "μ = n·p",
+                                 ({"n": 10, "p": 0.3}, "mean", 3)),
+    "Binomial std":            ("sigma = sqrt(n*p*(1-p))", "statistics",          "σ = √(n·p·(1−p))",
+                                 ({"n": 100, "p": 0.5}, "sigma", 5)),
+    "Standard error":          ("se = sigma/sqrt(n)",      "statistics",          "SE = σ/√n",
+                                 ({"sigma": 10, "n": 4}, "se", 5)),
+    "Binomial probability":    ("P = binomial(n,k)*p**k*(1-p)**(n-k)", "statistics", "P = C(n,k)·pᵏ(1−p)ⁿ⁻ᵏ",
+                                 ({"n": 5, "k": 2, "p": 0.5}, "P", 0.3125)),
+    "Combinations":            ("Cnk = factorial(n)/(factorial(k)*factorial(n-k))", "combinatorics", "C(n,k)",
+                                 ({"n": 5, "k": 2}, "Cnk", 10)),
+    "Permutations":            ("Pnk = factorial(n)/factorial(n-k)", "combinatorics", "P(n,k)",
+                                 ({"n": 5, "k": 2}, "Pnk", 20)),
+    "Quadratic formula":       ("a*x**2 + b*x + c = 0",    "algebra",             "ax² + bx + c = 0",
+                                 ({"a": 1, "b": -5, "c": 6}, "x", None)),
+    "Pythagorean theorem":     ("c = sqrt(a**2 + b**2)",   "geometry",            "c = √(a² + b²)",
+                                 ({"a": 3, "b": 4}, "c", 5)),
+    "Distance formula":        ("d = sqrt((x2-x1)**2 + (y2-y1)**2)", "geometry",   "d = √(Δx² + Δy²)",
+                                 ({"x1": 0, "y1": 0, "x2": 3, "y2": 4}, "d", 5)),
+    "Slope":                   ("m = (y2 - y1)/(x2 - x1)", "algebra",             "m = Δy/Δx",
+                                 ({"x1": 1, "y1": 2, "x2": 3, "y2": 8}, "m", 3)),
+    "Arithmetic series":       ("S = n*(a1 + an)/2",       "algebra",             "S = n(a₁+aₙ)/2",
+                                 ({"n": 10, "a1": 1, "an": 10}, "S", 55)),
+    "Geometric series":        ("S = a1*(1 - r**n)/(1 - r)", "algebra",           "S = a₁(1−rⁿ)/(1−r)",
+                                 ({"a1": 1, "r": 2, "n": 10}, "S", 1023)),
+    "Compound interest":       ("A = P*(1 + r)**n",        "finance",             "A = P(1+r)ⁿ",
+                                 ({"P": 1000, "r": 0.05, "n": 3}, "A", 1157.625)),
+    "Percent change":          ("pct = 100*(vnew - vold)/vold", "arithmetic",     "%Δ = 100(new−old)/old",
+                                 ({"vold": 50, "vnew": 60}, "pct", 20)),
+    "RC time constant":        ("tau = R*C",               "circuits_signals",    "τ = R·C",
+                                 ({"R": 1000, "C": 1e-6}, "tau", 0.001)),
+    "Parallel resistors":      ("Rp = R1*R2/(R1 + R2)",    "circuits_signals",    "Rp = R₁R₂/(R₁+R₂)",
+                                 ({"R1": 100, "R2": 100}, "Rp", 50)),
+    "Voltage divider":         ("Vout = Vin*R2/(R1 + R2)", "circuits_signals",    "Vout = Vin·R₂/(R₁+R₂)",
+                                 ({"Vin": 10, "R1": 1, "R2": 1}, "Vout", 5)),
+    "Capacitive reactance":    ("Xc = 1/(2*pi*f*C)",       "circuits_signals",    "Xc = 1/(2πfC)",
+                                 ({"f": 60, "C": 1e-6}, "Xc", None)),
+    "Resonant frequency":      ("fr = 1/(2*pi*sqrt(L*C))", "circuits_signals",    "fr = 1/(2π√(LC))",
+                                 ({"L": 1e-3, "C": 1e-6}, "fr", None)),
+    "Decibel gain":            ("dB = 20*log(Vout/Vin)/log(10)", "circuits_signals", "dB = 20·log₁₀(Vout/Vin)",
+                                 ({"Vout": 10, "Vin": 1}, "dB", 20)),
 }
 
 

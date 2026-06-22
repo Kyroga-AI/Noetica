@@ -62,6 +62,17 @@ DIMS = {
     "Kinematics (no time)":  {'vf': dim(length=1, time=-1), 'v0': dim(length=1, time=-1),
                               'a': dim(length=1, time=-2), 'd': dim(length=1)},
     "Photon energy":         {'E': ENERGY, 'h': dim(mass=1, length=2, time=-1), 'f': dim(time=-1)},
+    # extended catalog — dimensional gate on the clean (function-free) circuit + stats forms
+    "RC time constant":      {'tau': dim(time=1), 'R': dim(mass=1, length=2, time=-3, current=-2),
+                              'C': dim(mass=-1, length=-2, time=4, current=2)},
+    "Parallel resistors":    {'Rp': dim(mass=1, length=2, time=-3, current=-2),
+                              'R1': dim(mass=1, length=2, time=-3, current=-2),
+                              'R2': dim(mass=1, length=2, time=-3, current=-2)},
+    "Voltage divider":       {'Vout': dim(mass=1, length=2, time=-3, current=-1),
+                              'Vin': dim(mass=1, length=2, time=-3, current=-1),
+                              'R1': dim(mass=1, length=2, time=-3, current=-2),
+                              'R2': dim(mass=1, length=2, time=-3, current=-2)},
+    "Z-score":               {'z': dim(), 'x': dim(), 'mu': dim(), 'sigma': dim()},
 }
 
 # Physical constants are never in the problem text — inject them by law (note 'k' means the

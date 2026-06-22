@@ -17,11 +17,12 @@ than the model alone, and it *knows* which subset that is.
 Run:  OLLAMA_HOST=http://127.0.0.1:11434 python3 scripts/compute_arm.py
       MMLU_SUBJECTS=college_physics,high_school_physics MMLU_PER_SUBJECT=40 python3 ...
 """
-import os, sys, re, json, urllib.request
+import os, sys, re, json, signal, urllib.request
 import sympy as sp
 from units import parse_unit, to_si, dimension_of, DimError
 from model_verify import MODELS, DIMS, verify_and_solve
 from chain_solve import chain_solve
+from math_solve import solve_math, infer_op   # Gödel-routed exact calculus/algebra
 
 BANK = os.path.expanduser('~/.noetica/corpus/benchmarks/mmlu_stem.json')
 BASE = os.environ.get('OLLAMA_HOST', 'http://127.0.0.1:11434').rstrip('/')
@@ -31,11 +32,46 @@ SUBJECTS = os.environ.get('MMLU_SUBJECTS', 'college_physics,high_school_physics,
 LETTERS = ['A', 'B', 'C', 'D']
 
 
+class _Timeout(Exception):
+    pass
+
+
+def _timed(secs, fn, *a, **k):
+    """Run fn with a hard wall-clock cap — LLM-written sympy (solve/factorial/integrate) can run
+    forever; the compute must never hang the loop. SIGALRM (main thread); no-op on non-Unix."""
+    if not hasattr(signal, 'SIGALRM'):
+        return fn(*a, **k)
+    def _h(_s, _f):
+        raise _Timeout()
+    old = signal.signal(signal.SIGALRM, _h)
+    signal.alarm(secs)
+    try:
+        return fn(*a, **k)
+    finally:
+        signal.alarm(0)
+        signal.signal(signal.SIGALRM, old)
+
+
+_SYMPY_NS = {'sqrt', 'exp', 'log', 'factorial', 'binomial', 'sin', 'cos', 'tan',
+             'asin', 'acos', 'atan', 'pi', 'Rational', 'Abs', 'floor', 'ceiling'}
+
+
+def _eq_vars(eq):
+    """Variable names in an equation (drop sympy funcs/constants) — so every law carries a
+    vars hint, which the extractor needs to map knowns even when no DIMS are declared."""
+    seen = [t for t in re.findall(r'[A-Za-z_]\w*', eq) if t not in _SYMPY_NS]
+    return list(dict.fromkeys(seen))
+
+
 def law_menu():
+    # Surface the WHOLE catalog (MODELS), not just the dimensionally-declared subset (DIMS) —
+    # otherwise the function-based laws (combinatorics, quadratic, reactance) are invisible to the
+    # extractor and it abstains on them. Every form keeps a vars hint (declared dims or derived).
     lines = []
-    for name, vd in DIMS.items():
-        eq = MODELS[name][0]
-        lines.append(f'- {name}: {eq}   vars: {", ".join(vd)}')
+    for name, (eq, _dom, _disp, _t) in MODELS.items():
+        vd = DIMS.get(name)
+        vars_ = list(vd) if vd else _eq_vars(eq)
+        lines.append(f'- {name}: {eq}   vars: {", ".join(vars_)}')
     return '\n'.join(lines)
 
 
@@ -141,7 +177,7 @@ def extract(question, choices):
 
 def plug_back_ok(eq, knowns_si, target, value):
     """Substitute knowns + solution back into the law; residual must be ~0."""
-    loc = {n: sp.Symbol(n) for n in set(re.findall(r'[A-Za-z_]\w*', eq))}
+    loc = {n: sp.Symbol(n) for n in set(re.findall(r'[A-Za-z_]\w*', eq)) if n not in _SYMPY_NS}
     lhs, rhs = eq.split('=', 1)
     expr = sp.sympify(lhs, locals=loc) - sp.sympify(rhs, locals=loc)
     subs = {loc[k]: v for k, v in knowns_si.items() if k in loc}
@@ -198,13 +234,20 @@ def baseline_answer(question, choices):
 
 
 FREE_SYS = (
-    'You translate a physics/chemistry multiple-choice question into ONE governing equation '
-    'and its known quantities. You do NOT compute the answer. Use short variable names. '
-    'Include any needed physical constant as a known with its value+unit '
-    '(g=9.8 m/s**2, k=8.99e9 N*m**2/C**2, h=6.626e-34 J*s, c=3e8 m/s). Output ONLY JSON:\n'
-    '{"equation": "<lhs = rhs>", "knowns": {"var": [number, "unit"]}, "target": "<var to find>"}\n'
-    'Units like m, kg, s, N, J, V, A, C, F, mol, K, Pa, ohm, Hz, m/s, m/s**2. '
-    'If the question is not a single-equation calculation, output {"equation": null}.'
+    'You translate a STEM multiple-choice question (physics, chemistry, statistics, algebra, '
+    'combinatorics, circuits) into ONE governing equation and its known quantities. You do NOT '
+    'compute the answer. Use short variable names. You MAY use sqrt, log, factorial, binomial, pi. '
+    'Include any needed physical constant as a known (g=9.8 m/s**2, k=8.99e9 N*m**2/C**2, '
+    'h=6.626e-34 J*s, c=3e8 m/s). For pure numbers, counts, or probabilities use unit "" '
+    '(dimensionless).\n'
+    'Output ONLY JSON: {"equation": "<lhs = rhs>", "knowns": {"var": [number, "unit"]}, "target": "<var>"}\n'
+    'Examples:\n'
+    'KE of 2 kg at 3 m/s → {"equation":"KE = m*v**2/2","knowns":{"m":[2,"kg"],"v":[3,"m/s"]},"target":"KE"}\n'
+    'z-score of 85, mean 75, sd 5 → {"equation":"z = (x-mu)/sigma","knowns":{"x":[85,""],"mu":[75,""],"sigma":[5,""]},"target":"z"}\n'
+    'ways to choose 2 of 5 → {"equation":"Cnk = factorial(n)/(factorial(k)*factorial(n-k))","knowns":{"n":[5,""],"k":[2,""]},"target":"Cnk"}\n'
+    '100 ohm parallel 100 ohm → {"equation":"Rp = R1*R2/(R1+R2)","knowns":{"R1":[100,"ohm"],"R2":[100,"ohm"]},"target":"Rp"}\n'
+    '$1000 at 5% for 3 yr → {"equation":"A = P*(1+r)**n","knowns":{"P":[1000,""],"r":[0.05,""],"n":[3,""]},"target":"A"}\n'
+    'If it is a definition/concept question, not a calculation, output {"equation": null}.'
 )
 
 
@@ -226,7 +269,7 @@ def free_extract(question, choices):
 def free_solve(eq, knowns_units, target):
     """Solve an LLM-written equation: numeric solve in SI, infer the target's dimension from
     the knowns' units, and plug-back. Returns (value, target, target_dim)."""
-    ids = set(re.findall(r'[A-Za-z_]\w*', eq))
+    ids = {n for n in re.findall(r'[A-Za-z_]\w*', eq) if n not in _SYMPY_NS}
     loc = {n: sp.Symbol(n) for n in ids}
     lhs, rhs = eq.split('=', 1)
     equation = sp.Eq(sp.sympify(lhs, locals=loc), sp.sympify(rhs, locals=loc))
@@ -297,9 +340,159 @@ def chain_extract(question, choices):
     return cx
 
 
+MATH_SYS = (
+    'Extract the math expression and the operation from this question — do NOT solve it. '
+    'Output ONLY JSON: {"expr": "<sympy expr, use ** for powers>", '
+    '"op": "differentiate|integrate|limit|solve|evaluate|factor|simplify|series", '
+    '"var": "x", "at": <number or null>}. Example: "derivative of 3x^2+2x" -> '
+    '{"expr":"3*x**2+2*x","op":"differentiate","var":"x","at":null}'
+)
+
+
+def math_extract(question, choices):
+    raw = ollama([{'role': 'system', 'content': MATH_SYS},
+                  {'role': 'user', 'content': f'Question:\n{question}\nChoices: {choices}'}])
+    m = re.search(r'\{.*\}', raw, re.S)
+    if not m:
+        return None
+    try:
+        return json.loads(m.group(0))
+    except Exception:
+        return None
+
+
+from sympy.parsing.sympy_parser import (parse_expr, standard_transformations,
+                                         implicit_multiplication_application, convert_xor)
+_TX = standard_transformations + (implicit_multiplication_application, convert_xor)
+
+
+def _choice_vals(c):
+    """A choice may hold ONE expr ('6x + 2') or MANY values ('2 and 3', '1, 6'). Tolerate math
+    notation (implicit mult, '^', '×'), a leading label, and a trailing integration constant.
+    Returns the list of parsed sympy values."""
+    s = str(c).replace('×', '*').strip()
+    s = re.sub(r'^[A-Da-d][).:]\s*', '', s)
+    s = re.sub(r'\+\s*[Cc]\b', '', s)
+    vals = []
+    for p in re.split(r'\s+and\s+|\s*,\s*|\s+or\s+|;', s):
+        p = p.strip()
+        if not p:
+            continue
+        try:
+            vals.append(parse_expr(p, transformations=_TX))
+        except Exception:
+            pass
+    return vals
+
+
+def _eq(a, b):
+    """a == b, exactly or (for antiderivatives) up to an additive constant."""
+    try:
+        d = sp.simplify(a - b)
+        if d == 0:
+            return True
+        return bool(d.free_symbols) and sp.simplify(sp.diff(d, *sorted(d.free_symbols, key=str))) == 0
+    except Exception:
+        try:
+            return abs(float(a) - float(b)) < 1e-6
+        except Exception:
+            return False
+
+
+def _match_math(ans, choices):
+    """Deterministic gate: match a sympy answer to a choice by symbolic/numeric equality. A single
+    answer matches any value in a choice; a root-set answer matches a choice whose value-set equals it."""
+    cset = []
+    for a in (ans if isinstance(ans, list) else [ans]):
+        cset.append(a if hasattr(a, 'free_symbols') else sp.sympify(str(a)))
+    for i, c in enumerate(choices):
+        cvals = _choice_vals(c)
+        if not cvals:
+            continue
+        if len(cset) > 1:   # root set: choice's values must equal the answer set
+            if len(cvals) == len(cset) and all(any(_eq(cv, a) for a in cset) for cv in cvals):
+                return i
+        else:               # single value: any of the choice's parsed values matches
+            if any(_eq(cset[0], cv) for cv in cvals):
+                return i
+    return None
+
+
+def math_solve_question(question, choices):
+    """RIGHT-MATHS path: detect the operation, LLM PARSES the expression, Gödel-routed math_solve
+    computes it EXACTLY, match the choice by symbolic equality. The model parses; sympy is exact."""
+    op = infer_op(question)
+    if not op:
+        return None, None
+    mx = math_extract(question, choices)
+    if not mx or not mx.get('expr'):
+        return None, None
+    try:
+        ans = _timed(5, solve_math, mx['expr'], mx.get('op') or op, mx.get('var') or 'x', mx.get('at'))
+        idx = _match_math(ans, choices)
+        if idx is not None:
+            return LETTERS[idx], 'math:' + (mx.get('op') or op)
+    except Exception:
+        pass
+    return None, None
+
+
+PROG_SYS = (
+    'Translate the math/science problem into ONE sympy expression that COMPUTES the answer — '
+    'program-of-thought. Use sympy: binomial, factorial, sqrt, solve([eqs],[vars]), Rational, '
+    'simplify, pi, exp, log, and the symbols in the problem. Output ONLY JSON: {"sympy":"<expr>"}.\n'
+    'Examples: "ways to choose 5 from 6" -> {"sympy":"binomial(6,5)"}; '
+    '"two numbers sum to 19, product 70" -> {"sympy":"solve([x+y-19, x*y-70],[x,y])"}; '
+    '"20% markdown on 325" -> {"sympy":"325*(1-Rational(20,100))"}; '
+    '"value of 3! + 2^4" -> {"sympy":"factorial(3)+2**4"}.'
+)
+_PROG_NS = {n: getattr(sp, n) for n in ('binomial', 'factorial', 'sqrt', 'solve', 'Rational',
+            'simplify', 'pi', 'E', 'exp', 'log', 'sin', 'cos', 'tan', 'Sum', 'Integer', 'Eq',
+            'Symbol', 'symbols', 'gcd', 'lcm', 'Abs', 'floor', 'ceiling', 'prime', 'factorint')}
+_PROG_NS.update({c: sp.Symbol(c) for c in 'abcdefghijklmnopqrstuvwxyz'})
+
+
+def prog_extract(question, choices):
+    raw = ollama([{'role': 'system', 'content': PROG_SYS},
+                  {'role': 'user', 'content': f'Question:\n{question}\nChoices: {choices}'}])
+    m = re.search(r'\{.*\}', raw, re.S)
+    if not m:
+        return None
+    try:
+        return json.loads(m.group(0)).get('sympy')
+    except Exception:
+        return None
+
+
+def prog_solve_question(question, choices):
+    """Program-of-thought: the model writes ONE sympy expression; we execute it in a sympy-only
+    namespace (no builtins) and match the choice. The model sets up; sympy computes exactly."""
+    src = prog_extract(question, choices)
+    if not src or len(src) > 240:
+        return None, None
+    try:
+        val = _timed(5, eval, src, {'__builtins__': {}}, _PROG_NS)   # restricted ns + 5s wall cap
+    except Exception:
+        return None, None
+    # normalize: solve() returns dict/list of dicts/tuples → flatten to value(s)
+    if isinstance(val, dict):
+        val = list(val.values())
+    elif isinstance(val, list) and val and isinstance(val[0], (dict,)):
+        val = [v for d in val for v in d.values()]
+    elif isinstance(val, list) and val and isinstance(val[0], (tuple,)):
+        val = [v for t in val for v in t]
+    idx = _match_math(val, choices)
+    return (LETTERS[idx], 'prog') if idx is not None else (None, None)
+
+
 def solve_question(question, choices):
-    """Verified compute: multi-hop chain over the catalog, then the free-equation escape
-    hatch. Returns (answer_letter or None, mode)."""
+    """Verified compute: the right-maths (calculus/algebra) path, the physics catalog chain, the
+    free-equation hatch, then program-of-thought sympy. Returns (answer_letter or None, mode)."""
+    # 0. RIGHT-MATHS — calculus/algebra computed exactly (Gödel form → sympy method)
+    if infer_op(question):
+        ans, mode = math_solve_question(question, choices)
+        if ans is not None:
+            return ans, mode
     # 1. CHAIN path — name the knowns + target; the verified planner derives the rest
     #    (handles single-law AND multi-step; every hop dimension-checked).
     cx = chain_extract(question, choices)
@@ -324,6 +517,11 @@ def solve_question(question, choices):
                     return LETTERS[idx], 'free'
         except Exception:
             pass
+    # 3. PROGRAM-OF-THOUGHT — the model writes a sympy program (systems, combinatorics, arithmetic),
+    #    executed exactly. Catches the word-problem math the explicit-op path can't gate on.
+    ans, mode = prog_solve_question(question, choices)
+    if ans is not None:
+        return ans, mode
     return None, 'abstain'
 
 

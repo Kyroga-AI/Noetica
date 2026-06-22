@@ -1,0 +1,39 @@
+{
+  "_doc": "Deployment profiles by RAM budget. Each profile picks the STRONGEST model that fits the tier (Q4_K_M) plus how much technique we can afford on top (more headroom = deeper ensemble/retrieval). The operations layer detects available RAM and selects a profile; every value maps to a real bench flag so a profile is directly runnable.",
+  "_quant": "sizes are Q4_K_M approximate footprint (model + KV + nomic-embed ~0.4GB + OS headroom)",
+
+  "8gb": {
+    "label": "edge / lite (CPU or 8GB iGPU)",
+    "model": "qwen3.5:4b",
+    "model_alts": ["qwen3:4b", "deepseek-r1:7b (tight)", "phi-4-mini"],
+    "embed": "nomic-embed-text",
+    "footprint_gb": "~3 (4B Q4) + 0.4 embed",
+    "env": { "MMLU_ARMS": "gate", "MMLU_SC_K": "1", "MMLU_SHUFFLE": "1", "MMLU_CISC": "0", "MMLU_HYBRID": "0", "MMLU_MAX_CHUNKS": "6000", "MMLU_SHOT_K": "4", "MMLU_PER_SHOT": "2", "MMLU_CONC": "2" },
+    "techniques": ["gate (skip retrieval when confident — saves the most on a small CPU model)", "single-pass reasoning", "shallow capped retrieval only when needed"],
+    "rationale": "The model is the bottleneck and CPU-bound; we CANNOT afford the 5-arm council or K=5 self-consistency. Lean: a strong 4B + adaptive gate + shallow retrieval. Latency over depth."
+  },
+
+  "16gb": {
+    "label": "standard (laptop / single T4)",
+    "model": "qwen3:14b",
+    "model_alts": ["deepseek-r1:14b (reasoning)", "qwen3.5:9b", "gemma3:12b"],
+    "embed": "nomic-embed-text",
+    "footprint_gb": "~8.5 (14B Q4) + 0.4 embed",
+    "env": { "MMLU_ARMS": "baseline,brain,champion,gate", "MMLU_SC_K": "3", "MMLU_SHUFFLE": "4", "MMLU_CISC": "1", "MMLU_HYBRID": "1", "MMLU_MAX_CHUNKS": "30000", "MMLU_SHOT_K": "8", "MMLU_PER_SHOT": "3", "MMLU_CONC": "6" },
+    "techniques": ["council (ensemble)", "self-consistency K=3 + CISC", "Medprompt choice-shuffle (A-bias cure)", "hybrid dense+BM25 retrieval", "qgen (HyDE+stepback)", "adaptive gate"],
+    "rationale": "The sweet spot. A strong 14B has headroom for the full council + Medprompt + hybrid retrieval. This is the main stack."
+  },
+
+  "24gb": {
+    "label": "max (high-end / single L4)",
+    "model": "qwen3.6:27b",
+    "model_alts": ["QwQ-32B (reasoning)", "deepseek-r1:32b", "gemma4:27b"],
+    "embed": "nomic-embed-text",
+    "footprint_gb": "~17 (27B Q4) + 0.4 embed",
+    "env": { "MMLU_ARMS": "baseline,brain,champion,gate,autoform,medprompt", "MMLU_SC_K": "5", "MMLU_SHUFFLE": "4", "MMLU_CISC": "1", "MMLU_HYBRID": "1", "MMLU_MAX_CHUNKS": "80000", "MMLU_SHOT_K": "10", "MMLU_PER_SHOT": "3", "MMLU_CONC": "8" },
+    "techniques": ["full council", "Medprompt choice-shuffle", "autoformalization (sympy compute spine)", "VSA concept reasoning", "graph PPR + RAPTOR summaries (when validated)", "self-consistency K=5 + CISC", "hybrid + larger pool"],
+    "rationale": "The full stack. A 27-32B base + every technique + deep retrieval. Reasoning models (QwQ/R1-32B) for math-heavy workloads; qwen3.6-27B as the strong general default."
+  },
+
+  "_selection": "detect RAM → pick the largest tier that fits with ~20% headroom; reasoning workloads (math/proof) prefer the *_alts reasoning model at the tier; knowledge workloads prefer the general default."
+}

@@ -19,6 +19,8 @@ TERM_TIME="${TERM_TIME:-$(python3 -c "import datetime;print(datetime.datetime.no
 cat > /tmp/ocw-vm-startup.sh <<STARTUP
 #!/bin/bash
 exec >/var/log/ocw-run.log 2>&1; set -x
+export HOME=/root   # GCE startup scripts run with NO \$HOME → 'ollama pull' panics (envconfig.Models),
+                    # the embed model never installs, every embed returns [] → 0 vectors → 0 courses.
 GCS="$GCS"; DEPTS="$DEPTS"
 # ship the log to GCS every 45s so it's watchable from anywhere
 ( while true; do gsutil -q cp /var/log/ocw-run.log "\$GCS/vm-run.log" 2>/dev/null; sleep 45; done ) &
@@ -27,8 +29,10 @@ step(){ echo "==== \$(date '+%H:%M:%S') \$* ===="; gsutil -q cp /var/log/ocw-run
 
 step "install ollama"
 curl -fsSL https://ollama.com/install.sh | sh
-(ollama serve >/var/log/ollama.log 2>&1 &); sleep 12
-ollama pull nomic-embed-text
+systemctl restart ollama 2>/dev/null || (ollama serve >/var/log/ollama.log 2>&1 &)
+sleep 12
+for n in 1 2 3 4 5; do ollama pull nomic-embed-text && break; echo "embed-pull retry \$n"; sleep 8; done
+ollama list | grep -q nomic-embed-text || { echo "FATAL: embed model missing after retries — aborting (would yield 0 vectors)"; exit 1; }
 
 step "install node + python(pypdf) for PDF extraction"
 curl -fsSL https://deb.nodesource.com/setup_20.x | bash -

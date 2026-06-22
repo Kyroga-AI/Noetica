@@ -2703,7 +2703,17 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           const { recordTurn } = await import('./lib/dialogue-tracker.js')
           recordTurn({ session_id: body.session_id ?? 'local', intent: intentPlan.name, intent_score: intentPlan.score, fallback: false, slots_expected: intentPlan.slots, slots_filled: policy.filled, fill_rate: policy.fillRate, clarified: false, entities: glossaryTerms, surface: intentPlan.surface, skill: intentPlan.skill, tools: intentPlan.tools, capability: intentPlan.model, model: 'recall', retrieval: intentPlan.retrieval, grounded: true, latency_ms: lat, worth: 0.85, reward: 0.85, escalated: false })
         } catch { /* tracking best-effort */ }
-        sse(res, 'done', { result: { run_id: crypto.randomUUID(), content: hit.answer, model_routed: 'recall', provider: 'noetica', policy_admitted: true, memory_written: false, stop_reason: 'computed', timestamp: new Date().toISOString(), latency_ms: lat, agent_machine: true, agent_machine_version: VERSION, decidable: true, method: 'recall' } })
+        // Reasoning-evidence: COMPUTED (recall) ⇒ replayClass "exact". Best-effort, non-blocking.
+        let reasoningRecall: { run: string; receipt: string } | undefined
+        try {
+          const re = await import('./lib/reasoning-evidence.js')
+          const run = re.openReasoningRun(`turn:${intentPlan.name}`)
+          re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} computed(recall) ${lat}ms`, trustLevel: 'trusted-workspace-source' })
+          const ledgerRef = hit.attestation ? `urn:srcos:ledger:dispatch:${hit.attestation}` : undefined
+          const receipt = re.closeReasoningRun(run, { status: 'completed', replayClass: re.classifyReplay({ method: 'recall', decidable: true }), ledgerRef })
+          reasoningRecall = { run: run.id, receipt: receipt.id }
+        } catch { /* reasoning evidence is best-effort — never break the turn */ }
+        sse(res, 'done', { result: { run_id: crypto.randomUUID(), content: hit.answer, model_routed: 'recall', provider: 'noetica', policy_admitted: true, memory_written: false, stop_reason: 'computed', timestamp: new Date().toISOString(), latency_ms: lat, agent_machine: true, agent_machine_version: VERSION, decidable: true, method: 'recall', ...(reasoningRecall ? { reasoning_run: reasoningRecall.run, reasoning_receipt: reasoningRecall.receipt } : {}) } })
         return
       }
     } catch { /* recall is best-effort — fall through to extract/generation */ }
@@ -2736,6 +2746,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         try { const { narrateExtract } = await import('./lib/narration.js'); narrate(narrateExtract()) } catch { /* best-effort */ }
         sse(res, 'delta', { delta: ex.answer })
         const exLatency = Date.now() - turnStart
+        let extractiveAttestation: string | undefined
         try {
           const { recordTurn } = await import('./lib/dialogue-tracker.js')
           const { computeReward } = await import('./lib/symbolic-policy.js')
@@ -2765,11 +2776,23 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           // Crystallize the (deterministic, grounded) extractive answer as a durable artifact.
           const { crystallizeAnswer } = await import('./lib/crystallize.js')
           crystallizeAnswer({ question: latestUserContent, answer: ex.answer, session: body.session_id ?? 'local', action, attestation: dispatchEntry.attestation, worth })
+          extractiveAttestation = dispatchEntry.attestation
         } catch { /* tracking best-effort */ }
+        // Reasoning-evidence: COMPUTED (extractive, verbatim from source) ⇒ replayClass "exact".
+        let reasoningExtract: { run: string; receipt: string } | undefined
+        try {
+          const re = await import('./lib/reasoning-evidence.js')
+          const run = re.openReasoningRun(`turn:${intentPlan.name}`)
+          re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} computed(extractive) ${exLatency}ms`, trustLevel: 'trusted-workspace-source' })
+          const ledgerRef = extractiveAttestation ? `urn:srcos:ledger:dispatch:${extractiveAttestation}` : undefined
+          const receipt = re.closeReasoningRun(run, { status: 'completed', replayClass: re.classifyReplay({ method: 'extractive', decidable: true }), ledgerRef })
+          reasoningExtract = { run: run.id, receipt: receipt.id }
+        } catch { /* reasoning evidence is best-effort — never break the turn */ }
         sse(res, 'done', { result: {
           run_id: crypto.randomUUID(), content: ex.answer, model_routed: 'extractive', provider: 'noetica',
           policy_admitted: true, memory_written: false, stop_reason: 'extractive', timestamp: new Date().toISOString(),
           latency_ms: exLatency, agent_machine: true, agent_machine_version: VERSION, extractive: true,
+          ...(reasoningExtract ? { reasoning_run: reasoningExtract.run, reasoning_receipt: reasoningExtract.receipt } : {}),
         } })
         return
       }
@@ -3421,6 +3444,8 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
 
     // Conversation analytics: record the turn into the dialogue tracker (typed
     // TurnRecord → flow metrics). Best-effort; never blocks the response.
+    let generatedAttestation: string | undefined
+    let reasoningGen: { run: string; receipt: string } | undefined
     try {
       const { recordTurn } = await import('./lib/dialogue-tracker.js')
       recordTurn({
@@ -3459,6 +3484,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           const { crystallizeAnswer } = await import('./lib/crystallize.js')
           crystallizeAnswer({ question: latestUserContent, answer: fullContent, session: sessionId, action, attestation: dispatchEntry.attestation, worth: turnWorth })
         }
+        generatedAttestation = dispatchEntry.attestation
       } catch { /* ledger/crystallize is best-effort */ }
       // Harvest high-reward turns as gold Q/A training pairs (the flywheel). Gated on
       // reward inside recordQAPair, so only genuinely good answers become training data.
@@ -3484,6 +3510,15 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           session: sessionId, confidence: typeof turnWorth === 'number' ? turnWorth : 0.7,
         })
       }
+      // Reasoning-evidence: GENERATED (LLM) ⇒ replayClass "best-effort". Best-effort, non-blocking.
+      try {
+        const re = await import('./lib/reasoning-evidence.js')
+        const run = re.openReasoningRun(`turn:${intentPlan.name}`)
+        re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} generated(${provider}) ${latencyMs}ms`, trustLevel: 'semi-trusted-project-source' })
+        const ledgerRef = generatedAttestation ? `urn:srcos:ledger:dispatch:${generatedAttestation}` : undefined
+        const receipt = re.closeReasoningRun(run, { status: 'completed', replayClass: re.classifyReplay({ method: model, stop_reason: 'end_turn' }), ledgerRef })
+        reasoningGen = { run: run.id, receipt: receipt.id }
+      } catch { /* reasoning evidence is best-effort — never break the turn */ }
     } catch { /* tracker is best-effort */ }
 
     sse(res, 'done', {
@@ -3505,6 +3540,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         value_judgment: valueJudgment,
         agent_machine: true,
         agent_machine_version: VERSION,
+        ...(reasoningGen ? { reasoning_run: reasoningGen.run, reasoning_receipt: reasoningGen.receipt } : {}),
       },
     })
     runCompleted = true // run finished cleanly — the close handler must not checkpoint

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns="http://schemas.microsoft.com/packaging/2015/06/nuspec.xsd">
+  <metadata>
+    <id>noetica</id>
+    <version>0.4.11</version>
+    <packageSourceUrl>https://github.com/socioprophet/Noetica</packageSourceUrl>
+    <owners>socioprophet</owners>
+    <title>Noetica</title>
+    <authors>socioprophet</authors>
+    <projectUrl>https://github.com/socioprophet/Noetica</projectUrl>
+    <licenseUrl>https://github.com/socioprophet/Noetica/blob/main/LICENSE</licenseUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <bugTrackerUrl>https://github.com/socioprophet/Noetica/issues</bugTrackerUrl>
+    <tags>ai nlp dialogue self-hosted sourceos noetica llm backend inference</tags>
+    <summary>Self-hosted AI dialogue management backend — 22-intent layer on :8080</summary>
+    <description><![CDATA[
+# Noetica
+
+Noetica is a self-hosted AI dialogue management backend built for sovereign, cloud-free AI inference. It powers TurtleTerm's co-pilot NL-to-shell and intent routing.
+
+## Features
+
+- **22-intent dialogue layer** — routes queries to model, retrieval, slots, tools, surface, or skill handlers
+- **HTTP API** on `localhost:8080` — `/health`, `/api/chat`, `/api/intent`, `/api/complete`
+- **No cloud dependency** — fully local, air-gap compatible
+- **TurtleTerm integration** — set `SOURCEOS_NOETICA_URL=http://localhost:8080` to use as co-pilot backend
+- **Windows Service** — runs via NSSM as a background Windows service
+- **22 intents**: chat, explain, fix, search, summarize, translate, codegen, debug, refactor, test, document, deploy, review, plan, recall, memorize, learn, compare, analyze, classify, generate, complete
+
+## Quick Start
+
+```powershell
+# Start Noetica service
+Start-Service Noetica
+
+# Check health
+Invoke-RestMethod http://localhost:8080/health
+
+# Use with TurtleTerm
+$env:SOURCEOS_NOETICA_URL = "http://localhost:8080"
+turtle-copilot use noetica
+turtle-copilot start
+```
+
+## API
+
+```powershell
+# Chat
+Invoke-RestMethod -Method POST -Uri http://localhost:8080/api/chat `
+  -ContentType application/json `
+  -Body '{"message": "how do I list running processes on Windows?"}'
+
+# Intent classification
+Invoke-RestMethod -Method POST -Uri http://localhost:8080/api/intent `
+  -ContentType application/json `
+  -Body '{"text": "fix my failing tests"}'
+```
+    ]]></description>
+    <releaseNotes>https://github.com/socioprophet/Noetica/releases</releaseNotes>
+    <dependencies>
+      <dependency id="nodejs" version="20.0.0" />
+    </dependencies>
+  </metadata>
+  <files>
+    <file src="tools\**" target="tools" />
+    <file src="legal\**" target="legal" />
+  </files>
+</package>

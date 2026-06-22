@@ -1,0 +1,25 @@
+Package: noetica
+Version: 0.4.11
+Section: net
+Priority: optional
+Architecture: amd64
+Maintainer: SourceOS Linux <maintainers@sourceos.ai>
+Depends: libc6
+Recommends: ollama, nodejs (>= 20)
+Homepage: https://github.com/SocioProphet/Noetica
+Description: Noetica agent-machine — self-hosted AI dialogue backend service
+ Noetica's agent-machine is a 22-intent AI dialogue management service
+ for local, sovereign AI inference. Listens on NOETICA_AM_PORT (default
+ 8080). Ships as a self-contained binary (no Node runtime required); a
+ Node-based fallback uses nodejs (>= 20).
+ .
+ Requires a running Ollama instance (OLLAMA_HOST, default
+ http://127.0.0.1:11434) for inference: install ollama and run
+ `ollama serve`.
+ .
+ Integrates with TurtleTerm co-pilot as the local AI backend:
+ set SOURCEOS_NOETICA_URL=http://localhost:8080
+ .
+ Intents: chat, explain, fix, search, summarize, translate, codegen,
+ debug, refactor, test, document, deploy, review, plan, recall,
+ memorize, learn, compare, analyze, classify, generate, complete.

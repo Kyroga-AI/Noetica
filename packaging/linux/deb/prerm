@@ -1,0 +1,11 @@
+#!/bin/bash
+set -e
+case "$1" in
+  remove|upgrade)
+    if command -v systemctl >/dev/null 2>&1; then
+      systemctl stop noetica 2>/dev/null || true
+      systemctl disable noetica 2>/dev/null || true
+    fi
+    ;;
+esac
+exit 0

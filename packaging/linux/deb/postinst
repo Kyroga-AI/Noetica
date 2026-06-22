@@ -1,0 +1,76 @@
+#!/bin/bash
+set -e
+
+INSTALL_DIR=/usr/lib/noetica
+CONFIG_DIR=/etc/noetica
+LOG_DIR=/var/log/noetica
+
+case "$1" in
+  configure)
+    # Create directories
+    mkdir -p "$CONFIG_DIR" "$LOG_DIR"
+    chown -R noetica:noetica "$LOG_DIR" 2>/dev/null || true
+
+    # Create config (agent-machine backend)
+    cat > "$CONFIG_DIR/config.json" << 'EOF'
+{
+  "NOETICA_AM_PORT": 8080,
+  "OLLAMA_HOST": "http://127.0.0.1:11434",
+  "platform": "linux",
+  "service": true
+}
+EOF
+
+    # Set up systemd service (agent-machine backend via launcher)
+    if command -v systemctl >/dev/null 2>&1 && [ -d /etc/systemd/system ]; then
+      cat > /etc/systemd/system/noetica.service << UNIT
+[Unit]
+Description=Noetica agent-machine — AI dialogue backend (:8080)
+Documentation=https://github.com/SocioProphet/Noetica
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+ExecStart=$INSTALL_DIR/noetica-launch
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+Environment=NOETICA_AM_PORT=8080
+Environment=OLLAMA_HOST=http://127.0.0.1:11434
+
+[Install]
+WantedBy=multi-user.target
+UNIT
+
+      systemctl daemon-reload 2>/dev/null || true
+
+      if [ -n "$SUDO_USER" ]; then
+        echo ""
+        echo "Noetica installed. Enable and start:"
+        echo "  sudo systemctl enable --now noetica"
+      fi
+    fi
+
+    # Set SOURCEOS_NOETICA_URL for the current user
+    NOETICA_EXPORT='export SOURCEOS_NOETICA_URL="http://localhost:8080"  # Noetica'
+    for rc in "$HOME/.bashrc" "$HOME/.zshrc"; do
+      if [ -f "$rc" ] && ! grep -q "SOURCEOS_NOETICA_URL" "$rc"; then
+        echo "$NOETICA_EXPORT" >> "$rc"
+      fi
+    done
+
+    echo "Noetica v0.4.11 (agent-machine backend) installed."
+    echo "  Config : $CONFIG_DIR/config.json"
+    echo "  Port   : NOETICA_AM_PORT=8080  ->  http://localhost:8080/health"
+    echo ""
+    echo "  Requires a running Ollama instance (OLLAMA_HOST, default"
+    echo "  http://127.0.0.1:11434). Start it with:  ollama serve"
+    echo ""
+    echo "  TurtleTerm co-pilot integration:"
+    echo "    turtle-copilot use noetica"
+    echo "    turtle-copilot start"
+    ;;
+esac
+exit 0

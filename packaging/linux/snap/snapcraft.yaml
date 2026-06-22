@@ -1,0 +1,79 @@
+name: noetica
+base: core22
+version: '0.4.11'
+summary: Self-hosted AI dialogue management backend
+description: |
+  Noetica's agent-machine is a 22-intent AI dialogue management service for
+  local, sovereign AI inference. Listens on NOETICA_AM_PORT (default 8080) and
+  requires a running Ollama instance (OLLAMA_HOST, default
+  http://127.0.0.1:11434). Integrates with TurtleTerm co-pilot as a local
+  backend.
+grade: stable
+confinement: strict
+
+apps:
+  noetica:
+    command: bin/noetica-launch
+    daemon: simple
+    plugs:
+      - network
+      - network-bind
+    environment:
+      NOETICA_AM_PORT: "8080"
+      OLLAMA_HOST: "http://127.0.0.1:11434"
+      NODE_ENV: production
+
+parts:
+  noetica:
+    plugin: nil
+    source: .
+    build-packages:
+      - nodejs
+      - npm
+    stage-packages:
+      - nodejs
+    override-build: |
+      set -e
+      mkdir -p $SNAPCRAFT_PART_INSTALL/lib/noetica
+      mkdir -p $SNAPCRAFT_PART_INSTALL/bin
+      RUNTIME_MODE="stub"
+
+      # Prefer the self-contained Bun binary (no Node runtime dependency).
+      if command -v bun >/dev/null 2>&1; then
+        npm install --no-audit --no-fund || true
+        if npm run agent-machine:build:binary:linux \
+            && [ -f src-tauri/binaries/agent-machine-x86_64-unknown-linux-gnu ]; then
+          install -Dm755 src-tauri/binaries/agent-machine-x86_64-unknown-linux-gnu \
+            $SNAPCRAFT_PART_INSTALL/lib/noetica/agent-machine
+          RUNTIME_MODE="binary"
+        fi
+      fi
+
+      # Fall back to the Node dist build.
+      if [ "$RUNTIME_MODE" = "stub" ]; then
+        ( cd agent-machine && npm install --no-audit --no-fund && npm run build ) || true
+        if [ -f agent-machine/dist/server.js ]; then
+          cp -r agent-machine/dist $SNAPCRAFT_PART_INSTALL/lib/noetica/dist
+          [ -d agent-machine/node_modules ] && \
+            cp -r agent-machine/node_modules $SNAPCRAFT_PART_INSTALL/lib/noetica/node_modules
+          RUNTIME_MODE="node"
+        fi
+      fi
+
+      echo "Noetica snap RUNTIME_MODE=$RUNTIME_MODE"
+
+      # Launcher mirrors the .deb launcher but uses $SNAP paths and staged node.
+      cat > $SNAPCRAFT_PART_INSTALL/bin/noetica-launch << 'LAUNCH'
+      #!/bin/sh
+      export NOETICA_AM_PORT="${NOETICA_AM_PORT:-8080}"
+      export OLLAMA_HOST="${OLLAMA_HOST:-http://127.0.0.1:11434}"
+      if [ -x "$SNAP/lib/noetica/agent-machine" ]; then
+        exec "$SNAP/lib/noetica/agent-machine"
+      elif [ -f "$SNAP/lib/noetica/dist/server.js" ]; then
+        exec "$SNAP/usr/bin/node" "$SNAP/lib/noetica/dist/server.js"
+      else
+        echo "Noetica agent-machine not built." >&2
+        exit 1
+      fi
+      LAUNCH
+      chmod 755 $SNAPCRAFT_PART_INSTALL/bin/noetica-launch
