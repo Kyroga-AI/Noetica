@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { buildEgressAudit, toCsv } from '@/lib/governance/egressAudit'
 import type { GovernanceTrace } from '@/lib/types/governance'
 import { readLedgerEntries, clearLedger, type LedgerEntry } from '@/lib/evidence/ledger-store'
 import { useSettings } from '@/lib/settings/context'
@@ -111,6 +112,8 @@ interface AgentMachineRun {
   memory_written: boolean
   timestamp: string
   latency_ms: number
+  tokens_egressed?: number
+  cost_usd?: number
   task?: string
   session_id?: string
   error?: string
@@ -253,6 +256,15 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
     URL.revokeObjectURL(url)
   }
 
+  const egressAudit = buildEgressAudit(amRuns)
+  function downloadEgressAudit(format: 'csv' | 'json') {
+    const data = format === 'csv' ? toCsv(egressAudit) : JSON.stringify(egressAudit, null, 2)
+    const blob = new Blob([data], { type: format === 'csv' ? 'text/csv' : 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url; a.download = `noetica_egress_audit_${Date.now()}.${format}`; a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
       <div className="mx-auto w-full max-w-3xl space-y-4">
@@ -293,6 +305,46 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             )}
           </div>
         )}
+
+        {/* Sovereignty — egress audit (procurement artifact: what left the device, when, why) */}
+        <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Sovereignty · egress audit</div>
+            <div className="flex gap-1.5">
+              <button onClick={() => downloadEgressAudit('csv')} className="rounded-lg border border-[var(--color-border-secondary)] px-2 py-1 text-[11px] font-medium text-[var(--color-text-secondary)] transition hover:border-[#1d4ed8] hover:text-[#1d4ed8]">Export CSV</button>
+              <button onClick={() => downloadEgressAudit('json')} className="rounded-lg border border-[var(--color-border-secondary)] px-2 py-1 text-[11px] font-medium text-[var(--color-text-secondary)] transition hover:border-[#1d4ed8] hover:text-[#1d4ed8]">JSON</button>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
+              <div className={`text-2xl font-semibold ${egressAudit.summary.sovereignty_pct === 100 ? 'text-[#16a34a]' : egressAudit.summary.sovereignty_pct >= 80 ? 'text-[#d97706]' : 'text-[#dc2626]'}`}>{egressAudit.summary.sovereignty_pct}%</div>
+              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">on-device (sovereign)</div>
+            </div>
+            <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
+              <div className="text-2xl font-semibold text-[var(--color-text-primary)]">{egressAudit.summary.egress_runs}</div>
+              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">runs that left device</div>
+            </div>
+            <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
+              <div className="text-2xl font-semibold text-[var(--color-text-primary)]">{egressAudit.summary.total_tokens_egressed.toLocaleString()}</div>
+              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">tokens egressed</div>
+            </div>
+          </div>
+          {egressAudit.rows.length === 0 ? (
+            <div className="mt-3 rounded-lg border border-[#86efac] bg-[#dcfce7] px-3 py-2 text-[11px] font-medium text-[#16a34a]">🔒 Zero egress — nothing has left this device.</div>
+          ) : (
+            <div className="mt-3 space-y-1">
+              {egressAudit.rows.slice(0, 8).map((r) => (
+                <div key={r.run_id} className="flex items-center gap-2 text-[10px] text-[var(--color-text-secondary)]">
+                  <span className="text-[#d97706]">↗</span>
+                  <span className="w-36 truncate">{r.provider}/{r.model}</span>
+                  <span className="tabular-nums">{r.tokens_egressed.toLocaleString()} tok</span>
+                  <span className={r.policy === 'admitted' ? 'text-[var(--color-text-tertiary)]' : 'font-medium text-[#dc2626]'}>{r.policy}</span>
+                  <span className="ml-auto text-[var(--color-text-tertiary)]">{r.when.slice(0, 16).replace('T', ' ')}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         {/* Policy profile */}
         <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
