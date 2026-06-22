@@ -54,6 +54,7 @@ import { recordAttentionSnapshot, pushSnapshotToPrometheusd, ingestPrometheusCan
 import { isOllamaRunning, listLocalModels, pullModel, streamOllama, getModelContextLength, ollamaBase, generateOllamaText } from './lib/ollama.js'
 import { parseInlineToolCalls } from './lib/tool-calls.js'
 import { repairToolArgs } from './lib/tool-validate.js'
+import { containmentState, hydrateContainment, resolvePurpose, armKillSwitch, disarmKillSwitch, bindPurpose, PURPOSES } from './lib/agent-containment.js'
 import { retrieve } from './lib/retrieval.js'
 import { getGraph, graphHealth, graphSparql, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
 import { isVoiceProvisioned, ensureVoiceSidecar, voiceFetch } from './lib/voice-runtime.js'
@@ -185,6 +186,22 @@ async function analyticsForGraph(refresh = false): Promise<{ analytics: import('
 // Written to the shared SourceOS config dir so the browser can poll it without
 // coupling to this server. tor mirrors armed — armed work routes over Tor.
 const SECURITY_STATE_FILE = path.join(os.homedir(), '.config', 'sourceos', 'noetica', 'security-state.json')
+const CONTAINMENT_FILE = path.join(os.homedir(), '.noetica', 'containment.json')
+// Persist the kill-switch + bound purpose so containment survives restart (fail-closed).
+function saveContainment(): void {
+  try {
+    const s = containmentState()
+    fs.mkdirSync(path.dirname(CONTAINMENT_FILE), { recursive: true })
+    fs.writeFileSync(CONTAINMENT_FILE, JSON.stringify({ killed: s.killed, reason: s.reason, since: s.since, purpose: s.purpose.name }), { mode: 0o600 })
+  } catch { /* best-effort */ }
+}
+function loadContainment(): void {
+  try {
+    const raw = JSON.parse(fs.readFileSync(CONTAINMENT_FILE, 'utf8')) as { killed?: boolean; reason?: string | null; since?: string | null; purpose?: string }
+    hydrateContainment({ killed: raw.killed === true, reason: raw.reason ?? null, since: raw.since ?? null, purpose: resolvePurpose(raw.purpose) })
+    if (raw.killed) console.log('[containment] kill-switch ARMED (restored from disk) — agent halted until disarmed')
+  } catch { /* no prior state — defaults (full, not killed) */ }
+}
 let lastSecurityArmed: boolean | null = null
 function writeSecurityState(armed: boolean): void {
   if (armed === lastSecurityArmed) return  // only write on transition
@@ -3655,6 +3672,34 @@ const server = http.createServer((req, res) => {
   }
 
   // GET /api/memory/health — memoryd + prometheusd + HellGraph memory layer status
+  // GET /api/containment — kill-switch + bound purpose. POST {action:'kill'|'disarm'|'bind', reason?, purpose?}.
+  if (url.pathname === '/api/containment') {
+    setCORSHeaders(res)
+    if (req.method === 'GET') {
+      const s = containmentState()
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ killed: s.killed, reason: s.reason, since: s.since, purpose: s.purpose.name, purpose_allows: s.purpose.allow, purposes: Object.values(PURPOSES) }))
+      return
+    }
+    if (req.method === 'POST') {
+      let body = ''
+      req.on('data', (c: Buffer) => { body += c.toString() })
+      req.on('end', () => {
+        let p: { action?: string; reason?: string; purpose?: string } = {}
+        try { p = JSON.parse(body || '{}') } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        if (p.action === 'kill') armKillSwitch(typeof p.reason === 'string' ? p.reason.replace(/[\r\n]/g, ' ').slice(0, 200) : undefined)
+        else if (p.action === 'disarm') disarmKillSwitch()
+        else if (p.action === 'bind') bindPurpose(String(p.purpose ?? 'full'))
+        else { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'unknown_action' })); return }
+        saveContainment()
+        const s = containmentState()
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ killed: s.killed, reason: s.reason, purpose: s.purpose.name }))
+      })
+      return
+    }
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/memory/health') {
     void (async () => {
       setCORSHeaders(res)
@@ -4936,6 +4981,13 @@ const server = http.createServer((req, res) => {
 
   // POST /api/chat
   if (req.method === 'POST' && url.pathname === '/api/chat') {
+    // Kill-switch: when armed, the agent fail-closes — no new turn runs until disarmed.
+    if (containmentState().killed) {
+      setCORSHeaders(res)
+      res.writeHead(423, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ error: 'agent_halted', reason: containmentState().reason ?? 'kill-switch armed' }))
+      return
+    }
     let body = ''
     req.on('data', (chunk: Buffer) => { body += chunk.toString() })
     req.on('end', () => {
@@ -5789,6 +5841,7 @@ server.listen(PORT, '127.0.0.1', () => {
   // the durable store rather than the about-to-be-replaced default.
   const finishBoot = () => {
     loadLearningState()
+    loadContainment()
     booted = true // teardown() may now persist learning state on exit
     recordTrendSnapshot() // capture/refresh today's point on boot
     // Embed-model preflight: document RAG depends on the embedding model. Warn loudly
