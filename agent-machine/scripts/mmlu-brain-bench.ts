@@ -313,7 +313,14 @@ async function ask(prompt: string, temperature = 0): Promise<string> {
   try {
     const res = await fetch(`${API_BASE}/v1/chat/completions`, {
       method: 'POST', headers: { 'content-type': 'application/json', ...AUTH },
-      body: JSON.stringify({ model: MODEL, stream: false, temperature, max_tokens: MAXTOK, messages: [{ role: 'system', content: SYS }, { role: 'user', content: nt(prompt) }] }),
+      body: JSON.stringify({
+        model: MODEL, stream: false, temperature, max_tokens: MAXTOK,
+        // RELIABLE thinking-disable: the ` /no_think` text token (nt) is unreliable on the
+        // OpenAI-compat endpoint; chat_template_kwargs.enable_thinking=false is the correct switch
+        // for qwen3-class models (honored by vLLM/recent ollama; harmlessly ignored elsewhere).
+        ...(NO_THINK ? { chat_template_kwargs: { enable_thinking: false } } : {}),
+        messages: [{ role: 'system', content: SYS }, { role: 'user', content: nt(prompt) }],
+      }),
       signal: AbortSignal.timeout(TIMEOUT),
     })
     const d = await res.json() as { choices?: Array<{ message?: { content?: string; reasoning_content?: string } }> }
@@ -408,7 +415,10 @@ async function verifyArm(question: string, choices: string[], pools: Chunk[][]):
   return { letter: LETTERS[best]!, scores }
 }
 function extractLetter(raw: string): string {
-  const t = raw.trim()
+  // Thinking models (qwen3/r1) emit <think>…</think> before the answer. Strip closed blocks,
+  // and if max_tokens truncated mid-think (unclosed <think>), drop everything after it → '' (a
+  // clean abstain) rather than latching onto a stray A–D inside the reasoning trace.
+  const t = raw.replace(/<think>[\s\S]*?<\/think>/gi, '').replace(/<think>[\s\S]*$/i, '').trim()
   // 1. explicit FINAL: directive (strongest) — tolerate **bold**, parens, spacing
   let m = /FINAL:\s*\**\(?\s*([A-D])\b/i.exec(t); if (m) return m[1]!.toUpperCase()
   // 2. "the answer is C", "answer: (C)", "correct answer = D"
@@ -701,6 +711,10 @@ async function main() {
         row[`${arm}_pred`] = letter || '?'; row[`${arm}_ok`] = ok; if (mode) row[`${arm}_mode`] = mode
         marks.push(`${arm}:${ok ? '✓' : '✗'}${arm === 'compute' && !attempted ? '·' : (letter || '?')}`)
       }
+      // LIVE per-question heartbeat to stderr (the batched stdout board line only prints after a
+      // whole CONC-batch finishes — that masked a slow run as a hang and burned hours). This fires
+      // the instant each question resolves, so the log shows real liveness + pacing.
+      process.stderr.write(`    ${new Date().toISOString().slice(11, 19)} q${i + 1}/${sample.length} done  ${marks.join(' ')}\n`)
       return { i, row, marks, gold, results }
     }
 
