@@ -659,9 +659,22 @@ async function main() {
             // NEVER defaults to A (the trap the old verify path fell into — it picked A 31% vs gold 19%).
             const w = new Map<string, number>()
             const add = (L: unknown, wt: number) => { if (typeof L === 'string' && L && L !== '?') w.set(L, (w.get(L) ?? 0) + wt) }
-            add(row['baseline_pred'], 1)        // closed-book reasoning
-            add(row['brain_pred'], 1)           // retrieval
-            add(row['qgen_pred'], 1)            // HyDE retrieval
+            // Council V2 (MMLU_COUNCIL_V2 — default OFF so it A/Bs without disturbing the live board /
+            // existing numbers): grounding-weighted. Retrieval arms (brain/qgen) are the moat, so they
+            // out-weigh closed-book baseline, and when the TWO independent retrieval arms AGREE that
+            // grounded consensus gets a decisive bonus. Fixes the live dilution where weak closed-book
+            // arms out-vote a correct retrieval on STEM (college_mathematics: brain 65% but champion 50%).
+            if (process.env['MMLU_COUNCIL_V2'] === '1') {
+              add(row['baseline_pred'], 0.6)    // closed-book — weakest on STEM
+              add(row['brain_pred'], 1.3)       // retrieval — the moat
+              add(row['qgen_pred'], 1.3)        // HyDE retrieval
+              const bp = row['brain_pred']
+              if (typeof bp === 'string' && bp !== '?' && bp === row['qgen_pred']) add(bp, 1.0) // grounded consensus bonus
+            } else {
+              add(row['baseline_pred'], 1)      // closed-book reasoning
+              add(row['brain_pred'], 1)         // retrieval
+              add(row['qgen_pred'], 1)          // HyDE retrieval
+            }
             if (process.env['MMLU_MANIP'] !== '0') {   // manipulation-layer voter (Self-Discover): compose a plan, then execute — the 'transform before solving' signal inside the council
               const sdPlan = await ask(`Name the 2-3 reasoning steps that best fit this problem (governing principle / sub-steps / eliminate options / compute / recall definition). Short numbered plan only.\n\n${q.question}`)
               add(extractLetter(await ask(`Execute this plan:\n${sdPlan}\n\n${base}${ANSWER_RULE}`)), 1.2)
