@@ -23,9 +23,13 @@ export function blobPath(hash: string): string {
 
 export interface BlobRef { hash: string; size: number; stored: boolean }
 
+/** Cap a single blob so untrusted content can't fill the disk (the one real risk of storing it). */
+const MAX_BLOB_BYTES = 64 * 1024 * 1024 // 64 MB — far above any extracted-document text
+
 /** Store raw bytes; returns the content hash. Idempotent — identical content is a no-op. */
 export function putBlob(data: Buffer | string): BlobRef {
   const buf = typeof data === 'string' ? Buffer.from(data, 'utf8') : data
+  if (buf.length > MAX_BLOB_BYTES) throw new Error(`blob exceeds ${MAX_BLOB_BYTES} bytes (${buf.length})`)
   const hash = createHash('sha256').update(buf).digest('hex')
   // Path is the content hash (sha256) — never caller-controlled, so it can't escape the blob dir.
   const p = blobPath(hash)
