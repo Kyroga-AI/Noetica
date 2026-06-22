@@ -35,18 +35,28 @@ export function convertArgs(input: string, to: OfficeFormat, outdir: string): st
   return ['--headless', '--norestore', '--nologo', '--convert-to', to, '--outdir', outdir, input]
 }
 
-/** Find an installed LibreOffice binary (first existing candidate path). */
+/** Find an installed LibreOffice binary — known paths first, then probe PATH (so brew/Linux PATH installs
+ * report available, keeping `office-detect` consistent with what `office-convert` can actually spawn). */
 export async function detectLibreOffice(): Promise<{ available: boolean; path: string | null }> {
   const { existsSync } = await import('node:fs')
   for (const p of SOFFICE_PATHS) {
-    if (p === 'soffice') continue   // bare name resolved via PATH at spawn time, not a file check
+    if (p === 'soffice') continue
     try { if (existsSync(p)) return { available: true, path: p } } catch { /* skip */ }
   }
-  return { available: false, path: null }
+  const onPath = await new Promise<boolean>((resolve) => {
+    import('node:child_process').then(({ spawn }) => {
+      try {
+        const proc = spawn('soffice', ['--version'], { timeout: 5000 })
+        proc.on('error', () => resolve(false))
+        proc.on('close', (c) => resolve(c === 0))
+      } catch { resolve(false) }
+    }).catch(() => resolve(false))
+  })
+  return onPath ? { available: true, path: 'soffice' } : { available: false, path: null }
 }
 
 /** Convert an office file to a target format via LibreOffice headless. Returns the output path or an error. */
-export async function convertWithLibreOffice(input: string, to: OfficeFormat, outdir: string): Promise<{ ok: boolean; outPath?: string; error?: string }> {
+export async function convertWithLibreOffice(input: string, to: OfficeFormat, outdir: string): Promise<{ ok: boolean; outPath?: string; outputs?: string[]; error?: string }> {
   const det = await detectLibreOffice()
   const bin = det.path ?? 'soffice'
   const { spawn } = await import('node:child_process')
@@ -59,10 +69,18 @@ export async function convertWithLibreOffice(input: string, to: OfficeFormat, ou
     proc.stderr.on('data', (d: Buffer) => { err += d.toString() })
     proc.on('error', () => resolve({ ok: false, error: 'libreoffice_not_found' }))
     proc.on('close', (code) => {
-      if (code === 0) {
+      if (code !== 0) { resolve({ ok: false, error: err.slice(0, 200) || `exit ${code}` }); return }
+      // Read the ACTUAL produced files (LibreOffice sanitizes/renames; xlsx→html/pptx→png yield several) —
+      // don't guess the name + report ok for a file that doesn't exist.
+      void import('node:fs').then(({ readdirSync, existsSync }) => {
         const base = path.basename(input).replace(/\.[^.]+$/, '')
-        resolve({ ok: true, outPath: path.join(outdir, `${base}.${to}`) })
-      } else resolve({ ok: false, error: err.slice(0, 200) || `exit ${code}` })
+        try {
+          const files = readdirSync(outdir).filter((f) => f.startsWith(base + '.'))
+          if (files.length) { resolve({ ok: true, outPath: path.join(outdir, files[0]!), outputs: files.map((f) => path.join(outdir, f)) }); return }
+        } catch { /* fall through */ }
+        const guess = path.join(outdir, `${base}.${to}`)
+        resolve(existsSync(guess) ? { ok: true, outPath: guess } : { ok: false, error: 'conversion produced no output' })
+      }).catch(() => resolve({ ok: true, outPath: path.join(outdir, `${path.basename(input).replace(/\.[^.]+$/, '')}.${to}`) }))
     })
   })
 }

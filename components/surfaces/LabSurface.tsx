@@ -33,6 +33,7 @@ const CAPS: Capability[] = [
   { id: 'swarm-search', label: 'Artifact swarm — search/discover', group: 'Swarm', sample: { query: 'design' } },
   { id: 'swarm-top', label: 'Artifact swarm — most-reused', group: 'Swarm', sample: { k: 10 } },
   { id: 'swarm-rare', label: 'Artifact swarm — rare (under-seeded)', group: 'Swarm', sample: { k: 10 } },
+  { id: 'security-review', label: 'Self-harden — local-model security review', group: 'Hardening', sample: { subject: 'snippet.ts', code: 'app.get("/f", (req,res)=>res.sendFile(req.query.path))' } },
 ]
 
 export function LabSurface() {

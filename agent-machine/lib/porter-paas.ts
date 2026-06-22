@@ -47,7 +47,8 @@ export function toPorterYaml(app: PorterApp): string {
   }
   lines.push('build:', `  method: ${app.build.method}`, `  context: ${app.build.context}`)
   if (app.build.dockerfile) lines.push(`  dockerfile: ${app.build.dockerfile}`)
-  if (app.env && Object.keys(app.env).length) { lines.push('env:'); for (const [k, v] of Object.entries(app.env)) lines.push(`  ${k}: ${JSON.stringify(v)}`) }
+  const envKeys = Object.entries(app.env ?? {}).filter(([k]) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(k))   // valid env names only — no YAML injection via crafted keys
+  if (envKeys.length) { lines.push('env:'); for (const [k, v] of envKeys) lines.push(`  ${k}: ${JSON.stringify(v)}`) }
   return lines.join('\n') + '\n'
 }
 

@@ -169,6 +169,11 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
         idx.addMany((b.vectors ?? []) as Array<{ id: string; vec: number[] }>)
         return send(200, { results: idx.search((b.query ?? []) as number[], b.k ?? 10, b.excludeId) }), true
       }
+      // ── Self-hardening: adversarial security review on LOCAL models, scope-d-audited ──
+      case 'security-review': {
+        const { reviewCode } = await import('./security-review.js')
+        return send(200, await reviewCode(String(b.code ?? ''), { subject: b.subject as string | undefined, model: b.model as string | undefined })), true
+      }
       // ── Office toolkit (LibreOffice) + Porter PaaS ──
       case 'office-detect': {
         const { detectLibreOffice } = await import('./office-toolkit.js')
@@ -312,6 +317,8 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
       default: return send(404, { error: 'unknown_capability', path }), true
     }
   } catch (e) {
+    // Log server-side so cap-route failures aren't invisible (CodeQL: strip CR/LF, no raw error in the path).
+    try { const msg = e instanceof Error ? e.message : 'error'; console.error('[cap]', url.pathname.replace(/[\r\n]/g, ' '), '-', msg.replace(/[\r\n]/g, ' ').slice(0, 200)) } catch { /* ignore */ }
     send(500, { error: 'internal_error' })
     return true
   }

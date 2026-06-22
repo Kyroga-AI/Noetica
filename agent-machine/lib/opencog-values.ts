@@ -38,7 +38,7 @@ export function spreadAttention(sti: Map<string, number>, adj: Map<string, strin
     const nbrs = adj.get(id) ?? []
     if (nbrs.length === 0 || s <= 0) continue
     const give = (s * fraction) / nbrs.length
-    next.set(id, (next.get(id) ?? 0) - s * fraction)
+    next.set(id, Math.max(0, (next.get(id) ?? 0) - s * fraction))   // never drive STI negative on outflow
     for (const n of nbrs) next.set(n, (next.get(n) ?? 0) + give)
   }
   return next
