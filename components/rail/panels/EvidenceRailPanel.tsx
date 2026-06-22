@@ -46,7 +46,15 @@ export function EvidenceRailPanel({ governance }: Props) {
             </div>
           </div>
         )}
-        <button className="mt-2 w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]">
+        <button
+          onClick={() => {
+            const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), governance }, null, 2)], { type: 'application/json' })
+            const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
+            a.download = `noetica-evidence-bundle-${Date.now()}.json`; a.click(); URL.revokeObjectURL(a.href)
+          }}
+          disabled={!governance}
+          title={governance ? 'Download the governance evidence as JSON' : 'No governance trace yet'}
+          className="mt-2 w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)] disabled:opacity-50 disabled:cursor-not-allowed">
           Export evidence bundle
         </button>
       </div>

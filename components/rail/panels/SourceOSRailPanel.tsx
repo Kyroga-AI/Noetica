@@ -76,9 +76,21 @@ export function SourceOSRailPanel() {
         )}
 
         <div className="pt-3 space-y-1.5">
-          {['Open graph explorer', 'Open event ledger', 'Replay view', 'Export'].map((action) => (
-            <button key={action} className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-left text-xs text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]">
-              {action}
+          {/* Export is a real download. Explorer/ledger/replay destinations aren't built yet → honestly
+              disabled instead of looking active and doing nothing. */}
+          <button
+            onClick={() => {
+              const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), surface: 'sourceos' }, null, 2)], { type: 'application/json' })
+              const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
+              a.download = `noetica-sourceos-${Date.now()}.json`; a.click(); URL.revokeObjectURL(a.href)
+            }}
+            className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-left text-xs text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]">
+            Export
+          </button>
+          {['Open graph explorer', 'Open event ledger', 'Replay view'].map((action) => (
+            <button key={action} disabled title="Coming soon"
+              className="flex w-full items-center justify-between rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-left text-xs text-[var(--color-text-tertiary)] opacity-60 cursor-not-allowed">
+              {action}<span className="text-[9px] uppercase tracking-wide">soon</span>
             </button>
           ))}
         </div>
