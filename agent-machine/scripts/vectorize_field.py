@@ -38,21 +38,36 @@ def main():
     fdir = os.path.join(BRAIN, FIELD)
     if not os.path.isdir(fdir):
         sys.exit(f'no field dir: {fdir} (run fetch first)')
-    files = [f for f in os.listdir(fdir) if f.endswith('.jsonl')]
-    done = err = skip = 0
+    files = [f for f in os.listdir(fdir) if f.endswith('.jsonl') and not f.endswith('.tmp')]
+    n_done = err = skip = 0
     for fn in files:
         fp = os.path.join(fdir, fn)
-        lines = open(fp, errors='replace').read().splitlines()
-        out = []
-        for ln in lines:
-            if not ln.strip():
+        tmp = fp + '.tmp'
+        # RESUMABLE: write embedded chunks to a .tmp incrementally (flush periodically), atomic-rename
+        # at the end. A killed GPU run leaves a partial .tmp; on re-run we load its done slugs and skip
+        # them — so we never lose the expensive embeddings already computed.
+        done_slugs = set()
+        if os.path.exists(tmp):
+            for ln in open(tmp, errors='replace'):
+                try:
+                    done_slugs.add(json.loads(ln).get('slug'))
+                except Exception:
+                    pass
+            print(f"# resume {fn}: {len(done_slugs)} chunks already embedded", flush=True)
+        w = open(tmp, 'a')
+        for ln in open(fp, errors='replace'):
+            ln = ln.strip()
+            if not ln:
                 continue
             try:
                 o = json.loads(ln)
             except Exception:
                 continue
-            if o.get('vec'):                      # already embedded — keep as-is (idempotent)
-                out.append(ln); skip += 1; continue
+            slug = o.get('slug')
+            if slug in done_slugs:                # already written to .tmp this/last run
+                continue
+            if o.get('vec'):                      # already embedded — carry over (idempotent)
+                w.write(json.dumps(o) + '\n'); skip += 1; done_slugs.add(slug); continue
             text = (o.get('text') or '').strip()
             if not text:
                 continue
@@ -61,15 +76,16 @@ def main():
                 if not v:
                     raise ValueError('empty embedding')
                 o['vec'], o['dims'] = pack(v)
-                out.append(json.dumps(o)); done += 1
-                if done % 500 == 0:
-                    sys.stderr.write(f'  {FIELD}: embedded {done} (skip {skip}, err {err})\n')
+                w.write(json.dumps(o) + '\n'); n_done += 1; done_slugs.add(slug)
+                if n_done % 100 == 0:
+                    w.flush()                     # durable every 100 → ≤100 lost on a hard kill
+                    sys.stderr.write(f"  {FIELD}: embedded {n_done} (skip {skip}, err {err})\n")
             except Exception:
                 err += 1
-        with open(fp, 'w') as w:
-            w.write('\n'.join(out) + ('\n' if out else ''))
-        print(f'# {fn}: embedded {done} · skipped {skip} · errors {err}', flush=True)
-    print(f'# {FIELD} vectorized: {done} new vectors ({skip} already done, {err} errors). '
+        w.close()
+        os.replace(tmp, fp)                       # atomic promote
+        print(f"# {fn}: embedded {n_done} · skipped {skip} · errors {err}", flush=True)
+    print(f'# {FIELD} vectorized: {n_done} new vectors ({skip} carried over, {err} errors). '
           f'study-brain can now retrieve over the {FIELD} field.')
 
 

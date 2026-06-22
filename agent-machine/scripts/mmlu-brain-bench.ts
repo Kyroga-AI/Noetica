@@ -664,12 +664,12 @@ async function main() {
             // NEVER defaults to A (the trap the old verify path fell into — it picked A 31% vs gold 19%).
             const w = new Map<string, number>()
             const add = (L: unknown, wt: number) => { if (typeof L === 'string' && L && L !== '?') w.set(L, (w.get(L) ?? 0) + wt) }
-            // Council V2 (MMLU_COUNCIL_V2 — default OFF so it A/Bs without disturbing the live board /
-            // existing numbers): grounding-weighted. Retrieval arms (brain/qgen) are the moat, so they
-            // out-weigh closed-book baseline, and when the TWO independent retrieval arms AGREE that
-            // grounded consensus gets a decisive bonus. Fixes the live dilution where weak closed-book
-            // arms out-vote a correct retrieval on STEM (college_mathematics: brain 65% but champion 50%).
-            const V2 = process.env['MMLU_COUNCIL_V2'] === '1'
+            // Council V2 (MMLU_COUNCIL_V2 — now DEFAULT-ON; it WON the A/B: champion 63.6% > brain 60.7%
+            // > baseline 57.9%, fixing the dilution where the default V1 council scored 60.7% BELOW brain
+            // 64.3%): grounding-weighted, entanglement-aware. Retrieval arms (brain/qgen) are the moat, so
+            // they out-weigh the correlated closed-book bloc, and when the TWO independent retrieval arms
+            // AGREE the grounded consensus gets a decisive bonus. Set MMLU_COUNCIL_V2=0 to fall back to V1.
+            const V2 = process.env['MMLU_COUNCIL_V2'] !== '0'
             if (V2) {
               // CONDITIONAL combiner — each retrieval arm's vote is weighted BY ITS GROUNDING
               // STRENGTH (top retrieval cosine), and the correlated closed-book bloc is down-weighted.
