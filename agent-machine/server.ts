@@ -53,6 +53,7 @@ import { consolidate } from '@socioprophet/hellgraph'
 import { recordAttentionSnapshot, pushSnapshotToPrometheusd, ingestPrometheusCandidate } from '@socioprophet/hellgraph'
 import { isOllamaRunning, listLocalModels, pullModel, streamOllama, getModelContextLength, ollamaBase, generateOllamaText } from './lib/ollama.js'
 import { parseInlineToolCalls } from './lib/tool-calls.js'
+import { repairToolArgs } from './lib/tool-validate.js'
 import { retrieve } from './lib/retrieval.js'
 import { getGraph, graphHealth, graphSparql, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
 import { isVoiceProvisioned, ensureVoiceSidecar, voiceFetch } from './lib/voice-runtime.js'
@@ -1793,7 +1794,7 @@ async function* streamAnthropic(params: {
           name: b.name,
           input: (() => {
             try { return JSON.parse(b.inputJson) as Record<string, unknown> }
-            catch (e) { console.error('[anthropic] tool arg parse failed', b.name, String(e)); return {} }
+            catch { return repairToolArgs(b.inputJson).value ?? {} } // recover truncated/py-literal/fenced JSON before dropping
           })(),
         }))
         if (calls.length) yield { type: 'tool_calls', calls }
@@ -1886,7 +1887,7 @@ async function* streamOpenAI(params: {
               name: tc.name,
               input: (() => {
                 try { return JSON.parse(tc.argsJson) as Record<string, unknown> }
-                catch (e) { console.error('[openai] tool arg parse failed', tc.name, String(e)); return {} }
+                catch { return repairToolArgs(tc.argsJson).value ?? {} } // recover malformed JSON before dropping
               })(),
             }))
           yield { type: 'tool_calls', calls }
@@ -2168,7 +2169,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       if (anthropicKey) { provider = 'anthropic'; model = 'claude-haiku-4-5-20251001'; escalated = true }
       else if (openaiKey) { provider = 'openai'; model = 'gpt-4o-mini'; escalated = true }
       if (escalated) {
-        console.log(`[self-model] escalated task="${logSafe(routerDecision.task)}" → ${provider}:${model} (local success ${(hint.localSuccessRate ?? 0).toFixed(2)} over ${hint.localRuns} runs)`)
+        console.log(`[self-model] escalated task="${String(routerDecision.task).replace(/\r/g, '').replace(/\n/g, '').slice(0, 120)}" → ${provider}:${model} (local success ${(hint.localSuccessRate ?? 0).toFixed(2)} over ${hint.localRuns} runs)`)
       }
     }
   }
@@ -2190,7 +2191,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       .filter((m) => routerDecision.task === 'reasoning' || !/deepseek-r1/i.test(m))
     const pick = selectArmUCB(routerDecision.task ?? 'general', arms)
     if (pick && pick !== model) {
-      console.log(`[bandit] task="${logSafe(routerDecision.task)}" ${model} → ${pick} (arms: ${arms.join(', ')})`)
+      console.log(`[bandit] task="${String(routerDecision.task).replace(/\r/g, '').replace(/\n/g, '').slice(0, 120)}" ${model} → ${pick} (arms: ${arms.join(', ')})`)
       model = pick
     }
   }
@@ -2287,7 +2288,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         model = has('qwen2.5:7b') ? 'qwen2.5:7b' : has('qwen2.5-coder:7b') ? 'qwen2.5-coder:7b' : model
       }
     }
-    if (model !== before) console.log(`[responsive] ${logSafe(task)} ${before} → ${model}`)
+    if (model !== before) console.log(`[responsive] ${String(task).replace(/\r/g, '').replace(/\n/g, '').slice(0, 120)} ${before} → ${model}`)
   }
 
   // ── Escalation: climb to a more capable model when the cheap flow is failing ──
@@ -2468,7 +2469,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // "upload a doc and ask about it" actually work — the graph patterns above are
   // structural, not semantic. Injected as authoritative source context.
   try {
-    const { semanticSearch, documentChunkCount } = await import('./lib/doc-store.js')
+    const { searchDocsReranked, documentChunkCount } = await import('./lib/doc-store.js')
     // Skip doc retrieval entirely for intents that want no grounding (greetings,
     // confirmations, file ops) — otherwise a plain "hello" wastefully pulls passages
     // and shows a misleading "retrieving" step.
@@ -2495,11 +2496,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       const ragQuery = glossaryTerms.length > 0
         ? `${latestUserContent}\n${glossaryTerms.join(' ')}`
         : latestUserContent
-      const hits = await semanticSearch(ragQuery, topK)
+      const hits = await searchDocsReranked(ragQuery, topK)
       if (hits.length > 0) {
         docHitCount = hits.length
-        docHits = hits
-        const docBlock = hits.map((h, i) => `[${i + 1}] (${h.filename}) ${h.text.slice(0, chunkCap)}`).join('\n\n')
+        // Reranked chunks → ChunkHit shape for downstream extractive QA (fusedScore as the score).
+        docHits = hits.map((h) => ({ docId: h.docId, filename: h.filename, text: h.text, score: h.fusedScore, idx: h.chunkIndex ?? undefined }))
+        const docBlock = hits.map((h, i) => `[${i + 1}] (${h.citation}) ${h.text.slice(0, chunkCap)}`).join('\n\n')
         // For doc-focused intents, demand strict grounding: answer ONLY from the
         // sources, name the gap rather than invent. This is what stops the model
         // from fabricating facts that contradict the uploaded document.
@@ -2508,7 +2510,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           : `Answer from these sources when relevant and end each grounded sentence with its source marker, e.g. "… [1]." If the sources don't cover the question, say so.`
         graphContext = `\n\n---\n**Document context (uploaded sources)**\n${instruction}\n\n${docBlock}${graphContext}`
         sse(res, 'retrieval', {
-          trace: { patterns: ['semantic-documents'], sources: hits.map((h) => ({ id: h.docId, label: h.filename, score: Number(h.score.toFixed(3)) })), token_estimate: docBlock.length >> 2, beliefs_injected: 0 },
+          trace: { patterns: ['hybrid-rerank-documents'], sources: hits.map((h) => ({ id: h.docId, label: h.citation, score: Number(h.fusedScore.toFixed(4)) })), token_estimate: docBlock.length >> 2, beliefs_injected: 0 },
         })
       }
     }
