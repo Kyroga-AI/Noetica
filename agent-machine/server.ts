@@ -131,6 +131,7 @@ const GOVERNANCE_FILE = path.join(os.homedir(), '.noetica', 'governance.json')
 const ANALYTICS_CACHE_FILE = path.join(os.homedir(), '.noetica', 'cache', 'graph-analytics.json')
 type AnalyticsCache = { sig: string; analytics: import('./lib/graph-analytics.js').GraphAnalytics; computedAt: string }
 let _analyticsCache: AnalyticsCache | null = null
+let _placesCache: { sig: string; places: Array<{ name: string; lat: number | null; lon: number | null; type: string }> } | null = null   // geospatial place classification
 function loadAnalyticsCache(): AnalyticsCache | null {
   if (_analyticsCache) return _analyticsCache
   try { _analyticsCache = JSON.parse(fs.readFileSync(ANALYTICS_CACHE_FILE, 'utf8')) as AnalyticsCache; return _analyticsCache } catch { return null }
@@ -151,6 +152,41 @@ function loadCommunitiesCache(): CommunitiesCache | null {
 function saveCommunitiesCache(c: CommunitiesCache): void {
   _communitiesCache = c
   try { fs.mkdirSync(path.dirname(COMMUNITIES_CACHE_FILE), { recursive: true }); fs.writeFileSync(COMMUNITIES_CACHE_FILE, JSON.stringify(c)) } catch { /* best-effort */ }
+}
+
+// Verified covariates (typed claims per entity) — expensive (LLM per entity), cache by sig + model.
+const COVARIATES_CACHE_FILE = path.join(os.homedir(), '.noetica', 'cache', 'graph-covariates.json')
+type CovariatesCache = { sig: string; model: string; entities: import('./lib/graph-covariates.js').EntityCovariates[]; builtAt: string }
+let _covariatesCache: CovariatesCache | null = null
+function loadCovariatesCache(): CovariatesCache | null {
+  if (_covariatesCache) return _covariatesCache
+  try { _covariatesCache = JSON.parse(fs.readFileSync(COVARIATES_CACHE_FILE, 'utf8')) as CovariatesCache; return _covariatesCache } catch { return null }
+}
+function saveCovariatesCache(c: CovariatesCache): void {
+  _covariatesCache = c
+  try { fs.mkdirSync(path.dirname(COVARIATES_CACHE_FILE), { recursive: true }); fs.writeFileSync(COVARIATES_CACHE_FILE, JSON.stringify(c)) } catch { /* best-effort */ }
+}
+
+// Auto prompt-tuning: a domain profile (persona + typical entity/claim types) detected from the corpus,
+// threaded into community summarization + covariate extraction. Cached by analytics sig + model.
+const TUNE_CACHE_FILE = path.join(os.homedir(), '.noetica', 'cache', 'graph-tune.json')
+type TuneCache = { sig: string; model: string; profile: import('./lib/graph-tune.js').DomainProfile; builtAt: string }
+let _tuneCache: TuneCache | null = null
+function loadTuneCache(): TuneCache | null {
+  if (_tuneCache) return _tuneCache
+  try { _tuneCache = JSON.parse(fs.readFileSync(TUNE_CACHE_FILE, 'utf8')) as TuneCache; return _tuneCache } catch { return null }
+}
+function saveTuneCache(c: TuneCache): void {
+  _tuneCache = c
+  try { fs.mkdirSync(path.dirname(TUNE_CACHE_FILE), { recursive: true }); fs.writeFileSync(TUNE_CACHE_FILE, JSON.stringify(c)) } catch { /* best-effort */ }
+}
+async function getDomainProfile(sig: string, model: string, sampleProvider: () => Promise<string[]>, refresh = false): Promise<import('./lib/graph-tune.js').DomainProfile> {
+  const cached = loadTuneCache()
+  if (!refresh && cached && cached.sig === sig && cached.model === model) return cached.profile
+  const { detectDomain } = await import('./lib/graph-tune.js')
+  const profile = await detectDomain(await sampleProvider(), { model })
+  saveTuneCache({ sig, model, profile, builtAt: new Date().toISOString() })
+  return profile
 }
 
 // Pick the best locally-available chat model for GraphRAG summarization (prefer small+fast).
@@ -179,6 +215,29 @@ async function analyticsForGraph(refresh = false): Promise<{ analytics: import('
   const nodeById = new Map(allNodes.map((n) => [n.id, n]))
   const labelOf = (id: string) => { const n = nodeById.get(id); return (n ? cleanLabel(n) : null) ?? '' }
   return { analytics, sig, labelOf }
+}
+
+// Build (or load cached) verified covariates for the top entities — shared by /covariates +
+// /contradictions. Auto-tunes the extraction persona from the detected domain.
+async function buildOrLoadCovariates(refresh = false): Promise<{ entities: import('./lib/graph-covariates.js').EntityCovariates[]; sig: string; model: string; cached: boolean }> {
+  const { analytics, sig, labelOf } = await analyticsForGraph(refresh)
+  const model = await pickChatModel()
+  const cached = loadCovariatesCache()
+  if (!refresh && cached && cached.sig === sig && cached.model === model) return { entities: cached.entities, sig, model, cached: true }
+  const { lexicalSearch } = await import('./lib/doc-store.js')
+  const { buildCovariates } = await import('./lib/graph-covariates.js')
+  const topEntities = [...new Set(Object.values(analytics.nodes).sort((a, b) => b.pagerank - a.pagerank)
+    .map((m) => labelOf(m.id)).filter((l) => l && !/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(l) && !/^\d{8,}$/.test(l.replace(/\s/g, ''))))].slice(0, 12)
+  const gather = (e: string) => { try { return lexicalSearch(e, 5).map((h) => h.text) } catch { return [] } }
+  // Bi-temporal: each entity's claims inherit the entity's createdAt as their validFrom, so contradiction
+  // detection can tell a live conflict from a newer fact superseding an older one.
+  const vfMap = new Map<string, number>()
+  for (const n of getGraph().allNodes()) { const l = cleanLabel(n); if (l) { const t = typeof n.createdAt === 'number' ? n.createdAt : Date.parse(String(n.createdAt)); if (Number.isFinite(t) && t > 0 && !vfMap.has(l)) vfMap.set(l, t) } }
+  const validFromOf = (e: string) => vfMap.get(e) ?? 0
+  const profile = await getDomainProfile(sig, model, async () => [...topEntities.slice(0, 10), ...topEntities.slice(0, 6).flatMap(gather).slice(0, 8)])
+  const entities = await buildCovariates(topEntities, gather, { model, maxEntities: 12, maxPerEntity: 5, persona: profile.persona, validFromOf })
+  saveCovariatesCache({ sig, model, entities, builtAt: new Date().toISOString() })
+  return { entities, sig, model, cached: false }
 }
 
 // Cross-process signal for the SourceOS surface (e.g. bearbrowser): when the
@@ -4046,6 +4105,117 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // POST /api/graph/nlquery — natural-language → Cypher (text-to-Cypher, the modern graph-platform
+  // staple): generate a READ-ONLY Cypher query from the question + the graph schema, guard against any
+  // write, execute it, and return query + rows. Body: { question }.
+  if (req.method === 'POST' && url.pathname === '/api/graph/nlquery') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      setCORSHeaders(res)
+      try {
+        const question = String((JSON.parse(body || '{}') as { question?: string }).question ?? '').trim()
+        if (!question) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'question_required' })); return }
+        const g = getGraph()
+        const keep = g.allNodes().filter((n) => cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id)))
+        const byId = new Map(keep.map((n) => [n.id, n]))
+        const lbl = (id: string) => { const n = byId.get(id); return n ? (cleanLabel(n) ?? '') : '' }
+        const keepIds = new Set(keep.map((n) => n.id))
+        const edges = g.allEdges().filter((e) => keepIds.has(e.from) && keepIds.has(e.to))
+        const deg = new Map<string, number>(); for (const e of edges) { deg.set(e.from, (deg.get(e.from) ?? 0) + 1); deg.set(e.to, (deg.get(e.to) ?? 0) + 1) }
+        const sampleNames = [...keep].sort((a, b) => (deg.get(b.id) ?? 0) - (deg.get(a.id) ?? 0)).slice(0, 14).map((n) => cleanLabel(n)).filter(Boolean)
+        const model = await pickChatModel()
+        const { generateOllamaText } = await import('./lib/ollama.js')
+        // NL → structured intent (executed IN-MEMORY — robust to the external cypher engine being down).
+        const prompt = `Classify this question into a graph query. STRICT JSON only:
+{"op":"top_connected"|"neighbors"|"search"|"count","target":"<an entity or search term, or empty>","limit":<1-25, default 10>}
+op meanings:
+- neighbors: the question names a SPECIFIC entity and asks what it connects/links/relates to (set target to that entity)
+- top_connected: the most-connected concepts overall (no specific entity)
+- search: find entities matching a term (set target to the term)
+- count: how many
+Known entities: ${sampleNames.join(', ')}
+Question: ${question}`
+        let intent: { op?: string; target?: string; limit?: number } = {}
+        try { const c = (await generateOllamaText({ model, messages: [{ role: 'user', content: prompt }], temperature: 0.1, numCtx: 4096 })).content; const m = c.match(/\{[\s\S]*\}/); if (m) intent = JSON.parse(m[0]) }
+        catch { /* fall back to top_connected below */ }
+        const op = ['top_connected', 'neighbors', 'search', 'count'].includes(String(intent.op)) ? String(intent.op) : 'top_connected'
+        const limit = Math.min(25, Math.max(1, Number(intent.limit) || 10))
+        const target = String(intent.target ?? '').trim()
+        const findNode = (t: string) => keep.find((n) => n.id === t) ?? keep.find((n) => (cleanLabel(n) ?? '').toLowerCase() === t.toLowerCase()) ?? keep.find((n) => (cleanLabel(n) ?? '').toLowerCase().includes(t.toLowerCase()))
+        let rows: unknown[] = []; let cypher = ''
+        if (op === 'count') { rows = [{ count: keep.length }]; cypher = 'MATCH (n) RETURN count(n)' }
+        else if (op === 'neighbors') {
+          const tn = target ? findNode(target) : null
+          if (tn) rows = [...new Set(edges.filter((e) => e.from === tn.id || e.to === tn.id).map((e) => JSON.stringify({ entity: lbl(e.from === tn.id ? e.to : e.from), relation: e.label })))].slice(0, limit).map((s) => JSON.parse(s) as object)
+          cypher = `MATCH (n {name:"${target}"})-[r]-(m) RETURN m.name, type(r) LIMIT ${limit}`
+        } else if (op === 'search') {
+          const t = target.toLowerCase()
+          rows = keep.filter((n) => (cleanLabel(n) ?? '').toLowerCase().includes(t)).slice(0, limit).map((n) => ({ entity: cleanLabel(n), kind: String(n.properties?.['kind'] ?? n.labels[0] ?? '') }))
+          cypher = `MATCH (n) WHERE n.name CONTAINS "${target}" RETURN n.name LIMIT ${limit}`
+        } else {
+          rows = [...keep].sort((a, b) => (deg.get(b.id) ?? 0) - (deg.get(a.id) ?? 0)).slice(0, limit).map((n) => ({ entity: cleanLabel(n), connections: deg.get(n.id) ?? 0 }))
+          cypher = `MATCH (n) RETURN n.name, size((n)--()) AS connections ORDER BY connections DESC LIMIT ${limit}`
+        }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ question, op, cypher, rows, count: rows.length, executed: true }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })() })
+    return
+  }
+
+  // GET/POST /api/privacy/policy — granular AI data-access control: which PII categories the firewall
+  // masks before cloud egress + user-defined sensitive terms to always mask. The user decides what the
+  // AI may see. GET returns the policy + available categories; POST { disabled, terms } saves it.
+  if (url.pathname === '/api/privacy/policy' && (req.method === 'GET' || req.method === 'POST')) {
+    if (req.method === 'GET') {
+      setCORSHeaders(res)
+      void (async () => {
+        try {
+          const { loadPolicy } = await import('./lib/redact.js')
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ policy: loadPolicy(), categories: ['EMAIL', 'PHONE', 'SSN', 'CARD', 'APIKEY', 'JWT', 'IP'] }))
+        } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+      })()
+      return
+    }
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      setCORSHeaders(res)
+      try {
+        const p = JSON.parse(body || '{}') as { disabled?: string[]; terms?: string[] }
+        const { savePolicy, loadPolicy } = await import('./lib/redact.js')
+        savePolicy({ disabled: Array.isArray(p.disabled) ? p.disabled : [], terms: Array.isArray(p.terms) ? p.terms : [] })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ saved: true, policy: loadPolicy() }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })() })
+    return
+  }
+
+  // POST /api/privacy/redact — preview the PII/secret firewall: what would be masked before any cloud
+  // egress. Body: { text }. Returns the redacted text + counts by kind (NOT the secret→placeholder map).
+  if (req.method === 'POST' && url.pathname === '/api/privacy/redact') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      setCORSHeaders(res)
+      try {
+        const text = String((JSON.parse(body || '{}') as { text?: string }).text ?? '')
+        const { redact } = await import('./lib/redact.js')
+        const r = redact(text)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ redacted: r.redacted, count: r.count, kinds: r.kinds }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })() })
+    return
+  }
+
   // GET /api/governance/recent — last N completed run traces for Govern surface
   if (req.method === 'GET' && url.pathname === '/api/governance/recent') {
     setCORSHeaders(res)
@@ -5022,6 +5192,40 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // POST /api/graph/from-image — MULTIMODAL: OCR a local image, then extract entities + typed relations
+  // from the text (image → knowledge). Body: { path, ingest? }. ?ingest adds the text to the brain too.
+  // Closes the multimodal gap (Cognee) — images become first-class graph sources.
+  if (req.method === 'POST' && url.pathname === '/api/graph/from-image') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      setCORSHeaders(res)
+      try {
+        const p = JSON.parse(body || '{}') as { path?: string; ingest?: boolean }
+        const imgPath = String(p.path ?? '').trim()
+        if (!imgPath) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'path_required' })); return }
+        const { runOcr } = await import('./lib/ocr.js')
+        const text = await runOcr(imgPath)
+        if (/^OCR (error|unavailable)/i.test(text)) { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: text, text: '' })); return }
+        const model = await pickChatModel()
+        const { generateOllamaText } = await import('./lib/ollama.js')
+        const prompt = `Text OCR'd from an image:\n${text.slice(0, 4000)}\n\nExtract the key entities and their typed relationships. STRICT JSON only:\n{"entities":["<entity>"],"relations":[{"subject":"<entity>","relation":"<2-3 words>","object":"<entity>"}]}`
+        let entities: string[] = []; let relations: Array<{ subject: string; relation: string; object: string }> = []
+        try {
+          const c = (await generateOllamaText({ model, messages: [{ role: 'user', content: prompt }], temperature: 0.1, numCtx: 8192 })).content
+          const m = c.match(/\{[\s\S]*\}/); if (m) { const j = JSON.parse(m[0]) as { entities?: string[]; relations?: typeof relations }; entities = (j.entities ?? []).filter((x) => typeof x === 'string').slice(0, 20); relations = (j.relations ?? []).filter((r) => r && r.subject && r.object).slice(0, 20) }
+        } catch { /* extraction best-effort */ }
+        let ingested = false
+        if (p.ingest) { try { const { ingestDocument } = await import('./lib/doc-store.js'); const pathMod = await import('node:path'); await ingestDocument(`image-${pathMod.basename(imgPath)}.txt`, text); ingested = true } catch { /* ingest best-effort */ } }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ text: text.slice(0, 1500), entities, relations, ingested, model }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })() })
+    return
+  }
+
   // POST /api/chat
   if (req.method === 'POST' && url.pathname === '/api/chat') {
     // Kill-switch: when armed, the agent fail-closes — no new turn runs until disarmed.
@@ -5316,6 +5520,83 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // GET /api/graph/impact?entity=&hops= — blast-radius / impact analysis: what's reachable from an
+  // entity within N hops, grouped by distance and ranked by importance. "If X changes, these are
+  // affected" — the dependency-impact view ops/investigation graphs (Palantir, CMDB) provide.
+  if (req.method === 'GET' && url.pathname === '/api/graph/impact') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const q = (url.searchParams.get('entity') || url.searchParams.get('id') || '').trim()
+        if (!q) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'entity_required' })); return }
+        const hops = Math.min(4, Math.max(1, Number(url.searchParams.get('hops') ?? 2)))
+        const { analytics } = await analyticsForGraph(false)
+        const g = getGraph()
+        const keep = g.allNodes().filter((n) => cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id)))
+        const byId = new Map(keep.map((n) => [n.id, n]))
+        const lbl = (id: string) => { const n = byId.get(id); return n ? (cleanLabel(n) ?? '') : '' }
+        const target = keep.find((n) => n.id === q) ?? keep.find((n) => (cleanLabel(n) ?? '').toLowerCase() === q.toLowerCase())
+        if (!target) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'entity_not_found' })); return }
+        const adj = new Map<string, string[]>()
+        for (const e of g.allEdges()) { (adj.get(e.from) ?? adj.set(e.from, []).get(e.from)!).push(e.to); (adj.get(e.to) ?? adj.set(e.to, []).get(e.to)!).push(e.from) }
+        const dist = new Map([[target.id, 0]]); const bq = [target.id]
+        while (bq.length) { const u = bq.shift()!; const d = dist.get(u)!; if (d >= hops) continue; for (const v of adj.get(u) ?? []) { if (!dist.has(v)) { dist.set(v, d + 1); bq.push(v) } } }
+        const levels: Array<{ distance: number; count: number; nodes: Array<{ label: string; importance: number }> }> = []
+        for (let h = 1; h <= hops; h++) {
+          const nodes = [...dist].filter(([, d]) => d === h).map(([id]) => ({ label: lbl(id), importance: Number((analytics.nodes[id]?.pagerank ?? 0).toFixed(3)) }))
+            .filter((n) => n.label).sort((a, b) => b.importance - a.importance).slice(0, 15)
+          if (nodes.length) levels.push({ distance: h, count: nodes.length, nodes })
+        }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ entity: lbl(target.id), hops, totalAffected: dist.size - 1, levels }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/graph/explain-path?from=&to= — investigation: the connection between two entities, with
+  // each hop's relationship, an epistemic-weighted confidence for the whole chain, and an LLM narration.
+  // Palantir/Linkurious find paths; we explain them + rate trust. Accepts labels or ids.
+  if (req.method === 'GET' && url.pathname === '/api/graph/explain-path') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const fromQ = (url.searchParams.get('from') || '').trim(), toQ = (url.searchParams.get('to') || '').trim()
+        if (!fromQ || !toQ) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'from_and_to_required' })); return }
+        const g = getGraph()
+        const keep = g.allNodes().filter((n) => cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id)))
+        const byId = new Map(keep.map((n) => [n.id, n]))
+        const lbl = (id: string) => { const n = byId.get(id); return n ? (cleanLabel(n) ?? '') : (id.split(':').pop() ?? id) }
+        const resolve = (q: string) => keep.find((n) => n.id === q) ?? keep.find((n) => (cleanLabel(n) ?? '').toLowerCase() === q.toLowerCase())
+        const from = resolve(fromQ), to = resolve(toQ)
+        if (!from || !to) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'entity_not_found' })); return }
+        // BFS tracking the edge used at each step.
+        const adj = new Map<string, Array<{ to: string; label: string }>>()
+        for (const e of g.allEdges()) { (adj.get(e.from) ?? adj.set(e.from, []).get(e.from)!).push({ to: e.to, label: e.label }); (adj.get(e.to) ?? adj.set(e.to, []).get(e.to)!).push({ to: e.from, label: e.label }) }
+        const prev = new Map<string, { node: string; label: string }>(); const seen = new Set([from.id]); const q = [from.id]; let found = from.id === to.id
+        while (q.length && !found) { const u = q.shift()!; for (const { to: v, label } of adj.get(u) ?? []) { if (!seen.has(v)) { seen.add(v); prev.set(v, { node: u, label }); if (v === to.id) { found = true; break } q.push(v) } } }
+        if (!found) { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ from: lbl(from.id), to: lbl(to.id), connected: false, hops: [], confidence: 0, explanation: 'No connecting path in the graph.' })); return }
+        const { epistemicOf } = await import('./lib/graph-surface.js')
+        const hops: Array<{ from: string; rel: string; to: string; epistemic: string }> = []
+        let cur = to.id
+        while (cur !== from.id && prev.has(cur)) { const p = prev.get(cur)!; hops.unshift({ from: lbl(p.node), rel: p.label, to: lbl(cur), epistemic: epistemicOf(p.label) }); cur = p.node }
+        const W: Record<string, number> = { confirmed: 1, extracted: 0.85, inferred: 0.5, contested: 0.3 }
+        const confidence = hops.reduce((acc, h) => acc * (W[h.epistemic] ?? 0.7), 1)
+        const chain = hops.map((h) => `${h.from} —[${h.rel}]→ ${h.to}`).join('; ')
+        const model = await pickChatModel()
+        let explanation = chain
+        try { const { generateOllamaText } = await import('./lib/ollama.js'); explanation = (await generateOllamaText({ model, messages: [{ role: 'user', content: `Explain in 1-2 sentences how "${lbl(from.id)}" connects to "${lbl(to.id)}" through this chain: ${chain}. Be concrete and use ONLY the chain.` }], temperature: 0.3 })).content.trim() || chain } catch { /* keep chain */ }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ from: lbl(from.id), to: lbl(to.id), connected: true, length: hops.length, hops, confidence: Number(confidence.toFixed(2)), explanation }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
   // GET /api/graph/analytics — Graph Data Science over HellGraph: PageRank (importance), Louvain
   // (communities from topology), betweenness (bridge concepts). O(V·E), so cached by graph signature;
   // ?refresh=1 forces recompute. Top nodes resolved to readable labels for the human-facing summary.
@@ -5377,12 +5658,192 @@ const server = http.createServer((req, res) => {
         const labelOf = (id: string) => { const n = nodeById.get(id); return (n ? cleanLabel(n) : null) ?? '' }
         const { predictLinks, verifyPredictions } = await import('./lib/graph-predict.js')
         let preds = predictLinks(fNodes.map((n) => ({ id: n.id })), fEdges.map((e) => ({ from: e.from, to: e.to })), { topK })
+        // Semantic axis (GraphRAG "embed entities"): blend in entity-embedding similarity so meaning-
+        // related concepts surface even without shared neighbours. Degrades cleanly if the embedder is cold.
+        try {
+          const { embedEntities, blendSemantic } = await import('./lib/graph-embed.js')
+          const vectors = await embedEntities(fNodes.map((n) => ({ id: n.id, text: labelOf(n.id) || (n.labels[0] ?? '') })))
+          if (vectors.size) preds = blendSemantic(preds, vectors, fEdges.map((e) => ({ from: e.from, to: e.to })), topK)
+        } catch { /* embedder optional */ }
         if (verify) { const model = await pickChatModel(); preds = await verifyPredictions(preds, labelOf, { model }) }
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({
           predictions: preds.map((p) => ({ ...p, sourceLabel: labelOf(p.source), targetLabel: labelOf(p.target) })),
           count: preds.length, verified: verify,
         }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/graph/similar?entity=<label|id> — semantically nearest entities via entity embeddings
+  // (GraphRAG "embed entities"). Powers richer local search: meaning-related concepts, not just neighbours.
+  if (req.method === 'GET' && url.pathname === '/api/graph/similar') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const q = (url.searchParams.get('entity') || url.searchParams.get('id') || '').trim()
+        if (!q) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'entity_required' })); return }
+        const k = Math.min(20, Math.max(1, Number(url.searchParams.get('k') ?? 8)))
+        const g = getGraph()
+        const allNodes = g.allNodes()
+        const keep = allNodes.filter((n) => cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id)))
+        const labelOf = (n: typeof keep[number]) => cleanLabel(n) ?? ''
+        // resolve the target by exact id, else case-insensitive label match
+        const target = keep.find((n) => n.id === q) ?? keep.find((n) => labelOf(n).toLowerCase() === q.toLowerCase())
+        if (!target) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'entity_not_found' })); return }
+        const { embedEntities, similarEntities } = await import('./lib/graph-embed.js')
+        const vectors = await embedEntities(keep.map((n) => ({ id: n.id, text: labelOf(n) || (n.labels[0] ?? '') })))
+        const byId = new Map(keep.map((n) => [n.id, n]))
+        const sims = similarEntities(target.id, vectors, k).map((s) => ({ id: s.id, label: labelOf(byId.get(s.id)!), sim: Number(s.sim.toFixed(3)) }))
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ entity: labelOf(target), similar: sims, embedderAvailable: vectors.size > 0 }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/graph/recommend?entity= — guided exploration ("what to look at next"): fuse semantically
+  // similar + structurally similar + predicted links + important neighbours into one ranked list, each
+  // with a reason. Synthesizes the embedding/prediction/GDS layers into the next-best-action investigation
+  // platforms (Linkurious/Palantir) guide analysts with.
+  if (req.method === 'GET' && url.pathname === '/api/graph/recommend') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const qy = (url.searchParams.get('entity') || url.searchParams.get('id') || '').trim()
+        if (!qy) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'entity_required' })); return }
+        const k = Math.min(15, Math.max(1, Number(url.searchParams.get('k') ?? 8)))
+        const { analytics } = await analyticsForGraph(false)
+        const g = getGraph()
+        const keep = g.allNodes().filter((n) => cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id)))
+        const byId = new Map(keep.map((n) => [n.id, n]))
+        const lbl = (id: string) => { const n = byId.get(id); return n ? (cleanLabel(n) ?? '') : '' }
+        const target = keep.find((n) => n.id === qy) ?? keep.find((n) => (cleanLabel(n) ?? '').toLowerCase() === qy.toLowerCase())
+        if (!target) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'entity_not_found' })); return }
+        const keepIds = new Set(keep.map((n) => n.id))
+        const edges = g.allEdges().filter((e) => keepIds.has(e.from) && keepIds.has(e.to))
+        // existing neighbours (exclude from "discover" recs)
+        const neighbours = new Set<string>(); for (const e of edges) { if (e.from === target.id) neighbours.add(e.to); if (e.to === target.id) neighbours.add(e.from) }
+
+        const recs = new Map<string, { id: string; label: string; score: number; reasons: Set<string> }>()
+        const bump = (id: string, s: number, reason: string) => { if (id === target.id || !lbl(id)) return; const r = recs.get(id) ?? { id, label: lbl(id), score: 0, reasons: new Set<string>() }; r.score += s; r.reasons.add(reason); recs.set(id, r) }
+
+        // 1. semantic + 2. structural similarity
+        const { embedEntities, similarEntities } = await import('./lib/graph-embed.js')
+        const vectors = await embedEntities(keep.map((n) => ({ id: n.id, text: lbl(n.id) || (n.labels[0] ?? '') })))
+        for (const s of similarEntities(target.id, vectors, 6)) bump(s.id, s.sim, 'similar meaning')
+        const { structuralEmbeddings, structurallySimilar } = await import('./lib/graph-struct.js')
+        const semb = structuralEmbeddings(keep.map((n) => ({ id: n.id })), edges.map((e) => ({ from: e.from, to: e.to })), { walks: 10, length: 8, window: 2 })
+        for (const s of structurallySimilar(target.id, semb, 6)) bump(s.id, s.sim * 0.8, 'similar role')
+        // 3. predicted links from target
+        const { predictLinks } = await import('./lib/graph-predict.js')
+        for (const p of predictLinks(keep.map((n) => ({ id: n.id })), edges.map((e) => ({ from: e.from, to: e.to })), { topK: 40 })) {
+          if (p.source === target.id) bump(p.target, p.score * 0.9, 'likely connection')
+          else if (p.target === target.id) bump(p.source, p.score * 0.9, 'likely connection')
+        }
+        // 4. important neighbours (already-connected but high importance — worth revisiting)
+        for (const nb of neighbours) bump(nb, (analytics.nodes[nb]?.pagerank ?? 0) * 0.6, 'important neighbour')
+
+        const recommendations = [...recs.values()].sort((a, b) => b.score - a.score).slice(0, k)
+          .map((r) => ({ id: r.id, label: r.label, score: Number(r.score.toFixed(3)), reasons: [...r.reasons], connected: neighbours.has(r.id) }))
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ entity: lbl(target.id), recommendations }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/graph/structural-similar?entity= — structurally similar nodes (similar TOPOLOGICAL role)
+  // via DeepWalk-style random-walk embeddings. Distinct from /similar (semantic): two nodes can play the
+  // same structural role with unrelated meanings, or be semantically close but structurally distant.
+  if (req.method === 'GET' && url.pathname === '/api/graph/structural-similar') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const q = (url.searchParams.get('entity') || url.searchParams.get('id') || '').trim()
+        if (!q) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'entity_required' })); return }
+        const k = Math.min(20, Math.max(1, Number(url.searchParams.get('k') ?? 8)))
+        const g = getGraph()
+        const keep = g.allNodes().filter((n) => cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id)))
+        const lbl = (n: typeof keep[number]) => cleanLabel(n) ?? ''
+        const target = keep.find((n) => n.id === q) ?? keep.find((n) => lbl(n).toLowerCase() === q.toLowerCase())
+        if (!target) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'entity_not_found' })); return }
+        const keepIds = new Set(keep.map((n) => n.id))
+        const edges = g.allEdges().filter((e) => keepIds.has(e.from) && keepIds.has(e.to)).map((e) => ({ from: e.from, to: e.to }))
+        const { structuralEmbeddings, structurallySimilar } = await import('./lib/graph-struct.js')
+        const emb = structuralEmbeddings(keep.map((n) => ({ id: n.id })), edges, { walks: 12, length: 8, window: 2 })
+        const byId = new Map(keep.map((n) => [n.id, n]))
+        const sims = structurallySimilar(target.id, emb, k).map((s) => ({ id: s.id, label: lbl(byId.get(s.id)!), sim: s.sim }))
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ entity: lbl(target), structurallySimilar: sims }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/graph/retrieve?q= — FAST hybrid retrieval with ZERO LLM calls (Graphiti-class latency):
+  // fuse lexical (keyword) + semantic (embedding) passages via reciprocal-rank fusion, plus graph
+  // entities matching the query + their relationships. For when latency matters more than synthesis.
+  if (req.method === 'GET' && url.pathname === '/api/graph/retrieve') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const q = (url.searchParams.get('q') || '').trim()
+        if (!q) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'q_required' })); return }
+        const k = Math.min(20, Math.max(1, Number(url.searchParams.get('k') ?? 8)))
+        const t0 = Date.now()
+        const { lexicalSearch, semanticSearch } = await import('./lib/doc-store.js')
+        const lex = lexicalSearch(q, 12)
+        const sem = await semanticSearch(q, 12).catch(() => [] as typeof lex)
+        // Reciprocal-rank fusion of the two rankings.
+        const fused = new Map<string, { text: string; filename: string; rrf: number; sources: Set<string> }>()
+        const add = (hits: typeof lex, src: string) => hits.forEach((h, i) => { const key = `${h.docId}#${h.text.slice(0, 48)}`; const e = fused.get(key) ?? { text: h.text, filename: h.filename, rrf: 0, sources: new Set<string>() }; e.rrf += 1 / (60 + i); e.sources.add(src); fused.set(key, e) })
+        add(lex, 'lexical'); add(sem, 'semantic')
+        const passages = [...fused.values()].sort((a, b) => b.rrf - a.rrf).slice(0, k).map((p) => ({ text: p.text.slice(0, 400), filename: p.filename, score: Number(p.rrf.toFixed(4)), sources: [...p.sources] }))
+        // Graph traversal: entities whose label matches the query + their relationships.
+        const qt = [...new Set(q.toLowerCase().split(/\W+/).filter((w) => w.length > 2))]
+        const g = getGraph()
+        const keep = g.allNodes().filter((n) => cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id)))
+        const lbl = (id: string) => { const n = keep.find((x) => x.id === id); return n ? (cleanLabel(n) ?? '') : '' }
+        const matched = keep.filter((n) => { const l = (cleanLabel(n) ?? '').toLowerCase(); return l && qt.some((t) => l.includes(t)) }).slice(0, 8)
+        const mIds = new Set(matched.map((n) => n.id))
+        const rels = [...new Set(g.allEdges().filter((e) => mIds.has(e.from) || mIds.has(e.to))
+          .map((e) => { const a = lbl(e.from), b = lbl(e.to); return a && b ? `${a} —${e.label}— ${b}` : '' }).filter(Boolean))].slice(0, 12)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ passages, entities: matched.map((n) => cleanLabel(n)), relationships: rels, latencyMs: Date.now() - t0, llmCalls: 0 }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/graph/resolve — entity resolution: ranked merge candidates (entities that refer to the
+  // same real-world thing) by fusing edit similarity + entity-embedding cosine + substring checks.
+  // Proposals, not silent merges. ?min=<0..1> confidence floor.
+  if (req.method === 'GET' && url.pathname === '/api/graph/resolve') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const min = Math.min(1, Math.max(0.5, Number(url.searchParams.get('min') ?? 0.82)))
+        const g = getGraph()
+        const keep = g.allNodes().filter((n) => cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id)))
+        const labelOf = (n: typeof keep[number]) => cleanLabel(n) ?? ''
+        const { embedEntities } = await import('./lib/graph-embed.js')
+        const { resolveEntities } = await import('./lib/graph-resolve.js')
+        const vectors = await embedEntities(keep.map((n) => ({ id: n.id, text: labelOf(n) || (n.labels[0] ?? '') })))
+        const candidates = resolveEntities(keep.map((n) => ({ id: n.id, label: labelOf(n) })), vectors, { minConfidence: min, topK: 30 })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ candidates, count: candidates.length, entitiesScanned: keep.length, embedderAvailable: vectors.size > 0 }))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
@@ -5422,6 +5883,387 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // GET /api/graph/tune — auto prompt-tuning: the domain profile (persona + entity/claim types)
+  // detected from the corpus and used to specialize extraction. Cached; ?refresh=1 re-detects.
+  if (req.method === 'GET' && url.pathname === '/api/graph/tune') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const refresh = url.searchParams.get('refresh') === '1'
+        const { analytics, sig, labelOf } = await analyticsForGraph(false)
+        const model = await pickChatModel()
+        const profile = await getDomainProfile(sig, model, async () => {
+          const { lexicalSearch } = await import('./lib/doc-store.js')
+          const labels = [...new Set(analytics.communities.flatMap((c) => c.topNodes.map(labelOf)).filter(Boolean))].slice(0, 10)
+          return [...labels, ...labels.slice(0, 6).flatMap((l) => { try { return lexicalSearch(l, 2).map((h) => h.text) } catch { return [] } }).slice(0, 8)]
+        }, refresh)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ model, ...profile }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/graph/covariates — typed, VERIFIED claims per top entity (GraphRAG covariates, but each
+  // claim grounding-checked). Cached by analytics sig + model; ?refresh=1 rebuilds.
+  if (req.method === 'GET' && url.pathname === '/api/graph/covariates') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const refresh = url.searchParams.get('refresh') === '1'
+        const asOf = Number(url.searchParams.get('asOf') ?? 0) || Infinity   // bi-temporal: claims known by T
+        const raw = await buildOrLoadCovariates(refresh)
+        const entities = asOf === Infinity ? raw.entities
+          : raw.entities.map((e) => { const cv = e.covariates.filter((c) => !c.validFrom || c.validFrom <= asOf); return { ...e, covariates: cv, grounded: cv.filter((c) => c.grounded).length } }).filter((e) => e.covariates.length)
+        const total = entities.reduce((s, e) => s + e.covariates.length, 0)
+        const grounded = entities.reduce((s, e) => s + e.grounded, 0)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ model: raw.model, entities, entityCount: entities.length, covariateCount: total, groundedCount: grounded, cached: raw.cached }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/graph/digest — PROACTIVE insights: the graph tells you what needs attention without being
+  // asked (the #1 PKM complaint is tools that store but don't help). Cheap synthesis of cached/structural
+  // signals — under-connected important concepts, critical bridges, the most likely missing link, and
+  // knowledge-health gaps — ranked by severity. No LLM; instant.
+  if (req.method === 'GET' && url.pathname === '/api/graph/digest') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { analytics } = await analyticsForGraph(false)
+        const g = getGraph()
+        const byId = new Map(g.allNodes().map((n) => [n.id, n]))
+        const lbl = (id: string) => { const n = byId.get(id); return n ? (cleanLabel(n) ?? '') : '' }
+        const metrics = Object.values(analytics.nodes)
+        const insights: Array<{ severity: 'high' | 'medium' | 'low'; icon: string; message: string }> = []
+        // important but under-connected
+        for (const m of metrics.filter((x) => x.pagerank >= 0.3 && x.degree <= 2).sort((a, b) => b.pagerank - a.pagerank).slice(0, 2)) {
+          if (lbl(m.id)) insights.push({ severity: 'high', icon: '💡', message: `"${lbl(m.id)}" is important but only has ${m.degree} link${m.degree === 1 ? '' : 's'} — likely under-connected` })
+        }
+        // critical bridge
+        const bridge = metrics.filter((m) => m.betweenness >= 0.5).sort((a, b) => b.betweenness - a.betweenness)[0]
+        if (bridge && lbl(bridge.id)) insights.push({ severity: 'medium', icon: '🌉', message: `"${lbl(bridge.id)}" is a critical connector — its loss would fragment the graph` })
+        // most likely missing link (structural, no LLM)
+        try {
+          const keep = g.allNodes().filter((n) => cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id)))
+          const keepIds = new Set(keep.map((n) => n.id))
+          const { predictLinks } = await import('./lib/graph-predict.js')
+          const top = predictLinks(keep.map((n) => ({ id: n.id })), g.allEdges().filter((e) => keepIds.has(e.from) && keepIds.has(e.to)).map((e) => ({ from: e.from, to: e.to })), { topK: 1 })[0]
+          if (top && lbl(top.source) && lbl(top.target)) insights.push({ severity: 'low', icon: '🔗', message: `"${lbl(top.source)}" and "${lbl(top.target)}" share many connections but aren't linked` })
+        } catch { /* prediction optional */ }
+        // health gaps from cached covariates / communities
+        const cov = loadCovariatesCache()
+        if (cov) { const t = cov.entities.reduce((s, e) => s + e.covariates.length, 0); const ung = t - cov.entities.reduce((s, e) => s + e.grounded, 0); if (ung > 0) insights.push({ severity: 'medium', icon: '⚠', message: `${ung} extracted claim${ung === 1 ? '' : 's'} couldn't be grounded in the evidence` }) }
+        const orphans = metrics.filter((m) => m.community < 0).length
+        if (orphans / Math.max(1, metrics.length) > 0.15) insights.push({ severity: 'low', icon: '🧩', message: `${orphans} concepts are orphaned (disconnected from any theme)` })
+        const order = { high: 0, medium: 1, low: 2 }
+        insights.sort((a, b) => order[a.severity] - order[b.severity])
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ insights, count: insights.length }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/graph/export?format=graphml|json — data portability (anti-lock-in, sovereignty): export the
+  // clean graph + GDS metrics (PageRank/community/betweenness) to a standard format. GraphML opens in
+  // Gephi/Cytoscape/yEd; JSON is the raw nodes+edges+metrics. Your knowledge, take it anywhere.
+  if (req.method === 'GET' && url.pathname === '/api/graph/export') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const format = url.searchParams.get('format') === 'json' ? 'json' : 'graphml'
+        const { analytics } = await analyticsForGraph(false)
+        const g = getGraph()
+        const keep = g.allNodes().filter((n) => cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id)))
+        const keepIds = new Set(keep.map((n) => n.id))
+        const edges = g.allEdges().filter((e) => keepIds.has(e.from) && keepIds.has(e.to))
+        const lbl = (n: typeof keep[number]) => cleanLabel(n) ?? ''
+        const nodes = keep.map((n) => ({ id: n.id, label: lbl(n), kind: String(n.properties?.['kind'] ?? n.labels[0] ?? ''), pagerank: analytics.nodes[n.id]?.pagerank ?? 0, community: analytics.nodes[n.id]?.community ?? -1, betweenness: analytics.nodes[n.id]?.betweenness ?? 0 }))
+        if (format === 'json') {
+          res.writeHead(200, { 'content-type': 'application/json', 'content-disposition': 'attachment; filename="noetica-graph.json"' })
+          res.end(JSON.stringify({ nodes, edges: edges.map((e) => ({ source: e.from, target: e.to, rel: e.label })), exportedAt: new Date().toISOString() }, null, 2))
+          return
+        }
+        const esc = (s: string) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+        const lines = [
+          '<?xml version="1.0" encoding="UTF-8"?>',
+          '<graphml xmlns="http://graphml.graphdrawing.org/xmlns">',
+          '<key id="label" for="node" attr.name="label" attr.type="string"/>',
+          '<key id="kind" for="node" attr.name="kind" attr.type="string"/>',
+          '<key id="pagerank" for="node" attr.name="pagerank" attr.type="double"/>',
+          '<key id="community" for="node" attr.name="community" attr.type="long"/>',
+          '<key id="betweenness" for="node" attr.name="betweenness" attr.type="double"/>',
+          '<key id="rel" for="edge" attr.name="rel" attr.type="string"/>',
+          '<graph edgedefault="undirected">',
+          ...nodes.map((n) => `<node id="${esc(n.id)}"><data key="label">${esc(n.label)}</data><data key="kind">${esc(n.kind)}</data><data key="pagerank">${n.pagerank.toFixed(4)}</data><data key="community">${n.community}</data><data key="betweenness">${n.betweenness.toFixed(4)}</data></node>`),
+          ...edges.map((e, i) => `<edge id="e${i}" source="${esc(e.from)}" target="${esc(e.to)}"><data key="rel">${esc(e.label)}</data></edge>`),
+          '</graph>', '</graphml>',
+        ]
+        res.writeHead(200, { 'content-type': 'application/xml', 'content-disposition': 'attachment; filename="noetica-graph.graphml"' })
+        res.end(lines.join('\n'))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/graph/associative — query-seeded Personalized PageRank (HippoRAG): seed the rank from the
+  // entities named in ?q= and let one diffusion surface associatively-related, multi-hop concepts — no
+  // iterative LLM loop. Same engine as analytics, query-conditioned instead of a static global prior.
+  if (req.method === 'GET' && url.pathname === '/api/graph/associative') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const q = (url.searchParams.get('q') ?? '').trim()
+        if (!q) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'query_required' })); return }
+        const topK = Math.min(40, Math.max(1, Number(url.searchParams.get('k')) || 12))
+        const g = getGraph()
+        const keep = g.allNodes().filter((n) => cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id)))
+        const keepIds = new Set(keep.map((n) => n.id))
+        const nodes = keep.map((n) => ({ id: n.id }))
+        const edges = g.allEdges().filter((e) => keepIds.has(e.from) && keepIds.has(e.to)).map((e) => ({ from: e.from, to: e.to }))
+        const labelById = new Map(keep.map((n) => [n.id, cleanLabel(n) ?? n.id]))
+        const { associativeRetrieve } = await import('./lib/graph-ppr.js')
+        const { seeds, results } = associativeRetrieve(nodes, edges, labelById, q, { topK })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({
+          query: q,
+          method: 'personalized-pagerank',
+          seeds: seeds.map((id) => labelById.get(id) ?? id),
+          seedResolved: seeds.length > 0,
+          results: results.map((r) => ({ entity: r.label, score: Number(r.score.toFixed(5)) })),
+        }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/graph/geo — Orion Field Intelligence (OFIF) map-marker surface: our detected places projected
+  // into the OrionMapMarker v0.1 contract (from SocioProphet/orion-field-intelligence), so the OSM × GAIA
+  // map workbench can render them. Read-only + ODbL-attributed; honors the OFIF boundary (no action UI —
+  // action_enabled:false, scanner/sweep/recon stay in SCOPE-D). Consumes the _placesCache that /places fills.
+  if (req.method === 'GET' && url.pathname === '/api/graph/geo') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const cached = _placesCache
+        const { placesToMarkers, OSM_ATTRIBUTION, ORION_FIELD_BOUNDARY } = await import('./lib/orion-markers.js')
+        const markers = placesToMarkers(cached?.places ?? [])
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({
+          markers,
+          count: markers.length,
+          attribution: OSM_ATTRIBUTION,
+          boundary: ORION_FIELD_BOUNDARY,
+          note: cached ? undefined : 'No places cached yet — call /api/graph/places first to populate.',
+        }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/graph/ontology — the GAIA Ontogenesis Stewardship ontology (dogfooded from regis-entity-graph),
+  // PLUS a live census: every clean node classified into a GAIA developmental phase + abandonment signals
+  // detected from its GDS structural state. The abstract ontology grounded in our actual graph.
+  if (req.method === 'GET' && url.pathname === '/api/graph/ontology') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { GAIA_ONTOLOGY, ontogenesisPhase, abandonmentSignals } = await import('./lib/gaia-ontology.js')
+        if (url.searchParams.get('apply') === '0') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ontology: GAIA_ONTOLOGY })); return }
+        const { analytics, labelOf } = await analyticsForGraph(false)
+        const phases: Record<string, number> = {}
+        const signals: Record<string, string[]> = {}
+        let total = 0
+        for (const [id, m] of Object.entries(analytics.nodes)) {
+          const lbl = labelOf(id); if (!lbl) continue
+          total++
+          const phase = ontogenesisPhase(m); phases[phase] = (phases[phase] ?? 0) + 1
+          for (const s of abandonmentSignals(m)) { (signals[s] ??= []).push(lbl) }
+        }
+        const census = {
+          total,
+          phases: Object.entries(phases).sort((a, b) => b[1] - a[1]).map(([phase, count]) => ({ phase, count })),
+          signals: Object.entries(signals).sort((a, b) => b[1].length - a[1].length).map(([signal, ents]) => ({ signal, count: ents.length, examples: ents.slice(0, 6) })),
+        }
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ontology: GAIA_ONTOLOGY, census }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/graph/places — geospatial foundation: classify which concepts are geographic locations
+  // (cities/regions/landmarks/facilities) with best-effort coordinates, so the graph can be placed on a
+  // map (Palantir/KeyLines have geo overlays). Read-only; LLM classification. Cached by graph signature.
+  if (req.method === 'GET' && url.pathname === '/api/graph/places') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const refresh = url.searchParams.get('refresh') === '1'
+        const { analytics, sig, labelOf } = await analyticsForGraph(false)
+        const model = await pickChatModel()
+        const cached = _placesCache
+        if (!refresh && cached && cached.sig === sig) { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ places: cached.places, count: cached.places.length, geocoded: cached.places.filter((p) => p.lat != null).length, cached: true })); return }
+        const entities = [...new Set(Object.values(analytics.nodes).sort((a, b) => b.pagerank - a.pagerank).map((m) => labelOf(m.id)).filter((l) => l && !/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(l) && !/^\d{8,}$/.test(l.replace(/\s/g, ''))))].slice(0, 30)
+        const { generateOllamaText } = await import('./lib/ollama.js')
+        const prompt = `From this list, identify which are GEOGRAPHIC LOCATIONS (city, region, country, landmark, facility, address). For each, give approximate latitude/longitude if you genuinely know it (else null), and a type. Ignore non-places. STRICT JSON array only:\n[{"name":"<exact name from the list>","lat":<number|null>,"lon":<number|null>,"type":"city|region|country|landmark|facility|other"}]\nConcepts: ${entities.join(', ')}`
+        let places: Array<{ name: string; lat: number | null; lon: number | null; type: string }> = []
+        try {
+          const c = (await generateOllamaText({ model, messages: [{ role: 'user', content: prompt }], temperature: 0.1, numCtx: 8192 })).content
+          const m = c.match(/\[[\s\S]*\]/)
+          if (m) places = (JSON.parse(m[0]) as typeof places).filter((p) => p && p.name && entities.includes(p.name)).slice(0, 20)
+        } catch { /* extraction best-effort */ }
+        _placesCache = { sig, places }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ places, count: places.length, geocoded: places.filter((p) => p.lat != null).length, cached: false }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/graph/anomalies — structural outliers (the investigation/fraud-platform play): bridges
+  // (single points of connection), important-but-isolated concepts, and over-connected hubs — what
+  // stands out in the topology, classified with an explanation. Reads analytics; cheap.
+  if (req.method === 'GET' && url.pathname === '/api/graph/anomalies') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { analytics } = await analyticsForGraph(false)
+        const g = getGraph()
+        const byId = new Map(g.allNodes().map((n) => [n.id, n]))
+        const lbl = (id: string) => { const n = byId.get(id); return n ? (cleanLabel(n) ?? '') : '' }
+        const metrics = Object.values(analytics.nodes)
+        const maxDeg = Math.max(1, ...metrics.map((m) => m.degree))
+        const bridges = metrics.filter((m) => m.betweenness >= 0.4).sort((a, b) => b.betweenness - a.betweenness).slice(0, 6)
+          .map((m) => ({ label: lbl(m.id), kind: 'bridge', detail: `betweenness ${m.betweenness.toFixed(2)} — a connector between otherwise-separate areas; its loss fragments the graph` }))
+        const isolated = metrics.filter((m) => m.pagerank >= 0.3 && m.degree <= 2).sort((a, b) => b.pagerank - a.pagerank).slice(0, 6)
+          .map((m) => ({ label: lbl(m.id), kind: 'isolated-importance', detail: `importance ${m.pagerank.toFixed(2)} but only ${m.degree} link(s) — under-connected for its weight` }))
+        const hubs = metrics.filter((m) => m.degree >= maxDeg * 0.7).sort((a, b) => b.degree - a.degree).slice(0, 4)
+          .map((m) => ({ label: lbl(m.id), kind: 'hub', detail: `${m.degree} links — an over-connected hub` }))
+        const anomalies = [...bridges, ...isolated, ...hubs].filter((a) => a.label)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ anomalies, count: anomalies.length, byKind: { bridge: bridges.length, isolatedImportance: isolated.length, hub: hubs.length } }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/graph/knowledge-health — knowledge-health synthesis: one trust+completeness score over the
+  // graph, aggregating community structure, grounded-claim ratio, community trust, and structural gaps.
+  // Cheap (reads cached signals; never rebuilds) — an instant "is my brain trustworthy + complete" view.
+  // (Distinct from /api/graph/health, which reports graph-store status + node/edge counts.)
+  if (req.method === 'GET' && url.pathname === '/api/graph/knowledge-health') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { analytics } = await analyticsForGraph(false)
+        const metrics = Object.values(analytics.nodes)
+        const n = metrics.length || 1
+        const orphans = metrics.filter((m) => m.community < 0).length
+        const orphanRatio = orphans / n
+        // important-but-under-connected: top-importance nodes whose degree is low (knowledge gaps).
+        const sortedPr = [...metrics].sort((a, b) => b.pagerank - a.pagerank).slice(0, 12)
+        const underConnected = sortedPr.filter((m) => m.pagerank > 0.3 && m.degree <= 2).length
+        // cached (don't rebuild): covariate grounding + community trust.
+        const cov = loadCovariatesCache()
+        const covTotal = cov ? cov.entities.reduce((s, e) => s + e.covariates.length, 0) : 0
+        const covGrounded = cov ? cov.entities.reduce((s, e) => s + e.grounded, 0) : 0
+        const groundedRatio = covTotal ? covGrounded / covTotal : null
+        const comms = loadCommunitiesCache()
+        const commTrusts = comms ? comms.reports.map((r) => r.trust) : []
+        const avgCommTrust = commTrusts.length ? commTrusts.reduce((s, t) => s + t, 0) / commTrusts.length : null
+        const lowTrustCommunities = comms ? comms.reports.filter((r) => !r.grounded).map((r) => r.title) : []
+
+        // health score: blend the available signals (each 0..1), weighted, → 0..100.
+        const parts: Array<[number, number]> = [[analytics.modularity, 1], [1 - orphanRatio, 1]]
+        if (groundedRatio !== null) parts.push([groundedRatio, 2])
+        if (avgCommTrust !== null) parts.push([avgCommTrust, 2])
+        const wSum = parts.reduce((s, [, w]) => s + w, 0)
+        const score = Math.round((parts.reduce((s, [v, w]) => s + Math.max(0, Math.min(1, v)) * w, 0) / wSum) * 100)
+
+        const gaps: string[] = []
+        if (orphanRatio > 0.1) gaps.push(`${orphans} orphan nodes (${Math.round(orphanRatio * 100)}%) — disconnected from any community`)
+        if (underConnected > 0) gaps.push(`${underConnected} important concept(s) under-connected — high importance, few links`)
+        if (groundedRatio === null) gaps.push('covariates not extracted yet — run /api/graph/covariates')
+        else if (groundedRatio < 0.8) gaps.push(`${covTotal - covGrounded} ungrounded claim(s) — extraction outran the evidence`)
+        if (avgCommTrust === null) gaps.push('community reports not built yet — run /api/graph/communities')
+        if (lowTrustCommunities.length) gaps.push(`${lowTrustCommunities.length} low-trust theme(s): ${lowTrustCommunities.slice(0, 3).join(', ')}`)
+
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({
+          score,
+          structure: { nodes: analytics.summary.nodeCount, edges: analytics.summary.edgeCount, communities: analytics.summary.communityCount, modularity: Number(analytics.modularity.toFixed(2)), orphans, orphanRatio: Number(orphanRatio.toFixed(2)) },
+          trust: { groundedRatio: groundedRatio === null ? null : Number(groundedRatio.toFixed(2)), claimsVerified: covTotal, avgCommunityTrust: avgCommTrust === null ? null : Number(avgCommTrust.toFixed(2)) },
+          gaps,
+        }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/graph/contradictions — find + adjudicate contradictions among verified covariates: claims
+  // that can't both be true, surfaced as "contested" knowledge (the epistemic layer). ?refresh rebuilds.
+  if (req.method === 'GET' && url.pathname === '/api/graph/contradictions') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const refresh = url.searchParams.get('refresh') === '1'
+        const { entities, model } = await buildOrLoadCovariates(refresh)
+        const { findContradictions } = await import('./lib/graph-contradict.js')
+        const contradictions = await findContradictions(entities, { model, maxCandidates: 14 })
+        const claims = entities.reduce((s, e) => s + e.covariates.length, 0)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ model, contradictions, count: contradictions.length, contested: contradictions.filter((c) => c.kind === 'contested').length, superseded: contradictions.filter((c) => c.kind === 'superseded').length, claimsScanned: claims }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/graph/infer — rule-based inference (OWL-lite): derive new facts by transitivity over the
+  // relational covariates, marked epistemic:'inferred' with their derivation chain. ?verify=1 has the
+  // model check each derivation holds. Reasoning + verification — Stardog reasons, GraphRAG doesn't.
+  if (req.method === 'GET' && url.pathname === '/api/graph/infer') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const verify = url.searchParams.get('verify') === '1'
+        const { entities, model } = await buildOrLoadCovariates(false)
+        const facts = entities.flatMap((e) => e.covariates.filter((c) => c.object).map((c) => ({ subject: e.entity, predicate: c.type, object: c.object! })))
+        const { inferFacts } = await import('./lib/graph-infer.js')
+        const inferred = await inferFacts(facts, { model, verify, max: 30 })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ model, inferred, count: inferred.length, verifiedCount: verify ? inferred.filter((f) => f.verified).length : null, factsFrom: facts.length }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
   // GET /api/graph/communities — GraphRAG community reports: one LLM-written, grounding-verified
   // summary per Louvain community. Cached by analytics signature + model; ?refresh=1 rebuilds.
   if (req.method === 'GET' && url.pathname === '/api/graph/communities') {
@@ -5438,7 +6280,12 @@ const server = http.createServer((req, res) => {
         if (hit) { reports = cached!.reports }
         else {
           const { buildCommunityReports } = await import('./lib/graph-rag.js')
-          reports = await buildCommunityReports(analytics, labelOf, { model, maxCommunities: 24, minSize: 3, level })
+          const { lexicalSearch } = await import('./lib/doc-store.js')
+          const profile = await getDomainProfile(sig, model, async () => {
+            const labels = [...new Set(analytics.communities.flatMap((c) => c.topNodes.map(labelOf)).filter(Boolean))].slice(0, 10)
+            return [...labels, ...labels.slice(0, 6).flatMap((l) => { try { return lexicalSearch(l, 2).map((h) => h.text) } catch { return [] } }).slice(0, 8)]
+          })
+          reports = await buildCommunityReports(analytics, labelOf, { model, maxCommunities: 24, minSize: 3, level, persona: profile.persona })
           saveCommunitiesCache({ sig, model, level, reports, builtAt: new Date().toISOString() })
         }
         res.writeHead(200, { 'content-type': 'application/json' })
@@ -5458,8 +6305,9 @@ const server = http.createServer((req, res) => {
     req.on('end', () => { void (async () => {
       setCORSHeaders(res)
       try {
-        const p = JSON.parse(body || '{}') as { question?: string }
+        const p = JSON.parse(body || '{}') as { question?: string; drift?: boolean }
         const question = String(p.question ?? '').trim()
+        const useDrift = p.drift === true || url.searchParams.get('drift') === '1'
         if (!question) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'question_required' })); return }
         const { analytics, sig, labelOf } = await analyticsForGraph(false)
         const model = await pickChatModel()
@@ -5469,10 +6317,84 @@ const server = http.createServer((req, res) => {
           const reports = await buildCommunityReports(analytics, labelOf, { model, maxCommunities: 24, minSize: 3, level: 'coarse' })
           cached = { sig, model, level: 'coarse', reports, builtAt: new Date().toISOString() }; saveCommunitiesCache(cached)
         }
-        const { globalSearch } = await import('./lib/graph-rag.js')
-        const result = await globalSearch(question, cached.reports, { model, maxCommunities: 6 })
+        const { globalSearch, driftSearch } = await import('./lib/graph-rag.js')
+        // Embed the reports + question for SEMANTIC relevance (GraphRAG "embed reports") — beats token
+        // overlap at matching a question to the right communities. Degrades to token overlap if cold.
+        let relevanceOf: ((r: import('./lib/graph-rag.js').CommunityReport) => number) | undefined
+        try {
+          const { embedBatchLocal } = await import('./lib/embed-runtime.js')
+          const { cosineSim } = await import('./lib/graph-search.js')
+          const reps = cached.reports
+          const vecs = await embedBatchLocal([question, ...reps.map((r) => `${r.title}. ${r.summary}`)])
+          if (vecs && vecs[0]) { const qv = vecs[0]; const rmap = new Map(reps.map((r, i) => [r.id, vecs[i + 1] ? cosineSim(qv, vecs[i + 1]!) : 0])); relevanceOf = (r) => rmap.get(r.id) ?? 0 }
+        } catch { /* embedder optional → token overlap */ }
+        const gOpts = { model, maxCommunities: 6, ...(relevanceOf ? { relevanceOf } : {}) }
+        const result = useDrift ? await driftSearch(question, cached.reports, gOpts) : await globalSearch(question, cached.reports, gOpts)
         res.writeHead(200, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ ...result, model }))
+        res.end(JSON.stringify({ ...result, model, mode: useDrift ? 'drift' : 'global', retrieval: relevanceOf ? 'semantic' : 'lexical' }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })() })
+    return
+  }
+
+  // POST /api/graph/local — GraphRAG structured LOCAL search: resolve the focal entity (embedding
+  // similarity to the question), then assemble its relationships + text-units + community context into
+  // one window and answer from it — grounded + trust-scored. Entity-centric, vs global's theme-centric.
+  if (req.method === 'POST' && url.pathname === '/api/graph/local') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      setCORSHeaders(res)
+      try {
+        const p = JSON.parse(body || '{}') as { question?: string }
+        const question = String(p.question ?? '').trim()
+        if (!question) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'question_required' })); return }
+        const { analytics } = await analyticsForGraph(false)
+        const model = await pickChatModel()
+        const g = getGraph()
+        const keep = g.allNodes().filter((n) => cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id)))
+        const lbl = (id: string) => { const n = keep.find((x) => x.id === id); return n ? (cleanLabel(n) ?? '') : '' }
+
+        // 1. Resolve the focal entity: most embedding-similar to the question (fallback: token match).
+        const { embedEntities } = await import('./lib/graph-embed.js')
+        const { cosineSim } = await import('./lib/graph-search.js')
+        const { embedBatchLocal } = await import('./lib/embed-runtime.js')
+        const vectors = await embedEntities(keep.map((n) => ({ id: n.id, text: (cleanLabel(n) ?? '') || (n.labels[0] ?? '') })))
+        const qv = (await embedBatchLocal([question]).catch(() => null))?.[0] ?? null
+        let focal = ''
+        if (qv && vectors.size) { let best = -1; for (const [id, v] of vectors) { const s = cosineSim(qv, v); if (s > best) { best = s; focal = id } } }
+        if (!focal) { const qt = question.toLowerCase(); focal = keep.find((n) => qt.includes((cleanLabel(n) ?? '').toLowerCase()) && (cleanLabel(n) ?? '').length > 2)?.id ?? keep[0]?.id ?? '' }
+        if (!focal) { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ answer: "No matching entity in the graph.", trust: 0, grounded: false, entity: '', context: {} })); return }
+        const focalLabel = lbl(focal)
+
+        // 2. Relationships touching the focal entity.
+        const rels = [...new Set(g.allEdges().filter((e) => e.from === focal || e.to === focal)
+          .map((e) => { const other = e.from === focal ? e.to : e.from; const ol = lbl(other); return ol ? `${focalLabel} —${e.label}— ${ol}` : '' }).filter(Boolean))].slice(0, 12)
+        // 3. Text-units (local passages).
+        const { lexicalSearch } = await import('./lib/doc-store.js')
+        const passages = [...new Set(lexicalSearch(`${focalLabel} ${question}`, 5).map((h) => h.text))].slice(0, 5)
+        // 4. Community context (which theme this entity belongs to + its report).
+        const comm = analytics.communities.find((c) => c.members.includes(focal))
+        const report = comm ? (loadCommunitiesCache()?.reports.find((r) => r.id === comm.id)) : undefined
+
+        // 5. Assemble the local window + answer + verify.
+        const ctx = [
+          `Focal entity: ${focalLabel}`,
+          rels.length ? `Relationships:\n${rels.join('\n')}` : '',
+          report ? `Community theme — ${report.title}: ${report.summary}` : '',
+          passages.length ? `Passages:\n${passages.map((t, i) => `(${i + 1}) ${t.slice(0, 300)}`).join('\n')}` : '',
+        ].filter(Boolean).join('\n\n')
+        const { generateOllamaText } = await import('./lib/ollama.js')
+        const prompt = `${ctx}\n\nQuestion: ${question}\n\nAnswer concisely using ONLY the focal entity's relationships, community theme, and passages above. Do not add facts not present.`
+        let answer = ''
+        try { answer = (await generateOllamaText({ model, messages: [{ role: 'user', content: prompt }], temperature: 0.3 })).content.trim() } catch { answer = '' }
+        const { verifyGrounding } = await import('./lib/research-verify.js')
+        const evidence = [...rels.map((t) => ({ text: t })), ...passages.map((t) => ({ text: t })), ...(report ? [{ text: report.summary }] : [])]
+        const gr = evidence.length && answer ? verifyGrounding(answer, evidence) : { grounded: false, score: 0 }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ answer, trust: Number(gr.score.toFixed(2)), grounded: gr.grounded, entity: focalLabel, context: { relationships: rels.length, passages: passages.length, community: report?.title ?? null }, model }))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }

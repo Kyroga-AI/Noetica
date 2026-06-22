@@ -48,23 +48,37 @@ export async function generateSovereign(opts: {
   temperature?: number
   maxTokens?: number
   timeoutMs?: number
+  redact?: boolean   // PII/secret firewall before egress — default ON (privacy-first); pass false to disable
   env?: Record<string, string | undefined>
-}): Promise<{ content: string; model: string } | null> {
+}): Promise<{ content: string; model: string; redacted?: number } | null> {
   const cfg = sovereignConfig(opts.env)
   if (!cfg) return null
   const headers: Record<string, string> = { 'content-type': 'application/json' }
   if (cfg.key) headers['authorization'] = `Bearer ${cfg.key}`
+  // This is the mesh's non-local rung — data leaves the device here. Mask PII/secrets before egress and
+  // restore them in the response, so the host reasons over structure, never the secret.
+  const doRedact = opts.redact !== false
+  let messages = opts.messages
+  let mapping: Record<string, string> = {}
+  if (doRedact) {
+    const { redactMany, loadPolicy } = await import('./redact.js')
+    const rr = redactMany(opts.messages.map((m) => m.content), loadPolicy())   // granular policy: user-disabled categories + custom terms
+    mapping = rr.mapping
+    messages = opts.messages.map((m, i) => ({ ...m, content: rr.redacted[i] ?? m.content }))
+  }
   try {
     const r = await fetch(`${cfg.url}/chat/completions`, {
       method: 'POST',
       headers,
-      body: JSON.stringify({ model: cfg.model, messages: opts.messages, temperature: opts.temperature ?? 0.3, max_tokens: opts.maxTokens ?? 2048, stream: false }),
+      body: JSON.stringify({ model: cfg.model, messages, temperature: opts.temperature ?? 0.3, max_tokens: opts.maxTokens ?? 2048, stream: false }),
       signal: AbortSignal.timeout(opts.timeoutMs ?? 120_000),
     })
     if (!r.ok) return null
     const j = (await r.json()) as { choices?: { message?: { content?: string } }[] }
-    const content = j.choices?.[0]?.message?.content
-    return typeof content === 'string' && content.trim() ? { content, model: cfg.model } : null
+    let content = j.choices?.[0]?.message?.content
+    if (typeof content !== 'string' || !content.trim()) return null
+    if (doRedact && Object.keys(mapping).length) { const { unredact } = await import('./redact.js'); content = unredact(content, mapping) }
+    return { content, model: cfg.model, ...(doRedact ? { redacted: Object.keys(mapping).length } : {}) }
   } catch {
     return null
   }

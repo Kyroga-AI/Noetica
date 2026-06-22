@@ -37,19 +37,64 @@ export function GraphRailPanel() {
   const [pathMode, setPathMode] = useState(false)
   const [pathFrom, setPathFrom] = useState('')
   const [pathIds, setPathIds] = useState<string[]>([])
+  const [pathExplain, setPathExplain] = useState<{ explanation: string; confidence: number; hops: number } | null>(null)
   // GDS overlay (size by PageRank importance, colour by Louvain community) + GraphRAG themes.
   const [colorBy, setColorBy] = useState<'class' | 'community'>('class')
   const [sizeBy, setSizeBy] = useState<'degree' | 'importance'>('degree')
   const [metrics, setMetrics] = useState<Record<string, { pagerank: number; betweenness: number; community: number }>>({})
   const [insights, setInsights] = useState<{ communityCount: number; modularity: number; topImportant: string[]; topBridges: string[] } | null>(null)
+  const [kHealth, setKHealth] = useState<{ score: number; gaps: string[] } | null>(null)
+  const [digest, setDigest] = useState<Array<{ severity: string; icon: string; message: string }>>([])
+  const [digestIdx, setDigestIdx] = useState(0)
+  const [digestDismissed, setDigestDismissed] = useState(false)
+  const [recs, setRecs] = useState<Array<{ id: string; label: string; reasons: string[]; connected: boolean }>>([])
+  // unsurfaced-capability state: NL→Cypher, alerts (anomalies+contradictions), entity resolution, inference, impact
+  const [nlResult, setNlResult] = useState<{ cypher: string; executed?: boolean; error?: string; op?: string; count?: number; rows?: Array<Record<string, unknown>> } | null>(null)
+  const [nlLoading, setNlLoading] = useState(false)
+  const [showTools, setShowTools] = useState(false)
+  const [anomalies, setAnomalies] = useState<Array<{ label: string; kind: string; detail: string }>>([])
+  const [contradictions, setContradictions] = useState<Array<{ claimA: string; claimB: string; kind: string; current?: string; resolution: string }>>([])
+  const [mergeCands, setMergeCands] = useState<Array<{ a: string; b: string; confidence: number; reason: string }>>([])
+  const [inferred, setInferred] = useState<Array<{ subject: string; predicate: string; object: string; via: string; verified?: boolean }>>([])
+  const [toolsLoading, setToolsLoading] = useState('')
+  const [impact, setImpact] = useState<{ totalAffected: number; levels: Array<{ distance: number; count: number }> } | null>(null)
+  const [gaia, setGaia] = useState<{ phases: Array<{ phase: string; count: number }>; signals: Array<{ signal: string; count: number; examples: string[] }> } | null>(null)
+
+  async function askGraphQuery() {
+    const question = globalQ.trim()
+    if (!question || nlLoading) return
+    setNlLoading(true); setNlResult(null)
+    try {
+      const res = await fetch('/api/graph/nlquery', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question }) })
+      if (res.ok) setNlResult(await res.json() as NonNullable<typeof nlResult>)
+    } catch { /* offline */ } finally { setNlLoading(false) }
+  }
+  async function loadTools() {
+    setToolsLoading('all')
+    try {
+      const [an, co, rs, inf, on] = await Promise.all([
+        fetch('/api/graph/anomalies'), fetch('/api/graph/contradictions'), fetch('/api/graph/resolve'), fetch('/api/graph/infer'), fetch('/api/graph/ontology'),
+      ])
+      if (an.ok) setAnomalies(((await an.json()) as { anomalies?: typeof anomalies }).anomalies ?? [])
+      if (co.ok) setContradictions(((await co.json()) as { contradictions?: typeof contradictions }).contradictions ?? [])
+      if (rs.ok) setMergeCands(((await rs.json()) as { candidates?: typeof mergeCands }).candidates ?? [])
+      if (inf.ok) setInferred(((await inf.json()) as { inferred?: typeof inferred }).inferred ?? [])
+      if (on.ok) setGaia(((await on.json()) as { census?: typeof gaia }).census ?? null)
+    } catch { /* offline */ } finally { setToolsLoading('') }
+  }
   const [showThemes, setShowThemes] = useState(false)
   const [communities, setCommunities] = useState<Array<{ id: number; title: string; summary: string; trust: number; grounded: boolean; size: number; topNodes: string[]; claims?: Array<{ text: string; grounded: boolean; score: number }> }>>([])
   const [themesLoading, setThemesLoading] = useState(false)
   const [globalQ, setGlobalQ] = useState('')
-  const [globalAnswer, setGlobalAnswer] = useState<{ answer: string; trust: number; grounded: boolean; communitiesUsed: Array<{ title: string }>; localUsed?: number } | null>(null)
+  const [globalAnswer, setGlobalAnswer] = useState<{ answer: string; trust: number; grounded: boolean; communitiesUsed: Array<{ title: string }>; localUsed?: number; mode?: string; followups?: string[]; sources?: string[] } | null>(null)
   const [globalLoading, setGlobalLoading] = useState(false)
   const [predictions, setPredictions] = useState<Array<{ source: string; target: string; sourceLabel: string; targetLabel: string; score: number; commonNeighbors: number; verified?: boolean; relation?: string; confidence?: number; rationale?: string }>>([])
   const [predLoading, setPredLoading] = useState(false)
+  const [deepMode, setDeepMode] = useState(false)   // DRIFT iterative fan-out on the global ask
+  const [covariates, setCovariates] = useState<Array<{ entity: string; grounded: number; covariates: Array<{ type: string; claim: string; object?: string; grounded: boolean; score: number }> }>>([])
+  const [covLoading, setCovLoading] = useState(false)
+  const [showCov, setShowCov] = useState(false)
+  const [domain, setDomain] = useState<{ domain: string; persona: string } | null>(null)
   const [showTimeline, setShowTimeline] = useState(false)
   const [timeline, setTimeline] = useState<{ from: number; to: number; total: number; buckets: Array<{ start: number; end: number; newNodes: number; cumulative: number; newConcepts: string[] }> } | null>(null)
   const [tlLoading, setTlLoading] = useState(false)
@@ -67,9 +112,17 @@ export function GraphRailPanel() {
     if (!question || globalLoading) return
     setGlobalLoading(true); setGlobalAnswer(null)
     try {
-      const res = await fetch('/api/graph/global', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question }) })
+      const res = await fetch('/api/graph/global', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question, drift: deepMode }) })
       if (res.ok) setGlobalAnswer(await res.json() as NonNullable<typeof globalAnswer>)
     } catch { /* offline */ } finally { setGlobalLoading(false) }
+  }
+  async function loadCovariates() {
+    setCovLoading(true)
+    try {
+      const [cv, tn] = await Promise.all([fetch('/api/graph/covariates'), fetch('/api/graph/tune')])
+      if (cv.ok) { const j = await cv.json() as { entities?: typeof covariates }; setCovariates(j.entities ?? []) }
+      if (tn.ok) { const j = await tn.json() as { domain: string; persona: string }; setDomain({ domain: j.domain, persona: j.persona }) }
+    } catch { /* offline */ } finally { setCovLoading(false) }
   }
   async function loadPredictions() {
     setPredLoading(true)
@@ -90,9 +143,13 @@ export function GraphRailPanel() {
     if (!pathMode) { setRoot(id); return }
     if (!pathFrom) { setPathFrom(id); return }   // first pick = source
     try {
-      const r = await fetch(`/api/graph/path?from=${encodeURIComponent(pathFrom)}&to=${encodeURIComponent(id)}`)
-      const j = (await r.json()) as { path?: { id: string }[] }
-      setPathIds((j.path ?? []).map((p) => p.id))
+      const [pr, er] = await Promise.all([
+        fetch(`/api/graph/path?from=${encodeURIComponent(pathFrom)}&to=${encodeURIComponent(id)}`),
+        fetch(`/api/graph/explain-path?from=${encodeURIComponent(pathFrom)}&to=${encodeURIComponent(id)}`),
+      ])
+      const pj = (await pr.json()) as { path?: { id: string }[] }
+      setPathIds((pj.path ?? []).map((p) => p.id))
+      if (er.ok) { const ej = (await er.json()) as { explanation?: string; confidence?: number; length?: number }; setPathExplain({ explanation: ej.explanation ?? '', confidence: ej.confidence ?? 0, hops: ej.length ?? 0 }) }
     } catch { /* offline */ }
     setPathFrom(''); setPathMode(false)
   }
@@ -155,10 +212,31 @@ export function GraphRailPanel() {
         const j = (await res.json()) as { nodes?: Record<string, { pagerank: number; betweenness: number; community: number }>; modularity?: number; summary?: { communityCount: number; topByPagerank: Array<{ label: string }>; topByBetweenness: Array<{ label: string }> } }
         if (!cancelled && j.nodes) setMetrics(j.nodes)
         if (!cancelled && j.summary) setInsights({ communityCount: j.summary.communityCount, modularity: j.modularity ?? 0, topImportant: j.summary.topByPagerank.slice(0, 4).map((x) => x.label), topBridges: j.summary.topByBetweenness.slice(0, 3).map((x) => x.label) })
+        // knowledge-health synthesis — cheap, aggregates the verified-stack signals into one score
+        try { const hr = await fetch('/api/graph/knowledge-health'); if (hr.ok) { const hj = (await hr.json()) as { score: number; gaps: string[] }; if (!cancelled) setKHealth({ score: hj.score, gaps: hj.gaps ?? [] }) } } catch { /* offline */ }
+        // proactive digest — the graph surfaces what needs attention without being asked
+        try { const dr = await fetch('/api/graph/digest'); if (dr.ok) { const dj = (await dr.json()) as { insights?: typeof digest }; if (!cancelled) { setDigest(dj.insights ?? []); setDigestIdx(0); setDigestDismissed(false) } } } catch { /* offline */ }
       } catch { /* offline */ }
     })()
     return () => { cancelled = true }
   }, [view])
+
+  // Guided exploration: when a node is focused, fetch "explore next" recommendations + impact (blast radius).
+  useEffect(() => {
+    if (!root) { setRecs([]); setImpact(null); return }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const [rc, im] = await Promise.all([
+          fetch(`/api/graph/recommend?entity=${encodeURIComponent(root)}&k=6`),
+          fetch(`/api/graph/impact?entity=${encodeURIComponent(root)}&hops=2`),
+        ])
+        if (rc.ok && !cancelled) setRecs(((await rc.json()) as { recommendations?: typeof recs }).recommendations ?? [])
+        if (im.ok && !cancelled) { const j = (await im.json()) as NonNullable<typeof impact>; setImpact({ totalAffected: j.totalAffected, levels: j.levels }) }
+      } catch { /* offline */ }
+    })()
+    return () => { cancelled = true }
+  }, [root])
 
   // graph search — cosine + Jaccard + link expansion (debounced)
   useEffect(() => {
@@ -262,6 +340,10 @@ export function GraphRailPanel() {
                 {health.status}
               </span>
             )}
+            <a href="/api/graph/export?format=graphml" download title="Export graph (GraphML — opens in Gephi/Cytoscape)" aria-label="Export graph"
+              className="text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-primary)]">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M8 1v9M5 7l3 3 3-3M3 13h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </a>
             <button onClick={() => setExpanded(true)} title="Expand graph" aria-label="Expand graph"
               className="text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-primary)]">
               <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M6 2H2v4M10 2h4v4M6 14H2v-4M10 14h4v-4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
@@ -282,8 +364,14 @@ export function GraphRailPanel() {
             className={`ml-auto rounded-full border px-2 py-0.5 transition ${pathMode ? 'border-[#f59e0b] text-[#f59e0b]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-tertiary)]'}`}>
             {pathMode ? (pathFrom ? 'pick target…' : 'pick source…') : '🔗 path'}
           </button>
-          {pathIds.length > 0 && <button onClick={() => setPathIds([])} className="text-[#f59e0b]">clear</button>}
+          {pathIds.length > 0 && <button onClick={() => { setPathIds([]); setPathExplain(null) }} className="text-[#f59e0b]">clear</button>}
         </div>
+        {pathExplain && pathExplain.explanation && (
+          <div className="mt-1 rounded-lg border border-[#f59e0b]/40 bg-[var(--color-background-secondary)] px-2.5 py-1.5">
+            <p className="text-[10px] leading-snug text-[var(--color-text-secondary)]">{pathExplain.explanation}</p>
+            <span className="text-[9px] text-[var(--color-text-tertiary)]">{pathExplain.hops} hop{pathExplain.hops === 1 ? '' : 's'} · path confidence {pathExplain.confidence.toFixed(2)}</span>
+          </div>
+        )}
         {/* GDS overlay: colour by Louvain community, size by PageRank importance; cyan-ringed nodes
             are high-betweenness "bridge" concepts. Themes opens the GraphRAG community summaries. */}
         <div className="mt-1.5 flex items-center gap-1 text-[10px]">
@@ -305,7 +393,98 @@ export function GraphRailPanel() {
             className={`rounded-full border px-2 py-0.5 transition ${showTimeline ? 'border-[#0891b2] text-[#0891b2]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-tertiary)]'}`}>
             📈 timeline
           </button>
+          <button onClick={() => { setShowTools((v) => !v); if (!showTools && anomalies.length === 0 && contradictions.length === 0) void loadTools() }} title="Anomalies, contradictions, entity merges, inferred facts"
+            className={`rounded-full border px-2 py-0.5 transition ${showTools ? 'border-[#ef4444] text-[#ef4444]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-tertiary)]'}`}>
+            🛠 tools
+          </button>
         </div>
+        {showTools && (
+          <div className="mt-1.5 space-y-2 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-2">
+            {/* NL → Cypher: ask the graph in English, get a query + rows */}
+            <div>
+              <div className="flex items-center gap-1.5">
+                <input value={globalQ} onChange={(e) => setGlobalQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void askGraphQuery() }}
+                  placeholder="Query the graph in English (→ Cypher)…"
+                  className="min-w-0 flex-1 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-[11px] text-[var(--color-text-primary)] outline-none focus:border-[#ef4444]" />
+                <button onClick={() => void askGraphQuery()} disabled={nlLoading || !globalQ.trim()} className="shrink-0 rounded-lg bg-[#ef4444] px-2.5 py-1.5 text-[11px] font-semibold text-white transition disabled:opacity-50">{nlLoading ? '…' : '⌗ query'}</button>
+              </div>
+              {nlResult && (
+                <div className="mt-1.5 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5">
+                  <code className="block whitespace-pre-wrap break-words font-mono text-[9px] text-[#0891b2]">{nlResult.cypher || '(no query)'}</code>
+                  {nlResult.error ? <span className="text-[9px] text-[#f59e0b]">{nlResult.error}</span> : (
+                    <>
+                      <span className="text-[9px] text-[var(--color-text-tertiary)]">{nlResult.count ?? 0} result{nlResult.count === 1 ? '' : 's'}</span>
+                      <ul className="mt-0.5 max-h-28 space-y-px overflow-y-auto">
+                        {(nlResult.rows ?? []).slice(0, 12).map((r, i) => (
+                          <li key={i} className="truncate text-[9px] text-[var(--color-text-secondary)]">{Object.values(r).map((v) => String(v)).join(' · ')}</li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+            {/* Needs attention: anomalies + contradictions */}
+            <div className="flex items-center justify-between border-t border-[var(--color-border-tertiary)] pt-1.5">
+              <span className="text-[9px] uppercase tracking-wide text-[var(--color-text-tertiary)]">needs attention</span>
+              <button onClick={() => void loadTools()} disabled={!!toolsLoading} className="text-[9px] text-[#ef4444] disabled:opacity-50">{toolsLoading ? 'scanning…' : 'refresh'}</button>
+            </div>
+            <div className="max-h-32 space-y-1 overflow-y-auto">
+              {anomalies.slice(0, 4).map((a, i) => (
+                <div key={`a${i}`} className="text-[9px] leading-snug"><span className="text-[#f59e0b]">⚠ {a.kind}</span> <span className="font-medium text-[var(--color-text-secondary)]">{a.label}</span> <span className="text-[var(--color-text-tertiary)]">— {a.detail}</span></div>
+              ))}
+              {contradictions.slice(0, 4).map((c, i) => (
+                <div key={`c${i}`} className="text-[9px] leading-snug"><span className={c.kind === 'superseded' ? 'text-[#0891b2]' : 'text-[#ef4444]'}>{c.kind === 'superseded' ? '⟳ superseded' : '✗ contested'}</span> <span className="text-[var(--color-text-tertiary)]">{c.kind === 'superseded' && c.current ? `now: ${c.current}` : `${c.claimA} ⟷ ${c.claimB}`}</span></div>
+              ))}
+              {anomalies.length === 0 && contradictions.length === 0 && !toolsLoading && <p className="text-[9px] text-[var(--color-text-tertiary)]">Nothing flagged.</p>}
+            </div>
+            {/* Entity resolution + inference */}
+            {mergeCands.length > 0 && (
+              <div className="border-t border-[var(--color-border-tertiary)] pt-1.5">
+                <span className="text-[9px] uppercase tracking-wide text-[var(--color-text-tertiary)]">merge candidates ({mergeCands.length})</span>
+                {mergeCands.slice(0, 4).map((m, i) => (<div key={i} className="text-[9px] leading-snug text-[var(--color-text-secondary)]">⛙ {m.a} ≈ {m.b} <span className="text-[var(--color-text-tertiary)]">({m.confidence}, {m.reason})</span></div>))}
+              </div>
+            )}
+            {inferred.length > 0 && (
+              <div className="border-t border-[var(--color-border-tertiary)] pt-1.5">
+                <span className="text-[9px] uppercase tracking-wide text-[var(--color-text-tertiary)]">inferred facts ({inferred.length})</span>
+                {inferred.slice(0, 4).map((f, i) => (<div key={i} className="text-[9px] leading-snug" title={f.via}><span className="text-[#22d3ee]">⊢{f.verified ? '✓' : ''}</span> <span className="text-[var(--color-text-secondary)]">{f.subject} {f.predicate} {f.object}</span></div>))}
+              </div>
+            )}
+            {/* GAIA ontology census — developmental phases + stewardship abandonment signals (IOES). */}
+            {gaia && (gaia.phases.length > 0 || gaia.signals.length > 0) && (
+              <div className="border-t border-[var(--color-border-tertiary)] pt-1.5" title="GAIA Ontogenesis Stewardship ontology — concepts classified by developmental phase + abandonment signals">
+                <span className="text-[9px] uppercase tracking-wide text-[var(--color-text-tertiary)]">🌱 ontogenesis (GAIA)</span>
+                <div className="mt-0.5 flex flex-wrap gap-1">
+                  {gaia.phases.map((p) => (<span key={p.phase} className="rounded-full bg-[#16a34a]/10 px-1.5 py-px text-[9px] text-[#16a34a]">{p.phase} {p.count}</span>))}
+                </div>
+                {gaia.signals.map((s) => (
+                  <div key={s.signal} className="mt-0.5 text-[9px] leading-snug" title={s.examples.join(', ')}><span className="text-[#ef4444]">⚑ {s.signal.replace(/_/g, ' ')}</span> <span className="text-[var(--color-text-tertiary)]">({s.count}) — {s.examples.slice(0, 3).join(', ')}</span></div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        {/* Knowledge-health — the verified-stack value in one score (trust + completeness + gaps). */}
+        {kHealth && (
+          <div className="mt-1.5 flex items-center gap-2" title={kHealth.gaps.length ? `Gaps:\n• ${kHealth.gaps.join('\n• ')}` : 'No gaps detected'}>
+            <span className="text-[9px] uppercase tracking-wide text-[var(--color-text-tertiary)]">🧠 knowledge health</span>
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--color-border-tertiary)]">
+              <div className="h-full rounded-full" style={{ width: `${kHealth.score}%`, background: kHealth.score >= 75 ? '#16a34a' : kHealth.score >= 50 ? '#0891b2' : '#f59e0b' }} />
+            </div>
+            <span className="text-[10px] font-semibold" style={{ color: kHealth.score >= 75 ? '#16a34a' : kHealth.score >= 50 ? '#0891b2' : '#f59e0b' }}>{kHealth.score}</span>
+            {kHealth.gaps.length > 0 && <span className="text-[9px] text-[var(--color-text-tertiary)]">· {kHealth.gaps.length} gap{kHealth.gaps.length === 1 ? '' : 's'}</span>}
+          </div>
+        )}
+        {/* Proactive insight — the graph surfaces what needs attention, unprompted (the #1 PKM ask). */}
+        {!digestDismissed && digest.length > 0 && digest[digestIdx] && (
+          <div className={`mt-1.5 flex items-start gap-1.5 rounded-lg border px-2.5 py-1.5 text-[10px] leading-snug ${digest[digestIdx]!.severity === 'high' ? 'border-[#f59e0b]/50 bg-[#f59e0b]/5' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]'}`}>
+            <span className="shrink-0">{digest[digestIdx]!.icon}</span>
+            <span className="flex-1 text-[var(--color-text-secondary)]">{digest[digestIdx]!.message}</span>
+            {digest.length > 1 && <button onClick={() => setDigestIdx((i) => (i + 1) % digest.length)} title="Next insight" className="shrink-0 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">→</button>}
+            <button onClick={() => setDigestDismissed(true)} title="Dismiss" className="shrink-0 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">✕</button>
+          </div>
+        )}
         {/* GDS insights readout — the analytics that drive node size/colour, made legible. */}
         {insights && (
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[9px] text-[var(--color-text-tertiary)]">
@@ -399,6 +578,8 @@ export function GraphRailPanel() {
             <input value={globalQ} onChange={(e) => setGlobalQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void askGlobal() }}
               placeholder="Ask across everything you know…"
               className="min-w-0 flex-1 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-[11px] text-[var(--color-text-primary)] outline-none focus:border-[#7c3aed]" />
+            <button onClick={() => setDeepMode((v) => !v)} title="DRIFT: iterative follow-up reasoning (deeper, slower)"
+              className={`shrink-0 rounded-lg border px-2 py-1.5 text-[10px] transition ${deepMode ? 'border-[#7c3aed] text-[#7c3aed]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-tertiary)]'}`}>⟳ deep</button>
             <button onClick={() => void askGlobal()} disabled={globalLoading || !globalQ.trim()}
               className="shrink-0 rounded-lg bg-[#7c3aed] px-2.5 py-1.5 text-[11px] font-semibold text-white transition disabled:opacity-50">
               {globalLoading ? '…' : 'Ask'}
@@ -411,11 +592,20 @@ export function GraphRailPanel() {
                 <span className={`rounded-full px-1.5 py-0.5 font-semibold ${globalAnswer.grounded ? 'bg-[#16a34a]/15 text-[#16a34a]' : 'bg-[#f59e0b]/15 text-[#f59e0b]'}`}>
                   {globalAnswer.grounded ? '✓' : '⚠'} trust {globalAnswer.trust.toFixed(2)}
                 </span>
+                {globalAnswer.mode === 'drift' && <span className="rounded-full bg-[#7c3aed]/15 px-1.5 py-0.5 font-semibold text-[#7c3aed]">⟳ drift</span>}
                 {!!globalAnswer.localUsed && <span className="rounded-full bg-[var(--color-background-secondary)] px-1.5 py-0.5 text-[var(--color-text-tertiary)]">global+{globalAnswer.localUsed} local</span>}
                 {globalAnswer.communitiesUsed.map((c, i) => (
                   <span key={i} className="rounded-full bg-[var(--color-background-secondary)] px-1.5 py-0.5 text-[var(--color-text-tertiary)]">{c.title}</span>
                 ))}
               </div>
+              {globalAnswer.followups && globalAnswer.followups.length > 0 && (
+                <div className="mt-1 text-[9px] italic text-[var(--color-text-tertiary)]">↳ explored: {globalAnswer.followups.join(' · ')}</div>
+              )}
+              {globalAnswer.sources && globalAnswer.sources.length > 0 && (
+                <div className="mt-1 flex flex-wrap items-center gap-1 text-[9px] text-[var(--color-text-tertiary)]">
+                  <span>📎 sources:</span>{globalAnswer.sources.map((s, i) => <span key={i} className="rounded bg-[var(--color-background-secondary)] px-1 py-px font-mono">{s}</span>)}
+                </div>
+              )}
             </div>
           )}
           {/* Community themes — one LLM report per Louvain community, each grounding-trust scored. */}
@@ -463,6 +653,30 @@ export function GraphRailPanel() {
               </div>
             ))}
           </div>
+          {/* Verified covariates — typed claims per entity, each grounding-checked. Header shows the
+              auto-detected domain (prompt tuning). */}
+          <div className="mt-2.5 flex items-center justify-between">
+            <span className="truncate text-[9px] uppercase tracking-wide text-[var(--color-text-tertiary)]">covariates {covariates.length ? `(${covariates.reduce((s, e) => s + e.grounded, 0)}✓)` : ''}{domain ? ` · ${domain.domain}` : ''}</span>
+            <button onClick={() => { setShowCov((v) => !v); if (!showCov && covariates.length === 0) void loadCovariates() }} disabled={covLoading} className="shrink-0 text-[9px] text-[#0891b2] disabled:opacity-50">{covLoading ? 'extracting…' : (showCov ? 'hide' : 'extract')}</button>
+          </div>
+          {showCov && (
+            <div className="mt-1 max-h-44 space-y-1.5 overflow-y-auto">
+              {covariates.length === 0 && !covLoading && <p className="text-[10px] text-[var(--color-text-tertiary)]">No covariates yet — extract typed verified claims per entity.</p>}
+              {covariates.map((e, i) => (
+                <div key={i} className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5">
+                  <div className="truncate text-[11px] font-semibold text-[var(--color-text-primary)]">◆ {e.entity}</div>
+                  <ul className="mt-0.5 space-y-0.5">
+                    {e.covariates.map((c, k) => (
+                      <li key={k} className="flex items-start gap-1 text-[9px] leading-snug">
+                        <span className={c.grounded ? 'text-[#16a34a]' : 'text-[#f59e0b]'}>{c.grounded ? '✓' : '✗'}</span>
+                        <span className={c.grounded ? 'text-[var(--color-text-secondary)]' : 'text-[var(--color-text-tertiary)] line-through opacity-70'}><span className="text-[var(--color-text-tertiary)]">[{c.type}]</span> {c.claim}{c.object ? <span className="text-[#0891b2]"> → {c.object}</span> : null}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -485,6 +699,24 @@ export function GraphRailPanel() {
                     {fn?.kind && <span className="rounded bg-[var(--color-background-secondary)] px-1 py-px">{fn.kind}</span>}
                     {fn && <span>{fn.degree} link{fn.degree === 1 ? '' : 's'}</span>}
                   </div>
+                  {impact && impact.totalAffected > 0 && (
+                    <div className="mt-0.5 text-[9px] text-[var(--color-text-tertiary)]" title={impact.levels.map((l) => `${l.distance} hop: ${l.count}`).join(' · ')}>
+                      💥 impact: <span className="text-[var(--color-text-secondary)]">{impact.totalAffected}</span> affected{impact.levels[0] ? ` (${impact.levels[0].count} direct)` : ''}
+                    </div>
+                  )}
+                  {recs.length > 0 && (
+                    <div className="mt-1 border-t border-[var(--color-border-secondary)] pt-1">
+                      <span className="text-[8px] uppercase tracking-wide text-[var(--color-text-tertiary)]">explore next</span>
+                      <div className="mt-0.5 flex flex-wrap gap-1">
+                        {recs.slice(0, 6).map((r) => (
+                          <button key={r.id} onClick={() => setRoot(r.id)} title={r.reasons.join(' · ')}
+                            className={`rounded-full border px-1.5 py-0.5 text-[9px] transition hover:border-[#7c3aed] hover:text-[#7c3aed] ${r.connected ? 'border-[var(--color-border-secondary)] text-[var(--color-text-secondary)]' : 'border-dashed border-[#22d3ee]/50 text-[var(--color-text-tertiary)]'}`}>
+                            {r.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   {mem && (
                     <div className="mt-1 flex items-center justify-between gap-2 border-t border-[var(--color-border-secondary)] pt-1">
                       <span className="truncate text-[9px] text-[var(--color-text-tertiary)]">({mem.kind}) {mem.preview}</span>
