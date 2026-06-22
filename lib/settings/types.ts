@@ -22,6 +22,9 @@ export interface NoeticaSettings {
   googleApiKey: string
   mistralApiKey: string
   neuronpediaApiKey: string
+  openrouterApiKey: string
+  huggingfaceApiKey: string
+  customModelIds: string[]   // user-added models: hf.co/… (local GGUF), openrouter/…, hf/… (hosted)
   serperApiKey: string
 
   // Runtime

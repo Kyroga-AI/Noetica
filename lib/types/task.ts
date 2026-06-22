@@ -26,7 +26,7 @@ export interface NoeticaTaskInput {
   request_hash: string
   agentplane_evidence_ref?: string
   // Passed through for local direct-provider fallback when no live superconscious endpoint is available
-  provider_keys?: { anthropic?: string; openai?: string; google?: string; mistral?: string }
+  provider_keys?: { anthropic?: string; openai?: string; google?: string; mistral?: string; openrouter?: string; huggingface?: string }
   // Full message history for multi-turn context in direct-provider fallback
   messages?: import('@/lib/types/message').ChatMessage[]
   system_prompt?: string

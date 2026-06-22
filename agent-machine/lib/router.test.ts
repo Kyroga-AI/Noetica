@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildRouterDecision, classifyTask, LOCAL_MODEL_SUITE } from './router.js'
+import { buildRouterDecision, classifyTask, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider } from './router.js'
 
 // The full local model inventory — used to simulate "everything installed".
 const ALL_MODELS = LOCAL_MODEL_SUITE.map((m) => m.name)
@@ -167,4 +167,22 @@ test('attested security lane falls back to qwen2.5:14b when no uncensored model 
   })
   assert.equal(d.resolvedModel, 'qwen2.5:14b')
   assert.equal(d.securityLane?.rung, 'general-large')
+})
+
+test('isHuggingFaceLocalRef accepts hf.co GGUF refs, rejects junk', () => {
+  assert.equal(isHuggingFaceLocalRef('hf.co/bartowski/Llama-3.2-3B-Instruct-GGUF'), true)
+  assert.equal(isHuggingFaceLocalRef('hf.co/bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M'), true)
+  assert.equal(isHuggingFaceLocalRef('huggingface.co/TheBloke/Mistral-7B-GGUF:Q5_K_M'), true)
+  assert.equal(isHuggingFaceLocalRef('qwen2.5:7b'), false)
+  assert.equal(isHuggingFaceLocalRef('hf.co/../../etc/passwd'), false)
+  assert.equal(isHuggingFaceLocalRef('hf.co/onlyrepo'), false)
+})
+
+test('resolveProvider maps hosted prefixes + bare ids to the right provider/baseUrl', () => {
+  assert.deepEqual(resolveProvider('openrouter/meta-llama/llama-3.1-70b'), { provider: 'openrouter', model: 'meta-llama/llama-3.1-70b', baseUrl: 'https://openrouter.ai/api/v1' })
+  assert.deepEqual(resolveProvider('hf/meta-llama/Llama-3.1-8B-Instruct'), { provider: 'huggingface', model: 'meta-llama/Llama-3.1-8B-Instruct', baseUrl: 'https://router.huggingface.co/v1' })
+  assert.equal(resolveProvider('claude-opus-4-8').provider, 'anthropic')
+  assert.equal(resolveProvider('gpt-4o').provider, 'openai')
+  assert.equal(resolveProvider('qwen2.5:7b').provider, 'ollama')
+  assert.equal(resolveProvider('hf.co/bartowski/X-GGUF').provider, 'ollama')   // local GGUF, not hosted
 })

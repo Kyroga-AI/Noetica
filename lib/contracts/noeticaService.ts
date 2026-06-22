@@ -17,6 +17,8 @@ export type NoeticaProviderKeys = {
   mistral?: string
   neuronpedia?: string
   serper?: string
+  openrouter?: string
+  huggingface?: string
 }
 
 export type { ProviderTool, ToolUseBlock }

@@ -61,10 +61,17 @@ function MaskedInput({ label, value, onChange }: { label: string; value: string;
 export function ModelsPanel() {
   const { settings, update } = useSettings()
   const [setupOpen, setSetupOpen] = useState(false)
-  const modelList = visibleModels(settings.showAllModels)
+  const customModels = (settings.customModelIds ?? []).map((id) => ({
+    id, label: id,
+    provider: id.startsWith('hf.co/') || id.startsWith('huggingface.co/') ? 'local'
+      : id.startsWith('openrouter/') ? 'openrouter'
+      : id.startsWith('hf/') ? 'huggingface' : 'custom',
+  }))
+  const modelList = [...visibleModels(settings.showAllModels), ...customModels]
   const [suite, setSuite] = useState<ModelSuiteEntry[]>([])
   const [suiteLoading, setSuiteLoading] = useState(true)
   const [pullStates, setPullStates] = useState<Record<string, PullState>>({})
+  const [newModelId, setNewModelId] = useState('')
 
   const fetchSuite = useCallback(async () => {
     try {
@@ -75,6 +82,16 @@ export function ModelsPanel() {
   }, [])
 
   useEffect(() => { void fetchSuite() }, [fetchSuite])
+
+  function addCustomModel() {
+    const id = newModelId.trim()
+    if (!id) return
+    const existing = settings.customModelIds ?? []
+    if (!existing.includes(id)) update({ customModelIds: [...existing, id] })
+    // hf.co/… is a local GGUF — pull it into Ollama now. Hosted ids (openrouter/…, hf/…) need no pull.
+    if (id.startsWith('hf.co/') || id.startsWith('huggingface.co/')) void pullModelUI(id)
+    setNewModelId('')
+  }
 
   async function pullModelUI(name: string) {
     setPullStates(p => ({ ...p, [name]: { status: 'Starting…', pct: null, done: false } }))
@@ -214,6 +231,45 @@ export function ModelsPanel() {
         </select>
       </div>
 
+      {/* Add a model — HuggingFace GGUF (local via Ollama) or a hosted aggregator (OpenRouter / HF Inference) */}
+      <div>
+        <label className="block text-sm font-semibold text-[var(--color-text-primary)]">Add a model</label>
+        <p className="mt-1 text-xs text-[var(--color-text-secondary)] leading-5">
+          Local: <code className="rounded bg-[var(--color-background-secondary)] px-1">hf.co/bartowski/Llama-3.2-3B-Instruct-GGUF:Q4_K_M</code> — pulled + run via Ollama, fully local.<br/>
+          Hosted: <code className="rounded bg-[var(--color-background-secondary)] px-1">openrouter/meta-llama/llama-3.1-70b-instruct</code> or <code className="rounded bg-[var(--color-background-secondary)] px-1">hf/meta-llama/Llama-3.1-8B-Instruct</code> — needs the matching key above.
+        </p>
+        <div className="mt-2 flex gap-2">
+          <input
+            value={newModelId}
+            onChange={(e) => setNewModelId(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') addCustomModel() }}
+            placeholder="hf.co/… or openrouter/… or hf/…"
+            className="flex-1 rounded-xl border border-[#bfdbfe] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8] focus:bg-[var(--color-background-primary)]"
+          />
+          <button onClick={addCustomModel} disabled={!newModelId.trim()}
+            className="rounded-xl bg-[#1d4ed8] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1e40af] disabled:opacity-40">
+            Add
+          </button>
+        </div>
+        {customModels.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {customModels.map((m) => {
+              const ps = pullStates[m.id]
+              return (
+                <div key={m.id} className="flex items-center justify-between gap-2 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 text-xs">
+                  <span className="min-w-0 flex-1 truncate font-mono text-[var(--color-text-secondary)]">{m.id}</span>
+                  <span className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">
+                    {ps && !ps.done ? `pulling… ${ps.pct != null ? Math.round(ps.pct) + '%' : ps.status}` : ps?.error ? 'pull failed' : m.provider}
+                  </span>
+                  <button onClick={() => update({ customModelIds: (settings.customModelIds ?? []).filter((x) => x !== m.id) })}
+                    title="Remove" className="shrink-0 text-[var(--color-text-tertiary)] hover:text-[#dc2626]">✕</button>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
       {/* Provider API keys */}
       <div className="space-y-4">
         <div className="flex items-center justify-between">
@@ -228,6 +284,8 @@ export function ModelsPanel() {
         <MaskedInput label="OpenAI" value={settings.openaiApiKey} onChange={(v) => update({ openaiApiKey: v })} />
         <MaskedInput label="Google (Gemini)" value={settings.googleApiKey} onChange={(v) => update({ googleApiKey: v })} />
         <MaskedInput label="Mistral" value={settings.mistralApiKey} onChange={(v) => update({ mistralApiKey: v })} />
+        <MaskedInput label="OpenRouter (300+ hosted models)" value={settings.openrouterApiKey} onChange={(v) => update({ openrouterApiKey: v })} />
+        <MaskedInput label="HuggingFace (Inference)" value={settings.huggingfaceApiKey} onChange={(v) => update({ huggingfaceApiKey: v })} />
         <MaskedInput label="Serper (web search)" value={settings.serperApiKey} onChange={(v) => update({ serperApiKey: v })} />
       </div>
 

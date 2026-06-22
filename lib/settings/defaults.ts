@@ -13,6 +13,9 @@ export const defaultSettings: NoeticaSettings = {
   googleApiKey: '',
   mistralApiKey: '',
   neuronpediaApiKey: '',
+  openrouterApiKey: '',
+  huggingfaceApiKey: '',
+  customModelIds: [],
   serperApiKey: '',
 
   runtimeMode: 'agent-machine',

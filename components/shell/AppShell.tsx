@@ -848,6 +848,8 @@ export function AppShell() {
       google:     settings.googleApiKey     || undefined,
       mistral:    settings.mistralApiKey    || undefined,
       neuronpedia: settings.neuronpediaApiKey || undefined,
+      openrouter:  settings.openrouterApiKey  || undefined,
+      huggingface: settings.huggingfaceApiKey || undefined,
     }
 
     try {
@@ -963,6 +965,8 @@ export function AppShell() {
       google:      settings.googleApiKey      || undefined,
       mistral:     settings.mistralApiKey     || undefined,
       neuronpedia: settings.neuronpediaApiKey || undefined,
+      openrouter:  settings.openrouterApiKey  || undefined,
+      huggingface: settings.huggingfaceApiKey || undefined,
       serper:      settings.serperApiKey      || undefined,
     }
     const agentMachineEndpoint =

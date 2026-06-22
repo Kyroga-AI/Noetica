@@ -360,6 +360,8 @@ function RoomView({ room, thinkingBudget, onAppendMessage, onUpdateMessage, onUp
       google:      settings.googleApiKey      || undefined,
       mistral:     settings.mistralApiKey     || undefined,
       neuronpedia: settings.neuronpediaApiKey || undefined,
+      openrouter:  settings.openrouterApiKey  || undefined,
+      huggingface: settings.huggingfaceApiKey || undefined,
     }
   }
 

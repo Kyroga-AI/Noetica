@@ -32,7 +32,7 @@ import * as crypto from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
-import { buildRouterDecision, LOCAL_MODEL_SUITE } from './lib/router.js'
+import { buildRouterDecision, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider } from './lib/router.js'
 import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTelemetry, type MeshTier } from './lib/scope-d.js'
 import { installEgressGuard, setOfflineMode } from './lib/egress-guard.js'
 import { classifyIntent, capabilityToTask, wantsVectorRag, intentByName, planFromIntent, intentToAction } from './lib/intent-router.js'
@@ -731,6 +731,8 @@ interface ChatRequest {
     google?: string
     mistral?: string
     neuronpedia?: string
+    openrouter?: string
+    huggingface?: string
   }
 }
 
@@ -2023,6 +2025,8 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   const keys = body.provider_keys ?? {}
   const anthropicKey = keys.anthropic?.trim() || process.env['ANTHROPIC_API_KEY'] || ''
   const openaiKey = keys.openai?.trim() || process.env['OPENAI_API_KEY'] || ''
+  const openrouterKey = keys.openrouter?.trim() || process.env['OPENROUTER_API_KEY'] || ''
+  const hfKey = keys.huggingface?.trim() || process.env['HF_API_KEY'] || process.env['HUGGINGFACE_API_KEY'] || ''
 
   // ── Prophet-mesh conductor routing ──────────────────────────────────────────
   // A cold managed-runtime launch can take ~15-20s before Ollama is serving. If a chat
@@ -2216,7 +2220,8 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   }
 
   let { resolvedModel: model, resolvedProvider: provider } = routing
-  const { resolvedModel: _rm, resolvedProvider: _rp, ...routerDecision } = routing
+  const resolvedBaseUrl = routing.resolvedBaseUrl   // set for openrouter/huggingface hosted aggregators
+  const { resolvedModel: _rm, resolvedProvider: _rp, resolvedBaseUrl: _rb, ...routerDecision } = routing
 
   // Honest vision fallback: an image is attached but no vision model is reachable — the
   // router fell through (no local VLM installed) to a text model that literally can't see.
@@ -2292,7 +2297,10 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     const armed = routerDecision.securityLane?.armed === true
     if (provider !== 'ollama') {
       const tier: MeshTier = 'frontier'
-      const target = provider === 'anthropic' ? 'api.anthropic.com' : 'api.openai.com'
+      const target = provider === 'anthropic' ? 'api.anthropic.com'
+        : provider === 'openrouter' ? 'openrouter.ai'
+        : provider === 'huggingface' ? 'router.huggingface.co'
+        : 'api.openai.com'
       const verdict = checkEgress({
         scope: scopeName, policyProfile: body.policy_profile, securityArmed: armed,
         tier, provider, model, target,
@@ -2413,7 +2421,10 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     narrate(narrateRoute(model, intentPlan.name, { fast: isFast && !isConcierge, concierge: isConcierge }))
   } catch { /* narration best-effort */ }
 
-  const apiKey = provider === 'openai' ? openaiKey : anthropicKey
+  const apiKey = provider === 'openai' ? openaiKey
+    : provider === 'openrouter' ? openrouterKey
+    : provider === 'huggingface' ? hfKey
+    : anthropicKey
 
   const run_id = crypto.randomUUID()
   const timestamp = new Date().toISOString()
@@ -3408,6 +3419,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           messages: oaiMessages,
           tools: allTools,
           apiKey,
+          baseUrl: resolvedBaseUrl,   // openrouter.ai / router.huggingface.co for the hosted-aggregator lane
           temperature: reqTemperature,
           maxTokens: reqMaxTokens,
         })) {
@@ -3794,9 +3806,11 @@ const server = http.createServer((req, res) => {
           res.end(JSON.stringify({ error: 'invalid_json' }))
           return
         }
-        if (!model || !LOCAL_MODEL_SUITE.some((m) => m.name === model)) {
+        // Allow the canonical suite OR a validated HuggingFace GGUF ref (hf.co/user/repo[:quant]) — Ollama
+        // pulls those natively, so this is how a user brings ANY local HF model into Noetica (provider lane #1).
+        if (!model || (!LOCAL_MODEL_SUITE.some((m) => m.name === model) && !isHuggingFaceLocalRef(model))) {
           res.writeHead(400, { 'content-type': 'application/json' })
-          res.end(JSON.stringify({ error: `model not in LOCAL_MODEL_SUITE: ${model}` }))
+          res.end(JSON.stringify({ error: `model not allowed (not in suite, not a valid hf.co/ GGUF ref): ${model}` }))
           return
         }
         res.writeHead(200, {

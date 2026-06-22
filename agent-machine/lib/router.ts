@@ -226,7 +226,7 @@ export function buildRouterDecision(opts: {
   hasImages?: boolean
   hasTools?: boolean
   taskOverride?: TaskType  // from the 22-intent classifier; wins over keyword classifyTask
-}): RouterDecision & { resolvedModel: string; resolvedProvider: 'ollama' | 'anthropic' | 'openai' } {
+}): RouterDecision & { resolvedModel: string; resolvedProvider: MeshProvider; resolvedBaseUrl?: string } {
   const {
     requestId, content, ollamaAvailable, availableModels,
     hasAnthropicKey, hasOpenAIKey, explicitModelId, policyProfile, hasImages,
@@ -321,27 +321,27 @@ export function buildRouterDecision(opts: {
     }
   }
 
-  // If caller explicitly named a model, respect it
+  // If caller explicitly named a model, respect it (incl. openrouter/… and hf/… hosted prefixes + hf.co/… local)
   if (explicitModelId) {
-    const isOllama = !explicitModelId.startsWith('claude') && !explicitModelId.startsWith('gpt') && !explicitModelId.startsWith('o1') && !explicitModelId.startsWith('o3')
-    const isOpenAI = explicitModelId.startsWith('gpt') || explicitModelId.startsWith('o1') || explicitModelId.startsWith('o3') || explicitModelId.startsWith('o4')
-    const provider = isOllama ? 'ollama' : isOpenAI ? 'openai' : 'anthropic'
+    const { provider, model: bareModel, baseUrl } = resolveProvider(explicitModelId)
+    const isLocal = provider === 'ollama'
     return {
       requestId,
       conductorId: 'noetica-conductor',
       task,
       domain: route.domain,
-      selectedRoute: explicitModelId,
-      routeType: isOllama ? 'local_model' : 'hosted_balanced',
+      selectedRoute: bareModel,
+      routeType: isLocal ? 'local_model' : 'hosted_balanced',
       fallbackRoute: route.fallbackModel,
       specialistAgents: route.specialistAgents,
       policyDecision: route.policyDecision,
-      rationale: `Explicit model override: ${explicitModelId}`,
+      rationale: `Explicit model override: ${explicitModelId}${baseUrl ? ` (via ${provider})` : ''}`,
       evidenceRef: `evidence:${requestId}`,
       auditRef: `audit:${requestId}`,
       controls: FULL_CONTROLS,
-      resolvedModel: explicitModelId,
+      resolvedModel: bareModel,
       resolvedProvider: provider,
+      resolvedBaseUrl: baseUrl,
     }
   }
 
@@ -500,6 +500,29 @@ const FULL_CONTROLS = {
   revocation: true,
   audit: true,
   tenant_isolation: true,
+}
+
+// ─── Custom / external model refs ─────────────────────────────────────────────
+// Ollama can pull ANY GGUF off HuggingFace via `ollama pull hf.co/<user>/<repo>[:<quant>]`. We let users
+// bring those in (path #1 of the provider lane) without bloating LOCAL_MODEL_SUITE — but we validate the ref
+// shape so the pull API isn't an arbitrary-string passthrough. Case-insensitive; allows an optional :quant tag.
+const HF_LOCAL_REF = /^(hf\.co|huggingface\.co)\/[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+(:[A-Za-z0-9._-]+)?$/
+export function isHuggingFaceLocalRef(model: string): boolean {
+  return typeof model === 'string' && model.length <= 200 && HF_LOCAL_REF.test(model)
+}
+
+// Provider resolution for an explicit model id. Convention for HOSTED aggregators uses a provider prefix so
+// one model picker can address every backend: `openrouter/<model>` and `hf/<model>` (HF Inference router).
+// Bare ids fall back to the historical prefix heuristic (claude*→anthropic, gpt*/o*→openai, else→ollama).
+export type MeshProvider = 'ollama' | 'anthropic' | 'openai' | 'openrouter' | 'huggingface'
+export interface ProviderResolution { provider: MeshProvider; model: string; baseUrl?: string }
+export function resolveProvider(modelId: string): ProviderResolution {
+  const id = String(modelId ?? '')
+  if (id.startsWith('openrouter/')) return { provider: 'openrouter', model: id.slice('openrouter/'.length), baseUrl: 'https://openrouter.ai/api/v1' }
+  if (id.startsWith('hf/') || id.startsWith('huggingface/')) return { provider: 'huggingface', model: id.replace(/^huggingface\//, '').replace(/^hf\//, ''), baseUrl: 'https://router.huggingface.co/v1' }
+  if (id.startsWith('claude')) return { provider: 'anthropic', model: id }
+  if (id.startsWith('gpt') || id.startsWith('o1') || id.startsWith('o3') || id.startsWith('o4')) return { provider: 'openai', model: id }
+  return { provider: 'ollama', model: id }   // includes hf.co/… local GGUF refs
 }
 
 // ─── Model suite definition ───────────────────────────────────────────────────
