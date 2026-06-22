@@ -94,11 +94,20 @@ test('RAG: ingested document surfaces as semantic-documents in chat', async () =
     body: JSON.stringify({ filename: 'baxter.txt', content: 'The Baxter facility shut down after Hurricane Helene flooding in September 2024.' }),
   })
   assert.equal(ing.status, 200)
-  const r = await fetch(`${BASE}/api/chat`, {
-    method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ messages: [{ role: 'user', content: 'What caused the Baxter facility shutdown?' }] }),
-    signal: AbortSignal.timeout(15_000),
-  })
-  const text = await r.text()
+  // Embedding + indexing the freshly-ingested doc is async, so semantic retrieval can race the chat
+  // request under CI load (the source of the flake). Poll the chat until the doc is indexed and
+  // injected, or a deadline — same assertion, but robust to the indexing race instead of one shot.
+  let text = ''
+  const deadline = Date.now() + 30_000
+  while (Date.now() < deadline) {
+    const r = await fetch(`${BASE}/api/chat`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ messages: [{ role: 'user', content: 'What caused the Baxter facility shutdown?' }] }),
+      signal: AbortSignal.timeout(20_000),
+    })
+    text = await r.text()
+    if (text.includes('semantic-documents')) break
+    await new Promise((res) => setTimeout(res, 1000))
+  }
   assert.ok(text.includes('semantic-documents'), `chat should inject the ingested doc as semantic-documents; got:\n${text.slice(0, 400)}`)
 })
