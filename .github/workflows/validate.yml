@@ -52,6 +52,14 @@ jobs:
         run: npm --prefix agent-machine run test:integration
       - name: Integration tests (RocksDB persistence + auth gate)
         run: npm --prefix agent-machine run test:integration:rocks
+      # The fallback suite's RAG-injection test needs the embedder sidecar (noetica-embed); without
+      # the compiled binary semantic retrieval is dead and the test flakes. Build it (cached) first.
+      - name: Cache Rust (embedder)
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          workspaces: embed-sidecar
+      - name: Build embedder (noetica-embed) for the RAG integration test
+        run: cargo build --release --manifest-path embed-sidecar/Cargo.toml
       - name: Integration tests (Ollama broken-primary fallback)
         run: npm --prefix agent-machine run test:integration:fallback
       - name: Engine version sync (hellgraph pin parity across manifests)
