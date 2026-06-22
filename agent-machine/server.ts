@@ -58,6 +58,7 @@ import { containmentState, hydrateContainment, resolvePurpose, armKillSwitch, di
 import { retrieve } from './lib/retrieval.js'
 import { getGraph, graphHealth, graphSparql, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
 import { handleCapabilityRoute } from './lib/capability-routes.js'
+import { handleOAuthTokenRoute } from './lib/oauth-token-routes.js'
 import { isVoiceProvisioned, ensureVoiceSidecar, voiceFetch } from './lib/voice-runtime.js'
 import { runOcr } from './lib/ocr.js'
 import { getHellGraph, attachRocksDB } from '@socioprophet/hellgraph'
@@ -3744,6 +3745,10 @@ const server = http.createServer((req, res) => {
 
   // Capability API surface (wave-2/3 libs) — one mount for all /api/cap/* routes.
   if (url.pathname.startsWith('/api/cap/')) { void handleCapabilityRoute(req, res, url); return }
+
+  // OAuth token-exchange proxies (github/slack/notion/linear) — these were Next server routes that the
+  // static export drops in the packaged app, breaking those logins. Served by the always-running sidecar.
+  if (url.pathname.startsWith('/api/oauth/')) { void handleOAuthTokenRoute(req, res, url); return }
 
   // GET /api/security/state — bearbrowser polls this to auto-enable Tor when armed.
   if (req.method === 'GET' && url.pathname === '/api/security/state') {
