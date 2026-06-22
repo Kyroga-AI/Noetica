@@ -22,13 +22,17 @@ interface Isolation {
   provider: string
   gpu: string
   rationale: string
+  modelCeiling?: 'small-3b' | 'mid-7b' | 'large-8b-plus'
+  recommendedModels?: string[]
 }
+interface HostProfile { totalRamGb?: number; cpus?: number; arch?: string; gpu?: { metal?: boolean; nvidia?: boolean } }
 
 export function ModelSetupOverlay({ onDismiss }: { onDismiss: () => void }) {
   const [models, setModels] = useState<ModelStatus[]>([])
   const [pulling, setPulling] = useState(false)
   const [pullError, setPullError] = useState<string | null>(null)
   const [iso, setIso] = useState<Isolation | null>(null)
+  const [profile, setProfile] = useState<HostProfile | null>(null)
   const esRef = useRef<EventSource | null>(null)
   const dismissedRef = useRef(false)
 
@@ -40,8 +44,9 @@ export function ModelSetupOverlay({ onDismiss }: { onDismiss: () => void }) {
       try {
         const r = await fetch(`${AM_BASE}/api/host/profile`)
         if (!r.ok || cancelled) return
-        const d = (await r.json()) as { isolation?: Isolation }
+        const d = (await r.json()) as { isolation?: Isolation; profile?: HostProfile }
         if (!cancelled && d.isolation) setIso(d.isolation)
+        if (!cancelled && d.profile) setProfile(d.profile)
       } catch { /* non-fatal */ }
     })()
 
@@ -262,6 +267,15 @@ export function ModelSetupOverlay({ onDismiss }: { onDismiss: () => void }) {
               <div style={{ fontSize: '11px', color: 'var(--color-text-secondary, #888)', lineHeight: 1.45, marginTop: '2px' }}>
                 {iso.rationale}
               </div>
+              {(profile?.totalRamGb || iso.modelCeiling) && (
+                <div style={{ fontSize: '11px', color: 'var(--color-text-secondary, #888)', lineHeight: 1.45, marginTop: '4px' }}>
+                  {profile?.totalRamGb ? `${profile.totalRamGb} GB RAM` : ''}
+                  {iso.modelCeiling ? ` · best fit: ${iso.modelCeiling === 'small-3b' ? 'compact 3B' : iso.modelCeiling === 'mid-7b' ? '7B-class' : '8B+'} models` : ''}
+                  {iso.recommendedModels?.length ? (
+                    <> · recommended for you: <strong style={{ color: 'var(--color-text-primary, #f0f0f0)' }}>{iso.recommendedModels.slice(0, 3).join(', ')}</strong></>
+                  ) : ''}
+                </div>
+              )}
             </div>
           </div>
         )}
