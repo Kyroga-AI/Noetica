@@ -1001,6 +1001,7 @@ const FEATURE_FLAGS: Array<{ env: string; status: 'default-on' | 'opt-in' | 'exp
   { env: 'NOETICA_RESPONSIVE',         status: 'default-on',   desc: 'Fast 3B base + lean RAG for substantive turns (CPU latency); escalation climbs on struggle' },
   { env: 'NOETICA_EMBED_INTENT',       status: 'default-on',   desc: 'Tier-0 embedding intent classifier (nomic) — confidence + paraphrase robustness' },
   { env: 'NOETICA_EXTRACTIVE',         status: 'default-on',   desc: 'Extractive grounded answers for doc intents (cited verbatim, no hallucination, instant)' },
+  { env: 'NOETICA_CONCEPT_LOOKUP',     status: 'default-on',   desc: 'Clean "what is X" answers from the external-KG concept layer (Wikipedia+WSD) — local, instant, grounded, no generation' },
   { env: 'NOETICA_FABRIC',             status: 'default-on',   desc: 'Context fabric on the atomspace — STI-gated live brief shared across voice/chat/agents' },
   { env: 'NOETICA_LOGIC_FIRST',        status: 'default-on',   desc: 'Compute the answer by logic first (recall→extract); generate only the undecidable remainder' },
 ]
@@ -2864,6 +2865,35 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         return
       }
     } catch { /* extractive is best-effort — fall through to generation */ }
+  }
+
+  // ── Concept lookup (NOETICA_CONCEPT_LOOKUP, default-on): EXTRACT from the external-KG concept
+  // layer — a clean "what is X" answer (Wikipedia/DBpedia + word-sense disambiguation), LOCAL +
+  // instant + grounded (verbatim, cannot hallucinate). The lookup-vs-generate UX win. Falls through
+  // to retrieval+generation when X isn't an enriched concept. Skipped with a doc focus or an image.
+  if (isFlagOn('NOETICA_CONCEPT_LOOKUP') && STUDY_BRAIN_LANES.has(intentPlan.name) && !hasDoc && !hasImages) {
+    try {
+      const { conceptLookup } = await import('./lib/concept-defs.js')
+      const concept = conceptLookup(latestUserContent)
+      if (concept) {
+        const answer = `${concept.definition}${concept.url ? `\n\n— ${concept.source} · ${concept.url}` : ''}`
+        const lat = Date.now() - turnStart
+        step('generate', 'done', 'concept lookup (external KG)')
+        sse(res, 'delta', { delta: answer })
+        let conceptAttestation: string | undefined
+        try {
+          const { recordTurn } = await import('./lib/dialogue-tracker.js')
+          recordTurn({ session_id: body.session_id ?? 'local', intent: intentPlan.name, intent_score: intentPlan.score, fallback: false, slots_expected: intentPlan.slots, slots_filled: policy.filled, fill_rate: policy.fillRate, clarified: false, entities: glossaryTerms, surface: intentPlan.surface, skill: intentPlan.skill, tools: intentPlan.tools, capability: intentPlan.model, model: 'concept-lookup', retrieval: intentPlan.retrieval, grounded: true, latency_ms: lat, worth: 0.85, reward: 0.85, escalated: false })
+          const { recordDispatch, contentHash } = await import('./lib/dispatch-ledger.js')
+          const d = recordDispatch({ session: body.session_id ?? 'local', requestHash: contentHash(latestUserContent), action, polarity, tier: actionRoute.tier, target: actionRoute.target, phase, barCleared: true, residual: [], model: 'concept-lookup', answerHash: contentHash(answer), latencyMs: lat, grounded: true, verdict: 'POS' })
+          const { crystallizeAnswer } = await import('./lib/crystallize.js')
+          crystallizeAnswer({ question: latestUserContent, answer, session: body.session_id ?? 'local', action, attestation: d.attestation, worth: 0.85 })
+          conceptAttestation = d.attestation
+        } catch { /* tracking best-effort */ }
+        sse(res, 'done', { result: { run_id: crypto.randomUUID(), content: answer, model_routed: 'concept-lookup', provider: 'noetica', policy_admitted: true, memory_written: false, stop_reason: 'concept-lookup', timestamp: new Date().toISOString(), latency_ms: lat, agent_machine: true, agent_machine_version: VERSION, decidable: true, method: 'concept-lookup', ...(conceptAttestation ? { attestation: conceptAttestation } : {}) } })
+        return
+      }
+    } catch { /* concept lookup is best-effort — fall through to generation */ }
   }
 
   step('generate', 'running', `${provider}:${model}`)
