@@ -80,7 +80,35 @@ function tidyTopicLabel(s: string): string {
   return (s.split(/[/\\]/).pop() ?? s).trim()                 // fallback: basename
 }
 
+// Operational self-state / telemetry — written by the runtime (learning snapshots every 60s + per turn,
+// attention values, session/self atoms), NOT knowledge. ~84% of the store is LearningState exhaust. Excluding
+// it HERE (cleanLabel → null) de-pollutes every surface lens AND all ~16 analytics clean-set filters at once,
+// since they all gate on `cleanLabel(n) !== null`.
+const EXHAUST_LABELS = new Set(['LearningState', 'AttentionSnapshot', 'TrendSnapshot', 'Self', 'Session', 'Dispatch', 'RunEvent', 'WorkingMemoryState'])
+export function isExhaust(n: GNode): boolean {
+  const l = n.labels[0] ?? ''
+  return EXHAUST_LABELS.has(l) || /noetica:learning:|:attention|trend-history|:self$|:session:/i.test(String(n.id))
+}
+
+// Document/memory/chat atoms encode their content in a path-shaped `filename` (memory/curation-<stamp>.md,
+// chats/<title>.md) — the generic cleaner's isProse/isHashy guards reject these, so the whole "Memory" lens
+// (view=document) returned 0 nodes. Derive a stable display title from the basename instead.
+const DOC_KINDS = /^(Document|RECORD|Conversation|Message|SemanticMemoryRelease|SourceRecord|Episode)$/i
+function docTitle(n: GNode): string | null {
+  const raw = String(n.properties['title'] ?? n.properties['name'] ?? n.properties['filename'] ?? '')
+  if (!raw) return null
+  const base = (raw.split(/[/\\]/).pop() ?? raw)
+    .replace(/\.[a-z0-9]{1,5}$/i, '')              // extension
+    .replace(/[-_]?\d{8,}([-_].*)?$/, '')          // trailing date-stamp / hash tail
+    .replace(/[-_]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return base.length > 1 && !isHashy(base) ? base.slice(0, 28) : null
+}
+
 export function cleanLabel(n: GNode): string | null {
+  if (isExhaust(n)) return null
+  if (DOC_KINDS.test(n.labels[0] ?? '')) { const t = docTitle(n); if (t) return t }
   for (const key of ['title', 'name', 'surface', 'normalised', 'filename']) {
     const v = n.properties[key]
     if (v == null) continue
@@ -99,7 +127,8 @@ export function cleanLabel(n: GNode): string | null {
 
 const VIEW_ROOTS: Record<string, (label: string) => boolean> = {
   domain: (l) => l === 'Domain' || l === 'Topic' || l === 'GlossaryTerm',
-  document: (l) => l === 'Document' || l === 'RECORD',
+  document: (l) => DOC_KINDS.test(l),
+  memory: (l) => DOC_KINDS.test(l),                                   // the "Memory" lens — docs + remembered facts
   chat: (l) => l === 'Conversation' || l === 'Message' || l.endsWith('Message'),
 }
 

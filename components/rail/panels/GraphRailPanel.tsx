@@ -18,7 +18,7 @@ interface HealthResponse { graph: GraphHealth }
 const VIEWS = [
   { key: 'tech', label: 'Tech' },
   { key: 'knowledge', label: 'Knowledge' },
-  { key: 'document', label: 'Memory' },
+  { key: 'memory', label: 'Memory' },
   { key: 'all', label: 'All' },
 ] as const
 
@@ -192,10 +192,10 @@ export function GraphRailPanel() {
         // 22 top-level topics; clicking one drills into its subtopics (a wider BFS).
         const q = `/api/graph/surface?view=${view}&limit=${root ? 28 : 22}${root ? `&root=${encodeURIComponent(root)}` : ''}`
         const res = await fetch(q)
-        if (!res.ok) return
+        if (!res.ok) { if (!cancelled) setError(true); return }
         const json = (await res.json()) as { nodes: GraphNode[]; links: GraphLink[] }
-        if (!cancelled) setGraph({ nodes: json.nodes ?? [], links: json.links ?? [] })
-      } catch { /* leave */ }
+        if (!cancelled) { setGraph({ nodes: json.nodes ?? [], links: json.links ?? [] }); setError(false) }
+      } catch { if (!cancelled) setError(true) }   // surface unreachable → show the banner, don't fail silent
     }
     void load()
     return () => { cancelled = true }
