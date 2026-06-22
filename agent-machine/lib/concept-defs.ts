@@ -171,7 +171,11 @@ export function conceptStoreFields(): string[] {
  * concept, so the caller falls through to retrieval+generation unchanged.
  */
 export function conceptLookup(query: string, fields: string[] = []): Concept | null {
-  const m = /(?:what (?:is|are|s)|what'?s|define|explain|tell me about|describe)\s+(?:an?\s+|the\s+)?(.+?)\s*[?.!]*$/i.exec(query.trim())
+  // ReDoS cap: the lazy `(.+?)\s*[?.!]*$` tail can catastrophically backtrack on a long run of
+  // trailing whitespace/punctuation. A concept question is short; bound the input so worst-case
+  // matching time is constant regardless of caller (a 2 KB slice is far beyond any real question).
+  const q = query.trim().slice(0, 2000)
+  const m = /(?:what (?:is|are|s)|what'?s|define|explain|tell me about|describe)\s+(?:an?\s+|the\s+)?(.+?)\s*[?.!]*$/i.exec(q)
   const term = (m?.[1] ?? '').toLowerCase().trim()
   if (!term || term.length < 3) return null
   for (const f of (fields.length ? fields : conceptStoreFields())) {

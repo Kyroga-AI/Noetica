@@ -95,7 +95,12 @@ export function validateArtifact(a: unknown): { ok: boolean; errors: string[] } 
 export function writeProofArtifact(a: ProofArtifact): string {
   fs.mkdirSync(PROOFS_DIR, { recursive: true })
   const p = path.join(PROOFS_DIR, `${a.artifact_id.replace(/[^a-z0-9]/gi, '_')}.json`)
-  fs.writeFileSync(p, JSON.stringify(a, null, 2))
+  // Atomic write: serialize to a temp sibling then rename (rename is atomic on the same fs). A crash or
+  // concurrent read mid-write must never see a half-written, unparseable proof artifact — the proof
+  // fabric is evidence; a torn file silently corrupts the audit trail.
+  const tmp = `${p}.${process.pid}.tmp`
+  fs.writeFileSync(tmp, JSON.stringify(a, null, 2))
+  fs.renameSync(tmp, p)
   const g = getHellGraph()
   if (!g.getNode(a.artifact_id)) {
     g.addNode(a.artifact_id, ['ProofArtifact'], {
@@ -116,7 +121,10 @@ export function validateWithPFK(artifactPath: string): Promise<boolean> {
   const schema = path.join(root, 'schemas', 'proof_artifact.schema.json')
   const validator = path.join(root, 'scripts', 'validate_proof_artifact.py')
   return new Promise((resolve) => {
-    execFile('python3', [validator, '--schema', schema, '--artifact', artifactPath], (err) => resolve(!err))
+    // Bound the validator subprocess: a hung/runaway python3 (bad interpreter, huge artifact, blocked
+    // import) must not leak a zombie or stall the caller forever. timeout → SIGTERM → err → treat as
+    // INVALID (fail-closed: an unvalidatable artifact is not a valid one).
+    execFile('python3', [validator, '--schema', schema, '--artifact', artifactPath], { timeout: 15_000 }, (err) => resolve(!err))
   })
 }
 

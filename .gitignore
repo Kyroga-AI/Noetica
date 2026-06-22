@@ -25,6 +25,10 @@ src-tauri/gen/
 opencog-sidecar/__pycache__/
 opencog-sidecar/cypher_gw/__pycache__/
 
+# Python bytecode caches (anywhere) — e.g. agent-machine/scripts/__pycache__
+__pycache__/
+*.pyc
+
 # bun --compile scratch files
 *.bun-build
 tsconfig.tsbuildinfo

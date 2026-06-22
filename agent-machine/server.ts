@@ -32,6 +32,8 @@ import * as crypto from 'node:crypto'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
+import * as dns from 'node:dns'
+import * as net from 'node:net'
 import { buildRouterDecision, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider } from './lib/router.js'
 import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTelemetry, type MeshTier } from './lib/scope-d.js'
 import { installEgressGuard, setOfflineMode } from './lib/egress-guard.js'
@@ -1168,6 +1170,45 @@ function parseSolveOutput(text: string): { files: { path: string; content: strin
 // public_data — pull a time series from a free, no-key public source and return
 // rows ready for render_chart. Sources: crypto (CoinGecko), fx (Frankfurter),
 // worldbank (economic indicators), csv (any public CSV URL).
+// SSRF guard — is this address in a range a user-supplied fetch must never reach?
+// Covers loopback, RFC1918 private, link-local (incl. the 169.254.169.254 cloud-metadata endpoint),
+// CGNAT, and IPv6 loopback / unique-local / link-local.
+function isBlockedIp(ip: string): boolean {
+  const v = ip.replace(/^::ffff:/i, '') // unwrap IPv4-mapped IPv6
+  if (net.isIPv4(v)) {
+    const o = v.split('.').map(Number)
+    if (o[0] === 10 || o[0] === 127 || o[0] === 0) return true
+    if (o[0] === 169 && o[1] === 254) return true                 // link-local + cloud metadata
+    if (o[0] === 172 && o[1]! >= 16 && o[1]! <= 31) return true   // RFC1918
+    if (o[0] === 192 && o[1] === 168) return true                 // RFC1918
+    if (o[0] === 100 && o[1]! >= 64 && o[1]! <= 127) return true  // CGNAT
+    return false
+  }
+  const lc = v.toLowerCase()
+  if (lc === '::1' || lc === '::') return true
+  if (lc.startsWith('fc') || lc.startsWith('fd')) return true     // unique-local fc00::/7
+  if (lc.startsWith('fe80')) return true                          // link-local
+  return false
+}
+
+// Validate a user-supplied URL before fetching it. Returns an error string to surface, or null if safe.
+// Resolves the host and rejects if ANY resolved address is blocked. Best-effort vs DNS rebinding
+// (TOCTOU): full protection needs a pinned-IP connect — out of scope for this local-first tool, but
+// this stops the obvious metadata-service / localhost / internal-host pivots, incl. prompt-injected ones.
+async function assertPublicUrl(raw: string): Promise<string | null> {
+  let u: URL
+  try { u = new URL(raw) } catch { return 'Error: invalid URL.' }
+  if (u.protocol !== 'https:') return 'Error: only https URLs are allowed.'
+  const host = u.hostname.replace(/^\[|\]$/g, '') // strip IPv6 brackets
+  if (net.isIP(host)) return isBlockedIp(host) ? 'Error: that URL targets a private/loopback address (blocked).' : null
+  try {
+    const addrs = await dns.promises.lookup(host, { all: true })
+    if (!addrs.length) return 'Error: host did not resolve.'
+    for (const a of addrs) if (isBlockedIp(a.address)) return 'Error: that host resolves to a private/loopback address (blocked).'
+    return null
+  } catch { return 'Error: host did not resolve.' }
+}
+
 async function publicData(args: Record<string, unknown>): Promise<string> {
   const source = String(args['source'] ?? '').trim()
   const UA = 'Mozilla/5.0 (compatible; noetica/1.0)'
@@ -1215,6 +1256,8 @@ async function publicData(args: Record<string, unknown>): Promise<string> {
     if (source === 'csv') {
       const url = String(args['url'] ?? '').trim()
       if (!/^https:\/\//.test(url)) return 'Error: csv source requires a full https URL.'
+      const ssrf = await assertPublicUrl(url) // block metadata-service / localhost / internal-host pivots
+      if (ssrf) return ssrf
       const res = await fetch(url, { headers: { 'user-agent': UA }, signal: AbortSignal.timeout(15_000) })
       if (!res.ok) return `Error: CSV URL returned ${res.status}.`
       const text = await res.text()
@@ -6882,6 +6925,12 @@ try {
   }
 } catch { /* nothing listening — the normal case */ }
 
+// SECURITY (Slowloris): bound how long a client may take to send headers / the full request. The 32 MB
+// body cap bounds SIZE, not TIME — without these a slow or never-completing POST pins a handler forever.
+// These cap the REQUEST only; response streaming (long generations) is unaffected. Bound to 127.0.0.1 so
+// the surface is local, but a local rogue/buggy client shouldn't be able to wedge the loop either.
+server.headersTimeout = 60_000
+server.requestTimeout = 300_000
 server.listen(PORT, '127.0.0.1', () => {
   console.log(`[noetica-am] Agent Machine v${VERSION} listening on http://127.0.0.1:${PORT}`)
   console.log(`[noetica-am] Status: http://127.0.0.1:${PORT}/api/status`)
