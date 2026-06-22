@@ -57,6 +57,7 @@ import { repairToolArgs } from './lib/tool-validate.js'
 import { containmentState, hydrateContainment, resolvePurpose, armKillSwitch, disarmKillSwitch, bindPurpose, PURPOSES } from './lib/agent-containment.js'
 import { retrieve } from './lib/retrieval.js'
 import { getGraph, graphHealth, graphSparql, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
+import { handleCapabilityRoute } from './lib/capability-routes.js'
 import { isVoiceProvisioned, ensureVoiceSidecar, voiceFetch } from './lib/voice-runtime.js'
 import { runOcr } from './lib/ocr.js'
 import { getHellGraph, attachRocksDB } from '@socioprophet/hellgraph'
@@ -3704,6 +3705,9 @@ const server = http.createServer((req, res) => {
 
   const url = new URL(req.url ?? '/', `http://localhost:${PORT}`)
 
+  // Capability API surface (wave-2/3 libs) — one mount for all /api/cap/* routes.
+  if (url.pathname.startsWith('/api/cap/')) { void handleCapabilityRoute(req, res, url); return }
+
   // GET /api/security/state — bearbrowser polls this to auto-enable Tor when armed.
   if (req.method === 'GET' && url.pathname === '/api/security/state') {
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
@@ -6251,12 +6255,16 @@ Question: ${question}`
     void (async () => {
       try {
         const verify = url.searchParams.get('verify') === '1'
+        const write = url.searchParams.get('write') === '1'
         const { entities, model } = await buildOrLoadCovariates(false)
         const facts = entities.flatMap((e) => e.covariates.filter((c) => c.object).map((c) => ({ subject: e.entity, predicate: c.type, object: c.object! })))
         const { inferFacts } = await import('./lib/graph-infer.js')
         const inferred = await inferFacts(facts, { model, verify, max: 30 })
+        // ?write=1 PERSISTS verified inferences back into HellGraph (only verified — GAIA invariant).
+        let persisted: { written: number; skipped: number } | undefined
+        if (write) { const { persistInferred } = await import('./lib/graph-writeback.js'); const r = persistInferred(inferred); persisted = { written: r.written, skipped: r.skipped } }
         res.writeHead(200, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ model, inferred, count: inferred.length, verifiedCount: verify ? inferred.filter((f) => f.verified).length : null, factsFrom: facts.length }))
+        res.end(JSON.stringify({ model, inferred, count: inferred.length, verifiedCount: verify ? inferred.filter((f) => f.verified).length : null, factsFrom: facts.length, persisted }))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
