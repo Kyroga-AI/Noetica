@@ -37,9 +37,13 @@ import { placeToFeatureEntry, mergeToConcordance, entityToCanonical, gaiaDocumen
 import { listLocalModels, generateOllamaText } from './ollama.js'
 import { VectorIndex } from './vector-index.js'
 
-const renderTemplate = (tpl: string, vars: Record<string, unknown>) => tpl.replace(/\{\{?(\w+)\}?\}/g, (_m, k: string) => (k in vars ? String(vars[k]) : `{${k}}`))
+const renderTemplate = (tpl: string, vars: Record<string, unknown>) => tpl.replace(/\{\{?(\w+)\}?\}/g, (_m, k: string) => (Object.prototype.hasOwnProperty.call(vars, k) ? String(vars[k]) : `{${k}}`))
+// Object.entries from attacker JSON, minus prototype-pollution keys (used where bodies → Maps/lookups).
+const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
+const safeEntries = <T,>(o: unknown): Array<[string, T]> => (o && typeof o === 'object' ? (Object.entries(o as Record<string, T>).filter(([k]) => !DANGEROUS_KEYS.has(k))) : [])
 
 const MAX_CAP_BODY = 8 * 1024 * 1024   // 8MB cap — readBody owns enforcement (don't rely on the detached global guard)
+const MUTATING_ROUTES = new Set(['cms-create', 'cms-update', 'cms-rollback', 'cms-to-drive', 'proposals-apply', 'infer-apply', 'swarm-announce', 'swarm-reuse', 'office-convert'])
 function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve) => {
     let b = ''; let size = 0; let aborted = false
@@ -65,6 +69,15 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
   if (!url.pathname.startsWith('/api/cap/')) return false
   const path = url.pathname.slice('/api/cap/'.length)
   const send = (code: number, obj: unknown) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(obj)) }
+
+  // CSRF/DNS-rebinding guard on STATE-CHANGING routes: loopback binding stops remote net attackers, but a
+  // malicious web page could fetch() localhost. Reject a real cross-site http(s) Origin, and require a JSON
+  // content-type (a simple text/plain POST skips CORS preflight). Same-origin / tauri / no-Origin (the app) pass.
+  if (req.method === 'POST' && MUTATING_ROUTES.has(path)) {
+    const origin = req.headers['origin']
+    if (typeof origin === 'string' && /^https?:\/\//i.test(origin) && !/^https?:\/\/(127\.0\.0\.1|localhost)(:|$|\/)/i.test(origin)) { send(403, { error: 'cross_origin_blocked' }); return true }
+    if (!String(req.headers['content-type'] ?? '').includes('application/json')) { send(415, { error: 'json_content_type_required' }); return true }
+  }
   try {
     const raw = req.method === 'POST' ? await readBody(req) : '{}'
     const b = JSON.parse(raw || '{}') as Record<string, any>
@@ -87,7 +100,7 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
       case 'datalog': return send(200, { facts: datalogEval((b.facts ?? []) as Fact[], (b.rules ?? []) as Rule[]) }), true
       case 'defeasible': return send(200, deriveDefeasible((b.facts ?? []) as string[], (b.rules ?? []) as DefRule[], (b.superiority ?? []) as Superiority[])), true
       case 'provenance': {
-        const d = new Map<string, Derivation>(Object.entries((b.derivations ?? {}) as Record<string, Derivation>))
+        const d = new Map<string, Derivation>(safeEntries<Derivation>(b.derivations))
         const proof = buildProof(b.fact as string, d)
         return send(200, { proof, baseFacts: baseFacts(proof), rules: rulesUsed(proof), explanation: explainProof(proof) }), true
       }
@@ -255,7 +268,7 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
       // ── OpenCog values: truth-weighted/attention-personalized ranking + PLN truth ──
       case 'weighted-rank': {
         const { weightedPageRank, stiNorm } = await import('./opencog-values.js')
-        const prior = b.sti ? stiNorm(new Map(Object.entries(b.sti as Record<string, number>))) : undefined
+        const prior = b.sti ? stiNorm(new Map(safeEntries<number>(b.sti))) : undefined
         const ranks = weightedPageRank((b.nodes ?? []) as string[], (b.edges ?? []) as never, { prior })
         return send(200, { ranks: [...ranks.entries()].map(([id, score]) => ({ id, score })).sort((a, c) => c.score - a.score) }), true
       }

@@ -9,6 +9,10 @@
  *   • DHT            → the swarm index (hash → providers + metadata); federates over storage-node-routes
  * So discovery ranks by relevance × swarm-health, and the most-REUSED assets surface to the top.
  */
+import { existsSync, readFileSync, writeFileSync, mkdirSync, renameSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { join, dirname } from 'node:path'
+
 export interface MagnetRef { hash: string; title?: string; type?: string; size?: number }
 
 /** A portable content-addressed reference, BitTorrent magnet syntax (xt/dn/xl + our type). */
@@ -28,7 +32,9 @@ export function parseMagnet(s: string): MagnetRef | null {
   const hash = /urn:sha256:([a-f0-9]{4,128})/i.exec(params.get('xt') ?? '')?.[1]?.toLowerCase()
   if (!hash) return null
   const size = params.get('xl') ? Number(params.get('xl')) : undefined
-  return { hash, title: params.get('dn') ? decodeURIComponent(params.get('dn')!) : undefined, size: Number.isFinite(size) ? size : undefined, type: params.get('x.type') ?? undefined }
+  let title: string | undefined
+  try { title = params.get('dn') ? decodeURIComponent(params.get('dn')!) : undefined } catch { title = params.get('dn') ?? undefined }   // malformed %-escape must not throw
+  return { hash, title, size: Number.isFinite(size) ? size : undefined, type: params.get('x.type') ?? undefined }
 }
 
 export interface SwarmEntry {
@@ -136,21 +142,29 @@ export class ArtifactSwarm {
 // Process-level swarm singleton (the local DHT node; federates over storage-node-routes later).
 let _swarm: ArtifactSwarm | null = null
 export const LOCAL_PROVIDER = 'noetica-local'
-const swarmIndexPath = async () => { const os = await import('node:os'); const path = await import('node:path'); return path.join(os.homedir(), '.noetica', 'swarm', 'index.json') }
+const swarmIndexPath = () => join(homedir(), '.noetica', 'swarm', 'index.json')
 
 export function getSwarm(): ArtifactSwarm {
   if (_swarm) return _swarm
-  _swarm = new ArtifactSwarm()
-  // best-effort restore (sync, on first use) so search works immediately after restart
-  void (async () => {
-    try { const { existsSync, readFileSync } = await import('node:fs'); const idx = await swarmIndexPath(); if (existsSync(idx)) _swarm!.hydrate(JSON.parse(readFileSync(idx, 'utf8'))) } catch { /* fresh */ }
-  })()
-  return _swarm
+  const s = new ArtifactSwarm()
+  // SYNCHRONOUS restore before returning — otherwise a concurrent announce+persist during the async-hydrate
+  // window would overwrite the on-disk index with an EMPTY snapshot (restart data loss).
+  try { const idx = swarmIndexPath(); if (existsSync(idx)) s.hydrate(JSON.parse(readFileSync(idx, 'utf8'))) } catch { /* fresh */ }
+  _swarm = s
+  return s
 }
 
-export async function persistSwarm(): Promise<void> {
-  if (!_swarm) return
-  const { writeFileSync, mkdirSync, renameSync } = await import('node:fs')
-  const path = await import('node:path')
-  try { const idx = await swarmIndexPath(); mkdirSync(path.dirname(idx), { recursive: true }); const tmp = `${idx}.tmp`; writeFileSync(tmp, JSON.stringify(_swarm.snapshot())); renameSync(tmp, idx) } catch { /* ignore */ }
+// Single-flight + unique-tmp persistence (same race fix as the CMS).
+let _swarmPersistChain: Promise<void> = Promise.resolve()
+let _swarmTmpSeq = 0
+export function persistSwarm(): Promise<void> {
+  _swarmPersistChain = _swarmPersistChain.then(() => {
+    if (!_swarm) return
+    const idx = swarmIndexPath()
+    mkdirSync(dirname(idx), { recursive: true })
+    const tmp = `${idx}.tmp.${process.pid}.${_swarmTmpSeq++}`
+    writeFileSync(tmp, JSON.stringify(_swarm.snapshot()))
+    renameSync(tmp, idx)
+  }).catch(() => { /* best-effort */ })
+  return _swarmPersistChain
 }

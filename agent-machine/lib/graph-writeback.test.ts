@@ -44,6 +44,19 @@ test('persistProposals ignores non-accepted proposals', () => {
   assert.equal(edges.length, 0)
 })
 
+test('HARDENING: invalid ids / edge labels are rejected (no junk into the canonical graph)', () => {
+  const { store, edges } = fakeStore()
+  const bad = [
+    { ...proposalsFromInferred([{ subject: 'A', predicate: 'rel', object: 'B' }])[0]!, status: 'accepted' as const, payload: { from: 'A'.repeat(300), to: 'B', rel: 'rel' } },   // id too long
+    { ...proposalsFromInferred([{ subject: 'A', predicate: 'rel', object: 'B' }])[0]!, status: 'accepted' as const, payload: { from: 'A', to: 'B', rel: 'evil\nINJECT' } },         // rel with newline
+    { ...proposalsFromInferred([{ subject: 'A', predicate: 'rel', object: 'B' }])[0]!, status: 'accepted' as const, payload: { from: 'A', to: 'B', rel: 'ok_rel' } },               // valid
+  ]
+  const r = persistProposals(bad, { store })
+  assert.equal(r.written, 1, 'only the valid edge is written')
+  assert.equal(edges.length, 1)
+  assert.equal(edges[0]!.label, 'ok_rel')
+})
+
 test('persistInferred persists ONLY verified facts (GAIA invariant)', () => {
   const { store, edges } = fakeStore()
   const r = persistInferred([

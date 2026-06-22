@@ -10,7 +10,11 @@ export interface IndexedVector { id: string; vec: Float32Array | number[] }
 function cosine(a: Float32Array | number[], b: Float32Array | number[]): number {
   let dot = 0, na = 0, nb = 0
   const n = Math.min(a.length, b.length)
-  for (let i = 0; i < n; i++) { dot += a[i]! * b[i]!; na += a[i]! * a[i]!; nb += b[i]! * b[i]! }
+  for (let i = 0; i < n; i++) {
+    const ai = a[i]!, bi = b[i]!
+    if (!Number.isFinite(ai) || !Number.isFinite(bi)) return 0   // a NaN/Infinity element (injectable via JSON) ⇒ 0, never NaN scores
+    dot += ai * bi; na += ai * ai; nb += bi * bi
+  }
   return na && nb ? dot / Math.sqrt(na * nb) : 0
 }
 

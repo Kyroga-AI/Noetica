@@ -14,6 +14,14 @@ test('VectorIndex: cosine kNN ranks nearest, excludes self, dedupes ids', () => 
   assert.ok(r[0]!.score > r[1]!.score)
 })
 
+test('HARDENING: NaN/Infinity vector elements yield 0 score, never NaN', () => {
+  const idx = new VectorIndex()
+  idx.addMany([{ id: 'good', vec: [1, 0, 0] }, { id: 'nan', vec: [NaN, 0, 0] }, { id: 'inf', vec: [Infinity, 1, 0] }])
+  const r = idx.search([1, 0, 0], 3)
+  for (const x of r) assert.equal(Number.isFinite(x.score), true, `${x.id} score must be finite`)
+  assert.equal(r.find((x) => x.id === 'nan')!.score, 0)
+})
+
 test('hybridGraphVector: vector entry points then graph expansion with hop distance', () => {
   const idx = new VectorIndex()
   idx.addMany([{ id: 'entry', vec: [1, 0, 0] }, { id: 'far', vec: [0, 0, 1] }])

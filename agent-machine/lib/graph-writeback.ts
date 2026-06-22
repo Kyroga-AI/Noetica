@@ -20,26 +20,32 @@ export interface WritableGraph {
 export interface WriteResult { written: number; skipped: number; details: Array<{ ref: string; op: string; status: string }> }
 
 const edgeKey = (from: string, rel: string, to: string) => `${from}|${rel}|${to}`
+const MAX_PROPOSALS = 5000
+// IDs/labels written into the canonical graph must be bounded + reasonably-charactered (rel becomes an edge
+// label → keep it from carrying query-breaking / unbounded junk into downstream Cypher/SPARQL/analytics).
+const okId = (s: string) => typeof s === 'string' && s.length > 0 && s.length <= 256 && !/[\r\n\t\0]/.test(s)
+const okRel = (s: string) => typeof s === 'string' && s.length > 0 && s.length <= 64 && /^[\w .:/<>-]+$/.test(s)
 
-/** Persist ACCEPTED proposals into HellGraph. Idempotent + provenance-tagged. */
+/** Persist ACCEPTED proposals into HellGraph. Idempotent + provenance-tagged + input-validated + bounded. */
 export function persistProposals(proposals: GraphProposal[], opts: { store?: WritableGraph; now?: string } = {}): WriteResult {
   const g = opts.store ?? (getGraph() as unknown as WritableGraph)
   const now = opts.now ?? new Date().toISOString()
   const existing = new Set(g.allEdges().map((e) => edgeKey(e.from, e.label, e.to)))
   let written = 0, skipped = 0
   const details: WriteResult['details'] = []
-  for (const p of proposals) {
-    if (p.status !== 'accepted') { skipped++; continue }
+  for (const p of (Array.isArray(proposals) ? proposals.slice(0, MAX_PROPOSALS) : [])) {
+    if (!p || p.status !== 'accepted') { skipped++; continue }
     try {
       if (p.op === 'add-node') {
         const id = String(p.payload['id'] ?? p.payload['node'] ?? '')
-        if (!id) { skipped++; details.push({ ref: '?', op: p.op, status: 'no-id' }); continue }
+        if (!okId(id)) { skipped++; details.push({ ref: id || '?', op: p.op, status: 'invalid-id' }); continue }
         if (g.getNode(id)) { skipped++; details.push({ ref: id, op: p.op, status: 'exists' }); continue }
-        g.addNode(id, [String(p.payload['kind'] ?? 'Concept')], { label: String(p.payload['label'] ?? id), epistemic: 'proposed', source: p.source ?? 'agent', rationale: p.rationale, created_at: now })
+        const kind = String(p.payload['kind'] ?? 'Concept').slice(0, 64).replace(/[^\w-]/g, '') || 'Concept'
+        g.addNode(id, [kind], { label: String(p.payload['label'] ?? id).slice(0, 512), epistemic: 'proposed', source: p.source ?? 'agent', rationale: p.rationale, created_at: now })
         written++; details.push({ ref: id, op: p.op, status: 'written' })
       } else if (p.op === 'add-edge') {
         const from = String(p.payload['from'] ?? ''), to = String(p.payload['to'] ?? ''), rel = String(p.payload['rel'] ?? 'RELATED_TO')
-        if (!from || !to) { skipped++; details.push({ ref: '?', op: p.op, status: 'missing-endpoint' }); continue }
+        if (!okId(from) || !okId(to) || !okRel(rel)) { skipped++; details.push({ ref: from || '?', op: p.op, status: 'invalid-field' }); continue }
         if (existing.has(edgeKey(from, rel, to))) { skipped++; details.push({ ref: edgeKey(from, rel, to), op: p.op, status: 'exists' }); continue }
         if (!g.getNode(from)) g.addNode(from, ['Concept'], { label: from, epistemic: 'proposed', created_at: now })
         if (!g.getNode(to)) g.addNode(to, ['Concept'], { label: to, epistemic: 'proposed', created_at: now })

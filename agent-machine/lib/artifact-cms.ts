@@ -138,17 +138,22 @@ export async function getArtifactCMS(): Promise<ArtifactCMS> {
   return c
 }
 
-export async function persistArtifactCMS(): Promise<void> {
-  if (!_prod) return
-  const { writeFileSync, mkdirSync, renameSync } = await import('node:fs')
-  const path = await import('node:path')
-  try {
+// Single-flight persistence chain: serializes concurrent writes so two requests can't interleave their bytes
+// into the same tmp file (torn JSON) or lost-update each other. Each run serializes the LATEST snapshot.
+let _cmsPersistChain: Promise<void> = Promise.resolve()
+let _cmsTmpSeq = 0
+export function persistArtifactCMS(): Promise<void> {
+  _cmsPersistChain = _cmsPersistChain.then(async () => {
+    if (!_prod) return
+    const { writeFileSync, mkdirSync, renameSync } = await import('node:fs')
+    const path = await import('node:path')
     const idx = await indexPath()
     mkdirSync(path.dirname(idx), { recursive: true })
-    const tmp = `${idx}.tmp`
-    writeFileSync(tmp, JSON.stringify(_prod.snapshot()))   // atomic: write tmp then rename (crash-safe)
+    const tmp = `${idx}.tmp.${process.pid}.${_cmsTmpSeq++}`   // unique tmp → no cross-writer clobber
+    writeFileSync(tmp, JSON.stringify(_prod.snapshot()))
     renameSync(tmp, idx)
-  } catch { /* ignore */ }
+  }).catch(() => { /* best-effort */ })
+  return _cmsPersistChain
 }
 
 /** Write an artifact to the workspace drive (~/.noetica/workspaces/<ws>/) — the CMS→drive integration. */
