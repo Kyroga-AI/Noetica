@@ -1487,20 +1487,31 @@ export function AppShell() {
                 onSpeak={speak}
               />
               {inspectorVisible && (
-                <RightPanel
-                  activeSurface={activeSurface}
-                  model={activeModel}
-                  steering={steering}
-                  thinkingBudget={thinkingBudget}
-                  temperature={temperature}
-                  maxTokens={maxTokens}
-                  workspaceMode={workspaceMode}
-                  riskReadout={riskReadout}
-                  onSteeringChange={setSteering}
-                  onThinkingBudgetChange={setThinkingBudget}
-                  onTemperatureChange={setTemperature}
-                  onMaxTokensChange={setMaxTokens}
-                />
+                <div className="relative h-full">
+                  {/* Visible close — the inspector ("Open Observatory" target) was only dismissable via ⌘I. */}
+                  <button
+                    onClick={() => setInspectorVisible(false)}
+                    title="Close inspector (⌘I)"
+                    aria-label="Close inspector"
+                    className="absolute right-2 top-2 z-20 flex h-6 w-6 items-center justify-center rounded-md text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-primary)]"
+                  >
+                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" /></svg>
+                  </button>
+                  <RightPanel
+                    activeSurface={activeSurface}
+                    model={activeModel}
+                    steering={steering}
+                    thinkingBudget={thinkingBudget}
+                    temperature={temperature}
+                    maxTokens={maxTokens}
+                    workspaceMode={workspaceMode}
+                    riskReadout={riskReadout}
+                    onSteeringChange={setSteering}
+                    onThinkingBudgetChange={setThinkingBudget}
+                    onTemperatureChange={setTemperature}
+                    onMaxTokensChange={setMaxTokens}
+                  />
+                </div>
               )}
             </div>
           </div>

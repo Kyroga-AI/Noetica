@@ -104,6 +104,9 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick, v
   const simRef = useRef<Sim[]>([])
   const dragRef = useRef<{ id: string } | null>(null)
   const movedRef = useRef(false)   // did this pointer-down become a real drag (vs a tap)?
+  // Zoom + pan: the viewBox is computed from {x,y,k}. Wheel zooms toward the cursor; dragging empty space pans.
+  const [view, setView] = useState({ x: 0, y: 0, k: 1 })
+  const panRef = useRef<{ sx: number; sy: number; vx: number; vy: number } | null>(null)
   const rafRef = useRef<number>(0)
   const alphaRef = useRef(1)
   const runningRef = useRef(false)
@@ -239,28 +242,57 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick, v
   }, [built, links, W, H])
 
   // Convert a pointer event to viewBox coordinates (the SVG is scaled to its container).
-  const toViewBox = (e: React.PointerEvent): { x: number; y: number } => {
+  const toViewBox = (e: { clientX: number; clientY: number }): { x: number; y: number } => {
     const svg = svgRef.current
     if (!svg) return { x: 0, y: 0 }
     const rect = svg.getBoundingClientRect()
-    return { x: ((e.clientX - rect.left) / rect.width) * W, y: ((e.clientY - rect.top) / rect.height) * H }
+    return {
+      x: view.x + ((e.clientX - rect.left) / rect.width) * (W / view.k),
+      y: view.y + ((e.clientY - rect.top) / rect.height) * (H / view.k),
+    }
   }
   const onMove = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (panRef.current) {
+      const svg = svgRef.current; if (!svg) return
+      const rect = svg.getBoundingClientRect()
+      const dx = ((e.clientX - panRef.current.sx) / rect.width) * (W / view.k)
+      const dy = ((e.clientY - panRef.current.sy) / rect.height) * (H / view.k)
+      setView((v) => ({ ...v, x: panRef.current!.vx - dx, y: panRef.current!.vy - dy }))
+      return
+    }
     if (!dragRef.current) return
     movedRef.current = true
     const n = simRef.current.find((m) => m.id === dragRef.current!.id)
     if (n) { const p = toViewBox(e); n.fx = p.x; n.fy = p.y; alphaRef.current = Math.max(alphaRef.current, 0.15); ensureRunningRef.current() }
   }
+  // Wheel zoom toward the cursor (keeps the point under the pointer fixed). Clamped 0.4×–6×.
+  const onWheel = (e: React.WheelEvent<SVGSVGElement>) => {
+    const svg = svgRef.current; if (!svg) return
+    const rect = svg.getBoundingClientRect()
+    const fx = (e.clientX - rect.left) / rect.width, fy = (e.clientY - rect.top) / rect.height
+    setView((v) => {
+      const k = Math.min(6, Math.max(0.4, v.k * (e.deltaY < 0 ? 1.12 : 1 / 1.12)))
+      const cx = v.x + fx * (W / v.k), cy = v.y + fy * (H / v.k)
+      return { k, x: cx - fx * (W / k), y: cy - fy * (H / k) }
+    })
+  }
+  // Start a pan when the press lands on empty canvas (a node press sets dragRef first, via bubbling).
+  const onBgPointerDown = (e: React.PointerEvent<SVGSVGElement>) => {
+    if (dragRef.current) return
+    panRef.current = { sx: e.clientX, sy: e.clientY, vx: view.x, vy: view.y }
+  }
   // A real drag PINS the node where you drop it (fx/fy kept) — so pulling a cluster apart makes it
   // STAY apart instead of springing back; you keep control of the layout. A tap (no movement) is a
   // drill, not a drag. Double-click empty space to release every pin and let it reflow.
   const endDrag = () => {
+    panRef.current = null
     if (dragRef.current && !movedRef.current) onNodeClick?.(dragRef.current.id)
     dragRef.current = null
     movedRef.current = false
   }
   const releaseAll = () => {
     for (const n of simRef.current) { n.fx = null; n.fy = null }
+    setView({ x: 0, y: 0, k: 1 })   // double-click empty also resets zoom/pan to fit
     alphaRef.current = 1
     ensureRunningRef.current()
   }
@@ -274,8 +306,8 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick, v
 
   return (
     <div ref={wrapRef} style={{ width: '100%', height: fill ? '100%' : 'auto' }}>
-    <svg ref={svgRef} width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ width: '100%', height: fill ? '100%' : 'auto', display: 'block', fontFamily: 'Inter, sans-serif', touchAction: 'none' }}
-      onPointerMove={onMove} onPointerUp={endDrag} onPointerLeave={endDrag} onDoubleClick={releaseAll}>
+    <svg ref={svgRef} width={W} height={H} viewBox={`${view.x} ${view.y} ${W / view.k} ${H / view.k}`} style={{ width: '100%', height: fill ? '100%' : 'auto', display: 'block', fontFamily: 'Inter, sans-serif', touchAction: 'none', cursor: panRef.current ? 'grabbing' : 'default' }}
+      onWheel={onWheel} onPointerDown={onBgPointerDown} onPointerMove={onMove} onPointerUp={endDrag} onPointerLeave={endDrag} onDoubleClick={releaseAll}>
       <defs>
         <filter id="spNodeGlow">
           <feGaussianBlur stdDeviation="6" result="b" />
