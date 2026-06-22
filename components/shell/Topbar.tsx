@@ -2,6 +2,7 @@ import { NoeticaMark } from '@/components/brand/NoeticaMark'
 import { WarmingLevel } from '@/components/risk/WarmingLevel'
 import { ThemePicker } from '@/components/shell/ThemePicker'
 import { RuntimeStatus } from '@/components/status/RuntimeStatus'
+import { EgressMeter } from '@/components/status/EgressMeter'
 import type { RiskAversionLiveReadout } from '@/lib/risk/riskAversionLive'
 import type { VoiceState } from '@/lib/voice/useVoice'
 
@@ -49,6 +50,7 @@ export function Topbar({ modelId, mode, riskReadout, voiceState, isLive, onLiveS
       </div>
 
       <div className="flex items-center gap-2">
+        <EgressMeter />
         <RuntimeStatus />
         {/* Mic — push-to-talk dictation (single turn). Stays a mic. */}
         <button

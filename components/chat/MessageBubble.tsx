@@ -495,6 +495,17 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
 
         {message.content && message.governance && (message.governance.model_routed || message.governance.input_tokens || message.governance.output_tokens || message.governance.latency_ms) && (
           <div className="mt-1.5 flex items-center gap-3 text-[10px] text-[var(--color-text-tertiary)]">
+            {(() => {
+              const prov = (message.governance.provider ?? '').toLowerCase()
+              const local = prov === '' || prov === 'ollama' || prov === 'noetica' || prov === 'local'
+              return (
+                <span className="flex items-center gap-1 font-semibold"
+                  title={local ? 'Answered entirely on this device — nothing left your machine' : `Routed to ${prov} — this turn left your device`}
+                  style={{ color: local ? '#16a34a' : '#d97706' }}>
+                  {local ? '🔒 on-device' : `↗ ${prov}`}
+                </span>
+              )
+            })()}
             {message.governance.model_routed && (
               <span className="flex items-center gap-1">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#22c55e]" />
