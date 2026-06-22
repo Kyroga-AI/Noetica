@@ -3422,7 +3422,14 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     // Index this interaction so future retrieval can surface it. The promptHash
     // is used for deduplication in the WAL. invalidatePrefix forces a fresh
     // cache-augmented prefix on the next turn (new graph state).
-    void (async () => {
+    // Don't pollute the knowledge graph with the agent's OWN tool exhaust — directory listings,
+    // file dumps, command output. Those are operational, not knowledge; ingesting them mints junk
+    // atoms (your home-dir folder names, probe artifacts) that clog the graph. Detect by the
+    // file/command intent or the listing shape and skip ingestion for the turn.
+    const operationalTurn =
+      /^\s*(show (me )?(my )?files|list( my| the)? (files|dir|directory)|^ls\b|what'?s? (in|inside) (my|the|this)|look (in|at) [~/.]|open (the )?(folder|directory)|^cd\b|run [`'"]?(ls|find|cat|tree))/i.test(latestUserContent.trim())
+      || /(\b[dfl] [.\w-]+\/ .+\b[dfl] )|(\bf [.\w-]+ \(\d+\s*B?\))|(your (home|home directory)|here (are|is) (the|your) (files|directory|folder))/i.test(fullContent.slice(0, 800))
+    if (!operationalTurn) void (async () => {
       try {
         const promptHash = crypto.createHash('sha256').update(latestUserContent).digest('hex').slice(0, 16)
         await trackIngest(ingestInteraction({

@@ -50,6 +50,14 @@ function vowelRatio(w: string): number {
 export function classifyLabel(label: string, lexicon: (w: string) => boolean): LabelClass {
   const l = normalize(label)
   if (!l) return 'nonsemantic'
+  // Operational/host artifacts the agent emits about ITSELF or the machine — home-dir folder
+  // names, self-probes, test/debug fixtures. Not knowledge; prune them. ('command' is prunable.)
+  if (/^(downloads|movies|pictures|public|desktop|applications|sites|music|documents|library|noetica[\s_-]?probe|corpus[\s_-]?(dbg|test)|test case \d|verify content|self[\s_/-].*|probe|works|primary|warmup|hello\s+noetica|your\s+message)$/i.test(l)) return 'command'
+  if (/^cf?user[\s_-]?text/i.test(l)) return 'command'                          // CFUserTextEncoding & variants
+  if (/^(z?sh(rc|env)?|zprofile|zsh[_-](history|sessions)|gitconfig|gitignore|bashrc|bash_profile|tcshrc|profile|zshenv|npmrc|gemrc|netrc)$/i.test(l)) return 'path'  // dotfile names (dot stripped by cleanLabel)
+  if (/(^|[\s_-])(backup|cache|tmp)$/i.test(l) || /\bclaude\.json/i.test(l)) return 'path'
+  if (/^\d+\s?[a-z]{1,2}$/i.test(l)) return 'hash'                              // model tags: 7b 3b 8b 13b 70b
+  if (/\d+\.\d+(\.\d+)?/.test(l)) return 'hash'                                 // version strings (8.15.0, v16.1)
   if (l.includes('/') || l.includes('\\') || /^[.~]/.test(l) || /\.(md|json|txt|log|tmp|lock|ts|js|py|rs|toml|yaml|yml)$/i.test(l)) return 'path'
   const ws = toks(l)
   // A command invocation = head token is a shell tool ("npm install", "git commit") OR every token is.
