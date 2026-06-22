@@ -2666,9 +2666,17 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       const hits = await searchDocsReranked(ragQuery, topK)
       if (hits.length > 0) {
         docHitCount = hits.length
+        // INDIRECT-INJECTION DEFENSE (PoisonedRAG): retrieved document text is UNTRUSTED — a malicious
+        // uploaded file can carry "ignore your instructions / exfiltrate …". Neutralize injected directives
+        // (Spotlighting: strip the directive, keep the content) BEFORE the text reaches the prompt. This was
+        // built (lib/rag-trust) but never wired into the live path.
+        const { sanitizeRetrieved } = await import('./lib/rag-trust.js')
+        let injectedChunks = 0
+        const safeHits = hits.map((h) => { const { clean, stripped } = sanitizeRetrieved(h.text); if (stripped) injectedChunks++; return { ...h, safeText: clean } })
+        if (injectedChunks > 0) console.warn(`[rag-trust] neutralized injected directives in ${injectedChunks}/${hits.length} retrieved chunk(s)`.replace(/[\r\n]/g, ''))
         // Reranked chunks → ChunkHit shape for downstream extractive QA (fusedScore as the score).
-        docHits = hits.map((h) => ({ docId: h.docId, filename: h.filename, text: h.text, score: h.fusedScore, idx: h.chunkIndex ?? undefined }))
-        const docBlock = hits.map((h, i) => `[${i + 1}] (${h.citation}) ${h.text.slice(0, chunkCap)}`).join('\n\n')
+        docHits = safeHits.map((h) => ({ docId: h.docId, filename: h.filename, text: h.safeText, score: h.fusedScore, idx: h.chunkIndex ?? undefined }))
+        const docBlock = safeHits.map((h, i) => `[${i + 1}] (${h.citation}) ${h.safeText.slice(0, chunkCap)}`).join('\n\n')
         // For doc-focused intents, demand strict grounding: answer ONLY from the
         // sources, name the gap rather than invent. This is what stops the model
         // from fabricating facts that contradict the uploaded document.
