@@ -15,6 +15,7 @@ import { CoworkSurface } from '@/components/surfaces/CoworkSurface'
 import { CodeSurface } from '@/components/surfaces/CodeSurface'
 import { WorkspaceSurface } from '@/components/surfaces/WorkspaceSurface'
 import { EvaluateSurface } from '@/components/surfaces/EvaluateSurface'
+import { StudioSurface } from '@/components/surfaces/StudioSurface'
 import { GovernSurface } from '@/components/surfaces/GovernSurface'
 import { ProjectsSurface } from '@/components/surfaces/ProjectsSurface'
 import { ArtifactsSurface } from '@/components/surfaces/ArtifactsSurface'
@@ -75,6 +76,7 @@ const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
   code:         'Code',
   workspace:    'Code',
   evaluate:     'Benchmark',
+  studio:       'Chat',
   operate:      'Chat',
   govern:       'Chat',
   tune:         'Chat',
@@ -1657,6 +1659,7 @@ function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, work
   if (activeSurface === 'code')         return <CodeSurface onOpenSettings={onOpenSettings} onNavigateToOperate={onNavigateToOperate} />
   if (activeSurface === 'workspace')    return <WorkspaceSurface />
   if (activeSurface === 'evaluate')     return <EvaluateSurface thinkingBudget={thinkingBudget} />
+  if (activeSurface === 'studio')       return <StudioSurface />
   if (activeSurface === 'operate')      return <OperateSurface onAtomSelect={onAtomSelect} />
   if (activeSurface === 'govern') {
     const traces = messages

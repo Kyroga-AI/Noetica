@@ -33,6 +33,11 @@ import { buildMindMap, flattenOutline, countNodes } from './mind-map.js'
 import { makeCredential, markAIGenerated, manifestDigest } from './content-credentials.js'
 import { persistProposals, persistInferred } from './graph-writeback.js'
 import type { GraphProposal } from './graph-proposals.js'
+import { placeToFeatureEntry, mergeToConcordance, entityToCanonical, gaiaDocument, conformsToGaia, type GaiaRecord } from './gaia-bridge.js'
+import { listLocalModels, generateOllamaText } from './ollama.js'
+import { VectorIndex } from './vector-index.js'
+
+const renderTemplate = (tpl: string, vars: Record<string, unknown>) => tpl.replace(/\{\{?(\w+)\}?\}/g, (_m, k: string) => (k in vars ? String(vars[k]) : `{${k}}`))
 
 function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve) => { let b = ''; req.on('data', (c: Buffer) => { b += c.toString() }); req.on('end', () => resolve(b)); req.on('error', () => resolve('')) })
@@ -103,6 +108,53 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
       case 'content-credential': {
         const cred = makeCredential({ model: b.model as string, timestamp: b.timestamp as string, sourceRefs: b.sourceRefs ?? [] })
         return send(200, { credential: cred, digest: manifestDigest(cred), marked: b.text ? markAIGenerated(b.text as string, cred) : undefined }), true
+      }
+      // ── AG-UI protocol conformance (Agent-User Interaction Protocol) ──
+      case 'agui-run': {
+        const { buildTextRun, isWellFormedRun } = await import('./ag-ui.js')
+        const prompt = String(b.prompt ?? '')
+        const model = String(b.model ?? (await listLocalModels())[0] ?? 'qwen2.5:7b')
+        const out = await generateOllamaText({ model, messages: [{ role: 'user', content: prompt }], temperature: 0.7, numCtx: 8192 })
+        const events = buildTextRun(String(b.threadId ?? 'thread'), String(b.runId ?? 'run'), 'msg-1', [out.content])
+        return send(200, { protocol: 'ag-ui', events, wellFormed: isWellFormedRun(events) }), true
+      }
+      case 'agui-validate': {
+        const { isWellFormedRun, isValidEvent } = await import('./ag-ui.js')
+        const events = (b.events ?? []) as Array<{ type: string }>
+        return send(200, { wellFormed: isWellFormedRun(events as never), invalid: events.filter((e) => !isValidEvent(e as never)).map((e) => e.type) }), true
+      }
+      // ── AI-ops workbench backends (prompt workbench, model compare, vector search) ──
+      case 'models': return send(200, { models: await listLocalModels() }), true
+      case 'prompt-run': {
+        const prompt = renderTemplate(String(b.template ?? ''), (b.variables ?? {}) as Record<string, unknown>)
+        const model = String(b.model ?? (await listLocalModels())[0] ?? 'qwen2.5:7b')
+        const t0 = Date.now()
+        const out = await generateOllamaText({ model, messages: [{ role: 'user', content: prompt }], temperature: Number(b.temperature ?? 0.7), numCtx: 8192 })
+        return send(200, { output: out.content, model, prompt, latencyMs: Date.now() - t0 }), true
+      }
+      case 'model-compare': {
+        const prompt = String(b.prompt ?? '')
+        const models = ((b.models ?? []) as string[]).length ? (b.models as string[]) : (await listLocalModels()).slice(0, 3)
+        const results = await Promise.all(models.map(async (model) => {
+          const t0 = Date.now()
+          try { const out = await generateOllamaText({ model, messages: [{ role: 'user', content: prompt }], temperature: 0.7, numCtx: 8192 }); return { model, output: out.content, latencyMs: Date.now() - t0, error: null } }
+          catch { return { model, output: '', latencyMs: Date.now() - t0, error: 'generation_failed' } }
+        }))
+        return send(200, { prompt, results }), true
+      }
+      case 'vector-search': {
+        const idx = new VectorIndex()
+        idx.addMany((b.vectors ?? []) as Array<{ id: string; vec: number[] }>)
+        return send(200, { results: idx.search((b.query ?? []) as number[], b.k ?? 10, b.excludeId) }), true
+      }
+      // ── canonical GAIA ontology export (conformant JSON-LD) ──
+      case 'gaia-export': {
+        const recs: GaiaRecord[] = [
+          ...((b.places ?? []) as Array<{ name: string; lat?: number; lon?: number; type?: string }>).map((p) => placeToFeatureEntry(p, { verified: !!b.verified })),
+          ...((b.merges ?? []) as Array<{ a: string; b: string; confidence?: number }>).map((m) => mergeToConcordance(m)),
+          ...((b.entities ?? []) as Array<{ id: string; label: string }>).map((e) => entityToCanonical(e.id, e.label)),
+        ]
+        return send(200, { document: gaiaDocument(recs), conformance: recs.map((r) => ({ id: r['@id'], ...conformsToGaia(r) })) }), true
       }
       // ── HellGraph write-back (PERSIST derived knowledge into the store) ──
       case 'proposals-apply': return send(200, persistProposals((b.proposals ?? []) as GraphProposal[])), true
