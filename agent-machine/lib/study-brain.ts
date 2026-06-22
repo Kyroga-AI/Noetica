@@ -16,10 +16,12 @@ import { termSet } from './text-normalize.js'
 import { decodeVec, l2norm } from './brain-vec.js'
 
 const BRAIN = process.env['OCW_BRAIN'] || path.join(os.homedir(), 'Downloads', 'MIT OCW', '_brain')
-const MAX = Number(process.env['STUDY_BRAIN_CAP'] || 30000)
+const MAX = Number(process.env['STUDY_BRAIN_CAP'] || 30000)              // per-field cap
+const GLOBAL_MAX = Number(process.env['STUDY_BRAIN_GLOBAL_CAP'] || 250000) // total resident across ALL fields
 
 interface Chunk { text: string; slug: string; field: string; vec: Float32Array; norm: number }
 const cache = new Map<string, Chunk[]>()
+function loadedTotal(): number { let n = 0; for (const v of cache.values()) n += v.length; return n }
 
 /** Fields the brain currently covers (biology, physics, mathematics, …). */
 export function brainFields(): string[] {
@@ -32,13 +34,16 @@ export function brainFields(): string[] {
 
 function loadField(field: string): Chunk[] {
   if (cache.has(field)) return cache.get(field)!
+  // Bound TOTAL resident chunks, not just per-field: the brain has many fields, so a per-field MAX
+  // still permits MAX×fields growth. Cap this field's load to whatever global budget remains.
+  const cap = Math.min(MAX, Math.max(0, GLOBAL_MAX - loadedTotal()))
   const dir = path.join(BRAIN, field)
   const out: Chunk[] = []
-  if (fs.existsSync(dir)) {
+  if (cap > 0 && fs.existsSync(dir)) {
     for (const fn of fs.readdirSync(dir).filter((f) => f.endsWith('.jsonl'))) {
-      if (out.length >= MAX) break
+      if (out.length >= cap) break
       for (const line of fs.readFileSync(path.join(dir, fn), 'utf8').split('\n')) {
-        if (!line.trim() || out.length >= MAX) continue
+        if (!line.trim() || out.length >= cap) continue
         try {
           const o = JSON.parse(line) as { text?: string; slug?: string; vec?: string; dims?: number }
           if (!o.text || !o.vec) continue

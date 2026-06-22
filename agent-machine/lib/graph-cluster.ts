@@ -16,6 +16,7 @@ import { embedBatchLocal } from './embed-runtime.js'
 import { cleanLabel, categoryFor, kindOf, type SurfaceResult, type SurfaceNode, type SurfaceLink } from './graph-surface.js'
 import { classifyTerms, titleCaseTopic } from './slash-topics.js'
 import { dimensionOf } from './cskg.js'
+import { BoundedMap } from './lru.js'
 import { isActionLabel } from './graph-hygiene.js'
 
 // Words that are tool params, shell/command fragments, or generic instance noise — never topics.
@@ -135,7 +136,7 @@ function rng(seed: number): () => number {
 }
 
 // ── Embeddings (cached per node, reuses any stored vector) ──────────────────
-const embedCache = new Map<string, number[]>()
+const embedCache = new BoundedMap<string, number[]>(Number(process.env['GRAPH_EMBED_CACHE_CAP'] || 50000))
 // Reuse a cached or node-stored vector (no embedder call). The batch embedder fills the rest.
 function readStored(n: GraphNode): number[] | null {
   const hit = embedCache.get(n.id); if (hit) return hit
@@ -216,7 +217,7 @@ function discoverK(V: number[][], kMin: number, kMax: number): { assign: number[
 }
 
 interface Clustering { reps: string[]; members: Map<string, string[]>; clusterOf: Map<string, string>; classNames: Map<string, string> }
-const clusterCache = new Map<string, Clustering>()
+const clusterCache = new BoundedMap<string, Clustering>(Number(process.env['GRAPH_CLUSTER_CACHE_CAP'] || 64))
 
 // ── Incremental persistence ─────────────────────────────────────────────────
 // Topic discovery (embed + silhouette + k-means) is expensive and was rebuilt FROM SCRATCH every

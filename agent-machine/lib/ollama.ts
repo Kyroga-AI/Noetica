@@ -245,25 +245,29 @@ export async function pullModel(
   const dec = new TextDecoder()
   let buf = ''
 
-  while (true) {
-    const { done, value } = await reader.read()
-    if (done) break
-    buf += dec.decode(value, { stream: true })
-    const lines = buf.split('\n')
-    buf = lines.pop() ?? ''
-    for (const line of lines) {
-      if (!line.trim()) continue
-      try {
-        const p = JSON.parse(line) as {
-          status?: string
-          completed?: number
-          total?: number
-        }
-        const pct =
-          p.completed && p.total ? Math.round((p.completed / p.total) * 100) : null
-        onProgress(p.status ?? '', pct)
-      } catch { /* ignore parse errors */ }
+  try {
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buf += dec.decode(value, { stream: true })
+      const lines = buf.split('\n')
+      buf = lines.pop() ?? ''
+      for (const line of lines) {
+        if (!line.trim()) continue
+        try {
+          const p = JSON.parse(line) as {
+            status?: string
+            completed?: number
+            total?: number
+          }
+          const pct =
+            p.completed && p.total ? Math.round((p.completed / p.total) * 100) : null
+          onProgress(p.status ?? '', pct)
+        } catch { /* ignore parse errors */ }
+      }
     }
+  } finally {
+    reader.releaseLock() // release the stream lock even if onProgress throws or read() rejects mid-stream
   }
 }
 
@@ -480,6 +484,7 @@ export async function* streamOllama(params: {
     }
   }
 
+  try {
   while (true) {
     const { done, value } = await reader.read()
     if (done) break
@@ -570,4 +575,7 @@ export async function* streamOllama(params: {
   // Stream ended without a [DONE] marker (reader closed): finalize here too so a
   // reasoning-only response is still recovered instead of vanishing.
   yield* finalize()
+  } finally {
+    reader.releaseLock() // covers normal end, the [DONE] early-return, a throw, and consumer early-break
+  }
 }

@@ -35,6 +35,7 @@ import * as os from 'node:os'
 import * as dns from 'node:dns'
 import * as net from 'node:net'
 import { originAllowed } from './lib/origin-guard.js'
+import { isConfinedToHomeOrTmp } from './lib/path-confine.js'
 import { buildRouterDecision, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider } from './lib/router.js'
 import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTelemetry, type MeshTier } from './lib/scope-d.js'
 import { installEgressGuard, setOfflineMode } from './lib/egress-guard.js'
@@ -1335,8 +1336,7 @@ async function executeTool(
     if (!raw.trim()) return { resolved: '', error: 'path required' }
     const expanded = raw.startsWith('~') ? path.join(os.homedir(), raw.slice(1)) : raw
     const resolved = path.resolve(expanded)
-    const home = path.resolve(os.homedir())
-    if (!resolved.startsWith(home) && !resolved.startsWith('/tmp')) {
+    if (!isConfinedToHomeOrTmp(resolved)) {
       return { resolved, error: `path must be under home directory or /tmp (got ${resolved})` }
     }
     return { resolved }
@@ -5310,7 +5310,7 @@ Question: ${question}`
           // SECURITY: confine to home/tmp — never read arbitrary local files (~/.ssh/id_rsa) from a
           // request body. Without this, the wide-open CORS makes this an arbitrary-file-read from any page.
           const resolved = path.resolve(filePath.startsWith('~') ? path.join(os.homedir(), filePath.slice(1)) : filePath)
-          if (!resolved.startsWith(path.resolve(os.homedir())) && !resolved.startsWith('/tmp')) throw new Error('path must be under home directory or /tmp')
+          if (!isConfinedToHomeOrTmp(resolved)) throw new Error('path must be under home directory or /tmp')
           const fs = await import('node:fs')
           const buf = fs.readFileSync(resolved)
           const filename = path.basename(resolved)
@@ -5343,7 +5343,7 @@ Question: ${question}`
         if (!imgPath) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'path_required' })); return }
         // SECURITY: confine the OCR path to home/tmp (same class as /api/ingest/path).
         const safeImg = path.resolve(imgPath.startsWith('~') ? path.join(os.homedir(), imgPath.slice(1)) : imgPath)
-        if (!safeImg.startsWith(path.resolve(os.homedir())) && !safeImg.startsWith('/tmp')) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'path must be under home directory or /tmp' })); return }
+        if (!isConfinedToHomeOrTmp(safeImg)) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'path must be under home directory or /tmp' })); return }
         const { runOcr } = await import('./lib/ocr.js')
         const text = await runOcr(safeImg)
         if (/^OCR (error|unavailable)/i.test(text)) { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: text, text: '' })); return }
