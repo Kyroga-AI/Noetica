@@ -4,12 +4,7 @@
  * scores by summing, for each query token, its best match against any doc token — markedly better on the
  * entity/phrase-heavy queries typical of KG-QA. Upgrades the retrieval primitive under everything else.
  */
-function cosine(a: number[], b: number[]): number {
-  let dot = 0, na = 0, nb = 0
-  const n = Math.min(a.length, b.length)
-  for (let i = 0; i < n; i++) { dot += a[i]! * b[i]!; na += a[i]! * a[i]!; nb += b[i]! * b[i]! }
-  return na && nb ? dot / Math.sqrt(na * nb) : 0
-}
+import { cosineSim as cosine } from './vec-sim.js'
 
 /** MaxSim: sum over query tokens of the max cosine to any doc token. */
 export function maxSim(queryVecs: number[][], docVecs: number[][]): number {

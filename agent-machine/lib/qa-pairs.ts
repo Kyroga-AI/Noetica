@@ -12,10 +12,11 @@
  * Hierarchy: intent (tier 1) → the intent's exemplar pairs (tier 2). Gating on the
  * latency-aware reward means only genuinely good turns become training data.
  */
-import { appendFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs'
+import { appendFileSync, mkdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
+import { readJsonl } from './jsonl.js'
 
 // Gold gate is on WORTH (answer quality), not the latency-aware reward — a great
 // answer is training data even if a slow model produced it (slowness is a routing
@@ -51,10 +52,7 @@ export function recordQAPair(p: Omit<QAPair, 'id' | 'ts'>): boolean {
 }
 
 export function readQAPairs(limit = 5000): QAPair[] {
-  if (!existsSync(LOG)) return []
-  try {
-    return readFileSync(LOG, 'utf8').trim().split('\n').filter(Boolean).slice(-limit).map((l) => JSON.parse(l) as QAPair)
-  } catch { return [] }
+  return readJsonl<QAPair>(LOG, { limit })
 }
 
 /** Best (highest-reward) gold exemplars for an intent — the few-shot training memory

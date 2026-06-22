@@ -12,6 +12,7 @@
  */
 import { ledgerHash } from './verb-sort.js'
 import { appendFileSync, mkdirSync, readFileSync, existsSync } from 'node:fs'
+import { readJsonl } from './jsonl.js'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -95,8 +96,5 @@ export function contentHash(s: string): string { return ledgerHash(s) }
 
 /** Read recorded dispatch entries (most-recent `limit`) — e.g. for energy accounting. */
 export function readDispatches(limit = 10_000): DispatchEntry[] {
-  if (!existsSync(LOG)) return []
-  try {
-    return readFileSync(LOG, 'utf8').trim().split('\n').filter(Boolean).slice(-limit).map((l) => JSON.parse(l) as DispatchEntry)
-  } catch { return [] }
+  return readJsonl<DispatchEntry>(LOG, { limit })
 }

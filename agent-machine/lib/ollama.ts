@@ -146,15 +146,9 @@ export async function embedText(text: string): Promise<number[]> {
   return []
 }
 
-/** Cosine similarity of two equal-length vectors. 0 if either is empty/zero. */
-export function cosineSim(a: number[], b: number[]): number {
-  const n = Math.min(a.length, b.length)
-  if (n === 0) return 0
-  let dot = 0, na = 0, nb = 0
-  for (let i = 0; i < n; i++) { dot += a[i]! * b[i]!; na += a[i]! * a[i]!; nb += b[i]! * b[i]! }
-  if (na === 0 || nb === 0) return 0
-  return dot / (Math.sqrt(na) * Math.sqrt(nb))
-}
+// Cosine similarity — re-exported from the canonical lib/vec-sim.js (kept here for existing
+// `import { cosineSim } from './ollama.js'` callers). 0 if either vector is empty/zero.
+export { cosineSim } from './vec-sim.js'
 
 // ─── Health & model inventory ─────────────────────────────────────────────────
 

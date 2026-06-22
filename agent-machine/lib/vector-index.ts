@@ -5,18 +5,9 @@
  * graph-vector HYBRID query — vector kNN entry points, then expand along graph adjacency. The upgrade path is
  * a native HNSW (usearch/hnsw_rs) inside the HellGraph Rust core; this delivers the capability today.
  */
-export interface IndexedVector { id: string; vec: Float32Array | number[] }
+import { cosineSim as cosine } from './vec-sim.js' // canonical (this file's robust impl became the shared one)
 
-function cosine(a: Float32Array | number[], b: Float32Array | number[]): number {
-  let dot = 0, na = 0, nb = 0
-  const n = Math.min(a.length, b.length)
-  for (let i = 0; i < n; i++) {
-    const ai = a[i]!, bi = b[i]!
-    if (!Number.isFinite(ai) || !Number.isFinite(bi)) return 0   // a NaN/Infinity element (injectable via JSON) ⇒ 0, never NaN scores
-    dot += ai * bi; na += ai * ai; nb += bi * bi
-  }
-  return na && nb ? dot / Math.sqrt(na * nb) : 0
-}
+export interface IndexedVector { id: string; vec: Float32Array | number[] }
 
 export class VectorIndex {
   private items: IndexedVector[] = []

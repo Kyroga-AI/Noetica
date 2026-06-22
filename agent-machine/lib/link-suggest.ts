@@ -3,12 +3,7 @@
  * point in PKM ("links don't get made"); as the user writes, surface semantically-similar existing nodes to
  * one-click link. Over embeddings we already compute — pure ranking, the value is the authoring-moment nudge.
  */
-function cosine(a: number[], b: number[]): number {
-  let dot = 0, na = 0, nb = 0
-  const n = Math.min(a.length, b.length)
-  for (let i = 0; i < n; i++) { dot += a[i]! * b[i]!; na += a[i]! * a[i]!; nb += b[i]! * b[i]! }
-  return na && nb ? dot / Math.sqrt(na * nb) : 0
-}
+import { cosineSim as cosine } from './vec-sim.js'
 
 export interface Candidate { id: string; label: string; vec: number[] }
 

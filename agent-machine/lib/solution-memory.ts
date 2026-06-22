@@ -15,6 +15,8 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { embedBatchLocal } from './embed-runtime.js'
+import { cosineSim as cosine } from './vec-sim.js'
+import { readJsonl } from './jsonl.js'
 
 const DIR = path.join(os.homedir(), '.noetica')
 const LOG = path.join(DIR, 'solve-log.jsonl')              // every attempt → metrics / the compounding curve
@@ -23,9 +25,6 @@ const MEM = path.join(DIR, 'verified-solutions.jsonl')     // verified solutions
 export interface SolveRecord { ts: number; task: string; solved: boolean; attempts: number; escalated: boolean; model: string; usedMemory: boolean }
 export interface VerifiedSolution { ts: number; task: string; files: { path: string; content: string }[]; verify: string; embedding?: number[] }
 
-function readJsonl<T>(file: string): T[] {
-  try { return fs.readFileSync(file, 'utf8').trim().split('\n').filter(Boolean).map((l) => JSON.parse(l) as T) } catch { return [] }
-}
 function appendJsonl(file: string, obj: unknown): void {
   try { fs.mkdirSync(DIR, { recursive: true }); fs.appendFileSync(file, JSON.stringify(obj) + '\n') } catch { /* best-effort */ }
 }
@@ -38,13 +37,6 @@ export async function recordVerified(task: string, files: { path: string; conten
   let embedding: number[] | undefined
   try { embedding = (await embedBatchLocal([task]))?.[0] ?? undefined } catch { /* embedder cold */ }
   appendJsonl(MEM, { ts: Date.now(), task, files: files.slice(0, 12), verify, ...(embedding ? { embedding } : {}) })
-}
-
-function cosine(a: number[], b: number[]): number {
-  let s = 0, na = 0, nb = 0
-  const n = Math.min(a.length, b.length)
-  for (let i = 0; i < n; i++) { s += a[i]! * b[i]!; na += a[i]! * a[i]!; nb += b[i]! * b[i]! }
-  return s / (Math.sqrt(na) * Math.sqrt(nb) || 1)
 }
 
 /** The k most-similar proven solutions to `task` (cosine over the embedder; recency fallback). */
