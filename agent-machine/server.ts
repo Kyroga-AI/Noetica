@@ -5347,6 +5347,38 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // GET /api/graph/timeline — the temporal axis: bucket clean nodes by when they entered the graph
+  // to show how knowledge accreted over time (foundation for an "as-of" scrubber). ?buckets=N,
+  // ?asOf=<epoch ms> caps to knowledge known by that instant ("what did I know last month").
+  if (req.method === 'GET' && url.pathname === '/api/graph/timeline') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const buckets = Math.min(48, Math.max(4, Number(url.searchParams.get('buckets') ?? 12)))
+        const asOf = Number(url.searchParams.get('asOf') ?? 0) || Infinity
+        const g = getGraph()
+        const clean = g.allNodes().filter((n) => cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id)))
+        const ts = (n: typeof clean[number]) => { const c = n.createdAt; const v = typeof c === 'number' ? c : Date.parse(String(c)); return Number.isFinite(v) && v > 0 ? v : Number(n.properties?.['timestamp'] ?? 0) }
+        const dated = clean.map((n) => ({ t: ts(n), label: cleanLabel(n)! })).filter((x) => x.t > 0 && x.t <= asOf).sort((a, b) => a.t - b.t)
+        if (dated.length === 0) { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ buckets: [], total: 0, from: 0, to: 0 })); return }
+        const from = dated[0]!.t, to = dated[dated.length - 1]!.t
+        const width = Math.max(1, (to - from) / buckets)
+        const out = Array.from({ length: buckets }, (_, i) => ({ start: Math.round(from + i * width), end: Math.round(from + (i + 1) * width), newNodes: 0, cumulative: 0, newConcepts: [] as string[] }))
+        for (const d of dated) {
+          const idx = Math.min(buckets - 1, Math.floor((d.t - from) / width))
+          out[idx]!.newNodes++
+          if (out[idx]!.newConcepts.length < 6) out[idx]!.newConcepts.push(d.label)
+        }
+        let run = 0; for (const b of out) { run += b.newNodes; b.cumulative = run }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ from, to, total: dated.length, buckets: out }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
   // GET /api/graph/communities — GraphRAG community reports: one LLM-written, grounding-verified
   // summary per Louvain community. Cached by analytics signature + model; ?refresh=1 rebuilds.
   if (req.method === 'GET' && url.pathname === '/api/graph/communities') {
