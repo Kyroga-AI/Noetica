@@ -124,6 +124,20 @@ const GOVERNANCE_RING_SIZE = 100
 // it was in-memory only, so Govern was always empty after restart even after chatting.
 const GOVERNANCE_FILE = path.join(os.homedir(), '.noetica', 'governance.json')
 
+// Graph Data Science (PageRank/Louvain/betweenness) is O(V·E) — cache it, keyed by a cheap graph
+// signature (node+edge count). Recompute only when the graph changed (or ?refresh=1).
+const ANALYTICS_CACHE_FILE = path.join(os.homedir(), '.noetica', 'cache', 'graph-analytics.json')
+type AnalyticsCache = { sig: string; analytics: import('./lib/graph-analytics.js').GraphAnalytics; computedAt: string }
+let _analyticsCache: AnalyticsCache | null = null
+function loadAnalyticsCache(): AnalyticsCache | null {
+  if (_analyticsCache) return _analyticsCache
+  try { _analyticsCache = JSON.parse(fs.readFileSync(ANALYTICS_CACHE_FILE, 'utf8')) as AnalyticsCache; return _analyticsCache } catch { return null }
+}
+function saveAnalyticsCache(c: AnalyticsCache): void {
+  _analyticsCache = c
+  try { fs.mkdirSync(path.dirname(ANALYTICS_CACHE_FILE), { recursive: true }); fs.writeFileSync(ANALYTICS_CACHE_FILE, JSON.stringify(c)) } catch { /* best-effort */ }
+}
+
 // Cross-process signal for the SourceOS surface (e.g. bearbrowser): when the
 // security lane is armed, bearbrowser auto-enables Tor for anonymized egress.
 // Written to the shared SourceOS config dir so the browser can poll it without
@@ -5161,6 +5175,65 @@ const server = http.createServer((req, res) => {
     } catch (e) {
       res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
     }
+    return
+  }
+
+  // GET /api/graph/analytics — Graph Data Science over HellGraph: PageRank (importance), Louvain
+  // (communities from topology), betweenness (bridge concepts). O(V·E), so cached by graph signature;
+  // ?refresh=1 forces recompute. Top nodes resolved to readable labels for the human-facing summary.
+  if (req.method === 'GET' && url.pathname === '/api/graph/analytics') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const g = getGraph()
+        const allNodes = g.allNodes(), allEdges = g.allEdges()
+        // Run GDS on the SAME clean node set the surface shows (drop hygiene-pruned, corpus-test, and
+        // unlabeled nodes) so importance/communities reflect real knowledge, not pruned junk.
+        const keep = new Set(allNodes.filter((n) => cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id))).map((n) => n.id))
+        const fNodes = allNodes.filter((n) => keep.has(n.id))
+        const fEdges = allEdges.filter((e) => keep.has(e.from) && keep.has(e.to))
+        const sig = `${fNodes.length}:${fEdges.length}`
+        const refresh = url.searchParams.get('refresh') === '1'
+        const cached = loadAnalyticsCache()
+        const hit = !refresh && !!cached && cached.sig === sig
+        let analytics: import('./lib/graph-analytics.js').GraphAnalytics
+        if (hit) { analytics = cached!.analytics }
+        else {
+          const { computeAnalytics } = await import('./lib/graph-analytics.js')
+          analytics = computeAnalytics(fNodes.map((n) => ({ id: n.id })), fEdges.map((e) => ({ from: e.from, to: e.to })))
+          saveAnalyticsCache({ sig, analytics, computedAt: new Date().toISOString() })
+        }
+        const nodeById = new Map(allNodes.map((n) => [n.id, n]))
+        const label = (id: string) => { const n = nodeById.get(id); return (n ? cleanLabel(n) : null) ?? id.split(':').pop() ?? id }
+        // A node is "showable" as a concept only if it resolves to a real label — not a bare UUID,
+        // timestamp, or junk. Metrics for ALL nodes still ship in `nodes` (for surface overlay); the
+        // human-facing summary ranks just the meaningful concepts so session supernodes don't dominate.
+        const concept = (id: string): string | null => {
+          const n = nodeById.get(id); const l = n ? cleanLabel(n) : null
+          if (!l) return null
+          if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(l) || /^\d{8,}$/.test(l.replace(/\s/g, ''))) return null
+          return l
+        }
+        const cleanTop = (k: number, key: 'pagerank' | 'betweenness') =>
+          Object.values(analytics.nodes)
+            .map((m) => ({ id: m.id, score: Number((m[key]).toFixed(4)), label: concept(m.id) }))
+            .filter((x) => x.label && x.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, k) as Array<{ id: string; score: number; label: string }>
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({
+          nodes: analytics.nodes,
+          modularity: Number(analytics.modularity.toFixed(4)),
+          communities: analytics.communities.slice(0, 30)
+            .map((c) => ({ id: c.id, size: c.size, top: c.members.map(concept).filter(Boolean).slice(0, 5) }))
+            .filter((c) => c.top.length > 0),
+          summary: { ...analytics.summary, topByPagerank: cleanTop(12, 'pagerank'), topByBetweenness: cleanTop(12, 'betweenness') },
+          cached: hit,
+        }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
     return
   }
 
