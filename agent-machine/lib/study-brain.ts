@@ -12,6 +12,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { embedText } from './ollama.js'
+import { termSet } from './text-normalize.js'
 
 const BRAIN = process.env['OCW_BRAIN'] || path.join(os.homedir(), 'Downloads', 'MIT OCW', '_brain')
 const MAX = Number(process.env['STUDY_BRAIN_CAP'] || 30000)
@@ -79,15 +80,15 @@ export async function studyBrainRetrieve(query: string, fields: string[] = [], k
   // or latency. Fixes flat-cosine mis-ordering (e.g. "central limit theorem" pulling unrelated
   // fields above the on-topic math/stats chunk). Whole-brain queries (no field filter) benefit
   // most, since that's where cross-field cosine collisions happen.
-  const qterms = new Set(
-    query.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((w) => w.length >= 4),
-  )
+  // Proper lexical match: stopword-free, Porter-STEMMED term-set overlap (so "selection" matches
+  // "selecting"/"selected"), not an ad-hoc substring includes on raw length≥4 tokens.
+  const qterms = termSet(query)
   const pool = scored.slice(0, Math.max(k * 6, 40))
   if (qterms.size > 0) {
     for (const h of pool) {
-      const t = h.text.toLowerCase()
+      const ht = termSet(h.text)
       let hit = 0
-      for (const w of qterms) if (t.includes(w)) hit++
+      for (const w of qterms) if (ht.has(w)) hit++
       h.score = 0.82 * h.score + 0.18 * (hit / qterms.size) // blended relevance
     }
     pool.sort((a, b) => b.score - a.score)

@@ -13,6 +13,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { embedText, cosineSim } from './ollama.js'
+import { isStopword } from './text-normalize.js'
 
 const STORE = path.join(os.homedir(), '.noetica', 'concepts')
 
@@ -42,7 +43,7 @@ export function cleanTerm(t: string): string | null {
   if (!/^[a-z][a-z -]*[a-z]$/.test(s)) return null        // alpha words only
   const words = s.split(/[ -]+/)
   if (words.length > 2) return null                       // concepts are 1-2 words; longer = boilerplate
-  if (words.some((w) => JUNK.has(w) || BOILER.has(w))) return null
+  if (words.some((w) => JUNK.has(w) || BOILER.has(w) || isStopword(w))) return null  // proper stopwords dict
   return s
 }
 
