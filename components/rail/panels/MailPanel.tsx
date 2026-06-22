@@ -153,7 +153,7 @@ export function MailPanel() {
               External connectors
             </div>
             <div className="px-3 py-2">
-              <button className="w-full rounded-lg border border-dashed border-[var(--color-border-secondary)] py-1.5 text-[10px] text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-secondary)]">
+              <button disabled title="Coming soon" className="w-full rounded-lg border border-dashed border-[var(--color-border-secondary)] py-1.5 text-[10px] text-[var(--color-text-tertiary)] opacity-50 cursor-not-allowed">
                 + Add Gmail / IMAP
               </button>
             </div>
@@ -161,7 +161,7 @@ export function MailPanel() {
         )}
 
         {/* Quick compose */}
-        <button className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-[#bfdbfe] bg-[#eff6ff] py-1.5 text-xs font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe]">
+        <button disabled title="Coming soon" className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] py-1.5 text-xs font-semibold text-[var(--color-text-tertiary)] opacity-50 cursor-not-allowed">
           <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden>
             <path d="M5.5 1v9M1 5.5h9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
           </svg>

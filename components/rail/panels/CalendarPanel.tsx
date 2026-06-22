@@ -120,7 +120,7 @@ export function CalendarPanel() {
         )}
 
         {isConnected && (
-          <button className="w-full rounded-xl border border-[#bfdbfe] bg-[var(--color-background-primary)] px-3 py-2 text-xs font-medium text-[#1d4ed8] transition hover:bg-[#eff6ff]">
+          <button disabled title="Coming soon" className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-xs font-medium text-[var(--color-text-tertiary)] opacity-50 cursor-not-allowed">
             + Schedule from task
           </button>
         )}
