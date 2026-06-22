@@ -5300,6 +5300,49 @@ Question: ${question}`
   // POST /api/ingest/document — pre-extracted text { content, filename, mimeType? }
   // Embeds + stores semantically-searchable DocumentChunks (real RAG), AND keeps the
   // engine's entity/record ingest for graph structure.
+  // Repo ingestion — sign-in (token in body) → fetch the forge tree + file contents → ingest each file as a
+  // Document + stitch a Repo→File graph, so a selected GitHub/Gitea repo becomes queryable source-of-truth.
+  if (req.method === 'POST' && url.pathname === '/api/repo/ingest') {
+    setCORSHeaders(res)
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      res.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache, no-transform', connection: 'keep-alive' })
+      try {
+        const { fetchRepoTree, fetchRepoFile } = await import('./lib/repo-ingest.js')
+        const { ingestDocument } = await import('./lib/doc-store.js')
+        const reqBody = JSON.parse(body || '{}') as import('./lib/repo-ingest.js').RepoIngestRequest
+        if (!reqBody.owner || !reqBody.repo || (reqBody.provider !== 'github' && reqBody.provider !== 'gitea')) { sse(res, 'error', { error: 'owner, repo, provider(github|gitea) required' }); res.end(); return }
+        const files = await fetchRepoTree(reqBody)
+        sse(res, 'tree', { total: files.length, repo: `${reqBody.owner}/${reqBody.repo}` })
+        const g = getHellGraph()
+        const now = Date.now()
+        const repoId = `repo:${reqBody.owner}/${reqBody.repo}`
+        if (!g.getNode(repoId)) g.addNode(repoId, ['Repo'], { name: reqBody.repo, owner: reqBody.owner, provider: reqBody.provider, branch: reqBody.branch || 'main', source_of_truth: true, ingested_at: now })
+        let done = 0, chunks = 0, failed = 0
+        for (const f of files) {
+          const content = await fetchRepoFile(reqBody, f.path)
+          if (content == null || !content.trim()) { failed++; done++; continue }
+          try {
+            const r = await ingestDocument(`repo/${reqBody.repo}/${f.path}`, content)
+            chunks += r.chunks ?? 0
+            const fileId = `repo:${reqBody.owner}/${reqBody.repo}:${f.path}`
+            if (!g.getNode(fileId)) g.addNode(fileId, ['RepoFile'], { path: f.path, bytes: f.size, repo: reqBody.repo, at: now })
+            g.addEdge('CONTAINS_FILE', repoId, fileId, { at: now })
+            if (r.documentId) g.addEdge('FILE_DOC', fileId, r.documentId, { at: now })
+          } catch { failed++ }
+          done++
+          if (done % 5 === 0 || done === files.length) sse(res, 'progress', { done, total: files.length, chunks, failed })
+        }
+        sse(res, 'complete', { repo: `${reqBody.owner}/${reqBody.repo}`, files: files.length, ingested: done - failed, failed, chunks, repoNode: repoId })
+      } catch (e) {
+        sse(res, 'error', { error: (e instanceof Error ? e.message : 'ingest_failed').replace(/[\r\n]/g, ' ') })
+      }
+      res.end()
+    })() })
+    return
+  }
+
   if (req.method === 'POST' && url.pathname === '/api/ingest/document') {
     setCORSHeaders(res)
     let body = ''

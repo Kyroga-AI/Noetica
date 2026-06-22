@@ -386,6 +386,41 @@ function GitHubDetail({ onBack }: { onBack: () => void }) {
     setTimeout(() => setRepoAction(repo.id, 'mirror', 'idle'), 3000)
   }
 
+  // Suck the repo into the knowledge base as source-of-truth: fetch its files via the GitHub API and ingest
+  // each into RAG + the HellGraph (Repo→File→Document). Streams progress over SSE.
+  const [ingestMsg, setIngestMsg] = useState<Record<number, string>>({})
+  async function ingestRepo(repo: GithubRepo) {
+    setRepoAction(repo.id, 'ingest', 'running')
+    setIngestMsg((m) => ({ ...m, [repo.id]: 'reading tree…' }))
+    try {
+      const [owner, name] = repo.full_name.split('/')
+      const amBase = (typeof window !== 'undefined' && (window as unknown as { __TAURI__?: unknown }).__TAURI__) ? 'http://127.0.0.1:8080' : ''
+      const res = await fetch(`${amBase}/api/repo/ingest`, {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ provider: 'github', owner, repo: name, branch: repo.default_branch, token: github?.accessToken ?? settings.githubPat }),
+      })
+      if (!res.ok || !res.body) throw new Error('ingest failed')
+      const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = ''
+      for (;;) {
+        const { done, value } = await reader.read(); if (done) break
+        buf += dec.decode(value, { stream: true }); const lines = buf.split('\n'); buf = lines.pop() ?? ''
+        for (const line of lines) {
+          if (!line.startsWith('data:')) continue
+          try {
+            const ev = JSON.parse(line.slice(5)) as { total?: number; done?: number; chunks?: number; ingested?: number; error?: string }
+            if (ev.error) { setIngestMsg((m) => ({ ...m, [repo.id]: `error: ${ev.error}` })); setRepoAction(repo.id, 'ingest', 'error') }
+            else if (ev.ingested != null) setIngestMsg((m) => ({ ...m, [repo.id]: `✓ ${ev.ingested} files, ${ev.chunks} chunks → KB` }))
+            else if (ev.done != null) setIngestMsg((m) => ({ ...m, [repo.id]: `${ev.done}/${ev.total} files…` }))
+            else if (ev.total != null) setIngestMsg((m) => ({ ...m, [repo.id]: `${ev.total} files to ingest…` }))
+          } catch { /* skip */ }
+        }
+      }
+      setRepoAction(repo.id, 'ingest', 'done')
+    } catch {
+      setRepoAction(repo.id, 'ingest', 'error'); setIngestMsg((m) => ({ ...m, [repo.id]: 'ingest failed' }))
+    }
+  }
+
 
   const [repos, setRepos] = useState<GithubRepo[]>([])
   const [loading, setLoading] = useState(false)
@@ -494,7 +529,16 @@ function GitHubDetail({ onBack }: { onBack: () => void }) {
                         {repo.open_issues_count > 0 && <span>{repo.open_issues_count} issues</span>}
                       </div>
                     </div>
-                    <div className="flex shrink-0 gap-1.5">
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      {ingestMsg[repo.id] && <span className="text-[9px] text-[var(--color-text-tertiary)] max-w-[120px] truncate" title={ingestMsg[repo.id]}>{ingestMsg[repo.id]}</span>}
+                      <button
+                        onClick={() => void ingestRepo(repo)}
+                        disabled={actionStatus[`${repo.id}:ingest`] === 'running'}
+                        title="Pull this repo's files into the knowledge base as source-of-truth"
+                        className={`rounded-lg border px-2 py-1 text-[10px] font-semibold transition ${actionStatus[`${repo.id}:ingest`] === 'done' ? 'border-[#bbf7d0] bg-[#f0fdf4] text-[#16a34a]' : actionStatus[`${repo.id}:ingest`] === 'error' ? 'border-[#fecaca] bg-[#fef2f2] text-[#dc2626]' : 'border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8] hover:bg-[#dbeafe]'}`}
+                      >
+                        {actionStatus[`${repo.id}:ingest`] === 'running' ? 'Ingesting…' : actionStatus[`${repo.id}:ingest`] === 'done' ? 'In KB ✓' : actionStatus[`${repo.id}:ingest`] === 'error' ? 'Failed' : '⊕ Ingest to KB'}
+                      </button>
                       <button
                         onClick={() => void handleImport(repo)}
                         disabled={actionStatus[`${repo.id}:import`] === 'running'}
