@@ -441,7 +441,7 @@ export function Sidebar({
         )}
 
         {/* Workspace group */}
-        {(['chat','notes','cowork','workrooms'] as ActiveSurface[]).map((id) => {
+        {(['chat','notes','canvas','cowork','workrooms','jitsi'] as ActiveSurface[]).map((id) => {
           const item = surfaceItems.find(s => s.id === id)!
           const isActive = activeSurface === id
           return (
@@ -460,7 +460,7 @@ export function Sidebar({
 
         {/* Build group */}
         <div className={`px-2 ${groupGap} pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>Build</div>
-        {(['projects','artifacts','code','workspace'] as ActiveSurface[]).map((id) => {
+        {(['projects','artifacts','code','workspace','docs'] as ActiveSurface[]).map((id) => {
           const item = surfaceItems.find(s => s.id === id)!
           const isActive = activeSurface === id
           return (
@@ -477,9 +477,28 @@ export function Sidebar({
           )
         })}
 
-        {/* Intelligence group */}
-        <div className={`px-2 ${groupGap} pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>Intelligence</div>
-        {(['evaluate','tune','govern','operate'] as ActiveSurface[]).map((id) => {
+        {/* Models & AI group — the Vertex-equivalent cluster (prompt studio, retrieval, capabilities, eval, tuning) */}
+        <div className={`px-2 ${groupGap} pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>Models &amp; AI</div>
+        {(['studio','rag','lab','evaluate','tune'] as ActiveSurface[]).map((id) => {
+          const item = surfaceItems.find(s => s.id === id)!
+          const isActive = activeSurface === id
+          return (
+            <button key={id} onClick={() => onSurfaceChange(id)}
+              className={`flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[11px] transition ${
+                isActive
+                  ? 'bg-[#dbeafe] font-medium text-[var(--color-text-primary)]'
+                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]'
+              }`}
+            >
+              <span className={`shrink-0 ${isActive ? 'text-[#1d4ed8]' : ''}`}>{item.icon}</span>
+              <span className="truncate">{item.label}</span>
+            </button>
+          )
+        })}
+
+        {/* Operate & Govern group */}
+        <div className={`px-2 ${groupGap} pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>Operate &amp; Govern</div>
+        {(['operate','govern','computer'] as ActiveSurface[]).map((id) => {
           const item = surfaceItems.find(s => s.id === id)!
           const isActive = activeSurface === id
           return (
