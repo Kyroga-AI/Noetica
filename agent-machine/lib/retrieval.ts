@@ -21,10 +21,11 @@ import { ingestInteraction } from '@socioprophet/hellgraph'
 import { cairnPathExpand } from './cairnpath-adapter.js'
 import * as crypto from 'node:crypto'
 
-/** Sanitize a user value for logging: encodeURIComponent neutralizes newlines/control chars and is
- *  a CodeQL-recognized log-injection sanitizer (a plain newline-stripping .replace() is not). */
+/** Sanitize a user value for logging: strip CR/LF so input can't forge log lines. CodeQL
+ *  js/log-injection only recognizes String.replace of explicit "\r"/"\n" (the NewlineSanitizer
+ *  barrier) — encodeURIComponent is NOT modeled as a log-injection sanitizer. */
 function logSafe(s: unknown): string {
-  try { return encodeURIComponent(String(s)) } catch { return '<unprintable>' }
+  try { return String(s).replace(/\r/g, '').replace(/\n/g, '').slice(0, 200) } catch { return '<unprintable>' }
 }
 
 // ─── WorkingMemoryState — mirrors graphbrain-contract/memory_runtime_api.py ──

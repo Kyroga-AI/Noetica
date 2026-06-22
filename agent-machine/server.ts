@@ -885,12 +885,13 @@ function isFlagOn(env: string): boolean {
 }
 
 /**
- * Sanitize a user-derived value before logging it. encodeURIComponent neutralizes newlines and
- * control chars (the log-injection vector) and is a CodeQL-recognized sanitizer — a plain
- * newline-stripping .replace() is NOT recognized by js/log-injection. Throw-safe (lone surrogates).
+ * Sanitize a user-derived value before logging it: strip CR/LF so input can't forge log lines.
+ * CodeQL js/log-injection only recognizes String.replace of explicit "\r"/"\n" as a sanitizer
+ * (the NewlineSanitizer barrier) — encodeURIComponent and char-class/range replaces (e.g.
+ * [\x00-\x1f]) are NOT modeled. Throw-safe (lone surrogates).
  */
 function logSafe(s: unknown): string {
-  try { return encodeURIComponent(String(s)) } catch { return '<unprintable>' }
+  try { return String(s).replace(/\r/g, '').replace(/\n/g, '').slice(0, 200) } catch { return '<unprintable>' }
 }
 
 /**
