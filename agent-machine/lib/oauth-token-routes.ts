@@ -37,6 +37,29 @@ function readBody(req: http.IncomingMessage): Promise<string> {
   })
 }
 
+/**
+ * Build the upstream token-exchange request for a provider (pure + testable). Notion uses HTTP Basic
+ * (client_id:client_secret) + a JSON body, and the secret is STRIPPED from the body so it never
+ * round-trips back to the client; the others post the form params as-is. null ⇒ unknown provider.
+ */
+export function buildOAuthExchange(
+  provider: string,
+  params: URLSearchParams,
+): { url: string; init: { method: string; headers: Record<string, string>; body: string } } | null {
+  const url = TOKEN_URL[provider]
+  if (!url) return null
+  if (provider === 'notion') {
+    const clientId = params.get('client_id') ?? ''
+    const clientSecret = params.get('client_secret') ?? ''
+    const body = new URLSearchParams(params)
+    body.delete('client_secret') // secret goes in the Authorization header — must NOT round-trip in the body
+    const basic = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
+    return { url, init: { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Basic ${basic}` }, body: JSON.stringify(Object.fromEntries(body)) } }
+  }
+  // GitHub/Slack/Linear: form-encoded; GitHub needs Accept: application/json to get JSON not a querystring.
+  return { url, init: { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' }, body: params.toString() } }
+}
+
 /** Returns true if it handled the route. Mirrors the old app/api/oauth/<provider>/token proxies. */
 export async function handleOAuthTokenRoute(req: http.IncomingMessage, res: http.ServerResponse, url: URL): Promise<boolean> {
   const m = /^\/api\/oauth\/([a-z]+)\/token$/.exec(url.pathname)
@@ -49,26 +72,8 @@ export async function handleOAuthTokenRoute(req: http.IncomingMessage, res: http
 
   const params = new URLSearchParams(await readBody(req))
   try {
-    let upstream: Response
-    if (provider === 'notion') {
-      // Notion requires HTTP Basic (client_id:client_secret) + a JSON body; the secret must NOT round-trip back.
-      const clientId = params.get('client_id') ?? ''
-      const clientSecret = params.get('client_secret') ?? ''
-      params.delete('client_secret')
-      const basic = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
-      upstream = await fetch(tokenUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Basic ${basic}` },
-        body: JSON.stringify(Object.fromEntries(params)),
-      })
-    } else {
-      // GitHub/Slack/Linear: form-encoded; GitHub needs Accept: application/json to get JSON not querystring.
-      upstream = await fetch(tokenUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', Accept: 'application/json' },
-        body: params.toString(),
-      })
-    }
+    const ex = buildOAuthExchange(provider, params)! // provider already validated above (tokenUrl check)
+    const upstream = await fetch(ex.url, ex.init as RequestInit)
     if (!upstream.ok) { send(502, { error: 'upstream_error', status: upstream.status }); return true }
     const data = await upstream.json().catch(() => ({}))
     if (data && typeof data === 'object' && 'error' in data) { send(400, data); return true }

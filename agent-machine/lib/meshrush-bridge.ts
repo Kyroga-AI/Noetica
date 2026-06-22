@@ -23,6 +23,7 @@
 
 import * as http from 'node:http'
 import * as crypto from 'node:crypto'
+import { readBody } from './read-body.js' // shared, size-capped (was an unbounded local copy)
 import type { AtomSpace, Atom, Handle, AtomLogEntry } from '@socioprophet/hellgraph'
 import { findMatches } from '@socioprophet/hellgraph'
 import type { Pattern, MatchResult } from '@socioprophet/hellgraph'
@@ -427,14 +428,6 @@ export function handleMeshRushRequest(
   return false
 }
 
-function readBody(req: http.IncomingMessage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    let d = ''
-    req.on('data', (c: Buffer) => { d += c.toString() })
-    req.on('end', () => resolve(d))
-    req.on('error', reject)
-  })
-}
 
 // ─── Export for agent-machine to expose subgraph directly ─────────────────────
 export { extractSubgraph as meshSubgraph }
