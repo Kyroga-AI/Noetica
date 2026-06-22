@@ -5317,6 +5317,36 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // GET /api/graph/predictions — link prediction: structural candidates (Adamic-Adar) for edges that
+  // SHOULD exist but don't. ?verify=1 runs each through the model for a real/relation/confidence
+  // check (the moat: suggested connections are verified, not guessed). ?topK=N caps the candidates.
+  if (req.method === 'GET' && url.pathname === '/api/graph/predictions') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const verify = url.searchParams.get('verify') === '1'
+        const topK = Math.min(50, Math.max(1, Number(url.searchParams.get('topK') ?? 20)))
+        const g = getGraph()
+        const allNodes = g.allNodes(), allEdges = g.allEdges()
+        const keep = new Set(allNodes.filter((n) => cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id))).map((n) => n.id))
+        const fNodes = allNodes.filter((n) => keep.has(n.id)); const fEdges = allEdges.filter((e) => keep.has(e.from) && keep.has(e.to))
+        const nodeById = new Map(allNodes.map((n) => [n.id, n]))
+        const labelOf = (id: string) => { const n = nodeById.get(id); return (n ? cleanLabel(n) : null) ?? '' }
+        const { predictLinks, verifyPredictions } = await import('./lib/graph-predict.js')
+        let preds = predictLinks(fNodes.map((n) => ({ id: n.id })), fEdges.map((e) => ({ from: e.from, to: e.to })), { topK })
+        if (verify) { const model = await pickChatModel(); preds = await verifyPredictions(preds, labelOf, { model }) }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({
+          predictions: preds.map((p) => ({ ...p, sourceLabel: labelOf(p.source), targetLabel: labelOf(p.target) })),
+          count: preds.length, verified: verify,
+        }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
   // GET /api/graph/communities — GraphRAG community reports: one LLM-written, grounding-verified
   // summary per Louvain community. Cached by analytics signature + model; ?refresh=1 rebuilds.
   if (req.method === 'GET' && url.pathname === '/api/graph/communities') {
