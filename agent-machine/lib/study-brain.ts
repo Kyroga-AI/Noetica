@@ -73,11 +73,30 @@ export async function studyBrainRetrieve(query: string, fields: string[] = [], k
     }
   }
   scored.sort((a, b) => b.score - a.score)
+  // Hybrid re-rank over the dense top-pool: blend cosine with query-term overlap (lexical) so
+  // exact-term matches that pure dense retrieval under-ranks get surfaced — the Anthropic
+  // contextual-retrieval insight (BM25+dense), applied at the rerank step with NO extra model
+  // or latency. Fixes flat-cosine mis-ordering (e.g. "central limit theorem" pulling unrelated
+  // fields above the on-topic math/stats chunk). Whole-brain queries (no field filter) benefit
+  // most, since that's where cross-field cosine collisions happen.
+  const qterms = new Set(
+    query.toLowerCase().replace(/[^a-z0-9\s]/g, ' ').split(/\s+/).filter((w) => w.length >= 4),
+  )
+  const pool = scored.slice(0, Math.max(k * 6, 40))
+  if (qterms.size > 0) {
+    for (const h of pool) {
+      const t = h.text.toLowerCase()
+      let hit = 0
+      for (const w of qterms) if (t.includes(w)) hit++
+      h.score = 0.82 * h.score + 0.18 * (hit / qterms.size) // blended relevance
+    }
+    pool.sort((a, b) => b.score - a.score)
+  }
   // Dedup near-identical passages by text prefix (same chunk often recurs across courses) —
   // feeding the model the same passage twice wastes context and adds no signal.
   const seen = new Set<string>()
   const out: BrainHit[] = []
-  for (const h of scored) {
+  for (const h of pool) {
     const key = h.text.slice(0, 80)
     if (seen.has(key)) continue
     seen.add(key)
