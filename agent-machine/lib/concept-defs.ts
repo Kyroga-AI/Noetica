@@ -12,6 +12,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
+import { embedText, cosineSim } from './ollama.js'
 
 const STORE = path.join(os.homedir(), '.noetica', 'concepts')
 
@@ -24,7 +25,7 @@ const JUNK = new Set([
   'each', 'these', 'those', 'other', 'using', 'used', 'use', 'one', 'two', 'can', 'are', 'the',
 ])
 
-export interface Concept { term: string; definition: string; url: string; source: string; field?: string }
+export interface Concept { term: string; definition: string; url: string; source: string; field?: string; sense?: string }
 
 // Course boilerplate the GLiNER/KeyBERT extraction captured as "terms" — never concepts.
 const BOILER = new Set([
@@ -64,6 +65,54 @@ const FIELD_KEYWORDS: Record<string, RegExp> = {
   earth_planetary: /\b(geolog|earth|planet|rock|mineral|atmospher|ocean|climate|seismic|tecton|volcan|sediment)/i,
 }
 
+// Field semantic probe — the sense-vector each polysemous term is disambiguated AGAINST.
+const FIELD_PROBE: Record<string, string> = {
+  biology: 'biology cell organism gene molecular life evolution species protein',
+  biological_eng: 'biology cell molecular protein gene bioengineering tissue',
+  chemistry: 'chemistry molecule atom chemical reaction compound element bond ion',
+  physics: 'physics energy force particle quantum mechanics motion field mass',
+  mathematics: 'mathematics theorem equation function algebra geometry probability vector',
+  eecs: 'computer science algorithm software circuit electrical data network signal',
+  earth_planetary: 'geology earth planet rock mineral atmosphere ocean climate seismic',
+}
+
+/** Candidate Wikipedia titles for a term (opensearch) — the sense inventory for WSD. */
+async function wikiSearch(term: string): Promise<string[]> {
+  try {
+    const res = await fetch(`https://en.wikipedia.org/w/api.php?action=opensearch&format=json&limit=8&search=${encodeURIComponent(term)}`, {
+      signal: AbortSignal.timeout(8000), headers: { 'user-agent': 'Noetica-concept-enrich/1.0 (educational)' },
+    })
+    if (!res.ok) return []
+    const j = (await res.json()) as [string, string[]]
+    return Array.isArray(j?.[1]) ? j[1] : []
+  } catch { return [] }
+}
+
+/**
+ * Word-sense disambiguation via embeddings (the polysemy fix): a term like "cell" has many senses
+ * (biology / spreadsheet / prison / battery). Embed each candidate sense's definition and the FIELD
+ * probe, then pick the sense whose meaning is closest to the field — so the biology glossary gets
+ * "Cell (biology)", not "Cell (spreadsheet)". This is sense-aware glossary modeling, not string matching.
+ */
+async function resolveSenseWSD(term: string, field: string): Promise<Concept | null> {
+  const probe = FIELD_PROBE[field]
+  if (!probe) return null
+  const cands = await wikiSearch(term)
+  if (!cands.length) return null
+  const pv = await embedText(probe)
+  if (!pv.length) return null
+  let best: Concept | null = null
+  let bestSim = -1
+  for (const title of cands.slice(0, 6)) {
+    const c = await tryTitle(title.replace(/\s+/g, '_'), term)
+    if (!c) continue
+    const cv = await embedText(c.definition.slice(0, 400))
+    const sim = cosineSim(pv, cv)
+    if (sim > bestSim) { bestSim = sim; best = { ...c, sense: title } }
+  }
+  return bestSim >= 0.4 ? best : null // require real field-affinity or abstain
+}
+
 async function tryTitle(title: string, term: string): Promise<Concept | null> {
   try {
     const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`, {
@@ -82,11 +131,19 @@ async function tryTitle(title: string, term: string): Promise<Concept | null> {
 export async function fetchConceptDef(term: string, field?: string): Promise<Concept | null> {
   const t = term.trim()
   const base = t.replace(/\s+/g, '_')
+  const offDomain = (cc: Concept | null): boolean => !!(cc && field && FIELD_KEYWORDS[field] && !FIELD_KEYWORDS[field]!.test(cc.definition))
   let c = await tryTitle(base, t)
-  if ((!c || (field && FIELD_KEYWORDS[field] && !FIELD_KEYWORDS[field]!.test(c.definition))) && field && FIELD_QUALIFIER[field]) {
+  if ((!c || offDomain(c)) && field && FIELD_QUALIFIER[field]) {
     // disambiguation OR off-domain article (e.g. "Cell" → spreadsheet) → retry field-qualified
     const q = await tryTitle(`${base}_(${FIELD_QUALIFIER[field].replace(/\s+/g, '_')})`, t)
-    if (q) c = q
+    if (q && !offDomain(q)) c = q
+  }
+  // Word-sense disambiguation (embedding-based) — the polysemy fix: still missing/off-domain ⇒ pick
+  // the candidate sense whose definition embeds closest to the field. Handles ANY polysemy, not just
+  // the hand-mapped "(field)" qualifier.
+  if ((!c || offDomain(c)) && field && FIELD_PROBE[field]) {
+    const w = await resolveSenseWSD(t, field)
+    if (w) c = w
   }
   // Domain-relevance gate: drop generic words whose definition isn't about the field.
   if (c && field && FIELD_KEYWORDS[field] && !FIELD_KEYWORDS[field]!.test(c.definition)) return null
