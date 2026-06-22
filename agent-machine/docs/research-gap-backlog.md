@@ -113,3 +113,41 @@ After each implement+measure pass: append new gaps, re-rank, re-survey for what 
 - **BUG: champion (council) UNDERPERFORMS plain brain (50% < 65%)** on math. The council democratically blends baseline(weak)+brain(strong)+qgen, so it DILUTES a dominant grounded arm. Classic ensemble failure mode: averaging hurts when one arm is decisively better.
 - **PLANNED FIX — council V2 (apply AFTER the full 7-subject board confirms it's systematic, not just math; flag-gated `MMLU_COUNCIL_V2` so it A/Bs without disturbing the current comparison):** confidence/grounding-weighted council — when the brain arm's retrieval is strong (high top-cosine) AND it disagrees with baseline, defer to brain rather than majority-average. I.e. let a decisively-grounded arm win instead of being out-voted by weaker arms. Do NOT implement off 1 subject (premature); wait for per-subject board data. This is the highest-priority *new* gap the loop surfaced — it's our own bug, not a borrow.
 - Process note: the heartbeat fix (PR #83) is what made this finding VISIBLE in real time — the old harness would have shown nothing.
+
+## Iter-7 (2026-06-22) — UNMINED labs + the combiner literature (2 fresh agents). TOP 50 = these + iter-6's 25.
+
+**Overlap analysis that drove this** (real board data): on college_math baseline & brain got LARGELY COMPLEMENTARY subsets (both-right 6, brain-only 7, baseline-only 1, oracle 14/70%); on college_chem they OVERLAP (both-right 10). So the council dilutes only where arms are complementary. The frontier diagnosis: **our LLM arms (baseline, sc, qgen-reasoning) are CORRELATED/entangled — same errors — so a flat vote lets the bloc swamp the INDEPENDENT brain-retrieval arm.**
+
+### P0 — CONDITIONAL COMBINER / ROUTING / CALIBRATION (directly fixes our live council bug)
+| Move | Source (arXiv) | Gives us |
+|---|---|---|
+| **Beyond Majority Voting (OW/ISP aggregators)** | 2510.01499 | correlation-aware aggregation — up-weight the surprising-but-correct minority (our exact fix); provably > majority on MMLU |
+| **Entanglement-aware verifier reweighting** | 2604.07650 | measure pairwise correlated-error, give INDEPENDENT arms more vote share (brain is independent; LLM arms entangled) |
+| **Conformal abstention policies** | 2502.06884 | per-arm trust/abstain gate with coverage guarantee |
+| **Trust-or-Escalate cascade** | ICLR'25 | accept a verdict only when calibrated confidence bounds agreement, else escalate |
+| **Calib-n response-agreement calibration** | 2501.03991 (ACL'25 Outstanding) | cheap agreement-feature gate, beats logit/verbalized confidence |
+| **CARROT cost-aware rate-optimal router** | 2502.03261 | laptop-runnable learned router (KNN/RoBERTa) — route math→verified arm |
+| **MoICL learnable expert-weighting head** | 2411.02830 (ACL'25) | replace fixed vote with a learnable per-expert weighting (our "softmax the ensemble") |
+| **Optimal deferral / speculative cascades** | 2405.19261 (ICLR'25) | the math for WHEN to escalate small→heavy |
+| **Entropy insufficient for selective prediction** | 2603.21172 | CONSTRAINT: gate on the sympy verifier's pass/fail, NOT LLM entropy |
+
+### P0 — NEUROSYMBOLIC (our thesis — verified arm should OVERRIDE, not vote)
+| **LLM-Modulo (verifiers as critics)** | 2402.01817 | nothing emits unless a sound critic (sympy/SAT/prover) signs off — our compute-override generalized |
+| **SymCode (NL→SymPy→sandbox pass/fail + self-debug)** | 2510.25975 | upgrade our sympy arm; make pass/fail the ROUTING signal (+13.6 MATH-500) |
+| **LLM2 process verifier × self-consistency** | 2412.20372 (NAACL'25) | generator × verifier × SC compose multiplicatively (GSM8K 50→70) — validates our stack |
+| **VSA hidden-state reasoning (Waterloo/Eliasmith)** | 2502.01657 (EMNLP'25) | encode hidden states → VSA → compute → decode: 15.4× more math; validates our VSA/HRR substrate |
+| **Global Workspace routing** | 2503.01906 | arbitrate arm disagreement (neural X vs verifier ¬X), broadcast only the consistent result |
+
+### P1 — COUNCIL → WEIGHTS (turn the ensemble into one small model — Sakana/Together)
+Evolutionary Model Merging (2403.13187, Sakana, Nature MI) · CycleQD (2410.14735) · **MoA** (2406.04692, Together) + **MoAA distill-council-into-one-model** (2505.03059) · Self-MoA (2502.00674) · Text-to-LoRA (2506.06105) / Doc-to-LoRA (2602.15902) · The Avengers (2505.19797). **Sakana = highest-value unmined lab; Together MoAA = the "distill council to one on-device model" path.**
+
+### P1 — RETRIEVAL / RERANK / EMBED (the table-stakes we're missing)
+**NVIDIA RankRAG** (2407.02485 — ONE model reranks+answers) · **Snowflake Arctic-Embed-2.0** (Apache, quant-aware, ~128B/vec — the nomic replacement) · **Contextual Reranker v2** (open, instruction-steerable — our missing rerank stage) · NVIDIA ColEmbed late-interaction (2507.05513) · Tencent Youtu-GraphRAG (2508.19855).
+
+### P2 — EFFICIENCY / SMALL BACKBONES / SAMPLING
+Apple 2-bit QAT+LoRA (2507.13575) + MLX · Reka Quant 3.5-bit · SmolLM3-3B · Mistral 3 (Apache) · **Minions** (2502.15964, Stanford — small reads context, big orchestrates, 97.9% acc @17.5% cost) · **Slim-SC + Bayesian SC stopping** (2509.13990 — −45% latency, drop-in on our self-consistency) · smolagents agentic-RAG.
+
+### Eval / thesis-validation
+LMUnit (grounding unit-tests) · ARES · RouterArena · Databricks long-context-RAG (2411.03538 — retrieval+short-ctx > long-ctx dump, BACKS our thesis) · SFR-RAG/ContextualBench · **"Does RL Really Incentivize Reasoning Beyond the Base Model?"** (2504.13837, NeurIPS'25 runner-up — capacity is LATENT in the base, wins come from sampling/selection = independent validation of "technique not horsepower").
+
+**Iter-7 takeaway:** the single highest-leverage move is **correlation/entanglement-aware aggregation** (2510.01499 + 2604.07650) + **letting the verified-compute arm OVERRIDE** (LLM-Modulo) — exactly our live council bug. Council V2 (PR #90 + the confidence-weighting this turn) is a first-order approximation; the learned/correlation-aware combiner is the principled endgame. Beyond the combiner: **distill the council into one small model** (MoAA/Sakana) is the way to make the technique permanent and cheap.
