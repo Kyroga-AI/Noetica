@@ -264,7 +264,7 @@ export function AppShell() {
   const abortControllerRef = useRef<AbortController | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false)
-  const [utilityPanel, setUtilityPanel] = useState<UtilityPanelId | null>('context')
+  const [utilityPanel, setUtilityPanel] = useState<UtilityPanelId | null>('graph')
   const [inspectorVisible, setInspectorVisible] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsCategory, setSettingsCategory] = useState('appearance')
@@ -690,6 +690,31 @@ export function AppShell() {
       return
     }
 
+    // Grounded research mode: "research <q>" routes to /api/research/solve — a VERIFIED answer
+    // (grounding-checked against the brain, with a repair loop) carrying its sources + a trust
+    // score, not a free-form generation you have to second-guess.
+    const researchMatch = content.match(/^\s*(?:\/research|research[:\s])\s*(.+)/is)
+    if (researchMatch && attachments.length === 0) {
+      const q = researchMatch[1]!.trim()
+      const now = new Date().toISOString()
+      const u: ChatMessage = { id: crypto.randomUUID(), role: 'user', content, workspace_mode: workspaceMode, created_at: now }
+      const a: ChatMessage = { id: crypto.randomUUID(), role: 'assistant', content: '🔎 Researching the brain…', created_at: now }
+      autoTitle(content)
+      setMessages((cur) => { const next = [...cur, u, a]; updateMessages(next); return next })
+      try {
+        const r = await fetch('/api/research/solve', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question: q }) })
+        const j = (await r.json()) as { answer?: string; grounded?: boolean; score?: number; sources?: { n: number; filename: string }[] }
+        const pct = Math.round((j.score ?? 0) * 100)
+        const badge = j.grounded ? `✅ Grounded (${pct}%)` : `⚠️ Partially grounded (${pct}%) — treat with care`
+        const srcs = (j.sources ?? []).map((s) => `[${s.n}] ${s.filename}`).join('  ·  ')
+        const body = `${j.answer ?? '(no answer)'}\n\n---\n_${badge}${srcs ? `  ·  sources: ${srcs}` : ''}_`
+        setMessages((cur) => { const next = cur.map((m) => (m.id === a.id ? { ...m, content: body } : m)); updateMessages(next); return next })
+      } catch {
+        setMessages((cur) => { const next = cur.map((m) => (m.id === a.id ? { ...m, content: 'Research failed — backend offline.' } : m)); updateMessages(next); return next })
+      }
+      return
+    }
+
     // Local-first dialogue layer: answer small-talk / app-help / utilities / form-starts
     // instantly and deterministically — no model call, so it works even while the runtime
     // is warming up. Only turns that genuinely need generation fall through to the model.
@@ -1012,6 +1037,9 @@ export function AppShell() {
                 setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'deliberation', payload: d }, ...prev].slice(0, 80))
               }
             },
+            // Live todo checklist (the AM streams plan + step events; render them as a checklist).
+            onPlan: (plan) => updateAssistant(assistantId, { plan }),
+            onStep: (step) => mergePlanStep(assistantId, step),
             onDone: (result) => {
               // Voice loop: if this turn was spoken, speak the reply (and live mode re-listens).
               if (voiceReplyRef.current) { voiceReplyRef.current = false; if (result.content) void speak(result.content) }
@@ -1293,13 +1321,16 @@ export function AppShell() {
   // so the answer shows graph grounding AND the cited uploaded documents.
   function mergeRetrieval(id: string, trace: import('@/lib/types/message').RetrievalTrace) {
     const isDocs = trace.patterns?.includes('semantic-documents')
+    const isProvenance = (trace.memory_sources?.length ?? 0) > 0 || (trace.episode_sources?.length ?? 0) > 0
     setMessages((current) =>
       current.map((m) => {
         if (m.id !== id) return m
         const prev = m.retrieval_trace
-        const combined = isDocs
-          ? { ...(prev ?? trace), document_sources: trace.sources }
-          : { ...trace, document_sources: prev?.document_sources }
+        const combined = isProvenance
+          ? { ...(prev ?? trace), memory_sources: trace.memory_sources, episode_sources: trace.episode_sources }
+          : isDocs
+            ? { ...(prev ?? trace), document_sources: trace.sources }
+            : { ...trace, document_sources: prev?.document_sources, memory_sources: prev?.memory_sources, episode_sources: prev?.episode_sources }
         return { ...m, retrieval_trace: combined }
       })
     )
@@ -1308,6 +1339,17 @@ export function AppShell() {
   function appendAssistantContent(id: string, delta: string) {
     setMessages((current) =>
       current.map((m) => (m.id === id ? { ...m, content: `${m.content}${delta}` } : m))
+    )
+  }
+
+  // Live todo checklist: merge a streamed step status update into the message's plan by id.
+  function mergePlanStep(id: string, step: import('@/lib/types/message').PlanStepUpdate) {
+    setMessages((current) =>
+      current.map((m) => {
+        if (m.id !== id || !m.plan) return m
+        const steps = m.plan.steps.map((s) => (s.id === step.id ? { ...s, status: step.status, detail: step.detail ?? s.detail } : s))
+        return { ...m, plan: { ...m.plan, steps } }
+      })
     )
   }
 

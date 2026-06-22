@@ -2,6 +2,7 @@ import { NoeticaMark } from '@/components/brand/NoeticaMark'
 import { WarmingLevel } from '@/components/risk/WarmingLevel'
 import { ThemePicker } from '@/components/shell/ThemePicker'
 import { RuntimeStatus } from '@/components/status/RuntimeStatus'
+import { EgressMeter } from '@/components/status/EgressMeter'
 import type { RiskAversionLiveReadout } from '@/lib/risk/riskAversionLive'
 import type { VoiceState } from '@/lib/voice/useVoice'
 
@@ -42,13 +43,16 @@ export function Topbar({ modelId, mode, riskReadout, voiceState, isLive, onLiveS
   return (
     <header className="flex h-10 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] px-4">
       <div className="flex min-w-0 items-center gap-2">
-        <div className="flex h-5 w-5 items-center justify-center rounded-full bg-[var(--color-text-primary)] text-[var(--color-background-primary)]">
+        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-text-primary)] text-[var(--color-background-primary)]">
           <NoeticaMark className="h-3.5 w-3.5" />
         </div>
-        <span className="text-[13px] font-medium text-[var(--color-text-primary)]">Noetica</span>
+        <span className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">Noetica</span>
       </div>
 
-      <div className="flex items-center gap-2">
+      {/* shrink-0 so the status pills + actions keep their size; the title (min-w-0 + truncate
+          above) gives way instead, so nothing overlaps when the rail panels narrow the bar. */}
+      <div className="flex shrink-0 items-center gap-2">
+        <EgressMeter />
         <RuntimeStatus />
         {/* Mic — push-to-talk dictation (single turn). Stays a mic. */}
         <button

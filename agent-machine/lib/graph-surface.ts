@@ -9,11 +9,40 @@
  */
 
 import type { GraphNode, GraphEdge } from '@socioprophet/hellgraph'
+import { coreTokens, clusterByLexicalClosure } from './topic-closure.js'
+import { isActionLabel } from './graph-hygiene.js'
+import { dimensionOf } from './cskg.js'
 type GNode = GraphNode
 type GEdge = GraphEdge
-export interface SurfaceNode { id: string; label: string; category: string; featured: boolean; degree: number }
-export interface SurfaceLink { source: string; target: string; primary: boolean }
+export interface SurfaceNode { id: string; label: string; category: string; kind: string; featured: boolean; degree: number }
+export interface SurfaceLink { source: string; target: string; primary: boolean; epistemic: string; dimension: string }
 export interface SurfaceResult { nodes: SurfaceNode[]; links: SurfaceLink[]; total: { nodes: number; edges: number } }
+
+// Entity CLASS (regis-aligned) for an atom's primary label — what the node IS, for styling/legend/
+// filtering. Coarser than the raw atom type so the legend stays legible.
+export function kindOf(label: string): string {
+  const l = (label ?? '').toLowerCase()
+  if (isActionLabel(label ?? '')) return 'Action'   // verbs are their OWN class (filterable), not topics
+  if (/cluster/.test(l)) return 'Cluster'
+  if (/person|human|twin|user|persona|pseudonym/.test(l)) return 'Person'
+  if (/org|company|institution|team/.test(l)) return 'Org'
+  if (/session|turn|conversation|message|event|run|dispatch/.test(l)) return 'Session'
+  if (/file|symbol|repo|code|module/.test(l)) return 'Code'
+  if (/model|provider|tool|action|service|workload|app|device/.test(l)) return 'Service'
+  if (/document|record|chunk|source|evidence|episode|proof/.test(l)) return 'Document'
+  if (/domain|topic|glossary|concept|feature|vector|learningstate|candidate/.test(l)) return 'Concept'
+  if (/entity|canonical|role|gaia|belief/.test(l)) return 'Entity'
+  return 'Concept'
+}
+// Epistemic class of a relationship (regis edge typing): how much we should TRUST it. Algorithm/
+// cluster-derived edges are 'inferred'; structural/ingested ones are 'extracted'.
+export function epistemicOf(edgeKind: string): string {
+  const k = (edgeKind ?? '').toLowerCase()
+  if (/hygiene|match|merge|similar|cluster|infer|derive/.test(k)) return 'inferred'
+  if (/has_|in_|contains|topic|term|symbol|chunk|cite|ref/.test(k)) return 'extracted'
+  if (/confirm|attest|verified|consent|proof/.test(k)) return 'confirmed'
+  return 'extracted'
+}
 
 // label → colour category (docs/learning/technical/trust/deployment palette)
 export function categoryFor(label: string): string {
@@ -41,19 +70,30 @@ function isProse(s: string): boolean {
   if (s.trim().split(/\s+/).length > 4) return true
   return false
 }
+// A label that's a path or carries operational stopwords (self/ntca, /tmp/ntca prbe,
+// self notca md) should display as its core concept, not the raw path. Only rewrites such
+// labels — a clean label (no path separator, no self/tmp/probe noise) is returned as-is.
+function tidyTopicLabel(s: string): string {
+  if (!/[/\\]/.test(s) && !/\b(self|tmp|probe|prbe)\b/i.test(s)) return s
+  const core = coreTokens(s)                                   // splits on /\_-.:, drops stopwords + len<3
+  if (core.length) return core.join(' ')
+  return (s.split(/[/\\]/).pop() ?? s).trim()                 // fallback: basename
+}
+
 export function cleanLabel(n: GNode): string | null {
   for (const key of ['title', 'name', 'surface', 'normalised', 'filename']) {
     const v = n.properties[key]
     if (v == null) continue
-    const s = String(v)
+    const cleaned = String(v)
       .replace(/\s+/g, ' ')
       .replace(/^\[[^\]]*\]\s*/, '')
-      .replace(/\.(pdf|txt|md|json|vtt|srt|docx|pptx|xlsx|csv|html?)$/i, '')
+      .replace(/\.(pdf|txt|md|json|vtt|srt|docx|pptx|xlsx|csv|html?|dmg|app|pkg|exe|zip|tar|gz)$/i, '')
       .replace(/^[#>.\-\s]+/, '')
       .trim()
+    const s = tidyTopicLabel(cleaned)
     if (s && !isHashy(s) && !isProse(s)) return s.slice(0, 22)
   }
-  const last = (n.id.split(':').pop() ?? '').replace(/-[0-9a-f]{4,}$/i, '').replace(/-/g, ' ').trim()
+  const last = tidyTopicLabel((n.id.split(':').pop() ?? '').replace(/-[0-9a-f]{4,}$/i, '').replace(/-/g, ' ').trim())
   return last && !isHashy(last) && !isProse(last) ? last.slice(0, 22) : null
 }
 
@@ -81,7 +121,11 @@ export function selectSurface(allNodes: GNode[], allEdges: GEdge[], opts: { view
     ;(adj.get(e.from) ?? adj.set(e.from, new Set()).get(e.from)!).add(e.to)
     ;(adj.get(e.to) ?? adj.set(e.to, new Set()).get(e.to)!).add(e.from)
   }
-  const labeled = allNodes.filter((n) => cleanLabel(n) !== null)
+  // Drop anything the hygiene pass marked pruned (junk classes) AND test-corpus pollution
+  // (corpus-test-* atoms from graphbrain-bridge tests that leaked into the live graph — they
+  // surface as duplicate/orphan "corpus test" nodes). `corpus-test` is a reserved test prefix.
+  const labeled = allNodes.filter((n) =>
+    cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id)))
   const byId = new Map(labeled.map((n) => [n.id, n]))
 
   let picked: GNode[]
@@ -110,10 +154,12 @@ export function selectSurface(allNodes: GNode[], allEdges: GEdge[], opts: { view
       }
       picked = [...seen].map((id) => byId.get(id)!).filter(Boolean)
     } else {
-      // Top-level: the highest-degree clean entities of this category.
+      // Top-level: the highest-degree clean entities of this category. Drop orphans (degree 0)
+      // — an isolated dot adds nothing to a relationship view (21% of atoms are orphans).
       picked = labeled
         .filter((n) => categoryFor(n.labels[0] ?? '') === catTarget)
         .filter(isClean)
+        .filter((n) => (degree.get(n.id) ?? 0) > 0)
         .sort((a, b) => (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0) || Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0))
         .slice(0, limit)
     }
@@ -132,7 +178,8 @@ export function selectSurface(allNodes: GNode[], allEdges: GEdge[], opts: { view
     }
     picked = [...seen].map((id) => byId.get(id)!).filter(Boolean)
   } else {
-    const ranked = labeled.slice().sort((a, b) => (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0) || Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0))
+    const ranked = labeled.filter((n) => (degree.get(n.id) ?? 0) > 0)   // 'all' is a relationship view — drop orphans
+      .slice().sort((a, b) => (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0) || Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0))
     const byLabel = new Map<string, GNode[]>()
     for (const n of ranked) { const l = n.labels[0] ?? 'node'; const arr = byLabel.get(l); if (arr) arr.push(n); else byLabel.set(l, [n]) }
     picked = []
@@ -143,23 +190,48 @@ export function selectSurface(allNodes: GNode[], allEdges: GEdge[], opts: { view
     }
   }
 
+  // Collapse lexical-duplicate nodes so the same concept isn't drawn several times
+  // (corpus test ×2; noetica / notca / ntca → one). Keep the highest-degree node per cluster
+  // as the representative and remap the others' edges onto it. Display-only — store untouched.
+  const labelOf = new Map(picked.map((n) => [n.id, cleanLabel(n) ?? n.id]))
+  const { canonicalOf } = clusterByLexicalClosure([...new Set(labelOf.values())])
+  const repOf = new Map<string, GNode>()      // canonical label → representative node
+  const remap = new Map<string, string>()     // node id → representative id
+  for (const n of picked) {
+    const canon = canonicalOf.get(labelOf.get(n.id)!) ?? labelOf.get(n.id)!
+    const cur = repOf.get(canon)
+    if (!cur) { repOf.set(canon, n); remap.set(n.id, n.id); continue }
+    const keepN = (degree.get(n.id) ?? 0) > (degree.get(cur.id) ?? 0) ? n : cur
+    const dropN = keepN === n ? cur : n
+    repOf.set(canon, keepN)
+    for (const [k, v] of remap) if (v === dropN.id) remap.set(k, keepN.id)
+    remap.set(dropN.id, keepN.id); remap.set(keepN.id, keepN.id)
+  }
+  picked = [...repOf.values()]
+  const rid = (id: string) => remap.get(id) ?? id
+
   const keep = new Set(picked.map((n) => n.id))
   const maxDeg = Math.max(1, ...picked.map((n) => degree.get(n.id) ?? 0))
   const nodes: SurfaceNode[] = picked.map((n) => {
     const lbl = n.labels[0] ?? 'node'
     const deg = degree.get(n.id) ?? 0
-    return { id: n.id, label: cleanLabel(n) ?? lbl, category: categoryFor(lbl), featured: deg >= maxDeg * 0.6, degree: deg }
+    return { id: n.id, label: cleanLabel(n) ?? lbl, category: categoryFor(lbl), kind: kindOf(lbl), featured: deg >= maxDeg * 0.6, degree: deg }
   })
 
   const shown = new Map<string, number>()
+  const seenPair = new Set<string>()
   const CAP = 3
   const links: SurfaceLink[] = []
   for (const e of allEdges) {
-    if (!keep.has(e.from) || !keep.has(e.to) || e.from === e.to) continue
-    if ((shown.get(e.from) ?? 0) >= CAP || (shown.get(e.to) ?? 0) >= CAP) continue
-    shown.set(e.from, (shown.get(e.from) ?? 0) + 1)
-    shown.set(e.to, (shown.get(e.to) ?? 0) + 1)
-    links.push({ source: e.from, target: e.to, primary: (degree.get(e.from) ?? 0) >= maxDeg * 0.6 || (degree.get(e.to) ?? 0) >= maxDeg * 0.6 })
+    const from = rid(e.from), to = rid(e.to)          // remap onto cluster representatives
+    if (!keep.has(from) || !keep.has(to) || from === to) continue
+    const pair = from < to ? `${from}|${to}` : `${to}|${from}`
+    if (seenPair.has(pair)) continue                  // dedupe parallel edges created by the collapse
+    if ((shown.get(from) ?? 0) >= CAP || (shown.get(to) ?? 0) >= CAP) continue
+    seenPair.add(pair)
+    shown.set(from, (shown.get(from) ?? 0) + 1)
+    shown.set(to, (shown.get(to) ?? 0) + 1)
+    links.push({ source: from, target: to, primary: (degree.get(from) ?? 0) >= maxDeg * 0.6 || (degree.get(to) ?? 0) >= maxDeg * 0.6, epistemic: epistemicOf(e.label), dimension: dimensionOf(e.label) })
   }
 
   return { nodes, links, total: { nodes: allNodes.length, edges: allEdges.length } }

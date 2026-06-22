@@ -50,6 +50,28 @@ export function useSession(defaultModelId: string, opts?: { ephemeralTtlMinutes?
 
   function mutate(next: SessionStore) { setStore(next); persist(next) }
 
+  // Flush-on-quit: the debounced save can be lost if the app closes within the debounce
+  // window — a real cause of "my chats didn't save". On pagehide / beforeunload / tab-hide
+  // (and on unmount), synchronously flush the latest store so nothing in flight is dropped.
+  const storeRef = useRef(store)
+  storeRef.current = store
+  useEffect(() => {
+    const flush = () => {
+      if (saveTimer.current) { clearTimeout(saveTimer.current); saveTimer.current = null }
+      void saveSessionStore(storeRef.current)   // localStorage path is synchronous → persists before quit
+    }
+    const onVis = () => { if (typeof document !== 'undefined' && document.visibilityState === 'hidden') flush() }
+    window.addEventListener('pagehide', flush)
+    window.addEventListener('beforeunload', flush)
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      window.removeEventListener('pagehide', flush)
+      window.removeEventListener('beforeunload', flush)
+      document.removeEventListener('visibilitychange', onVis)
+      flush()
+    }
+  }, [])
+
   // Reaper: obliterate ephemeral sessions whose sliding window has passed.
   useEffect(() => {
     const tick = () => {

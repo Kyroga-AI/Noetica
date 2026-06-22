@@ -2,6 +2,7 @@
 
 import React, { useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
+import { PlanChecklist } from '@/components/chat/PlanChecklist'
 import remarkGfm from 'remark-gfm'
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 // eslint-disable-next-line
@@ -43,10 +44,54 @@ function AttachmentList({ attachments }: { attachments: PendingAttachment[] }) {
   )
 }
 
+// Dispatched sub-agents get their own recognizable card (role badge + task + result), so a
+// delegation reads as "the concierge handed this to a specialist", not a generic tool call.
+const DISPATCH_ROLE_META: Record<string, { icon: string; color: string }> = {
+  researcher: { icon: '🔎', color: '#0ea5e9' },
+  coder:      { icon: '⌨️', color: '#8b5cf6' },
+  reviewer:   { icon: '🛡️', color: '#f59e0b' },
+  analyst:    { icon: '📊', color: '#10b981' },
+  planner:    { icon: '🗺️', color: '#6366f1' },
+  general:    { icon: '🤖', color: '#64748b' },
+}
+function DispatchCard({ call, result }: { call: ToolCallRecord; result?: ToolResultRecord }) {
+  const [open, setOpen] = useState(false)
+  const input = (call.input ?? {}) as { role?: string; task?: string }
+  const role = String(input.role ?? 'general')
+  const task = String(input.task ?? '')
+  const meta = DISPATCH_ROLE_META[role] ?? DISPATCH_ROLE_META.general!
+  const running = !result
+  const body = (result?.result ?? '').replace(/^\[[^\]]*sub-agent[^\]]*\]\s*/i, '')
+  return (
+    <div className="my-1.5 overflow-hidden rounded-xl border" style={{ borderColor: `${meta.color}55` }}>
+      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-2 px-3 py-2 text-left transition hover:bg-[var(--color-background-secondary)]">
+        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${running ? 'animate-pulse' : ''}`} style={{ background: running ? '#fbbf24' : meta.color }} />
+        <span className="shrink-0 text-[13px] leading-none">{meta.icon}</span>
+        <span className="shrink-0 text-[11px] font-semibold capitalize" style={{ color: meta.color }}>Dispatched {role}</span>
+        <span className="min-w-0 flex-1 truncate text-[10px] text-[var(--color-text-tertiary)]">{task}</span>
+        <span className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">{running ? 'running…' : (open ? '▲' : '▼')}</span>
+      </button>
+      {open && (
+        <div className="border-t border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2">
+          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Task</div>
+          <p className="mb-2 whitespace-pre-wrap text-[12px] text-[var(--color-text-secondary)]">{task}</p>
+          {result && (
+            <>
+              <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Result</div>
+              <MarkdownContent content={body} compact />
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function ToolCallCard({ call, result }: { call: ToolCallRecord; result?: ToolResultRecord }) {
   const [open, setOpen] = useState(false)
   const inputStr = JSON.stringify(call.input, null, 2)
   const isError = result?.result.startsWith('Error:')
+  if (call.name === 'dispatch_agent') return <DispatchCard call={call} result={result} />
 
   return (
     <div className="my-1.5 overflow-hidden rounded-xl border border-[var(--color-border-secondary)]">
@@ -340,7 +385,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
   // before any answer. Don't render its bubble: the single TypingIndicator below is the
   // one streaming loader. Once real content arrives, the bubble renders (thinking folds
   // into its own disclosure). This kills the "two icons" double-loader.
-  if (!message.content && !message.tool_calls?.length) return null
+  if (!message.content && !message.tool_calls?.length && !message.plan?.steps?.length) return null
 
   return (
     <article className="group flex gap-3">
@@ -361,6 +406,9 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
             <p className="px-3 pb-3 pt-1 whitespace-pre-wrap text-xs leading-6 text-[var(--color-text-secondary)]">{message.thinking}</p>
           </details>
         )}
+
+        {/* Live todo checklist (streamed plan + step updates) */}
+        {message.plan && <PlanChecklist plan={message.plan} />}
 
         {/* Tool calls */}
         {message.tool_calls && message.tool_calls.length > 0 && (
@@ -447,6 +495,17 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
 
         {message.content && message.governance && (message.governance.model_routed || message.governance.input_tokens || message.governance.output_tokens || message.governance.latency_ms) && (
           <div className="mt-1.5 flex items-center gap-3 text-[10px] text-[var(--color-text-tertiary)]">
+            {(() => {
+              const prov = (message.governance.provider ?? '').toLowerCase()
+              const local = prov === '' || prov === 'ollama' || prov === 'noetica' || prov === 'local'
+              return (
+                <span className="flex items-center gap-1 font-semibold"
+                  title={local ? 'Answered entirely on this device — nothing left your machine' : `Routed to ${prov} — this turn left your device`}
+                  style={{ color: local ? '#16a34a' : '#d97706' }}>
+                  {local ? '🔒 on-device' : `↗ ${prov}`}
+                </span>
+              )
+            })()}
             {message.governance.model_routed && (
               <span className="flex items-center gap-1">
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#22c55e]" />
@@ -494,7 +553,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
         {message.content && (
           (message.deliberation && message.deliberation.candidates.length > 1) ||
           message.value_judgment ||
-          (message.retrieval_trace && (message.retrieval_trace.sources.length > 0 || message.retrieval_trace.beliefs_injected > 0)) ||
+          (message.retrieval_trace && (message.retrieval_trace.sources.length > 0 || message.retrieval_trace.beliefs_injected > 0 || (message.retrieval_trace.memory_sources?.length ?? 0) > 0 || (message.retrieval_trace.episode_sources?.length ?? 0) > 0)) ||
           message.steering_result ||
           message.governance
         ) && (
@@ -527,7 +586,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
                 </div>
               )}
               {/* Reasoning trace */}
-              {message.retrieval_trace && (message.retrieval_trace.sources.length > 0 || message.retrieval_trace.beliefs_injected > 0) && (
+              {message.retrieval_trace && (message.retrieval_trace.sources.length > 0 || message.retrieval_trace.beliefs_injected > 0 || (message.retrieval_trace.memory_sources?.length ?? 0) > 0 || (message.retrieval_trace.episode_sources?.length ?? 0) > 0) && (
                 <div className="space-y-2">
                   <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">Reasoning trace</div>
                   {message.retrieval_trace.timings.length > 0 && (
@@ -557,6 +616,25 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
                       {message.retrieval_trace.document_sources.map((s, i) => (
                         <span key={`${s.id}-${i}`} className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)]" title={`${s.label} · ${(s.score * 100).toFixed(0)}% match`}>
                           <span className="text-[#16a34a]">📄</span><span className="max-w-[160px] truncate">{s.label || 'document'}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {/* Provenance: what the agent remembered + recalled (local, never left this machine) */}
+                  {message.retrieval_trace.memory_sources && message.retrieval_trace.memory_sources.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {message.retrieval_trace.memory_sources.map((s, i) => (
+                        <span key={`mem-${i}`} className="inline-flex items-center gap-1 rounded-full border border-[#7c3aed]/40 bg-[#7c3aed]/5 px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)]" title={`memory (${s.kind})`}>
+                          <span>{s.pinned ? '📌' : '🧠'}</span><span className="max-w-[180px] truncate">{s.preview}</span>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {message.retrieval_trace.episode_sources && message.retrieval_trace.episode_sources.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {message.retrieval_trace.episode_sources.map((s, i) => (
+                        <span key={`ep-${i}`} className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)]" title="recalled from an earlier session">
+                          <span className="text-[#0ea5e9]">↩</span><span className="max-w-[180px] truncate">{s.question}</span>
                         </span>
                       ))}
                     </div>

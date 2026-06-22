@@ -17,9 +17,9 @@ jobs:
       actions: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
       - name: Install dependencies
@@ -52,6 +52,14 @@ jobs:
         run: npm --prefix agent-machine run test:integration
       - name: Integration tests (RocksDB persistence + auth gate)
         run: npm --prefix agent-machine run test:integration:rocks
+      # The fallback suite's RAG-injection test needs the embedder sidecar (noetica-embed); without
+      # the compiled binary semantic retrieval is dead and the test flakes. Build it (cached) first.
+      - name: Cache Rust (embedder)
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          workspaces: embed-sidecar
+      - name: Build embedder (noetica-embed) for the RAG integration test
+        run: cargo build --release --manifest-path embed-sidecar/Cargo.toml
       - name: Integration tests (Ollama broken-primary fallback)
         run: npm --prefix agent-machine run test:integration:fallback
       - name: Engine version sync (hellgraph pin parity across manifests)
@@ -64,7 +72,7 @@ jobs:
         run: npm run packaging:validate
       - name: Upload static export probe artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: static-export-probe
           path: artifacts/
@@ -76,9 +84,9 @@ jobs:
       actions: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
       - name: Setup Rust
@@ -106,7 +114,7 @@ jobs:
           exit $status
       - name: Upload Tauri Rust check log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: tauri-rust-check-log
           path: tauri-rust-check.log
@@ -117,9 +125,9 @@ jobs:
       - tauri-rust-macos
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 20
       - name: Setup Rust

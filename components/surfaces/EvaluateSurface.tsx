@@ -179,6 +179,46 @@ function ScoreBar({ score }: { score: number }) {
 
 // ─── Main surface ─────────────────────────────────────────────────────────────
 
+interface QMetrics { total: number; solveRate: number; avgAttempts: number; memoryUseRate: number; series: { window: string; rate: number; n: number }[] }
+function Stat({ label, value }: { label: string; value: string }) {
+  return <div className="text-right"><div className="text-base font-bold text-[var(--color-text-primary)]">{value}</div><div className="text-[10px] text-[var(--color-text-tertiary)]">{label}</div></div>
+}
+// The compounding curve — solve-rate over time as verified solutions accumulate and get reused.
+// Makes the moat visible: a brain that demonstrably improves with use.
+function CompoundingCurve() {
+  const [m, setM] = useState<QMetrics | null>(null)
+  useEffect(() => {
+    const base = (typeof window !== 'undefined' && (window as unknown as { __TAURI__?: unknown }).__TAURI__) ? 'http://127.0.0.1:8080' : ''
+    fetch(`${base}/api/metrics/quality`).then((r) => r.json()).then(setM).catch(() => {})
+  }, [])
+  if (!m || !m.total) return null
+  const max = Math.max(...m.series.map((s) => s.rate), 0.01)
+  return (
+    <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <div className="text-sm font-semibold text-[var(--color-text-primary)]">🧠 Compounding brain</div>
+          <div className="text-[11px] text-[var(--color-text-tertiary)]">verified solutions get reused on new tasks — quality rises with use</div>
+        </div>
+        <div className="flex gap-4">
+          <Stat label="solve rate" value={`${Math.round(m.solveRate * 100)}%`} />
+          <Stat label="avg attempts" value={m.avgAttempts.toFixed(1)} />
+          <Stat label="memory reuse" value={`${Math.round(m.memoryUseRate * 100)}%`} />
+          <Stat label="solves" value={String(m.total)} />
+        </div>
+      </div>
+      <div className="mt-3 flex h-16 items-end gap-1.5">
+        {m.series.map((s, i) => (
+          <div key={i} className="flex flex-1 flex-col items-center gap-1" title={`${s.window}: ${Math.round(s.rate * 100)}% (${s.n} solves)`}>
+            <div className="w-full rounded-t bg-[#16a34a]" style={{ height: `${Math.max(4, (s.rate / max) * 100)}%` }} />
+            <span className="text-[8px] text-[var(--color-text-tertiary)]">{s.window}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number }) {
   const { settings } = useSettings()
   const [selectedModelIds, setSelectedModelIds] = useState<string[]>([models[0]?.id ?? ''])
@@ -306,6 +346,8 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
       <div className="mx-auto w-full max-w-5xl space-y-4">
+
+        <CompoundingCurve />
 
         {/* View toggle: Run benchmarks vs Local-vs-Frontier dashboard */}
         <div className="flex items-center gap-1 rounded-full border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-1 text-xs w-fit">

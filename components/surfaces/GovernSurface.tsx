@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { buildEgressAudit, toCsv } from '@/lib/governance/egressAudit'
 import type { GovernanceTrace } from '@/lib/types/governance'
 import { readLedgerEntries, clearLedger, type LedgerEntry } from '@/lib/evidence/ledger-store'
 import { useSettings } from '@/lib/settings/context'
@@ -111,9 +112,19 @@ interface AgentMachineRun {
   memory_written: boolean
   timestamp: string
   latency_ms: number
+  tokens_egressed?: number
+  cost_usd?: number
   task?: string
   session_id?: string
   error?: string
+}
+
+interface MemoryRecord { id: string; kind: string; createdAt: string; preview: string; pinned: boolean; lti: number }
+interface BanditArm { task: string; provider: string; model: string; plays: number; mean_reward: number; leading: boolean }
+interface MeshTrends {
+  quality?: { delta: number; improving: boolean; samples: number }
+  bandit?: BanditArm[]
+  graph?: { total_edges: number; derived_edges: number }
 }
 
 function amUrl(path: string): string {
@@ -150,6 +161,8 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   const [expandedId, setExpandedId]       = useState<string | null>(null)
   const [confirmClear, setConfirmClear]   = useState(false)
   const [amRuns, setAmRuns]               = useState<AgentMachineRun[]>([])
+  const [trends, setTrends]               = useState<MeshTrends | null>(null)
+  const [memories, setMemories]           = useState<MemoryRecord[]>([])
   const [filterVerdict, setFilterVerdict] = useState<'all' | PolicyVerdict>('all')
   const [filterModel, setFilterModel]     = useState<string>('all')
 
@@ -165,7 +178,32 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
         if (data?.runs?.length) setAmRuns(data.runs)
       })
       .catch(() => { /* agent-machine not running — silently skip */ })
+    // What the mesh has LEARNED — bandit routing convergence + quality trend + symbolic growth
+    fetch(amUrl('/api/self/trends'), { signal: AbortSignal.timeout(3000) })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: MeshTrends | null) => { if (d) setTrends(d) })
+      .catch(() => { /* not running — skip */ })
+    loadMemories()
   }, [])
+
+  function loadMemories() {
+    fetch(amUrl('/api/memory/graph'), { signal: AbortSignal.timeout(3000) })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: { memories?: MemoryRecord[] } | null) => { if (d?.memories) setMemories(d.memories) })
+      .catch(() => { /* not running — skip */ })
+  }
+
+  // Curate the long-term brain: pin (inject into recall) / forget (soft-delete). Optimistic.
+  async function pinMemory(id: string, pinned: boolean) {
+    setMemories((ms) => ms.map((m) => (m.id === id ? { ...m, pinned } : m)))
+    try { await fetch(amUrl('/api/memory/pin'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id, pinned }) }) }
+    catch { loadMemories() }
+  }
+  async function forgetMemory(id: string) {
+    setMemories((ms) => ms.filter((m) => m.id !== id))
+    try { await fetch(amUrl('/api/memory/forget'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id }) }) }
+    catch { loadMemories() }
+  }
 
   // Merge local ledger events with agent-machine run history, deduped by id, sorted newest-first
   const amEvents: AuditEvent[] = amRuns.map(amRunToAuditEvent)
@@ -253,6 +291,15 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
     URL.revokeObjectURL(url)
   }
 
+  const egressAudit = buildEgressAudit(amRuns)
+  function downloadEgressAudit(format: 'csv' | 'json') {
+    const data = format === 'csv' ? toCsv(egressAudit) : JSON.stringify(egressAudit, null, 2)
+    const blob = new Blob([data], { type: format === 'csv' ? 'text/csv' : 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url; a.download = `noetica_egress_audit_${Date.now()}.${format}`; a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
       <div className="mx-auto w-full max-w-3xl space-y-4">
@@ -293,6 +340,115 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             )}
           </div>
         )}
+
+        {/* Sovereignty — egress audit (procurement artifact: what left the device, when, why) */}
+        <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Sovereignty · egress audit</div>
+            <div className="flex gap-1.5">
+              <button onClick={() => downloadEgressAudit('csv')} className="rounded-lg border border-[var(--color-border-secondary)] px-2 py-1 text-[11px] font-medium text-[var(--color-text-secondary)] transition hover:border-[#1d4ed8] hover:text-[#1d4ed8]">Export CSV</button>
+              <button onClick={() => downloadEgressAudit('json')} className="rounded-lg border border-[var(--color-border-secondary)] px-2 py-1 text-[11px] font-medium text-[var(--color-text-secondary)] transition hover:border-[#1d4ed8] hover:text-[#1d4ed8]">JSON</button>
+            </div>
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
+              <div className={`text-2xl font-semibold ${egressAudit.summary.sovereignty_pct === 100 ? 'text-[#16a34a]' : egressAudit.summary.sovereignty_pct >= 80 ? 'text-[#d97706]' : 'text-[#dc2626]'}`}>{egressAudit.summary.sovereignty_pct}%</div>
+              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">on-device (sovereign)</div>
+            </div>
+            <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
+              <div className="text-2xl font-semibold text-[var(--color-text-primary)]">{egressAudit.summary.egress_runs}</div>
+              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">runs that left device</div>
+            </div>
+            <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
+              <div className="text-2xl font-semibold text-[var(--color-text-primary)]">{egressAudit.summary.total_tokens_egressed.toLocaleString()}</div>
+              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">tokens egressed</div>
+            </div>
+          </div>
+          {egressAudit.rows.length === 0 ? (
+            <div className="mt-3 rounded-lg border border-[#86efac] bg-[#dcfce7] px-3 py-2 text-[11px] font-medium text-[#16a34a]">🔒 Zero egress — nothing has left this device.</div>
+          ) : (
+            <div className="mt-3 space-y-1">
+              {egressAudit.rows.slice(0, 8).map((r) => (
+                <div key={r.run_id} className="flex items-center gap-2 text-[10px] text-[var(--color-text-secondary)]">
+                  <span className="text-[#d97706]">↗</span>
+                  <span className="w-36 truncate">{r.provider}/{r.model}</span>
+                  <span className="tabular-nums">{r.tokens_egressed.toLocaleString()} tok</span>
+                  <span className={r.policy === 'admitted' ? 'text-[var(--color-text-tertiary)]' : 'font-medium text-[#dc2626]'}>{r.policy}</span>
+                  <span className="ml-auto text-[var(--color-text-tertiary)]">{r.when.slice(0, 16).replace('T', ' ')}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Memory — curate the long-term brain: pin to inject into recall, forget to drop. The
+            curatable graph memory no competitor ships (you asked: "curate memories into the brain"). */}
+        <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+          <div className="mb-1 flex items-center justify-between">
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Memory</div>
+            <div className="text-[10px] text-[var(--color-text-tertiary)]">{memories.filter((m) => m.pinned).length} pinned · {memories.length} total</div>
+          </div>
+          <div className="mb-3 text-[11px] text-[var(--color-text-tertiary)]">What the agent remembers about you. ★ Pin to keep it in long-term recall; × to forget it. This is yours to curate — nothing leaves the device.</div>
+          {memories.length === 0 ? (
+            <div className="text-[11px] text-[var(--color-text-tertiary)]">No memories yet — the agent writes these as it learns your preferences and facts.</div>
+          ) : (
+            <div className="space-y-1.5">
+              {[...memories].sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.lti - a.lti).slice(0, 12).map((m) => (
+                <div key={m.id} className="flex items-start gap-2 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-2.5">
+                  <button onClick={() => pinMemory(m.id, !m.pinned)} title={m.pinned ? 'Unpin from long-term recall' : 'Pin into long-term recall'} className={`mt-0.5 text-sm leading-none ${m.pinned ? 'text-[#d97706]' : 'text-[var(--color-text-tertiary)] hover:text-[#d97706]'}`}>{m.pinned ? '★' : '☆'}</button>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="rounded bg-[var(--color-background-tertiary)] px-1 text-[9px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">{m.kind}</span>
+                      <span className="text-[9px] text-[var(--color-text-tertiary)]">{new Date(m.createdAt).toLocaleDateString()}</span>
+                      {m.pinned && <span className="text-[9px] font-medium text-[#d97706]">in long-term recall</span>}
+                    </div>
+                    <div className="mt-0.5 line-clamp-2 text-[11px] text-[var(--color-text-secondary)]">{m.preview}</div>
+                  </div>
+                  <button onClick={() => forgetMemory(m.id)} title="Forget this memory" className="mt-0.5 text-sm leading-none text-[var(--color-text-tertiary)] hover:text-[#dc2626]">×</button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Mesh learning — the verifier→selection loop made visible (introspection cloud chat lacks) */}
+        <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+          <div className="mb-1 text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Mesh learning</div>
+          <div className="mb-3 text-[11px] text-[var(--color-text-tertiary)]">What the local mesh has taught itself — which model wins each task, whether answers are improving, and the symbolic substrate growing.</div>
+          <div className="mb-4 grid grid-cols-3 gap-3">
+            <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
+              <div className={`text-2xl font-semibold ${(trends?.quality?.delta ?? 0) > 0 ? 'text-[#16a34a]' : (trends?.quality?.delta ?? 0) < 0 ? 'text-[#dc2626]' : 'text-[var(--color-text-primary)]'}`}>
+                {trends?.quality ? `${trends.quality.delta > 0 ? '↑' : trends.quality.delta < 0 ? '↓' : '·'} ${(trends.quality.delta * 100).toFixed(0)}%` : '—'}
+              </div>
+              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">answer quality{trends?.quality ? ` · ${trends.quality.samples} samples` : ''}</div>
+            </div>
+            <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
+              <div className="text-2xl font-semibold text-[var(--color-text-primary)]">{(trends?.graph?.total_edges ?? 0).toLocaleString()}</div>
+              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">graph edges</div>
+            </div>
+            <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
+              <div className="text-2xl font-semibold text-[var(--color-text-primary)]">{(trends?.graph?.derived_edges ?? 0).toLocaleString()}</div>
+              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">inferred (symbolic)</div>
+            </div>
+          </div>
+          <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Learned routing (UCB bandit)</div>
+          {trends?.bandit && trends.bandit.length > 0 ? (
+            <div className="space-y-1.5">
+              {trends.bandit.map((a) => (
+                <div key={`${a.task}/${a.model}`} className="flex items-center gap-2 text-[11px]">
+                  <span className="w-20 shrink-0 truncate text-[var(--color-text-tertiary)]">{a.task}</span>
+                  <span className={`w-36 shrink-0 truncate ${a.leading ? 'font-semibold text-[#16a34a]' : 'text-[var(--color-text-secondary)]'}`}>{a.leading ? '⭐ ' : ''}{a.model}</span>
+                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
+                    <div className={`h-full rounded-full ${a.leading ? 'bg-[#16a34a]' : 'bg-[#94a3b8]'}`} style={{ width: `${Math.max(2, Math.min(100, a.mean_reward * 100))}%` }} />
+                  </div>
+                  <span className="w-16 shrink-0 text-right text-[10px] tabular-nums text-[var(--color-text-tertiary)]">{a.mean_reward.toFixed(2)} · {a.plays}×</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-[11px] text-[var(--color-text-tertiary)]">No routing learned yet — the bandit converges as you use local models across varied tasks. Every judged answer updates an arm.</div>
+          )}
+        </div>
 
         {/* Policy profile */}
         <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">

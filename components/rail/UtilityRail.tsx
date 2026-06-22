@@ -17,8 +17,8 @@ export type UtilityPanelId =
   | 'graph'
 
 const RAIL_ITEMS: { id: UtilityPanelId; label: string; icon: React.ReactNode }[] = [
-  { id: 'context',  label: 'Context',  icon: <IconContext /> },
   { id: 'graph',    label: 'Graph',    icon: <IconGraph /> },
+  { id: 'context',  label: 'Context',  icon: <IconContext /> },
   { id: 'evidence', label: 'Evidence', icon: <IconEvidence /> },
   { id: 'sourceos', label: 'SourceOS', icon: <IconSourceOS /> },
 ]

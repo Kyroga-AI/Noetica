@@ -492,6 +492,42 @@ function ForgeSettingsSection() {
   )
 }
 
+function ChatImportSection() {
+  const [status, setStatus] = useState('')
+  const [busy, setBusy] = useState(false)
+  async function onFile(input: HTMLInputElement) {
+    const file = input.files?.[0]; if (!file) return
+    setBusy(true); setStatus('reading…')
+    try {
+      const text = await file.text()
+      setStatus('importing into the brain…')
+      const base = (typeof window !== 'undefined' && (window as unknown as { __TAURI__?: unknown }).__TAURI__) ? 'http://127.0.0.1:8080' : ''
+      const r = await fetch(`${base}/api/import/chats`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: text })
+      const j = (await r.json()) as { conversations?: number; imported?: number; messages?: number; error?: string }
+      setStatus(j.error ? `error: ${j.error}` : `✓ imported ${j.imported}/${j.conversations} conversations (${j.messages} messages) — now searchable + in the graph`)
+    } catch (err) { setStatus(`failed: ${String(err).slice(0, 80)}`) }
+    finally { setBusy(false); input.value = '' }
+  }
+  return (
+    <div className="space-y-2">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Import chat history</div>
+      <div className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 text-xs leading-5 text-[var(--color-text-secondary)]">
+        <p>Bring your <b>Claude</b> or <b>ChatGPT</b> history into Noetica&apos;s brain — searchable and in the graph. History isn&apos;t reachable via an API key, so use the official data export:</p>
+        <ul className="ml-4 mt-1 list-disc">
+          <li>ChatGPT → Settings → Data controls → Export → <code className="font-mono">conversations.json</code></li>
+          <li>Claude → Settings → Export data → <code className="font-mono">conversations.json</code></li>
+        </ul>
+        <label className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-lg bg-[#1d4ed8] px-3 py-1.5 font-semibold text-white disabled:opacity-50">
+          {busy ? 'Importing…' : 'Choose export file'}
+          <input type="file" accept=".json,application/json" className="hidden" disabled={busy}
+            onChange={(e) => { const el = e.currentTarget; void onFile(el) }} />
+        </label>
+        {status && <p className="mt-2 text-[var(--color-text-primary)]">{status}</p>}
+      </div>
+    </div>
+  )
+}
+
 export function ConnectionsPanel() {
   return (
     <div className="space-y-5">
@@ -517,6 +553,8 @@ export function ConnectionsPanel() {
         <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Source forge</div>
         <ForgeSettingsSection />
       </div>
+
+      <ChatImportSection />
 
       <div className="rounded-xl border border-[#fef9c3] bg-[#fefce8] px-4 py-3 text-xs leading-5 text-[#854d0e]">
         <p className="font-semibold">How to get a client ID</p>

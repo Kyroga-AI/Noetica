@@ -30,7 +30,12 @@ test('buildDomainShape encodes the closed-basis law (exactly N topics)', () => {
   assert.equal(topicConstraint['sh:maxCount'], 22)
 })
 
-test('consumeLatentArtifact mints Domain + Topics + GlossaryTerms + shape, idempotently', () => {
+// This test WRITES corpus-test-* atoms into the real HellGraph (no path isolation available),
+// which accumulate as duplicate/orphan "corpus test" nodes. Skip on routine runs; enable with
+// NOETICA_GRAPH_WRITE_TESTS=1 in CI/integration where a throwaway graph is acceptable.
+test('consumeLatentArtifact mints Domain + Topics + GlossaryTerms + shape, idempotently', {
+  skip: process.env['NOETICA_GRAPH_WRITE_TESTS'] ? false : 'writes corpus-test-* atoms into the live graph',
+}, () => {
   const artifact: LatentBasisArtifact = {
     artifact_id: 'latent-22-lda-derived-TEST',
     corpus_release_ref: 'corpus-test-' + Date.now(),

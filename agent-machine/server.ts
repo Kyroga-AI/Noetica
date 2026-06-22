@@ -34,9 +34,14 @@ import * as path from 'node:path'
 import * as os from 'node:os'
 import { buildRouterDecision, LOCAL_MODEL_SUITE } from './lib/router.js'
 import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTelemetry, type MeshTier } from './lib/scope-d.js'
+import { installEgressGuard, setOfflineMode } from './lib/egress-guard.js'
 import { classifyIntent, capabilityToTask, wantsVectorRag, intentByName, planFromIntent, intentToAction } from './lib/intent-router.js'
 import { routeForAction, meshrushPhase } from './lib/action-cell.js'
-import { selectSurface } from './lib/graph-surface.js'
+import { selectSurface, cleanLabel } from './lib/graph-surface.js'
+import { generateSovereign, meshLadder } from './lib/mesh.js'
+import { AGENT_ROLES, DISPATCHABLE_ROLES, resolveRole } from './lib/sub-agent.js'
+import { buildReport } from './lib/graph-hygiene.js'
+import { TAXONOMY_WORDS } from './lib/slash-topics.js'
 import { createSQLiteBackend, migrateJSONLToSQLite } from './lib/sqlite-backend.js'
 import { registerStorageNodeRoutes, handleStorageNodeRequest } from './lib/storage-node-routes.js'
 import { handleMeshRushRequest } from './lib/meshrush-bridge.js'
@@ -48,6 +53,8 @@ import { consolidate } from '@socioprophet/hellgraph'
 import { recordAttentionSnapshot, pushSnapshotToPrometheusd, ingestPrometheusCandidate } from '@socioprophet/hellgraph'
 import { isOllamaRunning, listLocalModels, pullModel, streamOllama, getModelContextLength, ollamaBase, generateOllamaText } from './lib/ollama.js'
 import { parseInlineToolCalls } from './lib/tool-calls.js'
+import { repairToolArgs } from './lib/tool-validate.js'
+import { containmentState, hydrateContainment, resolvePurpose, armKillSwitch, disarmKillSwitch, bindPurpose, PURPOSES } from './lib/agent-containment.js'
 import { retrieve } from './lib/retrieval.js'
 import { getGraph, graphHealth, graphSparql, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
 import { isVoiceProvisioned, ensureVoiceSidecar, voiceFetch } from './lib/voice-runtime.js'
@@ -62,6 +69,7 @@ import { CANONICAL_SHAPES, QUARANTINE_PROP } from './lib/canonical-shapes.js'
 import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
 import { critique, bestOfTemps, type Candidate as CriticCandidate } from './lib/critic.js'
 import { programOfThought, codeVerifyRepair } from './lib/exec-verify.js'
+import { applyEdit, editSummary } from './lib/apply-patch.js'
 import { classifyComplexity as classifyComplexityPosture } from './lib/complexity-discipline.js'
 import { detectGoalIntent, slotFill, buildGoalContext, getActiveGoal, listGoals, saveGoal, type Goal } from './lib/goal-model.js'
 import { assessAgainstGraph } from './lib/pln-judgment.js'
@@ -76,6 +84,12 @@ import {
 
 const PORT = parseInt(process.env['NOETICA_AM_PORT'] ?? '8080', 10)
 const VERSION = '0.4.11'
+
+// Sovereign offline mode: arm the egress guard so non-local egress is STRUCTURALLY impossible
+// when NOETICA_OFFLINE is set (airplane mode). No-op passthrough when online. Installed early,
+// before any fetch, so it covers every path — model calls, web_search, telemetry, dependencies.
+installEgressGuard()
+setOfflineMode(process.env['NOETICA_OFFLINE'] === '1' || process.env['NOETICA_OFFLINE'] === 'true')
 
 // ─── Model progress SSE ───────────────────────────────────────────────────────
 
@@ -112,11 +126,82 @@ const GOVERNANCE_RING_SIZE = 100
 // it was in-memory only, so Govern was always empty after restart even after chatting.
 const GOVERNANCE_FILE = path.join(os.homedir(), '.noetica', 'governance.json')
 
+// Graph Data Science (PageRank/Louvain/betweenness) is O(V·E) — cache it, keyed by a cheap graph
+// signature (node+edge count). Recompute only when the graph changed (or ?refresh=1).
+const ANALYTICS_CACHE_FILE = path.join(os.homedir(), '.noetica', 'cache', 'graph-analytics.json')
+type AnalyticsCache = { sig: string; analytics: import('./lib/graph-analytics.js').GraphAnalytics; computedAt: string }
+let _analyticsCache: AnalyticsCache | null = null
+function loadAnalyticsCache(): AnalyticsCache | null {
+  if (_analyticsCache) return _analyticsCache
+  try { _analyticsCache = JSON.parse(fs.readFileSync(ANALYTICS_CACHE_FILE, 'utf8')) as AnalyticsCache; return _analyticsCache } catch { return null }
+}
+function saveAnalyticsCache(c: AnalyticsCache): void {
+  _analyticsCache = c
+  try { fs.mkdirSync(path.dirname(ANALYTICS_CACHE_FILE), { recursive: true }); fs.writeFileSync(ANALYTICS_CACHE_FILE, JSON.stringify(c)) } catch { /* best-effort */ }
+}
+
+// GraphRAG community reports are expensive (one LLM call per community) — cache by analytics sig + model.
+const COMMUNITIES_CACHE_FILE = path.join(os.homedir(), '.noetica', 'cache', 'graph-communities.json')
+type CommunitiesCache = { sig: string; model: string; reports: import('./lib/graph-rag.js').CommunityReport[]; builtAt: string }
+let _communitiesCache: CommunitiesCache | null = null
+function loadCommunitiesCache(): CommunitiesCache | null {
+  if (_communitiesCache) return _communitiesCache
+  try { _communitiesCache = JSON.parse(fs.readFileSync(COMMUNITIES_CACHE_FILE, 'utf8')) as CommunitiesCache; return _communitiesCache } catch { return null }
+}
+function saveCommunitiesCache(c: CommunitiesCache): void {
+  _communitiesCache = c
+  try { fs.mkdirSync(path.dirname(COMMUNITIES_CACHE_FILE), { recursive: true }); fs.writeFileSync(COMMUNITIES_CACHE_FILE, JSON.stringify(c)) } catch { /* best-effort */ }
+}
+
+// Pick the best locally-available chat model for GraphRAG summarization (prefer small+fast).
+async function pickChatModel(): Promise<string> {
+  const preferred = ['qwen2.5:7b', 'qwen2.5:14b', 'deepseek-r1:8b', 'llama3.2:3b', 'qwen2.5:3b']
+  try {
+    const local = await listLocalModels()
+    const names = (local as Array<{ name?: string } | string>).map((m) => (typeof m === 'string' ? m : (m.name ?? '')))
+    for (const p of preferred) { const hit = names.find((n) => n === p || n.startsWith(p)); if (hit) return hit }
+    if (names.length && names[0]) return names[0]
+  } catch { /* fall through */ }
+  return 'qwen2.5:7b'
+}
+
+// Shared GDS analytics over the hygiene-CLEAN node set (same filter the surface uses), cached by sig.
+async function analyticsForGraph(refresh = false): Promise<{ analytics: import('./lib/graph-analytics.js').GraphAnalytics; sig: string; labelOf: (id: string) => string }> {
+  const g = getGraph()
+  const allNodes = g.allNodes(), allEdges = g.allEdges()
+  const keep = new Set(allNodes.filter((n) => cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id))).map((n) => n.id))
+  const fNodes = allNodes.filter((n) => keep.has(n.id)); const fEdges = allEdges.filter((e) => keep.has(e.from) && keep.has(e.to))
+  const sig = `${fNodes.length}:${fEdges.length}`
+  const cached = loadAnalyticsCache()
+  let analytics: import('./lib/graph-analytics.js').GraphAnalytics
+  if (!refresh && cached && cached.sig === sig) analytics = cached.analytics
+  else { const { computeAnalytics } = await import('./lib/graph-analytics.js'); analytics = computeAnalytics(fNodes.map((n) => ({ id: n.id })), fEdges.map((e) => ({ from: e.from, to: e.to }))); saveAnalyticsCache({ sig, analytics, computedAt: new Date().toISOString() }) }
+  const nodeById = new Map(allNodes.map((n) => [n.id, n]))
+  const labelOf = (id: string) => { const n = nodeById.get(id); return (n ? cleanLabel(n) : null) ?? '' }
+  return { analytics, sig, labelOf }
+}
+
 // Cross-process signal for the SourceOS surface (e.g. bearbrowser): when the
 // security lane is armed, bearbrowser auto-enables Tor for anonymized egress.
 // Written to the shared SourceOS config dir so the browser can poll it without
 // coupling to this server. tor mirrors armed — armed work routes over Tor.
 const SECURITY_STATE_FILE = path.join(os.homedir(), '.config', 'sourceos', 'noetica', 'security-state.json')
+const CONTAINMENT_FILE = path.join(os.homedir(), '.noetica', 'containment.json')
+// Persist the kill-switch + bound purpose so containment survives restart (fail-closed).
+function saveContainment(): void {
+  try {
+    const s = containmentState()
+    fs.mkdirSync(path.dirname(CONTAINMENT_FILE), { recursive: true })
+    fs.writeFileSync(CONTAINMENT_FILE, JSON.stringify({ killed: s.killed, reason: s.reason, since: s.since, purpose: s.purpose.name }), { mode: 0o600 })
+  } catch { /* best-effort */ }
+}
+function loadContainment(): void {
+  try {
+    const raw = JSON.parse(fs.readFileSync(CONTAINMENT_FILE, 'utf8')) as { killed?: boolean; reason?: string | null; since?: string | null; purpose?: string }
+    hydrateContainment({ killed: raw.killed === true, reason: raw.reason ?? null, since: raw.since ?? null, purpose: resolvePurpose(raw.purpose) })
+    if (raw.killed) console.log('[containment] kill-switch ARMED (restored from disk) — agent halted until disarmed')
+  } catch { /* no prior state — defaults (full, not killed) */ }
+}
 let lastSecurityArmed: boolean | null = null
 function writeSecurityState(armed: boolean): void {
   if (armed === lastSecurityArmed) return  // only write on transition
@@ -775,6 +860,20 @@ const BUILTIN_TOOLS: ProviderTool[] = [
     },
   },
   {
+    name: 'edit_file',
+    description: 'Make a SURGICAL edit to a file: replace an exact string with a new one. Prefer this over write_file for changing existing code — it edits precisely instead of regenerating the whole file. old_string must match the file EXACTLY (including whitespace/indentation) and be UNIQUE; if it matches more than once, add surrounding lines to disambiguate or set replace_all.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        path:        { type: 'string', description: 'Absolute or home-relative (~) path to the file' },
+        old_string:  { type: 'string', description: 'The exact text to replace (copy it verbatim, including indentation)' },
+        new_string:  { type: 'string', description: 'The replacement text' },
+        replace_all: { type: 'boolean', description: 'Replace every occurrence instead of requiring a unique match (default false)' },
+      },
+      required: ['path', 'old_string', 'new_string'],
+    },
+  },
+  {
     name: 'list_directory',
     description: 'List files and subdirectories at a path. Returns names, sizes, and types.',
     input_schema: {
@@ -783,6 +882,21 @@ const BUILTIN_TOOLS: ProviderTool[] = [
         path: { type: 'string', description: 'Directory path (absolute or ~-relative)' },
       },
       required: ['path'],
+    },
+  },
+  {
+    name: 'dispatch_agent',
+    description: 'Dispatch a focused SUB-AGENT to handle a self-contained sub-task and return its result — delegate to a specialist instead of doing everything yourself. Use when a chunk is best handled in isolation, or run several at once by emitting multiple dispatch_agent calls in ONE turn (they run in parallel). The sub-agent runs its own tool loop with no memory of this chat; you receive ONLY its final result. Roles — ' +
+      DISPATCHABLE_ROLES.map((r) => `${r}: ${AGENT_ROLES[r]!.description}`).join('  ') +
+      ' Don\'t dispatch for trivial things you can answer directly.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        role: { type: 'string', enum: DISPATCHABLE_ROLES, description: 'Which specialist to dispatch.' },
+        task: { type: 'string', description: 'The COMPLETE, self-contained task. The sub-agent has no memory of this conversation — include every needed detail: paths, names, the goal, and exactly what to return.' },
+        context: { type: 'string', description: 'Optional facts/constraints/prior findings to hand the sub-agent.' },
+      },
+      required: ['role', 'task'],
     },
   },
 ]
@@ -841,6 +955,16 @@ function isFlagOn(env: string): boolean {
   const f = FEATURE_FLAGS.find((x) => x.env === env)
   const v = process.env[env]
   return f?.status === 'default-on' ? v !== '0' : v === '1'
+}
+
+/**
+ * Sanitize a user-derived value before logging it: strip CR/LF so input can't forge log lines.
+ * CodeQL js/log-injection only recognizes String.replace of explicit "\r"/"\n" as a sanitizer
+ * (the NewlineSanitizer barrier) — encodeURIComponent and char-class/range replaces (e.g.
+ * [\x00-\x1f]) are NOT modeled. Throw-safe (lone surrogates).
+ */
+function logSafe(s: unknown): string {
+  try { return String(s).replace(/\r/g, '').replace(/\n/g, '').slice(0, 200) } catch { return '<unprintable>' }
 }
 
 /**
@@ -1047,6 +1171,51 @@ async function publicData(args: Record<string, unknown>): Promise<string> {
   }
 }
 
+// Run a dispatched sub-agent: a scoped, isolated tool loop for one role. Returns ONLY the
+// sub-agent's final message (the concierge never sees its intermediate turns). Mirrors the main
+// chat loop but headless (no SSE) and bounded by the role's maxTurns. dispatch_agent is excluded
+// from every sub-agent's toolset, so sub-agents can't recursively fan out.
+async function runSubAgent(
+  roleId: string,
+  task: string,
+  context: string,
+  keys: { anthropic?: string; openai?: string; serper?: string },
+): Promise<string> {
+  const role = resolveRole(roleId)
+  const subTools = BUILTIN_TOOLS.filter((t) => role.tools.includes(t.name) && t.name !== 'dispatch_agent')
+  const subToolNames = new Set(subTools.map((t) => t.name))
+  const model = role.model === 'coder' ? 'qwen2.5-coder:7b' : 'qwen2.5:7b'
+  const messages: Array<Record<string, unknown>> = [
+    { role: 'system', content: role.systemPrompt + (context.trim() ? `\n\nContext from the concierge:\n${context.trim()}` : '') },
+    { role: 'user', content: task },
+  ]
+  let final = ''
+  for (let turn = 0; turn < role.maxTurns; turn++) {
+    let text = ''
+    let toolCalls: ToolUseBlock[] | undefined
+    try {
+      for await (const ev of streamOllama({ model, messages: messages as never, tools: subTools, numCtx: 8192, temperature: 0.3 })) {
+        if (ev.type === 'text') text += ev.text
+        else if (ev.type === 'tool_calls') toolCalls = ev.calls
+      }
+    } catch (e) {
+      return `[${role.label} sub-agent error]`
+    }
+    if (!toolCalls?.length) {
+      const parsed = parseInlineToolCalls(text, subToolNames)
+      if (parsed.calls.length) { toolCalls = parsed.calls; text = parsed.cleaned }
+    }
+    if (!toolCalls?.length) { final = text; break }
+    messages.push({ role: 'assistant', content: text || null, tool_calls: toolCalls.map((tc) => ({ id: tc.id, type: 'function', function: { name: tc.name, arguments: JSON.stringify(tc.input) } })) })
+    for (const tc of toolCalls) {
+      const r = await executeToolWithTimeout(tc.name, tc.input, keys)
+      messages.push({ role: 'tool', content: r, tool_call_id: tc.id })
+    }
+    final = text || final
+  }
+  return final.trim() || `(${role.label} sub-agent finished without a final summary)`
+}
+
 async function executeTool(
   name: string,
   input: Record<string, unknown>,
@@ -1085,6 +1254,14 @@ async function executeTool(
   }
 
   switch (name) {
+    case 'dispatch_agent': {
+      const role = String(input['role'] ?? 'general')
+      const task = String(input['task'] ?? '').trim()
+      if (!task) return 'dispatch_agent: a task is required.'
+      const context = String(input['context'] ?? '')
+      const result = await runSubAgent(role, task, context, keys)
+      return `[${resolveRole(role).label} sub-agent → result]\n${result}`
+    }
     case 'web_search': {
       const query = String(input['query'] ?? '').trim().slice(0, 500)
       if (!query) return 'Error: query is required'
@@ -1149,6 +1326,24 @@ async function executeTool(
         return `Error writing file: ${(e as Error).message}`
       }
     }
+    case 'edit_file': {
+      const { resolved, error } = safePath(String(input['path'] ?? ''))
+      if (error) return `Error: ${error}`
+      const oldString = String(input['old_string'] ?? '')
+      const newString = String(input['new_string'] ?? '')
+      const replaceAll = input['replace_all'] === true
+      let before: string
+      try { before = fs.readFileSync(resolved, 'utf-8') }
+      catch (e) { return `Error reading file: ${(e as Error).message}` }
+      const r = applyEdit(before, oldString, newString, { replaceAll })
+      if (!r.ok) return `Edit not applied: ${r.error}`
+      try {
+        fs.writeFileSync(resolved, r.content, 'utf-8')
+        return `Edited ${resolved} — ${editSummary(before, r.content, r.replacements)}`
+      } catch (e) {
+        return `Error writing file: ${(e as Error).message}`
+      }
+    }
     case 'list_directory': {
       const { resolved, error } = safePath(String(input['path'] ?? '.'))
       if (error) return `Error: ${error}`
@@ -1193,10 +1388,22 @@ async function executeTool(
       if (!content) return 'Error: nothing to remember — content is required.'
       const kind = ['preference', 'fact', 'identity'].includes(String(input['kind'])) ? String(input['kind']) : 'fact'
       try {
+        // Dedup-on-write: don't store a near-duplicate of something already remembered.
+        const { findSimilarMemory, findConflictingMemory, listMemories } = await import('./lib/memory-curation.js')
+        const gMem = getHellGraph()
+        const mStore = { nodesByLabel: (l: string) => gMem.nodesByLabel(l) as any[], getNode: (id: string) => gMem.getNode(id) as any, out: (id: string, e?: string) => gMem.out(id, e) as any[], setProperty: () => { /* read-only */ } }
+        const dupId = findSimilarMemory(mStore, content)
+        if (dupId) {
+          const existing = listMemories(mStore).find((m) => m.id === dupId)
+          return `Already remembered something similar: "${(existing?.preview ?? '').slice(0, 120)}". Not duplicating it.`
+        }
+        // Contradiction-aware: a memory sharing the subject but differing may be a stale fact.
+        const conflict = findConflictingMemory(mStore, content)
         const { ingestDocument } = await import('./lib/doc-store.js')
         const stamp = new Date().toISOString().replace(/[:.]/g, '-')
         await ingestDocument(`memory/${kind}-${stamp}.md`, content)
-        return `Saved to memory (${kind}): "${content.slice(0, 140)}". I'll recall this on future relevant turns.`
+        const note = conflict ? ` ⚠️ This may update an earlier memory: "${conflict.preview.slice(0, 110)}" — tell me to forget that one if it's now wrong.` : ''
+        return `Saved to memory (${kind}): "${content.slice(0, 140)}". I'll recall this on future relevant turns.${note}`
       } catch (e) {
         return `Could not save to memory: ${e instanceof Error ? e.message : String(e)} (is the local embedding model available?)`
       }
@@ -1604,7 +1811,7 @@ async function* streamAnthropic(params: {
           name: b.name,
           input: (() => {
             try { return JSON.parse(b.inputJson) as Record<string, unknown> }
-            catch (e) { console.error('[anthropic] tool arg parse failed', b.name, String(e)); return {} }
+            catch { return repairToolArgs(b.inputJson).value ?? {} } // recover truncated/py-literal/fenced JSON before dropping
           })(),
         }))
         if (calls.length) yield { type: 'tool_calls', calls }
@@ -1697,7 +1904,7 @@ async function* streamOpenAI(params: {
               name: tc.name,
               input: (() => {
                 try { return JSON.parse(tc.argsJson) as Record<string, unknown> }
-                catch (e) { console.error('[openai] tool arg parse failed', tc.name, String(e)); return {} }
+                catch { return repairToolArgs(tc.argsJson).value ?? {} } // recover malformed JSON before dropping
               })(),
             }))
           yield { type: 'tool_calls', calls }
@@ -1935,12 +2142,35 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       taskOverride: intentTaskOverride,
     })
   } catch (err) {
-    sse(res, 'error', { error: err instanceof Error ? err.message : String(err) })
+    sse(res, 'error', { error: 'internal_error' })
     return
   }
 
   let { resolvedModel: model, resolvedProvider: provider } = routing
   const { resolvedModel: _rm, resolvedProvider: _rp, ...routerDecision } = routing
+
+  // Honest vision fallback: an image is attached but no vision model is reachable — the
+  // router fell through (no local VLM installed) to a text model that literally can't see.
+  // Don't fake an answer from text the model can't read; tell the user how to give the mesh
+  // sight. (Cloud VLMs CAN see, so this only guards the blind local-text case.)
+  if (hasImages && provider === 'ollama' && (routerDecision as { domain?: string }).domain !== 'vision') {
+    const lat = Date.now() - turnStart
+    const msg = [
+      "There's an image attached, but I can't actually see it yet — no vision model is installed in the local mesh, so the router fell back to a text-only model that can't read pixels. Answering from text I can't see is exactly the wrong move.",
+      '',
+      'Give me sight by pulling a vision model:',
+      '',
+      '```',
+      'ollama pull llava:7b      # or a stronger VLM: qwen2.5vl, minicpm-v, llama3.2-vision',
+      '```',
+      '',
+      "Then re-send the screenshot and I'll analyze the actual interface.",
+    ].join('\n')
+    step('generate', 'done', 'no vision model installed')
+    sse(res, 'delta', { delta: msg })
+    sse(res, 'done', { result: { run_id: crypto.randomUUID(), content: msg, model_routed: 'none', provider: 'noetica', policy_admitted: true, memory_written: false, stop_reason: 'no_vision_model', timestamp: new Date().toISOString(), latency_ms: lat, agent_machine: true, agent_machine_version: VERSION, decidable: true, method: 'vision-fallback' } })
+    return
+  }
 
   // Signal the SourceOS surface (bearbrowser) so it can auto-enable Tor while the
   // security lane is armed, and drop back when disarmed.
@@ -1956,7 +2186,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       if (anthropicKey) { provider = 'anthropic'; model = 'claude-haiku-4-5-20251001'; escalated = true }
       else if (openaiKey) { provider = 'openai'; model = 'gpt-4o-mini'; escalated = true }
       if (escalated) {
-        console.log(`[self-model] escalated task="${routerDecision.task}" → ${provider}:${model} (local success ${(hint.localSuccessRate ?? 0).toFixed(2)} over ${hint.localRuns} runs)`)
+        console.log(`[self-model] escalated task="${String(routerDecision.task)}" → ${provider}:${model} (local success ${(hint.localSuccessRate ?? 0).toFixed(2)} over ${hint.localRuns} runs)`.replace(/\r/g, '').replace(/\n/g, ''))
       }
     }
   }
@@ -1978,7 +2208,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       .filter((m) => routerDecision.task === 'reasoning' || !/deepseek-r1/i.test(m))
     const pick = selectArmUCB(routerDecision.task ?? 'general', arms)
     if (pick && pick !== model) {
-      console.log(`[bandit] task="${routerDecision.task}" ${model} → ${pick} (arms: ${arms.join(', ')})`)
+      console.log(`[bandit] task="${String(routerDecision.task)}" ${model} → ${pick} (arms: ${arms.join(', ')})`.replace(/\r/g, '').replace(/\n/g, ''))
       model = pick
     }
   }
@@ -2075,7 +2305,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         model = has('qwen2.5:7b') ? 'qwen2.5:7b' : has('qwen2.5-coder:7b') ? 'qwen2.5-coder:7b' : model
       }
     }
-    if (model !== before) console.log(`[responsive] ${task} ${before} → ${model}`)
+    if (model !== before) console.log(`[responsive] ${String(task)} ${before} → ${model}`.replace(/\r/g, '').replace(/\n/g, ''))
   }
 
   // ── Escalation: climb to a more capable model when the cheap flow is failing ──
@@ -2149,6 +2379,10 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // Finance rides along wherever web_search is offered (finance questions are
   // research-shaped), and pulls render_chart with it so "chart AAPL" can plot.
   if (intentToolSet.has('web_search')) { intentToolSet.add('public_data'); intentToolSet.add('render_chart') }
+  // The concierge can delegate to focused sub-agents on any substantive (tool-bearing) turn —
+  // research/build/review/analysis chunks, fanned out in parallel. Not offered on trivial
+  // smalltalk/confirm intents (which carry no tools), so it never fires for chit-chat.
+  if (intentToolSet.size > 0) intentToolSet.add('dispatch_agent')
   // Agent mode: 'plan' produces a plan WITHOUT executing (no tools offered); 'ask'/'auto' keep tools.
   const agentMode = body.agent_mode === 'plan' || body.agent_mode === 'ask' ? body.agent_mode : 'auto'
   const allTools: ProviderTool[] = (modelSupportsTools && agentMode !== 'plan')
@@ -2252,7 +2486,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // "upload a doc and ask about it" actually work — the graph patterns above are
   // structural, not semantic. Injected as authoritative source context.
   try {
-    const { semanticSearch, documentChunkCount } = await import('./lib/doc-store.js')
+    const { searchDocsReranked, documentChunkCount } = await import('./lib/doc-store.js')
     // Skip doc retrieval entirely for intents that want no grounding (greetings,
     // confirmations, file ops) — otherwise a plain "hello" wastefully pulls passages
     // and shows a misleading "retrieving" step.
@@ -2279,11 +2513,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       const ragQuery = glossaryTerms.length > 0
         ? `${latestUserContent}\n${glossaryTerms.join(' ')}`
         : latestUserContent
-      const hits = await semanticSearch(ragQuery, topK)
+      const hits = await searchDocsReranked(ragQuery, topK)
       if (hits.length > 0) {
         docHitCount = hits.length
-        docHits = hits
-        const docBlock = hits.map((h, i) => `[${i + 1}] (${h.filename}) ${h.text.slice(0, chunkCap)}`).join('\n\n')
+        // Reranked chunks → ChunkHit shape for downstream extractive QA (fusedScore as the score).
+        docHits = hits.map((h) => ({ docId: h.docId, filename: h.filename, text: h.text, score: h.fusedScore, idx: h.chunkIndex ?? undefined }))
+        const docBlock = hits.map((h, i) => `[${i + 1}] (${h.citation}) ${h.text.slice(0, chunkCap)}`).join('\n\n')
         // For doc-focused intents, demand strict grounding: answer ONLY from the
         // sources, name the gap rather than invent. This is what stops the model
         // from fabricating facts that contradict the uploaded document.
@@ -2292,7 +2527,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           : `Answer from these sources when relevant and end each grounded sentence with its source marker, e.g. "… [1]." If the sources don't cover the question, say so.`
         graphContext = `\n\n---\n**Document context (uploaded sources)**\n${instruction}\n\n${docBlock}${graphContext}`
         sse(res, 'retrieval', {
-          trace: { patterns: ['semantic-documents'], sources: hits.map((h) => ({ id: h.docId, label: h.filename, score: Number(h.score.toFixed(3)) })), token_estimate: docBlock.length >> 2, beliefs_injected: 0 },
+          trace: { patterns: ['hybrid-rerank-documents'], sources: hits.map((h) => ({ id: h.docId, label: h.citation, score: Number(h.fusedScore.toFixed(4)) })), token_estimate: docBlock.length >> 2, beliefs_injected: 0 },
         })
       }
     }
@@ -2384,6 +2619,49 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     }
   } catch { /* goal tracking is best-effort — never block the turn */ }
 
+  // Active long-term memory: inject what the user has asked the agent to remember (the
+  // `remember`-tool facts), pinned-first, every turn. This is the fix for "memory stored but
+  // not recalled" — facts now actually surface in context. Bounded to 8 short lines so it's
+  // cheap; pinned (curated into the long-term brain) are marked and always lead.
+  let memoryContext = ''
+  let recalledMems: Array<{ kind: string; preview: string; pinned: boolean }> = []
+  try {
+    const { selectRelevantMemories } = await import('./lib/memory-curation.js')
+    const g = getHellGraph()
+    const memStore = {
+      nodesByLabel: (l: string) => g.nodesByLabel(l) as any[],
+      getNode: (id: string) => g.getNode(id) as any,
+      out: (id: string, e?: string) => g.out(id, e) as any[],
+      setProperty: () => { /* read-only here */ },
+    }
+    // Relevance-ranked recall: pinned always, unpinned only when relevant to this turn's query
+    // (no more "ask the weather, get 'prefers coffee'").
+    const mems = selectRelevantMemories(memStore, latestUserContent, 8)
+    recalledMems = mems.map((m) => ({ kind: m.kind, preview: m.preview.slice(0, 100), pinned: m.pinned }))
+    if (mems.length > 0) {
+      memoryContext = `\n\n---\n**Long-term memory (what you've been asked to remember — honor these)**\n` +
+        mems.map((m) => `- ${m.pinned ? '📌 ' : ''}(${m.kind}) ${m.preview}`).join('\n')
+    }
+  } catch { /* memory injection best-effort */ }
+
+  // Cross-session episodic recall: prior exchanges relevant to this question, so the agent
+  // remembers what was discussed in EARLIER sessions (the Interaction layer was write-only).
+  let episodeContext = ''
+  let recalledEpisodes: Array<{ question: string }> = []
+  try {
+    const { recallExchanges, formatExchanges } = await import('./lib/episodic.js')
+    const gEp = getHellGraph()
+    const exchanges = recallExchanges({ nodesByLabel: (l: string) => gEp.nodesByLabel(l) as any[] }, latestUserContent, { limit: 3 })
+    recalledEpisodes = exchanges.map((e) => ({ question: e.question.slice(0, 120) }))
+    episodeContext = formatExchanges(exchanges)
+  } catch { /* episodic recall best-effort */ }
+
+  // Provenance: surface what the agent REMEMBERED + RECALLED for this answer (merges into the
+  // retrieval trace shown in the UI). Best-effort.
+  if (recalledMems.length > 0 || recalledEpisodes.length > 0) {
+    sse(res, 'retrieval', { trace: { patterns: [], timings: [], sources: [], token_estimate: 0, beliefs_injected: 0, memory_sources: recalledMems, episode_sources: recalledEpisodes } })
+  }
+
   // Few-shot training memory: inject the best gold Q/A exemplars for this intent —
   // in-context "training" on the Pareto-head cases, no model update needed. Opt-in
   // (NOETICA_QA_FEWSHOT) because each exemplar adds prompt tokens (latency) on CPU.
@@ -2408,7 +2686,9 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // proof. Instant, deterministic, replayable (POS@T1). This is solveByLogic step 1;
   // extract (below) is step 2; generation is the undecidable remainder. The decidable
   // region expands with use: each generated answer crystallizes, so it recalls next time.
-  if (isFlagOn('NOETICA_LOGIC_FIRST')) {
+  // Skip when an image is attached — the user wants the model to LOOK at the image, not
+  // reuse a cached text answer (vision must reach the model, not a recall short-circuit).
+  if (isFlagOn('NOETICA_LOGIC_FIRST') && !hasImages) {
     try {
       const { recallArtifact } = await import('./lib/crystallize.js')
       const hit = recallArtifact(latestUserContent)
@@ -2439,7 +2719,9 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // so it must run whenever a doc is loaded even if the weak-embedding semantic pass
   // returned nothing — that's how entity questions land in the decidable region. The
   // extractor returns null safely (cannot fabricate) when nothing lexically matches.
-  if (isFlagOn('NOETICA_EXTRACTIVE') && wantsVectorRag(intentPlan.retrieval) && hasDoc) {
+  // …but NOT when an image is attached: a screenshot + "how would you improve this?" must go
+  // to the vision model, not be answered by extracting sentences from an unrelated doc.
+  if (isFlagOn('NOETICA_EXTRACTIVE') && wantsVectorRag(intentPlan.retrieval) && hasDoc && !hasImages) {
     try {
       const { extractiveAnswer } = await import('./lib/extractive-qa.js')
       // Extraction scans a WIDER lexical pool (term-matched, reliable for entity Qs)
@@ -2512,7 +2794,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       ? '\n\nASK MODE: Before running any command, writing/modifying any file, or taking any irreversible action, first state concisely what you intend to do and ask the user to confirm. Read-only steps are fine without asking.'
       : ''
 
-  const enrichedSystemPrompt = basePrompt + dateLine + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + goalContext + reasoningDirective + verbosityNote + modeNote + profile.authorizationSuffix
+  const enrichedSystemPrompt = basePrompt + dateLine + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + episodeContext + goalContext + reasoningDirective + verbosityNote + modeNote + profile.authorizationSuffix
 
   // Token budget: rough estimate (4 chars ≈ 1 token). If message history + system prompt
   // exceeds 70% of the model's context window, trim oldest non-system messages.
@@ -3231,7 +3513,14 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     // Index this interaction so future retrieval can surface it. The promptHash
     // is used for deduplication in the WAL. invalidatePrefix forces a fresh
     // cache-augmented prefix on the next turn (new graph state).
-    void (async () => {
+    // Don't pollute the knowledge graph with the agent's OWN tool exhaust — directory listings,
+    // file dumps, command output. Those are operational, not knowledge; ingesting them mints junk
+    // atoms (your home-dir folder names, probe artifacts) that clog the graph. Detect by the
+    // file/command intent or the listing shape and skip ingestion for the turn.
+    const operationalTurn =
+      /^\s*(show (me )?(my )?files|list( my| the)? (files|dir|directory)|^ls\b|what'?s? (in|inside) (my|the|this)|look (in|at) [~/.]|open (the )?(folder|directory)|^cd\b|run [`'"]?(ls|find|cat|tree))/i.test(latestUserContent.trim())
+      || /(\b[dfl] [.\w-]+\/ .+\b[dfl] )|(\bf [.\w-]+ \(\d+\s*B?\))|(your (home|home directory)|here (are|is) (the|your) (files|directory|folder))/i.test(fullContent.slice(0, 800))
+    if (!operationalTurn) void (async () => {
       try {
         const promptHash = crypto.createHash('sha256').update(latestUserContent).digest('hex').slice(0, 16)
         await trackIngest(ingestInteraction({
@@ -3373,7 +3662,7 @@ const server = http.createServer((req, res) => {
           })
           sse(res, 'progress', { model, status: 'complete', pct: 100, done: true })
         } catch (e) {
-          sse(res, 'progress', { model, status: 'error', pct: null, done: true, error: String(e) })
+          sse(res, 'progress', { model, status: 'error', pct: null, done: true, error: 'internal_error' })
         } finally {
           try { res.end() } catch { /* ignore */ }
         }
@@ -3383,6 +3672,34 @@ const server = http.createServer((req, res) => {
   }
 
   // GET /api/memory/health — memoryd + prometheusd + HellGraph memory layer status
+  // GET /api/containment — kill-switch + bound purpose. POST {action:'kill'|'disarm'|'bind', reason?, purpose?}.
+  if (url.pathname === '/api/containment') {
+    setCORSHeaders(res)
+    if (req.method === 'GET') {
+      const s = containmentState()
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ killed: s.killed, reason: s.reason, since: s.since, purpose: s.purpose.name, purpose_allows: s.purpose.allow, purposes: Object.values(PURPOSES) }))
+      return
+    }
+    if (req.method === 'POST') {
+      let body = ''
+      req.on('data', (c: Buffer) => { body += c.toString() })
+      req.on('end', () => {
+        let p: { action?: string; reason?: string; purpose?: string } = {}
+        try { p = JSON.parse(body || '{}') } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        if (p.action === 'kill') armKillSwitch(typeof p.reason === 'string' ? p.reason.replace(/[\r\n]/g, ' ').slice(0, 200) : undefined)
+        else if (p.action === 'disarm') disarmKillSwitch()
+        else if (p.action === 'bind') bindPurpose(String(p.purpose ?? 'full'))
+        else { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'unknown_action' })); return }
+        saveContainment()
+        const s = containmentState()
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ killed: s.killed, reason: s.reason, purpose: s.purpose.name }))
+      })
+      return
+    }
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/memory/health') {
     void (async () => {
       setCORSHeaders(res)
@@ -3403,6 +3720,167 @@ const server = http.createServer((req, res) => {
         hellgraph: { feature_atoms: atoms, total_nodes: g.allNodes().length, total_edges: g.allEdges().length },
         tiers: { tier1_memoryd: memorydHealth !== null, tier2_hellgraph: true, tier3_map: true },
       }))
+    })()
+    return
+  }
+
+  // ── Memory curation: surface memories in the graph + pin into the long-term brain ──
+  // A memory-curation store over HellGraph. setLti boosts the atom's ECAN long-term
+  // importance (best-effort — the durable signal is the node's pinned/lti property, which
+  // persists via the live node reference; the attention-value boost is a bonus when the
+  // handle resolves).
+  const memoryStore = () => {
+    const g = getHellGraph()
+    return {
+      nodesByLabel: (l: string) => g.nodesByLabel(l) as Array<{ id: string; labels: string[]; properties: Record<string, unknown> }>,
+      getNode: (id: string) => g.getNode(id) as { id: string; labels: string[]; properties: Record<string, unknown> } | null,
+      out: (id: string, e?: string) => g.out(id, e) as Array<{ id: string; labels: string[]; properties: Record<string, unknown> }>,
+      setProperty: (id: string, key: string, value: unknown) => { try { (g as any).setNodeProperty(id, key, value) } catch { /* */ } },
+      setLti: (id: string, lti: number) => { try { const sp: any = getAtomSpace(); sp.setAttentionValue?.(id, { sti: 0, lti, vlti: 0 }) } catch { /* attention boost best-effort */ } },
+    }
+  }
+
+  // GET /api/memory/graph — memories as curatable records (for the Memory lens).
+  if (req.method === 'GET' && url.pathname === '/api/memory/graph') {
+    void (async () => {
+      setCORSHeaders(res)
+      try {
+        const { listMemories } = await import('./lib/memory-curation.js')
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ memories: listMemories(memoryStore()) }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', memories: [] }))
+      }
+    })()
+    return
+  }
+
+  // POST /api/memory/pin — curate a memory into / out of the long-term brain. Body: {id, pinned?}.
+  if (req.method === 'POST' && url.pathname === '/api/memory/pin') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      setCORSHeaders(res)
+      let p: { id?: string; pinned?: boolean } = {}
+      try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+      if (!p.id) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'id required' })); return }
+      try {
+        const { pinMemory, unpinMemory } = await import('./lib/memory-curation.js')
+        const ok = (p.pinned === false ? unpinMemory : pinMemory)(memoryStore(), p.id)
+        res.writeHead(ok ? 200 : 404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok, id: p.id, pinned: p.pinned !== false }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })() })
+    return
+  }
+
+  // POST /api/memory/forget — soft-delete a memory (excluded from recall + LTI dropped). Body: {id}.
+  if (req.method === 'POST' && url.pathname === '/api/memory/forget') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      setCORSHeaders(res)
+      let p: { id?: string } = {}
+      try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+      if (!p.id) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'id required' })); return }
+      try {
+        const { forgetMemory } = await import('./lib/memory-curation.js')
+        const ok = forgetMemory(memoryStore(), p.id)
+        res.writeHead(ok ? 200 : 404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok, id: p.id }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })() })
+    return
+  }
+
+  // ── Session persistence via the always-on AM: chats survive quit independent of the
+  // WebKit localStorage flush + the (uninstalled) Tauri store plugin. Durable file at
+  // ~/.noetica/sessions.json. ──
+  if (req.method === 'GET' && url.pathname === '/api/sessions') {
+    void (async () => {
+      setCORSHeaders(res)
+      try {
+        const { readFileSync } = await import('fs'); const { homedir } = await import('os'); const { join } = await import('path')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(readFileSync(join(homedir(), '.noetica', 'sessions.json'), 'utf8'))
+      } catch { res.writeHead(200, { 'content-type': 'application/json' }); res.end('null') }
+    })()
+    return
+  }
+  if (req.method === 'POST' && url.pathname === '/api/sessions') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      setCORSHeaders(res)
+      try {
+        const { writeFileSync, mkdirSync } = await import('fs'); const { homedir } = await import('os'); const { join } = await import('path')
+        const dir = join(homedir(), '.noetica'); mkdirSync(dir, { recursive: true })
+        writeFileSync(join(dir, 'sessions.json'), body || 'null')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end('{"ok":true}')
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })() })
+    return
+  }
+
+  // GET /api/graph/cskg — export the graph's edges in the CSKG / KGTK edge format (every edge
+  // dimensioned + lifted-labelled + sourced). ?format=tsv|json (default tsv), ?limit=N.
+  if (req.method === 'GET' && url.pathname === '/api/graph/cskg') {
+    void (async () => {
+      setCORSHeaders(res)
+      const format = url.searchParams.get('format') === 'json' ? 'json' : 'tsv'
+      const limit = Math.min(50000, Math.max(1, Number(url.searchParams.get('limit')) || 10000))
+      try {
+        const { toCskgEdge, toKgtkTsv } = await import('./lib/cskg.js')
+        const g = getHellGraph()
+        const edges = (g.allEdges() as Array<{ id?: string; label: string; from: string; to: string; properties?: Record<string, unknown> }>).slice(0, limit)
+        const nameOf = (id: string) => { const n = g.getNode(id); return (n?.properties?.['name'] ?? n?.properties?.['title'] ?? n?.properties?.['surface']) as string | undefined }
+        const cskg = edges.map((e) => toCskgEdge(e, { node1: nameOf(e.from), node2: nameOf(e.to) }))
+        if (format === 'json') {
+          res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ count: cskg.length, edges: cskg }))
+        } else {
+          res.writeHead(200, { 'content-type': 'text/tab-separated-values', 'content-disposition': 'attachment; filename="noetica-cskg.tsv"' })
+          res.end(toKgtkTsv(cskg))
+        }
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/graph/search — fast topic/instance recall over the graph, fusing cosine +
+  // Jaccard + link expansion (a company on "Hospital Way" surfaces for "hospital"). Query:
+  // ?q=…&limit=…  Cosine kicks in when the query embeds and atoms carry vectors.
+  if (req.method === 'GET' && url.pathname === '/api/graph/search') {
+    void (async () => {
+      setCORSHeaders(res)
+      const q = (url.searchParams.get('q') ?? '').trim()
+      const limit = Math.min(50, Math.max(1, Number(url.searchParams.get('limit')) || 12))
+      if (!q) { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ query: q, hits: [] })); return }
+      try {
+        const { graphSearch } = await import('./lib/graph-search.js')
+        const g = getHellGraph()
+        const store = {
+          nodesByLabel: (l: string) => g.nodesByLabel(l) as any[],
+          out: (id: string, e?: string) => g.out(id, e) as any[],
+          in: (id: string, e?: string) => g.in(id, e) as any[],
+        }
+        // Best-effort query embedding for the cosine signal (lexical + link work without it).
+        let queryVector: number[] | undefined
+        try {
+          const { embedBatchLocal } = await import('./lib/embed-runtime.js')
+          const v = await embedBatchLocal([q]); const vec = v?.[0]; if (vec) queryVector = vec
+        } catch { /* cosine optional */ }
+        const vectorOf = (n: { properties: Record<string, unknown> }) => {
+          const raw = n.properties['embedding']; if (!raw) return null
+          try { return typeof raw === 'string' ? JSON.parse(raw) as number[] : (raw as number[]) } catch { return null }
+        }
+        const hits = graphSearch(store, q, { limit, ...(queryVector ? { queryVector, vectorOf } : {}) })
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ query: q, hits }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', hits: [] }))
+      }
     })()
     return
   }
@@ -3434,7 +3912,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ result }))
       } catch (err) {
         res.writeHead(400, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(err) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -3462,7 +3940,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(result))
       } catch (err) {
         res.writeHead(400, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(err) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -3490,7 +3968,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(result))
       } catch (err) {
         res.writeHead(400, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(err) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -3519,7 +3997,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(result))
       } catch (err) {
         res.writeHead(503, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: 'Sidecar unavailable', detail: String(err) }))
+        res.end(JSON.stringify({ error: 'Sidecar unavailable' }))
       }
     })()
     return
@@ -3637,7 +4115,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ profile, isolation: selectIsolationTier(profile) }))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -3658,7 +4136,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(computeFlowMetrics()))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -3678,7 +4156,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(aggregateEnergy(entries)))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -3697,7 +4175,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ ...r, verdict: r.ok ? 'POS' : 'NEG', tier: 'T1' }))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -3715,7 +4193,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ brief: readBrief({ session, limit: 12 }), total: fabricCount() }))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -3735,7 +4213,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(policy ?? { formula: null, reason: 'need ≥8 rewarded turns to fit', n: 0 }))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -3753,7 +4231,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(paretoReport()))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -3801,7 +4279,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ domains }))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -3820,7 +4298,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ query: q, matches: matchDomains(q, 3) }))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -3858,7 +4336,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(summary))
       } catch (err) {
         res.writeHead(400, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(err) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -3875,7 +4353,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(selfModelSummary()))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -3894,7 +4372,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(summary))
       } catch (err) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(err) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -3950,7 +4428,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ ok: true }))
       } catch (e) {
         res.writeHead(400, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(e) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })
     return
@@ -4013,7 +4491,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ ok: true, goal }))
       } catch (e) {
         res.writeHead(400, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(e) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })
     return
@@ -4104,7 +4582,7 @@ const server = http.createServer((req, res) => {
           res.end(JSON.stringify({ ok: true, observation_id: obsId }))
         } catch (err) {
           res.writeHead(400, { 'content-type': 'application/json' })
-          res.end(JSON.stringify({ error: String(err) }))
+          res.end(JSON.stringify({ error: 'internal_error' }))
         }
       })()
     })
@@ -4133,7 +4611,7 @@ const server = http.createServer((req, res) => {
           void runSuperconsciousLoop(keys)
         } catch (err) {
           res.writeHead(400, { 'content-type': 'application/json' })
-          res.end(JSON.stringify({ error: String(err) }))
+          res.end(JSON.stringify({ error: 'internal_error' }))
         }
       })()
     })
@@ -4161,7 +4639,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ ok: true, enabled: _loopEnabled, interval_ms: LOOP_INTERVAL_MS }))
       } catch (err) {
         res.writeHead(400, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(err) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })
     return
@@ -4212,7 +4690,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ nodes, edges }))
       } catch (err) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(err) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -4249,7 +4727,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(result))
       } catch (err) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ nodes: [], links: [], error: String(err) }))
+        res.end(JSON.stringify({ nodes: [], links: [], error: 'internal_error' }))
       }
     })()
     return
@@ -4328,7 +4806,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(payload))
       } catch (err) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(err) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -4348,7 +4826,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(result))
       } catch (err) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(err) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -4408,7 +4886,7 @@ const server = http.createServer((req, res) => {
           res.end(JSON.stringify({ ok: true }))
         } catch (err) {
           res.writeHead(400, { 'content-type': 'application/json' })
-          res.end(JSON.stringify({ error: String(err) }))
+          res.end(JSON.stringify({ error: 'internal_error' }))
         }
       })()
     })
@@ -4435,7 +4913,7 @@ const server = http.createServer((req, res) => {
           res.end(JSON.stringify(result))
         } catch (err) {
           res.writeHead(400, { 'content-type': 'application/json' })
-          res.end(JSON.stringify({ error: String(err) }))
+          res.end(JSON.stringify({ error: 'internal_error' }))
         }
       })()
     })
@@ -4463,7 +4941,7 @@ const server = http.createServer((req, res) => {
           res.end(JSON.stringify(result))
         } catch (err) {
           res.writeHead(400, { 'content-type': 'application/json' })
-          res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }))
+          res.end(JSON.stringify({ error: 'internal_error' }))
         }
       })()
     })
@@ -4494,7 +4972,7 @@ const server = http.createServer((req, res) => {
           res.end(JSON.stringify(result))
         } catch (err) {
           res.writeHead(400, { 'content-type': 'application/json' })
-          res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }))
+          res.end(JSON.stringify({ error: 'internal_error' }))
         }
       })()
     })
@@ -4503,6 +4981,13 @@ const server = http.createServer((req, res) => {
 
   // POST /api/chat
   if (req.method === 'POST' && url.pathname === '/api/chat') {
+    // Kill-switch: when armed, the agent fail-closes — no new turn runs until disarmed.
+    if (containmentState().killed) {
+      setCORSHeaders(res)
+      res.writeHead(423, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ error: 'agent_halted', reason: containmentState().reason ?? 'kill-switch armed' }))
+      return
+    }
     let body = ''
     req.on('data', (chunk: Buffer) => { body += chunk.toString() })
     req.on('end', () => {
@@ -4524,7 +5009,7 @@ const server = http.createServer((req, res) => {
       handleChat(parsed, res)
         .catch((err: unknown) => {
           try {
-            sse(res, 'error', { error: err instanceof Error ? err.message : String(err) })
+            sse(res, 'error', { error: 'internal_error' })
           } catch { /* ignore write errors after stream close */ }
         })
         .finally(() => {
@@ -4567,7 +5052,7 @@ const server = http.createServer((req, res) => {
           const buf = await oaiRes.arrayBuffer()
           res.end(Buffer.from(buf))
         } catch (err) {
-          res.writeHead(502); res.end(JSON.stringify({ error: String(err) }))
+          res.writeHead(502); res.end(JSON.stringify({ error: 'internal_error' }))
         }
       })()
     })
@@ -4606,31 +5091,464 @@ const server = http.createServer((req, res) => {
       try { fs.mkdirSync(ws, { recursive: true }) } catch { /* */ }
       const maxAttempts = Math.min(6, Math.max(1, Number(p.max_attempts ?? 4)))
       const model = String(p.model ?? 'qwen2.5-coder:7b')
-      const SYS = 'You are a coding agent. Solve the task by writing files and ONE verification command that exits 0 only if the solution is correct (e.g. runs a test). Respond with ONLY a JSON object, no prose and no markdown fences:\n{"files":[{"path":"rel/path.ext","content":"..."}],"verify":"shell command"}\nUse tools available on the machine (python3, node). Paths are relative to the project root.'
+      // Compounding loop (select): pull the most-similar PROVEN solutions and inject them as
+      // few-shot, so the agent reuses what already worked instead of re-deriving from scratch.
+      const { retrieveSimilar, fewShot, recordSolve, recordVerified } = await import('./lib/solution-memory.js')
+      const memory = await retrieveSimilar(task, 2).catch(() => [])
+      const memBlock = fewShot(memory)
+      const usedMemory = memory.length > 0
+      const SYS = 'You are a coding agent. Solve the task by writing files and ONE verification command that exits 0 only if the solution is correct (e.g. runs a test). Respond with ONLY a JSON object, no prose and no markdown fences:\n{"files":[{"path":"rel/path.ext","content":"..."}],"verify":"shell command"}\nUse tools available on the machine (python3, node). Paths are relative to the project root.' + (memBlock ? `\n\n${memBlock}` : '')
       const steps: Array<{ attempt: number; verify: string; exit: string; ok: boolean; files: string[]; output: string }> = []
+      let solvedFiles: { path: string; content: string }[] = []; let solvedVerify = ''
+      // Capture each touched file's ORIGINAL content the first time we write it, so the UI can
+      // show a real diff and the user can reject (revert) a file back to its pre-solve state.
+      const touched = new Map<string, string | null>()
       let prior = '', solved = false
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         const user = attempt === 1 ? `Task: ${task}` : `Task: ${task}\n\nYour previous attempt FAILED:\n${prior}\nFix the code. Respond with the same JSON format.`
         let content = ''
         try { ({ content } = await generateOllamaText({ model, messages: [{ role: 'system', content: SYS }, { role: 'user', content: user }], temperature: attempt === 1 ? 0.2 : 0.55 })) }
-        catch (e) { steps.push({ attempt, verify: '', exit: 'gen_error', ok: false, files: [], output: String(e).slice(0, 200) }); break }
+        catch { steps.push({ attempt, verify: '', exit: 'gen_error', ok: false, files: [], output: 'generation error' }); break }
         const sol = parseSolveOutput(content)
         if (!sol) { steps.push({ attempt, verify: '', exit: 'parse_error', ok: false, files: [], output: content.slice(0, 300) }); prior = "Your output didn't parse as the required JSON object."; continue }
         for (const f of sol.files) {
-          const fp = path.resolve(ws, f.path.replace(/^\/+/, ''))
+          const rel = f.path.replace(/^\/+/, '')
+          const fp = path.resolve(ws, rel)
           if (!fp.startsWith(ws + path.sep) && fp !== ws) continue
+          if (!touched.has(rel)) { try { touched.set(rel, fs.existsSync(fp) ? fs.readFileSync(fp, 'utf8') : null) } catch { touched.set(rel, null) } }
           try { fs.mkdirSync(path.dirname(fp), { recursive: true }); fs.writeFileSync(fp, f.content) } catch { /* */ }
         }
         const { out, err, code } = await runInWorkspace(sol.verify, ws, 60_000)
         const ok = code === '0'
         const output = `${out}${err ? `\n${err}` : ''}`.trim()
         steps.push({ attempt, verify: sol.verify, exit: code, ok, files: sol.files.map((f) => f.path), output: output.slice(-1200) })
-        if (ok) { solved = true; break }
+        if (ok) { solved = true; solvedFiles = sol.files; solvedVerify = sol.verify; break }
         prior = `Files: ${sol.files.map((f) => f.path).join(', ')}\nVerify: ${sol.verify}\nExit: ${code}\nOutput:\n${output.slice(-1500)}`
       }
+      // prophet-cloud-mesh escape hatch: the local loop exhausted its budget unsolved. If a
+      // sovereign tier is configured (NOETICA_SOVEREIGN_URL), escalate ONE attempt to it —
+      // frontier-parity on your own infra. No-op (and zero cost) when the tier isn't armed.
+      let escalated = false
+      if (!solved) {
+        const esc = await generateSovereign({
+          messages: [
+            { role: 'system', content: SYS },
+            { role: 'user', content: `Task: ${task}\n\nA smaller local model failed after ${steps.length} attempts. Last failure:\n${prior}\nSolve it correctly. Same JSON format.` },
+          ],
+          temperature: 0.3,
+        })
+        if (esc) {
+          escalated = true
+          const sol = parseSolveOutput(esc.content)
+          if (sol) {
+            for (const f of sol.files) {
+              const rel = f.path.replace(/^\/+/, '')
+              const fp = path.resolve(ws, rel)
+              if (!fp.startsWith(ws + path.sep) && fp !== ws) continue
+              if (!touched.has(rel)) { try { touched.set(rel, fs.existsSync(fp) ? fs.readFileSync(fp, 'utf8') : null) } catch { touched.set(rel, null) } }
+              try { fs.mkdirSync(path.dirname(fp), { recursive: true }); fs.writeFileSync(fp, f.content) } catch { /* */ }
+            }
+            const { out, err, code } = await runInWorkspace(sol.verify, ws, 60_000)
+            const ok = code === '0'
+            const output = `${out}${err ? `\n${err}` : ''}`.trim()
+            steps.push({ attempt: steps.length + 1, verify: sol.verify, exit: code, ok, files: sol.files.map((f) => f.path), output: `[sovereign:${esc.model}] ${output}`.slice(-1200) })
+            if (ok) { solved = true; solvedFiles = sol.files; solvedVerify = sol.verify }
+          }
+        }
+      }
+
+      // Per-file diffs (original vs final-on-disk) so the workspace can render an apply/reject review.
+      const diffs = [...touched.entries()].map(([rel, before]) => {
+        const fp = path.resolve(ws, rel)
+        let after: string | null = null
+        try { if (fs.existsSync(fp)) after = fs.readFileSync(fp, 'utf8') } catch { /* */ }
+        return { path: rel, before, after, isNew: before === null }
+      })
+      // Compounding loop (memory + measure): log this outcome for the quality curve, and persist
+      // the VERIFIED solution into the retrieval corpus so future similar tasks reuse it.
+      recordSolve({ task, solved, attempts: steps.length, escalated, model, usedMemory })
+      if (solved && solvedFiles.length) { void recordVerified(task, solvedFiles, solvedVerify).catch(() => {}) }
       res.writeHead(200, { 'content-type': 'application/json' })
-      res.end(JSON.stringify({ solved, workspace: wsName, attempts: steps.length, steps }))
+      res.end(JSON.stringify({ solved, workspace: wsName, attempts: steps.length, steps, diffs, escalated, usedMemory }))
     })() })
+    return
+  }
+
+  // GET /api/metrics/quality — the COMPOUNDING CURVE: solve-rate + avg-attempts over time, so we can
+  // SHOW the loop improves with use (memory + retrieval), not just claim it.
+  if (req.method === 'GET' && url.pathname === '/api/metrics/quality') {
+    void (async () => {
+      setCORSHeaders(res)
+      try {
+        const { qualityMetrics } = await import('./lib/solution-memory.js')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(qualityMetrics()))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // POST /api/research/solve — answer a question GROUNDED in the brain, VERIFIED (grounding check)
+  // with a repair loop. The research analogue of /api/code/solve, compounding the same way: verified
+  // answers are stored + reused, and outcomes feed the SAME quality curve. Body: { question, max_attempts? }.
+  if (req.method === 'POST' && url.pathname === '/api/research/solve') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      setCORSHeaders(res)
+      try {
+        const p = JSON.parse(body || '{}') as { question?: string; max_attempts?: number }
+        const question = String(p.question ?? '').trim()
+        if (!question) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'question_required' })); return }
+        const maxAttempts = Math.min(4, Math.max(1, Number(p.max_attempts ?? 3)))
+        const { semanticSearch, lexicalSearch } = await import('./lib/doc-store.js')
+        const sem = await semanticSearch(question, 6).catch(() => [] as { text: string; filename: string }[])
+        const lex = lexicalSearch(question, 6)
+        const seen = new Set<string>(); const sources: { text: string; filename: string }[] = []
+        for (const h of [...sem, ...lex]) { const key = h.text.slice(0, 80); if (h.text && !seen.has(key)) { seen.add(key); sources.push({ text: h.text, filename: h.filename }) } }
+        const { verifyGrounding } = await import('./lib/research-verify.js')
+        const { retrieveSimilar, fewShot, recordSolve, recordVerified } = await import('./lib/solution-memory.js')
+        const memory = await retrieveSimilar(question, 1).catch(() => [])
+        const usedMemory = memory.length > 0
+        if (!sources.length) {
+          recordSolve({ task: question, solved: false, attempts: 0, escalated: false, model: 'research', usedMemory })
+          res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ grounded: false, score: 0, answer: 'Nothing in my knowledge base grounds an answer to this — import or ingest relevant material first.', sources: [], attempts: 0, usedMemory }))
+          return
+        }
+        const srcBlock = sources.slice(0, 8).map((s, i) => `[${i + 1}] (${s.filename}) ${s.text.slice(0, 600)}`).join('\n\n')
+        const SYS = `You are a research assistant. Answer the question using ONLY the SOURCES below. Ground every statement in them; do NOT add facts the sources don't support. Be concise. If the sources don't answer it, say so.\n\nSOURCES:\n${srcBlock}` + (usedMemory ? `\n\n${fewShot(memory)}` : '')
+        let answer = ''
+        let grounding = { grounded: false, score: 0, supported: 0, total: 0, unsupported: [] as string[] }
+        let attempts = 0, prior = ''
+        for (let a = 1; a <= maxAttempts; a++) {
+          attempts = a
+          const user = a === 1 ? `Question: ${question}` : `Question: ${question}\n\nYour previous answer made claims the sources DON'T support:\n${prior}\nRewrite using ONLY supported facts.`
+          try { ({ content: answer } = await generateOllamaText({ model: 'qwen2.5:7b', messages: [{ role: 'system', content: SYS }, { role: 'user', content: user }], temperature: a === 1 ? 0.2 : 0.4 })) }
+          catch (e) { answer = `[generation error]`; break }
+          grounding = verifyGrounding(answer, sources)
+          if (grounding.grounded) break
+          prior = grounding.unsupported.slice(0, 4).map((u) => `- ${u}`).join('\n')
+        }
+        recordSolve({ task: question, solved: grounding.grounded, attempts, escalated: false, model: 'research', usedMemory })
+        if (grounding.grounded) void recordVerified(question, [{ path: 'research/answer.md', content: answer }], 'grounding-verified').catch(() => {})
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ grounded: grounding.grounded, score: grounding.score, answer, attempts, usedMemory, sources: sources.slice(0, 8).map((s, i) => ({ n: i + 1, filename: s.filename })), unsupported: grounding.unsupported }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })() })
+    return
+  }
+
+  // GET /api/mesh/status — the prophet-cloud-mesh tier ladder and which tiers are armed.
+  // GET /api/graph/path?from=<id>&to=<id> — shortest path (BFS) between two nodes: the "how is X
+  // related to Y?" query. Returns the chain of {id,label} (or empty if disconnected).
+  if (req.method === 'GET' && url.pathname === '/api/graph/path') {
+    setCORSHeaders(res)
+    try {
+      const from = url.searchParams.get('from') ?? '', to = url.searchParams.get('to') ?? ''
+      const g = getGraph()
+      const adj = new Map<string, string[]>()
+      for (const e of g.allEdges()) {
+        ;(adj.get(e.from) ?? adj.set(e.from, []).get(e.from)!).push(e.to)
+        ;(adj.get(e.to) ?? adj.set(e.to, []).get(e.to)!).push(e.from)
+      }
+      const prev = new Map<string, string>(); const seen = new Set([from]); const q = [from]; let found = from === to
+      while (q.length && !found) {
+        const u = q.shift()!
+        for (const v of adj.get(u) ?? []) { if (!seen.has(v)) { seen.add(v); prev.set(v, u); if (v === to) { found = true; break } q.push(v) } }
+      }
+      let pathOut: { id: string; label: string }[] = []
+      if (found) {
+        const ids = [to]; let cur = to
+        while (cur !== from && prev.has(cur)) { cur = prev.get(cur)!; ids.unshift(cur) }
+        const nodeById = new Map(g.allNodes().map((n) => [n.id, n]))
+        pathOut = ids.map((id) => { const n = nodeById.get(id); return { id, label: (n ? cleanLabel(n) : null) ?? id.split(':').pop() ?? id } })
+      }
+      res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ path: pathOut, length: pathOut.length ? pathOut.length - 1 : -1 }))
+    } catch (e) {
+      res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+    }
+    return
+  }
+
+  // GET /api/graph/analytics — Graph Data Science over HellGraph: PageRank (importance), Louvain
+  // (communities from topology), betweenness (bridge concepts). O(V·E), so cached by graph signature;
+  // ?refresh=1 forces recompute. Top nodes resolved to readable labels for the human-facing summary.
+  if (req.method === 'GET' && url.pathname === '/api/graph/analytics') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const refresh = url.searchParams.get('refresh') === '1'
+        const { analytics } = await analyticsForGraph(refresh)
+        const g = getGraph()
+        const nodeById = new Map(g.allNodes().map((n) => [n.id, n]))
+        const hit = !refresh
+        // A node is "showable" as a concept only if it resolves to a real label — not a bare UUID,
+        // timestamp, or junk. Metrics for ALL nodes still ship in `nodes` (for surface overlay); the
+        // human-facing summary ranks just the meaningful concepts so session supernodes don't dominate.
+        const concept = (id: string): string | null => {
+          const n = nodeById.get(id); const l = n ? cleanLabel(n) : null
+          if (!l) return null
+          if (/^[0-9a-f]{8}-[0-9a-f]{4}/i.test(l) || /^\d{8,}$/.test(l.replace(/\s/g, ''))) return null
+          return l
+        }
+        const cleanTop = (k: number, key: 'pagerank' | 'betweenness') =>
+          Object.values(analytics.nodes)
+            .map((m) => ({ id: m.id, score: Number((m[key]).toFixed(4)), label: concept(m.id) }))
+            .filter((x) => x.label && x.score > 0)
+            .sort((a, b) => b.score - a.score)
+            .slice(0, k) as Array<{ id: string; score: number; label: string }>
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({
+          nodes: analytics.nodes,
+          modularity: Number(analytics.modularity.toFixed(4)),
+          communities: analytics.communities.slice(0, 30)
+            .map((c) => ({ id: c.id, size: c.size, top: c.members.map(concept).filter(Boolean).slice(0, 5) }))
+            .filter((c) => c.top.length > 0),
+          summary: { ...analytics.summary, topByPagerank: cleanTop(12, 'pagerank'), topByBetweenness: cleanTop(12, 'betweenness') },
+          cached: hit,
+        }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/graph/predictions — link prediction: structural candidates (Adamic-Adar) for edges that
+  // SHOULD exist but don't. ?verify=1 runs each through the model for a real/relation/confidence
+  // check (the moat: suggested connections are verified, not guessed). ?topK=N caps the candidates.
+  if (req.method === 'GET' && url.pathname === '/api/graph/predictions') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const verify = url.searchParams.get('verify') === '1'
+        const topK = Math.min(50, Math.max(1, Number(url.searchParams.get('topK') ?? 20)))
+        const g = getGraph()
+        const allNodes = g.allNodes(), allEdges = g.allEdges()
+        const keep = new Set(allNodes.filter((n) => cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id))).map((n) => n.id))
+        const fNodes = allNodes.filter((n) => keep.has(n.id)); const fEdges = allEdges.filter((e) => keep.has(e.from) && keep.has(e.to))
+        const nodeById = new Map(allNodes.map((n) => [n.id, n]))
+        const labelOf = (id: string) => { const n = nodeById.get(id); return (n ? cleanLabel(n) : null) ?? '' }
+        const { predictLinks, verifyPredictions } = await import('./lib/graph-predict.js')
+        let preds = predictLinks(fNodes.map((n) => ({ id: n.id })), fEdges.map((e) => ({ from: e.from, to: e.to })), { topK })
+        if (verify) { const model = await pickChatModel(); preds = await verifyPredictions(preds, labelOf, { model }) }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({
+          predictions: preds.map((p) => ({ ...p, sourceLabel: labelOf(p.source), targetLabel: labelOf(p.target) })),
+          count: preds.length, verified: verify,
+        }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/graph/timeline — the temporal axis: bucket clean nodes by when they entered the graph
+  // to show how knowledge accreted over time (foundation for an "as-of" scrubber). ?buckets=N,
+  // ?asOf=<epoch ms> caps to knowledge known by that instant ("what did I know last month").
+  if (req.method === 'GET' && url.pathname === '/api/graph/timeline') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const buckets = Math.min(48, Math.max(4, Number(url.searchParams.get('buckets') ?? 12)))
+        const asOf = Number(url.searchParams.get('asOf') ?? 0) || Infinity
+        const g = getGraph()
+        const clean = g.allNodes().filter((n) => cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id)))
+        const ts = (n: typeof clean[number]) => { const c = n.createdAt; const v = typeof c === 'number' ? c : Date.parse(String(c)); return Number.isFinite(v) && v > 0 ? v : Number(n.properties?.['timestamp'] ?? 0) }
+        const dated = clean.map((n) => ({ t: ts(n), label: cleanLabel(n)! })).filter((x) => x.t > 0 && x.t <= asOf).sort((a, b) => a.t - b.t)
+        if (dated.length === 0) { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ buckets: [], total: 0, from: 0, to: 0 })); return }
+        const from = dated[0]!.t, to = dated[dated.length - 1]!.t
+        const width = Math.max(1, (to - from) / buckets)
+        const out = Array.from({ length: buckets }, (_, i) => ({ start: Math.round(from + i * width), end: Math.round(from + (i + 1) * width), newNodes: 0, cumulative: 0, newConcepts: [] as string[] }))
+        for (const d of dated) {
+          const idx = Math.min(buckets - 1, Math.floor((d.t - from) / width))
+          out[idx]!.newNodes++
+          if (out[idx]!.newConcepts.length < 6) out[idx]!.newConcepts.push(d.label)
+        }
+        let run = 0; for (const b of out) { run += b.newNodes; b.cumulative = run }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ from, to, total: dated.length, buckets: out }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/graph/communities — GraphRAG community reports: one LLM-written, grounding-verified
+  // summary per Louvain community. Cached by analytics signature + model; ?refresh=1 rebuilds.
+  if (req.method === 'GET' && url.pathname === '/api/graph/communities') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const refresh = url.searchParams.get('refresh') === '1'
+        const { analytics, sig, labelOf } = await analyticsForGraph(refresh)
+        const model = url.searchParams.get('model') || await pickChatModel()
+        const cached = loadCommunitiesCache()
+        const hit = !refresh && !!cached && cached.sig === sig && cached.model === model
+        let reports: import('./lib/graph-rag.js').CommunityReport[]
+        if (hit) { reports = cached!.reports }
+        else {
+          const { buildCommunityReports } = await import('./lib/graph-rag.js')
+          reports = await buildCommunityReports(analytics, labelOf, { model, maxCommunities: 24, minSize: 3 })
+          saveCommunitiesCache({ sig, model, reports, builtAt: new Date().toISOString() })
+        }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ model, communities: reports, count: reports.length, cached: hit }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // POST /api/graph/global — GraphRAG global sensemaking: map a question over the community reports,
+  // reduce to one grounded answer with a trust score. Body: { question }. Builds reports if absent.
+  if (req.method === 'POST' && url.pathname === '/api/graph/global') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      setCORSHeaders(res)
+      try {
+        const p = JSON.parse(body || '{}') as { question?: string }
+        const question = String(p.question ?? '').trim()
+        if (!question) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'question_required' })); return }
+        const { analytics, sig, labelOf } = await analyticsForGraph(false)
+        const model = await pickChatModel()
+        let cached = loadCommunitiesCache()
+        if (!cached || cached.sig !== sig || cached.model !== model) {
+          const { buildCommunityReports } = await import('./lib/graph-rag.js')
+          const reports = await buildCommunityReports(analytics, labelOf, { model, maxCommunities: 24, minSize: 3 })
+          cached = { sig, model, reports, builtAt: new Date().toISOString() }; saveCommunitiesCache(cached)
+        }
+        const { globalSearch } = await import('./lib/graph-rag.js')
+        const result = await globalSearch(question, cached.reports, { model, maxCommunities: 6 })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ...result, model }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })() })
+    return
+  }
+
+  // POST /api/import/chats — ingest a Claude/ChatGPT data-EXPORT (the conversations JSON) into the
+  // brain: each conversation becomes a Document (chunked + embedded + atoms), searchable + in the
+  // graph. History is NOT reachable via an API key — this is the export-file path. Body: the raw
+  // export array/object, or { data: <export> }.
+  if (req.method === 'POST' && url.pathname === '/api/import/chats') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      setCORSHeaders(res)
+      try {
+        let data: unknown
+        try { data = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const payload = (data && typeof data === 'object' && !Array.isArray(data) && 'data' in (data as Record<string, unknown>)) ? (data as Record<string, unknown>)['data'] : data
+        const { parseChatExport, transcript } = await import('./lib/chat-import.js')
+        const convs = parseChatExport(payload)
+        const { ingestDocument } = await import('./lib/doc-store.js')
+        let imported = 0, messages = 0
+        for (const conv of convs.slice(0, 5000)) {
+          try { await ingestDocument(`chats/${conv.title.replace(/[^a-z0-9 _-]/gi, '_').slice(0, 60)}.md`, transcript(conv)); imported++; messages += conv.messages.length } catch { /* skip one bad conv */ }
+        }
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ conversations: convs.length, imported, messages }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })() })
+    return
+  }
+
+  // POST /api/providers/capabilities — { provider, key } → probe the vendor's /models with the key
+  // and return the supported feature matrix (vision/tools/prompt-caching/pdf/image-gen/realtime/
+  // batch). Lets the router + UI expose ONLY what the key actually supports, instead of breaking on
+  // a feature the key can't serve.
+  if (req.method === 'POST' && url.pathname === '/api/providers/capabilities') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      setCORSHeaders(res)
+      try {
+        const p = JSON.parse(body || '{}') as { provider?: string; key?: string }
+        const { probeProvider } = await import('./lib/provider-caps.js')
+        const caps = await probeProvider(p.provider ?? 'anthropic', p.key ?? '')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(caps))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })() })
+    return
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/mesh/status') {
+    setCORSHeaders(res)
+    const tiers = meshLadder({ hasAnthropicKey: !!process.env['ANTHROPIC_API_KEY'] })
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ tiers }))
+    return
+  }
+
+  // GET/POST /api/graph/hygiene — the graph cleanup pass. GET = dry-run report (the plan:
+  // class breakdown, spell flags, near-duplicate groups, orphan dispositions). POST {apply:true}
+  // non-destructively marks junk-class nodes hygiene_pruned=true (reversible; the surface hides
+  // them). Merges are reported for review, not auto-applied.
+  if (url.pathname === '/api/graph/hygiene' && (req.method === 'GET' || req.method === 'POST')) {
+    const run = (apply: boolean) => {
+      setCORSHeaders(res)
+      try {
+        const g = getGraph()
+        const hn = g.allNodes().map((n) => ({ id: n.id, label: cleanLabel(n) ?? (n.labels[0] ?? n.id), labelType: n.labels[0] ?? '', degree: 0 }))
+        const edges = g.allEdges().map((e) => ({ from: e.from, to: e.to }))
+        const report = buildReport(hn, edges, TAXONOMY_WORDS)
+        let pruned = 0, merged = 0, attached = 0
+        if (apply) {
+          const gx = g as unknown as { setNodeProperty: (i: string, k: string, v: unknown) => void; addEdge: (t: string, f: string, to: string, p?: Record<string, unknown>) => void }
+          for (const id of report.prunable) { try { gx.setNodeProperty(id, 'hygiene_pruned', true); pruned++ } catch { /* */ } }
+          for (const m of report.mergeActions) { try { gx.setNodeProperty(m.id, 'hygiene_pruned', true); gx.setNodeProperty(m.id, 'hygiene_merged_into', m.into); merged++ } catch { /* */ } }
+          for (const a of report.attachActions) { try { gx.addEdge('HYGIENE_ATTACH', a.id, a.to, {}); attached++ } catch { /* */ } }
+        }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ...report, applied: apply ? { pruned, merged, attached } : null }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    }
+    if (req.method === 'GET') { run(false); return }
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { let p: { apply?: boolean } = {}; try { p = JSON.parse(body || '{}') } catch { /* */ } run(!!p.apply) })
+    return
+  }
+
+  // POST /api/workspace/write — apply/revert a single file in a workspace (reject = write the
+  // pre-solve content; delete=true removes a file the agent newly created). Sandboxed to the
+  // workspace dir. Backs the diff review panel's accept/reject.
+  if (req.method === 'POST' && url.pathname === '/api/workspace/write') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => {
+      setCORSHeaders(res)
+      let p: { ws?: string; path?: string; content?: string; delete?: boolean } = {}
+      try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+      const wsName = String(p.ws ?? '').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 40)
+      const rel = String(p.path ?? '').replace(/^\/+/, '')
+      if (!wsName || !rel) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'ws_and_path_required' })); return }
+      const ws = path.join(os.homedir(), '.noetica', 'workspaces', wsName)
+      const fp = path.resolve(ws, rel)
+      if (!fp.startsWith(ws + path.sep)) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'path_escape' })); return }
+      try {
+        if (p.delete) { if (fs.existsSync(fp)) fs.rmSync(fp) }
+        else { fs.mkdirSync(path.dirname(fp), { recursive: true }); fs.writeFileSync(fp, String(p.content ?? '')) }
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'write_failed' }))
+      }
+    })
     return
   }
 
@@ -4807,7 +5725,7 @@ const server = http.createServer((req, res) => {
           }
           res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'not_found' }))
         } catch (e) {
-          res.writeHead(502, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+          res.writeHead(502, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
         }
       })()
     })
@@ -4985,6 +5903,7 @@ server.listen(PORT, '127.0.0.1', () => {
   // the durable store rather than the about-to-be-replaced default.
   const finishBoot = () => {
     loadLearningState()
+    loadContainment()
     booted = true // teardown() may now persist learning state on exit
     recordTrendSnapshot() // capture/refresh today's point on boot
     // Embed-model preflight: document RAG depends on the embedding model. Warn loudly
@@ -5308,6 +6227,29 @@ server.listen(PORT, '127.0.0.1', () => {
           console.log('[prewarm] intent embedding centroids built')
         } catch { /* best-effort */ }
       }
+      // Durable cleanup: re-run the cheap, idempotent hygiene pass on boot, but ONLY when the graph
+      // changed since the last run (incremental — node-count gated). Marks persist via the WAL, so
+      // pruned junk, merged duplicates, and verb/path noise never creep back across launches.
+      try {
+        const g0 = getGraph()
+        const stateFile = path.join(os.homedir(), '.noetica', 'cache', 'hygiene-state.json')
+        const count = g0.allNodes().length
+        let last = -1
+        try { last = JSON.parse(fs.readFileSync(stateFile, 'utf8')).count } catch { /* first run */ }
+        if (count !== last) {
+          const hn = g0.allNodes().map((n) => ({ id: n.id, label: cleanLabel(n) ?? (n.labels[0] ?? n.id), labelType: n.labels[0] ?? '', degree: 0 }))
+          const edges = g0.allEdges().map((e) => ({ from: e.from, to: e.to }))
+          const report = buildReport(hn, edges, TAXONOMY_WORDS)
+          const gx = g0 as unknown as { setNodeProperty: (i: string, k: string, v: unknown) => void; addEdge: (t: string, f: string, to: string, p?: Record<string, unknown>) => void }
+          let pruned = 0, merged = 0, attached = 0
+          for (const id of report.prunable) { try { gx.setNodeProperty(id, 'hygiene_pruned', true); pruned++ } catch { /* */ } }
+          for (const m of report.mergeActions) { try { gx.setNodeProperty(m.id, 'hygiene_pruned', true); gx.setNodeProperty(m.id, 'hygiene_merged_into', m.into); merged++ } catch { /* */ } }
+          for (const a of report.attachActions) { try { gx.addEdge('HYGIENE_ATTACH', a.id, a.to, {}); attached++ } catch { /* */ } }
+          try { fs.mkdirSync(path.dirname(stateFile), { recursive: true }); fs.writeFileSync(stateFile, JSON.stringify({ count })) } catch { /* */ }
+          console.log(`[prewarm] hygiene applied: pruned ${pruned}, merged ${merged}, attached ${attached}`)
+        }
+      } catch { /* best-effort */ }
+
       // Prewarm the graph topic clustering so the Graph panel shows clean topics instantly on
       // first open, instead of serving the raw degree-rank fallback while embeddings warm.
       try {

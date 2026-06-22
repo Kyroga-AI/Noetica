@@ -109,6 +109,29 @@ function slug(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60)
 }
 
+/**
+ * Link a source Document to ALL its projections as EXPLICIT edges (not just a doc_id
+ * property), so "this doc → its chunks/entities" is graph-traversable. This completes the
+ * "one source doc links all its projections" model. Idempotent — runs once per doc.
+ */
+function linkProjections(g: ReturnType<typeof getHellGraph>, docId: string): { chunks: number; entities: number } {
+  let chunks = 0, entities = 0
+  try {
+    if (g.out(docId, 'PRODUCED').length === 0) {
+      for (const c of g.nodesByLabel(CHUNK_LABEL)) {
+        if (c.properties['doc_id'] === docId) { g.addEdge('PRODUCED', docId, c.id, { kind: 'chunk' }); chunks++ }
+      }
+    } else chunks = g.out(docId, 'PRODUCED').length
+    if (g.out(docId, 'GROUNDS').length === 0) {
+      for (const e of g.nodesByLabel('CanonicalEntity')) {
+        const src = e.properties['doc_id'] ?? e.properties['source'] ?? e.properties['provenance']
+        if (src === docId) { g.addEdge('GROUNDS', docId, e.id, { kind: 'entity' }); entities++ }
+      }
+    } else entities = g.out(docId, 'GROUNDS').length
+  } catch { /* projection linking is best-effort */ }
+  return { chunks, entities }
+}
+
 /** Chunk → embed → store as DocumentChunk atoms (text + vector + provenance).
  *  Content-addressed + idempotent: re-uploading identical content is a no-op
  *  (no duplicate chunks skewing retrieval). */
@@ -121,6 +144,7 @@ export async function ingestDocument(filename: string, text: string): Promise<In
   if (g.getNode(docId)) {
     const existing = g.nodesByLabel(CHUNK_LABEL).filter((n) => n.properties['doc_id'] === docId)
     const gr = groundThroughOntology(docId, text)
+    linkProjections(g, docId)   // backfill projection edges on re-ingest of older docs
     return { documentId: docId, filename, chunks: existing.length, embedded: existing.filter((n) => String(n.properties['embedding'] ?? '')).length, preview: existing.slice(0, 2).map((n) => String(n.properties['text'] ?? '').slice(0, 120)), entities: gr.entities, grounding: { confirmed: gr.confirmed, residual: gr.residual } }
   }
   const chunks = chunkText(text)
@@ -132,9 +156,15 @@ export async function ingestDocument(filename: string, text: string): Promise<In
     // Store via HellGraph's canonical vector pipeline (one chunk representation everywhere).
     hgPutChunk({ docId, idx, text: chunk, vec, filename })
   }
-  g.addNode(docId, ['Document'], { filename, chunk_count: chunks.length, created_at: new Date().toISOString() })
+  // Preserve the raw source in the content-addressed blob store (so it can be re-extracted /
+  // audited later) and stamp the Document atom with the hash that points to it.
+  let rawHash = ''
+  try { const { putBlob } = await import('./blob-store.js'); rawHash = putBlob(text).hash } catch { /* blob store best-effort */ }
+  g.addNode(docId, ['Document'], { filename, chunk_count: chunks.length, created_at: new Date().toISOString(), ...(rawHash ? { raw_hash: rawHash, raw_bytes: Buffer.byteLength(text) } : {}) })
   // Ground the doc through the ontology (perception → epistemic substrate).
   const gr = groundThroughOntology(docId, text)
+  // Link the source doc to ALL its projections as explicit edges (chunks + entities).
+  linkProjections(g, docId)
   return { documentId: docId, filename, chunks: chunks.length, embedded, preview: chunks.slice(0, 2).map((c) => c.slice(0, 120)), entities: gr.entities, grounding: { confirmed: gr.confirmed, residual: gr.residual } }
 }
 
@@ -144,7 +174,7 @@ export async function ingestDocument(filename: string, text: string): Promise<In
 // (CPU-variant aware) and the NOETICA_DEMO_DOC scope — so there is ONE vector store and
 // ONE search implementation. Brain injection: see scripts/inject-brain.ts → importBrainShard.
 
-export interface ChunkHit { text: string; filename: string; score: number; docId: string }
+export interface ChunkHit { text: string; filename: string; score: number; docId: string; idx?: number }
 
 /** Top-k document chunks by cosine to the query — delegated to HellGraph's vector engine. */
 export async function semanticSearch(query: string, k = 5): Promise<ChunkHit[]> {
@@ -175,9 +205,25 @@ export function lexicalSearch(query: string, k = 15): ChunkHit[] {
     let hits = 0
     for (const t of qTerms) if (lc.includes(t)) hits++
     if (hits === 0) continue
-    scored.push({ text, filename: String(n.properties['filename'] ?? ''), score: hits / qTerms.length, docId: String(n.properties['doc_id'] ?? '') })
+    scored.push({ text, filename: String(n.properties['filename'] ?? ''), score: hits / qTerms.length, docId: String(n.properties['doc_id'] ?? ''), idx: Number(n.properties['idx'] ?? 0) })
   }
   return scored.sort((a, b) => b.score - a.score).slice(0, k)
+}
+
+/**
+ * Hybrid reranked retrieval — the default RAG path. Fuses the semantic (embedding cosine) and
+ * lexical (keyword) rankers via Reciprocal Rank Fusion + an exact-term-overlap boost, and attaches
+ * a PER-CHUNK citation (filename#chunkIndex) to each result. Beats single-stage cosine top-k (the
+ * field's #1 RAG complaint) using signals Noetica already has. Returns reranked chunks; callers
+ * inject `text` and surface `citation` as provenance.
+ */
+export async function searchDocsReranked(query: string, limit = 8): Promise<import('./rag-rerank.js').RankedChunk[]> {
+  const { fuseRerank } = await import('./rag-rerank.js')
+  const [semantic, lexical] = await Promise.all([
+    semanticSearch(query, Math.max(limit, 8)),
+    Promise.resolve(lexicalSearch(query, Math.max(limit * 2, 16))),
+  ])
+  return fuseRerank(semantic, lexical, query, { limit })
 }
 
 export interface ChartHit extends ChunkHit {
