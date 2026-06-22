@@ -26,6 +26,8 @@ const CAPS: Capability[] = [
   { id: 'topic-scope', label: 'Slash-topic scope', group: 'Interop', sample: { pack: { topic: '/security', version: '1', include: ['auth', 'guardrail'], exclude: ['recipe'] }, items: [{ text: 'auth flow' }, { text: 'cooking recipe' }, { text: 'guardrail policy' }] } },
   { id: 'weighted-rank', label: 'Truth-weighted PageRank', group: 'OpenCog', sample: { nodes: ['A', 'B', 'NOISE'], edges: [{ from: 'A', to: 'B', tv: { strength: 0.9, confidence: 0.9 } }, { from: 'A', to: 'NOISE', tv: { strength: 0.5, confidence: 0.05 } }] } },
   { id: 'pln-truth', label: 'PLN truth (deduction/revision)', group: 'OpenCog', sample: { op: 'deduction', a: { strength: 0.9, confidence: 0.8 }, b: { strength: 0.8, confidence: 0.7 } } },
+  { id: 'cms-create', label: 'Artifact CMS — create (versioned)', group: 'CMS', sample: { title: 'Design Doc', type: 'document', content: '# v1\nfirst draft', tags: ['design'] } },
+  { id: 'cms-list', label: 'Artifact CMS — list/search', group: 'CMS', sample: {} },
 ]
 
 export function LabSurface() {

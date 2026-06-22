@@ -158,6 +158,44 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
         idx.addMany((b.vectors ?? []) as Array<{ id: string; vec: number[] }>)
         return send(200, { results: idx.search((b.query ?? []) as number[], b.k ?? 10, b.excludeId) }), true
       }
+      // ── Artifact CMS (versioned, content-addressed) + drive integration ──
+      case 'cms-create': {
+        const { getArtifactCMS, persistArtifactCMS } = await import('./artifact-cms.js')
+        const c = await getArtifactCMS()
+        const m = c.create({ title: String(b.title ?? 'Untitled'), type: (b.type ?? 'document') as 'document', content: String(b.content ?? ''), tags: b.tags as string[] | undefined })
+        await persistArtifactCMS()
+        return send(200, { artifact: m }), true
+      }
+      case 'cms-list': {
+        const { getArtifactCMS } = await import('./artifact-cms.js')
+        const c = await getArtifactCMS()
+        return send(200, { artifacts: b.query ? c.search(String(b.query)) : c.list(b.filter as { type?: 'document'; tag?: string } | undefined) }), true
+      }
+      case 'cms-get': {
+        const { getArtifactCMS } = await import('./artifact-cms.js')
+        const c = await getArtifactCMS()
+        const m = c.get(String(b.id))
+        return send(m ? 200 : 404, m ? { artifact: m, content: c.getContent(String(b.id), b.version as number | undefined), history: c.history(String(b.id)) } : { error: 'not_found' }), true
+      }
+      case 'cms-update': {
+        const { getArtifactCMS, persistArtifactCMS } = await import('./artifact-cms.js')
+        const c = await getArtifactCMS()
+        const m = c.update(String(b.id), String(b.content ?? ''), b.message as string | undefined)
+        if (m) await persistArtifactCMS()
+        return send(m ? 200 : 404, m ? { artifact: m } : { error: 'not_found' }), true
+      }
+      case 'cms-rollback': {
+        const { getArtifactCMS, persistArtifactCMS } = await import('./artifact-cms.js')
+        const c = await getArtifactCMS()
+        const m = c.rollback(String(b.id), Number(b.version))
+        if (m) await persistArtifactCMS()
+        return send(m ? 200 : 404, m ? { artifact: m } : { error: 'not_found' }), true
+      }
+      case 'cms-to-drive': {
+        const { writeArtifactToDrive } = await import('./artifact-cms.js')
+        const r = await writeArtifactToDrive(String(b.id), String(b.workspace ?? 'default'))
+        return send(r ? 200 : 404, r ?? { error: 'not_found' }), true
+      }
       // ── OpenCog values: truth-weighted/attention-personalized ranking + PLN truth ──
       case 'weighted-rank': {
         const { weightedPageRank, stiNorm } = await import('./opencog-values.js')
