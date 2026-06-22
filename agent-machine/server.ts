@@ -34,6 +34,7 @@ import * as path from 'node:path'
 import * as os from 'node:os'
 import * as dns from 'node:dns'
 import * as net from 'node:net'
+import { originAllowed } from './lib/origin-guard.js'
 import { buildRouterDecision, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider } from './lib/router.js'
 import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTelemetry, type MeshTier } from './lib/scope-d.js'
 import { installEgressGuard, setOfflineMode } from './lib/egress-guard.js'
@@ -3787,6 +3788,22 @@ const server = http.createServer((req, res) => {
     res.writeHead(204)
     res.end()
     return
+  }
+
+  // Drive-by CSRF / DNS-rebinding guard. CORS '*' + simple (no-preflight) POSTs let any web page the
+  // user visits POST to this loopback server and trigger side effects (run_command → RCE, ingest →
+  // file read); CORS only hides the RESPONSE, not the WRITE. Reject mutating requests bearing a
+  // cross-site Origin. Native/CLI callers send no Origin; the local UI (localhost/tauri/127.0.0.1, any
+  // port) is allowlisted. GETs are unaffected. Escape hatch: NOETICA_ORIGIN_GUARD=0.
+  if (process.env['NOETICA_ORIGIN_GUARD'] !== '0') {
+    const oh = req.headers['origin']
+    const origin = Array.isArray(oh) ? oh[0] : oh
+    if (!originAllowed(req.method, origin)) {
+      console.warn(`[security] rejected cross-origin ${req.method} ${req.url ?? ''} from origin=${logSafe(origin)}`)
+      res.writeHead(403, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ error: 'cross-origin request rejected (set NOETICA_ORIGIN_GUARD=0 to allow)' }))
+      return
+    }
   }
 
   // Global request body-size guard. Every POST handler accumulates the body in memory;
