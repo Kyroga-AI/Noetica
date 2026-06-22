@@ -31,7 +31,9 @@ export function putBlob(data: Buffer | string): BlobRef {
   const buf = typeof data === 'string' ? Buffer.from(data, 'utf8') : data
   if (buf.length > MAX_BLOB_BYTES) throw new Error(`blob exceeds ${MAX_BLOB_BYTES} bytes (${buf.length})`)
   const hash = createHash('sha256').update(buf).digest('hex')
-  // Path is the content hash (sha256) — never caller-controlled, so it can't escape the blob dir.
+  // Sanitize the path component: a sha256 hex digest is always exactly 64 chars of [0-9a-f], so
+  // assert it — the blob path can then only ever be safe hex, never traversal.
+  if (!/^[0-9a-f]{64}$/.test(hash)) throw new Error('invalid blob hash')
   const p = blobPath(hash)
   mkdirSync(dirname(p), { recursive: true })
   // Atomic create ('wx' fails if it exists) — no check-then-write race. Since the path IS the
