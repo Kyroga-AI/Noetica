@@ -37,6 +37,33 @@ export function GraphRailPanel() {
   const [pathMode, setPathMode] = useState(false)
   const [pathFrom, setPathFrom] = useState('')
   const [pathIds, setPathIds] = useState<string[]>([])
+  // GDS overlay (size by PageRank importance, colour by Louvain community) + GraphRAG themes.
+  const [colorBy, setColorBy] = useState<'class' | 'community'>('class')
+  const [sizeBy, setSizeBy] = useState<'degree' | 'importance'>('degree')
+  const [metrics, setMetrics] = useState<Record<string, { pagerank: number; betweenness: number; community: number }>>({})
+  const [showThemes, setShowThemes] = useState(false)
+  const [communities, setCommunities] = useState<Array<{ id: number; title: string; summary: string; trust: number; grounded: boolean; size: number; topNodes: string[] }>>([])
+  const [themesLoading, setThemesLoading] = useState(false)
+  const [globalQ, setGlobalQ] = useState('')
+  const [globalAnswer, setGlobalAnswer] = useState<{ answer: string; trust: number; grounded: boolean; communitiesUsed: Array<{ title: string }> } | null>(null)
+  const [globalLoading, setGlobalLoading] = useState(false)
+
+  async function loadThemes() {
+    setThemesLoading(true)
+    try {
+      const res = await fetch('/api/graph/communities')
+      if (res.ok) { const j = await res.json() as { communities?: typeof communities }; setCommunities(j.communities ?? []) }
+    } catch { /* offline */ } finally { setThemesLoading(false) }
+  }
+  async function askGlobal() {
+    const question = globalQ.trim()
+    if (!question || globalLoading) return
+    setGlobalLoading(true); setGlobalAnswer(null)
+    try {
+      const res = await fetch('/api/graph/global', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question }) })
+      if (res.ok) setGlobalAnswer(await res.json() as NonNullable<typeof globalAnswer>)
+    } catch { /* offline */ } finally { setGlobalLoading(false) }
+  }
 
   async function handleNodeClick(id: string) {
     if (!pathMode) { setRoot(id); return }
@@ -95,6 +122,21 @@ export function GraphRailPanel() {
     void load()
     return () => { cancelled = true }
   }, [view, root])
+
+  // GDS metrics overlay (PageRank / community / betweenness), keyed by node id — cheap + cached
+  // server-side, so re-fetching on view change is fine; metrics merge onto whatever nodes are shown.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/graph/analytics')
+        if (!res.ok) return
+        const j = (await res.json()) as { nodes?: Record<string, { pagerank: number; betweenness: number; community: number }> }
+        if (!cancelled && j.nodes) setMetrics(j.nodes)
+      } catch { /* offline */ }
+    })()
+    return () => { cancelled = true }
+  }, [view])
 
   // graph search — cosine + Jaccard + link expansion (debounced)
   useEffect(() => {
@@ -220,6 +262,24 @@ export function GraphRailPanel() {
           </button>
           {pathIds.length > 0 && <button onClick={() => setPathIds([])} className="text-[#f59e0b]">clear</button>}
         </div>
+        {/* GDS overlay: colour by Louvain community, size by PageRank importance; cyan-ringed nodes
+            are high-betweenness "bridge" concepts. Themes opens the GraphRAG community summaries. */}
+        <div className="mt-1.5 flex items-center gap-1 text-[10px]">
+          <span className="text-[var(--color-text-tertiary)]">color</span>
+          {(['class', 'community'] as const).map((C) => (
+            <button key={C} onClick={() => setColorBy(C)}
+              className={`rounded-full border px-2 py-0.5 capitalize transition ${colorBy === C ? 'border-[#1d4ed8] text-[#1d4ed8]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-tertiary)]'}`}>{C}</button>
+          ))}
+          <span className="ml-1.5 text-[var(--color-text-tertiary)]">size</span>
+          {(['degree', 'importance'] as const).map((S) => (
+            <button key={S} onClick={() => setSizeBy(S)}
+              className={`rounded-full border px-2 py-0.5 capitalize transition ${sizeBy === S ? 'border-[#1d4ed8] text-[#1d4ed8]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-tertiary)]'}`}>{S}</button>
+          ))}
+          <button onClick={() => { setShowThemes((v) => !v); if (!showThemes && communities.length === 0) void loadThemes() }} title="GraphRAG: LLM-summarized themes + ask across everything"
+            className={`ml-auto rounded-full border px-2 py-0.5 transition ${showThemes ? 'border-[#7c3aed] text-[#7c3aed]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-tertiary)]'}`}>
+            🧭 themes
+          </button>
+        </div>
         {/* Entity-class legend + filter, and a trust toggle. Click a class to hide it; "confirmed
             only" hides inferred (dashed) edges so you see what the graph KNOWS vs guesses. */}
         {(() => {
@@ -262,12 +322,58 @@ export function GraphRailPanel() {
         })()}
       </div>
 
+      {showThemes && (
+        <div className="border-t border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2.5">
+          {/* GraphRAG global sensemaking: a question answered by map-reduce over community summaries. */}
+          <div className="flex items-center gap-1.5">
+            <input value={globalQ} onChange={(e) => setGlobalQ(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void askGlobal() }}
+              placeholder="Ask across everything you know…"
+              className="min-w-0 flex-1 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-[11px] text-[var(--color-text-primary)] outline-none focus:border-[#7c3aed]" />
+            <button onClick={() => void askGlobal()} disabled={globalLoading || !globalQ.trim()}
+              className="shrink-0 rounded-lg bg-[#7c3aed] px-2.5 py-1.5 text-[11px] font-semibold text-white transition disabled:opacity-50">
+              {globalLoading ? '…' : 'Ask'}
+            </button>
+          </div>
+          {globalAnswer && (
+            <div className="mt-2 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-2 text-[11px] leading-relaxed text-[var(--color-text-secondary)]">
+              <p className="whitespace-pre-wrap">{globalAnswer.answer}</p>
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[9px]">
+                <span className={`rounded-full px-1.5 py-0.5 font-semibold ${globalAnswer.grounded ? 'bg-[#16a34a]/15 text-[#16a34a]' : 'bg-[#f59e0b]/15 text-[#f59e0b]'}`}>
+                  {globalAnswer.grounded ? '✓' : '⚠'} trust {globalAnswer.trust.toFixed(2)}
+                </span>
+                {globalAnswer.communitiesUsed.map((c, i) => (
+                  <span key={i} className="rounded-full bg-[var(--color-background-secondary)] px-1.5 py-0.5 text-[var(--color-text-tertiary)]">{c.title}</span>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Community themes — one LLM report per Louvain community, each grounding-trust scored. */}
+          <div className="mt-2.5 flex items-center justify-between">
+            <span className="text-[9px] uppercase tracking-wide text-[var(--color-text-tertiary)]">themes {communities.length ? `(${communities.length})` : ''}</span>
+            <button onClick={() => void loadThemes()} disabled={themesLoading} className="text-[9px] text-[#7c3aed] disabled:opacity-50">{themesLoading ? 'summarizing…' : 'refresh'}</button>
+          </div>
+          <div className="mt-1 max-h-44 space-y-1.5 overflow-y-auto">
+            {communities.length === 0 && !themesLoading && <p className="text-[10px] text-[var(--color-text-tertiary)]">No themes yet — refresh to summarize communities.</p>}
+            {communities.map((c) => (
+              <div key={c.id} className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="truncate text-[11px] font-semibold text-[var(--color-text-primary)]">{c.title}</span>
+                  <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[8px] font-semibold ${c.grounded ? 'bg-[#16a34a]/15 text-[#16a34a]' : 'bg-[#f59e0b]/15 text-[#f59e0b]'}`}>{c.grounded ? '✓' : '⚠'} {c.trust.toFixed(2)}</span>
+                </div>
+                <p className="mt-0.5 text-[10px] leading-snug text-[var(--color-text-secondary)]">{c.summary}</p>
+                <p className="mt-0.5 truncate text-[9px] text-[var(--color-text-tertiary)]">{c.topNodes.join(' · ')}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="flex min-h-0 flex-1 flex-col gap-2 p-3">
         {graph.nodes.length > 0 ? (
           <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
             <SurfaceGraph nodes={graph.nodes} links={graph.links} fill onNodeClick={handleNodeClick} layout={layout} pathIds={pathIds}
               visibleKinds={hiddenKinds.size ? new Set(graph.nodes.map((n) => n.kind ?? 'Concept').filter((k) => !hiddenKinds.has(k))) : undefined}
-              hideInferred={hideInferred} />
+              hideInferred={hideInferred} colorBy={colorBy} sizeBy={sizeBy} metrics={metrics} />
             {root && (() => {
               const fn = graph.nodes.find((n) => n.id === root)
               const mem = memMap[root]
@@ -347,7 +453,7 @@ export function GraphRailPanel() {
             {graph.nodes.length > 0 ? (
               <SurfaceGraph nodes={graph.nodes} links={graph.links} fill onNodeClick={handleNodeClick} layout={layout} pathIds={pathIds}
               visibleKinds={hiddenKinds.size ? new Set(graph.nodes.map((n) => n.kind ?? 'Concept').filter((k) => !hiddenKinds.has(k))) : undefined}
-              hideInferred={hideInferred} />
+              hideInferred={hideInferred} colorBy={colorBy} sizeBy={sizeBy} metrics={metrics} />
             ) : (
               <div className="flex h-full items-center justify-center text-[12px] text-[var(--color-text-tertiary)]">No nodes for this lens yet.</div>
             )}

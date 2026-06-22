@@ -28,6 +28,12 @@ export const KIND_COLOR: Record<string, string> = {
 }
 export const KIND_ORDER = ['Concept', 'Service', 'Code', 'Document', 'Session', 'Entity', 'Person', 'Org', 'Action', 'Cluster']
 
+// Louvain-community palette — distinct hues, cycled, used when colouring nodes by community (GDS).
+export const COMMUNITY_COLORS = ['#2563eb', '#db2777', '#16a34a', '#ea580c', '#9333ea', '#0891b2', '#ca8a04', '#dc2626', '#0f766e', '#7c3aed', '#c026d3', '#65a30d']
+export function communityColor(c: number | undefined): string { return c === undefined || c < 0 ? '#64748b' : COMMUNITY_COLORS[c % COMMUNITY_COLORS.length]! }
+// Per-node GDS metrics overlaid on the surface (from /api/graph/analytics), keyed by node id.
+export type NodeMetric = { pagerank: number; betweenness: number; community: number }
+
 // Edge colour by CSKG semantic dimension — the graph reads as a relationship map, not a hairball.
 export const DIM_COLOR: Record<string, string> = {
   taxonomic: '#3b82f6', 'part-whole': '#8b5cf6', causation: '#ef4444', temporal: '#06b6d4',
@@ -68,9 +74,10 @@ interface Sim extends GraphNode { x: number; y: number; vx: number; vy: number; 
  */
 export type GraphLayout = 'force' | 'radial' | 'hierarchy'
 
-export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick, visibleKinds, hideInferred, layout = 'force', pathIds }: {
+export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick, visibleKinds, hideInferred, layout = 'force', pathIds, colorBy = 'class', sizeBy = 'degree', metrics }: {
   nodes: GraphNode[]; links: GraphLink[]; width?: number; height?: number; fill?: boolean; onNodeClick?: (id: string) => void
   visibleKinds?: Set<string>; hideInferred?: boolean; layout?: GraphLayout; pathIds?: string[]
+  colorBy?: 'class' | 'community'; sizeBy?: 'importance' | 'degree'; metrics?: Record<string, NodeMetric>
 }) {
   // Faceted filtering: hide whole entity classes, and/or hide low-trust (inferred) edges.
   const fNodes = useMemo(() => (visibleKinds ? nodes.filter((n) => visibleKinds.has(n.kind ?? 'Concept')) : nodes), [nodes, visibleKinds])
@@ -288,21 +295,30 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick, v
           return <line key={i} x1={s.x} y1={s.y} x2={t.x} y2={t.y} stroke={dimColor} strokeWidth={l.primary ? 2.5 : 1.4} strokeDasharray={inferred ? '5 4' : undefined} strokeOpacity={inferred ? 0.45 : 0.8} />
         })}
       </g>
-      {ns.map((n) => (
+      {ns.map((n) => {
+        // GDS overlay: size by PageRank importance (sqrt-scaled to spread small values), colour by
+        // Louvain community, and ring "bridge" concepts (high betweenness) — when metrics are present.
+        const m = metrics?.[n.id]
+        const dr = sizeBy === 'importance' && m ? 9 + Math.sqrt(Math.max(0, m.pagerank)) * 22 : n.r
+        const nodeFill = colorBy === 'community' && m ? communityColor(m.community) : (KIND_COLOR[n.kind ?? ''] ?? COLOR[n.category] ?? COLOR.other)
+        const isBridge = !!m && m.betweenness >= 0.4
+        return (
         <g key={n.id} transform={`translate(${n.x},${n.y})`} cursor="grab"
           onPointerDown={(e) => { dragRef.current = { id: n.id }; movedRef.current = false; (e.target as Element).setPointerCapture?.(e.pointerId); alphaRef.current = Math.max(alphaRef.current, 0.3); ensureRunningRef.current() }}>
-          <title>{n.label}</title>
-          {pathSet.has(n.id) && <circle r={n.r + 4} fill="none" stroke="#f59e0b" strokeWidth={2.5} />}
-          <circle r={n.r} fill={KIND_COLOR[n.kind ?? ''] ?? COLOR[n.category] ?? COLOR.other} stroke="#fff" strokeWidth={n.featured ? 3 : 2} filter="url(#spNodeGlow)" />
+          <title>{n.label}{m ? ` · importance ${m.pagerank.toFixed(2)}${isBridge ? ' · bridge concept' : ''}` : ''}</title>
+          {pathSet.has(n.id) && <circle r={dr + 4} fill="none" stroke="#f59e0b" strokeWidth={2.5} />}
+          {isBridge && !pathSet.has(n.id) && <circle r={dr + 4} fill="none" stroke="#22d3ee" strokeWidth={2} strokeDasharray="2 3" strokeOpacity={0.85} />}
+          <circle r={dr} fill={nodeFill} stroke="#fff" strokeWidth={n.featured ? 3 : 2} filter="url(#spNodeGlow)" />
           {/* readable label BELOW the node: featured hubs show the full concept, others the
               disemvowelled form so the whole word is recognizable (no "self n…" truncation). */}
-          <text textAnchor="middle" dy={n.r + 11} fontSize={n.featured ? 11 : 9.5} fontWeight={n.featured ? 700 : 600}
+          <text textAnchor="middle" dy={dr + 11} fontSize={n.featured ? 11 : 9.5} fontWeight={n.featured ? 700 : 600}
             fill={n.featured ? 'var(--color-text-primary, #e5e7eb)' : 'var(--color-text-secondary, #94a3b8)'}
             stroke="rgba(0,0,0,0.55)" strokeWidth={3} paintOrder="stroke" pointerEvents="none">
             {n.featured ? (n.label.length > 22 ? n.label.slice(0, 21) + '…' : n.label) : squeeze(n.label)}
           </text>
         </g>
-      ))}
+        )
+      })}
     </svg>
     </div>
   )
