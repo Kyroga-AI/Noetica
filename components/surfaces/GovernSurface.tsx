@@ -119,6 +119,7 @@ interface AgentMachineRun {
   error?: string
 }
 
+interface MemoryRecord { id: string; kind: string; createdAt: string; preview: string; pinned: boolean; lti: number }
 interface BanditArm { task: string; provider: string; model: string; plays: number; mean_reward: number; leading: boolean }
 interface MeshTrends {
   quality?: { delta: number; improving: boolean; samples: number }
@@ -161,6 +162,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   const [confirmClear, setConfirmClear]   = useState(false)
   const [amRuns, setAmRuns]               = useState<AgentMachineRun[]>([])
   const [trends, setTrends]               = useState<MeshTrends | null>(null)
+  const [memories, setMemories]           = useState<MemoryRecord[]>([])
   const [filterVerdict, setFilterVerdict] = useState<'all' | PolicyVerdict>('all')
   const [filterModel, setFilterModel]     = useState<string>('all')
 
@@ -181,7 +183,27 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
       .then(r => r.ok ? r.json() : null)
       .then((d: MeshTrends | null) => { if (d) setTrends(d) })
       .catch(() => { /* not running — skip */ })
+    loadMemories()
   }, [])
+
+  function loadMemories() {
+    fetch(amUrl('/api/memory/graph'), { signal: AbortSignal.timeout(3000) })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: { memories?: MemoryRecord[] } | null) => { if (d?.memories) setMemories(d.memories) })
+      .catch(() => { /* not running — skip */ })
+  }
+
+  // Curate the long-term brain: pin (inject into recall) / forget (soft-delete). Optimistic.
+  async function pinMemory(id: string, pinned: boolean) {
+    setMemories((ms) => ms.map((m) => (m.id === id ? { ...m, pinned } : m)))
+    try { await fetch(amUrl('/api/memory/pin'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id, pinned }) }) }
+    catch { loadMemories() }
+  }
+  async function forgetMemory(id: string) {
+    setMemories((ms) => ms.filter((m) => m.id !== id))
+    try { await fetch(amUrl('/api/memory/forget'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id }) }) }
+    catch { loadMemories() }
+  }
 
   // Merge local ledger events with agent-machine run history, deduped by id, sorted newest-first
   const amEvents: AuditEvent[] = amRuns.map(amRunToAuditEvent)
@@ -353,6 +375,36 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                   <span className="tabular-nums">{r.tokens_egressed.toLocaleString()} tok</span>
                   <span className={r.policy === 'admitted' ? 'text-[var(--color-text-tertiary)]' : 'font-medium text-[#dc2626]'}>{r.policy}</span>
                   <span className="ml-auto text-[var(--color-text-tertiary)]">{r.when.slice(0, 16).replace('T', ' ')}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Memory — curate the long-term brain: pin to inject into recall, forget to drop. The
+            curatable graph memory no competitor ships (you asked: "curate memories into the brain"). */}
+        <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+          <div className="mb-1 flex items-center justify-between">
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Memory</div>
+            <div className="text-[10px] text-[var(--color-text-tertiary)]">{memories.filter((m) => m.pinned).length} pinned · {memories.length} total</div>
+          </div>
+          <div className="mb-3 text-[11px] text-[var(--color-text-tertiary)]">What the agent remembers about you. ★ Pin to keep it in long-term recall; × to forget it. This is yours to curate — nothing leaves the device.</div>
+          {memories.length === 0 ? (
+            <div className="text-[11px] text-[var(--color-text-tertiary)]">No memories yet — the agent writes these as it learns your preferences and facts.</div>
+          ) : (
+            <div className="space-y-1.5">
+              {[...memories].sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.lti - a.lti).slice(0, 12).map((m) => (
+                <div key={m.id} className="flex items-start gap-2 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-2.5">
+                  <button onClick={() => pinMemory(m.id, !m.pinned)} title={m.pinned ? 'Unpin from long-term recall' : 'Pin into long-term recall'} className={`mt-0.5 text-sm leading-none ${m.pinned ? 'text-[#d97706]' : 'text-[var(--color-text-tertiary)] hover:text-[#d97706]'}`}>{m.pinned ? '★' : '☆'}</button>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="rounded bg-[var(--color-background-tertiary)] px-1 text-[9px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">{m.kind}</span>
+                      <span className="text-[9px] text-[var(--color-text-tertiary)]">{new Date(m.createdAt).toLocaleDateString()}</span>
+                      {m.pinned && <span className="text-[9px] font-medium text-[#d97706]">in long-term recall</span>}
+                    </div>
+                    <div className="mt-0.5 line-clamp-2 text-[11px] text-[var(--color-text-secondary)]">{m.preview}</div>
+                  </div>
+                  <button onClick={() => forgetMemory(m.id)} title="Forget this memory" className="mt-0.5 text-sm leading-none text-[var(--color-text-tertiary)] hover:text-[#dc2626]">×</button>
                 </div>
               ))}
             </div>
