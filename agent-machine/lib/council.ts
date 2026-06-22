@@ -48,11 +48,18 @@ export function councilVote(inp: CouncilInput, opts: { v2?: boolean; manip?: boo
   } else {
     add(inp.baseline, 1); add(inp.brain, 1); add(inp.qgen, 1)
   }
-  if (opts.manip !== false) add(inp.manip, v2 ? 0.7 : 1.2)            // V2 down-weights the correlated bloc
-  add(inp.scLetter, v2 ? 0.5 + 0.5 * inp.scAgree : 1 + inp.scAgree)   // V2 halves the closed-book reasoning vote
+  // clamp scAgree like the conf inputs: an out-of-band (>1) value would let the closed-book reasoning
+  // vote re-dominate the very correlated bloc V2 exists to suppress, and a NaN (e.g. Number(undefined)
+  // upstream) would poison the tally AND make the sort comparator non-deterministic (NaN compares false).
+  const sa = clamp01(inp.scAgree)
+  if (opts.manip !== false) add(inp.manip, v2 ? 0.7 : 1.2)   // V2 down-weights the correlated bloc
+  add(inp.scLetter, v2 ? 0.5 + 0.5 * sa : 1 + sa)            // V2 halves the closed-book reasoning vote
 
+  // Tie-break toward the self-consistency letter; otherwise a STABLE alphabetical order. (The old final
+  // clause pushed 'A' to the bottom — an anti-'A' bias, the inverse of the positional trap it claimed to
+  // fix. Bias neither way: equal evidence → deterministic, letter-neutral.)
   const ranked = [...w.entries()].sort((a, b) =>
     b[1] - a[1] ||
-    (a[0] === inp.scLetter ? -1 : b[0] === inp.scLetter ? 1 : a[0] === 'A' ? 1 : b[0] === 'A' ? -1 : 0))
+    (a[0] === inp.scLetter ? -1 : b[0] === inp.scLetter ? 1 : a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0))
   return { letter: ranked[0]?.[0] || inp.scLetter || 'B', weights: Object.fromEntries(w) }
 }

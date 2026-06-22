@@ -1351,6 +1351,17 @@ async function executeTool(
     code_execute: 'write',
     run_command: 'write',
   }
+  // Containment kill-switch (facet 0): enforced HERE, in the shared tool path, so it covers BOTH the
+  // chat loop AND the direct /api/tool route. Previously only /api/chat checked it, so an armed
+  // kill-switch could be bypassed by calling a tool directly. When armed, halt every tool.
+  {
+    const c = containmentState()
+    if (c.killed) {
+      emitScopedTelemetry({ kind: 'capability', allow: false, provider: 'tool', model: name, scope: 'kill-switch', reason: c.reason ?? 'armed', source: 'containment' })
+      return `Blocked: the agent kill-switch is ARMED${c.reason ? ` (${c.reason})` : ''}. Tool execution is halted until it is disarmed.`
+    }
+  }
+
   const actionClass = TOOL_ACTION_CLASS[name]
   if (actionClass) {
     const verdict = scopedAuthorizeAction(actionClass)

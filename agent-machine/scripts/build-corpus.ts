@@ -30,6 +30,7 @@ import * as path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { chunkText } from '../lib/doc-store.js'
 import { embedText, EMBED_MODEL } from '../lib/ollama.js'
+import { encodeVec } from '../lib/brain-vec.js'
 
 const HOME = os.homedir()
 const CORPUS = process.env['OCW_CORPUS'] || path.join(HOME, 'Downloads', 'MIT OCW', '_corpus')
@@ -146,7 +147,7 @@ function extract(file: string): string {
   if (['.txt', '.md', '.tex'].includes(ext)) return fs.readFileSync(file, 'utf8')
   return ''
 }
-const b64vec = (v: number[]) => Buffer.from(Float32Array.from(v).buffer).toString('base64')
+const b64vec = (v: number[]) => encodeVec(v) // shared canonical codec (must match study-brain decodeVec)
 
 async function mapPool<T, R>(items: T[], n: number, fn: (t: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length); let i = 0

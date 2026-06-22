@@ -41,6 +41,30 @@ test('compute outranks retrieve when a question is both fact-shaped and numeric'
   assert.equal(k.solver, 'compute')
 })
 
+test('REGRESSION: a stray "==" / "<=" in prose does NOT route to compute', () => {
+  // bare /=/ once fired on the "==" operator; a definition question about it must stay lookup/retrieve.
+  const k = classifyKnowledge('In code, the operator == checks equality. What is it?')
+  assert.notEqual(k.solver, 'compute')
+})
+
+test('a genuine equality (5 = 20) still routes to compute', () => {
+  const k = classifyKnowledge('Find x given 3x + 5 = 20.')
+  assert.equal(k.solver, 'compute')
+})
+
+test('REGRESSION: "which best describes X" is a definition lookup, not a causal-chain model question', () => {
+  // "best describes" collided in both Definition (retrieve) and CausesProcesses (chain); chain outranks
+  // retrieve, so it used to mis-route to model-dominance and skip the grounded-definition short-circuit.
+  const k = classifyKnowledge('Which of the following best describes a covalent bond?')
+  assert.equal(k.dominance, 'lookup')
+  assert.equal(k.solver, 'retrieve')
+})
+
+test('"best explains" remains a causal-chain (model) question', () => {
+  const k = classifyKnowledge('Which hypothesis best explains the observed warming trend?')
+  assert.equal(k.dominance, 'model')
+})
+
 test('always returns a usable class (never empty)', () => {
   const k = classifyKnowledge('xyzzy')
   assert.ok(k.solver)

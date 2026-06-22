@@ -133,10 +133,16 @@ export async function embedText(text: string): Promise<number[]> {
         const json = (await res.json()) as { embedding?: number[] }
         const vec = Array.isArray(json.embedding) ? json.embedding : []
         if (vec.length) { _activeBase = base; return vec }
+        console.warn(`[ollama] embedText: ${base} returned ok but an empty embedding (model=${EMBED_MODEL}) — retrieval degrades to lexical-only`)
+      } else {
+        console.warn(`[ollama] embedText: ${base} returned ${res.status} (model=${EMBED_MODEL})`)
       }
       // non-ok or empty → try fallback if any
-    } catch { /* try fallback */ }
+    } catch (e) { console.warn(`[ollama] embedText: ${base} request failed (${e instanceof Error ? e.message : String(e)})`) }
   }
+  // A silent [] looks identical to "no fallback configured" — surface it so a broken embedder is
+  // diagnosable instead of invisibly collapsing every STEM query to lexical-only.
+  console.warn('[ollama] embedText: all bases failed — returning [] (lexical-only retrieval this turn)')
   return []
 }
 

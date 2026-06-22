@@ -13,6 +13,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import { embedText } from './ollama.js'
 import { termSet } from './text-normalize.js'
+import { decodeVec, l2norm } from './brain-vec.js'
 
 const BRAIN = process.env['OCW_BRAIN'] || path.join(os.homedir(), 'Downloads', 'MIT OCW', '_brain')
 const MAX = Number(process.env['STUDY_BRAIN_CAP'] || 30000)
@@ -41,10 +42,8 @@ function loadField(field: string): Chunk[] {
         try {
           const o = JSON.parse(line) as { text?: string; slug?: string; vec?: string; dims?: number }
           if (!o.text || !o.vec) continue
-          const buf = Buffer.from(o.vec, 'base64')
-          const vec = new Float32Array(buf.buffer, buf.byteOffset, o.dims || 768)
-          let n = 0; for (let i = 0; i < vec.length; i++) n += vec[i]! * vec[i]!
-          out.push({ text: o.text, slug: o.slug || fn, field, vec, norm: Math.sqrt(n) || 1 })
+          const vec = decodeVec(o.vec, o.dims || 768) // aligned-safe shared codec
+          out.push({ text: o.text, slug: o.slug || fn, field, vec, norm: l2norm(vec) })
         } catch { /* skip bad line */ }
       }
     }

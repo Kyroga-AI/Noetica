@@ -34,6 +34,7 @@ import * as path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { embedText } from '../lib/ollama.js'
 import { councilVote } from '../lib/council.js'
+import { decodeVec, l2norm } from '../lib/brain-vec.js'
 
 const HOME = os.homedir()
 const BANK = path.join(HOME, '.noetica', 'corpus', 'benchmarks', 'mmlu_stem.json')
@@ -137,10 +138,8 @@ function loadField(field: string): Chunk[] {
           if (!o.text || !o.vec) continue
           const text = cleanText(o.text)
           if (!usableChunk(text)) continue   // drop garbled / near-empty chunks before they can be injected
-          const buf = Buffer.from(o.vec, 'base64')
-          const vec = new Float32Array(buf.buffer, buf.byteOffset, (o.dims || 768))
-          let n = 0; for (let i = 0; i < vec.length; i++) n += vec[i]! * vec[i]!
-          chunks.push({ text, slug: o.slug || fn, material: o.material || 'reference', vec, norm: Math.sqrt(n) || 1 })
+          const vec = decodeVec(o.vec, o.dims || 768) // aligned-safe shared codec
+          chunks.push({ text, slug: o.slug || fn, material: o.material || 'reference', vec, norm: l2norm(vec) })
         } catch { /* skip bad line */ }
       }
     }

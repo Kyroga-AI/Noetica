@@ -36,3 +36,22 @@ test('ignores undefined / "?" arm votes', () => {
   const r = councilVote({ brain: 'B', qgen: '?', scLetter: 'B', scAgree: 0.5 }, { v2: true, manip: false })
   assert.equal(r.letter, 'B')
 })
+
+test('a NaN scAgree does not poison the tally (clamped to 0)', () => {
+  // grounded brain+qgen consensus on B must still win even if an upstream Number(undefined) makes
+  // scAgree NaN — the old raw use would write NaN into the tally and break the sort comparator.
+  const r = councilVote(
+    { brain: 'B', qgen: 'B', brainConf: 0.7, qgenConf: 0.7, scLetter: 'A', scAgree: NaN as unknown as number },
+    { v2: true, manip: false },
+  )
+  assert.equal(r.letter, 'B')
+})
+
+test('tie-break is letter-neutral and deterministic, not biased for/against A', () => {
+  // Two retrieval arms tie at equal grounding; scLetter is a third letter. The winner is the
+  // alphabetically-first of the tied pair regardless of WHICH arm carried it — no 'A' bias either way.
+  const a = councilVote({ brain: 'A', qgen: 'D', brainConf: 0.5, qgenConf: 0.5, scLetter: 'C', scAgree: 0 }, { v2: true, manip: false })
+  const b = councilVote({ brain: 'D', qgen: 'A', brainConf: 0.5, qgenConf: 0.5, scLetter: 'C', scAgree: 0 }, { v2: true, manip: false })
+  assert.equal(a.letter, 'A')
+  assert.equal(b.letter, 'A') // same result when the arms are swapped → decided by letter, not position
+})
