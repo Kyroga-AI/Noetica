@@ -76,6 +76,24 @@ jobs:
           echo "Universal agent-machine binary:"
           lipo -info src-tauri/binaries/agent-machine-universal-apple-darwin
 
+      - name: Build noetica-embed sidecar (universal)
+        # The Rust embedder (fastembed/ONNX) is injected as externalBin alongside agent-machine + ollama.
+        # It was previously built only on the dev box → the universal release build failed with
+        # "resource path binaries/noetica-embed-x86_64-apple-darwin doesn't exist". Build BOTH arches here.
+        run: |
+          mkdir -p src-tauri/binaries
+          cargo build --release --manifest-path embed-sidecar/Cargo.toml --target aarch64-apple-darwin
+          cargo build --release --manifest-path embed-sidecar/Cargo.toml --target x86_64-apple-darwin
+          cp embed-sidecar/target/aarch64-apple-darwin/release/noetica-embed src-tauri/binaries/noetica-embed-aarch64-apple-darwin
+          cp embed-sidecar/target/x86_64-apple-darwin/release/noetica-embed  src-tauri/binaries/noetica-embed-x86_64-apple-darwin
+          lipo -create \
+            src-tauri/binaries/noetica-embed-aarch64-apple-darwin \
+            src-tauri/binaries/noetica-embed-x86_64-apple-darwin \
+            -output src-tauri/binaries/noetica-embed-universal-apple-darwin
+          chmod +x src-tauri/binaries/noetica-embed-aarch64-apple-darwin src-tauri/binaries/noetica-embed-x86_64-apple-darwin src-tauri/binaries/noetica-embed-universal-apple-darwin
+          echo "Universal noetica-embed binary:"
+          lipo -info src-tauri/binaries/noetica-embed-universal-apple-darwin
+
       - name: Download Ollama sidecar (universal)
         env:
           OLLAMA_VERSION: "0.30.8"
