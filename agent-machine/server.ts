@@ -34,6 +34,7 @@ import * as path from 'node:path'
 import * as os from 'node:os'
 import { buildRouterDecision, LOCAL_MODEL_SUITE } from './lib/router.js'
 import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTelemetry, type MeshTier } from './lib/scope-d.js'
+import { installEgressGuard, setOfflineMode } from './lib/egress-guard.js'
 import { classifyIntent, capabilityToTask, wantsVectorRag, intentByName, planFromIntent, intentToAction } from './lib/intent-router.js'
 import { routeForAction, meshrushPhase } from './lib/action-cell.js'
 import { selectSurface, cleanLabel } from './lib/graph-surface.js'
@@ -81,6 +82,12 @@ import {
 
 const PORT = parseInt(process.env['NOETICA_AM_PORT'] ?? '8080', 10)
 const VERSION = '0.4.11'
+
+// Sovereign offline mode: arm the egress guard so non-local egress is STRUCTURALLY impossible
+// when NOETICA_OFFLINE is set (airplane mode). No-op passthrough when online. Installed early,
+// before any fetch, so it covers every path — model calls, web_search, telemetry, dependencies.
+installEgressGuard()
+setOfflineMode(process.env['NOETICA_OFFLINE'] === '1' || process.env['NOETICA_OFFLINE'] === 'true')
 
 // ─── Model progress SSE ───────────────────────────────────────────────────────
 
