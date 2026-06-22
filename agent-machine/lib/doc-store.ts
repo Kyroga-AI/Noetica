@@ -174,7 +174,7 @@ export async function ingestDocument(filename: string, text: string): Promise<In
 // (CPU-variant aware) and the NOETICA_DEMO_DOC scope — so there is ONE vector store and
 // ONE search implementation. Brain injection: see scripts/inject-brain.ts → importBrainShard.
 
-export interface ChunkHit { text: string; filename: string; score: number; docId: string }
+export interface ChunkHit { text: string; filename: string; score: number; docId: string; idx?: number }
 
 /** Top-k document chunks by cosine to the query — delegated to HellGraph's vector engine. */
 export async function semanticSearch(query: string, k = 5): Promise<ChunkHit[]> {
@@ -205,9 +205,25 @@ export function lexicalSearch(query: string, k = 15): ChunkHit[] {
     let hits = 0
     for (const t of qTerms) if (lc.includes(t)) hits++
     if (hits === 0) continue
-    scored.push({ text, filename: String(n.properties['filename'] ?? ''), score: hits / qTerms.length, docId: String(n.properties['doc_id'] ?? '') })
+    scored.push({ text, filename: String(n.properties['filename'] ?? ''), score: hits / qTerms.length, docId: String(n.properties['doc_id'] ?? ''), idx: Number(n.properties['idx'] ?? 0) })
   }
   return scored.sort((a, b) => b.score - a.score).slice(0, k)
+}
+
+/**
+ * Hybrid reranked retrieval — the default RAG path. Fuses the semantic (embedding cosine) and
+ * lexical (keyword) rankers via Reciprocal Rank Fusion + an exact-term-overlap boost, and attaches
+ * a PER-CHUNK citation (filename#chunkIndex) to each result. Beats single-stage cosine top-k (the
+ * field's #1 RAG complaint) using signals Noetica already has. Returns reranked chunks; callers
+ * inject `text` and surface `citation` as provenance.
+ */
+export async function searchDocsReranked(query: string, limit = 8): Promise<import('./rag-rerank.js').RankedChunk[]> {
+  const { fuseRerank } = await import('./rag-rerank.js')
+  const [semantic, lexical] = await Promise.all([
+    semanticSearch(query, Math.max(limit, 8)),
+    Promise.resolve(lexicalSearch(query, Math.max(limit * 2, 16))),
+  ])
+  return fuseRerank(semantic, lexical, query, { limit })
 }
 
 export interface ChartHit extends ChunkHit {
