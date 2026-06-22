@@ -14,11 +14,19 @@ import { promisify } from 'node:util'
 
 const execFileP = promisify(execFile)
 const MODELS = path.join(os.homedir(), '.noetica', 'models')
-const MODEL_FILE = path.join(MODELS, 'ggml-base.en.bin')
-const MODEL_URL = 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin'
+// English-only base model is faster + smaller; the multilingual base handles every other language.
+const MODEL_EN = { file: path.join(MODELS, 'ggml-base.en.bin'), url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin' }
+const MODEL_MULTI = { file: path.join(MODELS, 'ggml-base.bin'), url: 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.bin' }
+const modelFor = (lang: string) => (lang.toLowerCase().startsWith('en') ? MODEL_EN : MODEL_MULTI)
 
+// Search PATH dirs PLUS the provisioned voice runtime (~/.noetica/runtime/voice/bin) and the managed runtime,
+// so a shipped app that auto-provisioned whisper/ffmpeg finds them without a system install.
+const PROVISIONED_BINS = [
+  path.join(os.homedir(), '.noetica', 'runtime', 'voice', 'bin'),
+  path.join(os.homedir(), '.noetica', 'runtime', 'bin'),
+]
 function findBin(names: string[]): string | null {
-  const dirs = ['/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/bin']
+  const dirs = [...PROVISIONED_BINS, '/opt/homebrew/bin', '/usr/local/bin', '/usr/bin', '/bin']
   for (const n of names) for (const d of dirs) { const p = path.join(d, n); if (fs.existsSync(p)) return p }
   for (const n of names) { try { const r = execFileSync('/usr/bin/env', ['sh', '-c', `command -v ${n}`], { encoding: 'utf8' }).trim(); if (r) return r } catch { /* not found */ } }
   return null
@@ -28,31 +36,36 @@ const ffmpegBin = (): string | null => findBin(['ffmpeg'])
 
 export function isSttAvailable(): boolean { return whisperBin() !== null && ffmpegBin() !== null }
 
-let modelReady: Promise<boolean> | null = null
-async function ensureModel(): Promise<boolean> {
-  if (fs.existsSync(MODEL_FILE) && fs.statSync(MODEL_FILE).size > 1e7) return true
-  if (modelReady) return modelReady
-  modelReady = (async () => {
+const modelReady = new Map<string, Promise<boolean>>()
+async function ensureModel(lang: string): Promise<boolean> {
+  const m = modelFor(lang)
+  if (fs.existsSync(m.file) && fs.statSync(m.file).size > 1e7) return true
+  const existing = modelReady.get(m.file); if (existing) return existing
+  const p = (async () => {
     try {
       fs.mkdirSync(MODELS, { recursive: true })
-      await execFileP('curl', ['-sL', '-o', MODEL_FILE, MODEL_URL], { timeout: 600_000 })
-      return fs.existsSync(MODEL_FILE) && fs.statSync(MODEL_FILE).size > 1e7
-    } catch { return false } finally { modelReady = null }
+      await execFileP('curl', ['-sL', '-o', m.file, m.url], { timeout: 600_000 })
+      return fs.existsSync(m.file) && fs.statSync(m.file).size > 1e7
+    } catch { return false } finally { modelReady.delete(m.file) }
   })()
-  return modelReady
+  modelReady.set(m.file, p)
+  return p
 }
 
-/** Transcribe an audio file (any format ffmpeg reads). Returns text or an error string. */
-export async function transcribe(audioPath: string): Promise<{ text: string } | { error: string }> {
+/** Transcribe an audio file (any format ffmpeg reads). `language` selects the whisper model + decode hint. */
+export async function transcribe(audioPath: string, language = 'en'): Promise<{ text: string } | { error: string }> {
   const w = whisperBin(), f = ffmpegBin()
   if (!w) return { error: 'whisper not installed — `brew install whisper-cpp` (macOS) or build whisper.cpp (Linux).' }
   if (!f) return { error: 'ffmpeg not installed — `brew install ffmpeg` / `apt install ffmpeg`.' }
-  if (!(await ensureModel())) return { error: 'could not fetch the whisper model (network?).' }
+  const lang = (language || 'en').slice(0, 2).toLowerCase()
+  if (!(await ensureModel(lang))) return { error: 'could not fetch the whisper model (network?).' }
   const wav = `${audioPath}.16k.wav`
   try { await execFileP(f, ['-y', '-i', audioPath, '-ar', '16000', '-ac', '1', wav], { timeout: 30_000 }) }
   catch (e) { return { error: `audio convert failed: ${e instanceof Error ? e.message : String(e)}` } }
   try {
-    const { stdout } = await execFileP(w, ['-m', MODEL_FILE, '-f', wav, '-nt', '-np'], { timeout: 90_000, maxBuffer: 4 * 1024 * 1024 })
+    const args = ['-m', modelFor(lang).file, '-f', wav, '-nt', '-np']
+    if (lang !== 'en') args.push('-l', lang)   // multilingual model: hint the language
+    const { stdout } = await execFileP(w, args, { timeout: 90_000, maxBuffer: 4 * 1024 * 1024 })
     return { text: stdout.replace(/\s+/g, ' ').trim() }
   } catch (e) {
     return { error: `transcription failed: ${e instanceof Error ? e.message : String(e)}` }

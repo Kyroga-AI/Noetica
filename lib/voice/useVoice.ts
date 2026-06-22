@@ -79,7 +79,7 @@ export function useVoice(onTranscript: (text: string) => void) {
         reader.onloadend = async () => {
           try {
             const amBase = isTauri() ? 'http://127.0.0.1:8080' : ''
-            const res = await fetch(`${amBase}/api/stt`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ audio_b64: String(reader.result) }), signal: AbortSignal.timeout(90_000) })
+            const res = await fetch(`${amBase}/api/stt`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ audio_b64: String(reader.result), language: (settings.voiceLanguage ?? 'en-US').slice(0, 2) }), signal: AbortSignal.timeout(90_000) })
             const j = (await res.json()) as { text?: string; error?: string }
             if (j.text?.trim()) { setError(null); onTranscript(j.text.trim()) }
             else if (j.error) setError(`Speech-to-text unavailable: ${j.error}`)

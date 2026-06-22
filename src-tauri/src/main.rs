@@ -148,22 +148,53 @@ fn get_agent_machine_url(state: tauri::State<Mutex<AgentMachineState>>) -> Optio
     s.port.map(|p| format!("http://127.0.0.1:{}", p))
 }
 
-/// Speak text using macOS `say` command — much better quality than Web Speech API.
+/// Speak text via the OS system voice — macOS `say`, Linux `spd-say`/`espeak-ng`, Windows SAPI.
 /// Spawns non-blocking so the UI doesn't freeze. Pass voice="" for system default.
+/// (WebSpeech is dead in WKWebView/WebKitGTK, so this is the only no-key TTS in the packaged app.)
 #[tauri::command]
 fn speak_text(text: String, voice: String) {
-    let mut cmd = std::process::Command::new("say");
-    if !voice.is_empty() {
-        cmd.arg("-v").arg(&voice);
+    #[cfg(target_os = "macos")]
+    {
+        let mut cmd = std::process::Command::new("say");
+        if !voice.is_empty() { cmd.arg("-v").arg(&voice); }
+        cmd.arg(&text);
+        let _ = cmd.spawn();
     }
-    cmd.arg(&text);
-    let _ = cmd.spawn();
+    #[cfg(target_os = "linux")]
+    {
+        // Prefer speech-dispatcher (spd-say), fall back to espeak-ng.
+        let spd = std::process::Command::new("spd-say")
+            .args(if voice.is_empty() { vec!["--wait", text.as_str()] } else { vec!["-o", voice.as_str(), "--wait", text.as_str()] })
+            .spawn();
+        if spd.is_err() {
+            let mut cmd = std::process::Command::new("espeak-ng");
+            if !voice.is_empty() { cmd.arg("-v").arg(&voice); }
+            cmd.arg(&text);
+            let _ = cmd.spawn();
+        }
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let select = if voice.is_empty() { String::new() } else { format!("$s.SelectVoice('{}');", voice.replace('\'', "")) };
+        let script = format!("Add-Type -AssemblyName System.Speech; $s = New-Object System.Speech.Synthesis.SpeechSynthesizer; {} $s.Speak([Console]::In.ReadToEnd())", select);
+        use std::io::Write;
+        if let Ok(mut child) = std::process::Command::new("powershell")
+            .args(["-NoProfile", "-Command", &script])
+            .stdin(std::process::Stdio::piped()).spawn() {
+            if let Some(mut stdin) = child.stdin.take() { let _ = stdin.write_all(text.as_bytes()); }
+        }
+    }
 }
 
-/// Stop any in-progress `say` process.
+/// Stop any in-progress system-voice process.
 #[tauri::command]
 fn stop_speaking() {
-    let _ = std::process::Command::new("killall").arg("say").spawn();
+    #[cfg(target_os = "macos")]
+    { let _ = std::process::Command::new("killall").arg("say").spawn(); }
+    #[cfg(target_os = "linux")]
+    { let _ = std::process::Command::new("pkill").args(["-f", "spd-say|espeak"]).spawn(); }
+    #[cfg(target_os = "windows")]
+    { let _ = std::process::Command::new("taskkill").args(["/F", "/IM", "powershell.exe"]).spawn(); }
 }
 
 /// Probes port 8080 via TCP — works whether AM started as a sidecar or manually.
