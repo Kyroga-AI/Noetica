@@ -66,12 +66,21 @@ export async function studyBrainRetrieve(query: string, fields: string[] = [], k
   if (!qv.length) return []
   let qn = 0; for (const v of qv) qn += v * v; qn = Math.sqrt(qn) || 1
   const scored: BrainHit[] = []
+  let dimMismatch = 0
   for (const f of fs2) {
     for (const c of loadField(f)) {
-      let dot = 0; const m = Math.min(qv.length, c.vec.length)
-      for (let i = 0; i < m; i++) dot += qv[i]! * c.vec[i]!
+      // Dimension guard (correctness): query and chunk MUST come from the SAME embedder. The brain is
+      // nomic-embed-text @ 768-d; if a caller passes a 384-d sidecar query, a Math.min truncation would
+      // silently score GARBAGE. Skip instead, so a mismatch fails VISIBLY (empty/short results) rather
+      // than returning plausible-looking noise.
+      if (c.vec.length !== qv.length) { dimMismatch++; continue }
+      let dot = 0
+      for (let i = 0; i < qv.length; i++) dot += qv[i]! * c.vec[i]!
       scored.push({ text: c.text, slug: c.slug, field: c.field, score: dot / (qn * c.norm) })
     }
+  }
+  if (dimMismatch > 0) {
+    console.warn(`[study-brain] DIMENSION MISMATCH: skipped ${dimMismatch} chunks (query ${qv.length}-d ≠ brain vec dims). The brain is nomic-768 — query it with the same embedder, not the 384-d sidecar.`)
   }
   scored.sort((a, b) => b.score - a.score)
   // Hybrid re-rank over the dense top-pool: blend cosine with query-term overlap (lexical) so

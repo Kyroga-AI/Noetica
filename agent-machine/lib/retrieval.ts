@@ -329,6 +329,9 @@ async function runSparqlPattern(
   sessionId?: string,
 ): Promise<{ text: string; sources: Array<{ id: string; label: string; score: number }> }> {
   if (!sessionId) return { text: '', sources: [] }
+  // SECURITY: sessionId is user-controlled (url.searchParams) and interpolated into the SPARQL query
+  // literal below — reject anything but a safe id charset so a quote can't rewrite the query.
+  if (!/^[A-Za-z0-9:_-]{1,128}$/.test(sessionId)) return { text: '', sources: [] }
 
   let result
   try {

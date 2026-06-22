@@ -2890,7 +2890,10 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // layer — a clean "what is X" answer (Wikipedia/DBpedia + word-sense disambiguation), LOCAL +
   // instant + grounded (verbatim, cannot hallucinate). The lookup-vs-generate UX win. Falls through
   // to retrieval+generation when X isn't an enriched concept. Skipped with a doc focus or an image.
-  if (isFlagOn('NOETICA_CONCEPT_LOOKUP') && STUDY_BRAIN_LANES.has(intentPlan.name) && !hasDoc && !hasImages) {
+  // ROUTING (not just logging): the knowledge-type classifier's dominance now GATES this short-circuit
+  // — a clean "what is X" lookup-dominated turn can resolve to an instant grounded definition, but a
+  // reasoning- or compute-dominated turn skips it and goes to the model. The classification decides.
+  if (isFlagOn('NOETICA_CONCEPT_LOOKUP') && knowledge.dominance === 'lookup' && STUDY_BRAIN_LANES.has(intentPlan.name) && !hasDoc && !hasImages) {
     try {
       const { conceptLookup } = await import('./lib/concept-defs.js')
       const concept = conceptLookup(latestUserContent)
@@ -5233,10 +5236,13 @@ Question: ${question}`
         try {
           const { path: filePath } = JSON.parse(Buffer.concat(chunks).toString()) as { path: string }
           if (!filePath) throw new Error('path required')
+          // SECURITY: confine to home/tmp — never read arbitrary local files (~/.ssh/id_rsa) from a
+          // request body. Without this, the wide-open CORS makes this an arbitrary-file-read from any page.
+          const resolved = path.resolve(filePath.startsWith('~') ? path.join(os.homedir(), filePath.slice(1)) : filePath)
+          if (!resolved.startsWith(path.resolve(os.homedir())) && !resolved.startsWith('/tmp')) throw new Error('path must be under home directory or /tmp')
           const fs = await import('node:fs')
-          const pathMod = await import('node:path')
-          const buf = fs.readFileSync(filePath)
-          const filename = pathMod.basename(filePath)
+          const buf = fs.readFileSync(resolved)
+          const filename = path.basename(resolved)
           const { extractText, ingestDocument } = await import('./lib/doc-store.js')
           const text = await extractText(filename, '', buf)
           if (!text.trim()) throw new Error('no extractable text in file')
@@ -5264,8 +5270,11 @@ Question: ${question}`
         const p = JSON.parse(body || '{}') as { path?: string; ingest?: boolean }
         const imgPath = String(p.path ?? '').trim()
         if (!imgPath) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'path_required' })); return }
+        // SECURITY: confine the OCR path to home/tmp (same class as /api/ingest/path).
+        const safeImg = path.resolve(imgPath.startsWith('~') ? path.join(os.homedir(), imgPath.slice(1)) : imgPath)
+        if (!safeImg.startsWith(path.resolve(os.homedir())) && !safeImg.startsWith('/tmp')) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'path must be under home directory or /tmp' })); return }
         const { runOcr } = await import('./lib/ocr.js')
-        const text = await runOcr(imgPath)
+        const text = await runOcr(safeImg)
         if (/^OCR (error|unavailable)/i.test(text)) { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: text, text: '' })); return }
         const model = await pickChatModel()
         const { generateOllamaText } = await import('./lib/ollama.js')
@@ -6900,6 +6909,11 @@ server.listen(PORT, '127.0.0.1', () => {
     process.exit(0)
   }
   for (const sig of ['SIGINT', 'SIGTERM'] as const) process.on(sig, teardown)
+  // RESILIENCE: a rejected background loop (runSuperconsciousLoop etc. are fired with bare `void`) or
+  // an uncaught error must NOT take down the whole daemon (Node's default for unhandledRejection). Log
+  // and keep serving — the local-first workstation should survive one bad turn.
+  process.on('unhandledRejection', (reason) => { console.error('[unhandledRejection]', reason) })
+  process.on('uncaughtException', (err) => { console.error('[uncaughtException]', err) })
 
   // Parent-death watchdog: the app can die in ways that send us NO signal — a crash, a
   // force-quit, or a quit whose exit signal never reaches us. We can't use our own ppid
