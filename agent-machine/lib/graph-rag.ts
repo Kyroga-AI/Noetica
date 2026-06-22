@@ -15,6 +15,7 @@
 import { generateOllamaText } from './ollama.js'
 import { verifyGrounding } from './research-verify.js'
 import { lexicalSearch, semanticSearch } from './doc-store.js'
+import { studyBrainRetrieve, studyBrainReady } from './study-brain.js'
 import type { GraphAnalytics } from './graph-analytics.js'
 
 /** A first-class, individually grounding-verified claim — GraphRAG extracts claims; we verify each. */
@@ -74,7 +75,17 @@ export async function buildCommunityReports(
     const probe = topLabels.slice(0, 8).join(' ')
     let chunks = lexicalSearch(probe, 8)
     if (chunks.length < 3) { try { chunks = [...chunks, ...(await semanticSearch(probe, 6))] } catch { /* search best-effort */ } }
-    const evidence = [...new Set(chunks.map((ch) => ch.text))].slice(0, 10)
+    let evidence = [...new Set(chunks.map((ch) => ch.text))].slice(0, 10)
+    // Double-dip: when the user's own docs are thin on a STEM community, ground it on the
+    // MIT-OCW brain (the study-brain retriever shared with the dialogue lanes) so the UI graph's
+    // community reports actually "know" the curriculum instead of guessing. Best-effort; no-op
+    // when the brain is absent, so non-STEM deployments are unchanged.
+    if (evidence.length < 4 && studyBrainReady()) {
+      try {
+        const ocw = await studyBrainRetrieve(probe, [], 5)
+        evidence = [...new Set([...evidence, ...ocw.filter((h) => h.score >= 0.35).map((h) => h.text)])].slice(0, 10)
+      } catch { /* brain best-effort */ }
+    }
     const corpus = evidence.join('\n---\n').slice(0, 6000)
 
     const prompt = `${personaPrefix}You are analyzing one cluster of related concepts from a personal knowledge graph.
