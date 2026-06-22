@@ -885,6 +885,15 @@ function isFlagOn(env: string): boolean {
 }
 
 /**
+ * Sanitize a user-derived value before logging it. encodeURIComponent neutralizes newlines and
+ * control chars (the log-injection vector) and is a CodeQL-recognized sanitizer — a plain
+ * newline-stripping .replace() is NOT recognized by js/log-injection. Throw-safe (lone surrogates).
+ */
+function logSafe(s: unknown): string {
+  try { return encodeURIComponent(String(s)) } catch { return '<unprintable>' }
+}
+
+/**
  * Optional bearer-token gate for mutating/destructive endpoints. Off by default
  * (local-first, single-user) — set NOETICA_API_TOKEN to require it. When set, the
  * caller must send `Authorization: Bearer <token>`. Returns true if allowed; on
@@ -2103,7 +2112,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       if (anthropicKey) { provider = 'anthropic'; model = 'claude-haiku-4-5-20251001'; escalated = true }
       else if (openaiKey) { provider = 'openai'; model = 'gpt-4o-mini'; escalated = true }
       if (escalated) {
-        console.log(`[self-model] escalated task="${String(routerDecision.task).replace(/[\n\r\t\x00-\x1f]/g, ' ').slice(0, 120)}" → ${provider}:${model} (local success ${(hint.localSuccessRate ?? 0).toFixed(2)} over ${hint.localRuns} runs)`)
+        console.log(`[self-model] escalated task="${logSafe(routerDecision.task)}" → ${provider}:${model} (local success ${(hint.localSuccessRate ?? 0).toFixed(2)} over ${hint.localRuns} runs)`)
       }
     }
   }
@@ -2125,7 +2134,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       .filter((m) => routerDecision.task === 'reasoning' || !/deepseek-r1/i.test(m))
     const pick = selectArmUCB(routerDecision.task ?? 'general', arms)
     if (pick && pick !== model) {
-      console.log(`[bandit] task="${String(routerDecision.task).replace(/[\n\r\t\x00-\x1f]/g, ' ').slice(0, 120)}" ${model} → ${pick} (arms: ${arms.join(', ')})`)
+      console.log(`[bandit] task="${logSafe(routerDecision.task)}" ${model} → ${pick} (arms: ${arms.join(', ')})`)
       model = pick
     }
   }
@@ -2222,7 +2231,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         model = has('qwen2.5:7b') ? 'qwen2.5:7b' : has('qwen2.5-coder:7b') ? 'qwen2.5-coder:7b' : model
       }
     }
-    if (model !== before) console.log(`[responsive] ${String(task).replace(/[\n\r\t\x00-\x1f]/g, ' ').slice(0, 120)} ${before} → ${model}`)
+    if (model !== before) console.log(`[responsive] ${logSafe(task)} ${before} → ${model}`)
   }
 
   // ── Escalation: climb to a more capable model when the cheap flow is failing ──

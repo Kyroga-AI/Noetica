@@ -21,6 +21,12 @@ import { ingestInteraction } from '@socioprophet/hellgraph'
 import { cairnPathExpand } from './cairnpath-adapter.js'
 import * as crypto from 'node:crypto'
 
+/** Sanitize a user value for logging: encodeURIComponent neutralizes newlines/control chars and is
+ *  a CodeQL-recognized log-injection sanitizer (a plain newline-stripping .replace() is not). */
+function logSafe(s: unknown): string {
+  try { return encodeURIComponent(String(s)) } catch { return '<unprintable>' }
+}
+
 // ─── WorkingMemoryState — mirrors graphbrain-contract/memory_runtime_api.py ──
 // Principled memory lifecycle: every retrieve() call produces a WorkingMemoryState
 // that is audited as an EpisodeBundle in HellGraph. This replaces ad-hoc context
@@ -121,7 +127,7 @@ export async function retrieve(
 
   const timedOut = results.filter(r => r === null).length
   if (timedOut === patterns.length && patterns.length > 0) {
-    console.warn(`[retrieval] All ${patterns.length} patterns timed out for query: "${query.replace(/[\n\r\t\x00-\x1f]/g, ' ').slice(0, 120)}"`)
+    console.warn(`[retrieval] All ${patterns.length} patterns timed out for query: "${logSafe(query)}"`)
   }
 
   const usedPatterns: RetrievalPattern[] = []
