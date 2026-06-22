@@ -69,18 +69,27 @@ export function buildTextRun(threadId: string, runId: string, messageId: string,
   ]
 }
 
-/** Order invariant check: a well-formed run starts/ends correctly and brackets messages/tools. */
+/** Order invariant check: a well-formed run starts/ends once and properly brackets BOTH messages AND tool
+ * calls (START before ARGS/END; no duplicate START; no second RUN_STARTED). */
 export function isWellFormedRun(events: AGUIEvent[]): boolean {
   if (events.length < 2) return false
   if (events[0]!.type !== 'RUN_STARTED') return false
   const last = events[events.length - 1]!.type
   if (last !== 'RUN_FINISHED' && last !== 'RUN_ERROR') return false
-  const openMsgs = new Set<string>()
-  for (const e of events) {
+  const openMsgs = new Set<string>(); const openTools = new Set<string>()
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i]!
     if (!isValidEvent(e)) return false
-    if (e.type === 'TEXT_MESSAGE_START') openMsgs.add(e['messageId'] as string)
-    if (e.type === 'TEXT_MESSAGE_CONTENT' && !openMsgs.has(e['messageId'] as string)) return false
-    if (e.type === 'TEXT_MESSAGE_END') openMsgs.delete(e['messageId'] as string)
+    if (e.type === 'RUN_STARTED' && i > 0) return false   // exactly one, at the start
+    switch (e.type) {
+      case 'TEXT_MESSAGE_START': { const id = e['messageId'] as string; if (openMsgs.has(id)) return false; openMsgs.add(id); break }
+      case 'TEXT_MESSAGE_CONTENT': if (!openMsgs.has(e['messageId'] as string)) return false; break
+      case 'TEXT_MESSAGE_END': { const id = e['messageId'] as string; if (!openMsgs.has(id)) return false; openMsgs.delete(id); break }
+      case 'TOOL_CALL_START': { const id = e['toolCallId'] as string; if (openTools.has(id)) return false; openTools.add(id); break }
+      case 'TOOL_CALL_ARGS': if (!openTools.has(e['toolCallId'] as string)) return false; break
+      case 'TOOL_CALL_END': { const id = e['toolCallId'] as string; if (!openTools.has(id)) return false; openTools.delete(id); break }
+      default: break
+    }
   }
-  return openMsgs.size === 0
+  return openMsgs.size === 0 && openTools.size === 0
 }

@@ -47,6 +47,12 @@ export function membraneEvent(opts: {
 
 const REQUIRED = ['schemaVersion', 'carrierRef', 'receptorRef', 'membraneRef', 'membraneOutcome', 'policyDecision', 'message', 'lineage', 'emittedAt'] as const
 export function conformsToMembrane(e: Partial<MembraneEvent>): { conforms: boolean; missing: string[] } {
-  const missing = REQUIRED.filter((k) => e[k] == null || (Array.isArray(e[k]) && (e[k] as unknown[]).length === 0 && k === 'lineage' ? false : e[k] === ''))
+  // Explicit, readable rule (the old mixed ||/ternary mis-parsed): a field is missing iff null/'' — and
+  // lineage must additionally be a non-empty array.
+  const missing = REQUIRED.filter((k) => {
+    const v = e[k]
+    if (k === 'lineage') return !Array.isArray(v) || v.length === 0
+    return v == null || v === ''
+  })
   return { conforms: missing.length === 0, missing }
 }

@@ -34,3 +34,12 @@ test('stateDelta carries an RFC-6902 JSON Patch', () => {
   assert.equal(e.type, 'STATE_DELTA')
   assert.equal(Array.isArray(e['delta']), true)
 })
+
+test('HARDENING: isWellFormedRun balances tool calls + rejects duplicate START / second RUN_STARTED', () => {
+  const ok = [runStarted('t', 'r'), toolCallStart('tc1', 'search'), { type: 'TOOL_CALL_ARGS', toolCallId: 'tc1', delta: '{}' }, { type: 'TOOL_CALL_END', toolCallId: 'tc1' }, { type: 'RUN_FINISHED', threadId: 't', runId: 'r' }]
+  assert.equal(isWellFormedRun(ok as never), true)
+  const unbalanced = [runStarted('t', 'r'), toolCallStart('tc1', 'search'), { type: 'RUN_FINISHED', threadId: 't', runId: 'r' }]
+  assert.equal(isWellFormedRun(unbalanced as never), false, 'TOOL_CALL_START with no END')
+  const orphanArgs = [runStarted('t', 'r'), { type: 'TOOL_CALL_ARGS', toolCallId: 'x', delta: '{}' }, { type: 'RUN_FINISHED', threadId: 't', runId: 'r' }]
+  assert.equal(isWellFormedRun(orphanArgs as never), false, 'ARGS for unopened tool')
+})
