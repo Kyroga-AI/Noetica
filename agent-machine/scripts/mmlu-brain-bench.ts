@@ -81,7 +81,7 @@ const FIELD_ADJ: Record<string, string[]> = {
 const FRONTIER = { 'Llama-3.2-3B (reported)': 63.4, 'Qwen2.5-7B (reported)': 74.2, 'GPT-4': 86.4 }
 
 interface Q { subject: string; question: string; choices: string[]; answer: number }
-interface Chunk { text: string; slug: string; material: string; vec: Float32Array; norm: number }
+interface Chunk { text: string; slug: string; material: string; vec: Float32Array; norm: number; score?: number }
 
 // ── seeded shuffle (mulberry32) ───────────────────────────────────────────────
 function rng(seed: number): () => number {
@@ -265,7 +265,10 @@ async function retrieveMulti(question: string, choices: string[], pools: Chunk[]
     }
     picked.push(pool.splice(bi, 1)[0]!)
   }
-  return picked.map((x) => x.c)
+  // Attach the relevance score as a COPY (never mutate the cached Chunk) so callers can read the
+  // retrieval confidence (top cosine) without changing the rest of the return contract. picked[0]
+  // is the highest-relevance pick (first MMR selection has no diversity penalty).
+  return picked.map((x) => ({ ...x.c, score: x.s }))
 }
 
 // eliminateArm — the Monty-Hall MCQ play. Instead of a quick top-k match, gather confirm/REFUTE
@@ -587,6 +590,7 @@ async function main() {
         const hits = await retrieveMulti(q.question, q.choices, pools, PER_SHOT, SHOT_K)
         context = hits.map((h, n) => `[${n + 1}] ${h.text.slice(0, 500)}`).join('\n\n')
         row['sources'] = hits.map((h) => `${h.slug}:${h.material}`)
+        row['brain_conf'] = Number((hits[0]?.score ?? 0).toFixed(3))   // retrieval confidence (top cosine) — the council's grounding signal
       }
 
       // queryGen arm: identical retriever + model, but with HyDE + step-back query shots added.
@@ -599,6 +603,7 @@ async function main() {
         const hits = await retrieveMulti(q.question, q.choices, pools, PER_SHOT, SHOT_K, extra)
         qgenContext = hits.map((h, n) => `[${n + 1}] ${h.text.slice(0, 500)}`).join('\n\n')
         row['qgen_sources'] = hits.map((h) => `${h.slug}:${h.material}`)
+        row['qgen_conf'] = Number((hits[0]?.score ?? 0).toFixed(3))   // qgen retrieval confidence
       }
 
       // Same answer-format rule on every model-answered arm — the only difference is the injected
@@ -664,12 +669,22 @@ async function main() {
             // out-weigh closed-book baseline, and when the TWO independent retrieval arms AGREE that
             // grounded consensus gets a decisive bonus. Fixes the live dilution where weak closed-book
             // arms out-vote a correct retrieval on STEM (college_mathematics: brain 65% but champion 50%).
-            if (process.env['MMLU_COUNCIL_V2'] === '1') {
-              add(row['baseline_pred'], 0.6)    // closed-book — weakest on STEM
-              add(row['brain_pred'], 1.3)       // retrieval — the moat
-              add(row['qgen_pred'], 1.3)        // HyDE retrieval
+            const V2 = process.env['MMLU_COUNCIL_V2'] === '1'
+            if (V2) {
+              // CONDITIONAL combiner — each retrieval arm's vote is weighted BY ITS GROUNDING
+              // STRENGTH (top retrieval cosine), and the correlated closed-book bloc is down-weighted.
+              // The LLM arms (baseline, sc, manip) are entangled (same errors) so a flat vote lets
+              // them swamp the INDEPENDENT brain-retrieval arm even when it's right (the dilution).
+              // Up-weight the independent grounded arm by confidence; this is the "softmax by
+              // competence" — strong grounding → brain dominates; weak → it defers to reasoning.
+              if (typeof row['qgen_pred'] !== 'string' || row['qgen_pred'] === '?') row['qgen_pred'] = await askQgen() // ensure the 2nd retrieval vote
+              const bc = Math.max(0, Math.min(1, Number(row['brain_conf'] ?? 0)))
+              const qc = Math.max(0, Math.min(1, Number(row['qgen_conf'] ?? 0)))
+              add(row['baseline_pred'], 0.6)              // closed-book — weakest on STEM
+              add(row['brain_pred'], 0.6 + 1.8 * bc)      // retrieval, weighted by grounding (conf 0.8 → 2.04)
+              add(row['qgen_pred'], 0.6 + 1.8 * qc)       // HyDE retrieval, same conditional
               const bp = row['brain_pred']
-              if (typeof bp === 'string' && bp !== '?' && bp === row['qgen_pred']) add(bp, 1.0) // grounded consensus bonus
+              if (typeof bp === 'string' && bp !== '?' && bp === row['qgen_pred']) add(bp, 1.0 + 1.5 * Math.max(bc, qc)) // grounded consensus, confidence-scaled
             } else {
               add(row['baseline_pred'], 1)      // closed-book reasoning
               add(row['brain_pred'], 1)         // retrieval
@@ -677,10 +692,10 @@ async function main() {
             }
             if (process.env['MMLU_MANIP'] !== '0') {   // manipulation-layer voter (Self-Discover): compose a plan, then execute — the 'transform before solving' signal inside the council
               const sdPlan = await ask(`Name the 2-3 reasoning steps that best fit this problem (governing principle / sub-steps / eliminate options / compute / recall definition). Short numbered plan only.\n\n${q.question}`)
-              add(extractLetter(await ask(`Execute this plan:\n${sdPlan}\n\n${base}${ANSWER_RULE}`)), 1.2)
+              add(extractLetter(await ask(`Execute this plan:\n${sdPlan}\n\n${base}${ANSWER_RULE}`)), V2 ? 0.7 : 1.2)  // V2: down-weight the correlated reasoning bloc
             }
             const sc = await askVote(`${base}${ANSWER_RULE}`, SC_K)   // diverse reasoning vote (no retrieval noise)
-            add(sc.letter, 1 + sc.agree)                              // weight ≤2: breaks ties + can pair with baseline to overrule retrieval on the lanes it hurts, but never overrules a unanimous 3-arm council
+            add(sc.letter, V2 ? 0.5 + 0.5 * sc.agree : 1 + sc.agree)  // V2: halve the closed-book reasoning vote (correlated w/ baseline → entanglement); default ≤2 unchanged
             row['sc_agree'] = Number(sc.agree.toFixed(2))
             const ranked = [...w.entries()].sort((a, b) =>
               b[1] - a[1] || (a[0] === sc.letter ? -1 : b[0] === sc.letter ? 1 : a[0] === 'A' ? 1 : b[0] === 'A' ? -1 : 0))
