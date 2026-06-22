@@ -6,9 +6,16 @@ set -e
 mkdir -p AppDir/usr/bin AppDir/usr/lib/noetica AppDir/usr/share/applications
 mkdir -p AppDir/usr/share/icons/hicolor/256x256/apps
 
-# Bundle the app
-cp -r . AppDir/usr/lib/noetica/ 2>/dev/null || true
-rm -rf AppDir/usr/lib/noetica/AppDir AppDir/usr/lib/noetica/.git
+# Bundle the app. EXCLUDE developer/runtime data so it can never be swept into the shipped artifact:
+# .noetica (per-user chat brain / identity / self-model / transcripts), env files (secrets), .git
+# history, and build scratch. The previous `cp -r .` copied EVERYTHING — that is the privacy-leak path.
+rsync -a \
+  --exclude='.git' --exclude='.noetica' \
+  --exclude='.env' --exclude='.env.*' --exclude='*.local' \
+  --exclude='AppDir' --exclude='*.AppImage' --exclude='*.zsync' \
+  --exclude='.next/cache' --exclude='src-tauri/target' \
+  ./ AppDir/usr/lib/noetica/
+rm -rf AppDir/usr/lib/noetica/AppDir AppDir/usr/lib/noetica/.git AppDir/usr/lib/noetica/.noetica
 
 # Bundle a node runtime if available, else rely on system node via PATH
 if command -v node >/dev/null 2>&1; then

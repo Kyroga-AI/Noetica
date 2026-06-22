@@ -72,8 +72,10 @@ jobs:
           Compress-Archive -Path @('app','lib','config','package.json','package-lock.json','index.js','server.js') `
             -DestinationPath $zipName -ErrorAction SilentlyContinue
           if (-not (Test-Path $zipName)) {
-            # Fallback: zip everything
-            Compress-Archive -Path "." -DestinationPath $zipName
+            # FAIL rather than fall back to zipping the whole tree — a blanket zip would sweep in
+            # developer/runtime data (.noetica chat brain, .env secrets). A failed build beats a leak.
+            Write-Error "curated package zip was not produced (missing app/lib/server.js?) — refusing a full-tree fallback zip"
+            exit 1
           }
       - uses: actions/upload-artifact@v4
         with:

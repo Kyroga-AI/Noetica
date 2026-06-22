@@ -32,3 +32,8 @@ __pycache__/
 # bun --compile scratch files
 *.bun-build
 tsconfig.tsbuildinfo
+
+# Per-user RUNTIME data — never commit or ship. This is the chat brain / self-model / identity /
+# transcripts the app writes under ~/.noetica at runtime; a repo-local .noetica must never enter a
+# build artifact (that is how a friend's install came preloaded with the developer's data).
+/.noetica/
