@@ -43,7 +43,7 @@ export async function probeAnthropic(key: string): Promise<ProviderCaps> {
         imageGen: false, realtime: false, batch: true,
       },
     }
-  } catch (e) { return { ...base, error: String(e).slice(0, 80) } }
+  } catch { return { ...base, error: 'probe_failed' } }
 }
 
 export async function probeOpenAI(key: string): Promise<ProviderCaps> {
@@ -69,7 +69,7 @@ export async function probeOpenAI(key: string): Promise<ProviderCaps> {
         batch: true,
       },
     }
-  } catch (e) { return { ...base, error: String(e).slice(0, 80) } }
+  } catch { return { ...base, error: 'probe_failed' } }
 }
 
 export function probeProvider(provider: string, key: string): Promise<ProviderCaps> {
