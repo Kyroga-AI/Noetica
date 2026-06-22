@@ -3564,7 +3564,7 @@ const server = http.createServer((req, res) => {
           })
           sse(res, 'progress', { model, status: 'complete', pct: 100, done: true })
         } catch (e) {
-          sse(res, 'progress', { model, status: 'error', pct: null, done: true, error: String(e) })
+          sse(res, 'progress', { model, status: 'error', pct: null, done: true, error: 'internal_error' })
         } finally {
           try { res.end() } catch { /* ignore */ }
         }
@@ -3623,7 +3623,7 @@ const server = http.createServer((req, res) => {
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ memories: listMemories(memoryStore()) }))
       } catch (e) {
-        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e), memories: [] }))
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', memories: [] }))
       }
     })()
     return
@@ -3643,7 +3643,7 @@ const server = http.createServer((req, res) => {
         const ok = (p.pinned === false ? unpinMemory : pinMemory)(memoryStore(), p.id)
         res.writeHead(ok ? 200 : 404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok, id: p.id, pinned: p.pinned !== false }))
       } catch (e) {
-        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })() })
     return
@@ -3663,7 +3663,7 @@ const server = http.createServer((req, res) => {
         const ok = forgetMemory(memoryStore(), p.id)
         res.writeHead(ok ? 200 : 404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok, id: p.id }))
       } catch (e) {
-        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })() })
     return
@@ -3692,7 +3692,7 @@ const server = http.createServer((req, res) => {
         const dir = join(homedir(), '.noetica'); mkdirSync(dir, { recursive: true })
         writeFileSync(join(dir, 'sessions.json'), body || 'null')
         res.writeHead(200, { 'content-type': 'application/json' }); res.end('{"ok":true}')
-      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) })) }
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
     })() })
     return
   }
@@ -3717,7 +3717,7 @@ const server = http.createServer((req, res) => {
           res.end(toKgtkTsv(cskg))
         }
       } catch (e) {
-        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -3753,7 +3753,7 @@ const server = http.createServer((req, res) => {
         const hits = graphSearch(store, q, { limit, ...(queryVector ? { queryVector, vectorOf } : {}) })
         res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ query: q, hits }))
       } catch (e) {
-        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e), hits: [] }))
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', hits: [] }))
       }
     })()
     return
@@ -4302,7 +4302,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ ok: true }))
       } catch (e) {
         res.writeHead(400, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(e) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })
     return
@@ -4365,7 +4365,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ ok: true, goal }))
       } catch (e) {
         res.writeHead(400, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(e) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })
     return
@@ -5050,7 +5050,7 @@ const server = http.createServer((req, res) => {
         const { qualityMetrics } = await import('./lib/solution-memory.js')
         res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(qualityMetrics()))
       } catch (e) {
-        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e).slice(0, 120) }))
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -5102,7 +5102,7 @@ const server = http.createServer((req, res) => {
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ grounded: grounding.grounded, score: grounding.score, answer, attempts, usedMemory, sources: sources.slice(0, 8).map((s, i) => ({ n: i + 1, filename: s.filename })), unsupported: grounding.unsupported }))
       } catch (e) {
-        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e).slice(0, 160) }))
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })() })
     return
@@ -5135,7 +5135,7 @@ const server = http.createServer((req, res) => {
       }
       res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ path: pathOut, length: pathOut.length ? pathOut.length - 1 : -1 }))
     } catch (e) {
-      res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e).slice(0, 120) }))
+      res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
     }
     return
   }
@@ -5162,7 +5162,7 @@ const server = http.createServer((req, res) => {
         }
         res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ conversations: convs.length, imported, messages }))
       } catch (e) {
-        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e).slice(0, 160) }))
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })() })
     return
@@ -5183,7 +5183,7 @@ const server = http.createServer((req, res) => {
         const caps = await probeProvider(p.provider ?? 'anthropic', p.key ?? '')
         res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(caps))
       } catch (e) {
-        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e).slice(0, 120) }))
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })() })
     return
@@ -5219,7 +5219,7 @@ const server = http.createServer((req, res) => {
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ ...report, applied: apply ? { pruned, merged, attached } : null }))
       } catch (e) {
-        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e).slice(0, 200) }))
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
     }
     if (req.method === 'GET') { run(false); return }
@@ -5429,7 +5429,7 @@ const server = http.createServer((req, res) => {
           }
           res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'not_found' }))
         } catch (e) {
-          res.writeHead(502, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+          res.writeHead(502, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
         }
       })()
     })
