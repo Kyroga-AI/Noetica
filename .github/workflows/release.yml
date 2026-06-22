@@ -230,6 +230,15 @@ jobs:
       - name: Build agent-machine binary (linux x64)
         run: npm run agent-machine:build:binary:linux
 
+      - name: Build noetica-embed sidecar (linux x64)
+        # Same fix as macOS: noetica-embed is an injected externalBin, so the Linux universal build aborts
+        # with "resource path binaries/noetica-embed-x86_64-unknown-linux-gnu doesn't exist" without this.
+        run: |
+          mkdir -p src-tauri/binaries
+          cargo build --release --manifest-path embed-sidecar/Cargo.toml --target x86_64-unknown-linux-gnu
+          cp embed-sidecar/target/x86_64-unknown-linux-gnu/release/noetica-embed src-tauri/binaries/noetica-embed-x86_64-unknown-linux-gnu
+          chmod +x src-tauri/binaries/noetica-embed-x86_64-unknown-linux-gnu
+
       - name: Download Ollama sidecar (linux)
         env:
           OLLAMA_VERSION: "0.30.8"
