@@ -151,3 +151,30 @@ Apple 2-bit QAT+LoRA (2507.13575) + MLX · Reka Quant 3.5-bit · SmolLM3-3B · M
 LMUnit (grounding unit-tests) · ARES · RouterArena · Databricks long-context-RAG (2411.03538 — retrieval+short-ctx > long-ctx dump, BACKS our thesis) · SFR-RAG/ContextualBench · **"Does RL Really Incentivize Reasoning Beyond the Base Model?"** (2504.13837, NeurIPS'25 runner-up — capacity is LATENT in the base, wins come from sampling/selection = independent validation of "technique not horsepower").
 
 **Iter-7 takeaway:** the single highest-leverage move is **correlation/entanglement-aware aggregation** (2510.01499 + 2604.07650) + **letting the verified-compute arm OVERRIDE** (LLM-Modulo) — exactly our live council bug. Council V2 (PR #90 + the confidence-weighting this turn) is a first-order approximation; the learned/correlation-aware combiner is the principled endgame. Beyond the combiner: **distill the council into one small model** (MoAA/Sakana) is the way to make the technique permanent and cheap.
+
+## Iter-8 (2026-06-22) — NEUROSYMBOLIC COMPONENT AUDIT (are our best strategies actually wired?) + top-50 domains
+
+**"Did we get them all?" — NO. Most neurosymbolic components are SILOS** (built + validated in isolation, NOT wired into the live solving flow, NOT updated across stages, NOT fused with RAG). Audited map:
+
+| Component | Exists | Wired live | Updated across stages | Fused w/ RAG | Gap |
+|---|---|---|---|---|---|
+| Symbolic regression (`meta_combiner.py` gplearn) | ✓ | ✗ | — | ✗ | discovered combiner law computed OFFLINE, never deployed to runtime |
+| VSA/HRR (`vsa.py`) | ✓ | ✗ (zero imports) | — | ✗ | bind/unbind/bundle/cleanup never called in live reasoning |
+| Gödel numbering (`logic-solver.godelSignature`, `prime-topics`) | ✓ | ⚠ computed once | ✗ STATIC | ✗ | signature display-only; never updated as solving progresses, never prunes retrieval by topic |
+| **Lambda calculus** | ✗ | — | — | — | **does not exist** (no SKI/β-reduction/Church) — answer to "using it optimally?": there's nothing to use |
+| 23×6 action algebra (`verb-sort`/`action-cell`) | ✓ | ✓ polarity routes read→interactive/fast, write→deliberate/generative | ⚠ | ⚠ | the "lookup vs generative" routing IS wired; but the 23×6 VALIDITY MATRIX (`grid_23x6.py`) is never consulted at runtime |
+| 22×22×22 topics | ✗ | — | — | — | **no 3D tensor** — only a 1D 22-prime canon + 2D 23×6 grid |
+| `solveByLogic()` | ✓ | ✗ DEAD | — | — | server.ts INLINES its own recall/extract (2758/2801); the function is unused; EXTRACT uses `lexicalSearch` over USER DOCS, never the OCW brain |
+| Monty-Hall `eliminateArm` | ✓ | ✗ bench-only | ✓ (local) | ✓ (local) | choice-elimination never used in live dialogue; standalone arm was 45% (unreliable REFUTE) |
+
+**VERIFIED THIS ITER (saved a regression):** tested the obvious "lookup instead of generate" fix — extract a verbatim answer from the OCW brain (`studyBrainRetrieve` → `extractiveAnswer`). **It FAILS:** "natural selection" → OK-ish sentence, but "central limit theorem" → garbage formula fragment. OCW lecture transcripts aren't Q&A, so verbatim extraction pulls noise. **Decision: do NOT wire OCW-extract; keep generation-with-context.** The real clean-lookup path needs **mined definitions** in the glossaries (glossaries are 7/7 done but are TERM lists, not term→definition — definition-mining is the prerequisite, per the concept-job's own "next steps").
+
+**Top integration roadmap (highest-leverage silo→wired, with risk):**
+1. **Definition-mining into the glossaries** → THEN a clean glossary-lookup ("what is X" answered by canonical definition, no generation = the real lookup/procedural win). Prereq for the UX "lookup vs generative" optimization.
+2. **Wire `uncertainty.ts semanticEntropy` into the council vote** (replace raw SC-agreement with entropy-over-meaning) — the survey's #2 frontier gap (calibrated abstention) + already on main from parallel work. Do AFTER the V2 A/B result (don't pile untested council changes).
+3. **Make the Gödel signature mutable + a recall key** (cross-stage state + canonical caching) — risky (coarse signature → false recall); needs a precision guard.
+4. **Wire the INFER tier** (`graph-infer.ts`/`pln-judgment.ts` exist, unreachable) — risky (noisy on free-form).
+
+**Top-50 domains (7-yr academic survey) — the 3 we're MOST behind on:** (1) **process-reward models / generative verifiers** (GenRM 2408.15240, Math-Shepherd 2312.08935 — turn the council from "agreement" into "validated correctness"); (2) **calibrated abstention** (semantic entropy, Nature 2024; Conformal LM, ICLR'24 — a principled know-when-to-abstain layer); (3) **on-policy distillation on curated/synthetic data** (Thinking Machines; phi/DoReMi — make the small model intrinsically smart vs renting gains at test time). Invest in that order. Full ranked 50 captured in survey (program-aided LMs, E5/Arctic embedders, RankZephyr rerank, MemGPT, BERTopic routing, Matryoshka, ColBERTv2/PLAID, CoALA framing, MMLU-Pro eval, etc.).
+
+**Iter-8 takeaway:** our neurosymbolic FOUNDATIONS are rich but mostly UNWIRED. The honest "are we better architecturally" answer: ahead on breadth of *built* components, behind on *integration* — the components don't update across stages or fuse with RAG. The disciplined path is to wire them one at a time with verification (the OCW-extract test shows naive wiring can regress), starting with definition-mining (unlocks real lookup) and a process-verifier (the #1 frontier gap).
