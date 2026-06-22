@@ -31,7 +31,8 @@ export interface CommunitySummary {
 
 export interface GraphAnalytics {
   nodes: Record<string, NodeMetrics>
-  communities: CommunitySummary[]
+  communities: CommunitySummary[]      // coarse — the top-level themes
+  subdivisions: CommunitySummary[]     // fine — sub-themes within the themes (empty if no hierarchy)
   modularity: number
   summary: {
     nodeCount: number
@@ -158,19 +159,24 @@ function aggregate(wg: WGraph, comm: number[]): { wg: WGraph; map: number[] } {
   return { wg: { n: k, adj: adjArr, selfLoop, m2: wg.m2 }, map }
 }
 
-function louvain(g: Adjacency, maxLevels = 6): number[] {
+// Returns the FINAL (coarsest) community per original node, plus the full hierarchy — a snapshot of
+// the assignment at every level (levels[0] = finest sub-communities, last = coarsest themes). Louvain
+// is inherently hierarchical (local-moving → aggregate → repeat); we just keep every level instead of
+// collapsing, which is what lets GraphRAG summarize at multiple granularities (themes vs sub-themes).
+function louvain(g: Adjacency, maxLevels = 6): { final: number[]; levels: number[][] } {
   let wg = toWeighted(g)
   let nodeToComm = g.ids.map((_, i) => i)   // final community per ORIGINAL node
+  const levels: number[][] = []
   for (let level = 0; level < maxLevels; level++) {
     const { comm, improved } = louvainLevel(wg)
     const { wg: agg, map } = aggregate(wg, comm)
     // compose: original node → its node in this level (nodeToComm currently maps orig→level-node) → new community
     for (let i = 0; i < nodeToComm.length; i++) nodeToComm[i] = map[nodeToComm[i]!]!
+    levels.push(nodeToComm.slice())   // snapshot: original node → community AT THIS level
     wg = agg
-    if (!improved || agg.n === wg.n && agg.n <= 1) break
-    if (agg.n === 1) break
+    if (!improved || agg.n <= 1) break
   }
-  return nodeToComm
+  return { final: nodeToComm, levels }
 }
 
 function modularity(g: Adjacency, comm: number[]): number {
@@ -244,7 +250,7 @@ export function computeAnalytics(nodes: Node[], edges: Edge[], opts: { maxBetwee
   const topK = opts.topK ?? 12
 
   const pr = pageRank(g)
-  const comm = louvain(g)
+  const { final: comm, levels } = louvain(g)
   const { bc, approximated } = betweenness(g, { maxExactNodes: opts.maxBetweennessNodes })
   const q = modularity(g, comm)
 
@@ -263,21 +269,26 @@ export function computeAnalytics(nodes: Node[], edges: Edge[], opts: { maxBetwee
     }
   }
 
-  // group into communities, rank members by pagerank, drop singletons of isolated nodes
-  const byComm = new Map<number, string[]>()
-  for (let i = 0; i < n; i++) {
-    const c = nodeMetrics[g.ids[i]!]!.community
-    if (c < 0) continue
-    if (!byComm.has(c)) byComm.set(c, [])
-    byComm.get(c)!.push(g.ids[i]!)
+  // Group an assignment into ranked CommunitySummaries (members by pagerank, drop singletons/isolated).
+  const buildCommunities = (assign: number[]): CommunitySummary[] => {
+    const by = new Map<number, string[]>()
+    for (let i = 0; i < n; i++) {
+      const c = g.adj[i]!.length === 0 ? -1 : assign[i]!
+      if (c < 0) continue
+      if (!by.has(c)) by.set(c, [])
+      by.get(c)!.push(g.ids[i]!)
+    }
+    return [...by.entries()]
+      .map(([id, members]) => {
+        members.sort((a, b) => nodeMetrics[b]!.pagerank - nodeMetrics[a]!.pagerank)
+        return { id, size: members.length, members, topNodes: members.slice(0, 5) }
+      })
+      .filter((c) => c.size >= 2)
+      .sort((a, b) => b.size - a.size)
   }
-  const communities: CommunitySummary[] = [...byComm.entries()]
-    .map(([id, members]) => {
-      members.sort((a, b) => nodeMetrics[b]!.pagerank - nodeMetrics[a]!.pagerank)
-      return { id, size: members.length, members, topNodes: members.slice(0, 5) }
-    })
-    .filter((c) => c.size >= 2)                       // a "community" needs ≥2 nodes
-    .sort((a, b) => b.size - a.size)
+  // Coarse = final (themes); fine = finest level (sub-themes) — exposed only when genuinely finer.
+  const communities = buildCommunities(comm)
+  const subdivisions = levels.length > 1 ? buildCommunities(levels[0]!) : []
 
   const sortedByPr = Object.values(nodeMetrics).sort((a, b) => b.pagerank - a.pagerank)
   const sortedByBc = Object.values(nodeMetrics).sort((a, b) => b.betweenness - a.betweenness)
@@ -285,6 +296,7 @@ export function computeAnalytics(nodes: Node[], edges: Edge[], opts: { maxBetwee
   return {
     nodes: nodeMetrics,
     communities,
+    subdivisions,
     modularity: q,
     summary: {
       nodeCount: n,

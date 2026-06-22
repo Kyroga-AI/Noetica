@@ -142,7 +142,7 @@ function saveAnalyticsCache(c: AnalyticsCache): void {
 
 // GraphRAG community reports are expensive (one LLM call per community) — cache by analytics sig + model.
 const COMMUNITIES_CACHE_FILE = path.join(os.homedir(), '.noetica', 'cache', 'graph-communities.json')
-type CommunitiesCache = { sig: string; model: string; reports: import('./lib/graph-rag.js').CommunityReport[]; builtAt: string }
+type CommunitiesCache = { sig: string; model: string; level: string; reports: import('./lib/graph-rag.js').CommunityReport[]; builtAt: string }
 let _communitiesCache: CommunitiesCache | null = null
 function loadCommunitiesCache(): CommunitiesCache | null {
   if (_communitiesCache) return _communitiesCache
@@ -5386,19 +5386,20 @@ const server = http.createServer((req, res) => {
     void (async () => {
       try {
         const refresh = url.searchParams.get('refresh') === '1'
+        const level = url.searchParams.get('level') === 'fine' ? 'fine' : 'coarse'
         const { analytics, sig, labelOf } = await analyticsForGraph(refresh)
         const model = url.searchParams.get('model') || await pickChatModel()
         const cached = loadCommunitiesCache()
-        const hit = !refresh && !!cached && cached.sig === sig && cached.model === model
+        const hit = !refresh && !!cached && cached.sig === sig && cached.model === model && cached.level === level
         let reports: import('./lib/graph-rag.js').CommunityReport[]
         if (hit) { reports = cached!.reports }
         else {
           const { buildCommunityReports } = await import('./lib/graph-rag.js')
-          reports = await buildCommunityReports(analytics, labelOf, { model, maxCommunities: 24, minSize: 3 })
-          saveCommunitiesCache({ sig, model, reports, builtAt: new Date().toISOString() })
+          reports = await buildCommunityReports(analytics, labelOf, { model, maxCommunities: 24, minSize: 3, level })
+          saveCommunitiesCache({ sig, model, level, reports, builtAt: new Date().toISOString() })
         }
         res.writeHead(200, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ model, communities: reports, count: reports.length, cached: hit }))
+        res.end(JSON.stringify({ model, level, communities: reports, count: reports.length, subdivisionsAvailable: analytics.subdivisions.length > 0, cached: hit }))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
@@ -5420,10 +5421,10 @@ const server = http.createServer((req, res) => {
         const { analytics, sig, labelOf } = await analyticsForGraph(false)
         const model = await pickChatModel()
         let cached = loadCommunitiesCache()
-        if (!cached || cached.sig !== sig || cached.model !== model) {
+        if (!cached || cached.sig !== sig || cached.model !== model || cached.level !== 'coarse') {
           const { buildCommunityReports } = await import('./lib/graph-rag.js')
-          const reports = await buildCommunityReports(analytics, labelOf, { model, maxCommunities: 24, minSize: 3 })
-          cached = { sig, model, reports, builtAt: new Date().toISOString() }; saveCommunitiesCache(cached)
+          const reports = await buildCommunityReports(analytics, labelOf, { model, maxCommunities: 24, minSize: 3, level: 'coarse' })
+          cached = { sig, model, level: 'coarse', reports, builtAt: new Date().toISOString() }; saveCommunitiesCache(cached)
         }
         const { globalSearch } = await import('./lib/graph-rag.js')
         const result = await globalSearch(question, cached.reports, { model, maxCommunities: 6 })

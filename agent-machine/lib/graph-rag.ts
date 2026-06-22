@@ -17,16 +17,19 @@ import { verifyGrounding } from './research-verify.js'
 import { lexicalSearch, semanticSearch } from './doc-store.js'
 import type { GraphAnalytics } from './graph-analytics.js'
 
+/** A first-class, individually grounding-verified claim — GraphRAG extracts claims; we verify each. */
+export interface VerifiedClaim { text: string; grounded: boolean; score: number }
+
 export interface CommunityReport {
   id: number
   size: number
   title: string
   summary: string
-  claims: string[]
-  trust: number        // grounding score 0..1 (claims supported by the community's evidence)
+  claims: VerifiedClaim[]   // each claim carries its own grounding verdict, not just the report
+  trust: number             // overall grounding score 0..1 (summary + claims vs the community's evidence)
   grounded: boolean
-  topNodes: string[]   // readable labels of the central members
-  members: string[]    // readable labels (capped)
+  topNodes: string[]        // readable labels of the central members
+  members: string[]         // readable labels (capped)
 }
 
 export interface GlobalAnswer {
@@ -34,6 +37,7 @@ export interface GlobalAnswer {
   trust: number
   grounded: boolean
   communitiesUsed: Array<{ id: number; title: string; relevance: number }>
+  localUsed: number   // # of local entity-level passages blended in (DRIFT-style hybrid)
 }
 
 const STOP = new Set(['the', 'and', 'for', 'with', 'that', 'this', 'from', 'what', 'which', 'are', 'how', 'does', 'about'])
@@ -50,9 +54,11 @@ function safeJson(s: string): { title?: string; summary?: string; claims?: strin
 export async function buildCommunityReports(
   analytics: GraphAnalytics,
   labelOf: (id: string) => string,
-  opts: { model: string; maxCommunities?: number; minSize?: number },
+  opts: { model: string; maxCommunities?: number; minSize?: number; level?: 'coarse' | 'fine' },
 ): Promise<CommunityReport[]> {
-  const comms = analytics.communities
+  // Hierarchical: 'coarse' = top-level themes, 'fine' = sub-themes (falls back to coarse if no hierarchy).
+  const source = opts.level === 'fine' && analytics.subdivisions.length ? analytics.subdivisions : analytics.communities
+  const comms = source
     .filter((c) => c.size >= (opts.minSize ?? 3))
     .slice(0, opts.maxCommunities ?? 24)
 
@@ -88,12 +94,20 @@ Base the summary and claims ONLY on the concepts and evidence above. Do not inve
 
     const title = (parsed?.title || topLabels.slice(0, 3).join(' / ')).slice(0, 80)
     const summary = (parsed?.summary || '').slice(0, 600)
-    const claims = (parsed?.claims || []).filter((x) => typeof x === 'string').slice(0, 4)
+    const claimStrings = (parsed?.claims || []).filter((x) => typeof x === 'string').slice(0, 4)
+    const ev = evidence.map((t) => ({ text: t }))
 
-    // Grounding: do the summary's claims actually appear in the community's evidence?
-    const verifyText = [summary, ...claims].join(' ')
-    const g = evidence.length && verifyText.trim()
-      ? verifyGrounding(verifyText, evidence.map((t) => ({ text: t })))
+    // Verify EACH claim against the community's evidence (deterministic grounding — no extra LLM cost),
+    // so an ungrounded claim is flagged individually, not hidden inside a report-level average.
+    const claims: VerifiedClaim[] = claimStrings.map((text) => {
+      const cg = ev.length ? verifyGrounding(text, ev, 0.5, 0.5) : { grounded: false, score: 0 }
+      return { text, grounded: cg.grounded, score: Number(cg.score.toFixed(2)) }
+    })
+
+    // Report-level grounding: summary + claims vs the evidence.
+    const verifyText = [summary, ...claimStrings].join(' ')
+    const g = ev.length && verifyText.trim()
+      ? verifyGrounding(verifyText, ev)
       : { grounded: false, score: 0, supported: 0, total: 0, unsupported: [] as string[] }
 
     reports.push({
@@ -106,10 +120,10 @@ Base the summary and claims ONLY on the concepts and evidence above. Do not inve
 }
 
 /** Global sensemaking: map a question over relevant community reports, reduce to one grounded answer. */
-export async function globalSearch(question: string, reports: CommunityReport[], opts: { model: string; maxCommunities?: number }): Promise<GlobalAnswer> {
+export async function globalSearch(question: string, reports: CommunityReport[], opts: { model: string; maxCommunities?: number; local?: boolean }): Promise<GlobalAnswer> {
   const qTok = tokens(question)
   const relevance = (r: CommunityReport): number => {
-    const rTok = tokens(`${r.title} ${r.summary} ${r.claims.join(' ')} ${r.topNodes.join(' ')}`)
+    const rTok = tokens(`${r.title} ${r.summary} ${r.claims.map((c) => c.text).join(' ')} ${r.topNodes.join(' ')}`)
     let overlap = 0; for (const t of qTok) if (rTok.has(t)) overlap++
     return qTok.size ? overlap / qTok.size : 0
   }
@@ -120,7 +134,7 @@ export async function globalSearch(question: string, reports: CommunityReport[],
   // MAP — a partial answer from each relevant community report.
   const partials: Array<{ id: number; title: string; text: string }> = []
   for (const { r } of relevant) {
-    const prompt = `Community report "${r.title}": ${r.summary}\nKey points: ${r.claims.join('; ') || '(none)'}\n\nQuestion: ${question}\n\nIf this community is relevant to the question, answer in 1-2 sentences using ONLY this report. If it is not relevant, reply exactly: NOT RELEVANT`
+    const prompt = `Community report "${r.title}": ${r.summary}\nKey points: ${r.claims.map((c) => c.text).join('; ') || '(none)'}\n\nQuestion: ${question}\n\nIf this community is relevant to the question, answer in 1-2 sentences using ONLY this report. If it is not relevant, reply exactly: NOT RELEVANT`
     try {
       const { content } = await generateOllamaText({ model: opts.model, messages: [{ role: 'user', content: prompt }], temperature: 0.2 })
       const txt = content.trim()
@@ -128,21 +142,32 @@ export async function globalSearch(question: string, reports: CommunityReport[],
     } catch { /* skip this community */ }
   }
 
-  if (partials.length === 0) {
-    return { answer: "I don't have enough in the knowledge graph to answer that.", trust: 0, grounded: false, communitiesUsed: [] }
+  // DRIFT-style hybrid: blend the GLOBAL community themes (partials) with LOCAL entity-level evidence —
+  // specific passages from the doc store matching the question. Global gives sensemaking; local gives
+  // the specifics. The final answer is grounded against both.
+  let local: string[] = []
+  if (opts.local !== false) {
+    try { local = [...new Set(lexicalSearch(question, 6).map((h) => h.text))].slice(0, 5) } catch { /* local best-effort */ }
   }
 
-  // REDUCE — synthesize the partials into one coherent answer.
-  const reducePrompt = `Question: ${question}\n\nPartial answers, each from one community of the user's knowledge graph:\n${partials.map((p) => `[${p.title}] ${p.text}`).join('\n')}\n\nSynthesize a single coherent answer grounded ONLY in these partial answers. Be concise and concrete. Do not add facts not present above.`
-  let answer = ''
-  try { const { content } = await generateOllamaText({ model: opts.model, messages: [{ role: 'user', content: reducePrompt }], temperature: 0.3 }); answer = content.trim() } catch { answer = partials.map((p) => p.text).join(' ') }
+  if (partials.length === 0 && local.length === 0) {
+    return { answer: "I don't have enough in the knowledge graph to answer that.", trust: 0, grounded: false, communitiesUsed: [], localUsed: 0 }
+  }
 
-  // Grounding of the final answer against the partials (the map-step outputs).
-  const g = verifyGrounding(answer, partials.map((p) => ({ text: p.text })))
+  // REDUCE — synthesize global themes + local passages into one grounded answer.
+  const globalBlock = partials.length ? `GLOBAL — themes across your knowledge graph:\n${partials.map((p) => `[${p.title}] ${p.text}`).join('\n')}` : ''
+  const localBlock = local.length ? `LOCAL — specific passages:\n${local.map((t, i) => `(${i + 1}) ${t.slice(0, 300)}`).join('\n')}` : ''
+  const reducePrompt = `Question: ${question}\n\n${[globalBlock, localBlock].filter(Boolean).join('\n\n')}\n\nSynthesize a single coherent answer grounded ONLY in the material above (global themes + local passages). Be concise and concrete; do not add facts not present above.`
+  let answer = ''
+  try { const { content } = await generateOllamaText({ model: opts.model, messages: [{ role: 'user', content: reducePrompt }], temperature: 0.3 }); answer = content.trim() } catch { answer = partials.map((p) => p.text).join(' ') || local.join(' ') }
+
+  // Grounding of the final answer against BOTH global partials and local passages.
+  const g = verifyGrounding(answer, [...partials.map((p) => ({ text: p.text })), ...local.map((t) => ({ text: t }))])
   return {
     answer,
     trust: Number(g.score.toFixed(2)),
     grounded: g.grounded,
     communitiesUsed: partials.map((p) => { const s = scored.find((x) => x.r.id === p.id); return { id: p.id, title: p.title, relevance: Number((s?.rel ?? 0).toFixed(2)) } }),
+    localUsed: local.length,
   }
 }

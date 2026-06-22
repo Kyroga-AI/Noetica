@@ -41,14 +41,19 @@ export function GraphRailPanel() {
   const [colorBy, setColorBy] = useState<'class' | 'community'>('class')
   const [sizeBy, setSizeBy] = useState<'degree' | 'importance'>('degree')
   const [metrics, setMetrics] = useState<Record<string, { pagerank: number; betweenness: number; community: number }>>({})
+  const [insights, setInsights] = useState<{ communityCount: number; modularity: number; topImportant: string[]; topBridges: string[] } | null>(null)
   const [showThemes, setShowThemes] = useState(false)
-  const [communities, setCommunities] = useState<Array<{ id: number; title: string; summary: string; trust: number; grounded: boolean; size: number; topNodes: string[] }>>([])
+  const [communities, setCommunities] = useState<Array<{ id: number; title: string; summary: string; trust: number; grounded: boolean; size: number; topNodes: string[]; claims?: Array<{ text: string; grounded: boolean; score: number }> }>>([])
   const [themesLoading, setThemesLoading] = useState(false)
   const [globalQ, setGlobalQ] = useState('')
-  const [globalAnswer, setGlobalAnswer] = useState<{ answer: string; trust: number; grounded: boolean; communitiesUsed: Array<{ title: string }> } | null>(null)
+  const [globalAnswer, setGlobalAnswer] = useState<{ answer: string; trust: number; grounded: boolean; communitiesUsed: Array<{ title: string }>; localUsed?: number } | null>(null)
   const [globalLoading, setGlobalLoading] = useState(false)
   const [predictions, setPredictions] = useState<Array<{ source: string; target: string; sourceLabel: string; targetLabel: string; score: number; commonNeighbors: number; verified?: boolean; relation?: string; confidence?: number; rationale?: string }>>([])
   const [predLoading, setPredLoading] = useState(false)
+  const [showTimeline, setShowTimeline] = useState(false)
+  const [timeline, setTimeline] = useState<{ from: number; to: number; total: number; buckets: Array<{ start: number; end: number; newNodes: number; cumulative: number; newConcepts: string[] }> } | null>(null)
+  const [tlLoading, setTlLoading] = useState(false)
+  const [tlSel, setTlSel] = useState<number | null>(null)
 
   async function loadThemes() {
     setThemesLoading(true)
@@ -72,6 +77,13 @@ export function GraphRailPanel() {
       const res = await fetch('/api/graph/predictions?verify=1&topK=10')
       if (res.ok) { const j = await res.json() as { predictions?: typeof predictions }; setPredictions(j.predictions ?? []) }
     } catch { /* offline */ } finally { setPredLoading(false) }
+  }
+  async function loadTimeline() {
+    setTlLoading(true)
+    try {
+      const res = await fetch('/api/graph/timeline?buckets=14')
+      if (res.ok) setTimeline(await res.json() as NonNullable<typeof timeline>)
+    } catch { /* offline */ } finally { setTlLoading(false) }
   }
 
   async function handleNodeClick(id: string) {
@@ -140,8 +152,9 @@ export function GraphRailPanel() {
       try {
         const res = await fetch('/api/graph/analytics')
         if (!res.ok) return
-        const j = (await res.json()) as { nodes?: Record<string, { pagerank: number; betweenness: number; community: number }> }
+        const j = (await res.json()) as { nodes?: Record<string, { pagerank: number; betweenness: number; community: number }>; modularity?: number; summary?: { communityCount: number; topByPagerank: Array<{ label: string }>; topByBetweenness: Array<{ label: string }> } }
         if (!cancelled && j.nodes) setMetrics(j.nodes)
+        if (!cancelled && j.summary) setInsights({ communityCount: j.summary.communityCount, modularity: j.modularity ?? 0, topImportant: j.summary.topByPagerank.slice(0, 4).map((x) => x.label), topBridges: j.summary.topByBetweenness.slice(0, 3).map((x) => x.label) })
       } catch { /* offline */ }
     })()
     return () => { cancelled = true }
@@ -288,7 +301,55 @@ export function GraphRailPanel() {
             className={`ml-auto rounded-full border px-2 py-0.5 transition ${showThemes ? 'border-[#7c3aed] text-[#7c3aed]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-tertiary)]'}`}>
             🧭 themes
           </button>
+          <button onClick={() => { setShowTimeline((v) => !v); if (!showTimeline && !timeline) void loadTimeline() }} title="How your knowledge grew over time"
+            className={`rounded-full border px-2 py-0.5 transition ${showTimeline ? 'border-[#0891b2] text-[#0891b2]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-tertiary)]'}`}>
+            📈 timeline
+          </button>
         </div>
+        {/* GDS insights readout — the analytics that drive node size/colour, made legible. */}
+        {insights && (
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[9px] text-[var(--color-text-tertiary)]">
+            <span title="Most important concepts (PageRank)">★ <span className="text-[var(--color-text-secondary)]">{insights.topImportant.join(', ') || '—'}</span></span>
+            {insights.topBridges.length > 0 && <span title="Bridge concepts (high betweenness)">· 🌉 <span className="text-[#0891b2]">{insights.topBridges.join(', ')}</span></span>}
+            <span title="Louvain communities + modularity">· {insights.communityCount} communities <span className="opacity-70">(mod {insights.modularity.toFixed(2)})</span></span>
+          </div>
+        )}
+        {showTimeline && (
+          <div className="mt-1.5 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-2">
+            <div className="flex items-center justify-between">
+              <span className="text-[9px] uppercase tracking-wide text-[var(--color-text-tertiary)]">knowledge over time {timeline ? `(${timeline.total})` : ''}</span>
+              <button onClick={() => void loadTimeline()} disabled={tlLoading} className="text-[9px] text-[#0891b2] disabled:opacity-50">{tlLoading ? 'loading…' : 'refresh'}</button>
+            </div>
+            {!timeline && !tlLoading && <p className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">No timeline yet — load the knowledge-growth curve.</p>}
+            {timeline && timeline.buckets.length > 0 && (() => {
+              const max = Math.max(...timeline.buckets.map((b) => b.cumulative), 1)
+              const fmt = (ms: number) => new Date(ms).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
+              const sel = tlSel != null ? timeline.buckets[tlSel] : null
+              return (
+                <>
+                  {/* cumulative growth — bar height ∝ total concepts known by then; click a period to inspect */}
+                  <div className="mt-2 flex h-16 items-end gap-0.5">
+                    {timeline.buckets.map((b, i) => (
+                      <button key={i} onClick={() => setTlSel(i === tlSel ? null : i)} title={`${fmt(b.start)} · +${b.newNodes} (cum ${b.cumulative})`}
+                        className="flex-1 rounded-t transition hover:opacity-80"
+                        style={{ height: `${Math.max(3, (b.cumulative / max) * 100)}%`, background: i === tlSel ? '#0891b2' : (b.newNodes > 0 ? 'var(--color-border-secondary)' : 'var(--color-border-tertiary)') }} />
+                    ))}
+                  </div>
+                  <div className="mt-0.5 flex justify-between text-[8px] text-[var(--color-text-tertiary)]"><span>{fmt(timeline.from)}</span><span>{fmt(timeline.to)}</span></div>
+                  {sel && (
+                    <div className="mt-1.5 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-[10px] font-semibold text-[var(--color-text-primary)]">{fmt(sel.start)} → {fmt(sel.end)}</span>
+                        <span className="text-[9px] text-[var(--color-text-tertiary)]">+{sel.newNodes} new · {sel.cumulative} known</span>
+                      </div>
+                      <p className="mt-0.5 text-[10px] leading-snug text-[var(--color-text-secondary)]">{sel.newConcepts.join(' · ') || 'no new concepts in this period'}</p>
+                    </div>
+                  )}
+                </>
+              )
+            })()}
+          </div>
+        )}
         {/* Entity-class legend + filter, and a trust toggle. Click a class to hide it; "confirmed
             only" hides inferred (dashed) edges so you see what the graph KNOWS vs guesses. */}
         {(() => {
@@ -350,6 +411,7 @@ export function GraphRailPanel() {
                 <span className={`rounded-full px-1.5 py-0.5 font-semibold ${globalAnswer.grounded ? 'bg-[#16a34a]/15 text-[#16a34a]' : 'bg-[#f59e0b]/15 text-[#f59e0b]'}`}>
                   {globalAnswer.grounded ? '✓' : '⚠'} trust {globalAnswer.trust.toFixed(2)}
                 </span>
+                {!!globalAnswer.localUsed && <span className="rounded-full bg-[var(--color-background-secondary)] px-1.5 py-0.5 text-[var(--color-text-tertiary)]">global+{globalAnswer.localUsed} local</span>}
                 {globalAnswer.communitiesUsed.map((c, i) => (
                   <span key={i} className="rounded-full bg-[var(--color-background-secondary)] px-1.5 py-0.5 text-[var(--color-text-tertiary)]">{c.title}</span>
                 ))}
@@ -371,6 +433,16 @@ export function GraphRailPanel() {
                 </div>
                 <p className="mt-0.5 text-[10px] leading-snug text-[var(--color-text-secondary)]">{c.summary}</p>
                 <p className="mt-0.5 truncate text-[9px] text-[var(--color-text-tertiary)]">{c.topNodes.join(' · ')}</p>
+                {c.claims && c.claims.length > 0 && (
+                  <ul className="mt-1 space-y-0.5 border-t border-[var(--color-border-tertiary)] pt-1">
+                    {c.claims.map((cl, k) => (
+                      <li key={k} className="flex items-start gap-1 text-[9px] leading-snug">
+                        <span className={cl.grounded ? 'text-[#16a34a]' : 'text-[#f59e0b]'}>{cl.grounded ? '✓' : '✗'}</span>
+                        <span className={cl.grounded ? 'text-[var(--color-text-secondary)]' : 'text-[var(--color-text-tertiary)] line-through opacity-70'}>{cl.text}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             ))}
           </div>
