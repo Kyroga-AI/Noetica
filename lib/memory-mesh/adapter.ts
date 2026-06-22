@@ -56,6 +56,21 @@ interface StoredEntry {
   session_id: string
   recorded_at: string
   source_evidence_refs: string[]
+  access_count?: number   // bumped on recall — popularity signal for salience-based eviction
+  last_access?: number    // epoch ms — recency-of-use signal
+}
+
+// Salience for eviction (Ebbinghaus-ish): recency-of-USE + popularity beat raw insertion order, so a
+// frequently-recalled fact isn't dropped just because newer junk arrived. Replaces the old slice-newest-500.
+function memSalience(e: StoredEntry, now: number): number {
+  const ageDays = (now - (e.last_access ?? (Date.parse(e.recorded_at) || now))) / 86_400_000
+  const recency = Math.pow(0.5, ageDays / 30)                 // 30-day half-life on last use
+  const pop = 1 - 1 / (1 + (e.access_count ?? 0))             // 0 → 0, saturating toward 1
+  return 0.6 * recency + 0.4 * pop
+}
+function pruneScope(entries: StoredEntry[], now: number): StoredEntry[] {
+  if (entries.length <= MAX_ENTRIES_PER_SCOPE) return entries
+  return [...entries].sort((a, b) => memSalience(b, now) - memSalience(a, now)).slice(0, MAX_ENTRIES_PER_SCOPE)
 }
 
 const scopeStore = new Map<string, StoredEntry[]>()
@@ -210,14 +225,16 @@ function mapRecall(
     .filter(({ score }) => score > 0 || entries.length <= topK)
     .sort((a, b) => b.score - a.score)
     .slice(0, topK)
-    .map(({ entry, score }): MemoryRecallEntry => ({
+    .map(({ entry, score }): MemoryRecallEntry => {
+      entry.access_count = (entry.access_count ?? 0) + 1; entry.last_access = Date.now()   // touch → feeds salience
+      return ({
       memory_id: entry.memory_id,
       content_hash: entry.content_hash,
       source_ref: `memory-mesh://local/${scopeId}/${entry.memory_id}`,
       score,
       text: entry.text,
       recorded_at: entry.recorded_at,
-    }))
+    }) })
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
@@ -235,7 +252,7 @@ export function storeMemoryContent(scopeId: string, sessionId: string, text: str
     recorded_at: new Date().toISOString(),
     source_evidence_refs: evidenceRefs,
   }
-  scopeStore.set(scopeId, [entry, ...existing].slice(0, MAX_ENTRIES_PER_SCOPE))
+  scopeStore.set(scopeId, pruneScope([entry, ...existing], Date.now()))
 
   // Async: write to memoryd with Ollama embedding (fire-and-forget)
   getEmbedding(text).then(vec => memorydWrite(text, scopeId, sessionId, vec)).catch(() => null)
@@ -303,7 +320,7 @@ export async function recallMemory(request: MemoryRecallRequest): Promise<Memory
                 recorded_at: h.recorded_at ?? new Date().toISOString(),
                 source_evidence_refs: [],
               })
-              scopeStore.set(request.scope_id, scope.slice(0, MAX_ENTRIES_PER_SCOPE))
+              scopeStore.set(request.scope_id, pruneScope(scope, Date.now()))
             }
           }
         }
