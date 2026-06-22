@@ -123,6 +123,7 @@ export function AppShell() {
 
   // ── Derive surface / messages from active session (with local overrides) ──
   const [activeSurface, setActiveSurface] = useState<ActiveSurface>('chat')
+  const [activeTopicScope, setActiveTopicScope] = useState<string | null>(null)   // blekko-style /topic search scope
   const [workspaceMode, setWorkspaceMode] = useState<WorkspaceMode>('Chat')
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
   // Local dialogue form: when set, the next user turn fills the slot → dispatches to model.
@@ -517,6 +518,7 @@ export function AppShell() {
       case 'newWorkspace':
       case 'clearChat': handleNewChat(); break
       case 'repeatLast': break // handled in the send flow (needs to re-dispatch)
+      case 'setTopicScope': setActiveTopicScope(cmd.topic); break
     }
   }
 
@@ -747,6 +749,12 @@ export function AppShell() {
       if (dlg.command?.kind === 'newWorkspace' || dlg.command?.kind === 'clearChat') {
         handleNewChat()
         return
+      }
+      // Blekko-style /topic scope: set the scope, then re-dispatch the bare query (scoped) to the model.
+      if (dlg.command?.kind === 'setTopicScope') {
+        setActiveTopicScope(dlg.command.topic)
+        if (dlg.command.query) { await handleSendRaw(dlg.command.topic ? `[/${dlg.command.topic}] ${dlg.command.query}` : dlg.command.query, [], messages, tools); return }
+        // bare scope (or clear): show the acknowledgement turn and stop
       }
       // "again"/"repeat" — re-dispatch the previous user request to the model.
       if (dlg.command?.kind === 'repeatLast') {

@@ -10,6 +10,8 @@
 // FAQ corpus, system date/time entities, fuzzy/typo tolerance, returning-user awareness,
 // and chitchat — derived from the system clock + your input.
 
+import { parseSlashScope, isTopicCommand } from './slash-commands'
+
 export interface DialogueResult {
   reply: string
   /** Optional inline buttons; clicking one sends its text as the next message. */
@@ -33,6 +35,7 @@ export type DialogueCommand =
   | { kind: 'openSettings'; category?: string }
   | { kind: 'setName'; name: string }
   | { kind: 'repeatLast' }
+  | { kind: 'setTopicScope'; topic: string | null; query: string }
 
 // Natural-language surface names → ActiveSurface ids (kept as strings to stay decoupled).
 const SURFACE_ALIASES: Record<string, string> = {
@@ -231,6 +234,17 @@ export function matchDialogue(input: string, ctx?: DialogueCtx): DialogueResult 
   const excited = /[!]{2,}$/.test(raw) || (raw.length <= 14 && raw === raw.toUpperCase() && /[a-z]/i.test(raw))
   const any = (...res: RegExp[]) => res.some((r) => r.test(s))
   const r = (reply: string, extra?: Partial<DialogueResult>): DialogueResult => ({ reply, ...extra })
+
+  // ── Blekko-style /topic scope commands (slash-topics in the chat surface) ──
+  if (raw.startsWith('/')) {
+    const slash = parseSlashScope(raw)
+    if (slash?.clear) return r('Scope cleared — searching everything again.', { command: { kind: 'setTopicScope', topic: null, query: slash.query } })
+    if (slash && isTopicCommand(raw)) {
+      return slash.query
+        ? r(`Scoped to /${slash.topic}.`, { command: { kind: 'setTopicScope', topic: slash.topic, query: slash.query } })
+        : r(`Search scoped to /${slash.topic}. Ask a question, or /all to clear.`, { command: { kind: 'setTopicScope', topic: slash.topic, query: '' } })
+    }
+  }
 
   // ── Conversation repair (in a form): cancel / start over ──────────────────
   if (ctx?.inForm && any(/^(nevermind|never mind|forget it|forget that|cancel|stop|scratch that|skip it|no nvm|drop it)$/))

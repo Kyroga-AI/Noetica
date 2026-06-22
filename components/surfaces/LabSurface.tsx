@@ -24,6 +24,8 @@ const CAPS: Capability[] = [
   { id: 'membrane-event', label: 'New-hope membrane event', group: 'Interop', sample: { carrierRef: 'web:doc1', message: 'untrusted ingest', decision: { trust: 'untrusted', injected: true } } },
   { id: 'evidence-answer', label: 'Sherlock evidence answer', group: 'Interop', sample: { query: 'who runs model routing', anchors: [{ id: 'mr', label: 'model-router', kind: 'feature' }], evidence: [{ sourceRef: 'doc1', text: 'model-router selects a provider', score: 0.9 }], proposedClaims: [{ subject: 'model-router', predicate: 'routes', object: 'models', support: 0.8 }] } },
   { id: 'topic-scope', label: 'Slash-topic scope', group: 'Interop', sample: { pack: { topic: '/security', version: '1', include: ['auth', 'guardrail'], exclude: ['recipe'] }, items: [{ text: 'auth flow' }, { text: 'cooking recipe' }, { text: 'guardrail policy' }] } },
+  { id: 'weighted-rank', label: 'Truth-weighted PageRank', group: 'OpenCog', sample: { nodes: ['A', 'B', 'NOISE'], edges: [{ from: 'A', to: 'B', tv: { strength: 0.9, confidence: 0.9 } }, { from: 'A', to: 'NOISE', tv: { strength: 0.5, confidence: 0.05 } }] } },
+  { id: 'pln-truth', label: 'PLN truth (deduction/revision)', group: 'OpenCog', sample: { op: 'deduction', a: { strength: 0.9, confidence: 0.8 }, b: { strength: 0.8, confidence: 0.7 } } },
 ]
 
 export function LabSurface() {

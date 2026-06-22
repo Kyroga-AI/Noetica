@@ -158,6 +158,21 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
         idx.addMany((b.vectors ?? []) as Array<{ id: string; vec: number[] }>)
         return send(200, { results: idx.search((b.query ?? []) as number[], b.k ?? 10, b.excludeId) }), true
       }
+      // ── OpenCog values: truth-weighted/attention-personalized ranking + PLN truth ──
+      case 'weighted-rank': {
+        const { weightedPageRank, stiNorm } = await import('./opencog-values.js')
+        const prior = b.sti ? stiNorm(new Map(Object.entries(b.sti as Record<string, number>))) : undefined
+        const ranks = weightedPageRank((b.nodes ?? []) as string[], (b.edges ?? []) as never, { prior })
+        return send(200, { ranks: [...ranks.entries()].map(([id, score]) => ({ id, score })).sort((a, c) => c.score - a.score) }), true
+      }
+      case 'pln-truth': {
+        const { deduction, revision, expectation, stv } = await import('./opencog-values.js')
+        const a = stv(Number(b.a?.strength ?? 0), Number(b.a?.confidence ?? 0))
+        const c = stv(Number(b.b?.strength ?? 0), Number(b.b?.confidence ?? 0))
+        const op = b.op === 'revision' ? revision : deduction
+        const r = op(a, c)
+        return send(200, { op: b.op === 'revision' ? 'revision' : 'deduction', result: r, expectation: expectation(r) }), true
+      }
       // ── repo bridges: new-hope membrane, sherlock evidence-answer, slash-topic scope ──
       case 'membrane-event': {
         const { membraneEvent, conformsToMembrane } = await import('./new-hope-membrane.js')
