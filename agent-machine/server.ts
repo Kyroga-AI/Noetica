@@ -3996,7 +3996,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ profile, isolation: selectIsolationTier(profile) }))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -4017,7 +4017,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(computeFlowMetrics()))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -4037,7 +4037,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(aggregateEnergy(entries)))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -4056,7 +4056,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ ...r, verdict: r.ok ? 'POS' : 'NEG', tier: 'T1' }))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -4074,7 +4074,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ brief: readBrief({ session, limit: 12 }), total: fabricCount() }))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -4094,7 +4094,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(policy ?? { formula: null, reason: 'need ≥8 rewarded turns to fit', n: 0 }))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -4112,7 +4112,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(paretoReport()))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -4160,7 +4160,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ domains }))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -4179,7 +4179,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ query: q, matches: matchDomains(q, 3) }))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -4234,7 +4234,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(selfModelSummary()))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -5257,7 +5257,7 @@ const server = http.createServer((req, res) => {
         else { fs.mkdirSync(path.dirname(fp), { recursive: true }); fs.writeFileSync(fp, String(p.content ?? '')) }
         res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true }))
       } catch (e) {
-        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'write_failed', detail: String(e).slice(0, 120) }))
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'write_failed' }))
       }
     })
     return
