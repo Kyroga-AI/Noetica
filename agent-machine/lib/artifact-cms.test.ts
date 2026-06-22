@@ -67,10 +67,35 @@ test('drive bridge: artifact → workspace file with type-appropriate name', () 
   assert.equal(f.content, '# notes')
 })
 
-test('content-addressing dedups identical content', () => {
+test('content-addressing: identical update is a no-op (no version bloat)', () => {
   clock = 0
   const c = cms()
   const a = c.create({ type: 'data', title: 'A', content: 'same' })
-  c.update(a.id, 'same')
-  assert.equal(c.history(a.id)[0]!.hash, c.history(a.id)[1]!.hash, 'identical content → same blob hash')
+  c.update(a.id, 'same'); c.update(a.id, 'same')
+  assert.equal(c.get(a.id)!.currentVersion, 1, 'identical content adds no version')
+  assert.equal(c.history(a.id).length, 1)
+  c.update(a.id, 'different')
+  assert.equal(c.get(a.id)!.currentVersion, 2, 'changed content does add a version')
+})
+
+test('HARDENING: reload derives seq from max id suffix → no collision/overwrite after deletions', () => {
+  clock = 0
+  const store = memStore()
+  const c1 = new ArtifactCMS(store, () => `t${clock++}`)
+  const a = c1.create({ type: 'document', title: 'Doc', content: 'a' })   // art-doc-0
+  c1.create({ type: 'document', title: 'Doc', content: 'b' })             // art-doc-1
+  c1.delete(a.id)                                                          // snapshot now has 1 item
+  const snap = c1.snapshot()
+  const c2 = new ArtifactCMS(store, () => `t${clock++}`)
+  c2.hydrate(snap)
+  const fresh = c2.create({ type: 'document', title: 'Doc', content: 'c' })
+  assert.notEqual(fresh.id, 'art-doc-1', 'must NOT collide with the surviving art-doc-1')
+  assert.equal(c2.get('art-doc-1') !== null, true, 'surviving artifact intact, not overwritten')
+})
+
+test('HARDENING: hydrate rejects malformed/non-array input without throwing', () => {
+  const c = cms()
+  c.hydrate(null as unknown)
+  c.hydrate([{ bogus: true }, null, 'str'] as unknown)
+  assert.equal(c.list().length, 0, 'garbage entries skipped, no crash')
 })

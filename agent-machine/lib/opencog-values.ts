@@ -66,7 +66,7 @@ export function weightedPageRank(
   const adj: Array<Array<{ j: number; w: number }>> = Array.from({ length: n }, () => [])
   for (const e of edges) {
     const a = idx.get(e.from), b = idx.get(e.to)
-    if (a == null || b == null) continue
+    if (a == null || b == null || a === b) continue   // skip self-loops (would double-inflate outW)
     const w = e.tv ? Math.max(1e-6, expectation(e.tv)) : 1   // belief-weighted edge
     adj[a]!.push({ j: b, w }); outW[a]! += w
     adj[b]!.push({ j: a, w }); outW[b]! += w

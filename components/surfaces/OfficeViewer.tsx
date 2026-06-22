@@ -14,7 +14,9 @@ type Kind = 'docx' | 'sheet' | 'other' | null
 export function OfficeViewer() {
   const [name, setName] = useState('')
   const [kind, setKind] = useState<Kind>(null)
-  const [sheets, setSheets] = useState<Array<{ name: string; html: string }>>([])
+  // SECURITY: store parsed ROWS (not HTML). React escapes cell text → no XSS from a malicious .xlsx
+  // (SheetJS sheet_to_html does NOT escape the data-v attribute → would be arbitrary-JS execution via innerHTML).
+  const [sheets, setSheets] = useState<Array<{ name: string; rows: string[][] }>>([])
   const [active, setActive] = useState(0)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
@@ -35,7 +37,7 @@ export function OfficeViewer() {
         setKind('sheet')
         const XLSX = await import('xlsx')
         const wb = XLSX.read(buf, { type: 'array' })
-        setSheets(wb.SheetNames.map((n) => ({ name: n, html: XLSX.utils.sheet_to_html(wb.Sheets[n]!) })))
+        setSheets(wb.SheetNames.map((n) => ({ name: n, rows: XLSX.utils.sheet_to_json<string[]>(wb.Sheets[n]!, { header: 1, raw: false, defval: '' }) })))
         setActive(0)
       } else {
         setKind('other')
@@ -64,8 +66,16 @@ export function OfficeViewer() {
                 <button key={s.name} onClick={() => setActive(i)} className={`rounded px-2 py-0.5 text-[10px] ${i === active ? 'bg-[#16a34a]/15 text-[#16a34a]' : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]'}`}>{s.name}</button>
               ))}
             </div>
-            <div className="overflow-auto rounded-lg border border-[var(--color-border-secondary)] bg-white p-2 text-black [&_table]:border-collapse [&_td]:border [&_td]:border-gray-300 [&_td]:px-2 [&_td]:py-1 [&_td]:text-xs"
-              dangerouslySetInnerHTML={{ __html: sheets[active]?.html ?? '' }} />
+            <div className="overflow-auto rounded-lg border border-[var(--color-border-secondary)] bg-white p-2 text-black">
+              <table className="border-collapse text-xs">
+                <tbody>
+                  {(sheets[active]?.rows ?? []).slice(0, 1000).map((row, i) => (
+                    <tr key={i}>{(row ?? []).map((cell, j) => <td key={j} className="border border-gray-300 px-2 py-1">{String(cell ?? '')}</td>)}</tr>
+                  ))}
+                </tbody>
+              </table>
+              {(sheets[active]?.rows.length ?? 0) > 1000 && <p className="p-2 text-[10px] text-gray-500">Showing first 1000 rows.</p>}
+            </div>
           </div>
         )}
         {kind === 'other' && (

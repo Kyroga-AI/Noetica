@@ -56,8 +56,11 @@ export function matchCommand(input: string): { cmd: SlashCmd; args: string } | n
   const word = m[1]!.toLowerCase(), args = (m[2] ?? '').trim()
   const exact = INDEX.get(word)
   if (exact) return { cmd: exact, args }
-  const pref = COMMANDS.find((c) => c.name.startsWith(word) || (c.aliases ?? []).some((a) => a.startsWith(word)))
-  return pref ? { cmd: pref, args } : null
+  // Prefix routing only when UNAMBIGUOUS (exactly one candidate) + ≥2 chars — else a stray `/s` or a pasted
+  // path like `/etc/hosts` would hijack to whatever's first in COMMANDS.
+  if (word.length < 2) return null
+  const pref = COMMANDS.filter((c) => c.name.startsWith(word) || (c.aliases ?? []).some((a) => a.startsWith(word)))
+  return pref.length === 1 ? { cmd: pref[0]!, args } : null
 }
 
 /** Grouped, browsable command list (Bloomberg-style discovery). */

@@ -39,8 +39,19 @@ import { VectorIndex } from './vector-index.js'
 
 const renderTemplate = (tpl: string, vars: Record<string, unknown>) => tpl.replace(/\{\{?(\w+)\}?\}/g, (_m, k: string) => (k in vars ? String(vars[k]) : `{${k}}`))
 
+const MAX_CAP_BODY = 8 * 1024 * 1024   // 8MB cap — readBody owns enforcement (don't rely on the detached global guard)
 function readBody(req: http.IncomingMessage): Promise<string> {
-  return new Promise((resolve) => { let b = ''; req.on('data', (c: Buffer) => { b += c.toString() }); req.on('end', () => resolve(b)); req.on('error', () => resolve('')) })
+  return new Promise((resolve) => {
+    let b = ''; let size = 0; let aborted = false
+    req.on('data', (c: Buffer) => {
+      if (aborted) return
+      size += c.length
+      if (size > MAX_CAP_BODY) { aborted = true; resolve(''); try { req.destroy() } catch { /* ignore */ } return }
+      b += c.toString()
+    })
+    req.on('end', () => { if (!aborted) resolve(b) })
+    req.on('error', () => resolve(''))
+  })
 }
 
 const edgesToMap = (edges: Array<{ from: string; to: string; minutes: number }>): Map<string, TimedEdge[]> => {
@@ -165,12 +176,16 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
       }
       case 'office-convert': {
         const { convertWithLibreOffice, canView, viewTargetFor } = await import('./office-toolkit.js')
-        const input = String(b.path ?? '')
-        if (!input || !canView(input)) return send(400, { error: 'not_a_viewable_office_file' }), true
-        const to = (b.to as 'pdf' | 'html') ?? viewTargetFor(input)
-        const os = await import('node:os'); const path = await import('node:path')
-        const outdir = String(b.outdir ?? path.join(os.homedir(), '.noetica', 'office-cache'))
-        return send(200, await convertWithLibreOffice(input, to, outdir)), true
+        const os = await import('node:os'); const path = await import('node:path'); const fs = await import('node:fs')
+        const root = path.join(os.homedir(), '.noetica')
+        // SECURITY: resolve real path + require it INSIDE ~/.noetica (no traversal / arbitrary file read);
+        // force the output dir (ignore attacker-supplied outdir).
+        let real: string
+        try { real = fs.realpathSync(path.resolve(String(b.path ?? ''))) } catch { return send(400, { error: 'file_not_found' }), true }
+        if (real !== root && !real.startsWith(root + path.sep)) return send(403, { error: 'path_outside_allowed_root' }), true
+        if (!canView(real)) return send(400, { error: 'not_a_viewable_office_file' }), true
+        const to = (b.to === 'html' || b.to === 'pdf') ? b.to : viewTargetFor(real)
+        return send(200, await convertWithLibreOffice(real, to, path.join(root, 'office-cache'))), true
       }
       case 'porter-config': {
         const { porterApp, porterCommands, toPorterYaml, conformsToPorter } = await import('./porter-paas.js')
@@ -184,17 +199,23 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
         const m = c.create({ title: String(b.title ?? 'Untitled'), type: (b.type ?? 'document') as 'document', content: String(b.content ?? ''), tags: b.tags as string[] | undefined })
         await persistArtifactCMS()
         // Announce to the swarm by content hash (BitTorrent-for-artifacts: dedup + reuse + discovery).
-        const { getSwarm, LOCAL_PROVIDER } = await import('./artifact-swarm.js')
+        const { getSwarm, LOCAL_PROVIDER, persistSwarm, toMagnet } = await import('./artifact-swarm.js')
         const v0 = m.versions[m.versions.length - 1]!
-        getSwarm().announce({ hash: v0.hash, title: m.title, type: m.type, size: v0.size, provider: LOCAL_PROVIDER, tags: m.tags })
-        return send(200, { artifact: m, magnet: (await import('./artifact-swarm.js')).toMagnet({ hash: v0.hash, title: m.title, type: m.type, size: v0.size }) }), true
+        try { getSwarm().announce({ hash: v0.hash, title: m.title, type: m.type, size: v0.size, provider: LOCAL_PROVIDER, tags: m.tags }); await persistSwarm() } catch { /* swarm announce best-effort */ }
+        return send(200, { artifact: m, magnet: toMagnet({ hash: v0.hash, title: m.title, type: m.type, size: v0.size }) }), true
       }
       // ── Artifact swarm: BitTorrent-style search / discovery / reuse / ranking ──
       case 'swarm-search': { const { getSwarm } = await import('./artifact-swarm.js'); return send(200, { results: getSwarm().search(String(b.query ?? ''), { topK: b.topK as number | undefined, type: b.type as string | undefined }) }), true }
       case 'swarm-top': { const { getSwarm } = await import('./artifact-swarm.js'); return send(200, { results: getSwarm().topByReuse(b.k as number | undefined) }), true }
       case 'swarm-rare': { const { getSwarm } = await import('./artifact-swarm.js'); return send(200, { results: getSwarm().rare(b.k as number | undefined) }), true }
-      case 'swarm-announce': { const { getSwarm } = await import('./artifact-swarm.js'); const e = getSwarm().announce({ hash: String(b.hash), title: String(b.title ?? 'asset'), type: b.type as string | undefined, size: b.size as number | undefined, provider: String(b.provider ?? 'peer'), tags: b.tags as string[] | undefined }); return send(200, { hash: e.hash, seeders: e.providers.size }), true }
-      case 'swarm-reuse': { const { getSwarm } = await import('./artifact-swarm.js'); getSwarm().recordReuse(String(b.hash)); return send(200, { ok: true, health: getSwarm().health(String(b.hash)) }), true }
+      case 'swarm-announce': {
+        const { getSwarm, isValidHash, persistSwarm } = await import('./artifact-swarm.js')
+        if (!isValidHash(String(b.hash ?? ''))) return send(400, { error: 'invalid_hash' }), true
+        const e = getSwarm().announce({ hash: String(b.hash), title: String(b.title ?? 'asset'), type: b.type as string | undefined, size: b.size as number | undefined, provider: String(b.provider ?? 'peer'), tags: Array.isArray(b.tags) ? b.tags as string[] : undefined })
+        await persistSwarm()
+        return send(200, { hash: e.hash, seeders: e.providers.size }), true
+      }
+      case 'swarm-reuse': { const { getSwarm, isValidHash, persistSwarm } = await import('./artifact-swarm.js'); if (!isValidHash(String(b.hash ?? ''))) return send(400, { error: 'invalid_hash' }), true; getSwarm().recordReuse(String(b.hash)); await persistSwarm(); return send(200, { ok: true, health: getSwarm().health(String(b.hash)) }), true }
       case 'magnet': { const { toMagnet, parseMagnet } = await import('./artifact-swarm.js'); return send(200, b.magnet ? { ref: parseMagnet(String(b.magnet)) } : { magnet: toMagnet({ hash: String(b.hash), title: b.title as string | undefined, type: b.type as string | undefined, size: b.size as number | undefined }) }), true }
       case 'cms-list': {
         const { getArtifactCMS } = await import('./artifact-cms.js')

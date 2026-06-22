@@ -19,6 +19,7 @@ export interface ArtifactMeta {
   createdAt: string; updatedAt: string; currentVersion: number; versions: ArtifactVersion[]
 }
 
+const MAX_VERSIONS = 100
 const EXT: Record<ArtifactType, string> = { document: 'md', code: 'txt', evidence: 'json', image: 'bin', data: 'json' }
 const slug = (s: string) => (s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 48) || 'artifact')
 
@@ -27,14 +28,27 @@ export class ArtifactCMS {
   private seq = 0
   constructor(private store: ContentStore, private now: () => string = () => new Date().toISOString()) {}
 
-  /** Load a persisted index (id → meta). */
-  hydrate(metas: ArtifactMeta[]): void { for (const m of metas) { this.index.set(m.id, m); } this.seq = Math.max(this.seq, metas.length) }
+  /** Load a persisted index (id → meta). Derives the next seq from the MAX id suffix (not the count) so
+   * reloading after deletions can't collide + silently overwrite. Validates shape; skips malformed entries. */
+  hydrate(metas: unknown): void {
+    if (!Array.isArray(metas)) return
+    let maxSeq = 0
+    for (const raw of metas) {
+      const m = raw as ArtifactMeta
+      if (!m || typeof m.id !== 'string' || !Array.isArray(m.versions) || typeof m.currentVersion !== 'number') continue
+      this.index.set(m.id, m)
+      const n = Number(/-(\d+)$/.exec(m.id)?.[1] ?? 0)
+      if (Number.isFinite(n) && n + 1 > maxSeq) maxSeq = n + 1
+    }
+    this.seq = Math.max(this.seq, maxSeq)
+  }
   snapshot(): ArtifactMeta[] { return [...this.index.values()] }
 
   create(opts: { title: string; type: ArtifactType; content: string; tags?: string[] }): ArtifactMeta {
     const ts = this.now()
     const { hash, size } = this.store.put(opts.content)
-    const id = `art-${slug(opts.title)}-${this.seq++}`
+    let id = `art-${slug(opts.title)}-${this.seq++}`
+    while (this.index.has(id)) id = `art-${slug(opts.title)}-${this.seq++}`   // never overwrite an existing artifact
     const meta: ArtifactMeta = {
       id, title: opts.title, type: opts.type, tags: opts.tags ?? [], createdAt: ts, updatedAt: ts,
       currentVersion: 1, versions: [{ version: 1, hash, size, createdAt: ts }],
@@ -43,14 +57,18 @@ export class ArtifactCMS {
     return meta
   }
 
-  /** New immutable version (content-addressed; identical content still records a version with the same hash). */
+  /** New immutable version — content-addressed. Identical content to the current version is a NO-OP (prevents
+   * unbounded version growth on repeated saves). Retains at most MAX_VERSIONS (older ones GC'd). */
   update(id: string, content: string, message?: string): ArtifactMeta | null {
     const m = this.index.get(id)
     if (!m) return null
-    const ts = this.now()
     const { hash, size } = this.store.put(content)
+    const cur = m.versions.find((v) => v.version === m.currentVersion)
+    if (cur && cur.hash === hash) return m   // identical content → no new version
+    const ts = this.now()
     const version = m.currentVersion + 1
     m.versions.push({ version, hash, size, createdAt: ts, message })
+    if (m.versions.length > MAX_VERSIONS) m.versions = m.versions.slice(-MAX_VERSIONS)
     m.currentVersion = version
     m.updatedAt = ts
     return m
@@ -106,16 +124,31 @@ export async function getArtifactCMS(): Promise<ArtifactCMS> {
     get: (h) => { const b = getBlob(h); return b ? b.toString('utf8') : null },
   }
   const c = new ArtifactCMS(store)
-  try { const idx = await indexPath(); if (existsSync(idx)) c.hydrate(JSON.parse(readFileSync(idx, 'utf8')) as ArtifactMeta[]) } catch { /* fresh */ }
+  try {
+    const idx = await indexPath()
+    if (existsSync(idx)) {
+      try { c.hydrate(JSON.parse(readFileSync(idx, 'utf8'))) }
+      catch {
+        // Corrupt/truncated index (e.g. crash mid-write): DON'T silently wipe — back it up so blobs stay recoverable.
+        try { const { renameSync } = await import('node:fs'); renameSync(idx, `${idx}.corrupt-${Date.now()}`) } catch { /* best effort */ }
+      }
+    }
+  } catch { /* fresh */ }
   _prod = c
   return c
 }
 
 export async function persistArtifactCMS(): Promise<void> {
   if (!_prod) return
-  const { writeFileSync, mkdirSync } = await import('node:fs')
+  const { writeFileSync, mkdirSync, renameSync } = await import('node:fs')
   const path = await import('node:path')
-  try { const idx = await indexPath(); mkdirSync(path.dirname(idx), { recursive: true }); writeFileSync(idx, JSON.stringify(_prod.snapshot())) } catch { /* ignore */ }
+  try {
+    const idx = await indexPath()
+    mkdirSync(path.dirname(idx), { recursive: true })
+    const tmp = `${idx}.tmp`
+    writeFileSync(tmp, JSON.stringify(_prod.snapshot()))   // atomic: write tmp then rename (crash-safe)
+    renameSync(tmp, idx)
+  } catch { /* ignore */ }
 }
 
 /** Write an artifact to the workspace drive (~/.noetica/workspaces/<ws>/) — the CMS→drive integration. */

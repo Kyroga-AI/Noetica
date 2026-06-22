@@ -23,9 +23,9 @@ export function parseIrcCommand(input: string, userName?: string, rng: () => num
     case 'me': return arg ? { reply: `_${who} ${arg}_` } : null
     case 'shrug': return { reply: arg ? `${arg} ${SHRUG}` : SHRUG }
     case 'nick': return arg ? { reply: `_${who} is now known as ${arg}_`, setName: arg } : null
-    case 'roll': { const sides = Math.max(2, Number(arg.replace(/^d/i, '')) || 6); return { reply: `_${who} rolls a d${sides}:_ **${1 + Math.floor(rng() * sides)}**` } }
+    case 'roll': { const sides = Math.min(1000, Math.max(2, Math.floor(Number(arg.replace(/^d/i, '')) || 6))); return { reply: `_${who} rolls a d${sides}:_ **${1 + Math.floor(rng() * sides)}**` } }
     case 'flip': return { reply: `_${who} flips a coin:_ **${rng() < 0.5 ? 'heads' : 'tails'}**` }
-    case '8ball': return { reply: arg ? `🎱 ${EIGHTBALL[Math.floor(rng() * EIGHTBALL.length)]}` : '🎱 Ask a question after /8ball.' }
+    case '8ball': return { reply: arg ? `🎱 ${EIGHTBALL[Math.min(EIGHTBALL.length - 1, Math.floor(rng() * EIGHTBALL.length))]}` : '🎱 Ask a question after /8ball.' }
     default: return null
   }
 }
