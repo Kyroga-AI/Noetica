@@ -1109,7 +1109,7 @@ async function runSubAgent(
         else if (ev.type === 'tool_calls') toolCalls = ev.calls
       }
     } catch (e) {
-      return `[${role.label} sub-agent error: ${String(e).slice(0, 160)}]`
+      return `[${role.label} sub-agent error]`
     }
     if (!toolCalls?.length) {
       const parsed = parseInlineToolCalls(text, subToolNames)
@@ -2052,7 +2052,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       taskOverride: intentTaskOverride,
     })
   } catch (err) {
-    sse(res, 'error', { error: err instanceof Error ? err.message : String(err) })
+    sse(res, 'error', { error: 'internal_error' })
     return
   }
 
@@ -4608,7 +4608,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(result))
       } catch (err) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ nodes: [], links: [], error: String(err) }))
+        res.end(JSON.stringify({ nodes: [], links: [], error: 'internal_error' }))
       }
     })()
     return
@@ -4822,7 +4822,7 @@ const server = http.createServer((req, res) => {
           res.end(JSON.stringify(result))
         } catch (err) {
           res.writeHead(400, { 'content-type': 'application/json' })
-          res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }))
+          res.end(JSON.stringify({ error: 'internal_error' }))
         }
       })()
     })
@@ -4853,7 +4853,7 @@ const server = http.createServer((req, res) => {
           res.end(JSON.stringify(result))
         } catch (err) {
           res.writeHead(400, { 'content-type': 'application/json' })
-          res.end(JSON.stringify({ error: err instanceof Error ? err.message : String(err) }))
+          res.end(JSON.stringify({ error: 'internal_error' }))
         }
       })()
     })
@@ -4883,7 +4883,7 @@ const server = http.createServer((req, res) => {
       handleChat(parsed, res)
         .catch((err: unknown) => {
           try {
-            sse(res, 'error', { error: err instanceof Error ? err.message : String(err) })
+            sse(res, 'error', { error: 'internal_error' })
           } catch { /* ignore write errors after stream close */ }
         })
         .finally(() => {
@@ -5099,7 +5099,7 @@ const server = http.createServer((req, res) => {
           attempts = a
           const user = a === 1 ? `Question: ${question}` : `Question: ${question}\n\nYour previous answer made claims the sources DON'T support:\n${prior}\nRewrite using ONLY supported facts.`
           try { ({ content: answer } = await generateOllamaText({ model: 'qwen2.5:7b', messages: [{ role: 'system', content: SYS }, { role: 'user', content: user }], temperature: a === 1 ? 0.2 : 0.4 })) }
-          catch (e) { answer = `[generation error: ${String(e).slice(0, 80)}]`; break }
+          catch (e) { answer = `[generation error]`; break }
           grounding = verifyGrounding(answer, sources)
           if (grounding.grounded) break
           prior = grounding.unsupported.slice(0, 4).map((u) => `- ${u}`).join('\n')
