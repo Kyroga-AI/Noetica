@@ -2095,7 +2095,14 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   const actionRoute = action === 'meta' ? { tier: 'embedding', target: 'concierge' } : routeForAction(action)
   const polarity = ['retrieve', 'evaluate', 'sense'].includes(action) ? 'read' : action === 'meta' ? 'meta' : 'write'
   const phase = action === 'meta' ? null : meshrushPhase(action) // where this turn sits in the MeshRush loop
-  sse(res, 'action', { action: { verb: action, polarity, tier: actionRoute.tier, target: actionRoute.target, meshrush_phase: phase } })
+  // Fine question-type gate (beside the coarse action polarity): classify by ARC knowledge type →
+  // lookup (retrieve) / compute (verified sympy) / model (reason). Emitted per turn so "is this
+  // lookup- or model-dominated?" is a DECIDED, logged property of every turn, not implicit. The
+  // medical-QA literature validates the split (RAG fixes the recall bucket, reasoning the reasoning
+  // bucket; ~33% of medical QA is reasoning-bound — MedRAG/MIRAGE, Disentangling Reasoning 2505.11462).
+  const { classifyKnowledge } = await import('./lib/knowledge-type.js')
+  const knowledge = classifyKnowledge(latestUserContent)
+  sse(res, 'action', { action: { verb: action, polarity, tier: actionRoute.tier, target: actionRoute.target, meshrush_phase: phase, knowledge_types: knowledge.types, solver: knowledge.solver, dominance: knowledge.dominance } })
 
   // ── Visible plan + execution timeline ───────────────────────────────────────
   // Make the turn legible while it runs: stream an ordered checklist the moment we
