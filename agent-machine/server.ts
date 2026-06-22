@@ -3793,7 +3793,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ result }))
       } catch (err) {
         res.writeHead(400, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(err) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -3821,7 +3821,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(result))
       } catch (err) {
         res.writeHead(400, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(err) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -3849,7 +3849,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(result))
       } catch (err) {
         res.writeHead(400, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(err) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -3878,7 +3878,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(result))
       } catch (err) {
         res.writeHead(503, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: 'Sidecar unavailable', detail: String(err) }))
+        res.end(JSON.stringify({ error: 'Sidecar unavailable' }))
       }
     })()
     return
@@ -4217,7 +4217,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(summary))
       } catch (err) {
         res.writeHead(400, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(err) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -4253,7 +4253,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(summary))
       } catch (err) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(err) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -4463,7 +4463,7 @@ const server = http.createServer((req, res) => {
           res.end(JSON.stringify({ ok: true, observation_id: obsId }))
         } catch (err) {
           res.writeHead(400, { 'content-type': 'application/json' })
-          res.end(JSON.stringify({ error: String(err) }))
+          res.end(JSON.stringify({ error: 'internal_error' }))
         }
       })()
     })
@@ -4492,7 +4492,7 @@ const server = http.createServer((req, res) => {
           void runSuperconsciousLoop(keys)
         } catch (err) {
           res.writeHead(400, { 'content-type': 'application/json' })
-          res.end(JSON.stringify({ error: String(err) }))
+          res.end(JSON.stringify({ error: 'internal_error' }))
         }
       })()
     })
@@ -4520,7 +4520,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ ok: true, enabled: _loopEnabled, interval_ms: LOOP_INTERVAL_MS }))
       } catch (err) {
         res.writeHead(400, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(err) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })
     return
@@ -4571,7 +4571,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ nodes, edges }))
       } catch (err) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(err) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -4687,7 +4687,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(payload))
       } catch (err) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(err) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -4707,7 +4707,7 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify(result))
       } catch (err) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(err) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -4767,7 +4767,7 @@ const server = http.createServer((req, res) => {
           res.end(JSON.stringify({ ok: true }))
         } catch (err) {
           res.writeHead(400, { 'content-type': 'application/json' })
-          res.end(JSON.stringify({ error: String(err) }))
+          res.end(JSON.stringify({ error: 'internal_error' }))
         }
       })()
     })
@@ -4794,7 +4794,7 @@ const server = http.createServer((req, res) => {
           res.end(JSON.stringify(result))
         } catch (err) {
           res.writeHead(400, { 'content-type': 'application/json' })
-          res.end(JSON.stringify({ error: String(err) }))
+          res.end(JSON.stringify({ error: 'internal_error' }))
         }
       })()
     })
@@ -4926,7 +4926,7 @@ const server = http.createServer((req, res) => {
           const buf = await oaiRes.arrayBuffer()
           res.end(Buffer.from(buf))
         } catch (err) {
-          res.writeHead(502); res.end(JSON.stringify({ error: String(err) }))
+          res.writeHead(502); res.end(JSON.stringify({ error: 'internal_error' }))
         }
       })()
     })
