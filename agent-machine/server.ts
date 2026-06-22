@@ -1002,7 +1002,7 @@ const FEATURE_FLAGS: Array<{ env: string; status: 'default-on' | 'opt-in' | 'exp
   { env: 'NOETICA_CAPABILITY_ROUTING', status: 'opt-in',       desc: 'Escalate off local model when success rate is poor' },
   { env: 'NOETICA_CAIRNPATH_RETRIEVAL',status: 'experimental', desc: 'CairnPath EXPAND→DEDUP→RANK→CAP retrieval executor' },
   { env: 'NOETICA_DELIBERATION',       status: 'experimental', desc: 'BG→WM→VJ→select deliberation loop (multi-candidate)' },
-  { env: 'NOETICA_LOGIC_SOLVER',       status: 'experimental', desc: 'Decidability ladder (recall→compute→extract→undecidable): surface the by-logic answer + Gödel signature as turn provenance' },
+  { env: 'NOETICA_LOGIC_SOLVER',       status: 'experimental', desc: 'Decidability ladder (recall→compute→extract→undecidable). =1: surface the by-logic answer + Gödel signature as turn provenance. =enforce: short-circuit generation when the question is decidable (answer by logic, generate only the Gödel remainder)' },
   { env: 'NOETICA_SHACL_ENFORCE',      status: 'experimental', desc: 'Ontogenesis SHACL gate on graph writes (quarantine)' },
   { env: 'NOETICA_GAIA_AUTO_LOOP',     status: 'experimental', desc: 'GAIA background observation/consolidation loop' },
   { env: 'NOETICA_QA_FEWSHOT',         status: 'opt-in',       desc: 'Inject gold Q/A exemplars (Pareto head) as few-shot training memory' },
@@ -3004,6 +3004,30 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         return
       }
     } catch { /* concept lookup is best-effort — fall through to generation */ }
+  }
+
+  // ── Decidability ladder ENFORCE (NOETICA_LOGIC_SOLVER=enforce): where the question is decidable —
+  // RECALL a crystallized proof, COMPUTE by CAS, or EXTRACT verbatim — answer BY LOGIC and skip
+  // generation entirely. The thesis made operative: generate ONLY the Gödel remainder. Off by default
+  // (=1 is provenance-only, emitted earlier; =enforce short-circuits). Mirrors the concept-lookup
+  // short-circuit exactly, so it reuses the proven emit path (delta → tracking → done → return).
+  if (process.env['NOETICA_LOGIC_SOLVER'] === 'enforce' && !hasImages) {
+    try {
+      const { solveByLogic } = await import('./lib/logic-solver.js')
+      const decided = solveByLogic(latestUserContent, { hasDoc })
+      if (decided.decidable && decided.answer) {
+        const answer = decided.answer
+        const lat = Date.now() - turnStart
+        step('generate', 'done', `by logic: ${decided.method}`)
+        sse(res, 'delta', { delta: answer })
+        try {
+          const { recordTurn } = await import('./lib/dialogue-tracker.js')
+          recordTurn({ session_id: body.session_id ?? 'local', intent: intentPlan.name, intent_score: intentPlan.score, fallback: false, slots_expected: intentPlan.slots, slots_filled: policy.filled, fill_rate: policy.fillRate, clarified: false, entities: glossaryTerms, surface: intentPlan.surface, skill: intentPlan.skill, tools: intentPlan.tools, capability: intentPlan.model, model: `logic:${decided.method}`, retrieval: intentPlan.retrieval, grounded: true, latency_ms: lat, worth: 0.9, reward: 0.9, escalated: false })
+        } catch { /* tracking best-effort */ }
+        sse(res, 'done', { result: { run_id: crypto.randomUUID(), content: answer, model_routed: `logic:${decided.method}`, provider: 'noetica', policy_admitted: true, memory_written: false, stop_reason: 'logic-solver', timestamp: new Date().toISOString(), latency_ms: lat, agent_machine: true, agent_machine_version: VERSION, decidable: true, method: decided.method, ...(decided.attestation ? { attestation: decided.attestation } : {}), ...(decided.signature ? { signature: decided.signature } : {}) } })
+        return
+      }
+    } catch { /* best-effort — a solver hiccup must never block the turn; fall through to generation */ }
   }
 
   step('generate', 'running', `${provider}:${model}`)
