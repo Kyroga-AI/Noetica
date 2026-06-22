@@ -72,9 +72,9 @@ async function main() {
     })
     let buf = ''; const reader = r.body.getReader(); const dec = new TextDecoder()
     const deadline = Date.now() + 12_000
-    while (Date.now() < deadline) { const { done, value } = await reader.read().catch(() => ({ done: true })); if (done) break; buf += dec.decode(value, { stream: true }); if (/semantic-documents/.test(buf)) break }
+    while (Date.now() < deadline) { const { done, value } = await reader.read().catch(() => ({ done: true })); if (done) break; buf += dec.decode(value, { stream: true }); if (/hybrid-rerank-documents/.test(buf)) break }
     await reader.cancel().catch(() => {})
-    if (/semantic-documents/.test(buf)) ok('uploaded docs are retrieved into chat context')
+    if (/hybrid-rerank-documents/.test(buf)) ok('uploaded docs are retrieved into chat context')
     else bad('document context NOT injected — RAG retrieval broken')
   } catch (e) { bad(`RAG check failed: ${e instanceof Error ? e.message : e}`) }
 

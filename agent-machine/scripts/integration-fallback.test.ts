@@ -87,7 +87,7 @@ test('broken primary Ollama → chat falls back and streams the answer', async (
   assert.ok(text.includes(ANSWER), `fallback answer should appear in the stream; got:\n${text.slice(0, 400)}`)
 })
 
-test('RAG: ingested document surfaces as semantic-documents in chat', async () => {
+test('RAG: ingested document surfaces as hybrid-rerank-documents in chat', async () => {
   // Mock Ollama lets the chat proceed past the availability gate to retrieval.
   const ing = await fetch(`${BASE}/api/ingest/document`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
@@ -106,8 +106,8 @@ test('RAG: ingested document surfaces as semantic-documents in chat', async () =
       signal: AbortSignal.timeout(20_000),
     })
     text = await r.text()
-    if (text.includes('semantic-documents')) break
+    if (text.includes('hybrid-rerank-documents')) break
     await new Promise((res) => setTimeout(res, 1000))
   }
-  assert.ok(text.includes('semantic-documents'), `chat should inject the ingested doc as semantic-documents; got:\n${text.slice(0, 400)}`)
+  assert.ok(text.includes('hybrid-rerank-documents'), `chat should inject the ingested doc as hybrid-rerank-documents; got:\n${text.slice(0, 400)}`)
 })
