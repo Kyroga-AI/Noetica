@@ -27,11 +27,18 @@ export interface BlobRef { hash: string; size: number; stored: boolean }
 export function putBlob(data: Buffer | string): BlobRef {
   const buf = typeof data === 'string' ? Buffer.from(data, 'utf8') : data
   const hash = createHash('sha256').update(buf).digest('hex')
+  // Path is the content hash (sha256) — never caller-controlled, so it can't escape the blob dir.
   const p = blobPath(hash)
-  if (existsSync(p)) return { hash, size: buf.length, stored: false }
   mkdirSync(dirname(p), { recursive: true })
-  writeFileSync(p, buf)
-  return { hash, size: buf.length, stored: true }
+  // Atomic create ('wx' fails if it exists) — no check-then-write race. Since the path IS the
+  // content hash, an existing file is byte-identical, so EEXIST simply means "already stored".
+  try {
+    writeFileSync(p, buf, { flag: 'wx' })
+    return { hash, size: buf.length, stored: true }
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === 'EEXIST') return { hash, size: buf.length, stored: false }
+    throw e
+  }
 }
 
 /** Retrieve raw bytes by hash, or null if absent. */

@@ -13,7 +13,7 @@
  *
  *   node agent-machine/scripts/purge-test-graph.mjs
  */
-import { readFileSync, writeFileSync, copyFileSync, existsSync } from 'node:fs'
+import { readFileSync, writeFileSync, copyFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import net from 'node:net'
@@ -32,13 +32,16 @@ function amRunning() {
 }
 
 const run = async () => {
-  if (!existsSync(JSONL)) { console.error(`No graph file at ${JSONL}`); process.exit(1) }
   if (await amRunning()) {
     console.error('⚠  The Agent Machine is running on :8080 — quit the Noetica app first, then re-run.')
     console.error('   (Purging while it holds the file open risks losing the cleanup or corrupting the log.)')
     process.exit(2)
   }
-  const lines = readFileSync(JSONL, 'utf8').split('\n')
+  // Read directly and handle absence — no exists-then-read race (TOCTOU).
+  let raw
+  try { raw = readFileSync(JSONL, 'utf8') }
+  catch (e) { console.error(e.code === 'ENOENT' ? `No graph file at ${JSONL}` : String(e)); process.exit(1) }
+  const lines = raw.split('\n')
   const kept = lines.filter((l) => l && !NEEDLE.test(l))
   const removed = lines.filter((l) => l).length - kept.length
   if (removed === 0) { console.log('Nothing to purge — no corpus-test lines found. ✓'); return }
