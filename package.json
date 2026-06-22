@@ -51,12 +51,14 @@
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-dialog": "2.7.1",
     "@tauri-apps/plugin-shell": "^2.3.5",
+    "docx-preview": "^0.3.5",
     "next": "^14.2.23",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-markdown": "10.1.0",
     "react-syntax-highlighter": "16.1.1",
     "remark-gfm": "4.0.1",
+    "xlsx": "^0.18.5",
     "zustand": "^5.0.2"
   },
   "devDependencies": {

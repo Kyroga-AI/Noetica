@@ -13,6 +13,7 @@ export type ActiveSurface =
   | 'rag'
   | 'lab'
   | 'jitsi'
+  | 'docs'
   | 'operate'
   | 'govern'
   | 'tune'
