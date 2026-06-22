@@ -30,6 +30,9 @@ const CAPS: Capability[] = [
   { id: 'cms-list', label: 'Artifact CMS — list/search', group: 'CMS', sample: {} },
   { id: 'office-detect', label: 'Office — detect LibreOffice', group: 'Office', sample: {} },
   { id: 'porter-config', label: 'Porter — generate app spec', group: 'Deploy', sample: { name: 'my-noetica-app', run: 'npm start', port: 3000, method: 'pack' } },
+  { id: 'swarm-search', label: 'Artifact swarm — search/discover', group: 'Swarm', sample: { query: 'design' } },
+  { id: 'swarm-top', label: 'Artifact swarm — most-reused', group: 'Swarm', sample: { k: 10 } },
+  { id: 'swarm-rare', label: 'Artifact swarm — rare (under-seeded)', group: 'Swarm', sample: { k: 10 } },
 ]
 
 export function LabSurface() {

@@ -183,8 +183,19 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
         const c = await getArtifactCMS()
         const m = c.create({ title: String(b.title ?? 'Untitled'), type: (b.type ?? 'document') as 'document', content: String(b.content ?? ''), tags: b.tags as string[] | undefined })
         await persistArtifactCMS()
-        return send(200, { artifact: m }), true
+        // Announce to the swarm by content hash (BitTorrent-for-artifacts: dedup + reuse + discovery).
+        const { getSwarm, LOCAL_PROVIDER } = await import('./artifact-swarm.js')
+        const v0 = m.versions[m.versions.length - 1]!
+        getSwarm().announce({ hash: v0.hash, title: m.title, type: m.type, size: v0.size, provider: LOCAL_PROVIDER, tags: m.tags })
+        return send(200, { artifact: m, magnet: (await import('./artifact-swarm.js')).toMagnet({ hash: v0.hash, title: m.title, type: m.type, size: v0.size }) }), true
       }
+      // ── Artifact swarm: BitTorrent-style search / discovery / reuse / ranking ──
+      case 'swarm-search': { const { getSwarm } = await import('./artifact-swarm.js'); return send(200, { results: getSwarm().search(String(b.query ?? ''), { topK: b.topK as number | undefined, type: b.type as string | undefined }) }), true }
+      case 'swarm-top': { const { getSwarm } = await import('./artifact-swarm.js'); return send(200, { results: getSwarm().topByReuse(b.k as number | undefined) }), true }
+      case 'swarm-rare': { const { getSwarm } = await import('./artifact-swarm.js'); return send(200, { results: getSwarm().rare(b.k as number | undefined) }), true }
+      case 'swarm-announce': { const { getSwarm } = await import('./artifact-swarm.js'); const e = getSwarm().announce({ hash: String(b.hash), title: String(b.title ?? 'asset'), type: b.type as string | undefined, size: b.size as number | undefined, provider: String(b.provider ?? 'peer'), tags: b.tags as string[] | undefined }); return send(200, { hash: e.hash, seeders: e.providers.size }), true }
+      case 'swarm-reuse': { const { getSwarm } = await import('./artifact-swarm.js'); getSwarm().recordReuse(String(b.hash)); return send(200, { ok: true, health: getSwarm().health(String(b.hash)) }), true }
+      case 'magnet': { const { toMagnet, parseMagnet } = await import('./artifact-swarm.js'); return send(200, b.magnet ? { ref: parseMagnet(String(b.magnet)) } : { magnet: toMagnet({ hash: String(b.hash), title: b.title as string | undefined, type: b.type as string | undefined, size: b.size as number | undefined }) }), true }
       case 'cms-list': {
         const { getArtifactCMS } = await import('./artifact-cms.js')
         const c = await getArtifactCMS()
