@@ -158,6 +158,23 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
         idx.addMany((b.vectors ?? []) as Array<{ id: string; vec: number[] }>)
         return send(200, { results: idx.search((b.query ?? []) as number[], b.k ?? 10, b.excludeId) }), true
       }
+      // ── repo bridges: new-hope membrane, sherlock evidence-answer, slash-topic scope ──
+      case 'membrane-event': {
+        const { membraneEvent, conformsToMembrane } = await import('./new-hope-membrane.js')
+        const e = membraneEvent({ carrierRef: String(b.carrierRef ?? 'unknown'), message: String(b.message ?? ''), emittedAt: new Date().toISOString(), lineage: b.lineage as string[] | undefined, decision: (b.decision ?? {}) as { trust?: 'trusted' | 'internal' | 'untrusted'; injected?: boolean; allowed?: boolean } })
+        return send(200, { event: e, conformance: conformsToMembrane(e) }), true
+      }
+      case 'evidence-answer': {
+        const { buildEvidenceAnswer, conformsToEvidenceAnswer } = await import('./sherlock-evidence.js')
+        const a = buildEvidenceAnswer({ query: String(b.query ?? ''), anchors: (b.anchors ?? []) as never, evidence: (b.evidence ?? []) as never, proposedClaims: (b.proposedClaims ?? []) as never })
+        return send(200, { answer: a, conformance: conformsToEvidenceAnswer(a) }), true
+      }
+      case 'topic-scope': {
+        const { applyScope, packDigest, conformsToTopicPack } = await import('./slash-topic-scope.js')
+        const pack = (b.pack ?? { topic: '/all', version: '1', include: [] }) as { topic: string; version: string; include: string[]; exclude?: string[] }
+        const scoped = applyScope((b.items ?? []) as Array<{ text: string }>, pack)
+        return send(200, { ...scoped, digest: packDigest(pack), conformance: conformsToTopicPack(pack) }), true
+      }
       // ── lattice-forge: express Noetica's runtimes as governed RuntimeAsset manifests ──
       case 'runtime-assets': {
         const { modelRuntimeAsset, sidecarRuntimeAsset, conformsToLattice } = await import('./lattice-forge.js')
