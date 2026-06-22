@@ -309,6 +309,12 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
         ]
         return send(200, { apiVersion: 'lattice.socioprophet.dev/v1', count: assets.length, assets: assets.map((a) => ({ ...a, _conformance: conformsToLattice(a) })) }), true
       }
+      // ── multi-cloud compute broker: route a workload to the cheapest satisfying provider ──
+      case 'cloud-broker': {
+        const { brokerCompute, brokerSavings } = await import('./cloud-broker.js')
+        const result = brokerCompute((b.request ?? {}) as Parameters<typeof brokerCompute>[0])
+        return send(200, { ...result, savings: brokerSavings(result) }), true
+      }
       // ── canonical GAIA ontology export (conformant JSON-LD) ──
       case 'gaia-export': {
         const recs: GaiaRecord[] = [
