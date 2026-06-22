@@ -20,6 +20,7 @@ import type { PropertyValue } from '@socioprophet/hellgraph'
 import { ingestInteraction } from '@socioprophet/hellgraph'
 import { cairnPathExpand } from './cairnpath-adapter.js'
 import { studyBrainRetrieve, studyBrainReady } from './study-brain.js'
+import { isSafeSessionId } from './session-id.js'
 import * as crypto from 'node:crypto'
 
 /** Sanitize a user value for logging: strip CR/LF so input can't forge log lines. CodeQL
@@ -331,7 +332,7 @@ async function runSparqlPattern(
   if (!sessionId) return { text: '', sources: [] }
   // SECURITY: sessionId is user-controlled (url.searchParams) and interpolated into the SPARQL query
   // literal below — reject anything but a safe id charset so a quote can't rewrite the query.
-  if (!/^[A-Za-z0-9:_-]{1,128}$/.test(sessionId)) return { text: '', sources: [] }
+  if (!isSafeSessionId(sessionId)) return { text: '', sources: [] }
 
   let result
   try {

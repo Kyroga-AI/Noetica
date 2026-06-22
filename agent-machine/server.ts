@@ -1002,6 +1002,7 @@ const FEATURE_FLAGS: Array<{ env: string; status: 'default-on' | 'opt-in' | 'exp
   { env: 'NOETICA_CAPABILITY_ROUTING', status: 'opt-in',       desc: 'Escalate off local model when success rate is poor' },
   { env: 'NOETICA_CAIRNPATH_RETRIEVAL',status: 'experimental', desc: 'CairnPath EXPAND→DEDUP→RANK→CAP retrieval executor' },
   { env: 'NOETICA_DELIBERATION',       status: 'experimental', desc: 'BG→WM→VJ→select deliberation loop (multi-candidate)' },
+  { env: 'NOETICA_LOGIC_SOLVER',       status: 'experimental', desc: 'Decidability ladder (recall→compute→extract→undecidable): surface the by-logic answer + Gödel signature as turn provenance' },
   { env: 'NOETICA_SHACL_ENFORCE',      status: 'experimental', desc: 'Ontogenesis SHACL gate on graph writes (quarantine)' },
   { env: 'NOETICA_GAIA_AUTO_LOOP',     status: 'experimental', desc: 'GAIA background observation/consolidation loop' },
   { env: 'NOETICA_QA_FEWSHOT',         status: 'opt-in',       desc: 'Inject gold Q/A exemplars (Pareto head) as few-shot training memory' },
@@ -2163,6 +2164,22 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   const { classifyKnowledge } = await import('./lib/knowledge-type.js')
   const knowledge = classifyKnowledge(latestUserContent)
   sse(res, 'action', { action: { verb: action, polarity, tier: actionRoute.tier, target: actionRoute.target, meshrush_phase: phase, knowledge_types: knowledge.types, solver: knowledge.solver, dominance: knowledge.dominance } })
+
+  // Decidability ladder (opt-in: NOETICA_LOGIC_SOLVER=1). Where the question is decidable — RECALL a
+  // crystallized prior proof, COMPUTE by CAS, or EXTRACT verbatim from grounded source — compute the
+  // answer by LOGIC and surface it (method + Gödel signature + attestation) as a provenance event. This
+  // wires the system's core thesis ("calculate where decidable, generate only the Gödel remainder") into
+  // the live turn as an OBSERVED property. Best-effort + default-off: it never blocks or alters the
+  // generated answer yet (graduating it to short-circuit generation is the A/B-gated follow-on).
+  if (process.env['NOETICA_LOGIC_SOLVER'] === '1') {
+    try {
+      const { solveByLogic } = await import('./lib/logic-solver.js')
+      const decided = solveByLogic(latestUserContent, {})
+      if (decided.decidable && decided.answer) {
+        sse(res, 'decidable', { decidable: { method: decided.method, signature: decided.signature, attestation: decided.attestation, answer: decided.answer.slice(0, 4000) } })
+      }
+    } catch { /* provenance is best-effort — a solver hiccup must never break the turn */ }
+  }
 
   // ── Visible plan + execution timeline ───────────────────────────────────────
   // Make the turn legible while it runs: stream an ordered checklist the moment we
