@@ -206,9 +206,11 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
         return send(200, await convertWithLibreOffice(real, to, path.join(root, 'office-cache'))), true
       }
       case 'porter-config': {
-        const { porterApp, porterCommands, toPorterYaml, conformsToPorter } = await import('./porter-paas.js')
-        const app = porterApp({ name: String(b.name ?? 'noetica-app'), run: b.run as string | undefined, port: b.port as number | undefined, method: b.method as 'pack' | 'docker' | undefined, env: b.env as Record<string, string> | undefined })
-        return send(200, { app, yaml: toPorterYaml(app), commands: porterCommands(app.name), conformance: conformsToPorter(app) }), true
+        const { porterApp, porterCommands, toPorterYaml, conformsToPorter, planPorterDeploy } = await import('./porter-paas.js')
+        const app = porterApp({ name: String(b.name ?? 'noetica-app'), run: b.run as string | undefined, port: b.port as number | undefined, method: b.method as 'pack' | 'docker' | undefined, env: b.env as Record<string, string> | undefined, compute: b.compute as never, model: b.model as string | undefined })
+        // If a compute/model target is set, resolve the deploy plan (broker cheapest cloud + model provider).
+        const plan = (app.compute || app.model) ? await planPorterDeploy(app) : null
+        return send(200, { app, yaml: toPorterYaml(app), commands: porterCommands(app.name), conformance: conformsToPorter(app), plan }), true
       }
       // ── Artifact CMS (versioned, content-addressed) + drive integration ──
       case 'cms-create': {
@@ -308,6 +310,17 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
           sidecarRuntimeAsset('noetica-voice', { version: '0.1.0', createdAt: now, languages: ['python'], runtimeClass: 'tts-sidecar' }),
         ]
         return send(200, { apiVersion: 'lattice.socioprophet.dev/v1', count: assets.length, assets: assets.map((a) => ({ ...a, _conformance: conformsToLattice(a) })) }), true
+      }
+      // ── swarm volume: a local TopoLVM-style mount the agents share to form a swarm ──
+      case 'swarm-volume': {
+        const sv = await import('./swarm-volume.js')
+        const swarmId = String(b.swarmId ?? 'default')
+        switch (String(b.action ?? 'provision')) {
+          case 'join':    return send(200, sv.joinSwarm(swarmId, String(b.agentId ?? 'agent'), b.role as string | undefined)), true
+          case 'leave':   return send(200, { manifest: sv.leaveSwarm(swarmId, String(b.agentId ?? 'agent')) }), true
+          case 'members': return send(200, { members: sv.swarmMembers(swarmId), lvmAvailable: sv.lvmAvailable() }), true
+          default:        return send(200, { volume: sv.provisionSwarmVolume({ swarmId, sizeGiB: b.sizeGiB as number | undefined, backend: b.backend as 'auto' | 'lvm' | 'directory' | undefined }), lvmAvailable: sv.lvmAvailable() }), true
+        }
       }
       // ── alignment: how does ingested text (news/doc) align with your brain (docs + chat docs)? ──
       case 'align-check': {

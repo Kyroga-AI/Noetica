@@ -32,3 +32,16 @@ test('conformsToPorter flags a malformed spec', () => {
   assert.equal(r.conforms, false)
   assert.ok(r.missing.includes('name') && r.missing.includes('services') && r.missing.includes('build.method'))
 })
+
+test('planPorterDeploy brokers compute to cheapest cloud + resolves the model into env', async () => {
+  const { porterApp, planPorterDeploy } = await import('./porter-paas.js')
+  const app = porterApp({ name: 'My Infer App', compute: { broker: true, gpu: 'A100', hours: 10, spot: true }, model: 'openrouter/meta-llama/llama-3.1-70b' })
+  const plan = await planPorterDeploy(app)
+  assert.equal(plan.compute?.brokered, true)
+  assert.ok(plan.compute?.provider, 'a cloud provider was brokered')
+  assert.ok((plan.compute?.totalUsd ?? 0) > 0)
+  assert.equal(plan.model?.provider, 'openrouter')
+  assert.equal(plan.model?.id, 'meta-llama/llama-3.1-70b')
+  assert.equal(plan.env['NOETICA_MODEL_PROVIDER'], 'openrouter')
+  assert.equal(plan.env['NOETICA_CLOUD_PROVIDER'], plan.compute?.provider)
+})
