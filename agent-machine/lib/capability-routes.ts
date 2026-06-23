@@ -322,7 +322,20 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
           const hits = await searchDocsReranked(query, 40)
           brain = hits.map((h) => ({ id: h.docId, text: h.text, source: h.citation }))
         } catch { /* no docs yet → everything reads as novel */ }
-        return send(200, { ...alignClaims(claims, brain), brainStatements: brain.length }), true
+        // SEMANTIC matching: embed claims + brain once via the local sidecar, compare by cosine (catches
+        // paraphrases the lexical jaccard misses). Falls back to jaccard if the embedder is unavailable.
+        let sim: ((a: string, b: string) => number) | undefined
+        try {
+          const { embedBatchLocal } = await import('./embed-runtime.js')
+          const cos = (a: number[], b: number[]) => { let d = 0, na = 0, nb = 0; for (let i = 0; i < a.length; i++) { d += a[i]! * b[i]!; na += a[i]! * a[i]!; nb += b[i]! * b[i]! } return na && nb ? d / (Math.sqrt(na) * Math.sqrt(nb)) : 0 }
+          const texts = [...claims, ...brain.map((x) => x.text)]
+          const vecs = await embedBatchLocal(texts)
+          if (vecs && vecs.every(Boolean)) {
+            const vm = new Map<string, number[]>(); texts.forEach((t, i) => vm.set(t, vecs[i] as number[]))
+            sim = (a, b) => { const va = vm.get(a), vb = vm.get(b); return va && vb ? cos(va, vb) : 0 }
+          }
+        } catch { /* embedder offline → lexical jaccard fallback */ }
+        return send(200, { ...alignClaims(claims, brain, { sim }), brainStatements: brain.length, matching: sim ? 'semantic' : 'lexical' }), true
       }
       // ── multi-cloud compute broker: route a workload to the cheapest satisfying provider ──
       case 'cloud-broker': {

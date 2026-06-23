@@ -29,13 +29,14 @@ export function splitClaims(text: string, max = 40): string[] {
     .slice(0, max)
 }
 
-/** Align each claim against the brain pool. Each claim takes its strongest entailment match as the verdict. */
-export function alignClaims(claims: string[], brain: BrainStatement[], opts: { threshold?: number } = {}): AlignmentReport {
-  const threshold = opts.threshold ?? 0.4
+/** Align each claim against the brain pool. Each claim takes its strongest entailment match as the verdict.
+ * Pass `sim` (e.g. embedding cosine) for SEMANTIC matching that catches paraphrases; defaults to lexical jaccard. */
+export function alignClaims(claims: string[], brain: BrainStatement[], opts: { threshold?: number; sim?: (a: string, b: string) => number } = {}): AlignmentReport {
+  const threshold = opts.threshold ?? (opts.sim ? 0.55 : 0.4)
   const out: ClaimAlignment[] = claims.map((claim) => {
     let best: ClaimAlignment['match'] | undefined
     for (const b of brain) {
-      const { relation, similarity } = classifyEntailment(b.text, claim, undefined, { threshold })
+      const { relation, similarity } = classifyEntailment(b.text, claim, opts.sim, { threshold })
       if (relation === 'neutral') continue
       // Prefer a contradiction at equal similarity (conflicts are the high-signal finding), else the most similar.
       if (!best || similarity > best.similarity || (similarity === best.similarity && relation === 'contradict' && best.relation !== 'contradict')) {
