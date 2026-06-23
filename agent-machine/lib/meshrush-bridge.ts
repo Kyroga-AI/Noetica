@@ -251,6 +251,13 @@ export function handleMeshRushRequest(
 
         const req_ = JSON.parse(body) as { pattern: Pattern; max_results?: number }
         if (!req_.pattern?.clauses) throw new Error('pattern.clauses required')
+        // DoS guard: the pattern is attacker-controlled and runs over the WHOLE space before the output
+        // cap below — clause count drives the join cost. A real pattern has a handful of clauses; reject
+        // pathological many-clause patterns. (Output is still capped by max_results in the post-filter.)
+        const MAX_CLAUSES = Number(process.env['MESHRUSH_MAX_CLAUSES'] || 16)
+        if (Array.isArray(req_.pattern.clauses) && req_.pattern.clauses.length > MAX_CLAUSES) {
+          throw new Error(`pattern too complex: at most ${MAX_CLAUSES} clauses`)
+        }
 
         // Run PatternMatcher over the full space (graph view filtered in post-process)
         const matchResult = findMatches(space, req_.pattern)
