@@ -3985,8 +3985,9 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && url.pathname === '/api/brain/status') {
     void (async () => {
       const { brainStatus } = await import('./lib/brain-provision.js')
+      const { fetchBrainManifest } = await import('./lib/brain-manifest.js')
       res.writeHead(200, { 'content-type': 'application/json' })
-      res.end(JSON.stringify(brainStatus()))
+      res.end(JSON.stringify(brainStatus(await fetchBrainManifest()))) // include available/update info
     })()
     return
   }
@@ -7203,18 +7204,23 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(`[noetica-am] Agent Machine v${VERSION} listening on http://127.0.0.1:${PORT}`)
   console.log(`[noetica-am] Status: http://127.0.0.1:${PORT}/api/status`)
 
-  // First-run brain auto-provision (DEFAULT ON; NOETICA_BRAIN_AUTO_PROVISION=0 to disable). On a fresh
-  // install/update, fetch any shippable brain that is ABSENT — so academic/ops knowledge LOADS itself
-  // from the official release the way the runtime does, with no configuration. brainUrl() defaults to the
-  // release asset, so this just works after a brew install; if the artifact isn't published yet it 404s
-  // harmlessly (best-effort, logged). Fire-and-forget — never blocks boot. The chat brain is never fetched.
+  // Brain injection + update service (auto-provision DEFAULT ON; NOETICA_BRAIN_AUTO_PROVISION=0 to
+  // disable). On boot, consult the brain manifest and: LOAD any shippable brain that is ABSENT (so a
+  // fresh install self-loads academic/ops knowledge), and — when NOETICA_BRAIN_AUTO_UPDATE=1 — UPDATE one
+  // whose manifest version differs from what's installed. Integrity-checked (sha256). Fire-and-forget,
+  // never blocks boot; if no manifest/artifact is published yet it no-ops harmlessly. Chat is never fetched.
   if (process.env['NOETICA_BRAIN_AUTO_PROVISION'] !== '0') {
     void (async () => {
       try {
         const { brainStatus, provisionBrain } = await import('./lib/brain-provision.js')
-        for (const b of brainStatus().brains) {
-          if (b.name === 'chat' || b.present) continue
-          console.log(`[noetica-am] loading ${b.name} brain (auto-provision)…`)
+        const { fetchBrainManifest } = await import('./lib/brain-manifest.js')
+        const autoUpdate = process.env['NOETICA_BRAIN_AUTO_UPDATE'] === '1'
+        for (const b of brainStatus(await fetchBrainManifest()).brains) {
+          if (b.name === 'chat') continue
+          const install = !b.present
+          const update = !!b.updateAvailable && autoUpdate
+          if (!install && !update) continue
+          console.log(`[noetica-am] ${install ? 'loading' : 'updating'} ${b.name} brain…`)
           const r = await provisionBrain(b.name as 'academic' | 'operational', (p) => { if (p.pct === 0 || p.phase !== 'downloading') console.log(`[noetica-am]   ${b.name}: ${p.phase}${p.pct != null ? ` ${p.pct}%` : ''}`) })
           console.log(`[noetica-am]   ${b.name}: ${r.message}`)
         }
