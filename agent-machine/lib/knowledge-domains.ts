@@ -12,10 +12,11 @@ import * as path from 'node:path'
 import { academicBrainDir } from './brain-home.js'
 
 // The domains we intend the academic brain to cover. The first 7 are the STEM core; medicine + legal are
-// the regulated-knowledge domains built on demand.
+// the regulated-knowledge domains built on demand; commonsense is the everyday/world-knowledge graph
+// (CSKG + ConceptNet + DBpedia) that grounds the household/everyday lane.
 export const EXPECTED_DOMAINS = [
   'mathematics', 'physics', 'chemistry', 'biology', 'biological_eng', 'eecs', 'earth_planetary',
-  'medicine', 'legal',
+  'medicine', 'legal', 'commonsense',
 ] as const
 
 export interface DomainStatus { field: string; present: boolean; courses: number; status: 'rich' | 'thin' | 'missing' }
