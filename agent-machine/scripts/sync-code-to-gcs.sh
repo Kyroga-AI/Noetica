@@ -16,8 +16,10 @@ HERE="$(cd "$(dirname "$0")/.." && pwd)"   # the agent-machine/ dir
 
 echo "# syncing $HERE → $GCS/code/agent-machine"
 echo "# (excluding node_modules / dist / .next / .git — the VM runs 'npm ci' to rebuild deps)"
-gsutil -m rsync -r \
-  -x '(^|.*/)node_modules/.*$|(^|.*/)dist/.*$|(^|.*/)\.next/.*$|(^|.*/)\.git/.*$' \
+# Use `gcloud storage rsync`, NOT `gsutil rsync`: the bundled gsutil hits a `sys.maxint` Python-compat bug
+# that makes it silently skip changed files (so the VM would run STALE code). gcloud storage is unaffected.
+gcloud storage rsync --recursive \
+  --exclude='(^|/)node_modules/|(^|/)dist/|(^|/)\.next/|(^|/)\.git/|\.tmp$' \
   "$HERE" "$GCS/code/agent-machine"
 
 echo "# done. The next eval run will use this code."
