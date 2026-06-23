@@ -1,11 +1,11 @@
 /**
- * GAIA World Model integration for the Michael digital twin.
+ * GAIA World Model integration for the user's digital twin.
  *
  * Implements the observe → synthesize → update loop using HellGraph as the
  * persistence layer and GAIA schemas as the ontology contract.
  *
  * Node labels introduced here:
- *   HumanTwin            — root node for Michael's digital twin
+ *   HumanTwin            — root node for the user's digital twin
  *   GaiaObservation      — single computer-use or sensor observation
  *   BeliefSnapshot       — LLM-synthesised belief state (posterior atoms, rules, hypotheses)
  *   CandidateLaw         — discovered behavioural pattern (sibling of PlatformDynamicsCandidate)
@@ -14,11 +14,13 @@
  */
 
 import { getGraph } from './graph.js'
+import { getUserIdentity, userTwinId, userSubjectId } from './identity.js'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-export const MICHAEL_TWIN_ID   = 'urn:gaia:twin:michael:0001'
-export const MICHAEL_SUBJECT_ID = 'urn:gaia:subject:michael:0001'
+// Twin / subject URNs come from the per-user identity (was hardcoded to ':michael:0001' — the source
+// of every install shipping as one developer's twin). userTwinId()/userSubjectId() derive from the
+// identity slug, defaulting to ':user:0001' on a fresh install until the user sets their profile.
 const TWIN_LABELS = ['HumanTwin', 'GaiaEntity']
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -58,32 +60,34 @@ export interface TwinState {
 
 // ─── Twin initialisation ──────────────────────────────────────────────────────
 
-export function ensureMichaelTwin(): void {
+export function ensureUserTwin(): void {
   const g = getGraph()
-  const existing = g.getNode(MICHAEL_TWIN_ID)
+  const twinId = userTwinId(), subjectId = userSubjectId()
+  const existing = g.getNode(twinId)
   if (existing) return
 
+  const idt = getUserIdentity()
   const now = new Date().toISOString()
-  g.addNode(MICHAEL_TWIN_ID, TWIN_LABELS, {
-    subject_ref:   MICHAEL_SUBJECT_ID,
-    display_name:  'Michael Heller',
-    email:         'michael@socioprophet.ai',
+  g.addNode(twinId, TWIN_LABELS, {
+    subject_ref:   subjectId,
+    display_name:  idt.displayName,
+    email:         idt.email,
     policy_status: 'active',
     created_at:    now,
     kind:          'human_digital_twin',
   })
-  g.addNode(MICHAEL_SUBJECT_ID, ['HumanSubject', 'GaiaEntity'], {
-    display_name: 'Michael Heller',
-    twin_ref:     MICHAEL_TWIN_ID,
+  g.addNode(subjectId, ['HumanSubject', 'GaiaEntity'], {
+    display_name: idt.displayName,
+    twin_ref:     twinId,
     created_at:   now,
   })
-  g.addEdge('TWIN_OF', MICHAEL_TWIN_ID, MICHAEL_SUBJECT_ID, { at: now })
+  g.addEdge('TWIN_OF', twinId, subjectId, { at: now })
 }
 
 // ─── Observation ingestion ────────────────────────────────────────────────────
 
 export function ingestGaiaObservation(payload: GaiaObservationPayload): string {
-  ensureMichaelTwin()
+  ensureUserTwin()
   const g = getGraph()
   const id = `urn:gaia:observation:${payload.session_id}:${Date.now()}`
   const now = payload.captured_at
@@ -98,15 +102,15 @@ export function ingestGaiaObservation(payload: GaiaObservationPayload): string {
     attention_tags: (payload.attention_tags ?? []).join(','),
     active_files:  (payload.active_files  ?? []).join(','),
     screen_hash:   payload.screen_hash   ?? '',
-    subject_ref:   MICHAEL_SUBJECT_ID,
+    subject_ref:   userSubjectId(),
     kind:          'computer_use_observation',
   })
 
-  g.addEdge('OBSERVED_BY', id, MICHAEL_TWIN_ID, { at: now })
-  g.addEdge('TWIN_OBSERVED', MICHAEL_TWIN_ID, id, { at: now })
+  g.addEdge('OBSERVED_BY', id, userTwinId(), { at: now })
+  g.addEdge('TWIN_OBSERVED', userTwinId(), id, { at: now })
 
   // Update twin's last_observation_at
-  g.addNode(MICHAEL_TWIN_ID, TWIN_LABELS, { last_observation_at: now })
+  g.addNode(userTwinId(), TWIN_LABELS, { last_observation_at: now })
 
   return id
 }
@@ -141,13 +145,13 @@ export function writeBeliefSnapshot(synthesis: BeliefSynthesis, cycleId: string)
     weighted_rules:   JSON.stringify(synthesis.weighted_rules),
     hypotheses:       JSON.stringify(synthesis.hypotheses),
     world_summary:    synthesis.world_state_summary,
-    subject_ref:      MICHAEL_SUBJECT_ID,
+    subject_ref:      userSubjectId(),
     kind:             'belief_snapshot',
   })
 
-  g.addEdge('BELIEF_OF', id, MICHAEL_TWIN_ID, { at: now })
-  g.addEdge('TWIN_BELIEVES', MICHAEL_TWIN_ID, id, { at: now })
-  g.addNode(MICHAEL_TWIN_ID, TWIN_LABELS, { last_belief_at: now })
+  g.addEdge('BELIEF_OF', id, userTwinId(), { at: now })
+  g.addEdge('TWIN_BELIEVES', userTwinId(), id, { at: now })
+  g.addNode(userTwinId(), TWIN_LABELS, { last_belief_at: now })
 
   // Write each candidate law as its own node
   for (const law of synthesis.candidate_laws) {
@@ -158,10 +162,10 @@ export function writeBeliefSnapshot(synthesis: BeliefSynthesis, cycleId: string)
       confidence: law.confidence,
       cycle_id:   cycleId,
       created_at: now,
-      subject_ref: MICHAEL_SUBJECT_ID,
+      subject_ref: userSubjectId(),
       kind:       'candidate_law',
     })
-    g.addEdge('LAW_OF', lawId, MICHAEL_TWIN_ID, { at: now })
+    g.addEdge('LAW_OF', lawId, userTwinId(), { at: now })
     g.addEdge('DERIVED_IN', lawId, id, { at: now })
   }
 
@@ -180,11 +184,11 @@ export function writeWorldStateSnapshot(summary: string, entityRefs: string[], c
     captured_at: now,
     summary,
     entity_refs: entityRefs.join(','),
-    subject_ref: MICHAEL_SUBJECT_ID,
+    subject_ref: userSubjectId(),
     kind:        'world_state_snapshot',
   })
 
-  g.addEdge('WORLD_STATE_OF', id, MICHAEL_TWIN_ID, { at: now })
+  g.addEdge('WORLD_STATE_OF', id, userTwinId(), { at: now })
 
   return id
 }
@@ -200,31 +204,31 @@ export function writeCycleNode(cycleId: string, observationIds: string[], belief
     observation_count: observationIds.length,
     belief_ref:        beliefId,
     world_state_ref:   worldStateId,
-    subject_ref:       MICHAEL_SUBJECT_ID,
+    subject_ref:       userSubjectId(),
     kind:              'superconscious_cycle',
   })
 
-  g.addEdge('CYCLE_OF', cycleId, MICHAEL_TWIN_ID, { at: now })
+  g.addEdge('CYCLE_OF', cycleId, userTwinId(), { at: now })
   for (const obsId of observationIds) {
     g.addEdge('PROCESSED_OBS', cycleId, obsId, { at: now })
   }
-  g.addNode(MICHAEL_TWIN_ID, TWIN_LABELS, { last_cycle_at: now })
+  g.addNode(userTwinId(), TWIN_LABELS, { last_cycle_at: now })
 }
 
 // ─── Twin state read ──────────────────────────────────────────────────────────
 
 export function getTwinState(): TwinState {
-  ensureMichaelTwin()
+  ensureUserTwin()
   const g = getGraph()
-  const twin = g.getNode(MICHAEL_TWIN_ID)
+  const twin = g.getNode(userTwinId())
   const props = twin?.properties ?? {}
 
   const obsCount  = g.allNodes().filter((n) => n.labels.includes('GaiaObservation')).length
   const lawCount  = g.allNodes().filter((n) => n.labels.includes('CandidateLaw')).length
 
   return {
-    twin_id:             MICHAEL_TWIN_ID,
-    subject_id:          MICHAEL_SUBJECT_ID,
+    twin_id:             userTwinId(),
+    subject_id:          userSubjectId(),
     last_observation_at: (props['last_observation_at'] as string) ?? null,
     last_belief_at:      (props['last_belief_at']      as string) ?? null,
     last_cycle_at:       (props['last_cycle_at']       as string) ?? null,

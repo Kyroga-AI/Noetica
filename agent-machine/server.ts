@@ -82,11 +82,12 @@ import { assessAgainstGraph } from './lib/pln-judgment.js'
 import { saveCheckpoint, listCheckpoints, getCheckpoint, buildResumeMessages } from './lib/checkpoint-model.js'
 import { recordQualitySample, analyzeDrivers, qualitySamples, serializeQuality, hydrateQuality, worthTrend, resetQuality } from './lib/quality-sr.js'
 import {
-  ensureMichaelTwin, ingestGaiaObservation, getRecentObservations,
+  ensureUserTwin, ingestGaiaObservation, getRecentObservations,
   writeBeliefSnapshot, writeWorldStateSnapshot, writeCycleNode,
   getTwinState, getRecentBeliefs, getRecentLaws, getRecentWorldStates,
   type GaiaObservationPayload, type BeliefSynthesis,
 } from './lib/gaia.js'
+import { getUserIdentity, setUserIdentity, promptUserName, type UserIdentity } from './lib/identity.js'
 
 const PORT = parseInt(process.env['NOETICA_AM_PORT'] ?? '8080', 10)
 const VERSION = '0.4.11'
@@ -429,7 +430,8 @@ function buildSuperconsciousPrompt(observations: Array<{ id: string; props: Reco
     `[${i + 1}] ${o.props['captured_at']} | app: ${o.props['app_context']} | goal: ${o.props['goal']} | summary: ${o.props['step_summary']} | tags: ${o.props['attention_tags']}`
   ).join('\n')
 
-  return `You are the superconscious synthesis layer for Michael Heller's digital twin. Your role is to integrate recent computer-use observations into a coherent, updated belief state about what Michael is focused on, what patterns are emerging, and how his world model should be updated.
+  const twinName = promptUserName() // dynamic — neutral 'the user' until a real profile is set
+  return `You are the superconscious synthesis layer for ${twinName}'s digital twin. Your role is to integrate recent computer-use observations into a coherent, updated belief state about what ${twinName} is focused on, what patterns are emerging, and how their world model should be updated.
 
 Previous belief summary: ${previousBelief || '(none — first cycle)'}
 
@@ -493,7 +495,7 @@ async function runSuperconsciousLoop(keys: LoopProviderKeys): Promise<void> {
   if (_loopRunning) return
   _loopRunning = true
   try {
-    ensureMichaelTwin()
+    ensureUserTwin()
     const observations = getRecentObservations(20)
     if (observations.length === 0) return
 
@@ -565,7 +567,7 @@ async function runSuperconsciousLoop(keys: LoopProviderKeys): Promise<void> {
 function startSuperconsciousLoop(keys: LoopProviderKeys): void {
   if (_loopEnabled) return
   _loopEnabled = true
-  ensureMichaelTwin()
+  ensureUserTwin()
   // Run immediately then on interval
   void runSuperconsciousLoop(keys)
   setInterval(() => { void runSuperconsciousLoop(keys) }, LOOP_INTERVAL_MS)
@@ -3898,6 +3900,33 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
     res.end(JSON.stringify(readSecurityState()))
     return
+  }
+
+  // GET/PUT /api/identity — the current user's profile (name/email), per-machine. Replaces the
+  // hardcoded developer identity: a fresh install reads the neutral default ('You', no email) until
+  // the user sets their own here. GET returns it; PUT/POST persists to ~/.noetica/identity.json.
+  if (url.pathname === '/api/identity') {
+    if (req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify(getUserIdentity()))
+      return
+    }
+    if (req.method === 'POST' || req.method === 'PUT') {
+      let raw = ''
+      req.on('data', (c: Buffer) => { raw += c.toString(); if (raw.length > 64 * 1024) req.destroy() })
+      req.on('end', () => {
+        try {
+          const p = JSON.parse(raw || '{}') as Partial<UserIdentity>
+          const next = setUserIdentity({ displayName: p.displayName, email: p.email })
+          res.writeHead(200, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify(next))
+        } catch {
+          res.writeHead(400, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ error: 'invalid identity payload' }))
+        }
+      })
+      return
+    }
   }
 
   // GET /api/status
