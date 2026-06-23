@@ -42,15 +42,25 @@ export function brainStatus(): { brains: BrainStatusEntry[]; brainHome: string }
 
 const URL_ENV: Record<string, string> = { academic: 'NOETICA_BRAIN_ACADEMIC_URL', operational: 'NOETICA_BRAIN_OPS_URL' }
 
+/**
+ * The download URL for a brain: an explicit env override, else the official release asset (the GitHub
+ * "latest" alias). So a brew-installed app loads its knowledge from the release WITHOUT any configuration
+ * — and the URL keeps working across versions. Override the base with NOETICA_RELEASE_BASE_URL.
+ */
+export function brainUrl(name: 'academic' | 'operational'): string {
+  const env = process.env[URL_ENV[name]!]?.trim()
+  if (env) return env
+  const base = (process.env['NOETICA_RELEASE_BASE_URL'] || 'https://github.com/SocioProphet/Noetica/releases/latest/download').replace(/\/$/, '')
+  return `${base}/${name}-brain.tar.gz`
+}
+
 export interface ProvisionProgress { phase: 'downloading' | 'extracting' | 'done'; pct: number | null }
 export interface ProvisionResult { ok: boolean; message: string }
 
-/** Download + install a shippable brain from its configured URL (a .tar.gz) into the brain-home. */
+/** Download + install a shippable brain (a .tar.gz) into the brain-home. URL from brainUrl(). */
 export async function provisionBrain(name: 'academic' | 'operational', onProgress?: (p: ProvisionProgress) => void): Promise<ProvisionResult> {
-  const env = URL_ENV[name]
-  const url = env ? process.env[env]?.trim() : ''
-  if (!url) return { ok: false, message: `No download URL configured for the ${name} brain — set ${env} to a .tar.gz artifact URL.` }
-  if (!/^https:\/\//.test(url)) return { ok: false, message: `${env} must be an https URL.` }
+  const url = brainUrl(name)
+  if (!/^https:\/\//.test(url)) return { ok: false, message: `brain URL must be https (got ${url}).` }
 
   const target = name === 'academic' ? academicBrainDir() : path.dirname(opsBrainFile())
   const tmp = path.join(os.tmpdir(), `noetica-brain-${name}-${Date.now()}.tar.gz`)

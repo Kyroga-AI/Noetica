@@ -15,6 +15,10 @@ cask "noetica" do
     Noetica requires its agent-machine sidecar to be running for full functionality.
     It starts automatically when the app launches.
 
+    On first launch (and after an update) the app loads its knowledge brains (academic +
+    operations) from the release in the background — a one-time download. Check progress at
+    http://127.0.0.1:8080/api/brain/status. To skip it, set NOETICA_BRAIN_AUTO_PROVISION=0.
+
     If macOS Gatekeeper blocks the app after install, run:
       sudo xattr -dr com.apple.quarantine /Applications/Noetica.app
   EOS

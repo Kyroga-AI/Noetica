@@ -41,10 +41,18 @@ test('brainStatus reports all three brains and flags absence', async () => {
   delete process.env['OCW_BRAIN']; delete process.env['OPS_CORPUS']
 })
 
-test('provisionBrain refuses cleanly when no URL is configured', async () => {
+test('brainUrl defaults to the official release asset, env overrides it', async () => {
+  delete process.env['NOETICA_BRAIN_ACADEMIC_URL']; delete process.env['NOETICA_RELEASE_BASE_URL']
+  const { brainUrl } = await import('./brain-provision.js')
+  // no config → the GitHub "latest" release asset, so a brew install loads knowledge with zero setup
+  assert.match(brainUrl('academic'), /releases\/latest\/download\/academic-brain\.tar\.gz$/)
+  assert.match(brainUrl('operational'), /releases\/latest\/download\/operational-brain\.tar\.gz$/)
+  // explicit override wins
+  process.env['NOETICA_BRAIN_ACADEMIC_URL'] = 'https://example.com/my-brain.tar.gz'
+  assert.equal(brainUrl('academic'), 'https://example.com/my-brain.tar.gz')
   delete process.env['NOETICA_BRAIN_ACADEMIC_URL']
-  const { provisionBrain } = await import('./brain-provision.js')
-  const r = await provisionBrain('academic')
-  assert.equal(r.ok, false)
-  assert.match(r.message, /no download url configured/i)
+  // base override
+  process.env['NOETICA_RELEASE_BASE_URL'] = 'https://cdn.example.com/brains'
+  assert.equal(brainUrl('operational'), 'https://cdn.example.com/brains/operational-brain.tar.gz')
+  delete process.env['NOETICA_RELEASE_BASE_URL']
 })
