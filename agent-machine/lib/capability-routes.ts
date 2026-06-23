@@ -364,8 +364,15 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
           } catch { /* fall back to static */ }
         }
         const result = brokerCompute((b.request ?? {}) as Parameters<typeof brokerCompute>[0], catalog)
+        // Optionally PROVISION the cheapest pick: plan the lifecycle (cloud-init + create/teardown commands),
+        // register it as an agentplane executor + swarm node. Real cloud exec is gated server-side.
+        let provision = null
+        if (b.provision === true && result.best && result.best.sku.provider !== 'local') {
+          const { provisionInstance } = await import('./cloud-provision.js')
+          provision = provisionInstance(result.best.sku, { swarmId: typeof b.swarmId === 'string' ? b.swarmId : 'session', usdPerHour: result.best.effectivePerHour })
+        }
         // Emit an agentplane-conformant PlacementDecision so the cheapest-cloud pick feeds agentplane's fleet.
-        return send(200, { ...result, priceSource, savings: brokerSavings(result), placement: toAgentplanePlacement(result, { lane: b.lane === 'prod' ? 'prod' : 'staging' }) }), true
+        return send(200, { ...result, priceSource, savings: brokerSavings(result), placement: toAgentplanePlacement(result, { lane: b.lane === 'prod' ? 'prod' : 'staging' }), provision }), true
       }
       // ── canonical GAIA ontology export (conformant JSON-LD) ──
       case 'gaia-export': {
