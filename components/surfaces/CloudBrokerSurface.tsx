@@ -16,6 +16,8 @@ type BrokerResp = {
   provision?: Provision | null
 }
 type RuntimeAsset = { name?: string; role?: string; runtimeClass?: string; digest?: string; _conformance?: { conforms: boolean; missing: string[] } }
+type FleetExecutor = { name: string; provider?: string; region?: string; usdPerHour?: number; state?: string; caps?: { os?: string; arch?: string; gpu?: string } }
+type FleetResp = { count: number; totalUsdPerHour: number; byProvider: Record<string, number>; byState: Record<string, number>; executors: FleetExecutor[] }
 
 const PROVIDER_COLOR: Record<string, string> = {
   gcp: 'bg-[#e8f0fe] text-[#1a73e8]', azure: 'bg-[#e5f1fb] text-[#0078d4]', aws: 'bg-[#fff3e0] text-[#ec912d]',
@@ -33,6 +35,7 @@ export function CloudBrokerSurface() {
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
   const [runtimes, setRuntimes] = useState<RuntimeAsset[]>([])
+  const [fleet, setFleet] = useState<FleetResp | null>(null)
 
   const [provisioning, setProvisioning] = useState(false)
 
@@ -58,13 +61,18 @@ export function CloudBrokerSurface() {
       const r = await fetch('/api/cap/cloud-broker', { method: 'POST', headers: { 'content-type': 'application/json' }, body: reqBody({ provision: true, swarmId: 'session' }) })
       if (!r.ok) throw new Error(`provision ${r.status}`)
       setResp(await r.json() as BrokerResp)
+      loadFleet()   // a new executor was registered — refresh the fleet panel
     } catch (e) { setErr(e instanceof Error ? e.message : 'provision failed') }
     finally { setProvisioning(false) }
   }
 
+  function loadFleet() {
+    void fetch('/api/fleet').then((r) => r.ok ? r.json() : null).then((j: FleetResp | null) => { if (j) setFleet(j) }).catch(() => {})
+  }
   useEffect(() => {
     void fetch('/api/cap/runtime-assets', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
       .then((r) => r.ok ? r.json() : null).then((j: { assets?: RuntimeAsset[] } | null) => { if (j?.assets) setRuntimes(j.assets) }).catch(() => {})
+    loadFleet()
   }, [])
 
   return (
@@ -141,6 +149,32 @@ export function CloudBrokerSurface() {
       )}
 
       {/* Lattice-forge runtime provenance */}
+      {/* Fleet — provisioned cloud executors (the C2/swarm inventory) */}
+      <div className="mt-7">
+        <div className="mb-2 flex items-center justify-between">
+          <div className="text-sm font-semibold text-[var(--color-text-primary)]">Fleet <span className="text-[10px] font-normal text-[var(--color-text-tertiary)]">(provisioned executors)</span></div>
+          {fleet && fleet.count > 0 && (
+            <div className="text-[11px] text-[var(--color-text-secondary)]">{fleet.count} executor{fleet.count === 1 ? '' : 's'} · <span className="font-semibold text-[#16a34a]">${fleet.totalUsdPerHour}/hr</span> · {Object.entries(fleet.byProvider).map(([p, n]) => `${n} ${p}`).join(', ')}</div>
+          )}
+        </div>
+        {!fleet || fleet.count === 0
+          ? <div className="text-xs text-[var(--color-text-tertiary)]">No executors provisioned yet — broker a workload above and hit Provision to spin up the swarm.</div>
+          : <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+              {fleet.executors.map((e, i) => {
+                const dot = e.state === 'ready' ? 'bg-[#16a34a]' : e.state === 'provisioning' ? 'bg-[#d97706]' : e.state === 'failed' ? 'bg-[#dc2626]' : 'bg-[var(--color-text-tertiary)]'
+                return (
+                  <div key={i} className="flex items-center justify-between rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2"><span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} /><span className="truncate font-mono text-[11px] text-[var(--color-text-primary)]">{e.name}</span></div>
+                      <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">{e.provider} · {e.region} · {e.caps?.gpu ?? e.caps?.arch ?? 'cpu'} · {e.state}</div>
+                    </div>
+                    {typeof e.usdPerHour === 'number' && <span className="shrink-0 text-[11px] font-semibold text-[var(--color-text-secondary)]">${e.usdPerHour}/hr</span>}
+                  </div>
+                )
+              })}
+            </div>}
+      </div>
+
       <div className="mt-7">
         <div className="mb-2 text-sm font-semibold text-[var(--color-text-primary)]">Runtime registry <span className="text-[10px] font-normal text-[var(--color-text-tertiary)]">(lattice-forge provenance)</span></div>
         {runtimes.length === 0

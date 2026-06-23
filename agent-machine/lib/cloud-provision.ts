@@ -79,6 +79,13 @@ export function registerExecutor(rec: ProvisionRecord): void {
   const tmp = `${p}.tmp.${process.pid}`; writeFileSync(tmp, JSON.stringify(inv, null, 2)); renameSync(tmp, p)
 }
 
+/** Read the local fleet inventory — executors registered by provisioning. Empty if nothing provisioned yet. */
+export function listExecutors(): Array<{ name: string; provider?: string; region?: string; usdPerHour?: number; state?: string; caps?: Record<string, unknown>; sshRef?: string }> {
+  const p = FLEET()
+  if (!existsSync(p)) return []
+  try { return (JSON.parse(readFileSync(p, 'utf8')).executors ?? []) as Array<{ name: string }> } catch { return [] }
+}
+
 /**
  * Plan (and optionally execute) the provisioning of the broker's cheapest pick. Returns the full lifecycle
  * record. Execution (the actual cloud CLI) only runs when exec:true AND NOETICA_CLOUD_PROVISION_EXEC=1.

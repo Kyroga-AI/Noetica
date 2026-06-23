@@ -4089,6 +4089,22 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // GET /api/fleet — the provisioned cloud executors (the broker's fleet inventory), with a cost roll-up, so the
+  // multi-cloud C2/swarm stack is VISIBLE. Empty until something is provisioned.
+  if (req.method === 'GET' && url.pathname === '/api/fleet') {
+    void (async () => {
+      const { listExecutors } = await import('./lib/cloud-provision.js')
+      const executors = listExecutors()
+      const totalUsdPerHour = executors.reduce((s, e) => s + (typeof e.usdPerHour === 'number' ? e.usdPerHour : 0), 0)
+      const byProvider: Record<string, number> = {}
+      const byState: Record<string, number> = {}
+      for (const e of executors) { byProvider[e.provider ?? 'unknown'] = (byProvider[e.provider ?? 'unknown'] ?? 0) + 1; byState[e.state ?? 'unknown'] = (byState[e.state ?? 'unknown'] ?? 0) + 1 }
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
+      res.end(JSON.stringify({ count: executors.length, totalUsdPerHour: Number(totalUsdPerHour.toFixed(3)), byProvider, byState, executors }))
+    })().catch((e) => { res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ error: 'fleet_failed', detail: (e instanceof Error ? e.message : 'unknown').replace(/[\r\n]/g, ' ').slice(0, 120) })) })
+    return
+  }
+
   // GET /api/routing/log — recent routing decisions (intent / domain / effort / query preview), for
   // reviewing misroutes. Empty unless NOETICA_ROUTING_LOG=1 was set (queries aren't recorded by default).
   if (req.method === 'GET' && url.pathname === '/api/routing/log') {
