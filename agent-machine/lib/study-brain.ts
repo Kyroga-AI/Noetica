@@ -13,6 +13,7 @@ import * as path from 'node:path'
 import { embedText } from './ollama.js'
 import { termSet } from './text-normalize.js'
 import { decodeVec, l2norm } from './brain-vec.js'
+import { decryptLine } from './at-rest.js'
 import { academicBrainDir } from './brain-home.js'
 
 const MAX = Number(process.env['STUDY_BRAIN_CAP'] || 30000)              // per-field cap
@@ -65,8 +66,11 @@ function loadField(field: string): Chunk[] {
       for (const line of fs.readFileSync(path.join(dir, fn), 'utf8').split('\n')) {
         if (!line.trim()) continue
         try {
-          const o = JSON.parse(line) as { text?: string; slug?: string; vec?: string; dims?: number; material?: string }
-          if (!o.text || !o.vec) continue
+          // Decrypt-on-read (brain shards are encrypted at rest by build-corpus). decryptLine passes legacy
+          // plaintext shards straight through, so shipped/old corpora still load. Null = encrypted-with-other-key
+          // or malformed → skip that line.
+          const o = decryptLine(line) as { text?: string; slug?: string; vec?: string; dims?: number; material?: string } | null
+          if (!o || !o.text || !o.vec) continue
           const material = (o.material || 'reference').toLowerCase()
           if (GOLD.has(material)) { if (gold.length < cap) gold.push(mk(o, material, fn)) }
           else if (rest.length < cap) rest.push(mk(o, material, fn))

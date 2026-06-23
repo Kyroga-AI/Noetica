@@ -31,6 +31,12 @@ import { execFileSync } from 'node:child_process'
 import { chunkText } from '../lib/doc-store.js'
 import { embedText, EMBED_MODEL } from '../lib/ollama.js'
 import { encodeVec } from '../lib/brain-vec.js'
+import { encryptLine } from '../lib/at-rest.js'
+
+// Brain shard lines carry plaintext text + a base64 vector (vec2text recovers ~92% of the text). Encrypt each
+// shard line at rest (locally-built corpus → the device key is available); study-brain decrypts on read and
+// passes any legacy plaintext through. NOETICA_ENCRYPT_AT_REST=0 keeps shards plaintext (portability/sharing).
+const packShard = (o: unknown): string => (process.env['NOETICA_ENCRYPT_AT_REST'] !== '0' ? encryptLine(o) : JSON.stringify(o))
 
 const HOME = os.homedir()
 const CORPUS = process.env['OCW_CORPUS'] || path.join(HOME, 'Downloads', 'MIT OCW', '_corpus')
@@ -203,7 +209,7 @@ async function main() {
       const vecs = await mapPool(chunks, CONC, (c) => embedText(c).catch(() => [] as number[]))
       chunks.forEach((c, ci) => {
         const v = vecs[ci]; if (!v || v.length === 0) return
-        lines.push(JSON.stringify({ slug, field, tier, level, material, file: path.basename(f), ci, text: c, dims: v.length, vec: b64vec(v) }))
+        lines.push(packShard({ slug, field, tier, level, material, file: path.basename(f), ci, text: c, dims: v.length, vec: b64vec(v) }))
         tally[material] = (tally[material] || 0) + 1
       })
     }
