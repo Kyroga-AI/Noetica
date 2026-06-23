@@ -2185,6 +2185,19 @@ async function* streamOpenAI(params: {
 
 // ─── Agentic chat handler ─────────────────────────────────────────────────────
 
+// Procedural-memory store (#6): skills distilled from successful turns, persisted across runs.
+function skillsPath(): string { return path.join(os.homedir(), '.noetica', 'skills.jsonl') }
+function loadSkills(): Array<import('./lib/procedural-memory.js').Skill> {
+  try { return fs.readFileSync(skillsPath(), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as import('./lib/procedural-memory.js').Skill).slice(-200) } catch { return [] }
+}
+function jaccardSim(a: string, b: string): number {
+  const ta = new Set(a.toLowerCase().split(/\W+/).filter((w) => w.length > 2))
+  const tb = new Set(b.toLowerCase().split(/\W+/).filter((w) => w.length > 2))
+  if (!ta.size || !tb.size) return 0
+  let inter = 0; for (const t of ta) if (tb.has(t)) inter++
+  return inter / (ta.size + tb.size - inter)
+}
+
 async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<void> {
   const turnStart = Date.now() // request-received clock (used by the fast clarify path)
   const keys = body.provider_keys ?? {}
@@ -3208,7 +3221,19 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       ? '\n\nASK MODE: Before running any command, writing/modifying any file, or taking any irreversible action, first state concisely what you intend to do and ask the user to confirm. Read-only steps are fine without asking.'
       : ''
 
-  const enrichedSystemPrompt = basePrompt + dateLine + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + episodeContext + goalContext + reasoningDirective + verbosityNote + modeNote + lifeDomain.safetyNote + profile.authorizationSuffix
+  // #6 — procedural memory (retrieve half): surface skills distilled from past SUCCESSFUL turns for similar
+  // tasks, so the agent reuses a known-good approach instead of re-deriving it. (Distill half is post-VJ.)
+  let skillsContext = ''
+  try {
+    const { retrieveSkills } = await import('./lib/procedural-memory.js')
+    const skills = loadSkills()
+    if (skills.length) {
+      const hits = retrieveSkills(latestUserContent.slice(0, 200), skills, jaccardSim, { topK: 3, minMatch: 0.18 })
+      if (hits.length) skillsContext = `\n\n---\n**Skills from past successes** (reuse where they fit):\n${hits.map((s) => `- ${s.abstraction || s.task}: ${s.steps.slice(0, 6).join(' → ')}`).join('\n')}`
+    }
+  } catch { /* procedural-memory best-effort */ }
+
+  const enrichedSystemPrompt = basePrompt + dateLine + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + episodeContext + goalContext + skillsContext + reasoningDirective + verbosityNote + modeNote + lifeDomain.safetyNote + profile.authorizationSuffix
 
   // Token budget: rough estimate (4 chars ≈ 1 token). If message history + system prompt
   // exceeds 70% of the model's context window, trim oldest non-system messages.
@@ -3819,6 +3844,15 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         const c = captureFailure({ input: latestUserContent, output: fullContent, verified: turnGrounded, coverage: valueJudgment.grounding, decision: routerDecision.task }, Date.now(), { minCoverage: 0.5 })
         if (c) { const ep = path.join(os.homedir(), '.noetica', 'eval-cases.jsonl'); fs.mkdirSync(path.dirname(ep), { recursive: true }); fs.appendFileSync(ep, `${JSON.stringify(c)}\n`) }
       } catch { /* eval-capture best-effort */ }
+      // #6 — distill SUCCESSFUL turns (high worth + a real tool sequence) into reusable procedural skills (the
+      // success half; retrieved into the system prompt on future similar tasks above).
+      try {
+        if (valueJudgment.worth >= 0.6 && trajectoryActions.length >= 2) {
+          const { distillSkill } = await import('./lib/procedural-memory.js')
+          const skill = distillSkill(latestUserContent.slice(0, 120), routerDecision.task ?? 'general', trajectoryActions.map((a) => a.type))
+          const sp = skillsPath(); fs.mkdirSync(path.dirname(sp), { recursive: true }); fs.appendFileSync(sp, `${JSON.stringify(skill)}\n`)
+        }
+      } catch { /* procedural-memory best-effort */ }
     } catch { /* VJ is best-effort — never block the response */ }
 
     recordGovernanceRun({
