@@ -126,7 +126,10 @@ export async function executeProvision(rec: ProvisionRecord): Promise<ProvisionR
   writeFileSync(join(tmpDir, 'cloud-init.sh'), rec.cloudInit)
   const provisioning = { ...rec, state: 'provisioning' as const }; registerExecutor(provisioning)
   try {
-    await promisify(execFile)('/usr/bin/env', ['sh', '-c', rec.createCommand], { cwd: tmpDir, timeout: 300_000 })
+    // #37 — run the program directly with an arg array (NO shell), so a SKU/region/id that ever flows from
+    // request input can't inject shell metacharacters. The create commands carry no quoted-space args.
+    const parts = rec.createCommand.split(/\s+/).filter(Boolean)
+    await promisify(execFile)(parts[0]!, parts.slice(1), { cwd: tmpDir, timeout: 300_000 })
     const ready = { ...rec, state: 'ready' as const }; registerExecutor(ready); return ready
   } catch (e) {
     const failed = { ...rec, state: 'failed' as const, error: (e instanceof Error ? e.message : 'create failed').replace(/[\r\n]/g, ' ').slice(0, 200) }
