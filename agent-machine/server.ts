@@ -1406,6 +1406,22 @@ async function executeTool(
     }
   }
 
+  // Purpose-binding enforcement (#17): map the tool to the capability it exercises and check it against the
+  // bound purpose BEFORE the side-effect. A 'read-only' / 'research' purpose physically cannot exec / write /
+  // exfiltrate. assertCapability was built (agent-containment) but had zero call sites until now.
+  {
+    const TOOL_CAP: Record<string, import('./lib/agent-containment.js').Capability> = {
+      run_command: 'exec', code_execute: 'exec', write_file: 'fs-write', edit_file: 'fs-write',
+      read_file: 'fs-read', list_directory: 'fs-read', remember: 'memory-write',
+      web_search: 'net', public_data: 'net', generate_image: 'net', ocr: 'fs-read',
+    }
+    const cap = TOOL_CAP[name]
+    if (cap) {
+      try { const { assertCapability } = await import('./lib/agent-containment.js'); assertCapability(cap) }
+      catch (e) { return `[blocked] ${e instanceof Error ? e.message.replace(/[\r\n]/g, ' ') : 'capability denied by bound purpose'}` }
+    }
+  }
+
   switch (name) {
     case 'dispatch_agent': {
       const role = String(input['role'] ?? 'general')
