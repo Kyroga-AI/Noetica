@@ -3616,73 +3616,37 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         return { role: 'user', content: blocks.length === 1 && blocks[0]?.type === 'text' ? (blocks[0] as { type: 'text'; text: string }).text : (blocks as unknown as string) }
       })
 
-      for (let turn = 0; turn < MAX_TURNS; turn++) {
-        let turnContent = ''
-        let turnToolCalls: ToolUseBlock[] | undefined
-
-        for await (const event of streamAnthropic({
-          model,
-          messages: anthropicMessages,
-          system: enrichedSystemPrompt,
-          tools: allTools,
-          apiKey,
-          thinkingBudget: body.thinking_budget,
-          temperature: reqTemperature,
-          maxTokens: reqMaxTokens,
-        })) {
-          if (event.type === 'text') {
-            turnContent += event.text
-            liveContent += event.text
-            sse(res, 'delta', { delta: event.text })
-          } else if (event.type === 'thinking') {
-            fullThinking += event.text
-            sse(res, 'thinking_delta', { delta: event.text })
-          } else if (event.type === 'tool_calls') {
-            turnToolCalls = event.calls
-          }
-        }
-
-        fullContent += turnContent
-
-        if (!turnToolCalls?.length) break
-
-        // Emit tool_calls for UI visualization in the client
-        sse(res, 'tool_calls', { tool_calls: turnToolCalls })
-        lastToolCalls = turnToolCalls
-        void recordTrajectory(turnToolCalls)
-
-        // Execute tools in parallel
-        const toolResults = await Promise.all(
-          turnToolCalls.map(async (tc) => ({
-            toolUseId: tc.id,
-            name: tc.name,
-            result: await executeToolWithTimeout(tc.name, tc.input, {
-              anthropic: anthropicKey,
-              openai: openaiKey,
-              serper: keys.serper,
-            }),
-          })),
-        )
-
-        // Append assistant turn (with tool_use blocks) + user turn (with tool_result blocks)
-        const assistantBlocks: AnthropicContentBlock[] = [
-          ...(turnContent.trim() ? [{ type: 'text' as const, text: turnContent }] : []),
-          ...turnToolCalls.map((tc) => ({
-            type: 'tool_use' as const,
-            id: tc.id,
-            name: tc.name,
-            input: tc.input,
-          })),
-        ]
-        const resultBlocks: AnthropicContentBlock[] = toolResults.map((r) => ({
-          type: 'tool_result' as const,
-          tool_use_id: r.toolUseId,
-          content: r.result,
-        }))
-
-        anthropicMessages.push({ role: 'assistant', content: assistantBlocks })
-        anthropicMessages.push({ role: 'user', content: resultBlocks })
+      // Step 2 of the 3-loop unification: the Anthropic tool loop now runs through the shared runAgentLoop via an
+      // inline adapter owning only Anthropic message format (tool_use / tool_result blocks, system param, thinking).
+      // Byte-equivalent to the old loop; divergence recovery stays OFF (cloud never had it).
+      const anthropicAdapter: ProviderAdapter = {
+        suppressInlineToolText: false,
+        enableDivergenceRecovery: false,
+        init() { /* anthropicMessages already built above */ },
+        async *streamTurn() {
+          yield* streamAnthropic({ model, messages: anthropicMessages, system: enrichedSystemPrompt, tools: allTools, apiKey, thinkingBudget: body.thinking_budget, temperature: reqTemperature, maxTokens: reqMaxTokens })
+        },
+        appendToolTurn(assistantText, calls, results) {
+          const assistantBlocks: AnthropicContentBlock[] = [
+            ...(assistantText.trim() ? [{ type: 'text' as const, text: assistantText }] : []),
+            ...calls.map((tc) => ({ type: 'tool_use' as const, id: tc.id, name: tc.name, input: tc.input })),
+          ]
+          const resultBlocks: AnthropicContentBlock[] = results.map((r) => ({ type: 'tool_result' as const, tool_use_id: r.id, content: r.result }))
+          anthropicMessages.push({ role: 'assistant', content: assistantBlocks })
+          anthropicMessages.push({ role: 'user', content: resultBlocks })
+        },
+        appendNudge() { /* divergence recovery disabled for Anthropic */ },
       }
+      const anthropicResult = await runAgentLoop(anthropicAdapter, {
+        maxTurns: MAX_TURNS,
+        executeTool: (name, input) => executeToolWithTimeout(name, input, { anthropic: anthropicKey, openai: openaiKey, serper: keys.serper }),
+        sse: (event, data) => sse(res, event, data),
+        recordTrajectory: (calls) => recordTrajectory(calls),
+        onDelta: (t) => { liveContent += t },
+      })
+      fullContent += anthropicResult.content
+      fullThinking += anthropicResult.thinking
+      if (anthropicResult.lastToolCalls) lastToolCalls = anthropicResult.lastToolCalls
     } else {
       // OpenAI path
       const oaiMessages: OpenAIMessage[] = []
