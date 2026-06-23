@@ -109,21 +109,28 @@ function classify(file: string, byMeta: Map<string, Material>): Material {
   return 'reference'
 }
 
-// pypdf can spin forever on a pathological PDF (this wedged a whole cloud run) AND, on math-heavy
-// PDFs, emit malformed Unicode — lone surrogates (\ud835, mathematical bold/italic) that crash
-// even PYTHONIOENCODING=utf-8 under the strict handler, which silently zeroed a whole run.
-// Harden: SIGKILL timeout so a hung extract can't stall the loop; per-page + outer try/except so
-// one bad page degrades to ''; and write BYTES with errors='replace' (bypasses strict text stdout,
-// so lone surrogates become '?' instead of killing the extract).
+// PDF text extraction via pymupdf (fitz), NOT pypdf. pypdf shredded math glyphs into U+FFFD (�) — measured
+// 1036 � in a single worked-solution PDF, concentrated in our GOLD exam/solution material; pymupdf recovers
+// the SAME PDFs with 0 �. It also handles the malformed-Unicode / lone-surrogate cases that wedged runs.
+// Falls back to pypdf if pymupdf isn't installed. Harden (kept): SIGKILL timeout so a hung extract can't
+// stall the loop; per-page + outer try/except so one bad page degrades to ''; write BYTES errors='replace'.
 const PDF_PY = [
   'import sys',
-  'from pypdf import PdfReader',
   'out=[]',
   'try:',
-  '    for p in PdfReader(sys.argv[1]).pages:',
-  '        try: out.append(p.extract_text() or "")',
+  '    import fitz',                                  // pymupdf — math-aware, recovers equations pypdf drops
+  '    d=fitz.open(sys.argv[1])',
+  '    for p in d:',
+  '        try: out.append(p.get_text())',
   '        except Exception: pass',
-  'except Exception: pass',
+  '    d.close()',
+  'except Exception:',
+  '    try:',                                          // fallback: pypdf if pymupdf unavailable
+  '        from pypdf import PdfReader',
+  '        for p in PdfReader(sys.argv[1]).pages:',
+  '            try: out.append(p.extract_text() or "")',
+  '            except Exception: pass',
+  '    except Exception: pass',
   'sys.stdout.buffer.write("\\n".join(out).encode("utf-8","replace"))',
 ].join('\n')
 function pdfText(file: string): string {

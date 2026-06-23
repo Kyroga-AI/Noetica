@@ -58,7 +58,7 @@ ollama list | grep -q nomic-embed-text || { step "FATAL embed missing"; exit 1; 
 step "install node + python"
 timeout 180 bash -c 'curl -fsSL https://deb.nodesource.com/setup_20.x | bash -' && timeout 300 apt-get install -y nodejs git python3-pip || { step "FATAL node/py"; exit 1; }
 PY=\$(which python3)
-\$PY -m pip install -q sympy numpy scikit-learn || \$PY -m pip install --break-system-packages -q sympy numpy scikit-learn
+\$PY -m pip install -q sympy numpy scikit-learn pymupdf || \$PY -m pip install --break-system-packages -q sympy numpy scikit-learn pymupdf
 
 step "pull code + brain + bank + CORPUS"
 mkdir -p /opt/am && timeout 300 gsutil -m cp -r "\$GCS/code/agent-machine/*" /opt/am/ && cd /opt/am && timeout 600 npm ci || { step "FATAL code/npm"; exit 1; }
