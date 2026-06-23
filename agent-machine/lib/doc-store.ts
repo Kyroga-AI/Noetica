@@ -14,6 +14,7 @@ import {
   putChunk as hgPutChunk, semanticSearch as hgSemanticSearch, cosineSim,
 } from '@socioprophet/hellgraph'
 import { embedText } from './ollama.js'
+import { bm25 } from './hybrid-retrieve.js'
 
 const CHUNK_LABEL = 'DocumentChunk'
 
@@ -182,10 +183,11 @@ export async function semanticSearch(query: string, k = 5): Promise<ChunkHit[]> 
 }
 
 /**
- * Pure-lexical chunk search (no embedding) — scores every (scoped) chunk by how many
- * distinct query terms it contains. Far more discriminative than the weak embedding
- * cosine for ENTITY questions ("Baxter", "Helene"): the term literally appears in the
- * right chunk. Used by extractive QA so the on-topic passage actually surfaces.
+ * Lexical chunk search via BM25 (IDF-weighted, TF-saturating, length-normalized) — the discriminative
+ * keyword signal for ENTITY questions ("Baxter", "Helene"). BM25 beats the old term-presence COUNT: a chunk
+ * matching a rare query term ("Baxter", high IDF) now outranks one matching a common term ("system", low IDF),
+ * and a long chunk that merely mentions a term doesn't beat a focused short one. Feeds the RRF fusion's lexical
+ * rank — the input ordering that drove retrieval quality.
  */
 export function lexicalSearch(query: string, k = 15): ChunkHit[] {
   const g = getHellGraph()
@@ -195,19 +197,18 @@ export function lexicalSearch(query: string, k = 15): ChunkHit[] {
     const f = nodes.filter((n) => String(n.properties['filename'] ?? '').toLowerCase().includes(scope.toLowerCase()))
     if (f.length > 0) nodes = f
   }
-  const qTerms = [...new Set(query.toLowerCase().split(/\W+/).filter((t) => t.length > 2))]
-  if (qTerms.length === 0) return []
-  const scored: ChunkHit[] = []
-  for (const n of nodes) {
-    const text = String(n.properties['text'] ?? '')
-    if (!text) continue
-    const lc = text.toLowerCase()
-    let hits = 0
-    for (const t of qTerms) if (lc.includes(t)) hits++
-    if (hits === 0) continue
-    scored.push({ text, filename: String(n.properties['filename'] ?? ''), score: hits / qTerms.length, docId: String(n.properties['doc_id'] ?? ''), idx: Number(n.properties['idx'] ?? 0) })
+  if ([...new Set(query.toLowerCase().split(/\W+/).filter((t) => t.length > 2))].length === 0) return []
+  // Index by node position so we can map BM25 results back to the chunk's full properties.
+  const docs = nodes.map((n, i) => ({ id: String(i), text: String(n.properties['text'] ?? '') })).filter((d) => d.text)
+  if (docs.length === 0) return []
+  const out: ChunkHit[] = []
+  for (const r of bm25(query, docs)) {
+    if (r.score <= 0) break   // bm25() returns sorted desc; the rest are non-matches
+    const n = nodes[Number(r.id)]!
+    out.push({ text: String(n.properties['text'] ?? ''), filename: String(n.properties['filename'] ?? ''), score: r.score, docId: String(n.properties['doc_id'] ?? ''), idx: Number(n.properties['idx'] ?? 0) })
+    if (out.length >= k) break
   }
-  return scored.sort((a, b) => b.score - a.score).slice(0, k)
+  return out
 }
 
 /**
