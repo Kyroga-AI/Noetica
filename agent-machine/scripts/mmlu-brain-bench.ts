@@ -293,18 +293,19 @@ async function retrieveMulti(question: string, choices: string[], pools: Chunk[]
   return picked.map((x) => ({ ...x.c, score: x.s }))
 }
 
-// eliminateArm — the Monty-Hall MCQ play. Instead of a quick top-k match, gather confirm/REFUTE
-// evidence per CHOICE (the doors), score them, and treat the choices as competing (ruling one out
-// lifts the others). A three-way verdict — SUPPORT / REFUTE / INSUFFICIENT — makes elimination
-// explicit and, crucially, marks which choices we DON'T yet have coverage for. The saturation gate:
-// if the posterior isn't peaked OR a choice is still uncovered, WIDEN into adjacent/co-prime fields
-// and probe again. Only then commit. Never defaults to A.
-async function eliminateArm(question: string, choices: string[], pools: Chunk[][], wider: Chunk[][]):
-  Promise<{ letter: string; coverage: number; rounds: number; margin: number }> {
+// probePosterior — the shared elimination ENGINE: per-choice evidence → a NORMALIZED conditional posterior
+// over the choices (the doors), updated sequentially (Bayes) across probe rounds, with a saturation gate
+// that WIDENS into co-prime fields until one door wins. eliminateArm and fiftyFiftyArm both build on this,
+// so the Monty-Hall math lives in ONE place. Evidence is a log-likelihood-ratio (SUPPORT raises a door's
+// odds, REFUTE lowers them, INSUFFICIENT is neutral); softmax normalizes, so refuting a door transfers its
+// mass to the SURVIVORS — because P sums to 1 and exactly one door is correct.
+async function probePosterior(question: string, choices: string[], pools: Chunk[][], wider: Chunk[][]):
+  Promise<{ post: number[]; covered: boolean[]; rounds: number }> {
   const n = choices.length
-  const score = new Array<number>(n).fill(0)
-  const covered = new Array<boolean>(n).fill(false)
+  const logit = new Array<number>(n).fill(0)          // log-odds per door; uniform prior ⇒ all 0. Evidence is
+  const covered = new Array<boolean>(n).fill(false)   // multiplicative in P = additive in log (sequential Bayes)
   let rounds = 0
+  const K = Number(process.env['MMLU_ELIM_K'] || 2)   // evidence temperature: how hard one verdict moves the odds
   const probe = async (ps: Chunk[][]) => {
     if (!ps.length) return
     rounds++
@@ -315,18 +316,66 @@ async function eliminateArm(question: string, choices: string[], pools: Chunk[][
       const m = /VERDICT:\s*(SUPPORT|REFUTE|INSUFFICIENT)\D*([01](?:\.\d+)?)?/i.exec(raw)
       const v = m ? m[1]!.toUpperCase() : 'INSUFFICIENT'
       const conf = m && m[2] != null ? Math.min(1, Math.max(0, Number(m[2]))) : 0.5
-      if (v === 'SUPPORT') { score[i]! += conf; covered[i] = true }
-      else if (v === 'REFUTE') { score[i]! -= conf; covered[i] = true }   // elimination — pushes mass to the rest
+      // log-likelihood-ratio: SUPPORT raises this door's odds, REFUTE lowers them, INSUFFICIENT is neutral
+      // (0) — yet normalization still LIFTS it when the OTHER doors get refuted. That's the conditional part.
+      if (v === 'SUPPORT') { logit[i]! += K * conf; covered[i] = true }
+      else if (v === 'REFUTE') { logit[i]! -= K * conf; covered[i] = true }
     }))
   }
+  const posterior = (): number[] => {                 // softmax = the normalized P(correct | evidence), Σ=1
+    const mx = Math.max(...logit)
+    const ex = logit.map((z) => Math.exp(z - mx))
+    const Z = ex.reduce((a, b) => a + b, 0) || 1
+    return ex.map((e) => e / Z)
+  }
+  const gap = (p: number[]): number => { const s = [...p].sort((a, b) => b - a); return (s[0] ?? 0) - (s[1] ?? 0) }
   await probe(pools)
-  const margin = () => { const s = [...score].sort((a, b) => b - a); return (s[0] ?? 0) - (s[1] ?? 0) }
-  const peaked = () => covered.every(Boolean) && margin() > 0.3
-  if (!peaked()) await probe(wider)                        // coverage gate → widen into co-prime fields
-  const mx = Math.max(...score)
-  const top = score.map((s, i) => ({ s, i })).filter((x) => x.s === mx)
-  const best = top.length > 1 ? (top.find((x) => x.i !== 0)?.i ?? top[0]!.i) : top[0]!.i   // tie-break away from A
-  return { letter: LETTERS[best]!, coverage: covered.filter(Boolean).length / n, rounds, margin: margin() }
+  let p = posterior()
+  // commit only when the posterior is PEAKED: every door probed, one door past a majority (>0.5) by a clear
+  // margin. Otherwise WIDEN into co-prime fields and update the SAME posterior again (the saturation gate).
+  if (!(covered.every(Boolean) && Math.max(...p) > 0.5 && gap(p) > 0.2)) { await probe(wider); p = posterior() }
+  return { post: p, covered, rounds }
+}
+
+// eliminateArm — the Monty-Hall pick: commit to the most-probable door under the conditional posterior,
+// tie-breaking AWAY from A (the position-bias trap). Never defaults to A.
+async function eliminateArm(question: string, choices: string[], pools: Chunk[][], wider: Chunk[][]):
+  Promise<{ letter: string; coverage: number; rounds: number; margin: number }> {
+  const { post, covered, rounds } = await probePosterior(question, choices, pools, wider)
+  const mx = Math.max(...post)
+  const top = post.map((s, i) => ({ s, i })).filter((x) => mx - x.s < 1e-9)
+  const best = top.length > 1 ? (top.find((x) => x.i !== 0)?.i ?? top[0]!.i) : top[0]!.i
+  const s = [...post].sort((a, b) => b - a)
+  return { letter: LETTERS[best]!, coverage: covered.filter(Boolean).length / choices.length, rounds, margin: (s[0] ?? 0) - (s[1] ?? 0) }
+}
+
+// fiftyFiftyArm — the "Who Wants to Be a Millionaire" 50:50 lifeline, fused with the conditional posterior.
+// A strong test-taker doesn't pick 1-of-4; they ELIMINATE the two easy distractors, then deliberate on the
+// hard pair. We do exactly that: (1) one posterior probe over all four doors → KEEP the top two, drop the
+// rest; (2) a FOCUSED contrastive runoff on the survivors — fresh evidence for BOTH, "exactly one is
+// correct: which, and why is the other wrong?", decided by a short self-consistency vote. The budget saved
+// by not re-litigating the eliminated pair is spent discriminating the pair that's actually hard. The
+// runoff is guarded to stay within the two survivors (else fall back to the higher-posterior one).
+async function fiftyFiftyArm(question: string, choices: string[], pools: Chunk[][], wider: Chunk[][]):
+  Promise<{ letter: string; eliminated: string[]; rounds: number }> {
+  const { post, rounds } = await probePosterior(question, choices, pools, wider)
+  const order = post.map((p, i) => ({ p, i })).sort((a, b) => b.p - a.p)
+  const keep = order.slice(0, 2).map((x) => x.i)
+  const drop = order.slice(2).map((x) => LETTERS[x.i]!)
+  if (keep.length < 2) return { letter: LETTERS[order[0]!.i]!, eliminated: drop, rounds }
+  const [a, b] = keep as [number, number]
+  const evid = async (i: number): Promise<string> =>
+    (await retrieveMulti(question, [choices[i]!], pools, PER_SHOT, 5)).map((h, k) => `[${k + 1}] ${h.text.slice(0, 360)}`).join('\n\n')
+  const [ctxA, ctxB] = await Promise.all([evid(a), evid(b)])
+  const runoff = `Two candidates remain (the others were eliminated). EXACTLY ONE is correct.\n\n` +
+    `Question: ${question}\n\n` +
+    `Option ${LETTERS[a]}: ${choices[a]}\nEvidence:\n${ctxA}\n\n` +
+    `Option ${LETTERS[b]}: ${choices[b]}\nEvidence:\n${ctxB}\n\n` +
+    `Decide which is correct and why the other is wrong. Output exactly one final line: "FINAL: X" (X = ${LETTERS[a]} or ${LETTERS[b]}).`
+  const vote = await askVote(runoff, SC_K)
+  let letter = vote.letter
+  if (letter !== LETTERS[a] && letter !== LETTERS[b]) letter = LETTERS[post[a]! >= post[b]! ? a : b]!  // stay within the survivors
+  return { letter, eliminated: drop, rounds }
 }
 
 // ── model ──────────────────────────────────────────────────────────────────────
@@ -585,7 +634,7 @@ async function main() {
   for (const subject of subjects) {
     const fields = SUBJECT_FIELDS[subject]!.filter(fieldReady)
     const pools = fields.map(loadField)
-    const widerPools = ARMS.includes('elim')
+    const widerPools = (ARMS.includes('elim') || ARMS.includes('fiftyfifty'))
       ? [...new Set(fields.flatMap((f) => FIELD_ADJ[f] ?? []).filter((f) => !fields.includes(f) && fieldReady(f)))].map(loadField)
       : []
     const poolN = pools.reduce((a, p) => a + p.length, 0)
@@ -669,6 +718,10 @@ async function main() {
           const e = await eliminateArm(q.question, q.choices, pools, widerPools)
           letter = e.letter; mode = `elim:cov${Math.round(e.coverage * 100)}:r${e.rounds}`
           row['coverage'] = e.coverage; row['elim_rounds'] = e.rounds; row['elim_margin'] = Number(e.margin.toFixed(2))
+        } else if (arm === 'fiftyfifty') {        // Millionaire 50:50 lifeline: posterior → drop 2 weakest → focused runoff on the final 2
+          const f = await fiftyFiftyArm(q.question, q.choices, pools, widerPools)
+          letter = f.letter; mode = `5050:elim[${f.eliminated.join('')}]:r${f.rounds}`
+          row['eliminated'] = f.eliminated
         } else if (arm === 'verify') {            // plug EACH choice in, verify vs its evidence, pick best
           const v = await verifyArm(q.question, q.choices, pools)
           letter = v.letter; mode = 'verify'
