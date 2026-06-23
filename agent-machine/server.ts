@@ -1819,13 +1819,14 @@ async function* streamAnthropic(params: {
   if (typeof params.temperature === 'number' && !params.thinkingBudget) {
     body['temperature'] = params.temperature
   }
-  if (params.system) body['system'] = params.system
+  // Prompt caching: the system prompt + tool definitions are the large, STABLE prefix re-sent every agent
+  // turn. Marking the last block of each with cache_control:ephemeral caches the whole prefix (~90% cost /
+  // ~85% latency cut on cache hits, 5-min TTL) — the single biggest cost lever for a multi-turn tool loop.
+  if (params.system) body['system'] = [{ type: 'text', text: params.system, cache_control: { type: 'ephemeral' } }]
   if (params.tools?.length) {
-    body['tools'] = params.tools.map((t) => ({
-      name: t.name,
-      description: t.description,
-      input_schema: t.input_schema,
-    }))
+    const tools: Record<string, unknown>[] = params.tools.map((t) => ({ name: t.name, description: t.description, input_schema: t.input_schema }))
+    tools[tools.length - 1] = { ...tools[tools.length - 1], cache_control: { type: 'ephemeral' } }   // breakpoint caches all tool defs
+    body['tools'] = tools
   }
   if (params.thinkingBudget) {
     body['thinking'] = { type: 'enabled', budget_tokens: params.thinkingBudget }
