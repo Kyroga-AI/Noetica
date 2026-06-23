@@ -55,6 +55,11 @@ const SHOT_K = Number(process.env['MMLU_SHOT_K'] || 8)      // chunks injected a
 const PER_SHOT = Number(process.env['MMLU_PER_SHOT'] || 3)  // chunks each query (broad + per-choice) contributes
 const ARMS = (process.env['MMLU_ARMS'] || 'baseline,brain').split(',').map((s) => s.trim()).filter(Boolean)
 const CONC = Number(process.env['MMLU_CONC'] || 6)   // questions scored concurrently — ollama calls are I/O; serial left the GPU idle
+// PRE-EMBED: warm the query-embed cache for a subject BEFORE its generation-heavy scoring loop, while the GPU
+// is idle. Then retrieval is a cache hit (pure-CPU cosine) and embeds never contend with generation — the root
+// cause of the slow/flaky boards. Off with MMLU_PREEMBED=0.
+const PREEMBED = process.env['MMLU_PREEMBED'] !== '0'
+const PREEMBED_CONC = Number(process.env['MMLU_PREEMBED_CONC'] || 16)
 const MMR_LAMBDA = Number(process.env['MMLU_MMR'] || 0) // >0 enables MMR diverse selection (relevance vs novelty); cluster_analysis showed top-8 collapse into ~2 cells
 const MAX_CHUNKS = Number(process.env['MMLU_MAX_CHUNKS'] || 150_000)
 const SEED = Number(process.env['MMLU_SEED'] ?? (Date.now() % 2147483647))
@@ -924,6 +929,22 @@ async function main() {
 
     // bounded-parallel over the NOT-yet-done questions (resume skips the rest); checkpoint + status each batch
     const todo = Array.from({ length: sample.length }, (_, i) => i).filter((i) => !done.has(`${subject}|${i}`))
+    // PRE-EMBED PASS — embed this subject's deterministic retrieval queries (broad + per-choice, the same
+    // strings retrieveMulti builds) up front while the GPU is idle, so the scoring loop's retrieval is a warm
+    // cache hit and generation never competes with embeds. HyDE queries (generated) still embed live.
+    if (PREEMBED && todo.length) {
+      const warm = new Set<string>()
+      for (const i of todo) {
+        const q = sample[i]!
+        warm.add(`${q.question}\n${q.choices.join(' ')}`)            // broad query
+        for (const c of q.choices) warm.add(`${q.question}\n${c}`)   // per-choice queries
+      }
+      const wl = [...warm]
+      process.stdout.write(`  pre-embedding ${wl.length} retrieval queries (GPU idle → no generation contention)…\n`)
+      for (let s = 0; s < wl.length; s += PREEMBED_CONC) {
+        await Promise.all(wl.slice(s, s + PREEMBED_CONC).map((qq) => embedCached(qq).catch(() => [] as number[])))
+      }
+    }
     for (let s = 0; s < todo.length; s += CONC) {
       const batch = await Promise.all(todo.slice(s, s + CONC).map((i) => scoreQuestion(i)))
       for (const r of batch) {
