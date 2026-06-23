@@ -130,6 +130,7 @@ interface MeshTrends {
 interface LearningStats {
   skills: { count: number; recent: Array<{ task: string; abstraction: string; steps: string[] }> }
   evalCases: { count: number; recent: Array<{ input: string; failureMode: string; coverage: number }> }
+  replay?: { total: number; fixed: number; stillFailing: number; fixedRate: number; ts: number } | null
 }
 
 interface DreamResult {
@@ -176,6 +177,18 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   const [learning, setLearning]           = useState<LearningStats | null>(null)
   const [dream, setDream]                 = useState<DreamResult | null>(null)
   const [dreaming, setDreaming]           = useState(false)
+  const [replaying, setReplaying]         = useState(false)
+
+  const runReplay = () => {
+    setReplaying(true)
+    // Re-run captured failures against the current system, then refresh the felt-win number.
+    fetch(amUrl('/api/learning/replay'), { method: 'POST', signal: AbortSignal.timeout(120000) })
+      .then(() => fetch(amUrl('/api/learning/stats'), { signal: AbortSignal.timeout(3000) }))
+      .then(r => r.ok ? r.json() : null)
+      .then((d: LearningStats | null) => { if (d) setLearning(d) })
+      .catch(() => { /* model/retrieval unavailable — leave prior result */ })
+      .finally(() => setReplaying(false))
+  }
   const [filterVerdict, setFilterVerdict] = useState<'all' | PolicyVerdict>('all')
   const [filterModel, setFilterModel]     = useState<string>('all')
 
@@ -339,7 +352,22 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
         {/* Production-learning loop — what the agent has learned from real turns */}
         {learning && (learning.skills.count > 0 || learning.evalCases.count > 0) && (
           <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8] mb-3">Learning loop</div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Learning loop</div>
+              {learning.evalCases.count > 0 && (
+                <button onClick={runReplay} disabled={replaying}
+                  className="rounded-full border border-[var(--color-border-tertiary)] px-2.5 py-0.5 text-[10px] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)] disabled:opacity-50">
+                  {replaying ? 'Re-checking…' : 'Re-check failures'}
+                </button>
+              )}
+            </div>
+            {/* The felt win: how many of your real captured failures the system now passes. */}
+            {learning.replay && learning.replay.total > 0 && (
+              <div className="mb-3 rounded-xl border border-[#16a34a]/40 bg-[#16a34a]/5 p-3 text-center">
+                <div className="text-2xl font-semibold text-[#16a34a]">{learning.replay.fixed}/{learning.replay.total} fixed</div>
+                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">of your captured failures now pass ({Math.round(learning.replay.fixedRate * 100)}%)</div>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
                 <div className="text-2xl font-semibold text-[#16a34a]">{learning.skills.count}</div>

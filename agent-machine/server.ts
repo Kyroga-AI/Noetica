@@ -3796,6 +3796,27 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         const c = captureFailure({ input: latestUserContent, output: fullContent, verified: turnGrounded, coverage: valueJudgment.grounding, decision: routerDecision.task }, Date.now(), { minCoverage: 0.5 })
         if (c) appendEncrypted(path.join(os.homedir(), '.noetica', 'eval-cases.jsonl'), c)   // encrypted at rest
       } catch { /* eval-capture best-effort */ }
+      // #5b — capture VERIFIED turns as SFT positives (rejection sampling: the success/training half).
+      // The shard feeds the Atlas causal_lm_lora trainer (tritfabric) via /api/tune submit → POST /v1/tune.
+      // SOVEREIGNTY: harvesting is OFF by default (NOETICA_LEARN_OPT_IN) — this data could leave the
+      // device for training. Only with explicit operator opt-in, and only AFTER the PII/secret
+      // firewall (redact) scrubs BOTH the prompt and the response, does a verified turn enter the
+      // shard — so secrets/PII are never written to disk or shipped, even under cloud training.
+      try {
+        if (isFlagOn('NOETICA_LEARN_OPT_IN')) {
+          const { captureVerified, toSftLine } = await import('./lib/sft-harvest.js')
+          const { redact } = await import('./lib/redact.js')
+          // ANTI-COLLAPSE: an INDEPENDENT corroboration the generator can't self-grant — a verifying
+          // tool/execution that ran, grounding in the structured graph, or belief/law alignment — and
+          // no contradictions. Without this we'd train only on the model's own grounding (collapse).
+          const usedVerifier = trajectoryActions.some((a) => /run_command|code_execute|exec/i.test(a.type))
+          const independent = valueJudgment.contradictions.length === 0 && (
+            usedVerifier || (valueJudgment.graph_grounding ?? 0) >= 0.5 || valueJudgment.belief_alignment >= 0.6
+          )
+          const v = captureVerified({ input: redact(latestUserContent).redacted, output: redact(fullContent).redacted, verified: turnGrounded, coverage: valueJudgment.grounding, decision: routerDecision.task, independent }, Date.now())
+          if (v) { const sp = path.join(os.homedir(), '.noetica', 'distill', 'verified.sft.jsonl'); fs.mkdirSync(path.dirname(sp), { recursive: true }); fs.appendFileSync(sp, `${toSftLine(v)}\n`) }
+        }
+      } catch { /* sft-harvest best-effort */ }
       // #6 — distill SUCCESSFUL turns (high worth + a real tool sequence) into reusable procedural skills (the
       // success half; retrieved into the system prompt on future similar tasks above).
       try {
@@ -4173,11 +4194,59 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && url.pathname === '/api/learning/stats') {
     const skills = loadSkills()
     const evalCases = readEncrypted<Record<string, unknown>>(path.join(os.homedir(), '.noetica', 'eval-cases.jsonl'))
+    // The felt-win: the latest replay of captured failures against the current system ("fixed X of N").
+    let replay: Record<string, unknown> | null = null
+    try { replay = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.noetica', 'learning-replay.json'), 'utf8')) as Record<string, unknown> } catch { /* none run yet */ }
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
     res.end(JSON.stringify({
       skills: { count: skills.length, recent: skills.slice(-5).map((s) => ({ task: s.task, abstraction: s.abstraction, steps: s.steps })) },
       evalCases: { count: evalCases.length, recent: evalCases.slice(-5).map((c) => ({ input: String(c['input'] ?? '').slice(0, 80), failureMode: c['failureMode'], coverage: c['coverage'] })) },
+      replay,
     }))
+    return
+  }
+
+  // POST /api/learning/replay — re-run captured production FAILURES against the CURRENT system
+  // (today's retrieval + model) and report how many now pass: "fixed X of N of your real failures".
+  // The felt-win surface for the verifier→learning loop. Bounded (NOETICA_REPLAY_MAX, default 25) and
+  // cached to ~/.noetica/learning-replay.json so /api/learning/stats can show it without re-running.
+  if (req.method === 'POST' && url.pathname === '/api/learning/replay') {
+    void (async () => {
+      try {
+        const { selectForReplay, replayCase, summarizeReplay } = await import('./lib/eval-replay.js')
+        const { searchDocsReranked } = await import('./lib/doc-store.js')
+        const { verifyGrounding } = await import('./lib/research-verify.js')
+        const { generateOllamaText } = await import('./lib/ollama.js')
+        const casesPath = path.join(os.homedir(), '.noetica', 'eval-cases.jsonl')
+        // eval-cases is encrypted at rest (readEncrypted lazy-migrates legacy plaintext) → read records.
+        const all = readEncrypted<{ input?: string; output?: string; failureMode?: string; coverage?: number; capturedAt?: number }>(casesPath)
+          .filter((c) => typeof c.input === 'string' && c.input.trim())
+          .map((c) => ({ input: c.input as string, output: c.output ?? '', failureMode: c.failureMode ?? 'unknown', coverage: Number(c.coverage ?? 0), capturedAt: Number(c.capturedAt ?? 0) }))
+        const sel = selectForReplay(all, Math.max(1, Number(process.env['NOETICA_REPLAY_MAX'] || 25)))
+        const model = process.env['NOETICA_REPLAY_MODEL'] || 'qwen2.5:7b'
+        const regenerate = async (input: string) => {
+          const chunks = await searchDocsReranked(input, 8).catch(() => [])
+          const sources = chunks.map((ch) => ({ text: ch.text }))
+          const ctx = sources.map((s) => s.text).join('\n---\n').slice(0, 6000)
+          const { content } = await generateOllamaText({ model, temperature: 0.2, messages: [
+            { role: 'system', content: 'Answer using ONLY the provided context. Be concise. If the context does not support an answer, say so.' },
+            { role: 'user', content: `Context:\n${ctx}\n\nQuestion: ${input}` },
+          ] })
+          return { answer: content, sources }
+        }
+        const judge = (answer: string, sources: { text: string }[]) => { const r = verifyGrounding(answer, sources); return { grounded: r.grounded, score: r.score } }
+        const outcomes = []
+        for (const c of sel) outcomes.push(await replayCase(c, regenerate, judge))
+        const summary = summarizeReplay(outcomes, Date.now())
+        const cache = { total: summary.total, fixed: summary.fixed, stillFailing: summary.stillFailing, fixedRate: summary.fixedRate, ts: summary.ts }
+        try { fs.writeFileSync(path.join(os.homedir(), '.noetica', 'learning-replay.json'), JSON.stringify(cache)) } catch { /* best-effort cache */ }
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
+        res.end(JSON.stringify({ ok: true, ...cache, outcomes: summary.outcomes.slice(0, 12) }))
+      } catch {
+        res.writeHead(500, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ ok: false, error: 'replay_error' }))
+      }
+    })()
     return
   }
 
@@ -5446,16 +5515,88 @@ Question: ${question}`
     return
   }
 
-  // /api/tune/* — KD training stubs (real distillation requires separate distill server)
+  // /api/tune/* — the rejection-sampling→LoRA submit. Harvests VERIFIED production traces
+  // (lib/sft-harvest) and submits them to the Atlas training substrate (tritfabric, POST /v1/tune)
+  // as a causal_lm_lora job. GET /status reports the shard; POST /submit packages + ships it.
   if (url.pathname.startsWith('/api/tune/')) {
     setCORSHeaders(res)
     if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return }
-    res.writeHead(503, { 'content-type': 'application/json' })
-    res.end(JSON.stringify({
-      ok: false,
-      error: 'Distillation server not running. Start the Noetica distillation server (separate process) to enable KD training.',
-      hint: 'See docs/tune-server.md for setup instructions.',
-    }))
+    void (async () => {
+      try {
+        const { readSftShard, dedupeVerified, toSftLine, buildTuneRequest, exampleHash, excludeTrained } = await import('./lib/sft-harvest.js')
+        const shardPath = path.join(os.homedir(), '.noetica', 'distill', 'verified.sft.jsonl')
+        const raw = fs.existsSync(shardPath) ? readSftShard(fs.readFileSync(shardPath, 'utf8')) : []
+        const deduped = dedupeVerified(raw)
+        const endpoint = (process.env['ATLAS_HTTP'] || process.env['NOETICA_TUNE_ENDPOINT'] || '').replace(/\/+$/, '')
+        // VOLUME GATE: LoRA SFT on a trickle of examples overfits to surface form and degrades
+        // generality. Require a real floor before a run is eligible (configurable; default 50 — raise
+        // toward several hundred as the harvest grows).
+        const minToSubmit = Math.max(1, Number(process.env['NOETICA_TUNE_MIN'] || 50))
+        // CROSS-ROUND DEDUP ledger: content hashes of examples already trained on in prior rounds.
+        const ledgerPath = path.join(os.homedir(), '.noetica', 'distill', 'trained-hashes.json')
+        let trainedArr: string[] = []
+        try { trainedArr = JSON.parse(fs.readFileSync(ledgerPath, 'utf8')) as string[] } catch { trainedArr = [] }
+        const trained = new Set(trainedArr)
+
+        if (req.method === 'GET' && url.pathname === '/api/tune/status') {
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ok: true, shardPath, captured: raw.length, unique: deduped.length, alreadyTrained: trainedArr.length, minToSubmit, submitTarget: endpoint || null, ready: deduped.length >= minToSubmit }))
+          return
+        }
+
+        if (req.method === 'POST' && url.pathname === '/api/tune/submit') {
+          // SOVEREIGNTY: submitting ships the shard off-device (potentially to a cloud GPU). Gate it
+          // behind the same explicit opt-in as capture — never egress training data implicitly.
+          if (!isFlagOn('NOETICA_LEARN_OPT_IN')) {
+            res.writeHead(403, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ ok: false, error: 'learning is opt-in', hint: 'set NOETICA_LEARN_OPT_IN=1 to harvest + submit verified traces for training' }))
+            return
+          }
+          if (deduped.length < minToSubmit) {
+            res.writeHead(409, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ ok: false, error: 'not enough verified examples yet', unique: deduped.length, needed: minToSubmit }))
+            return
+          }
+          // Defense-in-depth: re-run the PII/secret firewall over every example before it leaves the
+          // device, in case a pre-redaction trace exists in the shard.
+          const { redact } = await import('./lib/redact.js')
+          const clean = deduped.map((e) => ({ ...e, input: redact(e.input).redacted, output: redact(e.output).redacted }))
+          // CROSS-ROUND DEDUP: drop examples already trained on in a prior round. Re-training on the
+          // same easy wins every round narrows the distribution and accelerates collapse.
+          const fresh = excludeTrained(clean, trained)
+          if (fresh.length < minToSubmit) {
+            res.writeHead(409, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ ok: false, error: 'not enough NEW verified examples since last training', unique: clean.length, fresh: fresh.length, alreadyTrained: trainedArr.length, needed: minToSubmit }))
+            return
+          }
+          // Canonicalize the shard to the FRESH set (drops already-trained — stops re-accumulation).
+          fs.writeFileSync(shardPath, `${fresh.map(toSftLine).join('\n')}\n`)
+          const datasetUri = process.env['NOETICA_SFT_URI'] || shardPath
+          const baseModel = process.env['NOETICA_TUNE_BASE'] || 'Qwen/Qwen2.5-Coder-7B-Instruct'
+          const tuneReq = buildTuneRequest({ datasetUri, baseModel, examples: fresh.length })
+          // Mark these examples trained ONLY once they're actually submitted (not when merely staged).
+          const recordTrained = () => { try { fs.writeFileSync(ledgerPath, JSON.stringify([...trained, ...fresh.map(exampleHash)].slice(-100000))) } catch { /* best-effort ledger */ } }
+          if (!endpoint) {
+            res.writeHead(200, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ ok: true, staged: true, submitted: false, unique: deduped.length, fresh: fresh.length, shardPath, request: tuneReq, hint: 'set ATLAS_HTTP to submit to the Atlas training substrate' }))
+            return
+          }
+          // Atlas (atlasd) serves /v1/tune as the submit route; entrypoint=causal_lm_lora routes it to the trainer.
+          const r = await fetch(`${endpoint}/v1/tune`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(tuneReq) })
+          const atlas = await r.json().catch(() => ({})) as { id?: string; job_id?: string }
+          if (r.ok) recordTrained()
+          res.writeHead(r.ok ? 200 : 502, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ok: r.ok, submitted: r.ok, jobId: atlas?.id ?? atlas?.job_id ?? null, unique: deduped.length, fresh: fresh.length, atlas }))
+          return
+        }
+
+        res.writeHead(404, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ok: false, error: 'unknown tune route (use GET /api/tune/status or POST /api/tune/submit)' }))
+      } catch {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ok: false, error: 'tune_error' }))
+      }
+    })()
     return
   }
 
