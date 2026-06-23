@@ -367,3 +367,34 @@ jobs:
           git add Casks
           git diff --staged --quiet || git commit -m "noetica ${{ github.ref_name }}"
           git push
+
+  # Attach the knowledge brains so a fresh install auto-loads them: lib/brain-provision.ts defaults to
+  # the release asset .../releases/latest/download/<name>-brain.tar.gz. The brains are too large to BUILD
+  # in CI, so they're produced once with scripts/package-brains.sh, hosted at a stable URL, and MIRRORED
+  # onto each stable release here. Configure repo vars BRAIN_ACADEMIC_URL / BRAIN_OPS_URL with those URLs;
+  # the job SKIPS cleanly when unset, so it never breaks a release, and runs on stable tags only (which is
+  # what "latest/download" points to — no 1.5GB mirror on every nightly).
+  attach-brains:
+    needs: release-macos
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.ref_name, 'nightly') && (vars.BRAIN_ACADEMIC_URL != '' || vars.BRAIN_OPS_URL != '') }}
+    steps:
+      - name: Mirror brain artifacts onto the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACADEMIC_URL: ${{ vars.BRAIN_ACADEMIC_URL }}
+          OPS_URL: ${{ vars.BRAIN_OPS_URL }}
+        run: |
+          set -euo pipefail
+          TAG=${{ github.ref_name }}
+          mirror() {  # <name> <source-url>
+            local name="$1" src="$2"
+            if [ -z "$src" ]; then echo "no source URL for the $name brain — skipping"; return; fi
+            echo "downloading $name brain from $src"
+            curl -fSL --retry 3 "$src" -o "${name}-brain.tar.gz"
+            echo "  $(du -h "${name}-brain.tar.gz" | awk '{print $1}'), sha256 $(sha256sum "${name}-brain.tar.gz" | awk '{print $1}')"
+            gh release upload "$TAG" "${name}-brain.tar.gz" --clobber --repo "${{ github.repository }}"
+            echo "uploaded ${name}-brain.tar.gz to $TAG"
+          }
+          mirror academic "$ACADEMIC_URL"
+          mirror operational "$OPS_URL"
