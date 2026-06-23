@@ -2573,6 +2573,24 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   let liveContent = '' // accumulates streamed deltas in real time (for checkpoint-on-abort)
   let lastToolCalls: ToolUseBlock[] | undefined
 
+  // Trajectory safety: accumulate the agent's tool calls across turns and watch for goal-hijack patterns
+  // (privilege escalation, sensitive-action bursts, repetition loops, scope creep — LlamaFirewall-style).
+  // monitorTrajectory was built + tested but never wired into the live loop until now.
+  const trajectoryActions: import('./lib/trajectory-monitor.js').AgentAction[] = []
+  const SENSITIVE_TOOLS = new Set(['run_command', 'write_file', 'edit_file', 'code_execute', 'dispatch_agent'])
+  const recordTrajectory = async (calls: ToolUseBlock[] | undefined) => {
+    if (!calls?.length) return
+    for (const c of calls) trajectoryActions.push({ type: c.name, target: typeof c.input === 'object' && c.input ? String((c.input as Record<string, unknown>)['path'] ?? (c.input as Record<string, unknown>)['command'] ?? '') : '', sensitive: SENSITIVE_TOOLS.has(c.name) })
+    try {
+      const { monitorTrajectory } = await import('./lib/trajectory-monitor.js')
+      const { alerts } = monitorTrajectory(trajectoryActions, { sensitiveTypes: [...SENSITIVE_TOOLS] })
+      if (alerts.length) {
+        sse(res, 'safety', { alerts })
+        console.warn(`[trajectory] ${alerts.map((a) => `${a.kind}:${a.detail}`).join('; ')}`.replace(/[\r\n]/g, ' '))
+      }
+    } catch { /* monitor is best-effort */ }
+  }
+
   // ── HellGraph retrieval ──────────────────────────────────────────────────────
   // Run multi-pattern retrieval against the metagraph and inject relevant
   // context into the system prompt before the LLM call. For Ollama requests
@@ -3373,6 +3391,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
 
         sse(res, 'tool_calls', { tool_calls: turnToolCalls })
         lastToolCalls = turnToolCalls
+        void recordTrajectory(turnToolCalls)
 
         const toolResults = await Promise.all(
           turnToolCalls.map(async (tc) => ({
@@ -3465,6 +3484,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         // Emit tool_calls for UI visualization in the client
         sse(res, 'tool_calls', { tool_calls: turnToolCalls })
         lastToolCalls = turnToolCalls
+        void recordTrajectory(turnToolCalls)
 
         // Execute tools in parallel
         const toolResults = await Promise.all(
@@ -3560,6 +3580,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
 
         sse(res, 'tool_calls', { tool_calls: turnToolCalls })
         lastToolCalls = turnToolCalls
+        void recordTrajectory(turnToolCalls)
 
         const toolResults = await Promise.all(
           turnToolCalls.map(async (tc) => ({
