@@ -78,6 +78,7 @@ import { CANONICAL_SHAPES, QUARANTINE_PROP } from './lib/canonical-shapes.js'
 import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
 import { runAgentLoop, type ProviderAdapter } from './lib/agent-loop.js'
 import { validateToolCall, type ToolSchema, type ArgSpec } from './lib/constrained-decode.js'
+import { appendJsonl as appendEncrypted, readJsonl as readEncrypted } from './lib/at-rest.js'
 import { critique, bestOfTemps, type Candidate as CriticCandidate } from './lib/critic.js'
 import { programOfThought, codeVerifyRepair } from './lib/exec-verify.js'
 import { applyEdit, editSummary } from './lib/apply-patch.js'
@@ -2257,7 +2258,8 @@ async function* streamOpenAI(params: {
 // Procedural-memory store (#6): skills distilled from successful turns, persisted across runs.
 function skillsPath(): string { return path.join(os.homedir(), '.noetica', 'skills.jsonl') }
 function loadSkills(): Array<import('./lib/procedural-memory.js').Skill> {
-  try { return fs.readFileSync(skillsPath(), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as import('./lib/procedural-memory.js').Skill).slice(-200) } catch { return [] }
+  // Encrypted at rest (lazy-migrates plaintext); keep the most recent 200.
+  return readEncrypted<import('./lib/procedural-memory.js').Skill>(skillsPath()).slice(-200)
 }
 function jaccardSim(a: string, b: string): number {
   const ta = new Set(a.toLowerCase().split(/\W+/).filter((w) => w.length > 2))
@@ -3791,7 +3793,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       try {
         const { captureFailure } = await import('./lib/eval-capture.js')
         const c = captureFailure({ input: latestUserContent, output: fullContent, verified: turnGrounded, coverage: valueJudgment.grounding, decision: routerDecision.task }, Date.now(), { minCoverage: 0.5 })
-        if (c) { const ep = path.join(os.homedir(), '.noetica', 'eval-cases.jsonl'); fs.mkdirSync(path.dirname(ep), { recursive: true }); fs.appendFileSync(ep, `${JSON.stringify(c)}\n`) }
+        if (c) appendEncrypted(path.join(os.homedir(), '.noetica', 'eval-cases.jsonl'), c)   // encrypted at rest
       } catch { /* eval-capture best-effort */ }
       // #6 — distill SUCCESSFUL turns (high worth + a real tool sequence) into reusable procedural skills (the
       // success half; retrieved into the system prompt on future similar tasks above).
@@ -3799,7 +3801,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         if (valueJudgment.worth >= 0.6 && trajectoryActions.length >= 2) {
           const { distillSkill } = await import('./lib/procedural-memory.js')
           const skill = distillSkill(latestUserContent.slice(0, 120), routerDecision.task ?? 'general', trajectoryActions.map((a) => a.type))
-          const sp = skillsPath(); fs.mkdirSync(path.dirname(sp), { recursive: true }); fs.appendFileSync(sp, `${JSON.stringify(skill)}\n`)
+          appendEncrypted(skillsPath(), skill)   // encrypted at rest
         }
       } catch { /* procedural-memory best-effort */ }
     } catch { /* VJ is best-effort — never block the response */ }
@@ -4095,11 +4097,8 @@ const server = http.createServer((req, res) => {
   // GET /api/learning/stats — make the production-learning loop visible: how many skills the agent has
   // distilled from successes (procedural-memory) and how many failures it has captured for replay (eval-capture).
   if (req.method === 'GET' && url.pathname === '/api/learning/stats') {
-    const readJsonl = (p: string): Record<string, unknown>[] => {
-      try { return fs.readFileSync(p, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Record<string, unknown>) } catch { return [] }
-    }
     const skills = loadSkills()
-    const evalCases = readJsonl(path.join(os.homedir(), '.noetica', 'eval-cases.jsonl'))
+    const evalCases = readEncrypted<Record<string, unknown>>(path.join(os.homedir(), '.noetica', 'eval-cases.jsonl'))
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
     res.end(JSON.stringify({
       skills: { count: skills.length, recent: skills.slice(-5).map((s) => ({ task: s.task, abstraction: s.abstraction, steps: s.steps })) },
