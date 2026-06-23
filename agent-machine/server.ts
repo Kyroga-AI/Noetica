@@ -1913,6 +1913,9 @@ except ImportError:
       PYTHONDONTWRITEBYTECODE: '1',
       MPLBACKEND: 'Agg',
     }
+    // Defense-in-depth: even if a secret-shaped var is ever added to safeEnv above, strip it before handing the
+    // env to model-authored code. The allowlist is correct today; this makes a future careless addition safe too.
+    for (const k of Object.keys(safeEnv)) if (/KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL/i.test(k)) delete safeEnv[k]
     const proc = cp.spawn('python3', ['-c', fullCode], {
       cwd: sessionDir,
       env: safeEnv as NodeJS.ProcessEnv,
@@ -4476,6 +4479,10 @@ const server = http.createServer((req, res) => {
   // tool-shaped intents (e.g. research → web_search): the dialogue layer fires the tool
   // and shows results in ~2s instead of spinning up the slow generative agent to decide.
   if (req.method === 'POST' && url.pathname === '/api/tool') {
+    // /api/tool runs a built-in tool DIRECTLY (incl. run_command / code_execute). The origin-guard blocks
+    // drive-by cross-site calls, but require the API token too when the operator configured one — parity with
+    // the other mutating routes, and the only gate left if NOETICA_ORIGIN_GUARD is disabled. No-op in dev.
+    if (!requireApiToken(req, res)) return
     void (async () => {
       setCORSHeaders(res)
       try {
