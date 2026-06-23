@@ -229,6 +229,54 @@ async function analyticsForGraph(refresh = false): Promise<{ analytics: import('
   return { analytics, sig, labelOf }
 }
 
+// ── Dreaming: offline generative consolidation (SCM REM-phase / "dreaming") ────────────────────────────────
+// During idle, random-walk over high-PageRank seed concepts to surface candidate ASSOCIATIONS — concept pairs
+// that co-occur on walks but aren't directly linked. Honors the GAIA invariant: dreamed edges are written as
+// PROPOSALS (inferred:true, dreamed:true), never canonical — surfaced for review, not asserted as truth. Pairs
+// with the learning loop (eval-capture + procedural-memory): consolidate what's known, not just capture it.
+let _lastDreamAt = 0
+async function runDreaming(opts: { seeds?: number; length?: number; walksPerSeed?: number; integrate?: boolean; maxIntegrate?: number } = {}): Promise<{ seeds: number; nodes: number; proposed: number; integrated: number; top: Array<{ from: string; to: string; via: string[]; support: number }> }> {
+  const g = getGraph()
+  const allNodes = g.allNodes(), allEdges = g.allEdges()
+  const keep = new Set(allNodes.filter((n) => cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id))).map((n) => n.id))
+  const labelOf = new Map(allNodes.filter((n) => keep.has(n.id)).map((n) => [n.id, cleanLabel(n) ?? n.id]))
+  // Undirected adjacency over the clean set.
+  const adj = new Map<string, Array<{ to: string; rel: string }>>()
+  const addAdj = (f: string, t: string, rel: string) => { if (!keep.has(f) || !keep.has(t) || f === t) return; const a = adj.get(f) ?? adj.set(f, []).get(f)!; a.push({ to: t, rel }) }
+  for (const e of allEdges) { addAdj(e.from, e.to, e.label); addAdj(e.to, e.from, e.label) }
+  // Seeds: top-PageRank clean-set nodes that actually have neighbours.
+  const { analytics } = await analyticsForGraph()
+  const seeds = Object.entries(analytics.nodes ?? {})
+    .sort((a, b) => (b[1].pagerank ?? 0) - (a[1].pagerank ?? 0))
+    .map(([id]) => id).filter((id) => adj.has(id)).slice(0, opts.seeds ?? 24)
+  // Deterministic picker (FNV over step + candidate ids): testable, no RNG, varied walks per node.
+  const pick = (cands: Array<{ to: string; rel: string }>, step: number) => {
+    let h = 0x811c9dc5; const s = `${step}:${cands.map((c) => c.to).join(',')}`
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = (h * 0x01000193) >>> 0 }
+    return h
+  }
+  const { dreamEdges } = await import('./lib/dreaming.js')
+  const proposals = dreamEdges(adj, seeds, pick, { length: opts.length ?? 4, walksPerSeed: opts.walksPerSeed ?? 3 })
+  let integrated = 0
+  if (opts.integrate) {
+    const existing = new Set<string>()
+    for (const e of allEdges) if (e.label === 'DREAMED_LINK') existing.add(e.from < e.to ? `${e.from}|${e.to}` : `${e.to}|${e.from}`)
+    const cap = opts.maxIntegrate ?? 12
+    for (const p of proposals) {
+      if (integrated >= cap) break
+      if (p.support < 2) continue   // require corroboration across ≥2 walks before proposing
+      const k = p.from < p.to ? `${p.from}|${p.to}` : `${p.to}|${p.from}`
+      if (existing.has(k)) continue
+      try {
+        g.addEdge('DREAMED_LINK', p.from, p.to, { inferred: true, dreamed: true, support: p.support, via: p.via.map((v) => labelOf.get(v) ?? v).join(' → '), proposed_at: new Date().toISOString() })
+        integrated++; existing.add(k)
+      } catch { /* best-effort */ }
+    }
+  }
+  _lastDreamAt = Date.now()
+  return { seeds: seeds.length, nodes: keep.size, proposed: proposals.length, integrated, top: proposals.slice(0, 10).map((p) => ({ from: labelOf.get(p.from) ?? p.from, to: labelOf.get(p.to) ?? p.to, via: p.via.map((v) => labelOf.get(v) ?? v), support: p.support })) }
+}
+
 // Build (or load cached) verified covariates for the top entities — shared by /covariates +
 // /contradictions. Auto-tunes the extraction persona from the detected domain.
 async function buildOrLoadCovariates(refresh = false): Promise<{ entities: import('./lib/graph-covariates.js').EntityCovariates[]; sig: string; model: string; cached: boolean }> {
@@ -4015,6 +4063,16 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // /api/dream — offline generative consolidation. GET previews dreamed associations (no writes); POST with
+  // {integrate:true} persists the strongest as DREAMED_LINK proposal edges (inferred, non-canonical).
+  if (url.pathname === '/api/dream' && (req.method === 'GET' || req.method === 'POST')) {
+    const integrate = req.method === 'POST'
+    runDreaming({ integrate })
+      .then((r) => { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ ...r, last_dream_at: _lastDreamAt || null })) })
+      .catch((e) => { res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ error: 'dream_failed', detail: (e instanceof Error ? e.message : 'unknown').replace(/[\r\n]/g, ' ').slice(0, 200) })) })
+    return
+  }
+
   // GET /api/learning/stats — make the production-learning loop visible: how many skills the agent has
   // distilled from successes (procedural-memory) and how many failures it has captured for replay (eval-capture).
   if (req.method === 'GET' && url.pathname === '/api/learning/stats') {
@@ -7409,6 +7467,12 @@ server.listen(PORT, '127.0.0.1', () => {
     })()
     setInterval(saveLearningState, 60_000).unref()
     setInterval(recordTrendSnapshot, 6 * 60 * 60_000).unref() // refresh today's snapshot every 6h
+    // Idle dreaming (opt-in, NOETICA_DREAMING=1): every 4h consolidate the memory graph by proposing dreamed
+    // associations as non-canonical DREAMED_LINK edges. Off by default — the /api/dream endpoint is always
+    // available for manual/UI trigger; this only automates it.
+    if (process.env['NOETICA_DREAMING'] === '1') {
+      setInterval(() => { void runDreaming({ integrate: true }).then((r) => console.log(`[dreaming] proposed=${r.proposed} integrated=${r.integrated} from ${r.seeds} seeds`)).catch(() => {}) }, 4 * 60 * 60_000).unref()
+    }
     // SIGINT/SIGTERM teardown is registered once, synchronously, at the top of the
     // listen callback (kills the managed Ollama before persisting + exiting).
   }
