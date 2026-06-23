@@ -464,16 +464,19 @@ def prog_extract(question, choices):
         return None
 
 
-def prog_solve_question(question, choices):
-    """Program-of-thought: the model writes ONE sympy expression; we execute it in a sympy-only
-    namespace (no builtins) and match the choice. The model sets up; sympy computes exactly."""
+PROG_K = int(os.environ.get('COMPUTE_PROG_K', '3'))   # formalizations sampled per question (self-consistency)
+
+
+def _prog_attempt(question, choices):
+    """ONE program-of-thought attempt: the model writes a sympy expression; execute it sandboxed and
+    match a choice. Returns a choice index or None."""
     src = prog_extract(question, choices)
     if not src or len(src) > 240:
-        return None, None
+        return None
     try:
         val = _timed(5, eval, src, {'__builtins__': {}}, _PROG_NS)   # restricted ns + 5s wall cap
     except Exception:
-        return None, None
+        return None
     # normalize: solve() returns dict/list of dicts/tuples → flatten to value(s)
     if isinstance(val, dict):
         val = list(val.values())
@@ -481,8 +484,29 @@ def prog_solve_question(question, choices):
         val = [v for d in val for v in d.values()]
     elif isinstance(val, list) and val and isinstance(val[0], (tuple,)):
         val = [v for t in val for v in t]
-    idx = _match_math(val, choices)
-    return (LETTERS[idx], 'prog') if idx is not None else (None, None)
+    return _match_math(val, choices)
+
+
+def prog_solve_question(question, choices):
+    """Self-consistent program-of-thought. A SINGLE formalization is the moat's failure mode: the model
+    misreads the problem, sympy executes the wrong setup EXACTLY, and the exact-but-wrong value lands on a
+    distractor (the board showed prog defaulting to 'A' at 43.8% on-fired). So we sample PROG_K
+    formalizations and only commit when a MAJORITY agree on the same choice — disagreement means the setup
+    is unreliable, so we ABSTAIN (→ route to brain) rather than certify a guess. Exact math, honest coverage."""
+    votes = {}
+    for _ in range(PROG_K):
+        idx = _prog_attempt(question, choices)
+        if idx is not None:
+            votes[idx] = votes.get(idx, 0) + 1
+    if not votes:
+        return None, None
+    best_idx, best_n = max(votes.items(), key=lambda kv: kv[1])
+    total = sum(votes.values())
+    # require a real consensus: ≥2 formalizations agree AND they're a clear majority. A lone success, or a
+    # split vote, is exactly the unreliable formalization we must NOT trust — abstain instead of guessing.
+    if best_n >= 2 and best_n / total >= 0.6:
+        return LETTERS[best_idx], 'prog'
+    return None, None
 
 
 def solve_question(question, choices):
