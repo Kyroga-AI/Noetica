@@ -87,28 +87,45 @@ export interface BrainHit { text: string; slug: string; field: string; material:
  * Pass [] for fields to search the whole brain. This is what a dialogue lane calls to ground
  * a STEM answer on MIT-OCW substance instead of HellGraph atoms.
  */
-export async function studyBrainRetrieve(query: string, fields: string[] = [], k = 6): Promise<BrainHit[]> {
+export async function studyBrainRetrieve(query: string, fields: string[] = [], k = 6, extraQueries: string[] = []): Promise<BrainHit[]> {
   const fs2 = fields.length ? fields : brainFields()
-  const qv = await embedText(query)
-  if (!qv.length) return []
-  let qn = 0; for (const v of qv) qn += v * v; qn = Math.sqrt(qn) || 1
+  // Multi-query (the qgen/HyDE promotion, board +4.3): embed the literal query PLUS any hypothetical-answer
+  // passages, and score each chunk by its BEST match across them — so a chunk that answers in the document's
+  // vocabulary is found even when it doesn't echo the question's words. extraQueries=[] reduces to the
+  // original single-query behaviour (back-compatible for existing callers).
+  const queries = [query, ...extraQueries.filter((q) => q && q.trim().length > 0)]
+  const qvs: Array<{ v: number[]; n: number }> = []
+  for (const q of queries) {
+    const v = await embedText(q)
+    if (!v.length) continue
+    let n = 0; for (const x of v) n += x * x
+    qvs.push({ v, n: Math.sqrt(n) || 1 })
+  }
+  if (!qvs.length) return []
   const scored: BrainHit[] = []
   let dimMismatch = 0
   for (const f of fs2) {
     for (const c of loadField(f)) {
       // Dimension guard (correctness): query and chunk MUST come from the SAME embedder. The brain is
       // nomic-embed-text @ 768-d; if a caller passes a 384-d sidecar query, a Math.min truncation would
-      // silently score GARBAGE. Skip instead, so a mismatch fails VISIBLY (empty/short results) rather
-      // than returning plausible-looking noise.
-      if (c.vec.length !== qv.length) { dimMismatch++; continue }
-      let dot = 0
-      for (let i = 0; i < qv.length; i++) dot += qv[i]! * c.vec[i]!
-      // material boost: a worked solution / exam that's comparably relevant outranks a lecture paragraph.
-      scored.push({ text: c.text, slug: c.slug, field: c.field, material: c.material, score: (dot / (qn * c.norm)) * materialBoost(c.material) })
+      // silently score GARBAGE. Skip instead, so a mismatch fails VISIBLY rather than returning noise.
+      let best = -Infinity
+      let matched = false
+      for (const { v, n } of qvs) {
+        if (c.vec.length !== v.length) continue
+        matched = true
+        let dot = 0
+        for (let i = 0; i < v.length; i++) dot += v[i]! * c.vec[i]!
+        const cos = dot / (n * c.norm)
+        if (cos > best) best = cos
+      }
+      if (!matched) { dimMismatch++; continue }
+      // material boost: a worked solution / exam / statute that's comparably relevant outranks lecture prose.
+      scored.push({ text: c.text, slug: c.slug, field: c.field, material: c.material, score: best * materialBoost(c.material) })
     }
   }
   if (dimMismatch > 0) {
-    console.warn(`[study-brain] DIMENSION MISMATCH: skipped ${dimMismatch} chunks (query ${qv.length}-d ≠ brain vec dims). The brain is nomic-768 — query it with the same embedder, not the 384-d sidecar.`)
+    console.warn(`[study-brain] DIMENSION MISMATCH: skipped ${dimMismatch} chunks (query dims ≠ brain vec dims). The brain is nomic-768 — query it with the same embedder, not the 384-d sidecar.`)
   }
   scored.sort((a, b) => b.score - a.score)
   // Hybrid re-rank over the dense top-pool: blend cosine with query-term overlap (lexical) so

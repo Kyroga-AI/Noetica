@@ -20,6 +20,7 @@ import type { PropertyValue } from '@socioprophet/hellgraph'
 import { ingestInteraction } from '@socioprophet/hellgraph'
 import { cairnPathExpand } from './cairnpath-adapter.js'
 import { studyBrainRetrieve, studyBrainReady } from './study-brain.js'
+import { generateOllamaText } from './ollama.js'
 import { opsBrainRetrieve, opsBrainReady } from './ops-brain.js'
 import { isSafeSessionId } from './session-id.js'
 import * as crypto from 'node:crypto'
@@ -636,14 +637,41 @@ async function runBeliefsPattern(): Promise<{ text: string; sources: Array<{ id:
 // works (lib/study-brain.ts). The intent-router routes explain_teach / qa_over_doc /
 // compare_benchmark / research_lookup here. No-op (empty, fast) when the brain is absent,
 // so non-STEM deployments fall through to the HellGraph patterns unchanged.
+// Promoted from the MMLU board (2026-06-23): the two mechanisms that beat baseline and GENERALIZE to chat.
+//   qgen / HyDE (+4.3): expand the query with a hypothetical answer passage so retrieval matches the
+//     document's vocabulary, not just the question's.
+//   gate / CRAG (+4.3): when the model is already confident, ground only on STRONG evidence (don't inject
+//     mediocre context into a question it knows — the saturated-bio failure); ground readily when unsure.
+// Both come from ONE LLM call (generate the passage; prefix UNSURE if not confident), so the promotion adds
+// a single round-trip, is fault-tolerant (any failure → prior behaviour), and is env-disablable.
+const HYDE_ON = process.env['NOETICA_HYDE'] !== '0'
+const RETRIEVAL_GATE_ON = process.env['NOETICA_RETRIEVAL_GATE'] !== '0'
+const PROMOTE_MODEL = process.env['NOETICA_CHAT_MODEL'] || process.env['NOETICA_MODEL'] || 'qwen2.5:7b'
+
 async function runStudyBrainPattern(
   query: string,
 ): Promise<{ text: string; sources: Array<{ id: string; label: string; score: number }> }> {
   if (!studyBrainReady()) return { text: '', sources: [] }
-  const hits = await studyBrainRetrieve(query, [], 6)
-  // Only surface confidently-relevant chunks — below ~0.3 cosine it's noise, and grounding
+  // qgen + gate in a single call: ask for the HyDE passage and a confidence signal at once.
+  const extraQueries: string[] = []
+  let bar = 0.30 // retrieval-strength floor — below this it's noise; grounding on noise is the RAFT failure.
+  if (HYDE_ON || RETRIEVAL_GATE_ON) {
+    try {
+      const { content } = await generateOllamaText({
+        model: PROMOTE_MODEL, temperature: 0.3, numCtx: 2048,
+        messages: [{ role: 'user', content: `In 2-3 sentences, state the facts, definitions, or laws needed to answer the question below, the way a textbook would — assert the knowledge directly, do NOT mention the question. If you are not confident in these facts, begin your reply with "UNSURE: ".\n\nQuestion: ${query}` }],
+      })
+      const raw = content.replace(/\s+/g, ' ').trim()
+      const unsure = /^unsure\b[:\s]/i.test(raw)
+      const passage = raw.replace(/^unsure\b[:\s]*/i, '').trim()
+      if (HYDE_ON && passage.length > 20) extraQueries.push(passage.slice(0, 600))
+      if (RETRIEVAL_GATE_ON && !unsure) bar = 0.45 // confident → raise the bar: ground only on STRONG evidence
+    } catch { /* HyDE/gate are best-effort — fall back to the literal query + default bar */ }
+  }
+  const hits = await studyBrainRetrieve(query, [], 6, extraQueries)
+  // Only surface confidently-relevant chunks — below the bar it's noise, and grounding
   // on noise is worse than not grounding (the RAFT failure mode).
-  const good = hits.filter((h) => h.score >= 0.30)
+  const good = hits.filter((h) => h.score >= bar)
   if (good.length === 0) return { text: '', sources: [] }
   const lines = good.map((h, i) => `[${i + 1}] (${h.field}) ${h.text.replace(/\s+/g, ' ').trim()}`)
   return {
