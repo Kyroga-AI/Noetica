@@ -4,8 +4,24 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import { defaultSettings } from './defaults'
 import type { NoeticaSettings } from './types'
 import { isTauri, invokeTauri } from '@/lib/tauri/bridge'
+import { secureGet, secureSet } from '@/lib/secure/secureStore'
 
 const STORAGE_KEY = 'noetica:settings'
+
+// Secret fields are stripped from the persisted settings blob and stored in the OS keychain (via secureStore)
+// instead — never written to the plaintext settings file / localStorage. Re-merged on load.
+const SECRET_KEYS: (keyof NoeticaSettings)[] = [
+  'anthropicApiKey', 'openaiApiKey', 'googleApiKey', 'mistralApiKey', 'neuronpediaApiKey', 'openrouterApiKey',
+  'huggingfaceApiKey', 'serperApiKey', 'giteaToken', 'githubPat', 'mailPassword', 'calPassword',
+  'elevenlabsApiKey', 'oauthGithubClientSecret', 'oauthNotionClientSecret',
+]
+const SECRETS_KC = 'settings-secrets'
+
+function splitSecrets(s: NoeticaSettings): { pub: Record<string, unknown>; secrets: Record<string, string> } {
+  const pub: Record<string, unknown> = { ...s }; const secrets: Record<string, string> = {}
+  for (const k of SECRET_KEYS) { const v = s[k]; if (typeof v === 'string' && v) secrets[k] = v; delete pub[k] }
+  return { pub, secrets }
+}
 
 // ── Storage adapters ──────────────────────────────────────────────────────────
 
@@ -25,35 +41,36 @@ async function getTauriStore() {
   }
 }
 
-async function loadSettings(): Promise<NoeticaSettings> {
+async function loadPublic(): Promise<Partial<NoeticaSettings>> {
   if (isTauri()) {
     try {
       const store = await getTauriStore()
-      if (store) {
-        const raw = await store.get<NoeticaSettings>(STORAGE_KEY)
-        if (raw) return { ...defaultSettings, ...raw }
-      }
+      if (store) { const raw = await store.get<NoeticaSettings>(STORAGE_KEY); if (raw) return raw }
     } catch { /* fall through */ }
   }
-  if (typeof window === 'undefined') return defaultSettings
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (!raw) return defaultSettings
-    return { ...defaultSettings, ...JSON.parse(raw) }
-  } catch {
-    return defaultSettings
-  }
+  if (typeof window === 'undefined') return {}
+  try { const raw = window.localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : {} } catch { return {} }
+}
+
+async function loadSettings(): Promise<NoeticaSettings> {
+  const pub = await loadPublic()
+  let secrets: Record<string, string> = {}
+  try { const s = await secureGet(SECRETS_KC); if (s) secrets = JSON.parse(s) } catch { /* */ }
+  // Merge keychain secrets last; any legacy inline secrets in `pub` are superseded + get stripped on next save.
+  return { ...defaultSettings, ...pub, ...secrets } as NoeticaSettings
 }
 
 async function persistSettings(settings: NoeticaSettings): Promise<void> {
+  const { pub, secrets } = splitSecrets(settings)
+  try { await secureSet(SECRETS_KC, JSON.stringify(secrets)) } catch { /* */ }
   if (isTauri()) {
     try {
       const store = await getTauriStore()
-      if (store) { await store.set(STORAGE_KEY, settings); return }
+      if (store) { await store.set(STORAGE_KEY, pub); return }
     } catch { /* fall through */ }
   }
   if (typeof window !== 'undefined') {
-    try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(settings)) } catch { /* quota */ }
+    try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(pub)) } catch { /* quota */ }
   }
 }
 
@@ -74,6 +91,8 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     loadSettings().then(async (loaded) => {
+      // Migrate: re-persist so any legacy inline secrets get stripped from the plaintext store into the keychain.
+      void persistSettings(loaded)
       if (isTauri()) {
         // In Tauri, agent-machine is always the runtime — force it regardless of
         // what's stored. probe_agent_machine is best-effort for confirming liveness
