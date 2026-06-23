@@ -28,6 +28,7 @@
     "risk:path": "node scripts/risk-aversion-export-path.mjs --json",
     "risk:export": "node scripts/export-risk-aversion-traces.mjs",
     "smoke:standalone": "node scripts/smoke-standalone.mjs",
+    "smoke:bundle": "node scripts/bundle-smoke.mjs",
     "cli": "node cli/noetica.mjs",
     "cli:doctor": "node cli/noetica.mjs doctor --json",
     "cli:smoke": "node cli/noetica.mjs smoke --dry-run",

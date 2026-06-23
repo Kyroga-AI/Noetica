@@ -240,5 +240,11 @@ function appendChained(record: Record<string, unknown>): void {
     const { signHead } = require('./audit-chain.js') as typeof import('./audit-chain.js')
     const { loadOrCreateDeviceKey } = require('./audit-key.js') as typeof import('./audit-key.js')
     fs.writeFileSync(`${headPath()}.sig`, JSON.stringify({ head: hash, sig: signHead(hash, loadOrCreateDeviceKey().privateKey) }))
-  } catch { /* signing best-effort */ }
+  } catch (e) {
+    // Signing failing means the audit chain is no longer tamper-EVIDENT (anyone with file write could edit it
+    // undetected). The chain itself is still written — we don't drop governance events — but a silent unsigned
+    // state is a security regression, so make it LOUD + leave a breadcrumb the verifier can detect.
+    console.error(`[audit-chain] SIGNING FAILED — chain head ${hash.slice(0, 12)} is UNSIGNED (tamper-evidence lost): ${(e instanceof Error ? e.message : 'unknown').replace(/[\r\n]/g, ' ')}`)
+    try { fs.writeFileSync(`${headPath()}.unsigned`, JSON.stringify({ head: hash, at: new Date().toISOString(), reason: e instanceof Error ? e.message.slice(0, 200) : 'unknown' })) } catch { /* */ }
+  }
 }
