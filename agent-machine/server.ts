@@ -2182,7 +2182,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // Effort gate: match the work to the request, so the heavy lanes (multi-candidate critic deliberation,
   // escalation) only fire when the request genuinely warrants it — trivial in, trivial out. It only ever
   // caps DOWN from the configured ceiling, so complex turns are unchanged; only simple ones get lightened.
-  const effort = assessEffort(latestUserContent, intentPlan.name)
+  const effort = assessEffort(latestUserContent, intentPlan.name, { dominance: knowledge.dominance })
   sse(res, 'effort', { effort: { tier: effort.tier, reason: effort.reason } })
 
   // Decidability ladder (opt-in: NOETICA_LOGIC_SOLVER=1). Where the question is decidable — RECALL a

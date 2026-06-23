@@ -23,10 +23,17 @@ const HEAVY_INTENTS = new Set(['build_implement', 'fix_debug', 'configure_ops', 
 const HEAVY_CUES = /\b(comprehensive|thorough(ly)?|in depth|in-depth|deep ?dive|production[- ]?(ready|grade)|end[- ]?to[- ]?end|exhaustive|robust|enterprise|scalable|step[- ]?by[- ]?step|multi[- ]?step|architect|design (a|an|the) (system|pipeline|architecture)|and then|first.+then)\b/i
 
 /**
- * Assess how much effort a turn warrants. `standardCeiling` is the configured default best-of-N (so a
- * standard/heavy turn is unchanged from today); only LIGHT turns are capped down to a single sample.
+ * Assess how much effort a turn warrants. `opts.standardCeiling` is the configured default best-of-N (so
+ * standard/heavy turns are unchanged from today); only LIGHT turns are capped down to a single sample.
+ * `opts.dominance` is the knowledge-type classifier's verdict — a SHORT but compute/model-dominated
+ * question (a terse math or hard-reasoning ask) is kept at standard so deliberation still applies.
  */
-export function assessEffort(query: string, intentName: string, standardCeiling = 3): EffortAssessment {
+export function assessEffort(
+  query: string,
+  intentName: string,
+  opts: { dominance?: 'lookup' | 'compute' | 'model'; standardCeiling?: number } = {},
+): EffortAssessment {
+  const standardCeiling = opts.standardCeiling ?? 3
   const q = query.trim()
   const words = q.split(/\s+/).filter(Boolean).length
   const compound = /\b(and|then|also|plus|as well as)\b/i.test(q)
@@ -34,17 +41,19 @@ export function assessEffort(query: string, intentName: string, standardCeiling 
     || /[\n;]/.test(q)
     || /(^|\s)[-*]\s/.test(q)
   const heavyCue = HEAVY_CUES.test(q)
+  const hardReasoning = opts.dominance === 'compute' || opts.dominance === 'model'
 
   // Heavy first: an explicit scale/thoroughness signal or a build/debug/prove intent is never downgraded.
   if (heavyCue || HEAVY_INTENTS.has(intentName)) {
     return { tier: 'heavy', maxBestOfN: Math.max(standardCeiling, 1), reason: heavyCue ? 'explicit thoroughness/scale signal' : `heavy intent (${intentName})` }
   }
-  // Light: a quick intent, OR a short single-clause request with no compound requirements.
+  // Light: a quick intent, OR a short single-clause request — UNLESS the knowledge-type says it's a hard
+  // (compute/model-dominated) question, which stays at standard even when terse.
   if (LIGHT_INTENTS.has(intentName)) {
     return { tier: 'light', maxBestOfN: 1, reason: `light intent (${intentName})` }
   }
-  if (words <= 14 && !compound) {
+  if (words <= 14 && !compound && !hardReasoning) {
     return { tier: 'light', maxBestOfN: 1, reason: 'short single-clause request' }
   }
-  return { tier: 'standard', maxBestOfN: Math.max(standardCeiling, 1), reason: 'standard request' }
+  return { tier: 'standard', maxBestOfN: Math.max(standardCeiling, 1), reason: hardReasoning ? 'short but compute/model-dominated' : 'standard request' }
 }

@@ -36,6 +36,16 @@ test('a long compound request is standard (not downgraded)', () => {
 })
 
 test('the standard ceiling is honored (never spends MORE than configured)', () => {
-  assert.equal(assessEffort('build a big system', 'build_implement', 5).maxBestOfN, 5)
-  assert.equal(assessEffort('hi', 'converse_smalltalk', 5).maxBestOfN, 1) // light still caps to 1
+  assert.equal(assessEffort('build a big system', 'build_implement', { standardCeiling: 5 }).maxBestOfN, 5)
+  assert.equal(assessEffort('hi', 'converse_smalltalk', { standardCeiling: 5 }).maxBestOfN, 1) // light still caps to 1
+})
+
+test('a short but compute/model-dominated question is NOT downgraded to light', () => {
+  // a terse hard ask the intent cues miss, but knowledge-type flags as compute/model → stays standard
+  const c = assessEffort('antiderivative of x squared sine x', 'general', { dominance: 'compute' })
+  assert.notEqual(c.tier, 'light')
+  const m = assessEffort('why is the sky blue at sunset', 'general', { dominance: 'model' })
+  assert.notEqual(m.tier, 'light')
+  // a short LOOKUP question is still light (a plain fact, no deliberation needed)
+  assert.equal(assessEffort('capital of France', 'general', { dominance: 'lookup' }).tier, 'light')
 })
