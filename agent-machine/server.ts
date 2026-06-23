@@ -47,6 +47,7 @@ import { routeForAction, meshrushPhase } from './lib/action-cell.js'
 import { selectSurface, cleanLabel } from './lib/graph-surface.js'
 import { generateSovereign, meshLadder } from './lib/mesh.js'
 import { AGENT_ROLES, DISPATCHABLE_ROLES, resolveRole } from './lib/sub-agent.js'
+import { listCustomAgents, getCustomAgent, saveCustomAgent, deleteCustomAgent } from './lib/agent-registry.js'
 import { buildReport } from './lib/graph-hygiene.js'
 import { TAXONOMY_WORDS } from './lib/slash-topics.js'
 import { createSQLiteBackend, migrateJSONLToSQLite } from './lib/sqlite-backend.js'
@@ -1386,7 +1387,7 @@ async function runSubAgent(
   context: string,
   keys: { anthropic?: string; openai?: string; serper?: string },
 ): Promise<string> {
-  const role = resolveRole(roleId)
+  const role = getCustomAgent(roleId) ?? resolveRole(roleId)   // user-defined agents resolve before built-ins
   const subTools = BUILTIN_TOOLS.filter((t) => role.tools.includes(t.name) && t.name !== 'dispatch_agent')
   const subToolNames = new Set(subTools.map((t) => t.name))
   const model = role.model === 'coder' ? 'qwen2.5-coder:7b' : 'qwen2.5:7b'
@@ -1504,7 +1505,7 @@ async function executeTool(
       } catch { /* swarm best-effort */ }
       const result = await runSubAgent(role, task, context + blackboard, keys)
       try { const sw = await import('./lib/swarm-volume.js'); sw.writeBlackboard(swarmId, agentId, { role, task: task.slice(0, 200), result: result.slice(0, 4000), at: Date.now() }) } catch { /* */ }
-      return `[${resolveRole(role).label} sub-agent → result]\n${result}`
+      return `[${(getCustomAgent(role) ?? resolveRole(role)).label} sub-agent → result]\n${result}`
     }
     case 'web_search': {
       const query = String(input['query'] ?? '').trim().slice(0, 500)
@@ -4092,6 +4093,34 @@ const server = http.createServer((req, res) => {
       .then((r) => { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ ...r, last_dream_at: _lastDreamAt || null })) })
       .catch((e) => { res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ error: 'dream_failed', detail: (e instanceof Error ? e.message : 'unknown').replace(/[\r\n]/g, ' ').slice(0, 200) })) })
     return
+  }
+
+  // /api/agents — the no-code agent builder. GET lists built-in roles + the user's custom agents; POST upserts a
+  // custom agent {label, description, systemPrompt, tools[], maxTurns, model}; DELETE?id=… removes one. Custom
+  // agents become dispatchable exactly like built-ins (dispatch_agent resolves them first). Token-gated (writes).
+  if (url.pathname === '/api/agents') {
+    if (req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
+      res.end(JSON.stringify({ builtin: Object.values(AGENT_ROLES).map((r) => ({ id: r.id, label: r.label, description: r.description, tools: r.tools, maxTurns: r.maxTurns, model: r.model, builtin: true })), custom: listCustomAgents() }))
+      return
+    }
+    if (req.method === 'POST') {
+      if (!requireApiToken(req, res)) return
+      let body = ''
+      req.on('data', (c: Buffer) => { body += c.toString(); if (body.length > 64 * 1024) { try { req.destroy() } catch { /* */ } } })
+      req.on('end', () => {
+        try { const saved = saveCustomAgent(JSON.parse(body || '{}')); res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ ok: true, agent: saved })) }
+        catch { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_agent' })) }
+      })
+      return
+    }
+    if (req.method === 'DELETE') {
+      if (!requireApiToken(req, res)) return
+      const ok = deleteCustomAgent(url.searchParams.get('id') ?? '')
+      res.writeHead(ok ? 200 : 404, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
+      res.end(JSON.stringify({ ok }))
+      return
+    }
   }
 
   // GET /api/learning/stats — make the production-learning loop visible: how many skills the agent has
