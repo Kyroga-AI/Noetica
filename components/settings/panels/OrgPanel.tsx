@@ -1,12 +1,13 @@
 'use client'
 
 import { useState } from 'react'
-
-const MEMBER = { name: 'Michael Heller', email: 'michael@socioprophet.ai', role: 'Owner' }
+import { useIdentity, initialOf } from '@/lib/useIdentity'
 
 function isValidEmail(v: string) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim()) }
 
 export function OrgPanel() {
+  const me = useIdentity()
+  const MEMBER = { name: me.displayName, email: me.email, role: 'Owner' }
   const [inviteOpen, setInviteOpen] = useState(false)
   const [inviteEmail, setInviteEmail] = useState('')
   const [inviteSent, setInviteSent] = useState(false)
@@ -14,9 +15,10 @@ export function OrgPanel() {
   function sendInvite() {
     const email = inviteEmail.trim()
     if (!isValidEmail(email)) return
-    const subject = encodeURIComponent('Invitation to join Socioprophet on Noetica')
+    const subject = encodeURIComponent('Invitation to collaborate on Noetica')
+    const reachOut = me.email ? `Please reach out to ${me.email} to get access.\n\n` : ''
     const body = encodeURIComponent(
-      `Hi,\n\nI'd like to invite you to collaborate with me on Noetica.\n\nPlease reach out to michael@socioprophet.ai to get access.\n\nBest,\nMichael`
+      `Hi,\n\nI'd like to invite you to collaborate with me on Noetica.\n\n${reachOut}Best,\n${me.displayName}`
     )
     window.open(`mailto:${email}?subject=${subject}&body=${body}`, '_blank')
     setInviteSent(true)
@@ -37,8 +39,8 @@ export function OrgPanel() {
               S
             </div>
             <div>
-              <div className="text-sm font-semibold text-[var(--color-text-primary)]">Socioprophet</div>
-              <div className="text-[11px] text-[var(--color-text-tertiary)]">michael@socioprophet.ai</div>
+              <div className="text-sm font-semibold text-[var(--color-text-primary)]">Your workspace</div>
+              <div className="text-[11px] text-[var(--color-text-tertiary)]">{me.email || me.displayName}</div>
             </div>
           </div>
         </div>
@@ -53,7 +55,7 @@ export function OrgPanel() {
               className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white"
               style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' }}
             >
-              M
+              {initialOf(MEMBER.name)}
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-xs font-medium text-[var(--color-text-primary)]">{MEMBER.name}</div>

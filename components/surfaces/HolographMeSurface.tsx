@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useSettings } from '@/lib/settings/context'
+import { useIdentity, initialOf } from '@/lib/useIdentity'
 import { amUrl } from '@/lib/tauri/bridge'
 
 // ─── Types (mirrors agent-machine/lib/gaia.ts) ────────────────────────────────
@@ -91,6 +92,7 @@ function ConfidenceBar({ value }: { value: number }) {
 
 export function HolographMeSurface() {
   const { settings } = useSettings()
+  const me = useIdentity()
 
   const [twinState, setTwinState]     = useState<TwinState | null>(null)
   const [beliefs, setBeliefs]         = useState<BeliefSnapshot[]>([])
@@ -247,18 +249,18 @@ export function HolographMeSurface() {
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl text-lg font-bold text-white shadow-sm"
               style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' }}
             >
-              M
+              {initialOf(me.displayName)}
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-base font-semibold text-[var(--color-text-primary)]">Michael Heller</h1>
+                <h1 className="text-base font-semibold text-[var(--color-text-primary)]">{me.displayName}</h1>
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                   twinState?.policy_status === 'active' ? 'bg-[#dcfce7] text-[#16a34a]' : 'bg-[#fef2f2] text-[#dc2626]'
                 }`}>
                   {twinState?.policy_status ?? 'unknown'}
                 </span>
               </div>
-              <div className="mt-0.5 text-xs text-[var(--color-text-tertiary)]">michael@socioprophet.ai · Human Digital Twin</div>
+              <div className="mt-0.5 text-xs text-[var(--color-text-tertiary)]">{me.email ? `${me.email} · ` : ''}Human Digital Twin</div>
               <div className="mt-1 flex items-center gap-3 text-[10px] text-[var(--color-text-tertiary)]">
                 <span>{twinState?.observation_count ?? 0} observations</span>
                 <span>·</span>

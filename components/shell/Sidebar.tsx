@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useSettings } from '@/lib/settings/context'
+import { useIdentity } from '@/lib/useIdentity'
 import type { ActiveSurface } from '@/lib/types/surface'
 import type { WorkspaceSession } from '@/lib/session/types'
 import { HelpModal } from '@/components/shell/HelpModal'
@@ -327,7 +328,8 @@ export function Sidebar({
   onSwitchSession, onRemoveSession, onNewChat, density = 'comfortable',
 }: SidebarProps) {
   const { settings } = useSettings()
-  const displayName = settings.userName?.trim() || 'You'
+  const me = useIdentity()
+  const displayName = settings.userName?.trim() || me.displayName
   const itemPy = density === 'compact' ? 'py-1' : 'py-1.5'
   const groupGap = density === 'compact' ? 'mt-2' : 'mt-3'
   const [collapsed, setCollapsed] = useState(false)
@@ -592,7 +594,7 @@ export function Sidebar({
             ) : (
               <>
                 <div className="px-3 py-2 text-[11px] text-[var(--color-text-tertiary)] border-b border-[var(--color-border-tertiary)] mb-1">
-                  michael@socioprophet.ai
+                  {me.email || displayName}
                 </div>
                 {[
                   { label: 'Settings', hint: '⌘,', icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="8" cy="8" r="2.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3.05 3.05l1.06 1.06M11.89 11.89l1.06 1.06M3.05 12.95l1.06-1.06M11.89 4.11l1.06-1.06" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, action: () => { onOpenSettings(); closeMenu() } },
