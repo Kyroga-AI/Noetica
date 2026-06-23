@@ -2697,6 +2697,14 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       if (alerts.length) {
         sse(res, 'safety', { alerts })
         console.warn(`[trajectory] ${alerts.map((a) => `${a.kind}:${a.detail}`).join('; ')}`.replace(/[\r\n]/g, ' '))
+        // #19 — ACT on goal-hijack, don't just warn: privilege-escalation or a sensitive-action burst trips
+        // the kill-switch (halts the whole agent), turning the monitor from observe → enforce.
+        const hijack = alerts.find((a) => a.kind === 'escalation' || a.kind === 'sensitive-burst')
+        if (hijack && !containmentState().killed) {
+          armKillSwitch(`trajectory-monitor: ${hijack.kind} — ${hijack.detail}`.slice(0, 200))
+          try { saveContainment() } catch { /* */ }
+          sse(res, 'safety', { killed: true, reason: hijack.kind })
+        }
       }
     } catch { /* monitor is best-effort */ }
   }
@@ -5706,8 +5714,14 @@ Question: ${question}`
       return
     }
     let body = ''
-    req.on('data', (chunk: Buffer) => { body += chunk.toString() })
+    let tooBig = false
+    req.on('data', (chunk: Buffer) => {
+      if (tooBig) return
+      body += chunk.toString()
+      if (body.length > 16 * 1024 * 1024) { tooBig = true; res.writeHead(413, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'body_too_large' })); try { req.destroy() } catch { /* */ } }   // #34 cap
+    })
     req.on('end', () => {
+      if (tooBig) return
       let parsed: ChatRequest
       try {
         parsed = JSON.parse(body) as ChatRequest
@@ -5716,6 +5730,11 @@ Question: ${question}`
         res.end(JSON.stringify({ error: 'invalid_json' }))
         return
       }
+
+      // #23 — anchor the attested "uncensored" security lane: arming it requires the API token (when the
+      // operator has configured NOETICA_API_TOKEN). Stops any local page from flipping one JSON field to
+      // unlock the offensive-security models. requireApiToken is a no-op when no token is configured (dev).
+      if (parsed.security_attested === true && !requireApiToken(req, res)) return
 
       res.writeHead(200, {
         'content-type': 'text/event-stream; charset=utf-8',
