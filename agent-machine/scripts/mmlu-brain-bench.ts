@@ -60,6 +60,9 @@ const CONC = Number(process.env['MMLU_CONC'] || 6)   // questions scored concurr
 // cause of the slow/flaky boards. Off with MMLU_PREEMBED=0.
 const PREEMBED = process.env['MMLU_PREEMBED'] !== '0'
 const PREEMBED_CONC = Number(process.env['MMLU_PREEMBED_CONC'] || 16)
+// brain-ground the verified-compute formalization (#12): feed sympy the retrieved worked solutions so it
+// IDENTIFIES the method instead of cold-parsing. Off (=0) → cold formalization, for the grounded-vs-cold A/B.
+const COMPUTE_GROUND = process.env['MMLU_COMPUTE_GROUND'] !== '0'
 const MMR_LAMBDA = Number(process.env['MMLU_MMR'] || 0) // >0 enables MMR diverse selection (relevance vs novelty); cluster_analysis showed top-8 collapse into ~2 cells
 const MAX_CHUNKS = Number(process.env['MMLU_MAX_CHUNKS'] || 150_000)
 const SEED = Number(process.env['MMLU_SEED'] ?? (Date.now() % 2147483647))
@@ -623,10 +626,12 @@ async function autoformBatch(qs: Q[]): Promise<CompRes[]> {
   return res
 }
 
-function computeBatch(qs: Q[]): CompRes[] {
+function computeBatch(qs: Q[], contexts: string[] = []): CompRes[] {
   const res: CompRes[] = qs.map(() => ({ answer: null, mode: 'abstain' }))
   if (!qs.length) return res
-  const input = qs.map((q, i) => JSON.stringify({ id: i, question: q.question, choices: q.choices })).join('\n') + '\n'
+  // `context` = brain-retrieved worked solutions (gold) that ground sympy formalization (#12) — the LLM
+  // identifies the method from real worked examples instead of cold-parsing the question.
+  const input = qs.map((q, i) => JSON.stringify({ id: i, question: q.question, choices: q.choices, context: contexts[i] || '' })).join('\n') + '\n'
   try {
     const out = execFileSync('python3', [COMPUTE_PY, '--batch'], { input, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env } })
     for (const line of out.split('\n')) {
@@ -635,6 +640,14 @@ function computeBatch(qs: Q[]): CompRes[] {
     }
   } catch { return qs.map(() => ({ answer: null, mode: 'error' })) }
   return res
+}
+
+// brain-ground the compute formalization (#12): the top WORKED-SOLUTION (gold) chunks for the question, so
+// sympy formalizes FROM the method shown rather than a cold parse. Gold-first; empty when nothing relevant.
+async function goldContext(q: Q, pools: Chunk[][]): Promise<string> {
+  const hits = await retrieveMulti(q.question, q.choices, pools, PER_SHOT, 4)
+  const gold = hits.filter((h) => /solution|exam|assignment|recitation|pset|problem/.test(h.material))
+  return (gold.length ? gold : hits).slice(0, 3).map((h) => h.text.slice(0, 600)).join('\n---\n')
 }
 
 const KTYPE_PY = path.join(__dirname, 'knowledge_type.py')
@@ -717,7 +730,11 @@ async function main() {
     process.stdout.write(`\n## ${subject}  (fields: ${fields.join('+')} · ${poolN.toLocaleString()} chunks · ${sample.length} q)\n`)
     // tally pre-initialised + possibly resume-loaded above — do NOT reset it here
     // verified-compute arm scored up front (one python call per subject); used by compute + route + champion
-    const comp: CompRes[] = (ARMS.includes('compute') || ARMS.includes('route') || ARMS.includes('champion') || ARMS.includes('gate') || ARMS.includes('learned')) ? computeBatch(sample) : []
+    const wantCompute = ARMS.includes('compute') || ARMS.includes('route') || ARMS.includes('champion') || ARMS.includes('gate') || ARMS.includes('learned')
+    // brain-ground (#12): retrieve worked-solution context per question (gold-first, warm cache) BEFORE the
+    // sync compute subprocess, so sympy formalizes from the method, not a cold parse. COMPUTE_GROUND=0 → cold.
+    const computeCtx: string[] = (wantCompute && COMPUTE_GROUND) ? await Promise.all(sample.map((q) => goldContext(q, pools))) : []
+    const comp: CompRes[] = wantCompute ? computeBatch(sample, computeCtx) : []
     // knowledge-type per question (the 'understand first' step) — used by the champion router
     const kt: KType[] = (ARMS.includes('champion') || ARMS.includes('gate') || ARMS.includes('learned')) ? ktypeBatch(sample) : []
     const af: CompRes[] = ARMS.includes('autoform') ? await autoformBatch(sample) : []   // LLM-formalize → sympy-execute → vote
