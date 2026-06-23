@@ -60,7 +60,11 @@ const MAX_CHUNKS = Number(process.env['MMLU_MAX_CHUNKS'] || 150_000)
 const SEED = Number(process.env['MMLU_SEED'] ?? (Date.now() % 2147483647))
 const TIMEOUT = Number(process.env['MMLU_TIMEOUT_MS'] || 120_000)
 const LETTERS = ['A', 'B', 'C', 'D']
-const TRANSCRIPT = path.join(HOME, '.noetica', `mmlu-brain-${Date.now()}.jsonl`)
+// CHECKPOINT: a stable path (MMLU_CHECKPOINT) makes the board RESUMABLE — a restart skips already-scored
+// questions instead of redoing them, so a flake/crawl/kill costs ≤1 question, not the whole batch. The
+// launcher syncs this file to GCS continuously, so the checkpoint is durable AND live-visible.
+const TRANSCRIPT = process.env['MMLU_CHECKPOINT'] || path.join(HOME, '.noetica', `mmlu-brain-${Date.now()}.jsonl`)
+const STATUS = process.env['MMLU_STATUS'] || ''   // per-batch {done,total,pct,ts} for live monitoring (no buffering)
 
 // MMLU subject → brain field(s) that cover it.
 const SUBJECT_FIELDS: Record<string, string[]> = {
@@ -666,7 +670,36 @@ async function main() {
   if (!subjects.length) { console.log('No brain-ready subjects yet — let the vectorizer finish a field first.'); return }
 
   const tally: Record<string, Record<string, { c: number; n: number; a?: number }>> = {} // arm → subject → {c,n,attempted}
-  for (const arm of ARMS) tally[arm] = {}
+  for (const arm of ARMS) { tally[arm] = {}; for (const s of subjects) tally[arm]![s] = { c: 0, n: 0, a: 0 } }
+
+  // RESUME — load already-scored rows from the durable checkpoint → a skip-set + rebuild the tally, so a
+  // restart continues instead of repeating work. THIS is what makes lost batches recoverable.
+  const done = new Set<string>()
+  if (fs.existsSync(TRANSCRIPT)) {
+    for (const ln of fs.readFileSync(TRANSCRIPT, 'utf8').split('\n')) {
+      if (!ln.trim()) continue
+      try {
+        const r = JSON.parse(ln) as Record<string, unknown>
+        const sub = r['subject'] as string, key = `${sub}|${r['i']}`
+        if (done.has(key) || !tally['baseline']?.[sub]) continue   // skip dups + subjects not in this run
+        done.add(key)
+        for (const arm of ARMS) {
+          const t = tally[arm]![sub]!
+          if (typeof r[`${arm}_pred`] === 'string' && r[`${arm}_pred`] !== '?') {
+            t.n++; if (r[`${arm}_ok`]) t.c++
+            if (arm === 'compute' && r['compute_mode'] && r['compute_mode'] !== 'abstain') t.a = (t.a ?? 0) + 1
+          }
+        }
+      } catch { /* skip malformed */ }
+    }
+    if (done.size) console.log(`# RESUMED — ${done.size} questions already in the checkpoint; skipping them`)
+  }
+  let scored = done.size
+  const grandTotal = subjects.reduce((a, s) => a + (PER > 0 ? Math.min(PER, mmlu[s]!.length) : mmlu[s]!.length), 0)
+  const writeStatus = (subject: string): void => {
+    if (!STATUS) return
+    try { fs.writeFileSync(STATUS, JSON.stringify({ done: scored, total: grandTotal, pct: Math.round(100 * scored / Math.max(grandTotal, 1)), subject, ts: new Date().toISOString() })) } catch { /* best-effort */ }
+  }
 
   for (const subject of subjects) {
     const fields = SUBJECT_FIELDS[subject]!.filter(fieldReady)
@@ -677,7 +710,7 @@ async function main() {
     const poolN = pools.reduce((a, p) => a + p.length, 0)
     const sample = shuffle(mmlu[subject]!, rand).slice(0, PER > 0 ? PER : mmlu[subject]!.length)
     process.stdout.write(`\n## ${subject}  (fields: ${fields.join('+')} · ${poolN.toLocaleString()} chunks · ${sample.length} q)\n`)
-    for (const arm of ARMS) tally[arm]![subject] = { c: 0, n: 0, a: 0 }
+    // tally pre-initialised + possibly resume-loaded above — do NOT reset it here
     // verified-compute arm scored up front (one python call per subject); used by compute + route + champion
     const comp: CompRes[] = (ARMS.includes('compute') || ARMS.includes('route') || ARMS.includes('champion') || ARMS.includes('gate') || ARMS.includes('learned')) ? computeBatch(sample) : []
     // knowledge-type per question (the 'understand first' step) — used by the champion router
@@ -889,19 +922,20 @@ async function main() {
       return { i, row, marks, gold, results }
     }
 
-    // bounded-parallel over questions (ollama I/O overlaps); apply shared state in order
-    for (let s = 0; s < sample.length; s += CONC) {
-      const batch = await Promise.all(
-        Array.from({ length: Math.min(CONC, sample.length - s) }, (_, j) => scoreQuestion(s + j)),
-      )
+    // bounded-parallel over the NOT-yet-done questions (resume skips the rest); checkpoint + status each batch
+    const todo = Array.from({ length: sample.length }, (_, i) => i).filter((i) => !done.has(`${subject}|${i}`))
+    for (let s = 0; s < todo.length; s += CONC) {
+      const batch = await Promise.all(todo.slice(s, s + CONC).map((i) => scoreQuestion(i)))
       for (const r of batch) {
         for (const res of r.results) {
           const t = tally[res.arm]![subject]!; t.n++; if (res.ok) t.c++
           if (res.arm === 'compute' && res.attempted) t.a = (t.a ?? 0) + 1
         }
-        fs.appendFileSync(TRANSCRIPT, JSON.stringify(r.row) + '\n')
+        fs.appendFileSync(TRANSCRIPT, JSON.stringify(r.row) + '\n')   // durable per-question checkpoint
+        scored++
         console.log(`  ${String(r.i + 1).padStart(3)}. ${r.marks.join('  ')}  /${r.gold}`)
       }
+      writeStatus(subject)   // live progress → no more blind waiting
     }
   }
 
