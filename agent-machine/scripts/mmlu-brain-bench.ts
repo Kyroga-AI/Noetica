@@ -719,7 +719,7 @@ async function main() {
     // verified-compute arm scored up front (one python call per subject); used by compute + route + champion
     const comp: CompRes[] = (ARMS.includes('compute') || ARMS.includes('route') || ARMS.includes('champion') || ARMS.includes('gate') || ARMS.includes('learned')) ? computeBatch(sample) : []
     // knowledge-type per question (the 'understand first' step) — used by the champion router
-    const kt: KType[] = (ARMS.includes('champion') || ARMS.includes('gate')) ? ktypeBatch(sample) : []
+    const kt: KType[] = (ARMS.includes('champion') || ARMS.includes('gate') || ARMS.includes('learned')) ? ktypeBatch(sample) : []
     const af: CompRes[] = ARMS.includes('autoform') ? await autoformBatch(sample) : []   // LLM-formalize → sympy-execute → vote
 
     const scoreQuestion = async (i: number) => {
@@ -881,6 +881,9 @@ async function main() {
             gate: pick('gate_pred'), medprompt: pick('medprompt_pred'),
             elim: pick('elim_pred'), fiftyfifty: pick('fiftyfifty_pred'),
             compute: comp[i]?.answer || undefined, scLetter: pick('brain_pred') || pick('baseline_pred'),
+            // CONDITIONERS — the learned weight varies by these (domain/ktype/grounding), not a flat global
+            subject, ktype: (row['ktype'] as string[] | undefined) ?? kt[i]?.types,
+            brainConf: Number(row['brain_conf'] ?? 0), qgenConf: Number(row['qgen_conf'] ?? 0),
           })
           letter = cv.letter; mode = 'learned'
         } else if (arm === 'medprompt') {         // Medprompt choice-shuffle ensemble — position (A) bias cancels by construction (Microsoft, 90.10% MMLU)
