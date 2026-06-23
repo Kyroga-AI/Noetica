@@ -186,7 +186,8 @@ export function emitScopedTelemetry(event: {
   reason?: string
   source?: string
 }): void {
-  if (!scopedConfigured()) return
+  // Always write the tamper-evident local audit chain — even when no scope-d policy is configured (#31), so
+  // governance evidence exists by default, not only once a policy path is set.
   try {
     const observedAt = new Date().toISOString()
     const payload = {
@@ -207,7 +208,32 @@ export function emitScopedTelemetry(event: {
         hash: createHash('sha256').update(JSON.stringify(payload)).digest('hex'),
       },
     }
-    fs.mkdirSync(path.dirname(EVENTS_PATH), { recursive: true })
-    fs.appendFileSync(EVENTS_PATH, `${JSON.stringify(record)}\n`)
+    appendChained(record)
   } catch { /* audit is best-effort — never block a chat */ }
+}
+
+// ── Tamper-evident audit chain (#15) ────────────────────────────────────────────
+// hashRecord links each event to the previous (prevHash → hash); the head is Ed25519-signed with the device
+// key so the log can't be silently edited/truncated. Was built (audit-chain.ts) but never wired.
+let _chainHead: string | null = null
+const headPath = () => path.join(path.dirname(EVENTS_PATH), 'chain-head')
+function loadHead(): string {
+  if (_chainHead) return _chainHead
+  try { _chainHead = fs.readFileSync(headPath(), 'utf8').trim() || undefined as never } catch { /* */ }
+  return _chainHead ?? '0'.repeat(64)
+}
+function appendChained(record: Record<string, unknown>): void {
+  fs.mkdirSync(path.dirname(EVENTS_PATH), { recursive: true })
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { hashRecord } = require('./audit-chain.js') as typeof import('./audit-chain.js')
+  const prevHash = loadHead()
+  const hash = hashRecord(prevHash, record)
+  fs.appendFileSync(EVENTS_PATH, `${JSON.stringify({ ...record, prevHash, hash })}\n`)
+  _chainHead = hash
+  try { fs.writeFileSync(headPath(), hash) } catch { /* */ }
+  try {
+    const { signHead } = require('./audit-chain.js') as typeof import('./audit-chain.js')
+    const { loadOrCreateDeviceKey } = require('./audit-key.js') as typeof import('./audit-key.js')
+    fs.writeFileSync(`${headPath()}.sig`, JSON.stringify({ head: hash, sig: signHead(hash, loadOrCreateDeviceKey().privateKey) }))
+  } catch { /* signing best-effort */ }
 }

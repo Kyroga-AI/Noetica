@@ -250,6 +250,12 @@ class McpClientManager {
   async callTool(call: McpToolCall): Promise<McpToolResult> {
     const client = this.clients.get(call.serverId)
     if (!client) throw new Error(`Server ${call.serverId} not connected`)
+    // Zero-trust grant gate: deny a revoked (server, tool) before dispatch (grantCheck used to hardcode valid).
+    const { checkToolGrant } = await import('@/lib/a2a/grantCheck')
+    const verdict = checkToolGrant(call.serverId, call.toolName, 'session')
+    if (!verdict.valid) {
+      return { serverId: call.serverId, toolName: call.toolName, content: [{ type: 'text', text: `Tool blocked by grant policy: ${verdict.reason}` }], isError: true }
+    }
     try {
       const resp = await client.callTool({ name: call.toolName, arguments: call.args })
       return {

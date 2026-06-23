@@ -33,6 +33,36 @@ function _deterministicHash(input: string): string {
   return h.toString(16).padStart(8, '0')
 }
 
+// ── Grant ledger: real revocation enforcement (was hardcoded valid:true) ─────────
+const REVOKED_KEY = 'noetica:a2a:revoked-grants'
+function revokedSet(): Set<string> {
+  if (typeof window === 'undefined') return new Set()
+  try { return new Set(JSON.parse(window.localStorage.getItem(REVOKED_KEY) ?? '[]') as string[]) } catch { return new Set() }
+}
+/** Revoke a grant by id OR by `serverId:toolName` (blocks the tool for all sessions). Persisted. */
+export function revokeGrant(idOrServerTool: string): void {
+  if (typeof window === 'undefined') return
+  const s = revokedSet(); s.add(idOrServerTool)
+  try { window.localStorage.setItem(REVOKED_KEY, JSON.stringify([...s])) } catch { /* */ }
+}
+export function unrevokeGrant(idOrServerTool: string): void {
+  if (typeof window === 'undefined') return
+  const s = revokedSet(); s.delete(idOrServerTool)
+  try { window.localStorage.setItem(REVOKED_KEY, JSON.stringify([...s])) } catch { /* */ }
+}
+
+export interface GrantVerdict { valid: boolean; revoked?: boolean; reason?: string }
+/** Synchronously decide whether an MCP tool call is permitted — checks the revocation ledger. The caller
+ * (mcp callTool) MUST gate on this before dispatch. Default-allow for a not-revoked grant; deny if revoked. */
+export function checkToolGrant(serverId: string, toolName: string, sessionId: string): GrantVerdict {
+  const grantId = `urn:noetica:grant:mcp:${serverId}:${toolName}:session:${sessionId}`
+  const revoked = revokedSet()
+  if (revoked.has(grantId) || revoked.has(`${serverId}:${toolName}`) || revoked.has(serverId)) {
+    return { valid: false, revoked: true, reason: 'grant revoked' }
+  }
+  return { valid: true }
+}
+
 /**
  * Emit a ToolGrantCheck record to HellGraph (fire-and-forget).
  * Never throws — governance recording must not block tool execution.
@@ -47,6 +77,7 @@ export function emitToolGrantCheck(
   const grantId = `urn:noetica:grant:mcp:${serverId}:${toolName}:session:${sessionId}`
   const spiffeId = `spiffe://noetica.local/session/${sessionId}`
   const policyHash = `sha256:${_deterministicHash(`${serverId}:${toolName}:${sessionId}`)}`
+  const verdict = checkToolGrant(serverId, toolName, sessionId)   // real validity, not hardcoded true
 
   const check: ToolGrantCheck = {
     check_id: checkId,
@@ -54,7 +85,7 @@ export function emitToolGrantCheck(
     grant_id: grantId,
     checked_at: new Date().toISOString(),
     actor: { spiffe_id: spiffeId },
-    result: { valid: true },
+    result: verdict,
     policy_hash: policyHash,
   }
 
