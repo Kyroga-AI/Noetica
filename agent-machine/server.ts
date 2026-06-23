@@ -76,6 +76,7 @@ import { recordCapability, capabilitySummary, capabilityHint, recordReward, sele
 import { validateGraph } from '@socioprophet/hellgraph'
 import { CANONICAL_SHAPES, QUARANTINE_PROP } from './lib/canonical-shapes.js'
 import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
+import { runAgentLoop, type ProviderAdapter } from './lib/agent-loop.js'
 import { critique, bestOfTemps, type Candidate as CriticCandidate } from './lib/critic.js'
 import { programOfThought, codeVerifyRepair } from './lib/exec-verify.js'
 import { applyEdit, editSummary } from './lib/apply-patch.js'
@@ -3716,66 +3717,36 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         }
       }
 
-      for (let turn = 0; turn < MAX_TURNS; turn++) {
-        let turnContent = ''
-        let turnToolCalls: ToolUseBlock[] | undefined
-
-        for await (const event of streamOpenAI({
-          model,
-          messages: oaiMessages,
-          tools: allTools,
-          apiKey,
-          baseUrl: resolvedBaseUrl,   // openrouter.ai / router.huggingface.co for the hosted-aggregator lane
-          temperature: reqTemperature,
-          maxTokens: reqMaxTokens,
-        })) {
-          if (event.type === 'text') {
-            turnContent += event.text
-            liveContent += event.text
-            sse(res, 'delta', { delta: event.text })
-          } else if (event.type === 'tool_calls') {
-            turnToolCalls = event.calls
-          }
-        }
-
-        fullContent += turnContent
-
-        if (!turnToolCalls?.length) break
-
-        sse(res, 'tool_calls', { tool_calls: turnToolCalls })
-        lastToolCalls = turnToolCalls
-        void recordTrajectory(turnToolCalls)
-
-        const toolResults = await Promise.all(
-          turnToolCalls.map(async (tc) => ({
-            toolCallId: tc.id,
-            name: tc.name,
-            result: await executeToolWithTimeout(tc.name, tc.input, {
-              anthropic: anthropicKey,
-              openai: openaiKey,
-              serper: keys.serper,
-            }),
-          })),
-        )
-
-        // Append OpenAI-format tool messages
-        oaiMessages.push({
-          role: 'assistant',
-          content: turnContent || null,
-          tool_calls: turnToolCalls.map((tc) => ({
-            id: tc.id,
-            type: 'function' as const,
-            function: { name: tc.name, arguments: JSON.stringify(tc.input) },
-          })),
-        })
-        for (const r of toolResults) {
+      // Step 1 of the 3-loop unification: the OpenAI tool loop is now driven by the shared runAgentLoop via an
+      // inline adapter that owns only OpenAI message format. Behavior is byte-equivalent to the old hand-rolled
+      // loop (divergence recovery stays OFF — OpenAI never had it).
+      const oaiAdapter: ProviderAdapter = {
+        suppressInlineToolText: false,
+        enableDivergenceRecovery: false,
+        init() { /* oaiMessages already built above */ },
+        async *streamTurn() {
+          yield* streamOpenAI({ model, messages: oaiMessages, tools: allTools, apiKey, baseUrl: resolvedBaseUrl, temperature: reqTemperature, maxTokens: reqMaxTokens })
+        },
+        appendToolTurn(assistantText, calls, results) {
           oaiMessages.push({
-            role: 'tool',
-            content: r.result,
-            tool_call_id: r.toolCallId,
+            role: 'assistant',
+            content: assistantText || null,
+            tool_calls: calls.map((tc) => ({ id: tc.id, type: 'function' as const, function: { name: tc.name, arguments: JSON.stringify(tc.input) } })),
           })
-        }
+          for (const r of results) oaiMessages.push({ role: 'tool', content: r.result, tool_call_id: r.id })
+        },
+        appendNudge() { /* divergence recovery disabled for OpenAI */ },
       }
+      const oaiResult = await runAgentLoop(oaiAdapter, {
+        maxTurns: MAX_TURNS,
+        executeTool: (name, input) => executeToolWithTimeout(name, input, { anthropic: anthropicKey, openai: openaiKey, serper: keys.serper }),
+        sse: (event, data) => sse(res, event, data),
+        recordTrajectory: (calls) => recordTrajectory(calls),
+        onDelta: (t) => { liveContent += t },
+      })
+      fullContent += oaiResult.content
+      fullThinking += oaiResult.thinking
+      if (oaiResult.lastToolCalls) lastToolCalls = oaiResult.lastToolCalls
     }
 
     const latencyMs = Date.now() - started

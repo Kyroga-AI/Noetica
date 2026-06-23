@@ -10,6 +10,7 @@ function makeAdapter(turns: ProviderEvent[][], opts: Partial<ProviderAdapter> = 
   return {
     appended, nudges,
     suppressInlineToolText: opts.suppressInlineToolText ?? false,
+    enableDivergenceRecovery: opts.enableDivergenceRecovery ?? false,
     parseInlineToolCalls: opts.parseInlineToolCalls,
     init() { /* no-op */ },
     async *streamTurn() { const evs = turns[i++] ?? []; for (const e of evs) yield e },
@@ -77,7 +78,7 @@ test('Ollama-style inline tool-call recovery: JSON-as-text becomes a real call',
 test('divergence recovery: nudges on repeated calls, gives up after 3 nudges', async () => {
   const call: ToolUseBlock = { id: 'r', name: 'web_search', input: { q: 'same' } }
   // Always emits the same call → after 2 priors it is "allRepeated", then 3 nudges → give up.
-  const adapter = makeAdapter(Array.from({ length: 12 }, () => [{ type: 'tool_calls', calls: [call] } as ProviderEvent]))
+  const adapter = makeAdapter(Array.from({ length: 12 }, () => [{ type: 'tool_calls', calls: [call] } as ProviderEvent]), { enableDivergenceRecovery: true })
   const ctx = makeCtx({ maxTurns: 20 })
   const r = await runAgentLoop(adapter, ctx)
   // Turns 0-1 execute (building the repeat count to 2). Turn 2 detects allRepeated → nudge #1; turn 3 → nudge

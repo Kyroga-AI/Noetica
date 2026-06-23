@@ -53,6 +53,10 @@ export interface ProviderAdapter {
   parseInlineToolCalls?(text: string): { calls: ToolUseBlock[]; cleaned: string }
   /** Whether to hold back streamed text that looks like a raw tool call (Ollama true, cloud false). */
   readonly suppressInlineToolText: boolean
+  /** Whether to run divergence recovery (nudge/give-up on repeated identical calls). Ollama had this; cloud
+   * providers did NOT — keep it false for them during migration to preserve exact behavioral equivalence, then
+   * it can be enabled fleet-wide as a separate reviewable change (it's a cheap pathological-loop guard). */
+  readonly enableDivergenceRecovery: boolean
 }
 
 /** Everything the loop needs from the host (server.ts) without importing it — keeps this module dependency-free. */
@@ -138,20 +142,23 @@ export async function runAgentLoop(adapter: ProviderAdapter, ctx: LoopCtx): Prom
     fullContent += assistantText
     if (!calls?.length) break
 
-    // ── Divergence recovery (uniform across providers): if every call repeats a prior one, nudge; give up at 3.
-    const sig = (tc: ToolUseBlock) => `${tc.name}:${JSON.stringify(tc.input)}`
-    const allRepeated = calls.every((tc) => (toolSeen.get(sig(tc)) ?? 0) >= 2)
-    for (const tc of calls) toolSeen.set(sig(tc), (toolSeen.get(sig(tc)) ?? 0) + 1)
-    if (allRepeated) {
-      if (++nudges >= 3) {
-        const note = '\n\n_(Stopped — the agent kept repeating the same step.)_'
-        fullContent += note
-        ctx.onDelta?.(note)
-        ctx.sse('delta', { delta: note })
-        break
+    // ── Divergence recovery: if every call repeats a prior one, nudge; give up at 3. Gated per-adapter so cloud
+    // providers (which never had this) stay byte-equivalent during migration.
+    if (adapter.enableDivergenceRecovery) {
+      const sig = (tc: ToolUseBlock) => `${tc.name}:${JSON.stringify(tc.input)}`
+      const allRepeated = calls.every((tc) => (toolSeen.get(sig(tc)) ?? 0) >= 2)
+      for (const tc of calls) toolSeen.set(sig(tc), (toolSeen.get(sig(tc)) ?? 0) + 1)
+      if (allRepeated) {
+        if (++nudges >= 3) {
+          const note = '\n\n_(Stopped — the agent kept repeating the same step.)_'
+          fullContent += note
+          ctx.onDelta?.(note)
+          ctx.sse('delta', { delta: note })
+          break
+        }
+        adapter.appendNudge(assistantText, calls, 'You already ran that exact tool call and it did not move the task forward. Try a different tool or different arguments.')
+        continue
       }
-      adapter.appendNudge(assistantText, calls, 'You already ran that exact tool call and it did not move the task forward. Try a different tool or different arguments.')
-      continue
     }
 
     // SEAM (per-tool-call): constrained-decode validateToolCall(tc.input) goes here, once, for all providers.
