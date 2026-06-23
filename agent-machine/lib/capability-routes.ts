@@ -368,8 +368,9 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
         // register it as an agentplane executor + swarm node. Real cloud exec is gated server-side.
         let provision = null
         if (b.provision === true && result.best && result.best.sku.provider !== 'local') {
-          const { provisionInstance } = await import('./cloud-provision.js')
+          const { provisionInstance, executeProvision } = await import('./cloud-provision.js')
           provision = provisionInstance(result.best.sku, { swarmId: typeof b.swarmId === 'string' ? b.swarmId : 'session', usdPerHour: result.best.effectivePerHour })
+          if (b.exec === true) provision = await executeProvision(provision)   // double-gated by NOETICA_CLOUD_PROVISION_EXEC
         }
         // Emit an agentplane-conformant PlacementDecision so the cheapest-cloud pick feeds agentplane's fleet.
         return send(200, { ...result, priceSource, savings: brokerSavings(result), placement: toAgentplanePlacement(result, { lane: b.lane === 'prod' ? 'prod' : 'staging' }), provision }), true

@@ -33,3 +33,11 @@ test('provisionInstance returns a complete lifecycle record + registers an agent
   // registerExecutor is idempotent (no throw on re-register)
   registerExecutor(rec)
 })
+
+test('executeProvision is a safe no-op without the exec gate', async () => {
+  const { executeProvision } = await import('./cloud-provision.js')
+  delete process.env['NOETICA_CLOUD_PROVISION_EXEC']
+  const rec = provisionInstance(SKU, { swarmId: 'demo' })
+  const r = await executeProvision(rec)
+  assert.match(r.error ?? '', /gated/)   // gated → did not attempt a real boot
+})

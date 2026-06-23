@@ -105,3 +105,31 @@ export function provisionInstance(sku: ComputeSku, opts: { swarmId?: string; con
 }
 
 function hash(s: string): number { let h = 0; for (let i = 0; i < s.length; i++) { h = (h << 5) - h + s.charCodeAt(i); h |= 0 } return h }
+
+const provCli = (provider: ComputeSku['provider']) => ({ gcp: 'gcloud', azure: 'az', aws: 'aws', ibm: 'ibmcloud', local: '' }[provider])
+
+/**
+ * ACTUALLY boot the planned instance. DOUBLE-GATED — only runs when NOETICA_CLOUD_PROVISION_EXEC=1 AND the
+ * provider CLI is on PATH (assumed pre-authenticated). Writes the cloud-init to a temp file, runs the create
+ * command, and flips the fleet executor state. Returns the updated record (state ready/failed) + any error.
+ * Without the gate it's a no-op that leaves state 'planned' — so the default is always safe.
+ */
+export async function executeProvision(rec: ProvisionRecord): Promise<ProvisionRecord & { error?: string }> {
+  if (process.env['NOETICA_CLOUD_PROVISION_EXEC'] !== '1') return { ...rec, error: 'exec gated (set NOETICA_CLOUD_PROVISION_EXEC=1 + provider creds to actually boot)' }
+  const cli = provCli(rec.provider)
+  if (!cli) return { ...rec, state: 'failed', error: 'no provider cli' }
+  const { execFile, execFileSync } = await import('node:child_process')
+  const { promisify } = await import('node:util')
+  try { execFileSync('/usr/bin/env', ['sh', '-c', `command -v ${cli}`], { stdio: 'ignore' }) }
+  catch { const failed = { ...rec, state: 'failed' as const, error: `${cli} not installed / not authenticated` }; registerExecutor(failed); return failed }
+  const tmpDir = join(homedir(), '.noetica', 'fleet', rec.id); mkdirSync(tmpDir, { recursive: true })
+  writeFileSync(join(tmpDir, 'cloud-init.sh'), rec.cloudInit)
+  const provisioning = { ...rec, state: 'provisioning' as const }; registerExecutor(provisioning)
+  try {
+    await promisify(execFile)('/usr/bin/env', ['sh', '-c', rec.createCommand], { cwd: tmpDir, timeout: 300_000 })
+    const ready = { ...rec, state: 'ready' as const }; registerExecutor(ready); return ready
+  } catch (e) {
+    const failed = { ...rec, state: 'failed' as const, error: (e instanceof Error ? e.message : 'create failed').replace(/[\r\n]/g, ' ').slice(0, 200) }
+    registerExecutor(failed); return failed
+  }
+}

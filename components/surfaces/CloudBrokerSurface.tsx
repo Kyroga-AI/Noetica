@@ -8,10 +8,12 @@ import { useEffect, useState } from 'react'
  * ranked quotes + savings + the agentplane-conformant placement, and lists lattice-forge runtime provenance.
  */
 type Quote = { sku: { provider: string; name: string; region: string; vcpus: number; memGiB: number; gpu?: { type: string; count: number; memGiB: number } }; effectivePerHour: number; totalUsd: number; spot: boolean }
+type Provision = { provider: string; sku: string; region: string; state: string; usdPerHour: number; executor: { name: string; caps: Record<string, unknown> }; createCommand: string; error?: string }
 type BrokerResp = {
   best: Quote | null; ranked: Quote[]; considered: number; cheapestCloud: Quote | null; priceSource?: string
   savings: { absUsd: number; pct: number }
   placement: { apiVersion: string; kind: string; lane: string; chosenExecutor: string | null; effectiveBackend: string; objective: { value: number; perHour: number; spot: boolean } }
+  provision?: Provision | null
 }
 type RuntimeAsset = { name?: string; role?: string; runtimeClass?: string; digest?: string; _conformance?: { conforms: boolean; missing: string[] } }
 
@@ -32,16 +34,32 @@ export function CloudBrokerSurface() {
   const [err, setErr] = useState('')
   const [runtimes, setRuntimes] = useState<RuntimeAsset[]>([])
 
+  const [provisioning, setProvisioning] = useState(false)
+
+  function reqBody(extra: Record<string, unknown> = {}) {
+    const request: Record<string, unknown> = { hours, spot, excludeLocal }
+    if (gpu !== 'none') request.gpu = { type: gpu, count }
+    return JSON.stringify({ request, live, ...extra })
+  }
+
   async function broker() {
     setLoading(true); setErr('')
     try {
-      const request: Record<string, unknown> = { hours, spot, excludeLocal }
-      if (gpu !== 'none') request.gpu = { type: gpu, count }
-      const r = await fetch('/api/cap/cloud-broker', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ request, live }) })
+      const r = await fetch('/api/cap/cloud-broker', { method: 'POST', headers: { 'content-type': 'application/json' }, body: reqBody() })
       if (!r.ok) throw new Error(`broker ${r.status}`)
       setResp(await r.json() as BrokerResp)
     } catch (e) { setErr(e instanceof Error ? e.message : 'broker failed — is the backend running?') }
     finally { setLoading(false) }
+  }
+
+  async function provision() {
+    setProvisioning(true); setErr('')
+    try {
+      const r = await fetch('/api/cap/cloud-broker', { method: 'POST', headers: { 'content-type': 'application/json' }, body: reqBody({ provision: true, swarmId: 'session' }) })
+      if (!r.ok) throw new Error(`provision ${r.status}`)
+      setResp(await r.json() as BrokerResp)
+    } catch (e) { setErr(e instanceof Error ? e.message : 'provision failed') }
+    finally { setProvisioning(false) }
   }
 
   useEffect(() => {
@@ -101,6 +119,22 @@ export function CloudBrokerSurface() {
           {resp.placement && (
             <div className="mt-3 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-[11px] text-[var(--color-text-secondary)]">
               <span className="font-semibold text-[var(--color-text-primary)]">agentplane placement</span> · {resp.placement.kind} · lane {resp.placement.lane} · executor <span className="font-mono">{resp.placement.chosenExecutor ?? '—'}</span> · backend {resp.placement.effectiveBackend}
+            </div>
+          )}
+
+          {/* Provision the cheapest pick into the fleet + swarm */}
+          {resp.best && resp.best.sku.provider !== 'local' && (
+            <div className="mt-3">
+              <button onClick={provision} disabled={provisioning} className="rounded-xl border border-[#bfdbfe] bg-[#eff6ff] px-4 py-2 text-xs font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe] disabled:opacity-50">
+                {provisioning ? 'Provisioning…' : `⊕ Provision cheapest (${resp.best.sku.provider})`}
+              </button>
+              {resp.provision && (
+                <div className="mt-2 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-[11px] text-[var(--color-text-secondary)]">
+                  <div><span className="font-semibold text-[var(--color-text-primary)]">{resp.provision.executor.name}</span> · state <span className={`font-semibold ${resp.provision.state === 'ready' ? 'text-[#16a34a]' : resp.provision.state === 'failed' ? 'text-[#dc2626]' : 'text-[#a16207]'}`}>{resp.provision.state}</span> · ${resp.provision.usdPerHour}/hr · joins fleet + swarm</div>
+                  <div className="mt-1 font-mono text-[10px] text-[var(--color-text-tertiary)]">{resp.provision.createCommand}</div>
+                  {resp.provision.error && <div className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">⚠ {resp.provision.error}</div>}
+                </div>
+              )}
             </div>
           )}
         </div>
