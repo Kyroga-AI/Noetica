@@ -311,9 +311,10 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
       }
       // ── multi-cloud compute broker: route a workload to the cheapest satisfying provider ──
       case 'cloud-broker': {
-        const { brokerCompute, brokerSavings } = await import('./cloud-broker.js')
+        const { brokerCompute, brokerSavings, toAgentplanePlacement } = await import('./cloud-broker.js')
         const result = brokerCompute((b.request ?? {}) as Parameters<typeof brokerCompute>[0])
-        return send(200, { ...result, savings: brokerSavings(result) }), true
+        // Emit an agentplane-conformant PlacementDecision so the cheapest-cloud pick feeds agentplane's fleet.
+        return send(200, { ...result, savings: brokerSavings(result), placement: toAgentplanePlacement(result, { lane: b.lane === 'prod' ? 'prod' : 'staging' }) }), true
       }
       // ── canonical GAIA ontology export (conformant JSON-LD) ──
       case 'gaia-export': {

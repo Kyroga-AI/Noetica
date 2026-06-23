@@ -95,3 +95,41 @@ export function brokerSavings(result: BrokerResult): { absUsd: number; pct: numb
   const lo = result.ranked[0]!.totalUsd, hi = result.ranked[result.ranked.length - 1]!.totalUsd
   return { absUsd: Number((hi - lo).toFixed(2)), pct: hi > 0 ? Math.round(((hi - lo) / hi) * 100) : 0 }
 }
+
+// ── agentplane conformance ──────────────────────────────────────────────────────
+// agentplane (SocioProphet/agentplane) is the placement+evidence control plane over a sovereign SSH fleet; its
+// scheduler picks WHICH already-provisioned node runs a bundle, by capability+reachability, and leaves the cost
+// `objective` an explicit stub. This broker is the COST layer that feeds it: pick the cheapest cloud GPU, and
+// emit an agentplane-shaped PlacementDecision so the cheapest-cloud choice slots straight into agentplane's
+// receipt/coherence pipeline (and could register the provisioned box as an executor in fleet/inventory.json).
+export interface AgentplanePlacementDecision {
+  apiVersion: 'agentplane.socioprophet.org/v0.1'
+  kind: 'PlacementDecision'
+  lane: 'staging' | 'prod'
+  chosenExecutor: string | null      // provider:sku:region (becomes an executor name once provisioned)
+  provider: CloudProvider | null
+  effectiveBackend: 'cloud-gpu' | 'cloud-cpu' | 'lima-process' | 'local'
+  caps: { gpu?: string; gpuCount?: number; vcpus?: number; memGiB?: number; kvm?: boolean }
+  objective: { metric: 'usd-total'; value: number; perHour: number; spot: boolean }   // fills agentplane's stub
+  rejected: Array<{ executor: string; reason: string }>
+  emittedAt?: string
+}
+
+/** Render a broker result as an agentplane-conformant PlacementDecision (the cost `objective` agentplane stubs). */
+export function toAgentplanePlacement(result: BrokerResult, opts: { lane?: 'staging' | 'prod' } = {}): AgentplanePlacementDecision {
+  const b = result.best
+  const sku = b?.sku
+  const backend: AgentplanePlacementDecision['effectiveBackend'] = !sku ? 'lima-process'
+    : sku.provider === 'local' ? 'local' : sku.gpu ? 'cloud-gpu' : 'cloud-cpu'
+  return {
+    apiVersion: 'agentplane.socioprophet.org/v0.1',
+    kind: 'PlacementDecision',
+    lane: opts.lane ?? 'staging',
+    chosenExecutor: sku ? `${sku.provider}:${sku.name}:${sku.region}` : null,
+    provider: sku?.provider ?? null,
+    effectiveBackend: backend,
+    caps: sku ? { gpu: sku.gpu?.type, gpuCount: sku.gpu?.count, vcpus: sku.vcpus, memGiB: sku.memGiB, kvm: sku.provider !== 'local' } : {},
+    objective: { metric: 'usd-total', value: b?.totalUsd ?? 0, perHour: b?.effectivePerHour ?? 0, spot: b?.spot ?? false },
+    rejected: result.ranked.slice(1).map((q) => ({ executor: `${q.sku.provider}:${q.sku.name}:${q.sku.region}`, reason: `dearer (+$${(q.totalUsd - (b?.totalUsd ?? 0)).toFixed(2)})` })),
+  }
+}

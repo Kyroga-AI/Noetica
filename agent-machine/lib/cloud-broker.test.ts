@@ -49,3 +49,17 @@ test('catalogue covers all four major clouds + local', () => {
   const providers = new Set(COMPUTE_CATALOG.map((s) => s.provider))
   for (const p of ['gcp', 'azure', 'aws', 'ibm', 'local']) assert.ok(providers.has(p as never), `${p} present`)
 })
+
+test('toAgentplanePlacement emits an agentplane-conformant PlacementDecision filling the cost objective', () => {
+  const { toAgentplanePlacement } = require('./cloud-broker.js') as typeof import('./cloud-broker.js')
+  const r = brokerCompute({ gpu: { type: 'A100', count: 1 }, hours: 10, excludeLocal: true, spot: true })
+  const p = toAgentplanePlacement(r, { lane: 'prod' })
+  assert.equal(p.apiVersion, 'agentplane.socioprophet.org/v0.1')
+  assert.equal(p.kind, 'PlacementDecision')
+  assert.equal(p.lane, 'prod')
+  assert.equal(p.effectiveBackend, 'cloud-gpu')
+  assert.equal(p.objective.metric, 'usd-total')
+  assert.ok(p.objective.value > 0 && p.objective.spot === true)
+  assert.ok(p.chosenExecutor?.startsWith('azure:'))
+  assert.ok(p.rejected.length >= 1 && p.rejected[0]!.reason.startsWith('dearer'))
+})
