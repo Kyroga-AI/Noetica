@@ -3078,7 +3078,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
 
   // Reply length is user-tunable (short/medium/long): a verbosity instruction here + a token
   // ceiling below, so the model writes the right amount rather than truncating mid-sentence.
-  const replyLen = body.reply_length === 'short' || body.reply_length === 'medium' || body.reply_length === 'long' ? body.reply_length : undefined
+  // A LIGHT-effort turn (smalltalk / everyday / a short simple question) defaults to a BRIEF reply when
+  // the user didn't ask for a length — the output-layer half of "trivial in, trivial out": a simple
+  // question shouldn't get an essay. An explicit reply_length always wins; non-light turns are unchanged.
+  const replyLen = body.reply_length === 'short' || body.reply_length === 'medium' || body.reply_length === 'long'
+    ? body.reply_length
+    : (effort.tier === 'light' ? 'short' : undefined)
   const verbosityNote = replyLen === 'short'
     ? '\n\nReply BRIEFLY — a few sentences, no preamble, no filler. Get to the point.'
     : replyLen === 'long'
