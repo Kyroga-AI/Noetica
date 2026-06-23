@@ -3992,6 +3992,22 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
 
 const MAX_REQUEST_BYTES = 32 * 1024 * 1024 // 32 MB — generous for base64 image/doc attachments, blocks OOM
 
+// Token-bucket rate limiter, per route-class. Tuned for a single local operator: generous for normal use,
+// tight enough to blunt a runaway/abusive local page driving inference cost or agent fan-out.
+const _rlBuckets = new Map<string, { tokens: number; last: number }>()
+const RL_LIMITS: Record<string, { burst: number; perMin: number }> = {
+  chat: { burst: 30, perMin: 120 }, tool: { burst: 60, perMin: 240 }, cap: { burst: 60, perMin: 300 },
+  oauth: { burst: 10, perMin: 30 }, ingest: { burst: 6, perMin: 20 },
+}
+function rateLimited(cls: string): boolean {
+  const cfg = RL_LIMITS[cls]; if (!cfg) return false
+  const now = Date.now()
+  let b = _rlBuckets.get(cls); if (!b) { b = { tokens: cfg.burst, last: now }; _rlBuckets.set(cls, b) }
+  b.tokens = Math.min(cfg.burst, b.tokens + ((now - b.last) / 60_000) * cfg.perMin); b.last = now
+  if (b.tokens < 1) return true
+  b.tokens -= 1; return false
+}
+
 const server = http.createServer((req, res) => {
   setCORSHeaders(res)
 
@@ -4040,6 +4056,15 @@ const server = http.createServer((req, res) => {
   }
 
   const url = new URL(req.url ?? '/', `http://localhost:${PORT}`)
+
+  // #26 — inbound rate limiting (token bucket). A malicious local page or runaway client can otherwise drive
+  // unbounded model inference (cost) + agent fan-out (DoS). Per-route-class buckets; GETs are exempt.
+  if (req.method === 'POST') {
+    const p = url.pathname
+    const cls = p === '/api/chat' ? 'chat' : p === '/api/tool' ? 'tool' : p.startsWith('/api/cap/') ? 'cap'
+      : p.startsWith('/api/oauth/') ? 'oauth' : p === '/api/repo/ingest' ? 'ingest' : null
+    if (cls && rateLimited(cls)) { res.writeHead(429, { 'content-type': 'application/json', 'retry-after': '5' }); res.end(JSON.stringify({ error: 'rate_limited', class: cls })); return }
+  }
 
   // Capability API surface (wave-2/3 libs) — one mount for all /api/cap/* routes.
   if (url.pathname.startsWith('/api/cap/')) { void handleCapabilityRoute(req, res, url); return }
