@@ -115,3 +115,23 @@ export function leaveSwarm(swarmId: string, agentId: string): SwarmManifest | nu
 export function swarmMembers(swarmId: string, withinMs = 5 * 60_000, now = Date.now()): SwarmMember[] {
   return (readManifest(swarmId)?.members ?? []).filter((x) => now - x.lastSeen < withinMs)
 }
+
+const blackboardDir = (swarmId: string) => join(ROOT(), slug(swarmId), 'mnt', 'blackboard')
+
+/** An agent posts a result/partial to the shared blackboard so co-agents + the parent can read it. */
+export function writeBlackboard(swarmId: string, key: string, data: unknown): void {
+  const dir = blackboardDir(swarmId); mkdirSync(dir, { recursive: true })
+  const p = join(dir, `${slug(key)}.json`); const tmp = `${p}.tmp.${process.pid}`
+  writeFileSync(tmp, JSON.stringify(data)); renameSync(tmp, p)
+}
+
+/** Read all blackboard entries for the swarm (the shared working set). */
+export function readBlackboard(swarmId: string): Array<{ key: string; data: unknown }> {
+  const dir = blackboardDir(swarmId); if (!existsSync(dir)) return []
+  try {
+    const { readdirSync } = require('node:fs') as typeof import('node:fs')
+    return readdirSync(dir).filter((f) => f.endsWith('.json') && !f.includes('.tmp.')).map((f) => {
+      try { return { key: f.replace(/\.json$/, ''), data: JSON.parse(readFileSync(join(dir, f), 'utf8')) } } catch { return null }
+    }).filter((x): x is { key: string; data: unknown } => x !== null)
+  } catch { return [] }
+}

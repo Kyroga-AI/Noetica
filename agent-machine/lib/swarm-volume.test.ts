@@ -33,3 +33,14 @@ test('swarmMembers filters out stale members', () => {
   // window of 0ms → everyone is stale
   assert.equal(swarmMembers(sid2, 0, Date.now() + 1000).length, 0)
 })
+
+test('blackboard: agents post + read shared results over the swarm mount', () => {
+  const { writeBlackboard, readBlackboard, provisionSwarmVolume } = require('./swarm-volume.js') as typeof import('./swarm-volume.js')
+  const sid = `${SID}-bb`
+  provisionSwarmVolume({ swarmId: sid })
+  writeBlackboard(sid, 'researcher-1', { role: 'planner', result: 'found 3 sources' })
+  writeBlackboard(sid, 'coder-1', { role: 'worker', result: 'implemented fn' })
+  const bb = readBlackboard(sid)
+  assert.equal(bb.length, 2)
+  assert.ok(bb.some((e) => (e.data as { result: string }).result === 'found 3 sources'))
+})

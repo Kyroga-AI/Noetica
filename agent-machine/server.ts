@@ -1384,7 +1384,19 @@ async function executeTool(
       const task = String(input['task'] ?? '').trim()
       if (!task) return 'dispatch_agent: a task is required.'
       const context = String(input['context'] ?? '')
-      const result = await runSubAgent(role, task, context, keys)
+      // Swarm: the sub-agent JOINS the session's swarm volume, runs, and posts its result to the shared
+      // blackboard so co-agents (and the parent) can read partials — multi-agent runs swarm over one mount.
+      const swarmId = String(input['swarm'] ?? 'session')
+      const agentId = `${role}-${crypto.randomUUID().slice(0, 8)}`
+      let blackboard = ''
+      try {
+        const sw = await import('./lib/swarm-volume.js')
+        sw.joinSwarm(swarmId, agentId, role)
+        const peers = sw.readBlackboard(swarmId)
+        if (peers.length) blackboard = `\n\nShared swarm blackboard (${peers.length} prior agent result${peers.length > 1 ? 's' : ''} — build on these, don't repeat):\n` + peers.map((p) => `- ${p.key}: ${JSON.stringify((p.data as { result?: string }).result ?? p.data).slice(0, 400)}`).join('\n')
+      } catch { /* swarm best-effort */ }
+      const result = await runSubAgent(role, task, context + blackboard, keys)
+      try { const sw = await import('./lib/swarm-volume.js'); sw.writeBlackboard(swarmId, agentId, { role, task: task.slice(0, 200), result: result.slice(0, 4000), at: Date.now() }) } catch { /* */ }
       return `[${resolveRole(role).label} sub-agent → result]\n${result}`
     }
     case 'web_search': {
