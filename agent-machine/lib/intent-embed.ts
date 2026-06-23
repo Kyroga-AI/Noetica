@@ -36,8 +36,16 @@ const EXEMPLARS: Record<string, string[]> = {
   converse_smalltalk: ['hey there', 'good morning', 'how are you', 'hello'],
   confirm_steer: ['yes proceed', 'go ahead', 'sounds good do it', 'okay continue'],
   meta_capability: ['what can you do', 'what are your capabilities', 'how can you help me', 'what do you do'],
-  // Everyday / household domain — so an everyday how-to lands here (a simple answer), NOT on build_implement.
-  everyday: ['how do i make coffee', "what's a good recipe for dinner", 'how to get a stain out of a shirt', 'tips for keeping houseplants alive', 'how do i make scrambled eggs', 'best way to clean a cast iron pan', 'how to fold a fitted sheet', 'what can i cook with chicken and rice', 'how do i brew loose leaf tea', 'how to remove a red wine stain'],
+  // Everyday / general-life domain — practical "how do I do this life task" questions across cooking,
+  // cleaning, home repair, garden, pets, etiquette. Cohesive on PHRASING (everyday how-to) so the centroid
+  // sits in everyday-life space, well away from "build software". Lands here as a simple, tool-free answer.
+  everyday: [
+    'how do i make coffee', "what's a good recipe for dinner", 'how do i make scrambled eggs', 'what can i cook with chicken and rice',
+    'how to get a red wine stain out of a shirt', 'best way to clean a cast iron pan', 'how do i do laundry without shrinking clothes',
+    'how do i unclog a slow drain', 'how do i fix a leaky faucet', 'how do i change a flat tire',
+    'how often should i water a snake plant', 'why are my tomato plant leaves turning yellow', 'how do i repot a plant',
+    'how do i train my puppy not to bite', 'how do i write a thank you note', 'gift ideas for a coworker',
+  ],
 }
 
 let centroids: { name: string; vec: number[] }[] | null = null

@@ -40,6 +40,7 @@ import { buildRouterDecision, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveP
 import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTelemetry, type MeshTier } from './lib/scope-d.js'
 import { installEgressGuard, setOfflineMode } from './lib/egress-guard.js'
 import { classifyIntent, capabilityToTask, wantsVectorRag, intentByName, planFromIntent, intentToAction, deEscalateEveryday } from './lib/intent-router.js'
+import { classifyLifeDomain } from './lib/life-domain.js'
 import { routeForAction, meshrushPhase } from './lib/action-cell.js'
 import { selectSurface, cleanLabel } from './lib/graph-surface.js'
 import { generateSovereign, meshLadder } from './lib/mesh.js'
@@ -2144,6 +2145,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // Anti-over-engineering guard: an everyday question ("how to make coffee") that got routed into the
   // build/code lane is redirected to the everyday lane (simple answer, no tools) — never "build an app".
   intentPlan = deEscalateEveryday(intentPlan, latestUserContent)
+  // Life-domain tag (topic, orthogonal to intent): drives a safety disclaimer for regulated-adjacent
+  // topics (health/finance/legal/pets/hazardous repair) on ANY lane, and web access for fresh/local Qs.
+  const lifeDomain = classifyLifeDomain(latestUserContent)
+  if (lifeDomain.needsWeb && intentPlan.name === 'everyday' && !intentPlan.tools.includes('web_search')) {
+    intentPlan = { ...intentPlan, tools: [...intentPlan.tools, 'web_search'] } // travel/local → allow fresh info
+  }
   // 'continue'/'ingest' carry no model task — let the keyword router decide those.
   const intentTaskOverride = (intentPlan.model === 'continue' || intentPlan.model === 'ingest')
     ? undefined
@@ -3076,7 +3083,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       ? '\n\nASK MODE: Before running any command, writing/modifying any file, or taking any irreversible action, first state concisely what you intend to do and ask the user to confirm. Read-only steps are fine without asking.'
       : ''
 
-  const enrichedSystemPrompt = basePrompt + dateLine + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + episodeContext + goalContext + reasoningDirective + verbosityNote + modeNote + profile.authorizationSuffix
+  const enrichedSystemPrompt = basePrompt + dateLine + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + episodeContext + goalContext + reasoningDirective + verbosityNote + modeNote + lifeDomain.safetyNote + profile.authorizationSuffix
 
   // Token budget: rough estimate (4 chars ≈ 1 token). If message history + system prompt
   // exceeds 70% of the model's context window, trim oldest non-system messages.
