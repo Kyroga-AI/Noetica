@@ -753,6 +753,9 @@ async function main() {
               baseline: typeof row['baseline_pred'] === 'string' ? row['baseline_pred'] : undefined,
               brain: typeof row['brain_pred'] === 'string' ? row['brain_pred'] : undefined,
               qgen: typeof row['qgen_pred'] === 'string' ? row['qgen_pred'] : undefined,
+              // the board's top arms, now council voters (graceful undefined if they didn't run this question)
+              gate: typeof row['gate_pred'] === 'string' ? row['gate_pred'] : undefined,
+              medprompt: typeof row['medprompt_pred'] === 'string' ? row['medprompt_pred'] : undefined,
               brainConf: Number(row['brain_conf'] ?? 0), qgenConf: Number(row['qgen_conf'] ?? 0),
               manip: manipLetter, scLetter: sc.letter, scAgree: sc.agree,
             }, { v2: V2, manip: process.env['MMLU_MANIP'] !== '0' })

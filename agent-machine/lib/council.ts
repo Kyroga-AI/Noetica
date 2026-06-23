@@ -17,6 +17,8 @@ export interface CouncilInput {
   baseline?: string   // closed-book reasoning answer (a letter A-D, or undefined/'?')
   brain?: string      // retrieval answer
   qgen?: string       // HyDE/step-back retrieval answer (the 2nd independent retrieval arm)
+  gate?: string       // CRAG adaptive-retrieval answer — the board's TOP arm (measured winner, 62.9%)
+  medprompt?: string  // position-bias-corrected ensemble vote (de-biased, 62.1%)
   brainConf?: number  // brain retrieval grounding strength [0,1] (top cosine)
   qgenConf?: number   // qgen retrieval grounding strength [0,1]
   manip?: string      // manipulation-layer voter (Self-Discover plan→execute)
@@ -42,9 +44,16 @@ export function councilVote(inp: CouncilInput, opts: { v2?: boolean; manip?: boo
     add(inp.baseline, 0.6)              // closed-book — weakest on STEM
     add(inp.brain, 0.6 + 1.8 * bc)      // retrieval, weighted by grounding (conf 0.8 → 2.04)
     add(inp.qgen, 0.6 + 1.8 * qc)       // HyDE retrieval, same conditional
+    // The board's TOP arms, promoted into the council (the old council omitted them and stalled at the
+    // brain's score). gate = CRAG adaptive (already confidence-gated → trust it); medprompt = de-biased
+    // ensemble. They're not perfectly independent of brain/qgen, so weight strong-but-not-dominant.
+    add(inp.gate, 1.6)
+    add(inp.medprompt, 1.2)
     if (inp.brain && inp.brain !== '?' && inp.brain === inp.qgen) {
       add(inp.brain, 1.0 + 1.5 * Math.max(bc, qc)) // grounded consensus, confidence-scaled
     }
+    // gate agreeing with the grounded retrieval is the strongest signal we have — reward the concordance.
+    if (inp.gate && inp.gate !== '?' && (inp.gate === inp.brain || inp.gate === inp.qgen)) add(inp.gate, 0.8)
   } else {
     add(inp.baseline, 1); add(inp.brain, 1); add(inp.qgen, 1)
   }
@@ -52,7 +61,9 @@ export function councilVote(inp: CouncilInput, opts: { v2?: boolean; manip?: boo
   // vote re-dominate the very correlated bloc V2 exists to suppress, and a NaN (e.g. Number(undefined)
   // upstream) would poison the tally AND make the sort comparator non-deterministic (NaN compares false).
   const sa = clamp01(inp.scAgree)
-  if (opts.manip !== false) add(inp.manip, v2 ? 0.7 : 1.2)   // V2 down-weights the correlated bloc
+  // manip (Self-Discover) was the WEAKEST board arm (46.4%) — a correlated closed-book voter that dragged
+  // the council. Demote it to a whisper in V2: it can break a tie, never swamp the grounded arms.
+  if (opts.manip !== false) add(inp.manip, v2 ? 0.3 : 1.2)
   add(inp.scLetter, v2 ? 0.5 + 0.5 * sa : 1 + sa)            // V2 halves the closed-book reasoning vote
 
   // Tie-break toward the self-consistency letter; otherwise a STABLE alphabetical order. (The old final
