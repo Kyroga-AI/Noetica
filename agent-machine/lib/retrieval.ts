@@ -55,7 +55,7 @@ interface WorkingMemoryState {
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
-export type RetrievalPattern = 'graph' | 'temporal' | 'sparql' | 'cache-augmented' | 'atoms' | 'beliefs' | 'cairnpath' | 'study-brain' | 'ops-brain'
+export type RetrievalPattern = 'graph' | 'temporal' | 'sparql' | 'cache-augmented' | 'atoms' | 'beliefs' | 'cairnpath' | 'study-brain' | 'ops-brain' | 'hipporag'
 
 export interface RetrievedContext {
   text: string
@@ -77,7 +77,7 @@ export async function retrieve(
     conversationId?: string
   },
 ): Promise<RetrievedContext> {
-  const patterns: RetrievalPattern[] = opts?.patterns ?? ['beliefs', 'atoms', 'graph', 'temporal', 'cache-augmented']
+  const patterns: RetrievalPattern[] = opts?.patterns ?? ['beliefs', 'atoms', 'graph', 'temporal', 'cache-augmented', 'hipporag']
   const maxChars = (opts?.maxTokens ?? 2000) * 4  // ~4 chars per token
 
   // Extract keywords for WorkingMemoryState.query_reformulations
@@ -104,6 +104,7 @@ export async function retrieve(
     'cairnpath':       900,
     'study-brain':     3500,   // embeds the query + cosine over the OCW brain (disk-cached after first hit)
     'ops-brain':       1500,   // lexical scan over the ops corpus (no embed call — fast, disk-cached)
+    'hipporag':        700,    // personalized-PageRank associative recall (HippoRAG) over the clean graph
   }
 
   const timeout = <T>(ms: number, p: Promise<T>): Promise<T | null> =>
@@ -121,6 +122,7 @@ export async function retrieve(
       case 'study-brain':  inner = runStudyBrainPattern(query); break
       case 'ops-brain':    inner = runOpsBrainPattern(query); break
       case 'beliefs':      inner = runBeliefsPattern(); break
+      case 'hipporag':     inner = runHippoRagPattern(query); break
       case 'cache-augmented': inner = runCacheAugmentedPattern(opts?.sessionId ?? opts?.workspaceId ?? 'default'); break
       default:             return Promise.resolve(null)
     }
@@ -394,6 +396,26 @@ const ATOM_STOP = new Set([
   'make','more','time','than','into','then','also','very','much','only',
   'even','back','well','here','been','such','most','over','same','after',
 ])
+
+// HippoRAG: query entities seed a personalized-PageRank walk over the clean knowledge graph, surfacing
+// ASSOCIATIVELY related concepts the lexical/atom patterns miss (the "neurobiologically-inspired" recall).
+async function runHippoRagPattern(query: string): Promise<{ text: string; sources: Array<{ id: string; label: string; score: number }> }> {
+  const [{ associativeRetrieve }, { cleanLabel }] = await Promise.all([import('./graph-ppr.js'), import('./graph-surface.js')])
+  const g = getGraph()
+  const labelById = new Map<string, string>()
+  const nodes: Array<{ id: string }> = []
+  for (const n of g.allNodes()) {
+    const l = cleanLabel(n as never)
+    if (!l) continue
+    labelById.set(n.id, l); nodes.push({ id: n.id })
+  }
+  if (nodes.length < 3) return { text: '', sources: [] }
+  const edges = g.allEdges().map((e) => ({ from: e.from, to: e.to }))
+  const { results } = associativeRetrieve(nodes, edges, labelById, query, { topK: 8 })
+  if (!results.length) return { text: '', sources: [] }
+  const text = `Associatively related (HippoRAG / personalized PageRank): ${results.map((r) => r.label).join(', ')}.`
+  return { text, sources: results.map((r) => ({ id: r.id, label: r.label, score: Number(r.score.toFixed(4)) })) }
+}
 
 async function runAtomsPattern(
   query: string,
