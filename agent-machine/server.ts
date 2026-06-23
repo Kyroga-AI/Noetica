@@ -77,6 +77,7 @@ import { validateGraph } from '@socioprophet/hellgraph'
 import { CANONICAL_SHAPES, QUARANTINE_PROP } from './lib/canonical-shapes.js'
 import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
 import { runAgentLoop, type ProviderAdapter } from './lib/agent-loop.js'
+import { validateToolCall, type ToolSchema, type ArgSpec } from './lib/constrained-decode.js'
 import { critique, bestOfTemps, type Candidate as CriticCandidate } from './lib/critic.js'
 import { programOfThought, codeVerifyRepair } from './lib/exec-verify.js'
 import { applyEdit, editSummary } from './lib/apply-patch.js'
@@ -2693,6 +2694,27 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     }
   }
 
+  // constrained-decode (per-tool-call seam, all providers): derive PRIMITIVE-only arg schemas from the tool
+  // definitions so a model's stringly-typed args ("5" → 5, enum casing) are coerced before execution. Object/
+  // array args are omitted from the schema and pass through untouched, so structured params are never corrupted.
+  const toolSchemas: ToolSchema[] = allTools.map((t) => {
+    const props = (t.input_schema?.['properties'] as Record<string, { type?: string; enum?: string[] }> | undefined) ?? {}
+    const required = new Set((t.input_schema?.['required'] as string[] | undefined) ?? [])
+    const args: Record<string, ArgSpec> = {}
+    for (const [k, p] of Object.entries(props)) {
+      if (p?.enum) args[k] = { type: 'enum', values: p.enum, required: required.has(k) }
+      else if (p?.type === 'number' || p?.type === 'integer') args[k] = { type: 'number', required: required.has(k) }
+      else if (p?.type === 'boolean') args[k] = { type: 'boolean', required: required.has(k) }
+      else if (p?.type === 'string') args[k] = { type: 'string', required: required.has(k) }
+      // object / array / untyped → omitted → passes through untouched
+    }
+    return { name: t.name, args }
+  })
+  const coerceToolInput = (name: string, input: Record<string, unknown>): Record<string, unknown> => {
+    const v = validateToolCall({ name, args: input }, toolSchemas)
+    return Object.keys(v.coerced).length > 0 ? { ...input, ...v.coerced } : input
+  }
+
   // Filter to valid roles with non-empty content; hard-cap history to 100 turns
   // to prevent quadratic token estimation on adversarially long sessions.
   const incomingMessages = (body.messages ?? [])
@@ -3503,6 +3525,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           executeTool: (name, input) => executeToolWithTimeout(name, input, { anthropic: anthropicKey, openai: openaiKey, serper: keys.serper }),
           sse: (event, data) => sse(res, event, data),
           recordTrajectory: (calls) => recordTrajectory(calls),
+          coerceToolInput,
           onDelta: (t) => { liveContent += t },
         })
         fullContent += ollamaResult.content
@@ -3564,6 +3587,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         executeTool: (name, input) => executeToolWithTimeout(name, input, { anthropic: anthropicKey, openai: openaiKey, serper: keys.serper }),
         sse: (event, data) => sse(res, event, data),
         recordTrajectory: (calls) => recordTrajectory(calls),
+        coerceToolInput,
         onDelta: (t) => { liveContent += t },
       })
       fullContent += anthropicResult.content
@@ -3628,6 +3652,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         executeTool: (name, input) => executeToolWithTimeout(name, input, { anthropic: anthropicKey, openai: openaiKey, serper: keys.serper }),
         sse: (event, data) => sse(res, event, data),
         recordTrajectory: (calls) => recordTrajectory(calls),
+        coerceToolInput,
         onDelta: (t) => { liveContent += t },
       })
       fullContent += oaiResult.content

@@ -68,6 +68,10 @@ export interface LoopCtx {
   sse(event: string, data: Record<string, unknown>): void
   /** Record tool calls for the trajectory monitor (best-effort; may be async). */
   recordTrajectory(calls: ToolUseBlock[]): void | Promise<void>
+  /** Optional: schema-coerce a tool call's args before execution (constrained-decode). Returns coerced args
+   * (e.g. the string "5" → number 5 for a numeric param). Applied to BOTH the executed call and the recorded
+   * history so they stay consistent. A no-op for already-well-typed args (cloud); fixes local-model arg types. */
+  coerceToolInput?(name: string, input: Record<string, unknown>): Record<string, unknown>
   /** Called for each streamed text delta so the host can accumulate its live buffer. */
   onDelta?(text: string): void
   /** Called for each streamed thinking delta. */
@@ -162,7 +166,12 @@ export async function runAgentLoop(adapter: ProviderAdapter, ctx: LoopCtx): Prom
       }
     }
 
-    // SEAM (per-tool-call): constrained-decode validateToolCall(tc.input) goes here, once, for all providers.
+    // SEAM (per-tool-call): constrained-decode — schema-coerce args before execution, once, for all providers.
+    // Coerce in-place so the streamed tool_calls event, the execution, and the recorded history all agree.
+    if (ctx.coerceToolInput) {
+      const fn = ctx.coerceToolInput
+      calls = calls.map((tc) => ({ ...tc, input: fn(tc.name, tc.input) }))
+    }
     ctx.sse('tool_calls', { tool_calls: calls })
     lastToolCalls = calls
     void ctx.recordTrajectory(calls)

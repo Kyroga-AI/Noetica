@@ -75,6 +75,18 @@ test('Ollama-style inline tool-call recovery: JSON-as-text becomes a real call',
   assert.deepEqual(ctx.executed, ['read_file:{"path":"/tmp/x"}'])
 })
 
+test('constrained-decode seam: tool args are coerced before execution + recorded consistently', async () => {
+  const call: ToolUseBlock = { id: 'c', name: 'wait', input: { seconds: '5', keep: 'extra' } }
+  const adapter = makeAdapter([[{ type: 'tool_calls', calls: [call] }], [{ type: 'text', text: 'ok' }]])
+  // Coerce the stringly-typed "seconds" to a number, leave unknown args untouched (merge strategy).
+  const ctx = makeCtx({ coerceToolInput: (_name, input) => ({ ...input, seconds: Number(input['seconds']) }) })
+  await runAgentLoop(adapter, ctx)
+  // executed with the COERCED args (5 as number, not "5"), and the unknown 'keep' arg preserved.
+  assert.equal(ctx.executed[0], 'wait:{"seconds":5,"keep":"extra"}')
+  // history (appendToolTurn) saw the same coerced calls
+  assert.equal((adapter.appended[0] as { calls: ToolUseBlock[] }).calls[0]!.input['seconds'], 5)
+})
+
 test('divergence recovery: nudges on repeated calls, gives up after 3 nudges', async () => {
   const call: ToolUseBlock = { id: 'r', name: 'web_search', input: { q: 'same' } }
   // Always emits the same call → after 2 priors it is "allRepeated", then 3 nudges → give up.
