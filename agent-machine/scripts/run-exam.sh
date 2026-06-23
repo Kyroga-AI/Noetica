@@ -19,6 +19,10 @@ export MMLU_MODEL="${MMLU_MODEL:-llama3.2:3b-cpu}"
 export MMLU_SEED="${MMLU_SEED:-1729}"          # pinned → reproducible; cite this with any result
 export MMLU_PER_SUBJECT="${MMLU_PER_SUBJECT:-0}"   # 0 = every question (the real exam)
 export MMLU_ARMS="${MMLU_ARMS:-baseline,brain,compute,route}"
+# Eval correctness > latency: the GPU is saturated by generation, so let nomic embeds WAIT (+retry) instead
+# of aborting at 8s into [] (lexical-only) — that flake silently degraded whole boards (v2/v3). See lib/ollama.ts.
+export NOETICA_EMBED_TIMEOUT_MS="${NOETICA_EMBED_TIMEOUT_MS:-60000}"
+export NOETICA_EMBED_RETRIES="${NOETICA_EMBED_RETRIES:-2}"
 
 echo "════════════════════════════════════════════════════════════════════"
 echo "  MMLU EXAM — model=$MMLU_MODEL · seed=$MMLU_SEED · arms=$MMLU_ARMS"

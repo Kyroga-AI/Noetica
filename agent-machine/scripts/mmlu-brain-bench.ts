@@ -33,7 +33,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { embedText } from '../lib/ollama.js'
-import { councilVote } from '../lib/council.js'
+import { councilVote, learnedCouncilVote } from '../lib/council.js'
 import { decodeVec, l2norm } from '../lib/brain-vec.js'
 
 const HOME = os.homedir()
@@ -645,7 +645,7 @@ async function main() {
     process.stdout.write(`\n## ${subject}  (fields: ${fields.join('+')} · ${poolN.toLocaleString()} chunks · ${sample.length} q)\n`)
     for (const arm of ARMS) tally[arm]![subject] = { c: 0, n: 0, a: 0 }
     // verified-compute arm scored up front (one python call per subject); used by compute + route + champion
-    const comp: CompRes[] = (ARMS.includes('compute') || ARMS.includes('route') || ARMS.includes('champion') || ARMS.includes('gate')) ? computeBatch(sample) : []
+    const comp: CompRes[] = (ARMS.includes('compute') || ARMS.includes('route') || ARMS.includes('champion') || ARMS.includes('gate') || ARMS.includes('learned')) ? computeBatch(sample) : []
     // knowledge-type per question (the 'understand first' step) — used by the champion router
     const kt: KType[] = (ARMS.includes('champion') || ARMS.includes('gate')) ? ktypeBatch(sample) : []
     const af: CompRes[] = ARMS.includes('autoform') ? await autoformBatch(sample) : []   // LLM-formalize → sympy-execute → vote
@@ -765,6 +765,18 @@ async function main() {
             letter = cv.letter
             mode = `council:${k.types?.[0] ?? '?'}`
           }
+        } else if (arm === 'learned') {           // LEARNED council — logistic meta-combiner (signed weights, scripts/meta_combiner.py)
+          // Reuse the per-arm votes already in `row` (run learned LAST in MMLU_ARMS), route through the
+          // learned log-odds law instead of the hand-tuned councilVote. Head-to-head vs champion: the board
+          // proves whether learned > hand-tuned before we promote it (keep all arms, promote only winners).
+          const pick = (k: string): string | undefined => (typeof row[k] === 'string' && row[k] !== '?' ? row[k] as string : undefined)
+          const cv = learnedCouncilVote({
+            baseline: pick('baseline_pred'), brain: pick('brain_pred'), qgen: pick('qgen_pred'),
+            gate: pick('gate_pred'), medprompt: pick('medprompt_pred'),
+            elim: pick('elim_pred'), fiftyfifty: pick('fiftyfifty_pred'),
+            compute: comp[i]?.answer || undefined, scLetter: pick('brain_pred') || pick('baseline_pred'),
+          })
+          letter = cv.letter; mode = 'learned'
         } else if (arm === 'medprompt') {         // Medprompt choice-shuffle ensemble — position (A) bias cancels by construction (Microsoft, 90.10% MMLU)
           const n = q.choices.length, M = Math.min(SHUFFLE_M, n) || n
           const votes = new Map<number, number>()

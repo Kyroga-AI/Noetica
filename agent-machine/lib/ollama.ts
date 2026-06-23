@@ -118,27 +118,37 @@ export async function embedText(text: string): Promise<number[]> {
   const bases = (_activeBase === OLLAMA_PRIMARY && HAS_FALLBACK)
     ? [OLLAMA_PRIMARY, OLLAMA_FALLBACK]
     : [_activeBase]
+  // Default short (a slow query-embed mustn't hang a chat turn — degrade to lexical). But under BATCH load
+  // (the MMLU board: the GPU is saturated by generation, so nomic embeds queue), 8s-with-no-retry collapsed
+  // every embed to [] and silently contaminated whole runs (lexical-only). So: env-tunable timeout + a
+  // retry-on-timeout (transient GPU contention clears in a beat). The board sets NOETICA_EMBED_TIMEOUT_MS
+  // high so embeds WAIT for the GPU instead of poisoning retrieval.
+  const timeoutMs = Number(process.env['NOETICA_EMBED_TIMEOUT_MS'] || 8_000)
+  const retries = Number(process.env['NOETICA_EMBED_RETRIES'] || 1)   // extra attempts per base on timeout
   for (let i = 0; i < bases.length; i++) {
     const base = bases[i]!
-    try {
-      const res = await fetch(`${base}/api/embeddings`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: EMBED_MODEL, prompt: text.slice(0, 8000) }),
-        // Keep this short: a slow query-embedding must not block retrieval — it
-        // falls back to lexical search instead of hanging the whole chat turn.
-        signal: AbortSignal.timeout(8_000),
-      })
-      if (res.ok) {
-        const json = (await res.json()) as { embedding?: number[] }
-        const vec = Array.isArray(json.embedding) ? json.embedding : []
-        if (vec.length) { _activeBase = base; return vec }
-        console.warn(`[ollama] embedText: ${base} returned ok but an empty embedding (model=${EMBED_MODEL}) — retrieval degrades to lexical-only`)
-      } else {
-        console.warn(`[ollama] embedText: ${base} returned ${res.status} (model=${EMBED_MODEL})`)
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const res = await fetch(`${base}/api/embeddings`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: EMBED_MODEL, prompt: text.slice(0, 8000) }),
+          signal: AbortSignal.timeout(timeoutMs),
+        })
+        if (res.ok) {
+          const json = (await res.json()) as { embedding?: number[] }
+          const vec = Array.isArray(json.embedding) ? json.embedding : []
+          if (vec.length) { _activeBase = base; return vec }
+          console.warn(`[ollama] embedText: ${base} returned ok but an empty embedding (model=${EMBED_MODEL}) — retrieval degrades to lexical-only`)
+        } else {
+          console.warn(`[ollama] embedText: ${base} returned ${res.status} (model=${EMBED_MODEL})`)
+        }
+        break                            // non-ok/empty (not a timeout) → don't retry this base; try the fallback
+      } catch (e) {                      // timeout / network → retry the SAME base (the stall is transient)
+        console.warn(`[ollama] embedText: ${base} request failed (${e instanceof Error ? e.message : String(e)})${attempt < retries ? ' — retrying' : ''}`)
+        if (attempt < retries) await new Promise((r) => setTimeout(r, 300 * (attempt + 1)))
       }
-      // non-ok or empty → try fallback if any
-    } catch (e) { console.warn(`[ollama] embedText: ${base} request failed (${e instanceof Error ? e.message : String(e)})`) }
+    }
   }
   // A silent [] looks identical to "no fallback configured" — surface it so a broken embedder is
   // diagnosable instead of invisibly collapsing every STEM query to lexical-only.

@@ -87,12 +87,21 @@ if [ "$REPUBLISH" = "1" ]; then
   NOETICA_BRAIN_BUCKET=$BRAIN_BUCKET BRAIN_VERSION=\$(date +%Y.%m.%d) DIST=/opt/am/dist/brains bash scripts/publish-brains.sh || step "!! republish (SA write perms on $BRAIN_BUCKET?)"
 fi
 
+# SAVE the freshly-built brain → the EVAL bucket (SA-writable, unlike noetica-brains) BEFORE the board, so an
+# equations-recovered brain is never lost to a flaky/aborted board (the no-loss pattern). Skip with SAVE_BRAIN=0.
+if [ "${SAVE_BRAIN:-1}" = "1" ]; then
+  step "SAVE brain (no-loss) → \$GCS/brains/brain-${RUN_TAG:-build}.tar.gz"
+  tar -czf /tmp/brain-save.tar.gz -C /opt/OCW/_brain . && gsutil -q cp /tmp/brain-save.tar.gz "\$GCS/brains/brain-${RUN_TAG:-build}.tar.gz" || step "!! brain save"
+fi
+
 if [ -n "$BOARD_MODEL" ]; then
-  step "BOARD — $BOARD_MODEL, gold-first brain, arms=baseline,brain,gate,champion, n=100"
-  MMLU_MODEL=$BOARD_MODEL MMLU_ARMS=baseline,brain,gate,champion MMLU_PER_SUBJECT=100 MMLU_SEED=1729 \
+  step "BOARD — $BOARD_MODEL, arms=${BOARD_ARMS:-baseline,brain,gate,champion}, n=100 (embeds wait: NOETICA_EMBED_TIMEOUT_MS via run-exam.sh)"
+  MMLU_MODEL=$BOARD_MODEL MMLU_ARMS="${BOARD_ARMS:-baseline,brain,gate,champion}" MMLU_PER_SUBJECT=100 MMLU_SEED=1729 \
     MMLU_SUBJECTS=high_school_biology,conceptual_physics,electrical_engineering,college_chemistry,high_school_statistics,college_mathematics,abstract_algebra \
     bash scripts/run-exam.sh 2>&1 | tee /var/log/scoreboard.txt || echo "EVAL EXIT \$?"
-  gsutil cp /var/log/scoreboard.txt "\$GCS/bench/board-$BOARD_MODEL.txt" || true
+  gsutil cp /var/log/scoreboard.txt "\$GCS/bench/board-$BOARD_MODEL-${RUN_TAG:-build}.txt" || true
+  # upload the per-question transcript → retrains the learned council (scripts/meta_combiner.py) on CLEAN data
+  T=\$(ls -t /root/.noetica/mmlu-brain-*.jsonl 2>/dev/null | head -1); [ -n "\$T" ] && gsutil -q cp "\$T" "\$GCS/bench/transcript-$BOARD_MODEL-${RUN_TAG:-build}.jsonl" || true
 fi
 
 step "DONE — self-deleting"
