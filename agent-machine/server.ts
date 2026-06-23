@@ -7172,6 +7172,24 @@ server.listen(PORT, '127.0.0.1', () => {
   console.log(`[noetica-am] Agent Machine v${VERSION} listening on http://127.0.0.1:${PORT}`)
   console.log(`[noetica-am] Status: http://127.0.0.1:${PORT}/api/status`)
 
+  // First-run brain auto-provision (opt-in: NOETICA_BRAIN_AUTO_PROVISION=1). On a fresh install, fetch
+  // any shippable brain that is ABSENT but has a configured URL — so academic/ops knowledge self-heals
+  // like the runtime does, without a surprise download by default. Fire-and-forget; never blocks boot.
+  if (process.env['NOETICA_BRAIN_AUTO_PROVISION'] === '1') {
+    void (async () => {
+      try {
+        const { brainStatus, provisionBrain } = await import('./lib/brain-provision.js')
+        const urlFor: Record<string, string | undefined> = { academic: process.env['NOETICA_BRAIN_ACADEMIC_URL'], operational: process.env['NOETICA_BRAIN_OPS_URL'] }
+        for (const b of brainStatus().brains) {
+          if (b.name === 'chat' || b.present || !urlFor[b.name]) continue
+          console.log(`[noetica-am] auto-provisioning ${b.name} brain…`)
+          const r = await provisionBrain(b.name as 'academic' | 'operational', (p) => { if (p.pct === 0 || p.phase !== 'downloading') console.log(`[noetica-am]   ${b.name}: ${p.phase}${p.pct != null ? ` ${p.pct}%` : ''}`) })
+          console.log(`[noetica-am]   ${b.name}: ${r.message}`)
+        }
+      } catch (e) { console.warn(`[noetica-am] brain auto-provision skipped: ${e instanceof Error ? e.message : String(e)}`) }
+    })()
+  }
+
   // ── Graceful teardown ────────────────────────────────────────────────────
   // ONE handler, registered synchronously, that tears down the managed Ollama BEFORE
   // persisting state and exiting. Previously two SIGTERM handlers raced — the one that
