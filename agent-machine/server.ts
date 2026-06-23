@@ -3812,6 +3812,13 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       if (valueJudgment.contradictions.length > 0) {
         recordContradictions(run_id, sessionId, valueJudgment, fullContent)
       }
+      // #5 — auto-capture FAILED turns (low grounding coverage) as replayable eval cases. This is the data
+      // half of the verifier→selection keystone: a growing regression set from real production failures.
+      try {
+        const { captureFailure } = await import('./lib/eval-capture.js')
+        const c = captureFailure({ input: latestUserContent, output: fullContent, verified: turnGrounded, coverage: valueJudgment.grounding, decision: routerDecision.task }, Date.now(), { minCoverage: 0.5 })
+        if (c) { const ep = path.join(os.homedir(), '.noetica', 'eval-cases.jsonl'); fs.mkdirSync(path.dirname(ep), { recursive: true }); fs.appendFileSync(ep, `${JSON.stringify(c)}\n`) }
+      } catch { /* eval-capture best-effort */ }
     } catch { /* VJ is best-effort — never block the response */ }
 
     recordGovernanceRun({
