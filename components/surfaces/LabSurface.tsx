@@ -22,6 +22,7 @@ const CAPS: Capability[] = [
   { id: 'agui-run', label: 'AG-UI conformant run', group: 'Standards', sample: { prompt: 'Say hello in one sentence.' } },
   { id: 'runtime-assets', label: 'Lattice-forge runtimes', group: 'Runtime', sample: {} },
   { id: 'cloud-broker', label: 'Multi-cloud broker (cheapest GPU/VM)', group: 'Runtime', sample: { request: { gpu: { type: 'A100', count: 1, minMemGiB: 80 }, hours: 24, spot: true, excludeLocal: true } } },
+  { id: 'align-check', label: 'Alignment — does this news agree with my brain?', group: 'Reasoning', sample: { text: 'Paste a news article or claim here. Each sentence is checked against your ingested documents + chat docs and labeled corroborated, conflicting, or novel.' } },
   { id: 'membrane-event', label: 'New-hope membrane event', group: 'Interop', sample: { carrierRef: 'web:doc1', message: 'untrusted ingest', decision: { trust: 'untrusted', injected: true } } },
   { id: 'evidence-answer', label: 'Sherlock evidence answer', group: 'Interop', sample: { query: 'who runs model routing', anchors: [{ id: 'mr', label: 'model-router', kind: 'feature' }], evidence: [{ sourceRef: 'doc1', text: 'model-router selects a provider', score: 0.9 }], proposedClaims: [{ subject: 'model-router', predicate: 'routes', object: 'models', support: 0.8 }] } },
   { id: 'topic-scope', label: 'Slash-topic scope', group: 'Interop', sample: { pack: { topic: '/security', version: '1', include: ['auth', 'guardrail'], exclude: ['recipe'] }, items: [{ text: 'auth flow' }, { text: 'cooking recipe' }, { text: 'guardrail policy' }] } },

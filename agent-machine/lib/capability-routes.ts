@@ -309,6 +309,21 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
         ]
         return send(200, { apiVersion: 'lattice.socioprophet.dev/v1', count: assets.length, assets: assets.map((a) => ({ ...a, _conformance: conformsToLattice(a) })) }), true
       }
+      // ── alignment: how does ingested text (news/doc) align with your brain (docs + chat docs)? ──
+      case 'align-check': {
+        const { splitClaims, alignClaims } = await import('./alignment.js')
+        const text = String(b.text ?? '')
+        if (!text.trim()) return send(400, { error: 'text required' }), true
+        const claims = splitClaims(text)
+        let brain: Array<{ id: string; text: string; source?: string }> = []
+        try {
+          const { searchDocsReranked } = await import('./doc-store.js')
+          const query = claims.join(' ').slice(0, 800) || text.slice(0, 800)
+          const hits = await searchDocsReranked(query, 40)
+          brain = hits.map((h) => ({ id: h.docId, text: h.text, source: h.citation }))
+        } catch { /* no docs yet → everything reads as novel */ }
+        return send(200, { ...alignClaims(claims, brain), brainStatements: brain.length }), true
+      }
       // ── multi-cloud compute broker: route a workload to the cheapest satisfying provider ──
       case 'cloud-broker': {
         const { brokerCompute, brokerSavings, toAgentplanePlacement, COMPUTE_CATALOG } = await import('./cloud-broker.js')
