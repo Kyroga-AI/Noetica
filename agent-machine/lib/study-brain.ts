@@ -9,13 +9,12 @@
  * the MIT-OCW corpus the benchmark proved works. Embeddings reuse lib/ollama (the shared embedder).
  */
 import * as fs from 'node:fs'
-import * as os from 'node:os'
 import * as path from 'node:path'
 import { embedText } from './ollama.js'
 import { termSet } from './text-normalize.js'
 import { decodeVec, l2norm } from './brain-vec.js'
+import { academicBrainDir } from './brain-home.js'
 
-const BRAIN = process.env['OCW_BRAIN'] || path.join(os.homedir(), 'Downloads', 'MIT OCW', '_brain')
 const MAX = Number(process.env['STUDY_BRAIN_CAP'] || 30000)              // per-field cap
 const GLOBAL_MAX = Number(process.env['STUDY_BRAIN_GLOBAL_CAP'] || 250000) // total resident across ALL fields
 
@@ -25,6 +24,7 @@ function loadedTotal(): number { let n = 0; for (const v of cache.values()) n +=
 
 /** Fields the brain currently covers (biology, physics, mathematics, …). */
 export function brainFields(): string[] {
+  const BRAIN = academicBrainDir()
   if (!fs.existsSync(BRAIN)) return []
   return fs.readdirSync(BRAIN).filter((d) => {
     const p = path.join(BRAIN, d)
@@ -37,7 +37,7 @@ function loadField(field: string): Chunk[] {
   // Bound TOTAL resident chunks, not just per-field: the brain has many fields, so a per-field MAX
   // still permits MAX×fields growth. Cap this field's load to whatever global budget remains.
   const cap = Math.min(MAX, Math.max(0, GLOBAL_MAX - loadedTotal()))
-  const dir = path.join(BRAIN, field)
+  const dir = path.join(academicBrainDir(), field)
   const out: Chunk[] = []
   if (cap > 0 && fs.existsSync(dir)) {
     for (const fn of fs.readdirSync(dir).filter((f) => f.endsWith('.jsonl'))) {

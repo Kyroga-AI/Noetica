@@ -3949,6 +3949,39 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // GET /api/brain/status — what knowledge this machine has (academic / operational / chat: present?
+  // where? how much?). Lets a fresh install SEE that its shippable brains aren't provisioned yet.
+  if (req.method === 'GET' && url.pathname === '/api/brain/status') {
+    void (async () => {
+      const { brainStatus } = await import('./lib/brain-provision.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify(brainStatus()))
+    })()
+    return
+  }
+
+  // POST /api/brain/provision { name: 'academic'|'operational' } — download + install a shippable brain
+  // from its configured artifact URL, streaming progress as SSE. The chat brain is never provisioned.
+  if (req.method === 'POST' && url.pathname === '/api/brain/provision') {
+    let raw = ''
+    req.on('data', (c: Buffer) => { raw += c.toString(); if (raw.length > 4096) req.destroy() })
+    req.on('end', () => { void (async () => {
+      let name: string
+      try { name = String((JSON.parse(raw || '{}') as { name?: string }).name ?? '') } catch { name = '' }
+      if (name !== 'academic' && name !== 'operational') {
+        res.writeHead(400, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: "name must be 'academic' or 'operational'" }))
+        return
+      }
+      res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' })
+      const { provisionBrain } = await import('./lib/brain-provision.js')
+      const result = await provisionBrain(name, (p) => { res.write(`data: ${JSON.stringify({ progress: p })}\n\n`) })
+      res.write(`data: ${JSON.stringify({ done: result })}\n\n`)
+      res.end()
+    })() })
+    return
+  }
+
   // GET/PUT /api/identity — the current user's profile (name/email), per-machine. Replaces the
   // hardcoded developer identity: a fresh install reads the neutral default ('You', no email) until
   // the user sets their own here. GET returns it; PUT/POST persists to ~/.noetica/identity.json.

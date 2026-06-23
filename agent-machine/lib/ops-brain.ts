@@ -9,15 +9,12 @@
  * it and vice-versa.
  */
 import * as fs from 'node:fs'
-import * as os from 'node:os'
-import * as path from 'node:path'
 import { termSet } from './text-normalize.js'
 import { BrainScope } from './brain-scope.js'
+import { opsBrainFile } from './brain-home.js'
 
 // Resolved lazily (not at module load) so env changes — and tests — take effect.
-function opsCorpusPath(): string {
-  return process.env['OPS_CORPUS'] || path.join(os.homedir(), '.noetica', 'ops-corpus', 'manpages.jsonl')
-}
+const opsCorpusPath = opsBrainFile
 const MAX = Number(process.env['OPS_BRAIN_CAP'] || 80000)
 
 interface OpsChunk { text: string; subject: string; section: string; domain: string; terms: Set<string> }
