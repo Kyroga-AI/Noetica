@@ -39,7 +39,7 @@ import { isConfinedToHomeOrTmp } from './lib/path-confine.js'
 import { buildRouterDecision, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider } from './lib/router.js'
 import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTelemetry, type MeshTier } from './lib/scope-d.js'
 import { installEgressGuard, setOfflineMode } from './lib/egress-guard.js'
-import { classifyIntent, capabilityToTask, wantsVectorRag, intentByName, planFromIntent, intentToAction } from './lib/intent-router.js'
+import { classifyIntent, capabilityToTask, wantsVectorRag, intentByName, planFromIntent, intentToAction, deEscalateEveryday } from './lib/intent-router.js'
 import { routeForAction, meshrushPhase } from './lib/action-cell.js'
 import { selectSurface, cleanLabel } from './lib/graph-surface.js'
 import { generateSovereign, meshLadder } from './lib/mesh.js'
@@ -2141,6 +2141,9 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       }
     } catch { /* embedding classifier best-effort */ }
   }
+  // Anti-over-engineering guard: an everyday question ("how to make coffee") that got routed into the
+  // build/code lane is redirected to the everyday lane (simple answer, no tools) — never "build an app".
+  intentPlan = deEscalateEveryday(intentPlan, latestUserContent)
   // 'continue'/'ingest' carry no model task — let the keyword router decide those.
   const intentTaskOverride = (intentPlan.model === 'continue' || intentPlan.model === 'ingest')
     ? undefined

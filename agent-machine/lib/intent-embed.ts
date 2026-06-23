@@ -36,6 +36,8 @@ const EXEMPLARS: Record<string, string[]> = {
   converse_smalltalk: ['hey there', 'good morning', 'how are you', 'hello'],
   confirm_steer: ['yes proceed', 'go ahead', 'sounds good do it', 'okay continue'],
   meta_capability: ['what can you do', 'what are your capabilities', 'how can you help me', 'what do you do'],
+  // Everyday / household domain — so an everyday how-to lands here (a simple answer), NOT on build_implement.
+  everyday: ['how do i make coffee', "what's a good recipe for dinner", 'how to get a stain out of a shirt', 'tips for keeping houseplants alive', 'how do i make scrambled eggs', 'best way to clean a cast iron pan', 'how to fold a fitted sheet', 'what can i cook with chicken and rice', 'how do i brew loose leaf tea', 'how to remove a red wine stain'],
 }
 
 let centroids: { name: string; vec: number[] }[] | null = null

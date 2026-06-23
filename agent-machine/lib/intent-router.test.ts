@@ -1,6 +1,39 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { classifyIntent, capabilityToTask, wantsVectorRag } from './intent-router.js'
+import { classifyIntent, capabilityToTask, wantsVectorRag, deEscalateEveryday, planFromIntent, intentByName } from './intent-router.js'
+
+test('REGRESSION: "how to make coffee" is everyday, NOT a build (no app-building)', () => {
+  const p = classifyIntent('how to make coffee')
+  assert.equal(p.name, 'everyday')
+  assert.equal(p.model, 'general')
+  assert.deepEqual(p.tools, []) // the everyday lane can NEVER build/run anything
+  assert.notEqual(p.surface, 'code')
+})
+
+test('everyday how-tos route to the everyday lane', () => {
+  for (const q of ['how do i make scrambled eggs', 'recipe for banana bread', 'how to brew coffee', 'how do i remove a wine stain']) {
+    assert.equal(classifyIntent(q).name, 'everyday', q)
+  }
+})
+
+test('deEscalateEveryday redirects a build intent on an everyday, non-technical query', () => {
+  const build = planFromIntent(intentByName('build_implement')!, 2)
+  const fixed = deEscalateEveryday(build, 'how to make coffee')
+  assert.equal(fixed.name, 'everyday')
+  assert.deepEqual(fixed.tools, [])
+})
+
+test('deEscalateEveryday does NOT touch a legit technical build', () => {
+  const build = planFromIntent(intentByName('build_implement')!, 2)
+  // "coffee tracking app" has a technical signal (app) → stays a build
+  assert.equal(deEscalateEveryday(build, 'build me a coffee tracking app').name, 'build_implement')
+  assert.equal(deEscalateEveryday(build, 'build a login form with react').name, 'build_implement')
+})
+
+test('a real software build still classifies as build_implement', () => {
+  assert.equal(classifyIntent('build a REST API with authentication').name, 'build_implement')
+  assert.equal(classifyIntent('create a dashboard component').name, 'build_implement')
+})
 
 test('the transcript failures route correctly now', () => {
   // pharma summary → general + vector-rag (NOT the coder)

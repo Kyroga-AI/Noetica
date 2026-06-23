@@ -53,6 +53,12 @@ const INTENTS: Intent[] = [
   { id: 19, name: 'converse_smalltalk', model: 'concierge', retrieval: 'none', slots: [], tools: [], surface: '', skill: '', cues: /^(\s*)(hi|hey|hello|good (morning|evening|afternoon)|how are you|sup|yo)\b/i },
   { id: 20, name: 'confirm_steer', model: 'continue', retrieval: 'none', slots: [], tools: [], surface: '', skill: '', cues: /^(\s*)(yes|ok(ay)?|proceed|go( ahead)?|continue|do it|sure|lets? (go|do it|proceed))\b/i },
   { id: 21, name: 'meta_capability', model: 'general', retrieval: 'self-model', slots: [], tools: [], surface: 'holographme', skill: 'governance-sentinel', cues: /\b(what can you do|your capabilities|what are you capable|how can you help|what do you do)\b/i },
+  // Everyday / household domain — cooking, cleaning, home, garden, life how-tos. A SIMPLE conversational
+  // answer from general knowledge: model 'general', NO tools (it can never build/run anything), stay in
+  // chat. This exists so an everyday question ("how to make coffee") has a correct home instead of being
+  // pulled into the build/code lane. Content-anchored cues (not a bare "how do I") so it won't shadow a
+  // real technical "how do I build X".
+  { id: 22, name: 'everyday', model: 'general', retrieval: 'kb', slots: [], tools: [], surface: '', skill: '', cues: /\b(recipe|how to (cook|bake|brew|clean|wash|fold|iron|grow|plant|make (coffee|tea|breakfast|eggs|toast|dinner))|how do i (cook|bake|brew|clean|wash|fold|iron|grow|plant|remove|unclog|store|defrost|reheat|make (coffee|tea|breakfast|eggs|toast|dinner|scrambled eggs))|make (coffee|tea|espresso|breakfast|lunch|dinner|brunch|eggs|scrambled eggs|an omelette|toast|pancakes|pasta|rice|popcorn|soup|a sandwich|a smoothie|a salad|a cocktail|a drink)|cook|bake|brew (coffee|tea|beer)|laundry|remove a (stain|wine stain)|declutter|home remedy|water (the|my) plants|gardening|meal ?prep|leftovers|household chores?|change a (tire|lightbulb|diaper))\b/i },
 ]
 
 /** Classify a user turn into its intent plan. ctx.hasDoc routes ambiguous
@@ -122,6 +128,24 @@ const INTENT_ACTION: Record<string, Action> = {
   fix_debug: 'transform', explain_teach: 'transform', write_draft: 'transform', compute_math: 'transform', prove_reason: 'transform',
   file_ingest: 'sense',
   configure_ops: 'execute',
+  everyday: 'retrieve',
   plan_nextsteps: 'meta', converse_smalltalk: 'meta', confirm_steer: 'meta',
 }
 export function intentToAction(name: string): Action { return INTENT_ACTION[name] ?? 'transform' }
+
+// Anti-over-engineering guard. A friend asked "how to make coffee" and the agent tried to BUILD AN APP:
+// an everyday question got routed into the heavy code/build lane (via the embedding classifier landing on
+// build_implement). If a build/ops/code intent is chosen for a query that has an everyday-domain signal
+// and NO technical signal, that's a misroute — send it to the everyday lane (a simple answer, no tools).
+const HEAVY_CODE_INTENTS = new Set(['build_implement', 'configure_ops', 'fix_debug', 'code_review'])
+const TECH_SIGNAL = /\b(app|application|code|coding|program|script|function|class|method|module|api|endpoint|cli|terminal|shell|bug|crash|error|exception|compile|deploy|server|backend|frontend|database|sql|query|schema|repo|git|github|commit|branch|pull request|\bpr\b|merge|npm|yarn|pnpm|pip|cargo|docker|kubernetes|react|vue|svelte|angular|next\.?js|node|python|javascript|typescript|rust|golang|css|html|json|ya?ml|regex|parser|component|webhook|oauth|jwt|token|config|website|web ?app|software|\.(ts|js|py|rs|go|java|json|ya?ml|tsx|jsx|sh|sql|css|html)\b)/i
+const EVERYDAY_SIGNAL = /\b(coffee|tea|espresso|latte|recipe|cook|bake|brew|breakfast|lunch|dinner|meal|sandwich|smoothie|salad|snack|grocer|kitchen|laundry|clean|stain|vacuum|dish(es)?|chore|declutter|tidy|garden|plant|flower|lawn|pet|dog|cat|home remedy|household|furniture|decorate|workout|exercise|sleep|skincare|tire|diaper|lightbulb)\b/i
+
+/** Redirect an everyday question that was misrouted into the code/build lane to the everyday lane. */
+export function deEscalateEveryday(plan: IntentPlan, query: string): IntentPlan {
+  if (HEAVY_CODE_INTENTS.has(plan.name) && EVERYDAY_SIGNAL.test(query) && !TECH_SIGNAL.test(query)) {
+    const ev = INTENTS.find((i) => i.name === 'everyday')
+    if (ev) return planFromIntent(ev, plan.score)
+  }
+  return plan
+}
