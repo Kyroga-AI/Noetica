@@ -69,6 +69,12 @@ const SUBJECT_FIELDS: Record<string, string[]> = {
   college_chemistry: ['chemistry'], high_school_chemistry: ['chemistry'],
   college_biology: ['biology', 'biological_eng'], high_school_biology: ['biology', 'biological_eng'],
   college_computer_science: ['eecs'], electrical_engineering: ['eecs'],
+  // medicine board — the MMLU medical subjects graded against the 'medicine' brain (MedRAG textbooks).
+  // Populate the bank with scripts/fetch_mmlu_subjects.py first. anatomy/genetics also draw on biology.
+  anatomy: ['medicine', 'biology'], clinical_knowledge: ['medicine'], college_medicine: ['medicine', 'biology'],
+  professional_medicine: ['medicine'], medical_genetics: ['medicine', 'biology'],
+  // legal board — MMLU professional/jurisprudence subjects graded against the 'legal' brain.
+  professional_law: ['legal'], jurisprudence: ['legal'], international_law: ['legal'],
 }
 
 // FIELD_ADJ — co-prime / adjacent fields to WIDEN into when per-choice coverage is thin. The
