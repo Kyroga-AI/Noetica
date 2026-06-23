@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import { encryptLine, decryptLine, appendJsonl, readJsonl } from './at-rest.js'
+import { encryptLine, decryptLine, appendJsonl, readJsonl, writeJson, readJson } from './at-rest.js'
 
 test('round-trips a record through encrypt/decrypt', () => {
   const obj = { input: 'who is Baxter', coverage: 0.3, nested: { a: [1, 2, 3] } }
@@ -40,5 +40,18 @@ test('appendJsonl + readJsonl over a MIXED plaintext/encrypted file', () => {
     assert.ok(!raw.includes('"kind":"encrypted"') || raw.split('\n').filter((l) => l.includes('enc:v1:')).length === 2, 'new records are encrypted on disk')
     const back = readJsonl<{ n: number }>(f)
     assert.deepEqual(back.map((r) => r.n), [0, 1, 2], 'all three records read back, mixed forms')
+  } finally { try { fs.unlinkSync(f) } catch { /* */ } }
+})
+
+test('writeJson/readJson whole-file round-trip + encrypted on disk + plaintext fallback', () => {
+  const f = path.join(os.tmpdir(), `at-rest-json-${process.pid}-${Date.now()}.json`)
+  try {
+    const obj = { runs: [{ id: 'r1', prompt: 'SENSITIVE-governance-content' }], n: 1 }
+    writeJson(f, obj)
+    assert.ok(!fs.readFileSync(f, 'utf8').includes('SENSITIVE-governance-content'), 'sensitive content not plaintext on disk')
+    assert.deepEqual(readJson(f), obj, 'decrypts back identically')
+    // Lazy migration: a legacy plaintext whole-file JSON still reads.
+    fs.writeFileSync(f, JSON.stringify({ legacy: true }))
+    assert.deepEqual(readJson(f), { legacy: true })
   } finally { try { fs.unlinkSync(f) } catch { /* */ } }
 })

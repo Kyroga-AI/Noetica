@@ -78,7 +78,7 @@ import { CANONICAL_SHAPES, QUARANTINE_PROP } from './lib/canonical-shapes.js'
 import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
 import { runAgentLoop, type ProviderAdapter } from './lib/agent-loop.js'
 import { validateToolCall, type ToolSchema, type ArgSpec } from './lib/constrained-decode.js'
-import { appendJsonl as appendEncrypted, readJsonl as readEncrypted } from './lib/at-rest.js'
+import { appendJsonl as appendEncrypted, readJsonl as readEncrypted, writeJson as writeEncryptedJson, readJson as readEncryptedJson } from './lib/at-rest.js'
 import { critique, bestOfTemps, type Candidate as CriticCandidate } from './lib/critic.js'
 import { programOfThought, codeVerifyRepair } from './lib/exec-verify.js'
 import { applyEdit, editSummary } from './lib/apply-patch.js'
@@ -339,15 +339,15 @@ function readSecurityState(): unknown {
   catch { return { armed: false, tor: false, updated_at: null, source: 'noetica-agent-machine' } }
 }
 try {
-  const arr = JSON.parse(fs.readFileSync(GOVERNANCE_FILE, 'utf8'))
-  if (Array.isArray(arr)) _governanceRuns.push(...(arr as GovernanceRun[]).slice(-GOVERNANCE_RING_SIZE))
+  const arr = readEncryptedJson<GovernanceRun[]>(GOVERNANCE_FILE)   // encrypted at rest (lazy-migrates plaintext)
+  if (Array.isArray(arr)) _governanceRuns.push(...arr.slice(-GOVERNANCE_RING_SIZE))
 } catch { /* no prior governance log */ }
 let _govSaveTimer: ReturnType<typeof setTimeout> | null = null
 function saveGovernance(): void {
   if (_govSaveTimer) return
   _govSaveTimer = setTimeout(() => {
     _govSaveTimer = null
-    try { fs.mkdirSync(path.dirname(GOVERNANCE_FILE), { recursive: true }); fs.writeFileSync(GOVERNANCE_FILE, JSON.stringify(_governanceRuns)) } catch { /* best-effort */ }
+    try { writeEncryptedJson(GOVERNANCE_FILE, _governanceRuns) } catch { /* best-effort */ }
   }, 1500)
   _govSaveTimer.unref?.()
 }
@@ -4407,8 +4407,8 @@ const server = http.createServer((req, res) => {
     void (async () => {
       setCORSHeaders(res)
       try {
-        const { readFileSync } = await import('fs'); const { homedir } = await import('os'); const { join } = await import('path')
-        res.writeHead(200, { 'content-type': 'application/json' }); res.end(readFileSync(join(homedir(), '.noetica', 'sessions.json'), 'utf8'))
+        const data = readEncryptedJson(path.join(os.homedir(), '.noetica', 'sessions.json'))   // decrypt at rest
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(data ?? null))
       } catch { res.writeHead(200, { 'content-type': 'application/json' }); res.end('null') }
     })()
     return
@@ -4419,9 +4419,8 @@ const server = http.createServer((req, res) => {
     req.on('end', () => { void (async () => {
       setCORSHeaders(res)
       try {
-        const { writeFileSync, mkdirSync } = await import('fs'); const { homedir } = await import('os'); const { join } = await import('path')
-        const dir = join(homedir(), '.noetica'); mkdirSync(dir, { recursive: true })
-        writeFileSync(join(dir, 'sessions.json'), body || 'null')
+        let parsed: unknown = null; try { parsed = JSON.parse(body || 'null') } catch { parsed = null }
+        writeEncryptedJson(path.join(os.homedir(), '.noetica', 'sessions.json'), parsed)   // encrypt at rest
         res.writeHead(200, { 'content-type': 'application/json' }); res.end('{"ok":true}')
       } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
     })() })

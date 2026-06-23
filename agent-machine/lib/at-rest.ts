@@ -63,3 +63,12 @@ export function readJsonl<T = unknown>(filePath: string): T[] {
   try { return fs.readFileSync(filePath, 'utf8').split('\n').map(decryptLine).filter((x): x is T => x !== null) }
   catch { return [] }
 }
+
+/** Whole-file JSON store, encrypted at rest by default. Read auto-detects plaintext (lazy migration). */
+export function writeJson(filePath: string, obj: unknown): void {
+  fs.mkdirSync(path.dirname(filePath), { recursive: true })
+  fs.writeFileSync(filePath, enabled() ? encryptLine(obj) : JSON.stringify(obj))
+}
+export function readJson<T = unknown>(filePath: string): T | null {
+  try { return decryptLine(fs.readFileSync(filePath, 'utf8')) as T } catch { return null }
+}
