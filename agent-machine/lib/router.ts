@@ -489,7 +489,9 @@ export function preferredCoderForRam(): string | null {
 
 function isModelAvailable(model: string, available: string[]): boolean {
   const base = model.split(':')[0]!
-  return available.some((m) => m === model || m.startsWith(base))
+  // Match the exact ref OR a tag-variant of the SAME family (compare the base SEGMENT, not a prefix — else
+  // 'llama3:8b' spuriously matches 'llama3.1:70b' / 'llama3-groq').
+  return available.some((m) => m === model || m.split(':')[0] === base)
 }
 
 const FULL_CONTROLS = {
