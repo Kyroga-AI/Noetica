@@ -28,10 +28,10 @@ fi
 # pack <name> <src-dir> <artifact> — tar the CONTENTS of src-dir (so extract drops them straight into the
 # provision target), then print size + sha256 for integrity.
 pack() {
-  local name="$1" src="$2" art="$3"
+  local name="$1" src="$2" art="$3"; shift 3
   if [ -z "$src" ] || [ ! -e "$src" ]; then echo "# skip $name — not found (set its env or build it first)"; return; fi
-  echo "# packaging $name from $src"
-  tar -czf "$art" -C "$src" .
+  echo "# packaging $name from $src ${*:+(excluding: $*)}"
+  tar "$@" -czf "$art" -C "$src" .
   local sha size
   sha=$(shasum -a 256 "$art" | awk '{print $1}')
   size=$(du -h "$art" | awk '{print $1}')
@@ -39,8 +39,11 @@ pack() {
 }
 
 pack "academic"    "$ACAD"                 "$OUT/academic-brain.tar.gz"
-# the ops corpus is a single file; pack its containing dir so extract drops manpages.jsonl into operational/
-[ -n "$OPS" ] && pack "operational" "$(dirname "$OPS")" "$OUT/operational-brain.tar.gz"
+# the ops corpus is a DIRECTORY (manpages + self-ops + any FAQ); pack its contents into operational/.
+# EXCLUDE stack-docs.jsonl — it is built from PRIVATE repos (CLAUDE.md, internal docs) and must NEVER enter
+# the world-public artifact. Stack docs stay local (per-dev-machine). Also drop stray gsutil temp files.
+[ -n "$OPS" ] && pack "operational" "$(dirname "$OPS")" "$OUT/operational-brain.tar.gz" \
+  --exclude='./stack-docs.jsonl' --exclude='*.gstmp' --exclude='*.glossary.json'
 
 echo
 echo "# Next: upload the artifact(s) above to a STABLE public https URL (GCS object, S3, etc.)."
