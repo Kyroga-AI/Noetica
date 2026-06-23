@@ -61,16 +61,31 @@ function dedupeLowest(prices: LivePrice[]): LivePrice[] {
   return [...byKey.values()]
 }
 
-/** Merge live prices over a static catalogue (by provider+SKU name), updating usdPerHour / spotPerHour. */
+/** Merge live prices over a static catalogue (by provider+SKU name), updating usdPerHour / spotPerHour. Stamps
+ * each SKU's priceSource so the broker + UI are HONEST about which numbers are real-time vs list estimates: a SKU
+ * that got a live price is 'live'; everything else is 'list'. */
 export function mergeLivePrices(catalog: ComputeSku[], live: LivePrice[]): ComputeSku[] {
+  if (live.length === 0) return catalog   // no live data → genuine no-op (don't claim provenance we don't have)
   const od = new Map<string, number>(), spot = new Map<string, number>()
   for (const p of live) (p.spot ? spot : od).set(`${p.provider}:${p.skuName}`, p.usdPerHour)
   return catalog.map((s) => {
     const k = `${s.provider}:${s.name}`
     const o = od.get(k), sp = spot.get(k)
-    return (o == null && sp == null) ? s : { ...s, ...(o != null ? { usdPerHour: o } : {}), ...(sp != null ? { spotPerHour: sp } : {}) }
+    return (o == null && sp == null)
+      ? { ...s, priceSource: 'list' as const }
+      : { ...s, ...(o != null ? { usdPerHour: o } : {}), ...(sp != null ? { spotPerHour: sp } : {}), priceSource: 'live' as const }
   })
 }
+
+/**
+ * AWS / GCP live pricing — HONEST status: neither has a no-auth, low-payload price API usable from a sovereign
+ * desktop. AWS's Price List Bulk API is a ~1GB regional offer file; GCP's Cloud Billing Catalog API requires an
+ * API key. So we DON'T pretend to fetch them here — these adapters return [] (→ those SKUs stay 'list'), and the
+ * broker/UI label them as list estimates. Wire a keyed adapter later (the catalogue keys + merge already support
+ * it); until then the labeling is the feature: never show a list estimate as if it were a live quote.
+ */
+export async function fetchAwsPricing(): Promise<LivePrice[]> { return [] }   // needs the bulk offer file / a keyed Price List query
+export async function fetchGcpPricing(): Promise<LivePrice[]> { return [] }   // needs a Cloud Billing Catalog API key
 
 // Process-cached live catalogue (5-min TTL via the caller passing a clock; here a simple in-memory guard).
 let _cache: { at: number; live: LivePrice[] } | null = null

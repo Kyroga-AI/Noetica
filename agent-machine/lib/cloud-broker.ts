@@ -19,6 +19,7 @@ export interface ComputeSku {
   gpu?: { type: string; count: number; memGiB: number }
   usdPerHour: number                 // on-demand list price
   spotPerHour?: number               // spot / preemptible price (interruptible)
+  priceSource?: 'live' | 'list'      // 'live' = real-time billing API (Azure Retail today); 'list' = static estimate
 }
 
 // Representative cross-cloud GPU + CPU catalogue (on-demand list, USD/hr). Prices are approximate and meant

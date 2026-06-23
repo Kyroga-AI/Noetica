@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react'
  * provider across GCP/Azure/AWS/IBM + the local mesh (live Azure prices when "Live prices" is on), shows the
  * ranked quotes + savings + the agentplane-conformant placement, and lists lattice-forge runtime provenance.
  */
-type Quote = { sku: { provider: string; name: string; region: string; vcpus: number; memGiB: number; gpu?: { type: string; count: number; memGiB: number } }; effectivePerHour: number; totalUsd: number; spot: boolean }
+type Quote = { sku: { provider: string; name: string; region: string; vcpus: number; memGiB: number; gpu?: { type: string; count: number; memGiB: number }; priceSource?: 'live' | 'list' }; effectivePerHour: number; totalUsd: number; spot: boolean }
 type Provision = { provider: string; sku: string; region: string; state: string; usdPerHour: number; executor: { name: string; caps: Record<string, unknown> }; createCommand: string; error?: string }
 type BrokerResp = {
   best: Quote | null; ranked: Quote[]; considered: number; cheapestCloud: Quote | null; priceSource?: string
@@ -120,7 +120,7 @@ export function CloudBrokerSurface() {
                   <td className="py-1.5"><span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${PROVIDER_COLOR[q.sku.provider] ?? ''}`}>{q.sku.provider}</span></td>
                   <td className="font-mono text-[11px]">{q.sku.name}</td><td>{q.sku.region}</td>
                   <td className="text-[var(--color-text-secondary)]">{q.sku.gpu ? `${q.sku.gpu.count}× ${q.sku.gpu.type}` : `${q.sku.vcpus} vCPU`}</td>
-                  <td className="text-right">${q.effectivePerHour}{q.spot ? ' ·spot' : ''}</td><td className="text-right">${q.totalUsd}</td>
+                  <td className="text-right">${q.effectivePerHour}{q.spot ? ' ·spot' : ''} <span title={q.sku.priceSource === 'live' ? 'real-time billing API' : 'static list estimate — no live API for this provider'} className={`ml-1 rounded px-1 py-0.5 text-[8px] font-semibold ${q.sku.priceSource === 'live' ? 'bg-[#dcfce7] text-[#16a34a]' : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]'}`}>{q.sku.priceSource === 'live' ? 'live' : 'list'}</span></td><td className="text-right">${q.totalUsd}</td>
                 </tr>
               ))}
             </tbody>
