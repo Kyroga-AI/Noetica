@@ -41,6 +41,7 @@ import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTeleme
 import { installEgressGuard, setOfflineMode } from './lib/egress-guard.js'
 import { classifyIntent, capabilityToTask, wantsVectorRag, intentByName, planFromIntent, intentToAction, deEscalateEveryday } from './lib/intent-router.js'
 import { classifyLifeDomain } from './lib/life-domain.js'
+import { assessEffort } from './lib/effort.js'
 import { routeForAction, meshrushPhase } from './lib/action-cell.js'
 import { selectSurface, cleanLabel } from './lib/graph-surface.js'
 import { generateSovereign, meshLadder } from './lib/mesh.js'
@@ -2178,6 +2179,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   const knowledge = classifyKnowledge(latestUserContent)
   sse(res, 'action', { action: { verb: action, polarity, tier: actionRoute.tier, target: actionRoute.target, meshrush_phase: phase, knowledge_types: knowledge.types, solver: knowledge.solver, dominance: knowledge.dominance } })
 
+  // Effort gate: match the work to the request, so the heavy lanes (multi-candidate critic deliberation,
+  // escalation) only fire when the request genuinely warrants it — trivial in, trivial out. It only ever
+  // caps DOWN from the configured ceiling, so complex turns are unchanged; only simple ones get lightened.
+  const effort = assessEffort(latestUserContent, intentPlan.name)
+  sse(res, 'effort', { effort: { tier: effort.tier, reason: effort.reason } })
+
   // Decidability ladder (opt-in: NOETICA_LOGIC_SOLVER=1). Where the question is decidable — RECALL a
   // crystallized prior proof, COMPUTE by CAS, or EXTRACT verbatim from grounded source — compute the
   // answer by LOGIC and surface it (method + Gödel signature + attestation) as a provenance event. This
@@ -3191,7 +3198,11 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       // 3, set 1 to disable), NOETICA_CRITIC=0 to turn off. Skipped for tool turns,
       // trivial chat, and non-Ollama providers (those have their own paths).
       let deliberated = false
-      const bestOfN = Math.max(1, Math.min(8, Math.floor(Number(process.env['NOETICA_BESTOF_N'] ?? 3)) || 3))
+      const rawBestOfN = Math.max(1, Math.min(8, Math.floor(Number(process.env['NOETICA_BESTOF_N'] ?? 3)) || 3))
+      // Effort gate: a LIGHT turn (smalltalk / everyday / a short single-clause question) caps to 1 sample,
+      // which disables the critic best-of-N entirely — no over-deliberating a trivial ask. NOETICA_EFFORT_GATE=0
+      // restores the ungated behavior.
+      const bestOfN = process.env['NOETICA_EFFORT_GATE'] === '0' ? rawBestOfN : Math.min(rawBestOfN, effort.maxBestOfN)
       const criticEnabled = process.env['NOETICA_CRITIC'] !== '0' && bestOfN > 1
         && allTools.length === 0 && routerDecision.task !== 'chat'
 
