@@ -85,5 +85,5 @@ test('divergence recovery: nudges on repeated calls, gives up after 3 nudges', a
   // #2; turn 4 → the 3rd detection trips the give-up (break) WITHOUT appending a nudge. So: 2 executions, 2 nudges.
   assert.equal(ctx.executed.length, 2, 'executed the call twice before nudging began')
   assert.equal(adapter.nudges.length, 2, 'nudged twice, then gave up on the 3rd repeat')
-  assert.match(r.content, /kept repeating/)
+  assert.match(r.content, /repeated the same tool call/)
 })

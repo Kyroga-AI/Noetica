@@ -108,7 +108,8 @@ export async function runAgentLoop(adapter: ProviderAdapter, ctx: LoopCtx): Prom
     for await (const ev of adapter.streamTurn()) {
       if (ev.type === 'text') {
         turnContent += ev.text
-        const window = turnContent.slice(streamedLen > 16 ? streamedLen - 16 : 0)
+        // Look-back window matches the original Ollama loop exactly (incl. the `streamedLen ? … : 0` form).
+        const window = turnContent.slice(streamedLen ? streamedLen - 16 : 0)
         if (adapter.suppressInlineToolText && !suppressed && TOOL_CALL_ONSET.test(window)) {
           suppressed = true // hold back — this might be a raw tool call the local model is emitting as text
         } else if (!suppressed) {
@@ -150,7 +151,7 @@ export async function runAgentLoop(adapter: ProviderAdapter, ctx: LoopCtx): Prom
       for (const tc of calls) toolSeen.set(sig(tc), (toolSeen.get(sig(tc)) ?? 0) + 1)
       if (allRepeated) {
         if (++nudges >= 3) {
-          const note = '\n\n_(Stopped — the agent kept repeating the same step.)_'
+          const note = '\n\n_(Stopped — repeated the same tool call without making progress.)_'
           fullContent += note
           ctx.onDelta?.(note)
           ctx.sse('delta', { delta: note })

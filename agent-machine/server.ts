@@ -3470,122 +3470,44 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       }
 
       const ollamaToolNames = new Set(allTools.map((t) => t.name))
-      // Matches the moment the stream enters a tool call (so we stop showing raw
-      // JSON): a <tool_call> tag, a code fence, or the turn opening with a bare `{`.
-      const TOOL_CALL_ONSET = /<tool_call|```|^\s*\{/i
 
       try {
-      const ollamaToolSeen = new Map<string, number>()
-      let divergenceNudges = 0
-      if (!deliberated) for (let turn = 0; turn < MAX_TURNS; turn++) {
-        let turnContent = ''
-        let streamedLen = 0          // chars already streamed to the UI this turn
-        let suppressed = false       // stopped streaming — text looks like a tool call
-        let turnToolCalls: ToolUseBlock[] | undefined
-
-        for await (const event of streamOllama({
-          model,
-          messages: ollamaMessages,
-          tools: allTools,
-          numCtx: ollamaNumCtx,
-          temperature: reqTemperature,
-          maxTokens: reqMaxTokens,
-        })) {
-          if (event.type === 'text') {
-            turnContent += event.text
-            if (!suppressed) {
-              if (TOOL_CALL_ONSET.test(turnContent.slice(streamedLen ? streamedLen - 16 : 0))) {
-                suppressed = true   // hold the rest back; fallback parser handles it
-              } else {
-                liveContent += event.text
-                sse(res, 'delta', { delta: event.text })
-                streamedLen = turnContent.length
-              }
-            }
-          } else if (event.type === 'thinking') {
-            fullThinking += event.text
-            sse(res, 'thinking_delta', { delta: event.text })
-          } else if (event.type === 'tool_calls') {
-            turnToolCalls = event.calls
-          }
-        }
-
-        // Fallback: the model emitted the tool call as text, not via the API.
-        let assistantText = turnContent
-        if (!turnToolCalls?.length) {
-          const parsed = parseInlineToolCalls(turnContent, ollamaToolNames)
-          if (parsed.calls.length) {
-            turnToolCalls = parsed.calls
-            assistantText = parsed.cleaned
-          } else if (suppressed) {
-            // It wasn't a tool call after all — flush the held-back remainder.
-            const rest = turnContent.slice(streamedLen)
-            if (rest) { liveContent += rest; sse(res, 'delta', { delta: rest }) }
-          }
-        }
-
-        fullContent += assistantText
-
-        if (!turnToolCalls?.length) break
-
-        // Divergence RECOVERY (Claude-Code behavior): if every tool call this turn
-        // repeats one already made twice, the model is stuck. Don't just stop — feed
-        // the repetition back as a corrective and let it try a DIFFERENT approach.
-        // Only give up after a couple of nudges fail to break the loop.
-        const sig = (tc: { name: string; input: unknown }) => `${tc.name}:${JSON.stringify(tc.input)}`
-        const allRepeated = turnToolCalls.every((tc) => (ollamaToolSeen.get(sig(tc)) ?? 0) >= 2)
-        for (const tc of turnToolCalls) ollamaToolSeen.set(sig(tc), (ollamaToolSeen.get(sig(tc)) ?? 0) + 1)
-        if (allRepeated) {
-          divergenceNudges++
-          if (divergenceNudges >= 3) {
-            const note = '\n\n_(Stopped — repeated the same tool call without making progress.)_'
-            fullContent += note; liveContent += note; sse(res, 'delta', { delta: note })
-            break
-          }
-          // Recover: acknowledge the repeated calls, answer each with a corrective nudge
-          // instead of re-executing, and continue the loop so the model can change tack.
-          ollamaMessages.push({
-            role: 'assistant', content: assistantText || null,
-            tool_calls: turnToolCalls.map((tc) => ({ id: tc.id, type: 'function' as const, function: { name: tc.name, arguments: JSON.stringify(tc.input) } })),
-          })
-          for (const tc of turnToolCalls) {
-            ollamaMessages.push({ role: 'tool', tool_call_id: tc.id, content: `You already ran ${tc.name} with those exact arguments and it did not move the task forward. Do NOT repeat it — try a different tool, different arguments, or give your final answer now.` })
-          }
-          continue
-        }
-
-        sse(res, 'tool_calls', { tool_calls: turnToolCalls })
-        lastToolCalls = turnToolCalls
-        void recordTrajectory(turnToolCalls)
-
-        const toolResults = await Promise.all(
-          turnToolCalls.map(async (tc) => ({
-            toolCallId: tc.id,
-            name: tc.name,
-            result: await executeToolWithTimeout(tc.name, tc.input, {
-              anthropic: anthropicKey,
-              openai: openaiKey,
-              serper: keys.serper,
-            }),
-          })),
-        )
-
-        ollamaMessages.push({
-          role: 'assistant',
-          content: assistantText || null,
-          tool_calls: turnToolCalls.map((tc) => ({
-            id: tc.id,
-            type: 'function' as const,
-            function: { name: tc.name, arguments: JSON.stringify(tc.input) },
-          })),
+      // Step 3 (final) of the 3-loop unification: the Ollama tool loop now runs through the shared runAgentLoop.
+      // This is the only adapter with suppressInlineToolText + enableDivergenceRecovery + parseInlineToolCalls —
+      // the three Ollama-only behaviors the unified loop was designed to host. Byte-equivalent to the old loop
+      // (same suppression window, inline-call recovery, divergence nudge text + give-up note, append shapes).
+      const ollamaAppendAssistant = (assistantText: string, calls: ToolUseBlock[]) => {
+        ollamaMessages.push({ role: 'assistant', content: assistantText || null, tool_calls: calls.map((tc) => ({ id: tc.id, type: 'function' as const, function: { name: tc.name, arguments: JSON.stringify(tc.input) } })) })
+      }
+      const ollamaAdapter: ProviderAdapter = {
+        suppressInlineToolText: true,
+        enableDivergenceRecovery: true,
+        init() { /* ollamaMessages already built above */ },
+        async *streamTurn() {
+          yield* streamOllama({ model, messages: ollamaMessages, tools: allTools, numCtx: ollamaNumCtx, temperature: reqTemperature, maxTokens: reqMaxTokens })
+        },
+        parseInlineToolCalls(text) { return parseInlineToolCalls(text, ollamaToolNames) },
+        appendToolTurn(assistantText, calls, results) {
+          ollamaAppendAssistant(assistantText, calls)
+          for (const r of results) ollamaMessages.push({ role: 'tool', content: r.result, tool_call_id: r.id })
+        },
+        appendNudge(assistantText, calls) {
+          // Corrective: acknowledge the repeated calls, answer each with a nudge instead of re-executing.
+          ollamaAppendAssistant(assistantText, calls)
+          for (const tc of calls) ollamaMessages.push({ role: 'tool', tool_call_id: tc.id, content: `You already ran ${tc.name} with those exact arguments and it did not move the task forward. Do NOT repeat it — try a different tool, different arguments, or give your final answer now.` })
+        },
+      }
+      if (!deliberated) {
+        const ollamaResult = await runAgentLoop(ollamaAdapter, {
+          maxTurns: MAX_TURNS,
+          executeTool: (name, input) => executeToolWithTimeout(name, input, { anthropic: anthropicKey, openai: openaiKey, serper: keys.serper }),
+          sse: (event, data) => sse(res, event, data),
+          recordTrajectory: (calls) => recordTrajectory(calls),
+          onDelta: (t) => { liveContent += t },
         })
-        for (const r of toolResults) {
-          ollamaMessages.push({
-            role: 'tool',
-            content: r.result,
-            tool_call_id: r.toolCallId,
-          })
-        }
+        fullContent += ollamaResult.content
+        fullThinking += ollamaResult.thinking
+        if (ollamaResult.lastToolCalls) lastToolCalls = ollamaResult.lastToolCalls
       }
       } finally { releaseLease?.() }
     } else if (provider === 'anthropic') {
