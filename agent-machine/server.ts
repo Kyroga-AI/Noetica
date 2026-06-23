@@ -844,6 +844,33 @@ const BUILTIN_TOOLS: ProviderTool[] = [
     },
   },
   {
+    name: 'brain_status',
+    description:
+      'Report what KNOWLEDGE this Noetica install has loaded right now — the academic (STEM), operational (how-to / self-troubleshooting), and chat brains, their versions and whether an update is available, plus which academic subject domains (mathematics, physics, medicine, legal, …) are rich, thin, or missing. Use when the user asks "what do you know", "is your knowledge current", "what subjects do you cover", or before answering a domain question you may lack the corpus for.',
+    input_schema: { type: 'object', properties: {} },
+  },
+  {
+    name: 'update_self',
+    description:
+      'Update Noetica\'s own KNOWLEDGE: download any missing or outdated brain (academic / operational) from the brain service, in the background, integrity-checked. This is how Noetica updates itself when the user says "update yourself", "update your knowledge", "refresh your brains", or when brain_status shows an update available. NOTE: this updates the knowledge brains, not the app binary — to update the app the user runs `brew upgrade --cask noetica` (you cannot do that from here).',
+    input_schema: {
+      type: 'object',
+      properties: { brain: { type: 'string', enum: ['academic', 'operational', 'all'], description: 'Which brain to update (default: all that are missing or outdated).' } },
+    },
+  },
+  {
+    name: 'set_identity',
+    description:
+      'Set the USER\'S profile — display name and/or email — for this install. This is the name shown in the UI and used when referring to the user, distinct from a remembered fact. Use when the user tells you who they are ("my name is …", "I\'m …", "my email is …", "set my profile"). A fresh install has a neutral profile ("You") until this is set.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        display_name: { type: 'string', description: "The user's display name." },
+        email: { type: 'string', description: "The user's email address (optional)." },
+      },
+    },
+  },
+  {
     name: 'ocr',
     description:
       'Extract text from an image FILE on disk using on-device OCR (macOS Vision — fully local, no network). Use to read text in a screenshot, photo, scanned doc, or diagram. Returns the recognized text.',
@@ -1355,6 +1382,7 @@ async function executeTool(
     web_search: 'network_call',
     generate_image: 'network_call',
     public_data: 'network_call',
+    update_self: 'network_call', // downloads brain artifacts from the brain service
     code_execute: 'write',
     run_command: 'write',
   }
@@ -1544,6 +1572,41 @@ async function executeTool(
       } catch (e) {
         return `Could not save to memory: ${e instanceof Error ? e.message : String(e)} (is the local embedding model available?)`
       }
+    }
+    case 'brain_status': {
+      try {
+        const { brainStatus } = await import('./lib/brain-provision.js')
+        const { fetchBrainManifest } = await import('./lib/brain-manifest.js')
+        const { domainStatus } = await import('./lib/knowledge-domains.js')
+        const s = brainStatus(await fetchBrainManifest())
+        const ds = domainStatus()
+        const brains = s.brains.map((b) => `${b.name}: ${b.present ? 'loaded' : 'NOT loaded'}${b.installedVersion ? ` v${b.installedVersion}` : ''}${b.updateAvailable ? ' (update available)' : ''}`).join('; ')
+        const doms = ds.domains.map((d) => `${d.field}=${d.status}`).join(', ')
+        return `Knowledge status — brains: ${brains}. Academic domains: ${doms}. (embed: ${ds.embedModel ?? 'n/a'} ${ds.dims ?? ''}d)`
+      } catch (e) { return `Could not read brain status: ${e instanceof Error ? e.message : String(e)}` }
+    }
+    case 'update_self': {
+      const which = String(input['brain'] ?? 'all')
+      try {
+        const { brainStatus, provisionBrain } = await import('./lib/brain-provision.js')
+        const { fetchBrainManifest } = await import('./lib/brain-manifest.js')
+        const targets = (which === 'academic' || which === 'operational')
+          ? [which]
+          : brainStatus(await fetchBrainManifest()).brains.filter((b) => b.name !== 'chat' && (!b.present || b.updateAvailable)).map((b) => b.name)
+        if (targets.length === 0) return 'My knowledge is already up to date — nothing to update.'
+        // Background: the academic brain is ~2GB; a chat tool must NOT block the turn on a multi-minute download.
+        for (const t of targets) void provisionBrain(t as 'academic' | 'operational')
+        return `Started updating my knowledge: ${targets.join(', ')} — downloading + verifying in the background. Ask me for "brain status" to check progress. (To update the app itself, run: brew upgrade --cask noetica.)`
+      } catch (e) { return `Update failed: ${e instanceof Error ? e.message : String(e)}` }
+    }
+    case 'set_identity': {
+      const displayName = input['display_name'] ? String(input['display_name']).trim() : undefined
+      const email = input['email'] ? String(input['email']).trim() : undefined
+      if (!displayName && !email) return 'Error: provide a display_name and/or email to set.'
+      try {
+        const next = setUserIdentity({ displayName, email })
+        return `Profile updated — you're now set as ${next.displayName}${next.email ? ` <${next.email}>` : ''}. The UI and how I refer to you will use this.`
+      } catch (e) { return `Could not set profile: ${e instanceof Error ? e.message : String(e)}` }
     }
     default:
       return `Unknown built-in tool: ${name}`

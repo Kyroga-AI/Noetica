@@ -30,6 +30,18 @@ test('deEscalateEveryday does NOT touch a legit technical build', () => {
   assert.equal(deEscalateEveryday(build, 'build a login form with react').name, 'build_implement')
 })
 
+test('self-operation requests reach the right chat tools', () => {
+  const upd = classifyIntent('update your knowledge')
+  assert.ok(upd.tools.includes('update_self'), `update → ${upd.name}: ${upd.tools}`)
+  const name = classifyIntent('my name is Ada Lovelace')
+  assert.ok(name.tools.includes('set_identity'), `name → ${name.name}: ${name.tools}`)
+  const know = classifyIntent('what do you know')
+  assert.ok(know.tools.includes('brain_status'), `know → ${know.name}: ${know.tools}`)
+  // a casual identity statement that misses the cue still falls to general, which exposes set_identity
+  const casual = classifyIntent('btw call me Mike going forward please')
+  assert.ok(casual.tools.includes('set_identity') || casual.tools.includes('remember'))
+})
+
 test('a real software build still classifies as build_implement', () => {
   assert.equal(classifyIntent('build a REST API with authentication').name, 'build_implement')
   assert.equal(classifyIntent('create a dashboard component').name, 'build_implement')
