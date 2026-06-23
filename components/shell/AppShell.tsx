@@ -20,6 +20,7 @@ import { RagInspectSurface } from '@/components/surfaces/RagInspectSurface'
 import { LabSurface } from '@/components/surfaces/LabSurface'
 import { CloudBrokerSurface } from '@/components/surfaces/CloudBrokerSurface'
 import { AlignmentSurface } from '@/components/surfaces/AlignmentSurface'
+import { AgentBuilderSurface } from '@/components/surfaces/AgentBuilderSurface'
 import { JitsiSurface } from '@/components/surfaces/JitsiSurface'
 import { OfficeViewer } from '@/components/surfaces/OfficeViewer'
 import { GovernSurface } from '@/components/surfaces/GovernSurface'
@@ -95,6 +96,7 @@ const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
   computer:     'Chat',
   broker:       'Chat',
   alignment:    'Chat',
+  agents:       'Chat',
 }
 
 export function AppShell() {
@@ -1707,6 +1709,7 @@ function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, work
   if (activeSurface === 'lab')          return <LabSurface />
   if (activeSurface === 'broker')       return <CloudBrokerSurface />
   if (activeSurface === 'alignment')    return <AlignmentSurface />
+  if (activeSurface === 'agents')       return <AgentBuilderSurface />
   if (activeSurface === 'jitsi')        return <JitsiSurface />
   if (activeSurface === 'docs')         return <OfficeViewer />
   if (activeSurface === 'operate')      return <OperateSurface onAtomSelect={onAtomSelect} />

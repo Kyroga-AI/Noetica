@@ -217,6 +217,7 @@ const surfaceItems: SurfaceItem[] = [
   { id: 'marketplace', label: 'Marketplace', icon: <IconMarketplace />,items: [] },
   { id: 'broker',      label: 'Cloud Broker', icon: <IconMarketplace />, items: ['Cheapest GPU/VM', 'Live prices', 'Runtime registry'] },
   { id: 'alignment',   label: 'Alignment',   icon: <IconGovern />,      items: ['Corroborated', 'Conflicting', 'Novel'] },
+  { id: 'agents',      label: 'Agents',      icon: <IconCowork />,      items: ['Custom agents', 'Built-in roles'] },
 ]
 
 type SessionTreeProps = {
