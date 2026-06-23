@@ -23,3 +23,4 @@ export type ActiveSurface =
   | 'broker'
   | 'alignment'
   | 'agents'
+  | 'calendar'
