@@ -472,9 +472,15 @@ export function buildRouterDecision(opts: {
 export function bestCoder(available: string[], fallback: string): string {
   const ramGb = os.totalmem() / 1e9
   const prefs: string[] = []
-  if (ramGb >= 30) prefs.push('qwen3-coder:30b', 'qwen2.5-coder:32b')
-  if (ramGb >= 18) prefs.push('qwen2.5-coder:14b')
-  prefs.push('qwen2.5-coder:7b')
+  // Prefer current-gen Qwen3 when pulled, fall back to the 2.5 line (upgrade = just `ollama pull`).
+  // Qwen3 ships NO small code-specialized model (qwen3-coder is only the 30B-MoE/480B), so
+  // qwen2.5-coder stays as the fast non-thinking specialist at the floor. Code default scales with
+  // RAM: a 14B coder where it fits (measured: qwen3:14b gives clean code at ~9 tok/s on 24GB —
+  // quality over speed), else the snappy 7-8B. The verifier→escalation ladder reaches higher on
+  // low-confidence turns, so the default favours fit + responsiveness.
+  if (ramGb >= 30) prefs.push('qwen3-coder:30b', 'qwen3:32b', 'qwen2.5-coder:32b')
+  if (ramGb >= 18) prefs.push('qwen3:14b', 'qwen2.5-coder:14b')
+  prefs.push('qwen3:8b', 'qwen2.5-coder:7b')
   for (const m of prefs) if (isModelAvailable(m, available)) return m
   return fallback
 }
