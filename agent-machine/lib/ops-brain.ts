@@ -9,39 +9,50 @@
  * it and vice-versa.
  */
 import * as fs from 'node:fs'
+import * as path from 'node:path'
 import { termSet } from './text-normalize.js'
 import { BrainScope } from './brain-scope.js'
-import { opsBrainFile } from './brain-home.js'
+import { opsBrainDir } from './brain-home.js'
 
-// Resolved lazily (not at module load) so env changes — and tests — take effect.
-const opsCorpusPath = opsBrainFile
 const MAX = Number(process.env['OPS_BRAIN_CAP'] || 80000)
 
 interface OpsChunk { text: string; subject: string; section: string; domain: string; terms: Set<string> }
 let _cache: OpsChunk[] | null = null
 
+// Every *.jsonl in the operations brain dir: manpages.jsonl + stack-docs.jsonl + self-ops.jsonl + any
+// FAQ assets. Resolved lazily so env changes / tests take effect.
+function opsJsonlFiles(): string[] {
+  try {
+    const dir = opsBrainDir()
+    return fs.readdirSync(dir).filter((f) => f.endsWith('.jsonl')).map((f) => path.join(dir, f))
+  } catch { return [] }
+}
+
 function load(): OpsChunk[] {
   if (_cache) return _cache
   const out: OpsChunk[] = []
-  try {
-    for (const line of fs.readFileSync(opsCorpusPath(), 'utf8').split('\n')) {
-      if (!line.trim() || out.length >= MAX) continue
-      try {
-        const o = JSON.parse(line) as { text?: string; subject?: string; man_section?: string; domain?: string }
-        if (!o.text) continue
-        out.push({ text: o.text, subject: o.subject || '', section: o.man_section || '', domain: o.domain || '', terms: termSet(o.text) })
-      } catch { /* skip malformed line */ }
-    }
-  } catch { /* no corpus on this machine → empty (lane is a no-op) */ }
+  for (const file of opsJsonlFiles()) {
+    if (out.length >= MAX) break
+    try {
+      for (const line of fs.readFileSync(file, 'utf8').split('\n')) {
+        if (!line.trim() || out.length >= MAX) continue
+        try {
+          const o = JSON.parse(line) as { text?: string; subject?: string; man_section?: string; domain?: string }
+          if (!o.text) continue
+          out.push({ text: o.text, subject: o.subject || '', section: o.man_section || '', domain: o.domain || '', terms: termSet(o.text) })
+        } catch { /* skip malformed line */ }
+      }
+    } catch { /* unreadable file → skip */ }
+  }
   _cache = out
   return out
 }
 
 export interface OpsHit { text: string; subject: string; section: string; score: number; scope: string }
 
-/** Whether the operations corpus is present (so the retrieval lane can no-op cleanly when absent). */
+/** Whether the operations corpus has any content (so the retrieval lane can no-op cleanly when absent). */
 export function opsBrainReady(): boolean {
-  try { const p = opsCorpusPath(); return fs.existsSync(p) && fs.statSync(p).size > 0 } catch { return false }
+  return opsJsonlFiles().length > 0
 }
 
 /** Lexical (stemmed term-overlap) retrieval over the ops corpus. Top-k operational chunks for a query. */

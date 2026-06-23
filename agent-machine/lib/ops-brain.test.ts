@@ -16,12 +16,27 @@ function writeCorpus(): string {
   return corpus
 }
 
-test('ready=false when the corpus is missing; retrieve returns []', async () => {
-  process.env['OPS_CORPUS'] = path.join(os.tmpdir(), 'no-such-ops-corpus.jsonl')
+test('ready=false when the corpus dir has no jsonl; retrieve returns []', async () => {
+  // a fresh EMPTY dir (the ops brain now scans the whole dir, so point at one with no *.jsonl)
+  const emptyDir = fs.mkdtempSync(path.join(os.tmpdir(), 'ops-empty-'))
+  process.env['OPS_CORPUS'] = path.join(emptyDir, 'manpages.jsonl')
   const m = await import('./ops-brain.js')
   m._resetOpsBrainCache()
   assert.equal(m.opsBrainReady(), false)
   assert.deepEqual(m.opsBrainRetrieve('anything'), [])
+})
+
+test('reads MULTIPLE jsonl files in the ops dir (manpages + self-ops + docs)', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ops-multi-'))
+  fs.writeFileSync(path.join(dir, 'manpages.jsonl'), JSON.stringify({ text: 'grep searches files for a pattern', subject: 'grep', man_section: '1' }) + '\n')
+  fs.writeFileSync(path.join(dir, 'self-ops.jsonl'), JSON.stringify({ text: 'to update noetica run brew upgrade --cask noetica then relaunch', subject: 'noetica-update', domain: 'self-ops' }) + '\n')
+  process.env['OPS_CORPUS'] = path.join(dir, 'manpages.jsonl')
+  const m = await import('./ops-brain.js')
+  m._resetOpsBrainCache()
+  assert.equal(m.opsBrainReady(), true)
+  // a self-operations question retrieves the self-ops chunk — the differentiator
+  const hits = m.opsBrainRetrieve('how do i update noetica', 3)
+  assert.ok(hits.some((h) => h.subject === 'noetica-update'), JSON.stringify(hits))
 })
 
 test('lexical retrieval surfaces the on-topic manpage', async () => {

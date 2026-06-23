@@ -34,3 +34,8 @@ export function academicBrainDir(): string {
 export function opsBrainFile(): string {
   return pick('OPS_CORPUS', [path.join(brainHome(), 'operational', 'manpages.jsonl'), path.join(os.homedir(), '.noetica', 'ops-corpus', 'manpages.jsonl')])
 }
+
+/** The operations brain DIRECTORY — all *.jsonl in it are read (manpages + stack docs + self-ops FAQ). */
+export function opsBrainDir(): string {
+  return path.dirname(opsBrainFile())
+}
