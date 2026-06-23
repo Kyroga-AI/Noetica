@@ -132,6 +132,11 @@ interface LearningStats {
   evalCases: { count: number; recent: Array<{ input: string; failureMode: string; coverage: number }> }
 }
 
+interface DreamResult {
+  seeds: number; nodes: number; proposed: number; integrated: number
+  top: Array<{ from: string; to: string; via: string[]; support: number }>
+}
+
 function amUrl(path: string): string {
   const isTauri = typeof window !== 'undefined' &&
     ('__TAURI_INTERNALS__' in window || '__TAURI__' in window)
@@ -169,6 +174,8 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   const [trends, setTrends]               = useState<MeshTrends | null>(null)
   const [memories, setMemories]           = useState<MemoryRecord[]>([])
   const [learning, setLearning]           = useState<LearningStats | null>(null)
+  const [dream, setDream]                 = useState<DreamResult | null>(null)
+  const [dreaming, setDreaming]           = useState(false)
   const [filterVerdict, setFilterVerdict] = useState<'all' | PolicyVerdict>('all')
   const [filterModel, setFilterModel]     = useState<string>('all')
 
@@ -194,8 +201,22 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
       .then(r => r.ok ? r.json() : null)
       .then((d: LearningStats | null) => { if (d) setLearning(d) })
       .catch(() => { /* not running — skip */ })
+    // Dreaming: preview consolidated associations (GET = no writes).
+    fetch(amUrl('/api/dream'), { signal: AbortSignal.timeout(8000) })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: DreamResult | null) => { if (d) setDream(d) })
+      .catch(() => { /* not running — skip */ })
     loadMemories()
   }, [])
+
+  // Trigger a consolidation pass that PERSISTS the strongest proposals (POST = integrate).
+  async function runDream() {
+    setDreaming(true)
+    try {
+      const r = await fetch(amUrl('/api/dream'), { method: 'POST', signal: AbortSignal.timeout(20000) })
+      if (r.ok) setDream(await r.json() as DreamResult)
+    } catch { /* skip */ } finally { setDreaming(false) }
+  }
 
   function loadMemories() {
     fetch(amUrl('/api/memory/graph'), { signal: AbortSignal.timeout(3000) })
@@ -337,6 +358,45 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                   </li>
                 ))}
               </ul>
+            )}
+          </div>
+        )}
+
+        {/* Dreaming — offline generative consolidation (associations the graph doesn't have yet) */}
+        {dream && (
+          <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#7c3aed]">Dreaming</div>
+              <button onClick={() => void runDream()} disabled={dreaming}
+                className="rounded-lg border border-[#ddd6fe] bg-[#f5f3ff] px-2.5 py-1 text-[10px] font-semibold text-[#6d28d9] transition hover:bg-[#ede9fe] disabled:opacity-50">
+                {dreaming ? 'Dreaming…' : '✦ Dream now'}
+              </button>
+            </div>
+            <div className="mb-3 grid grid-cols-3 gap-3">
+              <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
+                <div className="text-2xl font-semibold text-[#7c3aed]">{dream.proposed}</div>
+                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Associations proposed</div>
+              </div>
+              <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
+                <div className="text-2xl font-semibold text-[#16a34a]">{dream.integrated}</div>
+                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Integrated (support ≥ 2)</div>
+              </div>
+              <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
+                <div className="text-2xl font-semibold text-[var(--color-text-primary)]">{dream.seeds}</div>
+                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Seed concepts</div>
+              </div>
+            </div>
+            {dream.top.length > 0 ? (
+              <ul className="space-y-1">
+                {dream.top.slice(0, 6).map((p, i) => (
+                  <li key={i} className="truncate text-[11px] text-[var(--color-text-secondary)]" title={`${p.from} ↔ ${p.to} (via ${p.via.join(' → ')}, support ${p.support})`}>
+                    <span className="text-[#7c3aed]">✦</span> {p.from} <span className="text-[var(--color-text-tertiary)]">↔</span> {p.to}
+                    <span className="ml-1 text-[10px] text-[var(--color-text-tertiary)]">via {p.via.slice(0, 3).join(' → ') || 'direct walk'} · ×{p.support}</span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <div className="text-[11px] text-[var(--color-text-tertiary)]">No novel associations surfaced yet — the graph grows them as you work.</div>
             )}
           </div>
         )}
