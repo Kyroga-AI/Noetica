@@ -70,6 +70,13 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
   const path = url.pathname.slice('/api/cap/'.length)
   const send = (code: number, obj: unknown) => { res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify(obj)) }
 
+  // Kill-switch coverage: when armed, the kill-switch must halt the WHOLE agent — not just /api/chat. The cap
+  // routes run local models, mutate the graph/CMS/swarm, and provision cloud — so a state-changing cap call is
+  // blocked while killed. (Read-only GETs are allowed so the UI can still show state.)
+  if (req.method === 'POST') {
+    try { const { containmentState } = await import('./agent-containment.js'); if (containmentState().killed) { send(503, { error: 'kill_switch_armed' }); return true } } catch { /* containment unavailable → allow */ }
+  }
+
   // CSRF/DNS-rebinding guard on STATE-CHANGING routes: loopback binding stops remote net attackers, but a
   // malicious web page could fetch() localhost. Reject a real cross-site http(s) Origin, and require a JSON
   // content-type (a simple text/plain POST skips CORS preflight). Same-origin / tauri / no-Origin (the app) pass.

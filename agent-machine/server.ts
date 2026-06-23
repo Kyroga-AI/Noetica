@@ -4116,6 +4116,13 @@ const server = http.createServer((req, res) => {
       return
     }
     if (req.method === 'POST') {
+      // CSRF / DNS-rebinding guard: a malicious browser tab must NOT be able to disarm the kill-switch or
+      // rebind the agent's purpose by fetch()-ing localhost. Reject a real cross-site http(s) Origin and
+      // require a JSON content-type (a text/plain POST would skip the CORS preflight). The app (tauri / no
+      // Origin / loopback) passes. This is the same guard the mutating /api/cap routes use.
+      const origin = req.headers['origin']
+      if (typeof origin === 'string' && /^https?:\/\//i.test(origin) && !/^https?:\/\/(127\.0\.0\.1|localhost)(:|$|\/)/i.test(origin)) { res.writeHead(403, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'cross_origin_blocked' })); return }
+      if (!String(req.headers['content-type'] ?? '').includes('application/json')) { res.writeHead(415, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'json_content_type_required' })); return }
       let body = ''
       req.on('data', (c: Buffer) => { body += c.toString() })
       req.on('end', () => {
