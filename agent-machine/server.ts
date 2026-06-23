@@ -1821,11 +1821,50 @@ function getAmSessionDir(sessionId: string): string {
   return dir
 }
 
+// A real node/bun executable we can spawn to host an ISOLATED JS sandbox (separate process + filtered env), or
+// null. The compiled standalone (bun --compile) binary can't `-e`, so we detect node/bun on execPath or PATH.
+let _jsRuntimeCache: string | null | undefined
+function jsSubprocessRuntime(): string | null {
+  if (_jsRuntimeCache !== undefined) return _jsRuntimeCache
+  const base = path.basename(process.execPath).toLowerCase().replace(/\.exe$/, '')
+  if (base === 'node' || base === 'bun') { _jsRuntimeCache = process.execPath; return _jsRuntimeCache }
+  for (const rt of ['node', 'bun']) {
+    try { cp.execFileSync('/usr/bin/env', [rt, '--version'], { stdio: 'ignore', timeout: 3000 }); _jsRuntimeCache = rt; return rt } catch { /* not on PATH */ }
+  }
+  _jsRuntimeCache = null
+  return null
+}
+
 function executeCode(language: 'python' | 'javascript', code: string, sessionId?: string): Promise<string> {
   const TIMEOUT_MS = 30_000
   const MAX_OUTPUT = 100_000
 
   if (language === 'javascript') {
+    const runtime = jsSubprocessRuntime()
+    if (runtime) {
+      // ISOLATED path: run the vm sandbox inside a SEPARATE process whose env is stripped to PATH + the code
+      // file only. A vm escape there reaches no API keys, no parent memory — true process isolation.
+      return new Promise((resolve) => {
+        const runDir = sessionId ? getAmSessionDir(sessionId) : os.tmpdir()
+        const codeFile = path.join(runDir, `_jsrun_${process.pid}_${Date.now()}.js`)
+        try { fs.mkdirSync(runDir, { recursive: true }); fs.writeFileSync(codeFile, code) } catch { resolve('RuntimeError: could not stage code for execution'); return }
+        const runner = `const fs=require('fs'),vm=require('vm');const code=fs.readFileSync(process.env.NJS_FILE,'utf8');const logs=[];const console={log:(...a)=>logs.push(a.map(String).join(' ')),error:(...a)=>logs.push('ERROR: '+a.map(String).join(' ')),warn:(...a)=>logs.push('WARN: '+a.map(String).join(' ')),info:(...a)=>logs.push('INFO: '+a.map(String).join(' '))};const sandbox={console,Math,JSON,Array,Object,String,Number,Boolean,Date,Error,Map,Set,Promise,parseInt,parseFloat,isNaN,isFinite,encodeURIComponent,decodeURIComponent};try{vm.createContext(sandbox);const r=vm.runInContext(code,sandbox,{timeout:${TIMEOUT_MS}});const out=logs.join('\\n');const rl=(r!==undefined&&r!==null)?'\\nResult: '+(typeof r==='object'?JSON.stringify(r,null,2):String(r)):'';process.stdout.write((out+rl).trim()||'(no output)');}catch(e){process.stdout.write('RuntimeError: '+(e&&e.message?e.message:String(e)));}`
+        let out = ''; let done = false
+        // Stripped env: PATH + the code file + NODE_ENV only (no secrets). NODE_ENV is required by the augmented
+        // ProcessEnv type and isn't sensitive; everything else (API keys, tokens) is deliberately absent.
+        const childEnv: NodeJS.ProcessEnv = { PATH: process.env['PATH'] ?? '', NJS_FILE: codeFile, NODE_ENV: process.env['NODE_ENV'] ?? 'production' }
+        const child = cp.spawn(runtime, ['-e', runner], { cwd: runDir, env: childEnv })
+        const finish = (s: string) => { if (done) return; done = true; clearTimeout(timer); try { fs.unlinkSync(codeFile) } catch { /* */ }; resolve(s.slice(0, MAX_OUTPUT).trim() || '(no output)') }
+        const timer = setTimeout(() => { try { child.kill('SIGKILL') } catch { /* */ }; finish(out || 'RuntimeError: execution timed out') }, TIMEOUT_MS + 2000)
+        child.stdout.on('data', (d: Buffer) => { out += d.toString(); if (out.length > MAX_OUTPUT) { try { child.kill('SIGKILL') } catch { /* */ } } })
+        child.stderr.on('data', (d: Buffer) => { out += d.toString() })
+        child.on('close', () => finish(out))
+        child.on('error', () => finish('RuntimeError: could not start the JS sandbox subprocess'))
+      })
+    }
+    // FALLBACK (compiled standalone with no node/bun to subprocess into): in-process vm. The vm escape surface
+    // is real but needs malicious model code; isolated-vm is the full-coverage follow-up for this path.
+    console.warn('[code_execute] no node/bun runtime available for an isolated JS subprocess — using in-process vm (reduced isolation)')
     return new Promise((resolve) => {
       const logs: string[] = []
       const consoleMock = {
@@ -1835,43 +1874,20 @@ function executeCode(language: 'python' | 'javascript', code: string, sessionId?
         info: (...args: unknown[]) => logs.push('INFO: ' + args.map(String).join(' ')),
       }
       const sandbox: Record<string, unknown> = {
-        console: consoleMock,
-        Math,
-        JSON,
-        Array,
-        Object,
-        String,
-        Number,
-        Boolean,
-        Date,
-        Error,
-        Map,
-        Set,
-        Promise,
-        parseInt,
-        parseFloat,
-        isNaN,
-        isFinite,
-        encodeURIComponent,
-        decodeURIComponent,
-        setTimeout: undefined, // blocked in sandbox
-        setInterval: undefined,
-        fetch: undefined, // blocked — use web_search for HTTP
+        console: consoleMock, Math, JSON, Array, Object, String, Number, Boolean, Date, Error, Map, Set, Promise,
+        parseInt, parseFloat, isNaN, isFinite, encodeURIComponent, decodeURIComponent,
+        setTimeout: undefined, setInterval: undefined, fetch: undefined,
       }
       try {
         vm.createContext(sandbox)
         const result = vm.runInContext(code, sandbox, { timeout: TIMEOUT_MS })
         const out = logs.join('\n')
-        const resultLine =
-          result !== undefined && result !== null
-            ? `\nResult: ${typeof result === 'object' ? JSON.stringify(result, null, 2) : String(result)}`
-            : ''
-        const combined = (out + resultLine).trim()
-        resolve(combined.slice(0, MAX_OUTPUT) || '(no output)')
+        const resultLine = result !== undefined && result !== null
+          ? `\nResult: ${typeof result === 'object' ? JSON.stringify(result, null, 2) : String(result)}`
+          : ''
+        resolve((out + resultLine).trim().slice(0, MAX_OUTPUT) || '(no output)')
       } catch (err) {
-        resolve(
-          `RuntimeError: ${err instanceof Error ? err.message : String(err)}`,
-        )
+        resolve(`RuntimeError: ${err instanceof Error ? err.message : String(err)}`)
       }
     })
   }
