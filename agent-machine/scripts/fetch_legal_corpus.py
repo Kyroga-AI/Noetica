@@ -4,24 +4,25 @@ fetch_legal_corpus — ingest a legal-knowledge corpus into the brain as a 'lega
 the REQUISITE legal knowledge (statutes, regulations, case law, practical Q&A) BEFORE we test legal QA —
 exactly the way fetch_medical_corpus.py stages 'medicine'.
 
-Why these corpora (validated, not guessed): Pile of Law (Henderson et al., NeurIPS 2022 D&B) is the legal
-analog of MedRAG — a large, curated, redistribution-OK (CC-BY-NC-SA / public-domain) corpus assembled FROM
-authoritative legal sources. We take the highest-signal subsets for a general legal knowledge brain:
-  - statutes      US Code            (the black-letter law)
-  - regulations   CFR                (federal regulations)
-  - caselaw       CourtListener ops  (how courts apply it)
-  - legal_qa      r/legaladvice      (practical, FAQ-style application — good for "discuss" use)
-RAG over these buys the lookup-dominated two-thirds of legal QA; the reasoning third is gated by our
-knowledge-type classifier (lookup vs model), same split as medicine. This is STEP 1 (fetch + chunk →
-brain text chunks). Step 2 is vectorization (scripts/vectorize_field.py legal — the GPU embed pass).
+Why these corpora (validated, not guessed): the Caselaw Access Project (Harvard/Free Law Project) is the
+authoritative US case-law corpus — millions of court opinions, public-domain, distributed on HF as
+standard Parquet per jurisdiction (`free-law/<state>`), each record carrying the opinion `text` plus rich
+metadata (court, jurisdiction, citations, date). It is the case-law backbone of a legal knowledge brain.
+(Pile of Law — the prior plan — is a loading-SCRIPT dataset that `datasets` >=3 no longer supports, so we
+moved to the Parquet CAP datasets.) RAG over these buys the lookup-dominated bulk of legal QA; the
+reasoning third is gated by our knowledge-type classifier (lookup vs model), same split as medicine. This
+is STEP 1 (fetch + chunk → brain text chunks); step 2 is vectorization (scripts/vectorize_field.py legal —
+the GPU embed pass).
 
 NOTE: this stages KNOWLEDGE for retrieval; the life-domain tagger still attaches the "general info, not
-legal advice, consult a lawyer" disclaimer at answer time. Knowledge ≠ advice.
+legal advice, consult a lawyer" disclaimer at answer time. Knowledge ≠ advice. (Statutes/regs — US Code,
+CFR — are a future add once a Parquet source is wired; case law is the bulk.)
 
-Run (needs `pip install datasets pyarrow`):  python3 scripts/fetch_legal_corpus.py [statutes|regulations|caselaw|legal_qa|all]
-  OCW_BRAIN    brain dir (default ~/Downloads/MIT OCW/_brain)
-  LEGAL_LIMIT  cap chunks per source (0 = all) — for a quick smoke run
-  LEGAL_CHUNK  chars per chunk for long documents (default 1500)
+Run (needs `pip install datasets pyarrow`):  python3 scripts/fetch_legal_corpus.py [all]
+  OCW_BRAIN      brain dir (default ~/Downloads/MIT OCW/_brain)
+  LEGAL_LIMIT    cap chunks per source (0 = all) — for a quick smoke / overnight cap
+  LEGAL_CHUNK    chars per chunk for long opinions (default 1500)
+  LEGAL_SOURCES  comma-separated HF repos (default a CAP jurisdiction set) — bad/missing ones are skipped
 """
 import os, json, sys, re
 
@@ -29,18 +30,16 @@ BRAIN = os.environ.get('OCW_BRAIN', os.path.expanduser('~/Downloads/MIT OCW/_bra
 LEGAL_DIR = os.path.join(BRAIN, 'legal')
 LIMIT = int(os.environ.get('LEGAL_LIMIT', '0'))
 CHUNK = int(os.environ.get('LEGAL_CHUNK', '1500'))
-
-# material -> (hf repo, config). Pile of Law ships one config per subset.
-SOURCES = {
-    'statutes':    ('pile-of-law/pile-of-law', 'uscode'),
-    'regulations': ('pile-of-law/pile-of-law', 'cfr'),
-    'caselaw':     ('pile-of-law/pile-of-law', 'courtlistener_opinions'),
-    'legal_qa':    ('pile-of-law/pile-of-law', 'r_legaladvice'),
-}
+# Caselaw Access Project jurisdictions on HF (Parquet). Override/extend with LEGAL_SOURCES; unknown repos
+# are skipped, not fatal. A representative federal-influential set by default.
+SOURCES = [s.strip() for s in os.environ.get(
+    'LEGAL_SOURCES',
+    'free-law/nh,free-law/cal,free-law/ny,free-law/mass,free-law/tex,free-law/ill,free-law/pa,free-law/fla,free-law/ohio,free-law/va'
+).split(',') if s.strip()]
 
 
 def chunks_of(text, size):
-    """Pile-of-law records are whole documents (a statute, an opinion) — split into retrieval-sized pieces."""
+    """CAP records are whole opinions — split into retrieval-sized pieces."""
     text = re.sub(r'\s+\n', '\n', (text or '').strip())
     if len(text) <= size:
         return [text] if len(text) >= 80 else []
@@ -55,27 +54,30 @@ def chunks_of(text, size):
 
 
 def main():
-    which = (sys.argv[1] if len(sys.argv) > 1 else 'all')
-    repos = SOURCES if which == 'all' else {which: SOURCES[which]}
     try:
         from datasets import load_dataset
     except ImportError:
         sys.exit("need `pip install datasets pyarrow` (run on the vectorize box)")
     os.makedirs(LEGAL_DIR, exist_ok=True)
     total = 0
-    for material, (repo, config) in repos.items():
-        print(f"# loading {repo}:{config} (streaming) …", flush=True)
-        ds = load_dataset(repo, config, split='train', streaming=True)
+    for repo in SOURCES:
+        material = repo.split('/')[-1]                 # e.g. free-law/nh -> nh (the jurisdiction)
+        print(f"# loading {repo} (streaming) …", flush=True)
+        try:
+            ds = load_dataset(repo, split='train', streaming=True)
+        except Exception as e:
+            print(f"  ! skip {repo}: {type(e).__name__} {str(e)[:120]}", flush=True)
+            continue
         n = 0
         with open(os.path.join(LEGAL_DIR, f"{material}.jsonl"), 'w') as out:
             for i, rec in enumerate(ds):
-                for ci, c in enumerate(chunks_of(rec.get('text', ''), CHUNK)):
+                for ci, c in enumerate(chunks_of(rec.get('text') or rec.get('casebody') or '', CHUNK)):
                     out.write(json.dumps({
                         'text': c,
                         'slug': f"{material}-{i}-{ci}",
                         'field': 'legal',
-                        'material': material,           # statutes/regulations/caselaw/legal_qa — provenance
-                        'source': str(rec.get('url') or '')[:160],
+                        'material': f"caselaw-{material}",     # provenance: jurisdiction
+                        'source': f"{rec.get('name_abbreviation') or rec.get('name') or ''} ({rec.get('court') or ''}, {rec.get('decision_date') or ''})"[:160],
                     }) + '\n')
                     n += 1
                     if LIMIT and n >= LIMIT:
