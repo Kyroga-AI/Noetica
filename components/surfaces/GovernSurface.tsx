@@ -127,6 +127,11 @@ interface MeshTrends {
   graph?: { total_edges: number; derived_edges: number }
 }
 
+interface LearningStats {
+  skills: { count: number; recent: Array<{ task: string; abstraction: string; steps: string[] }> }
+  evalCases: { count: number; recent: Array<{ input: string; failureMode: string; coverage: number }> }
+}
+
 function amUrl(path: string): string {
   const isTauri = typeof window !== 'undefined' &&
     ('__TAURI_INTERNALS__' in window || '__TAURI__' in window)
@@ -163,6 +168,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   const [amRuns, setAmRuns]               = useState<AgentMachineRun[]>([])
   const [trends, setTrends]               = useState<MeshTrends | null>(null)
   const [memories, setMemories]           = useState<MemoryRecord[]>([])
+  const [learning, setLearning]           = useState<LearningStats | null>(null)
   const [filterVerdict, setFilterVerdict] = useState<'all' | PolicyVerdict>('all')
   const [filterModel, setFilterModel]     = useState<string>('all')
 
@@ -182,6 +188,11 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
     fetch(amUrl('/api/self/trends'), { signal: AbortSignal.timeout(3000) })
       .then(r => r.ok ? r.json() : null)
       .then((d: MeshTrends | null) => { if (d) setTrends(d) })
+      .catch(() => { /* not running — skip */ })
+    // Production-learning loop: skills distilled from successes + failures captured for replay.
+    fetch(amUrl('/api/learning/stats'), { signal: AbortSignal.timeout(3000) })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: LearningStats | null) => { if (d) setLearning(d) })
       .catch(() => { /* not running — skip */ })
     loadMemories()
   }, [])
@@ -303,6 +314,32 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
       <div className="mx-auto w-full max-w-3xl space-y-4">
+
+        {/* Production-learning loop — what the agent has learned from real turns */}
+        {learning && (learning.skills.count > 0 || learning.evalCases.count > 0) && (
+          <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8] mb-3">Learning loop</div>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
+                <div className="text-2xl font-semibold text-[#16a34a]">{learning.skills.count}</div>
+                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Skills from successes</div>
+              </div>
+              <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
+                <div className="text-2xl font-semibold text-[#d97706]">{learning.evalCases.count}</div>
+                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Failures captured for replay</div>
+              </div>
+            </div>
+            {learning.skills.recent.length > 0 && (
+              <ul className="space-y-1">
+                {learning.skills.recent.slice().reverse().map((s, i) => (
+                  <li key={i} className="truncate text-[11px] text-[var(--color-text-secondary)]" title={`${s.abstraction}: ${s.steps.join(' → ')}`}>
+                    <span className="text-[var(--color-text-tertiary)]">↳</span> {s.abstraction || s.task}: <span className="text-[var(--color-text-tertiary)]">{s.steps.slice(0, 5).join(' → ')}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
 
         {/* Analytics metrics */}
         {chatRuns.length > 0 && (

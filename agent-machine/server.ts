@@ -4133,6 +4133,22 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // GET /api/learning/stats — make the production-learning loop visible: how many skills the agent has
+  // distilled from successes (procedural-memory) and how many failures it has captured for replay (eval-capture).
+  if (req.method === 'GET' && url.pathname === '/api/learning/stats') {
+    const readJsonl = (p: string): Record<string, unknown>[] => {
+      try { return fs.readFileSync(p, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Record<string, unknown>) } catch { return [] }
+    }
+    const skills = loadSkills()
+    const evalCases = readJsonl(path.join(os.homedir(), '.noetica', 'eval-cases.jsonl'))
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
+    res.end(JSON.stringify({
+      skills: { count: skills.length, recent: skills.slice(-5).map((s) => ({ task: s.task, abstraction: s.abstraction, steps: s.steps })) },
+      evalCases: { count: evalCases.length, recent: evalCases.slice(-5).map((c) => ({ input: String(c['input'] ?? '').slice(0, 80), failureMode: c['failureMode'], coverage: c['coverage'] })) },
+    }))
+    return
+  }
+
   // GET /api/routing/log — recent routing decisions (intent / domain / effort / query preview), for
   // reviewing misroutes. Empty unless NOETICA_ROUTING_LOG=1 was set (queries aren't recorded by default).
   if (req.method === 'GET' && url.pathname === '/api/routing/log') {
