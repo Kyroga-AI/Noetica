@@ -6,6 +6,7 @@ import { ModelsPanel } from './panels/ModelsPanel'
 import { RuntimePanel } from './panels/RuntimePanel'
 import { ConnectorsPanel } from './panels/ConnectorsPanel'
 import { ConnectionsPanel } from './panels/ConnectionsPanel'
+import { WorkspacePanel } from './panels/WorkspacePanel'
 import { MemoryPanel } from './panels/MemoryPanel'
 import { FanoutPanel } from './panels/FanoutPanel'
 import { DeveloperPanel } from './panels/DeveloperPanel'
@@ -123,6 +124,7 @@ const categories: Category[] = [
   { id: 'models', label: 'Models', icon: <IconModels />, panel: <ModelsPanel /> },
   { id: 'runtime', label: 'Runtime', icon: <IconRuntime />, panel: <RuntimePanel /> },
   { id: 'connections', label: 'Connections', icon: <IconConnections />, panel: <ConnectionsPanel /> },
+  { id: 'workspace', label: 'Workspace', icon: <IconConnections />, panel: <WorkspacePanel /> },
   { id: 'connectors', label: 'Connectors', icon: <IconConnectors />, panel: <ConnectorsPanel />, badge: 'MCP' },
   { id: 'memory', label: 'Memory', icon: <IconMemory />, panel: <MemoryPanel /> },
   { id: 'voice', label: 'Voice', icon: <IconVoice />, panel: <VoicePanel /> },

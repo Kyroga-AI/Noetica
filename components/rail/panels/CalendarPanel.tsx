@@ -119,11 +119,9 @@ export function CalendarPanel() {
           </div>
         )}
 
-        {isConnected && (
-          <button disabled title="Coming soon" className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-xs font-medium text-[var(--color-text-tertiary)] opacity-50 cursor-not-allowed">
-            + Schedule from task
-          </button>
-        )}
+        <button onClick={() => window.dispatchEvent(new CustomEvent('noetica:open-settings', { detail: 'workspace' }))} className="w-full rounded-xl border border-[#bfdbfe] bg-[var(--color-background-primary)] px-3 py-2 text-xs font-medium text-[#1d4ed8] transition hover:bg-[#eff6ff]">
+          {isConnected ? '+ Schedule from task' : '+ Set up your calendar (CalDAV)'}
+        </button>
       </div>
     </div>
   )

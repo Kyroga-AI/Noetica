@@ -491,6 +491,14 @@ export function AppShell() {
     setSettingsOpen(true)
   }
 
+  // Rail panels (Mail/Calendar) ask to open a specific settings category via a window event — avoids
+  // threading an onOpenSettings prop through the whole rail.
+  useEffect(() => {
+    const h = (e: Event) => openSettings((e as CustomEvent<string>).detail || 'appearance')
+    window.addEventListener('noetica:open-settings', h)
+    return () => window.removeEventListener('noetica:open-settings', h)
+  }, [])
+
   function handleNewChat() {
     const msgs = initialMessages
     setMessages(msgs)

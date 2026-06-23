@@ -37,6 +37,17 @@ export interface NoeticaSettings {
   giteaToken: string
   githubPat: string
 
+  // Prophet Workspace — sovereign Google-Workspace replacement (your own mail + calendar, no Google)
+  mailImapHost: string
+  mailImapPort: string
+  mailSmtpHost: string
+  mailSmtpPort: string
+  mailUser: string
+  mailPassword: string
+  calCaldavUrl: string
+  calUser: string
+  calPassword: string
+
   // Connectors — MCP servers keyed by name, matching Claude Desktop format
   mcpServers: Record<string, McpServerConfig>
 

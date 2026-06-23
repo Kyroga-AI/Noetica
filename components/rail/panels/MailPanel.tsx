@@ -153,8 +153,8 @@ export function MailPanel() {
               External connectors
             </div>
             <div className="px-3 py-2">
-              <button disabled title="Coming soon" className="w-full rounded-lg border border-dashed border-[var(--color-border-secondary)] py-1.5 text-[10px] text-[var(--color-text-tertiary)] opacity-50 cursor-not-allowed">
-                + Add Gmail / IMAP
+              <button onClick={() => window.dispatchEvent(new CustomEvent('noetica:open-settings', { detail: 'workspace' }))} className="w-full rounded-lg border border-dashed border-[#bfdbfe] py-1.5 text-[10px] text-[#1d4ed8] transition hover:bg-[#eff6ff]">
+                + Set up your mail (IMAP / SMTP)
               </button>
             </div>
           </div>

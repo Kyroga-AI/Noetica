@@ -16,6 +16,8 @@ export const defaultSettings: NoeticaSettings = {
   openrouterApiKey: '',
   huggingfaceApiKey: '',
   customModelIds: [],
+  mailImapHost: '', mailImapPort: '993', mailSmtpHost: '', mailSmtpPort: '465', mailUser: '', mailPassword: '',
+  calCaldavUrl: '', calUser: '', calPassword: '',
   serperApiKey: '',
 
   runtimeMode: 'agent-machine',
