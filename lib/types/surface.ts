@@ -21,3 +21,4 @@ export type ActiveSurface =
   | 'marketplace'
   | 'computer'
   | 'broker'
+  | 'alignment'
