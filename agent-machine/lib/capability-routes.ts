@@ -311,10 +311,20 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
       }
       // ── multi-cloud compute broker: route a workload to the cheapest satisfying provider ──
       case 'cloud-broker': {
-        const { brokerCompute, brokerSavings, toAgentplanePlacement } = await import('./cloud-broker.js')
-        const result = brokerCompute((b.request ?? {}) as Parameters<typeof brokerCompute>[0])
+        const { brokerCompute, brokerSavings, toAgentplanePlacement, COMPUTE_CATALOG } = await import('./cloud-broker.js')
+        // Opt-in live pricing: refresh real Azure prices (public API) over the static catalogue before ranking.
+        let catalog = COMPUTE_CATALOG
+        let priceSource = 'static-catalogue'
+        if (b.live === true) {
+          try {
+            const { refreshLivePrices, mergeLivePrices } = await import('./cloud-pricing.js')
+            const live = await refreshLivePrices(Date.now(), typeof b.region === 'string' ? b.region : 'eastus')
+            if (live.length) { catalog = mergeLivePrices(COMPUTE_CATALOG, live); priceSource = `live:azure(${live.length} skus)` }
+          } catch { /* fall back to static */ }
+        }
+        const result = brokerCompute((b.request ?? {}) as Parameters<typeof brokerCompute>[0], catalog)
         // Emit an agentplane-conformant PlacementDecision so the cheapest-cloud pick feeds agentplane's fleet.
-        return send(200, { ...result, savings: brokerSavings(result), placement: toAgentplanePlacement(result, { lane: b.lane === 'prod' ? 'prod' : 'staging' }) }), true
+        return send(200, { ...result, priceSource, savings: brokerSavings(result), placement: toAgentplanePlacement(result, { lane: b.lane === 'prod' ? 'prod' : 'staging' }) }), true
       }
       // ── canonical GAIA ontology export (conformant JSON-LD) ──
       case 'gaia-export': {
