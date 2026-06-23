@@ -42,6 +42,7 @@ import { installEgressGuard, setOfflineMode } from './lib/egress-guard.js'
 import { classifyIntent, capabilityToTask, wantsVectorRag, intentByName, planFromIntent, intentToAction, deEscalateEveryday } from './lib/intent-router.js'
 import { classifyLifeDomain } from './lib/life-domain.js'
 import { assessEffort } from './lib/effort.js'
+import { logRouting } from './lib/routing-log.js'
 import { routeForAction, meshrushPhase } from './lib/action-cell.js'
 import { selectSurface, cleanLabel } from './lib/graph-surface.js'
 import { generateSovereign, meshLadder } from './lib/mesh.js'
@@ -2184,6 +2185,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // caps DOWN from the configured ceiling, so complex turns are unchanged; only simple ones get lightened.
   const effort = assessEffort(latestUserContent, intentPlan.name, { dominance: knowledge.dominance })
   sse(res, 'effort', { effort: { tier: effort.tier, reason: effort.reason } })
+  logRouting({ query: latestUserContent, intent: intentPlan.name, domain: lifeDomain.domain, effort: effort.tier }) // opt-in local review log
 
   // Decidability ladder (opt-in: NOETICA_LOGIC_SOLVER=1). Where the question is decidable — RECALL a
   // crystallized prior proof, COMPUTE by CAS, or EXTRACT verbatim from grounded source — compute the
@@ -3946,6 +3948,18 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && url.pathname === '/api/security/state') {
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
     res.end(JSON.stringify(readSecurityState()))
+    return
+  }
+
+  // GET /api/routing/log — recent routing decisions (intent / domain / effort / query preview), for
+  // reviewing misroutes. Empty unless NOETICA_ROUTING_LOG=1 was set (queries aren't recorded by default).
+  if (req.method === 'GET' && url.pathname === '/api/routing/log') {
+    void (async () => {
+      const { readRoutingLog } = await import('./lib/routing-log.js')
+      const limit = Math.max(1, Math.min(1000, Number(url.searchParams.get('limit')) || 200))
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ decisions: readRoutingLog(limit) }))
+    })()
     return
   }
 
