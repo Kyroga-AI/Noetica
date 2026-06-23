@@ -76,11 +76,11 @@ step "run CHAMPION eval — $MODEL · arms=$ARMS · n=$PER · seed=1729"
 OLLAMA_HOST=http://127.0.0.1:11434 OCW_BRAIN=/opt/OCW/_brain \
   MMLU_MODEL=$MODEL MMLU_ARMS=$ARMS MMLU_PER_SUBJECT=$PER MMLU_SEED=1729 MMLU_SUBJECTS=$SUBJECTS MMLU_MAX_CHUNKS=$MAXCHUNKS MMLU_CONC=${CONC:-8} MMLU_CISC=${CISC:-1} MMLU_HYBRID=${HYBRID:-1} MMLU_NO_THINK=${NO_THINK:-0} MMLU_MANIP=${MANIP:-1} MMLU_COUNCIL_V2=${COUNCIL_V2:-1} \
   bash scripts/run-exam.sh 2>&1 | tee /var/log/scoreboard.txt || echo "EVAL EXITED \$?"
-gsutil cp /var/log/scoreboard.txt "\$GCS/bench/champion-$MODEL.txt" || true
+gsutil cp /var/log/scoreboard.txt "\$GCS/bench/board-$MODEL${RUN_TAG:+-$RUN_TAG}.txt" || true
 # keep the rich per-question transcript (sources, ktype, sc_agree, qgen) for the miss-deepdive —
 # it's written under HOME and would otherwise vanish on self-delete.
 LATEST_T=\$(ls -t /root/.noetica/mmlu-brain-*.jsonl 2>/dev/null | head -1)
-[ -n "\$LATEST_T" ] && gsutil cp "\$LATEST_T" "\$GCS/bench/transcript-$MODEL.jsonl" || true
+[ -n "\$LATEST_T" ] && gsutil cp "\$LATEST_T" "\$GCS/bench/transcript-$MODEL${RUN_TAG:+-$RUN_TAG}.jsonl" || true
 
 step "DONE — self-deleting"
 kill \$LOGPID 2>/dev/null||true; gsutil -q cp /var/log/eval-run.log "$LOG"||true
