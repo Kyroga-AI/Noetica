@@ -18,7 +18,18 @@ import { academicBrainDir } from './brain-home.js'
 const MAX = Number(process.env['STUDY_BRAIN_CAP'] || 30000)              // per-field cap
 const GLOBAL_MAX = Number(process.env['STUDY_BRAIN_GLOBAL_CAP'] || 250000) // total resident across ALL fields
 
-interface Chunk { text: string; slug: string; field: string; vec: Float32Array; norm: number }
+// The GOLD: worked solutions, exam questions, problem sets — the material that teaches HOW TO SOLVE, which
+// is what an exam-style question actually needs. It is ~3% of the OCW corpus, and was being (a) capped-out
+// by lecture/reference ordering at load and (b) out-ranked by lecture prose at score time. We now load ALL
+// of it first, and boost it at ranking, so retrieval surfaces a worked solution over a lecture paragraph.
+const GOLD = new Set(['solution', 'exam', 'assignment', 'problem', 'pset', 'quiz', 'recitation'])
+const MATERIAL_BOOST: Record<string, number> = {
+  solution: 1.30, exam: 1.30, problem: 1.28, pset: 1.28, quiz: 1.22, assignment: 1.20, recitation: 1.10,
+  lecture: 1.05, reference: 0.92, syllabus: 0.80,
+}
+const materialBoost = (m: string): number => MATERIAL_BOOST[m] ?? 1.0
+
+interface Chunk { text: string; slug: string; field: string; material: string; vec: Float32Array; norm: number }
 const cache = new Map<string, Chunk[]>()
 function loadedTotal(): number { let n = 0; for (const v of cache.values()) n += v.length; return n }
 
@@ -34,30 +45,38 @@ export function brainFields(): string[] {
 
 function loadField(field: string): Chunk[] {
   if (cache.has(field)) return cache.get(field)!
-  // Bound TOTAL resident chunks, not just per-field: the brain has many fields, so a per-field MAX
-  // still permits MAX×fields growth. Cap this field's load to whatever global budget remains.
   const cap = Math.min(MAX, Math.max(0, GLOBAL_MAX - loadedTotal()))
   const dir = path.join(academicBrainDir(), field)
-  const out: Chunk[] = []
+  // GOLD-FIRST: keep EVERY worked-solution / exam / pset chunk, then fill the remaining cap with
+  // lecture/reference. Reads all files so the gold is never dropped by file ordering (the old loader
+  // stopped at the cap in readdir order — so most exams/solutions in later courses were never loaded).
+  const gold: Chunk[] = []
+  const rest: Chunk[] = []
+  const mk = (o: { text?: string; slug?: string; vec?: string; dims?: number }, material: string, fn: string): Chunk => {
+    const vec = decodeVec(o.vec!, o.dims || 768)
+    return { text: o.text!, slug: o.slug || fn, field, material, vec, norm: l2norm(vec) }
+  }
   if (cap > 0 && fs.existsSync(dir)) {
     for (const fn of fs.readdirSync(dir).filter((f) => f.endsWith('.jsonl'))) {
-      if (out.length >= cap) break
       for (const line of fs.readFileSync(path.join(dir, fn), 'utf8').split('\n')) {
-        if (!line.trim() || out.length >= cap) continue
+        if (!line.trim()) continue
         try {
-          const o = JSON.parse(line) as { text?: string; slug?: string; vec?: string; dims?: number }
+          const o = JSON.parse(line) as { text?: string; slug?: string; vec?: string; dims?: number; material?: string }
           if (!o.text || !o.vec) continue
-          const vec = decodeVec(o.vec, o.dims || 768) // aligned-safe shared codec
-          out.push({ text: o.text, slug: o.slug || fn, field, vec, norm: l2norm(vec) })
+          const material = (o.material || 'reference').toLowerCase()
+          if (GOLD.has(material)) { if (gold.length < cap) gold.push(mk(o, material, fn)) }
+          else if (rest.length < cap) rest.push(mk(o, material, fn))
         } catch { /* skip bad line */ }
       }
+      if (gold.length >= cap && rest.length >= cap) break
     }
   }
+  const out = gold.concat(rest.slice(0, Math.max(0, cap - gold.length)))
   cache.set(field, out)
   return out
 }
 
-export interface BrainHit { text: string; slug: string; field: string; score: number }
+export interface BrainHit { text: string; slug: string; field: string; material: string; score: number }
 
 /**
  * Retrieve the top-k most relevant OCW chunks for a query (cosine over the named fields).
@@ -80,7 +99,8 @@ export async function studyBrainRetrieve(query: string, fields: string[] = [], k
       if (c.vec.length !== qv.length) { dimMismatch++; continue }
       let dot = 0
       for (let i = 0; i < qv.length; i++) dot += qv[i]! * c.vec[i]!
-      scored.push({ text: c.text, slug: c.slug, field: c.field, score: dot / (qn * c.norm) })
+      // material boost: a worked solution / exam that's comparably relevant outranks a lecture paragraph.
+      scored.push({ text: c.text, slug: c.slug, field: c.field, material: c.material, score: (dot / (qn * c.norm)) * materialBoost(c.material) })
     }
   }
   if (dimMismatch > 0) {
@@ -125,11 +145,12 @@ export function studyBrainReady(): boolean {
   return brainFields().length > 0
 }
 
-// CLI self-test:  OCW_BRAIN=… npx tsx lib/study-brain.ts "what is natural selection"
+// CLI self-test:  OCW_BRAIN=… npx tsx lib/study-brain.ts "a problem query" [field]
 if (process.argv[1] && process.argv[1].endsWith('study-brain.ts')) {
   const q = process.argv[2] || 'what is the powerhouse of the cell'
-  studyBrainRetrieve(q, [], 3).then((hits) => {
-    console.log(`# study-brain · fields=[${brainFields().join(', ')}] · query="${q}"\n`)
-    for (const h of hits) console.log(`  [${h.score.toFixed(3)} ${h.field}/${h.slug}] ${h.text.slice(0, 100).replace(/\s+/g, ' ')}…`)
+  const fields = process.argv[3] ? [process.argv[3]] : []
+  studyBrainRetrieve(q, fields, 8).then((hits) => {
+    console.log(`# study-brain · fields=[${(fields.length ? fields : brainFields()).join(', ')}] · query="${q}"\n`)
+    for (const h of hits) console.log(`  [${h.score.toFixed(3)} ${(h.material || '?').padEnd(9)} ${h.field}/${h.slug}] ${h.text.slice(0, 90).replace(/\s+/g, ' ')}…`)
   }).catch((e) => console.error('study-brain error:', e))
 }
