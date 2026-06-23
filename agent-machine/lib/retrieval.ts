@@ -20,6 +20,7 @@ import type { PropertyValue } from '@socioprophet/hellgraph'
 import { ingestInteraction } from '@socioprophet/hellgraph'
 import { cairnPathExpand } from './cairnpath-adapter.js'
 import { studyBrainRetrieve, studyBrainReady } from './study-brain.js'
+import { opsBrainRetrieve, opsBrainReady } from './ops-brain.js'
 import { isSafeSessionId } from './session-id.js'
 import * as crypto from 'node:crypto'
 
@@ -54,7 +55,7 @@ interface WorkingMemoryState {
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
-export type RetrievalPattern = 'graph' | 'temporal' | 'sparql' | 'cache-augmented' | 'atoms' | 'beliefs' | 'cairnpath' | 'study-brain'
+export type RetrievalPattern = 'graph' | 'temporal' | 'sparql' | 'cache-augmented' | 'atoms' | 'beliefs' | 'cairnpath' | 'study-brain' | 'ops-brain'
 
 export interface RetrievedContext {
   text: string
@@ -102,6 +103,7 @@ export async function retrieve(
     'sparql':          700,
     'cairnpath':       900,
     'study-brain':     3500,   // embeds the query + cosine over the OCW brain (disk-cached after first hit)
+    'ops-brain':       1500,   // lexical scan over the ops corpus (no embed call — fast, disk-cached)
   }
 
   const timeout = <T>(ms: number, p: Promise<T>): Promise<T | null> =>
@@ -117,6 +119,7 @@ export async function retrieve(
       case 'atoms':        inner = runAtomsPattern(query); break
       case 'cairnpath':    inner = runCairnPathPattern(query); break
       case 'study-brain':  inner = runStudyBrainPattern(query); break
+      case 'ops-brain':    inner = runOpsBrainPattern(query); break
       case 'beliefs':      inner = runBeliefsPattern(); break
       case 'cache-augmented': inner = runCacheAugmentedPattern(opts?.sessionId ?? opts?.workspaceId ?? 'default'); break
       default:             return Promise.resolve(null)
@@ -624,6 +627,25 @@ async function runStudyBrainPattern(
   return {
     text: `### MIT-OpenCourseWare context\n${lines.join('\n\n')}`,
     sources: good.map((h) => ({ id: `ocw:${h.field}/${h.slug}`, label: h.field, score: h.score })),
+  }
+}
+
+// Grounds OPERATIONAL questions (commands, runbooks, manpages) on the ops brain (lib/ops-brain.ts) —
+// a SEPARATE store from the academic brain and the chat atomspace, so the three never cross-pollute.
+// Lexical (no embed call). No-op (empty, fast) when the ops corpus is absent, so a deployment without
+// it falls through unchanged.
+async function runOpsBrainPattern(
+  query: string,
+): Promise<{ text: string; sources: Array<{ id: string; label: string; score: number }> }> {
+  if (!opsBrainReady()) return { text: '', sources: [] }
+  const hits = opsBrainRetrieve(query, 6)
+  // Require real lexical overlap — below ~0.15 coverage it's an incidental token match, not relevance.
+  const good = hits.filter((h) => h.score >= 0.15)
+  if (good.length === 0) return { text: '', sources: [] }
+  const lines = good.map((h, i) => `[${i + 1}] (${h.subject}${h.section ? `(${h.section})` : ''}) ${h.text.replace(/\s+/g, ' ').trim()}`)
+  return {
+    text: `### Operations knowledge\n${lines.join('\n\n')}`,
+    sources: good.map((h) => ({ id: `ops:${h.subject}`, label: h.subject || 'ops', score: h.score })),
   }
 }
 

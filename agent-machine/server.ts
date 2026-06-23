@@ -2610,7 +2610,10 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // presence + a relevance floor, so it no-ops cleanly; NOETICA_STUDY_BRAIN=0 disables.
   const STUDY_BRAIN_LANES = new Set(['explain_teach', 'research_lookup', 'compare_benchmark', 'qa_over_doc', 'summarize_doc', 'general'])
   const useStudyBrain = process.env['NOETICA_STUDY_BRAIN'] !== '0' && STUDY_BRAIN_LANES.has(intentPlan.name)
-  const patterns: Array<'beliefs' | 'graph' | 'temporal' | 'sparql' | 'cache-augmented' | 'cairnpath' | 'study-brain'> =
+  // Operations brain (separate store): the lexical ops lane. Self-disables when the corpus is absent or
+  // the query has no lexical overlap, so it only contributes on genuinely operational turns.
+  const useOpsBrain = process.env['NOETICA_OPS_BRAIN'] !== '0' && STUDY_BRAIN_LANES.has(intentPlan.name)
+  const patterns: Array<'beliefs' | 'graph' | 'temporal' | 'sparql' | 'cache-augmented' | 'cairnpath' | 'study-brain' | 'ops-brain'> =
     provider === 'ollama'
       ? (useCairnPath
           ? ['beliefs', 'cache-augmented', 'cairnpath', 'temporal']
@@ -2619,6 +2622,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           ? ['beliefs', 'cairnpath', 'temporal']
           : ['beliefs', 'graph', 'temporal'])
   if (useStudyBrain) patterns.push('study-brain')
+  if (useOpsBrain) patterns.push('ops-brain')
 
   let graphContext = ''
   try {
