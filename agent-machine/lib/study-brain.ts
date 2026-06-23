@@ -22,9 +22,13 @@ const GLOBAL_MAX = Number(process.env['STUDY_BRAIN_GLOBAL_CAP'] || 250000) // to
 // is what an exam-style question actually needs. It is ~3% of the OCW corpus, and was being (a) capped-out
 // by lecture/reference ordering at load and (b) out-ranked by lecture prose at score time. We now load ALL
 // of it first, and boost it at ranking, so retrieval surfaces a worked solution over a lecture paragraph.
-const GOLD = new Set(['solution', 'exam', 'assignment', 'problem', 'pset', 'quiz', 'recitation'])
+// STEM gold = worked solutions/exams; LEGAL gold = the black-letter law (statutes/regs/constitution) —
+// the authoritative answer source, which should outrank commentary/opinions the same way.
+const GOLD = new Set(['solution', 'exam', 'assignment', 'problem', 'pset', 'quiz', 'recitation',
+  'statute', 'regulation', 'constitution', 'uscode', 'cfr'])
 const MATERIAL_BOOST: Record<string, number> = {
   solution: 1.30, exam: 1.30, problem: 1.28, pset: 1.28, quiz: 1.22, assignment: 1.20, recitation: 1.10,
+  constitution: 1.32, statute: 1.28, regulation: 1.26, uscode: 1.28, cfr: 1.26, code: 1.15, caselaw: 1.08,
   lecture: 1.05, reference: 0.92, syllabus: 0.80,
 }
 const materialBoost = (m: string): number => MATERIAL_BOOST[m] ?? 1.0

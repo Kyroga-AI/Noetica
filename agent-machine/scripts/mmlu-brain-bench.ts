@@ -126,9 +126,11 @@ function fieldReady(field: string): boolean {
 // GOLD = worked solutions / exams / psets — the material that teaches HOW TO SOLVE. Applied here so the
 // BOARD tests the SAME gold-first retrieval the product uses (lib/study-brain.ts) — otherwise the bench
 // would grade a different, weaker retriever than ships.
-const GOLD = new Set(['solution', 'exam', 'assignment', 'problem', 'pset', 'quiz', 'recitation'])
+const GOLD = new Set(['solution', 'exam', 'assignment', 'problem', 'pset', 'quiz', 'recitation',
+  'statute', 'regulation', 'constitution', 'uscode', 'cfr'])
 const MATERIAL_BOOST: Record<string, number> = {
   solution: 1.30, exam: 1.30, problem: 1.28, pset: 1.28, quiz: 1.22, assignment: 1.20, recitation: 1.10,
+  constitution: 1.32, statute: 1.28, regulation: 1.26, uscode: 1.28, cfr: 1.26, code: 1.15, caselaw: 1.08,
   lecture: 1.05, reference: 0.92, syllabus: 0.80,
 }
 const materialBoost = (m: string): number => MATERIAL_BOOST[m] ?? 1.0

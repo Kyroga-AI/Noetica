@@ -49,23 +49,28 @@ def main():
         sys.exit("need `pip install datasets pyarrow` (run on the vectorize box)")
     os.makedirs(MED_DIR, exist_ok=True)
     total = 0
+    # Fault-tolerant per source: a dead/moved dataset (StatPearls has relocated before) must NOT throw away
+    # the source that loaded (Textbooks = the 18 USMLE textbooks, the medical core) or poison the exit code.
     for material, repo in repos.items():
-        print(f"# loading {repo} (streaming) …", flush=True)
-        ds = load_dataset(repo, split='train', streaming=True)
-        n = 0
-        with open(os.path.join(MED_DIR, f"{material}.jsonl"), 'w') as out:
-            for rec in ds:
-                c = to_chunk(rec, material)
-                if not c:
-                    continue
-                out.write(json.dumps(c) + '\n')
-                n += 1
-                if LIMIT and n >= LIMIT:
-                    break
-                if n % 20000 == 0:
-                    print(f"  {material}: {n} …", flush=True)
-        total += n
-        print(f"# {material}: wrote {n} chunks → {MED_DIR}/{material}.jsonl", flush=True)
+        try:
+            print(f"# loading {repo} (streaming) …", flush=True)
+            ds = load_dataset(repo, split='train', streaming=True)
+            n = 0
+            with open(os.path.join(MED_DIR, f"{material}.jsonl"), 'w') as out:
+                for rec in ds:
+                    c = to_chunk(rec, material)
+                    if not c:
+                        continue
+                    out.write(json.dumps(c) + '\n')
+                    n += 1
+                    if LIMIT and n >= LIMIT:
+                        break
+                    if n % 20000 == 0:
+                        print(f"  {material}: {n} …", flush=True)
+            total += n
+            print(f"# {material}: wrote {n} chunks → {MED_DIR}/{material}.jsonl", flush=True)
+        except Exception as e:
+            print(f"  ! {repo} skipped: {type(e).__name__} {str(e)[:140]}", flush=True)
     print(f"# done — {total} medical chunks staged. NEXT (step 2): vectorize the 'medicine' field "
           f"(nomic embed) → loadable brain shards, then a MedQA/i-MedRAG eval.")
 

@@ -17,6 +17,7 @@ ZONE="${GCP_ZONE:-us-central1-a}"
 VM="${VM_NAME:-champ-eval}"
 MACHINE="${MACHINE:-g2-standard-8}"          # 1x NVIDIA L4 (24GB) — fits 7B and 14B
 GCS="gs://sourceos-artifacts-socioprophet/ocw-corpus"
+BRAIN_TGZ="${BRAIN_TGZ:-$GCS/brain-complete.tar.gz}"   # board JOB B: point at the SAVED domains brain ($GCS/brain-domains.tar.gz)
 SA="${GCP_SA:-sourceos-ci@socioprophet-platform.iam.gserviceaccount.com}"
 MODEL="${MODEL:-qwen2.5:7b}"
 ARMS="${ARMS:-baseline,brain}"           # the core run; champion(verify) is too slow over big fields on CPU
@@ -65,8 +66,8 @@ step "pull code + npm ci"
 mkdir -p /opt/am && timeout 300 gsutil -m cp -r "\$GCS/code/agent-machine/*" /opt/am/ || { step "FATAL: code pull"; exit 1; }
 cd /opt/am && timeout 600 npm ci || { step "FATAL: npm ci hung/failed"; exit 1; }
 
-step "pull brain (1.5GB) + bank"
-mkdir -p /opt/OCW && timeout 900 gsutil cp "\$GCS/brain-complete.tar.gz" /tmp/b.tgz || { step "FATAL: brain pull"; exit 1; }
+step "pull brain ($BRAIN_TGZ) + bank"
+mkdir -p /opt/OCW && timeout 900 gsutil cp "$BRAIN_TGZ" /tmp/b.tgz || { step "FATAL: brain pull"; exit 1; }
 tar xzf /tmp/b.tgz -C /opt/OCW || { step "FATAL: brain extract"; exit 1; }
 mkdir -p /root/.noetica/corpus/benchmarks && gsutil cp "\$GCS/mmlu_stem.json" /root/.noetica/corpus/benchmarks/mmlu_stem.json
 step "SETUP COMPLETE ✓ — starting eval"
