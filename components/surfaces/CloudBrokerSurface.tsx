@@ -17,7 +17,8 @@ type BrokerResp = {
 }
 type RuntimeAsset = { name?: string; role?: string; runtimeClass?: string; digest?: string; _conformance?: { conforms: boolean; missing: string[] } }
 type FleetExecutor = { name: string; provider?: string; region?: string; usdPerHour?: number; state?: string; caps?: { os?: string; arch?: string; gpu?: string } }
-type FleetResp = { count: number; totalUsdPerHour: number; byProvider: Record<string, number>; byState: Record<string, number>; executors: FleetExecutor[] }
+type FleetSwarm = { swarmId: string; backend: string; mounted: boolean; members: number; live: number }
+type FleetResp = { count: number; totalUsdPerHour: number; byProvider: Record<string, number>; byState: Record<string, number>; executors: FleetExecutor[]; swarms?: FleetSwarm[]; liveMembers?: number }
 
 const PROVIDER_COLOR: Record<string, string> = {
   gcp: 'bg-[#e8f0fe] text-[#1a73e8]', azure: 'bg-[#e5f1fb] text-[#0078d4]', aws: 'bg-[#fff3e0] text-[#ec912d]',
@@ -173,6 +174,24 @@ export function CloudBrokerSurface() {
                 )
               })}
             </div>}
+
+        {/* Swarms — the local shared-volume coordination layer (agents that joined a swarm) */}
+        {fleet?.swarms && fleet.swarms.length > 0 && (
+          <div className="mt-3">
+            <div className="mb-1.5 text-[11px] font-medium text-[var(--color-text-secondary)]">Swarms <span className="text-[10px] text-[var(--color-text-tertiary)]">· {fleet.liveMembers ?? 0} live member{(fleet.liveMembers ?? 0) === 1 ? '' : 's'} on the shared volume</span></div>
+            <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+              {fleet.swarms.map((s, i) => (
+                <div key={i} className="flex items-center justify-between rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2"><span className={`h-2 w-2 shrink-0 rounded-full ${s.live > 0 ? 'bg-[#16a34a]' : 'bg-[var(--color-text-tertiary)]'}`} /><span className="truncate font-mono text-[11px] text-[var(--color-text-primary)]">{s.swarmId}</span></div>
+                    <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">{s.backend}{s.mounted ? ' · mounted' : ''} · {s.live}/{s.members} agent{s.members === 1 ? '' : 's'} live</div>
+                  </div>
+                  <span className="shrink-0 text-[11px] font-semibold text-[var(--color-text-secondary)]">{s.live}/{s.members}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="mt-7">

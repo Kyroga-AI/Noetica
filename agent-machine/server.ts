@@ -4093,14 +4093,20 @@ const server = http.createServer((req, res) => {
   // multi-cloud C2/swarm stack is VISIBLE. Empty until something is provisioned.
   if (req.method === 'GET' && url.pathname === '/api/fleet') {
     void (async () => {
-      const { listExecutors } = await import('./lib/cloud-provision.js')
+      const [{ listExecutors }, { listSwarms }] = await Promise.all([import('./lib/cloud-provision.js'), import('./lib/swarm-volume.js')])
       const executors = listExecutors()
       const totalUsdPerHour = executors.reduce((s, e) => s + (typeof e.usdPerHour === 'number' ? e.usdPerHour : 0), 0)
       const byProvider: Record<string, number> = {}
       const byState: Record<string, number> = {}
       for (const e of executors) { byProvider[e.provider ?? 'unknown'] = (byProvider[e.provider ?? 'unknown'] ?? 0) + 1; byState[e.state ?? 'unknown'] = (byState[e.state ?? 'unknown'] ?? 0) + 1 }
+      // Local swarms (the TopoLVM-style shared-volume coordination layer) + their live members. Filter out the
+      // empty provisioned-but-never-joined volumes (dev/test exhaust); show the ones with members, busiest first.
+      const allSwarms = listSwarms()
+      const swarms = allSwarms.filter((s) => s.members.length > 0).sort((a, b) => b.live - a.live || b.members.length - a.members.length).slice(0, 20)
+        .map((s) => ({ swarmId: s.swarmId, backend: s.backend, mounted: s.mounted, members: s.members.length, live: s.live }))
+      const liveMembers = allSwarms.reduce((n, s) => n + s.live, 0)
       res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
-      res.end(JSON.stringify({ count: executors.length, totalUsdPerHour: Number(totalUsdPerHour.toFixed(3)), byProvider, byState, executors }))
+      res.end(JSON.stringify({ count: executors.length, totalUsdPerHour: Number(totalUsdPerHour.toFixed(3)), byProvider, byState, executors, swarms, liveMembers }))
     })().catch((e) => { res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ error: 'fleet_failed', detail: (e instanceof Error ? e.message : 'unknown').replace(/[\r\n]/g, ' ').slice(0, 120) })) })
     return
   }
