@@ -4123,6 +4123,51 @@ const server = http.createServer((req, res) => {
     }
   }
 
+  // /api/calendar/feeds — sovereign Calendar (Prophet Workspace). Subscribe to any .ics feed (no Google account):
+  // GET returns the subscribed feeds + their merged, parsed events; POST {url,name} adds a feed; DELETE?url=…
+  // removes one. Feeds list is encrypted at rest. The open iCalendar standard over HTTP, parsed dependency-free.
+  if (url.pathname === '/api/calendar/feeds') {
+    const FEEDS = path.join(os.homedir(), '.noetica', 'calendar-feeds.json')
+    type Feed = { url: string; name?: string; addedAt?: number }
+    const loadFeeds = (): Feed[] => { const f = readEncryptedJson<Feed[]>(FEEDS); return Array.isArray(f) ? f : [] }
+    if (req.method === 'GET') {
+      void (async () => {
+        const feeds = loadFeeds()
+        const { parseICal } = await import('./lib/ical.js')
+        const all = await Promise.all(feeds.map(async (f) => {
+          try { const r = await fetch(f.url, { signal: AbortSignal.timeout(10_000) }); if (!r.ok) return []; return parseICal(await r.text()).map((e) => ({ ...e, feed: f.name || f.url })) }
+          catch { return [] }
+        }))
+        const events = all.flat().sort((a, b) => a.start.localeCompare(b.start)).slice(0, 500)
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
+        res.end(JSON.stringify({ feeds, events }))
+      })().catch(() => { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'calendar_failed' })) })
+      return
+    }
+    if (req.method === 'POST') {
+      let body = ''
+      req.on('data', (c: Buffer) => { body += c.toString(); if (body.length > 8 * 1024) { try { req.destroy() } catch { /* */ } } })
+      req.on('end', () => {
+        try {
+          const { url: feedUrl, name } = JSON.parse(body || '{}') as { url?: string; name?: string }
+          if (!feedUrl || !/^https?:\/\//i.test(feedUrl)) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_url' })); return }
+          const feeds = loadFeeds().filter((f) => f.url !== feedUrl)
+          feeds.push({ url: feedUrl, name: String(name || feedUrl).slice(0, 80), addedAt: Date.now() })
+          writeEncryptedJson(FEEDS, feeds.slice(-50))
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ ok: true, count: feeds.length }))
+        } catch { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_body' })) }
+      })
+      return
+    }
+    if (req.method === 'DELETE') {
+      const target = url.searchParams.get('url') ?? ''
+      const feeds = loadFeeds(); const next = feeds.filter((f) => f.url !== target)
+      writeEncryptedJson(FEEDS, next)
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ ok: next.length < feeds.length }))
+      return
+    }
+  }
+
   // GET /api/learning/stats — make the production-learning loop visible: how many skills the agent has
   // distilled from successes (procedural-memory) and how many failures it has captured for replay (eval-capture).
   if (req.method === 'GET' && url.pathname === '/api/learning/stats') {
