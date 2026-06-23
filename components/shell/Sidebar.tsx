@@ -215,6 +215,7 @@ const surfaceItems: SurfaceItem[] = [
   { id: 'computer',    label: 'Computer Use',icon: <IconComputerUse />, items: ['Screenshot', 'Actions', 'History'] },
   { id: 'holographme', label: 'HolographMe', icon: <IconHolograph />,  items: [] },
   { id: 'marketplace', label: 'Marketplace', icon: <IconMarketplace />,items: [] },
+  { id: 'broker',      label: 'Cloud Broker', icon: <IconMarketplace />, items: ['Cheapest GPU/VM', 'Live prices', 'Runtime registry'] },
 ]
 
 type SessionTreeProps = {
@@ -519,7 +520,7 @@ export function Sidebar({
 
         {/* Platform group */}
         <div className={`px-2 ${groupGap} pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>Platform</div>
-        {(['holographme','marketplace'] as ActiveSurface[]).map((id) => {
+        {(['broker','holographme','marketplace'] as ActiveSurface[]).map((id) => {
           const item = surfaceItems.find(s => s.id === id)!
           const isActive = activeSurface === id
           return (

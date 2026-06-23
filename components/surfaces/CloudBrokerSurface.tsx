@@ -1,0 +1,125 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+
+/**
+ * CloudBrokerSurface — the C2 control plane over cloud compute. Brokers a workload to the cheapest satisfying
+ * provider across GCP/Azure/AWS/IBM + the local mesh (live Azure prices when "Live prices" is on), shows the
+ * ranked quotes + savings + the agentplane-conformant placement, and lists lattice-forge runtime provenance.
+ */
+type Quote = { sku: { provider: string; name: string; region: string; vcpus: number; memGiB: number; gpu?: { type: string; count: number; memGiB: number } }; effectivePerHour: number; totalUsd: number; spot: boolean }
+type BrokerResp = {
+  best: Quote | null; ranked: Quote[]; considered: number; cheapestCloud: Quote | null; priceSource?: string
+  savings: { absUsd: number; pct: number }
+  placement: { apiVersion: string; kind: string; lane: string; chosenExecutor: string | null; effectiveBackend: string; objective: { value: number; perHour: number; spot: boolean } }
+}
+type RuntimeAsset = { name?: string; role?: string; runtimeClass?: string; digest?: string; _conformance?: { conforms: boolean; missing: string[] } }
+
+const PROVIDER_COLOR: Record<string, string> = {
+  gcp: 'bg-[#e8f0fe] text-[#1a73e8]', azure: 'bg-[#e5f1fb] text-[#0078d4]', aws: 'bg-[#fff3e0] text-[#ec912d]',
+  ibm: 'bg-[#f0f0ff] text-[#4f46e5]', local: 'bg-[#dcfce7] text-[#16a34a]',
+}
+
+export function CloudBrokerSurface() {
+  const [gpu, setGpu] = useState('A100')
+  const [count, setCount] = useState(1)
+  const [hours, setHours] = useState(24)
+  const [spot, setSpot] = useState(true)
+  const [live, setLive] = useState(false)
+  const [excludeLocal, setExcludeLocal] = useState(true)
+  const [resp, setResp] = useState<BrokerResp | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState('')
+  const [runtimes, setRuntimes] = useState<RuntimeAsset[]>([])
+
+  async function broker() {
+    setLoading(true); setErr('')
+    try {
+      const request: Record<string, unknown> = { hours, spot, excludeLocal }
+      if (gpu !== 'none') request.gpu = { type: gpu, count }
+      const r = await fetch('/api/cap/cloud-broker', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ request, live }) })
+      if (!r.ok) throw new Error(`broker ${r.status}`)
+      setResp(await r.json() as BrokerResp)
+    } catch (e) { setErr(e instanceof Error ? e.message : 'broker failed — is the backend running?') }
+    finally { setLoading(false) }
+  }
+
+  useEffect(() => {
+    void fetch('/api/cap/runtime-assets', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+      .then((r) => r.ok ? r.json() : null).then((j: { assets?: RuntimeAsset[] } | null) => { if (j?.assets) setRuntimes(j.assets) }).catch(() => {})
+  }, [])
+
+  return (
+    <div className="flex h-full flex-col overflow-y-auto px-8 py-6">
+      <div className="mb-1 text-lg font-semibold text-[var(--color-text-primary)]">Cloud Broker</div>
+      <p className="mb-5 max-w-2xl text-xs text-[var(--color-text-secondary)]">Route a workload to the cheapest satisfying provider across GCP / Azure / AWS / IBM and the local mesh — governed by scope-d, provenance-stamped, and emitted as an agentplane placement. Turn on <span className="font-medium">Live prices</span> to rank against real Azure rates.</p>
+
+      {/* Workload form */}
+      <div className="flex flex-wrap items-end gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
+        <label className="flex flex-col gap-1 text-[11px] text-[var(--color-text-secondary)]">GPU
+          <select value={gpu} onChange={(e) => setGpu(e.target.value)} className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2 py-1.5 text-sm text-[var(--color-text-primary)]">
+            <option value="A100">A100</option><option value="L4">L4 / A10</option><option value="none">CPU only</option>
+          </select>
+        </label>
+        <label className="flex flex-col gap-1 text-[11px] text-[var(--color-text-secondary)]">Count
+          <input type="number" min={1} value={count} onChange={(e) => setCount(Math.max(1, +e.target.value))} className="w-16 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2 py-1.5 text-sm" />
+        </label>
+        <label className="flex flex-col gap-1 text-[11px] text-[var(--color-text-secondary)]">Hours
+          <input type="number" min={1} value={hours} onChange={(e) => setHours(Math.max(1, +e.target.value))} className="w-20 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2 py-1.5 text-sm" />
+        </label>
+        <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)]"><input type="checkbox" checked={spot} onChange={(e) => setSpot(e.target.checked)} /> Spot</label>
+        <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)]"><input type="checkbox" checked={excludeLocal} onChange={(e) => setExcludeLocal(e.target.checked)} /> Cloud only</label>
+        <label className="flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)]"><input type="checkbox" checked={live} onChange={(e) => setLive(e.target.checked)} /> Live prices</label>
+        <button onClick={broker} disabled={loading} className="rounded-xl bg-[#1d4ed8] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#1e40af] disabled:opacity-50">{loading ? 'Brokering…' : 'Broker to cheapest'}</button>
+      </div>
+
+      {err && <div className="mt-3 rounded-lg border border-[#fecaca] bg-[#fef2f2] px-3 py-2 text-xs text-[#dc2626]">{err}</div>}
+
+      {resp && (
+        <div className="mt-5">
+          {resp.best && (
+            <div className="mb-3 flex flex-wrap items-center gap-4 rounded-2xl border border-[#bbf7d0] bg-[#f0fdf4] px-4 py-3">
+              <div><div className="text-[10px] uppercase tracking-wide text-[#16a34a]">Cheapest</div><div className="text-sm font-bold text-[var(--color-text-primary)]"><span className={`mr-1.5 rounded px-1.5 py-0.5 text-[10px] font-semibold ${PROVIDER_COLOR[resp.best.sku.provider] ?? ''}`}>{resp.best.sku.provider}</span>{resp.best.sku.name} · {resp.best.sku.region}</div></div>
+              <div><div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Total ({hours}h{resp.best.spot ? ', spot' : ''})</div><div className="text-sm font-bold text-[#16a34a]">${resp.best.totalUsd}</div></div>
+              <div><div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Savings vs dearest</div><div className="text-sm font-semibold text-[var(--color-text-primary)]">${resp.savings.absUsd} ({resp.savings.pct}%)</div></div>
+              <div><div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Prices</div><div className="text-xs font-medium text-[var(--color-text-secondary)]">{resp.priceSource}</div></div>
+            </div>
+          )}
+          <table className="w-full text-left text-xs">
+            <thead><tr className="border-b border-[var(--color-border-secondary)] text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]"><th className="py-1.5">Provider</th><th>SKU</th><th>Region</th><th>Specs</th><th className="text-right">$/hr</th><th className="text-right">Total</th></tr></thead>
+            <tbody>
+              {resp.ranked.map((q, i) => (
+                <tr key={i} className={`border-b border-[var(--color-border-tertiary)] ${i === 0 ? 'font-semibold' : ''}`}>
+                  <td className="py-1.5"><span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${PROVIDER_COLOR[q.sku.provider] ?? ''}`}>{q.sku.provider}</span></td>
+                  <td className="font-mono text-[11px]">{q.sku.name}</td><td>{q.sku.region}</td>
+                  <td className="text-[var(--color-text-secondary)]">{q.sku.gpu ? `${q.sku.gpu.count}× ${q.sku.gpu.type}` : `${q.sku.vcpus} vCPU`}</td>
+                  <td className="text-right">${q.effectivePerHour}{q.spot ? ' ·spot' : ''}</td><td className="text-right">${q.totalUsd}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {resp.placement && (
+            <div className="mt-3 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-[11px] text-[var(--color-text-secondary)]">
+              <span className="font-semibold text-[var(--color-text-primary)]">agentplane placement</span> · {resp.placement.kind} · lane {resp.placement.lane} · executor <span className="font-mono">{resp.placement.chosenExecutor ?? '—'}</span> · backend {resp.placement.effectiveBackend}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Lattice-forge runtime provenance */}
+      <div className="mt-7">
+        <div className="mb-2 text-sm font-semibold text-[var(--color-text-primary)]">Runtime registry <span className="text-[10px] font-normal text-[var(--color-text-tertiary)]">(lattice-forge provenance)</span></div>
+        {runtimes.length === 0
+          ? <div className="text-xs text-[var(--color-text-tertiary)]">No runtime assets (backend offline?).</div>
+          : <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
+              {runtimes.map((a, i) => (
+                <div key={i} className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2">
+                  <div className="flex items-center justify-between"><span className="truncate font-mono text-[11px] text-[var(--color-text-primary)]">{a.name}</span>{a._conformance && <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${a._conformance.conforms ? 'bg-[#dcfce7] text-[#16a34a]' : 'bg-[#fef2f2] text-[#dc2626]'}`}>{a._conformance.conforms ? 'conformant' : 'gaps'}</span>}</div>
+                  <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">{a.role}{a.runtimeClass ? ` · ${a.runtimeClass}` : ''}</div>
+                </div>
+              ))}
+            </div>}
+      </div>
+    </div>
+  )
+}

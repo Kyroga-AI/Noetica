@@ -20,3 +20,4 @@ export type ActiveSurface =
   | 'holographme'
   | 'marketplace'
   | 'computer'
+  | 'broker'

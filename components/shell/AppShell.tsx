@@ -18,6 +18,7 @@ import { EvaluateSurface } from '@/components/surfaces/EvaluateSurface'
 import { StudioSurface } from '@/components/surfaces/StudioSurface'
 import { RagInspectSurface } from '@/components/surfaces/RagInspectSurface'
 import { LabSurface } from '@/components/surfaces/LabSurface'
+import { CloudBrokerSurface } from '@/components/surfaces/CloudBrokerSurface'
 import { JitsiSurface } from '@/components/surfaces/JitsiSurface'
 import { OfficeViewer } from '@/components/surfaces/OfficeViewer'
 import { GovernSurface } from '@/components/surfaces/GovernSurface'
@@ -91,6 +92,7 @@ const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
   holographme:  'Chat',
   marketplace:  'Chat',
   computer:     'Chat',
+  broker:       'Chat',
 }
 
 export function AppShell() {
@@ -1701,6 +1703,7 @@ function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, work
   if (activeSurface === 'studio')       return <StudioSurface />
   if (activeSurface === 'rag')          return <RagInspectSurface />
   if (activeSurface === 'lab')          return <LabSurface />
+  if (activeSurface === 'broker')       return <CloudBrokerSurface />
   if (activeSurface === 'jitsi')        return <JitsiSurface />
   if (activeSurface === 'docs')         return <OfficeViewer />
   if (activeSurface === 'operate')      return <OperateSurface onAtomSelect={onAtomSelect} />
