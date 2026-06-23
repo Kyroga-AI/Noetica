@@ -186,6 +186,37 @@ fn speak_text(text: String, voice: String) {
     }
 }
 
+/// OS keychain for secrets (API keys, OAuth tokens) — macOS Keychain / Linux Secret Service / Windows
+/// Credential Manager. Keeps credentials out of plaintext localStorage. Errors are returned as strings so
+/// the frontend can fall back gracefully (e.g. a headless Linux box with no Secret Service).
+const KEYCHAIN_SERVICE: &str = "ai.noetica.secrets";
+
+#[tauri::command]
+fn keychain_set(key: String, value: String) -> Result<(), String> {
+    keyring::Entry::new(KEYCHAIN_SERVICE, &key)
+        .and_then(|e| e.set_password(&value))
+        .map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn keychain_get(key: String) -> Result<Option<String>, String> {
+    let entry = keyring::Entry::new(KEYCHAIN_SERVICE, &key).map_err(|e| e.to_string())?;
+    match entry.get_password() {
+        Ok(v) => Ok(Some(v)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
+#[tauri::command]
+fn keychain_delete(key: String) -> Result<(), String> {
+    let entry = keyring::Entry::new(KEYCHAIN_SERVICE, &key).map_err(|e| e.to_string())?;
+    match entry.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(e.to_string()),
+    }
+}
+
 /// Stop any in-progress system-voice process.
 #[tauri::command]
 fn stop_speaking() {
@@ -701,6 +732,9 @@ fn main() {
             probe_agent_machine,
             speak_text,
             stop_speaking,
+            keychain_set,
+            keychain_get,
+            keychain_delete,
             take_screenshot,
             execute_computer_action,
             read_local_file,

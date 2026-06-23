@@ -18,19 +18,17 @@ const ConnectorAuthContext = createContext<ConnectorAuthContextValue | null>(nul
 export function ConnectorAuthProvider({ children }: { children: React.ReactNode }) {
   const [store, setStore] = useState<ConnectorAuthStore>({})
 
-  // Load on mount
+  // Load on mount (async — secrets come from the OS keychain via secureStore)
   useEffect(() => {
-    setStore(loadAuthStore())
+    void loadAuthStore().then(setStore)
   }, [])
 
   const setAuth = useCallback((id: ConnectorId, state: ConnectorAuthState | MatrixAuthState) => {
-    setConnectorAuth(id, state)
-    setStore(loadAuthStore())
+    void setConnectorAuth(id, state).then(() => loadAuthStore()).then(setStore)
   }, [])
 
   const clearAuth = useCallback((id: ConnectorId) => {
-    clearConnectorAuth(id)
-    setStore(loadAuthStore())
+    void clearConnectorAuth(id).then(() => loadAuthStore()).then(setStore)
   }, [])
 
   const getAuth = useCallback((id: ConnectorId) => store[id], [store])

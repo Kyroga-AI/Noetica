@@ -16,3 +16,6 @@ tauri-plugin-dialog = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 base64 = "0.22"
+# OS keychain for secrets (macOS Keychain / Linux Secret Service / Windows Credential Manager) — keeps API
+# keys + OAuth tokens out of plaintext localStorage.
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service", "crypto-rust"] }
