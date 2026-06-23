@@ -104,6 +104,31 @@ function GiteaDetail({
 
   useEffect(() => { void checkGiteaApi() }, [settings.giteaEndpoint, settings.giteaToken]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Suck a sovereign Gitea repo into the knowledge base (the backend supports gitea symmetrically with github).
+  const [ingestState, setIngestState] = useState<Record<number, string>>({})
+  async function ingestGitea(repo: GiteaRepo) {
+    const [owner, name] = repo.full_name.split('/')
+    setIngestState((s) => ({ ...s, [repo.id]: 'reading…' }))
+    try {
+      const amBase = (typeof window !== 'undefined' && (window as unknown as { __TAURI__?: unknown }).__TAURI__) ? 'http://127.0.0.1:8080' : ''
+      const res = await fetch(`${amBase}/api/repo/ingest`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ provider: 'gitea', owner, repo: name, branch: repo.default_branch, token: settings.giteaToken, giteaBase: settings.giteaEndpoint }) })
+      if (!res.ok || !res.body) throw new Error('ingest failed')
+      const reader = res.body.getReader(); const dec = new TextDecoder(); let buf = ''
+      for (;;) {
+        const { done, value } = await reader.read(); if (done) break
+        buf += dec.decode(value, { stream: true }); const lines = buf.split('\n'); buf = lines.pop() ?? ''
+        for (const line of lines) {
+          if (!line.startsWith('data:')) continue
+          try { const ev = JSON.parse(line.slice(5)) as { total?: number; done?: number; ingested?: number; chunks?: number; error?: string }
+            if (ev.error) setIngestState((s) => ({ ...s, [repo.id]: `error: ${ev.error}` }))
+            else if (ev.ingested != null) setIngestState((s) => ({ ...s, [repo.id]: `✓ ${ev.ingested} files → KB` }))
+            else if (ev.done != null) setIngestState((s) => ({ ...s, [repo.id]: `${ev.done}/${ev.total}…` }))
+          } catch { /* skip */ }
+        }
+      }
+    } catch { setIngestState((s) => ({ ...s, [repo.id]: 'ingest failed' })) }
+  }
+
   const configured = Boolean(settings.giteaEndpoint.trim())
   const filteredRepos = repos.filter((r) =>
     !repoSearch || r.full_name.toLowerCase().includes(repoSearch.toLowerCase()) || (r.description ?? '').toLowerCase().includes(repoSearch.toLowerCase())
@@ -231,6 +256,9 @@ function GiteaDetail({
                       {repo.description && <div className="mt-0.5 truncate text-[11px] text-[var(--color-text-secondary)]">{repo.description}</div>}
                     </div>
                     {repo.stars_count > 0 && <span className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">★ {repo.stars_count}</span>}
+                    {ingestState[repo.id] && <span className="shrink-0 max-w-[110px] truncate text-[9px] text-[var(--color-text-tertiary)]" title={ingestState[repo.id]}>{ingestState[repo.id]}</span>}
+                    <button onClick={() => void ingestGitea(repo)} title="Suck this repo into the knowledge base as source-of-truth"
+                      className="shrink-0 rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2 py-1 text-[10px] font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe]">⊕ Ingest to KB</button>
                   </li>
                 ))}
               </ul>
