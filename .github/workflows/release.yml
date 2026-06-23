@@ -162,6 +162,24 @@ jobs:
           prerelease: ${{ contains(github.ref_name, 'nightly') }}
           args: --target universal-apple-darwin
 
+      # Notarize + STAPLE the DMG so Gatekeeper clears it on first launch with no `xattr -dr quarantine`
+      # workaround. tauri-action notarizes the .app during build when APPLE_ID/PASSWORD/TEAM_ID are set (they're
+      # exported above); this staples the ticket onto the DMG so an OFFLINE first launch passes too. Runs only
+      # when Apple credentials are configured; continue-on-error so an Apple-service hiccup can't block a release.
+      - name: Notarize + staple DMG
+        if: env.APPLE_CERTIFICATE != ''
+        continue-on-error: true
+        run: |
+          DMG=$(find src-tauri/target/universal-apple-darwin/release/bundle/dmg -name "*.dmg" 2>/dev/null | head -1)
+          [ -z "$DMG" ] && DMG=$(find src-tauri/target/release/bundle/dmg -name "*.dmg" 2>/dev/null | head -1)
+          if [ -z "$DMG" ]; then echo "::warning::no DMG found to notarize"; exit 0; fi
+          echo "Notarizing $DMG"
+          xcrun notarytool submit "$DMG" \
+            --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID" \
+            --wait --timeout 30m
+          xcrun stapler staple "$DMG"
+          xcrun stapler validate "$DMG" && echo "Notarized + stapled OK"
+
       # Ad-hoc sign the DMG when no Apple Developer cert is available.
       # This removes the broken signature that Gatekeeper silently rejects.
       - name: Ad-hoc sign DMG (no cert fallback)
