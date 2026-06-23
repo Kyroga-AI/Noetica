@@ -232,8 +232,20 @@ function appendChained(record: Record<string, unknown>): void {
   // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { hashRecord } = require('./audit-chain.js') as typeof import('./audit-chain.js')
   const prevHash = loadHead()
-  const hash = hashRecord(prevHash, record)
-  fs.appendFileSync(EVENTS_PATH, `${JSON.stringify({ ...record, prevHash, hash })}\n`)
+  // Encrypt the record at rest, then chain the hash over the CIPHERTEXT unit `{ enc }` — so the audit trail is
+  // BOTH tamper-evident (any edit to a ciphertext breaks the chain + the signed head) AND confidential (the
+  // event payload isn't plaintext on disk). A verifier checks hashes of the {enc} units with no decryption;
+  // reading the content decrypts with the at-rest key. NOETICA_ENCRYPT_AT_REST=0 keeps the old plaintext form
+  // (and reads stay mixed-form-tolerant). Genesis/old entries that are plaintext still chain correctly.
+  let unit: Record<string, unknown> = record
+  try {
+    if (process.env['NOETICA_ENCRYPT_AT_REST'] !== '0') {
+      const { encryptLine } = require('./at-rest.js') as typeof import('./at-rest.js')
+      unit = { enc: encryptLine(record) }
+    }
+  } catch { /* at-rest unavailable → plaintext unit, still chained */ }
+  const hash = hashRecord(prevHash, unit)
+  fs.appendFileSync(EVENTS_PATH, `${JSON.stringify({ ...unit, prevHash, hash })}\n`)
   _chainHead = hash
   try { fs.writeFileSync(headPath(), hash) } catch { /* */ }
   try {
