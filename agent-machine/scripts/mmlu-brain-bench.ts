@@ -123,27 +123,44 @@ function fieldReady(field: string): boolean {
   const d = fieldDir(field)
   return fs.existsSync(d) && fs.readdirSync(d).some((f) => f.endsWith('.jsonl'))
 }
+// GOLD = worked solutions / exams / psets — the material that teaches HOW TO SOLVE. Applied here so the
+// BOARD tests the SAME gold-first retrieval the product uses (lib/study-brain.ts) — otherwise the bench
+// would grade a different, weaker retriever than ships.
+const GOLD = new Set(['solution', 'exam', 'assignment', 'problem', 'pset', 'quiz', 'recitation'])
+const MATERIAL_BOOST: Record<string, number> = {
+  solution: 1.30, exam: 1.30, problem: 1.28, pset: 1.28, quiz: 1.22, assignment: 1.20, recitation: 1.10,
+  lecture: 1.05, reference: 0.92, syllabus: 0.80,
+}
+const materialBoost = (m: string): number => MATERIAL_BOOST[m] ?? 1.0
+
 function loadField(field: string): Chunk[] {
   if (fieldCache.has(field)) return fieldCache.get(field)!
   const dir = fieldDir(field)
-  const chunks: Chunk[] = []
+  // GOLD-FIRST: keep EVERY worked-solution/exam chunk, then fill the cap with reference. Reads all files
+  // so gold is never dropped by file ordering.
+  const gold: Chunk[] = []; const rest: Chunk[] = []
   if (fs.existsSync(dir)) {
     for (const fn of fs.readdirSync(dir).filter((f) => f.endsWith('.jsonl'))) {
-      if (chunks.length >= MAX_CHUNKS) break
       const lines = fs.readFileSync(path.join(dir, fn), 'utf8').split('\n')
       for (const line of lines) {
-        if (!line.trim() || chunks.length >= MAX_CHUNKS) continue
+        if (!line.trim()) continue
         try {
           const o = JSON.parse(line) as { text?: string; slug?: string; material?: string; vec?: string; dims?: number }
           if (!o.text || !o.vec) continue
           const text = cleanText(o.text)
           if (!usableChunk(text)) continue   // drop garbled / near-empty chunks before they can be injected
-          const vec = decodeVec(o.vec, o.dims || 768) // aligned-safe shared codec
-          chunks.push({ text, slug: o.slug || fn, material: o.material || 'reference', vec, norm: l2norm(vec) })
+          const material = (o.material || 'reference').toLowerCase()
+          const isGold = GOLD.has(material)
+          if (isGold ? gold.length < MAX_CHUNKS : rest.length < MAX_CHUNKS) {
+            const vec = decodeVec(o.vec, o.dims || 768) // aligned-safe shared codec
+            ;(isGold ? gold : rest).push({ text, slug: o.slug || fn, material, vec, norm: l2norm(vec) })
+          }
         } catch { /* skip bad line */ }
       }
+      if (gold.length >= MAX_CHUNKS && rest.length >= MAX_CHUNKS) break
     }
   }
+  const chunks = gold.concat(rest.slice(0, Math.max(0, MAX_CHUNKS - gold.length)))
   fieldCache.set(field, chunks)
   return chunks
 }
@@ -153,7 +170,7 @@ function topK(qVec: number[], pools: Chunk[][], k: number): Chunk[] {
   for (const pool of pools) for (const c of pool) {
     let dot = 0; const m = Math.min(qVec.length, c.vec.length)
     for (let i = 0; i < m; i++) dot += qVec[i]! * c.vec[i]!
-    scored.push({ c, s: dot / (qn * c.norm) })
+    scored.push({ c, s: (dot / (qn * c.norm)) * materialBoost(c.material) }) // gold-first ranking
   }
   scored.sort((a, b) => b.s - a.s)
   // de-dupe near-identical texts, keep the k best distinct
@@ -247,6 +264,9 @@ async function retrieveMulti(question: string, choices: string[], pools: Chunk[]
     const bRank = new Map([...cands].sort((a, b) => bm.get(b.c)! - bm.get(a.c)!).map((x, i) => [x.c, i]))
     for (const x of cands) x.s = 1 / (60 + (dRank.get(x.c) ?? 99)) + 1 / (60 + (bRank.get(x.c) ?? 99))
   }
+  // GOLD-FIRST ranking: applied after dense + RRF so a comparably-relevant worked solution / exam outranks
+  // a lecture paragraph in the final context (the brain re-curation insight, in the brain/champion arms).
+  for (const x of cands) x.s *= materialBoost(x.c.material)
   const ranked = cands.sort((a, b) => b.s - a.s)
   if (MMR_LAMBDA <= 0 || ranked.length <= finalK) return ranked.slice(0, finalK).map((x) => x.c)
   // MMR: greedily pick finalK balancing relevance (cosine to query) against novelty (low similarity
