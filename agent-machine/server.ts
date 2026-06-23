@@ -3986,8 +3986,11 @@ const server = http.createServer((req, res) => {
     void (async () => {
       const { brainStatus } = await import('./lib/brain-provision.js')
       const { fetchBrainManifest } = await import('./lib/brain-manifest.js')
+      const { domainStatus } = await import('./lib/knowledge-domains.js')
       res.writeHead(200, { 'content-type': 'application/json' })
-      res.end(JSON.stringify(brainStatus(await fetchBrainManifest()))) // include available/update info
+      // brains (academic/operational/chat) + per-domain readiness (math…medicine, legal) so you can SEE
+      // exactly where each subject stands — e.g. medicine=thin, legal=missing.
+      res.end(JSON.stringify({ ...brainStatus(await fetchBrainManifest()), academicDomains: domainStatus() }))
     })()
     return
   }
