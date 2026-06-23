@@ -37,26 +37,32 @@ def chat(model, prompt, temperature=0.0):
         return ''
 
 
+GOLD_MATERIAL = {'solution', 'exam', 'assignment', 'problem', 'pset', 'quiz', 'recitation'}
+
+
 def load_chunks(field, n):
-    texts = []
+    """Prefer the GOLD — worked solutions / exam problems make FAR better MCQs (they carry a real
+    problem + its reasoning) than lecture prose. Take all gold first, fill the rest from reference."""
+    gold, rest = [], []
     for fp in glob.glob(os.path.join(BRAIN, field, '*.jsonl')):
         for line in open(fp, errors='replace'):
             line = line.strip()
             if not line:
                 continue
             try:
-                t = json.loads(line).get('text', '')
+                o = json.loads(line)
             except Exception:
                 continue
-            if t and 200 < len(t) < 1400:        # substantive, self-contained passages make better Qs
-                texts.append(t)
-            if len(texts) >= n * 3:
-                break
-        if len(texts) >= n * 3:
+            t = o.get('text', '')
+            if not (t and 200 < len(t) < 1400):   # substantive, self-contained passages make better Qs
+                continue
+            (gold if (o.get('material') or 'reference').lower() in GOLD_MATERIAL else rest).append(t)
+        if len(gold) >= n * 3 and len(rest) >= n * 3:
             break
     import random
-    random.Random(1729).shuffle(texts)
-    return texts[:n]
+    r = random.Random(1729)
+    r.shuffle(gold); r.shuffle(rest)
+    return (gold + rest)[:n]                       # gold-first; reference only fills the remainder
 
 
 def gen_mcq(chunk):
