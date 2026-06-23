@@ -69,6 +69,9 @@ const SUBJECT_FIELDS: Record<string, string[]> = {
   college_chemistry: ['chemistry'], high_school_chemistry: ['chemistry'],
   college_biology: ['biology', 'biological_eng'], high_school_biology: ['biology', 'biological_eng'],
   college_computer_science: ['eecs'], electrical_engineering: ['eecs'],
+  // commonsense-KG ablation (Stage 1) — 4-choice retrieval benches graded against the 'commonsense' brain
+  // (CSKG+ConceptNet+DBpedia). A0=baseline vs A1=brain measures whether commonsense retrieval lifts the 7B.
+  openbookqa: ['commonsense'], arc_challenge: ['commonsense'], arc_easy: ['commonsense'],
 }
 
 // FIELD_ADJ — co-prime / adjacent fields to WIDEN into when per-choice coverage is thin. The
