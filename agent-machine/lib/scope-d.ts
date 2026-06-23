@@ -100,8 +100,13 @@ export function checkEgress(req: ScopedEgressRequest): ScopedEgressVerdict {
   if (req.tier === 'local' || req.provider === 'ollama') {
     return { allow: true, reason: 'local route — no egress', source: 'not-configured' }
   }
-  // No policy configured → preserve prior behavior (no gating).
+  // No policy configured: FAIL-CLOSED for the sovereign/armed lane (#30) — uncensored/sovereign-only work
+  // must NOT egress to a third-party cloud without an explicit engagement policy authorizing it. Ordinary
+  // (non-sovereign) requests preserve the prior allow so default cloud chat keeps working.
   if (!scopedConfigured()) {
+    if (req.securityArmed === true || (req.sensitivityTags ?? []).includes('sovereign-only')) {
+      return { allow: false, reason: 'sovereign/armed egress requires an explicit scope-d policy — staying local', downgradeTo: 'local', source: 'fail-closed' }
+    }
     return { allow: true, reason: 'scope-d engagement policy not configured', source: 'not-configured' }
   }
   const policy = loadEngagementPolicy()
