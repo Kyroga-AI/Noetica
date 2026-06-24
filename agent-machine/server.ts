@@ -36,6 +36,7 @@ import * as dns from 'node:dns'
 import * as net from 'node:net'
 import { originAllowed } from './lib/origin-guard.js'
 import { isConfinedToHomeOrTmp } from './lib/path-confine.js'
+import { safeShellEnv } from './lib/safe-shell-env.js'
 import { buildRouterDecision, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider } from './lib/router.js'
 import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTelemetry, type MeshTier } from './lib/scope-d.js'
 import { installEgressGuard, setOfflineMode } from './lib/egress-guard.js'
@@ -1221,7 +1222,7 @@ function runInWorkspace(command: string, cwd: string, timeoutMs: number): Promis
     let safeTimeout = Number.isFinite(timeoutMs) ? timeoutMs : 60_000
     if (safeTimeout > 300_000) safeTimeout = 300_000
     if (safeTimeout < 1_000) safeTimeout = 1_000
-    const child = cp.spawn(LOGIN_SHELL, ['-lc', command], { cwd, env: { ...process.env } })
+    const child = cp.spawn(LOGIN_SHELL, ['-lc', command], { cwd, env: safeShellEnv() })
     const timer = setTimeout(() => { if (!done) { done = true; try { child.kill('SIGKILL') } catch { /* */ } resolve({ out, err, code: `timeout after ${safeTimeout}ms` }) } }, safeTimeout)
     child.stdout.on('data', (d: Buffer) => { if (out.length < 200_000) out += d.toString() })
     child.stderr.on('data', (d: Buffer) => { if (err.length < 100_000) err += d.toString() })
@@ -1235,7 +1236,7 @@ function runInWorkspace(command: string, cwd: string, timeoutMs: number): Promis
 const _devServers = new Set<number>()
 function startDevServer(command: string, cwd: string, timeoutMs: number): Promise<{ url?: string; pid?: number }> {
   return new Promise((resolve) => {
-    const child = cp.spawn(LOGIN_SHELL, ['-lc', command], { cwd, env: { ...process.env } })
+    const child = cp.spawn(LOGIN_SHELL, ['-lc', command], { cwd, env: safeShellEnv() })
     if (child.pid) _devServers.add(child.pid)
     let resolved = false
     const finish = (u?: string) => { if (!resolved) { resolved = true; clearTimeout(timer); resolve({ url: u, pid: child.pid }) } }
