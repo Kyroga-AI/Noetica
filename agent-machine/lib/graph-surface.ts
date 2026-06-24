@@ -14,7 +14,7 @@ import { isActionLabel } from './graph-hygiene.js'
 import { dimensionOf } from './cskg.js'
 type GNode = GraphNode
 type GEdge = GraphEdge
-export interface SurfaceNode { id: string; label: string; category: string; kind: string; featured: boolean; degree: number }
+export interface SurfaceNode { id: string; label: string; category: string; kind: string; kvClass: string; featured: boolean; degree: number }
 export interface SurfaceLink { source: string; target: string; primary: boolean; epistemic: string; dimension: string }
 export interface SurfaceResult { nodes: SurfaceNode[]; links: SurfaceLink[]; total: { nodes: number; edges: number } }
 
@@ -244,7 +244,12 @@ export function selectSurface(allNodes: GNode[], allEdges: GEdge[], opts: { view
   const nodes: SurfaceNode[] = picked.map((n) => {
     const lbl = n.labels[0] ?? 'node'
     const deg = degree.get(n.id) ?? 0
-    return { id: n.id, label: cleanLabel(n) ?? lbl, category: categoryFor(lbl), kind: kindOf(lbl), featured: deg >= maxDeg * 0.6, degree: deg }
+    // kvClass — the keyed-vec class (nearest MMLU/MMLU-Pro subject) is the DEFAULT class for grouping/
+    // linking content: eval-anchored and shared with the canon + board. Falls back to the lexical colour-
+    // category when a node has no keyed-vec class, so every node always carries a linking class.
+    const kvProp = n.properties?.['kvClass']
+    const kvClass = (typeof kvProp === 'string' && kvProp) ? kvProp : categoryFor(lbl)
+    return { id: n.id, label: cleanLabel(n) ?? lbl, category: categoryFor(lbl), kind: kindOf(lbl), kvClass, featured: deg >= maxDeg * 0.6, degree: deg }
   })
 
   const shown = new Map<string, number>()
