@@ -139,5 +139,22 @@
     "6.THG"
    ]
   }
- ]
+ ],
+ "k12": {
+  "registrar": "registrar-k12.json",
+  "navigator": "k12-navigator.json",
+  "kinds": [
+   "interest",
+   "field"
+  ],
+  "buckets": [
+   "math",
+   "language_arts",
+   "science",
+   "social_studies",
+   "arts",
+   "health_pe"
+  ],
+  "note": "Interest-driven, homeschool-compliant, choose-your-own paths walking the prereq graph from curiosity to a field."
+ }
 }
