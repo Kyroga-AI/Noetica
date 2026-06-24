@@ -62,6 +62,17 @@ jobs:
         run: cargo build --release --manifest-path embed-sidecar/Cargo.toml
       - name: Integration tests (Ollama broken-primary fallback)
         run: npm --prefix agent-machine run test:integration:fallback
+      # The on-device neural-operator stack: build the ONNX-Runtime sidecar (cached), then drive it through the
+      # real operator-runtime against the checked-in reference fixtures. The test skips cleanly without the
+      # binary, so this build is what actually exercises it.
+      - name: Cache Rust (operator)
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          workspaces: operator-sidecar
+      - name: Build neural-operator sidecar (noetica-operator)
+        run: cargo build --release --manifest-path operator-sidecar/Cargo.toml
+      - name: Integration tests (on-device neural operator)
+        run: npm --prefix agent-machine run test:integration:operator
       - name: Bundle smoke (sidecar boots + serves no-model endpoints)
         run: npm run smoke:bundle
       - name: Engine version sync (hellgraph pin parity across manifests)

@@ -4322,6 +4322,54 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // ── On-device neural-operator inference (operator-runtime → noetica-operator sidecar) ──────────────
+  // The sovereign compute substrate for the GAIA map (flood/dispersion/hydrology surrogates) and any caller
+  // that needs a trained Fourier Neural Operator run locally. Reusable + model-agnostic.
+  //   GET  /api/operator/models           -> { available, models }
+  //   GET  /api/operator/meta?model=NAME  -> { model, inputs, outputs }
+  //   POST /api/operator/infer {model,inputs} -> { outputs, ms }   (token-gated: runs arbitrary ONNX)
+  if (req.method === 'GET' && url.pathname === '/api/operator/models') {
+    void (async () => {
+      const { listOperators, isLocalOperatorAvailable } = await import('./lib/operator-runtime.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ available: isLocalOperatorAvailable(), models: await listOperators() }))
+    })()
+    return
+  }
+  if (req.method === 'GET' && url.pathname === '/api/operator/meta') {
+    void (async () => {
+      const { operatorMeta, OperatorUnavailableError, OperatorError } = await import('./lib/operator-runtime.js')
+      try {
+        const meta = await operatorMeta(url.searchParams.get('model') ?? '')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(meta))
+      } catch (e) {
+        const code = e instanceof OperatorUnavailableError ? 503 : e instanceof OperatorError ? e.status : 500
+        res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: (e as Error).message }))
+      }
+    })()
+    return
+  }
+  if (req.method === 'POST' && url.pathname === '/api/operator/infer') {
+    if (!requireApiToken(req, res)) return
+    let raw = ''
+    req.on('data', (c: Buffer) => { raw += c.toString(); if (raw.length > 96 * 1024 * 1024) req.destroy() })
+    req.on('end', () => { void (async () => {
+      const { operatorInfer, OperatorUnavailableError, OperatorError } = await import('./lib/operator-runtime.js')
+      let body: { model?: string; inputs?: Record<string, { shape: number[]; data: number[] }> }
+      try { body = JSON.parse(raw || '{}') } catch {
+        res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid json' })); return
+      }
+      try {
+        const result = await operatorInfer(String(body.model ?? ''), body.inputs ?? {})
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(result))
+      } catch (e) {
+        const code = e instanceof OperatorUnavailableError ? 503 : e instanceof OperatorError ? e.status : 500
+        res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: (e as Error).message }))
+      }
+    })() })
+    return
+  }
+
   // GET/PUT /api/identity — the current user's profile (name/email), per-machine. Replaces the
   // hardcoded developer identity: a fresh install reads the neutral default ('You', no email) until
   // the user sets their own here. GET returns it; PUT/POST persists to ~/.noetica/identity.json.
