@@ -94,6 +94,50 @@
    "units_held": 144,
    "pct": 100,
    "gaps": []
+  },
+  {
+   "program": "Physics PhD (Course 8)",
+   "department": "8",
+   "persona": "Walter Lewin",
+   "subjects_required": 7,
+   "subjects_captured": 6,
+   "units_total": 108,
+   "units_held": 72,
+   "pct": 67,
+   "gaps": [
+    "8.THG"
+   ]
+  },
+  {
+   "program": "Mathematics PhD (Course 18)",
+   "department": "18",
+   "persona": "Gilbert Strang",
+   "subjects_required": 6,
+   "subjects_captured": 3,
+   "units_total": 96,
+   "units_held": 36,
+   "pct": 38,
+   "gaps": [
+    "18.905",
+    "18.906",
+    "18.THG"
+   ]
+  },
+  {
+   "program": "EECS SM/PhD (Course 6)",
+   "department": "6",
+   "persona": "Patrick Winston",
+   "subjects_required": 5,
+   "subjects_captured": 1,
+   "units_total": 84,
+   "units_held": 12,
+   "pct": 14,
+   "gaps": [
+    "6.840",
+    "6.867",
+    "6.824",
+    "6.THG"
+   ]
   }
  ]
 }
