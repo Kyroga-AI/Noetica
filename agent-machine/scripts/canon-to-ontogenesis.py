@@ -131,16 +131,25 @@ def load_canon(canon_dir: Path):
             specs[dom] = json.loads(p.read_text())
     align_path = canon_dir / "keyvec-alignment.json"
     align = json.loads(align_path.read_text()) if align_path.exists() else {}
-    return specs, align
+    # the INDUCED knowledge to type: seq2seq cards (mined equations) + the frontier KGI triples
+    cards = []
+    cpath = canon_dir / "cards.jsonl"
+    if cpath.exists():
+        cards = [json.loads(l) for l in cpath.read_text().splitlines() if l.strip()]
+    induced = []
+    ipath = canon_dir / "induced-kg.jsonl"
+    if ipath.exists():
+        induced = [json.loads(l) for l in ipath.read_text().splitlines() if l.strip()]
+    return specs, align, cards, induced
 
 
 # ---------------------------------------------------------------------------
 # Emit module TTL (TBox + ABox)
 # ---------------------------------------------------------------------------
-def emit_module(specs, align) -> tuple[str, dict]:
+def emit_module(specs, align, cards, induced) -> tuple[str, dict]:
     out: list[str] = []
     counts = dict(domains=0, topics=0, concepts=0, formulas=0,
-                  test_subjects=0, alignment_edges=0)
+                  test_subjects=0, alignment_edges=0, cards=0, induced=0)
 
     A = out.append
     A("@base <%s> ." % BASE)
@@ -209,6 +218,18 @@ def emit_module(specs, align) -> tuple[str, dict]:
       'rdfs:range kcc:TestSubject ; rdfs:label "aligns subject" .')
     A("kcc:inKnowledgeContext a owl:ObjectProperty ; rdfs:domain upper:Entity ; "
       'rdfs:range kc:KnowledgeContext ; rdfs:label "in knowledge context" .')
+    A("kcc:InducedAssertion a owl:Class ; rdfs:subClassOf upper:Evidence ; "
+      'rdfs:label "Induced KG assertion" ; rdfs:comment "A reified frontier-induced (subject, relation, '
+      'object) triple over canon concepts, carrying its relation kind + provenance — so induced knowledge is '
+      'GOVERNED and typed, not ungoverned graph edges." .')
+    A("kcc:inducedRelation a owl:DatatypeProperty ; rdfs:domain kcc:InducedAssertion ; "
+      'rdfs:range xsd:string ; rdfs:label "induced relation" .')
+    A("kcc:inducedSubjectLabel a owl:DatatypeProperty ; rdfs:domain kcc:InducedAssertion ; "
+      'rdfs:range xsd:string ; rdfs:label "induced subject" .')
+    A("kcc:inducedObjectLabel a owl:DatatypeProperty ; rdfs:domain kcc:InducedAssertion ; "
+      'rdfs:range xsd:string ; rdfs:label "induced object" .')
+    A("kcc:canonLinked a owl:DatatypeProperty ; rdfs:domain kcc:InducedAssertion ; "
+      'rdfs:range xsd:boolean ; rdfs:label "links a canon entity" .')
     A("")
     A("### Governance anchor — one Knowledge Context for the whole canon module")
     A("kcc:CanonKnowledgeContext a kc:KnowledgeContext ;")
@@ -300,6 +321,46 @@ def emit_module(specs, align) -> tuple[str, dict]:
                     A("  skos:inScheme kcc:CanonScheme .")
                     counts["concepts"] += 1
         A("")
+
+    # ----------------------- ABox: seq2seq cards -> Formula (the mined equations, typed) --------------
+    A("### Seq2seq cards — glossary-mined equations written back, typed as Formula (dct:source seq2seq)")
+    for c in cards:
+        if c.get("source") != "seq2seq":
+            continue                                    # canon-sourced cards are already emitted from the specs
+        dom = c.get("domain", "")
+        tname = c.get("topic", "")
+        front = (c.get("front") or "").split(":")[0].strip()
+        back = c.get("back", "")
+        if not (dom and tname and front and back):
+            continue
+        fi = formula_iri(dom, tname, "s2s-" + front)
+        cls = "math:Equation" if dom == "mathematics" else "kcc:Formula"
+        A("%s a %s ;" % (fi, cls))
+        A("  rdfs:label %s ;" % lit(front))
+        A("  math:hasStatement %s ;" % lit(back))
+        A("  kcc:canonType %s ;" % lit("equation"))
+        A('  dct:source "seq2seq" ;')
+        A("  dct:subject %s ;" % topic_iri(dom, tname))
+        A("  kcc:inKnowledgeContext kcc:CanonKnowledgeContext .")
+        counts["cards"] += 1
+    A("")
+
+    # ----------------------- ABox: induced KG -> reified InducedAssertion (typed, governed) ----------
+    A("### Induced KG — frontier triples reified + typed (the 8-relation vocabulary, provenance preserved)")
+    for n, tr in enumerate(induced):
+        s, r, o = tr.get("s"), tr.get("r"), tr.get("o")
+        if not (s and r and o):
+            continue
+        ai = f"<{KCC}induced-{n}-{slug(s, r, o)[:50]}>"
+        A("%s a kcc:InducedAssertion ;" % ai)
+        A("  kcc:inducedSubjectLabel %s ;" % lit(str(s)))
+        A("  kcc:inducedRelation %s ;" % lit(str(r)))
+        A("  kcc:inducedObjectLabel %s ;" % lit(str(o)))
+        A("  kcc:canonLinked %s ;" % ('true' if (tr.get("s_canon") or tr.get("o_canon")) else 'false'))
+        A('  dct:source "kgi" ;')
+        A("  kcc:inKnowledgeContext kcc:CanonKnowledgeContext .")
+        counts["induced"] += 1
+    A("")
 
     # ----------------------- ABox: alignment / eval-anchoring --------------
     A("### Eval anchoring — MMLU / MMLU-Pro alignment (cosines preserved)")
@@ -453,6 +514,34 @@ kcc:AlignmentEdgeShape a sh:NodeShape ;
     sh:class kcc:TestSubject ;
     sh:message "An alignment edge must reference its test subject." ;
   ] .
+
+# Induced assertions must carry a relation, both endpoints, and provenance (governed induced knowledge).
+kcc:InducedAssertionShape a sh:NodeShape ;
+  sh:targetClass kcc:InducedAssertion ;
+  sh:property [
+    sh:path kcc:inducedRelation ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:string ;
+    sh:message "An induced assertion must declare exactly one relation." ;
+  ] ;
+  sh:property [
+    sh:path kcc:inducedSubjectLabel ;
+    sh:minCount 1 ;
+    sh:datatype xsd:string ;
+    sh:message "An induced assertion must name its subject." ;
+  ] ;
+  sh:property [
+    sh:path kcc:inducedObjectLabel ;
+    sh:minCount 1 ;
+    sh:datatype xsd:string ;
+    sh:message "An induced assertion must name its object." ;
+  ] ;
+  sh:property [
+    sh:path dct:source ;
+    sh:minCount 1 ;
+    sh:message "An induced assertion must declare its provenance (dct:source)." ;
+  ] .
 """
 
 
@@ -589,11 +678,11 @@ def main() -> int:
     if not onto.exists():
         raise SystemExit(f"ontogenesis repo not found: {onto}")
 
-    specs, align = load_canon(canon_dir)
+    specs, align, cards, induced = load_canon(canon_dir)
     if not specs:
         raise SystemExit(f"no spec-*.json found under {canon_dir}")
 
-    module_ttl, counts = emit_module(specs, align)
+    module_ttl, counts = emit_module(specs, align, cards, induced)
 
     # WRITE THE MODULE FILE EARLY (before any further work) so partial work persists.
     mod_path = onto / "Domains" / "knowledge-commons-canon.ttl"
