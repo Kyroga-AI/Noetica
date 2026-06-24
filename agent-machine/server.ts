@@ -3621,12 +3621,17 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       const ollamaAppendAssistant = (assistantText: string, calls: ToolUseBlock[]) => {
         ollamaMessages.push({ role: 'assistant', content: assistantText || null, tool_calls: calls.map((tc) => ({ id: tc.id, type: 'function' as const, function: { name: tc.name, arguments: JSON.stringify(tc.input) } })) })
       }
+      // Thinking only where depth earns the latency: reasoning/code lanes think (and that reasoning streams to
+      // the "Extended thinking" collapsible, never the answer body); simple/interactive lanes answer cleanly +
+      // fast with the <think> phase disabled. Driven by Ollama's enable_thinking template kwarg in streamOllama.
+      const THINK_INTENTS = new Set(['reasoning', 'explain_teach', 'compare_benchmark', 'plan_nextsteps', 'review_audit', 'prove_reason', 'compute_math', 'build_implement', 'fix_debug'])
+      const enableThinking = THINK_INTENTS.has(intentPlan.name)
       const ollamaAdapter: ProviderAdapter = {
         suppressInlineToolText: true,
         enableDivergenceRecovery: true,
         init() { /* ollamaMessages already built above */ },
         async *streamTurn() {
-          yield* streamOllama({ model, messages: ollamaMessages, tools: allTools, numCtx: ollamaNumCtx, temperature: reqTemperature, maxTokens: reqMaxTokens })
+          yield* streamOllama({ model, messages: ollamaMessages, tools: allTools, numCtx: ollamaNumCtx, temperature: reqTemperature, maxTokens: reqMaxTokens, enableThinking })
         },
         parseInlineToolCalls(text) { return parseInlineToolCalls(text, ollamaToolNames) },
         appendToolTurn(assistantText, calls, results) {
