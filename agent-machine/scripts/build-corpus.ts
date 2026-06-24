@@ -29,7 +29,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { chunkText } from '../lib/doc-store.js'
-import { embedText, EMBED_MODEL } from '../lib/ollama.js'
+import { embedBatch, EMBED_MODEL } from '../lib/ollama.js'
 import { encodeVec } from '../lib/brain-vec.js'
 import { encryptLine } from '../lib/at-rest.js'
 
@@ -155,7 +155,13 @@ function transcriptText(raw: string): string {
 }
 function extract(file: string): string {
   const ext = path.extname(file).toLowerCase()
-  if (ext === '.pdf') return pdfText(file)
+  if (ext === '.pdf') {
+    // RECOVERY: prefer a clean Marker re-extraction (math-aware PDF→LaTeX, recovers the 2D structure pymupdf
+    // flattens) if its sidecar exists; else fall back to pymupdf. The Marker pass writes {pdf}.marker.md.
+    const marker = file + '.marker.md'
+    if (fs.existsSync(marker)) { try { const t = fs.readFileSync(marker, 'utf8'); if (t.trim().length > 40) return t } catch { /* fall through */ } }
+    return pdfText(file)
+  }
   if (ext === '.vtt' || ext === '.srt') return transcriptText(fs.readFileSync(file, 'utf8'))
   if (['.txt', '.md', '.tex'].includes(ext)) return fs.readFileSync(file, 'utf8')
   return ''
@@ -206,7 +212,12 @@ async function main() {
       const text = extract(f)
       if (text.trim().length < 120) continue
       const chunks = chunkText(text)
-      const vecs = await mapPool(chunks, CONC, (c) => embedText(c).catch(() => [] as number[]))
+      // BATCH-EMBED: one ollama call per BRAIN_EMBED_BATCH chunks (×CONC parallel batches) instead of one
+      // call per chunk — the fix for the multi-hour 250k-chunk vectorize. embedBatch falls back to per-item.
+      const B = Number(process.env['BRAIN_EMBED_BATCH'] || 32)
+      const batches: string[][] = []
+      for (let bi = 0; bi < chunks.length; bi += B) batches.push(chunks.slice(bi, bi + B))
+      const vecs = (await mapPool(batches, CONC, (bt) => embedBatch(bt).catch(() => bt.map(() => [] as number[])))).flat()
       chunks.forEach((c, ci) => {
         const v = vecs[ci]; if (!v || v.length === 0) return
         lines.push(packShard({ slug, field, tier, level, material, file: path.basename(f), ci, text: c, dims: v.length, vec: b64vec(v) }))

@@ -172,6 +172,34 @@ export async function embedText(text: string): Promise<number[]> {
   return []
 }
 
+/**
+ * Embed a BATCH of texts in ONE ollama call (/api/embed, array input) instead of one HTTP call per chunk —
+ * the bottleneck that made the 250k-chunk brain build take ~hours (one round-trip + GPU schedule per chunk).
+ * Batching lets ollama embed many at once → far higher throughput. Falls back to per-item embedText if the
+ * batch endpoint is unavailable or returns the wrong shape, so it's a strict optimization, never a regression.
+ */
+export async function embedBatch(texts: string[]): Promise<number[][]> {
+  if (!texts.length) return []
+  const bases = (_activeBase === OLLAMA_PRIMARY && HAS_FALLBACK) ? [OLLAMA_PRIMARY, OLLAMA_FALLBACK] : [_activeBase]
+  const perItem = Number(process.env['NOETICA_EMBED_TIMEOUT_MS'] || 8_000)
+  const timeoutMs = Math.min(600_000, perItem * Math.max(1, Math.ceil(texts.length / 8)))   // scale with batch size
+  for (const base of bases) {
+    try {
+      const res = await fetch(`${base}/api/embed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: EMBED_MODEL, input: texts.map((t) => t.slice(0, 8000)) }),
+        signal: AbortSignal.timeout(timeoutMs),
+      })
+      if (res.ok) {
+        const json = (await res.json()) as { embeddings?: number[][] }
+        if (Array.isArray(json.embeddings) && json.embeddings.length === texts.length) { _activeBase = base; return json.embeddings }
+      }
+    } catch { /* fall through to per-item */ }
+  }
+  return Promise.all(texts.map((t) => embedText(t)))   // fallback — never worse than the old per-chunk path
+}
+
 // Cosine similarity — re-exported from the canonical lib/vec-sim.js (kept here for existing
 // `import { cosineSim } from './ollama.js'` callers). 0 if either vector is empty/zero.
 export { cosineSim } from './vec-sim.js'

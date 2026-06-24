@@ -1,0 +1,99 @@
+{
+ "personas": {
+  "physics": {
+   "persona": "Walter Lewin",
+   "method": "dramatic demonstration + visceral physical intuition",
+   "anchor": "8.01/8.02 (captured)"
+  },
+  "mathematics": {
+   "persona": "Gilbert Strang",
+   "method": "geometric intuition over rote",
+   "anchor": "18.06 (captured)"
+  },
+  "eecs": {
+   "persona": "Patrick Winston",
+   "method": "AI taught as story + first principles",
+   "anchor": "6.034 (captured)"
+  },
+  "science_communication": {
+   "persona": "Bill Nye",
+   "method": "enthusiastic, accessible explanation"
+  },
+  "literature": {
+   "persona": "Mark Twain",
+   "method": "wit, vernacular, narrative"
+  },
+  "civics": {
+   "persona": "Thomas Jefferson",
+   "method": "first-principles republican reasoning"
+  },
+  "philosophy": {
+   "persona": "Socrates",
+   "method": "Socratic dialectic \u2014 questioning toward insight (a GENERAL tutoring mode, not just philosophy)",
+   "anchor": "Course 24 \u2014 NOT YET captured"
+  }
+ },
+ "degrees": [
+  {
+   "program": "Physics SB (Course 8, Focus)",
+   "department": "8",
+   "persona": "Walter Lewin",
+   "subjects_required": 14,
+   "subjects_captured": 14,
+   "units_total": 168,
+   "units_held": 168,
+   "pct": 100,
+   "gaps": []
+  },
+  {
+   "program": "Computer Science SB (Course 6-3)",
+   "department": "6",
+   "persona": "Patrick Winston",
+   "subjects_required": 13,
+   "subjects_captured": 12,
+   "units_total": 156,
+   "units_held": 144,
+   "pct": 92,
+   "gaps": [
+    "6.036"
+   ]
+  },
+  {
+   "program": "Mathematics SB (Course 18)",
+   "department": "18",
+   "persona": "Gilbert Strang",
+   "subjects_required": 12,
+   "subjects_captured": 11,
+   "units_total": 144,
+   "units_held": 132,
+   "pct": 92,
+   "gaps": [
+    "18.901"
+   ]
+  },
+  {
+   "program": "Biology SB (Course 7)",
+   "department": "7",
+   "persona": null,
+   "subjects_required": 11,
+   "subjects_captured": 10,
+   "units_total": 132,
+   "units_held": 120,
+   "pct": 91,
+   "gaps": [
+    "7.06"
+   ]
+  },
+  {
+   "program": "Chemistry SB (Course 5)",
+   "department": "5",
+   "persona": null,
+   "subjects_required": 12,
+   "subjects_captured": 12,
+   "units_total": 144,
+   "units_held": 144,
+   "pct": 100,
+   "gaps": []
+  }
+ ]
+}

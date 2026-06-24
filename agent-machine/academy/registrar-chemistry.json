@@ -1,0 +1,104 @@
+{
+ "program": "Chemistry SB (Course 5)",
+ "department": "5",
+ "degree": "SB",
+ "domain": "chemistry",
+ "requirements": [
+  {
+   "group": "General Institute Requirements \u2014 Science Core",
+   "subjects": [
+    {
+     "n": "18.01",
+     "title": "Calculus I",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "18.02",
+     "title": "Calculus II",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "8.01",
+     "title": "Physics I: Classical Mechanics",
+     "u": 12,
+     "persona": "Walter Lewin",
+     "captured": true
+    },
+    {
+     "n": "8.02",
+     "title": "Physics II: Electricity & Magnetism",
+     "u": 12,
+     "persona": "Walter Lewin",
+     "captured": true
+    },
+    {
+     "n": "5.111",
+     "title": "Principles of Chemical Science",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "7.012",
+     "title": "Introductory Biology",
+     "u": 12,
+     "captured": true
+    }
+   ]
+  },
+  {
+   "group": "Departmental Core \u2014 Chemistry",
+   "subjects": [
+    {
+     "n": "5.12",
+     "title": "Organic Chemistry I",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "5.13",
+     "title": "Organic Chemistry II",
+     "u": 12,
+     "prereq": [
+      "5.12"
+     ],
+     "captured": true
+    },
+    {
+     "n": "5.60",
+     "title": "Thermodynamics & Kinetics",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "5.61",
+     "title": "Physical Chemistry",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "5.07",
+     "title": "Biological Chemistry",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "18.03",
+     "title": "Differential Equations",
+     "u": 12,
+     "captured": true
+    }
+   ]
+  }
+ ],
+ "coverage": {
+  "subjects_required": 12,
+  "subjects_captured": 12,
+  "units_total": 144,
+  "units_held": 144,
+  "pct": 100,
+  "gaps": []
+ },
+ "persona": null
+}

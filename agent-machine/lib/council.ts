@@ -33,31 +33,51 @@ const clamp01 = (x: number): number => Math.max(0, Math.min(1, Number.isFinite(x
 
 /**
  * learnedCouncilVote — the LEARNED council law (multinomial-logistic), the principled cousin of the
- * hand-tuned councilVote above. scripts/meta_combiner.py fits signed per-arm weights on board transcripts
- * and exports them to council-weights.json; here we deploy that exact law: score each choice by the
- * log-odds sum Σ w_arm·[arm voted this choice] + w_isA·[choice==A], then argmax. Signed weights mean a
- * reliable arm lifts its pick, an ANTI-predictive arm (negative weight) gets used backwards, and a lossy
- * arm (~0) is ignored — none of which hand-tuned constants can do. Falls back to baked DEFAULT_WEIGHTS if
- * the trained file is absent (so the arm always runs). Kept SEPARATE from councilVote so the board measures
- * learned-vs-hand-tuned head to head ("keep all arms, promote only winners").
+ * hand-tuned councilVote above. scripts/meta_combiner.py fits the weights on board transcripts and exports
+ * them to council-weights.ts; here we deploy that law. Crucially the per-arm weight is CONDITIONED on the
+ * question, not global: weight(arm) = w[arm] + domain[arm][subject] + kt[arm]·{compute,retrieve} +
+ * ground[arm]·conf. A global weight averaged brain's +14 on math and −10 on abstract algebra to ≈0; the
+ * conditioned weight lets brain be trusted on math and distrusted on abstract algebra. ktype-conditioning is
+ * transferable (a computational Q gets computational treatment in any subject → generalizes to MMLU-Pro).
+ * Signed weights still auto-invert anti-predictive arms. Degrades gracefully to the global w[arm] when the
+ * trained weights lack domain/kt/ground. Kept SEPARATE from councilVote so the board measures learned-vs-
+ * hand-tuned head to head ("keep all arms, promote only winners").
  */
 export interface LearnedInput {
   baseline?: string; brain?: string; qgen?: string; gate?: string; medprompt?: string
   elim?: string; fiftyfifty?: string; compute?: string; scLetter?: string
+  subject?: string                     // DOMAIN conditioning (arm weight varies by subject)
+  ktype?: string[]                     // KTYPE conditioning (transferable: compute/retrieve treatment)
+  brainConf?: number; qgenConf?: number // GROUNDING conditioning (trust retrieval by top-cosine)
 }
-function learnedWeights(): { w: Record<string, number>; isA: number } {
-  const j = COUNCIL_WEIGHTS as { w?: Record<string, number>; isA?: number }
-  return { w: j.w ?? {}, isA: typeof j.isA === 'number' ? j.isA : (j.w?.['isA'] ?? 0) }
+interface CW {
+  w?: Record<string, number>
+  domain?: Record<string, Record<string, number>>
+  kt?: Record<string, { compute?: number; retrieve?: number }>
+  ground?: Record<string, number>
+  isA?: number
 }
 
 export function learnedCouncilVote(inp: LearnedInput): CouncilResult {
-  const { w, isA } = learnedWeights()
+  const cw = COUNCIL_WEIGHTS as CW
+  const w = cw.w ?? {}, isA = typeof cw.isA === 'number' ? cw.isA : 0
+  // per-question conditioners — the arm's weight is no longer global (which averaged brain's +14/−10 to ≈0)
+  const kts = (inp.ktype ?? []).join(' ')
+  const ktc = /omput|hain/.test(kts) ? 1 : 0, ktr = /etriev|BasicFact|Definition/.test(kts) ? 1 : 0
+  const conf: Record<string, number> = { brain: clamp01(inp.brainConf ?? 0), qgen: clamp01(inp.qgenConf ?? 0) }
+  const armW = (a: string): number => {
+    let x = w[a] ?? 0
+    if (cw.domain && inp.subject) x += cw.domain[a]?.[inp.subject] ?? 0   // arm × domain
+    if (cw.kt) x += (cw.kt[a]?.compute ?? 0) * ktc + (cw.kt[a]?.retrieve ?? 0) * ktr   // arm × ktype
+    if (cw.ground?.[a]) x += cw.ground[a]! * (conf[a] ?? 0)               // grounding × retrieval vote
+    return x
+  }
   const score = new Map<string, number>()
   const bump = (L: string | undefined, wt: number): void => {
     if (typeof L === 'string' && L && L !== '?') score.set(L, (score.get(L) ?? 0) + wt)
   }
   for (const arm of ['baseline', 'brain', 'qgen', 'gate', 'medprompt', 'elim', 'fiftyfifty', 'compute'] as const) {
-    bump(inp[arm], w[arm] ?? 0)
+    bump(inp[arm], armW(arm))
   }
   if (score.size === 0) return { letter: inp.scLetter || 'B', weights: {} }  // every arm abstained → don't let isA invent an 'A'
   if (isA) score.set('A', (score.get('A') ?? 0) + isA)   // learned position-bias correction (only with real votes present)

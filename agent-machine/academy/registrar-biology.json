@@ -1,0 +1,103 @@
+{
+ "program": "Biology SB (Course 7)",
+ "department": "7",
+ "degree": "SB",
+ "domain": "biology",
+ "requirements": [
+  {
+   "group": "General Institute Requirements \u2014 Science Core",
+   "subjects": [
+    {
+     "n": "18.01",
+     "title": "Calculus I",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "18.02",
+     "title": "Calculus II",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "8.01",
+     "title": "Physics I: Classical Mechanics",
+     "u": 12,
+     "persona": "Walter Lewin",
+     "captured": true
+    },
+    {
+     "n": "8.02",
+     "title": "Physics II: Electricity & Magnetism",
+     "u": 12,
+     "persona": "Walter Lewin",
+     "captured": true
+    },
+    {
+     "n": "5.111",
+     "title": "Principles of Chemical Science",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "7.012",
+     "title": "Introductory Biology",
+     "u": 12,
+     "captured": true
+    }
+   ]
+  },
+  {
+   "group": "Departmental Core \u2014 Biology",
+   "subjects": [
+    {
+     "n": "7.03",
+     "title": "Genetics",
+     "u": 12,
+     "prereq": [
+      "7.012"
+     ],
+     "captured": true
+    },
+    {
+     "n": "7.05",
+     "title": "General Biochemistry",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "7.06",
+     "title": "Cell Biology",
+     "u": 12,
+     "prereq": [
+      "7.03"
+     ],
+     "captured": false
+    },
+    {
+     "n": "5.12",
+     "title": "Organic Chemistry I",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "7.02",
+     "title": "Experimental Biology Lab",
+     "u": 12,
+     "captured": true
+    }
+   ]
+  }
+ ],
+ "coverage": {
+  "subjects_required": 11,
+  "subjects_captured": 10,
+  "units_total": 132,
+  "units_held": 120,
+  "pct": 91,
+  "gaps": [
+   "7.06"
+  ]
+ },
+ "persona": null
+}

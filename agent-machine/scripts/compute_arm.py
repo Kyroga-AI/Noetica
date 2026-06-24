@@ -349,9 +349,11 @@ MATH_SYS = (
 )
 
 
-def math_extract(question, choices):
+def math_extract(question, choices, context=''):
+    grounding = ('Relevant formulas/worked examples from course materials (use to identify the operation & '
+                 'expression):\n' + context[:1500] + '\n\n') if context else ''
     raw = ollama([{'role': 'system', 'content': MATH_SYS},
-                  {'role': 'user', 'content': f'Question:\n{question}\nChoices: {choices}'}])
+                  {'role': 'user', 'content': grounding + f'Question:\n{question}\nChoices: {choices}'}])
     m = re.search(r'\{.*\}', raw, re.S)
     if not m:
         return None
@@ -418,13 +420,13 @@ def _match_math(ans, choices):
     return None
 
 
-def math_solve_question(question, choices):
+def math_solve_question(question, choices, context=''):
     """RIGHT-MATHS path: detect the operation, LLM PARSES the expression, Gödel-routed math_solve
     computes it EXACTLY, match the choice by symbolic equality. The model parses; sympy is exact."""
     op = infer_op(question)
     if not op:
         return None, None
-    mx = math_extract(question, choices)
+    mx = math_extract(question, choices, context)
     if not mx or not mx.get('expr'):
         return None, None
     try:
@@ -452,9 +454,17 @@ _PROG_NS = {n: getattr(sp, n) for n in ('binomial', 'factorial', 'sqrt', 'solve'
 _PROG_NS.update({c: sp.Symbol(c) for c in 'abcdefghijklmnopqrstuvwxyz'})
 
 
-def prog_extract(question, choices):
+def prog_extract(question, choices, context=''):
+    # BRAIN-GROUNDED formalization (#12): when the brain supplies worked solutions/formulas for this kind of
+    # problem, the model IDENTIFIES the method from them instead of cold-reading the question — the cold parse
+    # is exactly the mis-formalization that floored the compute arm. Use the brain to identify the algebra.
+    grounding = ''
+    if context:
+        grounding = ('Worked examples and relevant formulas from the course materials below — IDENTIFY the '
+                     'method/operation they use and GROUND your sympy formalization in it; do not invent a '
+                     'different setup:\n' + context[:2200] + '\n\n')
     raw = ollama([{'role': 'system', 'content': PROG_SYS},
-                  {'role': 'user', 'content': f'Question:\n{question}\nChoices: {choices}'}])
+                  {'role': 'user', 'content': grounding + f'Question:\n{question}\nChoices: {choices}'}])
     m = re.search(r'\{.*\}', raw, re.S)
     if not m:
         return None
@@ -467,10 +477,10 @@ def prog_extract(question, choices):
 PROG_K = int(os.environ.get('COMPUTE_PROG_K', '3'))   # formalizations sampled per question (self-consistency)
 
 
-def _prog_attempt(question, choices):
+def _prog_attempt(question, choices, context=''):
     """ONE program-of-thought attempt: the model writes a sympy expression; execute it sandboxed and
     match a choice. Returns a choice index or None."""
-    src = prog_extract(question, choices)
+    src = prog_extract(question, choices, context)
     if not src or len(src) > 240:
         return None
     try:
@@ -487,7 +497,7 @@ def _prog_attempt(question, choices):
     return _match_math(val, choices)
 
 
-def prog_solve_question(question, choices):
+def prog_solve_question(question, choices, context=''):
     """Self-consistent program-of-thought. A SINGLE formalization is the moat's failure mode: the model
     misreads the problem, sympy executes the wrong setup EXACTLY, and the exact-but-wrong value lands on a
     distractor (the board showed prog defaulting to 'A' at 43.8% on-fired). So we sample PROG_K
@@ -495,7 +505,7 @@ def prog_solve_question(question, choices):
     is unreliable, so we ABSTAIN (→ route to brain) rather than certify a guess. Exact math, honest coverage."""
     votes = {}
     for _ in range(PROG_K):
-        idx = _prog_attempt(question, choices)
+        idx = _prog_attempt(question, choices, context)
         if idx is not None:
             votes[idx] = votes.get(idx, 0) + 1
     if not votes:
@@ -509,12 +519,13 @@ def prog_solve_question(question, choices):
     return None, None
 
 
-def solve_question(question, choices):
+def solve_question(question, choices, context=''):
     """Verified compute: the right-maths (calculus/algebra) path, the physics catalog chain, the
-    free-equation hatch, then program-of-thought sympy. Returns (answer_letter or None, mode)."""
+    free-equation hatch, then program-of-thought sympy. Returns (answer_letter or None, mode).
+    `context` = brain-retrieved worked solutions/formulas that ground the LLM formalization (#12)."""
     # 0. RIGHT-MATHS — calculus/algebra computed exactly (Gödel form → sympy method)
     if infer_op(question):
-        ans, mode = math_solve_question(question, choices)
+        ans, mode = math_solve_question(question, choices, context)
         if ans is not None:
             return ans, mode
     # 1. CHAIN path — name the knowns + target; the verified planner derives the rest
@@ -543,22 +554,23 @@ def solve_question(question, choices):
             pass
     # 3. PROGRAM-OF-THOUGHT — the model writes a sympy program (systems, combinatorics, arithmetic),
     #    executed exactly. Catches the word-problem math the explicit-op path can't gate on.
-    ans, mode = prog_solve_question(question, choices)
+    ans, mode = prog_solve_question(question, choices, context)
     if ans is not None:
         return ans, mode
     return None, 'abstain'
 
 
 def _batch():
-    """Read JSONL {id, question, choices} on stdin; emit JSONL {id, answer, mode} — one process,
-    one sympy import, so the MMLU bench can score the whole compute arm in a single subprocess call."""
+    """Read JSONL {id, question, choices, context?} on stdin; emit JSONL {id, answer, mode} — one process,
+    one sympy import, so the MMLU bench can score the whole compute arm in a single subprocess call.
+    `context` (optional) = brain-retrieved worked solutions that ground the formalization (#12)."""
     for line in sys.stdin:
         line = line.strip()
         if not line:
             continue
         try:
             q = json.loads(line)
-            ans, mode = solve_question(q['question'], q['choices'])
+            ans, mode = solve_question(q['question'], q['choices'], q.get('context') or '')
         except Exception:
             q, ans, mode = {}, None, 'error'
         print(json.dumps({'id': q.get('id'), 'answer': ans, 'mode': mode}), flush=True)

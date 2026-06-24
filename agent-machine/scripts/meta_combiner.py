@@ -35,18 +35,62 @@ if not rows:
 
 # keep only arms actually present in the transcript (a given board run may not have run all of them)
 present = [a for a in ARMS if any(isinstance(r.get(f'{a}_pred'), str) and r.get(f'{a}_pred') not in ('', '?') for r in rows)]
-FEATS = present + ['isA']                       # per-choice arm votes + position(A) bias — the discriminative set
-print(f"# meta_combiner · {len(rows)} questions · arms=[{', '.join(present)}]  (+isA)\n")
+RETR = [a for a in ('brain', 'qgen') if a in present]     # grounding applies to the retrieval arms
 
+# CONDITIONERS — the logit no longer weights an arm GLOBALLY (which averages brain's +14 on math and −10 on
+# abstract algebra to ≈0). Each arm's weight is conditioned on the question:
+#   DOMAIN  arm×subject  — captures the per-subject heterogeneity directly
+#   KTYPE   arm×{compute,retrieve} — TRANSFERABLE (a computational Q gets computational treatment in ANY
+#                                     subject → generalizes to MMLU-Pro's new categories)
+#   GROUND  conf×retrieval-vote — trust retrieval more when it's well-grounded (top cosine)
+COND_DOMAIN = os.environ.get('COND_DOMAIN', '1') == '1'
+COND_KT = os.environ.get('COND_KTYPE', '1') == '1'
+COND_GR = os.environ.get('COND_GROUND', '1') == '1'
+domains = sorted({r.get('subject', '?') for r in rows if r.get('subject')}) if COND_DOMAIN else []
+
+
+def kt_flags(r):
+    s = ' '.join(r.get('ktype') or []) if isinstance(r.get('ktype'), list) else str(r.get('ktype') or '')
+    return (int('omput' in s or 'hain' in s), int('etriev' in s or 'BasicFact' in s or 'Definition' in s))
+
+
+# FEATS name list + featvec() extractor, built in LOCKSTEP so training and the exported weights agree.
+FEATS = list(present)
+for a in present:
+    FEATS += [f'{a}@{d}' for d in domains]
+if COND_KT:
+    for a in present:
+        FEATS += [f'{a}*kt_compute', f'{a}*kt_retrieve']
+if COND_GR:
+    FEATS += [f'{a}*ground' for a in RETR]
+FEATS.append('isA')
+
+
+def featvec(r, L, ci):
+    sub = r.get('subject', '?'); ktc, ktr = kt_flags(r)
+    conf = {'brain': float(r.get('brain_conf') or 0.0), 'qgen': float(r.get('qgen_conf') or 0.0)}
+    vote = {a: int(r.get(f'{a}_pred') == L) for a in present}
+    x = [vote[a] for a in present]
+    for a in present:
+        x += [vote[a] * int(sub == d) for d in domains]
+    if COND_KT:
+        for a in present:
+            x += [vote[a] * ktc, vote[a] * ktr]
+    if COND_GR:
+        x += [vote[a] * conf.get(a, 0.0) for a in RETR]
+    x.append(int(ci == 0))
+    return x
+
+
+print(f"# meta_combiner · {len(rows)} questions · arms=[{', '.join(present)}] · {len(FEATS)} feats "
+      f"(domain={'on' if domains else 'off'} ktype={'on' if COND_KT else 'off'} ground={'on' if COND_GR else 'off'})\n")
 X, y, g = [], [], []
 for qi, r in enumerate(rows):
     gold = r.get('gold')
     if not gold:
         continue
     for ci, L in enumerate(LETTERS):
-        vote = [int(r.get(f'{a}_pred') == L) for a in present]    # one-hot: did arm a pick choice L?
-        X.append(vote + [int(ci == 0)])                           # + isA position bias
-        y.append(int(L == gold)); g.append(qi)
+        X.append(featvec(r, L, ci)); y.append(int(L == gold)); g.append(qi)
 X = np.array(X, float); y = np.array(y); g = np.array(g)
 
 gss = GroupShuffleSplit(n_splits=1, test_size=0.35, random_state=1729)
@@ -91,11 +135,25 @@ try:
 except Exception as e:
     print(f"\n  [symbolic regression unavailable: {e}]")
 
-# EXPORT — deploy the learned law into the live council (lib/council.ts statically imports this module)
+# report where domain-conditioning actually moved an arm (the +14/−10 the global weight was hiding)
+if domains:
+    for a in ('brain', 'qgen'):
+        if a not in present:
+            continue
+        ds = sorted(((d, weights.get(f'{a}@{d}', 0.0)) for d in domains), key=lambda x: x[1])
+        if ds:
+            print(f"    {a} by domain: " + '  '.join(f'{d.split("_")[-1]}={weights.get(a,0)+w:+.2f}' for d, w in ds[:2] + ds[-2:]))
+
+# EXPORT — STRUCTURED so learnedCouncilVote can apply the per-question weight:
+#   weight(arm | domain, ktype, conf) = w[arm] + domain[arm][d] + kt[arm].{compute|retrieve} + ground[arm]*conf
+r4 = lambda v: round(float(v), 4)
 payload = {
-    'version': '1', 'arms': present, 'feats': FEATS,
-    'bias': round(float(lr.intercept_[0]), 4), 'w': {k: round(v, 4) for k, v in weights.items()},
-    'isA': round(weights.get('isA', 0.0), 4),
+    'version': '2', 'arms': present, 'domains': domains,
+    'w': {a: r4(weights.get(a, 0.0)) for a in present},
+    'domain': {a: {d: r4(weights.get(f'{a}@{d}', 0.0)) for d in domains} for a in present} if domains else {},
+    'kt': {a: {'compute': r4(weights.get(f'{a}*kt_compute', 0.0)), 'retrieve': r4(weights.get(f'{a}*kt_retrieve', 0.0))} for a in present} if COND_KT else {},
+    'ground': {a: r4(weights.get(f'{a}*ground', 0.0)) for a in RETR} if COND_GR else {},
+    'isA': r4(weights.get('isA', 0.0)),
     'softmax_test_acc': round(softmax_acc, 4), 'symbolic_law': sym,
     'trained_on': os.path.basename(PATH), 'n_questions': int(len(np.unique(g))),
 }

@@ -35,6 +35,7 @@ import { execFileSync } from 'node:child_process'
 import { embedText } from '../lib/ollama.js'
 import { councilVote, learnedCouncilVote } from '../lib/council.js'
 import { fetchConceptDef, cleanTerm } from '../lib/concept-defs.js'
+import { canonBridges } from '../lib/canon-lookup.js'
 import { associativeRetrieve } from '../lib/graph-ppr.js'
 import { decodeVec, l2norm } from '../lib/brain-vec.js'
 
@@ -55,12 +56,38 @@ const SHOT_K = Number(process.env['MMLU_SHOT_K'] || 8)      // chunks injected a
 const PER_SHOT = Number(process.env['MMLU_PER_SHOT'] || 3)  // chunks each query (broad + per-choice) contributes
 const ARMS = (process.env['MMLU_ARMS'] || 'baseline,brain').split(',').map((s) => s.trim()).filter(Boolean)
 const CONC = Number(process.env['MMLU_CONC'] || 6)   // questions scored concurrently — ollama calls are I/O; serial left the GPU idle
+// PRE-EMBED: warm the query-embed cache for a subject BEFORE its generation-heavy scoring loop, while the GPU
+// is idle. Then retrieval is a cache hit (pure-CPU cosine) and embeds never contend with generation — the root
+// cause of the slow/flaky boards. Off with MMLU_PREEMBED=0.
+const PREEMBED = process.env['MMLU_PREEMBED'] !== '0'
+const PREEMBED_CONC = Number(process.env['MMLU_PREEMBED_CONC'] || 16)
+// brain-ground the verified-compute formalization (#12): feed sympy the retrieved worked solutions so it
+// IDENTIFIES the method instead of cold-parsing. Off (=0) → cold formalization, for the grounded-vs-cold A/B.
+const COMPUTE_GROUND = process.env['MMLU_COMPUTE_GROUND'] !== '0'
+// the EXAM NOTE CARD (scripts/build-notecard.py): a curated per-domain formula sheet the model brings into the
+// test. Grounds the `notecard` arm AND the compute formalizer. Empty for a field until it's been mined.
+const NOTECARD_DIR = process.env['NOTECARD_DIR'] || path.join(__dirname, '..', 'notecards')
+const _notecardCache = new Map<string, string>()
+function loadNotecard(fields: string[]): string {
+  const key = fields.join('+')
+  let c = _notecardCache.get(key)
+  if (c === undefined) {
+    const parts: string[] = []
+    for (const f of fields) { try { parts.push(fs.readFileSync(path.join(NOTECARD_DIR, `notecard-${f}.md`), 'utf8').trim()) } catch { /* not mined yet */ } }
+    c = parts.join('\n\n'); _notecardCache.set(key, c)
+  }
+  return c
+}
 const MMR_LAMBDA = Number(process.env['MMLU_MMR'] || 0) // >0 enables MMR diverse selection (relevance vs novelty); cluster_analysis showed top-8 collapse into ~2 cells
 const MAX_CHUNKS = Number(process.env['MMLU_MAX_CHUNKS'] || 150_000)
 const SEED = Number(process.env['MMLU_SEED'] ?? (Date.now() % 2147483647))
 const TIMEOUT = Number(process.env['MMLU_TIMEOUT_MS'] || 120_000)
 const LETTERS = ['A', 'B', 'C', 'D']
-const TRANSCRIPT = path.join(HOME, '.noetica', `mmlu-brain-${Date.now()}.jsonl`)
+// CHECKPOINT: a stable path (MMLU_CHECKPOINT) makes the board RESUMABLE — a restart skips already-scored
+// questions instead of redoing them, so a flake/crawl/kill costs ≤1 question, not the whole batch. The
+// launcher syncs this file to GCS continuously, so the checkpoint is durable AND live-visible.
+const TRANSCRIPT = process.env['MMLU_CHECKPOINT'] || path.join(HOME, '.noetica', `mmlu-brain-${Date.now()}.jsonl`)
+const STATUS = process.env['MMLU_STATUS'] || ''   // per-batch {done,total,pct,ts} for live monitoring (no buffering)
 
 // MMLU subject → brain field(s) that cover it.
 const SUBJECT_FIELDS: Record<string, string[]> = {
@@ -167,6 +194,16 @@ function hippoExpand(chunks: Array<{ text: string }>, query: string, topK = 5): 
     const list = [...concepts]
     for (const c of list) if (!labelById.has(c)) { labelById.set(c, c); nodes.push({ id: c }) }
     for (let a = 0; a < list.length; a++) for (let b = a + 1; b < list.length; b++) edges.push({ from: list[a]!, to: list[b]! })
+  }
+  // CURATED EDGES: augment the ephemeral co-occurrence graph with the canon's sense-aware cross-domain
+  // bridges (related/same_as) so PPR can hop along real curated links, not just chunk co-occurrence.
+  for (const c of [...labelById.keys()]) {
+    for (const b of canonBridges(c)) {
+      const bl = cleanTerm(b) ?? b.trim().toLowerCase()
+      if (!bl) continue
+      if (!labelById.has(bl)) { labelById.set(bl, bl); nodes.push({ id: bl }) }
+      edges.push({ from: c, to: bl })
+    }
   }
   if (nodes.length < 4) return []
   return associativeRetrieve(nodes, edges, labelById, query, { topK }).results.map((r) => r.label)
@@ -614,10 +651,12 @@ async function autoformBatch(qs: Q[]): Promise<CompRes[]> {
   return res
 }
 
-function computeBatch(qs: Q[]): CompRes[] {
+function computeBatch(qs: Q[], contexts: string[] = []): CompRes[] {
   const res: CompRes[] = qs.map(() => ({ answer: null, mode: 'abstain' }))
   if (!qs.length) return res
-  const input = qs.map((q, i) => JSON.stringify({ id: i, question: q.question, choices: q.choices })).join('\n') + '\n'
+  // `context` = brain-retrieved worked solutions (gold) that ground sympy formalization (#12) — the LLM
+  // identifies the method from real worked examples instead of cold-parsing the question.
+  const input = qs.map((q, i) => JSON.stringify({ id: i, question: q.question, choices: q.choices, context: contexts[i] || '' })).join('\n') + '\n'
   try {
     const out = execFileSync('python3', [COMPUTE_PY, '--batch'], { input, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env } })
     for (const line of out.split('\n')) {
@@ -626,6 +665,16 @@ function computeBatch(qs: Q[]): CompRes[] {
     }
   } catch { return qs.map(() => ({ answer: null, mode: 'error' })) }
   return res
+}
+
+// brain-ground the compute formalization (#12): the top WORKED-SOLUTION (gold) chunks for the question, so
+// sympy formalizes FROM the method shown rather than a cold parse. Gold-first; empty when nothing relevant.
+async function goldContext(q: Q, pools: Chunk[][], card = ''): Promise<string> {
+  const hits = await retrieveMulti(q.question, q.choices, pools, PER_SHOT, 4)
+  const gold = hits.filter((h) => /solution|exam|assignment|recitation|pset|problem/.test(h.material))
+  const worked = (gold.length ? gold : hits).slice(0, 3).map((h) => h.text.slice(0, 600)).join('\n---\n')
+  // the open-book exam: the FORMULA SHEET (note card) + the studied WORKED EXAMPLES (retrieved). Both ground sympy.
+  return (card ? `Formula sheet (use these canonical formulas):\n${card}\n\n` : '') + (worked ? `Worked examples:\n${worked}` : '')
 }
 
 const KTYPE_PY = path.join(__dirname, 'knowledge_type.py')
@@ -666,7 +715,36 @@ async function main() {
   if (!subjects.length) { console.log('No brain-ready subjects yet — let the vectorizer finish a field first.'); return }
 
   const tally: Record<string, Record<string, { c: number; n: number; a?: number }>> = {} // arm → subject → {c,n,attempted}
-  for (const arm of ARMS) tally[arm] = {}
+  for (const arm of ARMS) { tally[arm] = {}; for (const s of subjects) tally[arm]![s] = { c: 0, n: 0, a: 0 } }
+
+  // RESUME — load already-scored rows from the durable checkpoint → a skip-set + rebuild the tally, so a
+  // restart continues instead of repeating work. THIS is what makes lost batches recoverable.
+  const done = new Set<string>()
+  if (fs.existsSync(TRANSCRIPT)) {
+    for (const ln of fs.readFileSync(TRANSCRIPT, 'utf8').split('\n')) {
+      if (!ln.trim()) continue
+      try {
+        const r = JSON.parse(ln) as Record<string, unknown>
+        const sub = r['subject'] as string, key = `${sub}|${r['i']}`
+        if (done.has(key) || !tally['baseline']?.[sub]) continue   // skip dups + subjects not in this run
+        done.add(key)
+        for (const arm of ARMS) {
+          const t = tally[arm]![sub]!
+          if (typeof r[`${arm}_pred`] === 'string' && r[`${arm}_pred`] !== '?') {
+            t.n++; if (r[`${arm}_ok`]) t.c++
+            if (arm === 'compute' && r['compute_mode'] && r['compute_mode'] !== 'abstain') t.a = (t.a ?? 0) + 1
+          }
+        }
+      } catch { /* skip malformed */ }
+    }
+    if (done.size) console.log(`# RESUMED — ${done.size} questions already in the checkpoint; skipping them`)
+  }
+  let scored = done.size
+  const grandTotal = subjects.reduce((a, s) => a + (PER > 0 ? Math.min(PER, mmlu[s]!.length) : mmlu[s]!.length), 0)
+  const writeStatus = (subject: string): void => {
+    if (!STATUS) return
+    try { fs.writeFileSync(STATUS, JSON.stringify({ done: scored, total: grandTotal, pct: Math.round(100 * scored / Math.max(grandTotal, 1)), subject, ts: new Date().toISOString() })) } catch { /* best-effort */ }
+  }
 
   for (const subject of subjects) {
     const fields = SUBJECT_FIELDS[subject]!.filter(fieldReady)
@@ -677,11 +755,16 @@ async function main() {
     const poolN = pools.reduce((a, p) => a + p.length, 0)
     const sample = shuffle(mmlu[subject]!, rand).slice(0, PER > 0 ? PER : mmlu[subject]!.length)
     process.stdout.write(`\n## ${subject}  (fields: ${fields.join('+')} · ${poolN.toLocaleString()} chunks · ${sample.length} q)\n`)
-    for (const arm of ARMS) tally[arm]![subject] = { c: 0, n: 0, a: 0 }
+    // tally pre-initialised + possibly resume-loaded above — do NOT reset it here
     // verified-compute arm scored up front (one python call per subject); used by compute + route + champion
-    const comp: CompRes[] = (ARMS.includes('compute') || ARMS.includes('route') || ARMS.includes('champion') || ARMS.includes('gate') || ARMS.includes('learned')) ? computeBatch(sample) : []
+    const wantCompute = ARMS.includes('compute') || ARMS.includes('route') || ARMS.includes('champion') || ARMS.includes('gate') || ARMS.includes('learned')
+    // brain-ground (#12): retrieve worked-solution context per question (gold-first, warm cache) BEFORE the
+    // sync compute subprocess, so sympy formalizes from the method, not a cold parse. COMPUTE_GROUND=0 → cold.
+    const ncard = COMPUTE_GROUND ? loadNotecard(fields) : ''   // the formula sheet for this subject's field(s)
+    const computeCtx: string[] = (wantCompute && COMPUTE_GROUND) ? await Promise.all(sample.map((q) => goldContext(q, pools, ncard))) : []
+    const comp: CompRes[] = wantCompute ? computeBatch(sample, computeCtx) : []
     // knowledge-type per question (the 'understand first' step) — used by the champion router
-    const kt: KType[] = (ARMS.includes('champion') || ARMS.includes('gate')) ? ktypeBatch(sample) : []
+    const kt: KType[] = (ARMS.includes('champion') || ARMS.includes('gate') || ARMS.includes('learned')) ? ktypeBatch(sample) : []
     const af: CompRes[] = ARMS.includes('autoform') ? await autoformBatch(sample) : []   // LLM-formalize → sympy-execute → vote
 
     const scoreQuestion = async (i: number) => {
@@ -750,6 +833,12 @@ async function main() {
           }
           if (defs.length) { letter = extractLetter(await ask(`Relevant definitions:\n${defs.join('\n')}\n\n${base}${ANSWER_RULE}`)); mode = `defs:${defs.length}/${terms.length}` }
           else { letter = extractLetter(await ask(`${base}${ANSWER_RULE}`)); mode = 'defs:miss' }   // no clean def → closed-book (never worse than baseline for lack of grounding)
+        } else if (arm === 'notecard') {          // OPEN-BOOK exam: answer with the domain's curated FORMULA SHEET
+          // What a student actually brings into the test — the canonical equations for the field, all in context
+          // (not top-k retrieved, not noisy prose). Only useful post-v4 (the formulas have to be in the brain).
+          const card = loadNotecard(fields)
+          if (card) { letter = extractLetter(await ask(`Exam formula sheet — these are the canonical formulas you may use:\n${card}\n\n${base}${ANSWER_RULE}`)); mode = `notecard:${fields.join('+')}` }
+          else { letter = extractLetter(await ask(`${base}${ANSWER_RULE}`)); mode = 'notecard:none' }   // not mined yet → closed-book
         } else if (arm === 'hop') {               // HippoRAG ITERATIVE query-graph expansion (#14): uncertain → graph-hop → re-retrieve
           // Each hop: answer with the current context (SC vote = confidence); if uncertain, build a local
           // concept graph from those chunks and PPR-expand on the query → the associatively-bridged concepts
@@ -843,6 +932,9 @@ async function main() {
             gate: pick('gate_pred'), medprompt: pick('medprompt_pred'),
             elim: pick('elim_pred'), fiftyfifty: pick('fiftyfifty_pred'),
             compute: comp[i]?.answer || undefined, scLetter: pick('brain_pred') || pick('baseline_pred'),
+            // CONDITIONERS — the learned weight varies by these (domain/ktype/grounding), not a flat global
+            subject, ktype: (row['ktype'] as string[] | undefined) ?? kt[i]?.types,
+            brainConf: Number(row['brain_conf'] ?? 0), qgenConf: Number(row['qgen_conf'] ?? 0),
           })
           letter = cv.letter; mode = 'learned'
         } else if (arm === 'medprompt') {         // Medprompt choice-shuffle ensemble — position (A) bias cancels by construction (Microsoft, 90.10% MMLU)
@@ -889,18 +981,35 @@ async function main() {
       return { i, row, marks, gold, results }
     }
 
-    // bounded-parallel over questions (ollama I/O overlaps); apply shared state in order
-    for (let s = 0; s < sample.length; s += CONC) {
-      const batch = await Promise.all(
-        Array.from({ length: Math.min(CONC, sample.length - s) }, (_, j) => scoreQuestion(s + j)),
-      )
+    // bounded-parallel over the NOT-yet-done questions (resume skips the rest); checkpoint + status each batch
+    const todo = Array.from({ length: sample.length }, (_, i) => i).filter((i) => !done.has(`${subject}|${i}`))
+    // PRE-EMBED PASS — embed this subject's deterministic retrieval queries (broad + per-choice, the same
+    // strings retrieveMulti builds) up front while the GPU is idle, so the scoring loop's retrieval is a warm
+    // cache hit and generation never competes with embeds. HyDE queries (generated) still embed live.
+    if (PREEMBED && todo.length) {
+      const warm = new Set<string>()
+      for (const i of todo) {
+        const q = sample[i]!
+        warm.add(`${q.question}\n${q.choices.join(' ')}`)            // broad query
+        for (const c of q.choices) warm.add(`${q.question}\n${c}`)   // per-choice queries
+      }
+      const wl = [...warm]
+      process.stdout.write(`  pre-embedding ${wl.length} retrieval queries (GPU idle → no generation contention)…\n`)
+      for (let s = 0; s < wl.length; s += PREEMBED_CONC) {
+        await Promise.all(wl.slice(s, s + PREEMBED_CONC).map((qq) => embedCached(qq).catch(() => [] as number[])))
+      }
+    }
+    for (let s = 0; s < todo.length; s += CONC) {
+      const batch = await Promise.all(todo.slice(s, s + CONC).map((i) => scoreQuestion(i)))
       for (const r of batch) {
         for (const res of r.results) {
           const t = tally[res.arm]![subject]!; t.n++; if (res.ok) t.c++
           if (res.arm === 'compute' && res.attempted) t.a = (t.a ?? 0) + 1
         }
-        fs.appendFileSync(TRANSCRIPT, JSON.stringify(r.row) + '\n')
+        fs.appendFileSync(TRANSCRIPT, JSON.stringify(r.row) + '\n')   // durable per-question checkpoint
+        scored++
         console.log(`  ${String(r.i + 1).padStart(3)}. ${r.marks.join('  ')}  /${r.gold}`)
+        writeStatus(subject)   // PER-QUESTION → the stall watchdog sees progress even within a slow batch
       }
     }
   }

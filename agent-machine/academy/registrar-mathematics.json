@@ -1,0 +1,110 @@
+{
+ "program": "Mathematics SB (Course 18)",
+ "department": "18",
+ "degree": "SB",
+ "domain": "mathematics",
+ "requirements": [
+  {
+   "group": "General Institute Requirements \u2014 Science Core",
+   "subjects": [
+    {
+     "n": "18.01",
+     "title": "Calculus I",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "18.02",
+     "title": "Calculus II",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "8.01",
+     "title": "Physics I: Classical Mechanics",
+     "u": 12,
+     "persona": "Walter Lewin",
+     "captured": true
+    },
+    {
+     "n": "8.02",
+     "title": "Physics II: Electricity & Magnetism",
+     "u": 12,
+     "persona": "Walter Lewin",
+     "captured": true
+    },
+    {
+     "n": "5.111",
+     "title": "Principles of Chemical Science",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "7.012",
+     "title": "Introductory Biology",
+     "u": 12,
+     "captured": true
+    }
+   ]
+  },
+  {
+   "group": "Departmental Core \u2014 Math",
+   "subjects": [
+    {
+     "n": "18.03",
+     "title": "Differential Equations",
+     "u": 12,
+     "prereq": [
+      "18.02"
+     ],
+     "captured": true
+    },
+    {
+     "n": "18.06",
+     "title": "Linear Algebra",
+     "u": 12,
+     "persona": "Gilbert Strang",
+     "captured": true
+    },
+    {
+     "n": "18.100",
+     "title": "Real Analysis",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "18.701",
+     "title": "Algebra I",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "18.702",
+     "title": "Algebra II",
+     "u": 12,
+     "prereq": [
+      "18.701"
+     ],
+     "captured": true
+    },
+    {
+     "n": "18.901",
+     "title": "Introduction to Topology",
+     "u": 12,
+     "captured": false
+    }
+   ]
+  }
+ ],
+ "coverage": {
+  "subjects_required": 12,
+  "subjects_captured": 11,
+  "units_total": 144,
+  "units_held": 132,
+  "pct": 92,
+  "gaps": [
+   "18.901"
+  ]
+ },
+ "persona": "Gilbert Strang"
+}
