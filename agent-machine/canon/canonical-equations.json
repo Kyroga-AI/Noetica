@@ -67,7 +67,15 @@
     {"id": "regline", "name": "Regression line", "form": "yhat = a + b x", "topic": "regression", "keywords": ["regression", "line", "predict"]},
     {"id": "prob_comp", "name": "Complement", "form": "P(not A) = 1 - P(A)", "topic": "probability", "keywords": ["complement", "probability"]},
     {"id": "prob_cond", "name": "Conditional probability", "form": "P(A | B) = P(A and B) / P(B)", "topic": "probability", "keywords": ["conditional", "probability"]},
-    {"id": "expected", "name": "Expected value", "form": "E(X) = sum( xi P(xi) )", "topic": "probability", "keywords": ["expected", "value", "mean"]}
+    {"id": "expected", "name": "Expected value", "form": "E(X) = sum( xi P(xi) )", "topic": "probability", "keywords": ["expected", "value", "mean"]},
+    {"id": "variance_def", "name": "Variance", "form": "Var(X) = E(X^2) - (E(X))^2", "topic": "probability", "keywords": ["variance", "spread", "expectation"]},
+    {"id": "bayes", "name": "Bayes' theorem", "form": "P(A|B) = P(B|A) P(A) / P(B)", "topic": "probability", "keywords": ["bayes", "posterior", "conditional"]},
+    {"id": "poisson", "name": "Poisson distribution", "form": "P(X=k) = lambda^k e^-lambda / k!", "topic": "distributions", "keywords": ["poisson", "rate", "count"]},
+    {"id": "normal_pdf", "name": "Normal density", "form": "f(x) = (1/(sigma sqrt(2 pi))) exp(-(x-mu)^2/(2 sigma^2))", "topic": "distributions", "keywords": ["normal", "gaussian", "density"]},
+    {"id": "clt", "name": "Central limit theorem", "form": "xbar ~ Normal(mu, sigma^2 / n) as n grows", "topic": "inference", "keywords": ["central", "limit", "sampling"]},
+    {"id": "two_prop", "name": "Two-proportion z", "form": "z = (p1hat - p2hat) / sqrt(phat(1-phat)(1/n1 + 1/n2))", "topic": "inference", "keywords": ["proportion", "two", "sample"]},
+    {"id": "r_squared", "name": "Coefficient of determination", "form": "R^2 = 1 - SSE/SST", "topic": "regression", "keywords": ["r-squared", "fit", "variance"]},
+    {"id": "pvalue", "name": "p-value rule", "form": "reject H0 if p < alpha", "topic": "inference", "keywords": ["p-value", "significance", "reject"]}
   ],
   "mathematics": [
     {"id": "quadratic", "name": "Quadratic formula", "form": "x = (-b +/- sqrt(b^2 - 4 a c)) / (2 a)", "topic": "algebra", "keywords": ["quadratic", "roots", "discriminant"]},
@@ -116,7 +124,19 @@
     {"id": "arrhenius", "name": "Arrhenius", "form": "k = A exp(-Ea / (R T))", "topic": "kinetics", "keywords": ["arrhenius", "activation", "energy"]},
     {"id": "nernst", "name": "Nernst equation", "form": "E = E0 - (R T / n F) ln(Q)", "topic": "electrochem", "keywords": ["nernst", "cell", "potential"]},
     {"id": "heat", "name": "Heat", "form": "q = m c dT", "topic": "thermo", "keywords": ["heat", "specific", "temperature"]},
-    {"id": "keq", "name": "Equilibrium constant", "form": "K = [products] / [reactants]", "topic": "equilibrium", "keywords": ["equilibrium", "constant"]}
+    {"id": "keq", "name": "Equilibrium constant", "form": "K = [products] / [reactants]", "topic": "equilibrium", "keywords": ["equilibrium", "constant"]},
+    {"id": "boyle", "name": "Boyle's law", "form": "P1 V1 = P2 V2", "topic": "gases", "keywords": ["boyle", "pressure", "volume"]},
+    {"id": "charles", "name": "Charles's law", "form": "V1 / T1 = V2 / T2", "topic": "gases", "keywords": ["charles", "volume", "temperature"]},
+    {"id": "raoult", "name": "Raoult's law", "form": "P = x_solvent P0", "topic": "solutions", "keywords": ["raoult", "vapor", "pressure"]},
+    {"id": "beer", "name": "Beer-Lambert law", "form": "A = epsilon l c", "topic": "spectroscopy", "keywords": ["beer", "absorbance", "concentration"]},
+    {"id": "hess", "name": "Hess's law", "form": "dH_rxn = sum dH_products - sum dH_reactants", "topic": "thermo", "keywords": ["hess", "enthalpy", "reaction"]},
+    {"id": "entropy_def", "name": "Entropy change", "form": "dS = q_rev / T", "topic": "thermo", "keywords": ["entropy", "reversible", "heat"]},
+    {"id": "first_law_chem", "name": "First law", "form": "dU = q + w", "topic": "thermo", "keywords": ["internal", "energy", "heat", "work"]},
+    {"id": "integrated_first", "name": "First-order integrated rate", "form": "ln[A] = ln[A]0 - k t", "topic": "kinetics", "keywords": ["first", "order", "rate", "integrated"]},
+    {"id": "half_life", "name": "First-order half-life", "form": "t_half = ln(2) / k", "topic": "kinetics", "keywords": ["half", "life", "rate"]},
+    {"id": "deBroglie_chem", "name": "Quantization (Bohr)", "form": "E_n = -13.6 eV / n^2", "topic": "quantum", "keywords": ["bohr", "energy", "hydrogen", "level"]},
+    {"id": "planck_chem", "name": "Photon energy", "form": "E = h nu = h c / lambda", "topic": "quantum", "keywords": ["photon", "energy", "frequency"]},
+    {"id": "freezing", "name": "Freezing-point depression", "form": "dTf = i Kf m", "topic": "solutions", "keywords": ["colligative", "freezing", "molality"]}
   ],
   "biology": [
     {"id": "hardy_p", "name": "Hardy-Weinberg allele", "form": "p + q = 1", "topic": "genetics", "keywords": ["hardy", "weinberg", "allele"]},
@@ -127,6 +147,27 @@
     {"id": "gibbs_bio", "name": "Gibbs free energy", "form": "dG = dH - T dS", "topic": "energetics", "keywords": ["gibbs", "free", "energy"]},
     {"id": "sa_vol", "name": "Surface area to volume", "form": "ratio = SA / V", "topic": "cells", "keywords": ["surface", "area", "volume"]},
     {"id": "pop_growth", "name": "Exponential growth", "form": "dN/dt = r N", "topic": "ecology", "keywords": ["population", "growth", "rate"]},
-    {"id": "logistic", "name": "Logistic growth", "form": "dN/dt = r N (K - N) / K", "topic": "ecology", "keywords": ["logistic", "carrying", "capacity"]}
+    {"id": "logistic", "name": "Logistic growth", "form": "dN/dt = r N (K - N) / K", "topic": "ecology", "keywords": ["logistic", "carrying", "capacity"]},
+    {"id": "central_dogma", "name": "Central dogma", "form": "DNA -> (transcription) RNA -> (translation) protein", "topic": "molecular", "keywords": ["central", "dogma", "transcription", "translation"]},
+    {"id": "michaelis", "name": "Michaelis-Menten", "form": "v = Vmax [S] / (Km + [S])", "topic": "biochemistry", "keywords": ["enzyme", "kinetics", "michaelis"]},
+    {"id": "nernst_bio", "name": "Nernst (membrane potential)", "form": "E = (RT/zF) ln([ion]_out / [ion]_in)", "topic": "physiology", "keywords": ["nernst", "membrane", "potential", "ion"]},
+    {"id": "gibbs_free", "name": "ATP / free energy", "form": "dG = dG0 + RT ln(Q)", "topic": "energetics", "keywords": ["gibbs", "atp", "reaction"]},
+    {"id": "punnett", "name": "Monohybrid ratio", "form": "Aa x Aa -> 3:1 phenotype, 1:2:1 genotype", "topic": "genetics", "keywords": ["mendel", "ratio", "cross", "dominant"]}
+  ],
+  "electrical_engineering": [
+    {"id": "ohm_ee", "name": "Ohm's law", "form": "V = I R", "topic": "circuits", "keywords": ["voltage", "current", "resistance"]},
+    {"id": "kvl", "name": "Kirchhoff's voltage law", "form": "sum of voltages around a loop = 0", "topic": "circuits", "keywords": ["kirchhoff", "voltage", "loop"]},
+    {"id": "kcl", "name": "Kirchhoff's current law", "form": "sum of currents into a node = 0", "topic": "circuits", "keywords": ["kirchhoff", "current", "node"]},
+    {"id": "power_ee", "name": "Electrical power", "form": "P = V I = I^2 R = V^2 / R", "topic": "circuits", "keywords": ["power", "voltage", "current"]},
+    {"id": "cap_iv", "name": "Capacitor i-v", "form": "i = C dv/dt", "topic": "circuits", "keywords": ["capacitor", "current", "voltage"]},
+    {"id": "ind_iv", "name": "Inductor i-v", "form": "v = L di/dt", "topic": "circuits", "keywords": ["inductor", "voltage", "current"]},
+    {"id": "rc_tau", "name": "RC time constant", "form": "tau = R C", "topic": "transient", "keywords": ["time", "constant", "rc"]},
+    {"id": "impedance", "name": "Impedance", "form": "Z = R + j (omega L - 1/(omega C))", "topic": "ac", "keywords": ["impedance", "reactance", "frequency"]},
+    {"id": "transfer", "name": "Transfer function", "form": "H(s) = Y(s) / X(s)", "topic": "signals", "keywords": ["transfer", "function", "laplace"]},
+    {"id": "fourier", "name": "Fourier transform", "form": "X(f) = integral x(t) exp(-j 2 pi f t) dt", "topic": "signals", "keywords": ["fourier", "transform", "frequency"]},
+    {"id": "laplace", "name": "Laplace transform", "form": "X(s) = integral x(t) exp(-s t) dt", "topic": "signals", "keywords": ["laplace", "transform"]},
+    {"id": "nyquist", "name": "Nyquist rate", "form": "fs >= 2 fmax", "topic": "dsp", "keywords": ["nyquist", "sampling", "aliasing"]},
+    {"id": "demorgan", "name": "De Morgan's laws", "form": "not(A and B) = notA or notB", "topic": "digital", "keywords": ["de morgan", "boolean", "logic"]},
+    {"id": "thevenin", "name": "Thevenin equivalent", "form": "any linear network = V_th in series with R_th", "topic": "circuits", "keywords": ["thevenin", "equivalent", "source"]}
   ]
 }
