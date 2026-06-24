@@ -85,8 +85,21 @@ for (const f of readdirSync(CANON).filter((x) => x.startsWith('spec-') && x.ends
   }
 }
 
+// cross-domain sense-aware links (tree → graph): related/same_as edges between concepts near in the
+// sense-disambiguated concept space (canon-graph-links.py). Guarded by node existence so a stale link
+// can't dangle. This is where the keyed-vec/sense alignment becomes traversable graph structure.
+let nX = 0
+try {
+  const xl = JSON.parse(readFileSync(join(CANON, 'cross-domain-links.json'), 'utf8'))
+  for (const l of xl.links ?? []) {
+    if (g.getNode(l.from_id) && g.getNode(l.to_id)) {
+      g.addEdge(l.rel, l.from_id, l.to_id, { cos: l.cos, crossdomain: true }); nX++; nE++
+    }
+  }
+} catch { /* cross-domain-links.json not generated yet — run canon-graph-links.py first */ }
+
 console.log(`# canon-to-graph → HellGraph property graph`)
-console.log(`  ${nD} Domain · ${nT} Topic · ${nG} GlossaryTerm · ${nF} Formula · ${subjSeen.size} TestSubject · ${nE} edges`)
+console.log(`  ${nD} Domain · ${nT} Topic · ${nG} GlossaryTerm · ${nF} Formula · ${subjSeen.size} TestSubject · ${nE} edges (${nX} cross-domain)`)
 console.log(`  kvClass (keyed-vec nearest test-subject) set as the default linking class on every node`)
 console.log(`  store now: ${g.nodeCount()} nodes / ${g.edgeCount()} edges`)
 console.log(`  → renders in the graph UI 'domain' + 'knowledge' lenses by default`)

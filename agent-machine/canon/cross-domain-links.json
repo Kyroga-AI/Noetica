@@ -1,0 +1,655 @@
+{
+ "encoder": "nomic",
+ "related_threshold": 0.78,
+ "same_threshold": 0.9,
+ "links": [
+  {
+   "from_id": "canon:term:chemistry:allosteric-regulation",
+   "to_id": "canon:term:biology:allosteric-regulation",
+   "from": "chemistry:allosteric regulation",
+   "to": "biology:allosteric regulation",
+   "cos": 0.976,
+   "rel": "same_as",
+   "same_label": true
+  },
+  {
+   "from_id": "canon:term:biology:km-michaelis-constant",
+   "to_id": "canon:term:chemistry:michaelis-constant-k-m",
+   "from": "biology:Km (Michaelis constant)",
+   "to": "chemistry:Michaelis constant (K_M)",
+   "cos": 0.965,
+   "rel": "same_as",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:computer-science:p-value",
+   "to_id": "canon:term:economics:p-value",
+   "from": "computer_science:p-value",
+   "to": "economics:p-value",
+   "cos": 0.962,
+   "rel": "same_as",
+   "same_label": true
+  },
+  {
+   "from_id": "canon:term:physics:heat-capacity",
+   "to_id": "canon:term:chemistry:heat-capacity-c",
+   "from": "physics:heat capacity",
+   "to": "chemistry:heat capacity (C)",
+   "cos": 0.941,
+   "rel": "same_as",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:mathematics:p-value",
+   "to_id": "canon:term:economics:p-value",
+   "from": "mathematics:p-value",
+   "to": "economics:p-value",
+   "cos": 0.935,
+   "rel": "same_as",
+   "same_label": true
+  },
+  {
+   "from_id": "canon:term:physics:divergence",
+   "to_id": "canon:term:mathematics:divergence",
+   "from": "physics:divergence",
+   "to": "mathematics:divergence",
+   "cos": 0.924,
+   "rel": "same_as",
+   "same_label": true
+  },
+  {
+   "from_id": "canon:term:biology:glycolysis",
+   "to_id": "canon:term:chemistry:glycolysis",
+   "from": "biology:glycolysis",
+   "to": "chemistry:glycolysis",
+   "cos": 0.919,
+   "rel": "same_as",
+   "same_label": true
+  },
+  {
+   "from_id": "canon:term:chemistry:competitive-inhibition",
+   "to_id": "canon:term:biology:competitive-inhibition",
+   "from": "chemistry:competitive inhibition",
+   "to": "biology:competitive inhibition",
+   "cos": 0.915,
+   "rel": "same_as",
+   "same_label": true
+  },
+  {
+   "from_id": "canon:term:computer-science:laplace-transform",
+   "to_id": "canon:term:mathematics:laplace-transform",
+   "from": "computer_science:Laplace transform",
+   "to": "mathematics:Laplace transform",
+   "cos": 0.915,
+   "rel": "same_as",
+   "same_label": true
+  },
+  {
+   "from_id": "canon:term:physics:equipartition-theorem",
+   "to_id": "canon:term:chemistry:equipartition-theorem",
+   "from": "physics:equipartition theorem",
+   "to": "chemistry:equipartition theorem",
+   "cos": 0.914,
+   "rel": "same_as",
+   "same_label": true
+  },
+  {
+   "from_id": "canon:term:mathematics:gradient",
+   "to_id": "canon:term:physics:gradient",
+   "from": "mathematics:gradient",
+   "to": "physics:gradient",
+   "cos": 0.913,
+   "rel": "same_as",
+   "same_label": true
+  },
+  {
+   "from_id": "canon:term:physics:internal-energy",
+   "to_id": "canon:term:chemistry:internal-energy-u",
+   "from": "physics:internal energy",
+   "to": "chemistry:internal energy (U)",
+   "cos": 0.905,
+   "rel": "same_as",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:computer-science:p-value",
+   "to_id": "canon:term:mathematics:p-value",
+   "from": "computer_science:p-value",
+   "to": "mathematics:p-value",
+   "cos": 0.899,
+   "rel": "related",
+   "same_label": true
+  },
+  {
+   "from_id": "canon:term:chemistry:chemical-potential-mu",
+   "to_id": "canon:term:physics:chemical-potential",
+   "from": "chemistry:chemical potential (mu)",
+   "to": "physics:chemical potential",
+   "cos": 0.898,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:physics:variational-principle",
+   "to_id": "canon:term:chemistry:variational-principle",
+   "from": "physics:variational principle",
+   "to": "chemistry:variational principle",
+   "cos": 0.884,
+   "rel": "related",
+   "same_label": true
+  },
+  {
+   "from_id": "canon:term:mathematics:euler-s-totient-function-n",
+   "to_id": "canon:term:computer-science:euler-s-totient-n",
+   "from": "mathematics:Euler's totient function \u03c6(n)",
+   "to": "computer_science:Euler's totient \u03c6(n)",
+   "cos": 0.884,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:biology:vmax",
+   "to_id": "canon:term:chemistry:vmax",
+   "from": "biology:Vmax",
+   "to": "chemistry:Vmax",
+   "cos": 0.879,
+   "rel": "related",
+   "same_label": true
+  },
+  {
+   "from_id": "canon:term:biology:atp",
+   "to_id": "canon:term:chemistry:atp-adenosine-triphosphate",
+   "from": "biology:ATP",
+   "to": "chemistry:ATP (adenosine triphosphate)",
+   "cos": 0.879,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:chemistry:grand-canonical-ensemble",
+   "to_id": "canon:term:physics:grand-canonical-ensemble",
+   "from": "chemistry:grand canonical ensemble",
+   "to": "physics:grand canonical ensemble",
+   "cos": 0.874,
+   "rel": "related",
+   "same_label": true
+  },
+  {
+   "from_id": "canon:term:mathematics:curl",
+   "to_id": "canon:term:physics:curl",
+   "from": "mathematics:curl",
+   "to": "physics:curl",
+   "cos": 0.874,
+   "rel": "related",
+   "same_label": true
+  },
+  {
+   "from_id": "canon:term:mathematics:planar-graph",
+   "to_id": "canon:term:computer-science:planar-graph",
+   "from": "mathematics:planar graph",
+   "to": "computer_science:planar graph",
+   "cos": 0.867,
+   "rel": "related",
+   "same_label": true
+  },
+  {
+   "from_id": "canon:term:chemistry:wavefunction-psi",
+   "to_id": "canon:term:physics:wave-function",
+   "from": "chemistry:wavefunction (psi)",
+   "to": "physics:wave function",
+   "cos": 0.864,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:chemistry:helmholtz-free-energy-from-q",
+   "to_id": "canon:term:physics:free-energy-helmholtz",
+   "from": "chemistry:Helmholtz free energy from Q",
+   "to": "physics:free energy (Helmholtz)",
+   "cos": 0.864,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:topic:physics:thermodynamics-classical",
+   "to_id": "canon:topic:chemistry:thermodynamics",
+   "from": "physics:Thermodynamics (Classical)",
+   "to": "chemistry:Thermodynamics",
+   "cos": 0.862,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:mathematics:standard-error",
+   "to_id": "canon:term:economics:standard-error",
+   "from": "mathematics:standard error",
+   "to": "economics:standard error",
+   "cos": 0.86,
+   "rel": "related",
+   "same_label": true
+  },
+  {
+   "from_id": "canon:term:chemistry:entropy-s",
+   "to_id": "canon:term:physics:entropy-classical",
+   "from": "chemistry:entropy (S)",
+   "to": "physics:entropy (classical)",
+   "cos": 0.859,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:topic:mathematics:probability-and-combinatorics",
+   "to_id": "canon:topic:computer-science:probability-statistics-for-cs",
+   "from": "mathematics:Probability and Combinatorics",
+   "to": "computer_science:Probability & Statistics for CS",
+   "cos": 0.855,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:topic:physics:statistical-mechanics-and-thermodynamics",
+   "to_id": "canon:topic:chemistry:statistical-thermodynamics-and-partition-functions",
+   "from": "physics:Statistical Mechanics and Thermodynamics",
+   "to": "chemistry:Statistical Thermodynamics and Partition Functions",
+   "cos": 0.854,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:chemistry:helmholtz-free-energy-a",
+   "to_id": "canon:term:physics:gibbs-free-energy",
+   "from": "chemistry:Helmholtz free energy (A)",
+   "to": "physics:Gibbs free energy",
+   "cos": 0.851,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:mathematics:bijection",
+   "to_id": "canon:term:computer-science:bijection",
+   "from": "mathematics:bijection",
+   "to": "computer_science:bijection",
+   "cos": 0.851,
+   "rel": "related",
+   "same_label": true
+  },
+  {
+   "from_id": "canon:term:physics:partition-function",
+   "to_id": "canon:term:chemistry:partition-function-q-or-z",
+   "from": "physics:partition function",
+   "to": "chemistry:partition function (q or Z)",
+   "cos": 0.849,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:computer-science:fourier-transform",
+   "to_id": "canon:term:physics:fourier-transform",
+   "from": "computer_science:Fourier transform",
+   "to": "physics:Fourier transform",
+   "cos": 0.847,
+   "rel": "related",
+   "same_label": true
+  },
+  {
+   "from_id": "canon:term:mathematics:variance",
+   "to_id": "canon:term:computer-science:variance",
+   "from": "mathematics:variance",
+   "to": "computer_science:variance",
+   "cos": 0.843,
+   "rel": "related",
+   "same_label": true
+  },
+  {
+   "from_id": "canon:term:chemistry:heisenberg-uncertainty-principle",
+   "to_id": "canon:term:physics:heisenberg-uncertainty-principle",
+   "from": "chemistry:Heisenberg uncertainty principle",
+   "to": "physics:Heisenberg uncertainty principle",
+   "cos": 0.841,
+   "rel": "related",
+   "same_label": true
+  },
+  {
+   "from_id": "canon:term:physics:selection-rules-electric-dipole",
+   "to_id": "canon:term:chemistry:selection-rule",
+   "from": "physics:selection rules (electric dipole)",
+   "to": "chemistry:selection rule",
+   "cos": 0.836,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:computer-science:bijection",
+   "to_id": "canon:term:mathematics:injective-one-to-one",
+   "from": "computer_science:bijection",
+   "to": "mathematics:injective (one-to-one)",
+   "cos": 0.832,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:chemistry:gibbs-free-energy-g",
+   "to_id": "canon:term:physics:free-energy-helmholtz",
+   "from": "chemistry:Gibbs free energy (G)",
+   "to": "physics:free energy (Helmholtz)",
+   "cos": 0.829,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:topic:mathematics:discrete-mathematics-and-combinatorics",
+   "to_id": "canon:topic:computer-science:discrete-mathematics-logic",
+   "from": "mathematics:Discrete Mathematics and Combinatorics",
+   "to": "computer_science:Discrete Mathematics & Logic",
+   "cos": 0.827,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:physics:gibbs-free-energy",
+   "to_id": "canon:term:chemistry:gibbs-free-energy-g",
+   "from": "physics:Gibbs free energy",
+   "to": "chemistry:Gibbs free energy (G)",
+   "cos": 0.822,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:topic:mathematics:multivariable-calculus",
+   "to_id": "canon:topic:physics:mathematical-methods-in-physics",
+   "from": "mathematics:Multivariable Calculus",
+   "to": "physics:Mathematical Methods in Physics",
+   "cos": 0.819,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:physics:free-energy-helmholtz",
+   "to_id": "canon:term:chemistry:helmholtz-free-energy-a",
+   "from": "physics:free energy (Helmholtz)",
+   "to": "chemistry:Helmholtz free energy (A)",
+   "cos": 0.817,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:topic:physics:statistical-mechanics-and-thermodynamics",
+   "to_id": "canon:topic:chemistry:thermodynamics",
+   "from": "physics:Statistical Mechanics and Thermodynamics",
+   "to": "chemistry:Thermodynamics",
+   "cos": 0.816,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:chemistry:bragg-s-law",
+   "to_id": "canon:term:physics:snell-s-law",
+   "from": "chemistry:Bragg's law",
+   "to": "physics:Snell's law",
+   "cos": 0.815,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:biology:km-michaelis-constant",
+   "to_id": "canon:term:chemistry:vmax",
+   "from": "biology:Km (Michaelis constant)",
+   "to": "chemistry:Vmax",
+   "cos": 0.812,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:topic:biology:biochemistry-and-metabolism",
+   "to_id": "canon:topic:chemistry:biochemistry-fundamentals",
+   "from": "biology:Biochemistry and Metabolism",
+   "to": "chemistry:Biochemistry Fundamentals",
+   "cos": 0.811,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:topic:physics:thermodynamics-classical",
+   "to_id": "canon:topic:chemistry:chemical-kinetics",
+   "from": "physics:Thermodynamics (Classical)",
+   "to": "chemistry:Chemical Kinetics",
+   "cos": 0.811,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:chemistry:lewis-acid",
+   "to_id": "canon:term:biology:nad-nadh",
+   "from": "chemistry:Lewis acid",
+   "to": "biology:NAD+/NADH",
+   "cos": 0.806,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:physics:fermi-surface",
+   "to_id": "canon:term:chemistry:potential-energy-surface-pes",
+   "from": "physics:Fermi surface",
+   "to": "chemistry:potential energy surface (PES)",
+   "cos": 0.806,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:computer-science:kcl-kirchhoff-s-current-law",
+   "to_id": "canon:term:physics:amp-re-maxwell-law",
+   "from": "computer_science:KCL (Kirchhoff's current law)",
+   "to": "physics:Amp\u00e8re-Maxwell law",
+   "cos": 0.806,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:economics:f-statistic",
+   "to_id": "canon:topic:mathematics:statistics",
+   "from": "economics:F-statistic",
+   "to": "mathematics:Statistics",
+   "cos": 0.802,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:mathematics:directional-derivative",
+   "to_id": "canon:term:physics:gradient",
+   "from": "mathematics:directional derivative",
+   "to": "physics:gradient",
+   "cos": 0.8,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:physics:canonical-ensemble",
+   "to_id": "canon:term:chemistry:boltzmann-distribution",
+   "from": "physics:canonical ensemble",
+   "to": "chemistry:Boltzmann distribution",
+   "cos": 0.799,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:physics:entropy",
+   "to_id": "canon:term:chemistry:microcanonical-ensemble",
+   "from": "physics:entropy",
+   "to": "chemistry:microcanonical ensemble",
+   "cos": 0.799,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:chemistry:michaelis-constant-k-m",
+   "to_id": "canon:term:biology:vmax",
+   "from": "chemistry:Michaelis constant (K_M)",
+   "to": "biology:Vmax",
+   "cos": 0.798,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:chemistry:canonical-ensemble",
+   "to_id": "canon:term:physics:canonical-ensemble",
+   "from": "chemistry:canonical ensemble",
+   "to": "physics:canonical ensemble",
+   "cos": 0.798,
+   "rel": "related",
+   "same_label": true
+  },
+  {
+   "from_id": "canon:term:mathematics:congruence",
+   "to_id": "canon:term:computer-science:modular-arithmetic",
+   "from": "mathematics:congruence",
+   "to": "computer_science:modular arithmetic",
+   "cos": 0.798,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:topic:physics:condensed-matter-physics",
+   "to_id": "canon:topic:chemistry:coordination-chemistry-and-inorganic-chemistry",
+   "from": "physics:Condensed Matter Physics",
+   "to": "chemistry:Coordination Chemistry and Inorganic Chemistry",
+   "cos": 0.796,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:physics:grand-canonical-ensemble",
+   "to_id": "canon:term:chemistry:canonical-ensemble",
+   "from": "physics:grand canonical ensemble",
+   "to": "chemistry:canonical ensemble",
+   "cos": 0.796,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:computer-science:expectation",
+   "to_id": "canon:term:mathematics:expected-value",
+   "from": "computer_science:expectation",
+   "to": "mathematics:expected value",
+   "cos": 0.796,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:mathematics:regression-coefficient",
+   "to_id": "canon:term:economics:regression-coefficient",
+   "from": "mathematics:regression coefficient",
+   "to": "economics:regression coefficient (\u03b2)",
+   "cos": 0.796,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:mathematics:laplace-transform",
+   "to_id": "canon:term:physics:legendre-transformation",
+   "from": "mathematics:Laplace transform",
+   "to": "physics:Legendre transformation",
+   "cos": 0.794,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:mathematics:surjective-onto",
+   "to_id": "canon:term:computer-science:bijection",
+   "from": "mathematics:surjective (onto)",
+   "to": "computer_science:bijection",
+   "cos": 0.793,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:chemistry:michaelis-menten-kinetics",
+   "to_id": "canon:term:biology:vmax",
+   "from": "chemistry:Michaelis-Menten kinetics",
+   "to": "biology:Vmax",
+   "cos": 0.789,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:topic:chemistry:atomic-structure-and-quantum-chemistry",
+   "to_id": "canon:topic:physics:quantum-mechanics",
+   "from": "chemistry:Atomic Structure and Quantum Chemistry",
+   "to": "physics:Quantum Mechanics",
+   "cos": 0.789,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:computer-science:kcl-kirchhoff-s-current-law",
+   "to_id": "canon:term:physics:displacement-current",
+   "from": "computer_science:KCL (Kirchhoff's current law)",
+   "to": "physics:displacement current",
+   "cos": 0.789,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:chemistry:phospholipid-bilayer",
+   "to_id": "canon:term:biology:plasma-membrane",
+   "from": "chemistry:phospholipid bilayer",
+   "to": "biology:plasma membrane",
+   "cos": 0.787,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:topic:physics:statistical-mechanics-and-thermodynamics",
+   "to_id": "canon:topic:chemistry:gases-and-kinetic-molecular-theory",
+   "from": "physics:Statistical Mechanics and Thermodynamics",
+   "to": "chemistry:Gases and Kinetic-Molecular Theory",
+   "cos": 0.787,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:topic:chemistry:gases-and-kinetic-molecular-theory",
+   "to_id": "canon:topic:physics:thermodynamics-classical",
+   "from": "chemistry:Gases and Kinetic-Molecular Theory",
+   "to": "physics:Thermodynamics (Classical)",
+   "cos": 0.784,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:physics:fermi-energy",
+   "to_id": "canon:term:chemistry:chemical-potential-mu",
+   "from": "physics:Fermi energy",
+   "to": "chemistry:chemical potential (mu)",
+   "cos": 0.784,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:topic:chemistry:chemical-kinetics",
+   "to_id": "canon:topic:physics:statistical-mechanics-and-thermodynamics",
+   "from": "chemistry:Chemical Kinetics",
+   "to": "physics:Statistical Mechanics and Thermodynamics",
+   "cos": 0.784,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:topic:chemistry:chemical-bonding-and-molecular-structure",
+   "to_id": "canon:topic:physics:condensed-matter-physics",
+   "from": "chemistry:Chemical Bonding and Molecular Structure",
+   "to": "physics:Condensed Matter Physics",
+   "cos": 0.783,
+   "rel": "related",
+   "same_label": false
+  },
+  {
+   "from_id": "canon:term:physics:gauss-s-law",
+   "to_id": "canon:term:computer-science:kvl-kirchhoff-s-voltage-law",
+   "from": "physics:Gauss's law",
+   "to": "computer_science:KVL (Kirchhoff's voltage law)",
+   "cos": 0.781,
+   "rel": "related",
+   "same_label": false
+  }
+ ]
+}
