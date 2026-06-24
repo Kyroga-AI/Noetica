@@ -12,7 +12,10 @@ RUN_TAG="${RUN_TAG:-cpu}"
 VM="board-$RUN_TAG"
 MODEL="${BOARD_MODEL:-qwen2.5:7b}"
 ARMS="${BOARD_ARMS:-baseline,brain,notecard,gate,compute}"
-PER="${PER:-15}"
+PER="${PER:-50}"
+# HARD FLOOR n>=30/subject: below this, per-subject netting (the brain swaps ~30% of answers but fixes ≈ as
+# many as it breaks) hides the real effect inside the noise band — equal-looking ties that can't be read.
+[ "$PER" -lt 30 ] && { echo "# PER=$PER < 30 floor → raising to 30 (small-n hides the signal)"; PER=30; }
 SUBJECTS="${SUBJECTS:-college_mathematics,college_physics,college_chemistry,college_biology,abstract_algebra,high_school_statistics}"
 STALL_MIN="${STALL_MIN:-15}"
 MACHINE="${MACHINE:-c2d-standard-16}"
