@@ -13,8 +13,12 @@
 const ALLOW = ['PATH', 'HOME', 'USER', 'LOGNAME', 'SHELL', 'LANG', 'LC_ALL', 'LC_CTYPE', 'TERM', 'TMPDIR', 'TZ', 'PWD'] as const
 
 export function safeShellEnv(): NodeJS.ProcessEnv {
-  // NODE_ENV set at construction (the project types it as a required, read-only ProcessEnv member).
-  const env: NodeJS.ProcessEnv = { NODE_ENV: process.env['NODE_ENV'] ?? 'production' }
+  // NODE_ENV = development for the agent's dev sandbox. It must NOT inherit the agent-machine's 'production'
+  // (the packaged app runs production): `npm install` under NODE_ENV=production SKIPS devDependencies, so a
+  // scaffolded app's vite/build tooling never lands → "vite: command not found" + dead dev servers. The agent
+  // shell is always a build/run context, so development is the correct default. (Set at construction because
+  // the project types NODE_ENV as a required, read-only ProcessEnv member.)
+  const env: NodeJS.ProcessEnv = { NODE_ENV: 'development' }
   for (const k of ALLOW) { const v = process.env[k]; if (v !== undefined) env[k] = v }
   return env
 }
