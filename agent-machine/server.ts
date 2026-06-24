@@ -3348,11 +3348,14 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     }
   } catch { /* procedural-memory best-effort */ }
 
-  // qwen3 THINKS by default — hundreds of hidden reasoning tokens before answering, which turns a simple
-  // "what year was X" into a multi-minute wait. Skip thinking (/no_think) for simple/factual intents; keep it
-  // only where deep reasoning earns the latency. Big speedup on the common case; no effect on non-qwen3 models.
-  const THINK_INTENTS = new Set(['reasoning', 'explain_teach', 'compare_benchmark', 'plan_nextsteps', 'review_audit', 'prove_reason', 'compute_math', 'build_implement', 'fix_debug'])
-  const thinkDirective = (/qwen3/i.test(model) && !THINK_INTENTS.has(intentPlan.name)) ? ' /no_think' : ''
+  // NOTE: we do NOT append `/no_think`. The chat path is the OpenAI-compat /v1 endpoint (no native `think`
+  // param), so /no_think is the only lever — but on qwen3 it strips the <think>…</think> wrapper while the
+  // model STILL reasons, so the reasoning leaks into the ANSWER as plain text (the streamOllama parser routes
+  // it to message.content instead of message.thinking → it renders as the answer body, not the collapsible).
+  // Letting qwen3 think NORMALLY keeps reasoning wrapped → it lands in the "Extended thinking" collapsible,
+  // cleanly separated from the answer. Speed comes from model TIERING (interactive lanes → fast 8b), not from
+  // suppressing thinking. Re-introduce suppression only via native `think:false` if the path moves to /api/chat.
+  const thinkDirective = ''
   // For non-document intents, the injected memory/graph passages are OPTIONAL background — the model keeps
   // anchoring on them and refusing general-knowledge questions ("not in the provided documents"). A forceful
   // directive in the LAST (most salient) position overrides that. Doc-QA intents keep strict grounding.
