@@ -7951,6 +7951,10 @@ server.listen(PORT, '127.0.0.1', () => {
   // Runs silently after startup — never blocks the server.
   void (async () => {
     try {
+      // Tests boot the AM against MOCK Ollamas and assert specific request/latency behavior. The real
+      // suite-pull + prewarm hammers the (deliberately broken) primary with GB-scale pulls and contends
+      // for the turn under test — making latency non-deterministic. Skip it: tests never need real models.
+      if (process.env['NODE_ENV'] === 'test') return
       const up = await isOllamaRunning()
       if (!up) return
       const installed = await listLocalModels()
