@@ -52,8 +52,24 @@ curl localhost:8127/health
   spatial axes (opset 17 → ONNX `DFT`, which ONNX Runtime serves). Swap its `make_batch` for `(input, output)`
   pairs from your PDE solver. Needs `torch`.
 
+## Provisioning models onto a device
+
+The serving **binary** ships in the app bundle (Tauri externalBin, alongside `noetica-embed` — see
+`scripts/inject-am-sidecar-config.mjs` + `release.yml`). The **models** are delivered separately (large +
+versioned independently) via `agent-machine/lib/operator-provision.ts`:
+
+```
+POST /api/operator/provision { "name": "diffusion-fno" }   # SSE progress, token-gated
+```
+
+Source resolution: `NOETICA_OPERATOR_<NAME>_URL` env override → optional manifest
+(`NOETICA_OPERATOR_MANIFEST_URL`, `{models:{name:{url,sha256,version}}}`) → the release asset
+`<name>-operator.onnx`. Downloads are **https-only** (loopback http allowed for tests), **sha256-verified** when
+a checksum is known, and installed **atomically** (temp → rename) so the sidecar never sees a partial file.
+
 ## Tests
 
 - `agent-machine/lib/operator-runtime.test.ts` — runtime contract against a mock sidecar (no binary).
+- `agent-machine/lib/operator-provision.test.ts` — model download/verify/atomic-install (loopback mock).
 - `agent-machine/scripts/integration-operator.test.ts` — the **real** runtime driving the **real** binary
   against the fixtures (`npm run test:integration:operator`); skips cleanly when the binary isn't built.

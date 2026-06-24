@@ -45,7 +45,7 @@ echo "  ✓ bundled (frontend + binary fresh)"
 echo "▸ 3/5 stopping running instances…"
 osascript -e 'quit app "Noetica"' 2>/dev/null
 pkill -9 -f "Noetica" 2>/dev/null; pkill -9 -f "Contents/MacOS/agent-machine" 2>/dev/null
-pkill -9 -f "binaries/agent-machine" 2>/dev/null; pkill -9 -f "noetica-embed" 2>/dev/null
+pkill -9 -f "binaries/agent-machine" 2>/dev/null; pkill -9 -f "noetica-embed" 2>/dev/null; pkill -9 -f "noetica-operator" 2>/dev/null
 lsof -ti tcp:8080 2>/dev/null | xargs -r kill -9 2>/dev/null
 sleep 2
 

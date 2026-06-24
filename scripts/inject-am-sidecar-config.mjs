@@ -22,8 +22,8 @@ if (restore) {
   console.log('Removed externalBin from tauri.conf.json (dev mode restored)')
 } else {
   config.bundle = config.bundle ?? {}
-  config.bundle.externalBin = ['binaries/agent-machine', 'binaries/ollama', 'binaries/noetica-embed']
-  console.log('Injected externalBin: ["binaries/agent-machine", "binaries/ollama", "binaries/noetica-embed"] into tauri.conf.json')
+  config.bundle.externalBin = ['binaries/agent-machine', 'binaries/ollama', 'binaries/noetica-embed', 'binaries/noetica-operator']
+  console.log('Injected externalBin: ["binaries/agent-machine", "binaries/ollama", "binaries/noetica-embed", "binaries/noetica-operator"] into tauri.conf.json')
 }
 
 writeFileSync(configPath, JSON.stringify(config, null, 2) + '\n')

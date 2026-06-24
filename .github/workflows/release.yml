@@ -94,6 +94,24 @@ jobs:
           echo "Universal noetica-embed binary:"
           lipo -info src-tauri/binaries/noetica-embed-universal-apple-darwin
 
+      - name: Build noetica-operator sidecar (universal)
+        # The neural-operator sidecar (ONNX Runtime / ort) is injected as externalBin alongside noetica-embed.
+        # Same both-arch-then-lipo dance the embedder needs, or the universal build fails with
+        # "resource path binaries/noetica-operator-x86_64-apple-darwin doesn't exist".
+        run: |
+          mkdir -p src-tauri/binaries
+          cargo build --release --manifest-path operator-sidecar/Cargo.toml --target aarch64-apple-darwin
+          cargo build --release --manifest-path operator-sidecar/Cargo.toml --target x86_64-apple-darwin
+          cp operator-sidecar/target/aarch64-apple-darwin/release/noetica-operator src-tauri/binaries/noetica-operator-aarch64-apple-darwin
+          cp operator-sidecar/target/x86_64-apple-darwin/release/noetica-operator  src-tauri/binaries/noetica-operator-x86_64-apple-darwin
+          lipo -create \
+            src-tauri/binaries/noetica-operator-aarch64-apple-darwin \
+            src-tauri/binaries/noetica-operator-x86_64-apple-darwin \
+            -output src-tauri/binaries/noetica-operator-universal-apple-darwin
+          chmod +x src-tauri/binaries/noetica-operator-aarch64-apple-darwin src-tauri/binaries/noetica-operator-x86_64-apple-darwin src-tauri/binaries/noetica-operator-universal-apple-darwin
+          echo "Universal noetica-operator binary:"
+          lipo -info src-tauri/binaries/noetica-operator-universal-apple-darwin
+
       - name: Download Ollama sidecar (universal)
         env:
           OLLAMA_VERSION: "0.30.8"
@@ -256,6 +274,14 @@ jobs:
           cargo build --release --manifest-path embed-sidecar/Cargo.toml --target x86_64-unknown-linux-gnu
           cp embed-sidecar/target/x86_64-unknown-linux-gnu/release/noetica-embed src-tauri/binaries/noetica-embed-x86_64-unknown-linux-gnu
           chmod +x src-tauri/binaries/noetica-embed-x86_64-unknown-linux-gnu
+
+      - name: Build noetica-operator sidecar (linux x64)
+        # The neural-operator sidecar (ort/ONNX Runtime), injected as externalBin — same requirement.
+        run: |
+          mkdir -p src-tauri/binaries
+          cargo build --release --manifest-path operator-sidecar/Cargo.toml --target x86_64-unknown-linux-gnu
+          cp operator-sidecar/target/x86_64-unknown-linux-gnu/release/noetica-operator src-tauri/binaries/noetica-operator-x86_64-unknown-linux-gnu
+          chmod +x src-tauri/binaries/noetica-operator-x86_64-unknown-linux-gnu
 
       - name: Download Ollama sidecar (linux)
         env:

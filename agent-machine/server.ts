@@ -4369,6 +4369,26 @@ const server = http.createServer((req, res) => {
     })() })
     return
   }
+  // POST /api/operator/provision { name } — download + install a model .onnx into ~/.noetica/operators,
+  // streaming progress as SSE (mirrors /api/brain/provision). Token-gated: fetches + writes to disk.
+  if (req.method === 'POST' && url.pathname === '/api/operator/provision') {
+    if (!requireApiToken(req, res)) return
+    let raw = ''
+    req.on('data', (c: Buffer) => { raw += c.toString(); if (raw.length > 4096) req.destroy() })
+    req.on('end', () => { void (async () => {
+      let name = ''
+      try { name = String((JSON.parse(raw || '{}') as { name?: string }).name ?? '') } catch { name = '' }
+      const { provisionOperatorModel, safeOperatorName } = await import('./lib/operator-provision.js')
+      if (!safeOperatorName(name)) {
+        res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid model name' })); return
+      }
+      res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' })
+      const result = await provisionOperatorModel(name, (p) => { res.write(`data: ${JSON.stringify({ progress: p })}\n\n`) })
+      res.write(`data: ${JSON.stringify({ done: result })}\n\n`)
+      res.end()
+    })() })
+    return
+  }
 
   // GET/PUT /api/identity — the current user's profile (name/email), per-machine. Replaces the
   // hardcoded developer identity: a fresh install reads the neutral default ('You', no email) until
