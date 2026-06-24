@@ -63,6 +63,20 @@ const PREEMBED_CONC = Number(process.env['MMLU_PREEMBED_CONC'] || 16)
 // brain-ground the verified-compute formalization (#12): feed sympy the retrieved worked solutions so it
 // IDENTIFIES the method instead of cold-parsing. Off (=0) → cold formalization, for the grounded-vs-cold A/B.
 const COMPUTE_GROUND = process.env['MMLU_COMPUTE_GROUND'] !== '0'
+// the EXAM NOTE CARD (scripts/build-notecard.py): a curated per-domain formula sheet the model brings into the
+// test. Grounds the `notecard` arm AND the compute formalizer. Empty for a field until it's been mined.
+const NOTECARD_DIR = process.env['NOTECARD_DIR'] || path.join(__dirname, '..', 'notecards')
+const _notecardCache = new Map<string, string>()
+function loadNotecard(fields: string[]): string {
+  const key = fields.join('+')
+  let c = _notecardCache.get(key)
+  if (c === undefined) {
+    const parts: string[] = []
+    for (const f of fields) { try { parts.push(fs.readFileSync(path.join(NOTECARD_DIR, `notecard-${f}.md`), 'utf8').trim()) } catch { /* not mined yet */ } }
+    c = parts.join('\n\n'); _notecardCache.set(key, c)
+  }
+  return c
+}
 const MMR_LAMBDA = Number(process.env['MMLU_MMR'] || 0) // >0 enables MMR diverse selection (relevance vs novelty); cluster_analysis showed top-8 collapse into ~2 cells
 const MAX_CHUNKS = Number(process.env['MMLU_MAX_CHUNKS'] || 150_000)
 const SEED = Number(process.env['MMLU_SEED'] ?? (Date.now() % 2147483647))
@@ -644,10 +658,12 @@ function computeBatch(qs: Q[], contexts: string[] = []): CompRes[] {
 
 // brain-ground the compute formalization (#12): the top WORKED-SOLUTION (gold) chunks for the question, so
 // sympy formalizes FROM the method shown rather than a cold parse. Gold-first; empty when nothing relevant.
-async function goldContext(q: Q, pools: Chunk[][]): Promise<string> {
+async function goldContext(q: Q, pools: Chunk[][], card = ''): Promise<string> {
   const hits = await retrieveMulti(q.question, q.choices, pools, PER_SHOT, 4)
   const gold = hits.filter((h) => /solution|exam|assignment|recitation|pset|problem/.test(h.material))
-  return (gold.length ? gold : hits).slice(0, 3).map((h) => h.text.slice(0, 600)).join('\n---\n')
+  const worked = (gold.length ? gold : hits).slice(0, 3).map((h) => h.text.slice(0, 600)).join('\n---\n')
+  // the open-book exam: the FORMULA SHEET (note card) + the studied WORKED EXAMPLES (retrieved). Both ground sympy.
+  return (card ? `Formula sheet (use these canonical formulas):\n${card}\n\n` : '') + (worked ? `Worked examples:\n${worked}` : '')
 }
 
 const KTYPE_PY = path.join(__dirname, 'knowledge_type.py')
@@ -733,7 +749,8 @@ async function main() {
     const wantCompute = ARMS.includes('compute') || ARMS.includes('route') || ARMS.includes('champion') || ARMS.includes('gate') || ARMS.includes('learned')
     // brain-ground (#12): retrieve worked-solution context per question (gold-first, warm cache) BEFORE the
     // sync compute subprocess, so sympy formalizes from the method, not a cold parse. COMPUTE_GROUND=0 → cold.
-    const computeCtx: string[] = (wantCompute && COMPUTE_GROUND) ? await Promise.all(sample.map((q) => goldContext(q, pools))) : []
+    const ncard = COMPUTE_GROUND ? loadNotecard(fields) : ''   // the formula sheet for this subject's field(s)
+    const computeCtx: string[] = (wantCompute && COMPUTE_GROUND) ? await Promise.all(sample.map((q) => goldContext(q, pools, ncard))) : []
     const comp: CompRes[] = wantCompute ? computeBatch(sample, computeCtx) : []
     // knowledge-type per question (the 'understand first' step) — used by the champion router
     const kt: KType[] = (ARMS.includes('champion') || ARMS.includes('gate') || ARMS.includes('learned')) ? ktypeBatch(sample) : []
@@ -805,6 +822,12 @@ async function main() {
           }
           if (defs.length) { letter = extractLetter(await ask(`Relevant definitions:\n${defs.join('\n')}\n\n${base}${ANSWER_RULE}`)); mode = `defs:${defs.length}/${terms.length}` }
           else { letter = extractLetter(await ask(`${base}${ANSWER_RULE}`)); mode = 'defs:miss' }   // no clean def → closed-book (never worse than baseline for lack of grounding)
+        } else if (arm === 'notecard') {          // OPEN-BOOK exam: answer with the domain's curated FORMULA SHEET
+          // What a student actually brings into the test — the canonical equations for the field, all in context
+          // (not top-k retrieved, not noisy prose). Only useful post-v4 (the formulas have to be in the brain).
+          const card = loadNotecard(fields)
+          if (card) { letter = extractLetter(await ask(`Exam formula sheet — these are the canonical formulas you may use:\n${card}\n\n${base}${ANSWER_RULE}`)); mode = `notecard:${fields.join('+')}` }
+          else { letter = extractLetter(await ask(`${base}${ANSWER_RULE}`)); mode = 'notecard:none' }   // not mined yet → closed-book
         } else if (arm === 'hop') {               // HippoRAG ITERATIVE query-graph expansion (#14): uncertain → graph-hop → re-retrieve
           // Each hop: answer with the current context (SC vote = confidence); if uncertain, build a local
           // concept graph from those chunks and PPR-expand on the query → the associatively-bridged concepts
