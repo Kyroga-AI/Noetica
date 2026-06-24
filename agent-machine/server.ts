@@ -2498,6 +2498,9 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       taskOverride: intentTaskOverride,
     })
   } catch (err) {
+    // Don't silently swallow — log the real cause (sanitized for log-injection) so a transient failure
+    // (e.g. the coder model still pulling on first build request) is diagnosable instead of an opaque error.
+    console.error('[chat] turn failed:', String(err instanceof Error ? err.stack || err.message : err).replace(/[\r\n]+/g, ' ⏎ '))
     sse(res, 'error', { error: 'internal_error' })
     return
   }

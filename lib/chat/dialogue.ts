@@ -312,7 +312,11 @@ export function matchDialogue(input: string, ctx?: DialogueCtx): DialogueResult 
     const a = Math.min(Number(rn[1] ?? 1), Number(rn[2] ?? 100)), b = Math.max(Number(rn[1] ?? 1), Number(rn[2] ?? 100))
     return r(`🎯 ${a + Math.floor(Math.random() * (b - a + 1))}  (${a}–${b})`)
   }
-  if (any(/^(decide for me|you decide|yes or no|should i\b.*|is it (a )?good idea\b.*|magic 8.?ball|will (it|i|this)\b.*|do you think i should\b.*)$/))
+  // Magic-8-ball novelty — but ONLY for an explicit decision ask, NEVER a genuine question. A real
+  // info-question (contains where/what/how/why/when/who/which) must fall through to the model. The old
+  // `will (it|i|this).*` pattern wrongly 8-balled "will it run here or where", "will it work", etc.
+  if (!/\b(where|what'?s?|how|why|when|who|which)\b/.test(s)
+    && any(/^(decide for me|you decide|yes or no|should i\b.*|is it (a )?good idea\b.*|magic 8.?ball|do you think i should\b.*)$/))
     return r(pick('decide', ['🎱 Yes.', '🎱 No.', '🎱 Maybe — your call.', '🎱 Signs point to yes.', '🎱 I wouldn’t count on it.', '🎱 Ask again later.', '🎱 Definitely.', '🎱 Better not tell you now.']))
   if (any(/^(random colou?r|give me a colou?r|pick a colou?r)$/)) {
     const hex = '#' + [0, 0, 0].map(() => Math.floor(Math.random() * 256).toString(16).padStart(2, '0')).join('')
