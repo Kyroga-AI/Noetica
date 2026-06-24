@@ -1,0 +1,222 @@
+{
+  "physics": {
+    "found": 13,
+    "total": 20,
+    "linked": 353,
+    "dropped": 92637,
+    "linkmap": {
+      "elec_power": [
+        "MITOCW | watch?v=zfBXJQ-i6p8",
+        "(7) r \u00b7 p = p \u00b7 r \u2212 3i\u210f.",
+        "r \u00b7 p = p \u00b7 r + 3 i . (1.16)"
+      ],
+      "kin_v": [
+        "ume V . For a freely evolving coherent state |\u03b1) = |\u03b1(t)), compute the average elec\u00ad",
+        "\u0394v v(t) \u2212 v0a(t) = = . (4.4.1)\u0394t t",
+        "\u0394v v(t) \u2212 v0a(t) = = . (4.4.1)\u0394t t"
+      ],
+      "kin_x": [
+        "problem with a real, continuous and \ufb01nite potential V (x) = V (\u2212x) that admits",
+        "V (x) = \u2212V0 for \u2212a \u2264 x \u2264 a, and V (x) = 0 for |x|> a.",
+        "V (x) = \u2212V0 for \u2212a \u2264 x \u2264 a, and V (x) = 0 for |x|> a."
+      ],
+      "newton2": [
+        "f where \u03c6, a1 come from initial conditions, and a2 = m(\u03c90",
+        "f where \u03c6, a1 come from initial conditions, and a2 = m(\u03c90",
+        "\u2212 F = (m + m )a ."
+      ],
+      "hooke": [
+        "F = k x , (8.1.1)",
+        "F x (x) = k x",
+        "1 2 1 1 2\u2212 bmg x f = k x 2 \u2212f mvi .2 2 2"
+      ],
+      "weight": [
+        "FG = m g (8.2.2)earth,object",
+        "FG = m g (8.2.2)earth,object",
+        "FG = m g (8.2.2) earth,object"
+      ],
+      "gravitation": [
+        "m1 m2 \u03c9 2\u2212G 2 .= \u2212m1 r1",
+        "m1 m2 \u03c9 2\u2212G r2 .2 = \u2212m2",
+        "\uf072 total \uf072 = m g . (12.3.96)ext r"
+      ],
+      "momentum": [
+        "! p ) = m1 v1 . (10.9.9)",
+        "\uf072v ,p = m \uf072 (7.3.1)",
+        "2p\u02c6 (0)+ V \u03c6 nlm = Enlm\u03c6nlm. 2m"
+      ],
+      "ohm": [
+        "\uf072 v (\u03b8 = \u03c0 ) = (V \u2212 R\u03c9 )\u02c6i .",
+        "\uf072 v (\u03b8 = \u03c0 ) = (V \u2212 R\u03c9 )\u02c6i .",
+        "V = R I"
+      ],
+      "work": [
+        "F\u222b \u222b \u222b \u222bW \u22c5 d \u22c5 d \u22c5(d \u2212 d \u22c5 d (13.1.12) \u2212 )= = = ,",
+        "W= cos where is the angle between F and d.",
+        "W= cos where s the ang e between F and d."
+      ],
+      "power": [
+        "\u2202v + v\u2202t \u00b7\u2207v +\u2207P f=\u03c1 (6.33)\u03c1",
+        "\u2202v0 =\u03c1 \u2202v+\u03c1(v\u2202t \u00b7\u2207)v +\u2207p\u2212 f0 =\u2207P0\u2212 f0 +\u03c10 + .t \u2207P\u2032 + .. (6.94)\u2202",
+        "\u2202v + v\u2202t \u00b7\u2207v +\u2207P f=\u03c1 (6.33)\u03c1"
+      ],
+      "pe_grav": [
+        "(Epot = m g h)"
+      ],
+      "coulomb": [
+        "xxkd q k dqrr r=\u22c5 =",
+        "xxkd q k dqrr r=\u22c5 =",
+        "\ufffd (1 \u2212 f\ufffd )f\ufffd (1 \u2212 f\ufffd )f\ufffdq k\u2212\ufffd kqq, \u03c9) = k+\ufffd k"
+      ],
+      "kin_v2": [],
+      "friction": [],
+      "impulse": [],
+      "ke": [],
+      "pe_spring": [],
+      "centripetal": [],
+      "rc": []
+    }
+  },
+  "mathematics": {
+    "found": 14,
+    "total": 15,
+    "linked": 1349,
+    "dropped": 294732,
+    "linkmap": {
+      "ftc": [
+        "2 2 2|f(x)|2dx = \u03c0(2a0 + a1 + a3 + ...) (8.67)",
+        "1[a,b](x)f (x)dx =(1 [a,b]f )(0) ( \u02c6 1[a,b])(0) f\u02c6(t)\ufffd\ufffd = f \u2217\ufffd = 1 [a,b](\u2212t)dx.",
+        "1[a,b](x)f (x)dx =(1 [a,b]f )(0) ( \u02c6 1[a,b])(0) f\u02c6(t)\ufffd\ufffd = f \u2217\ufffd = 1 [a,b](\u2212t)dx."
+      ],
+      "limit_def": [
+        "f(x + h) \u2212 f(x)f0(x) = lim (2.2)",
+        "f(x) \u2212 f(x \u2212 h)f0(x) = lim (2.4)",
+        "f(x + h) \u2212 f(x \u2212 h) = lim (2.5)"
+      ],
+      "pythag": [
+        "\u0012 \u0013 a b A = b c",
+        "\u0012 \u0013 a b A = b c",
+        "|A\u222aB\u222aC| =|"
+      ],
+      "distance": [
+        "(2) d(x, y) = d(y, x). (Symmetric.)",
+        "d(x, y) = |x \u2212 y| .",
+        "d(x, y) ="
+      ],
+      "deriv_chain": [
+        "g) = max |f (x \u2212 g(x)| .",
+        "(f + g)0(x0) = f 0(x0) + g 0(x0) .",
+        "(f g)(x0) = f 0(x0) g(x0) + f (x0) g 0(x0) ."
+      ],
+      "line": [
+        "and y1(x0) = y2(x0) for some x0 \u2208 [0, 1 \u2212 b]. Then",
+        "y1(x) = y2(x) for all x \u2208 [x0, x0 + b].",
+        "y1(x) = y2(x) for all x \u2208 [x0, x0 + b]."
+      ],
+      "slope": [
+        "x 1\u21d2y = 2 +m(x\u2212 1).",
+        "x 1\u21d2y = 2 +m(x\u2212 1). Plug intox2 +y2 = 5\u2212",
+        "x2 +y2 = 5\u21d2x2 = (1 +m(x\u2212 1))2 = 5"
+      ],
+      "deriv_power": [
+        "x =dx n",
+        "\u03b9\u2217dx1 =\ufffdd\u03b9\u2217x1 = 0,\u03c8 since\ufffd\u03b9\u2217x1 =\ufffd 0.\ufffd (6.172",
+        "\u03b9\u2217dx1 =\ufffdd\u03b9\u2217x1 = 0,\u03c8 since\ufffd\u03b9\u2217x1 =\ufffd 0.\ufffd (6.172)\ufffd"
+      ],
+      "int_power": [
+        "Given\ufffd\u03c9\u03c8=\ufffd\u03c6(x)dx1 \u2227 \u00b7 \u00b7 \u00b7 \u2227dxn,\ufffd where\ufffd\u03c6\u03c8\u2208 C \u221e,\ufffd",
+        "Given\ufffd\u03c9\u03c8=\ufffd\u03c6(x)dx1 \u2227 \u00b7 \u00b7 \u00b7 \u2227dxn,\ufffd where\ufffd\u03c6\u03c8\u2208 C \u221e,\ufffd",
+        "Let\ufffd\u03c9\u03c8=\ufffd\u03c6(x)dx1 \u2227 \u00b7 \u00b7 \u00b7 \u2227dxn,\ufffd where\ufffd\u03c6\u03c8\u2208 C0"
+      ],
+      "log_product": [
+        "\u21d2a +b\u2265l\u00b7 log n",
+        "p. 183, 12.1/4: read: log2[(b \u0000 a)=e]",
+        "b2m 1\u00af D2m = = . m m(log a)2m"
+      ],
+      "binom_coef": [
+        "|C + (n + 1)K| = \u2205.",
+        "c(n,k ) =",
+        "c(n +1 , k)= n c(n, k)+ c(n, k \u2212 1)."
+      ],
+      "geom_series": [
+        "2a =r0 +r1 = . (74)k(1\u2212\u03f52)",
+        "\\item Compute $\\alpha=a\\gamma$ and $\\beta=r^k\\gamma$.",
+        "non-zero integer, and r = -a2k2."
+      ],
+      "quadratic": [
+        "Then the class C =A\u00d7B has generating function C(x) =A(x)B(x).",
+        "Then the class C = A\u00d7B has generating function C(x)=A( x)B(x).",
+        "generating functions C(x), A(x), and B(x), respectively, then C(x) ="
+      ],
+      "circle_area": [
+        "det(A(r)) = pi, (1)",
+        "det(A(r)) = pi, (1)"
+      ],
+      "deriv_product": []
+    }
+  },
+  "chemistry": {
+    "found": 7,
+    "total": 14,
+    "linked": 87,
+    "dropped": 32647,
+    "linkmap": {
+      "dilution": [
+        "Fro m V =\u239c",
+        "v\u2032\u2032 = M*",
+        "V (xmin) = m\u03c92"
+      ],
+      "ideal_gas": [
+        "(T, p, V = V ,\u2026)n",
+        "V \u03c0 =\u03c0For V >> \u2206, then \u2126R = and P =1 after t = = . = 2\u2126R 2V",
+        "V \u03c0 =\u03c0For V >> \u2206, then \u2126R = and P =1 after t = = . = 2\u2126R 2V"
+      ],
+      "henderson": [
+        "pH ~= pKa - log ([HA]/[A-])",
+        "pH ~= pKa - log ([HA]/[A-])",
+        "pH ~= pKa - log ([HA]/[A-])"
+      ],
+      "rate": [
+        "aA + bB \u2192 cC + dD rate = k [A]m[B]n.....",
+        "(3) For rate = k[A]m[B]n, m is the order of reaction in A, n is the order of reaction in B. m and n",
+        "k b b k b ba a a aJ(ab) ( )F ( )\ufffd , \ufffd \ufffd \ufffda m m n n= ,\ufffd \ufffd"
+      ],
+      "ph": [
+        "pH = -log [H3O+]",
+        "pH = -log [H3O+]",
+        "pH = -log [H3O+]"
+      ],
+      "arrhenius": [
+        "= \u03b5 \u2212 ( \u22c5 \u2212\u03c9t) + . . A A 0 \u02c6 exp \u23a3\u23a1 i k r \u23a6\u23a4 c c"
+      ],
+      "heat": [
+        "m 1 \u2212 c 1 \u2212 c 1 \u2212 c m 1 \u2212 c q = + m2 \u2212 4 8 \u2212 \u00b7\u00b7\u00b7 \u2212 (\u22121) 2",
+        "m 1 \u2212 c 1 \u2212 c 1 \u2212 c m 1 \u2212 c q = + m2 \u2212 4 8 \u2212 \u00b7\u00b7\u00b7 \u2212 (\u22121) 2"
+      ],
+      "density": [],
+      "molarity": [],
+      "kw": [],
+      "gibbs": [],
+      "gibbs_k": [],
+      "nernst": [],
+      "keq": []
+    }
+  },
+  "biology": {
+    "found": 0,
+    "total": 9,
+    "linked": 0,
+    "dropped": 4490,
+    "linkmap": {
+      "hardy_p": [],
+      "hardy_geno": [],
+      "chisq_bio": [],
+      "water_pot": [],
+      "solute_pot": [],
+      "gibbs_bio": [],
+      "sa_vol": [],
+      "pop_growth": [],
+      "logistic": []
+    }
+  }
+}
