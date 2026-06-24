@@ -873,8 +873,11 @@ async function main() {
             const uniqueness = others.length ? 1 - cos(cvs[i]!, muO) : 0
             let inter = 0; for (const t of TCs[i]!) if (TQ.has(t)) inter++
             const incl = TCs[i]!.size === 0 ? 0 : (inter > 0 ? inter / (new Set([...TQ, ...TCs[i]!]).size || 1) : -0.2)   // discrete set inclusion/exclusion
+            const evid = (await retrieveMulti(q.question, [q.choices[i]!], pools, PER_SHOT, 1))[0]?.score ?? 0   // verification: brain evidence support for THIS choice
+            const compHit = ci?.answer === LETTERS[i] ? 1 : 0                           // verification (DEDUCED): sympy-verified compute picks this choice → near-certain when 1
             const score = 0.7 * cohesion + 0.2 * uniqueness + 0.1 * incl               // a DEFAULT blend for the arm's letter; the combiner relearns these weights per regime
             feats.push({ cohesion: +cohesion.toFixed(4), uniqueness: +uniqueness.toFixed(4), incl: +incl.toFixed(3),
+              evid: +evid.toFixed(4), comp_hit: compHit,                                // verification columns (evidence + deduced)
               pos: i, len: +(q.choices[i]!.length / 120).toFixed(3), nents: TCs[i]!.size, ontopic: inter > 0 ? 1 : 0,   // structural + descriptive columns
               score: +score.toFixed(4) })
             if (score > bs) { bs = score; bi = i }
@@ -1054,6 +1057,14 @@ async function main() {
         results.push({ arm, ok, attempted })
         row[`${arm}_pred`] = letter || '?'; row[`${arm}_ok`] = ok; if (mode) row[`${arm}_mode`] = mode
         marks.push(`${arm}:${ok ? '✓' : '✗'}${arm === 'compute' && !attempted ? '·' : (letter || '?')}`)
+      }
+      // vote_share (ensemble column): fraction of the answering arms that picked each letter — the per-choice
+      // agreement signal, computed once all arm preds are in the row. A strong column the combiner can weight.
+      {
+        const voters = ['baseline', 'brain', 'rerank', 'ground', 'qgen', 'notecard', 'gate', 'defs', 'hop', 'route']
+        const votes: Record<string, number> = {}; let nv = 0
+        for (const v of voters) { const p = row[`${v}_pred`]; if (typeof p === 'string' && p !== '?') { votes[p] = (votes[p] ?? 0) + 1; nv++ } }
+        if (nv) row['vote_share'] = Object.fromEntries(LETTERS.slice(0, q.choices.length).map((L) => [L, +((votes[L] ?? 0) / nv).toFixed(3)]))
       }
       // LIVE per-question heartbeat to stderr (the batched stdout board line only prints after a
       // whole CONC-batch finishes — that masked a slow run as a hang and burned hours). This fires
