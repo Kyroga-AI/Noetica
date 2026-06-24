@@ -998,8 +998,8 @@ async function main() {
         fs.appendFileSync(TRANSCRIPT, JSON.stringify(r.row) + '\n')   // durable per-question checkpoint
         scored++
         console.log(`  ${String(r.i + 1).padStart(3)}. ${r.marks.join('  ')}  /${r.gold}`)
+        writeStatus(subject)   // PER-QUESTION → the stall watchdog sees progress even within a slow batch
       }
-      writeStatus(subject)   // live progress → no more blind waiting
     }
   }
 
