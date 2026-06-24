@@ -98,8 +98,34 @@ try {
   }
 } catch { /* cross-domain-links.json not generated yet — run canon-graph-links.py first */ }
 
+// prerequisite DAG (induce-prereq-dag.py, #3): REQUIRES edges between Topic nodes — the walkable learning
+// order the registrar + tutor traverse. Edge A→B = "A requires B" (B must be learned first).
+let nR = 0
+try {
+  const pd = JSON.parse(readFileSync(join(CANON, 'prereq-dag.json'), 'utf8')) as Record<string, { edges?: [string, string][] }>
+  for (const [domain, v] of Object.entries(pd)) {
+    for (const [a, b] of v.edges ?? []) {
+      const aId = `canon:topic:${slug(domain)}:${slug(a)}`, bId = `canon:topic:${slug(domain)}:${slug(b)}`
+      if (g.getNode(aId) && g.getNode(bId)) { g.addEdge('requires', aId, bId, { prereq: true }); nR++; nE++ }
+    }
+  }
+} catch { /* prereq-dag.json not generated yet — run induce-prereq-dag.py */ }
+
+// cross-domain structural analogies (induce-analogies.py, #4): ANALOGOUS_TO edges between Formula nodes,
+// carrying the shared schema + variable mapping. This is a transfer bridge — same relation, different domain.
+let nA = 0
+try {
+  const an = JSON.parse(readFileSync(join(CANON, 'analogies.json'), 'utf8')) as { analogies?: Array<{ a: string; a_domain: string; b: string; b_domain: string; schema?: string; mapping?: string }> }
+  for (const a of an.analogies ?? []) {
+    const aId = `canon:formula:${slug(a.a_domain)}:${slug(a.a)}`, bId = `canon:formula:${slug(a.b_domain)}:${slug(a.b)}`
+    if (g.getNode(aId) && g.getNode(bId)) {
+      g.addEdge('analogous_to', aId, bId, { schema: String(a.schema ?? '').slice(0, 200), mapping: String(a.mapping ?? '').slice(0, 200), crossdomain: true }); nA++; nE++
+    }
+  }
+} catch { /* analogies.json not generated yet — run induce-analogies.py */ }
+
 console.log(`# canon-to-graph → HellGraph property graph`)
-console.log(`  ${nD} Domain · ${nT} Topic · ${nG} GlossaryTerm · ${nF} Formula · ${subjSeen.size} TestSubject · ${nE} edges (${nX} cross-domain)`)
+console.log(`  ${nD} Domain · ${nT} Topic · ${nG} GlossaryTerm · ${nF} Formula · ${subjSeen.size} TestSubject · ${nE} edges (${nX} cross-domain · ${nR} requires · ${nA} analogous_to)`)
 console.log(`  kvClass (keyed-vec nearest test-subject) set as the default linking class on every node`)
 console.log(`  store now: ${g.nodeCount()} nodes / ${g.edgeCount()} edges`)
 console.log(`  → renders in the graph UI 'domain' + 'knowledge' lenses by default`)
