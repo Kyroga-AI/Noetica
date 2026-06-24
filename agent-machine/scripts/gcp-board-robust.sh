@@ -63,7 +63,11 @@ mkdir -p /opt/OCW && timeout 900 gsutil cp "$BRAIN_TGZ" /tmp/b.tgz && tar xzf /t
 mkdir -p /root/.noetica/corpus/benchmarks && gsutil cp "\$GCS/mmlu_stem.json" /root/.noetica/corpus/benchmarks/mmlu_stem.json || true
 # RESUME: pull the checkpoint so the board skips already-done questions
 gsutil -q cp "$CKPT" "\$LCKPT" 2>/dev/null && step "RESUMED (\$(wc -l < \$LCKPT 2>/dev/null||echo 0) questions in checkpoint)" || step "fresh run"
-export OCW_BRAIN=/opt/OCW/_brain OLLAMA_HOST=http://127.0.0.1:11434
+# brain tars differ: some include the _brain/ dir, some are contents-only (v4 SAVE_BRAIN used -C _brain .).
+# Point OCW_BRAIN at wherever the field subdirs actually landed.
+BRAINDIR=/opt/OCW/_brain; [ -d "\$BRAINDIR" ] || BRAINDIR=/opt/OCW
+step "brain dir = \$BRAINDIR (\$(ls "\$BRAINDIR" 2>/dev/null | tr '\n' ' '))"
+export OCW_BRAIN=\$BRAINDIR OLLAMA_HOST=http://127.0.0.1:11434
 
 # stall watchdog: 'done' frozen for STALL_MIN min → abort (checkpoint preserved → relaunch resumes)
 ( prev=-1; stuck=0; while true; do sleep 60
