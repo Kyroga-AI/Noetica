@@ -840,6 +840,7 @@ async function main() {
       const results: Array<{ arm: string; ok: boolean; attempted: boolean }> = []
       for (const arm of ARMS) {
         let letter = ''; let mode = ''; let attempted = true
+        try {                                    // ROBUST: contain each arm — a single arm's bug must not crash the question/batch/run
         if (arm === 'compute') {                 // verified compute only (abstains where no law fits)
           letter = ci?.answer ?? ''; mode = ci?.mode ?? 'abstain'; attempted = !!ci?.answer
         } else if (arm === 'route') {             // the dispatch: compute where computable, else retrieve
@@ -1053,6 +1054,7 @@ async function main() {
         } else {                                  // baseline (closed book)
           letter = extractLetter(await ask(`${base}${ANSWER_RULE}`))
         }
+        } catch (e) { letter = ''; mode = `ERR:${String((e as Error)?.message ?? e).slice(0, 50)}`; attempted = false }   // arm abstains on failure; the run goes on
         const ok = letter === gold
         results.push({ arm, ok, attempted })
         row[`${arm}_pred`] = letter || '?'; row[`${arm}_ok`] = ok; if (mode) row[`${arm}_mode`] = mode
