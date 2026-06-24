@@ -16,8 +16,8 @@ ZONES="${ZONES:-us-east1-b us-east1-c us-east1-d us-central1-a us-central1-b us-
 STATUS="$GCS/bench/status-$RUN_TAG.json"
 TERM=$(python3 -c "import datetime;print((datetime.datetime.now().astimezone()+datetime.timedelta(hours=10)).replace(microsecond=0).isoformat())")
 
-ex=$(gcloud compute instances list --project=$PROJECT --filter="name=$VM" --format="value(name)" 2>/dev/null)
-[ -n "$ex" ] && { echo "ABORT — $VM already running (it auto-resumes itself; nothing to do)"; exit 0; }
+ex=$(gcloud compute instances list --project=$PROJECT --filter="name=$VM" --format="value(status)" 2>/dev/null | head -1)
+case "$ex" in RUNNING|PROVISIONING|STAGING|REPAIRING) echo "ABORT — $VM is $ex (active; it auto-resumes itself, nothing to do)"; exit 0;; esac   # only an ACTIVE VM blocks; a TERMINATED/STOPPING one must not
 echo "# board-fast · $IMG · $MACHINE · arms=$ARMS · auto-resume → done==total"
 
 for Z in $ZONES; do

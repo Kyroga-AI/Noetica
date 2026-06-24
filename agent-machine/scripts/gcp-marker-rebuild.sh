@@ -28,8 +28,8 @@ ZONES="${ZONES:-us-east1-d us-east4-a us-east4-c us-west1-a us-west1-b us-west4-
 MACHINES="${MACHINES:-g2-standard-8 a2-highgpu-1g a2-ultragpu-1g}"   # escalate L4 -> A100-40 -> A100-80
 TERM=$(python3 -c "import datetime;print((datetime.datetime.now().astimezone()+datetime.timedelta(hours=12)).replace(microsecond=0).isoformat())")
 
-ex=$(gcloud compute instances list --project=$PROJECT --filter="name=$VM" --format="value(name)" 2>/dev/null)
-[ -n "$ex" ] && { echo "ABORT — $VM already running (it auto-resumes itself; nothing to do)"; exit 0; }
+ex=$(gcloud compute instances list --project=$PROJECT --filter="name=$VM" --format="value(status)" 2>/dev/null | head -1)
+case "$ex" in RUNNING|PROVISIONING|STAGING|REPAIRING) echo "ABORT — $VM is $ex (active; it auto-resumes itself, nothing to do)"; exit 0;; esac   # only an ACTIVE VM blocks; a TERMINATED/STOPPING one must not
 echo "# marker-rebuild · resilient · limit=${MARKER_LIMIT:-all} · pdf-timeout=${PDF_TIMEOUT}s · depts=$DEPTS · auto-resume → done==total"
 
 cat > /tmp/marker-startup.sh <<STARTUP

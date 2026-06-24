@@ -27,8 +27,8 @@ if [ -n "$IMAGE_NAME" ]; then IMG_ARGS="--image=$IMAGE_NAME"; else IMG_ARGS="--i
 CKPT="$GCS/bench/ckpt-$RUN_TAG.jsonl"; STATUS="$GCS/bench/status-$RUN_TAG.json"
 TERM=$(python3 -c "import datetime;print((datetime.datetime.now().astimezone()+datetime.timedelta(hours=10)).replace(microsecond=0).isoformat())")
 
-ex=$(gcloud compute instances list --project=$PROJECT --filter="name=$VM" --format="value(name)" 2>/dev/null)
-[ -n "$ex" ] && { echo "ABORT — $VM already running (it auto-resumes itself; nothing to do)"; exit 0; }
+ex=$(gcloud compute instances list --project=$PROJECT --filter="name=$VM" --format="value(status)" 2>/dev/null | head -1)
+case "$ex" in RUNNING|PROVISIONING|STAGING|REPAIRING) echo "ABORT — $VM is $ex (active; it auto-resumes itself, nothing to do)"; exit 0;; esac   # only an ACTIVE VM blocks; a TERMINATED/STOPPING one must not
 echo "# board-$RUN_TAG · CPU $MACHINE · arms=$ARMS · $PER/subj · auto-resume → done==total"
 
 cat > /tmp/cpu-board-startup.sh <<STARTUP
