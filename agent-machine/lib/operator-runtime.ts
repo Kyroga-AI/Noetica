@@ -8,8 +8,9 @@
  * ~/.noetica/operators, and it is served on-device with zero cloud. Resolution-invariant operators (FNOs)
  * accept variable spatial dimensions, so one model serves any grid the caller asks for.
  *
- * Why a sidecar and not in-process: ONNX Runtime is a native dependency; isolating it in its own process keeps
- * the agent-machine pure JS/TS, lets a model crash fail soft, and mirrors the embedder we already ship.
+ * Why a sidecar and not in-process: the ONNX runtime (a pure-Rust `tract` binary) is a native dependency;
+ * isolating it in its own process keeps the agent-machine pure JS/TS, lets a model crash fail soft, and mirrors
+ * the embedder we already ship.
  */
 import * as fs from 'node:fs'
 import * as path from 'node:path'

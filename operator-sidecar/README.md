@@ -1,8 +1,9 @@
 # noetica-operator — on-device neural-operator inference
 
 Noetica's sovereign inference path for **neural operators** (Fourier Neural Operators and friends): a tiny
-Rust HTTP sidecar wrapping ONNX Runtime (`ort`). Train an operator **offline**, export it to a single
-`.onnx`, drop it in the operator dir, and it runs **fully on-device — no Python, no cloud**. It is the same
+Rust HTTP sidecar wrapping `tract` (a **pure-Rust** ONNX runtime — no prebuilt binary, so it cross-compiles to
+every target, which is what lets it ship in the universal app bundle). Train an operator **offline**, export it
+to a single `.onnx`, drop it in the operator dir, and it runs **fully on-device — no Python, no cloud**. It is the same
 sidecar shape as `embed-sidecar` (lazy-spawned, localhost HTTP, graceful fallback), and it is **model-agnostic**:
 every `.onnx` flows through the identical code path.
 
@@ -38,7 +39,7 @@ graceful degradation).
 ## Build & run
 
 ```sh
-cargo build --release                 # statically links ONNX Runtime — one shippable binary
+cargo build --release                 # pure Rust, no prebuilt download — one shippable binary, any target
 NOETICA_OPERATOR_DIR=./models ./target/release/noetica-operator
 curl localhost:8127/health
 ```
@@ -49,8 +50,11 @@ curl localhost:8127/health
   `models/smooth.onnx`. These are tiny, deterministic, and dynamic-shape — they exercise the full serving path
   and back the integration test, so they're checked in.
 - **A real FNO (the production recipe):** `scripts/train_fno.py` trains a 2D FNO and exports it with dynamic
-  spatial axes (opset 17 → ONNX `DFT`, which ONNX Runtime serves). Swap its `make_batch` for `(input, output)`
-  pairs from your PDE solver. Needs `torch`.
+  spatial axes. Swap its `make_batch` for `(input, output)` pairs from your PDE solver. Needs `torch`.
+  ⚠️ **Backend caveat:** `tract`'s FFT/`DFT` op coverage is limited, so an FNO that exports explicit spectral
+  (rfft/irfft) ops may not load. The Conv/U-Net-style operators (and the reference fixtures) run fine. If a
+  trained FNO needs DFT, either export it without explicit FFT ops or revisit the backend (a real ONNX-Runtime
+  build for the platforms that have prebuilts) — the serving contract is unchanged either way.
 
 ## Provisioning models onto a device
 

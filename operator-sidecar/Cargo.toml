@@ -2,15 +2,16 @@
 name = "noetica-operator"
 version = "0.1.0"
 edition = "2021"
-description = "Noetica's on-device neural-operator inference sidecar — ONNX Runtime (ort), no Python, no cloud."
+description = "Noetica's on-device neural-operator inference sidecar — pure-Rust ONNX (tract), no Python, no cloud."
 
 [[bin]]
 name = "noetica-operator"
 path = "src/main.rs"
 
 [dependencies]
-ort = "=2.0.0-rc.12"
-ndarray = "0.16"
+# tract is a PURE-RUST ONNX runtime: no prebuilt binary to download, so it cross-compiles to every target
+# (incl. x86_64-apple-darwin, which `ort` has no prebuilt for — that's what broke the universal release).
+tract-onnx = "0.21"
 tiny_http = "0.12"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

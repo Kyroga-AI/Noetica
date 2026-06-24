@@ -94,11 +94,23 @@ jobs:
           echo "Universal noetica-embed binary:"
           lipo -info src-tauri/binaries/noetica-embed-universal-apple-darwin
 
-      # NOTE: the noetica-operator sidecar is intentionally NOT bundled yet. ort 2.0.0-rc.12 publishes no
-      # prebuilt ONNX Runtime for x86_64-apple-darwin, so the universal (Intel+ARM) build can't cross-compile
-      # it. The operator platform stays fully usable in dev + CI; it degrades gracefully (API "unavailable")
-      # when the binary is absent. Re-bundle once the x86_64 backend is solved (ort-tract / build-from-source /
-      # arm64-only app). See operator-sidecar/README.md.
+      - name: Build noetica-operator sidecar (universal)
+        # The neural-operator sidecar now uses `tract` (pure-Rust ONNX) — no prebuilt binary, so it
+        # cross-compiles cleanly to BOTH arches (this is what unblocked bundling after `ort` had no
+        # x86_64-apple-darwin prebuilt). Same both-arch-then-lipo dance the embedder needs.
+        run: |
+          mkdir -p src-tauri/binaries
+          cargo build --release --manifest-path operator-sidecar/Cargo.toml --target aarch64-apple-darwin
+          cargo build --release --manifest-path operator-sidecar/Cargo.toml --target x86_64-apple-darwin
+          cp operator-sidecar/target/aarch64-apple-darwin/release/noetica-operator src-tauri/binaries/noetica-operator-aarch64-apple-darwin
+          cp operator-sidecar/target/x86_64-apple-darwin/release/noetica-operator  src-tauri/binaries/noetica-operator-x86_64-apple-darwin
+          lipo -create \
+            src-tauri/binaries/noetica-operator-aarch64-apple-darwin \
+            src-tauri/binaries/noetica-operator-x86_64-apple-darwin \
+            -output src-tauri/binaries/noetica-operator-universal-apple-darwin
+          chmod +x src-tauri/binaries/noetica-operator-aarch64-apple-darwin src-tauri/binaries/noetica-operator-x86_64-apple-darwin src-tauri/binaries/noetica-operator-universal-apple-darwin
+          echo "Universal noetica-operator binary:"
+          lipo -info src-tauri/binaries/noetica-operator-universal-apple-darwin
 
       - name: Download Ollama sidecar (universal)
         env:
@@ -263,8 +275,13 @@ jobs:
           cp embed-sidecar/target/x86_64-unknown-linux-gnu/release/noetica-embed src-tauri/binaries/noetica-embed-x86_64-unknown-linux-gnu
           chmod +x src-tauri/binaries/noetica-embed-x86_64-unknown-linux-gnu
 
-      # noetica-operator is not bundled yet (see the macOS job note: ort lacks x86_64-apple-darwin prebuilts).
-      # Kept off Linux too so the externalBin set stays identical across platforms.
+      - name: Build noetica-operator sidecar (linux x64)
+        # Pure-Rust tract → builds natively here; injected externalBin alongside noetica-embed.
+        run: |
+          mkdir -p src-tauri/binaries
+          cargo build --release --manifest-path operator-sidecar/Cargo.toml --target x86_64-unknown-linux-gnu
+          cp operator-sidecar/target/x86_64-unknown-linux-gnu/release/noetica-operator src-tauri/binaries/noetica-operator-x86_64-unknown-linux-gnu
+          chmod +x src-tauri/binaries/noetica-operator-x86_64-unknown-linux-gnu
 
       - name: Download Ollama sidecar (linux)
         env:
