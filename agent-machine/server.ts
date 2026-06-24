@@ -3336,7 +3336,19 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     const lid = (body as { learner_id?: string }).learner_id
     if (lid) { const brief = buildLearnerBrief(String(lid)); if (brief) learnerContext = `\n\n${brief}` }
   } catch { /* learner brief is best-effort */ }
-  const enrichedSystemPrompt = basePrompt + dateLine + learnerContext + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + episodeContext + goalContext + skillsContext + reasoningDirective + verbosityNote + modeNote + lifeDomain.safetyNote + profile.authorizationSuffix
+  // Canon grounding (PROMOTABLE, off by default): the question's entities → canon glossary definitions +
+  // related equations/models + prerequisite decomposition + cross-domain bridges. Turns the static canon
+  // (1035 terms, 766 equations, 121 prereq edges) into answer-time scaffolding. Flip NOETICA_CANON_GROUND=1
+  // once the board's `ground` arm confirms the lift. Study-brain lanes only; best-effort.
+  let canonGroundContext = ''
+  if (isFlagOn('NOETICA_CANON_GROUND') && STUDY_BRAIN_LANES.has(intentPlan.name)) {
+    try {
+      const { canonGround } = await import('./lib/canon-lookup.js')
+      const g = canonGround(latestUserContent)
+      if (g) canonGroundContext = `\n\n${g}`
+    } catch { /* canon grounding best-effort */ }
+  }
+  const enrichedSystemPrompt = basePrompt + dateLine + learnerContext + canonGroundContext + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + episodeContext + goalContext + skillsContext + reasoningDirective + verbosityNote + modeNote + lifeDomain.safetyNote + profile.authorizationSuffix
 
   // Token budget: rough estimate (4 chars ≈ 1 token). If message history + system prompt
   // exceeds 70% of the model's context window, trim oldest non-system messages.

@@ -35,7 +35,7 @@ import { execFileSync } from 'node:child_process'
 import { embedText } from '../lib/ollama.js'
 import { councilVote, learnedCouncilVote } from '../lib/council.js'
 import { fetchConceptDef, cleanTerm } from '../lib/concept-defs.js'
-import { canonBridges } from '../lib/canon-lookup.js'
+import { canonBridges, canonGround } from '../lib/canon-lookup.js'
 import { associativeRetrieve } from '../lib/graph-ppr.js'
 import { decodeVec, l2norm } from '../lib/brain-vec.js'
 
@@ -851,6 +851,9 @@ async function main() {
           const top = await rerankLLM(q.question, q.choices, wide, SHOT_K)
           const ctx = top.map((h, n) => `[${n + 1}] ${h.text.slice(0, 500)}`).join('\n\n')
           letter = extractLetter(await ask(`Relevant MIT course notes (use only what helps; ignore noise and fragments):\n\n${ctx}\n\nExam question:\n${base}${ANSWER_RULE}`)); mode = `rerank:${top.length}`
+        } else if (arm === 'ground') {            // CANON GROUNDING: the question's entities → glossary defs + related equations/models + prereq decomposition + bridges
+          const g = canonGround(`${q.question} ${q.choices.join(' ')}`)
+          letter = extractLetter(await ask(`${g ? g + '\n\n' : ''}Exam question:\n${base}${ANSWER_RULE}`)); mode = g ? 'ground' : 'no-canon'
         } else if (arm === 'defs') {              // STRUCTURAL definition-grounding (concept-defs): CLEAN KG defs, not noisy transcripts
           // Tests the thesis (Wolfson §4 / audit #1): retrieval is bounded by ONTOLOGICAL alignment, not the
           // model — so ground on disambiguated Wikipedia definitions (field-qualified + embedding-WSD) instead
