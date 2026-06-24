@@ -155,7 +155,13 @@ function transcriptText(raw: string): string {
 }
 function extract(file: string): string {
   const ext = path.extname(file).toLowerCase()
-  if (ext === '.pdf') return pdfText(file)
+  if (ext === '.pdf') {
+    // RECOVERY: prefer a clean Marker re-extraction (math-aware PDF→LaTeX, recovers the 2D structure pymupdf
+    // flattens) if its sidecar exists; else fall back to pymupdf. The Marker pass writes {pdf}.marker.md.
+    const marker = file + '.marker.md'
+    if (fs.existsSync(marker)) { try { const t = fs.readFileSync(marker, 'utf8'); if (t.trim().length > 40) return t } catch { /* fall through */ } }
+    return pdfText(file)
+  }
   if (ext === '.vtt' || ext === '.srt') return transcriptText(fs.readFileSync(file, 'utf8'))
   if (['.txt', '.md', '.tex'].includes(ext)) return fs.readFileSync(file, 'utf8')
   return ''
