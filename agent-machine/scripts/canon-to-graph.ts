@@ -124,8 +124,21 @@ try {
   }
 } catch { /* analogies.json not generated yet — run induce-analogies.py */ }
 
+// lexical-closure IS-A hierarchy (lexical-closure.py, #DEDUCED): compositional-hyponymy edges between
+// GlossaryTerm nodes — the cross-topic connective tissue (angular momentum →is_a→ momentum). Rule-derived,
+// so the edge carries epistemicMode 'deduced'. Guarded by node existence.
+let nI = 0
+try {
+  const lx = JSON.parse(readFileSync(join(CANON, 'lexical-hierarchy.json'), 'utf8')) as { edges?: Array<{ child: string; parent: string; child_topic: string; parent_topic: string }> }
+  for (const e of lx.edges ?? []) {
+    const cd = (e.child_topic || '').split(':')[0] || '', pd = (e.parent_topic || '').split(':')[0] || ''
+    const cId = `canon:term:${slug(cd)}:${slug(e.child)}`, pId = `canon:term:${slug(pd)}:${slug(e.parent)}`
+    if (g.getNode(cId) && g.getNode(pId)) { g.addEdge('is_a', cId, pId, { epistemicMode: 'deduced', rule: 'lexical-closure' }); nI++; nE++ }
+  }
+} catch { /* lexical-hierarchy.json not generated yet — run lexical-closure.py */ }
+
 console.log(`# canon-to-graph → HellGraph property graph`)
-console.log(`  ${nD} Domain · ${nT} Topic · ${nG} GlossaryTerm · ${nF} Formula · ${subjSeen.size} TestSubject · ${nE} edges (${nX} cross-domain · ${nR} requires · ${nA} analogous_to)`)
+console.log(`  ${nD} Domain · ${nT} Topic · ${nG} GlossaryTerm · ${nF} Formula · ${subjSeen.size} TestSubject · ${nE} edges (${nX} cross-domain · ${nR} requires · ${nA} analogous_to · ${nI} is_a)`)
 console.log(`  kvClass (keyed-vec nearest test-subject) set as the default linking class on every node`)
 console.log(`  store now: ${g.nodeCount()} nodes / ${g.edgeCount()} edges`)
 console.log(`  → renders in the graph UI 'domain' + 'knowledge' lenses by default`)

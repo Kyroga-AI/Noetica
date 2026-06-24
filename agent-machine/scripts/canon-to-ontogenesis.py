@@ -140,16 +140,25 @@ def load_canon(canon_dir: Path):
     ipath = canon_dir / "induced-kg.jsonl"
     if ipath.exists():
         induced = [json.loads(l) for l in ipath.read_text().splitlines() if l.strip()]
-    return specs, align, cards, induced
+    # the rest of the DERIVED knowledge, each with its true epistemic mode:
+    #   lexical IS-A → DEDUCED (rule) · prereq → ABDUCED (hypothesis) · analogy → ABDUCED · KGI → INDUCED
+    lexical = json.loads((canon_dir / "lexical-hierarchy.json").read_text()).get("edges", []) \
+        if (canon_dir / "lexical-hierarchy.json").exists() else []
+    prereq = json.loads((canon_dir / "prereq-dag.json").read_text()) \
+        if (canon_dir / "prereq-dag.json").exists() else {}
+    analogies = json.loads((canon_dir / "analogies.json").read_text()).get("analogies", []) \
+        if (canon_dir / "analogies.json").exists() else []
+    return specs, align, cards, induced, lexical, prereq, analogies
 
 
 # ---------------------------------------------------------------------------
 # Emit module TTL (TBox + ABox)
 # ---------------------------------------------------------------------------
-def emit_module(specs, align, cards, induced) -> tuple[str, dict]:
+def emit_module(specs, align, cards, induced, lexical, prereq, analogies) -> tuple[str, dict]:
     out: list[str] = []
     counts = dict(domains=0, topics=0, concepts=0, formulas=0,
-                  test_subjects=0, alignment_edges=0, cards=0, induced=0)
+                  test_subjects=0, alignment_edges=0, cards=0,
+                  induced=0, deduced=0, abduced=0)
 
     A = out.append
     A("@base <%s> ." % BASE)
@@ -218,17 +227,20 @@ def emit_module(specs, align, cards, induced) -> tuple[str, dict]:
       'rdfs:range kcc:TestSubject ; rdfs:label "aligns subject" .')
     A("kcc:inKnowledgeContext a owl:ObjectProperty ; rdfs:domain upper:Entity ; "
       'rdfs:range kc:KnowledgeContext ; rdfs:label "in knowledge context" .')
-    A("kcc:InducedAssertion a owl:Class ; rdfs:subClassOf upper:Evidence ; "
-      'rdfs:label "Induced KG assertion" ; rdfs:comment "A reified frontier-induced (subject, relation, '
-      'object) triple over canon concepts, carrying its relation kind + provenance — so induced knowledge is '
-      'GOVERNED and typed, not ungoverned graph edges." .')
-    A("kcc:inducedRelation a owl:DatatypeProperty ; rdfs:domain kcc:InducedAssertion ; "
-      'rdfs:range xsd:string ; rdfs:label "induced relation" .')
-    A("kcc:inducedSubjectLabel a owl:DatatypeProperty ; rdfs:domain kcc:InducedAssertion ; "
-      'rdfs:range xsd:string ; rdfs:label "induced subject" .')
-    A("kcc:inducedObjectLabel a owl:DatatypeProperty ; rdfs:domain kcc:InducedAssertion ; "
-      'rdfs:range xsd:string ; rdfs:label "induced object" .')
-    A("kcc:canonLinked a owl:DatatypeProperty ; rdfs:domain kcc:InducedAssertion ; "
+    A("kcc:DerivedAssertion a owl:Class ; rdfs:subClassOf upper:Evidence ; "
+      'rdfs:label "Derived assertion" ; rdfs:comment "A reified (subject, relation, object) triple over canon '
+      'concepts that was DERIVED, not authored — carrying its relation, provenance, and EPISTEMIC MODE so '
+      'routing/QA can trust it appropriately: deduced (rule, certain) > induced (generalized from data) > '
+      'abduced (best-explanation hypothesis)." .')
+    A("kcc:epistemicMode a owl:DatatypeProperty ; rdfs:domain kcc:DerivedAssertion ; "
+      'rdfs:range xsd:string ; rdfs:label "epistemic mode" ; rdfs:comment "induced | deduced | abduced." .')
+    A("kcc:inducedRelation a owl:DatatypeProperty ; rdfs:domain kcc:DerivedAssertion ; "
+      'rdfs:range xsd:string ; rdfs:label "derived relation" .')
+    A("kcc:inducedSubjectLabel a owl:DatatypeProperty ; rdfs:domain kcc:DerivedAssertion ; "
+      'rdfs:range xsd:string ; rdfs:label "derived subject" .')
+    A("kcc:inducedObjectLabel a owl:DatatypeProperty ; rdfs:domain kcc:DerivedAssertion ; "
+      'rdfs:range xsd:string ; rdfs:label "derived object" .')
+    A("kcc:canonLinked a owl:DatatypeProperty ; rdfs:domain kcc:DerivedAssertion ; "
       'rdfs:range xsd:boolean ; rdfs:label "links a canon entity" .')
     A("")
     A("### Governance anchor — one Knowledge Context for the whole canon module")
@@ -345,21 +357,37 @@ def emit_module(specs, align, cards, induced) -> tuple[str, dict]:
         counts["cards"] += 1
     A("")
 
-    # ----------------------- ABox: induced KG -> reified InducedAssertion (typed, governed) ----------
-    A("### Induced KG — frontier triples reified + typed (the 8-relation vocabulary, provenance preserved)")
-    for n, tr in enumerate(induced):
-        s, r, o = tr.get("s"), tr.get("r"), tr.get("o")
-        if not (s and r and o):
-            continue
-        ai = f"<{KCC}induced-{n}-{slug(s, r, o)[:50]}>"
-        A("%s a kcc:InducedAssertion ;" % ai)
-        A("  kcc:inducedSubjectLabel %s ;" % lit(str(s)))
-        A("  kcc:inducedRelation %s ;" % lit(str(r)))
-        A("  kcc:inducedObjectLabel %s ;" % lit(str(o)))
-        A("  kcc:canonLinked %s ;" % ('true' if (tr.get("s_canon") or tr.get("o_canon")) else 'false'))
-        A('  dct:source "kgi" ;')
+    # ----------------------- ABox: DERIVED knowledge -> DerivedAssertion, typed by EPISTEMIC MODE ----------
+    A("### Derived knowledge — reified + typed by epistemic mode (deduced > induced > abduced)")
+    nref = [0]
+
+    def derived(subj, rel, obj, mode, source, linked):
+        ai = f"<{KCC}derived-{nref[0]}-{slug(str(subj), str(rel), str(obj))[:44]}>"
+        A("%s a kcc:DerivedAssertion ;" % ai)
+        A("  kcc:inducedSubjectLabel %s ;" % lit(str(subj)))
+        A("  kcc:inducedRelation %s ;" % lit(str(rel)))
+        A("  kcc:inducedObjectLabel %s ;" % lit(str(obj)))
+        A("  kcc:epistemicMode %s ;" % lit(mode))
+        A("  kcc:canonLinked %s ;" % ('true' if linked else 'false'))
+        A("  dct:source %s ;" % lit(source))
         A("  kcc:inKnowledgeContext kcc:CanonKnowledgeContext .")
-        counts["induced"] += 1
+        counts[mode] += 1
+        nref[0] += 1
+
+    for tr in induced:                                    # KGI frontier triples → INDUCED (generalized from data)
+        s, r, o = tr.get("s"), tr.get("r"), tr.get("o")
+        if s and r and o:
+            derived(s, r, o, "induced", "kgi", bool(tr.get("s_canon") or tr.get("o_canon")))
+    for e in lexical:                                     # compositional hyponymy → DEDUCED (rule, certain)
+        if e.get("child") and e.get("parent"):
+            derived(e["child"], "is_a", e["parent"], "deduced", "lexical-closure", True)
+    for domain, v in (prereq.items() if isinstance(prereq, dict) else []):   # prereq DAG → ABDUCED (hypothesis)
+        for ab in (v.get("edges") or []):
+            if len(ab) == 2:
+                derived(ab[0], "requires", ab[1], "abduced", "prereq-dag", True)
+    for a in analogies:                                   # structural analogies → ABDUCED (proposed)
+        if a.get("a") and a.get("b"):
+            derived(a["a"], "analogous_to", a["b"], "abduced", "analogy", True)
     A("")
 
     # ----------------------- ABox: alignment / eval-anchoring --------------
@@ -515,32 +543,41 @@ kcc:AlignmentEdgeShape a sh:NodeShape ;
     sh:message "An alignment edge must reference its test subject." ;
   ] .
 
-# Induced assertions must carry a relation, both endpoints, and provenance (governed induced knowledge).
-kcc:InducedAssertionShape a sh:NodeShape ;
-  sh:targetClass kcc:InducedAssertion ;
+# Derived assertions must carry a relation, both endpoints, provenance, and a VALID epistemic mode — so no
+# derived fact enters the governed graph without declaring whether it was deduced, induced, or abduced.
+kcc:DerivedAssertionShape a sh:NodeShape ;
+  sh:targetClass kcc:DerivedAssertion ;
+  sh:property [
+    sh:path kcc:epistemicMode ;
+    sh:minCount 1 ;
+    sh:maxCount 1 ;
+    sh:datatype xsd:string ;
+    sh:in ( "induced" "deduced" "abduced" ) ;
+    sh:message "A derived assertion must declare exactly one epistemic mode: induced | deduced | abduced." ;
+  ] ;
   sh:property [
     sh:path kcc:inducedRelation ;
     sh:minCount 1 ;
     sh:maxCount 1 ;
     sh:datatype xsd:string ;
-    sh:message "An induced assertion must declare exactly one relation." ;
+    sh:message "A derived assertion must declare exactly one relation." ;
   ] ;
   sh:property [
     sh:path kcc:inducedSubjectLabel ;
     sh:minCount 1 ;
     sh:datatype xsd:string ;
-    sh:message "An induced assertion must name its subject." ;
+    sh:message "A derived assertion must name its subject." ;
   ] ;
   sh:property [
     sh:path kcc:inducedObjectLabel ;
     sh:minCount 1 ;
     sh:datatype xsd:string ;
-    sh:message "An induced assertion must name its object." ;
+    sh:message "A derived assertion must name its object." ;
   ] ;
   sh:property [
     sh:path dct:source ;
     sh:minCount 1 ;
-    sh:message "An induced assertion must declare its provenance (dct:source)." ;
+    sh:message "A derived assertion must declare its provenance (dct:source)." ;
   ] .
 """
 
@@ -678,11 +715,11 @@ def main() -> int:
     if not onto.exists():
         raise SystemExit(f"ontogenesis repo not found: {onto}")
 
-    specs, align, cards, induced = load_canon(canon_dir)
+    specs, align, cards, induced, lexical, prereq, analogies = load_canon(canon_dir)
     if not specs:
         raise SystemExit(f"no spec-*.json found under {canon_dir}")
 
-    module_ttl, counts = emit_module(specs, align, cards, induced)
+    module_ttl, counts = emit_module(specs, align, cards, induced, lexical, prereq, analogies)
 
     # WRITE THE MODULE FILE EARLY (before any further work) so partial work persists.
     mod_path = onto / "Domains" / "knowledge-commons-canon.ttl"
