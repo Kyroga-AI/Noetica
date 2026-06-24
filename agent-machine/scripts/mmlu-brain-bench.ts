@@ -367,6 +367,21 @@ async function retrieveMulti(question: string, choices: string[], pools: Chunk[]
   return picked.map((x) => ({ ...x.c, score: x.s }))
 }
 
+// Re2G rerank (Glass/Gliozzo et al., NAACL 2022): the retrieve→RERANK→generate stage. We already do dense+RRF+
+// gold+MMR; this adds the missing rerank — an LLM listwise relevance pass over a WIDE candidate set, keeping
+// the top-K most useful before generation. The `rerank` arm isolates the rerank lift on the board.
+const RERANK_N = Number(process.env['MMLU_RERANK_N'] || 16)
+async function rerankLLM(question: string, choices: string[], cands: Chunk[], k: number): Promise<Chunk[]> {
+  if (cands.length <= k) return cands
+  const list = cands.map((h, n) => `[${n + 1}] ${h.text.slice(0, 280).replace(/\s+/g, ' ')}`).join('\n')
+  const raw = await ask(`Question: ${question}\nChoices: ${choices.join(' / ')}\n\nNumbered passages:\n${list}\n\nList the ${k} passage numbers MOST useful for answering, most useful first, comma-separated (e.g. "3, 1, 7"). Numbers only.`)
+  const order = (raw.match(/\d+/g) || []).map(Number).filter((n) => n >= 1 && n <= cands.length)
+  const seen = new Set<number>(); const picked: Chunk[] = []
+  for (const n of order) { if (!seen.has(n)) { seen.add(n); picked.push(cands[n - 1]!); if (picked.length >= k) break } }
+  for (const h of cands) { if (picked.length >= k) break; if (!picked.includes(h)) picked.push(h) }   // model under-returned → fill by retrieval order
+  return picked.slice(0, k)
+}
+
 // probePosterior — the shared elimination ENGINE: per-choice evidence → a NORMALIZED conditional posterior
 // over the choices (the doors), updated sequentially (Bayes) across probe rounds, with a saturation gate
 // that WIDENS into co-prime fields until one door wins. eliminateArm and fiftyFiftyArm both build on this,
@@ -826,6 +841,11 @@ async function main() {
           if (ci?.answer) { letter = ci.answer; mode = ci.mode } else { letter = await askBrain(); mode = 'retrieve' }
         } else if (arm === 'brain') {
           letter = await askBrain()
+        } else if (arm === 'rerank') {            // Re2G: retrieve WIDE → LLM listwise rerank → generate (the rerank stage we lacked)
+          const wide = await retrieveMulti(q.question, q.choices, pools, PER_SHOT, RERANK_N)
+          const top = await rerankLLM(q.question, q.choices, wide, SHOT_K)
+          const ctx = top.map((h, n) => `[${n + 1}] ${h.text.slice(0, 500)}`).join('\n\n')
+          letter = extractLetter(await ask(`Relevant MIT course notes (use only what helps; ignore noise and fragments):\n\n${ctx}\n\nExam question:\n${base}${ANSWER_RULE}`)); mode = `rerank:${top.length}`
         } else if (arm === 'defs') {              // STRUCTURAL definition-grounding (concept-defs): CLEAN KG defs, not noisy transcripts
           // Tests the thesis (Wolfson §4 / audit #1): retrieval is bounded by ONTOLOGICAL alignment, not the
           // model — so ground on disambiguated Wikipedia definitions (field-qualified + embedding-WSD) instead
