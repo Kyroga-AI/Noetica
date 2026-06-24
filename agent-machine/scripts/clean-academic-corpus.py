@@ -23,11 +23,13 @@ FRAG_MAX = int(os.environ.get('FRAG_MAX', '300'))     # only rare tokens are fra
 def main():
     if not os.path.exists(CORPUS):
         raise SystemExit(f"no corpus at {CORPUS} (run train-academic-vectors first, or set CORPUS=)")
+    # normalize: strip edge dashes/punct so word-- → word (merge) and equilib- → equilib (exposed for drop)
+    _norm = lambda t: re.sub(r"^[^a-z0-9]+|[^a-z0-9]+$", '', t)
     freq = Counter()
     with open(CORPUS, errors='replace') as f:
         for line in f:
-            freq.update(line.split())
-    print(f"# corpus vocab {len(freq):,} tokens", flush=True)
+            freq.update(t for t in (_norm(x) for x in line.split()) if t)
+    print(f"# corpus vocab {len(freq):,} tokens (edge-normalized)", flush=True)
 
     good = {w for w, c in freq.items() if c >= GOOD_MIN}              # frequent = real
     try:
@@ -62,7 +64,7 @@ def main():
         for line in f:
             lines_in += 1
             toks = line.split()
-            clean = [t for t in toks if t not in frags]
+            clean = [n for x in toks if (n := _norm(x)) and n not in frags]
             dropped += len(toks) - len(clean); kept += len(clean)
             if len(clean) >= 5:
                 o.write(' '.join(clean) + '\n'); lines_out += 1
