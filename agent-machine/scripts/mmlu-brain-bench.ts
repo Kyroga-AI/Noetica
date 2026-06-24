@@ -457,24 +457,33 @@ const SYS = 'You are taking a multiple-choice exam. Reason in ONE short sentence
 const NO_THINK = process.env['MMLU_NO_THINK'] === '1'   // qwen3/r1: '/no_think' disables slow chain-of-thought traces → fast AND strong (the eval fix)
 const nt = (p: string): string => (NO_THINK ? `${p} /no_think` : p)
 const MAXTOK = Number(process.env['MMLU_MAX_TOKENS'] || 220)
+// retry empty/timeout completions: a transient empty (contention, momentary timeout) must NOT score as a
+// false ✗? abstain. Only a genuinely-empty reply after ASK_RETRIES tries is a real abstain.
+const ASK_RETRIES = Number(process.env['MMLU_ASK_RETRIES'] || 2)
 async function ask(prompt: string, temperature = 0): Promise<string> {
-  try {
-    const res = await fetch(`${API_BASE}/v1/chat/completions`, {
-      method: 'POST', headers: { 'content-type': 'application/json', ...AUTH },
-      body: JSON.stringify({
-        model: MODEL, stream: false, temperature, max_tokens: MAXTOK,
-        // RELIABLE thinking-disable: the ` /no_think` text token (nt) is unreliable on the
-        // OpenAI-compat endpoint; chat_template_kwargs.enable_thinking=false is the correct switch
-        // for qwen3-class models (honored by vLLM/recent ollama; harmlessly ignored elsewhere).
-        ...(NO_THINK ? { chat_template_kwargs: { enable_thinking: false } } : {}),
-        messages: [{ role: 'system', content: SYS }, { role: 'user', content: nt(prompt) }],
-      }),
-      signal: AbortSignal.timeout(TIMEOUT),
-    })
-    const d = await res.json() as { choices?: Array<{ message?: { content?: string; reasoning_content?: string } }> }
-    const m = d.choices?.[0]?.message
-    return (m?.content || m?.reasoning_content || '').trim()
-  } catch { return '' }
+  const tries = Math.max(1, ASK_RETRIES)
+  for (let attempt = 0; attempt < tries; attempt++) {
+    try {
+      const res = await fetch(`${API_BASE}/v1/chat/completions`, {
+        method: 'POST', headers: { 'content-type': 'application/json', ...AUTH },
+        body: JSON.stringify({
+          model: MODEL, stream: false, temperature, max_tokens: MAXTOK,
+          // RELIABLE thinking-disable: the ` /no_think` text token (nt) is unreliable on the
+          // OpenAI-compat endpoint; chat_template_kwargs.enable_thinking=false is the correct switch
+          // for qwen3-class models (honored by vLLM/recent ollama; harmlessly ignored elsewhere).
+          ...(NO_THINK ? { chat_template_kwargs: { enable_thinking: false } } : {}),
+          messages: [{ role: 'system', content: SYS }, { role: 'user', content: nt(prompt) }],
+        }),
+        signal: AbortSignal.timeout(TIMEOUT),
+      })
+      const d = await res.json() as { choices?: Array<{ message?: { content?: string; reasoning_content?: string } }> }
+      const m = d.choices?.[0]?.message
+      const out = (m?.content || m?.reasoning_content || '').trim()
+      if (out) return out                                   // real completion
+    } catch { /* timeout / network — fall through to retry */ }
+    if (attempt < tries - 1) await new Promise((r) => setTimeout(r, 400 * (attempt + 1)))   // backoff
+  }
+  return ''                                                  // genuinely empty after retries → abstain
 }
 
 // askVote — self-consistency: sample K answers at temperature, return the MAJORITY letter.
