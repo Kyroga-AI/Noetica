@@ -2311,8 +2311,8 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // scoring — no model call, safe on the hot path even on a CPU box.
   let hasDoc = false
   try {
-    const { documentChunkCount } = await import('./lib/doc-store.js')
-    hasDoc = documentChunkCount() > 0
+    const { userDocumentChunkCount } = await import('./lib/doc-store.js')
+    hasDoc = userDocumentChunkCount() > 0 // USER uploads only — self-model docs must not force doc-QA grounding
   } catch { /* doc-store optional */ }
   let intentPlan = classifyIntent(latestUserContent, { hasDoc })
   // Tier-0 cascade (NOETICA_EMBED_INTENT): a tiny embedding model refines the intent
@@ -2902,7 +2902,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       conversationId: body.conversation_id,
       maxTokens: memCap,
     })
-    if (retrieved.text.trim()) {
+    // Don't inject the HellGraph memory into the 'general' lane (the catch-all for unmatched factual
+    // questions). The graph is dominated by dev/test exhaust, and the 'graph' pattern only floors at ZERO
+    // hits — so a weak lexical match ("Australia") still injects software passages that qwen3 then anchors
+    // on and REFUSES the question ("not in the provided documents"). General knowledge comes from the
+    // model itself; memory-centric intents (self_identity, preferences_memory, plan_nextsteps, …) still get it.
+    if (retrieved.text.trim() && intentPlan.name !== 'general') {
       graphContext = `\n\n---\n**Memory context (HellGraph)**\n${retrieved.text}`
     }
     // Emit the neurosymbolic reasoning trace so the UI can show *why* this answer
@@ -2951,7 +2956,10 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       const ragQuery = glossaryTerms.length > 0
         ? `${latestUserContent}\n${glossaryTerms.join(' ')}`
         : latestUserContent
-      const hits = await searchDocsReranked(ragQuery, topK)
+      // Exclude self-model construction docs (filename `self/…`): they live in the same store but are NOT
+      // user uploads. Surfacing them as "uploaded sources" with strict grounding makes the model refuse
+      // general-knowledge questions ("answer ONLY from these sources" → the sources are the app's own manifest).
+      const hits = (await searchDocsReranked(ragQuery, topK)).filter((h) => !h.filename.startsWith('self/'))
       if (hits.length > 0) {
         docHitCount = hits.length
         // INDIRECT-INJECTION DEFENSE (PoisonedRAG): retrieved document text is UNTRUSTED — a malicious
@@ -3336,7 +3344,18 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     }
   } catch { /* procedural-memory best-effort */ }
 
-  const enrichedSystemPrompt = basePrompt + dateLine + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + episodeContext + goalContext + skillsContext + reasoningDirective + verbosityNote + modeNote + lifeDomain.safetyNote + profile.authorizationSuffix
+  // qwen3 THINKS by default — hundreds of hidden reasoning tokens before answering, which turns a simple
+  // "what year was X" into a multi-minute wait. Skip thinking (/no_think) for simple/factual intents; keep it
+  // only where deep reasoning earns the latency. Big speedup on the common case; no effect on non-qwen3 models.
+  const THINK_INTENTS = new Set(['reasoning', 'explain_teach', 'compare_benchmark', 'plan_nextsteps', 'review_audit', 'prove_reason', 'compute_math', 'build_implement', 'fix_debug'])
+  const thinkDirective = (/qwen3/i.test(model) && !THINK_INTENTS.has(intentPlan.name)) ? ' /no_think' : ''
+  // For non-document intents, the injected memory/graph passages are OPTIONAL background — the model keeps
+  // anchoring on them and refusing general-knowledge questions ("not in the provided documents"). A forceful
+  // directive in the LAST (most salient) position overrides that. Doc-QA intents keep strict grounding.
+  const DOC_INTENTS = new Set(['qa_over_doc', 'summarize_doc', 'file_ops', 'file_ingest'])
+  const knowledgeDirective = DOC_INTENTS.has(intentPlan.name) ? '' :
+    `\n\n=== ANSWER POLICY (highest priority) ===\nAny context above is OPTIONAL background — it is NOT the set of allowed facts. Answer the user's question directly. For general knowledge (history, geography, science, public events), answer from YOUR OWN knowledge. NEVER say "not in the provided documents/sources" or "consult an external source" for a fact you know. Only say you don't know if you genuinely don't.`
+  const enrichedSystemPrompt = basePrompt + dateLine + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + episodeContext + goalContext + skillsContext + reasoningDirective + verbosityNote + modeNote + lifeDomain.safetyNote + profile.authorizationSuffix + knowledgeDirective + thinkDirective
 
   // Token budget: rough estimate (4 chars ≈ 1 token). If message history + system prompt
   // exceeds 70% of the model's context window, trim oldest non-system messages.
@@ -8078,6 +8097,9 @@ server.listen(PORT, '127.0.0.1', () => {
   // non-blocking. Configure with NOETICA_PREWARM_MODELS="qwen2.5:7b,deepseek-r1:8b".
   void (async () => {
     const wanted = (process.env['NOETICA_PREWARM_MODELS'] ?? 'qwen2.5:7b').split(',').map((s) => s.trim()).filter(Boolean)
+    // RAM-aware hold: a long pin on a constrained box keeps the model resident long after the demo,
+    // OOMing the machine while idle. Short hold on ≤32GB, long only on workstation memory.
+    const prewarmKeepAlive = os.totalmem() / 1024 ** 3 < 32 ? '5m' : '30m'
     try {
       const installed = await listLocalModels()
       for (const m of wanted) {
@@ -8086,10 +8108,10 @@ server.listen(PORT, '127.0.0.1', () => {
         try {
           await fetch(`${ollamaBase()}/api/generate`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: m, prompt: 'ok', stream: false, keep_alive: '30m' }),
+            body: JSON.stringify({ model: m, prompt: 'ok', stream: false, keep_alive: prewarmKeepAlive }),
             signal: AbortSignal.timeout(120_000),
           })
-          console.log(`[prewarm] loaded ${m} into RAM (keep_alive 30m)`)
+          console.log(`[prewarm] loaded ${m} into RAM (keep_alive ${prewarmKeepAlive})`)
         } catch { /* best-effort */ }
       }
       // Prewarm the Tier-0 embedding intent centroids so the first turn doesn't pay

@@ -445,9 +445,11 @@ export async function* streamOllama(params: {
     stream: true,
     messages: params.messages,
     options,
-    // Keep the model resident between turns so the next query doesn't cold-load
-    // (the default 5m unload is a frequent source of surprise multi-second stalls).
-    keep_alive: params.keepAlive ?? '30m',
+    // Keep the model resident between turns so the next query doesn't cold-load — but RAM-aware. A 30m
+    // hold pins a 9GB workhorse in unified memory for half an hour AFTER the user stops, which OOMs a
+    // 24GB Mac while "nothing is running". On ≤32GB boxes, hold only 5m (warm through an active
+    // conversation, freed when idle); reserve the long hold for workstation-class memory.
+    keep_alive: params.keepAlive ?? (os.totalmem() / 1024 ** 3 < 32 ? '5m' : '30m'),
   }
 
   if (params.tools?.length) {

@@ -308,3 +308,11 @@ export async function sheafSearch(query: string, opts: { charts?: number; k?: nu
 export function documentChunkCount(): number {
   return getHellGraph().nodesByLabel(CHUNK_LABEL).length
 }
+
+// USER-uploaded chunks only. The self-model construction repos (filename `self/…`, ingested via
+// /api/self/ingest-construction) live in the SAME store, so a raw count makes hasDoc permanently true and
+// routes every question into strict doc-QA ("answer ONLY from these sources") — refusing general knowledge.
+// hasDoc must reflect real user uploads; self-docs are surfaced separately via the self-model grounding block.
+export function userDocumentChunkCount(): number {
+  return getHellGraph().nodesByLabel(CHUNK_LABEL).filter((n) => !String(n.properties['filename'] ?? '').startsWith('self/')).length
+}
