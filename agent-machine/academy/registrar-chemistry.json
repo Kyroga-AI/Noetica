@@ -1,8 +1,8 @@
 {
- "program": "Physics SB (Course 8, Focus)",
- "department": "8",
+ "program": "Chemistry SB (Course 5)",
+ "department": "5",
  "degree": "SB",
- "domain": "physics",
+ "domain": "chemistry",
  "requirements": [
   {
    "group": "General Institute Requirements \u2014 Science Core",
@@ -48,66 +48,44 @@
    ]
   },
   {
-   "group": "Departmental Core \u2014 Physics",
+   "group": "Departmental Core \u2014 Chemistry",
    "subjects": [
     {
-     "n": "8.03",
-     "title": "Physics III: Vibrations & Waves",
+     "n": "5.12",
+     "title": "Organic Chemistry I",
      "u": 12,
      "captured": true
     },
     {
-     "n": "8.04",
-     "title": "Quantum Physics I",
+     "n": "5.13",
+     "title": "Organic Chemistry II",
      "u": 12,
      "prereq": [
-      "8.03",
-      "18.03"
+      "5.12"
      ],
      "captured": true
     },
     {
-     "n": "8.044",
-     "title": "Statistical Physics I",
+     "n": "5.60",
+     "title": "Thermodynamics & Kinetics",
      "u": 12,
      "captured": true
     },
     {
-     "n": "8.05",
-     "title": "Quantum Physics II",
+     "n": "5.61",
+     "title": "Physical Chemistry",
      "u": 12,
-     "prereq": [
-      "8.04"
-     ],
+     "captured": true
+    },
+    {
+     "n": "5.07",
+     "title": "Biological Chemistry",
+     "u": 12,
      "captured": true
     },
     {
      "n": "18.03",
      "title": "Differential Equations",
-     "u": 12,
-     "prereq": [
-      "18.02"
-     ],
-     "captured": true
-    },
-    {
-     "n": "8.06",
-     "title": "Quantum Physics III",
-     "u": 12,
-     "prereq": [
-      "8.05"
-     ],
-     "captured": true
-    },
-    {
-     "n": "8.07",
-     "title": "Electromagnetism II",
-     "u": 12,
-     "captured": true
-    },
-    {
-     "n": "8.13",
-     "title": "Junior Lab",
      "u": 12,
      "captured": true
     }
@@ -115,12 +93,12 @@
   }
  ],
  "coverage": {
-  "subjects_required": 14,
-  "subjects_captured": 14,
-  "units_total": 168,
-  "units_held": 168,
+  "subjects_required": 12,
+  "subjects_captured": 12,
+  "units_total": 144,
+  "units_held": 144,
   "pct": 100,
   "gaps": []
  },
- "persona": "Walter Lewin"
+ "persona": null
 }

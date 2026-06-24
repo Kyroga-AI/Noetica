@@ -1,8 +1,8 @@
 {
- "program": "Physics SB (Course 8, Focus)",
- "department": "8",
+ "program": "Computer Science SB (Course 6-3)",
+ "department": "6",
  "degree": "SB",
- "domain": "physics",
+ "domain": "eecs",
  "requirements": [
   {
    "group": "General Institute Requirements \u2014 Science Core",
@@ -48,79 +48,69 @@
    ]
   },
   {
-   "group": "Departmental Core \u2014 Physics",
+   "group": "Departmental Core \u2014 CS",
    "subjects": [
     {
-     "n": "8.03",
-     "title": "Physics III: Vibrations & Waves",
-     "u": 12,
-     "captured": true
-    },
-    {
-     "n": "8.04",
-     "title": "Quantum Physics I",
+     "n": "6.006",
+     "title": "Introduction to Algorithms",
      "u": 12,
      "prereq": [
-      "8.03",
-      "18.03"
+      "6.042"
      ],
      "captured": true
     },
     {
-     "n": "8.044",
-     "title": "Statistical Physics I",
+     "n": "6.042",
+     "title": "Mathematics for Computer Science",
      "u": 12,
      "captured": true
     },
     {
-     "n": "8.05",
-     "title": "Quantum Physics II",
+     "n": "6.004",
+     "title": "Computation Structures",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "6.034",
+     "title": "Artificial Intelligence",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "6.046",
+     "title": "Design & Analysis of Algorithms",
      "u": 12,
      "prereq": [
-      "8.04"
+      "6.006"
      ],
      "captured": true
     },
     {
-     "n": "18.03",
-     "title": "Differential Equations",
+     "n": "6.036",
+     "title": "Introduction to Machine Learning",
      "u": 12,
-     "prereq": [
-      "18.02"
-     ],
-     "captured": true
+     "captured": false
     },
     {
-     "n": "8.06",
-     "title": "Quantum Physics III",
+     "n": "18.06",
+     "title": "Linear Algebra",
      "u": 12,
-     "prereq": [
-      "8.05"
-     ],
-     "captured": true
-    },
-    {
-     "n": "8.07",
-     "title": "Electromagnetism II",
-     "u": 12,
-     "captured": true
-    },
-    {
-     "n": "8.13",
-     "title": "Junior Lab",
-     "u": 12,
+     "persona": "Gilbert Strang",
      "captured": true
     }
    ]
   }
  ],
  "coverage": {
-  "subjects_required": 14,
-  "subjects_captured": 14,
-  "units_total": 168,
-  "units_held": 168,
-  "pct": 100,
-  "gaps": []
+  "subjects_required": 13,
+  "subjects_captured": 12,
+  "units_total": 156,
+  "units_held": 144,
+  "pct": 92,
+  "gaps": [
+   "6.036"
+  ]
  },
- "persona": "Walter Lewin"
+ "persona": "Patrick Winston"
 }

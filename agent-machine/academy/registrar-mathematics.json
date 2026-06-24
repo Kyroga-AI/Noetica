@@ -1,8 +1,8 @@
 {
- "program": "Physics SB (Course 8, Focus)",
- "department": "8",
+ "program": "Mathematics SB (Course 18)",
+ "department": "18",
  "degree": "SB",
- "domain": "physics",
+ "domain": "mathematics",
  "requirements": [
   {
    "group": "General Institute Requirements \u2014 Science Core",
@@ -48,39 +48,8 @@
    ]
   },
   {
-   "group": "Departmental Core \u2014 Physics",
+   "group": "Departmental Core \u2014 Math",
    "subjects": [
-    {
-     "n": "8.03",
-     "title": "Physics III: Vibrations & Waves",
-     "u": 12,
-     "captured": true
-    },
-    {
-     "n": "8.04",
-     "title": "Quantum Physics I",
-     "u": 12,
-     "prereq": [
-      "8.03",
-      "18.03"
-     ],
-     "captured": true
-    },
-    {
-     "n": "8.044",
-     "title": "Statistical Physics I",
-     "u": 12,
-     "captured": true
-    },
-    {
-     "n": "8.05",
-     "title": "Quantum Physics II",
-     "u": 12,
-     "prereq": [
-      "8.04"
-     ],
-     "captured": true
-    },
     {
      "n": "18.03",
      "title": "Differential Equations",
@@ -91,36 +60,51 @@
      "captured": true
     },
     {
-     "n": "8.06",
-     "title": "Quantum Physics III",
+     "n": "18.06",
+     "title": "Linear Algebra",
+     "u": 12,
+     "persona": "Gilbert Strang",
+     "captured": true
+    },
+    {
+     "n": "18.100",
+     "title": "Real Analysis",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "18.701",
+     "title": "Algebra I",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "18.702",
+     "title": "Algebra II",
      "u": 12,
      "prereq": [
-      "8.05"
+      "18.701"
      ],
      "captured": true
     },
     {
-     "n": "8.07",
-     "title": "Electromagnetism II",
+     "n": "18.901",
+     "title": "Introduction to Topology",
      "u": 12,
-     "captured": true
-    },
-    {
-     "n": "8.13",
-     "title": "Junior Lab",
-     "u": 12,
-     "captured": true
+     "captured": false
     }
    ]
   }
  ],
  "coverage": {
-  "subjects_required": 14,
-  "subjects_captured": 14,
-  "units_total": 168,
-  "units_held": 168,
-  "pct": 100,
-  "gaps": []
+  "subjects_required": 12,
+  "subjects_captured": 11,
+  "units_total": 144,
+  "units_held": 132,
+  "pct": 92,
+  "gaps": [
+   "18.901"
+  ]
  },
- "persona": "Walter Lewin"
+ "persona": "Gilbert Strang"
 }
