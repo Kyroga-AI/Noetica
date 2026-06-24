@@ -17,6 +17,10 @@ SUBJECTS="${SUBJECTS:-college_mathematics,college_physics,college_chemistry,coll
 STALL_MIN="${STALL_MIN:-15}"
 MACHINE="${MACHINE:-c2d-standard-16}"
 ZONES="${ZONES:-us-east1-b us-east1-c us-east1-d us-central1-a us-central1-b us-central1-c us-west1-a us-west1-b us-east4-a us-east4-c}"
+# BAKED IMAGE: set BOARD_IMAGE_NAME=board-base (built by build-board-image.sh) to boot from a custom image with
+# node/python/ollama+models pre-installed — the startup's install steps become instant no-ops (~3min vs ~10min).
+IMAGE_NAME="${BOARD_IMAGE_NAME:-}"
+if [ -n "$IMAGE_NAME" ]; then IMG_ARGS="--image=$IMAGE_NAME"; else IMG_ARGS="--image-family=ubuntu-2204-lts --image-project=ubuntu-os-cloud"; fi
 CKPT="$GCS/bench/ckpt-$RUN_TAG.jsonl"; STATUS="$GCS/bench/status-$RUN_TAG.json"
 TERM=$(python3 -c "import datetime;print((datetime.datetime.now().astimezone()+datetime.timedelta(hours=10)).replace(microsecond=0).isoformat())")
 
@@ -85,7 +89,7 @@ STARTUP
 for Z in $ZONES; do
   echo "  trying $VM ($MACHINE) in $Z"
   if gcloud compute instances create $VM --project=$PROJECT --zone=$Z --machine-type=$MACHINE \
-      --image-family=ubuntu-2204-lts --image-project=ubuntu-os-cloud \
+      $IMG_ARGS \
       --metadata-from-file startup-script=/tmp/cpu-board-startup.sh \
       --boot-disk-size=120GB --service-account=$SA --scopes=cloud-platform \
       --termination-time="$TERM" --instance-termination-action=DELETE >/dev/null 2>&1; then
