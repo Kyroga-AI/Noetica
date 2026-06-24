@@ -37,7 +37,7 @@ import * as net from 'node:net'
 import { originAllowed } from './lib/origin-guard.js'
 import { isConfinedToHomeOrTmp } from './lib/path-confine.js'
 import { safeShellEnv } from './lib/safe-shell-env.js'
-import { buildRouterDecision, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider } from './lib/router.js'
+import { buildRouterDecision, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider, bestCoder, bestWorkhorse } from './lib/router.js'
 import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTelemetry, type MeshTier } from './lib/scope-d.js'
 import { installEgressGuard, setOfflineMode } from './lib/egress-guard.js'
 import { classifyIntent, capabilityToTask, wantsVectorRag, intentByName, planFromIntent, intentToAction, deEscalateEveryday } from './lib/intent-router.js'
@@ -2669,12 +2669,17 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     const task = routerDecision.task ?? 'general'
     const before = model
     if (!docGrounded) {
-      if (['general', 'writing', 'chat'].includes(task) && has('llama3.2:3b')) {
+      if (task === 'chat' && has('llama3.2:3b')) {
+        // Genuinely casual chat only → the fast 3B. (Substantive intents are handled by the concierge or below.)
         model = 'llama3.2:3b'
       } else if (task === 'coding') {
-        model = has('qwen2.5-coder:7b') ? 'qwen2.5-coder:7b' : has('qwen2.5:7b') ? 'qwen2.5:7b' : model
-      } else if (task === 'reasoning') {
-        model = has('qwen2.5:7b') ? 'qwen2.5:7b' : has('qwen2.5-coder:7b') ? 'qwen2.5-coder:7b' : model
+        // Respect the RAM-appropriate workhorse the router already chose — qwen3:14b on a 24GB box, NOT a
+        // hardcoded qwen2.5. This block used to force qwen2.5 and quietly undo the qwen3 routing.
+        model = bestCoder(availableModels, model)
+      } else {
+        // reasoning / general / writing → the all-rounder workhorse (qwen3:14b on 24GB). Never the 3B: it
+        // fabricates output ("let me run it…") instead of doing substantive work.
+        model = bestWorkhorse(availableModels, model)
       }
     }
     if (model !== before) console.log(`[responsive] ${String(task)} ${before} → ${model}`.replace(/\r/g, '').replace(/\n/g, ''))
