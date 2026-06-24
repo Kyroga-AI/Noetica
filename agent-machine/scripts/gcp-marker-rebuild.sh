@@ -51,15 +51,23 @@ Z=\$(curl -s -H "Metadata-Flavor: Google" http://metadata/computeMetadata/v1/ins
 gcloud compute instances delete "\$N" --zone="\$Z" --quiet
 STARTUP
 
-for Z in $ZONES; do
-  echo "  trying $VM in $Z"
-  if gcloud compute instances create $VM --project=$PROJECT --zone=$Z --machine-type=g2-standard-8 \
+# escalate GPU size if the small ones are stocked out: L4 → A100-40G → A100-80G (single-GPU is plenty for
+# Marker inference; bigger = faster de-mangle). Skip a type on QUOTA (regional → no point sweeping zones);
+# keep sweeping zones on STOCKOUT.
+MACHINES="${MACHINES:-g2-standard-8 a2-highgpu-1g a2-ultragpu-1g}"
+for M in $MACHINES; do
+ for Z in $ZONES; do
+  echo "  trying $VM ($M) in $Z"
+  if gcloud compute instances create $VM --project=$PROJECT --zone=$Z --machine-type=$M \
       --maintenance-policy=TERMINATE --image-family=common-cu129-ubuntu-2204-nvidia-580 --image-project=deeplearning-platform-release \
       --metadata=install-nvidia-driver=True --metadata-from-file startup-script=/tmp/marker-startup.sh \
       --boot-disk-size=200GB --service-account=$SA --scopes=cloud-platform \
-      --termination-time="$TERM" --instance-termination-action=DELETE >/dev/null 2>&1; then
-    echo "=== marker-rebuild LAUNCHED in $Z — watch: gcloud storage cat $GCS/marker-rebuild.log ==="; exit 0
+      --termination-time="$TERM" --instance-termination-action=DELETE 2>/tmp/mk-err; then
+    echo "=== marker-rebuild LAUNCHED on $M in $Z — watch: gcloud storage cat $GCS/marker-rebuild.log ==="; exit 0
   fi
-  echo "    $Z failed, next"
+  if grep -qiE 'quota|exceeded' /tmp/mk-err; then echo "    $M QUOTA: $(grep -iE 'quota' /tmp/mk-err | head -1 | cut -c1-110)"; break; fi
+  echo "    $Z stockout, next zone"
+ done
+ echo "  ▸ $M exhausted, escalating to a bigger GPU"
 done
-echo "FATAL — all zones failed"; exit 1
+echo "FATAL — no GPU of any size available"; tail -3 /tmp/mk-err; exit 1
