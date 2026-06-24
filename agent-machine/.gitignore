@@ -1,6 +1,3 @@
 # head-to-head proof artifacts (generated per demo run)
 mesh-vs-frontier.*.json
 __pycache__/
-canon/induced-kg.jsonl
-canon/prereq-dag.json
-canon/analogies.json
