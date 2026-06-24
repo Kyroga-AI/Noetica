@@ -8128,17 +8128,17 @@ server.listen(PORT, '127.0.0.1', () => {
         }
         console.log('[prewarm] graph topic clusters built')
       } catch { /* best-effort */ }
-      // Upgrade the coder to the RAM-appropriate model (14b on ≥18GB, 30b on ≥30GB) by pulling
-      // it once in the background — non-blocking, only sizes that fit, so no OOM. Until it lands
-      // the router stays on 7b; once present, coding routes to the stronger model automatically.
+      // Upgrade the workhorse to the RAM-appropriate model (qwen3:14b on ≥18GB, qwen3-coder:30b on ≥30GB) by
+      // pulling it once in the background — non-blocking, only sizes that fit, so no OOM. Until it lands the
+      // router stays on the qwen2.5 floor; once present, coding AND general/reasoning route to it automatically.
       try {
         const { preferredCoderForRam } = await import('./lib/router.js')
         const want = preferredCoderForRam()
         if (want && process.env['NOETICA_NO_AUTO_CODER'] !== '1') {
           const have = await listLocalModels()
           if (!have.includes(want)) {
-            console.log(`[prewarm] pulling upgraded coder ${want} in background (one-time)…`)
-            void pullModel(want, () => {}).then(() => console.log(`[prewarm] coder ${want} ready — coding now routes to it`)).catch(() => {})
+            console.log(`[prewarm] pulling upgraded workhorse ${want} in background (one-time)…`)
+            void pullModel(want, () => {}).then(() => console.log(`[prewarm] workhorse ${want} ready — routing now prefers it`)).catch(() => {})
           }
         }
       } catch { /* best-effort */ }

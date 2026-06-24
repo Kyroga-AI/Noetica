@@ -235,13 +235,18 @@ export function buildRouterDecision(opts: {
   // The structured intent classifier (intent-router) is authoritative when it
   // resolves a task; classifyTask is the keyword fallback for when it doesn't.
   const task = opts.taskOverride ?? classifyTask(content)
-  // RAM-gated coder upgrade: prefer a bigger coder when it FITS and is pulled — out-model where
-  // we safely can. 30b (~19GB) needs ≥30GB unified RAM (else OOM crashes ollama); 14b (~9GB) is
-  // the safe upgrade on a 24GB box. Per-request copy so the shared table isn't mutated.
+  // RAM-gated model upgrade: prefer a bigger LOCAL model when it FITS and is pulled — out-model where we
+  // safely can. 30b (~19GB) needs ≥30GB unified RAM (else OOM crashes ollama); qwen3:14b (~9GB) is the safe
+  // upgrade on a 24GB box. Coding uses the code-aware ladder (bestCoder); the general-purpose tasks use the
+  // all-rounder (bestWorkhorse) — both land on qwen3:14b at the 24GB tier, falling back to the qwen2.5 floor
+  // (or deepseek for reasoning) on smaller boxes. Per-request copy so the shared table isn't mutated.
+  const GENERAL_TASKS: TaskType[] = ['chat', 'general', 'writing', 'research', 'reasoning']
   const baseRoute = ROUTING_TABLE[task]
   const route = task === 'coding'
     ? { ...baseRoute, localModel: bestCoder(availableModels, baseRoute.localModel) }
-    : baseRoute
+    : GENERAL_TASKS.includes(task)
+      ? { ...baseRoute, localModel: bestWorkhorse(availableModels, baseRoute.localModel) }
+      : baseRoute
 
   // Vision: route to LLaVA when images are present
   if (!explicitModelId && hasImages && ollamaAvailable) {
@@ -485,12 +490,30 @@ export function bestCoder(available: string[], fallback: string): string {
   return fallback
 }
 
-/** The coder this box SHOULD run by RAM (independent of what's pulled) — for background pull. */
+/** Best GENERAL workhorse that fits this box's RAM and is actually pulled, else the given fallback.
+ *  Prefers current-gen Qwen3 (tool-capable + thinking) for chat/writing/research/general/reasoning. Mirrors
+ *  bestCoder, but without the code-specialist tier — qwen3:14b is a strong all-rounder, so the same model
+ *  serves both and only needs to be pulled once. */
+export function bestWorkhorse(available: string[], fallback: string): string {
+  const ramGb = os.totalmem() / 1e9
+  const prefs: string[] = []
+  if (ramGb >= 30) prefs.push('qwen3:32b')
+  if (ramGb >= 18) prefs.push('qwen3:14b')
+  prefs.push('qwen3:8b')
+  for (const m of prefs) if (isModelAvailable(m, available)) return m
+  return fallback
+}
+
+/** The workhorse this box SHOULD run by RAM (independent of what's pulled) — for background pull.
+ *  qwen3:14b is the 24GB tier's all-rounder: tool-capable, native thinking mode, strong at code AND
+ *  general/reasoning — so pulling it once upgrades every general-purpose route (not just coding). Until it
+ *  lands the router stays on the qwen2.5 floor; once present, routing prefers it automatically (bestCoder /
+ *  bestWorkhorse). */
 export function preferredCoderForRam(): string | null {
   const ramGb = os.totalmem() / 1e9
   if (ramGb >= 30) return 'qwen3-coder:30b'
-  if (ramGb >= 18) return 'qwen2.5-coder:14b'
-  return null  // 7b is the floor and already shipped — nothing to pull
+  if (ramGb >= 18) return 'qwen3:14b'
+  return null  // 8GB floor (qwen2.5:7b / qwen2.5-coder:7b) is already shipped — nothing to pull
 }
 
 function isModelAvailable(model: string, available: string[]): boolean {
