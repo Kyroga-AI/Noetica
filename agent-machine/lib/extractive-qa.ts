@@ -51,6 +51,7 @@ export function extractiveAnswer(query: string, hits: ChunkHit[], opts: { maxSen
 
   type Scored = { text: string; source: number; score: number }
   const scored: Scored[] = []
+  let maxCoverage = 0 // best single-sentence query-term coverage seen — the relevance signal for the floor below
   hits.forEach((h, i) => {
     for (const sent of sentences(h.text)) {
       const sTerms = terms(sent)
@@ -58,12 +59,19 @@ export function extractiveAnswer(query: string, hits: ChunkHit[], opts: { maxSen
       let overlap = 0
       for (const t of sTerms) if (qTerms.has(t)) overlap++
       if (overlap === 0) continue
+      const coverage = overlap / qTerms.size
+      if (coverage > maxCoverage) maxCoverage = coverage
       // query coverage + a nudge from the chunk's semantic retrieval score
-      const score = overlap / qTerms.size + 0.25 * h.score
+      const score = coverage + 0.25 * h.score
       scored.push({ text: sent, source: i + 1, score: Number(score.toFixed(3)) })
     }
   })
-  if (scored.length === 0) return null
+  // RELEVANCE FLOOR: the doc must actually be ABOUT the question. If no sentence covers at least a third of the
+  // query's content terms, a few incidental common words ("the/in/our") matched — the uploaded doc has nothing
+  // to say here. Return null so the caller answers from the model's own knowledge instead of dumping unrelated
+  // doc sentences (e.g. "largest planet?" extracting random lines from an uploaded Noetica-facts file).
+  const MIN_COVERAGE = 0.34
+  if (scored.length === 0 || maxCoverage < MIN_COVERAGE) return null
 
   // Rank, dedupe near-identical lines, keep the top few.
   scored.sort((a, b) => b.score - a.score)

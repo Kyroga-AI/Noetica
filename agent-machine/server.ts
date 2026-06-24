@@ -37,7 +37,7 @@ import * as net from 'node:net'
 import { originAllowed } from './lib/origin-guard.js'
 import { isConfinedToHomeOrTmp } from './lib/path-confine.js'
 import { safeShellEnv } from './lib/safe-shell-env.js'
-import { buildRouterDecision, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider, bestCoder, bestWorkhorse } from './lib/router.js'
+import { buildRouterDecision, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider, bestCoder, bestWorkhorse, bestResponsive } from './lib/router.js'
 import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTelemetry, type MeshTier } from './lib/scope-d.js'
 import { installEgressGuard, setOfflineMode } from './lib/egress-guard.js'
 import { classifyIntent, capabilityToTask, wantsVectorRag, intentByName, planFromIntent, intentToAction, deEscalateEveryday } from './lib/intent-router.js'
@@ -2676,10 +2676,14 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         // Respect the RAM-appropriate workhorse the router already chose — qwen3:14b on a 24GB box, NOT a
         // hardcoded qwen2.5. This block used to force qwen2.5 and quietly undo the qwen3 routing.
         model = bestCoder(availableModels, model)
-      } else {
-        // reasoning / general / writing → the all-rounder workhorse (qwen3:14b on 24GB). Never the 3B: it
-        // fabricates output ("let me run it…") instead of doing substantive work.
+      } else if (task === 'reasoning') {
+        // Deep reasoning earns the 14b — depth over latency (and it thinks, via the think-directive).
         model = bestWorkhorse(availableModels, model)
+      } else {
+        // general / writing / research → the FAST interactive 8b. The 14b's ~60-90s cold-load + thinking tax
+        // wasn't worth it for conversational Q&A; with /no_think the 8b answers in seconds. Escalation still
+        // climbs to a heavier model when the turn actually struggles. Never the 3B (it fabricates work).
+        model = bestResponsive(availableModels, model)
       }
     }
     if (model !== before) console.log(`[responsive] ${String(task)} ${before} → ${model}`.replace(/\r/g, '').replace(/\n/g, ''))
