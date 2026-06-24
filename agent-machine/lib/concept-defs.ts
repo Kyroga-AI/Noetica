@@ -14,6 +14,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import { embedText, cosineSim } from './ollama.js'
 import { isStopword } from './text-normalize.js'
+import { canonDef } from './canon-lookup.js'
 
 const STORE = path.join(os.homedir(), '.noetica', 'concepts')
 
@@ -131,6 +132,8 @@ async function tryTitle(title: string, term: string): Promise<Concept | null> {
  *  bare term is a disambiguation page, retry field-qualified (e.g. "Cell (biology)"). */
 export async function fetchConceptDef(term: string, field?: string): Promise<Concept | null> {
   const t = term.trim()
+  const cd = canonDef(t)                                   // authored canon glossary — cleanest, domain-correct: tried FIRST
+  if (cd) return { term: t, definition: cd, url: '', source: 'canon', field }
   const base = t.replace(/\s+/g, '_')
   const offDomain = (cc: Concept | null): boolean => !!(cc && field && FIELD_KEYWORDS[field] && !FIELD_KEYWORDS[field]!.test(cc.definition))
   let c = await tryTitle(base, t)

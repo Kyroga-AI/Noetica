@@ -35,6 +35,7 @@ import { execFileSync } from 'node:child_process'
 import { embedText } from '../lib/ollama.js'
 import { councilVote, learnedCouncilVote } from '../lib/council.js'
 import { fetchConceptDef, cleanTerm } from '../lib/concept-defs.js'
+import { canonBridges } from '../lib/canon-lookup.js'
 import { associativeRetrieve } from '../lib/graph-ppr.js'
 import { decodeVec, l2norm } from '../lib/brain-vec.js'
 
@@ -193,6 +194,16 @@ function hippoExpand(chunks: Array<{ text: string }>, query: string, topK = 5): 
     const list = [...concepts]
     for (const c of list) if (!labelById.has(c)) { labelById.set(c, c); nodes.push({ id: c }) }
     for (let a = 0; a < list.length; a++) for (let b = a + 1; b < list.length; b++) edges.push({ from: list[a]!, to: list[b]! })
+  }
+  // CURATED EDGES: augment the ephemeral co-occurrence graph with the canon's sense-aware cross-domain
+  // bridges (related/same_as) so PPR can hop along real curated links, not just chunk co-occurrence.
+  for (const c of [...labelById.keys()]) {
+    for (const b of canonBridges(c)) {
+      const bl = cleanTerm(b) ?? b.trim().toLowerCase()
+      if (!bl) continue
+      if (!labelById.has(bl)) { labelById.set(bl, bl); nodes.push({ id: bl }) }
+      edges.push({ from: c, to: bl })
+    }
   }
   if (nodes.length < 4) return []
   return associativeRetrieve(nodes, edges, labelById, query, { topK }).results.map((r) => r.label)
