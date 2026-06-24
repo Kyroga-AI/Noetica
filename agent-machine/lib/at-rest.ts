@@ -28,6 +28,31 @@ function key(): Buffer {
   return k
 }
 
+// Binary magic prefix for encrypted blobs (raw bytes, not JSON lines). 8 bytes, distinct from real document
+// headers (%PDF, PK\x03\x04, …) so legacy plaintext blobs are detected + passed through on read.
+const BIN_MAGIC = Buffer.from('NoetEnc\x01', 'latin1')
+
+/** Encrypt raw bytes at rest (for the content-addressed blob store). Layout: BIN_MAGIC | iv[12] | tag[16] | ct.
+ * No-op (returns the input) when NOETICA_ENCRYPT_AT_REST=0 so blobs stay portable/plaintext. */
+export function encryptBytes(buf: Buffer): Buffer {
+  if (process.env['NOETICA_ENCRYPT_AT_REST'] === '0') return buf
+  const iv = randomBytes(12)
+  const c = createCipheriv('aes-256-gcm', key(), iv)
+  const ct = Buffer.concat([c.update(buf), c.final()])
+  return Buffer.concat([BIN_MAGIC, iv, c.getAuthTag(), ct])
+}
+
+/** Decrypt bytes from encryptBytes. A non-magic buffer is returned AS-IS (legacy plaintext blob → lazy
+ * migration). Returns null only for a magic'd-but-tampered/wrong-key buffer (GCM auth fails). */
+export function decryptBytes(buf: Buffer): Buffer | null {
+  if (buf.length < BIN_MAGIC.length || !buf.subarray(0, BIN_MAGIC.length).equals(BIN_MAGIC)) return buf
+  try {
+    const d = createDecipheriv('aes-256-gcm', key(), buf.subarray(8, 20))
+    d.setAuthTag(buf.subarray(20, 36))
+    return Buffer.concat([d.update(buf.subarray(36)), d.final()])
+  } catch { return null }
+}
+
 /** Encrypt one record to a single self-describing line: `enc:v1:` + base64(iv[12] | tag[16] | ciphertext). */
 export function encryptLine(obj: unknown): string {
   const iv = randomBytes(12)
