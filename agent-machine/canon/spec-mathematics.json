@@ -1,0 +1,615 @@
+{
+  "domain": "mathematics",
+  "mmlu_subjects": ["abstract_algebra","college_mathematics","high_school_mathematics","elementary_mathematics","high_school_statistics"],
+  "mmlu_pro_category": "math",
+  "topics": [
+    {
+      "topic": "Elementary Algebra and Arithmetic",
+      "level": "intro",
+      "subtopics": [
+        "Integer arithmetic and order of operations",
+        "Fractions, decimals, and percentages",
+        "Ratio and proportion",
+        "Exponents and radicals",
+        "Linear equations in one variable",
+        "Inequalities and absolute value",
+        "Word problems and unit conversion"
+      ],
+      "glossary": [
+        {"term": "integer", "definition": "A whole number, either positive, negative, or zero; an element of the set {..., -2, -1, 0, 1, 2, ...}."},
+        {"term": "prime number", "definition": "A natural number greater than 1 whose only positive divisors are 1 and itself."},
+        {"term": "greatest common divisor (GCD)", "definition": "The largest positive integer that divides each of the given integers without remainder."},
+        {"term": "least common multiple (LCM)", "definition": "The smallest positive integer that is divisible by each of the given integers."},
+        {"term": "rational number", "definition": "A number expressible as p/q where p and q are integers and q ≠ 0."},
+        {"term": "absolute value", "definition": "For a real number x, |x| = x if x ≥ 0 and |x| = -x if x < 0; the distance from x to 0 on the number line."},
+        {"term": "proportion", "definition": "An equation stating that two ratios are equal: a/b = c/d."},
+        {"term": "exponent", "definition": "In the expression a^n, the exponent n indicates the number of times the base a is multiplied by itself."}
+      ],
+      "canon": [
+        {"name": "Distributive law", "form": "a(b + c) = ab + ac", "type": "equation"},
+        {"name": "Order of operations (PEMDAS)", "form": "Parentheses → Exponents → Multiplication/Division (left to right) → Addition/Subtraction (left to right)", "type": "definition"},
+        {"name": "Properties of absolute value", "form": "|ab| = |a||b|; |a + b| ≤ |a| + |b| (triangle inequality)", "type": "equation"},
+        {"name": "Fundamental theorem of arithmetic", "form": "Every integer greater than 1 is either prime or can be written uniquely as a product of primes (up to ordering).", "type": "theorem"},
+        {"name": "Euclidean algorithm", "form": "gcd(a, b) = gcd(b, a mod b); repeat until remainder is 0.", "type": "equation"},
+        {"name": "Laws of exponents", "form": "a^m · a^n = a^(m+n); (a^m)^n = a^(mn); a^0 = 1 (a ≠ 0)", "type": "equation"},
+        {"name": "Percent formula", "form": "part = (percent/100) × whole", "type": "equation"}
+      ]
+    },
+    {
+      "topic": "Algebra and Polynomial Theory",
+      "level": "intro",
+      "subtopics": [
+        "Polynomial arithmetic and factoring",
+        "Quadratic equations and the discriminant",
+        "Systems of linear equations",
+        "Rational expressions and equations",
+        "Radical expressions and complex numbers",
+        "Binomial theorem",
+        "Partial fractions"
+      ],
+      "glossary": [
+        {"term": "polynomial", "definition": "A finite sum of terms of the form a_n x^n where n is a non-negative integer and a_n are coefficients."},
+        {"term": "degree of a polynomial", "definition": "The highest power of the variable appearing with a nonzero coefficient."},
+        {"term": "root (zero) of a polynomial", "definition": "A value c such that p(c) = 0."},
+        {"term": "discriminant", "definition": "For ax² + bx + c, the discriminant is Δ = b² - 4ac; its sign determines the nature of the roots."},
+        {"term": "complex number", "definition": "A number of the form a + bi where a, b ∈ ℝ and i = √(-1)."},
+        {"term": "conjugate", "definition": "The complex conjugate of a + bi is a - bi; used to rationalize denominators and compute moduli."},
+        {"term": "multiplicity of a root", "definition": "The number of times a root r appears as a factor; r has multiplicity k if (x - r)^k | p(x) but (x - r)^(k+1) does not."},
+        {"term": "Vieta's formulas", "definition": "Relations between coefficients of a polynomial and symmetric functions of its roots; for x² + bx + c, the sum of roots is -b and product is c."}
+      ],
+      "canon": [
+        {"name": "Quadratic formula", "form": "x = (-b ± √(b² - 4ac)) / (2a)", "type": "equation"},
+        {"name": "Factor theorem", "form": "(x - c) is a factor of p(x) if and only if p(c) = 0.", "type": "theorem"},
+        {"name": "Remainder theorem", "form": "The remainder when p(x) is divided by (x - c) equals p(c).", "type": "theorem"},
+        {"name": "Fundamental theorem of algebra", "form": "Every non-constant polynomial with complex coefficients has at least one complex root; equivalently, a degree-n polynomial has exactly n roots in ℂ (counted with multiplicity).", "type": "theorem"},
+        {"name": "Binomial theorem", "form": "(a + b)^n = Σ_{k=0}^{n} C(n,k) a^(n-k) b^k", "type": "equation"},
+        {"name": "Difference of squares", "form": "a² - b² = (a - b)(a + b)", "type": "equation"},
+        {"name": "Sum/difference of cubes", "form": "a³ ± b³ = (a ± b)(a² ∓ ab + b²)", "type": "equation"},
+        {"name": "Rational root theorem", "form": "If p/q is a rational root of a_n x^n + ... + a_0 (in lowest terms), then p | a_0 and q | a_n.", "type": "theorem"}
+      ]
+    },
+    {
+      "topic": "Geometry and Trigonometry",
+      "level": "intro",
+      "subtopics": [
+        "Euclidean plane geometry: triangles, circles, polygons",
+        "Congruence and similarity",
+        "Coordinate geometry and distance formulas",
+        "Trigonometric functions and identities",
+        "Laws of sines and cosines",
+        "Circles: arcs, chords, and inscribed angles",
+        "Solid geometry: volumes and surface areas"
+      ],
+      "glossary": [
+        {"term": "congruent figures", "definition": "Two geometric figures are congruent if one can be transformed into the other by a rigid motion (rotation, reflection, translation)."},
+        {"term": "similar figures", "definition": "Two figures are similar if one is a dilation (scaling) of the other; corresponding angles are equal and corresponding sides are proportional."},
+        {"term": "radian", "definition": "The angle subtended at the center of a unit circle by an arc of length 1; π radians = 180 degrees."},
+        {"term": "unit circle", "definition": "The circle of radius 1 centered at the origin; defines sin θ and cos θ as the y- and x-coordinates of the point at angle θ."},
+        {"term": "Pythagorean triple", "definition": "A set of three positive integers (a, b, c) satisfying a² + b² = c²; e.g., (3, 4, 5) and (5, 12, 13)."},
+        {"term": "inscribed angle", "definition": "An angle formed by two chords sharing an endpoint on a circle; its measure is half the intercepted arc."},
+        {"term": "tangent line", "definition": "A line touching a circle at exactly one point, perpendicular to the radius at that point."},
+        {"term": "dihedral angle", "definition": "The angle between two half-planes sharing a common edge (line), measured in a plane perpendicular to that edge."}
+      ],
+      "canon": [
+        {"name": "Pythagorean theorem", "form": "a² + b² = c² for right triangle with legs a, b and hypotenuse c.", "type": "equation"},
+        {"name": "Law of cosines", "form": "c² = a² + b² - 2ab cos C", "type": "equation"},
+        {"name": "Law of sines", "form": "a/sin A = b/sin B = c/sin C = 2R (R = circumradius)", "type": "equation"},
+        {"name": "Area of triangle", "form": "A = (1/2)ab sin C = √(s(s-a)(s-b)(s-c)) (Heron's formula, s = (a+b+c)/2)", "type": "equation"},
+        {"name": "Fundamental Pythagorean identity", "form": "sin²θ + cos²θ = 1", "type": "equation"},
+        {"name": "Angle addition formulas", "form": "sin(α ± β) = sin α cos β ± cos α sin β; cos(α ± β) = cos α cos β ∓ sin α sin β", "type": "equation"},
+        {"name": "Double angle formulas", "form": "sin 2θ = 2 sin θ cos θ; cos 2θ = cos²θ - sin²θ = 1 - 2sin²θ", "type": "equation"},
+        {"name": "Inscribed angle theorem", "form": "An inscribed angle is half the central angle subtending the same arc.", "type": "theorem"},
+        {"name": "Thales' theorem", "form": "An angle inscribed in a semicircle is a right angle.", "type": "theorem"},
+        {"name": "Area and circumference of circle", "form": "A = πr²; C = 2πr", "type": "equation"}
+      ]
+    },
+    {
+      "topic": "Precalculus and Functions",
+      "level": "intro",
+      "subtopics": [
+        "Functions, domain, and range",
+        "Composition and inverse functions",
+        "Exponential and logarithmic functions",
+        "Conic sections",
+        "Sequences and series (arithmetic and geometric)",
+        "Polar coordinates",
+        "Parametric equations"
+      ],
+      "glossary": [
+        {"term": "function", "definition": "A rule assigning to each element of a domain exactly one element of a codomain; formally, a subset of the Cartesian product where each input appears exactly once."},
+        {"term": "injective (one-to-one)", "definition": "A function f is injective if f(a) = f(b) implies a = b; distinct inputs map to distinct outputs."},
+        {"term": "surjective (onto)", "definition": "A function f: A → B is surjective if every element of B is f(a) for some a ∈ A."},
+        {"term": "bijection", "definition": "A function that is both injective and surjective; establishes a one-to-one correspondence between domain and codomain."},
+        {"term": "inverse function", "definition": "If f is bijective, its inverse f⁻¹ satisfies f⁻¹(f(x)) = x and f(f⁻¹(y)) = y for all x in the domain and y in the codomain."},
+        {"term": "logarithm", "definition": "log_b(x) = y means b^y = x; it is the inverse of exponentiation."},
+        {"term": "asymptote", "definition": "A line that a curve approaches arbitrarily closely but does not reach (horizontal, vertical, or oblique)."},
+        {"term": "arithmetic sequence", "definition": "A sequence with a constant difference d between consecutive terms: a_n = a_1 + (n-1)d."},
+        {"term": "geometric sequence", "definition": "A sequence with a constant ratio r between consecutive terms: a_n = a_1 · r^(n-1)."}
+      ],
+      "canon": [
+        {"name": "Change of base formula", "form": "log_b(x) = ln(x)/ln(b)", "type": "equation"},
+        {"name": "Logarithm laws", "form": "log(ab) = log a + log b; log(a/b) = log a - log b; log(a^n) = n log a", "type": "equation"},
+        {"name": "Sum of geometric series", "form": "S_n = a(1 - r^n)/(1 - r); infinite sum S = a/(1-r) for |r| < 1", "type": "equation"},
+        {"name": "Sum of arithmetic series", "form": "S_n = n(a_1 + a_n)/2 = n(2a_1 + (n-1)d)/2", "type": "equation"},
+        {"name": "Euler's formula", "form": "e^(iθ) = cos θ + i sin θ", "type": "equation"},
+        {"name": "Standard conic forms", "form": "Ellipse: x²/a² + y²/b² = 1; Hyperbola: x²/a² - y²/b² = 1; Parabola: y = ax²", "type": "equation"},
+        {"name": "Composition of inverses", "form": "(f ∘ f⁻¹)(x) = x = (f⁻¹ ∘ f)(x) whenever defined", "type": "definition"},
+        {"name": "De Moivre's theorem", "form": "(cos θ + i sin θ)^n = cos(nθ) + i sin(nθ)", "type": "theorem"}
+      ]
+    },
+    {
+      "topic": "Single-Variable Calculus",
+      "level": "undergrad",
+      "subtopics": [
+        "Limits and continuity",
+        "Differentiation rules and chain rule",
+        "Applications of derivatives (optimization, related rates)",
+        "Mean value theorems",
+        "Integration: Riemann sums and antiderivatives",
+        "Techniques of integration",
+        "Improper integrals",
+        "Sequences and series: convergence tests, Taylor series"
+      ],
+      "glossary": [
+        {"term": "limit", "definition": "lim_{x→a} f(x) = L means for every ε > 0 there exists δ > 0 such that 0 < |x - a| < δ implies |f(x) - L| < ε."},
+        {"term": "continuity", "definition": "f is continuous at a if lim_{x→a} f(x) = f(a); continuous on an interval if continuous at each point."},
+        {"term": "derivative", "definition": "f'(x) = lim_{h→0} (f(x+h) - f(x))/h; the instantaneous rate of change of f at x."},
+        {"term": "Riemann integral", "definition": "∫_a^b f(x) dx = lim_{||P||→0} Σ f(x_i*) Δx_i; the limit of Riemann sums over partitions P of [a, b]."},
+        {"term": "antiderivative", "definition": "A function F such that F'(x) = f(x); also called an indefinite integral, written ∫ f(x) dx = F(x) + C."},
+        {"term": "critical point", "definition": "A point c in the domain of f where f'(c) = 0 or f'(c) does not exist."},
+        {"term": "inflection point", "definition": "A point where f''changes sign (concavity changes from up to down or vice versa)."},
+        {"term": "Taylor series", "definition": "The power series Σ_{n=0}^∞ f^(n)(a)/n! · (x-a)^n representing f near x = a, when f is infinitely differentiable."},
+        {"term": "radius of convergence", "definition": "For a power series Σ a_n x^n, the value R such that the series converges absolutely for |x| < R and diverges for |x| > R."}
+      ],
+      "canon": [
+        {"name": "Fundamental theorem of calculus (Part 1)", "form": "If F(x) = ∫_a^x f(t) dt, then F'(x) = f(x) wherever f is continuous.", "type": "theorem"},
+        {"name": "Fundamental theorem of calculus (Part 2)", "form": "∫_a^b f(x) dx = F(b) - F(a) where F is any antiderivative of f.", "type": "theorem"},
+        {"name": "Mean value theorem", "form": "If f is continuous on [a,b] and differentiable on (a,b), then there exists c ∈ (a,b) with f'(c) = (f(b)-f(a))/(b-a).", "type": "theorem"},
+        {"name": "L'Hôpital's rule", "form": "If lim f/g is 0/0 or ∞/∞, then lim f/g = lim f'/g' (provided the latter limit exists).", "type": "theorem"},
+        {"name": "Chain rule", "form": "(f ∘ g)'(x) = f'(g(x)) · g'(x)", "type": "equation"},
+        {"name": "Product rule", "form": "(fg)' = f'g + fg'", "type": "equation"},
+        {"name": "Integration by parts", "form": "∫ u dv = uv - ∫ v du", "type": "equation"},
+        {"name": "Ratio test for series", "form": "If lim |a_{n+1}/a_n| = L < 1, the series Σ a_n converges absolutely; if L > 1, it diverges.", "type": "theorem"},
+        {"name": "Taylor's theorem with remainder", "form": "f(x) = Σ_{k=0}^{n} f^(k)(a)/k! · (x-a)^k + R_n(x), where R_n(x) = f^(n+1)(c)/(n+1)! · (x-a)^(n+1) for some c between a and x.", "type": "theorem"},
+        {"name": "Intermediate value theorem", "form": "If f is continuous on [a,b] and f(a) < k < f(b), then there exists c ∈ (a,b) with f(c) = k.", "type": "theorem"},
+        {"name": "Standard Taylor series", "form": "e^x = Σ x^n/n!; sin x = Σ (-1)^n x^(2n+1)/(2n+1)!; cos x = Σ (-1)^n x^(2n)/(2n)!; 1/(1-x) = Σ x^n for |x|<1", "type": "equation"}
+      ]
+    },
+    {
+      "topic": "Multivariable Calculus",
+      "level": "undergrad",
+      "subtopics": [
+        "Partial derivatives and gradients",
+        "Directional derivatives",
+        "Optimization: Lagrange multipliers",
+        "Multiple integrals (double and triple)",
+        "Change of variables and Jacobians",
+        "Vector fields, divergence, and curl",
+        "Line integrals and surface integrals",
+        "Stokes', Green's, and Divergence theorems"
+      ],
+      "glossary": [
+        {"term": "partial derivative", "definition": "∂f/∂x is the derivative of f with respect to x holding all other variables fixed."},
+        {"term": "gradient", "definition": "∇f = (∂f/∂x, ∂f/∂y, ∂f/∂z); a vector pointing in the direction of steepest ascent of f."},
+        {"term": "directional derivative", "definition": "D_u f(p) = ∇f(p) · u; the rate of change of f at p in the direction of unit vector u."},
+        {"term": "Jacobian", "definition": "The matrix of all first-order partial derivatives of a vector-valued function; its determinant measures the local change of area/volume under a coordinate transformation."},
+        {"term": "curl", "definition": "curl F = ∇ × F; measures the infinitesimal rotation of a vector field at each point."},
+        {"term": "divergence", "definition": "div F = ∇ · F = ∂F₁/∂x + ∂F₂/∂y + ∂F₃/∂z; measures the net outflow of a vector field per unit volume."},
+        {"term": "conservative vector field", "definition": "A vector field F with curl F = 0 (equivalently, F = ∇f for some scalar potential f); line integrals are path-independent."},
+        {"term": "saddle point", "definition": "A critical point that is neither a local max nor a local min; the second derivative test gives a negative discriminant D = f_{xx}f_{yy} - f_{xy}²."}
+      ],
+      "canon": [
+        {"name": "Clairaut's theorem (symmetry of mixed partials)", "form": "If f_{xy} and f_{yx} are continuous near (a, b), then f_{xy}(a,b) = f_{yx}(a,b).", "type": "theorem"},
+        {"name": "Second derivative test (two variables)", "form": "Let D = f_{xx}f_{yy} - (f_{xy})² at critical point (a,b). If D > 0 and f_{xx} > 0: local min; f_{xx} < 0: local max; D < 0: saddle point.", "type": "theorem"},
+        {"name": "Lagrange multiplier condition", "form": "At a constrained extremum of f subject to g = 0: ∇f = λ∇g.", "type": "equation"},
+        {"name": "Change of variables formula", "form": "∫∫_R f(x,y) dA = ∫∫_S f(x(u,v), y(u,v)) |J(u,v)| du dv where J = ∂(x,y)/∂(u,v).", "type": "equation"},
+        {"name": "Green's theorem", "form": "∮_C (P dx + Q dy) = ∬_D (∂Q/∂x - ∂P/∂y) dA (C positively oriented boundary of D).", "type": "theorem"},
+        {"name": "Stokes' theorem", "form": "∮_C F · dr = ∬_S (curl F) · dS where C = ∂S.", "type": "theorem"},
+        {"name": "Divergence theorem (Gauss)", "form": "∯_S F · dS = ∭_V (div F) dV where S = ∂V.", "type": "theorem"},
+        {"name": "Chain rule (multivariable)", "form": "dz/dt = (∂z/∂x)(dx/dt) + (∂z/∂y)(dy/dt)", "type": "equation"}
+      ]
+    },
+    {
+      "topic": "Linear Algebra",
+      "level": "undergrad",
+      "subtopics": [
+        "Vector spaces and subspaces",
+        "Linear independence, span, and basis",
+        "Linear transformations and matrix representations",
+        "Determinants",
+        "Eigenvalues and eigenvectors",
+        "Inner product spaces and orthogonality",
+        "Spectral theorem and diagonalization",
+        "Singular value decomposition"
+      ],
+      "glossary": [
+        {"term": "vector space", "definition": "A set V with operations of addition and scalar multiplication satisfying 8 axioms (commutativity, associativity, distributivity, identities, inverses); elements are called vectors."},
+        {"term": "linear independence", "definition": "Vectors v₁,...,v_n are linearly independent if c₁v₁ + ... + c_n v_n = 0 implies all c_i = 0."},
+        {"term": "basis", "definition": "A linearly independent spanning set for a vector space; the number of elements is the dimension."},
+        {"term": "rank", "definition": "The dimension of the column space (or row space) of a matrix; equals the number of pivot columns in its row echelon form."},
+        {"term": "nullspace (kernel)", "definition": "ker(A) = {x : Ax = 0}; a subspace of the domain whose dimension is the nullity."},
+        {"term": "eigenvalue", "definition": "A scalar λ such that Av = λv for some nonzero vector v (the corresponding eigenvector)."},
+        {"term": "characteristic polynomial", "definition": "det(A - λI); its roots are the eigenvalues of A."},
+        {"term": "orthogonal matrix", "definition": "A square matrix Q with Q^T Q = I; its columns form an orthonormal basis; det Q = ±1."},
+        {"term": "positive definite matrix", "definition": "A symmetric matrix A such that x^T Ax > 0 for all nonzero x; equivalently, all eigenvalues are positive."},
+        {"term": "singular matrix", "definition": "A square matrix with determinant 0; equivalently, it has no inverse; equivalently, its columns are linearly dependent."}
+      ],
+      "canon": [
+        {"name": "Rank-nullity theorem", "form": "dim(ker T) + dim(im T) = dim(domain); rank(A) + nullity(A) = n for an m×n matrix.", "type": "theorem"},
+        {"name": "Spectral theorem (real symmetric matrices)", "form": "Every real symmetric matrix A is orthogonally diagonalizable: A = Q Λ Q^T where Q is orthogonal and Λ is diagonal with real eigenvalues.", "type": "theorem"},
+        {"name": "Cayley-Hamilton theorem", "form": "Every square matrix satisfies its own characteristic polynomial: p(A) = 0.", "type": "theorem"},
+        {"name": "Determinant expansion and properties", "form": "det(AB) = det(A)det(B); det(A^T) = det(A); det(A⁻¹) = 1/det(A); row-swap negates det.", "type": "theorem"},
+        {"name": "Gram-Schmidt process", "form": "Given basis {v_i}, define orthonormal basis {e_i} by e_k = (v_k - Σ_{j<k} (v_k · e_j)e_j) / ‖...‖.", "type": "equation"},
+        {"name": "Diagonalization criterion", "form": "An n×n matrix A is diagonalizable iff it has n linearly independent eigenvectors; equivalently, the geometric multiplicity equals algebraic multiplicity for every eigenvalue.", "type": "theorem"},
+        {"name": "Singular value decomposition", "form": "Any m×n matrix A = UΣV^T where U (m×m), V (n×n) are orthogonal and Σ is m×n diagonal with singular values σ_i ≥ 0.", "type": "theorem"},
+        {"name": "Invertibility equivalences", "form": "TFAE: A is invertible, det A ≠ 0, rank A = n, Ax=0 has only trivial solution, Ax=b has unique solution for every b.", "type": "theorem"}
+      ]
+    },
+    {
+      "topic": "Differential Equations",
+      "level": "undergrad",
+      "subtopics": [
+        "First-order ODEs: separable, linear, exact",
+        "Second-order linear ODEs with constant coefficients",
+        "Method of undetermined coefficients and variation of parameters",
+        "Laplace transforms",
+        "Systems of ODEs and phase plane analysis",
+        "Power series solutions and Frobenius method",
+        "Partial differential equations: heat, wave, Laplace equations"
+      ],
+      "glossary": [
+        {"term": "ordinary differential equation (ODE)", "definition": "An equation relating a function y(x) and its derivatives; order is the highest derivative present."},
+        {"term": "separable ODE", "definition": "An ODE of the form dy/dx = f(x)g(y), solvable by separating variables: ∫ dy/g(y) = ∫ f(x) dx."},
+        {"term": "integrating factor", "definition": "A function μ(x) multiplied through a linear ODE dy/dx + P(x)y = Q(x) to make the left side an exact derivative; μ(x) = e^(∫P dx)."},
+        {"term": "characteristic equation", "definition": "For ay'' + by' + cy = 0, the algebraic equation ar² + br + c = 0 whose roots determine the general solution."},
+        {"term": "Wronskian", "definition": "W(y₁, y₂) = y₁y₂' - y₁'y₂; if W ≠ 0 on an interval, y₁ and y₂ are linearly independent solutions."},
+        {"term": "Laplace transform", "definition": "L{f(t)} = F(s) = ∫_0^∞ e^(-st) f(t) dt; transforms a differential equation into an algebraic equation in s."},
+        {"term": "equilibrium solution", "definition": "A constant solution y = c where f(c) = 0; stable if nearby solutions approach it, unstable if they diverge."},
+        {"term": "eigenfunction expansion", "definition": "Representation of a function as a series of eigenfunctions of a differential operator (e.g., Fourier series in terms of sin and cos)."}
+      ],
+      "canon": [
+        {"name": "General solution of 2nd-order linear ODE (constant coefficients)", "form": "Roots r₁ ≠ r₂ real: y = c₁e^(r₁x) + c₂e^(r₂x); repeated root r: y = (c₁ + c₂x)e^(rx); complex roots α ± βi: y = e^(αx)(c₁cos βx + c₂sin βx).", "type": "equation"},
+        {"name": "Variation of parameters formula", "form": "y_p = y₁ ∫(-y₂ g/W) dx + y₂ ∫(y₁ g/W) dx where W = Wronskian(y₁, y₂).", "type": "equation"},
+        {"name": "Existence and uniqueness theorem (Picard-Lindelöf)", "form": "If f(x,y) and ∂f/∂y are continuous in a rectangle containing (x₀, y₀), then the IVP y' = f(x,y), y(x₀)=y₀ has a unique solution.", "type": "theorem"},
+        {"name": "Laplace transform of derivative", "form": "L{y'} = sY(s) - y(0); L{y''} = s²Y(s) - sy(0) - y'(0)", "type": "equation"},
+        {"name": "Convolution theorem", "form": "L{(f * g)(t)} = F(s)G(s); L⁻¹{F(s)G(s)} = ∫_0^t f(τ)g(t-τ) dτ", "type": "theorem"},
+        {"name": "Heat equation", "form": "u_t = α² u_{xx}; solved on [0,L] by separation of variables giving u(x,t) = Σ B_n sin(nπx/L) e^(-α²(nπ/L)²t)", "type": "equation"},
+        {"name": "Wave equation", "form": "u_{tt} = c² u_{xx}; D'Alembert solution: u(x,t) = (1/2)[f(x+ct)+f(x-ct)] + (1/2c)∫_{x-ct}^{x+ct} g(s) ds", "type": "equation"}
+      ]
+    },
+    {
+      "topic": "Probability and Combinatorics",
+      "level": "undergrad",
+      "subtopics": [
+        "Counting: permutations, combinations, pigeonhole principle",
+        "Probability axioms and conditional probability",
+        "Bayes' theorem and independence",
+        "Discrete distributions: Bernoulli, Binomial, Poisson, Geometric",
+        "Continuous distributions: Uniform, Normal, Exponential",
+        "Expectation, variance, and moments",
+        "Law of large numbers and central limit theorem",
+        "Markov chains"
+      ],
+      "glossary": [
+        {"term": "sample space", "definition": "The set Ω of all possible outcomes of a random experiment."},
+        {"term": "event", "definition": "A subset of the sample space; a measurable collection of outcomes to which a probability is assigned."},
+        {"term": "conditional probability", "definition": "P(A|B) = P(A ∩ B)/P(B) for P(B) > 0; the probability of A given that B has occurred."},
+        {"term": "independence", "definition": "Events A and B are independent if P(A ∩ B) = P(A)P(B); knowing B gives no information about A."},
+        {"term": "random variable", "definition": "A measurable function X: Ω → ℝ that assigns a numerical value to each outcome."},
+        {"term": "expected value", "definition": "E[X] = Σ x P(X=x) (discrete) or ∫ x f(x) dx (continuous); the probability-weighted average value."},
+        {"term": "variance", "definition": "Var(X) = E[(X - μ)²] = E[X²] - (E[X])²; measures spread around the mean."},
+        {"term": "moment generating function", "definition": "M_X(t) = E[e^{tX}]; its k-th derivative at t=0 equals the k-th moment E[X^k]."},
+        {"term": "cumulative distribution function", "definition": "F(x) = P(X ≤ x); a right-continuous, non-decreasing function from ℝ to [0,1]."}
+      ],
+      "canon": [
+        {"name": "Bayes' theorem", "form": "P(A|B) = P(B|A)P(A)/P(B) = P(B|A)P(A) / [P(B|A)P(A) + P(B|Aᶜ)P(Aᶜ)]", "type": "equation"},
+        {"name": "Law of total probability", "form": "P(B) = Σ_i P(B|A_i)P(A_i) for any partition {A_i} of Ω.", "type": "theorem"},
+        {"name": "Binomial distribution", "form": "P(X=k) = C(n,k) p^k (1-p)^(n-k); E[X]=np; Var(X)=np(1-p)", "type": "equation"},
+        {"name": "Poisson distribution", "form": "P(X=k) = e^(-λ)λ^k/k!; E[X]=Var(X)=λ; arises as limit of Binomial as n→∞, p→0, np→λ.", "type": "equation"},
+        {"name": "Normal distribution", "form": "f(x) = (1/σ√(2π)) exp(-(x-μ)²/(2σ²)); E[X]=μ, Var(X)=σ²", "type": "equation"},
+        {"name": "Central limit theorem", "form": "If X₁,...,X_n are i.i.d. with mean μ and variance σ², then (X̄_n - μ)/(σ/√n) → N(0,1) in distribution as n → ∞.", "type": "theorem"},
+        {"name": "Law of large numbers (strong)", "form": "If X₁, X₂,... are i.i.d. with E[X₁] = μ, then X̄_n = (X₁+...+X_n)/n → μ almost surely.", "type": "theorem"},
+        {"name": "Pigeonhole principle", "form": "If n+1 objects are placed into n boxes, then at least one box contains two or more objects.", "type": "theorem"},
+        {"name": "Inclusion-exclusion principle", "form": "|A₁ ∪ ... ∪ A_n| = Σ|A_i| - Σ|A_i ∩ A_j| + Σ|A_i ∩ A_j ∩ A_k| - ... ± |A₁∩...∩A_n|", "type": "equation"}
+      ]
+    },
+    {
+      "topic": "Statistics",
+      "level": "undergrad",
+      "subtopics": [
+        "Descriptive statistics: mean, median, variance, IQR",
+        "Sampling distributions and the standard error",
+        "Confidence intervals",
+        "Hypothesis testing: z-test, t-test, chi-square",
+        "p-values and significance",
+        "Regression and correlation",
+        "ANOVA",
+        "Nonparametric tests"
+      ],
+      "glossary": [
+        {"term": "population vs. sample", "definition": "A population is the entire set of subjects; a sample is a subset drawn from it. Statistics from samples estimate population parameters."},
+        {"term": "standard error", "definition": "The standard deviation of the sampling distribution of a statistic; for the sample mean, SE = σ/√n."},
+        {"term": "confidence interval", "definition": "An interval [L, U] constructed from data such that it contains the true parameter with a stated probability (confidence level) in repeated sampling."},
+        {"term": "null hypothesis (H₀)", "definition": "The default claim being tested; typically a statement of no effect or no difference."},
+        {"term": "p-value", "definition": "The probability of obtaining a test statistic at least as extreme as observed, assuming H₀ is true; small p-values provide evidence against H₀."},
+        {"term": "Type I error (α)", "definition": "Rejecting H₀ when it is true; probability is the significance level α."},
+        {"term": "Type II error (β)", "definition": "Failing to reject H₀ when it is false; power = 1 - β."},
+        {"term": "correlation coefficient (r)", "definition": "r = Cov(X,Y)/(σ_X σ_Y); ranges from -1 to 1; measures the linear association between two variables."},
+        {"term": "regression coefficient", "definition": "In ŷ = a + bx, the slope b = r · (s_y/s_x) = Σ(x_i - x̄)(y_i - ȳ) / Σ(x_i - x̄)²."}
+      ],
+      "canon": [
+        {"name": "Z-test statistic", "form": "z = (X̄ - μ₀) / (σ/√n); used when population σ is known.", "type": "equation"},
+        {"name": "t-test statistic (one sample)", "form": "t = (X̄ - μ₀) / (s/√n); follows t-distribution with n-1 degrees of freedom.", "type": "equation"},
+        {"name": "Chi-square goodness-of-fit statistic", "form": "χ² = Σ (O_i - E_i)² / E_i; follows χ²(k-1) distribution under H₀.", "type": "equation"},
+        {"name": "Least-squares regression line", "form": "ŷ = ȳ + r(s_y/s_x)(x - x̄); minimizes Σ(y_i - ŷ_i)².", "type": "equation"},
+        {"name": "95% confidence interval for mean", "form": "X̄ ± t*(s/√n) where t* is the critical value for t_{n-1} at 95%.", "type": "equation"},
+        {"name": "Chebyshev's inequality", "form": "P(|X - μ| ≥ kσ) ≤ 1/k² for any k > 0; distribution-free bound.", "type": "theorem"},
+        {"name": "Neyman-Pearson lemma", "form": "The most powerful test at level α for H₀: θ=θ₀ vs H₁: θ=θ₁ rejects based on the likelihood ratio L(θ₁)/L(θ₀) > c.", "type": "theorem"}
+      ]
+    },
+    {
+      "topic": "Abstract Algebra — Group Theory",
+      "level": "undergrad",
+      "subtopics": [
+        "Groups: definition, examples (Z, Z_n, S_n, D_n, GL_n)",
+        "Subgroups and cosets",
+        "Normal subgroups and quotient groups",
+        "Group homomorphisms and isomorphisms",
+        "Cyclic groups and generators",
+        "Permutation groups and Cayley's theorem",
+        "Group actions, orbits, and stabilizers",
+        "Sylow theorems"
+      ],
+      "glossary": [
+        {"term": "group", "definition": "A set G with a binary operation · satisfying: (i) closure, (ii) associativity, (iii) existence of identity e with ge = eg = g, (iv) existence of inverses g⁻¹ with gg⁻¹ = e."},
+        {"term": "abelian group", "definition": "A group in which the operation is commutative: ab = ba for all a, b."},
+        {"term": "order of a group", "definition": "|G|, the cardinality of the set G."},
+        {"term": "order of an element", "definition": "The smallest positive integer n such that g^n = e; if no such n exists, the element has infinite order."},
+        {"term": "subgroup", "definition": "A subset H ⊆ G closed under the group operation and inverses, forming a group in its own right. Equivalently: H ≠ ∅ and a,b ∈ H ⟹ ab⁻¹ ∈ H."},
+        {"term": "normal subgroup", "definition": "A subgroup N ⊴ G such that gNg⁻¹ = N for all g ∈ G; equivalently, left and right cosets coincide."},
+        {"term": "coset", "definition": "A left coset of H in G is gH = {gh : h ∈ H}; the cosets partition G into equal-sized subsets."},
+        {"term": "quotient group", "definition": "G/N where N ⊴ G; the set of cosets {gN} with multiplication (aN)(bN) = (ab)N."},
+        {"term": "group homomorphism", "definition": "A function φ: G → H satisfying φ(ab) = φ(a)φ(b) for all a, b ∈ G."},
+        {"term": "kernel", "definition": "ker φ = {g ∈ G : φ(g) = e_H}; always a normal subgroup of G."},
+        {"term": "simple group", "definition": "A nontrivial group with no proper nontrivial normal subgroups."},
+        {"term": "p-group", "definition": "A group whose order is a power of a prime p; every nontrivial p-group has a nontrivial center."}
+      ],
+      "canon": [
+        {"name": "Lagrange's theorem", "form": "If H is a subgroup of a finite group G, then |H| divides |G|, and the index [G:H] = |G|/|H| equals the number of distinct cosets of H.", "type": "theorem"},
+        {"name": "Corollary: order of elements divides group order", "form": "The order of any element g ∈ G divides |G|; in particular, g^|G| = e.", "type": "theorem"},
+        {"name": "First isomorphism theorem", "form": "If φ: G → H is a group homomorphism, then G/ker φ ≅ im φ.", "type": "theorem"},
+        {"name": "Second isomorphism theorem", "form": "If H ≤ G and N ⊴ G, then H/(H ∩ N) ≅ HN/N.", "type": "theorem"},
+        {"name": "Third isomorphism theorem", "form": "If N ⊴ K ⊴ G and N ⊴ G, then (G/N)/(K/N) ≅ G/K.", "type": "theorem"},
+        {"name": "Cayley's theorem", "form": "Every group G is isomorphic to a subgroup of the symmetric group S_{|G|}; each g ∈ G acts by left multiplication.", "type": "theorem"},
+        {"name": "Sylow's first theorem", "form": "If p^k divides |G|, then G has a subgroup of order p^k.", "type": "theorem"},
+        {"name": "Sylow's second theorem", "form": "Any two Sylow p-subgroups of G are conjugate.", "type": "theorem"},
+        {"name": "Sylow's third theorem", "form": "The number n_p of Sylow p-subgroups satisfies n_p ≡ 1 (mod p) and n_p divides |G|/p^k.", "type": "theorem"},
+        {"name": "Orbit-stabilizer theorem", "form": "|G| = |Orb(x)| · |Stab(x)| for any group action of G on a set X and any x ∈ X.", "type": "theorem"},
+        {"name": "Classification of finite cyclic groups", "form": "Every cyclic group of order n is isomorphic to Z_n; every subgroup of Z_n is cyclic of order dividing n.", "type": "theorem"},
+        {"name": "Cauchy's theorem", "form": "If prime p divides |G|, then G has an element of order p.", "type": "theorem"}
+      ]
+    },
+    {
+      "topic": "Abstract Algebra — Rings and Fields",
+      "level": "undergrad",
+      "subtopics": [
+        "Rings: definition, subrings, ring homomorphisms",
+        "Ideals and quotient rings",
+        "Integral domains and fields",
+        "Principal ideal domains (PIDs) and UFDs",
+        "Polynomial rings",
+        "Field extensions and algebraic elements",
+        "Splitting fields and algebraic closure",
+        "Galois theory (introduction)"
+      ],
+      "glossary": [
+        {"term": "ring", "definition": "A set R with addition and multiplication satisfying: (R,+) is an abelian group, multiplication is associative, and distributive laws hold."},
+        {"term": "commutative ring", "definition": "A ring in which multiplication is commutative: ab = ba for all a, b."},
+        {"term": "unity (multiplicative identity)", "definition": "An element 1 ∈ R such that 1·a = a·1 = a for all a; a ring with unity is called a unital ring."},
+        {"term": "ideal", "definition": "A subset I ⊆ R closed under addition and satisfying rI ⊆ I and Ir ⊆ I for all r ∈ R; the kernel of any ring homomorphism is an ideal."},
+        {"term": "prime ideal", "definition": "An ideal P ≠ R such that ab ∈ P implies a ∈ P or b ∈ P; R/P is an integral domain iff P is prime."},
+        {"term": "maximal ideal", "definition": "An ideal M ≠ R with no ideal strictly between M and R; R/M is a field iff M is maximal."},
+        {"term": "integral domain", "definition": "A commutative unital ring with no zero divisors; ab = 0 implies a = 0 or b = 0."},
+        {"term": "field", "definition": "A commutative ring in which every nonzero element has a multiplicative inverse; equivalently, a commutative division ring."},
+        {"term": "UFD (unique factorization domain)", "definition": "An integral domain in which every nonzero non-unit element factors uniquely into irreducibles (up to order and units)."},
+        {"term": "PID (principal ideal domain)", "definition": "An integral domain in which every ideal is principal, i.e., generated by a single element."},
+        {"term": "algebraic element", "definition": "An element α over a field F is algebraic if it satisfies some nonzero polynomial with coefficients in F; otherwise it is transcendental."},
+        {"term": "degree of field extension", "definition": "[E:F] = dim_F E; the dimension of E as a vector space over F."}
+      ],
+      "canon": [
+        {"name": "First isomorphism theorem for rings", "form": "If φ: R → S is a ring homomorphism, then R/ker φ ≅ im φ.", "type": "theorem"},
+        {"name": "Correspondence theorem (rings)", "form": "There is a bijection between ideals of R containing I and ideals of R/I, preserving inclusion, primality, and maximality.", "type": "theorem"},
+        {"name": "Every PID is a UFD", "form": "In a PID, every nonzero non-unit element factors uniquely into irreducibles; every irreducible is prime.", "type": "theorem"},
+        {"name": "Gauss's lemma", "form": "The product of primitive polynomials in Z[x] is primitive; consequently Z[x] is a UFD.", "type": "theorem"},
+        {"name": "Eisenstein's irreducibility criterion", "form": "If f = a_n x^n + ... + a_0 ∈ Z[x] and prime p divides a_0,...,a_{n-1} but not a_n, and p² does not divide a_0, then f is irreducible over Q.", "type": "theorem"},
+        {"name": "Tower law for field extensions", "form": "[E:F] = [E:K][K:F] for fields F ⊆ K ⊆ E.", "type": "theorem"},
+        {"name": "Characterization of simple extensions", "form": "F(α) ≅ F[x]/(m_α(x)) where m_α is the minimal polynomial of α; [F(α):F] = deg m_α.", "type": "theorem"},
+        {"name": "Fundamental theorem of Galois theory", "form": "For a Galois extension E/F with group G = Gal(E/F): there is an inclusion-reversing bijection between subgroups of G and intermediate fields K (F ⊆ K ⊆ E); [G:H] = [K_H:F] and |H| = [E:K_H].", "type": "theorem"},
+        {"name": "Algebraic closure existence", "form": "Every field F has an algebraic closure F̄ (algebraically closed and algebraic over F); it is unique up to isomorphism over F.", "type": "theorem"}
+      ]
+    },
+    {
+      "topic": "Real Analysis",
+      "level": "graduate",
+      "subtopics": [
+        "Construction of real numbers; completeness",
+        "Metric spaces: open, closed, compact, connected sets",
+        "Sequences and series of functions: uniform convergence",
+        "Continuity, uniform continuity, Lipschitz conditions",
+        "Differentiation: mean value theorem, Taylor's theorem",
+        "Riemann and Lebesgue integration",
+        "Measure theory: σ-algebras, measures, measurable functions",
+        "L^p spaces and Hilbert spaces"
+      ],
+      "glossary": [
+        {"term": "completeness", "definition": "A metric space is complete if every Cauchy sequence converges; the reals are the unique (up to isomorphism) complete ordered field."},
+        {"term": "open set", "definition": "A set U in a metric space such that every point has an open ball entirely within U; equivalently, U = int(U)."},
+        {"term": "compact set", "definition": "A set K where every open cover has a finite subcover; in ℝⁿ, equivalently, closed and bounded (Heine-Borel)."},
+        {"term": "uniform continuity", "definition": "f is uniformly continuous on E if for all ε > 0 there exists δ > 0 such that d(x,y) < δ implies |f(x)-f(y)| < ε, with δ independent of the choice of x."},
+        {"term": "uniform convergence", "definition": "f_n → f uniformly on E if sup_{x∈E} |f_n(x) - f(x)| → 0; it preserves continuity, and allows interchange of limit and integral."},
+        {"term": "σ-algebra", "definition": "A collection Σ of subsets of a set X closed under complements and countable unions; provides the domain for a measure."},
+        {"term": "measure", "definition": "A countably additive function μ: Σ → [0,∞] on a σ-algebra with μ(∅) = 0."},
+        {"term": "Lebesgue measurable", "definition": "A set E ⊆ ℝ is Lebesgue measurable if for all ε > 0 there is an open set U ⊇ E with m(U\\ E) < ε (outer-regularity characterization)."},
+        {"term": "almost everywhere (a.e.)", "definition": "A property holds almost everywhere if the set of points where it fails has measure zero."},
+        {"term": "L^p space", "definition": "L^p(μ) = {f measurable : ∫|f|^p dμ < ∞} with norm ‖f‖_p = (∫|f|^p dμ)^(1/p); a Banach space for 1 ≤ p ≤ ∞."}
+      ],
+      "canon": [
+        {"name": "Completeness of ℝ (least upper bound property)", "form": "Every nonempty subset of ℝ that is bounded above has a supremum in ℝ.", "type": "theorem"},
+        {"name": "Bolzano-Weierstrass theorem", "form": "Every bounded sequence in ℝⁿ has a convergent subsequence.", "type": "theorem"},
+        {"name": "Heine-Borel theorem", "form": "A subset of ℝⁿ is compact if and only if it is closed and bounded.", "type": "theorem"},
+        {"name": "Intermediate value theorem (analysis form)", "form": "If f: [a,b] → ℝ is continuous and f(a) < 0 < f(b), then there exists c ∈ (a,b) with f(c) = 0.", "type": "theorem"},
+        {"name": "Uniform limit theorem", "form": "If f_n → f uniformly on E and each f_n is continuous, then f is continuous.", "type": "theorem"},
+        {"name": "Weierstrass M-test", "form": "If |f_n(x)| ≤ M_n for all x and Σ M_n < ∞, then Σ f_n converges uniformly and absolutely.", "type": "theorem"},
+        {"name": "Lebesgue dominated convergence theorem", "form": "If f_n → f a.e. and |f_n| ≤ g with g integrable, then ∫ f_n → ∫ f.", "type": "theorem"},
+        {"name": "Monotone convergence theorem", "form": "If 0 ≤ f_n ↑ f a.e., then ∫ f_n → ∫ f (possibly ∞).", "type": "theorem"},
+        {"name": "Fatou's lemma", "form": "For nonneg. measurable f_n: ∫ liminf f_n ≤ liminf ∫ f_n.", "type": "theorem"},
+        {"name": "Hölder's inequality", "form": "∫|fg| dμ ≤ ‖f‖_p ‖g‖_q for 1/p + 1/q = 1 (conjugate exponents).", "type": "theorem"},
+        {"name": "Fubini's theorem", "form": "For integrable f on a product measure space: ∫∫ f(x,y) d(μ×ν) = ∫(∫ f(x,y) dν) dμ = ∫(∫ f(x,y) dμ) dν.", "type": "theorem"}
+      ]
+    },
+    {
+      "topic": "Complex Analysis",
+      "level": "graduate",
+      "subtopics": [
+        "Complex differentiability and holomorphic functions",
+        "Cauchy-Riemann equations",
+        "Complex integration and Cauchy's theorem",
+        "Power series and analytic functions",
+        "Singularities: removable, poles, essential",
+        "Laurent series and residues",
+        "Conformal mappings and Möbius transformations",
+        "Entire and meromorphic functions"
+      ],
+      "glossary": [
+        {"term": "holomorphic function", "definition": "A function f: U → ℂ (U open in ℂ) that is complex-differentiable at every point of U; equivalently, satisfies the Cauchy-Riemann equations with continuous partials."},
+        {"term": "analytic function", "definition": "A function representable by a convergent power series in a neighborhood of each point; for complex functions, analyticity and holomorphicity are equivalent."},
+        {"term": "Cauchy-Riemann equations", "definition": "For f = u + iv: ∂u/∂x = ∂v/∂y and ∂u/∂y = -∂v/∂x; necessary and (with continuous partials) sufficient for holomorphicity."},
+        {"term": "contour integral", "definition": "∫_γ f(z) dz = ∫_a^b f(γ(t))γ'(t) dt for a parameterized curve γ: [a,b] → ℂ."},
+        {"term": "isolated singularity", "definition": "A point z₀ where f is not defined or not holomorphic, but f is holomorphic in some punctured disk 0 < |z - z₀| < r."},
+        {"term": "residue", "definition": "Res(f, z₀) = a₋₁, the coefficient of (z - z₀)⁻¹ in the Laurent expansion of f at z₀; for a simple pole: Res(f, z₀) = lim_{z→z₀} (z-z₀)f(z)."},
+        {"term": "Möbius transformation", "definition": "A map z ↦ (az+b)/(cz+d) with ad - bc ≠ 0; a bijection of the Riemann sphere ℂ∪{∞} that maps circles and lines to circles and lines."},
+        {"term": "entire function", "definition": "A function holomorphic on all of ℂ (no singularities in the finite plane); e.g., e^z, sin z, polynomials."},
+        {"term": "meromorphic function", "definition": "A function holomorphic on a domain except at isolated poles; locally a ratio of holomorphic functions."}
+      ],
+      "canon": [
+        {"name": "Cauchy's integral theorem", "form": "If f is holomorphic on a simply connected domain D and γ is a closed contour in D, then ∮_γ f(z) dz = 0.", "type": "theorem"},
+        {"name": "Cauchy's integral formula", "form": "f^(n)(z₀) = (n!)/(2πi) ∮_γ f(z)/(z - z₀)^(n+1) dz for n = 0, 1, 2,...", "type": "theorem"},
+        {"name": "Residue theorem", "form": "∮_γ f(z) dz = 2πi Σ_k Res(f, z_k) where the sum is over poles z_k enclosed by γ (counted with winding number).", "type": "theorem"},
+        {"name": "Liouville's theorem", "form": "Every bounded entire function is constant.", "type": "theorem"},
+        {"name": "Fundamental theorem of algebra (complex analysis proof)", "form": "Every non-constant polynomial has a root in ℂ (follows from Liouville: if p(z) ≠ 0 everywhere, then 1/p is bounded entire, hence constant).", "type": "theorem"},
+        {"name": "Identity theorem", "form": "If f and g are holomorphic on a connected domain D and f = g on a set with an accumulation point in D, then f = g on all of D.", "type": "theorem"},
+        {"name": "Maximum modulus principle", "form": "A nonconstant holomorphic function on a domain D cannot attain its maximum modulus on the interior of D.", "type": "theorem"},
+        {"name": "Riemann mapping theorem", "form": "Any simply connected proper open subset of ℂ is conformally equivalent to the open unit disk.", "type": "theorem"},
+        {"name": "Laurent series", "form": "On an annulus r < |z - z₀| < R: f(z) = Σ_{n=-∞}^{∞} a_n (z - z₀)^n where a_n = (1/2πi) ∮ f(z)/(z-z₀)^(n+1) dz.", "type": "equation"},
+        {"name": "Argument principle", "form": "(1/2πi) ∮_γ f'(z)/f(z) dz = Z - P, where Z = number of zeros and P = number of poles of f inside γ (counted with multiplicity).", "type": "theorem"}
+      ]
+    },
+    {
+      "topic": "Number Theory",
+      "level": "undergrad",
+      "subtopics": [
+        "Divisibility and prime factorization",
+        "Congruences and modular arithmetic",
+        "Euler's and Fermat's theorems",
+        "Chinese remainder theorem",
+        "Quadratic residues and Legendre symbol",
+        "Arithmetic functions: φ, τ, σ, μ",
+        "Continued fractions",
+        "Gaussian integers and algebraic integers"
+      ],
+      "glossary": [
+        {"term": "congruence", "definition": "a ≡ b (mod n) means n divides (a - b); this is an equivalence relation on ℤ compatible with + and ×."},
+        {"term": "Euler's totient function φ(n)", "definition": "The count of integers in {1,...,n} coprime to n; φ(n) = n ∏_{p|n} (1 - 1/p)."},
+        {"term": "primitive root (mod n)", "definition": "An integer g whose powers g¹, g², ..., g^{φ(n)} generate all units mod n; exists iff n = 1, 2, 4, p^k, or 2p^k for odd prime p."},
+        {"term": "quadratic residue", "definition": "An integer a coprime to p is a quadratic residue mod p if a ≡ x² (mod p) has a solution; otherwise a nonresidue."},
+        {"term": "Legendre symbol", "definition": "(a/p) = 1 if a is a QR mod p, -1 if nonresidue, 0 if p|a; computable via Euler's criterion (a/p) ≡ a^((p-1)/2) (mod p)."},
+        {"term": "arithmetic function", "definition": "A function f: ℕ → ℂ; it is multiplicative if gcd(m,n)=1 implies f(mn)=f(m)f(n)."},
+        {"term": "Möbius function μ(n)", "definition": "μ(1)=1; μ(n)=(-1)^k if n is a product of k distinct primes; μ(n)=0 if n has a squared prime factor."},
+        {"term": "Gaussian integer", "definition": "A complex number a + bi with a, b ∈ ℤ; forms a UFD Z[i] in which the Euclidean algorithm applies with norm N(a+bi) = a²+b²."}
+      ],
+      "canon": [
+        {"name": "Fermat's little theorem", "form": "If p is prime and p ∤ a, then a^(p-1) ≡ 1 (mod p); equivalently a^p ≡ a (mod p) for all a.", "type": "theorem"},
+        {"name": "Euler's theorem", "form": "If gcd(a,n) = 1, then a^{φ(n)} ≡ 1 (mod n); generalizes Fermat's little theorem.", "type": "theorem"},
+        {"name": "Chinese remainder theorem", "form": "If n₁,...,n_k are pairwise coprime, the system x ≡ a_i (mod n_i) has a unique solution mod n₁...n_k.", "type": "theorem"},
+        {"name": "Wilson's theorem", "form": "(p-1)! ≡ -1 (mod p) if and only if p is prime.", "type": "theorem"},
+        {"name": "Quadratic reciprocity", "form": "For distinct odd primes p, q: (p/q)(q/p) = (-1)^{(p-1)(q-1)/4}; with supplements (−1/p) = (-1)^{(p-1)/2} and (2/p) = (-1)^{(p²-1)/8}.", "type": "theorem"},
+        {"name": "Möbius inversion formula", "form": "If f(n) = Σ_{d|n} g(d), then g(n) = Σ_{d|n} μ(n/d) f(d).", "type": "theorem"},
+        {"name": "Sum of two squares theorem", "form": "A positive integer n is a sum of two squares iff in the prime factorization of n, every prime p ≡ 3 (mod 4) occurs to an even power.", "type": "theorem"},
+        {"name": "Dirichlet's theorem on primes in arithmetic progressions", "form": "If gcd(a, m) = 1, then the arithmetic progression a, a+m, a+2m,... contains infinitely many primes.", "type": "theorem"},
+        {"name": "Euclidean algorithm for gcd", "form": "gcd(a,b) = gcd(b, a mod b); terminates and expresses gcd as integer linear combination (Bezout's identity: gcd(a,b) = sa+tb).", "type": "theorem"}
+      ]
+    },
+    {
+      "topic": "Discrete Mathematics and Combinatorics",
+      "level": "undergrad",
+      "subtopics": [
+        "Sets, relations, and functions",
+        "Mathematical induction and recursion",
+        "Counting: permutations, combinations, multinomials",
+        "Graph theory: paths, trees, coloring",
+        "Generating functions",
+        "Recurrence relations",
+        "Boolean algebra and logic",
+        "Ramsey theory (intro)"
+      ],
+      "glossary": [
+        {"term": "partial order", "definition": "A relation ≤ on a set that is reflexive (a≤a), antisymmetric (a≤b and b≤a implies a=b), and transitive (a≤b and b≤c implies a≤c)."},
+        {"term": "equivalence relation", "definition": "A relation that is reflexive, symmetric, and transitive; partitions the set into equivalence classes."},
+        {"term": "graph", "definition": "A pair G = (V, E) of a vertex set V and an edge set E ⊆ V×V; may be directed or undirected, simple or multi."},
+        {"term": "tree", "definition": "A connected acyclic graph; a tree on n vertices has exactly n-1 edges."},
+        {"term": "planar graph", "definition": "A graph that can be drawn in the plane without edge crossings."},
+        {"term": "chromatic number χ(G)", "definition": "The minimum number of colors needed to color the vertices of G so that no two adjacent vertices share a color."},
+        {"term": "generating function", "definition": "A formal power series f(x) = Σ a_n x^n encoding the sequence (a_n); used to solve recurrences and count combinatorial structures."},
+        {"term": "derangement", "definition": "A permutation with no fixed points; the number of derangements D_n = n! Σ_{k=0}^{n} (-1)^k/k! ≈ n!/e."},
+        {"term": "Catalan number", "definition": "C_n = (1/(n+1))C(2n,n); counts many combinatorial structures including valid parenthesizations, binary trees, and Dyck paths."}
+      ],
+      "canon": [
+        {"name": "Principle of mathematical induction", "form": "If P(1) is true and P(k) implies P(k+1) for all k ≥ 1, then P(n) is true for all positive integers n.", "type": "theorem"},
+        {"name": "Strong induction", "form": "If [P(1) ∧ ... ∧ P(k) ⟹ P(k+1)] for all k, then P(n) holds for all n.", "type": "theorem"},
+        {"name": "Inclusion-exclusion (combinatorial)", "form": "|A₁ ∪...∪ A_n| = Σ|A_i| - Σ|A_i∩A_j| + ... ± |A₁∩...∩A_n|", "type": "equation"},
+        {"name": "Stars and bars (integer compositions)", "form": "The number of ways to write n as an ordered sum of k non-negative integers is C(n+k-1, k-1).", "type": "equation"},
+        {"name": "Euler's formula for planar graphs", "form": "V - E + F = 2 for any connected planar graph with V vertices, E edges, and F faces (including outer face).", "type": "theorem"},
+        {"name": "Four color theorem", "form": "Every planar graph is 4-colorable (every planar map can be colored with 4 colors so no adjacent regions share a color).", "type": "theorem"},
+        {"name": "Handshaking lemma", "form": "In any graph, Σ deg(v) = 2|E|; in particular, the number of odd-degree vertices is even.", "type": "theorem"},
+        {"name": "Burnside's lemma (Polya enumeration)", "form": "The number of distinct orbits under a group G acting on set X is (1/|G|) Σ_{g∈G} |X^g| where X^g = {x : gx = x}.", "type": "theorem"},
+        {"name": "Ramsey's theorem (finite)", "form": "For any r, s there exists R(r,s) such that any 2-coloring of edges of K_{R(r,s)} contains a red K_r or blue K_s.", "type": "theorem"}
+      ]
+    },
+    {
+      "topic": "Topology",
+      "level": "graduate",
+      "subtopics": [
+        "Topological spaces: open sets, basis, subbasis",
+        "Continuity, homeomorphisms, and topological invariants",
+        "Connectedness and path-connectedness",
+        "Compactness: Tychonoff's theorem",
+        "Separation axioms (T₀ through T₄)",
+        "Homotopy and fundamental group",
+        "Covering spaces",
+        "Introduction to homology and manifolds"
+      ],
+      "glossary": [
+        {"term": "topological space", "definition": "A set X with a topology τ (a collection of open sets) satisfying: ∅ and X are open, arbitrary unions of open sets are open, and finite intersections of open sets are open."},
+        {"term": "homeomorphism", "definition": "A bijection f: X → Y such that both f and f⁻¹ are continuous; X and Y are topologically identical."},
+        {"term": "topological invariant", "definition": "A property preserved by homeomorphism, e.g., compactness, connectedness, Betti numbers."},
+        {"term": "connected space", "definition": "A topological space that cannot be partitioned into two disjoint nonempty open sets."},
+        {"term": "compact space", "definition": "A topological space where every open cover has a finite subcover."},
+        {"term": "Hausdorff space (T₂)", "definition": "A space where any two distinct points have disjoint open neighborhoods; metric spaces are Hausdorff."},
+        {"term": "homotopy", "definition": "A continuous deformation of one continuous map into another; f, g: X→Y are homotopic if there exists H: X×[0,1]→Y with H(x,0)=f(x) and H(x,1)=g(x)."},
+        {"term": "fundamental group π₁(X, x₀)", "definition": "The group of homotopy classes of loops based at x₀ in X, with concatenation as the group operation; measures 1-dimensional 'holes'."},
+        {"term": "simply connected", "definition": "A path-connected space with trivial fundamental group (π₁ = {e}); every loop is contractible to a point."},
+        {"term": "covering space", "definition": "A space X̃ with a surjection p: X̃ → X such that every point of X has an open neighborhood U whose preimage is a disjoint union of copies of U."}
+      ],
+      "canon": [
+        {"name": "Tychonoff's theorem", "form": "An arbitrary product of compact topological spaces is compact (in the product topology).", "type": "theorem"},
+        {"name": "Urysohn's lemma", "form": "In a normal space (T₄), for any two disjoint closed sets A and B, there exists a continuous f: X → [0,1] with f|_A = 0 and f|_B = 1.", "type": "theorem"},
+        {"name": "Urysohn metrization theorem", "form": "Every second-countable T₃ (regular Hausdorff) space is metrizable.", "type": "theorem"},
+        {"name": "Seifert-van Kampen theorem", "form": "If X = U ∪ V with U, V, U∩V open and path-connected, then π₁(X) ≅ π₁(U) *_{π₁(U∩V)} π₁(V) (amalgamated free product).", "type": "theorem"},
+        {"name": "Brouwer fixed-point theorem", "form": "Every continuous function f: Dⁿ → Dⁿ from the closed n-disk to itself has a fixed point.", "type": "theorem"},
+        {"name": "Classification of compact surfaces", "form": "Every compact connected surface is homeomorphic to either S², the connected sum of g tori (genus g), or the connected sum of k projective planes.", "type": "theorem"},
+        {"name": "Invariance of domain", "form": "If U ⊆ ℝⁿ is open and f: U → ℝⁿ is continuous and injective, then f(U) is open and f is a homeomorphism onto f(U).", "type": "theorem"},
+        {"name": "Borsuk-Ulam theorem", "form": "For every continuous f: Sⁿ → ℝⁿ, there exists x such that f(x) = f(-x); some two antipodal points map to the same point.", "type": "theorem"}
+      ]
+    }
+  ]
+}

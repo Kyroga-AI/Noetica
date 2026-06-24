@@ -1,0 +1,541 @@
+{
+  "domain": "biology",
+  "mmlu_subjects": ["college_biology","high_school_biology","anatomy","medical_genetics","nutrition"],
+  "mmlu_pro_category": "biology",
+  "topics": [
+    {
+      "topic": "Cell Biology",
+      "level": "intro",
+      "subtopics": [
+        "Prokaryotic vs. eukaryotic cells",
+        "Cell membrane structure and function",
+        "Organelle structure and function",
+        "Cell transport mechanisms",
+        "Cell cycle and mitosis",
+        "Meiosis and gametogenesis",
+        "Cell signaling and communication",
+        "Extracellular matrix and cell junctions"
+      ],
+      "glossary": [
+        {"term": "plasma membrane", "definition": "The phospholipid bilayer that encloses all cells, regulates transport, and mediates cell signaling."},
+        {"term": "nucleus", "definition": "Membrane-bound organelle in eukaryotes that houses the cell's DNA and serves as the site of transcription."},
+        {"term": "mitochondria", "definition": "Double-membrane organelles that are the primary site of aerobic ATP production via oxidative phosphorylation."},
+        {"term": "endoplasmic reticulum", "definition": "Network of membranes involved in protein synthesis (rough ER) and lipid synthesis and detoxification (smooth ER)."},
+        {"term": "Golgi apparatus", "definition": "Organelle that receives, modifies, sorts, and packages proteins and lipids for secretion or delivery to other organelles."},
+        {"term": "lysosome", "definition": "Organelle containing hydrolytic enzymes that degrade macromolecules and cellular debris at low pH."},
+        {"term": "ribosome", "definition": "Ribonucleoprotein complex (large and small subunits) that catalyzes translation of mRNA into protein."},
+        {"term": "cytoskeleton", "definition": "Network of microfilaments (actin), intermediate filaments, and microtubules that maintains cell shape and enables movement."},
+        {"term": "osmosis", "definition": "Passive diffusion of water across a semipermeable membrane from a region of lower solute concentration to higher solute concentration."},
+        {"term": "active transport", "definition": "Movement of molecules against their concentration gradient, requiring energy (ATP) and specific carrier proteins."},
+        {"term": "cell cycle", "definition": "Ordered sequence of events (G1, S, G2, M) by which a cell grows and divides into two daughter cells."},
+        {"term": "cytokinesis", "definition": "Division of the cytoplasm following nuclear division, producing two separate daughter cells."},
+        {"term": "tight junction", "definition": "Cell-cell junction that creates an impermeable seal between epithelial cells, preventing paracellular transport."}
+      ],
+      "canon": [
+        {"name": "Fluid mosaic model", "form": "The plasma membrane is a dynamic, selectively permeable phospholipid bilayer with embedded proteins that can move laterally.", "type": "definition"},
+        {"name": "Mitosis stages", "form": "Prophase → Metaphase → Anaphase → Telophase → Cytokinesis; produces two genetically identical diploid daughter cells.", "type": "process"},
+        {"name": "Meiosis overview", "form": "Two sequential divisions (Meiosis I: homolog separation; Meiosis II: sister chromatid separation) producing four genetically unique haploid gametes.", "type": "process"},
+        {"name": "Endosymbiotic theory", "form": "Mitochondria and chloroplasts arose from ancestral prokaryotes engulfed by a host cell; evidenced by double membranes, circular DNA, and 70S ribosomes.", "type": "definition"},
+        {"name": "Vesicular trafficking", "form": "Proteins synthesized on rough ER are packaged into vesicles, modified in the Golgi (cis → medial → trans), and dispatched to lysosomes, plasma membrane, or extracellular space.", "type": "process"},
+        {"name": "Passive vs. active transport", "form": "Passive (diffusion, facilitated diffusion, osmosis): down concentration gradient, no ATP. Active: against gradient, requires ATP (primary) or gradient (secondary).", "type": "definition"},
+        {"name": "Signal transduction cascade", "form": "Extracellular ligand binds receptor → intracellular second messengers (cAMP, Ca²⁺, IP3) → kinase cascades → gene expression or metabolic changes.", "type": "process"}
+      ]
+    },
+    {
+      "topic": "Biochemistry and Metabolism",
+      "level": "undergrad",
+      "subtopics": [
+        "Enzyme kinetics and inhibition",
+        "Glycolysis",
+        "Citric acid cycle (Krebs cycle)",
+        "Oxidative phosphorylation and electron transport chain",
+        "Gluconeogenesis and glycogen metabolism",
+        "Fatty acid oxidation and synthesis",
+        "Amino acid metabolism",
+        "Metabolic regulation and integration"
+      ],
+      "glossary": [
+        {"term": "enzyme", "definition": "A biological catalyst (usually protein) that accelerates chemical reactions by lowering activation energy without being consumed."},
+        {"term": "substrate", "definition": "The specific molecule upon which an enzyme acts, binding at the active site."},
+        {"term": "Km (Michaelis constant)", "definition": "The substrate concentration at which reaction velocity is half of Vmax; reflects enzyme-substrate affinity (lower Km = higher affinity)."},
+        {"term": "Vmax", "definition": "The maximum reaction velocity achieved when all enzyme active sites are saturated with substrate."},
+        {"term": "competitive inhibition", "definition": "Inhibitor resembles substrate and binds reversibly to the active site; raises apparent Km, Vmax unchanged; overcome by increasing substrate."},
+        {"term": "allosteric regulation", "definition": "Regulation of enzyme activity by a molecule binding to a site other than the active site, causing conformational change."},
+        {"term": "ATP", "definition": "Adenosine triphosphate; the primary cellular energy currency, releasing energy upon hydrolysis of its terminal phosphate bond."},
+        {"term": "NAD+/NADH", "definition": "Nicotinamide adenine dinucleotide; electron carrier that accepts (NAD+ → NADH) or donates electrons (NADH → NAD+) in metabolic reactions."},
+        {"term": "glycolysis", "definition": "The ten-step cytoplasmic pathway that converts one glucose into two pyruvate, yielding a net 2 ATP and 2 NADH."},
+        {"term": "oxidative phosphorylation", "definition": "The mitochondrial process coupling electron transfer through the ETC to ATP synthesis via ATP synthase, driven by the proton gradient."},
+        {"term": "beta-oxidation", "definition": "The mitochondrial process that sequentially cleaves two-carbon acetyl-CoA units from fatty acids, generating NADH, FADH2, and acetyl-CoA."},
+        {"term": "gluconeogenesis", "definition": "Synthesis of glucose from non-carbohydrate precursors (pyruvate, lactate, glycerol, amino acids), primarily in the liver."},
+        {"term": "feedback inhibition", "definition": "Regulation in which the end product of a metabolic pathway inhibits an earlier enzyme in the same pathway."}
+      ],
+      "canon": [
+        {"name": "Michaelis-Menten equation", "form": "v = Vmax[S] / (Km + [S])", "type": "equation"},
+        {"name": "Glycolysis net reaction", "form": "Glucose + 2 NAD⁺ + 2 ADP + 2 Pi → 2 Pyruvate + 2 NADH + 2 ATP + 2 H₂O", "type": "equation"},
+        {"name": "Citric acid cycle (TCA cycle)", "form": "Acetyl-CoA enters, condenses with oxaloacetate → citrate; 8 steps yield 3 NADH, 1 FADH2, 1 GTP per turn; CO2 released; oxaloacetate regenerated.", "type": "process"},
+        {"name": "Electron transport chain", "form": "NADH and FADH2 donate electrons to Complexes I–IV; electrons ultimately reduce O2 to H2O; proton gradient drives ATP synthase (Complex V); ~34 ATP per glucose.", "type": "process"},
+        {"name": "Glucose catabolism ATP yield", "form": "Complete oxidation of glucose: ~30–32 ATP (2 glycolysis + 2 TCA substrate-level + ~26–28 oxidative phosphorylation).", "type": "definition"},
+        {"name": "Competitive vs. non-competitive inhibition", "form": "Competitive: Km↑, Vmax unchanged. Non-competitive: Km unchanged, Vmax↓. Uncompetitive: both Km and Vmax↓.", "type": "definition"},
+        {"name": "Metabolic integration", "form": "Fed state: insulin promotes glycolysis, glycogenesis, lipogenesis. Fasting: glucagon/epinephrine promote glycogenolysis, gluconeogenesis, lipolysis, beta-oxidation.", "type": "process"}
+      ]
+    },
+    {
+      "topic": "Molecular Biology",
+      "level": "undergrad",
+      "subtopics": [
+        "DNA structure and replication",
+        "Transcription and RNA processing",
+        "Translation and the genetic code",
+        "Gene regulation in prokaryotes",
+        "Gene regulation in eukaryotes",
+        "Mutations and DNA repair",
+        "Recombinant DNA and biotechnology",
+        "Epigenetics"
+      ],
+      "glossary": [
+        {"term": "DNA replication", "definition": "Semiconservative copying of DNA by DNA polymerase III (prokaryotes) / Pol δ, ε (eukaryotes), always 5'→3', requiring an RNA primer."},
+        {"term": "transcription", "definition": "Synthesis of an RNA molecule complementary to the DNA template strand, catalyzed by RNA polymerase."},
+        {"term": "translation", "definition": "Ribosomal synthesis of a polypeptide chain from an mRNA template, reading codons 5'→3' and assembling amino acids N→C."},
+        {"term": "codon", "definition": "A three-nucleotide sequence in mRNA that specifies one amino acid or a stop signal; the genetic code is read in non-overlapping triplets."},
+        {"term": "promoter", "definition": "DNA sequence upstream of a gene to which RNA polymerase and transcription factors bind to initiate transcription."},
+        {"term": "operon", "definition": "A unit of prokaryotic gene regulation consisting of a promoter, operator, and co-transcribed structural genes (e.g., the lac operon)."},
+        {"term": "mRNA splicing", "definition": "Post-transcriptional removal of introns and ligation of exons by the spliceosome to produce mature mRNA in eukaryotes."},
+        {"term": "start codon", "definition": "AUG; codes for methionine (Met) and defines the start of the open reading frame in translation."},
+        {"term": "stop codon", "definition": "UAA, UAG, or UGA; codons that signal termination of translation and release of the polypeptide."},
+        {"term": "DNA polymerase", "definition": "Enzyme that synthesizes new DNA strands in the 5'→3' direction using a template; requires a primer and has 3'→5' proofreading exonuclease activity."},
+        {"term": "restriction enzyme", "definition": "Endonuclease that cleaves double-stranded DNA at specific recognition sequences; used as a tool in recombinant DNA technology."},
+        {"term": "PCR", "definition": "Polymerase chain reaction; in vitro method to exponentially amplify a specific DNA region using primers, Taq polymerase, and thermal cycling."},
+        {"term": "epigenetics", "definition": "Heritable changes in gene expression that do not involve changes in DNA sequence, mediated by histone modification, DNA methylation, and chromatin remodeling."}
+      ],
+      "canon": [
+        {"name": "Central dogma", "form": "DNA → (transcription) → RNA → (translation) → Protein; information flows from nucleic acid sequence to amino acid sequence.", "type": "process"},
+        {"name": "Semiconservative replication", "form": "Each new DNA double helix contains one original (template) strand and one newly synthesized strand; demonstrated by Meselson-Stahl experiment.", "type": "definition"},
+        {"name": "Lac operon regulation", "form": "In absence of lactose: repressor binds operator, blocking transcription. In presence of lactose: allolactose binds repressor, releases operator, allows transcription. cAMP-CAP provides positive regulation when glucose is absent.", "type": "process"},
+        {"name": "Eukaryotic transcription regulation", "form": "Transcription factors bind enhancers/silencers; mediator complex bridges to RNA Pol II at the promoter; chromatin accessibility (histone acetylation) gates access.", "type": "process"},
+        {"name": "mRNA processing in eukaryotes", "form": "5' 7-methylguanosine cap addition → splicing of introns by spliceosome → 3' poly-A tail addition; produces mature mRNA exported to cytoplasm.", "type": "process"},
+        {"name": "Genetic code properties", "form": "Triplet codons (64 total: 61 sense + 3 stop); degenerate (multiple codons per amino acid); universal across nearly all life; non-overlapping and comma-free.", "type": "definition"},
+        {"name": "DNA repair mechanisms", "form": "Mismatch repair (corrects replication errors); nucleotide excision repair (bulky lesions, UV damage); base excision repair (modified bases); homologous recombination / NHEJ (double-strand breaks).", "type": "process"}
+      ]
+    },
+    {
+      "topic": "Genetics",
+      "level": "intro",
+      "subtopics": [
+        "Mendelian inheritance",
+        "Non-Mendelian inheritance patterns",
+        "Chromosomal inheritance and sex linkage",
+        "Linkage, recombination, and genetic mapping",
+        "Quantitative genetics",
+        "Mutation types",
+        "Population genetics",
+        "Genomics and human genetics"
+      ],
+      "glossary": [
+        {"term": "allele", "definition": "One of two or more alternative forms of a gene at a given locus on a chromosome."},
+        {"term": "genotype", "definition": "The genetic constitution of an organism at one or more loci."},
+        {"term": "phenotype", "definition": "The observable physical or biochemical characteristics of an organism, resulting from genotype and environment."},
+        {"term": "dominant", "definition": "An allele whose phenotypic effect is expressed in heterozygotes (one copy sufficient); conventionally denoted by uppercase."},
+        {"term": "recessive", "definition": "An allele whose phenotypic effect is expressed only in homozygotes; masked by the dominant allele in heterozygotes."},
+        {"term": "homozygous", "definition": "Having two identical alleles at a given locus (AA or aa)."},
+        {"term": "heterozygous", "definition": "Having two different alleles at a given locus (Aa)."},
+        {"term": "test cross", "definition": "Cross between an individual of unknown genotype and a homozygous recessive individual to determine the unknown genotype from offspring ratios."},
+        {"term": "codominance", "definition": "Both alleles are fully expressed in the heterozygote (e.g., ABO blood type IA and IB alleles)."},
+        {"term": "incomplete dominance", "definition": "Heterozygote shows an intermediate phenotype between the two homozygotes (e.g., red × white → pink flowers)."},
+        {"term": "epistasis", "definition": "Interaction between genes at different loci in which one gene modifies or masks the expression of another."},
+        {"term": "genetic linkage", "definition": "Tendency of genes located close together on the same chromosome to be inherited together, deviating from independent assortment."},
+        {"term": "recombination frequency", "definition": "The proportion of recombinant offspring from a cross; used as a measure of genetic distance (1% recombination = 1 centimorgan)."}
+      ],
+      "canon": [
+        {"name": "Mendel's Law of Segregation", "form": "Each diploid organism carries two alleles for each trait, which separate during gamete formation so each gamete carries only one allele.", "type": "definition"},
+        {"name": "Mendel's Law of Independent Assortment", "form": "Alleles of different genes assort independently into gametes, provided the genes are on different chromosomes (not linked).", "type": "definition"},
+        {"name": "Monohybrid cross ratios", "form": "Aa × Aa → 1 AA : 2 Aa : 1 aa (3:1 phenotypic ratio for dominant trait).", "type": "process"},
+        {"name": "Dihybrid cross ratio", "form": "AaBb × AaBb → 9 A_B_ : 3 A_bb : 3 aaB_ : 1 aabb (9:3:3:1 phenotypic ratio).", "type": "process"},
+        {"name": "Hardy-Weinberg equilibrium", "form": "p² + 2pq + q² = 1; p + q = 1; allele frequencies stay constant in a large, randomly mating, non-evolving population.", "type": "equation"},
+        {"name": "Sex-linked inheritance", "form": "X-linked recessive traits expressed in hemizygous males (XY); females are carriers (X^A X^a); never passed father-to-son.", "type": "definition"},
+        {"name": "Chi-square test for genetics", "form": "χ² = Σ(observed − expected)² / expected; used to test whether observed ratios deviate from Mendelian expectations.", "type": "equation"}
+      ]
+    },
+    {
+      "topic": "Evolution",
+      "level": "intro",
+      "subtopics": [
+        "Natural selection mechanisms",
+        "Types of selection",
+        "Speciation",
+        "Phylogenetics and systematics",
+        "Molecular evolution",
+        "Evolutionary forces: drift, mutation, migration",
+        "Adaptation and fitness",
+        "Macroevolution and the fossil record"
+      ],
+      "glossary": [
+        {"term": "natural selection", "definition": "Differential survival and reproduction of individuals with heritable traits that increase fitness in a given environment."},
+        {"term": "fitness", "definition": "An organism's reproductive success relative to others; the measure of contribution to the gene pool of the next generation."},
+        {"term": "adaptation", "definition": "A heritable trait that increases an organism's fitness in its environment, shaped by natural selection over generations."},
+        {"term": "genetic drift", "definition": "Random changes in allele frequencies in a population, most pronounced in small populations; includes bottleneck and founder effects."},
+        {"term": "gene flow", "definition": "Transfer of alleles between populations through migration of individuals or gametes; tends to homogenize allele frequencies."},
+        {"term": "speciation", "definition": "The evolutionary process by which populations diverge to form reproductively isolated species; allopatric (geographic) and sympatric are the main modes."},
+        {"term": "reproductive isolation", "definition": "Barriers (prezygotic or postzygotic) that prevent interbreeding between populations; the defining criterion of biological species."},
+        {"term": "allopatric speciation", "definition": "Speciation driven by geographic isolation of populations, allowing independent divergence through selection and drift."},
+        {"term": "phylogeny", "definition": "A branching diagram (phylogenetic tree or cladogram) depicting evolutionary relationships among taxa based on shared derived characters."},
+        {"term": "homology", "definition": "Structural or molecular similarity between species due to shared ancestry (e.g., vertebrate forelimbs); distinguished from analogy (convergent evolution)."},
+        {"term": "molecular clock", "definition": "The concept that DNA and protein sequences accumulate mutations at an approximately constant rate, allowing estimation of divergence times."},
+        {"term": "directional selection", "definition": "Selection that favors one extreme phenotype, shifting the population mean in one direction."}
+      ],
+      "canon": [
+        {"name": "Darwinian natural selection prerequisites", "form": "Four conditions required: (1) variation in traits, (2) traits are heritable, (3) differential survival/reproduction, (4) environment is selective.", "type": "definition"},
+        {"name": "Types of natural selection", "form": "Directional (favors one extreme) → shifts mean; Stabilizing (favors intermediate) → reduces variance; Disruptive (favors both extremes) → bimodal distribution.", "type": "definition"},
+        {"name": "Hardy-Weinberg conditions (evolution null model)", "form": "No evolution if: large population, random mating, no mutation, no migration, no selection. Deviations signal evolutionary forces.", "type": "definition"},
+        {"name": "Allopatric speciation process", "form": "Geographic barrier → isolated populations → independent divergence via selection/drift → reproductive isolation → new species if secondary contact fails to produce fertile hybrids.", "type": "process"},
+        {"name": "Phylogenetic parsimony", "form": "The preferred phylogeny is the one requiring the fewest evolutionary changes (character state transitions) to explain observed data.", "type": "definition"},
+        {"name": "Sexual selection", "form": "A form of natural selection where traits increase mating success rather than survival; intrasexual (competition) and intersexual (mate choice) modes.", "type": "definition"}
+      ]
+    },
+    {
+      "topic": "Ecology",
+      "level": "intro",
+      "subtopics": [
+        "Population ecology and growth models",
+        "Species interactions",
+        "Community ecology",
+        "Ecosystem energy flow and productivity",
+        "Nutrient cycling (biogeochemical cycles)",
+        "Biomes and aquatic ecosystems",
+        "Succession",
+        "Conservation biology and biodiversity"
+      ],
+      "glossary": [
+        {"term": "population", "definition": "A group of individuals of the same species living in the same area at the same time."},
+        {"term": "carrying capacity (K)", "definition": "The maximum population size that an environment can sustain indefinitely, given available resources."},
+        {"term": "exponential growth", "definition": "Unrestricted population growth at a constant per-capita rate (r), occurring when resources are unlimited (J-shaped curve)."},
+        {"term": "logistic growth", "definition": "Population growth that slows as density increases due to resource limitation; follows an S-shaped curve, approaching carrying capacity K."},
+        {"term": "keystone species", "definition": "A species that has a disproportionately large effect on community structure relative to its abundance (e.g., sea otters controlling urchin populations)."},
+        {"term": "niche", "definition": "The ecological role and hypervolume of conditions (food, habitat, timing) used by a species; fundamental niche vs. realized niche."},
+        {"term": "competitive exclusion principle", "definition": "Two species competing for identical resources cannot coexist indefinitely; one will outcompete and exclude the other."},
+        {"term": "trophic level", "definition": "Position in a food chain defined by the number of energy-transfer steps from primary producers: producers, primary consumers, secondary consumers, etc."},
+        {"term": "biomass pyramid", "definition": "Diagram showing the total dry mass of organisms at each trophic level; typically decreases at higher levels (~10% energy transfer efficiency)."},
+        {"term": "symbiosis", "definition": "A close, persistent ecological relationship between two species; types include mutualism, commensalism, and parasitism."},
+        {"term": "succession", "definition": "Directional change in community composition over time; primary succession starts on bare substrate; secondary succession follows disturbance of existing community."},
+        {"term": "net primary productivity (NPP)", "definition": "The rate at which producers fix energy minus their own respiration; the energy available to primary consumers."}
+      ],
+      "canon": [
+        {"name": "Exponential population growth", "form": "dN/dt = rN; N(t) = N₀·e^(rt)", "type": "equation"},
+        {"name": "Logistic population growth", "form": "dN/dt = rN·(K − N)/K; growth rate is maximal at N = K/2 and declines to zero as N approaches K.", "type": "equation"},
+        {"name": "10% energy rule", "form": "Approximately 10% of energy is transferred from one trophic level to the next; the rest is lost as heat or used in respiration.", "type": "definition"},
+        {"name": "Lotka-Volterra predator-prey dynamics", "form": "Predator and prey populations cycle out of phase: prey increase → predator increase → prey decrease → predator decrease → prey rebound.", "type": "process"},
+        {"name": "Nitrogen cycle key processes", "form": "Nitrogen fixation (N₂ → NH₃ by bacteria) → nitrification (NH₃ → NO₂⁻ → NO₃⁻) → assimilation → ammonification → denitrification (NO₃⁻ → N₂).", "type": "process"},
+        {"name": "Community diversity indices", "form": "Species richness (number of species); species evenness (relative abundance); Shannon diversity index H' = −Σ(pᵢ·ln pᵢ).", "type": "definition"}
+      ]
+    },
+    {
+      "topic": "Physiology: Nervous and Endocrine Systems",
+      "level": "undergrad",
+      "subtopics": [
+        "Neuron structure and action potentials",
+        "Synaptic transmission",
+        "Central and peripheral nervous system organization",
+        "Sensory systems",
+        "Endocrine glands and hormones",
+        "Hormone signaling mechanisms",
+        "Feedback loops in homeostasis",
+        "Neuroendocrine integration"
+      ],
+      "glossary": [
+        {"term": "resting membrane potential", "definition": "The electrical potential across the plasma membrane of a resting neuron, typically −70 mV, maintained by K⁺ leak channels and the Na⁺/K⁺ ATPase."},
+        {"term": "action potential", "definition": "A rapid, all-or-none depolarization and repolarization of the neuronal membrane, propagating along the axon without decrement."},
+        {"term": "depolarization", "definition": "Change in membrane potential toward less negative values; occurs when Na⁺ rushes in through voltage-gated Na⁺ channels at threshold (~−55 mV)."},
+        {"term": "synapse", "definition": "A junction between two neurons (or neuron and effector) where electrical or chemical signals are transmitted."},
+        {"term": "neurotransmitter", "definition": "Chemical signal released from a presynaptic terminal that binds to postsynaptic receptors to transmit the nerve signal."},
+        {"term": "hormone", "definition": "A chemical messenger secreted by an endocrine gland into the bloodstream that regulates physiology and behavior of distant target cells."},
+        {"term": "negative feedback", "definition": "Regulatory mechanism in which a change in a variable triggers a response that opposes and reverses that change, maintaining homeostasis."},
+        {"term": "EPSP/IPSP", "definition": "Excitatory/inhibitory postsynaptic potential; small depolarizations or hyperpolarizations that summate (temporal and spatial summation) to determine if threshold is reached."},
+        {"term": "myelin sheath", "definition": "Lipid-rich insulation formed by oligodendrocytes (CNS) or Schwann cells (PNS) that speeds action potential propagation by saltatory conduction."},
+        {"term": "Nernst potential", "definition": "The equilibrium membrane potential for a single ion species, at which the electrical gradient exactly opposes the chemical gradient."},
+        {"term": "hypothalamic-pituitary axis", "definition": "Central neuroendocrine control hub: hypothalamic releasing/inhibiting hormones regulate anterior pituitary hormone secretion, which controls peripheral endocrine glands."},
+        {"term": "second messenger", "definition": "Intracellular signaling molecule (cAMP, IP3, DAG, Ca²⁺) generated in response to hormone-receptor binding, amplifying and transducing the signal."}
+      ],
+      "canon": [
+        {"name": "Nernst equation", "form": "E_ion = (RT/zF) · ln([ion]_out / [ion]_in) ≈ (61.5/z) · log₁₀([ion]_out / [ion]_in) mV at 37°C", "type": "equation"},
+        {"name": "Action potential sequence", "form": "Resting (−70 mV) → threshold stimulus → voltage-gated Na⁺ channels open → rapid depolarization (+30 mV) → inactivation of Na⁺ channels → K⁺ channels open → repolarization → hyperpolarization → refractory period → reset.", "type": "process"},
+        {"name": "Chemical synapse transmission", "form": "Action potential arrives → Ca²⁺ influx at presynaptic terminal → vesicle fusion → neurotransmitter released into cleft → binds postsynaptic receptors → EPSP or IPSP → reuptake/degradation.", "type": "process"},
+        {"name": "Hypothalamic-pituitary-thyroid axis", "form": "Low T3/T4 → hypothalamus releases TRH → pituitary releases TSH → thyroid releases T3/T4 → negative feedback to hypothalamus and pituitary.", "type": "process"},
+        {"name": "Hormone receptor mechanisms", "form": "Peptide hormones: bind surface receptors → second messengers (fast). Steroid hormones: lipid-soluble, cross membrane → intracellular receptors → direct gene regulation (slow, sustained).", "type": "definition"}
+      ]
+    },
+    {
+      "topic": "Physiology: Cardiovascular, Respiratory, and Renal Systems",
+      "level": "undergrad",
+      "subtopics": [
+        "Heart anatomy and cardiac cycle",
+        "Blood pressure and vascular resistance",
+        "Blood composition and hemoglobin",
+        "Gas exchange and oxygen transport",
+        "Ventilation mechanics",
+        "Kidney structure and nephron function",
+        "Urine formation: filtration, reabsorption, secretion",
+        "Fluid and electrolyte homeostasis"
+      ],
+      "glossary": [
+        {"term": "cardiac output", "definition": "Volume of blood pumped by the heart per minute: CO = stroke volume × heart rate; normal ~5 L/min at rest."},
+        {"term": "stroke volume", "definition": "Volume of blood ejected by the left ventricle per beat; influenced by preload, contractility, and afterload."},
+        {"term": "hemoglobin", "definition": "The tetrameric oxygen-transport protein in red blood cells; each subunit carries one heme group that binds one O₂ molecule cooperatively."},
+        {"term": "oxyhemoglobin dissociation curve", "definition": "Sigmoidal curve describing hemoglobin O₂ saturation as a function of pO₂; rightward shift (Bohr effect) with ↑CO₂, ↑H⁺, ↑temperature, ↑2,3-BPG."},
+        {"term": "alveolus", "definition": "Tiny air sac in the lung across whose thin wall (type I pneumocytes) gas exchange occurs between air and pulmonary capillaries."},
+        {"term": "glomerular filtration rate (GFR)", "definition": "Volume of plasma filtered by the kidneys per minute (~125 mL/min); a key indicator of kidney function."},
+        {"term": "nephron", "definition": "The functional unit of the kidney; consists of the glomerulus, Bowman's capsule, proximal tubule, loop of Henle, distal tubule, and collecting duct."},
+        {"term": "reabsorption", "definition": "Recovery of filtered substances (glucose, amino acids, Na⁺, water) from the tubular lumen back into peritubular capillaries."},
+        {"term": "Frank-Starling mechanism", "definition": "The intrinsic ability of the heart to increase stroke volume in response to increased venous return (preload), due to greater sarcomere stretch."},
+        {"term": "Bohr effect", "definition": "Reduced hemoglobin-O₂ affinity at lower pH and higher CO₂, facilitating O₂ unloading in metabolically active tissues."},
+        {"term": "renin-angiotensin-aldosterone system (RAAS)", "definition": "Hormonal cascade activated by low blood pressure/Na⁺: renin (kidney) → angiotensin I → ACE → angiotensin II → aldosterone release → Na⁺ and water retention → BP increase."},
+        {"term": "antidiuretic hormone (ADH/vasopressin)", "definition": "Posterior pituitary peptide that increases water reabsorption in the collecting duct by inserting aquaporin-2 channels, concentrating urine."}
+      ],
+      "canon": [
+        {"name": "Cardiac output equation", "form": "CO = SV × HR; MAP ≈ CO × TPR (total peripheral resistance)", "type": "equation"},
+        {"name": "Oxygen transport", "form": "O₂ bound to hemoglobin (97%) and dissolved in plasma (3%); cooperative binding (Hill coefficient ~2.8); O₂ content = (Hb × 1.34 × SaO₂) + (0.003 × pO₂).", "type": "process"},
+        {"name": "Urine formation in nephron", "form": "Glomerular filtration (pressure-driven, ~125 mL/min) → tubular reabsorption (Na⁺, glucose, water) → secretion (H⁺, K⁺, drugs) → final urine ~1.5 L/day.", "type": "process"},
+        {"name": "Henderson-Hasselbalch equation (blood pH)", "form": "pH = pKa + log([HCO₃⁻] / [H₂CO₃]); normal arterial pH 7.4, [HCO₃⁻] 24 mEq/L, PCO₂ 40 mmHg.", "type": "equation"},
+        {"name": "Ventilation-perfusion matching", "form": "Efficient gas exchange requires matched V/Q ratios; pulmonary vessels constrict in hypoxic regions (HPV) to divert blood to ventilated alveoli.", "type": "process"}
+      ]
+    },
+    {
+      "topic": "Microbiology",
+      "level": "undergrad",
+      "subtopics": [
+        "Bacterial cell structure",
+        "Bacterial growth and reproduction",
+        "Bacterial metabolism and respiration",
+        "Viral structure and replication cycles",
+        "Bacteriophage biology",
+        "Microbial genetics: transformation, transduction, conjugation",
+        "Antimicrobial agents and resistance",
+        "Pathogenesis and virulence"
+      ],
+      "glossary": [
+        {"term": "prokaryote", "definition": "Single-celled organism lacking a membrane-bound nucleus and organelles; bacteria and archaea; smaller and simpler than eukaryotes."},
+        {"term": "peptidoglycan", "definition": "The structural polymer of bacterial cell walls forming a mesh-like layer; thicker in gram-positive, thin outer layer in gram-negative bacteria."},
+        {"term": "gram stain", "definition": "Differential staining technique: gram-positive bacteria (thick peptidoglycan) retain crystal violet (purple); gram-negative (thin PG + outer membrane) stain pink with safranin."},
+        {"term": "binary fission", "definition": "Asexual reproduction of bacteria in which the cell replicates its chromosome, elongates, and divides into two identical daughter cells."},
+        {"term": "generation time", "definition": "The time required for a bacterial population to double; varies from ~20 minutes (E. coli) to hours or days for slow-growing species."},
+        {"term": "lytic cycle", "definition": "Viral replication pathway in which the virus hijacks host machinery, replicates, and lyses the host cell to release progeny virions."},
+        {"term": "lysogenic cycle", "definition": "Replication pathway in which the viral genome (prophage) integrates into the host chromosome and replicates passively with the host until induced."},
+        {"term": "plasmid", "definition": "Small, circular, extrachromosomal DNA element in bacteria that can replicate autonomously and often carries antibiotic resistance genes."},
+        {"term": "conjugation", "definition": "Direct transfer of DNA (often a plasmid) between two bacteria via a pilus (sex pilus) and cytoplasmic bridge; requires an F-factor."},
+        {"term": "antibiotic resistance mechanisms", "definition": "Bacteria resist antibiotics via: enzymatic inactivation (beta-lactamases), target modification, efflux pumps, or reduced permeability."},
+        {"term": "endospore", "definition": "Highly resistant, metabolically dormant structure formed by some gram-positive bacteria (Bacillus, Clostridium) to survive extreme conditions."},
+        {"term": "capsid", "definition": "The protein shell surrounding a viral genome; composed of protomeric subunits (capsomers); icosahedral or helical symmetry."}
+      ],
+      "canon": [
+        {"name": "Bacterial growth curve", "form": "Lag phase (metabolic adjustment) → Exponential phase (rapid log growth) → Stationary phase (growth = death, nutrient limitation) → Death phase (exponential die-off).", "type": "process"},
+        {"name": "Viral replication cycle", "form": "Attachment (adsorption) → Penetration (injection/endocytosis) → Uncoating → Biosynthesis (genome replication + protein synthesis) → Assembly → Release (budding or lysis).", "type": "process"},
+        {"name": "Horizontal gene transfer in bacteria", "form": "Three mechanisms: Transformation (uptake of naked DNA), Transduction (bacteriophage-mediated transfer), Conjugation (plasmid transfer via pilus).", "type": "definition"},
+        {"name": "Antibiotic targets", "form": "Cell wall synthesis (beta-lactams, vancomycin) → lysis; Protein synthesis 30S (aminoglycosides, tetracyclines) or 50S (macrolides, chloramphenicol); DNA gyrase (fluoroquinolones); RNA polymerase (rifampin).", "type": "definition"}
+      ]
+    },
+    {
+      "topic": "Immunology",
+      "level": "undergrad",
+      "subtopics": [
+        "Innate immunity",
+        "Adaptive immunity overview",
+        "Antigen presentation and MHC",
+        "B cells and antibody production",
+        "T cell biology",
+        "Immune memory and vaccination",
+        "Hypersensitivity reactions",
+        "Immunodeficiency and autoimmunity"
+      ],
+      "glossary": [
+        {"term": "antigen", "definition": "Any molecule (typically foreign protein) that is recognized by the immune system and can elicit an adaptive immune response."},
+        {"term": "antibody (immunoglobulin)", "definition": "Y-shaped glycoprotein produced by plasma cells; binds specific antigens via variable regions (Fab); effector functions via constant region (Fc)."},
+        {"term": "B lymphocyte", "definition": "Adaptive immune cell that matures in bone marrow, expresses B-cell receptor (membrane immunoglobulin), and differentiates into antibody-secreting plasma cells or memory B cells."},
+        {"term": "T lymphocyte", "definition": "Adaptive immune cell that matures in the thymus; CD4+ helper T cells coordinate immune responses; CD8+ cytotoxic T cells kill infected cells."},
+        {"term": "MHC (major histocompatibility complex)", "definition": "Cell-surface proteins that present peptide antigens to T cells; MHC-I (on all nucleated cells, presents to CD8+ T cells) and MHC-II (on APCs, presents to CD4+ T cells)."},
+        {"term": "clonal selection", "definition": "Process by which an antigen selectively activates the specific lymphocytes bearing complementary receptors, causing them to proliferate (clonal expansion)."},
+        {"term": "innate immunity", "definition": "Non-specific, immediate first-line defense that does not require prior exposure; includes physical barriers, phagocytes, complement, and pattern-recognition receptors (TLRs)."},
+        {"term": "complement system", "definition": "Cascade of plasma proteins that opsonize pathogens, promote inflammation, and lyse cells via the membrane attack complex (MAC)."},
+        {"term": "inflammation", "definition": "Vascular and cellular response to infection or injury characterized by redness, heat, swelling, and pain; driven by cytokines, histamine, and prostaglandins."},
+        {"term": "opsonization", "definition": "Coating of a pathogen with antibodies or complement (C3b) to enhance recognition and phagocytosis by macrophages and neutrophils."},
+        {"term": "cytokine", "definition": "Small signaling protein secreted by immune cells that regulates immune responses (e.g., interleukins, interferons, TNF-α)."},
+        {"term": "vaccination", "definition": "Deliberate exposure to an antigen (attenuated pathogen, subunit, mRNA-encoded protein) to prime immunological memory without causing disease."}
+      ],
+      "canon": [
+        {"name": "Clonal selection and expansion", "form": "Antigen binds cognate receptor on naive B or T cell → activation (requires costimulation for T cells) → rapid proliferation → effector cells + memory cells.", "type": "process"},
+        {"name": "Antibody structure", "form": "Two heavy and two light chains connected by disulfide bonds; Fab regions (variable domains VH + VL) determine antigen specificity; Fc region determines isotype function (IgG, IgM, IgA, IgE, IgD).", "type": "definition"},
+        {"name": "MHC-I vs MHC-II presentation", "form": "MHC-I: endogenous (cytoplasmic) peptides loaded in ER → present to CD8+ T cells → cytotoxic response (kills infected cells). MHC-II: exogenous (endocytosed) peptides loaded in lysosomes → present to CD4+ T cells → helper response.", "type": "definition"},
+        {"name": "Primary vs. secondary immune response", "form": "Primary: slow (7–10 days), low-titer IgM, then IgG; creates memory. Secondary: faster (2–3 days), higher-titer IgG, greater affinity (class switching + somatic hypermutation).", "type": "definition"},
+        {"name": "Hypersensitivity types", "form": "Type I: IgE-mediated immediate (allergy, anaphylaxis). Type II: IgG/IgM against cell-surface antigens. Type III: immune complex deposition. Type IV: delayed-type (T cell-mediated, e.g., contact dermatitis, TB skin test).", "type": "definition"}
+      ]
+    },
+    {
+      "topic": "Developmental Biology",
+      "level": "undergrad",
+      "subtopics": [
+        "Fertilization and cleavage",
+        "Gastrulation and germ layer formation",
+        "Organogenesis",
+        "Cell fate determination and induction",
+        "Developmental signaling pathways",
+        "Stem cells and potency",
+        "Homeotic genes and body plan",
+        "Aging and senescence"
+      ],
+      "glossary": [
+        {"term": "fertilization", "definition": "Fusion of a sperm and egg to form a diploid zygote, the single-celled precursor to the entire organism."},
+        {"term": "cleavage", "definition": "Rapid mitotic divisions of the zygote without growth, producing the morula and then the blastula/blastocyst."},
+        {"term": "gastrulation", "definition": "Morphogenetic process that converts the blastula into a three-layered gastrula (ectoderm, mesoderm, endoderm) through cell migration."},
+        {"term": "germ layers", "definition": "Three primary cell layers formed during gastrulation: ectoderm (skin, nervous system), mesoderm (muscle, bone, blood), endoderm (gut lining, lungs, liver)."},
+        {"term": "induction", "definition": "Process by which one group of cells (organizer) signals neighboring cells to change their developmental fate."},
+        {"term": "totipotent", "definition": "Capacity of a cell to develop into any cell type, including extra-embryonic tissues; only the zygote and early blastomeres are totipotent."},
+        {"term": "pluripotent", "definition": "Capacity to differentiate into any cell type of the body proper but not extra-embryonic tissues; embryonic stem cells (ESCs) and iPSCs are pluripotent."},
+        {"term": "homeotic gene", "definition": "A regulatory gene that specifies body segment identity during development; contains a homeobox encoding the DNA-binding homeodomain."},
+        {"term": "neural tube", "definition": "Embryonic precursor to the brain and spinal cord, formed by folding of the neural plate ectoderm; failure to close causes anencephaly or spina bifida."},
+        {"term": "apoptosis", "definition": "Programmed cell death involving caspase activation, DNA fragmentation, and cell shrinkage; essential for development (e.g., digit sculpting) and tissue homeostasis."},
+        {"term": "morphogen gradient", "definition": "A diffusible signaling molecule whose concentration gradient provides positional information to cells, specifying different cell fates at different thresholds."}
+      ],
+      "canon": [
+        {"name": "Germ layer derivatives", "form": "Ectoderm → epidermis, nervous system, sensory organs. Mesoderm → muscle, skeleton, circulatory system, kidneys, gonads. Endoderm → digestive and respiratory epithelium, liver, pancreas.", "type": "definition"},
+        {"name": "Embryonic induction (Spemann organizer)", "form": "Dorsal lip of the blastopore (Spemann-Mangold organizer) secretes BMP antagonists (noggin, chordin) → permits neural fate in dorsal ectoderm; transplantation of organizer induces a second axis.", "type": "process"},
+        {"name": "Hox gene collinearity", "form": "Hox genes are arranged in chromosomal clusters; gene order on chromosome mirrors expression pattern along anterior-posterior axis (spatial collinearity).", "type": "definition"},
+        {"name": "Notch-Delta signaling (lateral inhibition)", "form": "Cell expressing Delta ligand activates Notch on neighbor → cleaves NICD → NICD translocates to nucleus → activates target genes; produces alternating cell fate patterns.", "type": "process"},
+        {"name": "Wnt, Hedgehog, and BMP pathways", "form": "Wnt (via β-catenin), Hedgehog (via Gli TFs), and BMP (via Smad TFs) are conserved developmental signaling pathways used repeatedly for patterning and differentiation.", "type": "definition"}
+      ]
+    },
+    {
+      "topic": "Anatomy",
+      "level": "intro",
+      "subtopics": [
+        "Anatomical terminology and body planes",
+        "Skeletal system",
+        "Muscular system and muscle contraction",
+        "Integumentary system",
+        "Digestive system anatomy",
+        "Reproductive anatomy",
+        "Lymphatic system",
+        "Nervous system gross anatomy"
+      ],
+      "glossary": [
+        {"term": "anatomical position", "definition": "Standard reference position: body erect, facing forward, arms at sides with palms facing anteriorly."},
+        {"term": "sagittal plane", "definition": "Vertical plane dividing the body into left and right portions; midsagittal (median) plane divides into equal halves."},
+        {"term": "sarcomere", "definition": "The basic contractile unit of skeletal muscle, from Z-disk to Z-disk, containing overlapping thick (myosin) and thin (actin) filaments."},
+        {"term": "sliding filament theory", "definition": "Muscle contraction mechanism: myosin heads bind actin, undergo power stroke (pivot), shorten the sarcomere by pulling thin filaments toward center; requires ATP and Ca²⁺."},
+        {"term": "periosteum", "definition": "The dense connective tissue membrane covering the outer surface of bones; contains osteoblasts, osteoclasts, and blood vessels for remodeling."},
+        {"term": "synovial joint", "definition": "Freely movable joint with a synovial cavity, articular cartilage, and synovial membrane secreting lubricating fluid; includes hinge, ball-and-socket types."},
+        {"term": "dermis", "definition": "The deep layer of the skin beneath the epidermis; contains collagen, elastin, blood vessels, sweat glands, hair follicles, and nerve endings."},
+        {"term": "villus (intestinal)", "definition": "Finger-like projection of intestinal mucosa that increases surface area for nutrient absorption; epithelium contains enterocytes with microvilli (brush border)."},
+        {"term": "meninges", "definition": "Three protective membranes (dura mater, arachnoid mater, pia mater) surrounding the brain and spinal cord; CSF circulates in the subarachnoid space."},
+        {"term": "lymph node", "definition": "Secondary lymphoid organ along lymphatic vessels that filters lymph, houses B and T lymphocytes, and initiates adaptive immune responses."}
+      ],
+      "canon": [
+        {"name": "Sliding filament model of muscle contraction", "form": "Nerve impulse → ACh released → motor end plate depolarizes → Ca²⁺ released from SR → Ca²⁺ binds troponin → tropomyosin moves → actin sites exposed → myosin cross-bridge cycling → sarcomere shortens.", "type": "process"},
+        {"name": "Bone remodeling", "form": "Osteoclasts (bone resorption) and osteoblasts (bone deposition) continuously remodel bone; regulated by mechanical loading, parathyroid hormone (↑resorption), and calcitonin (↑deposition).", "type": "process"},
+        {"name": "Skin layers", "form": "Epidermis (keratinized stratified squamous; layers from deep to surface: stratum basale → spinosum → granulosum → lucidum → corneum) → dermis → hypodermis.", "type": "definition"},
+        {"name": "Directional anatomical terms", "form": "Superior/inferior (above/below), anterior/posterior (front/back), medial/lateral (toward/away from midline), proximal/distal (near/far from origin), superficial/deep.", "type": "definition"}
+      ]
+    },
+    {
+      "topic": "Plant Biology",
+      "level": "intro",
+      "subtopics": [
+        "Plant cell structure and cell wall",
+        "Photosynthesis (light reactions and Calvin cycle)",
+        "Plant organization: roots, stems, leaves",
+        "Water and nutrient transport (xylem, phloem)",
+        "Plant hormones",
+        "Plant reproduction and alternation of generations",
+        "C3, C4, and CAM photosynthesis",
+        "Plant responses to the environment"
+      ],
+      "glossary": [
+        {"term": "chloroplast", "definition": "Double-membrane organelle in plant cells that conducts photosynthesis; thylakoid membranes house the light reactions; stroma contains the Calvin cycle enzymes."},
+        {"term": "photosynthesis", "definition": "Process by which plants, algae, and cyanobacteria capture light energy to synthesize glucose from CO₂ and H₂O, releasing O₂."},
+        {"term": "thylakoid", "definition": "Flattened membranous sac within the chloroplast; stacked into grana; site of the light-dependent reactions and chlorophyll."},
+        {"term": "stroma", "definition": "Fluid-filled space of the chloroplast surrounding the thylakoids; site of the Calvin cycle (carbon fixation)."},
+        {"term": "xylem", "definition": "Vascular tissue that conducts water and dissolved minerals upward from roots; composed of dead tracheids and vessel elements; lignified walls."},
+        {"term": "phloem", "definition": "Vascular tissue that transports photosynthate (sucrose) and other organic solutes bidirectionally; composed of living sieve tube elements and companion cells."},
+        {"term": "transpiration", "definition": "Evaporative loss of water vapor from leaves through stomata; drives the transpiration-cohesion-tension mechanism for water ascent in xylem."},
+        {"term": "stomata", "definition": "Pores in the leaf epidermis surrounded by guard cells that regulate gas exchange (CO₂ in, O₂ and H₂O out) and transpiration."},
+        {"term": "auxin", "definition": "Plant hormone (indole-3-acetic acid) promoting cell elongation; responsible for phototropism and gravitropism; produced at shoot apical meristems."},
+        {"term": "alternation of generations", "definition": "Plant life cycle alternating between diploid sporophyte (spore-producing) and haploid gametophyte (gamete-producing) generations."},
+        {"term": "RuBisCO", "definition": "Ribulose-1,5-bisphosphate carboxylase/oxygenase; the enzyme that catalyzes carbon fixation in the Calvin cycle; the most abundant protein on Earth."},
+        {"term": "photorespiration", "definition": "The wasteful process in which RuBisCO adds O₂ instead of CO₂ to RuBP, consuming energy and releasing CO₂; minimized in C4 and CAM plants."}
+      ],
+      "canon": [
+        {"name": "Photosynthesis overall reaction", "form": "6 CO₂ + 6 H₂O + light energy → C₆H₁₂O₆ + 6 O₂", "type": "equation"},
+        {"name": "Light reactions (photophosphorylation)", "form": "Photosystem II absorbs light → water oxidized → O₂ released → electrons pass through ETC → proton gradient → ATP synthase → ATP; electrons to Photosystem I → NADPH produced.", "type": "process"},
+        {"name": "Calvin cycle (dark reactions)", "form": "Carbon fixation: CO₂ + RuBP (C5) → 2× 3-PGA (via RuBisCO) → Reduction: 3-PGA → G3P (using ATP + NADPH) → Regeneration: G3P → RuBP (net 3 CO₂ → 1 G3P).", "type": "process"},
+        {"name": "C3 vs C4 vs CAM photosynthesis", "form": "C3: CO₂ fixed directly by RuBisCO into 3-PGA; prone to photorespiration. C4: CO₂ pre-fixed as 4-carbon acid in mesophyll, concentrated in bundle sheath for RuBisCO. CAM: stomata open at night, CO₂ stored as malate, released by day; desert adaptation.", "type": "definition"},
+        {"name": "Cohesion-tension mechanism for water transport", "form": "Transpiration pull at leaves creates tension → water cohesion (H-bonds) transmits tension down xylem column → water drawn up from roots; adhesion to xylem walls assists.", "type": "process"},
+        {"name": "Plant hormone actions", "form": "Auxin: cell elongation, apical dominance, tropisms. Cytokinin: cell division, delays senescence. Gibberellin: stem elongation, seed germination. Abscisic acid (ABA): stomatal closure, dormancy. Ethylene: fruit ripening, leaf abscission.", "type": "definition"}
+      ]
+    },
+    {
+      "topic": "Medical Genetics",
+      "level": "undergrad",
+      "subtopics": [
+        "Chromosomal abnormalities",
+        "Single-gene (Mendelian) disorders",
+        "Pedigree analysis",
+        "Multifactorial inheritance",
+        "Genomic imprinting",
+        "Pharmacogenomics",
+        "Cancer genetics",
+        "Genetic testing and counseling"
+      ],
+      "glossary": [
+        {"term": "karyotype", "definition": "The complete set of chromosomes of a cell, arranged by size and morphology; used to detect chromosomal abnormalities."},
+        {"term": "aneuploidy", "definition": "Abnormal chromosome number due to nondisjunction; includes trisomy (47 chromosomes) and monosomy (45 chromosomes)."},
+        {"term": "trisomy 21 (Down syndrome)", "definition": "Presence of three copies of chromosome 21; most common viable autosomal trisomy; associated with intellectual disability, characteristic facial features, and heart defects."},
+        {"term": "autosomal dominant disorder", "definition": "A disorder caused by a single mutant allele (heterozygous sufficient); parent-to-child transmission (50% risk); each generation affected (e.g., Huntington's, Marfan syndrome)."},
+        {"term": "autosomal recessive disorder", "definition": "A disorder requiring two mutant alleles; carriers are unaffected; 25% recurrence risk to offspring of two carriers (e.g., cystic fibrosis, sickle cell disease, PKU)."},
+        {"term": "X-linked recessive disorder", "definition": "Disorder caused by a recessive allele on the X chromosome; primarily affects males (hemizygous); females are carriers; examples: hemophilia A, Duchenne muscular dystrophy."},
+        {"term": "nondisjunction", "definition": "Failure of homologous chromosomes or sister chromatids to separate during meiosis (or mitosis), producing aneuploid cells."},
+        {"term": "genomic imprinting", "definition": "Epigenetic phenomenon in which gene expression depends on the parent of origin; one allele is silenced by methylation; disruption causes Prader-Willi or Angelman syndrome."},
+        {"term": "oncogene", "definition": "A mutated/overexpressed proto-oncogene that drives uncontrolled cell proliferation; acts dominantly (gain-of-function); examples: RAS, MYC, HER2."},
+        {"term": "tumor suppressor gene", "definition": "Gene that normally limits cell growth; both alleles must be lost or inactivated to contribute to cancer (two-hit hypothesis); examples: TP53, RB1, BRCA1."},
+        {"term": "LOD score", "definition": "Logarithm of odds score used in genetic linkage analysis; LOD > 3 considered significant evidence for linkage (1000:1 odds)."},
+        {"term": "penetrance", "definition": "The proportion of individuals carrying a disease-causing allele who actually manifest the associated phenotype; incomplete penetrance complicates pedigree analysis."}
+      ],
+      "canon": [
+        {"name": "Autosomal dominant pedigree pattern", "form": "Trait appears in every generation; ~50% of offspring of an affected parent are affected; male and female equally affected; affected individuals usually heterozygous.", "type": "definition"},
+        {"name": "Autosomal recessive pedigree pattern", "form": "Unaffected parents can have affected children (carrier × carrier → 25% affected); skips generations; consanguinity increases risk; equal sex distribution.", "type": "definition"},
+        {"name": "X-linked recessive pedigree pattern", "form": "Primarily males affected; affected males from carrier mothers; no father-to-son transmission; daughters of affected males are obligate carriers.", "type": "definition"},
+        {"name": "Knudson two-hit hypothesis", "form": "Two mutational events required to inactivate both copies of a tumor suppressor gene; in hereditary cancers, first hit is germline (inherited), second is somatic; in sporadic, both are somatic.", "type": "definition"},
+        {"name": "Common chromosomal trisomies", "form": "Trisomy 21 (Down): intellectual disability, +21. Trisomy 18 (Edwards): severe, often lethal, +18. Trisomy 13 (Patau): severe defects, +13. 47,XXY (Klinefelter): infertility, tall stature. 45,X (Turner): short stature, gonadal dysgenesis.", "type": "definition"}
+      ]
+    },
+    {
+      "topic": "Nutrition and Metabolism",
+      "level": "intro",
+      "subtopics": [
+        "Macronutrients: carbohydrates, proteins, fats",
+        "Micronutrients: vitamins and minerals",
+        "Digestion and absorption",
+        "Energy balance and body weight regulation",
+        "Nutritional deficiencies and excesses",
+        "Diet and chronic disease",
+        "Metabolic disorders",
+        "Specialized nutritional needs"
+      ],
+      "glossary": [
+        {"term": "essential nutrient", "definition": "A nutrient the body cannot synthesize in adequate amounts and must obtain from the diet; includes essential amino acids, fatty acids, vitamins, and minerals."},
+        {"term": "essential amino acids", "definition": "The nine amino acids (His, Ile, Leu, Lys, Met, Phe, Thr, Trp, Val) that cannot be synthesized by the human body and must be obtained from diet."},
+        {"term": "glycemic index", "definition": "A measure of how rapidly a carbohydrate food raises blood glucose relative to pure glucose (reference = 100); high GI foods cause rapid glucose spikes."},
+        {"term": "basal metabolic rate (BMR)", "definition": "The minimum energy expenditure required to maintain basic physiological functions at rest in a thermoneutral environment; the largest component of total energy expenditure."},
+        {"term": "vitamin", "definition": "Organic micronutrient required in small amounts for normal metabolism; classified as fat-soluble (A, D, E, K) or water-soluble (C, B vitamins)."},
+        {"term": "vitamin D", "definition": "Fat-soluble vitamin/prohormone; activated form (1,25-dihydroxycholecalciferol, calcitriol) promotes Ca²⁺ and phosphate absorption from gut; deficiency causes rickets (children) or osteomalacia (adults)."},
+        {"term": "iron deficiency anemia", "definition": "The most common nutritional deficiency worldwide; inadequate iron reduces hemoglobin synthesis; symptoms include fatigue, pallor, microcytic hypochromic red blood cells."},
+        {"term": "lipoproteins", "definition": "Protein-lipid complexes that transport cholesterol and triglycerides in the bloodstream; classified by density: chylomicrons, VLDL, IDL, LDL, HDL."},
+        {"term": "nitrogen balance", "definition": "The difference between dietary nitrogen intake and excretion; positive balance (growth/pregnancy), negative balance (starvation, illness), zero balance (healthy adult)."},
+        {"term": "ketone bodies", "definition": "Acetoacetate, beta-hydroxybutyrate, and acetone; produced in the liver from acetyl-CoA during prolonged fasting or carbohydrate restriction; alternative fuel for brain and muscle."},
+        {"term": "antioxidant", "definition": "Compound (vitamins C, E; beta-carotene; selenium; polyphenols) that neutralizes reactive oxygen species, reducing oxidative damage to cellular components."}
+      ],
+      "canon": [
+        {"name": "Macronutrient energy densities", "form": "Carbohydrates: 4 kcal/g; Protein: 4 kcal/g; Fat: 9 kcal/g; Alcohol: 7 kcal/g.", "type": "definition"},
+        {"name": "Digestion and absorption overview", "form": "Mouth (salivary amylase, mechanical) → stomach (pepsin, acid, protein denaturation) → small intestine (pancreatic enzymes, bile salts, brush-border enzymes) → major absorption in jejunum → large intestine (water, electrolyte reabsorption, fermentation).", "type": "process"},
+        {"name": "Fat-soluble vitamins summary", "form": "Vitamin A: vision, epithelium. Vitamin D: Ca²⁺ homeostasis, bone. Vitamin E: antioxidant, membrane. Vitamin K: coagulation (factors II, VII, IX, X). Deficiency risk with fat malabsorption.", "type": "definition"},
+        {"name": "B-vitamin coenzyme roles", "form": "B1 (thiamine): TPP in TCA/glycolysis. B2 (riboflavin): FAD/FMN. B3 (niacin): NAD+/NADP+. B5 (pantothenic acid): CoA. B6 (pyridoxine): PLP in transamination. B9 (folate): 1-C transfers, DNA synthesis. B12 (cobalamin): methylation, nerve function.", "type": "definition"},
+        {"name": "Insulin and glucagon in nutrient homeostasis", "form": "Fed state: glucose ↑ → insulin ↑ → promotes glucose uptake, glycogenesis, lipogenesis, protein synthesis. Fasted state: glucose ↓ → glucagon ↑ → promotes glycogenolysis, gluconeogenesis, lipolysis.", "type": "process"}
+      ]
+    }
+  ]
+}
