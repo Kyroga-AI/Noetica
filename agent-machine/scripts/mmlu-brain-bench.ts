@@ -874,11 +874,30 @@ async function main() {
             let inter = 0; for (const t of TCs[i]!) if (TQ.has(t)) inter++
             const incl = TCs[i]!.size === 0 ? 0 : (inter > 0 ? inter / (new Set([...TQ, ...TCs[i]!]).size || 1) : -0.2)   // discrete set inclusion/exclusion
             const score = 0.7 * cohesion + 0.2 * uniqueness + 0.1 * incl               // a DEFAULT blend for the arm's letter; the combiner relearns these weights per regime
-            feats.push({ cohesion: +cohesion.toFixed(4), uniqueness: +uniqueness.toFixed(4), incl: +incl.toFixed(3), score: +score.toFixed(4) })
+            feats.push({ cohesion: +cohesion.toFixed(4), uniqueness: +uniqueness.toFixed(4), incl: +incl.toFixed(3),
+              pos: i, len: +(q.choices[i]!.length / 120).toFixed(3), nents: TCs[i]!.size, ontopic: inter > 0 ? 1 : 0,   // structural + descriptive columns
+              score: +score.toFixed(4) })
             if (score > bs) { bs = score; bi = i }
           }
           row['cohere'] = { pick: bi, gold: LETTERS.indexOf(gold), feats }             // RAW per-choice features (the points) — combiner training data; letter below = the aggregate measure
           letter = LETTERS[bi]!; mode = `cohere:${bs.toFixed(2)}`
+        } else if (arm === 'ladder') {            // STAGED elimination: drop the weakest one at a time, Monty-Hall
+          // re-normalize the posterior over the survivors at EACH stage, and record the per-stage state — so we
+          // measure eliminate-1 (stage 0) vs 50:50 (stage 1) vs runoff (last) and learn WHERE to stop (the gap).
+          const { post } = await probePosterior(q.question, q.choices, pools, widerPools)
+          let cur = q.choices.map((_, i) => i)
+          const stages: Array<{ k: number; eliminated: string; pick: string; gap: number; conf: number; post: Record<string, number> }> = []
+          while (cur.length > 1) {
+            const z = cur.reduce((s, i) => s + post[i]!, 0) || 1
+            const p = cur.map((i) => ({ i, p: post[i]! / z })).sort((a, b) => b.p - a.p)   // Monty-Hall renorm over survivors
+            const weakest = p[p.length - 1]!.i
+            stages.push({ k: q.choices.length - cur.length, eliminated: LETTERS[weakest]!, pick: LETTERS[p[0]!.i]!,
+              gap: +((p[0]!.p) - (p[1]?.p ?? 0)).toFixed(3), conf: +p[0]!.p.toFixed(3),
+              post: Object.fromEntries(p.map((x) => [LETTERS[x.i]!, +x.p.toFixed(3)])) })
+            cur = cur.filter((i) => i !== weakest)                                          // eliminate the weakest
+          }
+          row['ladder'] = { gold, stages }                                                 // stage0=eliminate-1, stage1=50:50, last=runoff — per-stage gap is the stopping classifier's signal
+          letter = LETTERS[cur[0]!]!; mode = `ladder:${stages.length}st`
         } else if (arm === 'defs') {              // STRUCTURAL definition-grounding (concept-defs): CLEAN KG defs, not noisy transcripts
           // Tests the thesis (Wolfson §4 / audit #1): retrieval is bounded by ONTOLOGICAL alignment, not the
           // model — so ground on disambiguated Wikipedia definitions (field-qualified + embedding-WSD) instead
