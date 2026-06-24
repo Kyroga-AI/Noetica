@@ -854,23 +854,30 @@ async function main() {
         } else if (arm === 'ground') {            // CANON GROUNDING: the question's entities → glossary defs + related equations/models + prereq decomposition + bridges
           const g = canonGround(`${q.question} ${q.choices.join(' ')}`)
           letter = extractLetter(await ask(`${g ? g + '\n\n' : ''}Exam question:\n${base}${ANSWER_RULE}`)); mode = g ? 'ground' : 'no-canon'
-        } else if (arm === 'cohere') {            // Choice-Coherence Elimination: pick the choice most CONNECTED to the question
-          // centroid by vector match (continuous) + lexical-set inclusion/exclusion (discrete). No answer generation.
+        } else if (arm === 'cohere') {            // Choice-Coherence Elimination. EMITS the RAW per-choice feature
+          // matrix (cohesion, uniqueness, set-incl) into the row — NOT just the argmax pick — so the transcript is
+          // training data for the n-furcated combiner (no aggregation that loses the points). The letter is still
+          // produced for the aggregate accuracy column: we keep BOTH the features and the measure.
           const setOf = (text: string): Set<string> => { const s = new Set<string>(); for (const e of canonEntities(text, 8)) { s.add(e.tkey); for (const a of canonAncestors(e.term)) s.add(a.toLowerCase()) } return s }
-          const cos = (a: number[], b: number[]): number => { let s = 0, na = 0, nb = 0; const n = Math.min(a.length, b.length); for (let i = 0; i < n; i++) { s += a[i]! * b[i]!; na += a[i]! ** 2; nb += b[i]! ** 2 } return s / ((Math.sqrt(na) * Math.sqrt(nb)) || 1) }
-          const muQ = await embedCached(`${q.question}\n${canonGround(q.question)}`)   // the "combined topics" centroid
+          const cos = (a: number[], b: number[]): number => { if (!a.length || !b.length) return 0; let s = 0, na = 0, nb = 0; const n = Math.min(a.length, b.length); for (let i = 0; i < n; i++) { s += a[i]! * b[i]!; na += a[i]! ** 2; nb += b[i]! ** 2 } return s / ((Math.sqrt(na) * Math.sqrt(nb)) || 1) }
+          const muQ = await embedCached(`${q.question}\n${canonGround(q.question)}`)   // the question ("combined topics") centroid
           const TQ = setOf(q.question)
+          const cvs: number[][] = []; const TCs: Array<Set<string>> = []
+          for (const c of q.choices) { cvs.push(await embedCached(`${c}\n${canonGround(c)}`)); TCs.push(setOf(c)) }   // spelling-bee: expand + embed each choice
+          const feats: Array<{ cohesion: number; uniqueness: number; incl: number; score: number }> = []
           let bi = 0, bs = -Infinity
           for (let i = 0; i < q.choices.length; i++) {
-            const c = q.choices[i]!
-            const xv = await embedCached(`${c}\n${canonGround(c)}`)                     // spelling-bee: expand the choice, then embed
-            const TC = setOf(c)
-            let inter = 0; for (const t of TC) if (TQ.has(t)) inter++
-            const union = new Set([...TQ, ...TC]).size || 1
-            const incl = TC.size === 0 ? 0 : (inter > 0 ? inter / union : -0.2)        // disjoint topic-set → exclusion penalty
-            const score = 0.8 * cos(muQ, xv) + 0.2 * incl                              // blend continuous + discrete
+            const cohesion = cos(muQ, cvs[i]!)                                          // continuous: connection to the question
+            const others = cvs.filter((v, j) => j !== i && v.length > 0)               // uniqueness: distance from the OTHER choices' centroid (the inversion signal)
+            const muO = others.length ? others[0]!.map((_, d) => others.reduce((s, v) => s + (v[d] ?? 0), 0) / others.length) : []
+            const uniqueness = others.length ? 1 - cos(cvs[i]!, muO) : 0
+            let inter = 0; for (const t of TCs[i]!) if (TQ.has(t)) inter++
+            const incl = TCs[i]!.size === 0 ? 0 : (inter > 0 ? inter / (new Set([...TQ, ...TCs[i]!]).size || 1) : -0.2)   // discrete set inclusion/exclusion
+            const score = 0.7 * cohesion + 0.2 * uniqueness + 0.1 * incl               // a DEFAULT blend for the arm's letter; the combiner relearns these weights per regime
+            feats.push({ cohesion: +cohesion.toFixed(4), uniqueness: +uniqueness.toFixed(4), incl: +incl.toFixed(3), score: +score.toFixed(4) })
             if (score > bs) { bs = score; bi = i }
           }
+          row['cohere'] = { pick: bi, gold: LETTERS.indexOf(gold), feats }             // RAW per-choice features (the points) — combiner training data; letter below = the aggregate measure
           letter = LETTERS[bi]!; mode = `cohere:${bs.toFixed(2)}`
         } else if (arm === 'defs') {              // STRUCTURAL definition-grounding (concept-defs): CLEAN KG defs, not noisy transcripts
           // Tests the thesis (Wolfson §4 / audit #1): retrieval is bounded by ONTOLOGICAL alignment, not the
