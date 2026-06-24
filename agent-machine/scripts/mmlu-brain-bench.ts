@@ -35,7 +35,7 @@ import { execFileSync } from 'node:child_process'
 import { embedText } from '../lib/ollama.js'
 import { councilVote, learnedCouncilVote } from '../lib/council.js'
 import { fetchConceptDef, cleanTerm } from '../lib/concept-defs.js'
-import { canonBridges, canonGround } from '../lib/canon-lookup.js'
+import { canonBridges, canonGround, canonEntities, canonAncestors } from '../lib/canon-lookup.js'
 import { associativeRetrieve } from '../lib/graph-ppr.js'
 import { decodeVec, l2norm } from '../lib/brain-vec.js'
 
@@ -854,6 +854,24 @@ async function main() {
         } else if (arm === 'ground') {            // CANON GROUNDING: the question's entities → glossary defs + related equations/models + prereq decomposition + bridges
           const g = canonGround(`${q.question} ${q.choices.join(' ')}`)
           letter = extractLetter(await ask(`${g ? g + '\n\n' : ''}Exam question:\n${base}${ANSWER_RULE}`)); mode = g ? 'ground' : 'no-canon'
+        } else if (arm === 'cohere') {            // Choice-Coherence Elimination: pick the choice most CONNECTED to the question
+          // centroid by vector match (continuous) + lexical-set inclusion/exclusion (discrete). No answer generation.
+          const setOf = (text: string): Set<string> => { const s = new Set<string>(); for (const e of canonEntities(text, 8)) { s.add(e.tkey); for (const a of canonAncestors(e.term)) s.add(a.toLowerCase()) } return s }
+          const cos = (a: number[], b: number[]): number => { let s = 0, na = 0, nb = 0; const n = Math.min(a.length, b.length); for (let i = 0; i < n; i++) { s += a[i]! * b[i]!; na += a[i]! ** 2; nb += b[i]! ** 2 } return s / ((Math.sqrt(na) * Math.sqrt(nb)) || 1) }
+          const muQ = await embedCached(`${q.question}\n${canonGround(q.question)}`)   // the "combined topics" centroid
+          const TQ = setOf(q.question)
+          let bi = 0, bs = -Infinity
+          for (let i = 0; i < q.choices.length; i++) {
+            const c = q.choices[i]!
+            const xv = await embedCached(`${c}\n${canonGround(c)}`)                     // spelling-bee: expand the choice, then embed
+            const TC = setOf(c)
+            let inter = 0; for (const t of TC) if (TQ.has(t)) inter++
+            const union = new Set([...TQ, ...TC]).size || 1
+            const incl = TC.size === 0 ? 0 : (inter > 0 ? inter / union : -0.2)        // disjoint topic-set → exclusion penalty
+            const score = 0.8 * cos(muQ, xv) + 0.2 * incl                              // blend continuous + discrete
+            if (score > bs) { bs = score; bi = i }
+          }
+          letter = LETTERS[bi]!; mode = `cohere:${bs.toFixed(2)}`
         } else if (arm === 'defs') {              // STRUCTURAL definition-grounding (concept-defs): CLEAN KG defs, not noisy transcripts
           // Tests the thesis (Wolfson §4 / audit #1): retrieval is bounded by ONTOLOGICAL alignment, not the
           // model — so ground on disambiguated Wikipedia definitions (field-qualified + embedding-WSD) instead
