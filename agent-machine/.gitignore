@@ -2,3 +2,4 @@
 mesh-vs-frontier.*.json
 __pycache__/
 canon/induced-kg.jsonl
+canon/prereq-dag.json
