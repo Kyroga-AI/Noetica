@@ -28,9 +28,11 @@ let DEFS: Map<string, DefEntry> | null = null
 let BRIDGES: Map<string, string[]> | null = null
 let TOPICS: Map<string, TopicEntry> | null = null        // "domain::topic" → {level, equations}
 let PREREQ: Map<string, string[]> | null = null          // "domain::topic" → prerequisite topic names
+let ISA: Map<string, string> | null = null               // norm(child) → parent genus (lexical-closure IS-A, DEDUCED)
+let EQNAMES: Map<string, { domain: string; topic: string; name: string }> | null = null   // equation/card names as entities
 
 function load(): void {
-  DEFS = new Map(); BRIDGES = new Map(); TOPICS = new Map(); PREREQ = new Map()
+  DEFS = new Map(); BRIDGES = new Map(); TOPICS = new Map(); PREREQ = new Map(); ISA = new Map(); EQNAMES = new Map()
   // specs: glossary definitions + canonical equations per topic
   try {
     for (const f of readdirSync(CANON).filter((x) => x.startsWith('spec-') && x.endsWith('.json'))) {
@@ -77,6 +79,31 @@ function load(): void {
       }
     }
   } catch { /* prereq-dag absent */ }
+  // lexical-closure IS-A (lexical-closure.py): the DEDUCED genus chains. The embedding manifold is continuous
+  // (kmeans silhouette <0.1 — clusters blend), so clean set membership lives in this DISCRETE hierarchy, not
+  // in vector clusters. norm(child) → parent genus; canonInFamily walks it for O(depth) inclusion/exclusion.
+  try {
+    for (const e of (JSON.parse(readFileSync(join(CANON, 'lexical-hierarchy.json'), 'utf8')).edges ?? []) as Array<{ child: string; parent: string }>) {
+      ISA!.set(norm(e.child), e.parent)
+    }
+  } catch { /* lexical hierarchy absent */ }
+  // equation/card NAMES are matchable entities too (e.g. "kinetic energy" is an equation name, not a glossary
+  // term) — so canonEntities/canonRoute resolve them to their topic + equations. Built after the cards merge.
+  for (const [, e] of TOPICS!) for (const eq of e.eqs) { const k = norm(eq.name); if (k && !EQNAMES!.has(k)) EQNAMES!.set(k, { domain: e.domain, topic: e.topic, name: eq.name }) }
+}
+
+/** Genus chain of a term via the lexical-closure IS-A hierarchy (deduced). [] if it's not a compound term. */
+export function canonAncestors(term: string): string[] {
+  if (!ISA) load()
+  const out: string[] = []; let cur = norm(term); const seen = new Set<string>()
+  while (ISA!.has(cur) && !seen.has(cur)) { seen.add(cur); const p = ISA!.get(cur)!; out.push(p); cur = norm(p) }
+  return out
+}
+
+/** Set inclusion: is `term` in the `genus` family (genus an ancestor of term)? Discrete + deduced, O(depth).
+ *  At canon scale this is exact; at corpus scale swap for a per-genus Bloom filter (same membership semantics). */
+export function canonInFamily(term: string, genus: string): boolean {
+  return canonAncestors(term).some((a) => norm(a) === norm(genus))
 }
 
 /** Clean authored definition for a term (the canon glossary), or null → caller falls through unchanged. */
@@ -96,11 +123,14 @@ export function canonEntities(text: string, max = 8): CanonEntity[] {
   if (!DEFS) load()
   const padded = ` ${norm(text)} `
   const words = new Set(padded.trim().split(' '))
+  const present = (k: string): boolean => (k.includes(' ') ? padded.includes(` ${k} `) : (k.length >= 4 && words.has(k)))
   const hits: CanonEntity[] = []
+  const seen = new Set<string>()
   for (const [k, d] of DEFS!) {
-    const multi = k.includes(' ')
-    const present = multi ? padded.includes(` ${k} `) : (k.length >= 4 && words.has(k))
-    if (present) hits.push({ term: k, def: d.def, domain: d.domain, topic: d.topic, tkey: tkey(d.domain, d.topic) })
+    if (present(k)) { hits.push({ term: k, def: d.def, domain: d.domain, topic: d.topic, tkey: tkey(d.domain, d.topic) }); seen.add(k) }
+  }
+  for (const [k, e] of EQNAMES!) {                     // equation/card names are entities too (e.g. "kinetic energy")
+    if (!seen.has(k) && present(k)) { hits.push({ term: e.name, def: '', domain: e.domain, topic: e.topic, tkey: tkey(e.domain, e.topic) }); seen.add(k) }
   }
   hits.sort((a, b) => b.term.length - a.term.length)   // prefer specific multi-word terms over short generics
   return hits.slice(0, max)
