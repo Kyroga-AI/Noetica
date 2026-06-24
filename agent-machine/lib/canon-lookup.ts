@@ -48,6 +48,19 @@ function load(): void {
       }
     }
   } catch { /* specs absent */ }
+  // enrich topic equations with the cards deck (seq2seq-mined formulas written back, attribute-equivalence
+  // deduped by seq2seq-to-cards.py) — so the mined equations ground answers via canonGround, not just the
+  // hand-authored canon[]. Deduped here too by normalized form so a card already in canon[] isn't doubled.
+  try {
+    for (const line of readFileSync(join(CANON, 'cards.jsonl'), 'utf8').split('\n')) {
+      if (!line.trim()) continue
+      const c = JSON.parse(line) as { front: string; back: string; domain: string; topic: string }
+      const e = TOPICS!.get(tkey(c.domain, c.topic))
+      if (e && !e.eqs.some((x) => x.form.replace(/\s+/g, '') === c.back.replace(/\s+/g, ''))) {
+        e.eqs.push({ name: c.front.split(':')[0]!.trim(), form: c.back })
+      }
+    }
+  } catch { /* cards deck absent */ }
   // sense-aware cross-domain bridges (cross-domain-links.json: from/to are "domain:label")
   try {
     const xl = JSON.parse(readFileSync(join(CANON, 'cross-domain-links.json'), 'utf8'))
