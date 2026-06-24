@@ -36,6 +36,7 @@ import * as dns from 'node:dns'
 import * as net from 'node:net'
 import { originAllowed } from './lib/origin-guard.js'
 import { isConfinedToHomeOrTmp } from './lib/path-confine.js'
+import { buildLearnerBrief } from './lib/learner-brief.js'
 import { buildRouterDecision, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider } from './lib/router.js'
 import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTelemetry, type MeshTier } from './lib/scope-d.js'
 import { installEgressGuard, setOfflineMode } from './lib/egress-guard.js'
@@ -3326,7 +3327,16 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     }
   } catch { /* procedural-memory best-effort */ }
 
-  const enrichedSystemPrompt = basePrompt + dateLine + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + episodeContext + goalContext + skillsContext + reasoningDirective + verbosityNote + modeNote + lifeDomain.safetyNote + profile.authorizationSuffix
+  // Learn primer (new-workspace onboarding): prime the chat with the learner's Academy state — degree,
+  // prerequisite frontier, domain teaching persona — plus canon focus context. Sourced from the Alexandrian
+  // Academy + our canon, NOT personal mail/drive. Empty when the request carries no learner_id (or no profile
+  // on file), so this is a zero-impact default for non-learner sessions.
+  let learnerContext = ''
+  try {
+    const lid = (body as { learner_id?: string }).learner_id
+    if (lid) { const brief = buildLearnerBrief(String(lid)); if (brief) learnerContext = `\n\n${brief}` }
+  } catch { /* learner brief is best-effort */ }
+  const enrichedSystemPrompt = basePrompt + dateLine + learnerContext + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + episodeContext + goalContext + skillsContext + reasoningDirective + verbosityNote + modeNote + lifeDomain.safetyNote + profile.authorizationSuffix
 
   // Token budget: rough estimate (4 chars ≈ 1 token). If message history + system prompt
   // exceeds 70% of the model's context window, trim oldest non-system messages.
