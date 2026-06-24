@@ -7,8 +7,8 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 echo "════ sync-knowledge — canon → {alignment, graph, ontology} ════"
-echo "▸ 1/4 keyed-vec alignment (canon topics → MMLU/MMLU-Pro coverage + the holes)"
-python3 scripts/canon-keyvec-align.py 2>&1 | grep -E '#|HOLE|wrote' | tail -3
+echo "▸ 1/4 keyed-vec alignment on OUR academic vectors (canon topics → MMLU/MMLU-Pro coverage + holes)"
+MODEL="${KV_MODEL:-academic}" python3 scripts/canon-keyvec-align.py 2>&1 | grep -E '#|HOLE|wrote' | tail -3
 echo "▸ 2/4 sense-aware cross-domain links"
 python3 scripts/canon-graph-links.py 2>&1 | grep -E '#|links|wrote' | tail -2
 echo "▸ 3/4 HellGraph ingest (kvClass default linking class + cross-domain edges)"
