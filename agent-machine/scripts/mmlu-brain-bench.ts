@@ -604,6 +604,11 @@ function pct(a: number, b: number): string { return b ? (100 * a / b).toFixed(1)
 
 // ── verified-compute arm: the model only PARSES; units + the law catalog compute and certify ──
 const COMPUTE_PY = path.join(__dirname, 'compute_arm.py')
+// HARD ceiling on every sympy/python subprocess. execFileSync with NO timeout waits forever — a pathological
+// sympy solve()/integrate() froze the whole board at a subject boundary (done stuck → 15-min watchdog kill →
+// resume re-runs the same subject → same hang: an unbreakable loop). On timeout it throws → the existing
+// catch returns abstains → the board ALWAYS advances. Tunable via MMLU_SUBPROC_TIMEOUT_MS.
+const SUBPROC_TIMEOUT = Number(process.env['MMLU_SUBPROC_TIMEOUT_MS'] || 120_000)
 const EVAL_PY = path.join(__dirname, 'eval_sympy.py')
 const AUTOFORM_K = Number(process.env['MMLU_AUTOFORM_K'] || 3)  // sympy formalizations sampled per question
 
@@ -655,7 +660,7 @@ async function autoformBatch(qs: Q[]): Promise<CompRes[]> {
   if (!exprs.length) return res
   const byId = new Map<number, number[]>()
   try {
-    const out = execFileSync('python3', [EVAL_PY], { input: exprs.map((e) => JSON.stringify(e)).join('\n') + '\n', encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, env: { ...process.env } })
+    const out = execFileSync('python3', [EVAL_PY], { input: exprs.map((e) => JSON.stringify(e)).join('\n') + '\n', encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, env: { ...process.env }, timeout: SUBPROC_TIMEOUT, killSignal: 'SIGKILL' })
     for (const line of out.split('\n')) {
       if (!line.trim()) continue
       try {
@@ -682,7 +687,7 @@ function computeBatch(qs: Q[], contexts: string[] = []): CompRes[] {
   // identifies the method from real worked examples instead of cold-parsing the question.
   const input = qs.map((q, i) => JSON.stringify({ id: i, question: q.question, choices: q.choices, context: contexts[i] || '' })).join('\n') + '\n'
   try {
-    const out = execFileSync('python3', [COMPUTE_PY, '--batch'], { input, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env } })
+    const out = execFileSync('python3', [COMPUTE_PY, '--batch'], { input, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env }, timeout: SUBPROC_TIMEOUT, killSignal: 'SIGKILL' })
     for (const line of out.split('\n')) {
       if (!line.trim()) continue
       try { const r = JSON.parse(line) as { id: number; answer: string | null; mode: string }; if (typeof r.id === 'number' && r.id < res.length) res[r.id] = { answer: r.answer, mode: r.mode } } catch { /* skip a bad line */ }
@@ -710,7 +715,7 @@ function ktypeBatch(qs: Q[]): KType[] {
   if (!qs.length) return res
   const input = qs.map((q, i) => JSON.stringify({ id: i, question: q.question, choices: q.choices })).join('\n') + '\n'
   try {
-    const out = execFileSync('python3', [KTYPE_PY, '--batch'], { input, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, env: { ...process.env } })
+    const out = execFileSync('python3', [KTYPE_PY, '--batch'], { input, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, env: { ...process.env }, timeout: SUBPROC_TIMEOUT, killSignal: 'SIGKILL' })
     for (const line of out.split('\n')) {
       if (!line.trim()) continue
       try { const r = JSON.parse(line) as { id: number; types: string[]; solver: string }; if (typeof r.id === 'number' && r.id < res.length) res[r.id] = { types: r.types, solver: r.solver } } catch { /* skip */ }
