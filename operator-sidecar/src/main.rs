@@ -151,12 +151,18 @@ fn handle_infer(cache: &Cache, body: &str) -> Response<std::io::Cursor<Vec<u8>>>
     // TS runtime validates too, but the sidecar must never trust its caller).
     let mut ort_inputs: Vec<(String, ort::value::DynValue)> = Vec::with_capacity(req.inputs.len());
     for (name, t) in req.inputs {
-        let n: i64 = t.shape.iter().product();
         if t.shape.iter().any(|&d| d <= 0) {
             return err(format!("input '{name}': shape dims must be positive"), 400);
         }
-        if n > MAX_ELEMENTS {
-            return err(format!("input '{name}': {n} elements exceeds cap {MAX_ELEMENTS}"), 400);
+        // CHECKED product. A crafted shape whose i64 product WRAPS (release builds have no overflow checks)
+        // would otherwise pass every guard below — then ONNX Runtime reads out of bounds and SIGSEGVs the
+        // single-threaded sidecar. Fold with checked_mul, capping at MAX_ELEMENTS each step so n never wraps.
+        let mut n: i64 = 1;
+        for &d in &t.shape {
+            match n.checked_mul(d) {
+                Some(v) if v <= MAX_ELEMENTS => n = v,
+                _ => return err(format!("input '{name}': element count overflows or exceeds cap {MAX_ELEMENTS}"), 400),
+            }
         }
         if n as usize != t.data.len() {
             return err(format!("input '{name}': data length {} != product(shape) {n}", t.data.len()), 400);

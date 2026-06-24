@@ -96,6 +96,26 @@ export interface ProvisionResult { ok: boolean; message: string; path?: string }
 
 const MAX_MODEL_BYTES = 2 * 1024 * 1024 * 1024 // 2 GB — generous; refuse a runaway download
 
+/** Fetch that follows redirects MANUALLY, re-validating every hop with urlAllowed. A bare `fetch` follows 30x
+ *  automatically, so an allowed https URL could redirect to http://internal / a non-loopback host and defeat the
+ *  https-only policy (redirect SSRF / downgrade). We can't just forbid redirects — GitHub's
+ *  releases/latest/download legitimately 302s to a CDN — so we follow, but only ever to another allowed URL. */
+async function fetchValidatingRedirects(start: string, init: RequestInit, maxHops = 5): Promise<Response> {
+  let current = start
+  for (let hop = 0; ; hop++) {
+    if (!urlAllowed(current)) throw new Error(`blocked redirect to a disallowed URL (${current}) — must be https or loopback http`)
+    if (hop > maxHops) throw new Error('too many redirects')
+    const res = await fetch(current, { ...init, redirect: 'manual' })
+    if (res.status >= 300 && res.status < 400) {
+      const loc = res.headers.get('location')
+      if (!loc) return res
+      current = new URL(loc, current).toString() // resolve relative Location against the current URL, then re-check
+      continue
+    }
+    return res
+  }
+}
+
 /** Download + install a model `.onnx` into the operator dir. Atomic (temp → fsync → rename), integrity-checked
  *  when a sha256 is known, never overwriting the live file until the bytes are complete + verified. */
 export async function provisionOperatorModel(name: string, onProgress?: (p: ProvisionProgress) => void): Promise<ProvisionResult> {
@@ -108,7 +128,7 @@ export async function provisionOperatorModel(name: string, onProgress?: (p: Prov
   const tmp = path.join(operatorDir(), `.tmp-${safeOperatorName(name)}-${Date.now()}.onnx`)
   try {
     onProgress?.({ phase: 'downloading', pct: 0 })
-    const res = await fetch(url, { signal: AbortSignal.timeout(30 * 60_000) })
+    const res = await fetchValidatingRedirects(url, { signal: AbortSignal.timeout(30 * 60_000) })
     if (!res.ok || !res.body) return { ok: false, message: `download failed: HTTP ${res.status}` }
     const total = Number(res.headers.get('content-length') || 0)
     let seen = 0

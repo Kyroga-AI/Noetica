@@ -82,3 +82,21 @@ test('a malformed tensor is rejected, the sidecar stays healthy for the next cal
   const r = await rt.operatorInfer('identity', { x: { shape: [1, 1, 1, 1], data: [42] } })
   assert.deepEqual(r.outputs.y!.data, [42])
 })
+
+test('a shape-product OVERFLOW is rejected by the sidecar (no crash) — hits /infer directly', { skip: SKIP && reason }, async () => {
+  // The TS client would block this on its own (JS numbers don't wrap), so we POST RAW to the sidecar to
+  // exercise the Rust-side guard. shape [2^31,2^31,2^31] i64-products to 0 (wraps) — pre-fix that passed
+  // validation with an empty buffer and SIGSEGV'd ONNX Runtime, killing the single-threaded sidecar.
+  await rt.operatorInfer('identity', { x: { shape: [1, 1, 1, 1], data: [1] } }) // ensure the sidecar is up
+  const base = `http://127.0.0.1:${process.env['NOETICA_OPERATOR_PORT']}`
+  const evil = await fetch(`${base}/infer`, {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ model: 'identity', inputs: { x: { shape: [2147483648, 2147483648, 2147483648], data: [] } } }),
+  })
+  assert.equal(evil.status, 400, 'overflow shape must be rejected, not crash the sidecar')
+  // The sidecar must still be alive + serving afterwards.
+  const health = await fetch(`${base}/health`)
+  assert.equal(health.status, 200)
+  const ok = await rt.operatorInfer('identity', { x: { shape: [1, 1, 1, 1], data: [7] } })
+  assert.deepEqual(ok.outputs.y!.data, [7])
+})
