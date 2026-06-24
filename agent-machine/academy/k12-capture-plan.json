@@ -1,0 +1,158 @@
+{
+ "_doc": "interest-first K-12 capture plan (which node \u2190 which open sources)",
+ "plan": [
+  {
+   "interest": "dinosaurs",
+   "node": "s.classify",
+   "node_name": "Living vs Non-living & Classification",
+   "subject": "science",
+   "open_sources": [
+    "OpenStax",
+    "PhET",
+    "Siyavula",
+    "NASA / Smithsonian / LOC"
+   ],
+   "segmented_sources": [
+    "CK-12",
+    "MIT BLOSSOMS"
+   ]
+  },
+  {
+   "interest": "dinosaurs",
+   "node": "s.lifecycle",
+   "node_name": "Life Cycles & Ecosystems",
+   "subject": "science",
+   "open_sources": [
+    "OpenStax",
+    "PhET",
+    "Siyavula",
+    "NASA / Smithsonian / LOC"
+   ],
+   "segmented_sources": [
+    "CK-12",
+    "MIT BLOSSOMS"
+   ]
+  },
+  {
+   "interest": "space & rockets",
+   "node": "s.earthspace",
+   "node_name": "Earth & Space (intro)",
+   "subject": "science",
+   "open_sources": [
+    "OpenStax",
+    "PhET",
+    "Siyavula",
+    "NASA / Smithsonian / LOC"
+   ],
+   "segmented_sources": [
+    "CK-12",
+    "MIT BLOSSOMS"
+   ]
+  },
+  {
+   "interest": "space & rockets",
+   "node": "s.forces",
+   "node_name": "Forces, Motion & Energy (intro)",
+   "subject": "science",
+   "open_sources": [
+    "OpenStax",
+    "PhET",
+    "Siyavula",
+    "NASA / Smithsonian / LOC"
+   ],
+   "segmented_sources": [
+    "CK-12",
+    "MIT BLOSSOMS"
+   ]
+  },
+  {
+   "interest": "video games & coding",
+   "node": "m.muldiv",
+   "node_name": "Multiplication & Division",
+   "subject": "mathematics",
+   "open_sources": [
+    "OpenStax",
+    "Illustrative Mathematics",
+    "PhET",
+    "Siyavula"
+   ],
+   "segmented_sources": [
+    "CK-12",
+    "EngageNY",
+    "MIT BLOSSOMS"
+   ]
+  },
+  {
+   "interest": "video games & coding",
+   "node": "s.method",
+   "node_name": "The Scientific Method & Experiment Design",
+   "subject": "science",
+   "open_sources": [
+    "OpenStax",
+    "PhET",
+    "Siyavula",
+    "NASA / Smithsonian / LOC"
+   ],
+   "segmented_sources": [
+    "CK-12",
+    "MIT BLOSSOMS"
+   ]
+  },
+  {
+   "interest": "stories & writing",
+   "node": "e.comprehension",
+   "node_name": "Reading Comprehension",
+   "subject": "language_arts",
+   "open_sources": [
+    "Project Gutenberg"
+   ],
+   "segmented_sources": [
+    "EngageNY"
+   ]
+  },
+  {
+   "interest": "stories & writing",
+   "node": "e.literature",
+   "node_name": "Literature, Genre & Analysis",
+   "subject": "language_arts",
+   "open_sources": [
+    "Project Gutenberg"
+   ],
+   "segmented_sources": [
+    "EngageNY"
+   ]
+  },
+  {
+   "interest": "animals & nature",
+   "node": "s.classify",
+   "node_name": "Living vs Non-living & Classification",
+   "subject": "science",
+   "open_sources": [
+    "OpenStax",
+    "PhET",
+    "Siyavula",
+    "NASA / Smithsonian / LOC"
+   ],
+   "segmented_sources": [
+    "CK-12",
+    "MIT BLOSSOMS"
+   ]
+  },
+  {
+   "interest": "animals & nature",
+   "node": "s.lifecycle",
+   "node_name": "Life Cycles & Ecosystems",
+   "subject": "science",
+   "open_sources": [
+    "OpenStax",
+    "PhET",
+    "Siyavula",
+    "NASA / Smithsonian / LOC"
+   ],
+   "segmented_sources": [
+    "CK-12",
+    "MIT BLOSSOMS"
+   ]
+  }
+ ]
+}
