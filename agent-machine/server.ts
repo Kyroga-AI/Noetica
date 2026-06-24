@@ -37,6 +37,7 @@ import * as net from 'node:net'
 import { originAllowed } from './lib/origin-guard.js'
 import { isConfinedToHomeOrTmp } from './lib/path-confine.js'
 import { buildLearnerBrief } from './lib/learner-brief.js'
+import { buildK12Brief } from './lib/k12-portfolio.js'
 import { buildRouterDecision, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider } from './lib/router.js'
 import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTelemetry, type MeshTier } from './lib/scope-d.js'
 import { installEgressGuard, setOfflineMode } from './lib/egress-guard.js'
@@ -3334,7 +3335,10 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   let learnerContext = ''
   try {
     const lid = (body as { learner_id?: string }).learner_id
-    if (lid) { const brief = buildLearnerBrief(String(lid)); if (brief) learnerContext = `\n\n${brief}` }
+    if (lid) {
+      const briefs = [buildLearnerBrief(String(lid)), buildK12Brief(String(lid))].filter(Boolean)   // undergrad degree and/or K-12 self-directed
+      if (briefs.length) learnerContext = `\n\n${briefs.join('\n\n')}`
+    }
   } catch { /* learner brief is best-effort */ }
   // Canon grounding (PROMOTABLE, off by default): the question's entities → canon glossary definitions +
   // related equations/models + prerequisite decomposition + cross-domain bridges. Turns the static canon
