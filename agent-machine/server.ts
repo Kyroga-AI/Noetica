@@ -2501,9 +2501,23 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   } catch (err) {
     // Don't silently swallow — log the real cause (sanitized for log-injection) so a transient failure
     // (e.g. the coder model still pulling on first build request) is diagnosable instead of an opaque error.
-    console.error('[chat] turn failed:', String(err instanceof Error ? err.stack || err.message : err).replace(/[\r\n]+/g, ' ⏎ '))
-    sse(res, 'error', { error: 'internal_error' })
-    return
+    console.error('[chat] routing failed, retrying with safe defaults:', String(err instanceof Error ? err.stack || err.message : err).replace(/[\r\n]+/g, ' ⏎ '))
+    // A routing hiccup must NOT kill the turn. The intermittent first-query "internal_error" (ollama mid-handoff
+    // on a cold relaunch, a momentarily-malformed model inventory, an edge intent override) is transient — retry
+    // with the plain keyword router and an empty inventory, so bestCoder/bestWorkhorse/bestResponsive fall to the
+    // safe floor model and the turn proceeds instead of dying with an opaque error the user has to resend past.
+    try {
+      routing = buildRouterDecision({
+        requestId: crypto.randomUUID(), content: latestUserContent, ollamaAvailable: ollamaUp, availableModels: [],
+        hasAnthropicKey: Boolean(anthropicKey), hasOpenAIKey: Boolean(openaiKey), explicitModelId: body.model_id,
+        policyProfile: body.policy_profile, securityAttested: body.security_attested === true, hasImages,
+        hasTools: (body.tools?.length ?? 0) > 0, taskOverride: undefined,
+      })
+    } catch (err2) {
+      console.error('[chat] routing fallback also failed:', String(err2 instanceof Error ? err2.stack || err2.message : err2).replace(/[\r\n]+/g, ' ⏎ '))
+      sse(res, 'error', { error: 'internal_error' })
+      return
+    }
   }
 
   let { resolvedModel: model, resolvedProvider: provider } = routing

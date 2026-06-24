@@ -96,12 +96,18 @@ export async function ensureManagedRuntime(preferredPort = MANAGED_PORT): Promis
   // it alongside the 7b general + embedder on a 24GB box overcommits and crashes).
   // So we cap *resident* models — ollama unloads-before-loading — on anything
   // short of a workstation-class box, not just the tiny ones.
+  // MAX_LOADED must be ≥2 wherever embeds run through Ollama (nomic-embed): a turn embeds the query THEN
+  // generates, so with only ONE slot the embed model evicts the chat model and generation reloads a multi-GB
+  // model EVERY turn (measured: only qwen3:8b resident after a turn, nomic gone — it had evicted+been evicted).
+  // 2 slots let the tiny 0.3GB embedder and one chat model coexist → the chat model stays warm. NUM_PARALLEL=1
+  // keeps the KV-cache footprint down so two models stay within 24GB (single-user desktop doesn't need parallel).
+  // The proper long-term fix is routing query-embeds to the Rust noetica-embed sidecar (no Ollama slot at all).
   const totalGb = os.totalmem() / 1e9
   const memEnv = totalGb < 16
     ? { OLLAMA_MAX_LOADED_MODELS: '1', OLLAMA_NUM_PARALLEL: '1', OLLAMA_KEEP_ALIVE: '5m' }
     : totalGb < 32
-    ? { OLLAMA_MAX_LOADED_MODELS: '1', OLLAMA_NUM_PARALLEL: '2', OLLAMA_KEEP_ALIVE: '5m' }
-    : { OLLAMA_MAX_LOADED_MODELS: '2', OLLAMA_NUM_PARALLEL: '4', OLLAMA_KEEP_ALIVE: '10m' }
+    ? { OLLAMA_MAX_LOADED_MODELS: '2', OLLAMA_NUM_PARALLEL: '1', OLLAMA_KEEP_ALIVE: '5m' }
+    : { OLLAMA_MAX_LOADED_MODELS: '3', OLLAMA_NUM_PARALLEL: '2', OLLAMA_KEEP_ALIVE: '10m' }
   const child = spawn(cmd, args, { env: { ...process.env, ...env, ...memEnv, OLLAMA_HOST: `127.0.0.1:${port}` }, stdio: 'ignore', detached: false })
   child.on('exit', (code) => console.log(`[managed-runtime] sandboxed Ollama exited: ${code}`))
 
