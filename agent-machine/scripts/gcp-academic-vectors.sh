@@ -7,6 +7,7 @@ GCS="gs://sourceos-artifacts-socioprophet/ocw-corpus/academic"
 SA="${GCP_SA:-sourceos-ci@socioprophet-platform.iam.gserviceaccount.com}"
 VM="academic-vectors"
 MACHINE="${MACHINE:-c2d-standard-16}"
+CORPUS_OBJ="${CORPUS_OBJ:-_academic_corpus.txt}"     # set to _academic_corpus_clean.txt for the cleaned retrain
 ZONES="${ZONES:-us-east1-b us-east1-c us-east1-d us-central1-a us-central1-b us-central1-c us-west1-a us-west1-b}"
 TERM=$(python3 -c "import datetime;print((datetime.datetime.now().astimezone()+datetime.timedelta(hours=6)).replace(microsecond=0).isoformat())")
 
@@ -21,7 +22,7 @@ GCS="$GCS"
 apt-get update -y && apt-get install -y python3-pip
 pip3 install --break-system-packages -q gensim numpy || pip3 install -q gensim numpy
 mkdir -p /opt/av && cd /opt/av
-gsutil cp "\$GCS/_academic_corpus.txt" /opt/av/corpus.txt
+gsutil cp "\$GCS/$CORPUS_OBJ" /opt/av/corpus.txt
 python3 - <<'PY'
 import os
 from gensim.models import Word2Vec
