@@ -133,6 +133,7 @@
       ],
       "glossary": [
         {"term": "tautology", "definition": "A propositional formula that is true under every truth assignment; e.g., p ∨ ¬p."},
+        {"term": "recurrence relation", "definition": "An equation defining each term of a sequence as a function of preceding terms (e.g. Fibonacci a_n = a_{n-1} + a_{n-2}); solved in closed form via characteristic equations or generating functions."},
         {"term": "satisfiability", "definition": "A formula is satisfiable if there exists at least one truth assignment making it true; SAT is the canonical NP-complete problem."},
         {"term": "mathematical induction", "definition": "Proof technique: establish base case P(0), then show P(k) → P(k+1) for all k ≥ 0; concludes P(n) for all n ≥ 0."},
         {"term": "strong induction", "definition": "Assume P(0), P(1), ..., P(k) all hold, then prove P(k+1); equivalent in power to ordinary induction."},

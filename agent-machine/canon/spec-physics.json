@@ -18,6 +18,8 @@
       ],
       "glossary": [
         {"term": "inertia", "definition": "The tendency of an object to resist changes in its state of motion, quantified by mass."},
+        {"term": "force", "definition": "A push or pull that changes an object's motion; the cause of acceleration via Newton's second law, F_net = m*a. A vector (magnitude + direction), measured in newtons."},
+        {"term": "conserved quantity", "definition": "A quantity whose total value in an isolated system is constant in time (energy, linear momentum, angular momentum, electric charge). By Noether's theorem each continuous symmetry of the dynamics yields one."},
         {"term": "momentum", "definition": "The product of an object's mass and velocity, p = mv; a conserved quantity in isolated systems."},
         {"term": "impulse", "definition": "The change in momentum of an object, equal to the net force integrated over the time interval it acts."},
         {"term": "torque", "definition": "The rotational analog of force, defined as the cross product of the position vector and the applied force: τ = r × F."},
@@ -110,6 +112,7 @@
       ],
       "glossary": [
         {"term": "electric field", "definition": "A vector field E(r) such that the force on a test charge q is F = qE; created by charges and time-varying magnetic fields."},
+        {"term": "radiation from accelerating charges", "definition": "An accelerating electric charge emits electromagnetic radiation; for non-relativistic motion the radiated power is the Larmor formula P = q^2 a^2 / (6*pi*epsilon_0*c^3). Basis of antennas, synchrotron, and atomic emission."},
         {"term": "electric potential", "definition": "A scalar field V(r) such that E = -∇V; the work done per unit charge moving from infinity to the point r."},
         {"term": "Gauss's law", "definition": "The total electric flux through a closed surface equals the enclosed charge divided by ε_0: ∮ E · dA = Q_enc/ε_0."},
         {"term": "Faraday's law", "definition": "A time-varying magnetic flux through a loop induces an EMF equal to minus the rate of change of flux: EMF = -dΦ_B/dt."},
@@ -425,6 +428,7 @@
       ],
       "glossary": [
         {"term": "Hubble's law", "definition": "Galaxies recede with velocity proportional to distance: v = H_0 * d, where H_0 ≈ 70 km/s/Mpc is the Hubble constant; evidence for an expanding universe."},
+        {"term": "white dwarf", "definition": "A dense stellar remnant left when a low-mass star exhausts its fuel, supported against gravity by electron degeneracy pressure; stable only below the Chandrasekhar limit (~1.4 solar masses)."},
         {"term": "Hubble parameter", "definition": "H(t) = (da/dt)/a where a(t) is the cosmic scale factor; H_0 is its present value; governs the rate of cosmic expansion."},
         {"term": "scale factor", "definition": "a(t), a dimensionless function normalised to a(t_0)=1 today; physical distances scale as d_phys = a(t)*d_comoving; its evolution is governed by the Friedmann equations."},
         {"term": "Chandrasekhar limit", "definition": "The maximum mass (~1.4 M_sun) of a white dwarf supported by electron degeneracy pressure; exceeded mass collapses to a neutron star or black hole."},
