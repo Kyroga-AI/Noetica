@@ -10,20 +10,53 @@
  * Disable (debug / portability) with NOETICA_ENCRYPT_AT_REST=0 — reads still auto-detect either form.
  */
 import { randomBytes, createCipheriv, createDecipheriv } from 'node:crypto'
+import { spawnSync } from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import * as os from 'node:os'
 
 const KEY_PATH = path.join(os.homedir(), '.noetica', 'at-rest.key')
 const MAGIC = 'enc:v1:'
+const KC_SERVICE = 'noetica-at-rest'
+const KC_ACCOUNT = 'device-key'
 let _key: Buffer | null = null
 
-/** Load-or-create the 32-byte at-rest key (0600, never leaves the device). Stable across restarts. */
+// macOS keychain: the device key lives here, hardware-backed on Secure-Enclave Macs. A stolen but
+// LOCKED / powered-off disk then carries NO usable key — unlike a 0600 file sitting next to the data
+// (which a raw disk read recovers along with everything it protects). `security` is darwin-only;
+// everywhere else (Linux / CI) we fall back to the file, so there is no behaviour change off macOS.
+const keychainEnabled = (): boolean => process.platform === 'darwin' && process.env['NOETICA_AT_REST_KEYCHAIN'] !== '0'
+
+function keychainGet(): Buffer | null {
+  if (!keychainEnabled()) return null
+  try {
+    const r = spawnSync('security', ['find-generic-password', '-s', KC_SERVICE, '-a', KC_ACCOUNT, '-w'], { encoding: 'utf8' })
+    if (r.status === 0 && r.stdout) { const b = Buffer.from(r.stdout.trim(), 'base64'); if (b.length === 32) return b }
+  } catch { /* keychain unavailable */ }
+  return null
+}
+function keychainSet(k: Buffer): boolean {
+  if (!keychainEnabled()) return false
+  try {
+    const r = spawnSync('security', ['add-generic-password', '-s', KC_SERVICE, '-a', KC_ACCOUNT, '-w', k.toString('base64'), '-U'], { encoding: 'utf8' })
+    return r.status === 0
+  } catch { return false }
+}
+
+/** Load-or-create the 32-byte at-rest key. Preference: OS keychain (hardware-backed) → legacy 0600
+ *  device-key file (adopted AND migrated into the keychain) → freshly generated. Stable across
+ *  restarts; never leaves the device. */
 function key(): Buffer {
   if (_key) return _key
-  try { const b = fs.readFileSync(KEY_PATH); if (b.length === 32) { _key = b; return b } } catch { /* create below */ }
+  const kc = keychainGet()
+  if (kc) { _key = kc; return kc }
+  // Legacy / portable file key — adopt it, and migrate it into the keychain when we can.
+  try { const b = fs.readFileSync(KEY_PATH); if (b.length === 32) { keychainSet(b); _key = b; return b } } catch { /* create below */ }
+  // First run: generate; store in the keychain, else fall back to the 0600 file.
   const k = randomBytes(32)
-  try { fs.mkdirSync(path.dirname(KEY_PATH), { recursive: true }); fs.writeFileSync(KEY_PATH, k, { mode: 0o600 }) } catch { /* in-memory only if write fails */ }
+  if (!keychainSet(k)) {
+    try { fs.mkdirSync(path.dirname(KEY_PATH), { recursive: true }); fs.writeFileSync(KEY_PATH, k, { mode: 0o600 }) } catch { /* in-memory only if both fail */ }
+  }
   _key = k
   return k
 }
