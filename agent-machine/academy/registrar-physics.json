@@ -1,0 +1,178 @@
+{
+ "program": "Physics SB (Course 8, Focus option)",
+ "department": "8",
+ "degree": "SB",
+ "note": "model-authored from MIT's GIR + Course-8 structure; units in MIT credit-units (12u \u2248 one subject). Validate vs catalog.",
+ "requirements": [
+  {
+   "group": "General Institute Requirements \u2014 Science Core",
+   "subjects": [
+    {
+     "n": "18.01",
+     "title": "Calculus I",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "18.02",
+     "title": "Calculus II",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "8.01",
+     "title": "Physics I: Classical Mechanics",
+     "u": 12,
+     "persona": "Walter Lewin",
+     "captured": true
+    },
+    {
+     "n": "8.02",
+     "title": "Physics II: Electricity & Magnetism",
+     "u": 12,
+     "persona": "Walter Lewin",
+     "captured": true
+    },
+    {
+     "n": "5.111",
+     "title": "Principles of Chemical Science",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "7.012",
+     "title": "Introductory Biology",
+     "u": 12,
+     "captured": true
+    }
+   ]
+  },
+  {
+   "group": "Departmental Core \u2014 Physics",
+   "subjects": [
+    {
+     "n": "8.03",
+     "title": "Physics III: Vibrations & Waves",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "8.04",
+     "title": "Quantum Physics I",
+     "u": 12,
+     "prereq": [
+      "8.03",
+      "18.03"
+     ],
+     "captured": true
+    },
+    {
+     "n": "8.044",
+     "title": "Statistical Physics I",
+     "u": 12,
+     "prereq": [
+      "8.03"
+     ],
+     "captured": true
+    },
+    {
+     "n": "8.05",
+     "title": "Quantum Physics II",
+     "u": 12,
+     "prereq": [
+      "8.04"
+     ],
+     "captured": true
+    },
+    {
+     "n": "18.03",
+     "title": "Differential Equations",
+     "u": 12,
+     "prereq": [
+      "18.02"
+     ],
+     "captured": true
+    },
+    {
+     "n": "8.13",
+     "title": "Experimental Physics I (Junior Lab)",
+     "u": 12,
+     "prereq": [
+      "8.04"
+     ],
+     "captured": true
+    }
+   ]
+  },
+  {
+   "group": "Focus Option \u2014 Advanced",
+   "subjects": [
+    {
+     "n": "8.06",
+     "title": "Quantum Physics III",
+     "u": 12,
+     "prereq": [
+      "8.05"
+     ],
+     "captured": true
+    },
+    {
+     "n": "8.07",
+     "title": "Electromagnetism II",
+     "u": 12,
+     "prereq": [
+      "8.03",
+      "18.03"
+     ],
+     "captured": true
+    },
+    {
+     "n": "8.044",
+     "title": "(stat mech, see core)",
+     "u": 0
+    },
+    {
+     "n": "8.THU",
+     "title": "Undergraduate Thesis",
+     "u": 12,
+     "captured": false
+    }
+   ]
+  }
+ ],
+ "coverage": {
+  "subjects_required": 15,
+  "subjects_captured": 14,
+  "units_total": 180,
+  "units_held": 168,
+  "pct_units_covered": 93,
+  "gaps": [
+   "8.THU"
+  ]
+ },
+ "personas": {
+  "physics": {
+   "persona": "Walter Lewin",
+   "method": "dramatic demonstration + visceral physical intuition",
+   "anchor": "8.01/8.02 (captured)"
+  },
+  "mathematics": {
+   "persona": "Gilbert Strang",
+   "method": "geometric intuition over rote",
+   "anchor": "18.06 (captured)"
+  },
+  "science_communication": {
+   "persona": "Bill Nye",
+   "method": "enthusiastic, accessible explanation"
+  },
+  "philosophy": {
+   "persona": "Socrates",
+   "method": "Socratic dialectic \u2014 questioning toward insight (a GENERAL tutoring mode, not just philosophy)",
+   "anchor": "Course 24 \u2014 NOT YET captured"
+  },
+  "physics_intuition": {
+   "persona": "Richard Feynman",
+   "method": "first-principles, plain language"
+  }
+ }
+}
