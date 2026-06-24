@@ -1093,8 +1093,20 @@ async function main() {
         await Promise.all(wl.slice(s, s + PREEMBED_CONC).map((qq) => embedCached(qq).catch(() => [] as number[])))
       }
     }
+    // ROBUST: a HARD per-question deadline. The per-arm try/catch contains a THROWING arm; this contains a
+    // HANGING one — any await that never resolves. On timeout the question resolves as an all-abstain row so the
+    // checkpoint advances PAST it: no kill→resume loop on a poison question (the failure mode that ate days).
+    const Q_DEADLINE = Number(process.env['MMLU_Q_DEADLINE_MS'] || 300_000)
+    const scoreOrAbstain = (i: number): Promise<Awaited<ReturnType<typeof scoreQuestion>>> => Promise.race([
+      scoreQuestion(i),
+      new Promise<Awaited<ReturnType<typeof scoreQuestion>>>((resolve) => setTimeout(() => {
+        const g = LETTERS[sample[i]!.answer]!
+        resolve({ i, gold: g, row: { subject, i, gold: g, q_timeout_ms: Q_DEADLINE } as Record<string, unknown>,
+          marks: ARMS.map(() => '⏱'), results: ARMS.map((arm) => ({ arm, ok: false, attempted: false })) })
+      }, Q_DEADLINE)),
+    ])
     for (let s = 0; s < todo.length; s += CONC) {
-      const batch = await Promise.all(todo.slice(s, s + CONC).map((i) => scoreQuestion(i)))
+      const batch = await Promise.all(todo.slice(s, s + CONC).map((i) => scoreOrAbstain(i)))
       for (const r of batch) {
         for (const res of r.results) {
           const t = tally[res.arm]![subject]!; t.n++; if (res.ok) t.c++
