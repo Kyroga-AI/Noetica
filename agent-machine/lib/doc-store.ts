@@ -33,16 +33,16 @@ export async function extractText(filename: string, mimeType: string, buf: Buffe
     return value.replace(/\n{3,}/g, '\n\n').trim()
   }
   if (lower.endsWith('.pdf') || mimeType === 'application/pdf') {
-    const { PDFParse } = await import('pdf-parse')
-    const parser = new PDFParse({ data: new Uint8Array(buf) })
-    try {
-      const { text } = await parser.getText()
-      const out = (text ?? '').replace(/\n{3,}/g, '\n\n').trim()
-      if (!out) throw new Error('PDF has no extractable text (scanned image?) — paste the text or run OCR')
-      return out
-    } finally {
-      await parser.destroy().catch(() => {})
-    }
+    // unpdf — pure-JS pdfjs built for bundled/serverless runtimes (zero deps, NO canvas/DOMMatrix). pdf-parse v2
+    // needs @napi-rs/canvas + DOM polyfills ("DOMMatrix is not defined") and v1 does a computed require of a
+    // versioned pdf.js build ("Cannot find module ./pdf.js/v1.10.100/build/pdf.js") — both break in the
+    // bun-compiled standalone, so every PDF ingest failed with internal_error. unpdf bundles cleanly.
+    const { extractText: pdfExtract, getDocumentProxy } = await import('unpdf')
+    const doc = await getDocumentProxy(new Uint8Array(buf))
+    const { text } = await pdfExtract(doc, { mergePages: true })
+    const out = (typeof text === 'string' ? text : (text as string[]).join('\n')).replace(/\n{3,}/g, '\n\n').trim()
+    if (!out) throw new Error('PDF has no extractable text (scanned image?) — paste the text or run OCR')
+    return out
   }
   // Everything else: treat as UTF-8 text (txt, md, csv, json, code).
   return buf.toString('utf8')
