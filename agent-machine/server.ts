@@ -6058,6 +6058,47 @@ Question: ${question}`
     return
   }
 
+  // POST /api/ingest/queue — NON-BLOCKING bulk ingest. Enqueue { filename, mimeType?, dataBase64 } and return
+  // the job immediately (status 'queued'); a background worker parses + ingests it. The UI uploads a batch
+  // without waiting and polls /api/ingest/status to render the queue + the parsed-vs-pending graph overlay.
+  if (req.method === 'POST' && url.pathname === '/api/ingest/queue') {
+    setCORSHeaders(res)
+    const chunks: Buffer[] = []
+    req.on('data', (c: Buffer) => chunks.push(c))
+    req.on('end', () => {
+      ;(async () => {
+        try {
+          const { filename, mimeType, dataBase64 } = JSON.parse(Buffer.concat(chunks).toString()) as { filename: string; mimeType?: string; dataBase64: string }
+          if (!filename || !dataBase64) throw new Error('filename and dataBase64 required')
+          const { enqueueIngest } = await import('./lib/ingest-queue.js')
+          const job = enqueueIngest(filename, mimeType ?? '', Buffer.from(dataBase64, 'base64'))
+          res.writeHead(202, { 'content-type': 'application/json' })
+          res.end(JSON.stringify(job))
+        } catch (err) {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: err instanceof Error ? err.message : 'bad request' }))
+        }
+      })()
+    })
+    return
+  }
+
+  // GET /api/ingest/status — the ingestion queue (per-doc status + summary) for the upload table + graph overlay.
+  if (req.method === 'GET' && url.pathname === '/api/ingest/status') {
+    setCORSHeaders(res)
+    ;(async () => {
+      try {
+        const { ingestQueueStatus, pruneIngestJobs } = await import('./lib/ingest-queue.js')
+        pruneIngestJobs()
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(ingestQueueStatus()))
+      } catch {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ jobs: [], summary: { queued: 0, active: 0, done: 0, failed: 0 } }))
+      }
+    })()
+    return
+  }
+
   // POST /api/ingest/path — ingest a LOCAL file by absolute path { path }. Used by
   // the Tauri picker (the webview can't read files; the native dialog returns a
   // path and the sidecar — full fs access — reads + extracts + embeds it).
