@@ -12,7 +12,12 @@
  *
  * Schema: /Users/michaelheller/dev/mcp-a2a-zero-trust/schemas/interop/tool_grant_check.schema.json
  * Grant:  /Users/michaelheller/dev/mcp-a2a-zero-trust/schemas/canonical/grant.schema.json
+ *
+ * Behavioral trust (./trust.ts) layers on top: a grant's STRENGTH reflects the SPIFFE actor's track record, so
+ * federated peers (Ruflo/gastown/AIWG nodes) and compromised sessions are gated by reputation, not just an
+ * explicit revoke. Egress remains scope-d's job — composed as a SEPARATE gate, never merged in here.
  */
+import { trustVerdict, recordOutcome, type TrustOutcome } from './trust.js'
 
 export interface ToolGrantCheck {
   check_id: string
@@ -51,16 +56,39 @@ export function unrevokeGrant(idOrServerTool: string): void {
   try { window.localStorage.setItem(REVOKED_KEY, JSON.stringify([...s])) } catch { /* */ }
 }
 
-export interface GrantVerdict { valid: boolean; revoked?: boolean; reason?: string }
-/** Synchronously decide whether an MCP tool call is permitted — checks the revocation ledger. The caller
- * (mcp callTool) MUST gate on this before dispatch. Default-allow for a not-revoked grant; deny if revoked. */
+export interface GrantVerdict { valid: boolean; revoked?: boolean; reason?: string; trust?: number }
+/** Synchronously decide whether an MCP tool call is permitted — revocation ledger AND behavioral trust. The
+ * caller (mcp callTool) MUST gate on this before dispatch. A fresh local session starts trusted; a session that
+ * has tripped threat/integrity strikes (e.g. prompt injection) falls below the floor and is denied even without
+ * an explicit revoke. Default-allow for a not-revoked, trusted grant. */
 export function checkToolGrant(serverId: string, toolName: string, sessionId: string): GrantVerdict {
   const grantId = `urn:noetica:grant:mcp:${serverId}:${toolName}:session:${sessionId}`
   const revoked = revokedSet()
   if (revoked.has(grantId) || revoked.has(`${serverId}:${toolName}`) || revoked.has(serverId)) {
     return { valid: false, revoked: true, reason: 'grant revoked' }
   }
-  return { valid: true }
+  const t = trustVerdict(`spiffe://noetica.local/session/${sessionId}`)
+  if (!t.trusted) return { valid: false, reason: t.reason, trust: t.score }
+  return { valid: true, trust: t.score }
+}
+
+/** Grant gate for a FEDERATED peer — a Ruflo swarm, gastown / AIWG node, or any cross-machine SPIFFE actor —
+ * requesting a capability. Composes revocation + behavioral trust (sensitive capabilities can demand a higher
+ * `floor`). EGRESS is a SEPARATE, later gate (scope-d), kept out of here on purpose. */
+export function checkActorGrant(spiffeId: string, capability: string, floor?: number): GrantVerdict {
+  const revoked = revokedSet()
+  if (revoked.has(spiffeId) || revoked.has(`${spiffeId}:${capability}`)) {
+    return { valid: false, revoked: true, reason: 'actor/grant revoked' }
+  }
+  const t = trustVerdict(spiffeId, floor)
+  if (!t.trusted) return { valid: false, reason: t.reason, trust: t.score }
+  return { valid: true, trust: t.score }
+}
+
+/** Feed a behavioral outcome back into an actor's trust (call after a delegated action completes / fails / is
+ * flagged). Slow up, instant down. Re-exported so callers gate + record through one module. */
+export function recordActorOutcome(spiffeId: string, outcome: TrustOutcome): void {
+  recordOutcome(spiffeId, outcome)
 }
 
 /**
