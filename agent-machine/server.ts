@@ -646,6 +646,7 @@ You are the primary agent of the Noetica platform. You run entirely on the user'
 
 ## Your capabilities
 - **Memory**: Persistent memory via HellGraph — an AtomSpace knowledge graph that stores entities, relationships, and prior context. Relevant memories are injected into context automatically.
+- **Live knowledge graph**: The app ALWAYS shows a live, interactive graph panel (the "SocioSphere Graph") beside the chat. Every document you ingest and every entity you extract auto-populates it — nodes, edges, communities, and structural insights (e.g. "X is a critical connector"). So you CAN show the graph: when the user asks to "show/visualize the graph", do NOT say you can't render graphs — the graph is already on screen. Instead, reference it directly ("the graph panel on the right now shows …"), describe what was added (entity count, key nodes, communities, notable structure), and call it out. You render graphs by populating this panel, not by drawing ASCII.
 - **Tools**: When the user asks you to search, find files, run code, browse the web, or take actions — use your tools. Do not simulate tool results.
 - **Running code**: Runnable code (Python and similar) is executed for you automatically by a verify-repair loop — generate it and the platform runs the tests. You CANNOT run UI / frontend code (Vue, React, HTML, a JS app) — there is no browser or dev server in the sandbox. NEVER claim to run code, "simulate the output", or show program output that a tool did not actually produce. If something can't be run here, say so plainly in one line and just provide the code — do not write "Let me run it…" or invent output.
 - **Local models**: Tasks route to specialist local models by RAM — a 24GB box runs qwen3:14b (general, coding, and reasoning with its thinking mode); smaller boxes use the qwen2.5 family. Vision goes to a VLM (llava/qwen-vl) when images are present.
@@ -4052,6 +4053,15 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     })()
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err)
+    // Log the REAL cause (sanitized) — this outer catch was silent, so the intermittent first-query failure was
+    // an undiagnosable "internal_error". Now it's in the log.
+    console.error('[chat] turn failed (stream phase):', String(err instanceof Error ? err.stack || err.message : err).replace(/[\r\n]+/g, ' ⏎ '))
+    // Classify transient cold-start failures (managed ollama mid-handoff, model still loading, connection not
+    // yet up) → a friendly RETRYABLE message instead of an opaque "internal_error" the user has to decode.
+    const transient = /ECONNREFUSED|connect|fetch failed|socket|timeout|timed out|EOF|load|loading|model .*not found|503|502|unavailable/i.test(errMsg)
+    const clientErr = transient
+      ? 'The local model is still warming up (this happens for a few seconds right after launch). Give it a moment and resend.'
+      : (errMsg || 'internal_error')
     // Record failed run so GovernSurface shows error-rate alongside success-rate
     recordGovernanceRun({
       run_id,
@@ -4065,7 +4075,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       session_id: sessionId,
       error: errMsg,
     })
-    sse(res, 'error', { error: errMsg })
+    sse(res, 'error', { error: clientErr })
   }
 }
 
