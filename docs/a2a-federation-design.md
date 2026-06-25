@@ -26,13 +26,13 @@ Verified: `lib/a2a/trust.test.ts` (6 tests — earn, instant-down, slow recovery
 ## 3. Peer frameworks as SPIFFE-actor profiles
 A Ruflo swarm / gastown / AIWG node is just a **SPIFFE actor with a grant** in the existing ledger — no new trust substrate. Each is a *profile* (identity scheme + capability map + transport) over the same schema:
 
-| Framework | Identity → SPIFFE | Transport | Capabilities exposed to it | Notes |
+| Framework | What it is | Native interop | Coordination substrate | How Noetica federates (lowest-friction first) |
 |---|---|---|---|---|
-| **Ruflo** | `spiffe://ruflo.<swarm>/<queen\|worker>/<id>` (mTLS + ed25519 challenge per its federation model) | MCP / A2A | scoped tool grants; graph read; task delegation | maps its queen/worker actors to our grant ledger; its consensus is its own |
-| **gastown** | *TBD — fill identity scheme when defined* | *TBD* | *TBD* | placeholder profile; same schema |
-| **AIWG** | *TBD — fill when defined* | *TBD* | *TBD* | placeholder profile; same schema |
+| **AIWG** (jmagly/aiwg) | Deploy-time cognitive-architecture framework: phase-gated SDLC (Author→Parallel Reviewers→Synthesizer→Human Gate→Archive); agents are `.md`+YAML files; no runtime/identity service | **Ships an MCP server** (`aiwg mcp serve`) exposing artifact/workflow/health tools | `.aiwg/` artifacts (50-100+) + `@implements/@tests/@depends` traceability + JSON-Schema-2020-12 gates | **Via MCP — we already have the stack.** Noetica is an MCP client to AIWG's server; each AIWG server = a SPIFFE actor; its tool grants are trust-gated through `grantCheck`/`trust`. Bonus: map `@`-mention traceability + `.aiwg` artifacts onto HellGraph nodes. |
+| **Gas Town** (steveyegge/gastown) | Go (~189k LOC) multi-agent *workspace manager* ("k8s × Temporal for agents"); roles **Mayor** (dispatch), **Polecats** (parallel workers), **Witness/Deacon** (health), **Refinery** (merges); 20-30 parallel Claude Code agents | Go runtime + **Beads** issue-tracker as external memory | Beads issues = durable cross-prompt continuity | **Via Beads + the worker role.** Noetica registers as a Polecat-class actor that pulls Beads issues; SPIFFE actor per colony/role; trust per colony. Heavier than AIWG (Go + Beads), so second. |
+| **Ruflo** (ruvnet/ruflo) | Swarm harness: queens/workers, real consensus (BFT/Raft/CRDT), Q-router | MCP / A2A | AgentDB (HNSW) + ReasoningBank | Each queen/worker = a SPIFFE actor; MCP/A2A transport; its consensus stays its own. |
 
-> gastown + AIWG specifics are unknown to me; the architecture is deliberately profile-pluggable so they slot in as rows above without touching the core. (Asked; pending.)
+**The key interop insight from the actual code:** **AIWG already speaks MCP**, so it's the *lowest-friction* integration — Noetica's existing MCP + `grantCheck` + `trust` stack federates with it today, no new protocol. Gas Town coordinates through **Beads** (an issue tracker), so federation there means Noetica acts as a *worker that pulls Beads issues*. Ruflo is MCP/A2A. All three map onto the SocioProphet agent-plane (capability-grant schema + TrustOps authority states + meshrush), so they're not three bespoke integrations — they're three actor profiles over one conformant substrate.
 
 ## 4. The compose: A2A gate THEN scope-d gate (kept separate on purpose)
 ```
