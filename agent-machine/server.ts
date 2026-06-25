@@ -99,7 +99,7 @@ import {
 import { getUserIdentity, setUserIdentity, promptUserName, type UserIdentity } from './lib/identity.js'
 
 const PORT = parseInt(process.env['NOETICA_AM_PORT'] ?? '8080', 10)
-const VERSION = '0.4.19'
+const VERSION = '0.4.20'
 
 // Sovereign offline mode: arm the egress guard so non-local egress is STRUCTURALLY impossible
 // when NOETICA_OFFLINE is set (airplane mode). No-op passthrough when online. Installed early,
