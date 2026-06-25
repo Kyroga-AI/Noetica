@@ -6,6 +6,17 @@
 
 ---
 
+## Graph-first: ingestion + exploration as a PRIMARY surface (not a chat side-panel)
+The product is not "a chat app with a graph widget" — people want to **load knowledge and explore it as a graph**. Two pillars:
+
+**1. Non-blocking bulk ingestion (step 1 BUILT — `lib/ingest-queue.ts`, `/api/ingest/queue` + `/api/ingest/status`).** Drag in a folder of docs and keep working — each upload enqueues instantly and a background worker parses/chunks/embeds/grounds it serially, reporting per-doc status (`queued → parsing → ingesting → done/failed`, with chunk + entity counts). The UI surfaces this as:
+- an **upload table / queue** (filename · status · chunks · entities · error) that fills in live as docs complete, and
+- a **parsed-vs-pending overlay on the graph** — done docs appear as real nodes; queued/parsing ones show as ghost/placeholder nodes so you can *see* the graph growing.
+
+Remaining for this pillar: the frontend table + overlay (consumes the two endpoints above); a disk-backed spool for very large bulk imports; optional parallelism once embeds move off Ollama (see [[noetica-embedder]]).
+
+**2. A graph EXPLORER as a first-class workspace.** The graph gets its own surface (like Notes/Canvas), not just the chat sidebar: load → see it grow → query it with the algebra below → filter/group/aggregate → spot motifs → clean orphans. The chat becomes *one* way to talk to the graph; direct manipulation is the other. The query algebra, bounded rendering, and motif detection below are the engine of that explorer.
+
 ## The core idea: a graph query ALGEBRA, not one-off queries
 Today each graph question is bespoke. Instead, expose a small set of **primitives that compose** — so "the known questions people ask" become one-liners built from the same parts, and new questions are just new compositions.
 
