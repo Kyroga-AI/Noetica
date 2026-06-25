@@ -40,18 +40,19 @@ function _deterministicHash(input: string): string {
 
 // ── Grant ledger: real revocation enforcement (was hardcoded valid:true) ─────────
 const REVOKED_KEY = 'noetica:a2a:revoked-grants'
+const memRevoked = new Set<string>()   // node/agent-machine fallback (env-agnostic, like the trust ledger)
 function revokedSet(): Set<string> {
-  if (typeof window === 'undefined') return new Set()
+  if (typeof window === 'undefined') return memRevoked
   try { return new Set(JSON.parse(window.localStorage.getItem(REVOKED_KEY) ?? '[]') as string[]) } catch { return new Set() }
 }
-/** Revoke a grant by id OR by `serverId:toolName` (blocks the tool for all sessions). Persisted. */
+/** Revoke a grant by id OR by `serverId:toolName`/SPIFFE id (blocks for all sessions). Persisted in-browser. */
 export function revokeGrant(idOrServerTool: string): void {
-  if (typeof window === 'undefined') return
+  if (typeof window === 'undefined') { memRevoked.add(idOrServerTool); return }
   const s = revokedSet(); s.add(idOrServerTool)
   try { window.localStorage.setItem(REVOKED_KEY, JSON.stringify([...s])) } catch { /* */ }
 }
 export function unrevokeGrant(idOrServerTool: string): void {
-  if (typeof window === 'undefined') return
+  if (typeof window === 'undefined') { memRevoked.delete(idOrServerTool); return }
   const s = revokedSet(); s.delete(idOrServerTool)
   try { window.localStorage.setItem(REVOKED_KEY, JSON.stringify([...s])) } catch { /* */ }
 }
