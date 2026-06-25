@@ -4091,13 +4091,19 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     console.error('[chat] turn failed (stream phase):', String(err instanceof Error ? err.stack || err.message : err).replace(/[\r\n]+/g, ' ⏎ '))
     // Classify transient cold-start failures (managed ollama mid-handoff, model still loading, connection not
     // yet up) → a friendly RETRYABLE message instead of an opaque "internal_error" the user has to decode.
-    const transient = /ECONNREFUSED|connect|fetch failed|socket|timeout|timed out|EOF|load|loading|model .*not found|503|502|unavailable/i.test(errMsg)
-    const clientErr = transient
-      ? 'The local model is still warming up (this happens for a few seconds right after launch). Give it a moment and resend.'
-      : (errMsg || 'internal_error')
-    // Mark the in-progress "Composing the answer" step done — the turn IS over (just without a generated answer),
-    // so the plan's blue spinner must STOP. Without this it spins forever even though the message rendered.
-    try { step('generate', 'done', transient ? 'warming up — resend' : 'failed') } catch { /* step out of scope on a very-early failure */ }
+    const transient = /ECONNREFUSED|connect|fetch failed|socket|timeout|timed out|EOF|load|loading|model .*not found|503|502|unavailable|empty (response|embedding)/i.test(errMsg)
+    // Distinguish COLD (ollama not up yet → just resend) from WEDGED (ollama lists models but its Metal runner is
+    // dead so generation hangs/empties — heavy bulk ingest can cause it). Wedged shows "warming up" forever and
+    // resending never helps, so AUTO-RESTART the runtime (debounced) and say so honestly.
+    let clientErr = transient ? 'The local model is still warming up (a few seconds right after launch). Give it a moment and resend.' : (errMsg || 'internal_error')
+    let stepNote = transient ? 'warming up — resend' : 'failed'
+    if (transient && await isOllamaRunning().catch(() => false)) {
+      void import('./lib/managed-runtime.js').then((m) => m.restartManagedRuntime()).catch(() => {})
+      clientErr = 'The local model runtime got stuck — restarting it now. Give it ~15 seconds and resend.'
+      stepNote = 'runtime restart — resend'
+    }
+    // Mark the in-progress "Composing the answer" step done so the plan's blue spinner STOPS (the turn IS over).
+    try { step('generate', 'done', stepNote) } catch { /* step out of scope on a very-early failure */ }
     // Record failed run so GovernSurface shows error-rate alongside success-rate
     recordGovernanceRun({
       run_id,
