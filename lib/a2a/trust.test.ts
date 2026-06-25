@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { recordOutcome, actorTrust, trustVerdict, isExternalActor, _resetTrust, TRUST_FLOOR } from './trust.js'
+import { recordOutcome, actorTrust, trustVerdict, isExternalActor, _resetTrust, TRUST_FLOOR, authorityStatus, authorityState } from './trust.js'
 
 const LOCAL = 'spiffe://noetica.local/session/abc'
 const PEER = 'spiffe://ruflo.swarm/queen/strategic-1'
@@ -53,4 +53,26 @@ test('a peer EARNS standing through a track record', () => {
   for (let i = 0; i < 30; i++) recordOutcome(PEER, { ok: true, up: true })
   assert.ok(actorTrust(PEER) > before, 'sustained success raises the peer score')
   assert.ok(actorTrust(PEER) > TRUST_FLOOR, 'an earned peer clears the default floor')
+})
+
+test('TrustOps projection: behavioral state → canonical authority_status + effects', () => {
+  _resetTrust()
+  for (let i = 0; i < 20; i++) recordOutcome(LOCAL, { ok: true, up: true })
+  assert.equal(authorityStatus(LOCAL), 'active')
+  recordOutcome(LOCAL, { threat: true })
+  assert.equal(authorityStatus(LOCAL), 'suspended', 'threat strike → suspended (recovers)')
+  _resetTrust()
+  for (let i = 0; i < 20; i++) recordOutcome(LOCAL, { ok: true, up: true })
+  recordOutcome(LOCAL, { integrityViolation: true })
+  assert.equal(authorityStatus(LOCAL), 'revoked', 'integrity strike → revoked (needs restoration)')
+
+  const rec = authorityState(LOCAL)
+  assert.equal(rec.schemaVersion, 'agent-registry.agent-authority-current-state.v0.1')
+  assert.equal(rec.recordType, 'AgentAuthorityCurrentState')
+  assert.equal(rec.authority_status, 'revoked')
+  assert.equal(rec.restoration_required, true)
+  assert.equal(rec.authorityEffects.toolAccess, 'blocked')
+  for (const k of ['stateId', 'agentRef', 'computed_at', 'effective_decision_ref', 'source_decision_refs', 'evidenceRefs', 'authorityEffects', 'receipt_hash']) {
+    assert.ok((rec as unknown as Record<string, unknown>)[k] !== undefined, `required field ${k} present`)
+  }
 })

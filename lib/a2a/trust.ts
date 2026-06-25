@@ -114,5 +114,76 @@ export function trustLedger(): TrustRecord[] {
   return [...load().values()].sort((a, b) => a.score - b.score)
 }
 
+// ── TrustOps conformance (agent-registry) ───────────────────────────────────────
+// The behavioral engine above is the COMPUTATION; this projects it onto the canonical
+// agent-registry TrustOps schema (contracts/trustops/agent-authority-current-state.v0.1) so Noetica EMITS the
+// standard authority state rather than shadowing it. Mapping: integrity strike → revoked (needs an explicit
+// restoration decision); threat strike → suspended (auto-recovers as the component clears); low reputation →
+// reduced (narrowed authority); else → active. authorityEffects gate the same axes the schema names.
+export type AuthorityStatus = 'active' | 'reduced' | 'suspended' | 'revoked'
+type EffectLevel = 'unchanged' | 'restricted' | 'blocked'
+export interface AuthorityEffects { toolAccess: EffectLevel; memoryAccess: EffectLevel; autonomousExecution: EffectLevel; routeEligibility: EffectLevel; egressMode: 'unchanged' | 'local' }
+export interface AgentAuthorityCurrentState {
+  schemaVersion: 'agent-registry.agent-authority-current-state.v0.1'
+  recordType: 'AgentAuthorityCurrentState'
+  stateId: string
+  agentRef: string
+  computed_at: string
+  authority_status: AuthorityStatus
+  effective_decision_ref: string
+  source_decision_refs: string[]
+  evidenceRefs: string[]
+  authorityEffects: AuthorityEffects
+  restoration_required: boolean
+  receipt_hash: string
+  labels: Record<string, string>
+}
+
+function _hash(s: string): string {
+  let h = 0x811c9dc5
+  for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = (h * 0x01000193) >>> 0 }
+  return h.toString(16).padStart(8, '0')
+}
+function effectsFor(status: AuthorityStatus): AuthorityEffects {
+  switch (status) {
+    case 'active':    return { toolAccess: 'unchanged',  memoryAccess: 'unchanged',  autonomousExecution: 'unchanged',  routeEligibility: 'unchanged',  egressMode: 'unchanged' }
+    case 'reduced':   return { toolAccess: 'restricted', memoryAccess: 'unchanged',  autonomousExecution: 'restricted', routeEligibility: 'restricted', egressMode: 'local' }
+    case 'suspended': return { toolAccess: 'blocked',    memoryAccess: 'restricted', autonomousExecution: 'blocked',    routeEligibility: 'blocked',    egressMode: 'local' }
+    case 'revoked':   return { toolAccess: 'blocked',    memoryAccess: 'blocked',    autonomousExecution: 'blocked',    routeEligibility: 'blocked',    egressMode: 'local' }
+  }
+}
+
+/** The behavioral authority STATUS for an actor (the TrustOps state, pre-projection). */
+export function authorityStatus(spiffeId: string): AuthorityStatus {
+  const r = load().get(spiffeId) ?? freshRecord(spiffeId)
+  if (r.components.integrity < STRIKE_CLEARED) return 'revoked'    // integrity violation → hard, needs restoration
+  if (r.components.threat < STRIKE_CLEARED) return 'suspended'     // threat strike → temporary, auto-recovers
+  if (r.score < TRUST_FLOOR) return 'reduced'                      // low reputation → narrowed authority
+  return 'active'
+}
+
+/** Project an actor's behavioral trust onto the canonical agent-registry TrustOps authority-state record. */
+export function authorityState(spiffeId: string): AgentAuthorityCurrentState {
+  const r = load().get(spiffeId) ?? freshRecord(spiffeId)
+  const status = authorityStatus(spiffeId)
+  const agentRef = `agent-registry://${spiffeId.replace(/^spiffe:\/\//, '')}`
+  const decisionRef = `trustops-agent-authority-decision:${_hash(spiffeId)}:${status}`
+  return {
+    schemaVersion: 'agent-registry.agent-authority-current-state.v0.1',
+    recordType: 'AgentAuthorityCurrentState',
+    stateId: `agent-authority-current-state:${spiffeId}:${status}`,
+    agentRef,
+    computed_at: r.updated_at,
+    authority_status: status,
+    effective_decision_ref: decisionRef,
+    source_decision_refs: [decisionRef],
+    evidenceRefs: ['policy://noetica/a2a-trust/v0.1', `trustops-receipt:${_hash(`${spiffeId}:${r.samples}`)}`],
+    authorityEffects: effectsFor(status),
+    restoration_required: status === 'revoked' || status === 'suspended',
+    receipt_hash: `sha256:${_hash(JSON.stringify(r))}`,
+    labels: { trust_score: r.score.toFixed(3), samples: String(r.samples) },
+  }
+}
+
 /** Test/reset hook. */
 export function _resetTrust(): void { mem.clear(); if (typeof window !== 'undefined') try { window.localStorage.removeItem(TRUST_KEY) } catch { /* */ } }
