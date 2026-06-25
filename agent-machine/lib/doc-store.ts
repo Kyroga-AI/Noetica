@@ -317,3 +317,22 @@ export function documentChunkCount(): number {
 export function userDocumentChunkCount(): number {
   return getHellGraph().nodesByLabel(CHUNK_LABEL).filter((n) => isUserDoc(String(n.properties['filename'] ?? ''))).length
 }
+
+/** Re-embed every DocumentChunk with the CURRENT embedder (embedText) and upsert it — used after switching
+ *  embedders (e.g. Ollama nomic-768 → Rust bge-384) so stored chunk vectors share the query's vector space.
+ *  Idempotent + restartable; returns counts. Skips chunks with no text. */
+export async function reindexDocVectors(): Promise<{ total: number; reembedded: number; failed: number }> {
+  const g = getHellGraph()
+  const chunks = g.nodesByLabel(CHUNK_LABEL)
+  let reembedded = 0, failed = 0
+  for (const n of chunks) {
+    const text = String(n.properties['text'] ?? '')
+    if (!text) { failed++; continue }
+    const docId = String(n.properties['doc_id'] ?? '')
+    const idx = Number(n.properties['idx'] ?? 0)
+    const filename = String(n.properties['filename'] ?? '')
+    const vec = await embedText(text)
+    if (vec.length) { hgPutChunk({ docId, idx, text, vec, filename }); reembedded++ } else failed++
+  }
+  return { total: chunks.length, reembedded, failed }
+}

@@ -121,6 +121,18 @@ const EMBED_COOLDOWN_MS = Number(process.env['NOETICA_EMBED_COOLDOWN_MS'] || 15_
 
 export async function embedText(text: string): Promise<number[]> {
   if (_embedDownUntil && Date.now() < _embedDownUntil) return []   // breaker open → lexical, skip the re-probe
+  // CONSOLIDATION (opt-in): route embeds to our own Rust sidecar instead of Ollama, so Ollama is freed for
+  // GENERATION ONLY — this is the foundational fix for the embed↔generate contention that wedged the runner.
+  // OPT-IN (NOETICA_EMBED_RUST=1) because the sidecar is bge-384 while the existing doc corpus is Ollama
+  // nomic-768: flip the flag THEN reindex (POST /api/embed/reindex) so queries + chunks share the bge space.
+  // Until reindexed, mismatched-dim chunks just rank low (graceful) — they don't break. Falls back to Ollama.
+  if (process.env['NOETICA_EMBED_RUST'] === '1') {
+    try {
+      const { embedBatchLocal } = await import('./embed-runtime.js')
+      const out = await embedBatchLocal([text.slice(0, 8000)])
+      if (out && out[0] && out[0].length) { _embedDownUntil = 0; return out[0] }
+    } catch { /* sidecar unavailable → fall through to Ollama */ }
+  }
   // Same primary→fallback resilience as chat: at ingest time the active base may
   // still be a broken bundled Ollama (lists models, can't run the model), so try
   // the fallback before giving up — otherwise embeddings silently fail and

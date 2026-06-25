@@ -6145,6 +6145,20 @@ Question: ${question}`
     return
   }
 
+  // POST /api/embed/reindex — re-embed all doc chunks with the current embedder (run AFTER flipping
+  // NOETICA_EMBED_RUST=1 so chunk vectors move to the Rust embedder's space). Token-gated (heavy op).
+  if (req.method === 'POST' && url.pathname === '/api/embed/reindex') {
+    setCORSHeaders(res)
+    if (!requireApiToken(req, res)) return
+    ;(async () => {
+      try {
+        const { reindexDocVectors } = await import('./lib/doc-store.js')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(await reindexDocVectors()))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'failed' })) }
+    })()
+    return
+  }
+
   // GET /api/library — "what's been captured into the graph": collections → documents → entity/chunk counts.
   // The observability surface (like ChatGPT's library, but for the knowledge graph).
   if (req.method === 'GET' && url.pathname === '/api/library') {
