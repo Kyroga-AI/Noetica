@@ -1,0 +1,629 @@
+{
+ "rule": "compositional hyponymy (longest suffix-term = genus)",
+ "mode": "deduced",
+ "n_terms": 1017,
+ "n_multi": 785,
+ "edges": [
+  {
+   "child": "quadratic residue",
+   "parent": "residue",
+   "child_topic": "mathematics:Number Theory",
+   "parent_topic": "mathematics:Complex Analysis",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "quotient group",
+   "parent": "group",
+   "child_topic": "mathematics:Abstract Algebra \u2014 Group Theory",
+   "parent_topic": "mathematics:Abstract Algebra \u2014 Group Theory",
+   "cross_topic": false,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "uniform continuity",
+   "parent": "continuity",
+   "child_topic": "mathematics:Real Analysis",
+   "parent_topic": "mathematics:Single-Variable Calculus",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "energy-momentum 4-vector",
+   "parent": "4-vector",
+   "child_topic": "physics:Special Relativity",
+   "parent_topic": "physics:Special Relativity",
+   "cross_topic": false,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "stop codon",
+   "parent": "codon",
+   "child_topic": "biology:Molecular Biology",
+   "parent_topic": "biology:Molecular Biology",
+   "cross_topic": false,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "conservative vector field",
+   "parent": "field",
+   "child_topic": "mathematics:Multivariable Calculus",
+   "parent_topic": "mathematics:Abstract Algebra \u2014 Rings and Fields",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "commutative ring",
+   "parent": "ring",
+   "child_topic": "mathematics:Abstract Algebra \u2014 Rings and Fields",
+   "parent_topic": "mathematics:Abstract Algebra \u2014 Rings and Fields",
+   "cross_topic": false,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "adiabatic process",
+   "parent": "process",
+   "child_topic": "physics:Thermodynamics (Classical)",
+   "parent_topic": "computer_science:Operating Systems",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "residual entropy",
+   "parent": "entropy",
+   "child_topic": "chemistry:Statistical Thermodynamics and Partition Functions",
+   "parent_topic": "physics:Statistical Mechanics and Thermodynamics",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "moment of inertia",
+   "parent": "inertia",
+   "child_topic": "physics:Classical Mechanics",
+   "parent_topic": "physics:Classical Mechanics",
+   "cross_topic": false,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "positive externality",
+   "parent": "externality",
+   "child_topic": "economics:Welfare Economics and Externalities",
+   "parent_topic": "economics:Welfare Economics and Externalities",
+   "cross_topic": false,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "labor force",
+   "parent": "force",
+   "child_topic": "economics:Unemployment and Labor Markets",
+   "parent_topic": "physics:Classical Mechanics",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "start codon",
+   "parent": "codon",
+   "child_topic": "biology:Molecular Biology",
+   "parent_topic": "biology:Molecular Biology",
+   "cross_topic": false,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "indirect utility function",
+   "parent": "function",
+   "child_topic": "economics:Consumer Theory",
+   "parent_topic": "mathematics:Precalculus and Functions",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "generating function",
+   "parent": "function",
+   "child_topic": "mathematics:Discrete Mathematics and Combinatorics",
+   "parent_topic": "mathematics:Precalculus and Functions",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "planar graph",
+   "parent": "graph",
+   "child_topic": "computer_science:Discrete Mathematics & Logic",
+   "parent_topic": "mathematics:Discrete Mathematics and Combinatorics",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "red-black tree",
+   "parent": "tree",
+   "child_topic": "computer_science:Data Structures",
+   "parent_topic": "mathematics:Discrete Mathematics and Combinatorics",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "production function",
+   "parent": "function",
+   "child_topic": "economics:Producer Theory: Production and Costs",
+   "parent_topic": "mathematics:Precalculus and Functions",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "grand partition function",
+   "parent": "partition function",
+   "child_topic": "physics:Statistical Mechanics and Thermodynamics",
+   "parent_topic": "physics:Statistical Mechanics and Thermodynamics",
+   "cross_topic": false,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "Bronsted-Lowry acid",
+   "parent": "ACID",
+   "child_topic": "chemistry:Acids, Bases, and Buffers",
+   "parent_topic": "computer_science:Databases",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "Green's function",
+   "parent": "function",
+   "child_topic": "physics:Mathematical Methods in Physics",
+   "parent_topic": "mathematics:Precalculus and Functions",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "negative externality",
+   "parent": "externality",
+   "child_topic": "economics:Welfare Economics and Externalities",
+   "parent_topic": "economics:Welfare Economics and Externalities",
+   "cross_topic": false,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "simple group",
+   "parent": "group",
+   "child_topic": "mathematics:Abstract Algebra \u2014 Group Theory",
+   "parent_topic": "mathematics:Abstract Algebra \u2014 Group Theory",
+   "cross_topic": false,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "entire function",
+   "parent": "function",
+   "child_topic": "mathematics:Complex Analysis",
+   "parent_topic": "mathematics:Precalculus and Functions",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "softmax function",
+   "parent": "function",
+   "child_topic": "computer_science:Machine Learning",
+   "parent_topic": "mathematics:Precalculus and Functions",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "meromorphic function",
+   "parent": "function",
+   "child_topic": "mathematics:Complex Analysis",
+   "parent_topic": "mathematics:Precalculus and Functions",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "conservative force",
+   "parent": "force",
+   "child_topic": "physics:Classical Mechanics",
+   "parent_topic": "physics:Classical Mechanics",
+   "cross_topic": false,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "holomorphic function",
+   "parent": "function",
+   "child_topic": "mathematics:Complex Analysis",
+   "parent_topic": "mathematics:Precalculus and Functions",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "morphogen gradient",
+   "parent": "gradient",
+   "child_topic": "biology:Developmental Biology",
+   "parent_topic": "mathematics:Multivariable Calculus",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "linear independence",
+   "parent": "independence",
+   "child_topic": "mathematics:Linear Algebra",
+   "parent_topic": "mathematics:Probability and Combinatorics",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "abelian group",
+   "parent": "group",
+   "child_topic": "mathematics:Abstract Algebra \u2014 Group Theory",
+   "parent_topic": "mathematics:Abstract Algebra \u2014 Group Theory",
+   "cross_topic": false,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "analytic function",
+   "parent": "function",
+   "child_topic": "mathematics:Complex Analysis",
+   "parent_topic": "mathematics:Precalculus and Functions",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "partial derivative",
+   "parent": "derivative",
+   "child_topic": "mathematics:Multivariable Calculus",
+   "parent_topic": "mathematics:Single-Variable Calculus",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "London dispersion force",
+   "parent": "force",
+   "child_topic": "chemistry:Chemical Bonding and Molecular Structure",
+   "parent_topic": "physics:Classical Mechanics",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "strong induction",
+   "parent": "induction",
+   "child_topic": "computer_science:Discrete Mathematics & Logic",
+   "parent_topic": "biology:Developmental Biology",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "directional derivative",
+   "parent": "derivative",
+   "child_topic": "mathematics:Multivariable Calculus",
+   "parent_topic": "mathematics:Single-Variable Calculus",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "amino acid",
+   "parent": "ACID",
+   "child_topic": "chemistry:Biochemistry Fundamentals",
+   "parent_topic": "computer_science:Databases",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "cumulative distribution function",
+   "parent": "function",
+   "child_topic": "mathematics:Probability and Combinatorics",
+   "parent_topic": "mathematics:Precalculus and Functions",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "Lewis acid",
+   "parent": "ACID",
+   "child_topic": "chemistry:Acids, Bases, and Buffers",
+   "parent_topic": "computer_science:Databases",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "angular momentum",
+   "parent": "momentum",
+   "child_topic": "physics:Classical Mechanics",
+   "parent_topic": "physics:Classical Mechanics",
+   "cross_topic": false,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "expenditure function",
+   "parent": "function",
+   "child_topic": "economics:Consumer Theory",
+   "parent_topic": "mathematics:Precalculus and Functions",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "root (zero) of a polynomial",
+   "parent": "polynomial",
+   "child_topic": "mathematics:Algebra and Polynomial Theory",
+   "parent_topic": "mathematics:Algebra and Polynomial Theory",
+   "cross_topic": false,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "natural monopoly",
+   "parent": "monopoly",
+   "child_topic": "economics:Market Structures",
+   "parent_topic": "economics:Market Structures",
+   "cross_topic": false,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "normal subgroup",
+   "parent": "subgroup",
+   "child_topic": "mathematics:Abstract Algebra \u2014 Group Theory",
+   "parent_topic": "mathematics:Abstract Algebra \u2014 Group Theory",
+   "cross_topic": false,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "AVL tree",
+   "parent": "tree",
+   "child_topic": "computer_science:Data Structures",
+   "parent_topic": "mathematics:Discrete Mathematics and Combinatorics",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "grand canonical ensemble",
+   "parent": "canonical ensemble",
+   "child_topic": "chemistry:Statistical Thermodynamics and Partition Functions",
+   "parent_topic": "chemistry:Statistical Thermodynamics and Partition Functions",
+   "cross_topic": false,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "allopatric speciation",
+   "parent": "speciation",
+   "child_topic": "biology:Evolution",
+   "parent_topic": "biology:Evolution",
+   "cross_topic": false,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "money multiplier",
+   "parent": "multiplier",
+   "child_topic": "economics:Money, Banking, and Inflation",
+   "parent_topic": "economics:IS-LM and AD-AS Models",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "government budget constraint",
+   "parent": "budget constraint",
+   "child_topic": "economics:Fiscal and Monetary Policy",
+   "parent_topic": "economics:Consumer Theory",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "wave function",
+   "parent": "function",
+   "child_topic": "physics:Quantum Mechanics",
+   "parent_topic": "mathematics:Precalculus and Functions",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "Chandrasekhar limit",
+   "parent": "limit",
+   "child_topic": "physics:Astrophysics and Cosmology",
+   "parent_topic": "mathematics:Single-Variable Calculus",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "mathematical induction",
+   "parent": "induction",
+   "child_topic": "computer_science:Discrete Mathematics & Logic",
+   "parent_topic": "biology:Developmental Biology",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "prime ideal",
+   "parent": "ideal",
+   "child_topic": "mathematics:Abstract Algebra \u2014 Rings and Fields",
+   "parent_topic": "mathematics:Abstract Algebra \u2014 Rings and Fields",
+   "cross_topic": false,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "backward induction",
+   "parent": "induction",
+   "child_topic": "economics:Game Theory",
+   "parent_topic": "biology:Developmental Biology",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "Dirac delta function",
+   "parent": "function",
+   "child_topic": "physics:Mathematical Methods in Physics",
+   "parent_topic": "mathematics:Precalculus and Functions",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "Gaussian integer",
+   "parent": "integer",
+   "child_topic": "mathematics:Number Theory",
+   "parent_topic": "mathematics:Elementary Algebra and Arithmetic",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "arithmetic function",
+   "parent": "function",
+   "child_topic": "mathematics:Number Theory",
+   "parent_topic": "mathematics:Precalculus and Functions",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "restriction enzyme",
+   "parent": "enzyme",
+   "child_topic": "biology:Molecular Biology",
+   "parent_topic": "biology:Biochemistry and Metabolism",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "inverse function",
+   "parent": "function",
+   "child_topic": "mathematics:Precalculus and Functions",
+   "parent_topic": "mathematics:Precalculus and Functions",
+   "cross_topic": false,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "characteristic polynomial",
+   "parent": "polynomial",
+   "child_topic": "mathematics:Linear Algebra",
+   "parent_topic": "mathematics:Algebra and Polynomial Theory",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "degree of a polynomial",
+   "parent": "polynomial",
+   "child_topic": "mathematics:Algebra and Polynomial Theory",
+   "parent_topic": "mathematics:Algebra and Polynomial Theory",
+   "cross_topic": false,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "electric field",
+   "parent": "field",
+   "child_topic": "physics:Electromagnetism",
+   "parent_topic": "mathematics:Abstract Algebra \u2014 Rings and Fields",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "partition function",
+   "parent": "function",
+   "child_topic": "physics:Statistical Mechanics and Thermodynamics",
+   "parent_topic": "mathematics:Precalculus and Functions",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "maximal ideal",
+   "parent": "ideal",
+   "child_topic": "mathematics:Abstract Algebra \u2014 Rings and Fields",
+   "parent_topic": "mathematics:Abstract Algebra \u2014 Rings and Fields",
+   "cross_topic": false,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "conjugate momentum",
+   "parent": "momentum",
+   "child_topic": "physics:Analytical Mechanics (Lagrangian and Hamiltonian)",
+   "parent_topic": "physics:Classical Mechanics",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "order of a group",
+   "parent": "group",
+   "child_topic": "mathematics:Abstract Algebra \u2014 Group Theory",
+   "parent_topic": "mathematics:Abstract Algebra \u2014 Group Theory",
+   "cross_topic": false,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "Solow residual",
+   "parent": "residual",
+   "child_topic": "economics:Economic Growth: Solow Model",
+   "parent_topic": "economics:Econometrics: OLS and Regression",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "moment generating function",
+   "parent": "generating function",
+   "child_topic": "mathematics:Probability and Combinatorics",
+   "parent_topic": "mathematics:Discrete Mathematics and Combinatorics",
+   "cross_topic": true,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  },
+  {
+   "child": "Bayesian Nash equilibrium",
+   "parent": "Nash equilibrium",
+   "child_topic": "economics:Game Theory",
+   "parent_topic": "economics:Game Theory",
+   "cross_topic": false,
+   "rule": "head-hyponymy",
+   "mode": "deduced"
+  }
+ ]
+}

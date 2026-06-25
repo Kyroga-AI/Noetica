@@ -35,9 +35,10 @@ import { execFileSync } from 'node:child_process'
 import { embedText } from '../lib/ollama.js'
 import { councilVote, learnedCouncilVote } from '../lib/council.js'
 import { fetchConceptDef, cleanTerm } from '../lib/concept-defs.js'
-import { canonBridges } from '../lib/canon-lookup.js'
+import { canonBridges, canonGround, canonEntities, canonAncestors } from '../lib/canon-lookup.js'
 import { associativeRetrieve } from '../lib/graph-ppr.js'
 import { decodeVec, l2norm } from '../lib/brain-vec.js'
+import { reliabilityGate } from '../lib/reliability-gate.js'
 
 const HOME = os.homedir()
 const BANK = path.join(HOME, '.noetica', 'corpus', 'benchmarks', 'mmlu_stem.json')
@@ -367,6 +368,21 @@ async function retrieveMulti(question: string, choices: string[], pools: Chunk[]
   return picked.map((x) => ({ ...x.c, score: x.s }))
 }
 
+// Re2G rerank (Glass/Gliozzo et al., NAACL 2022): the retrieve→RERANK→generate stage. We already do dense+RRF+
+// gold+MMR; this adds the missing rerank — an LLM listwise relevance pass over a WIDE candidate set, keeping
+// the top-K most useful before generation. The `rerank` arm isolates the rerank lift on the board.
+const RERANK_N = Number(process.env['MMLU_RERANK_N'] || 16)
+async function rerankLLM(question: string, choices: string[], cands: Chunk[], k: number): Promise<Chunk[]> {
+  if (cands.length <= k) return cands
+  const list = cands.map((h, n) => `[${n + 1}] ${h.text.slice(0, 280).replace(/\s+/g, ' ')}`).join('\n')
+  const raw = await ask(`Question: ${question}\nChoices: ${choices.join(' / ')}\n\nNumbered passages:\n${list}\n\nList the ${k} passage numbers MOST useful for answering, most useful first, comma-separated (e.g. "3, 1, 7"). Numbers only.`)
+  const order = (raw.match(/\d+/g) || []).map(Number).filter((n) => n >= 1 && n <= cands.length)
+  const seen = new Set<number>(); const picked: Chunk[] = []
+  for (const n of order) { if (!seen.has(n)) { seen.add(n); picked.push(cands[n - 1]!); if (picked.length >= k) break } }
+  for (const h of cands) { if (picked.length >= k) break; if (!picked.includes(h)) picked.push(h) }   // model under-returned → fill by retrieval order
+  return picked.slice(0, k)
+}
+
 // probePosterior — the shared elimination ENGINE: per-choice evidence → a NORMALIZED conditional posterior
 // over the choices (the doors), updated sequentially (Bayes) across probe rounds, with a saturation gate
 // that WIDENS into co-prime fields until one door wins. eliminateArm and fiftyFiftyArm both build on this,
@@ -457,24 +473,33 @@ const SYS = 'You are taking a multiple-choice exam. Reason in ONE short sentence
 const NO_THINK = process.env['MMLU_NO_THINK'] === '1'   // qwen3/r1: '/no_think' disables slow chain-of-thought traces → fast AND strong (the eval fix)
 const nt = (p: string): string => (NO_THINK ? `${p} /no_think` : p)
 const MAXTOK = Number(process.env['MMLU_MAX_TOKENS'] || 220)
+// retry empty/timeout completions: a transient empty (contention, momentary timeout) must NOT score as a
+// false ✗? abstain. Only a genuinely-empty reply after ASK_RETRIES tries is a real abstain.
+const ASK_RETRIES = Number(process.env['MMLU_ASK_RETRIES'] || 2)
 async function ask(prompt: string, temperature = 0): Promise<string> {
-  try {
-    const res = await fetch(`${API_BASE}/v1/chat/completions`, {
-      method: 'POST', headers: { 'content-type': 'application/json', ...AUTH },
-      body: JSON.stringify({
-        model: MODEL, stream: false, temperature, max_tokens: MAXTOK,
-        // RELIABLE thinking-disable: the ` /no_think` text token (nt) is unreliable on the
-        // OpenAI-compat endpoint; chat_template_kwargs.enable_thinking=false is the correct switch
-        // for qwen3-class models (honored by vLLM/recent ollama; harmlessly ignored elsewhere).
-        ...(NO_THINK ? { chat_template_kwargs: { enable_thinking: false } } : {}),
-        messages: [{ role: 'system', content: SYS }, { role: 'user', content: nt(prompt) }],
-      }),
-      signal: AbortSignal.timeout(TIMEOUT),
-    })
-    const d = await res.json() as { choices?: Array<{ message?: { content?: string; reasoning_content?: string } }> }
-    const m = d.choices?.[0]?.message
-    return (m?.content || m?.reasoning_content || '').trim()
-  } catch { return '' }
+  const tries = Math.max(1, ASK_RETRIES)
+  for (let attempt = 0; attempt < tries; attempt++) {
+    try {
+      const res = await fetch(`${API_BASE}/v1/chat/completions`, {
+        method: 'POST', headers: { 'content-type': 'application/json', ...AUTH },
+        body: JSON.stringify({
+          model: MODEL, stream: false, temperature, max_tokens: MAXTOK,
+          // RELIABLE thinking-disable: the ` /no_think` text token (nt) is unreliable on the
+          // OpenAI-compat endpoint; chat_template_kwargs.enable_thinking=false is the correct switch
+          // for qwen3-class models (honored by vLLM/recent ollama; harmlessly ignored elsewhere).
+          ...(NO_THINK ? { chat_template_kwargs: { enable_thinking: false } } : {}),
+          messages: [{ role: 'system', content: SYS }, { role: 'user', content: nt(prompt) }],
+        }),
+        signal: AbortSignal.timeout(TIMEOUT),
+      })
+      const d = await res.json() as { choices?: Array<{ message?: { content?: string; reasoning_content?: string } }> }
+      const m = d.choices?.[0]?.message
+      const out = (m?.content || m?.reasoning_content || '').trim()
+      if (out) return out                                   // real completion
+    } catch { /* timeout / network — fall through to retry */ }
+    if (attempt < tries - 1) await new Promise((r) => setTimeout(r, 400 * (attempt + 1)))   // backoff
+  }
+  return ''                                                  // genuinely empty after retries → abstain
 }
 
 // askVote — self-consistency: sample K answers at temperature, return the MAJORITY letter.
@@ -580,6 +605,11 @@ function pct(a: number, b: number): string { return b ? (100 * a / b).toFixed(1)
 
 // ── verified-compute arm: the model only PARSES; units + the law catalog compute and certify ──
 const COMPUTE_PY = path.join(__dirname, 'compute_arm.py')
+// HARD ceiling on every sympy/python subprocess. execFileSync with NO timeout waits forever — a pathological
+// sympy solve()/integrate() froze the whole board at a subject boundary (done stuck → 15-min watchdog kill →
+// resume re-runs the same subject → same hang: an unbreakable loop). On timeout it throws → the existing
+// catch returns abstains → the board ALWAYS advances. Tunable via MMLU_SUBPROC_TIMEOUT_MS.
+const SUBPROC_TIMEOUT = Number(process.env['MMLU_SUBPROC_TIMEOUT_MS'] || 120_000)
 const EVAL_PY = path.join(__dirname, 'eval_sympy.py')
 const AUTOFORM_K = Number(process.env['MMLU_AUTOFORM_K'] || 3)  // sympy formalizations sampled per question
 
@@ -631,7 +661,7 @@ async function autoformBatch(qs: Q[]): Promise<CompRes[]> {
   if (!exprs.length) return res
   const byId = new Map<number, number[]>()
   try {
-    const out = execFileSync('python3', [EVAL_PY], { input: exprs.map((e) => JSON.stringify(e)).join('\n') + '\n', encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, env: { ...process.env } })
+    const out = execFileSync('python3', [EVAL_PY], { input: exprs.map((e) => JSON.stringify(e)).join('\n') + '\n', encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, env: { ...process.env }, timeout: SUBPROC_TIMEOUT, killSignal: 'SIGKILL' })
     for (const line of out.split('\n')) {
       if (!line.trim()) continue
       try {
@@ -657,13 +687,23 @@ function computeBatch(qs: Q[], contexts: string[] = []): CompRes[] {
   // `context` = brain-retrieved worked solutions (gold) that ground sympy formalization (#12) — the LLM
   // identifies the method from real worked examples instead of cold-parsing the question.
   const input = qs.map((q, i) => JSON.stringify({ id: i, question: q.question, choices: q.choices, context: contexts[i] || '' })).join('\n') + '\n'
+  // compute makes several LLM calls PER question, so a single per-batch SIGKILL (the old 120 s ceiling)
+  // killed the whole subject before it finished → the arm fired on 0/300. compute_arm.py now self-bounds
+  // each question (MMLU_COMPUTE_Q_TIMEOUT) and FLUSHES per line, so: (1) size the ceiling to the per-question
+  // cap × batch, and (2) on timeout SALVAGE the partial stdout (every question completed before the kill)
+  // from the error instead of discarding the whole subject. Incremental output + self-healing.
+  const qCap = Number(process.env['MMLU_COMPUTE_Q_TIMEOUT'] || 30)
+  const computeTimeout = Number(process.env['MMLU_COMPUTE_TIMEOUT_MS'] || Math.max(SUBPROC_TIMEOUT, (qs.length * (qCap + 5) + 30) * 1000))
+  let out = ''
   try {
-    const out = execFileSync('python3', [COMPUTE_PY, '--batch'], { input, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env } })
-    for (const line of out.split('\n')) {
-      if (!line.trim()) continue
-      try { const r = JSON.parse(line) as { id: number; answer: string | null; mode: string }; if (typeof r.id === 'number' && r.id < res.length) res[r.id] = { answer: r.answer, mode: r.mode } } catch { /* skip a bad line */ }
-    }
-  } catch { return qs.map(() => ({ answer: null, mode: 'error' })) }
+    out = execFileSync('python3', [COMPUTE_PY, '--batch'], { input, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env }, timeout: computeTimeout, killSignal: 'SIGKILL' })
+  } catch (e) {
+    out = (e as { stdout?: string | Buffer })?.stdout?.toString() ?? ''   // keep questions finished before the kill
+  }
+  for (const line of out.split('\n')) {
+    if (!line.trim()) continue
+    try { const r = JSON.parse(line) as { id: number; answer: string | null; mode: string }; if (typeof r.id === 'number' && r.id < res.length) res[r.id] = { answer: r.answer, mode: r.mode } } catch { /* skip a bad line */ }
+  }
   return res
 }
 
@@ -686,7 +726,7 @@ function ktypeBatch(qs: Q[]): KType[] {
   if (!qs.length) return res
   const input = qs.map((q, i) => JSON.stringify({ id: i, question: q.question, choices: q.choices })).join('\n') + '\n'
   try {
-    const out = execFileSync('python3', [KTYPE_PY, '--batch'], { input, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, env: { ...process.env } })
+    const out = execFileSync('python3', [KTYPE_PY, '--batch'], { input, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, env: { ...process.env }, timeout: SUBPROC_TIMEOUT, killSignal: 'SIGKILL' })
     for (const line of out.split('\n')) {
       if (!line.trim()) continue
       try { const r = JSON.parse(line) as { id: number; types: string[]; solver: string }; if (typeof r.id === 'number' && r.id < res.length) res[r.id] = { types: r.types, solver: r.solver } } catch { /* skip */ }
@@ -811,12 +851,68 @@ async function main() {
       const results: Array<{ arm: string; ok: boolean; attempted: boolean }> = []
       for (const arm of ARMS) {
         let letter = ''; let mode = ''; let attempted = true
+        try {                                    // ROBUST: contain each arm — a single arm's bug must not crash the question/batch/run
         if (arm === 'compute') {                 // verified compute only (abstains where no law fits)
           letter = ci?.answer ?? ''; mode = ci?.mode ?? 'abstain'; attempted = !!ci?.answer
         } else if (arm === 'route') {             // the dispatch: compute where computable, else retrieve
           if (ci?.answer) { letter = ci.answer; mode = ci.mode } else { letter = await askBrain(); mode = 'retrieve' }
         } else if (arm === 'brain') {
           letter = await askBrain()
+        } else if (arm === 'rerank') {            // Re2G: retrieve WIDE → LLM listwise rerank → generate (the rerank stage we lacked)
+          const wide = await retrieveMulti(q.question, q.choices, pools, PER_SHOT, RERANK_N)
+          const top = await rerankLLM(q.question, q.choices, wide, SHOT_K)
+          const ctx = top.map((h, n) => `[${n + 1}] ${h.text.slice(0, 500)}`).join('\n\n')
+          letter = extractLetter(await ask(`Relevant MIT course notes (use only what helps; ignore noise and fragments):\n\n${ctx}\n\nExam question:\n${base}${ANSWER_RULE}`)); mode = `rerank:${top.length}`
+        } else if (arm === 'ground') {            // CANON GROUNDING: the question's entities → glossary defs + related equations/models + prereq decomposition + bridges
+          const g = canonGround(`${q.question} ${q.choices.join(' ')}`)
+          letter = extractLetter(await ask(`${g ? g + '\n\n' : ''}Exam question:\n${base}${ANSWER_RULE}`)); mode = g ? 'ground' : 'no-canon'
+        } else if (arm === 'cohere') {            // Choice-Coherence Elimination. EMITS the RAW per-choice feature
+          // matrix (cohesion, uniqueness, set-incl) into the row — NOT just the argmax pick — so the transcript is
+          // training data for the n-furcated combiner (no aggregation that loses the points). The letter is still
+          // produced for the aggregate accuracy column: we keep BOTH the features and the measure.
+          const setOf = (text: string): Set<string> => { const s = new Set<string>(); for (const e of canonEntities(text, 8)) { s.add(e.tkey); for (const a of canonAncestors(e.term)) s.add(a.toLowerCase()) } return s }
+          const cos = (a: number[], b: number[]): number => { if (!a.length || !b.length) return 0; let s = 0, na = 0, nb = 0; const n = Math.min(a.length, b.length); for (let i = 0; i < n; i++) { s += a[i]! * b[i]!; na += a[i]! ** 2; nb += b[i]! ** 2 } return s / ((Math.sqrt(na) * Math.sqrt(nb)) || 1) }
+          const muQ = await embedCached(`${q.question}\n${canonGround(q.question)}`)   // the question ("combined topics") centroid
+          const TQ = setOf(q.question)
+          const cvs: number[][] = []; const TCs: Array<Set<string>> = []
+          for (const c of q.choices) { cvs.push(await embedCached(`${c}\n${canonGround(c)}`)); TCs.push(setOf(c)) }   // spelling-bee: expand + embed each choice
+          const feats: Array<{ cohesion: number; uniqueness: number; incl: number; evid: number; comp_hit: number; pos: number; len: number; nents: number; ontopic: number; score: number }> = []
+          let bi = 0, bs = -Infinity
+          for (let i = 0; i < q.choices.length; i++) {
+            const cohesion = cos(muQ, cvs[i]!)                                          // continuous: connection to the question
+            const others = cvs.filter((v, j) => j !== i && v.length > 0)               // uniqueness: distance from the OTHER choices' centroid (the inversion signal)
+            const muO = others.length ? others[0]!.map((_, d) => others.reduce((s, v) => s + (v[d] ?? 0), 0) / others.length) : []
+            const uniqueness = others.length ? 1 - cos(cvs[i]!, muO) : 0
+            let inter = 0; for (const t of TCs[i]!) if (TQ.has(t)) inter++
+            const incl = TCs[i]!.size === 0 ? 0 : (inter > 0 ? inter / (new Set([...TQ, ...TCs[i]!]).size || 1) : -0.2)   // discrete set inclusion/exclusion
+            const evid = (await retrieveMulti(q.question, [q.choices[i]!], pools, PER_SHOT, 1))[0]?.score ?? 0   // verification: brain evidence support for THIS choice
+            const compHit = ci?.answer === LETTERS[i] ? 1 : 0                           // verification (DEDUCED): sympy-verified compute picks this choice → near-certain when 1
+            const score = 0.7 * cohesion + 0.2 * uniqueness + 0.1 * incl               // a DEFAULT blend for the arm's letter; the combiner relearns these weights per regime
+            feats.push({ cohesion: +cohesion.toFixed(4), uniqueness: +uniqueness.toFixed(4), incl: +incl.toFixed(3),
+              evid: +evid.toFixed(4), comp_hit: compHit,                                // verification columns (evidence + deduced)
+              pos: i, len: +(q.choices[i]!.length / 120).toFixed(3), nents: TCs[i]!.size, ontopic: inter > 0 ? 1 : 0,   // structural + descriptive columns
+              score: +score.toFixed(4) })
+            if (score > bs) { bs = score; bi = i }
+          }
+          row['cohere'] = { pick: bi, gold: LETTERS.indexOf(gold), feats }             // RAW per-choice features (the points) — combiner training data; letter below = the aggregate measure
+          letter = LETTERS[bi]!; mode = `cohere:${bs.toFixed(2)}`
+        } else if (arm === 'ladder') {            // STAGED elimination: drop the weakest one at a time, Monty-Hall
+          // re-normalize the posterior over the survivors at EACH stage, and record the per-stage state — so we
+          // measure eliminate-1 (stage 0) vs 50:50 (stage 1) vs runoff (last) and learn WHERE to stop (the gap).
+          const { post } = await probePosterior(q.question, q.choices, pools, widerPools)
+          let cur = q.choices.map((_, i) => i)
+          const stages: Array<{ k: number; eliminated: string; pick: string; gap: number; conf: number; post: Record<string, number> }> = []
+          while (cur.length > 1) {
+            const z = cur.reduce((s, i) => s + post[i]!, 0) || 1
+            const p = cur.map((i) => ({ i, p: post[i]! / z })).sort((a, b) => b.p - a.p)   // Monty-Hall renorm over survivors
+            const weakest = p[p.length - 1]!.i
+            stages.push({ k: q.choices.length - cur.length, eliminated: LETTERS[weakest]!, pick: LETTERS[p[0]!.i]!,
+              gap: +((p[0]!.p) - (p[1]?.p ?? 0)).toFixed(3), conf: +p[0]!.p.toFixed(3),
+              post: Object.fromEntries(p.map((x) => [LETTERS[x.i]!, +x.p.toFixed(3)])) })
+            cur = cur.filter((i) => i !== weakest)                                          // eliminate the weakest
+          }
+          row['ladder'] = { gold, stages }                                                 // stage0=eliminate-1, stage1=50:50, last=runoff — per-stage gap is the stopping classifier's signal
+          letter = LETTERS[cur[0]!]!; mode = `ladder:${stages.length}st`
         } else if (arm === 'defs') {              // STRUCTURAL definition-grounding (concept-defs): CLEAN KG defs, not noisy transcripts
           // Tests the thesis (Wolfson §4 / audit #1): retrieval is bounded by ONTOLOGICAL alignment, not the
           // model — so ground on disambiguated Wikipedia definitions (field-qualified + embedding-WSD) instead
@@ -969,10 +1065,19 @@ async function main() {
         } else {                                  // baseline (closed book)
           letter = extractLetter(await ask(`${base}${ANSWER_RULE}`))
         }
+        } catch (e) { letter = ''; mode = `ERR:${String((e as Error)?.message ?? e).slice(0, 50)}`; attempted = false }   // arm abstains on failure; the run goes on
         const ok = letter === gold
         results.push({ arm, ok, attempted })
         row[`${arm}_pred`] = letter || '?'; row[`${arm}_ok`] = ok; if (mode) row[`${arm}_mode`] = mode
         marks.push(`${arm}:${ok ? '✓' : '✗'}${arm === 'compute' && !attempted ? '·' : (letter || '?')}`)
+      }
+      // vote_share (ensemble column): fraction of the answering arms that picked each letter — the per-choice
+      // agreement signal, computed once all arm preds are in the row. A strong column the combiner can weight.
+      {
+        const voters = ['baseline', 'brain', 'rerank', 'ground', 'qgen', 'notecard', 'gate', 'defs', 'hop', 'route']
+        const votes: Record<string, number> = {}; let nv = 0
+        for (const v of voters) { const p = row[`${v}_pred`]; if (typeof p === 'string' && p !== '?') { votes[p] = (votes[p] ?? 0) + 1; nv++ } }
+        if (nv) row['vote_share'] = Object.fromEntries(LETTERS.slice(0, q.choices.length).map((L) => [L, +((votes[L] ?? 0) / nv).toFixed(3)]))
       }
       // LIVE per-question heartbeat to stderr (the batched stdout board line only prints after a
       // whole CONC-batch finishes — that masked a slow run as a hang and burned hours). This fires
@@ -999,13 +1104,38 @@ async function main() {
         await Promise.all(wl.slice(s, s + PREEMBED_CONC).map((qq) => embedCached(qq).catch(() => [] as number[])))
       }
     }
+    // ROBUST: a HARD per-question deadline. The per-arm try/catch contains a THROWING arm; this contains a
+    // HANGING one — any await that never resolves. On timeout the question resolves as an all-abstain row so the
+    // checkpoint advances PAST it: no kill→resume loop on a poison question (the failure mode that ate days).
+    const Q_DEADLINE = Number(process.env['MMLU_Q_DEADLINE_MS'] || 300_000)
+    const scoreOrAbstain = (i: number): Promise<Awaited<ReturnType<typeof scoreQuestion>>> => Promise.race([
+      scoreQuestion(i),
+      new Promise<Awaited<ReturnType<typeof scoreQuestion>>>((resolve) => setTimeout(() => {
+        const g = LETTERS[sample[i]!.answer]!
+        resolve({ i, gold: g, row: { subject, i, gold: g, q_timeout_ms: Q_DEADLINE } as Record<string, unknown>,
+          marks: ARMS.map(() => '⏱'), results: ARMS.map((arm) => ({ arm, ok: false, attempted: false })) })
+      }, Q_DEADLINE)),
+    ])
     for (let s = 0; s < todo.length; s += CONC) {
-      const batch = await Promise.all(todo.slice(s, s + CONC).map((i) => scoreQuestion(i)))
+      const batch = await Promise.all(todo.slice(s, s + CONC).map((i) => scoreOrAbstain(i)))
       for (const r of batch) {
         for (const res of r.results) {
           const t = tally[res.arm]![subject]!; t.n++; if (res.ok) t.c++
           if (res.arm === 'compute' && res.attempted) t.a = (t.a ?? 0) + 1
         }
+        // reliability gate (agreement × density) — the post-council selective signal; measured, not used to
+        // change answers here. decision='answer' should track high accuracy; 'escalate' marks the coin-flip set.
+        try {
+          const preds = ['baseline', 'brain', 'rerank', 'ground', 'qgen', 'compute']
+            .map((a) => r.row[`${a}_pred`]).filter((p): p is string => typeof p === 'string' && p !== '?')
+          if (preds.length >= 2) {
+            const g = reliabilityGate(sample[r.i]!.question, preds)
+            r.row['gate_reliability'] = Number(g.confidence.toFixed(3))
+            r.row['gate_decision'] = g.decision
+            r.row['gate_agree'] = Number(g.agreement.toFixed(2))
+            r.row['gate_typical'] = g.typical
+          }
+        } catch { /* gate is best-effort; never block the checkpoint */ }
         fs.appendFileSync(TRANSCRIPT, JSON.stringify(r.row) + '\n')   // durable per-question checkpoint
         scored++
         console.log(`  ${String(r.i + 1).padStart(3)}. ${r.marks.join('  ')}  /${r.gold}`)

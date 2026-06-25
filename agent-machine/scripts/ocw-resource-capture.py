@@ -139,9 +139,11 @@ def extract_resource(url):
 
 
 def done_set():
+    """A course is DONE iff its captured file exists in GCS — the file IS the record, so resume is exact
+    even if the manifest index drifted. (Was reading _manifest.jsonl, which lagged the actual captures.)"""
     try:
-        out = subprocess.run(['gcloud', 'storage', 'cat', f'{GCS}/_manifest.jsonl'], capture_output=True, text=True, timeout=60).stdout
-        return set(json.loads(l)['slug'] for l in out.splitlines() if l.strip())
+        out = subprocess.run(['gcloud', 'storage', 'ls', f'{GCS}/courses/'], capture_output=True, text=True, timeout=180).stdout
+        return set(os.path.basename(u)[:-6] for u in out.splitlines() if u.endswith('.jsonl'))
     except Exception:
         return set()
 

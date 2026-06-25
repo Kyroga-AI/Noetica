@@ -1,0 +1,34 @@
+[
+  {
+    "detector": "nli",
+    "claims": 4922,
+    "fabricated": 440,
+    "raw_rate": 0.08939455505891913,
+    "mislabeled_rate": 0.01564404713531085,
+    "caught_rate": 0.825
+  },
+  {
+    "detector": "nli-union",
+    "claims": 4922,
+    "fabricated": 440,
+    "raw_rate": 0.08939455505891913,
+    "mislabeled_rate": 0.020113774888256806,
+    "caught_rate": 0.775
+  },
+  {
+    "detector": "combo",
+    "claims": 4922,
+    "fabricated": 440,
+    "raw_rate": 0.08939455505891913,
+    "mislabeled_rate": 0.03860219422998781,
+    "caught_rate": 0.5681818181818182
+  },
+  {
+    "detector": "sim",
+    "claims": 21417,
+    "fabricated": 1710,
+    "raw_rate": 0.07984311528225242,
+    "mislabeled_rate": 0.04122893028902274,
+    "caught_rate": 0.48362573099415207
+  }
+]

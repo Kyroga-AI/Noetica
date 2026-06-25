@@ -36,6 +36,7 @@ import * as dns from 'node:dns'
 import * as net from 'node:net'
 import { originAllowed } from './lib/origin-guard.js'
 import { isConfinedToHomeOrTmp } from './lib/path-confine.js'
+import { buildAdaptiveBrief } from './lib/progress.js'
 import { safeShellEnv } from './lib/safe-shell-env.js'
 import { buildRouterDecision, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider, bestCoder, bestWorkhorse, bestResponsive } from './lib/router.js'
 import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTelemetry, type MeshTier } from './lib/scope-d.js'
@@ -3373,6 +3374,27 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     }
   } catch { /* procedural-memory best-effort */ }
 
+  // Learn primer (new-workspace onboarding): prime the chat with the learner's Academy state — degree,
+  // prerequisite frontier, domain teaching persona — plus canon focus context. Sourced from the Alexandrian
+  // Academy + our canon, NOT personal mail/drive. Empty when the request carries no learner_id (or no profile
+  // on file), so this is a zero-impact default for non-learner sessions.
+  let learnerContext = ''
+  try {
+    const lid = (body as { learner_id?: string }).learner_id
+    if (lid) { const brief = buildAdaptiveBrief(String(lid)); if (brief) learnerContext = `\n\n${brief}` }   // track-aware: child / student / adult voice, one engine
+  } catch { /* learner brief is best-effort */ }
+  // Canon grounding (PROMOTABLE, off by default): the question's entities → canon glossary definitions +
+  // related equations/models + prerequisite decomposition + cross-domain bridges. Turns the static canon
+  // (1035 terms, 766 equations, 121 prereq edges) into answer-time scaffolding. Flip NOETICA_CANON_GROUND=1
+  // once the board's `ground` arm confirms the lift. Study-brain lanes only; best-effort.
+  let canonGroundContext = ''
+  if (isFlagOn('NOETICA_CANON_GROUND') && STUDY_BRAIN_LANES.has(intentPlan.name)) {
+    try {
+      const { canonGround } = await import('./lib/canon-lookup.js')
+      const g = canonGround(latestUserContent)
+      if (g) canonGroundContext = `\n\n${g}`
+    } catch { /* canon grounding best-effort */ }
+  }
   // NOTE: we do NOT append `/no_think`. The chat path is the OpenAI-compat /v1 endpoint (no native `think`
   // param), so /no_think is the only lever — but on qwen3 it strips the <think>…</think> wrapper while the
   // model STILL reasons, so the reasoning leaks into the ANSWER as plain text (the streamOllama parser routes
@@ -3387,7 +3409,8 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   const DOC_INTENTS = new Set(['qa_over_doc', 'summarize_doc', 'file_ops', 'file_ingest'])
   const knowledgeDirective = DOC_INTENTS.has(intentPlan.name) ? '' :
     `\n\n=== ANSWER POLICY (highest priority) ===\nAny context above is OPTIONAL background — it is NOT the set of allowed facts. Answer the user's question directly. For general knowledge (history, geography, science, public events), answer from YOUR OWN knowledge. NEVER say "not in the provided documents/sources" or "consult an external source" for a fact you know. Only say you don't know if you genuinely don't.`
-  const enrichedSystemPrompt = basePrompt + dateLine + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + episodeContext + goalContext + skillsContext + reasoningDirective + verbosityNote + modeNote + lifeDomain.safetyNote + profile.authorizationSuffix + knowledgeDirective + thinkDirective
+  // merged: ours prepends learner/canon context after dateLine; main appends the knowledge + think directives.
+  const enrichedSystemPrompt = basePrompt + dateLine + learnerContext + canonGroundContext + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + episodeContext + goalContext + skillsContext + reasoningDirective + verbosityNote + modeNote + lifeDomain.safetyNote + profile.authorizationSuffix + knowledgeDirective + thinkDirective
 
   // Token budget: rough estimate (4 chars ≈ 1 token). If message history + system prompt
   // exceeds 70% of the model's context window, trim oldest non-system messages.

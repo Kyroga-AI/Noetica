@@ -1,0 +1,269 @@
+{
+ "dinosaurs": {
+  "fields": [
+   "biology",
+   "geology"
+  ],
+  "path": [
+   "Observation & Measurement",
+   "Living vs Non-living & Classification",
+   "Life Cycles & Ecosystems",
+   "Counting & Number Sense",
+   "Addition & Subtraction",
+   "Place Value",
+   "Multiplication & Division",
+   "Data, Graphs & Basic Probability",
+   "The Scientific Method & Experiment Design",
+   "Cells & Body Systems"
+  ],
+  "buckets": [
+   "math",
+   "science"
+  ],
+  "bridges_into_canon": [
+   "Cell Biology"
+  ],
+  "hook": "What lived, when, and how do we know? \u2192 classification, deep time, fossils, evolution."
+ },
+ "space & rockets": {
+  "fields": [
+   "physics",
+   "astronomy"
+  ],
+  "path": [
+   "Observation & Measurement",
+   "Earth & Space (intro)",
+   "Counting & Number Sense",
+   "Addition & Subtraction",
+   "Place Value",
+   "Multiplication & Division",
+   "Data, Graphs & Basic Probability",
+   "Forces, Motion & Energy (intro)",
+   "Fractions",
+   "Decimals, Percents & Ratios",
+   "Shapes, Area & Volume",
+   "Integers & Pre-Algebra",
+   "Physical Science (intro mechanics)"
+  ],
+  "buckets": [
+   "math",
+   "science"
+  ],
+  "bridges_into_canon": [
+   "Classical Mechanics",
+   "Elementary Algebra and Arithmetic"
+  ],
+  "hook": "Why do things fall and orbit? \u2192 forces, motion, scale, gravity."
+ },
+ "video games & coding": {
+  "fields": [
+   "computer_science",
+   "mathematics"
+  ],
+  "path": [
+   "Counting & Number Sense",
+   "Addition & Subtraction",
+   "Place Value",
+   "Multiplication & Division",
+   "Observation & Measurement",
+   "Data, Graphs & Basic Probability",
+   "The Scientific Method & Experiment Design",
+   "Fractions",
+   "Decimals, Percents & Ratios",
+   "Shapes, Area & Volume",
+   "Integers & Pre-Algebra"
+  ],
+  "buckets": [
+   "math",
+   "science"
+  ],
+  "bridges_into_canon": [
+   "Elementary Algebra and Arithmetic"
+  ],
+  "hook": "Make the computer do what you want \u2192 logic, number, algebra, geometry."
+ },
+ "animals & nature": {
+  "fields": [
+   "biology"
+  ],
+  "path": [
+   "Observation & Measurement",
+   "Living vs Non-living & Classification",
+   "Life Cycles & Ecosystems",
+   "Counting & Number Sense",
+   "Addition & Subtraction",
+   "Place Value",
+   "Multiplication & Division",
+   "Data, Graphs & Basic Probability",
+   "The Scientific Method & Experiment Design",
+   "Cells & Body Systems"
+  ],
+  "buckets": [
+   "math",
+   "science"
+  ],
+  "bridges_into_canon": [
+   "Cell Biology"
+  ],
+  "hook": "How living things work and fit together \u2192 classification, ecosystems, body systems."
+ },
+ "music": {
+  "fields": [
+   "mathematics",
+   "physics"
+  ],
+  "path": [
+   "Counting & Number Sense",
+   "Addition & Subtraction",
+   "Place Value",
+   "Multiplication & Division",
+   "Fractions",
+   "Observation & Measurement",
+   "Data, Graphs & Basic Probability",
+   "Forces, Motion & Energy (intro)",
+   "Decimals, Percents & Ratios",
+   "Shapes, Area & Volume",
+   "Integers & Pre-Algebra",
+   "Physical Science (intro mechanics)"
+  ],
+  "buckets": [
+   "math",
+   "science"
+  ],
+  "bridges_into_canon": [
+   "Classical Mechanics",
+   "Elementary Algebra and Arithmetic"
+  ],
+  "hook": "Why do notes sound good together? \u2192 ratios, fractions, patterns, frequency."
+ },
+ "building & Lego": {
+  "fields": [
+   "physics",
+   "mathematics"
+  ],
+  "path": [
+   "Counting & Number Sense",
+   "Addition & Subtraction",
+   "Place Value",
+   "Multiplication & Division",
+   "Shapes, Area & Volume",
+   "Observation & Measurement",
+   "Data, Graphs & Basic Probability",
+   "Forces, Motion & Energy (intro)",
+   "Fractions",
+   "Decimals, Percents & Ratios",
+   "Integers & Pre-Algebra",
+   "Physical Science (intro mechanics)"
+  ],
+  "buckets": [
+   "math",
+   "science"
+  ],
+  "bridges_into_canon": [
+   "Classical Mechanics",
+   "Elementary Algebra and Arithmetic"
+  ],
+  "hook": "Make it stand up and move \u2192 geometry, measurement, forces, structures."
+ },
+ "cooking": {
+  "fields": [
+   "chemistry",
+   "mathematics"
+  ],
+  "path": [
+   "Counting & Number Sense",
+   "Addition & Subtraction",
+   "Place Value",
+   "Multiplication & Division",
+   "Fractions",
+   "Observation & Measurement",
+   "Matter & Its Properties",
+   "Decimals, Percents & Ratios",
+   "Shapes, Area & Volume",
+   "Integers & Pre-Algebra"
+  ],
+  "buckets": [
+   "math",
+   "science"
+  ],
+  "bridges_into_canon": [
+   "Elementary Algebra and Arithmetic"
+  ],
+  "hook": "Why does the recipe work? \u2192 measurement, fractions, states of matter, reactions."
+ },
+ "money & business": {
+  "fields": [
+   "economics",
+   "mathematics"
+  ],
+  "path": [
+   "Counting & Number Sense",
+   "Addition & Subtraction",
+   "Place Value",
+   "Multiplication & Division",
+   "Fractions",
+   "Decimals, Percents & Ratios",
+   "Community, Maps & Time",
+   "US & World Geography",
+   "Money, Markets & Personal Finance",
+   "Shapes, Area & Volume",
+   "Integers & Pre-Algebra"
+  ],
+  "buckets": [
+   "math",
+   "social_studies"
+  ],
+  "bridges_into_canon": [
+   "Elementary Algebra and Arithmetic",
+   "Microeconomics Foundations"
+  ],
+  "hook": "How money works \u2192 percents, data, markets, trade-offs."
+ },
+ "drawing & art": {
+  "fields": [
+   "mathematics"
+  ],
+  "path": [
+   "Counting & Number Sense",
+   "Addition & Subtraction",
+   "Place Value",
+   "Multiplication & Division",
+   "Shapes, Area & Volume",
+   "Phonics & Decoding",
+   "Reading Fluency",
+   "Reading Comprehension",
+   "Literature, Genre & Analysis",
+   "Fractions",
+   "Decimals, Percents & Ratios",
+   "Integers & Pre-Algebra"
+  ],
+  "buckets": [
+   "language_arts",
+   "math"
+  ],
+  "bridges_into_canon": [
+   "Elementary Algebra and Arithmetic",
+   "Literature"
+  ],
+  "hook": "Proportion, perspective, pattern \u2192 geometry, ratio, symmetry."
+ },
+ "stories & writing": {
+  "fields": [
+   "literature",
+   "philosophy"
+  ],
+  "path": [
+   "Phonics & Decoding",
+   "Reading Fluency",
+   "Reading Comprehension",
+   "Literature, Genre & Analysis"
+  ],
+  "buckets": [
+   "language_arts"
+  ],
+  "bridges_into_canon": [
+   "Literature"
+  ],
+  "hook": "Tell and understand stories \u2192 comprehension, genre, argument, rhetoric."
+ }
+}
