@@ -126,7 +126,7 @@ export async function embedText(text: string): Promise<number[]> {
   // OPT-IN (NOETICA_EMBED_RUST=1) because the sidecar is bge-384 while the existing doc corpus is Ollama
   // nomic-768: flip the flag THEN reindex (POST /api/embed/reindex) so queries + chunks share the bge space.
   // Until reindexed, mismatched-dim chunks just rank low (graceful) — they don't break. Falls back to Ollama.
-  if (process.env['NOETICA_EMBED_RUST'] === '1') {
+  if (process.env['NOETICA_EMBED_RUST'] !== '0') {   // default-on: Rust embedder primary, Ollama fallback
     try {
       const { embedBatchLocal } = await import('./embed-runtime.js')
       const out = await embedBatchLocal([text.slice(0, 8000)])

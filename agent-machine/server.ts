@@ -8341,6 +8341,17 @@ server.listen(PORT, '127.0.0.1', () => {
     }
   })()
 
+  // Self-healing embedder migration: on upgrade the active embedder may differ from the one that made the
+  // stored chunk vectors (Ollama nomic-768 → Rust bge-384). Reindex the corpus once in the background so
+  // retrieval stays consistent without a manual step — a no-op when dims already match.
+  void (async () => {
+    try {
+      const { reindexIfDimMismatch } = await import('./lib/doc-store.js')
+      const r = await reindexIfDimMismatch()
+      if (r.reindexed) console.log(`[embed-migrate] ${r.reason}`.replace(/[\r\n]/g, ' '))
+    } catch { /* best-effort */ }
+  })()
+
   // Demo pre-warm: actually LOAD the primary chat model(s) into RAM with a long
   // keep_alive so the first query isn't a cold-load stall (Ollama otherwise loads
   // on first use — 5–60s for an 8B — and unloads after 5 min idle). Best-effort,

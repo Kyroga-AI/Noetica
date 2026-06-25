@@ -318,6 +318,23 @@ export function userDocumentChunkCount(): number {
   return getHellGraph().nodesByLabel(CHUNK_LABEL).filter((n) => isUserDoc(String(n.properties['filename'] ?? ''))).length
 }
 
+/** Self-healing: if stored chunk vectors were made by a DIFFERENT embedder than the one now active (different
+ *  dimension — e.g. an upgrade from Ollama nomic-768 to Rust bge-384), reindex the corpus so queries + chunks
+ *  share a space again. Runs once at boot in the background; a no-op when dims already match. */
+export async function reindexIfDimMismatch(): Promise<{ reindexed: boolean; reason: string }> {
+  const g = getHellGraph()
+  const sample = g.nodesByLabel(CHUNK_LABEL).find((n) => String(n.properties['embedding'] ?? ''))
+  if (!sample) return { reindexed: false, reason: 'no embedded chunks' }
+  let storedDim = 0
+  try { storedDim = (JSON.parse(String(sample.properties['embedding'])) as number[]).length } catch { return { reindexed: false, reason: 'unreadable embedding' } }
+  const probe = await embedText('dimension probe')
+  if (!probe.length) return { reindexed: false, reason: 'embedder unavailable' }
+  if (probe.length === storedDim) return { reindexed: false, reason: `dims match (${storedDim})` }
+  console.log(`[doc-store] embedder dim changed (${storedDim} → ${probe.length}) — reindexing corpus in background`.replace(/[\r\n]/g, ' '))
+  const r = await reindexDocVectors()
+  return { reindexed: true, reason: `reindexed ${r.reembedded}/${r.total} chunks ${storedDim}→${probe.length}` }
+}
+
 /** Re-embed every DocumentChunk with the CURRENT embedder (embedText) and upsert it — used after switching
  *  embedders (e.g. Ollama nomic-768 → Rust bge-384) so stored chunk vectors share the query's vector space.
  *  Idempotent + restartable; returns counts. Skips chunks with no text. */
