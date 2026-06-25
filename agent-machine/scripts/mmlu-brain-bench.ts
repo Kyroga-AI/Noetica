@@ -38,6 +38,7 @@ import { fetchConceptDef, cleanTerm } from '../lib/concept-defs.js'
 import { canonBridges, canonGround, canonEntities, canonAncestors } from '../lib/canon-lookup.js'
 import { associativeRetrieve } from '../lib/graph-ppr.js'
 import { decodeVec, l2norm } from '../lib/brain-vec.js'
+import { reliabilityGate } from '../lib/reliability-gate.js'
 
 const HOME = os.homedir()
 const BANK = path.join(HOME, '.noetica', 'corpus', 'benchmarks', 'mmlu_stem.json')
@@ -686,13 +687,23 @@ function computeBatch(qs: Q[], contexts: string[] = []): CompRes[] {
   // `context` = brain-retrieved worked solutions (gold) that ground sympy formalization (#12) — the LLM
   // identifies the method from real worked examples instead of cold-parsing the question.
   const input = qs.map((q, i) => JSON.stringify({ id: i, question: q.question, choices: q.choices, context: contexts[i] || '' })).join('\n') + '\n'
+  // compute makes several LLM calls PER question, so a single per-batch SIGKILL (the old 120 s ceiling)
+  // killed the whole subject before it finished → the arm fired on 0/300. compute_arm.py now self-bounds
+  // each question (MMLU_COMPUTE_Q_TIMEOUT) and FLUSHES per line, so: (1) size the ceiling to the per-question
+  // cap × batch, and (2) on timeout SALVAGE the partial stdout (every question completed before the kill)
+  // from the error instead of discarding the whole subject. Incremental output + self-healing.
+  const qCap = Number(process.env['MMLU_COMPUTE_Q_TIMEOUT'] || 30)
+  const computeTimeout = Number(process.env['MMLU_COMPUTE_TIMEOUT_MS'] || Math.max(SUBPROC_TIMEOUT, (qs.length * (qCap + 5) + 30) * 1000))
+  let out = ''
   try {
-    const out = execFileSync('python3', [COMPUTE_PY, '--batch'], { input, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env }, timeout: SUBPROC_TIMEOUT, killSignal: 'SIGKILL' })
-    for (const line of out.split('\n')) {
-      if (!line.trim()) continue
-      try { const r = JSON.parse(line) as { id: number; answer: string | null; mode: string }; if (typeof r.id === 'number' && r.id < res.length) res[r.id] = { answer: r.answer, mode: r.mode } } catch { /* skip a bad line */ }
-    }
-  } catch { return qs.map(() => ({ answer: null, mode: 'error' })) }
+    out = execFileSync('python3', [COMPUTE_PY, '--batch'], { input, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, env: { ...process.env }, timeout: computeTimeout, killSignal: 'SIGKILL' })
+  } catch (e) {
+    out = (e as { stdout?: string | Buffer })?.stdout?.toString() ?? ''   // keep questions finished before the kill
+  }
+  for (const line of out.split('\n')) {
+    if (!line.trim()) continue
+    try { const r = JSON.parse(line) as { id: number; answer: string | null; mode: string }; if (typeof r.id === 'number' && r.id < res.length) res[r.id] = { answer: r.answer, mode: r.mode } } catch { /* skip a bad line */ }
+  }
   return res
 }
 
@@ -865,7 +876,7 @@ async function main() {
           const TQ = setOf(q.question)
           const cvs: number[][] = []; const TCs: Array<Set<string>> = []
           for (const c of q.choices) { cvs.push(await embedCached(`${c}\n${canonGround(c)}`)); TCs.push(setOf(c)) }   // spelling-bee: expand + embed each choice
-          const feats: Array<{ cohesion: number; uniqueness: number; incl: number; score: number }> = []
+          const feats: Array<{ cohesion: number; uniqueness: number; incl: number; evid: number; comp_hit: number; pos: number; len: number; nents: number; ontopic: number; score: number }> = []
           let bi = 0, bs = -Infinity
           for (let i = 0; i < q.choices.length; i++) {
             const cohesion = cos(muQ, cvs[i]!)                                          // continuous: connection to the question
@@ -1112,6 +1123,19 @@ async function main() {
           const t = tally[res.arm]![subject]!; t.n++; if (res.ok) t.c++
           if (res.arm === 'compute' && res.attempted) t.a = (t.a ?? 0) + 1
         }
+        // reliability gate (agreement × density) — the post-council selective signal; measured, not used to
+        // change answers here. decision='answer' should track high accuracy; 'escalate' marks the coin-flip set.
+        try {
+          const preds = ['baseline', 'brain', 'rerank', 'ground', 'qgen', 'compute']
+            .map((a) => r.row[`${a}_pred`]).filter((p): p is string => typeof p === 'string' && p !== '?')
+          if (preds.length >= 2) {
+            const g = reliabilityGate(sample[r.i]!.question, preds)
+            r.row['gate_reliability'] = Number(g.confidence.toFixed(3))
+            r.row['gate_decision'] = g.decision
+            r.row['gate_agree'] = Number(g.agreement.toFixed(2))
+            r.row['gate_typical'] = g.typical
+          }
+        } catch { /* gate is best-effort; never block the checkpoint */ }
         fs.appendFileSync(TRANSCRIPT, JSON.stringify(r.row) + '\n')   // durable per-question checkpoint
         scored++
         console.log(`  ${String(r.i + 1).padStart(3)}. ${r.marks.join('  ')}  /${r.gold}`)

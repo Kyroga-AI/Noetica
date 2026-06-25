@@ -17,9 +17,9 @@ than the model alone, and it *knows* which subset that is.
 Run:  OLLAMA_HOST=http://127.0.0.1:11434 python3 scripts/compute_arm.py
       MMLU_SUBJECTS=college_physics,high_school_physics MMLU_PER_SUBJECT=40 python3 ...
 """
-import os, sys, re, json, signal, urllib.request
+import os, sys, re, json, signal, time, urllib.request
 import sympy as sp
-from units import parse_unit, to_si, dimension_of, DimError
+from units import parse_unit, to_si, dimension_of, DimError, dim
 from model_verify import MODELS, DIMS, verify_and_solve
 from chain_solve import chain_solve
 from math_solve import solve_math, infer_op   # Gödel-routed exact calculus/algebra
@@ -36,19 +36,37 @@ class _Timeout(Exception):
     pass
 
 
+_QDEADLINE = None   # absolute monotonic deadline for the CURRENT question (None ⇒ no outer cap)
+
+
+def _h_timeout(_s, _f):
+    raise _Timeout()
+
+
 def _timed(secs, fn, *a, **k):
-    """Run fn with a hard wall-clock cap — LLM-written sympy (solve/factorial/integrate) can run
-    forever; the compute must never hang the loop. SIGALRM (main thread); no-op on non-Unix."""
-    if not hasattr(signal, 'SIGALRM'):
+    """Run fn with a hard wall-clock cap that COMPOSES with the per-question deadline. The arm had
+    inner 5 s caps (solve_math, prog eval) AND we now add a per-question cap in _batch — but naive
+    nested signal.alarm() clobbers: the inner finally would alarm(0) and DISABLE the question guard,
+    so one slow LLM/sympy op past the inner block could hang forever. Here the effective cap is
+    min(secs, time-left-in-question), and the finally RE-ARMS the outer deadline instead of clearing
+    it. setitimer (float) for sub-second; no-op on non-Unix."""
+    if not hasattr(signal, 'setitimer'):
         return fn(*a, **k)
-    def _h(_s, _f):
-        raise _Timeout()
-    old = signal.signal(signal.SIGALRM, _h)
-    signal.alarm(secs)
+    eff = secs
+    if _QDEADLINE is not None:
+        eff = min(secs, _QDEADLINE - time.monotonic())
+        if eff <= 0:
+            raise _Timeout()
+    old = signal.signal(signal.SIGALRM, _h_timeout)
+    signal.setitimer(signal.ITIMER_REAL, eff)
     try:
         return fn(*a, **k)
     finally:
-        signal.alarm(0)
+        if _QDEADLINE is not None:                      # re-arm the question guard, never disarm it
+            rem = _QDEADLINE - time.monotonic()
+            signal.setitimer(signal.ITIMER_REAL, rem if rem > 0 else 0.001)
+        else:
+            signal.setitimer(signal.ITIMER_REAL, 0)
         signal.signal(signal.SIGALRM, old)
 
 
@@ -86,7 +104,7 @@ SYS = (
 )
 
 
-def ollama(messages, timeout=90):
+def ollama(messages, timeout=int(os.environ.get('MMLU_COMPUTE_LLM_TIMEOUT', '20'))):
     body = json.dumps({'model': MODEL, 'stream': False, 'temperature': 0, 'messages': messages}).encode()
     for attempt in range(2):  # one retry on a transient failure — never let a call kill the run
         try:
@@ -528,6 +546,30 @@ def solve_question(question, choices, context=''):
         ans, mode = math_solve_question(question, choices, context)
         if ans is not None:
             return ans, mode
+    # 0.5 CATALOG-MENU — the LLM picks ONE law from the (now chemistry-enriched) menu; units VERIFY the
+    #     extraction before solving. This is the path that actually reaches the chemistry catalog — the CHAIN
+    #     extractor below speaks physics symbols only, so without this, the 15 new chemistry laws are unreachable.
+    ex = extract(question, choices)
+    if ex and ex.get('law') and ex.get('knowns'):
+        try:
+            law = ex['law']; vd = DIMS.get(law)
+            if vd is not None:
+                # chemistry tolerance: pH/pOH/ratios are dimensionless by CONVENTION ([H+] is an activity),
+                # but the LLM tags them with a unit ("M") that the strict physics gate would reject. For a
+                # dimensionless slot, drop the stray unit so the convention doesn't fight the verifier.
+                kn = {}
+                for var, vu in ex['knowns'].items():
+                    val0, unit0 = (vu[0], vu[1]) if isinstance(vu, (list, tuple)) and len(vu) == 2 else (vu, '')
+                    if vd.get(var) == dim():
+                        unit0 = ''
+                    kn[var] = (val0, unit0)
+                val, _tgt, _td = verify_and_solve(law, kn, ex.get('target'))
+                if isinstance(val, (int, float)):
+                    idx = match_choice(float(val), choices)
+                    if idx is not None:
+                        return LETTERS[idx], 'catalog:' + str(law)[:16]
+        except Exception:
+            pass
     # 1. CHAIN path — name the knowns + target; the verified planner derives the rest
     #    (handles single-law AND multi-step; every hop dimension-checked).
     cx = chain_extract(question, choices)
@@ -560,20 +602,43 @@ def solve_question(question, choices, context=''):
     return None, 'abstain'
 
 
+Q_TIMEOUT = float(os.environ.get('MMLU_COMPUTE_Q_TIMEOUT', '30'))   # per-question wall cap (s)
+
+
 def _batch():
     """Read JSONL {id, question, choices, context?} on stdin; emit JSONL {id, answer, mode} — one process,
     one sympy import, so the MMLU bench can score the whole compute arm in a single subprocess call.
-    `context` (optional) = brain-retrieved worked solutions that ground the formalization (#12)."""
+    `context` (optional) = brain-retrieved worked solutions that ground the formalization (#12).
+
+    RESILIENCE: each question runs under its OWN wall-clock deadline (Q_TIMEOUT). A pathological
+    question (sympy solve() that won't converge, an LLM call that stalls) times out to a clean
+    'timeout' abstain and the loop ADVANCES — it can no longer take the whole batch down with it.
+    Results are flushed per line, so even a SIGKILL from the parent keeps every completed question."""
+    global _QDEADLINE
+    has = hasattr(signal, 'setitimer')
     for line in sys.stdin:
         line = line.strip()
         if not line:
             continue
+        qid = None; ans = None; mode = 'abstain'
         try:
-            q = json.loads(line)
-            ans, mode = solve_question(q['question'], q['choices'], q.get('context') or '')
+            q = json.loads(line); qid = q.get('id')
+            if has:
+                prev = signal.signal(signal.SIGALRM, _h_timeout)
+                _QDEADLINE = time.monotonic() + Q_TIMEOUT
+                signal.setitimer(signal.ITIMER_REAL, Q_TIMEOUT)
+            try:
+                ans, mode = solve_question(q['question'], q['choices'], q.get('context') or '')
+            finally:
+                if has:
+                    signal.setitimer(signal.ITIMER_REAL, 0)
+                    signal.signal(signal.SIGALRM, prev)
+                    _QDEADLINE = None
+        except _Timeout:
+            ans, mode = None, 'timeout'
         except Exception:
-            q, ans, mode = {}, None, 'error'
-        print(json.dumps({'id': q.get('id'), 'answer': ans, 'mode': mode}), flush=True)
+            ans, mode = None, 'error'
+        print(json.dumps({'id': qid, 'answer': ans, 'mode': mode}), flush=True)
 
 
 def main():

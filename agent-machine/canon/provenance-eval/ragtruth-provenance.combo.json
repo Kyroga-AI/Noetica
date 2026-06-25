@@ -1,0 +1,50 @@
+{
+  "detector": "combo",
+  "nli_model": null,
+  "nli_premise": null,
+  "model": "sentence-transformers/all-MiniLM-L6-v2",
+  "threshold": 0.43,
+  "seed": 1729,
+  "git_rev": "42f8a4394eb32ba084facfbfaf241220b6209ca9",
+  "ragtruth_response_sha256_16": "e4c2e4ac24fff676",
+  "n_train_calib": 600,
+  "n_test": 600,
+  "n_test_sentences": 4922,
+  "sentence_level": {
+    "precision": 0.17229496898690558,
+    "recall": 0.5681818181818182,
+    "f1": 0.26441036488630354,
+    "tp": 250,
+    "fp": 1201,
+    "fn": 190,
+    "tn": 3281
+  },
+  "response_level": {
+    "precision": 0.5420054200542005,
+    "recall": 0.8849557522123894,
+    "f1": 0.6722689075630253,
+    "tp": 200,
+    "fp": 169,
+    "fn": 26,
+    "tn": 205
+  },
+  "recall_by_label_type": {
+    "Evident Baseless Info": {
+      "caught": 124,
+      "total": 240
+    },
+    "Evident Conflict": {
+      "caught": 101,
+      "total": 152
+    },
+    "Subtle Baseless Info": {
+      "caught": 25,
+      "total": 46
+    },
+    "Subtle Conflict": {
+      "caught": 0,
+      "total": 2
+    }
+  },
+  "axis": "provenance (in-source vs generated); inference-type axis NOT measured here"
+}

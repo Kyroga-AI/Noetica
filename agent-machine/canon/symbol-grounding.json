@@ -1,0 +1,1786 @@
+{
+ "nucleus": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Nucleus",
+  "wikidata": null,
+  "rc_name": "Nucleus",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "endoplasmic reticulum": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/EndoplasmicReticulum",
+  "wikidata": "Q79927",
+  "rc_name": "EndoplasmicReticulum",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "golgi apparatus": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/GolgiApparatus",
+  "wikidata": "Q83181",
+  "rc_name": "GolgiApparatus",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "ribosome": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Ribosome",
+  "wikidata": "Q42244",
+  "rc_name": "Ribosome",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "cytoskeleton": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Cytoskeleton",
+  "wikidata": "Q154626",
+  "rc_name": "Cytoskeleton",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "cell cycle": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/CellCycle",
+  "wikidata": "Q188941",
+  "rc_name": "CellCycle",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "cytokinesis": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Cytokinesis",
+  "wikidata": "Q1447198",
+  "rc_name": "Cytokinesis",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "enzyme": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Enzyme",
+  "wikidata": null,
+  "rc_name": "Enzyme",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "glycolysis": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Glycolysis",
+  "wikidata": null,
+  "rc_name": "Glycolysis",
+  "domain": "chemistry",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "oxidative phosphorylation": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/OxidativePhosphorylation",
+  "wikidata": "Q227564",
+  "rc_name": "OxidativePhosphorylation",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "translation": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Translation",
+  "wikidata": "Q7553",
+  "rc_name": "Translation",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "operon": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Operon",
+  "wikidata": null,
+  "rc_name": "Operon",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "restriction enzyme": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/RestrictionEnzyme",
+  "wikidata": "Q219715",
+  "rc_name": "RestrictionEnzyme",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "epigenetics": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Epigenetics",
+  "wikidata": "Q26939",
+  "rc_name": "Epigenetics",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "natural selection": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/NaturalSelection",
+  "wikidata": "Q43478",
+  "rc_name": "NaturalSelection",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "adaptation": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Adaptation",
+  "wikidata": "Q483921",
+  "rc_name": "Adaptation",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "genetic drift": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/GeneticDrift",
+  "wikidata": "Q486420",
+  "rc_name": "GeneticDrift",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "speciation": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Speciation",
+  "wikidata": "Q39350",
+  "rc_name": "Speciation",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "niche": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Niche",
+  "wikidata": null,
+  "rc_name": "Niche",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "succession": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Succession",
+  "wikidata": "Q342870",
+  "rc_name": "Succession",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "neurotransmitter": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Neurotransmitter",
+  "wikidata": "Q162657",
+  "rc_name": "Neurotransmitter",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "hormone": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Hormone",
+  "wikidata": "Q11364",
+  "rc_name": "Hormone",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "alveolus": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Alveolus",
+  "wikidata": "Q191341",
+  "rc_name": "Alveolus",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "binary fission": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/BinaryFission",
+  "wikidata": null,
+  "rc_name": "BinaryFission",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "antigen": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Antigen",
+  "wikidata": "Q103537",
+  "rc_name": "Antigen",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "b lymphocyte": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/BLymphocyte",
+  "wikidata": "Q188930",
+  "rc_name": "BLymphocyte",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "t lymphocyte": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/TLymphocyte",
+  "wikidata": "Q193529",
+  "rc_name": "TLymphocyte",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "complement system": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/ComplementSystem",
+  "wikidata": "Q334848",
+  "rc_name": "ComplementSystem",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "cytokine": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Cytokine",
+  "wikidata": "Q212354",
+  "rc_name": "Cytokine",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "apoptosis": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Apoptosis",
+  "wikidata": "Q14599311",
+  "rc_name": "Apoptosis",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "synovial joint": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/SynovialJoint",
+  "wikidata": "Q2741512",
+  "rc_name": "SynovialJoint",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "meninges": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Meninges",
+  "wikidata": "Q268930",
+  "rc_name": "Meninges",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "lymph node": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/LymphNode",
+  "wikidata": "Q170758",
+  "rc_name": "LymphNode",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "chloroplast": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Chloroplast",
+  "wikidata": "Q47263",
+  "rc_name": "Chloroplast",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "stroma": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Stroma",
+  "wikidata": null,
+  "rc_name": "Stroma",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "auxin": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Auxin",
+  "wikidata": "Q190022",
+  "rc_name": "Auxin",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "aneuploidy": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Aneuploidy",
+  "wikidata": null,
+  "rc_name": "Aneuploidy",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "vitamin": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Vitamin",
+  "wikidata": "Q34956",
+  "rc_name": "Vitamin",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "vitamin d": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/VitaminD",
+  "wikidata": "Q175621",
+  "rc_name": "VitaminD",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "antioxidant": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Antioxidant",
+  "wikidata": "Q133948",
+  "rc_name": "Antioxidant",
+  "domain": "biology",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "isotope": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Isotope",
+  "wikidata": "Q25276",
+  "rc_name": "Isotope",
+  "domain": "chemistry",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "buffer": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Buffer",
+  "wikidata": "Q331911",
+  "rc_name": "Buffer",
+  "domain": "chemistry",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "pauli exclusion principle": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/PauliExclusionPrinciple",
+  "wikidata": "Q131594",
+  "rc_name": "PauliExclusionPrinciple",
+  "domain": "chemistry",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "hydrogen bond": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/HydrogenBond",
+  "wikidata": "Q169324",
+  "rc_name": "HydrogenBond",
+  "domain": "chemistry",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "amino acid": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/AminoAcid",
+  "wikidata": "Q8066",
+  "rc_name": "AminoAcid",
+  "domain": "chemistry",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "coenzyme": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Coenzyme",
+  "wikidata": "Q1050086",
+  "rc_name": "Coenzyme",
+  "domain": "chemistry",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "mathematical induction": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/MathematicalInduction",
+  "wikidata": "Q178377",
+  "rc_name": "MathematicalInduction",
+  "domain": "computer_science",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "modular arithmetic": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/ModularArithmetic",
+  "wikidata": "Q319400",
+  "rc_name": "ModularArithmetic",
+  "domain": "computer_science",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "thread": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Thread",
+  "wikidata": "Q1391831",
+  "rc_name": "Thread",
+  "domain": "computer_science",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "virtual memory": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/VirtualMemory",
+  "wikidata": "Q189401",
+  "rc_name": "VirtualMemory",
+  "domain": "computer_science",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "inode": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Inode",
+  "wikidata": null,
+  "rc_name": "Inode",
+  "domain": "computer_science",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "bayes' theorem": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/BayesTheorem",
+  "wikidata": null,
+  "rc_name": "BayesTheorem",
+  "domain": "computer_science",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "central limit theorem": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/CentralLimitTheorem",
+  "wikidata": "Q190391",
+  "rc_name": "CentralLimitTheorem",
+  "domain": "computer_science",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "capacitor": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Capacitor",
+  "wikidata": "Q5322",
+  "rc_name": "Capacitor",
+  "domain": "computer_science",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "boolean algebra": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/BooleanAlgebra",
+  "wikidata": "Q173183",
+  "rc_name": "BooleanAlgebra",
+  "domain": "computer_science",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "integer": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Integer",
+  "wikidata": "Q12503",
+  "rc_name": "Integer",
+  "domain": "mathematics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "prime number": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/PrimeNumber",
+  "wikidata": "Q49008",
+  "rc_name": "PrimeNumber",
+  "domain": "mathematics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "rational number": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/RationalNumber",
+  "wikidata": "Q1244890",
+  "rc_name": "RationalNumber",
+  "domain": "mathematics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "proportion": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Proportion",
+  "wikidata": "Q51379",
+  "rc_name": "Proportion",
+  "domain": "mathematics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "complex number": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/ComplexNumber",
+  "wikidata": "Q11567",
+  "rc_name": "ComplexNumber",
+  "domain": "mathematics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "logarithm": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Logarithm",
+  "wikidata": "Q11197",
+  "rc_name": "Logarithm",
+  "domain": "mathematics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "derivative": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Derivative",
+  "wikidata": "Q29175",
+  "rc_name": "Derivative",
+  "domain": "mathematics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "taylor series": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/TaylorSeries",
+  "wikidata": "Q131187",
+  "rc_name": "TaylorSeries",
+  "domain": "mathematics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "vector space": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/VectorSpace",
+  "wikidata": "Q125977",
+  "rc_name": "VectorSpace",
+  "domain": "mathematics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "basis": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Basis",
+  "wikidata": "Q189569",
+  "rc_name": "Basis",
+  "domain": "mathematics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "event": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Event",
+  "wikidata": "Q1190554",
+  "rc_name": "Event",
+  "domain": "mathematics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "independence": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Independence",
+  "wikidata": "Q37055",
+  "rc_name": "Independence",
+  "domain": "mathematics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "group": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Group",
+  "wikidata": null,
+  "rc_name": "Group",
+  "domain": "mathematics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "\u03c3-algebra": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Algebra",
+  "wikidata": "Q3968",
+  "rc_name": "Algebra",
+  "domain": "mathematics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "equivalence relation": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/EquivalenceRelation",
+  "wikidata": "Q130998",
+  "rc_name": "EquivalenceRelation",
+  "domain": "mathematics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "tree": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Tree",
+  "wikidata": null,
+  "rc_name": "Tree",
+  "domain": "mathematics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "topological space": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/TopologicalSpace",
+  "wikidata": "Q179899",
+  "rc_name": "TopologicalSpace",
+  "domain": "mathematics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "action": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Action",
+  "wikidata": null,
+  "rc_name": "Action",
+  "domain": "physics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "electric field": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/ElectricField",
+  "wikidata": null,
+  "rc_name": "ElectricField",
+  "domain": "physics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "hilbert space": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/HilbertSpace",
+  "wikidata": "Q190056",
+  "rc_name": "HilbertSpace",
+  "domain": "physics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "standard model": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/StandardModel",
+  "wikidata": "Q18338",
+  "rc_name": "StandardModel",
+  "domain": "physics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "quark": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Quark",
+  "wikidata": "Q6718",
+  "rc_name": "Quark",
+  "domain": "physics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "lepton": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Lepton",
+  "wikidata": "Q82586",
+  "rc_name": "Lepton",
+  "domain": "physics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "dark matter": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/DarkMatter",
+  "wikidata": "Q79925",
+  "rc_name": "DarkMatter",
+  "domain": "physics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "inflation": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Inflation",
+  "wikidata": "Q35865",
+  "rc_name": "Inflation",
+  "domain": "physics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "diffraction": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Diffraction",
+  "wikidata": "Q133900",
+  "rc_name": "Diffraction",
+  "domain": "physics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "alpha decay": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/AlphaDecay",
+  "wikidata": "Q179856",
+  "rc_name": "AlphaDecay",
+  "domain": "physics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "beta decay (\u03b2^-)": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/BetaDecay",
+  "wikidata": null,
+  "rc_name": "BetaDecay",
+  "domain": "physics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "dirac delta function": {
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/DiracDeltaFunction",
+  "wikidata": "Q209675",
+  "rc_name": "DiracDeltaFunction",
+  "domain": "physics",
+  "confidence": "high",
+  "method": "rc-segment"
+ },
+ "rank": {
+  "kbpedia_rc": null,
+  "wikidata": "Q4120621",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "low",
+  "method": "cskg-alias"
+ },
+ "process": {
+  "kbpedia_rc": null,
+  "wikidata": "Q3249551",
+  "rc_name": null,
+  "domain": "computer_science",
+  "confidence": "low",
+  "method": "cskg-alias"
+ },
+ "cleavage": {
+  "kbpedia_rc": null,
+  "wikidata": "Q107400",
+  "rc_name": null,
+  "domain": "biology",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "utility": {
+  "kbpedia_rc": null,
+  "wikidata": "Q21263262",
+  "rc_name": null,
+  "domain": "economics",
+  "confidence": "low",
+  "method": "cskg-alias"
+ },
+ "ring": {
+  "kbpedia_rc": null,
+  "wikidata": "Q46847",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "low",
+  "method": "cskg-alias"
+ },
+ "confidence interval": {
+  "kbpedia_rc": null,
+  "wikidata": "Q208498",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "spin": {
+  "kbpedia_rc": null,
+  "wikidata": "Q11085408",
+  "rc_name": null,
+  "domain": "physics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "acid": {
+  "kbpedia_rc": null,
+  "wikidata": "Q11158",
+  "rc_name": null,
+  "domain": "computer_science",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "connected space": {
+  "kbpedia_rc": null,
+  "wikidata": "Q1491995",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "subgroup": {
+  "kbpedia_rc": null,
+  "wikidata": "Q466109",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "neural tube": {
+  "kbpedia_rc": null,
+  "wikidata": "Q1127402",
+  "rc_name": null,
+  "domain": "biology",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "electromagnetic wave": {
+  "kbpedia_rc": null,
+  "wikidata": "Q11386",
+  "rc_name": null,
+  "domain": "physics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "quotient group": {
+  "kbpedia_rc": null,
+  "wikidata": "Q1138961",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "field": {
+  "kbpedia_rc": null,
+  "wikidata": "Q185674",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "low",
+  "method": "cskg-alias"
+ },
+ "center of mass": {
+  "kbpedia_rc": null,
+  "wikidata": "Q2945123",
+  "rc_name": null,
+  "domain": "physics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "kernel": {
+  "kbpedia_rc": null,
+  "wikidata": "Q9662",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "ideal": {
+  "kbpedia_rc": null,
+  "wikidata": "Q44649",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "depreciation": {
+  "kbpedia_rc": null,
+  "wikidata": "Q114403",
+  "rc_name": null,
+  "domain": "economics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "grand canonical ensemble": {
+  "kbpedia_rc": null,
+  "wikidata": "Q1153553",
+  "rc_name": null,
+  "domain": "physics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "active transport": {
+  "kbpedia_rc": null,
+  "wikidata": "Q304618",
+  "rc_name": null,
+  "domain": "biology",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "prime ideal": {
+  "kbpedia_rc": null,
+  "wikidata": "Q11710992",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "coordination game": {
+  "kbpedia_rc": null,
+  "wikidata": "Q656316",
+  "rc_name": null,
+  "domain": "economics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "function": {
+  "kbpedia_rc": null,
+  "wikidata": "Q15810910",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "low",
+  "method": "cskg-alias"
+ },
+ "round-robin scheduling": {
+  "kbpedia_rc": null,
+  "wikidata": "Q1196582",
+  "rc_name": null,
+  "domain": "computer_science",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "gradient descent": {
+  "kbpedia_rc": null,
+  "wikidata": "Q1199743",
+  "rc_name": null,
+  "domain": "computer_science",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "integral domain": {
+  "kbpedia_rc": null,
+  "wikidata": "Q628792",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "continuity": {
+  "kbpedia_rc": null,
+  "wikidata": "Q12030090",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "maximal ideal": {
+  "kbpedia_rc": null,
+  "wikidata": "Q1203540",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "population": {
+  "kbpedia_rc": null,
+  "wikidata": "Q2625603",
+  "rc_name": null,
+  "domain": "biology",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "measure": {
+  "kbpedia_rc": null,
+  "wikidata": "Q39875001",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "substrate": {
+  "kbpedia_rc": null,
+  "wikidata": "Q12119506",
+  "rc_name": null,
+  "domain": "biology",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "scale factor": {
+  "kbpedia_rc": null,
+  "wikidata": "Q12121800",
+  "rc_name": null,
+  "domain": "physics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "inertia": {
+  "kbpedia_rc": null,
+  "wikidata": "Q122508",
+  "rc_name": null,
+  "domain": "physics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "type system": {
+  "kbpedia_rc": null,
+  "wikidata": "Q865760",
+  "rc_name": null,
+  "domain": "computer_science",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "random variable": {
+  "kbpedia_rc": null,
+  "wikidata": "Q176623",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "graph": {
+  "kbpedia_rc": null,
+  "wikidata": "Q12897588",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "low",
+  "method": "cskg-alias"
+ },
+ "steady state": {
+  "kbpedia_rc": null,
+  "wikidata": "Q5788637",
+  "rc_name": null,
+  "domain": "economics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "competitive exclusion principle": {
+  "kbpedia_rc": null,
+  "wikidata": "Q1331830",
+  "rc_name": null,
+  "domain": "biology",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "mole": {
+  "kbpedia_rc": null,
+  "wikidata": "Q13370235",
+  "rc_name": null,
+  "domain": "chemistry",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "register allocation": {
+  "kbpedia_rc": null,
+  "wikidata": "Q1343660",
+  "rc_name": null,
+  "domain": "computer_science",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "vaccination": {
+  "kbpedia_rc": null,
+  "wikidata": "Q192995",
+  "rc_name": null,
+  "domain": "biology",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "garbage collection": {
+  "kbpedia_rc": null,
+  "wikidata": "Q322202",
+  "rc_name": null,
+  "domain": "computer_science",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "expectation": {
+  "kbpedia_rc": null,
+  "wikidata": "Q1362683",
+  "rc_name": null,
+  "domain": "computer_science",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "value added": {
+  "kbpedia_rc": null,
+  "wikidata": "Q1434924",
+  "rc_name": null,
+  "domain": "economics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "closure": {
+  "kbpedia_rc": null,
+  "wikidata": "Q5135523",
+  "rc_name": null,
+  "domain": "computer_science",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "algebraic element": {
+  "kbpedia_rc": null,
+  "wikidata": "Q162608",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "money multiplier": {
+  "kbpedia_rc": null,
+  "wikidata": "Q1499566",
+  "rc_name": null,
+  "domain": "economics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "compact space": {
+  "kbpedia_rc": null,
+  "wikidata": "Q381892",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "binding energy": {
+  "kbpedia_rc": null,
+  "wikidata": "Q420754",
+  "rc_name": null,
+  "domain": "physics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "monopoly": {
+  "kbpedia_rc": null,
+  "wikidata": "Q16048255",
+  "rc_name": null,
+  "domain": "economics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "escape velocity": {
+  "kbpedia_rc": null,
+  "wikidata": "Q166530",
+  "rc_name": null,
+  "domain": "physics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "p-group": {
+  "kbpedia_rc": null,
+  "wikidata": "Q286972",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "ideal gas": {
+  "kbpedia_rc": null,
+  "wikidata": "Q172280",
+  "rc_name": null,
+  "domain": "chemistry",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "peptide bond": {
+  "kbpedia_rc": null,
+  "wikidata": "Q33293",
+  "rc_name": null,
+  "domain": "chemistry",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "resonance": {
+  "kbpedia_rc": null,
+  "wikidata": "Q172858",
+  "rc_name": null,
+  "domain": "chemistry",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "sequential logic": {
+  "kbpedia_rc": null,
+  "wikidata": "Q173245",
+  "rc_name": null,
+  "domain": "computer_science",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "gradient": {
+  "kbpedia_rc": null,
+  "wikidata": "Q173582",
+  "rc_name": null,
+  "domain": "physics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "variance": {
+  "kbpedia_rc": null,
+  "wikidata": "Q175199",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "curl": {
+  "kbpedia_rc": null,
+  "wikidata": "Q1756277",
+  "rc_name": null,
+  "domain": "physics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "p-n junction": {
+  "kbpedia_rc": null,
+  "wikidata": "Q176300",
+  "rc_name": null,
+  "domain": "computer_science",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "third law of thermodynamics": {
+  "kbpedia_rc": null,
+  "wikidata": "Q29166",
+  "rc_name": null,
+  "domain": "chemistry",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "unemployment rate": {
+  "kbpedia_rc": null,
+  "wikidata": "Q1787954",
+  "rc_name": null,
+  "domain": "economics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "event horizon": {
+  "kbpedia_rc": null,
+  "wikidata": "Q181741",
+  "rc_name": null,
+  "domain": "physics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "promoter": {
+  "kbpedia_rc": null,
+  "wikidata": "Q2378505",
+  "rc_name": null,
+  "domain": "biology",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "uniform convergence": {
+  "kbpedia_rc": null,
+  "wikidata": "Q1411887",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "divergence": {
+  "kbpedia_rc": null,
+  "wikidata": "Q189000",
+  "rc_name": null,
+  "domain": "physics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "gravitational wave": {
+  "kbpedia_rc": null,
+  "wikidata": "Q190035",
+  "rc_name": null,
+  "domain": "physics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "inverse function": {
+  "kbpedia_rc": null,
+  "wikidata": "Q191884",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "wave function": {
+  "kbpedia_rc": null,
+  "wikidata": "Q2362761",
+  "rc_name": null,
+  "domain": "physics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "completeness": {
+  "kbpedia_rc": null,
+  "wikidata": "Q19750549",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "transcription": {
+  "kbpedia_rc": null,
+  "wikidata": "Q207714",
+  "rc_name": null,
+  "domain": "biology",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "equivalence principle": {
+  "kbpedia_rc": null,
+  "wikidata": "Q210546",
+  "rc_name": null,
+  "domain": "physics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "equation of state": {
+  "kbpedia_rc": null,
+  "wikidata": "Q214967",
+  "rc_name": null,
+  "domain": "physics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "isolated singularity": {
+  "kbpedia_rc": null,
+  "wikidata": "Q2297037",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "equilibrium price": {
+  "kbpedia_rc": null,
+  "wikidata": "Q2316928",
+  "rc_name": null,
+  "domain": "economics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "conditional convergence": {
+  "kbpedia_rc": null,
+  "wikidata": "Q2425336",
+  "rc_name": null,
+  "domain": "economics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "rate-determining step": {
+  "kbpedia_rc": null,
+  "wikidata": "Q249087",
+  "rc_name": null,
+  "domain": "chemistry",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "multiplier": {
+  "kbpedia_rc": null,
+  "wikidata": "Q25203187",
+  "rc_name": null,
+  "domain": "economics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "p-value": {
+  "kbpedia_rc": null,
+  "wikidata": "Q253255",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "standard error": {
+  "kbpedia_rc": null,
+  "wikidata": "Q620994",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "limit": {
+  "kbpedia_rc": null,
+  "wikidata": "Q1322614",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "empirical formula": {
+  "kbpedia_rc": null,
+  "wikidata": "Q272477",
+  "rc_name": null,
+  "domain": "chemistry",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "common-ion effect": {
+  "kbpedia_rc": null,
+  "wikidata": "Q2754887",
+  "rc_name": null,
+  "domain": "chemistry",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "greedy algorithm": {
+  "kbpedia_rc": null,
+  "wikidata": "Q504353",
+  "rc_name": null,
+  "domain": "computer_science",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "dynamic programming": {
+  "kbpedia_rc": null,
+  "wikidata": "Q28916646",
+  "rc_name": null,
+  "domain": "computer_science",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "expected value": {
+  "kbpedia_rc": null,
+  "wikidata": "Q200125",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "normal subgroup": {
+  "kbpedia_rc": null,
+  "wikidata": "Q743179",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "proper length": {
+  "kbpedia_rc": null,
+  "wikidata": "Q3153623",
+  "rc_name": null,
+  "domain": "physics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "thermal equilibrium": {
+  "kbpedia_rc": null,
+  "wikidata": "Q3175122",
+  "rc_name": null,
+  "domain": "physics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "positive definite matrix": {
+  "kbpedia_rc": null,
+  "wikidata": "Q1052034",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "fitness": {
+  "kbpedia_rc": null,
+  "wikidata": "Q331710",
+  "rc_name": null,
+  "domain": "biology",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "covering space": {
+  "kbpedia_rc": null,
+  "wikidata": "Q332648",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "primary deficit": {
+  "kbpedia_rc": null,
+  "wikidata": "Q3828163",
+  "rc_name": null,
+  "domain": "economics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "singular matrix": {
+  "kbpedia_rc": null,
+  "wikidata": "Q1970975",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "prisoner's dilemma": {
+  "kbpedia_rc": null,
+  "wikidata": "Q41693",
+  "rc_name": null,
+  "domain": "economics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "beta-oxidation": {
+  "kbpedia_rc": null,
+  "wikidata": "Q306213",
+  "rc_name": null,
+  "domain": "biology",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "simple group": {
+  "kbpedia_rc": null,
+  "wikidata": "Q571124",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "absolute value": {
+  "kbpedia_rc": null,
+  "wikidata": "Q4669840",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "indifference curve": {
+  "kbpedia_rc": null,
+  "wikidata": "Q467092",
+  "rc_name": null,
+  "domain": "economics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "sample space": {
+  "kbpedia_rc": null,
+  "wikidata": "Q467440",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "free rider problem": {
+  "kbpedia_rc": null,
+  "wikidata": "Q499215",
+  "rc_name": null,
+  "domain": "economics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "color confinement": {
+  "kbpedia_rc": null,
+  "wikidata": "Q505724",
+  "rc_name": null,
+  "domain": "physics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "quantity theory of money": {
+  "kbpedia_rc": null,
+  "wikidata": "Q515911",
+  "rc_name": null,
+  "domain": "economics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "pole": {
+  "kbpedia_rc": null,
+  "wikidata": "Q525800",
+  "rc_name": null,
+  "domain": "computer_science",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "dominant": {
+  "kbpedia_rc": null,
+  "wikidata": "Q899391",
+  "rc_name": null,
+  "domain": "biology",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "perfect competition": {
+  "kbpedia_rc": null,
+  "wikidata": "Q56030389",
+  "rc_name": null,
+  "domain": "economics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "structural unemployment": {
+  "kbpedia_rc": null,
+  "wikidata": "Q56047203",
+  "rc_name": null,
+  "domain": "economics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "oxidation state": {
+  "kbpedia_rc": null,
+  "wikidata": "Q56627072",
+  "rc_name": null,
+  "domain": "chemistry",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "standard state": {
+  "kbpedia_rc": null,
+  "wikidata": "Q56638153",
+  "rc_name": null,
+  "domain": "chemistry",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "critical point": {
+  "kbpedia_rc": null,
+  "wikidata": "Q577705",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "stationary state": {
+  "kbpedia_rc": null,
+  "wikidata": "Q911951",
+  "rc_name": null,
+  "domain": "physics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "recurrence relation": {
+  "kbpedia_rc": null,
+  "wikidata": "Q740970",
+  "rc_name": null,
+  "domain": "computer_science",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "conservative force": {
+  "kbpedia_rc": null,
+  "wikidata": "Q822938",
+  "rc_name": null,
+  "domain": "physics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "economies of scale": {
+  "kbpedia_rc": null,
+  "wikidata": "Q5970087",
+  "rc_name": null,
+  "domain": "economics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "functional dependency": {
+  "kbpedia_rc": null,
+  "wikidata": "Q597053",
+  "rc_name": null,
+  "domain": "computer_science",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "fine structure": {
+  "kbpedia_rc": null,
+  "wikidata": "Q1402041",
+  "rc_name": null,
+  "domain": "physics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "induction": {
+  "kbpedia_rc": null,
+  "wikidata": "Q6027258",
+  "rc_name": null,
+  "domain": "biology",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "returns to scale": {
+  "kbpedia_rc": null,
+  "wikidata": "Q60547335",
+  "rc_name": null,
+  "domain": "economics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "halting problem": {
+  "kbpedia_rc": null,
+  "wikidata": "Q622849",
+  "rc_name": null,
+  "domain": "computer_science",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "deadlock": {
+  "kbpedia_rc": null,
+  "wikidata": "Q623276",
+  "rc_name": null,
+  "domain": "computer_science",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "negative feedback": {
+  "kbpedia_rc": null,
+  "wikidata": "Q62527",
+  "rc_name": null,
+  "domain": "biology",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "natural monopoly": {
+  "kbpedia_rc": null,
+  "wikidata": "Q648510",
+  "rc_name": null,
+  "domain": "economics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "anatomical position": {
+  "kbpedia_rc": null,
+  "wikidata": "Q66515059",
+  "rc_name": null,
+  "domain": "biology",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "saddle point": {
+  "kbpedia_rc": null,
+  "wikidata": "Q690935",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "residual": {
+  "kbpedia_rc": null,
+  "wikidata": "Q7315501",
+  "rc_name": null,
+  "domain": "economics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "spontaneous symmetry breaking": {
+  "kbpedia_rc": null,
+  "wikidata": "Q736716",
+  "rc_name": null,
+  "domain": "physics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "uniform continuity": {
+  "kbpedia_rc": null,
+  "wikidata": "Q741865",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "analytic function": {
+  "kbpedia_rc": null,
+  "wikidata": "Q215084",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "propagation of uncertainty": {
+  "kbpedia_rc": null,
+  "wikidata": "Q1364905",
+  "rc_name": null,
+  "domain": "chemistry",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "regular language": {
+  "kbpedia_rc": null,
+  "wikidata": "Q752532",
+  "rc_name": null,
+  "domain": "computer_science",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "residue": {
+  "kbpedia_rc": null,
+  "wikidata": "Q753375",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "t-statistic": {
+  "kbpedia_rc": null,
+  "wikidata": "Q7667935",
+  "rc_name": null,
+  "domain": "economics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "band gap": {
+  "kbpedia_rc": null,
+  "wikidata": "Q806352",
+  "rc_name": null,
+  "domain": "physics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "molecular clock": {
+  "kbpedia_rc": null,
+  "wikidata": "Q827541",
+  "rc_name": null,
+  "domain": "biology",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "residue theorem": {
+  "kbpedia_rc": null,
+  "wikidata": "Q830513",
+  "rc_name": null,
+  "domain": "physics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "generating function": {
+  "kbpedia_rc": null,
+  "wikidata": "Q860609",
+  "rc_name": null,
+  "domain": "mathematics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "demand curve": {
+  "kbpedia_rc": null,
+  "wikidata": "Q8981416",
+  "rc_name": null,
+  "domain": "economics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "competitive inhibition": {
+  "kbpedia_rc": null,
+  "wikidata": "Q912894",
+  "rc_name": null,
+  "domain": "chemistry",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ },
+ "liquidity trap": {
+  "kbpedia_rc": null,
+  "wikidata": "Q923190",
+  "rc_name": null,
+  "domain": "economics",
+  "confidence": "medium",
+  "method": "cskg-alias"
+ }
+}

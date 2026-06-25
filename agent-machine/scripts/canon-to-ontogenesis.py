@@ -172,6 +172,7 @@ def emit_module(specs, align, cards, induced, lexical, prereq, analogies) -> tup
     A("@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .")
     A("@prefix xsd:   <%s> ." % XSD)
     A("@prefix dct:   <%s> ." % DCT)
+    A("@prefix kko:   <http://kbpedia.org/ontologies/kko#> .")   # KBpedia/KKO — the STANDARD Peircean upper ontology
     A("")
     A("##############################################################################")
     A("# Domain — Knowledge Commons Canon (Noetica canon bridge)")
@@ -189,7 +190,17 @@ def emit_module(specs, align, cards, induced, lexical, prereq, analogies) -> tup
     A('  dct:source "Noetica/agent-machine/canon" ;')
     A('  owl:versionInfo "0.1.0" ;')
     A("  owl:imports <Upper/upper-core.ttl>, <Domains/math.ttl>, "
-      "<Platform/knowledge-context.ttl> .")
+      "<Platform/knowledge-context.ttl>, <http://kbpedia.org/ontologies/kko> .")
+    A("")
+    A("### KBpedia/KKO grounding — the STANDARD Peircean upper ontology (CC-BY-4.0). Noetica's hand-rolled")
+    A("### structures are aligned to KKO so the epistemic typing, the matter/form core, and the discovery")
+    A("### loop are standards-backed, not ad-hoc. See canon/kko-alignment.json.")
+    A("kcc:CanonKnowledgeContext skos:closeMatch kko:Methodeutic .   # the canon's discovery process = Peirce's methodeutic")
+    A("kcc:Matter   rdfs:subClassOf kko:Matter .                     # chomer (matter) → KKO")
+    A("kcc:Form     rdfs:subClassOf kko:Forms .                      # tzurah (form)  → KKO")
+    A("kcc:Firstness  owl:equivalentClass kko:Possibilities .        # universal categories")
+    A("kcc:Secondness owl:equivalentClass kko:Particulars .")
+    A("kcc:Thirdness  owl:equivalentClass kko:Generals .")
     A("")
     A("### TBox — module classes & properties")
     A("kcc:KnowledgeConcept a owl:Class ; rdfs:subClassOf upper:Entity, skos:Concept ; "
@@ -227,13 +238,18 @@ def emit_module(specs, align, cards, induced, lexical, prereq, analogies) -> tup
       'rdfs:range kcc:TestSubject ; rdfs:label "aligns subject" .')
     A("kcc:inKnowledgeContext a owl:ObjectProperty ; rdfs:domain upper:Entity ; "
       'rdfs:range kc:KnowledgeContext ; rdfs:label "in knowledge context" .')
-    A("kcc:DerivedAssertion a owl:Class ; rdfs:subClassOf upper:Evidence ; "
+    A("kcc:DerivedAssertion a owl:Class ; rdfs:subClassOf upper:Evidence, kko:Methodeutic ; "
       'rdfs:label "Derived assertion" ; rdfs:comment "A reified (subject, relation, object) triple over canon '
       'concepts that was DERIVED, not authored — carrying its relation, provenance, and EPISTEMIC MODE so '
       'routing/QA can trust it appropriately: deduced (rule, certain) > induced (generalized from data) > '
-      'abduced (best-explanation hypothesis)." .')
+      'abduced (best-explanation hypothesis). Grounded in kko:Methodeutic (Peirce\'s knowledge-emergence process)." .')
     A("kcc:epistemicMode a owl:DatatypeProperty ; rdfs:domain kcc:DerivedAssertion ; "
-      'rdfs:range xsd:string ; rdfs:label "epistemic mode" ; rdfs:comment "induced | deduced | abduced." .')
+      'rdfs:range xsd:string ; rdfs:label "epistemic mode" ; rdfs:comment "induced | deduced | abduced — '
+      'Peirce\'s inference trichotomy (KKO/methodeutic). deduced=necessary, induced=generalization, abduced=hypothesis." .')
+    A("### the three epistemic modes ARE Peirce's inference trichotomy (the basis of KKO)")
+    A('kcc:deduced a kcc:EpistemicMode ; skos:closeMatch kko:Methodeutic ; rdfs:label "deduced (Peircean deduction)" .')
+    A('kcc:induced a kcc:EpistemicMode ; skos:closeMatch kko:Methodeutic ; rdfs:label "induced (Peircean induction)" .')
+    A('kcc:abduced a kcc:EpistemicMode ; skos:closeMatch kko:Methodeutic ; rdfs:label "abduced (Peircean abduction)" .')
     A("kcc:inducedRelation a owl:DatatypeProperty ; rdfs:domain kcc:DerivedAssertion ; "
       'rdfs:range xsd:string ; rdfs:label "derived relation" .')
     A("kcc:inducedSubjectLabel a owl:DatatypeProperty ; rdfs:domain kcc:DerivedAssertion ; "
@@ -442,6 +458,39 @@ def emit_module(specs, align, cards, induced, lexical, prereq, analogies) -> tup
     A('  skos:prefLabel "Noetica Knowledge Commons Canon" ;')
     A('  skos:notation "knowledge-commons-canon" .')
     A("")
+
+    # ── KBpedia entity grounding (symbol → RC → Wikidata) + CSKG commonsense edges, relation-typed to KKO ──
+    A("### Entity grounding + CSKG commonsense edges — symbols bound to KBpedia RCs + Wikidata, edges typed to KKO")
+    A('kcc:EntityGrounding a owl:Class ; rdfs:label "Entity grounding" ; rdfs:comment '
+      '"Binds a canon symbol to its KBpedia reference concept + Wikidata entity + CSKG commonsense neighborhood." .')
+    A('kcc:commonsenseEdge a owl:ObjectProperty ; rdfs:subPropertyOf kko:Predications ; '
+      'rdfs:label "commonsense edge" ; rdfs:comment "A CSKG/ConceptNet relation (Secondness) to a neighbor concept." .')
+    A('kcc:relationType a owl:DatatypeProperty ; rdfs:label "relation type" ; rdfs:comment "the CSKG/ConceptNet relation, e.g. /r/IsA, /r/Causes." .')
+    try:
+        _slug = lambda s: re.sub(r'[^a-z0-9]+', '-', s.lower()).strip('-')
+        cdir = Path(__file__).resolve().parents[1] / "canon"
+        grnd = json.loads((cdir / "symbol-grounding.json").read_text()) if (cdir / "symbol-grounding.json").exists() else {}
+        cs = json.loads((cdir / "symbol-commonsense.json").read_text()) if (cdir / "symbol-commonsense.json").exists() else {}
+        for sym, gv in grnd.items():
+            gi = "kc:grounding-" + _slug(sym)
+            A(f"{gi} a kcc:EntityGrounding ; rdfs:label {lit(sym)} .")
+            if gv.get("kbpedia_rc"):
+                A(f"{gi} skos:exactMatch <{gv['kbpedia_rc']}> .")
+            if gv.get("wikidata"):
+                A(f"{gi} owl:sameAs <http://www.wikidata.org/entity/{gv['wikidata']}> .")
+        ne = 0
+        for sym, cv in cs.items():
+            gi = "kc:grounding-" + _slug(sym)
+            for e in cv.get("commonsense_edges", [])[:20]:
+                nb = e.get("neighbor_label") or e.get("target_label") or e.get("src_label")   # tolerate both edge formats
+                if nb:
+                    A(f"{gi} kcc:commonsenseEdge [ rdfs:label {lit(nb)} ; kcc:relationType {lit(e['rel'])} ] .")
+                    ne += 1
+        counts["grounded"] = len(grnd)
+        counts["commonsense_edges"] = ne
+        A("")
+    except Exception:
+        pass
 
     return "\n".join(out) + "\n", counts
 

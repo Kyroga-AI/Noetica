@@ -1,0 +1,58 @@
+{
+  "source": "KBpedia/kbpedia v1.60 — KKO upper ontology (Charles S. Peirce universal categories)",
+  "license": "CC-BY-4.0",
+  "kko_namespace": "http://kbpedia.org/ontologies/kko#",
+  "fetched": "2026-06-25",
+  "note": "The alignment that grounds Noetica's hand-rolled structures in KBpedia's formal, open Peircean upper ontology. Adopt KKO IRIs so the epistemic typing, the matter/form core, and the learning loop are standards-backed rather than ad-hoc.",
+
+  "foundational_duality": {
+    "noetica": "matter/form  (chomer/tzurah — the SETTLED cosmic structure)",
+    "kko": { "matter": "kko:Matter", "form": "kko:Forms (with kko:EssentialForm / kko:AccidentalForm)" }
+  },
+
+  "universal_categories": {
+    "firstness  (possibility/quality)": "kko:Possibilities",
+    "secondness (particular/instance)": "kko:Particulars",
+    "thirdness  (general/law/type)":    "kko:Generals"
+  },
+
+  "property_splits_to_wikidata": {
+    "attributes  (Firstness)":      "kko:Attributes",
+    "relations   (Secondness)":     "kko:Relations",
+    "representations (Thirdness)":  "kko:Representations",
+    "note": "KKO v1.50+ maps these against Wikidata properties — our typed features inherit that mapping."
+  },
+
+  "epistemic_typing": {
+    "comment": "Noetica's induced/deduced/abduced IS Peirce's inference trichotomy (he coined 'abduction'). KKO formalizes the discovery process as kko:Methodeutic.",
+    "deduced": "Peircean deduction — necessary inference (the authored textbook operators)",
+    "induced": "Peircean induction — generalization from data (the symbolic-regression operators)",
+    "abduced": "Peircean abduction — best-explanation hypothesis (prereq/analogy + loop hypotheses)",
+    "kko_grounding": "kko:Methodeutic"
+  },
+
+  "self_improving_loop": {
+    "noetica": "boost(residual) → induce/author → tighten(gate) → audit(manifest) → converge",
+    "kko": "kko:Methodeutic — 'knowledge emergence: observe & question facts → abduce hypotheses → test → new domains for inquiry'",
+    "claim": "our learning loop IS Peirce's methodeutic, already formalized in OWL by KKO"
+  },
+
+  "stem_domain_anchors": {
+    "chemistry":          "kko:Chemistry",
+    "atoms_elements":     "kko:AtomsElements",
+    "natural_substances": "kko:NaturalSubstances"
+  },
+
+  "entity_grounding": {
+    "reference_concepts": "versions/1.60/kbpedia_reference_concepts.zip — ~58k RCs → seed/align the canonical glossary (tasks #6, #13)",
+    "wikidata_linkage":   "versions/1.60/linkages/wikidata.n3 — ~32M entities (98% coverage) → align our 1033 glossary symbols → stable Wikidata IDs, feeding symbol-query.ts (#20)",
+    "other_linkages":     "dbpedia / schema.org / geonames / opencyc / umbel (.n3) — additional grounding, structure-only (no Wikipedia text, per the segmentation rule)"
+  },
+
+  "integration_order": [
+    "1. epistemic layer  — emit KKO IRIs from type-operators.py + canon-to-ontogenesis (highest leverage)",
+    "2. entity grounding — align glossary symbols → KBpedia RC → Wikidata ID (symbol-query.ts + glossary)",
+    "3. typologies       — disjoint pos/neg feature splits for the n-furcated combiner",
+    "4. matter/form      — bind chomer/tzurah → kko:Matter/kko:Forms in the upper ontology"
+  ]
+}

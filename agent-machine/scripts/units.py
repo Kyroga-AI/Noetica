@@ -121,6 +121,11 @@ UNITS = {
 
 UNITS['Ω'] = UNITS['ohm']
 UNITS['F'] = Q(1, dim(mass=-1, length=-2, time=4, current=2))  # farad (capacitance)
+# chemistry concentration: molar (mol/L = 1000 mol/m³). Checked before PREFIXES, so 'MPa'/'MHz' still
+# prefix-parse via their base unit; only standalone 'M' becomes molar (mega is never used bare).
+UNITS['M'] = Q(1000, dim(amount=1, length=-3))
+UNITS['molar'] = UNITS['M']
+UNITS['molal'] = Q(1, dim(amount=1, mass=-1))                  # molality (mol/kg)
 # SI prefixes — resolved on a unit token only when the whole token isn't a unit itself
 # (so 'm' stays metres, 'min'/'mol'/'kg' are untouched, but 'kN','mN','MeV','kPa' scale).
 PREFIXES = {'G': 1e9, 'M': 1e6, 'k': 1e3, 'd': 1e-1, 'c': 1e-2, 'm': 1e-3,
@@ -167,6 +172,8 @@ def dimension_of(expr, var_dims):
     non-homogeneous sum, returns the result dimension otherwise."""
     ns = {name: Q(1, d) for name, d in var_dims.items()}
     ns['__builtins__'] = {}
+    _dimless = lambda *a: Q(1, dim())   # log/exp of a (dimensionless) quantity → dimensionless (pH, Nernst lnQ, …)
+    ns.update({'log': _dimless, 'log10': _dimless, 'ln': _dimless, 'exp': _dimless})
     res = eval(expr.replace('^', '**'), ns)
     return Q._coerce(res).d
 

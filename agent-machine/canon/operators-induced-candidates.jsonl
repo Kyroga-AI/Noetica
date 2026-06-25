@@ -1,0 +1,1 @@
+{"concept": "molarity", "target": "M", "vars": ["n", "V"], "discovered": "add(div(n, V), sub(V, V))", "r2": 1.0, "dim_ok": true, "epistemicMode": "induced", "accepted": true, "source": "symbolic-regression"}
