@@ -6145,6 +6145,21 @@ Question: ${question}`
     return
   }
 
+  // GET /api/library — "what's been captured into the graph": collections → documents → entity/chunk counts.
+  // The observability surface (like ChatGPT's library, but for the knowledge graph).
+  if (req.method === 'GET' && url.pathname === '/api/library') {
+    setCORSHeaders(res)
+    ;(async () => {
+      try {
+        const { buildLibrary } = await import('./lib/library.js')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(await buildLibrary()))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ groups: [], totals: { collections: 0, documents: 0, chunks: 0, entities: 0 }, error: e instanceof Error ? e.message : 'failed' }))
+      }
+    })()
+    return
+  }
+
   // GET /api/collections — document collections (graph scopes) for the upload UI + the explorer's scope picker.
   if (req.method === 'GET' && url.pathname === '/api/collections') {
     setCORSHeaders(res)
