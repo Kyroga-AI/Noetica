@@ -6070,10 +6070,13 @@ Question: ${question}`
         try {
           const { filename, mimeType, dataBase64 } = JSON.parse(Buffer.concat(chunks).toString()) as { filename: string; mimeType?: string; dataBase64: string }
           if (!filename || !dataBase64) throw new Error('filename and dataBase64 required')
-          const { enqueueIngest } = await import('./lib/ingest-queue.js')
-          const job = enqueueIngest(filename, mimeType ?? '', Buffer.from(dataBase64, 'base64'))
+          const buf = Buffer.from(dataBase64, 'base64')
+          const { enqueueIngest, enqueueArchive } = await import('./lib/ingest-queue.js')
+          // A .zip fans out into per-file jobs (unpacked + filtered to document types); a single file enqueues as one.
+          const isZip = /\.zip$/i.test(filename) || mimeType === 'application/zip' || (buf[0] === 0x50 && buf[1] === 0x4b)
+          const result = isZip ? enqueueArchive(filename, buf) : enqueueIngest(filename, mimeType ?? '', buf)
           res.writeHead(202, { 'content-type': 'application/json' })
-          res.end(JSON.stringify(job))
+          res.end(JSON.stringify(result))
         } catch (err) {
           res.writeHead(400, { 'content-type': 'application/json' })
           res.end(JSON.stringify({ error: err instanceof Error ? err.message : 'bad request' }))

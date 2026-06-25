@@ -30,6 +30,7 @@
   },
   "dependencies": {
     "@socioprophet/hellgraph": "github:SocioProphet/hellgraph#main",
+    "fflate": "^0.8.3",
     "json5": "^2.2.3",
     "mammoth": "1.12.0",
     "unpdf": "^1.6.2"

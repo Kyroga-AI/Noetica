@@ -11,6 +11,11 @@
  * import would want a disk-backed spool, noted for later.
  */
 import { randomUUID } from 'node:crypto'
+import { unzipSync } from 'fflate'
+
+// Document types we ingest out of an archive. Everything else (images, binaries, media) is skipped, not parsed
+// as UTF-8 garbage. .pdf/.docx have real extractors; the rest are read as text by extractText.
+const INGESTIBLE = /\.(pdf|docx|md|markdown|txt|text|csv|tsv|json|html?|rtf|log|yml|yaml)$/i
 
 export type IngestStatus = 'queued' | 'parsing' | 'ingesting' | 'done' | 'failed'
 
@@ -40,6 +45,29 @@ export function enqueueIngest(filename: string, mimeType: string, buf: Buffer): 
   pending.push({ id, mimeType, buf })
   void drain()
   return job
+}
+
+/** Unpack a ZIP and enqueue each document-type entry as its own background job. Skips directories, macOS
+ *  resource forks (__MACOSX), hidden/dotfiles, and non-document files (so an 8MB zip of 100 pages fans out
+ *  into per-file jobs instead of being parsed as one blob of binary garbage — the current .zip failure mode). */
+export function enqueueArchive(zipName: string, buf: Buffer): { archive: string; enqueued: IngestJob[]; skipped: string[] } {
+  let files: Record<string, Uint8Array>
+  try {
+    files = unzipSync(new Uint8Array(buf))
+  } catch (e) {
+    throw new Error(`could not read zip "${zipName}": ${(e instanceof Error ? e.message : String(e)).slice(0, 120)}`)
+  }
+  const enqueued: IngestJob[] = []
+  const skipped: string[] = []
+  for (const [p, data] of Object.entries(files)) {
+    const base = p.split('/').pop() || p
+    if (p.endsWith('/') || data.length === 0) continue                       // directory entry
+    if (p.startsWith('__MACOSX/') || base.startsWith('.')) continue          // mac resource forks / hidden
+    if (!INGESTIBLE.test(base)) { skipped.push(p); continue }                // image/binary/media → skip
+    // Namespace the job filename under the archive so the graph/table shows provenance (zip → file).
+    enqueued.push(enqueueIngest(`${zipName.replace(/\.zip$/i, '')}/${p}`, '', Buffer.from(data)))
+  }
+  return { archive: zipName, enqueued, skipped }
 }
 
 async function drain(): Promise<void> {
