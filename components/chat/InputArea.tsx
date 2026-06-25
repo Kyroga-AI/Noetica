@@ -7,6 +7,7 @@ import { readFilesAsAttachments, openNativeFilePicker } from '@/lib/attachments/
 import { isTauri, amUrl } from '@/lib/tauri/bridge'
 import type { McpTool } from '@/lib/types/mcp'
 import { McpToolPicker } from '@/components/mcp/McpToolPicker'
+import { IngestQueueTable } from '@/components/chat/IngestQueueTable'
 import { visibleModels } from '@/config/models'
 import { useSettings } from '@/lib/settings/context'
 
@@ -108,20 +109,30 @@ export function InputArea({
   const TEXT_EXTS = /\.(ts|tsx|js|jsx|py|rs|go|java|c|cpp|h|hpp|cs|rb|php|swift|kt|md|mdx|txt|json|yaml|yml|toml|xml|html|css|sh|bash|zsh|sql|env|gitignore|dockerfile)$/i
   // Documents whose text must be extracted SERVER-SIDE (binary — browser can't read as text).
   const DOC_EXTS = /\.(docx|pdf)$/i
+  // Archives + binary docs go through the NON-BLOCKING ingestion queue (unpacked into a collection scope).
+  const ARCHIVE_EXTS = /\.zip$/i
+  const [queueVersion, setQueueVersion] = useState(0)   // bumped on each enqueue → the IngestQueueTable polls
+
+  // Binary docs (.docx/.pdf) + archives (.zip): enqueue for background ingestion into a collection scope — the
+  // user is NOT blocked, and the queue table shows each file landing in the graph (parsed vs pending).
+  async function ingestQueued(file: File): Promise<void> {
+    const arr = new Uint8Array(await file.arrayBuffer())
+    let bin = ''
+    for (let i = 0; i < arr.length; i++) bin += String.fromCharCode(arr[i]!)
+    try {
+      const res = await fetch(amUrl('/api/ingest/queue'), {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ filename: file.name, mimeType: file.type, dataBase64: btoa(bin) }),
+      })
+      if (res.ok || res.status === 202) setQueueVersion((v) => v + 1)
+      else { const e = await res.json().catch(() => ({})) as { error?: string }; setAttachError(`Couldn't queue ${file.name}: ${e.error ?? res.status}`) }
+    } catch (e) { setAttachError(`Couldn't queue ${file.name}: ${e instanceof Error ? e.message : 'failed'}`) }
+  }
 
   // Plain-text/code files: read in the browser and ingest the text.
   async function ingestTextFile(file: File): Promise<boolean> {
     const text = await file.text()
     return postIngest('/api/ingest/document', { content: text, filename: file.name, mimeType: file.type || 'text/plain' }, file.name)
-  }
-
-  // Binary documents (.docx/.pdf): send raw bytes (base64) — the server extracts text.
-  async function ingestBinaryDoc(file: File): Promise<boolean> {
-    const buf = new Uint8Array(await file.arrayBuffer())
-    let bin = ''
-    for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]!)
-    const dataBase64 = btoa(bin)
-    return postIngest('/api/ingest/file', { filename: file.name, mimeType: file.type, dataBase64 }, file.name)
   }
 
   async function postIngest(path: string, payload: unknown, filename: string): Promise<boolean> {
@@ -146,12 +157,13 @@ export function InputArea({
     setAttachError('')
     const fileArr = Array.from(files)
     const textFiles = fileArr.filter((f) => TEXT_TYPES.has(f.type) || TEXT_EXTS.test(f.name))
-    const docFiles = fileArr.filter((f) => DOC_EXTS.test(f.name))      // .docx/.pdf → server extract
+    const queuedFiles = fileArr.filter((f) => DOC_EXTS.test(f.name) || ARCHIVE_EXTS.test(f.name))   // .docx/.pdf/.zip → async queue
     const attachFiles = fileArr.filter((f) =>
-      !TEXT_TYPES.has(f.type) && !TEXT_EXTS.test(f.name) && !DOC_EXTS.test(f.name),
+      !TEXT_TYPES.has(f.type) && !TEXT_EXTS.test(f.name) && !DOC_EXTS.test(f.name) && !ARCHIVE_EXTS.test(f.name),
     )
     for (const tf of textFiles) await ingestTextFile(tf)
-    for (const df of docFiles) await ingestBinaryDoc(df)
+    // Fire the queued ingests in parallel and DON'T await completion — the user keeps working; the table tracks progress.
+    queuedFiles.forEach((qf) => { void ingestQueued(qf) })
     if (attachFiles.length > 0) {
       const remaining = MAX_ATTACHMENTS - attachments.length
       if (remaining <= 0) { setAttachError(`Max ${MAX_ATTACHMENTS} attachments`); return }
@@ -238,6 +250,9 @@ export function InputArea({
       <div className={`mx-auto w-full max-w-3xl rounded-2xl border bg-[var(--color-background-primary)] transition ${
         dragOver ? 'border-[var(--color-border-primary)]' : 'border-[var(--color-border-secondary)]'
       }`}>
+
+        {/* Live ingestion queue (bulk/zip uploads → collection scope, parsed-vs-pending) */}
+        <div className="px-3 pt-2.5 empty:hidden"><IngestQueueTable refreshSignal={queueVersion} /></div>
 
         {/* Ingested document chips */}
         {ingestedDocs.length > 0 && (
