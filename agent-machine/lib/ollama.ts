@@ -110,7 +110,17 @@ export const EMBED_MODEL = process.env['NOETICA_EMBED_MODEL'] ?? 'nomic-embed-te
  * Embed text → vector via Ollama. Returns [] on failure so callers degrade to
  * lexical retrieval rather than throwing. Uses the active Ollama base.
  */
+// Circuit breaker for a hard-broken embedder. A single retrieval turn embeds the query + many candidate
+// atoms (hundreds), so when the embedder is genuinely down (a broken bundled Ollama: lists models, 500s on
+// inference) re-probing it for EVERY item turned one chat turn into a ~30s freeze — the exact "froze the
+// demo" failure. Once all bases HARD-fail, trip the breaker and degrade straight to lexical until it cools
+// down; the next turn re-probes once. Only hard failures (non-ok / empty) arm it — NOT timeouts, which are
+// transient GPU contention the batch board deliberately waits through (NOETICA_EMBED_TIMEOUT_MS high).
+let _embedDownUntil = 0
+const EMBED_COOLDOWN_MS = Number(process.env['NOETICA_EMBED_COOLDOWN_MS'] || 15_000)
+
 export async function embedText(text: string): Promise<number[]> {
+  if (_embedDownUntil && Date.now() < _embedDownUntil) return []   // breaker open → lexical, skip the re-probe
   // Same primary→fallback resilience as chat: at ingest time the active base may
   // still be a broken bundled Ollama (lists models, can't run the model), so try
   // the fallback before giving up — otherwise embeddings silently fail and
@@ -118,6 +128,7 @@ export async function embedText(text: string): Promise<number[]> {
   const bases = (_activeBase === OLLAMA_PRIMARY && HAS_FALLBACK)
     ? [OLLAMA_PRIMARY, OLLAMA_FALLBACK]
     : [_activeBase]
+  let sawHardFail = false   // a base answered but was broken (non-ok / empty) — distinct from a timeout
   // Default short (a slow query-embed mustn't hang a chat turn — degrade to lexical). But under BATCH load
   // (the MMLU board: the GPU is saturated by generation, so nomic embeds queue), 8s-with-no-retry collapsed
   // every embed to [] and silently contaminated whole runs (lexical-only). So: env-tunable timeout + a
@@ -138,9 +149,11 @@ export async function embedText(text: string): Promise<number[]> {
         if (res.ok) {
           const json = (await res.json()) as { embedding?: number[] }
           const vec = Array.isArray(json.embedding) ? json.embedding : []
-          if (vec.length) { _activeBase = base; return vec }
+          if (vec.length) { _activeBase = base; _embedDownUntil = 0; return vec }   // recovered → reset breaker
+          sawHardFail = true
           console.warn(`[ollama] embedText: ${base} returned ok but an empty embedding (model=${EMBED_MODEL}) — retrieval degrades to lexical-only`)
         } else {
+          sawHardFail = true
           console.warn(`[ollama] embedText: ${base} returned ${res.status} (model=${EMBED_MODEL})`)
         }
         break                            // non-ok/empty (not a timeout) → don't retry this base; try the fallback
@@ -152,6 +165,9 @@ export async function embedText(text: string): Promise<number[]> {
   }
   // A silent [] looks identical to "no fallback configured" — surface it so a broken embedder is
   // diagnosable instead of invisibly collapsing every STEM query to lexical-only.
+  // Hard-failed across all bases (not a mere timeout) → trip the breaker so the rest of this turn's hundreds
+  // of atom-embeds skip the dead endpoint and degrade to lexical instantly instead of re-probing it.
+  if (sawHardFail) _embedDownUntil = Date.now() + EMBED_COOLDOWN_MS
   console.warn('[ollama] embedText: all bases failed — returning [] (lexical-only retrieval this turn)')
   return []
 }
@@ -415,6 +431,7 @@ export async function* streamOllama(params: {
   temperature?: number
   maxTokens?: number
   keepAlive?: string
+  enableThinking?: boolean   // qwen3/thinking models: false → clean fast answer (no reasoning); true/undefined → think
 }): AsyncGenerator<ProviderEvent> {
   const options: Record<string, unknown> = {
     num_ctx: params.numCtx ?? 16384,
@@ -429,10 +446,18 @@ export async function* streamOllama(params: {
     stream: true,
     messages: params.messages,
     options,
-    // Keep the model resident between turns so the next query doesn't cold-load
-    // (the default 5m unload is a frequent source of surprise multi-second stalls).
-    keep_alive: params.keepAlive ?? '30m',
+    // Keep the model resident between turns so the next query doesn't cold-load — but RAM-aware. A 30m
+    // hold pins a 9GB workhorse in unified memory for half an hour AFTER the user stops, which OOMs a
+    // 24GB Mac while "nothing is running". On ≤32GB boxes, hold only 5m (warm through an active
+    // conversation, freed when idle); reserve the long hold for workstation-class memory.
+    keep_alive: params.keepAlive ?? (os.totalmem() / 1024 ** 3 < 32 ? '5m' : '30m'),
   }
+  // Thinking control for qwen3 (Ollama maps this template kwarg to enable/disable the <think> phase). Only set
+  // it when explicitly DISABLING — simple/interactive turns skip the multi-minute reasoning and answer cleanly.
+  // Left unset (reasoning/code turns) the model thinks normally, and its <think> block streams as thinking
+  // events into the "Extended thinking" collapsible — never into the answer body. Replaces the /no_think hack
+  // (which stripped the tags but kept the reasoning, leaking it into the answer).
+  if (params.enableThinking === false) body['chat_template_kwargs'] = { enable_thinking: false }
 
   if (params.tools?.length) {
     body['tools'] = params.tools.map((t) => ({

@@ -586,21 +586,21 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
                 </div>
               )}
               {/* Reasoning trace */}
-              {message.retrieval_trace && (message.retrieval_trace.sources.length > 0 || message.retrieval_trace.beliefs_injected > 0 || (message.retrieval_trace.memory_sources?.length ?? 0) > 0 || (message.retrieval_trace.episode_sources?.length ?? 0) > 0) && (
+              {message.retrieval_trace && ((message.retrieval_trace.sources?.length ?? 0) > 0 || message.retrieval_trace.beliefs_injected > 0 || (message.retrieval_trace.memory_sources?.length ?? 0) > 0 || (message.retrieval_trace.episode_sources?.length ?? 0) > 0) && (
                 <div className="space-y-2">
                   <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">Reasoning trace</div>
-                  {message.retrieval_trace.timings.length > 0 && (
+                  {(message.retrieval_trace.timings?.length ?? 0) > 0 && (
                     <div className="flex flex-wrap gap-1.5">
-                      {message.retrieval_trace.timings.map((t) => (
+                      {message.retrieval_trace.timings?.map((t) => (
                         <span key={t.pattern} className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-tertiary)] px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)]">
                           {t.pattern} · {t.durationMs}ms · {t.hits} hit{t.hits === 1 ? '' : 's'}
                         </span>
                       ))}
                     </div>
                   )}
-                  {message.retrieval_trace.sources.length > 0 && (
+                  {(message.retrieval_trace.sources?.length ?? 0) > 0 && (
                     <div className="space-y-1">
-                      {message.retrieval_trace.sources.map((s) => (
+                      {message.retrieval_trace.sources?.map((s) => (
                         <div key={s.id} className="flex items-center gap-2">
                           <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
                             <div className="h-full rounded-full bg-[#7c3aed]" style={{ width: `${Math.max(4, Math.min(100, s.score * 100))}%` }} />

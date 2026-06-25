@@ -115,6 +115,7 @@ type StateListener = (states: McpServerState[]) => void
 class McpClientManager {
   private states = new Map<string, McpServerState>()
   private clients = new Map<string, AnyClient>()
+  private configs = new Map<string, McpServerConfig>()   // kept so callTool can resolve a federated peer's SPIFFE id
   private listeners = new Set<StateListener>()
 
   // ── Subscriptions ────────────────────────────────────────────────────────
@@ -151,6 +152,7 @@ class McpClientManager {
   async connect(config: McpServerConfig): Promise<void> {
     // Disconnect existing connection for this server if any
     await this.disconnect(config.id)
+    this.configs.set(config.id, config)   // remember the config (federated peers carry a SPIFFE id for callTool)
 
     const initialState: McpServerState = {
       config,
@@ -250,21 +252,25 @@ class McpClientManager {
   async callTool(call: McpToolCall): Promise<McpToolResult> {
     const client = this.clients.get(call.serverId)
     if (!client) throw new Error(`Server ${call.serverId} not connected`)
-    // Zero-trust grant gate: deny a revoked (server, tool) before dispatch (grantCheck used to hardcode valid).
-    const { checkToolGrant } = await import('@/lib/a2a/grantCheck')
-    const verdict = checkToolGrant(call.serverId, call.toolName, 'session')
+    // Zero-trust grant gate (A2A). A FEDERATED PEER (AIWG/Ruflo/Gas Town — has a SPIFFE id) is gated by its
+    // behavioral TRUST + authority status (checkActorGrant); a plain local server keeps the session grant path.
+    // Either way the call never bypasses the A2A zero-trust layer.
+    const cfg = this.configs.get(call.serverId)
+    const { checkToolGrant, checkActorGrant, recordActorOutcome } = await import('@/lib/a2a/grantCheck')
+    const peer = cfg?.spiffeId
+    const verdict = peer ? checkActorGrant(peer, call.toolName) : checkToolGrant(call.serverId, call.toolName, 'session')
     if (!verdict.valid) {
-      return { serverId: call.serverId, toolName: call.toolName, content: [{ type: 'text', text: `Tool blocked by grant policy: ${verdict.reason}` }], isError: true }
+      // A denied federated call is a soft integrity signal — record it so a misbehaving peer keeps losing trust.
+      if (peer) recordActorOutcome(peer, { ok: false })
+      return { serverId: call.serverId, toolName: call.toolName, content: [{ type: 'text', text: `Tool blocked by A2A grant policy: ${verdict.reason}` }], isError: true }
     }
     try {
       const resp = await client.callTool({ name: call.toolName, arguments: call.args })
-      return {
-        serverId: call.serverId,
-        toolName: call.toolName,
-        content: resp.content ?? [],
-        isError: resp.isError ?? false,
-      }
+      const isError = resp.isError ?? false
+      if (peer) recordActorOutcome(peer, { ok: !isError, up: true })   // feed the federated peer's trust ledger
+      return { serverId: call.serverId, toolName: call.toolName, content: resp.content ?? [], isError }
     } catch (e) {
+      if (peer) recordActorOutcome(peer, { ok: false, up: false })     // a failed/unreachable peer loses trust
       return {
         serverId: call.serverId,
         toolName: call.toolName,

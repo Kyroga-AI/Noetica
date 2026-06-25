@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildRouterDecision, classifyTask, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider } from './router.js'
+import { buildRouterDecision, classifyTask, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider, bestWorkhorse, preferredCoderForRam } from './router.js'
 
 // The full local model inventory — used to simulate "everything installed".
 const ALL_MODELS = LOCAL_MODEL_SUITE.map((m) => m.name)
@@ -185,4 +185,38 @@ test('resolveProvider maps hosted prefixes + bare ids to the right provider/base
   assert.equal(resolveProvider('gpt-4o').provider, 'openai')
   assert.equal(resolveProvider('qwen2.5:7b').provider, 'ollama')
   assert.equal(resolveProvider('hf.co/bartowski/X-GGUF').provider, 'ollama')   // local GGUF, not hosted
+})
+
+// ── Qwen3 24GB-tier upgrade (general/reasoning, not just coding) ────────────────
+test('bestWorkhorse prefers a qwen3 when the family is pulled, else the fallback', () => {
+  // isModelAvailable matches by family, so a pulled qwen3 tag satisfies any qwen3 pref (the exact tag depends
+  // on RAM: qwen3:14b on ≥18GB, qwen3:8b below) — assert the family, not a fixed tag, so it's env-robust.
+  assert.match(bestWorkhorse(['qwen3:8b', 'qwen2.5:7b'], 'qwen2.5:7b'), /^qwen3/)
+  assert.equal(bestWorkhorse(['qwen2.5:7b'], 'qwen2.5:7b'), 'qwen2.5:7b') // no qwen3 pulled → fallback
+})
+
+test('general/reasoning/chat/writing/research routes upgrade to qwen3 when it is pulled', () => {
+  for (const task of ['general', 'reasoning', 'writing', 'research', 'chat'] as const) {
+    const d = buildRouterDecision({
+      requestId: 'r', content: 'anything', ollamaAvailable: true,
+      availableModels: ['qwen3:8b', 'qwen2.5:7b', 'deepseek-r1:8b', 'llama3.2:3b'],
+      hasAnthropicKey: false, hasOpenAIKey: false, taskOverride: task,
+    })
+    assert.match(d.resolvedModel, /^qwen3/, `${task} should route to a qwen3 model when available, got ${d.resolvedModel}`)
+  }
+})
+
+test('without qwen3 pulled, general routing still falls back to the qwen2.5 floor (small boxes untouched)', () => {
+  const d = buildRouterDecision({
+    requestId: 'r', content: 'anything', ollamaAvailable: true,
+    availableModels: ['qwen2.5:7b', 'llama3.2:3b'],
+    hasAnthropicKey: false, hasOpenAIKey: false, taskOverride: 'general',
+  })
+  assert.equal(d.resolvedModel, 'qwen2.5:7b')
+})
+
+test('the 18GB+ tier background-pulls a qwen3 workhorse (not qwen2.5-coder)', () => {
+  const want = preferredCoderForRam()
+  // null on <18GB boxes (floor already shipped) — only assert the qwen3 contract when something is pulled.
+  if (want) assert.match(want, /^qwen3/, `high-RAM box should pull a qwen3 workhorse, got ${want}`)
 })

@@ -34,7 +34,12 @@ function startPrimary(): Promise<void> {
     res.writeHead(500, { 'content-type': 'application/json' })
     res.end('{"error":{"message":"error starting llama-server: llama-server binary not found"}}')
   })
-  return new Promise((r) => primary.listen(PRIMARY_PORT, '127.0.0.1', () => r()))
+  // Fail FAST if the port is held (e.g. an orphaned run) — without the error handler a failed listen
+  // never fires its callback and the `before` hook hangs forever instead of erroring.
+  return new Promise((resolve, reject) => {
+    primary.once('error', reject)
+    primary.listen(PRIMARY_PORT, '127.0.0.1', () => resolve())
+  })
 }
 
 function startFallback(): Promise<void> {
@@ -49,7 +54,10 @@ function startFallback(): Promise<void> {
     res.write('data: [DONE]\n\n')
     res.end()
   })
-  return new Promise((r) => fallback.listen(FALLBACK_PORT, '127.0.0.1', () => r()))
+  return new Promise((resolve, reject) => {
+    fallback.once('error', reject)
+    fallback.listen(FALLBACK_PORT, '127.0.0.1', () => resolve())
+  })
 }
 
 before(async () => {
@@ -80,7 +88,13 @@ after(() => {
 test('broken primary Ollama → chat falls back and streams the answer', async () => {
   const r = await fetch(`${BASE}/api/chat`, {
     method: 'POST', headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ messages: [{ role: 'user', content: 'hello there' }] }),
+    // The prompt must route to MODEL GENERATION on a COLD first turn — that's what exercises the broken-primary
+    // → fallback path this test guards. Two routes answer WITHOUT a model and must be avoided: a greeting
+    // ("hello there") hits the deterministic small-talk layer, and ANY no-cue general question ("what is the
+    // capital of France?") trips the concierge's cold-turn clarify (dialogue-policy: score 0 + ≥3 words). An
+    // "Explain …" prompt matches the explain_teach intent cue (score > 0) → bypasses clarify → reasoning model
+    // → broken primary → fallback streams the answer.
+    body: JSON.stringify({ messages: [{ role: 'user', content: 'Explain how photosynthesis works in one sentence.' }] }),
     signal: AbortSignal.timeout(15_000),
   })
   const text = await r.text()

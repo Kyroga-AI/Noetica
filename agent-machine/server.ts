@@ -37,7 +37,8 @@ import * as net from 'node:net'
 import { originAllowed } from './lib/origin-guard.js'
 import { isConfinedToHomeOrTmp } from './lib/path-confine.js'
 import { buildAdaptiveBrief } from './lib/progress.js'
-import { buildRouterDecision, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider } from './lib/router.js'
+import { safeShellEnv } from './lib/safe-shell-env.js'
+import { buildRouterDecision, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider, bestCoder, bestWorkhorse, bestResponsive } from './lib/router.js'
 import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTelemetry, type MeshTier } from './lib/scope-d.js'
 import { installEgressGuard, setOfflineMode } from './lib/egress-guard.js'
 import { classifyIntent, capabilityToTask, wantsVectorRag, intentByName, planFromIntent, intentToAction, deEscalateEveryday } from './lib/intent-router.js'
@@ -98,7 +99,7 @@ import {
 import { getUserIdentity, setUserIdentity, promptUserName, type UserIdentity } from './lib/identity.js'
 
 const PORT = parseInt(process.env['NOETICA_AM_PORT'] ?? '8080', 10)
-const VERSION = '0.4.11'
+const VERSION = '0.4.19'
 
 // Sovereign offline mode: arm the egress guard so non-local egress is STRUCTURALLY impossible
 // when NOETICA_OFFLINE is set (airplane mode). No-op passthrough when online. Installed early,
@@ -646,13 +647,15 @@ You are the primary agent of the Noetica platform. You run entirely on the user'
 
 ## Your capabilities
 - **Memory**: Persistent memory via HellGraph — an AtomSpace knowledge graph that stores entities, relationships, and prior context. Relevant memories are injected into context automatically.
+- **Live knowledge graph**: The app ALWAYS shows a live, interactive graph panel (the "SocioSphere Graph") beside the chat. Every document you ingest and every entity you extract auto-populates it — nodes, edges, communities, and structural insights (e.g. "X is a critical connector"). So you CAN show the graph: when the user asks to "show/visualize the graph", do NOT say you can't render graphs — the graph is already on screen. Instead, reference it directly ("the graph panel on the right now shows …"), describe what was added (entity count, key nodes, communities, notable structure), and call it out. You render graphs by populating this panel, not by drawing ASCII.
 - **Tools**: When the user asks you to search, find files, run code, browse the web, or take actions — use your tools. Do not simulate tool results.
-- **Local models**: Tasks route to specialist models. Coding goes to qwen2.5-coder. Reasoning goes to deepseek-r1. Vision goes to llava when images are present.
+- **Running code**: Runnable code (Python and similar) is executed for you automatically by a verify-repair loop — generate it and the platform runs the tests. You CANNOT run UI / frontend code (Vue, React, HTML, a JS app) — there is no browser or dev server in the sandbox. NEVER claim to run code, "simulate the output", or show program output that a tool did not actually produce. If something can't be run here, say so plainly in one line and just provide the code — do not write "Let me run it…" or invent output.
+- **Local models**: Tasks route to specialist local models by RAM — a 24GB box runs qwen3:14b (general, coding, and reasoning with its thinking mode); smaller boxes use the qwen2.5 family. Vision goes to a VLM (llava/qwen-vl) when images are present.
 - **Cloud augmentation**: When a cloud API key is configured, tasks that exceed local capability can route to Claude or GPT. This is opt-in.
 
 ## Response rules
 - Short messages (greetings, reactions, simple questions under 10 words): respond in 1-3 sentences. No tools.
-- Code requests: return working code. No preamble. Show the code first, explain after if needed.
+- Code requests: return working code. No preamble. Show the code first, explain after if needed. Do NOT narrate fake execution ("Let me run it…", "Displaying the output:", invented results) — if it wasn't actually run, don't pretend it was.
 - Research/analysis: think step by step. Be specific. Cite uncertainty where it exists.
 - Do NOT start responses with "I", "As Michael", or the user's name.
 - Do NOT add disclaimers like "please consult a professional" unless the situation is genuinely dangerous.
@@ -1222,7 +1225,7 @@ function runInWorkspace(command: string, cwd: string, timeoutMs: number): Promis
     let safeTimeout = Number.isFinite(timeoutMs) ? timeoutMs : 60_000
     if (safeTimeout > 300_000) safeTimeout = 300_000
     if (safeTimeout < 1_000) safeTimeout = 1_000
-    const child = cp.spawn(LOGIN_SHELL, ['-lc', command], { cwd, env: { ...process.env } })
+    const child = cp.spawn(LOGIN_SHELL, ['-lc', command], { cwd, env: safeShellEnv() })
     const timer = setTimeout(() => { if (!done) { done = true; try { child.kill('SIGKILL') } catch { /* */ } resolve({ out, err, code: `timeout after ${safeTimeout}ms` }) } }, safeTimeout)
     child.stdout.on('data', (d: Buffer) => { if (out.length < 200_000) out += d.toString() })
     child.stderr.on('data', (d: Buffer) => { if (err.length < 100_000) err += d.toString() })
@@ -1236,7 +1239,7 @@ function runInWorkspace(command: string, cwd: string, timeoutMs: number): Promis
 const _devServers = new Set<number>()
 function startDevServer(command: string, cwd: string, timeoutMs: number): Promise<{ url?: string; pid?: number }> {
   return new Promise((resolve) => {
-    const child = cp.spawn(LOGIN_SHELL, ['-lc', command], { cwd, env: { ...process.env } })
+    const child = cp.spawn(LOGIN_SHELL, ['-lc', command], { cwd, env: safeShellEnv() })
     if (child.pid) _devServers.add(child.pid)
     let resolved = false
     const finish = (u?: string) => { if (!resolved) { resolved = true; clearTimeout(timer); resolve({ url: u, pid: child.pid }) } }
@@ -2310,8 +2313,8 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // scoring — no model call, safe on the hot path even on a CPU box.
   let hasDoc = false
   try {
-    const { documentChunkCount } = await import('./lib/doc-store.js')
-    hasDoc = documentChunkCount() > 0
+    const { userDocumentChunkCount } = await import('./lib/doc-store.js')
+    hasDoc = userDocumentChunkCount() > 0 // USER uploads only — self-model docs must not force doc-QA grounding
   } catch { /* doc-store optional */ }
   let intentPlan = classifyIntent(latestUserContent, { hasDoc })
   // Tier-0 cascade (NOETICA_EMBED_INTENT): a tiny embedding model refines the intent
@@ -2498,8 +2501,25 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       taskOverride: intentTaskOverride,
     })
   } catch (err) {
-    sse(res, 'error', { error: 'internal_error' })
-    return
+    // Don't silently swallow — log the real cause (sanitized for log-injection) so a transient failure
+    // (e.g. the coder model still pulling on first build request) is diagnosable instead of an opaque error.
+    console.error('[chat] routing failed, retrying with safe defaults:', String(err instanceof Error ? err.stack || err.message : err).replace(/[\r\n]+/g, ' ⏎ '))
+    // A routing hiccup must NOT kill the turn. The intermittent first-query "internal_error" (ollama mid-handoff
+    // on a cold relaunch, a momentarily-malformed model inventory, an edge intent override) is transient — retry
+    // with the plain keyword router and an empty inventory, so bestCoder/bestWorkhorse/bestResponsive fall to the
+    // safe floor model and the turn proceeds instead of dying with an opaque error the user has to resend past.
+    try {
+      routing = buildRouterDecision({
+        requestId: crypto.randomUUID(), content: latestUserContent, ollamaAvailable: ollamaUp, availableModels: [],
+        hasAnthropicKey: Boolean(anthropicKey), hasOpenAIKey: Boolean(openaiKey), explicitModelId: body.model_id,
+        policyProfile: body.policy_profile, securityAttested: body.security_attested === true, hasImages,
+        hasTools: (body.tools?.length ?? 0) > 0, taskOverride: undefined,
+      })
+    } catch (err2) {
+      console.error('[chat] routing fallback also failed:', String(err2 instanceof Error ? err2.stack || err2.message : err2).replace(/[\r\n]+/g, ' ⏎ '))
+      sse(res, 'error', { error: 'internal_error' })
+      return
+    }
   }
 
   let { resolvedModel: model, resolvedProvider: provider } = routing
@@ -2665,12 +2685,21 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     const task = routerDecision.task ?? 'general'
     const before = model
     if (!docGrounded) {
-      if (['general', 'writing', 'chat'].includes(task) && has('llama3.2:3b')) {
+      if (task === 'chat' && has('llama3.2:3b')) {
+        // Genuinely casual chat only → the fast 3B. (Substantive intents are handled by the concierge or below.)
         model = 'llama3.2:3b'
       } else if (task === 'coding') {
-        model = has('qwen2.5-coder:7b') ? 'qwen2.5-coder:7b' : has('qwen2.5:7b') ? 'qwen2.5:7b' : model
+        // Respect the RAM-appropriate workhorse the router already chose — qwen3:14b on a 24GB box, NOT a
+        // hardcoded qwen2.5. This block used to force qwen2.5 and quietly undo the qwen3 routing.
+        model = bestCoder(availableModels, model)
       } else if (task === 'reasoning') {
-        model = has('qwen2.5:7b') ? 'qwen2.5:7b' : has('qwen2.5-coder:7b') ? 'qwen2.5-coder:7b' : model
+        // Deep reasoning earns the 14b — depth over latency (and it thinks, via the think-directive).
+        model = bestWorkhorse(availableModels, model)
+      } else {
+        // general / writing / research → the FAST interactive 8b. The 14b's ~60-90s cold-load + thinking tax
+        // wasn't worth it for conversational Q&A; with /no_think the 8b answers in seconds. Escalation still
+        // climbs to a heavier model when the turn actually struggles. Never the 3B (it fabricates work).
+        model = bestResponsive(availableModels, model)
       }
     }
     if (model !== before) console.log(`[responsive] ${String(task)} ${before} → ${model}`.replace(/\r/g, '').replace(/\n/g, ''))
@@ -2893,7 +2922,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       conversationId: body.conversation_id,
       maxTokens: memCap,
     })
-    if (retrieved.text.trim()) {
+    // Don't inject the HellGraph memory into the 'general' lane (the catch-all for unmatched factual
+    // questions). The graph is dominated by dev/test exhaust, and the 'graph' pattern only floors at ZERO
+    // hits — so a weak lexical match ("Australia") still injects software passages that qwen3 then anchors
+    // on and REFUSES the question ("not in the provided documents"). General knowledge comes from the
+    // model itself; memory-centric intents (self_identity, preferences_memory, plan_nextsteps, …) still get it.
+    if (retrieved.text.trim() && intentPlan.name !== 'general') {
       graphContext = `\n\n---\n**Memory context (HellGraph)**\n${retrieved.text}`
     }
     // Emit the neurosymbolic reasoning trace so the UI can show *why* this answer
@@ -2942,7 +2976,11 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       const ragQuery = glossaryTerms.length > 0
         ? `${latestUserContent}\n${glossaryTerms.join(' ')}`
         : latestUserContent
-      const hits = await searchDocsReranked(ragQuery, topK)
+      // Document RAG reads from USER scopes only (collections), never core memory/knowledge/self (doc-scope.ts).
+      // Core docs in the same store would otherwise surface as strict "uploaded sources" and make the model
+      // refuse general knowledge (the self-doc refusal bug). Scoping keeps collections separate from core.
+      const { isUserDoc: _isUserDoc } = await import('./lib/doc-scope.js')
+      const hits = (await searchDocsReranked(ragQuery, topK)).filter((h) => _isUserDoc(h.filename))
       if (hits.length > 0) {
         docHitCount = hits.length
         // INDIRECT-INJECTION DEFENSE (PoisonedRAG): retrieved document text is UNTRUSTED — a malicious
@@ -3348,7 +3386,22 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       if (g) canonGroundContext = `\n\n${g}`
     } catch { /* canon grounding best-effort */ }
   }
-  const enrichedSystemPrompt = basePrompt + dateLine + learnerContext + canonGroundContext + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + episodeContext + goalContext + skillsContext + reasoningDirective + verbosityNote + modeNote + lifeDomain.safetyNote + profile.authorizationSuffix
+  // NOTE: we do NOT append `/no_think`. The chat path is the OpenAI-compat /v1 endpoint (no native `think`
+  // param), so /no_think is the only lever — but on qwen3 it strips the <think>…</think> wrapper while the
+  // model STILL reasons, so the reasoning leaks into the ANSWER as plain text (the streamOllama parser routes
+  // it to message.content instead of message.thinking → it renders as the answer body, not the collapsible).
+  // Letting qwen3 think NORMALLY keeps reasoning wrapped → it lands in the "Extended thinking" collapsible,
+  // cleanly separated from the answer. Speed comes from model TIERING (interactive lanes → fast 8b), not from
+  // suppressing thinking. Re-introduce suppression only via native `think:false` if the path moves to /api/chat.
+  const thinkDirective = ''
+  // For non-document intents, the injected memory/graph passages are OPTIONAL background — the model keeps
+  // anchoring on them and refusing general-knowledge questions ("not in the provided documents"). A forceful
+  // directive in the LAST (most salient) position overrides that. Doc-QA intents keep strict grounding.
+  const DOC_INTENTS = new Set(['qa_over_doc', 'summarize_doc', 'file_ops', 'file_ingest'])
+  const knowledgeDirective = DOC_INTENTS.has(intentPlan.name) ? '' :
+    `\n\n=== ANSWER POLICY (highest priority) ===\nAny context above is OPTIONAL background — it is NOT the set of allowed facts. Answer the user's question directly. For general knowledge (history, geography, science, public events), answer from YOUR OWN knowledge. NEVER say "not in the provided documents/sources" or "consult an external source" for a fact you know. Only say you don't know if you genuinely don't.`
+  // merged: ours prepends learner/canon context after dateLine; main appends the knowledge + think directives.
+  const enrichedSystemPrompt = basePrompt + dateLine + learnerContext + canonGroundContext + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + episodeContext + goalContext + skillsContext + reasoningDirective + verbosityNote + modeNote + lifeDomain.safetyNote + profile.authorizationSuffix + knowledgeDirective + thinkDirective
 
   // Token budget: rough estimate (4 chars ≈ 1 token). If message history + system prompt
   // exceeds 70% of the model's context window, trim oldest non-system messages.
@@ -3593,12 +3646,17 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       const ollamaAppendAssistant = (assistantText: string, calls: ToolUseBlock[]) => {
         ollamaMessages.push({ role: 'assistant', content: assistantText || null, tool_calls: calls.map((tc) => ({ id: tc.id, type: 'function' as const, function: { name: tc.name, arguments: JSON.stringify(tc.input) } })) })
       }
+      // Thinking only where depth earns the latency: reasoning/code lanes think (and that reasoning streams to
+      // the "Extended thinking" collapsible, never the answer body); simple/interactive lanes answer cleanly +
+      // fast with the <think> phase disabled. Driven by Ollama's enable_thinking template kwarg in streamOllama.
+      const THINK_INTENTS = new Set(['reasoning', 'explain_teach', 'compare_benchmark', 'plan_nextsteps', 'review_audit', 'prove_reason', 'compute_math', 'build_implement', 'fix_debug'])
+      const enableThinking = THINK_INTENTS.has(intentPlan.name)
       const ollamaAdapter: ProviderAdapter = {
         suppressInlineToolText: true,
         enableDivergenceRecovery: true,
         init() { /* ollamaMessages already built above */ },
         async *streamTurn() {
-          yield* streamOllama({ model, messages: ollamaMessages, tools: allTools, numCtx: ollamaNumCtx, temperature: reqTemperature, maxTokens: reqMaxTokens })
+          yield* streamOllama({ model, messages: ollamaMessages, tools: allTools, numCtx: ollamaNumCtx, temperature: reqTemperature, maxTokens: reqMaxTokens, enableThinking })
         },
         parseInlineToolCalls(text) { return parseInlineToolCalls(text, ollamaToolNames) },
         appendToolTurn(assistantText, calls, results) {
@@ -4019,6 +4077,15 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     })()
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err)
+    // Log the REAL cause (sanitized) — this outer catch was silent, so the intermittent first-query failure was
+    // an undiagnosable "internal_error". Now it's in the log.
+    console.error('[chat] turn failed (stream phase):', String(err instanceof Error ? err.stack || err.message : err).replace(/[\r\n]+/g, ' ⏎ '))
+    // Classify transient cold-start failures (managed ollama mid-handoff, model still loading, connection not
+    // yet up) → a friendly RETRYABLE message instead of an opaque "internal_error" the user has to decode.
+    const transient = /ECONNREFUSED|connect|fetch failed|socket|timeout|timed out|EOF|load|loading|model .*not found|503|502|unavailable/i.test(errMsg)
+    const clientErr = transient
+      ? 'The local model is still warming up (this happens for a few seconds right after launch). Give it a moment and resend.'
+      : (errMsg || 'internal_error')
     // Record failed run so GovernSurface shows error-rate alongside success-rate
     recordGovernanceRun({
       run_id,
@@ -4032,7 +4099,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       session_id: sessionId,
       error: errMsg,
     })
-    sse(res, 'error', { error: errMsg })
+    sse(res, 'error', { error: clientErr })
   }
 }
 
@@ -4337,6 +4404,74 @@ const server = http.createServer((req, res) => {
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' })
       const { provisionBrain } = await import('./lib/brain-provision.js')
       const result = await provisionBrain(name, (p) => { res.write(`data: ${JSON.stringify({ progress: p })}\n\n`) })
+      res.write(`data: ${JSON.stringify({ done: result })}\n\n`)
+      res.end()
+    })() })
+    return
+  }
+
+  // ── On-device neural-operator inference (operator-runtime → noetica-operator sidecar) ──────────────
+  // The sovereign compute substrate for the GAIA map (flood/dispersion/hydrology surrogates) and any caller
+  // that needs a trained Fourier Neural Operator run locally. Reusable + model-agnostic.
+  //   GET  /api/operator/models           -> { available, models }
+  //   GET  /api/operator/meta?model=NAME  -> { model, inputs, outputs }
+  //   POST /api/operator/infer {model,inputs} -> { outputs, ms }   (token-gated: runs arbitrary ONNX)
+  if (req.method === 'GET' && url.pathname === '/api/operator/models') {
+    void (async () => {
+      const { listOperators, isLocalOperatorAvailable } = await import('./lib/operator-runtime.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ available: isLocalOperatorAvailable(), models: await listOperators() }))
+    })()
+    return
+  }
+  if (req.method === 'GET' && url.pathname === '/api/operator/meta') {
+    void (async () => {
+      const { operatorMeta, OperatorUnavailableError, OperatorError } = await import('./lib/operator-runtime.js')
+      try {
+        const meta = await operatorMeta(url.searchParams.get('model') ?? '')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(meta))
+      } catch (e) {
+        const code = e instanceof OperatorUnavailableError ? 503 : e instanceof OperatorError ? e.status : 500
+        res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: (e as Error).message }))
+      }
+    })()
+    return
+  }
+  if (req.method === 'POST' && url.pathname === '/api/operator/infer') {
+    if (!requireApiToken(req, res)) return
+    let raw = ''
+    req.on('data', (c: Buffer) => { raw += c.toString(); if (raw.length > 96 * 1024 * 1024) req.destroy() })
+    req.on('end', () => { void (async () => {
+      const { operatorInfer, OperatorUnavailableError, OperatorError } = await import('./lib/operator-runtime.js')
+      let body: { model?: string; inputs?: Record<string, { shape: number[]; data: number[] }> }
+      try { body = JSON.parse(raw || '{}') } catch {
+        res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid json' })); return
+      }
+      try {
+        const result = await operatorInfer(String(body.model ?? ''), body.inputs ?? {})
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(result))
+      } catch (e) {
+        const code = e instanceof OperatorUnavailableError ? 503 : e instanceof OperatorError ? e.status : 500
+        res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: (e as Error).message }))
+      }
+    })() })
+    return
+  }
+  // POST /api/operator/provision { name } — download + install a model .onnx into ~/.noetica/operators,
+  // streaming progress as SSE (mirrors /api/brain/provision). Token-gated: fetches + writes to disk.
+  if (req.method === 'POST' && url.pathname === '/api/operator/provision') {
+    if (!requireApiToken(req, res)) return
+    let raw = ''
+    req.on('data', (c: Buffer) => { raw += c.toString(); if (raw.length > 4096) req.destroy() })
+    req.on('end', () => { void (async () => {
+      let name = ''
+      try { name = String((JSON.parse(raw || '{}') as { name?: string }).name ?? '') } catch { name = '' }
+      const { provisionOperatorModel, safeOperatorName } = await import('./lib/operator-provision.js')
+      if (!safeOperatorName(name)) {
+        res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid model name' })); return
+      }
+      res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' })
+      const result = await provisionOperatorModel(name, (p) => { res.write(`data: ${JSON.stringify({ progress: p })}\n\n`) })
       res.write(`data: ${JSON.stringify({ done: result })}\n\n`)
       res.end()
     })() })
@@ -5944,6 +6079,149 @@ Question: ${question}`
         }
       })()
     })
+    return
+  }
+
+  // POST /api/ingest/queue — NON-BLOCKING bulk ingest. Enqueue { filename, mimeType?, dataBase64 } and return
+  // the job immediately (status 'queued'); a background worker parses + ingests it. The UI uploads a batch
+  // without waiting and polls /api/ingest/status to render the queue + the parsed-vs-pending graph overlay.
+  if (req.method === 'POST' && url.pathname === '/api/ingest/queue') {
+    setCORSHeaders(res)
+    const chunks: Buffer[] = []
+    req.on('data', (c: Buffer) => chunks.push(c))
+    req.on('end', () => {
+      ;(async () => {
+        try {
+          const { filename, mimeType, dataBase64, collection } = JSON.parse(Buffer.concat(chunks).toString()) as { filename: string; mimeType?: string; dataBase64: string; collection?: string }
+          if (!filename || !dataBase64) throw new Error('filename and dataBase64 required')
+          const buf = Buffer.from(dataBase64, 'base64')
+          const { enqueueIngest, enqueueArchive } = await import('./lib/ingest-queue.js')
+          // A .zip becomes its OWN named collection (graph scope), fanning out into per-file jobs; a single file
+          // enqueues into the given collection or the Inbox catch-all. Never into core memory/knowledge.
+          const isZip = /\.zip$/i.test(filename) || mimeType === 'application/zip' || (buf[0] === 0x50 && buf[1] === 0x4b)
+          const result = isZip ? enqueueArchive(filename, buf) : enqueueIngest(filename, mimeType ?? '', buf, collection)
+          res.writeHead(202, { 'content-type': 'application/json' })
+          res.end(JSON.stringify(result))
+        } catch (err) {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: err instanceof Error ? err.message : 'bad request' }))
+        }
+      })()
+    })
+    return
+  }
+
+  // GET /api/ingest/status — the ingestion queue (per-doc status + summary) for the upload table + graph overlay.
+  if (req.method === 'GET' && url.pathname === '/api/ingest/status') {
+    setCORSHeaders(res)
+    ;(async () => {
+      try {
+        const { ingestQueueStatus, pruneIngestJobs } = await import('./lib/ingest-queue.js')
+        pruneIngestJobs()
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(ingestQueueStatus()))
+      } catch {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ jobs: [], summary: { queued: 0, active: 0, done: 0, failed: 0 } }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/collections — document collections (graph scopes) for the upload UI + the explorer's scope picker.
+  if (req.method === 'GET' && url.pathname === '/api/collections') {
+    setCORSHeaders(res)
+    ;(async () => {
+      try {
+        const { listCollections } = await import('./lib/collections.js')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ collections: listCollections() }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ collections: [] })) }
+    })()
+    return
+  }
+
+  // ── A2A federation surface (the real cross-machine gate) ────────────────────────────────────────────────
+  // A remote peer (a Ruflo/gastown/AIWG node, or any cross-machine agent) is a SPIFFE actor here. These gate +
+  // score + audit federated capability requests on the BACKEND (the browser grant ledger can't decide a remote
+  // peer). EGRESS stays scope-d's job, composed separately. All token-gated like /api/tool.
+  //   POST /api/a2a/grant/validate { actor:{spiffe_id}, capability, floor? } → GrantDecision (+ authority_status)
+  //   POST /api/a2a/outcome        { spiffe_id, outcome:{ok,up,threat,integrityViolation} } → updated TrustOps state
+  //   GET  /api/a2a/peers          → the trust ledger (Govern surface)
+  if (req.method === 'POST' && (url.pathname === '/api/a2a/grant/validate' || url.pathname === '/api/a2a/outcome')) {
+    setCORSHeaders(res)
+    if (!requireApiToken(req, res)) return
+    const chunks: Buffer[] = []
+    req.on('data', (c: Buffer) => chunks.push(c))
+    req.on('end', () => { void (async () => {
+      try {
+        const body = JSON.parse(Buffer.concat(chunks).toString() || '{}') as { actor?: { spiffe_id?: string }; spiffe_id?: string; capability?: string; floor?: number; outcome?: import('./lib/a2a-trust.js').TrustOutcome }
+        const a2a = await import('./lib/a2a-trust.js')
+        if (url.pathname === '/api/a2a/grant/validate') {
+          const spiffe = body.actor?.spiffe_id
+          if (!spiffe || !body.capability) throw new Error('actor.spiffe_id and capability required')
+          const decision = a2a.checkActorGrant(spiffe, body.capability, body.floor)
+          res.writeHead(decision.valid ? 200 : 403, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ...decision, grant_id: a2a.newGrantId(), authority_state: a2a.authorityState(spiffe) }))
+        } else {
+          const spiffe = body.spiffe_id
+          if (!spiffe || !body.outcome) throw new Error('spiffe_id and outcome required')
+          a2a.recordOutcome(spiffe, body.outcome)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ok: true, authority_state: a2a.authorityState(spiffe) }))
+        }
+      } catch (e) {
+        res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: (e instanceof Error ? e.message : 'bad request').replace(/[\r\n]+/g, ' ') }))
+      }
+    })() })
+    return
+  }
+  if (req.method === 'GET' && url.pathname === '/api/a2a/peers') {
+    setCORSHeaders(res)
+    if (!requireApiToken(req, res)) return
+    ;(async () => {
+      try {
+        const { trustLedger } = await import('./lib/a2a-trust.js')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ peers: trustLedger() }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ peers: [] })) }
+    })()
+    return
+  }
+
+  // ── Federated MCP peers (the backend bridge: spawn a peer's MCP server, gate every call by A2A trust) ──────
+  //   POST /api/a2a/peer/connect { spiffe_id, command, args, env? } → { spiffeId, tools }
+  //   POST /api/a2a/peer/call    { spiffe_id, tool, args?, floor? } → gated result (+ trust decision)
+  //   GET  /api/a2a/peer/list    → connected peers + their tools
+  // Spawns subprocesses → token-gated like /api/tool. Verified live against a standards-compliant MCP server.
+  if (req.method === 'POST' && (url.pathname === '/api/a2a/peer/connect' || url.pathname === '/api/a2a/peer/call')) {
+    setCORSHeaders(res)
+    if (!requireApiToken(req, res)) return
+    const chunks: Buffer[] = []
+    req.on('data', (c: Buffer) => chunks.push(c))
+    req.on('end', () => { void (async () => {
+      try {
+        const b = JSON.parse(Buffer.concat(chunks).toString() || '{}') as { spiffe_id?: string; command?: string; args?: string[]; env?: Record<string, string>; tool?: string; args_obj?: Record<string, unknown>; floor?: number }
+        const fed = await import('./lib/federated-mcp.js')
+        if (url.pathname === '/api/a2a/peer/connect') {
+          if (!b.spiffe_id || !b.command) throw new Error('spiffe_id and command required')
+          const r = await fed.connectPeer(b.spiffe_id, b.command, b.args ?? [], b.env)
+          res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(r))
+        } else {
+          if (!b.spiffe_id || !b.tool) throw new Error('spiffe_id and tool required')
+          const r = await fed.callPeerTool(b.spiffe_id, b.tool, b.args_obj, b.floor)
+          res.writeHead(r.ok ? 200 : 403, { 'content-type': 'application/json' }); res.end(JSON.stringify(r))
+        }
+      } catch (e) {
+        res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: (e instanceof Error ? e.message : 'bad request').replace(/[\r\n]+/g, ' ') }))
+      }
+    })() })
+    return
+  }
+  if (req.method === 'GET' && url.pathname === '/api/a2a/peer/list') {
+    setCORSHeaders(res)
+    if (!requireApiToken(req, res)) return
+    ;(async () => {
+      try { const { connectedPeers } = await import('./lib/federated-mcp.js'); res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ peers: connectedPeers() })) }
+      catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ peers: [] })) }
+    })()
     return
   }
 
@@ -7973,6 +8251,10 @@ server.listen(PORT, '127.0.0.1', () => {
   // Runs silently after startup — never blocks the server.
   void (async () => {
     try {
+      // Tests boot the AM against MOCK Ollamas and assert specific request/latency behavior. The real
+      // suite-pull + prewarm hammers the (deliberately broken) primary with GB-scale pulls and contends
+      // for the turn under test — making latency non-deterministic. Skip it: tests never need real models.
+      if (process.env['NODE_ENV'] === 'test') return
       const up = await isOllamaRunning()
       if (!up) return
       const installed = await listLocalModels()
@@ -8018,6 +8300,9 @@ server.listen(PORT, '127.0.0.1', () => {
   // non-blocking. Configure with NOETICA_PREWARM_MODELS="qwen2.5:7b,deepseek-r1:8b".
   void (async () => {
     const wanted = (process.env['NOETICA_PREWARM_MODELS'] ?? 'qwen2.5:7b').split(',').map((s) => s.trim()).filter(Boolean)
+    // RAM-aware hold: a long pin on a constrained box keeps the model resident long after the demo,
+    // OOMing the machine while idle. Short hold on ≤32GB, long only on workstation memory.
+    const prewarmKeepAlive = os.totalmem() / 1024 ** 3 < 32 ? '5m' : '30m'
     try {
       const installed = await listLocalModels()
       for (const m of wanted) {
@@ -8026,10 +8311,10 @@ server.listen(PORT, '127.0.0.1', () => {
         try {
           await fetch(`${ollamaBase()}/api/generate`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: m, prompt: 'ok', stream: false, keep_alive: '30m' }),
+            body: JSON.stringify({ model: m, prompt: 'ok', stream: false, keep_alive: prewarmKeepAlive }),
             signal: AbortSignal.timeout(120_000),
           })
-          console.log(`[prewarm] loaded ${m} into RAM (keep_alive 30m)`)
+          console.log(`[prewarm] loaded ${m} into RAM (keep_alive ${prewarmKeepAlive})`)
         } catch { /* best-effort */ }
       }
       // Prewarm the Tier-0 embedding intent centroids so the first turn doesn't pay
@@ -8074,17 +8359,17 @@ server.listen(PORT, '127.0.0.1', () => {
         }
         console.log('[prewarm] graph topic clusters built')
       } catch { /* best-effort */ }
-      // Upgrade the coder to the RAM-appropriate model (14b on ≥18GB, 30b on ≥30GB) by pulling
-      // it once in the background — non-blocking, only sizes that fit, so no OOM. Until it lands
-      // the router stays on 7b; once present, coding routes to the stronger model automatically.
+      // Upgrade the workhorse to the RAM-appropriate model (qwen3:14b on ≥18GB, qwen3-coder:30b on ≥30GB) by
+      // pulling it once in the background — non-blocking, only sizes that fit, so no OOM. Until it lands the
+      // router stays on the qwen2.5 floor; once present, coding AND general/reasoning route to it automatically.
       try {
         const { preferredCoderForRam } = await import('./lib/router.js')
         const want = preferredCoderForRam()
         if (want && process.env['NOETICA_NO_AUTO_CODER'] !== '1') {
           const have = await listLocalModels()
           if (!have.includes(want)) {
-            console.log(`[prewarm] pulling upgraded coder ${want} in background (one-time)…`)
-            void pullModel(want, () => {}).then(() => console.log(`[prewarm] coder ${want} ready — coding now routes to it`)).catch(() => {})
+            console.log(`[prewarm] pulling upgraded workhorse ${want} in background (one-time)…`)
+            void pullModel(want, () => {}).then(() => console.log(`[prewarm] workhorse ${want} ready — routing now prefers it`)).catch(() => {})
           }
         }
       } catch { /* best-effort */ }

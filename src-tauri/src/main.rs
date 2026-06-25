@@ -761,7 +761,10 @@ fn main() {
                         .status();
                 }
             }
-            // Clicking the dock icon while hidden (macOS) re-shows the window.
+            // Clicking the dock icon while hidden (macOS) re-shows the window. RunEvent::Reopen is a macOS-ONLY
+            // variant, so gate it — otherwise the desktop shell fails to compile on Linux (the future-primary
+            // target). `event`/`app_handle` are still used by the Exit arm above, so no unused warnings on Linux.
+            #[cfg(target_os = "macos")]
             if let tauri::RunEvent::Reopen { .. } = event {
                 if let Some(w) = app_handle.get_webview_window("main") {
                     let _ = w.show();

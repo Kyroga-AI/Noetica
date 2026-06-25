@@ -233,6 +233,7 @@ export function migrateJSONLToSQLite(backend: SQLiteAtomSpaceBackend, jsonlPath 
   if (!backend.isEmpty()) return 0
   if (!fs.existsSync(jsonlPath)) return 0
   let count = 0
+  let cleanRead = false
   try {
     const raw = fs.readFileSync(jsonlPath, 'utf-8')
     for (const line of raw.split('\n')) {
@@ -243,6 +244,14 @@ export function migrateJSONLToSQLite(backend: SQLiteAtomSpaceBackend, jsonlPath 
         count++
       } catch { /* skip corrupt entry */ }
     }
+    cleanRead = true
   } catch { /* file read error */ }
+  // Remove the plaintext-WAL residue: after a clean migration its atoms (document text + embeddings) now live
+  // ENCRYPTED in SQLite (the writes above), and the caller switches the live backend to SQLite, so hellgraph
+  // won't recreate it. Leaving the plaintext .atomspace.jsonl on disk would re-open the at-rest gap we just
+  // closed (#257). Guarded: only when the whole file read cleanly AND ≥1 entry migrated.
+  if (cleanRead && count > 0) {
+    try { fs.rmSync(jsonlPath) } catch { /* best-effort; SQLite already holds the data */ }
+  }
   return count
 }
