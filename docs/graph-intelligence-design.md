@@ -15,7 +15,15 @@ The product is not "a chat app with a graph widget" — people want to **load kn
 
 Remaining for this pillar: the frontend table + overlay (consumes the two endpoints above); a disk-backed spool for very large bulk imports; optional parallelism once embeds move off Ollama (see [[noetica-embedder]]).
 
-**2. A graph EXPLORER as a first-class workspace.** The graph gets its own surface (like Notes/Canvas), not just the chat sidebar: load → see it grow → query it with the algebra below → filter/group/aggregate → spot motifs → clean orphans. The chat becomes *one* way to talk to the graph; direct manipulation is the other. The query algebra, bounded rendering, and motif detection below are the engine of that explorer.
+**2. A graph EXPLORER ("Graph Studio") as a first-class workspace.** The graph gets its own surface (like Notes/Canvas), not just the chat sidebar: load → see it grow → query it with the algebra below → filter/group/aggregate → spot motifs → clean orphans. The chat becomes *one* way to talk to the graph; direct manipulation is the other.
+
+*How others do it (the patterns to steal):*
+- **Obsidian graph view** — the gold standard for personal-knowledge exploration: a *local* graph (the neighborhood around the current note) AND a *global* graph, color/group by tag/folder, a depth slider, and filters. Lesson: local-neighborhood view + global view are different tools; ship both.
+- **Neo4j Bloom** — a dedicated visual app: *search-to-graph* (type an entity, it seeds the canvas), *expand* a node's neighborhood on double-click, and **"perspectives"** = saved views scoped by entity type/category with per-type styling. Lesson: saved perspectives/lenses by type are what make a big graph navigable.
+- **Linkurious / GraphXR / Memgraph Lab / Kùzu Explorer** — enterprise investigation: a query editor beside the canvas, timeline + geo overlays, layout controls, and analytics (centrality/community) as visual overlays. Lesson: pair a canvas with a query panel and analytics overlays.
+- **Gephi / Cytoscape** — offline analysis studios: layout algorithms + metrics + filters. Lesson: layout + metric overlays matter for sense-making.
+
+The common shape is always the same and it is NOT a sidebar: **search → seed → expand**, **saved perspectives/lenses** (by type/community), a **filter/query panel**, **bounded layout + rendering**, **analytics/motif overlays**, and **direct manipulation** (click → inspect → edit/merge/delete). Our Graph Studio = that shape, powered by the query algebra, bounded rendering, and motif detection in the rest of this doc, with the ingestion queue/table built in (drop docs → watch them land as nodes). The chat's existing side-panel becomes the *mini-map*; the Studio is the full workspace.
 
 ## The core idea: a graph query ALGEBRA, not one-off queries
 Today each graph question is bespoke. Instead, expose a small set of **primitives that compose** — so "the known questions people ask" become one-liners built from the same parts, and new questions are just new compositions.
