@@ -9,7 +9,6 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { spawn, type ChildProcess } from 'node:child_process'
-import { fileURLToPath } from 'node:url'
 
 const PORT = 8126
 const BASE = `http://127.0.0.1:${PORT}`
@@ -20,7 +19,7 @@ function binaryPath(): string | null {
   const beside = path.join(path.dirname(process.execPath), 'noetica-embed')
   if (fs.existsSync(beside)) return beside
   // dev: the cargo target
-  const here = path.dirname(fileURLToPath(import.meta.url))
+  const here = __dirname   // CommonJS build target (house pattern; see canon-lookup.ts) — not import.meta
   for (const p of [
     path.resolve(process.cwd(), 'embed-sidecar/target/release/noetica-embed'),
     path.resolve(here, '../../embed-sidecar/target/release/noetica-embed'),
