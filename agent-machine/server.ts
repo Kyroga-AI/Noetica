@@ -6149,6 +6149,45 @@ Question: ${question}`
     return
   }
 
+  // ── Federated MCP peers (the backend bridge: spawn a peer's MCP server, gate every call by A2A trust) ──────
+  //   POST /api/a2a/peer/connect { spiffe_id, command, args, env? } → { spiffeId, tools }
+  //   POST /api/a2a/peer/call    { spiffe_id, tool, args?, floor? } → gated result (+ trust decision)
+  //   GET  /api/a2a/peer/list    → connected peers + their tools
+  // Spawns subprocesses → token-gated like /api/tool. Verified live against a standards-compliant MCP server.
+  if (req.method === 'POST' && (url.pathname === '/api/a2a/peer/connect' || url.pathname === '/api/a2a/peer/call')) {
+    setCORSHeaders(res)
+    if (!requireApiToken(req, res)) return
+    const chunks: Buffer[] = []
+    req.on('data', (c: Buffer) => chunks.push(c))
+    req.on('end', () => { void (async () => {
+      try {
+        const b = JSON.parse(Buffer.concat(chunks).toString() || '{}') as { spiffe_id?: string; command?: string; args?: string[]; env?: Record<string, string>; tool?: string; args_obj?: Record<string, unknown>; floor?: number }
+        const fed = await import('./lib/federated-mcp.js')
+        if (url.pathname === '/api/a2a/peer/connect') {
+          if (!b.spiffe_id || !b.command) throw new Error('spiffe_id and command required')
+          const r = await fed.connectPeer(b.spiffe_id, b.command, b.args ?? [], b.env)
+          res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(r))
+        } else {
+          if (!b.spiffe_id || !b.tool) throw new Error('spiffe_id and tool required')
+          const r = await fed.callPeerTool(b.spiffe_id, b.tool, b.args_obj, b.floor)
+          res.writeHead(r.ok ? 200 : 403, { 'content-type': 'application/json' }); res.end(JSON.stringify(r))
+        }
+      } catch (e) {
+        res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: (e instanceof Error ? e.message : 'bad request').replace(/[\r\n]+/g, ' ') }))
+      }
+    })() })
+    return
+  }
+  if (req.method === 'GET' && url.pathname === '/api/a2a/peer/list') {
+    setCORSHeaders(res)
+    if (!requireApiToken(req, res)) return
+    ;(async () => {
+      try { const { connectedPeers } = await import('./lib/federated-mcp.js'); res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ peers: connectedPeers() })) }
+      catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ peers: [] })) }
+    })()
+    return
+  }
+
   // POST /api/ingest/path — ingest a LOCAL file by absolute path { path }. Used by
   // the Tauri picker (the webview can't read files; the native dialog returns a
   // path and the sidecar — full fs access — reads + extracts + embeds it).

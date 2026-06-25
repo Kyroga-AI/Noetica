@@ -29,6 +29,7 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@socioprophet/hellgraph": "github:SocioProphet/hellgraph#main",
     "fflate": "^0.8.3",
     "json5": "^2.2.3",
