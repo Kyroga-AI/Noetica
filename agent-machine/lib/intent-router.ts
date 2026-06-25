@@ -80,10 +80,12 @@ export function classifyIntent(text: string, ctx: { hasDoc?: boolean } = {}): In
   if (ctx.hasDoc && /\?/.test(t) && (!best || bestScore < 1.5) && !/^(\s*)(yes|ok|proceed|go|sure)\b/i.test(t)) {
     best = INTENTS[4]! ; bestScore = 1.5 // qa_over_doc
   }
-  if (!best) { // default: general question, vector-grounded if a doc is around
-    return ctx.hasDoc
-      ? { id: 4, name: 'qa_over_doc', model: 'general', retrieval: 'vector-rag', slots: [], tools: ['read_file'], surface: 'artifacts', skill: 'analytics-agent', score: 0 }
-      : { id: 21, name: 'general', model: 'general', retrieval: 'kb', slots: [], tools: ['read_file', 'web_search', 'remember', 'set_identity', 'brain_status'], surface: '', skill: '', score: 0 }
+  if (!best) {
+    // Default → 'general': answers from the model's own knowledge AND kb/graph retrieval. Do NOT default to
+    // qa_over_doc just because a doc exists — that path answers ONLY from retrieved context and REFUSES anything
+    // not in it ("what year was hurricane helene" → "not in the documents"), even when the model plainly knows
+    // it. A genuine question ABOUT an uploaded doc is already caught above (hasDoc + '?' + weak-intent → qa_over_doc).
+    return { id: 21, name: 'general', model: 'general', retrieval: 'kb', slots: [], tools: ['read_file', 'web_search', 'remember', 'set_identity', 'brain_status'], surface: '', skill: '', score: 0 }
   }
   return { id: best.id, name: best.name, model: best.model, retrieval: best.retrieval, slots: best.slots, tools: best.tools, surface: best.surface, skill: best.skill, score: Number(bestScore.toFixed(2)) }
 }

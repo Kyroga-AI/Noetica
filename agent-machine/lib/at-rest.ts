@@ -21,11 +21,13 @@ const KC_SERVICE = 'noetica-at-rest'
 const KC_ACCOUNT = 'device-key'
 let _key: Buffer | null = null
 
-// macOS keychain: the device key lives here, hardware-backed on Secure-Enclave Macs. A stolen but
-// LOCKED / powered-off disk then carries NO usable key — unlike a 0600 file sitting next to the data
-// (which a raw disk read recovers along with everything it protects). `security` is darwin-only;
-// everywhere else (Linux / CI) we fall back to the file, so there is no behaviour change off macOS.
-const keychainEnabled = (): boolean => process.platform === 'darwin' && process.env['NOETICA_AT_REST_KEYCHAIN'] !== '0'
+// macOS keychain: the device key can live here, hardware-backed on Secure-Enclave Macs. A stolen but
+// LOCKED / powered-off disk then carries NO usable key — unlike a 0600 file sitting next to the data.
+// OPT-IN (NOETICA_AT_REST_KEYCHAIN=1): the agent-machine sidecar is spawned without a keychain entitlement,
+// so `security add-generic-password` cannot find a keychain to write to and macOS pops an interactive
+// "Keychain Not Found" dialog on EVERY launch. Until the release is code-signed with a keychain-access
+// entitlement, the default is the 0600 file key (already secret + device-local). Enable explicitly once signed.
+const keychainEnabled = (): boolean => process.platform === 'darwin' && process.env['NOETICA_AT_REST_KEYCHAIN'] === '1'
 
 function keychainGet(): Buffer | null {
   if (!keychainEnabled()) return null

@@ -431,6 +431,7 @@ export async function* streamOllama(params: {
   temperature?: number
   maxTokens?: number
   keepAlive?: string
+  enableThinking?: boolean   // qwen3/thinking models: false → clean fast answer (no reasoning); true/undefined → think
 }): AsyncGenerator<ProviderEvent> {
   const options: Record<string, unknown> = {
     num_ctx: params.numCtx ?? 16384,
@@ -445,10 +446,18 @@ export async function* streamOllama(params: {
     stream: true,
     messages: params.messages,
     options,
-    // Keep the model resident between turns so the next query doesn't cold-load
-    // (the default 5m unload is a frequent source of surprise multi-second stalls).
-    keep_alive: params.keepAlive ?? '30m',
+    // Keep the model resident between turns so the next query doesn't cold-load — but RAM-aware. A 30m
+    // hold pins a 9GB workhorse in unified memory for half an hour AFTER the user stops, which OOMs a
+    // 24GB Mac while "nothing is running". On ≤32GB boxes, hold only 5m (warm through an active
+    // conversation, freed when idle); reserve the long hold for workstation-class memory.
+    keep_alive: params.keepAlive ?? (os.totalmem() / 1024 ** 3 < 32 ? '5m' : '30m'),
   }
+  // Thinking control for qwen3 (Ollama maps this template kwarg to enable/disable the <think> phase). Only set
+  // it when explicitly DISABLING — simple/interactive turns skip the multi-minute reasoning and answer cleanly.
+  // Left unset (reasoning/code turns) the model thinks normally, and its <think> block streams as thinking
+  // events into the "Extended thinking" collapsible — never into the answer body. Replaces the /no_think hack
+  // (which stripped the tags but kept the reasoning, leaking it into the answer).
+  if (params.enableThinking === false) body['chat_template_kwargs'] = { enable_thinking: false }
 
   if (params.tools?.length) {
     body['tools'] = params.tools.map((t) => ({

@@ -37,7 +37,7 @@ import * as net from 'node:net'
 import { originAllowed } from './lib/origin-guard.js'
 import { isConfinedToHomeOrTmp } from './lib/path-confine.js'
 import { safeShellEnv } from './lib/safe-shell-env.js'
-import { buildRouterDecision, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider, bestCoder, bestWorkhorse } from './lib/router.js'
+import { buildRouterDecision, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider, bestCoder, bestWorkhorse, bestResponsive } from './lib/router.js'
 import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTelemetry, type MeshTier } from './lib/scope-d.js'
 import { installEgressGuard, setOfflineMode } from './lib/egress-guard.js'
 import { classifyIntent, capabilityToTask, wantsVectorRag, intentByName, planFromIntent, intentToAction, deEscalateEveryday } from './lib/intent-router.js'
@@ -646,6 +646,7 @@ You are the primary agent of the Noetica platform. You run entirely on the user'
 
 ## Your capabilities
 - **Memory**: Persistent memory via HellGraph — an AtomSpace knowledge graph that stores entities, relationships, and prior context. Relevant memories are injected into context automatically.
+- **Live knowledge graph**: The app ALWAYS shows a live, interactive graph panel (the "SocioSphere Graph") beside the chat. Every document you ingest and every entity you extract auto-populates it — nodes, edges, communities, and structural insights (e.g. "X is a critical connector"). So you CAN show the graph: when the user asks to "show/visualize the graph", do NOT say you can't render graphs — the graph is already on screen. Instead, reference it directly ("the graph panel on the right now shows …"), describe what was added (entity count, key nodes, communities, notable structure), and call it out. You render graphs by populating this panel, not by drawing ASCII.
 - **Tools**: When the user asks you to search, find files, run code, browse the web, or take actions — use your tools. Do not simulate tool results.
 - **Running code**: Runnable code (Python and similar) is executed for you automatically by a verify-repair loop — generate it and the platform runs the tests. You CANNOT run UI / frontend code (Vue, React, HTML, a JS app) — there is no browser or dev server in the sandbox. NEVER claim to run code, "simulate the output", or show program output that a tool did not actually produce. If something can't be run here, say so plainly in one line and just provide the code — do not write "Let me run it…" or invent output.
 - **Local models**: Tasks route to specialist local models by RAM — a 24GB box runs qwen3:14b (general, coding, and reasoning with its thinking mode); smaller boxes use the qwen2.5 family. Vision goes to a VLM (llava/qwen-vl) when images are present.
@@ -2311,8 +2312,8 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // scoring — no model call, safe on the hot path even on a CPU box.
   let hasDoc = false
   try {
-    const { documentChunkCount } = await import('./lib/doc-store.js')
-    hasDoc = documentChunkCount() > 0
+    const { userDocumentChunkCount } = await import('./lib/doc-store.js')
+    hasDoc = userDocumentChunkCount() > 0 // USER uploads only — self-model docs must not force doc-QA grounding
   } catch { /* doc-store optional */ }
   let intentPlan = classifyIntent(latestUserContent, { hasDoc })
   // Tier-0 cascade (NOETICA_EMBED_INTENT): a tiny embedding model refines the intent
@@ -2501,9 +2502,23 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   } catch (err) {
     // Don't silently swallow — log the real cause (sanitized for log-injection) so a transient failure
     // (e.g. the coder model still pulling on first build request) is diagnosable instead of an opaque error.
-    console.error('[chat] turn failed:', String(err instanceof Error ? err.stack || err.message : err).replace(/[\r\n]+/g, ' ⏎ '))
-    sse(res, 'error', { error: 'internal_error' })
-    return
+    console.error('[chat] routing failed, retrying with safe defaults:', String(err instanceof Error ? err.stack || err.message : err).replace(/[\r\n]+/g, ' ⏎ '))
+    // A routing hiccup must NOT kill the turn. The intermittent first-query "internal_error" (ollama mid-handoff
+    // on a cold relaunch, a momentarily-malformed model inventory, an edge intent override) is transient — retry
+    // with the plain keyword router and an empty inventory, so bestCoder/bestWorkhorse/bestResponsive fall to the
+    // safe floor model and the turn proceeds instead of dying with an opaque error the user has to resend past.
+    try {
+      routing = buildRouterDecision({
+        requestId: crypto.randomUUID(), content: latestUserContent, ollamaAvailable: ollamaUp, availableModels: [],
+        hasAnthropicKey: Boolean(anthropicKey), hasOpenAIKey: Boolean(openaiKey), explicitModelId: body.model_id,
+        policyProfile: body.policy_profile, securityAttested: body.security_attested === true, hasImages,
+        hasTools: (body.tools?.length ?? 0) > 0, taskOverride: undefined,
+      })
+    } catch (err2) {
+      console.error('[chat] routing fallback also failed:', String(err2 instanceof Error ? err2.stack || err2.message : err2).replace(/[\r\n]+/g, ' ⏎ '))
+      sse(res, 'error', { error: 'internal_error' })
+      return
+    }
   }
 
   let { resolvedModel: model, resolvedProvider: provider } = routing
@@ -2676,10 +2691,14 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         // Respect the RAM-appropriate workhorse the router already chose — qwen3:14b on a 24GB box, NOT a
         // hardcoded qwen2.5. This block used to force qwen2.5 and quietly undo the qwen3 routing.
         model = bestCoder(availableModels, model)
-      } else {
-        // reasoning / general / writing → the all-rounder workhorse (qwen3:14b on 24GB). Never the 3B: it
-        // fabricates output ("let me run it…") instead of doing substantive work.
+      } else if (task === 'reasoning') {
+        // Deep reasoning earns the 14b — depth over latency (and it thinks, via the think-directive).
         model = bestWorkhorse(availableModels, model)
+      } else {
+        // general / writing / research → the FAST interactive 8b. The 14b's ~60-90s cold-load + thinking tax
+        // wasn't worth it for conversational Q&A; with /no_think the 8b answers in seconds. Escalation still
+        // climbs to a heavier model when the turn actually struggles. Never the 3B (it fabricates work).
+        model = bestResponsive(availableModels, model)
       }
     }
     if (model !== before) console.log(`[responsive] ${String(task)} ${before} → ${model}`.replace(/\r/g, '').replace(/\n/g, ''))
@@ -2902,7 +2921,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       conversationId: body.conversation_id,
       maxTokens: memCap,
     })
-    if (retrieved.text.trim()) {
+    // Don't inject the HellGraph memory into the 'general' lane (the catch-all for unmatched factual
+    // questions). The graph is dominated by dev/test exhaust, and the 'graph' pattern only floors at ZERO
+    // hits — so a weak lexical match ("Australia") still injects software passages that qwen3 then anchors
+    // on and REFUSES the question ("not in the provided documents"). General knowledge comes from the
+    // model itself; memory-centric intents (self_identity, preferences_memory, plan_nextsteps, …) still get it.
+    if (retrieved.text.trim() && intentPlan.name !== 'general') {
       graphContext = `\n\n---\n**Memory context (HellGraph)**\n${retrieved.text}`
     }
     // Emit the neurosymbolic reasoning trace so the UI can show *why* this answer
@@ -2951,7 +2975,10 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       const ragQuery = glossaryTerms.length > 0
         ? `${latestUserContent}\n${glossaryTerms.join(' ')}`
         : latestUserContent
-      const hits = await searchDocsReranked(ragQuery, topK)
+      // Exclude self-model construction docs (filename `self/…`): they live in the same store but are NOT
+      // user uploads. Surfacing them as "uploaded sources" with strict grounding makes the model refuse
+      // general-knowledge questions ("answer ONLY from these sources" → the sources are the app's own manifest).
+      const hits = (await searchDocsReranked(ragQuery, topK)).filter((h) => !h.filename.startsWith('self/'))
       if (hits.length > 0) {
         docHitCount = hits.length
         // INDIRECT-INJECTION DEFENSE (PoisonedRAG): retrieved document text is UNTRUSTED — a malicious
@@ -3336,7 +3363,21 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     }
   } catch { /* procedural-memory best-effort */ }
 
-  const enrichedSystemPrompt = basePrompt + dateLine + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + episodeContext + goalContext + skillsContext + reasoningDirective + verbosityNote + modeNote + lifeDomain.safetyNote + profile.authorizationSuffix
+  // NOTE: we do NOT append `/no_think`. The chat path is the OpenAI-compat /v1 endpoint (no native `think`
+  // param), so /no_think is the only lever — but on qwen3 it strips the <think>…</think> wrapper while the
+  // model STILL reasons, so the reasoning leaks into the ANSWER as plain text (the streamOllama parser routes
+  // it to message.content instead of message.thinking → it renders as the answer body, not the collapsible).
+  // Letting qwen3 think NORMALLY keeps reasoning wrapped → it lands in the "Extended thinking" collapsible,
+  // cleanly separated from the answer. Speed comes from model TIERING (interactive lanes → fast 8b), not from
+  // suppressing thinking. Re-introduce suppression only via native `think:false` if the path moves to /api/chat.
+  const thinkDirective = ''
+  // For non-document intents, the injected memory/graph passages are OPTIONAL background — the model keeps
+  // anchoring on them and refusing general-knowledge questions ("not in the provided documents"). A forceful
+  // directive in the LAST (most salient) position overrides that. Doc-QA intents keep strict grounding.
+  const DOC_INTENTS = new Set(['qa_over_doc', 'summarize_doc', 'file_ops', 'file_ingest'])
+  const knowledgeDirective = DOC_INTENTS.has(intentPlan.name) ? '' :
+    `\n\n=== ANSWER POLICY (highest priority) ===\nAny context above is OPTIONAL background — it is NOT the set of allowed facts. Answer the user's question directly. For general knowledge (history, geography, science, public events), answer from YOUR OWN knowledge. NEVER say "not in the provided documents/sources" or "consult an external source" for a fact you know. Only say you don't know if you genuinely don't.`
+  const enrichedSystemPrompt = basePrompt + dateLine + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + episodeContext + goalContext + skillsContext + reasoningDirective + verbosityNote + modeNote + lifeDomain.safetyNote + profile.authorizationSuffix + knowledgeDirective + thinkDirective
 
   // Token budget: rough estimate (4 chars ≈ 1 token). If message history + system prompt
   // exceeds 70% of the model's context window, trim oldest non-system messages.
@@ -3581,12 +3622,17 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       const ollamaAppendAssistant = (assistantText: string, calls: ToolUseBlock[]) => {
         ollamaMessages.push({ role: 'assistant', content: assistantText || null, tool_calls: calls.map((tc) => ({ id: tc.id, type: 'function' as const, function: { name: tc.name, arguments: JSON.stringify(tc.input) } })) })
       }
+      // Thinking only where depth earns the latency: reasoning/code lanes think (and that reasoning streams to
+      // the "Extended thinking" collapsible, never the answer body); simple/interactive lanes answer cleanly +
+      // fast with the <think> phase disabled. Driven by Ollama's enable_thinking template kwarg in streamOllama.
+      const THINK_INTENTS = new Set(['reasoning', 'explain_teach', 'compare_benchmark', 'plan_nextsteps', 'review_audit', 'prove_reason', 'compute_math', 'build_implement', 'fix_debug'])
+      const enableThinking = THINK_INTENTS.has(intentPlan.name)
       const ollamaAdapter: ProviderAdapter = {
         suppressInlineToolText: true,
         enableDivergenceRecovery: true,
         init() { /* ollamaMessages already built above */ },
         async *streamTurn() {
-          yield* streamOllama({ model, messages: ollamaMessages, tools: allTools, numCtx: ollamaNumCtx, temperature: reqTemperature, maxTokens: reqMaxTokens })
+          yield* streamOllama({ model, messages: ollamaMessages, tools: allTools, numCtx: ollamaNumCtx, temperature: reqTemperature, maxTokens: reqMaxTokens, enableThinking })
         },
         parseInlineToolCalls(text) { return parseInlineToolCalls(text, ollamaToolNames) },
         appendToolTurn(assistantText, calls, results) {
@@ -4007,6 +4053,15 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     })()
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err)
+    // Log the REAL cause (sanitized) — this outer catch was silent, so the intermittent first-query failure was
+    // an undiagnosable "internal_error". Now it's in the log.
+    console.error('[chat] turn failed (stream phase):', String(err instanceof Error ? err.stack || err.message : err).replace(/[\r\n]+/g, ' ⏎ '))
+    // Classify transient cold-start failures (managed ollama mid-handoff, model still loading, connection not
+    // yet up) → a friendly RETRYABLE message instead of an opaque "internal_error" the user has to decode.
+    const transient = /ECONNREFUSED|connect|fetch failed|socket|timeout|timed out|EOF|load|loading|model .*not found|503|502|unavailable/i.test(errMsg)
+    const clientErr = transient
+      ? 'The local model is still warming up (this happens for a few seconds right after launch). Give it a moment and resend.'
+      : (errMsg || 'internal_error')
     // Record failed run so GovernSurface shows error-rate alongside success-rate
     recordGovernanceRun({
       run_id,
@@ -4020,7 +4075,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       session_id: sessionId,
       error: errMsg,
     })
-    sse(res, 'error', { error: errMsg })
+    sse(res, 'error', { error: clientErr })
   }
 }
 
@@ -6000,6 +6055,47 @@ Question: ${question}`
         }
       })()
     })
+    return
+  }
+
+  // POST /api/ingest/queue — NON-BLOCKING bulk ingest. Enqueue { filename, mimeType?, dataBase64 } and return
+  // the job immediately (status 'queued'); a background worker parses + ingests it. The UI uploads a batch
+  // without waiting and polls /api/ingest/status to render the queue + the parsed-vs-pending graph overlay.
+  if (req.method === 'POST' && url.pathname === '/api/ingest/queue') {
+    setCORSHeaders(res)
+    const chunks: Buffer[] = []
+    req.on('data', (c: Buffer) => chunks.push(c))
+    req.on('end', () => {
+      ;(async () => {
+        try {
+          const { filename, mimeType, dataBase64 } = JSON.parse(Buffer.concat(chunks).toString()) as { filename: string; mimeType?: string; dataBase64: string }
+          if (!filename || !dataBase64) throw new Error('filename and dataBase64 required')
+          const { enqueueIngest } = await import('./lib/ingest-queue.js')
+          const job = enqueueIngest(filename, mimeType ?? '', Buffer.from(dataBase64, 'base64'))
+          res.writeHead(202, { 'content-type': 'application/json' })
+          res.end(JSON.stringify(job))
+        } catch (err) {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: err instanceof Error ? err.message : 'bad request' }))
+        }
+      })()
+    })
+    return
+  }
+
+  // GET /api/ingest/status — the ingestion queue (per-doc status + summary) for the upload table + graph overlay.
+  if (req.method === 'GET' && url.pathname === '/api/ingest/status') {
+    setCORSHeaders(res)
+    ;(async () => {
+      try {
+        const { ingestQueueStatus, pruneIngestJobs } = await import('./lib/ingest-queue.js')
+        pruneIngestJobs()
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(ingestQueueStatus()))
+      } catch {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ jobs: [], summary: { queued: 0, active: 0, done: 0, failed: 0 } }))
+      }
+    })()
     return
   }
 
@@ -8078,6 +8174,9 @@ server.listen(PORT, '127.0.0.1', () => {
   // non-blocking. Configure with NOETICA_PREWARM_MODELS="qwen2.5:7b,deepseek-r1:8b".
   void (async () => {
     const wanted = (process.env['NOETICA_PREWARM_MODELS'] ?? 'qwen2.5:7b').split(',').map((s) => s.trim()).filter(Boolean)
+    // RAM-aware hold: a long pin on a constrained box keeps the model resident long after the demo,
+    // OOMing the machine while idle. Short hold on ≤32GB, long only on workstation memory.
+    const prewarmKeepAlive = os.totalmem() / 1024 ** 3 < 32 ? '5m' : '30m'
     try {
       const installed = await listLocalModels()
       for (const m of wanted) {
@@ -8086,10 +8185,10 @@ server.listen(PORT, '127.0.0.1', () => {
         try {
           await fetch(`${ollamaBase()}/api/generate`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: m, prompt: 'ok', stream: false, keep_alive: '30m' }),
+            body: JSON.stringify({ model: m, prompt: 'ok', stream: false, keep_alive: prewarmKeepAlive }),
             signal: AbortSignal.timeout(120_000),
           })
-          console.log(`[prewarm] loaded ${m} into RAM (keep_alive 30m)`)
+          console.log(`[prewarm] loaded ${m} into RAM (keep_alive ${prewarmKeepAlive})`)
         } catch { /* best-effort */ }
       }
       // Prewarm the Tier-0 embedding intent centroids so the first turn doesn't pay

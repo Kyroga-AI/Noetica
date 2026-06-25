@@ -1,7 +1,7 @@
 {
   "name": "@noetica/agent-machine",
   "version": "0.4.6",
-  "description": "Noetica Agent Machine \u2014 local agentic runtime speaking the Noetica SSE protocol",
+  "description": "Noetica Agent Machine — local agentic runtime speaking the Noetica SSE protocol",
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch server.ts",
@@ -32,6 +32,6 @@
     "@socioprophet/hellgraph": "github:SocioProphet/hellgraph#main",
     "json5": "^2.2.3",
     "mammoth": "1.12.0",
-    "pdf-parse": "2.4.5"
+    "unpdf": "^1.6.2"
   }
 }
