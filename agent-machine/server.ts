@@ -2975,10 +2975,11 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       const ragQuery = glossaryTerms.length > 0
         ? `${latestUserContent}\n${glossaryTerms.join(' ')}`
         : latestUserContent
-      // Exclude self-model construction docs (filename `self/…`): they live in the same store but are NOT
-      // user uploads. Surfacing them as "uploaded sources" with strict grounding makes the model refuse
-      // general-knowledge questions ("answer ONLY from these sources" → the sources are the app's own manifest).
-      const hits = (await searchDocsReranked(ragQuery, topK)).filter((h) => !h.filename.startsWith('self/'))
+      // Document RAG reads from USER scopes only (collections), never core memory/knowledge/self (doc-scope.ts).
+      // Core docs in the same store would otherwise surface as strict "uploaded sources" and make the model
+      // refuse general knowledge (the self-doc refusal bug). Scoping keeps collections separate from core.
+      const { isUserDoc: _isUserDoc } = await import('./lib/doc-scope.js')
+      const hits = (await searchDocsReranked(ragQuery, topK)).filter((h) => _isUserDoc(h.filename))
       if (hits.length > 0) {
         docHitCount = hits.length
         // INDIRECT-INJECTION DEFENSE (PoisonedRAG): retrieved document text is UNTRUSTED — a malicious
@@ -6068,13 +6069,14 @@ Question: ${question}`
     req.on('end', () => {
       ;(async () => {
         try {
-          const { filename, mimeType, dataBase64 } = JSON.parse(Buffer.concat(chunks).toString()) as { filename: string; mimeType?: string; dataBase64: string }
+          const { filename, mimeType, dataBase64, collection } = JSON.parse(Buffer.concat(chunks).toString()) as { filename: string; mimeType?: string; dataBase64: string; collection?: string }
           if (!filename || !dataBase64) throw new Error('filename and dataBase64 required')
           const buf = Buffer.from(dataBase64, 'base64')
           const { enqueueIngest, enqueueArchive } = await import('./lib/ingest-queue.js')
-          // A .zip fans out into per-file jobs (unpacked + filtered to document types); a single file enqueues as one.
+          // A .zip becomes its OWN named collection (graph scope), fanning out into per-file jobs; a single file
+          // enqueues into the given collection or the Inbox catch-all. Never into core memory/knowledge.
           const isZip = /\.zip$/i.test(filename) || mimeType === 'application/zip' || (buf[0] === 0x50 && buf[1] === 0x4b)
-          const result = isZip ? enqueueArchive(filename, buf) : enqueueIngest(filename, mimeType ?? '', buf)
+          const result = isZip ? enqueueArchive(filename, buf) : enqueueIngest(filename, mimeType ?? '', buf, collection)
           res.writeHead(202, { 'content-type': 'application/json' })
           res.end(JSON.stringify(result))
         } catch (err) {
@@ -6098,6 +6100,18 @@ Question: ${question}`
       } catch {
         res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ jobs: [], summary: { queued: 0, active: 0, done: 0, failed: 0 } }))
       }
+    })()
+    return
+  }
+
+  // GET /api/collections — document collections (graph scopes) for the upload UI + the explorer's scope picker.
+  if (req.method === 'GET' && url.pathname === '/api/collections') {
+    setCORSHeaders(res)
+    ;(async () => {
+      try {
+        const { listCollections } = await import('./lib/collections.js')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ collections: listCollections() }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ collections: [] })) }
     })()
     return
   }

@@ -12,6 +12,8 @@
  */
 import { randomUUID } from 'node:crypto'
 import { unzipSync } from 'fflate'
+import { collectionPath } from './doc-scope.js'
+import { createCollection, ensureCollection, bumpDocCount, INBOX_ID } from './collections.js'
 
 // Document types we ingest out of an archive. Everything else (images, binaries, media) is skipped, not parsed
 // as UTF-8 garbage. .pdf/.docx have real extractors; the rest are read as text by extractText.
@@ -37,12 +39,17 @@ const jobs = new Map<string, IngestJob>()
 const pending: Array<{ id: string; mimeType: string; buf: Buffer }> = []
 let processing = false
 
-/** Enqueue a document for background ingestion. Returns the job immediately (status 'queued'). */
-export function enqueueIngest(filename: string, mimeType: string, buf: Buffer): IngestJob {
+/** Enqueue a document for background ingestion into a COLLECTION scope (default: the Inbox catch-all). The
+ *  filename is namespaced `collection/<id>/…` so it never lands in core memory/knowledge/self. Returns the job
+ *  immediately (status 'queued'). */
+export function enqueueIngest(filename: string, mimeType: string, buf: Buffer, collectionId: string = INBOX_ID): IngestJob {
+  ensureCollection(INBOX_ID, 'Inbox')
+  const scoped = collectionPath(collectionId, filename)
   const id = randomUUID()
-  const job: IngestJob = { id, filename, status: 'queued', bytes: buf.length, queuedAt: Date.now() }
+  const job: IngestJob = { id, filename: scoped, status: 'queued', bytes: buf.length, queuedAt: Date.now() }
   jobs.set(id, job)
   pending.push({ id, mimeType, buf })
+  bumpDocCount(collectionId)
   void drain()
   return job
 }
@@ -50,13 +57,15 @@ export function enqueueIngest(filename: string, mimeType: string, buf: Buffer): 
 /** Unpack a ZIP and enqueue each document-type entry as its own background job. Skips directories, macOS
  *  resource forks (__MACOSX), hidden/dotfiles, and non-document files (so an 8MB zip of 100 pages fans out
  *  into per-file jobs instead of being parsed as one blob of binary garbage — the current .zip failure mode). */
-export function enqueueArchive(zipName: string, buf: Buffer): { archive: string; enqueued: IngestJob[]; skipped: string[] } {
+export function enqueueArchive(zipName: string, buf: Buffer): { archive: string; collectionId: string; enqueued: IngestJob[]; skipped: string[] } {
   let files: Record<string, Uint8Array>
   try {
     files = unzipSync(new Uint8Array(buf))
   } catch (e) {
     throw new Error(`could not read zip "${zipName}": ${(e instanceof Error ? e.message : String(e)).slice(0, 120)}`)
   }
+  // A ZIP = ONE named collection (its own graph scope) — kept out of core memory/knowledge.
+  const collection = createCollection(zipName.replace(/\.zip$/i, ''), zipName)
   const enqueued: IngestJob[] = []
   const skipped: string[] = []
   for (const [p, data] of Object.entries(files)) {
@@ -64,10 +73,9 @@ export function enqueueArchive(zipName: string, buf: Buffer): { archive: string;
     if (p.endsWith('/') || data.length === 0) continue                       // directory entry
     if (p.startsWith('__MACOSX/') || base.startsWith('.')) continue          // mac resource forks / hidden
     if (!INGESTIBLE.test(base)) { skipped.push(p); continue }                // image/binary/media → skip
-    // Namespace the job filename under the archive so the graph/table shows provenance (zip → file).
-    enqueued.push(enqueueIngest(`${zipName.replace(/\.zip$/i, '')}/${p}`, '', Buffer.from(data)))
+    enqueued.push(enqueueIngest(p, '', Buffer.from(data), collection.id))    // → collection/<id>/<path>
   }
-  return { archive: zipName, enqueued, skipped }
+  return { archive: zipName, collectionId: collection.id, enqueued, skipped }
 }
 
 async function drain(): Promise<void> {

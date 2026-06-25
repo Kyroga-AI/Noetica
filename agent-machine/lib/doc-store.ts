@@ -15,6 +15,7 @@ import {
 } from '@socioprophet/hellgraph'
 import { embedText } from './ollama.js'
 import { bm25 } from './hybrid-retrieve.js'
+import { isUserDoc } from './doc-scope.js'
 
 const CHUNK_LABEL = 'DocumentChunk'
 
@@ -309,10 +310,10 @@ export function documentChunkCount(): number {
   return getHellGraph().nodesByLabel(CHUNK_LABEL).length
 }
 
-// USER-uploaded chunks only. The self-model construction repos (filename `self/…`, ingested via
-// /api/self/ingest-construction) live in the SAME store, so a raw count makes hasDoc permanently true and
-// routes every question into strict doc-QA ("answer ONLY from these sources") — refusing general knowledge.
-// hasDoc must reflect real user uploads; self-docs are surfaced separately via the self-model grounding block.
+// USER-uploaded chunks only — anything NOT in a core/protected scope (memory/knowledge/self/repo/…, see
+// doc-scope.ts). Core docs (e.g. the self-model construction repos) live in the SAME physical AtomSpace, so a
+// raw count makes hasDoc permanently true and routes every question into strict doc-QA ("answer ONLY from these
+// sources") — refusing general knowledge. hasDoc must reflect real user uploads (collections), not core scopes.
 export function userDocumentChunkCount(): number {
-  return getHellGraph().nodesByLabel(CHUNK_LABEL).filter((n) => !String(n.properties['filename'] ?? '').startsWith('self/')).length
+  return getHellGraph().nodesByLabel(CHUNK_LABEL).filter((n) => isUserDoc(String(n.properties['filename'] ?? ''))).length
 }
