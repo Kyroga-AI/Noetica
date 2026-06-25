@@ -2516,7 +2516,16 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       })
     } catch (err2) {
       console.error('[chat] routing fallback also failed:', String(err2 instanceof Error ? err2.stack || err2.message : err2).replace(/[\r\n]+/g, ' ⏎ '))
-      sse(res, 'error', { error: 'internal_error' })
+      // THE recurring cold-start "internal_error": buildRouterDecision throws "No local Ollama runtime…" while the
+      // managed Ollama is still coming up (the fallback retries with the same ollamaUp=false → throws again). That
+      // IS the warming-up case — surface the friendly retryable message, not an opaque error. Mark any in-progress
+      // step done so a plan spinner can't hang on it.
+      const m2 = err2 instanceof Error ? err2.message : String(err2)
+      const transient2 = /no local ollama|ollama runtime|ECONNREFUSED|connect|loading|not ready|warming|unavailable/i.test(m2)
+      try { step('generate', 'done', 'warming up — resend') } catch { /* step may be out of scope on a very-early failure */ }
+      sse(res, 'error', { error: transient2
+        ? 'The local model is still warming up (a few seconds right after launch). Give it a moment and resend.'
+        : 'internal_error' })
       return
     }
   }
@@ -4063,6 +4072,9 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     const clientErr = transient
       ? 'The local model is still warming up (this happens for a few seconds right after launch). Give it a moment and resend.'
       : (errMsg || 'internal_error')
+    // Mark the in-progress "Composing the answer" step done — the turn IS over (just without a generated answer),
+    // so the plan's blue spinner must STOP. Without this it spins forever even though the message rendered.
+    try { step('generate', 'done', transient ? 'warming up — resend' : 'failed') } catch { /* step out of scope on a very-early failure */ }
     // Record failed run so GovernSurface shows error-rate alongside success-rate
     recordGovernanceRun({
       run_id,
