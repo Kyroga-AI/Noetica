@@ -6102,6 +6102,53 @@ Question: ${question}`
     return
   }
 
+  // ── A2A federation surface (the real cross-machine gate) ────────────────────────────────────────────────
+  // A remote peer (a Ruflo/gastown/AIWG node, or any cross-machine agent) is a SPIFFE actor here. These gate +
+  // score + audit federated capability requests on the BACKEND (the browser grant ledger can't decide a remote
+  // peer). EGRESS stays scope-d's job, composed separately. All token-gated like /api/tool.
+  //   POST /api/a2a/grant/validate { actor:{spiffe_id}, capability, floor? } → GrantDecision (+ authority_status)
+  //   POST /api/a2a/outcome        { spiffe_id, outcome:{ok,up,threat,integrityViolation} } → updated TrustOps state
+  //   GET  /api/a2a/peers          → the trust ledger (Govern surface)
+  if (req.method === 'POST' && (url.pathname === '/api/a2a/grant/validate' || url.pathname === '/api/a2a/outcome')) {
+    setCORSHeaders(res)
+    if (!requireApiToken(req, res)) return
+    const chunks: Buffer[] = []
+    req.on('data', (c: Buffer) => chunks.push(c))
+    req.on('end', () => { void (async () => {
+      try {
+        const body = JSON.parse(Buffer.concat(chunks).toString() || '{}') as { actor?: { spiffe_id?: string }; spiffe_id?: string; capability?: string; floor?: number; outcome?: import('./lib/a2a-trust.js').TrustOutcome }
+        const a2a = await import('./lib/a2a-trust.js')
+        if (url.pathname === '/api/a2a/grant/validate') {
+          const spiffe = body.actor?.spiffe_id
+          if (!spiffe || !body.capability) throw new Error('actor.spiffe_id and capability required')
+          const decision = a2a.checkActorGrant(spiffe, body.capability, body.floor)
+          res.writeHead(decision.valid ? 200 : 403, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ...decision, grant_id: a2a.newGrantId(), authority_state: a2a.authorityState(spiffe) }))
+        } else {
+          const spiffe = body.spiffe_id
+          if (!spiffe || !body.outcome) throw new Error('spiffe_id and outcome required')
+          a2a.recordOutcome(spiffe, body.outcome)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ok: true, authority_state: a2a.authorityState(spiffe) }))
+        }
+      } catch (e) {
+        res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: (e instanceof Error ? e.message : 'bad request').replace(/[\r\n]+/g, ' ') }))
+      }
+    })() })
+    return
+  }
+  if (req.method === 'GET' && url.pathname === '/api/a2a/peers') {
+    setCORSHeaders(res)
+    if (!requireApiToken(req, res)) return
+    ;(async () => {
+      try {
+        const { trustLedger } = await import('./lib/a2a-trust.js')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ peers: trustLedger() }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ peers: [] })) }
+    })()
+    return
+  }
+
   // POST /api/ingest/path — ingest a LOCAL file by absolute path { path }. Used by
   // the Tauri picker (the webview can't read files; the native dialog returns a
   // path and the sidecar — full fs access — reads + extracts + embeds it).
