@@ -12,11 +12,11 @@ MACHINE="${MACHINE:-n2-standard-32}"          # CPU box (no GPU-driver hassle); 
 GCS="gs://sourceos-artifacts-socioprophet/ocw-corpus"
 CORPUS="gs://sourceos-artifacts-socioprophet/knowledge-commons/courseware/mit/courses"
 SA="${GCP_SA:-sourceos-ci@socioprophet-platform.iam.gserviceaccount.com}"
-MODEL="${MMLU_MODEL:-qwen2.5:7b}"
+MODEL="${MMLU_MODEL:-llama3.2:3b}"             # fast model: the A/B is RELATIVE across configs, so model cancels;
+                                              # 3b keeps 6 configs under the shutdown guard (qwen7b CPU would overrun)
 PER="${MMLU_PER_SUBJECT:-20}"                  # questions/subject (n>=20 floor for a stable A/B signal)
-SAMPLE_RE='/(18|8|5|6|7|9|2|3|10|12|20)-'     # STEM departments for the sample (math/phys/chem/eecs/bio/...)
-SAMPLE_N="${SAMPLE_N:-160}"
-TERM_TIME="${TERM_TIME:-$(python3 -c "import datetime;print((datetime.datetime.now().astimezone()+datetime.timedelta(hours=4)).isoformat())")}"
+PER_DEPT="${PER_DEPT:-32}"                     # courses per board field (18/8/5/6/7) → ~160 balanced sample
+TERM_TIME="${TERM_TIME:-$(python3 -c "import datetime;print((datetime.datetime.now().astimezone()+datetime.timedelta(hours=6)).isoformat())")}"
 
 cat > /tmp/chunk-ab-startup.sh <<STARTUP
 #!/bin/bash
@@ -43,8 +43,14 @@ step "pull code + STEM course sample (\$SAMPLE_N courses)"
 mkdir -p /opt/am && gsutil -m cp -r "\$GCS/code/agent-machine/*" /opt/am/ && cd /opt/am && npm ci
 mkdir -p /root/.noetica/corpus/benchmarks && gsutil cp "\$GCS/mmlu_stem.json" /root/.noetica/corpus/benchmarks/mmlu_stem.json   # the board's question bank
 mkdir -p /opt/sample
-gsutil ls "\$CORPUS/" | grep -E '$SAMPLE_RE' | head -$SAMPLE_N | gsutil -m cp -I /opt/sample/ 2>/dev/null
-echo "sample courses: \$(ls /opt/sample | wc -l)"
+# Pull the PRE-MADE balanced sample list (built + verified locally → \$GCS/chunk-ab-sample-list.txt): ~32 courses
+# each of math/physics/chem/eecs/bio. Box-side 'gsutil ls' of the knowledge-commons prefix returned almost nothing
+# (the bug that gave a 2-course sample twice), so we don't list on the box — we download from the vetted list.
+gsutil cp "\$GCS/chunk-ab-sample-list.txt" /opt/list.txt
+echo "sample list lines: \$(wc -l < /opt/list.txt)"
+# per-file cp (NOT 'gsutil -m cp -I' — its parallel stdin reader races and grabs only the first ~2 URLs)
+while IFS= read -r u; do [ -n "\$u" ] && gsutil -q cp "\$u" /opt/sample/ || true; done < /opt/list.txt
+echo "sample courses: \$(ls /opt/sample | wc -l)  (by dept: \$(ls /opt/sample | sed -E 's/-.*//' | sort | uniq -c | tr '\n' ' '))"
 
 # config table: name | tool(args)
 run_cfg () {
