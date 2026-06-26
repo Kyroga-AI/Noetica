@@ -10,14 +10,31 @@
  */
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import { embedBatch, EMBED_MODEL } from '../lib/ollama.js'
+import { EMBED_MODEL } from '../lib/ollama.js'
 import { encodeVec } from '../lib/brain-vec.js'
 
 const IN = process.argv[2]
 const BRAIN = process.argv[3]
 const BATCH = Number(process.env['EMBED_BATCH'] || 64)
-const CONC = Number(process.env['BRAIN_CONCURRENCY'] || 16)   // parallel embed calls — the old pipeline used 16;
-                                                              // sequential (=1) was ~16x too slow on CPU.
+// ollama is OVERHEAD-bound, not GPU-bound — concurrency to ONE instance doesn't help (it serializes). So we fan
+// batches out across MULTIPLE ollama instances (OLLAMA_HOSTS), each on its own port → ~N× throughput. One worker
+// per host×slot; each worker hits a fixed host. Request is byte-identical to lib/ollama.embedBatch (no prefix).
+const HOSTS = (process.env['OLLAMA_HOSTS'] || process.env['OLLAMA_HOST'] || 'http://127.0.0.1:11434')
+  .split(',').map((s) => s.trim().replace(/\/$/, '')).filter(Boolean)
+const CONC = Number(process.env['BRAIN_CONCURRENCY'] || HOSTS.length * 2)
+
+async function embedOn(host: string, texts: string[]): Promise<number[][]> {
+  try {
+    const res = await fetch(`${host}/api/embed`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: EMBED_MODEL, input: texts.map((t) => t.slice(0, 8000)) }),
+      signal: AbortSignal.timeout(120_000),
+    })
+    if (!res.ok) return texts.map(() => [])
+    const j = (await res.json()) as { embeddings?: number[][] }
+    return Array.isArray(j.embeddings) && j.embeddings.length === texts.length ? j.embeddings : texts.map(() => [])
+  } catch { return texts.map(() => []) }
+}
 
 async function main(): Promise<void> {
   if (!IN || !BRAIN) { console.error('usage: embed-chunks.ts <clean_chunks_dir> <brain_out_dir>'); process.exit(1) }
@@ -35,12 +52,14 @@ async function main(): Promise<void> {
     const starts: number[] = []
     for (let i = 0; i < rows.length; i += BATCH) starts.push(i)
     let next = 0
-    // CONC workers pull batches off a shared cursor → CONC embedBatch calls in flight at once (the 16x speedup).
-    await Promise.all(Array.from({ length: Math.min(CONC, starts.length) }, async () => {
+    // CONC workers pull batches off a shared cursor; worker w is pinned to HOSTS[w % nHosts] → the N ollama
+    // instances run in parallel (the real speedup, since one instance serializes regardless of concurrency).
+    await Promise.all(Array.from({ length: Math.min(CONC, starts.length) }, async (_v, w) => {
+      const host = HOSTS[w % HOSTS.length]!
       while (next < starts.length) {
         const i = starts[next++]!
         const batch = rows.slice(i, i + BATCH)
-        const vecs = await embedBatch(batch.map((r) => r.text)).catch(() => batch.map(() => [] as number[]))
+        const vecs = await embedOn(host, batch.map((r) => r.text))
         for (let j = 0; j < batch.length; j++) {
           const v = vecs[j]
           if (!v || !v.length) continue

@@ -12,7 +12,7 @@ GCS="gs://sourceos-artifacts-socioprophet/ocw-corpus"
 CORPUS="gs://sourceos-artifacts-socioprophet/knowledge-commons/courseware/mit/courses"
 SA="${GCP_SA:-sourceos-ci@socioprophet-platform.iam.gserviceaccount.com}"
 OVERLAP="${CHUNK_OVERLAP:-0.15}"; MODE="${CHUNK_MODE:-sliding}"
-TERM_TIME="$(python3 -c "import datetime;print((datetime.datetime.now().astimezone()+datetime.timedelta(hours=8)).isoformat())")"
+TERM_TIME="$(python3 -c "import datetime;print((datetime.datetime.now().astimezone()+datetime.timedelta(hours=18)).isoformat())")"   # 881K chunks @ ~16/sec ≈ 15h + margin
 
 cat > /tmp/brain-v1-startup.sh <<STARTUP
 #!/bin/bash
@@ -23,10 +23,20 @@ GCS="$GCS"; CORPUS="$CORPUS"; MODE="$MODE"; OVERLAP="$OVERLAP"
 step(){ echo "==== \$(date '+%H:%M:%S') \$* ===="; gsutil -q cp /var/log/brain.log "\$GCS/brain-v1.log" 2>/dev/null||true; }
 
 step "GPU check (abort if no driver)"; nvidia-smi || { echo "FATAL-NO-GPU"; exit 1; }
-step "install ollama"; curl -fsSL https://ollama.com/install.sh | sh
-systemctl restart ollama 2>/dev/null || (ollama serve >/var/log/ollama.log 2>&1 &)
-sleep 15
-for n in 1 2 3 4 5; do ollama pull nomic-embed-text && break; sleep 8; done
+step "install ollama + start \$NHOSTS instances (ollama is overhead-bound → parallelize across processes)"
+curl -fsSL https://ollama.com/install.sh | sh
+systemctl stop ollama 2>/dev/null || true
+NHOSTS=8
+OLLAMA_HOST=127.0.0.1:11434 ollama serve >/var/log/ollama-11434.log 2>&1 &   # one up first, to pull the model
+sleep 12
+for n in 1 2 3 4 5; do OLLAMA_HOST=127.0.0.1:11434 ollama pull nomic-embed-text && break; sleep 8; done
+OLLAMA_HOSTS="http://127.0.0.1:11434"
+for p in \$(seq 11435 \$((11434+NHOSTS-1))); do                                # the rest share the models dir
+  OLLAMA_HOST=127.0.0.1:\$p ollama serve >/var/log/ollama-\$p.log 2>&1 &
+  OLLAMA_HOSTS="\$OLLAMA_HOSTS,http://127.0.0.1:\$p"
+done
+sleep 12
+echo "OLLAMA_HOSTS=\$OLLAMA_HOSTS"; export OLLAMA_HOSTS
 # GPU-SPEED GUARD: probe the BATCH path (the one embed-chunks.ts uses, /api/embed input:[64]). Abort only on a
 # clear CPU fallback (<10/sec); the 8h guard covers the pessimistic ~17/sec case.
 SPEED=\$(python3 - <<'PY'
@@ -54,8 +64,8 @@ step "chunk (\$MODE @ \$OVERLAP + heading) — full corpus"
 CHUNK_MODE="\$MODE" CHUNK_OVERLAP="\$OVERLAP" python3 scripts/chunk-corpus.py /opt/courses /opt/chunks
 echo "fields: \$(ls /opt/chunks | wc -l) | total chunks: \$(cat /opt/chunks/*.jsonl | wc -l)"
 
-step "embed (nomic-768, GPU) → brain v1"
-OLLAMA_HOST=http://127.0.0.1:11434 EMBED_BATCH=64 BRAIN_CONCURRENCY=24 npx tsx scripts/embed-chunks.ts /opt/chunks /opt/brain-v1
+step "embed (nomic-768, GPU, \$NHOSTS parallel ollama) → brain v1"
+OLLAMA_HOSTS="\$OLLAMA_HOSTS" EMBED_BATCH=64 BRAIN_CONCURRENCY=16 npx tsx scripts/embed-chunks.ts /opt/chunks /opt/brain-v1
 
 step "package + push brain-v1.tar.gz"
 echo "{\"config\":\"\$MODE@\$OVERLAP+heading\",\"embed\":\"nomic-768\",\"fields\":\$(ls /opt/brain-v1|wc -l),\"vectors\":\$(cat /opt/brain-v1/*/*.jsonl|wc -l),\"built\":\"\$(date -u +%FT%TZ)\"}" > /opt/brain-v1/_manifest.json
