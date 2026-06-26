@@ -16,6 +16,8 @@ import { encodeVec } from '../lib/brain-vec.js'
 const IN = process.argv[2]
 const BRAIN = process.argv[3]
 const BATCH = Number(process.env['EMBED_BATCH'] || 64)
+const CONC = Number(process.env['BRAIN_CONCURRENCY'] || 16)   // parallel embed calls — the old pipeline used 16;
+                                                              // sequential (=1) was ~16x too slow on CPU.
 
 async function main(): Promise<void> {
   if (!IN || !BRAIN) { console.error('usage: embed-chunks.ts <clean_chunks_dir> <brain_out_dir>'); process.exit(1) }
@@ -30,17 +32,24 @@ async function main(): Promise<void> {
     fs.mkdirSync(outDir, { recursive: true })
     const out = fs.createWriteStream(path.join(outDir, `${field}.jsonl`))
     let written = 0
-    for (let i = 0; i < rows.length; i += BATCH) {
-      const batch = rows.slice(i, i + BATCH)
-      const vecs = await embedBatch(batch.map((r) => r.text)).catch(() => batch.map(() => [] as number[]))
-      for (let j = 0; j < batch.length; j++) {
-        const v = vecs[j]
-        if (!v || !v.length) continue
-        out.write(JSON.stringify({ text: batch[j]!.text, slug: batch[j]!.slug, field,
-          material: batch[j]!.material, vec: encodeVec(v), dims: 768 }) + '\n')
-        written++
+    const starts: number[] = []
+    for (let i = 0; i < rows.length; i += BATCH) starts.push(i)
+    let next = 0
+    // CONC workers pull batches off a shared cursor → CONC embedBatch calls in flight at once (the 16x speedup).
+    await Promise.all(Array.from({ length: Math.min(CONC, starts.length) }, async () => {
+      while (next < starts.length) {
+        const i = starts[next++]!
+        const batch = rows.slice(i, i + BATCH)
+        const vecs = await embedBatch(batch.map((r) => r.text)).catch(() => batch.map(() => [] as number[]))
+        for (let j = 0; j < batch.length; j++) {
+          const v = vecs[j]
+          if (!v || !v.length) continue
+          out.write(JSON.stringify({ text: batch[j]!.text, slug: batch[j]!.slug, field,
+            material: batch[j]!.material, vec: encodeVec(v), dims: 768 }) + '\n')
+          written++
+        }
       }
-    }
+    }))
     await new Promise<void>((r) => out.end(r))
     grand += written
     console.log(`  ${field}: ${rows.length} chunks → ${written} vectors`)

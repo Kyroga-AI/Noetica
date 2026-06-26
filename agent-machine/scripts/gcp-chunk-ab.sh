@@ -16,7 +16,7 @@ MODEL="${MMLU_MODEL:-llama3.2:3b}"             # fast model: the A/B is RELATIVE
                                               # 3b keeps 6 configs under the shutdown guard (qwen7b CPU would overrun)
 PER="${MMLU_PER_SUBJECT:-20}"                  # questions/subject (n>=20 floor for a stable A/B signal)
 PER_DEPT="${PER_DEPT:-32}"                     # courses per board field (18/8/5/6/7) → ~160 balanced sample
-TERM_TIME="${TERM_TIME:-$(python3 -c "import datetime;print((datetime.datetime.now().astimezone()+datetime.timedelta(hours=6)).isoformat())")}"
+TERM_TIME="${TERM_TIME:-$(python3 -c "import datetime;print((datetime.datetime.now().astimezone()+datetime.timedelta(hours=8)).isoformat())")}"
 
 cat > /tmp/chunk-ab-startup.sh <<STARTUP
 #!/bin/bash
