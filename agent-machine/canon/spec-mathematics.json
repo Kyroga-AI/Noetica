@@ -1108,6 +1108,46 @@
         {
           "term": "cycle",
           "definition": "In a permutation group, a cycle (a_1 a_2 ... a_k) maps a_1\u2192a_2\u2192...\u2192a_k\u2192a_1. Cycle length determines the order. Permutations decompose uniquely into disjoint cycles."
+        },
+        {
+          "term": "image",
+          "definition": "For a group homomorphism \u03c6: G \u2192 H, the image Im(\u03c6) = {\u03c6(g) | g \u2208 G} is the set of all outputs; Im(\u03c6) is a subgroup of H."
+        },
+        {
+          "term": "generator",
+          "definition": "An element g of a group G is a generator if every element of G can be written as a power (or product of powers) of g; G = \u27e8g\u27e9 means g generates G."
+        },
+        {
+          "term": "finitely generated group",
+          "definition": "A group G is finitely generated if there exists a finite set S \u2282 G such that every element of G is a product of elements from S and their inverses."
+        },
+        {
+          "term": "torsion element",
+          "definition": "An element g of a group G is a torsion element (or element of finite order) if g^n = e for some positive integer n; the set of all torsion elements forms the torsion subgroup."
+        },
+        {
+          "term": "torsion subgroup",
+          "definition": "The torsion subgroup Tor(G) of an abelian group G is the subgroup of all elements of finite order."
+        },
+        {
+          "term": "index",
+          "definition": "The index [G : H] of a subgroup H in G is the number of distinct (left or right) cosets of H in G; by Lagrange's theorem, [G : H] = |G| / |H| for finite groups."
+        },
+        {
+          "term": "presentation",
+          "definition": "A group presentation \u27e8generators | relations\u27e9 describes a group by specifying generators and the relations among them; e.g., Z_n = \u27e8a | a^n = e\u27e9."
+        },
+        {
+          "term": "relation",
+          "definition": "In a group presentation, a relation is an equation among generators that must hold in the group; e.g., a^n = e, or ab = ba (commutativity relation)."
+        },
+        {
+          "term": "p-subgroup",
+          "definition": "A p-subgroup of G is a subgroup whose order is a power of the prime p; the Sylow p-subgroup is the maximal p-subgroup."
+        },
+        {
+          "term": "finitely generated",
+          "definition": "A group G is finitely generated if there exists a finite set S \u2282 G such that every element of G is a product of elements from S and their inverses; equivalently, G = \u27e8S\u27e9 for some finite S."
         }
       ],
       "canon": [
@@ -1310,6 +1350,10 @@
         {
           "term": "Gaussian integers",
           "definition": "The ring Z[i]={a+bi : a,b\u2208Z}. A Euclidean domain. The units are \u00b11, \u00b1i. The Gaussian primes are not the same as ordinary primes."
+        },
+        {
+          "term": "characteristic",
+          "definition": "The characteristic of a ring R is the smallest positive integer n such that n\u00b71 = 0 in R; if no such n exists, the characteristic is 0. For a field, the characteristic is 0 or a prime p."
         }
       ],
       "canon": [
