@@ -97,6 +97,10 @@
         {
           "term": "hash table",
           "definition": "A data structure that maps keys to values using a hash function to compute an index into an array of slots; average O(1) lookup, insert, and delete, with O(n) worst case due to collisions."
+        },
+        {
+          "term": "dictionary",
+          "definition": "An abstract data type mapping keys to values with insert, lookup, and delete operations; typically implemented by a hash table or a balanced search tree (e.g. Python's dict, a hash map)."
         }
       ],
       "canon": [
@@ -474,6 +478,26 @@
         {
           "term": "combinatorics",
           "definition": "Counting principles: permutations P(n,k) = n!/(n-k)!; combinations C(n,k) = n!/(k!(n-k)!); binomial theorem (a+b)^n = \u03a3 C(n,k) a^(n-k) b^k."
+        },
+        {
+          "term": "proposition",
+          "definition": "A statement that is definitely either true or false (never both); the atomic unit of propositional logic, combined via connectives such as AND, OR, NOT, and implication."
+        },
+        {
+          "term": "literal",
+          "definition": "In propositional logic, a propositional variable or its negation (e.g. x or NOT x); the building block of clauses in conjunctive normal form and of SAT instances."
+        },
+        {
+          "term": "relation",
+          "definition": "A binary relation on a set A is a subset R of A x A; characterized by properties like reflexivity, symmetry, antisymmetry, and transitivity (e.g. an equivalence relation or a partial order)."
+        },
+        {
+          "term": "path",
+          "definition": "In a graph, a walk that visits no vertex more than once: a sequence of distinct vertices each adjacent to the next."
+        },
+        {
+          "term": "cycle",
+          "definition": "In a graph, a closed walk of length at least three whose vertices are distinct except that the last equals the first; a graph with no cycles is acyclic (a forest)."
         }
       ],
       "canon": [
@@ -1173,6 +1197,10 @@
         {
           "term": "Poisson distribution",
           "definition": "P(X=k) = \u03bb^k e^{-\u03bb}/k!; models count of rare events in fixed interval; E[X]=Var(X)=\u03bb; Poisson approximates Binomial when n large, p small, \u03bb=np."
+        },
+        {
+          "term": "poisson process",
+          "definition": "A continuous-time counting process whose events occur independently at a constant average rate lambda; inter-arrival times are exponential and the count in any interval of length t is Poisson(lambda*t) -- the continuous limit of Bernoulli trials."
         }
       ],
       "canon": [
