@@ -21,10 +21,23 @@ proof: (1) add a frontier arm — `client-proof.sh` now auto-loads the BYOK Anth
 so `ANTHROPIC_API_KEY` is one step away; (2) use a HARDER suite where the gap (and verify-repair's lift) actually
 shows — see Run 2.
 
-## Run 2 — swe-lite-eval (bug-fix tasks) · baseline vs verify-repair
+## Run 2 — 2026-06-27 · swe-lite-eval (bug-fix tasks) · baseline vs verify-repair
 
-_(pending — recorded by `scripts/swe-lite-eval.ts`; this is where the verify-repair LIFT, the actual "technique not
-horsepower" thesis, is visible: baseline pass@1 vs verify-repair pass@1 on the same model.)_
+Command: `MESH_URL=http://127.0.0.1:11435/v1 npx tsx scripts/swe-lite-eval.ts` · model qwen2.5-coder:7b · 6 tasks · hidden tests.
+
+| arm | pass@1 |
+|-----|--------|
+| baseline | **6/6 (100%)** |
+| verify-repair | **6/6 (100%)** |
+
+**Honest reading:** baseline already aces all 6 — so verify-repair shows **no lift here** (nothing to repair). Combined
+with Run 1 (also 100%), the real signal is: `qwen2.5-coder:7b` solves 100% of *both* available verifiable suites at
+baseline, which **supports** competence/parity-on-this-class-of-work — but **both suites lack headroom** to (a) show
+verify-repair's marginal value or (b) discriminate the mesh from a frontier model. **Conclusion: the harnesses are too
+easy to prove the interesting claim.** The next run needs genuinely hard tasks — real SWE-bench-lite instances (not 6
+toy bug-fixes) and/or a frontier arm — which is where both the verify-repair lift and any frontier gap become visible.
+This is the honest state: the apparatus now has *recorded* runs (gap #1's "never run" is closed), and the finding is
+that the suites need to be harder before the parity claim can be made externally.
 
 ## How to record a full head-to-head (the decisive run)
 
