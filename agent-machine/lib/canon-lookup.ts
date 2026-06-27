@@ -45,7 +45,15 @@ function load(): void {
           .map((c: { name: string; form: string }) => ({ name: c.name, form: c.form }))
         TOPICS!.set(tk, { domain, topic: t.topic, level: String(t.level ?? ''), eqs })
         for (const g of t.glossary ?? []) {
-          if (g.term && g.definition) { const k = norm(g.term); if (!DEFS!.has(k)) DEFS!.set(k, { def: String(g.definition), domain, topic: t.topic }) }
+          if (g.term && g.definition) {
+            const def = { def: String(g.definition), domain, topic: t.topic }
+            const k = norm(g.term)
+            if (!DEFS!.has(k)) DEFS!.set(k, def)
+            // Strip parenthetical abbreviations and trailing symbols so "molarity (M)" → "molarity",
+            // "K_a" → "ka", "pH" → "ph" — multi-word normalized keys would never match single-word questions.
+            const kBase = norm(g.term.replace(/\s*\([^)]*\)/g, '').replace(/\s*\[.*?\]/g, '').trim())
+            if (kBase && kBase !== k && !DEFS!.has(kBase)) DEFS!.set(kBase, def)
+          }
         }
       }
     }
