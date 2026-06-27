@@ -33,18 +33,35 @@ export function VoiceTrainer() {
   const [name, setName] = useState('My voice')
   const [status, setStatus] = useState('')
   const [busy, setBusy] = useState(false)
+  const [provStep, setProvStep] = useState('')
+  const [provError, setProvError] = useState('')
   const recRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<Blob[]>([])
 
   async function refresh() {
     try {
       const r = await fetch(amUrl('/api/voice/status'), { signal: AbortSignal.timeout(8000) })
-      const j = (await r.json()) as { provisioned: boolean; voices?: Voice[] }
+      const j = (await r.json()) as { provisioned: boolean; voices?: Voice[]; running?: boolean; step?: string; error?: string }
       setProvisioned(j.provisioned)
       setVoices(j.voices ?? [])
-    } catch { setProvisioned(false) }
+      setProvStep(j.running ? (j.step ?? 'working…') : '')
+      setProvError(j.error ?? '')
+      return j
+    } catch { setProvisioned(false); return null }
   }
   useEffect(() => { void refresh() }, [])
+
+  async function provision() {
+    setProvError('')
+    setProvStep('starting…')
+    try { await fetch(amUrl('/api/voice/provision'), { method: 'POST', signal: AbortSignal.timeout(8000) }) } catch { /* */ }
+    // Poll until provisioned or errored (the install downloads several GB — can take a while).
+    for (let i = 0; i < 600; i++) {
+      await new Promise((r) => setTimeout(r, 3000))
+      const j = await refresh()
+      if (j?.provisioned || (j && !j.running)) break
+    }
+  }
 
   async function startRec() {
     try {
@@ -106,9 +123,13 @@ export function VoiceTrainer() {
 
       {provisioned === false && (
         <div className="mt-2 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-3 py-2 text-[12px] text-[#92400e]">
-          Voice cloning isn’t set up yet. Run this once (downloads the local model, a few GB):
-          <code className="mt-1 block rounded bg-[#fef3c7] px-2 py-1 font-mono text-[11px]">bash agent-machine/scripts/provision-voice.sh</code>
-          <button onClick={() => void refresh()} className="mt-1.5 text-[11px] font-medium text-[#b45309] underline">recheck</button>
+          Voice cloning isn’t set up yet — this installs a local XTTS model (downloads a few GB, one time). Requires <code className="font-mono">uv</code>.
+          {provStep ? (
+            <div className="mt-1.5 flex items-center gap-2 text-[11px]"><span className="animate-pulse">⏳</span> {provStep}</div>
+          ) : (
+            <button onClick={() => void provision()} className="mt-1.5 rounded-lg bg-[#b45309] px-3 py-1 text-[11px] font-semibold text-white transition hover:bg-[#92400e]">Set up voice cloning</button>
+          )}
+          {provError && <div className="mt-1 text-[11px] text-[#b91c1c]">{provError}</div>}
         </div>
       )}
 

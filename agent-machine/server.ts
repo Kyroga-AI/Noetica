@@ -69,7 +69,7 @@ import { retrieve } from './lib/retrieval.js'
 import { getGraph, graphHealth, graphSparql, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
 import { handleCapabilityRoute } from './lib/capability-routes.js'
 import { handleOAuthTokenRoute } from './lib/oauth-token-routes.js'
-import { isVoiceProvisioned, ensureVoiceSidecar, voiceFetch } from './lib/voice-runtime.js'
+import { isVoiceProvisioned, ensureVoiceSidecar, voiceFetch, provisionVoice, voiceProvisionStatus } from './lib/voice-runtime.js'
 import { runOcr } from './lib/ocr.js'
 import { getHellGraph, attachRocksDB } from '@socioprophet/hellgraph'
 import { runGremlin } from '@socioprophet/hellgraph'
@@ -7962,14 +7962,21 @@ Question: ${question}`
     const sub = url.pathname.slice('/api/voice/'.length)
     if (req.method === 'GET' && sub === 'status') {
       ;(async () => {
-        const provisioned = isVoiceProvisioned()
+        const st = voiceProvisionStatus()
         let voices: Array<{ id: string; name: string }> = []
-        if (provisioned && (await ensureVoiceSidecar())) {
+        if (st.provisioned && (await ensureVoiceSidecar())) {
           try { const j = (await (await voiceFetch('/voices')).json()) as { voices?: typeof voices }; voices = j.voices ?? [] } catch { /* sidecar warming */ }
         }
         res.writeHead(200, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ provisioned, voices }))
+        res.end(JSON.stringify({ ...st, voices }))
       })()
+      return
+    }
+    // In-app provisioning (P4.12): trigger the uv-venv + coqui-tts install in the background; poll /status.
+    if (req.method === 'POST' && sub === 'provision') {
+      const r = provisionVoice()
+      res.writeHead(r.started ? 200 : 409, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ ...r, ...voiceProvisionStatus() }))
       return
     }
     let body = ''
