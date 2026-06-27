@@ -84,12 +84,36 @@
         {
           "term": "market",
           "definition": "Institution through which buyers and sellers interact to trade goods/services. Types: perfectly competitive, monopoly, oligopoly, monopolistic competition."
+        },
+        {
+          "term": "consumer",
+          "definition": "An economic agent that purchases goods/services to maximize utility subject to a budget constraint; described by demand curves and utility maximization."
+        },
+        {
+          "term": "trade",
+          "definition": "Voluntary exchange of goods/services; international trade arises from comparative advantage and leads to gains from specialization."
+        },
+        {
+          "term": "import",
+          "definition": "Goods/services purchased from abroad; M in GDP formula. Imports increase domestic supply; net imports worsen the trade balance."
+        },
+        {
+          "term": "export",
+          "definition": "Goods/services sold abroad; X in GDP formula. Exports increase national income; net exports = X \u2212 M in the current account."
+        },
+        {
+          "term": "exchange rate",
+          "definition": "The price of one currency in terms of another; determined in FX markets. Currency appreciation makes imports cheaper and exports more expensive."
+        },
+        {
+          "term": "currency",
+          "definition": "A nation's medium of exchange issued by its central bank; acts as unit of account and store of value. Exchange rates are determined in FX markets."
         }
       ],
       "canon": [
         {
           "name": "Market equilibrium condition",
-          "form": "Q_d(P) = Q_s(P) ⟹ solve for P*",
+          "form": "Q_d(P) = Q_s(P) \u27f9 solve for P*",
           "type": "equation"
         },
         {
@@ -192,7 +216,7 @@
       "canon": [
         {
           "name": "Price elasticity of demand",
-          "form": "E_d = (ΔQ/Q) / (ΔP/P) = (ΔQ/ΔP)(P/Q)",
+          "form": "E_d = (\u0394Q/Q) / (\u0394P/P) = (\u0394Q/\u0394P)(P/Q)",
           "type": "equation"
         },
         {
@@ -202,17 +226,17 @@
         },
         {
           "name": "Income elasticity of demand",
-          "form": "YED = (%ΔQ_d) / (%ΔY)",
+          "form": "YED = (%\u0394Q_d) / (%\u0394Y)",
           "type": "equation"
         },
         {
           "name": "Cross-price elasticity",
-          "form": "XED = (%ΔQ_x) / (%ΔP_y)",
+          "form": "XED = (%\u0394Q_x) / (%\u0394P_y)",
           "type": "equation"
         },
         {
           "name": "Total revenue and elasticity",
-          "form": "TR = P × Q; if |E_d| > 1, price ↑ ⟹ TR ↓; if |E_d| < 1, price ↑ ⟹ TR ↑",
+          "form": "TR = P \u00d7 Q; if |E_d| > 1, price \u2191 \u27f9 TR \u2193; if |E_d| < 1, price \u2191 \u27f9 TR \u2191",
           "type": "principle"
         },
         {
@@ -265,7 +289,7 @@
         },
         {
           "term": "budget constraint",
-          "definition": "The set of consumption bundles affordable at given income and prices: P_x·X + P_y·Y = I."
+          "definition": "The set of consumption bundles affordable at given income and prices: P_x\u00b7X + P_y\u00b7Y = I."
         },
         {
           "term": "Marshallian demand",
@@ -285,7 +309,7 @@
         },
         {
           "term": "Slutsky equation",
-          "definition": "Decomposes the total price effect into substitution and income effects: ∂x/∂p = ∂h/∂p - x·(∂x/∂I)."
+          "definition": "Decomposes the total price effect into substitution and income effects: \u2202x/\u2202p = \u2202h/\u2202p - x\u00b7(\u2202x/\u2202I)."
         },
         {
           "term": "Giffen good",
@@ -303,37 +327,37 @@
       "canon": [
         {
           "name": "Utility maximization (tangency)",
-          "form": "MU_x/P_x = MU_y/P_y  ⟺  MRS_{xy} = P_x/P_y",
+          "form": "MU_x/P_x = MU_y/P_y  \u27fa  MRS_{xy} = P_x/P_y",
           "type": "equation"
         },
         {
           "name": "Budget constraint",
-          "form": "P_x · X + P_y · Y = I",
+          "form": "P_x \u00b7 X + P_y \u00b7 Y = I",
           "type": "equation"
         },
         {
           "name": "Lagrangian for consumer problem",
-          "form": "max U(x,y) s.t. P_x·x + P_y·y = I; ℒ = U(x,y) - λ(P_x·x + P_y·y - I)",
+          "form": "max U(x,y) s.t. P_x\u00b7x + P_y\u00b7y = I; \u2112 = U(x,y) - \u03bb(P_x\u00b7x + P_y\u00b7y - I)",
           "type": "equation"
         },
         {
           "name": "Slutsky equation",
-          "form": "∂x^m/∂p_x = ∂x^h/∂p_x - x·(∂x^m/∂I)",
+          "form": "\u2202x^m/\u2202p_x = \u2202x^h/\u2202p_x - x\u00b7(\u2202x^m/\u2202I)",
           "type": "equation"
         },
         {
           "name": "Roy's identity",
-          "form": "x_i^m(p,I) = -[∂V/∂p_i] / [∂V/∂I]",
+          "form": "x_i^m(p,I) = -[\u2202V/\u2202p_i] / [\u2202V/\u2202I]",
           "type": "equation"
         },
         {
           "name": "Shephard's lemma",
-          "form": "x_i^h(p,u) = ∂e(p,u)/∂p_i",
+          "form": "x_i^h(p,u) = \u2202e(p,u)/\u2202p_i",
           "type": "equation"
         },
         {
-          "name": "MRS for Cobb-Douglas U = x^α·y^β",
-          "form": "MRS = (αy)/(βx)",
+          "name": "MRS for Cobb-Douglas U = x^\u03b1\u00b7y^\u03b2",
+          "form": "MRS = (\u03b1y)/(\u03b2x)",
           "type": "equation"
         },
         {
@@ -343,7 +367,7 @@
         },
         {
           "name": "Expected utility (von Neumann-Morgenstern)",
-          "form": "EU = Σ π_i · U(w_i) where π_i is probability of outcome i",
+          "form": "EU = \u03a3 \u03c0_i \u00b7 U(w_i) where \u03c0_i is probability of outcome i",
           "type": "equation"
         },
         {
@@ -374,7 +398,7 @@
         },
         {
           "term": "marginal product of labor (MPL)",
-          "definition": "The additional output produced by employing one more unit of labor, holding capital constant: MPL = ∂Q/∂L."
+          "definition": "The additional output produced by employing one more unit of labor, holding capital constant: MPL = \u2202Q/\u2202L."
         },
         {
           "term": "marginal rate of technical substitution (MRTS)",
@@ -398,7 +422,7 @@
         },
         {
           "term": "marginal cost (MC)",
-          "definition": "The incremental cost of producing one more unit of output: MC = ΔTC/ΔQ = dTC/dQ."
+          "definition": "The incremental cost of producing one more unit of output: MC = \u0394TC/\u0394Q = dTC/dQ."
         },
         {
           "term": "sunk cost",
@@ -424,27 +448,27 @@
       "canon": [
         {
           "name": "Cost minimization condition",
-          "form": "MRTS = w/r  ⟺  MPL/MPK = w/r",
+          "form": "MRTS = w/r  \u27fa  MPL/MPK = w/r",
           "type": "equation"
         },
         {
           "name": "Isocost line",
-          "form": "wL + rK = C  ⟹  K = C/r - (w/r)L",
+          "form": "wL + rK = C  \u27f9  K = C/r - (w/r)L",
           "type": "equation"
         },
         {
           "name": "Cobb-Douglas production function",
-          "form": "Q = A·K^α·L^β; CRS if α+β=1, IRS if α+β>1, DRS if α+β<1",
+          "form": "Q = A\u00b7K^\u03b1\u00b7L^\u03b2; CRS if \u03b1+\u03b2=1, IRS if \u03b1+\u03b2>1, DRS if \u03b1+\u03b2<1",
           "type": "equation"
         },
         {
           "name": "Marginal product",
-          "form": "MPL = ∂Q/∂L;  MPK = ∂Q/∂K",
+          "form": "MPL = \u2202Q/\u2202L;  MPK = \u2202Q/\u2202K",
           "type": "equation"
         },
         {
           "name": "Profit maximization condition",
-          "form": "π = TR - TC;  dπ/dQ = 0  ⟹  MR = MC",
+          "form": "\u03c0 = TR - TC;  d\u03c0/dQ = 0  \u27f9  MR = MC",
           "type": "equation"
         },
         {
@@ -454,7 +478,7 @@
         },
         {
           "name": "Relationship between ATC and MC",
-          "form": "MC < ATC ⟹ ATC is falling; MC > ATC ⟹ ATC is rising; MC = ATC at minimum ATC.",
+          "form": "MC < ATC \u27f9 ATC is falling; MC > ATC \u27f9 ATC is rising; MC = ATC at minimum ATC.",
           "type": "principle"
         },
         {
@@ -464,12 +488,12 @@
         },
         {
           "name": "Shephard's lemma (cost)",
-          "form": "Conditional input demand: x_i = ∂C(w,Q)/∂w_i",
+          "form": "Conditional input demand: x_i = \u2202C(w,Q)/\u2202w_i",
           "type": "equation"
         },
         {
           "name": "Economies of scale index",
-          "form": "S = AC/MC; S>1 ⟹ economies of scale, S<1 ⟹ diseconomies",
+          "form": "S = AC/MC; S>1 \u27f9 economies of scale, S<1 \u27f9 diseconomies",
           "type": "equation"
         }
       ]
@@ -534,7 +558,7 @@
         },
         {
           "term": "Herfindahl-Hirschman Index (HHI)",
-          "definition": "A measure of market concentration: HHI = Σ s_i^2 where s_i is each firm's market share in percentage; ranges from 0 to 10,000."
+          "definition": "A measure of market concentration: HHI = \u03a3 s_i^2 where s_i is each firm's market share in percentage; ranges from 0 to 10,000."
         }
       ],
       "canon": [
@@ -545,12 +569,12 @@
         },
         {
           "name": "Short-run supply curve (competitive firm)",
-          "form": "Firm supplies Q where P = MC(Q), for P ≥ min AVC; otherwise shuts down.",
+          "form": "Firm supplies Q where P = MC(Q), for P \u2265 min AVC; otherwise shuts down.",
           "type": "principle"
         },
         {
           "name": "Zero profit condition (long-run competition)",
-          "form": "Free entry/exit drives π → 0; P = min LRAC",
+          "form": "Free entry/exit drives \u03c0 \u2192 0; P = min LRAC",
           "type": "equation"
         },
         {
@@ -677,7 +701,7 @@
         },
         {
           "name": "Samuelson rule for public goods",
-          "form": "Σ MRS_i = MRT; sum of individual marginal rates of substitution equals the marginal rate of transformation.",
+          "form": "\u03a3 MRS_i = MRT; sum of individual marginal rates of substitution equals the marginal rate of transformation.",
           "type": "equation"
         },
         {
@@ -759,7 +783,7 @@
       "canon": [
         {
           "name": "Nash equilibrium definition",
-          "form": "s* is a NE iff for all i: u_i(s_i*, s_{-i}*) ≥ u_i(s_i, s_{-i}*) for all s_i ∈ S_i",
+          "form": "s* is a NE iff for all i: u_i(s_i*, s_{-i}*) \u2265 u_i(s_i, s_{-i}*) for all s_i \u2208 S_i",
           "type": "equation"
         },
         {
@@ -784,7 +808,7 @@
         },
         {
           "name": "Grim trigger strategy (repeated games)",
-          "form": "Cooperate until opponent defects; then defect forever. Cooperation is sustained if δ ≥ (T-R)/(T-P).",
+          "form": "Cooperate until opponent defects; then defect forever. Cooperation is sustained if \u03b4 \u2265 (T-R)/(T-P).",
           "type": "principle"
         },
         {
@@ -822,7 +846,7 @@
         },
         {
           "term": "GDP deflator",
-          "definition": "A price index equal to (Nominal GDP / Real GDP) × 100; measures the overall price level of domestically produced goods."
+          "definition": "A price index equal to (Nominal GDP / Real GDP) \u00d7 100; measures the overall price level of domestically produced goods."
         },
         {
           "term": "CPI (Consumer Price Index)",
@@ -862,11 +886,23 @@
         },
         {
           "term": "unemployment",
-          "definition": "Labor force members who are jobless and actively seeking work. Rate = (unemployed/labor force) × 100. Types: frictional, structural, cyclical."
+          "definition": "Labor force members who are jobless and actively seeking work. Rate = (unemployed/labor force) \u00d7 100. Types: frictional, structural, cyclical."
         },
         {
           "term": "recession",
           "definition": "A significant decline in economic activity, typically defined as two consecutive quarters of negative real GDP growth."
+        },
+        {
+          "term": "GDP",
+          "definition": "Gross Domestic Product; the total market value of all final goods and services produced within a country in a period. GDP = C + I + G + (X\u2212M)."
+        },
+        {
+          "term": "economic growth",
+          "definition": "The increase in a country's real GDP over time; driven by capital accumulation, labor force growth, and TFP (Solow growth model)."
+        },
+        {
+          "term": "productivity",
+          "definition": "Output per unit of input; total factor productivity (TFP) is the key driver of long-run economic growth beyond capital and labor accumulation."
         }
       ],
       "canon": [
@@ -877,7 +913,7 @@
         },
         {
           "name": "National income identity (closed economy)",
-          "form": "Y = C + I + G  ⟹  S = Y - C - G = I",
+          "form": "Y = C + I + G  \u27f9  S = Y - C - G = I",
           "type": "equation"
         },
         {
@@ -887,17 +923,17 @@
         },
         {
           "name": "Real GDP calculation",
-          "form": "Real GDP = Nominal GDP / GDP Deflator × 100",
+          "form": "Real GDP = Nominal GDP / GDP Deflator \u00d7 100",
           "type": "equation"
         },
         {
           "name": "GDP deflator",
-          "form": "GDP Deflator = (Nominal GDP / Real GDP) × 100",
+          "form": "GDP Deflator = (Nominal GDP / Real GDP) \u00d7 100",
           "type": "equation"
         },
         {
           "name": "CPI inflation rate",
-          "form": "π_t = (CPI_t - CPI_{t-1}) / CPI_{t-1} × 100%",
+          "form": "\u03c0_t = (CPI_t - CPI_{t-1}) / CPI_{t-1} \u00d7 100%",
           "type": "equation"
         },
         {
@@ -976,12 +1012,12 @@
       "canon": [
         {
           "name": "Goods market equilibrium (IS)",
-          "form": "Y = C(Y-T) + I(r) + G  ⟹  IS: r = f(Y) downward sloping",
+          "form": "Y = C(Y-T) + I(r) + G  \u27f9  IS: r = f(Y) downward sloping",
           "type": "equation"
         },
         {
           "name": "Keynesian expenditure multiplier",
-          "form": "ΔY = ΔA / (1 - MPC) = k · ΔA; where k = 1/(1-MPC)",
+          "form": "\u0394Y = \u0394A / (1 - MPC) = k \u00b7 \u0394A; where k = 1/(1-MPC)",
           "type": "equation"
         },
         {
@@ -991,7 +1027,7 @@
         },
         {
           "name": "Money market equilibrium (LM)",
-          "form": "M/P = L(Y, r);  L_Y > 0, L_r < 0  ⟹  LM: r = g(Y) upward sloping",
+          "form": "M/P = L(Y, r);  L_Y > 0, L_r < 0  \u27f9  LM: r = g(Y) upward sloping",
           "type": "equation"
         },
         {
@@ -1001,22 +1037,22 @@
         },
         {
           "name": "AD curve derivation",
-          "form": "AD slopes downward: higher P → lower M/P → higher r (LM shifts left) → lower I and Y.",
+          "form": "AD slopes downward: higher P \u2192 lower M/P \u2192 higher r (LM shifts left) \u2192 lower I and Y.",
           "type": "principle"
         },
         {
           "name": "Tax multiplier",
-          "form": "ΔY = (-MPC/(1-MPC)) · ΔT; tax multiplier is negative and smaller in absolute value than spending multiplier.",
+          "form": "\u0394Y = (-MPC/(1-MPC)) \u00b7 \u0394T; tax multiplier is negative and smaller in absolute value than spending multiplier.",
           "type": "equation"
         },
         {
           "name": "Balanced budget multiplier",
-          "form": "Equal increases in G and T yield ΔY = ΔG; the balanced budget multiplier equals 1.",
+          "form": "Equal increases in G and T yield \u0394Y = \u0394G; the balanced budget multiplier equals 1.",
           "type": "principle"
         },
         {
           "name": "Long-run self-correction",
-          "form": "In ADAS model, a recessionary gap → falling wages → SRAS shifts right → Y returns to Y_n; no permanent output gap in long run.",
+          "form": "In ADAS model, a recessionary gap \u2192 falling wages \u2192 SRAS shifts right \u2192 Y returns to Y_n; no permanent output gap in long run.",
           "type": "principle"
         }
       ]
@@ -1066,7 +1102,7 @@
         },
         {
           "term": "real interest rate",
-          "definition": "The nominal interest rate minus the inflation rate (or expected inflation): r ≈ i - π."
+          "definition": "The nominal interest rate minus the inflation rate (or expected inflation): r \u2248 i - \u03c0."
         },
         {
           "term": "quantity theory of money",
@@ -1078,7 +1114,7 @@
         },
         {
           "term": "Taylor rule",
-          "definition": "A monetary policy guideline: i = r* + π + α(π - π*) + β(Y - Y*); the central bank raises interest rates when inflation exceeds target or output exceeds potential."
+          "definition": "A monetary policy guideline: i = r* + \u03c0 + \u03b1(\u03c0 - \u03c0*) + \u03b2(Y - Y*); the central bank raises interest rates when inflation exceeds target or output exceeds potential."
         },
         {
           "term": "velocity of money",
@@ -1096,17 +1132,17 @@
       "canon": [
         {
           "name": "Quantity equation",
-          "form": "M·V = P·Y  (MV = PQ)",
+          "form": "M\u00b7V = P\u00b7Y  (MV = PQ)",
           "type": "equation"
         },
         {
           "name": "Quantity theory of inflation",
-          "form": "π = ΔM/M - ΔY/Y (assuming constant V)",
+          "form": "\u03c0 = \u0394M/M - \u0394Y/Y (assuming constant V)",
           "type": "equation"
         },
         {
           "name": "Fisher equation",
-          "form": "i = r + π^e  (nominal rate = real rate + expected inflation)",
+          "form": "i = r + \u03c0^e  (nominal rate = real rate + expected inflation)",
           "type": "equation"
         },
         {
@@ -1116,7 +1152,7 @@
         },
         {
           "name": "Money multiplier (simple)",
-          "form": "ΔDeposits = (1/rr) · ΔReserves;  m = 1/rr",
+          "form": "\u0394Deposits = (1/rr) \u00b7 \u0394Reserves;  m = 1/rr",
           "type": "equation"
         },
         {
@@ -1126,17 +1162,17 @@
         },
         {
           "name": "Taylor rule",
-          "form": "i = r* + π + 0.5(π - π*) + 0.5(Y - Y*)/Y*",
+          "form": "i = r* + \u03c0 + 0.5(\u03c0 - \u03c0*) + 0.5(Y - Y*)/Y*",
           "type": "equation"
         },
         {
           "name": "Seigniorage",
-          "form": "Seigniorage = (ΔM/P) = (ΔM/M)·(M/P) = π·(M/P) in steady state",
+          "form": "Seigniorage = (\u0394M/P) = (\u0394M/M)\u00b7(M/P) = \u03c0\u00b7(M/P) in steady state",
           "type": "equation"
         },
         {
           "name": "Hyperinflation mechanism",
-          "form": "Large fiscal deficits monetized by central bank → rapid money growth → accelerating inflation → reduced real money demand → further price increases (Sargent-Wallace).",
+          "form": "Large fiscal deficits monetized by central bank \u2192 rapid money growth \u2192 accelerating inflation \u2192 reduced real money demand \u2192 further price increases (Sargent-Wallace).",
           "type": "principle"
         }
       ]
@@ -1158,7 +1194,7 @@
       "glossary": [
         {
           "term": "unemployment rate",
-          "definition": "The percentage of the labor force that is not employed but actively seeking work: u = U/(U+E) × 100%."
+          "definition": "The percentage of the labor force that is not employed but actively seeking work: u = U/(U+E) \u00d7 100%."
         },
         {
           "term": "labor force",
@@ -1214,22 +1250,22 @@
         },
         {
           "name": "Okun's law",
-          "form": "ΔY/Y ≈ -2 × Δu  (or: Y - Y* ≈ -2(u - u*))",
+          "form": "\u0394Y/Y \u2248 -2 \u00d7 \u0394u  (or: Y - Y* \u2248 -2(u - u*))",
           "type": "equation"
         },
         {
           "name": "Short-run Phillips curve",
-          "form": "π = π^e - α(u - u*);  inflation rises when u < u*",
+          "form": "\u03c0 = \u03c0^e - \u03b1(u - u*);  inflation rises when u < u*",
           "type": "equation"
         },
         {
           "name": "Expectations-augmented Phillips curve",
-          "form": "π = π^e + β(Y - Y*) - α(u - u*);  adaptive expectations: π^e = π_{t-1}",
+          "form": "\u03c0 = \u03c0^e + \u03b2(Y - Y*) - \u03b1(u - u*);  adaptive expectations: \u03c0^e = \u03c0_{t-1}",
           "type": "equation"
         },
         {
           "name": "Long-run Phillips curve",
-          "form": "Vertical at u = u* (NAIRU); in long run, expected inflation = actual inflation, no trade-off between π and u.",
+          "form": "Vertical at u = u* (NAIRU); in long run, expected inflation = actual inflation, no trade-off between \u03c0 and u.",
           "type": "principle"
         },
         {
@@ -1272,15 +1308,15 @@
         },
         {
           "term": "depreciation",
-          "definition": "The rate at which capital wears out or becomes obsolete, typically denoted δ."
+          "definition": "The rate at which capital wears out or becomes obsolete, typically denoted \u03b4."
         },
         {
           "term": "golden rule capital stock",
-          "definition": "The steady-state capital-per-worker level that maximizes consumption per worker: MPK = δ + n + g."
+          "definition": "The steady-state capital-per-worker level that maximizes consumption per worker: MPK = \u03b4 + n + g."
         },
         {
           "term": "total factor productivity (TFP)",
-          "definition": "The portion of output growth not explained by input growth; a measure of technological efficiency: A in Y = A·F(K,L)."
+          "definition": "The portion of output growth not explained by input growth; a measure of technological efficiency: A in Y = A\u00b7F(K,L)."
         },
         {
           "term": "Solow residual",
@@ -1296,38 +1332,38 @@
         },
         {
           "term": "growth accounting",
-          "definition": "A technique decomposing output growth into contributions from capital, labor, and TFP: ΔY/Y = α·ΔK/K + (1-α)·ΔL/L + ΔA/A."
+          "definition": "A technique decomposing output growth into contributions from capital, labor, and TFP: \u0394Y/Y = \u03b1\u00b7\u0394K/K + (1-\u03b1)\u00b7\u0394L/L + \u0394A/A."
         }
       ],
       "canon": [
         {
           "name": "Solow production function (intensive form)",
-          "form": "y = f(k) = A·k^α  (Cobb-Douglas); where y = Y/L, k = K/L",
+          "form": "y = f(k) = A\u00b7k^\u03b1  (Cobb-Douglas); where y = Y/L, k = K/L",
           "type": "equation"
         },
         {
           "name": "Capital accumulation equation",
-          "form": "Δk = s·f(k) - (δ + n + g)·k",
+          "form": "\u0394k = s\u00b7f(k) - (\u03b4 + n + g)\u00b7k",
           "type": "equation"
         },
         {
           "name": "Steady-state condition",
-          "form": "s·f(k*) = (δ + n + g)·k*  ⟹  k* is the steady-state capital per effective worker",
+          "form": "s\u00b7f(k*) = (\u03b4 + n + g)\u00b7k*  \u27f9  k* is the steady-state capital per effective worker",
           "type": "equation"
         },
         {
           "name": "Steady-state output per worker (Cobb-Douglas)",
-          "form": "k* = (s/(δ+n+g))^{1/(1-α)};  y* = A·(k*)^α",
+          "form": "k* = (s/(\u03b4+n+g))^{1/(1-\u03b1)};  y* = A\u00b7(k*)^\u03b1",
           "type": "equation"
         },
         {
           "name": "Golden rule condition",
-          "form": "MPK = δ + n + g  ⟺  α·f(k_GR)/k_GR = δ + n + g",
+          "form": "MPK = \u03b4 + n + g  \u27fa  \u03b1\u00b7f(k_GR)/k_GR = \u03b4 + n + g",
           "type": "equation"
         },
         {
           "name": "Growth accounting (Solow residual)",
-          "form": "ΔA/A = ΔY/Y - α·ΔK/K - (1-α)·ΔL/L",
+          "form": "\u0394A/A = \u0394Y/Y - \u03b1\u00b7\u0394K/K - (1-\u03b1)\u00b7\u0394L/L",
           "type": "equation"
         },
         {
@@ -1337,12 +1373,12 @@
         },
         {
           "name": "Convergence prediction",
-          "form": "Economies with lower k relative to k* grow faster; speed of convergence ≈ (1-α)(δ+n+g).",
+          "form": "Economies with lower k relative to k* grow faster; speed of convergence \u2248 (1-\u03b1)(\u03b4+n+g).",
           "type": "principle"
         },
         {
           "name": "AK (endogenous) growth model",
-          "form": "Y = AK; constant MPK → no diminishing returns → sustained growth without exogenous TFP.",
+          "form": "Y = AK; constant MPK \u2192 no diminishing returns \u2192 sustained growth without exogenous TFP.",
           "type": "equation"
         }
       ]
@@ -1376,7 +1412,7 @@
         },
         {
           "term": "government budget constraint",
-          "definition": "G - T = ΔB + ΔM; the government deficit must be financed by issuing bonds or money."
+          "definition": "G - T = \u0394B + \u0394M; the government deficit must be financed by issuing bonds or money."
         },
         {
           "term": "primary deficit",
@@ -1417,42 +1453,46 @@
         {
           "term": "aggregate supply",
           "definition": "Total output all producers are willing to supply at various price levels. Short-run AS slopes upward; long-run AS is vertical (at potential output)."
+        },
+        {
+          "term": "tax",
+          "definition": "A compulsory payment to government used to finance public spending; types include income, corporate, and VAT taxes. Tax cuts increase disposable income and aggregate demand."
         }
       ],
       "canon": [
         {
           "name": "Government budget constraint",
-          "form": "G + r·B = T + ΔB + ΔM/P  (spending + interest = revenue + bond issuance + seigniorage)",
+          "form": "G + r\u00b7B = T + \u0394B + \u0394M/P  (spending + interest = revenue + bond issuance + seigniorage)",
           "type": "equation"
         },
         {
           "name": "Debt-to-GDP dynamics",
-          "form": "Δ(B/Y) = (G-T)/Y + (r-g)·(B/Y);  debt ratio rises if r > g and primary deficit > 0",
+          "form": "\u0394(B/Y) = (G-T)/Y + (r-g)\u00b7(B/Y);  debt ratio rises if r > g and primary deficit > 0",
           "type": "equation"
         },
         {
           "name": "Fiscal multiplier (closed economy, simple)",
-          "form": "ΔY = ΔG/(1-MPC);  or  ΔY = (-MPC/(1-MPC))·ΔT",
+          "form": "\u0394Y = \u0394G/(1-MPC);  or  \u0394Y = (-MPC/(1-MPC))\u00b7\u0394T",
           "type": "equation"
         },
         {
           "name": "Ricardian equivalence condition",
-          "form": "If consumers are forward-looking and face perfect capital markets, a bond-financed tax cut does not affect consumption: ΔC = 0.",
+          "form": "If consumers are forward-looking and face perfect capital markets, a bond-financed tax cut does not affect consumption: \u0394C = 0.",
           "type": "principle"
         },
         {
           "name": "Taylor rule",
-          "form": "i_t = r* + π_t + α(π_t - π*) + β(Y_t - Y_t*)/Y_t*;  typically α=0.5, β=0.5",
+          "form": "i_t = r* + \u03c0_t + \u03b1(\u03c0_t - \u03c0*) + \u03b2(Y_t - Y_t*)/Y_t*;  typically \u03b1=0.5, \u03b2=0.5",
           "type": "equation"
         },
         {
           "name": "Monetary policy transmission channels",
-          "form": "Interest rate channel → investment; credit channel → bank lending; exchange rate channel → net exports; asset price channel → wealth/consumption.",
+          "form": "Interest rate channel \u2192 investment; credit channel \u2192 bank lending; exchange rate channel \u2192 net exports; asset price channel \u2192 wealth/consumption.",
           "type": "principle"
         },
         {
           "name": "Zero lower bound constraint",
-          "form": "i ≥ 0; when i = 0, conventional monetary policy loses effectiveness; QE, forward guidance, and negative rates are alternatives.",
+          "form": "i \u2265 0; when i = 0, conventional monetary policy loses effectiveness; QE, forward guidance, and negative rates are alternatives.",
           "type": "principle"
         },
         {
@@ -1469,7 +1509,7 @@
         "Simple and multiple linear regression",
         "OLS estimation and properties",
         "Gauss-Markov theorem and BLUE",
-        "Measures of fit: R², adjusted R²",
+        "Measures of fit: R\u00b2, adjusted R\u00b2",
         "Hypothesis testing: t-test and F-test",
         "Confidence intervals",
         "Omitted variable bias",
@@ -1484,24 +1524,24 @@
           "definition": "A method of estimating regression coefficients by minimizing the sum of squared residuals."
         },
         {
-          "term": "regression coefficient (β)",
+          "term": "regression coefficient (\u03b2)",
           "definition": "The estimated change in the dependent variable associated with a one-unit increase in an independent variable, holding other variables constant."
         },
         {
           "term": "residual",
-          "definition": "The difference between the observed and fitted value of the dependent variable: e_i = y_i - ŷ_i."
+          "definition": "The difference between the observed and fitted value of the dependent variable: e_i = y_i - \u0177_i."
         },
         {
-          "term": "R² (coefficient of determination)",
-          "definition": "The proportion of variance in the dependent variable explained by the regression: R² = 1 - SSR/SST; ranges from 0 to 1."
+          "term": "R\u00b2 (coefficient of determination)",
+          "definition": "The proportion of variance in the dependent variable explained by the regression: R\u00b2 = 1 - SSR/SST; ranges from 0 to 1."
         },
         {
-          "term": "adjusted R²",
-          "definition": "R² adjusted for the number of regressors: R̄² = 1 - [(1-R²)(n-1)/(n-k-1)]; penalizes for additional variables."
+          "term": "adjusted R\u00b2",
+          "definition": "R\u00b2 adjusted for the number of regressors: R\u0304\u00b2 = 1 - [(1-R\u00b2)(n-1)/(n-k-1)]; penalizes for additional variables."
         },
         {
           "term": "t-statistic",
-          "definition": "The ratio of an estimated coefficient to its standard error: t = β̂/SE(β̂); used to test whether a coefficient is statistically different from a hypothesized value."
+          "definition": "The ratio of an estimated coefficient to its standard error: t = \u03b2\u0302/SE(\u03b2\u0302); used to test whether a coefficient is statistically different from a hypothesized value."
         },
         {
           "term": "F-statistic",
@@ -1535,27 +1575,27 @@
       "canon": [
         {
           "name": "OLS estimator (simple regression)",
-          "form": "β̂_1 = Σ(x_i - x̄)(y_i - ȳ) / Σ(x_i - x̄)²  =  Cov(x,y)/Var(x)",
+          "form": "\u03b2\u0302_1 = \u03a3(x_i - x\u0304)(y_i - \u0233) / \u03a3(x_i - x\u0304)\u00b2  =  Cov(x,y)/Var(x)",
           "type": "equation"
         },
         {
           "name": "OLS estimator (matrix form)",
-          "form": "β̂ = (X'X)^{-1} X'y",
+          "form": "\u03b2\u0302 = (X'X)^{-1} X'y",
           "type": "equation"
         },
         {
           "name": "Decomposition of variance",
-          "form": "SST = SSE + SSR;  R² = SSE/SST = 1 - SSR/SST",
+          "form": "SST = SSE + SSR;  R\u00b2 = SSE/SST = 1 - SSR/SST",
           "type": "equation"
         },
         {
           "name": "t-test for a coefficient",
-          "form": "H_0: β_k = 0;  t = β̂_k / SE(β̂_k) ~ t_{n-k-1} under H_0",
+          "form": "H_0: \u03b2_k = 0;  t = \u03b2\u0302_k / SE(\u03b2\u0302_k) ~ t_{n-k-1} under H_0",
           "type": "equation"
         },
         {
           "name": "Confidence interval for coefficient",
-          "form": "[β̂ - t_{α/2} · SE(β̂),  β̂ + t_{α/2} · SE(β̂)]",
+          "form": "[\u03b2\u0302 - t_{\u03b1/2} \u00b7 SE(\u03b2\u0302),  \u03b2\u0302 + t_{\u03b1/2} \u00b7 SE(\u03b2\u0302)]",
           "type": "equation"
         },
         {
@@ -1565,7 +1605,7 @@
         },
         {
           "name": "Omitted variable bias formula",
-          "form": "plim(β̂_1) = β_1 + β_2·δ_{21}; where δ_{21} = Cov(x_2,x_1)/Var(x_1) (from auxiliary regression x_2 on x_1)",
+          "form": "plim(\u03b2\u0302_1) = \u03b2_1 + \u03b2_2\u00b7\u03b4_{21}; where \u03b4_{21} = Cov(x_2,x_1)/Var(x_1) (from auxiliary regression x_2 on x_1)",
           "type": "equation"
         },
         {
@@ -1575,17 +1615,17 @@
         },
         {
           "name": "White's heteroskedasticity-consistent SE",
-          "form": "Use robust standard errors: V̂(β̂) = (X'X)^{-1}(Σ ê_i²·x_i·x_i')(X'X)^{-1} when Var(u_i|x_i) ≠ σ².",
+          "form": "Use robust standard errors: V\u0302(\u03b2\u0302) = (X'X)^{-1}(\u03a3 \u00ea_i\u00b2\u00b7x_i\u00b7x_i')(X'X)^{-1} when Var(u_i|x_i) \u2260 \u03c3\u00b2.",
           "type": "equation"
         },
         {
           "name": "Log-log interpretation",
-          "form": "ln(y) = β_0 + β_1·ln(x): β_1 is the elasticity of y with respect to x.",
+          "form": "ln(y) = \u03b2_0 + \u03b2_1\u00b7ln(x): \u03b2_1 is the elasticity of y with respect to x.",
           "type": "principle"
         },
         {
           "name": "Log-linear interpretation",
-          "form": "ln(y) = β_0 + β_1·x: β_1 × 100 is the approximate % change in y per unit change in x.",
+          "form": "ln(y) = \u03b2_0 + \u03b2_1\u00b7x: \u03b2_1 \u00d7 100 is the approximate % change in y per unit change in x.",
           "type": "principle"
         }
       ]
@@ -1644,7 +1684,7 @@
         },
         {
           "term": "LATE (Local Average Treatment Effect)",
-          "definition": "The average treatment effect for compliers — units whose treatment status is changed by the instrument; the IV estimand under heterogeneous treatment effects."
+          "definition": "The average treatment effect for compliers \u2014 units whose treatment status is changed by the instrument; the IV estimand under heterogeneous treatment effects."
         },
         {
           "term": "complier",
@@ -1662,42 +1702,42 @@
       "canon": [
         {
           "name": "IV estimator (just-identified)",
-          "form": "β̂_IV = (Z'X)^{-1}Z'y  =  Cov(Z,Y)/Cov(Z,X)",
+          "form": "\u03b2\u0302_IV = (Z'X)^{-1}Z'y  =  Cov(Z,Y)/Cov(Z,X)",
           "type": "equation"
         },
         {
           "name": "2SLS procedure",
-          "form": "Stage 1: X̂ = Z(Z'Z)^{-1}Z'X;  Stage 2: β̂_2SLS = (X̂'X)^{-1}X̂'y",
+          "form": "Stage 1: X\u0302 = Z(Z'Z)^{-1}Z'X;  Stage 2: \u03b2\u0302_2SLS = (X\u0302'X)^{-1}X\u0302'y",
           "type": "equation"
         },
         {
           "name": "IV consistency condition",
-          "form": "Cov(Z, u) = 0 (exclusion) and Cov(Z, X) ≠ 0 (relevance)",
+          "form": "Cov(Z, u) = 0 (exclusion) and Cov(Z, X) \u2260 0 (relevance)",
           "type": "principle"
         },
         {
           "name": "DiD estimator",
-          "form": "β_DiD = (Ȳ_{treat,post} - Ȳ_{treat,pre}) - (Ȳ_{control,post} - Ȳ_{control,pre})",
+          "form": "\u03b2_DiD = (\u0232_{treat,post} - \u0232_{treat,pre}) - (\u0232_{control,post} - \u0232_{control,pre})",
           "type": "equation"
         },
         {
           "name": "DiD regression form",
-          "form": "Y_{it} = α + β·Treat_i + γ·Post_t + δ·(Treat_i × Post_t) + ε_{it};  δ = DiD estimate",
+          "form": "Y_{it} = \u03b1 + \u03b2\u00b7Treat_i + \u03b3\u00b7Post_t + \u03b4\u00b7(Treat_i \u00d7 Post_t) + \u03b5_{it};  \u03b4 = DiD estimate",
           "type": "equation"
         },
         {
           "name": "Sharp RDD estimand",
-          "form": "τ_RDD = lim_{x→c+} E[Y|X=x] - lim_{x→c-} E[Y|X=x];  discontinuity in E[Y|X] at cutoff c",
+          "form": "\u03c4_RDD = lim_{x\u2192c+} E[Y|X=x] - lim_{x\u2192c-} E[Y|X=x];  discontinuity in E[Y|X] at cutoff c",
           "type": "equation"
         },
         {
           "name": "Fixed effects estimator (within)",
-          "form": "β̂_FE = (X̃'X̃)^{-1}X̃'Ỹ  where X̃_{it} = X_{it} - X̄_i (within-group demeaning)",
+          "form": "\u03b2\u0302_FE = (X\u0303'X\u0303)^{-1}X\u0303'\u1ef8  where X\u0303_{it} = X_{it} - X\u0304_i (within-group demeaning)",
           "type": "equation"
         },
         {
           "name": "Hausman test statistic",
-          "form": "H = (β̂_FE - β̂_RE)'[Var(β̂_FE) - Var(β̂_RE)]^{-1}(β̂_FE - β̂_RE) ~ χ²_k under H_0 (RE consistent)",
+          "form": "H = (\u03b2\u0302_FE - \u03b2\u0302_RE)'[Var(\u03b2\u0302_FE) - Var(\u03b2\u0302_RE)]^{-1}(\u03b2\u0302_FE - \u03b2\u0302_RE) ~ \u03c7\u00b2_k under H_0 (RE consistent)",
           "type": "equation"
         },
         {
@@ -1712,7 +1752,7 @@
         },
         {
           "name": "Wald estimator (binary instrument)",
-          "form": "β̂_IV = [E(Y|Z=1) - E(Y|Z=0)] / [E(X|Z=1) - E(X|Z=0)]",
+          "form": "\u03b2\u0302_IV = [E(Y|Z=1) - E(Y|Z=0)] / [E(X|Z=1) - E(X|Z=0)]",
           "type": "equation"
         }
       ]
