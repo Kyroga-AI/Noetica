@@ -4299,11 +4299,12 @@ const server = http.createServer((req, res) => {
     return
   }
 
-  // Drive-by CSRF / DNS-rebinding guard. CORS '*' + simple (no-preflight) POSTs let any web page the
-  // user visits POST to this loopback server and trigger side effects (run_command → RCE, ingest →
-  // file read); CORS only hides the RESPONSE, not the WRITE. Reject mutating requests bearing a
-  // cross-site Origin. Native/CLI callers send no Origin; the local UI (localhost/tauri/127.0.0.1, any
-  // port) is allowlisted. GETs are unaffected. Escape hatch: NOETICA_ORIGIN_GUARD=0.
+  // Drive-by CSRF / DNS-rebinding guard. CORS '*' lets any web page the user visits talk to this loopback
+  // server: a POST triggers side effects (run_command → RCE, ingest → file read), and a GET can READ back
+  // the user's data (e.g. /api/library, /api/graph/*) since CORS '*' exposes the response. So we reject ANY
+  // request that carries a cross-site Origin — reads included. Native/CLI callers + top-level navigations send
+  // no Origin (allowed); the local UI (localhost/tauri/127.0.0.1, any port) is allowlisted. Escape hatch:
+  // NOETICA_ORIGIN_GUARD=0.
   if (process.env['NOETICA_ORIGIN_GUARD'] !== '0') {
     const oh = req.headers['origin']
     const origin = Array.isArray(oh) ? oh[0] : oh
