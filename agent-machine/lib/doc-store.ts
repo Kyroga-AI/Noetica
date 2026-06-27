@@ -241,12 +241,19 @@ export function lexicalSearch(query: string, k = 15): ChunkHit[] {
  * field's #1 RAG complaint) using signals Noetica already has. Returns reranked chunks; callers
  * inject `text` and surface `citation` as provenance.
  */
-export async function searchDocsReranked(query: string, limit = 8): Promise<import('./rag-rerank.js').RankedChunk[]> {
+export async function searchDocsReranked(query: string, limit = 8, opts: { relevanceQuery?: string } = {}): Promise<import('./rag-rerank.js').RankedChunk[]> {
   const { fuseRerank } = await import('./rag-rerank.js')
-  const [semantic, lexical] = await Promise.all([
-    tierSemanticSearch(query, Math.max(limit, 8)),
-    Promise.resolve(lexicalSearch(query, Math.max(limit * 2, 16))),
-  ])
+  const semantic = await tierSemanticSearch(query, Math.max(limit, 8))
+  // RELEVANCE GATE: if even the best chunk isn't semantically close, the docs don't cover this query — return
+  // nothing so the model answers from its own knowledge instead of parroting off-topic passages. Fixes the
+  // "who was the first president → quotes a business doc" derail. Gate on the RAW user query (relevanceQuery)
+  // because `query` may be glossary-EXPANDED (raw + domain terms), which inflates similarity to in-corpus docs
+  // and would let an off-topic question slip through. Measured: on-topic ≈0.68-0.71, off-topic ≈0.52-0.56.
+  const floor = Number(process.env['NOETICA_DOC_RELEVANCE_FLOOR'] ?? '0.62')
+  const gateHits = opts.relevanceQuery && opts.relevanceQuery !== query ? await tierSemanticSearch(opts.relevanceQuery, 3) : semantic
+  const topSemantic = gateHits.reduce((m, h) => Math.max(m, h.score), 0)
+  if (gateHits.length > 0 && topSemantic < floor) return []
+  const lexical = lexicalSearch(query, Math.max(limit * 2, 16))
   return fuseRerank(semantic, lexical, query, { limit })
 }
 

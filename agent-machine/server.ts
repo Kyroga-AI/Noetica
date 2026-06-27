@@ -3001,7 +3001,13 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     // hits — so a weak lexical match ("Australia") still injects software passages that qwen3 then anchors
     // on and REFUSES the question ("not in the provided documents"). General knowledge comes from the
     // model itself; memory-centric intents (self_identity, preferences_memory, plan_nextsteps, …) still get it.
-    if (retrieved.text.trim() && intentPlan.name !== 'general') {
+    // Inject the HellGraph memory ONLY for genuinely memory-centric intents (episodic/preferences/self/status) —
+    // NOT for general-knowledge or research lookups ("who was the first president" → research_lookup), where the
+    // graph dump derails the model into parroting unrelated atoms. The graph is dominated by doc/dev exhaust, so
+    // a weak lexical hit otherwise injects business content into a world-knowledge question. (Doc-RAG below has
+    // its own relevance gate.)
+    const MEMORY_RETRIEVAL = new Set(['episodic', 'memory-write', 'self-model', 'status'])
+    if (retrieved.text.trim() && MEMORY_RETRIEVAL.has(intentPlan.retrieval)) {
       // INDIRECT-INJECTION DEFENSE: graph atoms can be poisoned by ingested content too — sanitize before
       // the memory context reaches the prompt (parity with the doc-RAG path below).
       const { sanitizeRetrieved } = await import('./lib/rag-trust.js')
@@ -3059,7 +3065,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       // Core docs in the same store would otherwise surface as strict "uploaded sources" and make the model
       // refuse general knowledge (the self-doc refusal bug). Scoping keeps collections separate from core.
       const { isUserDoc: _isUserDoc } = await import('./lib/doc-scope.js')
-      const hits = (await searchDocsReranked(ragQuery, topK)).filter((h) => _isUserDoc(h.filename))
+      const hits = (await searchDocsReranked(ragQuery, topK, { relevanceQuery: latestUserContent })).filter((h) => _isUserDoc(h.filename))
       if (hits.length > 0) {
         docHitCount = hits.length
         // INDIRECT-INJECTION DEFENSE (PoisonedRAG): retrieved document text is UNTRUSTED — a malicious
@@ -3242,7 +3248,11 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // region expands with use: each generated answer crystallizes, so it recalls next time.
   // Skip when an image is attached — the user wants the model to LOOK at the image, not
   // reuse a cached text answer (vision must reach the model, not a recall short-circuit).
-  if (isFlagOn('NOETICA_LOGIC_FIRST') && !hasImages) {
+  // Skip recall for doc/research intents (vector-rag / web+vector): their answers depend on CURRENT docs and must
+  // re-run through the relevance-gated retrieval, not be served from a crystallized cache — otherwise an earlier
+  // derailed extractive answer (e.g. "who was the first president" → a business doc) is replayed forever, shadowing
+  // every retrieval fix. Recall still serves decidable/stable answers (math, logic, self-identity, status).
+  if (isFlagOn('NOETICA_LOGIC_FIRST') && !hasImages && !wantsVectorRag(intentPlan.retrieval)) {
     try {
       const { recallArtifact } = await import('./lib/crystallize.js')
       const hit = recallArtifact(latestUserContent)
@@ -3285,7 +3295,10 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // extractor returns null safely (cannot fabricate) when nothing lexically matches.
   // …but NOT when an image is attached: a screenshot + "how would you improve this?" must go
   // to the vision model, not be answered by extracting sentences from an unrelated doc.
-  if (isFlagOn('NOETICA_EXTRACTIVE') && wantsVectorRag(intentPlan.retrieval) && hasDoc && !hasImages) {
+  // Gate on docHits (the relevance-gated semantic result): if the docs aren't on-topic, DON'T extract — the
+  // extractive pool below is lexical-only and would otherwise surface "first"→"Australia first" for a general
+  // query like "who was the first president". docHits non-empty means the query passed the semantic relevance gate.
+  if (isFlagOn('NOETICA_EXTRACTIVE') && wantsVectorRag(intentPlan.retrieval) && hasDoc && !hasImages && docHits.length > 0) {
     try {
       const { extractiveAnswer } = await import('./lib/extractive-qa.js')
       // Extraction scans a WIDER lexical pool (term-matched, reliable for entity Qs)
