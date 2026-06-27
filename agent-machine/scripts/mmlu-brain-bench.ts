@@ -167,6 +167,12 @@ function cleanText(s: string): string {
   return s
     .replace(/\uFFFD/g, ' ')                                  // failed-glyph replacement char
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '') // control chars (keep tab/nl/cr)
+    // OCW page-footer boilerplate: "MIT OCW: 18.703 Modern Algebra", the "Prof. <Name>" attribution line,
+    // and standalone page-number lines — pure noise the small model latches onto instead of the math.
+    // Strip from what we INJECT (the stored embedding is unaffected).
+    .replace(/\bMIT\s*OCW:[^\n]*/gi, '')
+    .replace(/^[ \t]*Prof(?:essor)?\.?\s+[A-Z][A-Za-z.'-]*(?:\s+[A-Z][A-Za-z.'-]*){0,2}[ \t]*$/gim, '')
+    .replace(/^[ \t]*\d{1,3}[ \t]*$/gm, '')                    // standalone page numbers
     .replace(/[ \t]+/g, ' ')                                   // collapse spaces/tabs
     .replace(/ *\n[ \n]*/g, '\n')                              // collapse blank lines
     .trim()
