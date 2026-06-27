@@ -229,7 +229,6 @@ function loadHead(): string {
 }
 function appendChained(record: Record<string, unknown>): void {
   fs.mkdirSync(path.dirname(EVENTS_PATH), { recursive: true })
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { hashRecord } = require('./audit-chain.js') as typeof import('./audit-chain.js')
   const prevHash = loadHead()
   // Encrypt the record at rest, then chain the hash over the CIPHERTEXT unit `{ enc }` — so the audit trail is
