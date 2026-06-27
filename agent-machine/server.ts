@@ -280,6 +280,22 @@ async function analyticsForGraph(refresh = false): Promise<{ analytics: import('
   return { analytics, sig, labelOf }
 }
 
+// Build an ActionContext + run a typed action (the kinetic-ontology executor). Shared by the /api/actions/execute
+// endpoint and the execute_action agent tool. Resolves an entity ref (display label OR node id) to a node id.
+async function runAction(name: string, params: Record<string, unknown>): Promise<import('./lib/action-plane.js').ActionResult> {
+  const { executeAction } = await import('./lib/action-plane.js')
+  const g = getHellGraph()
+  const graph = g as unknown as { getNode: (id: string) => { properties?: Record<string, unknown> } | undefined; setNodeProperty: (id: string, k: string, v: string) => void }
+  const resolveEntity = async (ref: string): Promise<string | null> => {
+    if (!ref) return null
+    if (g.getNode(ref)) return ref
+    const { analytics, labelOf } = await analyticsForGraph(false)
+    for (const id of Object.keys(analytics.nodes)) { if (labelOf(id) === ref) return id }
+    return null
+  }
+  return executeAction(name, params, { graph, resolveEntity, now: new Date().toISOString() })
+}
+
 // ── Dreaming: offline generative consolidation (SCM REM-phase / "dreaming") ────────────────────────────────
 // During idle, random-walk over high-PageRank seed concepts to surface candidate ASSOCIATIONS — concept pairs
 // that co-occur on walks but aren't directly linked. Honors the GAIA invariant: dreamed edges are written as
@@ -1062,6 +1078,18 @@ const BUILTIN_TOOLS: ProviderTool[] = [
     },
   },
   {
+    name: 'execute_action',
+    description: "Execute a typed graph Action (the kinetic ontology) — e.g. record a stewardship decision (assign a keeper, acknowledge an abandonment signal). Pass the action name + its params object. Capability-gated + audited. Available actions: steward_entity.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', description: 'Action name, e.g. steward_entity' },
+        params: { type: 'object', description: "The action's parameters (e.g. { entity, keeper, resolveSignals })" },
+      },
+      required: ['action'],
+    },
+  },
+  {
     name: 'write_file',
     description: 'Write text content to a local file. Creates parent directories as needed.',
     input_schema: {
@@ -1636,6 +1664,14 @@ async function executeTool(
         return hits.map((h) => `${h.kind} ${h.name} — ${h.rel}:${h.line}`).join('\n')
       } catch (e) {
         return `Error searching symbols: ${(e as Error).message}`
+      }
+    }
+    case 'execute_action': {
+      try {
+        const r = await runAction(String(input['action'] ?? ''), (input['params'] as Record<string, unknown>) ?? {})
+        return r.ok ? r.summary : `Error: ${r.error ?? 'action failed'}`
+      } catch (e) {
+        return `Error executing action: ${(e as Error).message}`
       }
     }
     case 'write_file': {
@@ -7497,6 +7533,37 @@ Question: ${question}`
         const gw = g as unknown as { getNode: (id: string) => { properties?: Record<string, unknown> } | undefined; setNodeProperty: (id: string, k: string, v: string) => void }
         const state = applyStewardship(gw, nodeId, { keeper: d.keeper, successor: d.successor, phaseOverride, resolveSignals, note: d.note }, new Date().toISOString())
         res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ entity: d.entity, nodeId, stewardship: state }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })())
+    return
+  }
+
+  // GET /api/actions — list the typed ActionTypes (the kinetic-ontology surface). POST /api/actions/execute runs one
+  // (validated, capability-tagged, audited) — the generalization of the single hardcoded stewardship write-back.
+  if (req.method === 'GET' && url.pathname === '/api/actions') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { listActions } = await import('./lib/action-plane.js')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ actions: listActions() }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+  if (req.method === 'POST' && url.pathname === '/api/actions/execute') {
+    setCORSHeaders(res)
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => void (async () => {
+      try {
+        const d = JSON.parse(body || '{}') as { action?: string; params?: Record<string, unknown> }
+        if (!d.action) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'action required' })); return }
+        const result = await runAction(d.action, d.params ?? {})
+        res.writeHead(result.ok ? 200 : 400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ action: d.action, result }))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
