@@ -2447,6 +2447,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   if (lifeDomain.needsWeb && intentPlan.name === 'everyday' && !intentPlan.tools.includes('web_search')) {
     intentPlan = { ...intentPlan, tools: [...intentPlan.tools, 'web_search'] } // travel/local → allow fresh info
   }
+  // Image generation is a real built-in (DALL·E via the user's OpenAI key) but no intent lists it, so it was
+  // never offered. Add it dynamically when the user clearly wants an image; the imageGenAvailable gate (no key →
+  // dropped) still applies downstream, so this is a no-op without a key.
+  if (!intentPlan.tools.includes('generate_image') && /\b(draw|generate|create|make|design|render)\s+(me\s+)?(a|an|some|the)?\s*(image|picture|pic|logo|illustration|icon|art(work)?|graphic|drawing|painting|poster|avatar)\b/i.test(latestUserContent)) {
+    intentPlan = { ...intentPlan, tools: [...intentPlan.tools, 'generate_image'] }
+  }
   // 'continue'/'ingest' carry no model task — let the keyword router decide those.
   const intentTaskOverride = (intentPlan.model === 'continue' || intentPlan.model === 'ingest')
     ? undefined
