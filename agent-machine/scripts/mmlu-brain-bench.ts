@@ -117,6 +117,23 @@ const FIELD_ADJ: Record<string, string[]> = {
   biological_eng: ['biology', 'chemistry'], eecs: ['mathematics', 'physics'], earth_planetary: ['physics'],
 }
 
+// SUBJECT_SLUG_HINT — within-field course boosting. The 'mathematics' field contains 89K chunks
+// from 40+ courses; cosine alone can't distinguish abstract algebra from algebraic topology.
+// The diagnostic (BRAIN_EXPLAIN_MISS=1) confirmed: abstract_algebra questions pull from 18.905/18.225
+// (algebraic topology, combinatorics) instead of 18.703 (Modern Algebra). Boosting preferred slugs
+// at ranking time re-weights toward the on-topic course before top-k selection. Boost = 1.25 for
+// primary course, 1.15 for closely related. (materialBoost is orthogonal — applies on top.)
+const SUBJECT_SLUG_HINT: Record<string, Map<string, number>> = {
+  abstract_algebra:       new Map([['18-703', 1.25], ['18-704', 1.20], ['18-702', 1.15], ['18-700', 1.10]]),
+  high_school_mathematics: new Map([['18-01',  1.20], ['18-02',  1.20], ['18-06',  1.15], ['18-03',  1.10]]),
+  college_mathematics:     new Map([['18-01',  1.15], ['18-02',  1.15], ['18-06',  1.15], ['18-03',  1.10], ['18-100', 1.10]]),
+  high_school_statistics:  new Map([['18-650', 1.25], ['18-600', 1.20], ['18-440', 1.20], ['18-655', 1.15]]),
+  // Physics subfield hints — wave/optics/quantum pulled from wrong courses in prior runs
+  college_physics:         new Map([['8-03',   1.20], ['8-04',   1.15], ['8-05',   1.15], ['8-06',   1.10]]),
+  high_school_physics:     new Map([['8-01',   1.25], ['8-02',   1.20], ['8-03',   1.15]]),
+  conceptual_physics:      new Map([['8-01',   1.25], ['8-02',   1.20]]),
+}
+
 const FRONTIER = { 'Llama-3.2-3B (reported)': 63.4, 'Qwen2.5-7B (reported)': 74.2, 'GPT-4': 86.4 }
 
 interface Q { subject: string; question: string; choices: string[]; answer: number }
@@ -316,7 +333,7 @@ function bm25Score(qTerms: Set<string>, text: string, idx: { df: Map<string, num
   return score
 }
 
-async function retrieveMulti(question: string, choices: string[], pools: Chunk[][], perShot: number, finalK: number, extra: string[] = []): Promise<Chunk[]> {
+async function retrieveMulti(question: string, choices: string[], pools: Chunk[][], perShot: number, finalK: number, extra: string[] = [], slugBoosts: Map<string, number> = new Map()): Promise<Chunk[]> {
   const queries = [`${question}\n${choices.join(' ')}`, ...choices.map((c) => `${question}\n${c}`), ...extra.filter(Boolean)]
   const best = new Map<string, { c: Chunk; s: number }>()
   for (const query of queries) {
@@ -347,7 +364,16 @@ async function retrieveMulti(question: string, choices: string[], pools: Chunk[]
   }
   // GOLD-FIRST ranking: applied after dense + RRF so a comparably-relevant worked solution / exam outranks
   // a lecture paragraph in the final context (the brain re-curation insight, in the brain/champion arms).
-  for (const x of cands) x.s *= materialBoost(x.c.material)
+  // Slug-hint boost: within large fields (mathematics: 89K chunks/40+ courses) cosine alone can't distinguish
+  // abstract algebra from algebraic topology. Diagnostic-confirmed fix: boost preferred course slugs.
+  for (const x of cands) {
+    x.s *= materialBoost(x.c.material)
+    if (slugBoosts.size > 0) {
+      for (const [prefix, factor] of slugBoosts) {
+        if (x.c.slug.startsWith(prefix)) { x.s *= factor; break }
+      }
+    }
+  }
   const ranked = cands.sort((a, b) => b.s - a.s)
   if (MMR_LAMBDA <= 0 || ranked.length <= finalK) return ranked.slice(0, finalK).map((x) => x.c)
   // MMR: greedily pick finalK balancing relevance (cosine to query) against novelty (low similarity
@@ -820,9 +846,10 @@ async function main() {
       // brain retrieval (shared by the brain arm AND the route arm's fallback) — multi-shot:
       // a broad query + one targeted query per choice, union top-K. MMLU_SHOT_K sets how many
       // chunks land in context (default 8); MMLU_PER_SHOT how many each query contributes (default 3).
+      const slugHints = SUBJECT_SLUG_HINT[subject] ?? new Map<string, number>()
       let context = ''
       if (ARMS.includes('brain') || ARMS.includes('route')) {
-        const hits = await retrieveMulti(q.question, q.choices, pools, PER_SHOT, SHOT_K)
+        const hits = await retrieveMulti(q.question, q.choices, pools, PER_SHOT, SHOT_K, [], slugHints)
         context = hits.map((h, n) => `[${n + 1}] ${h.text.slice(0, 500)}`).join('\n\n')
         row['sources'] = hits.map((h) => `${h.slug}:${h.material}`)
         row['brain_conf'] = Number((hits[0]?.score ?? 0).toFixed(3))   // retrieval confidence (top cosine) — the council's grounding signal
@@ -835,7 +862,7 @@ async function main() {
       if (ARMS.includes('qgen') || ARMS.includes('champion') || ARMS.includes('gate')) {
         const extra = await queryGen(q.question, q.choices)
         row['qgen'] = extra.map((e) => e.slice(0, 70))
-        const hits = await retrieveMulti(q.question, q.choices, pools, PER_SHOT, SHOT_K, extra)
+        const hits = await retrieveMulti(q.question, q.choices, pools, PER_SHOT, SHOT_K, extra, slugHints)
         qgenContext = hits.map((h, n) => `[${n + 1}] ${h.text.slice(0, 500)}`).join('\n\n')
         row['qgen_sources'] = hits.map((h) => `${h.slug}:${h.material}`)
         row['qgen_conf'] = Number((hits[0]?.score ?? 0).toFixed(3))   // qgen retrieval confidence
@@ -863,14 +890,14 @@ async function main() {
         } else if (arm === 'brain') {
           letter = await askBrain()
         } else if (arm === 'rerank') {            // Re2G: retrieve WIDE → LLM listwise rerank → generate (the rerank stage we lacked)
-          const wide = await retrieveMulti(q.question, q.choices, pools, PER_SHOT, RERANK_N)
+          const wide = await retrieveMulti(q.question, q.choices, pools, PER_SHOT, RERANK_N, [], slugHints)
           const top = await rerankLLM(q.question, q.choices, wide, SHOT_K)
           const ctx = top.map((h, n) => `[${n + 1}] ${h.text.slice(0, 500)}`).join('\n\n')
           letter = extractLetter(await ask(`Relevant MIT course notes (use only what helps; ignore noise and fragments):\n\n${ctx}\n\nExam question:\n${base}${ANSWER_RULE}`)); mode = `rerank:${top.length}`
         } else if (arm === 'inline') {            // Phase 0.4: inline evidence binding — model cites which chunk it's grounding on
           // Forces explicit {letter, reasoning, cited:[{id,span}]} output so faithfulness is measurable per-answer,
           // not just post-hoc over the whole run. Feeds Metric 2 (inline fidelity) in provenance_eval.py.
-          const hits = await retrieveMulti(q.question, q.choices, pools, PER_SHOT, SHOT_K)
+          const hits = await retrieveMulti(q.question, q.choices, pools, PER_SHOT, SHOT_K, [], slugHints)
           const ev = formatEvidence(hits)
           const ibPrompt = inlineBindPrompt(q.question, q.choices, ev)
           const raw = (await ask(ibPrompt)) || ''
@@ -905,7 +932,7 @@ async function main() {
             const uniqueness = others.length ? 1 - cos(cvs[i]!, muO) : 0
             let inter = 0; for (const t of TCs[i]!) if (TQ.has(t)) inter++
             const incl = TCs[i]!.size === 0 ? 0 : (inter > 0 ? inter / (new Set([...TQ, ...TCs[i]!]).size || 1) : -0.2)   // discrete set inclusion/exclusion
-            const evid = (await retrieveMulti(q.question, [q.choices[i]!], pools, PER_SHOT, 1))[0]?.score ?? 0   // verification: brain evidence support for THIS choice
+            const evid = (await retrieveMulti(q.question, [q.choices[i]!], pools, PER_SHOT, 1, [], slugHints))[0]?.score ?? 0   // verification: brain evidence support for THIS choice
             const compHit = ci?.answer === LETTERS[i] ? 1 : 0                           // verification (DEDUCED): sympy-verified compute picks this choice → near-certain when 1
             const score = 0.7 * cohesion + 0.2 * uniqueness + 0.1 * incl               // a DEFAULT blend for the arm's letter; the combiner relearns these weights per regime
             feats.push({ cohesion: +cohesion.toFixed(4), uniqueness: +uniqueness.toFixed(4), incl: +incl.toFixed(3),
@@ -959,7 +986,7 @@ async function main() {
           // Each hop: answer with the current context (SC vote = confidence); if uncertain, build a local
           // concept graph from those chunks and PPR-expand on the query → the associatively-bridged concepts
           // the lexical pass missed → re-retrieve with them. Only hard questions pay for extra hops.
-          let ctx = await retrieveMulti(q.question, q.choices, pools, PER_SHOT, SHOT_K)
+          let ctx = await retrieveMulti(q.question, q.choices, pools, PER_SHOT, SHOT_K, [], slugHints)
           const expansion: string[] = []
           let h = 0
           for (; h < HOP_MAX; h++) {
@@ -970,7 +997,7 @@ async function main() {
             const hops = hippoExpand(ctx, q.question)                            // uncertain → PPR graph-hop
             if (!hops.length) break
             for (const e of hops) if (!expansion.includes(e)) expansion.push(e)
-            ctx = await retrieveMulti(q.question, q.choices, pools, PER_SHOT, SHOT_K, expansion)  // re-retrieve, expanded
+            ctx = await retrieveMulti(q.question, q.choices, pools, PER_SHOT, SHOT_K, expansion, slugHints)  // re-retrieve, expanded
           }
           mode = `hop:${h + 1}x`; row['hop_expansion'] = expansion.slice(0, 8)
         } else if (arm === 'qgen') {              // brain + HyDE/step-back query generation
