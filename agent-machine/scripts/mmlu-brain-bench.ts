@@ -342,8 +342,11 @@ async function retrieveMulti(question: string, choices: string[], pools: Chunk[]
     let qn = 0; for (const v of qv) qn += v * v; qn = Math.sqrt(qn) || 1
     const shot: Array<{ c: Chunk; s: number }> = []
     for (const pool of pools) for (const c of pool) {
-      let dot = 0; const m = Math.min(qv.length, c.vec.length)
-      for (let i = 0; i < m; i++) dot += qv[i]! * c.vec[i]!
+      // Dimension guard (correctness): query and chunk MUST come from the same embedder.
+      // Math.min truncation would silently produce garbage scores on a dim mismatch — skip instead.
+      if (c.vec.length !== qv.length) continue
+      let dot = 0
+      for (let i = 0; i < qv.length; i++) dot += qv[i]! * c.vec[i]!
       shot.push({ c, s: dot / (qn * c.norm) })
     }
     shot.sort((a, b) => b.s - a.s)
