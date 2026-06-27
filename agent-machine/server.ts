@@ -70,6 +70,7 @@ import { getGraph, graphHealth, graphSparql, ingestInteraction, ingestConversati
 import { handleCapabilityRoute } from './lib/capability-routes.js'
 import { handleOAuthTokenRoute } from './lib/oauth-token-routes.js'
 import { isVoiceProvisioned, ensureVoiceSidecar, voiceFetch, provisionVoice, voiceProvisionStatus } from './lib/voice-runtime.js'
+import type { OntogenesisPhase, AbandonmentSignal } from './lib/gaia-ontology.js'
 import { runOcr } from './lib/ocr.js'
 import { getHellGraph, attachRocksDB } from '@socioprophet/hellgraph'
 import { runGremlin } from '@socioprophet/hellgraph'
@@ -7408,20 +7409,29 @@ Question: ${question}`
     setCORSHeaders(res)
     void (async () => {
       try {
-        const { GAIA_ONTOLOGY, ontogenesisPhase, abandonmentSignals } = await import('./lib/gaia-ontology.js')
+        const { GAIA_ONTOLOGY, ontogenesisPhase, abandonmentSignals, stewardshipOf } = await import('./lib/gaia-ontology.js')
         if (url.searchParams.get('apply') === '0') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ontology: GAIA_ONTOLOGY })); return }
         const { analytics, labelOf } = await analyticsForGraph(false)
+        const gOnt = getHellGraph()
         const phases: Record<string, number> = {}
         const signals: Record<string, string[]> = {}
-        let total = 0
+        let total = 0, stewarded = 0
         for (const [id, m] of Object.entries(analytics.nodes)) {
           const lbl = labelOf(id); if (!lbl) continue
           total++
           const phase = ontogenesisPhase(m); phases[phase] = (phases[phase] ?? 0) + 1
-          for (const s of abandonmentSignals(m)) { (signals[s] ??= []).push(lbl) }
+          let sigs = abandonmentSignals(m)
+          if (sigs.length > 0) {
+            // Honor persisted stewardship (P5.15): a steward's acknowledged signals drop out of the live census.
+            const st = stewardshipOf(gOnt.getNode(id)?.properties)
+            if (st.stewarded) stewarded++
+            if (st.resolvedSignals.length) sigs = sigs.filter((x) => !st.resolvedSignals.includes(x))
+            for (const sig of sigs) (signals[sig] ??= []).push(lbl)
+          }
         }
         const census = {
           total,
+          stewarded,
           phases: Object.entries(phases).sort((a, b) => b[1] - a[1]).map(([phase, count]) => ({ phase, count })),
           signals: Object.entries(signals).sort((a, b) => b[1].length - a[1].length).map(([signal, ents]) => ({ signal, count: ents.length, examples: ents.slice(0, 6) })),
         }
@@ -7430,6 +7440,39 @@ Question: ${question}`
         res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
+    return
+  }
+
+  // POST /api/graph/ontology/steward — stewardship write-back (P5.15): persist a steward's decision on an entity
+  // (keeper, successor, an explicit ontogenesis phase, acknowledged abandonment signals). The GET census above
+  // HONORS it — acknowledged signals drop out of the live count — closing the observe→act loop.
+  if (req.method === 'POST' && url.pathname === '/api/graph/ontology/steward') {
+    setCORSHeaders(res)
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => void (async () => {
+      try {
+        const d = JSON.parse(body || '{}') as { entity?: string; keeper?: string; successor?: string; phaseOverride?: string; resolveSignals?: string[]; note?: string }
+        if (!d.entity) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'entity required' })); return }
+        const g = getHellGraph()
+        let nodeId: string | null = g.getNode(d.entity) ? d.entity : null   // by id, else resolve by display label
+        if (!nodeId) {
+          const { analytics, labelOf } = await analyticsForGraph(false)
+          for (const id of Object.keys(analytics.nodes)) { if (labelOf(id) === d.entity) { nodeId = id; break } }
+        }
+        if (!nodeId) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'entity not found' })); return }
+        const { applyStewardship, GAIA_ONTOLOGY } = await import('./lib/gaia-ontology.js')
+        const validPhases = GAIA_ONTOLOGY.ontogenesisPhases as readonly string[]
+        const validSignals = GAIA_ONTOLOGY.abandonmentSignals as readonly string[]
+        const phaseOverride = d.phaseOverride && validPhases.includes(d.phaseOverride) ? (d.phaseOverride as OntogenesisPhase) : undefined
+        const resolveSignals = (d.resolveSignals ?? []).filter((x): x is AbandonmentSignal => validSignals.includes(x))
+        const gw = g as unknown as { getNode: (id: string) => { properties?: Record<string, unknown> } | undefined; setNodeProperty: (id: string, k: string, v: string) => void }
+        const state = applyStewardship(gw, nodeId, { keeper: d.keeper, successor: d.successor, phaseOverride, resolveSignals, note: d.note }, new Date().toISOString())
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ entity: d.entity, nodeId, stewardship: state }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })())
     return
   }
 
