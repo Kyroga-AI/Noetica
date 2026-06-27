@@ -820,6 +820,34 @@
         {
           "term": "cumulative distribution function",
           "definition": "F(x) = P(X \u2264 x); a right-continuous, non-decreasing function from \u211d to [0,1]."
+        },
+        {
+          "term": "probability",
+          "definition": "A measure P on a sample space \u03a9 satisfying P(\u03a9)=1 and countable additivity; P(A) \u2208 [0,1] represents the likelihood of event A. Axiomatized by Kolmogorov."
+        },
+        {
+          "term": "probability distribution",
+          "definition": "A function that describes how probabilities are assigned to the values of a random variable; for discrete RVs: a PMF; for continuous RVs: a PDF integrating to 1."
+        },
+        {
+          "term": "discrete random variable",
+          "definition": "A random variable whose range is a finite or countably infinite set; described by a probability mass function P(X=x) summing to 1."
+        },
+        {
+          "term": "continuous random variable",
+          "definition": "A random variable whose range is an uncountable set (e.g. \u211d or an interval); described by a probability density function f(x) with \u222bf(x)dx = 1."
+        },
+        {
+          "term": "Bayes' theorem",
+          "definition": "P(A|B) = P(B|A)\u00b7P(A) / P(B); relates the conditional probability P(A|B) to the inverse conditional P(B|A) and the marginal probabilities."
+        },
+        {
+          "term": "central limit theorem",
+          "definition": "If X\u2081, X\u2082, ... are i.i.d. with mean \u03bc and variance \u03c3\u00b2, then (X\u0304\u2099 - \u03bc)/(\u03c3/\u221an) converges in distribution to N(0,1) as n \u2192 \u221e."
+        },
+        {
+          "term": "law of large numbers",
+          "definition": "The (strong) law of large numbers: the sample mean X\u0304\u2099 converges almost surely to E[X] as n \u2192 \u221e (for i.i.d. finite-mean RVs)."
         }
       ],
       "canon": [
