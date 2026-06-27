@@ -8437,6 +8437,17 @@ server.listen(PORT, '127.0.0.1', () => {
       const r = await reindexIfDimMismatch()
       if (r.reindexed) console.log(`[embed-migrate] ${r.reason}`.replace(/[\r\n]/g, ' '))
     } catch { /* best-effort */ }
+    // Then backfill the extracted vector tier from existing graph chunks if it's empty (one-time migration,
+    // idempotent). Sequenced after the embedder self-heal so the backfilled vectors are in the active space.
+    try {
+      const { vecStats } = await import('./lib/embed-runtime.js')
+      const total = (await vecStats()).reduce((s, c) => s + c.count, 0)
+      if (total === 0) {
+        const { reindexVectorTier } = await import('./lib/doc-store.js')
+        const r = await reindexVectorTier()
+        if (r.chunks > 0) console.log(`[vec-tier] backfilled ${r.chunks} chunks into ${r.collections} collection(s)`.replace(/[\r\n]/g, ' '))
+      }
+    } catch { /* best-effort */ }
   })()
 
   // Demo pre-warm: actually LOAD the primary chat model(s) into RAM with a long

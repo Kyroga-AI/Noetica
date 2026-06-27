@@ -15,7 +15,7 @@ import {
 } from '@socioprophet/hellgraph'
 import { embedText } from './ollama.js'
 import { bm25 } from './hybrid-retrieve.js'
-import { isUserDoc } from './doc-scope.js'
+import { isUserDoc, collectionIdOf } from './doc-scope.js'
 
 const CHUNK_LABEL = 'DocumentChunk'
 
@@ -151,12 +151,18 @@ export async function ingestDocument(filename: string, text: string): Promise<In
   }
   const chunks = chunkText(text)
   let embedded = 0
+  const tierItems: Array<{ id: string; vec: number[]; meta: Record<string, unknown> }> = []
   for (let idx = 0; idx < chunks.length; idx++) {
     const chunk = chunks[idx]!
     const vec = await embedText(chunk)
-    if (vec.length) embedded++
+    if (vec.length) { embedded++; tierItems.push({ id: `${docId}#${idx}`, vec, meta: { docId, filename, idx, text: chunk } }) }
     // Store via HellGraph's canonical vector pipeline (one chunk representation everywhere).
     hgPutChunk({ docId, idx, text: chunk, vec, filename })
+  }
+  // Dual-write to the extracted vector tier (per-collection ANN in the sidecar). Retrieval prefers it; the graph
+  // atoms remain a fallback during the transition. USER docs only — keep the tier free of core/self/memory.
+  if (isUserDoc(filename) && tierItems.length) {
+    try { const { vecUpsert } = await import('./embed-runtime.js'); await vecUpsert(collectionIdOf(filename) ?? 'inbox', tierItems) } catch { /* vector tier best-effort */ }
   }
   // Preserve the raw source in the content-addressed blob store (so it can be re-extracted /
   // audited later) and stamp the Document atom with the hash that points to it.
@@ -222,10 +228,29 @@ export function lexicalSearch(query: string, k = 15): ChunkHit[] {
 export async function searchDocsReranked(query: string, limit = 8): Promise<import('./rag-rerank.js').RankedChunk[]> {
   const { fuseRerank } = await import('./rag-rerank.js')
   const [semantic, lexical] = await Promise.all([
-    semanticSearch(query, Math.max(limit, 8)),
+    tierSemanticSearch(query, Math.max(limit, 8)),
     Promise.resolve(lexicalSearch(query, Math.max(limit * 2, 16))),
   ])
   return fuseRerank(semantic, lexical, query, { limit })
+}
+
+/** Semantic ranker backed by the EXTRACTED vector tier (per-collection ANN in the sidecar): query each user
+ *  collection, merge by score. Falls back to the in-graph semanticSearch when the tier is empty/unavailable —
+ *  so retrieval is correct before/after migration (dual-read). */
+async function tierSemanticSearch(query: string, k: number): Promise<ChunkHit[]> {
+  try {
+    const { vecQuery, vecStats } = await import('./embed-runtime.js')
+    const cols = (await vecStats()).map((c) => c.name)
+    if (cols.length === 0) return semanticSearch(query, k)            // tier not populated yet → graph
+    const merged = (await Promise.all(cols.map((c) => vecQuery(c, { text: query, k })))).flat()
+    if (merged.length === 0) return semanticSearch(query, k)
+    const hits: ChunkHit[] = merged
+      .map((h) => ({ text: String(h.meta['text'] ?? ''), filename: String(h.meta['filename'] ?? ''), score: h.score, docId: String(h.meta['docId'] ?? ''), idx: Number(h.meta['idx'] ?? 0) }))
+      .filter((h) => h.text)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, k)
+    return hits.length ? hits : semanticSearch(query, k)
+  } catch { return semanticSearch(query, k) }
 }
 
 export interface ChartHit extends ChunkHit {
@@ -332,7 +357,34 @@ export function hideCollection(collectionId: string): { docs: number; chunks: nu
   for (const c of g.nodesByLabel(CHUNK_LABEL)) {
     if (String(c.properties['filename'] ?? '').startsWith(prefix)) { try { gx.setNodeProperty(c.id, 'hidden', true); chunks++ } catch { /* */ } }
   }
+  // Drop the collection from the extracted vector tier too (real delete — the index supports it). Fire-and-forget.
+  void import('./embed-runtime.js').then((m) => m.vecDelete(collectionId)).catch(() => {})
   return { docs, chunks }
+}
+
+/** Migration: backfill the vector tier from existing graph DocumentChunk atoms (user docs only), reusing their
+ *  stored embeddings. Idempotent (upsert-by-id). Run once on boot when the tier is empty. */
+export async function reindexVectorTier(): Promise<{ collections: number; chunks: number }> {
+  const g = getHellGraph()
+  const { vecUpsert } = await import('./embed-runtime.js')
+  const byCol = new Map<string, Array<{ id: string; vec: number[]; meta: Record<string, unknown> }>>()
+  for (const n of g.nodesByLabel(CHUNK_LABEL)) {
+    if (n.properties['hidden']) continue
+    const filename = String(n.properties['filename'] ?? '')
+    if (!isUserDoc(filename)) continue
+    const raw = String(n.properties['embedding'] ?? '')
+    if (!raw) continue
+    let vec: number[]; try { vec = JSON.parse(raw) as number[] } catch { continue }
+    if (!Array.isArray(vec) || vec.length === 0) continue
+    const docId = String(n.properties['doc_id'] ?? '')
+    const idx = Number(n.properties['idx'] ?? 0)
+    const col = collectionIdOf(filename) ?? 'inbox'
+    if (!byCol.has(col)) byCol.set(col, [])
+    byCol.get(col)!.push({ id: `${docId}#${idx}`, vec, meta: { docId, filename, idx, text: String(n.properties['text'] ?? '') } })
+  }
+  let chunks = 0
+  for (const [col, items] of byCol) { const n = await vecUpsert(col, items); if (n) chunks += n }
+  return { collections: byCol.size, chunks }
 }
 
 /** Self-healing: if stored chunk vectors were made by a DIFFERENT embedder than the one now active (different
