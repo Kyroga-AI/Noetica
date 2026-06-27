@@ -3298,6 +3298,34 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     } catch { /* recall is best-effort — fall through to extract/generation */ }
   }
 
+  // ── Global / thematic synthesis (GraphRAG community summaries, cheap path) ───
+  // Whole-corpus questions ("main themes / across all my docs / big picture") need synthesis ACROSS the
+  // knowledge graph — flat chunk-RAG can't do that. We build EXTRACTIVE community reports (no per-community LLM)
+  // and synthesize in ONE call, so it's affordable on local. Gated to clearly-global phrasing + when docs exist.
+  if (hasDoc && /\b(?:(?:main|key|recurring|overall|common|top)\s+(?:themes?|topics?|ideas?|patterns?)|big[- ]picture|across (?:all|my|the|these)|(?:whole|entire)\s+(?:corpus|library|collection|knowledge ?base)|what(?:'?s| is) (?:in|across) (?:all|my|the)\s+(?:docs|documents|notes|knowledge|library)|overview of (?:all|my|the|everything))\b/i.test(latestUserContent)) {
+    try {
+      const { analytics, labelOf } = await analyticsForGraph(false)
+      const gmodel = await pickChatModel()
+      const { buildCommunityReports } = await import('./lib/graph-rag.js')
+      const reports = await buildCommunityReports(analytics, labelOf, { model: gmodel, maxCommunities: 8, minSize: 3, extractive: true })
+      if (reports.length > 0) {
+        const qtok = new Set(latestUserContent.toLowerCase().split(/\W+/).filter((w) => w.length > 2))
+        const scored = reports.map((r) => { const rt = `${r.title} ${r.summary}`.toLowerCase(); let o = 0; for (const t of qtok) if (rt.includes(t)) o++; return { r, o } }).sort((a, b) => b.o - a.o)
+        const top = (scored.some((s) => s.o > 0) ? scored.filter((s) => s.o > 0) : scored).slice(0, 6).map((s) => s.r)
+        const ctx = top.map((r) => `## ${r.title}\n${r.summary}${r.claims?.length ? `\n- ${r.claims.join('\n- ')}` : ''}`).join('\n\n')
+        const { generateOllamaText } = await import('./lib/ollama.js')
+        const { content } = await generateOllamaText({ model: gmodel, messages: [{ role: 'user', content: `Synthesize an answer ACROSS these themes from the user's own knowledge graph. Reference themes by name; ground every claim in them; don't invent.\n\nThemes:\n${ctx}\n\nQuestion: ${latestUserContent}` }], temperature: 0.3 })
+        if (content?.trim()) {
+          step('retrieve', 'done', `${top.length} community themes`)
+          step('generate', 'done', 'synthesized across the knowledge graph')
+          sse(res, 'delta', { delta: content })
+          sse(res, 'done', { result: { run_id: crypto.randomUUID(), content, model_routed: gmodel, provider: 'noetica', policy_admitted: true, memory_written: false, stop_reason: 'global', timestamp: new Date().toISOString(), latency_ms: Date.now() - turnStart, agent_machine: true, agent_machine_version: VERSION, method: 'graphrag-global' } })
+          return
+        }
+      }
+    } catch { /* global synthesis best-effort — fall through to normal answering */ }
+  }
+
   // ── Extractive grounded answering (NOETICA_EXTRACTIVE, default-on): EXTRACT ───
   // For doc-grounded intents, answer by EXTRACTING the doc's own cited sentences
   // instead of asking a weak/slow local model to generate. It cannot hallucinate

@@ -56,7 +56,7 @@ function safeJson(s: string): { title?: string; summary?: string; claims?: strin
 export async function buildCommunityReports(
   analytics: GraphAnalytics,
   labelOf: (id: string) => string,
-  opts: { model: string; maxCommunities?: number; minSize?: number; level?: 'coarse' | 'fine'; persona?: string },
+  opts: { model: string; maxCommunities?: number; minSize?: number; level?: 'coarse' | 'fine'; persona?: string; extractive?: boolean },
 ): Promise<CommunityReport[]> {
   const personaPrefix = opts.persona ? `${opts.persona}\n\n` : ''
   // Hierarchical: 'coarse' = top-level themes, 'fine' = sub-themes (falls back to coarse if no hierarchy).
@@ -100,14 +100,16 @@ Write a community report as STRICT JSON, no prose outside the JSON:
 Base the summary and claims ONLY on the concepts and evidence above. Do not invent facts.`
 
     let parsed: { title?: string; summary?: string; claims?: string[] } | null = null
-    try {
-      const { content } = await generateOllamaText({ model: opts.model, messages: [{ role: 'user', content: prompt }], temperature: 0.2, numCtx: 8192 })
-      parsed = safeJson(content)
-    } catch { /* model best-effort — fall back below */ }
+    if (!opts.extractive) {   // extractive mode: skip the per-community LLM call (cheap on local — for chat-path global synthesis)
+      try {
+        const { content } = await generateOllamaText({ model: opts.model, messages: [{ role: 'user', content: prompt }], temperature: 0.2, numCtx: 8192 })
+        parsed = safeJson(content)
+      } catch { /* model best-effort — fall back below */ }
+    }
 
     const title = (parsed?.title || topLabels.slice(0, 3).join(' / ')).slice(0, 80)
-    const summary = (parsed?.summary || '').slice(0, 600)
-    const claimStrings = (parsed?.claims || []).filter((x) => typeof x === 'string').slice(0, 4)
+    const summary = (parsed?.summary || (opts.extractive ? `${topLabels.slice(0, 10).join(', ')}${evidence[0] ? ` — ${evidence[0].slice(0, 180)}` : ''}` : '')).slice(0, 600)
+    const claimStrings = (parsed?.claims && parsed.claims.length ? parsed.claims : (opts.extractive ? evidence.slice(0, 3).map((e) => e.slice(0, 160)) : [])).filter((x) => typeof x === 'string').slice(0, 4)
     const ev = evidence.map((t) => ({ text: t }))
 
     // Verify EACH claim against the community's evidence (deterministic grounding — no extra LLM cost),
