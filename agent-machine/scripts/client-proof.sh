@@ -27,6 +27,18 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.."   # → agent-machine/
 N="${1:-}"
 MESH_URL="${MESH_URL:-http://127.0.0.1:11435/v1}"
 
+# Frictionless paid run: reuse the BYOK keys already stored in the app's OS keychain (service
+# ai.noetica.secrets — set via the in-app provider setup) when the env vars aren't already exported.
+# macOS `security`; on Linux export ANTHROPIC_API_KEY/OPENAI_API_KEY yourself.
+if [ -z "${ANTHROPIC_API_KEY:-}" ] && command -v security >/dev/null 2>&1; then
+  k="$(security find-generic-password -s ai.noetica.secrets -a anthropicApiKey -w 2>/dev/null || true)"
+  [ -n "$k" ] && export ANTHROPIC_API_KEY="$k" && echo "  (Anthropic key loaded from the app keychain)"
+fi
+if [ -z "${OPENAI_API_KEY:-}" ] && command -v security >/dev/null 2>&1; then
+  k="$(security find-generic-password -s ai.noetica.secrets -a openaiApiKey -w 2>/dev/null || true)"
+  [ -n "$k" ] && export OPENAI_API_KEY="$k" && echo "  (OpenAI key loaded from the app keychain)"
+fi
+
 echo "── client-proof preflight ──────────────────────────────────────"
 echo "  mesh endpoint : ${MESH_URL}"
 if curl -sf -m5 "${MESH_URL}/models" >/dev/null 2>&1; then
