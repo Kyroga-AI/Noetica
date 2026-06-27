@@ -829,7 +829,11 @@ async function main() {
     process.stdout.write(`\n## ${subject}  (fields: ${fields.join('+')} · ${poolN.toLocaleString()} chunks · ${sample.length} q)\n`)
     // tally pre-initialised + possibly resume-loaded above — do NOT reset it here
     // verified-compute arm scored up front (one python call per subject); used by compute + route + champion
-    const wantCompute = ARMS.includes('compute') || ARMS.includes('route') || ARMS.includes('champion') || ARMS.includes('gate') || ARMS.includes('groundgate') || ARMS.includes('reason') || ARMS.includes('learned')
+    // NOTE: 'reason' can use the sympy-compute path, but the cold-parse compute_arm phase (LLM formalization)
+    // is slow + mostly abstains on conceptual math, so gate it behind MMLU_REASON_COMPUTE=1 (off by default →
+    // reason is pure long-CoT + self-consistency). Re-enable once task #12 (formalize-from-worked-solutions) lands.
+    const reasonCompute = ARMS.includes('reason') && process.env['MMLU_REASON_COMPUTE'] === '1'
+    const wantCompute = ARMS.includes('compute') || ARMS.includes('route') || ARMS.includes('champion') || ARMS.includes('gate') || ARMS.includes('groundgate') || reasonCompute || ARMS.includes('learned')
     // brain-ground (#12): retrieve worked-solution context per question (gold-first, warm cache) BEFORE the
     // sync compute subprocess, so sympy formalizes from the method, not a cold parse. COMPUTE_GROUND=0 → cold.
     const ncard = COMPUTE_GROUND ? loadNotecard(fields) : ''   // the formula sheet for this subject's field(s)
