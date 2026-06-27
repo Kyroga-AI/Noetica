@@ -235,3 +235,46 @@ export function consumeLatentArtifact(artifact: LatentBasisArtifact): DomainBund
 
   return { domainId, corpusRelease: corpus, topics: topics.length, glossaryTerms: glossaryCount, shapeId, alreadyPresent: false }
 }
+
+/**
+ * Lightweight glossary derivation from the LOCAL corpus — no external LDA artifact required. Each document
+ * COLLECTION becomes a Domain; the CanonicalEntities its documents ground (via the P2.4 GROUNDS edges) become
+ * its GlossaryTerms. Only USER-doc-grounded entities are included, so dev/code exhaust is naturally excluded.
+ * Makes the domain/glossary lens reachable from the user's OWN ingested vocabulary. Idempotent.
+ */
+export function deriveCorpusGlossary(): { domains: number; terms: number } {
+  const g = getHellGraph()
+  const collOf = (filename: string): string => { const m = filename.match(/^collection\/([^/]+)\//); return m ? m[1]! : 'inbox' }
+  const byColl = new Map<string, Map<string, string>>()   // collection -> (entityId -> surface)
+  for (const d of g.nodesByLabel('Document')) {
+    if (d.properties['hidden']) continue
+    const filename = String(d.properties['filename'] ?? ''); if (!filename) continue
+    let grounded: Array<{ id: string; properties?: Record<string, unknown> }> = []
+    try { grounded = g.out(d.id, 'GROUNDS') as typeof grounded } catch { grounded = [] }
+    if (grounded.length === 0) continue
+    const col = collOf(filename)
+    if (!byColl.has(col)) byColl.set(col, new Map())
+    const m = byColl.get(col)!
+    for (const e of grounded) {
+      const surf = String(e.properties?.['surface'] ?? e.properties?.['normalised'] ?? '').trim()
+      // Skip extraction noise: too short, a lone-letter prefix ("s embodiment", "t the income" from contraction
+      // splits), or leading stopword prose — keep real multi-char terms.
+      if (surf.length >= 3 && !/^[a-z]\s/i.test(surf) && !/^(the|a|an|and|or|of|to|in|on|is|it)\s/i.test(surf) && /[a-z]{3,}/i.test(surf)) m.set(e.id, surf)
+    }
+  }
+  const now = new Date().toISOString()
+  let domains = 0, terms = 0
+  for (const [col, m] of byColl) {
+    if (m.size === 0) continue
+    const domainId = `domain:corpus:${col}`
+    if (!g.getNode(domainId)) g.addNode(domainId, [DOMAIN_LABEL], { name: col, corpus_release_ref: col, basis_family: 'corpus-derived', created_at: now })
+    domains++
+    for (const [eid, surf] of m) {
+      const termId = `glossary:corpus:${col}:${slug(surf)}`
+      if (!g.getNode(termId)) { g.addNode(termId, [TERM_LABEL], { term: surf, name: surf, domains: col, basis_family: 'corpus-derived', created_at: now }); terms++ }
+      try { g.addEdge('TERM_IN_DOMAIN', termId, domainId, { at: now }) } catch { /* */ }
+      try { g.addEdge('DEFINES_TERM', eid, termId, { at: now }) } catch { /* */ }   // entity → its glossary term
+    }
+  }
+  return { domains, terms }
+}

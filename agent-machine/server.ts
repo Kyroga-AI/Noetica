@@ -6286,6 +6286,19 @@ Question: ${question}`
     return
   }
 
+  // POST /api/graph/glossary/derive — build a glossary INTO the graph from the local corpus (Domain per
+  // collection + GlossaryTerm per grounded entity), so the domain/glossary lens is reachable. Idempotent.
+  if (req.method === 'POST' && url.pathname === '/api/graph/glossary/derive') {
+    setCORSHeaders(res)
+    ;(async () => {
+      try {
+        const { deriveCorpusGlossary } = await import('./lib/graphbrain-bridge.js')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(deriveCorpusGlossary()))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'failed' })) }
+    })()
+    return
+  }
+
   // GET /api/library — "what's been captured into the graph": collections → documents → entity/chunk counts.
   // The observability surface (like ChatGPT's library, but for the knowledge graph).
   if (req.method === 'GET' && url.pathname === '/api/library') {
@@ -8494,6 +8507,13 @@ server.listen(PORT, '127.0.0.1', () => {
       const { relinkDocEntities } = await import('./lib/doc-store.js')
       const r = relinkDocEntities()
       if (r.edges > 0) console.log(`[entity-link] linked ${r.edges} entity edge(s) across ${r.docs} doc(s)`.replace(/[\r\n]/g, ' '))
+    } catch { /* best-effort */ }
+    // Derive the glossary into the graph from the corpus (Domain/GlossaryTerm atoms via the GROUNDS edges above)
+    // so the domain/glossary lens is reachable. Idempotent; runs after entity-link so the edges exist.
+    try {
+      const { deriveCorpusGlossary } = await import('./lib/graphbrain-bridge.js')
+      const r = deriveCorpusGlossary()
+      if (r.terms > 0) console.log(`[glossary] derived ${r.terms} term(s) across ${r.domains} domain(s)`.replace(/[\r\n]/g, ' '))
     } catch { /* best-effort */ }
   })()
 
