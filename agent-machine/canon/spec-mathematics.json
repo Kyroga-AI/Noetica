@@ -423,6 +423,10 @@
         {
           "term": "radius of convergence",
           "definition": "For a power series \u03a3 a_n x^n, the value R such that the series converges absolutely for |x| < R and diverges for |x| > R."
+        },
+        {
+          "term": "differentiable",
+          "definition": "A function f is differentiable at a point a if the limit f'(a) = lim_{h\u21920} (f(a+h) - f(a))/h exists; differentiable implies continuous but not vice versa."
         }
       ],
       "canon": [
@@ -630,6 +634,14 @@
         {
           "term": "singular matrix",
           "definition": "A square matrix with determinant 0; equivalently, it has no inverse; equivalently, its columns are linearly dependent."
+        },
+        {
+          "term": "trace",
+          "definition": "The trace of a square matrix A, denoted tr(A), is the sum of its diagonal entries; tr(A) = sum of eigenvalues (counted with multiplicity)."
+        },
+        {
+          "term": "linear transformation",
+          "definition": "A function T: V \u2192 W between vector spaces satisfying T(u + v) = T(u) + T(v) and T(cv) = cT(v); equivalently, a map preserving the vector space structure."
         }
       ],
       "canon": [
@@ -1903,6 +1915,14 @@
         {
           "term": "covering space",
           "definition": "A space X\u0303 with a surjection p: X\u0303 \u2192 X such that every point of X has an open neighborhood U whose preimage is a disjoint union of copies of U."
+        },
+        {
+          "term": "connected",
+          "definition": "A topological space X is connected if it cannot be written as the union of two disjoint nonempty open sets; equivalently, the only sets that are both open and closed in X are \u2205 and X."
+        },
+        {
+          "term": "path-connected",
+          "definition": "A topological space X is path-connected if for any two points x, y \u2208 X there exists a continuous path \u03b3: [0,1] \u2192 X with \u03b3(0) = x and \u03b3(1) = y; path-connected implies connected."
         }
       ],
       "canon": [
