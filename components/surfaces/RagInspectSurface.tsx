@@ -15,15 +15,17 @@ export function RagInspectSurface() {
   const [lexical, setLexical] = useState<Chunk[]>([])
   const [loading, setLoading] = useState(false)
   const [ran, setRan] = useState(false)
+  const [err, setErr] = useState('')
 
   async function run() {
     if (!query.trim()) return
-    setLoading(true)
+    setLoading(true); setErr('')
     try {
       const res = await fetch('/api/cap/rag-inspect', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query }) })
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const d = await res.json() as { semantic?: Chunk[]; lexical?: Chunk[] }
       setSemantic(d.semantic ?? []); setLexical(d.lexical ?? []); setRan(true)
-    } catch { setSemantic([]); setLexical([]) } finally { setLoading(false) }
+    } catch (e) { setSemantic([]); setLexical([]); setRan(false); setErr(e instanceof Error ? `Inspect failed: ${e.message} — is the backend running?` : 'Inspect failed') } finally { setLoading(false) }
   }
 
   return (
@@ -38,6 +40,7 @@ export function RagInspectSurface() {
           className="flex-1 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs text-[var(--color-text-primary)]" />
         <button onClick={() => void run()} disabled={loading} className="rounded-md bg-[var(--color-accent,#0891b2)] px-3 py-1.5 text-[11px] font-medium text-white disabled:opacity-50">{loading ? 'Retrieving…' : 'Inspect'}</button>
       </div>
+      {err && <div className="border-b border-[#fca5a5] bg-[#fef2f2] px-5 py-2 text-[11px] text-[#b91c1c]">{err}</div>}
       <div className="grid flex-1 grid-cols-2 gap-4 overflow-auto p-5">
         <ChunkColumn title="Semantic (dense / nomic-embed)" chunks={semantic} ran={ran} accent="#0891b2" />
         <ChunkColumn title="Lexical (BM25)" chunks={lexical} ran={ran} accent="#a855f7" />
