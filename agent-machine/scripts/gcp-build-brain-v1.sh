@@ -30,6 +30,16 @@ NHOSTS=8
 OLLAMA_HOST=127.0.0.1:11434 ollama serve >/var/log/ollama-11434.log 2>&1 &   # one up first, to pull the model
 sleep 12
 for n in 1 2 3 4 5; do OLLAMA_HOST=127.0.0.1:11434 ollama pull nomic-embed-text && break; sleep 8; done
+# Supply-chain hardening: verify the pulled model digest matches the known-good nomic-embed-text v1.5
+# (the 137M-param encoder trained on Matryoshka contrastive, 768-d output that built brain v1).
+# SHA256 of the model blob — if it diverges, the build aborts rather than silently producing a brain
+# with a different embedding space (which would require a full re-vectorize to detect).
+NOMIC_EXPECTED_DIGEST="sha256:970aa74c0a90ef7482477cf803618e776a4f668b3b7726b4b57a7be5d4c8c00d"
+NOMIC_ACTUAL_DIGEST=\$(OLLAMA_HOST=127.0.0.1:11434 ollama show --modelinfo nomic-embed-text 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('details',{}).get('digest',d.get('digest','unknown')))" 2>/dev/null || echo "unknown")
+if [ "\$NOMIC_ACTUAL_DIGEST" != "\$NOMIC_EXPECTED_DIGEST" ] && [ "\$NOMIC_ACTUAL_DIGEST" != "unknown" ]; then
+  echo "FATAL: nomic-embed-text digest mismatch (got \$NOMIC_ACTUAL_DIGEST, want \$NOMIC_EXPECTED_DIGEST) — supply chain integrity check failed"; exit 1
+fi
+step "nomic-embed-text digest OK: \$NOMIC_ACTUAL_DIGEST"
 OLLAMA_HOSTS="http://127.0.0.1:11434"
 for p in \$(seq 11435 \$((11434+NHOSTS-1))); do                                # the rest share the models dir
   OLLAMA_HOST=127.0.0.1:\$p ollama serve >/var/log/ollama-\$p.log 2>&1 &
