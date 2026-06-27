@@ -25,4 +25,6 @@ export interface GovernanceTrace {
   latency_ms: number
   input_tokens?: number
   output_tokens?: number
+  method?: string       // how the answer was produced: recall | graphrag-global | extractive | generation | …
+  grounded?: boolean    // answer is grounded in retrieved/cited evidence (provenance signal)
 }

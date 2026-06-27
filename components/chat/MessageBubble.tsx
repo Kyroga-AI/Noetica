@@ -512,6 +512,19 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
                 {message.governance.model_routed}
               </span>
             )}
+            {message.governance.method && (() => {
+              // Provenance: HOW this answer was produced — the verifiability signal (P2.6).
+              const M: Record<string, { label: string; title: string; color: string }> = {
+                recall: { label: 'recalled', title: 'Replayed from a prior verified turn (decidable recall) — not re-generated', color: '#7c3aed' },
+                'graphrag-global': { label: 'synthesized', title: 'Synthesized across your knowledge-graph community themes', color: '#0891b2' },
+                extractive: { label: 'from source', title: 'Extracted verbatim from your cited documents — cannot hallucinate', color: '#16a34a' },
+              }
+              const m = M[message.governance.method!]
+              return m ? <span className="flex items-center gap-1 font-medium" title={m.title} style={{ color: m.color }}>◆ {m.label}</span> : null
+            })()}
+            {message.governance.grounded && !message.governance.method && (
+              <span className="flex items-center gap-1" title="Grounded in retrieved evidence" style={{ color: '#16a34a' }}>✓ grounded</span>
+            )}
             {message.governance.latency_ms > 0 && (
               <span>{(message.governance.latency_ms / 1000).toFixed(1)}s</span>
             )}

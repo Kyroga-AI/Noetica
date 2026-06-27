@@ -1133,6 +1133,8 @@ export function AppShell() {
                   latency_ms: result.latency_ms,
                   ...(result.input_tokens !== undefined ? { input_tokens: result.input_tokens } : {}),
                   ...(result.output_tokens !== undefined ? { output_tokens: result.output_tokens } : {}),
+                  ...(result.method !== undefined ? { method: result.method } : {}),
+                  ...(result.grounded !== undefined ? { grounded: result.grounded } : {}),
                 },
                 steering_result: result.steering_applied,
               })

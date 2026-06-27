@@ -105,6 +105,9 @@ export type NoeticaStreamDoneResult = {
   /** Set when model requested tool execution — client handles the agentic loop */
   tool_calls?: ToolUseBlock[]
   stop_reason?: 'end_turn' | 'tool_use' | 'max_tokens' | string
+  /** Provenance: how the answer was produced (recall | graphrag-global | extractive | …) + whether grounded. */
+  method?: string
+  grounded?: boolean
 }
 
 export type NoeticaSteerResponse = {
