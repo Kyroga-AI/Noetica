@@ -385,7 +385,7 @@ async function retrieveMulti(question: string, choices: string[], pools: Chunk[]
     }
   }
   const ranked = cands.sort((a, b) => b.s - a.s)
-  if (MMR_LAMBDA <= 0 || ranked.length <= finalK) return ranked.slice(0, finalK).map((x) => x.c)
+  if (MMR_LAMBDA <= 0 || ranked.length <= finalK) return ranked.slice(0, finalK).map((x) => ({ ...x.c, score: x.s }))
   // MMR: greedily pick finalK balancing relevance (cosine to query) against novelty (low similarity
   // to already-picked). Fixes the redundancy where brute-force top hits collapse into one sub-topic,
   // so the K context slots carry K distinct facets instead of the same fact restated.
