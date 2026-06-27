@@ -78,17 +78,26 @@ console.log('\n' + line)
 console.log('  SocioProphet — cost: TODAY vs PROJECTED (sovereign)   [USD/mo]')
 console.log(line)
 
-console.log('\n  TODAY  (Google + frontier seats)')
-console.log(`    Google Workspace   ${C.workspaceSeats} seats   ${usd(today.workspace)}   (actual invoice)`)
-console.log(`    Claude (AU)        ${C.claudeSeats} seats   ${usd(today.claude)}   (ESTIMATE — replace w/ bill)`)
-console.log(`    ChatGPT            ${C.chatgptSeats} seat    ${usd(today.chatgpt)}   (ESTIMATE)`)
-console.log(`    ${'TOTAL'.padEnd(28)} ${usd(today.total)} / mo   →   ${usd(today.total * 12)} / yr`)
+console.log('\n  ┌─ BUCKET 1 — WORKSPACE (no GPU; light k8s services only) ─────')
+console.log(`  │  TODAY     Google Workspace ${C.workspaceSeats} seats   ${usd(today.workspace)} /mo   (actual invoice)`)
+console.log(`  │  PROJECTED prophet-workspace on GKE   ${usd(projected.workspace)} /mo   (mail+smtp+caldav+office+glue on 1 node + 500GB; control plane $0)`)
+const wsDelta = projected.workspace - today.workspace
+console.log(`  │  → ${wsDelta >= 0 ? usd(wsDelta) + ' MORE' : usd(-wsDelta) + ' LESS'} /mo at ${C.workspaceSeats} seats; flat vs Google's per-seat. Easy win at scale.`)
+console.log('  └──────────────────────────────────────────────────────────────')
 
-console.log('\n  PROJECTED  (sovereign, all on Google Cloud)')
-console.log(`    prophet-workspace (GKE)        ${usd(projected.workspace)}   (e2-standard-4 CUD + 500GB + net; control plane $0)`)
-console.log(`    cloud choir 24/7 (L4, ${C.choirBilling})    ${usd(projected.choir)}   (unlimited inference, sovereign)`)
-console.log(`    BYOK frontier fallback         ${usd(projected.byok)}   (metered US API for hard cases — not a seat)`)
-console.log(`    ${'TOTAL'.padEnd(28)} ${usd(projected.total)} / mo   →   ${usd(projected.total * 12)} / yr`)
+console.log('\n  ┌─ BUCKET 2 — AI (GPU; the cloud choir = mesh-vllm-serve) ─────')
+console.log(`  │  TODAY     Claude AU ${C.claudeSeats} + ChatGPT ${C.chatgptSeats}   ${usd(today.claude + today.chatgpt)} /mo   (ESTIMATE — replace w/ bills)`)
+console.log(`  │  PROJECTED choir 24/7 (L4, ${C.choirBilling}) ${usd(projected.choir)} + BYOK fallback ${usd(projected.byok)} = ${usd(projected.choir + projected.byok)} /mo`)
+console.log(`  │            + training (LoRA/gpu-train): VARIABLE, on-demand Jobs — bill only while running (~$5–50/run), not monthly.`)
+const aiToday = today.claude + today.chatgpt, aiProj = projected.choir + projected.byok
+const aiDelta = aiProj - aiToday
+console.log(`  │  → ${aiDelta >= 0 ? usd(aiDelta) + ' MORE' : usd(-aiDelta) + ' LESS'} /mo at this scale (24/7 GPU is real). Wins on tokens, scale, uncapped, sovereignty.`)
+console.log(`  │    (choir scales-to-zero when idle — non-24/7 is cheaper; you chose 24/7 for always-on agents.)`)
+console.log('  └──────────────────────────────────────────────────────────────')
+
+console.log('\n  COMBINED')
+console.log(`    TODAY      ${usd(today.total)} / mo   →   ${usd(today.total * 12)} / yr`)
+console.log(`    PROJECTED  ${usd(projected.total)} / mo   →   ${usd(projected.total * 12)} / yr`)
 
 const delta = projected.total - today.total
 console.log('\n  ' + line.slice(2))
