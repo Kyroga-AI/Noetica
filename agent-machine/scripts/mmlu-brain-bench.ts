@@ -44,6 +44,7 @@ import { associativeRetrieve } from '../lib/graph-ppr.js'
 import { decodeVec, l2norm } from '../lib/brain-vec.js'
 import { reliabilityGate } from '../lib/reliability-gate.js'
 import { formatEvidence, inlineBindPrompt, parseInlineAnswer, inlineFidelityStats } from '../lib/inline-bind.js'
+import { cragVote, gateShouldRetrieve, acceptRetrievedAnswer } from '../lib/crag-gate.js'
 
 const HOME = os.homedir()
 const BANK = path.join(HOME, '.noetica', 'corpus', 'benchmarks', 'mmlu_stem.json')
@@ -556,23 +557,15 @@ function extractConf(raw: string): number {
 }
 async function askVote(prompt: string, k: number): Promise<{ letter: string; agree: number }> {
   if (k <= 1) return { letter: extractLetter(await ask(prompt)), agree: 1 }
+  // The voting kernel now lives in lib/crag-gate.ts (cragVote) so the bench exercises the SAME code production
+  // uses — same Adaptive-SC early-stop + agreement metric. CISC weighting and the temp-0 empty-fallback are
+  // wired in via the sampler/options closures, preserving the original behavior exactly.
   const p = CISC ? `${prompt}\nThen output your confidence as "CONFIDENCE: 0.NN".` : prompt
-  const votes = new Map<string, number>()
-  let total = 0
-  for (let s = 0; s < k; s++) {
-    const raw = await ask(p, 0.7)
-    const l = extractLetter(raw)
-    if (!l) continue
-    const w = CISC ? extractConf(raw) : 1        // CISC: weight the vote by stated confidence
-    votes.set(l, (votes.get(l) || 0) + w); total += w
-    if (s >= 2) {                                 // Adaptive-SC (Snell/NeurIPS'24): LOSSLESS early-stop when the
-      const v = [...votes.values()].sort((a, b) => b - a)   // leader can't be caught by the remaining samples
-      if ((v[0]! - (v[1] ?? 0)) > (k - 1 - s)) break        // → fewer calls on easy questions, zero accuracy cost
-    }
-  }
-  if (!votes.size) return { letter: extractLetter(await ask(prompt)), agree: 0 }
-  const [letter, n] = [...votes.entries()].sort((a, b) => b[1] - a[1])[0]!
-  return { letter, agree: total ? n / total : 0 }   // agree = winning fraction of the (weighted) mass
+  const r = await cragVote(() => ask(p, 0.7), extractLetter, k, {
+    weight: CISC ? extractConf : undefined,
+    fallback: () => ask(prompt),
+  })
+  return { letter: r.choice, agree: r.agree }
 }
 
 // gen — neutral-system generation for query generation. MUST NOT use the MCQ SYS, or the model
@@ -1021,13 +1014,13 @@ async function main() {
           const k = kt[i] ?? { types: ['BasicFacts'], solver: 'retrieve' }
           const scClosed = await askVote(`${base}${ANSWER_RULE}`, SC_K)   // closed-book confidence probe (calibrated by SC agreement)
           row['gate_conf'] = Number(scClosed.agree.toFixed(2))
-          if (scClosed.agree >= 0.8) {                                    // CONFIDENT → skip retrieval (don't inject noise — fixes saturated bio)
+          if (!gateShouldRetrieve(scClosed.agree)) {                      // CONFIDENT → skip retrieval (don't inject noise — fixes saturated bio)
             letter = scClosed.letter; mode = 'gate:skip'
           } else if (k.solver === 'compute' && ci?.answer && ci.mode !== 'prog') {
             letter = ci.answer; mode = `gate:compute:${ci.mode}`          // computational → deterministic (stats/math)
           } else {
             const scRetr = await askVote(qgenPrompt, SC_K)                // uncertain → retrieve + vote
-            if (scRetr.agree >= scClosed.agree) { letter = scRetr.letter; mode = `gate:retrieve:${k.types?.[0] ?? '?'}` }
+            if (acceptRetrievedAnswer(scRetr.agree, scClosed.agree)) { letter = scRetr.letter; mode = `gate:retrieve:${k.types?.[0] ?? '?'}` }
             else { letter = scClosed.letter; mode = 'gate:retrieve-rejected' }   // weak/ambiguous retrieval → keep reasoning (CRAG correction)
           }
         } else if (arm === 'elim') {              // Monty-Hall: per-choice confirm/REFUTE, posterior, coverage-gated widening
