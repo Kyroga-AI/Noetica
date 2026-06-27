@@ -1,6 +1,11 @@
 {
   "domain": "computer_science",
-  "mmlu_subjects": ["college_computer_science","high_school_computer_science","machine_learning","electrical_engineering"],
+  "mmlu_subjects": [
+    "college_computer_science",
+    "high_school_computer_science",
+    "machine_learning",
+    "electrical_engineering"
+  ],
   "mmlu_pro_category": "computer science",
   "topics": [
     {
@@ -17,24 +22,110 @@
         "Tries and suffix structures"
       ],
       "glossary": [
-        {"term": "amortized analysis", "definition": "Method of analyzing algorithm cost averaged over a sequence of operations, smoothing out costly outliers (e.g., dynamic array doubling gives O(1) amortized push)."},
-        {"term": "AVL tree", "definition": "Self-balancing BST where for every node the heights of the two child subtrees differ by at most 1; guarantees O(log n) search, insert, delete."},
-        {"term": "red-black tree", "definition": "BST with one extra bit per node encoding color (red/black) and four structural invariants that guarantee O(log n) height."},
-        {"term": "B-tree", "definition": "Balanced search tree where each node can hold multiple keys and have multiple children; designed to minimize disk I/O, used in databases and file systems."},
-        {"term": "hash collision", "definition": "Two distinct keys mapping to the same bucket; resolved by chaining (linked lists) or open addressing (linear/quadratic probing, double hashing)."},
-        {"term": "heap property", "definition": "In a max-heap, every node's key is ≥ its children's keys; in a min-heap, ≤; guarantees O(1) peek at extremum."},
-        {"term": "load factor", "definition": "Ratio of stored elements to hash table capacity (n/m); kept below a threshold (e.g., 0.75) to maintain O(1) expected operations."},
-        {"term": "trie", "definition": "Tree where each node represents a prefix of stored strings; supports O(L) lookup, insert, and prefix search for strings of length L."},
-        {"term": "graph adjacency list", "definition": "Graph representation storing, for each vertex, a list of its neighbors; space O(V+E), preferred for sparse graphs."},
-        {"term": "disjoint-set (union-find)", "definition": "Data structure tracking a partition of elements into disjoint sets; supports union and find operations, nearly O(1) amortized with union-by-rank + path compression."}
+        {
+          "term": "amortized analysis",
+          "definition": "Method of analyzing algorithm cost averaged over a sequence of operations, smoothing out costly outliers (e.g., dynamic array doubling gives O(1) amortized push)."
+        },
+        {
+          "term": "AVL tree",
+          "definition": "Self-balancing BST where for every node the heights of the two child subtrees differ by at most 1; guarantees O(log n) search, insert, delete."
+        },
+        {
+          "term": "red-black tree",
+          "definition": "BST with one extra bit per node encoding color (red/black) and four structural invariants that guarantee O(log n) height."
+        },
+        {
+          "term": "B-tree",
+          "definition": "Balanced search tree where each node can hold multiple keys and have multiple children; designed to minimize disk I/O, used in databases and file systems."
+        },
+        {
+          "term": "hash collision",
+          "definition": "Two distinct keys mapping to the same bucket; resolved by chaining (linked lists) or open addressing (linear/quadratic probing, double hashing)."
+        },
+        {
+          "term": "heap property",
+          "definition": "In a max-heap, every node's key is ≥ its children's keys; in a min-heap, ≤; guarantees O(1) peek at extremum."
+        },
+        {
+          "term": "load factor",
+          "definition": "Ratio of stored elements to hash table capacity (n/m); kept below a threshold (e.g., 0.75) to maintain O(1) expected operations."
+        },
+        {
+          "term": "trie",
+          "definition": "Tree where each node represents a prefix of stored strings; supports O(L) lookup, insert, and prefix search for strings of length L."
+        },
+        {
+          "term": "graph adjacency list",
+          "definition": "Graph representation storing, for each vertex, a list of its neighbors; space O(V+E), preferred for sparse graphs."
+        },
+        {
+          "term": "disjoint-set (union-find)",
+          "definition": "Data structure tracking a partition of elements into disjoint sets; supports union and find operations, nearly O(1) amortized with union-by-rank + path compression."
+        },
+        {
+          "term": "array",
+          "definition": "Contiguous block of memory storing elements of the same type. Random access O(1); insertion/deletion O(n) in the middle. Index from 0 or 1."
+        },
+        {
+          "term": "linked list",
+          "definition": "Sequence of nodes where each node contains data and a pointer to the next node. Insertion/deletion O(1) at head; search O(n). No random access."
+        },
+        {
+          "term": "stack",
+          "definition": "LIFO (last-in, first-out) data structure. Operations: push (add top) and pop (remove top), both O(1). Used in DFS, expression evaluation, function calls."
+        },
+        {
+          "term": "queue",
+          "definition": "FIFO (first-in, first-out) data structure. Enqueue at rear, dequeue from front, both O(1). Used in BFS, scheduling."
+        },
+        {
+          "term": "binary tree",
+          "definition": "Tree where each node has at most 2 children (left, right). Height h; n nodes: h = O(log n) for balanced, O(n) worst. Traversal: in/pre/post-order."
+        },
+        {
+          "term": "heap",
+          "definition": "Complete binary tree satisfying the heap property: max-heap has parent ≥ children; min-heap has parent ≤ children. Insert/extract O(log n). Used in priority queues."
+        },
+        {
+          "term": "sorting",
+          "definition": "Arranging elements in order. Key algorithms: merge sort O(n log n) stable; quicksort O(n log n) avg unstable; heapsort O(n log n); insertion sort O(n²)."
+        },
+        {
+          "term": "binary search",
+          "definition": "Search in sorted array by comparing middle element: O(log n) time. Requires random access (array). Not suitable for linked lists."
+        }
       ],
       "canon": [
-        {"name": "Dynamic array doubling", "form": "Append is O(1) amortized: total cost of n appends = O(n) by geometric series 1+2+4+...+n < 2n", "type": "theorem"},
-        {"name": "BST search complexity", "form": "O(h) where h is tree height; h = O(log n) for balanced trees, O(n) worst case for unbalanced", "type": "definition"},
-        {"name": "Heap insert/delete-min", "form": "O(log n) via sift-up / sift-down; build-heap from n elements = O(n) by summing height-weighted nodes", "type": "theorem"},
-        {"name": "Hash table expected operations", "form": "With uniform hashing and load factor α < 1, expected search time = O(1 + α) = O(1)", "type": "theorem"},
-        {"name": "AVL rotation invariant", "form": "Single or double rotation restores balance in O(1); height h ≤ 1.44 log2(n+2)", "type": "theorem"},
-        {"name": "Union-Find with path compression + union by rank", "form": "m operations on n elements cost O(m · α(n)) total, where α is the inverse Ackermann function", "type": "theorem"}
+        {
+          "name": "Dynamic array doubling",
+          "form": "Append is O(1) amortized: total cost of n appends = O(n) by geometric series 1+2+4+...+n < 2n",
+          "type": "theorem"
+        },
+        {
+          "name": "BST search complexity",
+          "form": "O(h) where h is tree height; h = O(log n) for balanced trees, O(n) worst case for unbalanced",
+          "type": "definition"
+        },
+        {
+          "name": "Heap insert/delete-min",
+          "form": "O(log n) via sift-up / sift-down; build-heap from n elements = O(n) by summing height-weighted nodes",
+          "type": "theorem"
+        },
+        {
+          "name": "Hash table expected operations",
+          "form": "With uniform hashing and load factor α < 1, expected search time = O(1 + α) = O(1)",
+          "type": "theorem"
+        },
+        {
+          "name": "AVL rotation invariant",
+          "form": "Single or double rotation restores balance in O(1); height h ≤ 1.44 log2(n+2)",
+          "type": "theorem"
+        },
+        {
+          "name": "Union-Find with path compression + union by rank",
+          "form": "m operations on n elements cost O(m · α(n)) total, where α is the inverse Ackermann function",
+          "type": "theorem"
+        }
       ]
     },
     {
@@ -52,33 +143,137 @@
         "Approximation algorithms"
       ],
       "glossary": [
-        {"term": "P", "definition": "Class of decision problems solvable by a deterministic Turing machine in polynomial time."},
-        {"term": "NP", "definition": "Class of decision problems for which a YES-certificate can be verified by a deterministic TM in polynomial time; equivalently, solvable by a nondeterministic TM in polynomial time."},
-        {"term": "NP-complete", "definition": "A problem X is NP-complete if X ∈ NP and every problem in NP is polynomial-time reducible to X; intuitively, the hardest problems in NP."},
-        {"term": "NP-hard", "definition": "A problem to which every NP problem reduces in polynomial time; need not itself be in NP (e.g., HALT is NP-hard but undecidable)."},
-        {"term": "polynomial-time reduction", "definition": "A transformation f computable in poly-time such that x ∈ A iff f(x) ∈ B; written A ≤_p B; used to show hardness."},
-        {"term": "dynamic programming", "definition": "Algorithm design paradigm breaking problems into overlapping subproblems, solving each once, and storing results (memoization or bottom-up table) to avoid redundant recomputation."},
-        {"term": "greedy algorithm", "definition": "Algorithm that makes the locally optimal choice at each step; correct when a greedy-choice property and optimal substructure hold (proven e.g. by exchange argument)."},
-        {"term": "amortized complexity", "definition": "Per-operation cost averaged over a sequence; potential method assigns a potential Φ to data structure states: amortized cost = actual cost + ΔΦ."},
-        {"term": "approximation ratio", "definition": "For a minimization problem, an algorithm has ratio ρ if it always returns a solution ≤ ρ · OPT; analogously for maximization."},
-        {"term": "recurrence relation", "definition": "Equation defining the running time T(n) recursively in terms of smaller inputs, e.g. T(n) = aT(n/b) + f(n)."},
-        {"term": "PSPACE", "definition": "Class of decision problems solvable by a deterministic TM using polynomial space; P ⊆ NP ⊆ PSPACE."},
-        {"term": "co-NP", "definition": "Class of problems whose complements are in NP; a problem is in co-NP if NO-instances have polynomial-time verifiable certificates."}
+        {
+          "term": "P",
+          "definition": "Class of decision problems solvable by a deterministic Turing machine in polynomial time."
+        },
+        {
+          "term": "NP",
+          "definition": "Class of decision problems for which a YES-certificate can be verified by a deterministic TM in polynomial time; equivalently, solvable by a nondeterministic TM in polynomial time."
+        },
+        {
+          "term": "NP-complete",
+          "definition": "A problem X is NP-complete if X ∈ NP and every problem in NP is polynomial-time reducible to X; intuitively, the hardest problems in NP."
+        },
+        {
+          "term": "NP-hard",
+          "definition": "A problem to which every NP problem reduces in polynomial time; need not itself be in NP (e.g., HALT is NP-hard but undecidable)."
+        },
+        {
+          "term": "polynomial-time reduction",
+          "definition": "A transformation f computable in poly-time such that x ∈ A iff f(x) ∈ B; written A ≤_p B; used to show hardness."
+        },
+        {
+          "term": "dynamic programming",
+          "definition": "Algorithm design paradigm breaking problems into overlapping subproblems, solving each once, and storing results (memoization or bottom-up table) to avoid redundant recomputation."
+        },
+        {
+          "term": "greedy algorithm",
+          "definition": "Algorithm that makes the locally optimal choice at each step; correct when a greedy-choice property and optimal substructure hold (proven e.g. by exchange argument)."
+        },
+        {
+          "term": "amortized complexity",
+          "definition": "Per-operation cost averaged over a sequence; potential method assigns a potential Φ to data structure states: amortized cost = actual cost + ΔΦ."
+        },
+        {
+          "term": "approximation ratio",
+          "definition": "For a minimization problem, an algorithm has ratio ρ if it always returns a solution ≤ ρ · OPT; analogously for maximization."
+        },
+        {
+          "term": "recurrence relation",
+          "definition": "Equation defining the running time T(n) recursively in terms of smaller inputs, e.g. T(n) = aT(n/b) + f(n)."
+        },
+        {
+          "term": "PSPACE",
+          "definition": "Class of decision problems solvable by a deterministic TM using polynomial space; P ⊆ NP ⊆ PSPACE."
+        },
+        {
+          "term": "co-NP",
+          "definition": "Class of problems whose complements are in NP; a problem is in co-NP if NO-instances have polynomial-time verifiable certificates."
+        },
+        {
+          "term": "algorithm",
+          "definition": "Step-by-step procedure for solving a problem. Analyzed by time complexity (operations) and space complexity (memory). Must terminate and be correct."
+        },
+        {
+          "term": "time complexity",
+          "definition": "Number of operations as a function of input size n. Big-O: worst case. Ω: best case. Θ: tight bound. Common: O(1), O(log n), O(n), O(n log n), O(n²), O(2^n)."
+        },
+        {
+          "term": "recursion",
+          "definition": "Function that calls itself with a smaller sub-problem, with a base case to terminate. Time often T(n) = aT(n/b) + f(n) (master theorem)."
+        },
+        {
+          "term": "graph traversal",
+          "definition": "BFS: uses queue, finds shortest path (unweighted). DFS: uses stack/recursion, detects cycles, topological sort. Both O(V+E)."
+        }
       ],
       "canon": [
-        {"name": "Master theorem", "form": "T(n) = aT(n/b) + f(n): (1) if f(n) = O(n^(log_b a - ε)) then T(n) = Θ(n^(log_b a)); (2) if f(n) = Θ(n^(log_b a) log^k n) then T(n) = Θ(n^(log_b a) log^(k+1) n); (3) if f(n) = Ω(n^(log_b a + ε)) and regularity holds then T(n) = Θ(f(n))", "type": "theorem"},
-        {"name": "Comparison-sort lower bound", "form": "Any comparison-based sorting algorithm requires Ω(n log n) comparisons in the worst case (decision-tree argument: n! leaves, height ≥ log2(n!)  = Ω(n log n))", "type": "theorem"},
-        {"name": "Dijkstra's algorithm", "form": "Single-source shortest paths for non-negative weights; O((V+E) log V) with binary heap, O(V log V + E) with Fibonacci heap", "type": "algorithm"},
-        {"name": "Bellman-Ford algorithm", "form": "Single-source shortest paths allowing negative weights; O(VE); detects negative cycles; relaxes all edges V-1 times", "type": "algorithm"},
-        {"name": "Floyd-Warshall algorithm", "form": "All-pairs shortest paths; O(V^3) DP: d[i][j][k] = min(d[i][j][k-1], d[i][k][k-1] + d[k][j][k-1])", "type": "algorithm"},
-        {"name": "Kruskal's MST", "form": "Sort edges by weight, add edge if it doesn't form a cycle (union-find); O(E log E); correctness by cut property", "type": "algorithm"},
-        {"name": "Prim's MST", "form": "Grow MST greedily from a root, always adding minimum-weight crossing edge; O(E log V) with binary heap", "type": "algorithm"},
-        {"name": "Cook-Levin theorem", "form": "SAT is NP-complete: every NP problem reduces to SAT in polynomial time; proof encodes TM computation as Boolean formula", "type": "theorem"},
-        {"name": "Mergesort", "form": "T(n) = 2T(n/2) + Θ(n) → T(n) = Θ(n log n); stable; O(n) extra space", "type": "algorithm"},
-        {"name": "Quicksort", "form": "Expected O(n log n) with random pivot; worst-case O(n^2); in-place (O(log n) stack space); not stable", "type": "algorithm"},
-        {"name": "Radix/Counting sort", "form": "O(n + k) time for integers in [0,k]; counting sort: count frequencies, compute prefix sums, place; radix sort: d passes of counting sort on each digit → O(d(n+k))", "type": "algorithm"},
-        {"name": "Karatsuba multiplication", "form": "Multiply two n-digit numbers in O(n^(log_2 3)) ≈ O(n^1.585) using 3 subproblems of size n/2 instead of 4", "type": "algorithm"},
-        {"name": "Max-flow min-cut theorem", "form": "In any flow network, max flow = min cut capacity; Ford-Fulkerson finds max flow in O(E · |f*|); Edmonds-Karp in O(VE^2)", "type": "theorem"}
+        {
+          "name": "Master theorem",
+          "form": "T(n) = aT(n/b) + f(n): (1) if f(n) = O(n^(log_b a - ε)) then T(n) = Θ(n^(log_b a)); (2) if f(n) = Θ(n^(log_b a) log^k n) then T(n) = Θ(n^(log_b a) log^(k+1) n); (3) if f(n) = Ω(n^(log_b a + ε)) and regularity holds then T(n) = Θ(f(n))",
+          "type": "theorem"
+        },
+        {
+          "name": "Comparison-sort lower bound",
+          "form": "Any comparison-based sorting algorithm requires Ω(n log n) comparisons in the worst case (decision-tree argument: n! leaves, height ≥ log2(n!)  = Ω(n log n))",
+          "type": "theorem"
+        },
+        {
+          "name": "Dijkstra's algorithm",
+          "form": "Single-source shortest paths for non-negative weights; O((V+E) log V) with binary heap, O(V log V + E) with Fibonacci heap",
+          "type": "algorithm"
+        },
+        {
+          "name": "Bellman-Ford algorithm",
+          "form": "Single-source shortest paths allowing negative weights; O(VE); detects negative cycles; relaxes all edges V-1 times",
+          "type": "algorithm"
+        },
+        {
+          "name": "Floyd-Warshall algorithm",
+          "form": "All-pairs shortest paths; O(V^3) DP: d[i][j][k] = min(d[i][j][k-1], d[i][k][k-1] + d[k][j][k-1])",
+          "type": "algorithm"
+        },
+        {
+          "name": "Kruskal's MST",
+          "form": "Sort edges by weight, add edge if it doesn't form a cycle (union-find); O(E log E); correctness by cut property",
+          "type": "algorithm"
+        },
+        {
+          "name": "Prim's MST",
+          "form": "Grow MST greedily from a root, always adding minimum-weight crossing edge; O(E log V) with binary heap",
+          "type": "algorithm"
+        },
+        {
+          "name": "Cook-Levin theorem",
+          "form": "SAT is NP-complete: every NP problem reduces to SAT in polynomial time; proof encodes TM computation as Boolean formula",
+          "type": "theorem"
+        },
+        {
+          "name": "Mergesort",
+          "form": "T(n) = 2T(n/2) + Θ(n) → T(n) = Θ(n log n); stable; O(n) extra space",
+          "type": "algorithm"
+        },
+        {
+          "name": "Quicksort",
+          "form": "Expected O(n log n) with random pivot; worst-case O(n^2); in-place (O(log n) stack space); not stable",
+          "type": "algorithm"
+        },
+        {
+          "name": "Radix/Counting sort",
+          "form": "O(n + k) time for integers in [0,k]; counting sort: count frequencies, compute prefix sums, place; radix sort: d passes of counting sort on each digit → O(d(n+k))",
+          "type": "algorithm"
+        },
+        {
+          "name": "Karatsuba multiplication",
+          "form": "Multiply two n-digit numbers in O(n^(log_2 3)) ≈ O(n^1.585) using 3 subproblems of size n/2 instead of 4",
+          "type": "algorithm"
+        },
+        {
+          "name": "Max-flow min-cut theorem",
+          "form": "In any flow network, max flow = min cut capacity; Ford-Fulkerson finds max flow in O(E · |f*|); Edmonds-Karp in O(VE^2)",
+          "type": "theorem"
+        }
       ]
     },
     {
@@ -95,27 +290,91 @@
         "Time and space complexity classes"
       ],
       "glossary": [
-        {"term": "DFA (deterministic finite automaton)", "definition": "5-tuple (Q, Σ, δ, q0, F): states Q, alphabet Σ, transition function δ: Q×Σ→Q, start state q0, accept states F; recognizes exactly the regular languages."},
-        {"term": "NFA (nondeterministic finite automaton)", "definition": "Like a DFA but δ: Q×Σ_ε → P(Q); accepts if any computation path reaches an accept state; equivalent in power to DFA (subset construction converts)."},
-        {"term": "regular language", "definition": "A language recognized by some DFA; equivalently described by a regular expression; closed under union, concatenation, Kleene star, complement, intersection."},
-        {"term": "pumping lemma (regular)", "definition": "For any regular language L, ∃ pumping length p such that any string s ∈ L with |s| ≥ p can be split s=xyz with |xy|≤p, |y|≥1, and xy^iz ∈ L for all i≥0; used to prove non-regularity."},
-        {"term": "context-free grammar (CFG)", "definition": "4-tuple (V, Σ, R, S): variables V, terminals Σ, production rules R of form A→α, start variable S; generates context-free languages."},
-        {"term": "pushdown automaton (PDA)", "definition": "NFA augmented with a stack; recognizes exactly the context-free languages; can be nondeterministic."},
-        {"term": "pumping lemma (CFL)", "definition": "For any CFL L, ∃ p such that any s ∈ L with |s| ≥ p can be split s=uvxyz with |vy|≥1, |vxy|≤p, and uv^ixy^iz ∈ L for all i≥0; used to prove non-context-freeness."},
-        {"term": "Turing machine (TM)", "definition": "7-tuple (Q, Σ, Γ, δ, q0, q_accept, q_reject) operating on an infinite tape; the canonical model of computation; computes exactly the recursively enumerable (RE) languages."},
-        {"term": "decidable language", "definition": "A language for which there exists a TM that always halts and correctly accepts or rejects every input; also called recursive."},
-        {"term": "recognizable language", "definition": "A language for which some TM halts and accepts every string in the language, but may loop on strings not in it; also called recursively enumerable (RE)."},
-        {"term": "halting problem", "definition": "HALT_TM = {⟨M,w⟩ | TM M halts on input w}; undecidable (proven by diagonalization); RE but not co-RE."},
-        {"term": "reduction (computability)", "definition": "A mapping reduction A ≤_m B: a computable function f where x∈A iff f(x)∈B; if B is decidable then so is A; contrapositively, if A is undecidable then B is undecidable."},
-        {"term": "Rice's theorem", "definition": "Any nontrivial semantic property of Turing machine languages is undecidable; i.e., no algorithm can decide whether the language of an arbitrary TM has a nontrivial property."}
+        {
+          "term": "DFA (deterministic finite automaton)",
+          "definition": "5-tuple (Q, Σ, δ, q0, F): states Q, alphabet Σ, transition function δ: Q×Σ→Q, start state q0, accept states F; recognizes exactly the regular languages."
+        },
+        {
+          "term": "NFA (nondeterministic finite automaton)",
+          "definition": "Like a DFA but δ: Q×Σ_ε → P(Q); accepts if any computation path reaches an accept state; equivalent in power to DFA (subset construction converts)."
+        },
+        {
+          "term": "regular language",
+          "definition": "A language recognized by some DFA; equivalently described by a regular expression; closed under union, concatenation, Kleene star, complement, intersection."
+        },
+        {
+          "term": "pumping lemma (regular)",
+          "definition": "For any regular language L, ∃ pumping length p such that any string s ∈ L with |s| ≥ p can be split s=xyz with |xy|≤p, |y|≥1, and xy^iz ∈ L for all i≥0; used to prove non-regularity."
+        },
+        {
+          "term": "context-free grammar (CFG)",
+          "definition": "4-tuple (V, Σ, R, S): variables V, terminals Σ, production rules R of form A→α, start variable S; generates context-free languages."
+        },
+        {
+          "term": "pushdown automaton (PDA)",
+          "definition": "NFA augmented with a stack; recognizes exactly the context-free languages; can be nondeterministic."
+        },
+        {
+          "term": "pumping lemma (CFL)",
+          "definition": "For any CFL L, ∃ p such that any s ∈ L with |s| ≥ p can be split s=uvxyz with |vy|≥1, |vxy|≤p, and uv^ixy^iz ∈ L for all i≥0; used to prove non-context-freeness."
+        },
+        {
+          "term": "Turing machine (TM)",
+          "definition": "7-tuple (Q, Σ, Γ, δ, q0, q_accept, q_reject) operating on an infinite tape; the canonical model of computation; computes exactly the recursively enumerable (RE) languages."
+        },
+        {
+          "term": "decidable language",
+          "definition": "A language for which there exists a TM that always halts and correctly accepts or rejects every input; also called recursive."
+        },
+        {
+          "term": "recognizable language",
+          "definition": "A language for which some TM halts and accepts every string in the language, but may loop on strings not in it; also called recursively enumerable (RE)."
+        },
+        {
+          "term": "halting problem",
+          "definition": "HALT_TM = {⟨M,w⟩ | TM M halts on input w}; undecidable (proven by diagonalization); RE but not co-RE."
+        },
+        {
+          "term": "reduction (computability)",
+          "definition": "A mapping reduction A ≤_m B: a computable function f where x∈A iff f(x)∈B; if B is decidable then so is A; contrapositively, if A is undecidable then B is undecidable."
+        },
+        {
+          "term": "Rice's theorem",
+          "definition": "Any nontrivial semantic property of Turing machine languages is undecidable; i.e., no algorithm can decide whether the language of an arbitrary TM has a nontrivial property."
+        }
       ],
       "canon": [
-        {"name": "Subset construction (NFA→DFA)", "form": "States of DFA = subsets of NFA states; at most 2^n states; construction runs in O(2^n · |Σ|) time", "type": "algorithm"},
-        {"name": "Myhill-Nerode theorem", "definition": "A language L is regular iff the equivalence relation x ≡_L y (∀z: xz∈L↔yz∈L) has finitely many classes; the minimum DFA has exactly as many states as equivalence classes", "type": "theorem", "form": "L regular ↔ index(≡_L) finite; min-DFA states = index(≡_L)"},
-        {"name": "Church-Turing thesis", "form": "Every effectively computable function is computable by a Turing machine; not provable, but universally accepted as a definition of computability", "type": "definition"},
-        {"name": "Diagonalization / Halting undecidability", "form": "Assume TM H decides HALT_TM; construct D: on input ⟨M⟩, run H on ⟨M,⟨M⟩⟩, do the opposite → contradiction on D(⟨D⟩)", "type": "theorem"},
-        {"name": "Chomsky hierarchy", "form": "Type 0 (RE, TM) ⊃ Type 1 (context-sensitive, LBA) ⊃ Type 2 (CFL, PDA) ⊃ Type 3 (regular, DFA)", "type": "definition"},
-        {"name": "CYK algorithm", "form": "Decides membership in CFL from CNF grammar in O(n^3 · |G|) time using DP table T[i][j][A] = true if A derives s[i..j]", "type": "algorithm"}
+        {
+          "name": "Subset construction (NFA→DFA)",
+          "form": "States of DFA = subsets of NFA states; at most 2^n states; construction runs in O(2^n · |Σ|) time",
+          "type": "algorithm"
+        },
+        {
+          "name": "Myhill-Nerode theorem",
+          "definition": "A language L is regular iff the equivalence relation x ≡_L y (∀z: xz∈L↔yz∈L) has finitely many classes; the minimum DFA has exactly as many states as equivalence classes",
+          "type": "theorem",
+          "form": "L regular ↔ index(≡_L) finite; min-DFA states = index(≡_L)"
+        },
+        {
+          "name": "Church-Turing thesis",
+          "form": "Every effectively computable function is computable by a Turing machine; not provable, but universally accepted as a definition of computability",
+          "type": "definition"
+        },
+        {
+          "name": "Diagonalization / Halting undecidability",
+          "form": "Assume TM H decides HALT_TM; construct D: on input ⟨M⟩, run H on ⟨M,⟨M⟩⟩, do the opposite → contradiction on D(⟨D⟩)",
+          "type": "theorem"
+        },
+        {
+          "name": "Chomsky hierarchy",
+          "form": "Type 0 (RE, TM) ⊃ Type 1 (context-sensitive, LBA) ⊃ Type 2 (CFL, PDA) ⊃ Type 3 (regular, DFA)",
+          "type": "definition"
+        },
+        {
+          "name": "CYK algorithm",
+          "form": "Decides membership in CFL from CNF grammar in O(n^3 · |G|) time using DP table T[i][j][A] = true if A derives s[i..j]",
+          "type": "algorithm"
+        }
       ]
     },
     {
@@ -132,28 +391,111 @@
         "Number theory and modular arithmetic"
       ],
       "glossary": [
-        {"term": "tautology", "definition": "A propositional formula that is true under every truth assignment; e.g., p ∨ ¬p."},
-        {"term": "recurrence relation", "definition": "An equation defining each term of a sequence as a function of preceding terms (e.g. Fibonacci a_n = a_{n-1} + a_{n-2}); solved in closed form via characteristic equations or generating functions."},
-        {"term": "satisfiability", "definition": "A formula is satisfiable if there exists at least one truth assignment making it true; SAT is the canonical NP-complete problem."},
-        {"term": "mathematical induction", "definition": "Proof technique: establish base case P(0), then show P(k) → P(k+1) for all k ≥ 0; concludes P(n) for all n ≥ 0."},
-        {"term": "strong induction", "definition": "Assume P(0), P(1), ..., P(k) all hold, then prove P(k+1); equivalent in power to ordinary induction."},
-        {"term": "bijection", "definition": "A function that is both injective (one-to-one) and surjective (onto); establishes that two sets have the same cardinality."},
-        {"term": "Cantor's diagonalization", "definition": "Proof that the reals are uncountable: for any enumeration of reals, construct a real differing from the n-th real in the n-th decimal place."},
-        {"term": "modular arithmetic", "definition": "Arithmetic on residues mod n; a ≡ b (mod n) iff n | (a-b); forms the ring Z/nZ."},
-        {"term": "Euler's totient φ(n)", "definition": "Count of integers in [1,n] coprime to n; φ(p) = p-1 for prime p; φ(mn) = φ(m)φ(n) if gcd(m,n)=1."},
-        {"term": "pigeonhole principle", "definition": "If n+1 objects are placed into n boxes, at least one box contains ≥ 2 objects; generalized: if kn+1 objects in n boxes, some box has ≥ k+1."},
-        {"term": "graph isomorphism", "definition": "Graphs G and H are isomorphic if there is a bijection f: V(G)→V(H) preserving adjacency; not known to be in P or NP-complete."},
-        {"term": "Euler path/circuit", "definition": "Path/circuit visiting every edge exactly once; exists in undirected graph iff 0 (path) or 0 vertices (circuit) have odd degree."},
-        {"term": "planar graph", "definition": "Graph embeddable in the plane without edge crossings; by Euler's formula V - E + F = 2 for connected planar graphs."}
+        {
+          "term": "tautology",
+          "definition": "A propositional formula that is true under every truth assignment; e.g., p ∨ ¬p."
+        },
+        {
+          "term": "recurrence relation",
+          "definition": "An equation defining each term of a sequence as a function of preceding terms (e.g. Fibonacci a_n = a_{n-1} + a_{n-2}); solved in closed form via characteristic equations or generating functions."
+        },
+        {
+          "term": "satisfiability",
+          "definition": "A formula is satisfiable if there exists at least one truth assignment making it true; SAT is the canonical NP-complete problem."
+        },
+        {
+          "term": "mathematical induction",
+          "definition": "Proof technique: establish base case P(0), then show P(k) → P(k+1) for all k ≥ 0; concludes P(n) for all n ≥ 0."
+        },
+        {
+          "term": "strong induction",
+          "definition": "Assume P(0), P(1), ..., P(k) all hold, then prove P(k+1); equivalent in power to ordinary induction."
+        },
+        {
+          "term": "bijection",
+          "definition": "A function that is both injective (one-to-one) and surjective (onto); establishes that two sets have the same cardinality."
+        },
+        {
+          "term": "Cantor's diagonalization",
+          "definition": "Proof that the reals are uncountable: for any enumeration of reals, construct a real differing from the n-th real in the n-th decimal place."
+        },
+        {
+          "term": "modular arithmetic",
+          "definition": "Arithmetic on residues mod n; a ≡ b (mod n) iff n | (a-b); forms the ring Z/nZ."
+        },
+        {
+          "term": "Euler's totient φ(n)",
+          "definition": "Count of integers in [1,n] coprime to n; φ(p) = p-1 for prime p; φ(mn) = φ(m)φ(n) if gcd(m,n)=1."
+        },
+        {
+          "term": "pigeonhole principle",
+          "definition": "If n+1 objects are placed into n boxes, at least one box contains ≥ 2 objects; generalized: if kn+1 objects in n boxes, some box has ≥ k+1."
+        },
+        {
+          "term": "graph isomorphism",
+          "definition": "Graphs G and H are isomorphic if there is a bijection f: V(G)→V(H) preserving adjacency; not known to be in P or NP-complete."
+        },
+        {
+          "term": "Euler path/circuit",
+          "definition": "Path/circuit visiting every edge exactly once; exists in undirected graph iff 0 (path) or 0 vertices (circuit) have odd degree."
+        },
+        {
+          "term": "planar graph",
+          "definition": "Graph embeddable in the plane without edge crossings; by Euler's formula V - E + F = 2 for connected planar graphs."
+        },
+        {
+          "term": "graph",
+          "definition": "Set of vertices V and edges E. Directed (digraph) or undirected. Weighted or unweighted. Representations: adjacency matrix O(V²) or adjacency list O(V+E)."
+        },
+        {
+          "term": "tree",
+          "definition": "Connected acyclic undirected graph. n vertices, n-1 edges. Rooted tree has a designated root; leaves have no children."
+        },
+        {
+          "term": "proof by induction",
+          "definition": "Base case + inductive step: assume P(k) true, prove P(k+1). Strong induction: assume all P(j) for j ≤ k. Used to prove properties of integers."
+        },
+        {
+          "term": "combinatorics",
+          "definition": "Counting principles: permutations P(n,k) = n!/(n-k)!; combinations C(n,k) = n!/(k!(n-k)!); binomial theorem (a+b)^n = Σ C(n,k) a^(n-k) b^k."
+        }
       ],
       "canon": [
-        {"name": "Binomial theorem", "form": "(x+y)^n = Σ_{k=0}^{n} C(n,k) x^k y^(n-k)", "type": "theorem"},
-        {"name": "Inclusion-exclusion principle", "form": "|A_1 ∪ ... ∪ A_n| = Σ|A_i| - Σ|A_i ∩ A_j| + ... + (-1)^(n+1)|A_1 ∩ ... ∩ A_n|", "type": "theorem"},
-        {"name": "Fermat's little theorem", "form": "For prime p and a not divisible by p: a^(p-1) ≡ 1 (mod p); equivalently a^p ≡ a (mod p)", "type": "theorem"},
-        {"name": "Euler's theorem", "form": "For gcd(a,n)=1: a^φ(n) ≡ 1 (mod n); generalizes Fermat's little theorem", "type": "theorem"},
-        {"name": "Euler's formula (planar graphs)", "form": "V - E + F = 2 for any connected planar graph; corollary: E ≤ 3V - 6 for simple planar graphs (V ≥ 3)", "type": "theorem"},
-        {"name": "De Morgan's laws", "form": "¬(P ∧ Q) ≡ ¬P ∨ ¬Q; ¬(P ∨ Q) ≡ ¬P ∧ ¬Q; dual forms for sets: (A ∩ B)^c = A^c ∪ B^c", "type": "definition"},
-        {"name": "Chinese Remainder Theorem", "form": "If n_1,...,n_k are pairwise coprime, then for any a_1,...,a_k there exists a unique x mod (n_1...n_k) with x ≡ a_i (mod n_i)", "type": "theorem"}
+        {
+          "name": "Binomial theorem",
+          "form": "(x+y)^n = Σ_{k=0}^{n} C(n,k) x^k y^(n-k)",
+          "type": "theorem"
+        },
+        {
+          "name": "Inclusion-exclusion principle",
+          "form": "|A_1 ∪ ... ∪ A_n| = Σ|A_i| - Σ|A_i ∩ A_j| + ... + (-1)^(n+1)|A_1 ∩ ... ∩ A_n|",
+          "type": "theorem"
+        },
+        {
+          "name": "Fermat's little theorem",
+          "form": "For prime p and a not divisible by p: a^(p-1) ≡ 1 (mod p); equivalently a^p ≡ a (mod p)",
+          "type": "theorem"
+        },
+        {
+          "name": "Euler's theorem",
+          "form": "For gcd(a,n)=1: a^φ(n) ≡ 1 (mod n); generalizes Fermat's little theorem",
+          "type": "theorem"
+        },
+        {
+          "name": "Euler's formula (planar graphs)",
+          "form": "V - E + F = 2 for any connected planar graph; corollary: E ≤ 3V - 6 for simple planar graphs (V ≥ 3)",
+          "type": "theorem"
+        },
+        {
+          "name": "De Morgan's laws",
+          "form": "¬(P ∧ Q) ≡ ¬P ∨ ¬Q; ¬(P ∨ Q) ≡ ¬P ∧ ¬Q; dual forms for sets: (A ∩ B)^c = A^c ∪ B^c",
+          "type": "definition"
+        },
+        {
+          "name": "Chinese Remainder Theorem",
+          "form": "If n_1,...,n_k are pairwise coprime, then for any a_1,...,a_k there exists a unique x mod (n_1...n_k) with x ≡ a_i (mod n_i)",
+          "type": "theorem"
+        }
       ]
     },
     {
@@ -170,26 +512,86 @@
         "System calls and kernel/user mode"
       ],
       "glossary": [
-        {"term": "process", "definition": "A program in execution; has its own address space, PC, registers, open files, and OS state; isolated from other processes."},
-        {"term": "thread", "definition": "Lightweight execution unit within a process; shares address space and file descriptors with other threads of the same process; has its own stack and registers."},
-        {"term": "context switch", "definition": "OS operation saving the CPU state of a running process/thread and loading the state of another; overhead measured in microseconds."},
-        {"term": "semaphore", "definition": "Synchronization primitive with integer value; P (wait/down) decrements and blocks if <0; V (signal/up) increments and wakes a blocked process; invented by Dijkstra."},
-        {"term": "mutex (mutual exclusion lock)", "definition": "Binary semaphore used to ensure only one thread executes a critical section at a time; provides ownership semantics."},
-        {"term": "deadlock", "definition": "Circular wait among processes where each holds a resource another needs; necessary conditions (Coffman): mutual exclusion, hold-and-wait, no preemption, circular wait."},
-        {"term": "Banker's algorithm", "definition": "Deadlock avoidance algorithm by Dijkstra; grants resource requests only if remaining allocation leaves the system in a safe state (where all processes can finish sequentially)."},
-        {"term": "virtual memory", "definition": "Abstraction giving each process a private large address space implemented by mapping virtual pages to physical frames; enables demand paging and isolation."},
-        {"term": "page fault", "definition": "Trap raised when a process accesses a virtual page not currently in physical memory; OS handles by loading the page from disk (demand paging)."},
-        {"term": "TLB (translation lookaside buffer)", "definition": "Hardware cache for recent virtual-to-physical address translations; hit avoids page table walk; managed by OS on a TLB miss (software-managed) or hardware."},
-        {"term": "inode", "definition": "Unix file system data structure storing file metadata (permissions, timestamps, size, pointers to data blocks) but not the filename."},
-        {"term": "round-robin scheduling", "definition": "CPU scheduling where each process gets a fixed time quantum in circular order; preemptive; fair but causes many context switches if quantum is too small."}
+        {
+          "term": "process",
+          "definition": "A program in execution; has its own address space, PC, registers, open files, and OS state; isolated from other processes."
+        },
+        {
+          "term": "thread",
+          "definition": "Lightweight execution unit within a process; shares address space and file descriptors with other threads of the same process; has its own stack and registers."
+        },
+        {
+          "term": "context switch",
+          "definition": "OS operation saving the CPU state of a running process/thread and loading the state of another; overhead measured in microseconds."
+        },
+        {
+          "term": "semaphore",
+          "definition": "Synchronization primitive with integer value; P (wait/down) decrements and blocks if <0; V (signal/up) increments and wakes a blocked process; invented by Dijkstra."
+        },
+        {
+          "term": "mutex (mutual exclusion lock)",
+          "definition": "Binary semaphore used to ensure only one thread executes a critical section at a time; provides ownership semantics."
+        },
+        {
+          "term": "deadlock",
+          "definition": "Circular wait among processes where each holds a resource another needs; necessary conditions (Coffman): mutual exclusion, hold-and-wait, no preemption, circular wait."
+        },
+        {
+          "term": "Banker's algorithm",
+          "definition": "Deadlock avoidance algorithm by Dijkstra; grants resource requests only if remaining allocation leaves the system in a safe state (where all processes can finish sequentially)."
+        },
+        {
+          "term": "virtual memory",
+          "definition": "Abstraction giving each process a private large address space implemented by mapping virtual pages to physical frames; enables demand paging and isolation."
+        },
+        {
+          "term": "page fault",
+          "definition": "Trap raised when a process accesses a virtual page not currently in physical memory; OS handles by loading the page from disk (demand paging)."
+        },
+        {
+          "term": "TLB (translation lookaside buffer)",
+          "definition": "Hardware cache for recent virtual-to-physical address translations; hit avoids page table walk; managed by OS on a TLB miss (software-managed) or hardware."
+        },
+        {
+          "term": "inode",
+          "definition": "Unix file system data structure storing file metadata (permissions, timestamps, size, pointers to data blocks) but not the filename."
+        },
+        {
+          "term": "round-robin scheduling",
+          "definition": "CPU scheduling where each process gets a fixed time quantum in circular order; preemptive; fair but causes many context switches if quantum is too small."
+        }
       ],
       "canon": [
-        {"name": "Peterson's algorithm (2-process mutex)", "form": "Uses flag[i] and turn variables; satisfies mutual exclusion, progress, bounded waiting for 2 processes on a sequentially consistent memory model", "type": "algorithm"},
-        {"name": "Producer-consumer with semaphores", "form": "full=0, empty=N, mutex=1; producer: P(empty),P(mutex),add,V(mutex),V(full); consumer: P(full),P(mutex),remove,V(mutex),V(empty)", "type": "algorithm"},
-        {"name": "Dining philosophers (monitor solution)", "form": "Each philosopher picks up both forks atomically inside a monitor; condition variables used to wait when a fork is unavailable; avoids deadlock", "type": "algorithm"},
-        {"name": "LRU page replacement", "form": "Evict the page whose most recent use was furthest in the past; optimal approximation; O(1) per access using doubly-linked list + hash map", "type": "algorithm"},
-        {"name": "Optimal page replacement (Belady)", "form": "Evict page not used for the longest time in the future; achieves minimum page faults; impractical online, used as benchmark", "type": "algorithm"},
-        {"name": "Coffman conditions for deadlock", "form": "Deadlock requires ALL of: (1) mutual exclusion, (2) hold-and-wait, (3) no preemption, (4) circular wait; remove any one to prevent deadlock", "type": "definition"}
+        {
+          "name": "Peterson's algorithm (2-process mutex)",
+          "form": "Uses flag[i] and turn variables; satisfies mutual exclusion, progress, bounded waiting for 2 processes on a sequentially consistent memory model",
+          "type": "algorithm"
+        },
+        {
+          "name": "Producer-consumer with semaphores",
+          "form": "full=0, empty=N, mutex=1; producer: P(empty),P(mutex),add,V(mutex),V(full); consumer: P(full),P(mutex),remove,V(mutex),V(empty)",
+          "type": "algorithm"
+        },
+        {
+          "name": "Dining philosophers (monitor solution)",
+          "form": "Each philosopher picks up both forks atomically inside a monitor; condition variables used to wait when a fork is unavailable; avoids deadlock",
+          "type": "algorithm"
+        },
+        {
+          "name": "LRU page replacement",
+          "form": "Evict the page whose most recent use was furthest in the past; optimal approximation; O(1) per access using doubly-linked list + hash map",
+          "type": "algorithm"
+        },
+        {
+          "name": "Optimal page replacement (Belady)",
+          "form": "Evict page not used for the longest time in the future; achieves minimum page faults; impractical online, used as benchmark",
+          "type": "algorithm"
+        },
+        {
+          "name": "Coffman conditions for deadlock",
+          "form": "Deadlock requires ALL of: (1) mutual exclusion, (2) hold-and-wait, (3) no preemption, (4) circular wait; remove any one to prevent deadlock",
+          "type": "definition"
+        }
       ]
     },
     {
@@ -206,25 +608,81 @@
         "Wireless and mobile networking"
       ],
       "glossary": [
-        {"term": "OSI model", "definition": "7-layer reference model: Physical, Data Link, Network, Transport, Session, Presentation, Application; each layer provides services to the one above."},
-        {"term": "TCP (Transmission Control Protocol)", "definition": "Connection-oriented, reliable, ordered byte-stream transport protocol; uses three-way handshake, sequence numbers, ACKs, and flow/congestion control."},
-        {"term": "UDP (User Datagram Protocol)", "definition": "Connectionless, unreliable transport protocol with minimal overhead; no handshake, ordering, or retransmission; used for DNS, video streaming, gaming."},
-        {"term": "IP address", "definition": "32-bit (IPv4) or 128-bit (IPv6) network-layer identifier for a host or interface; hierarchically structured to enable routing."},
-        {"term": "CIDR (Classless Inter-Domain Routing)", "definition": "IP address allocation using variable-length subnet masks written as a.b.c.d/prefix; aggregates routes and reduces routing table size."},
-        {"term": "BGP (Border Gateway Protocol)", "definition": "Path-vector routing protocol used between autonomous systems on the Internet; makes routing decisions based on paths, network policies, and rule sets."},
-        {"term": "OSPF (Open Shortest Path First)", "definition": "Link-state intra-domain routing protocol; each router floods its link-state advertisements; runs Dijkstra to compute shortest paths."},
-        {"term": "TCP three-way handshake", "definition": "Connection establishment: client sends SYN, server replies SYN-ACK, client sends ACK; establishes sequence numbers for reliable delivery."},
-        {"term": "congestion window (cwnd)", "definition": "TCP sender-side limit on unacknowledged bytes; increased in slow start (exponentially) and congestion avoidance (linearly); halved on packet loss."},
-        {"term": "DNS (Domain Name System)", "definition": "Hierarchical distributed database mapping hostnames to IP addresses; resolvers query root, TLD, and authoritative name servers; uses UDP port 53."},
-        {"term": "TLS (Transport Layer Security)", "definition": "Cryptographic protocol providing authentication, confidentiality, and integrity over TCP; uses asymmetric crypto for key exchange, symmetric for bulk encryption."},
-        {"term": "NAT (Network Address Translation)", "definition": "Maps multiple private IP addresses to a single public IP using port numbers; breaks end-to-end connectivity; ubiquitous in IPv4 networks."}
+        {
+          "term": "OSI model",
+          "definition": "7-layer reference model: Physical, Data Link, Network, Transport, Session, Presentation, Application; each layer provides services to the one above."
+        },
+        {
+          "term": "TCP (Transmission Control Protocol)",
+          "definition": "Connection-oriented, reliable, ordered byte-stream transport protocol; uses three-way handshake, sequence numbers, ACKs, and flow/congestion control."
+        },
+        {
+          "term": "UDP (User Datagram Protocol)",
+          "definition": "Connectionless, unreliable transport protocol with minimal overhead; no handshake, ordering, or retransmission; used for DNS, video streaming, gaming."
+        },
+        {
+          "term": "IP address",
+          "definition": "32-bit (IPv4) or 128-bit (IPv6) network-layer identifier for a host or interface; hierarchically structured to enable routing."
+        },
+        {
+          "term": "CIDR (Classless Inter-Domain Routing)",
+          "definition": "IP address allocation using variable-length subnet masks written as a.b.c.d/prefix; aggregates routes and reduces routing table size."
+        },
+        {
+          "term": "BGP (Border Gateway Protocol)",
+          "definition": "Path-vector routing protocol used between autonomous systems on the Internet; makes routing decisions based on paths, network policies, and rule sets."
+        },
+        {
+          "term": "OSPF (Open Shortest Path First)",
+          "definition": "Link-state intra-domain routing protocol; each router floods its link-state advertisements; runs Dijkstra to compute shortest paths."
+        },
+        {
+          "term": "TCP three-way handshake",
+          "definition": "Connection establishment: client sends SYN, server replies SYN-ACK, client sends ACK; establishes sequence numbers for reliable delivery."
+        },
+        {
+          "term": "congestion window (cwnd)",
+          "definition": "TCP sender-side limit on unacknowledged bytes; increased in slow start (exponentially) and congestion avoidance (linearly); halved on packet loss."
+        },
+        {
+          "term": "DNS (Domain Name System)",
+          "definition": "Hierarchical distributed database mapping hostnames to IP addresses; resolvers query root, TLD, and authoritative name servers; uses UDP port 53."
+        },
+        {
+          "term": "TLS (Transport Layer Security)",
+          "definition": "Cryptographic protocol providing authentication, confidentiality, and integrity over TCP; uses asymmetric crypto for key exchange, symmetric for bulk encryption."
+        },
+        {
+          "term": "NAT (Network Address Translation)",
+          "definition": "Maps multiple private IP addresses to a single public IP using port numbers; breaks end-to-end connectivity; ubiquitous in IPv4 networks."
+        }
       ],
       "canon": [
-        {"name": "Shannon capacity", "form": "C = B log2(1 + S/N) bits/second; C = channel capacity, B = bandwidth (Hz), S/N = signal-to-noise ratio", "type": "equation"},
-        {"name": "Nyquist theorem", "form": "Maximum data rate = 2B log2(V) bits/s for noiseless channel with bandwidth B and V discrete signal levels", "type": "equation"},
-        {"name": "TCP slow start", "form": "cwnd starts at 1 MSS; doubles each RTT until ssthresh; then enters congestion avoidance (additive increase); on loss: ssthresh = cwnd/2, cwnd = 1 (Tahoe) or cwnd = ssthresh (Reno)", "type": "algorithm"},
-        {"name": "Dijkstra link-state routing", "form": "Each router runs Dijkstra on full topology graph; O((V+E) log V); requires global topology knowledge via link-state flooding", "type": "algorithm"},
-        {"name": "Distance-vector routing (Bellman-Ford)", "form": "Each router maintains distance estimates to all destinations; exchanges with neighbors; d_x(y) = min_v{c(x,v) + d_v(y)}; susceptible to count-to-infinity", "type": "algorithm"}
+        {
+          "name": "Shannon capacity",
+          "form": "C = B log2(1 + S/N) bits/second; C = channel capacity, B = bandwidth (Hz), S/N = signal-to-noise ratio",
+          "type": "equation"
+        },
+        {
+          "name": "Nyquist theorem",
+          "form": "Maximum data rate = 2B log2(V) bits/s for noiseless channel with bandwidth B and V discrete signal levels",
+          "type": "equation"
+        },
+        {
+          "name": "TCP slow start",
+          "form": "cwnd starts at 1 MSS; doubles each RTT until ssthresh; then enters congestion avoidance (additive increase); on loss: ssthresh = cwnd/2, cwnd = 1 (Tahoe) or cwnd = ssthresh (Reno)",
+          "type": "algorithm"
+        },
+        {
+          "name": "Dijkstra link-state routing",
+          "form": "Each router runs Dijkstra on full topology graph; O((V+E) log V); requires global topology knowledge via link-state flooding",
+          "type": "algorithm"
+        },
+        {
+          "name": "Distance-vector routing (Bellman-Ford)",
+          "form": "Each router maintains distance estimates to all destinations; exchanges with neighbors; d_x(y) = min_v{c(x,v) + d_v(y)}; susceptible to count-to-infinity",
+          "type": "algorithm"
+        }
       ]
     },
     {
@@ -241,25 +699,81 @@
         "B-trees and storage structures"
       ],
       "glossary": [
-        {"term": "relation (table)", "definition": "A set of tuples over a fixed schema (attribute names and domains); the fundamental structure in the relational model."},
-        {"term": "functional dependency", "definition": "X → Y holds if any two tuples agreeing on attributes X must agree on attributes Y; basis for normalization theory."},
-        {"term": "BCNF (Boyce-Codd Normal Form)", "definition": "For every non-trivial FD X → Y, X must be a superkey; eliminates all redundancy from FDs; may not preserve all dependencies."},
-        {"term": "3NF (Third Normal Form)", "definition": "For every non-trivial FD X → A, either X is a superkey or A is prime (part of some key); always achieves lossless join + dependency-preserving decomposition."},
-        {"term": "ACID", "definition": "Transaction properties: Atomicity (all-or-nothing), Consistency (valid state → valid state), Isolation (concurrent transactions appear serial), Durability (committed changes survive crashes)."},
-        {"term": "serializable schedule", "definition": "A concurrent transaction schedule equivalent to some serial execution of the same transactions; the gold standard for correctness."},
-        {"term": "two-phase locking (2PL)", "definition": "Concurrency control protocol: transactions acquire all locks before releasing any (growing phase then shrinking phase); guarantees serializability."},
-        {"term": "MVCC (multiversion concurrency control)", "definition": "Each write creates a new version; readers access a consistent snapshot without blocking writers; used in PostgreSQL, MySQL InnoDB, Oracle."},
-        {"term": "B+ tree index", "definition": "Variant of B-tree where all data pointers are in leaves (linked for range scans) and internal nodes hold only routing keys; standard database index structure."},
-        {"term": "query plan", "definition": "The execution strategy chosen by the query optimizer, expressed as a tree of relational operators (scan, join, sort); cost estimated using statistics and cardinality."},
-        {"term": "CAP theorem", "definition": "A distributed system can guarantee at most two of: Consistency, Availability, and Partition tolerance; formalized by Brewer and proven by Gilbert & Lynch."},
-        {"term": "WAL (write-ahead log)", "definition": "Durability mechanism: all changes are logged to stable storage before being applied to the data pages; enables crash recovery and REDO/UNDO."}
+        {
+          "term": "relation (table)",
+          "definition": "A set of tuples over a fixed schema (attribute names and domains); the fundamental structure in the relational model."
+        },
+        {
+          "term": "functional dependency",
+          "definition": "X → Y holds if any two tuples agreeing on attributes X must agree on attributes Y; basis for normalization theory."
+        },
+        {
+          "term": "BCNF (Boyce-Codd Normal Form)",
+          "definition": "For every non-trivial FD X → Y, X must be a superkey; eliminates all redundancy from FDs; may not preserve all dependencies."
+        },
+        {
+          "term": "3NF (Third Normal Form)",
+          "definition": "For every non-trivial FD X → A, either X is a superkey or A is prime (part of some key); always achieves lossless join + dependency-preserving decomposition."
+        },
+        {
+          "term": "ACID",
+          "definition": "Transaction properties: Atomicity (all-or-nothing), Consistency (valid state → valid state), Isolation (concurrent transactions appear serial), Durability (committed changes survive crashes)."
+        },
+        {
+          "term": "serializable schedule",
+          "definition": "A concurrent transaction schedule equivalent to some serial execution of the same transactions; the gold standard for correctness."
+        },
+        {
+          "term": "two-phase locking (2PL)",
+          "definition": "Concurrency control protocol: transactions acquire all locks before releasing any (growing phase then shrinking phase); guarantees serializability."
+        },
+        {
+          "term": "MVCC (multiversion concurrency control)",
+          "definition": "Each write creates a new version; readers access a consistent snapshot without blocking writers; used in PostgreSQL, MySQL InnoDB, Oracle."
+        },
+        {
+          "term": "B+ tree index",
+          "definition": "Variant of B-tree where all data pointers are in leaves (linked for range scans) and internal nodes hold only routing keys; standard database index structure."
+        },
+        {
+          "term": "query plan",
+          "definition": "The execution strategy chosen by the query optimizer, expressed as a tree of relational operators (scan, join, sort); cost estimated using statistics and cardinality."
+        },
+        {
+          "term": "CAP theorem",
+          "definition": "A distributed system can guarantee at most two of: Consistency, Availability, and Partition tolerance; formalized by Brewer and proven by Gilbert & Lynch."
+        },
+        {
+          "term": "WAL (write-ahead log)",
+          "definition": "Durability mechanism: all changes are logged to stable storage before being applied to the data pages; enables crash recovery and REDO/UNDO."
+        }
       ],
       "canon": [
-        {"name": "Armstrong's axioms", "form": "Reflexivity: Y⊆X → X→Y; Augmentation: X→Y → XZ→YZ; Transitivity: X→Y, Y→Z → X→Z; sound and complete for FD closure", "type": "theorem"},
-        {"name": "Relational algebra operators", "form": "σ (select), π (project), ⋈ (natural join), × (Cartesian product), ∪, ∩, − (set ops), ρ (rename); complete basis for relational queries", "type": "definition"},
-        {"name": "BCNF decomposition", "form": "While relation R has FD X→Y violating BCNF: decompose R into R1=(X∪Y) and R2=(R−Y+X); lossless but may not preserve all FDs", "type": "algorithm"},
-        {"name": "2PL → serializability", "form": "Any schedule produced by strict 2PL (hold locks until commit/abort) is conflict-serializable; the dependency graph is acyclic", "type": "theorem"},
-        {"name": "CAP theorem", "form": "In an asynchronous network, no distributed system can simultaneously guarantee Consistency, Availability, and Partition tolerance (proven by impossibility of linearizability under partition)", "type": "theorem"}
+        {
+          "name": "Armstrong's axioms",
+          "form": "Reflexivity: Y⊆X → X→Y; Augmentation: X→Y → XZ→YZ; Transitivity: X→Y, Y→Z → X→Z; sound and complete for FD closure",
+          "type": "theorem"
+        },
+        {
+          "name": "Relational algebra operators",
+          "form": "σ (select), π (project), ⋈ (natural join), × (Cartesian product), ∪, ∩, − (set ops), ρ (rename); complete basis for relational queries",
+          "type": "definition"
+        },
+        {
+          "name": "BCNF decomposition",
+          "form": "While relation R has FD X→Y violating BCNF: decompose R into R1=(X∪Y) and R2=(R−Y+X); lossless but may not preserve all FDs",
+          "type": "algorithm"
+        },
+        {
+          "name": "2PL → serializability",
+          "form": "Any schedule produced by strict 2PL (hold locks until commit/abort) is conflict-serializable; the dependency graph is acyclic",
+          "type": "theorem"
+        },
+        {
+          "name": "CAP theorem",
+          "form": "In an asynchronous network, no distributed system can simultaneously guarantee Consistency, Availability, and Partition tolerance (proven by impossibility of linearizability under partition)",
+          "type": "theorem"
+        }
       ]
     },
     {
@@ -276,26 +790,86 @@
         "Memory consistency models"
       ],
       "glossary": [
-        {"term": "ISA (instruction set architecture)", "definition": "The interface between hardware and software defining the set of instructions, registers, addressing modes, data types, and memory model a processor implements."},
-        {"term": "RISC", "definition": "Reduced Instruction Set Computer: simple, fixed-length instructions, large register file, load-store architecture, hardwired control; examples: MIPS, ARM, RISC-V."},
-        {"term": "CISC", "definition": "Complex Instruction Set Computer: variable-length instructions, memory operands, complex addressing modes, microcode; example: x86."},
-        {"term": "pipeline hazard", "definition": "Condition preventing the next instruction from executing in its expected clock cycle; types: structural (resource conflict), data (RAW/WAW/WAR dependency), control (branch)."},
-        {"term": "RAW (read-after-write) hazard", "definition": "True data dependency: an instruction reads a register before a preceding instruction has written it; resolved by forwarding or stalling."},
-        {"term": "cache hit/miss", "definition": "A hit occurs when requested data is found in cache (fast); a miss requires fetching from a slower memory level; miss types: compulsory, capacity, conflict."},
-        {"term": "cache locality", "definition": "Temporal locality: recently accessed data likely reaccessed soon; spatial locality: data near recently accessed data likely accessed soon; justifies caching."},
-        {"term": "direct-mapped cache", "definition": "Each memory block maps to exactly one cache line (index = address mod #lines); simple but prone to conflict misses."},
-        {"term": "set-associative cache", "definition": "Cache with k lines per set; a block maps to one set, can occupy any of k lines; k-way SA balances hit rate and hardware cost."},
-        {"term": "AMAT (average memory access time)", "definition": "AMAT = hit time + miss rate × miss penalty; fundamental metric for cache design."},
-        {"term": "branch prediction", "definition": "Processor mechanism to guess the outcome of a branch before it is resolved; misprediction causes pipeline flush (penalty = pipeline depth)."},
-        {"term": "out-of-order execution", "definition": "CPU executes instructions as operands become available rather than in program order; uses register renaming (Tomasulo algorithm) to avoid false dependencies."}
+        {
+          "term": "ISA (instruction set architecture)",
+          "definition": "The interface between hardware and software defining the set of instructions, registers, addressing modes, data types, and memory model a processor implements."
+        },
+        {
+          "term": "RISC",
+          "definition": "Reduced Instruction Set Computer: simple, fixed-length instructions, large register file, load-store architecture, hardwired control; examples: MIPS, ARM, RISC-V."
+        },
+        {
+          "term": "CISC",
+          "definition": "Complex Instruction Set Computer: variable-length instructions, memory operands, complex addressing modes, microcode; example: x86."
+        },
+        {
+          "term": "pipeline hazard",
+          "definition": "Condition preventing the next instruction from executing in its expected clock cycle; types: structural (resource conflict), data (RAW/WAW/WAR dependency), control (branch)."
+        },
+        {
+          "term": "RAW (read-after-write) hazard",
+          "definition": "True data dependency: an instruction reads a register before a preceding instruction has written it; resolved by forwarding or stalling."
+        },
+        {
+          "term": "cache hit/miss",
+          "definition": "A hit occurs when requested data is found in cache (fast); a miss requires fetching from a slower memory level; miss types: compulsory, capacity, conflict."
+        },
+        {
+          "term": "cache locality",
+          "definition": "Temporal locality: recently accessed data likely reaccessed soon; spatial locality: data near recently accessed data likely accessed soon; justifies caching."
+        },
+        {
+          "term": "direct-mapped cache",
+          "definition": "Each memory block maps to exactly one cache line (index = address mod #lines); simple but prone to conflict misses."
+        },
+        {
+          "term": "set-associative cache",
+          "definition": "Cache with k lines per set; a block maps to one set, can occupy any of k lines; k-way SA balances hit rate and hardware cost."
+        },
+        {
+          "term": "AMAT (average memory access time)",
+          "definition": "AMAT = hit time + miss rate × miss penalty; fundamental metric for cache design."
+        },
+        {
+          "term": "branch prediction",
+          "definition": "Processor mechanism to guess the outcome of a branch before it is resolved; misprediction causes pipeline flush (penalty = pipeline depth)."
+        },
+        {
+          "term": "out-of-order execution",
+          "definition": "CPU executes instructions as operands become available rather than in program order; uses register renaming (Tomasulo algorithm) to avoid false dependencies."
+        }
       ],
       "canon": [
-        {"name": "AMAT formula", "form": "AMAT = L1_hit_time + L1_miss_rate × (L2_hit_time + L2_miss_rate × DRAM_penalty)", "type": "equation"},
-        {"name": "Amdahl's law", "form": "Speedup_overall = 1 / ((1 - f) + f/s); f = fraction parallelizable, s = speedup of that fraction; limits parallel scaling", "type": "equation"},
-        {"name": "Tomasulo algorithm", "form": "Dynamic scheduling with register renaming using reservation stations; eliminates WAR and WAW hazards; executes instructions out-of-order as operands arrive", "type": "algorithm"},
-        {"name": "Pipeline CPI", "form": "CPI = 1 + stall_cycles_per_instruction; ideal CPI=1 for single-issue pipeline; stalls from hazards and cache misses add fractional cycles", "type": "equation"},
-        {"name": "Cache size / associativity tradeoff", "form": "Miss rate generally decreases with size (capacity) and associativity (conflicts); direct-mapped fastest but most conflict misses; fully associative fewest misses but hardware cost O(n)", "type": "definition"},
-        {"name": "Memory consistency (sequential)", "form": "Sequential consistency (Lamport): result of any execution is the same as if operations of all processors were executed in some sequential order; stronger than most hardware models", "type": "definition"}
+        {
+          "name": "AMAT formula",
+          "form": "AMAT = L1_hit_time + L1_miss_rate × (L2_hit_time + L2_miss_rate × DRAM_penalty)",
+          "type": "equation"
+        },
+        {
+          "name": "Amdahl's law",
+          "form": "Speedup_overall = 1 / ((1 - f) + f/s); f = fraction parallelizable, s = speedup of that fraction; limits parallel scaling",
+          "type": "equation"
+        },
+        {
+          "name": "Tomasulo algorithm",
+          "form": "Dynamic scheduling with register renaming using reservation stations; eliminates WAR and WAW hazards; executes instructions out-of-order as operands arrive",
+          "type": "algorithm"
+        },
+        {
+          "name": "Pipeline CPI",
+          "form": "CPI = 1 + stall_cycles_per_instruction; ideal CPI=1 for single-issue pipeline; stalls from hazards and cache misses add fractional cycles",
+          "type": "equation"
+        },
+        {
+          "name": "Cache size / associativity tradeoff",
+          "form": "Miss rate generally decreases with size (capacity) and associativity (conflicts); direct-mapped fastest but most conflict misses; fully associative fewest misses but hardware cost O(n)",
+          "type": "definition"
+        },
+        {
+          "name": "Memory consistency (sequential)",
+          "form": "Sequential consistency (Lamport): result of any execution is the same as if operations of all processors were executed in some sequential order; stronger than most hardware models",
+          "type": "definition"
+        }
       ]
     },
     {
@@ -312,25 +886,81 @@
         "Runtime systems (garbage collection, closures)"
       ],
       "glossary": [
-        {"term": "lexer (scanner)", "definition": "Compiler phase converting a character stream into a token stream using regular expressions / finite automata; recognizes identifiers, literals, operators, keywords."},
-        {"term": "parser", "definition": "Compiler phase constructing an abstract syntax tree from a token stream; verifies syntactic correctness; based on CFG; outputs an AST."},
-        {"term": "LL(k) grammar", "definition": "Top-down parseable grammar using k lookahead tokens; FIRST and FOLLOW sets determine parse table; LL(1) is the most common."},
-        {"term": "LR(k) grammar", "definition": "Bottom-up parseable grammar using k lookahead tokens; more powerful than LL(k); variants: SLR, LALR(1) (used in yacc/bison), canonical LR(1)."},
-        {"term": "AST (abstract syntax tree)", "definition": "Tree representation of program structure after parsing; omits syntactic sugar; basis for semantic analysis, type checking, and code generation."},
-        {"term": "type system", "definition": "Set of rules assigning types to expressions; a sound type system guarantees no type errors at runtime for well-typed programs (progress + preservation)."},
-        {"term": "static vs dynamic typing", "definition": "Static: types checked at compile time (Java, C, Haskell); dynamic: types checked at runtime (Python, JavaScript); gradual typing mixes both."},
-        {"term": "SSA (static single assignment)", "definition": "IR where each variable is assigned exactly once; uses φ-functions at merge points; simplifies many optimizations (constant propagation, dead code elimination)."},
-        {"term": "dataflow analysis", "definition": "Compile-time analysis propagating information along control flow graph edges to determine program properties; examples: live variables, reaching definitions, constant folding."},
-        {"term": "register allocation", "definition": "Mapping of unlimited virtual registers to finite physical registers; modeled as graph coloring (interference graph); NP-complete in general, heuristics used."},
-        {"term": "garbage collection", "definition": "Automatic memory management reclaiming unreachable objects; algorithms: reference counting, mark-and-sweep, copying, generational GC."},
-        {"term": "closure", "definition": "First-class function paired with its captured environment (free variables); enables higher-order programming; implemented via heap-allocated environment record."}
+        {
+          "term": "lexer (scanner)",
+          "definition": "Compiler phase converting a character stream into a token stream using regular expressions / finite automata; recognizes identifiers, literals, operators, keywords."
+        },
+        {
+          "term": "parser",
+          "definition": "Compiler phase constructing an abstract syntax tree from a token stream; verifies syntactic correctness; based on CFG; outputs an AST."
+        },
+        {
+          "term": "LL(k) grammar",
+          "definition": "Top-down parseable grammar using k lookahead tokens; FIRST and FOLLOW sets determine parse table; LL(1) is the most common."
+        },
+        {
+          "term": "LR(k) grammar",
+          "definition": "Bottom-up parseable grammar using k lookahead tokens; more powerful than LL(k); variants: SLR, LALR(1) (used in yacc/bison), canonical LR(1)."
+        },
+        {
+          "term": "AST (abstract syntax tree)",
+          "definition": "Tree representation of program structure after parsing; omits syntactic sugar; basis for semantic analysis, type checking, and code generation."
+        },
+        {
+          "term": "type system",
+          "definition": "Set of rules assigning types to expressions; a sound type system guarantees no type errors at runtime for well-typed programs (progress + preservation)."
+        },
+        {
+          "term": "static vs dynamic typing",
+          "definition": "Static: types checked at compile time (Java, C, Haskell); dynamic: types checked at runtime (Python, JavaScript); gradual typing mixes both."
+        },
+        {
+          "term": "SSA (static single assignment)",
+          "definition": "IR where each variable is assigned exactly once; uses φ-functions at merge points; simplifies many optimizations (constant propagation, dead code elimination)."
+        },
+        {
+          "term": "dataflow analysis",
+          "definition": "Compile-time analysis propagating information along control flow graph edges to determine program properties; examples: live variables, reaching definitions, constant folding."
+        },
+        {
+          "term": "register allocation",
+          "definition": "Mapping of unlimited virtual registers to finite physical registers; modeled as graph coloring (interference graph); NP-complete in general, heuristics used."
+        },
+        {
+          "term": "garbage collection",
+          "definition": "Automatic memory management reclaiming unreachable objects; algorithms: reference counting, mark-and-sweep, copying, generational GC."
+        },
+        {
+          "term": "closure",
+          "definition": "First-class function paired with its captured environment (free variables); enables higher-order programming; implemented via heap-allocated environment record."
+        }
       ],
       "canon": [
-        {"name": "FIRST/FOLLOW set construction", "form": "FIRST(α): terminals that can begin strings derived from α; FOLLOW(A): terminals that can follow A in some sentential form; used to build LL(1) parse tables", "type": "algorithm"},
-        {"name": "Shift-reduce parsing (LR)", "form": "Parser maintains a stack; on each token either shifts (push) or reduces (pop RHS, push LHS); action/goto tables encode grammar; O(n) parse time", "type": "algorithm"},
-        {"name": "Type soundness (Progress + Preservation)", "form": "Progress: a well-typed term is either a value or can take a step; Preservation: if a well-typed term takes a step, the result is well-typed; together imply no stuck states", "type": "theorem"},
-        {"name": "Graph coloring register allocation", "form": "Build interference graph (nodes=variables, edges=simultaneous live ranges); k-color for k registers; NP-complete; Chaitin's algorithm: simplify, spill, select", "type": "algorithm"},
-        {"name": "Reaching definitions dataflow", "form": "Forward analysis; gen[B] = defs in B not killed later in B; kill[B] = all defs of variables defined in B from other blocks; in[B] = ∪ out[pred]; out[B] = gen[B] ∪ (in[B] − kill[B])", "type": "algorithm"}
+        {
+          "name": "FIRST/FOLLOW set construction",
+          "form": "FIRST(α): terminals that can begin strings derived from α; FOLLOW(A): terminals that can follow A in some sentential form; used to build LL(1) parse tables",
+          "type": "algorithm"
+        },
+        {
+          "name": "Shift-reduce parsing (LR)",
+          "form": "Parser maintains a stack; on each token either shifts (push) or reduces (pop RHS, push LHS); action/goto tables encode grammar; O(n) parse time",
+          "type": "algorithm"
+        },
+        {
+          "name": "Type soundness (Progress + Preservation)",
+          "form": "Progress: a well-typed term is either a value or can take a step; Preservation: if a well-typed term takes a step, the result is well-typed; together imply no stuck states",
+          "type": "theorem"
+        },
+        {
+          "name": "Graph coloring register allocation",
+          "form": "Build interference graph (nodes=variables, edges=simultaneous live ranges); k-color for k registers; NP-complete; Chaitin's algorithm: simplify, spill, select",
+          "type": "algorithm"
+        },
+        {
+          "name": "Reaching definitions dataflow",
+          "form": "Forward analysis; gen[B] = defs in B not killed later in B; kill[B] = all defs of variables defined in B from other blocks; in[B] = ∪ out[pred]; out[B] = gen[B] ∪ (in[B] − kill[B])",
+          "type": "algorithm"
+        }
       ]
     },
     {
@@ -349,30 +979,105 @@
         "Probabilistic graphical models"
       ],
       "glossary": [
-        {"term": "bias-variance tradeoff", "definition": "Test error = bias² + variance + irreducible noise; high bias = underfitting (model too simple); high variance = overfitting (model too complex); regularization and ensembles help."},
-        {"term": "gradient descent", "definition": "Iterative optimization: θ ← θ − η∇L(θ); η is the learning rate; variants: SGD (one example), mini-batch, momentum, Adam."},
-        {"term": "backpropagation", "definition": "Efficient computation of gradients in a neural network using the chain rule applied backward through the computation graph; O(forward pass) time."},
-        {"term": "overfitting", "definition": "Model memorizes training data, failing to generalize; diagnosed by high train accuracy but high test error; addressed by regularization, dropout, data augmentation, early stopping."},
-        {"term": "regularization", "definition": "Adding a penalty to the loss to discourage complex models; L2 (ridge): +λ||w||², shrinks weights; L1 (lasso): +λ||w||_1, produces sparsity."},
-        {"term": "SVM (support vector machine)", "definition": "Classifier maximizing the margin between classes; decision boundary defined by support vectors; kernel trick enables nonlinear boundaries implicitly in high-dimensional spaces."},
-        {"term": "kernel trick", "definition": "Replaces dot products ⟨x,z⟩ with a kernel function K(x,z) = ⟨φ(x),φ(z)⟩, enabling nonlinear classifiers without explicitly computing high-dimensional feature maps."},
-        {"term": "EM algorithm", "definition": "Expectation-Maximization: iteratively computes expected log-likelihood (E-step) and maximizes it over parameters (M-step); converges to local maximum; used for GMMs, HMMs."},
-        {"term": "PAC learning", "definition": "Probably Approximately Correct: a concept class is PAC-learnable if there is an algorithm that with probability ≥ 1-δ outputs a hypothesis with error ≤ ε using poly(1/ε, 1/δ, n) samples."},
-        {"term": "VC dimension", "definition": "Largest set of points that a hypothesis class can shatter (classify in all 2^m ways); higher VC dimension = more expressive but more data needed for generalization."},
-        {"term": "attention mechanism", "definition": "Computes a weighted sum of value vectors, weights determined by compatibility between query and key vectors; enables Transformers to model long-range dependencies in O(n²) time."},
-        {"term": "cross-entropy loss", "definition": "L = −Σ_i y_i log(p_i); standard loss for classification; equivalent to negative log-likelihood under a categorical distribution; minimized by gradient descent."},
-        {"term": "softmax function", "definition": "σ(z)_i = exp(z_i) / Σ_j exp(z_j); maps logit vector to probability distribution; numerically stabilized by subtracting max(z)."}
+        {
+          "term": "bias-variance tradeoff",
+          "definition": "Test error = bias² + variance + irreducible noise; high bias = underfitting (model too simple); high variance = overfitting (model too complex); regularization and ensembles help."
+        },
+        {
+          "term": "gradient descent",
+          "definition": "Iterative optimization: θ ← θ − η∇L(θ); η is the learning rate; variants: SGD (one example), mini-batch, momentum, Adam."
+        },
+        {
+          "term": "backpropagation",
+          "definition": "Efficient computation of gradients in a neural network using the chain rule applied backward through the computation graph; O(forward pass) time."
+        },
+        {
+          "term": "overfitting",
+          "definition": "Model memorizes training data, failing to generalize; diagnosed by high train accuracy but high test error; addressed by regularization, dropout, data augmentation, early stopping."
+        },
+        {
+          "term": "regularization",
+          "definition": "Adding a penalty to the loss to discourage complex models; L2 (ridge): +λ||w||², shrinks weights; L1 (lasso): +λ||w||_1, produces sparsity."
+        },
+        {
+          "term": "SVM (support vector machine)",
+          "definition": "Classifier maximizing the margin between classes; decision boundary defined by support vectors; kernel trick enables nonlinear boundaries implicitly in high-dimensional spaces."
+        },
+        {
+          "term": "kernel trick",
+          "definition": "Replaces dot products ⟨x,z⟩ with a kernel function K(x,z) = ⟨φ(x),φ(z)⟩, enabling nonlinear classifiers without explicitly computing high-dimensional feature maps."
+        },
+        {
+          "term": "EM algorithm",
+          "definition": "Expectation-Maximization: iteratively computes expected log-likelihood (E-step) and maximizes it over parameters (M-step); converges to local maximum; used for GMMs, HMMs."
+        },
+        {
+          "term": "PAC learning",
+          "definition": "Probably Approximately Correct: a concept class is PAC-learnable if there is an algorithm that with probability ≥ 1-δ outputs a hypothesis with error ≤ ε using poly(1/ε, 1/δ, n) samples."
+        },
+        {
+          "term": "VC dimension",
+          "definition": "Largest set of points that a hypothesis class can shatter (classify in all 2^m ways); higher VC dimension = more expressive but more data needed for generalization."
+        },
+        {
+          "term": "attention mechanism",
+          "definition": "Computes a weighted sum of value vectors, weights determined by compatibility between query and key vectors; enables Transformers to model long-range dependencies in O(n²) time."
+        },
+        {
+          "term": "cross-entropy loss",
+          "definition": "L = −Σ_i y_i log(p_i); standard loss for classification; equivalent to negative log-likelihood under a categorical distribution; minimized by gradient descent."
+        },
+        {
+          "term": "softmax function",
+          "definition": "σ(z)_i = exp(z_i) / Σ_j exp(z_j); maps logit vector to probability distribution; numerically stabilized by subtracting max(z)."
+        }
       ],
       "canon": [
-        {"name": "Perceptron update rule", "form": "w ← w + y·x if misclassified (y·(w·x) ≤ 0); converges if data is linearly separable (Perceptron Convergence Theorem)", "type": "algorithm"},
-        {"name": "Logistic regression gradient", "form": "L = −Σ[y_i log(σ(w·x_i)) + (1−y_i)log(1−σ(w·x_i))]; ∇_w L = Σ(σ(w·x_i)−y_i)x_i; convex → global minimum", "type": "equation"},
-        {"name": "Backpropagation chain rule", "form": "∂L/∂w = ∂L/∂z · ∂z/∂w; gradients flow backward through computation graph; each layer needs local Jacobian; O(n) in network size", "type": "algorithm"},
-        {"name": "SVM primal objective", "form": "min_{w,b} (1/2)||w||² subject to y_i(w·x_i + b) ≥ 1; soft-margin adds slack: +C Σξ_i; dual: max Σα_i − (1/2)Σα_iα_jy_iy_jK(x_i,x_j)", "type": "equation"},
-        {"name": "Bias-variance decomposition", "form": "E[(y−f̂(x))²] = (Bias[f̂(x)])² + Var[f̂(x)] + σ²_noise; bias = E[f̂]−f; variance = E[(f̂−E[f̂])²]", "type": "equation"},
-        {"name": "VC generalization bound", "form": "With probability ≥ 1−δ: error(h) ≤ err_train(h) + √((VC(H)·ln(2m/VC(H)) + ln(4/δ)) / (2m)) for m training examples", "type": "theorem"},
-        {"name": "k-means algorithm", "form": "Initialize k centroids; alternate: assign each point to nearest centroid, recompute centroids as cluster means; converges to local optimum; O(nkd) per iteration", "type": "algorithm"},
-        {"name": "PCA via SVD", "form": "Center data X; compute SVD: X = UΣV^T; principal components = columns of V; project onto top-k: X_k = XV_k; captures maximum variance directions", "type": "algorithm"},
-        {"name": "Transformer self-attention", "form": "Attention(Q,K,V) = softmax(QK^T / √d_k) · V; Q=XW_Q, K=XW_K, V=XW_V; multi-head: concat h heads, project; O(n²d) per layer", "type": "equation"}
+        {
+          "name": "Perceptron update rule",
+          "form": "w ← w + y·x if misclassified (y·(w·x) ≤ 0); converges if data is linearly separable (Perceptron Convergence Theorem)",
+          "type": "algorithm"
+        },
+        {
+          "name": "Logistic regression gradient",
+          "form": "L = −Σ[y_i log(σ(w·x_i)) + (1−y_i)log(1−σ(w·x_i))]; ∇_w L = Σ(σ(w·x_i)−y_i)x_i; convex → global minimum",
+          "type": "equation"
+        },
+        {
+          "name": "Backpropagation chain rule",
+          "form": "∂L/∂w = ∂L/∂z · ∂z/∂w; gradients flow backward through computation graph; each layer needs local Jacobian; O(n) in network size",
+          "type": "algorithm"
+        },
+        {
+          "name": "SVM primal objective",
+          "form": "min_{w,b} (1/2)||w||² subject to y_i(w·x_i + b) ≥ 1; soft-margin adds slack: +C Σξ_i; dual: max Σα_i − (1/2)Σα_iα_jy_iy_jK(x_i,x_j)",
+          "type": "equation"
+        },
+        {
+          "name": "Bias-variance decomposition",
+          "form": "E[(y−f̂(x))²] = (Bias[f̂(x)])² + Var[f̂(x)] + σ²_noise; bias = E[f̂]−f; variance = E[(f̂−E[f̂])²]",
+          "type": "equation"
+        },
+        {
+          "name": "VC generalization bound",
+          "form": "With probability ≥ 1−δ: error(h) ≤ err_train(h) + √((VC(H)·ln(2m/VC(H)) + ln(4/δ)) / (2m)) for m training examples",
+          "type": "theorem"
+        },
+        {
+          "name": "k-means algorithm",
+          "form": "Initialize k centroids; alternate: assign each point to nearest centroid, recompute centroids as cluster means; converges to local optimum; O(nkd) per iteration",
+          "type": "algorithm"
+        },
+        {
+          "name": "PCA via SVD",
+          "form": "Center data X; compute SVD: X = UΣV^T; principal components = columns of V; project onto top-k: X_k = XV_k; captures maximum variance directions",
+          "type": "algorithm"
+        },
+        {
+          "name": "Transformer self-attention",
+          "form": "Attention(Q,K,V) = softmax(QK^T / √d_k) · V; Q=XW_Q, K=XW_K, V=XW_V; multi-head: concat h heads, project; O(n²d) per layer",
+          "type": "equation"
+        }
       ]
     },
     {
@@ -389,24 +1094,78 @@
         "Hypothesis testing and confidence intervals"
       ],
       "glossary": [
-        {"term": "Bayes' theorem", "definition": "P(A|B) = P(B|A)·P(A) / P(B); relates conditional and marginal probabilities; foundation of Bayesian inference."},
-        {"term": "expectation", "definition": "E[X] = Σ x·P(X=x) (discrete) or ∫x·f(x)dx (continuous); linearity: E[aX+bY] = aE[X] + bE[Y] always (no independence required)."},
-        {"term": "variance", "definition": "Var(X) = E[(X−E[X])²] = E[X²] − (E[X])²; Var(aX+b) = a²Var(X); Var(X+Y) = Var(X)+Var(Y) if X,Y independent."},
-        {"term": "law of large numbers", "definition": "Sample mean X̄_n → E[X] as n→∞ in probability (weak LLN) or almost surely (strong LLN); basis for Monte Carlo estimation."},
-        {"term": "central limit theorem", "definition": "√n(X̄_n − μ) / σ → N(0,1) in distribution as n→∞; sample means of i.i.d. finite-variance variables are approximately Gaussian."},
-        {"term": "Markov chain", "definition": "Sequence of random variables where P(X_{n+1}=j | X_n, ..., X_0) = P(X_{n+1}=j | X_n); memoryless; characterized by transition matrix P."},
-        {"term": "stationary distribution", "definition": "Distribution π such that πP = π; for ergodic chains, π is unique and the chain converges to π from any starting state."},
-        {"term": "MLE (maximum likelihood estimation)", "definition": "θ̂_MLE = argmax_θ Σ log p(x_i; θ); finds parameter maximizing probability of observed data; consistent and asymptotically efficient under regularity conditions."},
-        {"term": "p-value", "definition": "Probability of observing a test statistic at least as extreme as observed, assuming the null hypothesis is true; small p-value (< α) → reject H_0."},
-        {"term": "Poisson distribution", "definition": "P(X=k) = λ^k e^{-λ}/k!; models count of rare events in fixed interval; E[X]=Var(X)=λ; Poisson approximates Binomial when n large, p small, λ=np."}
+        {
+          "term": "Bayes' theorem",
+          "definition": "P(A|B) = P(B|A)·P(A) / P(B); relates conditional and marginal probabilities; foundation of Bayesian inference."
+        },
+        {
+          "term": "expectation",
+          "definition": "E[X] = Σ x·P(X=x) (discrete) or ∫x·f(x)dx (continuous); linearity: E[aX+bY] = aE[X] + bE[Y] always (no independence required)."
+        },
+        {
+          "term": "variance",
+          "definition": "Var(X) = E[(X−E[X])²] = E[X²] − (E[X])²; Var(aX+b) = a²Var(X); Var(X+Y) = Var(X)+Var(Y) if X,Y independent."
+        },
+        {
+          "term": "law of large numbers",
+          "definition": "Sample mean X̄_n → E[X] as n→∞ in probability (weak LLN) or almost surely (strong LLN); basis for Monte Carlo estimation."
+        },
+        {
+          "term": "central limit theorem",
+          "definition": "√n(X̄_n − μ) / σ → N(0,1) in distribution as n→∞; sample means of i.i.d. finite-variance variables are approximately Gaussian."
+        },
+        {
+          "term": "Markov chain",
+          "definition": "Sequence of random variables where P(X_{n+1}=j | X_n, ..., X_0) = P(X_{n+1}=j | X_n); memoryless; characterized by transition matrix P."
+        },
+        {
+          "term": "stationary distribution",
+          "definition": "Distribution π such that πP = π; for ergodic chains, π is unique and the chain converges to π from any starting state."
+        },
+        {
+          "term": "MLE (maximum likelihood estimation)",
+          "definition": "θ̂_MLE = argmax_θ Σ log p(x_i; θ); finds parameter maximizing probability of observed data; consistent and asymptotically efficient under regularity conditions."
+        },
+        {
+          "term": "p-value",
+          "definition": "Probability of observing a test statistic at least as extreme as observed, assuming the null hypothesis is true; small p-value (< α) → reject H_0."
+        },
+        {
+          "term": "Poisson distribution",
+          "definition": "P(X=k) = λ^k e^{-λ}/k!; models count of rare events in fixed interval; E[X]=Var(X)=λ; Poisson approximates Binomial when n large, p small, λ=np."
+        }
       ],
       "canon": [
-        {"name": "Markov's inequality", "form": "For X ≥ 0: P(X ≥ a) ≤ E[X]/a; weakest but most general concentration bound", "type": "theorem"},
-        {"name": "Chebyshev's inequality", "form": "P(|X − μ| ≥ kσ) ≤ 1/k²; uses variance; P(|X−μ| ≥ t) ≤ Var(X)/t²", "type": "theorem"},
-        {"name": "Chernoff bound", "form": "For sum X = X_1+...+X_n of independent [0,1] r.v.s with mean μ: P(X ≥ (1+δ)μ) ≤ exp(−μδ²/3) for δ≤1; exponentially tight", "type": "theorem"},
-        {"name": "Law of total expectation", "form": "E[X] = E[E[X|Y]]; equivalently E[X] = Σ_y E[X|Y=y]·P(Y=y)", "type": "theorem"},
-        {"name": "Gaussian (Normal) distribution", "form": "f(x) = (1/√(2πσ²)) exp(−(x−μ)²/(2σ²)); N(μ,σ²); 68-95-99.7 rule: P(|X−μ| ≤ kσ) for k=1,2,3", "type": "definition"},
-        {"name": "Bayes' theorem (expanded)", "form": "P(H|E) = P(E|H)·P(H) / [P(E|H)·P(H) + P(E|¬H)·P(¬H)]; posterior ∝ likelihood × prior", "type": "theorem"}
+        {
+          "name": "Markov's inequality",
+          "form": "For X ≥ 0: P(X ≥ a) ≤ E[X]/a; weakest but most general concentration bound",
+          "type": "theorem"
+        },
+        {
+          "name": "Chebyshev's inequality",
+          "form": "P(|X − μ| ≥ kσ) ≤ 1/k²; uses variance; P(|X−μ| ≥ t) ≤ Var(X)/t²",
+          "type": "theorem"
+        },
+        {
+          "name": "Chernoff bound",
+          "form": "For sum X = X_1+...+X_n of independent [0,1] r.v.s with mean μ: P(X ≥ (1+δ)μ) ≤ exp(−μδ²/3) for δ≤1; exponentially tight",
+          "type": "theorem"
+        },
+        {
+          "name": "Law of total expectation",
+          "form": "E[X] = E[E[X|Y]]; equivalently E[X] = Σ_y E[X|Y=y]·P(Y=y)",
+          "type": "theorem"
+        },
+        {
+          "name": "Gaussian (Normal) distribution",
+          "form": "f(x) = (1/√(2πσ²)) exp(−(x−μ)²/(2σ²)); N(μ,σ²); 68-95-99.7 rule: P(|X−μ| ≤ kσ) for k=1,2,3",
+          "type": "definition"
+        },
+        {
+          "name": "Bayes' theorem (expanded)",
+          "form": "P(H|E) = P(E|H)·P(H) / [P(E|H)·P(H) + P(E|¬H)·P(¬H)]; posterior ∝ likelihood × prior",
+          "type": "theorem"
+        }
       ]
     },
     {
@@ -423,28 +1182,97 @@
         "Power and energy in circuits"
       ],
       "glossary": [
-        {"term": "KVL (Kirchhoff's voltage law)", "definition": "The sum of voltages around any closed loop in a circuit equals zero; a consequence of energy conservation."},
-        {"term": "KCL (Kirchhoff's current law)", "definition": "The sum of currents entering any node equals the sum of currents leaving; a consequence of charge conservation."},
-        {"term": "Thevenin equivalent", "definition": "Any linear two-terminal network can be replaced by a voltage source V_th in series with a resistance R_th; V_th = open-circuit voltage, R_th = resistance with independent sources zeroed."},
-        {"term": "Norton equivalent", "definition": "Any linear two-terminal network can be replaced by a current source I_N in parallel with R_N; I_N = short-circuit current, R_N = R_th; I_N = V_th / R_th."},
-        {"term": "superposition", "definition": "In a linear circuit with multiple independent sources, the response is the sum of responses due to each source acting alone (others zeroed)."},
-        {"term": "capacitor", "definition": "Element storing energy in electric field; V = (1/C)∫i dt; i = C·dV/dt; impedance Z_C = 1/(jωC) in frequency domain; blocks DC, passes AC."},
-        {"term": "inductor", "definition": "Element storing energy in magnetic field; V = L·di/dt; i = (1/L)∫V dt; impedance Z_L = jωL; blocks AC, passes DC."},
-        {"term": "time constant τ", "definition": "RC: τ = RC; RL: τ = L/R; time for exponential response to reach 1−1/e ≈ 63.2% of final value; system response ∝ exp(−t/τ)."},
-        {"term": "op-amp", "definition": "Operational amplifier: high-gain differential voltage amplifier; ideal: infinite input impedance, zero output impedance, infinite open-loop gain; used with negative feedback for precise circuits."},
-        {"term": "impedance", "definition": "Z = R + jX; generalization of resistance to AC circuits; Z_R = R; Z_C = 1/(jωC) = −j/(ωC); Z_L = jωL; Ohm's law: V = IZ in phasor domain."},
-        {"term": "power factor", "definition": "cos(θ) where θ is the phase angle between voltage and current; PF=1 for purely resistive load; PF<1 for reactive loads; P = V_rms·I_rms·PF."}
+        {
+          "term": "KVL (Kirchhoff's voltage law)",
+          "definition": "The sum of voltages around any closed loop in a circuit equals zero; a consequence of energy conservation."
+        },
+        {
+          "term": "KCL (Kirchhoff's current law)",
+          "definition": "The sum of currents entering any node equals the sum of currents leaving; a consequence of charge conservation."
+        },
+        {
+          "term": "Thevenin equivalent",
+          "definition": "Any linear two-terminal network can be replaced by a voltage source V_th in series with a resistance R_th; V_th = open-circuit voltage, R_th = resistance with independent sources zeroed."
+        },
+        {
+          "term": "Norton equivalent",
+          "definition": "Any linear two-terminal network can be replaced by a current source I_N in parallel with R_N; I_N = short-circuit current, R_N = R_th; I_N = V_th / R_th."
+        },
+        {
+          "term": "superposition",
+          "definition": "In a linear circuit with multiple independent sources, the response is the sum of responses due to each source acting alone (others zeroed)."
+        },
+        {
+          "term": "capacitor",
+          "definition": "Element storing energy in electric field; V = (1/C)∫i dt; i = C·dV/dt; impedance Z_C = 1/(jωC) in frequency domain; blocks DC, passes AC."
+        },
+        {
+          "term": "inductor",
+          "definition": "Element storing energy in magnetic field; V = L·di/dt; i = (1/L)∫V dt; impedance Z_L = jωL; blocks AC, passes DC."
+        },
+        {
+          "term": "time constant τ",
+          "definition": "RC: τ = RC; RL: τ = L/R; time for exponential response to reach 1−1/e ≈ 63.2% of final value; system response ∝ exp(−t/τ)."
+        },
+        {
+          "term": "op-amp",
+          "definition": "Operational amplifier: high-gain differential voltage amplifier; ideal: infinite input impedance, zero output impedance, infinite open-loop gain; used with negative feedback for precise circuits."
+        },
+        {
+          "term": "impedance",
+          "definition": "Z = R + jX; generalization of resistance to AC circuits; Z_R = R; Z_C = 1/(jωC) = −j/(ωC); Z_L = jωL; Ohm's law: V = IZ in phasor domain."
+        },
+        {
+          "term": "power factor",
+          "definition": "cos(θ) where θ is the phase angle between voltage and current; PF=1 for purely resistive load; PF<1 for reactive loads; P = V_rms·I_rms·PF."
+        }
       ],
       "canon": [
-        {"name": "Ohm's law", "form": "V = I·R; R in ohms, I in amperes, V in volts; power P = VI = I²R = V²/R", "type": "equation"},
-        {"name": "KVL", "form": "Σ V_k = 0 around any closed loop (sign convention: voltage rise positive or negative by convention)", "type": "equation"},
-        {"name": "KCL", "form": "Σ I_in = Σ I_out at any node; equivalently Σ_k I_k = 0 with consistent sign convention", "type": "equation"},
-        {"name": "Thevenin theorem", "form": "V_th = V_oc (open-circuit voltage at terminals); R_th = V_oc / I_sc = resistance seen at terminals with independent sources zeroed", "type": "theorem"},
-        {"name": "RC transient response", "form": "V_C(t) = V_f + (V_0 − V_f)·e^{−t/(RC)}; V_0 = initial voltage, V_f = final voltage; τ = RC", "type": "equation"},
-        {"name": "RLC natural frequency", "form": "ω_0 = 1/√(LC); damping ratio ζ = R/(2)·√(C/L); overdamped ζ>1, critically damped ζ=1, underdamped ζ<1", "type": "equation"},
-        {"name": "Inverting op-amp gain", "form": "V_out = −(R_f / R_in)·V_in; gain set by ratio of feedback to input resistor; virtual ground at inverting input", "type": "equation"},
-        {"name": "Non-inverting op-amp gain", "form": "V_out = (1 + R_f/R_1)·V_in; input impedance ≈ ∞; output impedance ≈ 0", "type": "equation"},
-        {"name": "Maximum power transfer", "form": "Maximum power delivered to load when R_L = R_th (Thevenin resistance); P_max = V_th² / (4·R_th)", "type": "theorem"}
+        {
+          "name": "Ohm's law",
+          "form": "V = I·R; R in ohms, I in amperes, V in volts; power P = VI = I²R = V²/R",
+          "type": "equation"
+        },
+        {
+          "name": "KVL",
+          "form": "Σ V_k = 0 around any closed loop (sign convention: voltage rise positive or negative by convention)",
+          "type": "equation"
+        },
+        {
+          "name": "KCL",
+          "form": "Σ I_in = Σ I_out at any node; equivalently Σ_k I_k = 0 with consistent sign convention",
+          "type": "equation"
+        },
+        {
+          "name": "Thevenin theorem",
+          "form": "V_th = V_oc (open-circuit voltage at terminals); R_th = V_oc / I_sc = resistance seen at terminals with independent sources zeroed",
+          "type": "theorem"
+        },
+        {
+          "name": "RC transient response",
+          "form": "V_C(t) = V_f + (V_0 − V_f)·e^{−t/(RC)}; V_0 = initial voltage, V_f = final voltage; τ = RC",
+          "type": "equation"
+        },
+        {
+          "name": "RLC natural frequency",
+          "form": "ω_0 = 1/√(LC); damping ratio ζ = R/(2)·√(C/L); overdamped ζ>1, critically damped ζ=1, underdamped ζ<1",
+          "type": "equation"
+        },
+        {
+          "name": "Inverting op-amp gain",
+          "form": "V_out = −(R_f / R_in)·V_in; gain set by ratio of feedback to input resistor; virtual ground at inverting input",
+          "type": "equation"
+        },
+        {
+          "name": "Non-inverting op-amp gain",
+          "form": "V_out = (1 + R_f/R_1)·V_in; input impedance ≈ ∞; output impedance ≈ 0",
+          "type": "equation"
+        },
+        {
+          "name": "Maximum power transfer",
+          "form": "Maximum power delivered to load when R_L = R_th (Thevenin resistance); P_max = V_th² / (4·R_th)",
+          "type": "theorem"
+        }
       ]
     },
     {
@@ -461,26 +1289,87 @@
         "Filter design (low-pass, high-pass, band-pass)"
       ],
       "glossary": [
-        {"term": "LTI system", "definition": "Linear Time-Invariant system: satisfies superposition (linearity) and output doesn't depend on absolute time (time-invariance); fully characterized by its impulse response h(t)."},
-        {"term": "convolution", "definition": "(f * g)(t) = ∫_{-∞}^{∞} f(τ)g(t−τ)dτ; output of LTI system: y(t) = x(t) * h(t); discrete: y[n] = Σ_k x[k]h[n−k]."},
-        {"term": "impulse response h(t)", "definition": "Output of an LTI system when input is the Dirac delta δ(t); any LTI system output = input convolved with h(t)."},
-        {"term": "Fourier transform", "definition": "X(jω) = ∫_{-∞}^{∞} x(t)e^{−jωt}dt; maps signal from time domain to frequency domain; inverse: x(t) = (1/2π)∫X(jω)e^{jωt}dω."},
-        {"term": "Laplace transform", "definition": "X(s) = ∫_0^{∞} x(t)e^{−st}dt; generalizes Fourier transform to complex s = σ+jω; converts differential equations to algebraic equations."},
-        {"term": "transfer function H(s)", "definition": "H(s) = Y(s)/X(s) for LTI system with zero initial conditions; ratio of Laplace transforms of output and input; encodes poles and zeros."},
-        {"term": "Nyquist-Shannon sampling theorem", "definition": "A bandlimited signal with maximum frequency f_max can be perfectly reconstructed from samples taken at f_s ≥ 2·f_max (Nyquist rate); sampling below causes aliasing."},
-        {"term": "aliasing", "definition": "Distortion when a signal is sampled below the Nyquist rate; high-frequency components appear as lower-frequency imposters; prevented by anti-aliasing (low-pass) filter before sampling."},
-        {"term": "z-transform", "definition": "X(z) = Σ_{n=−∞}^{∞} x[n]z^{−n}; discrete-time analog of Laplace transform; H(z) = Y(z)/X(z) for DT-LTI systems."},
-        {"term": "DTFT (discrete-time Fourier transform)", "definition": "X(e^{jω}) = Σ_{n=−∞}^{∞} x[n]e^{−jωn}; frequency representation of discrete-time signals; periodic with period 2π."},
-        {"term": "Bode plot", "definition": "Log-frequency plots of magnitude |H(jω)| in dB = 20log10|H(jω)| and phase ∠H(jω) vs log(ω); asymptotic approximations use ±20dB/decade per pole/zero."}
+        {
+          "term": "LTI system",
+          "definition": "Linear Time-Invariant system: satisfies superposition (linearity) and output doesn't depend on absolute time (time-invariance); fully characterized by its impulse response h(t)."
+        },
+        {
+          "term": "convolution",
+          "definition": "(f * g)(t) = ∫_{-∞}^{∞} f(τ)g(t−τ)dτ; output of LTI system: y(t) = x(t) * h(t); discrete: y[n] = Σ_k x[k]h[n−k]."
+        },
+        {
+          "term": "impulse response h(t)",
+          "definition": "Output of an LTI system when input is the Dirac delta δ(t); any LTI system output = input convolved with h(t)."
+        },
+        {
+          "term": "Fourier transform",
+          "definition": "X(jω) = ∫_{-∞}^{∞} x(t)e^{−jωt}dt; maps signal from time domain to frequency domain; inverse: x(t) = (1/2π)∫X(jω)e^{jωt}dω."
+        },
+        {
+          "term": "Laplace transform",
+          "definition": "X(s) = ∫_0^{∞} x(t)e^{−st}dt; generalizes Fourier transform to complex s = σ+jω; converts differential equations to algebraic equations."
+        },
+        {
+          "term": "transfer function H(s)",
+          "definition": "H(s) = Y(s)/X(s) for LTI system with zero initial conditions; ratio of Laplace transforms of output and input; encodes poles and zeros."
+        },
+        {
+          "term": "Nyquist-Shannon sampling theorem",
+          "definition": "A bandlimited signal with maximum frequency f_max can be perfectly reconstructed from samples taken at f_s ≥ 2·f_max (Nyquist rate); sampling below causes aliasing."
+        },
+        {
+          "term": "aliasing",
+          "definition": "Distortion when a signal is sampled below the Nyquist rate; high-frequency components appear as lower-frequency imposters; prevented by anti-aliasing (low-pass) filter before sampling."
+        },
+        {
+          "term": "z-transform",
+          "definition": "X(z) = Σ_{n=−∞}^{∞} x[n]z^{−n}; discrete-time analog of Laplace transform; H(z) = Y(z)/X(z) for DT-LTI systems."
+        },
+        {
+          "term": "DTFT (discrete-time Fourier transform)",
+          "definition": "X(e^{jω}) = Σ_{n=−∞}^{∞} x[n]e^{−jωn}; frequency representation of discrete-time signals; periodic with period 2π."
+        },
+        {
+          "term": "Bode plot",
+          "definition": "Log-frequency plots of magnitude |H(jω)| in dB = 20log10|H(jω)| and phase ∠H(jω) vs log(ω); asymptotic approximations use ±20dB/decade per pole/zero."
+        }
       ],
       "canon": [
-        {"name": "Convolution theorem", "form": "Multiplication in frequency domain ↔ convolution in time domain: F{x*h} = X(jω)·H(jω); F{x·h} = (1/2π)X(jω)*H(jω)", "type": "theorem"},
-        {"name": "Fourier transform pairs (key)", "form": "δ(t) ↔ 1; rect(t) ↔ sinc(ω); e^{−at}u(t) ↔ 1/(a+jω); cos(ω_0 t) ↔ π[δ(ω−ω_0)+δ(ω+ω_0)]; Gaussian ↔ Gaussian", "type": "definition"},
-        {"name": "Parseval's theorem", "form": "∫_{-∞}^{∞}|x(t)|²dt = (1/2π)∫_{-∞}^{∞}|X(jω)|²dω; energy in time domain = energy in frequency domain (up to 1/2π)", "type": "theorem"},
-        {"name": "Laplace transform properties", "form": "Differentiation: L{x'(t)} = sX(s)−x(0); Integration: L{∫x dt} = X(s)/s; Shift: L{x(t−t_0)u(t−t_0)} = e^{−st_0}X(s)", "type": "definition"},
-        {"name": "Nyquist sampling theorem", "form": "x(t) = Σ_n x[n]·sinc((t−nT)/T) if sampled at T ≤ 1/(2f_max); i.e., f_s ≥ 2B for bandwidth B", "type": "theorem"},
-        {"name": "Frequency response of LTI", "form": "H(jω) = |H(jω)|·e^{j∠H(jω)}; output Y(jω) = H(jω)·X(jω); magnitude response = gain at each frequency; phase response = delay", "type": "equation"},
-        {"name": "Fourier series", "form": "x(t) = Σ_{k=−∞}^{∞} c_k e^{jkω_0 t}; c_k = (1/T)∫_T x(t)e^{−jkω_0 t}dt; for periodic x(t) with period T=2π/ω_0", "type": "equation"}
+        {
+          "name": "Convolution theorem",
+          "form": "Multiplication in frequency domain ↔ convolution in time domain: F{x*h} = X(jω)·H(jω); F{x·h} = (1/2π)X(jω)*H(jω)",
+          "type": "theorem"
+        },
+        {
+          "name": "Fourier transform pairs (key)",
+          "form": "δ(t) ↔ 1; rect(t) ↔ sinc(ω); e^{−at}u(t) ↔ 1/(a+jω); cos(ω_0 t) ↔ π[δ(ω−ω_0)+δ(ω+ω_0)]; Gaussian ↔ Gaussian",
+          "type": "definition"
+        },
+        {
+          "name": "Parseval's theorem",
+          "form": "∫_{-∞}^{∞}|x(t)|²dt = (1/2π)∫_{-∞}^{∞}|X(jω)|²dω; energy in time domain = energy in frequency domain (up to 1/2π)",
+          "type": "theorem"
+        },
+        {
+          "name": "Laplace transform properties",
+          "form": "Differentiation: L{x'(t)} = sX(s)−x(0); Integration: L{∫x dt} = X(s)/s; Shift: L{x(t−t_0)u(t−t_0)} = e^{−st_0}X(s)",
+          "type": "definition"
+        },
+        {
+          "name": "Nyquist sampling theorem",
+          "form": "x(t) = Σ_n x[n]·sinc((t−nT)/T) if sampled at T ≤ 1/(2f_max); i.e., f_s ≥ 2B for bandwidth B",
+          "type": "theorem"
+        },
+        {
+          "name": "Frequency response of LTI",
+          "form": "H(jω) = |H(jω)|·e^{j∠H(jω)}; output Y(jω) = H(jω)·X(jω); magnitude response = gain at each frequency; phase response = delay",
+          "type": "equation"
+        },
+        {
+          "name": "Fourier series",
+          "form": "x(t) = Σ_{k=−∞}^{∞} c_k e^{jkω_0 t}; c_k = (1/T)∫_T x(t)e^{−jkω_0 t}dt; for periodic x(t) with period T=2π/ω_0",
+          "type": "equation"
+        }
       ]
     },
     {
@@ -497,26 +1386,87 @@
         "State-space representation"
       ],
       "glossary": [
-        {"term": "open-loop control", "definition": "Control system where the output is not measured or fed back; simpler but sensitive to disturbances and model errors."},
-        {"term": "closed-loop (feedback) control", "definition": "Control system where the output is measured and compared to the reference; error drives the controller; reduces sensitivity to disturbances and plant variations."},
-        {"term": "transfer function G(s)", "definition": "G(s) = Y(s)/U(s) for a linear system; encodes dynamics as ratio of polynomials in s; poles = roots of denominator, zeros = roots of numerator."},
-        {"term": "pole", "definition": "Value of s where transfer function goes to infinity (root of denominator); determines system modes; poles with Re(s) < 0 → stable mode; Re(s) > 0 → unstable."},
-        {"term": "BIBO stability", "definition": "Bounded-input bounded-output stability: system is BIBO stable iff all poles have negative real parts; equivalently, impulse response is absolutely integrable."},
-        {"term": "Routh-Hurwitz criterion", "definition": "Algebraic test for stability: construct Routh array from characteristic polynomial coefficients; system is stable iff all entries in first column are positive."},
-        {"term": "root locus", "definition": "Locus of closed-loop poles as gain K varies from 0 to ∞; starts at open-loop poles (K=0), ends at open-loop zeros or infinity; designed for transient response shaping."},
-        {"term": "PID controller", "definition": "Controller with Proportional (K_p·e), Integral (K_i∫e dt), and Derivative (K_d·de/dt) terms; P reduces error, I eliminates steady-state error, D improves transient response."},
-        {"term": "gain margin", "definition": "How much open-loop gain can increase before instability; GM = 1/|G(jω_pc)| in linear scale, where ω_pc is phase crossover frequency (∠G = -180°)."},
-        {"term": "phase margin", "definition": "Additional phase lag at gain crossover frequency (|G(jω_gc)|=1) before instability; PM = 180° + ∠G(jω_gc); good design: GM > 6 dB, PM > 30-45°."},
-        {"term": "steady-state error", "definition": "Error as t→∞ for a given reference input; e_ss = lim_{s→0} s·E(s) by Final Value Theorem; depends on system type (number of pure integrators in open-loop)."}
+        {
+          "term": "open-loop control",
+          "definition": "Control system where the output is not measured or fed back; simpler but sensitive to disturbances and model errors."
+        },
+        {
+          "term": "closed-loop (feedback) control",
+          "definition": "Control system where the output is measured and compared to the reference; error drives the controller; reduces sensitivity to disturbances and plant variations."
+        },
+        {
+          "term": "transfer function G(s)",
+          "definition": "G(s) = Y(s)/U(s) for a linear system; encodes dynamics as ratio of polynomials in s; poles = roots of denominator, zeros = roots of numerator."
+        },
+        {
+          "term": "pole",
+          "definition": "Value of s where transfer function goes to infinity (root of denominator); determines system modes; poles with Re(s) < 0 → stable mode; Re(s) > 0 → unstable."
+        },
+        {
+          "term": "BIBO stability",
+          "definition": "Bounded-input bounded-output stability: system is BIBO stable iff all poles have negative real parts; equivalently, impulse response is absolutely integrable."
+        },
+        {
+          "term": "Routh-Hurwitz criterion",
+          "definition": "Algebraic test for stability: construct Routh array from characteristic polynomial coefficients; system is stable iff all entries in first column are positive."
+        },
+        {
+          "term": "root locus",
+          "definition": "Locus of closed-loop poles as gain K varies from 0 to ∞; starts at open-loop poles (K=0), ends at open-loop zeros or infinity; designed for transient response shaping."
+        },
+        {
+          "term": "PID controller",
+          "definition": "Controller with Proportional (K_p·e), Integral (K_i∫e dt), and Derivative (K_d·de/dt) terms; P reduces error, I eliminates steady-state error, D improves transient response."
+        },
+        {
+          "term": "gain margin",
+          "definition": "How much open-loop gain can increase before instability; GM = 1/|G(jω_pc)| in linear scale, where ω_pc is phase crossover frequency (∠G = -180°)."
+        },
+        {
+          "term": "phase margin",
+          "definition": "Additional phase lag at gain crossover frequency (|G(jω_gc)|=1) before instability; PM = 180° + ∠G(jω_gc); good design: GM > 6 dB, PM > 30-45°."
+        },
+        {
+          "term": "steady-state error",
+          "definition": "Error as t→∞ for a given reference input; e_ss = lim_{s→0} s·E(s) by Final Value Theorem; depends on system type (number of pure integrators in open-loop)."
+        }
       ],
       "canon": [
-        {"name": "Closed-loop transfer function", "form": "T(s) = G(s) / (1 + G(s)H(s)); forward path G(s), feedback H(s); sensitivity S = 1/(1+GH); complement T = GH/(1+GH)", "type": "equation"},
-        {"name": "Routh-Hurwitz stability test", "form": "Form Routh table from coefficients of char. polynomial a_n s^n + ... + a_0; system stable iff all entries in column 1 positive; # sign changes = # RHP poles", "type": "algorithm"},
-        {"name": "Final value theorem", "form": "lim_{t→∞} f(t) = lim_{s→0} s·F(s); valid if limit exists and sF(s) has no poles on imaginary axis or RHP", "type": "theorem"},
-        {"name": "Initial value theorem", "form": "lim_{t→0+} f(t) = lim_{s→∞} s·F(s); valid if f(t) has no impulses at t=0", "type": "theorem"},
-        {"name": "PID transfer function", "form": "C(s) = K_p + K_i/s + K_d·s = (K_d s² + K_p s + K_i)/s; adds zero(s) to root locus to improve stability and response", "type": "equation"},
-        {"name": "State-space representation", "form": "ẋ = Ax + Bu; y = Cx + Du; A: state matrix, B: input matrix, C: output matrix, D: feedthrough; eigenvalues of A = system poles", "type": "definition"},
-        {"name": "Nyquist stability criterion", "form": "Z = N + P; Z = # closed-loop RHP poles, N = # clockwise encirclements of −1 by Nyquist plot, P = # open-loop RHP poles; stable iff Z = 0", "type": "theorem"}
+        {
+          "name": "Closed-loop transfer function",
+          "form": "T(s) = G(s) / (1 + G(s)H(s)); forward path G(s), feedback H(s); sensitivity S = 1/(1+GH); complement T = GH/(1+GH)",
+          "type": "equation"
+        },
+        {
+          "name": "Routh-Hurwitz stability test",
+          "form": "Form Routh table from coefficients of char. polynomial a_n s^n + ... + a_0; system stable iff all entries in column 1 positive; # sign changes = # RHP poles",
+          "type": "algorithm"
+        },
+        {
+          "name": "Final value theorem",
+          "form": "lim_{t→∞} f(t) = lim_{s→0} s·F(s); valid if limit exists and sF(s) has no poles on imaginary axis or RHP",
+          "type": "theorem"
+        },
+        {
+          "name": "Initial value theorem",
+          "form": "lim_{t→0+} f(t) = lim_{s→∞} s·F(s); valid if f(t) has no impulses at t=0",
+          "type": "theorem"
+        },
+        {
+          "name": "PID transfer function",
+          "form": "C(s) = K_p + K_i/s + K_d·s = (K_d s² + K_p s + K_i)/s; adds zero(s) to root locus to improve stability and response",
+          "type": "equation"
+        },
+        {
+          "name": "State-space representation",
+          "form": "ẋ = Ax + Bu; y = Cx + Du; A: state matrix, B: input matrix, C: output matrix, D: feedthrough; eigenvalues of A = system poles",
+          "type": "definition"
+        },
+        {
+          "name": "Nyquist stability criterion",
+          "form": "Z = N + P; Z = # closed-loop RHP poles, N = # clockwise encirclements of −1 by Nyquist plot, P = # open-loop RHP poles; stable iff Z = 0",
+          "type": "theorem"
+        }
       ]
     },
     {
@@ -533,26 +1483,86 @@
         "Programmable logic (PLAs, FPGAs)"
       ],
       "glossary": [
-        {"term": "Boolean algebra", "definition": "Algebraic structure with two elements {0,1}, operations AND (·), OR (+), NOT (¬); satisfies commutativity, associativity, distributivity, identity, complement, and absorption laws."},
-        {"term": "minterm", "definition": "A product term in which every variable appears exactly once (complemented or not); minterm m_i corresponds to the binary representation of i; SOP form = sum of minterms."},
-        {"term": "maxterm", "definition": "A sum term in which every variable appears exactly once; POS form = product of maxterms; maxterm M_i corresponds to minterms with the same index."},
-        {"term": "SOP (sum of products)", "definition": "Boolean expression as OR of AND terms; canonical SOP = sum of all minterms where function = 1; can be implemented with two-level AND-OR logic."},
-        {"term": "Karnaugh map (K-map)", "definition": "Grid-based minimization tool for Boolean functions; adjacent cells differ by one variable; groupings of 1, 2, 4, 8... cells give prime implicants."},
-        {"term": "combinational logic", "definition": "Logic circuit whose outputs depend only on current inputs, not history; no feedback or state; implemented with gates; examples: adder, MUX, decoder."},
-        {"term": "sequential logic", "definition": "Logic circuit with memory/state; outputs depend on inputs AND current state; implemented with flip-flops; examples: counters, registers, FSMs."},
-        {"term": "D flip-flop", "definition": "Edge-triggered storage element; Q follows D on rising clock edge; Q+ = D; used for registers and pipelines."},
-        {"term": "Mealy machine", "definition": "FSM where outputs depend on both current state and current inputs; output can change mid-state; generally fewer states than equivalent Moore machine."},
-        {"term": "Moore machine", "definition": "FSM where outputs depend only on current state; outputs change only on state transitions; more predictable, used in most hardware FSM designs."},
-        {"term": "don't-care condition", "definition": "Input combination that never occurs or for which output is irrelevant; can be assigned 0 or 1 to simplify Boolean expression; marked X in K-maps."},
-        {"term": "hazard (glitch)", "definition": "Momentary incorrect output in combinational logic due to different propagation delays along paths; static hazards (brief wrong constant), dynamic hazards (multiple transitions)."}
+        {
+          "term": "Boolean algebra",
+          "definition": "Algebraic structure with two elements {0,1}, operations AND (·), OR (+), NOT (¬); satisfies commutativity, associativity, distributivity, identity, complement, and absorption laws."
+        },
+        {
+          "term": "minterm",
+          "definition": "A product term in which every variable appears exactly once (complemented or not); minterm m_i corresponds to the binary representation of i; SOP form = sum of minterms."
+        },
+        {
+          "term": "maxterm",
+          "definition": "A sum term in which every variable appears exactly once; POS form = product of maxterms; maxterm M_i corresponds to minterms with the same index."
+        },
+        {
+          "term": "SOP (sum of products)",
+          "definition": "Boolean expression as OR of AND terms; canonical SOP = sum of all minterms where function = 1; can be implemented with two-level AND-OR logic."
+        },
+        {
+          "term": "Karnaugh map (K-map)",
+          "definition": "Grid-based minimization tool for Boolean functions; adjacent cells differ by one variable; groupings of 1, 2, 4, 8... cells give prime implicants."
+        },
+        {
+          "term": "combinational logic",
+          "definition": "Logic circuit whose outputs depend only on current inputs, not history; no feedback or state; implemented with gates; examples: adder, MUX, decoder."
+        },
+        {
+          "term": "sequential logic",
+          "definition": "Logic circuit with memory/state; outputs depend on inputs AND current state; implemented with flip-flops; examples: counters, registers, FSMs."
+        },
+        {
+          "term": "D flip-flop",
+          "definition": "Edge-triggered storage element; Q follows D on rising clock edge; Q+ = D; used for registers and pipelines."
+        },
+        {
+          "term": "Mealy machine",
+          "definition": "FSM where outputs depend on both current state and current inputs; output can change mid-state; generally fewer states than equivalent Moore machine."
+        },
+        {
+          "term": "Moore machine",
+          "definition": "FSM where outputs depend only on current state; outputs change only on state transitions; more predictable, used in most hardware FSM designs."
+        },
+        {
+          "term": "don't-care condition",
+          "definition": "Input combination that never occurs or for which output is irrelevant; can be assigned 0 or 1 to simplify Boolean expression; marked X in K-maps."
+        },
+        {
+          "term": "hazard (glitch)",
+          "definition": "Momentary incorrect output in combinational logic due to different propagation delays along paths; static hazards (brief wrong constant), dynamic hazards (multiple transitions)."
+        }
       ],
       "canon": [
-        {"name": "De Morgan's theorem", "form": "NOT(A AND B) = NOT(A) OR NOT(B); NOT(A OR B) = NOT(A) AND NOT(B); enables NAND/NOR universal gate implementation", "type": "theorem"},
-        {"name": "Boolean identities", "form": "A+A=A, A·A=A (idempotency); A+1=1, A·0=0 (annihilation); A+0=A, A·1=A (identity); A+A'=1, A·A'=0 (complement); A''=A (double negation)", "type": "definition"},
-        {"name": "Full adder", "form": "Sum = A XOR B XOR C_in; Carry_out = (A AND B) OR (C_in AND (A XOR B)); 2-level logic; ripple-carry adder chains n full adders; O(n) delay", "type": "definition"},
-        {"name": "Ripple-carry vs carry-lookahead", "form": "Ripple: O(n) delay, O(n) area; Carry-lookahead: G_i = A_i·B_i, P_i = A_i+B_i; C_{i+1} = G_i + P_i·C_i; O(log n) delay with O(n log n) area", "type": "algorithm"},
-        {"name": "Shannon expansion (cofactor)", "form": "f(x_1,...,x_n) = x_i · f_{x_i=1} + x_i' · f_{x_i=0}; basis for BDD-based CAD tools and multiplexer implementations", "type": "theorem"},
-        {"name": "Quine-McCluskey algorithm", "form": "Systematic tabular method to find all prime implicants and select minimum cover; equivalent to K-map minimization but algorithmic and scalable", "type": "algorithm"}
+        {
+          "name": "De Morgan's theorem",
+          "form": "NOT(A AND B) = NOT(A) OR NOT(B); NOT(A OR B) = NOT(A) AND NOT(B); enables NAND/NOR universal gate implementation",
+          "type": "theorem"
+        },
+        {
+          "name": "Boolean identities",
+          "form": "A+A=A, A·A=A (idempotency); A+1=1, A·0=0 (annihilation); A+0=A, A·1=A (identity); A+A'=1, A·A'=0 (complement); A''=A (double negation)",
+          "type": "definition"
+        },
+        {
+          "name": "Full adder",
+          "form": "Sum = A XOR B XOR C_in; Carry_out = (A AND B) OR (C_in AND (A XOR B)); 2-level logic; ripple-carry adder chains n full adders; O(n) delay",
+          "type": "definition"
+        },
+        {
+          "name": "Ripple-carry vs carry-lookahead",
+          "form": "Ripple: O(n) delay, O(n) area; Carry-lookahead: G_i = A_i·B_i, P_i = A_i+B_i; C_{i+1} = G_i + P_i·C_i; O(log n) delay with O(n log n) area",
+          "type": "algorithm"
+        },
+        {
+          "name": "Shannon expansion (cofactor)",
+          "form": "f(x_1,...,x_n) = x_i · f_{x_i=1} + x_i' · f_{x_i=0}; basis for BDD-based CAD tools and multiplexer implementations",
+          "type": "theorem"
+        },
+        {
+          "name": "Quine-McCluskey algorithm",
+          "form": "Systematic tabular method to find all prime implicants and select minimum cover; equivalent to K-map minimization but algorithmic and scalable",
+          "type": "algorithm"
+        }
       ]
     },
     {
@@ -569,24 +1579,78 @@
         "Power consumption in digital circuits"
       ],
       "glossary": [
-        {"term": "p-n junction", "definition": "Interface between p-type and n-type semiconductor; built-in potential V_bi = (kT/q)·ln(N_A·N_D/n_i²); under forward bias, current flows exponentially; reverse bias, small leakage."},
-        {"term": "diode equation (Shockley)", "definition": "I = I_0(e^{V/(nV_T)} − 1); I_0 = reverse saturation current; n = ideality factor (1-2); V_T = kT/q ≈ 26 mV at room temperature."},
-        {"term": "BJT (bipolar junction transistor)", "definition": "Three-terminal device (Base, Collector, Emitter); in active mode: I_C = β·I_B; I_E = (1+β)·I_B; controlled current amplifier; β (h_FE) typically 50-300."},
-        {"term": "MOSFET", "definition": "Metal-oxide-semiconductor field-effect transistor; gate voltage controls channel; n-channel NMOS: I_D = μ_n C_ox (W/L)[(V_GS−V_th)V_DS − V_DS²/2] (triode); I_D = (μ_n C_ox W/2L)(V_GS−V_th)² (saturation)."},
-        {"term": "threshold voltage V_th", "definition": "Gate voltage at which MOSFET channel inverts and current begins to flow; depends on oxide thickness, doping, and substrate bias."},
-        {"term": "CMOS (complementary MOS)", "definition": "Logic family using pairs of NMOS and PMOS transistors; NMOS pulls output low, PMOS pulls output high; no DC current in steady state → low static power; standard for digital ICs."},
-        {"term": "noise margin", "definition": "NM_H = V_OH − V_IH; NM_L = V_IL − V_OL; measure of robustness against noise; CMOS: NM ≈ V_DD/2 for symmetric gates."},
-        {"term": "transconductance g_m", "definition": "g_m = ∂I_D/∂V_GS = 2I_D/(V_GS−V_th) for MOSFET in saturation; g_m = I_C/V_T for BJT; key small-signal parameter relating input voltage to output current."},
-        {"term": "small-signal model", "definition": "Linear approximation of transistor behavior around a DC operating point (Q-point); MOSFET: controlled current source g_m·v_gs with output resistance r_o = |V_A|/I_D; valid for small signal swings."},
-        {"term": "dynamic power (CMOS)", "definition": "P_dynamic = α·C·V_DD²·f; α = activity factor (0-1), C = load capacitance, V_DD = supply voltage, f = clock frequency; dominant power consumption in digital ICs."}
+        {
+          "term": "p-n junction",
+          "definition": "Interface between p-type and n-type semiconductor; built-in potential V_bi = (kT/q)·ln(N_A·N_D/n_i²); under forward bias, current flows exponentially; reverse bias, small leakage."
+        },
+        {
+          "term": "diode equation (Shockley)",
+          "definition": "I = I_0(e^{V/(nV_T)} − 1); I_0 = reverse saturation current; n = ideality factor (1-2); V_T = kT/q ≈ 26 mV at room temperature."
+        },
+        {
+          "term": "BJT (bipolar junction transistor)",
+          "definition": "Three-terminal device (Base, Collector, Emitter); in active mode: I_C = β·I_B; I_E = (1+β)·I_B; controlled current amplifier; β (h_FE) typically 50-300."
+        },
+        {
+          "term": "MOSFET",
+          "definition": "Metal-oxide-semiconductor field-effect transistor; gate voltage controls channel; n-channel NMOS: I_D = μ_n C_ox (W/L)[(V_GS−V_th)V_DS − V_DS²/2] (triode); I_D = (μ_n C_ox W/2L)(V_GS−V_th)² (saturation)."
+        },
+        {
+          "term": "threshold voltage V_th",
+          "definition": "Gate voltage at which MOSFET channel inverts and current begins to flow; depends on oxide thickness, doping, and substrate bias."
+        },
+        {
+          "term": "CMOS (complementary MOS)",
+          "definition": "Logic family using pairs of NMOS and PMOS transistors; NMOS pulls output low, PMOS pulls output high; no DC current in steady state → low static power; standard for digital ICs."
+        },
+        {
+          "term": "noise margin",
+          "definition": "NM_H = V_OH − V_IH; NM_L = V_IL − V_OL; measure of robustness against noise; CMOS: NM ≈ V_DD/2 for symmetric gates."
+        },
+        {
+          "term": "transconductance g_m",
+          "definition": "g_m = ∂I_D/∂V_GS = 2I_D/(V_GS−V_th) for MOSFET in saturation; g_m = I_C/V_T for BJT; key small-signal parameter relating input voltage to output current."
+        },
+        {
+          "term": "small-signal model",
+          "definition": "Linear approximation of transistor behavior around a DC operating point (Q-point); MOSFET: controlled current source g_m·v_gs with output resistance r_o = |V_A|/I_D; valid for small signal swings."
+        },
+        {
+          "term": "dynamic power (CMOS)",
+          "definition": "P_dynamic = α·C·V_DD²·f; α = activity factor (0-1), C = load capacitance, V_DD = supply voltage, f = clock frequency; dominant power consumption in digital ICs."
+        }
       ],
       "canon": [
-        {"name": "Diode Shockley equation", "form": "I = I_S(e^{V_D/(nV_T)} - 1); V_T = kT/q = 25.85 mV at 300K; forward voltage drop ≈ 0.6-0.7V for Si at room temperature", "type": "equation"},
-        {"name": "MOSFET drain current (NMOS)", "form": "Triode: I_D = μ_n C_ox (W/L)[(V_GS−V_th)V_DS − V_DS²/2]; Saturation (V_DS ≥ V_GS−V_th): I_D = (μ_n C_ox W/2L)(V_GS−V_th)²(1 + λV_DS)", "type": "equation"},
-        {"name": "BJT current relationships", "form": "I_C = β·I_B = α·I_E; I_E = I_B + I_C; α = β/(1+β); in active mode: V_BE ≈ 0.7V (Si); I_C = I_S·e^{V_BE/V_T}", "type": "equation"},
-        {"name": "CMOS inverter switching threshold", "form": "V_M ≈ V_DD/2 for matched CMOS (equal drive strength); gate switches at midpoint; noise margins NM_H = NM_L ≈ V_DD/2 ideally", "type": "equation"},
-        {"name": "CMOS dynamic power", "form": "P = α C_L V_DD² f; energy per switching event = C_L V_DD²; static leakage P_static = I_leak · V_DD becoming significant below 65nm", "type": "equation"},
-        {"name": "Miller effect", "form": "Input capacitance C_in = C_gd(1 + g_m R_L); feedback capacitance C_gd is amplified by (1+gain) at input; limits high-frequency response of amplifiers", "type": "equation"}
+        {
+          "name": "Diode Shockley equation",
+          "form": "I = I_S(e^{V_D/(nV_T)} - 1); V_T = kT/q = 25.85 mV at 300K; forward voltage drop ≈ 0.6-0.7V for Si at room temperature",
+          "type": "equation"
+        },
+        {
+          "name": "MOSFET drain current (NMOS)",
+          "form": "Triode: I_D = μ_n C_ox (W/L)[(V_GS−V_th)V_DS − V_DS²/2]; Saturation (V_DS ≥ V_GS−V_th): I_D = (μ_n C_ox W/2L)(V_GS−V_th)²(1 + λV_DS)",
+          "type": "equation"
+        },
+        {
+          "name": "BJT current relationships",
+          "form": "I_C = β·I_B = α·I_E; I_E = I_B + I_C; α = β/(1+β); in active mode: V_BE ≈ 0.7V (Si); I_C = I_S·e^{V_BE/V_T}",
+          "type": "equation"
+        },
+        {
+          "name": "CMOS inverter switching threshold",
+          "form": "V_M ≈ V_DD/2 for matched CMOS (equal drive strength); gate switches at midpoint; noise margins NM_H = NM_L ≈ V_DD/2 ideally",
+          "type": "equation"
+        },
+        {
+          "name": "CMOS dynamic power",
+          "form": "P = α C_L V_DD² f; energy per switching event = C_L V_DD²; static leakage P_static = I_leak · V_DD becoming significant below 65nm",
+          "type": "equation"
+        },
+        {
+          "name": "Miller effect",
+          "form": "Input capacitance C_in = C_gd(1 + g_m R_L); feedback capacitance C_gd is amplified by (1+gain) at input; limits high-frequency response of amplifiers",
+          "type": "equation"
+        }
       ]
     }
   ]
