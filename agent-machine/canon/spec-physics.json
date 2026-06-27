@@ -1,6 +1,11 @@
 {
   "domain": "physics",
-  "mmlu_subjects": ["conceptual_physics", "college_physics", "high_school_physics", "astronomy"],
+  "mmlu_subjects": [
+    "conceptual_physics",
+    "college_physics",
+    "high_school_physics",
+    "astronomy"
+  ],
   "mmlu_pro_category": "physics",
   "topics": [
     {
@@ -17,38 +22,200 @@
         "fluid statics and dynamics"
       ],
       "glossary": [
-        {"term": "inertia", "definition": "The tendency of an object to resist changes in its state of motion, quantified by mass."},
-        {"term": "force", "definition": "A push or pull that changes an object's motion; the cause of acceleration via Newton's second law, F_net = m*a. A vector (magnitude + direction), measured in newtons."},
-        {"term": "conserved quantity", "definition": "A quantity whose total value in an isolated system is constant in time (energy, linear momentum, angular momentum, electric charge). By Noether's theorem each continuous symmetry of the dynamics yields one."},
-        {"term": "momentum", "definition": "The product of an object's mass and velocity, p = mv; a conserved quantity in isolated systems."},
-        {"term": "impulse", "definition": "The change in momentum of an object, equal to the net force integrated over the time interval it acts."},
-        {"term": "torque", "definition": "The rotational analog of force, defined as the cross product of the position vector and the applied force: τ = r × F."},
-        {"term": "moment of inertia", "definition": "The rotational analog of mass; measures a body's resistance to angular acceleration: I = sum(m_i * r_i^2)."},
-        {"term": "angular momentum", "definition": "The rotational analog of linear momentum: L = I * ω = r × p; conserved when net torque is zero."},
-        {"term": "center of mass", "definition": "The mass-weighted average position of all particles in a system; the system behaves as if all its mass is concentrated there under external forces."},
-        {"term": "conservative force", "definition": "A force whose work done on a particle moving between two points is independent of the path taken; derivable from a potential energy function."},
-        {"term": "simple harmonic motion", "definition": "Oscillatory motion governed by a restoring force proportional to displacement: F = -kx, producing sinusoidal position as a function of time."},
-        {"term": "escape velocity", "definition": "The minimum speed required for an object to escape a gravitational field without further propulsion: v_esc = sqrt(2GM/r)."},
-        {"term": "Bernoulli's principle", "definition": "Along a streamline in steady, incompressible, inviscid flow, the sum of pressure, kinetic energy density, and gravitational potential energy density is constant."},
-        {"term": "Reynolds number", "definition": "A dimensionless ratio Re = ρvL/μ characterizing whether flow is laminar or turbulent."}
+        {
+          "term": "inertia",
+          "definition": "The tendency of an object to resist changes in its state of motion, quantified by mass."
+        },
+        {
+          "term": "force",
+          "definition": "A push or pull that changes an object's motion; the cause of acceleration via Newton's second law, F_net = m*a. A vector (magnitude + direction), measured in newtons."
+        },
+        {
+          "term": "conserved quantity",
+          "definition": "A quantity whose total value in an isolated system is constant in time (energy, linear momentum, angular momentum, electric charge). By Noether's theorem each continuous symmetry of the dynamics yields one."
+        },
+        {
+          "term": "momentum",
+          "definition": "The product of an object's mass and velocity, p = mv; a conserved quantity in isolated systems."
+        },
+        {
+          "term": "impulse",
+          "definition": "The change in momentum of an object, equal to the net force integrated over the time interval it acts."
+        },
+        {
+          "term": "torque",
+          "definition": "The rotational analog of force, defined as the cross product of the position vector and the applied force: τ = r × F."
+        },
+        {
+          "term": "moment of inertia",
+          "definition": "The rotational analog of mass; measures a body's resistance to angular acceleration: I = sum(m_i * r_i^2)."
+        },
+        {
+          "term": "angular momentum",
+          "definition": "The rotational analog of linear momentum: L = I * ω = r × p; conserved when net torque is zero."
+        },
+        {
+          "term": "center of mass",
+          "definition": "The mass-weighted average position of all particles in a system; the system behaves as if all its mass is concentrated there under external forces."
+        },
+        {
+          "term": "conservative force",
+          "definition": "A force whose work done on a particle moving between two points is independent of the path taken; derivable from a potential energy function."
+        },
+        {
+          "term": "simple harmonic motion",
+          "definition": "Oscillatory motion governed by a restoring force proportional to displacement: F = -kx, producing sinusoidal position as a function of time."
+        },
+        {
+          "term": "escape velocity",
+          "definition": "The minimum speed required for an object to escape a gravitational field without further propulsion: v_esc = sqrt(2GM/r)."
+        },
+        {
+          "term": "Bernoulli's principle",
+          "definition": "Along a streamline in steady, incompressible, inviscid flow, the sum of pressure, kinetic energy density, and gravitational potential energy density is constant."
+        },
+        {
+          "term": "Reynolds number",
+          "definition": "A dimensionless ratio Re = ρvL/μ characterizing whether flow is laminar or turbulent."
+        },
+        {
+          "term": "kinetic energy",
+          "definition": "Energy of motion: KE = ½mv². For a system of particles, it is the sum of all ½mᵢvᵢ²."
+        },
+        {
+          "term": "potential energy",
+          "definition": "Stored energy due to position or configuration. Gravitational: U = mgh. Spring: U = ½kx². Electric: U = qV."
+        },
+        {
+          "term": "work",
+          "definition": "Energy transferred by a force over displacement: W = F·d·cosθ. Work-energy theorem: W_net = ΔKE."
+        },
+        {
+          "term": "power",
+          "definition": "Rate of energy transfer or work done: P = W/t = F·v. SI unit: watt (W = J/s)."
+        },
+        {
+          "term": "energy",
+          "definition": "The capacity to do work. Conserved in isolated systems (conservation of energy). Forms: kinetic, potential, thermal, electromagnetic, etc."
+        },
+        {
+          "term": "Newton's laws of motion",
+          "definition": "1st: object at rest stays at rest unless acted on by a net force. 2nd: F=ma. 3rd: every action has an equal and opposite reaction."
+        },
+        {
+          "term": "friction",
+          "definition": "Force opposing relative motion between surfaces. Static: f_s ≤ μ_s N; kinetic: f_k = μ_k N."
+        },
+        {
+          "term": "circular motion",
+          "definition": "Object moving on circular path with centripetal acceleration a = v²/r directed toward center. Net force = mv²/r (centripetal force)."
+        },
+        {
+          "term": "gravitational force",
+          "definition": "Attractive force between masses: F = Gm₁m₂/r². Weight W = mg at Earth's surface."
+        },
+        {
+          "term": "wave",
+          "definition": "A periodic disturbance that transfers energy. Characterized by wavelength λ, frequency f, amplitude A. Speed v = fλ."
+        },
+        {
+          "term": "wavelength",
+          "definition": "Distance between successive crests (or troughs) of a wave: λ = v/f. For light in vacuum: λ = c/f."
+        },
+        {
+          "term": "frequency",
+          "definition": "Number of wave cycles per second. Unit: hertz (Hz). Related to period T by f = 1/T and to wavelength by v = fλ."
+        },
+        {
+          "term": "amplitude",
+          "definition": "Maximum displacement of a wave from equilibrium. Determines the intensity (energy) of the wave."
+        },
+        {
+          "term": "resonance",
+          "definition": "Phenomenon where a system oscillates at greater amplitude when driven at its natural frequency."
+        }
       ],
       "canon": [
-        {"name": "kinematic equation (constant acceleration)", "form": "v = v_0 + a*t", "type": "equation"},
-        {"name": "kinematic equation (displacement)", "form": "x = x_0 + v_0*t + (1/2)*a*t^2", "type": "equation"},
-        {"name": "kinematic equation (velocity-displacement)", "form": "v^2 = v_0^2 + 2*a*(x - x_0)", "type": "equation"},
-        {"name": "Newton's second law", "form": "F_net = m * a", "type": "law"},
-        {"name": "Newton's law of gravitation", "form": "F = G * m_1 * m_2 / r^2", "type": "law"},
-        {"name": "work done by a force", "form": "W = integral(F · dr)", "type": "equation"},
-        {"name": "kinetic energy", "form": "KE = (1/2) * m * v^2", "type": "equation"},
-        {"name": "gravitational potential energy", "form": "U = m * g * h", "type": "equation"},
-        {"name": "work-energy theorem", "form": "W_net = delta(KE)", "type": "theorem"},
-        {"name": "conservation of mechanical energy", "form": "KE + U = constant (no non-conservative forces)", "type": "law"},
-        {"name": "angular momentum", "form": "L = I * omega = r × p", "type": "equation"},
-        {"name": "torque-angular momentum relation", "form": "tau_net = dL/dt = I * alpha", "type": "equation"},
-        {"name": "rotational kinetic energy", "form": "KE_rot = (1/2) * I * omega^2", "type": "equation"},
-        {"name": "simple harmonic oscillator frequency", "form": "omega = sqrt(k/m),  T = 2*pi*sqrt(m/k)", "type": "equation"},
-        {"name": "Bernoulli equation", "form": "P + (1/2)*rho*v^2 + rho*g*h = constant", "type": "law"},
-        {"name": "continuity equation (fluids)", "form": "A_1 * v_1 = A_2 * v_2", "type": "equation"}
+        {
+          "name": "kinematic equation (constant acceleration)",
+          "form": "v = v_0 + a*t",
+          "type": "equation"
+        },
+        {
+          "name": "kinematic equation (displacement)",
+          "form": "x = x_0 + v_0*t + (1/2)*a*t^2",
+          "type": "equation"
+        },
+        {
+          "name": "kinematic equation (velocity-displacement)",
+          "form": "v^2 = v_0^2 + 2*a*(x - x_0)",
+          "type": "equation"
+        },
+        {
+          "name": "Newton's second law",
+          "form": "F_net = m * a",
+          "type": "law"
+        },
+        {
+          "name": "Newton's law of gravitation",
+          "form": "F = G * m_1 * m_2 / r^2",
+          "type": "law"
+        },
+        {
+          "name": "work done by a force",
+          "form": "W = integral(F · dr)",
+          "type": "equation"
+        },
+        {
+          "name": "kinetic energy",
+          "form": "KE = (1/2) * m * v^2",
+          "type": "equation"
+        },
+        {
+          "name": "gravitational potential energy",
+          "form": "U = m * g * h",
+          "type": "equation"
+        },
+        {
+          "name": "work-energy theorem",
+          "form": "W_net = delta(KE)",
+          "type": "theorem"
+        },
+        {
+          "name": "conservation of mechanical energy",
+          "form": "KE + U = constant (no non-conservative forces)",
+          "type": "law"
+        },
+        {
+          "name": "angular momentum",
+          "form": "L = I * omega = r × p",
+          "type": "equation"
+        },
+        {
+          "name": "torque-angular momentum relation",
+          "form": "tau_net = dL/dt = I * alpha",
+          "type": "equation"
+        },
+        {
+          "name": "rotational kinetic energy",
+          "form": "KE_rot = (1/2) * I * omega^2",
+          "type": "equation"
+        },
+        {
+          "name": "simple harmonic oscillator frequency",
+          "form": "omega = sqrt(k/m),  T = 2*pi*sqrt(m/k)",
+          "type": "equation"
+        },
+        {
+          "name": "Bernoulli equation",
+          "form": "P + (1/2)*rho*v^2 + rho*g*h = constant",
+          "type": "law"
+        },
+        {
+          "name": "continuity equation (fluids)",
+          "form": "A_1 * v_1 = A_2 * v_2",
+          "type": "equation"
+        }
       ]
     },
     {
@@ -67,32 +234,115 @@
         "action-angle variables and adiabatic invariants"
       ],
       "glossary": [
-        {"term": "generalized coordinates", "definition": "Any set of independent parameters q_i that uniquely specifies the configuration of a system, not necessarily Cartesian."},
-        {"term": "holonomic constraint", "definition": "A constraint expressible as an algebraic relation among the generalized coordinates (and possibly time): f(q_1,...,q_n,t) = 0."},
-        {"term": "Lagrangian", "definition": "The function L = T - V (kinetic minus potential energy) whose integral over time, the action, is stationary along the physical trajectory."},
-        {"term": "action", "definition": "The functional S[q] = integral(L(q, dq/dt, t) dt) whose stationary paths (δS = 0) yield the equations of motion."},
-        {"term": "Euler-Lagrange equation", "definition": "The differential equation d/dt(∂L/∂q̇_i) - ∂L/∂q_i = 0 that a path must satisfy to render the action stationary."},
-        {"term": "cyclic coordinate", "definition": "A generalized coordinate q_i that does not appear explicitly in L (only q̇_i does), implying its conjugate momentum p_i = ∂L/∂q̇_i is conserved."},
-        {"term": "conjugate momentum", "definition": "The quantity p_i = ∂L/∂q̇_i canonically paired with the generalized coordinate q_i; reduces to ordinary momentum in Cartesian coordinates."},
-        {"term": "Hamiltonian", "definition": "H(q,p,t) = sum_i(p_i * q̇_i) - L, the Legendre transform of the Lagrangian; equals the total energy when L has no explicit time dependence and constraints are scleronomic."},
-        {"term": "Legendre transformation", "definition": "A mathematical transform that switches between functions of complementary variables; converts L(q,q̇) to H(q,p)."},
-        {"term": "canonical transformation", "definition": "A change of phase-space variables (q,p) → (Q,P) that preserves the form of Hamilton's equations, i.e., preserves the Poisson bracket structure."},
-        {"term": "Poisson bracket", "definition": "The bilinear operation {f,g} = sum_i(∂f/∂q_i * ∂g/∂p_i - ∂f/∂p_i * ∂g/∂q_i) measuring how rapidly one observable changes along the flow generated by another."},
-        {"term": "action-angle variables", "definition": "Canonical variables (J, θ) where J is the action integral (adiabatic invariant) and θ advances uniformly in time; natural for integrable systems."},
-        {"term": "adiabatic invariant", "definition": "A quantity J = (1/2π) * ∮ p dq that is approximately conserved when system parameters change slowly compared to the oscillation period."}
+        {
+          "term": "generalized coordinates",
+          "definition": "Any set of independent parameters q_i that uniquely specifies the configuration of a system, not necessarily Cartesian."
+        },
+        {
+          "term": "holonomic constraint",
+          "definition": "A constraint expressible as an algebraic relation among the generalized coordinates (and possibly time): f(q_1,...,q_n,t) = 0."
+        },
+        {
+          "term": "Lagrangian",
+          "definition": "The function L = T - V (kinetic minus potential energy) whose integral over time, the action, is stationary along the physical trajectory."
+        },
+        {
+          "term": "action",
+          "definition": "The functional S[q] = integral(L(q, dq/dt, t) dt) whose stationary paths (δS = 0) yield the equations of motion."
+        },
+        {
+          "term": "Euler-Lagrange equation",
+          "definition": "The differential equation d/dt(∂L/∂q̇_i) - ∂L/∂q_i = 0 that a path must satisfy to render the action stationary."
+        },
+        {
+          "term": "cyclic coordinate",
+          "definition": "A generalized coordinate q_i that does not appear explicitly in L (only q̇_i does), implying its conjugate momentum p_i = ∂L/∂q̇_i is conserved."
+        },
+        {
+          "term": "conjugate momentum",
+          "definition": "The quantity p_i = ∂L/∂q̇_i canonically paired with the generalized coordinate q_i; reduces to ordinary momentum in Cartesian coordinates."
+        },
+        {
+          "term": "Hamiltonian",
+          "definition": "H(q,p,t) = sum_i(p_i * q̇_i) - L, the Legendre transform of the Lagrangian; equals the total energy when L has no explicit time dependence and constraints are scleronomic."
+        },
+        {
+          "term": "Legendre transformation",
+          "definition": "A mathematical transform that switches between functions of complementary variables; converts L(q,q̇) to H(q,p)."
+        },
+        {
+          "term": "canonical transformation",
+          "definition": "A change of phase-space variables (q,p) → (Q,P) that preserves the form of Hamilton's equations, i.e., preserves the Poisson bracket structure."
+        },
+        {
+          "term": "Poisson bracket",
+          "definition": "The bilinear operation {f,g} = sum_i(∂f/∂q_i * ∂g/∂p_i - ∂f/∂p_i * ∂g/∂q_i) measuring how rapidly one observable changes along the flow generated by another."
+        },
+        {
+          "term": "action-angle variables",
+          "definition": "Canonical variables (J, θ) where J is the action integral (adiabatic invariant) and θ advances uniformly in time; natural for integrable systems."
+        },
+        {
+          "term": "adiabatic invariant",
+          "definition": "A quantity J = (1/2π) * ∮ p dq that is approximately conserved when system parameters change slowly compared to the oscillation period."
+        }
       ],
       "canon": [
-        {"name": "principle of stationary action", "form": "delta S = delta integral(L dt) = 0", "type": "law"},
-        {"name": "Euler-Lagrange equation", "form": "d/dt(∂L/∂q̇_i) - ∂L/∂q_i = 0", "type": "equation"},
-        {"name": "definition of conjugate momentum", "form": "p_i = ∂L/∂q̇_i", "type": "definition"},
-        {"name": "Hamiltonian (Legendre transform)", "form": "H(q,p,t) = sum_i(p_i * q̇_i) - L(q,q̇,t)", "type": "equation"},
-        {"name": "Hamilton's equations", "form": "dq_i/dt = ∂H/∂p_i,   dp_i/dt = -∂H/∂q_i", "type": "equation"},
-        {"name": "time evolution of observable (Hamiltonian)", "form": "df/dt = {f,H} + ∂f/∂t", "type": "equation"},
-        {"name": "Poisson bracket definition", "form": "{f,g} = sum_i(∂f/∂q_i * ∂g/∂p_i - ∂f/∂p_i * ∂g/∂q_i)", "type": "definition"},
-        {"name": "fundamental Poisson brackets", "form": "{q_i, p_j} = delta_ij,  {q_i,q_j} = 0,  {p_i,p_j} = 0", "type": "equation"},
-        {"name": "Hamilton-Jacobi equation", "form": "∂S/∂t + H(q, ∂S/∂q, t) = 0", "type": "equation"},
-        {"name": "action variable", "form": "J_i = (1/(2*pi)) * ∮ p_i dq_i", "type": "definition"},
-        {"name": "Noether's theorem", "form": "Continuous symmetry of L → conserved Noether charge Q = sum_i(∂L/∂q̇_i * δq_i)", "type": "theorem"}
+        {
+          "name": "principle of stationary action",
+          "form": "delta S = delta integral(L dt) = 0",
+          "type": "law"
+        },
+        {
+          "name": "Euler-Lagrange equation",
+          "form": "d/dt(∂L/∂q̇_i) - ∂L/∂q_i = 0",
+          "type": "equation"
+        },
+        {
+          "name": "definition of conjugate momentum",
+          "form": "p_i = ∂L/∂q̇_i",
+          "type": "definition"
+        },
+        {
+          "name": "Hamiltonian (Legendre transform)",
+          "form": "H(q,p,t) = sum_i(p_i * q̇_i) - L(q,q̇,t)",
+          "type": "equation"
+        },
+        {
+          "name": "Hamilton's equations",
+          "form": "dq_i/dt = ∂H/∂p_i,   dp_i/dt = -∂H/∂q_i",
+          "type": "equation"
+        },
+        {
+          "name": "time evolution of observable (Hamiltonian)",
+          "form": "df/dt = {f,H} + ∂f/∂t",
+          "type": "equation"
+        },
+        {
+          "name": "Poisson bracket definition",
+          "form": "{f,g} = sum_i(∂f/∂q_i * ∂g/∂p_i - ∂f/∂p_i * ∂g/∂q_i)",
+          "type": "definition"
+        },
+        {
+          "name": "fundamental Poisson brackets",
+          "form": "{q_i, p_j} = delta_ij,  {q_i,q_j} = 0,  {p_i,p_j} = 0",
+          "type": "equation"
+        },
+        {
+          "name": "Hamilton-Jacobi equation",
+          "form": "∂S/∂t + H(q, ∂S/∂q, t) = 0",
+          "type": "equation"
+        },
+        {
+          "name": "action variable",
+          "form": "J_i = (1/(2*pi)) * ∮ p_i dq_i",
+          "type": "definition"
+        },
+        {
+          "name": "Noether's theorem",
+          "form": "Continuous symmetry of L → conserved Noether charge Q = sum_i(∂L/∂q̇_i * δq_i)",
+          "type": "theorem"
+        }
       ]
     },
     {
@@ -111,35 +361,170 @@
         "radiation from accelerating charges"
       ],
       "glossary": [
-        {"term": "electric field", "definition": "A vector field E(r) such that the force on a test charge q is F = qE; created by charges and time-varying magnetic fields."},
-        {"term": "radiation from accelerating charges", "definition": "An accelerating electric charge emits electromagnetic radiation; for non-relativistic motion the radiated power is the Larmor formula P = q^2 a^2 / (6*pi*epsilon_0*c^3). Basis of antennas, synchrotron, and atomic emission."},
-        {"term": "electric potential", "definition": "A scalar field V(r) such that E = -∇V; the work done per unit charge moving from infinity to the point r."},
-        {"term": "Gauss's law", "definition": "The total electric flux through a closed surface equals the enclosed charge divided by ε_0: ∮ E · dA = Q_enc/ε_0."},
-        {"term": "Faraday's law", "definition": "A time-varying magnetic flux through a loop induces an EMF equal to minus the rate of change of flux: EMF = -dΦ_B/dt."},
-        {"term": "Ampère-Maxwell law", "definition": "The curl of B equals μ_0 times the sum of free current density and the displacement current density ε_0 ∂E/∂t."},
-        {"term": "displacement current", "definition": "Maxwell's addition to Ampère's law: J_d = ε_0 ∂E/∂t; ensures charge conservation and predicts electromagnetic wave propagation in vacuum."},
-        {"term": "Poynting vector", "definition": "S = (1/μ_0) * E × B; represents the directional energy flux density of an electromagnetic field (power per unit area)."},
-        {"term": "electromagnetic wave", "definition": "A self-sustaining oscillation of coupled E and B fields propagating at speed c = 1/sqrt(ε_0 μ_0) in vacuum; E and B are perpendicular to each other and to the direction of propagation."},
-        {"term": "magnetic vector potential", "definition": "A vector field A such that B = ∇ × A; used with scalar potential φ to encode the full EM field in Lagrangian/quantum treatments."},
-        {"term": "Lenz's law", "definition": "The induced EMF always acts to oppose the change in magnetic flux that produced it; a consequence of energy conservation."},
-        {"term": "boundary conditions (EM)", "definition": "At an interface: tangential E and normal B are continuous; tangential H and normal D jump by the surface free current/charge densities."},
-        {"term": "skin depth", "definition": "The characteristic depth δ = sqrt(2/(μ σ ω)) at which electromagnetic fields penetrate a conductor before attenuating by 1/e."}
+        {
+          "term": "electric field",
+          "definition": "A vector field E(r) such that the force on a test charge q is F = qE; created by charges and time-varying magnetic fields."
+        },
+        {
+          "term": "radiation from accelerating charges",
+          "definition": "An accelerating electric charge emits electromagnetic radiation; for non-relativistic motion the radiated power is the Larmor formula P = q^2 a^2 / (6*pi*epsilon_0*c^3). Basis of antennas, synchrotron, and atomic emission."
+        },
+        {
+          "term": "electric potential",
+          "definition": "A scalar field V(r) such that E = -∇V; the work done per unit charge moving from infinity to the point r."
+        },
+        {
+          "term": "Gauss's law",
+          "definition": "The total electric flux through a closed surface equals the enclosed charge divided by ε_0: ∮ E · dA = Q_enc/ε_0."
+        },
+        {
+          "term": "Faraday's law",
+          "definition": "A time-varying magnetic flux through a loop induces an EMF equal to minus the rate of change of flux: EMF = -dΦ_B/dt."
+        },
+        {
+          "term": "Ampère-Maxwell law",
+          "definition": "The curl of B equals μ_0 times the sum of free current density and the displacement current density ε_0 ∂E/∂t."
+        },
+        {
+          "term": "displacement current",
+          "definition": "Maxwell's addition to Ampère's law: J_d = ε_0 ∂E/∂t; ensures charge conservation and predicts electromagnetic wave propagation in vacuum."
+        },
+        {
+          "term": "Poynting vector",
+          "definition": "S = (1/μ_0) * E × B; represents the directional energy flux density of an electromagnetic field (power per unit area)."
+        },
+        {
+          "term": "electromagnetic wave",
+          "definition": "A self-sustaining oscillation of coupled E and B fields propagating at speed c = 1/sqrt(ε_0 μ_0) in vacuum; E and B are perpendicular to each other and to the direction of propagation."
+        },
+        {
+          "term": "magnetic vector potential",
+          "definition": "A vector field A such that B = ∇ × A; used with scalar potential φ to encode the full EM field in Lagrangian/quantum treatments."
+        },
+        {
+          "term": "Lenz's law",
+          "definition": "The induced EMF always acts to oppose the change in magnetic flux that produced it; a consequence of energy conservation."
+        },
+        {
+          "term": "boundary conditions (EM)",
+          "definition": "At an interface: tangential E and normal B are continuous; tangential H and normal D jump by the surface free current/charge densities."
+        },
+        {
+          "term": "skin depth",
+          "definition": "The characteristic depth δ = sqrt(2/(μ σ ω)) at which electromagnetic fields penetrate a conductor before attenuating by 1/e."
+        },
+        {
+          "term": "Coulomb's law",
+          "definition": "Electric force between point charges: F = kq₁q₂/r² where k = 8.99×10⁹ N·m²/C². Direction: along the line joining charges."
+        },
+        {
+          "term": "magnetic field",
+          "definition": "Region around a magnet or current-carrying conductor where magnetic forces act. Symbol B, unit tesla (T). Exerts force F = qv×B on moving charges."
+        },
+        {
+          "term": "resistance",
+          "definition": "Opposition to current flow in a conductor: R = V/I (Ohm's law). Unit: ohm (Ω). Increases with length, decreases with cross-sectional area."
+        },
+        {
+          "term": "capacitance",
+          "definition": "Ability to store electric charge: C = Q/V. Unit: farad (F). Parallel plate capacitor: C = ε₀A/d. Energy stored: U = ½CV²."
+        },
+        {
+          "term": "inductance",
+          "definition": "Property of a conductor that opposes changes in current: EMF = -L dI/dt. Unit: henry (H). Energy stored in inductor: U = ½LI²."
+        },
+        {
+          "term": "Ohm's law",
+          "definition": "Relationship between voltage V, current I, and resistance R: V = IR. Valid for ohmic conductors at constant temperature."
+        },
+        {
+          "term": "current",
+          "definition": "Rate of charge flow: I = dQ/dt. Unit: ampere (A = C/s). Conventional current flows from + to -."
+        },
+        {
+          "term": "electric power",
+          "definition": "Rate of electrical energy dissipation or delivery: P = IV = I²R = V²/R. Unit: watt (W)."
+        },
+        {
+          "term": "Kirchhoff's laws",
+          "definition": "KCL (junction rule): sum of currents entering a junction = sum leaving. KVL (loop rule): sum of voltage drops around a closed loop = 0."
+        },
+        {
+          "term": "magnetic flux",
+          "definition": "Φ_B = B·A·cosθ; total field lines threading a surface. Faraday's law: EMF = -dΦ_B/dt."
+        }
       ],
       "canon": [
-        {"name": "Coulomb's law", "form": "F = (1/(4*pi*epsilon_0)) * q_1*q_2/r^2  (r̂ direction)", "type": "law"},
-        {"name": "Gauss's law (integral)", "form": "∮ E · dA = Q_enc / epsilon_0", "type": "law"},
-        {"name": "Gauss's law for magnetism", "form": "∮ B · dA = 0", "type": "law"},
-        {"name": "Faraday's law (integral)", "form": "∮ E · dl = -d/dt ∫∫ B · dA", "type": "law"},
-        {"name": "Ampère-Maxwell law (integral)", "form": "∮ B · dl = mu_0 * (I_enc + epsilon_0 * d/dt ∫∫ E · dA)", "type": "law"},
-        {"name": "Maxwell's equations (differential form)", "form": "∇·E = rho/epsilon_0;  ∇·B = 0;  ∇×E = -∂B/∂t;  ∇×B = mu_0*(J + epsilon_0*∂E/∂t)", "type": "law"},
-        {"name": "Biot-Savart law", "form": "dB = (mu_0/(4*pi)) * I*(dl × r̂)/r^2", "type": "law"},
-        {"name": "Lorentz force", "form": "F = q*(E + v × B)", "type": "law"},
-        {"name": "speed of light", "form": "c = 1/sqrt(epsilon_0 * mu_0) = 2.998e8 m/s", "type": "equation"},
-        {"name": "Poynting vector", "form": "S = (1/mu_0) * E × B", "type": "equation"},
-        {"name": "energy density (EM field)", "form": "u = (1/2)*(epsilon_0*E^2 + B^2/mu_0)", "type": "equation"},
-        {"name": "wave equation for E", "form": "∇^2 E - (1/c^2) * ∂^2 E/∂t^2 = 0", "type": "equation"},
-        {"name": "Larmor radiation formula", "form": "P = (q^2 * a^2) / (6*pi*epsilon_0*c^3)", "type": "equation"},
-        {"name": "dipole approximation radiation power", "form": "P = (mu_0 / (6*pi*c)) * |d̈|^2", "type": "equation"}
+        {
+          "name": "Coulomb's law",
+          "form": "F = (1/(4*pi*epsilon_0)) * q_1*q_2/r^2  (r̂ direction)",
+          "type": "law"
+        },
+        {
+          "name": "Gauss's law (integral)",
+          "form": "∮ E · dA = Q_enc / epsilon_0",
+          "type": "law"
+        },
+        {
+          "name": "Gauss's law for magnetism",
+          "form": "∮ B · dA = 0",
+          "type": "law"
+        },
+        {
+          "name": "Faraday's law (integral)",
+          "form": "∮ E · dl = -d/dt ∫∫ B · dA",
+          "type": "law"
+        },
+        {
+          "name": "Ampère-Maxwell law (integral)",
+          "form": "∮ B · dl = mu_0 * (I_enc + epsilon_0 * d/dt ∫∫ E · dA)",
+          "type": "law"
+        },
+        {
+          "name": "Maxwell's equations (differential form)",
+          "form": "∇·E = rho/epsilon_0;  ∇·B = 0;  ∇×E = -∂B/∂t;  ∇×B = mu_0*(J + epsilon_0*∂E/∂t)",
+          "type": "law"
+        },
+        {
+          "name": "Biot-Savart law",
+          "form": "dB = (mu_0/(4*pi)) * I*(dl × r̂)/r^2",
+          "type": "law"
+        },
+        {
+          "name": "Lorentz force",
+          "form": "F = q*(E + v × B)",
+          "type": "law"
+        },
+        {
+          "name": "speed of light",
+          "form": "c = 1/sqrt(epsilon_0 * mu_0) = 2.998e8 m/s",
+          "type": "equation"
+        },
+        {
+          "name": "Poynting vector",
+          "form": "S = (1/mu_0) * E × B",
+          "type": "equation"
+        },
+        {
+          "name": "energy density (EM field)",
+          "form": "u = (1/2)*(epsilon_0*E^2 + B^2/mu_0)",
+          "type": "equation"
+        },
+        {
+          "name": "wave equation for E",
+          "form": "∇^2 E - (1/c^2) * ∂^2 E/∂t^2 = 0",
+          "type": "equation"
+        },
+        {
+          "name": "Larmor radiation formula",
+          "form": "P = (q^2 * a^2) / (6*pi*epsilon_0*c^3)",
+          "type": "equation"
+        },
+        {
+          "name": "dipole approximation radiation power",
+          "form": "P = (mu_0 / (6*pi*c)) * |d̈|^2",
+          "type": "equation"
+        }
       ]
     },
     {
@@ -161,39 +546,148 @@
         "scattering theory (Born approximation, partial waves)"
       ],
       "glossary": [
-        {"term": "wave function", "definition": "A complex-valued function ψ(r,t) whose modulus squared |ψ|^2 gives the probability density of finding the particle at position r at time t."},
-        {"term": "Born rule", "definition": "The probability of measuring observable A and obtaining eigenvalue a_n is |<a_n|ψ>|^2; postulate connecting the mathematical formalism to experimental outcomes."},
-        {"term": "Hilbert space", "definition": "The complete complex inner-product space of normalizable quantum states; observables are Hermitian operators on this space."},
-        {"term": "Hermitian operator", "definition": "An operator Â satisfying Â† = Â; its eigenvalues are real and eigenvectors form a complete orthonormal basis, making it suitable to represent a physical observable."},
-        {"term": "commutator", "definition": "For operators Â and B̂, [Â,B̂] = ÂB̂ - B̂Â; non-zero commutator means the observables cannot be simultaneously specified with arbitrary precision."},
-        {"term": "Heisenberg uncertainty principle", "definition": "For conjugate variables position and momentum: σ_x * σ_p ≥ ℏ/2; a consequence of the non-commutativity [x̂, p̂] = iℏ."},
-        {"term": "stationary state", "definition": "An eigenstate of the Hamiltonian Ĥ|E_n> = E_n|E_n>; its probability density is time-independent."},
-        {"term": "ladder operators", "definition": "Operators â and â† defined for the harmonic oscillator by â = (x̂ + ip̂/mω)/sqrt(2mωℏ) and its conjugate; â†|n> = sqrt(n+1)|n+1>, â|n> = sqrt(n)|n-1>."},
-        {"term": "spin", "definition": "An intrinsic angular momentum of a quantum particle with no classical analogue; spin-1/2 particles have eigenvalues ±ℏ/2 and are described by Pauli matrices."},
-        {"term": "Pauli matrices", "definition": "Three 2×2 Hermitian matrices σ_x, σ_y, σ_z representing the spin-1/2 operators (up to ℏ/2); satisfy σ_i σ_j = δ_ij I + i ε_ijk σ_k."},
-        {"term": "time evolution operator", "definition": "The unitary operator Û(t,t_0) = exp(-iĤ(t-t_0)/ℏ) for time-independent Ĥ; propagates states forward: |ψ(t)> = Û(t,t_0)|ψ(t_0)>."},
-        {"term": "Fermi's golden rule", "definition": "The transition rate from state |i> to states |f> under perturbation H' is Γ = (2π/ℏ)|<f|H'|i>|^2 * ρ(E_f); valid to first-order time-dependent perturbation theory."},
-        {"term": "variational principle", "definition": "For any normalized trial state |φ>, <φ|Ĥ|φ> ≥ E_0 (the true ground-state energy); enables upper-bound estimates of E_0."},
-        {"term": "WKB approximation", "definition": "A semiclassical approximation valid when the de Broglie wavelength changes slowly; the wave function in a slowly varying potential is ψ ~ exp(±i ∫ p(x) dx/ℏ)/sqrt(p(x))."},
-        {"term": "scattering cross section", "definition": "The effective area σ that characterizes the probability of a scattering event; differential cross section dσ/dΩ = |f(θ,φ)|^2 where f is the scattering amplitude."}
+        {
+          "term": "wave function",
+          "definition": "A complex-valued function ψ(r,t) whose modulus squared |ψ|^2 gives the probability density of finding the particle at position r at time t."
+        },
+        {
+          "term": "Born rule",
+          "definition": "The probability of measuring observable A and obtaining eigenvalue a_n is |<a_n|ψ>|^2; postulate connecting the mathematical formalism to experimental outcomes."
+        },
+        {
+          "term": "Hilbert space",
+          "definition": "The complete complex inner-product space of normalizable quantum states; observables are Hermitian operators on this space."
+        },
+        {
+          "term": "Hermitian operator",
+          "definition": "An operator Â satisfying Â† = Â; its eigenvalues are real and eigenvectors form a complete orthonormal basis, making it suitable to represent a physical observable."
+        },
+        {
+          "term": "commutator",
+          "definition": "For operators Â and B̂, [Â,B̂] = ÂB̂ - B̂Â; non-zero commutator means the observables cannot be simultaneously specified with arbitrary precision."
+        },
+        {
+          "term": "Heisenberg uncertainty principle",
+          "definition": "For conjugate variables position and momentum: σ_x * σ_p ≥ ℏ/2; a consequence of the non-commutativity [x̂, p̂] = iℏ."
+        },
+        {
+          "term": "stationary state",
+          "definition": "An eigenstate of the Hamiltonian Ĥ|E_n> = E_n|E_n>; its probability density is time-independent."
+        },
+        {
+          "term": "ladder operators",
+          "definition": "Operators â and â† defined for the harmonic oscillator by â = (x̂ + ip̂/mω)/sqrt(2mωℏ) and its conjugate; â†|n> = sqrt(n+1)|n+1>, â|n> = sqrt(n)|n-1>."
+        },
+        {
+          "term": "spin",
+          "definition": "An intrinsic angular momentum of a quantum particle with no classical analogue; spin-1/2 particles have eigenvalues ±ℏ/2 and are described by Pauli matrices."
+        },
+        {
+          "term": "Pauli matrices",
+          "definition": "Three 2×2 Hermitian matrices σ_x, σ_y, σ_z representing the spin-1/2 operators (up to ℏ/2); satisfy σ_i σ_j = δ_ij I + i ε_ijk σ_k."
+        },
+        {
+          "term": "time evolution operator",
+          "definition": "The unitary operator Û(t,t_0) = exp(-iĤ(t-t_0)/ℏ) for time-independent Ĥ; propagates states forward: |ψ(t)> = Û(t,t_0)|ψ(t_0)>."
+        },
+        {
+          "term": "Fermi's golden rule",
+          "definition": "The transition rate from state |i> to states |f> under perturbation H' is Γ = (2π/ℏ)|<f|H'|i>|^2 * ρ(E_f); valid to first-order time-dependent perturbation theory."
+        },
+        {
+          "term": "variational principle",
+          "definition": "For any normalized trial state |φ>, <φ|Ĥ|φ> ≥ E_0 (the true ground-state energy); enables upper-bound estimates of E_0."
+        },
+        {
+          "term": "WKB approximation",
+          "definition": "A semiclassical approximation valid when the de Broglie wavelength changes slowly; the wave function in a slowly varying potential is ψ ~ exp(±i ∫ p(x) dx/ℏ)/sqrt(p(x))."
+        },
+        {
+          "term": "scattering cross section",
+          "definition": "The effective area σ that characterizes the probability of a scattering event; differential cross section dσ/dΩ = |f(θ,φ)|^2 where f is the scattering amplitude."
+        }
       ],
       "canon": [
-        {"name": "time-dependent Schrödinger equation", "form": "iℏ * ∂ψ/∂t = Ĥψ = (-ℏ^2/(2m) ∇^2 + V)ψ", "type": "equation"},
-        {"name": "time-independent Schrödinger equation", "form": "Ĥψ = Eψ  →  (-ℏ^2/(2m) ∇^2 + V(r))ψ(r) = E*ψ(r)", "type": "equation"},
-        {"name": "canonical commutation relation", "form": "[x̂_i, p̂_j] = iℏ*delta_ij", "type": "equation"},
-        {"name": "generalized uncertainty principle", "form": "sigma_A * sigma_B >= (1/2)|<[Â,B̂]>|", "type": "theorem"},
-        {"name": "position-momentum uncertainty", "form": "sigma_x * sigma_p >= ℏ/2", "type": "equation"},
-        {"name": "harmonic oscillator energy levels", "form": "E_n = ℏω(n + 1/2),  n = 0,1,2,...", "type": "equation"},
-        {"name": "ladder operator algebra", "form": "[â, â†] = 1;  â†|n> = sqrt(n+1)|n+1>;  â|n> = sqrt(n)|n-1>", "type": "equation"},
-        {"name": "angular momentum commutators", "form": "[L_i, L_j] = iℏ * ε_ijk * L_k;  [L^2, L_i] = 0", "type": "equation"},
-        {"name": "angular momentum eigenvalues", "form": "L^2|l,m> = ℏ^2*l(l+1)|l,m>;  L_z|l,m> = ℏ*m|l,m>;  l=0,1,2,...;  m=-l,...,+l", "type": "equation"},
-        {"name": "hydrogen atom energy levels", "form": "E_n = -13.6 eV / n^2 = -m_e*e^4 / (2ℏ^2*(4πε_0)^2*n^2)", "type": "equation"},
-        {"name": "Pauli matrices", "form": "σ_x=[[0,1],[1,0]]; σ_y=[[0,-i],[i,0]]; σ_z=[[1,0],[0,-1]]", "type": "definition"},
-        {"name": "first-order energy correction (perturbation theory)", "form": "E_n^(1) = <n^(0)|H'|n^(0)>", "type": "equation"},
-        {"name": "first-order state correction (perturbation theory)", "form": "|n^(1)> = sum_{m≠n} <m^(0)|H'|n^(0)>/(E_n^(0)-E_m^(0)) * |m^(0)>", "type": "equation"},
-        {"name": "Fermi's golden rule", "form": "Gamma_{i→f} = (2π/ℏ) * |<f|H'|i>|^2 * rho(E_f)", "type": "equation"},
-        {"name": "Born approximation (scattering amplitude)", "form": "f(θ) = -(m/(2πℏ^2)) * ∫ V(r') * exp(-i*q·r') d^3r'  where q = k_f - k_i", "type": "equation"},
-        {"name": "optical theorem", "form": "sigma_total = (4π/k) * Im[f(θ=0)]", "type": "theorem"}
+        {
+          "name": "time-dependent Schrödinger equation",
+          "form": "iℏ * ∂ψ/∂t = Ĥψ = (-ℏ^2/(2m) ∇^2 + V)ψ",
+          "type": "equation"
+        },
+        {
+          "name": "time-independent Schrödinger equation",
+          "form": "Ĥψ = Eψ  →  (-ℏ^2/(2m) ∇^2 + V(r))ψ(r) = E*ψ(r)",
+          "type": "equation"
+        },
+        {
+          "name": "canonical commutation relation",
+          "form": "[x̂_i, p̂_j] = iℏ*delta_ij",
+          "type": "equation"
+        },
+        {
+          "name": "generalized uncertainty principle",
+          "form": "sigma_A * sigma_B >= (1/2)|<[Â,B̂]>|",
+          "type": "theorem"
+        },
+        {
+          "name": "position-momentum uncertainty",
+          "form": "sigma_x * sigma_p >= ℏ/2",
+          "type": "equation"
+        },
+        {
+          "name": "harmonic oscillator energy levels",
+          "form": "E_n = ℏω(n + 1/2),  n = 0,1,2,...",
+          "type": "equation"
+        },
+        {
+          "name": "ladder operator algebra",
+          "form": "[â, â†] = 1;  â†|n> = sqrt(n+1)|n+1>;  â|n> = sqrt(n)|n-1>",
+          "type": "equation"
+        },
+        {
+          "name": "angular momentum commutators",
+          "form": "[L_i, L_j] = iℏ * ε_ijk * L_k;  [L^2, L_i] = 0",
+          "type": "equation"
+        },
+        {
+          "name": "angular momentum eigenvalues",
+          "form": "L^2|l,m> = ℏ^2*l(l+1)|l,m>;  L_z|l,m> = ℏ*m|l,m>;  l=0,1,2,...;  m=-l,...,+l",
+          "type": "equation"
+        },
+        {
+          "name": "hydrogen atom energy levels",
+          "form": "E_n = -13.6 eV / n^2 = -m_e*e^4 / (2ℏ^2*(4πε_0)^2*n^2)",
+          "type": "equation"
+        },
+        {
+          "name": "Pauli matrices",
+          "form": "σ_x=[[0,1],[1,0]]; σ_y=[[0,-i],[i,0]]; σ_z=[[1,0],[0,-1]]",
+          "type": "definition"
+        },
+        {
+          "name": "first-order energy correction (perturbation theory)",
+          "form": "E_n^(1) = <n^(0)|H'|n^(0)>",
+          "type": "equation"
+        },
+        {
+          "name": "first-order state correction (perturbation theory)",
+          "form": "|n^(1)> = sum_{m≠n} <m^(0)|H'|n^(0)>/(E_n^(0)-E_m^(0)) * |m^(0)>",
+          "type": "equation"
+        },
+        {
+          "name": "Fermi's golden rule",
+          "form": "Gamma_{i→f} = (2π/ℏ) * |<f|H'|i>|^2 * rho(E_f)",
+          "type": "equation"
+        },
+        {
+          "name": "Born approximation (scattering amplitude)",
+          "form": "f(θ) = -(m/(2πℏ^2)) * ∫ V(r') * exp(-i*q·r') d^3r'  where q = k_f - k_i",
+          "type": "equation"
+        },
+        {
+          "name": "optical theorem",
+          "form": "sigma_total = (4π/k) * Im[f(θ=0)]",
+          "type": "theorem"
+        }
       ]
     },
     {
@@ -212,37 +706,139 @@
         "entropy and the second law"
       ],
       "glossary": [
-        {"term": "entropy", "definition": "A state function S = k_B * ln(Ω) (Boltzmann) or S = -k_B * sum(p_i * ln p_i) (Gibbs); quantifies the number of accessible microstates and the arrow of time."},
-        {"term": "partition function", "definition": "Z = sum_i exp(-β E_i) (canonical), where β = 1/(k_B T); the generating function for all thermodynamic quantities."},
-        {"term": "canonical ensemble", "definition": "Statistical description of a system in thermal contact with a heat reservoir at temperature T; probability of state i is p_i = exp(-β E_i)/Z."},
-        {"term": "grand canonical ensemble", "definition": "Statistical description of a system exchanging both energy and particles with a reservoir; characterized by T and chemical potential μ."},
-        {"term": "grand partition function", "definition": "Z_G = sum_{N,i} exp(-β(E_{N,i} - μN)) = sum_N z^N * Z_N, where z = exp(βμ) is the fugacity."},
-        {"term": "chemical potential", "definition": "μ = (∂F/∂N)_{T,V} = (∂G/∂N)_{T,P}; the free energy cost of adding one particle to the system at constant T and V (or P)."},
-        {"term": "equipartition theorem", "definition": "In classical statistical mechanics, each quadratic degree of freedom in the Hamiltonian contributes (1/2)k_B T to the mean energy."},
-        {"term": "Fermi-Dirac distribution", "definition": "The mean occupation number of a single-particle state with energy ε for identical fermions: f_FD(ε) = 1/(exp(β(ε-μ))+1)."},
-        {"term": "Bose-Einstein distribution", "definition": "The mean occupation number of a single-particle state with energy ε for identical bosons: f_BE(ε) = 1/(exp(β(ε-μ))-1)."},
-        {"term": "Fermi energy", "definition": "The chemical potential of an ideal Fermi gas at T = 0; the energy of the highest occupied state in the ground state."},
-        {"term": "Bose-Einstein condensation", "definition": "The macroscopic occupation of the ground single-particle state below a critical temperature T_c in a gas of non-interacting bosons."},
-        {"term": "free energy (Helmholtz)", "definition": "F = U - TS; the thermodynamic potential minimized at equilibrium for a system at constant T and V; F = -k_B T * ln Z."},
-        {"term": "Gibbs free energy", "definition": "G = U + PV - TS = H - TS; the potential minimized at equilibrium for constant T and P; determines spontaneity of chemical/phase transitions."},
-        {"term": "fluctuation-dissipation theorem", "definition": "Relates spontaneous fluctuations of a system in equilibrium to its linear response (dissipation) to an external perturbation; e.g., Johnson-Nyquist noise in resistors."}
+        {
+          "term": "entropy",
+          "definition": "A state function S = k_B * ln(Ω) (Boltzmann) or S = -k_B * sum(p_i * ln p_i) (Gibbs); quantifies the number of accessible microstates and the arrow of time."
+        },
+        {
+          "term": "partition function",
+          "definition": "Z = sum_i exp(-β E_i) (canonical), where β = 1/(k_B T); the generating function for all thermodynamic quantities."
+        },
+        {
+          "term": "canonical ensemble",
+          "definition": "Statistical description of a system in thermal contact with a heat reservoir at temperature T; probability of state i is p_i = exp(-β E_i)/Z."
+        },
+        {
+          "term": "grand canonical ensemble",
+          "definition": "Statistical description of a system exchanging both energy and particles with a reservoir; characterized by T and chemical potential μ."
+        },
+        {
+          "term": "grand partition function",
+          "definition": "Z_G = sum_{N,i} exp(-β(E_{N,i} - μN)) = sum_N z^N * Z_N, where z = exp(βμ) is the fugacity."
+        },
+        {
+          "term": "chemical potential",
+          "definition": "μ = (∂F/∂N)_{T,V} = (∂G/∂N)_{T,P}; the free energy cost of adding one particle to the system at constant T and V (or P)."
+        },
+        {
+          "term": "equipartition theorem",
+          "definition": "In classical statistical mechanics, each quadratic degree of freedom in the Hamiltonian contributes (1/2)k_B T to the mean energy."
+        },
+        {
+          "term": "Fermi-Dirac distribution",
+          "definition": "The mean occupation number of a single-particle state with energy ε for identical fermions: f_FD(ε) = 1/(exp(β(ε-μ))+1)."
+        },
+        {
+          "term": "Bose-Einstein distribution",
+          "definition": "The mean occupation number of a single-particle state with energy ε for identical bosons: f_BE(ε) = 1/(exp(β(ε-μ))-1)."
+        },
+        {
+          "term": "Fermi energy",
+          "definition": "The chemical potential of an ideal Fermi gas at T = 0; the energy of the highest occupied state in the ground state."
+        },
+        {
+          "term": "Bose-Einstein condensation",
+          "definition": "The macroscopic occupation of the ground single-particle state below a critical temperature T_c in a gas of non-interacting bosons."
+        },
+        {
+          "term": "free energy (Helmholtz)",
+          "definition": "F = U - TS; the thermodynamic potential minimized at equilibrium for a system at constant T and V; F = -k_B T * ln Z."
+        },
+        {
+          "term": "Gibbs free energy",
+          "definition": "G = U + PV - TS = H - TS; the potential minimized at equilibrium for constant T and P; determines spontaneity of chemical/phase transitions."
+        },
+        {
+          "term": "fluctuation-dissipation theorem",
+          "definition": "Relates spontaneous fluctuations of a system in equilibrium to its linear response (dissipation) to an external perturbation; e.g., Johnson-Nyquist noise in resistors."
+        }
       ],
       "canon": [
-        {"name": "Boltzmann entropy", "form": "S = k_B * ln(Omega)", "type": "equation"},
-        {"name": "canonical partition function", "form": "Z = sum_i exp(-E_i / (k_B*T))", "type": "equation"},
-        {"name": "Helmholtz free energy from Z", "form": "F = -k_B*T * ln(Z)", "type": "equation"},
-        {"name": "thermodynamic relations from F", "form": "S = -(∂F/∂T)_V;  P = -(∂F/∂V)_T;  U = F + T*S", "type": "equation"},
-        {"name": "Gibbs free energy", "form": "G = U + P*V - T*S = F + P*V", "type": "equation"},
-        {"name": "Maxwell relations (from F)", "form": "(∂S/∂V)_T = (∂P/∂T)_V", "type": "equation"},
-        {"name": "grand partition function", "form": "Z_G = sum_{N,i} exp(-beta*(E_{N,i} - mu*N))", "type": "equation"},
-        {"name": "Fermi-Dirac distribution", "form": "f_FD(epsilon) = 1 / (exp(beta*(epsilon - mu)) + 1)", "type": "equation"},
-        {"name": "Bose-Einstein distribution", "form": "f_BE(epsilon) = 1 / (exp(beta*(epsilon - mu)) - 1)", "type": "equation"},
-        {"name": "Planck distribution (mean photon occupation)", "form": "n_BE(omega) = 1 / (exp(ℏ*omega/(k_B*T)) - 1)", "type": "equation"},
-        {"name": "Stefan-Boltzmann law", "form": "P/A = sigma_SB * T^4;  sigma_SB = 2*pi^5*k_B^4 / (15*c^2*h^3)", "type": "law"},
-        {"name": "equipartition theorem", "form": "<(1/2)*a*q^2> = (1/2)*k_B*T for each quadratic DoF", "type": "theorem"},
-        {"name": "Sackur-Tetrode equation (ideal gas entropy)", "form": "S/N*k_B = ln(V/N * (4*pi*m*U/(3*N*h^2))^(3/2)) + 5/2", "type": "equation"},
-        {"name": "Clausius inequality", "form": "dS >= delta Q / T  (equality for reversible process)", "type": "law"},
-        {"name": "first law of thermodynamics", "form": "dU = delta Q - delta W = T*dS - P*dV + mu*dN", "type": "law"}
+        {
+          "name": "Boltzmann entropy",
+          "form": "S = k_B * ln(Omega)",
+          "type": "equation"
+        },
+        {
+          "name": "canonical partition function",
+          "form": "Z = sum_i exp(-E_i / (k_B*T))",
+          "type": "equation"
+        },
+        {
+          "name": "Helmholtz free energy from Z",
+          "form": "F = -k_B*T * ln(Z)",
+          "type": "equation"
+        },
+        {
+          "name": "thermodynamic relations from F",
+          "form": "S = -(∂F/∂T)_V;  P = -(∂F/∂V)_T;  U = F + T*S",
+          "type": "equation"
+        },
+        {
+          "name": "Gibbs free energy",
+          "form": "G = U + P*V - T*S = F + P*V",
+          "type": "equation"
+        },
+        {
+          "name": "Maxwell relations (from F)",
+          "form": "(∂S/∂V)_T = (∂P/∂T)_V",
+          "type": "equation"
+        },
+        {
+          "name": "grand partition function",
+          "form": "Z_G = sum_{N,i} exp(-beta*(E_{N,i} - mu*N))",
+          "type": "equation"
+        },
+        {
+          "name": "Fermi-Dirac distribution",
+          "form": "f_FD(epsilon) = 1 / (exp(beta*(epsilon - mu)) + 1)",
+          "type": "equation"
+        },
+        {
+          "name": "Bose-Einstein distribution",
+          "form": "f_BE(epsilon) = 1 / (exp(beta*(epsilon - mu)) - 1)",
+          "type": "equation"
+        },
+        {
+          "name": "Planck distribution (mean photon occupation)",
+          "form": "n_BE(omega) = 1 / (exp(ℏ*omega/(k_B*T)) - 1)",
+          "type": "equation"
+        },
+        {
+          "name": "Stefan-Boltzmann law",
+          "form": "P/A = sigma_SB * T^4;  sigma_SB = 2*pi^5*k_B^4 / (15*c^2*h^3)",
+          "type": "law"
+        },
+        {
+          "name": "equipartition theorem",
+          "form": "<(1/2)*a*q^2> = (1/2)*k_B*T for each quadratic DoF",
+          "type": "theorem"
+        },
+        {
+          "name": "Sackur-Tetrode equation (ideal gas entropy)",
+          "form": "S/N*k_B = ln(V/N * (4*pi*m*U/(3*N*h^2))^(3/2)) + 5/2",
+          "type": "equation"
+        },
+        {
+          "name": "Clausius inequality",
+          "form": "dS >= delta Q / T  (equality for reversible process)",
+          "type": "law"
+        },
+        {
+          "name": "first law of thermodynamics",
+          "form": "dU = delta Q - delta W = T*dS - P*dV + mu*dN",
+          "type": "law"
+        }
       ]
     },
     {
@@ -259,29 +855,103 @@
         "relativistic electrodynamics"
       ],
       "glossary": [
-        {"term": "spacetime interval", "definition": "The Lorentz-invariant quantity s^2 = -(c*Δt)^2 + Δx^2 + Δy^2 + Δz^2 (or its negative, depending on sign convention); the same in all inertial frames."},
-        {"term": "Lorentz factor", "definition": "γ = 1/sqrt(1 - v^2/c^2); the factor by which time dilates and length contracts for objects moving at speed v."},
-        {"term": "proper time", "definition": "The time elapsed on a clock moving with the object, related to coordinate time by dτ = dt/γ; the Lorentz-invariant measure of elapsed time along a worldline."},
-        {"term": "proper length", "definition": "The length of an object measured in its rest frame; an observer in relative motion measures a shorter length L = L_0/γ (length contraction)."},
-        {"term": "4-vector", "definition": "A set of four quantities (A^0, A^1, A^2, A^3) that transforms under Lorentz transformations like (ct, x, y, z); its norm A^μ A_μ is Lorentz invariant."},
-        {"term": "energy-momentum 4-vector", "definition": "p^μ = (E/c, p_x, p_y, p_z); its invariant norm gives p^μ p_μ = -(mc)^2, encoding the mass-energy-momentum relation."},
-        {"term": "rest energy", "definition": "The energy of an object at rest: E_0 = m*c^2; represents the conversion equivalence between mass and energy."},
-        {"term": "rapidity", "definition": "The parameter φ = tanh^{-1}(v/c) = (1/2)ln((1+β)/(1-β)); Lorentz boosts add rapidities, making it convenient for composing velocities."},
-        {"term": "time dilation", "definition": "A moving clock ticks slower: Δt = γ * Δτ; an observer measures a longer time between events on a moving clock than the proper time."},
-        {"term": "relativistic velocity addition", "definition": "When a particle moves with velocity u' in frame S' and S' moves with v relative to S, the velocity in S is u = (u'+v)/(1 + u'v/c^2)."}
+        {
+          "term": "spacetime interval",
+          "definition": "The Lorentz-invariant quantity s^2 = -(c*Δt)^2 + Δx^2 + Δy^2 + Δz^2 (or its negative, depending on sign convention); the same in all inertial frames."
+        },
+        {
+          "term": "Lorentz factor",
+          "definition": "γ = 1/sqrt(1 - v^2/c^2); the factor by which time dilates and length contracts for objects moving at speed v."
+        },
+        {
+          "term": "proper time",
+          "definition": "The time elapsed on a clock moving with the object, related to coordinate time by dτ = dt/γ; the Lorentz-invariant measure of elapsed time along a worldline."
+        },
+        {
+          "term": "proper length",
+          "definition": "The length of an object measured in its rest frame; an observer in relative motion measures a shorter length L = L_0/γ (length contraction)."
+        },
+        {
+          "term": "4-vector",
+          "definition": "A set of four quantities (A^0, A^1, A^2, A^3) that transforms under Lorentz transformations like (ct, x, y, z); its norm A^μ A_μ is Lorentz invariant."
+        },
+        {
+          "term": "energy-momentum 4-vector",
+          "definition": "p^μ = (E/c, p_x, p_y, p_z); its invariant norm gives p^μ p_μ = -(mc)^2, encoding the mass-energy-momentum relation."
+        },
+        {
+          "term": "rest energy",
+          "definition": "The energy of an object at rest: E_0 = m*c^2; represents the conversion equivalence between mass and energy."
+        },
+        {
+          "term": "rapidity",
+          "definition": "The parameter φ = tanh^{-1}(v/c) = (1/2)ln((1+β)/(1-β)); Lorentz boosts add rapidities, making it convenient for composing velocities."
+        },
+        {
+          "term": "time dilation",
+          "definition": "A moving clock ticks slower: Δt = γ * Δτ; an observer measures a longer time between events on a moving clock than the proper time."
+        },
+        {
+          "term": "relativistic velocity addition",
+          "definition": "When a particle moves with velocity u' in frame S' and S' moves with v relative to S, the velocity in S is u = (u'+v)/(1 + u'v/c^2)."
+        }
       ],
       "canon": [
-        {"name": "Lorentz transformation (boost in x)", "form": "t' = gamma*(t - v*x/c^2);  x' = gamma*(x - v*t);  y'=y;  z'=z", "type": "equation"},
-        {"name": "Lorentz factor", "form": "gamma = 1/sqrt(1 - v^2/c^2) = 1/sqrt(1 - beta^2)", "type": "equation"},
-        {"name": "time dilation", "form": "Delta t = gamma * Delta tau  (tau = proper time)", "type": "equation"},
-        {"name": "length contraction", "form": "L = L_0 / gamma", "type": "equation"},
-        {"name": "spacetime interval", "form": "s^2 = -(c*Delta t)^2 + Delta x^2 + Delta y^2 + Delta z^2  (Minkowski metric)", "type": "equation"},
-        {"name": "relativistic energy", "form": "E = gamma * m * c^2", "type": "equation"},
-        {"name": "relativistic momentum", "form": "p = gamma * m * v", "type": "equation"},
-        {"name": "mass-energy-momentum relation", "form": "E^2 = (p*c)^2 + (m*c^2)^2", "type": "equation"},
-        {"name": "rest energy", "form": "E_0 = m*c^2", "type": "equation"},
-        {"name": "relativistic velocity addition (collinear)", "form": "u = (u' + v) / (1 + u'*v/c^2)", "type": "equation"},
-        {"name": "4-velocity", "form": "U^mu = gamma*(c, v_x, v_y, v_z);  U^mu*U_mu = -c^2", "type": "equation"}
+        {
+          "name": "Lorentz transformation (boost in x)",
+          "form": "t' = gamma*(t - v*x/c^2);  x' = gamma*(x - v*t);  y'=y;  z'=z",
+          "type": "equation"
+        },
+        {
+          "name": "Lorentz factor",
+          "form": "gamma = 1/sqrt(1 - v^2/c^2) = 1/sqrt(1 - beta^2)",
+          "type": "equation"
+        },
+        {
+          "name": "time dilation",
+          "form": "Delta t = gamma * Delta tau  (tau = proper time)",
+          "type": "equation"
+        },
+        {
+          "name": "length contraction",
+          "form": "L = L_0 / gamma",
+          "type": "equation"
+        },
+        {
+          "name": "spacetime interval",
+          "form": "s^2 = -(c*Delta t)^2 + Delta x^2 + Delta y^2 + Delta z^2  (Minkowski metric)",
+          "type": "equation"
+        },
+        {
+          "name": "relativistic energy",
+          "form": "E = gamma * m * c^2",
+          "type": "equation"
+        },
+        {
+          "name": "relativistic momentum",
+          "form": "p = gamma * m * v",
+          "type": "equation"
+        },
+        {
+          "name": "mass-energy-momentum relation",
+          "form": "E^2 = (p*c)^2 + (m*c^2)^2",
+          "type": "equation"
+        },
+        {
+          "name": "rest energy",
+          "form": "E_0 = m*c^2",
+          "type": "equation"
+        },
+        {
+          "name": "relativistic velocity addition (collinear)",
+          "form": "u = (u' + v) / (1 + u'*v/c^2)",
+          "type": "equation"
+        },
+        {
+          "name": "4-velocity",
+          "form": "U^mu = gamma*(c, v_x, v_y, v_z);  U^mu*U_mu = -c^2",
+          "type": "equation"
+        }
       ]
     },
     {
@@ -299,31 +969,111 @@
         "cosmological models (FRW metric, Friedmann equations)"
       ],
       "glossary": [
-        {"term": "equivalence principle", "definition": "Locally, a uniformly accelerating frame is indistinguishable from a gravitational field (Einstein's version); gravity is not a force but geometry."},
-        {"term": "metric tensor", "definition": "The symmetric tensor g_{μν}(x) encoding the geometry of spacetime; defines the line element ds^2 = g_{μν} dx^μ dx^ν and hence distances, angles, and time elapsed."},
-        {"term": "geodesic", "definition": "The generalization of a straight line to curved spacetime; the path of a free-falling particle (no non-gravitational forces) that extremizes proper time."},
-        {"term": "Christoffel symbol", "definition": "Γ^λ_{μν} = (1/2)g^{λσ}(∂_μ g_{νσ} + ∂_ν g_{μσ} - ∂_σ g_{μν}); the connection coefficients encoding parallel transport on the curved manifold."},
-        {"term": "Riemann curvature tensor", "definition": "R^λ_{ρμν} = ∂_μ Γ^λ_{νρ} - ∂_ν Γ^λ_{μρ} + Γ^λ_{μσ}Γ^σ_{νρ} - Γ^λ_{νσ}Γ^σ_{μρ}; measures the failure of parallel transport around a closed loop."},
-        {"term": "Ricci tensor", "definition": "R_{μν} = R^λ_{μλν}; the contraction of the Riemann tensor that appears in the Einstein field equations."},
-        {"term": "Einstein tensor", "definition": "G_{μν} = R_{μν} - (1/2)g_{μν}R; divergence-free (∇^μ G_{μν} = 0), consistent with energy-momentum conservation."},
-        {"term": "stress-energy tensor", "definition": "T_{μν} encodes the density and flux of energy and momentum; T^{00} = energy density, T^{0i} = momentum density; the source of gravity in GR."},
-        {"term": "Schwarzschild radius", "definition": "r_s = 2GM/c^2; the radius at which the Schwarzschild metric becomes singular; the event horizon of a non-rotating black hole."},
-        {"term": "event horizon", "definition": "A null hypersurface beyond which events cannot causally influence the exterior; in the Schwarzschild metric, located at r = r_s = 2GM/c^2."},
-        {"term": "gravitational wave", "definition": "A propagating perturbation h_{μν} = g_{μν} - η_{μν} of spacetime geometry, sourced by time-varying quadrupole mass distributions; travels at c and carries energy."},
-        {"term": "cosmological constant", "definition": "Λ, Einstein's term added to the field equations representing a constant energy density of vacuum; currently interpreted as dark energy driving accelerated expansion."}
+        {
+          "term": "equivalence principle",
+          "definition": "Locally, a uniformly accelerating frame is indistinguishable from a gravitational field (Einstein's version); gravity is not a force but geometry."
+        },
+        {
+          "term": "metric tensor",
+          "definition": "The symmetric tensor g_{μν}(x) encoding the geometry of spacetime; defines the line element ds^2 = g_{μν} dx^μ dx^ν and hence distances, angles, and time elapsed."
+        },
+        {
+          "term": "geodesic",
+          "definition": "The generalization of a straight line to curved spacetime; the path of a free-falling particle (no non-gravitational forces) that extremizes proper time."
+        },
+        {
+          "term": "Christoffel symbol",
+          "definition": "Γ^λ_{μν} = (1/2)g^{λσ}(∂_μ g_{νσ} + ∂_ν g_{μσ} - ∂_σ g_{μν}); the connection coefficients encoding parallel transport on the curved manifold."
+        },
+        {
+          "term": "Riemann curvature tensor",
+          "definition": "R^λ_{ρμν} = ∂_μ Γ^λ_{νρ} - ∂_ν Γ^λ_{μρ} + Γ^λ_{μσ}Γ^σ_{νρ} - Γ^λ_{νσ}Γ^σ_{μρ}; measures the failure of parallel transport around a closed loop."
+        },
+        {
+          "term": "Ricci tensor",
+          "definition": "R_{μν} = R^λ_{μλν}; the contraction of the Riemann tensor that appears in the Einstein field equations."
+        },
+        {
+          "term": "Einstein tensor",
+          "definition": "G_{μν} = R_{μν} - (1/2)g_{μν}R; divergence-free (∇^μ G_{μν} = 0), consistent with energy-momentum conservation."
+        },
+        {
+          "term": "stress-energy tensor",
+          "definition": "T_{μν} encodes the density and flux of energy and momentum; T^{00} = energy density, T^{0i} = momentum density; the source of gravity in GR."
+        },
+        {
+          "term": "Schwarzschild radius",
+          "definition": "r_s = 2GM/c^2; the radius at which the Schwarzschild metric becomes singular; the event horizon of a non-rotating black hole."
+        },
+        {
+          "term": "event horizon",
+          "definition": "A null hypersurface beyond which events cannot causally influence the exterior; in the Schwarzschild metric, located at r = r_s = 2GM/c^2."
+        },
+        {
+          "term": "gravitational wave",
+          "definition": "A propagating perturbation h_{μν} = g_{μν} - η_{μν} of spacetime geometry, sourced by time-varying quadrupole mass distributions; travels at c and carries energy."
+        },
+        {
+          "term": "cosmological constant",
+          "definition": "Λ, Einstein's term added to the field equations representing a constant energy density of vacuum; currently interpreted as dark energy driving accelerated expansion."
+        }
       ],
       "canon": [
-        {"name": "line element (general)", "form": "ds^2 = g_{mu nu} dx^mu dx^nu", "type": "equation"},
-        {"name": "geodesic equation", "form": "d^2x^lambda/dtau^2 + Gamma^lambda_{mu nu} * dx^mu/dtau * dx^nu/dtau = 0", "type": "equation"},
-        {"name": "Christoffel symbol", "form": "Gamma^lambda_{mu nu} = (1/2)*g^{lambda sigma}*(∂_mu g_{nu sigma} + ∂_nu g_{mu sigma} - ∂_sigma g_{mu nu})", "type": "definition"},
-        {"name": "Riemann tensor", "form": "R^lambda_{rho mu nu} = ∂_mu Gamma^lambda_{nu rho} - ∂_nu Gamma^lambda_{mu rho} + Gamma^lambda_{mu sigma}*Gamma^sigma_{nu rho} - Gamma^lambda_{nu sigma}*Gamma^sigma_{mu rho}", "type": "equation"},
-        {"name": "Ricci tensor", "form": "R_{mu nu} = R^lambda_{mu lambda nu}", "type": "definition"},
-        {"name": "Einstein field equations", "form": "G_{mu nu} + Lambda*g_{mu nu} = (8*pi*G/c^4) * T_{mu nu}", "type": "law"},
-        {"name": "Einstein tensor", "form": "G_{mu nu} = R_{mu nu} - (1/2)*g_{mu nu}*R", "type": "definition"},
-        {"name": "Schwarzschild metric", "form": "ds^2 = -(1 - r_s/r)c^2 dt^2 + (1 - r_s/r)^{-1} dr^2 + r^2 dOmega^2;  r_s = 2GM/c^2", "type": "equation"},
-        {"name": "Friedmann equation (flat)", "form": "H^2 = (8*pi*G/3)*rho - k*c^2/a^2 + Lambda*c^2/3", "type": "equation"},
-        {"name": "linearized gravitational wave equation", "form": "Box h_{mu nu} = -16*pi*G/c^4 * T_{mu nu}  (Lorenz gauge)", "type": "equation"},
-        {"name": "quadrupole radiation formula", "form": "P_GW = (G/(5*c^5)) * <d^3 Q_{ij}/dt^3 * d^3 Q^{ij}/dt^3>", "type": "equation"}
+        {
+          "name": "line element (general)",
+          "form": "ds^2 = g_{mu nu} dx^mu dx^nu",
+          "type": "equation"
+        },
+        {
+          "name": "geodesic equation",
+          "form": "d^2x^lambda/dtau^2 + Gamma^lambda_{mu nu} * dx^mu/dtau * dx^nu/dtau = 0",
+          "type": "equation"
+        },
+        {
+          "name": "Christoffel symbol",
+          "form": "Gamma^lambda_{mu nu} = (1/2)*g^{lambda sigma}*(∂_mu g_{nu sigma} + ∂_nu g_{mu sigma} - ∂_sigma g_{mu nu})",
+          "type": "definition"
+        },
+        {
+          "name": "Riemann tensor",
+          "form": "R^lambda_{rho mu nu} = ∂_mu Gamma^lambda_{nu rho} - ∂_nu Gamma^lambda_{mu rho} + Gamma^lambda_{mu sigma}*Gamma^sigma_{nu rho} - Gamma^lambda_{nu sigma}*Gamma^sigma_{mu rho}",
+          "type": "equation"
+        },
+        {
+          "name": "Ricci tensor",
+          "form": "R_{mu nu} = R^lambda_{mu lambda nu}",
+          "type": "definition"
+        },
+        {
+          "name": "Einstein field equations",
+          "form": "G_{mu nu} + Lambda*g_{mu nu} = (8*pi*G/c^4) * T_{mu nu}",
+          "type": "law"
+        },
+        {
+          "name": "Einstein tensor",
+          "form": "G_{mu nu} = R_{mu nu} - (1/2)*g_{mu nu}*R",
+          "type": "definition"
+        },
+        {
+          "name": "Schwarzschild metric",
+          "form": "ds^2 = -(1 - r_s/r)c^2 dt^2 + (1 - r_s/r)^{-1} dr^2 + r^2 dOmega^2;  r_s = 2GM/c^2",
+          "type": "equation"
+        },
+        {
+          "name": "Friedmann equation (flat)",
+          "form": "H^2 = (8*pi*G/3)*rho - k*c^2/a^2 + Lambda*c^2/3",
+          "type": "equation"
+        },
+        {
+          "name": "linearized gravitational wave equation",
+          "form": "Box h_{mu nu} = -16*pi*G/c^4 * T_{mu nu}  (Lorenz gauge)",
+          "type": "equation"
+        },
+        {
+          "name": "quadrupole radiation formula",
+          "form": "P_GW = (G/(5*c^5)) * <d^3 Q_{ij}/dt^3 * d^3 Q^{ij}/dt^3>",
+          "type": "equation"
+        }
       ]
     },
     {
@@ -342,30 +1092,106 @@
         "mean-field theory and Landau theory of phase transitions"
       ],
       "glossary": [
-        {"term": "Bravais lattice", "definition": "A periodic array of points R = n_1 a_1 + n_2 a_2 + n_3 a_3 (n_i integers) that looks identical from every lattice point; there are 14 distinct Bravais lattices in 3D."},
-        {"term": "reciprocal lattice", "definition": "The lattice of wave vectors G satisfying exp(iG·R) = 1 for all Bravais lattice vectors R; the natural space for diffraction and Bloch states."},
-        {"term": "Brillouin zone", "definition": "The Wigner-Seitz cell of the reciprocal lattice; the set of k-vectors closest to the origin; the irreducible domain for Bloch band structure."},
-        {"term": "Bloch's theorem", "definition": "The eigenstates of a Hamiltonian with lattice periodicity have the form ψ_{nk}(r) = u_{nk}(r)exp(ik·r) where u has the periodicity of the lattice."},
-        {"term": "band gap", "definition": "An energy range in which no electronic states exist in a crystalline solid; arises from Bragg scattering at Brillouin zone boundaries; determines semiconductor/insulator character."},
-        {"term": "effective mass", "definition": "m* = ℏ^2 / (d^2E/dk^2); the curvature of the band dispersion; can be negative near band maxima (holes behave as positive-mass positive-charge carriers)."},
-        {"term": "phonon", "definition": "A quantum of lattice vibration; a bosonic collective excitation with dispersion ω(k) governed by interatomic force constants; carries heat but not charge."},
-        {"term": "Debye model", "definition": "Approximates the phonon density of states as ∝ ω^2 up to a cutoff ω_D; correctly gives C_V ~ T^3 at low temperature (Debye T^3 law)."},
-        {"term": "Fermi surface", "definition": "The constant-energy surface in k-space at the Fermi energy; determines low-temperature electronic properties; topological changes drive Lifshitz transitions."},
-        {"term": "Cooper pair", "definition": "A bound pair of electrons with opposite momenta and spins, stabilized by an attractive phonon-mediated interaction; the fundamental unit of the BCS superconducting condensate."},
-        {"term": "Meissner effect", "definition": "The expulsion of magnetic flux from a superconductor below T_c; not merely perfect conductivity but active flux expulsion, confirming the thermodynamic nature of the superconducting state."},
-        {"term": "order parameter", "definition": "A quantity (e.g., magnetization M, gap Δ in BCS, superfluid density) that is zero in the disordered phase and non-zero in the ordered phase; its symmetry and spatial variation classify the transition."}
+        {
+          "term": "Bravais lattice",
+          "definition": "A periodic array of points R = n_1 a_1 + n_2 a_2 + n_3 a_3 (n_i integers) that looks identical from every lattice point; there are 14 distinct Bravais lattices in 3D."
+        },
+        {
+          "term": "reciprocal lattice",
+          "definition": "The lattice of wave vectors G satisfying exp(iG·R) = 1 for all Bravais lattice vectors R; the natural space for diffraction and Bloch states."
+        },
+        {
+          "term": "Brillouin zone",
+          "definition": "The Wigner-Seitz cell of the reciprocal lattice; the set of k-vectors closest to the origin; the irreducible domain for Bloch band structure."
+        },
+        {
+          "term": "Bloch's theorem",
+          "definition": "The eigenstates of a Hamiltonian with lattice periodicity have the form ψ_{nk}(r) = u_{nk}(r)exp(ik·r) where u has the periodicity of the lattice."
+        },
+        {
+          "term": "band gap",
+          "definition": "An energy range in which no electronic states exist in a crystalline solid; arises from Bragg scattering at Brillouin zone boundaries; determines semiconductor/insulator character."
+        },
+        {
+          "term": "effective mass",
+          "definition": "m* = ℏ^2 / (d^2E/dk^2); the curvature of the band dispersion; can be negative near band maxima (holes behave as positive-mass positive-charge carriers)."
+        },
+        {
+          "term": "phonon",
+          "definition": "A quantum of lattice vibration; a bosonic collective excitation with dispersion ω(k) governed by interatomic force constants; carries heat but not charge."
+        },
+        {
+          "term": "Debye model",
+          "definition": "Approximates the phonon density of states as ∝ ω^2 up to a cutoff ω_D; correctly gives C_V ~ T^3 at low temperature (Debye T^3 law)."
+        },
+        {
+          "term": "Fermi surface",
+          "definition": "The constant-energy surface in k-space at the Fermi energy; determines low-temperature electronic properties; topological changes drive Lifshitz transitions."
+        },
+        {
+          "term": "Cooper pair",
+          "definition": "A bound pair of electrons with opposite momenta and spins, stabilized by an attractive phonon-mediated interaction; the fundamental unit of the BCS superconducting condensate."
+        },
+        {
+          "term": "Meissner effect",
+          "definition": "The expulsion of magnetic flux from a superconductor below T_c; not merely perfect conductivity but active flux expulsion, confirming the thermodynamic nature of the superconducting state."
+        },
+        {
+          "term": "order parameter",
+          "definition": "A quantity (e.g., magnetization M, gap Δ in BCS, superfluid density) that is zero in the disordered phase and non-zero in the ordered phase; its symmetry and spatial variation classify the transition."
+        }
       ],
       "canon": [
-        {"name": "Bloch theorem", "form": "psi_{nk}(r) = u_{nk}(r) * exp(i*k·r),  u_{nk}(r+R) = u_{nk}(r)", "type": "theorem"},
-        {"name": "free electron dispersion", "form": "E(k) = ℏ^2*k^2 / (2m)", "type": "equation"},
-        {"name": "density of states (3D free electron)", "form": "g(E) = (1/(2*pi^2)) * (2m/ℏ^2)^(3/2) * sqrt(E)", "type": "equation"},
-        {"name": "Fermi energy (T=0)", "form": "E_F = (ℏ^2/(2m)) * (3*pi^2*n)^(2/3)", "type": "equation"},
-        {"name": "tight-binding dispersion (1D)", "form": "E(k) = epsilon_0 - 2t*cos(k*a)", "type": "equation"},
-        {"name": "Debye T^3 heat capacity (low T)", "form": "C_V = (12*pi^4/5) * N*k_B * (T/T_D)^3", "type": "equation"},
-        {"name": "London equation (superconductor)", "form": "∂J_s/∂t = (n_s*e^2/m)*E;  J_s = -(n_s*e^2/(m*c))*A  (CGS)", "type": "equation"},
-        {"name": "BCS gap equation (T=0)", "form": "Delta ~ 2*ℏ*omega_D * exp(-1/(N(0)*V))", "type": "equation"},
-        {"name": "Bragg's law (diffraction)", "form": "2*d*sin(theta) = n*lambda", "type": "law"},
-        {"name": "Landau free energy expansion", "form": "F = a(T-T_c)*m^2 + b*m^4 + ... ;  m=0 above T_c, m=sqrt(a(T_c-T)/(2b)) below", "type": "equation"}
+        {
+          "name": "Bloch theorem",
+          "form": "psi_{nk}(r) = u_{nk}(r) * exp(i*k·r),  u_{nk}(r+R) = u_{nk}(r)",
+          "type": "theorem"
+        },
+        {
+          "name": "free electron dispersion",
+          "form": "E(k) = ℏ^2*k^2 / (2m)",
+          "type": "equation"
+        },
+        {
+          "name": "density of states (3D free electron)",
+          "form": "g(E) = (1/(2*pi^2)) * (2m/ℏ^2)^(3/2) * sqrt(E)",
+          "type": "equation"
+        },
+        {
+          "name": "Fermi energy (T=0)",
+          "form": "E_F = (ℏ^2/(2m)) * (3*pi^2*n)^(2/3)",
+          "type": "equation"
+        },
+        {
+          "name": "tight-binding dispersion (1D)",
+          "form": "E(k) = epsilon_0 - 2t*cos(k*a)",
+          "type": "equation"
+        },
+        {
+          "name": "Debye T^3 heat capacity (low T)",
+          "form": "C_V = (12*pi^4/5) * N*k_B * (T/T_D)^3",
+          "type": "equation"
+        },
+        {
+          "name": "London equation (superconductor)",
+          "form": "∂J_s/∂t = (n_s*e^2/m)*E;  J_s = -(n_s*e^2/(m*c))*A  (CGS)",
+          "type": "equation"
+        },
+        {
+          "name": "BCS gap equation (T=0)",
+          "form": "Delta ~ 2*ℏ*omega_D * exp(-1/(N(0)*V))",
+          "type": "equation"
+        },
+        {
+          "name": "Bragg's law (diffraction)",
+          "form": "2*d*sin(theta) = n*lambda",
+          "type": "law"
+        },
+        {
+          "name": "Landau free energy expansion",
+          "form": "F = a(T-T_c)*m^2 + b*m^4 + ... ;  m=0 above T_c, m=sqrt(a(T_c-T)/(2b)) below",
+          "type": "equation"
+        }
       ]
     },
     {
@@ -384,31 +1210,111 @@
         "beyond the Standard Model: neutrino masses, supersymmetry sketch"
       ],
       "glossary": [
-        {"term": "Standard Model", "definition": "The gauge field theory SU(3)_C × SU(2)_L × U(1)_Y describing strong, weak, and electromagnetic interactions; all matter fields are quarks and leptons (3 generations each)."},
-        {"term": "quark", "definition": "A spin-1/2 fermion carrying color charge (r,g,b) and fractional electric charge; confined in hadrons; 6 flavors: u,d,s,c,b,t."},
-        {"term": "lepton", "definition": "A spin-1/2 fermion without color charge; 6 types: e, μ, τ and their neutrinos ν_e, ν_μ, ν_τ; each carries lepton-family number."},
-        {"term": "gauge boson", "definition": "A spin-1 force-carrying particle arising from local gauge symmetry: photon (U(1)), W^±/Z (SU(2)), gluons g (SU(3)); masses generated by Higgs mechanism except photon and gluon."},
-        {"term": "Feynman diagram", "definition": "A pictorial representation of terms in a perturbative expansion of scattering amplitudes; vertices and propagators encode interaction strengths and particle propagation."},
-        {"term": "propagator", "definition": "The momentum-space Green's function for a quantum field; for a scalar: 1/(p^2 - m^2 + iε); encodes virtual particle exchange between vertices."},
-        {"term": "running coupling", "definition": "The effective coupling constant α(μ) that depends on the energy scale μ due to quantum loop corrections (renormalization group); α_s decreases at high energy (asymptotic freedom)."},
-        {"term": "spontaneous symmetry breaking", "definition": "A system whose equations are symmetric but whose ground state is not; in the Higgs mechanism, the electroweak SU(2)_L×U(1)_Y symmetry breaks to U(1)_EM, generating W/Z masses."},
-        {"term": "Higgs boson", "definition": "The scalar boson (spin-0, m ≈ 125 GeV) arising as the excitation of the Higgs field after spontaneous electroweak symmetry breaking; observed at LHC in 2012."},
-        {"term": "color confinement", "definition": "The property of QCD whereby free color-charged particles (quarks, gluons) are never observed; the strong force potential grows with distance, confining quarks inside hadrons."},
-        {"term": "asymptotic freedom", "definition": "The decrease of the QCD coupling α_s at high energies (short distances), allowing perturbative calculations of hard processes; established by Gross, Politzer, and Wilczek (2004 Nobel Prize)."},
-        {"term": "CP violation", "definition": "The violation of combined charge-conjugation (C) and parity (P) symmetry; observed in kaon and B-meson systems; necessary (Sakharov conditions) for matter-antimatter asymmetry."}
+        {
+          "term": "Standard Model",
+          "definition": "The gauge field theory SU(3)_C × SU(2)_L × U(1)_Y describing strong, weak, and electromagnetic interactions; all matter fields are quarks and leptons (3 generations each)."
+        },
+        {
+          "term": "quark",
+          "definition": "A spin-1/2 fermion carrying color charge (r,g,b) and fractional electric charge; confined in hadrons; 6 flavors: u,d,s,c,b,t."
+        },
+        {
+          "term": "lepton",
+          "definition": "A spin-1/2 fermion without color charge; 6 types: e, μ, τ and their neutrinos ν_e, ν_μ, ν_τ; each carries lepton-family number."
+        },
+        {
+          "term": "gauge boson",
+          "definition": "A spin-1 force-carrying particle arising from local gauge symmetry: photon (U(1)), W^±/Z (SU(2)), gluons g (SU(3)); masses generated by Higgs mechanism except photon and gluon."
+        },
+        {
+          "term": "Feynman diagram",
+          "definition": "A pictorial representation of terms in a perturbative expansion of scattering amplitudes; vertices and propagators encode interaction strengths and particle propagation."
+        },
+        {
+          "term": "propagator",
+          "definition": "The momentum-space Green's function for a quantum field; for a scalar: 1/(p^2 - m^2 + iε); encodes virtual particle exchange between vertices."
+        },
+        {
+          "term": "running coupling",
+          "definition": "The effective coupling constant α(μ) that depends on the energy scale μ due to quantum loop corrections (renormalization group); α_s decreases at high energy (asymptotic freedom)."
+        },
+        {
+          "term": "spontaneous symmetry breaking",
+          "definition": "A system whose equations are symmetric but whose ground state is not; in the Higgs mechanism, the electroweak SU(2)_L×U(1)_Y symmetry breaks to U(1)_EM, generating W/Z masses."
+        },
+        {
+          "term": "Higgs boson",
+          "definition": "The scalar boson (spin-0, m ≈ 125 GeV) arising as the excitation of the Higgs field after spontaneous electroweak symmetry breaking; observed at LHC in 2012."
+        },
+        {
+          "term": "color confinement",
+          "definition": "The property of QCD whereby free color-charged particles (quarks, gluons) are never observed; the strong force potential grows with distance, confining quarks inside hadrons."
+        },
+        {
+          "term": "asymptotic freedom",
+          "definition": "The decrease of the QCD coupling α_s at high energies (short distances), allowing perturbative calculations of hard processes; established by Gross, Politzer, and Wilczek (2004 Nobel Prize)."
+        },
+        {
+          "term": "CP violation",
+          "definition": "The violation of combined charge-conjugation (C) and parity (P) symmetry; observed in kaon and B-meson systems; necessary (Sakharov conditions) for matter-antimatter asymmetry."
+        }
       ],
       "canon": [
-        {"name": "Standard Model gauge group", "form": "SU(3)_C x SU(2)_L x U(1)_Y", "type": "definition"},
-        {"name": "covariant derivative (gauge theory)", "form": "D_mu = ∂_mu + ig*A_mu^a*T^a  (T^a generators of gauge group)", "type": "definition"},
-        {"name": "QED Lagrangian", "form": "L_QED = -F_{mu nu}F^{mu nu}/4 + psi_bar*(i*D-slash - m)*psi", "type": "equation"},
-        {"name": "photon propagator (Feynman gauge)", "form": "D^F_{mu nu}(k) = -i*g_{mu nu} / (k^2 + i*eps)", "type": "equation"},
-        {"name": "scalar propagator (Feynman)", "form": "Delta_F(p) = i / (p^2 - m^2 + i*eps)", "type": "equation"},
-        {"name": "QCD running coupling (1-loop)", "form": "alpha_s(mu) = 2*pi / (beta_0 * ln(mu/Lambda_QCD));  beta_0 = 11 - 2*n_f/3", "type": "equation"},
-        {"name": "Weinberg angle (electroweak mixing)", "form": "sin^2(theta_W) ≈ 0.231;  M_W = M_Z * cos(theta_W)", "type": "equation"},
-        {"name": "Dirac equation", "form": "(i*gamma^mu*∂_mu - m)*psi = 0", "type": "equation"},
-        {"name": "Klein-Gordon equation", "form": "(Box + m^2)*phi = 0;  Box = ∂_mu ∂^mu", "type": "equation"},
-        {"name": "Noether current (field theory)", "form": "j^mu = ∂L/∂(∂_mu phi) * delta_phi - K^mu;  ∂_mu j^mu = 0 on-shell", "type": "theorem"},
-        {"name": "optical theorem (field theory)", "form": "2*Im(M_{ii}) = sum_f ∫ |M_{if}|^2 d Phi_f", "type": "theorem"}
+        {
+          "name": "Standard Model gauge group",
+          "form": "SU(3)_C x SU(2)_L x U(1)_Y",
+          "type": "definition"
+        },
+        {
+          "name": "covariant derivative (gauge theory)",
+          "form": "D_mu = ∂_mu + ig*A_mu^a*T^a  (T^a generators of gauge group)",
+          "type": "definition"
+        },
+        {
+          "name": "QED Lagrangian",
+          "form": "L_QED = -F_{mu nu}F^{mu nu}/4 + psi_bar*(i*D-slash - m)*psi",
+          "type": "equation"
+        },
+        {
+          "name": "photon propagator (Feynman gauge)",
+          "form": "D^F_{mu nu}(k) = -i*g_{mu nu} / (k^2 + i*eps)",
+          "type": "equation"
+        },
+        {
+          "name": "scalar propagator (Feynman)",
+          "form": "Delta_F(p) = i / (p^2 - m^2 + i*eps)",
+          "type": "equation"
+        },
+        {
+          "name": "QCD running coupling (1-loop)",
+          "form": "alpha_s(mu) = 2*pi / (beta_0 * ln(mu/Lambda_QCD));  beta_0 = 11 - 2*n_f/3",
+          "type": "equation"
+        },
+        {
+          "name": "Weinberg angle (electroweak mixing)",
+          "form": "sin^2(theta_W) ≈ 0.231;  M_W = M_Z * cos(theta_W)",
+          "type": "equation"
+        },
+        {
+          "name": "Dirac equation",
+          "form": "(i*gamma^mu*∂_mu - m)*psi = 0",
+          "type": "equation"
+        },
+        {
+          "name": "Klein-Gordon equation",
+          "form": "(Box + m^2)*phi = 0;  Box = ∂_mu ∂^mu",
+          "type": "equation"
+        },
+        {
+          "name": "Noether current (field theory)",
+          "form": "j^mu = ∂L/∂(∂_mu phi) * delta_phi - K^mu;  ∂_mu j^mu = 0 on-shell",
+          "type": "theorem"
+        },
+        {
+          "name": "optical theorem (field theory)",
+          "form": "2*Im(M_{ii}) = sum_f ∫ |M_{if}|^2 d Phi_f",
+          "type": "theorem"
+        }
       ]
     },
     {
@@ -427,31 +1333,111 @@
         "distance ladder and standard candles"
       ],
       "glossary": [
-        {"term": "Hubble's law", "definition": "Galaxies recede with velocity proportional to distance: v = H_0 * d, where H_0 ≈ 70 km/s/Mpc is the Hubble constant; evidence for an expanding universe."},
-        {"term": "white dwarf", "definition": "A dense stellar remnant left when a low-mass star exhausts its fuel, supported against gravity by electron degeneracy pressure; stable only below the Chandrasekhar limit (~1.4 solar masses)."},
-        {"term": "Hubble parameter", "definition": "H(t) = (da/dt)/a where a(t) is the cosmic scale factor; H_0 is its present value; governs the rate of cosmic expansion."},
-        {"term": "scale factor", "definition": "a(t), a dimensionless function normalised to a(t_0)=1 today; physical distances scale as d_phys = a(t)*d_comoving; its evolution is governed by the Friedmann equations."},
-        {"term": "Chandrasekhar limit", "definition": "The maximum mass (~1.4 M_sun) of a white dwarf supported by electron degeneracy pressure; exceeded mass collapses to a neutron star or black hole."},
-        {"term": "cosmic microwave background", "definition": "The thermal relic radiation from recombination (~380,000 yr after Big Bang) at z ≈ 1100; a near-perfect blackbody at T_0 = 2.725 K with anisotropies ΔT/T ~ 10^{-5} encoding structure formation."},
-        {"term": "dark matter", "definition": "Non-luminous matter constituting ~27% of the cosmic energy budget; inferred from galactic rotation curves, gravitational lensing, and CMB power spectra; particle nature unknown."},
-        {"term": "dark energy", "definition": "An energy component (~68% of cosmic budget) causing accelerated expansion; consistent with a cosmological constant Λ with equation of state w = P/ρ = -1."},
-        {"term": "redshift", "definition": "The fractional wavelength shift z = (λ_obs - λ_emit)/λ_emit; for cosmological sources, 1+z = 1/a(t_emit), linking observed wavelength to the scale factor at emission."},
-        {"term": "luminosity distance", "definition": "d_L = (1+z)*d_comoving; the distance inferred from the observed flux of a standard candle: F = L/(4π d_L^2)."},
-        {"term": "equation of state (cosmology)", "definition": "w = P/ρ characterizing a cosmic fluid: w=0 (matter/dust), w=1/3 (radiation), w=-1 (cosmological constant/dark energy); determines how ρ scales with a."},
-        {"term": "inflation", "definition": "A period of accelerated exponential expansion in the early universe (t ~ 10^{-36} s) driven by a slow-rolling inflaton field; solves the horizon, flatness, and monopole problems and seeds CMB fluctuations."}
+        {
+          "term": "Hubble's law",
+          "definition": "Galaxies recede with velocity proportional to distance: v = H_0 * d, where H_0 ≈ 70 km/s/Mpc is the Hubble constant; evidence for an expanding universe."
+        },
+        {
+          "term": "white dwarf",
+          "definition": "A dense stellar remnant left when a low-mass star exhausts its fuel, supported against gravity by electron degeneracy pressure; stable only below the Chandrasekhar limit (~1.4 solar masses)."
+        },
+        {
+          "term": "Hubble parameter",
+          "definition": "H(t) = (da/dt)/a where a(t) is the cosmic scale factor; H_0 is its present value; governs the rate of cosmic expansion."
+        },
+        {
+          "term": "scale factor",
+          "definition": "a(t), a dimensionless function normalised to a(t_0)=1 today; physical distances scale as d_phys = a(t)*d_comoving; its evolution is governed by the Friedmann equations."
+        },
+        {
+          "term": "Chandrasekhar limit",
+          "definition": "The maximum mass (~1.4 M_sun) of a white dwarf supported by electron degeneracy pressure; exceeded mass collapses to a neutron star or black hole."
+        },
+        {
+          "term": "cosmic microwave background",
+          "definition": "The thermal relic radiation from recombination (~380,000 yr after Big Bang) at z ≈ 1100; a near-perfect blackbody at T_0 = 2.725 K with anisotropies ΔT/T ~ 10^{-5} encoding structure formation."
+        },
+        {
+          "term": "dark matter",
+          "definition": "Non-luminous matter constituting ~27% of the cosmic energy budget; inferred from galactic rotation curves, gravitational lensing, and CMB power spectra; particle nature unknown."
+        },
+        {
+          "term": "dark energy",
+          "definition": "An energy component (~68% of cosmic budget) causing accelerated expansion; consistent with a cosmological constant Λ with equation of state w = P/ρ = -1."
+        },
+        {
+          "term": "redshift",
+          "definition": "The fractional wavelength shift z = (λ_obs - λ_emit)/λ_emit; for cosmological sources, 1+z = 1/a(t_emit), linking observed wavelength to the scale factor at emission."
+        },
+        {
+          "term": "luminosity distance",
+          "definition": "d_L = (1+z)*d_comoving; the distance inferred from the observed flux of a standard candle: F = L/(4π d_L^2)."
+        },
+        {
+          "term": "equation of state (cosmology)",
+          "definition": "w = P/ρ characterizing a cosmic fluid: w=0 (matter/dust), w=1/3 (radiation), w=-1 (cosmological constant/dark energy); determines how ρ scales with a."
+        },
+        {
+          "term": "inflation",
+          "definition": "A period of accelerated exponential expansion in the early universe (t ~ 10^{-36} s) driven by a slow-rolling inflaton field; solves the horizon, flatness, and monopole problems and seeds CMB fluctuations."
+        }
       ],
       "canon": [
-        {"name": "Hubble's law", "form": "v = H_0 * d;  H_0 ≈ 70 km/s/Mpc", "type": "law"},
-        {"name": "FRW metric (flat)", "form": "ds^2 = -c^2 dt^2 + a(t)^2 (dr^2 + r^2 dOmega^2)", "type": "equation"},
-        {"name": "Friedmann equation", "form": "H^2 = (8*pi*G/3)*rho - k*c^2/a^2 + Lambda*c^2/3", "type": "equation"},
-        {"name": "acceleration equation", "form": "a_ddot/a = -(4*pi*G/3)*(rho + 3*P/c^2) + Lambda*c^2/3", "type": "equation"},
-        {"name": "fluid equation", "form": "rho_dot + 3*H*(rho + P/c^2) = 0", "type": "equation"},
-        {"name": "density parameter", "form": "Omega = rho/rho_crit;  rho_crit = 3*H^2/(8*pi*G);  Omega_total=1 (flat universe)", "type": "definition"},
-        {"name": "cosmological redshift", "form": "1 + z = a(t_0)/a(t_emit) = lambda_obs/lambda_emit", "type": "equation"},
-        {"name": "Stefan-Boltzmann for CMB", "form": "T_CMB(z) = T_0*(1+z);  T_0 = 2.725 K", "type": "equation"},
-        {"name": "Chandrasekhar mass", "form": "M_Ch ≈ 1.4 * M_sun = 5.87/mu_e^2 * M_sun  (mu_e = mean molecular weight per electron)", "type": "equation"},
-        {"name": "Schwarzschild radius", "form": "r_s = 2*G*M/c^2 ≈ 2.95*(M/M_sun) km", "type": "equation"},
-        {"name": "gravitational lensing deflection angle", "form": "alpha = 4*G*M/(c^2*b)  (b = impact parameter, GR result = 2x Newtonian)", "type": "equation"}
+        {
+          "name": "Hubble's law",
+          "form": "v = H_0 * d;  H_0 ≈ 70 km/s/Mpc",
+          "type": "law"
+        },
+        {
+          "name": "FRW metric (flat)",
+          "form": "ds^2 = -c^2 dt^2 + a(t)^2 (dr^2 + r^2 dOmega^2)",
+          "type": "equation"
+        },
+        {
+          "name": "Friedmann equation",
+          "form": "H^2 = (8*pi*G/3)*rho - k*c^2/a^2 + Lambda*c^2/3",
+          "type": "equation"
+        },
+        {
+          "name": "acceleration equation",
+          "form": "a_ddot/a = -(4*pi*G/3)*(rho + 3*P/c^2) + Lambda*c^2/3",
+          "type": "equation"
+        },
+        {
+          "name": "fluid equation",
+          "form": "rho_dot + 3*H*(rho + P/c^2) = 0",
+          "type": "equation"
+        },
+        {
+          "name": "density parameter",
+          "form": "Omega = rho/rho_crit;  rho_crit = 3*H^2/(8*pi*G);  Omega_total=1 (flat universe)",
+          "type": "definition"
+        },
+        {
+          "name": "cosmological redshift",
+          "form": "1 + z = a(t_0)/a(t_emit) = lambda_obs/lambda_emit",
+          "type": "equation"
+        },
+        {
+          "name": "Stefan-Boltzmann for CMB",
+          "form": "T_CMB(z) = T_0*(1+z);  T_0 = 2.725 K",
+          "type": "equation"
+        },
+        {
+          "name": "Chandrasekhar mass",
+          "form": "M_Ch ≈ 1.4 * M_sun = 5.87/mu_e^2 * M_sun  (mu_e = mean molecular weight per electron)",
+          "type": "equation"
+        },
+        {
+          "name": "Schwarzschild radius",
+          "form": "r_s = 2*G*M/c^2 ≈ 2.95*(M/M_sun) km",
+          "type": "equation"
+        },
+        {
+          "name": "gravitational lensing deflection angle",
+          "form": "alpha = 4*G*M/(c^2*b)  (b = impact parameter, GR result = 2x Newtonian)",
+          "type": "equation"
+        }
       ]
     },
     {
@@ -468,27 +1454,129 @@
         "coherence and lasers"
       ],
       "glossary": [
-        {"term": "constructive interference", "definition": "Superposition of two waves in phase (path difference = nλ), producing amplitude addition and maximum intensity."},
-        {"term": "destructive interference", "definition": "Superposition of two waves in antiphase (path difference = (n+1/2)λ), producing amplitude cancellation and minimum intensity."},
-        {"term": "diffraction", "definition": "The bending and spreading of waves around obstacles or through apertures; governed by Huygens' principle and characterized by Fraunhofer or Fresnel regimes."},
-        {"term": "Snell's law", "definition": "At an interface between two media, n_1 sin θ_1 = n_2 sin θ_2, relating the angles of incidence and refraction to the indices of refraction."},
-        {"term": "index of refraction", "definition": "n = c/v_phase; the ratio of the speed of light in vacuum to its phase velocity in the medium; determines refraction angles and optical path length."},
-        {"term": "total internal reflection", "definition": "When light in a denser medium strikes an interface at angle greater than θ_c = sin^{-1}(n_2/n_1), it reflects completely back; the basis for optical fibers."},
-        {"term": "Brewster's angle", "definition": "The angle θ_B = tan^{-1}(n_2/n_1) at which reflected light is completely s-polarized; at this angle the reflected and transmitted beams are perpendicular."},
-        {"term": "coherence length", "definition": "The path length difference over which two beams from the same source maintain a fixed phase relationship; inversely proportional to the source's spectral bandwidth."},
-        {"term": "group velocity", "definition": "v_g = dω/dk; the velocity at which the envelope of a wave packet and hence energy/information propagates; differs from phase velocity v_φ = ω/k in dispersive media."},
-        {"term": "Doppler effect", "definition": "The shift in observed frequency when source and observer are in relative motion: f_obs = f_src*(v_wave ± v_obs)/(v_wave ∓ v_src)."}
+        {
+          "term": "constructive interference",
+          "definition": "Superposition of two waves in phase (path difference = nλ), producing amplitude addition and maximum intensity."
+        },
+        {
+          "term": "destructive interference",
+          "definition": "Superposition of two waves in antiphase (path difference = (n+1/2)λ), producing amplitude cancellation and minimum intensity."
+        },
+        {
+          "term": "diffraction",
+          "definition": "The bending and spreading of waves around obstacles or through apertures; governed by Huygens' principle and characterized by Fraunhofer or Fresnel regimes."
+        },
+        {
+          "term": "Snell's law",
+          "definition": "At an interface between two media, n_1 sin θ_1 = n_2 sin θ_2, relating the angles of incidence and refraction to the indices of refraction."
+        },
+        {
+          "term": "index of refraction",
+          "definition": "n = c/v_phase; the ratio of the speed of light in vacuum to its phase velocity in the medium; determines refraction angles and optical path length."
+        },
+        {
+          "term": "total internal reflection",
+          "definition": "When light in a denser medium strikes an interface at angle greater than θ_c = sin^{-1}(n_2/n_1), it reflects completely back; the basis for optical fibers."
+        },
+        {
+          "term": "Brewster's angle",
+          "definition": "The angle θ_B = tan^{-1}(n_2/n_1) at which reflected light is completely s-polarized; at this angle the reflected and transmitted beams are perpendicular."
+        },
+        {
+          "term": "coherence length",
+          "definition": "The path length difference over which two beams from the same source maintain a fixed phase relationship; inversely proportional to the source's spectral bandwidth."
+        },
+        {
+          "term": "group velocity",
+          "definition": "v_g = dω/dk; the velocity at which the envelope of a wave packet and hence energy/information propagates; differs from phase velocity v_φ = ω/k in dispersive media."
+        },
+        {
+          "term": "Doppler effect",
+          "definition": "The shift in observed frequency when source and observer are in relative motion: f_obs = f_src*(v_wave ± v_obs)/(v_wave ∓ v_src)."
+        },
+        {
+          "term": "photon",
+          "definition": "Quantum of electromagnetic radiation. Energy E = hf = hc/λ; momentum p = h/λ (de Broglie). Introduced by Einstein to explain the photoelectric effect."
+        },
+        {
+          "term": "Planck constant",
+          "definition": "Fundamental quantum of action: h = 6.626×10⁻³⁴ J·s. Reduced form ħ = h/(2π). Photon energy: E = hf."
+        },
+        {
+          "term": "photoelectric effect",
+          "definition": "Emission of electrons from a material when light shines on it. Energy equation: KE_max = hf - φ (φ = work function). Explained by Einstein (1905)."
+        },
+        {
+          "term": "reflection",
+          "definition": "Bouncing of a wave off a surface. Law of reflection: angle of incidence = angle of reflection (measured from normal)."
+        },
+        {
+          "term": "refraction",
+          "definition": "Bending of a wave as it passes between media of different speeds. Governed by Snell's law: n₁sinθ₁ = n₂sinθ₂."
+        },
+        {
+          "term": "interference",
+          "definition": "Superposition of two or more waves. Constructive: crests align (path difference = nλ); destructive: crest meets trough (path difference = (n+½)λ)."
+        },
+        {
+          "term": "standing wave",
+          "definition": "Wave pattern formed by two waves of equal frequency moving in opposite directions. Nodes (zero amplitude) and antinodes (maximum amplitude). λ = 2L/n for strings."
+        },
+        {
+          "term": "electromagnetic spectrum",
+          "definition": "Range of all electromagnetic radiation ordered by frequency (or wavelength): radio → microwave → infrared → visible → UV → X-ray → gamma. All travel at c in vacuum."
+        },
+        {
+          "term": "lens formula",
+          "definition": "For a thin lens: 1/f = 1/d_o + 1/d_i where f = focal length, d_o = object distance, d_i = image distance. Magnification m = -d_i/d_o."
+        }
       ],
       "canon": [
-        {"name": "wave equation (1D)", "form": "∂^2 y/∂t^2 = v^2 * ∂^2 y/∂x^2", "type": "equation"},
-        {"name": "general wave solution", "form": "y(x,t) = A*cos(k*x - omega*t + phi);  v = omega/k", "type": "equation"},
-        {"name": "Snell's law", "form": "n_1 * sin(theta_1) = n_2 * sin(theta_2)", "type": "law"},
-        {"name": "single-slit diffraction minima", "form": "a*sin(theta) = m*lambda;  m = ±1, ±2,...", "type": "equation"},
-        {"name": "double-slit interference maxima", "form": "d*sin(theta) = m*lambda;  m = 0, ±1, ±2,...", "type": "equation"},
-        {"name": "thin-film interference (reflected, n_film > n_air)", "form": "2*n*t = (m + 1/2)*lambda  (constructive);  2*n*t = m*lambda  (destructive)", "type": "equation"},
-        {"name": "group velocity", "form": "v_g = domega/dk", "type": "equation"},
-        {"name": "Rayleigh criterion (resolution)", "form": "theta_min = 1.22 * lambda / D", "type": "equation"},
-        {"name": "Doppler shift (non-relativistic)", "form": "f_obs = f_src * (v ± v_obs)/(v ∓ v_src)", "type": "equation"}
+        {
+          "name": "wave equation (1D)",
+          "form": "∂^2 y/∂t^2 = v^2 * ∂^2 y/∂x^2",
+          "type": "equation"
+        },
+        {
+          "name": "general wave solution",
+          "form": "y(x,t) = A*cos(k*x - omega*t + phi);  v = omega/k",
+          "type": "equation"
+        },
+        {
+          "name": "Snell's law",
+          "form": "n_1 * sin(theta_1) = n_2 * sin(theta_2)",
+          "type": "law"
+        },
+        {
+          "name": "single-slit diffraction minima",
+          "form": "a*sin(theta) = m*lambda;  m = ±1, ±2,...",
+          "type": "equation"
+        },
+        {
+          "name": "double-slit interference maxima",
+          "form": "d*sin(theta) = m*lambda;  m = 0, ±1, ±2,...",
+          "type": "equation"
+        },
+        {
+          "name": "thin-film interference (reflected, n_film > n_air)",
+          "form": "2*n*t = (m + 1/2)*lambda  (constructive);  2*n*t = m*lambda  (destructive)",
+          "type": "equation"
+        },
+        {
+          "name": "group velocity",
+          "form": "v_g = domega/dk",
+          "type": "equation"
+        },
+        {
+          "name": "Rayleigh criterion (resolution)",
+          "form": "theta_min = 1.22 * lambda / D",
+          "type": "equation"
+        },
+        {
+          "name": "Doppler shift (non-relativistic)",
+          "form": "f_obs = f_src * (v ± v_obs)/(v ∓ v_src)",
+          "type": "equation"
+        }
       ]
     },
     {
@@ -506,26 +1594,116 @@
         "hyperfine structure"
       ],
       "glossary": [
-        {"term": "binding energy", "definition": "The energy required to disassemble a nucleus into its constituent protons and neutrons: B = (Z*m_p + N*m_n - M_nucleus)*c^2."},
-        {"term": "mass defect", "definition": "The difference between the total mass of individual nucleons and the actual nuclear mass: Δm = Z*m_p + N*m_n - M; equals B/c^2."},
-        {"term": "radioactive decay law", "definition": "The number of undecayed nuclei decreases exponentially: N(t) = N_0 exp(-λt), where λ is the decay constant; half-life t_{1/2} = ln2/λ."},
-        {"term": "alpha decay", "definition": "Emission of a ^4He nucleus; governed by quantum tunneling through the Coulomb barrier; described by the Geiger-Nuttall law."},
-        {"term": "beta decay (β^-)", "definition": "Conversion of a neutron to a proton with emission of an electron and anti-electron-neutrino: n → p + e^- + ν̄_e; mediated by the weak force."},
-        {"term": "Q-value", "definition": "Q = (m_reactants - m_products)*c^2; the energy released (Q > 0, exothermic) or absorbed (Q < 0, endothermic) in a nuclear reaction."},
-        {"term": "fine structure", "definition": "Small splitting of atomic energy levels due to spin-orbit coupling (L·S interaction), relativistic corrections, and the Darwin term; of order α^2 E_n."},
-        {"term": "selection rules (electric dipole)", "definition": "Transitions are allowed only if Δl = ±1, Δm_l = 0, ±1, Δm_s = 0; forbidden otherwise (no photon angular momentum budget)."},
-        {"term": "Zeeman effect", "definition": "Splitting of atomic spectral lines in an external magnetic field; normal Zeeman: triplet (for S=0 states); anomalous Zeeman involves spin."},
-        {"term": "hyperfine structure", "definition": "Very small splitting of atomic levels due to the interaction between the nuclear magnetic moment and the electronic magnetic field at the nucleus; source of the 21 cm hydrogen line."}
+        {
+          "term": "binding energy",
+          "definition": "The energy required to disassemble a nucleus into its constituent protons and neutrons: B = (Z*m_p + N*m_n - M_nucleus)*c^2."
+        },
+        {
+          "term": "mass defect",
+          "definition": "The difference between the total mass of individual nucleons and the actual nuclear mass: Δm = Z*m_p + N*m_n - M; equals B/c^2."
+        },
+        {
+          "term": "radioactive decay law",
+          "definition": "The number of undecayed nuclei decreases exponentially: N(t) = N_0 exp(-λt), where λ is the decay constant; half-life t_{1/2} = ln2/λ."
+        },
+        {
+          "term": "alpha decay",
+          "definition": "Emission of a ^4He nucleus; governed by quantum tunneling through the Coulomb barrier; described by the Geiger-Nuttall law."
+        },
+        {
+          "term": "beta decay (β^-)",
+          "definition": "Conversion of a neutron to a proton with emission of an electron and anti-electron-neutrino: n → p + e^- + ν̄_e; mediated by the weak force."
+        },
+        {
+          "term": "Q-value",
+          "definition": "Q = (m_reactants - m_products)*c^2; the energy released (Q > 0, exothermic) or absorbed (Q < 0, endothermic) in a nuclear reaction."
+        },
+        {
+          "term": "fine structure",
+          "definition": "Small splitting of atomic energy levels due to spin-orbit coupling (L·S interaction), relativistic corrections, and the Darwin term; of order α^2 E_n."
+        },
+        {
+          "term": "selection rules (electric dipole)",
+          "definition": "Transitions are allowed only if Δl = ±1, Δm_l = 0, ±1, Δm_s = 0; forbidden otherwise (no photon angular momentum budget)."
+        },
+        {
+          "term": "Zeeman effect",
+          "definition": "Splitting of atomic spectral lines in an external magnetic field; normal Zeeman: triplet (for S=0 states); anomalous Zeeman involves spin."
+        },
+        {
+          "term": "hyperfine structure",
+          "definition": "Very small splitting of atomic levels due to the interaction between the nuclear magnetic moment and the electronic magnetic field at the nucleus; source of the 21 cm hydrogen line."
+        },
+        {
+          "term": "half-life",
+          "definition": "Time for half of a radioactive sample to decay: T₁/₂ = ln(2)/λ where λ is the decay constant. After n half-lives, fraction remaining = (½)^n."
+        },
+        {
+          "term": "radioactive decay",
+          "definition": "Spontaneous transformation of an unstable nucleus by emission of α, β, or γ radiation. Decay law: N(t) = N₀e^(-λt)."
+        },
+        {
+          "term": "atomic number",
+          "definition": "Number of protons in an atomic nucleus (symbol Z). Defines the element. Neutral atom has Z electrons."
+        },
+        {
+          "term": "mass number",
+          "definition": "Total number of protons + neutrons in a nucleus (symbol A). Isotopes of an element have same Z but different A."
+        },
+        {
+          "term": "electron volt",
+          "definition": "Unit of energy used in atomic/nuclear physics: 1 eV = 1.6×10⁻¹⁹ J. The energy gained by an electron accelerated through 1 volt."
+        },
+        {
+          "term": "nuclear fusion",
+          "definition": "Combining light nuclei to form heavier ones, releasing energy. Powers stars. Requires overcoming Coulomb repulsion (high temperature/pressure)."
+        },
+        {
+          "term": "nuclear fission",
+          "definition": "Splitting of a heavy nucleus into lighter fragments, releasing energy and neutrons. Basis of nuclear reactors and bombs. Example: ²³⁵U + n → fission products + 2-3n."
+        }
       ],
       "canon": [
-        {"name": "radioactive decay law", "form": "N(t) = N_0 * exp(-lambda*t);  t_{1/2} = ln(2)/lambda", "type": "equation"},
-        {"name": "nuclear binding energy", "form": "B = (Z*m_p + N*m_n - M_nucleus)*c^2", "type": "equation"},
-        {"name": "semi-empirical mass formula (SEMF)", "form": "B = a_V*A - a_S*A^(2/3) - a_C*Z^2/A^(1/3) - a_A*(A-2Z)^2/A ± delta", "type": "equation"},
-        {"name": "Q-value", "form": "Q = (sum m_reactants - sum m_products)*c^2", "type": "equation"},
-        {"name": "Rutherford scattering cross section", "form": "d sigma/d Omega = (Z_1*Z_2*e^2/(4*E))^2 * 1/sin^4(theta/2)", "type": "equation"},
-        {"name": "spin-orbit coupling energy", "form": "E_LS = (1/(2*m_e^2*c^2)) * (1/r)*(dV/dr) * L·S", "type": "equation"},
-        {"name": "magnetic moment (orbital)", "form": "mu_L = -e*L/(2m_e) = -mu_B * L/ℏ;  mu_B = eℏ/(2m_e)", "type": "equation"},
-        {"name": "Zeeman energy shift", "form": "Delta E = m_l * mu_B * B (normal Zeeman, S=0)", "type": "equation"}
+        {
+          "name": "radioactive decay law",
+          "form": "N(t) = N_0 * exp(-lambda*t);  t_{1/2} = ln(2)/lambda",
+          "type": "equation"
+        },
+        {
+          "name": "nuclear binding energy",
+          "form": "B = (Z*m_p + N*m_n - M_nucleus)*c^2",
+          "type": "equation"
+        },
+        {
+          "name": "semi-empirical mass formula (SEMF)",
+          "form": "B = a_V*A - a_S*A^(2/3) - a_C*Z^2/A^(1/3) - a_A*(A-2Z)^2/A ± delta",
+          "type": "equation"
+        },
+        {
+          "name": "Q-value",
+          "form": "Q = (sum m_reactants - sum m_products)*c^2",
+          "type": "equation"
+        },
+        {
+          "name": "Rutherford scattering cross section",
+          "form": "d sigma/d Omega = (Z_1*Z_2*e^2/(4*E))^2 * 1/sin^4(theta/2)",
+          "type": "equation"
+        },
+        {
+          "name": "spin-orbit coupling energy",
+          "form": "E_LS = (1/(2*m_e^2*c^2)) * (1/r)*(dV/dr) * L·S",
+          "type": "equation"
+        },
+        {
+          "name": "magnetic moment (orbital)",
+          "form": "mu_L = -e*L/(2m_e) = -mu_B * L/ℏ;  mu_B = eℏ/(2m_e)",
+          "type": "equation"
+        },
+        {
+          "name": "Zeeman energy shift",
+          "form": "Delta E = m_l * mu_B * B (normal Zeeman, S=0)",
+          "type": "equation"
+        }
       ]
     },
     {
@@ -541,25 +1719,105 @@
         "thermodynamic processes (isothermal, adiabatic, isochoric, isobaric)"
       ],
       "glossary": [
-        {"term": "thermal equilibrium", "definition": "Two systems are in thermal equilibrium if they share the same temperature and no net heat flows between them; basis of the zeroth law."},
-        {"term": "internal energy", "definition": "The total microscopic kinetic and potential energy of a system's constituent particles; a state function whose change equals heat added minus work done by the system."},
-        {"term": "adiabatic process", "definition": "A thermodynamic process in which no heat is exchanged with the surroundings (Q = 0); for an ideal gas: PV^γ = constant where γ = C_P/C_V."},
-        {"term": "heat capacity", "definition": "The energy required to raise the temperature of a substance by one degree: C = δQ/dT; at constant volume C_V = (∂U/∂T)_V; at constant pressure C_P = (∂H/∂T)_P."},
-        {"term": "Carnot efficiency", "definition": "The maximum efficiency of any heat engine operating between reservoirs at T_H and T_C: η_Carnot = 1 - T_C/T_H; achieved only by a reversible engine."},
-        {"term": "entropy (classical)", "definition": "A state function defined by dS = δQ_rev/T for reversible processes; always increases in irreversible processes in an isolated system (second law)."},
-        {"term": "equation of state", "definition": "A relation among the thermodynamic state variables (e.g., P, V, T, N) of a system; the ideal gas law PV = nRT is the simplest example."},
-        {"term": "specific heat ratio", "definition": "γ = C_P/C_V; for ideal monatomic gas γ = 5/3; diatomic γ = 7/5; determines the slope of adiabats and the speed of sound."}
+        {
+          "term": "thermal equilibrium",
+          "definition": "Two systems are in thermal equilibrium if they share the same temperature and no net heat flows between them; basis of the zeroth law."
+        },
+        {
+          "term": "internal energy",
+          "definition": "The total microscopic kinetic and potential energy of a system's constituent particles; a state function whose change equals heat added minus work done by the system."
+        },
+        {
+          "term": "adiabatic process",
+          "definition": "A thermodynamic process in which no heat is exchanged with the surroundings (Q = 0); for an ideal gas: PV^γ = constant where γ = C_P/C_V."
+        },
+        {
+          "term": "heat capacity",
+          "definition": "The energy required to raise the temperature of a substance by one degree: C = δQ/dT; at constant volume C_V = (∂U/∂T)_V; at constant pressure C_P = (∂H/∂T)_P."
+        },
+        {
+          "term": "Carnot efficiency",
+          "definition": "The maximum efficiency of any heat engine operating between reservoirs at T_H and T_C: η_Carnot = 1 - T_C/T_H; achieved only by a reversible engine."
+        },
+        {
+          "term": "entropy (classical)",
+          "definition": "A state function defined by dS = δQ_rev/T for reversible processes; always increases in irreversible processes in an isolated system (second law)."
+        },
+        {
+          "term": "equation of state",
+          "definition": "A relation among the thermodynamic state variables (e.g., P, V, T, N) of a system; the ideal gas law PV = nRT is the simplest example."
+        },
+        {
+          "term": "specific heat ratio",
+          "definition": "γ = C_P/C_V; for ideal monatomic gas γ = 5/3; diatomic γ = 7/5; determines the slope of adiabats and the speed of sound."
+        },
+        {
+          "term": "temperature",
+          "definition": "Measure of average kinetic energy of particles in a substance. Scales: Celsius (°C), Fahrenheit, Kelvin (K = °C + 273.15)."
+        },
+        {
+          "term": "ideal gas law",
+          "definition": "PV = nRT where P = pressure, V = volume, n = moles, R = 8.314 J/(mol·K), T = absolute temperature."
+        },
+        {
+          "term": "first law of thermodynamics",
+          "definition": "Conservation of energy: ΔU = Q - W where ΔU = change in internal energy, Q = heat added to system, W = work done BY system."
+        },
+        {
+          "term": "second law of thermodynamics",
+          "definition": "Entropy of an isolated system never decreases; heat flows spontaneously from hot to cold. No heat engine can be 100% efficient."
+        },
+        {
+          "term": "heat transfer",
+          "definition": "Transfer of thermal energy by: conduction (direct contact), convection (fluid motion), radiation (electromagnetic waves). Rate ∝ temperature difference."
+        }
       ],
       "canon": [
-        {"name": "ideal gas law", "form": "P*V = n*R*T = N*k_B*T", "type": "law"},
-        {"name": "first law of thermodynamics", "form": "Delta U = Q - W  (Q = heat in, W = work done BY system)", "type": "law"},
-        {"name": "second law of thermodynamics", "form": "dS >= delta Q / T;  Delta S_universe >= 0 for any process", "type": "law"},
-        {"name": "Carnot efficiency", "form": "eta = 1 - T_C/T_H", "type": "equation"},
-        {"name": "adiabatic process (ideal gas)", "form": "P*V^gamma = constant;  T*V^(gamma-1) = constant;  gamma = C_P/C_V", "type": "equation"},
-        {"name": "internal energy (ideal monatomic gas)", "form": "U = (3/2)*n*R*T", "type": "equation"},
-        {"name": "RMS speed (kinetic theory)", "form": "v_rms = sqrt(3*k_B*T/m)", "type": "equation"},
-        {"name": "Maxwell-Boltzmann speed distribution", "form": "f(v) = 4*pi*n*(m/(2*pi*k_B*T))^(3/2) * v^2 * exp(-m*v^2/(2*k_B*T))", "type": "equation"},
-        {"name": "entropy change (isothermal expansion, ideal gas)", "form": "Delta S = n*R*ln(V_f/V_i)", "type": "equation"}
+        {
+          "name": "ideal gas law",
+          "form": "P*V = n*R*T = N*k_B*T",
+          "type": "law"
+        },
+        {
+          "name": "first law of thermodynamics",
+          "form": "Delta U = Q - W  (Q = heat in, W = work done BY system)",
+          "type": "law"
+        },
+        {
+          "name": "second law of thermodynamics",
+          "form": "dS >= delta Q / T;  Delta S_universe >= 0 for any process",
+          "type": "law"
+        },
+        {
+          "name": "Carnot efficiency",
+          "form": "eta = 1 - T_C/T_H",
+          "type": "equation"
+        },
+        {
+          "name": "adiabatic process (ideal gas)",
+          "form": "P*V^gamma = constant;  T*V^(gamma-1) = constant;  gamma = C_P/C_V",
+          "type": "equation"
+        },
+        {
+          "name": "internal energy (ideal monatomic gas)",
+          "form": "U = (3/2)*n*R*T",
+          "type": "equation"
+        },
+        {
+          "name": "RMS speed (kinetic theory)",
+          "form": "v_rms = sqrt(3*k_B*T/m)",
+          "type": "equation"
+        },
+        {
+          "name": "Maxwell-Boltzmann speed distribution",
+          "form": "f(v) = 4*pi*n*(m/(2*pi*k_B*T))^(3/2) * v^2 * exp(-m*v^2/(2*k_B*T))",
+          "type": "equation"
+        },
+        {
+          "name": "entropy change (isothermal expansion, ideal gas)",
+          "form": "Delta S = n*R*ln(V_f/V_i)",
+          "type": "equation"
+        }
       ]
     },
     {
@@ -577,27 +1835,93 @@
         "Green's functions"
       ],
       "glossary": [
-        {"term": "gradient", "definition": "∇f = (∂f/∂x, ∂f/∂y, ∂f/∂z); a vector pointing in the direction of maximum rate of increase of scalar field f."},
-        {"term": "divergence", "definition": "∇·F = ∂F_x/∂x + ∂F_y/∂y + ∂F_z/∂z; measures the outward flux per unit volume of a vector field; appears in Gauss's law."},
-        {"term": "curl", "definition": "∇×F; a vector field whose magnitude and direction encode the circulation per unit area of F; appears in Faraday's and Ampère's laws."},
-        {"term": "Dirac delta function", "definition": "A generalized function δ(x-a) = 0 for x≠a and ∫ δ(x-a)f(x)dx = f(a); used to represent point sources and initial conditions."},
-        {"term": "Green's function", "definition": "G(x,x') satisfying L G(x,x') = δ(x-x') for linear operator L; enables solutions to inhomogeneous equations as y(x) = ∫ G(x,x') f(x') dx'."},
-        {"term": "Legendre polynomials", "definition": "P_l(cos θ) are solutions to Legendre's equation arising in azimuthally symmetric problems (e.g., multipole expansion, hydrogen atom); orthogonal on [-1,1]."},
-        {"term": "Bessel functions", "definition": "J_n(x) and Y_n(x) are solutions to Bessel's equation, arising in cylindrical symmetry problems; J_n is regular at the origin, Y_n diverges there."},
-        {"term": "Fourier transform", "definition": "f̃(k) = ∫ f(x) exp(-ikx) dx; decomposes a function into its frequency components; inverse: f(x) = (1/2π) ∫ f̃(k) exp(ikx) dk."},
-        {"term": "residue theorem", "definition": "∮_C f(z) dz = 2πi * sum(residues inside C); allows evaluation of real integrals by closing contours in the complex plane."},
-        {"term": "Levi-Civita tensor", "definition": "ε_{ijk} = +1 (even permutation), -1 (odd), 0 (repeated index); encodes cross products and determinants in index notation."}
+        {
+          "term": "gradient",
+          "definition": "∇f = (∂f/∂x, ∂f/∂y, ∂f/∂z); a vector pointing in the direction of maximum rate of increase of scalar field f."
+        },
+        {
+          "term": "divergence",
+          "definition": "∇·F = ∂F_x/∂x + ∂F_y/∂y + ∂F_z/∂z; measures the outward flux per unit volume of a vector field; appears in Gauss's law."
+        },
+        {
+          "term": "curl",
+          "definition": "∇×F; a vector field whose magnitude and direction encode the circulation per unit area of F; appears in Faraday's and Ampère's laws."
+        },
+        {
+          "term": "Dirac delta function",
+          "definition": "A generalized function δ(x-a) = 0 for x≠a and ∫ δ(x-a)f(x)dx = f(a); used to represent point sources and initial conditions."
+        },
+        {
+          "term": "Green's function",
+          "definition": "G(x,x') satisfying L G(x,x') = δ(x-x') for linear operator L; enables solutions to inhomogeneous equations as y(x) = ∫ G(x,x') f(x') dx'."
+        },
+        {
+          "term": "Legendre polynomials",
+          "definition": "P_l(cos θ) are solutions to Legendre's equation arising in azimuthally symmetric problems (e.g., multipole expansion, hydrogen atom); orthogonal on [-1,1]."
+        },
+        {
+          "term": "Bessel functions",
+          "definition": "J_n(x) and Y_n(x) are solutions to Bessel's equation, arising in cylindrical symmetry problems; J_n is regular at the origin, Y_n diverges there."
+        },
+        {
+          "term": "Fourier transform",
+          "definition": "f̃(k) = ∫ f(x) exp(-ikx) dx; decomposes a function into its frequency components; inverse: f(x) = (1/2π) ∫ f̃(k) exp(ikx) dk."
+        },
+        {
+          "term": "residue theorem",
+          "definition": "∮_C f(z) dz = 2πi * sum(residues inside C); allows evaluation of real integrals by closing contours in the complex plane."
+        },
+        {
+          "term": "Levi-Civita tensor",
+          "definition": "ε_{ijk} = +1 (even permutation), -1 (odd), 0 (repeated index); encodes cross products and determinants in index notation."
+        }
       ],
       "canon": [
-        {"name": "Gauss's theorem (divergence theorem)", "form": "∫∫_S F · dA = ∫∫∫_V (∇·F) dV", "type": "theorem"},
-        {"name": "Stokes' theorem", "form": "∮_C F · dl = ∫∫_S (∇×F) · dA", "type": "theorem"},
-        {"name": "gradient theorem (path independence)", "form": "∫_A^B (∇f) · dl = f(B) - f(A)", "type": "theorem"},
-        {"name": "Fourier transform pair", "form": "f̃(k) = ∫_{-inf}^{inf} f(x)*exp(-i*k*x) dx;  f(x) = (1/(2*pi))*∫ f̃(k)*exp(i*k*x) dk", "type": "definition"},
-        {"name": "convolution theorem", "form": "FT[f*g] = f̃ * g̃  (pointwise product)", "type": "theorem"},
-        {"name": "residue theorem", "form": "∮_C f(z) dz = 2*pi*i * sum_k Res(f, z_k)", "type": "theorem"},
-        {"name": "Laplacian in spherical coordinates", "form": "∇^2f = (1/r^2)*∂/∂r(r^2*∂f/∂r) + (1/(r^2*sin theta))*∂/∂theta(sin theta *∂f/∂theta) + (1/(r^2*sin^2 theta))*∂^2 f/∂phi^2", "type": "equation"},
-        {"name": "spherical harmonic orthogonality", "form": "∫ Y_l^m*(Omega) * Y_{l'}^{m'}(Omega) dOmega = delta_{ll'} * delta_{mm'}", "type": "equation"},
-        {"name": "Green's function equation", "form": "L_x G(x,x') = delta(x - x');  y(x) = ∫ G(x,x')*f(x') dx'", "type": "definition"}
+        {
+          "name": "Gauss's theorem (divergence theorem)",
+          "form": "∫∫_S F · dA = ∫∫∫_V (∇·F) dV",
+          "type": "theorem"
+        },
+        {
+          "name": "Stokes' theorem",
+          "form": "∮_C F · dl = ∫∫_S (∇×F) · dA",
+          "type": "theorem"
+        },
+        {
+          "name": "gradient theorem (path independence)",
+          "form": "∫_A^B (∇f) · dl = f(B) - f(A)",
+          "type": "theorem"
+        },
+        {
+          "name": "Fourier transform pair",
+          "form": "f̃(k) = ∫_{-inf}^{inf} f(x)*exp(-i*k*x) dx;  f(x) = (1/(2*pi))*∫ f̃(k)*exp(i*k*x) dk",
+          "type": "definition"
+        },
+        {
+          "name": "convolution theorem",
+          "form": "FT[f*g] = f̃ * g̃  (pointwise product)",
+          "type": "theorem"
+        },
+        {
+          "name": "residue theorem",
+          "form": "∮_C f(z) dz = 2*pi*i * sum_k Res(f, z_k)",
+          "type": "theorem"
+        },
+        {
+          "name": "Laplacian in spherical coordinates",
+          "form": "∇^2f = (1/r^2)*∂/∂r(r^2*∂f/∂r) + (1/(r^2*sin theta))*∂/∂theta(sin theta *∂f/∂theta) + (1/(r^2*sin^2 theta))*∂^2 f/∂phi^2",
+          "type": "equation"
+        },
+        {
+          "name": "spherical harmonic orthogonality",
+          "form": "∫ Y_l^m*(Omega) * Y_{l'}^{m'}(Omega) dOmega = delta_{ll'} * delta_{mm'}",
+          "type": "equation"
+        },
+        {
+          "name": "Green's function equation",
+          "form": "L_x G(x,x') = delta(x - x');  y(x) = ∫ G(x,x')*f(x') dx'",
+          "type": "definition"
+        }
       ]
     },
     {
@@ -613,24 +1937,80 @@
         "instabilities: Kelvin-Helmholtz, Rayleigh-Taylor"
       ],
       "glossary": [
-        {"term": "plasma", "definition": "A quasi-neutral ionized gas in which collective electromagnetic effects dominate; the fourth state of matter, comprising most of the visible universe."},
-        {"term": "Debye length", "definition": "λ_D = sqrt(ε_0 k_B T_e / (n_e e^2)); the characteristic length over which charge imbalances are screened by rearrangement of free charges in a plasma."},
-        {"term": "plasma frequency", "definition": "ω_p = sqrt(n_e e^2 / (ε_0 m_e)); the natural oscillation frequency of electron density fluctuations; waves with ω < ω_p cannot propagate in the plasma."},
-        {"term": "magnetic pressure", "definition": "P_B = B^2/(2μ_0); the isotropic pressure exerted by a magnetic field; the ratio of plasma to magnetic pressure is β = P/(B^2/2μ_0)."},
-        {"term": "Alfvén speed", "definition": "v_A = B/sqrt(μ_0 ρ); the characteristic speed of MHD Alfvén waves propagating along magnetic field lines in a conducting fluid."},
-        {"term": "Vlasov equation", "definition": "The collisionless Boltzmann equation ∂f/∂t + v·∇f + (q/m)(E+v×B)·∂f/∂v = 0 governing the distribution function f(r,v,t) of a plasma."},
-        {"term": "Reynolds number", "definition": "Re = ρvL/μ; the ratio of inertial to viscous forces; low Re → laminar flow; high Re → turbulent flow; transition typically Re ~ 10^3–10^4."},
-        {"term": "Navier-Stokes equation", "definition": "ρ(∂v/∂t + v·∇v) = -∇P + μ∇^2v + f; governs the velocity field of a viscous incompressible Newtonian fluid."}
+        {
+          "term": "plasma",
+          "definition": "A quasi-neutral ionized gas in which collective electromagnetic effects dominate; the fourth state of matter, comprising most of the visible universe."
+        },
+        {
+          "term": "Debye length",
+          "definition": "λ_D = sqrt(ε_0 k_B T_e / (n_e e^2)); the characteristic length over which charge imbalances are screened by rearrangement of free charges in a plasma."
+        },
+        {
+          "term": "plasma frequency",
+          "definition": "ω_p = sqrt(n_e e^2 / (ε_0 m_e)); the natural oscillation frequency of electron density fluctuations; waves with ω < ω_p cannot propagate in the plasma."
+        },
+        {
+          "term": "magnetic pressure",
+          "definition": "P_B = B^2/(2μ_0); the isotropic pressure exerted by a magnetic field; the ratio of plasma to magnetic pressure is β = P/(B^2/2μ_0)."
+        },
+        {
+          "term": "Alfvén speed",
+          "definition": "v_A = B/sqrt(μ_0 ρ); the characteristic speed of MHD Alfvén waves propagating along magnetic field lines in a conducting fluid."
+        },
+        {
+          "term": "Vlasov equation",
+          "definition": "The collisionless Boltzmann equation ∂f/∂t + v·∇f + (q/m)(E+v×B)·∂f/∂v = 0 governing the distribution function f(r,v,t) of a plasma."
+        },
+        {
+          "term": "Reynolds number",
+          "definition": "Re = ρvL/μ; the ratio of inertial to viscous forces; low Re → laminar flow; high Re → turbulent flow; transition typically Re ~ 10^3–10^4."
+        },
+        {
+          "term": "Navier-Stokes equation",
+          "definition": "ρ(∂v/∂t + v·∇v) = -∇P + μ∇^2v + f; governs the velocity field of a viscous incompressible Newtonian fluid."
+        }
       ],
       "canon": [
-        {"name": "Debye length", "form": "lambda_D = sqrt(epsilon_0*k_B*T_e / (n_e*e^2))", "type": "equation"},
-        {"name": "plasma frequency", "form": "omega_p = sqrt(n_e*e^2 / (epsilon_0*m_e))", "type": "equation"},
-        {"name": "Alfvén speed", "form": "v_A = B / sqrt(mu_0 * rho)", "type": "equation"},
-        {"name": "Vlasov equation", "form": "∂f/∂t + v·∇_r f + (q/m)*(E + v×B)·∇_v f = 0", "type": "equation"},
-        {"name": "Navier-Stokes equation", "form": "rho*(∂v/∂t + (v·∇)v) = -∇P + mu*∇^2 v + f_ext", "type": "equation"},
-        {"name": "MHD induction equation", "form": "∂B/∂t = ∇×(v×B) + eta*∇^2 B;  eta = 1/(mu_0*sigma)", "type": "equation"},
-        {"name": "Reynolds number", "form": "Re = rho*v*L/mu = v*L/nu", "type": "equation"},
-        {"name": "magnetic Reynolds number", "form": "Re_m = mu_0*sigma*v*L = v*L/eta", "type": "equation"}
+        {
+          "name": "Debye length",
+          "form": "lambda_D = sqrt(epsilon_0*k_B*T_e / (n_e*e^2))",
+          "type": "equation"
+        },
+        {
+          "name": "plasma frequency",
+          "form": "omega_p = sqrt(n_e*e^2 / (epsilon_0*m_e))",
+          "type": "equation"
+        },
+        {
+          "name": "Alfvén speed",
+          "form": "v_A = B / sqrt(mu_0 * rho)",
+          "type": "equation"
+        },
+        {
+          "name": "Vlasov equation",
+          "form": "∂f/∂t + v·∇_r f + (q/m)*(E + v×B)·∇_v f = 0",
+          "type": "equation"
+        },
+        {
+          "name": "Navier-Stokes equation",
+          "form": "rho*(∂v/∂t + (v·∇)v) = -∇P + mu*∇^2 v + f_ext",
+          "type": "equation"
+        },
+        {
+          "name": "MHD induction equation",
+          "form": "∂B/∂t = ∇×(v×B) + eta*∇^2 B;  eta = 1/(mu_0*sigma)",
+          "type": "equation"
+        },
+        {
+          "name": "Reynolds number",
+          "form": "Re = rho*v*L/mu = v*L/nu",
+          "type": "equation"
+        },
+        {
+          "name": "magnetic Reynolds number",
+          "form": "Re_m = mu_0*sigma*v*L = v*L/eta",
+          "type": "equation"
+        }
       ]
     }
   ]
