@@ -1551,10 +1551,6 @@
           "definition": "The shift in observed frequency when source and observer are in relative motion: f_obs = f_src*(v_wave \u00b1 v_obs)/(v_wave \u2213 v_src)."
         },
         {
-          "term": "photon",
-          "definition": "Quantum of electromagnetic radiation. Energy E = hf = hc/\u03bb; momentum p = h/\u03bb (de Broglie). Introduced by Einstein to explain the photoelectric effect."
-        },
-        {
           "term": "Planck constant",
           "definition": "Fundamental quantum of action: h = 6.626\u00d710\u207b\u00b3\u2074 J\u00b7s. Reduced form \u0127 = h/(2\u03c0). Photon energy: E = hf."
         },
@@ -2020,10 +2016,6 @@
         {
           "term": "Vlasov equation",
           "definition": "The collisionless Boltzmann equation \u2202f/\u2202t + v\u00b7\u2207f + (q/m)(E+v\u00d7B)\u00b7\u2202f/\u2202v = 0 governing the distribution function f(r,v,t) of a plasma."
-        },
-        {
-          "term": "Reynolds number",
-          "definition": "Re = \u03c1vL/\u03bc; the ratio of inertial to viscous forces; low Re \u2192 laminar flow; high Re \u2192 turbulent flow; transition typically Re ~ 10^3\u201310^4."
         },
         {
           "term": "Navier-Stokes equation",

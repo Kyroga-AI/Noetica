@@ -416,10 +416,6 @@
           "definition": "A propositional formula that is true under every truth assignment; e.g., p \u2228 \u00acp."
         },
         {
-          "term": "recurrence relation",
-          "definition": "An equation defining each term of a sequence as a function of preceding terms (e.g. Fibonacci a_n = a_{n-1} + a_{n-2}); solved in closed form via characteristic equations or generating functions."
-        },
-        {
           "term": "satisfiability",
           "definition": "A formula is satisfiable if there exists at least one truth assignment making it true; SAT is the canonical NP-complete problem."
         },
