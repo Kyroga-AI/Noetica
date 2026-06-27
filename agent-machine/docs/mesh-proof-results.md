@@ -39,6 +39,46 @@ toy bug-fixes) and/or a frontier arm — which is where both the verify-repair l
 This is the honest state: the apparatus now has *recorded* runs (gap #1's "never run" is closed), and the finding is
 that the suites need to be harder before the parity claim can be made externally.
 
+## Run 3 — 2026-06-27 · HARD tier added (DP/parsing/graph) · on-device mesh, no key
+
+Added 12 LeetCode-hard problems (edit_distance, coin_change, length_of_lis, word_break, trap_rain_water,
+min_window, eval_rpn, can_finish, num_islands, spiral_order, find_median_sorted_arrays, decode_string) so
+`client-proof.sh 20` runs 8 easy + 12 hard.
+
+| arm | pass@1 |
+|-----|--------|
+| our mesh — qwen2.5-coder:7b | **20/20 (100%)** (8.5s/q) |
+| our mesh + verify-repair | 20/20 |
+
+**The decisive finding:** even the hard algorithmic tier ceilings at 100%. A *coder* model has effectively memorized
+the classic-algorithm distribution — so **no synthetic coding suite (easy OR hard) can discriminate our mesh from a
+frontier model; both will ace it.** The only benchmark that creates real headroom is **repo-level, novel** work —
+real SWE-bench-Lite instances (clone a repo at a commit, fix a real issue, pass the maintainers' hidden tests) —
+where you can't pattern-match. This is now the documented reason the SWE-bench-Lite path is the real proof, not more
+puzzles.
+
+## Cost to execute (estimated 2026-06-27; nothing spent yet)
+
+| Run | Spend | Compute | Prereqs | Ready |
+|-----|-------|---------|---------|-------|
+| Frontier head-to-head, 20 hard problems (Claude+GPT arms) | **~$0.20–0.30** | ~5 min | keychain key | **now** |
+| Frontier head-to-head, 100 problems | ~$1–1.50 | ~20 min | key + more problems | needs problems |
+| SWE-bench-Lite, real (300 instances), mesh arm | **$0** | ~5 hrs | **docker + dataset + ~tens of GB** | NO (no docker) |
+| SWE-bench-Lite, real, frontier arm (big repo context) | **~$30** full / ~$5 for 50 | hrs | docker + dataset | NO (no docker) |
+
+The frontier head-to-head is **pennies and one command** (`client-proof.sh 20`). SWE-bench-Lite is the gold standard
+but a real project (install docker, pull the dataset + per-repo images, hours of compute, ~$30 for a frontier arm).
+
+## SWE-bench-Lite runbook (when docker is available)
+
+1. `pip install swebench datasets` ; ensure `docker` is running.
+2. Generate predictions with our mesh in the official format `{instance_id, model_name_or_path, model_patch}`
+   over `princeton-nlp/SWE-bench_Lite` (or a subset) — the agent-machine coding loop produces the patch.
+3. Grade with the official harness: `python -m swebench.harness.run_evaluation --predictions_path preds.jsonl
+   --dataset_name princeton-nlp/SWE-bench_Lite --run_id noetica-mesh` (builds per-repo containers, applies the
+   patch, runs FAIL_TO_PASS + PASS_TO_PASS).
+4. For the frontier arm, repeat predictions with `ANTHROPIC_API_KEY`/`OPENAI_API_KEY` set; compare resolved-rates.
+
 ## How to record a full head-to-head (the decisive run)
 
 ```

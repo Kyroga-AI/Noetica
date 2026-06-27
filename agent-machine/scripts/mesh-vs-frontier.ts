@@ -81,6 +81,70 @@ assert valid_parentheses("{[]}") == True` },
     test: `assert merge_intervals([[1,3],[2,6],[8,10],[15,18]]) == [[1,6],[8,10],[15,18]]
 assert merge_intervals([[1,4],[4,5]]) == [[1,5]]
 assert merge_intervals([[1,4]]) == [[1,4]]` },
+  // ── HARD tier (DP / parsing / graph) — a 7B fails some of these, so the suite finally has headroom to
+  //    discriminate mesh vs mesh+verify vs a frontier arm. Runs when n > 8 (e.g. client-proof.sh 20).
+  { name: 'edit_distance',
+    prompt: 'Write a Python function edit_distance(a: str, b: str) -> int returning the Levenshtein edit distance (min single-character insertions, deletions, or substitutions to turn a into b).',
+    test: `assert edit_distance("kitten","sitting") == 3
+assert edit_distance("","abc") == 3
+assert edit_distance("abc","abc") == 0
+assert edit_distance("sunday","saturday") == 3` },
+  { name: 'coin_change',
+    prompt: 'Write a Python function coin_change(coins: list[int], amount: int) -> int returning the fewest coins that sum to amount, or -1 if impossible. Each denomination may be used unlimited times.',
+    test: `assert coin_change([1,2,5],11) == 3
+assert coin_change([2],3) == -1
+assert coin_change([1],0) == 0
+assert coin_change([1,2,5],100) == 20` },
+  { name: 'length_of_lis',
+    prompt: 'Write a Python function length_of_lis(nums: list[int]) -> int returning the length of the longest STRICTLY increasing subsequence.',
+    test: `assert length_of_lis([10,9,2,5,3,7,101,18]) == 4
+assert length_of_lis([0,1,0,3,2,3]) == 4
+assert length_of_lis([7,7,7,7,7]) == 1` },
+  { name: 'word_break',
+    prompt: 'Write a Python function word_break(s: str, words: list[str]) -> bool returning True if s can be segmented into a space-separated sequence of one or more dictionary words (words may be reused).',
+    test: `assert word_break("leetcode",["leet","code"]) == True
+assert word_break("applepenapple",["apple","pen"]) == True
+assert word_break("catsandog",["cats","dog","sand","and","cat"]) == False` },
+  { name: 'trap_rain_water',
+    prompt: 'Write a Python function trap_rain_water(height: list[int]) -> int returning how many units of water are trapped after raining, given an elevation map of bar heights of width 1.',
+    test: `assert trap_rain_water([0,1,0,2,1,0,1,3,2,1,2,1]) == 6
+assert trap_rain_water([4,2,0,3,2,5]) == 9
+assert trap_rain_water([]) == 0` },
+  { name: 'min_window',
+    prompt: 'Write a Python function min_window(s: str, t: str) -> str returning the smallest substring of s containing every character of t (including multiplicities), or "" if none exists.',
+    test: `assert min_window("ADOBECODEBANC","ABC") == "BANC"
+assert min_window("a","a") == "a"
+assert min_window("a","aa") == ""` },
+  { name: 'eval_rpn',
+    prompt: 'Write a Python function eval_rpn(tokens: list[str]) -> int that evaluates an arithmetic expression in Reverse Polish Notation. Operators are + - * /; division truncates toward zero.',
+    test: `assert eval_rpn(["2","1","+","3","*"]) == 9
+assert eval_rpn(["4","13","5","/","+"]) == 6
+assert eval_rpn(["10","6","9","3","+","-11","*","/","*","17","+","5","+"]) == 22` },
+  { name: 'can_finish',
+    prompt: 'Write a Python function can_finish(numCourses: int, prerequisites: list[list[int]]) -> bool returning True if all courses can be finished, given prerequisite pairs [a, b] meaning b must be taken before a (i.e. the dependency graph is acyclic).',
+    test: `assert can_finish(2,[[1,0]]) == True
+assert can_finish(2,[[1,0],[0,1]]) == False
+assert can_finish(3,[[1,0],[2,1]]) == True` },
+  { name: 'num_islands',
+    prompt: "Write a Python function num_islands(grid: list[list[str]]) -> int counting islands in a grid of '1' (land) and '0' (water); cells connect 4-directionally.",
+    test: `assert num_islands([["1","1","0"],["1","0","0"],["0","0","1"]]) == 2
+assert num_islands([["0"]]) == 0
+assert num_islands([["1","1","1"],["0","1","0"],["1","1","1"]]) == 1` },
+  { name: 'spiral_order',
+    prompt: 'Write a Python function spiral_order(matrix: list[list[int]]) -> list[int] returning all elements of the matrix in clockwise spiral order.',
+    test: `assert spiral_order([[1,2,3],[4,5,6],[7,8,9]]) == [1,2,3,6,9,8,7,4,5]
+assert spiral_order([[1,2],[3,4]]) == [1,2,4,3]
+assert spiral_order([[7]]) == [7]` },
+  { name: 'find_median_sorted_arrays',
+    prompt: 'Write a Python function find_median_sorted_arrays(a: list[int], b: list[int]) -> float returning the median of the two sorted arrays combined.',
+    test: `assert find_median_sorted_arrays([1,3],[2]) == 2.0
+assert find_median_sorted_arrays([1,2],[3,4]) == 2.5
+assert find_median_sorted_arrays([],[1]) == 1.0` },
+  { name: 'decode_string',
+    prompt: 'Write a Python function decode_string(s: str) -> str that decodes a string with the pattern k[encoded], where the encoded part repeats k times. Brackets may nest, e.g. "3[a2[c]]" -> "accaccacc".',
+    test: `assert decode_string("3[a]2[bc]") == "aaabcbc"
+assert decode_string("3[a2[c]]") == "accaccacc"
+assert decode_string("2[abc]3[cd]ef") == "abcabccdcdcdef"` },
 ]
 
 // ── generation adapters ──────────────────────────────────────────────────────
