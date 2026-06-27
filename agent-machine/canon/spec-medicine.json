@@ -1,0 +1,253 @@
+{
+  "domain": "medicine",
+  "mmlu_subjects": [
+    "professional_medicine",
+    "college_medicine",
+    "clinical_knowledge"
+  ],
+  "mmlu_pro_category": "health",
+  "topics": [
+    {
+      "topic": "Cardiovascular",
+      "level": "professional",
+      "glossary": [
+        {
+          "term": "myocardial infarction",
+          "definition": "Death of heart muscle from prolonged ischemia, usually due to acute coronary artery occlusion by a ruptured atherosclerotic plaque and thrombus; presents with chest pain, ST-segment changes, and elevated troponin."
+        },
+        {
+          "term": "heart failure",
+          "definition": "A syndrome in which the heart cannot pump enough blood to meet the body's demands; classified by ejection fraction (reduced vs preserved) and causing dyspnea, edema, and fatigue."
+        },
+        {
+          "term": "atherosclerosis",
+          "definition": "Chronic build-up of lipid-rich plaques within arterial walls that narrows the lumen and predisposes to thrombosis, ischemia, and infarction."
+        },
+        {
+          "term": "hypertension",
+          "definition": "Persistently elevated arterial blood pressure (generally at or above 130/80 mmHg); a major modifiable risk factor for stroke, MI, heart failure, and chronic kidney disease."
+        },
+        {
+          "term": "atrial fibrillation",
+          "definition": "An irregularly irregular supraventricular arrhythmia with disorganized atrial activity; raises stroke risk from atrial thrombus and is managed with rate or rhythm control plus anticoagulation."
+        }
+      ]
+    },
+    {
+      "topic": "Respiratory",
+      "level": "professional",
+      "glossary": [
+        {
+          "term": "asthma",
+          "definition": "A chronic inflammatory airway disease with reversible bronchoconstriction and airway hyperresponsiveness, causing episodic wheeze, cough, and dyspnea; treated with inhaled bronchodilators and corticosteroids."
+        },
+        {
+          "term": "chronic obstructive pulmonary disease",
+          "definition": "Progressive, largely irreversible airflow limitation from emphysema and chronic bronchitis, usually caused by cigarette smoking (COPD)."
+        },
+        {
+          "term": "pneumonia",
+          "definition": "Infection of the lung parenchyma causing alveolar consolidation, fever, productive cough, and hypoxia; most commonly bacterial (e.g. Streptococcus pneumoniae)."
+        },
+        {
+          "term": "pulmonary embolism",
+          "definition": "Occlusion of a pulmonary artery, usually by a thrombus embolized from a deep vein, causing acute dyspnea, hypoxia, and pleuritic chest pain; can be fatal."
+        }
+      ]
+    },
+    {
+      "topic": "Renal and Genitourinary",
+      "level": "professional",
+      "glossary": [
+        {
+          "term": "acute kidney injury",
+          "definition": "An abrupt decline in kidney function (rising creatinine, falling urine output), categorized as prerenal, intrinsic renal, or postrenal."
+        },
+        {
+          "term": "chronic kidney disease",
+          "definition": "Progressive, irreversible loss of nephron function over months to years, staged by glomerular filtration rate and degree of albuminuria."
+        },
+        {
+          "term": "nephrotic syndrome",
+          "definition": "A glomerular disorder marked by heavy proteinuria (over 3.5 g/day), hypoalbuminemia, edema, and hyperlipidemia."
+        },
+        {
+          "term": "glomerular filtration rate",
+          "definition": "The volume of plasma filtered by the glomeruli per unit time (mL/min); the principal measure of overall kidney function."
+        }
+      ]
+    },
+    {
+      "topic": "Endocrine",
+      "level": "professional",
+      "glossary": [
+        {
+          "term": "diabetes mellitus",
+          "definition": "A group of metabolic disorders of chronic hyperglycemia caused by deficient insulin secretion (type 1) or insulin resistance (type 2), leading to micro- and macrovascular complications."
+        },
+        {
+          "term": "hypothyroidism",
+          "definition": "Deficient thyroid hormone production causing fatigue, weight gain, cold intolerance, and bradycardia; most often autoimmune (Hashimoto thyroiditis)."
+        },
+        {
+          "term": "Cushing's syndrome",
+          "definition": "A state of chronic glucocorticoid excess, endogenous or exogenous, causing central obesity, hypertension, hyperglycemia, and characteristic skin changes."
+        },
+        {
+          "term": "insulin",
+          "definition": "The pancreatic beta-cell hormone that lowers blood glucose by promoting cellular glucose uptake and the synthesis of glycogen, fat, and protein."
+        }
+      ]
+    },
+    {
+      "topic": "Neurology",
+      "level": "professional",
+      "glossary": [
+        {
+          "term": "stroke",
+          "definition": "An acute neurological deficit from interrupted cerebral blood flow, either ischemic (vessel occlusion) or hemorrhagic (bleeding); a time-critical emergency requiring rapid reperfusion in ischemic cases."
+        },
+        {
+          "term": "seizure",
+          "definition": "A transient episode of abnormal, excessive, synchronous neuronal discharge producing motor, sensory, or awareness changes; recurrent unprovoked seizures define epilepsy."
+        },
+        {
+          "term": "meningitis",
+          "definition": "Inflammation of the meninges, usually infectious (bacterial or viral), presenting with fever, headache, neck stiffness, and altered mental status."
+        },
+        {
+          "term": "multiple sclerosis",
+          "definition": "A chronic autoimmune demyelinating disease of the central nervous system causing neurological deficits disseminated in space and time, classically relapsing and remitting."
+        }
+      ]
+    },
+    {
+      "topic": "Gastrointestinal and Hepatic",
+      "level": "professional",
+      "glossary": [
+        {
+          "term": "cirrhosis",
+          "definition": "End-stage liver fibrosis with nodular regeneration and disrupted architecture, producing portal hypertension, ascites, varices, and impaired synthetic function."
+        },
+        {
+          "term": "peptic ulcer disease",
+          "definition": "Mucosal ulceration of the stomach or duodenum, most often caused by Helicobacter pylori infection or chronic NSAID use."
+        },
+        {
+          "term": "hepatitis",
+          "definition": "Inflammation of the liver, commonly viral (types A through E), causing hepatocyte injury, jaundice, and elevated transaminases."
+        },
+        {
+          "term": "jaundice",
+          "definition": "Yellow discoloration of skin and sclera from elevated bilirubin, classified as prehepatic, hepatic, or posthepatic (obstructive)."
+        }
+      ]
+    },
+    {
+      "topic": "Infectious Disease",
+      "level": "professional",
+      "glossary": [
+        {
+          "term": "sepsis",
+          "definition": "Life-threatening organ dysfunction caused by a dysregulated host response to infection; managed with early antibiotics, source control, and hemodynamic support."
+        },
+        {
+          "term": "antibiotic resistance",
+          "definition": "The capacity of microorganisms to survive drugs that once killed them, arising through mutation or horizontal gene transfer and selected for by antimicrobial use."
+        },
+        {
+          "term": "tuberculosis",
+          "definition": "A chronic infection by Mycobacterium tuberculosis, typically pulmonary, spread by aerosols and causing cough, weight loss, night sweats, and caseating granulomas."
+        }
+      ]
+    },
+    {
+      "topic": "Hematology and Oncology",
+      "level": "professional",
+      "glossary": [
+        {
+          "term": "anemia",
+          "definition": "A reduction in red-cell mass or hemoglobin below normal that lowers oxygen-carrying capacity; classified by red-cell size as micro-, normo-, or macrocytic."
+        },
+        {
+          "term": "leukemia",
+          "definition": "A malignant clonal proliferation of white-cell precursors in the bone marrow that crowds out normal hematopoiesis; acute or chronic, myeloid or lymphoid."
+        },
+        {
+          "term": "metastasis",
+          "definition": "The spread of cancer cells from a primary tumor to distant sites via blood or lymphatics, forming secondary tumors; the leading cause of cancer death."
+        },
+        {
+          "term": "thrombocytopenia",
+          "definition": "An abnormally low platelet count that increases bleeding risk, due to decreased production, increased destruction, or splenic sequestration."
+        }
+      ]
+    },
+    {
+      "topic": "Pharmacology",
+      "level": "professional",
+      "glossary": [
+        {
+          "term": "pharmacokinetics",
+          "definition": "What the body does to a drug: its absorption, distribution, metabolism, and excretion (ADME) over time."
+        },
+        {
+          "term": "pharmacodynamics",
+          "definition": "What a drug does to the body: its mechanism of action, receptor binding, dose-response relationship, and therapeutic or toxic effects."
+        },
+        {
+          "term": "half-life",
+          "definition": "The time required for a drug's plasma concentration to fall by half; it sets the dosing interval and the time to steady state (about four to five half-lives)."
+        },
+        {
+          "term": "agonist",
+          "definition": "A ligand that binds a receptor and activates it to produce a response; a partial agonist gives a submaximal response and an antagonist blocks activation."
+        }
+      ]
+    },
+    {
+      "topic": "Immunology and Inflammation",
+      "level": "professional",
+      "glossary": [
+        {
+          "term": "autoimmunity",
+          "definition": "A failure of self-tolerance in which the immune system attacks the body's own tissues, as in systemic lupus erythematosus, rheumatoid arthritis, or type 1 diabetes."
+        },
+        {
+          "term": "hypersensitivity",
+          "definition": "An exaggerated or inappropriate immune response that damages tissue, classified into type I (IgE/allergic), II (cytotoxic), III (immune-complex), and IV (delayed, T-cell mediated)."
+        },
+        {
+          "term": "inflammation",
+          "definition": "The body's protective response to injury or infection -- redness, heat, swelling, and pain -- mediated by vascular changes and recruited immune cells."
+        }
+      ]
+    },
+    {
+      "topic": "Epidemiology and Clinical Reasoning",
+      "level": "professional",
+      "glossary": [
+        {
+          "term": "sensitivity",
+          "definition": "The proportion of people with a disease that a test correctly identifies (true positives / all diseased); a highly sensitive test, when negative, helps rule the disease OUT."
+        },
+        {
+          "term": "specificity",
+          "definition": "The proportion of people without a disease that a test correctly identifies (true negatives / all non-diseased); a highly specific test, when positive, helps rule the disease IN."
+        },
+        {
+          "term": "prevalence",
+          "definition": "The proportion of a population that has a given condition at a particular point in time."
+        },
+        {
+          "term": "incidence",
+          "definition": "The rate at which new cases of a condition arise in a population over a defined period."
+        },
+        {
+          "term": "number needed to treat",
+          "definition": "The number of patients who must receive a treatment for one additional patient to benefit; it is the reciprocal of the absolute risk reduction."
+        }
+      ]
+    }
+  ]
+}
