@@ -50,7 +50,7 @@ export function categoryFor(label: string): string {
   const has = (...ks: string[]) => ks.some((k) => l.includes(k))
   if (has('topic', 'domain', 'glossary', 'concept', 'math', 'formula', 'function', 'variable', 'unit', 'physical', 'quantity', 'learningstate')) return 'learning'
   if (has('document', 'chunk', 'record', 'source', 'evidence', 'episode', 'interaction', 'proof', 'semanticmemory', 'claim')) return 'docs'
-  if (has('artifact', 'feature', 'vector', 'model', 'provider', 'repo', 'tool', 'action', 'candidate', 'checkpoint', 'attention')) return 'technical'
+  if (has('artifact', 'feature', 'vector', 'model', 'provider', 'repo', 'tool', 'action', 'candidate', 'checkpoint', 'attention', 'code', 'module')) return 'technical'
   if (has('entity', 'canonical', 'person', 'org', 'role', 'trust', 'attest', 'decision', 'ledger', 'concordance', 'remediation', 'shacl')) return 'trust'
   if (has('session', 'dispatch', 'event', 'run', 'self', 'loc')) return 'deployment'
   return 'other'
@@ -136,6 +136,7 @@ export function cleanLabel(n: GNode): string | null {
 }
 
 const VIEW_ROOTS: Record<string, (label: string) => boolean> = {
+  tech: (l) => /^Code/.test(l),                                       // the "Tech" lens — OUR codebase (CodeModule + IMPORTS)
   domain: (l) => l === 'Domain' || l === 'Topic' || l === 'GlossaryTerm',
   document: (l) => DOC_KINDS.test(l),
   memory: (l) => DOC_KINDS.test(l),                                   // the "Memory" lens — docs + remembered facts
@@ -145,7 +146,7 @@ const VIEW_ROOTS: Record<string, (label: string) => boolean> = {
 // Category lenses: show only nodes of one colour-category, ranked by degree. `tech` is
 // the ecosystem (repos / models / providers / tools) — what "Sociosphere" should mean,
 // not the memory-chunk soup of the document/chat lenses.
-const CATEGORY_VIEWS: Record<string, string> = { tech: 'technical', knowledge: 'learning' }
+const CATEGORY_VIEWS: Record<string, string> = { knowledge: 'learning' }   // tech is now a CodeModule root-lens (VIEW_ROOTS), not an embedding cluster
 
 export function selectSurface(allNodes: GNode[], allEdges: GEdge[], opts: { view?: string; limit?: number; root?: string } = {}): SurfaceResult {
   const limit = Math.min(120, Math.max(10, opts.limit ?? 34))

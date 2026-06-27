@@ -5916,7 +5916,7 @@ Question: ${question}`
         // Category lenses (tech/knowledge) use TRUE topic discovery: vectorize → cluster
         // → 22 cluster representatives, drill into a cluster's members. Falls back to the
         // pure degree-ranked selection if embeddings/clustering aren't available.
-        const CAT: Record<string, string> = { tech: 'technical', knowledge: 'learning' }
+        const CAT: Record<string, string> = { knowledge: 'learning' }   // tech is a CodeModule root-lens now (selectSurface VIEW_ROOTS), not an embedding cluster
         let result
         if (CAT[view]) {
           try {
@@ -8543,6 +8543,13 @@ server.listen(PORT, '127.0.0.1', () => {
       const { deriveCorpusGlossary } = await import('./lib/graphbrain-bridge.js')
       const r = deriveCorpusGlossary()
       if (r.terms > 0) console.log(`[glossary] derived ${r.terms} term(s) across ${r.domains} domain(s)`.replace(/[\r\n]/g, ' '))
+    } catch { /* best-effort */ }
+    // Ingest the build-time stack manifest → CodeModule atoms + IMPORTS edges, so the Tech lens shows our actual
+    // codebase. Idempotent (no-op once present). Bundled JSON, so it works in prod too.
+    try {
+      const { ingestStackIndex } = await import('./lib/stack-graph.js')
+      const r = ingestStackIndex()
+      if (r.modules > 0) console.log(`[stack-graph] ingested ${r.modules} modules + ${r.edges} imports`.replace(/[\r\n]/g, ' '))
     } catch { /* best-effort */ }
   })()
 
