@@ -468,6 +468,10 @@
         {
           "term": "voltage",
           "definition": "Electric potential difference V between two points; the work done per unit charge to move a test charge: V = W/q. Measured in volts (V = J/C)."
+        },
+        {
+          "term": "solid angle",
+          "definition": "The two-dimensional analogue of an angle, measured in steradians as the area a surface projects onto a unit sphere centered at the vertex; a full sphere subtends 4*pi sr (central to Gauss's law)."
         }
       ],
       "canon": [
@@ -637,6 +641,14 @@
         {
           "term": "photon",
           "definition": "The quantum of the electromagnetic field; a massless boson with energy E = hf = hc/\u03bb and momentum p = h/\u03bb; mediates electromagnetic interactions."
+        },
+        {
+          "term": "linear operator",
+          "definition": "An operator O on a vector space with O(af+bg)=a*O(f)+b*O(g); in quantum mechanics observables are represented by linear Hermitian operators acting on the Hilbert space of states."
+        },
+        {
+          "term": "complete set of commuting observables",
+          "definition": "A maximal set of mutually commuting Hermitian operators (a CSCO) whose simultaneous eigenvalues uniquely label a basis of the state space."
         }
       ],
       "canon": [
@@ -926,6 +938,10 @@
         {
           "term": "relativistic velocity addition",
           "definition": "When a particle moves with velocity u' in frame S' and S' moves with v relative to S, the velocity in S is u = (u'+v)/(1 + u'v/c^2)."
+        },
+        {
+          "term": "worldline",
+          "definition": "The path of a particle through spacetime, i.e. the ordered sequence of events it occupies, parameterized by proper time; it is timelike for any massive particle."
         }
       ],
       "canon": [
@@ -1289,6 +1305,14 @@
         {
           "term": "CP violation",
           "definition": "The violation of combined charge-conjugation (C) and parity (P) symmetry; observed in kaon and B-meson systems; necessary (Sakharov conditions) for matter-antimatter asymmetry."
+        },
+        {
+          "term": "muon",
+          "definition": "A second-generation charged lepton, essentially a heavy electron (about 207 electron masses), with charge -e and a mean lifetime near 2.2 microseconds, decaying to an electron and two neutrinos."
+        },
+        {
+          "term": "worldsheet",
+          "definition": "The two-dimensional surface swept out by a one-dimensional string moving through spacetime \u2014 the string-theory analogue of a particle's worldline."
         }
       ],
       "canon": [
@@ -1906,6 +1930,10 @@
         {
           "term": "Levi-Civita tensor",
           "definition": "\u03b5_{ijk} = +1 (even permutation), -1 (odd), 0 (repeated index); encodes cross products and determinants in index notation."
+        },
+        {
+          "term": "scalar field",
+          "definition": "A field assigning a single number (a scalar) to every point of space and time, unchanged by rotations of the coordinates; e.g. temperature or the electric potential."
         }
       ],
       "canon": [

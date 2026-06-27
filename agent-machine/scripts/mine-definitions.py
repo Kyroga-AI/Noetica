@@ -14,8 +14,14 @@ Design = PRECISION over recall (a curated glossary must stay clean):
   * a frequency floor — a term defined consistently across MANY materials is a real concept, not a fluke
   * dedup against the existing spec glossary (+ aliases) so we only surface NEW terms
 
-Output: ranked candidate term->definition pairs as JSON for review before merge (we promote winners, we do
-not blind-dump auto-mined noise into the curated spec).
+This tool's job is DISCOVERY, not authoring. It surfaces which standard concepts the corpus actually uses
+that are missing from the spec, plus a rough mined definition for context. The clean glossary definition is
+then written by a FRONTIER model (the curator) — never the local 7B the glossary exists to compensate for
+(letting the weak model author the canon would cap the canon at its own knowledge). So: miner discovers terms
+-> frontier model authors the definition -> merge the vetted winners. We do not blind-dump mined noise (the
+mined defs are thin/context-bound at ~45% precision) into the curated spec.
+
+Output: ranked candidate term->definition pairs as JSON for review before merge.
 
 Usage:
   python3 scripts/mine-definitions.py <field> [--brain DIR] [--spec FILE] [--min-freq N] [--top N] [--out FILE]

@@ -834,6 +834,10 @@
         {
           "term": "orbital",
           "definition": "A mathematical function (wavefunction) describing the probability distribution of an electron in an atom; quantum numbers n, l, m\u2097 define each orbital (s, p, d, f types)."
+        },
+        {
+          "term": "electron configuration",
+          "definition": "The arrangement of an atom's electrons among its orbitals (e.g. 1s2 2s2 2p6), filled according to the Aufbau principle, the Pauli exclusion principle, and Hund's rule."
         }
       ],
       "canon": [
@@ -1433,6 +1437,10 @@
         {
           "term": "potential energy surface (PES)",
           "definition": "The electronic energy as a function of nuclear coordinates; stationary points correspond to equilibrium geometries and transition states."
+        },
+        {
+          "term": "wave function",
+          "definition": "A function psi whose squared magnitude |psi|^2 gives the probability density for a quantum system's configuration; it carries all measurable information and evolves by the Schrodinger equation."
         }
       ],
       "canon": [

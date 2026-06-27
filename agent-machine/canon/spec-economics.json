@@ -322,6 +322,10 @@
         {
           "term": "indirect utility function",
           "definition": "The maximum utility achievable given prices and income: V(p,I)."
+        },
+        {
+          "term": "lottery",
+          "definition": "In decision theory, a probability distribution over outcomes; expected-utility theory ranks lotteries by the expectation of a von Neumann-Morgenstern utility function."
         }
       ],
       "canon": [
@@ -778,6 +782,18 @@
         {
           "term": "auction (second-price)",
           "definition": "A Vickrey auction in which the highest bidder wins and pays the second-highest bid; truth-telling is a dominant strategy."
+        },
+        {
+          "term": "subgame-perfect equilibrium",
+          "definition": "A refinement of Nash equilibrium for sequential games: a strategy profile that induces a Nash equilibrium in every subgame, obtained by backward induction, ruling out non-credible threats."
+        },
+        {
+          "term": "sequential equilibrium",
+          "definition": "A refinement for extensive-form games of imperfect information: an assessment of strategies plus beliefs that is sequentially rational and consistent with Bayesian updating along the game tree."
+        },
+        {
+          "term": "potential game",
+          "definition": "A game admitting a single potential function whose change equals the payoff change of any unilateral deviator; such games always have a pure-strategy Nash equilibrium."
         }
       ],
       "canon": [
@@ -1570,6 +1586,10 @@
         {
           "term": "standard error",
           "definition": "The estimated standard deviation of an estimator; measures the precision of the coefficient estimate."
+        },
+        {
+          "term": "estimator",
+          "definition": "A rule or statistic mapping sample data to an estimate of an unknown population parameter; judged by bias, variance, consistency, and efficiency (e.g. the OLS estimator)."
         }
       ],
       "canon": [

@@ -191,6 +191,18 @@
         {
           "term": "feedback inhibition",
           "definition": "Regulation in which the end product of a metabolic pathway inhibits an earlier enzyme in the same pathway."
+        },
+        {
+          "term": "primary structure",
+          "definition": "The linear sequence of amino acid residues in a polypeptide (or of nucleotides in a nucleic acid), encoded by the gene and determining all higher-order folding."
+        },
+        {
+          "term": "secondary structure",
+          "definition": "Local, regular folding of a polypeptide backbone into alpha-helices and beta-sheets, stabilized by hydrogen bonds between backbone atoms."
+        },
+        {
+          "term": "tertiary structure",
+          "definition": "The overall three-dimensional conformation of a single folded polypeptide, stabilized by side-chain interactions: hydrophobic packing, disulfide bonds, salt bridges, and hydrogen bonds."
         }
       ],
       "canon": [
@@ -429,6 +441,10 @@
         {
           "term": "mutation",
           "definition": "A heritable change in the DNA sequence; types include point mutations, insertions, deletions, chromosomal rearrangements. Mutations are the raw material for evolution."
+        },
+        {
+          "term": "wild type",
+          "definition": "The phenotype or allele of an organism as it predominantly occurs in nature, used as the reference standard against which mutants are compared."
         }
       ],
       "canon": [

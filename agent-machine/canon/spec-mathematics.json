@@ -226,6 +226,10 @@
         {
           "term": "dihedral angle",
           "definition": "The angle between two half-planes sharing a common edge (line), measured in a plane perpendicular to that edge."
+        },
+        {
+          "term": "cycloid",
+          "definition": "The curve traced by a point on the rim of a circle of radius r rolling along a line: x=r(t-sin t), y=r(1-cos t); it is the brachistochrone (fastest-descent) and tautochrone curve."
         }
       ],
       "canon": [
@@ -642,6 +646,10 @@
         {
           "term": "linear transformation",
           "definition": "A function T: V \u2192 W between vector spaces satisfying T(u + v) = T(u) + T(v) and T(cv) = cT(v); equivalently, a map preserving the vector space structure."
+        },
+        {
+          "term": "determinant",
+          "definition": "A scalar det(A) (or |A|) assigned to a square matrix A; it is the signed volume-scaling factor of the linear map, is nonzero iff A is invertible, and is multiplicative: det(AB)=det(A)det(B)."
         }
       ],
       "canon": [
@@ -731,6 +739,10 @@
         {
           "term": "eigenfunction expansion",
           "definition": "Representation of a function as a series of eigenfunctions of a differential operator (e.g., Fourier series in terms of sin and cos)."
+        },
+        {
+          "term": "fourier transform",
+          "definition": "An integral transform sending f(t) to f-hat(omega)=integral of f(t)e^(-i*omega*t) dt, decomposing a function into its frequency content; it turns differentiation and convolution into algebra, central to solving linear ODEs/PDEs."
         }
       ],
       "canon": [
@@ -1840,6 +1852,10 @@
         {
           "term": "Catalan number",
           "definition": "C_n = (1/(n+1))C(2n,n); counts many combinatorial structures including valid parenthesizations, binary trees, and Dyck paths."
+        },
+        {
+          "term": "equivalence class",
+          "definition": "For an equivalence relation ~ on a set S, the equivalence class of a is {x in S : x~a}; the distinct classes partition S into disjoint nonempty subsets."
         }
       ],
       "canon": [
