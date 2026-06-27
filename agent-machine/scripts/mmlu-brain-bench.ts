@@ -829,7 +829,7 @@ async function main() {
     process.stdout.write(`\n## ${subject}  (fields: ${fields.join('+')} · ${poolN.toLocaleString()} chunks · ${sample.length} q)\n`)
     // tally pre-initialised + possibly resume-loaded above — do NOT reset it here
     // verified-compute arm scored up front (one python call per subject); used by compute + route + champion
-    const wantCompute = ARMS.includes('compute') || ARMS.includes('route') || ARMS.includes('champion') || ARMS.includes('gate') || ARMS.includes('groundgate') || ARMS.includes('learned')
+    const wantCompute = ARMS.includes('compute') || ARMS.includes('route') || ARMS.includes('champion') || ARMS.includes('gate') || ARMS.includes('groundgate') || ARMS.includes('reason') || ARMS.includes('learned')
     // brain-ground (#12): retrieve worked-solution context per question (gold-first, warm cache) BEFORE the
     // sync compute subprocess, so sympy formalizes from the method, not a cold parse. COMPUTE_GROUND=0 → cold.
     const ncard = COMPUTE_GROUND ? loadNotecard(fields) : ''   // the formula sheet for this subject's field(s)
@@ -1022,6 +1022,13 @@ async function main() {
             const scRetr = await askVote(qgenPrompt, SC_K)                // uncertain → retrieve + vote
             if (acceptRetrievedAnswer(scRetr.agree, scClosed.agree)) { letter = scRetr.letter; mode = `gate:retrieve:${k.types?.[0] ?? '?'}` }
             else { letter = scClosed.letter; mode = 'gate:retrieve-rejected' }   // weak/ambiguous retrieval → keep reasoning (CRAG correction)
+          }
+        } else if (arm === 'reason') {            // SOTA math lane: verified sympy-compute when possible, else long-CoT + self-consistency. NO retrieval (parametric reasoning beats lecture fragments for known material).
+          if (ci?.answer && ci.mode !== 'prog') {
+            letter = ci.answer; mode = `reason:compute:${ci.mode}`   // exact computation (stats/algebra) — beats any chunk
+          } else {
+            const sc = await askVote(`${base}${ANSWER_RULE}`, SC_K)   // self-consistency over the model's own reasoning chains
+            letter = sc.letter; mode = `reason:sc${SC_K}`; row['reason_conf'] = Number(sc.agree.toFixed(2))
           }
         } else if (arm === 'groundgate') {        // CHEAP gate: decide retrieve-vs-skip from canon entity COUNT — no SC probe
           const k = kt[i] ?? { types: ['BasicFacts'], solver: 'retrieve' }
