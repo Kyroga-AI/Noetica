@@ -25,3 +25,4 @@ export type ActiveSurface =
   | 'agents'
   | 'calendar'
   | 'library'
+  | 'geo'
