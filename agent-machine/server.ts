@@ -6314,6 +6314,20 @@ Question: ${question}`
     return
   }
 
+  // GET /api/govern/audit/verify — tamper-evidence status of the egress audit chain (P3.6): re-links every
+  // entry + checks the Ed25519-signed head. Backs the Govern attestation badge.
+  if (req.method === 'GET' && url.pathname === '/api/govern/audit/verify') {
+    setCORSHeaders(res)
+    ;(async () => {
+      try {
+        const { verifyAuditChain } = await import('./lib/scope-d.js')
+        const v = verifyAuditChain()
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ...v, attested: v.chainValid && v.signed && v.signatureValid }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'failed' })) }
+    })()
+    return
+  }
+
   // GET /api/library — "what's been captured into the graph": collections → documents → entity/chunk counts.
   // The observability surface (like ChatGPT's library, but for the knowledge graph).
   if (req.method === 'GET' && url.pathname === '/api/library') {
