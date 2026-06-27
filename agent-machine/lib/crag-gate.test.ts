@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { cragVote, gateShouldRetrieve, acceptRetrievedAnswer, DEFAULT_GATE_THRESHOLD } from './crag-gate.js'
+import { cragVote, gateShouldRetrieve, acceptRetrievedAnswer, groundingGateShouldRetrieve, DEFAULT_GATE_THRESHOLD, DEFAULT_GROUNDING_MIN_ENTITIES } from './crag-gate.js'
 
 // A deterministic sampler: returns the s-th canned answer (cycling if k exceeds the list). No model calls.
 const seq = (answers: string[]) => (s: number) => Promise.resolve(answers[s % answers.length]!)
@@ -93,6 +93,20 @@ test('acceptRetrievedAnswer keeps retrieval when it is at least as self-consiste
   assert.equal(acceptRetrievedAnswer(0.9, 0.6), true)    // retrieval more confident → take it
   assert.equal(acceptRetrievedAnswer(0.6, 0.6), true)    // tie → take retrieval
   assert.equal(acceptRetrievedAnswer(0.4, 0.6), false)   // retrieval LESS confident → keep closed-book (noisy chunks)
+})
+
+// ── the cheap grounding-gate (no probe): entity-count signal ──────────────────
+test('groundingGateShouldRetrieve: >= min canon entities → skip; fewer → retrieve', () => {
+  assert.equal(groundingGateShouldRetrieve(0), true)    // no canon coverage → retrieve
+  assert.equal(groundingGateShouldRetrieve(1), true)    // thin coverage → retrieve
+  assert.equal(groundingGateShouldRetrieve(2), false)   // well-covered standard material → skip
+  assert.equal(groundingGateShouldRetrieve(5), false)
+})
+
+test('groundingGateShouldRetrieve threshold is tunable; default is 2', () => {
+  assert.equal(DEFAULT_GROUNDING_MIN_ENTITIES, 2)
+  assert.equal(groundingGateShouldRetrieve(2, 3), true, 'with a stricter min, 2 entities still retrieves')
+  assert.equal(groundingGateShouldRetrieve(3, 3), false)
 })
 
 // ── end-to-end gate flow on synthetic confidence signals ──────────────────────

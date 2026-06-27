@@ -44,7 +44,7 @@ import { associativeRetrieve } from '../lib/graph-ppr.js'
 import { decodeVec, l2norm } from '../lib/brain-vec.js'
 import { reliabilityGate } from '../lib/reliability-gate.js'
 import { formatEvidence, inlineBindPrompt, parseInlineAnswer, inlineFidelityStats } from '../lib/inline-bind.js'
-import { cragVote, gateShouldRetrieve, acceptRetrievedAnswer } from '../lib/crag-gate.js'
+import { cragVote, gateShouldRetrieve, acceptRetrievedAnswer, groundingGateShouldRetrieve } from '../lib/crag-gate.js'
 
 const HOME = os.homedir()
 const BANK = path.join(HOME, '.noetica', 'corpus', 'benchmarks', 'mmlu_stem.json')
@@ -829,14 +829,14 @@ async function main() {
     process.stdout.write(`\n## ${subject}  (fields: ${fields.join('+')} · ${poolN.toLocaleString()} chunks · ${sample.length} q)\n`)
     // tally pre-initialised + possibly resume-loaded above — do NOT reset it here
     // verified-compute arm scored up front (one python call per subject); used by compute + route + champion
-    const wantCompute = ARMS.includes('compute') || ARMS.includes('route') || ARMS.includes('champion') || ARMS.includes('gate') || ARMS.includes('learned')
+    const wantCompute = ARMS.includes('compute') || ARMS.includes('route') || ARMS.includes('champion') || ARMS.includes('gate') || ARMS.includes('groundgate') || ARMS.includes('learned')
     // brain-ground (#12): retrieve worked-solution context per question (gold-first, warm cache) BEFORE the
     // sync compute subprocess, so sympy formalizes from the method, not a cold parse. COMPUTE_GROUND=0 → cold.
     const ncard = COMPUTE_GROUND ? loadNotecard(fields) : ''   // the formula sheet for this subject's field(s)
     const computeCtx: string[] = (wantCompute && COMPUTE_GROUND) ? await Promise.all(sample.map((q) => goldContext(q, pools, ncard))) : []
     const comp: CompRes[] = wantCompute ? computeBatch(sample, computeCtx) : []
     // knowledge-type per question (the 'understand first' step) — used by the champion router
-    const kt: KType[] = (ARMS.includes('champion') || ARMS.includes('gate') || ARMS.includes('learned')) ? ktypeBatch(sample) : []
+    const kt: KType[] = (ARMS.includes('champion') || ARMS.includes('gate') || ARMS.includes('groundgate') || ARMS.includes('learned')) ? ktypeBatch(sample) : []
     const af: CompRes[] = ARMS.includes('autoform') ? await autoformBatch(sample) : []   // LLM-formalize → sympy-execute → vote
 
     const scoreQuestion = async (i: number) => {
@@ -865,7 +865,7 @@ async function main() {
       // Same answer path as brain → the column isolates the retrieval lift from query generation.
       // Also built for champion, whose retrieve path uses this same HyDE/qgen context.
       let qgenContext = ''
-      if (ARMS.includes('qgen') || ARMS.includes('champion') || ARMS.includes('gate')) {
+      if (ARMS.includes('qgen') || ARMS.includes('champion') || ARMS.includes('gate') || ARMS.includes('groundgate')) {
         const extra = await queryGen(q.question, q.choices)
         row['qgen'] = extra.map((e) => e.slice(0, 70))
         const hits = await retrieveMulti(q.question, q.choices, pools, PER_SHOT, SHOT_K, extra, slugHints)
@@ -1022,6 +1022,19 @@ async function main() {
             const scRetr = await askVote(qgenPrompt, SC_K)                // uncertain → retrieve + vote
             if (acceptRetrievedAnswer(scRetr.agree, scClosed.agree)) { letter = scRetr.letter; mode = `gate:retrieve:${k.types?.[0] ?? '?'}` }
             else { letter = scClosed.letter; mode = 'gate:retrieve-rejected' }   // weak/ambiguous retrieval → keep reasoning (CRAG correction)
+          }
+        } else if (arm === 'groundgate') {        // CHEAP gate: decide retrieve-vs-skip from canon entity COUNT — no SC probe
+          const k = kt[i] ?? { types: ['BasicFacts'], solver: 'retrieve' }
+          const nEnt = canonRoute(q.question).entities.length
+          row['gate_entities'] = nEnt
+          if (!groundingGateShouldRetrieve(nEnt)) {                       // ≥2 canon concepts → standard material → skip retrieval
+            const scClosed = await askVote(`${base}${ANSWER_RULE}`, SC_K)
+            letter = scClosed.letter; mode = `groundgate:skip:${nEnt}ent`; row['gate_conf'] = Number(scClosed.agree.toFixed(2))
+          } else if (k.solver === 'compute' && ci?.answer && ci.mode !== 'prog') {
+            letter = ci.answer; mode = `groundgate:compute:${ci.mode}`     // computational → deterministic (stats/math)
+          } else {
+            const scRetr = await askVote(qgenPrompt, SC_K)                // 0–1 canon concepts → retrieve + vote
+            letter = scRetr.letter; mode = `groundgate:retrieve:${nEnt}ent`; row['gate_conf'] = Number(scRetr.agree.toFixed(2))
           }
         } else if (arm === 'elim') {              // Monty-Hall: per-choice confirm/REFUTE, posterior, coverage-gated widening
           const e = await eliminateArm(q.question, q.choices, pools, widerPools)

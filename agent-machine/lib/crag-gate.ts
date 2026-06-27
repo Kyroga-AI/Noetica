@@ -96,3 +96,20 @@ export function gateShouldRetrieve(closedBookAgree: number, threshold = DEFAULT_
 export function acceptRetrievedAnswer(retrieveAgree: number, closedBookAgree: number): boolean {
   return retrieveAgree >= closedBookAgree
 }
+
+/** Cheap grounding-gate: skip retrieval once at least this many canon entities are present in the question. */
+export const DEFAULT_GROUNDING_MIN_ENTITIES = 2
+
+/**
+ * CHEAP gate variant: decide retrieve-vs-skip from canon entity COUNT alone — NO K-sample confidence probe, so
+ * it costs zero extra model calls (canonRoute already extracts the entities). The hypothesis being measured: a
+ * question built from ≥2 canon concepts is standard textbook material the model likely knows closed-book, so
+ * chunk retrieval only adds noise → skip; a question that grounds in 0–1 canon concepts reaches beyond what we
+ * cover → retrieve. (canonRoute's tri-state grounding_status is too coarse here — full exam questions almost
+ * never reach 'grounded', since candidateNPs flags some out-of-canon noun phrase in nearly every question — so
+ * the absolute entity count is the discriminative signal.) Whether this free proxy matches the expensive
+ * SC-confidence gate is exactly what the `groundgate` bench arm exists to test.
+ */
+export function groundingGateShouldRetrieve(entityCount: number, minToSkip = DEFAULT_GROUNDING_MIN_ENTITIES): boolean {
+  return entityCount < minToSkip
+}
