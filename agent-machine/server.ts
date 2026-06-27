@@ -98,6 +98,35 @@ import {
 } from './lib/gaia.js'
 import { getUserIdentity, setUserIdentity, promptUserName, type UserIdentity } from './lib/identity.js'
 
+// ─── JS-sandbox subprocess mode (code_execute isolation on the compiled standalone) ────────────────────────
+// When the compiled binary re-execs ITSELF with NOETICA_JS_SANDBOX=1, do ONLY the sandboxed JS run — in this
+// fresh process with a stripped env — then exit, BEFORE any server init / secret load. This gives the
+// bun-compiled standalone TRUE process isolation for code_execute (parity with the node/bun subprocess path)
+// WITHOUT a native addon — isolated-vm is a native .node that can't embed in `bun --compile`, so self-exec is
+// the correct fix: an escape from the vm reaches a process that holds no API keys, no parent memory, PATH only.
+if (process.env['NOETICA_JS_SANDBOX'] === '1') {
+  try {
+    const code = fs.readFileSync(process.env['NJS_FILE'] ?? '', 'utf8')
+    const logs: string[] = []
+    const sbConsole = {
+      log: (...a: unknown[]) => logs.push(a.map(String).join(' ')),
+      error: (...a: unknown[]) => logs.push('ERROR: ' + a.map(String).join(' ')),
+      warn: (...a: unknown[]) => logs.push('WARN: ' + a.map(String).join(' ')),
+      info: (...a: unknown[]) => logs.push('INFO: ' + a.map(String).join(' ')),
+    }
+    const sandbox: Record<string, unknown> = {
+      console: sbConsole, Math, JSON, Array, Object, String, Number, Boolean, Date, Error, Map, Set, Promise,
+      parseInt, parseFloat, isNaN, isFinite, encodeURIComponent, decodeURIComponent,
+    }
+    vm.createContext(sandbox)
+    const r = vm.runInContext(code, sandbox, { timeout: Number(process.env['NJS_TIMEOUT_MS'] ?? '30000') })
+    const out = logs.join('\n')
+    const rl = r !== undefined && r !== null ? '\nResult: ' + (typeof r === 'object' ? JSON.stringify(r, null, 2) : String(r)) : ''
+    process.stdout.write((out + rl).trim() || '(no output)')
+  } catch (e) { process.stdout.write('RuntimeError: ' + (e instanceof Error ? e.message : String(e))) }
+  process.exit(0)
+}
+
 const PORT = parseInt(process.env['NOETICA_AM_PORT'] ?? '8080', 10)
 const VERSION = '0.4.21'
 
@@ -1841,36 +1870,66 @@ function jsSubprocessRuntime(): string | null {
   return null
 }
 
+// How to isolate a code_execute JS run — gated on machine capability so we don't bog down constrained boxes:
+//   'node-subprocess' — a node/bun on PATH hosts the vm in a cheap separate process (best; any machine).
+//   'self-exec'       — re-exec OUR compiled binary in NOETICA_JS_SANDBOX mode (full process isolation) but it
+//                       spawns a 2nd copy of a large binary → transient RAM + startup cost → ONLY on roomy boxes.
+//   'in-process'      — constrained machine: in-process vm (light, reduced isolation). The real escape vector is
+//                       injected code from retrieved content, which the RAG prompt-injection defense (P1.2) handles.
+// Tunables: NOETICA_JS_SANDBOX_MODE forces a strategy; NOETICA_SANDBOX_RAM_GB sets the self-exec RAM floor.
+let _activeSelfSandboxes = 0
+function jsSandboxStrategy(): 'node-subprocess' | 'self-exec' | 'in-process' {
+  const forced = process.env['NOETICA_JS_SANDBOX_MODE']
+  if (forced === 'node-subprocess' || forced === 'self-exec' || forced === 'in-process') return forced
+  if (jsSubprocessRuntime()) return 'node-subprocess'          // cheap + isolated regardless of RAM
+  const totalGB = os.totalmem() / 1024 ** 3
+  const freeGB = os.freemem() / 1024 ** 3
+  const ramFloor = Number(process.env['NOETICA_SANDBOX_RAM_GB'] ?? '24')
+  // Self-exec only when there's both headroom AND we're not already running one (cap concurrency at 1 heavy spawn).
+  if (totalGB >= ramFloor && freeGB >= 2 && _activeSelfSandboxes < 1) return 'self-exec'
+  return 'in-process'
+}
+
+// Shared isolated-subprocess runner for BOTH the node/bun and self-exec paths: stage the code to a file, spawn a
+// process with a STRIPPED env (PATH + the code file only — no API keys, no parent memory), capture stdout.
+function runIsolatedJsSubprocess(command: string, args: string[], extraEnv: Record<string, string>, code: string, sessionId: string | undefined, timeoutMs: number, maxOutput: number, onExit?: () => void): Promise<string> {
+  return new Promise((resolve) => {
+    const runDir = sessionId ? getAmSessionDir(sessionId) : os.tmpdir()
+    const codeFile = path.join(runDir, `_jsrun_${process.pid}_${Date.now()}.js`)
+    try { fs.mkdirSync(runDir, { recursive: true }); fs.writeFileSync(codeFile, code) } catch { resolve('RuntimeError: could not stage code for execution'); return }
+    let out = ''; let done = false
+    const childEnv: NodeJS.ProcessEnv = { PATH: process.env['PATH'] ?? '', NJS_FILE: codeFile, NJS_TIMEOUT_MS: String(timeoutMs), NODE_ENV: process.env['NODE_ENV'] ?? 'production', ...extraEnv }
+    const child = cp.spawn(command, args, { cwd: runDir, env: childEnv })
+    const finish = (s: string) => { if (done) return; done = true; clearTimeout(timer); try { fs.unlinkSync(codeFile) } catch { /* */ }; onExit?.(); resolve(s.slice(0, maxOutput).trim() || '(no output)') }
+    const timer = setTimeout(() => { try { child.kill('SIGKILL') } catch { /* */ }; finish(out || 'RuntimeError: execution timed out') }, timeoutMs + 2000)
+    child.stdout.on('data', (d: Buffer) => { out += d.toString(); if (out.length > maxOutput) { try { child.kill('SIGKILL') } catch { /* */ } } })
+    child.stderr.on('data', (d: Buffer) => { out += d.toString() })
+    child.on('close', () => finish(out))
+    child.on('error', () => finish('RuntimeError: could not start the JS sandbox subprocess'))
+  })
+}
+
 function executeCode(language: 'python' | 'javascript', code: string, sessionId?: string): Promise<string> {
   const TIMEOUT_MS = 30_000
   const MAX_OUTPUT = 100_000
 
   if (language === 'javascript') {
-    const runtime = jsSubprocessRuntime()
-    if (runtime) {
-      // ISOLATED path: run the vm sandbox inside a SEPARATE process whose env is stripped to PATH + the code
-      // file only. A vm escape there reaches no API keys, no parent memory — true process isolation.
-      return new Promise((resolve) => {
-        const runDir = sessionId ? getAmSessionDir(sessionId) : os.tmpdir()
-        const codeFile = path.join(runDir, `_jsrun_${process.pid}_${Date.now()}.js`)
-        try { fs.mkdirSync(runDir, { recursive: true }); fs.writeFileSync(codeFile, code) } catch { resolve('RuntimeError: could not stage code for execution'); return }
-        const runner = `const fs=require('fs'),vm=require('vm');const code=fs.readFileSync(process.env.NJS_FILE,'utf8');const logs=[];const console={log:(...a)=>logs.push(a.map(String).join(' ')),error:(...a)=>logs.push('ERROR: '+a.map(String).join(' ')),warn:(...a)=>logs.push('WARN: '+a.map(String).join(' ')),info:(...a)=>logs.push('INFO: '+a.map(String).join(' '))};const sandbox={console,Math,JSON,Array,Object,String,Number,Boolean,Date,Error,Map,Set,Promise,parseInt,parseFloat,isNaN,isFinite,encodeURIComponent,decodeURIComponent};try{vm.createContext(sandbox);const r=vm.runInContext(code,sandbox,{timeout:${TIMEOUT_MS}});const out=logs.join('\\n');const rl=(r!==undefined&&r!==null)?'\\nResult: '+(typeof r==='object'?JSON.stringify(r,null,2):String(r)):'';process.stdout.write((out+rl).trim()||'(no output)');}catch(e){process.stdout.write('RuntimeError: '+(e&&e.message?e.message:String(e)));}`
-        let out = ''; let done = false
-        // Stripped env: PATH + the code file + NODE_ENV only (no secrets). NODE_ENV is required by the augmented
-        // ProcessEnv type and isn't sensitive; everything else (API keys, tokens) is deliberately absent.
-        const childEnv: NodeJS.ProcessEnv = { PATH: process.env['PATH'] ?? '', NJS_FILE: codeFile, NODE_ENV: process.env['NODE_ENV'] ?? 'production' }
-        const child = cp.spawn(runtime, ['-e', runner], { cwd: runDir, env: childEnv })
-        const finish = (s: string) => { if (done) return; done = true; clearTimeout(timer); try { fs.unlinkSync(codeFile) } catch { /* */ }; resolve(s.slice(0, MAX_OUTPUT).trim() || '(no output)') }
-        const timer = setTimeout(() => { try { child.kill('SIGKILL') } catch { /* */ }; finish(out || 'RuntimeError: execution timed out') }, TIMEOUT_MS + 2000)
-        child.stdout.on('data', (d: Buffer) => { out += d.toString(); if (out.length > MAX_OUTPUT) { try { child.kill('SIGKILL') } catch { /* */ } } })
-        child.stderr.on('data', (d: Buffer) => { out += d.toString() })
-        child.on('close', () => finish(out))
-        child.on('error', () => finish('RuntimeError: could not start the JS sandbox subprocess'))
-      })
+    const strategy = jsSandboxStrategy()
+    if (strategy === 'node-subprocess') {
+      // The vm sandbox runs inside a cheap node/bun process; the runner reads NJS_FILE + writes result to stdout.
+      const runtime = jsSubprocessRuntime()!
+      const runner = `const fs=require('fs'),vm=require('vm');const code=fs.readFileSync(process.env.NJS_FILE,'utf8');const logs=[];const console={log:(...a)=>logs.push(a.map(String).join(' ')),error:(...a)=>logs.push('ERROR: '+a.map(String).join(' ')),warn:(...a)=>logs.push('WARN: '+a.map(String).join(' ')),info:(...a)=>logs.push('INFO: '+a.map(String).join(' '))};const sandbox={console,Math,JSON,Array,Object,String,Number,Boolean,Date,Error,Map,Set,Promise,parseInt,parseFloat,isNaN,isFinite,encodeURIComponent,decodeURIComponent};try{vm.createContext(sandbox);const r=vm.runInContext(code,sandbox,{timeout:${TIMEOUT_MS}});const out=logs.join('\\n');const rl=(r!==undefined&&r!==null)?'\\nResult: '+(typeof r==='object'?JSON.stringify(r,null,2):String(r)):'';process.stdout.write((out+rl).trim()||'(no output)');}catch(e){process.stdout.write('RuntimeError: '+(e&&e.message?e.message:String(e)));}`
+      return runIsolatedJsSubprocess(runtime, ['-e', runner], {}, code, sessionId, TIMEOUT_MS, MAX_OUTPUT)
     }
-    // FALLBACK (compiled standalone with no node/bun to subprocess into): in-process vm. The vm escape surface
-    // is real but needs malicious model code; isolated-vm is the full-coverage follow-up for this path.
-    console.warn('[code_execute] no node/bun runtime available for an isolated JS subprocess — using in-process vm (reduced isolation)')
+    if (strategy === 'self-exec') {
+      // Roomy compiled standalone: re-exec OURSELVES in NOETICA_JS_SANDBOX mode → true process isolation, no
+      // native addon. The early guard at the top of this file runs the vm and exits before any server/secret init.
+      _activeSelfSandboxes++
+      return runIsolatedJsSubprocess(process.execPath, [], { NOETICA_JS_SANDBOX: '1' }, code, sessionId, TIMEOUT_MS, MAX_OUTPUT, () => { _activeSelfSandboxes = Math.max(0, _activeSelfSandboxes - 1) })
+    }
+    // CONSTRAINED machine (no node/bun + not enough RAM to self-exec a 2nd binary copy): in-process vm. Lighter,
+    // reduced isolation — the escape needs injected/malicious code, which the RAG injection defense (P1.2) blunts.
+    console.warn('[code_execute] constrained machine — using in-process vm (reduced isolation; gated by jsSandboxStrategy)')
     return new Promise((resolve) => {
       const logs: string[] = []
       const consoleMock = {
