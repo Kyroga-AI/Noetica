@@ -126,7 +126,9 @@ const FIELD_ADJ: Record<string, string[]> = {
 const SUBJECT_SLUG_HINT: Record<string, Map<string, number>> = {
   abstract_algebra:       new Map([['18-703', 1.25], ['18-704', 1.20], ['18-702', 1.15], ['18-700', 1.10]]),
   high_school_mathematics: new Map([['18-01',  1.20], ['18-02',  1.20], ['18-06',  1.15], ['18-03',  1.10]]),
-  college_mathematics:     new Map([['18-01',  1.15], ['18-02',  1.15], ['18-06',  1.15], ['18-03',  1.10], ['18-100', 1.10]]),
+  // college_mathematics covers algebra (18.703), linear algebra (18.06), real analysis (18.100), calc (18.01-03)
+  // Diagnostic confirmed: ring/group questions pull from algebraic topology/number theory — need 18-703 boost.
+  college_mathematics:     new Map([['18-703', 1.20], ['18-06',  1.20], ['18-100', 1.15], ['18-01',  1.10], ['18-02', 1.10], ['18-03', 1.10]]),
   high_school_statistics:  new Map([['18-650', 1.25], ['18-600', 1.20], ['18-440', 1.20], ['18-655', 1.15]]),
   // Physics subfield hints — wave/optics/quantum pulled from wrong courses in prior runs
   college_physics:         new Map([['8-03',   1.20], ['8-04',   1.15], ['8-05',   1.15], ['8-06',   1.10]]),
