@@ -1051,6 +1051,17 @@ const BUILTIN_TOOLS: ProviderTool[] = [
     },
   },
   {
+    name: 'find_symbol',
+    description: "Find where a function/class/type/interface/const is DEFINED in this app's own codebase, by name (exact, prefix, or substring). Returns kind + file path + line number. Use this before read_file when you know the symbol name but not its location.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Symbol name (or a prefix/substring) to locate' },
+      },
+      required: ['name'],
+    },
+  },
+  {
     name: 'write_file',
     description: 'Write text content to a local file. Creates parent directories as needed.',
     input_schema: {
@@ -1615,6 +1626,16 @@ async function executeTool(
         return fs.readFileSync(resolved, 'utf-8')
       } catch (e) {
         return `Error reading file: ${(e as Error).message}`
+      }
+    }
+    case 'find_symbol': {
+      try {
+        const { searchSymbols } = await import('./lib/symbol-index.js')
+        const hits = searchSymbols(String(input['name'] ?? ''), 20)
+        if (hits.length === 0) return 'No matching symbols in the codebase index.'
+        return hits.map((h) => `${h.kind} ${h.name} — ${h.rel}:${h.line}`).join('\n')
+      } catch (e) {
+        return `Error searching symbols: ${(e as Error).message}`
       }
     }
     case 'write_file': {
@@ -7473,6 +7494,23 @@ Question: ${question}`
         res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })())
+    return
+  }
+
+  // GET /api/code/symbols?q= — symbol search over OUR codebase (P5.16): locate a definition (file + line) by name.
+  // Backed by the build-time canon/symbol-index.json; powers code navigation + the find_symbol agent tool.
+  if (req.method === 'GET' && url.pathname === '/api/code/symbols') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const q = url.searchParams.get('q') ?? ''
+        const { searchSymbols, symbolStats } = await import('./lib/symbol-index.js')
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ query: q, ...symbolStats(), results: searchSymbols(q, 30) }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
     return
   }
 

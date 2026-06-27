@@ -20,8 +20,9 @@ APP_BUILT="src-tauri/target/release/bundle/macos/Noetica.app"
 APP_DEST="/Applications/Noetica.app"
 sha() { shasum -a 256 "$1" 2>/dev/null | awk '{print $1}'; }
 
-echo "▸ 0/5 regenerating the stack index (Tech-lens codebase map, bundled into the binary)…"
+echo "▸ 0/5 regenerating the stack + symbol indexes (codebase maps, bundled into the binary)…"
 node scripts/build-stack-index.mjs >/dev/null 2>&1 || echo "  (stack-index gen skipped)"
+node scripts/build-symbol-index.mjs >/dev/null 2>&1 || echo "  (symbol-index gen skipped)"
 
 echo "▸ 1/5 building agent-machine binary (clean — defeats bun's stale-output)…"
 rm -f "$BIN"
