@@ -516,6 +516,10 @@ async function fiftyFiftyArm(question: string, choices: string[], pools: Chunk[]
 
 // ── model ──────────────────────────────────────────────────────────────────────
 const SYS = 'You are taking a multiple-choice exam. Reason in ONE short sentence, then end with a line "FINAL: X" where X is exactly one of A, B, C, or D.'
+// The reason lane wants the OPPOSITE of brevity: explicit step-by-step chains (that's the whole point — it's
+// what SOTA does and what self-consistency votes over). Overrides the terse default so non-reasoning models
+// (e.g. qwen) actually engage CoT, not just R1-class models that reason regardless.
+const REASON_RULE = '\n\nWork through this step by step, showing your reasoning, then output exactly one final line: "FINAL: X" (X = A, B, C, or D).'
 const NO_THINK = process.env['MMLU_NO_THINK'] === '1'   // qwen3/r1: '/no_think' disables slow chain-of-thought traces → fast AND strong (the eval fix)
 const nt = (p: string): string => (NO_THINK ? `${p} /no_think` : p)
 const MAXTOK = Number(process.env['MMLU_MAX_TOKENS'] || 220)
@@ -1037,7 +1041,7 @@ async function main() {
           if (ci?.answer && ci.mode !== 'prog') {
             letter = ci.answer; mode = `reason:compute:${ci.mode}`   // exact computation (stats/algebra) — beats any chunk
           } else {
-            const sc = await askVote(`${base}${ANSWER_RULE}`, SC_K)   // self-consistency over the model's own reasoning chains
+            const sc = await askVote(`${base}${REASON_RULE}`, SC_K)   // self-consistency over explicit step-by-step chains
             letter = sc.letter; mode = `reason:sc${SC_K}`; row['reason_conf'] = Number(sc.agree.toFixed(2))
           }
         } else if (arm === 'groundgate') {        // CHEAP gate: decide retrieve-vs-skip from canon entity COUNT — no SC probe
