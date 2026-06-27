@@ -114,7 +114,7 @@ export function LibrarySurface() {
       </div>
 
       {t && t.entities > 0 && (
-        <p className="mt-4 text-[10px] text-[var(--color-text-tertiary)]">Entity counts are graph-wide; per-document entity attribution lands once Document→entity linkage is wired (tiered-memory step 3).</p>
+        <p className="mt-4 text-[10px] text-[var(--color-text-tertiary)]">Per-document entity counts come from the Document→entity links; the headline total is the deduped graph-wide entity count (the same entity is grounded by many docs).</p>
       )}
     </div>
   )
