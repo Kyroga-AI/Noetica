@@ -42,6 +42,7 @@ import { canonBridges, canonGround, canonEntities, canonAncestors } from '../lib
 import { associativeRetrieve } from '../lib/graph-ppr.js'
 import { decodeVec, l2norm } from '../lib/brain-vec.js'
 import { reliabilityGate } from '../lib/reliability-gate.js'
+import { formatEvidence, inlineBindPrompt, parseInlineAnswer, inlineFidelityStats } from '../lib/inline-bind.js'
 
 const HOME = os.homedir()
 const BANK = path.join(HOME, '.noetica', 'corpus', 'benchmarks', 'mmlu_stem.json')
@@ -866,6 +867,22 @@ async function main() {
           const top = await rerankLLM(q.question, q.choices, wide, SHOT_K)
           const ctx = top.map((h, n) => `[${n + 1}] ${h.text.slice(0, 500)}`).join('\n\n')
           letter = extractLetter(await ask(`Relevant MIT course notes (use only what helps; ignore noise and fragments):\n\n${ctx}\n\nExam question:\n${base}${ANSWER_RULE}`)); mode = `rerank:${top.length}`
+        } else if (arm === 'inline') {            // Phase 0.4: inline evidence binding — model cites which chunk it's grounding on
+          // Forces explicit {letter, reasoning, cited:[{id,span}]} output so faithfulness is measurable per-answer,
+          // not just post-hoc over the whole run. Feeds Metric 2 (inline fidelity) in provenance_eval.py.
+          const hits = await retrieveMulti(q.question, q.choices, pools, PER_SHOT, SHOT_K)
+          const ev = formatEvidence(hits)
+          const ibPrompt = inlineBindPrompt(q.question, q.choices, ev)
+          const raw = (await ask(ibPrompt)) || ''
+          const parsed = parseInlineAnswer(raw)
+          letter = parsed.letter; mode = `inline:parse_ok=${parsed.parse_ok}`
+          row['inline_cited'] = parsed.cited.map((c) => c.id)
+          row['inline_spans'] = parsed.cited.map((c) => c.span.slice(0, 80))
+          row['inline_parse_ok'] = parsed.parse_ok
+          row['inline_n_cited'] = parsed.cited.length
+          // Per-citation lexical support (0–1); provenance_eval.py runs NLI check post-hoc on this checkpoint
+          const stats = inlineFidelityStats([parsed], ev)
+          row['inline_grounded_rate'] = Number(stats.grounded_rate.toFixed(3))
         } else if (arm === 'ground') {            // CANON GROUNDING: the question's entities → glossary defs + related equations/models + prereq decomposition + bridges
           const g = canonGround(`${q.question} ${q.choices.join(' ')}`)
           letter = extractLetter(await ask(`${g ? g + '\n\n' : ''}Exam question:\n${base}${ANSWER_RULE}`)); mode = g ? 'ground' : 'no-canon'
@@ -1083,7 +1100,7 @@ async function main() {
       // vote_share (ensemble column): fraction of the answering arms that picked each letter — the per-choice
       // agreement signal, computed once all arm preds are in the row. A strong column the combiner can weight.
       {
-        const voters = ['baseline', 'brain', 'rerank', 'ground', 'qgen', 'notecard', 'gate', 'defs', 'hop', 'route']
+        const voters = ['baseline', 'brain', 'rerank', 'inline', 'ground', 'qgen', 'notecard', 'gate', 'defs', 'hop', 'route']
         const votes: Record<string, number> = {}; let nv = 0
         for (const v of voters) { const p = row[`${v}_pred`]; if (typeof p === 'string' && p !== '?') { votes[p] = (votes[p] ?? 0) + 1; nv++ } }
         if (nv) row['vote_share'] = Object.fromEntries(LETTERS.slice(0, q.choices.length).map((L) => [L, +((votes[L] ?? 0) / nv).toFixed(3)]))
