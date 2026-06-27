@@ -1618,6 +1618,26 @@
         {
           "term": "Gaussian integer",
           "definition": "A complex number a + bi with a, b ∈ ℤ; forms a UFD Z[i] in which the Euclidean algorithm applies with norm N(a+bi) = a²+b²."
+        },
+        {
+          "term": "factorial",
+          "definition": "n! = n × (n-1) × ... × 2 × 1 for n ≥ 1; 0! = 1. Trailing zeros in n! = ⌊n/5⌋ + ⌊n/25⌋ + ... (Legendre's formula for p=5)."
+        },
+        {
+          "term": "modular arithmetic",
+          "definition": "Arithmetic where numbers wrap around at a modulus n. a ≡ b (mod n) means n | (a-b). Used in: Fermat's little theorem, RSA, Chinese Remainder Theorem."
+        },
+        {
+          "term": "trailing zeros",
+          "definition": "Trailing zeros in n! come from factors of 10 = 2×5. Count = ⌊n/5⌋ + ⌊n/25⌋ + ⌊n/125⌋ + ... (Legendre's formula with p=5). E.g., 100! has ⌊100/5⌋+⌊100/25⌋=20+4=24 trailing zeros."
+        },
+        {
+          "term": "zeros",
+          "definition": "Trailing zeros in n! = ⌊n/5⌋ + ⌊n/25⌋ + ⌊n/125⌋ + ... (Legendre's formula). Each trailing zero requires one factor of 10 = 2×5; powers of 5 are the limiting factor. Example: 25! has 6 trailing zeros."
+        },
+        {
+          "term": "divisibility",
+          "definition": "a is divisible by b (b|a) if a = kb for some integer k. Tests: div by 2 (even), 3 (digit sum), 5 (ends 0/5), 9 (digit sum). Fundamental theorem: every integer has unique prime factorization."
         }
       ],
       "canon": [
@@ -1664,6 +1684,21 @@
         {
           "name": "Euclidean algorithm for gcd",
           "form": "gcd(a,b) = gcd(b, a mod b); terminates and expresses gcd as integer linear combination (Bezout's identity: gcd(a,b) = sa+tb).",
+          "type": "theorem"
+        },
+        {
+          "name": "Legendre's formula (trailing zeros in n!)",
+          "form": "The exponent of prime p in n! is Σ_{k=1}^∞ ⌊n/p^k⌋. Trailing zeros in n! = exponent of 5 in n! = ⌊n/5⌋ + ⌊n/25⌋ + ⌊n/125⌋ + ... (more 2s than 5s always).",
+          "type": "theorem"
+        },
+        {
+          "name": "Euler's totient formula",
+          "form": "φ(n) = n × Π_{p|n} (1 - 1/p). For prime p: φ(p) = p-1. φ(p^k) = p^(k-1)(p-1). φ(mn) = φ(m)φ(n) when gcd(m,n)=1.",
+          "type": "theorem"
+        },
+        {
+          "name": "Chinese Remainder Theorem",
+          "form": "If gcd(m,n)=1, then the system x≡a(mod m), x≡b(mod n) has a unique solution mod mn. Extends to multiple pairwise coprime moduli.",
           "type": "theorem"
         }
       ]
