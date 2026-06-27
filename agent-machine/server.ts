@@ -270,7 +270,11 @@ async function analyticsForGraph(refresh = false): Promise<{ analytics: import('
   const allNodes = g.allNodes(), allEdges = g.allEdges()
   const keep = new Set(allNodes.filter((n) => cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id))).map((n) => n.id))
   const fNodes = allNodes.filter((n) => keep.has(n.id)); const fEdges = allEdges.filter((e) => keep.has(e.from) && keep.has(e.to))
-  const sig = `${fNodes.length}:${fEdges.length}`
+  // Content fingerprint, not a count signature: the old `${count}:${count}` was content-blind, so add-one+prune-one
+  // or an edge rewire kept the counts identical and served a STALE analytics cache. The fingerprint busts only on
+  // real membership/topology change (refresh-framework Phase 0). See lib/graph-revision.ts.
+  const { topologyFingerprint } = await import('./lib/graph-revision.js')
+  const sig = topologyFingerprint(fNodes.map((n) => n.id), fEdges.map((e) => ({ from: e.from, to: e.to })))
   const cached = loadAnalyticsCache()
   let analytics: import('./lib/graph-analytics.js').GraphAnalytics
   if (!refresh && cached && cached.sig === sig) analytics = cached.analytics
