@@ -21,5 +21,5 @@ for i in $(seq 0 $((N - 1))); do
   echo "  ↻ launched shard $i/$N (pid $!)"
   sleep 1
 done
-running=$(pgrep -fc "ocw-shard-worker.sh" 2>/dev/null || echo 0)
+running=$(ps -eo command 2>/dev/null | grep -c '[o]cw-shard-worker')   # pgrep -fc is unreliable in this sandbox; ps is accurate
 echo "# ensure $N shards: launched $launched, now $running workers live (delay ${DELAY_MS}ms each)"
