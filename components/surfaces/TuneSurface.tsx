@@ -124,12 +124,14 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
     })
     const cacheData = await cacheRes.json() as { ok?: boolean; annotated?: unknown[]; with_logits?: number; total?: number; error?: string }
     if (!cacheData.ok) { setCacheError(cacheData.error ?? 'Teacher-logit caching failed — is the distillation server running?'); setCacheStatus('error'); return }
-    // Submit annotated pairs (with logits) to distill server
-    await fetch(tuneUrl('/api/tune/distill'), {
+    // Submit annotated pairs (with logits) to distill server — check the result, else we'd report success
+    // while the pairs silently vanished (false "done" → lost training data).
+    const distillRes = await fetch(tuneUrl('/api/tune/distill'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ op: 'pairs', pairs: cacheData.annotated ?? [] }),
-    })
+    }).catch(() => null)
+    if (!distillRes || !distillRes.ok) { setCacheError('Cached teacher logits, but submitting the pairs to the distill server failed — they were not saved.'); setCacheStatus('error'); return }
     setCacheStats({ total: cacheData.total ?? 0, withLogits: cacheData.with_logits ?? 0 })
     setCacheStatus('done')
     setDistillTeacherType('whitebox')
