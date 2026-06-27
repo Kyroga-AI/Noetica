@@ -1543,7 +1543,13 @@ async function executeTool(
     case 'web_search': {
       const query = String(input['query'] ?? '').trim().slice(0, 500)
       if (!query) return 'Error: query is required'
-      return webSearch(query, keys.serper ?? process.env['SERPER_API_KEY'])
+      // Web results are UNTRUSTED external content (top indirect-injection vector) — sanitize before the model
+      // sees them (strip injected directives, defang image-URL exfil). Spotlighting, model-free.
+      const raw = await webSearch(query, keys.serper ?? process.env['SERPER_API_KEY'])
+      const { sanitizeRetrieved } = await import('./lib/rag-trust.js')
+      const { clean, stripped } = sanitizeRetrieved(raw)
+      if (stripped > 0) console.warn(`[rag-trust] neutralized ${stripped} injected directive(s) in web_search results`.replace(/[\r\n]/g, ''))
+      return clean
     }
     case 'generate_image': {
       const prompt = String(input['prompt'] ?? '').trim().slice(0, 1000)
@@ -2996,7 +3002,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     // on and REFUSES the question ("not in the provided documents"). General knowledge comes from the
     // model itself; memory-centric intents (self_identity, preferences_memory, plan_nextsteps, …) still get it.
     if (retrieved.text.trim() && intentPlan.name !== 'general') {
-      graphContext = `\n\n---\n**Memory context (HellGraph)**\n${retrieved.text}`
+      // INDIRECT-INJECTION DEFENSE: graph atoms can be poisoned by ingested content too — sanitize before
+      // the memory context reaches the prompt (parity with the doc-RAG path below).
+      const { sanitizeRetrieved } = await import('./lib/rag-trust.js')
+      const { clean, stripped } = sanitizeRetrieved(retrieved.text)
+      if (stripped > 0) console.warn(`[rag-trust] neutralized ${stripped} injected directive(s) in graph memory context`.replace(/[\r\n]/g, ''))
+      graphContext = `\n\n---\n**Memory context (HellGraph)**\n${clean}`
     }
     // Emit the neurosymbolic reasoning trace so the UI can show *why* this answer
     // was grounded — attention-ranked atoms, pattern timings, beliefs injected.
