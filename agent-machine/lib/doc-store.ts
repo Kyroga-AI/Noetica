@@ -192,7 +192,7 @@ export async function semanticSearch(query: string, k = 5): Promise<ChunkHit[]> 
  */
 export function lexicalSearch(query: string, k = 15): ChunkHit[] {
   const g = getHellGraph()
-  let nodes = g.nodesByLabel(CHUNK_LABEL)
+  let nodes = g.nodesByLabel(CHUNK_LABEL).filter((n) => !n.properties['hidden'])   // skip soft-deleted (Library cleanup)
   const scope = process.env['NOETICA_DEMO_DOC']
   if (scope) {
     const f = nodes.filter((n) => String(n.properties['filename'] ?? '').toLowerCase().includes(scope.toLowerCase()))
@@ -247,7 +247,7 @@ export async function sheafSearch(query: string, opts: { charts?: number; k?: nu
   const maxCharts = opts.charts ?? 3
   const k = opts.k ?? 6
   const g = getHellGraph()
-  let nodes = g.nodesByLabel(CHUNK_LABEL)
+  let nodes = g.nodesByLabel(CHUNK_LABEL).filter((n) => !n.properties['hidden'])   // skip soft-deleted (Library cleanup)
   const scope = process.env['NOETICA_DEMO_DOC']
   if (scope) {
     const f = nodes.filter((n) => String(n.properties['filename'] ?? '').toLowerCase().includes(scope.toLowerCase()))
@@ -316,6 +316,23 @@ export function documentChunkCount(): number {
 // sources") — refusing general knowledge. hasDoc must reflect real user uploads (collections), not core scopes.
 export function userDocumentChunkCount(): number {
   return getHellGraph().nodesByLabel(CHUNK_LABEL).filter((n) => isUserDoc(String(n.properties['filename'] ?? ''))).length
+}
+
+/** Soft-delete a collection (the graph has no node removal): mark its Document + DocumentChunk atoms hidden so
+ *  they drop out of retrieval AND the Library, without destroying provenance. Matches the collection/<id>/
+ *  filename namespace. Returns how many were hidden. (Core scopes can't be targeted — callers gate on kind.) */
+export function hideCollection(collectionId: string): { docs: number; chunks: number } {
+  const g = getHellGraph()
+  const prefix = `collection/${collectionId}/`
+  const gx = g as unknown as { setNodeProperty: (id: string, key: string, value: unknown) => void }
+  let docs = 0, chunks = 0
+  for (const d of g.nodesByLabel('Document')) {
+    if (String(d.properties['filename'] ?? '').startsWith(prefix)) { try { gx.setNodeProperty(d.id, 'hidden', true); docs++ } catch { /* */ } }
+  }
+  for (const c of g.nodesByLabel(CHUNK_LABEL)) {
+    if (String(c.properties['filename'] ?? '').startsWith(prefix)) { try { gx.setNodeProperty(c.id, 'hidden', true); chunks++ } catch { /* */ } }
+  }
+  return { docs, chunks }
 }
 
 /** Self-healing: if stored chunk vectors were made by a DIFFERENT embedder than the one now active (different

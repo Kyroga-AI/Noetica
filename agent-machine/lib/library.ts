@@ -41,7 +41,7 @@ export async function buildLibrary(): Promise<Library> {
 
   for (const d of g.nodesByLabel('Document')) {
     const filename = String(d.properties['filename'] ?? '')
-    if (!filename) continue
+    if (!filename || d.properties['hidden']) continue   // skip soft-deleted (Library cleanup)
     const docId = d.id
     const chunks = Number(d.properties['chunk_count'] ?? 0)
     // Entities grounded from this doc = its GROUNDS out-edges (the Document→CanonicalEntity links from ingest).

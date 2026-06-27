@@ -193,8 +193,18 @@ function IconChevronLeft() {
   )
 }
 
+function IconLibrary() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M2.5 2.5h2v11h-2zM6 2.5h2v11H6z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+      <path d="M10 3.2l2 .5 1.6 10.2-2-.4z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
 const surfaceItems: SurfaceItem[] = [
   { id: 'chat',        label: 'Workspace',   icon: <IconChat />,       items: ['New conversation', 'Recent threads', 'Pinned'] },
+  { id: 'library',     label: 'Library',     icon: <IconLibrary />,    items: ['Collections', 'Documents', 'Entities'] },
   { id: 'notes',       label: 'Notes',       icon: <IconNotes />,      items: ['My notes', 'Shared', 'Archived'] },
   { id: 'canvas',      label: 'Canvas',      icon: <IconCanvas />,     items: ['My documents', 'Shared', 'Archived'] },
   { id: 'cowork',      label: 'Cowork',      icon: <IconCowork />,     items: ['Active sessions', 'Task decomposition', 'Decision log'] },
@@ -447,7 +457,7 @@ export function Sidebar({
         )}
 
         {/* Workspace group */}
-        {(['chat','notes','canvas','cowork','workrooms','jitsi'] as ActiveSurface[]).map((id) => {
+        {(['chat','library','notes','canvas','cowork','workrooms','jitsi'] as ActiveSurface[]).map((id) => {
           const item = surfaceItems.find(s => s.id === id)!
           const isActive = activeSurface === id
           return (

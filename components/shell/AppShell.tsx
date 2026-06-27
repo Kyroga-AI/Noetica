@@ -21,6 +21,7 @@ import { LabSurface } from '@/components/surfaces/LabSurface'
 import { CloudBrokerSurface } from '@/components/surfaces/CloudBrokerSurface'
 import { AlignmentSurface } from '@/components/surfaces/AlignmentSurface'
 import { AgentBuilderSurface } from '@/components/surfaces/AgentBuilderSurface'
+import { LibrarySurface } from '@/components/surfaces/LibrarySurface'
 import { CalendarSurface } from '@/components/surfaces/CalendarSurface'
 import { JitsiSurface } from '@/components/surfaces/JitsiSurface'
 import { OfficeViewer } from '@/components/surfaces/OfficeViewer'
@@ -99,6 +100,7 @@ const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
   alignment:    'Chat',
   agents:       'Chat',
   calendar:     'Chat',
+  library:      'Chat',
 }
 
 export function AppShell() {
@@ -1715,6 +1717,7 @@ function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, work
   if (activeSurface === 'broker')       return <CloudBrokerSurface />
   if (activeSurface === 'alignment')    return <AlignmentSurface />
   if (activeSurface === 'agents')       return <AgentBuilderSurface />
+  if (activeSurface === 'library')      return <LibrarySurface />
   if (activeSurface === 'calendar')     return <CalendarSurface />
   if (activeSurface === 'jitsi')        return <JitsiSurface />
   if (activeSurface === 'docs')         return <OfficeViewer />
@@ -1801,6 +1804,7 @@ type RightPanelProps = {
 
 function RightPanel({ activeSurface, model, steering, thinkingBudget, temperature, maxTokens, workspaceMode, riskReadout, onSteeringChange, onThinkingBudgetChange, onTemperatureChange, onMaxTokensChange }: RightPanelProps) {
   if (activeSurface === 'notes')     return null
+  if (activeSurface === 'library')   return null
   if (activeSurface === 'workrooms') return null
   if (activeSurface === 'tune')      return null
   if (activeSurface === 'cowork')    return <CoworkPanel />

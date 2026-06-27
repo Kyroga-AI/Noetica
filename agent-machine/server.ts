@@ -6159,6 +6159,23 @@ Question: ${question}`
     return
   }
 
+  // DELETE /api/library?collection=<id> — soft-delete a collection (mark its docs/chunks hidden so they leave
+  // retrieval + the Library). Cleanup for the pollution the Library surfaces; provenance is preserved.
+  if (req.method === 'DELETE' && url.pathname === '/api/library') {
+    setCORSHeaders(res)
+    const cid = url.searchParams.get('collection')
+    if (!cid) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'collection required' })); return }
+    ;(async () => {
+      try {
+        const { hideCollection } = await import('./lib/doc-store.js')
+        const r = hideCollection(cid)
+        try { const { deleteCollection } = await import('./lib/collections.js'); deleteCollection(cid) } catch { /* registry best-effort */ }
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true, ...r }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'failed' })) }
+    })()
+    return
+  }
+
   // GET /api/library — "what's been captured into the graph": collections → documents → entity/chunk counts.
   // The observability surface (like ChatGPT's library, but for the knowledge graph).
   if (req.method === 'GET' && url.pathname === '/api/library') {

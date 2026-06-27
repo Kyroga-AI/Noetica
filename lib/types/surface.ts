@@ -24,3 +24,4 @@ export type ActiveSurface =
   | 'alignment'
   | 'agents'
   | 'calendar'
+  | 'library'
