@@ -48,7 +48,7 @@ export function epistemicOf(edgeKind: string): string {
 export function categoryFor(label: string): string {
   const l = label.toLowerCase()
   const has = (...ks: string[]) => ks.some((k) => l.includes(k))
-  if (has('topic', 'domain', 'glossary', 'concept', 'math', 'formula', 'function', 'variable', 'unit', 'physical', 'quantity', 'learningstate')) return 'learning'
+  if (has('topic', 'domain', 'glossary', 'concept', 'math', 'formula', 'function', 'variable', 'unit', 'physical', 'quantity', 'learningstate', 'academic', 'course')) return 'learning'
   if (has('document', 'chunk', 'record', 'source', 'evidence', 'episode', 'interaction', 'proof', 'semanticmemory', 'claim')) return 'docs'
   if (has('artifact', 'feature', 'vector', 'model', 'provider', 'repo', 'tool', 'action', 'candidate', 'checkpoint', 'attention', 'code', 'module')) return 'technical'
   if (has('entity', 'canonical', 'person', 'org', 'role', 'trust', 'attest', 'decision', 'ledger', 'concordance', 'remediation', 'shacl')) return 'trust'

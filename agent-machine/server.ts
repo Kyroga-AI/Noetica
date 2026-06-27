@@ -8551,6 +8551,13 @@ server.listen(PORT, '127.0.0.1', () => {
       const r = ingestStackIndex()
       if (r.modules > 0) console.log(`[stack-graph] ingested ${r.modules} modules + ${r.edges} imports`.replace(/[\r\n]/g, ' '))
     } catch { /* best-effort */ }
+    // Project the provisioned academic brain (fields + courses) → the Knowledge lens. No-op if the brain isn't
+    // provisioned. Idempotent.
+    try {
+      const { projectAcademicBrain } = await import('./lib/academic-graph.js')
+      const r = projectAcademicBrain()
+      if (r.courses > 0) console.log(`[academic-graph] projected ${r.courses} courses across ${r.fields} fields`.replace(/[\r\n]/g, ' '))
+    } catch { /* best-effort */ }
   })()
 
   // Demo pre-warm: actually LOAD the primary chat model(s) into RAM with a long
