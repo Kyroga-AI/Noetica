@@ -266,11 +266,9 @@ function appendChained(record: Record<string, unknown>): void {
  * the Ed25519-signed head matches the device key. Tamper-evident: any edit/truncation breaks the chain or the
  * signature. Backs the Govern attestation badge. No decryption needed — hashes are over the {enc} ciphertext units.
  */
-export function verifyAuditChain(): { entries: number; chainValid: boolean; signed: boolean; signatureValid: boolean; headHash: string; fingerprint: string; firstBreakAt?: number } {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { hashRecord, verifyHead } = require('./audit-chain.js') as typeof import('./audit-chain.js')
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const { loadOrCreateDeviceKey, fingerprint } = require('./audit-key.js') as typeof import('./audit-key.js')
+export async function verifyAuditChain(): Promise<{ entries: number; chainValid: boolean; signed: boolean; signatureValid: boolean; headHash: string; fingerprint: string; firstBreakAt?: number }> {
+  const { hashRecord, verifyHead } = await import('./audit-chain.js')
+  const { loadOrCreateDeviceKey, fingerprint } = await import('./audit-key.js')
   let entries = 0, chainValid = true, firstBreakAt: number | undefined
   let prev = '0'.repeat(64), last = prev
   try {

@@ -6321,7 +6321,7 @@ Question: ${question}`
     ;(async () => {
       try {
         const { verifyAuditChain } = await import('./lib/scope-d.js')
-        const v = verifyAuditChain()
+        const v = await verifyAuditChain()
         res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ...v, attested: v.chainValid && v.signed && v.signatureValid }))
       } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'failed' })) }
     })()
