@@ -24,15 +24,18 @@
  *   MMLU_MAX_CHUNKS   per-field memory cap on loaded chunks (default 150000)
  *   MMLU_SEED         shuffle seed for the per-subject sample (default time-based)
  *   OLLAMA_HOST       ollama base (default http://127.0.0.1:11434)
+ *   BRAIN_EXPLAIN_MISS=1  dump retrieved chunks + sources to stderr for every wrong brain answer (math regression diagnostic)
  *
  * Usage:  OLLAMA_HOST=http://127.0.0.1:11434 npx tsx scripts/mmlu-brain-bench.ts
  *         MMLU_SUBJECTS=college_mathematics,abstract_algebra MMLU_PER_SUBJECT=20 npx tsx ...
+ *         MMLU_ARMS=baseline,brain,gate MMLU_PER_SUBJECT=30 MMLU_SEED=1729 npx tsx ...  (gate = CRAG adaptive retrieval; run to fix math −7%)
  */
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { embedText } from '../lib/ollama.js'
+import { sanitizeRetrieved } from '../lib/rag-trust.js'
 import { councilVote, learnedCouncilVote } from '../lib/council.js'
 import { fetchConceptDef, cleanTerm } from '../lib/concept-defs.js'
 import { canonBridges, canonGround, canonEntities, canonAncestors } from '../lib/canon-lookup.js'
@@ -224,7 +227,7 @@ function loadField(field: string): Chunk[] {
         try {
           const o = JSON.parse(line) as { text?: string; slug?: string; material?: string; vec?: string; dims?: number }
           if (!o.text || !o.vec) continue
-          const text = cleanText(o.text)
+          const text = sanitizeRetrieved(cleanText(o.text)).clean   // glyph/ws cleanup + strip injection directives
           if (!usableChunk(text)) continue   // drop garbled / near-empty chunks before they can be injected
           const material = (o.material || 'reference').toLowerCase()
           const isGold = GOLD.has(material)
@@ -1070,6 +1073,12 @@ async function main() {
         results.push({ arm, ok, attempted })
         row[`${arm}_pred`] = letter || '?'; row[`${arm}_ok`] = ok; if (mode) row[`${arm}_mode`] = mode
         marks.push(`${arm}:${ok ? '✓' : '✗'}${arm === 'compute' && !attempted ? '·' : (letter || '?')}`)
+        if (!ok && arm === 'brain' && process.env['BRAIN_EXPLAIN_MISS'] === '1') {
+          process.stderr.write(`\n[MISS brain] ${subject} | gold=${gold} got=${letter}\n`)
+          process.stderr.write(`  Q: ${q.question.slice(0, 120)}\n`)
+          process.stderr.write(`  sources: ${JSON.stringify(row['sources'] ?? [])}\n`)
+          process.stderr.write(`  context_top:\n${context.slice(0, 600)}\n`)
+        }
       }
       // vote_share (ensemble column): fraction of the answering arms that picked each letter — the per-choice
       // agreement signal, computed once all arm preds are in the row. A strong column the combiner can weight.
