@@ -6246,6 +6246,33 @@ Question: ${question}`
     return
   }
 
+  // POST /api/graph/forget {q} — prune (soft-delete) graph nodes whose surface/normalised/filename/id matches q.
+  // Cleanup for test/exhaust entities (e.g. a stray "Hurricane Helene" grounded from an early test chat query).
+  // Sets hygiene_pruned so the lenses + retrieval skip them. Returns matches pruned. (Backs a future Library
+  // "remove entity" action.) Matches CanonicalEntity (surface/normalised) + Documents (filename), not chunk text.
+  if (req.method === 'POST' && url.pathname === '/api/graph/forget') {
+    setCORSHeaders(res)
+    const fbuf: Buffer[] = []
+    req.on('data', (c: Buffer) => fbuf.push(c))
+    req.on('end', () => { void (async () => {
+      try {
+        const { q } = JSON.parse(Buffer.concat(fbuf).toString() || '{}') as { q?: string }
+        const needle = String(q ?? '').toLowerCase().trim()
+        if (!needle) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'q required' })); return }
+        const { getGraph } = await import('./lib/graph.js')
+        const g = getGraph() as unknown as { allNodes: () => Array<{ id: string; properties?: Record<string, unknown> }>; setNodeProperty: (id: string, k: string, v: unknown) => void }
+        const pruned: string[] = []
+        for (const n of g.allNodes()) {
+          if (n.properties?.['hygiene_pruned'] === true) continue
+          const hay = [n.properties?.['surface'], n.properties?.['normalised'], n.properties?.['filename'], n.id].map((x) => String(x ?? '').toLowerCase()).join('  ')
+          if (hay.includes(needle)) { try { g.setNodeProperty(n.id, 'hygiene_pruned', true); pruned.push(String(n.properties?.['surface'] ?? n.id).slice(0, 80)) } catch { /* */ } }
+        }
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true, pruned: pruned.length, samples: pruned.slice(0, 10) }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'failed' })) }
+    })() })
+    return
+  }
+
   // GET /api/library — "what's been captured into the graph": collections → documents → entity/chunk counts.
   // The observability surface (like ChatGPT's library, but for the knowledge graph).
   if (req.method === 'GET' && url.pathname === '/api/library') {
