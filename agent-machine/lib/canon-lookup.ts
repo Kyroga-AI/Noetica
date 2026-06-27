@@ -123,7 +123,18 @@ export function canonEntities(text: string, max = 8): CanonEntity[] {
   if (!DEFS) load()
   const padded = ` ${norm(text)} `
   const words = new Set(padded.trim().split(' '))
-  const present = (k: string): boolean => (k.includes(' ') ? padded.includes(` ${k} `) : (k.length >= 4 && words.has(k)))
+  // Plural/suffix matching for single-word terms: "group" matches "groups", "ring" matches "rings",
+  // "subgroup" matches "subgroups". Without this, MMLU questions consistently use plurals while the
+  // canon stores singular forms — causing silent ungrounded routing for well-covered topics.
+  const wordMatchesTerm = (k: string): boolean => {
+    if (words.has(k)) return true
+    for (const suffix of ['s', 'es', 'ies']) {
+      if (words.has(k + suffix)) return true
+      if (suffix === 'ies' && k.endsWith('y') && words.has(k.slice(0, -1) + 'ies')) return true
+    }
+    return false
+  }
+  const present = (k: string): boolean => k.includes(' ') ? padded.includes(` ${k} `) : (k.length >= 4 && wordMatchesTerm(k))
   const hits: CanonEntity[] = []
   const seen = new Set<string>()
   for (const [k, d] of DEFS!) {
