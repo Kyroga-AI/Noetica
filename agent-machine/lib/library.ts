@@ -70,9 +70,9 @@ export async function buildLibrary(): Promise<Library> {
   const groupList = [...groups.values()].sort((a, b) => rank(a.kind) - rank(b.kind) || (b.createdAt ?? '').localeCompare(a.createdAt ?? '') || b.chunkCount - a.chunkCount)
   for (const grp of groupList) grp.docs.sort((a, b) => b.entities - a.entities)
 
-  // Graph-wide entity total is reliable (every CanonicalEntity node); per-doc entity counts depend on the
-  // Document→entity GROUNDS edges, which aren't created for interned/deduped entities yet — so per-doc shows 0
-  // until that grounding-linkage is fixed. Report the real graph total so the Library reflects what's captured.
+  // Per-doc entity counts come from the Document→entity GROUNDS edges (P2.4: linked by normalised surface at
+  // ingest + backfilled on boot). The headline total stays the graph-wide CanonicalEntity count (the deduped
+  // universe), since the same entity is grounded by many docs so per-doc counts overlap and don't sum to it.
   const graphEntities = (() => { try { return g.nodesByLabel('CanonicalEntity').length } catch { return totalEntities } })()
 
   return {

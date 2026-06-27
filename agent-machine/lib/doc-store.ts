@@ -83,6 +83,23 @@ export interface IngestResult {
   grounding?: { confirmed: number; residual: number } // confirmed = grounded to prime basis; residual = surprise
 }
 
+/** Link a doc to the canonical entities it mentions (GROUNDS edges), matched by normalised surface — interned
+ *  entities carry no per-doc provenance. Idempotent (skips already-linked). PURE linking — never re-ingests
+ *  entities (that's the expensive part); callers that need ingest do it separately. Returns edges added. */
+function linkDocGrounds(g: ReturnType<typeof getHellGraph>, docId: string, ents: Array<{ normalised?: string }>): number {
+  const wanted = new Set(ents.map((e) => String(e.normalised ?? '').toLowerCase().trim()).filter(Boolean))
+  if (wanted.size === 0) return 0
+  const already = new Set(g.out(docId, 'GROUNDS').map((n) => n.id))
+  let n = 0
+  for (const ce of g.nodesByLabel('CanonicalEntity')) {
+    const norm = String(ce.properties['normalised'] ?? '').toLowerCase().trim()
+    if (norm && wanted.has(norm) && !already.has(ce.id)) {
+      try { g.addEdge('GROUNDS', docId, ce.id, { kind: 'entity', surface: String(ce.properties['surface'] ?? norm) }); already.add(ce.id); n++ } catch { /* edge best-effort */ }
+    }
+  }
+  return n
+}
+
 /**
  * Ground a document THROUGH the ontology on ingest — the perception half of the
  * epistemic loop. extractEntities recognizes entities and reports the prime topics
@@ -101,6 +118,8 @@ function groundThroughOntology(docId: string, text: string): { entities: number;
     }
     // Native write into the epistemic substrate (CanonicalEntity atoms + epistemic class).
     ingestEntities(docId, 'ingest', text.slice(0, 20_000), new Date().toISOString())
+    // GROUNDS linkage (P2.4): bridge the doc layer to the REGIS entity layer (matched by normalised surface).
+    try { linkDocGrounds(getHellGraph(), docId, ents) } catch { /* grounding linkage best-effort */ }
     return { entities: ents.length, confirmed, residual: ents.length - confirmed }
   } catch {
     return { entities: 0, confirmed: 0, residual: 0 }
@@ -124,12 +143,9 @@ function linkProjections(g: ReturnType<typeof getHellGraph>, docId: string): { c
         if (c.properties['doc_id'] === docId) { g.addEdge('PRODUCED', docId, c.id, { kind: 'chunk' }); chunks++ }
       }
     } else chunks = g.out(docId, 'PRODUCED').length
-    if (g.out(docId, 'GROUNDS').length === 0) {
-      for (const e of g.nodesByLabel('CanonicalEntity')) {
-        const src = e.properties['doc_id'] ?? e.properties['source'] ?? e.properties['provenance']
-        if (src === docId) { g.addEdge('GROUNDS', docId, e.id, { kind: 'entity' }); entities++ }
-      }
-    } else entities = g.out(docId, 'GROUNDS').length
+    // GROUNDS edges are created in groundThroughOntology (matched by normalised surface, since interned entities
+    // carry no per-doc provenance); just count them here.
+    entities = g.out(docId, 'GROUNDS').length
   } catch { /* projection linking is best-effort */ }
   return { chunks, entities }
 }
@@ -385,6 +401,32 @@ export async function reindexVectorTier(): Promise<{ collections: number; chunks
   let chunks = 0
   for (const [col, items] of byCol) { const n = await vecUpsert(col, items); if (n) chunks += n }
   return { collections: byCol.size, chunks }
+}
+
+/** Backfill GROUNDS edges for EXISTING docs that have none (new ingests link at ingest time). Reconstructs each
+ *  doc's text from its chunks, re-runs the ontology grounding (idempotent), and links by normalised surface.
+ *  Run once on boot; skips docs already linked. */
+export function relinkDocEntities(): { docs: number; edges: number } {
+  const g = getHellGraph()
+  const textByDoc = new Map<string, string[]>()
+  for (const c of g.nodesByLabel(CHUNK_LABEL)) {
+    if (c.properties['hidden']) continue
+    const did = String(c.properties['doc_id'] ?? ''); if (!did) continue
+    const t = String(c.properties['text'] ?? ''); if (!t) continue
+    if (!textByDoc.has(did)) textByDoc.set(did, [])
+    textByDoc.get(did)!.push(t)
+  }
+  let docs = 0, edges = 0
+  for (const d of g.nodesByLabel('Document')) {
+    if (d.properties['hidden']) continue
+    if (g.out(d.id, 'GROUNDS').length > 0) continue   // already linked
+    const parts = textByDoc.get(d.id); if (!parts || parts.length === 0) continue
+    // Link ONLY (extractEntities is cheap regex; the entities already exist from the original ingest) — never
+    // re-ingest here, that's what froze the boot on a large graph.
+    const e = linkDocGrounds(g, d.id, extractEntities(parts.join('\n')))
+    if (e > 0) { docs++; edges += e }
+  }
+  return { docs, edges }
 }
 
 /** Self-healing: if stored chunk vectors were made by a DIFFERENT embedder than the one now active (different

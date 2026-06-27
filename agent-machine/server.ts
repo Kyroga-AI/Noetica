@@ -8448,6 +8448,13 @@ server.listen(PORT, '127.0.0.1', () => {
         if (r.chunks > 0) console.log(`[vec-tier] backfilled ${r.chunks} chunks into ${r.collections} collection(s)`.replace(/[\r\n]/g, ' '))
       }
     } catch { /* best-effort */ }
+    // Backfill Document→entity GROUNDS edges for existing docs that have none (P2.4) — so the Library shows
+    // per-doc entity counts without a re-ingest. Idempotent; skips already-linked docs.
+    try {
+      const { relinkDocEntities } = await import('./lib/doc-store.js')
+      const r = relinkDocEntities()
+      if (r.edges > 0) console.log(`[entity-link] linked ${r.edges} entity edge(s) across ${r.docs} doc(s)`.replace(/[\r\n]/g, ' '))
+    } catch { /* best-effort */ }
   })()
 
   // Demo pre-warm: actually LOAD the primary chat model(s) into RAM with a long
