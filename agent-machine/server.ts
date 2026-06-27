@@ -130,6 +130,23 @@ if (process.env['NOETICA_JS_SANDBOX'] === '1') {
 const PORT = parseInt(process.env['NOETICA_AM_PORT'] ?? '8080', 10)
 const VERSION = '0.4.21'
 
+// ─── Anthropic inference endpoint (Branch A BYOK / Branch B proxy) ──────────────────────────────────────────
+// Branch A (default, desktop): direct to api.anthropic.com with the USER's own x-api-key (kept in the OS
+// keychain; passed per-request as provider_keys.anthropic). Branch B (managed): when NOETICA_ANTHROPIC_PROXY_URL
+// is set, route through OUR REMOTE proxy instead — it holds the SHARED key and forwards. We send only a per-user
+// Bearer token (NOETICA_PROXY_TOKEN), NEVER the Anthropic key. The shared key must NOT live in this on-device
+// sidecar (it would be extractable from the desktop bundle) — it lives only on the remote proxy. See
+// docs/anthropic-key-integration.md.
+const anthropicProxyMode = (): boolean => Boolean(process.env['NOETICA_ANTHROPIC_PROXY_URL']?.trim())
+function anthropicTarget(apiKey: string, extra: Record<string, string> = {}): { url: string; headers: Record<string, string> } {
+  const proxy = process.env['NOETICA_ANTHROPIC_PROXY_URL']?.trim()
+  if (proxy) {
+    const tok = process.env['NOETICA_PROXY_TOKEN']?.trim()
+    return { url: proxy, headers: { 'content-type': 'application/json', 'anthropic-version': '2023-06-01', ...(tok ? { authorization: `Bearer ${tok}` } : {}), ...extra } }
+  }
+  return { url: 'https://api.anthropic.com/v1/messages', headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', ...extra } }
+}
+
 // Sovereign offline mode: arm the egress guard so non-local egress is STRUCTURALLY impossible
 // when NOETICA_OFFLINE is set (airplane mode). No-op passthrough when online. Installed early,
 // before any fetch, so it covers every path — model calls, web_search, telemetry, dependencies.
@@ -594,10 +611,11 @@ async function runSuperconsciousLoop(keys: LoopProviderKeys): Promise<void> {
 
     // Run synthesis — prefer Anthropic, fall back to OpenAI
     let synthesisText = ''
-    if (keys.anthropic) {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+    if (keys.anthropic || anthropicProxyMode()) {
+      const _t = anthropicTarget(keys.anthropic ?? '')
+      const res = await fetch(_t.url, {
         method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-api-key': keys.anthropic, 'anthropic-version': '2023-06-01' },
+        headers: _t.headers,
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 1024,
@@ -2078,19 +2096,14 @@ async function* streamAnthropic(params: {
     body['thinking'] = { type: 'enabled', budget_tokens: params.thinkingBudget }
   }
 
-  const anthropicHeaders = {
-    'content-type': 'application/json',
-    'x-api-key': params.apiKey,
-    'anthropic-version': '2023-06-01',
-    ...(params.thinkingBudget ? { 'anthropic-beta': 'interleaved-thinking-2025-05-14' } : {}),
-  }
+  const _anthropicTgt = anthropicTarget(params.apiKey, params.thinkingBudget ? { 'anthropic-beta': 'interleaved-thinking-2025-05-14' } : {})
 
   let res: Response
   let lastStatus = 0
   for (let attempt = 0; attempt < 3; attempt++) {
-    res = await fetch('https://api.anthropic.com/v1/messages', {
+    res = await fetch(_anthropicTgt.url, {
       method: 'POST',
-      headers: anthropicHeaders,
+      headers: _anthropicTgt.headers,
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(120_000),
     })
@@ -2343,6 +2356,8 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   const turnStart = Date.now() // request-received clock (used by the fast clarify path)
   const keys = body.provider_keys ?? {}
   const anthropicKey = keys.anthropic?.trim() || process.env['ANTHROPIC_API_KEY'] || ''
+  // Branch B: with a remote proxy configured, Anthropic is reachable even WITHOUT a local key (the proxy holds it).
+  const anthropicAvailable = Boolean(anthropicKey) || anthropicProxyMode()
   const openaiKey = keys.openai?.trim() || process.env['OPENAI_API_KEY'] || ''
   const openrouterKey = keys.openrouter?.trim() || process.env['OPENROUTER_API_KEY'] || ''
   const hfKey = keys.huggingface?.trim() || process.env['HF_API_KEY'] || process.env['HUGGINGFACE_API_KEY'] || ''
@@ -2353,7 +2368,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // error — wait for the runtime to come up (the request just takes a little longer on a
   // cold start). Only wait when there's no cloud key to fall back to.
   let ollamaUp = await isOllamaRunning()
-  if (!ollamaUp && !anthropicKey && !openaiKey) {
+  if (!ollamaUp && !anthropicAvailable && !openaiKey) {
     const deadline = Date.now() + 25_000
     while (Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, 1000))
@@ -2556,7 +2571,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       content: latestUserContent,
       ollamaAvailable: ollamaUp,
       availableModels,
-      hasAnthropicKey: Boolean(anthropicKey),
+      hasAnthropicKey: anthropicAvailable,
       hasOpenAIKey: Boolean(openaiKey),
       explicitModelId: body.model_id,
       policyProfile: body.policy_profile,
@@ -2576,7 +2591,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     try {
       routing = buildRouterDecision({
         requestId: crypto.randomUUID(), content: latestUserContent, ollamaAvailable: ollamaUp, availableModels: [],
-        hasAnthropicKey: Boolean(anthropicKey), hasOpenAIKey: Boolean(openaiKey), explicitModelId: body.model_id,
+        hasAnthropicKey: anthropicAvailable, hasOpenAIKey: Boolean(openaiKey), explicitModelId: body.model_id,
         policyProfile: body.policy_profile, securityAttested: body.security_attested === true, hasImages,
         hasTools: (body.tools?.length ?? 0) > 0, taskOverride: undefined,
       })
@@ -2634,7 +2649,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     const hint = capabilityHint(routerDecision.task ?? 'general')
     if (hint.recommendEscalation) {
       let escalated = false
-      if (anthropicKey) { provider = 'anthropic'; model = 'claude-haiku-4-5-20251001'; escalated = true }
+      if (anthropicAvailable) { provider = 'anthropic'; model = 'claude-haiku-4-5-20251001'; escalated = true }
       else if (openaiKey) { provider = 'openai'; model = 'gpt-4o-mini'; escalated = true }
       if (escalated) {
         console.log(`[self-model] escalated task="${String(routerDecision.task)}" → ${provider}:${model} (local success ${(hint.localSuccessRate ?? 0).toFixed(2)} over ${hint.localRuns} runs)`.replace(/\r/g, '').replace(/\n/g, ''))
