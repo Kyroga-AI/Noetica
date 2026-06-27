@@ -157,7 +157,10 @@ export function canonEntities(text: string, max = 8): CanonEntity[] {
     }
     return false
   }
-  const present = (k: string): boolean => k.includes(' ') ? padded.includes(` ${k} `) : (k.length >= 4 && wordMatchesTerm(k))
+  const presentMulti = (k: string): boolean =>
+    padded.includes(` ${k} `) || padded.includes(` ${k}s `) || padded.includes(` ${k}es `) ||
+    (k.endsWith('y') && padded.includes(` ${k.slice(0, -1)}ies `))
+  const present = (k: string): boolean => k.includes(' ') ? presentMulti(k) : (k.length >= 4 && wordMatchesTerm(k))
   const hits: CanonEntity[] = []
   const seen = new Set<string>()
   for (const [k, d] of DEFS!) {
