@@ -67,6 +67,18 @@
         {
           "term": "solution",
           "definition": "Homogeneous mixture of solute dissolved in solvent. Properties: molarity, molality, mole fraction, percent composition by mass."
+        },
+        {
+          "term": "atom",
+          "definition": "The smallest unit of an element retaining its chemical properties; consists of a nucleus (protons + neutrons) surrounded by electrons. Atomic number Z = proton count determines the element."
+        },
+        {
+          "term": "molecule",
+          "definition": "Two or more atoms covalently bonded together as the smallest unit of a chemical compound; characterized by molecular formula (atom counts) and molecular geometry."
+        },
+        {
+          "term": "element",
+          "definition": "A pure substance consisting of only one type of atom (same atomic number Z); cannot be broken down by chemical means; 118 elements in the periodic table."
         }
       ],
       "canon": [
@@ -382,6 +394,10 @@
         {
           "term": "heterogeneous equilibrium",
           "definition": "An equilibrium involving reactants or products in more than one phase; pure solids and liquids are omitted from the K expression."
+        },
+        {
+          "term": "equilibrium",
+          "definition": "The state of a reversible chemical reaction where the forward and reverse rates are equal, so concentrations remain constant; described by the equilibrium constant K."
         }
       ],
       "canon": [
@@ -483,7 +499,7 @@
         },
         {
           "term": "acid",
-          "definition": "A substance that donates protons (Bronsted-Lowry) or accepts electrons (Lewis). Strong acids fully dissociate in water (HCl, H₂SO₄, HNO₃). Weak acids partially dissociate (K_a < 1)."
+          "definition": "A substance that donates protons (Bronsted-Lowry) or accepts electrons (Lewis). Strong acids fully dissociate in water (HCl, H\u2082SO\u2084, HNO\u2083). Weak acids partially dissociate (K_a < 1)."
         },
         {
           "term": "base",
@@ -699,6 +715,18 @@
         {
           "term": "concentration cell",
           "definition": "A galvanic cell whose EMF arises solely from a difference in concentration of the same species at the two electrodes."
+        },
+        {
+          "term": "oxidation",
+          "definition": "The loss of electrons by an atom/molecule in a redox reaction (increase in oxidation state); always paired with reduction (gain of electrons)."
+        },
+        {
+          "term": "reduction",
+          "definition": "The gain of electrons by an atom/molecule in a redox reaction (decrease in oxidation state); occurs at the cathode in electrochemical cells."
+        },
+        {
+          "term": "metal",
+          "definition": "An element characterized by metallic bonding, electrical conductivity, malleability, and tendency to lose electrons to form cations; located on the left/center of the periodic table."
         }
       ],
       "canon": [
@@ -798,6 +826,14 @@
         {
           "term": "electron affinity (EA)",
           "definition": "The energy change when an electron is added to a neutral gaseous atom in its ground state."
+        },
+        {
+          "term": "electron",
+          "definition": "A negatively charged elementary particle (charge \u2212e = \u22121.6\u00d710\u207b\u00b9\u2079 C) surrounding the nucleus; its quantum states (orbitals) determine bonding and reactivity."
+        },
+        {
+          "term": "orbital",
+          "definition": "A mathematical function (wavefunction) describing the probability distribution of an electron in an atom; quantum numbers n, l, m\u2097 define each orbital (s, p, d, f types)."
         }
       ],
       "canon": [
@@ -878,7 +914,7 @@
         },
         {
           "term": "dipole moment (mu)",
-          "definition": "A measure of charge separation in a molecule: mu = q * d; units are debye (D) or C·m."
+          "definition": "A measure of charge separation in a molecule: mu = q * d; units are debye (D) or C\u00b7m."
         },
         {
           "term": "hydrogen bond",
@@ -1009,6 +1045,10 @@
         {
           "term": "enol / enolate",
           "definition": "An enol is a tautomer of a carbonyl compound with OH on a sp2 carbon; an enolate is its conjugate base, a resonance-stabilized carbanion."
+        },
+        {
+          "term": "organic",
+          "definition": "Organic compounds contain carbon-hydrogen bonds (and typically C-C bonds); organic chemistry studies their structure, properties, reactions, and synthesis."
         }
       ],
       "canon": [
@@ -1077,11 +1117,11 @@
         },
         {
           "term": "molar absorptivity (epsilon)",
-          "definition": "The intrinsic property of a substance relating absorbance to concentration and path length; units are L/(mol·cm)."
+          "definition": "The intrinsic property of a substance relating absorbance to concentration and path length; units are L/(mol\u00b7cm)."
         },
         {
           "term": "fingerprint region",
-          "definition": "The complex region of an IR spectrum from ~500–1500 cm-1 unique to each molecule; used for compound identification."
+          "definition": "The complex region of an IR spectrum from ~500\u20131500 cm-1 unique to each molecule; used for compound identification."
         },
         {
           "term": "molecular ion (M+)",
@@ -1098,6 +1138,14 @@
         {
           "term": "selection rule",
           "definition": "A quantum-mechanical rule specifying allowed transitions; for IR, a vibration must cause a change in dipole moment; for Raman, a change in polarizability."
+        },
+        {
+          "term": "NMR",
+          "definition": "Nuclear Magnetic Resonance spectroscopy; measures the magnetic environment of nuclei (\u00b9H, \u00b9\u00b3C) to determine molecular structure; chemical shifts (in ppm) identify functional groups."
+        },
+        {
+          "term": "spectroscopy",
+          "definition": "Study of matter-electromagnetic radiation interaction; types include IR (bond vibrations), UV-Vis (electronic transitions), NMR (nuclear spin), and mass spectrometry."
         }
       ],
       "canon": [
