@@ -124,7 +124,9 @@ const FIELD_ADJ: Record<string, string[]> = {
 // at ranking time re-weights toward the on-topic course before top-k selection. Boost = 1.25 for
 // primary course, 1.15 for closely related. (materialBoost is orthogonal — applies on top.)
 const SUBJECT_SLUG_HINT: Record<string, Map<string, number>> = {
-  abstract_algebra:       new Map([['18-703', 1.25], ['18-704', 1.20], ['18-702', 1.15], ['18-700', 1.10]]),
+  // Diagnostic: homomorphism questions pull 4/6 chunks from 18.225 (graph homomorphisms) vs 18.703.
+  // 1.25× wasn't enough to beat raw cosine. Raised to 1.35×; 18.704 (representation theory) down 1.20.
+  abstract_algebra:       new Map([['18-703', 1.35], ['18-704', 1.20], ['18-702', 1.15], ['18-700', 1.10]]),
   high_school_mathematics: new Map([['18-01',  1.20], ['18-02',  1.20], ['18-06',  1.15], ['18-03',  1.10]]),
   // college_mathematics covers algebra (18.703), linear algebra (18.06), real analysis (18.100), calc (18.01-03)
   // Diagnostic: ring/group questions pull from algebraic topology; factorial/combinatorics pulls probability.
