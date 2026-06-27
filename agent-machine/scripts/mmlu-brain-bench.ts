@@ -39,6 +39,7 @@ import { sanitizeRetrieved } from '../lib/rag-trust.js'
 import { councilVote, learnedCouncilVote } from '../lib/council.js'
 import { fetchConceptDef, cleanTerm } from '../lib/concept-defs.js'
 import { canonBridges, canonGround, canonEntities, canonAncestors } from '../lib/canon-lookup.js'
+import { canonRoute } from '../lib/canon-route.js'
 import { associativeRetrieve } from '../lib/graph-ppr.js'
 import { decodeVec, l2norm } from '../lib/brain-vec.js'
 import { reliabilityGate } from '../lib/reliability-gate.js'
@@ -850,6 +851,10 @@ async function main() {
       const base = `${q.question}\n\n${q.choices.map((c, j) => `${LETTERS[j]}. ${c}`).join('\n')}`
       const gold = LETTERS[q.answer]
       const row: Record<string, unknown> = { subject, i, gold }
+      const routeDecision = canonRoute(q.question)
+      row['canon_grounding'] = routeDecision.grounding_status
+      if (routeDecision.grounding_status === 'ungrounded' && routeDecision.ungrounded_candidates.length)
+        process.stderr.write(`    [ungrounded] q${i + 1} candidates: ${routeDecision.ungrounded_candidates.slice(0, 5).join(', ')}\n`)
 
       // brain retrieval (shared by the brain arm AND the route arm's fallback) — multi-shot:
       // a broad query + one targeted query per choice, union top-K. MMLU_SHOT_K sets how many
