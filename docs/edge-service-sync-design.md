@@ -82,17 +82,17 @@ semantics on graph ops (OR-Set / LWW-MV); the **Merkle-fingerprint anti-entropy*
 surface** (the binding names it a SHOULD — implement it: queue/track/diverge/repair/replay); and
 provenance-through-sync (carry hg_proof across the boundary).
 
-## 6. Decisions to confirm
+## 6. Decisions — LOCKED 2026-06-27
 
-1. **CRDT flavor (collaborative class):** op-based (ship ops; needs causal+reliable delivery — TriTRPC provides it;
-   the journal *is* the op-log) vs state-based (ship merged states; simpler, heavier). **Rec: op-based.**
-2. **Governed-write UX:** optimistic-provisional (edge shows the write immediately, reconciles on admit/reject —
-   best UX, needs rollback) vs pessimistic (governed writes only when online+admitted). **Rec: optimistic-provisional
-   with explicit provenance state.**
-3. **Conflict surfacing:** auto-resolve all vs steward-surface the governed/semantic ones. **Rec: auto for
-   private/derived/collaborative; steward-surface governed.**
-4. **Home of this spec:** promote to `prophet-platform/docs` alongside LOCAL_FIRST_PLATFORM_BINDING (it's the
-   cross-cutting binding). **Rec: yes, promote.**
+1. **CRDT flavor (collaborative class): OP-BASED.** Ship ops over TriTRPC (causal + idempotent delivery); the
+   journal/op-log is the source. Semantics: **add-wins OR-Set** for nodes/edges, **LWW-register** for properties
+   (tie-break by `(lamport, replicaId)`). Implemented in `agent-machine/lib/sync-engine.ts`.
+2. **Governed-write UX: OPTIMISTIC-PROVISIONAL.** Edge commits locally + shows the write immediately, tagged
+   provisional; reconciles on platform admit (→ canonical) or reject (→ rollback + steward surface). Explicit
+   provenance state shown to the user (provisional / admitted / rejected).
+3. **Conflict surfacing: AUTO for private/derived/collaborative; STEWARD for governed.** CRDT auto-converges the
+   first three; genuine governed/semantic conflicts surface to a steward via the Govern surface.
+4. **Spec home: PROMOTE** to `prophet-platform/docs` alongside LOCAL_FIRST_PLATFORM_BINDING.
 
 ## 7. Phasing
 
