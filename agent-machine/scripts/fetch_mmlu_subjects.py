@@ -12,11 +12,15 @@ Run (needs `pip install datasets`):  python3 scripts/fetch_mmlu_subjects.py
   MMLU_BANK             bank path (default ~/.noetica/corpus/benchmarks/mmlu_stem.json — the one the bench reads)
   MMLU_FETCH_SUBJECTS   comma list (default the 5 medical subjects); use e.g. professional_law for a legal board
 """
-import os, json
+import os, json, re
 
 BANK = os.environ.get('MMLU_BANK', os.path.expanduser('~/.noetica/corpus/benchmarks/mmlu_stem.json'))
 MEDICAL = ['anatomy', 'clinical_knowledge', 'college_medicine', 'professional_medicine', 'medical_genetics']
-SUBJECTS = [s.strip() for s in os.environ.get('MMLU_FETCH_SUBJECTS', ','.join(MEDICAL)).split(',') if s.strip()]
+# MMLU subject slugs are lowercase ascii + underscore. Validate the env-supplied list against that shape so an
+# untrusted/malformed value never reaches load_dataset or the logs (also the sanitization barrier for CWE-312).
+_SUBJ_RE = re.compile(r'^[a-z0-9_]+$')
+SUBJECTS = [s.strip() for s in os.environ.get('MMLU_FETCH_SUBJECTS', ','.join(MEDICAL)).split(',')
+            if s.strip() and _SUBJ_RE.fullmatch(s.strip())]
 
 
 def main():
@@ -35,7 +39,7 @@ def main():
         try:
             ds = load_dataset('cais/mmlu', subj, split='test')
         except Exception as e:
-            print(f"  ! {subj} skipped: {type(e).__name__} {str(e)[:100]}", flush=True)
+            print(f"  ! {subj} skipped: {type(e).__name__}", flush=True)
             continue
         rows = []
         for r in ds:

@@ -1,0 +1,27 @@
+{
+  "_about": "Math operation → EXECUTABLE form across sympy / MATLAB / Wolfram — the 'man file' that connects the canonical equations' symbols to programming. Two jobs: (1) document how each math symbol maps to code so a flattened PDF symbol (∫, Σ, √, ∂) is unambiguous; (2) let the compute arm turn a canonical equation into executable sympy directly (the bridge canon → verified-compute), instead of the LLM cold-translating. sympy is our executor; MATLAB/Wolfram columns are the cross-reference the canonical references (Wolfram MathWorld / MATLAB Symbolic Math Toolbox) document.",
+  "operations": [
+    {"math": "power",              "symbol": "x^n",        "sympy": "x**n",                  "matlab": "x^n",            "wolfram": "x^n"},
+    {"math": "square root",        "symbol": "√x",         "sympy": "sqrt(x)",               "matlab": "sqrt(x)",        "wolfram": "Sqrt[x]"},
+    {"math": "nth root",           "symbol": "ⁿ√x",        "sympy": "root(x, n)",            "matlab": "nthroot(x, n)",  "wolfram": "Surd[x, n]"},
+    {"math": "natural log",        "symbol": "ln x",       "sympy": "log(x)",                "matlab": "log(x)",         "wolfram": "Log[x]"},
+    {"math": "exponential",        "symbol": "e^x",        "sympy": "exp(x)",                "matlab": "exp(x)",         "wolfram": "Exp[x]"},
+    {"math": "derivative",         "symbol": "d/dx f",     "sympy": "diff(f, x)",            "matlab": "diff(f, x)",     "wolfram": "D[f, x]"},
+    {"math": "partial derivative", "symbol": "∂/∂x f",     "sympy": "diff(f, x)",            "matlab": "diff(f, x)",     "wolfram": "D[f, x]"},
+    {"math": "indefinite integral","symbol": "∫ f dx",     "sympy": "integrate(f, x)",       "matlab": "int(f, x)",      "wolfram": "Integrate[f, x]"},
+    {"math": "definite integral",  "symbol": "∫_a^b f dx", "sympy": "integrate(f, (x,a,b))", "matlab": "int(f, x, a, b)","wolfram": "Integrate[f, {x,a,b}]"},
+    {"math": "summation",          "symbol": "Σ_{i=a}^b",  "sympy": "Sum(f, (i, a, b))",     "matlab": "symsum(f,i,a,b)","wolfram": "Sum[f, {i,a,b}]"},
+    {"math": "product",            "symbol": "Π_{i=a}^b",  "sympy": "Product(f, (i, a, b))", "matlab": "prod(...)",      "wolfram": "Product[f, {i,a,b}]"},
+    {"math": "limit",              "symbol": "lim_{x→a}",  "sympy": "limit(f, x, a)",        "matlab": "limit(f, x, a)", "wolfram": "Limit[f, x -> a]"},
+    {"math": "solve equation",     "symbol": "solve",      "sympy": "solve(Eq(lhs, rhs), x)","matlab": "solve(eq, x)",   "wolfram": "Solve[eq == 0, x]"},
+    {"math": "factorial",          "symbol": "n!",         "sympy": "factorial(n)",          "matlab": "factorial(n)",   "wolfram": "n!"},
+    {"math": "binomial",           "symbol": "C(n,k)",     "sympy": "binomial(n, k)",        "matlab": "nchoosek(n, k)", "wolfram": "Binomial[n, k]"},
+    {"math": "matrix",             "symbol": "[ ]",        "sympy": "Matrix([[...]])",       "matlab": "[...; ...]",     "wolfram": "{{...},{...}}"},
+    {"math": "determinant",        "symbol": "det M",      "sympy": "M.det()",               "matlab": "det(M)",         "wolfram": "Det[M]"},
+    {"math": "matrix inverse",     "symbol": "M⁻¹",        "sympy": "M.inv()",               "matlab": "inv(M)",         "wolfram": "Inverse[M]"},
+    {"math": "eigenvalues",        "symbol": "λ",          "sympy": "M.eigenvals()",         "matlab": "eig(M)",         "wolfram": "Eigenvalues[M]"},
+    {"math": "absolute value",     "symbol": "|x|",        "sympy": "Abs(x)",                "matlab": "abs(x)",         "wolfram": "Abs[x]"},
+    {"math": "gcd",                "symbol": "gcd",        "sympy": "gcd(a, b)",             "matlab": "gcd(a, b)",      "wolfram": "GCD[a, b]"},
+    {"math": "modulo",             "symbol": "a mod n",    "sympy": "Mod(a, n)",             "matlab": "mod(a, n)",      "wolfram": "Mod[a, n]"}
+  ]
+}

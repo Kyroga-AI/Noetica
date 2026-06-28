@@ -379,7 +379,9 @@ export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[
     const isTopic = cl.members.has(id)   // a representative = a topic (class layer)
     // Topic reps render as their synthesized CLASS name; instances (drill-down) keep their own.
     const label = (isTopic ? cl.classNames.get(id) : null) ?? cleanLabel(n) ?? (n.labels[0] ?? 'node')
-    return [{ id, label, category: categoryFor(n.labels[0] ?? ''), kind: isTopic ? 'Concept' : kindOf(n.labels[0] ?? ''), featured: isTopic || deg >= maxDeg * 0.6, degree: deg }]
+    const kvProp = n.properties?.['kvClass']
+    const kvClass = (typeof kvProp === 'string' && kvProp) ? kvProp : categoryFor(n.labels[0] ?? '')
+    return [{ id, label, category: categoryFor(n.labels[0] ?? ''), kind: isTopic ? 'Concept' : kindOf(n.labels[0] ?? ''), kvClass, featured: isTopic || deg >= maxDeg * 0.6, degree: deg }]
   })
 
   const links: SurfaceLink[] = []

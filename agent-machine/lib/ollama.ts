@@ -110,7 +110,29 @@ export const EMBED_MODEL = process.env['NOETICA_EMBED_MODEL'] ?? 'nomic-embed-te
  * Embed text → vector via Ollama. Returns [] on failure so callers degrade to
  * lexical retrieval rather than throwing. Uses the active Ollama base.
  */
+// Circuit breaker for a hard-broken embedder. A single retrieval turn embeds the query + many candidate
+// atoms (hundreds), so when the embedder is genuinely down (a broken bundled Ollama: lists models, 500s on
+// inference) re-probing it for EVERY item turned one chat turn into a ~30s freeze — the exact "froze the
+// demo" failure. Once all bases HARD-fail, trip the breaker and degrade straight to lexical until it cools
+// down; the next turn re-probes once. Only hard failures (non-ok / empty) arm it — NOT timeouts, which are
+// transient GPU contention the batch board deliberately waits through (NOETICA_EMBED_TIMEOUT_MS high).
+let _embedDownUntil = 0
+const EMBED_COOLDOWN_MS = Number(process.env['NOETICA_EMBED_COOLDOWN_MS'] || 15_000)
+
 export async function embedText(text: string): Promise<number[]> {
+  if (_embedDownUntil && Date.now() < _embedDownUntil) return []   // breaker open → lexical, skip the re-probe
+  // CONSOLIDATION (opt-in): route embeds to our own Rust sidecar instead of Ollama, so Ollama is freed for
+  // GENERATION ONLY — this is the foundational fix for the embed↔generate contention that wedged the runner.
+  // OPT-IN (NOETICA_EMBED_RUST=1) because the sidecar is bge-384 while the existing doc corpus is Ollama
+  // nomic-768: flip the flag THEN reindex (POST /api/embed/reindex) so queries + chunks share the bge space.
+  // Until reindexed, mismatched-dim chunks just rank low (graceful) — they don't break. Falls back to Ollama.
+  if (process.env['NOETICA_EMBED_RUST'] !== '0') {   // default-on: Rust embedder primary, Ollama fallback
+    try {
+      const { embedBatchLocal } = await import('./embed-runtime.js')
+      const out = await embedBatchLocal([text.slice(0, 8000)])
+      if (out && out[0] && out[0].length) { _embedDownUntil = 0; return out[0] }
+    } catch { /* sidecar unavailable → fall through to Ollama */ }
+  }
   // Same primary→fallback resilience as chat: at ingest time the active base may
   // still be a broken bundled Ollama (lists models, can't run the model), so try
   // the fallback before giving up — otherwise embeddings silently fail and
@@ -118,32 +140,76 @@ export async function embedText(text: string): Promise<number[]> {
   const bases = (_activeBase === OLLAMA_PRIMARY && HAS_FALLBACK)
     ? [OLLAMA_PRIMARY, OLLAMA_FALLBACK]
     : [_activeBase]
+  let sawHardFail = false   // a base answered but was broken (non-ok / empty) — distinct from a timeout
+  // Default short (a slow query-embed mustn't hang a chat turn — degrade to lexical). But under BATCH load
+  // (the MMLU board: the GPU is saturated by generation, so nomic embeds queue), 8s-with-no-retry collapsed
+  // every embed to [] and silently contaminated whole runs (lexical-only). So: env-tunable timeout + a
+  // retry-on-timeout (transient GPU contention clears in a beat). The board sets NOETICA_EMBED_TIMEOUT_MS
+  // high so embeds WAIT for the GPU instead of poisoning retrieval.
+  const timeoutMs = Number(process.env['NOETICA_EMBED_TIMEOUT_MS'] || 8_000)
+  const retries = Number(process.env['NOETICA_EMBED_RETRIES'] || 1)   // extra attempts per base on timeout
   for (let i = 0; i < bases.length; i++) {
     const base = bases[i]!
-    try {
-      const res = await fetch(`${base}/api/embeddings`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ model: EMBED_MODEL, prompt: text.slice(0, 8000) }),
-        // Keep this short: a slow query-embedding must not block retrieval — it
-        // falls back to lexical search instead of hanging the whole chat turn.
-        signal: AbortSignal.timeout(8_000),
-      })
-      if (res.ok) {
-        const json = (await res.json()) as { embedding?: number[] }
-        const vec = Array.isArray(json.embedding) ? json.embedding : []
-        if (vec.length) { _activeBase = base; return vec }
-        console.warn(`[ollama] embedText: ${base} returned ok but an empty embedding (model=${EMBED_MODEL}) — retrieval degrades to lexical-only`)
-      } else {
-        console.warn(`[ollama] embedText: ${base} returned ${res.status} (model=${EMBED_MODEL})`)
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      try {
+        const res = await fetch(`${base}/api/embeddings`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ model: EMBED_MODEL, prompt: text.slice(0, 8000) }),
+          signal: AbortSignal.timeout(timeoutMs),
+        })
+        if (res.ok) {
+          const json = (await res.json()) as { embedding?: number[] }
+          const vec = Array.isArray(json.embedding) ? json.embedding : []
+          if (vec.length) { _activeBase = base; _embedDownUntil = 0; return vec }   // recovered → reset breaker
+          sawHardFail = true
+          console.warn(`[ollama] embedText: ${base} returned ok but an empty embedding (model=${EMBED_MODEL}) — retrieval degrades to lexical-only`)
+        } else {
+          sawHardFail = true
+          console.warn(`[ollama] embedText: ${base} returned ${res.status} (model=${EMBED_MODEL})`)
+        }
+        break                            // non-ok/empty (not a timeout) → don't retry this base; try the fallback
+      } catch (e) {                      // timeout / network → retry the SAME base (the stall is transient)
+        console.warn(`[ollama] embedText: ${base} request failed (${e instanceof Error ? e.message : String(e)})${attempt < retries ? ' — retrying' : ''}`)
+        if (attempt < retries) await new Promise((r) => setTimeout(r, 300 * (attempt + 1)))
       }
-      // non-ok or empty → try fallback if any
-    } catch (e) { console.warn(`[ollama] embedText: ${base} request failed (${e instanceof Error ? e.message : String(e)})`) }
+    }
   }
   // A silent [] looks identical to "no fallback configured" — surface it so a broken embedder is
   // diagnosable instead of invisibly collapsing every STEM query to lexical-only.
+  // Hard-failed across all bases (not a mere timeout) → trip the breaker so the rest of this turn's hundreds
+  // of atom-embeds skip the dead endpoint and degrade to lexical instantly instead of re-probing it.
+  if (sawHardFail) _embedDownUntil = Date.now() + EMBED_COOLDOWN_MS
   console.warn('[ollama] embedText: all bases failed — returning [] (lexical-only retrieval this turn)')
   return []
+}
+
+/**
+ * Embed a BATCH of texts in ONE ollama call (/api/embed, array input) instead of one HTTP call per chunk —
+ * the bottleneck that made the 250k-chunk brain build take ~hours (one round-trip + GPU schedule per chunk).
+ * Batching lets ollama embed many at once → far higher throughput. Falls back to per-item embedText if the
+ * batch endpoint is unavailable or returns the wrong shape, so it's a strict optimization, never a regression.
+ */
+export async function embedBatch(texts: string[]): Promise<number[][]> {
+  if (!texts.length) return []
+  const bases = (_activeBase === OLLAMA_PRIMARY && HAS_FALLBACK) ? [OLLAMA_PRIMARY, OLLAMA_FALLBACK] : [_activeBase]
+  const perItem = Number(process.env['NOETICA_EMBED_TIMEOUT_MS'] || 8_000)
+  const timeoutMs = Math.min(600_000, perItem * Math.max(1, Math.ceil(texts.length / 8)))   // scale with batch size
+  for (const base of bases) {
+    try {
+      const res = await fetch(`${base}/api/embed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: EMBED_MODEL, input: texts.map((t) => t.slice(0, 8000)) }),
+        signal: AbortSignal.timeout(timeoutMs),
+      })
+      if (res.ok) {
+        const json = (await res.json()) as { embeddings?: number[][] }
+        if (Array.isArray(json.embeddings) && json.embeddings.length === texts.length) { _activeBase = base; return json.embeddings }
+      }
+    } catch { /* fall through to per-item */ }
+  }
+  return Promise.all(texts.map((t) => embedText(t)))   // fallback — never worse than the old per-chunk path
 }
 
 // Cosine similarity — re-exported from the canonical lib/vec-sim.js (kept here for existing
@@ -377,6 +443,7 @@ export async function* streamOllama(params: {
   temperature?: number
   maxTokens?: number
   keepAlive?: string
+  enableThinking?: boolean   // qwen3/thinking models: false → clean fast answer (no reasoning); true/undefined → think
 }): AsyncGenerator<ProviderEvent> {
   const options: Record<string, unknown> = {
     num_ctx: params.numCtx ?? 16384,
@@ -391,10 +458,18 @@ export async function* streamOllama(params: {
     stream: true,
     messages: params.messages,
     options,
-    // Keep the model resident between turns so the next query doesn't cold-load
-    // (the default 5m unload is a frequent source of surprise multi-second stalls).
-    keep_alive: params.keepAlive ?? '30m',
+    // Keep the model resident between turns so the next query doesn't cold-load — but RAM-aware. A 30m
+    // hold pins a 9GB workhorse in unified memory for half an hour AFTER the user stops, which OOMs a
+    // 24GB Mac while "nothing is running". On ≤32GB boxes, hold only 5m (warm through an active
+    // conversation, freed when idle); reserve the long hold for workstation-class memory.
+    keep_alive: params.keepAlive ?? (os.totalmem() / 1024 ** 3 < 32 ? '5m' : '30m'),
   }
+  // Thinking control for qwen3 (Ollama maps this template kwarg to enable/disable the <think> phase). Only set
+  // it when explicitly DISABLING — simple/interactive turns skip the multi-minute reasoning and answer cleanly.
+  // Left unset (reasoning/code turns) the model thinks normally, and its <think> block streams as thinking
+  // events into the "Extended thinking" collapsible — never into the answer body. Replaces the /no_think hack
+  // (which stripped the tags but kept the reasoning, leaking it into the answer).
+  if (params.enableThinking === false) body['chat_template_kwargs'] = { enable_thinking: false }
 
   if (params.tools?.length) {
     body['tools'] = params.tools.map((t) => ({

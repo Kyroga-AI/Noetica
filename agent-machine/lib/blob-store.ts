@@ -13,6 +13,7 @@ import { createHash } from 'crypto'
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'fs'
 import { homedir } from 'os'
 import { join, dirname } from 'path'
+import { encryptBytes, decryptBytes } from './at-rest.js'
 
 // Resolved lazily so NOETICA_BLOB_DIR can be set at runtime (and tests can redirect it).
 const blobDir = (): string => process.env['NOETICA_BLOB_DIR'] || join(homedir(), '.noetica', 'blobs')
@@ -37,9 +38,11 @@ export function putBlob(data: Buffer | string): BlobRef {
   const p = blobPath(hash)
   mkdirSync(dirname(p), { recursive: true })
   // Atomic create ('wx' fails if it exists) — no check-then-write race. Since the path IS the
-  // content hash, an existing file is byte-identical, so EEXIST simply means "already stored".
+  // content hash (of the PLAINTEXT), an existing file is the same content, so EEXIST means "already stored".
+  // The bytes on disk are ENCRYPTED at rest (a stored PDF/docx is no longer plaintext); dedup + the raw_hash
+  // pointer still work because the hash is over the plaintext. Read decrypts.
   try {
-    writeFileSync(p, buf, { flag: 'wx' })
+    writeFileSync(p, encryptBytes(buf), { flag: 'wx' })
     return { hash, size: buf.length, stored: true }
   } catch (e) {
     if ((e as NodeJS.ErrnoException).code === 'EEXIST') return { hash, size: buf.length, stored: false }
@@ -47,9 +50,9 @@ export function putBlob(data: Buffer | string): BlobRef {
   }
 }
 
-/** Retrieve raw bytes by hash, or null if absent. */
+/** Retrieve raw bytes by hash, or null if absent. Decrypts at-rest blobs; passes legacy plaintext through. */
 export function getBlob(hash: string): Buffer | null {
-  try { return readFileSync(blobPath(hash)) } catch { return null }
+  try { return decryptBytes(readFileSync(blobPath(hash))) } catch { return null }
 }
 
 export function hasBlob(hash: string): boolean { return existsSync(blobPath(hash)) }

@@ -82,9 +82,36 @@ function freeGB(p: string): number {
 function get(url: string): string {
   try { return execFileSync('curl', ['-sL', '-m', '40', '-A', UA, url], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }) } catch { return '' }
 }
+function headOk(url: string): boolean {
+  try {
+    const out = execFileSync('curl', ['-sIL', '-m', '25', '-A', UA, '-o', '/dev/null', '-w', '%{http_code} %{content_type}', url], { encoding: 'utf8' })
+    // OCW's SPA returns 200 + text/html for ANY /courses/*.zip path (the app shell), so a bare 200 is a
+    // FALSE positive. Only a real archive (application/zip / octet-stream) counts — most post-migration
+    // courses no longer serve one, and this correctly classifies them as 'no zip' instead of downloading
+    // the 42KB shell and failing.
+    return /^200\b/.test(out.trim()) && /(zip|octet-stream)/i.test(out) && !/text\/html/i.test(out)
+  } catch { return false }
+}
+// OCW migrated to a dynamic site: the /download/ page no longer embeds the absolute .zip URL the old regex
+// matched (every course came back "no zip"). The zip now lives at the DEPARTMENT-pathed canonical URL —
+// https://ocw.mit.edu/courses/{dept}/{slug}/{slug}.zip — where {dept} is the course page's department slug
+// (exposed as /search/?d=<Dept Name>). Derive every candidate dept (courses can be cross-listed), build the
+// URL, and HEAD-verify so we only commit to a real 200 (a wrong dept → 404 page saved as .zip → bogus 'empty').
 function zipUrl(slug: string): string | null {
-  const m = get(`https://ocw.mit.edu/courses/${slug}/download/`).match(/https:\/\/ocw\.mit\.edu\/courses\/[^"']*?\.zip/i)
-  return m ? m[0] : null
+  const page = get(`https://ocw.mit.edu/courses/${slug}/`)
+  // OCW encodes the dept name with HTML entities (&#43; = the "+" that stands for a space), so capture the
+  // WHOLE value up to the closing quote, strip any trailing &l=/&t= search params, decode +/&#43; → space,
+  // then slugify to the URL form (e.g. "Electrical Engineering and Computer Science" → that hyphenated path).
+  const depts = [...new Set([...page.matchAll(/\/search\/\?d=([^"]+?)"/g)].map((m) =>
+    m[1]!.split(/&[a-z]+=/)[0]!
+      .replace(/&#43;/g, ' ').replace(/\+/g, ' ').replace(/&amp;/gi, 'and').replace(/&[a-z#0-9]+;/gi, ' ')
+      .toLowerCase().trim().replace(/&/g, 'and').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
+  ).filter(Boolean))]
+  for (const dept of depts) {
+    const url = `https://ocw.mit.edu/courses/${dept}/${slug}/${slug}.zip`
+    if (headOk(url)) return url
+  }
+  return null
 }
 const dirSize = (d: string): number => { let t = 0; for (const f of walk(d)) try { t += fs.statSync(f).size } catch { /* */ }; return t }
 function walk(d: string): string[] { return fs.existsSync(d) ? fs.readdirSync(d, { withFileTypes: true }).flatMap((e) => e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]) : [] }

@@ -140,9 +140,15 @@ except ImportError:
     let stderr = ''
     let timedOut = false
 
+    // Secret-free env: only what Python needs to run, never the parent's secrets (API keys, tokens). Mirrors
+    // the agent-machine's executeCode/run_command hardening so this dev route can't leak credentials either.
+    const safeEnv: NodeJS.ProcessEnv = { NODE_ENV: process.env['NODE_ENV'] ?? 'production', PYTHONDONTWRITEBYTECODE: '1', MPLBACKEND: 'Agg' }
+    for (const k of ['PATH', 'HOME', 'USER', 'LANG', 'LC_ALL', 'TMPDIR', 'TZ']) {
+      const v = process.env[k]; if (v !== undefined) safeEnv[k] = v
+    }
     const proc = spawn('python3', ['-c', fullCode], {
       cwd: sessionDir,
-      env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1', MPLBACKEND: 'Agg' },
+      env: safeEnv,
     })
 
     const timer = setTimeout(() => {

@@ -1,0 +1,1434 @@
+{
+ "biology": {
+  "mmlu_subjects": [
+   "college_biology",
+   "high_school_biology",
+   "anatomy",
+   "medical_genetics",
+   "nutrition"
+  ],
+  "mmlu_pro": "biology",
+  "topics": [
+   {
+    "topic": "Cell Biology",
+    "level": "intro",
+    "subtopics": [
+     "Prokaryotic vs. eukaryotic cells",
+     "Cell membrane structure and function",
+     "Organelle structure and function",
+     "Cell transport mechanisms",
+     "Cell cycle and mitosis",
+     "Meiosis and gametogenesis",
+     "Cell signaling and communication",
+     "Extracellular matrix and cell junctions"
+    ]
+   },
+   {
+    "topic": "Biochemistry and Metabolism",
+    "level": "undergrad",
+    "subtopics": [
+     "Enzyme kinetics and inhibition",
+     "Glycolysis",
+     "Citric acid cycle (Krebs cycle)",
+     "Oxidative phosphorylation and electron transport chain",
+     "Gluconeogenesis and glycogen metabolism",
+     "Fatty acid oxidation and synthesis",
+     "Amino acid metabolism",
+     "Metabolic regulation and integration"
+    ]
+   },
+   {
+    "topic": "Molecular Biology",
+    "level": "undergrad",
+    "subtopics": [
+     "DNA structure and replication",
+     "Transcription and RNA processing",
+     "Translation and the genetic code",
+     "Gene regulation in prokaryotes",
+     "Gene regulation in eukaryotes",
+     "Mutations and DNA repair",
+     "Recombinant DNA and biotechnology",
+     "Epigenetics"
+    ]
+   },
+   {
+    "topic": "Genetics",
+    "level": "intro",
+    "subtopics": [
+     "Mendelian inheritance",
+     "Non-Mendelian inheritance patterns",
+     "Chromosomal inheritance and sex linkage",
+     "Linkage, recombination, and genetic mapping",
+     "Quantitative genetics",
+     "Mutation types",
+     "Population genetics",
+     "Genomics and human genetics"
+    ]
+   },
+   {
+    "topic": "Evolution",
+    "level": "intro",
+    "subtopics": [
+     "Natural selection mechanisms",
+     "Types of selection",
+     "Speciation",
+     "Phylogenetics and systematics",
+     "Molecular evolution",
+     "Evolutionary forces: drift, mutation, migration",
+     "Adaptation and fitness",
+     "Macroevolution and the fossil record"
+    ]
+   },
+   {
+    "topic": "Ecology",
+    "level": "intro",
+    "subtopics": [
+     "Population ecology and growth models",
+     "Species interactions",
+     "Community ecology",
+     "Ecosystem energy flow and productivity",
+     "Nutrient cycling (biogeochemical cycles)",
+     "Biomes and aquatic ecosystems",
+     "Succession",
+     "Conservation biology and biodiversity"
+    ]
+   },
+   {
+    "topic": "Physiology: Nervous and Endocrine Systems",
+    "level": "undergrad",
+    "subtopics": [
+     "Neuron structure and action potentials",
+     "Synaptic transmission",
+     "Central and peripheral nervous system organization",
+     "Sensory systems",
+     "Endocrine glands and hormones",
+     "Hormone signaling mechanisms",
+     "Feedback loops in homeostasis",
+     "Neuroendocrine integration"
+    ]
+   },
+   {
+    "topic": "Physiology: Cardiovascular, Respiratory, and Renal Systems",
+    "level": "undergrad",
+    "subtopics": [
+     "Heart anatomy and cardiac cycle",
+     "Blood pressure and vascular resistance",
+     "Blood composition and hemoglobin",
+     "Gas exchange and oxygen transport",
+     "Ventilation mechanics",
+     "Kidney structure and nephron function",
+     "Urine formation: filtration, reabsorption, secretion",
+     "Fluid and electrolyte homeostasis"
+    ]
+   },
+   {
+    "topic": "Microbiology",
+    "level": "undergrad",
+    "subtopics": [
+     "Bacterial cell structure",
+     "Bacterial growth and reproduction",
+     "Bacterial metabolism and respiration",
+     "Viral structure and replication cycles",
+     "Bacteriophage biology",
+     "Microbial genetics: transformation, transduction, conjugation",
+     "Antimicrobial agents and resistance",
+     "Pathogenesis and virulence"
+    ]
+   },
+   {
+    "topic": "Immunology",
+    "level": "undergrad",
+    "subtopics": [
+     "Innate immunity",
+     "Adaptive immunity overview",
+     "Antigen presentation and MHC",
+     "B cells and antibody production",
+     "T cell biology",
+     "Immune memory and vaccination",
+     "Hypersensitivity reactions",
+     "Immunodeficiency and autoimmunity"
+    ]
+   },
+   {
+    "topic": "Developmental Biology",
+    "level": "undergrad",
+    "subtopics": [
+     "Fertilization and cleavage",
+     "Gastrulation and germ layer formation",
+     "Organogenesis",
+     "Cell fate determination and induction",
+     "Developmental signaling pathways",
+     "Stem cells and potency",
+     "Homeotic genes and body plan",
+     "Aging and senescence"
+    ]
+   },
+   {
+    "topic": "Anatomy",
+    "level": "intro",
+    "subtopics": [
+     "Anatomical terminology and body planes",
+     "Skeletal system",
+     "Muscular system and muscle contraction",
+     "Integumentary system",
+     "Digestive system anatomy",
+     "Reproductive anatomy",
+     "Lymphatic system",
+     "Nervous system gross anatomy"
+    ]
+   },
+   {
+    "topic": "Plant Biology",
+    "level": "intro",
+    "subtopics": [
+     "Plant cell structure and cell wall",
+     "Photosynthesis (light reactions and Calvin cycle)",
+     "Plant organization: roots, stems, leaves",
+     "Water and nutrient transport (xylem, phloem)",
+     "Plant hormones",
+     "Plant reproduction and alternation of generations",
+     "C3, C4, and CAM photosynthesis",
+     "Plant responses to the environment"
+    ]
+   },
+   {
+    "topic": "Medical Genetics",
+    "level": "undergrad",
+    "subtopics": [
+     "Chromosomal abnormalities",
+     "Single-gene (Mendelian) disorders",
+     "Pedigree analysis",
+     "Multifactorial inheritance",
+     "Genomic imprinting",
+     "Pharmacogenomics",
+     "Cancer genetics",
+     "Genetic testing and counseling"
+    ]
+   },
+   {
+    "topic": "Nutrition and Metabolism",
+    "level": "intro",
+    "subtopics": [
+     "Macronutrients: carbohydrates, proteins, fats",
+     "Micronutrients: vitamins and minerals",
+     "Digestion and absorption",
+     "Energy balance and body weight regulation",
+     "Nutritional deficiencies and excesses",
+     "Diet and chronic disease",
+     "Metabolic disorders",
+     "Specialized nutritional needs"
+    ]
+   }
+  ]
+ },
+ "chemistry": {
+  "mmlu_subjects": [
+   "college_chemistry",
+   "high_school_chemistry"
+  ],
+  "mmlu_pro": "chemistry",
+  "topics": [
+   {
+    "topic": "Stoichiometry and the Mole",
+    "level": "intro",
+    "subtopics": [
+     "Atomic and molecular masses; isotopic abundance",
+     "Avogadro's number and the mole concept",
+     "Empirical and molecular formulas",
+     "Balancing chemical equations (by inspection and half-reaction)",
+     "Limiting reagent and theoretical yield",
+     "Percent composition and percent yield",
+     "Solution stoichiometry and molarity",
+     "Dimensional analysis and unit conversions"
+    ]
+   },
+   {
+    "topic": "Gases and Kinetic-Molecular Theory",
+    "level": "intro",
+    "subtopics": [
+     "Ideal gas law and standard conditions",
+     "Partial pressures (Dalton's law)",
+     "Gas stoichiometry and molar volume",
+     "Effusion and diffusion (Graham's law)",
+     "Kinetic-molecular theory postulates",
+     "Maxwell-Boltzmann speed distribution",
+     "Real gases: van der Waals equation",
+     "Compressibility factor Z"
+    ]
+   },
+   {
+    "topic": "Thermodynamics",
+    "level": "undergrad",
+    "subtopics": [
+     "First law: internal energy, heat, and work",
+     "Enthalpy and Hess's law",
+     "Standard enthalpies of formation and combustion",
+     "Entropy and the second and third laws",
+     "Gibbs free energy and spontaneity",
+     "Relationship between delta-G and the equilibrium constant",
+     "Temperature dependence of equilibrium (van't Hoff equation)",
+     "Maxwell relations and thermodynamic identities",
+     "Helmholtz free energy",
+     "Chemical potential and partial molar quantities"
+    ]
+   },
+   {
+    "topic": "Chemical Equilibrium",
+    "level": "undergrad",
+    "subtopics": [
+     "Law of mass action and equilibrium expressions (K_c, K_p)",
+     "Relationship between K_c and K_p",
+     "Reaction quotient Q and direction of reaction",
+     "Le Chatelier's principle",
+     "ICE table method for equilibrium calculations",
+     "Solubility product K_sp and common-ion effect",
+     "Complex-ion formation equilibria",
+     "Simultaneous equilibria",
+     "Effect of temperature on K"
+    ]
+   },
+   {
+    "topic": "Acids, Bases, and Buffers",
+    "level": "undergrad",
+    "subtopics": [
+     "Arrhenius, Bronsted-Lowry, and Lewis definitions",
+     "Auto-ionization of water and K_w",
+     "pH, pOH, and the pH scale",
+     "Strong vs. weak acids and bases; K_a, K_b",
+     "Polyprotic acids and successive dissociation constants",
+     "Hydrolysis of salts",
+     "Buffer systems: Henderson-Hasselbalch equation",
+     "Buffer capacity and design",
+     "Acid-base titrations and equivalence points",
+     "Indicators and choice of indicator"
+    ]
+   },
+   {
+    "topic": "Chemical Kinetics",
+    "level": "undergrad",
+    "subtopics": [
+     "Rate laws and reaction order",
+     "Integrated rate laws (zeroth, first, second order)",
+     "Half-life expressions",
+     "Temperature dependence: Arrhenius equation",
+     "Activation energy and transition state theory (Eyring equation)",
+     "Reaction mechanisms and the rate-determining step",
+     "Steady-state and pre-equilibrium approximations",
+     "Catalysis (homogeneous, heterogeneous, enzymatic; Michaelis-Menten)",
+     "Chain reactions and radical mechanisms"
+    ]
+   },
+   {
+    "topic": "Electrochemistry",
+    "level": "undergrad",
+    "subtopics": [
+     "Oxidation and reduction; oxidation states",
+     "Balancing redox equations (half-reaction method)",
+     "Galvanic (voltaic) cells and cell notation",
+     "Standard electrode potentials and the standard hydrogen electrode",
+     "Nernst equation and concentration dependence of EMF",
+     "Relationship between delta_G, E_cell, and K",
+     "Electrolytic cells; Faraday's laws of electrolysis",
+     "Concentration cells",
+     "Corrosion and cathodic protection"
+    ]
+   },
+   {
+    "topic": "Atomic Structure and Quantum Chemistry",
+    "level": "undergrad",
+    "subtopics": [
+     "Bohr model and its limitations",
+     "Wave-particle duality; de Broglie wavelength",
+     "Heisenberg uncertainty principle",
+     "Schrodinger equation; particle in a box",
+     "Hydrogen atom: quantum numbers (n, l, m_l, m_s) and orbitals",
+     "Radial and angular wavefunctions; probability densities",
+     "Aufbau principle, Hund's rule, Pauli exclusion principle",
+     "Periodic trends: atomic radius, ionization energy, electron affinity, electronegativity",
+     "Electron spin and magnetic properties",
+     "Multielectron atoms: shielding and effective nuclear charge",
+     "Slater's rules for Z_eff"
+    ]
+   },
+   {
+    "topic": "Chemical Bonding and Molecular Structure",
+    "level": "undergrad",
+    "subtopics": [
+     "Ionic, covalent, and metallic bonding",
+     "Lewis structures, formal charges, and resonance",
+     "VSEPR theory and molecular geometry",
+     "Polarity and dipole moments",
+     "Valence bond theory (hybridization: sp, sp2, sp3, sp3d, sp3d2)",
+     "Molecular orbital (MO) theory: bonding/antibonding MOs, bond order",
+     "MO diagrams for homodiatomic molecules (H2 through Ne2)",
+     "Intermolecular forces: London dispersion, dipole-dipole, hydrogen bonding",
+     "Lattice energy and Born-Haber cycle",
+     "Band theory of solids"
+    ]
+   },
+   {
+    "topic": "Organic Reactions and Mechanisms",
+    "level": "undergrad",
+    "subtopics": [
+     "Functional groups and IUPAC nomenclature",
+     "Stereochemistry: chirality, R/S, E/Z, diastereomers, meso compounds",
+     "Nucleophilic substitution: SN1 and SN2",
+     "Elimination reactions: E1 and E2; Zaitsev's rule",
+     "Electrophilic addition to alkenes; Markovnikov's rule",
+     "Electrophilic aromatic substitution (EAS): nitration, halogenation, Friedel-Crafts",
+     "Nucleophilic addition to carbonyls (aldehydes, ketones, carboxylic acid derivatives)",
+     "Reactions of carboxylic acids and derivatives (esterification, saponification, amide formation)",
+     "Aldol condensation and Claisen condensation",
+     "Oxidation and reduction of organic functional groups",
+     "Pericyclic reactions: Diels-Alder, electrocyclic (Woodward-Hoffmann rules)"
+    ]
+   },
+   {
+    "topic": "Spectroscopy",
+    "level": "undergrad",
+    "subtopics": [
+     "Electromagnetic spectrum and energy-frequency-wavelength relationships",
+     "Beer-Lambert law and UV-visible spectroscopy",
+     "Infrared (IR) spectroscopy: characteristic group frequencies",
+     "Nuclear Magnetic Resonance (NMR): chemical shift, coupling, splitting patterns",
+     "Mass spectrometry: molecular ion, fragmentation, base peak",
+     "Rotational spectroscopy (rigid rotor)",
+     "Vibrational spectroscopy (harmonic oscillator); normal modes",
+     "Fluorescence and phosphorescence",
+     "X-ray diffraction (Bragg's law)"
+    ]
+   },
+   {
+    "topic": "Coordination Chemistry and Inorganic Chemistry",
+    "level": "undergrad",
+    "subtopics": [
+     "Coordination number, geometry, and nomenclature",
+     "Crystal field theory (CFT): splitting patterns for octahedral, tetrahedral, square-planar",
+     "Spectrochemical series and magnetic properties",
+     "Ligand field theory and molecular orbital treatment",
+     "Chelate effect and stability constants",
+     "Trans influence and trans effect",
+     "Reaction mechanisms of coordination compounds (substitution, oxidative addition)",
+     "Organometallic chemistry: 18-electron rule, metal-CO and metal-alkyl bonds",
+     "Bioinorganic chemistry: metalloproteins (hemoglobin, myoglobin)"
+    ]
+   },
+   {
+    "topic": "Statistical Thermodynamics and Partition Functions",
+    "level": "graduate",
+    "subtopics": [
+     "Boltzmann distribution and the canonical ensemble",
+     "Partition function q: translational, rotational, vibrational, electronic contributions",
+     "Relationship between partition function and thermodynamic quantities (U, S, A, G, C_V)",
+     "Equipartition theorem and heat capacities of ideal gases",
+     "Grand canonical and microcanonical ensembles",
+     "Residual entropy: degeneracy at 0 K",
+     "Molecular symmetry numbers in rotational partition functions",
+     "Absolute entropy calculation from spectroscopic data"
+    ]
+   },
+   {
+    "topic": "Quantum Chemistry",
+    "level": "graduate",
+    "subtopics": [
+     "Variational principle and the variational theorem",
+     "Perturbation theory (first and second order)",
+     "Born-Oppenheimer approximation",
+     "Hartree-Fock method and self-consistent field (SCF) theory",
+     "Basis sets (STO, STO-3G, 6-31G, correlation-consistent cc-pVXZ)",
+     "Electron correlation: configuration interaction (CI), MP2, coupled cluster (CCSD(T))",
+     "Density functional theory (DFT): Hohenberg-Kohn theorems, Kohn-Sham equations",
+     "Spin states and spin-orbit coupling",
+     "Molecular orbital symmetry and group theory in quantum chemistry",
+     "Potential energy surfaces and transition-state structure"
+    ]
+   },
+   {
+    "topic": "Biochemistry Fundamentals",
+    "level": "undergrad",
+    "subtopics": [
+     "Amino acids: structure, pKa values, and classification",
+     "Protein structure: primary, secondary (alpha-helix, beta-sheet), tertiary, quaternary",
+     "Enzyme kinetics: Michaelis-Menten, competitive/uncompetitive/mixed inhibition",
+     "Nucleotides and nucleic acids: DNA and RNA structure",
+     "Carbohydrates: monosaccharides, glycosidic bonds, polysaccharides",
+     "Lipids: fatty acids, phospholipids, and membrane structure",
+     "Metabolic pathways: glycolysis, citric acid cycle, oxidative phosphorylation (overview)",
+     "Free energy changes in biological reactions (ATP hydrolysis coupling)",
+     "Henderson-Hasselbalch applied to biological buffers (phosphate, bicarbonate)"
+    ]
+   },
+   {
+    "topic": "Analytical Chemistry and Solution Equilibria",
+    "level": "undergrad",
+    "subtopics": [
+     "Activity coefficients and Debye-Huckel theory",
+     "Complexometric titrations (EDTA); conditional formation constants",
+     "Precipitation titrations; Fajans and Mohr methods",
+     "Potentiometry: ion-selective electrodes, glass electrode, pH measurement",
+     "Voltammetry and polarography",
+     "Chromatography: plate theory, resolution, van Deemter equation",
+     "Statistical treatment of analytical data: mean, standard deviation, confidence intervals",
+     "Propagation of error and significant figures",
+     "Calibration methods: external standard, standard addition, internal standard"
+    ]
+   }
+  ]
+ },
+ "computer_science": {
+  "mmlu_subjects": [
+   "college_computer_science",
+   "high_school_computer_science",
+   "machine_learning",
+   "electrical_engineering"
+  ],
+  "mmlu_pro": "computer science",
+  "topics": [
+   {
+    "topic": "Data Structures",
+    "level": "intro",
+    "subtopics": [
+     "Arrays and dynamic arrays",
+     "Linked lists (singly, doubly, circular)",
+     "Stacks and queues",
+     "Hash tables and collision resolution",
+     "Trees (BST, AVL, red-black, B-tree)",
+     "Heaps and priority queues",
+     "Graphs (adjacency list/matrix)",
+     "Tries and suffix structures"
+    ]
+   },
+   {
+    "topic": "Algorithms & Complexity",
+    "level": "undergrad",
+    "subtopics": [
+     "Sorting algorithms (comparison, linear-time)",
+     "Divide and conquer",
+     "Dynamic programming",
+     "Greedy algorithms",
+     "Graph algorithms (BFS, DFS, shortest paths, MST)",
+     "Complexity classes (P, NP, NP-hard, NP-complete, PSPACE)",
+     "Reductions and NP-completeness proofs",
+     "Randomized algorithms",
+     "Approximation algorithms"
+    ]
+   },
+   {
+    "topic": "Computability & Automata Theory",
+    "level": "undergrad",
+    "subtopics": [
+     "Finite automata (DFA, NFA) and regular languages",
+     "Regular expressions",
+     "Context-free grammars and pushdown automata",
+     "Turing machines and computability",
+     "Decidability and undecidability",
+     "The halting problem and reductions",
+     "Chomsky hierarchy",
+     "Time and space complexity classes"
+    ]
+   },
+   {
+    "topic": "Discrete Mathematics & Logic",
+    "level": "intro",
+    "subtopics": [
+     "Propositional logic and Boolean algebra",
+     "Predicate logic and quantifiers",
+     "Proof techniques (induction, contradiction, contrapositive)",
+     "Set theory and relations",
+     "Functions and cardinality",
+     "Combinatorics and counting",
+     "Graph theory fundamentals",
+     "Number theory and modular arithmetic"
+    ]
+   },
+   {
+    "topic": "Operating Systems",
+    "level": "undergrad",
+    "subtopics": [
+     "Processes and threads",
+     "CPU scheduling algorithms",
+     "Synchronization (mutexes, semaphores, monitors)",
+     "Deadlock detection, prevention, avoidance",
+     "Memory management and virtual memory",
+     "File systems and storage",
+     "I/O and device management",
+     "System calls and kernel/user mode"
+    ]
+   },
+   {
+    "topic": "Computer Networks",
+    "level": "undergrad",
+    "subtopics": [
+     "OSI and TCP/IP models",
+     "Physical and data-link layer",
+     "IP addressing, subnetting, routing",
+     "TCP and UDP transport protocols",
+     "Congestion control",
+     "DNS, HTTP, and application protocols",
+     "Network security (TLS, firewalls)",
+     "Wireless and mobile networking"
+    ]
+   },
+   {
+    "topic": "Databases",
+    "level": "undergrad",
+    "subtopics": [
+     "Relational model and SQL",
+     "Normalization (1NF, 2NF, 3NF, BCNF)",
+     "Functional dependencies and keys",
+     "Transaction processing and ACID",
+     "Concurrency control (locking, MVCC)",
+     "Query optimization and indexes",
+     "NoSQL and distributed databases",
+     "B-trees and storage structures"
+    ]
+   },
+   {
+    "topic": "Computer Architecture",
+    "level": "undergrad",
+    "subtopics": [
+     "ISA design (RISC vs CISC)",
+     "Datapath and control unit",
+     "Pipelining and hazards",
+     "Cache memory hierarchy",
+     "Virtual memory and TLBs",
+     "Branch prediction",
+     "Out-of-order and superscalar execution",
+     "Memory consistency models"
+    ]
+   },
+   {
+    "topic": "Programming Languages & Compilers",
+    "level": "undergrad",
+    "subtopics": [
+     "Lexical analysis (scanning, regular expressions)",
+     "Parsing (LL, LR, recursive descent)",
+     "Abstract syntax trees and semantic analysis",
+     "Type systems and type checking",
+     "Intermediate representations",
+     "Code optimization (dataflow analysis, SSA)",
+     "Code generation and register allocation",
+     "Runtime systems (garbage collection, closures)"
+    ]
+   },
+   {
+    "topic": "Machine Learning",
+    "level": "graduate",
+    "subtopics": [
+     "Linear and logistic regression",
+     "Neural networks and backpropagation",
+     "Convolutional neural networks",
+     "Recurrent networks and attention / Transformers",
+     "Support vector machines",
+     "Decision trees, random forests, boosting",
+     "Unsupervised learning (k-means, PCA, EM)",
+     "Generalization, bias-variance tradeoff",
+     "Reinforcement learning fundamentals",
+     "Probabilistic graphical models"
+    ]
+   },
+   {
+    "topic": "Probability & Statistics for CS",
+    "level": "undergrad",
+    "subtopics": [
+     "Probability axioms, conditional probability, Bayes' theorem",
+     "Random variables (discrete and continuous)",
+     "Expectation, variance, and moments",
+     "Common distributions (Bernoulli, Binomial, Poisson, Gaussian, Exponential)",
+     "Concentration inequalities (Markov, Chebyshev, Chernoff bounds)",
+     "Markov chains and steady state",
+     "Maximum likelihood estimation",
+     "Hypothesis testing and confidence intervals"
+    ]
+   },
+   {
+    "topic": "Circuit Analysis",
+    "level": "undergrad",
+    "subtopics": [
+     "KVL, KCL, and Ohm's law",
+     "Node voltage and mesh current methods",
+     "Thevenin and Norton equivalents",
+     "Superposition and source transformation",
+     "Capacitors and inductors (transient analysis)",
+     "RC, RL, RLC circuits",
+     "Operational amplifiers",
+     "Power and energy in circuits"
+    ]
+   },
+   {
+    "topic": "Signals & Systems",
+    "level": "undergrad",
+    "subtopics": [
+     "Continuous-time signals and systems",
+     "Convolution and impulse response",
+     "Fourier series and Fourier transform",
+     "Laplace transform and transfer functions",
+     "Discrete-time signals and z-transform",
+     "Sampling theorem and aliasing",
+     "Frequency response and Bode plots",
+     "Filter design (low-pass, high-pass, band-pass)"
+    ]
+   },
+   {
+    "topic": "Control Systems",
+    "level": "undergrad",
+    "subtopics": [
+     "Open-loop vs closed-loop control",
+     "Transfer functions and block diagrams",
+     "Stability (poles, Routh-Hurwitz criterion)",
+     "Root locus method",
+     "Frequency-domain methods (Bode, Nyquist)",
+     "PID controllers",
+     "Steady-state error and system types",
+     "State-space representation"
+    ]
+   },
+   {
+    "topic": "Digital Logic & Boolean Algebra",
+    "level": "intro",
+    "subtopics": [
+     "Boolean algebra and logic gates",
+     "Canonical forms (SOP, POS)",
+     "Karnaugh maps and minimization",
+     "Combinational logic design",
+     "Arithmetic circuits (adders, multipliers)",
+     "Sequential logic (flip-flops, latches)",
+     "Finite state machines (Mealy, Moore)",
+     "Programmable logic (PLAs, FPGAs)"
+    ]
+   },
+   {
+    "topic": "Semiconductor Devices & Electronics",
+    "level": "undergrad",
+    "subtopics": [
+     "Semiconductor physics (doping, p-n junction)",
+     "Diodes and diode circuits",
+     "Bipolar junction transistors (BJT)",
+     "MOSFETs and CMOS technology",
+     "Small-signal models and amplifier analysis",
+     "Frequency response of amplifiers",
+     "Logic families and noise margins",
+     "Power consumption in digital circuits"
+    ]
+   }
+  ]
+ },
+ "economics": {
+  "mmlu_subjects": [
+   "high_school_macroeconomics",
+   "high_school_microeconomics",
+   "econometrics"
+  ],
+  "mmlu_pro": "economics",
+  "topics": [
+   {
+    "topic": "Supply and Demand",
+    "level": "intro",
+    "subtopics": [
+     "Law of demand and demand shifters",
+     "Law of supply and supply shifters",
+     "Market equilibrium and price determination",
+     "Price ceilings and price floors",
+     "Shifts vs. movements along curves",
+     "Consumer and producer surplus",
+     "Comparative statics",
+     "Markets for complements and substitutes"
+    ]
+   },
+   {
+    "topic": "Elasticity",
+    "level": "intro",
+    "subtopics": [
+     "Price elasticity of demand",
+     "Price elasticity of supply",
+     "Income elasticity of demand",
+     "Cross-price elasticity of demand",
+     "Determinants of elasticity",
+     "Elasticity and total revenue",
+     "Point vs. arc elasticity",
+     "Perfect elasticity and inelasticity"
+    ]
+   },
+   {
+    "topic": "Consumer Theory",
+    "level": "undergrad",
+    "subtopics": [
+     "Utility functions and indifference curves",
+     "Budget constraint",
+     "Utility maximization (tangency condition)",
+     "Marshallian and Hicksian demand",
+     "Income and substitution effects",
+     "Slutsky equation",
+     "Revealed preference",
+     "Intertemporal choice",
+     "Expected utility and risk"
+    ]
+   },
+   {
+    "topic": "Producer Theory: Production and Costs",
+    "level": "undergrad",
+    "subtopics": [
+     "Production function and isoquants",
+     "Marginal and average products",
+     "Returns to scale",
+     "Cost minimization and input choice",
+     "Short-run vs. long-run costs",
+     "Total, average, and marginal cost",
+     "Economies of scale and scope",
+     "Duality: cost and production",
+     "Profit maximization"
+    ]
+   },
+   {
+    "topic": "Market Structures",
+    "level": "undergrad",
+    "subtopics": [
+     "Perfect competition: short-run and long-run equilibrium",
+     "Monopoly: pricing and deadweight loss",
+     "Price discrimination (1st, 2nd, 3rd degree)",
+     "Monopolistic competition",
+     "Oligopoly: Cournot, Bertrand, Stackelberg",
+     "Natural monopoly and regulation",
+     "Market power and Lerner index",
+     "Concentration ratios and Herfindahl index"
+    ]
+   },
+   {
+    "topic": "Welfare Economics and Externalities",
+    "level": "undergrad",
+    "subtopics": [
+     "Pareto efficiency and Pareto improvements",
+     "The fundamental theorems of welfare economics",
+     "Deadweight loss and market failure",
+     "Negative and positive externalities",
+     "Pigouvian taxes and subsidies",
+     "Coase theorem",
+     "Public goods: non-excludable and non-rival",
+     "Common resources and the tragedy of the commons",
+     "Second-best theory"
+    ]
+   },
+   {
+    "topic": "Game Theory",
+    "level": "undergrad",
+    "subtopics": [
+     "Normal form and extensive form games",
+     "Dominant strategies and iterated elimination",
+     "Nash equilibrium",
+     "Mixed strategy Nash equilibrium",
+     "Backward induction and subgame perfect equilibrium",
+     "Repeated games and cooperation",
+     "Bayesian games and incomplete information",
+     "Auctions",
+     "Mechanism design basics"
+    ]
+   },
+   {
+    "topic": "GDP and National Income Accounting",
+    "level": "intro",
+    "subtopics": [
+     "Expenditure approach to GDP",
+     "Income approach and value-added approach",
+     "Nominal vs. real GDP and the GDP deflator",
+     "GDP vs. GNP vs. GNI",
+     "Components: C, I, G, NX",
+     "National saving and investment identity",
+     "Limitations of GDP as a welfare measure",
+     "Price indices: CPI and GDP deflator"
+    ]
+   },
+   {
+    "topic": "IS-LM and AD-AS Models",
+    "level": "undergrad",
+    "subtopics": [
+     "IS curve: goods market equilibrium",
+     "LM curve: money market equilibrium",
+     "IS-LM equilibrium and comparative statics",
+     "Fiscal multiplier and crowding out",
+     "Liquidity trap (zero lower bound)",
+     "Aggregate demand (AD) curve",
+     "Short-run aggregate supply (SRAS)",
+     "Long-run aggregate supply (LRAS)",
+     "Demand and supply shocks",
+     "Stagflation and the 1970s experience"
+    ]
+   },
+   {
+    "topic": "Money, Banking, and Inflation",
+    "level": "undergrad",
+    "subtopics": [
+     "Functions and forms of money",
+     "Money supply and the money multiplier",
+     "Central bank tools: reserve requirements, discount rate, open market operations",
+     "Quantity theory of money",
+     "Fisher equation and real vs. nominal interest rates",
+     "Inflation costs and seigniorage",
+     "Hyperinflation",
+     "Monetary transmission mechanism",
+     "Taylor rule"
+    ]
+   },
+   {
+    "topic": "Unemployment and Labor Markets",
+    "level": "undergrad",
+    "subtopics": [
+     "Types of unemployment: frictional, structural, cyclical",
+     "Natural rate of unemployment",
+     "Labor force and participation rate",
+     "Okun's law",
+     "Phillips curve: short-run and long-run",
+     "Expectations-augmented Phillips curve",
+     "Wage rigidity and efficiency wages",
+     "Job search and matching models",
+     "NAIRU"
+    ]
+   },
+   {
+    "topic": "Economic Growth: Solow Model",
+    "level": "undergrad",
+    "subtopics": [
+     "Solow growth model setup",
+     "Steady-state capital and output",
+     "Golden rule of capital accumulation",
+     "Convergence: conditional and absolute",
+     "Total factor productivity and the Solow residual",
+     "Human capital (Mankiw-Romer-Weil extension)",
+     "Endogenous growth theory (Romer model basics)",
+     "Growth accounting"
+    ]
+   },
+   {
+    "topic": "Fiscal and Monetary Policy",
+    "level": "undergrad",
+    "subtopics": [
+     "Fiscal policy: discretionary and automatic stabilizers",
+     "Government budget constraint and debt dynamics",
+     "Ricardian equivalence",
+     "Monetary policy rules vs. discretion",
+     "Inflation targeting",
+     "Central bank independence",
+     "Policy lags (recognition, implementation, effect)",
+     "Crowding out and fiscal multiplier in open economy",
+     "Zero lower bound and unconventional monetary policy"
+    ]
+   },
+   {
+    "topic": "Econometrics: OLS and Regression",
+    "level": "undergrad",
+    "subtopics": [
+     "Simple and multiple linear regression",
+     "OLS estimation and properties",
+     "Gauss-Markov theorem and BLUE",
+     "Measures of fit: R², adjusted R²",
+     "Hypothesis testing: t-test and F-test",
+     "Confidence intervals",
+     "Omitted variable bias",
+     "Multicollinearity",
+     "Heteroskedasticity and GLS",
+     "Serial correlation and Newey-West standard errors",
+     "Functional form: logs, quadratics, interactions"
+    ]
+   },
+   {
+    "topic": "Econometrics: Causal Inference and Advanced Methods",
+    "level": "graduate",
+    "subtopics": [
+     "Endogeneity and sources of bias",
+     "Instrumental variables (IV) and 2SLS",
+     "Randomized controlled trials (RCTs)",
+     "Difference-in-differences (DiD)",
+     "Regression discontinuity design (RDD)",
+     "Panel data: fixed effects and random effects",
+     "Hausman test",
+     "Simultaneous equations and identification",
+     "Weak instruments and the first-stage F-test",
+     "Local average treatment effect (LATE)"
+    ]
+   }
+  ]
+ },
+ "mathematics": {
+  "mmlu_subjects": [
+   "abstract_algebra",
+   "college_mathematics",
+   "high_school_mathematics",
+   "elementary_mathematics",
+   "high_school_statistics"
+  ],
+  "mmlu_pro": "math",
+  "topics": [
+   {
+    "topic": "Elementary Algebra and Arithmetic",
+    "level": "intro",
+    "subtopics": [
+     "Integer arithmetic and order of operations",
+     "Fractions, decimals, and percentages",
+     "Ratio and proportion",
+     "Exponents and radicals",
+     "Linear equations in one variable",
+     "Inequalities and absolute value",
+     "Word problems and unit conversion"
+    ]
+   },
+   {
+    "topic": "Algebra and Polynomial Theory",
+    "level": "intro",
+    "subtopics": [
+     "Polynomial arithmetic and factoring",
+     "Quadratic equations and the discriminant",
+     "Systems of linear equations",
+     "Rational expressions and equations",
+     "Radical expressions and complex numbers",
+     "Binomial theorem",
+     "Partial fractions"
+    ]
+   },
+   {
+    "topic": "Geometry and Trigonometry",
+    "level": "intro",
+    "subtopics": [
+     "Euclidean plane geometry: triangles, circles, polygons",
+     "Congruence and similarity",
+     "Coordinate geometry and distance formulas",
+     "Trigonometric functions and identities",
+     "Laws of sines and cosines",
+     "Circles: arcs, chords, and inscribed angles",
+     "Solid geometry: volumes and surface areas"
+    ]
+   },
+   {
+    "topic": "Precalculus and Functions",
+    "level": "intro",
+    "subtopics": [
+     "Functions, domain, and range",
+     "Composition and inverse functions",
+     "Exponential and logarithmic functions",
+     "Conic sections",
+     "Sequences and series (arithmetic and geometric)",
+     "Polar coordinates",
+     "Parametric equations"
+    ]
+   },
+   {
+    "topic": "Single-Variable Calculus",
+    "level": "undergrad",
+    "subtopics": [
+     "Limits and continuity",
+     "Differentiation rules and chain rule",
+     "Applications of derivatives (optimization, related rates)",
+     "Mean value theorems",
+     "Integration: Riemann sums and antiderivatives",
+     "Techniques of integration",
+     "Improper integrals",
+     "Sequences and series: convergence tests, Taylor series"
+    ]
+   },
+   {
+    "topic": "Multivariable Calculus",
+    "level": "undergrad",
+    "subtopics": [
+     "Partial derivatives and gradients",
+     "Directional derivatives",
+     "Optimization: Lagrange multipliers",
+     "Multiple integrals (double and triple)",
+     "Change of variables and Jacobians",
+     "Vector fields, divergence, and curl",
+     "Line integrals and surface integrals",
+     "Stokes', Green's, and Divergence theorems"
+    ]
+   },
+   {
+    "topic": "Linear Algebra",
+    "level": "undergrad",
+    "subtopics": [
+     "Vector spaces and subspaces",
+     "Linear independence, span, and basis",
+     "Linear transformations and matrix representations",
+     "Determinants",
+     "Eigenvalues and eigenvectors",
+     "Inner product spaces and orthogonality",
+     "Spectral theorem and diagonalization",
+     "Singular value decomposition"
+    ]
+   },
+   {
+    "topic": "Differential Equations",
+    "level": "undergrad",
+    "subtopics": [
+     "First-order ODEs: separable, linear, exact",
+     "Second-order linear ODEs with constant coefficients",
+     "Method of undetermined coefficients and variation of parameters",
+     "Laplace transforms",
+     "Systems of ODEs and phase plane analysis",
+     "Power series solutions and Frobenius method",
+     "Partial differential equations: heat, wave, Laplace equations"
+    ]
+   },
+   {
+    "topic": "Probability and Combinatorics",
+    "level": "undergrad",
+    "subtopics": [
+     "Counting: permutations, combinations, pigeonhole principle",
+     "Probability axioms and conditional probability",
+     "Bayes' theorem and independence",
+     "Discrete distributions: Bernoulli, Binomial, Poisson, Geometric",
+     "Continuous distributions: Uniform, Normal, Exponential",
+     "Expectation, variance, and moments",
+     "Law of large numbers and central limit theorem",
+     "Markov chains"
+    ]
+   },
+   {
+    "topic": "Statistics",
+    "level": "undergrad",
+    "subtopics": [
+     "Descriptive statistics: mean, median, variance, IQR",
+     "Sampling distributions and the standard error",
+     "Confidence intervals",
+     "Hypothesis testing: z-test, t-test, chi-square",
+     "p-values and significance",
+     "Regression and correlation",
+     "ANOVA",
+     "Nonparametric tests"
+    ]
+   },
+   {
+    "topic": "Abstract Algebra — Group Theory",
+    "level": "undergrad",
+    "subtopics": [
+     "Groups: definition, examples (Z, Z_n, S_n, D_n, GL_n)",
+     "Subgroups and cosets",
+     "Normal subgroups and quotient groups",
+     "Group homomorphisms and isomorphisms",
+     "Cyclic groups and generators",
+     "Permutation groups and Cayley's theorem",
+     "Group actions, orbits, and stabilizers",
+     "Sylow theorems"
+    ]
+   },
+   {
+    "topic": "Abstract Algebra — Rings and Fields",
+    "level": "undergrad",
+    "subtopics": [
+     "Rings: definition, subrings, ring homomorphisms",
+     "Ideals and quotient rings",
+     "Integral domains and fields",
+     "Principal ideal domains (PIDs) and UFDs",
+     "Polynomial rings",
+     "Field extensions and algebraic elements",
+     "Splitting fields and algebraic closure",
+     "Galois theory (introduction)"
+    ]
+   },
+   {
+    "topic": "Real Analysis",
+    "level": "graduate",
+    "subtopics": [
+     "Construction of real numbers; completeness",
+     "Metric spaces: open, closed, compact, connected sets",
+     "Sequences and series of functions: uniform convergence",
+     "Continuity, uniform continuity, Lipschitz conditions",
+     "Differentiation: mean value theorem, Taylor's theorem",
+     "Riemann and Lebesgue integration",
+     "Measure theory: σ-algebras, measures, measurable functions",
+     "L^p spaces and Hilbert spaces"
+    ]
+   },
+   {
+    "topic": "Complex Analysis",
+    "level": "graduate",
+    "subtopics": [
+     "Complex differentiability and holomorphic functions",
+     "Cauchy-Riemann equations",
+     "Complex integration and Cauchy's theorem",
+     "Power series and analytic functions",
+     "Singularities: removable, poles, essential",
+     "Laurent series and residues",
+     "Conformal mappings and Möbius transformations",
+     "Entire and meromorphic functions"
+    ]
+   },
+   {
+    "topic": "Number Theory",
+    "level": "undergrad",
+    "subtopics": [
+     "Divisibility and prime factorization",
+     "Congruences and modular arithmetic",
+     "Euler's and Fermat's theorems",
+     "Chinese remainder theorem",
+     "Quadratic residues and Legendre symbol",
+     "Arithmetic functions: φ, τ, σ, μ",
+     "Continued fractions",
+     "Gaussian integers and algebraic integers"
+    ]
+   },
+   {
+    "topic": "Discrete Mathematics and Combinatorics",
+    "level": "undergrad",
+    "subtopics": [
+     "Sets, relations, and functions",
+     "Mathematical induction and recursion",
+     "Counting: permutations, combinations, multinomials",
+     "Graph theory: paths, trees, coloring",
+     "Generating functions",
+     "Recurrence relations",
+     "Boolean algebra and logic",
+     "Ramsey theory (intro)"
+    ]
+   },
+   {
+    "topic": "Topology",
+    "level": "graduate",
+    "subtopics": [
+     "Topological spaces: open sets, basis, subbasis",
+     "Continuity, homeomorphisms, and topological invariants",
+     "Connectedness and path-connectedness",
+     "Compactness: Tychonoff's theorem",
+     "Separation axioms (T₀ through T₄)",
+     "Homotopy and fundamental group",
+     "Covering spaces",
+     "Introduction to homology and manifolds"
+    ]
+   }
+  ]
+ },
+ "physics": {
+  "mmlu_subjects": [
+   "conceptual_physics",
+   "college_physics",
+   "high_school_physics",
+   "astronomy"
+  ],
+  "mmlu_pro": "physics",
+  "topics": [
+   {
+    "topic": "Classical Mechanics",
+    "level": "intro",
+    "subtopics": [
+     "kinematics in 1D and 2D",
+     "Newton's laws of motion",
+     "work, energy, and power",
+     "conservation of energy and momentum",
+     "rotational motion and torque",
+     "simple harmonic motion",
+     "gravitation",
+     "fluid statics and dynamics"
+    ]
+   },
+   {
+    "topic": "Analytical Mechanics (Lagrangian and Hamiltonian)",
+    "level": "graduate",
+    "subtopics": [
+     "generalized coordinates and constraints",
+     "principle of stationary action",
+     "Euler-Lagrange equations",
+     "cyclic coordinates and conservation laws",
+     "Legendre transformation and the Hamiltonian",
+     "Hamilton's equations of motion",
+     "Poisson brackets",
+     "canonical transformations",
+     "Hamilton-Jacobi theory",
+     "action-angle variables and adiabatic invariants"
+    ]
+   },
+   {
+    "topic": "Electromagnetism",
+    "level": "undergrad",
+    "subtopics": [
+     "Coulomb's law and electric field",
+     "Gauss's law",
+     "electric potential and capacitance",
+     "magnetic forces and Biot-Savart law",
+     "Ampère's law and Faraday's law",
+     "Maxwell's equations (integral and differential)",
+     "electromagnetic waves and Poynting vector",
+     "boundary conditions and wave reflection/transmission",
+     "multipole expansion",
+     "radiation from accelerating charges"
+    ]
+   },
+   {
+    "topic": "Quantum Mechanics",
+    "level": "graduate",
+    "subtopics": [
+     "wave functions and the Born rule",
+     "Schrödinger equation (time-dependent and time-independent)",
+     "Dirac bra-ket notation and Hilbert space",
+     "operators, observables, and eigenvalue problems",
+     "uncertainty principle",
+     "quantum harmonic oscillator (ladder operators)",
+     "angular momentum and spin",
+     "hydrogen atom and central potentials",
+     "identical particles: bosons and fermions",
+     "time-independent perturbation theory",
+     "time-dependent perturbation theory and Fermi's golden rule",
+     "variational principle and WKB approximation",
+     "scattering theory (Born approximation, partial waves)"
+    ]
+   },
+   {
+    "topic": "Statistical Mechanics and Thermodynamics",
+    "level": "graduate",
+    "subtopics": [
+     "laws of thermodynamics",
+     "thermodynamic potentials (U, F, G, H) and Maxwell relations",
+     "microcanonical, canonical, and grand canonical ensembles",
+     "partition function and free energy",
+     "classical ideal gas and equipartition theorem",
+     "Fermi-Dirac and Bose-Einstein statistics",
+     "blackbody radiation and Planck distribution",
+     "phase transitions and critical phenomena",
+     "fluctuations and the fluctuation-dissipation theorem",
+     "entropy and the second law"
+    ]
+   },
+   {
+    "topic": "Special Relativity",
+    "level": "undergrad",
+    "subtopics": [
+     "postulates of special relativity",
+     "Lorentz transformations",
+     "time dilation and length contraction",
+     "relativity of simultaneity",
+     "4-vectors and the spacetime interval",
+     "relativistic energy and momentum",
+     "relativistic kinematics and collisions",
+     "relativistic electrodynamics"
+    ]
+   },
+   {
+    "topic": "General Relativity",
+    "level": "graduate",
+    "subtopics": [
+     "equivalence principle",
+     "curved spacetime and metric tensor",
+     "geodesics and Christoffel symbols",
+     "Riemann and Ricci tensors; Ricci scalar",
+     "Einstein field equations",
+     "weak-field limit and Newtonian gravity",
+     "Schwarzschild solution and black holes",
+     "gravitational waves",
+     "cosmological models (FRW metric, Friedmann equations)"
+    ]
+   },
+   {
+    "topic": "Condensed Matter Physics",
+    "level": "graduate",
+    "subtopics": [
+     "crystal lattices: Bravais lattices and reciprocal lattice",
+     "Bloch's theorem and band structure",
+     "free electron model and density of states",
+     "nearly-free electron model and band gaps",
+     "tight-binding model",
+     "phonons and the Debye model",
+     "semiconductors: intrinsic, doped, p-n junctions",
+     "superconductivity: BCS theory and Meissner effect",
+     "magnetism: dia-, para-, ferro-, antiferromagnetism",
+     "mean-field theory and Landau theory of phase transitions"
+    ]
+   },
+   {
+    "topic": "Particle Physics and Quantum Field Theory",
+    "level": "graduate",
+    "subtopics": [
+     "natural units and particle properties",
+     "Standard Model: quarks, leptons, gauge bosons",
+     "Feynman diagrams and QED",
+     "gauge invariance and local symmetry",
+     "QCD and confinement/asymptotic freedom",
+     "electroweak unification and the Higgs mechanism",
+     "conservation laws: B, L, CP symmetry",
+     "Noether's theorem (field theory version)",
+     "renormalization and running couplings",
+     "beyond the Standard Model: neutrino masses, supersymmetry sketch"
+    ]
+   },
+   {
+    "topic": "Astrophysics and Cosmology",
+    "level": "graduate",
+    "subtopics": [
+     "stellar structure and evolution",
+     "white dwarfs, neutron stars, and black holes",
+     "FRW cosmology and Hubble expansion",
+     "Big Bang nucleosynthesis",
+     "cosmic microwave background",
+     "dark matter and dark energy",
+     "inflation",
+     "gravitational lensing",
+     "Chandrasekhar limit",
+     "distance ladder and standard candles"
+    ]
+   },
+   {
+    "topic": "Optics and Waves",
+    "level": "undergrad",
+    "subtopics": [
+     "wave equation and superposition",
+     "interference and diffraction",
+     "geometric optics: reflection and refraction",
+     "Snell's law, total internal reflection",
+     "polarization",
+     "Fourier analysis and wave packets",
+     "Doppler effect",
+     "coherence and lasers"
+    ]
+   },
+   {
+    "topic": "Nuclear and Atomic Physics",
+    "level": "undergrad",
+    "subtopics": [
+     "Rutherford scattering and the nuclear model",
+     "radioactive decay: alpha, beta, gamma",
+     "nuclear binding energy and the semi-empirical mass formula",
+     "nuclear reactions and Q-value",
+     "fission and fusion",
+     "atomic spectra and selection rules",
+     "Zeeman and Stark effects",
+     "spin-orbit coupling and fine structure",
+     "hyperfine structure"
+    ]
+   },
+   {
+    "topic": "Thermodynamics (Classical)",
+    "level": "intro",
+    "subtopics": [
+     "zeroth and first laws",
+     "heat, work, and internal energy",
+     "ideal gas law and kinetic theory",
+     "entropy and the second law",
+     "Carnot cycle and thermodynamic efficiency",
+     "heat engines and refrigerators",
+     "thermodynamic processes (isothermal, adiabatic, isochoric, isobaric)"
+    ]
+   },
+   {
+    "topic": "Mathematical Methods in Physics",
+    "level": "undergrad",
+    "subtopics": [
+     "vector calculus: gradient, divergence, curl, Stokes/Gauss theorems",
+     "complex analysis and contour integration",
+     "ordinary differential equations: power series solutions, Frobenius method",
+     "special functions: Legendre, Bessel, Hermite, Laguerre",
+     "Fourier series and Fourier transforms",
+     "Laplace transform",
+     "linear algebra: eigenvalues, diagonalization",
+     "tensors and index notation",
+     "Green's functions"
+    ]
+   },
+   {
+    "topic": "Plasma Physics and Fluid Dynamics",
+    "level": "graduate",
+    "subtopics": [
+     "magnetohydrodynamics (MHD)",
+     "Debye shielding and plasma oscillations",
+     "single-particle motion in EM fields",
+     "kinetic theory: Vlasov and Boltzmann equations",
+     "Navier-Stokes equations",
+     "Reynolds number and turbulence",
+     "instabilities: Kelvin-Helmholtz, Rayleigh-Taylor"
+    ]
+   }
+  ]
+ }
+}

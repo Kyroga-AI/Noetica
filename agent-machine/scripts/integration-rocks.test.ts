@@ -56,8 +56,9 @@ test('RocksDB backend persists a goal across a full server restart', async (t) =
     body: JSON.stringify({ session_id: 'rocks-it', objective: 'survive a reboot', subtasks: [], slots: [] }),
   })
   assert.equal(create.status, 200)
-  // give the async RocksDB write chain a moment to flush
-  await new Promise((r) => setTimeout(r, 500))
+  // give the async RocksDB write chain time to flush to disk before we kill the server. A fixed 500ms raced the
+  // flush on slow CI runners (the flake this replaces) — be generous; correctness over speed for a restart test.
+  await new Promise((r) => setTimeout(r, 1500))
   await kill(s1)
 
   // confirm the store materialised on disk
@@ -65,9 +66,16 @@ test('RocksDB backend persists a goal across a full server restart', async (t) =
 
   const s2 = boot({})
   await waitUp()
-  const list = await (await fetch(`${BASE}/api/goals?session=rocks-it`)).json()
+  // the store rehydrates from disk asynchronously after boot — POLL before asserting rather than reading once
+  // and racing the load (the other half of the flake).
+  let restored = false
+  for (let i = 0; i < 10 && !restored; i++) {
+    const list = await (await fetch(`${BASE}/api/goals?session=rocks-it`)).json() as { goals?: Array<{ objective?: string }> }
+    restored = !!list.goals?.some((g) => g.objective === 'survive a reboot')
+    if (!restored) await new Promise((r) => setTimeout(r, 500))
+  }
   await kill(s2)
-  assert.ok(list.goals.some((g: any) => g.objective === 'survive a reboot'), 'goal restored from RocksDB after restart')
+  assert.ok(restored, 'goal restored from RocksDB after restart')
 })
 
 test('NOETICA_API_TOKEN gates destructive endpoints (401 without token, 200 with)', async () => {

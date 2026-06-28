@@ -17,6 +17,17 @@ import type {
 import * as path from 'node:path'
 import * as os from 'node:os'
 import * as fs from 'node:fs'
+import { encryptLine, decryptLine } from './at-rest.js'
+
+// Atom VALUES (vals_json) hold the sensitive payload — document text + embeddings (a plaintext vector is ~92%
+// invertible to its source text via vec2text). vals_json is an OPAQUE blob keyed by handle (never content-
+// queried), so we encrypt it at rest + decrypt on read: hellgraph's similarity search sees plaintext in memory,
+// the disk holds ciphertext. Lazy migration — decryptLine passes through any legacy plaintext '{}' / JSON.
+const ATR_ON = (): boolean => process.env['NOETICA_ENCRYPT_AT_REST'] !== '0'
+/** Serialize atom values for storage — encrypted at rest by default (the disk form). Exported for tests. */
+export const packVals = (vals: Record<string, unknown>): string => (ATR_ON() ? encryptLine(vals) : JSON.stringify(vals))
+/** Deserialize stored atom values — decrypts, with legacy-plaintext passthrough. Exported for tests. */
+export const unpackVals = (s: string): Record<string, Value> => (decryptLine(s) as Record<string, Value> | null) ?? {}
 
 // ─── Minimal bun:sqlite interface (avoid hard dep on @types/bun) ─────────────
 
@@ -142,9 +153,9 @@ export class SQLiteAtomSpaceBackend implements AtomSpaceBackend {
       case 'set_value': {
         const row = this.stmtGetVals.get(p['handle']) as { vals_json: string } | undefined
         if (row) {
-          const vals = JSON.parse(row.vals_json) as Record<string, Value>
+          const vals = unpackVals(row.vals_json)
           vals[p['key'] as string] = p['value'] as Value
-          this.stmtUpdateVals.run(JSON.stringify(vals), p['handle'])
+          this.stmtUpdateVals.run(packVals(vals), p['handle'])
         }
         break
       }
@@ -172,7 +183,7 @@ export class SQLiteAtomSpaceBackend implements AtomSpaceBackend {
       })
 
       // Restore values as separate set_value entries (applyLogEntry needs atom indexed first)
-      const vals = JSON.parse(row.vals_json) as Record<string, Value>
+      const vals = unpackVals(row.vals_json)
       for (const [key, value] of Object.entries(vals)) {
         apply({ seq: row.seq, ts: row.created_at, op: 'set_value', payload: { handle: row.handle, key, value } })
       }
@@ -222,6 +233,7 @@ export function migrateJSONLToSQLite(backend: SQLiteAtomSpaceBackend, jsonlPath 
   if (!backend.isEmpty()) return 0
   if (!fs.existsSync(jsonlPath)) return 0
   let count = 0
+  let cleanRead = false
   try {
     const raw = fs.readFileSync(jsonlPath, 'utf-8')
     for (const line of raw.split('\n')) {
@@ -232,6 +244,14 @@ export function migrateJSONLToSQLite(backend: SQLiteAtomSpaceBackend, jsonlPath 
         count++
       } catch { /* skip corrupt entry */ }
     }
+    cleanRead = true
   } catch { /* file read error */ }
+  // Remove the plaintext-WAL residue: after a clean migration its atoms (document text + embeddings) now live
+  // ENCRYPTED in SQLite (the writes above), and the caller switches the live backend to SQLite, so hellgraph
+  // won't recreate it. Leaving the plaintext .atomspace.jsonl on disk would re-open the at-rest gap we just
+  // closed (#257). Guarded: only when the whole file read cleanly AND ≥1 entry migrated.
+  if (cleanRead && count > 0) {
+    try { fs.rmSync(jsonlPath) } catch { /* best-effort; SQLite already holds the data */ }
+  }
   return count
 }

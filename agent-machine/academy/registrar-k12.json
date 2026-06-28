@@ -1,0 +1,1100 @@
+{
+ "_doc": "K-12 bursar tracks (interest + field-readiness), registrar schema.",
+ "tracks": [
+  {
+   "program": "Interest: dinosaurs \u2192 biology / geology",
+   "kind": "interest",
+   "domain": "k12",
+   "interest": "dinosaurs",
+   "fields": [
+    "biology",
+    "geology"
+   ],
+   "hook": "What lived, when, and how do we know? \u2192 classification, deep time, fossils, evolution.",
+   "requirements": [
+    {
+     "group": "science",
+     "subjects": [
+      {
+       "n": "s.observe",
+       "title": "Observation & Measurement",
+       "grade": "K-2"
+      },
+      {
+       "n": "s.classify",
+       "title": "Living vs Non-living & Classification",
+       "grade": "1-3"
+      },
+      {
+       "n": "s.lifecycle",
+       "title": "Life Cycles & Ecosystems",
+       "grade": "2-5"
+      },
+      {
+       "n": "s.method",
+       "title": "The Scientific Method & Experiment Design",
+       "grade": "3-8"
+      },
+      {
+       "n": "s.cells",
+       "title": "Cells & Body Systems",
+       "grade": "6-8"
+      }
+     ]
+    },
+    {
+     "group": "mathematics",
+     "subjects": [
+      {
+       "n": "m.counting",
+       "title": "Counting & Number Sense",
+       "grade": "K-1"
+      },
+      {
+       "n": "m.addsub",
+       "title": "Addition & Subtraction",
+       "grade": "1-2"
+      },
+      {
+       "n": "m.place",
+       "title": "Place Value",
+       "grade": "2-3"
+      },
+      {
+       "n": "m.muldiv",
+       "title": "Multiplication & Division",
+       "grade": "3-4"
+      },
+      {
+       "n": "m.data",
+       "title": "Data, Graphs & Basic Probability",
+       "grade": "3-8"
+      }
+     ]
+    }
+   ],
+   "compliance": {
+    "buckets_covered": [
+     "math",
+     "science"
+    ]
+   },
+   "bridges_into_canon": [
+    "Cell Biology"
+   ]
+  },
+  {
+   "program": "Interest: space & rockets \u2192 physics / astronomy",
+   "kind": "interest",
+   "domain": "k12",
+   "interest": "space & rockets",
+   "fields": [
+    "physics",
+    "astronomy"
+   ],
+   "hook": "Why do things fall and orbit? \u2192 forces, motion, scale, gravity.",
+   "requirements": [
+    {
+     "group": "science",
+     "subjects": [
+      {
+       "n": "s.observe",
+       "title": "Observation & Measurement",
+       "grade": "K-2"
+      },
+      {
+       "n": "s.earthspace",
+       "title": "Earth & Space (intro)",
+       "grade": "K-6"
+      },
+      {
+       "n": "s.forces",
+       "title": "Forces, Motion & Energy (intro)",
+       "grade": "3-6"
+      },
+      {
+       "n": "s.physci",
+       "title": "Physical Science (intro mechanics)",
+       "grade": "6-8"
+      }
+     ]
+    },
+    {
+     "group": "mathematics",
+     "subjects": [
+      {
+       "n": "m.counting",
+       "title": "Counting & Number Sense",
+       "grade": "K-1"
+      },
+      {
+       "n": "m.addsub",
+       "title": "Addition & Subtraction",
+       "grade": "1-2"
+      },
+      {
+       "n": "m.place",
+       "title": "Place Value",
+       "grade": "2-3"
+      },
+      {
+       "n": "m.muldiv",
+       "title": "Multiplication & Division",
+       "grade": "3-4"
+      },
+      {
+       "n": "m.data",
+       "title": "Data, Graphs & Basic Probability",
+       "grade": "3-8"
+      },
+      {
+       "n": "m.fractions",
+       "title": "Fractions",
+       "grade": "3-5"
+      },
+      {
+       "n": "m.decimals",
+       "title": "Decimals, Percents & Ratios",
+       "grade": "5-6"
+      },
+      {
+       "n": "m.geom",
+       "title": "Shapes, Area & Volume",
+       "grade": "K-7"
+      },
+      {
+       "n": "m.prealg",
+       "title": "Integers & Pre-Algebra",
+       "grade": "6-8"
+      }
+     ]
+    }
+   ],
+   "compliance": {
+    "buckets_covered": [
+     "math",
+     "science"
+    ]
+   },
+   "bridges_into_canon": [
+    "Classical Mechanics",
+    "Elementary Algebra and Arithmetic"
+   ]
+  },
+  {
+   "program": "Interest: video games & coding \u2192 computer_science / mathematics",
+   "kind": "interest",
+   "domain": "k12",
+   "interest": "video games & coding",
+   "fields": [
+    "computer_science",
+    "mathematics"
+   ],
+   "hook": "Make the computer do what you want \u2192 logic, number, algebra, geometry.",
+   "requirements": [
+    {
+     "group": "mathematics",
+     "subjects": [
+      {
+       "n": "m.counting",
+       "title": "Counting & Number Sense",
+       "grade": "K-1"
+      },
+      {
+       "n": "m.addsub",
+       "title": "Addition & Subtraction",
+       "grade": "1-2"
+      },
+      {
+       "n": "m.place",
+       "title": "Place Value",
+       "grade": "2-3"
+      },
+      {
+       "n": "m.muldiv",
+       "title": "Multiplication & Division",
+       "grade": "3-4"
+      },
+      {
+       "n": "m.data",
+       "title": "Data, Graphs & Basic Probability",
+       "grade": "3-8"
+      },
+      {
+       "n": "m.fractions",
+       "title": "Fractions",
+       "grade": "3-5"
+      },
+      {
+       "n": "m.decimals",
+       "title": "Decimals, Percents & Ratios",
+       "grade": "5-6"
+      },
+      {
+       "n": "m.geom",
+       "title": "Shapes, Area & Volume",
+       "grade": "K-7"
+      },
+      {
+       "n": "m.prealg",
+       "title": "Integers & Pre-Algebra",
+       "grade": "6-8"
+      }
+     ]
+    },
+    {
+     "group": "science",
+     "subjects": [
+      {
+       "n": "s.observe",
+       "title": "Observation & Measurement",
+       "grade": "K-2"
+      },
+      {
+       "n": "s.method",
+       "title": "The Scientific Method & Experiment Design",
+       "grade": "3-8"
+      }
+     ]
+    }
+   ],
+   "compliance": {
+    "buckets_covered": [
+     "math",
+     "science"
+    ]
+   },
+   "bridges_into_canon": [
+    "Elementary Algebra and Arithmetic"
+   ]
+  },
+  {
+   "program": "Interest: animals & nature \u2192 biology",
+   "kind": "interest",
+   "domain": "k12",
+   "interest": "animals & nature",
+   "fields": [
+    "biology"
+   ],
+   "hook": "How living things work and fit together \u2192 classification, ecosystems, body systems.",
+   "requirements": [
+    {
+     "group": "science",
+     "subjects": [
+      {
+       "n": "s.observe",
+       "title": "Observation & Measurement",
+       "grade": "K-2"
+      },
+      {
+       "n": "s.classify",
+       "title": "Living vs Non-living & Classification",
+       "grade": "1-3"
+      },
+      {
+       "n": "s.lifecycle",
+       "title": "Life Cycles & Ecosystems",
+       "grade": "2-5"
+      },
+      {
+       "n": "s.method",
+       "title": "The Scientific Method & Experiment Design",
+       "grade": "3-8"
+      },
+      {
+       "n": "s.cells",
+       "title": "Cells & Body Systems",
+       "grade": "6-8"
+      }
+     ]
+    },
+    {
+     "group": "mathematics",
+     "subjects": [
+      {
+       "n": "m.counting",
+       "title": "Counting & Number Sense",
+       "grade": "K-1"
+      },
+      {
+       "n": "m.addsub",
+       "title": "Addition & Subtraction",
+       "grade": "1-2"
+      },
+      {
+       "n": "m.place",
+       "title": "Place Value",
+       "grade": "2-3"
+      },
+      {
+       "n": "m.muldiv",
+       "title": "Multiplication & Division",
+       "grade": "3-4"
+      },
+      {
+       "n": "m.data",
+       "title": "Data, Graphs & Basic Probability",
+       "grade": "3-8"
+      }
+     ]
+    }
+   ],
+   "compliance": {
+    "buckets_covered": [
+     "math",
+     "science"
+    ]
+   },
+   "bridges_into_canon": [
+    "Cell Biology"
+   ]
+  },
+  {
+   "program": "Interest: music \u2192 mathematics / physics",
+   "kind": "interest",
+   "domain": "k12",
+   "interest": "music",
+   "fields": [
+    "mathematics",
+    "physics"
+   ],
+   "hook": "Why do notes sound good together? \u2192 ratios, fractions, patterns, frequency.",
+   "requirements": [
+    {
+     "group": "mathematics",
+     "subjects": [
+      {
+       "n": "m.counting",
+       "title": "Counting & Number Sense",
+       "grade": "K-1"
+      },
+      {
+       "n": "m.addsub",
+       "title": "Addition & Subtraction",
+       "grade": "1-2"
+      },
+      {
+       "n": "m.place",
+       "title": "Place Value",
+       "grade": "2-3"
+      },
+      {
+       "n": "m.muldiv",
+       "title": "Multiplication & Division",
+       "grade": "3-4"
+      },
+      {
+       "n": "m.fractions",
+       "title": "Fractions",
+       "grade": "3-5"
+      },
+      {
+       "n": "m.data",
+       "title": "Data, Graphs & Basic Probability",
+       "grade": "3-8"
+      },
+      {
+       "n": "m.decimals",
+       "title": "Decimals, Percents & Ratios",
+       "grade": "5-6"
+      },
+      {
+       "n": "m.geom",
+       "title": "Shapes, Area & Volume",
+       "grade": "K-7"
+      },
+      {
+       "n": "m.prealg",
+       "title": "Integers & Pre-Algebra",
+       "grade": "6-8"
+      }
+     ]
+    },
+    {
+     "group": "science",
+     "subjects": [
+      {
+       "n": "s.observe",
+       "title": "Observation & Measurement",
+       "grade": "K-2"
+      },
+      {
+       "n": "s.forces",
+       "title": "Forces, Motion & Energy (intro)",
+       "grade": "3-6"
+      },
+      {
+       "n": "s.physci",
+       "title": "Physical Science (intro mechanics)",
+       "grade": "6-8"
+      }
+     ]
+    }
+   ],
+   "compliance": {
+    "buckets_covered": [
+     "math",
+     "science"
+    ]
+   },
+   "bridges_into_canon": [
+    "Classical Mechanics",
+    "Elementary Algebra and Arithmetic"
+   ]
+  },
+  {
+   "program": "Interest: building & Lego \u2192 physics / mathematics",
+   "kind": "interest",
+   "domain": "k12",
+   "interest": "building & Lego",
+   "fields": [
+    "physics",
+    "mathematics"
+   ],
+   "hook": "Make it stand up and move \u2192 geometry, measurement, forces, structures.",
+   "requirements": [
+    {
+     "group": "mathematics",
+     "subjects": [
+      {
+       "n": "m.counting",
+       "title": "Counting & Number Sense",
+       "grade": "K-1"
+      },
+      {
+       "n": "m.addsub",
+       "title": "Addition & Subtraction",
+       "grade": "1-2"
+      },
+      {
+       "n": "m.place",
+       "title": "Place Value",
+       "grade": "2-3"
+      },
+      {
+       "n": "m.muldiv",
+       "title": "Multiplication & Division",
+       "grade": "3-4"
+      },
+      {
+       "n": "m.geom",
+       "title": "Shapes, Area & Volume",
+       "grade": "K-7"
+      },
+      {
+       "n": "m.data",
+       "title": "Data, Graphs & Basic Probability",
+       "grade": "3-8"
+      },
+      {
+       "n": "m.fractions",
+       "title": "Fractions",
+       "grade": "3-5"
+      },
+      {
+       "n": "m.decimals",
+       "title": "Decimals, Percents & Ratios",
+       "grade": "5-6"
+      },
+      {
+       "n": "m.prealg",
+       "title": "Integers & Pre-Algebra",
+       "grade": "6-8"
+      }
+     ]
+    },
+    {
+     "group": "science",
+     "subjects": [
+      {
+       "n": "s.observe",
+       "title": "Observation & Measurement",
+       "grade": "K-2"
+      },
+      {
+       "n": "s.forces",
+       "title": "Forces, Motion & Energy (intro)",
+       "grade": "3-6"
+      },
+      {
+       "n": "s.physci",
+       "title": "Physical Science (intro mechanics)",
+       "grade": "6-8"
+      }
+     ]
+    }
+   ],
+   "compliance": {
+    "buckets_covered": [
+     "math",
+     "science"
+    ]
+   },
+   "bridges_into_canon": [
+    "Classical Mechanics",
+    "Elementary Algebra and Arithmetic"
+   ]
+  },
+  {
+   "program": "Interest: cooking \u2192 chemistry / mathematics",
+   "kind": "interest",
+   "domain": "k12",
+   "interest": "cooking",
+   "fields": [
+    "chemistry",
+    "mathematics"
+   ],
+   "hook": "Why does the recipe work? \u2192 measurement, fractions, states of matter, reactions.",
+   "requirements": [
+    {
+     "group": "mathematics",
+     "subjects": [
+      {
+       "n": "m.counting",
+       "title": "Counting & Number Sense",
+       "grade": "K-1"
+      },
+      {
+       "n": "m.addsub",
+       "title": "Addition & Subtraction",
+       "grade": "1-2"
+      },
+      {
+       "n": "m.place",
+       "title": "Place Value",
+       "grade": "2-3"
+      },
+      {
+       "n": "m.muldiv",
+       "title": "Multiplication & Division",
+       "grade": "3-4"
+      },
+      {
+       "n": "m.fractions",
+       "title": "Fractions",
+       "grade": "3-5"
+      },
+      {
+       "n": "m.decimals",
+       "title": "Decimals, Percents & Ratios",
+       "grade": "5-6"
+      },
+      {
+       "n": "m.geom",
+       "title": "Shapes, Area & Volume",
+       "grade": "K-7"
+      },
+      {
+       "n": "m.prealg",
+       "title": "Integers & Pre-Algebra",
+       "grade": "6-8"
+      }
+     ]
+    },
+    {
+     "group": "science",
+     "subjects": [
+      {
+       "n": "s.observe",
+       "title": "Observation & Measurement",
+       "grade": "K-2"
+      },
+      {
+       "n": "s.matter",
+       "title": "Matter & Its Properties",
+       "grade": "2-5"
+      }
+     ]
+    }
+   ],
+   "compliance": {
+    "buckets_covered": [
+     "math",
+     "science"
+    ]
+   },
+   "bridges_into_canon": [
+    "Elementary Algebra and Arithmetic"
+   ]
+  },
+  {
+   "program": "Interest: money & business \u2192 economics / mathematics",
+   "kind": "interest",
+   "domain": "k12",
+   "interest": "money & business",
+   "fields": [
+    "economics",
+    "mathematics"
+   ],
+   "hook": "How money works \u2192 percents, data, markets, trade-offs.",
+   "requirements": [
+    {
+     "group": "mathematics",
+     "subjects": [
+      {
+       "n": "m.counting",
+       "title": "Counting & Number Sense",
+       "grade": "K-1"
+      },
+      {
+       "n": "m.addsub",
+       "title": "Addition & Subtraction",
+       "grade": "1-2"
+      },
+      {
+       "n": "m.place",
+       "title": "Place Value",
+       "grade": "2-3"
+      },
+      {
+       "n": "m.muldiv",
+       "title": "Multiplication & Division",
+       "grade": "3-4"
+      },
+      {
+       "n": "m.fractions",
+       "title": "Fractions",
+       "grade": "3-5"
+      },
+      {
+       "n": "m.decimals",
+       "title": "Decimals, Percents & Ratios",
+       "grade": "5-6"
+      },
+      {
+       "n": "m.geom",
+       "title": "Shapes, Area & Volume",
+       "grade": "K-7"
+      },
+      {
+       "n": "m.prealg",
+       "title": "Integers & Pre-Algebra",
+       "grade": "6-8"
+      }
+     ]
+    },
+    {
+     "group": "social_studies",
+     "subjects": [
+      {
+       "n": "h.community",
+       "title": "Community, Maps & Time",
+       "grade": "K-3"
+      },
+      {
+       "n": "h.geography",
+       "title": "US & World Geography",
+       "grade": "3-6"
+      },
+      {
+       "n": "h.econ",
+       "title": "Money, Markets & Personal Finance",
+       "grade": "5-12"
+      }
+     ]
+    }
+   ],
+   "compliance": {
+    "buckets_covered": [
+     "math",
+     "social_studies"
+    ]
+   },
+   "bridges_into_canon": [
+    "Elementary Algebra and Arithmetic",
+    "Microeconomics Foundations"
+   ]
+  },
+  {
+   "program": "Interest: drawing & art \u2192 mathematics",
+   "kind": "interest",
+   "domain": "k12",
+   "interest": "drawing & art",
+   "fields": [
+    "mathematics"
+   ],
+   "hook": "Proportion, perspective, pattern \u2192 geometry, ratio, symmetry.",
+   "requirements": [
+    {
+     "group": "mathematics",
+     "subjects": [
+      {
+       "n": "m.counting",
+       "title": "Counting & Number Sense",
+       "grade": "K-1"
+      },
+      {
+       "n": "m.addsub",
+       "title": "Addition & Subtraction",
+       "grade": "1-2"
+      },
+      {
+       "n": "m.place",
+       "title": "Place Value",
+       "grade": "2-3"
+      },
+      {
+       "n": "m.muldiv",
+       "title": "Multiplication & Division",
+       "grade": "3-4"
+      },
+      {
+       "n": "m.geom",
+       "title": "Shapes, Area & Volume",
+       "grade": "K-7"
+      },
+      {
+       "n": "m.fractions",
+       "title": "Fractions",
+       "grade": "3-5"
+      },
+      {
+       "n": "m.decimals",
+       "title": "Decimals, Percents & Ratios",
+       "grade": "5-6"
+      },
+      {
+       "n": "m.prealg",
+       "title": "Integers & Pre-Algebra",
+       "grade": "6-8"
+      }
+     ]
+    },
+    {
+     "group": "language_arts",
+     "subjects": [
+      {
+       "n": "e.phonics",
+       "title": "Phonics & Decoding",
+       "grade": "K-2"
+      },
+      {
+       "n": "e.fluency",
+       "title": "Reading Fluency",
+       "grade": "1-3"
+      },
+      {
+       "n": "e.comprehension",
+       "title": "Reading Comprehension",
+       "grade": "2-5"
+      },
+      {
+       "n": "e.literature",
+       "title": "Literature, Genre & Analysis",
+       "grade": "3-12"
+      }
+     ]
+    }
+   ],
+   "compliance": {
+    "buckets_covered": [
+     "language_arts",
+     "math"
+    ]
+   },
+   "bridges_into_canon": [
+    "Elementary Algebra and Arithmetic",
+    "Literature"
+   ]
+  },
+  {
+   "program": "Interest: stories & writing \u2192 literature / philosophy",
+   "kind": "interest",
+   "domain": "k12",
+   "interest": "stories & writing",
+   "fields": [
+    "literature",
+    "philosophy"
+   ],
+   "hook": "Tell and understand stories \u2192 comprehension, genre, argument, rhetoric.",
+   "requirements": [
+    {
+     "group": "language_arts",
+     "subjects": [
+      {
+       "n": "e.phonics",
+       "title": "Phonics & Decoding",
+       "grade": "K-2"
+      },
+      {
+       "n": "e.fluency",
+       "title": "Reading Fluency",
+       "grade": "1-3"
+      },
+      {
+       "n": "e.comprehension",
+       "title": "Reading Comprehension",
+       "grade": "2-5"
+      },
+      {
+       "n": "e.literature",
+       "title": "Literature, Genre & Analysis",
+       "grade": "3-12"
+      }
+     ]
+    }
+   ],
+   "compliance": {
+    "buckets_covered": [
+     "language_arts"
+    ]
+   },
+   "bridges_into_canon": [
+    "Literature"
+   ]
+  },
+  {
+   "program": "K-12 readiness \u2192 economics",
+   "kind": "field",
+   "domain": "k12",
+   "field": "economics",
+   "requirements": [
+    {
+     "group": "mathematics",
+     "subjects": [
+      {
+       "n": "m.counting",
+       "title": "Counting & Number Sense",
+       "grade": "K-1"
+      },
+      {
+       "n": "m.addsub",
+       "title": "Addition & Subtraction",
+       "grade": "1-2"
+      },
+      {
+       "n": "m.place",
+       "title": "Place Value",
+       "grade": "2-3"
+      },
+      {
+       "n": "m.muldiv",
+       "title": "Multiplication & Division",
+       "grade": "3-4"
+      },
+      {
+       "n": "m.fractions",
+       "title": "Fractions",
+       "grade": "3-5"
+      },
+      {
+       "n": "m.decimals",
+       "title": "Decimals, Percents & Ratios",
+       "grade": "5-6"
+      }
+     ]
+    },
+    {
+     "group": "social_studies",
+     "subjects": [
+      {
+       "n": "h.community",
+       "title": "Community, Maps & Time",
+       "grade": "K-3"
+      },
+      {
+       "n": "h.geography",
+       "title": "US & World Geography",
+       "grade": "3-6"
+      },
+      {
+       "n": "h.econ",
+       "title": "Money, Markets & Personal Finance",
+       "grade": "5-12"
+      }
+     ]
+    }
+   ],
+   "compliance": {
+    "buckets_covered": [
+     "math",
+     "social_studies"
+    ]
+   },
+   "bridges_into_canon": [
+    "Microeconomics Foundations"
+   ]
+  },
+  {
+   "program": "K-12 readiness \u2192 literature",
+   "kind": "field",
+   "domain": "k12",
+   "field": "literature",
+   "requirements": [
+    {
+     "group": "language_arts",
+     "subjects": [
+      {
+       "n": "e.phonics",
+       "title": "Phonics & Decoding",
+       "grade": "K-2"
+      },
+      {
+       "n": "e.fluency",
+       "title": "Reading Fluency",
+       "grade": "1-3"
+      },
+      {
+       "n": "e.comprehension",
+       "title": "Reading Comprehension",
+       "grade": "2-5"
+      },
+      {
+       "n": "e.literature",
+       "title": "Literature, Genre & Analysis",
+       "grade": "3-12"
+      }
+     ]
+    }
+   ],
+   "compliance": {
+    "buckets_covered": [
+     "language_arts"
+    ]
+   },
+   "bridges_into_canon": [
+    "Literature"
+   ]
+  },
+  {
+   "program": "K-12 readiness \u2192 mathematics",
+   "kind": "field",
+   "domain": "k12",
+   "field": "mathematics",
+   "requirements": [
+    {
+     "group": "language_arts",
+     "subjects": [
+      {
+       "n": "e.phonics",
+       "title": "Phonics & Decoding",
+       "grade": "K-2"
+      },
+      {
+       "n": "e.fluency",
+       "title": "Reading Fluency",
+       "grade": "1-3"
+      },
+      {
+       "n": "e.comprehension",
+       "title": "Reading Comprehension",
+       "grade": "2-5"
+      },
+      {
+       "n": "e.literature",
+       "title": "Literature, Genre & Analysis",
+       "grade": "3-12"
+      }
+     ]
+    },
+    {
+     "group": "mathematics",
+     "subjects": [
+      {
+       "n": "m.counting",
+       "title": "Counting & Number Sense",
+       "grade": "K-1"
+      },
+      {
+       "n": "m.addsub",
+       "title": "Addition & Subtraction",
+       "grade": "1-2"
+      },
+      {
+       "n": "m.place",
+       "title": "Place Value",
+       "grade": "2-3"
+      },
+      {
+       "n": "m.muldiv",
+       "title": "Multiplication & Division",
+       "grade": "3-4"
+      },
+      {
+       "n": "m.fractions",
+       "title": "Fractions",
+       "grade": "3-5"
+      },
+      {
+       "n": "m.decimals",
+       "title": "Decimals, Percents & Ratios",
+       "grade": "5-6"
+      }
+     ]
+    },
+    {
+     "group": "social_studies",
+     "subjects": [
+      {
+       "n": "h.community",
+       "title": "Community, Maps & Time",
+       "grade": "K-3"
+      },
+      {
+       "n": "h.geography",
+       "title": "US & World Geography",
+       "grade": "3-6"
+      },
+      {
+       "n": "h.econ",
+       "title": "Money, Markets & Personal Finance",
+       "grade": "5-12"
+      }
+     ]
+    }
+   ],
+   "compliance": {
+    "buckets_covered": [
+     "language_arts",
+     "math",
+     "social_studies"
+    ]
+   },
+   "bridges_into_canon": [
+    "Literature",
+    "Microeconomics Foundations"
+   ]
+  },
+  {
+   "program": "K-12 readiness \u2192 philosophy",
+   "kind": "field",
+   "domain": "k12",
+   "field": "philosophy",
+   "requirements": [
+    {
+     "group": "language_arts",
+     "subjects": [
+      {
+       "n": "e.phonics",
+       "title": "Phonics & Decoding",
+       "grade": "K-2"
+      },
+      {
+       "n": "e.fluency",
+       "title": "Reading Fluency",
+       "grade": "1-3"
+      },
+      {
+       "n": "e.comprehension",
+       "title": "Reading Comprehension",
+       "grade": "2-5"
+      },
+      {
+       "n": "e.literature",
+       "title": "Literature, Genre & Analysis",
+       "grade": "3-12"
+      }
+     ]
+    }
+   ],
+   "compliance": {
+    "buckets_covered": [
+     "language_arts"
+    ]
+   },
+   "bridges_into_canon": [
+    "Literature"
+   ]
+  }
+ ]
+}

@@ -18,6 +18,12 @@ export interface McpServerConfig {
   headers?: Record<string, string>
   enabled: boolean
   createdAt: string
+  /** A2A federation: when set, this server is a FEDERATED PEER (e.g. an AIWG / Ruflo / Gas Town node), not a
+   *  local tool server. Its tool calls are gated by the peer's behavioral trust (checkActorGrant) and each
+   *  outcome feeds the trust ledger — instead of the local-session grant path. */
+  spiffeId?: string
+  /** UI hint: which framework this peer is (aiwg | ruflo | gastown | …), for presets + the federation panel. */
+  peerKind?: string
 }
 
 // ─── Runtime state ────────────────────────────────────────────────────────────

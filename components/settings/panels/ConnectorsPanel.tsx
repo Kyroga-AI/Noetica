@@ -7,6 +7,22 @@ import { isTauri } from '@/lib/tauri/bridge'
 import { useConnectorAuth } from '@/lib/auth/context'
 import type { ConnectorId } from '@/lib/auth/types'
 
+// Curated MCP marketplace — popular servers with one-click add. `env` keys are placeholders the user fills in
+// after adding (e.g. an API token); `desktop` marks stdio servers that need the Tauri app (npx child process).
+type CatalogueEntry = { name: string; description: string; args: string[]; env?: string[]; desktop: boolean }
+const MCP_CATALOGUE: CatalogueEntry[] = [
+  { name: 'Filesystem', description: 'Read/write files in a directory you choose.', args: ['-y', '@modelcontextprotocol/server-filesystem', '~'], desktop: true },
+  { name: 'GitHub', description: 'Repos, issues, PRs, code search.', args: ['-y', '@modelcontextprotocol/server-github'], env: ['GITHUB_PERSONAL_ACCESS_TOKEN'], desktop: true },
+  { name: 'Brave Search', description: 'Web + local search via the Brave API.', args: ['-y', '@modelcontextprotocol/server-brave-search'], env: ['BRAVE_API_KEY'], desktop: true },
+  { name: 'PostgreSQL', description: 'Read-only SQL over a Postgres database.', args: ['-y', '@modelcontextprotocol/server-postgres', 'postgresql://localhost/mydb'], desktop: true },
+  { name: 'SQLite', description: 'Query + analyze a local SQLite database.', args: ['-y', '@modelcontextprotocol/server-sqlite', '--db-path', '~/db.sqlite'], desktop: true },
+  { name: 'Memory', description: 'A persistent knowledge-graph memory.', args: ['-y', '@modelcontextprotocol/server-memory'], desktop: true },
+  { name: 'Puppeteer', description: 'Drive a headless browser — navigate, screenshot, scrape.', args: ['-y', '@modelcontextprotocol/server-puppeteer'], desktop: true },
+  { name: 'Slack', description: 'Read channels, post messages.', args: ['-y', '@modelcontextprotocol/server-slack'], env: ['SLACK_BOT_TOKEN', 'SLACK_TEAM_ID'], desktop: true },
+  { name: 'Fetch', description: 'Fetch a URL and return clean markdown.', args: ['-y', '@modelcontextprotocol/server-fetch'], desktop: true },
+  { name: 'Git', description: 'Inspect + operate on a local git repo.', args: ['-y', '@modelcontextprotocol/server-git'], desktop: true },
+]
+
 // Map connector list IDs to ConnectorId where auth exists
 const AUTH_CONNECTOR_MAP: Record<string, ConnectorId> = {
   github: 'github',
@@ -248,6 +264,8 @@ type TabId = 'native' | 'external' | 'mcp'
 export function ConnectorsPanel({ onNavigate }: { onNavigate?: (id: string) => void } = {}) {
   const [tab, setTab] = useState<TabId>('mcp')
   const [showAdd, setShowAdd] = useState(false)
+  const [showCatalogue, setShowCatalogue] = useState(false)
+  const [added, setAdded] = useState<Record<string, boolean>>({})
   const { serverStates, tools, addServer, connect, disconnect, removeServer, hydrated } = useMcp()
   const { store } = useConnectorAuth()
 
@@ -324,6 +342,36 @@ export function ConnectorsPanel({ onNavigate }: { onNavigate?: (id: string) => v
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden><path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
                 Add MCP server
               </button>}
+
+          {/* Marketplace — one-click add for popular MCP servers */}
+          <button onClick={() => setShowCatalogue((v) => !v)}
+            className="flex w-full items-center justify-between rounded-xl border border-[var(--color-border-secondary)] px-4 py-2 text-xs font-semibold text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]">
+            <span>🧩 Browse marketplace — popular connectors</span>
+            <span className="text-[var(--color-text-tertiary)]">{showCatalogue ? '▲' : '▼'}</span>
+          </button>
+          {showCatalogue && (
+            <div className="grid gap-2 sm:grid-cols-2">
+              {MCP_CATALOGUE.map((c) => {
+                const blocked = c.desktop && !isTauri()
+                return (
+                  <div key={c.name} className="flex flex-col rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="text-xs font-semibold text-[var(--color-text-primary)]">{c.name}</span>
+                      {c.desktop && <span className="shrink-0 rounded-full bg-[var(--color-background-tertiary)] px-1.5 py-0.5 text-[9px] text-[var(--color-text-tertiary)]">desktop</span>}
+                    </div>
+                    <p className="mt-0.5 flex-1 text-[11px] leading-4 text-[var(--color-text-secondary)]">{c.description}</p>
+                    {c.env && <p className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">needs: {c.env.join(', ')}</p>}
+                    <button disabled={blocked || added[c.name]}
+                      title={blocked ? 'stdio servers need the Tauri desktop app' : ''}
+                      onClick={() => { void addServer({ name: c.name, transport: 'stdio', command: 'npx', args: c.args, env: (c.env ?? []).reduce((o, k) => ({ ...o, [k]: '' }), {} as Record<string, string>), enabled: true }); setAdded((a) => ({ ...a, [c.name]: true })) }}
+                      className="mt-2 rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2 py-1 text-[10px] font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe] disabled:opacity-50">
+                      {added[c.name] ? '✓ Added — set env below' : blocked ? 'Desktop only' : '+ Add'}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          )}
           {tools.length > 0 && (
             <div className="rounded-xl border border-[#dcfce7] bg-[#f0fdf4] px-4 py-3 space-y-1.5">
               <p className="text-xs font-semibold text-[#166534]">{tools.length} tool{tools.length !== 1 ? 's' : ''} available</p>

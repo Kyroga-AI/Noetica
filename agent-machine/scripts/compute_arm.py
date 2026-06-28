@@ -17,9 +17,9 @@ than the model alone, and it *knows* which subset that is.
 Run:  OLLAMA_HOST=http://127.0.0.1:11434 python3 scripts/compute_arm.py
       MMLU_SUBJECTS=college_physics,high_school_physics MMLU_PER_SUBJECT=40 python3 ...
 """
-import os, sys, re, json, signal, urllib.request
+import os, sys, re, json, signal, time, urllib.request
 import sympy as sp
-from units import parse_unit, to_si, dimension_of, DimError
+from units import parse_unit, to_si, dimension_of, DimError, dim
 from model_verify import MODELS, DIMS, verify_and_solve
 from chain_solve import chain_solve
 from math_solve import solve_math, infer_op   # Gödel-routed exact calculus/algebra
@@ -36,19 +36,37 @@ class _Timeout(Exception):
     pass
 
 
+_QDEADLINE = None   # absolute monotonic deadline for the CURRENT question (None ⇒ no outer cap)
+
+
+def _h_timeout(_s, _f):
+    raise _Timeout()
+
+
 def _timed(secs, fn, *a, **k):
-    """Run fn with a hard wall-clock cap — LLM-written sympy (solve/factorial/integrate) can run
-    forever; the compute must never hang the loop. SIGALRM (main thread); no-op on non-Unix."""
-    if not hasattr(signal, 'SIGALRM'):
+    """Run fn with a hard wall-clock cap that COMPOSES with the per-question deadline. The arm had
+    inner 5 s caps (solve_math, prog eval) AND we now add a per-question cap in _batch — but naive
+    nested signal.alarm() clobbers: the inner finally would alarm(0) and DISABLE the question guard,
+    so one slow LLM/sympy op past the inner block could hang forever. Here the effective cap is
+    min(secs, time-left-in-question), and the finally RE-ARMS the outer deadline instead of clearing
+    it. setitimer (float) for sub-second; no-op on non-Unix."""
+    if not hasattr(signal, 'setitimer'):
         return fn(*a, **k)
-    def _h(_s, _f):
-        raise _Timeout()
-    old = signal.signal(signal.SIGALRM, _h)
-    signal.alarm(secs)
+    eff = secs
+    if _QDEADLINE is not None:
+        eff = min(secs, _QDEADLINE - time.monotonic())
+        if eff <= 0:
+            raise _Timeout()
+    old = signal.signal(signal.SIGALRM, _h_timeout)
+    signal.setitimer(signal.ITIMER_REAL, eff)
     try:
         return fn(*a, **k)
     finally:
-        signal.alarm(0)
+        if _QDEADLINE is not None:                      # re-arm the question guard, never disarm it
+            rem = _QDEADLINE - time.monotonic()
+            signal.setitimer(signal.ITIMER_REAL, rem if rem > 0 else 0.001)
+        else:
+            signal.setitimer(signal.ITIMER_REAL, 0)
         signal.signal(signal.SIGALRM, old)
 
 
@@ -86,7 +104,7 @@ SYS = (
 )
 
 
-def ollama(messages, timeout=90):
+def ollama(messages, timeout=int(os.environ.get('MMLU_COMPUTE_LLM_TIMEOUT', '20'))):
     body = json.dumps({'model': MODEL, 'stream': False, 'temperature': 0, 'messages': messages}).encode()
     for attempt in range(2):  # one retry on a transient failure — never let a call kill the run
         try:
@@ -349,9 +367,11 @@ MATH_SYS = (
 )
 
 
-def math_extract(question, choices):
+def math_extract(question, choices, context=''):
+    grounding = ('Relevant formulas/worked examples from course materials (use to identify the operation & '
+                 'expression):\n' + context[:1500] + '\n\n') if context else ''
     raw = ollama([{'role': 'system', 'content': MATH_SYS},
-                  {'role': 'user', 'content': f'Question:\n{question}\nChoices: {choices}'}])
+                  {'role': 'user', 'content': grounding + f'Question:\n{question}\nChoices: {choices}'}])
     m = re.search(r'\{.*\}', raw, re.S)
     if not m:
         return None
@@ -418,13 +438,13 @@ def _match_math(ans, choices):
     return None
 
 
-def math_solve_question(question, choices):
+def math_solve_question(question, choices, context=''):
     """RIGHT-MATHS path: detect the operation, LLM PARSES the expression, Gödel-routed math_solve
     computes it EXACTLY, match the choice by symbolic equality. The model parses; sympy is exact."""
     op = infer_op(question)
     if not op:
         return None, None
-    mx = math_extract(question, choices)
+    mx = math_extract(question, choices, context)
     if not mx or not mx.get('expr'):
         return None, None
     try:
@@ -452,9 +472,17 @@ _PROG_NS = {n: getattr(sp, n) for n in ('binomial', 'factorial', 'sqrt', 'solve'
 _PROG_NS.update({c: sp.Symbol(c) for c in 'abcdefghijklmnopqrstuvwxyz'})
 
 
-def prog_extract(question, choices):
+def prog_extract(question, choices, context=''):
+    # BRAIN-GROUNDED formalization (#12): when the brain supplies worked solutions/formulas for this kind of
+    # problem, the model IDENTIFIES the method from them instead of cold-reading the question — the cold parse
+    # is exactly the mis-formalization that floored the compute arm. Use the brain to identify the algebra.
+    grounding = ''
+    if context:
+        grounding = ('Worked examples and relevant formulas from the course materials below — IDENTIFY the '
+                     'method/operation they use and GROUND your sympy formalization in it; do not invent a '
+                     'different setup:\n' + context[:2200] + '\n\n')
     raw = ollama([{'role': 'system', 'content': PROG_SYS},
-                  {'role': 'user', 'content': f'Question:\n{question}\nChoices: {choices}'}])
+                  {'role': 'user', 'content': grounding + f'Question:\n{question}\nChoices: {choices}'}])
     m = re.search(r'\{.*\}', raw, re.S)
     if not m:
         return None
@@ -464,16 +492,19 @@ def prog_extract(question, choices):
         return None
 
 
-def prog_solve_question(question, choices):
-    """Program-of-thought: the model writes ONE sympy expression; we execute it in a sympy-only
-    namespace (no builtins) and match the choice. The model sets up; sympy computes exactly."""
-    src = prog_extract(question, choices)
+PROG_K = int(os.environ.get('COMPUTE_PROG_K', '3'))   # formalizations sampled per question (self-consistency)
+
+
+def _prog_attempt(question, choices, context=''):
+    """ONE program-of-thought attempt: the model writes a sympy expression; execute it sandboxed and
+    match a choice. Returns a choice index or None."""
+    src = prog_extract(question, choices, context)
     if not src or len(src) > 240:
-        return None, None
+        return None
     try:
         val = _timed(5, eval, src, {'__builtins__': {}}, _PROG_NS)   # restricted ns + 5s wall cap
     except Exception:
-        return None, None
+        return None
     # normalize: solve() returns dict/list of dicts/tuples → flatten to value(s)
     if isinstance(val, dict):
         val = list(val.values())
@@ -481,18 +512,64 @@ def prog_solve_question(question, choices):
         val = [v for d in val for v in d.values()]
     elif isinstance(val, list) and val and isinstance(val[0], (tuple,)):
         val = [v for t in val for v in t]
-    idx = _match_math(val, choices)
-    return (LETTERS[idx], 'prog') if idx is not None else (None, None)
+    return _match_math(val, choices)
 
 
-def solve_question(question, choices):
+def prog_solve_question(question, choices, context=''):
+    """Self-consistent program-of-thought. A SINGLE formalization is the moat's failure mode: the model
+    misreads the problem, sympy executes the wrong setup EXACTLY, and the exact-but-wrong value lands on a
+    distractor (the board showed prog defaulting to 'A' at 43.8% on-fired). So we sample PROG_K
+    formalizations and only commit when a MAJORITY agree on the same choice — disagreement means the setup
+    is unreliable, so we ABSTAIN (→ route to brain) rather than certify a guess. Exact math, honest coverage."""
+    votes = {}
+    for _ in range(PROG_K):
+        idx = _prog_attempt(question, choices, context)
+        if idx is not None:
+            votes[idx] = votes.get(idx, 0) + 1
+    if not votes:
+        return None, None
+    best_idx, best_n = max(votes.items(), key=lambda kv: kv[1])
+    total = sum(votes.values())
+    # require a real consensus: ≥2 formalizations agree AND they're a clear majority. A lone success, or a
+    # split vote, is exactly the unreliable formalization we must NOT trust — abstain instead of guessing.
+    if best_n >= 2 and best_n / total >= 0.6:
+        return LETTERS[best_idx], 'prog'
+    return None, None
+
+
+def solve_question(question, choices, context=''):
     """Verified compute: the right-maths (calculus/algebra) path, the physics catalog chain, the
-    free-equation hatch, then program-of-thought sympy. Returns (answer_letter or None, mode)."""
+    free-equation hatch, then program-of-thought sympy. Returns (answer_letter or None, mode).
+    `context` = brain-retrieved worked solutions/formulas that ground the LLM formalization (#12)."""
     # 0. RIGHT-MATHS — calculus/algebra computed exactly (Gödel form → sympy method)
     if infer_op(question):
-        ans, mode = math_solve_question(question, choices)
+        ans, mode = math_solve_question(question, choices, context)
         if ans is not None:
             return ans, mode
+    # 0.5 CATALOG-MENU — the LLM picks ONE law from the (now chemistry-enriched) menu; units VERIFY the
+    #     extraction before solving. This is the path that actually reaches the chemistry catalog — the CHAIN
+    #     extractor below speaks physics symbols only, so without this, the 15 new chemistry laws are unreachable.
+    ex = extract(question, choices)
+    if ex and ex.get('law') and ex.get('knowns'):
+        try:
+            law = ex['law']; vd = DIMS.get(law)
+            if vd is not None:
+                # chemistry tolerance: pH/pOH/ratios are dimensionless by CONVENTION ([H+] is an activity),
+                # but the LLM tags them with a unit ("M") that the strict physics gate would reject. For a
+                # dimensionless slot, drop the stray unit so the convention doesn't fight the verifier.
+                kn = {}
+                for var, vu in ex['knowns'].items():
+                    val0, unit0 = (vu[0], vu[1]) if isinstance(vu, (list, tuple)) and len(vu) == 2 else (vu, '')
+                    if vd.get(var) == dim():
+                        unit0 = ''
+                    kn[var] = (val0, unit0)
+                val, _tgt, _td = verify_and_solve(law, kn, ex.get('target'))
+                if isinstance(val, (int, float)):
+                    idx = match_choice(float(val), choices)
+                    if idx is not None:
+                        return LETTERS[idx], 'catalog:' + str(law)[:16]
+        except Exception:
+            pass
     # 1. CHAIN path — name the knowns + target; the verified planner derives the rest
     #    (handles single-law AND multi-step; every hop dimension-checked).
     cx = chain_extract(question, choices)
@@ -519,25 +596,49 @@ def solve_question(question, choices):
             pass
     # 3. PROGRAM-OF-THOUGHT — the model writes a sympy program (systems, combinatorics, arithmetic),
     #    executed exactly. Catches the word-problem math the explicit-op path can't gate on.
-    ans, mode = prog_solve_question(question, choices)
+    ans, mode = prog_solve_question(question, choices, context)
     if ans is not None:
         return ans, mode
     return None, 'abstain'
 
 
+Q_TIMEOUT = float(os.environ.get('MMLU_COMPUTE_Q_TIMEOUT', '30'))   # per-question wall cap (s)
+
+
 def _batch():
-    """Read JSONL {id, question, choices} on stdin; emit JSONL {id, answer, mode} — one process,
-    one sympy import, so the MMLU bench can score the whole compute arm in a single subprocess call."""
+    """Read JSONL {id, question, choices, context?} on stdin; emit JSONL {id, answer, mode} — one process,
+    one sympy import, so the MMLU bench can score the whole compute arm in a single subprocess call.
+    `context` (optional) = brain-retrieved worked solutions that ground the formalization (#12).
+
+    RESILIENCE: each question runs under its OWN wall-clock deadline (Q_TIMEOUT). A pathological
+    question (sympy solve() that won't converge, an LLM call that stalls) times out to a clean
+    'timeout' abstain and the loop ADVANCES — it can no longer take the whole batch down with it.
+    Results are flushed per line, so even a SIGKILL from the parent keeps every completed question."""
+    global _QDEADLINE
+    has = hasattr(signal, 'setitimer')
     for line in sys.stdin:
         line = line.strip()
         if not line:
             continue
+        qid = None; ans = None; mode = 'abstain'
         try:
-            q = json.loads(line)
-            ans, mode = solve_question(q['question'], q['choices'])
+            q = json.loads(line); qid = q.get('id')
+            if has:
+                prev = signal.signal(signal.SIGALRM, _h_timeout)
+                _QDEADLINE = time.monotonic() + Q_TIMEOUT
+                signal.setitimer(signal.ITIMER_REAL, Q_TIMEOUT)
+            try:
+                ans, mode = solve_question(q['question'], q['choices'], q.get('context') or '')
+            finally:
+                if has:
+                    signal.setitimer(signal.ITIMER_REAL, 0)
+                    signal.signal(signal.SIGALRM, prev)
+                    _QDEADLINE = None
+        except _Timeout:
+            ans, mode = None, 'timeout'
         except Exception:
-            q, ans, mode = {}, None, 'error'
-        print(json.dumps({'id': q.get('id'), 'answer': ans, 'mode': mode}), flush=True)
+            ans, mode = None, 'error'
+        print(json.dumps({'id': qid, 'answer': ans, 'mode': mode}), flush=True)
 
 
 def main():

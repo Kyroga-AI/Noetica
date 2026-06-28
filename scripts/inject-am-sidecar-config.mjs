@@ -22,6 +22,8 @@ if (restore) {
   console.log('Removed externalBin from tauri.conf.json (dev mode restored)')
 } else {
   config.bundle = config.bundle ?? {}
+  // noetica-operator is intentionally omitted until its x86_64-apple-darwin cross-build is solved (ort lacks
+  // prebuilt ONNX Runtime for that target) — bundling it broke the universal release. See release.yml.
   config.bundle.externalBin = ['binaries/agent-machine', 'binaries/ollama', 'binaries/noetica-embed']
   console.log('Injected externalBin: ["binaries/agent-machine", "binaries/ollama", "binaries/noetica-embed"] into tauri.conf.json')
 }

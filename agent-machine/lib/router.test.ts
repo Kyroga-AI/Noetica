@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { buildRouterDecision, classifyTask, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider } from './router.js'
+import os from 'node:os'
+import { buildRouterDecision, classifyTask, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider, bestWorkhorse, preferredCoderForRam } from './router.js'
 
 // The full local model inventory — used to simulate "everything installed".
 const ALL_MODELS = LOCAL_MODEL_SUITE.map((m) => m.name)
@@ -185,4 +186,56 @@ test('resolveProvider maps hosted prefixes + bare ids to the right provider/base
   assert.equal(resolveProvider('gpt-4o').provider, 'openai')
   assert.equal(resolveProvider('qwen2.5:7b').provider, 'ollama')
   assert.equal(resolveProvider('hf.co/bartowski/X-GGUF').provider, 'ollama')   // local GGUF, not hosted
+})
+
+// ── Qwen3 24GB-tier upgrade (general/reasoning, not just coding) ────────────────
+test('bestWorkhorse prefers a qwen3 when the family is pulled, else the fallback', () => {
+  // isModelAvailable matches by family, so a pulled qwen3 tag satisfies any qwen3 pref (the exact tag depends
+  // on RAM: qwen3:14b on ≥18GB, qwen3:8b below) — assert the family, not a fixed tag, so it's env-robust.
+  assert.match(bestWorkhorse(['qwen3:8b', 'qwen2.5:7b'], 'qwen2.5:7b'), /^qwen3/)
+  assert.equal(bestWorkhorse(['qwen2.5:7b'], 'qwen2.5:7b'), 'qwen2.5:7b') // no qwen3 pulled → fallback
+})
+
+// reasoning is the HEAVY lane (→ bestWorkhorse): the workhorse ladder always offers qwen3:8b as its floor,
+// so a pulled qwen3 wins on EVERY box, regardless of RAM.
+test('reasoning upgrades to qwen3 on any box when it is pulled (heavy lane → workhorse)', () => {
+  const d = buildRouterDecision({
+    requestId: 'r', content: 'anything', ollamaAvailable: true,
+    availableModels: ['qwen3:8b', 'qwen2.5:7b', 'deepseek-r1:8b', 'llama3.2:3b'],
+    hasAnthropicKey: false, hasOpenAIKey: false, taskOverride: 'reasoning',
+  })
+  assert.match(d.resolvedModel, /^qwen3/, `reasoning should route to qwen3 when available, got ${d.resolvedModel}`)
+})
+
+// Interactive lanes (chat/general/writing/research) are the latency-sensitive tier (→ bestResponsive). Since
+// 91c7c9b, qwen3:8b (~5GB) is only kept warm where there's RAM for it (bestResponsive gates it behind
+// ramGb>=12); on smaller boxes the responsive tier deliberately stays on the qwen2.5 floor so time-to-answer
+// doesn't regress. So this assertion is RAM-gated rather than fixed — it tests BOTH branches of the tiering
+// (mirrors the env-robust guard on preferredCoderForRam below). Keep the 12GB threshold in sync with bestResponsive.
+test('interactive lanes upgrade to qwen3 only where RAM allows; small boxes keep the qwen2.5 floor for latency', () => {
+  const ramGb = os.totalmem() / 1e9
+  for (const task of ['general', 'writing', 'research', 'chat'] as const) {
+    const d = buildRouterDecision({
+      requestId: 'r', content: 'anything', ollamaAvailable: true,
+      availableModels: ['qwen3:8b', 'qwen2.5:7b', 'deepseek-r1:8b', 'llama3.2:3b'],
+      hasAnthropicKey: false, hasOpenAIKey: false, taskOverride: task,
+    })
+    if (ramGb >= 12) assert.match(d.resolvedModel, /^qwen3/, `${task} should upgrade to qwen3 on a >=12GB box, got ${d.resolvedModel}`)
+    else assert.equal(d.resolvedModel, 'qwen2.5:7b', `${task} should stay on the qwen2.5 floor on a <12GB box for latency, got ${d.resolvedModel}`)
+  }
+})
+
+test('without qwen3 pulled, general routing still falls back to the qwen2.5 floor (small boxes untouched)', () => {
+  const d = buildRouterDecision({
+    requestId: 'r', content: 'anything', ollamaAvailable: true,
+    availableModels: ['qwen2.5:7b', 'llama3.2:3b'],
+    hasAnthropicKey: false, hasOpenAIKey: false, taskOverride: 'general',
+  })
+  assert.equal(d.resolvedModel, 'qwen2.5:7b')
+})
+
+test('the 18GB+ tier background-pulls a qwen3 workhorse (not qwen2.5-coder)', () => {
+  const want = preferredCoderForRam()
+  // null on <18GB boxes (floor already shipped) — only assert the qwen3 contract when something is pulled.
+  if (want) assert.match(want, /^qwen3/, `high-RAM box should pull a qwen3 workhorse, got ${want}`)
 })

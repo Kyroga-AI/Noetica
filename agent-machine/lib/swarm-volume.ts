@@ -6,7 +6,7 @@
  * to a directory-backed volume everywhere else. The volume carries the swarm manifest (members + a shared
  * blackboard dir) so dispatched agents discover each other and share state — the substrate for swarming.
  */
-import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync, renameSync, readdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { execFileSync } from 'node:child_process'
@@ -114,6 +114,25 @@ export function leaveSwarm(swarmId: string, agentId: string): SwarmManifest | nu
 /** Members seen within `withinMs` (default 5 min) — the live swarm. */
 export function swarmMembers(swarmId: string, withinMs = 5 * 60_000, now = Date.now()): SwarmMember[] {
   return (readManifest(swarmId)?.members ?? []).filter((x) => now - x.lastSeen < withinMs)
+}
+
+/** Enumerate all local swarms with their members + live count — for the Fleet panel. */
+export function listSwarms(withinMs = 5 * 60_000, now = Date.now()): Array<{ swarmId: string; createdAt: number; backend: VolumeBackend; mounted: boolean; members: SwarmMember[]; live: number }> {
+  const root = ROOT()
+  if (!existsSync(root)) return []
+  let dirs: string[] = []
+  try { dirs = readdirSync(root) } catch { return [] }
+  const out: Array<{ swarmId: string; createdAt: number; backend: VolumeBackend; mounted: boolean; members: SwarmMember[]; live: number }> = []
+  for (const d of dirs) {
+    try {
+      const p = join(root, d, 'swarm.json')
+      if (!existsSync(p)) continue
+      const m = JSON.parse(readFileSync(p, 'utf8')) as SwarmManifest
+      const members = m.members ?? []
+      out.push({ swarmId: m.swarmId, createdAt: m.createdAt, backend: m.volume?.backend ?? 'directory', mounted: m.volume?.mounted ?? false, members, live: members.filter((x) => now - x.lastSeen < withinMs).length })
+    } catch { /* skip unreadable manifest */ }
+  }
+  return out.sort((a, b) => b.createdAt - a.createdAt)
 }
 
 const blackboardDir = (swarmId: string) => join(ROOT(), slug(swarmId), 'mnt', 'blackboard')

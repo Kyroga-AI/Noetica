@@ -29,8 +29,14 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import { execFileSync } from 'node:child_process'
 import { chunkText } from '../lib/doc-store.js'
-import { embedText, EMBED_MODEL } from '../lib/ollama.js'
+import { embedBatch, EMBED_MODEL } from '../lib/ollama.js'
 import { encodeVec } from '../lib/brain-vec.js'
+import { encryptLine } from '../lib/at-rest.js'
+
+// Brain shard lines carry plaintext text + a base64 vector (vec2text recovers ~92% of the text). Encrypt each
+// shard line at rest (locally-built corpus → the device key is available); study-brain decrypts on read and
+// passes any legacy plaintext through. NOETICA_ENCRYPT_AT_REST=0 keeps shards plaintext (portability/sharing).
+const packShard = (o: unknown): string => (process.env['NOETICA_ENCRYPT_AT_REST'] !== '0' ? encryptLine(o) : JSON.stringify(o))
 
 const HOME = os.homedir()
 const CORPUS = process.env['OCW_CORPUS'] || path.join(HOME, 'Downloads', 'MIT OCW', '_corpus')
@@ -109,21 +115,28 @@ function classify(file: string, byMeta: Map<string, Material>): Material {
   return 'reference'
 }
 
-// pypdf can spin forever on a pathological PDF (this wedged a whole cloud run) AND, on math-heavy
-// PDFs, emit malformed Unicode — lone surrogates (\ud835, mathematical bold/italic) that crash
-// even PYTHONIOENCODING=utf-8 under the strict handler, which silently zeroed a whole run.
-// Harden: SIGKILL timeout so a hung extract can't stall the loop; per-page + outer try/except so
-// one bad page degrades to ''; and write BYTES with errors='replace' (bypasses strict text stdout,
-// so lone surrogates become '?' instead of killing the extract).
+// PDF text extraction via pymupdf (fitz), NOT pypdf. pypdf shredded math glyphs into U+FFFD (�) — measured
+// 1036 � in a single worked-solution PDF, concentrated in our GOLD exam/solution material; pymupdf recovers
+// the SAME PDFs with 0 �. It also handles the malformed-Unicode / lone-surrogate cases that wedged runs.
+// Falls back to pypdf if pymupdf isn't installed. Harden (kept): SIGKILL timeout so a hung extract can't
+// stall the loop; per-page + outer try/except so one bad page degrades to ''; write BYTES errors='replace'.
 const PDF_PY = [
   'import sys',
-  'from pypdf import PdfReader',
   'out=[]',
   'try:',
-  '    for p in PdfReader(sys.argv[1]).pages:',
-  '        try: out.append(p.extract_text() or "")',
+  '    import fitz',                                  // pymupdf — math-aware, recovers equations pypdf drops
+  '    d=fitz.open(sys.argv[1])',
+  '    for p in d:',
+  '        try: out.append(p.get_text())',
   '        except Exception: pass',
-  'except Exception: pass',
+  '    d.close()',
+  'except Exception:',
+  '    try:',                                          // fallback: pypdf if pymupdf unavailable
+  '        from pypdf import PdfReader',
+  '        for p in PdfReader(sys.argv[1]).pages:',
+  '            try: out.append(p.extract_text() or "")',
+  '            except Exception: pass',
+  '    except Exception: pass',
   'sys.stdout.buffer.write("\\n".join(out).encode("utf-8","replace"))',
 ].join('\n')
 function pdfText(file: string): string {
@@ -142,7 +155,13 @@ function transcriptText(raw: string): string {
 }
 function extract(file: string): string {
   const ext = path.extname(file).toLowerCase()
-  if (ext === '.pdf') return pdfText(file)
+  if (ext === '.pdf') {
+    // RECOVERY: prefer a clean Marker re-extraction (math-aware PDF→LaTeX, recovers the 2D structure pymupdf
+    // flattens) if its sidecar exists; else fall back to pymupdf. The Marker pass writes {pdf}.marker.md.
+    const marker = file + '.marker.md'
+    if (fs.existsSync(marker)) { try { const t = fs.readFileSync(marker, 'utf8'); if (t.trim().length > 40) return t } catch { /* fall through */ } }
+    return pdfText(file)
+  }
   if (ext === '.vtt' || ext === '.srt') return transcriptText(fs.readFileSync(file, 'utf8'))
   if (['.txt', '.md', '.tex'].includes(ext)) return fs.readFileSync(file, 'utf8')
   return ''
@@ -193,10 +212,15 @@ async function main() {
       const text = extract(f)
       if (text.trim().length < 120) continue
       const chunks = chunkText(text)
-      const vecs = await mapPool(chunks, CONC, (c) => embedText(c).catch(() => [] as number[]))
+      // BATCH-EMBED: one ollama call per BRAIN_EMBED_BATCH chunks (×CONC parallel batches) instead of one
+      // call per chunk — the fix for the multi-hour 250k-chunk vectorize. embedBatch falls back to per-item.
+      const B = Number(process.env['BRAIN_EMBED_BATCH'] || 32)
+      const batches: string[][] = []
+      for (let bi = 0; bi < chunks.length; bi += B) batches.push(chunks.slice(bi, bi + B))
+      const vecs = (await mapPool(batches, CONC, (bt) => embedBatch(bt).catch(() => bt.map(() => [] as number[])))).flat()
       chunks.forEach((c, ci) => {
         const v = vecs[ci]; if (!v || v.length === 0) return
-        lines.push(JSON.stringify({ slug, field, tier, level, material, file: path.basename(f), ci, text: c, dims: v.length, vec: b64vec(v) }))
+        lines.push(packShard({ slug, field, tier, level, material, file: path.basename(f), ci, text: c, dims: v.length, vec: b64vec(v) }))
         tally[material] = (tally[material] || 0) + 1
       })
     }

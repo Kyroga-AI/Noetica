@@ -13,12 +13,16 @@ Run:  OLLAMA_HOST=http://127.0.0.1:11434 python3 scripts/vectorize_field.py medi
   OCW_BRAIN  brain dir (default ~/Downloads/MIT OCW/_brain)
   EMBED_MODEL  embedder (default nomic-embed-text — MUST match the rest of the brain)
 """
-import os, sys, json, base64, struct, urllib.request
+import os, sys, json, base64, struct, urllib.request, threading
+from concurrent.futures import ThreadPoolExecutor
 
 BRAIN = os.environ.get('OCW_BRAIN', os.path.expanduser('~/Downloads/MIT OCW/_brain'))
 OLLAMA = os.environ.get('OLLAMA_HOST', 'http://127.0.0.1:11434').rstrip('/')
 MODEL = os.environ.get('EMBED_MODEL', 'nomic-embed-text')
 FIELD = sys.argv[1] if len(sys.argv) > 1 else 'medicine'
+# Embeds run CONCURRENTLY — serial embed was the bottleneck (medicine: 125k chunks @ ~25/s ≈ 80 min).
+# Ollama serves OLLAMA_NUM_PARALLEL embed requests at once, so a thread pool gives ~Nx. Default 8.
+CONC = int(os.environ.get('BRAIN_CONCURRENCY', '8'))
 
 
 def embed(text):
@@ -55,6 +59,8 @@ def main():
                     pass
             print(f"# resume {fn}: {len(done_slugs)} chunks already embedded", flush=True)
         w = open(tmp, 'a')
+        lock = threading.Lock()
+        pending = []
         for ln in open(fp, errors='replace'):
             ln = ln.strip()
             if not ln:
@@ -68,20 +74,26 @@ def main():
                 continue
             if o.get('vec'):                      # already embedded — carry over (idempotent)
                 w.write(json.dumps(o) + '\n'); skip += 1; done_slugs.add(slug); continue
-            text = (o.get('text') or '').strip()
-            if not text:
-                continue
+            if (o.get('text') or '').strip():
+                pending.append(o)
+
+        def work(o):                              # one chunk: embed + write under the lock
+            nonlocal n_done, err
             try:
-                v = embed(text)
+                v = embed((o.get('text') or '').strip())
                 if not v:
                     raise ValueError('empty embedding')
                 o['vec'], o['dims'] = pack(v)
-                w.write(json.dumps(o) + '\n'); n_done += 1; done_slugs.add(slug)
-                if n_done % 100 == 0:
-                    w.flush()                     # durable every 100 → ≤100 lost on a hard kill
-                    sys.stderr.write(f"  {FIELD}: embedded {n_done} (skip {skip}, err {err})\n")
+                with lock:
+                    w.write(json.dumps(o) + '\n'); n_done += 1
+                    if n_done % 200 == 0:
+                        w.flush()                 # durable every 200 → bounded loss on a hard kill
+                        sys.stderr.write(f"  {FIELD}: embedded {n_done} (skip {skip}, err {err})\n")
             except Exception:
-                err += 1
+                with lock:
+                    err += 1
+        with ThreadPoolExecutor(max_workers=CONC) as ex:   # CONC embeds in flight (ollama serves them parallel)
+            list(ex.map(work, pending))
         w.close()
         os.replace(tmp, fp)                       # atomic promote
         print(f"# {fn}: embedded {n_done} · skipped {skip} · errors {err}", flush=True)

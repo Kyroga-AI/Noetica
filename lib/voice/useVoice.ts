@@ -246,12 +246,15 @@ export function useVoice(onTranscript: (text: string) => void) {
       } catch { /* fall through */ }
     }
 
-    // Tier 3: macOS `say` via Tauri — configurable voice name
+    // Tier 3: macOS `say` via Tauri — configurable voice name. Wrapped so a failed/unregistered invoke can
+    // never reject speak() (an unhandled rejection from "listen" must not surface as a crash) — fall through.
     if (isTauri()) {
-      const macVoice = settings.macVoice || 'Ava'
-      await invokeTauri('speak_text', { text: truncated, voice: macVoice })
-      if (liveRef.current) setTimeout(() => startListenRef.current(), 800)
-      return
+      try {
+        const macVoice = settings.macVoice || 'Ava'
+        await invokeTauri('speak_text', { text: truncated, voice: macVoice })
+        if (liveRef.current) setTimeout(() => startListenRef.current(), 800)
+        return
+      } catch { /* native say unavailable — fall through to web speech */ }
     }
 
     // Tier 4: Web Speech API — last resort, picks best available en voice

@@ -62,6 +62,19 @@ jobs:
         run: cargo build --release --manifest-path embed-sidecar/Cargo.toml
       - name: Integration tests (Ollama broken-primary fallback)
         run: npm --prefix agent-machine run test:integration:fallback
+      # The on-device neural-operator stack: build the ONNX-Runtime sidecar (cached), then drive it through the
+      # real operator-runtime against the checked-in reference fixtures. The test skips cleanly without the
+      # binary, so this build is what actually exercises it.
+      - name: Cache Rust (operator)
+        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32 # v2
+        with:
+          workspaces: operator-sidecar
+      - name: Build neural-operator sidecar (noetica-operator)
+        run: cargo build --release --manifest-path operator-sidecar/Cargo.toml
+      - name: Integration tests (on-device neural operator)
+        run: npm --prefix agent-machine run test:integration:operator
+      - name: Bundle smoke (sidecar boots + serves no-model endpoints)
+        run: npm run smoke:bundle
       - name: Engine version sync (hellgraph pin parity across manifests)
         run: node scripts/check-engine-version.mjs
       - name: Build
@@ -118,6 +131,58 @@ jobs:
         with:
           name: tauri-rust-check-log
           path: tauri-rust-check.log
+
+  # Linux is the future primary target — catch Linux-specific Tauri/webkit compile + linkage breakage on every PR
+  # (release.yml only built Linux at tag time, so a Linux-only break landed silently until release).
+  tauri-rust-linux:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Install system dependencies (Tauri/webkit)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev
+      - name: Setup Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 20
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@b3b07ba8b418998c39fb20f53e8b695cdcc8de1b
+        with:
+          toolchain: stable
+      - name: Materialize Tauri context inputs
+        run: |
+          npm run tauri:icon
+          mkdir -p out
+          touch out/.ci-tauri-rust-check-placeholder
+          file src-tauri/icons/icon.png
+          test -d out
+      - name: Tauri Rust lockfile
+        working-directory: src-tauri
+        run: cargo generate-lockfile
+      - name: Tauri Rust check (Linux)
+        working-directory: src-tauri
+        run: |
+          set +e
+          cargo check --locked > ../tauri-rust-check-linux.log 2>&1
+          status=$?
+          echo "cargo-check-exit=$status"
+          tail -n 80 ../tauri-rust-check-linux.log
+          exit $status
+      - name: Upload Tauri Rust check log (Linux)
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: tauri-rust-check-linux-log
+          path: tauri-rust-check-linux.log
 
   tauri-macos:
     runs-on: macos-latest

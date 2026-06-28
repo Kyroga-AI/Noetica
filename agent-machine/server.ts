@@ -36,7 +36,9 @@ import * as dns from 'node:dns'
 import * as net from 'node:net'
 import { originAllowed } from './lib/origin-guard.js'
 import { isConfinedToHomeOrTmp } from './lib/path-confine.js'
-import { buildRouterDecision, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider } from './lib/router.js'
+import { buildAdaptiveBrief } from './lib/progress.js'
+import { safeShellEnv } from './lib/safe-shell-env.js'
+import { buildRouterDecision, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider, bestCoder, bestWorkhorse, bestResponsive } from './lib/router.js'
 import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTelemetry, type MeshTier } from './lib/scope-d.js'
 import { installEgressGuard, setOfflineMode } from './lib/egress-guard.js'
 import { classifyIntent, capabilityToTask, wantsVectorRag, intentByName, planFromIntent, intentToAction, deEscalateEveryday } from './lib/intent-router.js'
@@ -47,6 +49,7 @@ import { routeForAction, meshrushPhase } from './lib/action-cell.js'
 import { selectSurface, cleanLabel } from './lib/graph-surface.js'
 import { generateSovereign, meshLadder } from './lib/mesh.js'
 import { AGENT_ROLES, DISPATCHABLE_ROLES, resolveRole } from './lib/sub-agent.js'
+import { listCustomAgents, getCustomAgent, saveCustomAgent, deleteCustomAgent } from './lib/agent-registry.js'
 import { buildReport } from './lib/graph-hygiene.js'
 import { TAXONOMY_WORDS } from './lib/slash-topics.js'
 import { createSQLiteBackend, migrateJSONLToSQLite } from './lib/sqlite-backend.js'
@@ -66,7 +69,8 @@ import { retrieve } from './lib/retrieval.js'
 import { getGraph, graphHealth, graphSparql, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
 import { handleCapabilityRoute } from './lib/capability-routes.js'
 import { handleOAuthTokenRoute } from './lib/oauth-token-routes.js'
-import { isVoiceProvisioned, ensureVoiceSidecar, voiceFetch } from './lib/voice-runtime.js'
+import { isVoiceProvisioned, ensureVoiceSidecar, voiceFetch, provisionVoice, voiceProvisionStatus } from './lib/voice-runtime.js'
+import type { OntogenesisPhase, AbandonmentSignal } from './lib/gaia-ontology.js'
 import { runOcr } from './lib/ocr.js'
 import { getHellGraph, attachRocksDB } from '@socioprophet/hellgraph'
 import { runGremlin } from '@socioprophet/hellgraph'
@@ -78,10 +82,15 @@ import { CANONICAL_SHAPES, QUARANTINE_PROP } from './lib/canonical-shapes.js'
 import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
 import { runAgentLoop, type ProviderAdapter } from './lib/agent-loop.js'
 import { validateToolCall, type ToolSchema, type ArgSpec } from './lib/constrained-decode.js'
+import { appendJsonl as appendEncrypted, readJsonl as readEncrypted, writeJson as writeEncryptedJson, readJson as readEncryptedJson } from './lib/at-rest.js'
 import { critique, bestOfTemps, type Candidate as CriticCandidate } from './lib/critic.js'
-import { programOfThought, codeVerifyRepair } from './lib/exec-verify.js'
+import { programOfThought, operatorProgramOfThought, codeVerifyRepair } from './lib/exec-verify.js'
+import { isReasonLaneIntent, reasonLaneEnabled, reasonSCK, runReasonLane, REASON_RULE, REASON_RULE_MCQ, looksLikeMCQ } from './lib/reason-lane.js'
+import { decideGrounding, type GroundingStatus } from './lib/grounding-signal.js'
+import { applyPreset, summarize as summarizePreset } from './lib/presets.js'
 import { applyEdit, editSummary } from './lib/apply-patch.js'
 import { classifyComplexity as classifyComplexityPosture } from './lib/complexity-discipline.js'
+import { runSearchVerify, searchVerifyEnabled, candidatePrompt as searchVerifyPrompt, type VerifyResult } from './lib/search-verify.js'
 import { detectGoalIntent, slotFill, buildGoalContext, getActiveGoal, listGoals, saveGoal, type Goal } from './lib/goal-model.js'
 import { assessAgainstGraph } from './lib/pln-judgment.js'
 import { saveCheckpoint, listCheckpoints, getCheckpoint, buildResumeMessages } from './lib/checkpoint-model.js'
@@ -94,8 +103,54 @@ import {
 } from './lib/gaia.js'
 import { getUserIdentity, setUserIdentity, promptUserName, type UserIdentity } from './lib/identity.js'
 
+// ─── JS-sandbox subprocess mode (code_execute isolation on the compiled standalone) ────────────────────────
+// When the compiled binary re-execs ITSELF with NOETICA_JS_SANDBOX=1, do ONLY the sandboxed JS run — in this
+// fresh process with a stripped env — then exit, BEFORE any server init / secret load. This gives the
+// bun-compiled standalone TRUE process isolation for code_execute (parity with the node/bun subprocess path)
+// WITHOUT a native addon — isolated-vm is a native .node that can't embed in `bun --compile`, so self-exec is
+// the correct fix: an escape from the vm reaches a process that holds no API keys, no parent memory, PATH only.
+if (process.env['NOETICA_JS_SANDBOX'] === '1') {
+  try {
+    const code = fs.readFileSync(process.env['NJS_FILE'] ?? '', 'utf8')
+    const logs: string[] = []
+    const sbConsole = {
+      log: (...a: unknown[]) => logs.push(a.map(String).join(' ')),
+      error: (...a: unknown[]) => logs.push('ERROR: ' + a.map(String).join(' ')),
+      warn: (...a: unknown[]) => logs.push('WARN: ' + a.map(String).join(' ')),
+      info: (...a: unknown[]) => logs.push('INFO: ' + a.map(String).join(' ')),
+    }
+    const sandbox: Record<string, unknown> = {
+      console: sbConsole, Math, JSON, Array, Object, String, Number, Boolean, Date, Error, Map, Set, Promise,
+      parseInt, parseFloat, isNaN, isFinite, encodeURIComponent, decodeURIComponent,
+    }
+    vm.createContext(sandbox)
+    const r = vm.runInContext(code, sandbox, { timeout: Number(process.env['NJS_TIMEOUT_MS'] ?? '30000') })
+    const out = logs.join('\n')
+    const rl = r !== undefined && r !== null ? '\nResult: ' + (typeof r === 'object' ? JSON.stringify(r, null, 2) : String(r)) : ''
+    process.stdout.write((out + rl).trim() || '(no output)')
+  } catch (e) { process.stdout.write('RuntimeError: ' + (e instanceof Error ? e.message : String(e))) }
+  process.exit(0)
+}
+
 const PORT = parseInt(process.env['NOETICA_AM_PORT'] ?? '8080', 10)
-const VERSION = '0.4.11'
+const VERSION = '0.4.21'
+
+// ─── Anthropic inference endpoint (Branch A BYOK / Branch B proxy) ──────────────────────────────────────────
+// Branch A (default, desktop): direct to api.anthropic.com with the USER's own x-api-key (kept in the OS
+// keychain; passed per-request as provider_keys.anthropic). Branch B (managed): when NOETICA_ANTHROPIC_PROXY_URL
+// is set, route through OUR REMOTE proxy instead — it holds the SHARED key and forwards. We send only a per-user
+// Bearer token (NOETICA_PROXY_TOKEN), NEVER the Anthropic key. The shared key must NOT live in this on-device
+// sidecar (it would be extractable from the desktop bundle) — it lives only on the remote proxy. See
+// docs/anthropic-key-integration.md.
+const anthropicProxyMode = (): boolean => Boolean(process.env['NOETICA_ANTHROPIC_PROXY_URL']?.trim())
+function anthropicTarget(apiKey: string, extra: Record<string, string> = {}): { url: string; headers: Record<string, string> } {
+  const proxy = process.env['NOETICA_ANTHROPIC_PROXY_URL']?.trim()
+  if (proxy) {
+    const tok = process.env['NOETICA_PROXY_TOKEN']?.trim()
+    return { url: proxy, headers: { 'content-type': 'application/json', 'anthropic-version': '2023-06-01', ...(tok ? { authorization: `Bearer ${tok}` } : {}), ...extra } }
+  }
+  return { url: 'https://api.anthropic.com/v1/messages', headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', ...extra } }
+}
 
 // Sovereign offline mode: arm the egress guard so non-local egress is STRUCTURALLY impossible
 // when NOETICA_OFFLINE is set (airplane mode). No-op passthrough when online. Installed early,
@@ -137,6 +192,31 @@ const GOVERNANCE_RING_SIZE = 100
 // Persist the ring to disk so the Govern surface's audit trail survives a relaunch —
 // it was in-memory only, so Govern was always empty after restart even after chatting.
 const GOVERNANCE_FILE = path.join(os.homedir(), '.noetica', 'governance.json')
+
+// Locate the directory holding the verified-operator library (lib/math_operators.py). It is a
+// .py SOURCE file (not compiled/bundled), so it lives in the agent-machine source tree regardless
+// of whether we run via tsx (server.ts) or the esbuild bundle (dist/server.js). Probe the layouts
+// relative to this module, then fall back to cwd-based guesses; cache the first that actually holds
+// math_operators.py. Returns null if not found (operator routing then cleanly abstains → cold PoT).
+let _mathOpLibDir: string | null | undefined
+function mathOperatorLibDir(): string | null {
+  if (_mathOpLibDir !== undefined) return _mathOpLibDir
+  // math_operators.py is a SOURCE .py file (never bundled), so it lives in agent-machine/lib.
+  // The server is launched from the agent-machine dir (tsx server.ts / node dist/server.js), so
+  // cwd-relative probing finds it; we also cover being launched from the repo root or dist.
+  const cwd = process.cwd()
+  const candidates = [
+    path.join(cwd, 'lib'),                                  // launched from agent-machine/
+    path.join(cwd, 'agent-machine', 'lib'),                 // launched from repo root
+    path.join(cwd, '..', 'lib'),                            // launched from agent-machine/dist or scripts
+    path.join(cwd, '..', 'agent-machine', 'lib'),
+  ]
+  for (const c of candidates) {
+    try { if (fs.existsSync(path.join(c, 'math_operators.py'))) { _mathOpLibDir = c; return c } } catch { /* keep probing */ }
+  }
+  _mathOpLibDir = null
+  return null
+}
 
 // Graph Data Science (PageRank/Louvain/betweenness) is O(V·E) — cache it, keyed by a cheap graph
 // signature (node+edge count). Recompute only when the graph changed (or ?refresh=1).
@@ -219,7 +299,11 @@ async function analyticsForGraph(refresh = false): Promise<{ analytics: import('
   const allNodes = g.allNodes(), allEdges = g.allEdges()
   const keep = new Set(allNodes.filter((n) => cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id))).map((n) => n.id))
   const fNodes = allNodes.filter((n) => keep.has(n.id)); const fEdges = allEdges.filter((e) => keep.has(e.from) && keep.has(e.to))
-  const sig = `${fNodes.length}:${fEdges.length}`
+  // Content fingerprint, not a count signature: the old `${count}:${count}` was content-blind, so add-one+prune-one
+  // or an edge rewire kept the counts identical and served a STALE analytics cache. The fingerprint busts only on
+  // real membership/topology change (refresh-framework Phase 0). See lib/graph-revision.ts.
+  const { topologyFingerprint } = await import('./lib/graph-revision.js')
+  const sig = topologyFingerprint(fNodes.map((n) => n.id), fEdges.map((e) => ({ from: e.from, to: e.to })))
   const cached = loadAnalyticsCache()
   let analytics: import('./lib/graph-analytics.js').GraphAnalytics
   if (!refresh && cached && cached.sig === sig) analytics = cached.analytics
@@ -227,6 +311,22 @@ async function analyticsForGraph(refresh = false): Promise<{ analytics: import('
   const nodeById = new Map(allNodes.map((n) => [n.id, n]))
   const labelOf = (id: string) => { const n = nodeById.get(id); return (n ? cleanLabel(n) : null) ?? '' }
   return { analytics, sig, labelOf }
+}
+
+// Build an ActionContext + run a typed action (the kinetic-ontology executor). Shared by the /api/actions/execute
+// endpoint and the execute_action agent tool. Resolves an entity ref (display label OR node id) to a node id.
+async function runAction(name: string, params: Record<string, unknown>): Promise<import('./lib/action-plane.js').ActionResult> {
+  const { executeAction } = await import('./lib/action-plane.js')
+  const g = getHellGraph()
+  const graph = g as unknown as { getNode: (id: string) => { properties?: Record<string, unknown> } | undefined; setNodeProperty: (id: string, k: string, v: string) => void }
+  const resolveEntity = async (ref: string): Promise<string | null> => {
+    if (!ref) return null
+    if (g.getNode(ref)) return ref
+    const { analytics, labelOf } = await analyticsForGraph(false)
+    for (const id of Object.keys(analytics.nodes)) { if (labelOf(id) === ref) return id }
+    return null
+  }
+  return executeAction(name, params, { graph, resolveEntity, now: new Date().toISOString() })
 }
 
 // ── Dreaming: offline generative consolidation (SCM REM-phase / "dreaming") ────────────────────────────────
@@ -338,15 +438,15 @@ function readSecurityState(): unknown {
   catch { return { armed: false, tor: false, updated_at: null, source: 'noetica-agent-machine' } }
 }
 try {
-  const arr = JSON.parse(fs.readFileSync(GOVERNANCE_FILE, 'utf8'))
-  if (Array.isArray(arr)) _governanceRuns.push(...(arr as GovernanceRun[]).slice(-GOVERNANCE_RING_SIZE))
+  const arr = readEncryptedJson<GovernanceRun[]>(GOVERNANCE_FILE)   // encrypted at rest (lazy-migrates plaintext)
+  if (Array.isArray(arr)) _governanceRuns.push(...arr.slice(-GOVERNANCE_RING_SIZE))
 } catch { /* no prior governance log */ }
 let _govSaveTimer: ReturnType<typeof setTimeout> | null = null
 function saveGovernance(): void {
   if (_govSaveTimer) return
   _govSaveTimer = setTimeout(() => {
     _govSaveTimer = null
-    try { fs.mkdirSync(path.dirname(GOVERNANCE_FILE), { recursive: true }); fs.writeFileSync(GOVERNANCE_FILE, JSON.stringify(_governanceRuns)) } catch { /* best-effort */ }
+    try { writeEncryptedJson(GOVERNANCE_FILE, _governanceRuns) } catch { /* best-effort */ }
   }, 1500)
   _govSaveTimer.unref?.()
 }
@@ -561,10 +661,11 @@ async function runSuperconsciousLoop(keys: LoopProviderKeys): Promise<void> {
 
     // Run synthesis — prefer Anthropic, fall back to OpenAI
     let synthesisText = ''
-    if (keys.anthropic) {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+    if (keys.anthropic || anthropicProxyMode()) {
+      const _t = anthropicTarget(keys.anthropic ?? '')
+      const res = await fetch(_t.url, {
         method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-api-key': keys.anthropic, 'anthropic-version': '2023-06-01' },
+        headers: _t.headers,
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 1024,
@@ -643,13 +744,15 @@ You are the primary agent of the Noetica platform. You run entirely on the user'
 
 ## Your capabilities
 - **Memory**: Persistent memory via HellGraph — an AtomSpace knowledge graph that stores entities, relationships, and prior context. Relevant memories are injected into context automatically.
+- **Live knowledge graph**: The app ALWAYS shows a live, interactive graph panel (the "SocioSphere Graph") beside the chat. Every document you ingest and every entity you extract auto-populates it — nodes, edges, communities, and structural insights (e.g. "X is a critical connector"). So you CAN show the graph: when the user asks to "show/visualize the graph", do NOT say you can't render graphs — the graph is already on screen. Instead, reference it directly ("the graph panel on the right now shows …"), describe what was added (entity count, key nodes, communities, notable structure), and call it out. You render graphs by populating this panel, not by drawing ASCII.
 - **Tools**: When the user asks you to search, find files, run code, browse the web, or take actions — use your tools. Do not simulate tool results.
-- **Local models**: Tasks route to specialist models. Coding goes to qwen2.5-coder. Reasoning goes to deepseek-r1. Vision goes to llava when images are present.
+- **Running code**: Runnable code (Python and similar) is executed for you automatically by a verify-repair loop — generate it and the platform runs the tests. You CANNOT run UI / frontend code (Vue, React, HTML, a JS app) — there is no browser or dev server in the sandbox. NEVER claim to run code, "simulate the output", or show program output that a tool did not actually produce. If something can't be run here, say so plainly in one line and just provide the code — do not write "Let me run it…" or invent output.
+- **Local models**: Tasks route to specialist local models by RAM — a 24GB box runs qwen3:14b (general, coding, and reasoning with its thinking mode); smaller boxes use the qwen2.5 family. Vision goes to a VLM (llava/qwen-vl) when images are present.
 - **Cloud augmentation**: When a cloud API key is configured, tasks that exceed local capability can route to Claude or GPT. This is opt-in.
 
 ## Response rules
 - Short messages (greetings, reactions, simple questions under 10 words): respond in 1-3 sentences. No tools.
-- Code requests: return working code. No preamble. Show the code first, explain after if needed.
+- Code requests: return working code. No preamble. Show the code first, explain after if needed. Do NOT narrate fake execution ("Let me run it…", "Displaying the output:", invented results) — if it wasn't actually run, don't pretend it was.
 - Research/analysis: think step by step. Be specific. Cite uncertainty where it exists.
 - Do NOT start responses with "I", "As Michael", or the user's name.
 - Do NOT add disclaimers like "please consult a professional" unless the situation is genuinely dangerous.
@@ -997,6 +1100,29 @@ const BUILTIN_TOOLS: ProviderTool[] = [
     },
   },
   {
+    name: 'find_symbol',
+    description: "Find where a function/class/type/interface/const is DEFINED in this app's own codebase, by name (exact, prefix, or substring). Returns kind + file path + line number. Use this before read_file when you know the symbol name but not its location.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Symbol name (or a prefix/substring) to locate' },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'execute_action',
+    description: "Execute a typed graph Action (the kinetic ontology) — e.g. record a stewardship decision (assign a keeper, acknowledge an abandonment signal). Pass the action name + its params object. Capability-gated + audited. Available actions: steward_entity.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', description: 'Action name, e.g. steward_entity' },
+        params: { type: 'object', description: "The action's parameters (e.g. { entity, keeper, resolveSignals })" },
+      },
+      required: ['action'],
+    },
+  },
+  {
     name: 'write_file',
     description: 'Write text content to a local file. Creates parent directories as needed.',
     input_schema: {
@@ -1181,6 +1307,13 @@ async function executeToolWithTimeout(
   const timeout = new Promise<string>((resolve) => {
     timer = setTimeout(() => resolve(`Error: tool ${name} timed out after ${TOOL_TIMEOUT_MS}ms`), TOOL_TIMEOUT_MS)
   })
+  // Reasoning-evidence: emit a safe-trace ReasoningEvent for THIS tool call so the agent's
+  // tool-using surface is under the same governance fabric as dialogue turns. Summary is a
+  // short description only — never tool args/output. Best-effort: never blocks the call.
+  try {
+    const re = await import('./lib/reasoning-evidence.js')
+    re.emitToolCallEvidence(name)
+  } catch { /* tool-call evidence is best-effort — never break the tool call */ }
   try {
     const result = await Promise.race([executeToolWithRetry(name, input, keys), timeout])
     // #16 — tool output from EXTERNAL/untrusted sources can carry indirect prompt injection ("ignore your
@@ -1219,7 +1352,7 @@ function runInWorkspace(command: string, cwd: string, timeoutMs: number): Promis
     let safeTimeout = Number.isFinite(timeoutMs) ? timeoutMs : 60_000
     if (safeTimeout > 300_000) safeTimeout = 300_000
     if (safeTimeout < 1_000) safeTimeout = 1_000
-    const child = cp.spawn(LOGIN_SHELL, ['-lc', command], { cwd, env: { ...process.env } })
+    const child = cp.spawn(LOGIN_SHELL, ['-lc', command], { cwd, env: safeShellEnv() })
     const timer = setTimeout(() => { if (!done) { done = true; try { child.kill('SIGKILL') } catch { /* */ } resolve({ out, err, code: `timeout after ${safeTimeout}ms` }) } }, safeTimeout)
     child.stdout.on('data', (d: Buffer) => { if (out.length < 200_000) out += d.toString() })
     child.stderr.on('data', (d: Buffer) => { if (err.length < 100_000) err += d.toString() })
@@ -1233,7 +1366,7 @@ function runInWorkspace(command: string, cwd: string, timeoutMs: number): Promis
 const _devServers = new Set<number>()
 function startDevServer(command: string, cwd: string, timeoutMs: number): Promise<{ url?: string; pid?: number }> {
   return new Promise((resolve) => {
-    const child = cp.spawn(LOGIN_SHELL, ['-lc', command], { cwd, env: { ...process.env } })
+    const child = cp.spawn(LOGIN_SHELL, ['-lc', command], { cwd, env: safeShellEnv() })
     if (child.pid) _devServers.add(child.pid)
     let resolved = false
     const finish = (u?: string) => { if (!resolved) { resolved = true; clearTimeout(timer); resolve({ url: u, pid: child.pid }) } }
@@ -1385,7 +1518,7 @@ async function runSubAgent(
   context: string,
   keys: { anthropic?: string; openai?: string; serper?: string },
 ): Promise<string> {
-  const role = resolveRole(roleId)
+  const role = getCustomAgent(roleId) ?? resolveRole(roleId)   // user-defined agents resolve before built-ins
   const subTools = BUILTIN_TOOLS.filter((t) => role.tools.includes(t.name) && t.name !== 'dispatch_agent')
   const subToolNames = new Set(subTools.map((t) => t.name))
   const model = role.model === 'coder' ? 'qwen2.5-coder:7b' : 'qwen2.5:7b'
@@ -1393,6 +1526,19 @@ async function runSubAgent(
     { role: 'system', content: role.systemPrompt + (context.trim() ? `\n\nContext from the concierge:\n${context.trim()}` : '') },
     { role: 'user', content: task },
   ]
+  // Reasoning-evidence: open a CHILD ReasoningRun for this dispatched sub-agent, linked to the
+  // parent (ambient) run, and emit `subagent.dispatch` on the parent. Safe-trace: role + short
+  // task label only, never the full prompt/output. Closed with a receipt at every return path.
+  // Best-effort: a null child means evidence is disabled — execution proceeds unchanged.
+  let childRun: import('./lib/reasoning-evidence.js').ReasoningRun | null = null
+  try {
+    const re = await import('./lib/reasoning-evidence.js')
+    childRun = re.openSubAgentRun(role.id ?? roleId, task, re.getCurrentReasoningRun())
+  } catch { /* sub-agent evidence is best-effort — never break dispatch */ }
+  const closeChild = async (status: 'completed' | 'failed') => {
+    try { const re = await import('./lib/reasoning-evidence.js'); re.closeSubAgentRun(childRun, { status }) }
+    catch { /* close is best-effort */ }
+  }
   let final = ''
   for (let turn = 0; turn < role.maxTurns; turn++) {
     let text = ''
@@ -1403,6 +1549,7 @@ async function runSubAgent(
         else if (ev.type === 'tool_calls') toolCalls = ev.calls
       }
     } catch (e) {
+      await closeChild('failed')
       return `[${role.label} sub-agent error]`
     }
     if (!toolCalls?.length) {
@@ -1417,6 +1564,7 @@ async function runSubAgent(
     }
     final = text || final
   }
+  await closeChild('completed')
   return final.trim() || `(${role.label} sub-agent finished without a final summary)`
 }
 
@@ -1503,12 +1651,18 @@ async function executeTool(
       } catch { /* swarm best-effort */ }
       const result = await runSubAgent(role, task, context + blackboard, keys)
       try { const sw = await import('./lib/swarm-volume.js'); sw.writeBlackboard(swarmId, agentId, { role, task: task.slice(0, 200), result: result.slice(0, 4000), at: Date.now() }) } catch { /* */ }
-      return `[${resolveRole(role).label} sub-agent → result]\n${result}`
+      return `[${(getCustomAgent(role) ?? resolveRole(role)).label} sub-agent → result]\n${result}`
     }
     case 'web_search': {
       const query = String(input['query'] ?? '').trim().slice(0, 500)
       if (!query) return 'Error: query is required'
-      return webSearch(query, keys.serper ?? process.env['SERPER_API_KEY'])
+      // Web results are UNTRUSTED external content (top indirect-injection vector) — sanitize before the model
+      // sees them (strip injected directives, defang image-URL exfil). Spotlighting, model-free.
+      const raw = await webSearch(query, keys.serper ?? process.env['SERPER_API_KEY'])
+      const { sanitizeRetrieved } = await import('./lib/rag-trust.js')
+      const { clean, stripped } = sanitizeRetrieved(raw)
+      if (stripped > 0) console.warn(`[rag-trust] neutralized ${stripped} injected directive(s) in web_search results`.replace(/[\r\n]/g, ''))
+      return clean
     }
     case 'generate_image': {
       const prompt = String(input['prompt'] ?? '').trim().slice(0, 1000)
@@ -1555,6 +1709,24 @@ async function executeTool(
         return fs.readFileSync(resolved, 'utf-8')
       } catch (e) {
         return `Error reading file: ${(e as Error).message}`
+      }
+    }
+    case 'find_symbol': {
+      try {
+        const { searchSymbols } = await import('./lib/symbol-index.js')
+        const hits = searchSymbols(String(input['name'] ?? ''), 20)
+        if (hits.length === 0) return 'No matching symbols in the codebase index.'
+        return hits.map((h) => `${h.kind} ${h.name} — ${h.rel}:${h.line}`).join('\n')
+      } catch (e) {
+        return `Error searching symbols: ${(e as Error).message}`
+      }
+    }
+    case 'execute_action': {
+      try {
+        const r = await runAction(String(input['action'] ?? ''), (input['params'] as Record<string, unknown>) ?? {})
+        return r.ok ? r.summary : `Error: ${r.error ?? 'action failed'}`
+      } catch (e) {
+        return `Error executing action: ${(e as Error).message}`
       }
     }
     case 'write_file': {
@@ -1821,11 +1993,80 @@ function getAmSessionDir(sessionId: string): string {
   return dir
 }
 
+// A real node/bun executable we can spawn to host an ISOLATED JS sandbox (separate process + filtered env), or
+// null. The compiled standalone (bun --compile) binary can't `-e`, so we detect node/bun on execPath or PATH.
+let _jsRuntimeCache: string | null | undefined
+function jsSubprocessRuntime(): string | null {
+  if (_jsRuntimeCache !== undefined) return _jsRuntimeCache
+  const base = path.basename(process.execPath).toLowerCase().replace(/\.exe$/, '')
+  if (base === 'node' || base === 'bun') { _jsRuntimeCache = process.execPath; return _jsRuntimeCache }
+  for (const rt of ['node', 'bun']) {
+    try { cp.execFileSync('/usr/bin/env', [rt, '--version'], { stdio: 'ignore', timeout: 3000 }); _jsRuntimeCache = rt; return rt } catch { /* not on PATH */ }
+  }
+  _jsRuntimeCache = null
+  return null
+}
+
+// How to isolate a code_execute JS run — gated on machine capability so we don't bog down constrained boxes:
+//   'node-subprocess' — a node/bun on PATH hosts the vm in a cheap separate process (best; any machine).
+//   'self-exec'       — re-exec OUR compiled binary in NOETICA_JS_SANDBOX mode (full process isolation) but it
+//                       spawns a 2nd copy of a large binary → transient RAM + startup cost → ONLY on roomy boxes.
+//   'in-process'      — constrained machine: in-process vm (light, reduced isolation). The real escape vector is
+//                       injected code from retrieved content, which the RAG prompt-injection defense (P1.2) handles.
+// Tunables: NOETICA_JS_SANDBOX_MODE forces a strategy; NOETICA_SANDBOX_RAM_GB sets the self-exec RAM floor.
+let _activeSelfSandboxes = 0
+function jsSandboxStrategy(): 'node-subprocess' | 'self-exec' | 'in-process' {
+  const forced = process.env['NOETICA_JS_SANDBOX_MODE']
+  if (forced === 'node-subprocess' || forced === 'self-exec' || forced === 'in-process') return forced
+  if (jsSubprocessRuntime()) return 'node-subprocess'          // cheap + isolated regardless of RAM
+  const totalGB = os.totalmem() / 1024 ** 3
+  const freeGB = os.freemem() / 1024 ** 3
+  const ramFloor = Number(process.env['NOETICA_SANDBOX_RAM_GB'] ?? '24')
+  // Self-exec only when there's both headroom AND we're not already running one (cap concurrency at 1 heavy spawn).
+  if (totalGB >= ramFloor && freeGB >= 2 && _activeSelfSandboxes < 1) return 'self-exec'
+  return 'in-process'
+}
+
+// Shared isolated-subprocess runner for BOTH the node/bun and self-exec paths: stage the code to a file, spawn a
+// process with a STRIPPED env (PATH + the code file only — no API keys, no parent memory), capture stdout.
+function runIsolatedJsSubprocess(command: string, args: string[], extraEnv: Record<string, string>, code: string, sessionId: string | undefined, timeoutMs: number, maxOutput: number, onExit?: () => void): Promise<string> {
+  return new Promise((resolve) => {
+    const runDir = sessionId ? getAmSessionDir(sessionId) : os.tmpdir()
+    const codeFile = path.join(runDir, `_jsrun_${process.pid}_${Date.now()}.js`)
+    try { fs.mkdirSync(runDir, { recursive: true }); fs.writeFileSync(codeFile, code) } catch { resolve('RuntimeError: could not stage code for execution'); return }
+    let out = ''; let done = false
+    const childEnv: NodeJS.ProcessEnv = { PATH: process.env['PATH'] ?? '', NJS_FILE: codeFile, NJS_TIMEOUT_MS: String(timeoutMs), NODE_ENV: process.env['NODE_ENV'] ?? 'production', ...extraEnv }
+    const child = cp.spawn(command, args, { cwd: runDir, env: childEnv })
+    const finish = (s: string) => { if (done) return; done = true; clearTimeout(timer); try { fs.unlinkSync(codeFile) } catch { /* */ }; onExit?.(); resolve(s.slice(0, maxOutput).trim() || '(no output)') }
+    const timer = setTimeout(() => { try { child.kill('SIGKILL') } catch { /* */ }; finish(out || 'RuntimeError: execution timed out') }, timeoutMs + 2000)
+    child.stdout.on('data', (d: Buffer) => { out += d.toString(); if (out.length > maxOutput) { try { child.kill('SIGKILL') } catch { /* */ } } })
+    child.stderr.on('data', (d: Buffer) => { out += d.toString() })
+    child.on('close', () => finish(out))
+    child.on('error', () => finish('RuntimeError: could not start the JS sandbox subprocess'))
+  })
+}
+
 function executeCode(language: 'python' | 'javascript', code: string, sessionId?: string): Promise<string> {
   const TIMEOUT_MS = 30_000
   const MAX_OUTPUT = 100_000
 
   if (language === 'javascript') {
+    const strategy = jsSandboxStrategy()
+    if (strategy === 'node-subprocess') {
+      // The vm sandbox runs inside a cheap node/bun process; the runner reads NJS_FILE + writes result to stdout.
+      const runtime = jsSubprocessRuntime()!
+      const runner = `const fs=require('fs'),vm=require('vm');const code=fs.readFileSync(process.env.NJS_FILE,'utf8');const logs=[];const console={log:(...a)=>logs.push(a.map(String).join(' ')),error:(...a)=>logs.push('ERROR: '+a.map(String).join(' ')),warn:(...a)=>logs.push('WARN: '+a.map(String).join(' ')),info:(...a)=>logs.push('INFO: '+a.map(String).join(' '))};const sandbox={console,Math,JSON,Array,Object,String,Number,Boolean,Date,Error,Map,Set,Promise,parseInt,parseFloat,isNaN,isFinite,encodeURIComponent,decodeURIComponent};try{vm.createContext(sandbox);const r=vm.runInContext(code,sandbox,{timeout:${TIMEOUT_MS}});const out=logs.join('\\n');const rl=(r!==undefined&&r!==null)?'\\nResult: '+(typeof r==='object'?JSON.stringify(r,null,2):String(r)):'';process.stdout.write((out+rl).trim()||'(no output)');}catch(e){process.stdout.write('RuntimeError: '+(e&&e.message?e.message:String(e)));}`
+      return runIsolatedJsSubprocess(runtime, ['-e', runner], {}, code, sessionId, TIMEOUT_MS, MAX_OUTPUT)
+    }
+    if (strategy === 'self-exec') {
+      // Roomy compiled standalone: re-exec OURSELVES in NOETICA_JS_SANDBOX mode → true process isolation, no
+      // native addon. The early guard at the top of this file runs the vm and exits before any server/secret init.
+      _activeSelfSandboxes++
+      return runIsolatedJsSubprocess(process.execPath, [], { NOETICA_JS_SANDBOX: '1' }, code, sessionId, TIMEOUT_MS, MAX_OUTPUT, () => { _activeSelfSandboxes = Math.max(0, _activeSelfSandboxes - 1) })
+    }
+    // CONSTRAINED machine (no node/bun + not enough RAM to self-exec a 2nd binary copy): in-process vm. Lighter,
+    // reduced isolation — the escape needs injected/malicious code, which the RAG injection defense (P1.2) blunts.
+    console.warn('[code_execute] constrained machine — using in-process vm (reduced isolation; gated by jsSandboxStrategy)')
     return new Promise((resolve) => {
       const logs: string[] = []
       const consoleMock = {
@@ -1835,43 +2076,20 @@ function executeCode(language: 'python' | 'javascript', code: string, sessionId?
         info: (...args: unknown[]) => logs.push('INFO: ' + args.map(String).join(' ')),
       }
       const sandbox: Record<string, unknown> = {
-        console: consoleMock,
-        Math,
-        JSON,
-        Array,
-        Object,
-        String,
-        Number,
-        Boolean,
-        Date,
-        Error,
-        Map,
-        Set,
-        Promise,
-        parseInt,
-        parseFloat,
-        isNaN,
-        isFinite,
-        encodeURIComponent,
-        decodeURIComponent,
-        setTimeout: undefined, // blocked in sandbox
-        setInterval: undefined,
-        fetch: undefined, // blocked — use web_search for HTTP
+        console: consoleMock, Math, JSON, Array, Object, String, Number, Boolean, Date, Error, Map, Set, Promise,
+        parseInt, parseFloat, isNaN, isFinite, encodeURIComponent, decodeURIComponent,
+        setTimeout: undefined, setInterval: undefined, fetch: undefined,
       }
       try {
         vm.createContext(sandbox)
         const result = vm.runInContext(code, sandbox, { timeout: TIMEOUT_MS })
         const out = logs.join('\n')
-        const resultLine =
-          result !== undefined && result !== null
-            ? `\nResult: ${typeof result === 'object' ? JSON.stringify(result, null, 2) : String(result)}`
-            : ''
-        const combined = (out + resultLine).trim()
-        resolve(combined.slice(0, MAX_OUTPUT) || '(no output)')
+        const resultLine = result !== undefined && result !== null
+          ? `\nResult: ${typeof result === 'object' ? JSON.stringify(result, null, 2) : String(result)}`
+          : ''
+        resolve((out + resultLine).trim().slice(0, MAX_OUTPUT) || '(no output)')
       } catch (err) {
-        resolve(
-          `RuntimeError: ${err instanceof Error ? err.message : String(err)}`,
-        )
+        resolve(`RuntimeError: ${err instanceof Error ? err.message : String(err)}`)
       }
     })
   }
@@ -1913,6 +2131,9 @@ except ImportError:
       PYTHONDONTWRITEBYTECODE: '1',
       MPLBACKEND: 'Agg',
     }
+    // Defense-in-depth: even if a secret-shaped var is ever added to safeEnv above, strip it before handing the
+    // env to model-authored code. The allowlist is correct today; this makes a future careless addition safe too.
+    for (const k of Object.keys(safeEnv)) if (/KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL/i.test(k)) delete safeEnv[k]
     const proc = cp.spawn('python3', ['-c', fullCode], {
       cwd: sessionDir,
       env: safeEnv as NodeJS.ProcessEnv,
@@ -1988,19 +2209,14 @@ async function* streamAnthropic(params: {
     body['thinking'] = { type: 'enabled', budget_tokens: params.thinkingBudget }
   }
 
-  const anthropicHeaders = {
-    'content-type': 'application/json',
-    'x-api-key': params.apiKey,
-    'anthropic-version': '2023-06-01',
-    ...(params.thinkingBudget ? { 'anthropic-beta': 'interleaved-thinking-2025-05-14' } : {}),
-  }
+  const _anthropicTgt = anthropicTarget(params.apiKey, params.thinkingBudget ? { 'anthropic-beta': 'interleaved-thinking-2025-05-14' } : {})
 
   let res: Response
   let lastStatus = 0
   for (let attempt = 0; attempt < 3; attempt++) {
-    res = await fetch('https://api.anthropic.com/v1/messages', {
+    res = await fetch(_anthropicTgt.url, {
       method: 'POST',
-      headers: anthropicHeaders,
+      headers: _anthropicTgt.headers,
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(120_000),
     })
@@ -2238,7 +2454,8 @@ async function* streamOpenAI(params: {
 // Procedural-memory store (#6): skills distilled from successful turns, persisted across runs.
 function skillsPath(): string { return path.join(os.homedir(), '.noetica', 'skills.jsonl') }
 function loadSkills(): Array<import('./lib/procedural-memory.js').Skill> {
-  try { return fs.readFileSync(skillsPath(), 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as import('./lib/procedural-memory.js').Skill).slice(-200) } catch { return [] }
+  // Encrypted at rest (lazy-migrates plaintext); keep the most recent 200.
+  return readEncrypted<import('./lib/procedural-memory.js').Skill>(skillsPath()).slice(-200)
 }
 function jaccardSim(a: string, b: string): number {
   const ta = new Set(a.toLowerCase().split(/\W+/).filter((w) => w.length > 2))
@@ -2252,6 +2469,8 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   const turnStart = Date.now() // request-received clock (used by the fast clarify path)
   const keys = body.provider_keys ?? {}
   const anthropicKey = keys.anthropic?.trim() || process.env['ANTHROPIC_API_KEY'] || ''
+  // Branch B: with a remote proxy configured, Anthropic is reachable even WITHOUT a local key (the proxy holds it).
+  const anthropicAvailable = Boolean(anthropicKey) || anthropicProxyMode()
   const openaiKey = keys.openai?.trim() || process.env['OPENAI_API_KEY'] || ''
   const openrouterKey = keys.openrouter?.trim() || process.env['OPENROUTER_API_KEY'] || ''
   const hfKey = keys.huggingface?.trim() || process.env['HF_API_KEY'] || process.env['HUGGINGFACE_API_KEY'] || ''
@@ -2262,7 +2481,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // error — wait for the runtime to come up (the request just takes a little longer on a
   // cold start). Only wait when there's no cloud key to fall back to.
   let ollamaUp = await isOllamaRunning()
-  if (!ollamaUp && !anthropicKey && !openaiKey) {
+  if (!ollamaUp && !anthropicAvailable && !openaiKey) {
     const deadline = Date.now() + 25_000
     while (Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, 1000))
@@ -2287,8 +2506,8 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // scoring — no model call, safe on the hot path even on a CPU box.
   let hasDoc = false
   try {
-    const { documentChunkCount } = await import('./lib/doc-store.js')
-    hasDoc = documentChunkCount() > 0
+    const { userDocumentChunkCount } = await import('./lib/doc-store.js')
+    hasDoc = userDocumentChunkCount() > 0 // USER uploads only — self-model docs must not force doc-QA grounding
   } catch { /* doc-store optional */ }
   let intentPlan = classifyIntent(latestUserContent, { hasDoc })
   // Tier-0 cascade (NOETICA_EMBED_INTENT): a tiny embedding model refines the intent
@@ -2319,6 +2538,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   if (lifeDomain.needsWeb && intentPlan.name === 'everyday' && !intentPlan.tools.includes('web_search')) {
     intentPlan = { ...intentPlan, tools: [...intentPlan.tools, 'web_search'] } // travel/local → allow fresh info
   }
+  // Image generation is a real built-in (DALL·E via the user's OpenAI key) but no intent lists it, so it was
+  // never offered. Add it dynamically when the user clearly wants an image; the imageGenAvailable gate (no key →
+  // dropped) still applies downstream, so this is a no-op without a key.
+  if (!intentPlan.tools.includes('generate_image') && /\b(draw|generate|create|make|design|render)\s+(me\s+)?(a|an|some|the)?\s*(image|picture|pic|logo|illustration|icon|art(work)?|graphic|drawing|painting|poster|avatar)\b/i.test(latestUserContent)) {
+    intentPlan = { ...intentPlan, tools: [...intentPlan.tools, 'generate_image'] }
+  }
   // 'continue'/'ingest' carry no model task — let the keyword router decide those.
   const intentTaskOverride = (intentPlan.model === 'continue' || intentPlan.model === 'ingest')
     ? undefined
@@ -2334,6 +2559,29 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // interactive/faithful tier, write → deliberate/generative tier; substrate → node.
   // This grounds model selection in the algebra and is the first admissible hop.
   const action = intentToAction(intentPlan.name)
+  // ── Reason lane gate (the proven +24pp win) ──────────────────────────────────
+  // For math/reasoning problem-solving intents (compute_math / prove_reason) the board measured that
+  // no-retrieval CoT + self-consistency beats BOTH baseline and RAG by +24pp with 0 regressions
+  // (qwen2.5:7b, college_math, n=30, seed 1729). So for these intents we (a) SKIP retrieval entirely —
+  // the exact retrieval-OFF condition that proved the win — and (b) answer via cragVote CoT+SC below
+  // (after the verified-operator compute lane). Intent-gated, NOT a confidence probe (the CRAG
+  // gateShouldRetrieve did not replicate and is deliberately not wired). Default ON; NOETICA_REASON_LANE=0
+  // toggles it off (turn then keeps the normal retrieval + best-of-N+critic path).
+  const useReasonLane = reasonLaneEnabled() && isReasonLaneIntent(intentPlan.name)
+  // ── Grounding signal (peer-audit Priority 7) ─────────────────────────────────
+  // Consume canonRoute's grounding_status in serving — for RETRIEVAL-ELIGIBLE turns only (NOT the
+  // reason-lane intents, which deliberately skip retrieval). Three additive uses, all safe:
+  //   (a) provenance/telemetry: surface grounding_status in the response metadata + the noetica.turn
+  //       ReasoningEvent extra (an enum only — safe-trace, no content);
+  //   (b) ensure-retrieve on 'ungrounded': bind the signal to behaviour so retrieval is guaranteed on;
+  //   (c) uncertainty marker on 'partial': attach grounding:'partial' to metadata (answer text unchanged).
+  // We deliberately do NOT use 'grounded' to suppress/skip retrieval (the probed dead-end: candidateNPs
+  // flags an out-of-canon NP on ~every real query, so 'grounded' ~never fires and a skip-gate degenerates
+  // to always-retrieve). Exception-safe (canonRoute throw → 'ungrounded'/ensure-retrieve, turn never breaks).
+  // Behind NOETICA_GROUNDING_SIGNAL (default ON; =0 reverts). retrievalEligible = NOT the reason lane.
+  const grounding = decideGrounding(latestUserContent, !useReasonLane)
+  const groundingStatus: GroundingStatus | undefined = grounding.status
+  if (grounding.active) sse(res, 'grounding', { grounding: { status: groundingStatus, ensure_retrieve: grounding.ensureRetrieve, partial: grounding.partial } })
   const actionRoute = action === 'meta' ? { tier: 'embedding', target: 'concierge' } : routeForAction(action)
   const polarity = ['retrieve', 'evaluate', 'sense'].includes(action) ? 'read' : action === 'meta' ? 'meta' : 'write'
   const phase = action === 'meta' ? null : meshrushPhase(action) // where this turn sits in the MeshRush loop
@@ -2465,7 +2713,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       content: latestUserContent,
       ollamaAvailable: ollamaUp,
       availableModels,
-      hasAnthropicKey: Boolean(anthropicKey),
+      hasAnthropicKey: anthropicAvailable,
       hasOpenAIKey: Boolean(openaiKey),
       explicitModelId: body.model_id,
       policyProfile: body.policy_profile,
@@ -2475,8 +2723,34 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       taskOverride: intentTaskOverride,
     })
   } catch (err) {
-    sse(res, 'error', { error: 'internal_error' })
-    return
+    // Don't silently swallow — log the real cause (sanitized for log-injection) so a transient failure
+    // (e.g. the coder model still pulling on first build request) is diagnosable instead of an opaque error.
+    console.error('[chat] routing failed, retrying with safe defaults:', String(err instanceof Error ? err.stack || err.message : err).replace(/[\r\n]+/g, ' ⏎ '))
+    // A routing hiccup must NOT kill the turn. The intermittent first-query "internal_error" (ollama mid-handoff
+    // on a cold relaunch, a momentarily-malformed model inventory, an edge intent override) is transient — retry
+    // with the plain keyword router and an empty inventory, so bestCoder/bestWorkhorse/bestResponsive fall to the
+    // safe floor model and the turn proceeds instead of dying with an opaque error the user has to resend past.
+    try {
+      routing = buildRouterDecision({
+        requestId: crypto.randomUUID(), content: latestUserContent, ollamaAvailable: ollamaUp, availableModels: [],
+        hasAnthropicKey: anthropicAvailable, hasOpenAIKey: Boolean(openaiKey), explicitModelId: body.model_id,
+        policyProfile: body.policy_profile, securityAttested: body.security_attested === true, hasImages,
+        hasTools: (body.tools?.length ?? 0) > 0, taskOverride: undefined,
+      })
+    } catch (err2) {
+      console.error('[chat] routing fallback also failed:', String(err2 instanceof Error ? err2.stack || err2.message : err2).replace(/[\r\n]+/g, ' ⏎ '))
+      // THE recurring cold-start "internal_error": buildRouterDecision throws "No local Ollama runtime…" while the
+      // managed Ollama is still coming up (the fallback retries with the same ollamaUp=false → throws again). That
+      // IS the warming-up case — surface the friendly retryable message, not an opaque error. Mark any in-progress
+      // step done so a plan spinner can't hang on it.
+      const m2 = err2 instanceof Error ? err2.message : String(err2)
+      const transient2 = /no local ollama|ollama runtime|ECONNREFUSED|connect|loading|not ready|warming|unavailable/i.test(m2)
+      try { step('generate', 'done', 'warming up — resend') } catch { /* step may be out of scope on a very-early failure */ }
+      sse(res, 'error', { error: transient2
+        ? 'The local model is still warming up (a few seconds right after launch). Give it a moment and resend.'
+        : 'internal_error' })
+      return
+    }
   }
 
   let { resolvedModel: model, resolvedProvider: provider } = routing
@@ -2517,7 +2791,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     const hint = capabilityHint(routerDecision.task ?? 'general')
     if (hint.recommendEscalation) {
       let escalated = false
-      if (anthropicKey) { provider = 'anthropic'; model = 'claude-haiku-4-5-20251001'; escalated = true }
+      if (anthropicAvailable) { provider = 'anthropic'; model = 'claude-haiku-4-5-20251001'; escalated = true }
       else if (openaiKey) { provider = 'openai'; model = 'gpt-4o-mini'; escalated = true }
       if (escalated) {
         console.log(`[self-model] escalated task="${String(routerDecision.task)}" → ${provider}:${model} (local success ${(hint.localSuccessRate ?? 0).toFixed(2)} over ${hint.localRuns} runs)`.replace(/\r/g, '').replace(/\n/g, ''))
@@ -2642,12 +2916,21 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     const task = routerDecision.task ?? 'general'
     const before = model
     if (!docGrounded) {
-      if (['general', 'writing', 'chat'].includes(task) && has('llama3.2:3b')) {
+      if (task === 'chat' && has('llama3.2:3b')) {
+        // Genuinely casual chat only → the fast 3B. (Substantive intents are handled by the concierge or below.)
         model = 'llama3.2:3b'
       } else if (task === 'coding') {
-        model = has('qwen2.5-coder:7b') ? 'qwen2.5-coder:7b' : has('qwen2.5:7b') ? 'qwen2.5:7b' : model
+        // Respect the RAM-appropriate workhorse the router already chose — qwen3:14b on a 24GB box, NOT a
+        // hardcoded qwen2.5. This block used to force qwen2.5 and quietly undo the qwen3 routing.
+        model = bestCoder(availableModels, model)
       } else if (task === 'reasoning') {
-        model = has('qwen2.5:7b') ? 'qwen2.5:7b' : has('qwen2.5-coder:7b') ? 'qwen2.5-coder:7b' : model
+        // Deep reasoning earns the 14b — depth over latency (and it thinks, via the think-directive).
+        model = bestWorkhorse(availableModels, model)
+      } else {
+        // general / writing / research → the FAST interactive 8b. The 14b's ~60-90s cold-load + thinking tax
+        // wasn't worth it for conversational Q&A; with /no_think the 8b answers in seconds. Escalation still
+        // climbs to a heavier model when the turn actually struggles. Never the 3B (it fabricates work).
+        model = bestResponsive(availableModels, model)
       }
     }
     if (model !== before) console.log(`[responsive] ${String(task)} ${before} → ${model}`.replace(/\r/g, '').replace(/\n/g, ''))
@@ -2859,6 +3142,9 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
 
   let graphContext = ''
   try {
+    // Reason lane: SKIP all graph/brain retrieval (the proven retrieval-OFF +24pp condition). For
+    // math/reasoning intents, injected memory/brain context only adds noise the model reasons WORSE with.
+    if (useReasonLane) throw new Error('reason-lane: retrieval skipped')
     // On low-memory CPU hosts, cap injected memory context hard — prompt-eval of a
     // big context dominates latency for a local 3B on CPU. Smaller context = much
     // faster responses (the main "speed it up" lever on an 8GB box).
@@ -2870,8 +3156,24 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       conversationId: body.conversation_id,
       maxTokens: memCap,
     })
-    if (retrieved.text.trim()) {
-      graphContext = `\n\n---\n**Memory context (HellGraph)**\n${retrieved.text}`
+    // Don't inject the HellGraph memory into the 'general' lane (the catch-all for unmatched factual
+    // questions). The graph is dominated by dev/test exhaust, and the 'graph' pattern only floors at ZERO
+    // hits — so a weak lexical match ("Australia") still injects software passages that qwen3 then anchors
+    // on and REFUSES the question ("not in the provided documents"). General knowledge comes from the
+    // model itself; memory-centric intents (self_identity, preferences_memory, plan_nextsteps, …) still get it.
+    // Inject the HellGraph memory ONLY for genuinely memory-centric intents (episodic/preferences/self/status) —
+    // NOT for general-knowledge or research lookups ("who was the first president" → research_lookup), where the
+    // graph dump derails the model into parroting unrelated atoms. The graph is dominated by doc/dev exhaust, so
+    // a weak lexical hit otherwise injects business content into a world-knowledge question. (Doc-RAG below has
+    // its own relevance gate.)
+    const MEMORY_RETRIEVAL = new Set(['episodic', 'memory-write', 'self-model', 'status'])
+    if (retrieved.text.trim() && MEMORY_RETRIEVAL.has(intentPlan.retrieval)) {
+      // INDIRECT-INJECTION DEFENSE: graph atoms can be poisoned by ingested content too — sanitize before
+      // the memory context reaches the prompt (parity with the doc-RAG path below).
+      const { sanitizeRetrieved } = await import('./lib/rag-trust.js')
+      const { clean, stripped } = sanitizeRetrieved(retrieved.text)
+      if (stripped > 0) console.warn(`[rag-trust] neutralized ${stripped} injected directive(s) in graph memory context`.replace(/[\r\n]/g, ''))
+      graphContext = `\n\n---\n**Memory context (HellGraph)**\n${clean}`
     }
     // Emit the neurosymbolic reasoning trace so the UI can show *why* this answer
     // was grounded — attention-ranked atoms, pattern timings, beliefs injected.
@@ -2896,7 +3198,15 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     // Skip doc retrieval entirely for intents that want no grounding (greetings,
     // confirmations, file ops) — otherwise a plain "hello" wastefully pulls passages
     // and shows a misleading "retrieving" step.
-    if (documentChunkCount() > 0 && intentPlan.retrieval !== 'none') {
+    // Ensure-retrieve binding (Priority 7): an 'ungrounded' turn MUST run retrieval. This is the EXPLICIT
+    // binding of the grounding signal to behaviour — a no-op where retrieval already happens (the common
+    // case), but it makes ungrounded→retrieve intentional, not incidental, and prevents any future skip
+    // path from bypassing retrieval on an ungrounded turn. It NEVER forces retrieval for retrieval:'none'
+    // intents (greetings/confirmations) nor for the reason lane (ensureRetrieve is false there by construction).
+    const ensureRetrieveNow = grounding.ensureRetrieve && intentPlan.retrieval !== 'none' && !useReasonLane
+    const retrievalGate = intentPlan.retrieval !== 'none' && !useReasonLane
+    if (documentChunkCount() > 0 && (retrievalGate || ensureRetrieveNow)) {
+      if (ensureRetrieveNow && !retrievalGate) console.log('[grounding] ungrounded turn → ensure-retrieve binding kept retrieval on')
       // Intent-aware retrieval. Doc-focused intents (summarize_doc / qa_over_doc /
       // research) get a tight top-k of the MOST relevant chunks instead of stuffing
       // the whole document into context — this is the fix for the 300–500s latency
@@ -2919,7 +3229,11 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       const ragQuery = glossaryTerms.length > 0
         ? `${latestUserContent}\n${glossaryTerms.join(' ')}`
         : latestUserContent
-      const hits = await searchDocsReranked(ragQuery, topK)
+      // Document RAG reads from USER scopes only (collections), never core memory/knowledge/self (doc-scope.ts).
+      // Core docs in the same store would otherwise surface as strict "uploaded sources" and make the model
+      // refuse general knowledge (the self-doc refusal bug). Scoping keeps collections separate from core.
+      const { isUserDoc: _isUserDoc } = await import('./lib/doc-scope.js')
+      const hits = (await searchDocsReranked(ragQuery, topK, { relevanceQuery: latestUserContent })).filter((h) => _isUserDoc(h.filename))
       if (hits.length > 0) {
         docHitCount = hits.length
         // INDIRECT-INJECTION DEFENSE (PoisonedRAG): retrieved document text is UNTRUSTED — a malicious
@@ -3102,7 +3416,11 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // region expands with use: each generated answer crystallizes, so it recalls next time.
   // Skip when an image is attached — the user wants the model to LOOK at the image, not
   // reuse a cached text answer (vision must reach the model, not a recall short-circuit).
-  if (isFlagOn('NOETICA_LOGIC_FIRST') && !hasImages) {
+  // Skip recall for doc/research intents (vector-rag / web+vector): their answers depend on CURRENT docs and must
+  // re-run through the relevance-gated retrieval, not be served from a crystallized cache — otherwise an earlier
+  // derailed extractive answer (e.g. "who was the first president" → a business doc) is replayed forever, shadowing
+  // every retrieval fix. Recall still serves decidable/stable answers (math, logic, self-identity, status).
+  if (isFlagOn('NOETICA_LOGIC_FIRST') && !hasImages && !wantsVectorRag(intentPlan.retrieval)) {
     try {
       const { recallArtifact } = await import('./lib/crystallize.js')
       const hit = recallArtifact(latestUserContent)
@@ -3122,15 +3440,43 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         try {
           const re = await import('./lib/reasoning-evidence.js')
           const run = re.openReasoningRun(`turn:${intentPlan.name}`)
-          re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} computed(recall) ${lat}ms`, trustLevel: 'trusted-workspace-source' })
+          re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} computed(recall) ${lat}ms`, trustLevel: 'trusted-workspace-source', ...(groundingStatus ? { extra: { grounding_status: groundingStatus } } : {}) })
           const ledgerRef = hit.attestation ? `urn:srcos:ledger:dispatch:${hit.attestation}` : undefined
           const receipt = re.closeReasoningRun(run, { status: 'completed', replayClass: re.classifyReplay({ method: 'recall', decidable: true }), ledgerRef })
           reasoningRecall = { run: run.id, receipt: receipt.id }
         } catch { /* reasoning evidence is best-effort — never break the turn */ }
-        sse(res, 'done', { result: { run_id: crypto.randomUUID(), content: hit.answer, model_routed: 'recall', provider: 'noetica', policy_admitted: true, memory_written: false, stop_reason: 'computed', timestamp: new Date().toISOString(), latency_ms: lat, agent_machine: true, agent_machine_version: VERSION, decidable: true, method: 'recall', ...(reasoningRecall ? { reasoning_run: reasoningRecall.run, reasoning_receipt: reasoningRecall.receipt } : {}) } })
+        sse(res, 'done', { result: { run_id: crypto.randomUUID(), content: hit.answer, model_routed: 'recall', provider: 'noetica', policy_admitted: true, memory_written: false, stop_reason: 'computed', timestamp: new Date().toISOString(), latency_ms: lat, agent_machine: true, agent_machine_version: VERSION, decidable: true, method: 'recall', ...(reasoningRecall ? { reasoning_run: reasoningRecall.run, reasoning_receipt: reasoningRecall.receipt } : {}), ...(groundingStatus ? { grounding_status: groundingStatus } : {}), ...(grounding.partial ? { grounding: 'partial' } : {}) } })
         return
       }
     } catch { /* recall is best-effort — fall through to extract/generation */ }
+  }
+
+  // ── Global / thematic synthesis (GraphRAG community summaries, cheap path) ───
+  // Whole-corpus questions ("main themes / across all my docs / big picture") need synthesis ACROSS the
+  // knowledge graph — flat chunk-RAG can't do that. We build EXTRACTIVE community reports (no per-community LLM)
+  // and synthesize in ONE call, so it's affordable on local. Gated to clearly-global phrasing + when docs exist.
+  if (hasDoc && /\b(?:(?:main|key|recurring|overall|common|top)\s+(?:themes?|topics?|ideas?|patterns?)|big[- ]picture|across (?:all|my|the|these)|(?:whole|entire)\s+(?:corpus|library|collection|knowledge ?base)|what(?:'?s| is) (?:in|across) (?:all|my|the)\s+(?:docs|documents|notes|knowledge|library)|overview of (?:all|my|the|everything))\b/i.test(latestUserContent)) {
+    try {
+      const { analytics, labelOf } = await analyticsForGraph(false)
+      const gmodel = await pickChatModel()
+      const { buildCommunityReports } = await import('./lib/graph-rag.js')
+      const reports = await buildCommunityReports(analytics, labelOf, { model: gmodel, maxCommunities: 8, minSize: 3, extractive: true })
+      if (reports.length > 0) {
+        const qtok = new Set(latestUserContent.toLowerCase().split(/\W+/).filter((w) => w.length > 2))
+        const scored = reports.map((r) => { const rt = `${r.title} ${r.summary}`.toLowerCase(); let o = 0; for (const t of qtok) if (rt.includes(t)) o++; return { r, o } }).sort((a, b) => b.o - a.o)
+        const top = (scored.some((s) => s.o > 0) ? scored.filter((s) => s.o > 0) : scored).slice(0, 6).map((s) => s.r)
+        const ctx = top.map((r) => `## ${r.title}\n${r.summary}${r.claims?.length ? `\n- ${r.claims.join('\n- ')}` : ''}`).join('\n\n')
+        const { generateOllamaText } = await import('./lib/ollama.js')
+        const { content } = await generateOllamaText({ model: gmodel, messages: [{ role: 'user', content: `Synthesize an answer ACROSS these themes from the user's own knowledge graph. Reference themes by name; ground every claim in them; don't invent.\n\nThemes:\n${ctx}\n\nQuestion: ${latestUserContent}` }], temperature: 0.3 })
+        if (content?.trim()) {
+          step('retrieve', 'done', `${top.length} community themes`)
+          step('generate', 'done', 'synthesized across the knowledge graph')
+          sse(res, 'delta', { delta: content })
+          sse(res, 'done', { result: { run_id: crypto.randomUUID(), content, model_routed: gmodel, provider: 'noetica', policy_admitted: true, memory_written: false, stop_reason: 'global', timestamp: new Date().toISOString(), latency_ms: Date.now() - turnStart, agent_machine: true, agent_machine_version: VERSION, method: 'graphrag-global' } })
+          return
+        }
+      }
+    } catch { /* global synthesis best-effort — fall through to normal answering */ }
   }
 
   // ── Extractive grounded answering (NOETICA_EXTRACTIVE, default-on): EXTRACT ───
@@ -3145,7 +3491,10 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // extractor returns null safely (cannot fabricate) when nothing lexically matches.
   // …but NOT when an image is attached: a screenshot + "how would you improve this?" must go
   // to the vision model, not be answered by extracting sentences from an unrelated doc.
-  if (isFlagOn('NOETICA_EXTRACTIVE') && wantsVectorRag(intentPlan.retrieval) && hasDoc && !hasImages) {
+  // Gate on docHits (the relevance-gated semantic result): if the docs aren't on-topic, DON'T extract — the
+  // extractive pool below is lexical-only and would otherwise surface "first"→"Australia first" for a general
+  // query like "who was the first president". docHits non-empty means the query passed the semantic relevance gate.
+  if (isFlagOn('NOETICA_EXTRACTIVE') && wantsVectorRag(intentPlan.retrieval) && hasDoc && !hasImages && docHits.length > 0) {
     try {
       const { extractiveAnswer } = await import('./lib/extractive-qa.js')
       // Extraction scans a WIDER lexical pool (term-matched, reliable for entity Qs)
@@ -3197,7 +3546,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         try {
           const re = await import('./lib/reasoning-evidence.js')
           const run = re.openReasoningRun(`turn:${intentPlan.name}`)
-          re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} computed(extractive) ${exLatency}ms`, trustLevel: 'trusted-workspace-source' })
+          re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} computed(extractive) ${exLatency}ms`, trustLevel: 'trusted-workspace-source', ...(groundingStatus ? { extra: { grounding_status: groundingStatus } } : {}) })
           const ledgerRef = extractiveAttestation ? `urn:srcos:ledger:dispatch:${extractiveAttestation}` : undefined
           const receipt = re.closeReasoningRun(run, { status: 'completed', replayClass: re.classifyReplay({ method: 'extractive', decidable: true }), ledgerRef })
           reasoningExtract = { run: run.id, receipt: receipt.id }
@@ -3207,6 +3556,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           policy_admitted: true, memory_written: false, stop_reason: 'extractive', timestamp: new Date().toISOString(),
           latency_ms: exLatency, agent_machine: true, agent_machine_version: VERSION, extractive: true,
           ...(reasoningExtract ? { reasoning_run: reasoningExtract.run, reasoning_receipt: reasoningExtract.receipt } : {}),
+          ...(groundingStatus ? { grounding_status: groundingStatus } : {}), ...(grounding.partial ? { grounding: 'partial' } : {}),
         } })
         return
       }
@@ -3304,7 +3654,43 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     }
   } catch { /* procedural-memory best-effort */ }
 
-  const enrichedSystemPrompt = basePrompt + dateLine + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + episodeContext + goalContext + skillsContext + reasoningDirective + verbosityNote + modeNote + lifeDomain.safetyNote + profile.authorizationSuffix
+  // Learn primer (new-workspace onboarding): prime the chat with the learner's Academy state — degree,
+  // prerequisite frontier, domain teaching persona — plus canon focus context. Sourced from the Alexandrian
+  // Academy + our canon, NOT personal mail/drive. Empty when the request carries no learner_id (or no profile
+  // on file), so this is a zero-impact default for non-learner sessions.
+  let learnerContext = ''
+  try {
+    const lid = (body as { learner_id?: string }).learner_id
+    if (lid) { const brief = buildAdaptiveBrief(String(lid)); if (brief) learnerContext = `\n\n${brief}` }   // track-aware: child / student / adult voice, one engine
+  } catch { /* learner brief is best-effort */ }
+  // Canon grounding (PROMOTABLE, off by default): the question's entities → canon glossary definitions +
+  // related equations/models + prerequisite decomposition + cross-domain bridges. Turns the static canon
+  // (1035 terms, 766 equations, 121 prereq edges) into answer-time scaffolding. Flip NOETICA_CANON_GROUND=1
+  // once the board's `ground` arm confirms the lift. Study-brain lanes only; best-effort.
+  let canonGroundContext = ''
+  if (isFlagOn('NOETICA_CANON_GROUND') && STUDY_BRAIN_LANES.has(intentPlan.name)) {
+    try {
+      const { canonGround } = await import('./lib/canon-lookup.js')
+      const g = canonGround(latestUserContent)
+      if (g) canonGroundContext = `\n\n${g}`
+    } catch { /* canon grounding best-effort */ }
+  }
+  // NOTE: we do NOT append `/no_think`. The chat path is the OpenAI-compat /v1 endpoint (no native `think`
+  // param), so /no_think is the only lever — but on qwen3 it strips the <think>…</think> wrapper while the
+  // model STILL reasons, so the reasoning leaks into the ANSWER as plain text (the streamOllama parser routes
+  // it to message.content instead of message.thinking → it renders as the answer body, not the collapsible).
+  // Letting qwen3 think NORMALLY keeps reasoning wrapped → it lands in the "Extended thinking" collapsible,
+  // cleanly separated from the answer. Speed comes from model TIERING (interactive lanes → fast 8b), not from
+  // suppressing thinking. Re-introduce suppression only via native `think:false` if the path moves to /api/chat.
+  const thinkDirective = ''
+  // For non-document intents, the injected memory/graph passages are OPTIONAL background — the model keeps
+  // anchoring on them and refusing general-knowledge questions ("not in the provided documents"). A forceful
+  // directive in the LAST (most salient) position overrides that. Doc-QA intents keep strict grounding.
+  const DOC_INTENTS = new Set(['qa_over_doc', 'summarize_doc', 'file_ops', 'file_ingest'])
+  const knowledgeDirective = DOC_INTENTS.has(intentPlan.name) ? '' :
+    `\n\n=== ANSWER POLICY (highest priority) ===\nAny context above is OPTIONAL background — it is NOT the set of allowed facts. Answer the user's question directly. For general knowledge (history, geography, science, public events), answer from YOUR OWN knowledge. NEVER say "not in the provided documents/sources" or "consult an external source" for a fact you know. Only say you don't know if you genuinely don't.`
+  // merged: ours prepends learner/canon context after dateLine; main appends the knowledge + think directives.
+  const enrichedSystemPrompt = basePrompt + dateLine + learnerContext + canonGroundContext + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + episodeContext + goalContext + skillsContext + reasoningDirective + verbosityNote + modeNote + lifeDomain.safetyNote + profile.authorizationSuffix + knowledgeDirective + thinkDirective
 
   // Token budget: rough estimate (4 chars ≈ 1 token). If message history + system prompt
   // exceeds 70% of the model's context window, trim oldest non-system messages.
@@ -3354,6 +3740,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   }
 
   try {
+    // Track when a turn was answered by a VERIFIABLE/deterministic lane (a verified
+    // math_operators library call, or a code-verify pass) so the tail evidence emit can
+    // classify replayClass="exact" instead of the generated-tail "best-effort". Stays
+    // undefined for nondeterministic lanes (reason-lane CoT+SC, cold programOfThought,
+    // best-of-N), which correctly remain best-effort.
+    let verifiedMethod: 'operator-compute' | 'code-verify' | 'search-verify' | undefined
     if (provider === 'ollama') {
       // ── Local Ollama path (primary) ──────────────────────────────────────────
       type OllamaContentPart =
@@ -3430,10 +3822,26 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       if (process.env['NOETICA_EXEC_VERIFY'] !== '0' && routerDecision.task !== 'chat'
           && classifyComplexityPosture(latestUserContent).posture === 'compute') {
         try {
-          const pot = await programOfThought(latestUserContent, {
-            generate: (p, t) => generateOllamaText({ model, messages: [{ role: 'user', content: p }], temperature: t, numCtx: ollamaNumCtx }).then((r) => r.content),
-            execute: (lang, code) => executeCode(lang, code),
-          })
+          const potDeps = {
+            generate: (p: string, t: number) => generateOllamaText({ model, messages: [{ role: 'user', content: p }], temperature: t, numCtx: ollamaNumCtx }).then((r) => r.content),
+            execute: (lang: 'python' | 'javascript', code: string) => executeCode(lang, code),
+          }
+          // ROUTING-FIRST: offer the verified-operator menu (lib/math_operators.py) and let the
+          // model pick an operator + extract args, executing the TESTED library instead of authoring
+          // specialized math cold (the measured 1/6 compute failure). This mirrors the bench's proven
+          // operatorCompute arm and recovers the +7pp it measured. COLD-FALLBACK: if no verified
+          // operator was routed (or it produced nothing usable), fall through to the cold
+          // programOfThought below — so this is purely additive headroom that cannot regress the
+          // cold path. Operator routing is exception-safe; any failure falls through to cold PoT.
+          let pot: { answer: string; code: string; output: string } | null = null
+          const libDir = mathOperatorLibDir()
+          if (libDir) {
+            try {
+              const op = await operatorProgramOfThought(latestUserContent, libDir, potDeps)
+              if (op && op.usedOperator) { pot = op; verifiedMethod = 'operator-compute'; console.log(`[critic] verified-operator routed answer=${op.answer}`) }
+            } catch { /* operator routing best-effort — fall through to cold PoT */ }
+          }
+          if (!pot) pot = await programOfThought(latestUserContent, potDeps)
           if (pot) {
             const answer = `${pot.answer}\n\n_Verified by execution:_\n\`\`\`python\n${pot.code}\n\`\`\``
             sse(res, 'deliberation', { deliberation: { critic: { action: 'accept', score: 1, agreement: 1, posture: 'compute', reason: 'verified by execution (program-of-thought)' } } })
@@ -3443,6 +3851,116 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
             console.log(`[critic] program-of-thought verified answer=${pot.answer}`)
           }
         } catch { /* exec-verify best-effort — fall through to best-of-N */ }
+      }
+
+      // ── Reason lane: no-retrieval CoT + self-consistency (the proven +24pp win) ──────────────────
+      // For math/reasoning intents (compute_math / prove_reason) that the verified-operator/PoT lane
+      // above did NOT already answer, generate the answer by long chain-of-thought + self-consistency
+      // (cragVote over K CoT samples, NO retrieval) — the EXACT bench `reason` arm that beat baseline
+      // AND RAG by +24pp (0 regressions; qwen2.5:7b, college_math, n=30, seed 1729). Ordering is
+      // operator-route → (if no operator) CoT+SC reason lane → existing best-of-N+critic fallback. The
+      // retrieval was already skipped upstream (useReasonLane). Exception-safe: any failure falls
+      // through to the normal path so a turn is never broken. NOETICA_REASON_LANE=0 disables (gating it
+      // off restores the normal retrieval + critic path); NOETICA_SC_K sets K (default 3, the proven config).
+      if (!deliberated && useReasonLane) {
+        try {
+          const k = reasonSCK()
+          // SERVING turns are FREE-FORM (no A/B/C/D) by default — vote over normalized FINAL strings and
+          // return the winning sample's FULL TEXT (not a letter). Only an explicit-options turn (rare in
+          // /api/chat) routes to MCQ letter-voting. The bench keeps its own MCQ askVote path untouched.
+          const reasonMode = looksLikeMCQ(latestUserContent) ? 'mcq' as const : 'free' as const
+          const reasonRule = reasonMode === 'mcq' ? REASON_RULE_MCQ : REASON_RULE
+          // Each sample = one full CoT generation of the problem + the mode-appropriate rule, at sampling
+          // temp, NO retrieved context (graphContext/doc context were not assembled for this lane).
+          const reasonPrompt = `${latestUserContent}${reasonRule}`
+          const sample = (idx: number) => generateOllamaText({
+            model,
+            messages: [{ role: 'user', content: reasonPrompt }],
+            temperature: k <= 1 ? 0 : 0.7,   // temp-0 single draw when voting off; 0.7 for diverse SC samples
+            numCtx: ollamaNumCtx,
+          }).then((r) => r.content)
+          const rl = await runReasonLane(sample, k, { mode: reasonMode })
+          if (rl.content.trim()) {
+            const consensusNote = rl.consensus
+              ? `self-consistency (K=${k}, agree=${rl.agree.toFixed(2)}, ${rl.agreeCount}/${rl.n})`
+              : `single CoT (K=${k}, no SC consensus — most-complete sample)`
+            sse(res, 'deliberation', { deliberation: { critic: { action: 'accept', score: 1, agreement: rl.agree, posture: 'reason', reason: `no-retrieval CoT + ${consensusNote}` } } })
+            sse(res, 'delta', { delta: rl.content })
+            fullContent += rl.content
+            deliberated = true
+            console.log(`[critic] reason-lane CoT+SC mode=${rl.mode} K=${k} n=${rl.n} agree=${rl.agree.toFixed(2)} consensus=${rl.consensus} intent=${intentPlan.name}`)
+          }
+        } catch { /* reason lane best-effort — fall through to best-of-N+critic */ }
+      }
+
+      // ── Search-verify lane: generate-and-verify for the NP-shaped posture ────────────────────────
+      // For `search-verify` turns (find/construct/smallest/largest/optimal/counterexample/such-that),
+      // verifying a candidate is CHEAPER and more trustworthy than generating it (the verification ≠
+      // generation lever the moat doctrine names). Plain best-of-N votes over guesses with NO verify;
+      // this lane GENERATES a CoT candidate, then VERIFIES it against the stated constraints and
+      // REGENERATES on failure (verify-guided retry). Two verify modes: EXECUTABLE (write a tiny check
+      // that plugs the candidate back into the constraints and runs it — a PASS is deterministic ⇒
+      // exact) and MODEL-judged (YES/NO fallback ⇒ best-effort). A verified-executable candidate sets
+      // verifiedMethod='search-verify' so the tail evidence emit classifies replayClass="exact"
+      // (mirrors operator-compute / code-verify). Ordering: operator → reason-lane → THIS → best-of-N.
+      // Exception-safe: any failure falls through to best-of-N; an unverified candidate never blocks
+      // the turn (returned with verified:false). NOETICA_SEARCH_VERIFY=0 disables (default ON — it only
+      // adds a verify step to a posture that today has none).
+      if (!deliberated && searchVerifyEnabled()
+          && routerDecision.task !== 'chat' && classifyComplexityPosture(latestUserContent).posture === 'search-verify') {
+        try {
+          const svGen = (p: string, t: number) => generateOllamaText({ model, messages: [{ role: 'user', content: p }], temperature: t, numCtx: ollamaNumCtx }).then((r) => r.content)
+          // Verify a candidate: prefer an EXECUTABLE check (deterministic ⇒ exact); fall back to a
+          // MODEL-judged YES/NO (best-effort). Returns structured flags only — verify prose stays out
+          // of evidence. Errors → treated as a non-fatal miss by runSearchVerify.
+          const svVerify = async (candidate: string, question: string): Promise<VerifyResult> => {
+            // EXECUTABLE: ask for a tiny Python check that prints exactly PASS or FAIL by plugging the
+            // candidate back into the stated constraints. Trust it only when it cleanly prints one marker.
+            try {
+              const checkPrompt = `Write a tiny self-contained Python 3 program that CHECKS whether a candidate answer satisfies ALL the constraints of the problem below. Plug the candidate in and verify it. Print EXACTLY "PASS" if it satisfies every constraint, otherwise print EXACTLY "FAIL". Print nothing else.\n\nProblem: ${question}\n\nCandidate answer: ${candidate}\n\nReturn ONLY one \`\`\`python code block.`
+              const text = await svGen(checkPrompt, 0.1)
+              const m = text.match(/```(?:python|py)?\s*([\s\S]*?)```/i)
+              const code = m && m[1] ? m[1].trim() : null
+              if (code) {
+                const out = await executeCode('python', code)
+                const hasPass = /\bPASS\b/.test(out)
+                const hasFail = /\bFAIL\b/.test(out)
+                const clean = !/\b(Traceback|SyntaxError|NameError|TypeError|ImportError|ModuleNotFoundError|Error:)\b/.test(out)
+                if (clean && (hasPass !== hasFail)) {
+                  return { pass: hasPass, mode: 'executable', reason: hasPass ? undefined : 'failed the executable constraint check' }
+                }
+              }
+            } catch { /* executable verify unavailable — fall back to model-judged */ }
+            // MODEL-judged fallback (best-effort).
+            try {
+              const judgePrompt = `Does the candidate answer satisfy ALL constraints of the problem? Answer with exactly "YES" or "NO" on the first line, then one short sentence of why.\n\nProblem: ${question}\n\nCandidate: ${candidate}`
+              const verdict = await svGen(judgePrompt, 0.1)
+              const yes = /^\s*\**\s*yes\b/i.test(verdict)
+              return { pass: yes, mode: 'model', reason: yes ? undefined : verdict.split(/\r?\n/).slice(0, 2).join(' ').slice(0, 300) }
+            } catch {
+              return { pass: false, mode: 'model', reason: 'verification unavailable' }
+            }
+          }
+          const sv = await runSearchVerify({
+            question: latestUserContent,
+            sample: (idx, priorFailure) => svGen(searchVerifyPrompt(latestUserContent, priorFailure), idx === 0 ? 0.4 : 0.7),
+            verify: svVerify,
+            maxAttempts: 3,
+          })
+          if (sv && sv.content.trim()) {
+            const note = sv.verified
+              ? `verified candidate (${sv.verifyMode}, ${sv.attempts} attempt${sv.attempts > 1 ? 's' : ''})`
+              : `best unverified candidate (${sv.attempts} attempts, no candidate verified)`
+            sse(res, 'deliberation', { deliberation: { critic: { action: sv.verified ? 'accept' : 'clarify', score: sv.verified ? 1 : 0.5, agreement: 1, posture: 'search-verify', reason: `generate-and-verify: ${note}` } } })
+            sse(res, 'delta', { delta: sv.content })
+            fullContent += sv.content
+            deliberated = true
+            // Only an EXECUTABLE pass is deterministic/exact; a model-judged pass or an unverified
+            // candidate stays best-effort (verifiedMethod left undefined).
+            if (sv.verified && sv.verifyMode === 'executable') verifiedMethod = 'search-verify'
+            console.log(`[critic] search-verify verified=${sv.verified} mode=${sv.verifyMode} attempts=${sv.attempts}`)
+          }
+        } catch { /* search-verify best-effort — fall through to best-of-N+critic */ }
       }
 
       // Code-posture verify-repair: for self-contained "write code" tasks, generate a
@@ -3466,6 +3984,9 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
             sse(res, 'delta', { delta: answer })
             fullContent += answer
             deliberated = true
+            // Only a PASSED verification is deterministic/exact; a failed-then-best-attempt
+            // fallback stays best-effort (it's a generated draft that didn't verify).
+            if (cv.passed) verifiedMethod = 'code-verify'
             console.log(`[critic] code-verify passed=${cv.passed} attempts=${cv.attempts} lang=${cv.language}`)
           }
         } catch { /* code-verify best-effort — fall through */ }
@@ -3549,12 +4070,17 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       const ollamaAppendAssistant = (assistantText: string, calls: ToolUseBlock[]) => {
         ollamaMessages.push({ role: 'assistant', content: assistantText || null, tool_calls: calls.map((tc) => ({ id: tc.id, type: 'function' as const, function: { name: tc.name, arguments: JSON.stringify(tc.input) } })) })
       }
+      // Thinking only where depth earns the latency: reasoning/code lanes think (and that reasoning streams to
+      // the "Extended thinking" collapsible, never the answer body); simple/interactive lanes answer cleanly +
+      // fast with the <think> phase disabled. Driven by Ollama's enable_thinking template kwarg in streamOllama.
+      const THINK_INTENTS = new Set(['reasoning', 'explain_teach', 'compare_benchmark', 'plan_nextsteps', 'review_audit', 'prove_reason', 'compute_math', 'build_implement', 'fix_debug'])
+      const enableThinking = THINK_INTENTS.has(intentPlan.name)
       const ollamaAdapter: ProviderAdapter = {
         suppressInlineToolText: true,
         enableDivergenceRecovery: true,
         init() { /* ollamaMessages already built above */ },
         async *streamTurn() {
-          yield* streamOllama({ model, messages: ollamaMessages, tools: allTools, numCtx: ollamaNumCtx, temperature: reqTemperature, maxTokens: reqMaxTokens })
+          yield* streamOllama({ model, messages: ollamaMessages, tools: allTools, numCtx: ollamaNumCtx, temperature: reqTemperature, maxTokens: reqMaxTokens, enableThinking })
         },
         parseInlineToolCalls(text) { return parseInlineToolCalls(text, ollamaToolNames) },
         appendToolTurn(assistantText, calls, results) {
@@ -3772,15 +4298,36 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       try {
         const { captureFailure } = await import('./lib/eval-capture.js')
         const c = captureFailure({ input: latestUserContent, output: fullContent, verified: turnGrounded, coverage: valueJudgment.grounding, decision: routerDecision.task }, Date.now(), { minCoverage: 0.5 })
-        if (c) { const ep = path.join(os.homedir(), '.noetica', 'eval-cases.jsonl'); fs.mkdirSync(path.dirname(ep), { recursive: true }); fs.appendFileSync(ep, `${JSON.stringify(c)}\n`) }
+        if (c) appendEncrypted(path.join(os.homedir(), '.noetica', 'eval-cases.jsonl'), c)   // encrypted at rest
       } catch { /* eval-capture best-effort */ }
+      // #5b — capture VERIFIED turns as SFT positives (rejection sampling: the success/training half).
+      // The shard feeds the Atlas causal_lm_lora trainer (tritfabric) via /api/tune submit → POST /v1/tune.
+      // SOVEREIGNTY: harvesting is OFF by default (NOETICA_LEARN_OPT_IN) — this data could leave the
+      // device for training. Only with explicit operator opt-in, and only AFTER the PII/secret
+      // firewall (redact) scrubs BOTH the prompt and the response, does a verified turn enter the
+      // shard — so secrets/PII are never written to disk or shipped, even under cloud training.
+      try {
+        if (isFlagOn('NOETICA_LEARN_OPT_IN')) {
+          const { captureVerified, toSftLine } = await import('./lib/sft-harvest.js')
+          const { redact } = await import('./lib/redact.js')
+          // ANTI-COLLAPSE: an INDEPENDENT corroboration the generator can't self-grant — a verifying
+          // tool/execution that ran, grounding in the structured graph, or belief/law alignment — and
+          // no contradictions. Without this we'd train only on the model's own grounding (collapse).
+          const usedVerifier = trajectoryActions.some((a) => /run_command|code_execute|exec/i.test(a.type))
+          const independent = valueJudgment.contradictions.length === 0 && (
+            usedVerifier || (valueJudgment.graph_grounding ?? 0) >= 0.5 || valueJudgment.belief_alignment >= 0.6
+          )
+          const v = captureVerified({ input: redact(latestUserContent).redacted, output: redact(fullContent).redacted, verified: turnGrounded, coverage: valueJudgment.grounding, decision: routerDecision.task, independent }, Date.now())
+          if (v) { const sp = path.join(os.homedir(), '.noetica', 'distill', 'verified.sft.jsonl'); fs.mkdirSync(path.dirname(sp), { recursive: true }); fs.appendFileSync(sp, `${toSftLine(v)}\n`) }
+        }
+      } catch { /* sft-harvest best-effort */ }
       // #6 — distill SUCCESSFUL turns (high worth + a real tool sequence) into reusable procedural skills (the
       // success half; retrieved into the system prompt on future similar tasks above).
       try {
         if (valueJudgment.worth >= 0.6 && trajectoryActions.length >= 2) {
           const { distillSkill } = await import('./lib/procedural-memory.js')
           const skill = distillSkill(latestUserContent.slice(0, 120), routerDecision.task ?? 'general', trajectoryActions.map((a) => a.type))
-          const sp = skillsPath(); fs.mkdirSync(path.dirname(sp), { recursive: true }); fs.appendFileSync(sp, `${JSON.stringify(skill)}\n`)
+          appendEncrypted(skillsPath(), skill)   // encrypted at rest
         }
       } catch { /* procedural-memory best-effort */ }
     } catch { /* VJ is best-effort — never block the response */ }
@@ -3880,13 +4427,26 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           session: sessionId, confidence: typeof turnWorth === 'number' ? turnWorth : 0.7,
         })
       }
-      // Reasoning-evidence: GENERATED (LLM) ⇒ replayClass "best-effort". Best-effort, non-blocking.
+      // Reasoning-evidence: GENERATED (LLM) ⇒ replayClass "best-effort", EXCEPT when a
+      // verifiable/deterministic lane answered the turn (verified math_operators call, or a
+      // code-verify pass) ⇒ replayClass "exact". The reason-lane (CoT+SC), cold
+      // programOfThought, and best-of-N remain best-effort (verifiedMethod stays undefined).
       try {
         const re = await import('./lib/reasoning-evidence.js')
         const run = re.openReasoningRun(`turn:${intentPlan.name}`)
-        re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} generated(${provider}) ${latencyMs}ms`, trustLevel: 'semi-trusted-project-source' })
+        // Method/source string the summary + receipt reflect: a verified lane names itself and
+        // is COMPUTED; otherwise it's GENERATED (best-effort).
+        const methodLabel = verifiedMethod
+          ? `computed(${verifiedMethod})`
+          : `generated(${provider}${useReasonLane ? ',reason-lane:cot+sc' : ''})`
+        re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} ${methodLabel} ${latencyMs}ms`, trustLevel: verifiedMethod ? 'trusted-workspace-source' : 'semi-trusted-project-source', ...(groundingStatus ? { extra: { grounding_status: groundingStatus } } : {}) })
         const ledgerRef = generatedAttestation ? `urn:srcos:ledger:dispatch:${generatedAttestation}` : undefined
-        const receipt = re.closeReasoningRun(run, { status: 'completed', replayClass: re.classifyReplay({ method: model, stop_reason: 'end_turn' }), ledgerRef })
+        // A verified lane is decidable/deterministic ⇒ classifyReplay returns "exact"; the
+        // generated tail keeps method=model ⇒ "best-effort".
+        const replayClass = verifiedMethod
+          ? re.classifyReplay({ method: verifiedMethod, decidable: true })
+          : re.classifyReplay({ method: model, stop_reason: 'end_turn' })
+        const receipt = re.closeReasoningRun(run, { status: 'completed', replayClass, ledgerRef })
         reasoningGen = { run: run.id, receipt: receipt.id }
       } catch { /* reasoning evidence is best-effort — never break the turn */ }
     } catch { /* tracker is best-effort */ }
@@ -3911,6 +4471,11 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         agent_machine: true,
         agent_machine_version: VERSION,
         ...(reasoningGen ? { reasoning_run: reasoningGen.run, reasoning_receipt: reasoningGen.receipt } : {}),
+        // Grounding provenance (Priority 7): how grounded was this answer (telemetry, enum-only). On
+        // 'partial', also expose a lightweight uncertainty marker so downstream/UI can signal lower
+        // confidence. Present only for retrieval-eligible turns with the signal active (never the reason lane).
+        ...(groundingStatus ? { grounding_status: groundingStatus } : {}),
+        ...(grounding.partial ? { grounding: 'partial' } : {}),
       },
     })
     runCompleted = true // run finished cleanly — the close handler must not checkpoint
@@ -3954,6 +4519,24 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     })()
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err)
+    // Log the REAL cause (sanitized) — this outer catch was silent, so the intermittent first-query failure was
+    // an undiagnosable "internal_error". Now it's in the log.
+    console.error('[chat] turn failed (stream phase):', String(err instanceof Error ? err.stack || err.message : err).replace(/[\r\n]+/g, ' ⏎ '))
+    // Classify transient cold-start failures (managed ollama mid-handoff, model still loading, connection not
+    // yet up) → a friendly RETRYABLE message instead of an opaque "internal_error" the user has to decode.
+    const transient = /ECONNREFUSED|connect|fetch failed|socket|timeout|timed out|EOF|load|loading|model .*not found|503|502|unavailable|empty (response|embedding)/i.test(errMsg)
+    // Distinguish COLD (ollama not up yet → just resend) from WEDGED (ollama lists models but its Metal runner is
+    // dead so generation hangs/empties — heavy bulk ingest can cause it). Wedged shows "warming up" forever and
+    // resending never helps, so AUTO-RESTART the runtime (debounced) and say so honestly.
+    let clientErr = transient ? 'The local model is still warming up (a few seconds right after launch). Give it a moment and resend.' : (errMsg || 'internal_error')
+    let stepNote = transient ? 'warming up — resend' : 'failed'
+    if (transient && await isOllamaRunning().catch(() => false)) {
+      void import('./lib/managed-runtime.js').then((m) => m.restartManagedRuntime()).catch(() => {})
+      clientErr = 'The local model runtime got stuck — restarting it now. Give it ~15 seconds and resend.'
+      stepNote = 'runtime restart — resend'
+    }
+    // Mark the in-progress "Composing the answer" step done so the plan's blue spinner STOPS (the turn IS over).
+    try { step('generate', 'done', stepNote) } catch { /* step out of scope on a very-early failure */ }
     // Record failed run so GovernSurface shows error-rate alongside success-rate
     recordGovernanceRun({
       run_id,
@@ -3967,7 +4550,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       session_id: sessionId,
       error: errMsg,
     })
-    sse(res, 'error', { error: errMsg })
+    sse(res, 'error', { error: clientErr })
   }
 }
 
@@ -4001,11 +4584,12 @@ const server = http.createServer((req, res) => {
     return
   }
 
-  // Drive-by CSRF / DNS-rebinding guard. CORS '*' + simple (no-preflight) POSTs let any web page the
-  // user visits POST to this loopback server and trigger side effects (run_command → RCE, ingest →
-  // file read); CORS only hides the RESPONSE, not the WRITE. Reject mutating requests bearing a
-  // cross-site Origin. Native/CLI callers send no Origin; the local UI (localhost/tauri/127.0.0.1, any
-  // port) is allowlisted. GETs are unaffected. Escape hatch: NOETICA_ORIGIN_GUARD=0.
+  // Drive-by CSRF / DNS-rebinding guard. CORS '*' lets any web page the user visits talk to this loopback
+  // server: a POST triggers side effects (run_command → RCE, ingest → file read), and a GET can READ back
+  // the user's data (e.g. /api/library, /api/graph/*) since CORS '*' exposes the response. So we reject ANY
+  // request that carries a cross-site Origin — reads included. Native/CLI callers + top-level navigations send
+  // no Origin (allowed); the local UI (localhost/tauri/127.0.0.1, any port) is allowlisted. Escape hatch:
+  // NOETICA_ORIGIN_GUARD=0.
   if (process.env['NOETICA_ORIGIN_GUARD'] !== '0') {
     const oh = req.headers['origin']
     const origin = Array.isArray(oh) ? oh[0] : oh
@@ -4073,19 +4657,190 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // /api/studio — NotebookLM-class research outputs over the current sources. POST {kind, sources?, query?,
+  // format?}: kind = 'briefing' | 'study-guide' | 'audio-script'. If sources[] is omitted, gathers them via doc
+  // search over `query`. Study-guide/glossary DEFINITIONS are canon-grounded (frontier-authored), returned with
+  // meta source:'canon' — the differentiator NotebookLM/Watson can't match.
+  if (url.pathname === '/api/studio' && req.method === 'POST') {
+    let sbody = ''
+    req.on('data', (c: Buffer) => { sbody += c.toString(); if (sbody.length > 256 * 1024) { try { req.destroy() } catch { /* */ } } })
+    req.on('end', () => { void (async () => {
+      let p: { kind?: string; sources?: unknown; query?: string; format?: 'brief' | 'critique' | 'debate' }
+      try { p = JSON.parse(sbody || '{}') } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+      let sources: string[] = Array.isArray(p.sources) ? p.sources.filter((s): s is string => typeof s === 'string' && s.trim().length > 0) : []
+      if (!sources.length && p.query) {
+        const { searchDocsReranked } = await import('./lib/doc-store.js')
+        sources = (await searchDocsReranked(p.query, 8).catch(() => [])).map((c) => c.text).filter((t) => t && t.trim().length > 0)
+      }
+      if (!sources.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'no_sources', detail: 'provide sources[] or a query that matches ingested docs' })); return }
+      try {
+        const studio = await import('./lib/study-outputs-runtime.js')
+        const out = p.kind === 'briefing' ? await studio.briefingDoc(sources)
+          : p.kind === 'audio-script' ? await studio.audioScript(sources, p.format ?? 'brief')
+          : await studio.studyGuide(sources)
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
+        res.end(JSON.stringify({ kind: p.kind ?? 'study-guide', result: out }))
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
+        res.end(JSON.stringify({ error: 'studio_failed', detail: (e instanceof Error ? e.message : 'unknown').replace(/[\r\n]/g, ' ').slice(0, 200) }))
+      }
+    })() })
+    return
+  }
+
+  // /api/agents — the no-code agent builder. GET lists built-in roles + the user's custom agents; POST upserts a
+  // custom agent {label, description, systemPrompt, tools[], maxTurns, model}; DELETE?id=… removes one. Custom
+  // agents become dispatchable exactly like built-ins (dispatch_agent resolves them first). Token-gated (writes).
+  if (url.pathname === '/api/agents') {
+    if (req.method === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
+      res.end(JSON.stringify({ builtin: Object.values(AGENT_ROLES).map((r) => ({ id: r.id, label: r.label, description: r.description, tools: r.tools, maxTurns: r.maxTurns, model: r.model, builtin: true })), custom: listCustomAgents() }))
+      return
+    }
+    if (req.method === 'POST') {
+      if (!requireApiToken(req, res)) return
+      let body = ''
+      req.on('data', (c: Buffer) => { body += c.toString(); if (body.length > 64 * 1024) { try { req.destroy() } catch { /* */ } } })
+      req.on('end', () => {
+        try { const saved = saveCustomAgent(JSON.parse(body || '{}')); res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ ok: true, agent: saved })) }
+        catch { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_agent' })) }
+      })
+      return
+    }
+    if (req.method === 'DELETE') {
+      if (!requireApiToken(req, res)) return
+      const ok = deleteCustomAgent(url.searchParams.get('id') ?? '')
+      res.writeHead(ok ? 200 : 404, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
+      res.end(JSON.stringify({ ok }))
+      return
+    }
+  }
+
+  // /api/calendar/feeds — sovereign Calendar (Prophet Workspace). Subscribe to any .ics feed (no Google account):
+  // GET returns the subscribed feeds + their merged, parsed events; POST {url,name} adds a feed; DELETE?url=…
+  // removes one. Feeds list is encrypted at rest. The open iCalendar standard over HTTP, parsed dependency-free.
+  if (url.pathname === '/api/calendar/feeds') {
+    const FEEDS = path.join(os.homedir(), '.noetica', 'calendar-feeds.json')
+    type Feed = { url: string; name?: string; addedAt?: number }
+    const loadFeeds = (): Feed[] => { const f = readEncryptedJson<Feed[]>(FEEDS); return Array.isArray(f) ? f : [] }
+    if (req.method === 'GET') {
+      void (async () => {
+        const feeds = loadFeeds()
+        const { parseICal } = await import('./lib/ical.js')
+        const all = await Promise.all(feeds.map(async (f) => {
+          try { const r = await fetch(f.url, { signal: AbortSignal.timeout(10_000) }); if (!r.ok) return []; return parseICal(await r.text()).map((e) => ({ ...e, feed: f.name || f.url })) }
+          catch { return [] }
+        }))
+        const events = all.flat().sort((a, b) => a.start.localeCompare(b.start)).slice(0, 500)
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
+        res.end(JSON.stringify({ feeds, events }))
+      })().catch(() => { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'calendar_failed' })) })
+      return
+    }
+    if (req.method === 'POST') {
+      let body = ''
+      req.on('data', (c: Buffer) => { body += c.toString(); if (body.length > 8 * 1024) { try { req.destroy() } catch { /* */ } } })
+      req.on('end', () => {
+        try {
+          const { url: feedUrl, name } = JSON.parse(body || '{}') as { url?: string; name?: string }
+          if (!feedUrl || !/^https?:\/\//i.test(feedUrl)) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_url' })); return }
+          const feeds = loadFeeds().filter((f) => f.url !== feedUrl)
+          feeds.push({ url: feedUrl, name: String(name || feedUrl).slice(0, 80), addedAt: Date.now() })
+          writeEncryptedJson(FEEDS, feeds.slice(-50))
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ ok: true, count: feeds.length }))
+        } catch { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_body' })) }
+      })
+      return
+    }
+    if (req.method === 'DELETE') {
+      const target = url.searchParams.get('url') ?? ''
+      const feeds = loadFeeds(); const next = feeds.filter((f) => f.url !== target)
+      writeEncryptedJson(FEEDS, next)
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ ok: next.length < feeds.length }))
+      return
+    }
+  }
+
   // GET /api/learning/stats — make the production-learning loop visible: how many skills the agent has
   // distilled from successes (procedural-memory) and how many failures it has captured for replay (eval-capture).
   if (req.method === 'GET' && url.pathname === '/api/learning/stats') {
-    const readJsonl = (p: string): Record<string, unknown>[] => {
-      try { return fs.readFileSync(p, 'utf8').split('\n').filter(Boolean).map((l) => JSON.parse(l) as Record<string, unknown>) } catch { return [] }
-    }
     const skills = loadSkills()
-    const evalCases = readJsonl(path.join(os.homedir(), '.noetica', 'eval-cases.jsonl'))
+    const evalCases = readEncrypted<Record<string, unknown>>(path.join(os.homedir(), '.noetica', 'eval-cases.jsonl'))
+    // The felt-win: the latest replay of captured failures against the current system ("fixed X of N").
+    let replay: Record<string, unknown> | null = null
+    try { replay = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.noetica', 'learning-replay.json'), 'utf8')) as Record<string, unknown> } catch { /* none run yet */ }
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
     res.end(JSON.stringify({
       skills: { count: skills.length, recent: skills.slice(-5).map((s) => ({ task: s.task, abstraction: s.abstraction, steps: s.steps })) },
       evalCases: { count: evalCases.length, recent: evalCases.slice(-5).map((c) => ({ input: String(c['input'] ?? '').slice(0, 80), failureMode: c['failureMode'], coverage: c['coverage'] })) },
+      replay,
     }))
+    return
+  }
+
+  // POST /api/learning/replay — re-run captured production FAILURES against the CURRENT system
+  // (today's retrieval + model) and report how many now pass: "fixed X of N of your real failures".
+  // The felt-win surface for the verifier→learning loop. Bounded (NOETICA_REPLAY_MAX, default 25) and
+  // cached to ~/.noetica/learning-replay.json so /api/learning/stats can show it without re-running.
+  if (req.method === 'POST' && url.pathname === '/api/learning/replay') {
+    void (async () => {
+      try {
+        const { selectForReplay, replayCase, summarizeReplay } = await import('./lib/eval-replay.js')
+        const { searchDocsReranked } = await import('./lib/doc-store.js')
+        const { verifyGrounding } = await import('./lib/research-verify.js')
+        const { generateOllamaText } = await import('./lib/ollama.js')
+        const casesPath = path.join(os.homedir(), '.noetica', 'eval-cases.jsonl')
+        // eval-cases is encrypted at rest (readEncrypted lazy-migrates legacy plaintext) → read records.
+        const all = readEncrypted<{ input?: string; output?: string; failureMode?: string; coverage?: number; capturedAt?: number }>(casesPath)
+          .filter((c) => typeof c.input === 'string' && c.input.trim())
+          .map((c) => ({ input: c.input as string, output: c.output ?? '', failureMode: c.failureMode ?? 'unknown', coverage: Number(c.coverage ?? 0), capturedAt: Number(c.capturedAt ?? 0) }))
+        const sel = selectForReplay(all, Math.max(1, Number(process.env['NOETICA_REPLAY_MAX'] || 25)))
+        const model = process.env['NOETICA_REPLAY_MODEL'] || 'qwen2.5:7b'
+        const regenerate = async (input: string) => {
+          const chunks = await searchDocsReranked(input, 8).catch(() => [])
+          const sources = chunks.map((ch) => ({ text: ch.text }))
+          const ctx = sources.map((s) => s.text).join('\n---\n').slice(0, 6000)
+          const { content } = await generateOllamaText({ model, temperature: 0.2, messages: [
+            { role: 'system', content: 'Answer using ONLY the provided context. Be concise. If the context does not support an answer, say so.' },
+            { role: 'user', content: `Context:\n${ctx}\n\nQuestion: ${input}` },
+          ] })
+          return { answer: content, sources }
+        }
+        const judge = (answer: string, sources: { text: string }[]) => { const r = verifyGrounding(answer, sources); return { grounded: r.grounded, score: r.score } }
+        const outcomes = []
+        for (const c of sel) outcomes.push(await replayCase(c, regenerate, judge))
+        const summary = summarizeReplay(outcomes, Date.now())
+        const cache = { total: summary.total, fixed: summary.fixed, stillFailing: summary.stillFailing, fixedRate: summary.fixedRate, ts: summary.ts }
+        try { fs.writeFileSync(path.join(os.homedir(), '.noetica', 'learning-replay.json'), JSON.stringify(cache)) } catch { /* best-effort cache */ }
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
+        res.end(JSON.stringify({ ok: true, ...cache, outcomes: summary.outcomes.slice(0, 12) }))
+      } catch {
+        res.writeHead(500, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ ok: false, error: 'replay_error' }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/fleet — the provisioned cloud executors (the broker's fleet inventory), with a cost roll-up, so the
+  // multi-cloud C2/swarm stack is VISIBLE. Empty until something is provisioned.
+  if (req.method === 'GET' && url.pathname === '/api/fleet') {
+    void (async () => {
+      const [{ listExecutors }, { listSwarms }] = await Promise.all([import('./lib/cloud-provision.js'), import('./lib/swarm-volume.js')])
+      const executors = listExecutors()
+      const totalUsdPerHour = executors.reduce((s, e) => s + (typeof e.usdPerHour === 'number' ? e.usdPerHour : 0), 0)
+      const byProvider: Record<string, number> = {}
+      const byState: Record<string, number> = {}
+      for (const e of executors) { byProvider[e.provider ?? 'unknown'] = (byProvider[e.provider ?? 'unknown'] ?? 0) + 1; byState[e.state ?? 'unknown'] = (byState[e.state ?? 'unknown'] ?? 0) + 1 }
+      // Local swarms (the TopoLVM-style shared-volume coordination layer) + their live members. Filter out the
+      // empty provisioned-but-never-joined volumes (dev/test exhaust); show the ones with members, busiest first.
+      const allSwarms = listSwarms()
+      const swarms = allSwarms.filter((s) => s.members.length > 0).sort((a, b) => b.live - a.live || b.members.length - a.members.length).slice(0, 20)
+        .map((s) => ({ swarmId: s.swarmId, backend: s.backend, mounted: s.mounted, members: s.members.length, live: s.live }))
+      const liveMembers = allSwarms.reduce((n, s) => n + s.live, 0)
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
+      res.end(JSON.stringify({ count: executors.length, totalUsdPerHour: Number(totalUsdPerHour.toFixed(3)), byProvider, byState, executors, swarms, liveMembers }))
+    })().catch((e) => { res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ error: 'fleet_failed', detail: (e instanceof Error ? e.message : 'unknown').replace(/[\r\n]/g, ' ').slice(0, 120) })) })
     return
   }
 
@@ -4132,6 +4887,74 @@ const server = http.createServer((req, res) => {
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' })
       const { provisionBrain } = await import('./lib/brain-provision.js')
       const result = await provisionBrain(name, (p) => { res.write(`data: ${JSON.stringify({ progress: p })}\n\n`) })
+      res.write(`data: ${JSON.stringify({ done: result })}\n\n`)
+      res.end()
+    })() })
+    return
+  }
+
+  // ── On-device neural-operator inference (operator-runtime → noetica-operator sidecar) ──────────────
+  // The sovereign compute substrate for the GAIA map (flood/dispersion/hydrology surrogates) and any caller
+  // that needs a trained Fourier Neural Operator run locally. Reusable + model-agnostic.
+  //   GET  /api/operator/models           -> { available, models }
+  //   GET  /api/operator/meta?model=NAME  -> { model, inputs, outputs }
+  //   POST /api/operator/infer {model,inputs} -> { outputs, ms }   (token-gated: runs arbitrary ONNX)
+  if (req.method === 'GET' && url.pathname === '/api/operator/models') {
+    void (async () => {
+      const { listOperators, isLocalOperatorAvailable } = await import('./lib/operator-runtime.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ available: isLocalOperatorAvailable(), models: await listOperators() }))
+    })()
+    return
+  }
+  if (req.method === 'GET' && url.pathname === '/api/operator/meta') {
+    void (async () => {
+      const { operatorMeta, OperatorUnavailableError, OperatorError } = await import('./lib/operator-runtime.js')
+      try {
+        const meta = await operatorMeta(url.searchParams.get('model') ?? '')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(meta))
+      } catch (e) {
+        const code = e instanceof OperatorUnavailableError ? 503 : e instanceof OperatorError ? e.status : 500
+        res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: (e as Error).message }))
+      }
+    })()
+    return
+  }
+  if (req.method === 'POST' && url.pathname === '/api/operator/infer') {
+    if (!requireApiToken(req, res)) return
+    let raw = ''
+    req.on('data', (c: Buffer) => { raw += c.toString(); if (raw.length > 96 * 1024 * 1024) req.destroy() })
+    req.on('end', () => { void (async () => {
+      const { operatorInfer, OperatorUnavailableError, OperatorError } = await import('./lib/operator-runtime.js')
+      let body: { model?: string; inputs?: Record<string, { shape: number[]; data: number[] }> }
+      try { body = JSON.parse(raw || '{}') } catch {
+        res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid json' })); return
+      }
+      try {
+        const result = await operatorInfer(String(body.model ?? ''), body.inputs ?? {})
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(result))
+      } catch (e) {
+        const code = e instanceof OperatorUnavailableError ? 503 : e instanceof OperatorError ? e.status : 500
+        res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: (e as Error).message }))
+      }
+    })() })
+    return
+  }
+  // POST /api/operator/provision { name } — download + install a model .onnx into ~/.noetica/operators,
+  // streaming progress as SSE (mirrors /api/brain/provision). Token-gated: fetches + writes to disk.
+  if (req.method === 'POST' && url.pathname === '/api/operator/provision') {
+    if (!requireApiToken(req, res)) return
+    let raw = ''
+    req.on('data', (c: Buffer) => { raw += c.toString(); if (raw.length > 4096) req.destroy() })
+    req.on('end', () => { void (async () => {
+      let name = ''
+      try { name = String((JSON.parse(raw || '{}') as { name?: string }).name ?? '') } catch { name = '' }
+      const { provisionOperatorModel, safeOperatorName } = await import('./lib/operator-provision.js')
+      if (!safeOperatorName(name)) {
+        res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid model name' })); return
+      }
+      res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', connection: 'keep-alive' })
+      const result = await provisionOperatorModel(name, (p) => { res.write(`data: ${JSON.stringify({ progress: p })}\n\n`) })
       res.write(`data: ${JSON.stringify({ done: result })}\n\n`)
       res.end()
     })() })
@@ -4367,8 +5190,8 @@ const server = http.createServer((req, res) => {
     void (async () => {
       setCORSHeaders(res)
       try {
-        const { readFileSync } = await import('fs'); const { homedir } = await import('os'); const { join } = await import('path')
-        res.writeHead(200, { 'content-type': 'application/json' }); res.end(readFileSync(join(homedir(), '.noetica', 'sessions.json'), 'utf8'))
+        const data = readEncryptedJson(path.join(os.homedir(), '.noetica', 'sessions.json'))   // decrypt at rest
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(data ?? null))
       } catch { res.writeHead(200, { 'content-type': 'application/json' }); res.end('null') }
     })()
     return
@@ -4379,9 +5202,8 @@ const server = http.createServer((req, res) => {
     req.on('end', () => { void (async () => {
       setCORSHeaders(res)
       try {
-        const { writeFileSync, mkdirSync } = await import('fs'); const { homedir } = await import('os'); const { join } = await import('path')
-        const dir = join(homedir(), '.noetica'); mkdirSync(dir, { recursive: true })
-        writeFileSync(join(dir, 'sessions.json'), body || 'null')
+        let parsed: unknown = null; try { parsed = JSON.parse(body || 'null') } catch { parsed = null }
+        writeEncryptedJson(path.join(os.homedir(), '.noetica', 'sessions.json'), parsed)   // encrypt at rest
         res.writeHead(200, { 'content-type': 'application/json' }); res.end('{"ok":true}')
       } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
     })() })
@@ -4454,6 +5276,10 @@ const server = http.createServer((req, res) => {
   // tool-shaped intents (e.g. research → web_search): the dialogue layer fires the tool
   // and shows results in ~2s instead of spinning up the slow generative agent to decide.
   if (req.method === 'POST' && url.pathname === '/api/tool') {
+    // /api/tool runs a built-in tool DIRECTLY (incl. run_command / code_execute). The origin-guard blocks
+    // drive-by cross-site calls, but require the API token too when the operator configured one — parity with
+    // the other mutating routes, and the only gate left if NOETICA_ORIGIN_GUARD is disabled. No-op in dev.
+    if (!requireApiToken(req, res)) return
     void (async () => {
       setCORSHeaders(res)
       try {
@@ -5329,16 +6155,88 @@ Question: ${question}`
     return
   }
 
-  // /api/tune/* — KD training stubs (real distillation requires separate distill server)
+  // /api/tune/* — the rejection-sampling→LoRA submit. Harvests VERIFIED production traces
+  // (lib/sft-harvest) and submits them to the Atlas training substrate (tritfabric, POST /v1/tune)
+  // as a causal_lm_lora job. GET /status reports the shard; POST /submit packages + ships it.
   if (url.pathname.startsWith('/api/tune/')) {
     setCORSHeaders(res)
     if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return }
-    res.writeHead(503, { 'content-type': 'application/json' })
-    res.end(JSON.stringify({
-      ok: false,
-      error: 'Distillation server not running. Start the Noetica distillation server (separate process) to enable KD training.',
-      hint: 'See docs/tune-server.md for setup instructions.',
-    }))
+    void (async () => {
+      try {
+        const { readSftShard, dedupeVerified, toSftLine, buildTuneRequest, exampleHash, excludeTrained } = await import('./lib/sft-harvest.js')
+        const shardPath = path.join(os.homedir(), '.noetica', 'distill', 'verified.sft.jsonl')
+        const raw = fs.existsSync(shardPath) ? readSftShard(fs.readFileSync(shardPath, 'utf8')) : []
+        const deduped = dedupeVerified(raw)
+        const endpoint = (process.env['ATLAS_HTTP'] || process.env['NOETICA_TUNE_ENDPOINT'] || '').replace(/\/+$/, '')
+        // VOLUME GATE: LoRA SFT on a trickle of examples overfits to surface form and degrades
+        // generality. Require a real floor before a run is eligible (configurable; default 50 — raise
+        // toward several hundred as the harvest grows).
+        const minToSubmit = Math.max(1, Number(process.env['NOETICA_TUNE_MIN'] || 50))
+        // CROSS-ROUND DEDUP ledger: content hashes of examples already trained on in prior rounds.
+        const ledgerPath = path.join(os.homedir(), '.noetica', 'distill', 'trained-hashes.json')
+        let trainedArr: string[] = []
+        try { trainedArr = JSON.parse(fs.readFileSync(ledgerPath, 'utf8')) as string[] } catch { trainedArr = [] }
+        const trained = new Set(trainedArr)
+
+        if (req.method === 'GET' && url.pathname === '/api/tune/status') {
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ok: true, shardPath, captured: raw.length, unique: deduped.length, alreadyTrained: trainedArr.length, minToSubmit, submitTarget: endpoint || null, ready: deduped.length >= minToSubmit }))
+          return
+        }
+
+        if (req.method === 'POST' && url.pathname === '/api/tune/submit') {
+          // SOVEREIGNTY: submitting ships the shard off-device (potentially to a cloud GPU). Gate it
+          // behind the same explicit opt-in as capture — never egress training data implicitly.
+          if (!isFlagOn('NOETICA_LEARN_OPT_IN')) {
+            res.writeHead(403, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ ok: false, error: 'learning is opt-in', hint: 'set NOETICA_LEARN_OPT_IN=1 to harvest + submit verified traces for training' }))
+            return
+          }
+          if (deduped.length < minToSubmit) {
+            res.writeHead(409, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ ok: false, error: 'not enough verified examples yet', unique: deduped.length, needed: minToSubmit }))
+            return
+          }
+          // Defense-in-depth: re-run the PII/secret firewall over every example before it leaves the
+          // device, in case a pre-redaction trace exists in the shard.
+          const { redact } = await import('./lib/redact.js')
+          const clean = deduped.map((e) => ({ ...e, input: redact(e.input).redacted, output: redact(e.output).redacted }))
+          // CROSS-ROUND DEDUP: drop examples already trained on in a prior round. Re-training on the
+          // same easy wins every round narrows the distribution and accelerates collapse.
+          const fresh = excludeTrained(clean, trained)
+          if (fresh.length < minToSubmit) {
+            res.writeHead(409, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ ok: false, error: 'not enough NEW verified examples since last training', unique: clean.length, fresh: fresh.length, alreadyTrained: trainedArr.length, needed: minToSubmit }))
+            return
+          }
+          // Canonicalize the shard to the FRESH set (drops already-trained — stops re-accumulation).
+          fs.writeFileSync(shardPath, `${fresh.map(toSftLine).join('\n')}\n`)
+          const datasetUri = process.env['NOETICA_SFT_URI'] || shardPath
+          const baseModel = process.env['NOETICA_TUNE_BASE'] || 'Qwen/Qwen2.5-Coder-7B-Instruct'
+          const tuneReq = buildTuneRequest({ datasetUri, baseModel, examples: fresh.length })
+          // Mark these examples trained ONLY once they're actually submitted (not when merely staged).
+          const recordTrained = () => { try { fs.writeFileSync(ledgerPath, JSON.stringify([...trained, ...fresh.map(exampleHash)].slice(-100000))) } catch { /* best-effort ledger */ } }
+          if (!endpoint) {
+            res.writeHead(200, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ ok: true, staged: true, submitted: false, unique: deduped.length, fresh: fresh.length, shardPath, request: tuneReq, hint: 'set ATLAS_HTTP to submit to the Atlas training substrate' }))
+            return
+          }
+          // Atlas (atlasd) serves /v1/tune as the submit route; entrypoint=causal_lm_lora routes it to the trainer.
+          const r = await fetch(`${endpoint}/v1/tune`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(tuneReq) })
+          const atlas = await r.json().catch(() => ({})) as { id?: string; job_id?: string }
+          if (r.ok) recordTrained()
+          res.writeHead(r.ok ? 200 : 502, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ok: r.ok, submitted: r.ok, jobId: atlas?.id ?? atlas?.job_id ?? null, unique: deduped.length, fresh: fresh.length, atlas }))
+          return
+        }
+
+        res.writeHead(404, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ok: false, error: 'unknown tune route (use GET /api/tune/status or POST /api/tune/submit)' }))
+      } catch {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ok: false, error: 'tune_error' }))
+      }
+    })()
     return
   }
 
@@ -5385,7 +6283,7 @@ Question: ${question}`
         // Category lenses (tech/knowledge) use TRUE topic discovery: vectorize → cluster
         // → 22 cluster representatives, drill into a cluster's members. Falls back to the
         // pure degree-ranked selection if embeddings/clustering aren't available.
-        const CAT: Record<string, string> = { tech: 'technical', knowledge: 'learning' }
+        const CAT: Record<string, string> = { knowledge: 'learning' }   // tech is a CodeModule root-lens now (selectSurface VIEW_ROOTS), not an embedding cluster
         let result
         if (CAT[view]) {
           try {
@@ -5664,6 +6562,249 @@ Question: ${question}`
         }
       })()
     })
+    return
+  }
+
+  // POST /api/ingest/queue — NON-BLOCKING bulk ingest. Enqueue { filename, mimeType?, dataBase64 } and return
+  // the job immediately (status 'queued'); a background worker parses + ingests it. The UI uploads a batch
+  // without waiting and polls /api/ingest/status to render the queue + the parsed-vs-pending graph overlay.
+  if (req.method === 'POST' && url.pathname === '/api/ingest/queue') {
+    setCORSHeaders(res)
+    const chunks: Buffer[] = []
+    req.on('data', (c: Buffer) => chunks.push(c))
+    req.on('end', () => {
+      ;(async () => {
+        try {
+          const { filename, mimeType, dataBase64, collection } = JSON.parse(Buffer.concat(chunks).toString()) as { filename: string; mimeType?: string; dataBase64: string; collection?: string }
+          if (!filename || !dataBase64) throw new Error('filename and dataBase64 required')
+          const buf = Buffer.from(dataBase64, 'base64')
+          const { enqueueIngest, enqueueArchive } = await import('./lib/ingest-queue.js')
+          // A .zip becomes its OWN named collection (graph scope), fanning out into per-file jobs; a single file
+          // enqueues into the given collection or the Inbox catch-all. Never into core memory/knowledge.
+          const isZip = /\.zip$/i.test(filename) || mimeType === 'application/zip' || (buf[0] === 0x50 && buf[1] === 0x4b)
+          const result = isZip ? enqueueArchive(filename, buf) : enqueueIngest(filename, mimeType ?? '', buf, collection)
+          res.writeHead(202, { 'content-type': 'application/json' })
+          res.end(JSON.stringify(result))
+        } catch (err) {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: err instanceof Error ? err.message : 'bad request' }))
+        }
+      })()
+    })
+    return
+  }
+
+  // GET /api/ingest/status — the ingestion queue (per-doc status + summary) for the upload table + graph overlay.
+  if (req.method === 'GET' && url.pathname === '/api/ingest/status') {
+    setCORSHeaders(res)
+    ;(async () => {
+      try {
+        const { ingestQueueStatus, pruneIngestJobs } = await import('./lib/ingest-queue.js')
+        pruneIngestJobs()
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(ingestQueueStatus()))
+      } catch {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ jobs: [], summary: { queued: 0, active: 0, done: 0, failed: 0 } }))
+      }
+    })()
+    return
+  }
+
+  // POST /api/embed/reindex — re-embed all doc chunks with the current embedder (run AFTER flipping
+  // NOETICA_EMBED_RUST=1 so chunk vectors move to the Rust embedder's space). Token-gated (heavy op).
+  if (req.method === 'POST' && url.pathname === '/api/embed/reindex') {
+    setCORSHeaders(res)
+    if (!requireApiToken(req, res)) return
+    ;(async () => {
+      try {
+        const { reindexDocVectors } = await import('./lib/doc-store.js')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(await reindexDocVectors()))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'failed' })) }
+    })()
+    return
+  }
+
+  // DELETE /api/library?collection=<id> — soft-delete a collection (mark its docs/chunks hidden so they leave
+  // retrieval + the Library). Cleanup for the pollution the Library surfaces; provenance is preserved.
+  if (req.method === 'DELETE' && url.pathname === '/api/library') {
+    setCORSHeaders(res)
+    const cid = url.searchParams.get('collection')
+    if (!cid) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'collection required' })); return }
+    ;(async () => {
+      try {
+        const { hideCollection } = await import('./lib/doc-store.js')
+        const r = hideCollection(cid)
+        try { const { deleteCollection } = await import('./lib/collections.js'); deleteCollection(cid) } catch { /* registry best-effort */ }
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true, ...r }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'failed' })) }
+    })()
+    return
+  }
+
+  // POST /api/graph/forget {q} — prune (soft-delete) graph nodes whose surface/normalised/filename/id matches q.
+  // Cleanup for test/exhaust entities (e.g. a stray "Hurricane Helene" grounded from an early test chat query).
+  // Sets hygiene_pruned so the lenses + retrieval skip them. Returns matches pruned. (Backs a future Library
+  // "remove entity" action.) Matches CanonicalEntity (surface/normalised) + Documents (filename), not chunk text.
+  if (req.method === 'POST' && url.pathname === '/api/graph/forget') {
+    setCORSHeaders(res)
+    const fbuf: Buffer[] = []
+    req.on('data', (c: Buffer) => fbuf.push(c))
+    req.on('end', () => { void (async () => {
+      try {
+        const { q } = JSON.parse(Buffer.concat(fbuf).toString() || '{}') as { q?: string }
+        const needle = String(q ?? '').toLowerCase().trim()
+        if (!needle) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'q required' })); return }
+        const { getGraph } = await import('./lib/graph.js')
+        const g = getGraph() as unknown as { allNodes: () => Array<{ id: string; properties?: Record<string, unknown> }>; setNodeProperty: (id: string, k: string, v: unknown) => void }
+        const pruned: string[] = []
+        for (const n of g.allNodes()) {
+          if (n.properties?.['hygiene_pruned'] === true) continue
+          const hay = [n.properties?.['surface'], n.properties?.['normalised'], n.properties?.['filename'], n.id].map((x) => String(x ?? '').toLowerCase()).join('  ')
+          if (hay.includes(needle)) { try { g.setNodeProperty(n.id, 'hygiene_pruned', true); pruned.push(String(n.properties?.['surface'] ?? n.id).slice(0, 80)) } catch { /* */ } }
+        }
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true, pruned: pruned.length, samples: pruned.slice(0, 10) }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'failed' })) }
+    })() })
+    return
+  }
+
+  // POST /api/graph/glossary/derive — build a glossary INTO the graph from the local corpus (Domain per
+  // collection + GlossaryTerm per grounded entity), so the domain/glossary lens is reachable. Idempotent.
+  if (req.method === 'POST' && url.pathname === '/api/graph/glossary/derive') {
+    setCORSHeaders(res)
+    ;(async () => {
+      try {
+        const { deriveCorpusGlossary } = await import('./lib/graphbrain-bridge.js')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(deriveCorpusGlossary()))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'failed' })) }
+    })()
+    return
+  }
+
+  // GET /api/govern/audit/verify — tamper-evidence status of the egress audit chain (P3.6): re-links every
+  // entry + checks the Ed25519-signed head. Backs the Govern attestation badge.
+  if (req.method === 'GET' && url.pathname === '/api/govern/audit/verify') {
+    setCORSHeaders(res)
+    ;(async () => {
+      try {
+        const { verifyAuditChain } = await import('./lib/scope-d.js')
+        const v = await verifyAuditChain()
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ...v, attested: v.chainValid && v.signed && v.signatureValid }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'failed' })) }
+    })()
+    return
+  }
+
+  // GET /api/library — "what's been captured into the graph": collections → documents → entity/chunk counts.
+  // The observability surface (like ChatGPT's library, but for the knowledge graph).
+  if (req.method === 'GET' && url.pathname === '/api/library') {
+    setCORSHeaders(res)
+    ;(async () => {
+      try {
+        const { buildLibrary } = await import('./lib/library.js')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(await buildLibrary()))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ groups: [], totals: { collections: 0, documents: 0, chunks: 0, entities: 0 }, error: e instanceof Error ? e.message : 'failed' }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/collections — document collections (graph scopes) for the upload UI + the explorer's scope picker.
+  if (req.method === 'GET' && url.pathname === '/api/collections') {
+    setCORSHeaders(res)
+    ;(async () => {
+      try {
+        const { listCollections } = await import('./lib/collections.js')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ collections: listCollections() }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ collections: [] })) }
+    })()
+    return
+  }
+
+  // ── A2A federation surface (the real cross-machine gate) ────────────────────────────────────────────────
+  // A remote peer (a Ruflo/gastown/AIWG node, or any cross-machine agent) is a SPIFFE actor here. These gate +
+  // score + audit federated capability requests on the BACKEND (the browser grant ledger can't decide a remote
+  // peer). EGRESS stays scope-d's job, composed separately. All token-gated like /api/tool.
+  //   POST /api/a2a/grant/validate { actor:{spiffe_id}, capability, floor? } → GrantDecision (+ authority_status)
+  //   POST /api/a2a/outcome        { spiffe_id, outcome:{ok,up,threat,integrityViolation} } → updated TrustOps state
+  //   GET  /api/a2a/peers          → the trust ledger (Govern surface)
+  if (req.method === 'POST' && (url.pathname === '/api/a2a/grant/validate' || url.pathname === '/api/a2a/outcome')) {
+    setCORSHeaders(res)
+    if (!requireApiToken(req, res)) return
+    const chunks: Buffer[] = []
+    req.on('data', (c: Buffer) => chunks.push(c))
+    req.on('end', () => { void (async () => {
+      try {
+        const body = JSON.parse(Buffer.concat(chunks).toString() || '{}') as { actor?: { spiffe_id?: string }; spiffe_id?: string; capability?: string; floor?: number; outcome?: import('./lib/a2a-trust.js').TrustOutcome }
+        const a2a = await import('./lib/a2a-trust.js')
+        if (url.pathname === '/api/a2a/grant/validate') {
+          const spiffe = body.actor?.spiffe_id
+          if (!spiffe || !body.capability) throw new Error('actor.spiffe_id and capability required')
+          const decision = a2a.checkActorGrant(spiffe, body.capability, body.floor)
+          res.writeHead(decision.valid ? 200 : 403, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ...decision, grant_id: a2a.newGrantId(), authority_state: a2a.authorityState(spiffe) }))
+        } else {
+          const spiffe = body.spiffe_id
+          if (!spiffe || !body.outcome) throw new Error('spiffe_id and outcome required')
+          a2a.recordOutcome(spiffe, body.outcome)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ok: true, authority_state: a2a.authorityState(spiffe) }))
+        }
+      } catch (e) {
+        res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: (e instanceof Error ? e.message : 'bad request').replace(/[\r\n]+/g, ' ') }))
+      }
+    })() })
+    return
+  }
+  if (req.method === 'GET' && url.pathname === '/api/a2a/peers') {
+    setCORSHeaders(res)
+    if (!requireApiToken(req, res)) return
+    ;(async () => {
+      try {
+        const { trustLedger } = await import('./lib/a2a-trust.js')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ peers: trustLedger() }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ peers: [] })) }
+    })()
+    return
+  }
+
+  // ── Federated MCP peers (the backend bridge: spawn a peer's MCP server, gate every call by A2A trust) ──────
+  //   POST /api/a2a/peer/connect { spiffe_id, command, args, env? } → { spiffeId, tools }
+  //   POST /api/a2a/peer/call    { spiffe_id, tool, args?, floor? } → gated result (+ trust decision)
+  //   GET  /api/a2a/peer/list    → connected peers + their tools
+  // Spawns subprocesses → token-gated like /api/tool. Verified live against a standards-compliant MCP server.
+  if (req.method === 'POST' && (url.pathname === '/api/a2a/peer/connect' || url.pathname === '/api/a2a/peer/call')) {
+    setCORSHeaders(res)
+    if (!requireApiToken(req, res)) return
+    const chunks: Buffer[] = []
+    req.on('data', (c: Buffer) => chunks.push(c))
+    req.on('end', () => { void (async () => {
+      try {
+        const b = JSON.parse(Buffer.concat(chunks).toString() || '{}') as { spiffe_id?: string; command?: string; args?: string[]; env?: Record<string, string>; tool?: string; args_obj?: Record<string, unknown>; floor?: number }
+        const fed = await import('./lib/federated-mcp.js')
+        if (url.pathname === '/api/a2a/peer/connect') {
+          if (!b.spiffe_id || !b.command) throw new Error('spiffe_id and command required')
+          const r = await fed.connectPeer(b.spiffe_id, b.command, b.args ?? [], b.env)
+          res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(r))
+        } else {
+          if (!b.spiffe_id || !b.tool) throw new Error('spiffe_id and tool required')
+          const r = await fed.callPeerTool(b.spiffe_id, b.tool, b.args_obj, b.floor)
+          res.writeHead(r.ok ? 200 : 403, { 'content-type': 'application/json' }); res.end(JSON.stringify(r))
+        }
+      } catch (e) {
+        res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: (e instanceof Error ? e.message : 'bad request').replace(/[\r\n]+/g, ' ') }))
+      }
+    })() })
+    return
+  }
+  if (req.method === 'GET' && url.pathname === '/api/a2a/peer/list') {
+    setCORSHeaders(res)
+    if (!requireApiToken(req, res)) return
+    ;(async () => {
+      try { const { connectedPeers } = await import('./lib/federated-mcp.js'); res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ peers: connectedPeers() })) }
+      catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ peers: [] })) }
+    })()
     return
   }
 
@@ -6606,24 +7747,114 @@ Question: ${question}`
     setCORSHeaders(res)
     void (async () => {
       try {
-        const { GAIA_ONTOLOGY, ontogenesisPhase, abandonmentSignals } = await import('./lib/gaia-ontology.js')
+        const { GAIA_ONTOLOGY, ontogenesisPhase, abandonmentSignals, stewardshipOf } = await import('./lib/gaia-ontology.js')
         if (url.searchParams.get('apply') === '0') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ontology: GAIA_ONTOLOGY })); return }
         const { analytics, labelOf } = await analyticsForGraph(false)
+        const gOnt = getHellGraph()
         const phases: Record<string, number> = {}
         const signals: Record<string, string[]> = {}
-        let total = 0
+        let total = 0, stewarded = 0
         for (const [id, m] of Object.entries(analytics.nodes)) {
           const lbl = labelOf(id); if (!lbl) continue
           total++
           const phase = ontogenesisPhase(m); phases[phase] = (phases[phase] ?? 0) + 1
-          for (const s of abandonmentSignals(m)) { (signals[s] ??= []).push(lbl) }
+          let sigs = abandonmentSignals(m)
+          if (sigs.length > 0) {
+            // Honor persisted stewardship (P5.15): a steward's acknowledged signals drop out of the live census.
+            const st = stewardshipOf(gOnt.getNode(id)?.properties)
+            if (st.stewarded) stewarded++
+            if (st.resolvedSignals.length) sigs = sigs.filter((x) => !st.resolvedSignals.includes(x))
+            for (const sig of sigs) (signals[sig] ??= []).push(lbl)
+          }
         }
         const census = {
           total,
+          stewarded,
           phases: Object.entries(phases).sort((a, b) => b[1] - a[1]).map(([phase, count]) => ({ phase, count })),
           signals: Object.entries(signals).sort((a, b) => b[1].length - a[1].length).map(([signal, ents]) => ({ signal, count: ents.length, examples: ents.slice(0, 6) })),
         }
         res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ontology: GAIA_ONTOLOGY, census }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // POST /api/graph/ontology/steward — stewardship write-back (P5.15): persist a steward's decision on an entity
+  // (keeper, successor, an explicit ontogenesis phase, acknowledged abandonment signals). The GET census above
+  // HONORS it — acknowledged signals drop out of the live count — closing the observe→act loop.
+  if (req.method === 'POST' && url.pathname === '/api/graph/ontology/steward') {
+    setCORSHeaders(res)
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => void (async () => {
+      try {
+        const d = JSON.parse(body || '{}') as { entity?: string; keeper?: string; successor?: string; phaseOverride?: string; resolveSignals?: string[]; note?: string }
+        if (!d.entity) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'entity required' })); return }
+        const g = getHellGraph()
+        let nodeId: string | null = g.getNode(d.entity) ? d.entity : null   // by id, else resolve by display label
+        if (!nodeId) {
+          const { analytics, labelOf } = await analyticsForGraph(false)
+          for (const id of Object.keys(analytics.nodes)) { if (labelOf(id) === d.entity) { nodeId = id; break } }
+        }
+        if (!nodeId) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'entity not found' })); return }
+        const { applyStewardship, GAIA_ONTOLOGY } = await import('./lib/gaia-ontology.js')
+        const validPhases = GAIA_ONTOLOGY.ontogenesisPhases as readonly string[]
+        const validSignals = GAIA_ONTOLOGY.abandonmentSignals as readonly string[]
+        const phaseOverride = d.phaseOverride && validPhases.includes(d.phaseOverride) ? (d.phaseOverride as OntogenesisPhase) : undefined
+        const resolveSignals = (d.resolveSignals ?? []).filter((x): x is AbandonmentSignal => validSignals.includes(x))
+        const gw = g as unknown as { getNode: (id: string) => { properties?: Record<string, unknown> } | undefined; setNodeProperty: (id: string, k: string, v: string) => void }
+        const state = applyStewardship(gw, nodeId, { keeper: d.keeper, successor: d.successor, phaseOverride, resolveSignals, note: d.note }, new Date().toISOString())
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ entity: d.entity, nodeId, stewardship: state }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })())
+    return
+  }
+
+  // GET /api/actions — list the typed ActionTypes (the kinetic-ontology surface). POST /api/actions/execute runs one
+  // (validated, capability-tagged, audited) — the generalization of the single hardcoded stewardship write-back.
+  if (req.method === 'GET' && url.pathname === '/api/actions') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { listActions } = await import('./lib/action-plane.js')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ actions: listActions() }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+  if (req.method === 'POST' && url.pathname === '/api/actions/execute') {
+    setCORSHeaders(res)
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => void (async () => {
+      try {
+        const d = JSON.parse(body || '{}') as { action?: string; params?: Record<string, unknown> }
+        if (!d.action) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'action required' })); return }
+        const result = await runAction(d.action, d.params ?? {})
+        res.writeHead(result.ok ? 200 : 400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ action: d.action, result }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })())
+    return
+  }
+
+  // GET /api/code/symbols?q= — symbol search over OUR codebase (P5.16): locate a definition (file + line) by name.
+  // Backed by the build-time canon/symbol-index.json; powers code navigation + the find_symbol agent tool.
+  if (req.method === 'GET' && url.pathname === '/api/code/symbols') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const q = url.searchParams.get('q') ?? ''
+        const { searchSymbols, symbolStats } = await import('./lib/symbol-index.js')
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ query: q, ...symbolStats(), results: searchSymbols(q, 30) }))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
@@ -7188,14 +8419,21 @@ Question: ${question}`
     const sub = url.pathname.slice('/api/voice/'.length)
     if (req.method === 'GET' && sub === 'status') {
       ;(async () => {
-        const provisioned = isVoiceProvisioned()
+        const st = voiceProvisionStatus()
         let voices: Array<{ id: string; name: string }> = []
-        if (provisioned && (await ensureVoiceSidecar())) {
+        if (st.provisioned && (await ensureVoiceSidecar())) {
           try { const j = (await (await voiceFetch('/voices')).json()) as { voices?: typeof voices }; voices = j.voices ?? [] } catch { /* sidecar warming */ }
         }
         res.writeHead(200, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ provisioned, voices }))
+        res.end(JSON.stringify({ ...st, voices }))
       })()
+      return
+    }
+    // In-app provisioning (P4.12): trigger the uv-venv + coqui-tts install in the background; poll /status.
+    if (req.method === 'POST' && sub === 'provision') {
+      const r = provisionVoice()
+      res.writeHead(r.started ? 200 : 409, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ ...r, ...voiceProvisionStatus() }))
       return
     }
     let body = ''
@@ -7343,6 +8581,10 @@ try {
 server.headersTimeout = 60_000
 server.requestTimeout = 300_000
 server.listen(PORT, '127.0.0.1', () => {
+  // Ergonomics: collapse the 100+ NOETICA_* knobs into one RAM-aware preset (lite/balanced/max). Sets only
+  // UNSET vars so explicit config still wins, and gives soft memory degradation (small boxes auto-go lite).
+  const _cfg = applyPreset()
+  console.log(`[noetica-am] ${summarizePreset(_cfg)}`)
   console.log(`[noetica-am] Agent Machine v${VERSION} listening on http://127.0.0.1:${PORT}`)
   console.log(`[noetica-am] Status: http://127.0.0.1:${PORT}/api/status`)
 
@@ -7693,6 +8935,10 @@ server.listen(PORT, '127.0.0.1', () => {
   // Runs silently after startup — never blocks the server.
   void (async () => {
     try {
+      // Tests boot the AM against MOCK Ollamas and assert specific request/latency behavior. The real
+      // suite-pull + prewarm hammers the (deliberately broken) primary with GB-scale pulls and contends
+      // for the turn under test — making latency non-deterministic. Skip it: tests never need real models.
+      if (process.env['NODE_ENV'] === 'test') return
       const up = await isOllamaRunning()
       if (!up) return
       const installed = await listLocalModels()
@@ -7732,12 +8978,65 @@ server.listen(PORT, '127.0.0.1', () => {
     }
   })()
 
+  // Self-healing embedder migration: on upgrade the active embedder may differ from the one that made the
+  // stored chunk vectors (Ollama nomic-768 → Rust bge-384). Reindex the corpus once in the background so
+  // retrieval stays consistent without a manual step — a no-op when dims already match.
+  void (async () => {
+    try {
+      const { reindexIfDimMismatch } = await import('./lib/doc-store.js')
+      const r = await reindexIfDimMismatch()
+      if (r.reindexed) console.log(`[embed-migrate] ${r.reason}`.replace(/[\r\n]/g, ' '))
+    } catch { /* best-effort */ }
+    // Then backfill the extracted vector tier from existing graph chunks if it's empty (one-time migration,
+    // idempotent). Sequenced after the embedder self-heal so the backfilled vectors are in the active space.
+    try {
+      const { vecStats } = await import('./lib/embed-runtime.js')
+      const total = (await vecStats()).reduce((s, c) => s + c.count, 0)
+      if (total === 0) {
+        const { reindexVectorTier } = await import('./lib/doc-store.js')
+        const r = await reindexVectorTier()
+        if (r.chunks > 0) console.log(`[vec-tier] backfilled ${r.chunks} chunks into ${r.collections} collection(s)`.replace(/[\r\n]/g, ' '))
+      }
+    } catch { /* best-effort */ }
+    // Backfill Document→entity GROUNDS edges for existing docs that have none (P2.4) — so the Library shows
+    // per-doc entity counts without a re-ingest. Idempotent; skips already-linked docs.
+    try {
+      const { relinkDocEntities } = await import('./lib/doc-store.js')
+      const r = relinkDocEntities()
+      if (r.edges > 0) console.log(`[entity-link] linked ${r.edges} entity edge(s) across ${r.docs} doc(s)`.replace(/[\r\n]/g, ' '))
+    } catch { /* best-effort */ }
+    // Derive the glossary into the graph from the corpus (Domain/GlossaryTerm atoms via the GROUNDS edges above)
+    // so the domain/glossary lens is reachable. Idempotent; runs after entity-link so the edges exist.
+    try {
+      const { deriveCorpusGlossary } = await import('./lib/graphbrain-bridge.js')
+      const r = deriveCorpusGlossary()
+      if (r.terms > 0) console.log(`[glossary] derived ${r.terms} term(s) across ${r.domains} domain(s)`.replace(/[\r\n]/g, ' '))
+    } catch { /* best-effort */ }
+    // Ingest the build-time stack manifest → CodeModule atoms + IMPORTS edges, so the Tech lens shows our actual
+    // codebase. Idempotent (no-op once present). Bundled JSON, so it works in prod too.
+    try {
+      const { ingestStackIndex } = await import('./lib/stack-graph.js')
+      const r = ingestStackIndex()
+      if (r.modules > 0) console.log(`[stack-graph] ingested ${r.modules} modules + ${r.edges} imports`.replace(/[\r\n]/g, ' '))
+    } catch { /* best-effort */ }
+    // Project the provisioned academic brain (fields + courses) → the Knowledge lens. No-op if the brain isn't
+    // provisioned. Idempotent.
+    try {
+      const { projectAcademicBrain } = await import('./lib/academic-graph.js')
+      const r = projectAcademicBrain()
+      if (r.courses > 0) console.log(`[academic-graph] projected ${r.courses} courses across ${r.fields} fields`.replace(/[\r\n]/g, ' '))
+    } catch { /* best-effort */ }
+  })()
+
   // Demo pre-warm: actually LOAD the primary chat model(s) into RAM with a long
   // keep_alive so the first query isn't a cold-load stall (Ollama otherwise loads
   // on first use — 5–60s for an 8B — and unloads after 5 min idle). Best-effort,
   // non-blocking. Configure with NOETICA_PREWARM_MODELS="qwen2.5:7b,deepseek-r1:8b".
   void (async () => {
     const wanted = (process.env['NOETICA_PREWARM_MODELS'] ?? 'qwen2.5:7b').split(',').map((s) => s.trim()).filter(Boolean)
+    // RAM-aware hold: a long pin on a constrained box keeps the model resident long after the demo,
+    // OOMing the machine while idle. Short hold on ≤32GB, long only on workstation memory.
+    const prewarmKeepAlive = os.totalmem() / 1024 ** 3 < 32 ? '5m' : '30m'
     try {
       const installed = await listLocalModels()
       for (const m of wanted) {
@@ -7746,10 +9045,10 @@ server.listen(PORT, '127.0.0.1', () => {
         try {
           await fetch(`${ollamaBase()}/api/generate`, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ model: m, prompt: 'ok', stream: false, keep_alive: '30m' }),
+            body: JSON.stringify({ model: m, prompt: 'ok', stream: false, keep_alive: prewarmKeepAlive }),
             signal: AbortSignal.timeout(120_000),
           })
-          console.log(`[prewarm] loaded ${m} into RAM (keep_alive 30m)`)
+          console.log(`[prewarm] loaded ${m} into RAM (keep_alive ${prewarmKeepAlive})`)
         } catch { /* best-effort */ }
       }
       // Prewarm the Tier-0 embedding intent centroids so the first turn doesn't pay
@@ -7794,17 +9093,17 @@ server.listen(PORT, '127.0.0.1', () => {
         }
         console.log('[prewarm] graph topic clusters built')
       } catch { /* best-effort */ }
-      // Upgrade the coder to the RAM-appropriate model (14b on ≥18GB, 30b on ≥30GB) by pulling
-      // it once in the background — non-blocking, only sizes that fit, so no OOM. Until it lands
-      // the router stays on 7b; once present, coding routes to the stronger model automatically.
+      // Upgrade the workhorse to the RAM-appropriate model (qwen3:14b on ≥18GB, qwen3-coder:30b on ≥30GB) by
+      // pulling it once in the background — non-blocking, only sizes that fit, so no OOM. Until it lands the
+      // router stays on the qwen2.5 floor; once present, coding AND general/reasoning route to it automatically.
       try {
         const { preferredCoderForRam } = await import('./lib/router.js')
         const want = preferredCoderForRam()
         if (want && process.env['NOETICA_NO_AUTO_CODER'] !== '1') {
           const have = await listLocalModels()
           if (!have.includes(want)) {
-            console.log(`[prewarm] pulling upgraded coder ${want} in background (one-time)…`)
-            void pullModel(want, () => {}).then(() => console.log(`[prewarm] coder ${want} ready — coding now routes to it`)).catch(() => {})
+            console.log(`[prewarm] pulling upgraded workhorse ${want} in background (one-time)…`)
+            void pullModel(want, () => {}).then(() => console.log(`[prewarm] workhorse ${want} ready — routing now prefers it`)).catch(() => {})
           }
         }
       } catch { /* best-effort */ }

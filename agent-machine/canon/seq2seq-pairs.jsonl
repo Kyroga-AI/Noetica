@@ -1,0 +1,681 @@
+{"nl": "Michaelis-Menten equation", "sym": "v = Vmax[S] / (Km + [S])", "domain": "biology", "topic": "Biochemistry and Metabolism", "kind": "equation"}
+{"nl": "Glycolysis net reaction", "sym": "Glucose + 2 NAD⁺ + 2 ADP + 2 Pi → 2 Pyruvate + 2 NADH + 2 ATP + 2 H₂O", "domain": "biology", "topic": "Biochemistry and Metabolism", "kind": "equation"}
+{"nl": "Monohybrid cross ratios", "sym": "Aa × Aa → 1 AA : 2 Aa : 1 aa (3:1 phenotypic ratio for dominant trait).", "domain": "biology", "topic": "Genetics", "kind": "equation"}
+{"nl": "Dihybrid cross ratio", "sym": "AaBb × AaBb → 9 A_B_ : 3 A_bb : 3 aaB_ : 1 aabb (9:3:3:1 phenotypic ratio).", "domain": "biology", "topic": "Genetics", "kind": "equation"}
+{"nl": "Exponential population growth", "sym": "dN/dt = rN; N(t) = N₀·e^(rt)", "domain": "biology", "topic": "Ecology", "kind": "equation"}
+{"nl": "Logistic population growth", "sym": "dN/dt = rN·(K − N)/K; growth rate is maximal at N = K/2 and declines to zero as N approaches K.", "domain": "biology", "topic": "Ecology", "kind": "equation"}
+{"nl": "Cardiac output equation", "sym": "CO = SV × HR; MAP ≈ CO × TPR (total peripheral resistance)", "domain": "biology", "topic": "Physiology: Cardiovascular, Respiratory, and Renal Systems", "kind": "equation"}
+{"nl": "Henderson-Hasselbalch equation (blood pH)", "sym": "pH = pKa + log([HCO₃⁻] / [H₂CO₃]); normal arterial pH 7.4, [HCO₃⁻] 24 mEq/L, PCO₂ 40 mmHg.", "domain": "biology", "topic": "Physiology: Cardiovascular, Respiratory, and Renal Systems", "kind": "equation"}
+{"nl": "Photosynthesis overall reaction", "sym": "6 CO₂ + 6 H₂O + light energy → C₆H₁₂O₆ + 6 O₂", "domain": "biology", "topic": "Plant Biology", "kind": "equation"}
+{"nl": "Macronutrient energy densities", "sym": "Carbohydrates: 4 kcal/g; Protein: 4 kcal/g; Fat: 9 kcal/g; Alcohol: 7 kcal/g.", "domain": "biology", "topic": "Nutrition and Metabolism", "kind": "equation"}
+{"nl": "Avogadro's number", "sym": "N_A = 6.02214076e23 mol^-1", "domain": "chemistry", "topic": "Stoichiometry and the Mole", "kind": "equation"}
+{"nl": "Mole-mass relationship", "sym": "n = m / M", "domain": "chemistry", "topic": "Stoichiometry and the Mole", "kind": "equation"}
+{"nl": "Molarity definition", "sym": "C = n_solute / V_solution(L)", "domain": "chemistry", "topic": "Stoichiometry and the Mole", "kind": "equation"}
+{"nl": "Percent yield", "sym": "% yield = (actual yield / theoretical yield) x 100%", "domain": "chemistry", "topic": "Stoichiometry and the Mole", "kind": "equation"}
+{"nl": "Ideal gas law", "sym": "PV = nRT", "domain": "chemistry", "topic": "Gases and Kinetic-Molecular Theory", "kind": "equation"}
+{"nl": "Dalton's law of partial pressures", "sym": "P_total = sum(P_i) = sum(chi_i * P_total)", "domain": "chemistry", "topic": "Gases and Kinetic-Molecular Theory", "kind": "equation"}
+{"nl": "Graham's law of effusion", "sym": "rate_1 / rate_2 = sqrt(M_2 / M_1)", "domain": "chemistry", "topic": "Gases and Kinetic-Molecular Theory", "kind": "equation"}
+{"nl": "RMS speed", "sym": "v_rms = sqrt(3RT / M)", "domain": "chemistry", "topic": "Gases and Kinetic-Molecular Theory", "kind": "equation"}
+{"nl": "Most probable speed", "sym": "v_mp = sqrt(2RT / M)", "domain": "chemistry", "topic": "Gases and Kinetic-Molecular Theory", "kind": "equation"}
+{"nl": "Mean speed", "sym": "v_mean = sqrt(8RT / (pi * M))", "domain": "chemistry", "topic": "Gases and Kinetic-Molecular Theory", "kind": "equation"}
+{"nl": "van der Waals equation", "sym": "(P + a*n^2/V^2)(V - nb) = nRT", "domain": "chemistry", "topic": "Gases and Kinetic-Molecular Theory", "kind": "equation"}
+{"nl": "Compressibility factor", "sym": "Z = PV / (nRT)", "domain": "chemistry", "topic": "Gases and Kinetic-Molecular Theory", "kind": "equation"}
+{"nl": "Maxwell-Boltzmann speed distribution", "sym": "f(v) = 4*pi*(M/(2*pi*RT))^(3/2) * v^2 * exp(-M*v^2/(2RT))", "domain": "chemistry", "topic": "Gases and Kinetic-Molecular Theory", "kind": "equation"}
+{"nl": "mole fraction: The ratio of moles of one component to total moles in a mixture; .", "sym": "chi_i = n_i / n_total", "domain": "chemistry", "topic": "Gases and Kinetic-Molecular Theory", "kind": "glossary"}
+{"nl": "First law of thermodynamics", "sym": "dU = q + w  (or dU = delta_q - P_ext dV for PV work)", "domain": "chemistry", "topic": "Thermodynamics", "kind": "equation"}
+{"nl": "Enthalpy definition", "sym": "H = U + PV  =>  dH = dU + P dV + V dP  =>  dH_P = q_P", "domain": "chemistry", "topic": "Thermodynamics", "kind": "equation"}
+{"nl": "Second law (Clausius inequality)", "sym": "dS >= dq / T  (equality for reversible)", "domain": "chemistry", "topic": "Thermodynamics", "kind": "equation"}
+{"nl": "Gibbs free energy", "sym": "G = H - T*S  =>  dG = V dP - S dT", "domain": "chemistry", "topic": "Thermodynamics", "kind": "equation"}
+{"nl": "Spontaneity criterion (constant T, P)", "sym": "delta_G < 0 (spontaneous), = 0 (equilibrium), > 0 (non-spontaneous)", "domain": "chemistry", "topic": "Thermodynamics", "kind": "equation"}
+{"nl": "Standard free energy and equilibrium constant", "sym": "delta_G^o = -R*T*ln(K)", "domain": "chemistry", "topic": "Thermodynamics", "kind": "equation"}
+{"nl": "Gibbs-Helmholtz equation", "sym": "d(G/T)/d(1/T) = H", "domain": "chemistry", "topic": "Thermodynamics", "kind": "equation"}
+{"nl": "van't Hoff equation", "sym": "d(ln K)/d(1/T) = -delta_H^o / R", "domain": "chemistry", "topic": "Thermodynamics", "kind": "equation"}
+{"nl": "Entropy change for reversible process", "sym": "delta_S = integral(dq_rev / T)", "domain": "chemistry", "topic": "Thermodynamics", "kind": "equation"}
+{"nl": "Fundamental thermodynamic relation", "sym": "dU = T dS - P dV + sum(mu_i dn_i)", "domain": "chemistry", "topic": "Thermodynamics", "kind": "equation"}
+{"nl": "Maxwell relation (from G)", "sym": "(dS/dP)_T = -(dV/dT)_P", "domain": "chemistry", "topic": "Thermodynamics", "kind": "equation"}
+{"nl": "Kirchhoff's law", "sym": "delta_H(T2) = delta_H(T1) + integral(delta_C_P dT, T1, T2)", "domain": "chemistry", "topic": "Thermodynamics", "kind": "equation"}
+{"nl": "enthalpy (H): A state function defined as ; at constant pressure, delta-H equals heat transferred.", "sym": "H = U + PV", "domain": "chemistry", "topic": "Thermodynamics", "kind": "glossary"}
+{"nl": "entropy (S): A state function measuring the dispersal of energy; for a reversible process .", "sym": "dS = dq_rev / T", "domain": "chemistry", "topic": "Thermodynamics", "kind": "glossary"}
+{"nl": "Gibbs free energy (G): ; a decrease in G at constant T and P indicates a spontaneous process.", "sym": "G = H - TS", "domain": "chemistry", "topic": "Thermodynamics", "kind": "glossary"}
+{"nl": "Helmholtz free energy (A): ; a decrease in A at constant T and V indicates spontaneity; equal to reversible work.", "sym": "A = U - TS", "domain": "chemistry", "topic": "Thermodynamics", "kind": "glossary"}
+{"nl": "heat capacity (C): The amount of heat required to raise the temperature of a substance by one kelvin; .", "sym": "C_P = (dH/dT)_P, C_V = (dU/dT)_V", "domain": "chemistry", "topic": "Thermodynamics", "kind": "glossary"}
+{"nl": "chemical potential (mu): The partial molar Gibbs free energy of a species; .", "sym": "mu_i = (dG/dn_i)_{T,P,n_j}", "domain": "chemistry", "topic": "Thermodynamics", "kind": "glossary"}
+{"nl": "van't Hoff enthalpy: The enthalpy change of a process derived from the temperature dependence of the equilibrium constant via d(ln K)/.", "sym": "d(1/T) = -delta_H/R", "domain": "chemistry", "topic": "Thermodynamics", "kind": "glossary"}
+{"nl": "Law of mass action (generic)", "sym": "K_c = [C]^c [D]^d / ([A]^a [B]^b)  for aA + bB <=> cC + dD", "domain": "chemistry", "topic": "Chemical Equilibrium", "kind": "equation"}
+{"nl": "Reaction quotient criterion", "sym": "Q < K: forward; Q = K: equilibrium; Q > K: reverse", "domain": "chemistry", "topic": "Chemical Equilibrium", "kind": "equation"}
+{"nl": "K for reverse reaction", "sym": "K_reverse = 1 / K_forward", "domain": "chemistry", "topic": "Chemical Equilibrium", "kind": "equation"}
+{"nl": "K for sum of reactions", "sym": "K_net = K_1 * K_2 * ...", "domain": "chemistry", "topic": "Chemical Equilibrium", "kind": "equation"}
+{"nl": "van't Hoff equation (K vs T)", "sym": "ln(K2/K1) = -(delta_H^o/R)*(1/T2 - 1/T1)", "domain": "chemistry", "topic": "Chemical Equilibrium", "kind": "equation"}
+{"nl": "Ion-product of water", "sym": "K_w = [H3O+][OH-] = 1.01e-14 at 298 K", "domain": "chemistry", "topic": "Acids, Bases, and Buffers", "kind": "equation"}
+{"nl": "pH definition", "sym": "pH = -log10([H+])  (or -log10(a_H+))", "domain": "chemistry", "topic": "Acids, Bases, and Buffers", "kind": "equation"}
+{"nl": "Relationship pK_a + pK_b", "sym": "pK_a + pK_b = pK_w = 14.00 at 25 degrees C (conjugate pair)", "domain": "chemistry", "topic": "Acids, Bases, and Buffers", "kind": "equation"}
+{"nl": "Henderson-Hasselbalch", "sym": "pH = pK_a + log([A-]/[HA])", "domain": "chemistry", "topic": "Acids, Bases, and Buffers", "kind": "equation"}
+{"nl": "Weak acid dissociation constant", "sym": "K_a = [H+][A-] / [HA]", "domain": "chemistry", "topic": "Acids, Bases, and Buffers", "kind": "equation"}
+{"nl": "Degree of dissociation for weak acid", "sym": "[H+] = sqrt(K_a * C_a)  when alpha << 1", "domain": "chemistry", "topic": "Acids, Bases, and Buffers", "kind": "equation"}
+{"nl": "K_a: Acid dissociation constant: .", "sym": "K_a = [A-][H+] / [HA] for weak acid HA", "domain": "chemistry", "topic": "Acids, Bases, and Buffers", "kind": "glossary"}
+{"nl": "Henderson-Hasselbalch equation: ; used to calculate pH of buffer solutions.", "sym": "pH = pK_a + log([A-]/[HA])", "domain": "chemistry", "topic": "Acids, Bases, and Buffers", "kind": "glossary"}
+{"nl": "Generic rate law", "sym": "rate = k[A]^m [B]^n", "domain": "chemistry", "topic": "Chemical Kinetics", "kind": "equation"}
+{"nl": "First-order integrated rate law", "sym": "ln[A]_t = ln[A]_0 - k*t  =>  [A]_t = [A]_0 * exp(-k*t)", "domain": "chemistry", "topic": "Chemical Kinetics", "kind": "equation"}
+{"nl": "First-order half-life", "sym": "t_1/2 = ln(2) / k = 0.6931 / k", "domain": "chemistry", "topic": "Chemical Kinetics", "kind": "equation"}
+{"nl": "Second-order integrated rate law (one reactant)", "sym": "1/[A]_t = 1/[A]_0 + k*t", "domain": "chemistry", "topic": "Chemical Kinetics", "kind": "equation"}
+{"nl": "Second-order half-life", "sym": "t_1/2 = 1 / (k[A]_0)", "domain": "chemistry", "topic": "Chemical Kinetics", "kind": "equation"}
+{"nl": "Zeroth-order integrated rate law", "sym": "[A]_t = [A]_0 - k*t", "domain": "chemistry", "topic": "Chemical Kinetics", "kind": "equation"}
+{"nl": "Arrhenius equation", "sym": "k = A * exp(-E_a / (R*T))", "domain": "chemistry", "topic": "Chemical Kinetics", "kind": "equation"}
+{"nl": "Arrhenius linearized", "sym": "ln(k) = ln(A) - E_a/(R*T)", "domain": "chemistry", "topic": "Chemical Kinetics", "kind": "equation"}
+{"nl": "Eyring (transition state theory) equation", "sym": "k = (k_B * T / h) * exp(-delta_G_dagger / (R*T))", "domain": "chemistry", "topic": "Chemical Kinetics", "kind": "equation"}
+{"nl": "Michaelis-Menten equation", "sym": "v = V_max * [S] / (K_M + [S])", "domain": "chemistry", "topic": "Chemical Kinetics", "kind": "equation"}
+{"nl": "Lineweaver-Burk linearization", "sym": "1/v = (K_M/V_max)*(1/[S]) + 1/V_max", "domain": "chemistry", "topic": "Chemical Kinetics", "kind": "equation"}
+{"nl": "rate law: An expression relating the rate of a reaction to the concentrations of reactants: .", "sym": "rate = k[A]^m[B]^n", "domain": "chemistry", "topic": "Chemical Kinetics", "kind": "glossary"}
+{"nl": "Cell potential (standard)", "sym": "E^o_cell = E^o_cathode - E^o_anode", "domain": "chemistry", "topic": "Electrochemistry", "kind": "equation"}
+{"nl": "Gibbs free energy and cell potential", "sym": "delta_G^o = -n*F*E^o_cell", "domain": "chemistry", "topic": "Electrochemistry", "kind": "equation"}
+{"nl": "Nernst equation", "sym": "E = E^o - (R*T)/(n*F) * ln(Q)  =>  E = E^o - (0.05916/n) * log(Q) at 298 K", "domain": "chemistry", "topic": "Electrochemistry", "kind": "equation"}
+{"nl": "Equilibrium from E^o", "sym": "ln(K) = n*F*E^o / (R*T)  =>  log(K) = n*E^o / 0.05916 at 298 K", "domain": "chemistry", "topic": "Electrochemistry", "kind": "equation"}
+{"nl": "Faraday's first law", "sym": "m = (M * I * t) / (n * F)  where m=mass deposited, M=molar mass, I=current, t=time", "domain": "chemistry", "topic": "Electrochemistry", "kind": "equation"}
+{"nl": "Faraday's constant", "sym": "F = 96485 C/mol", "domain": "chemistry", "topic": "Electrochemistry", "kind": "equation"}
+{"nl": "EMF (E_cell): The electromotive force (cell potential) driving current in a galvanic cell; .", "sym": "E_cell = E_cathode - E_anode", "domain": "chemistry", "topic": "Electrochemistry", "kind": "glossary"}
+{"nl": "Nernst equation: Relates cell potential to the reaction quotient Q: .", "sym": "E = E^o - (RT/nF) ln Q", "domain": "chemistry", "topic": "Electrochemistry", "kind": "glossary"}
+{"nl": "Schrodinger equation (time-independent)", "sym": "H_hat * psi = E * psi  where H_hat = -(h_bar^2/2m)*nabla^2 + V", "domain": "chemistry", "topic": "Atomic Structure and Quantum Chemistry", "kind": "equation"}
+{"nl": "de Broglie relation", "sym": "lambda = h / p = h / (m*v)", "domain": "chemistry", "topic": "Atomic Structure and Quantum Chemistry", "kind": "equation"}
+{"nl": "Heisenberg uncertainty principle", "sym": "delta_x * delta_p >= h_bar / 2", "domain": "chemistry", "topic": "Atomic Structure and Quantum Chemistry", "kind": "equation"}
+{"nl": "Hydrogen atom energy levels", "sym": "E_n = -13.6 eV / n^2 = -R_H * h * c / n^2", "domain": "chemistry", "topic": "Atomic Structure and Quantum Chemistry", "kind": "equation"}
+{"nl": "Rydberg formula for hydrogen", "sym": "1/lambda = R_H * (1/n_1^2 - 1/n_2^2)  where R_H = 1.097e7 m^-1", "domain": "chemistry", "topic": "Atomic Structure and Quantum Chemistry", "kind": "equation"}
+{"nl": "Particle in a box energy levels", "sym": "E_n = n^2 * h^2 / (8*m*L^2)  n = 1, 2, 3, ...", "domain": "chemistry", "topic": "Atomic Structure and Quantum Chemistry", "kind": "equation"}
+{"nl": "Particle in a box wavefunction", "sym": "psi_n(x) = sqrt(2/L) * sin(n*pi*x/L)  0 <= x <= L", "domain": "chemistry", "topic": "Atomic Structure and Quantum Chemistry", "kind": "equation"}
+{"nl": "Bohr energy formula", "sym": "E_n = -Z^2 * e^4 * m_e / (8 * epsilon_0^2 * h^2 * n^2)", "domain": "chemistry", "topic": "Atomic Structure and Quantum Chemistry", "kind": "equation"}
+{"nl": "Angular momentum quantization (Bohr)", "sym": "L = n * h_bar", "domain": "chemistry", "topic": "Atomic Structure and Quantum Chemistry", "kind": "equation"}
+{"nl": "de Broglie wavelength: The wavelength associated with a particle of momentum p: .", "sym": "lambda = h/p", "domain": "chemistry", "topic": "Atomic Structure and Quantum Chemistry", "kind": "glossary"}
+{"nl": "effective nuclear charge (Z_eff): The net positive charge experienced by an electron after accounting for shielding by other electrons: .", "sym": "Z_eff = Z - sigma", "domain": "chemistry", "topic": "Atomic Structure and Quantum Chemistry", "kind": "glossary"}
+{"nl": "Bond order (MO theory)", "sym": "BO = (N_bonding - N_antibonding) / 2", "domain": "chemistry", "topic": "Chemical Bonding and Molecular Structure", "kind": "equation"}
+{"nl": "Dipole moment", "sym": "mu = q * d  (charge times separation distance)", "domain": "chemistry", "topic": "Chemical Bonding and Molecular Structure", "kind": "equation"}
+{"nl": "Born-Lande lattice energy", "sym": "U = -(N_A * M * Z+ * Z- * e^2) / (4*pi*epsilon_0 * r_0) * (1 - 1/n)", "domain": "chemistry", "topic": "Chemical Bonding and Molecular Structure", "kind": "equation"}
+{"nl": "Hess-cycle (Born-Haber)", "sym": "U_lattice = delta_H_f^o(ionic) - [delta_H_sub + IE + 1/2 D(X2) - EA]", "domain": "chemistry", "topic": "Chemical Bonding and Molecular Structure", "kind": "equation"}
+{"nl": "dipole moment (mu): A measure of charge separation in a molecule: ; units are debye (D) or C·m.", "sym": "mu = q * d", "domain": "chemistry", "topic": "Chemical Bonding and Molecular Structure", "kind": "glossary"}
+{"nl": "SN2 rate law", "sym": "rate = k[Nu][R-X]  (bimolecular, inversion of configuration)", "domain": "chemistry", "topic": "Organic Reactions and Mechanisms", "kind": "equation"}
+{"nl": "SN1 rate law", "sym": "rate = k[R-X]  (unimolecular, carbocation intermediate)", "domain": "chemistry", "topic": "Organic Reactions and Mechanisms", "kind": "equation"}
+{"nl": "E2 rate law", "sym": "rate = k[base][R-X]  (bimolecular, anti-periplanar geometry required)", "domain": "chemistry", "topic": "Organic Reactions and Mechanisms", "kind": "equation"}
+{"nl": "Fischer esterification equilibrium", "sym": "R-COOH + R'OH <=(H+)=> R-COOR' + H2O  (K ~ 1, driven by removing H2O)", "domain": "chemistry", "topic": "Organic Reactions and Mechanisms", "kind": "equation"}
+{"nl": "Energy of a photon", "sym": "E = h*nu = h*c/lambda", "domain": "chemistry", "topic": "Spectroscopy", "kind": "equation"}
+{"nl": "Beer-Lambert law", "sym": "A = epsilon * c * l = -log10(T)", "domain": "chemistry", "topic": "Spectroscopy", "kind": "equation"}
+{"nl": "Bragg's law", "sym": "n*lambda = 2*d*sin(theta)", "domain": "chemistry", "topic": "Spectroscopy", "kind": "equation"}
+{"nl": "Harmonic oscillator vibrational energy", "sym": "E_v = (v + 1/2)*h*nu_e  v = 0, 1, 2, ...", "domain": "chemistry", "topic": "Spectroscopy", "kind": "equation"}
+{"nl": "Rigid rotor rotational energy", "sym": "E_J = h_bar^2 / (2I) * J*(J+1)  J = 0, 1, 2, ...", "domain": "chemistry", "topic": "Spectroscopy", "kind": "equation"}
+{"nl": "Wavenumber-frequency relation", "sym": "nu_bar = 1/lambda = nu/c  (units cm^-1)", "domain": "chemistry", "topic": "Spectroscopy", "kind": "equation"}
+{"nl": "transmittance (T): The fraction of light that passes through a sample: ; .", "sym": "T = I/I_0", "domain": "chemistry", "topic": "Spectroscopy", "kind": "glossary"}
+{"nl": "transmittance (T): The fraction of light that passes through a sample: ; .", "sym": "A = -log10(T)", "domain": "chemistry", "topic": "Spectroscopy", "kind": "glossary"}
+{"nl": "Bragg's law: The condition for constructive interference in X-ray diffraction: n*.", "sym": "lambda = 2*d*sin(theta)", "domain": "chemistry", "topic": "Spectroscopy", "kind": "glossary"}
+{"nl": "CFSE (octahedral, weak field d^n)", "sym": "CFSE = (-2/5 * n_t2g + 3/5 * n_eg) * Delta_oct  (before pairing energy correction)", "domain": "chemistry", "topic": "Coordination Chemistry and Inorganic Chemistry", "kind": "equation"}
+{"nl": "Stability constant (formation constant)", "sym": "K_f = [ML_n] / ([M][L]^n)  (product of stepwise formation constants K_1...K_n)", "domain": "chemistry", "topic": "Coordination Chemistry and Inorganic Chemistry", "kind": "equation"}
+{"nl": "Molecular partition function", "sym": "q = sum_i g_i * exp(-E_i / (k_B*T))  where g_i is degeneracy of state i", "domain": "chemistry", "topic": "Statistical Thermodynamics and Partition Functions", "kind": "equation"}
+{"nl": "Canonical partition function (ideal gas)", "sym": "Q = q^N / N!  (indistinguishable particles)", "domain": "chemistry", "topic": "Statistical Thermodynamics and Partition Functions", "kind": "equation"}
+{"nl": "Internal energy from partition function", "sym": "U = k_B * T^2 * (d ln Q / dT)_V", "domain": "chemistry", "topic": "Statistical Thermodynamics and Partition Functions", "kind": "equation"}
+{"nl": "Entropy from partition function", "sym": "S = k_B * ln(Q) + U/T", "domain": "chemistry", "topic": "Statistical Thermodynamics and Partition Functions", "kind": "equation"}
+{"nl": "Helmholtz free energy", "sym": "A = -k_B * T * ln(Q)", "domain": "chemistry", "topic": "Statistical Thermodynamics and Partition Functions", "kind": "equation"}
+{"nl": "Translational partition function (3D)", "sym": "q_trans = (2*pi*m*k_B*T / h^2)^(3/2) * V  (de Broglie thermal volume)", "domain": "chemistry", "topic": "Statistical Thermodynamics and Partition Functions", "kind": "equation"}
+{"nl": "Boltzmann entropy (microcanonical)", "sym": "S = k_B * ln(Omega)", "domain": "chemistry", "topic": "Statistical Thermodynamics and Partition Functions", "kind": "equation"}
+{"nl": "Equipartition (mean energy per quadratic mode)", "sym": "E_mode = (1/2) * k_B * T", "domain": "chemistry", "topic": "Statistical Thermodynamics and Partition Functions", "kind": "equation"}
+{"nl": "partition function (q or Z): The sum over all quantum states of the Boltzmann factor: ; encodes all thermodynamic information of a system.", "sym": "q = sum_i exp(-E_i / k_B T)", "domain": "chemistry", "topic": "Statistical Thermodynamics and Partition Functions", "kind": "glossary"}
+{"nl": "Boltzmann distribution: The probability of a system being in state i: .", "sym": "P_i = exp(-E_i / k_B T) / q", "domain": "chemistry", "topic": "Statistical Thermodynamics and Partition Functions", "kind": "glossary"}
+{"nl": "Helmholtz free energy from Q: ; all other thermodynamic functions derived from A by standard relations.", "sym": "A = -k_B T ln(Q)", "domain": "chemistry", "topic": "Statistical Thermodynamics and Partition Functions", "kind": "glossary"}
+{"nl": "First-order perturbation energy correction", "sym": "E_n^(1) = <psi_n^(0)|H'|psi_n^(0)>", "domain": "chemistry", "topic": "Quantum Chemistry", "kind": "equation"}
+{"nl": "Second-order perturbation energy correction", "sym": "E_n^(2) = sum_{m != n} |<psi_m^(0)|H'|psi_n^(0)>|^2 / (E_n^(0) - E_m^(0))", "domain": "chemistry", "topic": "Quantum Chemistry", "kind": "equation"}
+{"nl": "HF energy expression", "sym": "E_HF = sum_i h_ii + (1/2) sum_{ij} (J_ij - K_ij)", "domain": "chemistry", "topic": "Quantum Chemistry", "kind": "equation"}
+{"nl": "Coupled cluster wavefunction ansatz", "sym": "|CC> = exp(T)|HF>  where T = T_1 + T_2 + ... (cluster operator)", "domain": "chemistry", "topic": "Quantum Chemistry", "kind": "equation"}
+{"nl": "electron correlation energy: The difference between the exact non-relativistic energy and the Hartree-Fock energy: ; always negative.", "sym": "E_corr = E_exact - E_HF", "domain": "chemistry", "topic": "Quantum Chemistry", "kind": "glossary"}
+{"nl": "Enzyme turnover number", "sym": "k_cat = V_max / [E]_total", "domain": "chemistry", "topic": "Biochemistry Fundamentals", "kind": "equation"}
+{"nl": "Competitive inhibition (apparent K_M)", "sym": "K_M_app = K_M * (1 + [I]/K_I)  V_max unchanged", "domain": "chemistry", "topic": "Biochemistry Fundamentals", "kind": "equation"}
+{"nl": "Uncompetitive inhibition", "sym": "K_M_app = K_M / (1 + [I]/K_I')  V_max_app = V_max / (1 + [I]/K_I')", "domain": "chemistry", "topic": "Biochemistry Fundamentals", "kind": "equation"}
+{"nl": "ATP hydrolysis free energy (standard biological)", "sym": "delta_G^o' = -30.5 kJ/mol  (pH 7, 25 degrees C, 1 mM Mg2+)", "domain": "chemistry", "topic": "Biochemistry Fundamentals", "kind": "equation"}
+{"nl": "Glycolysis net reaction", "sym": "Glucose + 2 NAD+ + 2 ADP + 2 Pi -> 2 Pyruvate + 2 NADH + 2 ATP + 2 H2O", "domain": "chemistry", "topic": "Biochemistry Fundamentals", "kind": "equation"}
+{"nl": "Henderson-Hasselbalch (biological buffers)", "sym": "pH = pK_a + log([A-]/[HA])  (e.g. bicarbonate: pK_a1 = 6.1 at 37 degrees C)", "domain": "chemistry", "topic": "Biochemistry Fundamentals", "kind": "equation"}
+{"nl": "Debye-Huckel limiting law", "sym": "log(gamma_i) = -A * z_i^2 * sqrt(I)  (A = 0.509 at 25 degrees C in H2O)", "domain": "chemistry", "topic": "Analytical Chemistry and Solution Equilibria", "kind": "equation"}
+{"nl": "Ionic strength", "sym": "I = (1/2) * sum_i(c_i * z_i^2)", "domain": "chemistry", "topic": "Analytical Chemistry and Solution Equilibria", "kind": "equation"}
+{"nl": "Activity-concentration relationship", "sym": "a_i = gamma_i * c_i  (c in mol/L, relative to c^o = 1 M)", "domain": "chemistry", "topic": "Analytical Chemistry and Solution Equilibria", "kind": "equation"}
+{"nl": "van Deemter equation", "sym": "H = A + B/u + C*u", "domain": "chemistry", "topic": "Analytical Chemistry and Solution Equilibria", "kind": "equation"}
+{"nl": "Chromatographic resolution", "sym": "R_s = (sqrt(N)/4) * (alpha - 1)/alpha * k'/(1 + k')  (fundamental resolution equation)", "domain": "chemistry", "topic": "Analytical Chemistry and Solution Equilibria", "kind": "equation"}
+{"nl": "Plate count from peak", "sym": "N = 16*(t_R/W_b)^2 = 5.545*(t_R/W_1/2)^2", "domain": "chemistry", "topic": "Analytical Chemistry and Solution Equilibria", "kind": "equation"}
+{"nl": "Nernst equation for ion-selective electrode", "sym": "E = E^o + (RT)/(z_i*F) * ln(a_i)", "domain": "chemistry", "topic": "Analytical Chemistry and Solution Equilibria", "kind": "equation"}
+{"nl": "theoretical plate (N): A measure of chromatographic column efficiency: .", "sym": "N = (t_R / sigma)^2 or N = 16(t_R/W)^2", "domain": "chemistry", "topic": "Analytical Chemistry and Solution Equilibria", "kind": "glossary"}
+{"nl": "resolution (R_s): A measure of chromatographic separation: ; R_s >= 1.5 for baseline resolution.", "sym": "R_s = 2(t_R2 - t_R1) / (W_1 + W_2)", "domain": "chemistry", "topic": "Analytical Chemistry and Solution Equilibria", "kind": "glossary"}
+{"nl": "Dynamic array doubling", "sym": "Append is O(1) amortized: total cost of n appends = O(n) by geometric series 1+2+4+...+n < 2n", "domain": "computer_science", "topic": "Data Structures", "kind": "equation"}
+{"nl": "AVL rotation invariant", "sym": "Single or double rotation restores balance in O(1); height h ≤ 1.44 log2(n+2)", "domain": "computer_science", "topic": "Data Structures", "kind": "equation"}
+{"nl": "Floyd-Warshall algorithm", "sym": "All-pairs shortest paths; O(V^3) DP: d[i][j][k] = min(d[i][j][k-1], d[i][k][k-1] + d[k][j][k-1])", "domain": "computer_science", "topic": "Algorithms & Complexity", "kind": "equation"}
+{"nl": "Mergesort", "sym": "T(n) = 2T(n/2) + Θ(n) → T(n) = Θ(n log n); stable; O(n) extra space", "domain": "computer_science", "topic": "Algorithms & Complexity", "kind": "equation"}
+{"nl": "amortized complexity: Per-operation cost averaged over a sequence; potential method assigns a potential Φ to data structure states: amortized .", "sym": "cost = actual cost + ΔΦ", "domain": "computer_science", "topic": "Algorithms & Complexity", "kind": "glossary"}
+{"nl": "recurrence relation: Equation defining the running time T(n) recursively in terms of smaller inputs, e.g. .", "sym": "T(n) = aT(n/b) + f(n)", "domain": "computer_science", "topic": "Algorithms & Complexity", "kind": "glossary"}
+{"nl": "Myhill-Nerode theorem", "sym": "L regular ↔ index(≡_L) finite; min-DFA states = index(≡_L)", "domain": "computer_science", "topic": "Computability & Automata Theory", "kind": "equation"}
+{"nl": "Chomsky hierarchy", "sym": "Type 0 (RE, TM) ⊃ Type 1 (context-sensitive, LBA) ⊃ Type 2 (CFL, PDA) ⊃ Type 3 (regular, DFA)", "domain": "computer_science", "topic": "Computability & Automata Theory", "kind": "equation"}
+{"nl": "Binomial theorem", "sym": "(x+y)^n = Σ_{k=0}^{n} C(n,k) x^k y^(n-k)", "domain": "computer_science", "topic": "Discrete Mathematics & Logic", "kind": "equation"}
+{"nl": "Inclusion-exclusion principle", "sym": "|A_1 ∪ ... ∪ A_n| = Σ|A_i| - Σ|A_i ∩ A_j| + ... + (-1)^(n+1)|A_1 ∩ ... ∩ A_n|", "domain": "computer_science", "topic": "Discrete Mathematics & Logic", "kind": "equation"}
+{"nl": "Fermat's little theorem", "sym": "For prime p and a not divisible by p: a^(p-1) ≡ 1 (mod p); equivalently a^p ≡ a (mod p)", "domain": "computer_science", "topic": "Discrete Mathematics & Logic", "kind": "equation"}
+{"nl": "Euler's theorem", "sym": "For gcd(a,n)=1: a^φ(n) ≡ 1 (mod n); generalizes Fermat's little theorem", "domain": "computer_science", "topic": "Discrete Mathematics & Logic", "kind": "equation"}
+{"nl": "De Morgan's laws", "sym": "¬(P ∧ Q) ≡ ¬P ∨ ¬Q; ¬(P ∨ Q) ≡ ¬P ∧ ¬Q; dual forms for sets: (A ∩ B)^c = A^c ∪ B^c", "domain": "computer_science", "topic": "Discrete Mathematics & Logic", "kind": "equation"}
+{"nl": "recurrence relation: An equation defining each term of a sequence as a function of preceding terms (e.g. Fibonacci ; solved in closed form via characteristic equations or generating functions.", "sym": "a_n = a_{n-1} + a_{n-2})", "domain": "computer_science", "topic": "Discrete Mathematics & Logic", "kind": "glossary"}
+{"nl": "Euler's totient φ(n): Count of integers in [1,n] coprime to n; ; φ(mn) = φ(m)φ(n) if gcd(m,n)=1.", "sym": "φ(p) = p-1 for prime p", "domain": "computer_science", "topic": "Discrete Mathematics & Logic", "kind": "glossary"}
+{"nl": "Logistic regression gradient", "sym": "L = −Σ[y_i log(σ(w·x_i)) + (1−y_i)log(1−σ(w·x_i))]; ∇_w L = Σ(σ(w·x_i)−y_i)x_i; convex → global minimum", "domain": "computer_science", "topic": "Machine Learning", "kind": "equation"}
+{"nl": "Bias-variance decomposition", "sym": "E[(y−f̂(x))²] = (Bias[f̂(x)])² + Var[f̂(x)] + σ²_noise; bias = E[f̂]−f; variance = E[(f̂−E[f̂])²]", "domain": "computer_science", "topic": "Machine Learning", "kind": "equation"}
+{"nl": "softmax function: σ(z); maps logit vector to probability distribution; numerically stabilized by subtracting max(z).", "sym": "_i = exp(z_i) / Σ_j exp(z_j)", "domain": "computer_science", "topic": "Machine Learning", "kind": "glossary"}
+{"nl": "Markov's inequality", "sym": "For X ≥ 0: P(X ≥ a) ≤ E[X]/a; weakest but most general concentration bound", "domain": "computer_science", "topic": "Probability & Statistics for CS", "kind": "equation"}
+{"nl": "Chebyshev's inequality", "sym": "P(|X − μ| ≥ kσ) ≤ 1/k²; uses variance; P(|X−μ| ≥ t) ≤ Var(X)/t²", "domain": "computer_science", "topic": "Probability & Statistics for CS", "kind": "equation"}
+{"nl": "Law of total expectation", "sym": "E[X] = E[E[X|Y]]; equivalently E[X] = Σ_y E[X|Y=y]·P(Y=y)", "domain": "computer_science", "topic": "Probability & Statistics for CS", "kind": "equation"}
+{"nl": "Gaussian (Normal) distribution", "sym": "f(x) = (1/√(2πσ²)) exp(−(x−μ)²/(2σ²)); N(μ,σ²); 68-95-99.7 rule: P(|X−μ| ≤ kσ) for k=1,2,3", "domain": "computer_science", "topic": "Probability & Statistics for CS", "kind": "equation"}
+{"nl": "Bayes' theorem (expanded)", "sym": "P(H|E) = P(E|H)·P(H) / [P(E|H)·P(H) + P(E|¬H)·P(¬H)]; posterior ∝ likelihood × prior", "domain": "computer_science", "topic": "Probability & Statistics for CS", "kind": "equation"}
+{"nl": "Bayes' theorem: ; relates conditional and marginal probabilities; foundation of Bayesian inference.", "sym": "P(A|B) = P(B|A)·P(A) / P(B)", "domain": "computer_science", "topic": "Probability & Statistics for CS", "kind": "glossary"}
+{"nl": "expectation: E[X] = Σ x·P(; linearity: E[aX+bY] = aE[X] + bE[Y] always (no independence required).", "sym": "X=x) (discrete) or ∫x·f(x)dx (continuous)", "domain": "computer_science", "topic": "Probability & Statistics for CS", "kind": "glossary"}
+{"nl": "variance: Var(X) = E[(X−E[X])²] = E[X²] − (E[X])²; Var(aX+b) = a²Var(X); .", "sym": "Var(X+Y) = Var(X)+Var(Y) if X,Y independent", "domain": "computer_science", "topic": "Probability & Statistics for CS", "kind": "glossary"}
+{"nl": "Poisson distribution: ; models count of rare events in fixed interval; E[X]=Var(X)=λ; Poisson approximates Binomial when n large, p small, λ=np.", "sym": "P(X=k) = λ^k e^{-λ}/k!", "domain": "computer_science", "topic": "Probability & Statistics for CS", "kind": "glossary"}
+{"nl": "Ohm's law", "sym": "V = I·R; R in ohms, I in amperes, V in volts; power P = VI = I²R = V²/R", "domain": "computer_science", "topic": "Circuit Analysis", "kind": "equation"}
+{"nl": "RC transient response", "sym": "V_C(t) = V_f + (V_0 − V_f)·e^{−t/(RC)}; V_0 = initial voltage, V_f = final voltage; τ = RC", "domain": "computer_science", "topic": "Circuit Analysis", "kind": "equation"}
+{"nl": "RLC natural frequency", "sym": "ω_0 = 1/√(LC); damping ratio ζ = R/(2)·√(C/L); overdamped ζ>1, critically damped ζ=1, underdamped ζ<1", "domain": "computer_science", "topic": "Circuit Analysis", "kind": "equation"}
+{"nl": "Non-inverting op-amp gain", "sym": "V_out = (1 + R_f/R_1)·V_in; input impedance ≈ ∞; output impedance ≈ 0", "domain": "computer_science", "topic": "Circuit Analysis", "kind": "equation"}
+{"nl": "Norton equivalent: Any linear two-terminal network can be replaced by a current source I_N in parallel with R_N; I_N = short-circuit current, R_N = R_th; .", "sym": "I_N = V_th / R_th", "domain": "computer_science", "topic": "Circuit Analysis", "kind": "glossary"}
+{"nl": "capacitor: Element storing energy in electric field; ; ; impedance ; blocks DC, passes AC.", "sym": "V = (1/C)∫i dt", "domain": "computer_science", "topic": "Circuit Analysis", "kind": "glossary"}
+{"nl": "capacitor: Element storing energy in electric field; ; ; impedance ; blocks DC, passes AC.", "sym": "i = C·dV/dt", "domain": "computer_science", "topic": "Circuit Analysis", "kind": "glossary"}
+{"nl": "capacitor: Element storing energy in electric field; ; ; impedance ; blocks DC, passes AC.", "sym": "Z_C = 1/(jωC) in frequency domain", "domain": "computer_science", "topic": "Circuit Analysis", "kind": "glossary"}
+{"nl": "inductor: Element storing energy in magnetic field; ; ; impedance Z_L = jωL; blocks AC, passes DC.", "sym": "V = L·di/dt", "domain": "computer_science", "topic": "Circuit Analysis", "kind": "glossary"}
+{"nl": "inductor: Element storing energy in magnetic field; ; ; impedance Z_L = jωL; blocks AC, passes DC.", "sym": "i = (1/L)∫V dt", "domain": "computer_science", "topic": "Circuit Analysis", "kind": "glossary"}
+{"nl": "time constant τ: RC: τ = RC; RL: ; time for exponential response to reach 1−1/e ≈ 63.2% of final value; system response ∝ exp(−t/τ).", "sym": "τ = L/R", "domain": "computer_science", "topic": "Circuit Analysis", "kind": "glossary"}
+{"nl": "impedance: ; generalization of resistance to AC circuits; Z_R = R; ; Z_L = jωL; Ohm's law: V = IZ in phasor domain.", "sym": "Z = R + jX", "domain": "computer_science", "topic": "Circuit Analysis", "kind": "glossary"}
+{"nl": "impedance: ; generalization of resistance to AC circuits; Z_R = R; ; Z_L = jωL; Ohm's law: V = IZ in phasor domain.", "sym": "Z_C = 1/(jωC) = −j/(ωC)", "domain": "computer_science", "topic": "Circuit Analysis", "kind": "glossary"}
+{"nl": "power factor: cos(θ) where θ is the phase angle between voltage and current; PF=1 for purely resistive load; PF<1 for reactive loads; .", "sym": "P = V_rms·I_rms·PF", "domain": "computer_science", "topic": "Circuit Analysis", "kind": "glossary"}
+{"nl": "Convolution theorem", "sym": "Multiplication in frequency domain ↔ convolution in time domain: F{x*h} = X(jω)·H(jω); F{x·h} = (1/2π)X(jω)*H(jω)", "domain": "computer_science", "topic": "Signals & Systems", "kind": "equation"}
+{"nl": "Fourier transform pairs (key)", "sym": "δ(t) ↔ 1; rect(t) ↔ sinc(ω); e^{−at}u(t) ↔ 1/(a+jω); cos(ω_0 t) ↔ π[δ(ω−ω_0)+δ(ω+ω_0)]; Gaussian ↔ Gaussian", "domain": "computer_science", "topic": "Signals & Systems", "kind": "equation"}
+{"nl": "Parseval's theorem", "sym": "∫_{-∞}^{∞}|x(t)|²dt = (1/2π)∫_{-∞}^{∞}|X(jω)|²dω; energy in time domain = energy in frequency domain (up to 1/2π)", "domain": "computer_science", "topic": "Signals & Systems", "kind": "equation"}
+{"nl": "Laplace transform properties", "sym": "Differentiation: L{x'(t)} = sX(s)−x(0); Integration: L{∫x dt} = X(s)/s; Shift: L{x(t−t_0)u(t−t_0)} = e^{−st_0}X(s)", "domain": "computer_science", "topic": "Signals & Systems", "kind": "equation"}
+{"nl": "Nyquist sampling theorem", "sym": "x(t) = Σ_n x[n]·sinc((t−nT)/T) if sampled at T ≤ 1/(2f_max); i.e., f_s ≥ 2B for bandwidth B", "domain": "computer_science", "topic": "Signals & Systems", "kind": "equation"}
+{"nl": "Fourier series", "sym": "x(t) = Σ_{k=−∞}^{∞} c_k e^{jkω_0 t}; c_k = (1/T)∫_T x(t)e^{−jkω_0 t}dt; for periodic x(t) with period T=2π/ω_0", "domain": "computer_science", "topic": "Signals & Systems", "kind": "equation"}
+{"nl": "convolution: (f * g)(t) = ∫_{-∞}^{∞} f(τ)g(t−τ)dτ; output of LTI system: ; discrete: y[n] = Σ_k x[k]h[n−k].", "sym": "y(t) = x(t) * h(t)", "domain": "computer_science", "topic": "Signals & Systems", "kind": "glossary"}
+{"nl": "Fourier transform: ; maps signal from time domain to frequency domain; inverse: .", "sym": "X(jω) = ∫_{-∞}^{∞} x(t)e^{−jωt}dt", "domain": "computer_science", "topic": "Signals & Systems", "kind": "glossary"}
+{"nl": "Fourier transform: ; maps signal from time domain to frequency domain; inverse: .", "sym": "x(t) = (1/2π)∫X(jω)e^{jωt}dω", "domain": "computer_science", "topic": "Signals & Systems", "kind": "glossary"}
+{"nl": "Laplace transform: ; generalizes Fourier transform to complex ; converts differential equations to algebraic equations.", "sym": "X(s) = ∫_0^{∞} x(t)e^{−st}dt", "domain": "computer_science", "topic": "Signals & Systems", "kind": "glossary"}
+{"nl": "Laplace transform: ; generalizes Fourier transform to complex ; converts differential equations to algebraic equations.", "sym": "s = σ+jω", "domain": "computer_science", "topic": "Signals & Systems", "kind": "glossary"}
+{"nl": "z-transform: ; discrete-time analog of Laplace transform; .", "sym": "X(z) = Σ_{n=−∞}^{∞} x[n]z^{−n}", "domain": "computer_science", "topic": "Signals & Systems", "kind": "glossary"}
+{"nl": "z-transform: ; discrete-time analog of Laplace transform; .", "sym": "H(z) = Y(z)/X(z) for DT-LTI systems", "domain": "computer_science", "topic": "Signals & Systems", "kind": "glossary"}
+{"nl": "DTFT (discrete-time Fourier transform): ; frequency representation of discrete-time signals; periodic with period 2π.", "sym": "X(e^{jω}) = Σ_{n=−∞}^{∞} x[n]e^{−jωn}", "domain": "computer_science", "topic": "Signals & Systems", "kind": "glossary"}
+{"nl": "Closed-loop transfer function", "sym": "T(s) = G(s) / (1 + G(s)H(s)); forward path G(s), feedback H(s); sensitivity S = 1/(1+GH); complement T = GH/(1+GH)", "domain": "computer_science", "topic": "Control Systems", "kind": "equation"}
+{"nl": "Initial value theorem", "sym": "lim_{t→0+} f(t) = lim_{s→∞} s·F(s); valid if f(t) has no impulses at t=0", "domain": "computer_science", "topic": "Control Systems", "kind": "equation"}
+{"nl": "transfer function G(s): ; encodes dynamics as ratio of polynomials in s; poles = roots of denominator, zeros = roots of numerator.", "sym": "G(s) = Y(s)/U(s) for a linear system", "domain": "computer_science", "topic": "Control Systems", "kind": "glossary"}
+{"nl": "phase margin: Additional phase lag at gain crossover frequency (|G(jω_gc)|=1) before instability; ; good design: GM > 6 dB, PM > 30-45°.", "sym": "PM = 180° + ∠G(jω_gc)", "domain": "computer_science", "topic": "Control Systems", "kind": "glossary"}
+{"nl": "De Morgan's theorem", "sym": "NOT(A AND B) = NOT(A) OR NOT(B); NOT(A OR B) = NOT(A) AND NOT(B); enables NAND/NOR universal gate implementation", "domain": "computer_science", "topic": "Digital Logic & Boolean Algebra", "kind": "equation"}
+{"nl": "Shannon expansion (cofactor)", "sym": "f(x_1,...,x_n) = x_i · f_{x_i=1} + x_i' · f_{x_i=0}; basis for BDD-based CAD tools and multiplexer implementations", "domain": "computer_science", "topic": "Digital Logic & Boolean Algebra", "kind": "equation"}
+{"nl": "Diode Shockley equation", "sym": "I = I_S(e^{V_D/(nV_T)} - 1); V_T = kT/q = 25.85 mV at 300K; forward voltage drop ≈ 0.6-0.7V for Si at room temperature", "domain": "computer_science", "topic": "Semiconductor Devices & Electronics", "kind": "equation"}
+{"nl": "BJT current relationships", "sym": "I_C = β·I_B = α·I_E; I_E = I_B + I_C; α = β/(1+β); in active mode: V_BE ≈ 0.7V (Si); I_C = I_S·e^{V_BE/V_T}", "domain": "computer_science", "topic": "Semiconductor Devices & Electronics", "kind": "equation"}
+{"nl": "p-n junction: Interface between p-type and n-type semiconductor; built-in potential ; under forward bias, current flows exponentially; reverse bias, small leakage.", "sym": "V_bi = (kT/q)·ln(N_A·N_D/n_i²)", "domain": "computer_science", "topic": "Semiconductor Devices & Electronics", "kind": "glossary"}
+{"nl": "diode equation (Shockley): ; I_0 = reverse saturation current; ; .", "sym": "I = I_0(e^{V/(nV_T)} − 1)", "domain": "computer_science", "topic": "Semiconductor Devices & Electronics", "kind": "glossary"}
+{"nl": "diode equation (Shockley): ; I_0 = reverse saturation current; ; .", "sym": "n = ideality factor (1-2)", "domain": "computer_science", "topic": "Semiconductor Devices & Electronics", "kind": "glossary"}
+{"nl": "diode equation (Shockley): ; I_0 = reverse saturation current; ; .", "sym": "V_T = kT/q ≈ 26 mV at room temperature", "domain": "computer_science", "topic": "Semiconductor Devices & Electronics", "kind": "glossary"}
+{"nl": "BJT (bipolar junction transistor): Three-terminal device (Base, Collector, Emitter); in active mode: ; ; controlled current amplifier; β (h_FE) typically 50-300.", "sym": "I_C = β·I_B", "domain": "computer_science", "topic": "Semiconductor Devices & Electronics", "kind": "glossary"}
+{"nl": "BJT (bipolar junction transistor): Three-terminal device (Base, Collector, Emitter); in active mode: ; ; controlled current amplifier; β (h_FE) typically 50-300.", "sym": "I_E = (1+β)·I_B", "domain": "computer_science", "topic": "Semiconductor Devices & Electronics", "kind": "glossary"}
+{"nl": "MOSFET: Metal-oxide-semiconductor field-effect transistor; gate voltage controls channel; n-channel NMOS: ; .", "sym": "I_D = μ_n C_ox (W/L)[(V_GS−V_th)V_DS − V_DS²/2] (triode)", "domain": "computer_science", "topic": "Semiconductor Devices & Electronics", "kind": "glossary"}
+{"nl": "MOSFET: Metal-oxide-semiconductor field-effect transistor; gate voltage controls channel; n-channel NMOS: ; .", "sym": "I_D = (μ_n C_ox W/2L)(V_GS−V_th)² (saturation)", "domain": "computer_science", "topic": "Semiconductor Devices & Electronics", "kind": "glossary"}
+{"nl": "transconductance g_m: ; ; key small-signal parameter relating input voltage to output current.", "sym": "g_m = ∂I_D/∂V_GS = 2I_D/(V_GS−V_th) for MOSFET in saturation", "domain": "computer_science", "topic": "Semiconductor Devices & Electronics", "kind": "glossary"}
+{"nl": "transconductance g_m: ; ; key small-signal parameter relating input voltage to output current.", "sym": "g_m = I_C/V_T for BJT", "domain": "computer_science", "topic": "Semiconductor Devices & Electronics", "kind": "glossary"}
+{"nl": "small-signal model: Linear approximation of transistor behavior around a DC operating point (Q-point); MOSFET: controlled current source g_m·v_gs with output resistance ; valid for small signal swings", "sym": "r_o = |V_A|/I_D", "domain": "computer_science", "topic": "Semiconductor Devices & Electronics", "kind": "glossary"}
+{"nl": "dynamic power (CMOS): ; α = activity factor (0-1), C = load capacitance, V_DD = supply voltage, f = clock frequency; dominant power consumption in digital ICs.", "sym": "P_dynamic = α·C·V_DD²·f", "domain": "computer_science", "topic": "Semiconductor Devices & Electronics", "kind": "glossary"}
+{"nl": "Market equilibrium condition", "sym": "Q_d(P) = Q_s(P) ⟹ solve for P*", "domain": "economics", "topic": "Supply and Demand", "kind": "equation"}
+{"nl": "Consumer surplus (area)", "sym": "CS = (1/2)(P_max - P*)(Q*)", "domain": "economics", "topic": "Supply and Demand", "kind": "equation"}
+{"nl": "Producer surplus (area)", "sym": "PS = (1/2)(P* - P_min)(Q*)", "domain": "economics", "topic": "Supply and Demand", "kind": "equation"}
+{"nl": "Total surplus", "sym": "TS = CS + PS", "domain": "economics", "topic": "Supply and Demand", "kind": "equation"}
+{"nl": "Deadweight loss from price control", "sym": "DWL = (1/2)|Q_free - Q_controlled|(|P_s - P_d|)", "domain": "economics", "topic": "Supply and Demand", "kind": "equation"}
+{"nl": "Price elasticity of demand", "sym": "E_d = (ΔQ/Q) / (ΔP/P) = (ΔQ/ΔP)(P/Q)", "domain": "economics", "topic": "Elasticity", "kind": "equation"}
+{"nl": "Midpoint (arc) elasticity formula", "sym": "E = [(Q2-Q1)/((Q1+Q2)/2)] / [(P2-P1)/((P1+P2)/2)]", "domain": "economics", "topic": "Elasticity", "kind": "equation"}
+{"nl": "Income elasticity of demand", "sym": "YED = (%ΔQ_d) / (%ΔY)", "domain": "economics", "topic": "Elasticity", "kind": "equation"}
+{"nl": "Cross-price elasticity", "sym": "XED = (%ΔQ_x) / (%ΔP_y)", "domain": "economics", "topic": "Elasticity", "kind": "equation"}
+{"nl": "Total revenue and elasticity", "sym": "TR = P × Q; if |E_d| > 1, price ↑ ⟹ TR ↓; if |E_d| < 1, price ↑ ⟹ TR ↑", "domain": "economics", "topic": "Elasticity", "kind": "equation"}
+{"nl": "Elasticity of linear demand curve", "sym": "E_d = -(b)(P/Q) where Q = a - bP", "domain": "economics", "topic": "Elasticity", "kind": "equation"}
+{"nl": "Utility maximization (tangency)", "sym": "MU_x/P_x = MU_y/P_y  ⟺  MRS_{xy} = P_x/P_y", "domain": "economics", "topic": "Consumer Theory", "kind": "equation"}
+{"nl": "Budget constraint", "sym": "P_x · X + P_y · Y = I", "domain": "economics", "topic": "Consumer Theory", "kind": "equation"}
+{"nl": "Lagrangian for consumer problem", "sym": "max U(x,y) s.t. P_x·x + P_y·y = I; ℒ = U(x,y) - λ(P_x·x + P_y·y - I)", "domain": "economics", "topic": "Consumer Theory", "kind": "equation"}
+{"nl": "Slutsky equation", "sym": "∂x^m/∂p_x = ∂x^h/∂p_x - x·(∂x^m/∂I)", "domain": "economics", "topic": "Consumer Theory", "kind": "equation"}
+{"nl": "Roy's identity", "sym": "x_i^m(p,I) = -[∂V/∂p_i] / [∂V/∂I]", "domain": "economics", "topic": "Consumer Theory", "kind": "equation"}
+{"nl": "Shephard's lemma", "sym": "x_i^h(p,u) = ∂e(p,u)/∂p_i", "domain": "economics", "topic": "Consumer Theory", "kind": "equation"}
+{"nl": "MRS for Cobb-Douglas U = x^α·y^β", "sym": "MRS = (αy)/(βx)", "domain": "economics", "topic": "Consumer Theory", "kind": "equation"}
+{"nl": "Expected utility (von Neumann-Morgenstern)", "sym": "EU = Σ π_i · U(w_i) where π_i is probability of outcome i", "domain": "economics", "topic": "Consumer Theory", "kind": "equation"}
+{"nl": "Risk aversion condition", "sym": "A consumer is risk-averse iff U''(w) < 0 (concave utility function).", "domain": "economics", "topic": "Consumer Theory", "kind": "equation"}
+{"nl": "Slutsky equation: Decomposes the total price effect into substitution and income effects: ∂x/∂.", "sym": "p = ∂h/∂p - x·(∂x/∂I)", "domain": "economics", "topic": "Consumer Theory", "kind": "glossary"}
+{"nl": "Cost minimization condition", "sym": "MRTS = w/r  ⟺  MPL/MPK = w/r", "domain": "economics", "topic": "Producer Theory: Production and Costs", "kind": "equation"}
+{"nl": "Isocost line", "sym": "wL + rK = C  ⟹  K = C/r - (w/r)L", "domain": "economics", "topic": "Producer Theory: Production and Costs", "kind": "equation"}
+{"nl": "Cobb-Douglas production function", "sym": "Q = A·K^α·L^β; CRS if α+β=1, IRS if α+β>1, DRS if α+β<1", "domain": "economics", "topic": "Producer Theory: Production and Costs", "kind": "equation"}
+{"nl": "Marginal product", "sym": "MPL = ∂Q/∂L;  MPK = ∂Q/∂K", "domain": "economics", "topic": "Producer Theory: Production and Costs", "kind": "equation"}
+{"nl": "Profit maximization condition", "sym": "π = TR - TC;  dπ/dQ = 0  ⟹  MR = MC", "domain": "economics", "topic": "Producer Theory: Production and Costs", "kind": "equation"}
+{"nl": "Short-run total cost", "sym": "STC(Q) = TFC + TVC(Q)", "domain": "economics", "topic": "Producer Theory: Production and Costs", "kind": "equation"}
+{"nl": "Relationship between ATC and MC", "sym": "MC < ATC ⟹ ATC is falling; MC > ATC ⟹ ATC is rising; MC = ATC at minimum ATC.", "domain": "economics", "topic": "Producer Theory: Production and Costs", "kind": "equation"}
+{"nl": "Shephard's lemma (cost)", "sym": "Conditional input demand: x_i = ∂C(w,Q)/∂w_i", "domain": "economics", "topic": "Producer Theory: Production and Costs", "kind": "equation"}
+{"nl": "Economies of scale index", "sym": "S = AC/MC; S>1 ⟹ economies of scale, S<1 ⟹ diseconomies", "domain": "economics", "topic": "Producer Theory: Production and Costs", "kind": "equation"}
+{"nl": "marginal product of labor (MPL): The additional output produced by employing one more unit of labor, holding capital constant: .", "sym": "MPL = ∂Q/∂L", "domain": "economics", "topic": "Producer Theory: Production and Costs", "kind": "glossary"}
+{"nl": "total cost (TC): The sum of all costs incurred in production: .", "sym": "TC = TFC + TVC", "domain": "economics", "topic": "Producer Theory: Production and Costs", "kind": "glossary"}
+{"nl": "average total cost (ATC): Total cost per unit of output: .", "sym": "ATC = TC/Q", "domain": "economics", "topic": "Producer Theory: Production and Costs", "kind": "glossary"}
+{"nl": "marginal cost (MC): The incremental cost of producing one more unit of output: .", "sym": "MC = ΔTC/ΔQ = dTC/dQ", "domain": "economics", "topic": "Producer Theory: Production and Costs", "kind": "glossary"}
+{"nl": "Perfectly competitive firm's profit max", "sym": "P = MR = MC in short-run; P = MC = min AC in long-run", "domain": "economics", "topic": "Market Structures", "kind": "equation"}
+{"nl": "Zero profit condition (long-run competition)", "sym": "Free entry/exit drives π → 0; P = min LRAC", "domain": "economics", "topic": "Market Structures", "kind": "equation"}
+{"nl": "Monopolist's MR", "sym": "MR = P(1 + 1/E_d) = P(1 - 1/|E_d|)", "domain": "economics", "topic": "Market Structures", "kind": "equation"}
+{"nl": "Lerner index", "sym": "L = (P - MC)/P = 1/|E_d|", "domain": "economics", "topic": "Market Structures", "kind": "equation"}
+{"nl": "Deadweight loss from monopoly", "sym": "DWL = (1/2)(P_m - MC)(Q_c - Q_m)", "domain": "economics", "topic": "Market Structures", "kind": "equation"}
+{"nl": "Cournot duopoly (symmetric, linear)", "sym": "a - bQ_1 - bQ_2 = MC; Best response: Q_i = (a-MC)/(2b) - Q_j/2; Nash: Q_i = (a-MC)/(3b)", "domain": "economics", "topic": "Market Structures", "kind": "equation"}
+{"nl": "Lerner index: A measure of market power: ; ranges from 0 (perfect competition) to 1 (pure monopoly).", "sym": "L = (P - MC)/P = -1/|E_d|", "domain": "economics", "topic": "Market Structures", "kind": "glossary"}
+{"nl": "Social optimum condition with externality", "sym": "SMC = SMB; i.e., (PMC + MEC) = D(Q)", "domain": "economics", "topic": "Welfare Economics and Externalities", "kind": "equation"}
+{"nl": "Optimal Pigouvian tax", "sym": "t* = MEC evaluated at the socially optimal quantity Q*", "domain": "economics", "topic": "Welfare Economics and Externalities", "kind": "equation"}
+{"nl": "Deadweight loss formula", "sym": "DWL = (1/2)(P_s - P_d)(Q_free - Q_taxed)", "domain": "economics", "topic": "Welfare Economics and Externalities", "kind": "equation"}
+{"nl": "social marginal cost: Private marginal cost plus marginal external cost: .", "sym": "SMC = PMC + MEC", "domain": "economics", "topic": "Welfare Economics and Externalities", "kind": "glossary"}
+{"nl": "Nash equilibrium definition", "sym": "s* is a NE iff for all i: u_i(s_i*, s_{-i}*) ≥ u_i(s_i, s_{-i}*) for all s_i ∈ S_i", "domain": "economics", "topic": "Game Theory", "kind": "equation"}
+{"nl": "Prisoner's dilemma payoff structure", "sym": "T > R > P > S and R > (T+S)/2; defect is dominant for both, yielding (P,P) < (R,R).", "domain": "economics", "topic": "Game Theory", "kind": "equation"}
+{"nl": "Expenditure approach to GDP", "sym": "GDP = C + I + G + (X - M)", "domain": "economics", "topic": "GDP and National Income Accounting", "kind": "equation"}
+{"nl": "National income identity (closed economy)", "sym": "Y = C + I + G  ⟹  S = Y - C - G = I", "domain": "economics", "topic": "GDP and National Income Accounting", "kind": "equation"}
+{"nl": "National income identity (open economy)", "sym": "S = I + NX  (or: S - I = NX = CA)", "domain": "economics", "topic": "GDP and National Income Accounting", "kind": "equation"}
+{"nl": "Real GDP calculation", "sym": "Real GDP = Nominal GDP / GDP Deflator × 100", "domain": "economics", "topic": "GDP and National Income Accounting", "kind": "equation"}
+{"nl": "GDP deflator", "sym": "GDP Deflator = (Nominal GDP / Real GDP) × 100", "domain": "economics", "topic": "GDP and National Income Accounting", "kind": "equation"}
+{"nl": "CPI inflation rate", "sym": "π_t = (CPI_t - CPI_{t-1}) / CPI_{t-1} × 100%", "domain": "economics", "topic": "GDP and National Income Accounting", "kind": "equation"}
+{"nl": "national saving: The total income in the economy not spent on consumption or government purchases: .", "sym": "S = Y - C - G", "domain": "economics", "topic": "GDP and National Income Accounting", "kind": "glossary"}
+{"nl": "Goods market equilibrium (IS)", "sym": "Y = C(Y-T) + I(r) + G  ⟹  IS: r = f(Y) downward sloping", "domain": "economics", "topic": "IS-LM and AD-AS Models", "kind": "equation"}
+{"nl": "Keynesian expenditure multiplier", "sym": "ΔY = ΔA / (1 - MPC) = k · ΔA; where k = 1/(1-MPC)", "domain": "economics", "topic": "IS-LM and AD-AS Models", "kind": "equation"}
+{"nl": "Multiplier with taxes", "sym": "k = 1 / (1 - MPC(1-t))", "domain": "economics", "topic": "IS-LM and AD-AS Models", "kind": "equation"}
+{"nl": "Money market equilibrium (LM)", "sym": "M/P = L(Y, r);  L_Y > 0, L_r < 0  ⟹  LM: r = g(Y) upward sloping", "domain": "economics", "topic": "IS-LM and AD-AS Models", "kind": "equation"}
+{"nl": "IS-LM simultaneous equilibrium", "sym": "Solve IS and LM jointly for equilibrium (Y*, r*).", "domain": "economics", "topic": "IS-LM and AD-AS Models", "kind": "equation"}
+{"nl": "multiplier: The ratio by which output changes in response to an autonomous spending change: .", "sym": "k = 1/(1-MPC) in a simple Keynesian model", "domain": "economics", "topic": "IS-LM and AD-AS Models", "kind": "glossary"}
+{"nl": "Quantity equation", "sym": "M·V = P·Y  (MV = PQ)", "domain": "economics", "topic": "Money, Banking, and Inflation", "kind": "equation"}
+{"nl": "Quantity theory of inflation", "sym": "π = ΔM/M - ΔY/Y (assuming constant V)", "domain": "economics", "topic": "Money, Banking, and Inflation", "kind": "equation"}
+{"nl": "Fisher equation", "sym": "i = r + π^e  (nominal rate = real rate + expected inflation)", "domain": "economics", "topic": "Money, Banking, and Inflation", "kind": "equation"}
+{"nl": "Money multiplier (simple)", "sym": "ΔDeposits = (1/rr) · ΔReserves;  m = 1/rr", "domain": "economics", "topic": "Money, Banking, and Inflation", "kind": "equation"}
+{"nl": "Money multiplier (with currency drain)", "sym": "m = (1 + c)/(rr + c)  where c = currency-to-deposit ratio", "domain": "economics", "topic": "Money, Banking, and Inflation", "kind": "equation"}
+{"nl": "Taylor rule", "sym": "i = r* + π + 0.5(π - π*) + 0.5(Y - Y*)/Y*", "domain": "economics", "topic": "Money, Banking, and Inflation", "kind": "equation"}
+{"nl": "Seigniorage", "sym": "Seigniorage = (ΔM/P) = (ΔM/M)·(M/P) = π·(M/P) in steady state", "domain": "economics", "topic": "Money, Banking, and Inflation", "kind": "equation"}
+{"nl": "money multiplier: The ratio of the money supply to the monetary base: .", "sym": "m = 1/rr (in simple model) or m = (1+c)/(rr+c) with currency holdings", "domain": "economics", "topic": "Money, Banking, and Inflation", "kind": "glossary"}
+{"nl": "Taylor rule: A monetary policy guideline: ; the central bank raises interest rates when inflation exceeds target or output exceeds potential.", "sym": "i = r* + π + α(π - π*) + β(Y - Y*)", "domain": "economics", "topic": "Money, Banking, and Inflation", "kind": "glossary"}
+{"nl": "velocity of money: The average number of times a dollar is spent on final goods in a period: .", "sym": "V = PY/M", "domain": "economics", "topic": "Money, Banking, and Inflation", "kind": "glossary"}
+{"nl": "Unemployment rate", "sym": "u = U / (U + E) = U / LF", "domain": "economics", "topic": "Unemployment and Labor Markets", "kind": "equation"}
+{"nl": "Labor force participation rate", "sym": "LFPR = LF / Working-age population", "domain": "economics", "topic": "Unemployment and Labor Markets", "kind": "equation"}
+{"nl": "Okun's law", "sym": "ΔY/Y ≈ -2 × Δu  (or: Y - Y* ≈ -2(u - u*))", "domain": "economics", "topic": "Unemployment and Labor Markets", "kind": "equation"}
+{"nl": "Short-run Phillips curve", "sym": "π = π^e - α(u - u*);  inflation rises when u < u*", "domain": "economics", "topic": "Unemployment and Labor Markets", "kind": "equation"}
+{"nl": "Expectations-augmented Phillips curve", "sym": "π = π^e + β(Y - Y*) - α(u - u*);  adaptive expectations: π^e = π_{t-1}", "domain": "economics", "topic": "Unemployment and Labor Markets", "kind": "equation"}
+{"nl": "Steady-state unemployment (flows)", "sym": "u* = s / (s + f);  s = job separation rate, f = job finding rate", "domain": "economics", "topic": "Unemployment and Labor Markets", "kind": "equation"}
+{"nl": "unemployment rate: The percentage of the labor force that is not employed but actively seeking work: .", "sym": "u = U/(U+E) × 100%", "domain": "economics", "topic": "Unemployment and Labor Markets", "kind": "glossary"}
+{"nl": "Solow production function (intensive form)", "sym": "y = f(k) = A·k^α  (Cobb-Douglas); where y = Y/L, k = K/L", "domain": "economics", "topic": "Economic Growth: Solow Model", "kind": "equation"}
+{"nl": "Capital accumulation equation", "sym": "Δk = s·f(k) - (δ + n + g)·k", "domain": "economics", "topic": "Economic Growth: Solow Model", "kind": "equation"}
+{"nl": "Steady-state condition", "sym": "s·f(k*) = (δ + n + g)·k*  ⟹  k* is the steady-state capital per effective worker", "domain": "economics", "topic": "Economic Growth: Solow Model", "kind": "equation"}
+{"nl": "Steady-state output per worker (Cobb-Douglas)", "sym": "k* = (s/(δ+n+g))^{1/(1-α)};  y* = A·(k*)^α", "domain": "economics", "topic": "Economic Growth: Solow Model", "kind": "equation"}
+{"nl": "Golden rule condition", "sym": "MPK = δ + n + g  ⟺  α·f(k_GR)/k_GR = δ + n + g", "domain": "economics", "topic": "Economic Growth: Solow Model", "kind": "equation"}
+{"nl": "Growth accounting (Solow residual)", "sym": "ΔA/A = ΔY/Y - α·ΔK/K - (1-α)·ΔL/L", "domain": "economics", "topic": "Economic Growth: Solow Model", "kind": "equation"}
+{"nl": "AK (endogenous) growth model", "sym": "Y = AK; constant MPK → no diminishing returns → sustained growth without exogenous TFP.", "domain": "economics", "topic": "Economic Growth: Solow Model", "kind": "equation"}
+{"nl": "capital per worker (k): The capital-labor ratio: ; the central state variable in the Solow model.", "sym": "k = K/L", "domain": "economics", "topic": "Economic Growth: Solow Model", "kind": "glossary"}
+{"nl": "golden rule capital stock: The steady-state capital-per-worker level that maximizes consumption per worker: .", "sym": "MPK = δ + n + g", "domain": "economics", "topic": "Economic Growth: Solow Model", "kind": "glossary"}
+{"nl": "total factor productivity (TFP): The portion of output growth not explained by input growth; a measure of technological efficiency: A in .", "sym": "Y = A·F(K,L)", "domain": "economics", "topic": "Economic Growth: Solow Model", "kind": "glossary"}
+{"nl": "growth accounting: A technique decomposing output growth into contributions from capital, labor, and TFP: ΔY/.", "sym": "Y = α·ΔK/K + (1-α)·ΔL/L + ΔA/A", "domain": "economics", "topic": "Economic Growth: Solow Model", "kind": "glossary"}
+{"nl": "Government budget constraint", "sym": "G + r·B = T + ΔB + ΔM/P  (spending + interest = revenue + bond issuance + seigniorage)", "domain": "economics", "topic": "Fiscal and Monetary Policy", "kind": "equation"}
+{"nl": "Debt-to-GDP dynamics", "sym": "Δ(B/Y) = (G-T)/Y + (r-g)·(B/Y);  debt ratio rises if r > g and primary deficit > 0", "domain": "economics", "topic": "Fiscal and Monetary Policy", "kind": "equation"}
+{"nl": "Fiscal multiplier (closed economy, simple)", "sym": "ΔY = ΔG/(1-MPC);  or  ΔY = (-MPC/(1-MPC))·ΔT", "domain": "economics", "topic": "Fiscal and Monetary Policy", "kind": "equation"}
+{"nl": "Taylor rule", "sym": "i_t = r* + π_t + α(π_t - π*) + β(Y_t - Y_t*)/Y_t*;  typically α=0.5, β=0.5", "domain": "economics", "topic": "Fiscal and Monetary Policy", "kind": "equation"}
+{"nl": "government budget constraint: G - ; the government deficit must be financed by issuing bonds or money.", "sym": "T = ΔB + ΔM", "domain": "economics", "topic": "Fiscal and Monetary Policy", "kind": "glossary"}
+{"nl": "OLS estimator (simple regression)", "sym": "β̂_1 = Σ(x_i - x̄)(y_i - ȳ) / Σ(x_i - x̄)²  =  Cov(x,y)/Var(x)", "domain": "economics", "topic": "Econometrics: OLS and Regression", "kind": "equation"}
+{"nl": "OLS estimator (matrix form)", "sym": "β̂ = (X'X)^{-1} X'y", "domain": "economics", "topic": "Econometrics: OLS and Regression", "kind": "equation"}
+{"nl": "Decomposition of variance", "sym": "SST = SSE + SSR;  R² = SSE/SST = 1 - SSR/SST", "domain": "economics", "topic": "Econometrics: OLS and Regression", "kind": "equation"}
+{"nl": "t-test for a coefficient", "sym": "H_0: β_k = 0;  t = β̂_k / SE(β̂_k) ~ t_{n-k-1} under H_0", "domain": "economics", "topic": "Econometrics: OLS and Regression", "kind": "equation"}
+{"nl": "Confidence interval for coefficient", "sym": "[β̂ - t_{α/2} · SE(β̂),  β̂ + t_{α/2} · SE(β̂)]", "domain": "economics", "topic": "Econometrics: OLS and Regression", "kind": "equation"}
+{"nl": "F-test for joint significance", "sym": "F = [(SSR_R - SSR_U)/q] / [SSR_U/(n-k-1)] ~ F_{q, n-k-1}", "domain": "economics", "topic": "Econometrics: OLS and Regression", "kind": "equation"}
+{"nl": "Omitted variable bias formula", "sym": "plim(β̂_1) = β_1 + β_2·δ_{21}; where δ_{21} = Cov(x_2,x_1)/Var(x_1) (from auxiliary regression x_2 on x_1)", "domain": "economics", "topic": "Econometrics: OLS and Regression", "kind": "equation"}
+{"nl": "White's heteroskedasticity-consistent SE", "sym": "Use robust standard errors: V̂(β̂) = (X'X)^{-1}(Σ ê_i²·x_i·x_i')(X'X)^{-1} when Var(u_i|x_i) ≠ σ².", "domain": "economics", "topic": "Econometrics: OLS and Regression", "kind": "equation"}
+{"nl": "Log-log interpretation", "sym": "ln(y) = β_0 + β_1·ln(x): β_1 is the elasticity of y with respect to x.", "domain": "economics", "topic": "Econometrics: OLS and Regression", "kind": "equation"}
+{"nl": "Log-linear interpretation", "sym": "ln(y) = β_0 + β_1·x: β_1 × 100 is the approximate % change in y per unit change in x.", "domain": "economics", "topic": "Econometrics: OLS and Regression", "kind": "equation"}
+{"nl": "residual: The difference between the observed and fitted value of the dependent variable: .", "sym": "e_i = y_i - ŷ_i", "domain": "economics", "topic": "Econometrics: OLS and Regression", "kind": "glossary"}
+{"nl": "R² (coefficient of determination): The proportion of variance in the dependent variable explained by the regression: ; ranges from 0 to 1.", "sym": "R² = 1 - SSR/SST", "domain": "economics", "topic": "Econometrics: OLS and Regression", "kind": "glossary"}
+{"nl": "t-statistic: The ratio of an estimated coefficient to its standard error: ; used to test whether a coefficient is statistically different from a hypothesized value.", "sym": "t = β̂/SE(β̂)", "domain": "economics", "topic": "Econometrics: OLS and Regression", "kind": "glossary"}
+{"nl": "IV estimator (just-identified)", "sym": "β̂_IV = (Z'X)^{-1}Z'y  =  Cov(Z,Y)/Cov(Z,X)", "domain": "economics", "topic": "Econometrics: Causal Inference and Advanced Methods", "kind": "equation"}
+{"nl": "2SLS procedure", "sym": "Stage 1: X̂ = Z(Z'Z)^{-1}Z'X;  Stage 2: β̂_2SLS = (X̂'X)^{-1}X̂'y", "domain": "economics", "topic": "Econometrics: Causal Inference and Advanced Methods", "kind": "equation"}
+{"nl": "IV consistency condition", "sym": "Cov(Z, u) = 0 (exclusion) and Cov(Z, X) ≠ 0 (relevance)", "domain": "economics", "topic": "Econometrics: Causal Inference and Advanced Methods", "kind": "equation"}
+{"nl": "DiD regression form", "sym": "Y_{it} = α + β·Treat_i + γ·Post_t + δ·(Treat_i × Post_t) + ε_{it};  δ = DiD estimate", "domain": "economics", "topic": "Econometrics: Causal Inference and Advanced Methods", "kind": "equation"}
+{"nl": "Sharp RDD estimand", "sym": "τ_RDD = lim_{x→c+} E[Y|X=x] - lim_{x→c-} E[Y|X=x];  discontinuity in E[Y|X] at cutoff c", "domain": "economics", "topic": "Econometrics: Causal Inference and Advanced Methods", "kind": "equation"}
+{"nl": "Fixed effects estimator (within)", "sym": "β̂_FE = (X̃'X̃)^{-1}X̃'Ỹ  where X̃_{it} = X_{it} - X̄_i (within-group demeaning)", "domain": "economics", "topic": "Econometrics: Causal Inference and Advanced Methods", "kind": "equation"}
+{"nl": "Hausman test statistic", "sym": "H = (β̂_FE - β̂_RE)'[Var(β̂_FE) - Var(β̂_RE)]^{-1}(β̂_FE - β̂_RE) ~ χ²_k under H_0 (RE consistent)", "domain": "economics", "topic": "Econometrics: Causal Inference and Advanced Methods", "kind": "equation"}
+{"nl": "Wald estimator (binary instrument)", "sym": "β̂_IV = [E(Y|Z=1) - E(Y|Z=0)] / [E(X|Z=1) - E(X|Z=0)]", "domain": "economics", "topic": "Econometrics: Causal Inference and Advanced Methods", "kind": "equation"}
+{"nl": "Distributive law", "sym": "a(b + c) = ab + ac", "domain": "mathematics", "topic": "Elementary Algebra and Arithmetic", "kind": "equation"}
+{"nl": "Properties of absolute value", "sym": "|ab| = |a||b|; |a + b| ≤ |a| + |b| (triangle inequality)", "domain": "mathematics", "topic": "Elementary Algebra and Arithmetic", "kind": "equation"}
+{"nl": "Euclidean algorithm", "sym": "gcd(a, b) = gcd(b, a mod b); repeat until remainder is 0.", "domain": "mathematics", "topic": "Elementary Algebra and Arithmetic", "kind": "equation"}
+{"nl": "Laws of exponents", "sym": "a^m · a^n = a^(m+n); (a^m)^n = a^(mn); a^0 = 1 (a ≠ 0)", "domain": "mathematics", "topic": "Elementary Algebra and Arithmetic", "kind": "equation"}
+{"nl": "Percent formula", "sym": "part = (percent/100) × whole", "domain": "mathematics", "topic": "Elementary Algebra and Arithmetic", "kind": "equation"}
+{"nl": "proportion: An equation stating that two ratios are equal: a/.", "sym": "b = c/d", "domain": "mathematics", "topic": "Elementary Algebra and Arithmetic", "kind": "glossary"}
+{"nl": "Quadratic formula", "sym": "x = (-b ± √(b² - 4ac)) / (2a)", "domain": "mathematics", "topic": "Algebra and Polynomial Theory", "kind": "equation"}
+{"nl": "Factor theorem", "sym": "(x - c) is a factor of p(x) if and only if p(c) = 0.", "domain": "mathematics", "topic": "Algebra and Polynomial Theory", "kind": "equation"}
+{"nl": "Remainder theorem", "sym": "The remainder when p(x) is divided by (x - c) equals p(c).", "domain": "mathematics", "topic": "Algebra and Polynomial Theory", "kind": "equation"}
+{"nl": "Binomial theorem", "sym": "(a + b)^n = Σ_{k=0}^{n} C(n,k) a^(n-k) b^k", "domain": "mathematics", "topic": "Algebra and Polynomial Theory", "kind": "equation"}
+{"nl": "Difference of squares", "sym": "a² - b² = (a - b)(a + b)", "domain": "mathematics", "topic": "Algebra and Polynomial Theory", "kind": "equation"}
+{"nl": "Sum/difference of cubes", "sym": "a³ ± b³ = (a ± b)(a² ∓ ab + b²)", "domain": "mathematics", "topic": "Algebra and Polynomial Theory", "kind": "equation"}
+{"nl": "Rational root theorem", "sym": "If p/q is a rational root of a_n x^n + ... + a_0 (in lowest terms), then p | a_0 and q | a_n.", "domain": "mathematics", "topic": "Algebra and Polynomial Theory", "kind": "equation"}
+{"nl": "discriminant: For ax² + bx + c, the discriminant is ; its sign determines the nature of the roots.", "sym": "Δ = b² - 4ac", "domain": "mathematics", "topic": "Algebra and Polynomial Theory", "kind": "glossary"}
+{"nl": "complex number: A number of the form a + bi where a, b ∈ ℝ and .", "sym": "i = √(-1)", "domain": "mathematics", "topic": "Algebra and Polynomial Theory", "kind": "glossary"}
+{"nl": "Pythagorean theorem", "sym": "a² + b² = c² for right triangle with legs a, b and hypotenuse c.", "domain": "mathematics", "topic": "Geometry and Trigonometry", "kind": "equation"}
+{"nl": "Law of cosines", "sym": "c² = a² + b² - 2ab cos C", "domain": "mathematics", "topic": "Geometry and Trigonometry", "kind": "equation"}
+{"nl": "Law of sines", "sym": "a/sin A = b/sin B = c/sin C = 2R (R = circumradius)", "domain": "mathematics", "topic": "Geometry and Trigonometry", "kind": "equation"}
+{"nl": "Area of triangle", "sym": "A = (1/2)ab sin C = √(s(s-a)(s-b)(s-c)) (Heron's formula, s = (a+b+c)/2)", "domain": "mathematics", "topic": "Geometry and Trigonometry", "kind": "equation"}
+{"nl": "Fundamental Pythagorean identity", "sym": "sin²θ + cos²θ = 1", "domain": "mathematics", "topic": "Geometry and Trigonometry", "kind": "equation"}
+{"nl": "Double angle formulas", "sym": "sin 2θ = 2 sin θ cos θ; cos 2θ = cos²θ - sin²θ = 1 - 2sin²θ", "domain": "mathematics", "topic": "Geometry and Trigonometry", "kind": "equation"}
+{"nl": "Area and circumference of circle", "sym": "A = πr²; C = 2πr", "domain": "mathematics", "topic": "Geometry and Trigonometry", "kind": "equation"}
+{"nl": "Change of base formula", "sym": "log_b(x) = ln(x)/ln(b)", "domain": "mathematics", "topic": "Precalculus and Functions", "kind": "equation"}
+{"nl": "Sum of geometric series", "sym": "S_n = a(1 - r^n)/(1 - r); infinite sum S = a/(1-r) for |r| < 1", "domain": "mathematics", "topic": "Precalculus and Functions", "kind": "equation"}
+{"nl": "Sum of arithmetic series", "sym": "S_n = n(a_1 + a_n)/2 = n(2a_1 + (n-1)d)/2", "domain": "mathematics", "topic": "Precalculus and Functions", "kind": "equation"}
+{"nl": "Euler's formula", "sym": "e^(iθ) = cos θ + i sin θ", "domain": "mathematics", "topic": "Precalculus and Functions", "kind": "equation"}
+{"nl": "Standard conic forms", "sym": "Ellipse: x²/a² + y²/b² = 1; Hyperbola: x²/a² - y²/b² = 1; Parabola: y = ax²", "domain": "mathematics", "topic": "Precalculus and Functions", "kind": "equation"}
+{"nl": "Composition of inverses", "sym": "(f ∘ f⁻¹)(x) = x = (f⁻¹ ∘ f)(x) whenever defined", "domain": "mathematics", "topic": "Precalculus and Functions", "kind": "equation"}
+{"nl": "De Moivre's theorem", "sym": "(cos θ + i sin θ)^n = cos(nθ) + i sin(nθ)", "domain": "mathematics", "topic": "Precalculus and Functions", "kind": "equation"}
+{"nl": "arithmetic sequence: A sequence with a constant difference d between consecutive terms: .", "sym": "a_n = a_1 + (n-1)d", "domain": "mathematics", "topic": "Precalculus and Functions", "kind": "glossary"}
+{"nl": "geometric sequence: A sequence with a constant ratio r between consecutive terms: .", "sym": "a_n = a_1 · r^(n-1)", "domain": "mathematics", "topic": "Precalculus and Functions", "kind": "glossary"}
+{"nl": "Fundamental theorem of calculus (Part 1)", "sym": "If F(x) = ∫_a^x f(t) dt, then F'(x) = f(x) wherever f is continuous.", "domain": "mathematics", "topic": "Single-Variable Calculus", "kind": "equation"}
+{"nl": "Fundamental theorem of calculus (Part 2)", "sym": "∫_a^b f(x) dx = F(b) - F(a) where F is any antiderivative of f.", "domain": "mathematics", "topic": "Single-Variable Calculus", "kind": "equation"}
+{"nl": "Mean value theorem", "sym": "If f is continuous on [a,b] and differentiable on (a,b), then there exists c ∈ (a,b) with f'(c) = (f(b)-f(a))/(b-a).", "domain": "mathematics", "topic": "Single-Variable Calculus", "kind": "equation"}
+{"nl": "Chain rule", "sym": "(f ∘ g)'(x) = f'(g(x)) · g'(x)", "domain": "mathematics", "topic": "Single-Variable Calculus", "kind": "equation"}
+{"nl": "Product rule", "sym": "(fg)' = f'g + fg'", "domain": "mathematics", "topic": "Single-Variable Calculus", "kind": "equation"}
+{"nl": "Integration by parts", "sym": "∫ u dv = uv - ∫ v du", "domain": "mathematics", "topic": "Single-Variable Calculus", "kind": "equation"}
+{"nl": "Ratio test for series", "sym": "If lim |a_{n+1}/a_n| = L < 1, the series Σ a_n converges absolutely; if L > 1, it diverges.", "domain": "mathematics", "topic": "Single-Variable Calculus", "kind": "equation"}
+{"nl": "Intermediate value theorem", "sym": "If f is continuous on [a,b] and f(a) < k < f(b), then there exists c ∈ (a,b) with f(c) = k.", "domain": "mathematics", "topic": "Single-Variable Calculus", "kind": "equation"}
+{"nl": "Standard Taylor series", "sym": "e^x = Σ x^n/n!; sin x = Σ (-1)^n x^(2n+1)/(2n+1)!; cos x = Σ (-1)^n x^(2n)/(2n)!; 1/(1-x) = Σ x^n for |x|<1", "domain": "mathematics", "topic": "Single-Variable Calculus", "kind": "equation"}
+{"nl": "Riemann integral: ∫_a^b f(x) ; the limit of Riemann sums over partitions P of [a, b].", "sym": "dx = lim_{||P||→0} Σ f(x_i*) Δx_i", "domain": "mathematics", "topic": "Single-Variable Calculus", "kind": "glossary"}
+{"nl": "antiderivative: A function F such that F'(x) = f(x); also called an indefinite integral, written ∫ f(x) .", "sym": "dx = F(x) + C", "domain": "mathematics", "topic": "Single-Variable Calculus", "kind": "glossary"}
+{"nl": "Clairaut's theorem (symmetry of mixed partials)", "sym": "If f_{xy} and f_{yx} are continuous near (a, b), then f_{xy}(a,b) = f_{yx}(a,b).", "domain": "mathematics", "topic": "Multivariable Calculus", "kind": "equation"}
+{"nl": "Lagrange multiplier condition", "sym": "At a constrained extremum of f subject to g = 0: ∇f = λ∇g.", "domain": "mathematics", "topic": "Multivariable Calculus", "kind": "equation"}
+{"nl": "Change of variables formula", "sym": "∫∫_R f(x,y) dA = ∫∫_S f(x(u,v), y(u,v)) |J(u,v)| du dv where J = ∂(x,y)/∂(u,v).", "domain": "mathematics", "topic": "Multivariable Calculus", "kind": "equation"}
+{"nl": "Green's theorem", "sym": "∮_C (P dx + Q dy) = ∬_D (∂Q/∂x - ∂P/∂y) dA (C positively oriented boundary of D).", "domain": "mathematics", "topic": "Multivariable Calculus", "kind": "equation"}
+{"nl": "Stokes' theorem", "sym": "∮_C F · dr = ∬_S (curl F) · dS where C = ∂S.", "domain": "mathematics", "topic": "Multivariable Calculus", "kind": "equation"}
+{"nl": "Divergence theorem (Gauss)", "sym": "∯_S F · dS = ∭_V (div F) dV where S = ∂V.", "domain": "mathematics", "topic": "Multivariable Calculus", "kind": "equation"}
+{"nl": "Chain rule (multivariable)", "sym": "dz/dt = (∂z/∂x)(dx/dt) + (∂z/∂y)(dy/dt)", "domain": "mathematics", "topic": "Multivariable Calculus", "kind": "equation"}
+{"nl": "gradient: ∇; a vector pointing in the direction of steepest ascent of f.", "sym": "f = (∂f/∂x, ∂f/∂y, ∂f/∂z)", "domain": "mathematics", "topic": "Multivariable Calculus", "kind": "glossary"}
+{"nl": "directional derivative: D_u ; the rate of change of f at p in the direction of unit vector u.", "sym": "f(p) = ∇f(p) · u", "domain": "mathematics", "topic": "Multivariable Calculus", "kind": "glossary"}
+{"nl": "curl: curl ; measures the infinitesimal rotation of a vector field at each point.", "sym": "F = ∇ × F", "domain": "mathematics", "topic": "Multivariable Calculus", "kind": "glossary"}
+{"nl": "divergence: div ; measures the net outflow of a vector field per unit volume.", "sym": "F = ∇ · F = ∂F₁/∂x + ∂F₂/∂y + ∂F₃/∂z", "domain": "mathematics", "topic": "Multivariable Calculus", "kind": "glossary"}
+{"nl": "saddle point: A critical point that is neither a local max nor a local min; the second derivative test gives a negative discriminant .", "sym": "D = f_{xx}f_{yy} - f_{xy}²", "domain": "mathematics", "topic": "Multivariable Calculus", "kind": "glossary"}
+{"nl": "Gram-Schmidt process", "sym": "Given basis {v_i}, define orthonormal basis {e_i} by e_k = (v_k - Σ_{j<k} (v_k · e_j)e_j) / ‖...‖.", "domain": "mathematics", "topic": "Linear Algebra", "kind": "equation"}
+{"nl": "Variation of parameters formula", "sym": "y_p = y₁ ∫(-y₂ g/W) dx + y₂ ∫(y₁ g/W) dx where W = Wronskian(y₁, y₂).", "domain": "mathematics", "topic": "Differential Equations", "kind": "equation"}
+{"nl": "Laplace transform of derivative", "sym": "L{y'} = sY(s) - y(0); L{y''} = s²Y(s) - sy(0) - y'(0)", "domain": "mathematics", "topic": "Differential Equations", "kind": "equation"}
+{"nl": "Convolution theorem", "sym": "L{(f * g)(t)} = F(s)G(s); L⁻¹{F(s)G(s)} = ∫_0^t f(τ)g(t-τ) dτ", "domain": "mathematics", "topic": "Differential Equations", "kind": "equation"}
+{"nl": "Heat equation", "sym": "u_t = α² u_{xx}; solved on [0,L] by separation of variables giving u(x,t) = Σ B_n sin(nπx/L) e^(-α²(nπ/L)²t)", "domain": "mathematics", "topic": "Differential Equations", "kind": "equation"}
+{"nl": "Wave equation", "sym": "u_{tt} = c² u_{xx}; D'Alembert solution: u(x,t) = (1/2)[f(x+ct)+f(x-ct)] + (1/2c)∫_{x-ct}^{x+ct} g(s) ds", "domain": "mathematics", "topic": "Differential Equations", "kind": "equation"}
+{"nl": "separable ODE: An ODE of the form dy/dx = f(x)g(y), solvable by separating variables: ∫ dy/.", "sym": "g(y) = ∫ f(x) dx", "domain": "mathematics", "topic": "Differential Equations", "kind": "glossary"}
+{"nl": "integrating factor: A function μ(x) multiplied through a linear ODE dy/dx + P(x)y = Q(x) to make the left side an exact derivative; .", "sym": "μ(x) = e^(∫P dx)", "domain": "mathematics", "topic": "Differential Equations", "kind": "glossary"}
+{"nl": "Wronskian: ; if W ≠ 0 on an interval, y₁ and y₂ are linearly independent solutions.", "sym": "W(y₁, y₂) = y₁y₂' - y₁'y₂", "domain": "mathematics", "topic": "Differential Equations", "kind": "glossary"}
+{"nl": "Laplace transform: L{f(t)} = ; transforms a differential equation into an algebraic equation in s.", "sym": "F(s) = ∫_0^∞ e^(-st) f(t) dt", "domain": "mathematics", "topic": "Differential Equations", "kind": "glossary"}
+{"nl": "Bayes' theorem", "sym": "P(A|B) = P(B|A)P(A)/P(B) = P(B|A)P(A) / [P(B|A)P(A) + P(B|Aᶜ)P(Aᶜ)]", "domain": "mathematics", "topic": "Probability and Combinatorics", "kind": "equation"}
+{"nl": "Law of total probability", "sym": "P(B) = Σ_i P(B|A_i)P(A_i) for any partition {A_i} of Ω.", "domain": "mathematics", "topic": "Probability and Combinatorics", "kind": "equation"}
+{"nl": "Binomial distribution", "sym": "P(X=k) = C(n,k) p^k (1-p)^(n-k); E[X]=np; Var(X)=np(1-p)", "domain": "mathematics", "topic": "Probability and Combinatorics", "kind": "equation"}
+{"nl": "Poisson distribution", "sym": "P(X=k) = e^(-λ)λ^k/k!; E[X]=Var(X)=λ; arises as limit of Binomial as n→∞, p→0, np→λ.", "domain": "mathematics", "topic": "Probability and Combinatorics", "kind": "equation"}
+{"nl": "Normal distribution", "sym": "f(x) = (1/σ√(2π)) exp(-(x-μ)²/(2σ²)); E[X]=μ, Var(X)=σ²", "domain": "mathematics", "topic": "Probability and Combinatorics", "kind": "equation"}
+{"nl": "Central limit theorem", "sym": "If X₁,...,X_n are i.i.d. with mean μ and variance σ², then (X̄_n - μ)/(σ/√n) → N(0,1) in distribution as n → ∞.", "domain": "mathematics", "topic": "Probability and Combinatorics", "kind": "equation"}
+{"nl": "Law of large numbers (strong)", "sym": "If X₁, X₂,... are i.i.d. with E[X₁] = μ, then X̄_n = (X₁+...+X_n)/n → μ almost surely.", "domain": "mathematics", "topic": "Probability and Combinatorics", "kind": "equation"}
+{"nl": "Inclusion-exclusion principle", "sym": "|A₁ ∪ ... ∪ A_n| = Σ|A_i| - Σ|A_i ∩ A_j| + Σ|A_i ∩ A_j ∩ A_k| - ... ± |A₁∩...∩A_n|", "domain": "mathematics", "topic": "Probability and Combinatorics", "kind": "equation"}
+{"nl": "conditional probability: ; the probability of A given that B has occurred.", "sym": "P(A|B) = P(A ∩ B)/P(B) for P(B) > 0", "domain": "mathematics", "topic": "Probability and Combinatorics", "kind": "glossary"}
+{"nl": "expected value: E[X] = Σ x P(; the probability-weighted average value.", "sym": "X=x) (discrete) or ∫ x f(x) dx (continuous)", "domain": "mathematics", "topic": "Probability and Combinatorics", "kind": "glossary"}
+{"nl": "variance: ; measures spread around the mean.", "sym": "Var(X) = E[(X - μ)²] = E[X²] - (E[X])²", "domain": "mathematics", "topic": "Probability and Combinatorics", "kind": "glossary"}
+{"nl": "moment generating function: ; its k-th derivative at .", "sym": "M_X(t) = E[e^{tX}]", "domain": "mathematics", "topic": "Probability and Combinatorics", "kind": "glossary"}
+{"nl": "moment generating function: ; its k-th derivative at .", "sym": "t=0 equals the k-th moment E[X^k]", "domain": "mathematics", "topic": "Probability and Combinatorics", "kind": "glossary"}
+{"nl": "Z-test statistic", "sym": "z = (X̄ - μ₀) / (σ/√n); used when population σ is known.", "domain": "mathematics", "topic": "Statistics", "kind": "equation"}
+{"nl": "t-test statistic (one sample)", "sym": "t = (X̄ - μ₀) / (s/√n); follows t-distribution with n-1 degrees of freedom.", "domain": "mathematics", "topic": "Statistics", "kind": "equation"}
+{"nl": "Chi-square goodness-of-fit statistic", "sym": "χ² = Σ (O_i - E_i)² / E_i; follows χ²(k-1) distribution under H₀.", "domain": "mathematics", "topic": "Statistics", "kind": "equation"}
+{"nl": "Least-squares regression line", "sym": "ŷ = ȳ + r(s_y/s_x)(x - x̄); minimizes Σ(y_i - ŷ_i)².", "domain": "mathematics", "topic": "Statistics", "kind": "equation"}
+{"nl": "95% confidence interval for mean", "sym": "X̄ ± t*(s/√n) where t* is the critical value for t_{n-1} at 95%.", "domain": "mathematics", "topic": "Statistics", "kind": "equation"}
+{"nl": "Chebyshev's inequality", "sym": "P(|X - μ| ≥ kσ) ≤ 1/k² for any k > 0; distribution-free bound.", "domain": "mathematics", "topic": "Statistics", "kind": "equation"}
+{"nl": "standard error: The standard deviation of the sampling distribution of a statistic; for the sample mean, .", "sym": "SE = σ/√n", "domain": "mathematics", "topic": "Statistics", "kind": "glossary"}
+{"nl": "Type II error (β): Failing to reject H₀ when it is false; .", "sym": "power = 1 - β", "domain": "mathematics", "topic": "Statistics", "kind": "glossary"}
+{"nl": "correlation coefficient (r): ; ranges from -1 to 1; measures the linear association between two variables.", "sym": "r = Cov(X,Y)/(σ_X σ_Y)", "domain": "mathematics", "topic": "Statistics", "kind": "glossary"}
+{"nl": "regression coefficient: In ŷ = a + bx, the slope .", "sym": "b = r · (s_y/s_x) = Σ(x_i - x̄)(y_i - ȳ) / Σ(x_i - x̄)²", "domain": "mathematics", "topic": "Statistics", "kind": "glossary"}
+{"nl": "Corollary: order of elements divides group order", "sym": "The order of any element g ∈ G divides |G|; in particular, g^|G| = e.", "domain": "mathematics", "topic": "Abstract Algebra — Group Theory", "kind": "equation"}
+{"nl": "First isomorphism theorem", "sym": "If φ: G → H is a group homomorphism, then G/ker φ ≅ im φ.", "domain": "mathematics", "topic": "Abstract Algebra — Group Theory", "kind": "equation"}
+{"nl": "Second isomorphism theorem", "sym": "If H ≤ G and N ⊴ G, then H/(H ∩ N) ≅ HN/N.", "domain": "mathematics", "topic": "Abstract Algebra — Group Theory", "kind": "equation"}
+{"nl": "Third isomorphism theorem", "sym": "If N ⊴ K ⊴ G and N ⊴ G, then (G/N)/(K/N) ≅ G/K.", "domain": "mathematics", "topic": "Abstract Algebra — Group Theory", "kind": "equation"}
+{"nl": "Sylow's first theorem", "sym": "If p^k divides |G|, then G has a subgroup of order p^k.", "domain": "mathematics", "topic": "Abstract Algebra — Group Theory", "kind": "equation"}
+{"nl": "Sylow's second theorem", "sym": "Any two Sylow p-subgroups of G are conjugate.", "domain": "mathematics", "topic": "Abstract Algebra — Group Theory", "kind": "equation"}
+{"nl": "Sylow's third theorem", "sym": "The number n_p of Sylow p-subgroups satisfies n_p ≡ 1 (mod p) and n_p divides |G|/p^k.", "domain": "mathematics", "topic": "Abstract Algebra — Group Theory", "kind": "equation"}
+{"nl": "First isomorphism theorem for rings", "sym": "If φ: R → S is a ring homomorphism, then R/ker φ ≅ im φ.", "domain": "mathematics", "topic": "Abstract Algebra — Rings and Fields", "kind": "equation"}
+{"nl": "Tower law for field extensions", "sym": "[E:F] = [E:K][K:F] for fields F ⊆ K ⊆ E.", "domain": "mathematics", "topic": "Abstract Algebra — Rings and Fields", "kind": "equation"}
+{"nl": "Characterization of simple extensions", "sym": "F(α) ≅ F[x]/(m_α(x)) where m_α is the minimal polynomial of α; [F(α):F] = deg m_α.", "domain": "mathematics", "topic": "Abstract Algebra — Rings and Fields", "kind": "equation"}
+{"nl": "Intermediate value theorem (analysis form)", "sym": "If f: [a,b] → ℝ is continuous and f(a) < 0 < f(b), then there exists c ∈ (a,b) with f(c) = 0.", "domain": "mathematics", "topic": "Real Analysis", "kind": "equation"}
+{"nl": "Lebesgue dominated convergence theorem", "sym": "If f_n → f a.e. and |f_n| ≤ g with g integrable, then ∫ f_n → ∫ f.", "domain": "mathematics", "topic": "Real Analysis", "kind": "equation"}
+{"nl": "Monotone convergence theorem", "sym": "If 0 ≤ f_n ↑ f a.e., then ∫ f_n → ∫ f (possibly ∞).", "domain": "mathematics", "topic": "Real Analysis", "kind": "equation"}
+{"nl": "Fatou's lemma", "sym": "For nonneg. measurable f_n: ∫ liminf f_n ≤ liminf ∫ f_n.", "domain": "mathematics", "topic": "Real Analysis", "kind": "equation"}
+{"nl": "Hölder's inequality", "sym": "∫|fg| dμ ≤ ‖f‖_p ‖g‖_q for 1/p + 1/q = 1 (conjugate exponents).", "domain": "mathematics", "topic": "Real Analysis", "kind": "equation"}
+{"nl": "Fubini's theorem", "sym": "For integrable f on a product measure space: ∫∫ f(x,y) d(μ×ν) = ∫(∫ f(x,y) dν) dμ = ∫(∫ f(x,y) dμ) dν.", "domain": "mathematics", "topic": "Real Analysis", "kind": "equation"}
+{"nl": "L^p space: L^p(μ) = {f measurable : ∫|f|^p dμ < ∞} with norm ‖f‖; a Banach space for 1 ≤ p ≤ ∞.", "sym": "_p = (∫|f|^p dμ)^(1/p)", "domain": "mathematics", "topic": "Real Analysis", "kind": "glossary"}
+{"nl": "Cauchy's integral formula", "sym": "f^(n)(z₀) = (n!)/(2πi) ∮_γ f(z)/(z - z₀)^(n+1) dz for n = 0, 1, 2,...", "domain": "mathematics", "topic": "Complex Analysis", "kind": "equation"}
+{"nl": "Laurent series", "sym": "On an annulus r < |z - z₀| < R: f(z) = Σ_{n=-∞}^{∞} a_n (z - z₀)^n where a_n = (1/2πi) ∮ f(z)/(z-z₀)^(n+1) dz.", "domain": "mathematics", "topic": "Complex Analysis", "kind": "equation"}
+{"nl": "Cauchy-Riemann equations: For : ∂u/∂; necessary and (with continuous partials) sufficient for holomorphicity.", "sym": "f = u + iv", "domain": "mathematics", "topic": "Complex Analysis", "kind": "glossary"}
+{"nl": "Cauchy-Riemann equations: For : ∂u/∂; necessary and (with continuous partials) sufficient for holomorphicity.", "sym": "x = ∂v/∂y and ∂u/∂y = -∂v/∂x", "domain": "mathematics", "topic": "Complex Analysis", "kind": "glossary"}
+{"nl": "contour integral: ∫_γ f(z) : [a,b] → ℂ.", "sym": "dz = ∫_a^b f(γ(t))γ'(t) dt for a parameterized curve γ", "domain": "mathematics", "topic": "Complex Analysis", "kind": "glossary"}
+{"nl": "residue: Res(f, z₀) = a₋₁, the coefficient of (z - z₀)⁻¹ in the Laurent expansion of f at z₀; for a simple pole: .", "sym": "Res(f, z₀) = lim_{z→z₀} (z-z₀)f(z)", "domain": "mathematics", "topic": "Complex Analysis", "kind": "glossary"}
+{"nl": "Euler's theorem", "sym": "If gcd(a,n) = 1, then a^{φ(n)} ≡ 1 (mod n); generalizes Fermat's little theorem.", "domain": "mathematics", "topic": "Number Theory", "kind": "equation"}
+{"nl": "Wilson's theorem", "sym": "(p-1)! ≡ -1 (mod p) if and only if p is prime.", "domain": "mathematics", "topic": "Number Theory", "kind": "equation"}
+{"nl": "Möbius inversion formula", "sym": "If f(n) = Σ_{d|n} g(d), then g(n) = Σ_{d|n} μ(n/d) f(d).", "domain": "mathematics", "topic": "Number Theory", "kind": "equation"}
+{"nl": "Euler's totient function φ(n): The count of integers in {1,...,n} coprime to n; .", "sym": "φ(n) = n ∏_{p|n} (1 - 1/p)", "domain": "mathematics", "topic": "Number Theory", "kind": "glossary"}
+{"nl": "primitive root (mod n): An integer g whose powers g¹, g², ..., g^{φ(n)} generate all units mod n; exists iff .", "sym": "n = 1, 2, 4, p^k, or 2p^k for odd prime p", "domain": "mathematics", "topic": "Number Theory", "kind": "glossary"}
+{"nl": "Möbius function μ(n): μ(1)=1; ; μ(n)=0 if n has a squared prime factor.", "sym": "μ(n)=(-1)^k if n is a product of k distinct primes", "domain": "mathematics", "topic": "Number Theory", "kind": "glossary"}
+{"nl": "Gaussian integer: A complex number a + bi with a, b ∈ ℤ; forms a UFD Z[i] in which the Euclidean algorithm applies with norm .", "sym": "N(a+bi) = a²+b²", "domain": "mathematics", "topic": "Number Theory", "kind": "glossary"}
+{"nl": "Strong induction", "sym": "If [P(1) ∧ ... ∧ P(k) ⟹ P(k+1)] for all k, then P(n) holds for all n.", "domain": "mathematics", "topic": "Discrete Mathematics and Combinatorics", "kind": "equation"}
+{"nl": "Inclusion-exclusion (combinatorial)", "sym": "|A₁ ∪...∪ A_n| = Σ|A_i| - Σ|A_i∩A_j| + ... ± |A₁∩...∩A_n|", "domain": "mathematics", "topic": "Discrete Mathematics and Combinatorics", "kind": "equation"}
+{"nl": "generating function: A formal power series ; used to solve recurrences and count combinatorial structures.", "sym": "f(x) = Σ a_n x^n encoding the sequence (a_n)", "domain": "mathematics", "topic": "Discrete Mathematics and Combinatorics", "kind": "glossary"}
+{"nl": "derangement: A permutation with no fixed points; the number of derangements .", "sym": "D_n = n! Σ_{k=0}^{n} (-1)^k/k! ≈ n!/e", "domain": "mathematics", "topic": "Discrete Mathematics and Combinatorics", "kind": "glossary"}
+{"nl": "Catalan number: ; counts many combinatorial structures including valid parenthesizations, binary trees, and Dyck paths.", "sym": "C_n = (1/(n+1))C(2n,n)", "domain": "mathematics", "topic": "Discrete Mathematics and Combinatorics", "kind": "glossary"}
+{"nl": "Urysohn metrization theorem", "sym": "Every second-countable T₃ (regular Hausdorff) space is metrizable.", "domain": "mathematics", "topic": "Topology", "kind": "equation"}
+{"nl": "kinematic equation (constant acceleration)", "sym": "v = v_0 + a*t", "domain": "physics", "topic": "Classical Mechanics", "kind": "equation"}
+{"nl": "kinematic equation (displacement)", "sym": "x = x_0 + v_0*t + (1/2)*a*t^2", "domain": "physics", "topic": "Classical Mechanics", "kind": "equation"}
+{"nl": "kinematic equation (velocity-displacement)", "sym": "v^2 = v_0^2 + 2*a*(x - x_0)", "domain": "physics", "topic": "Classical Mechanics", "kind": "equation"}
+{"nl": "Newton's second law", "sym": "F_net = m * a", "domain": "physics", "topic": "Classical Mechanics", "kind": "equation"}
+{"nl": "Newton's law of gravitation", "sym": "F = G * m_1 * m_2 / r^2", "domain": "physics", "topic": "Classical Mechanics", "kind": "equation"}
+{"nl": "work done by a force", "sym": "W = integral(F · dr)", "domain": "physics", "topic": "Classical Mechanics", "kind": "equation"}
+{"nl": "kinetic energy", "sym": "KE = (1/2) * m * v^2", "domain": "physics", "topic": "Classical Mechanics", "kind": "equation"}
+{"nl": "gravitational potential energy", "sym": "U = m * g * h", "domain": "physics", "topic": "Classical Mechanics", "kind": "equation"}
+{"nl": "work-energy theorem", "sym": "W_net = delta(KE)", "domain": "physics", "topic": "Classical Mechanics", "kind": "equation"}
+{"nl": "conservation of mechanical energy", "sym": "KE + U = constant (no non-conservative forces)", "domain": "physics", "topic": "Classical Mechanics", "kind": "equation"}
+{"nl": "angular momentum", "sym": "L = I * omega = r × p", "domain": "physics", "topic": "Classical Mechanics", "kind": "equation"}
+{"nl": "torque-angular momentum relation", "sym": "tau_net = dL/dt = I * alpha", "domain": "physics", "topic": "Classical Mechanics", "kind": "equation"}
+{"nl": "rotational kinetic energy", "sym": "KE_rot = (1/2) * I * omega^2", "domain": "physics", "topic": "Classical Mechanics", "kind": "equation"}
+{"nl": "simple harmonic oscillator frequency", "sym": "omega = sqrt(k/m),  T = 2*pi*sqrt(m/k)", "domain": "physics", "topic": "Classical Mechanics", "kind": "equation"}
+{"nl": "Bernoulli equation", "sym": "P + (1/2)*rho*v^2 + rho*g*h = constant", "domain": "physics", "topic": "Classical Mechanics", "kind": "equation"}
+{"nl": "continuity equation (fluids)", "sym": "A_1 * v_1 = A_2 * v_2", "domain": "physics", "topic": "Classical Mechanics", "kind": "equation"}
+{"nl": "force: A push or pull that changes an object's motion; the cause of acceleration via Newton's second law, . A vector (magnitude + direction), measured in newtons.", "sym": "F_net = m*a", "domain": "physics", "topic": "Classical Mechanics", "kind": "glossary"}
+{"nl": "torque: The rotational analog of force, defined as the cross product of the position vector and the applied force: .", "sym": "τ = r × F", "domain": "physics", "topic": "Classical Mechanics", "kind": "glossary"}
+{"nl": "moment of inertia: The rotational analog of mass; measures a body's resistance to angular acceleration: .", "sym": "I = sum(m_i * r_i^2)", "domain": "physics", "topic": "Classical Mechanics", "kind": "glossary"}
+{"nl": "angular momentum: The rotational analog of linear momentum: ; conserved when net torque is zero.", "sym": "L = I * ω = r × p", "domain": "physics", "topic": "Classical Mechanics", "kind": "glossary"}
+{"nl": "escape velocity: The minimum speed required for an object to escape a gravitational field without further propulsion: .", "sym": "v_esc = sqrt(2GM/r)", "domain": "physics", "topic": "Classical Mechanics", "kind": "glossary"}
+{"nl": "principle of stationary action", "sym": "delta S = delta integral(L dt) = 0", "domain": "physics", "topic": "Analytical Mechanics (Lagrangian and Hamiltonian)", "kind": "equation"}
+{"nl": "Euler-Lagrange equation", "sym": "d/dt(∂L/∂q̇_i) - ∂L/∂q_i = 0", "domain": "physics", "topic": "Analytical Mechanics (Lagrangian and Hamiltonian)", "kind": "equation"}
+{"nl": "definition of conjugate momentum", "sym": "p_i = ∂L/∂q̇_i", "domain": "physics", "topic": "Analytical Mechanics (Lagrangian and Hamiltonian)", "kind": "equation"}
+{"nl": "Hamiltonian (Legendre transform)", "sym": "H(q,p,t) = sum_i(p_i * q̇_i) - L(q,q̇,t)", "domain": "physics", "topic": "Analytical Mechanics (Lagrangian and Hamiltonian)", "kind": "equation"}
+{"nl": "Hamilton's equations", "sym": "dq_i/dt = ∂H/∂p_i,   dp_i/dt = -∂H/∂q_i", "domain": "physics", "topic": "Analytical Mechanics (Lagrangian and Hamiltonian)", "kind": "equation"}
+{"nl": "time evolution of observable (Hamiltonian)", "sym": "df/dt = {f,H} + ∂f/∂t", "domain": "physics", "topic": "Analytical Mechanics (Lagrangian and Hamiltonian)", "kind": "equation"}
+{"nl": "Poisson bracket definition", "sym": "{f,g} = sum_i(∂f/∂q_i * ∂g/∂p_i - ∂f/∂p_i * ∂g/∂q_i)", "domain": "physics", "topic": "Analytical Mechanics (Lagrangian and Hamiltonian)", "kind": "equation"}
+{"nl": "fundamental Poisson brackets", "sym": "{q_i, p_j} = delta_ij,  {q_i,q_j} = 0,  {p_i,p_j} = 0", "domain": "physics", "topic": "Analytical Mechanics (Lagrangian and Hamiltonian)", "kind": "equation"}
+{"nl": "Hamilton-Jacobi equation", "sym": "∂S/∂t + H(q, ∂S/∂q, t) = 0", "domain": "physics", "topic": "Analytical Mechanics (Lagrangian and Hamiltonian)", "kind": "equation"}
+{"nl": "action variable", "sym": "J_i = (1/(2*pi)) * ∮ p_i dq_i", "domain": "physics", "topic": "Analytical Mechanics (Lagrangian and Hamiltonian)", "kind": "equation"}
+{"nl": "Noether's theorem", "sym": "Continuous symmetry of L → conserved Noether charge Q = sum_i(∂L/∂q̇_i * δq_i)", "domain": "physics", "topic": "Analytical Mechanics (Lagrangian and Hamiltonian)", "kind": "equation"}
+{"nl": "cyclic coordinate: A generalized coordinate q_i that does not appear explicitly in L (only q̇_i does), implying its conjugate momentum .", "sym": "p_i = ∂L/∂q̇_i is conserved", "domain": "physics", "topic": "Analytical Mechanics (Lagrangian and Hamiltonian)", "kind": "glossary"}
+{"nl": "Coulomb's law", "sym": "F = (1/(4*pi*epsilon_0)) * q_1*q_2/r^2  (r̂ direction)", "domain": "physics", "topic": "Electromagnetism", "kind": "equation"}
+{"nl": "Gauss's law (integral)", "sym": "∮ E · dA = Q_enc / epsilon_0", "domain": "physics", "topic": "Electromagnetism", "kind": "equation"}
+{"nl": "Gauss's law for magnetism", "sym": "∮ B · dA = 0", "domain": "physics", "topic": "Electromagnetism", "kind": "equation"}
+{"nl": "Faraday's law (integral)", "sym": "∮ E · dl = -d/dt ∫∫ B · dA", "domain": "physics", "topic": "Electromagnetism", "kind": "equation"}
+{"nl": "Ampère-Maxwell law (integral)", "sym": "∮ B · dl = mu_0 * (I_enc + epsilon_0 * d/dt ∫∫ E · dA)", "domain": "physics", "topic": "Electromagnetism", "kind": "equation"}
+{"nl": "Maxwell's equations (differential form)", "sym": "∇·E = rho/epsilon_0;  ∇·B = 0;  ∇×E = -∂B/∂t;  ∇×B = mu_0*(J + epsilon_0*∂E/∂t)", "domain": "physics", "topic": "Electromagnetism", "kind": "equation"}
+{"nl": "Biot-Savart law", "sym": "dB = (mu_0/(4*pi)) * I*(dl × r̂)/r^2", "domain": "physics", "topic": "Electromagnetism", "kind": "equation"}
+{"nl": "Lorentz force", "sym": "F = q*(E + v × B)", "domain": "physics", "topic": "Electromagnetism", "kind": "equation"}
+{"nl": "speed of light", "sym": "c = 1/sqrt(epsilon_0 * mu_0) = 2.998e8 m/s", "domain": "physics", "topic": "Electromagnetism", "kind": "equation"}
+{"nl": "Poynting vector", "sym": "S = (1/mu_0) * E × B", "domain": "physics", "topic": "Electromagnetism", "kind": "equation"}
+{"nl": "energy density (EM field)", "sym": "u = (1/2)*(epsilon_0*E^2 + B^2/mu_0)", "domain": "physics", "topic": "Electromagnetism", "kind": "equation"}
+{"nl": "wave equation for E", "sym": "∇^2 E - (1/c^2) * ∂^2 E/∂t^2 = 0", "domain": "physics", "topic": "Electromagnetism", "kind": "equation"}
+{"nl": "Larmor radiation formula", "sym": "P = (q^2 * a^2) / (6*pi*epsilon_0*c^3)", "domain": "physics", "topic": "Electromagnetism", "kind": "equation"}
+{"nl": "dipole approximation radiation power", "sym": "P = (mu_0 / (6*pi*c)) * |d̈|^2", "domain": "physics", "topic": "Electromagnetism", "kind": "equation"}
+{"nl": "radiation from accelerating charges: An accelerating electric charge emits electromagnetic radiation; for non-relativistic motion the radiated power is the Larmor formula . Basis of antennas, synchrot", "sym": "P = q^2 a^2 / (6*pi*epsilon_0*c^3)", "domain": "physics", "topic": "Electromagnetism", "kind": "glossary"}
+{"nl": "electric potential: A scalar field V(r) such that ; the work done per unit charge moving from infinity to the point r.", "sym": "E = -∇V", "domain": "physics", "topic": "Electromagnetism", "kind": "glossary"}
+{"nl": "Gauss's law: The total electric flux through a closed surface equals the enclosed charge divided by ε_0: ∮ E · .", "sym": "dA = Q_enc/ε_0", "domain": "physics", "topic": "Electromagnetism", "kind": "glossary"}
+{"nl": "Faraday's law: A time-varying magnetic flux through a loop induces an EMF equal to minus the rate of change of flux: .", "sym": "EMF = -dΦ_B/dt", "domain": "physics", "topic": "Electromagnetism", "kind": "glossary"}
+{"nl": "displacement current: Maxwell's addition to Ampère's law: ; ensures charge conservation and predicts electromagnetic wave propagation in vacuum.", "sym": "J_d = ε_0 ∂E/∂t", "domain": "physics", "topic": "Electromagnetism", "kind": "glossary"}
+{"nl": "Poynting vector: ; represents the directional energy flux density of an electromagnetic field (power per unit area).", "sym": "S = (1/μ_0) * E × B", "domain": "physics", "topic": "Electromagnetism", "kind": "glossary"}
+{"nl": "electromagnetic wave: A self-sustaining oscillation of coupled E and B fields propagating at speed ; E and B are perpendicular to each other and to the direction of propagation.", "sym": "c = 1/sqrt(ε_0 μ_0) in vacuum", "domain": "physics", "topic": "Electromagnetism", "kind": "glossary"}
+{"nl": "magnetic vector potential: A vector field A such that ; used with scalar potential φ to encode the full EM field in Lagrangian/quantum treatments.", "sym": "B = ∇ × A", "domain": "physics", "topic": "Electromagnetism", "kind": "glossary"}
+{"nl": "time-dependent Schrödinger equation", "sym": "iℏ * ∂ψ/∂t = Ĥψ = (-ℏ^2/(2m) ∇^2 + V)ψ", "domain": "physics", "topic": "Quantum Mechanics", "kind": "equation"}
+{"nl": "time-independent Schrödinger equation", "sym": "Ĥψ = Eψ  →  (-ℏ^2/(2m) ∇^2 + V(r))ψ(r) = E*ψ(r)", "domain": "physics", "topic": "Quantum Mechanics", "kind": "equation"}
+{"nl": "canonical commutation relation", "sym": "[x̂_i, p̂_j] = iℏ*delta_ij", "domain": "physics", "topic": "Quantum Mechanics", "kind": "equation"}
+{"nl": "generalized uncertainty principle", "sym": "sigma_A * sigma_B >= (1/2)|<[Â,B̂]>|", "domain": "physics", "topic": "Quantum Mechanics", "kind": "equation"}
+{"nl": "position-momentum uncertainty", "sym": "sigma_x * sigma_p >= ℏ/2", "domain": "physics", "topic": "Quantum Mechanics", "kind": "equation"}
+{"nl": "harmonic oscillator energy levels", "sym": "E_n = ℏω(n + 1/2),  n = 0,1,2,...", "domain": "physics", "topic": "Quantum Mechanics", "kind": "equation"}
+{"nl": "ladder operator algebra", "sym": "[â, â†] = 1;  â†|n> = sqrt(n+1)|n+1>;  â|n> = sqrt(n)|n-1>", "domain": "physics", "topic": "Quantum Mechanics", "kind": "equation"}
+{"nl": "angular momentum commutators", "sym": "[L_i, L_j] = iℏ * ε_ijk * L_k;  [L^2, L_i] = 0", "domain": "physics", "topic": "Quantum Mechanics", "kind": "equation"}
+{"nl": "angular momentum eigenvalues", "sym": "L^2|l,m> = ℏ^2*l(l+1)|l,m>;  L_z|l,m> = ℏ*m|l,m>;  l=0,1,2,...;  m=-l,...,+l", "domain": "physics", "topic": "Quantum Mechanics", "kind": "equation"}
+{"nl": "hydrogen atom energy levels", "sym": "E_n = -13.6 eV / n^2 = -m_e*e^4 / (2ℏ^2*(4πε_0)^2*n^2)", "domain": "physics", "topic": "Quantum Mechanics", "kind": "equation"}
+{"nl": "Pauli matrices", "sym": "σ_x=[[0,1],[1,0]]; σ_y=[[0,-i],[i,0]]; σ_z=[[1,0],[0,-1]]", "domain": "physics", "topic": "Quantum Mechanics", "kind": "equation"}
+{"nl": "first-order energy correction (perturbation theory)", "sym": "E_n^(1) = <n^(0)|H'|n^(0)>", "domain": "physics", "topic": "Quantum Mechanics", "kind": "equation"}
+{"nl": "first-order state correction (perturbation theory)", "sym": "|n^(1)> = sum_{m≠n} <m^(0)|H'|n^(0)>/(E_n^(0)-E_m^(0)) * |m^(0)>", "domain": "physics", "topic": "Quantum Mechanics", "kind": "equation"}
+{"nl": "Fermi's golden rule", "sym": "Gamma_{i→f} = (2π/ℏ) * |<f|H'|i>|^2 * rho(E_f)", "domain": "physics", "topic": "Quantum Mechanics", "kind": "equation"}
+{"nl": "Born approximation (scattering amplitude)", "sym": "f(θ) = -(m/(2πℏ^2)) * ∫ V(r') * exp(-i*q·r') d^3r'  where q = k_f - k_i", "domain": "physics", "topic": "Quantum Mechanics", "kind": "equation"}
+{"nl": "optical theorem", "sym": "sigma_total = (4π/k) * Im[f(θ=0)]", "domain": "physics", "topic": "Quantum Mechanics", "kind": "equation"}
+{"nl": "Pauli matrices: Three 2×2 Hermitian matrices σ_x, σ_y, σ_z representing the spin-1/2 operators (up to ℏ/2); satisfy σ_i .", "sym": "σ_j = δ_ij I + i ε_ijk σ_k", "domain": "physics", "topic": "Quantum Mechanics", "kind": "glossary"}
+{"nl": "Fermi's golden rule: The transition rate from state |i> to states |f> under perturbation H' is ; valid to first-order time-dependent perturbation theory.", "sym": "Γ = (2π/ℏ)|<f|H'|i>|^2 * ρ(E_f)", "domain": "physics", "topic": "Quantum Mechanics", "kind": "glossary"}
+{"nl": "Boltzmann entropy", "sym": "S = k_B * ln(Omega)", "domain": "physics", "topic": "Statistical Mechanics and Thermodynamics", "kind": "equation"}
+{"nl": "canonical partition function", "sym": "Z = sum_i exp(-E_i / (k_B*T))", "domain": "physics", "topic": "Statistical Mechanics and Thermodynamics", "kind": "equation"}
+{"nl": "Helmholtz free energy from Z", "sym": "F = -k_B*T * ln(Z)", "domain": "physics", "topic": "Statistical Mechanics and Thermodynamics", "kind": "equation"}
+{"nl": "thermodynamic relations from F", "sym": "S = -(∂F/∂T)_V;  P = -(∂F/∂V)_T;  U = F + T*S", "domain": "physics", "topic": "Statistical Mechanics and Thermodynamics", "kind": "equation"}
+{"nl": "Gibbs free energy", "sym": "G = U + P*V - T*S = F + P*V", "domain": "physics", "topic": "Statistical Mechanics and Thermodynamics", "kind": "equation"}
+{"nl": "Maxwell relations (from F)", "sym": "(∂S/∂V)_T = (∂P/∂T)_V", "domain": "physics", "topic": "Statistical Mechanics and Thermodynamics", "kind": "equation"}
+{"nl": "grand partition function", "sym": "Z_G = sum_{N,i} exp(-beta*(E_{N,i} - mu*N))", "domain": "physics", "topic": "Statistical Mechanics and Thermodynamics", "kind": "equation"}
+{"nl": "Fermi-Dirac distribution", "sym": "f_FD(epsilon) = 1 / (exp(beta*(epsilon - mu)) + 1)", "domain": "physics", "topic": "Statistical Mechanics and Thermodynamics", "kind": "equation"}
+{"nl": "Bose-Einstein distribution", "sym": "f_BE(epsilon) = 1 / (exp(beta*(epsilon - mu)) - 1)", "domain": "physics", "topic": "Statistical Mechanics and Thermodynamics", "kind": "equation"}
+{"nl": "Planck distribution (mean photon occupation)", "sym": "n_BE(omega) = 1 / (exp(ℏ*omega/(k_B*T)) - 1)", "domain": "physics", "topic": "Statistical Mechanics and Thermodynamics", "kind": "equation"}
+{"nl": "Stefan-Boltzmann law", "sym": "P/A = sigma_SB * T^4;  sigma_SB = 2*pi^5*k_B^4 / (15*c^2*h^3)", "domain": "physics", "topic": "Statistical Mechanics and Thermodynamics", "kind": "equation"}
+{"nl": "equipartition theorem", "sym": "<(1/2)*a*q^2> = (1/2)*k_B*T for each quadratic DoF", "domain": "physics", "topic": "Statistical Mechanics and Thermodynamics", "kind": "equation"}
+{"nl": "Sackur-Tetrode equation (ideal gas entropy)", "sym": "S/N*k_B = ln(V/N * (4*pi*m*U/(3*N*h^2))^(3/2)) + 5/2", "domain": "physics", "topic": "Statistical Mechanics and Thermodynamics", "kind": "equation"}
+{"nl": "Clausius inequality", "sym": "dS >= delta Q / T  (equality for reversible process)", "domain": "physics", "topic": "Statistical Mechanics and Thermodynamics", "kind": "equation"}
+{"nl": "first law of thermodynamics", "sym": "dU = delta Q - delta W = T*dS - P*dV + mu*dN", "domain": "physics", "topic": "Statistical Mechanics and Thermodynamics", "kind": "equation"}
+{"nl": "entropy: A state function ; quantifies the number of accessible microstates and the arrow of time.", "sym": "S = k_B * ln(Ω) (Boltzmann) or S = -k_B * sum(p_i * ln p_i) (Gibbs)", "domain": "physics", "topic": "Statistical Mechanics and Thermodynamics", "kind": "glossary"}
+{"nl": "partition function: ; the generating function for all thermodynamic quantities.", "sym": "Z = sum_i exp(-β E_i) (canonical), where β = 1/(k_B T)", "domain": "physics", "topic": "Statistical Mechanics and Thermodynamics", "kind": "glossary"}
+{"nl": "canonical ensemble: Statistical description of a system in thermal contact with a heat reservoir at temperature T; probability of state i is .", "sym": "p_i = exp(-β E_i)/Z", "domain": "physics", "topic": "Statistical Mechanics and Thermodynamics", "kind": "glossary"}
+{"nl": "chemical potential: ; the free energy cost of adding one particle to the system at constant T and V (or P).", "sym": "μ = (∂F/∂N)_{T,V} = (∂G/∂N)_{T,P}", "domain": "physics", "topic": "Statistical Mechanics and Thermodynamics", "kind": "glossary"}
+{"nl": "Fermi-Dirac distribution: The mean occupation number of a single-particle state with energy ε for identical fermions: .", "sym": "f_FD(ε) = 1/(exp(β(ε-μ))+1)", "domain": "physics", "topic": "Statistical Mechanics and Thermodynamics", "kind": "glossary"}
+{"nl": "Bose-Einstein distribution: The mean occupation number of a single-particle state with energy ε for identical bosons: .", "sym": "f_BE(ε) = 1/(exp(β(ε-μ))-1)", "domain": "physics", "topic": "Statistical Mechanics and Thermodynamics", "kind": "glossary"}
+{"nl": "free energy (Helmholtz): ; the thermodynamic potential minimized at equilibrium for a system at constant T and V; .", "sym": "F = U - TS", "domain": "physics", "topic": "Statistical Mechanics and Thermodynamics", "kind": "glossary"}
+{"nl": "free energy (Helmholtz): ; the thermodynamic potential minimized at equilibrium for a system at constant T and V; .", "sym": "F = -k_B T * ln Z", "domain": "physics", "topic": "Statistical Mechanics and Thermodynamics", "kind": "glossary"}
+{"nl": "Gibbs free energy: ; the potential minimized at equilibrium for constant T and P; determines spontaneity of chemical/phase transitions.", "sym": "G = U + PV - TS = H - TS", "domain": "physics", "topic": "Statistical Mechanics and Thermodynamics", "kind": "glossary"}
+{"nl": "Lorentz transformation (boost in x)", "sym": "t' = gamma*(t - v*x/c^2);  x' = gamma*(x - v*t);  y'=y;  z'=z", "domain": "physics", "topic": "Special Relativity", "kind": "equation"}
+{"nl": "Lorentz factor", "sym": "gamma = 1/sqrt(1 - v^2/c^2) = 1/sqrt(1 - beta^2)", "domain": "physics", "topic": "Special Relativity", "kind": "equation"}
+{"nl": "time dilation", "sym": "Delta t = gamma * Delta tau  (tau = proper time)", "domain": "physics", "topic": "Special Relativity", "kind": "equation"}
+{"nl": "length contraction", "sym": "L = L_0 / gamma", "domain": "physics", "topic": "Special Relativity", "kind": "equation"}
+{"nl": "spacetime interval", "sym": "s^2 = -(c*Delta t)^2 + Delta x^2 + Delta y^2 + Delta z^2  (Minkowski metric)", "domain": "physics", "topic": "Special Relativity", "kind": "equation"}
+{"nl": "relativistic energy", "sym": "E = gamma * m * c^2", "domain": "physics", "topic": "Special Relativity", "kind": "equation"}
+{"nl": "relativistic momentum", "sym": "p = gamma * m * v", "domain": "physics", "topic": "Special Relativity", "kind": "equation"}
+{"nl": "mass-energy-momentum relation", "sym": "E^2 = (p*c)^2 + (m*c^2)^2", "domain": "physics", "topic": "Special Relativity", "kind": "equation"}
+{"nl": "rest energy", "sym": "E_0 = m*c^2", "domain": "physics", "topic": "Special Relativity", "kind": "equation"}
+{"nl": "relativistic velocity addition (collinear)", "sym": "u = (u' + v) / (1 + u'*v/c^2)", "domain": "physics", "topic": "Special Relativity", "kind": "equation"}
+{"nl": "4-velocity", "sym": "U^mu = gamma*(c, v_x, v_y, v_z);  U^mu*U_mu = -c^2", "domain": "physics", "topic": "Special Relativity", "kind": "equation"}
+{"nl": "Lorentz factor: ; the factor by which time dilates and length contracts for objects moving at speed v.", "sym": "γ = 1/sqrt(1 - v^2/c^2)", "domain": "physics", "topic": "Special Relativity", "kind": "glossary"}
+{"nl": "proper time: The time elapsed on a clock moving with the object, related to coordinate time by ; the Lorentz-invariant measure of elapsed time along a worldline.", "sym": "dτ = dt/γ", "domain": "physics", "topic": "Special Relativity", "kind": "glossary"}
+{"nl": "proper length: The length of an object measured in its rest frame; an observer in relative motion measures a shorter length .", "sym": "L = L_0/γ (length contraction)", "domain": "physics", "topic": "Special Relativity", "kind": "glossary"}
+{"nl": "energy-momentum 4-vector: p^; its invariant norm gives p^μ p_μ = -(mc)^2, encoding the mass-energy-momentum relation.", "sym": "μ = (E/c, p_x, p_y, p_z)", "domain": "physics", "topic": "Special Relativity", "kind": "glossary"}
+{"nl": "rapidity: The parameter ; Lorentz boosts add rapidities, making it convenient for composing velocities.", "sym": "φ = tanh^{-1}(v/c) = (1/2)ln((1+β)/(1-β))", "domain": "physics", "topic": "Special Relativity", "kind": "glossary"}
+{"nl": "time dilation: A moving clock ticks slower: ; an observer measures a longer time between events on a moving clock than the proper time.", "sym": "Δt = γ * Δτ", "domain": "physics", "topic": "Special Relativity", "kind": "glossary"}
+{"nl": "relativistic velocity addition: When a particle moves with velocity u' in frame S' and S' moves with v relative to S, the velocity in S is .", "sym": "u = (u'+v)/(1 + u'v/c^2)", "domain": "physics", "topic": "Special Relativity", "kind": "glossary"}
+{"nl": "line element (general)", "sym": "ds^2 = g_{mu nu} dx^mu dx^nu", "domain": "physics", "topic": "General Relativity", "kind": "equation"}
+{"nl": "geodesic equation", "sym": "d^2x^lambda/dtau^2 + Gamma^lambda_{mu nu} * dx^mu/dtau * dx^nu/dtau = 0", "domain": "physics", "topic": "General Relativity", "kind": "equation"}
+{"nl": "Christoffel symbol", "sym": "Gamma^lambda_{mu nu} = (1/2)*g^{lambda sigma}*(∂_mu g_{nu sigma} + ∂_nu g_{mu sigma} - ∂_sigma g_{mu nu})", "domain": "physics", "topic": "General Relativity", "kind": "equation"}
+{"nl": "Ricci tensor", "sym": "R_{mu nu} = R^lambda_{mu lambda nu}", "domain": "physics", "topic": "General Relativity", "kind": "equation"}
+{"nl": "Einstein field equations", "sym": "G_{mu nu} + Lambda*g_{mu nu} = (8*pi*G/c^4) * T_{mu nu}", "domain": "physics", "topic": "General Relativity", "kind": "equation"}
+{"nl": "Einstein tensor", "sym": "G_{mu nu} = R_{mu nu} - (1/2)*g_{mu nu}*R", "domain": "physics", "topic": "General Relativity", "kind": "equation"}
+{"nl": "Schwarzschild metric", "sym": "ds^2 = -(1 - r_s/r)c^2 dt^2 + (1 - r_s/r)^{-1} dr^2 + r^2 dOmega^2;  r_s = 2GM/c^2", "domain": "physics", "topic": "General Relativity", "kind": "equation"}
+{"nl": "Friedmann equation (flat)", "sym": "H^2 = (8*pi*G/3)*rho - k*c^2/a^2 + Lambda*c^2/3", "domain": "physics", "topic": "General Relativity", "kind": "equation"}
+{"nl": "linearized gravitational wave equation", "sym": "Box h_{mu nu} = -16*pi*G/c^4 * T_{mu nu}  (Lorenz gauge)", "domain": "physics", "topic": "General Relativity", "kind": "equation"}
+{"nl": "quadrupole radiation formula", "sym": "P_GW = (G/(5*c^5)) * <d^3 Q_{ij}/dt^3 * d^3 Q^{ij}/dt^3>", "domain": "physics", "topic": "General Relativity", "kind": "equation"}
+{"nl": "Schwarzschild radius: ; the radius at which the Schwarzschild metric becomes singular; the event horizon of a non-rotating black hole.", "sym": "r_s = 2GM/c^2", "domain": "physics", "topic": "General Relativity", "kind": "glossary"}
+{"nl": "event horizon: A null hypersurface beyond which events cannot causally influence the exterior; in the Schwarzschild metric, located at .", "sym": "r = r_s = 2GM/c^2", "domain": "physics", "topic": "General Relativity", "kind": "glossary"}
+{"nl": "Bloch theorem", "sym": "psi_{nk}(r) = u_{nk}(r) * exp(i*k·r),  u_{nk}(r+R) = u_{nk}(r)", "domain": "physics", "topic": "Condensed Matter Physics", "kind": "equation"}
+{"nl": "free electron dispersion", "sym": "E(k) = ℏ^2*k^2 / (2m)", "domain": "physics", "topic": "Condensed Matter Physics", "kind": "equation"}
+{"nl": "density of states (3D free electron)", "sym": "g(E) = (1/(2*pi^2)) * (2m/ℏ^2)^(3/2) * sqrt(E)", "domain": "physics", "topic": "Condensed Matter Physics", "kind": "equation"}
+{"nl": "Fermi energy (T=0)", "sym": "E_F = (ℏ^2/(2m)) * (3*pi^2*n)^(2/3)", "domain": "physics", "topic": "Condensed Matter Physics", "kind": "equation"}
+{"nl": "tight-binding dispersion (1D)", "sym": "E(k) = epsilon_0 - 2t*cos(k*a)", "domain": "physics", "topic": "Condensed Matter Physics", "kind": "equation"}
+{"nl": "Debye T^3 heat capacity (low T)", "sym": "C_V = (12*pi^4/5) * N*k_B * (T/T_D)^3", "domain": "physics", "topic": "Condensed Matter Physics", "kind": "equation"}
+{"nl": "London equation (superconductor)", "sym": "∂J_s/∂t = (n_s*e^2/m)*E;  J_s = -(n_s*e^2/(m*c))*A  (CGS)", "domain": "physics", "topic": "Condensed Matter Physics", "kind": "equation"}
+{"nl": "BCS gap equation (T=0)", "sym": "Delta ~ 2*ℏ*omega_D * exp(-1/(N(0)*V))", "domain": "physics", "topic": "Condensed Matter Physics", "kind": "equation"}
+{"nl": "Bragg's law (diffraction)", "sym": "2*d*sin(theta) = n*lambda", "domain": "physics", "topic": "Condensed Matter Physics", "kind": "equation"}
+{"nl": "Landau free energy expansion", "sym": "F = a(T-T_c)*m^2 + b*m^4 + ... ;  m=0 above T_c, m=sqrt(a(T_c-T)/(2b)) below", "domain": "physics", "topic": "Condensed Matter Physics", "kind": "equation"}
+{"nl": "covariant derivative (gauge theory)", "sym": "D_mu = ∂_mu + ig*A_mu^a*T^a  (T^a generators of gauge group)", "domain": "physics", "topic": "Particle Physics and Quantum Field Theory", "kind": "equation"}
+{"nl": "QED Lagrangian", "sym": "L_QED = -F_{mu nu}F^{mu nu}/4 + psi_bar*(i*D-slash - m)*psi", "domain": "physics", "topic": "Particle Physics and Quantum Field Theory", "kind": "equation"}
+{"nl": "photon propagator (Feynman gauge)", "sym": "D^F_{mu nu}(k) = -i*g_{mu nu} / (k^2 + i*eps)", "domain": "physics", "topic": "Particle Physics and Quantum Field Theory", "kind": "equation"}
+{"nl": "scalar propagator (Feynman)", "sym": "Delta_F(p) = i / (p^2 - m^2 + i*eps)", "domain": "physics", "topic": "Particle Physics and Quantum Field Theory", "kind": "equation"}
+{"nl": "QCD running coupling (1-loop)", "sym": "alpha_s(mu) = 2*pi / (beta_0 * ln(mu/Lambda_QCD));  beta_0 = 11 - 2*n_f/3", "domain": "physics", "topic": "Particle Physics and Quantum Field Theory", "kind": "equation"}
+{"nl": "Weinberg angle (electroweak mixing)", "sym": "sin^2(theta_W) ≈ 0.231;  M_W = M_Z * cos(theta_W)", "domain": "physics", "topic": "Particle Physics and Quantum Field Theory", "kind": "equation"}
+{"nl": "Dirac equation", "sym": "(i*gamma^mu*∂_mu - m)*psi = 0", "domain": "physics", "topic": "Particle Physics and Quantum Field Theory", "kind": "equation"}
+{"nl": "Klein-Gordon equation", "sym": "(Box + m^2)*phi = 0;  Box = ∂_mu ∂^mu", "domain": "physics", "topic": "Particle Physics and Quantum Field Theory", "kind": "equation"}
+{"nl": "Noether current (field theory)", "sym": "j^mu = ∂L/∂(∂_mu phi) * delta_phi - K^mu;  ∂_mu j^mu = 0 on-shell", "domain": "physics", "topic": "Particle Physics and Quantum Field Theory", "kind": "equation"}
+{"nl": "optical theorem (field theory)", "sym": "2*Im(M_{ii}) = sum_f ∫ |M_{if}|^2 d Phi_f", "domain": "physics", "topic": "Particle Physics and Quantum Field Theory", "kind": "equation"}
+{"nl": "Hubble's law", "sym": "v = H_0 * d;  H_0 ≈ 70 km/s/Mpc", "domain": "physics", "topic": "Astrophysics and Cosmology", "kind": "equation"}
+{"nl": "FRW metric (flat)", "sym": "ds^2 = -c^2 dt^2 + a(t)^2 (dr^2 + r^2 dOmega^2)", "domain": "physics", "topic": "Astrophysics and Cosmology", "kind": "equation"}
+{"nl": "Friedmann equation", "sym": "H^2 = (8*pi*G/3)*rho - k*c^2/a^2 + Lambda*c^2/3", "domain": "physics", "topic": "Astrophysics and Cosmology", "kind": "equation"}
+{"nl": "acceleration equation", "sym": "a_ddot/a = -(4*pi*G/3)*(rho + 3*P/c^2) + Lambda*c^2/3", "domain": "physics", "topic": "Astrophysics and Cosmology", "kind": "equation"}
+{"nl": "fluid equation", "sym": "rho_dot + 3*H*(rho + P/c^2) = 0", "domain": "physics", "topic": "Astrophysics and Cosmology", "kind": "equation"}
+{"nl": "cosmological redshift", "sym": "1 + z = a(t_0)/a(t_emit) = lambda_obs/lambda_emit", "domain": "physics", "topic": "Astrophysics and Cosmology", "kind": "equation"}
+{"nl": "Stefan-Boltzmann for CMB", "sym": "T_CMB(z) = T_0*(1+z);  T_0 = 2.725 K", "domain": "physics", "topic": "Astrophysics and Cosmology", "kind": "equation"}
+{"nl": "Chandrasekhar mass", "sym": "M_Ch ≈ 1.4 * M_sun = 5.87/mu_e^2 * M_sun  (mu_e = mean molecular weight per electron)", "domain": "physics", "topic": "Astrophysics and Cosmology", "kind": "equation"}
+{"nl": "Schwarzschild radius", "sym": "r_s = 2*G*M/c^2 ≈ 2.95*(M/M_sun) km", "domain": "physics", "topic": "Astrophysics and Cosmology", "kind": "equation"}
+{"nl": "gravitational lensing deflection angle", "sym": "alpha = 4*G*M/(c^2*b)  (b = impact parameter, GR result = 2x Newtonian)", "domain": "physics", "topic": "Astrophysics and Cosmology", "kind": "equation"}
+{"nl": "scale factor: a(t), a dimensionless function normalised to a(t_0)=1 today; physical distances scale as ; its evolution is governed by the Friedmann equations.", "sym": "d_phys = a(t)*d_comoving", "domain": "physics", "topic": "Astrophysics and Cosmology", "kind": "glossary"}
+{"nl": "dark energy: An energy component (~68% of cosmic budget) causing accelerated expansion; consistent with a cosmological constant Λ with equation of state .", "sym": "w = P/ρ = -1", "domain": "physics", "topic": "Astrophysics and Cosmology", "kind": "glossary"}
+{"nl": "redshift: The fractional wavelength shift ; for cosmological sources, 1+z = 1/a(t_emit), linking observed wavelength to the scale factor at emission.", "sym": "z = (λ_obs - λ_emit)/λ_emit", "domain": "physics", "topic": "Astrophysics and Cosmology", "kind": "glossary"}
+{"nl": "luminosity distance: ; the distance inferred from the observed flux of a standard candle: .", "sym": "d_L = (1+z)*d_comoving", "domain": "physics", "topic": "Astrophysics and Cosmology", "kind": "glossary"}
+{"nl": "luminosity distance: ; the distance inferred from the observed flux of a standard candle: .", "sym": "F = L/(4π d_L^2)", "domain": "physics", "topic": "Astrophysics and Cosmology", "kind": "glossary"}
+{"nl": "equation of state (cosmology): : w=0 (matter/dust), w=1/3 (radiation), w=-1 (cosmological constant/dark energy); determines how ρ scales with a.", "sym": "w = P/ρ characterizing a cosmic fluid", "domain": "physics", "topic": "Astrophysics and Cosmology", "kind": "glossary"}
+{"nl": "wave equation (1D)", "sym": "∂^2 y/∂t^2 = v^2 * ∂^2 y/∂x^2", "domain": "physics", "topic": "Optics and Waves", "kind": "equation"}
+{"nl": "general wave solution", "sym": "y(x,t) = A*cos(k*x - omega*t + phi);  v = omega/k", "domain": "physics", "topic": "Optics and Waves", "kind": "equation"}
+{"nl": "Snell's law", "sym": "n_1 * sin(theta_1) = n_2 * sin(theta_2)", "domain": "physics", "topic": "Optics and Waves", "kind": "equation"}
+{"nl": "single-slit diffraction minima", "sym": "a*sin(theta) = m*lambda;  m = ±1, ±2,...", "domain": "physics", "topic": "Optics and Waves", "kind": "equation"}
+{"nl": "double-slit interference maxima", "sym": "d*sin(theta) = m*lambda;  m = 0, ±1, ±2,...", "domain": "physics", "topic": "Optics and Waves", "kind": "equation"}
+{"nl": "thin-film interference (reflected, n_film > n_air)", "sym": "2*n*t = (m + 1/2)*lambda  (constructive);  2*n*t = m*lambda  (destructive)", "domain": "physics", "topic": "Optics and Waves", "kind": "equation"}
+{"nl": "group velocity", "sym": "v_g = domega/dk", "domain": "physics", "topic": "Optics and Waves", "kind": "equation"}
+{"nl": "Rayleigh criterion (resolution)", "sym": "theta_min = 1.22 * lambda / D", "domain": "physics", "topic": "Optics and Waves", "kind": "equation"}
+{"nl": "Doppler shift (non-relativistic)", "sym": "f_obs = f_src * (v ± v_obs)/(v ∓ v_src)", "domain": "physics", "topic": "Optics and Waves", "kind": "equation"}
+{"nl": "index of refraction: ; the ratio of the speed of light in vacuum to its phase velocity in the medium; determines refraction angles and optical path length.", "sym": "n = c/v_phase", "domain": "physics", "topic": "Optics and Waves", "kind": "glossary"}
+{"nl": "group velocity: ; the velocity at which the envelope of a wave packet and hence energy/information propagates; differs from phase velocity .", "sym": "v_g = dω/dk", "domain": "physics", "topic": "Optics and Waves", "kind": "glossary"}
+{"nl": "group velocity: ; the velocity at which the envelope of a wave packet and hence energy/information propagates; differs from phase velocity .", "sym": "v_φ = ω/k in dispersive media", "domain": "physics", "topic": "Optics and Waves", "kind": "glossary"}
+{"nl": "radioactive decay law", "sym": "N(t) = N_0 * exp(-lambda*t);  t_{1/2} = ln(2)/lambda", "domain": "physics", "topic": "Nuclear and Atomic Physics", "kind": "equation"}
+{"nl": "nuclear binding energy", "sym": "B = (Z*m_p + N*m_n - M_nucleus)*c^2", "domain": "physics", "topic": "Nuclear and Atomic Physics", "kind": "equation"}
+{"nl": "semi-empirical mass formula (SEMF)", "sym": "B = a_V*A - a_S*A^(2/3) - a_C*Z^2/A^(1/3) - a_A*(A-2Z)^2/A ± delta", "domain": "physics", "topic": "Nuclear and Atomic Physics", "kind": "equation"}
+{"nl": "Q-value", "sym": "Q = (sum m_reactants - sum m_products)*c^2", "domain": "physics", "topic": "Nuclear and Atomic Physics", "kind": "equation"}
+{"nl": "Rutherford scattering cross section", "sym": "d sigma/d Omega = (Z_1*Z_2*e^2/(4*E))^2 * 1/sin^4(theta/2)", "domain": "physics", "topic": "Nuclear and Atomic Physics", "kind": "equation"}
+{"nl": "spin-orbit coupling energy", "sym": "E_LS = (1/(2*m_e^2*c^2)) * (1/r)*(dV/dr) * L·S", "domain": "physics", "topic": "Nuclear and Atomic Physics", "kind": "equation"}
+{"nl": "magnetic moment (orbital)", "sym": "mu_L = -e*L/(2m_e) = -mu_B * L/ℏ;  mu_B = eℏ/(2m_e)", "domain": "physics", "topic": "Nuclear and Atomic Physics", "kind": "equation"}
+{"nl": "Zeeman energy shift", "sym": "Delta E = m_l * mu_B * B (normal Zeeman, S=0)", "domain": "physics", "topic": "Nuclear and Atomic Physics", "kind": "equation"}
+{"nl": "binding energy: The energy required to disassemble a nucleus into its constituent protons and neutrons: .", "sym": "B = (Z*m_p + N*m_n - M_nucleus)*c^2", "domain": "physics", "topic": "Nuclear and Atomic Physics", "kind": "glossary"}
+{"nl": "mass defect: The difference between the total mass of individual nucleons and the actual nuclear mass: ; equals B/c^2.", "sym": "Δm = Z*m_p + N*m_n - M", "domain": "physics", "topic": "Nuclear and Atomic Physics", "kind": "glossary"}
+{"nl": "Q-value: ; the energy released (Q > 0, exothermic) or absorbed (Q < 0, endothermic) in a nuclear reaction.", "sym": "Q = (m_reactants - m_products)*c^2", "domain": "physics", "topic": "Nuclear and Atomic Physics", "kind": "glossary"}
+{"nl": "ideal gas law", "sym": "P*V = n*R*T = N*k_B*T", "domain": "physics", "topic": "Thermodynamics (Classical)", "kind": "equation"}
+{"nl": "first law of thermodynamics", "sym": "Delta U = Q - W  (Q = heat in, W = work done BY system)", "domain": "physics", "topic": "Thermodynamics (Classical)", "kind": "equation"}
+{"nl": "second law of thermodynamics", "sym": "dS >= delta Q / T;  Delta S_universe >= 0 for any process", "domain": "physics", "topic": "Thermodynamics (Classical)", "kind": "equation"}
+{"nl": "Carnot efficiency", "sym": "eta = 1 - T_C/T_H", "domain": "physics", "topic": "Thermodynamics (Classical)", "kind": "equation"}
+{"nl": "adiabatic process (ideal gas)", "sym": "P*V^gamma = constant;  T*V^(gamma-1) = constant;  gamma = C_P/C_V", "domain": "physics", "topic": "Thermodynamics (Classical)", "kind": "equation"}
+{"nl": "internal energy (ideal monatomic gas)", "sym": "U = (3/2)*n*R*T", "domain": "physics", "topic": "Thermodynamics (Classical)", "kind": "equation"}
+{"nl": "RMS speed (kinetic theory)", "sym": "v_rms = sqrt(3*k_B*T/m)", "domain": "physics", "topic": "Thermodynamics (Classical)", "kind": "equation"}
+{"nl": "Maxwell-Boltzmann speed distribution", "sym": "f(v) = 4*pi*n*(m/(2*pi*k_B*T))^(3/2) * v^2 * exp(-m*v^2/(2*k_B*T))", "domain": "physics", "topic": "Thermodynamics (Classical)", "kind": "equation"}
+{"nl": "entropy change (isothermal expansion, ideal gas)", "sym": "Delta S = n*R*ln(V_f/V_i)", "domain": "physics", "topic": "Thermodynamics (Classical)", "kind": "equation"}
+{"nl": "adiabatic process: A thermodynamic process in which no heat is exchanged with the surroundings (Q = 0); for an ideal gas: PV^.", "sym": "γ = constant where γ = C_P/C_V", "domain": "physics", "topic": "Thermodynamics (Classical)", "kind": "glossary"}
+{"nl": "heat capacity: The energy required to raise the temperature of a substance by one degree: ; at constant volume ; at constant pressure .", "sym": "C = δQ/dT", "domain": "physics", "topic": "Thermodynamics (Classical)", "kind": "glossary"}
+{"nl": "heat capacity: The energy required to raise the temperature of a substance by one degree: ; at constant volume ; at constant pressure .", "sym": "C_V = (∂U/∂T)_V", "domain": "physics", "topic": "Thermodynamics (Classical)", "kind": "glossary"}
+{"nl": "heat capacity: The energy required to raise the temperature of a substance by one degree: ; at constant volume ; at constant pressure .", "sym": "C_P = (∂H/∂T)_P", "domain": "physics", "topic": "Thermodynamics (Classical)", "kind": "glossary"}
+{"nl": "Carnot efficiency: The maximum efficiency of any heat engine operating between reservoirs at T_H and T_C: ; achieved only by a reversible engine.", "sym": "η_Carnot = 1 - T_C/T_H", "domain": "physics", "topic": "Thermodynamics (Classical)", "kind": "glossary"}
+{"nl": "specific heat ratio: ; for ideal monatomic gas ; diatomic ; determines the slope of adiabats and the speed of sound.", "sym": "γ = C_P/C_V", "domain": "physics", "topic": "Thermodynamics (Classical)", "kind": "glossary"}
+{"nl": "specific heat ratio: ; for ideal monatomic gas ; diatomic ; determines the slope of adiabats and the speed of sound.", "sym": "γ = 5/3", "domain": "physics", "topic": "Thermodynamics (Classical)", "kind": "glossary"}
+{"nl": "specific heat ratio: ; for ideal monatomic gas ; diatomic ; determines the slope of adiabats and the speed of sound.", "sym": "γ = 7/5", "domain": "physics", "topic": "Thermodynamics (Classical)", "kind": "glossary"}
+{"nl": "Gauss's theorem (divergence theorem)", "sym": "∫∫_S F · dA = ∫∫∫_V (∇·F) dV", "domain": "physics", "topic": "Mathematical Methods in Physics", "kind": "equation"}
+{"nl": "Stokes' theorem", "sym": "∮_C F · dl = ∫∫_S (∇×F) · dA", "domain": "physics", "topic": "Mathematical Methods in Physics", "kind": "equation"}
+{"nl": "gradient theorem (path independence)", "sym": "∫_A^B (∇f) · dl = f(B) - f(A)", "domain": "physics", "topic": "Mathematical Methods in Physics", "kind": "equation"}
+{"nl": "Fourier transform pair", "sym": "f̃(k) = ∫_{-inf}^{inf} f(x)*exp(-i*k*x) dx;  f(x) = (1/(2*pi))*∫ f̃(k)*exp(i*k*x) dk", "domain": "physics", "topic": "Mathematical Methods in Physics", "kind": "equation"}
+{"nl": "convolution theorem", "sym": "FT[f*g] = f̃ * g̃  (pointwise product)", "domain": "physics", "topic": "Mathematical Methods in Physics", "kind": "equation"}
+{"nl": "residue theorem", "sym": "∮_C f(z) dz = 2*pi*i * sum_k Res(f, z_k)", "domain": "physics", "topic": "Mathematical Methods in Physics", "kind": "equation"}
+{"nl": "spherical harmonic orthogonality", "sym": "∫ Y_l^m*(Omega) * Y_{l'}^{m'}(Omega) dOmega = delta_{ll'} * delta_{mm'}", "domain": "physics", "topic": "Mathematical Methods in Physics", "kind": "equation"}
+{"nl": "Green's function equation", "sym": "L_x G(x,x') = delta(x - x');  y(x) = ∫ G(x,x')*f(x') dx'", "domain": "physics", "topic": "Mathematical Methods in Physics", "kind": "equation"}
+{"nl": "divergence: ∇·; measures the outward flux per unit volume of a vector field; appears in Gauss's law.", "sym": "F = ∂F_x/∂x + ∂F_y/∂y + ∂F_z/∂z", "domain": "physics", "topic": "Mathematical Methods in Physics", "kind": "glossary"}
+{"nl": "Green's function: G(x,x') satisfying L ; enables solutions to inhomogeneous equations as .", "sym": "G(x,x') = δ(x-x') for linear operator L", "domain": "physics", "topic": "Mathematical Methods in Physics", "kind": "glossary"}
+{"nl": "Green's function: G(x,x') satisfying L ; enables solutions to inhomogeneous equations as .", "sym": "y(x) = ∫ G(x,x') f(x') dx'", "domain": "physics", "topic": "Mathematical Methods in Physics", "kind": "glossary"}
+{"nl": "Fourier transform: f̃(k) = ∫ f(x) exp(-ikx) dx; decomposes a function into its frequency components; inverse: .", "sym": "f(x) = (1/2π) ∫ f̃(k) exp(ikx) dk", "domain": "physics", "topic": "Mathematical Methods in Physics", "kind": "glossary"}
+{"nl": "residue theorem: ∮_C f(z) ; allows evaluation of real integrals by closing contours in the complex plane.", "sym": "dz = 2πi * sum(residues inside C)", "domain": "physics", "topic": "Mathematical Methods in Physics", "kind": "glossary"}
+{"nl": "Debye length", "sym": "lambda_D = sqrt(epsilon_0*k_B*T_e / (n_e*e^2))", "domain": "physics", "topic": "Plasma Physics and Fluid Dynamics", "kind": "equation"}
+{"nl": "plasma frequency", "sym": "omega_p = sqrt(n_e*e^2 / (epsilon_0*m_e))", "domain": "physics", "topic": "Plasma Physics and Fluid Dynamics", "kind": "equation"}
+{"nl": "Alfvén speed", "sym": "v_A = B / sqrt(mu_0 * rho)", "domain": "physics", "topic": "Plasma Physics and Fluid Dynamics", "kind": "equation"}
+{"nl": "Vlasov equation", "sym": "∂f/∂t + v·∇_r f + (q/m)*(E + v×B)·∇_v f = 0", "domain": "physics", "topic": "Plasma Physics and Fluid Dynamics", "kind": "equation"}
+{"nl": "Navier-Stokes equation", "sym": "rho*(∂v/∂t + (v·∇)v) = -∇P + mu*∇^2 v + f_ext", "domain": "physics", "topic": "Plasma Physics and Fluid Dynamics", "kind": "equation"}
+{"nl": "MHD induction equation", "sym": "∂B/∂t = ∇×(v×B) + eta*∇^2 B;  eta = 1/(mu_0*sigma)", "domain": "physics", "topic": "Plasma Physics and Fluid Dynamics", "kind": "equation"}
+{"nl": "Reynolds number", "sym": "Re = rho*v*L/mu = v*L/nu", "domain": "physics", "topic": "Plasma Physics and Fluid Dynamics", "kind": "equation"}
+{"nl": "magnetic Reynolds number", "sym": "Re_m = mu_0*sigma*v*L = v*L/eta", "domain": "physics", "topic": "Plasma Physics and Fluid Dynamics", "kind": "equation"}
+{"nl": "Debye length: ; the characteristic length over which charge imbalances are screened by rearrangement of free charges in a plasma.", "sym": "λ_D = sqrt(ε_0 k_B T_e / (n_e e^2))", "domain": "physics", "topic": "Plasma Physics and Fluid Dynamics", "kind": "glossary"}
+{"nl": "plasma frequency: ; the natural oscillation frequency of electron density fluctuations; waves with ω < ω_p cannot propagate in the plasma.", "sym": "ω_p = sqrt(n_e e^2 / (ε_0 m_e))", "domain": "physics", "topic": "Plasma Physics and Fluid Dynamics", "kind": "glossary"}
+{"nl": "magnetic pressure: ; the isotropic pressure exerted by a magnetic field; the ratio of plasma to magnetic pressure is .", "sym": "P_B = B^2/(2μ_0)", "domain": "physics", "topic": "Plasma Physics and Fluid Dynamics", "kind": "glossary"}
+{"nl": "magnetic pressure: ; the isotropic pressure exerted by a magnetic field; the ratio of plasma to magnetic pressure is .", "sym": "β = P/(B^2/2μ_0)", "domain": "physics", "topic": "Plasma Physics and Fluid Dynamics", "kind": "glossary"}
+{"nl": "Alfvén speed: ; the characteristic speed of MHD Alfvén waves propagating along magnetic field lines in a conducting fluid.", "sym": "v_A = B/sqrt(μ_0 ρ)", "domain": "physics", "topic": "Plasma Physics and Fluid Dynamics", "kind": "glossary"}
+{"nl": "Reynolds number: ; the ratio of inertial to viscous forces; low Re → laminar flow; high Re → turbulent flow; transition typically Re ~ 10^3–10^4.", "sym": "Re = ρvL/μ", "domain": "physics", "topic": "Plasma Physics and Fluid Dynamics", "kind": "glossary"}
+{"nl": "Navier-Stokes equation: ; governs the velocity field of a viscous incompressible Newtonian fluid.", "sym": "ρ(∂v/∂t + v·∇v) = -∇P + μ∇^2v + f", "domain": "physics", "topic": "Plasma Physics and Fluid Dynamics", "kind": "glossary"}

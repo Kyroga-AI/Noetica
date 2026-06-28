@@ -1,0 +1,2307 @@
+{
+ "model": "academic",
+ "vocab_hit": 5696,
+ "vocab_miss": 306,
+ "n_canon_topics": 94,
+ "n_test_subjects": 26,
+ "coverage_gap_threshold": 0.45,
+ "alignment": [
+  {
+   "domain": "biology",
+   "topic": "Cell Biology",
+   "level": "intro",
+   "matches": [
+    {
+     "subject": "pro:chemistry",
+     "cos": 0.463
+    },
+    {
+     "subject": "mmlu:high_school_chemistry",
+     "cos": 0.463
+    },
+    {
+     "subject": "mmlu:college_chemistry",
+     "cos": 0.463
+    }
+   ]
+  },
+  {
+   "domain": "biology",
+   "topic": "Biochemistry and Metabolism",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "pro:chemistry",
+     "cos": 0.494
+    },
+    {
+     "subject": "mmlu:high_school_chemistry",
+     "cos": 0.494
+    },
+    {
+     "subject": "mmlu:college_chemistry",
+     "cos": 0.494
+    }
+   ]
+  },
+  {
+   "domain": "biology",
+   "topic": "Molecular Biology",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:medical_genetics",
+     "cos": 0.464
+    },
+    {
+     "subject": "pro:biology",
+     "cos": 0.414
+    },
+    {
+     "subject": "mmlu:high_school_biology",
+     "cos": 0.414
+    }
+   ]
+  },
+  {
+   "domain": "biology",
+   "topic": "Genetics",
+   "level": "intro",
+   "matches": [
+    {
+     "subject": "mmlu:medical_genetics",
+     "cos": 0.613
+    },
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.356
+    },
+    {
+     "subject": "pro:biology",
+     "cos": 0.353
+    }
+   ]
+  },
+  {
+   "domain": "biology",
+   "topic": "Evolution",
+   "level": "intro",
+   "matches": [
+    {
+     "subject": "mmlu:medical_genetics",
+     "cos": 0.504
+    },
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.485
+    },
+    {
+     "subject": "pro:biology",
+     "cos": 0.397
+    }
+   ]
+  },
+  {
+   "domain": "biology",
+   "topic": "Ecology",
+   "level": "intro",
+   "matches": [
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.537
+    },
+    {
+     "subject": "mmlu:medical_genetics",
+     "cos": 0.448
+    },
+    {
+     "subject": "pro:biology",
+     "cos": 0.416
+    }
+   ]
+  },
+  {
+   "domain": "biology",
+   "topic": "Physiology: Nervous and Endocrine Systems",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.424
+    },
+    {
+     "subject": "mmlu:medical_genetics",
+     "cos": 0.383
+    },
+    {
+     "subject": "mmlu:anatomy",
+     "cos": 0.371
+    }
+   ]
+  },
+  {
+   "domain": "biology",
+   "topic": "Physiology: Cardiovascular, Respiratory, and Renal Systems",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.452
+    },
+    {
+     "subject": "pro:chemistry",
+     "cos": 0.444
+    },
+    {
+     "subject": "mmlu:high_school_chemistry",
+     "cos": 0.444
+    }
+   ]
+  },
+  {
+   "domain": "biology",
+   "topic": "Microbiology",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:medical_genetics",
+     "cos": 0.478
+    },
+    {
+     "subject": "pro:biology",
+     "cos": 0.454
+    },
+    {
+     "subject": "mmlu:high_school_biology",
+     "cos": 0.454
+    }
+   ]
+  },
+  {
+   "domain": "biology",
+   "topic": "Immunology",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:medical_genetics",
+     "cos": 0.433
+    },
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.429
+    },
+    {
+     "subject": "mmlu:anatomy",
+     "cos": 0.408
+    }
+   ]
+  },
+  {
+   "domain": "biology",
+   "topic": "Developmental Biology",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:medical_genetics",
+     "cos": 0.484
+    },
+    {
+     "subject": "mmlu:anatomy",
+     "cos": 0.438
+    },
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.429
+    }
+   ]
+  },
+  {
+   "domain": "biology",
+   "topic": "Anatomy",
+   "level": "intro",
+   "matches": [
+    {
+     "subject": "mmlu:anatomy",
+     "cos": 0.628
+    },
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.445
+    },
+    {
+     "subject": "mmlu:medical_genetics",
+     "cos": 0.368
+    }
+   ]
+  },
+  {
+   "domain": "biology",
+   "topic": "Plant Biology",
+   "level": "intro",
+   "matches": [
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.468
+    },
+    {
+     "subject": "pro:chemistry",
+     "cos": 0.451
+    },
+    {
+     "subject": "mmlu:high_school_chemistry",
+     "cos": 0.451
+    }
+   ]
+  },
+  {
+   "domain": "biology",
+   "topic": "Medical Genetics",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:medical_genetics",
+     "cos": 0.634
+    },
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.416
+    },
+    {
+     "subject": "pro:biology",
+     "cos": 0.339
+    }
+   ]
+  },
+  {
+   "domain": "biology",
+   "topic": "Nutrition and Metabolism",
+   "level": "intro",
+   "matches": [
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.587
+    },
+    {
+     "subject": "mmlu:medical_genetics",
+     "cos": 0.478
+    },
+    {
+     "subject": "pro:chemistry",
+     "cos": 0.47
+    }
+   ]
+  },
+  {
+   "domain": "chemistry",
+   "topic": "Stoichiometry and the Mole",
+   "level": "intro",
+   "matches": [
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.382
+    },
+    {
+     "subject": "pro:chemistry",
+     "cos": 0.372
+    },
+    {
+     "subject": "mmlu:high_school_chemistry",
+     "cos": 0.372
+    }
+   ]
+  },
+  {
+   "domain": "chemistry",
+   "topic": "Gases and Kinetic-Molecular Theory",
+   "level": "intro",
+   "matches": [
+    {
+     "subject": "pro:physics",
+     "cos": 0.375
+    },
+    {
+     "subject": "mmlu:high_school_physics",
+     "cos": 0.375
+    },
+    {
+     "subject": "mmlu:conceptual_physics",
+     "cos": 0.375
+    }
+   ]
+  },
+  {
+   "domain": "chemistry",
+   "topic": "Thermodynamics",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.401
+    },
+    {
+     "subject": "pro:physics",
+     "cos": 0.369
+    },
+    {
+     "subject": "mmlu:high_school_physics",
+     "cos": 0.369
+    }
+   ]
+  },
+  {
+   "domain": "chemistry",
+   "topic": "Chemical Equilibrium",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.376
+    },
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.349
+    },
+    {
+     "subject": "pro:economics",
+     "cos": 0.348
+    }
+   ]
+  },
+  {
+   "domain": "chemistry",
+   "topic": "Acids, Bases, and Buffers",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "pro:chemistry",
+     "cos": 0.396
+    },
+    {
+     "subject": "mmlu:high_school_chemistry",
+     "cos": 0.396
+    },
+    {
+     "subject": "mmlu:college_chemistry",
+     "cos": 0.396
+    }
+   ]
+  },
+  {
+   "domain": "chemistry",
+   "topic": "Chemical Kinetics",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "pro:chemistry",
+     "cos": 0.385
+    },
+    {
+     "subject": "mmlu:high_school_chemistry",
+     "cos": 0.385
+    },
+    {
+     "subject": "mmlu:college_chemistry",
+     "cos": 0.385
+    }
+   ]
+  },
+  {
+   "domain": "chemistry",
+   "topic": "Electrochemistry",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.393
+    },
+    {
+     "subject": "pro:chemistry",
+     "cos": 0.368
+    },
+    {
+     "subject": "mmlu:high_school_chemistry",
+     "cos": 0.368
+    }
+   ]
+  },
+  {
+   "domain": "chemistry",
+   "topic": "Atomic Structure and Quantum Chemistry",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "pro:physics",
+     "cos": 0.449
+    },
+    {
+     "subject": "mmlu:high_school_physics",
+     "cos": 0.449
+    },
+    {
+     "subject": "mmlu:conceptual_physics",
+     "cos": 0.449
+    }
+   ]
+  },
+  {
+   "domain": "chemistry",
+   "topic": "Chemical Bonding and Molecular Structure",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "pro:chemistry",
+     "cos": 0.419
+    },
+    {
+     "subject": "mmlu:high_school_chemistry",
+     "cos": 0.419
+    },
+    {
+     "subject": "mmlu:college_chemistry",
+     "cos": 0.419
+    }
+   ]
+  },
+  {
+   "domain": "chemistry",
+   "topic": "Organic Reactions and Mechanisms",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "pro:chemistry",
+     "cos": 0.533
+    },
+    {
+     "subject": "mmlu:high_school_chemistry",
+     "cos": 0.533
+    },
+    {
+     "subject": "mmlu:college_chemistry",
+     "cos": 0.533
+    }
+   ]
+  },
+  {
+   "domain": "chemistry",
+   "topic": "Spectroscopy",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "pro:physics",
+     "cos": 0.441
+    },
+    {
+     "subject": "mmlu:high_school_physics",
+     "cos": 0.441
+    },
+    {
+     "subject": "mmlu:conceptual_physics",
+     "cos": 0.441
+    }
+   ]
+  },
+  {
+   "domain": "chemistry",
+   "topic": "Coordination Chemistry and Inorganic Chemistry",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "pro:chemistry",
+     "cos": 0.523
+    },
+    {
+     "subject": "mmlu:high_school_chemistry",
+     "cos": 0.523
+    },
+    {
+     "subject": "mmlu:college_chemistry",
+     "cos": 0.523
+    }
+   ]
+  },
+  {
+   "domain": "chemistry",
+   "topic": "Statistical Thermodynamics and Partition Functions",
+   "level": "graduate",
+   "matches": [
+    {
+     "subject": "pro:physics",
+     "cos": 0.356
+    },
+    {
+     "subject": "mmlu:high_school_physics",
+     "cos": 0.356
+    },
+    {
+     "subject": "mmlu:conceptual_physics",
+     "cos": 0.356
+    }
+   ]
+  },
+  {
+   "domain": "chemistry",
+   "topic": "Quantum Chemistry",
+   "level": "graduate",
+   "matches": [
+    {
+     "subject": "pro:physics",
+     "cos": 0.42
+    },
+    {
+     "subject": "mmlu:high_school_physics",
+     "cos": 0.42
+    },
+    {
+     "subject": "mmlu:conceptual_physics",
+     "cos": 0.42
+    }
+   ]
+  },
+  {
+   "domain": "chemistry",
+   "topic": "Biochemistry Fundamentals",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "pro:chemistry",
+     "cos": 0.527
+    },
+    {
+     "subject": "mmlu:high_school_chemistry",
+     "cos": 0.527
+    },
+    {
+     "subject": "mmlu:college_chemistry",
+     "cos": 0.527
+    }
+   ]
+  },
+  {
+   "domain": "chemistry",
+   "topic": "Analytical Chemistry and Solution Equilibria",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.431
+    },
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.411
+    },
+    {
+     "subject": "pro:chemistry",
+     "cos": 0.397
+    }
+   ]
+  },
+  {
+   "domain": "computer_science",
+   "topic": "Data Structures",
+   "level": "intro",
+   "matches": [
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.393
+    },
+    {
+     "subject": "mmlu:machine_learning",
+     "cos": 0.327
+    },
+    {
+     "subject": "pro:computer science",
+     "cos": 0.322
+    }
+   ]
+  },
+  {
+   "domain": "computer_science",
+   "topic": "Algorithms & Complexity",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:machine_learning",
+     "cos": 0.431
+    },
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.389
+    },
+    {
+     "subject": "pro:computer science",
+     "cos": 0.365
+    }
+   ]
+  },
+  {
+   "domain": "computer_science",
+   "topic": "Computability & Automata Theory",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:machine_learning",
+     "cos": 0.526
+    },
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.385
+    },
+    {
+     "subject": "mmlu:high_school_mathematics",
+     "cos": 0.331
+    }
+   ]
+  },
+  {
+   "domain": "computer_science",
+   "topic": "Discrete Mathematics & Logic",
+   "level": "intro",
+   "matches": [
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.529
+    },
+    {
+     "subject": "mmlu:high_school_mathematics",
+     "cos": 0.509
+    },
+    {
+     "subject": "mmlu:elementary_mathematics",
+     "cos": 0.509
+    }
+   ]
+  },
+  {
+   "domain": "computer_science",
+   "topic": "Operating Systems",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:machine_learning",
+     "cos": 0.408
+    },
+    {
+     "subject": "pro:computer science",
+     "cos": 0.356
+    },
+    {
+     "subject": "mmlu:high_school_computer_science",
+     "cos": 0.356
+    }
+   ]
+  },
+  {
+   "domain": "computer_science",
+   "topic": "Computer Networks",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "pro:computer science",
+     "cos": 0.406
+    },
+    {
+     "subject": "mmlu:high_school_computer_science",
+     "cos": 0.406
+    },
+    {
+     "subject": "mmlu:college_computer_science",
+     "cos": 0.406
+    }
+   ]
+  },
+  {
+   "domain": "computer_science",
+   "topic": "Databases",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:machine_learning",
+     "cos": 0.427
+    },
+    {
+     "subject": "pro:computer science",
+     "cos": 0.39
+    },
+    {
+     "subject": "mmlu:high_school_computer_science",
+     "cos": 0.39
+    }
+   ]
+  },
+  {
+   "domain": "computer_science",
+   "topic": "Computer Architecture",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:machine_learning",
+     "cos": 0.419
+    },
+    {
+     "subject": "mmlu:anatomy",
+     "cos": 0.407
+    },
+    {
+     "subject": "pro:computer science",
+     "cos": 0.358
+    }
+   ]
+  },
+  {
+   "domain": "computer_science",
+   "topic": "Programming Languages & Compilers",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.508
+    },
+    {
+     "subject": "mmlu:machine_learning",
+     "cos": 0.455
+    },
+    {
+     "subject": "mmlu:anatomy",
+     "cos": 0.442
+    }
+   ]
+  },
+  {
+   "domain": "computer_science",
+   "topic": "Machine Learning",
+   "level": "graduate",
+   "matches": [
+    {
+     "subject": "mmlu:machine_learning",
+     "cos": 0.69
+    },
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.414
+    },
+    {
+     "subject": "pro:economics",
+     "cos": 0.385
+    }
+   ]
+  },
+  {
+   "domain": "computer_science",
+   "topic": "Probability & Statistics for CS",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:high_school_statistics",
+     "cos": 0.439
+    },
+    {
+     "subject": "mmlu:machine_learning",
+     "cos": 0.352
+    },
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.328
+    }
+   ]
+  },
+  {
+   "domain": "computer_science",
+   "topic": "Circuit Analysis",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.385
+    },
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.345
+    },
+    {
+     "subject": "pro:physics",
+     "cos": 0.315
+    }
+   ]
+  },
+  {
+   "domain": "computer_science",
+   "topic": "Signals & Systems",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.361
+    },
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.308
+    },
+    {
+     "subject": "pro:computer science",
+     "cos": 0.295
+    }
+   ]
+  },
+  {
+   "domain": "computer_science",
+   "topic": "Control Systems",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.342
+    },
+    {
+     "subject": "mmlu:machine_learning",
+     "cos": 0.339
+    },
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.33
+    }
+   ]
+  },
+  {
+   "domain": "computer_science",
+   "topic": "Digital Logic & Boolean Algebra",
+   "level": "intro",
+   "matches": [
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.485
+    },
+    {
+     "subject": "mmlu:machine_learning",
+     "cos": 0.412
+    },
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.343
+    }
+   ]
+  },
+  {
+   "domain": "computer_science",
+   "topic": "Semiconductor Devices & Electronics",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.445
+    },
+    {
+     "subject": "pro:computer science",
+     "cos": 0.314
+    },
+    {
+     "subject": "mmlu:high_school_computer_science",
+     "cos": 0.314
+    }
+   ]
+  },
+  {
+   "domain": "economics",
+   "topic": "Supply and Demand",
+   "level": "intro",
+   "matches": [
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.496
+    },
+    {
+     "subject": "pro:economics",
+     "cos": 0.441
+    },
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.385
+    }
+   ]
+  },
+  {
+   "domain": "economics",
+   "topic": "Elasticity",
+   "level": "intro",
+   "matches": [
+    {
+     "subject": "pro:economics",
+     "cos": 0.364
+    },
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.35
+    },
+    {
+     "subject": "mmlu:machine_learning",
+     "cos": 0.306
+    }
+   ]
+  },
+  {
+   "domain": "economics",
+   "topic": "Consumer Theory",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.446
+    },
+    {
+     "subject": "pro:economics",
+     "cos": 0.44
+    },
+    {
+     "subject": "mmlu:machine_learning",
+     "cos": 0.365
+    }
+   ]
+  },
+  {
+   "domain": "economics",
+   "topic": "Producer Theory: Production and Costs",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.43
+    },
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.389
+    },
+    {
+     "subject": "pro:economics",
+     "cos": 0.378
+    }
+   ]
+  },
+  {
+   "domain": "economics",
+   "topic": "Market Structures",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "pro:economics",
+     "cos": 0.516
+    },
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.493
+    },
+    {
+     "subject": "mmlu:machine_learning",
+     "cos": 0.401
+    }
+   ]
+  },
+  {
+   "domain": "economics",
+   "topic": "Welfare Economics and Externalities",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "pro:economics",
+     "cos": 0.502
+    },
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.474
+    },
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.421
+    }
+   ]
+  },
+  {
+   "domain": "economics",
+   "topic": "Game Theory",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "pro:economics",
+     "cos": 0.409
+    },
+    {
+     "subject": "mmlu:machine_learning",
+     "cos": 0.371
+    },
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.327
+    }
+   ]
+  },
+  {
+   "domain": "economics",
+   "topic": "GDP and National Income Accounting",
+   "level": "intro",
+   "matches": [
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.489
+    },
+    {
+     "subject": "pro:economics",
+     "cos": 0.37
+    },
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.348
+    }
+   ]
+  },
+  {
+   "domain": "economics",
+   "topic": "IS-LM and AD-AS Models",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.431
+    },
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.396
+    },
+    {
+     "subject": "pro:economics",
+     "cos": 0.392
+    }
+   ]
+  },
+  {
+   "domain": "economics",
+   "topic": "Money, Banking, and Inflation",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "pro:economics",
+     "cos": 0.431
+    },
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.409
+    },
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.389
+    }
+   ]
+  },
+  {
+   "domain": "economics",
+   "topic": "Unemployment and Labor Markets",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.418
+    },
+    {
+     "subject": "pro:economics",
+     "cos": 0.414
+    },
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.404
+    }
+   ]
+  },
+  {
+   "domain": "economics",
+   "topic": "Economic Growth: Solow Model",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.448
+    },
+    {
+     "subject": "pro:economics",
+     "cos": 0.406
+    },
+    {
+     "subject": "mmlu:machine_learning",
+     "cos": 0.388
+    }
+   ]
+  },
+  {
+   "domain": "economics",
+   "topic": "Fiscal and Monetary Policy",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.504
+    },
+    {
+     "subject": "pro:economics",
+     "cos": 0.452
+    },
+    {
+     "subject": "mmlu:machine_learning",
+     "cos": 0.432
+    }
+   ]
+  },
+  {
+   "domain": "economics",
+   "topic": "Econometrics: OLS and Regression",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.41
+    },
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.357
+    },
+    {
+     "subject": "mmlu:high_school_statistics",
+     "cos": 0.356
+    }
+   ]
+  },
+  {
+   "domain": "economics",
+   "topic": "Econometrics: Causal Inference and Advanced Methods",
+   "level": "graduate",
+   "matches": [
+    {
+     "subject": "mmlu:medical_genetics",
+     "cos": 0.438
+    },
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.437
+    },
+    {
+     "subject": "pro:economics",
+     "cos": 0.424
+    }
+   ]
+  },
+  {
+   "domain": "mathematics",
+   "topic": "Elementary Algebra and Arithmetic",
+   "level": "intro",
+   "matches": [
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.409
+    },
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.334
+    },
+    {
+     "subject": "pro:economics",
+     "cos": 0.312
+    }
+   ]
+  },
+  {
+   "domain": "mathematics",
+   "topic": "Algebra and Polynomial Theory",
+   "level": "intro",
+   "matches": [
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.495
+    },
+    {
+     "subject": "mmlu:high_school_mathematics",
+     "cos": 0.344
+    },
+    {
+     "subject": "mmlu:elementary_mathematics",
+     "cos": 0.344
+    }
+   ]
+  },
+  {
+   "domain": "mathematics",
+   "topic": "Geometry and Trigonometry",
+   "level": "intro",
+   "matches": [
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.358
+    },
+    {
+     "subject": "mmlu:astronomy",
+     "cos": 0.327
+    },
+    {
+     "subject": "pro:math",
+     "cos": 0.299
+    }
+   ]
+  },
+  {
+   "domain": "mathematics",
+   "topic": "Precalculus and Functions",
+   "level": "intro",
+   "matches": [
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.409
+    },
+    {
+     "subject": "mmlu:high_school_mathematics",
+     "cos": 0.332
+    },
+    {
+     "subject": "mmlu:elementary_mathematics",
+     "cos": 0.332
+    }
+   ]
+  },
+  {
+   "domain": "mathematics",
+   "topic": "Single-Variable Calculus",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.384
+    },
+    {
+     "subject": "mmlu:high_school_mathematics",
+     "cos": 0.364
+    },
+    {
+     "subject": "mmlu:elementary_mathematics",
+     "cos": 0.364
+    }
+   ]
+  },
+  {
+   "domain": "mathematics",
+   "topic": "Multivariable Calculus",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.365
+    },
+    {
+     "subject": "pro:physics",
+     "cos": 0.327
+    },
+    {
+     "subject": "mmlu:high_school_physics",
+     "cos": 0.327
+    }
+   ]
+  },
+  {
+   "domain": "mathematics",
+   "topic": "Linear Algebra",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.492
+    },
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.321
+    },
+    {
+     "subject": "mmlu:high_school_mathematics",
+     "cos": 0.291
+    }
+   ]
+  },
+  {
+   "domain": "mathematics",
+   "topic": "Differential Equations",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.386
+    },
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.353
+    },
+    {
+     "subject": "mmlu:high_school_mathematics",
+     "cos": 0.297
+    }
+   ]
+  },
+  {
+   "domain": "mathematics",
+   "topic": "Probability and Combinatorics",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:high_school_statistics",
+     "cos": 0.381
+    },
+    {
+     "subject": "mmlu:machine_learning",
+     "cos": 0.349
+    },
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.341
+    }
+   ]
+  },
+  {
+   "domain": "mathematics",
+   "topic": "Statistics",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:high_school_statistics",
+     "cos": 0.541
+    },
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.363
+    },
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.361
+    }
+   ]
+  },
+  {
+   "domain": "mathematics",
+   "topic": "Abstract Algebra \u2014 Group Theory",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.405
+    },
+    {
+     "subject": "pro:chemistry",
+     "cos": 0.302
+    },
+    {
+     "subject": "mmlu:high_school_chemistry",
+     "cos": 0.302
+    }
+   ]
+  },
+  {
+   "domain": "mathematics",
+   "topic": "Abstract Algebra \u2014 Rings and Fields",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.451
+    },
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.34
+    },
+    {
+     "subject": "pro:physics",
+     "cos": 0.281
+    }
+   ]
+  },
+  {
+   "domain": "mathematics",
+   "topic": "Real Analysis",
+   "level": "graduate",
+   "matches": [
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.479
+    },
+    {
+     "subject": "mmlu:high_school_mathematics",
+     "cos": 0.387
+    },
+    {
+     "subject": "mmlu:elementary_mathematics",
+     "cos": 0.387
+    }
+   ]
+  },
+  {
+   "domain": "mathematics",
+   "topic": "Complex Analysis",
+   "level": "graduate",
+   "matches": [
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.359
+    },
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.332
+    },
+    {
+     "subject": "mmlu:high_school_mathematics",
+     "cos": 0.298
+    }
+   ]
+  },
+  {
+   "domain": "mathematics",
+   "topic": "Number Theory",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.429
+    },
+    {
+     "subject": "mmlu:high_school_mathematics",
+     "cos": 0.369
+    },
+    {
+     "subject": "mmlu:elementary_mathematics",
+     "cos": 0.369
+    }
+   ]
+  },
+  {
+   "domain": "mathematics",
+   "topic": "Discrete Mathematics and Combinatorics",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.487
+    },
+    {
+     "subject": "mmlu:high_school_mathematics",
+     "cos": 0.427
+    },
+    {
+     "subject": "mmlu:elementary_mathematics",
+     "cos": 0.427
+    }
+   ]
+  },
+  {
+   "domain": "mathematics",
+   "topic": "Topology",
+   "level": "graduate",
+   "matches": [
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.407
+    },
+    {
+     "subject": "mmlu:machine_learning",
+     "cos": 0.312
+    },
+    {
+     "subject": "mmlu:high_school_mathematics",
+     "cos": 0.302
+    }
+   ]
+  },
+  {
+   "domain": "physics",
+   "topic": "Classical Mechanics",
+   "level": "intro",
+   "matches": [
+    {
+     "subject": "pro:physics",
+     "cos": 0.422
+    },
+    {
+     "subject": "mmlu:high_school_physics",
+     "cos": 0.422
+    },
+    {
+     "subject": "mmlu:conceptual_physics",
+     "cos": 0.422
+    }
+   ]
+  },
+  {
+   "domain": "physics",
+   "topic": "Analytical Mechanics (Lagrangian and Hamiltonian)",
+   "level": "graduate",
+   "matches": [
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.385
+    },
+    {
+     "subject": "pro:physics",
+     "cos": 0.384
+    },
+    {
+     "subject": "mmlu:high_school_physics",
+     "cos": 0.384
+    }
+   ]
+  },
+  {
+   "domain": "physics",
+   "topic": "Electromagnetism",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.406
+    },
+    {
+     "subject": "pro:physics",
+     "cos": 0.397
+    },
+    {
+     "subject": "mmlu:high_school_physics",
+     "cos": 0.397
+    }
+   ]
+  },
+  {
+   "domain": "physics",
+   "topic": "Quantum Mechanics",
+   "level": "graduate",
+   "matches": [
+    {
+     "subject": "pro:physics",
+     "cos": 0.445
+    },
+    {
+     "subject": "mmlu:high_school_physics",
+     "cos": 0.445
+    },
+    {
+     "subject": "mmlu:conceptual_physics",
+     "cos": 0.445
+    }
+   ]
+  },
+  {
+   "domain": "physics",
+   "topic": "Statistical Mechanics and Thermodynamics",
+   "level": "graduate",
+   "matches": [
+    {
+     "subject": "pro:physics",
+     "cos": 0.419
+    },
+    {
+     "subject": "mmlu:high_school_physics",
+     "cos": 0.419
+    },
+    {
+     "subject": "mmlu:conceptual_physics",
+     "cos": 0.419
+    }
+   ]
+  },
+  {
+   "domain": "physics",
+   "topic": "Special Relativity",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "pro:physics",
+     "cos": 0.457
+    },
+    {
+     "subject": "mmlu:high_school_physics",
+     "cos": 0.457
+    },
+    {
+     "subject": "mmlu:conceptual_physics",
+     "cos": 0.457
+    }
+   ]
+  },
+  {
+   "domain": "physics",
+   "topic": "General Relativity",
+   "level": "graduate",
+   "matches": [
+    {
+     "subject": "pro:physics",
+     "cos": 0.421
+    },
+    {
+     "subject": "mmlu:high_school_physics",
+     "cos": 0.421
+    },
+    {
+     "subject": "mmlu:conceptual_physics",
+     "cos": 0.421
+    }
+   ]
+  },
+  {
+   "domain": "physics",
+   "topic": "Condensed Matter Physics",
+   "level": "graduate",
+   "matches": [
+    {
+     "subject": "pro:physics",
+     "cos": 0.395
+    },
+    {
+     "subject": "mmlu:high_school_physics",
+     "cos": 0.395
+    },
+    {
+     "subject": "mmlu:conceptual_physics",
+     "cos": 0.395
+    }
+   ]
+  },
+  {
+   "domain": "physics",
+   "topic": "Particle Physics and Quantum Field Theory",
+   "level": "graduate",
+   "matches": [
+    {
+     "subject": "pro:physics",
+     "cos": 0.493
+    },
+    {
+     "subject": "mmlu:high_school_physics",
+     "cos": 0.493
+    },
+    {
+     "subject": "mmlu:conceptual_physics",
+     "cos": 0.493
+    }
+   ]
+  },
+  {
+   "domain": "physics",
+   "topic": "Astrophysics and Cosmology",
+   "level": "graduate",
+   "matches": [
+    {
+     "subject": "mmlu:astronomy",
+     "cos": 0.522
+    },
+    {
+     "subject": "pro:physics",
+     "cos": 0.436
+    },
+    {
+     "subject": "mmlu:high_school_physics",
+     "cos": 0.436
+    }
+   ]
+  },
+  {
+   "domain": "physics",
+   "topic": "Optics and Waves",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:astronomy",
+     "cos": 0.419
+    },
+    {
+     "subject": "pro:physics",
+     "cos": 0.402
+    },
+    {
+     "subject": "mmlu:high_school_physics",
+     "cos": 0.402
+    }
+   ]
+  },
+  {
+   "domain": "physics",
+   "topic": "Nuclear and Atomic Physics",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "pro:physics",
+     "cos": 0.457
+    },
+    {
+     "subject": "mmlu:high_school_physics",
+     "cos": 0.457
+    },
+    {
+     "subject": "mmlu:conceptual_physics",
+     "cos": 0.457
+    }
+   ]
+  },
+  {
+   "domain": "physics",
+   "topic": "Thermodynamics (Classical)",
+   "level": "intro",
+   "matches": [
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.406
+    },
+    {
+     "subject": "pro:physics",
+     "cos": 0.365
+    },
+    {
+     "subject": "mmlu:high_school_physics",
+     "cos": 0.365
+    }
+   ]
+  },
+  {
+   "domain": "physics",
+   "topic": "Mathematical Methods in Physics",
+   "level": "undergrad",
+   "matches": [
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.433
+    },
+    {
+     "subject": "mmlu:high_school_mathematics",
+     "cos": 0.38
+    },
+    {
+     "subject": "mmlu:elementary_mathematics",
+     "cos": 0.38
+    }
+   ]
+  },
+  {
+   "domain": "physics",
+   "topic": "Plasma Physics and Fluid Dynamics",
+   "level": "graduate",
+   "matches": [
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.425
+    },
+    {
+     "subject": "pro:physics",
+     "cos": 0.364
+    },
+    {
+     "subject": "mmlu:high_school_physics",
+     "cos": 0.364
+    }
+   ]
+  }
+ ],
+ "coverage": [
+  {
+   "subject": "pro:math",
+   "kind": "mmlu_pro",
+   "domain": "mathematics",
+   "max_cos": 0.38,
+   "nearest_topic": "computer_science:Discrete Mathematics & Logic",
+   "gap": true
+  },
+  {
+   "subject": "pro:computer science",
+   "kind": "mmlu_pro",
+   "domain": "computer_science",
+   "max_cos": 0.427,
+   "nearest_topic": "computer_science:Programming Languages & Compilers",
+   "gap": true
+  },
+  {
+   "subject": "mmlu:college_computer_science",
+   "kind": "mmlu",
+   "domain": "computer_science",
+   "max_cos": 0.427,
+   "nearest_topic": "computer_science:Programming Languages & Compilers",
+   "gap": true
+  },
+  {
+   "subject": "mmlu:high_school_computer_science",
+   "kind": "mmlu",
+   "domain": "computer_science",
+   "max_cos": 0.427,
+   "nearest_topic": "computer_science:Programming Languages & Compilers",
+   "gap": true
+  },
+  {
+   "subject": "mmlu:electrical_engineering",
+   "kind": "mmlu",
+   "domain": "computer_science",
+   "max_cos": 0.445,
+   "nearest_topic": "computer_science:Semiconductor Devices & Electronics",
+   "gap": true
+  },
+  {
+   "subject": "pro:biology",
+   "kind": "mmlu_pro",
+   "domain": "biology",
+   "max_cos": 0.454,
+   "nearest_topic": "biology:Microbiology",
+   "gap": false
+  },
+  {
+   "subject": "mmlu:college_biology",
+   "kind": "mmlu",
+   "domain": "biology",
+   "max_cos": 0.454,
+   "nearest_topic": "biology:Microbiology",
+   "gap": false
+  },
+  {
+   "subject": "mmlu:high_school_biology",
+   "kind": "mmlu",
+   "domain": "biology",
+   "max_cos": 0.454,
+   "nearest_topic": "biology:Microbiology",
+   "gap": false
+  },
+  {
+   "subject": "pro:physics",
+   "kind": "mmlu_pro",
+   "domain": "physics",
+   "max_cos": 0.493,
+   "nearest_topic": "physics:Particle Physics and Quantum Field Theory",
+   "gap": false
+  },
+  {
+   "subject": "mmlu:conceptual_physics",
+   "kind": "mmlu",
+   "domain": "physics",
+   "max_cos": 0.493,
+   "nearest_topic": "physics:Particle Physics and Quantum Field Theory",
+   "gap": false
+  },
+  {
+   "subject": "mmlu:college_physics",
+   "kind": "mmlu",
+   "domain": "physics",
+   "max_cos": 0.493,
+   "nearest_topic": "physics:Particle Physics and Quantum Field Theory",
+   "gap": false
+  },
+  {
+   "subject": "mmlu:high_school_physics",
+   "kind": "mmlu",
+   "domain": "physics",
+   "max_cos": 0.493,
+   "nearest_topic": "physics:Particle Physics and Quantum Field Theory",
+   "gap": false
+  },
+  {
+   "subject": "mmlu:college_mathematics",
+   "kind": "mmlu",
+   "domain": "mathematics",
+   "max_cos": 0.509,
+   "nearest_topic": "computer_science:Discrete Mathematics & Logic",
+   "gap": false
+  },
+  {
+   "subject": "mmlu:high_school_mathematics",
+   "kind": "mmlu",
+   "domain": "mathematics",
+   "max_cos": 0.509,
+   "nearest_topic": "computer_science:Discrete Mathematics & Logic",
+   "gap": false
+  },
+  {
+   "subject": "mmlu:elementary_mathematics",
+   "kind": "mmlu",
+   "domain": "mathematics",
+   "max_cos": 0.509,
+   "nearest_topic": "computer_science:Discrete Mathematics & Logic",
+   "gap": false
+  },
+  {
+   "subject": "pro:economics",
+   "kind": "mmlu_pro",
+   "domain": "economics",
+   "max_cos": 0.516,
+   "nearest_topic": "economics:Market Structures",
+   "gap": false
+  },
+  {
+   "subject": "mmlu:astronomy",
+   "kind": "mmlu",
+   "domain": "physics",
+   "max_cos": 0.522,
+   "nearest_topic": "physics:Astrophysics and Cosmology",
+   "gap": false
+  },
+  {
+   "subject": "mmlu:abstract_algebra",
+   "kind": "mmlu",
+   "domain": "mathematics",
+   "max_cos": 0.529,
+   "nearest_topic": "computer_science:Discrete Mathematics & Logic",
+   "gap": false
+  },
+  {
+   "subject": "pro:chemistry",
+   "kind": "mmlu_pro",
+   "domain": "chemistry",
+   "max_cos": 0.533,
+   "nearest_topic": "chemistry:Organic Reactions and Mechanisms",
+   "gap": false
+  },
+  {
+   "subject": "mmlu:college_chemistry",
+   "kind": "mmlu",
+   "domain": "chemistry",
+   "max_cos": 0.533,
+   "nearest_topic": "chemistry:Organic Reactions and Mechanisms",
+   "gap": false
+  },
+  {
+   "subject": "mmlu:high_school_chemistry",
+   "kind": "mmlu",
+   "domain": "chemistry",
+   "max_cos": 0.533,
+   "nearest_topic": "chemistry:Organic Reactions and Mechanisms",
+   "gap": false
+  },
+  {
+   "subject": "mmlu:high_school_statistics",
+   "kind": "mmlu",
+   "domain": "mathematics",
+   "max_cos": 0.541,
+   "nearest_topic": "mathematics:Statistics",
+   "gap": false
+  },
+  {
+   "subject": "mmlu:nutrition",
+   "kind": "mmlu",
+   "domain": "biology",
+   "max_cos": 0.587,
+   "nearest_topic": "biology:Nutrition and Metabolism",
+   "gap": false
+  },
+  {
+   "subject": "mmlu:anatomy",
+   "kind": "mmlu",
+   "domain": "biology",
+   "max_cos": 0.628,
+   "nearest_topic": "biology:Anatomy",
+   "gap": false
+  },
+  {
+   "subject": "mmlu:medical_genetics",
+   "kind": "mmlu",
+   "domain": "biology",
+   "max_cos": 0.634,
+   "nearest_topic": "biology:Medical Genetics",
+   "gap": false
+  },
+  {
+   "subject": "mmlu:machine_learning",
+   "kind": "mmlu",
+   "domain": "computer_science",
+   "max_cos": 0.69,
+   "nearest_topic": "computer_science:Machine Learning",
+   "gap": false
+  }
+ ],
+ "decomposition": {
+  "pro:biology": [
+   {
+    "topic": "biology:Microbiology",
+    "cos": 0.454
+   }
+  ],
+  "mmlu:college_biology": [
+   {
+    "topic": "biology:Microbiology",
+    "cos": 0.454
+   }
+  ],
+  "mmlu:high_school_biology": [
+   {
+    "topic": "biology:Microbiology",
+    "cos": 0.454
+   }
+  ],
+  "mmlu:anatomy": [
+   {
+    "topic": "biology:Anatomy",
+    "cos": 0.628
+   }
+  ],
+  "mmlu:medical_genetics": [
+   {
+    "topic": "biology:Medical Genetics",
+    "cos": 0.634
+   },
+   {
+    "topic": "biology:Genetics",
+    "cos": 0.613
+   },
+   {
+    "topic": "biology:Evolution",
+    "cos": 0.504
+   },
+   {
+    "topic": "biology:Developmental Biology",
+    "cos": 0.484
+   },
+   {
+    "topic": "biology:Nutrition and Metabolism",
+    "cos": 0.478
+   },
+   {
+    "topic": "biology:Microbiology",
+    "cos": 0.478
+   }
+  ],
+  "mmlu:nutrition": [
+   {
+    "topic": "biology:Nutrition and Metabolism",
+    "cos": 0.587
+   },
+   {
+    "topic": "biology:Ecology",
+    "cos": 0.537
+   },
+   {
+    "topic": "economics:Fiscal and Monetary Policy",
+    "cos": 0.504
+   },
+   {
+    "topic": "economics:Supply and Demand",
+    "cos": 0.496
+   },
+   {
+    "topic": "economics:Market Structures",
+    "cos": 0.493
+   },
+   {
+    "topic": "economics:GDP and National Income Accounting",
+    "cos": 0.489
+   }
+  ],
+  "pro:chemistry": [
+   {
+    "topic": "chemistry:Organic Reactions and Mechanisms",
+    "cos": 0.533
+   },
+   {
+    "topic": "chemistry:Biochemistry Fundamentals",
+    "cos": 0.527
+   },
+   {
+    "topic": "chemistry:Coordination Chemistry and Inorganic Chemistry",
+    "cos": 0.523
+   },
+   {
+    "topic": "biology:Biochemistry and Metabolism",
+    "cos": 0.494
+   },
+   {
+    "topic": "biology:Nutrition and Metabolism",
+    "cos": 0.47
+   },
+   {
+    "topic": "biology:Cell Biology",
+    "cos": 0.463
+   }
+  ],
+  "mmlu:college_chemistry": [
+   {
+    "topic": "chemistry:Organic Reactions and Mechanisms",
+    "cos": 0.533
+   },
+   {
+    "topic": "chemistry:Biochemistry Fundamentals",
+    "cos": 0.527
+   },
+   {
+    "topic": "chemistry:Coordination Chemistry and Inorganic Chemistry",
+    "cos": 0.523
+   },
+   {
+    "topic": "biology:Biochemistry and Metabolism",
+    "cos": 0.494
+   },
+   {
+    "topic": "biology:Nutrition and Metabolism",
+    "cos": 0.47
+   },
+   {
+    "topic": "biology:Cell Biology",
+    "cos": 0.463
+   }
+  ],
+  "mmlu:high_school_chemistry": [
+   {
+    "topic": "chemistry:Organic Reactions and Mechanisms",
+    "cos": 0.533
+   },
+   {
+    "topic": "chemistry:Biochemistry Fundamentals",
+    "cos": 0.527
+   },
+   {
+    "topic": "chemistry:Coordination Chemistry and Inorganic Chemistry",
+    "cos": 0.523
+   },
+   {
+    "topic": "biology:Biochemistry and Metabolism",
+    "cos": 0.494
+   },
+   {
+    "topic": "biology:Nutrition and Metabolism",
+    "cos": 0.47
+   },
+   {
+    "topic": "biology:Cell Biology",
+    "cos": 0.463
+   }
+  ],
+  "pro:computer science": [],
+  "mmlu:college_computer_science": [],
+  "mmlu:high_school_computer_science": [],
+  "mmlu:machine_learning": [
+   {
+    "topic": "computer_science:Machine Learning",
+    "cos": 0.69
+   },
+   {
+    "topic": "computer_science:Computability & Automata Theory",
+    "cos": 0.526
+   },
+   {
+    "topic": "computer_science:Programming Languages & Compilers",
+    "cos": 0.455
+   }
+  ],
+  "mmlu:electrical_engineering": [],
+  "pro:economics": [
+   {
+    "topic": "economics:Market Structures",
+    "cos": 0.516
+   },
+   {
+    "topic": "economics:Welfare Economics and Externalities",
+    "cos": 0.502
+   },
+   {
+    "topic": "economics:Fiscal and Monetary Policy",
+    "cos": 0.452
+   }
+  ],
+  "pro:math": [],
+  "mmlu:abstract_algebra": [
+   {
+    "topic": "computer_science:Discrete Mathematics & Logic",
+    "cos": 0.529
+   },
+   {
+    "topic": "computer_science:Programming Languages & Compilers",
+    "cos": 0.508
+   },
+   {
+    "topic": "mathematics:Algebra and Polynomial Theory",
+    "cos": 0.495
+   },
+   {
+    "topic": "mathematics:Linear Algebra",
+    "cos": 0.492
+   },
+   {
+    "topic": "mathematics:Discrete Mathematics and Combinatorics",
+    "cos": 0.487
+   },
+   {
+    "topic": "computer_science:Digital Logic & Boolean Algebra",
+    "cos": 0.485
+   }
+  ],
+  "mmlu:college_mathematics": [
+   {
+    "topic": "computer_science:Discrete Mathematics & Logic",
+    "cos": 0.509
+   }
+  ],
+  "mmlu:high_school_mathematics": [
+   {
+    "topic": "computer_science:Discrete Mathematics & Logic",
+    "cos": 0.509
+   }
+  ],
+  "mmlu:elementary_mathematics": [
+   {
+    "topic": "computer_science:Discrete Mathematics & Logic",
+    "cos": 0.509
+   }
+  ],
+  "mmlu:high_school_statistics": [
+   {
+    "topic": "mathematics:Statistics",
+    "cos": 0.541
+   }
+  ],
+  "pro:physics": [
+   {
+    "topic": "physics:Particle Physics and Quantum Field Theory",
+    "cos": 0.493
+   },
+   {
+    "topic": "physics:Special Relativity",
+    "cos": 0.457
+   },
+   {
+    "topic": "physics:Nuclear and Atomic Physics",
+    "cos": 0.457
+   }
+  ],
+  "mmlu:conceptual_physics": [
+   {
+    "topic": "physics:Particle Physics and Quantum Field Theory",
+    "cos": 0.493
+   },
+   {
+    "topic": "physics:Special Relativity",
+    "cos": 0.457
+   },
+   {
+    "topic": "physics:Nuclear and Atomic Physics",
+    "cos": 0.457
+   }
+  ],
+  "mmlu:college_physics": [
+   {
+    "topic": "physics:Particle Physics and Quantum Field Theory",
+    "cos": 0.493
+   },
+   {
+    "topic": "physics:Special Relativity",
+    "cos": 0.457
+   },
+   {
+    "topic": "physics:Nuclear and Atomic Physics",
+    "cos": 0.457
+   }
+  ],
+  "mmlu:high_school_physics": [
+   {
+    "topic": "physics:Particle Physics and Quantum Field Theory",
+    "cos": 0.493
+   },
+   {
+    "topic": "physics:Special Relativity",
+    "cos": 0.457
+   },
+   {
+    "topic": "physics:Nuclear and Atomic Physics",
+    "cos": 0.457
+   }
+  ],
+  "mmlu:astronomy": [
+   {
+    "topic": "physics:Astrophysics and Cosmology",
+    "cos": 0.522
+   }
+  ]
+ }
+}

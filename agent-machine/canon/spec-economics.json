@@ -1,0 +1,1777 @@
+{
+  "domain": "economics",
+  "mmlu_subjects": [
+    "high_school_macroeconomics",
+    "high_school_microeconomics",
+    "econometrics"
+  ],
+  "mmlu_pro_category": "economics",
+  "topics": [
+    {
+      "topic": "Supply and Demand",
+      "level": "intro",
+      "subtopics": [
+        "Law of demand and demand shifters",
+        "Law of supply and supply shifters",
+        "Market equilibrium and price determination",
+        "Price ceilings and price floors",
+        "Shifts vs. movements along curves",
+        "Consumer and producer surplus",
+        "Comparative statics",
+        "Markets for complements and substitutes"
+      ],
+      "glossary": [
+        {
+          "term": "demand curve",
+          "definition": "A schedule or curve showing the quantity of a good consumers are willing and able to purchase at each price, ceteris paribus; slopes downward due to the law of demand."
+        },
+        {
+          "term": "supply curve",
+          "definition": "A schedule or curve showing the quantity producers are willing and able to sell at each price, ceteris paribus; slopes upward due to increasing marginal costs."
+        },
+        {
+          "term": "equilibrium price",
+          "definition": "The price at which quantity demanded equals quantity supplied, clearing the market with no surplus or shortage."
+        },
+        {
+          "term": "surplus (excess supply)",
+          "definition": "A market condition in which quantity supplied exceeds quantity demanded at the prevailing price, placing downward pressure on price."
+        },
+        {
+          "term": "shortage (excess demand)",
+          "definition": "A market condition in which quantity demanded exceeds quantity supplied at the prevailing price, placing upward pressure on price."
+        },
+        {
+          "term": "price ceiling",
+          "definition": "A legally imposed maximum price; causes a shortage when set below equilibrium price."
+        },
+        {
+          "term": "price floor",
+          "definition": "A legally imposed minimum price; causes a surplus when set above equilibrium price."
+        },
+        {
+          "term": "consumer surplus",
+          "definition": "The difference between the maximum a consumer is willing to pay and the price actually paid, representing welfare gain to buyers."
+        },
+        {
+          "term": "producer surplus",
+          "definition": "The difference between the price a producer receives and the minimum price at which the producer would supply the good."
+        },
+        {
+          "term": "ceteris paribus",
+          "definition": "Latin for 'all else equal'; the assumption that all variables other than those under study remain constant."
+        },
+        {
+          "term": "normal good",
+          "definition": "A good for which demand increases as consumer income rises."
+        },
+        {
+          "term": "inferior good",
+          "definition": "A good for which demand decreases as consumer income rises."
+        },
+        {
+          "term": "supply",
+          "definition": "Quantity of a good or service producers are willing and able to offer at various prices, ceteris paribus. Supply curve slopes upward."
+        },
+        {
+          "term": "demand",
+          "definition": "Quantity of a good or service consumers are willing and able to purchase at various prices, ceteris paribus. Demand curve slopes downward."
+        },
+        {
+          "term": "price",
+          "definition": "The amount paid for a good or service in a market transaction. Set at equilibrium where supply = demand."
+        },
+        {
+          "term": "market",
+          "definition": "Institution through which buyers and sellers interact to trade goods/services. Types: perfectly competitive, monopoly, oligopoly, monopolistic competition."
+        },
+        {
+          "term": "consumer",
+          "definition": "An economic agent that purchases goods/services to maximize utility subject to a budget constraint; described by demand curves and utility maximization."
+        },
+        {
+          "term": "trade",
+          "definition": "Voluntary exchange of goods/services; international trade arises from comparative advantage and leads to gains from specialization."
+        },
+        {
+          "term": "import",
+          "definition": "Goods/services purchased from abroad; M in GDP formula. Imports increase domestic supply; net imports worsen the trade balance."
+        },
+        {
+          "term": "export",
+          "definition": "Goods/services sold abroad; X in GDP formula. Exports increase national income; net exports = X \u2212 M in the current account."
+        },
+        {
+          "term": "exchange rate",
+          "definition": "The price of one currency in terms of another; determined in FX markets. Currency appreciation makes imports cheaper and exports more expensive."
+        },
+        {
+          "term": "currency",
+          "definition": "A nation's medium of exchange issued by its central bank; acts as unit of account and store of value. Exchange rates are determined in FX markets."
+        }
+      ],
+      "canon": [
+        {
+          "name": "Market equilibrium condition",
+          "form": "Q_d(P) = Q_s(P) \u27f9 solve for P*",
+          "type": "equation"
+        },
+        {
+          "name": "Consumer surplus (area)",
+          "form": "CS = (1/2)(P_max - P*)(Q*)",
+          "type": "equation"
+        },
+        {
+          "name": "Producer surplus (area)",
+          "form": "PS = (1/2)(P* - P_min)(Q*)",
+          "type": "equation"
+        },
+        {
+          "name": "Total surplus",
+          "form": "TS = CS + PS",
+          "type": "equation"
+        },
+        {
+          "name": "Law of demand",
+          "form": "As price rises, quantity demanded falls, ceteris paribus (inverse relationship).",
+          "type": "principle"
+        },
+        {
+          "name": "Law of supply",
+          "form": "As price rises, quantity supplied rises, ceteris paribus (direct relationship).",
+          "type": "principle"
+        },
+        {
+          "name": "Demand shifters",
+          "form": "Demand shifts with changes in income, prices of related goods (substitutes/complements), tastes, expectations, and number of buyers.",
+          "type": "principle"
+        },
+        {
+          "name": "Supply shifters",
+          "form": "Supply shifts with changes in input prices, technology, expectations, number of sellers, and government taxes/subsidies.",
+          "type": "principle"
+        },
+        {
+          "name": "Deadweight loss from price control",
+          "form": "DWL = (1/2)|Q_free - Q_controlled|(|P_s - P_d|)",
+          "type": "equation"
+        }
+      ]
+    },
+    {
+      "topic": "Elasticity",
+      "level": "intro",
+      "subtopics": [
+        "Price elasticity of demand",
+        "Price elasticity of supply",
+        "Income elasticity of demand",
+        "Cross-price elasticity of demand",
+        "Determinants of elasticity",
+        "Elasticity and total revenue",
+        "Point vs. arc elasticity",
+        "Perfect elasticity and inelasticity"
+      ],
+      "glossary": [
+        {
+          "term": "price elasticity of demand (PED)",
+          "definition": "The percentage change in quantity demanded divided by the percentage change in price; measures responsiveness of demand to price changes."
+        },
+        {
+          "term": "elastic demand",
+          "definition": "Demand is elastic when |PED| > 1; quantity demanded is highly responsive to price changes."
+        },
+        {
+          "term": "inelastic demand",
+          "definition": "Demand is inelastic when |PED| < 1; quantity demanded is not very responsive to price changes."
+        },
+        {
+          "term": "unit elastic",
+          "definition": "Demand is unit elastic when |PED| = 1; total revenue is unchanged when price changes."
+        },
+        {
+          "term": "income elasticity of demand (YED)",
+          "definition": "The percentage change in quantity demanded divided by the percentage change in income; positive for normal goods, negative for inferior goods."
+        },
+        {
+          "term": "cross-price elasticity",
+          "definition": "The percentage change in quantity demanded of good X divided by the percentage change in price of good Y; positive for substitutes, negative for complements."
+        },
+        {
+          "term": "price elasticity of supply (PES)",
+          "definition": "The percentage change in quantity supplied divided by the percentage change in price; always non-negative."
+        },
+        {
+          "term": "perfectly inelastic",
+          "definition": "Supply or demand is perfectly inelastic when elasticity equals zero; the curve is vertical."
+        },
+        {
+          "term": "perfectly elastic",
+          "definition": "Supply or demand is perfectly elastic when elasticity is infinite; the curve is horizontal."
+        },
+        {
+          "term": "arc elasticity",
+          "definition": "Elasticity calculated using midpoint (average) values of price and quantity over an interval, avoiding end-point sensitivity."
+        }
+      ],
+      "canon": [
+        {
+          "name": "Price elasticity of demand",
+          "form": "E_d = (\u0394Q/Q) / (\u0394P/P) = (\u0394Q/\u0394P)(P/Q)",
+          "type": "equation"
+        },
+        {
+          "name": "Midpoint (arc) elasticity formula",
+          "form": "E = [(Q2-Q1)/((Q1+Q2)/2)] / [(P2-P1)/((P1+P2)/2)]",
+          "type": "equation"
+        },
+        {
+          "name": "Income elasticity of demand",
+          "form": "YED = (%\u0394Q_d) / (%\u0394Y)",
+          "type": "equation"
+        },
+        {
+          "name": "Cross-price elasticity",
+          "form": "XED = (%\u0394Q_x) / (%\u0394P_y)",
+          "type": "equation"
+        },
+        {
+          "name": "Total revenue and elasticity",
+          "form": "TR = P \u00d7 Q; if |E_d| > 1, price \u2191 \u27f9 TR \u2193; if |E_d| < 1, price \u2191 \u27f9 TR \u2191",
+          "type": "principle"
+        },
+        {
+          "name": "Elasticity of linear demand curve",
+          "form": "E_d = -(b)(P/Q) where Q = a - bP",
+          "type": "equation"
+        },
+        {
+          "name": "Determinants of PED",
+          "form": "Demand is more elastic when: more close substitutes exist, the good is a luxury, it represents a large budget share, or the time horizon is longer.",
+          "type": "principle"
+        },
+        {
+          "name": "Tax incidence and elasticity",
+          "form": "The more inelastic side of the market bears a larger share of a tax burden.",
+          "type": "principle"
+        }
+      ]
+    },
+    {
+      "topic": "Consumer Theory",
+      "level": "undergrad",
+      "subtopics": [
+        "Utility functions and indifference curves",
+        "Budget constraint",
+        "Utility maximization (tangency condition)",
+        "Marshallian and Hicksian demand",
+        "Income and substitution effects",
+        "Slutsky equation",
+        "Revealed preference",
+        "Intertemporal choice",
+        "Expected utility and risk"
+      ],
+      "glossary": [
+        {
+          "term": "utility",
+          "definition": "A numerical representation of a consumer's preferences over bundles of goods; higher utility indicates preferred bundles."
+        },
+        {
+          "term": "marginal utility (MU)",
+          "definition": "The additional utility gained from consuming one more unit of a good, holding other consumption constant; typically diminishing."
+        },
+        {
+          "term": "indifference curve",
+          "definition": "A curve showing all combinations of goods that yield equal utility; slopes downward and is convex to the origin under standard assumptions."
+        },
+        {
+          "term": "marginal rate of substitution (MRS)",
+          "definition": "The rate at which a consumer is willing to trade one good for another while remaining on the same indifference curve; equals -MU_x/MU_y."
+        },
+        {
+          "term": "budget constraint",
+          "definition": "The set of consumption bundles affordable at given income and prices: P_x\u00b7X + P_y\u00b7Y = I."
+        },
+        {
+          "term": "Marshallian demand",
+          "definition": "Ordinary (uncompensated) demand that maximizes utility subject to the budget constraint; depends on prices and income."
+        },
+        {
+          "term": "Hicksian demand",
+          "definition": "Compensated demand that minimizes expenditure while achieving a given utility level; isolates the pure substitution effect."
+        },
+        {
+          "term": "substitution effect",
+          "definition": "The change in quantity demanded due solely to the change in relative prices, holding utility constant."
+        },
+        {
+          "term": "income effect",
+          "definition": "The change in quantity demanded due to the change in real purchasing power when a price changes."
+        },
+        {
+          "term": "Slutsky equation",
+          "definition": "Decomposes the total price effect into substitution and income effects: \u2202x/\u2202p = \u2202h/\u2202p - x\u00b7(\u2202x/\u2202I)."
+        },
+        {
+          "term": "Giffen good",
+          "definition": "An inferior good with such a large income effect that demand curves upward; quantity demanded rises when price rises."
+        },
+        {
+          "term": "expenditure function",
+          "definition": "The minimum expenditure required to achieve a given utility level at given prices: e(p,u)."
+        },
+        {
+          "term": "indirect utility function",
+          "definition": "The maximum utility achievable given prices and income: V(p,I)."
+        },
+        {
+          "term": "lottery",
+          "definition": "In decision theory, a probability distribution over outcomes; expected-utility theory ranks lotteries by the expectation of a von Neumann-Morgenstern utility function."
+        }
+      ],
+      "canon": [
+        {
+          "name": "Utility maximization (tangency)",
+          "form": "MU_x/P_x = MU_y/P_y  \u27fa  MRS_{xy} = P_x/P_y",
+          "type": "equation"
+        },
+        {
+          "name": "Budget constraint",
+          "form": "P_x \u00b7 X + P_y \u00b7 Y = I",
+          "type": "equation"
+        },
+        {
+          "name": "Lagrangian for consumer problem",
+          "form": "max U(x,y) s.t. P_x\u00b7x + P_y\u00b7y = I; \u2112 = U(x,y) - \u03bb(P_x\u00b7x + P_y\u00b7y - I)",
+          "type": "equation"
+        },
+        {
+          "name": "Slutsky equation",
+          "form": "\u2202x^m/\u2202p_x = \u2202x^h/\u2202p_x - x\u00b7(\u2202x^m/\u2202I)",
+          "type": "equation"
+        },
+        {
+          "name": "Roy's identity",
+          "form": "x_i^m(p,I) = -[\u2202V/\u2202p_i] / [\u2202V/\u2202I]",
+          "type": "equation"
+        },
+        {
+          "name": "Shephard's lemma",
+          "form": "x_i^h(p,u) = \u2202e(p,u)/\u2202p_i",
+          "type": "equation"
+        },
+        {
+          "name": "MRS for Cobb-Douglas U = x^\u03b1\u00b7y^\u03b2",
+          "form": "MRS = (\u03b1y)/(\u03b2x)",
+          "type": "equation"
+        },
+        {
+          "name": "Law of diminishing marginal utility",
+          "form": "As consumption of a good increases, the marginal utility from each additional unit eventually declines.",
+          "type": "principle"
+        },
+        {
+          "name": "Expected utility (von Neumann-Morgenstern)",
+          "form": "EU = \u03a3 \u03c0_i \u00b7 U(w_i) where \u03c0_i is probability of outcome i",
+          "type": "equation"
+        },
+        {
+          "name": "Risk aversion condition",
+          "form": "A consumer is risk-averse iff U''(w) < 0 (concave utility function).",
+          "type": "principle"
+        }
+      ]
+    },
+    {
+      "topic": "Producer Theory: Production and Costs",
+      "level": "undergrad",
+      "subtopics": [
+        "Production function and isoquants",
+        "Marginal and average products",
+        "Returns to scale",
+        "Cost minimization and input choice",
+        "Short-run vs. long-run costs",
+        "Total, average, and marginal cost",
+        "Economies of scale and scope",
+        "Duality: cost and production",
+        "Profit maximization"
+      ],
+      "glossary": [
+        {
+          "term": "production function",
+          "definition": "A function Q = f(K,L) relating the quantity of output to the quantities of capital and labor (or other inputs) used."
+        },
+        {
+          "term": "marginal product of labor (MPL)",
+          "definition": "The additional output produced by employing one more unit of labor, holding capital constant: MPL = \u2202Q/\u2202L."
+        },
+        {
+          "term": "marginal rate of technical substitution (MRTS)",
+          "definition": "The rate at which capital can be substituted for labor while holding output constant; equals MPL/MPK along an isoquant."
+        },
+        {
+          "term": "isoquant",
+          "definition": "A curve showing all combinations of inputs that produce a given quantity of output."
+        },
+        {
+          "term": "returns to scale",
+          "definition": "How output changes when all inputs are scaled proportionally: constant (CRS), increasing (IRS), or decreasing (DRS)."
+        },
+        {
+          "term": "total cost (TC)",
+          "definition": "The sum of all costs incurred in production: TC = TFC + TVC."
+        },
+        {
+          "term": "average total cost (ATC)",
+          "definition": "Total cost per unit of output: ATC = TC/Q."
+        },
+        {
+          "term": "marginal cost (MC)",
+          "definition": "The incremental cost of producing one more unit of output: MC = \u0394TC/\u0394Q = dTC/dQ."
+        },
+        {
+          "term": "sunk cost",
+          "definition": "A cost already incurred and unrecoverable regardless of future decisions; should not influence forward-looking choices."
+        },
+        {
+          "term": "economies of scale",
+          "definition": "A situation in which long-run average cost declines as output increases."
+        },
+        {
+          "term": "diseconomies of scale",
+          "definition": "A situation in which long-run average cost rises as output increases."
+        },
+        {
+          "term": "economies of scope",
+          "definition": "Cost savings achieved when it is cheaper to produce two goods jointly than separately: C(Q1,Q2) < C(Q1,0) + C(0,Q2)."
+        },
+        {
+          "term": "isocost line",
+          "definition": "A line showing all combinations of inputs that can be hired at a given total expenditure: wL + rK = C."
+        }
+      ],
+      "canon": [
+        {
+          "name": "Cost minimization condition",
+          "form": "MRTS = w/r  \u27fa  MPL/MPK = w/r",
+          "type": "equation"
+        },
+        {
+          "name": "Isocost line",
+          "form": "wL + rK = C  \u27f9  K = C/r - (w/r)L",
+          "type": "equation"
+        },
+        {
+          "name": "Cobb-Douglas production function",
+          "form": "Q = A\u00b7K^\u03b1\u00b7L^\u03b2; CRS if \u03b1+\u03b2=1, IRS if \u03b1+\u03b2>1, DRS if \u03b1+\u03b2<1",
+          "type": "equation"
+        },
+        {
+          "name": "Marginal product",
+          "form": "MPL = \u2202Q/\u2202L;  MPK = \u2202Q/\u2202K",
+          "type": "equation"
+        },
+        {
+          "name": "Profit maximization condition",
+          "form": "\u03c0 = TR - TC;  d\u03c0/dQ = 0  \u27f9  MR = MC",
+          "type": "equation"
+        },
+        {
+          "name": "Short-run total cost",
+          "form": "STC(Q) = TFC + TVC(Q)",
+          "type": "equation"
+        },
+        {
+          "name": "Relationship between ATC and MC",
+          "form": "MC < ATC \u27f9 ATC is falling; MC > ATC \u27f9 ATC is rising; MC = ATC at minimum ATC.",
+          "type": "principle"
+        },
+        {
+          "name": "Long-run average cost envelope",
+          "form": "LRAC is the lower envelope of all SRAC curves; each SRAC is tangent to LRAC at one output level.",
+          "type": "principle"
+        },
+        {
+          "name": "Shephard's lemma (cost)",
+          "form": "Conditional input demand: x_i = \u2202C(w,Q)/\u2202w_i",
+          "type": "equation"
+        },
+        {
+          "name": "Economies of scale index",
+          "form": "S = AC/MC; S>1 \u27f9 economies of scale, S<1 \u27f9 diseconomies",
+          "type": "equation"
+        }
+      ]
+    },
+    {
+      "topic": "Market Structures",
+      "level": "undergrad",
+      "subtopics": [
+        "Perfect competition: short-run and long-run equilibrium",
+        "Monopoly: pricing and deadweight loss",
+        "Price discrimination (1st, 2nd, 3rd degree)",
+        "Monopolistic competition",
+        "Oligopoly: Cournot, Bertrand, Stackelberg",
+        "Natural monopoly and regulation",
+        "Market power and Lerner index",
+        "Concentration ratios and Herfindahl index"
+      ],
+      "glossary": [
+        {
+          "term": "perfect competition",
+          "definition": "A market structure with many price-taking firms, homogeneous products, free entry/exit, and perfect information."
+        },
+        {
+          "term": "price taker",
+          "definition": "A firm that takes the market price as given because it is too small to influence it; faces a perfectly elastic demand curve."
+        },
+        {
+          "term": "monopoly",
+          "definition": "A market with a single seller of a product with no close substitutes, giving the firm market power over price."
+        },
+        {
+          "term": "market power",
+          "definition": "The ability of a firm to profitably set price above marginal cost."
+        },
+        {
+          "term": "Lerner index",
+          "definition": "A measure of market power: L = (P - MC)/P = -1/|E_d|; ranges from 0 (perfect competition) to 1 (pure monopoly)."
+        },
+        {
+          "term": "price discrimination",
+          "definition": "Charging different prices to different customers for the same good, exploiting differences in willingness to pay."
+        },
+        {
+          "term": "Cournot competition",
+          "definition": "An oligopoly model in which firms simultaneously choose quantities, taking rivals' quantities as fixed."
+        },
+        {
+          "term": "Bertrand competition",
+          "definition": "An oligopoly model in which firms simultaneously set prices; with homogeneous goods and equal costs, results in P = MC."
+        },
+        {
+          "term": "Stackelberg competition",
+          "definition": "An oligopoly model in which a leader firm moves first, choosing quantity, and a follower then best-responds."
+        },
+        {
+          "term": "monopolistic competition",
+          "definition": "A market with many firms selling differentiated products, with free entry driving long-run profits to zero but P > MC."
+        },
+        {
+          "term": "natural monopoly",
+          "definition": "A market in which a single firm can serve the entire demand at lower cost than two or more firms, due to economies of scale."
+        },
+        {
+          "term": "Herfindahl-Hirschman Index (HHI)",
+          "definition": "A measure of market concentration: HHI = \u03a3 s_i^2 where s_i is each firm's market share in percentage; ranges from 0 to 10,000."
+        }
+      ],
+      "canon": [
+        {
+          "name": "Perfectly competitive firm's profit max",
+          "form": "P = MR = MC in short-run; P = MC = min AC in long-run",
+          "type": "equation"
+        },
+        {
+          "name": "Short-run supply curve (competitive firm)",
+          "form": "Firm supplies Q where P = MC(Q), for P \u2265 min AVC; otherwise shuts down.",
+          "type": "principle"
+        },
+        {
+          "name": "Zero profit condition (long-run competition)",
+          "form": "Free entry/exit drives \u03c0 \u2192 0; P = min LRAC",
+          "type": "equation"
+        },
+        {
+          "name": "Monopolist's MR",
+          "form": "MR = P(1 + 1/E_d) = P(1 - 1/|E_d|)",
+          "type": "equation"
+        },
+        {
+          "name": "Lerner index",
+          "form": "L = (P - MC)/P = 1/|E_d|",
+          "type": "equation"
+        },
+        {
+          "name": "Deadweight loss from monopoly",
+          "form": "DWL = (1/2)(P_m - MC)(Q_c - Q_m)",
+          "type": "equation"
+        },
+        {
+          "name": "Cournot duopoly (symmetric, linear)",
+          "form": "a - bQ_1 - bQ_2 = MC; Best response: Q_i = (a-MC)/(2b) - Q_j/2; Nash: Q_i = (a-MC)/(3b)",
+          "type": "equation"
+        },
+        {
+          "name": "Bertrand paradox",
+          "form": "With homogeneous goods and equal costs, Bertrand competition yields P = MC even with only two firms.",
+          "type": "principle"
+        },
+        {
+          "name": "First-degree price discrimination",
+          "form": "Firm charges each consumer their maximum WTP; extracts all CS; output equals competitive level (no DWL).",
+          "type": "principle"
+        },
+        {
+          "name": "Third-degree price discrimination condition",
+          "form": "Optimal pricing across segments: MR_1 = MR_2 = MC; higher price in the less elastic segment.",
+          "type": "equation"
+        }
+      ]
+    },
+    {
+      "topic": "Welfare Economics and Externalities",
+      "level": "undergrad",
+      "subtopics": [
+        "Pareto efficiency and Pareto improvements",
+        "The fundamental theorems of welfare economics",
+        "Deadweight loss and market failure",
+        "Negative and positive externalities",
+        "Pigouvian taxes and subsidies",
+        "Coase theorem",
+        "Public goods: non-excludable and non-rival",
+        "Common resources and the tragedy of the commons",
+        "Second-best theory"
+      ],
+      "glossary": [
+        {
+          "term": "Pareto efficiency",
+          "definition": "An allocation is Pareto efficient if no one can be made better off without making someone else worse off."
+        },
+        {
+          "term": "Pareto improvement",
+          "definition": "A reallocation that makes at least one person better off without making anyone worse off."
+        },
+        {
+          "term": "externality",
+          "definition": "A cost or benefit that affects a third party not involved in the market transaction, causing market failure."
+        },
+        {
+          "term": "negative externality",
+          "definition": "A cost imposed on third parties by market participants; leads to overproduction relative to the social optimum."
+        },
+        {
+          "term": "positive externality",
+          "definition": "A benefit conferred on third parties; leads to underproduction relative to the social optimum."
+        },
+        {
+          "term": "Pigouvian tax",
+          "definition": "A corrective tax set equal to the marginal external cost, internalizing the externality and restoring social efficiency."
+        },
+        {
+          "term": "social marginal cost",
+          "definition": "Private marginal cost plus marginal external cost: SMC = PMC + MEC."
+        },
+        {
+          "term": "Coase theorem",
+          "definition": "If property rights are well-defined and transaction costs are zero, parties will negotiate to the efficient outcome regardless of the initial rights assignment."
+        },
+        {
+          "term": "public good",
+          "definition": "A good that is both non-excludable (cannot prevent non-payers from consuming) and non-rival (one person's consumption does not reduce another's)."
+        },
+        {
+          "term": "free rider problem",
+          "definition": "The tendency for individuals to under-contribute to public goods because they can benefit without paying."
+        },
+        {
+          "term": "common resource",
+          "definition": "A good that is non-excludable but rival in consumption; subject to overuse (tragedy of the commons)."
+        },
+        {
+          "term": "deadweight loss",
+          "definition": "The loss in total surplus from a market distortion (tax, externality, market power) relative to the efficient outcome."
+        }
+      ],
+      "canon": [
+        {
+          "name": "Social optimum condition with externality",
+          "form": "SMC = SMB; i.e., (PMC + MEC) = D(Q)",
+          "type": "equation"
+        },
+        {
+          "name": "Optimal Pigouvian tax",
+          "form": "t* = MEC evaluated at the socially optimal quantity Q*",
+          "type": "equation"
+        },
+        {
+          "name": "First fundamental theorem of welfare economics",
+          "form": "Every competitive equilibrium is Pareto efficient (given convexity and no externalities/public goods).",
+          "type": "principle"
+        },
+        {
+          "name": "Second fundamental theorem of welfare economics",
+          "form": "Any Pareto efficient allocation can be achieved as a competitive equilibrium after an appropriate lump-sum redistribution of endowments.",
+          "type": "principle"
+        },
+        {
+          "name": "Samuelson rule for public goods",
+          "form": "\u03a3 MRS_i = MRT; sum of individual marginal rates of substitution equals the marginal rate of transformation.",
+          "type": "equation"
+        },
+        {
+          "name": "Coase theorem",
+          "form": "With zero transaction costs and well-defined property rights, bargaining achieves the efficient level of an externality regardless of who holds the rights.",
+          "type": "principle"
+        },
+        {
+          "name": "Deadweight loss formula",
+          "form": "DWL = (1/2)(P_s - P_d)(Q_free - Q_taxed)",
+          "type": "equation"
+        }
+      ]
+    },
+    {
+      "topic": "Game Theory",
+      "level": "undergrad",
+      "subtopics": [
+        "Normal form and extensive form games",
+        "Dominant strategies and iterated elimination",
+        "Nash equilibrium",
+        "Mixed strategy Nash equilibrium",
+        "Backward induction and subgame perfect equilibrium",
+        "Repeated games and cooperation",
+        "Bayesian games and incomplete information",
+        "Auctions",
+        "Mechanism design basics"
+      ],
+      "glossary": [
+        {
+          "term": "Nash equilibrium",
+          "definition": "A strategy profile in which no player can increase their payoff by unilaterally deviating, given the strategies of all other players."
+        },
+        {
+          "term": "dominant strategy",
+          "definition": "A strategy that yields a higher payoff than any other strategy regardless of what opponents play."
+        },
+        {
+          "term": "mixed strategy",
+          "definition": "A probability distribution over pure strategies; a player randomizes to keep opponents indifferent."
+        },
+        {
+          "term": "subgame perfect equilibrium (SPE)",
+          "definition": "A Nash equilibrium in which players' strategies constitute a Nash equilibrium in every subgame; found by backward induction."
+        },
+        {
+          "term": "backward induction",
+          "definition": "A method for solving extensive-form games by starting at the terminal nodes and working backward to determine optimal choices."
+        },
+        {
+          "term": "prisoner's dilemma",
+          "definition": "A symmetric two-player game in which the dominant strategy for each player leads to a collectively suboptimal outcome."
+        },
+        {
+          "term": "coordination game",
+          "definition": "A game in which players benefit from choosing matching strategies; typically has multiple Nash equilibria."
+        },
+        {
+          "term": "Pareto dominant equilibrium",
+          "definition": "A Nash equilibrium that yields higher payoffs to all players than any other Nash equilibrium."
+        },
+        {
+          "term": "repeated game",
+          "definition": "A game in which the same stage game is played multiple times; repetition can sustain cooperation via punishment strategies."
+        },
+        {
+          "term": "folk theorem",
+          "definition": "In infinitely repeated games with sufficient patience, any individually rational feasible outcome can be sustained as a subgame perfect equilibrium."
+        },
+        {
+          "term": "Bayesian Nash equilibrium",
+          "definition": "A Nash equilibrium in a game of incomplete information in which each player maximizes expected payoff given beliefs about types."
+        },
+        {
+          "term": "auction (second-price)",
+          "definition": "A Vickrey auction in which the highest bidder wins and pays the second-highest bid; truth-telling is a dominant strategy."
+        },
+        {
+          "term": "subgame-perfect equilibrium",
+          "definition": "A refinement of Nash equilibrium for sequential games: a strategy profile that induces a Nash equilibrium in every subgame, obtained by backward induction, ruling out non-credible threats."
+        },
+        {
+          "term": "sequential equilibrium",
+          "definition": "A refinement for extensive-form games of imperfect information: an assessment of strategies plus beliefs that is sequentially rational and consistent with Bayesian updating along the game tree."
+        },
+        {
+          "term": "potential game",
+          "definition": "A game admitting a single potential function whose change equals the payoff change of any unilateral deviator; such games always have a pure-strategy Nash equilibrium."
+        }
+      ],
+      "canon": [
+        {
+          "name": "Nash equilibrium definition",
+          "form": "s* is a NE iff for all i: u_i(s_i*, s_{-i}*) \u2265 u_i(s_i, s_{-i}*) for all s_i \u2208 S_i",
+          "type": "equation"
+        },
+        {
+          "name": "Mixed strategy indifference condition",
+          "form": "In a mixed NE, a player must be indifferent among all strategies played with positive probability.",
+          "type": "principle"
+        },
+        {
+          "name": "Prisoner's dilemma payoff structure",
+          "form": "T > R > P > S and R > (T+S)/2; defect is dominant for both, yielding (P,P) < (R,R).",
+          "type": "principle"
+        },
+        {
+          "name": "Subgame perfect equilibrium",
+          "form": "SPE requires Nash equilibrium strategies in every subgame, not only on-path; eliminates non-credible threats.",
+          "type": "principle"
+        },
+        {
+          "name": "Minimax theorem (zero-sum)",
+          "form": "max_{x} min_{y} u(x,y) = min_{y} max_{x} u(x,y); value of zero-sum game is unique.",
+          "type": "equation"
+        },
+        {
+          "name": "Grim trigger strategy (repeated games)",
+          "form": "Cooperate until opponent defects; then defect forever. Cooperation is sustained if \u03b4 \u2265 (T-R)/(T-P).",
+          "type": "principle"
+        },
+        {
+          "name": "Revenue equivalence theorem",
+          "form": "Under standard conditions (symmetric independent private values, risk-neutral bidders), all standard auctions yield equal expected revenue.",
+          "type": "principle"
+        }
+      ]
+    },
+    {
+      "topic": "GDP and National Income Accounting",
+      "level": "intro",
+      "subtopics": [
+        "Expenditure approach to GDP",
+        "Income approach and value-added approach",
+        "Nominal vs. real GDP and the GDP deflator",
+        "GDP vs. GNP vs. GNI",
+        "Components: C, I, G, NX",
+        "National saving and investment identity",
+        "Limitations of GDP as a welfare measure",
+        "Price indices: CPI and GDP deflator"
+      ],
+      "glossary": [
+        {
+          "term": "GDP (Gross Domestic Product)",
+          "definition": "The market value of all final goods and services produced within a country's borders in a given period."
+        },
+        {
+          "term": "nominal GDP",
+          "definition": "GDP measured at current market prices without adjusting for inflation."
+        },
+        {
+          "term": "real GDP",
+          "definition": "GDP adjusted for price changes using a base-year price level; reflects actual changes in output volume."
+        },
+        {
+          "term": "GDP deflator",
+          "definition": "A price index equal to (Nominal GDP / Real GDP) \u00d7 100; measures the overall price level of domestically produced goods."
+        },
+        {
+          "term": "CPI (Consumer Price Index)",
+          "definition": "A price index measuring the cost of a fixed basket of goods and services purchased by a typical urban consumer."
+        },
+        {
+          "term": "GNP (Gross National Product)",
+          "definition": "The market value of all final goods and services produced by a country's residents, regardless of location: GNP = GDP + Net factor income from abroad."
+        },
+        {
+          "term": "net exports (NX)",
+          "definition": "The value of exports minus imports; a component of GDP equal to X - M."
+        },
+        {
+          "term": "national saving",
+          "definition": "The total income in the economy not spent on consumption or government purchases: S = Y - C - G."
+        },
+        {
+          "term": "investment (I)",
+          "definition": "Expenditure on new capital goods, residential construction, and changes in business inventories."
+        },
+        {
+          "term": "value added",
+          "definition": "The increase in the value of a good or service at each stage of production; GDP equals total value added across all sectors."
+        },
+        {
+          "term": "gross domestic product",
+          "definition": "Total market value of all final goods and services produced within a country's borders in a period. GDP = C + I + G + (X-M). Real GDP adjusts for inflation."
+        },
+        {
+          "term": "government spending",
+          "definition": "Government expenditure on goods, services, and transfer payments. Component of GDP: G. An increase shifts aggregate demand right; multiplier effect amplifies impact."
+        },
+        {
+          "term": "inflation",
+          "definition": "Sustained increase in the general price level over time. Measured by CPI or GDP deflator. Caused by excess money supply, demand-pull, or cost-push factors."
+        },
+        {
+          "term": "unemployment",
+          "definition": "Labor force members who are jobless and actively seeking work. Rate = (unemployed/labor force) \u00d7 100. Types: frictional, structural, cyclical."
+        },
+        {
+          "term": "recession",
+          "definition": "A significant decline in economic activity, typically defined as two consecutive quarters of negative real GDP growth."
+        },
+        {
+          "term": "GDP",
+          "definition": "Gross Domestic Product; the total market value of all final goods and services produced within a country in a period. GDP = C + I + G + (X\u2212M)."
+        },
+        {
+          "term": "economic growth",
+          "definition": "The increase in a country's real GDP over time; driven by capital accumulation, labor force growth, and TFP (Solow growth model)."
+        },
+        {
+          "term": "productivity",
+          "definition": "Output per unit of input; total factor productivity (TFP) is the key driver of long-run economic growth beyond capital and labor accumulation."
+        }
+      ],
+      "canon": [
+        {
+          "name": "Expenditure approach to GDP",
+          "form": "GDP = C + I + G + (X - M)",
+          "type": "equation"
+        },
+        {
+          "name": "National income identity (closed economy)",
+          "form": "Y = C + I + G  \u27f9  S = Y - C - G = I",
+          "type": "equation"
+        },
+        {
+          "name": "National income identity (open economy)",
+          "form": "S = I + NX  (or: S - I = NX = CA)",
+          "type": "equation"
+        },
+        {
+          "name": "Real GDP calculation",
+          "form": "Real GDP = Nominal GDP / GDP Deflator \u00d7 100",
+          "type": "equation"
+        },
+        {
+          "name": "GDP deflator",
+          "form": "GDP Deflator = (Nominal GDP / Real GDP) \u00d7 100",
+          "type": "equation"
+        },
+        {
+          "name": "CPI inflation rate",
+          "form": "\u03c0_t = (CPI_t - CPI_{t-1}) / CPI_{t-1} \u00d7 100%",
+          "type": "equation"
+        },
+        {
+          "name": "GDP vs. GNP",
+          "form": "GNP = GDP + Net factor income from abroad (factor payments received from abroad minus factor payments made to foreigners)",
+          "type": "equation"
+        },
+        {
+          "name": "GDP as a welfare measure: limitations",
+          "form": "GDP omits household production, leisure, inequality, sustainability, and non-market activities; a rise in GDP does not necessarily imply a rise in welfare.",
+          "type": "principle"
+        }
+      ]
+    },
+    {
+      "topic": "IS-LM and AD-AS Models",
+      "level": "undergrad",
+      "subtopics": [
+        "IS curve: goods market equilibrium",
+        "LM curve: money market equilibrium",
+        "IS-LM equilibrium and comparative statics",
+        "Fiscal multiplier and crowding out",
+        "Liquidity trap (zero lower bound)",
+        "Aggregate demand (AD) curve",
+        "Short-run aggregate supply (SRAS)",
+        "Long-run aggregate supply (LRAS)",
+        "Demand and supply shocks",
+        "Stagflation and the 1970s experience"
+      ],
+      "glossary": [
+        {
+          "term": "IS curve",
+          "definition": "The locus of (Y, r) pairs at which the goods market is in equilibrium (planned expenditure equals output); slopes downward in (Y, r) space."
+        },
+        {
+          "term": "LM curve",
+          "definition": "The locus of (Y, r) pairs at which the money market is in equilibrium (money supply equals money demand); slopes upward in (Y, r) space."
+        },
+        {
+          "term": "multiplier",
+          "definition": "The ratio by which output changes in response to an autonomous spending change: k = 1/(1-MPC) in a simple Keynesian model."
+        },
+        {
+          "term": "crowding out",
+          "definition": "The reduction in private investment caused by rising interest rates when expansionary fiscal policy increases government borrowing."
+        },
+        {
+          "term": "liquidity trap",
+          "definition": "A situation in which interest rates are at or near zero, making monetary policy ineffective because people prefer to hold cash rather than bonds."
+        },
+        {
+          "term": "aggregate demand (AD)",
+          "definition": "The total demand for final goods and services in an economy at each price level; slopes downward due to the wealth, interest rate, and exchange rate effects."
+        },
+        {
+          "term": "short-run aggregate supply (SRAS)",
+          "definition": "The total supply of goods and services at each price level in the short run when nominal wages and prices of some inputs are sticky; slopes upward."
+        },
+        {
+          "term": "long-run aggregate supply (LRAS)",
+          "definition": "The total supply of goods and services at the natural rate of output (full employment); vertical in (Y, P) space."
+        },
+        {
+          "term": "stagflation",
+          "definition": "The simultaneous occurrence of high inflation and high unemployment, typically caused by a negative supply shock."
+        },
+        {
+          "term": "natural rate of output",
+          "definition": "The level of output consistent with full employment and the long-run equilibrium of the economy (potential GDP)."
+        },
+        {
+          "term": "MPC (marginal propensity to consume)",
+          "definition": "The fraction of an additional dollar of income that households spend on consumption."
+        }
+      ],
+      "canon": [
+        {
+          "name": "Goods market equilibrium (IS)",
+          "form": "Y = C(Y-T) + I(r) + G  \u27f9  IS: r = f(Y) downward sloping",
+          "type": "equation"
+        },
+        {
+          "name": "Keynesian expenditure multiplier",
+          "form": "\u0394Y = \u0394A / (1 - MPC) = k \u00b7 \u0394A; where k = 1/(1-MPC)",
+          "type": "equation"
+        },
+        {
+          "name": "Multiplier with taxes",
+          "form": "k = 1 / (1 - MPC(1-t))",
+          "type": "equation"
+        },
+        {
+          "name": "Money market equilibrium (LM)",
+          "form": "M/P = L(Y, r);  L_Y > 0, L_r < 0  \u27f9  LM: r = g(Y) upward sloping",
+          "type": "equation"
+        },
+        {
+          "name": "IS-LM simultaneous equilibrium",
+          "form": "Solve IS and LM jointly for equilibrium (Y*, r*).",
+          "type": "principle"
+        },
+        {
+          "name": "AD curve derivation",
+          "form": "AD slopes downward: higher P \u2192 lower M/P \u2192 higher r (LM shifts left) \u2192 lower I and Y.",
+          "type": "principle"
+        },
+        {
+          "name": "Tax multiplier",
+          "form": "\u0394Y = (-MPC/(1-MPC)) \u00b7 \u0394T; tax multiplier is negative and smaller in absolute value than spending multiplier.",
+          "type": "equation"
+        },
+        {
+          "name": "Balanced budget multiplier",
+          "form": "Equal increases in G and T yield \u0394Y = \u0394G; the balanced budget multiplier equals 1.",
+          "type": "principle"
+        },
+        {
+          "name": "Long-run self-correction",
+          "form": "In ADAS model, a recessionary gap \u2192 falling wages \u2192 SRAS shifts right \u2192 Y returns to Y_n; no permanent output gap in long run.",
+          "type": "principle"
+        }
+      ]
+    },
+    {
+      "topic": "Money, Banking, and Inflation",
+      "level": "undergrad",
+      "subtopics": [
+        "Functions and forms of money",
+        "Money supply and the money multiplier",
+        "Central bank tools: reserve requirements, discount rate, open market operations",
+        "Quantity theory of money",
+        "Fisher equation and real vs. nominal interest rates",
+        "Inflation costs and seigniorage",
+        "Hyperinflation",
+        "Monetary transmission mechanism",
+        "Taylor rule"
+      ],
+      "glossary": [
+        {
+          "term": "M1 money supply",
+          "definition": "The most liquid measure of money including currency in circulation and demand deposits (checkable deposits)."
+        },
+        {
+          "term": "M2 money supply",
+          "definition": "A broader money measure including M1 plus savings deposits, small time deposits, and money market mutual funds."
+        },
+        {
+          "term": "money multiplier",
+          "definition": "The ratio of the money supply to the monetary base: m = 1/rr (in simple model) or m = (1+c)/(rr+c) with currency holdings."
+        },
+        {
+          "term": "monetary base (high-powered money)",
+          "definition": "Currency in circulation plus bank reserves; directly controlled by the central bank."
+        },
+        {
+          "term": "reserve ratio",
+          "definition": "The fraction of deposits that banks hold as reserves; can be required (required reserve ratio) or held voluntarily (excess reserves)."
+        },
+        {
+          "term": "open market operations",
+          "definition": "Central bank purchases or sales of government securities to expand or contract the monetary base."
+        },
+        {
+          "term": "nominal interest rate",
+          "definition": "The interest rate expressed in monetary terms, unadjusted for inflation."
+        },
+        {
+          "term": "real interest rate",
+          "definition": "The nominal interest rate minus the inflation rate (or expected inflation): r \u2248 i - \u03c0."
+        },
+        {
+          "term": "quantity theory of money",
+          "definition": "The theory that the price level is proportional to the money supply: MV = PY, implying inflation equals money growth minus output growth."
+        },
+        {
+          "term": "seigniorage",
+          "definition": "Revenue earned by the government from money creation; the real value of resources acquired by printing money."
+        },
+        {
+          "term": "Taylor rule",
+          "definition": "A monetary policy guideline: i = r* + \u03c0 + \u03b1(\u03c0 - \u03c0*) + \u03b2(Y - Y*); the central bank raises interest rates when inflation exceeds target or output exceeds potential."
+        },
+        {
+          "term": "velocity of money",
+          "definition": "The average number of times a dollar is spent on final goods in a period: V = PY/M."
+        },
+        {
+          "term": "money supply",
+          "definition": "Total amount of money available in an economy. M1 = coins + currency + checking deposits. M2 = M1 + savings + money market funds. Controlled by central bank."
+        },
+        {
+          "term": "interest rate",
+          "definition": "Cost of borrowing money, expressed as a percentage per period. Set by central bank (policy rate) and market (yield curve). Inverse relationship with bond prices."
+        }
+      ],
+      "canon": [
+        {
+          "name": "Quantity equation",
+          "form": "M\u00b7V = P\u00b7Y  (MV = PQ)",
+          "type": "equation"
+        },
+        {
+          "name": "Quantity theory of inflation",
+          "form": "\u03c0 = \u0394M/M - \u0394Y/Y (assuming constant V)",
+          "type": "equation"
+        },
+        {
+          "name": "Fisher equation",
+          "form": "i = r + \u03c0^e  (nominal rate = real rate + expected inflation)",
+          "type": "equation"
+        },
+        {
+          "name": "Fisher effect",
+          "form": "A 1 percentage point increase in expected inflation raises the nominal interest rate by 1 percentage point, leaving the real rate unchanged.",
+          "type": "principle"
+        },
+        {
+          "name": "Money multiplier (simple)",
+          "form": "\u0394Deposits = (1/rr) \u00b7 \u0394Reserves;  m = 1/rr",
+          "type": "equation"
+        },
+        {
+          "name": "Money multiplier (with currency drain)",
+          "form": "m = (1 + c)/(rr + c)  where c = currency-to-deposit ratio",
+          "type": "equation"
+        },
+        {
+          "name": "Taylor rule",
+          "form": "i = r* + \u03c0 + 0.5(\u03c0 - \u03c0*) + 0.5(Y - Y*)/Y*",
+          "type": "equation"
+        },
+        {
+          "name": "Seigniorage",
+          "form": "Seigniorage = (\u0394M/P) = (\u0394M/M)\u00b7(M/P) = \u03c0\u00b7(M/P) in steady state",
+          "type": "equation"
+        },
+        {
+          "name": "Hyperinflation mechanism",
+          "form": "Large fiscal deficits monetized by central bank \u2192 rapid money growth \u2192 accelerating inflation \u2192 reduced real money demand \u2192 further price increases (Sargent-Wallace).",
+          "type": "principle"
+        }
+      ]
+    },
+    {
+      "topic": "Unemployment and Labor Markets",
+      "level": "undergrad",
+      "subtopics": [
+        "Types of unemployment: frictional, structural, cyclical",
+        "Natural rate of unemployment",
+        "Labor force and participation rate",
+        "Okun's law",
+        "Phillips curve: short-run and long-run",
+        "Expectations-augmented Phillips curve",
+        "Wage rigidity and efficiency wages",
+        "Job search and matching models",
+        "NAIRU"
+      ],
+      "glossary": [
+        {
+          "term": "unemployment rate",
+          "definition": "The percentage of the labor force that is not employed but actively seeking work: u = U/(U+E) \u00d7 100%."
+        },
+        {
+          "term": "labor force",
+          "definition": "The sum of employed and unemployed persons who are of working age and actively seeking employment."
+        },
+        {
+          "term": "frictional unemployment",
+          "definition": "Temporary unemployment arising from the time taken to match workers with suitable jobs; reflects normal labor market turnover."
+        },
+        {
+          "term": "structural unemployment",
+          "definition": "Unemployment caused by a mismatch between workers' skills and the skills required by available jobs, often due to technological change or sectoral shifts."
+        },
+        {
+          "term": "cyclical unemployment",
+          "definition": "Unemployment caused by insufficient aggregate demand during economic downturns; the gap between actual and natural unemployment."
+        },
+        {
+          "term": "natural rate of unemployment (u*)",
+          "definition": "The unemployment rate consistent with stable inflation; equal to frictional plus structural unemployment."
+        },
+        {
+          "term": "NAIRU",
+          "definition": "Non-Accelerating Inflation Rate of Unemployment; the unemployment rate at which inflation is stable; synonymous with natural rate in standard models."
+        },
+        {
+          "term": "Phillips curve",
+          "definition": "An empirical inverse relationship between unemployment and inflation; the short-run Phillips curve shifts with expected inflation."
+        },
+        {
+          "term": "Okun's law",
+          "definition": "An empirical relationship between output gaps and cyclical unemployment: a 1 percentage point rise in unemployment corresponds to approximately a 2% fall in output below potential."
+        },
+        {
+          "term": "efficiency wage",
+          "definition": "A wage above the market-clearing level set by firms to boost worker productivity, reduce turnover, or attract better workers; can cause unemployment."
+        },
+        {
+          "term": "labor force participation rate",
+          "definition": "The percentage of the civilian non-institutional population that is in the labor force."
+        }
+      ],
+      "canon": [
+        {
+          "name": "Unemployment rate",
+          "form": "u = U / (U + E) = U / LF",
+          "type": "equation"
+        },
+        {
+          "name": "Labor force participation rate",
+          "form": "LFPR = LF / Working-age population",
+          "type": "equation"
+        },
+        {
+          "name": "Okun's law",
+          "form": "\u0394Y/Y \u2248 -2 \u00d7 \u0394u  (or: Y - Y* \u2248 -2(u - u*))",
+          "type": "equation"
+        },
+        {
+          "name": "Short-run Phillips curve",
+          "form": "\u03c0 = \u03c0^e - \u03b1(u - u*);  inflation rises when u < u*",
+          "type": "equation"
+        },
+        {
+          "name": "Expectations-augmented Phillips curve",
+          "form": "\u03c0 = \u03c0^e + \u03b2(Y - Y*) - \u03b1(u - u*);  adaptive expectations: \u03c0^e = \u03c0_{t-1}",
+          "type": "equation"
+        },
+        {
+          "name": "Long-run Phillips curve",
+          "form": "Vertical at u = u* (NAIRU); in long run, expected inflation = actual inflation, no trade-off between \u03c0 and u.",
+          "type": "principle"
+        },
+        {
+          "name": "Steady-state unemployment (flows)",
+          "form": "u* = s / (s + f);  s = job separation rate, f = job finding rate",
+          "type": "equation"
+        },
+        {
+          "name": "Sacrifice ratio",
+          "form": "Sacrifice ratio = (cumulative % output loss) / (percentage point reduction in inflation); measures cost of disinflation.",
+          "type": "definition"
+        }
+      ]
+    },
+    {
+      "topic": "Economic Growth: Solow Model",
+      "level": "undergrad",
+      "subtopics": [
+        "Solow growth model setup",
+        "Steady-state capital and output",
+        "Golden rule of capital accumulation",
+        "Convergence: conditional and absolute",
+        "Total factor productivity and the Solow residual",
+        "Human capital (Mankiw-Romer-Weil extension)",
+        "Endogenous growth theory (Romer model basics)",
+        "Growth accounting"
+      ],
+      "glossary": [
+        {
+          "term": "Solow model",
+          "definition": "A neoclassical growth model in which the long-run growth rate is determined by exogenous technological progress; capital accumulation drives transitional dynamics."
+        },
+        {
+          "term": "capital per worker (k)",
+          "definition": "The capital-labor ratio: k = K/L; the central state variable in the Solow model."
+        },
+        {
+          "term": "steady state",
+          "definition": "The long-run equilibrium in the Solow model where capital per worker is constant (investment equals depreciation plus population growth)."
+        },
+        {
+          "term": "depreciation",
+          "definition": "The rate at which capital wears out or becomes obsolete, typically denoted \u03b4."
+        },
+        {
+          "term": "golden rule capital stock",
+          "definition": "The steady-state capital-per-worker level that maximizes consumption per worker: MPK = \u03b4 + n + g."
+        },
+        {
+          "term": "total factor productivity (TFP)",
+          "definition": "The portion of output growth not explained by input growth; a measure of technological efficiency: A in Y = A\u00b7F(K,L)."
+        },
+        {
+          "term": "Solow residual",
+          "definition": "The empirical measure of TFP growth, calculated as output growth minus the weighted sum of capital and labor growth."
+        },
+        {
+          "term": "conditional convergence",
+          "definition": "The tendency for economies with similar structural parameters to converge to the same steady state; poorer economies grow faster given identical fundamentals."
+        },
+        {
+          "term": "endogenous growth",
+          "definition": "Growth theory in which the long-run growth rate is explained by the model itself (e.g., through R&D, human capital, or knowledge spillovers) rather than exogenous TFP."
+        },
+        {
+          "term": "growth accounting",
+          "definition": "A technique decomposing output growth into contributions from capital, labor, and TFP: \u0394Y/Y = \u03b1\u00b7\u0394K/K + (1-\u03b1)\u00b7\u0394L/L + \u0394A/A."
+        }
+      ],
+      "canon": [
+        {
+          "name": "Solow production function (intensive form)",
+          "form": "y = f(k) = A\u00b7k^\u03b1  (Cobb-Douglas); where y = Y/L, k = K/L",
+          "type": "equation"
+        },
+        {
+          "name": "Capital accumulation equation",
+          "form": "\u0394k = s\u00b7f(k) - (\u03b4 + n + g)\u00b7k",
+          "type": "equation"
+        },
+        {
+          "name": "Steady-state condition",
+          "form": "s\u00b7f(k*) = (\u03b4 + n + g)\u00b7k*  \u27f9  k* is the steady-state capital per effective worker",
+          "type": "equation"
+        },
+        {
+          "name": "Steady-state output per worker (Cobb-Douglas)",
+          "form": "k* = (s/(\u03b4+n+g))^{1/(1-\u03b1)};  y* = A\u00b7(k*)^\u03b1",
+          "type": "equation"
+        },
+        {
+          "name": "Golden rule condition",
+          "form": "MPK = \u03b4 + n + g  \u27fa  \u03b1\u00b7f(k_GR)/k_GR = \u03b4 + n + g",
+          "type": "equation"
+        },
+        {
+          "name": "Growth accounting (Solow residual)",
+          "form": "\u0394A/A = \u0394Y/Y - \u03b1\u00b7\u0394K/K - (1-\u03b1)\u00b7\u0394L/L",
+          "type": "equation"
+        },
+        {
+          "name": "Long-run growth rate",
+          "form": "In Solow model, long-run growth of Y per worker = g (rate of technological progress); growth of Y = g + n.",
+          "type": "principle"
+        },
+        {
+          "name": "Convergence prediction",
+          "form": "Economies with lower k relative to k* grow faster; speed of convergence \u2248 (1-\u03b1)(\u03b4+n+g).",
+          "type": "principle"
+        },
+        {
+          "name": "AK (endogenous) growth model",
+          "form": "Y = AK; constant MPK \u2192 no diminishing returns \u2192 sustained growth without exogenous TFP.",
+          "type": "equation"
+        }
+      ]
+    },
+    {
+      "topic": "Fiscal and Monetary Policy",
+      "level": "undergrad",
+      "subtopics": [
+        "Fiscal policy: discretionary and automatic stabilizers",
+        "Government budget constraint and debt dynamics",
+        "Ricardian equivalence",
+        "Monetary policy rules vs. discretion",
+        "Inflation targeting",
+        "Central bank independence",
+        "Policy lags (recognition, implementation, effect)",
+        "Crowding out and fiscal multiplier in open economy",
+        "Zero lower bound and unconventional monetary policy"
+      ],
+      "glossary": [
+        {
+          "term": "discretionary fiscal policy",
+          "definition": "Deliberate changes in government spending or taxes to stabilize the economy, requiring explicit policy decisions."
+        },
+        {
+          "term": "automatic stabilizers",
+          "definition": "Budget mechanisms that automatically increase spending or reduce taxes in recessions (e.g., unemployment insurance, progressive tax) without new legislation."
+        },
+        {
+          "term": "Ricardian equivalence",
+          "definition": "The proposition that tax cuts financed by debt have no effect on aggregate demand because rational consumers save the tax cut in anticipation of future higher taxes."
+        },
+        {
+          "term": "government budget constraint",
+          "definition": "G - T = \u0394B + \u0394M; the government deficit must be financed by issuing bonds or money."
+        },
+        {
+          "term": "primary deficit",
+          "definition": "The government deficit excluding interest payments on existing debt: G - T (excluding interest)."
+        },
+        {
+          "term": "debt-to-GDP ratio dynamics",
+          "definition": "The change in the debt-to-GDP ratio depends on the primary deficit and the difference between the real interest rate and the growth rate."
+        },
+        {
+          "term": "inflation targeting",
+          "definition": "A monetary policy framework in which the central bank announces an explicit inflation target and adjusts policy instruments to achieve it."
+        },
+        {
+          "term": "time inconsistency",
+          "definition": "The tendency for policymakers to deviate from previously announced optimal plans once the private sector has formed expectations; motivates central bank independence and rules."
+        },
+        {
+          "term": "quantitative easing (QE)",
+          "definition": "An unconventional monetary policy in which the central bank purchases large quantities of assets (beyond short-term government bonds) to lower long-term interest rates and stimulate the economy."
+        },
+        {
+          "term": "fiscal policy",
+          "definition": "Government use of spending and taxation to influence the economy. Expansionary: increase G or decrease T. Contractionary: decrease G or increase T. Subject to lags."
+        },
+        {
+          "term": "monetary policy",
+          "definition": "Central bank actions to control the money supply and interest rates. Expansionary (easy money): lower rates, buy bonds. Contractionary (tight money): raise rates, sell bonds."
+        },
+        {
+          "term": "aggregate demand",
+          "definition": "Total spending on goods and services in an economy: AD = C + I + G + NX. AD curve slopes downward. Shifts: changes in C, I, G, or NX."
+        },
+        {
+          "term": "aggregate supply",
+          "definition": "Total output all producers are willing to supply at various price levels. Short-run AS slopes upward; long-run AS is vertical (at potential output)."
+        },
+        {
+          "term": "tax",
+          "definition": "A compulsory payment to government used to finance public spending; types include income, corporate, and VAT taxes. Tax cuts increase disposable income and aggregate demand."
+        }
+      ],
+      "canon": [
+        {
+          "name": "Government budget constraint",
+          "form": "G + r\u00b7B = T + \u0394B + \u0394M/P  (spending + interest = revenue + bond issuance + seigniorage)",
+          "type": "equation"
+        },
+        {
+          "name": "Debt-to-GDP dynamics",
+          "form": "\u0394(B/Y) = (G-T)/Y + (r-g)\u00b7(B/Y);  debt ratio rises if r > g and primary deficit > 0",
+          "type": "equation"
+        },
+        {
+          "name": "Fiscal multiplier (closed economy, simple)",
+          "form": "\u0394Y = \u0394G/(1-MPC);  or  \u0394Y = (-MPC/(1-MPC))\u00b7\u0394T",
+          "type": "equation"
+        },
+        {
+          "name": "Ricardian equivalence condition",
+          "form": "If consumers are forward-looking and face perfect capital markets, a bond-financed tax cut does not affect consumption: \u0394C = 0.",
+          "type": "principle"
+        },
+        {
+          "name": "Taylor rule",
+          "form": "i_t = r* + \u03c0_t + \u03b1(\u03c0_t - \u03c0*) + \u03b2(Y_t - Y_t*)/Y_t*;  typically \u03b1=0.5, \u03b2=0.5",
+          "type": "equation"
+        },
+        {
+          "name": "Monetary policy transmission channels",
+          "form": "Interest rate channel \u2192 investment; credit channel \u2192 bank lending; exchange rate channel \u2192 net exports; asset price channel \u2192 wealth/consumption.",
+          "type": "principle"
+        },
+        {
+          "name": "Zero lower bound constraint",
+          "form": "i \u2265 0; when i = 0, conventional monetary policy loses effectiveness; QE, forward guidance, and negative rates are alternatives.",
+          "type": "principle"
+        },
+        {
+          "name": "Barro-Ricardo tax smoothing",
+          "form": "Optimally, taxes should be smoothed over time (like permanent income); temporary spending increases should be debt-financed.",
+          "type": "principle"
+        }
+      ]
+    },
+    {
+      "topic": "Econometrics: OLS and Regression",
+      "level": "undergrad",
+      "subtopics": [
+        "Simple and multiple linear regression",
+        "OLS estimation and properties",
+        "Gauss-Markov theorem and BLUE",
+        "Measures of fit: R\u00b2, adjusted R\u00b2",
+        "Hypothesis testing: t-test and F-test",
+        "Confidence intervals",
+        "Omitted variable bias",
+        "Multicollinearity",
+        "Heteroskedasticity and GLS",
+        "Serial correlation and Newey-West standard errors",
+        "Functional form: logs, quadratics, interactions"
+      ],
+      "glossary": [
+        {
+          "term": "OLS (Ordinary Least Squares)",
+          "definition": "A method of estimating regression coefficients by minimizing the sum of squared residuals."
+        },
+        {
+          "term": "regression coefficient (\u03b2)",
+          "definition": "The estimated change in the dependent variable associated with a one-unit increase in an independent variable, holding other variables constant."
+        },
+        {
+          "term": "residual",
+          "definition": "The difference between the observed and fitted value of the dependent variable: e_i = y_i - \u0177_i."
+        },
+        {
+          "term": "R\u00b2 (coefficient of determination)",
+          "definition": "The proportion of variance in the dependent variable explained by the regression: R\u00b2 = 1 - SSR/SST; ranges from 0 to 1."
+        },
+        {
+          "term": "adjusted R\u00b2",
+          "definition": "R\u00b2 adjusted for the number of regressors: R\u0304\u00b2 = 1 - [(1-R\u00b2)(n-1)/(n-k-1)]; penalizes for additional variables."
+        },
+        {
+          "term": "t-statistic",
+          "definition": "The ratio of an estimated coefficient to its standard error: t = \u03b2\u0302/SE(\u03b2\u0302); used to test whether a coefficient is statistically different from a hypothesized value."
+        },
+        {
+          "term": "F-statistic",
+          "definition": "A test statistic for the joint significance of multiple coefficients; tests whether all slope coefficients are simultaneously zero."
+        },
+        {
+          "term": "p-value",
+          "definition": "The probability of observing a test statistic at least as extreme as the one calculated, under the null hypothesis; a small p-value (< 0.05) rejects the null."
+        },
+        {
+          "term": "omitted variable bias",
+          "definition": "Bias in OLS estimates when a variable that affects the dependent variable and is correlated with included regressors is excluded from the regression."
+        },
+        {
+          "term": "heteroskedasticity",
+          "definition": "A violation of OLS assumption in which the variance of the error term varies across observations; OLS remains unbiased but is no longer efficient, and standard errors are incorrect."
+        },
+        {
+          "term": "multicollinearity",
+          "definition": "A condition in which two or more independent variables are highly correlated, making it difficult to estimate their individual coefficients precisely."
+        },
+        {
+          "term": "Gauss-Markov theorem",
+          "definition": "Under classical OLS assumptions (linearity, exogeneity, homoskedasticity, no serial correlation), OLS is BLUE: Best Linear Unbiased Estimator."
+        },
+        {
+          "term": "standard error",
+          "definition": "The estimated standard deviation of an estimator; measures the precision of the coefficient estimate."
+        },
+        {
+          "term": "estimator",
+          "definition": "A rule or statistic mapping sample data to an estimate of an unknown population parameter; judged by bias, variance, consistency, and efficiency (e.g. the OLS estimator)."
+        }
+      ],
+      "canon": [
+        {
+          "name": "OLS estimator (simple regression)",
+          "form": "\u03b2\u0302_1 = \u03a3(x_i - x\u0304)(y_i - \u0233) / \u03a3(x_i - x\u0304)\u00b2  =  Cov(x,y)/Var(x)",
+          "type": "equation"
+        },
+        {
+          "name": "OLS estimator (matrix form)",
+          "form": "\u03b2\u0302 = (X'X)^{-1} X'y",
+          "type": "equation"
+        },
+        {
+          "name": "Decomposition of variance",
+          "form": "SST = SSE + SSR;  R\u00b2 = SSE/SST = 1 - SSR/SST",
+          "type": "equation"
+        },
+        {
+          "name": "t-test for a coefficient",
+          "form": "H_0: \u03b2_k = 0;  t = \u03b2\u0302_k / SE(\u03b2\u0302_k) ~ t_{n-k-1} under H_0",
+          "type": "equation"
+        },
+        {
+          "name": "Confidence interval for coefficient",
+          "form": "[\u03b2\u0302 - t_{\u03b1/2} \u00b7 SE(\u03b2\u0302),  \u03b2\u0302 + t_{\u03b1/2} \u00b7 SE(\u03b2\u0302)]",
+          "type": "equation"
+        },
+        {
+          "name": "F-test for joint significance",
+          "form": "F = [(SSR_R - SSR_U)/q] / [SSR_U/(n-k-1)] ~ F_{q, n-k-1}",
+          "type": "equation"
+        },
+        {
+          "name": "Omitted variable bias formula",
+          "form": "plim(\u03b2\u0302_1) = \u03b2_1 + \u03b2_2\u00b7\u03b4_{21}; where \u03b4_{21} = Cov(x_2,x_1)/Var(x_1) (from auxiliary regression x_2 on x_1)",
+          "type": "equation"
+        },
+        {
+          "name": "Gauss-Markov theorem",
+          "form": "Under assumptions: (1) linearity, (2) random sampling, (3) no perfect collinearity, (4) E[u|X]=0, (5) homoskedasticity; OLS is BLUE.",
+          "type": "principle"
+        },
+        {
+          "name": "White's heteroskedasticity-consistent SE",
+          "form": "Use robust standard errors: V\u0302(\u03b2\u0302) = (X'X)^{-1}(\u03a3 \u00ea_i\u00b2\u00b7x_i\u00b7x_i')(X'X)^{-1} when Var(u_i|x_i) \u2260 \u03c3\u00b2.",
+          "type": "equation"
+        },
+        {
+          "name": "Log-log interpretation",
+          "form": "ln(y) = \u03b2_0 + \u03b2_1\u00b7ln(x): \u03b2_1 is the elasticity of y with respect to x.",
+          "type": "principle"
+        },
+        {
+          "name": "Log-linear interpretation",
+          "form": "ln(y) = \u03b2_0 + \u03b2_1\u00b7x: \u03b2_1 \u00d7 100 is the approximate % change in y per unit change in x.",
+          "type": "principle"
+        }
+      ]
+    },
+    {
+      "topic": "Econometrics: Causal Inference and Advanced Methods",
+      "level": "graduate",
+      "subtopics": [
+        "Endogeneity and sources of bias",
+        "Instrumental variables (IV) and 2SLS",
+        "Randomized controlled trials (RCTs)",
+        "Difference-in-differences (DiD)",
+        "Regression discontinuity design (RDD)",
+        "Panel data: fixed effects and random effects",
+        "Hausman test",
+        "Simultaneous equations and identification",
+        "Weak instruments and the first-stage F-test",
+        "Local average treatment effect (LATE)"
+      ],
+      "glossary": [
+        {
+          "term": "endogeneity",
+          "definition": "A condition in which a regressor is correlated with the error term, causing OLS to be biased and inconsistent; arises from omitted variables, reverse causality, or measurement error."
+        },
+        {
+          "term": "instrumental variable (IV)",
+          "definition": "A variable that is correlated with an endogenous regressor (relevance) but uncorrelated with the error term (exclusion restriction); used to obtain consistent estimates."
+        },
+        {
+          "term": "2SLS (two-stage least squares)",
+          "definition": "An IV estimation procedure: first regress the endogenous variable on instruments and exogenous controls; then use fitted values in the second-stage regression."
+        },
+        {
+          "term": "exclusion restriction",
+          "definition": "The identifying assumption that an instrument affects the outcome only through the endogenous variable of interest, not directly."
+        },
+        {
+          "term": "difference-in-differences (DiD)",
+          "definition": "A quasi-experimental method comparing changes in outcomes over time between a treatment group and a control group to identify causal effects."
+        },
+        {
+          "term": "regression discontinuity (RDD)",
+          "definition": "An identification strategy exploiting a known discontinuity in treatment assignment at a threshold of a running variable."
+        },
+        {
+          "term": "fixed effects (FE)",
+          "definition": "A panel data estimator that removes time-invariant unobserved heterogeneity by demeaning within each unit."
+        },
+        {
+          "term": "random effects (RE)",
+          "definition": "A panel data estimator that treats the unit-level unobserved effects as random and uncorrelated with regressors; more efficient than FE if the assumption holds."
+        },
+        {
+          "term": "Hausman test",
+          "definition": "A specification test comparing FE and RE estimates; a significant difference indicates correlation between unobserved effects and regressors, favoring FE."
+        },
+        {
+          "term": "LATE (Local Average Treatment Effect)",
+          "definition": "The average treatment effect for compliers \u2014 units whose treatment status is changed by the instrument; the IV estimand under heterogeneous treatment effects."
+        },
+        {
+          "term": "complier",
+          "definition": "An individual whose treatment status changes in the same direction as the instrument; IV identifies the treatment effect for compliers only."
+        },
+        {
+          "term": "weak instruments",
+          "definition": "Instruments with low correlation with the endogenous variable, leading to biased IV estimates and invalid inference; diagnosed by first-stage F-statistic (rule of thumb: F > 10)."
+        },
+        {
+          "term": "parallel trends assumption",
+          "definition": "The identifying assumption for DiD: absent the treatment, the treated and control groups would have followed the same trend in outcomes."
+        }
+      ],
+      "canon": [
+        {
+          "name": "IV estimator (just-identified)",
+          "form": "\u03b2\u0302_IV = (Z'X)^{-1}Z'y  =  Cov(Z,Y)/Cov(Z,X)",
+          "type": "equation"
+        },
+        {
+          "name": "2SLS procedure",
+          "form": "Stage 1: X\u0302 = Z(Z'Z)^{-1}Z'X;  Stage 2: \u03b2\u0302_2SLS = (X\u0302'X)^{-1}X\u0302'y",
+          "type": "equation"
+        },
+        {
+          "name": "IV consistency condition",
+          "form": "Cov(Z, u) = 0 (exclusion) and Cov(Z, X) \u2260 0 (relevance)",
+          "type": "principle"
+        },
+        {
+          "name": "DiD estimator",
+          "form": "\u03b2_DiD = (\u0232_{treat,post} - \u0232_{treat,pre}) - (\u0232_{control,post} - \u0232_{control,pre})",
+          "type": "equation"
+        },
+        {
+          "name": "DiD regression form",
+          "form": "Y_{it} = \u03b1 + \u03b2\u00b7Treat_i + \u03b3\u00b7Post_t + \u03b4\u00b7(Treat_i \u00d7 Post_t) + \u03b5_{it};  \u03b4 = DiD estimate",
+          "type": "equation"
+        },
+        {
+          "name": "Sharp RDD estimand",
+          "form": "\u03c4_RDD = lim_{x\u2192c+} E[Y|X=x] - lim_{x\u2192c-} E[Y|X=x];  discontinuity in E[Y|X] at cutoff c",
+          "type": "equation"
+        },
+        {
+          "name": "Fixed effects estimator (within)",
+          "form": "\u03b2\u0302_FE = (X\u0303'X\u0303)^{-1}X\u0303'\u1ef8  where X\u0303_{it} = X_{it} - X\u0304_i (within-group demeaning)",
+          "type": "equation"
+        },
+        {
+          "name": "Hausman test statistic",
+          "form": "H = (\u03b2\u0302_FE - \u03b2\u0302_RE)'[Var(\u03b2\u0302_FE) - Var(\u03b2\u0302_RE)]^{-1}(\u03b2\u0302_FE - \u03b2\u0302_RE) ~ \u03c7\u00b2_k under H_0 (RE consistent)",
+          "type": "equation"
+        },
+        {
+          "name": "LATE theorem (Imbens-Angrist)",
+          "form": "IV estimand = E[Y_1 - Y_0 | complier] = LATE; identifies effect only for those whose treatment is changed by the instrument.",
+          "type": "principle"
+        },
+        {
+          "name": "Weak instrument rule of thumb",
+          "form": "First-stage F-statistic > 10 (Staiger-Stock); or use Stock-Yogo critical values for size distortion.",
+          "type": "principle"
+        },
+        {
+          "name": "Wald estimator (binary instrument)",
+          "form": "\u03b2\u0302_IV = [E(Y|Z=1) - E(Y|Z=0)] / [E(X|Z=1) - E(X|Z=0)]",
+          "type": "equation"
+        }
+      ]
+    }
+  ]
+}

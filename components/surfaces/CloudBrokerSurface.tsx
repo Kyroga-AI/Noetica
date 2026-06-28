@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react'
  * provider across GCP/Azure/AWS/IBM + the local mesh (live Azure prices when "Live prices" is on), shows the
  * ranked quotes + savings + the agentplane-conformant placement, and lists lattice-forge runtime provenance.
  */
-type Quote = { sku: { provider: string; name: string; region: string; vcpus: number; memGiB: number; gpu?: { type: string; count: number; memGiB: number } }; effectivePerHour: number; totalUsd: number; spot: boolean }
+type Quote = { sku: { provider: string; name: string; region: string; vcpus: number; memGiB: number; gpu?: { type: string; count: number; memGiB: number }; priceSource?: 'live' | 'list' }; effectivePerHour: number; totalUsd: number; spot: boolean }
 type Provision = { provider: string; sku: string; region: string; state: string; usdPerHour: number; executor: { name: string; caps: Record<string, unknown> }; createCommand: string; error?: string }
 type BrokerResp = {
   best: Quote | null; ranked: Quote[]; considered: number; cheapestCloud: Quote | null; priceSource?: string
@@ -16,6 +16,9 @@ type BrokerResp = {
   provision?: Provision | null
 }
 type RuntimeAsset = { name?: string; role?: string; runtimeClass?: string; digest?: string; _conformance?: { conforms: boolean; missing: string[] } }
+type FleetExecutor = { name: string; provider?: string; region?: string; usdPerHour?: number; state?: string; caps?: { os?: string; arch?: string; gpu?: string } }
+type FleetSwarm = { swarmId: string; backend: string; mounted: boolean; members: number; live: number }
+type FleetResp = { count: number; totalUsdPerHour: number; byProvider: Record<string, number>; byState: Record<string, number>; executors: FleetExecutor[]; swarms?: FleetSwarm[]; liveMembers?: number }
 
 const PROVIDER_COLOR: Record<string, string> = {
   gcp: 'bg-[#e8f0fe] text-[#1a73e8]', azure: 'bg-[#e5f1fb] text-[#0078d4]', aws: 'bg-[#fff3e0] text-[#ec912d]',
@@ -33,6 +36,7 @@ export function CloudBrokerSurface() {
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
   const [runtimes, setRuntimes] = useState<RuntimeAsset[]>([])
+  const [fleet, setFleet] = useState<FleetResp | null>(null)
 
   const [provisioning, setProvisioning] = useState(false)
 
@@ -58,13 +62,18 @@ export function CloudBrokerSurface() {
       const r = await fetch('/api/cap/cloud-broker', { method: 'POST', headers: { 'content-type': 'application/json' }, body: reqBody({ provision: true, swarmId: 'session' }) })
       if (!r.ok) throw new Error(`provision ${r.status}`)
       setResp(await r.json() as BrokerResp)
+      loadFleet()   // a new executor was registered — refresh the fleet panel
     } catch (e) { setErr(e instanceof Error ? e.message : 'provision failed') }
     finally { setProvisioning(false) }
   }
 
+  function loadFleet() {
+    void fetch('/api/fleet').then((r) => r.ok ? r.json() : null).then((j: FleetResp | null) => { if (j) setFleet(j) }).catch(() => {})
+  }
   useEffect(() => {
     void fetch('/api/cap/runtime-assets', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
       .then((r) => r.ok ? r.json() : null).then((j: { assets?: RuntimeAsset[] } | null) => { if (j?.assets) setRuntimes(j.assets) }).catch(() => {})
+    loadFleet()
   }, [])
 
   return (
@@ -111,7 +120,7 @@ export function CloudBrokerSurface() {
                   <td className="py-1.5"><span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${PROVIDER_COLOR[q.sku.provider] ?? ''}`}>{q.sku.provider}</span></td>
                   <td className="font-mono text-[11px]">{q.sku.name}</td><td>{q.sku.region}</td>
                   <td className="text-[var(--color-text-secondary)]">{q.sku.gpu ? `${q.sku.gpu.count}× ${q.sku.gpu.type}` : `${q.sku.vcpus} vCPU`}</td>
-                  <td className="text-right">${q.effectivePerHour}{q.spot ? ' ·spot' : ''}</td><td className="text-right">${q.totalUsd}</td>
+                  <td className="text-right">${q.effectivePerHour}{q.spot ? ' ·spot' : ''} <span title={q.sku.priceSource === 'live' ? 'real-time billing API' : 'static list estimate — no live API for this provider'} className={`ml-1 rounded px-1 py-0.5 text-[8px] font-semibold ${q.sku.priceSource === 'live' ? 'bg-[#dcfce7] text-[#16a34a]' : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]'}`}>{q.sku.priceSource === 'live' ? 'live' : 'list'}</span></td><td className="text-right">${q.totalUsd}</td>
                 </tr>
               ))}
             </tbody>
@@ -141,6 +150,50 @@ export function CloudBrokerSurface() {
       )}
 
       {/* Lattice-forge runtime provenance */}
+      {/* Fleet — provisioned cloud executors (the C2/swarm inventory) */}
+      <div className="mt-7">
+        <div className="mb-2 flex items-center justify-between">
+          <div className="text-sm font-semibold text-[var(--color-text-primary)]">Fleet <span className="text-[10px] font-normal text-[var(--color-text-tertiary)]">(provisioned executors)</span></div>
+          {fleet && fleet.count > 0 && (
+            <div className="text-[11px] text-[var(--color-text-secondary)]">{fleet.count} executor{fleet.count === 1 ? '' : 's'} · <span className="font-semibold text-[#16a34a]">${fleet.totalUsdPerHour}/hr</span> · {Object.entries(fleet.byProvider).map(([p, n]) => `${n} ${p}`).join(', ')}</div>
+          )}
+        </div>
+        {!fleet || fleet.count === 0
+          ? <div className="text-xs text-[var(--color-text-tertiary)]">No executors provisioned yet — broker a workload above and hit Provision to spin up the swarm.</div>
+          : <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+              {fleet.executors.map((e, i) => {
+                const dot = e.state === 'ready' ? 'bg-[#16a34a]' : e.state === 'provisioning' ? 'bg-[#d97706]' : e.state === 'failed' ? 'bg-[#dc2626]' : 'bg-[var(--color-text-tertiary)]'
+                return (
+                  <div key={i} className="flex items-center justify-between rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2"><span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} /><span className="truncate font-mono text-[11px] text-[var(--color-text-primary)]">{e.name}</span></div>
+                      <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">{e.provider} · {e.region} · {e.caps?.gpu ?? e.caps?.arch ?? 'cpu'} · {e.state}</div>
+                    </div>
+                    {typeof e.usdPerHour === 'number' && <span className="shrink-0 text-[11px] font-semibold text-[var(--color-text-secondary)]">${e.usdPerHour}/hr</span>}
+                  </div>
+                )
+              })}
+            </div>}
+
+        {/* Swarms — the local shared-volume coordination layer (agents that joined a swarm) */}
+        {fleet?.swarms && fleet.swarms.length > 0 && (
+          <div className="mt-3">
+            <div className="mb-1.5 text-[11px] font-medium text-[var(--color-text-secondary)]">Swarms <span className="text-[10px] text-[var(--color-text-tertiary)]">· {fleet.liveMembers ?? 0} live member{(fleet.liveMembers ?? 0) === 1 ? '' : 's'} on the shared volume</span></div>
+            <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+              {fleet.swarms.map((s, i) => (
+                <div key={i} className="flex items-center justify-between rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2"><span className={`h-2 w-2 shrink-0 rounded-full ${s.live > 0 ? 'bg-[#16a34a]' : 'bg-[var(--color-text-tertiary)]'}`} /><span className="truncate font-mono text-[11px] text-[var(--color-text-primary)]">{s.swarmId}</span></div>
+                    <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">{s.backend}{s.mounted ? ' · mounted' : ''} · {s.live}/{s.members} agent{s.members === 1 ? '' : 's'} live</div>
+                  </div>
+                  <span className="shrink-0 text-[11px] font-semibold text-[var(--color-text-secondary)]">{s.live}/{s.members}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
       <div className="mt-7">
         <div className="mb-2 text-sm font-semibold text-[var(--color-text-primary)]">Runtime registry <span className="text-[10px] font-normal text-[var(--color-text-tertiary)]">(lattice-forge provenance)</span></div>
         {runtimes.length === 0

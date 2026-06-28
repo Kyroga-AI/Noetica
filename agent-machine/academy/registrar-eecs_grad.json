@@ -1,0 +1,57 @@
+{
+ "program": "EECS SM/PhD (Course 6)",
+ "department": "6",
+ "degree": "PhD",
+ "domain": "eecs",
+ "requirements": [
+  {
+   "group": "Graduate Core \u2014 EECS",
+   "subjects": [
+    {
+     "n": "6.840",
+     "title": "Theory of Computation",
+     "u": 12,
+     "captured": false
+    },
+    {
+     "n": "6.046",
+     "title": "Design & Analysis of Algorithms",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "6.867",
+     "title": "Machine Learning (graduate)",
+     "u": 12,
+     "captured": false
+    },
+    {
+     "n": "6.824",
+     "title": "Distributed Systems",
+     "u": 12,
+     "captured": false
+    },
+    {
+     "n": "6.THG",
+     "title": "Doctoral Thesis",
+     "u": 36,
+     "captured": false
+    }
+   ]
+  }
+ ],
+ "coverage": {
+  "subjects_required": 5,
+  "subjects_captured": 1,
+  "units_total": 84,
+  "units_held": 12,
+  "pct": 14,
+  "gaps": [
+   "6.840",
+   "6.867",
+   "6.824",
+   "6.THG"
+  ]
+ },
+ "persona": "Patrick Winston"
+}

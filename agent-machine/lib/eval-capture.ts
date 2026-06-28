@@ -3,7 +3,7 @@
  * low-quality output in production, auto-promote that trace into a versioned regression case, replayed on
  * every prompt/model change. We already PRODUCE the failure signal; this captures it into a test.
  */
-export interface Trace { input: string; output: string; verified: boolean; coverage: number; decision?: string }
+export interface Trace { input: string; output: string; verified: boolean; coverage: number; decision?: string; independent?: boolean }
 export interface EvalCase { input: string; output: string; failureMode: string; coverage: number; capturedAt: number }
 
 /** Promote a trace to a regression case iff it failed (unverified, thin coverage, or abstained). */

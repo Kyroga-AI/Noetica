@@ -22,3 +22,7 @@ export type ActiveSurface =
   | 'computer'
   | 'broker'
   | 'alignment'
+  | 'agents'
+  | 'calendar'
+  | 'library'
+  | 'geo'

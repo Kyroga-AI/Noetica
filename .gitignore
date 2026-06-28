@@ -4,6 +4,14 @@ out
 .env
 .env.local
 .env.*.local
+.env.*
+!.env.example
+# Secret material — never commit (Anthropic auto-deactivates any key seen in a public repo)
+*.key
+*.pem
+secrets.json
+.secrets
+*.secret
 .DS_Store
 npm-debug.log*
 yarn-debug.log*
@@ -14,6 +22,9 @@ pnpm-debug.log*
 # Rust build artifacts
 src-tauri/target/
 embed-sidecar/target/
+operator-sidecar/target/
+# operator-sidecar's throwaway python env for the model-export recipe (torch/onnx)
+operator-sidecar/.venv/
 
 # Agent machine compiled output
 agent-machine/dist/

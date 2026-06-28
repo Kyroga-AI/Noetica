@@ -1,0 +1,65 @@
+{
+ "program": "Mathematics PhD (Course 18)",
+ "department": "18",
+ "degree": "PhD",
+ "domain": "mathematics",
+ "requirements": [
+  {
+   "group": "Graduate Core \u2014 Math",
+   "subjects": [
+    {
+     "n": "18.705",
+     "title": "Commutative Algebra",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "18.745",
+     "title": "Lie Groups and Lie Algebras",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "18.155",
+     "title": "Differential Analysis I",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "18.905",
+     "title": "Algebraic Topology I",
+     "u": 12,
+     "captured": false
+    },
+    {
+     "n": "18.906",
+     "title": "Algebraic Topology II",
+     "u": 12,
+     "prereq": [
+      "18.905"
+     ],
+     "captured": false
+    },
+    {
+     "n": "18.THG",
+     "title": "Doctoral Thesis",
+     "u": 36,
+     "captured": false
+    }
+   ]
+  }
+ ],
+ "coverage": {
+  "subjects_required": 6,
+  "subjects_captured": 3,
+  "units_total": 96,
+  "units_held": 36,
+  "pct": 38,
+  "gaps": [
+   "18.905",
+   "18.906",
+   "18.THG"
+  ]
+ },
+ "persona": "Gilbert Strang"
+}

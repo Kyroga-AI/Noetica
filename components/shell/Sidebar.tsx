@@ -193,8 +193,18 @@ function IconChevronLeft() {
   )
 }
 
+function IconLibrary() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M2.5 2.5h2v11h-2zM6 2.5h2v11H6z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+      <path d="M10 3.2l2 .5 1.6 10.2-2-.4z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
 const surfaceItems: SurfaceItem[] = [
   { id: 'chat',        label: 'Workspace',   icon: <IconChat />,       items: ['New conversation', 'Recent threads', 'Pinned'] },
+  { id: 'library',     label: 'Library',     icon: <IconLibrary />,    items: ['Collections', 'Documents', 'Entities'] },
   { id: 'notes',       label: 'Notes',       icon: <IconNotes />,      items: ['My notes', 'Shared', 'Archived'] },
   { id: 'canvas',      label: 'Canvas',      icon: <IconCanvas />,     items: ['My documents', 'Shared', 'Archived'] },
   { id: 'cowork',      label: 'Cowork',      icon: <IconCowork />,     items: ['Active sessions', 'Task decomposition', 'Decision log'] },
@@ -214,9 +224,12 @@ const surfaceItems: SurfaceItem[] = [
   { id: 'operate',     label: 'Operate',     icon: <IconOperate />,    items: ['Graph health', 'Time service', 'Event ledger'] },
   { id: 'computer',    label: 'Computer Use',icon: <IconComputerUse />, items: ['Screenshot', 'Actions', 'History'] },
   { id: 'holographme', label: 'HolographMe', icon: <IconHolograph />,  items: [] },
+  { id: 'geo',         label: 'Geo',         icon: <IconOperate />,    items: ['Detected places', 'OFIF markers'] },
   { id: 'marketplace', label: 'Marketplace', icon: <IconMarketplace />,items: [] },
   { id: 'broker',      label: 'Cloud Broker', icon: <IconMarketplace />, items: ['Cheapest GPU/VM', 'Live prices', 'Runtime registry'] },
   { id: 'alignment',   label: 'Alignment',   icon: <IconGovern />,      items: ['Corroborated', 'Conflicting', 'Novel'] },
+  { id: 'agents',      label: 'Agents',      icon: <IconCowork />,      items: ['Custom agents', 'Built-in roles'] },
+  { id: 'calendar',    label: 'Calendar',    icon: <IconNotes />,       items: ['Agenda', 'Subscribed feeds'] },
 ]
 
 type SessionTreeProps = {
@@ -445,7 +458,7 @@ export function Sidebar({
         )}
 
         {/* Workspace group */}
-        {(['chat','notes','canvas','cowork','workrooms','jitsi'] as ActiveSurface[]).map((id) => {
+        {(['chat','library','notes','canvas','cowork','workrooms','jitsi'] as ActiveSurface[]).map((id) => {
           const item = surfaceItems.find(s => s.id === id)!
           const isActive = activeSurface === id
           return (
@@ -521,7 +534,7 @@ export function Sidebar({
 
         {/* Platform group */}
         <div className={`px-2 ${groupGap} pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>Platform</div>
-        {(['broker','holographme','marketplace'] as ActiveSurface[]).map((id) => {
+        {(['broker','holographme','geo','marketplace'] as ActiveSurface[]).map((id) => {
           const item = surfaceItems.find(s => s.id === id)!
           const isActive = activeSurface === id
           return (

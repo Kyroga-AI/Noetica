@@ -512,6 +512,19 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
                 {message.governance.model_routed}
               </span>
             )}
+            {message.governance.method && (() => {
+              // Provenance: HOW this answer was produced — the verifiability signal (P2.6).
+              const M: Record<string, { label: string; title: string; color: string }> = {
+                recall: { label: 'recalled', title: 'Replayed from a prior verified turn (decidable recall) — not re-generated', color: '#7c3aed' },
+                'graphrag-global': { label: 'synthesized', title: 'Synthesized across your knowledge-graph community themes', color: '#0891b2' },
+                extractive: { label: 'from source', title: 'Extracted verbatim from your cited documents — cannot hallucinate', color: '#16a34a' },
+              }
+              const m = M[message.governance.method!]
+              return m ? <span className="flex items-center gap-1 font-medium" title={m.title} style={{ color: m.color }}>◆ {m.label}</span> : null
+            })()}
+            {message.governance.grounded && !message.governance.method && (
+              <span className="flex items-center gap-1" title="Grounded in retrieved evidence" style={{ color: '#16a34a' }}>✓ grounded</span>
+            )}
             {message.governance.latency_ms > 0 && (
               <span>{(message.governance.latency_ms / 1000).toFixed(1)}s</span>
             )}
@@ -554,6 +567,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
           (message.deliberation && message.deliberation.candidates.length > 1) ||
           message.value_judgment ||
           (message.retrieval_trace && (message.retrieval_trace.sources.length > 0 || message.retrieval_trace.beliefs_injected > 0 || (message.retrieval_trace.memory_sources?.length ?? 0) > 0 || (message.retrieval_trace.episode_sources?.length ?? 0) > 0)) ||
+          (message.grounding && (!!message.grounding.domain || message.grounding.topics.length > 0 || message.grounding.terms.length > 0)) ||
           message.steering_result ||
           message.governance
         ) && (
@@ -585,22 +599,41 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
                   )}
                 </div>
               )}
+              {/* Glossary grounding — what the FRONTIER-AUTHORED canon recognized in the turn (the moat, made visible) */}
+              {message.grounding && (!!message.grounding.domain || message.grounding.topics.length > 0 || message.grounding.terms.length > 0) && (
+                <div className="text-[10px] text-[var(--color-text-tertiary)]">
+                  <span className="font-medium uppercase tracking-wide text-[var(--color-text-secondary)]">Grounding</span>
+                  {message.grounding.domain ? <> — domain <span className="text-[var(--color-text-secondary)]">{message.grounding.domain}</span></> : ''}
+                  {message.grounding.terms.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {message.grounding.terms.slice(0, 12).map((t, i) => (
+                        <span key={`gt-${i}`} className="inline-flex items-center gap-1 rounded-full border border-[#0ea5e9]/40 bg-[#0ea5e9]/5 px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)]" title="canon term recognized — frontier-authored glossary, not model-extracted">
+                          <span className="text-[#0ea5e9]">◆</span>{t}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {message.grounding.topics.length > 0 && (
+                    <div className="mt-1">topics: {message.grounding.topics.slice(0, 6).join(' · ')}</div>
+                  )}
+                </div>
+              )}
               {/* Reasoning trace */}
-              {message.retrieval_trace && (message.retrieval_trace.sources.length > 0 || message.retrieval_trace.beliefs_injected > 0 || (message.retrieval_trace.memory_sources?.length ?? 0) > 0 || (message.retrieval_trace.episode_sources?.length ?? 0) > 0) && (
+              {message.retrieval_trace && ((message.retrieval_trace.sources?.length ?? 0) > 0 || message.retrieval_trace.beliefs_injected > 0 || (message.retrieval_trace.memory_sources?.length ?? 0) > 0 || (message.retrieval_trace.episode_sources?.length ?? 0) > 0) && (
                 <div className="space-y-2">
                   <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">Reasoning trace</div>
-                  {message.retrieval_trace.timings.length > 0 && (
+                  {(message.retrieval_trace.timings?.length ?? 0) > 0 && (
                     <div className="flex flex-wrap gap-1.5">
-                      {message.retrieval_trace.timings.map((t) => (
+                      {message.retrieval_trace.timings?.map((t) => (
                         <span key={t.pattern} className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-tertiary)] px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)]">
                           {t.pattern} · {t.durationMs}ms · {t.hits} hit{t.hits === 1 ? '' : 's'}
                         </span>
                       ))}
                     </div>
                   )}
-                  {message.retrieval_trace.sources.length > 0 && (
+                  {(message.retrieval_trace.sources?.length ?? 0) > 0 && (
                     <div className="space-y-1">
-                      {message.retrieval_trace.sources.map((s) => (
+                      {message.retrieval_trace.sources?.map((s) => (
                         <div key={s.id} className="flex items-center gap-2">
                           <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
                             <div className="h-full rounded-full bg-[#7c3aed]" style={{ width: `${Math.max(4, Math.min(100, s.score * 100))}%` }} />

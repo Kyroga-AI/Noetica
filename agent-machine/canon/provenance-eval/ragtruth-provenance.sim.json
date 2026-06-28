@@ -1,0 +1,83 @@
+{
+  "detector": "sim",
+  "nli_model": null,
+  "nli_premise": null,
+  "beta": 2.0,
+  "operating_points": {
+    "0.5": {
+      "tau": 0.53,
+      "precision": 0.1715145436308927,
+      "recall": 0.3886363636363636,
+      "fbeta": 0.19308943089430897,
+      "tp": 171,
+      "fp": 826,
+      "fn": 269,
+      "tn": 3656
+    },
+    "1.0": {
+      "tau": 0.68,
+      "precision": 0.15678670360110802,
+      "recall": 0.6431818181818182,
+      "fbeta": 0.25211581291759466,
+      "tp": 283,
+      "fp": 1522,
+      "fn": 157,
+      "tn": 2960
+    },
+    "2.0": {
+      "tau": 0.83,
+      "precision": 0.12349799732977303,
+      "recall": 0.8409090909090909,
+      "fbeta": 0.38898233809924304,
+      "tp": 370,
+      "fp": 2626,
+      "fn": 70,
+      "tn": 1856
+    }
+  },
+  "model": "sentence-transformers/all-MiniLM-L6-v2",
+  "threshold": 0.83,
+  "seed": 1729,
+  "git_rev": "42f8a4394eb32ba084facfbfaf241220b6209ca9",
+  "ragtruth_response_sha256_16": "e4c2e4ac24fff676",
+  "n_train_calib": 600,
+  "n_test": 600,
+  "n_test_sentences": 4922,
+  "sentence_level": {
+    "precision": 0.12349799732977303,
+    "recall": 0.8409090909090909,
+    "f1": 0.21536670547147846,
+    "tp": 370,
+    "fp": 2626,
+    "fn": 70,
+    "tn": 1856
+  },
+  "response_level": {
+    "precision": 0.4121996303142329,
+    "recall": 0.9867256637168141,
+    "f1": 0.5814863102998696,
+    "tp": 223,
+    "fp": 318,
+    "fn": 3,
+    "tn": 56
+  },
+  "recall_by_label_type": {
+    "Evident Baseless Info": {
+      "caught": 188,
+      "total": 240
+    },
+    "Evident Conflict": {
+      "caught": 143,
+      "total": 152
+    },
+    "Subtle Baseless Info": {
+      "caught": 38,
+      "total": 46
+    },
+    "Subtle Conflict": {
+      "caught": 1,
+      "total": 2
+    }
+  },
+  "axis": "provenance (in-source vs generated); inference-type axis NOT measured here"
+}

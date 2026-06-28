@@ -1,0 +1,4 @@
+# head-to-head proof artifacts (generated per demo run)
+mesh-vs-frontier.*.json
+__pycache__/
+_k12_capture/

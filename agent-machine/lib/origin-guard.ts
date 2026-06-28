@@ -25,12 +25,18 @@ export function isLoopbackOrigin(origin: string): boolean {
 
 /**
  * Decide whether a request may proceed. `method` is the HTTP verb, `origin` the raw Origin header
- * (or undefined when absent). Read-only verbs and absent/loopback origins pass; a cross-site Origin
- * on a mutating verb is rejected. Pure + side-effect-free so it's unit-testable.
+ * (or undefined when absent). A request with NO Origin (native / CLI / top-level navigation /
+ * server-to-server) always passes; a request that DOES carry an Origin must be the local app.
+ *
+ * This applies to reads too, not just writes: with `Access-Control-Allow-Origin: *`, a foreign page the
+ * user visits could otherwise `fetch()` this loopback server's GET endpoints (e.g. /api/library,
+ * /api/graph/*) and read the user's knowledge graph cross-origin (DNS-rebinding / drive-by exfiltration).
+ * OPTIONS (CORS preflight) still passes so the browser can learn the actual request is rejected.
+ * Pure + side-effect-free so it's unit-testable.
  */
 export function originAllowed(method: string | undefined, origin: string | undefined): boolean {
   const m = (method ?? 'GET').toUpperCase()
-  if (m === 'GET' || m === 'HEAD' || m === 'OPTIONS') return true // safe verbs
-  if (!origin) return true // native / CLI / server-to-server send no Origin
-  return isLoopbackOrigin(origin)
+  if (m === 'OPTIONS') return true // CORS preflight must complete; the real request is still checked
+  if (!origin) return true // native / CLI / top-level navigation / server-to-server send no Origin
+  return isLoopbackOrigin(origin) // a PRESENT Origin must be the local app — for reads as well as writes
 }

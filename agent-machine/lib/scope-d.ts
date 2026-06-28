@@ -229,16 +229,65 @@ function loadHead(): string {
 }
 function appendChained(record: Record<string, unknown>): void {
   fs.mkdirSync(path.dirname(EVENTS_PATH), { recursive: true })
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
   const { hashRecord } = require('./audit-chain.js') as typeof import('./audit-chain.js')
   const prevHash = loadHead()
-  const hash = hashRecord(prevHash, record)
-  fs.appendFileSync(EVENTS_PATH, `${JSON.stringify({ ...record, prevHash, hash })}\n`)
+  // Encrypt the record at rest, then chain the hash over the CIPHERTEXT unit `{ enc }` — so the audit trail is
+  // BOTH tamper-evident (any edit to a ciphertext breaks the chain + the signed head) AND confidential (the
+  // event payload isn't plaintext on disk). A verifier checks hashes of the {enc} units with no decryption;
+  // reading the content decrypts with the at-rest key. NOETICA_ENCRYPT_AT_REST=0 keeps the old plaintext form
+  // (and reads stay mixed-form-tolerant). Genesis/old entries that are plaintext still chain correctly.
+  let unit: Record<string, unknown> = record
+  try {
+    if (process.env['NOETICA_ENCRYPT_AT_REST'] !== '0') {
+      const { encryptLine } = require('./at-rest.js') as typeof import('./at-rest.js')
+      unit = { enc: encryptLine(record) }
+    }
+  } catch { /* at-rest unavailable → plaintext unit, still chained */ }
+  const hash = hashRecord(prevHash, unit)
+  fs.appendFileSync(EVENTS_PATH, `${JSON.stringify({ ...unit, prevHash, hash })}\n`)
   _chainHead = hash
   try { fs.writeFileSync(headPath(), hash) } catch { /* */ }
   try {
     const { signHead } = require('./audit-chain.js') as typeof import('./audit-chain.js')
     const { loadOrCreateDeviceKey } = require('./audit-key.js') as typeof import('./audit-key.js')
     fs.writeFileSync(`${headPath()}.sig`, JSON.stringify({ head: hash, sig: signHead(hash, loadOrCreateDeviceKey().privateKey) }))
-  } catch { /* signing best-effort */ }
+  } catch (e) {
+    // Signing failing means the audit chain is no longer tamper-EVIDENT (anyone with file write could edit it
+    // undetected). The chain itself is still written — we don't drop governance events — but a silent unsigned
+    // state is a security regression, so make it LOUD + leave a breadcrumb the verifier can detect.
+    console.error(`[audit-chain] SIGNING FAILED — chain head ${hash.slice(0, 12)} is UNSIGNED (tamper-evidence lost): ${(e instanceof Error ? e.message : 'unknown').replace(/[\r\n]/g, ' ')}`)
+    try { fs.writeFileSync(`${headPath()}.unsigned`, JSON.stringify({ head: hash, at: new Date().toISOString(), reason: e instanceof Error ? e.message.slice(0, 200) : 'unknown' })) } catch { /* */ }
+  }
+}
+
+/**
+ * Verify the egress audit chain end-to-end (P3.6): re-link every entry (prevHash → hashRecord(unit)) and check
+ * the Ed25519-signed head matches the device key. Tamper-evident: any edit/truncation breaks the chain or the
+ * signature. Backs the Govern attestation badge. No decryption needed — hashes are over the {enc} ciphertext units.
+ */
+export async function verifyAuditChain(): Promise<{ entries: number; chainValid: boolean; signed: boolean; signatureValid: boolean; headHash: string; fingerprint: string; firstBreakAt?: number }> {
+  const { hashRecord, verifyHead } = await import('./audit-chain.js')
+  const { loadOrCreateDeviceKey, fingerprint } = await import('./audit-key.js')
+  let entries = 0, chainValid = true, firstBreakAt: number | undefined
+  let prev = '0'.repeat(64), last = prev
+  try {
+    const raw = fs.readFileSync(EVENTS_PATH, 'utf8').trim()
+    if (raw) for (const line of raw.split('\n')) {
+      entries++
+      let obj: Record<string, unknown>
+      try { obj = JSON.parse(line) as Record<string, unknown> } catch { chainValid = false; firstBreakAt ??= entries; continue }
+      const { prevHash, hash, ...unit } = obj as { prevHash?: string; hash?: string }
+      if (prevHash !== prev || hashRecord(String(prevHash ?? prev), unit) !== hash) { chainValid = false; firstBreakAt ??= entries }
+      prev = String(hash ?? prev); last = prev
+    }
+  } catch { /* no log yet → empty but valid */ }
+  let signed = false, signatureValid = false, fp = ''
+  try {
+    const sig = JSON.parse(fs.readFileSync(`${headPath()}.sig`, 'utf8')) as { head: string; sig: string }
+    signed = true
+    const key = loadOrCreateDeviceKey()
+    fp = fingerprint(key.publicKey)
+    signatureValid = sig.head === last && verifyHead(sig.head, sig.sig, key.publicKey)
+  } catch { /* unsigned head */ }
+  return { entries, chainValid, signed, signatureValid, headHash: last, fingerprint: fp, firstBreakAt }
 }

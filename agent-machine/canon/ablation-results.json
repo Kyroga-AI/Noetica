@@ -1,0 +1,87 @@
+{
+ "base": {
+  "arm": "baseline",
+  "n_seeds": 1,
+  "acc_mean": 57.7,
+  "acc_std": 0.0,
+  "base_mean": 57.7,
+  "delta": 0.0,
+  "delta_std": 0.0,
+  "subject_delta": {
+   "abstract_algebra": 0.0,
+   "college_biology": 0.0,
+   "college_chemistry": 0.0,
+   "college_mathematics": 0.0,
+   "college_physics": 0.0,
+   "high_school_statistics": 0.0
+  }
+ },
+ "brain": {
+  "arm": "brain",
+  "n_seeds": 1,
+  "acc_mean": 57.3,
+  "acc_std": 0.0,
+  "base_mean": 57.7,
+  "delta": -0.3,
+  "delta_std": 0.0,
+  "subject_delta": {
+   "abstract_algebra": -2.0,
+   "college_biology": 4.0,
+   "college_chemistry": 6.0,
+   "college_mathematics": 2.0,
+   "college_physics": -2.0,
+   "high_school_statistics": -10.0
+  }
+ },
+ "compute": {
+  "arm": "compute",
+  "n_seeds": 1,
+  "acc_mean": 0.0,
+  "acc_std": 0.0,
+  "base_mean": 57.7,
+  "delta": -57.7,
+  "delta_std": 0.0,
+  "subject_delta": {
+   "abstract_algebra": -56.0,
+   "college_biology": -76.0,
+   "college_chemistry": -48.0,
+   "college_mathematics": -40.0,
+   "college_physics": -54.0,
+   "high_school_statistics": -72.0
+  }
+ },
+ "ground": {
+  "arm": "ground",
+  "n_seeds": 2,
+  "acc_mean": 59.3,
+  "acc_std": 0.0,
+  "base_mean": 57.7,
+  "delta": 1.7,
+  "delta_std": 0.0,
+  "subject_delta": {
+   "abstract_algebra": 0.0,
+   "college_biology": 0.0,
+   "college_chemistry": -2.0,
+   "college_mathematics": 0.0,
+   "college_physics": 8.0,
+   "high_school_statistics": 4.0
+  }
+ },
+ "rerank": {
+  "arm": "rerank",
+  "n_seeds": 2,
+  "acc_mean": 55.7,
+  "acc_std": 0.0,
+  "base_mean": 57.7,
+  "delta": -2.0,
+  "delta_std": 0.0,
+  "subject_delta": {
+   "abstract_algebra": -2.0,
+   "college_biology": 2.0,
+   "college_chemistry": 4.0,
+   "college_mathematics": 2.0,
+   "college_physics": -8.0,
+   "high_school_statistics": -10.0
+  }
+ }
+}

@@ -54,6 +54,87 @@ export interface ProgramOfThought {
 const POT_PROMPT = (question: string) =>
   `You are a precise calculator. Write a short, correct Python 3 program that computes the answer to the problem below and prints ONLY the final answer on the last line (a bare number when the answer is numeric — no words, no units).\n\nProblem: ${question}\n\nReturn only the Python program in a single \`\`\`python code block.`
 
+// ── Verified-operator routing (the proven +7pp fix) ──────────────────────────
+// The local 7B ROUTES to the right operation reliably ("this is a permutation-index
+// problem") but IMPLEMENTS specialized math WRONG when it authors sympy cold — invalid
+// cycle notation, complex roots for a finite field, unevaluated ODEs (the measured 1/6
+// compute failure). So the compute lane should OFFER a verified, unit-tested library
+// (lib/math_operators.py) for the model to CALL: it picks the operator + extracts the
+// args, the tested library does the math. Measured 4/5→5/5 recovery on the losses.
+//
+// This MIRRORS the bench's proven operatorCompute arm (scripts/mmlu-brain-bench.ts):
+// same operator menu, same "import + print the final answer" contract, same execution
+// (python with the lib dir on sys.path). It is ROUTING-FIRST, COLD-FALLBACK: when a
+// verified operator is selected it runs; when none fits the model writes ordinary code
+// (or the caller falls through to the cold programOfThought). Purely additive headroom —
+// operators are unit-tested to gold, so it can only help and cannot regress the cold path.
+
+/** The verified-operator API exactly as the bench presents it. Names + signatures + one-line
+ *  descriptions; the model picks one, extracts args, and prints the final answer. */
+export const OPERATOR_API = `You have a verified Python library 'math_operators' (already correct — CALL it, never reimplement):
+  permutation_index(cycle_str, n)               # index of <p> in S_n; cycle_str like '(1,2,5,4)(2,3)'
+  finite_field_zeros(coeffs, p)                 # zeros over Z_p; coeffs highest-degree-first (x^2+1 -> [1,0,1])
+  mod_pow(base, exponent, modulus)
+  linear_ode_eval(ode_lhs, x0, y0, x_eval)      # solve 'expr=0' in x and y(x); use Derivative(y,x); y(x0)=y0
+  factorial_trailing_zeros_count(target)        # how many k have EXACTLY target trailing zeros in k!
+  ring_char_product(component_chars)            # characteristic of a product ring; 0 for an infinite component
+  count_real_intersections(eq_strs, var_names)  # # real solutions of a system of 'lhs=0' equations
+  gcd(a,b)  /  lcm(a,b)
+  slope(p1,p2)  /  distance_2d(p1,p2)           # p = (x,y) tuples
+  solve_equations(eq_strs, var_names)           # solve a system 'lhs=0' (sympy syntax), e.g. word problems
+  z_score(x, mean, sd)  /  normal_prob_less_than(z)   # P(Z<z) standard normal
+  confidence_interval_mean(mean, sd, n, confidence)
+  confidence_interval_proportion(phat, n, confidence)
+  definite_integral(expr_str, var, a, b)        # integral of expr d(var) from a to b; bounds may be 'oo'/'-oo'
+  derivative_at(expr_str, var, x0)              # d/d(var) expr_str evaluated at var=x0
+  limit_at(expr_str, var, point)                # limit of expr_str as var -> point; point may be 'oo'/'-oo'
+  determinant(matrix)                           # determinant of a square matrix (list-of-lists)
+  eigenvalues(matrix)                           # eigenvalues of a square matrix (list-of-lists)
+  solve_linear_system(A, b)                     # solve A x = b; A list-of-lists, b list -> x list
+  n_choose_k(n, k)  /  n_permute_k(n, k)        # combinations C(n,k) / permutations P(n,k), exact integers
+Pick the operator, extract the arguments from the problem, and write a tiny program that imports from
+math_operators and prints ONLY the final answer value on the last line. If none fit, write a short correct program.`
+
+const operatorPrompt = (question: string) =>
+  `${OPERATOR_API}\n\nProblem: ${question}\n\nReturn ONLY a \`\`\`python code block.`
+
+export interface OperatorProgramOfThought extends ProgramOfThought {
+  /** true when the generated program actually imported the verified library (operator was routed). */
+  usedOperator: boolean
+}
+
+/**
+ * Operator-routing program-of-thought: offer the verified-operator menu, have the model
+ * pick an operator + extract args, then EXECUTE by importing lib/math_operators.py (the lib
+ * dir is prepended to sys.path, mirroring the bench). Returns the executed answer plus whether
+ * a verified operator was actually used.
+ *
+ * `libDir` is the directory containing math_operators.py (server passes the agent-machine/lib
+ * path). Returns null when no runnable program / no usable output is produced — caller falls
+ * back to the cold programOfThought (routing-first, cold-fallback).
+ */
+export async function operatorProgramOfThought(
+  question: string,
+  libDir: string,
+  deps: ExecVerifyDeps,
+): Promise<OperatorProgramOfThought | null> {
+  let text: string
+  try { text = await deps.generate(operatorPrompt(question), 0.1) } catch { return null }
+  const code = extractCode(text)
+  if (!code) return null
+  // Prepend the lib dir to sys.path so `from math_operators import ...` resolves — exactly the
+  // bench's mechanism. JSON.stringify safely escapes the path into a Python string literal.
+  const usedOperator = /math_operators/.test(code)
+  const wrapped = `import sys\nsys.path.insert(0, ${JSON.stringify(libDir)})\n${code}`
+  let output: string
+  try { output = await deps.execute('python', wrapped) } catch { return null }
+  const answer = extractFinalAnswer(output)
+  if (!answer) return null
+  // Reject obvious execution failures surfaced in the output (same guard as cold PoT).
+  if (/\b(Traceback|SyntaxError|NameError|ImportError|ModuleNotFoundError|Error:)\b/.test(output) && !/^-?\d/.test(answer)) return null
+  return { answer, code: wrapped, output, usedOperator }
+}
+
 /**
  * Program-of-thought verification: ask the model for a program, execute it, return the
  * verified answer. Returns null when no runnable program or no usable output is produced
