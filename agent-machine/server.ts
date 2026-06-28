@@ -3514,6 +3514,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   }
 
   try {
+    // Track when a turn was answered by a VERIFIABLE/deterministic lane (a verified
+    // math_operators library call, or a code-verify pass) so the tail evidence emit can
+    // classify replayClass="exact" instead of the generated-tail "best-effort". Stays
+    // undefined for nondeterministic lanes (reason-lane CoT+SC, cold programOfThought,
+    // best-of-N), which correctly remain best-effort.
+    let verifiedMethod: 'operator-compute' | 'code-verify' | undefined
     if (provider === 'ollama') {
       // ── Local Ollama path (primary) ──────────────────────────────────────────
       type OllamaContentPart =
@@ -3606,7 +3612,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           if (libDir) {
             try {
               const op = await operatorProgramOfThought(latestUserContent, libDir, potDeps)
-              if (op && op.usedOperator) { pot = op; console.log(`[critic] verified-operator routed answer=${op.answer}`) }
+              if (op && op.usedOperator) { pot = op; verifiedMethod = 'operator-compute'; console.log(`[critic] verified-operator routed answer=${op.answer}`) }
             } catch { /* operator routing best-effort — fall through to cold PoT */ }
           }
           if (!pot) pot = await programOfThought(latestUserContent, potDeps)
@@ -3675,6 +3681,9 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
             sse(res, 'delta', { delta: answer })
             fullContent += answer
             deliberated = true
+            // Only a PASSED verification is deterministic/exact; a failed-then-best-attempt
+            // fallback stays best-effort (it's a generated draft that didn't verify).
+            if (cv.passed) verifiedMethod = 'code-verify'
             console.log(`[critic] code-verify passed=${cv.passed} attempts=${cv.attempts} lang=${cv.language}`)
           }
         } catch { /* code-verify best-effort — fall through */ }
@@ -4115,13 +4124,26 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           session: sessionId, confidence: typeof turnWorth === 'number' ? turnWorth : 0.7,
         })
       }
-      // Reasoning-evidence: GENERATED (LLM) ⇒ replayClass "best-effort". Best-effort, non-blocking.
+      // Reasoning-evidence: GENERATED (LLM) ⇒ replayClass "best-effort", EXCEPT when a
+      // verifiable/deterministic lane answered the turn (verified math_operators call, or a
+      // code-verify pass) ⇒ replayClass "exact". The reason-lane (CoT+SC), cold
+      // programOfThought, and best-of-N remain best-effort (verifiedMethod stays undefined).
       try {
         const re = await import('./lib/reasoning-evidence.js')
         const run = re.openReasoningRun(`turn:${intentPlan.name}`)
-        re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} generated(${provider}${useReasonLane ? ',reason-lane:cot+sc' : ''}) ${latencyMs}ms`, trustLevel: 'semi-trusted-project-source', ...(groundingStatus ? { extra: { grounding_status: groundingStatus } } : {}) })
+        // Method/source string the summary + receipt reflect: a verified lane names itself and
+        // is COMPUTED; otherwise it's GENERATED (best-effort).
+        const methodLabel = verifiedMethod
+          ? `computed(${verifiedMethod})`
+          : `generated(${provider}${useReasonLane ? ',reason-lane:cot+sc' : ''})`
+        re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} ${methodLabel} ${latencyMs}ms`, trustLevel: verifiedMethod ? 'trusted-workspace-source' : 'semi-trusted-project-source', ...(groundingStatus ? { extra: { grounding_status: groundingStatus } } : {}) })
         const ledgerRef = generatedAttestation ? `urn:srcos:ledger:dispatch:${generatedAttestation}` : undefined
-        const receipt = re.closeReasoningRun(run, { status: 'completed', replayClass: re.classifyReplay({ method: model, stop_reason: 'end_turn' }), ledgerRef })
+        // A verified lane is decidable/deterministic ⇒ classifyReplay returns "exact"; the
+        // generated tail keeps method=model ⇒ "best-effort".
+        const replayClass = verifiedMethod
+          ? re.classifyReplay({ method: verifiedMethod, decidable: true })
+          : re.classifyReplay({ method: model, stop_reason: 'end_turn' })
+        const receipt = re.closeReasoningRun(run, { status: 'completed', replayClass, ledgerRef })
         reasoningGen = { run: run.id, receipt: receipt.id }
       } catch { /* reasoning evidence is best-effort — never break the turn */ }
     } catch { /* tracker is best-effort */ }
