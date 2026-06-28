@@ -197,6 +197,152 @@ def n_permute_k(n: int, k: int) -> int:
     return math.perm(n, k)
 
 
+# ── physics (college_physics / high_school_physics / conceptual_physics) ──────
+def kinematic_velocity(v0: float, a: float, t: float) -> float:
+    """Final velocity v = v0 + a*t (constant acceleration)."""
+    return v0 + a * t
+
+
+def kinematic_displacement(v0: float, a: float, t: float) -> float:
+    """Displacement x = v0*t + (1/2)*a*t**2 (constant acceleration)."""
+    return v0 * t + 0.5 * a * t * t
+
+
+def kinematic_velocity_from_distance(v0: float, a: float, d: float) -> float:
+    """Final speed from v**2 = v0**2 + 2*a*d (constant acceleration). Returns the non-negative root."""
+    return math.sqrt(max(0.0, v0 * v0 + 2 * a * d))
+
+
+def newtons_second_law(mass: float = None, accel: float = None, force: float = None) -> float:
+    """F = m*a. Pass exactly TWO of (mass, accel, force); returns the third."""
+    if force is None:   return mass * accel
+    if accel is None:   return force / mass
+    if mass is None:    return force / accel
+    raise ValueError('pass exactly two of mass, accel, force')
+
+
+def kinetic_energy(mass: float, velocity: float) -> float:
+    """KE = (1/2) m v**2 (joules)."""
+    return 0.5 * mass * velocity * velocity
+
+
+def gravitational_pe(mass: float, height: float, g: float = 9.8) -> float:
+    """Gravitational potential energy PE = m*g*h (joules)."""
+    return mass * g * height
+
+
+def momentum(mass: float, velocity: float) -> float:
+    """Linear momentum p = m*v."""
+    return mass * velocity
+
+
+def work_done(force: float, distance: float, angle_deg: float = 0.0) -> float:
+    """Work W = F*d*cos(theta) (joules); angle between force and displacement in degrees."""
+    return force * distance * math.cos(math.radians(angle_deg))
+
+
+def power(work: float, time: float) -> float:
+    """Power P = W/t (watts)."""
+    return work / time
+
+
+def ohms_law(voltage: float = None, current: float = None, resistance: float = None) -> float:
+    """V = I*R. Pass exactly TWO of (voltage, current, resistance); returns the third."""
+    if voltage is None:    return current * resistance
+    if current is None:    return voltage / resistance
+    if resistance is None: return voltage / current
+    raise ValueError('pass exactly two of voltage, current, resistance')
+
+
+def density(mass: float = None, volume: float = None, density_val: float = None) -> float:
+    """rho = m/V. Pass exactly TWO of (mass, volume, density_val); returns the third."""
+    if density_val is None: return mass / volume
+    if mass is None:        return density_val * volume
+    if volume is None:      return mass / density_val
+    raise ValueError('pass exactly two of mass, volume, density_val')
+
+
+# ── chemistry (college_chemistry / high_school_chemistry) ─────────────────────
+def molarity(moles: float = None, liters: float = None, molarity_val: float = None) -> float:
+    """M = mol/L. Pass exactly TWO of (moles, liters, molarity_val); returns the third."""
+    if molarity_val is None: return moles / liters
+    if moles is None:        return molarity_val * liters
+    if liters is None:       return moles / molarity_val
+    raise ValueError('pass exactly two of moles, liters, molarity_val')
+
+
+def moles_from_mass(mass_g: float, molar_mass: float) -> float:
+    """Amount of substance n = mass / molar_mass (mol)."""
+    return mass_g / molar_mass
+
+
+def ideal_gas(P: float = None, V: float = None, n: float = None, T: float = None, R: float = 0.082057) -> float:
+    """Ideal gas law PV = nRT (R in L·atm·mol⁻¹·K⁻¹; P atm, V L, T K). Pass exactly THREE of (P,V,n,T); returns the fourth."""
+    if P is None: return n * R * T / V
+    if V is None: return n * R * T / P
+    if n is None: return P * V / (R * T)
+    if T is None: return P * V / (n * R)
+    raise ValueError('pass exactly three of P, V, n, T')
+
+
+def dilution(M1: float = None, V1: float = None, M2: float = None, V2: float = None) -> float:
+    """Dilution M1*V1 = M2*V2. Pass exactly THREE; returns the fourth."""
+    if M1 is None: return M2 * V2 / V1
+    if V1 is None: return M2 * V2 / M1
+    if M2 is None: return M1 * V1 / V2
+    if V2 is None: return M1 * V1 / M2
+    raise ValueError('pass exactly three of M1, V1, M2, V2')
+
+
+def ph_from_concentration(h_conc: float) -> float:
+    """pH = -log10([H+])."""
+    return -math.log10(h_conc)
+
+
+def concentration_from_ph(ph: float) -> float:
+    """[H+] = 10**(-pH)."""
+    return 10 ** (-ph)
+
+
+def percent_yield(actual: float, theoretical: float) -> float:
+    """Percent yield = actual/theoretical * 100."""
+    return actual / theoretical * 100.0
+
+
+# ── statistics: distributions + descriptive (high_school_statistics) ──────────
+def expected_value(values: list, probs: list) -> float:
+    """E[X] = sum(value_i * prob_i) for a discrete random variable."""
+    return sum(v * p for v, p in zip(values, probs))
+
+
+def binomial_probability(n: int, k: int, p: float) -> float:
+    """P(X = k) for X ~ Binomial(n, p): C(n,k) * p**k * (1-p)**(n-k)."""
+    return math.comb(n, k) * (p ** k) * ((1 - p) ** (n - k))
+
+
+def binomial_mean_sd(n: int, p: float) -> tuple:
+    """(mean, standard deviation) of Binomial(n, p): mean=n*p, sd=sqrt(n*p*(1-p))."""
+    return (n * p, math.sqrt(n * p * (1 - p)))
+
+
+def sample_mean(values: list) -> float:
+    """Arithmetic mean of a sample."""
+    return sum(values) / len(values)
+
+
+def sample_sd(values: list, population: bool = False) -> float:
+    """Standard deviation. Sample (divide by n-1) by default; population (divide by n) if population=True."""
+    m = sum(values) / len(values)
+    denom = len(values) if population else len(values) - 1
+    return math.sqrt(sum((x - m) ** 2 for x in values) / denom)
+
+
+def combination_probability(favorable_n: int, favorable_k: int, total_n: int, total_k: int) -> float:
+    """Hypergeometric-style probability C(favorable_n,favorable_k)*... — here the simple ratio
+    C(favorable_n, favorable_k) / C(total_n, total_k) for 'probability of choosing k specific items'."""
+    return math.comb(favorable_n, favorable_k) / math.comb(total_n, total_k)
+
+
 if __name__ == '__main__':
     assert permutation_index('(1,2,5,4)(2,3)', 5) == 24
     assert finite_field_zeros([1, 0, 1], 2) == [1]
@@ -230,4 +376,31 @@ if __name__ == '__main__':
     # combinatorics
     assert n_choose_k(5, 2) == 10
     assert n_permute_k(5, 2) == 20
-    print('all math_operators unit tests PASS (', 24, 'operators )')
+    # physics
+    assert kinematic_velocity(10, 2, 3) == 16          # 10 + 2*3
+    assert kinematic_displacement(0, 9.8, 2) == 19.6   # free fall 2s
+    assert abs(kinematic_velocity_from_distance(0, 9.8, 19.6) - 19.6) < 1e-6
+    assert newtons_second_law(mass=2, accel=3) == 6 and newtons_second_law(force=6, accel=3) == 2
+    assert kinetic_energy(2, 3) == 9.0                 # 0.5*2*9
+    assert gravitational_pe(2, 10, g=9.8) == 196.0
+    assert momentum(2, 5) == 10
+    assert abs(work_done(10, 5, 60) - 25.0) < 1e-9     # 10*5*cos60
+    assert power(100, 4) == 25.0
+    assert ohms_law(current=2, resistance=3) == 6 and ohms_law(voltage=6, current=2) == 3
+    assert density(mass=10, volume=2) == 5 and density(density_val=5, volume=2) == 10
+    # chemistry
+    assert molarity(moles=2, liters=4) == 0.5 and molarity(molarity_val=0.5, liters=4) == 2
+    assert moles_from_mass(36.0, 18.0) == 2.0          # 36g water / 18 g·mol⁻¹
+    assert abs(ideal_gas(n=1, T=273.15, V=22.414) - 1.0) < 0.01   # 1 mol at STP ≈ 1 atm
+    assert dilution(M1=2, V1=1, V2=4) == 0.5           # 2M*1L into 4L
+    assert abs(ph_from_concentration(1e-3) - 3.0) < 1e-9
+    assert abs(concentration_from_ph(3) - 1e-3) < 1e-12
+    assert percent_yield(8, 10) == 80.0
+    # statistics
+    assert abs(expected_value([1, 2, 3], [0.2, 0.5, 0.3]) - 2.1) < 1e-9
+    assert abs(binomial_probability(5, 2, 0.5) - 0.3125) < 1e-9
+    bm, bsd = binomial_mean_sd(10, 0.5); assert bm == 5.0 and abs(bsd - 1.5811) < 1e-3
+    assert sample_mean([2, 4, 6]) == 4.0
+    assert abs(sample_sd([2, 4, 6]) - 2.0) < 1e-9 and abs(sample_sd([2, 4, 6], population=True) - 1.63299) < 1e-4
+    assert abs(combination_probability(4, 2, 52, 2) - (6 / 1326)) < 1e-9
+    print('all math_operators unit tests PASS (', 43 + 6, 'operators )')

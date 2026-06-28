@@ -499,7 +499,7 @@
         },
         {
           "term": "acid",
-          "definition": "A substance that donates protons (Bronsted-Lowry) or accepts electrons (Lewis). Strong acids fully dissociate in water (HCl, H\u2082SO\u2084, HNO\u2083). Weak acids partially dissociate (K_a < 1)."
+          "definition": "A substance that donates protons (Bronsted-Lowry) or accepts electrons (Lewis). Strong acids fully dissociate in water (HCl, H₂SO₄, HNO₃). Weak acids partially dissociate (K_a < 1)."
         },
         {
           "term": "base",
@@ -829,11 +829,11 @@
         },
         {
           "term": "electron",
-          "definition": "A negatively charged elementary particle (charge \u2212e = \u22121.6\u00d710\u207b\u00b9\u2079 C) surrounding the nucleus; its quantum states (orbitals) determine bonding and reactivity."
+          "definition": "A negatively charged elementary particle (charge −e = −1.6×10⁻¹⁹ C) surrounding the nucleus; its quantum states (orbitals) determine bonding and reactivity."
         },
         {
           "term": "orbital",
-          "definition": "A mathematical function (wavefunction) describing the probability distribution of an electron in an atom; quantum numbers n, l, m\u2097 define each orbital (s, p, d, f types)."
+          "definition": "A mathematical function (wavefunction) describing the probability distribution of an electron in an atom; quantum numbers n, l, mₗ define each orbital (s, p, d, f types)."
         },
         {
           "term": "electron configuration",
@@ -918,7 +918,7 @@
         },
         {
           "term": "dipole moment (mu)",
-          "definition": "A measure of charge separation in a molecule: mu = q * d; units are debye (D) or C\u00b7m."
+          "definition": "A measure of charge separation in a molecule: mu = q * d; units are debye (D) or C·m."
         },
         {
           "term": "hydrogen bond",
@@ -1121,11 +1121,11 @@
         },
         {
           "term": "molar absorptivity (epsilon)",
-          "definition": "The intrinsic property of a substance relating absorbance to concentration and path length; units are L/(mol\u00b7cm)."
+          "definition": "The intrinsic property of a substance relating absorbance to concentration and path length; units are L/(mol·cm)."
         },
         {
           "term": "fingerprint region",
-          "definition": "The complex region of an IR spectrum from ~500\u20131500 cm-1 unique to each molecule; used for compound identification."
+          "definition": "The complex region of an IR spectrum from ~500–1500 cm-1 unique to each molecule; used for compound identification."
         },
         {
           "term": "molecular ion (M+)",
@@ -1145,7 +1145,7 @@
         },
         {
           "term": "NMR",
-          "definition": "Nuclear Magnetic Resonance spectroscopy; measures the magnetic environment of nuclei (\u00b9H, \u00b9\u00b3C) to determine molecular structure; chemical shifts (in ppm) identify functional groups."
+          "definition": "Nuclear Magnetic Resonance spectroscopy; measures the magnetic environment of nuclei (¹H, ¹³C) to determine molecular structure; chemical shifts (in ppm) identify functional groups."
         },
         {
           "term": "spectroscopy",
@@ -1642,6 +1642,10 @@
         {
           "term": "propagation of uncertainty",
           "definition": "The method for calculating the uncertainty in a result derived from uncertain measurements; for sums/differences, absolute uncertainties add in quadrature; for products/quotients, relative uncertainties add in quadrature."
+        },
+        {
+          "term": "dilution",
+          "definition": "The process of reducing a solute's concentration by adding solvent. Since moles of solute are conserved, M1*V1 = M2*V2 — the initial molarity times volume equals the final molarity times volume; solving gives the unknown concentration or volume."
         }
       ],
       "canon": [
