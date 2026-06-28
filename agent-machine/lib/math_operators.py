@@ -70,6 +70,61 @@ def count_real_intersections(eq_strs: list, var_names: list) -> int:
     return sum(1 for s in sols if all(im(v) == 0 for v in s.values()))
 
 
+# ── general arithmetic / algebra / geometry (high_school_mathematics) ─────────
+def gcd(a: int, b: int) -> int:
+    return math.gcd(a, b)
+
+
+def lcm(a: int, b: int) -> int:
+    return math.lcm(a, b)
+
+
+def slope(p1: tuple, p2: tuple) -> float:
+    """Slope of the line through p1=(x1,y1) and p2=(x2,y2)."""
+    return (p2[1] - p1[1]) / (p2[0] - p1[0])
+
+
+def distance_2d(p1: tuple, p2: tuple) -> float:
+    """Euclidean distance between two points."""
+    return math.hypot(p2[0] - p1[0], p2[1] - p1[1])
+
+
+def solve_equations(eq_strs: list, var_names: list) -> list:
+    """Solve a system of equations 'lhs=0' (sympy syntax) for the given variables. Returns list of solution dicts."""
+    vs = symbols(' '.join(var_names))
+    if not isinstance(vs, (list, tuple)):
+        vs = (vs,)
+    return [{str(k): (float(v) if v.is_number else str(v)) for k, v in s.items()}
+            for s in solve([sympify(e) for e in eq_strs], vs, dict=True)]
+
+
+# ── statistics (high_school_statistics) ──────────────────────────────────────
+def z_score(x: float, mean: float, sd: float) -> float:
+    return (x - mean) / sd
+
+
+def normal_prob_less_than(z: float) -> float:
+    """P(Z < z) for a standard normal (CDF)."""
+    from statistics import NormalDist
+    return NormalDist().cdf(z)
+
+
+def confidence_interval_mean(mean: float, sd: float, n: int, confidence: float = 0.95) -> tuple:
+    """Confidence interval for a population mean (z-interval). Returns (low, high)."""
+    from statistics import NormalDist
+    z = NormalDist().inv_cdf(1 - (1 - confidence) / 2)
+    margin = z * sd / math.sqrt(n)
+    return (mean - margin, mean + margin)
+
+
+def confidence_interval_proportion(phat: float, n: int, confidence: float = 0.95) -> tuple:
+    """Confidence interval for a population proportion. Returns (low, high)."""
+    from statistics import NormalDist
+    z = NormalDist().inv_cdf(1 - (1 - confidence) / 2)
+    margin = z * math.sqrt(phat * (1 - phat) / n)
+    return (phat - margin, phat + margin)
+
+
 if __name__ == '__main__':
     assert permutation_index('(1,2,5,4)(2,3)', 5) == 24
     assert finite_field_zeros([1, 0, 1], 2) == [1]
@@ -79,4 +134,14 @@ if __name__ == '__main__':
     assert ring_char_product([3, 0]) == 0          # Z_3 x 3Z
     assert ring_char_product([4, 6]) == 12
     assert count_real_intersections(['x**2 - y - 4', 'x**2 + y**2 - 9'], ['x', 'y']) == 4
-    print('all math_operators unit tests PASS')
+    # general math / geometry
+    assert gcd(240, 24) == 24 and lcm(24, 10) == 120
+    assert abs(slope((5, 4), (-2, 3)) - (1 / 7)) < 1e-9
+    assert abs(distance_2d((0, 0), (3, 4)) - 5) < 1e-9
+    assert abs(solve_equations(['x + y - 10', 'x - y - 4'], ['x', 'y'])[0]['x'] - 7) < 1e-9
+    # statistics
+    assert abs(z_score(248 + 47, 248, 47) - 1.0) < 1e-9
+    assert abs(normal_prob_less_than(1.96) - 0.975) < 0.001
+    lo, hi = confidence_interval_mean(100, 15, 36, 0.95)
+    assert abs(lo - 95.1) < 0.2 and abs(hi - 104.9) < 0.2
+    print('all math_operators unit tests PASS (', 13, 'operators )')

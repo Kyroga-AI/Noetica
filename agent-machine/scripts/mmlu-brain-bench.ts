@@ -700,6 +700,12 @@ const OPERATOR_API = `You have a verified Python library 'math_operators' (alrea
   factorial_trailing_zeros_count(target)        # how many k have EXACTLY target trailing zeros in k!
   ring_char_product(component_chars)            # characteristic of a product ring; 0 for an infinite component
   count_real_intersections(eq_strs, var_names)  # # real solutions of a system of 'lhs=0' equations
+  gcd(a,b)  /  lcm(a,b)
+  slope(p1,p2)  /  distance_2d(p1,p2)           # p = (x,y) tuples
+  solve_equations(eq_strs, var_names)           # solve a system 'lhs=0' (sympy syntax), e.g. word problems
+  z_score(x, mean, sd)  /  normal_prob_less_than(z)   # P(Z<z) standard normal
+  confidence_interval_mean(mean, sd, n, confidence)
+  confidence_interval_proportion(phat, n, confidence)
 Pick the operator, extract the arguments from the problem, and write a tiny program that imports from
 math_operators and prints ONLY the final answer value on the last line. If none fit, write a short correct program.`
 
@@ -1089,7 +1095,7 @@ async function main() {
         } else if (arm === 'opcompute') {         // reason lane + VERIFIED-OPERATOR compute (the proven +7 fix): route computational
           // questions to lib/math_operators.py (model picks operator + args; tested library does the math), else CoT+SC.
           const computational = classifyComplexity(q.question).posture === 'compute'
-            || /\b(find|compute|remainder|zeros|index|characteristic|how many|value of|solve|order of|divided by|intersection)\b/i.test(q.question)
+            || /\b(find|compute|remainder|zeros|index|characteristic|how many|value of|solve|order of|divided by|intersection|slope|distance|gcd|lcm|least common|greatest common|probability|correlation|proportion|confidence|standard deviation|z-?score|the mean|how (much|far|fast|long)|what is the (value|slope|probability|mean|distance))\b/i.test(q.question)
           let oc = ''
           if (computational) oc = await operatorCompute(q.question, q.choices)
           if (oc) { letter = oc; mode = 'opcompute:op' }
