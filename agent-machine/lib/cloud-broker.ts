@@ -30,37 +30,11 @@ export interface ComputeSku {
   priceSource?: 'live' | 'list'      // 'live' = real-time billing API (Azure Retail today); 'list' = static estimate
 }
 
-// Representative cross-cloud GPU + CPU catalogue (on-demand list, USD/hr). Prices are approximate and meant
-// for ranking; swap in a live billing-API adapter for exact quotes.
-export const COMPUTE_CATALOG: ComputeSku[] = [
-  // ── A100 80GB (single-GPU) ──
-  { provider: 'gcp',   name: 'a2-ultragpu-1g',      region: 'us-central1', vcpus: 12, memGiB: 170, gpu: { type: 'A100-80GB', count: 1, memGiB: 80 }, usdPerHour: 5.07, spotPerHour: 1.74 },
-  { provider: 'azure', name: 'NC24ads_A100_v4',     region: 'eastus',      vcpus: 24, memGiB: 220, gpu: { type: 'A100-80GB', count: 1, memGiB: 80 }, usdPerHour: 3.67, spotPerHour: 1.47 },
-  { provider: 'aws',   name: 'p4de.24xlarge/8',     region: 'us-east-1',   vcpus: 12, memGiB: 145, gpu: { type: 'A100-80GB', count: 1, memGiB: 80 }, usdPerHour: 5.12, spotPerHour: 1.92 },
-  { provider: 'ibm',   name: 'gx3-24x120x1a100',    region: 'us-south',    vcpus: 24, memGiB: 120, gpu: { type: 'A100-80GB', count: 1, memGiB: 80 }, usdPerHour: 4.39 },
-  // ── L4 / A10G (cost-efficient inference) ──
-  { provider: 'gcp',   name: 'g2-standard-8',        region: 'us-central1', vcpus: 8,  memGiB: 32,  gpu: { type: 'L4', count: 1, memGiB: 24 }, usdPerHour: 0.85, spotPerHour: 0.28 },
-  { provider: 'aws',   name: 'g5.xlarge',            region: 'us-east-1',   vcpus: 4,  memGiB: 16,  gpu: { type: 'A10G', count: 1, memGiB: 24 }, usdPerHour: 1.006, spotPerHour: 0.40 },
-  { provider: 'azure', name: 'NV36ads_A10_v5',       region: 'eastus',      vcpus: 36, memGiB: 440, gpu: { type: 'A10', count: 1, memGiB: 24 }, usdPerHour: 3.20 },
-  // ── CPU-only (general compute) ──
-  { provider: 'gcp',   name: 'n2-standard-8',        region: 'us-central1', vcpus: 8,  memGiB: 32, usdPerHour: 0.388, spotPerHour: 0.094 },
-  { provider: 'aws',   name: 'm6i.2xlarge',          region: 'us-east-1',   vcpus: 8,  memGiB: 32, usdPerHour: 0.384, spotPerHour: 0.13 },
-  { provider: 'azure', name: 'D8s_v5',               region: 'eastus',      vcpus: 8,  memGiB: 32, usdPerHour: 0.384, spotPerHour: 0.12 },
-  { provider: 'ibm',   name: 'bx2-8x32',             region: 'us-south',    vcpus: 8,  memGiB: 32, usdPerHour: 0.376 },
-  // ── NeoCloud GPU specialists (the cheap-GPU layer; H100 ~$2/hr vs hyperscaler A100 ~$3.7-5/hr) ──
-  { provider: 'coreweave', name: 'H100-80GB',         region: 'us-east',     vcpus: 26, memGiB: 256, gpu: { type: 'H100-80GB', count: 1, memGiB: 80 }, usdPerHour: 2.39, spotPerHour: 1.99 },
-  { provider: 'nebius',    name: 'h100-1',            region: 'eu-north',    vcpus: 20, memGiB: 160, gpu: { type: 'H100-80GB', count: 1, memGiB: 80 }, usdPerHour: 2.00, spotPerHour: 1.50 },
-  { provider: 'lambda',    name: 'gpu_1x_h100_pcie',  region: 'us-west',     vcpus: 26, memGiB: 200, gpu: { type: 'H100-80GB', count: 1, memGiB: 80 }, usdPerHour: 2.49 },
-  { provider: 'crusoe',    name: 'h100-80gb.1x',      region: 'us-midwest',  vcpus: 24, memGiB: 234, gpu: { type: 'H100-80GB', count: 1, memGiB: 80 }, usdPerHour: 2.45 },
-  // neocloud cost-efficient inference GPUs
-  { provider: 'nebius',    name: 'l4-1',              region: 'eu-north',    vcpus: 8,  memGiB: 32,  gpu: { type: 'L4',  count: 1, memGiB: 24 }, usdPerHour: 0.55, spotPerHour: 0.30 },
-  { provider: 'lambda',    name: 'gpu_1x_a10',        region: 'us-west',     vcpus: 30, memGiB: 200, gpu: { type: 'A10', count: 1, memGiB: 24 }, usdPerHour: 0.75 },
-  // ── Asian hyperscalers (broker targets in a multi-polar world; Huawei = NON-NVIDIA silicon under export controls) ──
-  { provider: 'alibaba', name: 'gn-h100',            region: 'ap-southeast', vcpus: 26, memGiB: 200, gpu: { type: 'H100-80GB',   count: 1, memGiB: 80 }, usdPerHour: 2.20 },
-  { provider: 'huawei',  name: 'Ascend-910C',        region: 'ap/cn',       vcpus: 24, memGiB: 192, gpu: { type: 'Ascend-910C', count: 1, memGiB: 64 }, usdPerHour: 1.80 },
-  // ── local mesh (sovereign, $0 marginal) ──
-  { provider: 'local', name: 'noetica-local',        region: 'on-device',   vcpus: 12, memGiB: 24, gpu: { type: 'metal', count: 1, memGiB: 24 }, usdPerHour: 0 },
-]
+// Cross-cloud compute/GPU catalogue — loaded from the CANONICAL contract (gpu-catalog.v1.json), the SINGLE source
+// of truth shared with tritfabric's gpu_broker.py. Do not hand-edit rows here: edit
+// prophet-core-contracts/contracts/gpu-catalog.v1.json and re-vendor the copy next to this file.
+import gpuCatalog from './gpu-catalog.v1.json'
+export const COMPUTE_CATALOG: ComputeSku[] = gpuCatalog.skus as ComputeSku[]
 
 export interface ComputeRequest {
   vcpus?: number
