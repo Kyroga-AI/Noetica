@@ -4,12 +4,46 @@ type GovernanceTrailProps = {
   trace: GovernanceTrace
 }
 
+const REPLAY_BADGE: Record<string, { label: string; color: string; bg: string }> = {
+  exact:        { label: 'exact · verified',   color: '#15803d', bg: '#dcfce7' },
+  approximate:  { label: 'approximate',         color: '#b45309', bg: '#fef9c3' },
+  generative:   { label: 'generative',          color: '#6b7280', bg: '#f3f4f6' },
+}
+
 export function GovernanceTrail({ trace }: GovernanceTrailProps) {
   const routeEvidence = trace.provider_route_evidence
+  const replayMeta = trace.replay_class ? (REPLAY_BADGE[trace.replay_class] ?? REPLAY_BADGE.generative) : undefined
 
   return (
     <details className="mt-3 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3 text-xs text-[var(--color-text-secondary)]">
       <summary className="cursor-pointer font-semibold text-[#1d4ed8]">Governance trail</summary>
+
+      {/* Answer provenance — the moat signals, shown first */}
+      {(trace.method || trace.decidable !== undefined || trace.replay_class) && (
+        <div className="mt-3 flex flex-wrap gap-1.5">
+          {trace.method && (
+            <span className="rounded-full bg-[#eff6ff] px-2 py-0.5 text-[10px] font-semibold text-[#1d4ed8]">
+              {trace.method}
+            </span>
+          )}
+          {trace.decidable && (
+            <span className="rounded-full bg-[#dcfce7] px-2 py-0.5 text-[10px] font-semibold text-[#15803d]">
+              decidable
+            </span>
+          )}
+          {replayMeta && (
+            <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: replayMeta.bg, color: replayMeta.color }}>
+              {replayMeta.label}
+            </span>
+          )}
+          {trace.grounded && (
+            <span className="rounded-full bg-[#f0fdf4] px-2 py-0.5 text-[10px] font-semibold text-[#166534]">
+              grounded
+            </span>
+          )}
+        </div>
+      )}
+
       <dl className="mt-3 grid grid-cols-[130px_1fr] gap-x-3 gap-y-2">
         <dt className="text-[var(--color-text-tertiary)]">run</dt>
         <dd className="break-all font-mono">{trace.run_id}</dd>
