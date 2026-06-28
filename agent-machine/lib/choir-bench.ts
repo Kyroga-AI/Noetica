@@ -14,9 +14,9 @@ const row = (s: ModelSpec): ModelRow => ({
   reasoning: s.bench.reasoning, coding: s.bench.coding, math: s.bench.math, agentic: s.bench.agentic,
 });
 
-/** The models a tier may use (its allowlist; OPEN = everything incl. frontier APIs). */
+/** The models a tier may field. OPEN = all OPEN-WEIGHT models (closed frontier APIs are the bar, never fielded). */
 function rosterOf(p: TierPolicy): ModelSpec[] {
-  if (!p.approvedModels) return MODELS.slice(); // OPEN: all, incl. frontier
+  if (!p.approvedModels) return MODELS.filter((x) => x.openWeights); // OPEN: open weights only
   return p.approvedModels.map(getModel).filter((x): x is ModelSpec => !!x);
 }
 

@@ -60,10 +60,11 @@ export const FINANCE: TierPolicy = {
   dataEgress: "in-boundary", requireAudit: true,
 };
 
-/** Open tier: everything, cheapest wins. */
+/** OPEN tier: ALL OPEN-WEIGHT models, any origin, no compliance gate — cheapest sovereign GPU. Closed frontier APIs
+ *  (Claude/GPT/Gemini) are NOT fielded here; they are only the measuring bar. This is an open-weights product. */
 export const OPEN: TierPolicy = {
   id: "open", tier: "open", regimes: [],
-  allowFrontierApi: true, dataEgress: "open", requireAudit: false,
+  allowFrontierApi: false, dataEgress: "open", requireAudit: false,
 };
 
 export const TIERS: Record<string, TierPolicy> = { open: OPEN, "us-gov": US_GOV, "au-gov": AU_GOV, "finance-regulated": FINANCE };

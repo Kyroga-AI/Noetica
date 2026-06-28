@@ -5,11 +5,13 @@ import assert from "node:assert/strict";
 import { routeUnderTier, gateModel, OPEN, US_GOV, AU_GOV, FINANCE } from "./choir-tier.js";
 import { NEOCLOUDS } from "./cloud-broker.js";
 
-test("OPEN tier: frontier allowed, cheapest H100 wins (neocloud), no model gate", () => {
-  const d = routeUnderTier(OPEN, { gpu: { type: "H100", count: 1 }, hours: 10, excludeLocal: true, frontierApi: true });
+test("OPEN tier: any open-weight on the cheapest GPU (neocloud); closed frontier APIs NOT fielded", () => {
+  const d = routeUnderTier(OPEN, { gpu: { type: "H100", count: 1 }, hours: 10, excludeLocal: true });
   assert.ok(d.allowed);
   assert.ok((NEOCLOUDS as string[]).includes(d.provider!), d.provider);
   assert.equal(d.audit, false);
+  // OPEN = open weights, sovereign — calling a closed frontier API is denied even here
+  assert.equal(routeUnderTier(OPEN, { frontierApi: true, gpu: { count: 1 }, hours: 1 }).allowed, false);
 });
 
 test("US Gov: frontier-API egress is DENIED", () => {

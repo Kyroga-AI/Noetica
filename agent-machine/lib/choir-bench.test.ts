@@ -4,10 +4,11 @@ import assert from "node:assert/strict";
 import { tierCapability, compareTiers, renderMatrix } from "./choir-bench.js";
 import { OPEN, US_GOV, AU_GOV, FINANCE } from "./choir-tier.js";
 
-test("OPEN tier can field the frontier itself (100%)", () => {
+test("OPEN tier fields the best OPEN-WEIGHT model (NOT a closed frontier API)", () => {
   const c = tierCapability(OPEN);
-  assert.equal(c.pctOfFrontier, 100);
-  assert.equal(c.best.origin, "frontier-api");
+  assert.notEqual(c.best.origin, "frontier-api", "closed APIs are the bar, never fielded");
+  assert.ok(c.roster.every((r) => r.origin !== "frontier-api"), "no closed models in the open-weights roster");
+  assert.ok(c.pctOfFrontier >= 90 && c.pctOfFrontier <= 100, `${c.pctOfFrontier}% of frontier on open weights`);
 });
 
 test("regulated gov tiers field Western-origin open models at a quantified % of frontier", () => {
