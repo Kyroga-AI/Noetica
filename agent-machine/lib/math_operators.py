@@ -90,12 +90,20 @@ def distance_2d(p1: tuple, p2: tuple) -> float:
 
 
 def solve_equations(eq_strs: list, var_names: list) -> list:
-    """Solve a system of equations 'lhs=0' (sympy syntax) for the given variables. Returns list of solution dicts."""
+    """Solve a system of equations for the given variables. Each equation may be written as 'lhs=rhs' OR as a
+    bare 'expr' meaning expr=0. Returns a list of solution dicts. Robust to the natural 'a = b' form."""
     vs = symbols(' '.join(var_names))
     if not isinstance(vs, (list, tuple)):
         vs = (vs,)
+    eqs = []
+    for e in eq_strs:
+        if '=' in e:
+            lhs, rhs = e.split('=', 1)
+            eqs.append(Eq(sympify(lhs), sympify(rhs)))
+        else:
+            eqs.append(sympify(e))
     return [{str(k): (float(v) if v.is_number else str(v)) for k, v in s.items()}
-            for s in solve([sympify(e) for e in eq_strs], vs, dict=True)]
+            for s in solve(eqs, vs, dict=True)]
 
 
 # ── statistics (high_school_statistics) ──────────────────────────────────────
