@@ -83,7 +83,7 @@ import { runAgentLoop, type ProviderAdapter } from './lib/agent-loop.js'
 import { validateToolCall, type ToolSchema, type ArgSpec } from './lib/constrained-decode.js'
 import { appendJsonl as appendEncrypted, readJsonl as readEncrypted, writeJson as writeEncryptedJson, readJson as readEncryptedJson } from './lib/at-rest.js'
 import { critique, bestOfTemps, type Candidate as CriticCandidate } from './lib/critic.js'
-import { programOfThought, codeVerifyRepair } from './lib/exec-verify.js'
+import { programOfThought, operatorProgramOfThought, codeVerifyRepair } from './lib/exec-verify.js'
 import { applyEdit, editSummary } from './lib/apply-patch.js'
 import { classifyComplexity as classifyComplexityPosture } from './lib/complexity-discipline.js'
 import { detectGoalIntent, slotFill, buildGoalContext, getActiveGoal, listGoals, saveGoal, type Goal } from './lib/goal-model.js'
@@ -141,6 +141,31 @@ const GOVERNANCE_RING_SIZE = 100
 // Persist the ring to disk so the Govern surface's audit trail survives a relaunch —
 // it was in-memory only, so Govern was always empty after restart even after chatting.
 const GOVERNANCE_FILE = path.join(os.homedir(), '.noetica', 'governance.json')
+
+// Locate the directory holding the verified-operator library (lib/math_operators.py). It is a
+// .py SOURCE file (not compiled/bundled), so it lives in the agent-machine source tree regardless
+// of whether we run via tsx (server.ts) or the esbuild bundle (dist/server.js). Probe the layouts
+// relative to this module, then fall back to cwd-based guesses; cache the first that actually holds
+// math_operators.py. Returns null if not found (operator routing then cleanly abstains → cold PoT).
+let _mathOpLibDir: string | null | undefined
+function mathOperatorLibDir(): string | null {
+  if (_mathOpLibDir !== undefined) return _mathOpLibDir
+  // math_operators.py is a SOURCE .py file (never bundled), so it lives in agent-machine/lib.
+  // The server is launched from the agent-machine dir (tsx server.ts / node dist/server.js), so
+  // cwd-relative probing finds it; we also cover being launched from the repo root or dist.
+  const cwd = process.cwd()
+  const candidates = [
+    path.join(cwd, 'lib'),                                  // launched from agent-machine/
+    path.join(cwd, 'agent-machine', 'lib'),                 // launched from repo root
+    path.join(cwd, '..', 'lib'),                            // launched from agent-machine/dist or scripts
+    path.join(cwd, '..', 'agent-machine', 'lib'),
+  ]
+  for (const c of candidates) {
+    try { if (fs.existsSync(path.join(c, 'math_operators.py'))) { _mathOpLibDir = c; return c } } catch { /* keep probing */ }
+  }
+  _mathOpLibDir = null
+  return null
+}
 
 // Graph Data Science (PageRank/Louvain/betweenness) is O(V·E) — cache it, keyed by a cheap graph
 // signature (node+edge count). Recompute only when the graph changed (or ?refresh=1).
@@ -3527,10 +3552,26 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       if (process.env['NOETICA_EXEC_VERIFY'] !== '0' && routerDecision.task !== 'chat'
           && classifyComplexityPosture(latestUserContent).posture === 'compute') {
         try {
-          const pot = await programOfThought(latestUserContent, {
-            generate: (p, t) => generateOllamaText({ model, messages: [{ role: 'user', content: p }], temperature: t, numCtx: ollamaNumCtx }).then((r) => r.content),
-            execute: (lang, code) => executeCode(lang, code),
-          })
+          const potDeps = {
+            generate: (p: string, t: number) => generateOllamaText({ model, messages: [{ role: 'user', content: p }], temperature: t, numCtx: ollamaNumCtx }).then((r) => r.content),
+            execute: (lang: 'python' | 'javascript', code: string) => executeCode(lang, code),
+          }
+          // ROUTING-FIRST: offer the verified-operator menu (lib/math_operators.py) and let the
+          // model pick an operator + extract args, executing the TESTED library instead of authoring
+          // specialized math cold (the measured 1/6 compute failure). This mirrors the bench's proven
+          // operatorCompute arm and recovers the +7pp it measured. COLD-FALLBACK: if no verified
+          // operator was routed (or it produced nothing usable), fall through to the cold
+          // programOfThought below — so this is purely additive headroom that cannot regress the
+          // cold path. Operator routing is exception-safe; any failure falls through to cold PoT.
+          let pot: { answer: string; code: string; output: string } | null = null
+          const libDir = mathOperatorLibDir()
+          if (libDir) {
+            try {
+              const op = await operatorProgramOfThought(latestUserContent, libDir, potDeps)
+              if (op && op.usedOperator) { pot = op; console.log(`[critic] verified-operator routed answer=${op.answer}`) }
+            } catch { /* operator routing best-effort — fall through to cold PoT */ }
+          }
+          if (!pot) pot = await programOfThought(latestUserContent, potDeps)
           if (pot) {
             const answer = `${pot.answer}\n\n_Verified by execution:_\n\`\`\`python\n${pot.code}\n\`\`\``
             sse(res, 'deliberation', { deliberation: { critic: { action: 'accept', score: 1, agreement: 1, posture: 'compute', reason: 'verified by execution (program-of-thought)' } } })
