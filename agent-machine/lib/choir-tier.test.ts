@@ -13,7 +13,7 @@ test("OPEN tier: frontier allowed, cheapest H100 wins (neocloud), no model gate"
 });
 
 test("US Gov: frontier-API egress is DENIED", () => {
-  const d = routeUnderTier(US_GOV, { model: "Qwen/Qwen3-14B", frontierApi: true });
+  const d = routeUnderTier(US_GOV, { model: "meta-llama/Llama-3.3-70B", frontierApi: true });
   assert.equal(d.allowed, false);
   assert.match(d.reason, /frontier/);
 });
@@ -25,7 +25,7 @@ test("US Gov: a non-approved model is DENIED", () => {
 });
 
 test("US Gov: approved model brokers ONLY to FedRAMP providers in US regions (no neocloud/Asian)", () => {
-  const d = routeUnderTier(US_GOV, { model: "Qwen/Qwen3-14B", gpu: { type: "A100", count: 1 }, hours: 10 });
+  const d = routeUnderTier(US_GOV, { model: "meta-llama/Llama-3.3-70B", gpu: { type: "A100", count: 1 }, hours: 10 });
   assert.ok(d.allowed, d.reason);
   assert.ok(["aws", "azure", "gcp", "ibm", "oci"].includes(d.provider!), d.provider);
   assert.ok(!(NEOCLOUDS as string[]).includes(d.provider!));
@@ -34,19 +34,20 @@ test("US Gov: approved model brokers ONLY to FedRAMP providers in US regions (no
 });
 
 test("AU Gov: no AU cloud region in catalog → lands on local (in-boundary); never a foreign cloud", () => {
-  const d = routeUnderTier(AU_GOV, { model: "Qwen/Qwen3-14B", gpu: { count: 1 }, hours: 10 });
+  const d = routeUnderTier(AU_GOV, { model: "meta-llama/Llama-3.3-70B", gpu: { count: 1 }, hours: 10 });
   assert.ok(d.allowed, d.reason);
   assert.equal(d.provider, "local");
 });
 
 test("Finance: approved model on an authorized cloud, audited; frontier denied", () => {
-  assert.equal(routeUnderTier(FINANCE, { model: "Qwen/Qwen3-14B", frontierApi: true }).allowed, false);
-  const d = routeUnderTier(FINANCE, { model: "Qwen/Qwen3-14B", gpu: { type: "A100", count: 1 }, hours: 10 });
+  assert.equal(routeUnderTier(FINANCE, { model: "deepseek-ai/DeepSeek-R1", frontierApi: true }).allowed, false);
+  const d = routeUnderTier(FINANCE, { model: "deepseek-ai/DeepSeek-R1", gpu: { type: "A100", count: 1 }, hours: 10 });
   assert.ok(d.allowed && d.audit);
 });
 
 test("gateModel: open allows all; regulated allowlists", () => {
   assert.equal(gateModel(OPEN, "anything"), true);
-  assert.equal(gateModel(US_GOV, "Qwen/Qwen3-14B"), true);
+  assert.equal(gateModel(US_GOV, "meta-llama/Llama-3.3-70B"), true);
+  assert.equal(gateModel(US_GOV, "Qwen/Qwen3-14B"), false); // CN origin blocked for gov
   assert.equal(gateModel(US_GOV, "claude-opus"), false);
 });

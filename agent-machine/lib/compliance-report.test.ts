@@ -5,7 +5,7 @@ import { buildComplianceReport, renderReportMarkdown } from "./compliance-report
 import { routeUnderTier, US_GOV, AU_GOV, FINANCE, OPEN } from "./choir-tier.js";
 
 test("US Gov routing → FedRAMP attestation is COMPLIANT with all controls satisfied", () => {
-  const d = routeUnderTier(US_GOV, { model: "Qwen/Qwen3-14B", gpu: { type: "A100", count: 1 }, hours: 10 });
+  const d = routeUnderTier(US_GOV, { model: "meta-llama/Llama-3.3-70B", gpu: { type: "A100", count: 1 }, hours: 10 });
   const r = buildComplianceReport("fedramp-high", US_GOV, [d]);
   assert.equal(r.attestation, "compliant");
   assert.ok(r.controls.every((c) => c.status === "satisfied"));
@@ -13,14 +13,14 @@ test("US Gov routing → FedRAMP attestation is COMPLIANT with all controls sati
 });
 
 test("AU Gov → IRAP attestation enforces residency + egress", () => {
-  const d = routeUnderTier(AU_GOV, { model: "Qwen/Qwen3-14B", gpu: { count: 1 }, hours: 5 });
+  const d = routeUnderTier(AU_GOV, { model: "meta-llama/Llama-3.3-70B", gpu: { count: 1 }, hours: 5 });
   const r = buildComplianceReport("irap-protected", AU_GOV, [d]);
   assert.equal(r.attestation, "compliant");
   assert.ok(r.controls.some((c) => c.id === "ISM-0520" && c.status === "satisfied"));
 });
 
 test("Finance → SOC 2 attestation compliant + audited", () => {
-  const d = routeUnderTier(FINANCE, { model: "Qwen/Qwen3-14B", gpu: { type: "A100", count: 1 }, hours: 8 });
+  const d = routeUnderTier(FINANCE, { model: "deepseek-ai/DeepSeek-R1", gpu: { type: "A100", count: 1 }, hours: 8 });
   const r = buildComplianceReport("soc2", FINANCE, [d]);
   assert.equal(r.attestation, "compliant");
   assert.ok(r.controls.find((c) => c.id === "CC7.2")?.status === "satisfied");
@@ -33,7 +33,7 @@ test("OPEN tier honestly reports GAPS against a regime (it's not designed for it
 });
 
 test("markdown render is auditor-readable", () => {
-  const d = routeUnderTier(US_GOV, { model: "Qwen/Qwen3-14B", gpu: { type: "A100", count: 1 }, hours: 10 });
+  const d = routeUnderTier(US_GOV, { model: "meta-llama/Llama-3.3-70B", gpu: { type: "A100", count: 1 }, hours: 10 });
   const md = renderReportMarkdown(buildComplianceReport("fedramp-high", US_GOV, [d], "2026-06-28"));
   assert.match(md, /Compliance attestation — FEDRAMP-HIGH/);
   assert.match(md, /\*\*compliant\*\*/);

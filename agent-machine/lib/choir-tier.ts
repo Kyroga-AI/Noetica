@@ -10,6 +10,7 @@
  * Flexibility is the point: pick a tier per workload/tenant; the broker + policy do the rest. Pure policy — no infra.
  */
 import { brokerCompute, type CloudProvider, type ComputeRequest, type ComputeSku } from "./cloud-broker.js";
+import { originOf, type ModelOrigin } from "./model-registry.js";
 
 export type ChoirTier = "open" | "regulated";
 export type Regime = "fedramp-high" | "fedramp-moderate" | "irap-protected" | "soc2" | "apra-cps234" | "eu-ai-act";
@@ -22,36 +23,40 @@ export interface TierPolicy {
   allowedRegionPrefixes?: string[];   // residency: SKU.region must start with one of these (regulated)
   allowFrontierApi: boolean;          // regulated → false: no egress to external frontier APIs
   approvedModels?: string[];          // regulated → allowlist (sovereign open models run in-boundary)
+  allowedOrigins?: ModelOrigin[];     // regulated → origin gate (gov defaults to Western/allied: US/EU)
   dataEgress: "open" | "in-boundary";
   requireAudit: boolean;
 }
 
-/** US Gov: FedRAMP-authorized hyperscalers + local; US residency; sovereign open models only; no frontier egress. */
+/** US Gov: FedRAMP clouds + local; US residency; WESTERN/allied-origin open models only; no frontier egress. */
 export const US_GOV: TierPolicy = {
   id: "us-gov", tier: "regulated", regimes: ["fedramp-high"],
   allowedProviders: ["aws", "azure", "gcp", "ibm", "oci", "local"],
   allowedRegionPrefixes: ["us-", "eastus", "us"],
   allowFrontierApi: false,
-  approvedModels: ["Qwen/Qwen3-14B", "Qwen/Qwen3-32B", "deepseek-ai/DeepSeek-R1", "meta-llama/Llama-3.3-70B"],
+  allowedOrigins: ["US", "EU"],
+  approvedModels: ["meta-llama/Llama-4-Maverick", "meta-llama/Llama-3.3-70B", "mistralai/Mistral-Large-3", "google/gemma-3-27b", "microsoft/phi-4"],
   dataEgress: "in-boundary", requireAudit: true,
 };
 
-/** AU Gov: IRAP-assessed clouds with AU regions + local; PROTECTED; in-boundary; no frontier egress. */
+/** AU Gov: IRAP-assessed clouds with AU regions + local; PROTECTED; Western/allied origin; no frontier egress. */
 export const AU_GOV: TierPolicy = {
   id: "au-gov", tier: "regulated", regimes: ["irap-protected"],
   allowedProviders: ["aws", "azure", "gcp", "local"],
   allowedRegionPrefixes: ["ap-southeast", "australia", "au"],
   allowFrontierApi: false,
-  approvedModels: ["Qwen/Qwen3-14B", "Qwen/Qwen3-32B", "deepseek-ai/DeepSeek-R1"],
+  allowedOrigins: ["US", "EU"],
+  approvedModels: ["meta-llama/Llama-4-Maverick", "meta-llama/Llama-3.3-70B", "mistralai/Mistral-Large-3", "google/gemma-3-27b", "microsoft/phi-4"],
   dataEgress: "in-boundary", requireAudit: true,
 };
 
-/** Regulated finance: SOC 2 + APRA CPS 234; authorized clouds + local; audited; no frontier egress by default. */
+/** Regulated finance: SOC 2 + APRA CPS 234; audited; Western default + Chinese-open AFTER REVIEW (best perf/cost). */
 export const FINANCE: TierPolicy = {
   id: "finance-regulated", tier: "regulated", regimes: ["soc2", "apra-cps234"],
   allowedProviders: ["aws", "azure", "gcp", "ibm", "oci", "local"],
   allowFrontierApi: false,
-  approvedModels: ["Qwen/Qwen3-14B", "Qwen/Qwen3-32B", "deepseek-ai/DeepSeek-R1"],
+  allowedOrigins: ["US", "EU", "CN"],
+  approvedModels: ["meta-llama/Llama-4-Maverick", "mistralai/Mistral-Large-3", "deepseek-ai/DeepSeek-R1", "Qwen/Qwen3-32B"],
   dataEgress: "in-boundary", requireAudit: true,
 };
 
@@ -81,10 +86,13 @@ export interface TierDecision {
 
 const deny = (p: TierPolicy, reason: string): TierDecision => ({ allowed: false, reason, tier: p.tier, regimes: p.regimes, audit: p.requireAudit });
 
-/** Is a model permitted under the policy? */
+/** Is a model permitted under the policy? Gates on BOTH the allowlist and the model's ORIGIN (gov → Western/allied). */
 export function gateModel(p: TierPolicy, model?: string): boolean {
-  if (!p.approvedModels) return true;
-  return !!model && p.approvedModels.includes(model);
+  if (!p.approvedModels && !p.allowedOrigins) return true;
+  if (!model) return false;
+  if (p.approvedModels && !p.approvedModels.includes(model)) return false;
+  if (p.allowedOrigins) { const o = originOf(model); if (!o || !p.allowedOrigins.includes(o)) return false; }
+  return true;
 }
 
 /** Enforce the tier on an inference/training request: gate egress + model, then broker ONLY the compliant supply. */
