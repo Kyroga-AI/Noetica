@@ -24,13 +24,13 @@ import { cragVote } from './crag-gate.js'
 export const DEFAULT_SC_K = 3
 
 /** Resolve the self-consistency sample count from env, defaulting to the proven K=3. */
-export function reasonSCK(env: NodeJS.ProcessEnv = process.env): number {
+export function reasonSCK(env: Record<string, string | undefined> = process.env): number {
   const k = Math.floor(Number(env['NOETICA_SC_K'] ?? DEFAULT_SC_K))
   return Number.isFinite(k) && k >= 1 ? k : DEFAULT_SC_K
 }
 
 /** Is the reason lane enabled? Default ON (proven 0-regression winner); NOETICA_REASON_LANE=0 disables. */
-export function reasonLaneEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+export function reasonLaneEnabled(env: Record<string, string | undefined> = process.env): boolean {
   return env['NOETICA_REASON_LANE'] !== '0'
 }
 

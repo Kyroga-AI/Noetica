@@ -29,7 +29,7 @@ import { canonRoute, type GroundingStatus } from './canon-route.js'
 export type { GroundingStatus }
 
 /** Is the grounding signal enabled? Default ON; NOETICA_GROUNDING_SIGNAL=0 disables (revert to prior behaviour). */
-export function groundingSignalEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
+export function groundingSignalEnabled(env: Record<string, string | undefined> = process.env): boolean {
   return env['NOETICA_GROUNDING_SIGNAL'] !== '0'
 }
 
@@ -59,7 +59,7 @@ export interface GroundingDecision {
 export function decideGrounding(
   question: string,
   retrievalEligible: boolean,
-  opts: { route?: (q: string) => { grounding_status: GroundingStatus }; env?: NodeJS.ProcessEnv } = {},
+  opts: { route?: (q: string) => { grounding_status: GroundingStatus }; env?: Record<string, string | undefined> } = {},
 ): GroundingDecision {
   const env = opts.env ?? process.env
   // Inert for reason-lane intents and when the flag is off — guarantees we never alter the reason lane

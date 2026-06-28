@@ -55,17 +55,17 @@ test('non-math intents are UNCHANGED — they do not enter the reason lane', () 
 // ── env flags ─────────────────────────────────────────────────────────────────
 test('reasonLaneEnabled defaults ON, toggles off with NOETICA_REASON_LANE=0', () => {
   assert.equal(reasonLaneEnabled({}), true)
-  assert.equal(reasonLaneEnabled({ NOETICA_REASON_LANE: '1' } as NodeJS.ProcessEnv), true)
-  assert.equal(reasonLaneEnabled({ NOETICA_REASON_LANE: '0' } as NodeJS.ProcessEnv), false)
+  assert.equal(reasonLaneEnabled({ NOETICA_REASON_LANE: '1' } as Record<string, string | undefined>), true)
+  assert.equal(reasonLaneEnabled({ NOETICA_REASON_LANE: '0' } as Record<string, string | undefined>), false)
 })
 
 test('reasonSCK defaults to the proven K=3, honors NOETICA_SC_K, rejects junk', () => {
   assert.equal(reasonSCK({}), DEFAULT_SC_K)
   assert.equal(DEFAULT_SC_K, 3)
-  assert.equal(reasonSCK({ NOETICA_SC_K: '5' } as NodeJS.ProcessEnv), 5)
-  assert.equal(reasonSCK({ NOETICA_SC_K: '1' } as NodeJS.ProcessEnv), 1)
-  assert.equal(reasonSCK({ NOETICA_SC_K: 'abc' } as NodeJS.ProcessEnv), DEFAULT_SC_K)  // junk → default
-  assert.equal(reasonSCK({ NOETICA_SC_K: '0' } as NodeJS.ProcessEnv), DEFAULT_SC_K)    // <1 → default
+  assert.equal(reasonSCK({ NOETICA_SC_K: '5' } as Record<string, string | undefined>), 5)
+  assert.equal(reasonSCK({ NOETICA_SC_K: '1' } as Record<string, string | undefined>), 1)
+  assert.equal(reasonSCK({ NOETICA_SC_K: 'abc' } as Record<string, string | undefined>), DEFAULT_SC_K)  // junk → default
+  assert.equal(reasonSCK({ NOETICA_SC_K: '0' } as Record<string, string | undefined>), DEFAULT_SC_K)    // <1 → default
 })
 
 // ── extractFinal ───────────────────────────────────────────────────────────────

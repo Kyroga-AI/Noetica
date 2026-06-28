@@ -4,8 +4,8 @@ import { decideGrounding, groundingSignalEnabled, type GroundingStatus } from '.
 
 // Stub canonRoute: returns a fixed grounding_status (the only field decideGrounding reads).
 const stub = (status: GroundingStatus) => () => ({ grounding_status: status })
-const ON: NodeJS.ProcessEnv = {}                              // flag default ON
-const OFF: NodeJS.ProcessEnv = { NOETICA_GROUNDING_SIGNAL: '0' }
+const ON: Record<string, string | undefined> = {}                              // flag default ON
+const OFF: Record<string, string | undefined> = { NOETICA_GROUNDING_SIGNAL: '0' }
 
 // ── (a) telemetry: status flows through for a retrieval-eligible intent, each enum value ──
 test('telemetry: grounded → active, status surfaced, no retrieve-force, no partial marker', () => {
