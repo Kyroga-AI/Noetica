@@ -1,0 +1,12 @@
+# Verified-compute spine for the agent-machine.
+# These are HARD runtime deps of the operator runtime (lib/math_operators.py,
+# lib/eval_sympy.py) and the verified-vs-raw / mmlu benchmarks — the "compute arm"
+# executes equations with these instead of the model cold-translating.
+#
+# The exec-verify end-to-end test (lib/exec-verify.test.ts) shells out to `python3`
+# and imports math_operators, which imports sympy. If sympy is absent the pre-push
+# gate (npm test) fails — provision with:  pip3 install -r agent-machine/requirements.txt
+#
+# Install on PEP-668 (Homebrew/Debian) systems: add --break-system-packages, or use a venv.
+sympy==1.14.0
+numpy
