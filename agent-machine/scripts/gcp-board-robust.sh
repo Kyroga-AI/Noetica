@@ -23,6 +23,7 @@ ARMS="${BOARD_ARMS:-baseline,brain,gate,champion,learned}"
 PER="${PER:-100}"
 SUBJECTS="${SUBJECTS:-high_school_biology,conceptual_physics,electrical_engineering,college_chemistry,high_school_statistics,college_mathematics,abstract_algebra}"
 STALL_MIN="${STALL_MIN:-10}"
+CONC="${CONC:-6}"   # questions scored per batch; LOWER for SC-heavy arm sets (reason/prod/opcompute) so 'done' advances before the stall-guard trips on a big first batch
 ZONES="${ZONES:-us-east1-d us-east4-a us-east4-c us-west1-a us-west1-b us-west4-a us-central1-a us-central1-b us-central1-c}"
 CKPT="$GCS/bench/ckpt-$RUN_TAG.jsonl"
 STATUS="$GCS/bench/status-$RUN_TAG.json"
@@ -54,6 +55,10 @@ systemctl stop ollama 2>/dev/null||true
 OLLAMA_NUM_PARALLEL=8 OLLAMA_MAX_LOADED_MODELS=2 OLLAMA_KEEP_ALIVE=30m nohup ollama serve >/var/log/ollama.log 2>&1 & sleep 12
 for n in 1 2 3 4 5; do timeout 600 ollama pull nomic-embed-text && break; sleep 8; done
 for n in 1 2 3 4 5; do timeout 1800 ollama pull $MODEL && break; sleep 8; done
+# PREWARM the embed model — first embed cold-loads the model, which alone can exceed the 8s default
+# timeout under generation contention; warming it here means the board's first retrieval doesn't pay it.
+step "prewarm nomic-embed"
+for n in 1 2 3; do curl -fsS --max-time 120 http://127.0.0.1:11434/api/embeddings -d '{"model":"nomic-embed-text","prompt":"warm"}' >/dev/null 2>&1 && break; sleep 5; done
 step "node + python"
 timeout 180 bash -c 'curl -fsSL https://deb.nodesource.com/setup_20.x | bash -' && timeout 300 apt-get install -y nodejs git python3-pip || { step FATAL-node; exit 1; }
 python3 -m pip install -q sympy numpy scikit-learn || python3 -m pip install --break-system-packages -q sympy numpy scikit-learn
@@ -79,6 +84,8 @@ export OCW_BRAIN=\$BRAINDIR OLLAMA_HOST=http://127.0.0.1:11434
 step "BOARD $RUN_TAG — arms=$ARMS · resumable · streaming · stall-guarded"
 MMLU_MODEL=$MODEL MMLU_ARMS="$ARMS" MMLU_PER_SUBJECT=$PER MMLU_SEED=1729 MMLU_SUBJECTS=$SUBJECTS \
   MMLU_CHECKPOINT=\$LCKPT MMLU_STATUS=\$LSTATUS \
+  NOETICA_EMBED_TIMEOUT_MS=\${NOETICA_EMBED_TIMEOUT_MS:-60000} NOETICA_EMBED_RETRIES=\${NOETICA_EMBED_RETRIES:-3} \
+  MMLU_CONC=$CONC \
   stdbuf -oL -eL bash scripts/run-exam.sh > /var/log/sb.txt 2>&1
 EXIT=\$?
 gsutil -q cp "\$LCKPT" "$CKPT" 2>/dev/null
