@@ -394,6 +394,21 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
       // ── HellGraph write-back (PERSIST derived knowledge into the store) ──
       case 'proposals-apply': return send(200, persistProposals((b.proposals ?? []) as GraphProposal[])), true
       case 'infer-apply': return send(200, persistInferred((b.inferred ?? []) as Array<{ subject: string; predicate: string; object: string; via?: string; verified?: boolean }>)), true
+      case 'pdor-onboard': {
+        // PDOR (Prophet Data On-boarding Request) → governed Commons onboarding. Evaluate the request (tier +
+        // the open-vs-segmented brain-eligibility gate); if an ingest key is issued, characterize the supplied
+        // table (types, quality, sensitive scan, geo/temporal). Returns the decision + characterization; the
+        // caller persists the catalog node + lineage. Graph linkage (auto-KG) + SynapseIQ enrichment compose on top.
+        const { evaluatePdor } = await import('./data-onboarding.js')
+        const { characterize, parseDelimited } = await import('./characterization.js')
+        const decision = evaluatePdor(b.pdor as Parameters<typeof evaluatePdor>[0], (b.verdicts ?? []) as Parameters<typeof evaluatePdor>[1])
+        let characterization = null
+        if (decision.ingestKey) {
+          const table = typeof b.csv === 'string' ? parseDelimited(b.csv, typeof b.delim === 'string' ? b.delim : ',') : (b.table ?? null)
+          if (table && Array.isArray(table.header)) characterization = characterize(table)
+        }
+        return send(200, { decision, characterization }), true
+      }
       case 'auto-kg': {
         // Auto-extract a KG from a user doc → PENDING proposals (governance: segmented from the authored canon,
         // never auto-canonical). persist:true applies them through the same review/writeback path as proposals-apply.
