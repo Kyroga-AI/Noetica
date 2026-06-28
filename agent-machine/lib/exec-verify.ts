@@ -79,6 +79,13 @@ export const OPERATOR_API = `You have a verified Python library 'math_operators'
   factorial_trailing_zeros_count(target)        # how many k have EXACTLY target trailing zeros in k!
   ring_char_product(component_chars)            # characteristic of a product ring; 0 for an infinite component
   count_real_intersections(eq_strs, var_names)  # # real solutions of a system of 'lhs=0' equations
+  definite_integral(expr_str, var, a, b)        # integral of expr d(var) from a to b; bounds may be 'oo'/'-oo'
+  derivative_at(expr_str, var, x0)              # d/d(var) expr_str evaluated at var=x0
+  limit_at(expr_str, var, point)                # limit of expr_str as var -> point; point may be 'oo'/'-oo'
+  determinant(matrix)                           # determinant of a square matrix (list-of-lists)
+  eigenvalues(matrix)                           # eigenvalues of a square matrix (list-of-lists)
+  solve_linear_system(A, b)                     # solve A x = b; A list-of-lists, b list -> x list
+  n_choose_k(n, k)  /  n_permute_k(n, k)        # combinations C(n,k) / permutations P(n,k), exact integers
 Pick the operator, extract the arguments from the problem, and write a tiny program that imports from
 math_operators and prints ONLY the final answer value on the last line. If none fit, write a short correct program.`
 

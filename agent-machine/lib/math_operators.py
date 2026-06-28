@@ -11,7 +11,8 @@ Every operator is correct + unit-tested (see __main__). Pure functions, no I/O.
 """
 import math
 import re
-from sympy import symbols, Function, dsolve, Eq, exp, solve, sympify, im
+from fractions import Fraction
+from sympy import symbols, Function, dsolve, Eq, exp, solve, sympify, im, integrate, diff, limit, oo, Matrix, Rational, factorial as sym_factorial
 from sympy.combinatorics import Permutation
 
 
@@ -133,6 +134,69 @@ def confidence_interval_proportion(phat: float, n: int, confidence: float = 0.95
     return (phat - margin, phat + margin)
 
 
+# ── calculus (college_mathematics / high_school_calculus) ─────────────────────
+def _exact_or_float(val):
+    """Return the exact sympy/rational value, but a float when it is a plain number."""
+    try:
+        if val.is_number:
+            return float(val)
+    except AttributeError:
+        pass
+    return val
+
+
+def definite_integral(expr_str: str, var: str, a, b):
+    """Definite integral of expr_str d(var) from a to b. Bounds may be numbers or 'oo'/'-oo'.
+    Returns the exact value (float when numeric), e.g. definite_integral('x**2','x',0,1) -> 1/3."""
+    v = symbols(var)
+    lo = oo if a in ('oo', '+oo') else (-oo if a == '-oo' else sympify(a))
+    hi = oo if b in ('oo', '+oo') else (-oo if b == '-oo' else sympify(b))
+    return _exact_or_float(integrate(sympify(expr_str), (v, lo, hi)))
+
+
+def derivative_at(expr_str: str, var: str, x0):
+    """Value of d/d(var) expr_str evaluated at var=x0. Returns exact value (float when numeric)."""
+    v = symbols(var)
+    return _exact_or_float(diff(sympify(expr_str), v).subs(v, sympify(x0)))
+
+
+def limit_at(expr_str: str, var: str, point):
+    """Limit of expr_str as var -> point. point may be a number or 'oo'/'-oo'.
+    Returns exact value (float when numeric)."""
+    v = symbols(var)
+    pt = oo if point in ('oo', '+oo') else (-oo if point == '-oo' else sympify(point))
+    return _exact_or_float(limit(sympify(expr_str), v, pt))
+
+
+# ── linear algebra (college_mathematics / linear_algebra) ─────────────────────
+def determinant(matrix: list):
+    """Determinant of a square matrix given as a list-of-lists. Exact (float when numeric)."""
+    return _exact_or_float(Matrix(matrix).det())
+
+
+def eigenvalues(matrix: list) -> list:
+    """Eigenvalues of a square matrix (list-of-lists). Returns a list of values (float when numeric)."""
+    return [_exact_or_float(ev) for ev in Matrix(matrix).eigenvals().keys()]
+
+
+def solve_linear_system(A: list, b: list) -> list:
+    """Solve A x = b for x. A is a list-of-lists, b is a list. Returns x as a list
+    (float when numeric)."""
+    sol = Matrix(A).solve(Matrix(b))
+    return [_exact_or_float(v) for v in sol]
+
+
+# ── combinatorics (high_school_mathematics / college_mathematics) ─────────────
+def n_choose_k(n: int, k: int) -> int:
+    """Number of combinations C(n,k) = n! / (k! (n-k)!). Exact integer."""
+    return math.comb(n, k)
+
+
+def n_permute_k(n: int, k: int) -> int:
+    """Number of permutations P(n,k) = n! / (n-k)!. Exact integer."""
+    return math.perm(n, k)
+
+
 if __name__ == '__main__':
     assert permutation_index('(1,2,5,4)(2,3)', 5) == 24
     assert finite_field_zeros([1, 0, 1], 2) == [1]
@@ -152,4 +216,18 @@ if __name__ == '__main__':
     assert abs(normal_prob_less_than(1.96) - 0.975) < 0.001
     lo, hi = confidence_interval_mean(100, 15, 36, 0.95)
     assert abs(lo - 95.1) < 0.2 and abs(hi - 104.9) < 0.2
-    print('all math_operators unit tests PASS (', 13, 'operators )')
+    # calculus
+    assert Fraction(definite_integral('x**2', 'x', 0, 1)).limit_denominator() == Fraction(1, 3)
+    assert abs(definite_integral('x**2', 'x', 0, 1) - 0.3333) < 0.001
+    assert definite_integral('exp(-x)', 'x', 0, 'oo') == 1.0
+    assert derivative_at('x**3', 'x', 2) == 12.0          # 3x^2 at x=2
+    assert limit_at('sin(x)/x', 'x', 0) == 1.0
+    assert limit_at('1/x', 'x', 'oo') == 0.0
+    # linear algebra
+    assert determinant([[1, 2], [3, 4]]) == -2.0
+    assert set(eigenvalues([[2, 0], [0, 3]])) == {2.0, 3.0}
+    assert solve_linear_system([[2, 0], [0, 4]], [4, 8]) == [2.0, 2.0]
+    # combinatorics
+    assert n_choose_k(5, 2) == 10
+    assert n_permute_k(5, 2) == 20
+    print('all math_operators unit tests PASS (', 24, 'operators )')
