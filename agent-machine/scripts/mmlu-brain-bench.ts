@@ -47,6 +47,7 @@ import { formatEvidence, inlineBindPrompt, parseInlineAnswer, inlineFidelityStat
 import { cragVote, gateShouldRetrieve, acceptRetrievedAnswer, groundingGateShouldRetrieve } from '../lib/crag-gate.js'
 import { critique, bestOfTemps } from '../lib/critic.js'                  // PRODUCTION best-of-N selection (server.ts mirror)
 import { classifyComplexity } from '../lib/complexity-discipline.js'      // PRODUCTION posture classifier
+import { emitReasoningBenchmark } from '../lib/reasoning-benchmark.js'     // 5th reasoning contract: each board = spec-conformant evidence
 
 const HOME = os.homedir()
 const BANK = path.join(HOME, '.noetica', 'corpus', 'benchmarks', 'mmlu_stem.json')
@@ -1346,5 +1347,16 @@ async function main() {
   console.log(`\n# reference (published overall MMLU):`)
   for (const [k, v] of Object.entries(FRONTIER)) console.log(`  ${k.padEnd(26)} ${v}%`)
   console.log(`\n# transcript: ${TRANSCRIPT}`)
+
+  // ── emit the 5th reasoning contract: this board run as a spec-conformant ReasoningBenchmark.
+  // Best-effort — a benchmark-emit failure must NOT break the board.
+  try {
+    const bm = emitReasoningBenchmark({
+      totals, arms: ARMS, subjects, model: MODEL, seed: SEED, perSubject: PER, k: K,
+    })
+    if (bm) console.log(`# reasoning-benchmark: ${bm.id} (runRef ${bm.runRef})`)
+  } catch (e) {
+    console.warn('[reasoning-benchmark] emit skipped:', e instanceof Error ? e.message : String(e))
+  }
 }
 main().catch((e) => { console.error(e); process.exit(1) })
