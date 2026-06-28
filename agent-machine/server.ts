@@ -86,6 +86,7 @@ import { critique, bestOfTemps, type Candidate as CriticCandidate } from './lib/
 import { programOfThought, operatorProgramOfThought, codeVerifyRepair } from './lib/exec-verify.js'
 import { isReasonLaneIntent, reasonLaneEnabled, reasonSCK, runReasonLane, REASON_RULE } from './lib/reason-lane.js'
 import { decideGrounding, type GroundingStatus } from './lib/grounding-signal.js'
+import { applyPreset, summarize as summarizePreset } from './lib/presets.js'
 import { applyEdit, editSummary } from './lib/apply-patch.js'
 import { classifyComplexity as classifyComplexityPosture } from './lib/complexity-discipline.js'
 import { detectGoalIntent, slotFill, buildGoalContext, getActiveGoal, listGoals, saveGoal, type Goal } from './lib/goal-model.js'
@@ -8017,6 +8018,10 @@ try {
 server.headersTimeout = 60_000
 server.requestTimeout = 300_000
 server.listen(PORT, '127.0.0.1', () => {
+  // Ergonomics: collapse the 100+ NOETICA_* knobs into one RAM-aware preset (lite/balanced/max). Sets only
+  // UNSET vars so explicit config still wins, and gives soft memory degradation (small boxes auto-go lite).
+  const _cfg = applyPreset()
+  console.log(`[noetica-am] ${summarizePreset(_cfg)}`)
   console.log(`[noetica-am] Agent Machine v${VERSION} listening on http://127.0.0.1:${PORT}`)
   console.log(`[noetica-am] Status: http://127.0.0.1:${PORT}/api/status`)
 
