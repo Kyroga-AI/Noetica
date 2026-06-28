@@ -1,7 +1,7 @@
 /** Tests for the multi-cloud compute broker. */
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { brokerCompute, brokerSavings, COMPUTE_CATALOG } from './cloud-broker.js'
+import { brokerCompute, brokerSavings, toFogPlacements, brokerFogPlacement, COMPUTE_CATALOG } from './cloud-broker.js'
 
 test('brokers an A100 workload to the cheapest satisfying cloud', () => {
   const r = brokerCompute({ gpu: { type: 'A100', count: 1 }, hours: 10, excludeLocal: true })
@@ -105,4 +105,26 @@ test('can restrict to neoclouds only (sovereign-approved GPU supply)', () => {
   const r = brokerCompute({ gpu: { count: 1 }, hours: 10, providers: NEOCLOUDS })
   assert.ok(r.best && (NEOCLOUDS as string[]).includes(r.best.sku.provider))
   assert.ok(r.ranked.every((q) => (NEOCLOUDS as string[]).includes(q.sku.provider)))
+})
+
+test('toFogPlacements renders broker quotes as conformant cloudshell-fog candidates', () => {
+  const r = brokerCompute({ gpu: { type: 'A100', count: 1 }, hours: 10 })   // includes local
+  const fps = toFogPlacements(r)
+  assert.equal(fps.length, r.ranked.length)
+  // every candidate carries the fog-placement-v0 required fields
+  for (const c of fps) { assert.ok(c.node_id && c.region && c.tier && c.trust_tier); assert.ok(c.tier === 'fog' || c.tier === 'cloud') }
+  // a local quote (if present) maps to the fog plane + attested_fog; clouds → managed_cloud
+  const localC = fps.find((c) => c.node_id.startsWith('local'))
+  if (localC) { assert.equal(localC.tier, 'fog'); assert.equal(localC.trust_tier, 'attested_fog') }
+  const cloudC = fps.find((c) => c.tier === 'cloud')
+  if (cloudC) assert.equal(cloudC.trust_tier, 'managed_cloud')
+})
+
+test('brokerFogPlacement: CITIZEN_FOG forces a local/sovereign (attested_fog) node', () => {
+  const r = brokerCompute({ gpu: { type: 'A100', count: 1 }, hours: 10 })
+  const fog = brokerFogPlacement(r, 'CITIZEN_FOG')
+  if (fog.chosen) assert.equal(fog.chosen.trust_tier, 'attested_fog')   // high-assurance rejects managed_cloud
+  // CITIZEN_CLOUD accepts managed_cloud, so it has at least as many eligible candidates
+  const cloud = brokerFogPlacement(r, 'CITIZEN_CLOUD')
+  assert.ok(cloud.eligible.length >= fog.eligible.length)
 })

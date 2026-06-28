@@ -34,6 +34,8 @@ export interface ComputeSku {
 // of truth shared with tritfabric's gpu_broker.py. Do not hand-edit rows here: edit
 // prophet-core-contracts/contracts/gpu-catalog.v1.json and re-vendor the copy next to this file.
 import gpuCatalog from './gpu-catalog.v1.json'
+import { quoteToPlacement, placeFog, scopeMinTrust, type FogPlacementCandidate, type FogPlacementResult, type CitizenScope } from './fog-bridge.js'
+import type { MeshTier } from './scope-d.js'
 export const COMPUTE_CATALOG: ComputeSku[] = gpuCatalog.skus as ComputeSku[]
 
 export interface ComputeRequest {
@@ -126,6 +128,27 @@ export function toAgentplanePlacement(result: BrokerResult, opts: { lane?: 'stag
     objective: { metric: 'usd-total', value: b?.totalUsd ?? 0, perHour: b?.effectivePerHour ?? 0, spot: b?.spot ?? false },
     rejected: result.ranked.slice(1).map((q) => ({ executor: `${q.sku.provider}:${q.sku.name}:${q.sku.region}`, reason: `dearer (+$${(q.totalUsd - (b?.totalUsd ?? 0)).toFixed(2)})` })),
   }
+}
+
+// ── cloudshell-fog placement bridge ─────────────────────────────────────────────
+// Render the broker's ranked quotes as cloudshell-fog placement candidates (fog-placement-v0), so the broker's
+// output is directly consumable by the fog trust-tier placement engine — not a parallel vocabulary. The default
+// provider→MeshTier map: the local edge node is `local` (→ attested_fog); every remote cloud is `open-provider`
+// (→ managed_cloud). Callers can override to mark a sovereign-approved cloud as `sovereign-host`.
+const defaultMeshTierOf = (p: CloudProvider): MeshTier => (p === 'local' ? 'local' : 'open-provider')
+
+/** Broker result → cloudshell-fog placement candidates (conformant to fog-placement-v0 §1). */
+export function toFogPlacements(result: BrokerResult, meshTierOf: (p: CloudProvider) => MeshTier = defaultMeshTierOf): FogPlacementCandidate[] {
+  return result.ranked.map((q) => quoteToPlacement(
+    { sku: { provider: q.sku.provider, name: q.sku.name, region: q.sku.region, usdPerHour: q.sku.usdPerHour }, effectivePerHour: q.effectivePerHour, spot: q.spot },
+    (prov) => meshTierOf(prov as CloudProvider),
+  ))
+}
+
+/** The broker's best placement for a given citizen scope, honoring the scope's minimum trust tier
+ *  (CITIZEN_FOG = attested_fog only → forces a local/sovereign node; CITIZEN_CLOUD/INSTITUTION = managed_cloud+). */
+export function brokerFogPlacement(result: BrokerResult, scope: CitizenScope, meshTierOf?: (p: CloudProvider) => MeshTier): FogPlacementResult {
+  return placeFog(toFogPlacements(result, meshTierOf), { minTrust: scopeMinTrust(scope) })
 }
 
 // ── commodity SERVICES broker ───────────────────────────────────────────────────

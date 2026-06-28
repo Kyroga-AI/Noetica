@@ -359,7 +359,7 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
       }
       // ── multi-cloud compute broker: route a workload to the cheapest satisfying provider ──
       case 'cloud-broker': {
-        const { brokerCompute, brokerSavings, toAgentplanePlacement, COMPUTE_CATALOG } = await import('./cloud-broker.js')
+        const { brokerCompute, brokerSavings, toAgentplanePlacement, toFogPlacements, COMPUTE_CATALOG } = await import('./cloud-broker.js')
         // Opt-in live pricing: refresh real Azure prices (public API) over the static catalogue before ranking.
         let catalog = COMPUTE_CATALOG
         let priceSource = 'static-catalogue'
@@ -380,7 +380,7 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
           if (b.exec === true) provision = await executeProvision(provision)   // double-gated by NOETICA_CLOUD_PROVISION_EXEC
         }
         // Emit an agentplane-conformant PlacementDecision so the cheapest-cloud pick feeds agentplane's fleet.
-        return send(200, { ...result, priceSource, savings: brokerSavings(result), placement: toAgentplanePlacement(result, { lane: b.lane === 'prod' ? 'prod' : 'staging' }), provision }), true
+        return send(200, { ...result, priceSource, savings: brokerSavings(result), placement: toAgentplanePlacement(result, { lane: b.lane === 'prod' ? 'prod' : 'staging' }), fogPlacements: toFogPlacements(result), provision }), true
       }
       // ── canonical GAIA ontology export (conformant JSON-LD) ──
       case 'gaia-export': {
