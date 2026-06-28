@@ -8,7 +8,7 @@
  * estimates; a live pricing adapter (per-provider billing API) can replace COMPUTE_CATALOG without changing
  * the broker algorithm. Every brokered placement is meant to flow through scope-d egress governance.
  */
-export type CloudProvider = 'gcp' | 'azure' | 'aws' | 'ibm' | 'local'
+export type CloudProvider = 'gcp' | 'azure' | 'aws' | 'ibm' | 'oci' | 'hetzner' | 'local'
 
 export interface ComputeSku {
   provider: CloudProvider
@@ -133,4 +133,68 @@ export function toAgentplanePlacement(result: BrokerResult, opts: { lane?: 'stag
     objective: { metric: 'usd-total', value: b?.totalUsd ?? 0, perHour: b?.effectivePerHour ?? 0, spot: b?.spot ?? false },
     rejected: result.ranked.slice(1).map((q) => ({ executor: `${q.sku.provider}:${q.sku.name}:${q.sku.region}`, reason: `dearer (+$${(q.totalUsd - (b?.totalUsd ?? 0)).toFixed(2)})` })),
   }
+}
+
+// ── commodity SERVICES broker ───────────────────────────────────────────────────
+// brokerCompute handles compute/GPU. This layer brokers the rest of the cloud as commodities (object store, managed
+// k8s, DNS, managed Postgres, load balancers, secrets) so the platform is vendor-AGNOSTIC: one abstract ServiceKind
+// maps to every vendor's primitive, and we select the cheapest compliant vendor (price + data residency + policy).
+// Powers the Cloud panel and the deployment-provider selection. "Cloud is commodity; we are the broker."
+export type ServiceKind = 'object-store' | 'kubernetes' | 'dns' | 'postgres' | 'load-balancer' | 'secrets'
+export type Residency = 'EU' | 'US' | 'AU' | 'UK' | 'CA'
+
+export interface ServiceOffering {
+  provider: CloudProvider
+  kind: ServiceKind
+  primitive: string          // the vendor's product name for this commodity
+  unitPriceUsd: number       // illustrative list unit price (per GB-month or per hour, by kind)
+  residency: Residency[]     // data-residency regions this offering can satisfy
+}
+
+export const SERVICE_CATALOG: ServiceOffering[] = [
+  { provider: 'gcp', kind: 'object-store', primitive: 'Cloud Storage', unitPriceUsd: 0.020, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'aws', kind: 'object-store', primitive: 'S3', unitPriceUsd: 0.023, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'azure', kind: 'object-store', primitive: 'Blob Storage', unitPriceUsd: 0.018, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'ibm', kind: 'object-store', primitive: 'Cloud Object Storage', unitPriceUsd: 0.022, residency: ['EU', 'US', 'CA'] },
+  { provider: 'hetzner', kind: 'object-store', primitive: 'Object Storage', unitPriceUsd: 0.005, residency: ['EU'] },
+  { provider: 'gcp', kind: 'kubernetes', primitive: 'GKE', unitPriceUsd: 0.10, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'aws', kind: 'kubernetes', primitive: 'EKS', unitPriceUsd: 0.10, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'azure', kind: 'kubernetes', primitive: 'AKS', unitPriceUsd: 0.0, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'ibm', kind: 'kubernetes', primitive: 'IKS', unitPriceUsd: 0.10, residency: ['EU', 'US', 'CA'] },
+  { provider: 'gcp', kind: 'postgres', primitive: 'Cloud SQL', unitPriceUsd: 0.041, residency: ['EU', 'US', 'AU'] },
+  { provider: 'aws', kind: 'postgres', primitive: 'RDS', unitPriceUsd: 0.043, residency: ['EU', 'US', 'AU'] },
+  { provider: 'azure', kind: 'postgres', primitive: 'Azure DB for PostgreSQL', unitPriceUsd: 0.040, residency: ['EU', 'US', 'AU'] },
+  { provider: 'gcp', kind: 'dns', primitive: 'Cloud DNS', unitPriceUsd: 0.20, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'aws', kind: 'dns', primitive: 'Route 53', unitPriceUsd: 0.50, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'gcp', kind: 'load-balancer', primitive: 'Cloud Load Balancing', unitPriceUsd: 0.025, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'aws', kind: 'load-balancer', primitive: 'ELB', unitPriceUsd: 0.0225, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'azure', kind: 'secrets', primitive: 'Key Vault', unitPriceUsd: 0.03, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'gcp', kind: 'secrets', primitive: 'Secret Manager', unitPriceUsd: 0.06, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+]
+
+export interface ServiceRequirement { kind: ServiceKind; residency?: Residency; maxPriceUsd?: number; exclude?: CloudProvider[]; prefer?: CloudProvider[] }
+
+/** The vendor's primitive name for an abstract commodity (object-store → S3 / GCS / Blob …). */
+export function mapResource(kind: ServiceKind, provider: CloudProvider): string | null {
+  return SERVICE_CATALOG.find((o) => o.kind === kind && o.provider === provider)?.primitive ?? null
+}
+
+/** Panel data: every vendor for a kind, cheapest first. */
+export function compareServices(kind: ServiceKind): ServiceOffering[] {
+  return SERVICE_CATALOG.filter((o) => o.kind === kind).slice().sort((a, b) => a.unitPriceUsd - b.unitPriceUsd)
+}
+
+/** Select the cheapest compliant vendor for a commodity service (residency/exclude/maxPrice/prefer aware). */
+export function selectVendor(req: ServiceRequirement): { provider: CloudProvider; offering: ServiceOffering; reason: string } | null {
+  let c = SERVICE_CATALOG.filter((o) => o.kind === req.kind)
+  if (req.residency) c = c.filter((o) => o.residency.includes(req.residency!))
+  if (req.exclude?.length) c = c.filter((o) => !req.exclude!.includes(o.provider))
+  if (req.maxPriceUsd != null) c = c.filter((o) => o.unitPriceUsd <= req.maxPriceUsd!)
+  if (!c.length) return null
+  c.sort((a, b) => (Number(req.prefer?.includes(b.provider) ?? false) - Number(req.prefer?.includes(a.provider) ?? false)) || a.unitPriceUsd - b.unitPriceUsd)
+  const offering = c[0]
+  const bits = [`cheapest ${req.kind} @ $${offering.unitPriceUsd}`]
+  if (req.residency) bits.push(`${req.residency} residency`)
+  if (req.exclude?.length) bits.push(`excl ${req.exclude.join(',')}`)
+  return { provider: offering.provider, offering, reason: bits.join(', ') }
 }

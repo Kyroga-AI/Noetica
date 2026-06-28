@@ -63,3 +63,30 @@ test('toAgentplanePlacement emits an agentplane-conformant PlacementDecision fil
   assert.ok(p.chosenExecutor?.startsWith('azure:'))
   assert.ok(p.rejected.length >= 1 && p.rejected[0]!.reason.startsWith('dearer'))
 })
+
+// ── commodity services broker ──
+import { selectVendor, compareServices, mapResource } from './cloud-broker.js'
+
+test('maps an abstract commodity to each vendor primitive (object-store → S3/GCS/Blob)', () => {
+  assert.equal(mapResource('object-store', 'aws'), 'S3')
+  assert.equal(mapResource('object-store', 'gcp'), 'Cloud Storage')
+  assert.equal(mapResource('object-store', 'azure'), 'Blob Storage')
+})
+
+test('selects the cheapest vendor for a commodity (and honors exclude)', () => {
+  assert.equal(selectVendor({ kind: 'object-store' })!.provider, 'hetzner') // $0.005
+  assert.equal(selectVendor({ kind: 'object-store', exclude: ['hetzner'] })!.provider, 'azure') // next at $0.018
+})
+
+test('data-residency is a hard constraint (EU-only object store narrows the field)', () => {
+  const eu = selectVendor({ kind: 'object-store', residency: 'EU' })
+  assert.ok(eu && eu.offering.residency.includes('EU'))
+  const au = selectVendor({ kind: 'object-store', residency: 'AU' })
+  assert.ok(au && au.provider !== 'hetzner', 'hetzner has no AU residency → excluded')
+})
+
+test('compareServices returns the panel list, cheapest first; no-match → null', () => {
+  const list = compareServices('kubernetes')
+  for (let i = 1; i < list.length; i++) assert.ok(list[i].unitPriceUsd >= list[i - 1].unitPriceUsd)
+  assert.equal(selectVendor({ kind: 'object-store', maxPriceUsd: 0.001 }), null)
+})
