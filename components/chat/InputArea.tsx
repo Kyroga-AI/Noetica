@@ -129,12 +129,6 @@ export function InputArea({
     } catch (e) { setAttachError(`Couldn't queue ${file.name}: ${e instanceof Error ? e.message : 'failed'}`) }
   }
 
-  // Plain-text/code files: read in the browser and ingest the text.
-  async function ingestTextFile(file: File): Promise<boolean> {
-    const text = await file.text()
-    return postIngest('/api/ingest/document', { content: text, filename: file.name, mimeType: file.type || 'text/plain' }, file.name)
-  }
-
   async function postIngest(path: string, payload: unknown, filename: string): Promise<boolean> {
     try {
       const res = await fetch(amUrl(path), {
@@ -156,14 +150,14 @@ export function InputArea({
   async function addFiles(files: FileList | File[]) {
     setAttachError('')
     const fileArr = Array.from(files)
-    const textFiles = fileArr.filter((f) => TEXT_TYPES.has(f.type) || TEXT_EXTS.test(f.name))
-    const queuedFiles = fileArr.filter((f) => DOC_EXTS.test(f.name) || ARCHIVE_EXTS.test(f.name))   // .docx/.pdf/.zip → async queue
-    const attachFiles = fileArr.filter((f) =>
-      !TEXT_TYPES.has(f.type) && !TEXT_EXTS.test(f.name) && !DOC_EXTS.test(f.name) && !ARCHIVE_EXTS.test(f.name),
-    )
-    for (const tf of textFiles) await ingestTextFile(tf)
-    // Fire the queued ingests in parallel and DON'T await completion — the user keeps working; the table tracks progress.
-    queuedFiles.forEach((qf) => { void ingestQueued(qf) })
+    // ALL ingestible files — text/code, docs, AND archives — go through the NON-BLOCKING queue. This is the fix
+    // for the bulk-load hang: the old path ingested text files SYNCHRONOUSLY one-by-one (each embedding + growing
+    // the graph), which blocked the sidecar until it went unreachable. The queue enqueues instantly and drains in
+    // the background into a collection scope; the table tracks progress.
+    const isIngestible = (f: File) => TEXT_TYPES.has(f.type) || TEXT_EXTS.test(f.name) || DOC_EXTS.test(f.name) || ARCHIVE_EXTS.test(f.name)
+    const ingestFiles = fileArr.filter(isIngestible)
+    const attachFiles = fileArr.filter((f) => !isIngestible(f))
+    ingestFiles.forEach((f) => { void ingestQueued(f) })
     if (attachFiles.length > 0) {
       const remaining = MAX_ATTACHMENTS - attachments.length
       if (remaining <= 0) { setAttachError(`Max ${MAX_ATTACHMENTS} attachments`); return }

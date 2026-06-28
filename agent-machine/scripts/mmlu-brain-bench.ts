@@ -1252,6 +1252,14 @@ async function main() {
         for (const v of voters) { const p = row[`${v}_pred`]; if (typeof p === 'string' && p !== '?') { votes[p] = (votes[p] ?? 0) + 1; nv++ } }
         if (nv) row['vote_share'] = Object.fromEntries(LETTERS.slice(0, q.choices.length).map((L) => [L, +((votes[L] ?? 0) / nv).toFixed(3)]))
       }
+      // vote_share (ensemble column): fraction of the answering arms that picked each letter — the per-choice
+      // agreement signal, computed once all arm preds are in the row. A strong column the combiner can weight.
+      {
+        const voters = ['baseline', 'brain', 'rerank', 'ground', 'qgen', 'notecard', 'gate', 'defs', 'hop', 'route']
+        const votes: Record<string, number> = {}; let nv = 0
+        for (const v of voters) { const p = row[`${v}_pred`]; if (typeof p === 'string' && p !== '?') { votes[p] = (votes[p] ?? 0) + 1; nv++ } }
+        if (nv) row['vote_share'] = Object.fromEntries(LETTERS.slice(0, q.choices.length).map((L) => [L, +((votes[L] ?? 0) / nv).toFixed(3)]))
+      }
       // LIVE per-question heartbeat to stderr (the batched stdout board line only prints after a
       // whole CONC-batch finishes — that masked a slow run as a hang and burned hours). This fires
       // the instant each question resolves, so the log shows real liveness + pacing.

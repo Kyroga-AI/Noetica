@@ -157,6 +157,8 @@ function amRunToAuditEvent(r: AgentMachineRun): AuditEvent {
   }
 }
 
+interface AuditAttestation { attested: boolean; entries: number; chainValid: boolean; signed: boolean; signatureValid: boolean; firstBreakAt?: number; fingerprint: string; headHash: string }
+
 export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[] }) {
   const { settings, update: updateSettings } = useSettings()
   const [policyMode, setPolicyMode]   = useState<PolicyMode>(
@@ -178,6 +180,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   const [dream, setDream]                 = useState<DreamResult | null>(null)
   const [dreaming, setDreaming]           = useState(false)
   const [replaying, setReplaying]         = useState(false)
+  const [audit, setAudit]                 = useState<AuditAttestation | null>(null)
 
   const runReplay = () => {
     setReplaying(true)
@@ -204,6 +207,11 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
         if (data?.runs?.length) setAmRuns(data.runs)
       })
       .catch(() => { /* agent-machine not running — silently skip */ })
+    // Tamper-evidence: verify the egress audit chain (hash-linked + Ed25519-signed head) for the attestation badge.
+    fetch(amUrl('/api/govern/audit/verify'), { signal: AbortSignal.timeout(5000) })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: AuditAttestation | null) => { if (d) setAudit(d) })
+      .catch(() => { /* not running — skip */ })
     // What the mesh has LEARNED — bandit routing convergence + quality trend + symbolic growth
     fetch(amUrl('/api/self/trends'), { signal: AbortSignal.timeout(3000) })
       .then(r => r.ok ? r.json() : null)
@@ -348,6 +356,26 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
       <div className="mx-auto w-full max-w-3xl space-y-4">
+
+        {/* Tamper-evidence attestation — egress audit chain (hash-linked + Ed25519-signed head) */}
+        {audit && (
+          <div className="rounded-2xl border p-4 shadow-sm" style={{ borderColor: audit.attested ? '#bbf7d0' : '#fde68a', background: audit.attested ? '#f0fdf4' : '#fffbeb' }}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-sm">{audit.attested ? '🛡️' : '⚠️'}</span>
+                <span className="text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: audit.attested ? '#166534' : '#92400e' }}>
+                  {audit.attested ? 'Audit chain attested' : 'Audit chain — needs attention'}
+                </span>
+              </div>
+              <span className="text-[10px] text-[var(--color-text-tertiary)]">{audit.entries} entries · key {audit.fingerprint.slice(0, 8)}</span>
+            </div>
+            <div className="mt-1.5 text-[11px] text-[var(--color-text-secondary)]">
+              {audit.attested
+                ? 'Every egress event is hash-linked and the head is Ed25519-signed with the device key — tamper-evident.'
+                : `${audit.chainValid ? '' : `Chain link broke at entry ${audit.firstBreakAt}. `}${audit.signed ? (audit.signatureValid ? '' : 'Head signature invalid. ') : 'Head not signed. '}(Often a multi-writer dev artifact; production is single-writer.)`}
+            </div>
+          </div>
+        )}
 
         {/* Production-learning loop — what the agent has learned from real turns */}
         {learning && (learning.skills.count > 0 || learning.evalCases.count > 0) && (

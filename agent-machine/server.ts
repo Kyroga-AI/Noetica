@@ -69,7 +69,8 @@ import { retrieve } from './lib/retrieval.js'
 import { getGraph, graphHealth, graphSparql, ingestInteraction, ingestConversation, ingestMessage } from './lib/graph.js'
 import { handleCapabilityRoute } from './lib/capability-routes.js'
 import { handleOAuthTokenRoute } from './lib/oauth-token-routes.js'
-import { isVoiceProvisioned, ensureVoiceSidecar, voiceFetch } from './lib/voice-runtime.js'
+import { isVoiceProvisioned, ensureVoiceSidecar, voiceFetch, provisionVoice, voiceProvisionStatus } from './lib/voice-runtime.js'
+import type { OntogenesisPhase, AbandonmentSignal } from './lib/gaia-ontology.js'
 import { runOcr } from './lib/ocr.js'
 import { getHellGraph, attachRocksDB } from '@socioprophet/hellgraph'
 import { runGremlin } from '@socioprophet/hellgraph'
@@ -102,8 +103,54 @@ import {
 } from './lib/gaia.js'
 import { getUserIdentity, setUserIdentity, promptUserName, type UserIdentity } from './lib/identity.js'
 
+// ─── JS-sandbox subprocess mode (code_execute isolation on the compiled standalone) ────────────────────────
+// When the compiled binary re-execs ITSELF with NOETICA_JS_SANDBOX=1, do ONLY the sandboxed JS run — in this
+// fresh process with a stripped env — then exit, BEFORE any server init / secret load. This gives the
+// bun-compiled standalone TRUE process isolation for code_execute (parity with the node/bun subprocess path)
+// WITHOUT a native addon — isolated-vm is a native .node that can't embed in `bun --compile`, so self-exec is
+// the correct fix: an escape from the vm reaches a process that holds no API keys, no parent memory, PATH only.
+if (process.env['NOETICA_JS_SANDBOX'] === '1') {
+  try {
+    const code = fs.readFileSync(process.env['NJS_FILE'] ?? '', 'utf8')
+    const logs: string[] = []
+    const sbConsole = {
+      log: (...a: unknown[]) => logs.push(a.map(String).join(' ')),
+      error: (...a: unknown[]) => logs.push('ERROR: ' + a.map(String).join(' ')),
+      warn: (...a: unknown[]) => logs.push('WARN: ' + a.map(String).join(' ')),
+      info: (...a: unknown[]) => logs.push('INFO: ' + a.map(String).join(' ')),
+    }
+    const sandbox: Record<string, unknown> = {
+      console: sbConsole, Math, JSON, Array, Object, String, Number, Boolean, Date, Error, Map, Set, Promise,
+      parseInt, parseFloat, isNaN, isFinite, encodeURIComponent, decodeURIComponent,
+    }
+    vm.createContext(sandbox)
+    const r = vm.runInContext(code, sandbox, { timeout: Number(process.env['NJS_TIMEOUT_MS'] ?? '30000') })
+    const out = logs.join('\n')
+    const rl = r !== undefined && r !== null ? '\nResult: ' + (typeof r === 'object' ? JSON.stringify(r, null, 2) : String(r)) : ''
+    process.stdout.write((out + rl).trim() || '(no output)')
+  } catch (e) { process.stdout.write('RuntimeError: ' + (e instanceof Error ? e.message : String(e))) }
+  process.exit(0)
+}
+
 const PORT = parseInt(process.env['NOETICA_AM_PORT'] ?? '8080', 10)
-const VERSION = '0.4.19'
+const VERSION = '0.4.21'
+
+// ─── Anthropic inference endpoint (Branch A BYOK / Branch B proxy) ──────────────────────────────────────────
+// Branch A (default, desktop): direct to api.anthropic.com with the USER's own x-api-key (kept in the OS
+// keychain; passed per-request as provider_keys.anthropic). Branch B (managed): when NOETICA_ANTHROPIC_PROXY_URL
+// is set, route through OUR REMOTE proxy instead — it holds the SHARED key and forwards. We send only a per-user
+// Bearer token (NOETICA_PROXY_TOKEN), NEVER the Anthropic key. The shared key must NOT live in this on-device
+// sidecar (it would be extractable from the desktop bundle) — it lives only on the remote proxy. See
+// docs/anthropic-key-integration.md.
+const anthropicProxyMode = (): boolean => Boolean(process.env['NOETICA_ANTHROPIC_PROXY_URL']?.trim())
+function anthropicTarget(apiKey: string, extra: Record<string, string> = {}): { url: string; headers: Record<string, string> } {
+  const proxy = process.env['NOETICA_ANTHROPIC_PROXY_URL']?.trim()
+  if (proxy) {
+    const tok = process.env['NOETICA_PROXY_TOKEN']?.trim()
+    return { url: proxy, headers: { 'content-type': 'application/json', 'anthropic-version': '2023-06-01', ...(tok ? { authorization: `Bearer ${tok}` } : {}), ...extra } }
+  }
+  return { url: 'https://api.anthropic.com/v1/messages', headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', ...extra } }
+}
 
 // Sovereign offline mode: arm the egress guard so non-local egress is STRUCTURALLY impossible
 // when NOETICA_OFFLINE is set (airplane mode). No-op passthrough when online. Installed early,
@@ -252,7 +299,11 @@ async function analyticsForGraph(refresh = false): Promise<{ analytics: import('
   const allNodes = g.allNodes(), allEdges = g.allEdges()
   const keep = new Set(allNodes.filter((n) => cleanLabel(n) !== null && n.properties?.['hygiene_pruned'] !== true && !/corpus-test/i.test(String(n.id))).map((n) => n.id))
   const fNodes = allNodes.filter((n) => keep.has(n.id)); const fEdges = allEdges.filter((e) => keep.has(e.from) && keep.has(e.to))
-  const sig = `${fNodes.length}:${fEdges.length}`
+  // Content fingerprint, not a count signature: the old `${count}:${count}` was content-blind, so add-one+prune-one
+  // or an edge rewire kept the counts identical and served a STALE analytics cache. The fingerprint busts only on
+  // real membership/topology change (refresh-framework Phase 0). See lib/graph-revision.ts.
+  const { topologyFingerprint } = await import('./lib/graph-revision.js')
+  const sig = topologyFingerprint(fNodes.map((n) => n.id), fEdges.map((e) => ({ from: e.from, to: e.to })))
   const cached = loadAnalyticsCache()
   let analytics: import('./lib/graph-analytics.js').GraphAnalytics
   if (!refresh && cached && cached.sig === sig) analytics = cached.analytics
@@ -260,6 +311,22 @@ async function analyticsForGraph(refresh = false): Promise<{ analytics: import('
   const nodeById = new Map(allNodes.map((n) => [n.id, n]))
   const labelOf = (id: string) => { const n = nodeById.get(id); return (n ? cleanLabel(n) : null) ?? '' }
   return { analytics, sig, labelOf }
+}
+
+// Build an ActionContext + run a typed action (the kinetic-ontology executor). Shared by the /api/actions/execute
+// endpoint and the execute_action agent tool. Resolves an entity ref (display label OR node id) to a node id.
+async function runAction(name: string, params: Record<string, unknown>): Promise<import('./lib/action-plane.js').ActionResult> {
+  const { executeAction } = await import('./lib/action-plane.js')
+  const g = getHellGraph()
+  const graph = g as unknown as { getNode: (id: string) => { properties?: Record<string, unknown> } | undefined; setNodeProperty: (id: string, k: string, v: string) => void }
+  const resolveEntity = async (ref: string): Promise<string | null> => {
+    if (!ref) return null
+    if (g.getNode(ref)) return ref
+    const { analytics, labelOf } = await analyticsForGraph(false)
+    for (const id of Object.keys(analytics.nodes)) { if (labelOf(id) === ref) return id }
+    return null
+  }
+  return executeAction(name, params, { graph, resolveEntity, now: new Date().toISOString() })
 }
 
 // ── Dreaming: offline generative consolidation (SCM REM-phase / "dreaming") ────────────────────────────────
@@ -594,10 +661,11 @@ async function runSuperconsciousLoop(keys: LoopProviderKeys): Promise<void> {
 
     // Run synthesis — prefer Anthropic, fall back to OpenAI
     let synthesisText = ''
-    if (keys.anthropic) {
-      const res = await fetch('https://api.anthropic.com/v1/messages', {
+    if (keys.anthropic || anthropicProxyMode()) {
+      const _t = anthropicTarget(keys.anthropic ?? '')
+      const res = await fetch(_t.url, {
         method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-api-key': keys.anthropic, 'anthropic-version': '2023-06-01' },
+        headers: _t.headers,
         body: JSON.stringify({
           model: 'claude-haiku-4-5-20251001',
           max_tokens: 1024,
@@ -1029,6 +1097,29 @@ const BUILTIN_TOOLS: ProviderTool[] = [
         path: { type: 'string', description: 'Absolute or home-relative (~) path to the file' },
       },
       required: ['path'],
+    },
+  },
+  {
+    name: 'find_symbol',
+    description: "Find where a function/class/type/interface/const is DEFINED in this app's own codebase, by name (exact, prefix, or substring). Returns kind + file path + line number. Use this before read_file when you know the symbol name but not its location.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Symbol name (or a prefix/substring) to locate' },
+      },
+      required: ['name'],
+    },
+  },
+  {
+    name: 'execute_action',
+    description: "Execute a typed graph Action (the kinetic ontology) — e.g. record a stewardship decision (assign a keeper, acknowledge an abandonment signal). Pass the action name + its params object. Capability-gated + audited. Available actions: steward_entity.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        action: { type: 'string', description: 'Action name, e.g. steward_entity' },
+        params: { type: 'object', description: "The action's parameters (e.g. { entity, keeper, resolveSignals })" },
+      },
+      required: ['action'],
     },
   },
   {
@@ -1565,7 +1656,13 @@ async function executeTool(
     case 'web_search': {
       const query = String(input['query'] ?? '').trim().slice(0, 500)
       if (!query) return 'Error: query is required'
-      return webSearch(query, keys.serper ?? process.env['SERPER_API_KEY'])
+      // Web results are UNTRUSTED external content (top indirect-injection vector) — sanitize before the model
+      // sees them (strip injected directives, defang image-URL exfil). Spotlighting, model-free.
+      const raw = await webSearch(query, keys.serper ?? process.env['SERPER_API_KEY'])
+      const { sanitizeRetrieved } = await import('./lib/rag-trust.js')
+      const { clean, stripped } = sanitizeRetrieved(raw)
+      if (stripped > 0) console.warn(`[rag-trust] neutralized ${stripped} injected directive(s) in web_search results`.replace(/[\r\n]/g, ''))
+      return clean
     }
     case 'generate_image': {
       const prompt = String(input['prompt'] ?? '').trim().slice(0, 1000)
@@ -1612,6 +1709,24 @@ async function executeTool(
         return fs.readFileSync(resolved, 'utf-8')
       } catch (e) {
         return `Error reading file: ${(e as Error).message}`
+      }
+    }
+    case 'find_symbol': {
+      try {
+        const { searchSymbols } = await import('./lib/symbol-index.js')
+        const hits = searchSymbols(String(input['name'] ?? ''), 20)
+        if (hits.length === 0) return 'No matching symbols in the codebase index.'
+        return hits.map((h) => `${h.kind} ${h.name} — ${h.rel}:${h.line}`).join('\n')
+      } catch (e) {
+        return `Error searching symbols: ${(e as Error).message}`
+      }
+    }
+    case 'execute_action': {
+      try {
+        const r = await runAction(String(input['action'] ?? ''), (input['params'] as Record<string, unknown>) ?? {})
+        return r.ok ? r.summary : `Error: ${r.error ?? 'action failed'}`
+      } catch (e) {
+        return `Error executing action: ${(e as Error).message}`
       }
     }
     case 'write_file': {
@@ -1892,36 +2007,66 @@ function jsSubprocessRuntime(): string | null {
   return null
 }
 
+// How to isolate a code_execute JS run — gated on machine capability so we don't bog down constrained boxes:
+//   'node-subprocess' — a node/bun on PATH hosts the vm in a cheap separate process (best; any machine).
+//   'self-exec'       — re-exec OUR compiled binary in NOETICA_JS_SANDBOX mode (full process isolation) but it
+//                       spawns a 2nd copy of a large binary → transient RAM + startup cost → ONLY on roomy boxes.
+//   'in-process'      — constrained machine: in-process vm (light, reduced isolation). The real escape vector is
+//                       injected code from retrieved content, which the RAG prompt-injection defense (P1.2) handles.
+// Tunables: NOETICA_JS_SANDBOX_MODE forces a strategy; NOETICA_SANDBOX_RAM_GB sets the self-exec RAM floor.
+let _activeSelfSandboxes = 0
+function jsSandboxStrategy(): 'node-subprocess' | 'self-exec' | 'in-process' {
+  const forced = process.env['NOETICA_JS_SANDBOX_MODE']
+  if (forced === 'node-subprocess' || forced === 'self-exec' || forced === 'in-process') return forced
+  if (jsSubprocessRuntime()) return 'node-subprocess'          // cheap + isolated regardless of RAM
+  const totalGB = os.totalmem() / 1024 ** 3
+  const freeGB = os.freemem() / 1024 ** 3
+  const ramFloor = Number(process.env['NOETICA_SANDBOX_RAM_GB'] ?? '24')
+  // Self-exec only when there's both headroom AND we're not already running one (cap concurrency at 1 heavy spawn).
+  if (totalGB >= ramFloor && freeGB >= 2 && _activeSelfSandboxes < 1) return 'self-exec'
+  return 'in-process'
+}
+
+// Shared isolated-subprocess runner for BOTH the node/bun and self-exec paths: stage the code to a file, spawn a
+// process with a STRIPPED env (PATH + the code file only — no API keys, no parent memory), capture stdout.
+function runIsolatedJsSubprocess(command: string, args: string[], extraEnv: Record<string, string>, code: string, sessionId: string | undefined, timeoutMs: number, maxOutput: number, onExit?: () => void): Promise<string> {
+  return new Promise((resolve) => {
+    const runDir = sessionId ? getAmSessionDir(sessionId) : os.tmpdir()
+    const codeFile = path.join(runDir, `_jsrun_${process.pid}_${Date.now()}.js`)
+    try { fs.mkdirSync(runDir, { recursive: true }); fs.writeFileSync(codeFile, code) } catch { resolve('RuntimeError: could not stage code for execution'); return }
+    let out = ''; let done = false
+    const childEnv: NodeJS.ProcessEnv = { PATH: process.env['PATH'] ?? '', NJS_FILE: codeFile, NJS_TIMEOUT_MS: String(timeoutMs), NODE_ENV: process.env['NODE_ENV'] ?? 'production', ...extraEnv }
+    const child = cp.spawn(command, args, { cwd: runDir, env: childEnv })
+    const finish = (s: string) => { if (done) return; done = true; clearTimeout(timer); try { fs.unlinkSync(codeFile) } catch { /* */ }; onExit?.(); resolve(s.slice(0, maxOutput).trim() || '(no output)') }
+    const timer = setTimeout(() => { try { child.kill('SIGKILL') } catch { /* */ }; finish(out || 'RuntimeError: execution timed out') }, timeoutMs + 2000)
+    child.stdout.on('data', (d: Buffer) => { out += d.toString(); if (out.length > maxOutput) { try { child.kill('SIGKILL') } catch { /* */ } } })
+    child.stderr.on('data', (d: Buffer) => { out += d.toString() })
+    child.on('close', () => finish(out))
+    child.on('error', () => finish('RuntimeError: could not start the JS sandbox subprocess'))
+  })
+}
+
 function executeCode(language: 'python' | 'javascript', code: string, sessionId?: string): Promise<string> {
   const TIMEOUT_MS = 30_000
   const MAX_OUTPUT = 100_000
 
   if (language === 'javascript') {
-    const runtime = jsSubprocessRuntime()
-    if (runtime) {
-      // ISOLATED path: run the vm sandbox inside a SEPARATE process whose env is stripped to PATH + the code
-      // file only. A vm escape there reaches no API keys, no parent memory — true process isolation.
-      return new Promise((resolve) => {
-        const runDir = sessionId ? getAmSessionDir(sessionId) : os.tmpdir()
-        const codeFile = path.join(runDir, `_jsrun_${process.pid}_${Date.now()}.js`)
-        try { fs.mkdirSync(runDir, { recursive: true }); fs.writeFileSync(codeFile, code) } catch { resolve('RuntimeError: could not stage code for execution'); return }
-        const runner = `const fs=require('fs'),vm=require('vm');const code=fs.readFileSync(process.env.NJS_FILE,'utf8');const logs=[];const console={log:(...a)=>logs.push(a.map(String).join(' ')),error:(...a)=>logs.push('ERROR: '+a.map(String).join(' ')),warn:(...a)=>logs.push('WARN: '+a.map(String).join(' ')),info:(...a)=>logs.push('INFO: '+a.map(String).join(' '))};const sandbox={console,Math,JSON,Array,Object,String,Number,Boolean,Date,Error,Map,Set,Promise,parseInt,parseFloat,isNaN,isFinite,encodeURIComponent,decodeURIComponent};try{vm.createContext(sandbox);const r=vm.runInContext(code,sandbox,{timeout:${TIMEOUT_MS}});const out=logs.join('\\n');const rl=(r!==undefined&&r!==null)?'\\nResult: '+(typeof r==='object'?JSON.stringify(r,null,2):String(r)):'';process.stdout.write((out+rl).trim()||'(no output)');}catch(e){process.stdout.write('RuntimeError: '+(e&&e.message?e.message:String(e)));}`
-        let out = ''; let done = false
-        // Stripped env: PATH + the code file + NODE_ENV only (no secrets). NODE_ENV is required by the augmented
-        // ProcessEnv type and isn't sensitive; everything else (API keys, tokens) is deliberately absent.
-        const childEnv: NodeJS.ProcessEnv = { PATH: process.env['PATH'] ?? '', NJS_FILE: codeFile, NODE_ENV: process.env['NODE_ENV'] ?? 'production' }
-        const child = cp.spawn(runtime, ['-e', runner], { cwd: runDir, env: childEnv })
-        const finish = (s: string) => { if (done) return; done = true; clearTimeout(timer); try { fs.unlinkSync(codeFile) } catch { /* */ }; resolve(s.slice(0, MAX_OUTPUT).trim() || '(no output)') }
-        const timer = setTimeout(() => { try { child.kill('SIGKILL') } catch { /* */ }; finish(out || 'RuntimeError: execution timed out') }, TIMEOUT_MS + 2000)
-        child.stdout.on('data', (d: Buffer) => { out += d.toString(); if (out.length > MAX_OUTPUT) { try { child.kill('SIGKILL') } catch { /* */ } } })
-        child.stderr.on('data', (d: Buffer) => { out += d.toString() })
-        child.on('close', () => finish(out))
-        child.on('error', () => finish('RuntimeError: could not start the JS sandbox subprocess'))
-      })
+    const strategy = jsSandboxStrategy()
+    if (strategy === 'node-subprocess') {
+      // The vm sandbox runs inside a cheap node/bun process; the runner reads NJS_FILE + writes result to stdout.
+      const runtime = jsSubprocessRuntime()!
+      const runner = `const fs=require('fs'),vm=require('vm');const code=fs.readFileSync(process.env.NJS_FILE,'utf8');const logs=[];const console={log:(...a)=>logs.push(a.map(String).join(' ')),error:(...a)=>logs.push('ERROR: '+a.map(String).join(' ')),warn:(...a)=>logs.push('WARN: '+a.map(String).join(' ')),info:(...a)=>logs.push('INFO: '+a.map(String).join(' '))};const sandbox={console,Math,JSON,Array,Object,String,Number,Boolean,Date,Error,Map,Set,Promise,parseInt,parseFloat,isNaN,isFinite,encodeURIComponent,decodeURIComponent};try{vm.createContext(sandbox);const r=vm.runInContext(code,sandbox,{timeout:${TIMEOUT_MS}});const out=logs.join('\\n');const rl=(r!==undefined&&r!==null)?'\\nResult: '+(typeof r==='object'?JSON.stringify(r,null,2):String(r)):'';process.stdout.write((out+rl).trim()||'(no output)');}catch(e){process.stdout.write('RuntimeError: '+(e&&e.message?e.message:String(e)));}`
+      return runIsolatedJsSubprocess(runtime, ['-e', runner], {}, code, sessionId, TIMEOUT_MS, MAX_OUTPUT)
     }
-    // FALLBACK (compiled standalone with no node/bun to subprocess into): in-process vm. The vm escape surface
-    // is real but needs malicious model code; isolated-vm is the full-coverage follow-up for this path.
-    console.warn('[code_execute] no node/bun runtime available for an isolated JS subprocess — using in-process vm (reduced isolation)')
+    if (strategy === 'self-exec') {
+      // Roomy compiled standalone: re-exec OURSELVES in NOETICA_JS_SANDBOX mode → true process isolation, no
+      // native addon. The early guard at the top of this file runs the vm and exits before any server/secret init.
+      _activeSelfSandboxes++
+      return runIsolatedJsSubprocess(process.execPath, [], { NOETICA_JS_SANDBOX: '1' }, code, sessionId, TIMEOUT_MS, MAX_OUTPUT, () => { _activeSelfSandboxes = Math.max(0, _activeSelfSandboxes - 1) })
+    }
+    // CONSTRAINED machine (no node/bun + not enough RAM to self-exec a 2nd binary copy): in-process vm. Lighter,
+    // reduced isolation — the escape needs injected/malicious code, which the RAG injection defense (P1.2) blunts.
+    console.warn('[code_execute] constrained machine — using in-process vm (reduced isolation; gated by jsSandboxStrategy)')
     return new Promise((resolve) => {
       const logs: string[] = []
       const consoleMock = {
@@ -2064,19 +2209,14 @@ async function* streamAnthropic(params: {
     body['thinking'] = { type: 'enabled', budget_tokens: params.thinkingBudget }
   }
 
-  const anthropicHeaders = {
-    'content-type': 'application/json',
-    'x-api-key': params.apiKey,
-    'anthropic-version': '2023-06-01',
-    ...(params.thinkingBudget ? { 'anthropic-beta': 'interleaved-thinking-2025-05-14' } : {}),
-  }
+  const _anthropicTgt = anthropicTarget(params.apiKey, params.thinkingBudget ? { 'anthropic-beta': 'interleaved-thinking-2025-05-14' } : {})
 
   let res: Response
   let lastStatus = 0
   for (let attempt = 0; attempt < 3; attempt++) {
-    res = await fetch('https://api.anthropic.com/v1/messages', {
+    res = await fetch(_anthropicTgt.url, {
       method: 'POST',
-      headers: anthropicHeaders,
+      headers: _anthropicTgt.headers,
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(120_000),
     })
@@ -2329,6 +2469,8 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   const turnStart = Date.now() // request-received clock (used by the fast clarify path)
   const keys = body.provider_keys ?? {}
   const anthropicKey = keys.anthropic?.trim() || process.env['ANTHROPIC_API_KEY'] || ''
+  // Branch B: with a remote proxy configured, Anthropic is reachable even WITHOUT a local key (the proxy holds it).
+  const anthropicAvailable = Boolean(anthropicKey) || anthropicProxyMode()
   const openaiKey = keys.openai?.trim() || process.env['OPENAI_API_KEY'] || ''
   const openrouterKey = keys.openrouter?.trim() || process.env['OPENROUTER_API_KEY'] || ''
   const hfKey = keys.huggingface?.trim() || process.env['HF_API_KEY'] || process.env['HUGGINGFACE_API_KEY'] || ''
@@ -2339,7 +2481,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // error — wait for the runtime to come up (the request just takes a little longer on a
   // cold start). Only wait when there's no cloud key to fall back to.
   let ollamaUp = await isOllamaRunning()
-  if (!ollamaUp && !anthropicKey && !openaiKey) {
+  if (!ollamaUp && !anthropicAvailable && !openaiKey) {
     const deadline = Date.now() + 25_000
     while (Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, 1000))
@@ -2395,6 +2537,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   const lifeDomain = classifyLifeDomain(latestUserContent)
   if (lifeDomain.needsWeb && intentPlan.name === 'everyday' && !intentPlan.tools.includes('web_search')) {
     intentPlan = { ...intentPlan, tools: [...intentPlan.tools, 'web_search'] } // travel/local → allow fresh info
+  }
+  // Image generation is a real built-in (DALL·E via the user's OpenAI key) but no intent lists it, so it was
+  // never offered. Add it dynamically when the user clearly wants an image; the imageGenAvailable gate (no key →
+  // dropped) still applies downstream, so this is a no-op without a key.
+  if (!intentPlan.tools.includes('generate_image') && /\b(draw|generate|create|make|design|render)\s+(me\s+)?(a|an|some|the)?\s*(image|picture|pic|logo|illustration|icon|art(work)?|graphic|drawing|painting|poster|avatar)\b/i.test(latestUserContent)) {
+    intentPlan = { ...intentPlan, tools: [...intentPlan.tools, 'generate_image'] }
   }
   // 'continue'/'ingest' carry no model task — let the keyword router decide those.
   const intentTaskOverride = (intentPlan.model === 'continue' || intentPlan.model === 'ingest')
@@ -2565,7 +2713,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       content: latestUserContent,
       ollamaAvailable: ollamaUp,
       availableModels,
-      hasAnthropicKey: Boolean(anthropicKey),
+      hasAnthropicKey: anthropicAvailable,
       hasOpenAIKey: Boolean(openaiKey),
       explicitModelId: body.model_id,
       policyProfile: body.policy_profile,
@@ -2585,13 +2733,22 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     try {
       routing = buildRouterDecision({
         requestId: crypto.randomUUID(), content: latestUserContent, ollamaAvailable: ollamaUp, availableModels: [],
-        hasAnthropicKey: Boolean(anthropicKey), hasOpenAIKey: Boolean(openaiKey), explicitModelId: body.model_id,
+        hasAnthropicKey: anthropicAvailable, hasOpenAIKey: Boolean(openaiKey), explicitModelId: body.model_id,
         policyProfile: body.policy_profile, securityAttested: body.security_attested === true, hasImages,
         hasTools: (body.tools?.length ?? 0) > 0, taskOverride: undefined,
       })
     } catch (err2) {
       console.error('[chat] routing fallback also failed:', String(err2 instanceof Error ? err2.stack || err2.message : err2).replace(/[\r\n]+/g, ' ⏎ '))
-      sse(res, 'error', { error: 'internal_error' })
+      // THE recurring cold-start "internal_error": buildRouterDecision throws "No local Ollama runtime…" while the
+      // managed Ollama is still coming up (the fallback retries with the same ollamaUp=false → throws again). That
+      // IS the warming-up case — surface the friendly retryable message, not an opaque error. Mark any in-progress
+      // step done so a plan spinner can't hang on it.
+      const m2 = err2 instanceof Error ? err2.message : String(err2)
+      const transient2 = /no local ollama|ollama runtime|ECONNREFUSED|connect|loading|not ready|warming|unavailable/i.test(m2)
+      try { step('generate', 'done', 'warming up — resend') } catch { /* step may be out of scope on a very-early failure */ }
+      sse(res, 'error', { error: transient2
+        ? 'The local model is still warming up (a few seconds right after launch). Give it a moment and resend.'
+        : 'internal_error' })
       return
     }
   }
@@ -2634,7 +2791,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     const hint = capabilityHint(routerDecision.task ?? 'general')
     if (hint.recommendEscalation) {
       let escalated = false
-      if (anthropicKey) { provider = 'anthropic'; model = 'claude-haiku-4-5-20251001'; escalated = true }
+      if (anthropicAvailable) { provider = 'anthropic'; model = 'claude-haiku-4-5-20251001'; escalated = true }
       else if (openaiKey) { provider = 'openai'; model = 'gpt-4o-mini'; escalated = true }
       if (escalated) {
         console.log(`[self-model] escalated task="${String(routerDecision.task)}" → ${provider}:${model} (local success ${(hint.localSuccessRate ?? 0).toFixed(2)} over ${hint.localRuns} runs)`.replace(/\r/g, '').replace(/\n/g, ''))
@@ -3004,8 +3161,19 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     // hits — so a weak lexical match ("Australia") still injects software passages that qwen3 then anchors
     // on and REFUSES the question ("not in the provided documents"). General knowledge comes from the
     // model itself; memory-centric intents (self_identity, preferences_memory, plan_nextsteps, …) still get it.
-    if (retrieved.text.trim() && intentPlan.name !== 'general') {
-      graphContext = `\n\n---\n**Memory context (HellGraph)**\n${retrieved.text}`
+    // Inject the HellGraph memory ONLY for genuinely memory-centric intents (episodic/preferences/self/status) —
+    // NOT for general-knowledge or research lookups ("who was the first president" → research_lookup), where the
+    // graph dump derails the model into parroting unrelated atoms. The graph is dominated by doc/dev exhaust, so
+    // a weak lexical hit otherwise injects business content into a world-knowledge question. (Doc-RAG below has
+    // its own relevance gate.)
+    const MEMORY_RETRIEVAL = new Set(['episodic', 'memory-write', 'self-model', 'status'])
+    if (retrieved.text.trim() && MEMORY_RETRIEVAL.has(intentPlan.retrieval)) {
+      // INDIRECT-INJECTION DEFENSE: graph atoms can be poisoned by ingested content too — sanitize before
+      // the memory context reaches the prompt (parity with the doc-RAG path below).
+      const { sanitizeRetrieved } = await import('./lib/rag-trust.js')
+      const { clean, stripped } = sanitizeRetrieved(retrieved.text)
+      if (stripped > 0) console.warn(`[rag-trust] neutralized ${stripped} injected directive(s) in graph memory context`.replace(/[\r\n]/g, ''))
+      graphContext = `\n\n---\n**Memory context (HellGraph)**\n${clean}`
     }
     // Emit the neurosymbolic reasoning trace so the UI can show *why* this answer
     // was grounded — attention-ranked atoms, pattern timings, beliefs injected.
@@ -3065,7 +3233,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       // Core docs in the same store would otherwise surface as strict "uploaded sources" and make the model
       // refuse general knowledge (the self-doc refusal bug). Scoping keeps collections separate from core.
       const { isUserDoc: _isUserDoc } = await import('./lib/doc-scope.js')
-      const hits = (await searchDocsReranked(ragQuery, topK)).filter((h) => _isUserDoc(h.filename))
+      const hits = (await searchDocsReranked(ragQuery, topK, { relevanceQuery: latestUserContent })).filter((h) => _isUserDoc(h.filename))
       if (hits.length > 0) {
         docHitCount = hits.length
         // INDIRECT-INJECTION DEFENSE (PoisonedRAG): retrieved document text is UNTRUSTED — a malicious
@@ -3248,7 +3416,11 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // region expands with use: each generated answer crystallizes, so it recalls next time.
   // Skip when an image is attached — the user wants the model to LOOK at the image, not
   // reuse a cached text answer (vision must reach the model, not a recall short-circuit).
-  if (isFlagOn('NOETICA_LOGIC_FIRST') && !hasImages) {
+  // Skip recall for doc/research intents (vector-rag / web+vector): their answers depend on CURRENT docs and must
+  // re-run through the relevance-gated retrieval, not be served from a crystallized cache — otherwise an earlier
+  // derailed extractive answer (e.g. "who was the first president" → a business doc) is replayed forever, shadowing
+  // every retrieval fix. Recall still serves decidable/stable answers (math, logic, self-identity, status).
+  if (isFlagOn('NOETICA_LOGIC_FIRST') && !hasImages && !wantsVectorRag(intentPlan.retrieval)) {
     try {
       const { recallArtifact } = await import('./lib/crystallize.js')
       const hit = recallArtifact(latestUserContent)
@@ -3279,6 +3451,34 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     } catch { /* recall is best-effort — fall through to extract/generation */ }
   }
 
+  // ── Global / thematic synthesis (GraphRAG community summaries, cheap path) ───
+  // Whole-corpus questions ("main themes / across all my docs / big picture") need synthesis ACROSS the
+  // knowledge graph — flat chunk-RAG can't do that. We build EXTRACTIVE community reports (no per-community LLM)
+  // and synthesize in ONE call, so it's affordable on local. Gated to clearly-global phrasing + when docs exist.
+  if (hasDoc && /\b(?:(?:main|key|recurring|overall|common|top)\s+(?:themes?|topics?|ideas?|patterns?)|big[- ]picture|across (?:all|my|the|these)|(?:whole|entire)\s+(?:corpus|library|collection|knowledge ?base)|what(?:'?s| is) (?:in|across) (?:all|my|the)\s+(?:docs|documents|notes|knowledge|library)|overview of (?:all|my|the|everything))\b/i.test(latestUserContent)) {
+    try {
+      const { analytics, labelOf } = await analyticsForGraph(false)
+      const gmodel = await pickChatModel()
+      const { buildCommunityReports } = await import('./lib/graph-rag.js')
+      const reports = await buildCommunityReports(analytics, labelOf, { model: gmodel, maxCommunities: 8, minSize: 3, extractive: true })
+      if (reports.length > 0) {
+        const qtok = new Set(latestUserContent.toLowerCase().split(/\W+/).filter((w) => w.length > 2))
+        const scored = reports.map((r) => { const rt = `${r.title} ${r.summary}`.toLowerCase(); let o = 0; for (const t of qtok) if (rt.includes(t)) o++; return { r, o } }).sort((a, b) => b.o - a.o)
+        const top = (scored.some((s) => s.o > 0) ? scored.filter((s) => s.o > 0) : scored).slice(0, 6).map((s) => s.r)
+        const ctx = top.map((r) => `## ${r.title}\n${r.summary}${r.claims?.length ? `\n- ${r.claims.join('\n- ')}` : ''}`).join('\n\n')
+        const { generateOllamaText } = await import('./lib/ollama.js')
+        const { content } = await generateOllamaText({ model: gmodel, messages: [{ role: 'user', content: `Synthesize an answer ACROSS these themes from the user's own knowledge graph. Reference themes by name; ground every claim in them; don't invent.\n\nThemes:\n${ctx}\n\nQuestion: ${latestUserContent}` }], temperature: 0.3 })
+        if (content?.trim()) {
+          step('retrieve', 'done', `${top.length} community themes`)
+          step('generate', 'done', 'synthesized across the knowledge graph')
+          sse(res, 'delta', { delta: content })
+          sse(res, 'done', { result: { run_id: crypto.randomUUID(), content, model_routed: gmodel, provider: 'noetica', policy_admitted: true, memory_written: false, stop_reason: 'global', timestamp: new Date().toISOString(), latency_ms: Date.now() - turnStart, agent_machine: true, agent_machine_version: VERSION, method: 'graphrag-global' } })
+          return
+        }
+      }
+    } catch { /* global synthesis best-effort — fall through to normal answering */ }
+  }
+
   // ── Extractive grounded answering (NOETICA_EXTRACTIVE, default-on): EXTRACT ───
   // For doc-grounded intents, answer by EXTRACTING the doc's own cited sentences
   // instead of asking a weak/slow local model to generate. It cannot hallucinate
@@ -3291,7 +3491,10 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // extractor returns null safely (cannot fabricate) when nothing lexically matches.
   // …but NOT when an image is attached: a screenshot + "how would you improve this?" must go
   // to the vision model, not be answered by extracting sentences from an unrelated doc.
-  if (isFlagOn('NOETICA_EXTRACTIVE') && wantsVectorRag(intentPlan.retrieval) && hasDoc && !hasImages) {
+  // Gate on docHits (the relevance-gated semantic result): if the docs aren't on-topic, DON'T extract — the
+  // extractive pool below is lexical-only and would otherwise surface "first"→"Australia first" for a general
+  // query like "who was the first president". docHits non-empty means the query passed the semantic relevance gate.
+  if (isFlagOn('NOETICA_EXTRACTIVE') && wantsVectorRag(intentPlan.retrieval) && hasDoc && !hasImages && docHits.length > 0) {
     try {
       const { extractiveAnswer } = await import('./lib/extractive-qa.js')
       // Extraction scans a WIDER lexical pool (term-matched, reliable for entity Qs)
@@ -4321,10 +4524,19 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     console.error('[chat] turn failed (stream phase):', String(err instanceof Error ? err.stack || err.message : err).replace(/[\r\n]+/g, ' ⏎ '))
     // Classify transient cold-start failures (managed ollama mid-handoff, model still loading, connection not
     // yet up) → a friendly RETRYABLE message instead of an opaque "internal_error" the user has to decode.
-    const transient = /ECONNREFUSED|connect|fetch failed|socket|timeout|timed out|EOF|load|loading|model .*not found|503|502|unavailable/i.test(errMsg)
-    const clientErr = transient
-      ? 'The local model is still warming up (this happens for a few seconds right after launch). Give it a moment and resend.'
-      : (errMsg || 'internal_error')
+    const transient = /ECONNREFUSED|connect|fetch failed|socket|timeout|timed out|EOF|load|loading|model .*not found|503|502|unavailable|empty (response|embedding)/i.test(errMsg)
+    // Distinguish COLD (ollama not up yet → just resend) from WEDGED (ollama lists models but its Metal runner is
+    // dead so generation hangs/empties — heavy bulk ingest can cause it). Wedged shows "warming up" forever and
+    // resending never helps, so AUTO-RESTART the runtime (debounced) and say so honestly.
+    let clientErr = transient ? 'The local model is still warming up (a few seconds right after launch). Give it a moment and resend.' : (errMsg || 'internal_error')
+    let stepNote = transient ? 'warming up — resend' : 'failed'
+    if (transient && await isOllamaRunning().catch(() => false)) {
+      void import('./lib/managed-runtime.js').then((m) => m.restartManagedRuntime()).catch(() => {})
+      clientErr = 'The local model runtime got stuck — restarting it now. Give it ~15 seconds and resend.'
+      stepNote = 'runtime restart — resend'
+    }
+    // Mark the in-progress "Composing the answer" step done so the plan's blue spinner STOPS (the turn IS over).
+    try { step('generate', 'done', stepNote) } catch { /* step out of scope on a very-early failure */ }
     // Record failed run so GovernSurface shows error-rate alongside success-rate
     recordGovernanceRun({
       run_id,
@@ -4372,11 +4584,12 @@ const server = http.createServer((req, res) => {
     return
   }
 
-  // Drive-by CSRF / DNS-rebinding guard. CORS '*' + simple (no-preflight) POSTs let any web page the
-  // user visits POST to this loopback server and trigger side effects (run_command → RCE, ingest →
-  // file read); CORS only hides the RESPONSE, not the WRITE. Reject mutating requests bearing a
-  // cross-site Origin. Native/CLI callers send no Origin; the local UI (localhost/tauri/127.0.0.1, any
-  // port) is allowlisted. GETs are unaffected. Escape hatch: NOETICA_ORIGIN_GUARD=0.
+  // Drive-by CSRF / DNS-rebinding guard. CORS '*' lets any web page the user visits talk to this loopback
+  // server: a POST triggers side effects (run_command → RCE, ingest → file read), and a GET can READ back
+  // the user's data (e.g. /api/library, /api/graph/*) since CORS '*' exposes the response. So we reject ANY
+  // request that carries a cross-site Origin — reads included. Native/CLI callers + top-level navigations send
+  // no Origin (allowed); the local UI (localhost/tauri/127.0.0.1, any port) is allowlisted. Escape hatch:
+  // NOETICA_ORIGIN_GUARD=0.
   if (process.env['NOETICA_ORIGIN_GUARD'] !== '0') {
     const oh = req.headers['origin']
     const origin = Array.isArray(oh) ? oh[0] : oh
@@ -6070,7 +6283,7 @@ Question: ${question}`
         // Category lenses (tech/knowledge) use TRUE topic discovery: vectorize → cluster
         // → 22 cluster representatives, drill into a cluster's members. Falls back to the
         // pure degree-ranked selection if embeddings/clustering aren't available.
-        const CAT: Record<string, string> = { tech: 'technical', knowledge: 'learning' }
+        const CAT: Record<string, string> = { knowledge: 'learning' }   // tech is a CodeModule root-lens now (selectSurface VIEW_ROOTS), not an embedding cluster
         let result
         if (CAT[view]) {
           try {
@@ -6392,6 +6605,106 @@ Question: ${question}`
         res.end(JSON.stringify(ingestQueueStatus()))
       } catch {
         res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ jobs: [], summary: { queued: 0, active: 0, done: 0, failed: 0 } }))
+      }
+    })()
+    return
+  }
+
+  // POST /api/embed/reindex — re-embed all doc chunks with the current embedder (run AFTER flipping
+  // NOETICA_EMBED_RUST=1 so chunk vectors move to the Rust embedder's space). Token-gated (heavy op).
+  if (req.method === 'POST' && url.pathname === '/api/embed/reindex') {
+    setCORSHeaders(res)
+    if (!requireApiToken(req, res)) return
+    ;(async () => {
+      try {
+        const { reindexDocVectors } = await import('./lib/doc-store.js')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(await reindexDocVectors()))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'failed' })) }
+    })()
+    return
+  }
+
+  // DELETE /api/library?collection=<id> — soft-delete a collection (mark its docs/chunks hidden so they leave
+  // retrieval + the Library). Cleanup for the pollution the Library surfaces; provenance is preserved.
+  if (req.method === 'DELETE' && url.pathname === '/api/library') {
+    setCORSHeaders(res)
+    const cid = url.searchParams.get('collection')
+    if (!cid) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'collection required' })); return }
+    ;(async () => {
+      try {
+        const { hideCollection } = await import('./lib/doc-store.js')
+        const r = hideCollection(cid)
+        try { const { deleteCollection } = await import('./lib/collections.js'); deleteCollection(cid) } catch { /* registry best-effort */ }
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true, ...r }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'failed' })) }
+    })()
+    return
+  }
+
+  // POST /api/graph/forget {q} — prune (soft-delete) graph nodes whose surface/normalised/filename/id matches q.
+  // Cleanup for test/exhaust entities (e.g. a stray "Hurricane Helene" grounded from an early test chat query).
+  // Sets hygiene_pruned so the lenses + retrieval skip them. Returns matches pruned. (Backs a future Library
+  // "remove entity" action.) Matches CanonicalEntity (surface/normalised) + Documents (filename), not chunk text.
+  if (req.method === 'POST' && url.pathname === '/api/graph/forget') {
+    setCORSHeaders(res)
+    const fbuf: Buffer[] = []
+    req.on('data', (c: Buffer) => fbuf.push(c))
+    req.on('end', () => { void (async () => {
+      try {
+        const { q } = JSON.parse(Buffer.concat(fbuf).toString() || '{}') as { q?: string }
+        const needle = String(q ?? '').toLowerCase().trim()
+        if (!needle) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'q required' })); return }
+        const { getGraph } = await import('./lib/graph.js')
+        const g = getGraph() as unknown as { allNodes: () => Array<{ id: string; properties?: Record<string, unknown> }>; setNodeProperty: (id: string, k: string, v: unknown) => void }
+        const pruned: string[] = []
+        for (const n of g.allNodes()) {
+          if (n.properties?.['hygiene_pruned'] === true) continue
+          const hay = [n.properties?.['surface'], n.properties?.['normalised'], n.properties?.['filename'], n.id].map((x) => String(x ?? '').toLowerCase()).join('  ')
+          if (hay.includes(needle)) { try { g.setNodeProperty(n.id, 'hygiene_pruned', true); pruned.push(String(n.properties?.['surface'] ?? n.id).slice(0, 80)) } catch { /* */ } }
+        }
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true, pruned: pruned.length, samples: pruned.slice(0, 10) }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'failed' })) }
+    })() })
+    return
+  }
+
+  // POST /api/graph/glossary/derive — build a glossary INTO the graph from the local corpus (Domain per
+  // collection + GlossaryTerm per grounded entity), so the domain/glossary lens is reachable. Idempotent.
+  if (req.method === 'POST' && url.pathname === '/api/graph/glossary/derive') {
+    setCORSHeaders(res)
+    ;(async () => {
+      try {
+        const { deriveCorpusGlossary } = await import('./lib/graphbrain-bridge.js')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(deriveCorpusGlossary()))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'failed' })) }
+    })()
+    return
+  }
+
+  // GET /api/govern/audit/verify — tamper-evidence status of the egress audit chain (P3.6): re-links every
+  // entry + checks the Ed25519-signed head. Backs the Govern attestation badge.
+  if (req.method === 'GET' && url.pathname === '/api/govern/audit/verify') {
+    setCORSHeaders(res)
+    ;(async () => {
+      try {
+        const { verifyAuditChain } = await import('./lib/scope-d.js')
+        const v = await verifyAuditChain()
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ...v, attested: v.chainValid && v.signed && v.signatureValid }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'failed' })) }
+    })()
+    return
+  }
+
+  // GET /api/library — "what's been captured into the graph": collections → documents → entity/chunk counts.
+  // The observability surface (like ChatGPT's library, but for the knowledge graph).
+  if (req.method === 'GET' && url.pathname === '/api/library') {
+    setCORSHeaders(res)
+    ;(async () => {
+      try {
+        const { buildLibrary } = await import('./lib/library.js')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(await buildLibrary()))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ groups: [], totals: { collections: 0, documents: 0, chunks: 0, entities: 0 }, error: e instanceof Error ? e.message : 'failed' }))
       }
     })()
     return
@@ -7434,24 +7747,114 @@ Question: ${question}`
     setCORSHeaders(res)
     void (async () => {
       try {
-        const { GAIA_ONTOLOGY, ontogenesisPhase, abandonmentSignals } = await import('./lib/gaia-ontology.js')
+        const { GAIA_ONTOLOGY, ontogenesisPhase, abandonmentSignals, stewardshipOf } = await import('./lib/gaia-ontology.js')
         if (url.searchParams.get('apply') === '0') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ontology: GAIA_ONTOLOGY })); return }
         const { analytics, labelOf } = await analyticsForGraph(false)
+        const gOnt = getHellGraph()
         const phases: Record<string, number> = {}
         const signals: Record<string, string[]> = {}
-        let total = 0
+        let total = 0, stewarded = 0
         for (const [id, m] of Object.entries(analytics.nodes)) {
           const lbl = labelOf(id); if (!lbl) continue
           total++
           const phase = ontogenesisPhase(m); phases[phase] = (phases[phase] ?? 0) + 1
-          for (const s of abandonmentSignals(m)) { (signals[s] ??= []).push(lbl) }
+          let sigs = abandonmentSignals(m)
+          if (sigs.length > 0) {
+            // Honor persisted stewardship (P5.15): a steward's acknowledged signals drop out of the live census.
+            const st = stewardshipOf(gOnt.getNode(id)?.properties)
+            if (st.stewarded) stewarded++
+            if (st.resolvedSignals.length) sigs = sigs.filter((x) => !st.resolvedSignals.includes(x))
+            for (const sig of sigs) (signals[sig] ??= []).push(lbl)
+          }
         }
         const census = {
           total,
+          stewarded,
           phases: Object.entries(phases).sort((a, b) => b[1] - a[1]).map(([phase, count]) => ({ phase, count })),
           signals: Object.entries(signals).sort((a, b) => b[1].length - a[1].length).map(([signal, ents]) => ({ signal, count: ents.length, examples: ents.slice(0, 6) })),
         }
         res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ontology: GAIA_ONTOLOGY, census }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // POST /api/graph/ontology/steward — stewardship write-back (P5.15): persist a steward's decision on an entity
+  // (keeper, successor, an explicit ontogenesis phase, acknowledged abandonment signals). The GET census above
+  // HONORS it — acknowledged signals drop out of the live count — closing the observe→act loop.
+  if (req.method === 'POST' && url.pathname === '/api/graph/ontology/steward') {
+    setCORSHeaders(res)
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => void (async () => {
+      try {
+        const d = JSON.parse(body || '{}') as { entity?: string; keeper?: string; successor?: string; phaseOverride?: string; resolveSignals?: string[]; note?: string }
+        if (!d.entity) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'entity required' })); return }
+        const g = getHellGraph()
+        let nodeId: string | null = g.getNode(d.entity) ? d.entity : null   // by id, else resolve by display label
+        if (!nodeId) {
+          const { analytics, labelOf } = await analyticsForGraph(false)
+          for (const id of Object.keys(analytics.nodes)) { if (labelOf(id) === d.entity) { nodeId = id; break } }
+        }
+        if (!nodeId) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'entity not found' })); return }
+        const { applyStewardship, GAIA_ONTOLOGY } = await import('./lib/gaia-ontology.js')
+        const validPhases = GAIA_ONTOLOGY.ontogenesisPhases as readonly string[]
+        const validSignals = GAIA_ONTOLOGY.abandonmentSignals as readonly string[]
+        const phaseOverride = d.phaseOverride && validPhases.includes(d.phaseOverride) ? (d.phaseOverride as OntogenesisPhase) : undefined
+        const resolveSignals = (d.resolveSignals ?? []).filter((x): x is AbandonmentSignal => validSignals.includes(x))
+        const gw = g as unknown as { getNode: (id: string) => { properties?: Record<string, unknown> } | undefined; setNodeProperty: (id: string, k: string, v: string) => void }
+        const state = applyStewardship(gw, nodeId, { keeper: d.keeper, successor: d.successor, phaseOverride, resolveSignals, note: d.note }, new Date().toISOString())
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ entity: d.entity, nodeId, stewardship: state }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })())
+    return
+  }
+
+  // GET /api/actions — list the typed ActionTypes (the kinetic-ontology surface). POST /api/actions/execute runs one
+  // (validated, capability-tagged, audited) — the generalization of the single hardcoded stewardship write-back.
+  if (req.method === 'GET' && url.pathname === '/api/actions') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { listActions } = await import('./lib/action-plane.js')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ actions: listActions() }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+  if (req.method === 'POST' && url.pathname === '/api/actions/execute') {
+    setCORSHeaders(res)
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => void (async () => {
+      try {
+        const d = JSON.parse(body || '{}') as { action?: string; params?: Record<string, unknown> }
+        if (!d.action) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'action required' })); return }
+        const result = await runAction(d.action, d.params ?? {})
+        res.writeHead(result.ok ? 200 : 400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ action: d.action, result }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })())
+    return
+  }
+
+  // GET /api/code/symbols?q= — symbol search over OUR codebase (P5.16): locate a definition (file + line) by name.
+  // Backed by the build-time canon/symbol-index.json; powers code navigation + the find_symbol agent tool.
+  if (req.method === 'GET' && url.pathname === '/api/code/symbols') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const q = url.searchParams.get('q') ?? ''
+        const { searchSymbols, symbolStats } = await import('./lib/symbol-index.js')
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ query: q, ...symbolStats(), results: searchSymbols(q, 30) }))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
@@ -8016,14 +8419,21 @@ Question: ${question}`
     const sub = url.pathname.slice('/api/voice/'.length)
     if (req.method === 'GET' && sub === 'status') {
       ;(async () => {
-        const provisioned = isVoiceProvisioned()
+        const st = voiceProvisionStatus()
         let voices: Array<{ id: string; name: string }> = []
-        if (provisioned && (await ensureVoiceSidecar())) {
+        if (st.provisioned && (await ensureVoiceSidecar())) {
           try { const j = (await (await voiceFetch('/voices')).json()) as { voices?: typeof voices }; voices = j.voices ?? [] } catch { /* sidecar warming */ }
         }
         res.writeHead(200, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ provisioned, voices }))
+        res.end(JSON.stringify({ ...st, voices }))
       })()
+      return
+    }
+    // In-app provisioning (P4.12): trigger the uv-venv + coqui-tts install in the background; poll /status.
+    if (req.method === 'POST' && sub === 'provision') {
+      const r = provisionVoice()
+      res.writeHead(r.started ? 200 : 409, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ ...r, ...voiceProvisionStatus() }))
       return
     }
     let body = ''
@@ -8566,6 +8976,56 @@ server.listen(PORT, '127.0.0.1', () => {
     } catch (e) {
       console.warn('[noetica-am] Model warm-up error:', e)
     }
+  })()
+
+  // Self-healing embedder migration: on upgrade the active embedder may differ from the one that made the
+  // stored chunk vectors (Ollama nomic-768 → Rust bge-384). Reindex the corpus once in the background so
+  // retrieval stays consistent without a manual step — a no-op when dims already match.
+  void (async () => {
+    try {
+      const { reindexIfDimMismatch } = await import('./lib/doc-store.js')
+      const r = await reindexIfDimMismatch()
+      if (r.reindexed) console.log(`[embed-migrate] ${r.reason}`.replace(/[\r\n]/g, ' '))
+    } catch { /* best-effort */ }
+    // Then backfill the extracted vector tier from existing graph chunks if it's empty (one-time migration,
+    // idempotent). Sequenced after the embedder self-heal so the backfilled vectors are in the active space.
+    try {
+      const { vecStats } = await import('./lib/embed-runtime.js')
+      const total = (await vecStats()).reduce((s, c) => s + c.count, 0)
+      if (total === 0) {
+        const { reindexVectorTier } = await import('./lib/doc-store.js')
+        const r = await reindexVectorTier()
+        if (r.chunks > 0) console.log(`[vec-tier] backfilled ${r.chunks} chunks into ${r.collections} collection(s)`.replace(/[\r\n]/g, ' '))
+      }
+    } catch { /* best-effort */ }
+    // Backfill Document→entity GROUNDS edges for existing docs that have none (P2.4) — so the Library shows
+    // per-doc entity counts without a re-ingest. Idempotent; skips already-linked docs.
+    try {
+      const { relinkDocEntities } = await import('./lib/doc-store.js')
+      const r = relinkDocEntities()
+      if (r.edges > 0) console.log(`[entity-link] linked ${r.edges} entity edge(s) across ${r.docs} doc(s)`.replace(/[\r\n]/g, ' '))
+    } catch { /* best-effort */ }
+    // Derive the glossary into the graph from the corpus (Domain/GlossaryTerm atoms via the GROUNDS edges above)
+    // so the domain/glossary lens is reachable. Idempotent; runs after entity-link so the edges exist.
+    try {
+      const { deriveCorpusGlossary } = await import('./lib/graphbrain-bridge.js')
+      const r = deriveCorpusGlossary()
+      if (r.terms > 0) console.log(`[glossary] derived ${r.terms} term(s) across ${r.domains} domain(s)`.replace(/[\r\n]/g, ' '))
+    } catch { /* best-effort */ }
+    // Ingest the build-time stack manifest → CodeModule atoms + IMPORTS edges, so the Tech lens shows our actual
+    // codebase. Idempotent (no-op once present). Bundled JSON, so it works in prod too.
+    try {
+      const { ingestStackIndex } = await import('./lib/stack-graph.js')
+      const r = ingestStackIndex()
+      if (r.modules > 0) console.log(`[stack-graph] ingested ${r.modules} modules + ${r.edges} imports`.replace(/[\r\n]/g, ' '))
+    } catch { /* best-effort */ }
+    // Project the provisioned academic brain (fields + courses) → the Knowledge lens. No-op if the brain isn't
+    // provisioned. Idempotent.
+    try {
+      const { projectAcademicBrain } = await import('./lib/academic-graph.js')
+      const r = projectAcademicBrain()
+      if (r.courses > 0) console.log(`[academic-graph] projected ${r.courses} courses across ${r.fields} fields`.replace(/[\r\n]/g, ' '))
+    } catch { /* best-effort */ }
   })()
 
   // Demo pre-warm: actually LOAD the primary chat model(s) into RAM with a long

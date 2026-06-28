@@ -113,7 +113,7 @@ export function provisionInstance(sku: ComputeSku, opts: { swarmId?: string; con
 
 function hash(s: string): number { let h = 0; for (let i = 0; i < s.length; i++) { h = (h << 5) - h + s.charCodeAt(i); h |= 0 } return h }
 
-const provCli = (provider: ComputeSku['provider']) => ({ gcp: 'gcloud', azure: 'az', aws: 'aws', ibm: 'ibmcloud', local: '' }[provider])
+const provCli = (provider: ComputeSku['provider']) => ({ gcp: 'gcloud', azure: 'az', aws: 'aws', ibm: 'ibmcloud', oci: 'oci', hetzner: 'hcloud', coreweave: 'kubectl', lambda: 'lambda', nebius: 'nebius', crusoe: 'crusoe', local: '' }[provider])
 
 /**
  * ACTUALLY boot the planned instance. DOUBLE-GATED — only runs when NOETICA_CLOUD_PROVISION_EXEC=1 AND the

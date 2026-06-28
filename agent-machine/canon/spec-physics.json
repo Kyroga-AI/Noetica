@@ -145,7 +145,21 @@
         {
           "term": "period",
           "definition": "The time T for one complete cycle of a periodic motion; related to frequency by T = 1/f and to angular frequency by T = 2\u03c0/\u03c9."
-        }
+        },
+        {"term": "inertia", "definition": "The tendency of an object to resist changes in its state of motion, quantified by mass."},
+        {"term": "force", "definition": "A push or pull that changes an object's motion; the cause of acceleration via Newton's second law, F_net = m*a. A vector (magnitude + direction), measured in newtons."},
+        {"term": "conserved quantity", "definition": "A quantity whose total value in an isolated system is constant in time (energy, linear momentum, angular momentum, electric charge). By Noether's theorem each continuous symmetry of the dynamics yields one."},
+        {"term": "momentum", "definition": "The product of an object's mass and velocity, p = mv; a conserved quantity in isolated systems."},
+        {"term": "impulse", "definition": "The change in momentum of an object, equal to the net force integrated over the time interval it acts."},
+        {"term": "torque", "definition": "The rotational analog of force, defined as the cross product of the position vector and the applied force: τ = r × F."},
+        {"term": "moment of inertia", "definition": "The rotational analog of mass; measures a body's resistance to angular acceleration: I = sum(m_i * r_i^2)."},
+        {"term": "angular momentum", "definition": "The rotational analog of linear momentum: L = I * ω = r × p; conserved when net torque is zero."},
+        {"term": "center of mass", "definition": "The mass-weighted average position of all particles in a system; the system behaves as if all its mass is concentrated there under external forces."},
+        {"term": "conservative force", "definition": "A force whose work done on a particle moving between two points is independent of the path taken; derivable from a potential energy function."},
+        {"term": "simple harmonic motion", "definition": "Oscillatory motion governed by a restoring force proportional to displacement: F = -kx, producing sinusoidal position as a function of time."},
+        {"term": "escape velocity", "definition": "The minimum speed required for an object to escape a gravitational field without further propulsion: v_esc = sqrt(2GM/r)."},
+        {"term": "Bernoulli's principle", "definition": "Along a streamline in steady, incompressible, inviscid flow, the sum of pressure, kinetic energy density, and gravitational potential energy density is constant."},
+        {"term": "Reynolds number", "definition": "A dimensionless ratio Re = ρvL/μ characterizing whether flow is laminar or turbulent."}
       ],
       "canon": [
         {
@@ -472,7 +486,20 @@
         {
           "term": "solid angle",
           "definition": "The two-dimensional analogue of an angle, measured in steradians as the area a surface projects onto a unit sphere centered at the vertex; a full sphere subtends 4*pi sr (central to Gauss's law)."
-        }
+        },
+        {"term": "electric field", "definition": "A vector field E(r) such that the force on a test charge q is F = qE; created by charges and time-varying magnetic fields."},
+        {"term": "radiation from accelerating charges", "definition": "An accelerating electric charge emits electromagnetic radiation; for non-relativistic motion the radiated power is the Larmor formula P = q^2 a^2 / (6*pi*epsilon_0*c^3). Basis of antennas, synchrotron, and atomic emission."},
+        {"term": "electric potential", "definition": "A scalar field V(r) such that E = -∇V; the work done per unit charge moving from infinity to the point r."},
+        {"term": "Gauss's law", "definition": "The total electric flux through a closed surface equals the enclosed charge divided by ε_0: ∮ E · dA = Q_enc/ε_0."},
+        {"term": "Faraday's law", "definition": "A time-varying magnetic flux through a loop induces an EMF equal to minus the rate of change of flux: EMF = -dΦ_B/dt."},
+        {"term": "Ampère-Maxwell law", "definition": "The curl of B equals μ_0 times the sum of free current density and the displacement current density ε_0 ∂E/∂t."},
+        {"term": "displacement current", "definition": "Maxwell's addition to Ampère's law: J_d = ε_0 ∂E/∂t; ensures charge conservation and predicts electromagnetic wave propagation in vacuum."},
+        {"term": "Poynting vector", "definition": "S = (1/μ_0) * E × B; represents the directional energy flux density of an electromagnetic field (power per unit area)."},
+        {"term": "electromagnetic wave", "definition": "A self-sustaining oscillation of coupled E and B fields propagating at speed c = 1/sqrt(ε_0 μ_0) in vacuum; E and B are perpendicular to each other and to the direction of propagation."},
+        {"term": "magnetic vector potential", "definition": "A vector field A such that B = ∇ × A; used with scalar potential φ to encode the full EM field in Lagrangian/quantum treatments."},
+        {"term": "Lenz's law", "definition": "The induced EMF always acts to oppose the change in magnetic flux that produced it; a consequence of energy conservation."},
+        {"term": "boundary conditions (EM)", "definition": "At an interface: tangential E and normal B are continuous; tangential H and normal D jump by the surface free current/charge densities."},
+        {"term": "skin depth", "definition": "The characteristic depth δ = sqrt(2/(μ σ ω)) at which electromagnetic fields penetrate a conductor before attenuating by 1/e."}
       ],
       "canon": [
         {
@@ -1436,7 +1463,19 @@
         {
           "term": "inflation",
           "definition": "A period of accelerated exponential expansion in the early universe (t ~ 10^{-36} s) driven by a slow-rolling inflaton field; solves the horizon, flatness, and monopole problems and seeds CMB fluctuations."
-        }
+        },
+        {"term": "Hubble's law", "definition": "Galaxies recede with velocity proportional to distance: v = H_0 * d, where H_0 ≈ 70 km/s/Mpc is the Hubble constant; evidence for an expanding universe."},
+        {"term": "white dwarf", "definition": "A dense stellar remnant left when a low-mass star exhausts its fuel, supported against gravity by electron degeneracy pressure; stable only below the Chandrasekhar limit (~1.4 solar masses)."},
+        {"term": "Hubble parameter", "definition": "H(t) = (da/dt)/a where a(t) is the cosmic scale factor; H_0 is its present value; governs the rate of cosmic expansion."},
+        {"term": "scale factor", "definition": "a(t), a dimensionless function normalised to a(t_0)=1 today; physical distances scale as d_phys = a(t)*d_comoving; its evolution is governed by the Friedmann equations."},
+        {"term": "Chandrasekhar limit", "definition": "The maximum mass (~1.4 M_sun) of a white dwarf supported by electron degeneracy pressure; exceeded mass collapses to a neutron star or black hole."},
+        {"term": "cosmic microwave background", "definition": "The thermal relic radiation from recombination (~380,000 yr after Big Bang) at z ≈ 1100; a near-perfect blackbody at T_0 = 2.725 K with anisotropies ΔT/T ~ 10^{-5} encoding structure formation."},
+        {"term": "dark matter", "definition": "Non-luminous matter constituting ~27% of the cosmic energy budget; inferred from galactic rotation curves, gravitational lensing, and CMB power spectra; particle nature unknown."},
+        {"term": "dark energy", "definition": "An energy component (~68% of cosmic budget) causing accelerated expansion; consistent with a cosmological constant Λ with equation of state w = P/ρ = -1."},
+        {"term": "redshift", "definition": "The fractional wavelength shift z = (λ_obs - λ_emit)/λ_emit; for cosmological sources, 1+z = 1/a(t_emit), linking observed wavelength to the scale factor at emission."},
+        {"term": "luminosity distance", "definition": "d_L = (1+z)*d_comoving; the distance inferred from the observed flux of a standard candle: F = L/(4π d_L^2)."},
+        {"term": "equation of state (cosmology)", "definition": "w = P/ρ characterizing a cosmic fluid: w=0 (matter/dust), w=1/3 (radiation), w=-1 (cosmological constant/dark energy); determines how ρ scales with a."},
+        {"term": "inflation", "definition": "A period of accelerated exponential expansion in the early universe (t ~ 10^{-36} s) driven by a slow-rolling inflaton field; solves the horizon, flatness, and monopole problems and seeds CMB fluctuations."}
       ],
       "canon": [
         {

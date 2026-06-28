@@ -60,6 +60,68 @@ export function abandonmentSignals(s: { degree: number; pagerank: number; commun
   return out
 }
 
+// ─── Stewardship write-back (P5.15) ──────────────────────────────────────────────────────────────────────
+// The census (ontogenesis phase + abandonment signals) is DERIVED from GDS structure — it can observe a node
+// going stale, but a steward's DECISIONS (who keeps it, which signal is acknowledged, an explicit phase) have to
+// be persisted on the node and then HONORED on read. These helpers are that closed loop.
+
+export interface StewardDecision {
+  keeper?: string                       // who now stewards this entity
+  successor?: string                    // designated successor (continuity)
+  phaseOverride?: OntogenesisPhase      // human-asserted phase, overriding the derived one
+  resolveSignals?: AbandonmentSignal[]  // signals acknowledged/handled — suppressed from the census
+  note?: string
+}
+export interface StewardshipState {
+  keeper: string | null
+  successor: string | null
+  phaseOverride: OntogenesisPhase | null
+  resolvedSignals: AbandonmentSignal[]
+  reviewedAt: string | null
+  note: string | null
+  stewarded: boolean
+}
+
+const propStr = (v: unknown): string | null => (typeof v === 'string' && v ? v : null)
+
+/** Read persisted stewardship decisions off a node's properties (what the census honors). */
+export function stewardshipOf(props: Record<string, unknown> | undefined): StewardshipState {
+  const p = props ?? {}
+  const resolvedSignals = String(p['gaia_resolved_signals'] ?? '').split(',').map((x) => x.trim()).filter(Boolean) as AbandonmentSignal[]
+  const keeper = propStr(p['gaia_keeper'])
+  return {
+    keeper,
+    successor: propStr(p['gaia_successor']),
+    phaseOverride: propStr(p['gaia_phase_override']) as OntogenesisPhase | null,
+    resolvedSignals,
+    reviewedAt: propStr(p['gaia_reviewed_at']),
+    note: propStr(p['gaia_steward_note']),
+    stewarded: Boolean(keeper || resolvedSignals.length || propStr(p['gaia_phase_override']) || propStr(p['gaia_reviewed_at'])),
+  }
+}
+
+/** Apply a steward's decision to a node (idempotent merge) via the graph's setNodeProperty. Returns the new state. */
+export function applyStewardship(
+  g: { getNode: (id: string) => { properties?: Record<string, unknown> } | undefined; setNodeProperty: (id: string, k: string, v: string) => void },
+  nodeId: string,
+  d: StewardDecision,
+  now: string,
+): StewardshipState | null {
+  const node = g.getNode(nodeId)
+  if (!node) return null
+  const prev = stewardshipOf(node.properties)
+  if (d.keeper !== undefined) g.setNodeProperty(nodeId, 'gaia_keeper', d.keeper)
+  if (d.successor !== undefined) g.setNodeProperty(nodeId, 'gaia_successor', d.successor)
+  if (d.phaseOverride) g.setNodeProperty(nodeId, 'gaia_phase_override', d.phaseOverride)
+  if (d.note !== undefined) g.setNodeProperty(nodeId, 'gaia_steward_note', d.note)
+  if (d.resolveSignals?.length) {
+    const merged = [...new Set([...prev.resolvedSignals, ...d.resolveSignals])]
+    g.setNodeProperty(nodeId, 'gaia_resolved_signals', merged.join(','))
+  }
+  g.setNodeProperty(nodeId, 'gaia_reviewed_at', now)
+  return stewardshipOf(g.getNode(nodeId)?.properties)
+}
+
 export const GAIA_ONTOLOGY = {
   name: 'GAIA Ontogenesis Stewardship Graph',
   ioes: 'Identity, Ontogenesis, Ecology, Stewardship',

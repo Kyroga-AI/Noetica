@@ -21,6 +21,8 @@ import { LabSurface } from '@/components/surfaces/LabSurface'
 import { CloudBrokerSurface } from '@/components/surfaces/CloudBrokerSurface'
 import { AlignmentSurface } from '@/components/surfaces/AlignmentSurface'
 import { AgentBuilderSurface } from '@/components/surfaces/AgentBuilderSurface'
+import { LibrarySurface } from '@/components/surfaces/LibrarySurface'
+import { GeoSurface } from '@/components/surfaces/GeoSurface'
 import { CalendarSurface } from '@/components/surfaces/CalendarSurface'
 import { JitsiSurface } from '@/components/surfaces/JitsiSurface'
 import { OfficeViewer } from '@/components/surfaces/OfficeViewer'
@@ -93,12 +95,14 @@ const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
   govern:       'Chat',
   tune:         'Chat',
   holographme:  'Chat',
+  geo:          'Chat',
   marketplace:  'Chat',
   computer:     'Chat',
   broker:       'Chat',
   alignment:    'Chat',
   agents:       'Chat',
   calendar:     'Chat',
+  library:      'Chat',
 }
 
 export function AppShell() {
@@ -1129,6 +1133,8 @@ export function AppShell() {
                   latency_ms: result.latency_ms,
                   ...(result.input_tokens !== undefined ? { input_tokens: result.input_tokens } : {}),
                   ...(result.output_tokens !== undefined ? { output_tokens: result.output_tokens } : {}),
+                  ...(result.method !== undefined ? { method: result.method } : {}),
+                  ...(result.grounded !== undefined ? { grounded: result.grounded } : {}),
                 },
                 steering_result: result.steering_applied,
               })
@@ -1628,6 +1634,7 @@ const surfaceIcons: { id: ActiveSurface; label: string; icon: React.ReactNode }[
   { id: 'govern',    label: 'Govern',       icon: <IconSm path="M8 2 2 5v3c0 3 2.5 5.5 6 6.5 3.5-1 6-3.5 6-6.5V5L8 2z" d2="M5.5 8l2 2 3.5-3.5" /> },
   { id: 'computer',     label: 'Computer Use', icon: <IconSm path="M1.5 3h13a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" d2="M5 15h6M8 12v3" /> },
   { id: 'holographme',  label: 'HolographMe',  icon: <IconSm path="M8 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM3 14c0-2.8 2.2-5 5-5s5 2.2 5 5" /> },
+  { id: 'geo',          label: 'Geo',          icon: <IconSm path="M8 1a5 5 0 0 0-5 5c0 3.5 5 9 5 9s5-5.5 5-9a5 5 0 0 0-5-5z" d2="M8 4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z" /> },
   { id: 'marketplace',  label: 'Marketplace',  icon: <IconSm path="M2 5h12l-1.5 7H3.5L2 5z" d2="M5 5V3.5a3 3 0 0 1 6 0V5" /> },
 ]
 
@@ -1715,6 +1722,8 @@ function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, work
   if (activeSurface === 'broker')       return <CloudBrokerSurface />
   if (activeSurface === 'alignment')    return <AlignmentSurface />
   if (activeSurface === 'agents')       return <AgentBuilderSurface />
+  if (activeSurface === 'library')      return <LibrarySurface />
+  if (activeSurface === 'geo')          return <GeoSurface />
   if (activeSurface === 'calendar')     return <CalendarSurface />
   if (activeSurface === 'jitsi')        return <JitsiSurface />
   if (activeSurface === 'docs')         return <OfficeViewer />
@@ -1801,6 +1810,7 @@ type RightPanelProps = {
 
 function RightPanel({ activeSurface, model, steering, thinkingBudget, temperature, maxTokens, workspaceMode, riskReadout, onSteeringChange, onThinkingBudgetChange, onTemperatureChange, onMaxTokensChange }: RightPanelProps) {
   if (activeSurface === 'notes')     return null
+  if (activeSurface === 'library')   return null
   if (activeSurface === 'workrooms') return null
   if (activeSurface === 'tune')      return null
   if (activeSurface === 'cowork')    return <CoworkPanel />

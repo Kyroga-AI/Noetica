@@ -494,7 +494,20 @@
         {
           "term": "cycle",
           "definition": "In a graph, a closed walk of length at least three whose vertices are distinct except that the last equals the first; a graph with no cycles is acyclic (a forest)."
-        }
+        },
+        {"term": "recurrence relation", "definition": "An equation defining each term of a sequence as a function of preceding terms (e.g. Fibonacci a_n = a_{n-1} + a_{n-2}); solved in closed form via characteristic equations or generating functions."},
+        {"term": "recurrence relation", "definition": "An equation defining each term of a sequence as a function of preceding terms (e.g. Fibonacci a_n = a_{n-1} + a_{n-2}); solved in closed form via characteristic equations or generating functions."},
+        {"term": "satisfiability", "definition": "A formula is satisfiable if there exists at least one truth assignment making it true; SAT is the canonical NP-complete problem."},
+        {"term": "mathematical induction", "definition": "Proof technique: establish base case P(0), then show P(k) → P(k+1) for all k ≥ 0; concludes P(n) for all n ≥ 0."},
+        {"term": "strong induction", "definition": "Assume P(0), P(1), ..., P(k) all hold, then prove P(k+1); equivalent in power to ordinary induction."},
+        {"term": "bijection", "definition": "A function that is both injective (one-to-one) and surjective (onto); establishes that two sets have the same cardinality."},
+        {"term": "Cantor's diagonalization", "definition": "Proof that the reals are uncountable: for any enumeration of reals, construct a real differing from the n-th real in the n-th decimal place."},
+        {"term": "modular arithmetic", "definition": "Arithmetic on residues mod n; a ≡ b (mod n) iff n | (a-b); forms the ring Z/nZ."},
+        {"term": "Euler's totient φ(n)", "definition": "Count of integers in [1,n] coprime to n; φ(p) = p-1 for prime p; φ(mn) = φ(m)φ(n) if gcd(m,n)=1."},
+        {"term": "pigeonhole principle", "definition": "If n+1 objects are placed into n boxes, at least one box contains ≥ 2 objects; generalized: if kn+1 objects in n boxes, some box has ≥ k+1."},
+        {"term": "graph isomorphism", "definition": "Graphs G and H are isomorphic if there is a bijection f: V(G)→V(H) preserving adjacency; not known to be in P or NP-complete."},
+        {"term": "Euler path/circuit", "definition": "Path/circuit visiting every edge exactly once; exists in undirected graph iff 0 (path) or 0 vertices (circuit) have odd degree."},
+        {"term": "planar graph", "definition": "Graph embeddable in the plane without edge crossings; by Euler's formula V - E + F = 2 for connected planar graphs."}
       ],
       "canon": [
         {

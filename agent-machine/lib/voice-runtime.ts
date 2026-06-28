@@ -122,3 +122,33 @@ export async function ensureVoiceSidecar(): Promise<boolean> {
 export function voiceFetch(p: string, init?: RequestInit): Promise<Response> {
   return fetch(`${BASE}${p}`, init)
 }
+
+// ─── In-app provisioning (P4.12) ────────────────────────────────────────────────────────────────────────
+// Installed-app users don't have the repo, so we run the provisioning STEPS inline (uv venv + coqui-tts) rather
+// than spawning scripts/provision-voice.sh. Background + status-polled. Requires `uv` on PATH (brew install uv).
+let _provision: { running: boolean; done: boolean; step: string; error: string } = { running: false, done: false, step: '', error: '' }
+export function voiceProvisionStatus(): { provisioned: boolean; running: boolean; done: boolean; step: string; error: string } {
+  return { provisioned: isVoiceProvisioned(), ..._provision }
+}
+export function provisionVoice(): { started: boolean; reason?: string } {
+  if (isVoiceProvisioned()) return { started: false, reason: 'already provisioned' }
+  if (_provision.running) return { started: false, reason: 'already running' }
+  _provision = { running: true, done: false, step: 'starting', error: '' }
+  const run = (cmd: string, args: string[]): Promise<number> => new Promise((resolve) => {
+    const p = spawn(cmd, args, { env: process.env, stdio: 'ignore' })
+    p.on('exit', (code) => resolve(code ?? 1)); p.on('error', () => resolve(127))
+  })
+  void (async () => {
+    try {
+      fs.mkdirSync(VOICE_DIR, { recursive: true })
+      if ((await run('/usr/bin/env', ['uv', '--version'])) !== 0) { _provision = { running: false, done: false, step: '', error: 'uv not found — run `brew install uv`, then retry' }; return }
+      void run('/usr/bin/env', ['brew', 'install', 'ffmpeg'])   // best-effort audio I/O; non-blocking
+      _provision.step = 'creating isolated Python 3.11 venv'
+      if ((await run('/usr/bin/env', ['uv', 'venv', path.join(VOICE_DIR, 'venv'), '--python', '3.11'])) !== 0) { _provision = { running: false, done: false, step: '', error: 'venv creation failed (is Python 3.11 available to uv?)' }; return }
+      _provision.step = 'installing coqui-tts (downloads torch — several GB)'
+      if ((await run('/usr/bin/env', ['uv', 'pip', 'install', '--python', VENV_PY, 'coqui-tts'])) !== 0) { _provision = { running: false, done: false, step: '', error: 'coqui-tts install failed' }; return }
+      _provision = { running: false, done: true, step: 'done', error: '' }
+    } catch (e) { _provision = { running: false, done: false, step: '', error: e instanceof Error ? e.message : 'provisioning failed' } }
+  })()
+  return { started: true }
+}

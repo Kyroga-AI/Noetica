@@ -48,9 +48,9 @@ export function epistemicOf(edgeKind: string): string {
 export function categoryFor(label: string): string {
   const l = label.toLowerCase()
   const has = (...ks: string[]) => ks.some((k) => l.includes(k))
-  if (has('topic', 'domain', 'glossary', 'concept', 'math', 'formula', 'function', 'variable', 'unit', 'physical', 'quantity', 'learningstate')) return 'learning'
+  if (has('topic', 'domain', 'glossary', 'concept', 'math', 'formula', 'function', 'variable', 'unit', 'physical', 'quantity', 'learningstate', 'academic', 'course')) return 'learning'
   if (has('document', 'chunk', 'record', 'source', 'evidence', 'episode', 'interaction', 'proof', 'semanticmemory', 'claim')) return 'docs'
-  if (has('artifact', 'feature', 'vector', 'model', 'provider', 'repo', 'tool', 'action', 'candidate', 'checkpoint', 'attention')) return 'technical'
+  if (has('artifact', 'feature', 'vector', 'model', 'provider', 'repo', 'tool', 'action', 'candidate', 'checkpoint', 'attention', 'code', 'module')) return 'technical'
   if (has('entity', 'canonical', 'person', 'org', 'role', 'trust', 'attest', 'decision', 'ledger', 'concordance', 'remediation', 'shacl')) return 'trust'
   if (has('session', 'dispatch', 'event', 'run', 'self', 'loc')) return 'deployment'
   return 'other'
@@ -68,6 +68,16 @@ function isProse(s: string): boolean {
   if (/[#>]|\.\.\./.test(s)) return true
   if (/[.;:,]\s/.test(s)) return true
   if (s.trim().split(/\s+/).length > 4) return true
+  return false
+}
+// Code / operator fragments that leak in as feature-atoms (") ==", "assert reverse_string(", "=> {"). They're
+// not knowledge — drop them from every lens so the graph shows concepts, not parser crumbs.
+function isSyntaxNoise(s: string): boolean {
+  const t = s.trim()
+  if (t.length < 2) return true
+  const letters = (t.match(/[a-z]/gi) ?? []).length
+  if (letters / t.length < 0.5) return true            // mostly operators/punctuation: ") ==", "=> {"
+  if (/[({[]\s*$|^\s*[)}\]]/.test(t)) return true       // dangling bracket: "assert foo(", ") =="
   return false
 }
 // A label that's a path or carries operational stopwords (self/ntca, /tmp/ntca prbe,
@@ -119,13 +129,14 @@ export function cleanLabel(n: GNode): string | null {
       .replace(/^[#>.\-\s]+/, '')
       .trim()
     const s = tidyTopicLabel(cleaned)
-    if (s && !isHashy(s) && !isProse(s)) return s.slice(0, 22)
+    if (s && !isHashy(s) && !isProse(s) && !isSyntaxNoise(s)) return s.slice(0, 22)
   }
   const last = tidyTopicLabel((n.id.split(':').pop() ?? '').replace(/-[0-9a-f]{4,}$/i, '').replace(/-/g, ' ').trim())
-  return last && !isHashy(last) && !isProse(last) ? last.slice(0, 22) : null
+  return last && !isHashy(last) && !isProse(last) && !isSyntaxNoise(last) ? last.slice(0, 22) : null
 }
 
 const VIEW_ROOTS: Record<string, (label: string) => boolean> = {
+  tech: (l) => /^Code/.test(l),                                       // the "Tech" lens — OUR codebase (CodeModule + IMPORTS)
   domain: (l) => l === 'Domain' || l === 'Topic' || l === 'GlossaryTerm',
   document: (l) => DOC_KINDS.test(l),
   memory: (l) => DOC_KINDS.test(l),                                   // the "Memory" lens — docs + remembered facts
@@ -135,7 +146,7 @@ const VIEW_ROOTS: Record<string, (label: string) => boolean> = {
 // Category lenses: show only nodes of one colour-category, ranked by degree. `tech` is
 // the ecosystem (repos / models / providers / tools) — what "Sociosphere" should mean,
 // not the memory-chunk soup of the document/chat lenses.
-const CATEGORY_VIEWS: Record<string, string> = { tech: 'technical', knowledge: 'learning' }
+const CATEGORY_VIEWS: Record<string, string> = { knowledge: 'learning' }   // tech is now a CodeModule root-lens (VIEW_ROOTS), not an embedding cluster
 
 export function selectSurface(allNodes: GNode[], allEdges: GEdge[], opts: { view?: string; limit?: number; root?: string } = {}): SurfaceResult {
   const limit = Math.min(120, Math.max(10, opts.limit ?? 34))
@@ -211,11 +222,24 @@ export function selectSurface(allNodes: GNode[], allEdges: GEdge[], opts: { view
       .slice().sort((a, b) => (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0) || Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0))
     const byLabel = new Map<string, GNode[]>()
     for (const n of ranked) { const l = n.labels[0] ?? 'node'; const arr = byLabel.get(l); if (arr) arr.push(n); else byLabel.set(l, [n]) }
+    // 'all' is a SUPERSET view — round-robin across kinds, but draw the meaningful kinds first (documents,
+    // entities, glossary, concepts) and feature-atom/telemetry noise last, so the cross-section reads as real
+    // knowledge rather than the highest-degree exhaust.
+    const labelPriority = (l: string): number => {
+      const x = l.toLowerCase()
+      if (/document|conversation|message|record|episode/.test(x)) return 0
+      if (/canonical|entity|person|org/.test(x)) return 1
+      if (/glossary|domain|topic/.test(x)) return 2
+      if (/concept|service|action/.test(x)) return 3
+      if (/feature|learningstate|candidate|attention/.test(x)) return 6   // noise-prone → last
+      return 4
+    }
+    const groups = [...byLabel.entries()].sort((a, b) => labelPriority(a[0]) - labelPriority(b[0])).map((e) => e[1])
     picked = []
     let progress = true
     while (picked.length < limit && progress) {
       progress = false
-      for (const arr of byLabel.values()) { const n = arr.shift(); if (n) { picked.push(n); progress = true; if (picked.length >= limit) break } }
+      for (const arr of groups) { const n = arr.shift(); if (n) { picked.push(n); progress = true; if (picked.length >= limit) break } }
     }
   }
 
