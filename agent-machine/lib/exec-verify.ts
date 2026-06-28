@@ -103,6 +103,8 @@ export const OPERATOR_API = `You have a verified Python library 'math_operators'
   ideal_gas(P,V,n,T,R)                           # PV=nRT (R=0.082057 default); pass three, get the fourth (others None)
   dilution(M1,V1,M2,V2)                          # M1V1=M2V2; pass three, get the fourth (others None)
   ph_from_concentration(h_conc)  /  concentration_from_ph(ph)  /  percent_yield(actual, theoretical)
+  expected_value(values, probs)  /  binomial_probability(n, k, p)  /  binomial_mean_sd(n, p)
+  sample_mean(values)  /  sample_sd(values, population)  /  combination_probability(fav_n, fav_k, total_n, total_k)
 Pick the operator, extract the arguments from the problem, and write a tiny program that imports from
 math_operators and prints ONLY the final answer value on the last line. If none fit, write a short correct program.`
 

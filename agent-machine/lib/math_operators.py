@@ -309,6 +309,40 @@ def percent_yield(actual: float, theoretical: float) -> float:
     return actual / theoretical * 100.0
 
 
+# ── statistics: distributions + descriptive (high_school_statistics) ──────────
+def expected_value(values: list, probs: list) -> float:
+    """E[X] = sum(value_i * prob_i) for a discrete random variable."""
+    return sum(v * p for v, p in zip(values, probs))
+
+
+def binomial_probability(n: int, k: int, p: float) -> float:
+    """P(X = k) for X ~ Binomial(n, p): C(n,k) * p**k * (1-p)**(n-k)."""
+    return math.comb(n, k) * (p ** k) * ((1 - p) ** (n - k))
+
+
+def binomial_mean_sd(n: int, p: float) -> tuple:
+    """(mean, standard deviation) of Binomial(n, p): mean=n*p, sd=sqrt(n*p*(1-p))."""
+    return (n * p, math.sqrt(n * p * (1 - p)))
+
+
+def sample_mean(values: list) -> float:
+    """Arithmetic mean of a sample."""
+    return sum(values) / len(values)
+
+
+def sample_sd(values: list, population: bool = False) -> float:
+    """Standard deviation. Sample (divide by n-1) by default; population (divide by n) if population=True."""
+    m = sum(values) / len(values)
+    denom = len(values) if population else len(values) - 1
+    return math.sqrt(sum((x - m) ** 2 for x in values) / denom)
+
+
+def combination_probability(favorable_n: int, favorable_k: int, total_n: int, total_k: int) -> float:
+    """Hypergeometric-style probability C(favorable_n,favorable_k)*... — here the simple ratio
+    C(favorable_n, favorable_k) / C(total_n, total_k) for 'probability of choosing k specific items'."""
+    return math.comb(favorable_n, favorable_k) / math.comb(total_n, total_k)
+
+
 if __name__ == '__main__':
     assert permutation_index('(1,2,5,4)(2,3)', 5) == 24
     assert finite_field_zeros([1, 0, 1], 2) == [1]
@@ -362,4 +396,11 @@ if __name__ == '__main__':
     assert abs(ph_from_concentration(1e-3) - 3.0) < 1e-9
     assert abs(concentration_from_ph(3) - 1e-3) < 1e-12
     assert percent_yield(8, 10) == 80.0
-    print('all math_operators unit tests PASS (', 24 + 19, 'operators )')
+    # statistics
+    assert abs(expected_value([1, 2, 3], [0.2, 0.5, 0.3]) - 2.1) < 1e-9
+    assert abs(binomial_probability(5, 2, 0.5) - 0.3125) < 1e-9
+    bm, bsd = binomial_mean_sd(10, 0.5); assert bm == 5.0 and abs(bsd - 1.5811) < 1e-3
+    assert sample_mean([2, 4, 6]) == 4.0
+    assert abs(sample_sd([2, 4, 6]) - 2.0) < 1e-9 and abs(sample_sd([2, 4, 6], population=True) - 1.63299) < 1e-4
+    assert abs(combination_probability(4, 2, 52, 2) - (6 / 1326)) < 1e-9
+    print('all math_operators unit tests PASS (', 43 + 6, 'operators )')
