@@ -84,7 +84,7 @@ import { validateToolCall, type ToolSchema, type ArgSpec } from './lib/constrain
 import { appendJsonl as appendEncrypted, readJsonl as readEncrypted, writeJson as writeEncryptedJson, readJson as readEncryptedJson } from './lib/at-rest.js'
 import { critique, bestOfTemps, type Candidate as CriticCandidate } from './lib/critic.js'
 import { programOfThought, operatorProgramOfThought, codeVerifyRepair } from './lib/exec-verify.js'
-import { isReasonLaneIntent, reasonLaneEnabled, reasonSCK, runReasonLane, REASON_RULE } from './lib/reason-lane.js'
+import { isReasonLaneIntent, reasonLaneEnabled, reasonSCK, runReasonLane, REASON_RULE, REASON_RULE_MCQ, looksLikeMCQ } from './lib/reason-lane.js'
 import { decideGrounding, type GroundingStatus } from './lib/grounding-signal.js'
 import { applyPreset, summarize as summarizePreset } from './lib/presets.js'
 import { applyEdit, editSummary } from './lib/apply-patch.js'
@@ -3639,23 +3639,30 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       if (!deliberated && useReasonLane) {
         try {
           const k = reasonSCK()
-          // Each sample = one full CoT generation of the problem + REASON_RULE, at sampling temp, NO
-          // retrieved context (graphContext/doc context were not assembled for this lane). This mirrors
-          // the bench askVote(`${base}${REASON_RULE}`, SC_K) invocation exactly.
-          const reasonPrompt = `${latestUserContent}${REASON_RULE}`
+          // SERVING turns are FREE-FORM (no A/B/C/D) by default — vote over normalized FINAL strings and
+          // return the winning sample's FULL TEXT (not a letter). Only an explicit-options turn (rare in
+          // /api/chat) routes to MCQ letter-voting. The bench keeps its own MCQ askVote path untouched.
+          const reasonMode = looksLikeMCQ(latestUserContent) ? 'mcq' as const : 'free' as const
+          const reasonRule = reasonMode === 'mcq' ? REASON_RULE_MCQ : REASON_RULE
+          // Each sample = one full CoT generation of the problem + the mode-appropriate rule, at sampling
+          // temp, NO retrieved context (graphContext/doc context were not assembled for this lane).
+          const reasonPrompt = `${latestUserContent}${reasonRule}`
           const sample = (idx: number) => generateOllamaText({
             model,
             messages: [{ role: 'user', content: reasonPrompt }],
             temperature: k <= 1 ? 0 : 0.7,   // temp-0 single draw when voting off; 0.7 for diverse SC samples
             numCtx: ollamaNumCtx,
           }).then((r) => r.content)
-          const rl = await runReasonLane(sample, k)
+          const rl = await runReasonLane(sample, k, { mode: reasonMode })
           if (rl.content.trim()) {
-            sse(res, 'deliberation', { deliberation: { critic: { action: 'accept', score: 1, agreement: rl.agree, posture: 'reason', reason: `no-retrieval CoT + self-consistency (K=${k}, agree=${rl.agree.toFixed(2)})` } } })
+            const consensusNote = rl.consensus
+              ? `self-consistency (K=${k}, agree=${rl.agree.toFixed(2)}, ${rl.agreeCount}/${rl.n})`
+              : `single CoT (K=${k}, no SC consensus — most-complete sample)`
+            sse(res, 'deliberation', { deliberation: { critic: { action: 'accept', score: 1, agreement: rl.agree, posture: 'reason', reason: `no-retrieval CoT + ${consensusNote}` } } })
             sse(res, 'delta', { delta: rl.content })
             fullContent += rl.content
             deliberated = true
-            console.log(`[critic] reason-lane CoT+SC K=${k} n=${rl.n} agree=${rl.agree.toFixed(2)} intent=${intentPlan.name}`)
+            console.log(`[critic] reason-lane CoT+SC mode=${rl.mode} K=${k} n=${rl.n} agree=${rl.agree.toFixed(2)} consensus=${rl.consensus} intent=${intentPlan.name}`)
           }
         } catch { /* reason lane best-effort — fall through to best-of-N+critic */ }
       }

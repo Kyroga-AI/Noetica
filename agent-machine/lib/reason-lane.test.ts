@@ -6,6 +6,8 @@ import {
   reasonSCK,
   runReasonLane,
   extractFinal,
+  extractLetter,
+  looksLikeMCQ,
   REASON_LANE_INTENTS,
   DEFAULT_SC_K,
 } from './reason-lane.js'
@@ -78,6 +80,25 @@ test('extractFinal pulls + normalizes the last FINAL line', () => {
   assert.equal(extractFinal('FINAL:   '), null)   // empty final → null (skips the vote)
 })
 
+// ── extractLetter (MCQ mode) ─────────────────────────────────────────────────────
+test('extractLetter pulls the A–D letter from the last FINAL line', () => {
+  assert.equal(extractLetter('reasoning...\nFINAL: B'), 'B')
+  assert.equal(extractLetter('FINAL: **(C)**'), 'C')          // tolerate bold + parens
+  assert.equal(extractLetter('FINAL: A\nwait\nFINAL: D'), 'D') // last final wins
+  assert.equal(extractLetter('FINAL: 42'), null)              // a number is not a letter → null
+  assert.equal(extractLetter('no marker'), null)
+  assert.equal(extractLetter(''), null)
+})
+
+// ── looksLikeMCQ (mode detection) ────────────────────────────────────────────────
+test('looksLikeMCQ detects enumerated A/B options, free-form turns are NOT MCQ', () => {
+  assert.equal(looksLikeMCQ('What is 2+2?\nA) 3\nB) 4\nC) 5\nD) 6'), true)
+  assert.equal(looksLikeMCQ('Pick one.\nA. apple\nB. banana'), true)
+  assert.equal(looksLikeMCQ('Compute the integral of x^2 from 0 to 3'), false)   // free-form serving turn
+  assert.equal(looksLikeMCQ('A reasonable approach is to factor first'), false)  // prose "A " ≠ option
+  assert.equal(looksLikeMCQ(''), false)
+})
+
 // ── (b) Composition: cragVote majority, NO retrieval call ────────────────────────
 test('runReasonLane returns the self-consistency majority answer WITHOUT any retrieval call', async () => {
   let retrievalCalls = 0
@@ -102,15 +123,54 @@ test('runReasonLane returns the self-consistency majority answer WITHOUT any ret
   assert.equal(r.n, 4, 'early-stopped after 4 of 5 draws')
   assert.match(r.content, /FINAL: 7/, 'returns the full text of a winning sample')
   assert.equal(retrievalCalls, 0, 'reason lane must NOT call retrieval')
+  // (a) Free-form plurality → consensus=true with the agreeing-sample count.
+  assert.equal(r.mode, 'free', 'serving default is free-form')
+  assert.equal(r.consensus, true, 'a real plurality (3 of the drawn samples) means consensus')
+  assert.equal(r.agreeCount, 3, 'three samples voted for the winning answer "7"')
 })
 
-test('runReasonLane with K=1 collapses to a single draw (voting off)', async () => {
+test('runReasonLane with K=1 collapses to a single draw (voting off), consensus=false', async () => {
   let draws = 0
-  const sample = () => { draws++; return Promise.resolve('FINAL: alpha') }
+  const sample = () => { draws++; return Promise.resolve('reasoning...\nFINAL: alpha') }
   const r = await runReasonLane(sample, 1)
   assert.equal(r.choice, 'alpha')
   assert.equal(draws, 1)
   assert.match(r.content, /alpha/)
+  assert.equal(r.consensus, false, 'K=1 is a single CoT, not a vote → no consensus')
+  assert.equal(r.n, 1)
+  assert.equal(r.mode, 'free')
+})
+
+// (b) All-distinct free-form samples → NO plurality → fall back to the most-complete single CoT.
+test('runReasonLane: all-distinct free-form answers fall back to the longest sample, consensus=false', async () => {
+  const samples = [
+    'short\nFINAL: 3',
+    'a much longer chain of reasoning with more detail and intermediate work\nFINAL: 4',
+    'mid length reasoning\nFINAL: 5',
+  ]
+  const sample = (idx: number) => Promise.resolve(samples[idx]!)
+  const r = await runReasonLane(sample, 3)
+  assert.equal(r.consensus, false, 'no answer repeated → not a real consensus')
+  assert.equal(r.agreeCount, 1, 'plurality is just one vote (degenerate)')
+  // Must NOT return empty/garbage — returns the most-complete (longest) CoT.
+  assert.ok(r.content.trim() !== '', 'never returns empty on no-consensus')
+  assert.match(r.content, /FINAL: 4/, 'returns the longest / most-complete sample')
+  assert.equal(r.mode, 'free')
+})
+
+// (c) MCQ mode still letter-votes when discrete options are presented.
+test('runReasonLane mode=mcq votes over A–D letters', async () => {
+  const samples = [
+    'I think...\nFINAL: B',
+    'reasoning...\nFINAL: C',
+    'more reasoning...\nFINAL: B',
+  ]
+  const sample = (idx: number) => Promise.resolve(samples[idx]!)
+  const r = await runReasonLane(sample, 3, { mode: 'mcq' })
+  assert.equal(r.choice, 'B', 'majority letter wins (B: 2 of 3)')
+  assert.equal(r.mode, 'mcq')
+  assert.equal(r.consensus, true)
+  assert.equal(r.agreeCount, 2)
 })
 
 test('runReasonLane uses the temp-0 fallback when no sample yields a FINAL line', async () => {
