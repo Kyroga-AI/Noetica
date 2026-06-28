@@ -43,6 +43,14 @@ async function waitUp(): Promise<void> {
   throw new Error('server did not start')
 }
 const kill = (p: ChildProcess) => new Promise<void>((res) => { p.once('exit', () => res()); p.kill('SIGKILL') })
+// Graceful shutdown: send SIGTERM so the server's teardown runs (it persists state — saveLearningState/
+// recordTrendSnapshot — before exit; server.ts:8634). SIGKILL skips that, which raced the lazy graph
+// flush and was the real source of the restart-persistence flake. Fall back to SIGKILL if it won't exit.
+const killGraceful = (p: ChildProcess) => new Promise<void>((res) => {
+  const hard = setTimeout(() => { try { p.kill('SIGKILL') } catch { /* already gone */ } }, 10_000)
+  p.once('exit', () => { clearTimeout(hard); res() })
+  p.kill('SIGTERM')
+})
 
 after(() => { try { fs.rmSync(STORE, { recursive: true, force: true }) } catch { /* ignore */ } })
 
@@ -59,7 +67,7 @@ test('RocksDB backend persists a goal across a full server restart', async (t) =
   // give the async RocksDB write chain time to flush to disk before we kill the server. A fixed 500ms raced the
   // flush on slow CI runners (the flake this replaces) — be generous; correctness over speed for a restart test.
   await new Promise((r) => setTimeout(r, 1500))
-  await kill(s1)
+  await killGraceful(s1)
 
   // confirm the store materialised on disk
   assert.ok(fs.existsSync(path.join(STORE, 'sociosphere-primary.rocks')), '.rocks dir created')
