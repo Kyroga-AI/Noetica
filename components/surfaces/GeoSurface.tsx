@@ -24,10 +24,24 @@ const W = 720, H = 360
 const projX = (lon: number) => ((lon + 180) / 360) * W
 const projY = (lat: number) => ((90 - lat) / 180) * H
 
+// severity → MARKER SIZE (ordinal urgency); kept for the size-legend.
 const SEV: Record<string, { c: string; r: number }> = {
   info: { c: '#3b82f6', r: 3.5 }, low: { c: '#22c55e', r: 4 }, medium: { c: '#eab308', r: 4.5 },
   high: { c: '#f97316', r: 5 }, critical: { c: '#ef4444', r: 6 },
 }
+const sevR = (s: string): number => (SEV[s] ?? SEV.info).r
+// OFIF layer group → COLOR (categorical hue) + label. The primary field-intelligence dimension
+// (orion-field-intelligence OrionLayerGroup); markers are hue-coded by layer, size-coded by severity.
+const LAYER: Record<string, { c: string; label: string }> = {
+  natural_hazard: { c: '#ef4444', label: 'natural hazard' },
+  facility_asset: { c: '#3b82f6', label: 'facility / asset' },
+  cyber_exposure: { c: '#a855f7', label: 'cyber exposure' },
+  field_report:   { c: '#14b8a6', label: 'field report' },
+  fused_incident: { c: '#f97316', label: 'fused incident' },
+  gated_disabled: { c: '#64748b', label: 'gated (disabled)' },
+  unknown:        { c: '#94a3b8', label: 'unknown' },
+}
+const layerOf = (g: string) => LAYER[g] ?? LAYER.unknown
 
 // Rough continent outlines in [lon,lat] — recognizable reference only, NOT cartographically precise.
 const CONTINENTS: Array<[number, number][]> = [
@@ -45,6 +59,8 @@ export function GeoSurface() {
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
   const [sel, setSel] = useState<Marker | null>(null)
+  const [hidden, setHidden] = useState<Set<string>>(new Set())   // OFIF layer groups toggled off
+  const toggleLayer = (g: string) => setHidden((h) => { const n = new Set(h); n.has(g) ? n.delete(g) : n.add(g); return n })
 
   const loadGeo = useCallback(async (): Promise<GeoResp | null> => {
     const r = await fetch(amUrl('/api/graph/geo'))
@@ -96,23 +112,44 @@ export function GeoSurface() {
         <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ background: 'var(--color-background-primary)' }}>
           {CONTINENTS.map((c, i) => <path key={i} d={polyPath(c)} fill="var(--color-background-tertiary)" stroke="var(--color-border-secondary)" strokeWidth={0.5} />)}
           {graticule.map((l, i) => <line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke="var(--color-border-secondary)" strokeWidth={l.major ? 0.8 : 0.4} strokeDasharray={l.major ? '' : '2 3'} opacity={0.6} />)}
-          {markers.map((m) => {
-            const s = SEV[m.severity] ?? SEV.info
+          {markers.filter((m) => !hidden.has(m.layerGroup)).map((m) => {
+            const r = sevR(m.severity), col = layerOf(m.layerGroup).c
             const x = projX(m.coordinates[0]), y = projY(m.coordinates[1])
             return (
               <g key={m.id} onClick={() => setSel(m)} style={{ cursor: 'pointer' }}>
-                <circle cx={x} cy={y} r={s.r} fill={s.c} fillOpacity={0.75} stroke="#fff" strokeWidth={0.8} />
-                {sel?.id === m.id && <circle cx={x} cy={y} r={s.r + 3} fill="none" stroke={s.c} strokeWidth={1.2} />}
-                <title>{m.title} · {m.severity}</title>
+                <circle cx={x} cy={y} r={r} fill={col} fillOpacity={0.78} stroke="#fff" strokeWidth={0.8} />
+                {sel?.id === m.id && <circle cx={x} cy={y} r={r + 3} fill="none" stroke={col} strokeWidth={1.2} />}
+                <title>{m.title} · {layerOf(m.layerGroup).label} · {m.severity}</title>
               </g>
             )
           })}
         </svg>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-3 text-[10px] text-[var(--color-text-tertiary)]">
+      {/* OFIF layer groups — click to filter. Hue = layer, size = severity. */}
+      <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px]">
+        <span className="text-[var(--color-text-tertiary)]">layers:</span>
+        {[...new Set(markers.map((m) => m.layerGroup))].sort().map((g) => {
+          const off = hidden.has(g), n = markers.filter((m) => m.layerGroup === g).length
+          return (
+            <button key={g} onClick={() => toggleLayer(g)} title={off ? 'show' : 'hide'}
+              className="flex items-center gap-1 rounded-full border px-1.5 py-0.5 transition-opacity"
+              style={{ borderColor: 'var(--color-border-secondary)', opacity: off ? 0.4 : 1 }}>
+              <span className="inline-block h-2 w-2 rounded-full" style={{ background: layerOf(g).c }} />
+              <span className="text-[var(--color-text-secondary)]">{layerOf(g).label}</span>
+              <span className="text-[var(--color-text-tertiary)]">{n}</span>
+            </button>
+          )
+        })}
+        {markers.length === 0 && <span className="text-[var(--color-text-tertiary)]">—</span>}
+      </div>
+      {/* severity → marker size */}
+      <div className="mt-2 flex flex-wrap items-center gap-3 text-[10px] text-[var(--color-text-tertiary)]">
+        <span>severity:</span>
         {Object.entries(SEV).map(([k, v]) => (
-          <span key={k} className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full" style={{ background: v.c }} />{k}</span>
+          <span key={k} className="flex items-center gap-1">
+            <span className="inline-block rounded-full bg-[var(--color-text-tertiary)]" style={{ width: v.r * 1.6, height: v.r * 1.6 }} />{k}
+          </span>
         ))}
       </div>
 
