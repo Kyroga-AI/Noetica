@@ -89,6 +89,7 @@ import { decideGrounding, type GroundingStatus } from './lib/grounding-signal.js
 import { applyPreset, summarize as summarizePreset } from './lib/presets.js'
 import { applyEdit, editSummary } from './lib/apply-patch.js'
 import { classifyComplexity as classifyComplexityPosture } from './lib/complexity-discipline.js'
+import { runSearchVerify, searchVerifyEnabled, candidatePrompt as searchVerifyPrompt, type VerifyResult } from './lib/search-verify.js'
 import { detectGoalIntent, slotFill, buildGoalContext, getActiveGoal, listGoals, saveGoal, type Goal } from './lib/goal-model.js'
 import { assessAgainstGraph } from './lib/pln-judgment.js'
 import { saveCheckpoint, listCheckpoints, getCheckpoint, buildResumeMessages } from './lib/checkpoint-model.js'
@@ -3541,7 +3542,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     // classify replayClass="exact" instead of the generated-tail "best-effort". Stays
     // undefined for nondeterministic lanes (reason-lane CoT+SC, cold programOfThought,
     // best-of-N), which correctly remain best-effort.
-    let verifiedMethod: 'operator-compute' | 'code-verify' | undefined
+    let verifiedMethod: 'operator-compute' | 'code-verify' | 'search-verify' | undefined
     if (provider === 'ollama') {
       // ── Local Ollama path (primary) ──────────────────────────────────────────
       type OllamaContentPart =
@@ -3687,6 +3688,76 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
             console.log(`[critic] reason-lane CoT+SC mode=${rl.mode} K=${k} n=${rl.n} agree=${rl.agree.toFixed(2)} consensus=${rl.consensus} intent=${intentPlan.name}`)
           }
         } catch { /* reason lane best-effort — fall through to best-of-N+critic */ }
+      }
+
+      // ── Search-verify lane: generate-and-verify for the NP-shaped posture ────────────────────────
+      // For `search-verify` turns (find/construct/smallest/largest/optimal/counterexample/such-that),
+      // verifying a candidate is CHEAPER and more trustworthy than generating it (the verification ≠
+      // generation lever the moat doctrine names). Plain best-of-N votes over guesses with NO verify;
+      // this lane GENERATES a CoT candidate, then VERIFIES it against the stated constraints and
+      // REGENERATES on failure (verify-guided retry). Two verify modes: EXECUTABLE (write a tiny check
+      // that plugs the candidate back into the constraints and runs it — a PASS is deterministic ⇒
+      // exact) and MODEL-judged (YES/NO fallback ⇒ best-effort). A verified-executable candidate sets
+      // verifiedMethod='search-verify' so the tail evidence emit classifies replayClass="exact"
+      // (mirrors operator-compute / code-verify). Ordering: operator → reason-lane → THIS → best-of-N.
+      // Exception-safe: any failure falls through to best-of-N; an unverified candidate never blocks
+      // the turn (returned with verified:false). NOETICA_SEARCH_VERIFY=0 disables (default ON — it only
+      // adds a verify step to a posture that today has none).
+      if (!deliberated && searchVerifyEnabled()
+          && routerDecision.task !== 'chat' && classifyComplexityPosture(latestUserContent).posture === 'search-verify') {
+        try {
+          const svGen = (p: string, t: number) => generateOllamaText({ model, messages: [{ role: 'user', content: p }], temperature: t, numCtx: ollamaNumCtx }).then((r) => r.content)
+          // Verify a candidate: prefer an EXECUTABLE check (deterministic ⇒ exact); fall back to a
+          // MODEL-judged YES/NO (best-effort). Returns structured flags only — verify prose stays out
+          // of evidence. Errors → treated as a non-fatal miss by runSearchVerify.
+          const svVerify = async (candidate: string, question: string): Promise<VerifyResult> => {
+            // EXECUTABLE: ask for a tiny Python check that prints exactly PASS or FAIL by plugging the
+            // candidate back into the stated constraints. Trust it only when it cleanly prints one marker.
+            try {
+              const checkPrompt = `Write a tiny self-contained Python 3 program that CHECKS whether a candidate answer satisfies ALL the constraints of the problem below. Plug the candidate in and verify it. Print EXACTLY "PASS" if it satisfies every constraint, otherwise print EXACTLY "FAIL". Print nothing else.\n\nProblem: ${question}\n\nCandidate answer: ${candidate}\n\nReturn ONLY one \`\`\`python code block.`
+              const text = await svGen(checkPrompt, 0.1)
+              const m = text.match(/```(?:python|py)?\s*([\s\S]*?)```/i)
+              const code = m && m[1] ? m[1].trim() : null
+              if (code) {
+                const out = await executeCode('python', code)
+                const hasPass = /\bPASS\b/.test(out)
+                const hasFail = /\bFAIL\b/.test(out)
+                const clean = !/\b(Traceback|SyntaxError|NameError|TypeError|ImportError|ModuleNotFoundError|Error:)\b/.test(out)
+                if (clean && (hasPass !== hasFail)) {
+                  return { pass: hasPass, mode: 'executable', reason: hasPass ? undefined : 'failed the executable constraint check' }
+                }
+              }
+            } catch { /* executable verify unavailable — fall back to model-judged */ }
+            // MODEL-judged fallback (best-effort).
+            try {
+              const judgePrompt = `Does the candidate answer satisfy ALL constraints of the problem? Answer with exactly "YES" or "NO" on the first line, then one short sentence of why.\n\nProblem: ${question}\n\nCandidate: ${candidate}`
+              const verdict = await svGen(judgePrompt, 0.1)
+              const yes = /^\s*\**\s*yes\b/i.test(verdict)
+              return { pass: yes, mode: 'model', reason: yes ? undefined : verdict.split(/\r?\n/).slice(0, 2).join(' ').slice(0, 300) }
+            } catch {
+              return { pass: false, mode: 'model', reason: 'verification unavailable' }
+            }
+          }
+          const sv = await runSearchVerify({
+            question: latestUserContent,
+            sample: (idx, priorFailure) => svGen(searchVerifyPrompt(latestUserContent, priorFailure), idx === 0 ? 0.4 : 0.7),
+            verify: svVerify,
+            maxAttempts: 3,
+          })
+          if (sv && sv.content.trim()) {
+            const note = sv.verified
+              ? `verified candidate (${sv.verifyMode}, ${sv.attempts} attempt${sv.attempts > 1 ? 's' : ''})`
+              : `best unverified candidate (${sv.attempts} attempts, no candidate verified)`
+            sse(res, 'deliberation', { deliberation: { critic: { action: sv.verified ? 'accept' : 'clarify', score: sv.verified ? 1 : 0.5, agreement: 1, posture: 'search-verify', reason: `generate-and-verify: ${note}` } } })
+            sse(res, 'delta', { delta: sv.content })
+            fullContent += sv.content
+            deliberated = true
+            // Only an EXECUTABLE pass is deterministic/exact; a model-judged pass or an unverified
+            // candidate stays best-effort (verifiedMethod left undefined).
+            if (sv.verified && sv.verifyMode === 'executable') verifiedMethod = 'search-verify'
+            console.log(`[critic] search-verify verified=${sv.verified} mode=${sv.verifyMode} attempts=${sv.attempts}`)
+          }
+        } catch { /* search-verify best-effort — fall through to best-of-N+critic */ }
       }
 
       // Code-posture verify-repair: for self-contained "write code" tasks, generate a
