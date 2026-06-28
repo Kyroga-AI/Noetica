@@ -155,7 +155,17 @@ def main():
     if DEPTS:
         slugs = [s for s in slugs if dept(s) in DEPTS]
     done = done_set()
+    # SHARDING: OCW_SHARD="i/N" → this worker owns catalog positions {i, i+N, i+2N, …}. Shard the STATIC catalog
+    # by POSITION (all workers agree on it) BEFORE filtering done — sharding the per-worker done-filtered queue is
+    # NOT globally disjoint, because workers start with different done-snapshots → different queues → the same
+    # course lands on different stride slots → collision. Position-sharding the static catalog is collision-free.
+    shard = os.environ.get('OCW_SHARD', '')
+    if shard:
+        si, sn = (int(x) for x in shard.split('/'))
+        slugs = [s for idx, s in enumerate(slugs) if idx % sn == si]
     queue = [s for s in slugs if s not in done]
+    if shard:
+        print(f'# shard {si}/{sn} — owns {len(slugs)} catalog slots, {len(queue)} still to capture', flush=True)
     print(f'# ocw-resource-capture — {len(slugs)} catalog · {len(done)} done · {len(queue)} queued · → {GCS}', flush=True)
     n = 0
     for slug in queue:

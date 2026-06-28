@@ -45,7 +45,15 @@ function load(): void {
           .map((c: { name: string; form: string }) => ({ name: c.name, form: c.form }))
         TOPICS!.set(tk, { domain, topic: t.topic, level: String(t.level ?? ''), eqs })
         for (const g of t.glossary ?? []) {
-          if (g.term && g.definition) { const k = norm(g.term); if (!DEFS!.has(k)) DEFS!.set(k, { def: String(g.definition), domain, topic: t.topic }) }
+          if (g.term && g.definition) {
+            const def = { def: String(g.definition), domain, topic: t.topic }
+            const k = norm(g.term)
+            if (!DEFS!.has(k)) DEFS!.set(k, def)
+            // Strip parenthetical abbreviations and trailing symbols so "molarity (M)" → "molarity",
+            // "K_a" → "ka", "pH" → "ph" — multi-word normalized keys would never match single-word questions.
+            const kBase = norm(g.term.replace(/\s*\([^)]*\)/g, '').replace(/\s*\[.*?\]/g, '').trim())
+            if (kBase && kBase !== k && !DEFS!.has(kBase)) DEFS!.set(kBase, def)
+          }
         }
       }
     }
@@ -118,12 +126,41 @@ export function canonBridges(term: string): string[] {
   return BRIDGES!.get(norm(term)) ?? []
 }
 
+// Expand standard math notation to canonical English so S_5, Z_11, D_4 etc. match canon terms.
+// Without this, questions using group/ring notation return zero entities (nothing to ground on).
+function expandNotation(text: string): string {
+  return text
+    .replace(/\bS_?(\d+)\b/g, 'symmetric group S_$1')        // S_5 → symmetric group
+    .replace(/\bA_?(\d+)\b/g, 'alternating group A_$1')       // A_4 → alternating group
+    .replace(/\bD_?(\d+)\b/g, 'dihedral group D_$1')          // D_6 → dihedral group
+    .replace(/\bZ_(\d+)\b/g, 'cyclic group Z_$1')             // Z_11 → cyclic group
+    .replace(/\bGF\((\d+)\)/g, 'finite field GF($1)')          // GF(11) → finite field
+    .replace(/\bF_(\d+)\b/g, 'finite field F_$1')             // F_p → finite field
+    .replace(/\bGL_?\((\d+)\)/g, 'general linear group GL($1)') // GL(n) → general linear group
+    .replace(/\bSL_?\((\d+)\)/g, 'special linear group SL($1)') // SL(n) → special linear group
+    .replace(/\bZ\/(\d+)Z\b/g, 'integers modulo $1')          // Z/nZ → integers modulo n
+}
+
 /** The canon glossary terms that appear in `text` (the entities to ground), longest/most-specific first. */
 export function canonEntities(text: string, max = 8): CanonEntity[] {
   if (!DEFS) load()
-  const padded = ` ${norm(text)} `
+  const padded = ` ${norm(expandNotation(text))} `
   const words = new Set(padded.trim().split(' '))
-  const present = (k: string): boolean => (k.includes(' ') ? padded.includes(` ${k} `) : (k.length >= 4 && words.has(k)))
+  // Plural/suffix matching for single-word terms: "group" matches "groups", "ring" matches "rings",
+  // "subgroup" matches "subgroups". Without this, MMLU questions consistently use plurals while the
+  // canon stores singular forms — causing silent ungrounded routing for well-covered topics.
+  const wordMatchesTerm = (k: string): boolean => {
+    if (words.has(k)) return true
+    for (const suffix of ['s', 'es', 'ies']) {
+      if (words.has(k + suffix)) return true
+      if (suffix === 'ies' && k.endsWith('y') && words.has(k.slice(0, -1) + 'ies')) return true
+    }
+    return false
+  }
+  const presentMulti = (k: string): boolean =>
+    padded.includes(` ${k} `) || padded.includes(` ${k}s `) || padded.includes(` ${k}es `) ||
+    (k.endsWith('y') && padded.includes(` ${k.slice(0, -1)}ies `))
+  const present = (k: string): boolean => k.includes(' ') ? presentMulti(k) : (k.length >= 3 && wordMatchesTerm(k))
   const hits: CanonEntity[] = []
   const seen = new Set<string>()
   for (const [k, d] of DEFS!) {

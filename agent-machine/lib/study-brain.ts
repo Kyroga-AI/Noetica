@@ -15,6 +15,7 @@ import { termSet } from './text-normalize.js'
 import { decodeVec, l2norm } from './brain-vec.js'
 import { decryptLine } from './at-rest.js'
 import { academicBrainDir } from './brain-home.js'
+import { sanitizeRetrieved } from './rag-trust.js'
 
 const MAX = Number(process.env['STUDY_BRAIN_CAP'] || 30000)              // per-field cap
 const GLOBAL_MAX = Number(process.env['STUDY_BRAIN_GLOBAL_CAP'] || 250000) // total resident across ALL fields
@@ -59,7 +60,7 @@ function loadField(field: string): Chunk[] {
   const rest: Chunk[] = []
   const mk = (o: { text?: string; slug?: string; vec?: string; dims?: number }, material: string, fn: string): Chunk => {
     const vec = decodeVec(o.vec!, o.dims || 768)
-    return { text: o.text!, slug: o.slug || fn, field, material, vec, norm: l2norm(vec) }
+    return { text: sanitizeRetrieved(o.text!).clean, slug: o.slug || fn, field, material, vec, norm: l2norm(vec) }
   }
   if (cap > 0 && fs.existsSync(dir)) {
     for (const fn of fs.readdirSync(dir).filter((f) => f.endsWith('.jsonl'))) {

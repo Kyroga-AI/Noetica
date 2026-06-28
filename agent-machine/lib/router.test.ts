@@ -1,5 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+import os from 'node:os'
 import { buildRouterDecision, classifyTask, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider, bestWorkhorse, preferredCoderForRam } from './router.js'
 
 // The full local model inventory — used to simulate "everything installed".
@@ -195,14 +196,32 @@ test('bestWorkhorse prefers a qwen3 when the family is pulled, else the fallback
   assert.equal(bestWorkhorse(['qwen2.5:7b'], 'qwen2.5:7b'), 'qwen2.5:7b') // no qwen3 pulled → fallback
 })
 
-test('general/reasoning/chat/writing/research routes upgrade to qwen3 when it is pulled', () => {
-  for (const task of ['general', 'reasoning', 'writing', 'research', 'chat'] as const) {
+// reasoning is the HEAVY lane (→ bestWorkhorse): the workhorse ladder always offers qwen3:8b as its floor,
+// so a pulled qwen3 wins on EVERY box, regardless of RAM.
+test('reasoning upgrades to qwen3 on any box when it is pulled (heavy lane → workhorse)', () => {
+  const d = buildRouterDecision({
+    requestId: 'r', content: 'anything', ollamaAvailable: true,
+    availableModels: ['qwen3:8b', 'qwen2.5:7b', 'deepseek-r1:8b', 'llama3.2:3b'],
+    hasAnthropicKey: false, hasOpenAIKey: false, taskOverride: 'reasoning',
+  })
+  assert.match(d.resolvedModel, /^qwen3/, `reasoning should route to qwen3 when available, got ${d.resolvedModel}`)
+})
+
+// Interactive lanes (chat/general/writing/research) are the latency-sensitive tier (→ bestResponsive). Since
+// 91c7c9b, qwen3:8b (~5GB) is only kept warm where there's RAM for it (bestResponsive gates it behind
+// ramGb>=12); on smaller boxes the responsive tier deliberately stays on the qwen2.5 floor so time-to-answer
+// doesn't regress. So this assertion is RAM-gated rather than fixed — it tests BOTH branches of the tiering
+// (mirrors the env-robust guard on preferredCoderForRam below). Keep the 12GB threshold in sync with bestResponsive.
+test('interactive lanes upgrade to qwen3 only where RAM allows; small boxes keep the qwen2.5 floor for latency', () => {
+  const ramGb = os.totalmem() / 1e9
+  for (const task of ['general', 'writing', 'research', 'chat'] as const) {
     const d = buildRouterDecision({
       requestId: 'r', content: 'anything', ollamaAvailable: true,
       availableModels: ['qwen3:8b', 'qwen2.5:7b', 'deepseek-r1:8b', 'llama3.2:3b'],
       hasAnthropicKey: false, hasOpenAIKey: false, taskOverride: task,
     })
-    assert.match(d.resolvedModel, /^qwen3/, `${task} should route to a qwen3 model when available, got ${d.resolvedModel}`)
+    if (ramGb >= 12) assert.match(d.resolvedModel, /^qwen3/, `${task} should upgrade to qwen3 on a >=12GB box, got ${d.resolvedModel}`)
+    else assert.equal(d.resolvedModel, 'qwen2.5:7b', `${task} should stay on the qwen2.5 floor on a <12GB box for latency, got ${d.resolvedModel}`)
   }
 })
 

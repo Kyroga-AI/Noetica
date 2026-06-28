@@ -42,6 +42,8 @@ export interface SymbolQuery {
   seeds: string[]                   // the expanded retrieval seeds: symbols + their genus + bridges (the PPR seeds)
   queries: string[]                 // ready-to-embed query strings (symbol-grounded, not literal text)
   grounding: string                 // canon defs + equations + is-a chain to inject alongside retrieved chunks
+  grounding_status: import('./canon-route.js').GroundingStatus  // 'ungrounded' = nothing in canon (log/gate downstream)
+  ungrounded_candidates: string[]   // noun phrases that looked like domain concepts but missed the canon
 }
 
 /**
@@ -78,7 +80,7 @@ export function symbolQuery(question: string, extraHops = true): SymbolQuery {
     ? [...symbols.map((s) => `${s} ${canonAncestors(s).slice(0, 2).join(' ')}`.trim()),
        seeds.slice(0, 8).join(' ')]
     : [question]                                                     // no canon symbols → fall back to literal
-  return { symbols, grounded, commonsenseEdges, seeds, queries: [...new Set(queries)].filter(Boolean), grounding: route.grounding }
+  return { symbols, grounded, commonsenseEdges, seeds, queries: [...new Set(queries)].filter(Boolean), grounding: route.grounding, grounding_status: route.grounding_status, ungrounded_candidates: route.ungrounded_candidates }
 }
 
 // CLI self-test:  npx tsx lib/symbol-query.ts "Calculate the angular momentum of a wheel"

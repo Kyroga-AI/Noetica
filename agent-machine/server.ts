@@ -84,9 +84,13 @@ import { runAgentLoop, type ProviderAdapter } from './lib/agent-loop.js'
 import { validateToolCall, type ToolSchema, type ArgSpec } from './lib/constrained-decode.js'
 import { appendJsonl as appendEncrypted, readJsonl as readEncrypted, writeJson as writeEncryptedJson, readJson as readEncryptedJson } from './lib/at-rest.js'
 import { critique, bestOfTemps, type Candidate as CriticCandidate } from './lib/critic.js'
-import { programOfThought, codeVerifyRepair } from './lib/exec-verify.js'
+import { programOfThought, operatorProgramOfThought, codeVerifyRepair } from './lib/exec-verify.js'
+import { isReasonLaneIntent, reasonLaneEnabled, reasonSCK, runReasonLane, REASON_RULE, REASON_RULE_MCQ, looksLikeMCQ } from './lib/reason-lane.js'
+import { decideGrounding, type GroundingStatus } from './lib/grounding-signal.js'
+import { applyPreset, summarize as summarizePreset } from './lib/presets.js'
 import { applyEdit, editSummary } from './lib/apply-patch.js'
 import { classifyComplexity as classifyComplexityPosture } from './lib/complexity-discipline.js'
+import { runSearchVerify, searchVerifyEnabled, candidatePrompt as searchVerifyPrompt, type VerifyResult } from './lib/search-verify.js'
 import { detectGoalIntent, slotFill, buildGoalContext, getActiveGoal, listGoals, saveGoal, type Goal } from './lib/goal-model.js'
 import { assessAgainstGraph } from './lib/pln-judgment.js'
 import { saveCheckpoint, listCheckpoints, getCheckpoint, buildResumeMessages } from './lib/checkpoint-model.js'
@@ -188,6 +192,31 @@ const GOVERNANCE_RING_SIZE = 100
 // Persist the ring to disk so the Govern surface's audit trail survives a relaunch —
 // it was in-memory only, so Govern was always empty after restart even after chatting.
 const GOVERNANCE_FILE = path.join(os.homedir(), '.noetica', 'governance.json')
+
+// Locate the directory holding the verified-operator library (lib/math_operators.py). It is a
+// .py SOURCE file (not compiled/bundled), so it lives in the agent-machine source tree regardless
+// of whether we run via tsx (server.ts) or the esbuild bundle (dist/server.js). Probe the layouts
+// relative to this module, then fall back to cwd-based guesses; cache the first that actually holds
+// math_operators.py. Returns null if not found (operator routing then cleanly abstains → cold PoT).
+let _mathOpLibDir: string | null | undefined
+function mathOperatorLibDir(): string | null {
+  if (_mathOpLibDir !== undefined) return _mathOpLibDir
+  // math_operators.py is a SOURCE .py file (never bundled), so it lives in agent-machine/lib.
+  // The server is launched from the agent-machine dir (tsx server.ts / node dist/server.js), so
+  // cwd-relative probing finds it; we also cover being launched from the repo root or dist.
+  const cwd = process.cwd()
+  const candidates = [
+    path.join(cwd, 'lib'),                                  // launched from agent-machine/
+    path.join(cwd, 'agent-machine', 'lib'),                 // launched from repo root
+    path.join(cwd, '..', 'lib'),                            // launched from agent-machine/dist or scripts
+    path.join(cwd, '..', 'agent-machine', 'lib'),
+  ]
+  for (const c of candidates) {
+    try { if (fs.existsSync(path.join(c, 'math_operators.py'))) { _mathOpLibDir = c; return c } } catch { /* keep probing */ }
+  }
+  _mathOpLibDir = null
+  return null
+}
 
 // Graph Data Science (PageRank/Louvain/betweenness) is O(V·E) — cache it, keyed by a cheap graph
 // signature (node+edge count). Recompute only when the graph changed (or ?refresh=1).
@@ -1278,6 +1307,13 @@ async function executeToolWithTimeout(
   const timeout = new Promise<string>((resolve) => {
     timer = setTimeout(() => resolve(`Error: tool ${name} timed out after ${TOOL_TIMEOUT_MS}ms`), TOOL_TIMEOUT_MS)
   })
+  // Reasoning-evidence: emit a safe-trace ReasoningEvent for THIS tool call so the agent's
+  // tool-using surface is under the same governance fabric as dialogue turns. Summary is a
+  // short description only — never tool args/output. Best-effort: never blocks the call.
+  try {
+    const re = await import('./lib/reasoning-evidence.js')
+    re.emitToolCallEvidence(name)
+  } catch { /* tool-call evidence is best-effort — never break the tool call */ }
   try {
     const result = await Promise.race([executeToolWithRetry(name, input, keys), timeout])
     // #16 — tool output from EXTERNAL/untrusted sources can carry indirect prompt injection ("ignore your
@@ -1490,6 +1526,19 @@ async function runSubAgent(
     { role: 'system', content: role.systemPrompt + (context.trim() ? `\n\nContext from the concierge:\n${context.trim()}` : '') },
     { role: 'user', content: task },
   ]
+  // Reasoning-evidence: open a CHILD ReasoningRun for this dispatched sub-agent, linked to the
+  // parent (ambient) run, and emit `subagent.dispatch` on the parent. Safe-trace: role + short
+  // task label only, never the full prompt/output. Closed with a receipt at every return path.
+  // Best-effort: a null child means evidence is disabled — execution proceeds unchanged.
+  let childRun: import('./lib/reasoning-evidence.js').ReasoningRun | null = null
+  try {
+    const re = await import('./lib/reasoning-evidence.js')
+    childRun = re.openSubAgentRun(role.id ?? roleId, task, re.getCurrentReasoningRun())
+  } catch { /* sub-agent evidence is best-effort — never break dispatch */ }
+  const closeChild = async (status: 'completed' | 'failed') => {
+    try { const re = await import('./lib/reasoning-evidence.js'); re.closeSubAgentRun(childRun, { status }) }
+    catch { /* close is best-effort */ }
+  }
   let final = ''
   for (let turn = 0; turn < role.maxTurns; turn++) {
     let text = ''
@@ -1500,6 +1549,7 @@ async function runSubAgent(
         else if (ev.type === 'tool_calls') toolCalls = ev.calls
       }
     } catch (e) {
+      await closeChild('failed')
       return `[${role.label} sub-agent error]`
     }
     if (!toolCalls?.length) {
@@ -1514,6 +1564,7 @@ async function runSubAgent(
     }
     final = text || final
   }
+  await closeChild('completed')
   return final.trim() || `(${role.label} sub-agent finished without a final summary)`
 }
 
@@ -2508,6 +2559,29 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // interactive/faithful tier, write → deliberate/generative tier; substrate → node.
   // This grounds model selection in the algebra and is the first admissible hop.
   const action = intentToAction(intentPlan.name)
+  // ── Reason lane gate (the proven +24pp win) ──────────────────────────────────
+  // For math/reasoning problem-solving intents (compute_math / prove_reason) the board measured that
+  // no-retrieval CoT + self-consistency beats BOTH baseline and RAG by +24pp with 0 regressions
+  // (qwen2.5:7b, college_math, n=30, seed 1729). So for these intents we (a) SKIP retrieval entirely —
+  // the exact retrieval-OFF condition that proved the win — and (b) answer via cragVote CoT+SC below
+  // (after the verified-operator compute lane). Intent-gated, NOT a confidence probe (the CRAG
+  // gateShouldRetrieve did not replicate and is deliberately not wired). Default ON; NOETICA_REASON_LANE=0
+  // toggles it off (turn then keeps the normal retrieval + best-of-N+critic path).
+  const useReasonLane = reasonLaneEnabled() && isReasonLaneIntent(intentPlan.name)
+  // ── Grounding signal (peer-audit Priority 7) ─────────────────────────────────
+  // Consume canonRoute's grounding_status in serving — for RETRIEVAL-ELIGIBLE turns only (NOT the
+  // reason-lane intents, which deliberately skip retrieval). Three additive uses, all safe:
+  //   (a) provenance/telemetry: surface grounding_status in the response metadata + the noetica.turn
+  //       ReasoningEvent extra (an enum only — safe-trace, no content);
+  //   (b) ensure-retrieve on 'ungrounded': bind the signal to behaviour so retrieval is guaranteed on;
+  //   (c) uncertainty marker on 'partial': attach grounding:'partial' to metadata (answer text unchanged).
+  // We deliberately do NOT use 'grounded' to suppress/skip retrieval (the probed dead-end: candidateNPs
+  // flags an out-of-canon NP on ~every real query, so 'grounded' ~never fires and a skip-gate degenerates
+  // to always-retrieve). Exception-safe (canonRoute throw → 'ungrounded'/ensure-retrieve, turn never breaks).
+  // Behind NOETICA_GROUNDING_SIGNAL (default ON; =0 reverts). retrievalEligible = NOT the reason lane.
+  const grounding = decideGrounding(latestUserContent, !useReasonLane)
+  const groundingStatus: GroundingStatus | undefined = grounding.status
+  if (grounding.active) sse(res, 'grounding', { grounding: { status: groundingStatus, ensure_retrieve: grounding.ensureRetrieve, partial: grounding.partial } })
   const actionRoute = action === 'meta' ? { tier: 'embedding', target: 'concierge' } : routeForAction(action)
   const polarity = ['retrieve', 'evaluate', 'sense'].includes(action) ? 'read' : action === 'meta' ? 'meta' : 'write'
   const phase = action === 'meta' ? null : meshrushPhase(action) // where this turn sits in the MeshRush loop
@@ -3068,6 +3142,9 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
 
   let graphContext = ''
   try {
+    // Reason lane: SKIP all graph/brain retrieval (the proven retrieval-OFF +24pp condition). For
+    // math/reasoning intents, injected memory/brain context only adds noise the model reasons WORSE with.
+    if (useReasonLane) throw new Error('reason-lane: retrieval skipped')
     // On low-memory CPU hosts, cap injected memory context hard — prompt-eval of a
     // big context dominates latency for a local 3B on CPU. Smaller context = much
     // faster responses (the main "speed it up" lever on an 8GB box).
@@ -3121,7 +3198,15 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     // Skip doc retrieval entirely for intents that want no grounding (greetings,
     // confirmations, file ops) — otherwise a plain "hello" wastefully pulls passages
     // and shows a misleading "retrieving" step.
-    if (documentChunkCount() > 0 && intentPlan.retrieval !== 'none') {
+    // Ensure-retrieve binding (Priority 7): an 'ungrounded' turn MUST run retrieval. This is the EXPLICIT
+    // binding of the grounding signal to behaviour — a no-op where retrieval already happens (the common
+    // case), but it makes ungrounded→retrieve intentional, not incidental, and prevents any future skip
+    // path from bypassing retrieval on an ungrounded turn. It NEVER forces retrieval for retrieval:'none'
+    // intents (greetings/confirmations) nor for the reason lane (ensureRetrieve is false there by construction).
+    const ensureRetrieveNow = grounding.ensureRetrieve && intentPlan.retrieval !== 'none' && !useReasonLane
+    const retrievalGate = intentPlan.retrieval !== 'none' && !useReasonLane
+    if (documentChunkCount() > 0 && (retrievalGate || ensureRetrieveNow)) {
+      if (ensureRetrieveNow && !retrievalGate) console.log('[grounding] ungrounded turn → ensure-retrieve binding kept retrieval on')
       // Intent-aware retrieval. Doc-focused intents (summarize_doc / qa_over_doc /
       // research) get a tight top-k of the MOST relevant chunks instead of stuffing
       // the whole document into context — this is the fix for the 300–500s latency
@@ -3355,12 +3440,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         try {
           const re = await import('./lib/reasoning-evidence.js')
           const run = re.openReasoningRun(`turn:${intentPlan.name}`)
-          re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} computed(recall) ${lat}ms`, trustLevel: 'trusted-workspace-source' })
+          re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} computed(recall) ${lat}ms`, trustLevel: 'trusted-workspace-source', ...(groundingStatus ? { extra: { grounding_status: groundingStatus } } : {}) })
           const ledgerRef = hit.attestation ? `urn:srcos:ledger:dispatch:${hit.attestation}` : undefined
           const receipt = re.closeReasoningRun(run, { status: 'completed', replayClass: re.classifyReplay({ method: 'recall', decidable: true }), ledgerRef })
           reasoningRecall = { run: run.id, receipt: receipt.id }
         } catch { /* reasoning evidence is best-effort — never break the turn */ }
-        sse(res, 'done', { result: { run_id: crypto.randomUUID(), content: hit.answer, model_routed: 'recall', provider: 'noetica', policy_admitted: true, memory_written: false, stop_reason: 'computed', timestamp: new Date().toISOString(), latency_ms: lat, agent_machine: true, agent_machine_version: VERSION, decidable: true, method: 'recall', ...(reasoningRecall ? { reasoning_run: reasoningRecall.run, reasoning_receipt: reasoningRecall.receipt } : {}) } })
+        sse(res, 'done', { result: { run_id: crypto.randomUUID(), content: hit.answer, model_routed: 'recall', provider: 'noetica', policy_admitted: true, memory_written: false, stop_reason: 'computed', timestamp: new Date().toISOString(), latency_ms: lat, agent_machine: true, agent_machine_version: VERSION, decidable: true, method: 'recall', ...(reasoningRecall ? { reasoning_run: reasoningRecall.run, reasoning_receipt: reasoningRecall.receipt } : {}), ...(groundingStatus ? { grounding_status: groundingStatus } : {}), ...(grounding.partial ? { grounding: 'partial' } : {}) } })
         return
       }
     } catch { /* recall is best-effort — fall through to extract/generation */ }
@@ -3461,7 +3546,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         try {
           const re = await import('./lib/reasoning-evidence.js')
           const run = re.openReasoningRun(`turn:${intentPlan.name}`)
-          re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} computed(extractive) ${exLatency}ms`, trustLevel: 'trusted-workspace-source' })
+          re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} computed(extractive) ${exLatency}ms`, trustLevel: 'trusted-workspace-source', ...(groundingStatus ? { extra: { grounding_status: groundingStatus } } : {}) })
           const ledgerRef = extractiveAttestation ? `urn:srcos:ledger:dispatch:${extractiveAttestation}` : undefined
           const receipt = re.closeReasoningRun(run, { status: 'completed', replayClass: re.classifyReplay({ method: 'extractive', decidable: true }), ledgerRef })
           reasoningExtract = { run: run.id, receipt: receipt.id }
@@ -3471,6 +3556,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           policy_admitted: true, memory_written: false, stop_reason: 'extractive', timestamp: new Date().toISOString(),
           latency_ms: exLatency, agent_machine: true, agent_machine_version: VERSION, extractive: true,
           ...(reasoningExtract ? { reasoning_run: reasoningExtract.run, reasoning_receipt: reasoningExtract.receipt } : {}),
+          ...(groundingStatus ? { grounding_status: groundingStatus } : {}), ...(grounding.partial ? { grounding: 'partial' } : {}),
         } })
         return
       }
@@ -3654,6 +3740,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   }
 
   try {
+    // Track when a turn was answered by a VERIFIABLE/deterministic lane (a verified
+    // math_operators library call, or a code-verify pass) so the tail evidence emit can
+    // classify replayClass="exact" instead of the generated-tail "best-effort". Stays
+    // undefined for nondeterministic lanes (reason-lane CoT+SC, cold programOfThought,
+    // best-of-N), which correctly remain best-effort.
+    let verifiedMethod: 'operator-compute' | 'code-verify' | 'search-verify' | undefined
     if (provider === 'ollama') {
       // ── Local Ollama path (primary) ──────────────────────────────────────────
       type OllamaContentPart =
@@ -3730,10 +3822,26 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       if (process.env['NOETICA_EXEC_VERIFY'] !== '0' && routerDecision.task !== 'chat'
           && classifyComplexityPosture(latestUserContent).posture === 'compute') {
         try {
-          const pot = await programOfThought(latestUserContent, {
-            generate: (p, t) => generateOllamaText({ model, messages: [{ role: 'user', content: p }], temperature: t, numCtx: ollamaNumCtx }).then((r) => r.content),
-            execute: (lang, code) => executeCode(lang, code),
-          })
+          const potDeps = {
+            generate: (p: string, t: number) => generateOllamaText({ model, messages: [{ role: 'user', content: p }], temperature: t, numCtx: ollamaNumCtx }).then((r) => r.content),
+            execute: (lang: 'python' | 'javascript', code: string) => executeCode(lang, code),
+          }
+          // ROUTING-FIRST: offer the verified-operator menu (lib/math_operators.py) and let the
+          // model pick an operator + extract args, executing the TESTED library instead of authoring
+          // specialized math cold (the measured 1/6 compute failure). This mirrors the bench's proven
+          // operatorCompute arm and recovers the +7pp it measured. COLD-FALLBACK: if no verified
+          // operator was routed (or it produced nothing usable), fall through to the cold
+          // programOfThought below — so this is purely additive headroom that cannot regress the
+          // cold path. Operator routing is exception-safe; any failure falls through to cold PoT.
+          let pot: { answer: string; code: string; output: string } | null = null
+          const libDir = mathOperatorLibDir()
+          if (libDir) {
+            try {
+              const op = await operatorProgramOfThought(latestUserContent, libDir, potDeps)
+              if (op && op.usedOperator) { pot = op; verifiedMethod = 'operator-compute'; console.log(`[critic] verified-operator routed answer=${op.answer}`) }
+            } catch { /* operator routing best-effort — fall through to cold PoT */ }
+          }
+          if (!pot) pot = await programOfThought(latestUserContent, potDeps)
           if (pot) {
             const answer = `${pot.answer}\n\n_Verified by execution:_\n\`\`\`python\n${pot.code}\n\`\`\``
             sse(res, 'deliberation', { deliberation: { critic: { action: 'accept', score: 1, agreement: 1, posture: 'compute', reason: 'verified by execution (program-of-thought)' } } })
@@ -3743,6 +3851,116 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
             console.log(`[critic] program-of-thought verified answer=${pot.answer}`)
           }
         } catch { /* exec-verify best-effort — fall through to best-of-N */ }
+      }
+
+      // ── Reason lane: no-retrieval CoT + self-consistency (the proven +24pp win) ──────────────────
+      // For math/reasoning intents (compute_math / prove_reason) that the verified-operator/PoT lane
+      // above did NOT already answer, generate the answer by long chain-of-thought + self-consistency
+      // (cragVote over K CoT samples, NO retrieval) — the EXACT bench `reason` arm that beat baseline
+      // AND RAG by +24pp (0 regressions; qwen2.5:7b, college_math, n=30, seed 1729). Ordering is
+      // operator-route → (if no operator) CoT+SC reason lane → existing best-of-N+critic fallback. The
+      // retrieval was already skipped upstream (useReasonLane). Exception-safe: any failure falls
+      // through to the normal path so a turn is never broken. NOETICA_REASON_LANE=0 disables (gating it
+      // off restores the normal retrieval + critic path); NOETICA_SC_K sets K (default 3, the proven config).
+      if (!deliberated && useReasonLane) {
+        try {
+          const k = reasonSCK()
+          // SERVING turns are FREE-FORM (no A/B/C/D) by default — vote over normalized FINAL strings and
+          // return the winning sample's FULL TEXT (not a letter). Only an explicit-options turn (rare in
+          // /api/chat) routes to MCQ letter-voting. The bench keeps its own MCQ askVote path untouched.
+          const reasonMode = looksLikeMCQ(latestUserContent) ? 'mcq' as const : 'free' as const
+          const reasonRule = reasonMode === 'mcq' ? REASON_RULE_MCQ : REASON_RULE
+          // Each sample = one full CoT generation of the problem + the mode-appropriate rule, at sampling
+          // temp, NO retrieved context (graphContext/doc context were not assembled for this lane).
+          const reasonPrompt = `${latestUserContent}${reasonRule}`
+          const sample = (idx: number) => generateOllamaText({
+            model,
+            messages: [{ role: 'user', content: reasonPrompt }],
+            temperature: k <= 1 ? 0 : 0.7,   // temp-0 single draw when voting off; 0.7 for diverse SC samples
+            numCtx: ollamaNumCtx,
+          }).then((r) => r.content)
+          const rl = await runReasonLane(sample, k, { mode: reasonMode })
+          if (rl.content.trim()) {
+            const consensusNote = rl.consensus
+              ? `self-consistency (K=${k}, agree=${rl.agree.toFixed(2)}, ${rl.agreeCount}/${rl.n})`
+              : `single CoT (K=${k}, no SC consensus — most-complete sample)`
+            sse(res, 'deliberation', { deliberation: { critic: { action: 'accept', score: 1, agreement: rl.agree, posture: 'reason', reason: `no-retrieval CoT + ${consensusNote}` } } })
+            sse(res, 'delta', { delta: rl.content })
+            fullContent += rl.content
+            deliberated = true
+            console.log(`[critic] reason-lane CoT+SC mode=${rl.mode} K=${k} n=${rl.n} agree=${rl.agree.toFixed(2)} consensus=${rl.consensus} intent=${intentPlan.name}`)
+          }
+        } catch { /* reason lane best-effort — fall through to best-of-N+critic */ }
+      }
+
+      // ── Search-verify lane: generate-and-verify for the NP-shaped posture ────────────────────────
+      // For `search-verify` turns (find/construct/smallest/largest/optimal/counterexample/such-that),
+      // verifying a candidate is CHEAPER and more trustworthy than generating it (the verification ≠
+      // generation lever the moat doctrine names). Plain best-of-N votes over guesses with NO verify;
+      // this lane GENERATES a CoT candidate, then VERIFIES it against the stated constraints and
+      // REGENERATES on failure (verify-guided retry). Two verify modes: EXECUTABLE (write a tiny check
+      // that plugs the candidate back into the constraints and runs it — a PASS is deterministic ⇒
+      // exact) and MODEL-judged (YES/NO fallback ⇒ best-effort). A verified-executable candidate sets
+      // verifiedMethod='search-verify' so the tail evidence emit classifies replayClass="exact"
+      // (mirrors operator-compute / code-verify). Ordering: operator → reason-lane → THIS → best-of-N.
+      // Exception-safe: any failure falls through to best-of-N; an unverified candidate never blocks
+      // the turn (returned with verified:false). NOETICA_SEARCH_VERIFY=0 disables (default ON — it only
+      // adds a verify step to a posture that today has none).
+      if (!deliberated && searchVerifyEnabled()
+          && routerDecision.task !== 'chat' && classifyComplexityPosture(latestUserContent).posture === 'search-verify') {
+        try {
+          const svGen = (p: string, t: number) => generateOllamaText({ model, messages: [{ role: 'user', content: p }], temperature: t, numCtx: ollamaNumCtx }).then((r) => r.content)
+          // Verify a candidate: prefer an EXECUTABLE check (deterministic ⇒ exact); fall back to a
+          // MODEL-judged YES/NO (best-effort). Returns structured flags only — verify prose stays out
+          // of evidence. Errors → treated as a non-fatal miss by runSearchVerify.
+          const svVerify = async (candidate: string, question: string): Promise<VerifyResult> => {
+            // EXECUTABLE: ask for a tiny Python check that prints exactly PASS or FAIL by plugging the
+            // candidate back into the stated constraints. Trust it only when it cleanly prints one marker.
+            try {
+              const checkPrompt = `Write a tiny self-contained Python 3 program that CHECKS whether a candidate answer satisfies ALL the constraints of the problem below. Plug the candidate in and verify it. Print EXACTLY "PASS" if it satisfies every constraint, otherwise print EXACTLY "FAIL". Print nothing else.\n\nProblem: ${question}\n\nCandidate answer: ${candidate}\n\nReturn ONLY one \`\`\`python code block.`
+              const text = await svGen(checkPrompt, 0.1)
+              const m = text.match(/```(?:python|py)?\s*([\s\S]*?)```/i)
+              const code = m && m[1] ? m[1].trim() : null
+              if (code) {
+                const out = await executeCode('python', code)
+                const hasPass = /\bPASS\b/.test(out)
+                const hasFail = /\bFAIL\b/.test(out)
+                const clean = !/\b(Traceback|SyntaxError|NameError|TypeError|ImportError|ModuleNotFoundError|Error:)\b/.test(out)
+                if (clean && (hasPass !== hasFail)) {
+                  return { pass: hasPass, mode: 'executable', reason: hasPass ? undefined : 'failed the executable constraint check' }
+                }
+              }
+            } catch { /* executable verify unavailable — fall back to model-judged */ }
+            // MODEL-judged fallback (best-effort).
+            try {
+              const judgePrompt = `Does the candidate answer satisfy ALL constraints of the problem? Answer with exactly "YES" or "NO" on the first line, then one short sentence of why.\n\nProblem: ${question}\n\nCandidate: ${candidate}`
+              const verdict = await svGen(judgePrompt, 0.1)
+              const yes = /^\s*\**\s*yes\b/i.test(verdict)
+              return { pass: yes, mode: 'model', reason: yes ? undefined : verdict.split(/\r?\n/).slice(0, 2).join(' ').slice(0, 300) }
+            } catch {
+              return { pass: false, mode: 'model', reason: 'verification unavailable' }
+            }
+          }
+          const sv = await runSearchVerify({
+            question: latestUserContent,
+            sample: (idx, priorFailure) => svGen(searchVerifyPrompt(latestUserContent, priorFailure), idx === 0 ? 0.4 : 0.7),
+            verify: svVerify,
+            maxAttempts: 3,
+          })
+          if (sv && sv.content.trim()) {
+            const note = sv.verified
+              ? `verified candidate (${sv.verifyMode}, ${sv.attempts} attempt${sv.attempts > 1 ? 's' : ''})`
+              : `best unverified candidate (${sv.attempts} attempts, no candidate verified)`
+            sse(res, 'deliberation', { deliberation: { critic: { action: sv.verified ? 'accept' : 'clarify', score: sv.verified ? 1 : 0.5, agreement: 1, posture: 'search-verify', reason: `generate-and-verify: ${note}` } } })
+            sse(res, 'delta', { delta: sv.content })
+            fullContent += sv.content
+            deliberated = true
+            // Only an EXECUTABLE pass is deterministic/exact; a model-judged pass or an unverified
+            // candidate stays best-effort (verifiedMethod left undefined).
+            if (sv.verified && sv.verifyMode === 'executable') verifiedMethod = 'search-verify'
+            console.log(`[critic] search-verify verified=${sv.verified} mode=${sv.verifyMode} attempts=${sv.attempts}`)
+          }
+        } catch { /* search-verify best-effort — fall through to best-of-N+critic */ }
       }
 
       // Code-posture verify-repair: for self-contained "write code" tasks, generate a
@@ -3766,6 +3984,9 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
             sse(res, 'delta', { delta: answer })
             fullContent += answer
             deliberated = true
+            // Only a PASSED verification is deterministic/exact; a failed-then-best-attempt
+            // fallback stays best-effort (it's a generated draft that didn't verify).
+            if (cv.passed) verifiedMethod = 'code-verify'
             console.log(`[critic] code-verify passed=${cv.passed} attempts=${cv.attempts} lang=${cv.language}`)
           }
         } catch { /* code-verify best-effort — fall through */ }
@@ -4206,13 +4427,26 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           session: sessionId, confidence: typeof turnWorth === 'number' ? turnWorth : 0.7,
         })
       }
-      // Reasoning-evidence: GENERATED (LLM) ⇒ replayClass "best-effort". Best-effort, non-blocking.
+      // Reasoning-evidence: GENERATED (LLM) ⇒ replayClass "best-effort", EXCEPT when a
+      // verifiable/deterministic lane answered the turn (verified math_operators call, or a
+      // code-verify pass) ⇒ replayClass "exact". The reason-lane (CoT+SC), cold
+      // programOfThought, and best-of-N remain best-effort (verifiedMethod stays undefined).
       try {
         const re = await import('./lib/reasoning-evidence.js')
         const run = re.openReasoningRun(`turn:${intentPlan.name}`)
-        re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} generated(${provider}) ${latencyMs}ms`, trustLevel: 'semi-trusted-project-source' })
+        // Method/source string the summary + receipt reflect: a verified lane names itself and
+        // is COMPUTED; otherwise it's GENERATED (best-effort).
+        const methodLabel = verifiedMethod
+          ? `computed(${verifiedMethod})`
+          : `generated(${provider}${useReasonLane ? ',reason-lane:cot+sc' : ''})`
+        re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} ${methodLabel} ${latencyMs}ms`, trustLevel: verifiedMethod ? 'trusted-workspace-source' : 'semi-trusted-project-source', ...(groundingStatus ? { extra: { grounding_status: groundingStatus } } : {}) })
         const ledgerRef = generatedAttestation ? `urn:srcos:ledger:dispatch:${generatedAttestation}` : undefined
-        const receipt = re.closeReasoningRun(run, { status: 'completed', replayClass: re.classifyReplay({ method: model, stop_reason: 'end_turn' }), ledgerRef })
+        // A verified lane is decidable/deterministic ⇒ classifyReplay returns "exact"; the
+        // generated tail keeps method=model ⇒ "best-effort".
+        const replayClass = verifiedMethod
+          ? re.classifyReplay({ method: verifiedMethod, decidable: true })
+          : re.classifyReplay({ method: model, stop_reason: 'end_turn' })
+        const receipt = re.closeReasoningRun(run, { status: 'completed', replayClass, ledgerRef })
         reasoningGen = { run: run.id, receipt: receipt.id }
       } catch { /* reasoning evidence is best-effort — never break the turn */ }
     } catch { /* tracker is best-effort */ }
@@ -4237,6 +4471,11 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         agent_machine: true,
         agent_machine_version: VERSION,
         ...(reasoningGen ? { reasoning_run: reasoningGen.run, reasoning_receipt: reasoningGen.receipt } : {}),
+        // Grounding provenance (Priority 7): how grounded was this answer (telemetry, enum-only). On
+        // 'partial', also expose a lightweight uncertainty marker so downstream/UI can signal lower
+        // confidence. Present only for retrieval-eligible turns with the signal active (never the reason lane).
+        ...(groundingStatus ? { grounding_status: groundingStatus } : {}),
+        ...(grounding.partial ? { grounding: 'partial' } : {}),
       },
     })
     runCompleted = true // run finished cleanly — the close handler must not checkpoint
@@ -4415,6 +4654,37 @@ const server = http.createServer((req, res) => {
     runDreaming({ integrate })
       .then((r) => { res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ ...r, last_dream_at: _lastDreamAt || null })) })
       .catch((e) => { res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' }); res.end(JSON.stringify({ error: 'dream_failed', detail: (e instanceof Error ? e.message : 'unknown').replace(/[\r\n]/g, ' ').slice(0, 200) })) })
+    return
+  }
+
+  // /api/studio — NotebookLM-class research outputs over the current sources. POST {kind, sources?, query?,
+  // format?}: kind = 'briefing' | 'study-guide' | 'audio-script'. If sources[] is omitted, gathers them via doc
+  // search over `query`. Study-guide/glossary DEFINITIONS are canon-grounded (frontier-authored), returned with
+  // meta source:'canon' — the differentiator NotebookLM/Watson can't match.
+  if (url.pathname === '/api/studio' && req.method === 'POST') {
+    let sbody = ''
+    req.on('data', (c: Buffer) => { sbody += c.toString(); if (sbody.length > 256 * 1024) { try { req.destroy() } catch { /* */ } } })
+    req.on('end', () => { void (async () => {
+      let p: { kind?: string; sources?: unknown; query?: string; format?: 'brief' | 'critique' | 'debate' }
+      try { p = JSON.parse(sbody || '{}') } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+      let sources: string[] = Array.isArray(p.sources) ? p.sources.filter((s): s is string => typeof s === 'string' && s.trim().length > 0) : []
+      if (!sources.length && p.query) {
+        const { searchDocsReranked } = await import('./lib/doc-store.js')
+        sources = (await searchDocsReranked(p.query, 8).catch(() => [])).map((c) => c.text).filter((t) => t && t.trim().length > 0)
+      }
+      if (!sources.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'no_sources', detail: 'provide sources[] or a query that matches ingested docs' })); return }
+      try {
+        const studio = await import('./lib/study-outputs-runtime.js')
+        const out = p.kind === 'briefing' ? await studio.briefingDoc(sources)
+          : p.kind === 'audio-script' ? await studio.audioScript(sources, p.format ?? 'brief')
+          : await studio.studyGuide(sources)
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
+        res.end(JSON.stringify({ kind: p.kind ?? 'study-guide', result: out }))
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
+        res.end(JSON.stringify({ error: 'studio_failed', detail: (e instanceof Error ? e.message : 'unknown').replace(/[\r\n]/g, ' ').slice(0, 200) }))
+      }
+    })() })
     return
   }
 
@@ -8311,6 +8581,10 @@ try {
 server.headersTimeout = 60_000
 server.requestTimeout = 300_000
 server.listen(PORT, '127.0.0.1', () => {
+  // Ergonomics: collapse the 100+ NOETICA_* knobs into one RAM-aware preset (lite/balanced/max). Sets only
+  // UNSET vars so explicit config still wins, and gives soft memory degradation (small boxes auto-go lite).
+  const _cfg = applyPreset()
+  console.log(`[noetica-am] ${summarizePreset(_cfg)}`)
   console.log(`[noetica-am] Agent Machine v${VERSION} listening on http://127.0.0.1:${PORT}`)
   console.log(`[noetica-am] Status: http://127.0.0.1:${PORT}/api/status`)
 

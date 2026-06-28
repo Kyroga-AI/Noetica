@@ -15,6 +15,10 @@ const NUMERIC = /\b\d|\bcalculate\b|\bcompute\b|\bfind the\b|\bhow (much|many|fa
 const DEFINE = /^\s*(what (is|are)|define|describe|explain what)\b|which of the following (is|best describes|defines|are)\b/i
 
 export type Route = 'calc' | 'define' | 'retrieve' | 'reason'
+// OntoGPT-class silent failure: when nothing grounds, ungrounded entities get AUTO: IDs and slip through.
+// grounding_status makes this VISIBLE so callers can log, gate, or emit telemetry instead of silently
+// passing zero-grounded context to the model. 'partial' = some entities found, some candidate terms missed.
+export type GroundingStatus = 'grounded' | 'partial' | 'ungrounded'
 export interface RouteDecision {
   route: Route
   deterministic: boolean              // true = the route is answerable from the canon WITHOUT generation
@@ -22,6 +26,23 @@ export interface RouteDecision {
   genus: string[]                     // lexical-closure families the entities belong to (set membership)
   equations: Array<{ name: string; form: string }>
   grounding: string                   // canon context to inject (defs + equations + genus chain)
+  grounding_status: GroundingStatus   // 'grounded'=≥1 entity found; 'partial'=some missed; 'ungrounded'=none
+  ungrounded_candidates: string[]     // noun-phrase candidates extracted from the question that missed the canon
+}
+
+// Extract candidate noun phrases from text that might be domain concepts.
+// Used to populate ungrounded_candidates: terms that LOOKED like entities but weren't in the canon.
+// Strategy: bigrams/trigrams of content words (≥4 chars, alpha, not stopwords).
+const STOPS = new Set(['what','which','that','this','have','with','from','into','when','where','each','some','they','their','there','does','been','will','would','could','should','about','these','those','after','before','during','between','through'])
+function candidateNPs(text: string): string[] {
+  const words = text.toLowerCase().replace(/[^a-z\s]/g, ' ').split(/\s+/).filter((w) => w.length >= 4 && /^[a-z]+$/.test(w) && !STOPS.has(w))
+  const cands: string[] = []
+  for (let i = 0; i < words.length; i++) {
+    cands.push(words[i]!)
+    if (i + 1 < words.length) cands.push(`${words[i]} ${words[i + 1]}`)
+    if (i + 2 < words.length) cands.push(`${words[i]} ${words[i + 1]} ${words[i + 2]}`)
+  }
+  return [...new Set(cands)]
 }
 
 /** Route a question off the typed canon — no generation for the decision. */
@@ -49,7 +70,18 @@ export function canonRoute(question: string): RouteDecision {
     equations.length ? `Equations/models:\n${eqs}` : '',
     genus.size ? `Is-a (genus): ${[...genus].slice(0, 6).join(', ')}` : '',
   ].filter(Boolean).join('\n\n')
-  return { route, deterministic, entities: ents.map((e) => e.term), genus: [...genus], equations, grounding }
+  // Grounding status: expose the OntoGPT-class silent failure (ungrounded entities slipping through
+  // as AUTO: IDs). candidateNPs extracts noun-phrase candidates from the question; any that aren't
+  // in the found entities list are "ungrounded" — the caller can log/gate/emit telemetry on these.
+  const foundTerms = new Set(ents.map((e) => e.term.toLowerCase()))
+  const cands = candidateNPs(question)
+  const ungrounded_candidates = cands.filter((c) => !foundTerms.has(c)).slice(0, 10)
+  const grounding_status: GroundingStatus = ents.length === 0
+    ? 'ungrounded'
+    : ungrounded_candidates.length > 0
+      ? 'partial'
+      : 'grounded'
+  return { route, deterministic, entities: ents.map((e) => e.term), genus: [...genus], equations, grounding, grounding_status, ungrounded_candidates }
 }
 
 export type LookupKind = 'definition' | 'formula' | 'genus' | 'related'
