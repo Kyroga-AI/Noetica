@@ -4373,6 +4373,37 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // /api/studio — NotebookLM-class research outputs over the current sources. POST {kind, sources?, query?,
+  // format?}: kind = 'briefing' | 'study-guide' | 'audio-script'. If sources[] is omitted, gathers them via doc
+  // search over `query`. Study-guide/glossary DEFINITIONS are canon-grounded (frontier-authored), returned with
+  // meta source:'canon' — the differentiator NotebookLM/Watson can't match.
+  if (url.pathname === '/api/studio' && req.method === 'POST') {
+    let sbody = ''
+    req.on('data', (c: Buffer) => { sbody += c.toString(); if (sbody.length > 256 * 1024) { try { req.destroy() } catch { /* */ } } })
+    req.on('end', () => { void (async () => {
+      let p: { kind?: string; sources?: unknown; query?: string; format?: 'brief' | 'critique' | 'debate' }
+      try { p = JSON.parse(sbody || '{}') } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+      let sources: string[] = Array.isArray(p.sources) ? p.sources.filter((s): s is string => typeof s === 'string' && s.trim().length > 0) : []
+      if (!sources.length && p.query) {
+        const { searchDocsReranked } = await import('./lib/doc-store.js')
+        sources = (await searchDocsReranked(p.query, 8).catch(() => [])).map((c) => c.text).filter((t) => t && t.trim().length > 0)
+      }
+      if (!sources.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'no_sources', detail: 'provide sources[] or a query that matches ingested docs' })); return }
+      try {
+        const studio = await import('./lib/study-outputs-runtime.js')
+        const out = p.kind === 'briefing' ? await studio.briefingDoc(sources)
+          : p.kind === 'audio-script' ? await studio.audioScript(sources, p.format ?? 'brief')
+          : await studio.studyGuide(sources)
+        res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
+        res.end(JSON.stringify({ kind: p.kind ?? 'study-guide', result: out }))
+      } catch (e) {
+        res.writeHead(500, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
+        res.end(JSON.stringify({ error: 'studio_failed', detail: (e instanceof Error ? e.message : 'unknown').replace(/[\r\n]/g, ' ').slice(0, 200) }))
+      }
+    })() })
+    return
+  }
+
   // /api/agents — the no-code agent builder. GET lists built-in roles + the user's custom agents; POST upserts a
   // custom agent {label, description, systemPrompt, tools[], maxTurns, model}; DELETE?id=… removes one. Custom
   // agents become dispatchable exactly like built-ins (dispatch_agent resolves them first). Token-gated (writes).
