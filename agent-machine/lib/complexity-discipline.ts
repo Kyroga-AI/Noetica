@@ -35,7 +35,7 @@ const BARRIERS = ['relativization', 'natural-proofs', 'algebrization']
 
 const CODE_RE = /\b(code|function|debug|implement|refactor|compile|stack ?trace|regex|api|class|method|typescript|javascript|python|rust|golang|sql|bug in|write a (program|script|function))\b/i
 const PROVE_RE = /\b(prove|proof|theorem|lemma|show that|impossible|cannot be|no algorithm|undecidable|lower bound)\b/i
-const COMPUTE_RE = /\b(compute|calculate|evaluate|determinant|integral|derivative|solve for|how many|probability|what is the value|simplify)\b/i
+const COMPUTE_RE = /\b(compute|calculate|evaluate|determinant|integral|derivative|solve for|how many|how much|probability|what is the value|simplify|velocity|acceleration|momentum|kinetic energy|potential energy|wavelength|frequency|molarity|molar mass|moles|concentration|voltage|resistance|what is the (force|velocity|speed|mass|energy|pressure|volume|molarity|concentration|wavelength|frequency|current|voltage|resistance|momentum|power|density|acceleration|pH))\b/i
 const SEARCHVERIFY_RE = /\b(find|construct|exhibit|search|smallest|largest|optimal|satisfying|such that|counterexample)\b/i
 const LOOKUP_RE = /\b(who|when|where|define|what is a|which organelle|capital of|name the)\b/i
 const LOWERBOUND_RE = /\b(no (polynomial|efficient) algorithm|cannot be solved|impossible|lower bound|P\s*(!=|≠|=)\s*NP|undecidable)\b/i
