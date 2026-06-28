@@ -22,8 +22,8 @@ const C = {
   // — TODAY unit costs (USD/mo) —
   googleWorkspacePerSeat: 26.40,   // ACTUAL: $158.40 / 6 seats (Business Plus flexible)
   paSalesTax: 0.06,                // ACTUAL: 6% PA tax on the Google invoice
-  claudeAuPerSeat: 40.00,          // ESTIMATE — AU is pricier + token-capped ("more than Pro"). Replace w/ bill.
-  chatgptPerSeat: 20.00,           // ESTIMATE — ChatGPT Plus. Replace if Pro/Business.
+  claudeAuPerSeat: 29.00,          // AU Team-class ≈ A$38/seat (US$25 + 10% GST + FX ~17% premium). ~$26 if ABN-registered (GST reverse-charged). Looked up 2026.
+  chatgptPerSeat: 20.00,           // ChatGPT Plus (1 seat).
 
   // — PROJECTED (sovereign, all on Google Cloud / GCP) USD/mo —
   gkeWorkspaceFixed: 142,          // prophet-workspace on GKE: e2-standard-4 (1yr CUD ~$62) + 500GB ~$60 + net ~$20; control plane $0 (free credit)
