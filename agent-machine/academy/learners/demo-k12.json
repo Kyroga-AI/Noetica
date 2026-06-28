@@ -1,0 +1,6 @@
+{
+  "learnerId": "demo-k12",
+  "name": "Theo (age 8)",
+  "k12_completed": ["s.observe", "s.classify", "s.lifecycle", "m.counting", "m.addsub", "m.place", "m.muldiv", "e.phonics", "e.fluency", "e.comprehension"],
+  "interests": ["dinosaurs", "animals & nature"]
+}

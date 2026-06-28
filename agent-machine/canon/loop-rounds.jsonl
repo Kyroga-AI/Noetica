@@ -1,0 +1,5 @@
+{"ts": "2026-06-25T01:16:46Z", "acc": 57.7, "recoverable_q": 40.0, "ops": 48.0, "symbols": 1033.0, "hours": 2.0, "techset": "base+rag", "round": 0}
+{"ts": "2026-06-25T01:16:46Z", "acc": 60.7, "recoverable_q": 34.0, "ops": 48.0, "symbols": 1033.0, "hours": 2.0, "techset": "base+rag", "round": 1}
+{"ts": "2026-06-25T01:16:46Z", "acc": 63.1, "recoverable_q": 22.0, "ops": 63.0, "symbols": 1033.0, "hours": 2.5, "techset": "base+rag+ns", "round": 2}
+{"ts": "2026-06-25T01:16:46Z", "acc": 64.0, "recoverable_q": 18.0, "ops": 71.0, "symbols": 1090.0, "hours": 2.5, "techset": "base+rag+ns", "round": 3}
+{"ts": "2026-06-25T01:16:46Z", "acc": 64.3, "recoverable_q": 16.0, "ops": 78.0, "symbols": 1140.0, "hours": 2.5, "techset": "base+rag+ns", "round": 4}

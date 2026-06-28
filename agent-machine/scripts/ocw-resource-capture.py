@@ -139,9 +139,11 @@ def extract_resource(url):
 
 
 def done_set():
+    """A course is DONE iff its captured file exists in GCS — the file IS the record, so resume is exact
+    even if the manifest index drifted. (Was reading _manifest.jsonl, which lagged the actual captures.)"""
     try:
-        out = subprocess.run(['gcloud', 'storage', 'cat', f'{GCS}/_manifest.jsonl'], capture_output=True, text=True, timeout=60).stdout
-        return set(json.loads(l)['slug'] for l in out.splitlines() if l.strip())
+        out = subprocess.run(['gcloud', 'storage', 'ls', f'{GCS}/courses/'], capture_output=True, text=True, timeout=180).stdout
+        return set(os.path.basename(u)[:-6] for u in out.splitlines() if u.endswith('.jsonl'))
     except Exception:
         return set()
 
@@ -153,7 +155,17 @@ def main():
     if DEPTS:
         slugs = [s for s in slugs if dept(s) in DEPTS]
     done = done_set()
+    # SHARDING: OCW_SHARD="i/N" → this worker owns catalog positions {i, i+N, i+2N, …}. Shard the STATIC catalog
+    # by POSITION (all workers agree on it) BEFORE filtering done — sharding the per-worker done-filtered queue is
+    # NOT globally disjoint, because workers start with different done-snapshots → different queues → the same
+    # course lands on different stride slots → collision. Position-sharding the static catalog is collision-free.
+    shard = os.environ.get('OCW_SHARD', '')
+    if shard:
+        si, sn = (int(x) for x in shard.split('/'))
+        slugs = [s for idx, s in enumerate(slugs) if idx % sn == si]
     queue = [s for s in slugs if s not in done]
+    if shard:
+        print(f'# shard {si}/{sn} — owns {len(slugs)} catalog slots, {len(queue)} still to capture', flush=True)
     print(f'# ocw-resource-capture — {len(slugs)} catalog · {len(done)} done · {len(queue)} queued · → {GCS}', flush=True)
     n = 0
     for slug in queue:

@@ -1,0 +1,22 @@
+{
+  "_doc": "Open K-12 content sources for the Knowledge Commons capture. LICENSE governs the brain split: public-domain / CC-BY → the OPEN brain (commercial-safe); CC-BY-NC(-SA) → SEGMENTED (a non-commercial K-12 commons, kept OUT of any commercial brain, matching the project's 'segment external corpora so they don't leak' rule). `covers` = which foundation subjects the source supplies; `method` = the capture adapter.",
+  "sources": [
+    {"name": "Project Gutenberg", "license": "public-domain", "segment": false, "base": "https://gutenberg.org", "method": "gutendex", "covers": ["language_arts", "social_studies"], "note": "classic literature + primary sources — the ELA reading list; easiest clean fetch (no key, JSON via gutendex)"},
+    {"name": "OpenStax", "license": "CC-BY-4.0", "segment": false, "base": "https://openstax.org", "method": "api", "covers": ["science", "mathematics"], "note": "HS Physics, AP Bio/Chem; same publisher pattern as the college OCW capture"},
+    {"name": "Illustrative Mathematics", "license": "CC-BY-4.0", "segment": false, "base": "https://accessim.org", "method": "web", "covers": ["mathematics"], "note": "K-12 standards-aligned math curriculum"},
+    {"name": "PhET", "license": "CC-BY-4.0", "segment": false, "base": "https://phet.colorado.edu", "method": "web", "covers": ["science", "mathematics"], "note": "interactive sims + teacher guides (CU Boulder)"},
+    {"name": "Siyavula", "license": "CC-BY-4.0", "segment": false, "base": "https://www.siyavula.com", "method": "web", "covers": ["mathematics", "science"], "note": "open K-12 math/science textbooks"},
+    {"name": "NASA / Smithsonian / LOC", "license": "public-domain", "segment": false, "base": "https://www.nasa.gov", "method": "web", "covers": ["science", "social_studies"], "note": "primary sources + science explainers"},
+    {"name": "CK-12", "license": "CC-BY-NC-3.0", "segment": true, "base": "https://www.ck12.org", "method": "web", "covers": ["mathematics", "science"], "note": "largest K-12 STEM library — SEGMENTED (NC)"},
+    {"name": "EngageNY", "license": "CC-BY-NC-SA-3.0", "segment": true, "base": "https://www.engageny.org", "method": "web", "covers": ["mathematics", "language_arts"], "note": "full NY State K-12 curriculum — SEGMENTED (NC-SA)"},
+    {"name": "MIT BLOSSOMS", "license": "CC-BY-NC-SA", "segment": true, "base": "https://blossoms.mit.edu", "method": "web", "covers": ["science", "mathematics"], "note": "HS STEM video lessons + transcripts — SEGMENTED; fits the OCW adapter"}
+  ],
+  "priority_interests": ["dinosaurs", "space & rockets", "video games & coding", "stories & writing", "animals & nature"],
+  "gutenberg_seed": [
+    {"id": 11, "title": "Alice's Adventures in Wonderland", "node": "e.literature"},
+    {"id": 19033, "title": "Aesop's Fables", "node": "e.comprehension"},
+    {"id": 2591, "title": "Grimms' Fairy Tales", "node": "e.literature"},
+    {"id": 16, "title": "Peter Pan", "node": "e.literature"},
+    {"id": 289, "title": "The Wind in the Willows", "node": "e.literature"}
+  ]
+}

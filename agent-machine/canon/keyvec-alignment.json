@@ -1,9 +1,9 @@
 {
- "model": "glove-wiki-gigaword-300",
- "vocab_hit": 5745,
- "vocab_miss": 257,
+ "model": "academic",
+ "vocab_hit": 5696,
+ "vocab_miss": 306,
  "n_canon_topics": 94,
- "n_test_subjects": 29,
+ "n_test_subjects": 26,
  "coverage_gap_threshold": 0.45,
  "alignment": [
   {
@@ -12,16 +12,16 @@
    "level": "intro",
    "matches": [
     {
-     "subject": "pro:biology",
-     "cos": 0.365
+     "subject": "pro:chemistry",
+     "cos": 0.463
     },
     {
-     "subject": "mmlu:high_school_biology",
-     "cos": 0.365
+     "subject": "mmlu:high_school_chemistry",
+     "cos": 0.463
     },
     {
-     "subject": "mmlu:college_biology",
-     "cos": 0.365
+     "subject": "mmlu:college_chemistry",
+     "cos": 0.463
     }
    ]
   },
@@ -31,16 +31,16 @@
    "level": "undergrad",
    "matches": [
     {
-     "subject": "pro:biology",
-     "cos": 0.276
+     "subject": "pro:chemistry",
+     "cos": 0.494
     },
     {
-     "subject": "mmlu:high_school_biology",
-     "cos": 0.276
+     "subject": "mmlu:high_school_chemistry",
+     "cos": 0.494
     },
     {
-     "subject": "mmlu:college_biology",
-     "cos": 0.276
+     "subject": "mmlu:college_chemistry",
+     "cos": 0.494
     }
    ]
   },
@@ -50,16 +50,16 @@
    "level": "undergrad",
    "matches": [
     {
+     "subject": "mmlu:medical_genetics",
+     "cos": 0.464
+    },
+    {
      "subject": "pro:biology",
-     "cos": 0.446
+     "cos": 0.414
     },
     {
      "subject": "mmlu:high_school_biology",
-     "cos": 0.446
-    },
-    {
-     "subject": "mmlu:college_biology",
-     "cos": 0.446
+     "cos": 0.414
     }
    ]
   },
@@ -70,15 +70,15 @@
    "matches": [
     {
      "subject": "mmlu:medical_genetics",
-     "cos": 0.442
+     "cos": 0.613
+    },
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.356
     },
     {
      "subject": "pro:biology",
-     "cos": 0.425
-    },
-    {
-     "subject": "mmlu:high_school_biology",
-     "cos": 0.425
+     "cos": 0.353
     }
    ]
   },
@@ -88,16 +88,16 @@
    "level": "intro",
    "matches": [
     {
+     "subject": "mmlu:medical_genetics",
+     "cos": 0.504
+    },
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.485
+    },
+    {
      "subject": "pro:biology",
-     "cos": 0.53
-    },
-    {
-     "subject": "mmlu:high_school_biology",
-     "cos": 0.53
-    },
-    {
-     "subject": "mmlu:college_biology",
-     "cos": 0.53
+     "cos": 0.397
     }
    ]
   },
@@ -107,16 +107,16 @@
    "level": "intro",
    "matches": [
     {
+     "subject": "mmlu:nutrition",
+     "cos": 0.537
+    },
+    {
+     "subject": "mmlu:medical_genetics",
+     "cos": 0.448
+    },
+    {
      "subject": "pro:biology",
-     "cos": 0.485
-    },
-    {
-     "subject": "mmlu:high_school_biology",
-     "cos": 0.485
-    },
-    {
-     "subject": "mmlu:college_biology",
-     "cos": 0.485
+     "cos": 0.416
     }
    ]
   },
@@ -127,15 +127,15 @@
    "matches": [
     {
      "subject": "mmlu:electrical_engineering",
-     "cos": 0.319
+     "cos": 0.424
     },
     {
-     "subject": "mmlu:machine_learning",
-     "cos": 0.308
+     "subject": "mmlu:medical_genetics",
+     "cos": 0.383
     },
     {
-     "subject": "pro:biology",
-     "cos": 0.294
+     "subject": "mmlu:anatomy",
+     "cos": 0.371
     }
    ]
   },
@@ -145,16 +145,16 @@
    "level": "undergrad",
    "matches": [
     {
-     "subject": "mmlu:machine_learning",
-     "cos": 0.307
+     "subject": "mmlu:nutrition",
+     "cos": 0.452
     },
     {
      "subject": "pro:chemistry",
-     "cos": 0.303
+     "cos": 0.444
     },
     {
      "subject": "mmlu:high_school_chemistry",
-     "cos": 0.303
+     "cos": 0.444
     }
    ]
   },
@@ -164,16 +164,16 @@
    "level": "undergrad",
    "matches": [
     {
+     "subject": "mmlu:medical_genetics",
+     "cos": 0.478
+    },
+    {
      "subject": "pro:biology",
-     "cos": 0.475
+     "cos": 0.454
     },
     {
      "subject": "mmlu:high_school_biology",
-     "cos": 0.475
-    },
-    {
-     "subject": "mmlu:college_biology",
-     "cos": 0.475
+     "cos": 0.454
     }
    ]
   },
@@ -183,16 +183,16 @@
    "level": "undergrad",
    "matches": [
     {
-     "subject": "pro:biology",
-     "cos": 0.39
+     "subject": "mmlu:medical_genetics",
+     "cos": 0.433
     },
     {
-     "subject": "mmlu:high_school_biology",
-     "cos": 0.39
+     "subject": "mmlu:nutrition",
+     "cos": 0.429
     },
     {
-     "subject": "mmlu:college_biology",
-     "cos": 0.39
+     "subject": "mmlu:anatomy",
+     "cos": 0.408
     }
    ]
   },
@@ -202,16 +202,16 @@
    "level": "undergrad",
    "matches": [
     {
-     "subject": "pro:biology",
-     "cos": 0.436
+     "subject": "mmlu:medical_genetics",
+     "cos": 0.484
     },
     {
-     "subject": "mmlu:high_school_biology",
-     "cos": 0.436
+     "subject": "mmlu:anatomy",
+     "cos": 0.438
     },
     {
-     "subject": "mmlu:college_biology",
-     "cos": 0.436
+     "subject": "mmlu:nutrition",
+     "cos": 0.429
     }
    ]
   },
@@ -222,15 +222,15 @@
    "matches": [
     {
      "subject": "mmlu:anatomy",
-     "cos": 0.539
+     "cos": 0.628
     },
     {
-     "subject": "pro:biology",
-     "cos": 0.337
+     "subject": "mmlu:nutrition",
+     "cos": 0.445
     },
     {
-     "subject": "mmlu:high_school_biology",
-     "cos": 0.337
+     "subject": "mmlu:medical_genetics",
+     "cos": 0.368
     }
    ]
   },
@@ -240,16 +240,16 @@
    "level": "intro",
    "matches": [
     {
-     "subject": "pro:biology",
-     "cos": 0.339
+     "subject": "mmlu:nutrition",
+     "cos": 0.468
     },
     {
-     "subject": "mmlu:high_school_biology",
-     "cos": 0.339
+     "subject": "pro:chemistry",
+     "cos": 0.451
     },
     {
-     "subject": "mmlu:college_biology",
-     "cos": 0.339
+     "subject": "mmlu:high_school_chemistry",
+     "cos": 0.451
     }
    ]
   },
@@ -260,15 +260,15 @@
    "matches": [
     {
      "subject": "mmlu:medical_genetics",
-     "cos": 0.426
+     "cos": 0.634
+    },
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.416
     },
     {
      "subject": "pro:biology",
-     "cos": 0.366
-    },
-    {
-     "subject": "mmlu:high_school_biology",
-     "cos": 0.366
+     "cos": 0.339
     }
    ]
   },
@@ -279,15 +279,15 @@
    "matches": [
     {
      "subject": "mmlu:nutrition",
-     "cos": 0.553
+     "cos": 0.587
     },
     {
      "subject": "mmlu:medical_genetics",
-     "cos": 0.36
+     "cos": 0.478
     },
     {
      "subject": "pro:chemistry",
-     "cos": 0.303
+     "cos": 0.47
     }
    ]
   },
@@ -297,16 +297,16 @@
    "level": "intro",
    "matches": [
     {
-     "subject": "pro:physics",
-     "cos": 0.447
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.382
     },
     {
-     "subject": "mmlu:high_school_physics",
-     "cos": 0.447
+     "subject": "pro:chemistry",
+     "cos": 0.372
     },
     {
-     "subject": "mmlu:conceptual_physics",
-     "cos": 0.447
+     "subject": "mmlu:high_school_chemistry",
+     "cos": 0.372
     }
    ]
   },
@@ -316,16 +316,16 @@
    "level": "intro",
    "matches": [
     {
-     "subject": "mmlu:machine_learning",
-     "cos": 0.373
-    },
-    {
      "subject": "pro:physics",
-     "cos": 0.363
+     "cos": 0.375
     },
     {
      "subject": "mmlu:high_school_physics",
-     "cos": 0.363
+     "cos": 0.375
+    },
+    {
+     "subject": "mmlu:conceptual_physics",
+     "cos": 0.375
     }
    ]
   },
@@ -335,16 +335,16 @@
    "level": "undergrad",
    "matches": [
     {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.401
+    },
+    {
      "subject": "pro:physics",
-     "cos": 0.413
+     "cos": 0.369
     },
     {
      "subject": "mmlu:high_school_physics",
-     "cos": 0.413
-    },
-    {
-     "subject": "mmlu:conceptual_physics",
-     "cos": 0.413
+     "cos": 0.369
     }
    ]
   },
@@ -354,16 +354,16 @@
    "level": "undergrad",
    "matches": [
     {
-     "subject": "pro:chemistry",
-     "cos": 0.398
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.376
     },
     {
-     "subject": "mmlu:high_school_chemistry",
-     "cos": 0.398
+     "subject": "mmlu:nutrition",
+     "cos": 0.349
     },
     {
-     "subject": "mmlu:college_chemistry",
-     "cos": 0.398
+     "subject": "pro:economics",
+     "cos": 0.348
     }
    ]
   },
@@ -374,15 +374,15 @@
    "matches": [
     {
      "subject": "pro:chemistry",
-     "cos": 0.333
+     "cos": 0.396
     },
     {
      "subject": "mmlu:high_school_chemistry",
-     "cos": 0.333
+     "cos": 0.396
     },
     {
      "subject": "mmlu:college_chemistry",
-     "cos": 0.333
+     "cos": 0.396
     }
    ]
   },
@@ -392,16 +392,16 @@
    "level": "undergrad",
    "matches": [
     {
-     "subject": "pro:physics",
-     "cos": 0.383
+     "subject": "pro:chemistry",
+     "cos": 0.385
     },
     {
-     "subject": "mmlu:high_school_physics",
-     "cos": 0.383
+     "subject": "mmlu:high_school_chemistry",
+     "cos": 0.385
     },
     {
-     "subject": "mmlu:conceptual_physics",
-     "cos": 0.383
+     "subject": "mmlu:college_chemistry",
+     "cos": 0.385
     }
    ]
   },
@@ -411,16 +411,16 @@
    "level": "undergrad",
    "matches": [
     {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.393
+    },
+    {
      "subject": "pro:chemistry",
-     "cos": 0.397
+     "cos": 0.368
     },
     {
      "subject": "mmlu:high_school_chemistry",
-     "cos": 0.397
-    },
-    {
-     "subject": "mmlu:college_chemistry",
-     "cos": 0.397
+     "cos": 0.368
     }
    ]
   },
@@ -431,15 +431,15 @@
    "matches": [
     {
      "subject": "pro:physics",
-     "cos": 0.533
+     "cos": 0.449
     },
     {
      "subject": "mmlu:high_school_physics",
-     "cos": 0.533
+     "cos": 0.449
     },
     {
      "subject": "mmlu:conceptual_physics",
-     "cos": 0.533
+     "cos": 0.449
     }
    ]
   },
@@ -449,16 +449,16 @@
    "level": "undergrad",
    "matches": [
     {
-     "subject": "pro:physics",
-     "cos": 0.444
+     "subject": "pro:chemistry",
+     "cos": 0.419
     },
     {
-     "subject": "mmlu:high_school_physics",
-     "cos": 0.444
+     "subject": "mmlu:high_school_chemistry",
+     "cos": 0.419
     },
     {
-     "subject": "mmlu:conceptual_physics",
-     "cos": 0.444
+     "subject": "mmlu:college_chemistry",
+     "cos": 0.419
     }
    ]
   },
@@ -469,15 +469,15 @@
    "matches": [
     {
      "subject": "pro:chemistry",
-     "cos": 0.314
+     "cos": 0.533
     },
     {
      "subject": "mmlu:high_school_chemistry",
-     "cos": 0.314
+     "cos": 0.533
     },
     {
      "subject": "mmlu:college_chemistry",
-     "cos": 0.314
+     "cos": 0.533
     }
    ]
   },
@@ -488,15 +488,15 @@
    "matches": [
     {
      "subject": "pro:physics",
-     "cos": 0.471
+     "cos": 0.441
     },
     {
      "subject": "mmlu:high_school_physics",
-     "cos": 0.471
+     "cos": 0.441
     },
     {
      "subject": "mmlu:conceptual_physics",
-     "cos": 0.471
+     "cos": 0.441
     }
    ]
   },
@@ -507,15 +507,15 @@
    "matches": [
     {
      "subject": "pro:chemistry",
-     "cos": 0.539
+     "cos": 0.523
     },
     {
      "subject": "mmlu:high_school_chemistry",
-     "cos": 0.539
+     "cos": 0.523
     },
     {
      "subject": "mmlu:college_chemistry",
-     "cos": 0.539
+     "cos": 0.523
     }
    ]
   },
@@ -525,16 +525,16 @@
    "level": "graduate",
    "matches": [
     {
-     "subject": "mmlu:abstract_algebra",
-     "cos": 0.418
-    },
-    {
      "subject": "pro:physics",
-     "cos": 0.416
+     "cos": 0.356
     },
     {
      "subject": "mmlu:high_school_physics",
-     "cos": 0.416
+     "cos": 0.356
+    },
+    {
+     "subject": "mmlu:conceptual_physics",
+     "cos": 0.356
     }
    ]
   },
@@ -545,15 +545,15 @@
    "matches": [
     {
      "subject": "pro:physics",
-     "cos": 0.509
+     "cos": 0.42
     },
     {
      "subject": "mmlu:high_school_physics",
-     "cos": 0.509
+     "cos": 0.42
     },
     {
      "subject": "mmlu:conceptual_physics",
-     "cos": 0.509
+     "cos": 0.42
     }
    ]
   },
@@ -563,16 +563,16 @@
    "level": "undergrad",
    "matches": [
     {
-     "subject": "pro:biology",
-     "cos": 0.367
+     "subject": "pro:chemistry",
+     "cos": 0.527
     },
     {
-     "subject": "mmlu:high_school_biology",
-     "cos": 0.367
+     "subject": "mmlu:high_school_chemistry",
+     "cos": 0.527
     },
     {
-     "subject": "mmlu:college_biology",
-     "cos": 0.367
+     "subject": "mmlu:college_chemistry",
+     "cos": 0.527
     }
    ]
   },
@@ -582,16 +582,16 @@
    "level": "undergrad",
    "matches": [
     {
-     "subject": "mmlu:machine_learning",
-     "cos": 0.456
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.431
     },
     {
-     "subject": "pro:physics",
-     "cos": 0.444
+     "subject": "mmlu:nutrition",
+     "cos": 0.411
     },
     {
-     "subject": "mmlu:high_school_physics",
-     "cos": 0.444
+     "subject": "pro:chemistry",
+     "cos": 0.397
     }
    ]
   },
@@ -602,15 +602,15 @@
    "matches": [
     {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.392
+     "cos": 0.393
     },
     {
      "subject": "mmlu:machine_learning",
-     "cos": 0.305
+     "cos": 0.327
     },
     {
-     "subject": "mmlu:high_school_statistics",
-     "cos": 0.259
+     "subject": "pro:computer science",
+     "cos": 0.322
     }
    ]
   },
@@ -620,16 +620,16 @@
    "level": "undergrad",
    "matches": [
     {
+     "subject": "mmlu:machine_learning",
+     "cos": 0.431
+    },
+    {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.452
+     "cos": 0.389
     },
     {
-     "subject": "mmlu:high_school_mathematics",
-     "cos": 0.356
-    },
-    {
-     "subject": "mmlu:elementary_mathematics",
-     "cos": 0.356
+     "subject": "pro:computer science",
+     "cos": 0.365
     }
    ]
   },
@@ -639,16 +639,16 @@
    "level": "undergrad",
    "matches": [
     {
+     "subject": "mmlu:machine_learning",
+     "cos": 0.526
+    },
+    {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.538
+     "cos": 0.385
     },
     {
      "subject": "mmlu:high_school_mathematics",
-     "cos": 0.496
-    },
-    {
-     "subject": "mmlu:elementary_mathematics",
-     "cos": 0.496
+     "cos": 0.331
     }
    ]
   },
@@ -659,15 +659,15 @@
    "matches": [
     {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.621
+     "cos": 0.529
     },
     {
      "subject": "mmlu:high_school_mathematics",
-     "cos": 0.552
+     "cos": 0.509
     },
     {
      "subject": "mmlu:elementary_mathematics",
-     "cos": 0.552
+     "cos": 0.509
     }
    ]
   },
@@ -678,15 +678,15 @@
    "matches": [
     {
      "subject": "mmlu:machine_learning",
-     "cos": 0.565
+     "cos": 0.408
     },
     {
      "subject": "pro:computer science",
-     "cos": 0.475
+     "cos": 0.356
     },
     {
      "subject": "mmlu:high_school_computer_science",
-     "cos": 0.475
+     "cos": 0.356
     }
    ]
   },
@@ -697,15 +697,15 @@
    "matches": [
     {
      "subject": "pro:computer science",
-     "cos": 0.378
+     "cos": 0.406
     },
     {
      "subject": "mmlu:high_school_computer_science",
-     "cos": 0.378
+     "cos": 0.406
     },
     {
      "subject": "mmlu:college_computer_science",
-     "cos": 0.378
+     "cos": 0.406
     }
    ]
   },
@@ -716,15 +716,15 @@
    "matches": [
     {
      "subject": "mmlu:machine_learning",
-     "cos": 0.461
+     "cos": 0.427
     },
     {
      "subject": "pro:computer science",
-     "cos": 0.398
+     "cos": 0.39
     },
     {
      "subject": "mmlu:high_school_computer_science",
-     "cos": 0.398
+     "cos": 0.39
     }
    ]
   },
@@ -735,15 +735,15 @@
    "matches": [
     {
      "subject": "mmlu:machine_learning",
-     "cos": 0.548
+     "cos": 0.419
+    },
+    {
+     "subject": "mmlu:anatomy",
+     "cos": 0.407
     },
     {
      "subject": "pro:computer science",
-     "cos": 0.473
-    },
-    {
-     "subject": "mmlu:high_school_computer_science",
-     "cos": 0.473
+     "cos": 0.358
     }
    ]
   },
@@ -753,16 +753,16 @@
    "level": "undergrad",
    "matches": [
     {
-     "subject": "mmlu:machine_learning",
-     "cos": 0.5
-    },
-    {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.493
+     "cos": 0.508
     },
     {
-     "subject": "pro:computer science",
-     "cos": 0.417
+     "subject": "mmlu:machine_learning",
+     "cos": 0.455
+    },
+    {
+     "subject": "mmlu:anatomy",
+     "cos": 0.442
     }
    ]
   },
@@ -773,15 +773,15 @@
    "matches": [
     {
      "subject": "mmlu:machine_learning",
-     "cos": 0.603
+     "cos": 0.69
     },
     {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.435
+     "cos": 0.414
     },
     {
-     "subject": "pro:computer science",
-     "cos": 0.384
+     "subject": "pro:economics",
+     "cos": 0.385
     }
    ]
   },
@@ -791,16 +791,16 @@
    "level": "undergrad",
    "matches": [
     {
-     "subject": "mmlu:abstract_algebra",
-     "cos": 0.384
-    },
-    {
      "subject": "mmlu:high_school_statistics",
-     "cos": 0.371
+     "cos": 0.439
     },
     {
-     "subject": "mmlu:high_school_mathematics",
-     "cos": 0.359
+     "subject": "mmlu:machine_learning",
+     "cos": 0.352
+    },
+    {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.328
     }
    ]
   },
@@ -811,15 +811,15 @@
    "matches": [
     {
      "subject": "mmlu:electrical_engineering",
-     "cos": 0.466
+     "cos": 0.385
     },
     {
-     "subject": "pro:computer science",
-     "cos": 0.377
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.345
     },
     {
-     "subject": "mmlu:high_school_computer_science",
-     "cos": 0.377
+     "subject": "pro:physics",
+     "cos": 0.315
     }
    ]
   },
@@ -829,16 +829,16 @@
    "level": "undergrad",
    "matches": [
     {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.361
+    },
+    {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.358
+     "cos": 0.308
     },
     {
-     "subject": "mmlu:machine_learning",
-     "cos": 0.346
-    },
-    {
-     "subject": "mmlu:high_school_mathematics",
-     "cos": 0.31
+     "subject": "pro:computer science",
+     "cos": 0.295
     }
    ]
   },
@@ -848,16 +848,16 @@
    "level": "undergrad",
    "matches": [
     {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.342
+    },
+    {
      "subject": "mmlu:machine_learning",
-     "cos": 0.361
+     "cos": 0.339
     },
     {
-     "subject": "pro:computer science",
-     "cos": 0.31
-    },
-    {
-     "subject": "mmlu:high_school_computer_science",
-     "cos": 0.31
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.33
     }
    ]
   },
@@ -868,15 +868,15 @@
    "matches": [
     {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.599
+     "cos": 0.485
     },
     {
      "subject": "mmlu:machine_learning",
-     "cos": 0.475
+     "cos": 0.412
     },
     {
-     "subject": "mmlu:high_school_mathematics",
-     "cos": 0.449
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.343
     }
    ]
   },
@@ -887,15 +887,15 @@
    "matches": [
     {
      "subject": "mmlu:electrical_engineering",
-     "cos": 0.393
+     "cos": 0.445
     },
     {
-     "subject": "pro:physics",
-     "cos": 0.324
+     "subject": "pro:computer science",
+     "cos": 0.314
     },
     {
-     "subject": "mmlu:high_school_physics",
-     "cos": 0.324
+     "subject": "mmlu:high_school_computer_science",
+     "cos": 0.314
     }
    ]
   },
@@ -905,16 +905,16 @@
    "level": "intro",
    "matches": [
     {
-     "subject": "mmlu:high_school_statistics",
-     "cos": 0.364
+     "subject": "mmlu:nutrition",
+     "cos": 0.496
     },
     {
-     "subject": "pro:computer science",
-     "cos": 0.357
+     "subject": "pro:economics",
+     "cos": 0.441
     },
     {
-     "subject": "mmlu:high_school_computer_science",
-     "cos": 0.357
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.385
     }
    ]
   },
@@ -924,16 +924,16 @@
    "level": "intro",
    "matches": [
     {
+     "subject": "pro:economics",
+     "cos": 0.364
+    },
+    {
      "subject": "mmlu:electrical_engineering",
+     "cos": 0.35
+    },
+    {
+     "subject": "mmlu:machine_learning",
      "cos": 0.306
-    },
-    {
-     "subject": "mmlu:high_school_statistics",
-     "cos": 0.25
-    },
-    {
-     "subject": "pro:physics",
-     "cos": 0.226
     }
    ]
   },
@@ -943,16 +943,16 @@
    "level": "undergrad",
    "matches": [
     {
-     "subject": "mmlu:high_school_statistics",
-     "cos": 0.375
+     "subject": "mmlu:nutrition",
+     "cos": 0.446
+    },
+    {
+     "subject": "pro:economics",
+     "cos": 0.44
     },
     {
      "subject": "mmlu:machine_learning",
-     "cos": 0.356
-    },
-    {
-     "subject": "mmlu:electrical_engineering",
-     "cos": 0.321
+     "cos": 0.365
     }
    ]
   },
@@ -962,16 +962,16 @@
    "level": "undergrad",
    "matches": [
     {
-     "subject": "mmlu:machine_learning",
-     "cos": 0.415
+     "subject": "mmlu:nutrition",
+     "cos": 0.43
     },
     {
-     "subject": "pro:computer science",
-     "cos": 0.411
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.389
     },
     {
-     "subject": "mmlu:high_school_computer_science",
-     "cos": 0.411
+     "subject": "pro:economics",
+     "cos": 0.378
     }
    ]
   },
@@ -981,16 +981,16 @@
    "level": "undergrad",
    "matches": [
     {
-     "subject": "pro:computer science",
-     "cos": 0.345
+     "subject": "pro:economics",
+     "cos": 0.516
     },
     {
-     "subject": "mmlu:high_school_computer_science",
-     "cos": 0.345
+     "subject": "mmlu:nutrition",
+     "cos": 0.493
     },
     {
-     "subject": "mmlu:college_computer_science",
-     "cos": 0.345
+     "subject": "mmlu:machine_learning",
+     "cos": 0.401
     }
    ]
   },
@@ -1001,15 +1001,15 @@
    "matches": [
     {
      "subject": "pro:economics",
-     "cos": 0.431
+     "cos": 0.502
     },
     {
-     "subject": "pro:computer science",
-     "cos": 0.369
+     "subject": "mmlu:nutrition",
+     "cos": 0.474
     },
     {
-     "subject": "mmlu:high_school_computer_science",
-     "cos": 0.369
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.421
     }
    ]
   },
@@ -1019,16 +1019,16 @@
    "level": "undergrad",
    "matches": [
     {
+     "subject": "pro:economics",
+     "cos": 0.409
+    },
+    {
      "subject": "mmlu:machine_learning",
-     "cos": 0.436
+     "cos": 0.371
     },
     {
-     "subject": "pro:computer science",
-     "cos": 0.336
-    },
-    {
-     "subject": "mmlu:high_school_computer_science",
-     "cos": 0.336
+     "subject": "mmlu:nutrition",
+     "cos": 0.327
     }
    ]
   },
@@ -1038,16 +1038,16 @@
    "level": "intro",
    "matches": [
     {
-     "subject": "mmlu:high_school_statistics",
-     "cos": 0.508
+     "subject": "mmlu:nutrition",
+     "cos": 0.489
     },
     {
-     "subject": "pro:computer science",
-     "cos": 0.345
+     "subject": "pro:economics",
+     "cos": 0.37
     },
     {
-     "subject": "mmlu:high_school_computer_science",
-     "cos": 0.345
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.348
     }
    ]
   },
@@ -1057,16 +1057,16 @@
    "level": "undergrad",
    "matches": [
     {
-     "subject": "mmlu:machine_learning",
-     "cos": 0.335
-    },
-    {
-     "subject": "mmlu:high_school_statistics",
-     "cos": 0.32
+     "subject": "mmlu:nutrition",
+     "cos": 0.431
     },
     {
      "subject": "mmlu:electrical_engineering",
-     "cos": 0.309
+     "cos": 0.396
+    },
+    {
+     "subject": "pro:economics",
+     "cos": 0.392
     }
    ]
   },
@@ -1076,16 +1076,16 @@
    "level": "undergrad",
    "matches": [
     {
-     "subject": "mmlu:machine_learning",
-     "cos": 0.423
+     "subject": "pro:economics",
+     "cos": 0.431
     },
     {
-     "subject": "pro:computer science",
-     "cos": 0.38
+     "subject": "mmlu:nutrition",
+     "cos": 0.409
     },
     {
-     "subject": "mmlu:high_school_computer_science",
-     "cos": 0.38
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.389
     }
    ]
   },
@@ -1095,16 +1095,16 @@
    "level": "undergrad",
    "matches": [
     {
-     "subject": "mmlu:high_school_statistics",
-     "cos": 0.459
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.418
     },
     {
      "subject": "pro:economics",
-     "cos": 0.334
+     "cos": 0.414
     },
     {
-     "subject": "mmlu:machine_learning",
-     "cos": 0.329
+     "subject": "mmlu:nutrition",
+     "cos": 0.404
     }
    ]
   },
@@ -1114,16 +1114,16 @@
    "level": "undergrad",
    "matches": [
     {
+     "subject": "mmlu:nutrition",
+     "cos": 0.448
+    },
+    {
      "subject": "pro:economics",
-     "cos": 0.386
+     "cos": 0.406
     },
     {
-     "subject": "mmlu:high_school_statistics",
-     "cos": 0.378
-    },
-    {
-     "subject": "pro:computer science",
-     "cos": 0.366
+     "subject": "mmlu:machine_learning",
+     "cos": 0.388
     }
    ]
   },
@@ -1133,16 +1133,16 @@
    "level": "undergrad",
    "matches": [
     {
-     "subject": "mmlu:high_school_statistics",
-     "cos": 0.415
+     "subject": "mmlu:nutrition",
+     "cos": 0.504
     },
     {
      "subject": "pro:economics",
-     "cos": 0.37
+     "cos": 0.452
     },
     {
      "subject": "mmlu:machine_learning",
-     "cos": 0.35
+     "cos": 0.432
     }
    ]
   },
@@ -1152,16 +1152,16 @@
    "level": "undergrad",
    "matches": [
     {
-     "subject": "mmlu:machine_learning",
-     "cos": 0.403
+     "subject": "mmlu:nutrition",
+     "cos": 0.41
     },
     {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.397
+     "cos": 0.357
     },
     {
      "subject": "mmlu:high_school_statistics",
-     "cos": 0.395
+     "cos": 0.356
     }
    ]
   },
@@ -1171,16 +1171,16 @@
    "level": "graduate",
    "matches": [
     {
-     "subject": "mmlu:machine_learning",
-     "cos": 0.523
+     "subject": "mmlu:medical_genetics",
+     "cos": 0.438
     },
     {
-     "subject": "pro:computer science",
-     "cos": 0.466
+     "subject": "mmlu:nutrition",
+     "cos": 0.437
     },
     {
-     "subject": "mmlu:high_school_computer_science",
-     "cos": 0.466
+     "subject": "pro:economics",
+     "cos": 0.424
     }
    ]
   },
@@ -1191,15 +1191,15 @@
    "matches": [
     {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.428
+     "cos": 0.409
     },
     {
-     "subject": "mmlu:high_school_mathematics",
-     "cos": 0.423
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.334
     },
     {
-     "subject": "mmlu:elementary_mathematics",
-     "cos": 0.423
+     "subject": "pro:economics",
+     "cos": 0.312
     }
    ]
   },
@@ -1210,15 +1210,15 @@
    "matches": [
     {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.552
+     "cos": 0.495
     },
     {
      "subject": "mmlu:high_school_mathematics",
-     "cos": 0.453
+     "cos": 0.344
     },
     {
      "subject": "mmlu:elementary_mathematics",
-     "cos": 0.453
+     "cos": 0.344
     }
    ]
   },
@@ -1229,15 +1229,15 @@
    "matches": [
     {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.467
+     "cos": 0.358
     },
     {
-     "subject": "mmlu:high_school_mathematics",
-     "cos": 0.402
+     "subject": "mmlu:astronomy",
+     "cos": 0.327
     },
     {
-     "subject": "mmlu:elementary_mathematics",
-     "cos": 0.402
+     "subject": "pro:math",
+     "cos": 0.299
     }
    ]
   },
@@ -1248,15 +1248,15 @@
    "matches": [
     {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.538
+     "cos": 0.409
     },
     {
      "subject": "mmlu:high_school_mathematics",
-     "cos": 0.423
+     "cos": 0.332
     },
     {
      "subject": "mmlu:elementary_mathematics",
-     "cos": 0.423
+     "cos": 0.332
     }
    ]
   },
@@ -1266,16 +1266,16 @@
    "level": "undergrad",
    "matches": [
     {
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.384
+    },
+    {
      "subject": "mmlu:high_school_mathematics",
-     "cos": 0.443
+     "cos": 0.364
     },
     {
      "subject": "mmlu:elementary_mathematics",
-     "cos": 0.443
-    },
-    {
-     "subject": "mmlu:college_mathematics",
-     "cos": 0.443
+     "cos": 0.364
     }
    ]
   },
@@ -1286,15 +1286,15 @@
    "matches": [
     {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.467
+     "cos": 0.365
     },
     {
-     "subject": "mmlu:high_school_mathematics",
-     "cos": 0.362
+     "subject": "pro:physics",
+     "cos": 0.327
     },
     {
-     "subject": "mmlu:elementary_mathematics",
-     "cos": 0.362
+     "subject": "mmlu:high_school_physics",
+     "cos": 0.327
     }
    ]
   },
@@ -1305,15 +1305,15 @@
    "matches": [
     {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.593
+     "cos": 0.492
+    },
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.321
     },
     {
      "subject": "mmlu:high_school_mathematics",
-     "cos": 0.389
-    },
-    {
-     "subject": "mmlu:elementary_mathematics",
-     "cos": 0.389
+     "cos": 0.291
     }
    ]
   },
@@ -1324,15 +1324,15 @@
    "matches": [
     {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.495
+     "cos": 0.386
+    },
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.353
     },
     {
      "subject": "mmlu:high_school_mathematics",
-     "cos": 0.409
-    },
-    {
-     "subject": "mmlu:elementary_mathematics",
-     "cos": 0.409
+     "cos": 0.297
     }
    ]
   },
@@ -1342,16 +1342,16 @@
    "level": "undergrad",
    "matches": [
     {
-     "subject": "mmlu:abstract_algebra",
-     "cos": 0.418
+     "subject": "mmlu:high_school_statistics",
+     "cos": 0.381
     },
     {
      "subject": "mmlu:machine_learning",
-     "cos": 0.404
+     "cos": 0.349
     },
     {
-     "subject": "mmlu:high_school_mathematics",
-     "cos": 0.369
+     "subject": "mmlu:abstract_algebra",
+     "cos": 0.341
     }
    ]
   },
@@ -1362,15 +1362,15 @@
    "matches": [
     {
      "subject": "mmlu:high_school_statistics",
-     "cos": 0.5
+     "cos": 0.541
+    },
+    {
+     "subject": "mmlu:nutrition",
+     "cos": 0.363
     },
     {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.353
-    },
-    {
-     "subject": "mmlu:high_school_mathematics",
-     "cos": 0.35
+     "cos": 0.361
     }
    ]
   },
@@ -1381,15 +1381,15 @@
    "matches": [
     {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.512
+     "cos": 0.405
     },
     {
-     "subject": "mmlu:machine_learning",
-     "cos": 0.337
+     "subject": "pro:chemistry",
+     "cos": 0.302
     },
     {
-     "subject": "mmlu:high_school_mathematics",
-     "cos": 0.329
+     "subject": "mmlu:high_school_chemistry",
+     "cos": 0.302
     }
    ]
   },
@@ -1400,15 +1400,15 @@
    "matches": [
     {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.574
+     "cos": 0.451
     },
     {
-     "subject": "mmlu:high_school_mathematics",
-     "cos": 0.454
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.34
     },
     {
-     "subject": "mmlu:elementary_mathematics",
-     "cos": 0.454
+     "subject": "pro:physics",
+     "cos": 0.281
     }
    ]
   },
@@ -1419,15 +1419,15 @@
    "matches": [
     {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.515
+     "cos": 0.479
     },
     {
      "subject": "mmlu:high_school_mathematics",
-     "cos": 0.416
+     "cos": 0.387
     },
     {
      "subject": "mmlu:elementary_mathematics",
-     "cos": 0.416
+     "cos": 0.387
     }
    ]
   },
@@ -1438,15 +1438,15 @@
    "matches": [
     {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.501
+     "cos": 0.359
+    },
+    {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.332
     },
     {
      "subject": "mmlu:high_school_mathematics",
-     "cos": 0.432
-    },
-    {
-     "subject": "mmlu:elementary_mathematics",
-     "cos": 0.432
+     "cos": 0.298
     }
    ]
   },
@@ -1457,15 +1457,15 @@
    "matches": [
     {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.545
+     "cos": 0.429
     },
     {
      "subject": "mmlu:high_school_mathematics",
-     "cos": 0.474
+     "cos": 0.369
     },
     {
      "subject": "mmlu:elementary_mathematics",
-     "cos": 0.474
+     "cos": 0.369
     }
    ]
   },
@@ -1476,15 +1476,15 @@
    "matches": [
     {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.58
+     "cos": 0.487
     },
     {
      "subject": "mmlu:high_school_mathematics",
-     "cos": 0.521
+     "cos": 0.427
     },
     {
      "subject": "mmlu:elementary_mathematics",
-     "cos": 0.521
+     "cos": 0.427
     }
    ]
   },
@@ -1495,15 +1495,15 @@
    "matches": [
     {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.513
+     "cos": 0.407
+    },
+    {
+     "subject": "mmlu:machine_learning",
+     "cos": 0.312
     },
     {
      "subject": "mmlu:high_school_mathematics",
-     "cos": 0.419
-    },
-    {
-     "subject": "mmlu:elementary_mathematics",
-     "cos": 0.419
+     "cos": 0.302
     }
    ]
   },
@@ -1513,16 +1513,16 @@
    "level": "intro",
    "matches": [
     {
-     "subject": "mmlu:machine_learning",
-     "cos": 0.441
-    },
-    {
      "subject": "pro:physics",
-     "cos": 0.417
+     "cos": 0.422
     },
     {
      "subject": "mmlu:high_school_physics",
-     "cos": 0.417
+     "cos": 0.422
+    },
+    {
+     "subject": "mmlu:conceptual_physics",
+     "cos": 0.422
     }
    ]
   },
@@ -1533,15 +1533,15 @@
    "matches": [
     {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.514
+     "cos": 0.385
     },
     {
-     "subject": "mmlu:high_school_mathematics",
-     "cos": 0.366
+     "subject": "pro:physics",
+     "cos": 0.384
     },
     {
-     "subject": "mmlu:elementary_mathematics",
-     "cos": 0.366
+     "subject": "mmlu:high_school_physics",
+     "cos": 0.384
     }
    ]
   },
@@ -1552,15 +1552,15 @@
    "matches": [
     {
      "subject": "mmlu:electrical_engineering",
-     "cos": 0.466
+     "cos": 0.406
     },
     {
      "subject": "pro:physics",
-     "cos": 0.433
+     "cos": 0.397
     },
     {
      "subject": "mmlu:high_school_physics",
-     "cos": 0.433
+     "cos": 0.397
     }
    ]
   },
@@ -1571,15 +1571,15 @@
    "matches": [
     {
      "subject": "pro:physics",
-     "cos": 0.472
+     "cos": 0.445
     },
     {
      "subject": "mmlu:high_school_physics",
-     "cos": 0.472
+     "cos": 0.445
     },
     {
      "subject": "mmlu:conceptual_physics",
-     "cos": 0.472
+     "cos": 0.445
     }
    ]
   },
@@ -1590,15 +1590,15 @@
    "matches": [
     {
      "subject": "pro:physics",
-     "cos": 0.472
+     "cos": 0.419
     },
     {
      "subject": "mmlu:high_school_physics",
-     "cos": 0.472
+     "cos": 0.419
     },
     {
      "subject": "mmlu:conceptual_physics",
-     "cos": 0.472
+     "cos": 0.419
     }
    ]
   },
@@ -1609,15 +1609,15 @@
    "matches": [
     {
      "subject": "pro:physics",
-     "cos": 0.397
+     "cos": 0.457
     },
     {
      "subject": "mmlu:high_school_physics",
-     "cos": 0.397
+     "cos": 0.457
     },
     {
      "subject": "mmlu:conceptual_physics",
-     "cos": 0.397
+     "cos": 0.457
     }
    ]
   },
@@ -1627,16 +1627,16 @@
    "level": "graduate",
    "matches": [
     {
-     "subject": "mmlu:abstract_algebra",
-     "cos": 0.47
-    },
-    {
      "subject": "pro:physics",
-     "cos": 0.399
+     "cos": 0.421
     },
     {
      "subject": "mmlu:high_school_physics",
-     "cos": 0.399
+     "cos": 0.421
+    },
+    {
+     "subject": "mmlu:conceptual_physics",
+     "cos": 0.421
     }
    ]
   },
@@ -1647,15 +1647,15 @@
    "matches": [
     {
      "subject": "pro:physics",
-     "cos": 0.486
+     "cos": 0.395
     },
     {
      "subject": "mmlu:high_school_physics",
-     "cos": 0.486
+     "cos": 0.395
     },
     {
      "subject": "mmlu:conceptual_physics",
-     "cos": 0.486
+     "cos": 0.395
     }
    ]
   },
@@ -1666,15 +1666,15 @@
    "matches": [
     {
      "subject": "pro:physics",
-     "cos": 0.516
+     "cos": 0.493
     },
     {
      "subject": "mmlu:high_school_physics",
-     "cos": 0.516
+     "cos": 0.493
     },
     {
      "subject": "mmlu:conceptual_physics",
-     "cos": 0.516
+     "cos": 0.493
     }
    ]
   },
@@ -1684,16 +1684,16 @@
    "level": "graduate",
    "matches": [
     {
+     "subject": "mmlu:astronomy",
+     "cos": 0.522
+    },
+    {
      "subject": "pro:physics",
-     "cos": 0.486
+     "cos": 0.436
     },
     {
      "subject": "mmlu:high_school_physics",
-     "cos": 0.486
-    },
-    {
-     "subject": "mmlu:conceptual_physics",
-     "cos": 0.486
+     "cos": 0.436
     }
    ]
   },
@@ -1703,16 +1703,16 @@
    "level": "undergrad",
    "matches": [
     {
+     "subject": "mmlu:astronomy",
+     "cos": 0.419
+    },
+    {
      "subject": "pro:physics",
-     "cos": 0.384
+     "cos": 0.402
     },
     {
      "subject": "mmlu:high_school_physics",
-     "cos": 0.384
-    },
-    {
-     "subject": "mmlu:conceptual_physics",
-     "cos": 0.384
+     "cos": 0.402
     }
    ]
   },
@@ -1723,15 +1723,15 @@
    "matches": [
     {
      "subject": "pro:physics",
-     "cos": 0.475
+     "cos": 0.457
     },
     {
      "subject": "mmlu:high_school_physics",
-     "cos": 0.475
+     "cos": 0.457
     },
     {
      "subject": "mmlu:conceptual_physics",
-     "cos": 0.475
+     "cos": 0.457
     }
    ]
   },
@@ -1742,15 +1742,15 @@
    "matches": [
     {
      "subject": "mmlu:electrical_engineering",
-     "cos": 0.435
+     "cos": 0.406
     },
     {
      "subject": "pro:physics",
-     "cos": 0.419
+     "cos": 0.365
     },
     {
      "subject": "mmlu:high_school_physics",
-     "cos": 0.419
+     "cos": 0.365
     }
    ]
   },
@@ -1761,15 +1761,15 @@
    "matches": [
     {
      "subject": "mmlu:abstract_algebra",
-     "cos": 0.541
+     "cos": 0.433
     },
     {
      "subject": "mmlu:high_school_mathematics",
-     "cos": 0.474
+     "cos": 0.38
     },
     {
      "subject": "mmlu:elementary_mathematics",
-     "cos": 0.474
+     "cos": 0.38
     }
    ]
   },
@@ -1779,210 +1779,122 @@
    "level": "graduate",
    "matches": [
     {
+     "subject": "mmlu:electrical_engineering",
+     "cos": 0.425
+    },
+    {
      "subject": "pro:physics",
-     "cos": 0.516
+     "cos": 0.364
     },
     {
      "subject": "mmlu:high_school_physics",
-     "cos": 0.516
-    },
-    {
-     "subject": "mmlu:conceptual_physics",
-     "cos": 0.516
+     "cos": 0.364
     }
    ]
   }
  ],
  "coverage": [
   {
-   "subject": "mmlu:high_school_macroeconomics",
-   "kind": "mmlu",
-   "domain": "economics",
-   "max_cos": 0.244,
-   "nearest_topic": "physics:Analytical Mechanics (Lagrangian and Hamiltonian)",
-   "gap": true
-  },
-  {
-   "subject": "mmlu:econometrics",
-   "kind": "mmlu",
-   "domain": "economics",
-   "max_cos": 0.247,
-   "nearest_topic": "computer_science:Discrete Mathematics & Logic",
-   "gap": true
-  },
-  {
-   "subject": "mmlu:high_school_microeconomics",
-   "kind": "mmlu",
-   "domain": "economics",
-   "max_cos": 0.262,
-   "nearest_topic": "computer_science:Discrete Mathematics & Logic",
-   "gap": true
-  },
-  {
    "subject": "pro:math",
    "kind": "mmlu_pro",
    "domain": "mathematics",
-   "max_cos": 0.354,
-   "nearest_topic": "computer_science:Digital Logic & Boolean Algebra",
+   "max_cos": 0.38,
+   "nearest_topic": "computer_science:Discrete Mathematics & Logic",
    "gap": true
-  },
-  {
-   "subject": "mmlu:astronomy",
-   "kind": "mmlu",
-   "domain": "physics",
-   "max_cos": 0.414,
-   "nearest_topic": "physics:Astrophysics and Cosmology",
-   "gap": true
-  },
-  {
-   "subject": "pro:economics",
-   "kind": "mmlu_pro",
-   "domain": "economics",
-   "max_cos": 0.431,
-   "nearest_topic": "economics:Welfare Economics and Externalities",
-   "gap": true
-  },
-  {
-   "subject": "mmlu:medical_genetics",
-   "kind": "mmlu",
-   "domain": "biology",
-   "max_cos": 0.461,
-   "nearest_topic": "biology:Evolution",
-   "gap": false
-  },
-  {
-   "subject": "mmlu:electrical_engineering",
-   "kind": "mmlu",
-   "domain": "computer_science",
-   "max_cos": 0.466,
-   "nearest_topic": "physics:Electromagnetism",
-   "gap": false
   },
   {
    "subject": "pro:computer science",
    "kind": "mmlu_pro",
    "domain": "computer_science",
-   "max_cos": 0.475,
-   "nearest_topic": "computer_science:Operating Systems",
-   "gap": false
+   "max_cos": 0.427,
+   "nearest_topic": "computer_science:Programming Languages & Compilers",
+   "gap": true
   },
   {
    "subject": "mmlu:college_computer_science",
    "kind": "mmlu",
    "domain": "computer_science",
-   "max_cos": 0.475,
-   "nearest_topic": "computer_science:Operating Systems",
-   "gap": false
+   "max_cos": 0.427,
+   "nearest_topic": "computer_science:Programming Languages & Compilers",
+   "gap": true
   },
   {
    "subject": "mmlu:high_school_computer_science",
    "kind": "mmlu",
    "domain": "computer_science",
-   "max_cos": 0.475,
-   "nearest_topic": "computer_science:Operating Systems",
-   "gap": false
+   "max_cos": 0.427,
+   "nearest_topic": "computer_science:Programming Languages & Compilers",
+   "gap": true
   },
   {
-   "subject": "mmlu:high_school_statistics",
+   "subject": "mmlu:electrical_engineering",
    "kind": "mmlu",
-   "domain": "mathematics",
-   "max_cos": 0.508,
-   "nearest_topic": "economics:GDP and National Income Accounting",
-   "gap": false
+   "domain": "computer_science",
+   "max_cos": 0.445,
+   "nearest_topic": "computer_science:Semiconductor Devices & Electronics",
+   "gap": true
   },
   {
    "subject": "pro:biology",
    "kind": "mmlu_pro",
    "domain": "biology",
-   "max_cos": 0.53,
-   "nearest_topic": "biology:Evolution",
+   "max_cos": 0.454,
+   "nearest_topic": "biology:Microbiology",
    "gap": false
   },
   {
    "subject": "mmlu:college_biology",
    "kind": "mmlu",
    "domain": "biology",
-   "max_cos": 0.53,
-   "nearest_topic": "biology:Evolution",
+   "max_cos": 0.454,
+   "nearest_topic": "biology:Microbiology",
    "gap": false
   },
   {
    "subject": "mmlu:high_school_biology",
    "kind": "mmlu",
    "domain": "biology",
-   "max_cos": 0.53,
-   "nearest_topic": "biology:Evolution",
+   "max_cos": 0.454,
+   "nearest_topic": "biology:Microbiology",
    "gap": false
   },
   {
    "subject": "pro:physics",
    "kind": "mmlu_pro",
    "domain": "physics",
-   "max_cos": 0.533,
-   "nearest_topic": "chemistry:Atomic Structure and Quantum Chemistry",
+   "max_cos": 0.493,
+   "nearest_topic": "physics:Particle Physics and Quantum Field Theory",
    "gap": false
   },
   {
    "subject": "mmlu:conceptual_physics",
    "kind": "mmlu",
    "domain": "physics",
-   "max_cos": 0.533,
-   "nearest_topic": "chemistry:Atomic Structure and Quantum Chemistry",
+   "max_cos": 0.493,
+   "nearest_topic": "physics:Particle Physics and Quantum Field Theory",
    "gap": false
   },
   {
    "subject": "mmlu:college_physics",
    "kind": "mmlu",
    "domain": "physics",
-   "max_cos": 0.533,
-   "nearest_topic": "chemistry:Atomic Structure and Quantum Chemistry",
+   "max_cos": 0.493,
+   "nearest_topic": "physics:Particle Physics and Quantum Field Theory",
    "gap": false
   },
   {
    "subject": "mmlu:high_school_physics",
    "kind": "mmlu",
    "domain": "physics",
-   "max_cos": 0.533,
-   "nearest_topic": "chemistry:Atomic Structure and Quantum Chemistry",
-   "gap": false
-  },
-  {
-   "subject": "mmlu:anatomy",
-   "kind": "mmlu",
-   "domain": "biology",
-   "max_cos": 0.539,
-   "nearest_topic": "biology:Anatomy",
-   "gap": false
-  },
-  {
-   "subject": "pro:chemistry",
-   "kind": "mmlu_pro",
-   "domain": "chemistry",
-   "max_cos": 0.539,
-   "nearest_topic": "chemistry:Coordination Chemistry and Inorganic Chemistry",
-   "gap": false
-  },
-  {
-   "subject": "mmlu:college_chemistry",
-   "kind": "mmlu",
-   "domain": "chemistry",
-   "max_cos": 0.539,
-   "nearest_topic": "chemistry:Coordination Chemistry and Inorganic Chemistry",
-   "gap": false
-  },
-  {
-   "subject": "mmlu:high_school_chemistry",
-   "kind": "mmlu",
-   "domain": "chemistry",
-   "max_cos": 0.539,
-   "nearest_topic": "chemistry:Coordination Chemistry and Inorganic Chemistry",
+   "max_cos": 0.493,
+   "nearest_topic": "physics:Particle Physics and Quantum Field Theory",
    "gap": false
   },
   {
    "subject": "mmlu:college_mathematics",
    "kind": "mmlu",
    "domain": "mathematics",
-   "max_cos": 0.552,
+   "max_cos": 0.509,
    "nearest_topic": "computer_science:Discrete Mathematics & Logic",
    "gap": false
   },
@@ -1990,7 +1902,7 @@
    "subject": "mmlu:high_school_mathematics",
    "kind": "mmlu",
    "domain": "mathematics",
-   "max_cos": 0.552,
+   "max_cos": 0.509,
    "nearest_topic": "computer_science:Discrete Mathematics & Logic",
    "gap": false
   },
@@ -1998,419 +1910,398 @@
    "subject": "mmlu:elementary_mathematics",
    "kind": "mmlu",
    "domain": "mathematics",
-   "max_cos": 0.552,
+   "max_cos": 0.509,
    "nearest_topic": "computer_science:Discrete Mathematics & Logic",
    "gap": false
   },
   {
-   "subject": "mmlu:nutrition",
-   "kind": "mmlu",
-   "domain": "biology",
-   "max_cos": 0.553,
-   "nearest_topic": "biology:Nutrition and Metabolism",
+   "subject": "pro:economics",
+   "kind": "mmlu_pro",
+   "domain": "economics",
+   "max_cos": 0.516,
+   "nearest_topic": "economics:Market Structures",
    "gap": false
   },
   {
-   "subject": "mmlu:machine_learning",
+   "subject": "mmlu:astronomy",
    "kind": "mmlu",
-   "domain": "computer_science",
-   "max_cos": 0.603,
-   "nearest_topic": "computer_science:Machine Learning",
+   "domain": "physics",
+   "max_cos": 0.522,
+   "nearest_topic": "physics:Astrophysics and Cosmology",
    "gap": false
   },
   {
    "subject": "mmlu:abstract_algebra",
    "kind": "mmlu",
    "domain": "mathematics",
-   "max_cos": 0.621,
+   "max_cos": 0.529,
    "nearest_topic": "computer_science:Discrete Mathematics & Logic",
+   "gap": false
+  },
+  {
+   "subject": "pro:chemistry",
+   "kind": "mmlu_pro",
+   "domain": "chemistry",
+   "max_cos": 0.533,
+   "nearest_topic": "chemistry:Organic Reactions and Mechanisms",
+   "gap": false
+  },
+  {
+   "subject": "mmlu:college_chemistry",
+   "kind": "mmlu",
+   "domain": "chemistry",
+   "max_cos": 0.533,
+   "nearest_topic": "chemistry:Organic Reactions and Mechanisms",
+   "gap": false
+  },
+  {
+   "subject": "mmlu:high_school_chemistry",
+   "kind": "mmlu",
+   "domain": "chemistry",
+   "max_cos": 0.533,
+   "nearest_topic": "chemistry:Organic Reactions and Mechanisms",
+   "gap": false
+  },
+  {
+   "subject": "mmlu:high_school_statistics",
+   "kind": "mmlu",
+   "domain": "mathematics",
+   "max_cos": 0.541,
+   "nearest_topic": "mathematics:Statistics",
+   "gap": false
+  },
+  {
+   "subject": "mmlu:nutrition",
+   "kind": "mmlu",
+   "domain": "biology",
+   "max_cos": 0.587,
+   "nearest_topic": "biology:Nutrition and Metabolism",
+   "gap": false
+  },
+  {
+   "subject": "mmlu:anatomy",
+   "kind": "mmlu",
+   "domain": "biology",
+   "max_cos": 0.628,
+   "nearest_topic": "biology:Anatomy",
+   "gap": false
+  },
+  {
+   "subject": "mmlu:medical_genetics",
+   "kind": "mmlu",
+   "domain": "biology",
+   "max_cos": 0.634,
+   "nearest_topic": "biology:Medical Genetics",
+   "gap": false
+  },
+  {
+   "subject": "mmlu:machine_learning",
+   "kind": "mmlu",
+   "domain": "computer_science",
+   "max_cos": 0.69,
+   "nearest_topic": "computer_science:Machine Learning",
    "gap": false
   }
  ],
  "decomposition": {
   "pro:biology": [
    {
-    "topic": "biology:Evolution",
-    "cos": 0.53
-   },
-   {
-    "topic": "biology:Ecology",
-    "cos": 0.485
-   },
-   {
     "topic": "biology:Microbiology",
-    "cos": 0.475
+    "cos": 0.454
    }
   ],
   "mmlu:college_biology": [
    {
-    "topic": "biology:Evolution",
-    "cos": 0.53
-   },
-   {
-    "topic": "biology:Ecology",
-    "cos": 0.485
-   },
-   {
     "topic": "biology:Microbiology",
-    "cos": 0.475
+    "cos": 0.454
    }
   ],
   "mmlu:high_school_biology": [
    {
-    "topic": "biology:Evolution",
-    "cos": 0.53
-   },
-   {
-    "topic": "biology:Ecology",
-    "cos": 0.485
-   },
-   {
     "topic": "biology:Microbiology",
-    "cos": 0.475
+    "cos": 0.454
    }
   ],
   "mmlu:anatomy": [
    {
     "topic": "biology:Anatomy",
-    "cos": 0.539
+    "cos": 0.628
    }
   ],
   "mmlu:medical_genetics": [
    {
+    "topic": "biology:Medical Genetics",
+    "cos": 0.634
+   },
+   {
+    "topic": "biology:Genetics",
+    "cos": 0.613
+   },
+   {
     "topic": "biology:Evolution",
-    "cos": 0.461
+    "cos": 0.504
+   },
+   {
+    "topic": "biology:Developmental Biology",
+    "cos": 0.484
+   },
+   {
+    "topic": "biology:Nutrition and Metabolism",
+    "cos": 0.478
+   },
+   {
+    "topic": "biology:Microbiology",
+    "cos": 0.478
    }
   ],
   "mmlu:nutrition": [
    {
     "topic": "biology:Nutrition and Metabolism",
-    "cos": 0.553
+    "cos": 0.587
+   },
+   {
+    "topic": "biology:Ecology",
+    "cos": 0.537
+   },
+   {
+    "topic": "economics:Fiscal and Monetary Policy",
+    "cos": 0.504
+   },
+   {
+    "topic": "economics:Supply and Demand",
+    "cos": 0.496
+   },
+   {
+    "topic": "economics:Market Structures",
+    "cos": 0.493
+   },
+   {
+    "topic": "economics:GDP and National Income Accounting",
+    "cos": 0.489
    }
   ],
   "pro:chemistry": [
    {
+    "topic": "chemistry:Organic Reactions and Mechanisms",
+    "cos": 0.533
+   },
+   {
+    "topic": "chemistry:Biochemistry Fundamentals",
+    "cos": 0.527
+   },
+   {
     "topic": "chemistry:Coordination Chemistry and Inorganic Chemistry",
-    "cos": 0.539
+    "cos": 0.523
+   },
+   {
+    "topic": "biology:Biochemistry and Metabolism",
+    "cos": 0.494
+   },
+   {
+    "topic": "biology:Nutrition and Metabolism",
+    "cos": 0.47
+   },
+   {
+    "topic": "biology:Cell Biology",
+    "cos": 0.463
    }
   ],
   "mmlu:college_chemistry": [
    {
+    "topic": "chemistry:Organic Reactions and Mechanisms",
+    "cos": 0.533
+   },
+   {
+    "topic": "chemistry:Biochemistry Fundamentals",
+    "cos": 0.527
+   },
+   {
     "topic": "chemistry:Coordination Chemistry and Inorganic Chemistry",
-    "cos": 0.539
+    "cos": 0.523
+   },
+   {
+    "topic": "biology:Biochemistry and Metabolism",
+    "cos": 0.494
+   },
+   {
+    "topic": "biology:Nutrition and Metabolism",
+    "cos": 0.47
+   },
+   {
+    "topic": "biology:Cell Biology",
+    "cos": 0.463
    }
   ],
   "mmlu:high_school_chemistry": [
    {
+    "topic": "chemistry:Organic Reactions and Mechanisms",
+    "cos": 0.533
+   },
+   {
+    "topic": "chemistry:Biochemistry Fundamentals",
+    "cos": 0.527
+   },
+   {
     "topic": "chemistry:Coordination Chemistry and Inorganic Chemistry",
-    "cos": 0.539
-   }
-  ],
-  "pro:computer science": [
-   {
-    "topic": "computer_science:Operating Systems",
-    "cos": 0.475
-   },
-   {
-    "topic": "computer_science:Computer Architecture",
-    "cos": 0.473
-   },
-   {
-    "topic": "economics:Econometrics: Causal Inference and Advanced Methods",
-    "cos": 0.466
-   }
-  ],
-  "mmlu:college_computer_science": [
-   {
-    "topic": "computer_science:Operating Systems",
-    "cos": 0.475
-   },
-   {
-    "topic": "computer_science:Computer Architecture",
-    "cos": 0.473
-   },
-   {
-    "topic": "economics:Econometrics: Causal Inference and Advanced Methods",
-    "cos": 0.466
-   }
-  ],
-  "mmlu:high_school_computer_science": [
-   {
-    "topic": "computer_science:Operating Systems",
-    "cos": 0.475
-   },
-   {
-    "topic": "computer_science:Computer Architecture",
-    "cos": 0.473
-   },
-   {
-    "topic": "economics:Econometrics: Causal Inference and Advanced Methods",
-    "cos": 0.466
-   }
-  ],
-  "mmlu:machine_learning": [
-   {
-    "topic": "computer_science:Machine Learning",
-    "cos": 0.603
-   },
-   {
-    "topic": "computer_science:Operating Systems",
-    "cos": 0.565
-   },
-   {
-    "topic": "computer_science:Computer Architecture",
-    "cos": 0.548
-   },
-   {
-    "topic": "economics:Econometrics: Causal Inference and Advanced Methods",
     "cos": 0.523
    },
    {
+    "topic": "biology:Biochemistry and Metabolism",
+    "cos": 0.494
+   },
+   {
+    "topic": "biology:Nutrition and Metabolism",
+    "cos": 0.47
+   },
+   {
+    "topic": "biology:Cell Biology",
+    "cos": 0.463
+   }
+  ],
+  "pro:computer science": [],
+  "mmlu:college_computer_science": [],
+  "mmlu:high_school_computer_science": [],
+  "mmlu:machine_learning": [
+   {
+    "topic": "computer_science:Machine Learning",
+    "cos": 0.69
+   },
+   {
+    "topic": "computer_science:Computability & Automata Theory",
+    "cos": 0.526
+   },
+   {
     "topic": "computer_science:Programming Languages & Compilers",
-    "cos": 0.5
-   },
-   {
-    "topic": "computer_science:Digital Logic & Boolean Algebra",
-    "cos": 0.475
+    "cos": 0.455
    }
   ],
-  "mmlu:electrical_engineering": [
+  "mmlu:electrical_engineering": [],
+  "pro:economics": [
    {
-    "topic": "physics:Electromagnetism",
-    "cos": 0.466
+    "topic": "economics:Market Structures",
+    "cos": 0.516
    },
    {
-    "topic": "computer_science:Circuit Analysis",
-    "cos": 0.466
+    "topic": "economics:Welfare Economics and Externalities",
+    "cos": 0.502
+   },
+   {
+    "topic": "economics:Fiscal and Monetary Policy",
+    "cos": 0.452
    }
   ],
-  "pro:economics": [],
-  "mmlu:high_school_macroeconomics": [],
-  "mmlu:high_school_microeconomics": [],
-  "mmlu:econometrics": [],
   "pro:math": [],
   "mmlu:abstract_algebra": [
    {
     "topic": "computer_science:Discrete Mathematics & Logic",
-    "cos": 0.621
+    "cos": 0.529
    },
    {
-    "topic": "computer_science:Digital Logic & Boolean Algebra",
-    "cos": 0.599
-   },
-   {
-    "topic": "mathematics:Linear Algebra",
-    "cos": 0.593
-   },
-   {
-    "topic": "mathematics:Discrete Mathematics and Combinatorics",
-    "cos": 0.58
-   },
-   {
-    "topic": "mathematics:Abstract Algebra \u2014 Rings and Fields",
-    "cos": 0.574
+    "topic": "computer_science:Programming Languages & Compilers",
+    "cos": 0.508
    },
    {
     "topic": "mathematics:Algebra and Polynomial Theory",
-    "cos": 0.552
+    "cos": 0.495
+   },
+   {
+    "topic": "mathematics:Linear Algebra",
+    "cos": 0.492
+   },
+   {
+    "topic": "mathematics:Discrete Mathematics and Combinatorics",
+    "cos": 0.487
+   },
+   {
+    "topic": "computer_science:Digital Logic & Boolean Algebra",
+    "cos": 0.485
    }
   ],
   "mmlu:college_mathematics": [
    {
     "topic": "computer_science:Discrete Mathematics & Logic",
-    "cos": 0.552
-   },
-   {
-    "topic": "mathematics:Discrete Mathematics and Combinatorics",
-    "cos": 0.521
-   },
-   {
-    "topic": "computer_science:Computability & Automata Theory",
-    "cos": 0.496
-   },
-   {
-    "topic": "physics:Mathematical Methods in Physics",
-    "cos": 0.474
-   },
-   {
-    "topic": "mathematics:Number Theory",
-    "cos": 0.474
-   },
-   {
-    "topic": "chemistry:Quantum Chemistry",
-    "cos": 0.473
+    "cos": 0.509
    }
   ],
   "mmlu:high_school_mathematics": [
    {
     "topic": "computer_science:Discrete Mathematics & Logic",
-    "cos": 0.552
-   },
-   {
-    "topic": "mathematics:Discrete Mathematics and Combinatorics",
-    "cos": 0.521
-   },
-   {
-    "topic": "computer_science:Computability & Automata Theory",
-    "cos": 0.496
-   },
-   {
-    "topic": "physics:Mathematical Methods in Physics",
-    "cos": 0.474
-   },
-   {
-    "topic": "mathematics:Number Theory",
-    "cos": 0.474
-   },
-   {
-    "topic": "chemistry:Quantum Chemistry",
-    "cos": 0.473
+    "cos": 0.509
    }
   ],
   "mmlu:elementary_mathematics": [
    {
     "topic": "computer_science:Discrete Mathematics & Logic",
-    "cos": 0.552
-   },
-   {
-    "topic": "mathematics:Discrete Mathematics and Combinatorics",
-    "cos": 0.521
-   },
-   {
-    "topic": "computer_science:Computability & Automata Theory",
-    "cos": 0.496
-   },
-   {
-    "topic": "physics:Mathematical Methods in Physics",
-    "cos": 0.474
-   },
-   {
-    "topic": "mathematics:Number Theory",
-    "cos": 0.474
-   },
-   {
-    "topic": "chemistry:Quantum Chemistry",
-    "cos": 0.473
+    "cos": 0.509
    }
   ],
   "mmlu:high_school_statistics": [
    {
-    "topic": "economics:GDP and National Income Accounting",
-    "cos": 0.508
-   },
-   {
     "topic": "mathematics:Statistics",
-    "cos": 0.5
-   },
-   {
-    "topic": "economics:Unemployment and Labor Markets",
-    "cos": 0.459
+    "cos": 0.541
    }
   ],
   "pro:physics": [
    {
-    "topic": "chemistry:Atomic Structure and Quantum Chemistry",
-    "cos": 0.533
-   },
-   {
     "topic": "physics:Particle Physics and Quantum Field Theory",
-    "cos": 0.516
+    "cos": 0.493
    },
    {
-    "topic": "physics:Plasma Physics and Fluid Dynamics",
-    "cos": 0.516
+    "topic": "physics:Special Relativity",
+    "cos": 0.457
    },
    {
-    "topic": "chemistry:Quantum Chemistry",
-    "cos": 0.509
-   },
-   {
-    "topic": "physics:Astrophysics and Cosmology",
-    "cos": 0.486
-   },
-   {
-    "topic": "physics:Condensed Matter Physics",
-    "cos": 0.486
+    "topic": "physics:Nuclear and Atomic Physics",
+    "cos": 0.457
    }
   ],
   "mmlu:conceptual_physics": [
    {
-    "topic": "chemistry:Atomic Structure and Quantum Chemistry",
-    "cos": 0.533
-   },
-   {
     "topic": "physics:Particle Physics and Quantum Field Theory",
-    "cos": 0.516
+    "cos": 0.493
    },
    {
-    "topic": "physics:Plasma Physics and Fluid Dynamics",
-    "cos": 0.516
+    "topic": "physics:Special Relativity",
+    "cos": 0.457
    },
    {
-    "topic": "chemistry:Quantum Chemistry",
-    "cos": 0.509
-   },
-   {
-    "topic": "physics:Astrophysics and Cosmology",
-    "cos": 0.486
-   },
-   {
-    "topic": "physics:Condensed Matter Physics",
-    "cos": 0.486
+    "topic": "physics:Nuclear and Atomic Physics",
+    "cos": 0.457
    }
   ],
   "mmlu:college_physics": [
    {
-    "topic": "chemistry:Atomic Structure and Quantum Chemistry",
-    "cos": 0.533
-   },
-   {
     "topic": "physics:Particle Physics and Quantum Field Theory",
-    "cos": 0.516
+    "cos": 0.493
    },
    {
-    "topic": "physics:Plasma Physics and Fluid Dynamics",
-    "cos": 0.516
+    "topic": "physics:Special Relativity",
+    "cos": 0.457
    },
    {
-    "topic": "chemistry:Quantum Chemistry",
-    "cos": 0.509
-   },
-   {
-    "topic": "physics:Astrophysics and Cosmology",
-    "cos": 0.486
-   },
-   {
-    "topic": "physics:Condensed Matter Physics",
-    "cos": 0.486
+    "topic": "physics:Nuclear and Atomic Physics",
+    "cos": 0.457
    }
   ],
   "mmlu:high_school_physics": [
    {
-    "topic": "chemistry:Atomic Structure and Quantum Chemistry",
-    "cos": 0.533
-   },
-   {
     "topic": "physics:Particle Physics and Quantum Field Theory",
-    "cos": 0.516
+    "cos": 0.493
    },
    {
-    "topic": "physics:Plasma Physics and Fluid Dynamics",
-    "cos": 0.516
+    "topic": "physics:Special Relativity",
+    "cos": 0.457
    },
    {
-    "topic": "chemistry:Quantum Chemistry",
-    "cos": 0.509
-   },
-   {
-    "topic": "physics:Astrophysics and Cosmology",
-    "cos": 0.486
-   },
-   {
-    "topic": "physics:Condensed Matter Physics",
-    "cos": 0.486
+    "topic": "physics:Nuclear and Atomic Physics",
+    "cos": 0.457
    }
   ],
-  "mmlu:astronomy": []
+  "mmlu:astronomy": [
+   {
+    "topic": "physics:Astrophysics and Cosmology",
+    "cos": 0.522
+   }
+  ]
  }
 }

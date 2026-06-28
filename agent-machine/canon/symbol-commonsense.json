@@ -1,0 +1,2880 @@
+{
+ "antigen": {
+  "wikidata": "Q103537",
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Antigen",
+  "commonsense_edges": [
+   {
+    "rel": "/r/Causes",
+    "neighbor_label": "non-infectious meningitis"
+   },
+   {
+    "rel": "/r/Causes",
+    "neighbor_label": "antibody"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "tumor antigen"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "blood antigen"
+   }
+  ]
+ },
+ "cleavage": {
+  "wikidata": "Q107400",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "chemical property"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "perfect"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "imperfect"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "distinct"
+   }
+  ]
+ },
+ "equivalence relation": {
+  "wikidata": "Q130998",
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/EquivalenceRelation",
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "equivalence of categories"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "symmetric relation"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "matrix similarity"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "matrix equivalence"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "triangle similarity"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "algebraic space"
+   }
+  ]
+ },
+ "confidence interval": {
+  "wikidata": "Q208498",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "prediction interval"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "statistical method"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "interval estimation"
+   },
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "plus-minus sign"
+   }
+  ]
+ },
+ "spin": {
+  "wikidata": "Q11085408",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "element"
+   },
+   {
+    "rel": "/r/MadeOf",
+    "neighbor_label": "list of figure skating spins"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "sit spin"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "upright spin"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "camel spin"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "flying camel spin"
+   }
+  ]
+ },
+ "prime number": {
+  "wikidata": "Q49008",
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/PrimeNumber",
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "twin prime"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "prime factor"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "sexy prime"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "illegal prime"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "safe prime"
+   },
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "prime-counting function"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "largest known prime number"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "regular prime"
+   },
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "set of prime numbers"
+   },
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "set of prime numbers"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "circular prime"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "fortunate number"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "integer sequence prime"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "titanic prime"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "super-prime"
+   },
+   {
+    "rel": "/r/DerivedFrom",
+    "neighbor_label": "prime ideal"
+   }
+  ]
+ },
+ "acid": {
+  "wikidata": "Q11158",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/Antonym",
+    "neighbor_label": "base"
+   },
+   {
+    "rel": "/r/Causes",
+    "neighbor_label": "acid erosion"
+   },
+   {
+    "rel": "/r/Causes",
+    "neighbor_label": "acid poisoning"
+   },
+   {
+    "rel": "/r/UsedFor",
+    "neighbor_label": "acid attack"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "aromatic acid"
+   },
+   {
+    "rel": "/r/MadeOf",
+    "neighbor_label": "lead acetate"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "arabic acid"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "mineral acid"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "organic acid"
+   },
+   {
+    "rel": "/r/DerivedFrom",
+    "neighbor_label": "oxygen"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "strong acid"
+   }
+  ]
+ },
+ "connected space": {
+  "wikidata": "Q1491995",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "domain"
+   },
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "path-connected space"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "unitary group"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "path-connected space"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "continuum"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "connected component"
+   }
+  ]
+ },
+ "subgroup": {
+  "wikidata": "Q466109",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "perfect core"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "thin subgroup"
+   },
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "mineral series"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "c-normal subgroup"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "lattice"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "pure subgroup"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "closed subgroup"
+   }
+  ]
+ },
+ "neural tube": {
+  "wikidata": "Q1127402",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "anatomical structure"
+   }
+  ]
+ },
+ "electromagnetic wave": {
+  "wikidata": "Q11386",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "continuous wave"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "wave"
+   },
+   {
+    "rel": "/r/MadeOf",
+    "neighbor_label": "electromagnetic field"
+   },
+   {
+    "rel": "/r/UsedFor",
+    "neighbor_label": "wireless communication"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "microwave"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "cosmic microwave background radiation"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "thermal radiation"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "wireless communication"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "radio waves"
+   }
+  ]
+ },
+ "hormone": {
+  "wikidata": "Q11364",
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Hormone",
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "signaling molecule"
+   },
+   {
+    "rel": "/r/UsedFor",
+    "neighbor_label": "combined hormonal contraception"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "plant hormone"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "thyroid-stimulating hormone"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "sugar hormone"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "stress hormone"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "estrogen"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "thyroid gland hormones"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "juvenile hormone"
+   }
+  ]
+ },
+ "quotient group": {
+  "wikidata": "Q1138961",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "quotient set"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "central product"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "component group"
+   }
+  ]
+ },
+ "center of mass": {
+  "wikidata": "Q2945123",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "center of gravity"
+   },
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "balance"
+   },
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "center of mass"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "mass"
+   },
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "center of balance"
+   }
+  ]
+ },
+ "kernel": {
+  "wikidata": "Q9662",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "hybrid kernel"
+   },
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "process control block"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "modular kernel"
+   },
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "process management"
+   },
+   {
+    "rel": "/r/UsedFor",
+    "neighbor_label": "kernel panic"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "operating system component"
+   },
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "operating system"
+   }
+  ]
+ },
+ "ideal": {
+  "wikidata": "Q44649",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "primary ideal"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "maximal ideal"
+   },
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "ideal"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "multiplier ideal"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "operator ideal"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "test ideal"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "regular ideal"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "principal ideal"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "nil ideal"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "differential ideal"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "irrelevant ideal"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "primal ideal"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "two-sided ideal"
+   }
+  ]
+ },
+ "depreciation": {
+  "wikidata": "Q114403",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "amortization (business)"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "costs"
+   },
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "financial accounting"
+   }
+  ]
+ },
+ "dark matter": {
+  "wikidata": "Q79925",
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/DarkMatter",
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "cold dark matter"
+   },
+   {
+    "rel": "/r/MadeOf",
+    "neighbor_label": "dark galaxy"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "hot dark matter"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "warm dark matter"
+   },
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "crystals as detectors for decay and dark matter experiments"
+   }
+  ]
+ },
+ "grand canonical ensemble": {
+  "wikidata": "Q1153553",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "statistical ensemble"
+   }
+  ]
+ },
+ "active transport": {
+  "wikidata": "Q304618",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/Antonym",
+    "neighbor_label": "passive transport"
+   }
+  ]
+ },
+ "prime ideal": {
+  "wikidata": "Q11710992",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "prime ideal"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "ideal"
+   }
+  ]
+ },
+ "coordination game": {
+  "wikidata": "Q656316",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "battle of the sexes"
+   }
+  ]
+ },
+ "round-robin scheduling": {
+  "wikidata": "Q1196582",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "scheduling algorithm"
+   }
+  ]
+ },
+ "gradient descent": {
+  "wikidata": "Q1199743",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "optimization algorithm"
+   },
+   {
+    "rel": "/r/UsedFor",
+    "neighbor_label": "local search"
+   }
+  ]
+ },
+ "integral domain": {
+  "wikidata": "Q628792",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "valuation ring"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "atomic domain"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "divided domain"
+   },
+   {
+    "rel": "/r/HasProperty",
+    "neighbor_label": "zero-product property"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "domain"
+   }
+  ]
+ },
+ "continuity": {
+  "wikidata": "Q12030090",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "continuous function"
+   },
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "continuous function"
+   },
+   {
+    "rel": "/r/UsedFor",
+    "neighbor_label": "line code"
+   },
+   {
+    "rel": "/r/HasProperty",
+    "neighbor_label": "continuous function"
+   },
+   {
+    "rel": "/r/HasProperty",
+    "neighbor_label": "distributed-element model"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "continuity"
+   },
+   {
+    "rel": "/r/UsedFor",
+    "neighbor_label": "continuity editing"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "uniform continuity"
+   }
+  ]
+ },
+ "maximal ideal": {
+  "wikidata": "Q1203540",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "ideal"
+   }
+  ]
+ },
+ "population": {
+  "wikidata": "Q2625603",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "virgin population"
+   },
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "effective population size"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "population"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "group of living things"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "statistic"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "size"
+   },
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "population health"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "stable population"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "hybrid swarm"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "dog type"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "morph"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "minimum population"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "non-permanent population"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "threshold population"
+   },
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "carrying capacity"
+   }
+  ]
+ },
+ "measure": {
+  "wikidata": "Q39875001",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "snow water equivalent"
+   },
+   {
+    "rel": "/r/Synonym",
+    "neighbor_label": "measuring standard"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "popularity"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "price"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "risk reversal"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "mean time to recovery"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "coefficient of relationship"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "similarity measure"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "biomass"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "result"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "non-functional requirement"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "mean time to repair"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "mean down time"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "criterion"
+   },
+   {
+    "rel": "/r/UsedFor",
+    "neighbor_label": "non-functional requirement"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "pandemic potential"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "score"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "nutrient intake"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "output gap"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "performance"
+   }
+  ]
+ },
+ "substrate": {
+  "wikidata": "Q12119506",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "substrate"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "chemical species"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "substrate"
+   }
+  ]
+ },
+ "scale factor": {
+  "wikidata": "Q12121800",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "number"
+   }
+  ]
+ },
+ "inertia": {
+  "wikidata": "Q122508",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "physical phenomenon"
+   },
+   {
+    "rel": "/r/DerivedFrom",
+    "neighbor_label": "cognitive inertia"
+   }
+  ]
+ },
+ "rational number": {
+  "wikidata": "Q1244890",
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/RationalNumber",
+  "commonsense_edges": [
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "rational matrix"
+   },
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "set of rational numbers"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "power of 10"
+   },
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "set of rational numbers"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "fraction"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "unit in the last place"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "decimal fraction"
+   }
+  ]
+ },
+ "capacitor": {
+  "wikidata": "Q5322",
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Capacitor",
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "metal paper capacitor"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "feed through capacitor"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "variable capacitor"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "film capacitor"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "water capacitor"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "motor capacitor"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "filter capacitor"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "passive electronic component"
+   },
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "electronic filter"
+   },
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "solid-state drive"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "reservoir capacitor"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "blocking capacitor"
+   }
+  ]
+ },
+ "type system": {
+  "wikidata": "Q865760",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "dynamic typing"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "gradual typing"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "manifest typing"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "static variable"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "static typing"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "duck typing"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "inference typing"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "latent typing"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "partial inference typing"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "strong typing"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "explicit typing"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "implicit typing"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "option typing"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "linear typing"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "safety typing"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "weak typing"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "computer language"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "structural type system"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "strong and weak typing"
+   }
+  ]
+ },
+ "random variable": {
+  "wikidata": "Q176623",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "stopping time"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "random element"
+   }
+  ]
+ },
+ "steady state": {
+  "wikidata": "Q5788637",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/Antonym",
+    "neighbor_label": "transient state"
+   },
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "stationary state"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "physical state"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "process"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "dynamic equilibrium"
+   }
+  ]
+ },
+ "competitive exclusion principle": {
+  "wikidata": "Q1331830",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "population biology"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "principle"
+   }
+  ]
+ },
+ "mole": {
+  "wikidata": "Q13370235",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "construction"
+   }
+  ]
+ },
+ "register allocation": {
+  "wikidata": "Q1343660",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "engineering process"
+   }
+  ]
+ },
+ "vaccination": {
+  "wikidata": "Q192995",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/UsedFor",
+    "neighbor_label": "vaccine"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "ring vaccination"
+   },
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "vaccination law"
+   },
+   {
+    "rel": "/r/Antonym",
+    "neighbor_label": "antibody injection"
+   },
+   {
+    "rel": "/r/Causes",
+    "neighbor_label": "active immunity"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "treatment"
+   },
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "targeted immunization strategy"
+   },
+   {
+    "rel": "/r/UsedFor",
+    "neighbor_label": "injection"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "mandatory vaccination"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "voluntary vaccination"
+   }
+  ]
+ },
+ "garbage collection": {
+  "wikidata": "Q322202",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "reference counting"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "tracing garbage collection"
+   },
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "weak reference"
+   },
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "operating system"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "memory management"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "distributed garbage collection"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "mark-compact algorithm"
+   }
+  ]
+ },
+ "expectation": {
+  "wikidata": "Q1362683",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "anticipation"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "mental projection"
+   },
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "psychology terminology"
+   },
+   {
+    "rel": "/r/SimilarTo",
+    "neighbor_label": "anticipation"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "credibility"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "social expectation"
+   },
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "social expectation"
+   },
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "expected"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "melodic expectation"
+   }
+  ]
+ },
+ "thread": {
+  "wikidata": "Q1391831",
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Thread",
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "yarn"
+   },
+   {
+    "rel": "/r/MadeOf",
+    "neighbor_label": "cotton"
+   },
+   {
+    "rel": "/r/MadeOf",
+    "neighbor_label": "wool"
+   },
+   {
+    "rel": "/r/MadeOf",
+    "neighbor_label": "flax"
+   },
+   {
+    "rel": "/r/UsedFor",
+    "neighbor_label": "needle lace"
+   },
+   {
+    "rel": "/r/MadeOf",
+    "neighbor_label": "seam"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "metallic thread"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "embroidery thread"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "sewing thread"
+   }
+  ]
+ },
+ "central limit theorem": {
+  "wikidata": "Q190391",
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/CentralLimitTheorem",
+  "commonsense_edges": [
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "bean machine"
+   }
+  ]
+ },
+ "value added": {
+  "wikidata": "Q1434924",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "economic value"
+   }
+  ]
+ },
+ "closure": {
+  "wikidata": "Q5135523",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "bottle cap"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "lid"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "container component"
+   }
+  ]
+ },
+ "independence": {
+  "wikidata": "Q37055",
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Independence",
+  "commonsense_edges": [
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "declaration of independence"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "self-governance"
+   },
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "reserve"
+   },
+   {
+    "rel": "/r/Synonym",
+    "neighbor_label": "self-governance"
+   }
+  ]
+ },
+ "algebraic element": {
+  "wikidata": "Q162608",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "integral element"
+   }
+  ]
+ },
+ "money multiplier": {
+  "wikidata": "Q1499566",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "economic indicator"
+   }
+  ]
+ },
+ "compact space": {
+  "wikidata": "Q381892",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "closed manifold"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "compact group"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "locally compact space"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "soul"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "random compact set"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "continuum"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "spectral space"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "solid figure"
+   }
+  ]
+ },
+ "binding energy": {
+  "wikidata": "Q420754",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "gravitational binding energy"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "bond energy"
+   }
+  ]
+ },
+ "monopoly": {
+  "wikidata": "Q16048255",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/Synonym",
+    "neighbor_label": "monopoly"
+   }
+  ]
+ },
+ "inflation": {
+  "wikidata": "Q35865",
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Inflation",
+  "commonsense_edges": [
+   {
+    "rel": "/r/Antonym",
+    "neighbor_label": "deflation"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "demand-pull inflation"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "asset price inflation"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "cost-push inflation"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "economic concept"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "economic problem"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "phenomenon"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "monetary inflation"
+   },
+   {
+    "rel": "/r/Causes",
+    "neighbor_label": "output gap"
+   }
+  ]
+ },
+ "vitamin": {
+  "wikidata": "Q34956",
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Vitamin",
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "fat-soluble vitamin"
+   },
+   {
+    "rel": "/r/Causes",
+    "neighbor_label": "response to vitamin"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "nutrient"
+   }
+  ]
+ },
+ "escape velocity": {
+  "wikidata": "Q166530",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/HasPrerequisite",
+    "neighbor_label": "third cosmic velocity"
+   },
+   {
+    "rel": "/r/HasPrerequisite",
+    "neighbor_label": "first cosmic velocity"
+   },
+   {
+    "rel": "/r/SimilarTo",
+    "neighbor_label": "escape velocity"
+   }
+  ]
+ },
+ "hydrogen bond": {
+  "wikidata": "Q169324",
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/HydrogenBond",
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "chemical bond"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "association"
+   }
+  ]
+ },
+ "p-group": {
+  "wikidata": "Q286972",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "primary cyclic group"
+   }
+  ]
+ },
+ "ideal gas": {
+  "wikidata": "Q172280",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "mathematical model"
+   },
+   {
+    "rel": "/r/UsedFor",
+    "neighbor_label": "ideal gas law"
+   }
+  ]
+ },
+ "peptide bond": {
+  "wikidata": "Q33293",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/CreatedBy",
+    "neighbor_label": "peptide"
+   },
+   {
+    "rel": "/r/MadeOf",
+    "neighbor_label": "amino acid"
+   },
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "peptide"
+   }
+  ]
+ },
+ "resonance": {
+  "wikidata": "Q172858",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "physical phenomenon"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "acoustic resonance"
+   }
+  ]
+ },
+ "sequential logic": {
+  "wikidata": "Q173245",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "electronic circuit"
+   }
+  ]
+ },
+ "gradient": {
+  "wikidata": "Q173582",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "vector gradient"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "differential operator"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "vector operator"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "vector gradient"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "pressure gradient"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "oxygen gradient"
+   }
+  ]
+ },
+ "variance": {
+  "wikidata": "Q175199",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "descriptive statistic"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "type of statistic"
+   }
+  ]
+ },
+ "curl": {
+  "wikidata": "Q1756277",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "association football kick"
+   }
+  ]
+ },
+ "p-n junction": {
+  "wikidata": "Q176300",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "electrical junction"
+   },
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "transistor"
+   },
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "p\u2013n junction isolation"
+   }
+  ]
+ },
+ "third law of thermodynamics": {
+  "wikidata": "Q29166",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/HasPrerequisite",
+    "neighbor_label": "second law of thermodynamics"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "law of thermodynamics"
+   }
+  ]
+ },
+ "mathematical induction": {
+  "wikidata": "Q178377",
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/MathematicalInduction",
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "well-founded induction"
+   },
+   {
+    "rel": "/r/Causes",
+    "neighbor_label": "principle of mathematical induction"
+   },
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "base case"
+   },
+   {
+    "rel": "/r/UsedFor",
+    "neighbor_label": "base case"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "proof by weak induction"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "proof by strong induction"
+   }
+  ]
+ },
+ "unemployment rate": {
+  "wikidata": "Q1787954",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "economic indicator"
+   }
+  ]
+ },
+ "event horizon": {
+  "wikidata": "Q181741",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "black hole"
+   }
+  ]
+ },
+ "promoter": {
+  "wikidata": "Q2378505",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "music promoter"
+   },
+   {
+    "rel": "/r/Synonym",
+    "neighbor_label": "organizer"
+   }
+  ]
+ },
+ "uniform convergence": {
+  "wikidata": "Q1411887",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "local uniform convergence"
+   }
+  ]
+ },
+ "divergence": {
+  "wikidata": "Q189000",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "differential operator"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "vector operator"
+   },
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "divergence"
+   }
+  ]
+ },
+ "virtual memory": {
+  "wikidata": "Q189401",
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/VirtualMemory",
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "data storage"
+   },
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "kernel mode"
+   },
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "page"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "kernel virtual address space"
+   }
+  ]
+ },
+ "gravitational wave": {
+  "wikidata": "Q190035",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/Causes",
+    "neighbor_label": "gravitational wave event"
+   },
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "gravity wave"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "radiation"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "wave"
+   },
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "gravitational-wave detector"
+   },
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "sticky bead argument"
+   }
+  ]
+ },
+ "inverse function": {
+  "wikidata": "Q191884",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "inverse"
+   }
+  ]
+ },
+ "wave function": {
+  "wikidata": "Q2362761",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "wave equation"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "probability amplitude"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "spin orbital"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "scar"
+   }
+  ]
+ },
+ "completeness": {
+  "wikidata": "Q19750549",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/Causes",
+    "neighbor_label": "release from prison"
+   },
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "completeness"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "presence"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "state"
+   }
+  ]
+ },
+ "basis": {
+  "wikidata": "Q189569",
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Basis",
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "standard basis"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "dual basis"
+   },
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "basis element (topology)"
+   }
+  ]
+ },
+ "natural selection": {
+  "wikidata": "Q43478",
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/NaturalSelection",
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "sexual selection"
+   },
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "evolutionary pressure"
+   },
+   {
+    "rel": "/r/Antonym",
+    "neighbor_label": "artificial selection"
+   }
+  ]
+ },
+ "transcription": {
+  "wikidata": "Q207714",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "conversion of scripts"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "intentional human action"
+   }
+  ]
+ },
+ "equivalence principle": {
+  "wikidata": "Q210546",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "physical law"
+   }
+  ]
+ },
+ "restriction enzyme": {
+  "wikidata": "Q219715",
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/RestrictionEnzyme",
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "enzyme family"
+   },
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "restriction enzyme type"
+   }
+  ]
+ },
+ "equation of state": {
+  "wikidata": "Q214967",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "cubic equation of state"
+   }
+  ]
+ },
+ "isolated singularity": {
+  "wikidata": "Q2297037",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "mathematical singularity"
+   }
+  ]
+ },
+ "equilibrium price": {
+  "wikidata": "Q2316928",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "economic equilibrium"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "price"
+   }
+  ]
+ },
+ "conditional convergence": {
+  "wikidata": "Q2425336",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/Antonym",
+    "neighbor_label": "absolute convergence"
+   }
+  ]
+ },
+ "amino acid": {
+  "wikidata": "Q8066",
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/AminoAcid",
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "essential amino acid"
+   },
+   {
+    "rel": "/r/MadeOf",
+    "neighbor_label": "peptide bond"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "amino fatty acids"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "aromatic amino acid"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "polar amino acid"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "sulfur-containing amino acid"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "alpha-amino acid"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "organic acid"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "structural class of chemical compounds"
+   },
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "response to amino acid"
+   },
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "cellular response to amino acid stimulus"
+   }
+  ]
+ },
+ "rate-determining step": {
+  "wikidata": "Q249087",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/HasProperty",
+    "neighbor_label": "reaction rate"
+   }
+  ]
+ },
+ "multiplier": {
+  "wikidata": "Q25203187",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "adjective"
+   },
+   {
+    "rel": "/r/UsedFor",
+    "neighbor_label": "multiplier"
+   }
+  ]
+ },
+ "p-value": {
+  "wikidata": "Q253255",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "misuse of p-values"
+   }
+  ]
+ },
+ "standard error": {
+  "wikidata": "Q620994",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "plus-minus sign"
+   }
+  ]
+ },
+ "limit": {
+  "wikidata": "Q1322614",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "inverse limit"
+   }
+  ]
+ },
+ "empirical formula": {
+  "wikidata": "Q272477",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "empirical relationship"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "chemical formula"
+   }
+  ]
+ },
+ "common-ion effect": {
+  "wikidata": "Q2754887",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "phenomenon"
+   }
+  ]
+ },
+ "greedy algorithm": {
+  "wikidata": "Q504353",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "beam search"
+   }
+  ]
+ },
+ "dynamic programming": {
+  "wikidata": "Q28916646",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "programming paradigm"
+   }
+  ]
+ },
+ "expected value": {
+  "wikidata": "Q200125",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "expectation value"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "single loss expectancy"
+   }
+  ]
+ },
+ "normal subgroup": {
+  "wikidata": "Q743179",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "core"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "minimal normal subgroup"
+   },
+   {
+    "rel": "/r/DerivedFrom",
+    "neighbor_label": "c-normal subgroup"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "characteristic subgroup"
+   }
+  ]
+ },
+ "proper length": {
+  "wikidata": "Q3153623",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "proper distance"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "proper distance"
+   },
+   {
+    "rel": "/r/UsedFor",
+    "neighbor_label": "theory of relativity"
+   }
+  ]
+ },
+ "thermal equilibrium": {
+  "wikidata": "Q3175122",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "equilibrium point"
+   }
+  ]
+ },
+ "modular arithmetic": {
+  "wikidata": "Q319400",
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/ModularArithmetic",
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "area of mathematics"
+   }
+  ]
+ },
+ "positive definite matrix": {
+  "wikidata": "Q1052034",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "correlation matrix"
+   }
+  ]
+ },
+ "fitness": {
+  "wikidata": "Q331710",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "fitness landscape"
+   }
+  ]
+ },
+ "buffer": {
+  "wikidata": "Q331911",
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/Buffer",
+  "commonsense_edges": [
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "random-access memory"
+   }
+  ]
+ },
+ "covering space": {
+  "wikidata": "Q332648",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "fiber bundle"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "regular cover"
+   }
+  ]
+ },
+ "primary deficit": {
+  "wikidata": "Q3828163",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "budget deficits"
+   }
+  ]
+ },
+ "singular matrix": {
+  "wikidata": "Q1970975",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "fundamental matrix"
+   }
+  ]
+ },
+ "prisoner's dilemma": {
+  "wikidata": "Q41693",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "dilemma"
+   }
+  ]
+ },
+ "beta-oxidation": {
+  "wikidata": "Q306213",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "beta oxidation defect"
+   }
+  ]
+ },
+ "simple group": {
+  "wikidata": "Q571124",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "alternating group"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "finite simple group"
+   }
+  ]
+ },
+ "absolute value": {
+  "wikidata": "Q4669840",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "valuation"
+   }
+  ]
+ },
+ "indifference curve": {
+  "wikidata": "Q467092",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "level set"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "economic curve"
+   }
+  ]
+ },
+ "sample space": {
+  "wikidata": "Q467440",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "probability space"
+   }
+  ]
+ },
+ "genetic drift": {
+  "wikidata": "Q486420",
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/GeneticDrift",
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "evolutionary process"
+   }
+  ]
+ },
+ "free rider problem": {
+  "wikidata": "Q499215",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "economic theory"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "social issue"
+   }
+  ]
+ },
+ "color confinement": {
+  "wikidata": "Q505724",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "physical phenomenon"
+   }
+  ]
+ },
+ "complement system": {
+  "wikidata": "Q334848",
+  "kbpedia_rc": "http://kbpedia.org/kko/rc/ComplementSystem",
+  "commonsense_edges": [
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "complement deficiency"
+   },
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "complement system proteins"
+   }
+  ]
+ },
+ "quantity theory of money": {
+  "wikidata": "Q515911",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "theory"
+   }
+  ]
+ },
+ "pole": {
+  "wikidata": "Q525800",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "architectural structure"
+   },
+   {
+    "rel": "/r/UsedFor",
+    "neighbor_label": "transmitter mast"
+   },
+   {
+    "rel": "/r/UsedFor",
+    "neighbor_label": "sailing"
+   },
+   {
+    "rel": "/r/UsedFor",
+    "neighbor_label": "transmission tower"
+   }
+  ]
+ },
+ "dominant": {
+  "wikidata": "Q899391",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "fifth"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "degree"
+   },
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "dominant chord"
+   }
+  ]
+ },
+ "perfect competition": {
+  "wikidata": "Q56030389",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "scholarly article"
+   }
+  ]
+ },
+ "structural unemployment": {
+  "wikidata": "Q56047203",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "scholarly article"
+   }
+  ]
+ },
+ "oxidation state": {
+  "wikidata": "Q56627072",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "scholarly article"
+   }
+  ]
+ },
+ "standard state": {
+  "wikidata": "Q56638153",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "scholarly article"
+   }
+  ]
+ },
+ "critical point": {
+  "wikidata": "Q577705",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "point"
+   }
+  ]
+ },
+ "stationary state": {
+  "wikidata": "Q911951",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "steady state"
+   }
+  ]
+ },
+ "recurrence relation": {
+  "wikidata": "Q740970",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "logistic map"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "sequence"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "functional equation"
+   }
+  ]
+ },
+ "conservative force": {
+  "wikidata": "Q822938",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "electric force"
+   }
+  ]
+ },
+ "economies of scale": {
+  "wikidata": "Q5970087",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "comparative advantage"
+   }
+  ]
+ },
+ "functional dependency": {
+  "wikidata": "Q597053",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "relational database"
+   }
+  ]
+ },
+ "fine structure": {
+  "wikidata": "Q1402041",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "fine-structure constant"
+   }
+  ]
+ },
+ "induction": {
+  "wikidata": "Q6027258",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "scene"
+   }
+  ]
+ },
+ "returns to scale": {
+  "wikidata": "Q60547335",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "scholarly article"
+   }
+  ]
+ },
+ "halting problem": {
+  "wikidata": "Q622849",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "mathematical problem"
+   }
+  ]
+ },
+ "deadlock": {
+  "wikidata": "Q623276",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/Causes",
+    "neighbor_label": "hang"
+   },
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "parallel programming"
+   },
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "operating system"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "situation"
+   },
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "dining philosophers problem"
+   }
+  ]
+ },
+ "negative feedback": {
+  "wikidata": "Q62527",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/Antonym",
+    "neighbor_label": "positive feedback"
+   },
+   {
+    "rel": "/r/HasProperty",
+    "neighbor_label": "negativity"
+   }
+  ]
+ },
+ "natural monopoly": {
+  "wikidata": "Q648510",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "monopoly"
+   }
+  ]
+ },
+ "anatomical position": {
+  "wikidata": "Q66515059",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "anatomical orientation"
+   }
+  ]
+ },
+ "saddle point": {
+  "wikidata": "Q690935",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "stationary point"
+   }
+  ]
+ },
+ "residual": {
+  "wikidata": "Q7315501",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "royalties"
+   }
+  ]
+ },
+ "spontaneous symmetry breaking": {
+  "wikidata": "Q736716",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "symmetry breaking"
+   }
+  ]
+ },
+ "uniform continuity": {
+  "wikidata": "Q741865",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "uniformly continuous function"
+   },
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "uniformly continuous function"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "continuity"
+   },
+   {
+    "rel": "/r/HasProperty",
+    "neighbor_label": "uniformly continuous function"
+   }
+  ]
+ },
+ "analytic function": {
+  "wikidata": "Q215084",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "algebraic function"
+   }
+  ]
+ },
+ "propagation of uncertainty": {
+  "wikidata": "Q1364905",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/UsedFor",
+    "neighbor_label": "significance arithmetic"
+   }
+  ]
+ },
+ "regular language": {
+  "wikidata": "Q752532",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "context-free language"
+   }
+  ]
+ },
+ "residue": {
+  "wikidata": "Q753375",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "residue class"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "coefficient"
+   }
+  ]
+ },
+ "t-statistic": {
+  "wikidata": "Q7667935",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "type of statistic"
+   }
+  ]
+ },
+ "band gap": {
+  "wikidata": "Q806352",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/HasContext",
+    "neighbor_label": "solid-state physics"
+   }
+  ]
+ },
+ "molecular clock": {
+  "wikidata": "Q827541",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/DistinctFrom",
+    "neighbor_label": "chemical clock"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "scientific technique"
+   },
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "molecular evolution"
+   }
+  ]
+ },
+ "residue theorem": {
+  "wikidata": "Q830513",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/PartOf",
+    "neighbor_label": "complex analysis"
+   }
+  ]
+ },
+ "generating function": {
+  "wikidata": "Q860609",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "formal power series"
+   },
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "exponential generating function"
+   }
+  ]
+ },
+ "demand curve": {
+  "wikidata": "Q8981416",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "economic curve"
+   }
+  ]
+ },
+ "competitive inhibition": {
+  "wikidata": "Q912894",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "model"
+   }
+  ]
+ },
+ "liquidity trap": {
+  "wikidata": "Q923190",
+  "kbpedia_rc": null,
+  "commonsense_edges": [
+   {
+    "rel": "/r/IsA",
+    "neighbor_label": "economics term"
+   }
+  ]
+ }
+}

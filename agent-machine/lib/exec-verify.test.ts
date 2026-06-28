@@ -1,6 +1,25 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { extractCode, extractFinalAnswer, normalizeAnswer, programOfThought, candidateAgreesWithVerified, pickRunnableLanguage, testsPassed, codeVerifyRepair } from './exec-verify.js'
+import * as cp from 'node:child_process'
+import * as path from 'node:path'
+import * as fs from 'node:fs'
+import { extractCode, extractFinalAnswer, normalizeAnswer, programOfThought, operatorProgramOfThought, OPERATOR_API, candidateAgreesWithVerified, pickRunnableLanguage, testsPassed, codeVerifyRepair } from './exec-verify.js'
+
+// Locate agent-machine/lib (where math_operators.py lives) from the test's cwd — the suite runs
+// from agent-machine/, so 'lib' resolves; cover the repo-root launch too.
+const HERE = [path.join(process.cwd(), 'lib'), path.join(process.cwd(), 'agent-machine', 'lib')]
+  .find((d) => fs.existsSync(path.join(d, 'math_operators.py'))) ?? path.join(process.cwd(), 'lib')
+
+// The real-python end-to-end test needs python3 + sympy + the operator lib importable. CI's Node test job has
+// no Python deps, so probe once and SKIP there rather than hard-fail — the operator path is still fully covered
+// by the mocked tests below (and by the bench, which runs in a Python-equipped environment).
+const PY_OK = (() => {
+  try {
+    cp.execFileSync('python3', ['-c', `import sys; sys.path.insert(0, ${JSON.stringify(HERE)}); import math_operators, sympy`],
+      { stdio: 'ignore', timeout: 15_000 })
+    return true
+  } catch { return false }
+})()
 
 test('extractCode pulls a fenced python block', () => {
   assert.equal(extractCode('Here:\n```python\nprint(2+2)\n```\ndone'), 'print(2+2)')
@@ -41,6 +60,61 @@ test('programOfThought returns null when no runnable program is produced', async
     execute: async () => 'unused',
   })
   assert.equal(pot, null)
+})
+
+test('OPERATOR_API offers the verified library menu (mirrors the bench)', () => {
+  for (const op of ['permutation_index', 'finite_field_zeros', 'mod_pow', 'linear_ode_eval']) {
+    assert.ok(OPERATOR_API.includes(op), `operator menu should advertise ${op}`)
+  }
+})
+
+test('operatorProgramOfThought routes to the verified library and returns the gold answer (wiring proof, stubbed execute)', async () => {
+  // Force the model to "select" the permutation_index operator + extract args; prove the wiring
+  // executes the verified library and returns the exact result — no live LLM, no real subprocess.
+  const op = await operatorProgramOfThought('In S_5, the cyclic permutation (1 2 5 4)(2 3) has index?', '/fake/lib', {
+    generate: async () => '```python\nfrom math_operators import permutation_index\nprint(permutation_index("(1,2,5,4)(2,3)", 5))\n```',
+    // Stub the sandbox: the wrapped code prepends sys.path.insert; we assert it imports + returns gold (24).
+    execute: async (_lang, code) => {
+      assert.match(code, /sys\.path\.insert\(0, "\/fake\/lib"\)/)
+      assert.match(code, /from math_operators import permutation_index/)
+      return '24'
+    },
+  })
+  assert.ok(op)
+  assert.equal(op!.answer, '24')
+  assert.equal(op!.usedOperator, true)
+})
+
+test('operatorProgramOfThought flags usedOperator=false when the model writes cold code (cold-fallback signal)', async () => {
+  const op = await operatorProgramOfThought('what is 2+2', '/fake/lib', {
+    generate: async () => '```python\nprint(2 + 2)\n```',
+    execute: async () => '4',
+  })
+  assert.ok(op)
+  assert.equal(op!.usedOperator, false)   // server only accepts usedOperator=true; else falls to cold PoT
+})
+
+test('operatorProgramOfThought executes the REAL math_operators.py end-to-end (gold answer)', { skip: PY_OK ? false : 'python3 + sympy not available in this environment' }, async () => {
+  // True end-to-end: real python3 subprocess importing the actual verified library on disk.
+  // Mirrors the bench's execution mechanism exactly (sys.path.insert + import + print last line).
+  const op = await operatorProgramOfThought('index of (1,2,5,4)(2,3) in S_5', HERE, {
+    generate: async () => '```python\nfrom math_operators import permutation_index\nprint(permutation_index("(1,2,5,4)(2,3)", 5))\n```',
+    execute: async (_lang, code) => {
+      try { return cp.execFileSync('python3', ['-c', code], { encoding: 'utf8', timeout: 20_000 }) }
+      catch (e) { return (e as { stdout?: Buffer | string })?.stdout?.toString() ?? 'EXEC_FAILED' }
+    },
+  })
+  assert.ok(op)
+  assert.equal(op!.usedOperator, true)
+  assert.equal(op!.answer, '24')   // exact gold, computed by the verified library
+})
+
+test('operatorProgramOfThought returns null when the program errors (caller falls back to cold PoT)', async () => {
+  const op = await operatorProgramOfThought('broken', '/fake/lib', {
+    generate: async () => '```python\nfrom math_operators import nope\nprint(nope())\n```',
+    execute: async () => 'Traceback (most recent call last):\nImportError: cannot import name nope',
+  })
+  assert.equal(op, null)
 })
 
 test('candidateAgreesWithVerified matches a natural-language answer to the verified number', () => {

@@ -60,6 +60,27 @@ export function shouldManageRuntime(env: Record<string, string | undefined>, pla
 
 export interface ManagedRuntime { child: ChildProcess; port: number; base: string }
 
+let _activeChild: ChildProcess | null = null
+let _lastRestart = 0
+
+/**
+ * Restart the managed Ollama when its runner has WEDGED — the classic failure mode on macOS: it still answers
+ * /api/tags (so it looks "running") but the Metal runner is dead, so every generate hangs/returns empty. Heavy
+ * bulk ingestion (many embeds + a big graph) can push it there. Without this, the app shows "warming up" forever
+ * and resending never helps. Debounced so a burst of failures triggers exactly one restart.
+ */
+export async function restartManagedRuntime(): Promise<boolean> {
+  if (process.platform !== 'darwin' || !shouldManageRuntime(process.env)) return false
+  if (Date.now() - _lastRestart < 30_000) return false   // one restart per 30s — don't thrash
+  _lastRestart = Date.now()
+  console.warn('[managed-runtime] Ollama wedged (lists models, cannot generate) — restarting the runtime')
+  try { _activeChild?.kill('SIGKILL') } catch { /* already gone */ }
+  _activeChild = null
+  try { await exec('/usr/bin/pkill', ['-9', '-f', `${process.env['HOME'] ?? ''}/.noetica/runtime/llama-server`]) } catch { /* none */ }
+  const rt = await ensureManagedRuntime()   // re-provisions (fast if cached) + reaps stale + respawns + waits ready
+  return rt !== null
+}
+
 /**
  * Ensure a complete, sandboxed Ollama is serving on the managed port. Returns the
  * handle, or null if it couldn't be established (caller logs and continues — chat
@@ -96,13 +117,20 @@ export async function ensureManagedRuntime(preferredPort = MANAGED_PORT): Promis
   // it alongside the 7b general + embedder on a 24GB box overcommits and crashes).
   // So we cap *resident* models — ollama unloads-before-loading — on anything
   // short of a workstation-class box, not just the tiny ones.
+  // MAX_LOADED must be ≥2 wherever embeds run through Ollama (nomic-embed): a turn embeds the query THEN
+  // generates, so with only ONE slot the embed model evicts the chat model and generation reloads a multi-GB
+  // model EVERY turn (measured: only qwen3:8b resident after a turn, nomic gone — it had evicted+been evicted).
+  // 2 slots let the tiny 0.3GB embedder and one chat model coexist → the chat model stays warm. NUM_PARALLEL=1
+  // keeps the KV-cache footprint down so two models stay within 24GB (single-user desktop doesn't need parallel).
+  // The proper long-term fix is routing query-embeds to the Rust noetica-embed sidecar (no Ollama slot at all).
   const totalGb = os.totalmem() / 1e9
   const memEnv = totalGb < 16
     ? { OLLAMA_MAX_LOADED_MODELS: '1', OLLAMA_NUM_PARALLEL: '1', OLLAMA_KEEP_ALIVE: '5m' }
     : totalGb < 32
-    ? { OLLAMA_MAX_LOADED_MODELS: '1', OLLAMA_NUM_PARALLEL: '2', OLLAMA_KEEP_ALIVE: '5m' }
-    : { OLLAMA_MAX_LOADED_MODELS: '2', OLLAMA_NUM_PARALLEL: '4', OLLAMA_KEEP_ALIVE: '10m' }
+    ? { OLLAMA_MAX_LOADED_MODELS: '2', OLLAMA_NUM_PARALLEL: '1', OLLAMA_KEEP_ALIVE: '5m' }
+    : { OLLAMA_MAX_LOADED_MODELS: '3', OLLAMA_NUM_PARALLEL: '2', OLLAMA_KEEP_ALIVE: '10m' }
   const child = spawn(cmd, args, { env: { ...process.env, ...env, ...memEnv, OLLAMA_HOST: `127.0.0.1:${port}` }, stdio: 'ignore', detached: false })
+  _activeChild = child   // held so restartManagedRuntime() can kill a wedged runner
   child.on('exit', (code) => console.log(`[managed-runtime] sandboxed Ollama exited: ${code}`))
 
   const deadline = Date.now() + 60_000  // generous: cold launch under RAM pressure can be slow

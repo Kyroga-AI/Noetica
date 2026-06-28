@@ -8,7 +8,9 @@
  * estimates; a live pricing adapter (per-provider billing API) can replace COMPUTE_CATALOG without changing
  * the broker algorithm. Every brokered placement is meant to flow through scope-d egress governance.
  */
-export type CloudProvider = 'gcp' | 'azure' | 'aws' | 'ibm' | 'local'
+// hyperscalers + sovereign-friendly clouds + the NEOCLOUDS (GPU specialists — usually far below hyperscaler GPU) + local mesh.
+export type CloudProvider = 'gcp' | 'azure' | 'aws' | 'ibm' | 'oci' | 'hetzner' | 'coreweave' | 'lambda' | 'nebius' | 'crusoe' | 'local'
+export const NEOCLOUDS: CloudProvider[] = ['coreweave', 'lambda', 'nebius', 'crusoe']
 
 export interface ComputeSku {
   provider: CloudProvider
@@ -39,6 +41,14 @@ export const COMPUTE_CATALOG: ComputeSku[] = [
   { provider: 'aws',   name: 'm6i.2xlarge',          region: 'us-east-1',   vcpus: 8,  memGiB: 32, usdPerHour: 0.384, spotPerHour: 0.13 },
   { provider: 'azure', name: 'D8s_v5',               region: 'eastus',      vcpus: 8,  memGiB: 32, usdPerHour: 0.384, spotPerHour: 0.12 },
   { provider: 'ibm',   name: 'bx2-8x32',             region: 'us-south',    vcpus: 8,  memGiB: 32, usdPerHour: 0.376 },
+  // ── NeoCloud GPU specialists (the cheap-GPU layer; H100 ~$2/hr vs hyperscaler A100 ~$3.7-5/hr) ──
+  { provider: 'coreweave', name: 'H100-80GB',         region: 'us-east',     vcpus: 26, memGiB: 256, gpu: { type: 'H100-80GB', count: 1, memGiB: 80 }, usdPerHour: 2.39, spotPerHour: 1.99 },
+  { provider: 'nebius',    name: 'h100-1',            region: 'eu-north',    vcpus: 20, memGiB: 160, gpu: { type: 'H100-80GB', count: 1, memGiB: 80 }, usdPerHour: 2.00, spotPerHour: 1.50 },
+  { provider: 'lambda',    name: 'gpu_1x_h100_pcie',  region: 'us-west',     vcpus: 26, memGiB: 200, gpu: { type: 'H100-80GB', count: 1, memGiB: 80 }, usdPerHour: 2.49 },
+  { provider: 'crusoe',    name: 'h100-80gb.1x',      region: 'us-midwest',  vcpus: 24, memGiB: 234, gpu: { type: 'H100-80GB', count: 1, memGiB: 80 }, usdPerHour: 2.45 },
+  // neocloud cost-efficient inference GPUs
+  { provider: 'nebius',    name: 'l4-1',              region: 'eu-north',    vcpus: 8,  memGiB: 32,  gpu: { type: 'L4',  count: 1, memGiB: 24 }, usdPerHour: 0.55, spotPerHour: 0.30 },
+  { provider: 'lambda',    name: 'gpu_1x_a10',        region: 'us-west',     vcpus: 30, memGiB: 200, gpu: { type: 'A10', count: 1, memGiB: 24 }, usdPerHour: 0.75 },
   // ── local mesh (sovereign, $0 marginal) ──
   { provider: 'local', name: 'noetica-local',        region: 'on-device',   vcpus: 12, memGiB: 24, gpu: { type: 'metal', count: 1, memGiB: 24 }, usdPerHour: 0 },
 ]
@@ -133,4 +143,68 @@ export function toAgentplanePlacement(result: BrokerResult, opts: { lane?: 'stag
     objective: { metric: 'usd-total', value: b?.totalUsd ?? 0, perHour: b?.effectivePerHour ?? 0, spot: b?.spot ?? false },
     rejected: result.ranked.slice(1).map((q) => ({ executor: `${q.sku.provider}:${q.sku.name}:${q.sku.region}`, reason: `dearer (+$${(q.totalUsd - (b?.totalUsd ?? 0)).toFixed(2)})` })),
   }
+}
+
+// ── commodity SERVICES broker ───────────────────────────────────────────────────
+// brokerCompute handles compute/GPU. This layer brokers the rest of the cloud as commodities (object store, managed
+// k8s, DNS, managed Postgres, load balancers, secrets) so the platform is vendor-AGNOSTIC: one abstract ServiceKind
+// maps to every vendor's primitive, and we select the cheapest compliant vendor (price + data residency + policy).
+// Powers the Cloud panel and the deployment-provider selection. "Cloud is commodity; we are the broker."
+export type ServiceKind = 'object-store' | 'kubernetes' | 'dns' | 'postgres' | 'load-balancer' | 'secrets'
+export type Residency = 'EU' | 'US' | 'AU' | 'UK' | 'CA'
+
+export interface ServiceOffering {
+  provider: CloudProvider
+  kind: ServiceKind
+  primitive: string          // the vendor's product name for this commodity
+  unitPriceUsd: number       // illustrative list unit price (per GB-month or per hour, by kind)
+  residency: Residency[]     // data-residency regions this offering can satisfy
+}
+
+export const SERVICE_CATALOG: ServiceOffering[] = [
+  { provider: 'gcp', kind: 'object-store', primitive: 'Cloud Storage', unitPriceUsd: 0.020, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'aws', kind: 'object-store', primitive: 'S3', unitPriceUsd: 0.023, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'azure', kind: 'object-store', primitive: 'Blob Storage', unitPriceUsd: 0.018, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'ibm', kind: 'object-store', primitive: 'Cloud Object Storage', unitPriceUsd: 0.022, residency: ['EU', 'US', 'CA'] },
+  { provider: 'hetzner', kind: 'object-store', primitive: 'Object Storage', unitPriceUsd: 0.005, residency: ['EU'] },
+  { provider: 'gcp', kind: 'kubernetes', primitive: 'GKE', unitPriceUsd: 0.10, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'aws', kind: 'kubernetes', primitive: 'EKS', unitPriceUsd: 0.10, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'azure', kind: 'kubernetes', primitive: 'AKS', unitPriceUsd: 0.0, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'ibm', kind: 'kubernetes', primitive: 'IKS', unitPriceUsd: 0.10, residency: ['EU', 'US', 'CA'] },
+  { provider: 'gcp', kind: 'postgres', primitive: 'Cloud SQL', unitPriceUsd: 0.041, residency: ['EU', 'US', 'AU'] },
+  { provider: 'aws', kind: 'postgres', primitive: 'RDS', unitPriceUsd: 0.043, residency: ['EU', 'US', 'AU'] },
+  { provider: 'azure', kind: 'postgres', primitive: 'Azure DB for PostgreSQL', unitPriceUsd: 0.040, residency: ['EU', 'US', 'AU'] },
+  { provider: 'gcp', kind: 'dns', primitive: 'Cloud DNS', unitPriceUsd: 0.20, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'aws', kind: 'dns', primitive: 'Route 53', unitPriceUsd: 0.50, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'gcp', kind: 'load-balancer', primitive: 'Cloud Load Balancing', unitPriceUsd: 0.025, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'aws', kind: 'load-balancer', primitive: 'ELB', unitPriceUsd: 0.0225, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'azure', kind: 'secrets', primitive: 'Key Vault', unitPriceUsd: 0.03, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'gcp', kind: 'secrets', primitive: 'Secret Manager', unitPriceUsd: 0.06, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+]
+
+export interface ServiceRequirement { kind: ServiceKind; residency?: Residency; maxPriceUsd?: number; exclude?: CloudProvider[]; prefer?: CloudProvider[] }
+
+/** The vendor's primitive name for an abstract commodity (object-store → S3 / GCS / Blob …). */
+export function mapResource(kind: ServiceKind, provider: CloudProvider): string | null {
+  return SERVICE_CATALOG.find((o) => o.kind === kind && o.provider === provider)?.primitive ?? null
+}
+
+/** Panel data: every vendor for a kind, cheapest first. */
+export function compareServices(kind: ServiceKind): ServiceOffering[] {
+  return SERVICE_CATALOG.filter((o) => o.kind === kind).slice().sort((a, b) => a.unitPriceUsd - b.unitPriceUsd)
+}
+
+/** Select the cheapest compliant vendor for a commodity service (residency/exclude/maxPrice/prefer aware). */
+export function selectVendor(req: ServiceRequirement): { provider: CloudProvider; offering: ServiceOffering; reason: string } | null {
+  let c = SERVICE_CATALOG.filter((o) => o.kind === req.kind)
+  if (req.residency) c = c.filter((o) => o.residency.includes(req.residency!))
+  if (req.exclude?.length) c = c.filter((o) => !req.exclude!.includes(o.provider))
+  if (req.maxPriceUsd != null) c = c.filter((o) => o.unitPriceUsd <= req.maxPriceUsd!)
+  if (!c.length) return null
+  c.sort((a, b) => (Number(req.prefer?.includes(b.provider) ?? false) - Number(req.prefer?.includes(a.provider) ?? false)) || a.unitPriceUsd - b.unitPriceUsd)
+  const offering = c[0]
+  const bits = [`cheapest ${req.kind} @ $${offering.unitPriceUsd}`]
+  if (req.residency) bits.push(`${req.residency} residency`)
+  if (req.exclude?.length) bits.push(`excl ${req.exclude.join(',')}`)
+  return { provider: offering.provider, offering, reason: bits.join(', ') }
 }

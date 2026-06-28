@@ -32,6 +32,11 @@ _w = re.compile(r"[a-zA-Z][a-zA-Z'-]+")
 
 
 def load_kv():
+    if MODEL == 'academic':                                    # OUR OWN academic vectors (Word2Vec over OCW)
+        from gensim.models import KeyedVectors
+        kv = KeyedVectors.load(os.path.expanduser('~/.noetica/vectors/ocw-academic.kv'), mmap='r')
+        print(f"# loaded OUR academic vectors · vocab={len(kv.index_to_key):,} · dim={kv.vector_size}", flush=True)
+        return kv
     import gensim.downloader as api
     print(f"# loading keyed-vecs: {MODEL}  (first run downloads to ~/gensim-data) ...", flush=True)
     kv = api.load(MODEL)

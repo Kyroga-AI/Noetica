@@ -1,0 +1,7 @@
+{
+  "learnerId": "demo",
+  "name": "Ada (demo learner)",
+  "degree": "mathematics",
+  "completed": ["18.01", "18.02", "8.01"],
+  "focus": "linear algebra"
+}

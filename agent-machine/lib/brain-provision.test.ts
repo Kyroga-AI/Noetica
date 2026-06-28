@@ -5,8 +5,12 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import { brainUrl, installedBrainVersion, brainStatus } from './brain-provision.js'
 
-// All brain paths read env lazily (at call time), so redirecting NOETICA_BRAIN_HOME to a temp dir — and
-// clearing the absolute-path overrides — makes brain-home deterministic + hermetic.
+// All brain paths read env lazily (at call time). We redirect NOETICA_BRAIN_HOME to a temp dir AND pin the
+// per-brain overrides (OCW_BRAIN/OPS_CORPUS) INTO it. Pinning — not clearing — is what makes this hermetic:
+// academicBrainDir()/opsBrainFile() use pick(), which returns the env override BEFORE consulting filesystem
+// candidates, so it otherwise falls through to legacy paths that exist on the dev box
+// (~/Downloads/MIT OCW/_brain, ~/.noetica/ops-corpus) and spuriously reports brains "present" (mirrors the
+// canonical guard in brain-home.test.ts).
 let tmp: string
 const saved: Record<string, string | undefined> = {}
 const ENV_KEYS = ['NOETICA_BRAIN_HOME', 'OCW_BRAIN', 'OPS_CORPUS', 'HELLGRAPH_STORE_DIR',
@@ -16,7 +20,9 @@ beforeEach(() => {
   tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'noetica-brain-'))
   for (const k of ENV_KEYS) { saved[k] = process.env[k]; delete process.env[k] }
   process.env['NOETICA_BRAIN_HOME'] = tmp
-  process.env['HELLGRAPH_STORE_DIR'] = path.join(tmp, 'hellgraph-empty') // absent → chat 'empty'
+  process.env['OCW_BRAIN'] = path.join(tmp, 'academic')                       // pin academic into the temp dir
+  process.env['OPS_CORPUS'] = path.join(tmp, 'operational', 'manpages.jsonl') // pin ops into the temp dir
+  process.env['HELLGRAPH_STORE_DIR'] = path.join(tmp, 'hellgraph-empty')      // absent → chat 'empty'
 })
 afterEach(() => {
   for (const k of ENV_KEYS) { if (saved[k] === undefined) delete process.env[k]; else process.env[k] = saved[k] }

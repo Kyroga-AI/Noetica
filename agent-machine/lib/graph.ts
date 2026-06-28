@@ -7,6 +7,7 @@
 
 import { getHellGraph, HellGraphStore } from '@socioprophet/hellgraph'
 import { getAtomSpace } from '@socioprophet/hellgraph'
+import { instrumentGraph } from './graph-revision.js'
 import { runSparql } from '@socioprophet/hellgraph'
 import type { SparqlResult } from '@socioprophet/hellgraph'
 import {
@@ -37,7 +38,9 @@ export type { InteractionFact, ConversationFact, MessageFact, SparqlResult }
 // ─── Process-level singleton accessor ────────────────────────────────────────
 
 export function getGraph(): HellGraphStore {
-  return getHellGraph()
+  const g = getHellGraph()
+  instrumentGraph(g)   // Phase-0 change capture: bump revision + record dirty ids on mutation (idempotent)
+  return g
 }
 
 // ─── Health snapshot ─────────────────────────────────────────────────────────
