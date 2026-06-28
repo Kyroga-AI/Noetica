@@ -1215,6 +1215,13 @@ async function executeToolWithTimeout(
   const timeout = new Promise<string>((resolve) => {
     timer = setTimeout(() => resolve(`Error: tool ${name} timed out after ${TOOL_TIMEOUT_MS}ms`), TOOL_TIMEOUT_MS)
   })
+  // Reasoning-evidence: emit a safe-trace ReasoningEvent for THIS tool call so the agent's
+  // tool-using surface is under the same governance fabric as dialogue turns. Summary is a
+  // short description only — never tool args/output. Best-effort: never blocks the call.
+  try {
+    const re = await import('./lib/reasoning-evidence.js')
+    re.emitToolCallEvidence(name)
+  } catch { /* tool-call evidence is best-effort — never break the tool call */ }
   try {
     const result = await Promise.race([executeToolWithRetry(name, input, keys), timeout])
     // #16 — tool output from EXTERNAL/untrusted sources can carry indirect prompt injection ("ignore your
@@ -1427,6 +1434,19 @@ async function runSubAgent(
     { role: 'system', content: role.systemPrompt + (context.trim() ? `\n\nContext from the concierge:\n${context.trim()}` : '') },
     { role: 'user', content: task },
   ]
+  // Reasoning-evidence: open a CHILD ReasoningRun for this dispatched sub-agent, linked to the
+  // parent (ambient) run, and emit `subagent.dispatch` on the parent. Safe-trace: role + short
+  // task label only, never the full prompt/output. Closed with a receipt at every return path.
+  // Best-effort: a null child means evidence is disabled — execution proceeds unchanged.
+  let childRun: import('./lib/reasoning-evidence.js').ReasoningRun | null = null
+  try {
+    const re = await import('./lib/reasoning-evidence.js')
+    childRun = re.openSubAgentRun(role.id ?? roleId, task, re.getCurrentReasoningRun())
+  } catch { /* sub-agent evidence is best-effort — never break dispatch */ }
+  const closeChild = async (status: 'completed' | 'failed') => {
+    try { const re = await import('./lib/reasoning-evidence.js'); re.closeSubAgentRun(childRun, { status }) }
+    catch { /* close is best-effort */ }
+  }
   let final = ''
   for (let turn = 0; turn < role.maxTurns; turn++) {
     let text = ''
@@ -1437,6 +1457,7 @@ async function runSubAgent(
         else if (ev.type === 'tool_calls') toolCalls = ev.calls
       }
     } catch (e) {
+      await closeChild('failed')
       return `[${role.label} sub-agent error]`
     }
     if (!toolCalls?.length) {
@@ -1451,6 +1472,7 @@ async function runSubAgent(
     }
     final = text || final
   }
+  await closeChild('completed')
   return final.trim() || `(${role.label} sub-agent finished without a final summary)`
 }
 
