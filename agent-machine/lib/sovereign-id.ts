@@ -78,6 +78,15 @@ export function scopeAlias(root: Buffer, scopeId: string, domain: string): strin
   return `${tag}@${domain}`;
 }
 
+/** Provision a scope's alias as a mail-stack forward: the relying party only ever knows `alias`; mail to it lands
+ *  in the user's real `mailbox`. One row per scope in `mail_aliases` → every party has a DIFFERENT working address,
+ *  so there is no shared destination to correlate on. This is the Senzing defeat made deliverable. */
+export interface AliasRow { source: string; destination: string; active: boolean }
+export function provisionScopeAlias(root: Buffer, scopeId: string, domain: string, mailbox: string): { alias: string; row: AliasRow } {
+  const alias = scopeAlias(root, scopeId, domain);
+  return { alias, row: { source: alias, destination: mailbox, active: true } };
+}
+
 /** IdentitySubjectContext (matches the platform contract): the scoped facet a relying party receives — never the
  *  root, never a cross-scope-shared attribute. `assurance` rises with the bound external proof. */
 export interface IdentitySubjectContext {

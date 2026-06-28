@@ -2,7 +2,7 @@
  *  root-isolation, Senzing-defeating per-scope aliasing, and compartmentalized signing. */
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { deriveScope, verifyFacet, scopeAlias, buildSubjectContext } from "./sovereign-id.js";
+import { deriveScope, verifyFacet, scopeAlias, buildSubjectContext, provisionScopeAlias } from "./sovereign-id.js";
 
 const rootA = Buffer.alloc(32, 1);
 const rootB = Buffer.alloc(32, 2);
@@ -53,4 +53,15 @@ test("subject context: anonymous by default, proofed with an external factor, ne
   assert.notEqual(anon.alias_email, proofed.alias_email);
   // root bytes never appear in the serialized context
   assert.ok(!JSON.stringify(proofed).includes(rootA.toString("hex")));
+});
+
+test("provisionScopeAlias: per-scope working forward to one real mailbox, distinct source per scope", () => {
+  const mailbox = "gus@socioprophet.ai";
+  const a = provisionScopeAlias(rootA, "google", DOMAIN, mailbox);
+  const b = provisionScopeAlias(rootA, "corp-mdm", DOMAIN, mailbox);
+  assert.notEqual(a.alias, b.alias, "different scopes → different alias source (nothing to correlate)");
+  assert.equal(a.row.destination, mailbox);
+  assert.equal(b.row.destination, mailbox);
+  assert.equal(a.row.source, a.alias);
+  assert.ok(a.row.active);
 });
