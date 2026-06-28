@@ -3199,7 +3199,11 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // Operations brain (separate store): the lexical ops lane. Self-disables when the corpus is absent or
   // the query has no lexical overlap, so it only contributes on genuinely operational turns.
   const useOpsBrain = process.env['NOETICA_OPS_BRAIN'] !== '0' && STUDY_BRAIN_LANES.has(intentPlan.name)
-  const patterns: Array<'beliefs' | 'graph' | 'temporal' | 'sparql' | 'cache-augmented' | 'cairnpath' | 'study-brain' | 'ops-brain'> =
+  // RAPTOR pattern: only for summarize/teach intents where global "what does the whole corpus say" synthesis
+  // is needed. Leaf-chunk retrieval structurally can't answer these — RAPTOR's hierarchical tree can.
+  const RAPTOR_INTENTS = new Set(['summarize_doc', 'explain_teach', 'research_lookup'])
+  const useRaptor = process.env['NOETICA_RAPTOR'] !== '0' && RAPTOR_INTENTS.has(intentPlan.name) && useStudyBrain
+  const patterns: Array<'beliefs' | 'graph' | 'temporal' | 'sparql' | 'cache-augmented' | 'cairnpath' | 'study-brain' | 'ops-brain' | 'raptor'> =
     provider === 'ollama'
       ? (useCairnPath
           ? ['beliefs', 'cache-augmented', 'cairnpath', 'temporal']
@@ -3209,6 +3213,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           : ['beliefs', 'graph', 'temporal'])
   if (useStudyBrain) patterns.push('study-brain')
   if (useOpsBrain) patterns.push('ops-brain')
+  if (useRaptor) patterns.push('raptor')
 
   let graphContext = ''
   try {

@@ -42,7 +42,7 @@ export const defaultSettings: NoeticaSettings = {
   fanoutModels: ['claude-sonnet-4-6', 'gpt-4o'],
   fanoutConcurrency: 3,
 
-  wakeWordEnabled: true,
+  wakeWordEnabled: false,
   voiceLanguage: 'en-US',
   ttsProvider: 'openai',
   ttsVoice: 'nova',

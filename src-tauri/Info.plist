@@ -2,6 +2,12 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Noetica uses the microphone for voice chat, speech-to-text, and voice cloning. Audio is processed locally on your device.</string>
+    <key>NSCameraUsageDescription</key>
+    <string>Noetica uses the camera for video capture features. Video is processed locally on your device.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>Noetica uses speech recognition to transcribe your voice locally on your device.</string>
     <key>NSAppTransportSecurity</key>
     <dict>
         <key>NSAllowsLocalNetworking</key>

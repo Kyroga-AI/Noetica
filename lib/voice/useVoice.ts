@@ -127,16 +127,21 @@ export function useVoice(onTranscript: (text: string) => void) {
     else setState('idle')
   }, [])
 
-  // Wake word listener — runs continuously in background
+  // Wake word listener — runs continuously in background.
+  // Disabled in Tauri: Web Speech in WKWebView requires NSSpeechRecognitionUsageDescription
+  // + a fresh app bundle to take effect; local STT via /api/stt is the Tauri voice path.
   useEffect(() => {
-    if (!SpeechRecognitionCtor || !settings.wakeWordEnabled) {
+    if (!SpeechRecognitionCtor || !settings.wakeWordEnabled || isTauri()) {
       wakeListenerRef.current?.abort()
       wakeListenerRef.current = null
       return
     }
 
+    let retryDelay = 500
+    let stopped = false
+
     function startWakeListener() {
-      if (!SpeechRecognitionCtor) return
+      if (!SpeechRecognitionCtor || stopped) return
       const rec = new SpeechRecognitionCtor()
       rec.continuous = true
       rec.interimResults = true
@@ -153,9 +158,15 @@ export function useVoice(onTranscript: (text: string) => void) {
           startListening()
         }
       }
+      rec.onerror = () => {
+        // Back off exponentially on errors (permission denied, network, etc.) — cap at 30s.
+        retryDelay = Math.min(retryDelay * 2, 30_000)
+      }
       rec.onend = () => {
-        if (stateRef.current === 'idle' || stateRef.current === 'wake-listening') {
-          setTimeout(startWakeListener, 500)
+        if (!stopped && (stateRef.current === 'idle' || stateRef.current === 'wake-listening')) {
+          setTimeout(startWakeListener, retryDelay)
+          // Reset backoff on a clean end (not an error).
+          if (retryDelay < 2000) retryDelay = 500
         }
       }
       wakeListenerRef.current = rec
@@ -166,6 +177,7 @@ export function useVoice(onTranscript: (text: string) => void) {
     startWakeListener()
 
     return () => {
+      stopped = true
       wakeListenerRef.current?.abort()
       wakeListenerRef.current = null
     }

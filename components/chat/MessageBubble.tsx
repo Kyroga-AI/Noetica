@@ -415,8 +415,16 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
           <ToolCallList calls={message.tool_calls} results={message.tool_results} />
         )}
 
-        {/* Main content — markdown rendered */}
-        {message.content && <MarkdownContent content={message.content} />}
+        {/* Main content — markdown rendered, with inline source footnotes when doc sources exist */}
+        {message.content && (() => {
+          const docSources = message.retrieval_trace?.document_sources
+          if (!docSources || docSources.length === 0) return <MarkdownContent content={message.content} />
+          const topSources = docSources.slice(0, 5)
+          const footnotes = topSources
+            .map((s, i) => `[${i + 1}] ${s.label || 'document'} · ${(s.score * 100).toFixed(0)}% match`)
+            .join('  \n')
+          return <MarkdownContent content={`${message.content}\n\n---\n${footnotes}`} />
+        })()}
 
         {/* Build clarifier — deterministic multiple-choice scaffold card */}
         {message.build && <BuildCard spec={message.build} />}

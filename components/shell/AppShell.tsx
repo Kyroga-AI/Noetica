@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Sidebar } from '@/components/shell/Sidebar'
 import { Topbar } from '@/components/shell/Topbar'
 import { MessageList } from '@/components/chat/MessageList'
@@ -407,11 +407,15 @@ export function AppShell() {
   }
 
   const voiceReplyRef = useRef(false)
-  const { state: voiceState, isLive, error: voiceError, startListening, stopListening, startLive, stopLive, speak, stopSpeaking } = useVoice((transcript) => {
-    voiceReplyRef.current = true   // this turn was voice-initiated → speak the reply
-    setActiveSurface('chat')       // make the spoken conversation visible (both sides as text)
+  // Stable callback reference — must be memoized to avoid recreating `startListening` on every
+  // render, which would retrigger the wake-word useEffect and cause a rapid restart loop.
+  const handleVoiceTranscript = useCallback((transcript: string) => {
+    voiceReplyRef.current = true
+    setActiveSurface('chat')
     void handleSendRaw(transcript, [], messages)
-  })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages])
+  const { state: voiceState, isLive, error: voiceError, startListening, stopListening, startLive, stopLive, speak, stopSpeaking } = useVoice(handleVoiceTranscript)
 
   // Surface voice errors (backend offline, mic denied, STT unavailable) as a transient
   // notice — a voice feature must never fail as a silent no-op.

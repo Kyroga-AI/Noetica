@@ -19,6 +19,8 @@ GCP-shaped; --dry-run validates routing + retrieval with NO model.
 Usage:
   python3 scripts/graphrag-bench.py --domain medical --n 50 --dry-run
   python3 scripts/graphrag-bench.py --domain medical --n 200 --model qwen2.5:7b --sc-k 3 --out answers.json
+  # measure real production retriever (agent-machine server must be running on --api-base):
+  python3 scripts/graphrag-bench.py --domain medical --n 200 --use-server --out answers.json
 """
 import argparse
 import json
@@ -68,11 +70,60 @@ def ollama(prompt: str, model: str, temperature: float = 0.0, base: str = 'http:
         return json.loads(r.read())['choices'][0]['message']['content'].strip()
 
 
+def raptor_lite(chunks: list, query: str, model: str, levels: int = 2) -> str:
+    """Hierarchical RAPTOR-lite: cluster chunks → summarize each cluster → recurse.
+    Returns a single synthetic summary grounded in the whole corpus, not just top-k leaves.
+    Matches the TypeScript raptor-runtime.ts approach without external deps."""
+    if not chunks:
+        return ''
+    cluster_size = 5
+    current = list(chunks)
+    for _ in range(levels):
+        if len(current) <= cluster_size:
+            break
+        clusters = [current[i:i + cluster_size] for i in range(0, len(current), cluster_size)]
+        summaries = []
+        for cl in clusters:
+            joined = '\n\n'.join(f'[{j+1}] {p[:500]}' for j, p in enumerate(cl))
+            try:
+                s = ollama(
+                    f'Write one concise paragraph summarising the key facts across these passages. '
+                    f'Preserve specific entities and claims; add nothing new.\n\n{joined}\n\nSummary:',
+                    model, temperature=0.1,
+                )
+                summaries.append(s)
+            except Exception:
+                summaries.extend(cl)
+        current = summaries
+    # final answer generation from the collapsed summaries
+    ctx = '\n\n'.join(current[:8])
+    return ctx
+
+
+def server_answer(q: dict, api_base: str) -> str:
+    """Route the question through the production agent-machine server, measuring the real
+    dual-layer retrieval + RAPTOR pipeline (not the harness's keyword strawman)."""
+    body = json.dumps({'messages': [{'role': 'user', 'content': q['question']}],
+                       'stream': False}).encode()
+    req = urllib.request.Request(f'{api_base}/api/chat', body, {'content-type': 'application/json'})
+    with urllib.request.urlopen(req, timeout=120) as r:
+        data = json.loads(r.read())
+    # agent-machine returns SSE or JSON; handle both
+    if isinstance(data, dict):
+        return str(data.get('content') or data.get('message', {}).get('content', ''))
+    return str(data)
+
+
 def answer(q: dict, chunks: list, model: str, sc_k: int) -> str:
     arm, k, vote = ROUTING.get(q['question_type'], ('reason+sc', 4, True))
     ctx = '\n\n'.join(retrieve(q['question'], chunks, k))
     if arm == 'summarize':
-        prompt = f"Using the notes, write a concise summary answering the question.\nNotes:\n{ctx}\n\nQuestion: {q['question']}\nAnswer:"
+        # RAPTOR-lite: hierarchical clustering + summarization over the wider chunk window.
+        # Simple leaf-chunk retrieval misses global "what does the whole corpus say" questions;
+        # the hierarchical approach pools across the corpus before answering.
+        raptor_ctx = raptor_lite(retrieve(q['question'], chunks, 16), q['question'], model)
+        ctx_to_use = raptor_ctx if raptor_ctx else ctx
+        prompt = f"Using the notes, write a comprehensive answer that synthesises across the whole text.\nNotes:\n{ctx_to_use}\n\nQuestion: {q['question']}\nAnswer:"
     elif arm == 'reason+sc':
         prompt = f"Use the notes and reason step by step, then give a direct final answer.\nNotes:\n{ctx}\n\nQuestion: {q['question']}\nAnswer:"
     else:
@@ -91,6 +142,8 @@ def main():
     ap.add_argument('--sc-k', type=int, default=3)
     ap.add_argument('--out', default='')
     ap.add_argument('--dry-run', action='store_true', help='validate routing + retrieval with NO model calls')
+    ap.add_argument('--use-server', action='store_true', help='route through the production agent-machine server (measures real dual-layer retrieval)')
+    ap.add_argument('--api-base', default='http://127.0.0.1:8080', help='agent-machine server base URL for --use-server')
     a = ap.parse_args()
 
     qs = json.load(open(os.path.join(BENCH, f'{a.domain}_questions.json')))[:a.n]
@@ -110,10 +163,16 @@ def main():
               f'({100 * hit // max(1, len(qs))}%) — routing + retriever wired OK', file=sys.stderr)
         return
 
+    if a.use_server:
+        print(f'  --use-server: routing through {a.api_base} (measures real dual-layer retrieval + RAPTOR)', file=sys.stderr)
+
     out = []
     for i, q in enumerate(qs):
         try:
-            pred = answer(q, chunks, a.model, a.sc_k)
+            if a.use_server:
+                pred = server_answer(q, a.api_base)
+            else:
+                pred = answer(q, chunks, a.model, a.sc_k)
         except Exception as e:
             pred = ''
             print(f'  q{i} error: {repr(e)[:80]}', file=sys.stderr)

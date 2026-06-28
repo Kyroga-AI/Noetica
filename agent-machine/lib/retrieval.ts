@@ -56,7 +56,7 @@ interface WorkingMemoryState {
 
 // ─── Public types ─────────────────────────────────────────────────────────────
 
-export type RetrievalPattern = 'graph' | 'temporal' | 'sparql' | 'cache-augmented' | 'atoms' | 'beliefs' | 'cairnpath' | 'study-brain' | 'ops-brain' | 'hipporag'
+export type RetrievalPattern = 'graph' | 'temporal' | 'sparql' | 'cache-augmented' | 'atoms' | 'beliefs' | 'cairnpath' | 'study-brain' | 'ops-brain' | 'hipporag' | 'raptor'
 
 export interface RetrievedContext {
   text: string
@@ -106,6 +106,7 @@ export async function retrieve(
     'study-brain':     3500,   // embeds the query + cosine over the OCW brain (disk-cached after first hit)
     'ops-brain':       1500,   // lexical scan over the ops corpus (no embed call — fast, disk-cached)
     'hipporag':        700,    // personalized-PageRank associative recall (HippoRAG) over the clean graph
+    'raptor':          8000,   // hierarchical RAPTOR tree built over study-brain hits; first call builds (slow), cached thereafter
   }
 
   const timeout = <T>(ms: number, p: Promise<T>): Promise<T | null> =>
@@ -124,6 +125,7 @@ export async function retrieve(
       case 'ops-brain':    inner = runOpsBrainPattern(query); break
       case 'beliefs':      inner = runBeliefsPattern(); break
       case 'hipporag':     inner = runHippoRagPattern(query); break
+      case 'raptor':       inner = runRaptorPattern(query); break
       case 'cache-augmented': inner = runCacheAugmentedPattern(opts?.sessionId ?? opts?.workspaceId ?? 'default'); break
       default:             return Promise.resolve(null)
     }
@@ -757,4 +759,35 @@ function dedupeSources(
   const best = new Map<string, { id: string; label: string; score: number }>()
   for (const s of sources) { const p = best.get(s.id); if (!p || p.score < s.score) best.set(s.id, s) }
   return [...best.values()].sort((a, b) => b.score - a.score)
+}
+
+// ─── raptor — hierarchical summarization retrieval (RAPTOR) ──────────────────
+// For "what does the whole corpus say about X" queries where leaf-chunk retrieval
+// can't answer. Builds a RAPTOR tree over study-brain hits (cached per topic cluster),
+// then retrieves from the collapsed tree — summary nodes surface global themes,
+// leaf nodes surface specific facts. First call for a new topic cluster builds the tree
+// (~5–8s for 40 chunks); subsequent calls hit the in-process cache (~50ms).
+async function runRaptorPattern(
+  query: string,
+): Promise<{ text: string; sources: Array<{ id: string; label: string; score: number }> }> {
+  if (!studyBrainReady()) return { text: '', sources: [] }
+  try {
+    const { buildRaptorIndex, raptorRetrieve } = await import('./raptor-runtime.js')
+    const hits = await studyBrainRetrieve(query, [], 40)
+    if (hits.length < 4) return { text: '', sources: [] }
+    // Cache key: stable across closely related queries on the same topic cluster.
+    const cacheKey = 'raptor:' + hits.slice(0, 15).map((h) => h.slug).sort().join('|').slice(0, 120)
+    const tree = await buildRaptorIndex(cacheKey, hits.map((h) => h.text))
+    const nodes = await raptorRetrieve(tree, query, 8)
+    if (!nodes.length) return { text: '', sources: [] }
+    const text =
+      'RAPTOR hierarchical context (summary + leaf nodes, highest relevance first):\n' +
+      nodes.map((n, i) => `[${i + 1}] (L${n.level}) ${n.text.slice(0, 350)}`).join('\n\n')
+    const sources = nodes.map((n, i) => ({
+      id: `raptor-${n.id}`,
+      label: `[L${n.level}] ${n.text.slice(0, 58).replace(/[\r\n]/g, ' ')}`,
+      score: Math.max(0.50, 0.88 - i * 0.05),
+    }))
+    return { text, sources }
+  } catch { return { text: '', sources: [] } }
 }
