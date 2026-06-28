@@ -43,7 +43,7 @@ const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
 const safeEntries = <T,>(o: unknown): Array<[string, T]> => (o && typeof o === 'object' ? (Object.entries(o as Record<string, T>).filter(([k]) => !DANGEROUS_KEYS.has(k))) : [])
 
 const MAX_CAP_BODY = 8 * 1024 * 1024   // 8MB cap — readBody owns enforcement (don't rely on the detached global guard)
-const MUTATING_ROUTES = new Set(['cms-create', 'cms-update', 'cms-rollback', 'cms-to-drive', 'proposals-apply', 'infer-apply', 'auto-kg', 'swarm-announce', 'swarm-reuse', 'office-convert'])
+const MUTATING_ROUTES = new Set(['cms-create', 'cms-update', 'cms-rollback', 'cms-to-drive', 'proposals-apply', 'infer-apply', 'auto-kg', 'connector-run', 'swarm-announce', 'swarm-reuse', 'office-convert'])
 function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve) => {
     let b = ''; let size = 0; let aborted = false
@@ -403,6 +403,14 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
         const r = await extractKnowledgeGraph(String(b.text ?? ''), String(b.source ?? 'user-doc'), gen, { maxTriples: Number(b.maxTriples ?? 20) })
         const persisted = b.persist === true ? persistProposals(r.proposals) : null
         return send(200, { ...r, persisted }), true
+      }
+      case 'connector-run': {
+        // Governed connector ingest: authorize egress → fetch → emit a tamper-evident ConnectorReceipt. The
+        // route exposes the MANUAL (local, no-egress) connector — docs supplied in the body — the offline-safe
+        // reference; network connectors register server-side with a scope-d-backed authorize hook.
+        const { runConnector, manualConnector } = await import('./connector.js')
+        const run = await runConnector(manualConnector(String(b.id ?? 'manual'), (b.docs ?? []) as Array<{ uri?: string; title?: string; text: string }>))
+        return send(200, run), true
       }
       // ── graph-derived (GET) ──
       case 'graph-triples': {
