@@ -43,7 +43,7 @@ const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
 const safeEntries = <T,>(o: unknown): Array<[string, T]> => (o && typeof o === 'object' ? (Object.entries(o as Record<string, T>).filter(([k]) => !DANGEROUS_KEYS.has(k))) : [])
 
 const MAX_CAP_BODY = 8 * 1024 * 1024   // 8MB cap — readBody owns enforcement (don't rely on the detached global guard)
-const MUTATING_ROUTES = new Set(['cms-create', 'cms-update', 'cms-rollback', 'cms-to-drive', 'proposals-apply', 'infer-apply', 'auto-kg', 'connector-run', 'swarm-announce', 'swarm-reuse', 'office-convert'])
+const MUTATING_ROUTES = new Set(['cms-create', 'cms-update', 'cms-rollback', 'cms-to-drive', 'proposals-apply', 'infer-apply', 'auto-kg', 'synapse-enrich', 'connector-run', 'swarm-announce', 'swarm-reuse', 'office-convert'])
 function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve) => {
     let b = ''; let size = 0; let aborted = false
@@ -418,6 +418,18 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
         const r = await extractKnowledgeGraph(String(b.text ?? ''), String(b.source ?? 'user-doc'), gen, { maxTriples: Number(b.maxTriples ?? 20) })
         const persisted = b.persist === true ? persistProposals(r.proposals) : null
         return send(200, { ...r, persisted }), true
+      }
+      case 'synapse-enrich': {
+        // SynapseIQ structural enrichment → KG linkage: parse the asset into typed symbols/entities (Tree-sitter
+        // + LSP, deterministic fallback when SynapseIQ is unavailable), bridge to auto-KG triples → PENDING
+        // proposals (governed). persist:true applies them via the same review/writeback path as proposals-apply.
+        const { synapseEnrich, enrichmentToTriples, defaultSynapseTransport } = await import('./synapseiq-enrich.js')
+        const { triplesToProposals } = await import('./auto-kg.js')
+        const assetId = String(b.assetId ?? b.source ?? 'asset')
+        const enrichment = await synapseEnrich(String(b.content ?? ''), { filename: b.filename as string | undefined }, defaultSynapseTransport())
+        const proposals = triplesToProposals(enrichmentToTriples(assetId, enrichment), assetId)
+        const persisted = b.persist === true ? persistProposals(proposals) : null
+        return send(200, { enrichment, proposals, persisted }), true
       }
       case 'connector-run': {
         // Governed connector ingest: authorize egress → fetch → emit a tamper-evident ConnectorReceipt. The
