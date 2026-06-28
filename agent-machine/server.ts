@@ -85,6 +85,7 @@ import { appendJsonl as appendEncrypted, readJsonl as readEncrypted, writeJson a
 import { critique, bestOfTemps, type Candidate as CriticCandidate } from './lib/critic.js'
 import { programOfThought, operatorProgramOfThought, codeVerifyRepair } from './lib/exec-verify.js'
 import { isReasonLaneIntent, reasonLaneEnabled, reasonSCK, runReasonLane, REASON_RULE } from './lib/reason-lane.js'
+import { decideGrounding, type GroundingStatus } from './lib/grounding-signal.js'
 import { applyEdit, editSummary } from './lib/apply-patch.js'
 import { classifyComplexity as classifyComplexityPosture } from './lib/complexity-discipline.js'
 import { detectGoalIntent, slotFill, buildGoalContext, getActiveGoal, listGoals, saveGoal, type Goal } from './lib/goal-model.js'
@@ -2395,6 +2396,20 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // gateShouldRetrieve did not replicate and is deliberately not wired). Default ON; NOETICA_REASON_LANE=0
   // toggles it off (turn then keeps the normal retrieval + best-of-N+critic path).
   const useReasonLane = reasonLaneEnabled() && isReasonLaneIntent(intentPlan.name)
+  // ── Grounding signal (peer-audit Priority 7) ─────────────────────────────────
+  // Consume canonRoute's grounding_status in serving — for RETRIEVAL-ELIGIBLE turns only (NOT the
+  // reason-lane intents, which deliberately skip retrieval). Three additive uses, all safe:
+  //   (a) provenance/telemetry: surface grounding_status in the response metadata + the noetica.turn
+  //       ReasoningEvent extra (an enum only — safe-trace, no content);
+  //   (b) ensure-retrieve on 'ungrounded': bind the signal to behaviour so retrieval is guaranteed on;
+  //   (c) uncertainty marker on 'partial': attach grounding:'partial' to metadata (answer text unchanged).
+  // We deliberately do NOT use 'grounded' to suppress/skip retrieval (the probed dead-end: candidateNPs
+  // flags an out-of-canon NP on ~every real query, so 'grounded' ~never fires and a skip-gate degenerates
+  // to always-retrieve). Exception-safe (canonRoute throw → 'ungrounded'/ensure-retrieve, turn never breaks).
+  // Behind NOETICA_GROUNDING_SIGNAL (default ON; =0 reverts). retrievalEligible = NOT the reason lane.
+  const grounding = decideGrounding(latestUserContent, !useReasonLane)
+  const groundingStatus: GroundingStatus | undefined = grounding.status
+  if (grounding.active) sse(res, 'grounding', { grounding: { status: groundingStatus, ensure_retrieve: grounding.ensureRetrieve, partial: grounding.partial } })
   const actionRoute = action === 'meta' ? { tier: 'embedding', target: 'concierge' } : routeForAction(action)
   const polarity = ['retrieve', 'evaluate', 'sense'].includes(action) ? 'read' : action === 'meta' ? 'meta' : 'write'
   const phase = action === 'meta' ? null : meshrushPhase(action) // where this turn sits in the MeshRush loop
@@ -2991,7 +3006,15 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     // Skip doc retrieval entirely for intents that want no grounding (greetings,
     // confirmations, file ops) — otherwise a plain "hello" wastefully pulls passages
     // and shows a misleading "retrieving" step.
-    if (documentChunkCount() > 0 && intentPlan.retrieval !== 'none' && !useReasonLane) {
+    // Ensure-retrieve binding (Priority 7): an 'ungrounded' turn MUST run retrieval. This is the EXPLICIT
+    // binding of the grounding signal to behaviour — a no-op where retrieval already happens (the common
+    // case), but it makes ungrounded→retrieve intentional, not incidental, and prevents any future skip
+    // path from bypassing retrieval on an ungrounded turn. It NEVER forces retrieval for retrieval:'none'
+    // intents (greetings/confirmations) nor for the reason lane (ensureRetrieve is false there by construction).
+    const ensureRetrieveNow = grounding.ensureRetrieve && intentPlan.retrieval !== 'none' && !useReasonLane
+    const retrievalGate = intentPlan.retrieval !== 'none' && !useReasonLane
+    if (documentChunkCount() > 0 && (retrievalGate || ensureRetrieveNow)) {
+      if (ensureRetrieveNow && !retrievalGate) console.log('[grounding] ungrounded turn → ensure-retrieve binding kept retrieval on')
       // Intent-aware retrieval. Doc-focused intents (summarize_doc / qa_over_doc /
       // research) get a tight top-k of the MOST relevant chunks instead of stuffing
       // the whole document into context — this is the fix for the 300–500s latency
@@ -3221,12 +3244,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         try {
           const re = await import('./lib/reasoning-evidence.js')
           const run = re.openReasoningRun(`turn:${intentPlan.name}`)
-          re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} computed(recall) ${lat}ms`, trustLevel: 'trusted-workspace-source' })
+          re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} computed(recall) ${lat}ms`, trustLevel: 'trusted-workspace-source', ...(groundingStatus ? { extra: { grounding_status: groundingStatus } } : {}) })
           const ledgerRef = hit.attestation ? `urn:srcos:ledger:dispatch:${hit.attestation}` : undefined
           const receipt = re.closeReasoningRun(run, { status: 'completed', replayClass: re.classifyReplay({ method: 'recall', decidable: true }), ledgerRef })
           reasoningRecall = { run: run.id, receipt: receipt.id }
         } catch { /* reasoning evidence is best-effort — never break the turn */ }
-        sse(res, 'done', { result: { run_id: crypto.randomUUID(), content: hit.answer, model_routed: 'recall', provider: 'noetica', policy_admitted: true, memory_written: false, stop_reason: 'computed', timestamp: new Date().toISOString(), latency_ms: lat, agent_machine: true, agent_machine_version: VERSION, decidable: true, method: 'recall', ...(reasoningRecall ? { reasoning_run: reasoningRecall.run, reasoning_receipt: reasoningRecall.receipt } : {}) } })
+        sse(res, 'done', { result: { run_id: crypto.randomUUID(), content: hit.answer, model_routed: 'recall', provider: 'noetica', policy_admitted: true, memory_written: false, stop_reason: 'computed', timestamp: new Date().toISOString(), latency_ms: lat, agent_machine: true, agent_machine_version: VERSION, decidable: true, method: 'recall', ...(reasoningRecall ? { reasoning_run: reasoningRecall.run, reasoning_receipt: reasoningRecall.receipt } : {}), ...(groundingStatus ? { grounding_status: groundingStatus } : {}), ...(grounding.partial ? { grounding: 'partial' } : {}) } })
         return
       }
     } catch { /* recall is best-effort — fall through to extract/generation */ }
@@ -3296,7 +3319,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         try {
           const re = await import('./lib/reasoning-evidence.js')
           const run = re.openReasoningRun(`turn:${intentPlan.name}`)
-          re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} computed(extractive) ${exLatency}ms`, trustLevel: 'trusted-workspace-source' })
+          re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} computed(extractive) ${exLatency}ms`, trustLevel: 'trusted-workspace-source', ...(groundingStatus ? { extra: { grounding_status: groundingStatus } } : {}) })
           const ledgerRef = extractiveAttestation ? `urn:srcos:ledger:dispatch:${extractiveAttestation}` : undefined
           const receipt = re.closeReasoningRun(run, { status: 'completed', replayClass: re.classifyReplay({ method: 'extractive', decidable: true }), ledgerRef })
           reasoningExtract = { run: run.id, receipt: receipt.id }
@@ -3306,6 +3329,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           policy_admitted: true, memory_written: false, stop_reason: 'extractive', timestamp: new Date().toISOString(),
           latency_ms: exLatency, agent_machine: true, agent_machine_version: VERSION, extractive: true,
           ...(reasoningExtract ? { reasoning_run: reasoningExtract.run, reasoning_receipt: reasoningExtract.receipt } : {}),
+          ...(groundingStatus ? { grounding_status: groundingStatus } : {}), ...(grounding.partial ? { grounding: 'partial' } : {}),
         } })
         return
       }
@@ -4094,7 +4118,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       try {
         const re = await import('./lib/reasoning-evidence.js')
         const run = re.openReasoningRun(`turn:${intentPlan.name}`)
-        re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} generated(${provider}${useReasonLane ? ',reason-lane:cot+sc' : ''}) ${latencyMs}ms`, trustLevel: 'semi-trusted-project-source' })
+        re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} generated(${provider}${useReasonLane ? ',reason-lane:cot+sc' : ''}) ${latencyMs}ms`, trustLevel: 'semi-trusted-project-source', ...(groundingStatus ? { extra: { grounding_status: groundingStatus } } : {}) })
         const ledgerRef = generatedAttestation ? `urn:srcos:ledger:dispatch:${generatedAttestation}` : undefined
         const receipt = re.closeReasoningRun(run, { status: 'completed', replayClass: re.classifyReplay({ method: model, stop_reason: 'end_turn' }), ledgerRef })
         reasoningGen = { run: run.id, receipt: receipt.id }
@@ -4121,6 +4145,11 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         agent_machine: true,
         agent_machine_version: VERSION,
         ...(reasoningGen ? { reasoning_run: reasoningGen.run, reasoning_receipt: reasoningGen.receipt } : {}),
+        // Grounding provenance (Priority 7): how grounded was this answer (telemetry, enum-only). On
+        // 'partial', also expose a lightweight uncertainty marker so downstream/UI can signal lower
+        // confidence. Present only for retrieval-eligible turns with the signal active (never the reason lane).
+        ...(groundingStatus ? { grounding_status: groundingStatus } : {}),
+        ...(grounding.partial ? { grounding: 'partial' } : {}),
       },
     })
     runCompleted = true // run finished cleanly — the close handler must not checkpoint
