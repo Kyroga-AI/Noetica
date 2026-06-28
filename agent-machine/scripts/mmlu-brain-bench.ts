@@ -45,6 +45,8 @@ import { decodeVec, l2norm } from '../lib/brain-vec.js'
 import { reliabilityGate } from '../lib/reliability-gate.js'
 import { formatEvidence, inlineBindPrompt, parseInlineAnswer, inlineFidelityStats } from '../lib/inline-bind.js'
 import { cragVote, gateShouldRetrieve, acceptRetrievedAnswer, groundingGateShouldRetrieve } from '../lib/crag-gate.js'
+import { critique, bestOfTemps } from '../lib/critic.js'                  // PRODUCTION best-of-N selection (server.ts mirror)
+import { classifyComplexity } from '../lib/complexity-discipline.js'      // PRODUCTION posture classifier
 
 const HOME = os.homedir()
 const BANK = path.join(HOME, '.noetica', 'corpus', 'benchmarks', 'mmlu_stem.json')
@@ -557,6 +559,7 @@ async function ask(prompt: string, temperature = 0): Promise<string> {
 // of the answer (a bias toward "A" washes out across diverse samples). Unaffordable on CPU; cheap
 // on the L4. k<=1 collapses to one temp-0 answer (voting off), so non-champion arms are unaffected.
 const SC_K = Number(process.env['MMLU_SC_K'] || 5)
+const PROD_N = Number(process.env['MMLU_PROD_N'] || process.env['NOETICA_BESTOF_N'] || 3)   // prod arm best-of-N (server default 3)
 const SHUFFLE_M = Number(process.env['MMLU_SHUFFLE'] || 4)   // Medprompt choice-shuffle ensemble members (rotations cancel position bias)
 const CISC = process.env['MMLU_CISC'] === '1'   // confidence-weighted self-consistency (Google 2025) — weight each vote by the model's stated confidence
 function extractConf(raw: string): number {
@@ -843,7 +846,7 @@ async function main() {
     // is slow + mostly abstains on conceptual math, so gate it behind MMLU_REASON_COMPUTE=1 (off by default →
     // reason is pure long-CoT + self-consistency). Re-enable once task #12 (formalize-from-worked-solutions) lands.
     const reasonCompute = ARMS.includes('reason') && process.env['MMLU_REASON_COMPUTE'] === '1'
-    const wantCompute = ARMS.includes('compute') || ARMS.includes('route') || ARMS.includes('champion') || ARMS.includes('gate') || ARMS.includes('groundgate') || reasonCompute || ARMS.includes('learned')
+    const wantCompute = ARMS.includes('compute') || ARMS.includes('route') || ARMS.includes('champion') || ARMS.includes('gate') || ARMS.includes('groundgate') || reasonCompute || ARMS.includes('prod') || ARMS.includes('learned')
     // brain-ground (#12): retrieve worked-solution context per question (gold-first, warm cache) BEFORE the
     // sync compute subprocess, so sympy formalizes from the method, not a cold parse. COMPUTE_GROUND=0 → cold.
     const ncard = COMPUTE_GROUND ? loadNotecard(fields) : ''   // the formula sheet for this subject's field(s)
@@ -1043,6 +1046,20 @@ async function main() {
           } else {
             const sc = await askVote(`${base}${REASON_RULE}`, SC_K)   // self-consistency over explicit step-by-step chains
             letter = sc.letter; mode = `reason:sc${SC_K}`; row['reason_conf'] = Number(sc.agree.toFixed(2))
+          }
+        } else if (arm === 'prod') {              // FAITHFUL mirror of server.ts deliberation — measures what SHIPS, not a strawman:
+          // verified-compute on compute-posture (server: program-of-thought python; bench: sympy — both RUN code then match a
+          // choice), ELSE best-of-N with the PRODUCTION critic (value-judgment + self-consistency select), not plain majority vote.
+          const posture = classifyComplexity(q.question).posture
+          if (posture === 'compute' && ci?.answer && ci.mode !== 'prog') {
+            letter = ci.answer; mode = `prod:compute:${ci.mode}`
+          } else {
+            const cands: Array<{ content: string }> = []
+            for (const t of bestOfTemps(PROD_N)) { const r = await ask(`${base}${REASON_RULE}`, t); if (r.trim()) cands.push({ content: r }) }
+            if (cands.length) {
+              const v = critique(cands, { question: q.question, contextText: '', beliefs: [], laws: [] })
+              letter = extractLetter(v.best.candidate.content); mode = `prod:bon${cands.length}:${v.action}`; row['prod_agreement'] = Number(v.agreement.toFixed(2))
+            } else { letter = ''; mode = 'prod:empty' }
           }
         } else if (arm === 'groundgate') {        // CHEAP gate: decide retrieve-vs-skip from canon entity COUNT — no SC probe
           const k = kt[i] ?? { types: ['BasicFacts'], solver: 'retrieve' }
