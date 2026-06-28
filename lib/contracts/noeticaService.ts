@@ -108,6 +108,8 @@ export type NoeticaStreamDoneResult = {
   /** Provenance: how the answer was produced (recall | graphrag-global | extractive | …) + whether grounded. */
   method?: string
   grounded?: boolean
+  decidable?: boolean
+  replay_class?: string
 }
 
 export type NoeticaSteerResponse = {

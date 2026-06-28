@@ -1139,6 +1139,8 @@ export function AppShell() {
                   ...(result.output_tokens !== undefined ? { output_tokens: result.output_tokens } : {}),
                   ...(result.method !== undefined ? { method: result.method } : {}),
                   ...(result.grounded !== undefined ? { grounded: result.grounded } : {}),
+                  ...(result.decidable !== undefined ? { decidable: result.decidable } : {}),
+                  ...(result.replay_class !== undefined ? { replay_class: result.replay_class } : {}),
                 },
                 steering_result: result.steering_applied,
               })

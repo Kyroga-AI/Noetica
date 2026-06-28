@@ -25,6 +25,8 @@ export interface GovernanceTrace {
   latency_ms: number
   input_tokens?: number
   output_tokens?: number
-  method?: string       // how the answer was produced: recall | graphrag-global | extractive | generation | …
+  method?: string       // how the answer was produced: recall | graphrag-global | extractive | generation | operatorProgramOfThought | …
   grounded?: boolean    // answer is grounded in retrieved/cited evidence (provenance signal)
+  decidable?: boolean   // question was answered by logic/compute (no generation needed)
+  replay_class?: string // replayability tier: exact | approximate | generative
 }
