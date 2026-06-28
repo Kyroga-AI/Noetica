@@ -26,10 +26,22 @@ const ACTION_MAP: Record<string, ThreadAction> = { replyLater: "reply-later", se
 
 export function createMailServer(opts: { store?: ImapStore; approved?: Set<string> } = {}): http.Server {
   const bridge = createMailBridge(opts.store ?? demoStore(), opts.approved ?? new Set(["mira@socioprophet.ai", "gus@socioprophet.ai", "ben@stratechery.com", "no-reply@stripe.com"]));
-  const send = (res: http.ServerResponse, status: number, body: unknown): void => { res.writeHead(status, { "content-type": "application/json", "access-control-allow-origin": "*" }); res.end(JSON.stringify(body)); };
-  const readJson = (req: http.IncomingMessage): Promise<Record<string, unknown>> => new Promise((r) => { let b = ""; req.on("data", (c) => (b += c)); req.on("end", () => { try { r(b ? JSON.parse(b) : {}); } catch { r({}); } }); });
+  // Scoped CORS: a credentialed mail API must NOT use "*". Set MAIL_ALLOWED_ORIGIN to the webmail origin in prod.
+  const ORIGIN = process.env["MAIL_ALLOWED_ORIGIN"] ?? "*";
+  const cors = (): Record<string, string> => ORIGIN === "*"
+    ? { "access-control-allow-origin": "*" }
+    : { "access-control-allow-origin": ORIGIN, "access-control-allow-credentials": "true", "vary": "Origin" };
+  const send = (res: http.ServerResponse, status: number, body: unknown): void => { res.writeHead(status, { "content-type": "application/json", ...cors() }); res.end(JSON.stringify(body)); };
+  const MAX_BODY = 256 * 1024;
+  const readJson = (req: http.IncomingMessage): Promise<Record<string, unknown>> => new Promise((resolve, reject) => {
+    let b = ""; let size = 0;
+    req.on("data", (c) => { size += c.length; if (size > MAX_BODY) { req.destroy(); reject(new Error("payload too large")); return; } b += c; });
+    req.on("end", () => { try { resolve(b ? JSON.parse(b) : {}); } catch { resolve({}); } });
+    req.on("error", reject);
+  });
 
   return http.createServer(async (req, res) => {
+    if (req.method === "OPTIONS") { res.writeHead(204, { ...cors(), "access-control-allow-methods": "GET,POST,OPTIONS", "access-control-allow-headers": "content-type" }); res.end(); return; }
     const seg = new URL(req.url ?? "/", "http://x").pathname.split("/").filter(Boolean);
     try {
       // GET /views/:view/threads
@@ -55,6 +67,8 @@ export function createMailServer(opts: { store?: ImapStore; approved?: Set<strin
 
 export function startMailServer(port = Number(process.env["PORT"] ?? 8090)): http.Server {
   const server = createMailServer();
+  server.requestTimeout = 15_000;
+  server.headersTimeout = 10_000;
   server.listen(port, () => console.log(`mail-bridge listening on :${port}`));
   return server;
 }

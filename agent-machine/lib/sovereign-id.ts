@@ -39,11 +39,19 @@ export interface ScopeFacet {
 export function loadOrCreateRoot(): Buffer {
   try {
     return fs.readFileSync(ROOT_PATH);
-  } catch {
-    const seed = crypto.randomBytes(32);
-    fs.mkdirSync(path.dirname(ROOT_PATH), { recursive: true });
-    fs.writeFileSync(ROOT_PATH, seed, { mode: 0o600 });
+  } catch (e) {
+    // ONLY treat "file absent" as create. A permission/IO error must NOT mint a new root — that would orphan
+    // every sealed blob + derived facet (silent catastrophic key loss).
+    if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
+  }
+  const seed = crypto.randomBytes(32);
+  fs.mkdirSync(path.dirname(ROOT_PATH), { recursive: true });
+  try {
+    fs.writeFileSync(ROOT_PATH, seed, { flag: "wx", mode: 0o600 }); // wx: fail if it appeared (create race)
     return seed;
+  } catch (e) {
+    if ((e as NodeJS.ErrnoException).code === "EEXIST") return fs.readFileSync(ROOT_PATH);
+    throw e;
   }
 }
 

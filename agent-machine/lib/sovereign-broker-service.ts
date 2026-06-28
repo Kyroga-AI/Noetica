@@ -7,7 +7,7 @@
  *
  * Handlers are pure functions over injectable stores → testable in-process; a thin http layer mounts them.
  */
-import { type CredentialRecord, type Assertion, verify, newChallenge } from "./sovereign-broker.js";
+import { type CredentialRecord, type Assertion, verify, verifyCredential, newChallenge } from "./sovereign-broker.js";
 import { type SigningKey, issueIdToken, jwks } from "./sovereign-oidc.js";
 
 export interface BrokerStores {
@@ -27,10 +27,14 @@ export function createBroker(config: BrokerConfig, stores?: Partial<BrokerStores
   return {
     stores: s,
 
-    /** Edge enrolls a credential it computed locally (no root crosses the wire). */
+    /** Edge enrolls a credential it computed locally (no root crosses the wire). Must be self-signed; no takeover. */
     enroll(cred: CredentialRecord): Reply {
       if (!cred?.scope_ref || !cred.pseudonym || !cred.public_key) return err(400, "invalid credential");
-      s.creds.set(key(cred.scope_ref, cred.pseudonym), cred);
+      if (!verifyCredential(cred)) return err(401, "credential self-signature invalid"); // can't enroll a key you don't hold
+      const k = key(cred.scope_ref, cred.pseudonym);
+      const existing = s.creds.get(k);
+      if (existing && existing.public_key !== cred.public_key) return err(409, "credential exists; rotation must be signed by the current key");
+      s.creds.set(k, cred);
       return ok({ enrolled: true, sub: cred.pseudonym });
     },
 

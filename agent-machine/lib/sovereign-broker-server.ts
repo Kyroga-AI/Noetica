@@ -17,11 +17,23 @@ import { generateSigningKey, signingKeyFromPem, type SigningKey } from "./sovere
 function loadSigningKey(): SigningKey {
   const path = process.env["BROKER_SIGNING_KEY"] ?? "/etc/broker/signing/ed25519.key";
   try { return signingKeyFromPem(fs.readFileSync(path, "utf8")); }
-  catch { return generateSigningKey(); } // dev fallback: ephemeral key (tokens won't verify across restarts)
+  catch (e) {
+    // Fail CLOSED in prod — an ephemeral key silently invalidates every token on restart / across replicas.
+    if (process.env["NODE_ENV"] === "production" || process.env["BROKER_REQUIRE_KEY"] === "1")
+      throw new Error(`broker signing key required but unreadable at ${path}: ${(e as Error).message}`);
+    console.warn(`[broker] no signing key at ${path} — using EPHEMERAL dev key (tokens won't survive restart)`);
+    return generateSigningKey();
+  }
 }
 
+const MAX_BODY = 256 * 1024; // cap body reads — unbounded accumulation is a trivial memory-exhaustion DoS
 const readJson = (req: http.IncomingMessage): Promise<Record<string, unknown>> =>
-  new Promise((resolve) => { let b = ""; req.on("data", (c) => (b += c)); req.on("end", () => { try { resolve(b ? JSON.parse(b) : {}); } catch { resolve({}); } }); });
+  new Promise((resolve, reject) => {
+    let b = ""; let size = 0;
+    req.on("data", (c) => { size += c.length; if (size > MAX_BODY) { req.destroy(); reject(new Error("payload too large")); return; } b += c; });
+    req.on("end", () => { try { resolve(b ? JSON.parse(b) : {}); } catch { resolve({}); } });
+    req.on("error", reject);
+  });
 
 export function createBrokerServer(opts: { iss?: string; signingKey?: SigningKey; ttlSec?: number } = {}): http.Server {
   const iss = opts.iss ?? process.env["BROKER_ISS"] ?? "http://localhost:8089";
@@ -51,6 +63,8 @@ export function createBrokerServer(opts: { iss?: string; signingKey?: SigningKey
 
 export function startBroker(port = Number(process.env["PORT"] ?? 8089)): http.Server {
   const server = createBrokerServer();
+  server.requestTimeout = 15_000;   // slowloris guards
+  server.headersTimeout = 10_000;
   server.listen(port, () => console.log(`sovereign-broker listening on :${port}`));
   return server;
 }

@@ -23,6 +23,7 @@ export interface CredentialRecord {
   pseudonym: string;       // the did:key — also the OIDC `sub` (pairwise per app)
   public_key: string;      // base64url raw Ed25519 public key (the verifier needs this)
   alias_email: string;     // unique per scope
+  selfSig: string;         // proof the enroller holds the facet key for this exact credential
 }
 
 /** What the edge sends to log in: proof it holds the facet key, bound to the IdP's challenge AND the scope. */
@@ -41,15 +42,28 @@ export function newChallenge(): string {
   return b64u(crypto.randomBytes(32));
 }
 
-/** Edge-side, at enrollment: produce the credential the IdP will store for this scope. Root stays local. */
+const credCanon = (c: Omit<CredentialRecord, "selfSig">): string => `${c.scope_ref}\n${c.pseudonym}\n${c.public_key}\n${c.alias_email}`;
+
+/** Edge-side, at enrollment: produce the credential the IdP will store for this scope, SELF-SIGNED. Root stays local. */
 export function register(root: Buffer, scopeId: string, domain: string): CredentialRecord {
   const facet = deriveScope(root, scopeId);
-  return {
-    scope_ref: scopeId,
-    pseudonym: facet.pseudonym,
-    public_key: b64u(facet.publicKeyRaw),
-    alias_email: scopeAlias(root, scopeId, domain),
-  };
+  const base = { scope_ref: scopeId, pseudonym: facet.pseudonym, public_key: b64u(facet.publicKeyRaw), alias_email: scopeAlias(root, scopeId, domain) };
+  return { ...base, selfSig: b64u(facet.sign(credCanon(base))) };
+}
+
+/**
+ * IdP-side: a credential is only acceptable if (a) the pseudonym is exactly the did:key OF its own public_key — so
+ * you can't enroll your key under someone else's pseudonym — and (b) the selfSig verifies under that key. Closes the
+ * impersonation hole: enrolling requires holding the private key for the pseudonym you claim.
+ */
+export function verifyCredential(c: CredentialRecord): boolean {
+  if (!c?.public_key || !c.selfSig) return false;
+  if (c.pseudonym !== "did:key:z" + c.public_key) return false;
+  try {
+    return verifyFacet(Buffer.from(c.public_key, "base64url"), credCanon(c), Buffer.from(c.selfSig, "base64url"));
+  } catch {
+    return false;
+  }
 }
 
 /** Edge-side, at login: sign the IdP's challenge as this scope's facet (binds scope to prevent cross-RP replay). */

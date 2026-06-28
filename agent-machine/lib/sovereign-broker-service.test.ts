@@ -50,7 +50,21 @@ test("compulsion-safe storage: the broker holds only public credentials — no r
   b.enroll(register(root, "mail", DOMAIN));
   const dump = JSON.stringify([...b.stores.creds.values()]);
   assert.ok(!dump.includes(root.toString("hex")) && !dump.includes(root.toString("base64url")));
-  for (const c of b.stores.creds.values()) assert.deepEqual(Object.keys(c).sort(), ["alias_email", "pseudonym", "public_key", "scope_ref"].sort());
+  for (const c of b.stores.creds.values()) assert.deepEqual(Object.keys(c).sort(), ["alias_email", "pseudonym", "public_key", "scope_ref", "selfSig"].sort());
+});
+
+test("IMPERSONATION blocked: a forged credential (pseudonym not matching its key, or bad selfSig) is rejected", () => {
+  const b = createBroker(cfg());
+  const victim = register(root, "mail", DOMAIN);
+  const attacker = register(Buffer.alloc(32, 99), "mail", DOMAIN);
+  // attacker tries to enroll their key under the victim's pseudonym
+  const forged = { ...attacker, pseudonym: victim.pseudonym };
+  assert.equal(b.enroll(forged).status, 401, "pseudonym must match the key");
+  // tampered selfSig
+  assert.equal(b.enroll({ ...victim, selfSig: attacker.selfSig }).status, 401, "selfSig must verify");
+  // legit enroll, then overwrite attempt with a different key
+  assert.equal(b.enroll(victim).status, 200);
+  assert.equal(b.enroll({ ...attacker, scope_ref: victim.scope_ref, pseudonym: victim.pseudonym }).status, 401, "still must self-verify");
 });
 
 test("discovery + jwks are well-formed for standard RPs", () => {

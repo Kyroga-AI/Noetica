@@ -83,9 +83,10 @@ export function projectDoc(page: Block): KGraph {
 export function mergeGraphs(graphs: KGraph[]): KGraph {
   const nodes = new Map<string, GNode>();
   const edges: GEdge[] = [];
+  const seen = new Set<string>();
   for (const g of graphs) {
-    for (const n of g.nodes) if (!nodes.has(n.id)) nodes.set(n.id, n);
-    edges.push(...g.edges);
+    for (const n of g.nodes) { const ex = nodes.get(n.id); if (!ex || (ex.props?.["stub"] && !n.props?.["stub"])) nodes.set(n.id, n); } // real node supersedes a stub
+    for (const e of g.edges) { const k = `${e.from}|${e.type}|${e.to}`; if (!seen.has(k)) { seen.add(k); edges.push(e); } } // dedupe edges
   }
   return { nodes: [...nodes.values()], edges };
 }

@@ -71,16 +71,22 @@ export function issueIdToken(
 export function verifyIdToken(
   publicKey: crypto.KeyObject,
   token: string,
-  expect: { iss: string; aud: string; at?: number },
+  expect: { iss: string; aud: string; at?: number; nonce?: string; skewSec?: number },
 ): IdToken | null {
   const parts = token.split(".");
   if (parts.length !== 3) return null;
   const [h, p, s] = parts;
   try {
+    const header = dec(h) as { alg?: string; typ?: string };
+    if (header.alg !== "EdDSA" || header.typ !== "JWT") return null; // pin the alg — never trust the token's choice
     if (!crypto.verify(null, Buffer.from(`${h}.${p}`), publicKey, Buffer.from(s, "base64url"))) return null;
     const claims = dec(p) as IdToken;
     if (claims.iss !== expect.iss || claims.aud !== expect.aud) return null;
-    if ((expect.at ?? nowSec()) >= claims.exp) return null;
+    const now = expect.at ?? nowSec();
+    const skew = expect.skewSec ?? 120;
+    if (now >= claims.exp) return null;
+    if (claims.iat > now + skew) return null;                       // reject far-future iat
+    if (expect.nonce != null && claims.nonce !== expect.nonce) return null; // enforce nonce when the RP supplied one
     return claims;
   } catch {
     return null;
