@@ -3,7 +3,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
-  projectDoc, mergeGraphs, backlinks, related, rollup, query, mentionsOf, pageId, entityId, parseRefs, type Block,
+  projectDoc, mergeGraphs, backlinks, related, rollup, query, mentionsOf, pagerank, pathBetween,
+  pageId, entityId, parseRefs, type Block,
 } from "./knowledge-graph.js";
 
 const meeting: Block = {
@@ -71,4 +72,19 @@ test("CROSS-DOC QUERY: every todo block in the workspace, not per-database", () 
   const todos = query(g, (n) => n.kind === "todo");
   assert.equal(todos.length, 1);
   assert.equal(todos[0].id, "b3");
+});
+
+test("PAGERANK: 'most central ideas' — the cross-doc-linked page outranks a leaf (Notion can't compute this)", () => {
+  const g = mergeGraphs([projectDoc(meeting), projectDoc(roadmap)]);
+  const ranked = pagerank(g);
+  const sid = ranked.findIndex((r) => r.id === pageId("Sovereign Identity"));
+  const leaf = ranked.findIndex((r) => r.id === "b1"); // a lone heading
+  assert.ok(sid >= 0 && sid < leaf, "the hub page ranks above an unlinked leaf");
+});
+
+test("PATHBETWEEN: 'what connects A and B?' — finds the chain across documents", () => {
+  const g = mergeGraphs([projectDoc(meeting), projectDoc(roadmap)]);
+  const path = pathBetween(g, "b2", "r1"); // meeting block ↔ roadmap block
+  assert.ok(path && path.includes(pageId("Sovereign Identity")), "connected via the shared idea");
+  assert.equal(pathBetween(g, "b2", entityId("nobody-here")), null, "no path → null");
 });

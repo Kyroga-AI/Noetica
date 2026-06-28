@@ -59,14 +59,20 @@ export function projectDoc(page: Block): KGraph {
     }
     if (b.text) {
       const { links, mentions } = parseRefs(b.text);
-      for (const l of links) edges.push({ from: nid, to: pageId(l), type: "LINKS_TO" });
+      for (const l of links) {
+        add({ id: pageId(l), kind: "page", label: l, props: { stub: true } }); // unresolved link → stub node (Roam-style)
+        edges.push({ from: nid, to: pageId(l), type: "LINKS_TO" });
+      }
       for (const m of mentions) {
         add({ id: entityId(m), kind: "entity", label: m, props: {} });
         edges.push({ from: nid, to: entityId(m), type: "MENTIONS" });
       }
     }
     if (b.props) for (const [k, v] of Object.entries(b.props))
-      if (k.startsWith("rel:") && typeof v === "string") edges.push({ from: nid, to: pageId(v), type: "RELATES" });
+      if (k.startsWith("rel:") && typeof v === "string") {
+        add({ id: pageId(v), kind: "page", label: v, props: { stub: true } });
+        edges.push({ from: nid, to: pageId(v), type: "RELATES" });
+      }
     b.children?.forEach((c) => walk(c, nid));
   };
   walk(page, root);
@@ -125,6 +131,50 @@ export function rollup(g: KGraph, nodeId: string, edgeType: EdgeType, prop: stri
 /** Cross-doc block query: every node in the workspace matching a predicate. */
 export function query(g: KGraph, predicate: (n: GNode) => boolean): GNode[] {
   return g.nodes.filter(predicate);
+}
+
+/** PageRank over the workspace graph: "your most central ideas" — a real graph computation Notion can't do.
+ *  (Production uses hg_analytics; this is the same algorithm for the in-memory/edge path.) */
+export function pagerank(g: KGraph, opts: { iterations?: number; damping?: number } = {}): Array<{ id: string; score: number }> {
+  const { iterations = 20, damping = 0.85 } = opts;
+  const ids = g.nodes.map((n) => n.id);
+  const N = ids.length || 1;
+  const out = new Map<string, string[]>(ids.map((id) => [id, []]));
+  for (const e of g.edges) out.get(e.from)?.push(e.to);
+  let rank = new Map(ids.map((id) => [id, 1 / N]));
+  for (let i = 0; i < iterations; i++) {
+    const next = new Map(ids.map((id) => [id, (1 - damping) / N]));
+    let dangling = 0;
+    for (const id of ids) if (out.get(id)!.length === 0) dangling += (damping * rank.get(id)!) / N;
+    for (const id of ids) {
+      const outs = out.get(id)!;
+      if (outs.length) { const share = (damping * rank.get(id)!) / outs.length; for (const t of outs) next.set(t, (next.get(t) ?? 0) + share); }
+    }
+    for (const id of ids) next.set(id, next.get(id)! + dangling);
+    rank = next;
+  }
+  return ids.map((id) => ({ id, score: rank.get(id)! })).sort((a, b) => b.score - a.score);
+}
+
+/** Shortest path between two nodes (undirected) — "what connects A and B?", a question Notion has no answer for. */
+export function pathBetween(g: KGraph, a: string, b: string): string[] | null {
+  if (a === b) return [a];
+  const adj = new Map<string, string[]>();
+  const link = (x: string, y: string): void => { (adj.get(x) ?? adj.set(x, []).get(x)!).push(y); };
+  for (const e of g.edges) { link(e.from, e.to); link(e.to, e.from); }
+  const prev = new Map<string, string>();
+  const seen = new Set([a]);
+  const q = [a];
+  while (q.length) {
+    const cur = q.shift()!;
+    if (cur === b) break;
+    for (const nb of adj.get(cur) ?? []) if (!seen.has(nb)) { seen.add(nb); prev.set(nb, cur); q.push(nb); }
+  }
+  if (!seen.has(b)) return null;
+  const path = [b];
+  let c = b;
+  while (c !== a) { c = prev.get(c)!; path.unshift(c); }
+  return path;
 }
 
 /** Every block that mentions an entity, across all docs (the entity is a shared hub). */
