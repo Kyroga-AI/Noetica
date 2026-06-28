@@ -24,6 +24,8 @@ const C = {
   paSalesTax: 0.06,                // ACTUAL: 6% PA tax on the Google invoice
   claudeAuPerSeat: 29.00,          // AU Team-class ≈ A$38/seat (US$25 + 10% GST + FX ~17% premium). ~$26 if ABN-registered (GST reverse-charged). Looked up 2026.
   chatgptPerSeat: 20.00,           // ChatGPT Plus (1 seat).
+  claudeTokenOverageUsdPerMo: 233, // ACTUAL (USD): ~$700 over list across the last 90 days = metered token usage BEYOND the seats. This is the variable cost the flat choir replaces with $0 marginal.
+  personalClaudeProUsdPerMo: 22,   // a PERSONAL Pro account used HEAVILY because the metered enterprise seats are too costly. Shadow usage: ungoverned, data off-platform, and proof true demand >> the enterprise bill.
 
   // — PROJECTED (sovereign, all on Google Cloud / GCP) USD/mo —
   gkeWorkspaceFixed: 142,          // prophet-workspace on GKE: e2-standard-4 (1yr CUD ~$62) + 500GB ~$60 + net ~$20; control plane $0 (free credit)
@@ -49,8 +51,10 @@ const today = {
   workspace: C.workspaceSeats * C.googleWorkspacePerSeat * (1 + C.paSalesTax),
   claude: C.claudeSeats * C.claudeAuPerSeat,
   chatgpt: C.chatgptSeats * C.chatgptPerSeat,
+  claudeOverage: C.claudeTokenOverageUsdPerMo,   // metered token usage beyond seats (their actual)
+  personalPro: C.personalClaudeProUsdPerMo,      // shadow usage on a personal account (ungoverned)
 }
-today.total = today.workspace + today.claude + today.chatgpt
+today.total = today.workspace + today.claude + today.chatgpt + today.claudeOverage + today.personalPro
 
 // ─────────────────────────── PROJECTED (sovereign) ───────────────────────────
 const projected = {
@@ -65,7 +69,7 @@ function todayAt(seats) {
   // frontier seats scale with team size (assume LLM seats ≈ workspace seats as the team standardizes on AI)
   const ws = seats * C.googleWorkspacePerSeat * (1 + C.paSalesTax)
   const llm = seats * (C.claudeAuPerSeat) // everyone on an AU Claude-class seat at scale
-  return ws + llm
+  return ws + llm + C.claudeTokenOverageUsdPerMo // + metered overage (held flat here; in reality it GROWS with agent use, so this understates today)
 }
 function projectedAt(seats) {
   const ws = C.gkeWorkspaceFixed + Math.floor(seats / 10) * C.gkeWorkspacePerExtra10Seats
@@ -86,10 +90,13 @@ console.log(`  │  → ${wsDelta >= 0 ? usd(wsDelta) + ' MORE' : usd(-wsDelta) 
 console.log('  └──────────────────────────────────────────────────────────────')
 
 console.log('\n  ┌─ BUCKET 2 — AI (GPU; the cloud choir = mesh-vllm-serve) ─────')
-console.log(`  │  TODAY     Claude AU ${C.claudeSeats} + ChatGPT ${C.chatgptSeats}   ${usd(today.claude + today.chatgpt)} /mo   (ESTIMATE — replace w/ bills)`)
-console.log(`  │  PROJECTED choir 24/7 (L4, ${C.choirBilling}) ${usd(projected.choir)} + BYOK fallback ${usd(projected.byok)} = ${usd(projected.choir + projected.byok)} /mo`)
+console.log(`  │  TODAY     seats: Claude AU ${C.claudeSeats} + ChatGPT ${C.chatgptSeats}   ${usd(today.claude + today.chatgpt)} /mo`)
+console.log(`  │            + metered token OVERAGE   ${usd(today.claudeOverage)} /mo   (ACTUAL: ~$700 over list / 90d — the variable cost)`)
+console.log(`  │            + personal Pro (SHADOW use)   ${usd(today.personalPro)} /mo   (ungoverned; heavy use offloaded here ∵ enterprise too costly)`)
+console.log(`  │            = ${usd(today.claude + today.chatgpt + today.claudeOverage + today.personalPro)} /mo actual  (+ unmeasured shadow demand)`)
+console.log(`  │  PROJECTED choir 24/7 (L4, ${C.choirBilling}) ${usd(projected.choir)} + BYOK fallback ${usd(projected.byok)} = ${usd(projected.choir + projected.byok)} /mo  (overage → $0; flat; shadow use comes in-house, governed)`)
 console.log(`  │            + training (LoRA/gpu-train): VARIABLE, on-demand Jobs — bill only while running (~$5–50/run), not monthly.`)
-const aiToday = today.claude + today.chatgpt, aiProj = projected.choir + projected.byok
+const aiToday = today.claude + today.chatgpt + today.claudeOverage + today.personalPro, aiProj = projected.choir + projected.byok
 const aiDelta = aiProj - aiToday
 console.log(`  │  → ${aiDelta >= 0 ? usd(aiDelta) + ' MORE' : usd(-aiDelta) + ' LESS'} /mo at this scale (24/7 GPU is real). Wins on tokens, scale, uncapped, sovereignty.`)
 console.log(`  │    (choir scales-to-zero when idle — non-24/7 is cheaper; you chose 24/7 for always-on agents.)`)
