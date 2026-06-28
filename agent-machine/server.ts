@@ -746,7 +746,7 @@ You are the primary agent of the Noetica platform. You run entirely on the user'
 - **Memory**: Persistent memory via HellGraph — an AtomSpace knowledge graph that stores entities, relationships, and prior context. Relevant memories are injected into context automatically.
 - **Live knowledge graph**: The app ALWAYS shows a live, interactive graph panel (the "SocioSphere Graph") beside the chat. Every document you ingest and every entity you extract auto-populates it — nodes, edges, communities, and structural insights (e.g. "X is a critical connector"). So you CAN show the graph: when the user asks to "show/visualize the graph", do NOT say you can't render graphs — the graph is already on screen. Instead, reference it directly ("the graph panel on the right now shows …"), describe what was added (entity count, key nodes, communities, notable structure), and call it out. You render graphs by populating this panel, not by drawing ASCII.
 - **Tools**: When the user asks you to search, find files, run code, browse the web, or take actions — use your tools. Do not simulate tool results.
-- **Running code**: Runnable code (Python and similar) is executed for you automatically by a verify-repair loop — generate it and the platform runs the tests. You CANNOT run UI / frontend code (Vue, React, HTML, a JS app) — there is no browser or dev server in the sandbox. NEVER claim to run code, "simulate the output", or show program output that a tool did not actually produce. If something can't be run here, say so plainly in one line and just provide the code — do not write "Let me run it…" or invent output.
+- **Running code**: Runnable code (Python and similar) is executed for you automatically by a verify-repair loop — generate it and the platform runs the tests. To build and RUN a front-end app (Vue, React, Svelte, a web UI), use the scaffold_app tool: it scaffolds a real project, installs deps, starts the dev server, and gives you a LIVE preview URL — surface that link to the user. NEVER claim to run code, "simulate the output", or show program output that a tool did not actually produce. If you genuinely can't run something, say so plainly in one line and just provide the code — do not write "Let me run it…" or invent output.
 - **Local models**: Tasks route to specialist local models by RAM — a 24GB box runs qwen3:14b (general, coding, and reasoning with its thinking mode); smaller boxes use the qwen2.5 family. Vision goes to a VLM (llava/qwen-vl) when images are present.
 - **Cloud augmentation**: When a cloud API key is configured, tasks that exceed local capability can route to Claude or GPT. This is opt-in.
 
@@ -1076,6 +1076,22 @@ const BUILTIN_TOOLS: ProviderTool[] = [
     },
   },
   {
+    name: 'scaffold_app',
+    description:
+      'ACTUALLY build and run a front-end app. Scaffolds a real Vite project (vue/react/svelte/preact/lit/solid/vanilla), installs deps, and starts the dev server — returning a LIVE preview URL the user can open in their browser. Use this for any "build me a UI / web app / Vue app / React app" request instead of just printing code: this runs it for real. After scaffolding you can customize the generated files with write_file/edit_file in the same workspace.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        framework: { type: 'string', enum: ['vue', 'react', 'svelte', 'preact', 'lit', 'solid', 'vanilla'], description: 'Front-end framework (default vue).' },
+        name: { type: 'string', description: 'Project name (default "app").' },
+        workspace: { type: 'string', description: 'Workspace name (default "build").' },
+        typescript: { type: 'boolean', description: 'Use the TypeScript template (default false).' },
+        dev: { type: 'boolean', description: 'Start the dev server and return a live URL (default true). Set false to just build.' },
+      },
+      required: [],
+    },
+  },
+  {
     name: 'registry_lookup',
     description:
       'Look up reusable CATALOGUE entries (chart specs by domain/intent, project scaffolds, connectors) before building analysis, charts, or apps from scratch. E.g. "revenue over time" → a ready time-series chart spec to populate with data; "build a dashboard" → the scaffold template. Returns matching entries with their fillable params + spec.',
@@ -1376,6 +1392,45 @@ function startDevServer(command: string, cwd: string, timeoutMs: number): Promis
     child.stderr?.on('data', onData)
     child.on('exit', () => { if (child.pid) _devServers.delete(child.pid); finish(undefined) })
   })
+}
+
+interface ScaffoldParams { framework?: string; name?: string; workspace?: string; typescript?: boolean; install?: boolean; dev?: boolean }
+interface ScaffoldResult {
+  ok: boolean; framework: string; typescript: boolean; workspace: string; name: string; path: string
+  devUrl?: string; devCommand: string; steps: Array<{ step: string; ok: boolean; output: string }>
+}
+
+/** Scaffold a real front-end app (Vite: vue/react/svelte/…), install deps, and optionally start the dev server,
+ *  returning the LIVE url. This is how the agent ACTUALLY runs a UI instead of fabricating output — frontend
+ *  boilerplate is deterministic, so it's done here, not generated. Shared by /api/code/scaffold + scaffold_app. */
+async function scaffoldApp(p: ScaffoldParams): Promise<ScaffoldResult> {
+  const FW: Record<string, string> = { vue: 'vue', react: 'react', svelte: 'svelte', vanilla: 'vanilla', preact: 'preact', lit: 'lit', solid: 'solid' }
+  const base = FW[String(p.framework ?? 'vue').toLowerCase()] ?? 'vue'
+  const template = p.typescript ? `${base}-ts` : base
+  const name = (String(p.name ?? 'app').replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 40)) || 'app'
+  const wsName = (String(p.workspace ?? 'build').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 40)) || 'build'
+  const ws = path.join(os.homedir(), '.noetica', 'workspaces', wsName)
+  try { fs.mkdirSync(ws, { recursive: true }) } catch { /* */ }
+  const steps: Array<{ step: string; ok: boolean; output: string }> = []
+  const sc = await runInWorkspace(`npm create vite@latest ${name} -- --template ${template}`, ws, 120_000)
+  steps.push({ step: `scaffold · vite + ${template}`, ok: sc.code === '0', output: `${sc.out}${sc.err}`.slice(-400) })
+  const projDir = path.join(ws, name)
+  let devUrl: string | undefined
+  if (sc.code === '0' && p.install !== false) {
+    const ins = await runInWorkspace('npm install', projDir, 300_000)
+    steps.push({ step: 'npm install', ok: ins.code === '0', output: `${ins.out}${ins.err}`.slice(-300) })
+    if (ins.code === '0') {
+      if (p.dev) {
+        const d = await startDevServer('npm run dev', projDir, 35_000)
+        devUrl = d.url
+        steps.push({ step: 'npm run dev', ok: !!d.url, output: d.url ? `live at ${d.url}` : 'dev server did not report a URL in time' })
+      } else {
+        const b = await runInWorkspace('npm run build', projDir, 180_000)
+        steps.push({ step: 'npm run build', ok: b.code === '0', output: `${b.out}${b.err}`.slice(-300) })
+      }
+    }
+  }
+  return { ok: steps.every((s) => s.ok), framework: base, typescript: !!p.typescript, workspace: wsName, name, path: projDir, devUrl, devCommand: `cd ${projDir} && npm run dev`, steps }
 }
 
 // Parse a code-agent solution: {files:[{path,content}], verify:"cmd"} — tolerant of fences/prose.
@@ -1699,6 +1754,21 @@ async function executeTool(
       const header = `$ ${command}\n[workspace: ${wsName}  exit: ${code}]`
       const body = `${out}${err ? `\n--- stderr ---\n${err}` : ''}`.trim()
       return `${header}\n${body || '(no output)'}`.slice(0, 14_000)
+    }
+    case 'scaffold_app': {
+      const r = await scaffoldApp({
+        framework: input['framework'] ? String(input['framework']) : undefined,
+        name: input['name'] ? String(input['name']) : undefined,
+        workspace: input['workspace'] ? String(input['workspace']) : undefined,
+        typescript: input['typescript'] === true,
+        dev: input['dev'] !== false,
+      })
+      const lines = r.steps.map((s) => `${s.ok ? '✓' : '✗'} ${s.step}`).join('\n')
+      // Surface the LIVE url as a markdown link the UI makes clickable (opens in the user's browser).
+      const preview = r.devUrl
+        ? `\n\n**▶ Live preview: [${r.devUrl}](${r.devUrl})** — opens in your browser.`
+        : `\nDev server didn't report a URL in time. Run it yourself: \`${r.devCommand}\``
+      return `Scaffolded a ${r.framework}${r.typescript ? '+TS' : ''} app at ${r.path}\n${lines}${preview}`
     }
     case 'read_file': {
       const { resolved, error } = safePath(String(input['path'] ?? ''))
@@ -8284,34 +8354,9 @@ Question: ${question}`
     req.on('end', () => { void (async () => {
       let p: { framework?: string; name?: string; workspace?: string; typescript?: boolean; install?: boolean; dev?: boolean } = {}
       try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
-      const FW: Record<string, string> = { vue: 'vue', react: 'react', svelte: 'svelte', vanilla: 'vanilla', preact: 'preact', lit: 'lit', solid: 'solid' }
-      const base = FW[String(p.framework ?? 'vue').toLowerCase()] ?? 'vue'
-      const template = p.typescript ? `${base}-ts` : base
-      const name = (String(p.name ?? 'app').replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 40)) || 'app'
-      const wsName = (String(p.workspace ?? 'build').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 40)) || 'build'
-      const ws = path.join(os.homedir(), '.noetica', 'workspaces', wsName)
-      try { fs.mkdirSync(ws, { recursive: true }) } catch { /* */ }
-      const steps: Array<{ step: string; ok: boolean; output: string }> = []
-      const sc = await runInWorkspace(`npm create vite@latest ${name} -- --template ${template}`, ws, 120_000)
-      steps.push({ step: `scaffold · vite + ${template}`, ok: sc.code === '0', output: `${sc.out}${sc.err}`.slice(-400) })
-      const projDir = path.join(ws, name)
-      let devUrl: string | undefined
-      if (sc.code === '0' && p.install !== false) {
-        const ins = await runInWorkspace('npm install', projDir, 300_000)
-        steps.push({ step: 'npm install', ok: ins.code === '0', output: `${ins.out}${ins.err}`.slice(-300) })
-        if (ins.code === '0') {
-          if (p.dev) {
-            const d = await startDevServer('npm run dev', projDir, 35_000)
-            devUrl = d.url
-            steps.push({ step: 'npm run dev', ok: !!d.url, output: d.url ? `live at ${d.url}` : 'dev server did not report a URL in time' })
-          } else {
-            const b = await runInWorkspace('npm run build', projDir, 180_000)
-            steps.push({ step: 'npm run build', ok: b.code === '0', output: `${b.out}${b.err}`.slice(-300) })
-          }
-        }
-      }
+      const result = await scaffoldApp(p)
       res.writeHead(200, { 'content-type': 'application/json' })
-      res.end(JSON.stringify({ ok: steps.every((s) => s.ok), framework: base, typescript: !!p.typescript, workspace: wsName, name, path: projDir, devUrl, devCommand: `cd ${projDir} && npm run dev`, steps }))
+      res.end(JSON.stringify(result))
     })() })
     return
   }
