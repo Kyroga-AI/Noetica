@@ -90,3 +90,19 @@ test('compareServices returns the panel list, cheapest first; no-match → null'
   for (let i = 1; i < list.length; i++) assert.ok(list[i].unitPriceUsd >= list[i - 1].unitPriceUsd)
   assert.equal(selectVendor({ kind: 'object-store', maxPriceUsd: 0.001 }), null)
 })
+
+// ── neocloud brokering ──
+import { NEOCLOUDS } from './cloud-broker.js'
+
+test('brokers an H100 to a NeoCloud (the cheap-GPU layer), beating hyperscaler GPU', () => {
+  const r = brokerCompute({ gpu: { type: 'H100', count: 1 }, hours: 100, excludeLocal: true })
+  assert.ok(r.best, 'found an H100')
+  assert.ok((NEOCLOUDS as string[]).includes(r.best!.sku.provider), `cheapest H100 is a neocloud, got ${r.best!.sku.provider}`)
+  assert.ok(r.best!.effectivePerHour <= 2.0, 'neocloud H100 ~$2/hr')
+})
+
+test('can restrict to neoclouds only (sovereign-approved GPU supply)', () => {
+  const r = brokerCompute({ gpu: { count: 1 }, hours: 10, providers: NEOCLOUDS })
+  assert.ok(r.best && (NEOCLOUDS as string[]).includes(r.best.sku.provider))
+  assert.ok(r.ranked.every((q) => (NEOCLOUDS as string[]).includes(q.sku.provider)))
+})

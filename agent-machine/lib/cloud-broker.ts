@@ -8,7 +8,9 @@
  * estimates; a live pricing adapter (per-provider billing API) can replace COMPUTE_CATALOG without changing
  * the broker algorithm. Every brokered placement is meant to flow through scope-d egress governance.
  */
-export type CloudProvider = 'gcp' | 'azure' | 'aws' | 'ibm' | 'oci' | 'hetzner' | 'local'
+// hyperscalers + sovereign-friendly clouds + the NEOCLOUDS (GPU specialists — usually far below hyperscaler GPU) + local mesh.
+export type CloudProvider = 'gcp' | 'azure' | 'aws' | 'ibm' | 'oci' | 'hetzner' | 'coreweave' | 'lambda' | 'nebius' | 'crusoe' | 'local'
+export const NEOCLOUDS: CloudProvider[] = ['coreweave', 'lambda', 'nebius', 'crusoe']
 
 export interface ComputeSku {
   provider: CloudProvider
@@ -39,6 +41,14 @@ export const COMPUTE_CATALOG: ComputeSku[] = [
   { provider: 'aws',   name: 'm6i.2xlarge',          region: 'us-east-1',   vcpus: 8,  memGiB: 32, usdPerHour: 0.384, spotPerHour: 0.13 },
   { provider: 'azure', name: 'D8s_v5',               region: 'eastus',      vcpus: 8,  memGiB: 32, usdPerHour: 0.384, spotPerHour: 0.12 },
   { provider: 'ibm',   name: 'bx2-8x32',             region: 'us-south',    vcpus: 8,  memGiB: 32, usdPerHour: 0.376 },
+  // ── NeoCloud GPU specialists (the cheap-GPU layer; H100 ~$2/hr vs hyperscaler A100 ~$3.7-5/hr) ──
+  { provider: 'coreweave', name: 'H100-80GB',         region: 'us-east',     vcpus: 26, memGiB: 256, gpu: { type: 'H100-80GB', count: 1, memGiB: 80 }, usdPerHour: 2.39, spotPerHour: 1.99 },
+  { provider: 'nebius',    name: 'h100-1',            region: 'eu-north',    vcpus: 20, memGiB: 160, gpu: { type: 'H100-80GB', count: 1, memGiB: 80 }, usdPerHour: 2.00, spotPerHour: 1.50 },
+  { provider: 'lambda',    name: 'gpu_1x_h100_pcie',  region: 'us-west',     vcpus: 26, memGiB: 200, gpu: { type: 'H100-80GB', count: 1, memGiB: 80 }, usdPerHour: 2.49 },
+  { provider: 'crusoe',    name: 'h100-80gb.1x',      region: 'us-midwest',  vcpus: 24, memGiB: 234, gpu: { type: 'H100-80GB', count: 1, memGiB: 80 }, usdPerHour: 2.45 },
+  // neocloud cost-efficient inference GPUs
+  { provider: 'nebius',    name: 'l4-1',              region: 'eu-north',    vcpus: 8,  memGiB: 32,  gpu: { type: 'L4',  count: 1, memGiB: 24 }, usdPerHour: 0.55, spotPerHour: 0.30 },
+  { provider: 'lambda',    name: 'gpu_1x_a10',        region: 'us-west',     vcpus: 30, memGiB: 200, gpu: { type: 'A10', count: 1, memGiB: 24 }, usdPerHour: 0.75 },
   // ── local mesh (sovereign, $0 marginal) ──
   { provider: 'local', name: 'noetica-local',        region: 'on-device',   vcpus: 12, memGiB: 24, gpu: { type: 'metal', count: 1, memGiB: 24 }, usdPerHour: 0 },
 ]
