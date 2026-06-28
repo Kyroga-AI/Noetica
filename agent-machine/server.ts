@@ -84,6 +84,7 @@ import { validateToolCall, type ToolSchema, type ArgSpec } from './lib/constrain
 import { appendJsonl as appendEncrypted, readJsonl as readEncrypted, writeJson as writeEncryptedJson, readJson as readEncryptedJson } from './lib/at-rest.js'
 import { critique, bestOfTemps, type Candidate as CriticCandidate } from './lib/critic.js'
 import { programOfThought, operatorProgramOfThought, codeVerifyRepair } from './lib/exec-verify.js'
+import { isReasonLaneIntent, reasonLaneEnabled, reasonSCK, runReasonLane, REASON_RULE } from './lib/reason-lane.js'
 import { applyEdit, editSummary } from './lib/apply-patch.js'
 import { classifyComplexity as classifyComplexityPosture } from './lib/complexity-discipline.js'
 import { detectGoalIntent, slotFill, buildGoalContext, getActiveGoal, listGoals, saveGoal, type Goal } from './lib/goal-model.js'
@@ -2385,6 +2386,15 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // interactive/faithful tier, write → deliberate/generative tier; substrate → node.
   // This grounds model selection in the algebra and is the first admissible hop.
   const action = intentToAction(intentPlan.name)
+  // ── Reason lane gate (the proven +24pp win) ──────────────────────────────────
+  // For math/reasoning problem-solving intents (compute_math / prove_reason) the board measured that
+  // no-retrieval CoT + self-consistency beats BOTH baseline and RAG by +24pp with 0 regressions
+  // (qwen2.5:7b, college_math, n=30, seed 1729). So for these intents we (a) SKIP retrieval entirely —
+  // the exact retrieval-OFF condition that proved the win — and (b) answer via cragVote CoT+SC below
+  // (after the verified-operator compute lane). Intent-gated, NOT a confidence probe (the CRAG
+  // gateShouldRetrieve did not replicate and is deliberately not wired). Default ON; NOETICA_REASON_LANE=0
+  // toggles it off (turn then keeps the normal retrieval + best-of-N+critic path).
+  const useReasonLane = reasonLaneEnabled() && isReasonLaneIntent(intentPlan.name)
   const actionRoute = action === 'meta' ? { tier: 'embedding', target: 'concierge' } : routeForAction(action)
   const polarity = ['retrieve', 'evaluate', 'sense'].includes(action) ? 'read' : action === 'meta' ? 'meta' : 'write'
   const phase = action === 'meta' ? null : meshrushPhase(action) // where this turn sits in the MeshRush loop
@@ -2936,6 +2946,9 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
 
   let graphContext = ''
   try {
+    // Reason lane: SKIP all graph/brain retrieval (the proven retrieval-OFF +24pp condition). For
+    // math/reasoning intents, injected memory/brain context only adds noise the model reasons WORSE with.
+    if (useReasonLane) throw new Error('reason-lane: retrieval skipped')
     // On low-memory CPU hosts, cap injected memory context hard — prompt-eval of a
     // big context dominates latency for a local 3B on CPU. Smaller context = much
     // faster responses (the main "speed it up" lever on an 8GB box).
@@ -2978,7 +2991,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     // Skip doc retrieval entirely for intents that want no grounding (greetings,
     // confirmations, file ops) — otherwise a plain "hello" wastefully pulls passages
     // and shows a misleading "retrieving" step.
-    if (documentChunkCount() > 0 && intentPlan.retrieval !== 'none') {
+    if (documentChunkCount() > 0 && intentPlan.retrieval !== 'none' && !useReasonLane) {
       // Intent-aware retrieval. Doc-focused intents (summarize_doc / qa_over_doc /
       // research) get a tight top-k of the MOST relevant chunks instead of stuffing
       // the whole document into context — this is the fix for the 300–500s latency
@@ -3583,6 +3596,39 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         } catch { /* exec-verify best-effort — fall through to best-of-N */ }
       }
 
+      // ── Reason lane: no-retrieval CoT + self-consistency (the proven +24pp win) ──────────────────
+      // For math/reasoning intents (compute_math / prove_reason) that the verified-operator/PoT lane
+      // above did NOT already answer, generate the answer by long chain-of-thought + self-consistency
+      // (cragVote over K CoT samples, NO retrieval) — the EXACT bench `reason` arm that beat baseline
+      // AND RAG by +24pp (0 regressions; qwen2.5:7b, college_math, n=30, seed 1729). Ordering is
+      // operator-route → (if no operator) CoT+SC reason lane → existing best-of-N+critic fallback. The
+      // retrieval was already skipped upstream (useReasonLane). Exception-safe: any failure falls
+      // through to the normal path so a turn is never broken. NOETICA_REASON_LANE=0 disables (gating it
+      // off restores the normal retrieval + critic path); NOETICA_SC_K sets K (default 3, the proven config).
+      if (!deliberated && useReasonLane) {
+        try {
+          const k = reasonSCK()
+          // Each sample = one full CoT generation of the problem + REASON_RULE, at sampling temp, NO
+          // retrieved context (graphContext/doc context were not assembled for this lane). This mirrors
+          // the bench askVote(`${base}${REASON_RULE}`, SC_K) invocation exactly.
+          const reasonPrompt = `${latestUserContent}${REASON_RULE}`
+          const sample = (idx: number) => generateOllamaText({
+            model,
+            messages: [{ role: 'user', content: reasonPrompt }],
+            temperature: k <= 1 ? 0 : 0.7,   // temp-0 single draw when voting off; 0.7 for diverse SC samples
+            numCtx: ollamaNumCtx,
+          }).then((r) => r.content)
+          const rl = await runReasonLane(sample, k)
+          if (rl.content.trim()) {
+            sse(res, 'deliberation', { deliberation: { critic: { action: 'accept', score: 1, agreement: rl.agree, posture: 'reason', reason: `no-retrieval CoT + self-consistency (K=${k}, agree=${rl.agree.toFixed(2)})` } } })
+            sse(res, 'delta', { delta: rl.content })
+            fullContent += rl.content
+            deliberated = true
+            console.log(`[critic] reason-lane CoT+SC K=${k} n=${rl.n} agree=${rl.agree.toFixed(2)} intent=${intentPlan.name}`)
+          }
+        } catch { /* reason lane best-effort — fall through to best-of-N+critic */ }
+      }
+
       // Code-posture verify-repair: for self-contained "write code" tasks, generate a
       // solution + tests, RUN them, and repair on failure — keep what passes. The
       // out-loop coding lever (a small model + a real test loop). Abstains for unrunnable
@@ -4048,7 +4094,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       try {
         const re = await import('./lib/reasoning-evidence.js')
         const run = re.openReasoningRun(`turn:${intentPlan.name}`)
-        re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} generated(${provider}) ${latencyMs}ms`, trustLevel: 'semi-trusted-project-source' })
+        re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} generated(${provider}${useReasonLane ? ',reason-lane:cot+sc' : ''}) ${latencyMs}ms`, trustLevel: 'semi-trusted-project-source' })
         const ledgerRef = generatedAttestation ? `urn:srcos:ledger:dispatch:${generatedAttestation}` : undefined
         const receipt = re.closeReasoningRun(run, { status: 'completed', replayClass: re.classifyReplay({ method: model, stop_reason: 'end_turn' }), ledgerRef })
         reasoningGen = { run: run.id, receipt: receipt.id }
