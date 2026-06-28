@@ -1100,20 +1100,22 @@ async function main() {
           if (computational) oc = await operatorCompute(q.question, q.choices)
           if (oc) { letter = oc; mode = 'opcompute:op' }
           else { const sc = await askVote(`${base}${REASON_RULE}`, SC_K); letter = sc.letter; mode = `opcompute:sc${SC_K}`; row['reason_conf'] = Number(sc.agree.toFixed(2)) }
-        } else if (arm === 'prod') {              // FAITHFUL mirror of server.ts deliberation — measures what SHIPS, not a strawman:
-          // verified-compute on compute-posture (server: program-of-thought python; bench: sympy — both RUN code then match a
-          // choice), ELSE best-of-N with the PRODUCTION critic (value-judgment + self-consistency select), not plain majority vote.
-          const posture = classifyComplexity(q.question).posture
-          if (posture === 'compute' && ci?.answer && ci.mode !== 'prog') {
-            letter = ci.answer; mode = `prod:compute:${ci.mode}`
-          } else {
-            const cands: Array<{ content: string }> = []
-            for (const t of bestOfTemps(PROD_N)) { const r = await ask(`${base}${REASON_RULE}`, t); if (r.trim()) cands.push({ content: r }) }
-            if (cands.length) {
-              const v = critique(cands, { question: q.question, contextText: '', beliefs: [], laws: [] })
-              letter = extractLetter(v.best.candidate.content); mode = `prod:bon${cands.length}:${v.action}`; row['prod_agreement'] = Number(v.agreement.toFixed(2))
-            } else { letter = ''; mode = 'prod:empty' }
-          }
+        } else if (arm === 'prod') {              // FAITHFUL mirror of the POST-WIRING server.ts deliberation — measures what SHIPS, not a strawman.
+          // server.ts now serves an exam (compute_math/prove_reason-class) question via: operator-route compute lane
+          // (operatorProgramOfThought over lib/math_operators.py, tried first on compute-posture turns, with cold-PoT
+          // fallback) → no-retrieval CoT+self-consistency reason lane (runReasonLane wrapping cragVote, retrieval SKIPPED
+          // for reason-lane intents). Because every MMLU item IS an inherently math/reasoning compute_math/prove_reason
+          // intent, the dominant ship path is operator→reason — so prod now CONVERGES to the `opcompute` arm's logic
+          // (that arm literally mirrors operatorProgramOfThought + the reason lane). Reuses the production kernels
+          // operatorCompute (≈operatorProgramOfThought) and askVote (≈cragVote); NO retrieval — matching server.ts's
+          // useReasonLane retrieval-skip and decideGrounding's never-skip-on-grounded (retrieval is N/A on this path).
+          // The old prod arm mirrored the now-superseded gate path (sympy-compute + best-of-N critic) and was stale.
+          const computational = classifyComplexity(q.question).posture === 'compute'
+            || /\b(find|compute|remainder|zeros|index|characteristic|how many|value of|solve|order of|divided by|intersection|slope|distance|gcd|lcm|least common|greatest common|probability|correlation|proportion|confidence|standard deviation|z-?score|the mean|how (much|far|fast|long)|what is the (value|slope|probability|mean|distance))\b/i.test(q.question)
+          let oc = ''
+          if (computational) oc = await operatorCompute(q.question, q.choices)   // operator-route compute lane (server: operatorProgramOfThought)
+          if (oc) { letter = oc; mode = 'prod:op' }
+          else { const sc = await askVote(`${base}${REASON_RULE}`, SC_K); letter = sc.letter; mode = `prod:sc${SC_K}`; row['reason_conf'] = Number(sc.agree.toFixed(2)) }   // no-retrieval reason lane (server: runReasonLane→cragVote)
         } else if (arm === 'groundgate') {        // CHEAP gate: decide retrieve-vs-skip from canon entity COUNT — no SC probe
           const k = kt[i] ?? { types: ['BasicFacts'], solver: 'retrieve' }
           const nEnt = canonRoute(q.question).entities.length
