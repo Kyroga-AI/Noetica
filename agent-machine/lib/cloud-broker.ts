@@ -8,9 +8,15 @@
  * estimates; a live pricing adapter (per-provider billing API) can replace COMPUTE_CATALOG without changing
  * the broker algorithm. Every brokered placement is meant to flow through scope-d egress governance.
  */
-// hyperscalers + sovereign-friendly clouds + the NEOCLOUDS (GPU specialists — usually far below hyperscaler GPU) + local mesh.
-export type CloudProvider = 'gcp' | 'azure' | 'aws' | 'ibm' | 'oci' | 'hetzner' | 'coreweave' | 'lambda' | 'nebius' | 'crusoe' | 'local'
+// Western hyperscalers + Asian hyperscalers (Alibaba/Huawei) + NEOCLOUD GPU specialists + sovereign-friendly + local.
+// The multi-polar cloud world is the whole case for a cross-vendor broker — incl. NON-NVIDIA silicon (Huawei Ascend).
+export type CloudProvider =
+  | 'gcp' | 'azure' | 'aws' | 'ibm' | 'oci' | 'hetzner'
+  | 'coreweave' | 'lambda' | 'nebius' | 'crusoe'
+  | 'alibaba' | 'huawei'
+  | 'local'
 export const NEOCLOUDS: CloudProvider[] = ['coreweave', 'lambda', 'nebius', 'crusoe']
+export const ASIAN_CLOUDS: CloudProvider[] = ['alibaba', 'huawei']
 
 export interface ComputeSku {
   provider: CloudProvider
@@ -49,6 +55,9 @@ export const COMPUTE_CATALOG: ComputeSku[] = [
   // neocloud cost-efficient inference GPUs
   { provider: 'nebius',    name: 'l4-1',              region: 'eu-north',    vcpus: 8,  memGiB: 32,  gpu: { type: 'L4',  count: 1, memGiB: 24 }, usdPerHour: 0.55, spotPerHour: 0.30 },
   { provider: 'lambda',    name: 'gpu_1x_a10',        region: 'us-west',     vcpus: 30, memGiB: 200, gpu: { type: 'A10', count: 1, memGiB: 24 }, usdPerHour: 0.75 },
+  // ── Asian hyperscalers (broker targets in a multi-polar world; Huawei = NON-NVIDIA silicon under export controls) ──
+  { provider: 'alibaba', name: 'gn-h100',            region: 'ap-southeast', vcpus: 26, memGiB: 200, gpu: { type: 'H100-80GB',   count: 1, memGiB: 80 }, usdPerHour: 2.20 },
+  { provider: 'huawei',  name: 'Ascend-910C',        region: 'ap/cn',       vcpus: 24, memGiB: 192, gpu: { type: 'Ascend-910C', count: 1, memGiB: 64 }, usdPerHour: 1.80 },
   // ── local mesh (sovereign, $0 marginal) ──
   { provider: 'local', name: 'noetica-local',        region: 'on-device',   vcpus: 12, memGiB: 24, gpu: { type: 'metal', count: 1, memGiB: 24 }, usdPerHour: 0 },
 ]
