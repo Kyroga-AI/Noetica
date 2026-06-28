@@ -185,16 +185,25 @@ function MarkdownContent({ content, compact = false }: { content: string; compac
         strong: ({ children }) => <strong className="font-semibold text-[var(--color-text-primary)]">{children}</strong>,
         em: ({ children }) => <em className="italic text-[var(--color-text-primary)]">{children}</em>,
         del: ({ children }) => <del className="text-[var(--color-text-secondary)]">{children}</del>,
-        // Links
-        a: ({ href, children }) => (
-          <a
-            href={href}
-            onClick={(e) => { e.preventDefault(); if (href) window.open(href, '_blank', 'noopener,noreferrer') }}
-            className="text-[#1d4ed8] underline decoration-[#bfdbfe] hover:decoration-[#1d4ed8] transition-colors"
-          >
-            {children}
-          </a>
-        ),
+        // Links — inline citation markers ([1], [2]…) rendered as superscript badges; external links open in new tab
+        a: ({ href, children }) => {
+          if (href?.startsWith('#cite-')) {
+            return (
+              <a href={href} className="inline-flex items-center justify-center rounded px-[3px] py-px text-[9px] font-semibold leading-none text-[#1d4ed8] bg-[#eff6ff] hover:bg-[#dbeafe] align-super ml-0.5 no-underline transition-colors">
+                {children}
+              </a>
+            )
+          }
+          return (
+            <a
+              href={href}
+              onClick={(e) => { e.preventDefault(); if (href) window.open(href, '_blank', 'noopener,noreferrer') }}
+              className="text-[#1d4ed8] underline decoration-[#bfdbfe] hover:decoration-[#1d4ed8] transition-colors"
+            >
+              {children}
+            </a>
+          )
+        },
         // Images — render inline
         img: ({ src, alt }) => src ? (
           <span className="block my-3">
@@ -415,15 +424,31 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
           <ToolCallList calls={message.tool_calls} results={message.tool_results} />
         )}
 
-        {/* Main content — markdown rendered, with inline source footnotes when doc sources exist */}
+        {/* Main content — markdown rendered, with clickable inline citation markers and styled footnotes */}
         {message.content && (() => {
-          const docSources = message.retrieval_trace?.document_sources
+          // document_sources = user-uploaded doc chunks; sources = OCW/brain retrieval — show whichever exists
+          const docSources = message.retrieval_trace?.document_sources?.length
+            ? message.retrieval_trace.document_sources
+            : message.retrieval_trace?.sources?.filter((s) => s.label)
           if (!docSources || docSources.length === 0) return <MarkdownContent content={message.content} />
+          // Rewrite [n] citation markers (1–9) to markdown links so the a-renderer turns them into superscripts.
+          // Only rewrite numeric-only brackets that look like citations (not e.g. "[code]" or "[…]").
+          const citedContent = message.content.replace(/\[([1-9])\](?!\()/g, (_m, n) => `[[${n}]](#cite-${n})`)
           const topSources = docSources.slice(0, 5)
-          const footnotes = topSources
-            .map((s, i) => `[${i + 1}] ${s.label || 'document'} · ${(s.score * 100).toFixed(0)}% match`)
-            .join('  \n')
-          return <MarkdownContent content={`${message.content}\n\n---\n${footnotes}`} />
+          return (
+            <>
+              <MarkdownContent content={citedContent} />
+              <div className="mt-3 border-t border-[var(--color-border-tertiary)] pt-2 space-y-1.5">
+                {topSources.map((s, i) => (
+                  <div key={i} id={`cite-${i + 1}`} className="flex items-start gap-2 text-[11px] text-[var(--color-text-tertiary)] scroll-mt-2">
+                    <span className="shrink-0 inline-flex h-4 w-4 items-center justify-center rounded text-[9px] font-semibold bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)]">{i + 1}</span>
+                    <span className="min-w-0 truncate text-[var(--color-text-secondary)]">{s.label || 'document'}</span>
+                    <span className="shrink-0 tabular-nums text-[var(--color-text-tertiary)]">{(s.score * 100).toFixed(0)}%</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )
         })()}
 
         {/* Build clarifier — deterministic multiple-choice scaffold card */}
