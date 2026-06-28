@@ -1,0 +1,75 @@
+{
+ "program": "Physics PhD (Course 8)",
+ "department": "8",
+ "degree": "PhD",
+ "domain": "physics",
+ "requirements": [
+  {
+   "group": "Graduate Core \u2014 Physics",
+   "subjects": [
+    {
+     "n": "8.321",
+     "title": "Quantum Theory I",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "8.322",
+     "title": "Quantum Theory II",
+     "u": 12,
+     "prereq": [
+      "8.321"
+     ],
+     "captured": true
+    },
+    {
+     "n": "8.333",
+     "title": "Statistical Mechanics I",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "8.334",
+     "title": "Statistical Mechanics II",
+     "u": 12,
+     "prereq": [
+      "8.333"
+     ],
+     "captured": true
+    },
+    {
+     "n": "8.311",
+     "title": "Electromagnetism (graduate)",
+     "u": 12,
+     "captured": true
+    },
+    {
+     "n": "8.323",
+     "title": "Relativistic Quantum Field Theory I",
+     "u": 12,
+     "prereq": [
+      "8.322"
+     ],
+     "captured": true
+    },
+    {
+     "n": "8.THG",
+     "title": "Doctoral Thesis",
+     "u": 36,
+     "captured": false
+    }
+   ]
+  }
+ ],
+ "coverage": {
+  "subjects_required": 7,
+  "subjects_captured": 6,
+  "units_total": 108,
+  "units_held": 72,
+  "pct": 67,
+  "gaps": [
+   "8.THG"
+  ]
+ },
+ "persona": "Walter Lewin"
+}

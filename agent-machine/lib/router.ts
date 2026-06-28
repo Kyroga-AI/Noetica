@@ -240,13 +240,19 @@ export function buildRouterDecision(opts: {
   // upgrade on a 24GB box. Coding uses the code-aware ladder (bestCoder); the general-purpose tasks use the
   // all-rounder (bestWorkhorse) — both land on qwen3:14b at the 24GB tier, falling back to the qwen2.5 floor
   // (or deepseek for reasoning) on smaller boxes. Per-request copy so the shared table isn't mutated.
-  const GENERAL_TASKS: TaskType[] = ['chat', 'general', 'writing', 'research', 'reasoning']
+  // Tiered by latency-sensitivity: interactive/conversational lanes get the FAST 8b (felt on every turn),
+  // while reasoning (depth) and coding (correctness) earn the slower 14b. Splitting these is the main
+  // "make it feel fast" lever — a 9GB 14b cold-loads ~60-90s and thinks for minutes; the 8b answers in seconds.
+  const INTERACTIVE_TASKS: TaskType[] = ['chat', 'general', 'writing', 'research']
+  const HEAVY_TASKS: TaskType[] = ['reasoning']
   const baseRoute = ROUTING_TABLE[task]
   const route = task === 'coding'
     ? { ...baseRoute, localModel: bestCoder(availableModels, baseRoute.localModel) }
-    : GENERAL_TASKS.includes(task)
+    : HEAVY_TASKS.includes(task)
       ? { ...baseRoute, localModel: bestWorkhorse(availableModels, baseRoute.localModel) }
-      : baseRoute
+      : INTERACTIVE_TASKS.includes(task)
+        ? { ...baseRoute, localModel: bestResponsive(availableModels, baseRoute.localModel) }
+        : baseRoute
 
   // Vision: route to LLaVA when images are present
   if (!explicitModelId && hasImages && ollamaAvailable) {
@@ -500,6 +506,21 @@ export function bestWorkhorse(available: string[], fallback: string): string {
   if (ramGb >= 30) prefs.push('qwen3:32b')
   if (ramGb >= 18) prefs.push('qwen3:14b')
   prefs.push('qwen3:8b')
+  for (const m of prefs) if (isModelAvailable(m, available)) return m
+  return fallback
+}
+
+/** Fast INTERACTIVE tier — for latency-sensitive conversational lanes (chat/general/writing/research) where
+ *  time-to-answer is felt on every turn. qwen3:8b (~5GB) loads ~2× faster than the 14b and leaves headroom on
+ *  a 24GB box; with /no_think (non-reasoning intents skip thinking) it answers simple questions in seconds
+ *  instead of minutes. Heavy lanes (reasoning → bestWorkhorse, code → bestCoder) keep the 14b for quality.
+ *  Reserve the 14b for interactive use ONLY on workstation-class memory where it stays warm cheaply. */
+export function bestResponsive(available: string[], fallback: string): string {
+  const ramGb = os.totalmem() / 1e9
+  const prefs: string[] = []
+  if (ramGb >= 64) prefs.push('qwen3:14b')   // huge boxes can afford the 14b resident + fast — keep quality
+  if (ramGb >= 12) prefs.push('qwen3:8b')    // the sweet spot for 16–48GB: fast, light, good enough
+  prefs.push('qwen2.5:7b', 'llama3.2:3b')    // floor for small boxes
   for (const m of prefs) if (isModelAvailable(m, available)) return m
   return fallback
 }

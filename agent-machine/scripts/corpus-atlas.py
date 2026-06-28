@@ -74,6 +74,14 @@ def make_lens(name):
                 return None
             n = np.linalg.norm(v); return v / n if n else None
         return emb, 'web/curated-pairs (contextual)'
+    if name == 'academic':                                    # OUR OWN corpus (Word2Vec over OCW)
+        from gensim.models import KeyedVectors
+        akv = KeyedVectors.load(os.path.expanduser('~/.noetica/vectors/ocw-academic.kv'), mmap='r')
+        def emb(text):
+            vs = [akv[w.lower()] for w in _w.findall(text) if w.lower() in akv]
+            if not vs: return None
+            v = np.mean(vs, 0); n = np.linalg.norm(v); return v / n if n else None
+        return emb, 'OCW academic (ours, Word2Vec)'
     # static gensim lenses: average in-vocab word vectors of the text
     import gensim.downloader as api
     model = {'glove': 'glove-wiki-gigaword-300', 'numberbatch': 'conceptnet-numberbatch-17-06-300',

@@ -1,6 +1,9 @@
 {
   "domain": "chemistry",
-  "mmlu_subjects": ["college_chemistry", "high_school_chemistry"],
+  "mmlu_subjects": [
+    "college_chemistry",
+    "high_school_chemistry"
+  ],
   "mmlu_pro_category": "chemistry",
   "topics": [
     {
@@ -17,23 +20,93 @@
         "Dimensional analysis and unit conversions"
       ],
       "glossary": [
-        {"term": "mole", "definition": "The SI unit for amount of substance, equal to 6.02214076e23 elementary entities (Avogadro's number)."},
-        {"term": "molar mass", "definition": "The mass in grams of one mole of a substance, numerically equal to its formula mass in atomic mass units."},
-        {"term": "limiting reagent", "definition": "The reactant that is completely consumed first in a reaction, thereby determining the maximum yield of product."},
-        {"term": "theoretical yield", "definition": "The maximum mass of product predicted by stoichiometry from the limiting reagent."},
-        {"term": "percent yield", "definition": "The ratio of actual yield to theoretical yield expressed as a percentage."},
-        {"term": "empirical formula", "definition": "The simplest whole-number ratio of atoms of each element in a compound."},
-        {"term": "molarity (M)", "definition": "The number of moles of solute dissolved per liter of solution."},
-        {"term": "isotope", "definition": "Atoms of the same element with the same number of protons but different numbers of neutrons, and hence different mass numbers."},
-        {"term": "atomic mass unit (amu)", "definition": "A unit of mass equal to 1/12 the mass of a carbon-12 atom, approximately 1.66054e-27 kg."},
-        {"term": "percent composition", "definition": "The mass percentage of each element in a compound, calculated as (element mass / molar mass) x 100."}
+        {
+          "term": "mole",
+          "definition": "The SI unit for amount of substance, equal to 6.02214076e23 elementary entities (Avogadro's number)."
+        },
+        {
+          "term": "molar mass",
+          "definition": "The mass in grams of one mole of a substance, numerically equal to its formula mass in atomic mass units."
+        },
+        {
+          "term": "limiting reagent",
+          "definition": "The reactant that is completely consumed first in a reaction, thereby determining the maximum yield of product."
+        },
+        {
+          "term": "theoretical yield",
+          "definition": "The maximum mass of product predicted by stoichiometry from the limiting reagent."
+        },
+        {
+          "term": "percent yield",
+          "definition": "The ratio of actual yield to theoretical yield expressed as a percentage."
+        },
+        {
+          "term": "empirical formula",
+          "definition": "The simplest whole-number ratio of atoms of each element in a compound."
+        },
+        {
+          "term": "molarity (M)",
+          "definition": "The number of moles of solute dissolved per liter of solution."
+        },
+        {
+          "term": "isotope",
+          "definition": "Atoms of the same element with the same number of protons but different numbers of neutrons, and hence different mass numbers."
+        },
+        {
+          "term": "atomic mass unit (amu)",
+          "definition": "A unit of mass equal to 1/12 the mass of a carbon-12 atom, approximately 1.66054e-27 kg."
+        },
+        {
+          "term": "percent composition",
+          "definition": "The mass percentage of each element in a compound, calculated as (element mass / molar mass) x 100."
+        },
+        {
+          "term": "concentration",
+          "definition": "Amount of solute per unit volume of solution. Most common: molarity M = moles/liter."
+        },
+        {
+          "term": "solution",
+          "definition": "Homogeneous mixture of solute dissolved in solvent. Properties: molarity, molality, mole fraction, percent composition by mass."
+        },
+        {
+          "term": "atom",
+          "definition": "The smallest unit of an element retaining its chemical properties; consists of a nucleus (protons + neutrons) surrounded by electrons. Atomic number Z = proton count determines the element."
+        },
+        {
+          "term": "molecule",
+          "definition": "Two or more atoms covalently bonded together as the smallest unit of a chemical compound; characterized by molecular formula (atom counts) and molecular geometry."
+        },
+        {
+          "term": "element",
+          "definition": "A pure substance consisting of only one type of atom (same atomic number Z); cannot be broken down by chemical means; 118 elements in the periodic table."
+        }
       ],
       "canon": [
-        {"name": "Avogadro's number", "form": "N_A = 6.02214076e23 mol^-1", "type": "definition"},
-        {"name": "Mole-mass relationship", "form": "n = m / M", "type": "equation"},
-        {"name": "Molarity definition", "form": "C = n_solute / V_solution(L)", "type": "definition"},
-        {"name": "Percent yield", "form": "% yield = (actual yield / theoretical yield) x 100%", "type": "equation"},
-        {"name": "Percent composition by mass", "form": "% element = (mass of element in 1 mol compound / molar mass of compound) x 100%", "type": "equation"}
+        {
+          "name": "Avogadro's number",
+          "form": "N_A = 6.02214076e23 mol^-1",
+          "type": "definition"
+        },
+        {
+          "name": "Mole-mass relationship",
+          "form": "n = m / M",
+          "type": "equation"
+        },
+        {
+          "name": "Molarity definition",
+          "form": "C = n_solute / V_solution(L)",
+          "type": "definition"
+        },
+        {
+          "name": "Percent yield",
+          "form": "% yield = (actual yield / theoretical yield) x 100%",
+          "type": "equation"
+        },
+        {
+          "name": "Percent composition by mass",
+          "form": "% element = (mass of element in 1 mol compound / molar mass of compound) x 100%",
+          "type": "equation"
+        }
       ]
     },
     {
@@ -50,27 +123,93 @@
         "Compressibility factor Z"
       ],
       "glossary": [
-        {"term": "ideal gas", "definition": "A hypothetical gas whose particles have no intermolecular forces and negligible volume, obeying PV = nRT exactly."},
-        {"term": "partial pressure", "definition": "The pressure a gas would exert if it alone occupied the total volume at the same temperature."},
-        {"term": "mole fraction", "definition": "The ratio of moles of one component to total moles in a mixture; chi_i = n_i / n_total."},
-        {"term": "root-mean-square speed", "definition": "The square root of the mean of the squared molecular speeds, equal to sqrt(3RT/M)."},
-        {"term": "effusion", "definition": "The passage of a gas through a tiny orifice into a vacuum; rate inversely proportional to sqrt(molar mass)."},
-        {"term": "van der Waals constants", "definition": "Empirical parameters a (accounts for intermolecular attractions) and b (accounts for molecular volume) in the van der Waals real-gas equation."},
-        {"term": "compressibility factor Z", "definition": "The ratio PV/(nRT); equals 1 for an ideal gas and deviates from 1 for real gases."},
-        {"term": "standard temperature and pressure (STP)", "definition": "Defined by IUPAC as 0 degrees C (273.15 K) and 100 kPa; molar volume of ideal gas = 22.711 L/mol."},
-        {"term": "mean free path", "definition": "The average distance a gas molecule travels between successive collisions."},
-        {"term": "Maxwell-Boltzmann distribution", "definition": "The statistical distribution of molecular speeds in an ideal gas at thermal equilibrium."}
+        {
+          "term": "ideal gas",
+          "definition": "A hypothetical gas whose particles have no intermolecular forces and negligible volume, obeying PV = nRT exactly."
+        },
+        {
+          "term": "partial pressure",
+          "definition": "The pressure a gas would exert if it alone occupied the total volume at the same temperature."
+        },
+        {
+          "term": "mole fraction",
+          "definition": "The ratio of moles of one component to total moles in a mixture; chi_i = n_i / n_total."
+        },
+        {
+          "term": "root-mean-square speed",
+          "definition": "The square root of the mean of the squared molecular speeds, equal to sqrt(3RT/M)."
+        },
+        {
+          "term": "effusion",
+          "definition": "The passage of a gas through a tiny orifice into a vacuum; rate inversely proportional to sqrt(molar mass)."
+        },
+        {
+          "term": "van der Waals constants",
+          "definition": "Empirical parameters a (accounts for intermolecular attractions) and b (accounts for molecular volume) in the van der Waals real-gas equation."
+        },
+        {
+          "term": "compressibility factor Z",
+          "definition": "The ratio PV/(nRT); equals 1 for an ideal gas and deviates from 1 for real gases."
+        },
+        {
+          "term": "standard temperature and pressure (STP)",
+          "definition": "Defined by IUPAC as 0 degrees C (273.15 K) and 100 kPa; molar volume of ideal gas = 22.711 L/mol."
+        },
+        {
+          "term": "mean free path",
+          "definition": "The average distance a gas molecule travels between successive collisions."
+        },
+        {
+          "term": "Maxwell-Boltzmann distribution",
+          "definition": "The statistical distribution of molecular speeds in an ideal gas at thermal equilibrium."
+        }
       ],
       "canon": [
-        {"name": "Ideal gas law", "form": "PV = nRT", "type": "law"},
-        {"name": "Dalton's law of partial pressures", "form": "P_total = sum(P_i) = sum(chi_i * P_total)", "type": "law"},
-        {"name": "Graham's law of effusion", "form": "rate_1 / rate_2 = sqrt(M_2 / M_1)", "type": "law"},
-        {"name": "RMS speed", "form": "v_rms = sqrt(3RT / M)", "type": "equation"},
-        {"name": "Most probable speed", "form": "v_mp = sqrt(2RT / M)", "type": "equation"},
-        {"name": "Mean speed", "form": "v_mean = sqrt(8RT / (pi * M))", "type": "equation"},
-        {"name": "van der Waals equation", "form": "(P + a*n^2/V^2)(V - nb) = nRT", "type": "equation"},
-        {"name": "Compressibility factor", "form": "Z = PV / (nRT)", "type": "definition"},
-        {"name": "Maxwell-Boltzmann speed distribution", "form": "f(v) = 4*pi*(M/(2*pi*RT))^(3/2) * v^2 * exp(-M*v^2/(2RT))", "type": "equation"}
+        {
+          "name": "Ideal gas law",
+          "form": "PV = nRT",
+          "type": "law"
+        },
+        {
+          "name": "Dalton's law of partial pressures",
+          "form": "P_total = sum(P_i) = sum(chi_i * P_total)",
+          "type": "law"
+        },
+        {
+          "name": "Graham's law of effusion",
+          "form": "rate_1 / rate_2 = sqrt(M_2 / M_1)",
+          "type": "law"
+        },
+        {
+          "name": "RMS speed",
+          "form": "v_rms = sqrt(3RT / M)",
+          "type": "equation"
+        },
+        {
+          "name": "Most probable speed",
+          "form": "v_mp = sqrt(2RT / M)",
+          "type": "equation"
+        },
+        {
+          "name": "Mean speed",
+          "form": "v_mean = sqrt(8RT / (pi * M))",
+          "type": "equation"
+        },
+        {
+          "name": "van der Waals equation",
+          "form": "(P + a*n^2/V^2)(V - nb) = nRT",
+          "type": "equation"
+        },
+        {
+          "name": "Compressibility factor",
+          "form": "Z = PV / (nRT)",
+          "type": "definition"
+        },
+        {
+          "name": "Maxwell-Boltzmann speed distribution",
+          "form": "f(v) = 4*pi*(M/(2*pi*RT))^(3/2) * v^2 * exp(-M*v^2/(2RT))",
+          "type": "equation"
+        }
       ]
     },
     {
@@ -89,32 +228,116 @@
         "Chemical potential and partial molar quantities"
       ],
       "glossary": [
-        {"term": "internal energy (U)", "definition": "The total microscopic energy of a system; changes by dU = q + w (heat added plus work done on the system)."},
-        {"term": "enthalpy (H)", "definition": "A state function defined as H = U + PV; at constant pressure, delta-H equals heat transferred."},
-        {"term": "entropy (S)", "definition": "A state function measuring the dispersal of energy; for a reversible process dS = dq_rev / T."},
-        {"term": "Gibbs free energy (G)", "definition": "G = H - TS; a decrease in G at constant T and P indicates a spontaneous process."},
-        {"term": "Helmholtz free energy (A)", "definition": "A = U - TS; a decrease in A at constant T and V indicates spontaneity; equal to reversible work."},
-        {"term": "standard state", "definition": "A reference condition: pure substance at 1 bar (solutes at 1 mol/L activity), specified temperature (usually 298.15 K)."},
-        {"term": "Hess's law", "definition": "The enthalpy change of a reaction equals the algebraic sum of enthalpies of any sequence of steps connecting reactants to products."},
-        {"term": "heat capacity (C)", "definition": "The amount of heat required to raise the temperature of a substance by one kelvin; C_P = (dH/dT)_P, C_V = (dU/dT)_V."},
-        {"term": "chemical potential (mu)", "definition": "The partial molar Gibbs free energy of a species; mu_i = (dG/dn_i)_{T,P,n_j}."},
-        {"term": "third law of thermodynamics", "definition": "The entropy of a perfect crystalline substance is zero at absolute zero temperature (0 K)."},
-        {"term": "van't Hoff enthalpy", "definition": "The enthalpy change of a process derived from the temperature dependence of the equilibrium constant via d(ln K)/d(1/T) = -delta_H/R."},
-        {"term": "Kirchhoff's law", "definition": "The temperature dependence of reaction enthalpy: d(delta_H)/dT = delta_C_P."}
+        {
+          "term": "internal energy (U)",
+          "definition": "The total microscopic energy of a system; changes by dU = q + w (heat added plus work done on the system)."
+        },
+        {
+          "term": "enthalpy (H)",
+          "definition": "A state function defined as H = U + PV; at constant pressure, delta-H equals heat transferred."
+        },
+        {
+          "term": "entropy (S)",
+          "definition": "A state function measuring the dispersal of energy; for a reversible process dS = dq_rev / T."
+        },
+        {
+          "term": "Gibbs free energy (G)",
+          "definition": "G = H - TS; a decrease in G at constant T and P indicates a spontaneous process."
+        },
+        {
+          "term": "Helmholtz free energy (A)",
+          "definition": "A = U - TS; a decrease in A at constant T and V indicates spontaneity; equal to reversible work."
+        },
+        {
+          "term": "standard state",
+          "definition": "A reference condition: pure substance at 1 bar (solutes at 1 mol/L activity), specified temperature (usually 298.15 K)."
+        },
+        {
+          "term": "Hess's law",
+          "definition": "The enthalpy change of a reaction equals the algebraic sum of enthalpies of any sequence of steps connecting reactants to products."
+        },
+        {
+          "term": "heat capacity (C)",
+          "definition": "The amount of heat required to raise the temperature of a substance by one kelvin; C_P = (dH/dT)_P, C_V = (dU/dT)_V."
+        },
+        {
+          "term": "chemical potential (mu)",
+          "definition": "The partial molar Gibbs free energy of a species; mu_i = (dG/dn_i)_{T,P,n_j}."
+        },
+        {
+          "term": "third law of thermodynamics",
+          "definition": "The entropy of a perfect crystalline substance is zero at absolute zero temperature (0 K)."
+        },
+        {
+          "term": "van't Hoff enthalpy",
+          "definition": "The enthalpy change of a process derived from the temperature dependence of the equilibrium constant via d(ln K)/d(1/T) = -delta_H/R."
+        },
+        {
+          "term": "Kirchhoff's law",
+          "definition": "The temperature dependence of reaction enthalpy: d(delta_H)/dT = delta_C_P."
+        }
       ],
       "canon": [
-        {"name": "First law of thermodynamics", "form": "dU = q + w  (or dU = delta_q - P_ext dV for PV work)", "type": "law"},
-        {"name": "Enthalpy definition", "form": "H = U + PV  =>  dH = dU + P dV + V dP  =>  dH_P = q_P", "type": "definition"},
-        {"name": "Second law (Clausius inequality)", "form": "dS >= dq / T  (equality for reversible)", "type": "law"},
-        {"name": "Gibbs free energy", "form": "G = H - T*S  =>  dG = V dP - S dT", "type": "definition"},
-        {"name": "Spontaneity criterion (constant T, P)", "form": "delta_G < 0 (spontaneous), = 0 (equilibrium), > 0 (non-spontaneous)", "type": "law"},
-        {"name": "Standard free energy and equilibrium constant", "form": "delta_G^o = -R*T*ln(K)", "type": "equation"},
-        {"name": "Gibbs-Helmholtz equation", "form": "d(G/T)/d(1/T) = H", "type": "equation"},
-        {"name": "van't Hoff equation", "form": "d(ln K)/d(1/T) = -delta_H^o / R", "type": "equation"},
-        {"name": "Entropy change for reversible process", "form": "delta_S = integral(dq_rev / T)", "type": "equation"},
-        {"name": "Fundamental thermodynamic relation", "form": "dU = T dS - P dV + sum(mu_i dn_i)", "type": "equation"},
-        {"name": "Maxwell relation (from G)", "form": "(dS/dP)_T = -(dV/dT)_P", "type": "equation"},
-        {"name": "Kirchhoff's law", "form": "delta_H(T2) = delta_H(T1) + integral(delta_C_P dT, T1, T2)", "type": "equation"}
+        {
+          "name": "First law of thermodynamics",
+          "form": "dU = q + w  (or dU = delta_q - P_ext dV for PV work)",
+          "type": "law"
+        },
+        {
+          "name": "Enthalpy definition",
+          "form": "H = U + PV  =>  dH = dU + P dV + V dP  =>  dH_P = q_P",
+          "type": "definition"
+        },
+        {
+          "name": "Second law (Clausius inequality)",
+          "form": "dS >= dq / T  (equality for reversible)",
+          "type": "law"
+        },
+        {
+          "name": "Gibbs free energy",
+          "form": "G = H - T*S  =>  dG = V dP - S dT",
+          "type": "definition"
+        },
+        {
+          "name": "Spontaneity criterion (constant T, P)",
+          "form": "delta_G < 0 (spontaneous), = 0 (equilibrium), > 0 (non-spontaneous)",
+          "type": "law"
+        },
+        {
+          "name": "Standard free energy and equilibrium constant",
+          "form": "delta_G^o = -R*T*ln(K)",
+          "type": "equation"
+        },
+        {
+          "name": "Gibbs-Helmholtz equation",
+          "form": "d(G/T)/d(1/T) = H",
+          "type": "equation"
+        },
+        {
+          "name": "van't Hoff equation",
+          "form": "d(ln K)/d(1/T) = -delta_H^o / R",
+          "type": "equation"
+        },
+        {
+          "name": "Entropy change for reversible process",
+          "form": "delta_S = integral(dq_rev / T)",
+          "type": "equation"
+        },
+        {
+          "name": "Fundamental thermodynamic relation",
+          "form": "dU = T dS - P dV + sum(mu_i dn_i)",
+          "type": "equation"
+        },
+        {
+          "name": "Maxwell relation (from G)",
+          "form": "(dS/dP)_T = -(dV/dT)_P",
+          "type": "equation"
+        },
+        {
+          "name": "Kirchhoff's law",
+          "form": "delta_H(T2) = delta_H(T1) + integral(delta_C_P dT, T1, T2)",
+          "type": "equation"
+        }
       ]
     },
     {
@@ -132,24 +355,82 @@
         "Effect of temperature on K"
       ],
       "glossary": [
-        {"term": "equilibrium constant (K)", "definition": "The ratio of product activities to reactant activities, each raised to stoichiometric coefficients, at equilibrium."},
-        {"term": "K_c", "definition": "Equilibrium constant expressed in terms of molar concentrations."},
-        {"term": "K_p", "definition": "Equilibrium constant expressed in terms of partial pressures (in bar or atm as specified)."},
-        {"term": "reaction quotient (Q)", "definition": "The ratio of product to reactant concentrations (or pressures) at any point; if Q < K reaction proceeds forward."},
-        {"term": "Le Chatelier's principle", "definition": "A system at equilibrium responds to a stress by shifting in the direction that partially offsets that stress."},
-        {"term": "solubility product (K_sp)", "definition": "The equilibrium constant for the dissolution of a sparingly soluble ionic compound into its constituent ions."},
-        {"term": "common-ion effect", "definition": "The decrease in solubility of an ionic compound caused by the presence of a common ion already in solution."},
-        {"term": "ICE table", "definition": "An Initial-Change-Equilibrium table used to track concentration changes during an equilibrium calculation."},
-        {"term": "degree of dissociation (alpha)", "definition": "The fraction of a substance that has dissociated at equilibrium."},
-        {"term": "heterogeneous equilibrium", "definition": "An equilibrium involving reactants or products in more than one phase; pure solids and liquids are omitted from the K expression."}
+        {
+          "term": "equilibrium constant (K)",
+          "definition": "The ratio of product activities to reactant activities, each raised to stoichiometric coefficients, at equilibrium."
+        },
+        {
+          "term": "K_c",
+          "definition": "Equilibrium constant expressed in terms of molar concentrations."
+        },
+        {
+          "term": "K_p",
+          "definition": "Equilibrium constant expressed in terms of partial pressures (in bar or atm as specified)."
+        },
+        {
+          "term": "reaction quotient (Q)",
+          "definition": "The ratio of product to reactant concentrations (or pressures) at any point; if Q < K reaction proceeds forward."
+        },
+        {
+          "term": "Le Chatelier's principle",
+          "definition": "A system at equilibrium responds to a stress by shifting in the direction that partially offsets that stress."
+        },
+        {
+          "term": "solubility product (K_sp)",
+          "definition": "The equilibrium constant for the dissolution of a sparingly soluble ionic compound into its constituent ions."
+        },
+        {
+          "term": "common-ion effect",
+          "definition": "The decrease in solubility of an ionic compound caused by the presence of a common ion already in solution."
+        },
+        {
+          "term": "ICE table",
+          "definition": "An Initial-Change-Equilibrium table used to track concentration changes during an equilibrium calculation."
+        },
+        {
+          "term": "degree of dissociation (alpha)",
+          "definition": "The fraction of a substance that has dissociated at equilibrium."
+        },
+        {
+          "term": "heterogeneous equilibrium",
+          "definition": "An equilibrium involving reactants or products in more than one phase; pure solids and liquids are omitted from the K expression."
+        },
+        {
+          "term": "equilibrium",
+          "definition": "The state of a reversible chemical reaction where the forward and reverse rates are equal, so concentrations remain constant; described by the equilibrium constant K."
+        }
       ],
       "canon": [
-        {"name": "Law of mass action (generic)", "form": "K_c = [C]^c [D]^d / ([A]^a [B]^b)  for aA + bB <=> cC + dD", "type": "law"},
-        {"name": "K_p from K_c", "form": "K_p = K_c * (RT)^(delta_n_gas)  where delta_n_gas = moles gaseous products - moles gaseous reactants", "type": "equation"},
-        {"name": "Reaction quotient criterion", "form": "Q < K: forward; Q = K: equilibrium; Q > K: reverse", "type": "law"},
-        {"name": "K for reverse reaction", "form": "K_reverse = 1 / K_forward", "type": "equation"},
-        {"name": "K for sum of reactions", "form": "K_net = K_1 * K_2 * ...", "type": "equation"},
-        {"name": "van't Hoff equation (K vs T)", "form": "ln(K2/K1) = -(delta_H^o/R)*(1/T2 - 1/T1)", "type": "equation"}
+        {
+          "name": "Law of mass action (generic)",
+          "form": "K_c = [C]^c [D]^d / ([A]^a [B]^b)  for aA + bB <=> cC + dD",
+          "type": "law"
+        },
+        {
+          "name": "K_p from K_c",
+          "form": "K_p = K_c * (RT)^(delta_n_gas)  where delta_n_gas = moles gaseous products - moles gaseous reactants",
+          "type": "equation"
+        },
+        {
+          "name": "Reaction quotient criterion",
+          "form": "Q < K: forward; Q = K: equilibrium; Q > K: reverse",
+          "type": "law"
+        },
+        {
+          "name": "K for reverse reaction",
+          "form": "K_reverse = 1 / K_forward",
+          "type": "equation"
+        },
+        {
+          "name": "K for sum of reactions",
+          "form": "K_net = K_1 * K_2 * ...",
+          "type": "equation"
+        },
+        {
+          "name": "van't Hoff equation (K vs T)",
+          "form": "ln(K2/K1) = -(delta_H^o/R)*(1/T2 - 1/T1)",
+          "type": "equation"
+        }
       ]
     },
     {
@@ -168,26 +449,98 @@
         "Indicators and choice of indicator"
       ],
       "glossary": [
-        {"term": "Bronsted-Lowry acid", "definition": "A species that donates a proton (H+) to another species."},
-        {"term": "Bronsted-Lowry base", "definition": "A species that accepts a proton (H+) from another species."},
-        {"term": "Lewis acid", "definition": "A species that accepts an electron pair from a donor; broader than the Bronsted-Lowry definition."},
-        {"term": "conjugate acid-base pair", "definition": "Two species differing by a single proton: the acid donates H+ to give the conjugate base."},
-        {"term": "K_a", "definition": "Acid dissociation constant: K_a = [A-][H+] / [HA] for weak acid HA."},
-        {"term": "K_w", "definition": "Ion-product constant of water: K_w = [H+][OH-] = 1.01e-14 at 25 degrees C."},
-        {"term": "pH", "definition": "The negative base-10 logarithm of the hydrogen-ion activity (approximately [H+] in dilute aqueous solution)."},
-        {"term": "buffer", "definition": "A solution that resists changes in pH upon addition of small amounts of acid or base, typically a weak acid and its conjugate base."},
-        {"term": "Henderson-Hasselbalch equation", "definition": "pH = pK_a + log([A-]/[HA]); used to calculate pH of buffer solutions."},
-        {"term": "equivalence point", "definition": "The point in a titration at which the moles of titrant added are stoichiometrically equal to the moles of analyte."},
-        {"term": "half-equivalence point", "definition": "The point in a weak-acid titration at which [HA] = [A-] and therefore pH = pK_a."},
-        {"term": "buffer capacity", "definition": "The amount of acid or base a buffer can absorb per unit pH change; maximized when pH = pK_a."}
+        {
+          "term": "Bronsted-Lowry acid",
+          "definition": "A species that donates a proton (H+) to another species."
+        },
+        {
+          "term": "Bronsted-Lowry base",
+          "definition": "A species that accepts a proton (H+) from another species."
+        },
+        {
+          "term": "Lewis acid",
+          "definition": "A species that accepts an electron pair from a donor; broader than the Bronsted-Lowry definition."
+        },
+        {
+          "term": "conjugate acid-base pair",
+          "definition": "Two species differing by a single proton: the acid donates H+ to give the conjugate base."
+        },
+        {
+          "term": "K_a",
+          "definition": "Acid dissociation constant: K_a = [A-][H+] / [HA] for weak acid HA."
+        },
+        {
+          "term": "K_w",
+          "definition": "Ion-product constant of water: K_w = [H+][OH-] = 1.01e-14 at 25 degrees C."
+        },
+        {
+          "term": "pH",
+          "definition": "The negative base-10 logarithm of the hydrogen-ion activity (approximately [H+] in dilute aqueous solution)."
+        },
+        {
+          "term": "buffer",
+          "definition": "A solution that resists changes in pH upon addition of small amounts of acid or base, typically a weak acid and its conjugate base."
+        },
+        {
+          "term": "Henderson-Hasselbalch equation",
+          "definition": "pH = pK_a + log([A-]/[HA]); used to calculate pH of buffer solutions."
+        },
+        {
+          "term": "equivalence point",
+          "definition": "The point in a titration at which the moles of titrant added are stoichiometrically equal to the moles of analyte."
+        },
+        {
+          "term": "half-equivalence point",
+          "definition": "The point in a weak-acid titration at which [HA] = [A-] and therefore pH = pK_a."
+        },
+        {
+          "term": "buffer capacity",
+          "definition": "The amount of acid or base a buffer can absorb per unit pH change; maximized when pH = pK_a."
+        },
+        {
+          "term": "acid",
+          "definition": "A substance that donates protons (Bronsted-Lowry) or accepts electrons (Lewis). Strong acids fully dissociate in water (HCl, H\u2082SO\u2084, HNO\u2083). Weak acids partially dissociate (K_a < 1)."
+        },
+        {
+          "term": "base",
+          "definition": "A substance that accepts protons (Bronsted-Lowry) or donates electrons (Lewis). Strong bases fully dissociate (NaOH, KOH). Weak bases partially ionize (K_b < 1)."
+        },
+        {
+          "term": "titration",
+          "definition": "Quantitative analysis by slowly adding a known-concentration solution (titrant) to determine the concentration of an unknown. Endpoint signaled by indicator color change."
+        }
       ],
       "canon": [
-        {"name": "Ion-product of water", "form": "K_w = [H3O+][OH-] = 1.01e-14 at 298 K", "type": "equation"},
-        {"name": "pH definition", "form": "pH = -log10([H+])  (or -log10(a_H+))", "type": "definition"},
-        {"name": "Relationship pK_a + pK_b", "form": "pK_a + pK_b = pK_w = 14.00 at 25 degrees C (conjugate pair)", "type": "equation"},
-        {"name": "Henderson-Hasselbalch", "form": "pH = pK_a + log([A-]/[HA])", "type": "equation"},
-        {"name": "Weak acid dissociation constant", "form": "K_a = [H+][A-] / [HA]", "type": "definition"},
-        {"name": "Degree of dissociation for weak acid", "form": "[H+] = sqrt(K_a * C_a)  when alpha << 1", "type": "equation"}
+        {
+          "name": "Ion-product of water",
+          "form": "K_w = [H3O+][OH-] = 1.01e-14 at 298 K",
+          "type": "equation"
+        },
+        {
+          "name": "pH definition",
+          "form": "pH = -log10([H+])  (or -log10(a_H+))",
+          "type": "definition"
+        },
+        {
+          "name": "Relationship pK_a + pK_b",
+          "form": "pK_a + pK_b = pK_w = 14.00 at 25 degrees C (conjugate pair)",
+          "type": "equation"
+        },
+        {
+          "name": "Henderson-Hasselbalch",
+          "form": "pH = pK_a + log([A-]/[HA])",
+          "type": "equation"
+        },
+        {
+          "name": "Weak acid dissociation constant",
+          "form": "K_a = [H+][A-] / [HA]",
+          "type": "definition"
+        },
+        {
+          "name": "Degree of dissociation for weak acid",
+          "form": "[H+] = sqrt(K_a * C_a)  when alpha << 1",
+          "type": "equation"
+        }
       ]
     },
     {
@@ -205,30 +558,107 @@
         "Chain reactions and radical mechanisms"
       ],
       "glossary": [
-        {"term": "rate law", "definition": "An expression relating the rate of a reaction to the concentrations of reactants: rate = k[A]^m[B]^n."},
-        {"term": "rate constant (k)", "definition": "The proportionality constant in the rate law; depends on temperature and the specific reaction but not on concentration."},
-        {"term": "reaction order", "definition": "The sum of the exponents in the rate law (overall order); the exponent for each reactant is the order in that reactant."},
-        {"term": "half-life (t_1/2)", "definition": "The time required for the concentration of a reactant to decrease to half its initial value."},
-        {"term": "activation energy (E_a)", "definition": "The minimum energy that colliding molecules must possess for a reaction to occur; from the Arrhenius equation."},
-        {"term": "Arrhenius pre-exponential factor (A)", "definition": "The frequency factor in the Arrhenius equation; related to the frequency of properly oriented collisions."},
-        {"term": "transition state", "definition": "The highest-energy configuration along the reaction coordinate, corresponding to the top of the activation-energy barrier."},
-        {"term": "elementary step", "definition": "A single molecular event in a mechanism; its molecularity equals the order of that step."},
-        {"term": "rate-determining step", "definition": "The slowest step in a reaction mechanism, which limits the overall reaction rate."},
-        {"term": "Michaelis-Menten kinetics", "definition": "A kinetic model for enzyme catalysis: v = V_max[S] / (K_M + [S]), where K_M is the Michaelis constant."},
-        {"term": "steady-state approximation", "definition": "The assumption that the concentration of a reactive intermediate remains nearly constant throughout the reaction."}
+        {
+          "term": "rate law",
+          "definition": "An expression relating the rate of a reaction to the concentrations of reactants: rate = k[A]^m[B]^n."
+        },
+        {
+          "term": "rate constant (k)",
+          "definition": "The proportionality constant in the rate law; depends on temperature and the specific reaction but not on concentration."
+        },
+        {
+          "term": "reaction order",
+          "definition": "The sum of the exponents in the rate law (overall order); the exponent for each reactant is the order in that reactant."
+        },
+        {
+          "term": "half-life (t_1/2)",
+          "definition": "The time required for the concentration of a reactant to decrease to half its initial value."
+        },
+        {
+          "term": "activation energy (E_a)",
+          "definition": "The minimum energy that colliding molecules must possess for a reaction to occur; from the Arrhenius equation."
+        },
+        {
+          "term": "Arrhenius pre-exponential factor (A)",
+          "definition": "The frequency factor in the Arrhenius equation; related to the frequency of properly oriented collisions."
+        },
+        {
+          "term": "transition state",
+          "definition": "The highest-energy configuration along the reaction coordinate, corresponding to the top of the activation-energy barrier."
+        },
+        {
+          "term": "elementary step",
+          "definition": "A single molecular event in a mechanism; its molecularity equals the order of that step."
+        },
+        {
+          "term": "rate-determining step",
+          "definition": "The slowest step in a reaction mechanism, which limits the overall reaction rate."
+        },
+        {
+          "term": "Michaelis-Menten kinetics",
+          "definition": "A kinetic model for enzyme catalysis: v = V_max[S] / (K_M + [S]), where K_M is the Michaelis constant."
+        },
+        {
+          "term": "steady-state approximation",
+          "definition": "The assumption that the concentration of a reactive intermediate remains nearly constant throughout the reaction."
+        }
       ],
       "canon": [
-        {"name": "Generic rate law", "form": "rate = k[A]^m [B]^n", "type": "equation"},
-        {"name": "First-order integrated rate law", "form": "ln[A]_t = ln[A]_0 - k*t  =>  [A]_t = [A]_0 * exp(-k*t)", "type": "equation"},
-        {"name": "First-order half-life", "form": "t_1/2 = ln(2) / k = 0.6931 / k", "type": "equation"},
-        {"name": "Second-order integrated rate law (one reactant)", "form": "1/[A]_t = 1/[A]_0 + k*t", "type": "equation"},
-        {"name": "Second-order half-life", "form": "t_1/2 = 1 / (k[A]_0)", "type": "equation"},
-        {"name": "Zeroth-order integrated rate law", "form": "[A]_t = [A]_0 - k*t", "type": "equation"},
-        {"name": "Arrhenius equation", "form": "k = A * exp(-E_a / (R*T))", "type": "equation"},
-        {"name": "Arrhenius linearized", "form": "ln(k) = ln(A) - E_a/(R*T)", "type": "equation"},
-        {"name": "Eyring (transition state theory) equation", "form": "k = (k_B * T / h) * exp(-delta_G_dagger / (R*T))", "type": "equation"},
-        {"name": "Michaelis-Menten equation", "form": "v = V_max * [S] / (K_M + [S])", "type": "equation"},
-        {"name": "Lineweaver-Burk linearization", "form": "1/v = (K_M/V_max)*(1/[S]) + 1/V_max", "type": "equation"}
+        {
+          "name": "Generic rate law",
+          "form": "rate = k[A]^m [B]^n",
+          "type": "equation"
+        },
+        {
+          "name": "First-order integrated rate law",
+          "form": "ln[A]_t = ln[A]_0 - k*t  =>  [A]_t = [A]_0 * exp(-k*t)",
+          "type": "equation"
+        },
+        {
+          "name": "First-order half-life",
+          "form": "t_1/2 = ln(2) / k = 0.6931 / k",
+          "type": "equation"
+        },
+        {
+          "name": "Second-order integrated rate law (one reactant)",
+          "form": "1/[A]_t = 1/[A]_0 + k*t",
+          "type": "equation"
+        },
+        {
+          "name": "Second-order half-life",
+          "form": "t_1/2 = 1 / (k[A]_0)",
+          "type": "equation"
+        },
+        {
+          "name": "Zeroth-order integrated rate law",
+          "form": "[A]_t = [A]_0 - k*t",
+          "type": "equation"
+        },
+        {
+          "name": "Arrhenius equation",
+          "form": "k = A * exp(-E_a / (R*T))",
+          "type": "equation"
+        },
+        {
+          "name": "Arrhenius linearized",
+          "form": "ln(k) = ln(A) - E_a/(R*T)",
+          "type": "equation"
+        },
+        {
+          "name": "Eyring (transition state theory) equation",
+          "form": "k = (k_B * T / h) * exp(-delta_G_dagger / (R*T))",
+          "type": "equation"
+        },
+        {
+          "name": "Michaelis-Menten equation",
+          "form": "v = V_max * [S] / (K_M + [S])",
+          "type": "equation"
+        },
+        {
+          "name": "Lineweaver-Burk linearization",
+          "form": "1/v = (K_M/V_max)*(1/[S]) + 1/V_max",
+          "type": "equation"
+        }
       ]
     },
     {
@@ -246,24 +676,90 @@
         "Corrosion and cathodic protection"
       ],
       "glossary": [
-        {"term": "oxidation state", "definition": "A bookkeeping convention assigning hypothetical charge to an atom based on electronegativity rules in bonding."},
-        {"term": "standard electrode potential (E^o)", "definition": "The potential of a half-cell under standard conditions (1 M concentration, 1 bar partial pressure, 25 degrees C) relative to the SHE."},
-        {"term": "standard hydrogen electrode (SHE)", "definition": "The reference half-cell with E^o defined as 0 V: H+(aq, 1M) + e- <=> 1/2 H2(g, 1 bar)."},
-        {"term": "EMF (E_cell)", "definition": "The electromotive force (cell potential) driving current in a galvanic cell; E_cell = E_cathode - E_anode."},
-        {"term": "Nernst equation", "definition": "Relates cell potential to the reaction quotient Q: E = E^o - (RT/nF) ln Q."},
-        {"term": "Faraday's constant (F)", "definition": "The charge of one mole of electrons, equal to 96485 C/mol."},
-        {"term": "anode", "definition": "The electrode at which oxidation occurs; in a galvanic cell it is the negative terminal."},
-        {"term": "cathode", "definition": "The electrode at which reduction occurs; in a galvanic cell it is the positive terminal."},
-        {"term": "overpotential", "definition": "The additional voltage beyond the thermodynamic minimum required to drive an electrolytic reaction at a given rate."},
-        {"term": "concentration cell", "definition": "A galvanic cell whose EMF arises solely from a difference in concentration of the same species at the two electrodes."}
+        {
+          "term": "oxidation state",
+          "definition": "A bookkeeping convention assigning hypothetical charge to an atom based on electronegativity rules in bonding."
+        },
+        {
+          "term": "standard electrode potential (E^o)",
+          "definition": "The potential of a half-cell under standard conditions (1 M concentration, 1 bar partial pressure, 25 degrees C) relative to the SHE."
+        },
+        {
+          "term": "standard hydrogen electrode (SHE)",
+          "definition": "The reference half-cell with E^o defined as 0 V: H+(aq, 1M) + e- <=> 1/2 H2(g, 1 bar)."
+        },
+        {
+          "term": "EMF (E_cell)",
+          "definition": "The electromotive force (cell potential) driving current in a galvanic cell; E_cell = E_cathode - E_anode."
+        },
+        {
+          "term": "Nernst equation",
+          "definition": "Relates cell potential to the reaction quotient Q: E = E^o - (RT/nF) ln Q."
+        },
+        {
+          "term": "Faraday's constant (F)",
+          "definition": "The charge of one mole of electrons, equal to 96485 C/mol."
+        },
+        {
+          "term": "anode",
+          "definition": "The electrode at which oxidation occurs; in a galvanic cell it is the negative terminal."
+        },
+        {
+          "term": "cathode",
+          "definition": "The electrode at which reduction occurs; in a galvanic cell it is the positive terminal."
+        },
+        {
+          "term": "overpotential",
+          "definition": "The additional voltage beyond the thermodynamic minimum required to drive an electrolytic reaction at a given rate."
+        },
+        {
+          "term": "concentration cell",
+          "definition": "A galvanic cell whose EMF arises solely from a difference in concentration of the same species at the two electrodes."
+        },
+        {
+          "term": "oxidation",
+          "definition": "The loss of electrons by an atom/molecule in a redox reaction (increase in oxidation state); always paired with reduction (gain of electrons)."
+        },
+        {
+          "term": "reduction",
+          "definition": "The gain of electrons by an atom/molecule in a redox reaction (decrease in oxidation state); occurs at the cathode in electrochemical cells."
+        },
+        {
+          "term": "metal",
+          "definition": "An element characterized by metallic bonding, electrical conductivity, malleability, and tendency to lose electrons to form cations; located on the left/center of the periodic table."
+        }
       ],
       "canon": [
-        {"name": "Cell potential (standard)", "form": "E^o_cell = E^o_cathode - E^o_anode", "type": "equation"},
-        {"name": "Gibbs free energy and cell potential", "form": "delta_G^o = -n*F*E^o_cell", "type": "equation"},
-        {"name": "Nernst equation", "form": "E = E^o - (R*T)/(n*F) * ln(Q)  =>  E = E^o - (0.05916/n) * log(Q) at 298 K", "type": "equation"},
-        {"name": "Equilibrium from E^o", "form": "ln(K) = n*F*E^o / (R*T)  =>  log(K) = n*E^o / 0.05916 at 298 K", "type": "equation"},
-        {"name": "Faraday's first law", "form": "m = (M * I * t) / (n * F)  where m=mass deposited, M=molar mass, I=current, t=time", "type": "law"},
-        {"name": "Faraday's constant", "form": "F = 96485 C/mol", "type": "definition"}
+        {
+          "name": "Cell potential (standard)",
+          "form": "E^o_cell = E^o_cathode - E^o_anode",
+          "type": "equation"
+        },
+        {
+          "name": "Gibbs free energy and cell potential",
+          "form": "delta_G^o = -n*F*E^o_cell",
+          "type": "equation"
+        },
+        {
+          "name": "Nernst equation",
+          "form": "E = E^o - (R*T)/(n*F) * ln(Q)  =>  E = E^o - (0.05916/n) * log(Q) at 298 K",
+          "type": "equation"
+        },
+        {
+          "name": "Equilibrium from E^o",
+          "form": "ln(K) = n*F*E^o / (R*T)  =>  log(K) = n*E^o / 0.05916 at 298 K",
+          "type": "equation"
+        },
+        {
+          "name": "Faraday's first law",
+          "form": "m = (M * I * t) / (n * F)  where m=mass deposited, M=molar mass, I=current, t=time",
+          "type": "law"
+        },
+        {
+          "name": "Faraday's constant",
+          "form": "F = 96485 C/mol",
+          "type": "definition"
+        }
       ]
     },
     {
@@ -283,29 +779,113 @@
         "Slater's rules for Z_eff"
       ],
       "glossary": [
-        {"term": "wavefunction (psi)", "definition": "A mathematical function whose square |psi|^2 gives the probability density for finding a particle at a given point."},
-        {"term": "quantum number n", "definition": "The principal quantum number (n = 1, 2, 3, ...); determines the energy and size of the orbital."},
-        {"term": "quantum number l", "definition": "The azimuthal (angular momentum) quantum number (0 to n-1); determines orbital shape (s, p, d, f for l = 0, 1, 2, 3)."},
-        {"term": "quantum number m_l", "definition": "The magnetic quantum number (-l to +l); specifies orbital orientation in space."},
-        {"term": "Heisenberg uncertainty principle", "definition": "The position and momentum of a particle cannot both be known exactly: delta_x * delta_p >= h/(4*pi)."},
-        {"term": "de Broglie wavelength", "definition": "The wavelength associated with a particle of momentum p: lambda = h/p."},
-        {"term": "Aufbau principle", "definition": "Electrons fill orbitals in order of increasing energy, following the (n + l) rule."},
-        {"term": "Hund's rule", "definition": "Electrons occupy orbitals of equal energy singly with parallel spins before pairing."},
-        {"term": "Pauli exclusion principle", "definition": "No two electrons in an atom can have the same four quantum numbers; each orbital holds at most two electrons with opposite spin."},
-        {"term": "effective nuclear charge (Z_eff)", "definition": "The net positive charge experienced by an electron after accounting for shielding by other electrons: Z_eff = Z - sigma."},
-        {"term": "ionization energy (IE)", "definition": "The minimum energy needed to remove an electron from a gaseous atom or ion in its ground state."},
-        {"term": "electron affinity (EA)", "definition": "The energy change when an electron is added to a neutral gaseous atom in its ground state."}
+        {
+          "term": "wavefunction (psi)",
+          "definition": "A mathematical function whose square |psi|^2 gives the probability density for finding a particle at a given point."
+        },
+        {
+          "term": "quantum number n",
+          "definition": "The principal quantum number (n = 1, 2, 3, ...); determines the energy and size of the orbital."
+        },
+        {
+          "term": "quantum number l",
+          "definition": "The azimuthal (angular momentum) quantum number (0 to n-1); determines orbital shape (s, p, d, f for l = 0, 1, 2, 3)."
+        },
+        {
+          "term": "quantum number m_l",
+          "definition": "The magnetic quantum number (-l to +l); specifies orbital orientation in space."
+        },
+        {
+          "term": "Heisenberg uncertainty principle",
+          "definition": "The position and momentum of a particle cannot both be known exactly: delta_x * delta_p >= h/(4*pi)."
+        },
+        {
+          "term": "de Broglie wavelength",
+          "definition": "The wavelength associated with a particle of momentum p: lambda = h/p."
+        },
+        {
+          "term": "Aufbau principle",
+          "definition": "Electrons fill orbitals in order of increasing energy, following the (n + l) rule."
+        },
+        {
+          "term": "Hund's rule",
+          "definition": "Electrons occupy orbitals of equal energy singly with parallel spins before pairing."
+        },
+        {
+          "term": "Pauli exclusion principle",
+          "definition": "No two electrons in an atom can have the same four quantum numbers; each orbital holds at most two electrons with opposite spin."
+        },
+        {
+          "term": "effective nuclear charge (Z_eff)",
+          "definition": "The net positive charge experienced by an electron after accounting for shielding by other electrons: Z_eff = Z - sigma."
+        },
+        {
+          "term": "ionization energy (IE)",
+          "definition": "The minimum energy needed to remove an electron from a gaseous atom or ion in its ground state."
+        },
+        {
+          "term": "electron affinity (EA)",
+          "definition": "The energy change when an electron is added to a neutral gaseous atom in its ground state."
+        },
+        {
+          "term": "electron",
+          "definition": "A negatively charged elementary particle (charge \u2212e = \u22121.6\u00d710\u207b\u00b9\u2079 C) surrounding the nucleus; its quantum states (orbitals) determine bonding and reactivity."
+        },
+        {
+          "term": "orbital",
+          "definition": "A mathematical function (wavefunction) describing the probability distribution of an electron in an atom; quantum numbers n, l, m\u2097 define each orbital (s, p, d, f types)."
+        },
+        {
+          "term": "electron configuration",
+          "definition": "The arrangement of an atom's electrons among its orbitals (e.g. 1s2 2s2 2p6), filled according to the Aufbau principle, the Pauli exclusion principle, and Hund's rule."
+        }
       ],
       "canon": [
-        {"name": "Schrodinger equation (time-independent)", "form": "H_hat * psi = E * psi  where H_hat = -(h_bar^2/2m)*nabla^2 + V", "type": "equation"},
-        {"name": "de Broglie relation", "form": "lambda = h / p = h / (m*v)", "type": "equation"},
-        {"name": "Heisenberg uncertainty principle", "form": "delta_x * delta_p >= h_bar / 2", "type": "law"},
-        {"name": "Hydrogen atom energy levels", "form": "E_n = -13.6 eV / n^2 = -R_H * h * c / n^2", "type": "equation"},
-        {"name": "Rydberg formula for hydrogen", "form": "1/lambda = R_H * (1/n_1^2 - 1/n_2^2)  where R_H = 1.097e7 m^-1", "type": "equation"},
-        {"name": "Particle in a box energy levels", "form": "E_n = n^2 * h^2 / (8*m*L^2)  n = 1, 2, 3, ...", "type": "equation"},
-        {"name": "Particle in a box wavefunction", "form": "psi_n(x) = sqrt(2/L) * sin(n*pi*x/L)  0 <= x <= L", "type": "equation"},
-        {"name": "Bohr energy formula", "form": "E_n = -Z^2 * e^4 * m_e / (8 * epsilon_0^2 * h^2 * n^2)", "type": "equation"},
-        {"name": "Angular momentum quantization (Bohr)", "form": "L = n * h_bar", "type": "equation"}
+        {
+          "name": "Schrodinger equation (time-independent)",
+          "form": "H_hat * psi = E * psi  where H_hat = -(h_bar^2/2m)*nabla^2 + V",
+          "type": "equation"
+        },
+        {
+          "name": "de Broglie relation",
+          "form": "lambda = h / p = h / (m*v)",
+          "type": "equation"
+        },
+        {
+          "name": "Heisenberg uncertainty principle",
+          "form": "delta_x * delta_p >= h_bar / 2",
+          "type": "law"
+        },
+        {
+          "name": "Hydrogen atom energy levels",
+          "form": "E_n = -13.6 eV / n^2 = -R_H * h * c / n^2",
+          "type": "equation"
+        },
+        {
+          "name": "Rydberg formula for hydrogen",
+          "form": "1/lambda = R_H * (1/n_1^2 - 1/n_2^2)  where R_H = 1.097e7 m^-1",
+          "type": "equation"
+        },
+        {
+          "name": "Particle in a box energy levels",
+          "form": "E_n = n^2 * h^2 / (8*m*L^2)  n = 1, 2, 3, ...",
+          "type": "equation"
+        },
+        {
+          "name": "Particle in a box wavefunction",
+          "form": "psi_n(x) = sqrt(2/L) * sin(n*pi*x/L)  0 <= x <= L",
+          "type": "equation"
+        },
+        {
+          "name": "Bohr energy formula",
+          "form": "E_n = -Z^2 * e^4 * m_e / (8 * epsilon_0^2 * h^2 * n^2)",
+          "type": "equation"
+        },
+        {
+          "name": "Angular momentum quantization (Bohr)",
+          "form": "L = n * h_bar",
+          "type": "equation"
+        }
       ]
     },
     {
@@ -324,23 +904,85 @@
         "Band theory of solids"
       ],
       "glossary": [
-        {"term": "bond order", "definition": "In MO theory, (bonding electrons - antibonding electrons) / 2; higher bond order means shorter and stronger bond."},
-        {"term": "VSEPR", "definition": "Valence Shell Electron Pair Repulsion theory; molecular geometry determined by minimizing repulsion between electron domains around the central atom."},
-        {"term": "hybridization", "definition": "The mixing of atomic orbitals to form new hybrid orbitals of equal energy directed toward bonding partners."},
-        {"term": "dipole moment (mu)", "definition": "A measure of charge separation in a molecule: mu = q * d; units are debye (D) or C·m."},
-        {"term": "hydrogen bond", "definition": "A strong electrostatic interaction between a hydrogen atom covalently bonded to a highly electronegative atom (N, O, F) and a lone pair on another such atom."},
-        {"term": "lattice energy", "definition": "The energy released when gaseous ions come together to form an ionic crystal; related to ionic charges and radii via the Born-Lande equation."},
-        {"term": "formal charge", "definition": "A bookkeeping charge assigned to an atom in a Lewis structure: formal charge = (valence electrons) - (lone-pair electrons) - 0.5*(bonding electrons)."},
-        {"term": "resonance", "definition": "The description of a molecule or ion as a hybrid of two or more Lewis structures (resonance structures) that differ only in electron placement."},
-        {"term": "electronegativity", "definition": "A measure of an atom's ability to attract bonding electrons to itself; increases across a period and decreases down a group (Pauling scale)."},
-        {"term": "London dispersion force", "definition": "A transient induced-dipole/induced-dipole attraction present between all molecules; strength increases with polarizability and molecular mass."}
+        {
+          "term": "bond order",
+          "definition": "In MO theory, (bonding electrons - antibonding electrons) / 2; higher bond order means shorter and stronger bond."
+        },
+        {
+          "term": "VSEPR",
+          "definition": "Valence Shell Electron Pair Repulsion theory; molecular geometry determined by minimizing repulsion between electron domains around the central atom."
+        },
+        {
+          "term": "hybridization",
+          "definition": "The mixing of atomic orbitals to form new hybrid orbitals of equal energy directed toward bonding partners."
+        },
+        {
+          "term": "dipole moment (mu)",
+          "definition": "A measure of charge separation in a molecule: mu = q * d; units are debye (D) or C\u00b7m."
+        },
+        {
+          "term": "hydrogen bond",
+          "definition": "A strong electrostatic interaction between a hydrogen atom covalently bonded to a highly electronegative atom (N, O, F) and a lone pair on another such atom."
+        },
+        {
+          "term": "lattice energy",
+          "definition": "The energy released when gaseous ions come together to form an ionic crystal; related to ionic charges and radii via the Born-Lande equation."
+        },
+        {
+          "term": "formal charge",
+          "definition": "A bookkeeping charge assigned to an atom in a Lewis structure: formal charge = (valence electrons) - (lone-pair electrons) - 0.5*(bonding electrons)."
+        },
+        {
+          "term": "resonance",
+          "definition": "The description of a molecule or ion as a hybrid of two or more Lewis structures (resonance structures) that differ only in electron placement."
+        },
+        {
+          "term": "electronegativity",
+          "definition": "A measure of an atom's ability to attract bonding electrons to itself; increases across a period and decreases down a group (Pauling scale)."
+        },
+        {
+          "term": "London dispersion force",
+          "definition": "A transient induced-dipole/induced-dipole attraction present between all molecules; strength increases with polarizability and molecular mass."
+        },
+        {
+          "term": "covalent bond",
+          "definition": "Bond formed by sharing electron pairs between atoms. Lewis structure: shared pairs shown as lines. Polarity from electronegativity difference."
+        },
+        {
+          "term": "ionic bond",
+          "definition": "Electrostatic attraction between oppositely charged ions (cation+ and anion-). Forms between metals and nonmetals. Strong lattice energy."
+        },
+        {
+          "term": "valence electrons",
+          "definition": "Electrons in the outermost shell that participate in bonding. Determines bonding capacity; group 1A elements have 1 valence electron, etc."
+        }
       ],
       "canon": [
-        {"name": "Bond order (MO theory)", "form": "BO = (N_bonding - N_antibonding) / 2", "type": "definition"},
-        {"name": "Dipole moment", "form": "mu = q * d  (charge times separation distance)", "type": "definition"},
-        {"name": "Born-Lande lattice energy", "form": "U = -(N_A * M * Z+ * Z- * e^2) / (4*pi*epsilon_0 * r_0) * (1 - 1/n)", "type": "equation"},
-        {"name": "LCAO-MO (bonding/antibonding)", "form": "psi_bonding = psi_A + psi_B;  psi_antibonding = psi_A - psi_B", "type": "definition"},
-        {"name": "Hess-cycle (Born-Haber)", "form": "U_lattice = delta_H_f^o(ionic) - [delta_H_sub + IE + 1/2 D(X2) - EA]", "type": "equation"}
+        {
+          "name": "Bond order (MO theory)",
+          "form": "BO = (N_bonding - N_antibonding) / 2",
+          "type": "definition"
+        },
+        {
+          "name": "Dipole moment",
+          "form": "mu = q * d  (charge times separation distance)",
+          "type": "definition"
+        },
+        {
+          "name": "Born-Lande lattice energy",
+          "form": "U = -(N_A * M * Z+ * Z- * e^2) / (4*pi*epsilon_0 * r_0) * (1 - 1/n)",
+          "type": "equation"
+        },
+        {
+          "name": "LCAO-MO (bonding/antibonding)",
+          "form": "psi_bonding = psi_A + psi_B;  psi_antibonding = psi_A - psi_B",
+          "type": "definition"
+        },
+        {
+          "name": "Hess-cycle (Born-Haber)",
+          "form": "U_lattice = delta_H_f^o(ionic) - [delta_H_sub + IE + 1/2 D(X2) - EA]",
+          "type": "equation"
+        }
       ]
     },
     {
@@ -360,26 +1002,90 @@
         "Pericyclic reactions: Diels-Alder, electrocyclic (Woodward-Hoffmann rules)"
       ],
       "glossary": [
-        {"term": "nucleophile", "definition": "An electron-pair donor that attacks electrophilic centers (electron-poor atoms); Lewis base."},
-        {"term": "electrophile", "definition": "An electron-pair acceptor that attacks nucleophilic centers; Lewis acid."},
-        {"term": "carbocation", "definition": "A species bearing a positively charged trivalent carbon; stability order: tertiary > secondary > primary > methyl."},
-        {"term": "carbanion", "definition": "A species bearing a negatively charged carbon; stability increased by adjacent electron-withdrawing groups."},
-        {"term": "SN2 mechanism", "definition": "Bimolecular nucleophilic substitution proceeding through a backside-attack transition state with inversion of configuration; rate = k[Nu][substrate]."},
-        {"term": "SN1 mechanism", "definition": "Unimolecular nucleophilic substitution through a carbocation intermediate; rate depends only on substrate concentration; can give racemization."},
-        {"term": "Markovnikov's rule", "definition": "In electrophilic addition to an unsymmetrical alkene, the electrophile (H+) adds to the carbon with more hydrogen atoms."},
-        {"term": "Zaitsev's rule", "definition": "Elimination reactions preferentially give the more substituted (more stable) alkene product."},
-        {"term": "enantiotopic / diastereotopic", "definition": "Groups that are related by symmetry operations: enantiotopic replacements give enantiomers; diastereotopic replacements give diastereomers."},
-        {"term": "resonance stabilization", "definition": "Delocalization of electrons over multiple atoms, stabilizing a species relative to a localized structure."},
-        {"term": "Diels-Alder reaction", "definition": "A [4+2] cycloaddition between a conjugated diene (4 pi electrons) and a dienophile (2 pi electrons) to form a six-membered ring; syn-addition, endo rule."},
-        {"term": "enol / enolate", "definition": "An enol is a tautomer of a carbonyl compound with OH on a sp2 carbon; an enolate is its conjugate base, a resonance-stabilized carbanion."}
+        {
+          "term": "nucleophile",
+          "definition": "An electron-pair donor that attacks electrophilic centers (electron-poor atoms); Lewis base."
+        },
+        {
+          "term": "electrophile",
+          "definition": "An electron-pair acceptor that attacks nucleophilic centers; Lewis acid."
+        },
+        {
+          "term": "carbocation",
+          "definition": "A species bearing a positively charged trivalent carbon; stability order: tertiary > secondary > primary > methyl."
+        },
+        {
+          "term": "carbanion",
+          "definition": "A species bearing a negatively charged carbon; stability increased by adjacent electron-withdrawing groups."
+        },
+        {
+          "term": "SN2 mechanism",
+          "definition": "Bimolecular nucleophilic substitution proceeding through a backside-attack transition state with inversion of configuration; rate = k[Nu][substrate]."
+        },
+        {
+          "term": "SN1 mechanism",
+          "definition": "Unimolecular nucleophilic substitution through a carbocation intermediate; rate depends only on substrate concentration; can give racemization."
+        },
+        {
+          "term": "Markovnikov's rule",
+          "definition": "In electrophilic addition to an unsymmetrical alkene, the electrophile (H+) adds to the carbon with more hydrogen atoms."
+        },
+        {
+          "term": "Zaitsev's rule",
+          "definition": "Elimination reactions preferentially give the more substituted (more stable) alkene product."
+        },
+        {
+          "term": "enantiotopic / diastereotopic",
+          "definition": "Groups that are related by symmetry operations: enantiotopic replacements give enantiomers; diastereotopic replacements give diastereomers."
+        },
+        {
+          "term": "resonance stabilization",
+          "definition": "Delocalization of electrons over multiple atoms, stabilizing a species relative to a localized structure."
+        },
+        {
+          "term": "Diels-Alder reaction",
+          "definition": "A [4+2] cycloaddition between a conjugated diene (4 pi electrons) and a dienophile (2 pi electrons) to form a six-membered ring; syn-addition, endo rule."
+        },
+        {
+          "term": "enol / enolate",
+          "definition": "An enol is a tautomer of a carbonyl compound with OH on a sp2 carbon; an enolate is its conjugate base, a resonance-stabilized carbanion."
+        },
+        {
+          "term": "organic",
+          "definition": "Organic compounds contain carbon-hydrogen bonds (and typically C-C bonds); organic chemistry studies their structure, properties, reactions, and synthesis."
+        }
       ],
       "canon": [
-        {"name": "SN2 rate law", "form": "rate = k[Nu][R-X]  (bimolecular, inversion of configuration)", "type": "equation"},
-        {"name": "SN1 rate law", "form": "rate = k[R-X]  (unimolecular, carbocation intermediate)", "type": "equation"},
-        {"name": "E2 rate law", "form": "rate = k[base][R-X]  (bimolecular, anti-periplanar geometry required)", "type": "equation"},
-        {"name": "Markovnikov's rule", "form": "H adds to the less-substituted carbon (carbocation forms at more-substituted carbon)", "type": "law"},
-        {"name": "Diels-Alder [4+2] cycloaddition", "form": "diene + dienophile -> cyclohexene  (syn addition, concerted, endo preference)", "type": "law"},
-        {"name": "Fischer esterification equilibrium", "form": "R-COOH + R'OH <=(H+)=> R-COOR' + H2O  (K ~ 1, driven by removing H2O)", "type": "equation"}
+        {
+          "name": "SN2 rate law",
+          "form": "rate = k[Nu][R-X]  (bimolecular, inversion of configuration)",
+          "type": "equation"
+        },
+        {
+          "name": "SN1 rate law",
+          "form": "rate = k[R-X]  (unimolecular, carbocation intermediate)",
+          "type": "equation"
+        },
+        {
+          "name": "E2 rate law",
+          "form": "rate = k[base][R-X]  (bimolecular, anti-periplanar geometry required)",
+          "type": "equation"
+        },
+        {
+          "name": "Markovnikov's rule",
+          "form": "H adds to the less-substituted carbon (carbocation forms at more-substituted carbon)",
+          "type": "law"
+        },
+        {
+          "name": "Diels-Alder [4+2] cycloaddition",
+          "form": "diene + dienophile -> cyclohexene  (syn addition, concerted, endo preference)",
+          "type": "law"
+        },
+        {
+          "name": "Fischer esterification equilibrium",
+          "form": "R-COOH + R'OH <=(H+)=> R-COOR' + H2O  (K ~ 1, driven by removing H2O)",
+          "type": "equation"
+        }
       ]
     },
     {
@@ -397,25 +1103,91 @@
         "X-ray diffraction (Bragg's law)"
       ],
       "glossary": [
-        {"term": "Beer-Lambert law", "definition": "Absorbance A = epsilon * c * l, where epsilon is molar absorptivity, c is molar concentration, and l is path length."},
-        {"term": "transmittance (T)", "definition": "The fraction of light that passes through a sample: T = I/I_0; A = -log10(T)."},
-        {"term": "chemical shift (delta)", "definition": "In NMR, the resonance frequency of a nucleus relative to a reference (TMS), expressed in parts per million (ppm)."},
-        {"term": "spin-spin coupling constant (J)", "definition": "The NMR coupling constant in Hz between neighboring nuclei, related to dihedral angle by the Karplus equation."},
-        {"term": "molar absorptivity (epsilon)", "definition": "The intrinsic property of a substance relating absorbance to concentration and path length; units are L/(mol·cm)."},
-        {"term": "fingerprint region", "definition": "The complex region of an IR spectrum from ~500–1500 cm-1 unique to each molecule; used for compound identification."},
-        {"term": "molecular ion (M+)", "definition": "In mass spectrometry, the intact molecule that has lost one electron; its m/z equals the molecular weight."},
-        {"term": "base peak", "definition": "The most abundant ion peak in a mass spectrum, set to 100% relative abundance."},
-        {"term": "Bragg's law", "definition": "The condition for constructive interference in X-ray diffraction: n*lambda = 2*d*sin(theta)."},
-        {"term": "selection rule", "definition": "A quantum-mechanical rule specifying allowed transitions; for IR, a vibration must cause a change in dipole moment; for Raman, a change in polarizability."}
+        {
+          "term": "Beer-Lambert law",
+          "definition": "Absorbance A = epsilon * c * l, where epsilon is molar absorptivity, c is molar concentration, and l is path length."
+        },
+        {
+          "term": "transmittance (T)",
+          "definition": "The fraction of light that passes through a sample: T = I/I_0; A = -log10(T)."
+        },
+        {
+          "term": "chemical shift (delta)",
+          "definition": "In NMR, the resonance frequency of a nucleus relative to a reference (TMS), expressed in parts per million (ppm)."
+        },
+        {
+          "term": "spin-spin coupling constant (J)",
+          "definition": "The NMR coupling constant in Hz between neighboring nuclei, related to dihedral angle by the Karplus equation."
+        },
+        {
+          "term": "molar absorptivity (epsilon)",
+          "definition": "The intrinsic property of a substance relating absorbance to concentration and path length; units are L/(mol\u00b7cm)."
+        },
+        {
+          "term": "fingerprint region",
+          "definition": "The complex region of an IR spectrum from ~500\u20131500 cm-1 unique to each molecule; used for compound identification."
+        },
+        {
+          "term": "molecular ion (M+)",
+          "definition": "In mass spectrometry, the intact molecule that has lost one electron; its m/z equals the molecular weight."
+        },
+        {
+          "term": "base peak",
+          "definition": "The most abundant ion peak in a mass spectrum, set to 100% relative abundance."
+        },
+        {
+          "term": "Bragg's law",
+          "definition": "The condition for constructive interference in X-ray diffraction: n*lambda = 2*d*sin(theta)."
+        },
+        {
+          "term": "selection rule",
+          "definition": "A quantum-mechanical rule specifying allowed transitions; for IR, a vibration must cause a change in dipole moment; for Raman, a change in polarizability."
+        },
+        {
+          "term": "NMR",
+          "definition": "Nuclear Magnetic Resonance spectroscopy; measures the magnetic environment of nuclei (\u00b9H, \u00b9\u00b3C) to determine molecular structure; chemical shifts (in ppm) identify functional groups."
+        },
+        {
+          "term": "spectroscopy",
+          "definition": "Study of matter-electromagnetic radiation interaction; types include IR (bond vibrations), UV-Vis (electronic transitions), NMR (nuclear spin), and mass spectrometry."
+        }
       ],
       "canon": [
-        {"name": "Energy of a photon", "form": "E = h*nu = h*c/lambda", "type": "equation"},
-        {"name": "Beer-Lambert law", "form": "A = epsilon * c * l = -log10(T)", "type": "law"},
-        {"name": "Bragg's law", "form": "n*lambda = 2*d*sin(theta)", "type": "law"},
-        {"name": "Harmonic oscillator vibrational energy", "form": "E_v = (v + 1/2)*h*nu_e  v = 0, 1, 2, ...", "type": "equation"},
-        {"name": "Rigid rotor rotational energy", "form": "E_J = h_bar^2 / (2I) * J*(J+1)  J = 0, 1, 2, ...", "type": "equation"},
-        {"name": "Wavenumber-frequency relation", "form": "nu_bar = 1/lambda = nu/c  (units cm^-1)", "type": "definition"},
-        {"name": "Karplus equation (NMR coupling)", "form": "J = A - B*cos(phi) + C*cos(2*phi)  where phi is dihedral angle", "type": "equation"}
+        {
+          "name": "Energy of a photon",
+          "form": "E = h*nu = h*c/lambda",
+          "type": "equation"
+        },
+        {
+          "name": "Beer-Lambert law",
+          "form": "A = epsilon * c * l = -log10(T)",
+          "type": "law"
+        },
+        {
+          "name": "Bragg's law",
+          "form": "n*lambda = 2*d*sin(theta)",
+          "type": "law"
+        },
+        {
+          "name": "Harmonic oscillator vibrational energy",
+          "form": "E_v = (v + 1/2)*h*nu_e  v = 0, 1, 2, ...",
+          "type": "equation"
+        },
+        {
+          "name": "Rigid rotor rotational energy",
+          "form": "E_J = h_bar^2 / (2I) * J*(J+1)  J = 0, 1, 2, ...",
+          "type": "equation"
+        },
+        {
+          "name": "Wavenumber-frequency relation",
+          "form": "nu_bar = 1/lambda = nu/c  (units cm^-1)",
+          "type": "definition"
+        },
+        {
+          "name": "Karplus equation (NMR coupling)",
+          "form": "J = A - B*cos(phi) + C*cos(2*phi)  where phi is dihedral angle",
+          "type": "equation"
+        }
       ]
     },
     {
@@ -433,23 +1205,73 @@
         "Bioinorganic chemistry: metalloproteins (hemoglobin, myoglobin)"
       ],
       "glossary": [
-        {"term": "coordination compound", "definition": "A compound containing a central metal atom or ion bonded to surrounding ligands via coordinate (dative) bonds."},
-        {"term": "ligand", "definition": "An ion or molecule that donates electron pairs to a central metal atom; classified by denticity (mono-, bi-, polydentate)."},
-        {"term": "crystal field splitting (Delta)", "definition": "The energy gap between the lower and higher d-orbital sets in a ligand field; Delta_oct > Delta_tet for same ligands."},
-        {"term": "high-spin / low-spin", "definition": "Configuration of d electrons when Delta is less than or greater than the pairing energy, respectively; affects magnetic properties."},
-        {"term": "spectrochemical series", "definition": "An ordering of ligands by their ability to split d orbitals: I- < Br- < Cl- < F- < OH- < H2O < NH3 < en < CO < CN-."},
-        {"term": "chelate effect", "definition": "The enhanced thermodynamic stability of complexes formed by polydentate ligands compared to analogous monodentate ligand complexes, driven by entropy."},
-        {"term": "18-electron rule", "definition": "Stable transition-metal organometallic compounds tend to have 18 electrons in the metal valence shell (filled bonding MOs)."},
-        {"term": "crystal field stabilization energy (CFSE)", "definition": "The energy gained by a complex due to preferential occupation of lower-energy d orbitals in a ligand field."},
-        {"term": "trans effect", "definition": "The ability of a ligand to labilize (facilitate substitution of) the ligand trans to it; strongest for high-field ligands (CO, CN-, H-)."},
-        {"term": "oxidative addition", "definition": "A reaction in which a metal inserts into a bond (X-Y), increasing the metal's oxidation state by 2 and coordination number by 2."}
+        {
+          "term": "coordination compound",
+          "definition": "A compound containing a central metal atom or ion bonded to surrounding ligands via coordinate (dative) bonds."
+        },
+        {
+          "term": "ligand",
+          "definition": "An ion or molecule that donates electron pairs to a central metal atom; classified by denticity (mono-, bi-, polydentate)."
+        },
+        {
+          "term": "crystal field splitting (Delta)",
+          "definition": "The energy gap between the lower and higher d-orbital sets in a ligand field; Delta_oct > Delta_tet for same ligands."
+        },
+        {
+          "term": "high-spin / low-spin",
+          "definition": "Configuration of d electrons when Delta is less than or greater than the pairing energy, respectively; affects magnetic properties."
+        },
+        {
+          "term": "spectrochemical series",
+          "definition": "An ordering of ligands by their ability to split d orbitals: I- < Br- < Cl- < F- < OH- < H2O < NH3 < en < CO < CN-."
+        },
+        {
+          "term": "chelate effect",
+          "definition": "The enhanced thermodynamic stability of complexes formed by polydentate ligands compared to analogous monodentate ligand complexes, driven by entropy."
+        },
+        {
+          "term": "18-electron rule",
+          "definition": "Stable transition-metal organometallic compounds tend to have 18 electrons in the metal valence shell (filled bonding MOs)."
+        },
+        {
+          "term": "crystal field stabilization energy (CFSE)",
+          "definition": "The energy gained by a complex due to preferential occupation of lower-energy d orbitals in a ligand field."
+        },
+        {
+          "term": "trans effect",
+          "definition": "The ability of a ligand to labilize (facilitate substitution of) the ligand trans to it; strongest for high-field ligands (CO, CN-, H-)."
+        },
+        {
+          "term": "oxidative addition",
+          "definition": "A reaction in which a metal inserts into a bond (X-Y), increasing the metal's oxidation state by 2 and coordination number by 2."
+        }
       ],
       "canon": [
-        {"name": "Crystal field d-orbital splitting (octahedral)", "form": "e_g set (d_z2, d_x2-y2) raised by +3/5 Delta_oct; t_2g set (d_xy, d_xz, d_yz) lowered by -2/5 Delta_oct", "type": "definition"},
-        {"name": "Crystal field splitting (tetrahedral)", "form": "Delta_tet = (4/9) * Delta_oct (for same metal and ligands)", "type": "equation"},
-        {"name": "CFSE (octahedral, weak field d^n)", "form": "CFSE = (-2/5 * n_t2g + 3/5 * n_eg) * Delta_oct  (before pairing energy correction)", "type": "equation"},
-        {"name": "18-electron rule", "form": "Total electron count = metal d electrons + electrons donated by all ligands = 18 for stable complex", "type": "law"},
-        {"name": "Stability constant (formation constant)", "form": "K_f = [ML_n] / ([M][L]^n)  (product of stepwise formation constants K_1...K_n)", "type": "definition"}
+        {
+          "name": "Crystal field d-orbital splitting (octahedral)",
+          "form": "e_g set (d_z2, d_x2-y2) raised by +3/5 Delta_oct; t_2g set (d_xy, d_xz, d_yz) lowered by -2/5 Delta_oct",
+          "type": "definition"
+        },
+        {
+          "name": "Crystal field splitting (tetrahedral)",
+          "form": "Delta_tet = (4/9) * Delta_oct (for same metal and ligands)",
+          "type": "equation"
+        },
+        {
+          "name": "CFSE (octahedral, weak field d^n)",
+          "form": "CFSE = (-2/5 * n_t2g + 3/5 * n_eg) * Delta_oct  (before pairing energy correction)",
+          "type": "equation"
+        },
+        {
+          "name": "18-electron rule",
+          "form": "Total electron count = metal d electrons + electrons donated by all ligands = 18 for stable complex",
+          "type": "law"
+        },
+        {
+          "name": "Stability constant (formation constant)",
+          "form": "K_f = [ML_n] / ([M][L]^n)  (product of stepwise formation constants K_1...K_n)",
+          "type": "definition"
+        }
       ]
     },
     {
@@ -466,28 +1288,98 @@
         "Absolute entropy calculation from spectroscopic data"
       ],
       "glossary": [
-        {"term": "partition function (q or Z)", "definition": "The sum over all quantum states of the Boltzmann factor: q = sum_i exp(-E_i / k_B T); encodes all thermodynamic information of a system."},
-        {"term": "Boltzmann distribution", "definition": "The probability of a system being in state i: P_i = exp(-E_i / k_B T) / q."},
-        {"term": "canonical ensemble", "definition": "A statistical mechanical ensemble of systems at fixed N, V, and T; the partition function is Q = q^N / N! for distinguishable or indistinguishable particles."},
-        {"term": "equipartition theorem", "definition": "Each quadratic term in the classical Hamiltonian contributes (1/2)k_B T to the mean energy; translational and rotational modes each contribute (3/2)k_B T (linear), vibrational at high T contributes k_B T per mode."},
-        {"term": "residual entropy", "definition": "Non-zero entropy remaining at 0 K due to degeneracy in the ground state (e.g., CO, ice); S_0 = k_B ln(W)."},
-        {"term": "symmetry number (sigma)", "definition": "The number of equivalent orientations of a molecule obtained by rotations; used to avoid overcounting in the rotational partition function."},
-        {"term": "zero-point energy (ZPE)", "definition": "The energy (1/2)*h*nu_e of the lowest vibrational quantum level; non-zero even at absolute zero."},
-        {"term": "microcanonical ensemble", "definition": "An ensemble of isolated systems at fixed N, V, and E; entropy is S = k_B ln(Omega) where Omega is the number of microstates."},
-        {"term": "grand canonical ensemble", "definition": "An ensemble at fixed mu (chemical potential), V, and T; useful for open systems where particle number fluctuates."},
-        {"term": "Helmholtz free energy from Q", "definition": "A = -k_B T ln(Q); all other thermodynamic functions derived from A by standard relations."}
+        {
+          "term": "partition function (q or Z)",
+          "definition": "The sum over all quantum states of the Boltzmann factor: q = sum_i exp(-E_i / k_B T); encodes all thermodynamic information of a system."
+        },
+        {
+          "term": "Boltzmann distribution",
+          "definition": "The probability of a system being in state i: P_i = exp(-E_i / k_B T) / q."
+        },
+        {
+          "term": "canonical ensemble",
+          "definition": "A statistical mechanical ensemble of systems at fixed N, V, and T; the partition function is Q = q^N / N! for distinguishable or indistinguishable particles."
+        },
+        {
+          "term": "equipartition theorem",
+          "definition": "Each quadratic term in the classical Hamiltonian contributes (1/2)k_B T to the mean energy; translational and rotational modes each contribute (3/2)k_B T (linear), vibrational at high T contributes k_B T per mode."
+        },
+        {
+          "term": "residual entropy",
+          "definition": "Non-zero entropy remaining at 0 K due to degeneracy in the ground state (e.g., CO, ice); S_0 = k_B ln(W)."
+        },
+        {
+          "term": "symmetry number (sigma)",
+          "definition": "The number of equivalent orientations of a molecule obtained by rotations; used to avoid overcounting in the rotational partition function."
+        },
+        {
+          "term": "zero-point energy (ZPE)",
+          "definition": "The energy (1/2)*h*nu_e of the lowest vibrational quantum level; non-zero even at absolute zero."
+        },
+        {
+          "term": "microcanonical ensemble",
+          "definition": "An ensemble of isolated systems at fixed N, V, and E; entropy is S = k_B ln(Omega) where Omega is the number of microstates."
+        },
+        {
+          "term": "grand canonical ensemble",
+          "definition": "An ensemble at fixed mu (chemical potential), V, and T; useful for open systems where particle number fluctuates."
+        },
+        {
+          "term": "Helmholtz free energy from Q",
+          "definition": "A = -k_B T ln(Q); all other thermodynamic functions derived from A by standard relations."
+        }
       ],
       "canon": [
-        {"name": "Molecular partition function", "form": "q = sum_i g_i * exp(-E_i / (k_B*T))  where g_i is degeneracy of state i", "type": "definition"},
-        {"name": "Canonical partition function (ideal gas)", "form": "Q = q^N / N!  (indistinguishable particles)", "type": "equation"},
-        {"name": "Internal energy from partition function", "form": "U = k_B * T^2 * (d ln Q / dT)_V", "type": "equation"},
-        {"name": "Entropy from partition function", "form": "S = k_B * ln(Q) + U/T", "type": "equation"},
-        {"name": "Helmholtz free energy", "form": "A = -k_B * T * ln(Q)", "type": "equation"},
-        {"name": "Translational partition function (3D)", "form": "q_trans = (2*pi*m*k_B*T / h^2)^(3/2) * V  (de Broglie thermal volume)", "type": "equation"},
-        {"name": "Rotational partition function (linear molecule, high T)", "form": "q_rot = T / (sigma * Theta_rot)  where Theta_rot = h_bar^2 / (2*I*k_B)", "type": "equation"},
-        {"name": "Vibrational partition function (harmonic)", "form": "q_vib = exp(-Theta_vib/(2T)) / (1 - exp(-Theta_vib/T))  where Theta_vib = h*nu/k_B", "type": "equation"},
-        {"name": "Boltzmann entropy (microcanonical)", "form": "S = k_B * ln(Omega)", "type": "equation"},
-        {"name": "Equipartition (mean energy per quadratic mode)", "form": "E_mode = (1/2) * k_B * T", "type": "law"}
+        {
+          "name": "Molecular partition function",
+          "form": "q = sum_i g_i * exp(-E_i / (k_B*T))  where g_i is degeneracy of state i",
+          "type": "definition"
+        },
+        {
+          "name": "Canonical partition function (ideal gas)",
+          "form": "Q = q^N / N!  (indistinguishable particles)",
+          "type": "equation"
+        },
+        {
+          "name": "Internal energy from partition function",
+          "form": "U = k_B * T^2 * (d ln Q / dT)_V",
+          "type": "equation"
+        },
+        {
+          "name": "Entropy from partition function",
+          "form": "S = k_B * ln(Q) + U/T",
+          "type": "equation"
+        },
+        {
+          "name": "Helmholtz free energy",
+          "form": "A = -k_B * T * ln(Q)",
+          "type": "equation"
+        },
+        {
+          "name": "Translational partition function (3D)",
+          "form": "q_trans = (2*pi*m*k_B*T / h^2)^(3/2) * V  (de Broglie thermal volume)",
+          "type": "equation"
+        },
+        {
+          "name": "Rotational partition function (linear molecule, high T)",
+          "form": "q_rot = T / (sigma * Theta_rot)  where Theta_rot = h_bar^2 / (2*I*k_B)",
+          "type": "equation"
+        },
+        {
+          "name": "Vibrational partition function (harmonic)",
+          "form": "q_vib = exp(-Theta_vib/(2T)) / (1 - exp(-Theta_vib/T))  where Theta_vib = h*nu/k_B",
+          "type": "equation"
+        },
+        {
+          "name": "Boltzmann entropy (microcanonical)",
+          "form": "S = k_B * ln(Omega)",
+          "type": "equation"
+        },
+        {
+          "name": "Equipartition (mean energy per quadratic mode)",
+          "form": "E_mode = (1/2) * k_B * T",
+          "type": "law"
+        }
       ]
     },
     {
@@ -506,25 +1398,87 @@
         "Potential energy surfaces and transition-state structure"
       ],
       "glossary": [
-        {"term": "Born-Oppenheimer approximation", "definition": "The assumption that electrons adjust instantaneously to nuclear positions because electrons are much lighter; separates nuclear and electronic wavefunctions."},
-        {"term": "variational principle", "definition": "The expectation value of the Hamiltonian for any trial wavefunction is greater than or equal to the true ground-state energy: <psi|H|psi> >= E_0."},
-        {"term": "Hartree-Fock (HF) method", "definition": "A mean-field SCF method that approximates the many-electron wavefunction as a single Slater determinant of spin-orbitals; neglects electron correlation."},
-        {"term": "basis set", "definition": "A finite set of mathematical functions (atomic orbitals) used to expand molecular orbitals in quantum chemistry calculations."},
-        {"term": "electron correlation energy", "definition": "The difference between the exact non-relativistic energy and the Hartree-Fock energy: E_corr = E_exact - E_HF; always negative."},
-        {"term": "density functional theory (DFT)", "definition": "A method that replaces the many-electron wavefunction with the electron density rho(r) as the fundamental variable, based on the Hohenberg-Kohn theorems."},
-        {"term": "exchange-correlation functional", "definition": "The unknown functional E_xc[rho] in DFT that accounts for exchange (Pauli) and correlation effects; approximated by LDA, GGA, hybrid functionals."},
-        {"term": "coupled cluster (CC) theory", "definition": "A high-accuracy post-HF method that expresses the wavefunction as exp(T)|HF>; CCSD(T) is considered the 'gold standard' for molecular energetics."},
-        {"term": "Slater determinant", "definition": "An antisymmetrized product of spin-orbitals that automatically satisfies the Pauli exclusion principle for fermions."},
-        {"term": "potential energy surface (PES)", "definition": "The electronic energy as a function of nuclear coordinates; stationary points correspond to equilibrium geometries and transition states."}
+        {
+          "term": "Born-Oppenheimer approximation",
+          "definition": "The assumption that electrons adjust instantaneously to nuclear positions because electrons are much lighter; separates nuclear and electronic wavefunctions."
+        },
+        {
+          "term": "variational principle",
+          "definition": "The expectation value of the Hamiltonian for any trial wavefunction is greater than or equal to the true ground-state energy: <psi|H|psi> >= E_0."
+        },
+        {
+          "term": "Hartree-Fock (HF) method",
+          "definition": "A mean-field SCF method that approximates the many-electron wavefunction as a single Slater determinant of spin-orbitals; neglects electron correlation."
+        },
+        {
+          "term": "basis set",
+          "definition": "A finite set of mathematical functions (atomic orbitals) used to expand molecular orbitals in quantum chemistry calculations."
+        },
+        {
+          "term": "electron correlation energy",
+          "definition": "The difference between the exact non-relativistic energy and the Hartree-Fock energy: E_corr = E_exact - E_HF; always negative."
+        },
+        {
+          "term": "density functional theory (DFT)",
+          "definition": "A method that replaces the many-electron wavefunction with the electron density rho(r) as the fundamental variable, based on the Hohenberg-Kohn theorems."
+        },
+        {
+          "term": "exchange-correlation functional",
+          "definition": "The unknown functional E_xc[rho] in DFT that accounts for exchange (Pauli) and correlation effects; approximated by LDA, GGA, hybrid functionals."
+        },
+        {
+          "term": "coupled cluster (CC) theory",
+          "definition": "A high-accuracy post-HF method that expresses the wavefunction as exp(T)|HF>; CCSD(T) is considered the 'gold standard' for molecular energetics."
+        },
+        {
+          "term": "Slater determinant",
+          "definition": "An antisymmetrized product of spin-orbitals that automatically satisfies the Pauli exclusion principle for fermions."
+        },
+        {
+          "term": "potential energy surface (PES)",
+          "definition": "The electronic energy as a function of nuclear coordinates; stationary points correspond to equilibrium geometries and transition states."
+        },
+        {
+          "term": "wave function",
+          "definition": "A function psi whose squared magnitude |psi|^2 gives the probability density for a quantum system's configuration; it carries all measurable information and evolves by the Schrodinger equation."
+        }
       ],
       "canon": [
-        {"name": "Variational theorem", "form": "E_trial = <psi_trial|H|psi_trial> / <psi_trial|psi_trial> >= E_0", "type": "law"},
-        {"name": "First-order perturbation energy correction", "form": "E_n^(1) = <psi_n^(0)|H'|psi_n^(0)>", "type": "equation"},
-        {"name": "Second-order perturbation energy correction", "form": "E_n^(2) = sum_{m != n} |<psi_m^(0)|H'|psi_n^(0)>|^2 / (E_n^(0) - E_m^(0))", "type": "equation"},
-        {"name": "Hohenberg-Kohn theorem I", "form": "The external potential V_ext(r) is determined uniquely (up to a constant) by the ground-state electron density rho(r).", "type": "law"},
-        {"name": "Kohn-Sham equations", "form": "[-hbar^2/(2m) nabla^2 + V_KS(r)] phi_i(r) = epsilon_i phi_i(r)  where V_KS = V_ext + V_Hartree + V_xc", "type": "equation"},
-        {"name": "HF energy expression", "form": "E_HF = sum_i h_ii + (1/2) sum_{ij} (J_ij - K_ij)", "type": "equation"},
-        {"name": "Coupled cluster wavefunction ansatz", "form": "|CC> = exp(T)|HF>  where T = T_1 + T_2 + ... (cluster operator)", "type": "definition"}
+        {
+          "name": "Variational theorem",
+          "form": "E_trial = <psi_trial|H|psi_trial> / <psi_trial|psi_trial> >= E_0",
+          "type": "law"
+        },
+        {
+          "name": "First-order perturbation energy correction",
+          "form": "E_n^(1) = <psi_n^(0)|H'|psi_n^(0)>",
+          "type": "equation"
+        },
+        {
+          "name": "Second-order perturbation energy correction",
+          "form": "E_n^(2) = sum_{m != n} |<psi_m^(0)|H'|psi_n^(0)>|^2 / (E_n^(0) - E_m^(0))",
+          "type": "equation"
+        },
+        {
+          "name": "Hohenberg-Kohn theorem I",
+          "form": "The external potential V_ext(r) is determined uniquely (up to a constant) by the ground-state electron density rho(r).",
+          "type": "law"
+        },
+        {
+          "name": "Kohn-Sham equations",
+          "form": "[-hbar^2/(2m) nabla^2 + V_KS(r)] phi_i(r) = epsilon_i phi_i(r)  where V_KS = V_ext + V_Hartree + V_xc",
+          "type": "equation"
+        },
+        {
+          "name": "HF energy expression",
+          "form": "E_HF = sum_i h_ii + (1/2) sum_{ij} (J_ij - K_ij)",
+          "type": "equation"
+        },
+        {
+          "name": "Coupled cluster wavefunction ansatz",
+          "form": "|CC> = exp(T)|HF>  where T = T_1 + T_2 + ... (cluster operator)",
+          "type": "definition"
+        }
       ]
     },
     {
@@ -542,28 +1496,96 @@
         "Henderson-Hasselbalch applied to biological buffers (phosphate, bicarbonate)"
       ],
       "glossary": [
-        {"term": "amino acid", "definition": "A molecule containing an amino group (-NH2), a carboxyl group (-COOH), a hydrogen, and a side chain (R group) attached to the alpha carbon."},
-        {"term": "peptide bond", "definition": "An amide bond formed between the alpha-carboxyl group of one amino acid and the alpha-amino group of another with loss of water; has partial double-bond character due to resonance."},
-        {"term": "isoelectric point (pI)", "definition": "The pH at which an amino acid (or protein) bears no net charge; pI = average of the pKa values flanking the zwitterion form."},
-        {"term": "Michaelis constant (K_M)", "definition": "The substrate concentration at which the reaction rate is half of V_max; reflects the affinity of the enzyme for its substrate (lower K_M = higher affinity)."},
-        {"term": "competitive inhibition", "definition": "Inhibition in which the inhibitor competes with the substrate for the enzyme active site; increases apparent K_M, V_max unchanged."},
-        {"term": "allosteric regulation", "definition": "Regulation of an enzyme by binding of a molecule (effector) at a site other than the active site, inducing a conformational change that alters activity."},
-        {"term": "ATP (adenosine triphosphate)", "definition": "The primary energy currency of cells; hydrolysis of the terminal phosphoanhydride bond releases approximately -30.5 kJ/mol under standard biological conditions."},
-        {"term": "glycolysis", "definition": "The anaerobic metabolic pathway that converts one glucose (6C) to two pyruvate (3C) molecules, producing a net of 2 ATP and 2 NADH."},
-        {"term": "DNA double helix", "definition": "The antiparallel, right-handed B-form double helix of DNA; adenine pairs with thymine (2 H-bonds), guanine pairs with cytosine (3 H-bonds)."},
-        {"term": "phospholipid bilayer", "definition": "The fundamental structure of biological membranes; amphipathic phospholipids arrange with hydrophilic headgroups facing aqueous phases and hydrophobic tails forming the interior."},
-        {"term": "coenzyme", "definition": "A non-protein organic molecule that assists an enzyme; examples include NAD+, FAD, coenzyme A, and ATP."},
-        {"term": "Vmax", "definition": "The maximum velocity of an enzymatic reaction at saturating substrate concentration; equals k_cat times total enzyme concentration."}
+        {
+          "term": "amino acid",
+          "definition": "A molecule containing an amino group (-NH2), a carboxyl group (-COOH), a hydrogen, and a side chain (R group) attached to the alpha carbon."
+        },
+        {
+          "term": "peptide bond",
+          "definition": "An amide bond formed between the alpha-carboxyl group of one amino acid and the alpha-amino group of another with loss of water; has partial double-bond character due to resonance."
+        },
+        {
+          "term": "isoelectric point (pI)",
+          "definition": "The pH at which an amino acid (or protein) bears no net charge; pI = average of the pKa values flanking the zwitterion form."
+        },
+        {
+          "term": "Michaelis constant (K_M)",
+          "definition": "The substrate concentration at which the reaction rate is half of V_max; reflects the affinity of the enzyme for its substrate (lower K_M = higher affinity)."
+        },
+        {
+          "term": "competitive inhibition",
+          "definition": "Inhibition in which the inhibitor competes with the substrate for the enzyme active site; increases apparent K_M, V_max unchanged."
+        },
+        {
+          "term": "allosteric regulation",
+          "definition": "Regulation of an enzyme by binding of a molecule (effector) at a site other than the active site, inducing a conformational change that alters activity."
+        },
+        {
+          "term": "ATP (adenosine triphosphate)",
+          "definition": "The primary energy currency of cells; hydrolysis of the terminal phosphoanhydride bond releases approximately -30.5 kJ/mol under standard biological conditions."
+        },
+        {
+          "term": "glycolysis",
+          "definition": "The anaerobic metabolic pathway that converts one glucose (6C) to two pyruvate (3C) molecules, producing a net of 2 ATP and 2 NADH."
+        },
+        {
+          "term": "DNA double helix",
+          "definition": "The antiparallel, right-handed B-form double helix of DNA; adenine pairs with thymine (2 H-bonds), guanine pairs with cytosine (3 H-bonds)."
+        },
+        {
+          "term": "phospholipid bilayer",
+          "definition": "The fundamental structure of biological membranes; amphipathic phospholipids arrange with hydrophilic headgroups facing aqueous phases and hydrophobic tails forming the interior."
+        },
+        {
+          "term": "coenzyme",
+          "definition": "A non-protein organic molecule that assists an enzyme; examples include NAD+, FAD, coenzyme A, and ATP."
+        },
+        {
+          "term": "Vmax",
+          "definition": "The maximum velocity of an enzymatic reaction at saturating substrate concentration; equals k_cat times total enzyme concentration."
+        }
       ],
       "canon": [
-        {"name": "Michaelis-Menten equation", "form": "v = V_max * [S] / (K_M + [S])", "type": "equation"},
-        {"name": "Enzyme turnover number", "form": "k_cat = V_max / [E]_total", "type": "definition"},
-        {"name": "Catalytic efficiency", "form": "k_cat / K_M  (second-order rate constant for E + S -> product; diffusion limit ~ 10^8 to 10^9 M^-1 s^-1)", "type": "definition"},
-        {"name": "Competitive inhibition (apparent K_M)", "form": "K_M_app = K_M * (1 + [I]/K_I)  V_max unchanged", "type": "equation"},
-        {"name": "Uncompetitive inhibition", "form": "K_M_app = K_M / (1 + [I]/K_I')  V_max_app = V_max / (1 + [I]/K_I')", "type": "equation"},
-        {"name": "ATP hydrolysis free energy (standard biological)", "form": "delta_G^o' = -30.5 kJ/mol  (pH 7, 25 degrees C, 1 mM Mg2+)", "type": "definition"},
-        {"name": "Glycolysis net reaction", "form": "Glucose + 2 NAD+ + 2 ADP + 2 Pi -> 2 Pyruvate + 2 NADH + 2 ATP + 2 H2O", "type": "equation"},
-        {"name": "Henderson-Hasselbalch (biological buffers)", "form": "pH = pK_a + log([A-]/[HA])  (e.g. bicarbonate: pK_a1 = 6.1 at 37 degrees C)", "type": "equation"}
+        {
+          "name": "Michaelis-Menten equation",
+          "form": "v = V_max * [S] / (K_M + [S])",
+          "type": "equation"
+        },
+        {
+          "name": "Enzyme turnover number",
+          "form": "k_cat = V_max / [E]_total",
+          "type": "definition"
+        },
+        {
+          "name": "Catalytic efficiency",
+          "form": "k_cat / K_M  (second-order rate constant for E + S -> product; diffusion limit ~ 10^8 to 10^9 M^-1 s^-1)",
+          "type": "definition"
+        },
+        {
+          "name": "Competitive inhibition (apparent K_M)",
+          "form": "K_M_app = K_M * (1 + [I]/K_I)  V_max unchanged",
+          "type": "equation"
+        },
+        {
+          "name": "Uncompetitive inhibition",
+          "form": "K_M_app = K_M / (1 + [I]/K_I')  V_max_app = V_max / (1 + [I]/K_I')",
+          "type": "equation"
+        },
+        {
+          "name": "ATP hydrolysis free energy (standard biological)",
+          "form": "delta_G^o' = -30.5 kJ/mol  (pH 7, 25 degrees C, 1 mM Mg2+)",
+          "type": "definition"
+        },
+        {
+          "name": "Glycolysis net reaction",
+          "form": "Glucose + 2 NAD+ + 2 ADP + 2 Pi -> 2 Pyruvate + 2 NADH + 2 ATP + 2 H2O",
+          "type": "equation"
+        },
+        {
+          "name": "Henderson-Hasselbalch (biological buffers)",
+          "form": "pH = pK_a + log([A-]/[HA])  (e.g. bicarbonate: pK_a1 = 6.1 at 37 degrees C)",
+          "type": "equation"
+        }
       ]
     },
     {
@@ -581,25 +1603,83 @@
         "Calibration methods: external standard, standard addition, internal standard"
       ],
       "glossary": [
-        {"term": "activity (a)", "definition": "The effective concentration of a species accounting for non-ideal interactions: a_i = gamma_i * [i] / c^o (c^o = 1 M standard)."},
-        {"term": "activity coefficient (gamma)", "definition": "A dimensionless factor relating activity to molarity; approaches 1 at infinite dilution; decreases with increasing ionic strength."},
-        {"term": "ionic strength (I)", "definition": "A measure of the total ion concentration in solution: I = (1/2) * sum(c_i * z_i^2) for all ions i."},
-        {"term": "Debye-Huckel limiting law", "definition": "log(gamma) = -A * z^2 * sqrt(I) for dilute solutions; A = 0.509 in water at 25 degrees C."},
-        {"term": "conditional formation constant (K_f')", "definition": "An effective formation constant for a metal-EDTA complex at a specified pH, corrected for competing protonation equilibria of EDTA: K_f' = alpha_Y4- * K_f."},
-        {"term": "theoretical plate (N)", "definition": "A measure of chromatographic column efficiency: N = (t_R / sigma)^2 or N = 16(t_R/W)^2."},
-        {"term": "resolution (R_s)", "definition": "A measure of chromatographic separation: R_s = 2(t_R2 - t_R1) / (W_1 + W_2); R_s >= 1.5 for baseline resolution."},
-        {"term": "van Deemter equation", "definition": "H = A + B/u + C*u, where H is the height equivalent to a theoretical plate, u is the mobile-phase velocity, A=eddy diffusion, B=longitudinal diffusion, C=mass transfer."},
-        {"term": "standard addition method", "definition": "A calibration technique for complex matrices in which known amounts of analyte are added to the sample solution to correct for matrix effects."},
-        {"term": "propagation of uncertainty", "definition": "The method for calculating the uncertainty in a result derived from uncertain measurements; for sums/differences, absolute uncertainties add in quadrature; for products/quotients, relative uncertainties add in quadrature."}
+        {
+          "term": "activity (a)",
+          "definition": "The effective concentration of a species accounting for non-ideal interactions: a_i = gamma_i * [i] / c^o (c^o = 1 M standard)."
+        },
+        {
+          "term": "activity coefficient (gamma)",
+          "definition": "A dimensionless factor relating activity to molarity; approaches 1 at infinite dilution; decreases with increasing ionic strength."
+        },
+        {
+          "term": "ionic strength (I)",
+          "definition": "A measure of the total ion concentration in solution: I = (1/2) * sum(c_i * z_i^2) for all ions i."
+        },
+        {
+          "term": "Debye-Huckel limiting law",
+          "definition": "log(gamma) = -A * z^2 * sqrt(I) for dilute solutions; A = 0.509 in water at 25 degrees C."
+        },
+        {
+          "term": "conditional formation constant (K_f')",
+          "definition": "An effective formation constant for a metal-EDTA complex at a specified pH, corrected for competing protonation equilibria of EDTA: K_f' = alpha_Y4- * K_f."
+        },
+        {
+          "term": "theoretical plate (N)",
+          "definition": "A measure of chromatographic column efficiency: N = (t_R / sigma)^2 or N = 16(t_R/W)^2."
+        },
+        {
+          "term": "resolution (R_s)",
+          "definition": "A measure of chromatographic separation: R_s = 2(t_R2 - t_R1) / (W_1 + W_2); R_s >= 1.5 for baseline resolution."
+        },
+        {
+          "term": "van Deemter equation",
+          "definition": "H = A + B/u + C*u, where H is the height equivalent to a theoretical plate, u is the mobile-phase velocity, A=eddy diffusion, B=longitudinal diffusion, C=mass transfer."
+        },
+        {
+          "term": "standard addition method",
+          "definition": "A calibration technique for complex matrices in which known amounts of analyte are added to the sample solution to correct for matrix effects."
+        },
+        {
+          "term": "propagation of uncertainty",
+          "definition": "The method for calculating the uncertainty in a result derived from uncertain measurements; for sums/differences, absolute uncertainties add in quadrature; for products/quotients, relative uncertainties add in quadrature."
+        }
       ],
       "canon": [
-        {"name": "Debye-Huckel limiting law", "form": "log(gamma_i) = -A * z_i^2 * sqrt(I)  (A = 0.509 at 25 degrees C in H2O)", "type": "equation"},
-        {"name": "Ionic strength", "form": "I = (1/2) * sum_i(c_i * z_i^2)", "type": "definition"},
-        {"name": "Activity-concentration relationship", "form": "a_i = gamma_i * c_i  (c in mol/L, relative to c^o = 1 M)", "type": "definition"},
-        {"name": "van Deemter equation", "form": "H = A + B/u + C*u", "type": "equation"},
-        {"name": "Chromatographic resolution", "form": "R_s = (sqrt(N)/4) * (alpha - 1)/alpha * k'/(1 + k')  (fundamental resolution equation)", "type": "equation"},
-        {"name": "Plate count from peak", "form": "N = 16*(t_R/W_b)^2 = 5.545*(t_R/W_1/2)^2", "type": "equation"},
-        {"name": "Nernst equation for ion-selective electrode", "form": "E = E^o + (RT)/(z_i*F) * ln(a_i)", "type": "equation"}
+        {
+          "name": "Debye-Huckel limiting law",
+          "form": "log(gamma_i) = -A * z_i^2 * sqrt(I)  (A = 0.509 at 25 degrees C in H2O)",
+          "type": "equation"
+        },
+        {
+          "name": "Ionic strength",
+          "form": "I = (1/2) * sum_i(c_i * z_i^2)",
+          "type": "definition"
+        },
+        {
+          "name": "Activity-concentration relationship",
+          "form": "a_i = gamma_i * c_i  (c in mol/L, relative to c^o = 1 M)",
+          "type": "definition"
+        },
+        {
+          "name": "van Deemter equation",
+          "form": "H = A + B/u + C*u",
+          "type": "equation"
+        },
+        {
+          "name": "Chromatographic resolution",
+          "form": "R_s = (sqrt(N)/4) * (alpha - 1)/alpha * k'/(1 + k')  (fundamental resolution equation)",
+          "type": "equation"
+        },
+        {
+          "name": "Plate count from peak",
+          "form": "N = 16*(t_R/W_b)^2 = 5.545*(t_R/W_1/2)^2",
+          "type": "equation"
+        },
+        {
+          "name": "Nernst equation for ion-selective electrode",
+          "form": "E = E^o + (RT)/(z_i*F) * ln(a_i)",
+          "type": "equation"
+        }
       ]
     }
   ]

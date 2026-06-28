@@ -512,6 +512,19 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
                 {message.governance.model_routed}
               </span>
             )}
+            {message.governance.method && (() => {
+              // Provenance: HOW this answer was produced — the verifiability signal (P2.6).
+              const M: Record<string, { label: string; title: string; color: string }> = {
+                recall: { label: 'recalled', title: 'Replayed from a prior verified turn (decidable recall) — not re-generated', color: '#7c3aed' },
+                'graphrag-global': { label: 'synthesized', title: 'Synthesized across your knowledge-graph community themes', color: '#0891b2' },
+                extractive: { label: 'from source', title: 'Extracted verbatim from your cited documents — cannot hallucinate', color: '#16a34a' },
+              }
+              const m = M[message.governance.method!]
+              return m ? <span className="flex items-center gap-1 font-medium" title={m.title} style={{ color: m.color }}>◆ {m.label}</span> : null
+            })()}
+            {message.governance.grounded && !message.governance.method && (
+              <span className="flex items-center gap-1" title="Grounded in retrieved evidence" style={{ color: '#16a34a' }}>✓ grounded</span>
+            )}
             {message.governance.latency_ms > 0 && (
               <span>{(message.governance.latency_ms / 1000).toFixed(1)}s</span>
             )}
@@ -554,6 +567,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
           (message.deliberation && message.deliberation.candidates.length > 1) ||
           message.value_judgment ||
           (message.retrieval_trace && (message.retrieval_trace.sources.length > 0 || message.retrieval_trace.beliefs_injected > 0 || (message.retrieval_trace.memory_sources?.length ?? 0) > 0 || (message.retrieval_trace.episode_sources?.length ?? 0) > 0)) ||
+          (message.grounding && (!!message.grounding.domain || message.grounding.topics.length > 0 || message.grounding.terms.length > 0)) ||
           message.steering_result ||
           message.governance
         ) && (
@@ -582,6 +596,25 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
                   {message.value_judgment.graph_grounding !== undefined ? ` · graph ${(message.value_judgment.graph_grounding * 100).toFixed(0)}%` : ''}
                   {message.value_judgment.novel_claims && message.value_judgment.novel_claims.length > 0 && (
                     <div className="mt-1">Novel (not in graph): {message.value_judgment.novel_claims.slice(0, 5).join(', ')}</div>
+                  )}
+                </div>
+              )}
+              {/* Glossary grounding — what the FRONTIER-AUTHORED canon recognized in the turn (the moat, made visible) */}
+              {message.grounding && (!!message.grounding.domain || message.grounding.topics.length > 0 || message.grounding.terms.length > 0) && (
+                <div className="text-[10px] text-[var(--color-text-tertiary)]">
+                  <span className="font-medium uppercase tracking-wide text-[var(--color-text-secondary)]">Grounding</span>
+                  {message.grounding.domain ? <> — domain <span className="text-[var(--color-text-secondary)]">{message.grounding.domain}</span></> : ''}
+                  {message.grounding.terms.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {message.grounding.terms.slice(0, 12).map((t, i) => (
+                        <span key={`gt-${i}`} className="inline-flex items-center gap-1 rounded-full border border-[#0ea5e9]/40 bg-[#0ea5e9]/5 px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)]" title="canon term recognized — frontier-authored glossary, not model-extracted">
+                          <span className="text-[#0ea5e9]">◆</span>{t}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  {message.grounding.topics.length > 0 && (
+                    <div className="mt-1">topics: {message.grounding.topics.slice(0, 6).join(' · ')}</div>
                   )}
                 </div>
               )}

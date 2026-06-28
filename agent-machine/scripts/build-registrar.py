@@ -92,6 +92,31 @@ PROGRAMS = {
                       {"n": "5.12", "title": "Organic Chemistry I", "u": 12}, {"n": "5.13", "title": "Organic Chemistry II", "u": 12, "prereq": ["5.12"]},
                       {"n": "5.60", "title": "Thermodynamics & Kinetics", "u": 12}, {"n": "5.61", "title": "Physical Chemistry", "u": 12},
                       {"n": "5.07", "title": "Biological Chemistry", "u": 12}, {"n": "18.03", "title": "Differential Equations", "u": 12}]}]},
+    # ── graduate / doctoral programs (research degrees: grad core + general exam + thesis) ──────────────────
+    "physics_phd": {"program": "Physics PhD (Course 8)", "department": "8", "degree": "PhD", "domain": "physics",
+                    "requirements": [{"group": "Graduate Core — Physics", "subjects": [
+                        {"n": "8.321", "title": "Quantum Theory I", "u": 12},
+                        {"n": "8.322", "title": "Quantum Theory II", "u": 12, "prereq": ["8.321"]},
+                        {"n": "8.333", "title": "Statistical Mechanics I", "u": 12},
+                        {"n": "8.334", "title": "Statistical Mechanics II", "u": 12, "prereq": ["8.333"]},
+                        {"n": "8.311", "title": "Electromagnetism (graduate)", "u": 12},
+                        {"n": "8.323", "title": "Relativistic Quantum Field Theory I", "u": 12, "prereq": ["8.322"]},
+                        {"n": "8.THG", "title": "Doctoral Thesis", "u": 36}]}]},
+    "mathematics_phd": {"program": "Mathematics PhD (Course 18)", "department": "18", "degree": "PhD", "domain": "mathematics",
+                        "requirements": [{"group": "Graduate Core — Math", "subjects": [
+                            {"n": "18.705", "title": "Commutative Algebra", "u": 12},
+                            {"n": "18.745", "title": "Lie Groups and Lie Algebras", "u": 12},
+                            {"n": "18.155", "title": "Differential Analysis I", "u": 12},
+                            {"n": "18.905", "title": "Algebraic Topology I", "u": 12},
+                            {"n": "18.906", "title": "Algebraic Topology II", "u": 12, "prereq": ["18.905"]},
+                            {"n": "18.THG", "title": "Doctoral Thesis", "u": 36}]}]},
+    "eecs_grad": {"program": "EECS SM/PhD (Course 6)", "department": "6", "degree": "PhD", "domain": "eecs",
+                  "requirements": [{"group": "Graduate Core — EECS", "subjects": [
+                      {"n": "6.840", "title": "Theory of Computation", "u": 12},
+                      {"n": "6.046", "title": "Design & Analysis of Algorithms", "u": 12},
+                      {"n": "6.867", "title": "Machine Learning (graduate)", "u": 12},
+                      {"n": "6.824", "title": "Distributed Systems", "u": 12},
+                      {"n": "6.THG", "title": "Doctoral Thesis", "u": 36}]}]},
 }
 
 PERSONAS = {

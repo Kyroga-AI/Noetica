@@ -1,0 +1,354 @@
+{"s": "momentum", "r": "is_a", "o": "conserved quantity", "s_canon": true, "o_canon": false}
+{"s": "angular momentum", "r": "is_a", "o": "conserved quantity", "s_canon": true, "o_canon": false}
+{"s": "angular momentum", "r": "related_to", "o": "momentum", "s_canon": true, "o_canon": true}
+{"s": "torque", "r": "is_a", "o": "force", "s_canon": true, "o_canon": false}
+{"s": "torque", "r": "causes", "o": "angular momentum", "s_canon": true, "o_canon": true}
+{"s": "moment of inertia", "r": "is_a", "o": "inertia", "s_canon": true, "o_canon": true}
+{"s": "moment of inertia", "r": "applies_to", "o": "rotational kinetic energy", "s_canon": true, "o_canon": true}
+{"s": "impulse", "r": "causes", "o": "momentum", "s_canon": true, "o_canon": true}
+{"s": "Newton's second law", "r": "applies_to", "o": "inertia", "s_canon": true, "o_canon": true}
+{"s": "simple harmonic motion", "r": "requires", "o": "conservative force", "s_canon": true, "o_canon": true}
+{"s": "simple harmonic motion", "r": "computed_by", "o": "simple harmonic oscillator frequency", "s_canon": true, "o_canon": true}
+{"s": "escape velocity", "r": "computed_by", "o": "Newton's law of gravitation", "s_canon": true, "o_canon": true}
+{"s": "Bernoulli's principle", "r": "applies_to", "o": "Bernoulli equation", "s_canon": true, "o_canon": true}
+{"s": "Bernoulli's principle", "r": "requires", "o": "conservation of mechanical energy", "s_canon": true, "o_canon": true}
+{"s": "Reynolds number", "r": "measured_by", "o": "Reynolds number", "s_canon": true, "o_canon": true}
+{"s": "work-energy theorem", "r": "related_to", "o": "kinetic energy", "s_canon": true, "o_canon": true}
+{"s": "conservation of mechanical energy", "r": "requires", "o": "conservative force", "s_canon": true, "o_canon": true}
+{"s": "center of mass", "r": "applies_to", "o": "Newton's second law", "s_canon": true, "o_canon": true}
+{"s": "Lagrangian", "r": "computed_by", "o": "Euler-Lagrange equation", "s_canon": true, "o_canon": true}
+{"s": "Euler-Lagrange equation", "r": "computed_by", "o": "principle of stationary action", "s_canon": true, "o_canon": true}
+{"s": "action", "r": "computed_by", "o": "Lagrangian", "s_canon": true, "o_canon": true}
+{"s": "Hamiltonian", "r": "computed_by", "o": "Legendre transformation", "s_canon": true, "o_canon": true}
+{"s": "Hamiltonian", "r": "part_of", "o": "Hamilton's equations", "s_canon": true, "o_canon": true}
+{"s": "conjugate momentum", "r": "computed_by", "o": "Lagrangian", "s_canon": true, "o_canon": true}
+{"s": "cyclic coordinate", "r": "causes", "o": "conjugate momentum", "s_canon": true, "o_canon": true}
+{"s": "Poisson bracket", "r": "applies_to", "o": "canonical transformation", "s_canon": true, "o_canon": true}
+{"s": "Hamilton-Jacobi equation", "r": "requires", "o": "Hamiltonian", "s_canon": true, "o_canon": true}
+{"s": "action-angle variables", "r": "is_a", "o": "generalized coordinates", "s_canon": true, "o_canon": true}
+{"s": "adiabatic invariant", "r": "related_to", "o": "action variable", "s_canon": true, "o_canon": true}
+{"s": "Noether's theorem", "r": "causes", "o": "conserved quantity", "s_canon": true, "o_canon": false}
+{"s": "Noether's theorem", "r": "requires", "o": "Lagrangian", "s_canon": true, "o_canon": true}
+{"s": "generalized coordinates", "r": "related_to", "o": "holonomic constraint", "s_canon": true, "o_canon": true}
+{"s": "electric field", "r": "computed_by", "o": "Coulomb's law", "s_canon": true, "o_canon": true}
+{"s": "electric field", "r": "related_to", "o": "electric potential", "s_canon": true, "o_canon": true}
+{"s": "electric potential", "r": "measured_by", "o": "electric field", "s_canon": true, "o_canon": true}
+{"s": "Gauss's law", "r": "is_a", "o": "Maxwell's equations (differential form)", "s_canon": true, "o_canon": true}
+{"s": "Faraday's law", "r": "is_a", "o": "Maxwell's equations (differential form)", "s_canon": true, "o_canon": true}
+{"s": "Ampère-Maxwell law", "r": "is_a", "o": "Maxwell's equations (differential form)", "s_canon": true, "o_canon": true}
+{"s": "Ampère-Maxwell law", "r": "requires", "o": "displacement current", "s_canon": true, "o_canon": true}
+{"s": "displacement current", "r": "causes", "o": "electromagnetic wave", "s_canon": true, "o_canon": true}
+{"s": "electromagnetic wave", "r": "computed_by", "o": "wave equation for E", "s_canon": true, "o_canon": true}
+{"s": "electromagnetic wave", "r": "related_to", "o": "speed of light", "s_canon": true, "o_canon": true}
+{"s": "Poynting vector", "r": "measured_by", "o": "electromagnetic wave", "s_canon": true, "o_canon": true}
+{"s": "Lenz's law", "r": "is_a", "o": "Faraday's law", "s_canon": true, "o_canon": true}
+{"s": "Larmor radiation formula", "r": "applies_to", "o": "radiation from accelerating charges", "s_canon": true, "o_canon": false}
+{"s": "magnetic vector potential", "r": "computed_by", "o": "Gauss's law for magnetism", "s_canon": true, "o_canon": true}
+{"s": "Lorentz force", "r": "applies_to", "o": "electric field", "s_canon": true, "o_canon": true}
+{"s": "skin depth", "r": "related_to", "o": "electromagnetic wave", "s_canon": true, "o_canon": true}
+{"s": "wave function", "r": "measured_by", "o": "Born rule", "s_canon": true, "o_canon": true}
+{"s": "wave function", "r": "is_a", "o": "Hilbert space", "s_canon": true, "o_canon": true}
+{"s": "time-dependent Schrödinger equation", "r": "computed_by", "o": "Hamiltonian", "s_canon": true, "o_canon": true}
+{"s": "time-independent Schrödinger equation", "r": "is_a", "o": "time-dependent Schrödinger equation", "s_canon": true, "o_canon": true}
+{"s": "stationary state", "r": "computed_by", "o": "time-independent Schrödinger equation", "s_canon": true, "o_canon": true}
+{"s": "Heisenberg uncertainty principle", "r": "causes", "o": "commutator", "s_canon": true, "o_canon": true}
+{"s": "Heisenberg uncertainty principle", "r": "is_a", "o": "generalized uncertainty principle", "s_canon": true, "o_canon": true}
+{"s": "commutator", "r": "measured_by", "o": "canonical commutation relation", "s_canon": true, "o_canon": true}
+{"s": "Hermitian operator", "r": "applies_to", "o": "wave function", "s_canon": true, "o_canon": true}
+{"s": "ladder operators", "r": "applies_to", "o": "harmonic oscillator energy levels", "s_canon": true, "o_canon": true}
+{"s": "harmonic oscillator energy levels", "r": "computed_by", "o": "ladder operators", "s_canon": true, "o_canon": true}
+{"s": "spin", "r": "measured_by", "o": "Pauli matrices", "s_canon": true, "o_canon": true}
+{"s": "Pauli matrices", "r": "is_a", "o": "Hermitian operator", "s_canon": true, "o_canon": true}
+{"s": "Fermi's golden rule", "r": "computed_by", "o": "time-dependent Schrödinger equation", "s_canon": true, "o_canon": true}
+{"s": "variational principle", "r": "computed_by", "o": "Hamiltonian", "s_canon": true, "o_canon": true}
+{"s": "WKB approximation", "r": "applies_to", "o": "time-independent Schrödinger equation", "s_canon": true, "o_canon": true}
+{"s": "scattering cross section", "r": "computed_by", "o": "Born approximation (scattering amplitude)", "s_canon": true, "o_canon": true}
+{"s": "optical theorem", "r": "related_to", "o": "scattering cross section", "s_canon": true, "o_canon": true}
+{"s": "hydrogen atom energy levels", "r": "computed_by", "o": "time-independent Schrödinger equation", "s_canon": true, "o_canon": true}
+{"s": "angular momentum commutators", "r": "causes", "o": "angular momentum eigenvalues", "s_canon": true, "o_canon": true}
+{"s": "time evolution operator", "r": "requires", "o": "Hamiltonian", "s_canon": true, "o_canon": true}
+{"s": "free energy (Helmholtz)", "r": "computed_by", "o": "partition function", "s_canon": true, "o_canon": true}
+{"s": "entropy", "r": "computed_by", "o": "Boltzmann entropy", "s_canon": true, "o_canon": true}
+{"s": "entropy", "r": "related_to", "o": "second law of thermodynamics", "s_canon": true, "o_canon": true}
+{"s": "canonical ensemble", "r": "requires", "o": "partition function", "s_canon": true, "o_canon": true}
+{"s": "grand canonical ensemble", "r": "requires", "o": "chemical potential", "s_canon": true, "o_canon": true}
+{"s": "grand partition function", "r": "is_a", "o": "partition function", "s_canon": true, "o_canon": true}
+{"s": "Fermi-Dirac distribution", "r": "applies_to", "o": "Fermi energy", "s_canon": true, "o_canon": true}
+{"s": "Bose-Einstein distribution", "r": "causes", "o": "Bose-Einstein condensation", "s_canon": true, "o_canon": true}
+{"s": "Planck distribution (mean photon occupation)", "r": "is_a", "o": "Bose-Einstein distribution", "s_canon": true, "o_canon": true}
+{"s": "Stefan-Boltzmann law", "r": "computed_by", "o": "Planck distribution (mean photon occupation)", "s_canon": true, "o_canon": true}
+{"s": "equipartition theorem", "r": "applies_to", "o": "chemical potential", "s_canon": true, "o_canon": true}
+{"s": "Gibbs free energy", "r": "related_to", "o": "free energy (Helmholtz)", "s_canon": true, "o_canon": true}
+{"s": "chemical potential", "r": "measured_by", "o": "free energy (Helmholtz)", "s_canon": true, "o_canon": true}
+{"s": "fluctuation-dissipation theorem", "r": "related_to", "o": "entropy", "s_canon": true, "o_canon": true}
+{"s": "Lorentz factor", "r": "causes", "o": "time dilation", "s_canon": true, "o_canon": true}
+{"s": "Lorentz factor", "r": "causes", "o": "length contraction", "s_canon": true, "o_canon": true}
+{"s": "time dilation", "r": "computed_by", "o": "Lorentz factor", "s_canon": true, "o_canon": true}
+{"s": "proper time", "r": "measured_by", "o": "spacetime interval", "s_canon": true, "o_canon": true}
+{"s": "spacetime interval", "r": "is_a", "o": "4-vector", "s_canon": true, "o_canon": true}
+{"s": "energy-momentum 4-vector", "r": "is_a", "o": "4-vector", "s_canon": true, "o_canon": true}
+{"s": "rest energy", "r": "is_a", "o": "relativistic energy", "s_canon": true, "o_canon": true}
+{"s": "mass-energy-momentum relation", "r": "related_to", "o": "relativistic momentum", "s_canon": true, "o_canon": true}
+{"s": "rapidity", "r": "related_to", "o": "Lorentz factor", "s_canon": true, "o_canon": true}
+{"s": "Lorentz transformation (boost in x)", "r": "computed_by", "o": "Lorentz factor", "s_canon": true, "o_canon": true}
+{"s": "metric tensor", "r": "part_of", "o": "Einstein field equations", "s_canon": true, "o_canon": true}
+{"s": "Christoffel symbol", "r": "computed_by", "o": "metric tensor", "s_canon": true, "o_canon": true}
+{"s": "Riemann curvature tensor", "r": "computed_by", "o": "Christoffel symbol", "s_canon": true, "o_canon": true}
+{"s": "Ricci tensor", "r": "computed_by", "o": "Riemann curvature tensor", "s_canon": true, "o_canon": true}
+{"s": "Einstein tensor", "r": "computed_by", "o": "Ricci tensor", "s_canon": true, "o_canon": true}
+{"s": "Einstein field equations", "r": "requires", "o": "Einstein tensor", "s_canon": true, "o_canon": true}
+{"s": "Einstein field equations", "r": "related_to", "o": "stress-energy tensor", "s_canon": true, "o_canon": true}
+{"s": "geodesic", "r": "computed_by", "o": "Christoffel symbol", "s_canon": true, "o_canon": true}
+{"s": "geodesic", "r": "computed_by", "o": "geodesic equation", "s_canon": true, "o_canon": true}
+{"s": "Schwarzschild radius", "r": "part_of", "o": "Schwarzschild metric", "s_canon": true, "o_canon": true}
+{"s": "event horizon", "r": "is_a", "o": "Schwarzschild radius", "s_canon": true, "o_canon": true}
+{"s": "gravitational wave", "r": "computed_by", "o": "linearized gravitational wave equation", "s_canon": true, "o_canon": true}
+{"s": "equivalence principle", "r": "causes", "o": "geodesic", "s_canon": true, "o_canon": true}
+{"s": "cosmological constant", "r": "part_of", "o": "Einstein field equations", "s_canon": true, "o_canon": true}
+{"s": "Friedmann equation", "r": "requires", "o": "metric tensor", "s_canon": true, "o_canon": true}
+{"s": "Hubble's law", "r": "measured_by", "o": "Hubble parameter", "s_canon": true, "o_canon": true}
+{"s": "Hubble parameter", "r": "computed_by", "o": "scale factor", "s_canon": true, "o_canon": true}
+{"s": "scale factor", "r": "computed_by", "o": "Friedmann equation", "s_canon": true, "o_canon": true}
+{"s": "redshift", "r": "measured_by", "o": "scale factor", "s_canon": true, "o_canon": true}
+{"s": "dark energy", "r": "is_a", "o": "cosmological constant", "s_canon": true, "o_canon": true}
+{"s": "dark energy", "r": "causes", "o": "Hubble's law", "s_canon": true, "o_canon": true}
+{"s": "Chandrasekhar limit", "r": "applies_to", "o": "white dwarfs", "s_canon": true, "o_canon": false}
+{"s": "cosmic microwave background", "r": "related_to", "o": "Stefan-Boltzmann for CMB", "s_canon": true, "o_canon": true}
+{"s": "luminosity distance", "r": "measured_by", "o": "redshift", "s_canon": true, "o_canon": true}
+{"s": "inflation", "r": "causes", "o": "cosmic microwave background", "s_canon": true, "o_canon": true}
+{"s": "density parameter", "r": "related_to", "o": "Friedmann equation", "s_canon": true, "o_canon": true}
+{"s": "Bloch's theorem", "r": "applies_to", "o": "band gap", "s_canon": true, "o_canon": true}
+{"s": "reciprocal lattice", "r": "is_a", "o": "Bravais lattice", "s_canon": true, "o_canon": true}
+{"s": "Brillouin zone", "r": "part_of", "o": "reciprocal lattice", "s_canon": true, "o_canon": true}
+{"s": "band gap", "r": "causes", "o": "effective mass", "s_canon": true, "o_canon": true}
+{"s": "phonon", "r": "is_a", "o": "conserved quantity", "s_canon": true, "o_canon": false}
+{"s": "Debye T^3 heat capacity (low T)", "r": "computed_by", "o": "Debye model", "s_canon": true, "o_canon": true}
+{"s": "Cooper pair", "r": "causes", "o": "Meissner effect", "s_canon": true, "o_canon": true}
+{"s": "Cooper pair", "r": "part_of", "o": "BCS gap equation (T=0)", "s_canon": true, "o_canon": true}
+{"s": "Fermi surface", "r": "related_to", "o": "Fermi energy (T=0)", "s_canon": true, "o_canon": true}
+{"s": "order parameter", "r": "measured_by", "o": "Landau free energy expansion", "s_canon": true, "o_canon": true}
+{"s": "effective mass", "r": "measured_by", "o": "free electron dispersion", "s_canon": true, "o_canon": true}
+{"s": "Bragg's law (diffraction)", "r": "applies_to", "o": "reciprocal lattice", "s_canon": true, "o_canon": true}
+{"s": "quark", "r": "is_a", "o": "lepton", "s_canon": true, "o_canon": true}
+{"s": "gauge boson", "r": "causes", "o": "covariant derivative (gauge theory)", "s_canon": true, "o_canon": true}
+{"s": "Higgs boson", "r": "causes", "o": "spontaneous symmetry breaking", "s_canon": true, "o_canon": true}
+{"s": "spontaneous symmetry breaking", "r": "causes", "o": "gauge boson", "s_canon": true, "o_canon": true}
+{"s": "asymptotic freedom", "r": "is_a", "o": "running coupling", "s_canon": true, "o_canon": true}
+{"s": "running coupling", "r": "computed_by", "o": "QCD running coupling (1-loop)", "s_canon": true, "o_canon": true}
+{"s": "color confinement", "r": "applies_to", "o": "quark", "s_canon": true, "o_canon": true}
+{"s": "propagator", "r": "part_of", "o": "Feynman diagram", "s_canon": true, "o_canon": true}
+{"s": "Dirac equation", "r": "applies_to", "o": "quark", "s_canon": true, "o_canon": true}
+{"s": "Klein-Gordon equation", "r": "applies_to", "o": "Higgs boson", "s_canon": true, "o_canon": true}
+{"s": "Noether current (field theory)", "r": "is_a", "o": "Noether's theorem", "s_canon": true, "o_canon": true}
+{"s": "Standard Model", "r": "requires", "o": "Standard Model gauge group", "s_canon": true, "o_canon": true}
+{"s": "diffraction", "r": "computed_by", "o": "single-slit diffraction minima", "s_canon": true, "o_canon": true}
+{"s": "constructive interference", "r": "related_to", "o": "double-slit interference maxima", "s_canon": true, "o_canon": true}
+{"s": "total internal reflection", "r": "related_to", "o": "Snell's law", "s_canon": true, "o_canon": true}
+{"s": "index of refraction", "r": "applies_to", "o": "Snell's law", "s_canon": true, "o_canon": true}
+{"s": "Brewster's angle", "r": "related_to", "o": "index of refraction", "s_canon": true, "o_canon": true}
+{"s": "group velocity", "r": "related_to", "o": "index of refraction", "s_canon": true, "o_canon": true}
+{"s": "radioactive decay law", "r": "measured_by", "o": "radioactive decay law", "s_canon": true, "o_canon": true}
+{"s": "binding energy", "r": "computed_by", "o": "mass defect", "s_canon": true, "o_canon": true}
+{"s": "binding energy", "r": "computed_by", "o": "semi-empirical mass formula (SEMF)", "s_canon": true, "o_canon": true}
+{"s": "alpha decay", "r": "related_to", "o": "radioactive decay law", "s_canon": true, "o_canon": true}
+{"s": "fine structure", "r": "causes", "o": "spin-orbit coupling energy", "s_canon": true, "o_canon": true}
+{"s": "Carnot efficiency", "r": "is_a", "o": "second law of thermodynamics", "s_canon": true, "o_canon": true}
+{"s": "adiabatic process", "r": "requires", "o": "specific heat ratio", "s_canon": true, "o_canon": true}
+{"s": "entropy (classical)", "r": "is_a", "o": "entropy", "s_canon": true, "o_canon": true}
+{"s": "ideal gas law", "r": "is_a", "o": "equation of state", "s_canon": true, "o_canon": true}
+{"s": "Green's function", "r": "computed_by", "o": "Dirac delta function", "s_canon": true, "o_canon": true}
+{"s": "Debye length", "r": "related_to", "o": "plasma frequency", "s_canon": true, "o_canon": true}
+{"s": "Alfvén speed", "r": "applies_to", "o": "MHD induction equation", "s_canon": true, "o_canon": true}
+{"s": "Navier-Stokes equation", "r": "related_to", "o": "Reynolds number", "s_canon": true, "o_canon": true}
+{"s": "prime number", "r": "part_of", "o": "Fundamental theorem of arithmetic", "s_canon": true, "o_canon": true}
+{"s": "greatest common divisor (GCD)", "r": "computed_by", "o": "Euclidean algorithm", "s_canon": true, "o_canon": true}
+{"s": "rational number", "r": "is_a", "o": "complex number", "s_canon": true, "o_canon": true}
+{"s": "discriminant", "r": "measured_by", "o": "Quadratic formula", "s_canon": true, "o_canon": true}
+{"s": "root (zero) of a polynomial", "r": "computed_by", "o": "Quadratic formula", "s_canon": true, "o_canon": true}
+{"s": "Factor theorem", "r": "related_to", "o": "Remainder theorem", "s_canon": true, "o_canon": true}
+{"s": "Vieta's formulas", "r": "related_to", "o": "root (zero) of a polynomial", "s_canon": true, "o_canon": true}
+{"s": "Fundamental theorem of algebra", "r": "applies_to", "o": "polynomial", "s_canon": true, "o_canon": true}
+{"s": "Binomial theorem", "r": "computed_by", "o": "Binomial theorem", "s_canon": true, "o_canon": true}
+{"s": "multiplicity of a root", "r": "part_of", "o": "Fundamental theorem of algebra", "s_canon": true, "o_canon": true}
+{"s": "root (zero) of a polynomial", "r": "computed_by", "o": "Rational root theorem", "s_canon": true, "o_canon": true}
+{"s": "Pythagorean theorem", "r": "is_a", "o": "Law of cosines", "s_canon": true, "o_canon": true}
+{"s": "Law of cosines", "r": "is_a", "o": "Law of sines", "s_canon": true, "o_canon": true}
+{"s": "Pythagorean triple", "r": "applies_to", "o": "Pythagorean theorem", "s_canon": true, "o_canon": true}
+{"s": "Fundamental Pythagorean identity", "r": "related_to", "o": "Pythagorean theorem", "s_canon": true, "o_canon": true}
+{"s": "Double angle formulas", "r": "computed_by", "o": "Angle addition formulas", "s_canon": true, "o_canon": true}
+{"s": "inscribed angle", "r": "measured_by", "o": "Inscribed angle theorem", "s_canon": true, "o_canon": true}
+{"s": "Thales' theorem", "r": "is_a", "o": "Inscribed angle theorem", "s_canon": true, "o_canon": true}
+{"s": "radian", "r": "applies_to", "o": "unit circle", "s_canon": true, "o_canon": true}
+{"s": "Euler's formula", "r": "related_to", "o": "De Moivre's theorem", "s_canon": true, "o_canon": true}
+{"s": "derivative", "r": "computed_by", "o": "Chain rule", "s_canon": true, "o_canon": true}
+{"s": "derivative", "r": "computed_by", "o": "Product rule", "s_canon": true, "o_canon": true}
+{"s": "antiderivative", "r": "is_a", "o": "Riemann integral", "s_canon": true, "o_canon": true}
+{"s": "Fundamental theorem of calculus (Part 2)", "r": "requires", "o": "antiderivative", "s_canon": true, "o_canon": true}
+{"s": "Fundamental theorem of calculus (Part 1)", "r": "related_to", "o": "derivative", "s_canon": true, "o_canon": true}
+{"s": "critical point", "r": "requires", "o": "derivative", "s_canon": true, "o_canon": true}
+{"s": "Mean value theorem", "r": "requires", "o": "continuity", "s_canon": true, "o_canon": true}
+{"s": "Mean value theorem", "r": "requires", "o": "derivative", "s_canon": true, "o_canon": true}
+{"s": "Taylor series", "r": "requires", "o": "derivative", "s_canon": true, "o_canon": true}
+{"s": "Taylor series", "r": "is_a", "o": "Taylor's theorem with remainder", "s_canon": true, "o_canon": true}
+{"s": "L'Hôpital's rule", "r": "requires", "o": "derivative", "s_canon": true, "o_canon": true}
+{"s": "Ratio test for series", "r": "applies_to", "o": "radius of convergence", "s_canon": true, "o_canon": true}
+{"s": "Intermediate value theorem", "r": "requires", "o": "continuity", "s_canon": true, "o_canon": true}
+{"s": "Integration by parts", "r": "is_a", "o": "Product rule", "s_canon": true, "o_canon": true}
+{"s": "limit", "r": "part_of", "o": "derivative", "s_canon": true, "o_canon": true}
+{"s": "limit", "r": "part_of", "o": "continuity", "s_canon": true, "o_canon": true}
+{"s": "gradient", "r": "is_a", "o": "derivative", "s_canon": true, "o_canon": true}
+{"s": "partial derivative", "r": "part_of", "o": "gradient", "s_canon": true, "o_canon": true}
+{"s": "directional derivative", "r": "computed_by", "o": "gradient", "s_canon": true, "o_canon": true}
+{"s": "divergence", "r": "computed_by", "o": "Divergence theorem (Gauss)", "s_canon": true, "o_canon": true}
+{"s": "curl", "r": "computed_by", "o": "Stokes' theorem", "s_canon": true, "o_canon": true}
+{"s": "conservative vector field", "r": "requires", "o": "curl", "s_canon": true, "o_canon": true}
+{"s": "Jacobian", "r": "applies_to", "o": "Change of variables formula", "s_canon": true, "o_canon": true}
+{"s": "Lagrange multiplier condition", "r": "requires", "o": "gradient", "s_canon": true, "o_canon": true}
+{"s": "Green's theorem", "r": "is_a", "o": "Stokes' theorem", "s_canon": true, "o_canon": true}
+{"s": "Divergence theorem (Gauss)", "r": "requires", "o": "divergence", "s_canon": true, "o_canon": true}
+{"s": "saddle point", "r": "measured_by", "o": "Second derivative test (two variables)", "s_canon": true, "o_canon": true}
+{"s": "Clairaut's theorem (symmetry of mixed partials)", "r": "applies_to", "o": "partial derivative", "s_canon": true, "o_canon": true}
+{"s": "eigenvalue", "r": "computed_by", "o": "characteristic polynomial", "s_canon": true, "o_canon": true}
+{"s": "characteristic polynomial", "r": "is_a", "o": "Cayley-Hamilton theorem", "s_canon": true, "o_canon": true}
+{"s": "basis", "r": "requires", "o": "linear independence", "s_canon": true, "o_canon": true}
+{"s": "rank", "r": "part_of", "o": "Rank-nullity theorem", "s_canon": true, "o_canon": true}
+{"s": "nullspace (kernel)", "r": "part_of", "o": "Rank-nullity theorem", "s_canon": true, "o_canon": true}
+{"s": "orthogonal matrix", "r": "computed_by", "o": "Gram-Schmidt process", "s_canon": true, "o_canon": true}
+{"s": "Spectral theorem (real symmetric matrices)", "r": "requires", "o": "orthogonal matrix", "s_canon": true, "o_canon": true}
+{"s": "eigenvalue", "r": "computed_by", "o": "Spectral theorem (real symmetric matrices)", "s_canon": true, "o_canon": true}
+{"s": "Singular value decomposition", "r": "is_a", "o": "Spectral theorem (real symmetric matrices)", "s_canon": true, "o_canon": true}
+{"s": "Diagonalization criterion", "r": "requires", "o": "eigenvalue", "s_canon": true, "o_canon": true}
+{"s": "positive definite matrix", "r": "requires", "o": "eigenvalue", "s_canon": true, "o_canon": true}
+{"s": "singular matrix", "r": "measured_by", "o": "Determinant expansion and properties", "s_canon": true, "o_canon": true}
+{"s": "Cayley-Hamilton theorem", "r": "requires", "o": "characteristic polynomial", "s_canon": true, "o_canon": true}
+{"s": "ordinary differential equation (ODE)", "r": "computed_by", "o": "characteristic equation", "s_canon": true, "o_canon": true}
+{"s": "separable ODE", "r": "is_a", "o": "ordinary differential equation (ODE)", "s_canon": true, "o_canon": true}
+{"s": "integrating factor", "r": "applies_to", "o": "ordinary differential equation (ODE)", "s_canon": true, "o_canon": true}
+{"s": "Wronskian", "r": "measured_by", "o": "linear independence", "s_canon": true, "o_canon": true}
+{"s": "Laplace transform", "r": "applies_to", "o": "ordinary differential equation (ODE)", "s_canon": true, "o_canon": true}
+{"s": "Laplace transform of derivative", "r": "is_a", "o": "Laplace transform", "s_canon": true, "o_canon": true}
+{"s": "Convolution theorem", "r": "requires", "o": "Laplace transform", "s_canon": true, "o_canon": true}
+{"s": "Heat equation", "r": "is_a", "o": "ordinary differential equation (ODE)", "s_canon": true, "o_canon": true}
+{"s": "Wave equation", "r": "computed_by", "o": "eigenfunction expansion", "s_canon": true, "o_canon": true}
+{"s": "Existence and uniqueness theorem (Picard-Lindelöf)", "r": "applies_to", "o": "ordinary differential equation (ODE)", "s_canon": true, "o_canon": true}
+{"s": "characteristic equation", "r": "applies_to", "o": "ordinary differential equation (ODE)", "s_canon": true, "o_canon": true}
+{"s": "conditional probability", "r": "part_of", "o": "Bayes' theorem", "s_canon": true, "o_canon": true}
+{"s": "Bayes' theorem", "r": "requires", "o": "conditional probability", "s_canon": true, "o_canon": true}
+{"s": "independence", "r": "related_to", "o": "conditional probability", "s_canon": true, "o_canon": true}
+{"s": "expected value", "r": "measured_by", "o": "random variable", "s_canon": true, "o_canon": true}
+{"s": "variance", "r": "computed_by", "o": "expected value", "s_canon": true, "o_canon": true}
+{"s": "expected value", "r": "computed_by", "o": "moment generating function", "s_canon": true, "o_canon": true}
+{"s": "Binomial distribution", "r": "is_a", "o": "random variable", "s_canon": true, "o_canon": true}
+{"s": "Poisson distribution", "r": "is_a", "o": "Binomial distribution", "s_canon": true, "o_canon": true}
+{"s": "Normal distribution", "r": "causes", "o": "Central limit theorem", "s_canon": true, "o_canon": true}
+{"s": "Central limit theorem", "r": "applies_to", "o": "Normal distribution", "s_canon": true, "o_canon": true}
+{"s": "Law of large numbers (strong)", "r": "requires", "o": "expected value", "s_canon": true, "o_canon": true}
+{"s": "Law of total probability", "r": "part_of", "o": "Bayes' theorem", "s_canon": true, "o_canon": true}
+{"s": "cumulative distribution function", "r": "measured_by", "o": "random variable", "s_canon": true, "o_canon": true}
+{"s": "standard error", "r": "part_of", "o": "confidence interval", "s_canon": true, "o_canon": true}
+{"s": "confidence interval", "r": "computed_by", "o": "standard error", "s_canon": true, "o_canon": true}
+{"s": "p-value", "r": "measured_by", "o": "null hypothesis (H₀)", "s_canon": true, "o_canon": true}
+{"s": "Type I error (α)", "r": "related_to", "o": "null hypothesis (H₀)", "s_canon": true, "o_canon": true}
+{"s": "Z-test statistic", "r": "requires", "o": "standard error", "s_canon": true, "o_canon": true}
+{"s": "t-test statistic (one sample)", "r": "is_a", "o": "Z-test statistic", "s_canon": true, "o_canon": true}
+{"s": "correlation coefficient (r)", "r": "measured_by", "o": "Least-squares regression line", "s_canon": true, "o_canon": true}
+{"s": "regression coefficient", "r": "computed_by", "o": "Least-squares regression line", "s_canon": true, "o_canon": true}
+{"s": "Chebyshev's inequality", "r": "applies_to", "o": "variance", "s_canon": true, "o_canon": true}
+{"s": "Neyman-Pearson lemma", "r": "applies_to", "o": "null hypothesis (H₀)", "s_canon": true, "o_canon": true}
+{"s": "abelian group", "r": "is_a", "o": "group", "s_canon": true, "o_canon": true}
+{"s": "subgroup", "r": "part_of", "o": "group", "s_canon": true, "o_canon": true}
+{"s": "normal subgroup", "r": "is_a", "o": "subgroup", "s_canon": true, "o_canon": true}
+{"s": "quotient group", "r": "requires", "o": "normal subgroup", "s_canon": true, "o_canon": true}
+{"s": "coset", "r": "part_of", "o": "Lagrange's theorem", "s_canon": true, "o_canon": true}
+{"s": "kernel", "r": "is_a", "o": "normal subgroup", "s_canon": true, "o_canon": true}
+{"s": "group homomorphism", "r": "part_of", "o": "First isomorphism theorem", "s_canon": true, "o_canon": true}
+{"s": "First isomorphism theorem", "r": "requires", "o": "kernel", "s_canon": true, "o_canon": true}
+{"s": "Lagrange's theorem", "r": "requires", "o": "coset", "s_canon": true, "o_canon": true}
+{"s": "Cauchy's theorem", "r": "is_a", "o": "Sylow's first theorem", "s_canon": true, "o_canon": true}
+{"s": "Sylow's first theorem", "r": "applies_to", "o": "p-group", "s_canon": true, "o_canon": true}
+{"s": "Orbit-stabilizer theorem", "r": "requires", "o": "group", "s_canon": true, "o_canon": true}
+{"s": "simple group", "r": "is_a", "o": "group", "s_canon": true, "o_canon": true}
+{"s": "field", "r": "is_a", "o": "integral domain", "s_canon": true, "o_canon": true}
+{"s": "integral domain", "r": "is_a", "o": "commutative ring", "s_canon": true, "o_canon": true}
+{"s": "commutative ring", "r": "is_a", "o": "ring", "s_canon": true, "o_canon": true}
+{"s": "maximal ideal", "r": "is_a", "o": "ideal", "s_canon": true, "o_canon": true}
+{"s": "prime ideal", "r": "is_a", "o": "ideal", "s_canon": true, "o_canon": true}
+{"s": "field", "r": "computed_by", "o": "maximal ideal", "s_canon": true, "o_canon": true}
+{"s": "integral domain", "r": "computed_by", "o": "prime ideal", "s_canon": true, "o_canon": true}
+{"s": "PID (principal ideal domain)", "r": "is_a", "o": "integral domain", "s_canon": true, "o_canon": true}
+{"s": "Every PID is a UFD", "r": "related_to", "o": "PID (principal ideal domain)", "s_canon": true, "o_canon": true}
+{"s": "UFD (unique factorization domain)", "r": "is_a", "o": "integral domain", "s_canon": true, "o_canon": true}
+{"s": "First isomorphism theorem for rings", "r": "requires", "o": "ideal", "s_canon": true, "o_canon": true}
+{"s": "Eisenstein's irreducibility criterion", "r": "applies_to", "o": "polynomial", "s_canon": true, "o_canon": true}
+{"s": "Tower law for field extensions", "r": "requires", "o": "degree of field extension", "s_canon": true, "o_canon": true}
+{"s": "Fundamental theorem of Galois theory", "r": "requires", "o": "group", "s_canon": true, "o_canon": true}
+{"s": "completeness", "r": "requires", "o": "Completeness of ℝ (least upper bound property)", "s_canon": true, "o_canon": true}
+{"s": "compact set", "r": "is_a", "o": "Heine-Borel theorem", "s_canon": true, "o_canon": true}
+{"s": "compact set", "r": "part_of", "o": "Bolzano-Weierstrass theorem", "s_canon": true, "o_canon": true}
+{"s": "Heine-Borel theorem", "r": "applies_to", "o": "compact set", "s_canon": true, "o_canon": true}
+{"s": "uniform convergence", "r": "causes", "o": "continuity", "s_canon": true, "o_canon": true}
+{"s": "Uniform limit theorem", "r": "requires", "o": "uniform convergence", "s_canon": true, "o_canon": true}
+{"s": "uniform convergence", "r": "measured_by", "o": "Weierstrass M-test", "s_canon": true, "o_canon": true}
+{"s": "measure", "r": "part_of", "o": "σ-algebra", "s_canon": true, "o_canon": true}
+{"s": "σ-algebra", "r": "requires", "o": "measure", "s_canon": true, "o_canon": true}
+{"s": "Lebesgue measurable", "r": "is_a", "o": "measure", "s_canon": true, "o_canon": true}
+{"s": "Lebesgue dominated convergence theorem", "r": "requires", "o": "measure", "s_canon": true, "o_canon": true}
+{"s": "Monotone convergence theorem", "r": "requires", "o": "measure", "s_canon": true, "o_canon": true}
+{"s": "Fatou's lemma", "r": "related_to", "o": "Monotone convergence theorem", "s_canon": true, "o_canon": true}
+{"s": "L^p space", "r": "measured_by", "o": "Hölder's inequality", "s_canon": true, "o_canon": true}
+{"s": "Hölder's inequality", "r": "applies_to", "o": "L^p space", "s_canon": true, "o_canon": true}
+{"s": "Fubini's theorem", "r": "requires", "o": "measure", "s_canon": true, "o_canon": true}
+{"s": "Bolzano-Weierstrass theorem", "r": "is_a", "o": "completeness", "s_canon": true, "o_canon": true}
+{"s": "holomorphic function", "r": "is_a", "o": "analytic function", "s_canon": true, "o_canon": true}
+{"s": "holomorphic function", "r": "requires", "o": "Cauchy-Riemann equations", "s_canon": true, "o_canon": true}
+{"s": "analytic function", "r": "is_a", "o": "holomorphic function", "s_canon": true, "o_canon": true}
+{"s": "Cauchy's integral formula", "r": "is_a", "o": "Cauchy's integral theorem", "s_canon": true, "o_canon": true}
+{"s": "Cauchy's integral theorem", "r": "requires", "o": "holomorphic function", "s_canon": true, "o_canon": true}
+{"s": "residue", "r": "part_of", "o": "Residue theorem", "s_canon": true, "o_canon": true}
+{"s": "residue", "r": "computed_by", "o": "Laurent series", "s_canon": true, "o_canon": true}
+{"s": "Residue theorem", "r": "requires", "o": "residue", "s_canon": true, "o_canon": true}
+{"s": "Residue theorem", "r": "is_a", "o": "Cauchy's integral theorem", "s_canon": true, "o_canon": true}
+{"s": "Liouville's theorem", "r": "applies_to", "o": "entire function", "s_canon": true, "o_canon": true}
+{"s": "Fundamental theorem of algebra (complex analysis proof)", "r": "requires", "o": "Liouville's theorem", "s_canon": true, "o_canon": true}
+{"s": "meromorphic function", "r": "related_to", "o": "isolated singularity", "s_canon": true, "o_canon": true}
+{"s": "Möbius transformation", "r": "is_a", "o": "Riemann mapping theorem", "s_canon": true, "o_canon": true}
+{"s": "Maximum modulus principle", "r": "applies_to", "o": "holomorphic function", "s_canon": true, "o_canon": true}
+{"s": "Argument principle", "r": "computed_by", "o": "Residue theorem", "s_canon": true, "o_canon": true}
+{"s": "Euler's theorem", "r": "is_a", "o": "Fermat's little theorem", "s_canon": true, "o_canon": true}
+{"s": "Fermat's little theorem", "r": "is_a", "o": "Euler's theorem", "s_canon": true, "o_canon": true}
+{"s": "Euler's totient function φ(n)", "r": "part_of", "o": "Euler's theorem", "s_canon": true, "o_canon": true}
+{"s": "Legendre symbol", "r": "measured_by", "o": "Quadratic residues", "s_canon": true, "o_canon": false}
+{"s": "quadratic residue", "r": "measured_by", "o": "Legendre symbol", "s_canon": true, "o_canon": true}
+{"s": "Quadratic reciprocity", "r": "applies_to", "o": "Legendre symbol", "s_canon": true, "o_canon": true}
+{"s": "Chinese remainder theorem", "r": "applies_to", "o": "congruence", "s_canon": true, "o_canon": true}
+{"s": "Möbius function μ(n)", "r": "part_of", "o": "Möbius inversion formula", "s_canon": true, "o_canon": true}
+{"s": "Möbius inversion formula", "r": "requires", "o": "Möbius function μ(n)", "s_canon": true, "o_canon": true}
+{"s": "Gaussian integer", "r": "is_a", "o": "UFD (unique factorization domain)", "s_canon": true, "o_canon": true}
+{"s": "Wilson's theorem", "r": "applies_to", "o": "prime number", "s_canon": true, "o_canon": true}
+{"s": "greatest common divisor (GCD)", "r": "computed_by", "o": "Euclidean algorithm for gcd", "s_canon": true, "o_canon": true}
+{"s": "Dirichlet's theorem on primes in arithmetic progressions", "r": "applies_to", "o": "prime number", "s_canon": true, "o_canon": true}
+{"s": "tree", "r": "is_a", "o": "graph", "s_canon": true, "o_canon": true}
+{"s": "planar graph", "r": "is_a", "o": "graph", "s_canon": true, "o_canon": true}
+{"s": "chromatic number χ(G)", "r": "measured_by", "o": "Four color theorem", "s_canon": true, "o_canon": true}
+{"s": "Four color theorem", "r": "applies_to", "o": "planar graph", "s_canon": true, "o_canon": true}
+{"s": "Euler's formula for planar graphs", "r": "applies_to", "o": "planar graph", "s_canon": true, "o_canon": true}
+{"s": "recurrence relations", "r": "computed_by", "o": "generating function", "s_canon": false, "o_canon": true}
+{"s": "Catalan number", "r": "computed_by", "o": "generating function", "s_canon": true, "o_canon": true}
+{"s": "derangement", "r": "computed_by", "o": "Inclusion-exclusion (combinatorial)", "s_canon": true, "o_canon": true}
+{"s": "Strong induction", "r": "is_a", "o": "Principle of mathematical induction", "s_canon": true, "o_canon": true}
+{"s": "Handshaking lemma", "r": "applies_to", "o": "graph", "s_canon": true, "o_canon": true}
+{"s": "Burnside's lemma (Polya enumeration)", "r": "requires", "o": "Orbit-stabilizer theorem", "s_canon": true, "o_canon": true}
+{"s": "equivalence relation", "r": "causes", "o": "partial order", "s_canon": true, "o_canon": true}
+{"s": "homeomorphism", "r": "measured_by", "o": "topological invariant", "s_canon": true, "o_canon": true}
+{"s": "compact space", "r": "is_a", "o": "Tychonoff's theorem", "s_canon": true, "o_canon": true}
+{"s": "Hausdorff space (T₂)", "r": "is_a", "o": "topological space", "s_canon": true, "o_canon": true}
+{"s": "connected space", "r": "is_a", "o": "topological space", "s_canon": true, "o_canon": true}
+{"s": "fundamental group π₁(X, x₀)", "r": "is_a", "o": "group", "s_canon": true, "o_canon": true}
+{"s": "simply connected", "r": "requires", "o": "fundamental group π₁(X, x₀)", "s_canon": true, "o_canon": true}
+{"s": "homotopy", "r": "part_of", "o": "fundamental group π₁(X, x₀)", "s_canon": true, "o_canon": true}
+{"s": "covering space", "r": "related_to", "o": "fundamental group π₁(X, x₀)", "s_canon": true, "o_canon": true}
+{"s": "fundamental group π₁(X, x₀)", "r": "computed_by", "o": "Seifert-van Kampen theorem", "s_canon": true, "o_canon": true}
+{"s": "Brouwer fixed-point theorem", "r": "applies_to", "o": "compact space", "s_canon": true, "o_canon": true}
+{"s": "Urysohn metrization theorem", "r": "requires", "o": "Hausdorff space (T₂)", "s_canon": true, "o_canon": true}
+{"s": "topological invariant", "r": "measured_by", "o": "homeomorphism", "s_canon": true, "o_canon": true}
+{"s": "Borsuk-Ulam theorem", "r": "applies_to", "o": "topological space", "s_canon": true, "o_canon": true}

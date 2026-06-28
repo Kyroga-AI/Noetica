@@ -18,10 +18,23 @@ test('external origins are NOT loopback', () => {
   ]) assert.equal(isLoopbackOrigin(o), false, o)
 })
 
-test('safe verbs always pass regardless of origin', () => {
-  for (const m of ['GET', 'HEAD', 'OPTIONS', 'get']) {
-    assert.equal(originAllowed(m, 'https://evil.com'), true, m)
-  }
+test('OPTIONS (CORS preflight) always passes so the real request can be rejected', () => {
+  assert.equal(originAllowed('OPTIONS', 'https://evil.com'), true)
+})
+
+test('cross-origin READS are rejected too (drive-by data exfiltration)', () => {
+  // A foreign page fetch()ing our loopback GET endpoints would otherwise read the user's graph.
+  assert.equal(originAllowed('GET', 'https://evil.com'), false)
+  assert.equal(originAllowed('HEAD', 'http://attacker.example'), false)
+})
+
+test('reads with no Origin pass (native / CLI / top-level navigation)', () => {
+  for (const m of ['GET', 'HEAD', 'get']) assert.equal(originAllowed(m, undefined), true, m)
+})
+
+test('reads from a loopback Origin pass (the local UI)', () => {
+  assert.equal(originAllowed('GET', 'http://localhost:3000'), true)
+  assert.equal(originAllowed('GET', 'tauri://localhost'), true)
 })
 
 test('mutating verb with absent Origin passes (native/CLI)', () => {

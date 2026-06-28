@@ -1,0 +1,13 @@
+# workspace-broker — the sovereign identity broker (OIDC issuer / verifier). Pure node:crypto/http + the proven
+# sovereign-* libs; no DB driver needed for the in-memory store (Postgres-backed store is a drop-in via env).
+# Build:  docker build -f Dockerfile.broker -t ghcr.io/socioprophet/prophet-platform/workspace-broker:dev .
+FROM node:22-slim
+WORKDIR /app
+RUN npm i -g tsx@4 && echo '{"type":"module"}' > package.json
+COPY lib/sovereign-id.ts lib/sovereign-broker.ts lib/sovereign-oidc.ts \
+     lib/sovereign-broker-service.ts lib/sovereign-broker-server.ts lib/sovereign-broker-main.ts ./lib/
+ENV PORT=8089
+EXPOSE 8089
+USER node
+# Signing key mounted at /etc/broker/signing/ed25519.key (k8s secret); ephemeral dev key if absent.
+CMD ["tsx", "lib/sovereign-broker-main.ts"]

@@ -1,0 +1,17 @@
+# Build board-base in the cloud (no local Docker needed) and push to Artifact Registry. Context is just this
+# docker/ dir (3 small files) — no repo content uploaded. Run: gcloud builds submit --config=cloudbuild.yaml .
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-f'
+      - 'board-base.Dockerfile'
+      - '-t'
+      - 'us-central1-docker.pkg.dev/$PROJECT_ID/socioprophet/board-base:latest'
+      - '.'
+images:
+  - 'us-central1-docker.pkg.dev/$PROJECT_ID/socioprophet/board-base:latest'
+timeout: '3000s'
+options:
+  machineType: 'E2_HIGHCPU_8'
+  diskSizeGb: 80

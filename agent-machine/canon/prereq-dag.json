@@ -1,0 +1,616 @@
+{
+  "physics": {
+    "edges": [
+      [
+        "Analytical Mechanics (Lagrangian and Hamiltonian)",
+        "Classical Mechanics"
+      ],
+      [
+        "Analytical Mechanics (Lagrangian and Hamiltonian)",
+        "Mathematical Methods in Physics"
+      ],
+      [
+        "Electromagnetism",
+        "Classical Mechanics"
+      ],
+      [
+        "Electromagnetism",
+        "Mathematical Methods in Physics"
+      ],
+      [
+        "Special Relativity",
+        "Classical Mechanics"
+      ],
+      [
+        "Special Relativity",
+        "Electromagnetism"
+      ],
+      [
+        "Quantum Mechanics",
+        "Classical Mechanics"
+      ],
+      [
+        "Quantum Mechanics",
+        "Analytical Mechanics (Lagrangian and Hamiltonian)"
+      ],
+      [
+        "Quantum Mechanics",
+        "Mathematical Methods in Physics"
+      ],
+      [
+        "Statistical Mechanics and Thermodynamics",
+        "Thermodynamics (Classical)"
+      ],
+      [
+        "Statistical Mechanics and Thermodynamics",
+        "Quantum Mechanics"
+      ],
+      [
+        "Thermodynamics (Classical)",
+        "Classical Mechanics"
+      ],
+      [
+        "General Relativity",
+        "Special Relativity"
+      ],
+      [
+        "General Relativity",
+        "Analytical Mechanics (Lagrangian and Hamiltonian)"
+      ],
+      [
+        "General Relativity",
+        "Mathematical Methods in Physics"
+      ],
+      [
+        "Condensed Matter Physics",
+        "Quantum Mechanics"
+      ],
+      [
+        "Condensed Matter Physics",
+        "Statistical Mechanics and Thermodynamics"
+      ],
+      [
+        "Particle Physics and Quantum Field Theory",
+        "Quantum Mechanics"
+      ],
+      [
+        "Particle Physics and Quantum Field Theory",
+        "Special Relativity"
+      ],
+      [
+        "Particle Physics and Quantum Field Theory",
+        "Analytical Mechanics (Lagrangian and Hamiltonian)"
+      ],
+      [
+        "Astrophysics and Cosmology",
+        "General Relativity"
+      ],
+      [
+        "Astrophysics and Cosmology",
+        "Statistical Mechanics and Thermodynamics"
+      ],
+      [
+        "Optics and Waves",
+        "Electromagnetism"
+      ],
+      [
+        "Nuclear and Atomic Physics",
+        "Quantum Mechanics"
+      ],
+      [
+        "Plasma Physics and Fluid Dynamics",
+        "Electromagnetism"
+      ],
+      [
+        "Plasma Physics and Fluid Dynamics",
+        "Statistical Mechanics and Thermodynamics"
+      ],
+      [
+        "Mathematical Methods in Physics",
+        "Classical Mechanics"
+      ]
+    ],
+    "learning_path": [
+      "Classical Mechanics",
+      "Mathematical Methods in Physics",
+      "Thermodynamics (Classical)",
+      "Electromagnetism",
+      "Optics and Waves",
+      "Special Relativity",
+      "Analytical Mechanics (Lagrangian and Hamiltonian)",
+      "Quantum Mechanics",
+      "Nuclear and Atomic Physics",
+      "Statistical Mechanics and Thermodynamics",
+      "General Relativity",
+      "Condensed Matter Physics",
+      "Plasma Physics and Fluid Dynamics",
+      "Particle Physics and Quantum Field Theory",
+      "Astrophysics and Cosmology"
+    ]
+  },
+  "mathematics": {
+    "edges": [
+      [
+        "Algebra and Polynomial Theory",
+        "Elementary Algebra and Arithmetic"
+      ],
+      [
+        "Geometry and Trigonometry",
+        "Elementary Algebra and Arithmetic"
+      ],
+      [
+        "Precalculus and Functions",
+        "Algebra and Polynomial Theory"
+      ],
+      [
+        "Precalculus and Functions",
+        "Geometry and Trigonometry"
+      ],
+      [
+        "Single-Variable Calculus",
+        "Precalculus and Functions"
+      ],
+      [
+        "Multivariable Calculus",
+        "Single-Variable Calculus"
+      ],
+      [
+        "Linear Algebra",
+        "Algebra and Polynomial Theory"
+      ],
+      [
+        "Differential Equations",
+        "Single-Variable Calculus"
+      ],
+      [
+        "Differential Equations",
+        "Linear Algebra"
+      ],
+      [
+        "Probability and Combinatorics",
+        "Single-Variable Calculus"
+      ],
+      [
+        "Probability and Combinatorics",
+        "Discrete Mathematics and Combinatorics"
+      ],
+      [
+        "Statistics",
+        "Probability and Combinatorics"
+      ],
+      [
+        "Number Theory",
+        "Elementary Algebra and Arithmetic"
+      ],
+      [
+        "Number Theory",
+        "Discrete Mathematics and Combinatorics"
+      ],
+      [
+        "Abstract Algebra — Group Theory",
+        "Number Theory"
+      ],
+      [
+        "Abstract Algebra — Group Theory",
+        "Linear Algebra"
+      ],
+      [
+        "Abstract Algebra — Rings and Fields",
+        "Abstract Algebra — Group Theory"
+      ],
+      [
+        "Real Analysis",
+        "Multivariable Calculus"
+      ],
+      [
+        "Real Analysis",
+        "Single-Variable Calculus"
+      ],
+      [
+        "Complex Analysis",
+        "Real Analysis"
+      ],
+      [
+        "Complex Analysis",
+        "Single-Variable Calculus"
+      ],
+      [
+        "Topology",
+        "Real Analysis"
+      ],
+      [
+        "Discrete Mathematics and Combinatorics",
+        "Elementary Algebra and Arithmetic"
+      ]
+    ],
+    "learning_path": [
+      "Elementary Algebra and Arithmetic",
+      "Algebra and Polynomial Theory",
+      "Geometry and Trigonometry",
+      "Precalculus and Functions",
+      "Discrete Mathematics and Combinatorics",
+      "Single-Variable Calculus",
+      "Linear Algebra",
+      "Number Theory",
+      "Multivariable Calculus",
+      "Differential Equations",
+      "Probability and Combinatorics",
+      "Abstract Algebra — Group Theory",
+      "Statistics",
+      "Real Analysis",
+      "Abstract Algebra — Rings and Fields",
+      "Complex Analysis",
+      "Topology"
+    ]
+  },
+  "chemistry": {
+    "edges": [
+      [
+        "Gases and Kinetic-Molecular Theory",
+        "Stoichiometry and the Mole"
+      ],
+      [
+        "Thermodynamics",
+        "Gases and Kinetic-Molecular Theory"
+      ],
+      [
+        "Chemical Equilibrium",
+        "Thermodynamics"
+      ],
+      [
+        "Acids, Bases, and Buffers",
+        "Chemical Equilibrium"
+      ],
+      [
+        "Chemical Kinetics",
+        "Stoichiometry and the Mole"
+      ],
+      [
+        "Electrochemistry",
+        "Thermodynamics"
+      ],
+      [
+        "Electrochemistry",
+        "Chemical Equilibrium"
+      ],
+      [
+        "Atomic Structure and Quantum Chemistry",
+        "Stoichiometry and the Mole"
+      ],
+      [
+        "Chemical Bonding and Molecular Structure",
+        "Atomic Structure and Quantum Chemistry"
+      ],
+      [
+        "Organic Reactions and Mechanisms",
+        "Chemical Bonding and Molecular Structure"
+      ],
+      [
+        "Organic Reactions and Mechanisms",
+        "Chemical Kinetics"
+      ],
+      [
+        "Spectroscopy",
+        "Atomic Structure and Quantum Chemistry"
+      ],
+      [
+        "Coordination Chemistry and Inorganic Chemistry",
+        "Chemical Bonding and Molecular Structure"
+      ],
+      [
+        "Statistical Thermodynamics and Partition Functions",
+        "Thermodynamics"
+      ],
+      [
+        "Quantum Chemistry",
+        "Atomic Structure and Quantum Chemistry"
+      ],
+      [
+        "Biochemistry Fundamentals",
+        "Organic Reactions and Mechanisms"
+      ],
+      [
+        "Analytical Chemistry and Solution Equilibria",
+        "Acids, Bases, and Buffers"
+      ]
+    ],
+    "learning_path": [
+      "Stoichiometry and the Mole",
+      "Gases and Kinetic-Molecular Theory",
+      "Atomic Structure and Quantum Chemistry",
+      "Thermodynamics",
+      "Chemical Kinetics",
+      "Chemical Bonding and Molecular Structure",
+      "Chemical Equilibrium",
+      "Acids, Bases, and Buffers",
+      "Electrochemistry",
+      "Spectroscopy",
+      "Organic Reactions and Mechanisms",
+      "Coordination Chemistry and Inorganic Chemistry",
+      "Analytical Chemistry and Solution Equilibria",
+      "Statistical Thermodynamics and Partition Functions",
+      "Quantum Chemistry",
+      "Biochemistry Fundamentals"
+    ]
+  },
+  "biology": {
+    "edges": [
+      [
+        "Biochemistry and Metabolism",
+        "Cell Biology"
+      ],
+      [
+        "Molecular Biology",
+        "Cell Biology"
+      ],
+      [
+        "Molecular Biology",
+        "Biochemistry and Metabolism"
+      ],
+      [
+        "Genetics",
+        "Molecular Biology"
+      ],
+      [
+        "Evolution",
+        "Genetics"
+      ],
+      [
+        "Ecology",
+        "Evolution"
+      ],
+      [
+        "Physiology: Nervous and Endocrine Systems",
+        "Cell Biology"
+      ],
+      [
+        "Physiology: Cardiovascular, Respiratory, and Renal Systems",
+        "Cell Biology"
+      ],
+      [
+        "Physiology: Cardiovascular, Respiratory, and Renal Systems",
+        "Anatomy"
+      ],
+      [
+        "Physiology: Nervous and Endocrine Systems",
+        "Anatomy"
+      ],
+      [
+        "Microbiology",
+        "Cell Biology"
+      ],
+      [
+        "Immunology",
+        "Cell Biology"
+      ],
+      [
+        "Immunology",
+        "Microbiology"
+      ],
+      [
+        "Developmental Biology",
+        "Molecular Biology"
+      ],
+      [
+        "Developmental Biology",
+        "Genetics"
+      ],
+      [
+        "Medical Genetics",
+        "Genetics"
+      ],
+      [
+        "Nutrition and Metabolism",
+        "Biochemistry and Metabolism"
+      ]
+    ],
+    "learning_path": [
+      "Cell Biology",
+      "Anatomy",
+      "Biochemistry and Metabolism",
+      "Molecular Biology",
+      "Genetics",
+      "Microbiology",
+      "Nutrition and Metabolism",
+      "Physiology: Nervous and Endocrine Systems",
+      "Physiology: Cardiovascular, Respiratory, and Renal Systems",
+      "Immunology",
+      "Developmental Biology",
+      "Medical Genetics",
+      "Evolution",
+      "Plant Biology",
+      "Ecology"
+    ]
+  },
+  "computer_science": {
+    "edges": [
+      [
+        "Algorithms & Complexity",
+        "Data Structures"
+      ],
+      [
+        "Algorithms & Complexity",
+        "Discrete Mathematics & Logic"
+      ],
+      [
+        "Computability & Automata Theory",
+        "Discrete Mathematics & Logic"
+      ],
+      [
+        "Computability & Automata Theory",
+        "Algorithms & Complexity"
+      ],
+      [
+        "Operating Systems",
+        "Computer Architecture"
+      ],
+      [
+        "Operating Systems",
+        "Data Structures"
+      ],
+      [
+        "Computer Networks",
+        "Operating Systems"
+      ],
+      [
+        "Databases",
+        "Data Structures"
+      ],
+      [
+        "Databases",
+        "Algorithms & Complexity"
+      ],
+      [
+        "Computer Architecture",
+        "Digital Logic & Boolean Algebra"
+      ],
+      [
+        "Programming Languages & Compilers",
+        "Data Structures"
+      ],
+      [
+        "Programming Languages & Compilers",
+        "Computability & Automata Theory"
+      ],
+      [
+        "Machine Learning",
+        "Probability & Statistics for CS"
+      ],
+      [
+        "Machine Learning",
+        "Algorithms & Complexity"
+      ],
+      [
+        "Probability & Statistics for CS",
+        "Discrete Mathematics & Logic"
+      ],
+      [
+        "Digital Logic & Boolean Algebra",
+        "Discrete Mathematics & Logic"
+      ],
+      [
+        "Circuit Analysis",
+        "Digital Logic & Boolean Algebra"
+      ],
+      [
+        "Signals & Systems",
+        "Circuit Analysis"
+      ],
+      [
+        "Control Systems",
+        "Signals & Systems"
+      ],
+      [
+        "Semiconductor Devices & Electronics",
+        "Circuit Analysis"
+      ]
+    ],
+    "learning_path": [
+      "Discrete Mathematics & Logic",
+      "Data Structures",
+      "Digital Logic & Boolean Algebra",
+      "Algorithms & Complexity",
+      "Probability & Statistics for CS",
+      "Computer Architecture",
+      "Circuit Analysis",
+      "Computability & Automata Theory",
+      "Operating Systems",
+      "Programming Languages & Compilers",
+      "Databases",
+      "Signals & Systems",
+      "Semiconductor Devices & Electronics",
+      "Computer Networks",
+      "Control Systems",
+      "Machine Learning"
+    ]
+  },
+  "economics": {
+    "edges": [
+      [
+        "Elasticity",
+        "Supply and Demand"
+      ],
+      [
+        "Consumer Theory",
+        "Supply and Demand"
+      ],
+      [
+        "Consumer Theory",
+        "Elasticity"
+      ],
+      [
+        "Producer Theory: Production and Costs",
+        "Supply and Demand"
+      ],
+      [
+        "Market Structures",
+        "Producer Theory: Production and Costs"
+      ],
+      [
+        "Market Structures",
+        "Consumer Theory"
+      ],
+      [
+        "Welfare Economics and Externalities",
+        "Market Structures"
+      ],
+      [
+        "Game Theory",
+        "Market Structures"
+      ],
+      [
+        "IS-LM and AD-AS Models",
+        "GDP and National Income Accounting"
+      ],
+      [
+        "Money, Banking, and Inflation",
+        "GDP and National Income Accounting"
+      ],
+      [
+        "Money, Banking, and Inflation",
+        "IS-LM and AD-AS Models"
+      ],
+      [
+        "Unemployment and Labor Markets",
+        "IS-LM and AD-AS Models"
+      ],
+      [
+        "Economic Growth: Solow Model",
+        "GDP and National Income Accounting"
+      ],
+      [
+        "Fiscal and Monetary Policy",
+        "IS-LM and AD-AS Models"
+      ],
+      [
+        "Fiscal and Monetary Policy",
+        "Money, Banking, and Inflation"
+      ],
+      [
+        "Econometrics: OLS and Regression",
+        "Supply and Demand"
+      ],
+      [
+        "Econometrics: Causal Inference and Advanced Methods",
+        "Econometrics: OLS and Regression"
+      ]
+    ],
+    "learning_path": [
+      "Supply and Demand",
+      "Elasticity",
+      "Consumer Theory",
+      "Producer Theory: Production and Costs",
+      "Market Structures",
+      "Welfare Economics and Externalities",
+      "Game Theory",
+      "GDP and National Income Accounting",
+      "IS-LM and AD-AS Models",
+      "Money, Banking, and Inflation",
+      "Unemployment and Labor Markets",
+      "Economic Growth: Solow Model",
+      "Fiscal and Monetary Policy",
+      "Econometrics: OLS and Regression",
+      "Econometrics: Causal Inference and Advanced Methods"
+    ]
+  }
+}

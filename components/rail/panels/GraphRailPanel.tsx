@@ -19,6 +19,8 @@ const VIEWS = [
   { key: 'tech', label: 'Tech' },
   { key: 'knowledge', label: 'Knowledge' },
   { key: 'memory', label: 'Memory' },
+  { key: 'document', label: 'Docs' },
+  { key: 'domain', label: 'Glossary' },
   { key: 'all', label: 'All' },
 ] as const
 

@@ -1,0 +1,268 @@
+{
+  "analogies": [
+    {
+      "a": "Ohm's law",
+      "a_domain": "computer_science",
+      "b": "Stefan-Boltzmann law",
+      "b_domain": "physics",
+      "schema": "flux = transport_coefficient × driving_potential",
+      "mapping": "electric current I ↔ radiative power flux; resistance R ↔ thermal-resistance analog; voltage V ↔ temperature difference",
+      "note": "Ohm's law (V=IR) is the canonical member of the linear-transport family; same form as thermal conduction (Fourier) and diffusion (Fick).",
+      "a_canon": true,
+      "b_canon": true
+    },
+    {
+      "a": "Ohm's law",
+      "a_domain": "computer_science",
+      "b": "Navier-Stokes equation",
+      "b_domain": "physics",
+      "schema": "flux = (1/resistance) × gradient of potential",
+      "mapping": "current density J = σE ↔ viscous momentum flux; conductivity σ ↔ viscosity μ⁻¹; potential gradient ∇V ↔ velocity gradient ∇v",
+      "note": "Linear constitutive response: a flux is proportional to the gradient of a driving field via a material transport coefficient.",
+      "a_canon": true,
+      "b_canon": true
+    },
+    {
+      "a": "Fermi-Dirac distribution",
+      "a_domain": "physics",
+      "b": "Bose-Einstein distribution",
+      "b_domain": "physics",
+      "schema": "mean occupation n(ε) = 1 / (exp(β(ε−μ)) ± 1)",
+      "mapping": "+1 (fermions, exclusion) ↔ −1 (bosons, condensation); same Boltzmann factor exp(β(ε−μ))",
+      "note": "Intra-physics but cross-statistics: identical functional skeleton differing only by a sign that encodes spin-statistics.",
+      "a_canon": true,
+      "b_canon": true
+    },
+    {
+      "a": "Noether's theorem",
+      "a_domain": "physics",
+      "b": "Burnside's lemma (Polya enumeration)",
+      "b_domain": "mathematics",
+      "schema": "continuous/discrete symmetry of a system ⟹ an invariant counted over the group",
+      "mapping": "continuous symmetry of L ↔ group action on a set; conserved Noether charge ↔ number of orbits = (1/|G|)Σ|X^g|",
+      "note": "Symmetry (a group) generates an invariant: a conserved charge in physics, an orbit count in combinatorics.",
+      "a_canon": true,
+      "b_canon": true
+    },
+    {
+      "a": "eigenvalue",
+      "a_domain": "mathematics",
+      "b": "harmonic oscillator energy levels",
+      "b_domain": "physics",
+      "schema": "linear operator acting on a state returns a scalar multiple: Â|v⟩ = λ|v⟩",
+      "mapping": "matrix A ↔ Hamiltonian Ĥ; eigenvalue λ ↔ energy E_n; eigenvector v ↔ stationary state |n⟩",
+      "note": "Quantum energy levels ARE the eigenvalue spectrum of the Hamiltonian operator — the discrete spectrum is a linear-algebra eigenproblem.",
+      "a_canon": true,
+      "b_canon": true
+    },
+    {
+      "a": "eigenvalue",
+      "a_domain": "mathematics",
+      "b": "RLC natural frequency",
+      "b_domain": "computer_science",
+      "schema": "characteristic equation roots = natural modes of a linear system",
+      "mapping": "roots of det(A−λI)=0 ↔ poles s = roots of LC s²+RCs+1=0; eigenvalue λ ↔ resonant/decay frequency ω₀, ζ",
+      "note": "Resonant modes of a circuit are eigenvalues of its state-space matrix; resonance = a near-imaginary eigenvalue.",
+      "a_canon": true,
+      "b_canon": true
+    },
+    {
+      "a": "Spectral theorem (real symmetric matrices)",
+      "a_domain": "mathematics",
+      "b": "PCA via SVD",
+      "b_domain": "computer_science",
+      "schema": "symmetric/normal operator ⟹ orthonormal eigenbasis diagonalizing it",
+      "mapping": "A = QΛQᵀ ↔ covariance Σ = VΛVᵀ; eigenvectors Q ↔ principal components V; eigenvalues Λ ↔ explained variance",
+      "note": "PCA is literally the spectral decomposition of a (symmetric) covariance matrix.",
+      "a_canon": true,
+      "b_canon": true
+    },
+    {
+      "a": "simple harmonic oscillator frequency",
+      "a_domain": "physics",
+      "b": "RLC natural frequency",
+      "b_domain": "computer_science",
+      "schema": "second-order linear system: ẍ + 2ζω₀ẋ + ω₀²x = forcing",
+      "mapping": "mass m ↔ inductance L; spring k ↔ 1/capacitance 1/C; damping b ↔ resistance R; position x ↔ charge q",
+      "note": "The mechanical SHO and the RLC circuit obey the same ODE; the electrical–mechanical analogy is exact term-by-term.",
+      "a_canon": true,
+      "b_canon": true
+    },
+    {
+      "a": "Wave equation",
+      "a_domain": "mathematics",
+      "b": "wave equation for E",
+      "b_domain": "physics",
+      "schema": "∂²φ/∂t² = c²∇²φ  (hyperbolic 2nd-order PDE)",
+      "mapping": "string displacement y ↔ electric field E; mechanical wave speed c ↔ light speed 1/√(ε₀μ₀)",
+      "note": "Mechanical waves on a string and electromagnetic waves share the identical d'Alembertian operator.",
+      "a_canon": true,
+      "b_canon": true
+    },
+    {
+      "a": "Heat equation",
+      "a_domain": "mathematics",
+      "b": "Schrödinger equation",
+      "b_domain": "physics",
+      "schema": "first-order in time, second-order in space: ∂ψ/∂t = D ∂²ψ/∂x²",
+      "mapping": "diffusion constant D ↔ iℏ/2m; temperature/concentration u ↔ wave function ψ; real time ↔ imaginary time (Wick rotation)",
+      "note": "The Schrödinger equation is the heat/diffusion equation with an imaginary diffusion coefficient (Wick rotation t→−iτ).",
+      "a_canon": true,
+      "b_canon": false
+    },
+    {
+      "a": "Heat equation",
+      "a_domain": "mathematics",
+      "b": "Vlasov equation",
+      "b_domain": "physics",
+      "schema": "transport/continuity of a density in phase space",
+      "mapping": "thermal diffusion of u(x,t) ↔ collisionless flow of f(r,v,t); Laplacian spreading ↔ advection + force term (q/m)(E+v×B)·∇_v f",
+      "note": "Both are conservation/transport equations for a scalar density field; heat eqn is the diffusive limit, Vlasov the collisionless limit.",
+      "a_canon": true,
+      "b_canon": true
+    },
+    {
+      "a": "principle of stationary action",
+      "a_domain": "physics",
+      "b": "Lagrange multiplier condition",
+      "b_domain": "mathematics",
+      "schema": "extremize a functional/function subject to constraints ⟹ stationarity condition",
+      "mapping": "δS=0 over paths ↔ ∇f=λ∇g at a point; Euler-Lagrange equation ↔ stationarity ∇(f−λg)=0",
+      "note": "Lagrangian mechanics is the calculus-of-variations / constrained-optimization framework applied to physical trajectories; both use multipliers λ.",
+      "a_canon": true,
+      "b_canon": true
+    },
+    {
+      "a": "variational principle",
+      "a_domain": "physics",
+      "b": "SVM primal objective",
+      "b_domain": "computer_science",
+      "schema": "minimize an objective functional over admissible states to find the optimum",
+      "mapping": "trial state |φ⟩ minimizing ⟨φ|Ĥ|φ⟩ ↔ weight w minimizing ½‖w‖²; ground-state energy E₀ ↔ max-margin solution",
+      "note": "The quantum variational method and convex ML optimization both find an optimum by minimizing a (convex) functional under constraints.",
+      "a_canon": true,
+      "b_canon": true
+    },
+    {
+      "a": "Bayes' theorem",
+      "a_domain": "mathematics",
+      "b": "canonical ensemble",
+      "b_domain": "physics",
+      "schema": "normalized exponential weighting: p(state) = weight / partition_sum",
+      "mapping": "posterior P(A|B)=P(B|A)P(A)/P(B) ↔ Boltzmann p_i = e^{−βE_i}/Z; evidence P(B) ↔ partition function Z",
+      "note": "The partition function Z is the statistical-mechanics analog of the Bayesian evidence (normalizing constant); both are sums over states.",
+      "a_canon": true,
+      "b_canon": true
+    },
+    {
+      "a": "entropy",
+      "a_domain": "physics",
+      "b": "Bias-variance decomposition",
+      "b_domain": "computer_science",
+      "schema": "−Σ p log p as an information measure of uncertainty/spread",
+      "mapping": "Gibbs entropy S=−k_B Σ p_i ln p_i ↔ Shannon entropy / cross-entropy loss; thermal disorder ↔ predictive uncertainty",
+      "note": "Statistical-mechanics entropy and information/cross-entropy in ML are the same Shannon functional −Σp log p.",
+      "a_canon": true,
+      "b_canon": true
+    },
+    {
+      "a": "radioactive decay law",
+      "a_domain": "physics",
+      "b": "First-order integrated rate law",
+      "b_domain": "chemistry",
+      "schema": "dN/dt = −kN  ⟹  N(t) = N₀ e^{−kt}",
+      "mapping": "decay constant λ ↔ rate constant k; nuclei N ↔ concentration [A]; half-life ln2/λ ↔ ln2/k",
+      "note": "Radioactive decay and first-order chemical kinetics are the same first-order linear ODE; both have a constant half-life.",
+      "a_canon": true,
+      "b_canon": true
+    },
+    {
+      "a": "radioactive decay law",
+      "a_domain": "physics",
+      "b": "RC transient response",
+      "b_domain": "computer_science",
+      "schema": "exponential relaxation toward equilibrium with time constant τ",
+      "mapping": "N(t)=N₀e^{−λt} ↔ V_C(t)=V_f+(V_0−V_f)e^{−t/RC}; mean-life 1/λ ↔ τ=RC",
+      "note": "Nuclear decay, capacitor discharge, and first-order kinetics are all single-exponential relaxation processes.",
+      "a_canon": true,
+      "b_canon": true
+    },
+    {
+      "a": "Law of mass action (generic)",
+      "a_domain": "chemistry",
+      "b": "Market equilibrium condition",
+      "b_domain": "economics",
+      "schema": "equilibrium where forward and reverse (supply and demand) rates balance",
+      "mapping": "K_c balancing forward/reverse reaction ↔ P* where Q_d(P)=Q_s(P); Le Chatelier shift ↔ comparative statics of a demand/supply shock",
+      "note": "Chemical equilibrium and market equilibrium share the fixed-point structure: a balance of opposing flows, with shocks producing comparative-statics shifts.",
+      "a_canon": true,
+      "b_canon": true
+    },
+    {
+      "a": "Henderson-Hasselbalch",
+      "a_domain": "chemistry",
+      "b": "chemical potential",
+      "b_domain": "physics",
+      "schema": "potential = reference + (kT) × log(activity ratio)",
+      "mapping": "pH = pK_a + log([A⁻]/[HA]) ↔ μ = μ° + k_BT ln(activity); log-of-concentration-ratio drives the potential",
+      "note": "Buffer pH (Henderson-Hasselbalch) and the chemical/Nernst potential share the 'potential = const + log(ratio)' Boltzmann form.",
+      "a_canon": true,
+      "b_canon": true
+    },
+    {
+      "a": "Fourier transform",
+      "a_domain": "physics",
+      "b": "position-momentum uncertainty",
+      "b_domain": "physics",
+      "schema": "conjugate variables linked by a Fourier transform obey Δx·Δk ≥ const",
+      "mapping": "signal time–frequency bandwidth product ↔ σ_x·σ_p ≥ ℏ/2; narrow in x ↔ broad in k",
+      "note": "The Heisenberg uncertainty principle is the Fourier bandwidth theorem: a function and its transform cannot both be sharply localized.",
+      "a_canon": true,
+      "b_canon": true
+    },
+    {
+      "a": "Convolution theorem",
+      "a_domain": "computer_science",
+      "b": "convolution theorem",
+      "b_domain": "physics",
+      "schema": "convolution in one domain = pointwise product in the Fourier-conjugate domain",
+      "mapping": "F{x*h}=X·H (signals) ↔ FT[f*g]=f̃·g̃ (math methods); LTI filtering ↔ Green's-function response",
+      "note": "The signals-and-systems convolution theorem and the physics Fourier convolution theorem are the identical statement.",
+      "a_canon": true,
+      "b_canon": true
+    },
+    {
+      "a": "continuity equation (fluids)",
+      "a_domain": "physics",
+      "b": "KCL",
+      "b_domain": "computer_science",
+      "schema": "conservation at a junction: net flux in = net flux out",
+      "mapping": "A₁v₁=A₂v₂ (mass flux) ↔ ΣI_in=ΣI_out (charge flux); incompressible flow ↔ charge conservation at a node",
+      "note": "Fluid continuity and Kirchhoff's current law are both local conservation (divergence-free flux) statements.",
+      "a_canon": true,
+      "b_canon": true
+    },
+    {
+      "a": "Capital accumulation equation",
+      "a_domain": "economics",
+      "b": "first law of thermodynamics",
+      "b_domain": "physics",
+      "schema": "d(stock)/dt = inflow − outflow",
+      "mapping": "Δk = s·f(k) − (δ+n+g)k ↔ dU = δQ − δW; investment ↔ heat in; depreciation ↔ work out",
+      "note": "The Solow capital-accumulation equation and the first law are both stock-flow balance equations: rate of change of a stock equals net flow.",
+      "a_canon": true,
+      "b_canon": true
+    },
+    {
+      "a": "Michaelis-Menten equation",
+      "a_domain": "chemistry",
+      "b": "Fermi-Dirac distribution",
+      "b_domain": "physics",
+      "schema": "saturating response: y = y_max · x / (K + x) form bounded above",
+      "mapping": "v = V_max[S]/(K_M+[S]) ↔ occupation saturating to 1; substrate [S] ↔ energy/chemical-potential offset; K_M ↔ kT scale",
+      "note": "Enzyme saturation kinetics and Fermi occupation are both monotone saturating (sigmoidal/hyperbolic) response curves bounded by a maximum.",
+      "a_canon": true,
+      "b_canon": true
+    }
+  ]
+}

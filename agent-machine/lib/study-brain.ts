@@ -10,11 +10,12 @@
  */
 import * as fs from 'node:fs'
 import * as path from 'node:path'
-import { embedText } from './ollama.js'
+import { embedText, generateOllamaText } from './ollama.js'
 import { termSet } from './text-normalize.js'
 import { decodeVec, l2norm } from './brain-vec.js'
 import { decryptLine } from './at-rest.js'
 import { academicBrainDir } from './brain-home.js'
+import { sanitizeRetrieved } from './rag-trust.js'
 
 const MAX = Number(process.env['STUDY_BRAIN_CAP'] || 30000)              // per-field cap
 const GLOBAL_MAX = Number(process.env['STUDY_BRAIN_GLOBAL_CAP'] || 250000) // total resident across ALL fields
@@ -59,7 +60,7 @@ function loadField(field: string): Chunk[] {
   const rest: Chunk[] = []
   const mk = (o: { text?: string; slug?: string; vec?: string; dims?: number }, material: string, fn: string): Chunk => {
     const vec = decodeVec(o.vec!, o.dims || 768)
-    return { text: o.text!, slug: o.slug || fn, field, material, vec, norm: l2norm(vec) }
+    return { text: sanitizeRetrieved(o.text!).clean, slug: o.slug || fn, field, material, vec, norm: l2norm(vec) }
   }
   if (cap > 0 && fs.existsSync(dir)) {
     for (const fn of fs.readdirSync(dir).filter((f) => f.endsWith('.jsonl'))) {
@@ -85,6 +86,30 @@ function loadField(field: string): Chunk[] {
 }
 
 export interface BrainHit { text: string; slug: string; field: string; material: string; score: number }
+
+// ── PROMOTION layer: board-measured techniques wired into the product, OFF by default, flip ON once the
+// board confirms the lift (keep all arms, promote only winners). Mapping:
+//   Re2G rerank  → NOETICA_BRAIN_RERANK=1   (this fn)        gate/CRAG → NOETICA_BRAIN_GATE (caller-side)
+//   qgen/HyDE    → already promoted (extraQueries, +4.3)     compute   → NOETICA_VERIFIED_COMPUTE (answer path)
+// Re2G LLM listwise rerank (IBM Glass/Gliozzo NAACL'22): a relevance pass over the candidate pool before
+// dedup+top-k. We already do dense + material-boost + lexical blend; this is the missing rerank stage.
+const RERANK_N = Number(process.env['NOETICA_RERANK_N'] || 16)
+async function rerankHits(query: string, hits: BrainHit[], keep: number): Promise<BrainHit[]> {
+  const cands = hits.slice(0, Math.min(hits.length, RERANK_N))
+  if (cands.length <= 1) return hits
+  const list = cands.map((h, i) => `[${i + 1}] ${h.text.slice(0, 280).replace(/\s+/g, ' ')}`).join('\n')
+  const model = process.env['NOETICA_RERANK_MODEL'] || process.env['MMLU_MODEL'] || 'qwen2.5:7b'
+  let raw = ''
+  try {
+    raw = (await generateOllamaText({ model, temperature: 0, messages: [{ role: 'user',
+      content: `Question: ${query}\n\nNumbered passages:\n${list}\n\nList the ${keep} passage numbers MOST useful for answering, most useful first, comma-separated (e.g. "3, 1, 7"). Numbers only.` }] })).content
+  } catch { return hits }
+  const order = (raw.match(/\d+/g) || []).map(Number).filter((n) => n >= 1 && n <= cands.length)
+  const seen = new Set<number>(); const picked: BrainHit[] = []
+  for (const n of order) { if (!seen.has(n)) { seen.add(n); picked.push(cands[n - 1]!); if (picked.length >= keep) break } }
+  for (const h of hits) { if (!picked.includes(h)) picked.push(h) }   // fill with the remainder, original order
+  return picked
+}
 
 /**
  * Retrieve the top-k most relevant OCW chunks for a query (cosine over the named fields).
@@ -150,6 +175,12 @@ export async function studyBrainRetrieve(query: string, fields: string[] = [], k
       h.score = 0.82 * h.score + 0.18 * (hit / qterms.size) // blended relevance
     }
     pool.sort((a, b) => b.score - a.score)
+  }
+  // Re2G rerank (PROMOTABLE, off by default — flip NOETICA_BRAIN_RERANK=1 when the board confirms it wins):
+  // an LLM listwise relevance pass over the pool before dedup+top-k. Best-effort: falls through on any error.
+  if (process.env['NOETICA_BRAIN_RERANK'] === '1' && pool.length > k) {
+    const reranked = await rerankHits(query, pool, Math.max(k * 2, 12))
+    if (reranked.length) pool.splice(0, pool.length, ...reranked)
   }
   // Dedup near-identical passages by text prefix (same chunk often recurs across courses) —
   // feeding the model the same passage twice wastes context and adds no signal.

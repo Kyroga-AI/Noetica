@@ -15,6 +15,7 @@ import {
 } from '@socioprophet/hellgraph'
 import { embedText } from './ollama.js'
 import { bm25 } from './hybrid-retrieve.js'
+import { isUserDoc, collectionIdOf } from './doc-scope.js'
 
 const CHUNK_LABEL = 'DocumentChunk'
 
@@ -33,16 +34,16 @@ export async function extractText(filename: string, mimeType: string, buf: Buffe
     return value.replace(/\n{3,}/g, '\n\n').trim()
   }
   if (lower.endsWith('.pdf') || mimeType === 'application/pdf') {
-    const { PDFParse } = await import('pdf-parse')
-    const parser = new PDFParse({ data: new Uint8Array(buf) })
-    try {
-      const { text } = await parser.getText()
-      const out = (text ?? '').replace(/\n{3,}/g, '\n\n').trim()
-      if (!out) throw new Error('PDF has no extractable text (scanned image?) — paste the text or run OCR')
-      return out
-    } finally {
-      await parser.destroy().catch(() => {})
-    }
+    // unpdf — pure-JS pdfjs built for bundled/serverless runtimes (zero deps, NO canvas/DOMMatrix). pdf-parse v2
+    // needs @napi-rs/canvas + DOM polyfills ("DOMMatrix is not defined") and v1 does a computed require of a
+    // versioned pdf.js build ("Cannot find module ./pdf.js/v1.10.100/build/pdf.js") — both break in the
+    // bun-compiled standalone, so every PDF ingest failed with internal_error. unpdf bundles cleanly.
+    const { extractText: pdfExtract, getDocumentProxy } = await import('unpdf')
+    const doc = await getDocumentProxy(new Uint8Array(buf))
+    const { text } = await pdfExtract(doc, { mergePages: true })
+    const out = (typeof text === 'string' ? text : (text as string[]).join('\n')).replace(/\n{3,}/g, '\n\n').trim()
+    if (!out) throw new Error('PDF has no extractable text (scanned image?) — paste the text or run OCR')
+    return out
   }
   // Everything else: treat as UTF-8 text (txt, md, csv, json, code).
   return buf.toString('utf8')
@@ -82,6 +83,23 @@ export interface IngestResult {
   grounding?: { confirmed: number; residual: number } // confirmed = grounded to prime basis; residual = surprise
 }
 
+/** Link a doc to the canonical entities it mentions (GROUNDS edges), matched by normalised surface — interned
+ *  entities carry no per-doc provenance. Idempotent (skips already-linked). PURE linking — never re-ingests
+ *  entities (that's the expensive part); callers that need ingest do it separately. Returns edges added. */
+function linkDocGrounds(g: ReturnType<typeof getHellGraph>, docId: string, ents: Array<{ normalised?: string }>): number {
+  const wanted = new Set(ents.map((e) => String(e.normalised ?? '').toLowerCase().trim()).filter(Boolean))
+  if (wanted.size === 0) return 0
+  const already = new Set(g.out(docId, 'GROUNDS').map((n) => n.id))
+  let n = 0
+  for (const ce of g.nodesByLabel('CanonicalEntity')) {
+    const norm = String(ce.properties['normalised'] ?? '').toLowerCase().trim()
+    if (norm && wanted.has(norm) && !already.has(ce.id)) {
+      try { g.addEdge('GROUNDS', docId, ce.id, { kind: 'entity', surface: String(ce.properties['surface'] ?? norm) }); already.add(ce.id); n++ } catch { /* edge best-effort */ }
+    }
+  }
+  return n
+}
+
 /**
  * Ground a document THROUGH the ontology on ingest — the perception half of the
  * epistemic loop. extractEntities recognizes entities and reports the prime topics
@@ -100,6 +118,8 @@ function groundThroughOntology(docId: string, text: string): { entities: number;
     }
     // Native write into the epistemic substrate (CanonicalEntity atoms + epistemic class).
     ingestEntities(docId, 'ingest', text.slice(0, 20_000), new Date().toISOString())
+    // GROUNDS linkage (P2.4): bridge the doc layer to the REGIS entity layer (matched by normalised surface).
+    try { linkDocGrounds(getHellGraph(), docId, ents) } catch { /* grounding linkage best-effort */ }
     return { entities: ents.length, confirmed, residual: ents.length - confirmed }
   } catch {
     return { entities: 0, confirmed: 0, residual: 0 }
@@ -123,12 +143,9 @@ function linkProjections(g: ReturnType<typeof getHellGraph>, docId: string): { c
         if (c.properties['doc_id'] === docId) { g.addEdge('PRODUCED', docId, c.id, { kind: 'chunk' }); chunks++ }
       }
     } else chunks = g.out(docId, 'PRODUCED').length
-    if (g.out(docId, 'GROUNDS').length === 0) {
-      for (const e of g.nodesByLabel('CanonicalEntity')) {
-        const src = e.properties['doc_id'] ?? e.properties['source'] ?? e.properties['provenance']
-        if (src === docId) { g.addEdge('GROUNDS', docId, e.id, { kind: 'entity' }); entities++ }
-      }
-    } else entities = g.out(docId, 'GROUNDS').length
+    // GROUNDS edges are created in groundThroughOntology (matched by normalised surface, since interned entities
+    // carry no per-doc provenance); just count them here.
+    entities = g.out(docId, 'GROUNDS').length
   } catch { /* projection linking is best-effort */ }
   return { chunks, entities }
 }
@@ -150,12 +167,18 @@ export async function ingestDocument(filename: string, text: string): Promise<In
   }
   const chunks = chunkText(text)
   let embedded = 0
+  const tierItems: Array<{ id: string; vec: number[]; meta: Record<string, unknown> }> = []
   for (let idx = 0; idx < chunks.length; idx++) {
     const chunk = chunks[idx]!
     const vec = await embedText(chunk)
-    if (vec.length) embedded++
+    if (vec.length) { embedded++; tierItems.push({ id: `${docId}#${idx}`, vec, meta: { docId, filename, idx, text: chunk } }) }
     // Store via HellGraph's canonical vector pipeline (one chunk representation everywhere).
     hgPutChunk({ docId, idx, text: chunk, vec, filename })
+  }
+  // Dual-write to the extracted vector tier (per-collection ANN in the sidecar). Retrieval prefers it; the graph
+  // atoms remain a fallback during the transition. USER docs only — keep the tier free of core/self/memory.
+  if (isUserDoc(filename) && tierItems.length) {
+    try { const { vecUpsert } = await import('./embed-runtime.js'); await vecUpsert(collectionIdOf(filename) ?? 'inbox', tierItems) } catch { /* vector tier best-effort */ }
   }
   // Preserve the raw source in the content-addressed blob store (so it can be re-extracted /
   // audited later) and stamp the Document atom with the hash that points to it.
@@ -191,7 +214,7 @@ export async function semanticSearch(query: string, k = 5): Promise<ChunkHit[]> 
  */
 export function lexicalSearch(query: string, k = 15): ChunkHit[] {
   const g = getHellGraph()
-  let nodes = g.nodesByLabel(CHUNK_LABEL)
+  let nodes = g.nodesByLabel(CHUNK_LABEL).filter((n) => !n.properties['hidden'])   // skip soft-deleted (Library cleanup)
   const scope = process.env['NOETICA_DEMO_DOC']
   if (scope) {
     const f = nodes.filter((n) => String(n.properties['filename'] ?? '').toLowerCase().includes(scope.toLowerCase()))
@@ -218,13 +241,39 @@ export function lexicalSearch(query: string, k = 15): ChunkHit[] {
  * field's #1 RAG complaint) using signals Noetica already has. Returns reranked chunks; callers
  * inject `text` and surface `citation` as provenance.
  */
-export async function searchDocsReranked(query: string, limit = 8): Promise<import('./rag-rerank.js').RankedChunk[]> {
+export async function searchDocsReranked(query: string, limit = 8, opts: { relevanceQuery?: string } = {}): Promise<import('./rag-rerank.js').RankedChunk[]> {
   const { fuseRerank } = await import('./rag-rerank.js')
-  const [semantic, lexical] = await Promise.all([
-    semanticSearch(query, Math.max(limit, 8)),
-    Promise.resolve(lexicalSearch(query, Math.max(limit * 2, 16))),
-  ])
+  const semantic = await tierSemanticSearch(query, Math.max(limit, 8))
+  // RELEVANCE GATE: if even the best chunk isn't semantically close, the docs don't cover this query — return
+  // nothing so the model answers from its own knowledge instead of parroting off-topic passages. Fixes the
+  // "who was the first president → quotes a business doc" derail. Gate on the RAW user query (relevanceQuery)
+  // because `query` may be glossary-EXPANDED (raw + domain terms), which inflates similarity to in-corpus docs
+  // and would let an off-topic question slip through. Measured: on-topic ≈0.68-0.71, off-topic ≈0.52-0.56.
+  const floor = Number(process.env['NOETICA_DOC_RELEVANCE_FLOOR'] ?? '0.62')
+  const gateHits = opts.relevanceQuery && opts.relevanceQuery !== query ? await tierSemanticSearch(opts.relevanceQuery, 3) : semantic
+  const topSemantic = gateHits.reduce((m, h) => Math.max(m, h.score), 0)
+  if (gateHits.length > 0 && topSemantic < floor) return []
+  const lexical = lexicalSearch(query, Math.max(limit * 2, 16))
   return fuseRerank(semantic, lexical, query, { limit })
+}
+
+/** Semantic ranker backed by the EXTRACTED vector tier (per-collection ANN in the sidecar): query each user
+ *  collection, merge by score. Falls back to the in-graph semanticSearch when the tier is empty/unavailable —
+ *  so retrieval is correct before/after migration (dual-read). */
+async function tierSemanticSearch(query: string, k: number): Promise<ChunkHit[]> {
+  try {
+    const { vecQuery, vecStats } = await import('./embed-runtime.js')
+    const cols = (await vecStats()).map((c) => c.name)
+    if (cols.length === 0) return semanticSearch(query, k)            // tier not populated yet → graph
+    const merged = (await Promise.all(cols.map((c) => vecQuery(c, { text: query, k })))).flat()
+    if (merged.length === 0) return semanticSearch(query, k)
+    const hits: ChunkHit[] = merged
+      .map((h) => ({ text: String(h.meta['text'] ?? ''), filename: String(h.meta['filename'] ?? ''), score: h.score, docId: String(h.meta['docId'] ?? ''), idx: Number(h.meta['idx'] ?? 0) }))
+      .filter((h) => h.text)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, k)
+    return hits.length ? hits : semanticSearch(query, k)
+  } catch { return semanticSearch(query, k) }
 }
 
 export interface ChartHit extends ChunkHit {
@@ -246,7 +295,7 @@ export async function sheafSearch(query: string, opts: { charts?: number; k?: nu
   const maxCharts = opts.charts ?? 3
   const k = opts.k ?? 6
   const g = getHellGraph()
-  let nodes = g.nodesByLabel(CHUNK_LABEL)
+  let nodes = g.nodesByLabel(CHUNK_LABEL).filter((n) => !n.properties['hidden'])   // skip soft-deleted (Library cleanup)
   const scope = process.env['NOETICA_DEMO_DOC']
   if (scope) {
     const f = nodes.filter((n) => String(n.properties['filename'] ?? '').toLowerCase().includes(scope.toLowerCase()))
@@ -307,4 +356,118 @@ export async function sheafSearch(query: string, opts: { charts?: number; k?: nu
 
 export function documentChunkCount(): number {
   return getHellGraph().nodesByLabel(CHUNK_LABEL).length
+}
+
+// USER-uploaded chunks only — anything NOT in a core/protected scope (memory/knowledge/self/repo/…, see
+// doc-scope.ts). Core docs (e.g. the self-model construction repos) live in the SAME physical AtomSpace, so a
+// raw count makes hasDoc permanently true and routes every question into strict doc-QA ("answer ONLY from these
+// sources") — refusing general knowledge. hasDoc must reflect real user uploads (collections), not core scopes.
+export function userDocumentChunkCount(): number {
+  return getHellGraph().nodesByLabel(CHUNK_LABEL).filter((n) => isUserDoc(String(n.properties['filename'] ?? ''))).length
+}
+
+/** Soft-delete a collection (the graph has no node removal): mark its Document + DocumentChunk atoms hidden so
+ *  they drop out of retrieval AND the Library, without destroying provenance. Matches the collection/<id>/
+ *  filename namespace. Returns how many were hidden. (Core scopes can't be targeted — callers gate on kind.) */
+export function hideCollection(collectionId: string): { docs: number; chunks: number } {
+  const g = getHellGraph()
+  const prefix = `collection/${collectionId}/`
+  const gx = g as unknown as { setNodeProperty: (id: string, key: string, value: unknown) => void }
+  let docs = 0, chunks = 0
+  for (const d of g.nodesByLabel('Document')) {
+    if (String(d.properties['filename'] ?? '').startsWith(prefix)) { try { gx.setNodeProperty(d.id, 'hidden', true); docs++ } catch { /* */ } }
+  }
+  for (const c of g.nodesByLabel(CHUNK_LABEL)) {
+    if (String(c.properties['filename'] ?? '').startsWith(prefix)) { try { gx.setNodeProperty(c.id, 'hidden', true); chunks++ } catch { /* */ } }
+  }
+  // Drop the collection from the extracted vector tier too (real delete — the index supports it). Fire-and-forget.
+  void import('./embed-runtime.js').then((m) => m.vecDelete(collectionId)).catch(() => {})
+  return { docs, chunks }
+}
+
+/** Migration: backfill the vector tier from existing graph DocumentChunk atoms (user docs only), reusing their
+ *  stored embeddings. Idempotent (upsert-by-id). Run once on boot when the tier is empty. */
+export async function reindexVectorTier(): Promise<{ collections: number; chunks: number }> {
+  const g = getHellGraph()
+  const { vecUpsert } = await import('./embed-runtime.js')
+  const byCol = new Map<string, Array<{ id: string; vec: number[]; meta: Record<string, unknown> }>>()
+  for (const n of g.nodesByLabel(CHUNK_LABEL)) {
+    if (n.properties['hidden']) continue
+    const filename = String(n.properties['filename'] ?? '')
+    if (!isUserDoc(filename)) continue
+    const raw = String(n.properties['embedding'] ?? '')
+    if (!raw) continue
+    let vec: number[]; try { vec = JSON.parse(raw) as number[] } catch { continue }
+    if (!Array.isArray(vec) || vec.length === 0) continue
+    const docId = String(n.properties['doc_id'] ?? '')
+    const idx = Number(n.properties['idx'] ?? 0)
+    const col = collectionIdOf(filename) ?? 'inbox'
+    if (!byCol.has(col)) byCol.set(col, [])
+    byCol.get(col)!.push({ id: `${docId}#${idx}`, vec, meta: { docId, filename, idx, text: String(n.properties['text'] ?? '') } })
+  }
+  let chunks = 0
+  for (const [col, items] of byCol) { const n = await vecUpsert(col, items); if (n) chunks += n }
+  return { collections: byCol.size, chunks }
+}
+
+/** Backfill GROUNDS edges for EXISTING docs that have none (new ingests link at ingest time). Reconstructs each
+ *  doc's text from its chunks, re-runs the ontology grounding (idempotent), and links by normalised surface.
+ *  Run once on boot; skips docs already linked. */
+export function relinkDocEntities(): { docs: number; edges: number } {
+  const g = getHellGraph()
+  const textByDoc = new Map<string, string[]>()
+  for (const c of g.nodesByLabel(CHUNK_LABEL)) {
+    if (c.properties['hidden']) continue
+    const did = String(c.properties['doc_id'] ?? ''); if (!did) continue
+    const t = String(c.properties['text'] ?? ''); if (!t) continue
+    if (!textByDoc.has(did)) textByDoc.set(did, [])
+    textByDoc.get(did)!.push(t)
+  }
+  let docs = 0, edges = 0
+  for (const d of g.nodesByLabel('Document')) {
+    if (d.properties['hidden']) continue
+    if (g.out(d.id, 'GROUNDS').length > 0) continue   // already linked
+    const parts = textByDoc.get(d.id); if (!parts || parts.length === 0) continue
+    // Link ONLY (extractEntities is cheap regex; the entities already exist from the original ingest) — never
+    // re-ingest here, that's what froze the boot on a large graph.
+    const e = linkDocGrounds(g, d.id, extractEntities(parts.join('\n')))
+    if (e > 0) { docs++; edges += e }
+  }
+  return { docs, edges }
+}
+
+/** Self-healing: if stored chunk vectors were made by a DIFFERENT embedder than the one now active (different
+ *  dimension — e.g. an upgrade from Ollama nomic-768 to Rust bge-384), reindex the corpus so queries + chunks
+ *  share a space again. Runs once at boot in the background; a no-op when dims already match. */
+export async function reindexIfDimMismatch(): Promise<{ reindexed: boolean; reason: string }> {
+  const g = getHellGraph()
+  const sample = g.nodesByLabel(CHUNK_LABEL).find((n) => String(n.properties['embedding'] ?? ''))
+  if (!sample) return { reindexed: false, reason: 'no embedded chunks' }
+  let storedDim = 0
+  try { storedDim = (JSON.parse(String(sample.properties['embedding'])) as number[]).length } catch { return { reindexed: false, reason: 'unreadable embedding' } }
+  const probe = await embedText('dimension probe')
+  if (!probe.length) return { reindexed: false, reason: 'embedder unavailable' }
+  if (probe.length === storedDim) return { reindexed: false, reason: `dims match (${storedDim})` }
+  console.log(`[doc-store] embedder dim changed (${storedDim} → ${probe.length}) — reindexing corpus in background`.replace(/[\r\n]/g, ' '))
+  const r = await reindexDocVectors()
+  return { reindexed: true, reason: `reindexed ${r.reembedded}/${r.total} chunks ${storedDim}→${probe.length}` }
+}
+
+/** Re-embed every DocumentChunk with the CURRENT embedder (embedText) and upsert it — used after switching
+ *  embedders (e.g. Ollama nomic-768 → Rust bge-384) so stored chunk vectors share the query's vector space.
+ *  Idempotent + restartable; returns counts. Skips chunks with no text. */
+export async function reindexDocVectors(): Promise<{ total: number; reembedded: number; failed: number }> {
+  const g = getHellGraph()
+  const chunks = g.nodesByLabel(CHUNK_LABEL)
+  let reembedded = 0, failed = 0
+  for (const n of chunks) {
+    const text = String(n.properties['text'] ?? '')
+    if (!text) { failed++; continue }
+    const docId = String(n.properties['doc_id'] ?? '')
+    const idx = Number(n.properties['idx'] ?? 0)
+    const filename = String(n.properties['filename'] ?? '')
+    const vec = await embedText(text)
+    if (vec.length) { hgPutChunk({ docId, idx, text, vec, filename }); reembedded++ } else failed++
+  }
+  return { total: chunks.length, reembedded, failed }
 }

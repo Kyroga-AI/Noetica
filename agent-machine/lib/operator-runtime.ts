@@ -14,7 +14,6 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 import { spawn, type ChildProcess } from 'node:child_process'
-import { fileURLToPath } from 'node:url'
 
 // ── Wire contract (the stable, reusable seam — keep in sync with the Rust sidecar) ───────────────────────
 /** A dense tensor: row-major f32 `data` whose length MUST equal the product of `shape`. */
@@ -53,7 +52,7 @@ export function operatorBinaryPath(): string | null {
   if (override !== undefined) return override && fs.existsSync(override) ? override : null
   const beside = path.join(path.dirname(process.execPath), 'noetica-operator')
   if (fs.existsSync(beside)) return beside
-  const here = path.dirname(fileURLToPath(import.meta.url))
+  const here = __dirname   // CommonJS build target (house pattern; see canon-lookup.ts) — not import.meta
   for (const p of [
     path.resolve(process.cwd(), 'operator-sidecar/target/release/noetica-operator'),
     path.resolve(here, '../../operator-sidecar/target/release/noetica-operator'),
