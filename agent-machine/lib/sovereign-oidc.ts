@@ -34,6 +34,15 @@ export function generateSigningKey(): SigningKey {
   return { kid, privateKey, publicKey };
 }
 
+/** Load the IdP signing key from a PEM private key (mounted secret in prod). DAO target: threshold/k-of-n. */
+export function signingKeyFromPem(pem: string): SigningKey {
+  const privateKey = crypto.createPrivateKey(pem);
+  const publicKey = crypto.createPublicKey(privateKey);
+  const raw = publicKey.export({ type: "spki", format: "der" }).subarray(-32);
+  const kid = crypto.createHash("sha256").update(raw).digest("base64url").slice(0, 16);
+  return { kid, privateKey, publicKey };
+}
+
 /** JWKS entry so relying parties can verify our tokens via standard discovery. */
 export function jwks(key: SigningKey): { keys: Array<Record<string, string>> } {
   const x = (key.publicKey.export({ type: "spki", format: "der" }).subarray(-32) as Buffer).toString("base64url");
