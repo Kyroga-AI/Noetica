@@ -102,16 +102,26 @@ def raptor_lite(chunks: list, query: str, model: str, levels: int = 2) -> str:
 
 def server_answer(q: dict, api_base: str) -> str:
     """Route the question through the production agent-machine server, measuring the real
-    dual-layer retrieval + RAPTOR pipeline (not the harness's keyword strawman)."""
-    body = json.dumps({'messages': [{'role': 'user', 'content': q['question']}],
-                       'stream': False}).encode()
+    dual-layer retrieval + RAPTOR pipeline (not the harness's keyword strawman).
+    The server always responds with SSE (event: <name>\ndata: <json>\n\n). We read the
+    stream, find the 'done' event, and return result.content from it."""
+    body = json.dumps({'messages': [{'role': 'user', 'content': q['question']}]}).encode()
     req = urllib.request.Request(f'{api_base}/api/chat', body, {'content-type': 'application/json'})
-    with urllib.request.urlopen(req, timeout=120) as r:
-        data = json.loads(r.read())
-    # agent-machine returns SSE or JSON; handle both
-    if isinstance(data, dict):
-        return str(data.get('content') or data.get('message', {}).get('content', ''))
-    return str(data)
+    with urllib.request.urlopen(req, timeout=180) as r:
+        raw = r.read().decode('utf-8', errors='replace')
+    # SSE format: "event: <name>\ndata: <json>\n\n" blocks
+    last_event = ''
+    for line in raw.splitlines():
+        line = line.strip()
+        if line.startswith('event:'):
+            last_event = line[len('event:'):].strip()
+        elif line.startswith('data:') and last_event == 'done':
+            try:
+                payload = json.loads(line[len('data:'):].strip())
+                return str(payload.get('result', {}).get('content', ''))
+            except Exception:
+                pass
+    return ''
 
 
 def answer(q: dict, chunks: list, model: str, sc_k: int) -> str:
