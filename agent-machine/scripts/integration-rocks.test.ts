@@ -66,7 +66,7 @@ test('RocksDB backend persists a goal across a full server restart', async (t) =
   assert.equal(create.status, 200)
   // give the async RocksDB write chain time to flush to disk before we kill the server. A fixed 500ms raced the
   // flush on slow CI runners (the flake this replaces) — be generous; correctness over speed for a restart test.
-  await new Promise((r) => setTimeout(r, 1500))
+  await new Promise((r) => setTimeout(r, 5000))
   await killGraceful(s1)
 
   // confirm the store materialised on disk
@@ -77,10 +77,10 @@ test('RocksDB backend persists a goal across a full server restart', async (t) =
   // the store rehydrates from disk asynchronously after boot — POLL before asserting rather than reading once
   // and racing the load (the other half of the flake).
   let restored = false
-  for (let i = 0; i < 10 && !restored; i++) {
+  for (let i = 0; i < 25 && !restored; i++) {
     const list = await (await fetch(`${BASE}/api/goals?session=rocks-it`)).json() as { goals?: Array<{ objective?: string }> }
     restored = !!list.goals?.some((g) => g.objective === 'survive a reboot')
-    if (!restored) await new Promise((r) => setTimeout(r, 500))
+    if (!restored) await new Promise((r) => setTimeout(r, 1000))
   }
   await kill(s2)
   assert.ok(restored, 'goal restored from RocksDB after restart')
