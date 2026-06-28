@@ -686,6 +686,45 @@ function nearestChoice(choices: string[], val: number): string {
   }
   return best >= 0 && bd < 0.02 ? LETTERS[best]! : ''
 }
+
+// ── verified-operator compute: the proven +7 fix (lib/math_operators.py) ──────
+// The 7B routes to the right operation reliably but writes specialized math WRONG (invalid cycle notation,
+// complex roots for finite fields, unevaluated ODEs → 1/6). So OFFER it a verified library to CALL: the model
+// extracts args + picks the operator, the tested library does the math. Measured 4/5→5/5 recovery on the losses.
+const LIBDIR = path.join(__dirname, '..', 'lib')
+const OPERATOR_API = `You have a verified Python library 'math_operators' (already correct — CALL it, never reimplement):
+  permutation_index(cycle_str, n)               # index of <p> in S_n; cycle_str like '(1,2,5,4)(2,3)'
+  finite_field_zeros(coeffs, p)                 # zeros over Z_p; coeffs highest-degree-first (x^2+1 -> [1,0,1])
+  mod_pow(base, exponent, modulus)
+  linear_ode_eval(ode_lhs, x0, y0, x_eval)      # solve 'expr=0' in x and y(x); use Derivative(y,x); y(x0)=y0
+  factorial_trailing_zeros_count(target)        # how many k have EXACTLY target trailing zeros in k!
+  ring_char_product(component_chars)            # characteristic of a product ring; 0 for an infinite component
+  count_real_intersections(eq_strs, var_names)  # # real solutions of a system of 'lhs=0' equations
+Pick the operator, extract the arguments from the problem, and write a tiny program that imports from
+math_operators and prints ONLY the final answer value on the last line. If none fit, write a short correct program.`
+
+async function operatorCompute(question: string, choices: string[]): Promise<string> {
+  const prompt = `${OPERATOR_API}\n\nProblem: ${question}\nChoices: ${choices.map((c, i) => `${LETTERS[i]}. ${c}`).join(' | ')}\n\nReturn ONLY a \`\`\`python code block.`
+  const raw = await ask(prompt, 0)
+  const code = (/```python\s*([\s\S]*?)```/.exec(raw)?.[1] ?? raw).trim()
+  if (!/print|math_operators/.test(code)) return ''
+  const wrapped = `import sys\nsys.path.insert(0, ${JSON.stringify(LIBDIR)})\n${code}`
+  let out = ''
+  try {
+    const f = path.join(os.tmpdir(), `opc_${Date.now()}_${Math.random().toString(36).slice(2)}.py`)
+    fs.writeFileSync(f, wrapped)
+    out = execFileSync('python3', [f], { encoding: 'utf8', timeout: SUBPROC_TIMEOUT, maxBuffer: 4 * 1024 * 1024 })
+    fs.rmSync(f, { force: true })
+  } catch (e) { out = (e as { stdout?: string | Buffer })?.stdout?.toString() ?? '' }
+  const lastLine = out.trim().split('\n').filter(Boolean).pop() ?? ''
+  if (!lastLine) return ''
+  const num = Number(lastLine.replace(/[[\],\s]/g, ''))               // numeric match (nearest choice)
+  if (Number.isFinite(num) && /\d/.test(lastLine)) { const nl = nearestChoice(choices, num); if (nl) return nl }
+  const norm = (s: string) => s.toLowerCase().replace(/[\s[\]{}()]/g, '').replace(/[.,]+$/, '')   // string match
+  const t = norm(lastLine)
+  for (let i = 0; i < choices.length; i++) if (norm(choices[i]!) === t) return LETTERS[i]!
+  return ''
+}
 interface CompRes { answer: string | null; mode: string }
 /** Score the whole compute arm for a subject in ONE python call (one sympy import). Each result
  *  is the verified answer letter, or null=abstain when no law fits / units reject the extraction. */
@@ -1047,6 +1086,14 @@ async function main() {
             const sc = await askVote(`${base}${REASON_RULE}`, SC_K)   // self-consistency over explicit step-by-step chains
             letter = sc.letter; mode = `reason:sc${SC_K}`; row['reason_conf'] = Number(sc.agree.toFixed(2))
           }
+        } else if (arm === 'opcompute') {         // reason lane + VERIFIED-OPERATOR compute (the proven +7 fix): route computational
+          // questions to lib/math_operators.py (model picks operator + args; tested library does the math), else CoT+SC.
+          const computational = classifyComplexity(q.question).posture === 'compute'
+            || /\b(find|compute|remainder|zeros|index|characteristic|how many|value of|solve|order of|divided by|intersection)\b/i.test(q.question)
+          let oc = ''
+          if (computational) oc = await operatorCompute(q.question, q.choices)
+          if (oc) { letter = oc; mode = 'opcompute:op' }
+          else { const sc = await askVote(`${base}${REASON_RULE}`, SC_K); letter = sc.letter; mode = `opcompute:sc${SC_K}`; row['reason_conf'] = Number(sc.agree.toFixed(2)) }
         } else if (arm === 'prod') {              // FAITHFUL mirror of server.ts deliberation — measures what SHIPS, not a strawman:
           // verified-compute on compute-posture (server: program-of-thought python; bench: sympy — both RUN code then match a
           // choice), ELSE best-of-N with the PRODUCTION critic (value-judgment + self-consistency select), not plain majority vote.
