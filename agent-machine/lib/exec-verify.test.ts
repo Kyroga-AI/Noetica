@@ -10,6 +10,17 @@ import { extractCode, extractFinalAnswer, normalizeAnswer, programOfThought, ope
 const HERE = [path.join(process.cwd(), 'lib'), path.join(process.cwd(), 'agent-machine', 'lib')]
   .find((d) => fs.existsSync(path.join(d, 'math_operators.py'))) ?? path.join(process.cwd(), 'lib')
 
+// The real-python end-to-end test needs python3 + sympy + the operator lib importable. CI's Node test job has
+// no Python deps, so probe once and SKIP there rather than hard-fail — the operator path is still fully covered
+// by the mocked tests below (and by the bench, which runs in a Python-equipped environment).
+const PY_OK = (() => {
+  try {
+    cp.execFileSync('python3', ['-c', `import sys; sys.path.insert(0, ${JSON.stringify(HERE)}); import math_operators, sympy`],
+      { stdio: 'ignore', timeout: 15_000 })
+    return true
+  } catch { return false }
+})()
+
 test('extractCode pulls a fenced python block', () => {
   assert.equal(extractCode('Here:\n```python\nprint(2+2)\n```\ndone'), 'print(2+2)')
 })
@@ -83,7 +94,7 @@ test('operatorProgramOfThought flags usedOperator=false when the model writes co
   assert.equal(op!.usedOperator, false)   // server only accepts usedOperator=true; else falls to cold PoT
 })
 
-test('operatorProgramOfThought executes the REAL math_operators.py end-to-end (gold answer)', async () => {
+test('operatorProgramOfThought executes the REAL math_operators.py end-to-end (gold answer)', { skip: PY_OK ? false : 'python3 + sympy not available in this environment' }, async () => {
   // True end-to-end: real python3 subprocess importing the actual verified library on disk.
   // Mirrors the bench's execution mechanism exactly (sys.path.insert + import + print last line).
   const op = await operatorProgramOfThought('index of (1,2,5,4)(2,3) in S_5', HERE, {
