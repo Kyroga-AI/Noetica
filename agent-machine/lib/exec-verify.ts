@@ -79,6 +79,12 @@ export const OPERATOR_API = `You have a verified Python library 'math_operators'
   factorial_trailing_zeros_count(target)        # how many k have EXACTLY target trailing zeros in k!
   ring_char_product(component_chars)            # characteristic of a product ring; 0 for an infinite component
   count_real_intersections(eq_strs, var_names)  # # real solutions of a system of 'lhs=0' equations
+  gcd(a,b)  /  lcm(a,b)
+  slope(p1,p2)  /  distance_2d(p1,p2)           # p = (x,y) tuples
+  solve_equations(eq_strs, var_names)           # solve a system 'lhs=0' (sympy syntax), e.g. word problems
+  z_score(x, mean, sd)  /  normal_prob_less_than(z)   # P(Z<z) standard normal
+  confidence_interval_mean(mean, sd, n, confidence)
+  confidence_interval_proportion(phat, n, confidence)
   definite_integral(expr_str, var, a, b)        # integral of expr d(var) from a to b; bounds may be 'oo'/'-oo'
   derivative_at(expr_str, var, x0)              # d/d(var) expr_str evaluated at var=x0
   limit_at(expr_str, var, point)                # limit of expr_str as var -> point; point may be 'oo'/'-oo'
