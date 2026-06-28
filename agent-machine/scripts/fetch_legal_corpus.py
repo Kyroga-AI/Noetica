@@ -70,17 +70,33 @@ def emit(material, text, slug, source):
 # ── HF dataset sources ─────────────────────────────────────────────────────────
 def fetch_hf(load_dataset):
     written = 0
-    # STATUTES — the actual law (federal first)
+    # STATUTES — the actual law (federal first). Field-robust: the last run wrote 0 chunks because the
+    # text/jurisdiction field names were guessed wrong (HF schemas vary), so emit() got empty text AND the
+    # federal filter dropped everything. Pull text + jurisdiction from the first non-empty candidate field,
+    # only apply the federal filter when a jurisdiction is actually present (unknown → keep, don't zero out),
+    # and log the schema on the first record so a future mismatch is obvious.
+    def _first(rec, keys):
+        for k in keys:
+            v = rec.get(k)
+            if v:
+                return v
+        return ''
     try:
         print("# loading HFforLegal/laws (statutes) …", flush=True)
         ds = load_dataset('HFforLegal/laws', split='train', streaming=True)
         rows, n = [], 0
         for rec in ds:
-            jur = str(rec.get('jurisdiction') or '')
-            if SCOPE == 'federal' and not FEDERAL_JUR.search(jur):
-                continue
-            rows += emit('statute', rec.get('text') or '', f"statute-{rec.get('id_main') or n}", rec.get('title_main') or jur)
+            if n == 0:
+                print(f"  HFforLegal/laws fields: {sorted(rec.keys())}", flush=True)
+            text = _first(rec, ('text', 'content', 'body', 'law_text', 'article', 'full_text', 'document'))
+            jur = str(_first(rec, ('jurisdiction', 'country', 'region', 'locale', 'state')) or '')
             n += 1
+            if not text:
+                continue
+            if SCOPE == 'federal' and jur and not FEDERAL_JUR.search(jur):
+                continue   # only skip when we KNOW it's non-federal; unknown jurisdiction → keep
+            slug = _first(rec, ('id_main', 'id', 'identifier')) or n
+            rows += emit('statute', text, f"statute-{slug}", _first(rec, ('title_main', 'title', 'name')) or jur)
             if LIMIT and len(rows) >= LIMIT:
                 break
         written += write_rows('statute', rows[:LIMIT or None])
