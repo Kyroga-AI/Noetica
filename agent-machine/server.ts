@@ -111,6 +111,8 @@ import { detectMemoryPoisonAttempt } from './lib/memory-poison-guard.js'
 import { markExternalContent, buildIpiSystemPromptPrefix, stripPotentialInjection } from './lib/ipi-datamark.js'
 import { executePython, executeJavaScript, EXEC_TIMEOUT_MS, MAX_OUTPUT_BYTES } from './lib/code-sandbox.js'
 import { maybeSinkToLangfuse } from './lib/langfuse-sink.js'
+import { makeCredential, markAIGenerated } from './lib/content-credentials.js'
+import { getEncryptedVectorStore } from './lib/encrypted-vector-store.js'
 import { proposal, proposalsFromInferred, setStatus, applyAccepted, type GraphProposal } from './lib/graph-proposals.js'
 import { suggestLinks, type Candidate as LinkCandidate } from './lib/link-suggest.js'
 import { newCard, review as srsReview, dueCards, type Card } from './lib/srs.js'
@@ -1283,7 +1285,18 @@ function sse(res: http.ServerResponse, event: string, data: unknown): void {
   // mid-turn and corrupting the governance record.
   if (res.writableEnded || res.destroyed) return
   try {
-    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+    // EU AI Act Art.50: mark AI-generated text in 'done' events when opt-in.
+    let payload = data
+    if (event === 'done' && process.env['CONTENT_CREDENTIALS'] === 'true' &&
+        typeof payload === 'object' && payload !== null &&
+        'result' in payload && typeof (payload as Record<string,unknown>)['result'] === 'object') {
+      const result = (payload as Record<string,unknown>)['result'] as Record<string,unknown>
+      if (typeof result['content'] === 'string') {
+        const cred = makeCredential({ model: String(result['model_routed'] ?? 'noetica'), timestamp: new Date().toISOString() })
+        payload = { ...payload as object, result: { ...result, content: markAIGenerated(result['content'], cred) } }
+      }
+    }
+    res.write(`event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`)
   } catch {
     /* client went away mid-stream — nothing to do */
   }
@@ -9370,6 +9383,26 @@ Question: ${question}`
         res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) }))
       }
     })()
+    return
+  }
+
+  // ── Encrypted vector store status ────────────────────────────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/store/vector-key-status') {
+    setCORSHeaders(res)
+    try {
+      if (process.env['ENCRYPTED_VECTOR_STORE'] !== 'true') {
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ encrypted: false, keySource: 'disabled', vectorCount: 0 }))
+        return
+      }
+      const store = getEncryptedVectorStore()
+      const { encrypted, keySource } = store.keyStatus()
+      const vectorCount = store.count()
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ encrypted, keySource, vectorCount }))
+    } catch (e) {
+      res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+    }
     return
   }
 
