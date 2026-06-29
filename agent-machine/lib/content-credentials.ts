@@ -29,3 +29,67 @@ export function markAIGenerated(text: string, cred: ContentCredential): string {
   const marker = `\n<!-- c2pa:ai-generated model="${cred.model}" digest="${manifestDigest(cred)}" -->`
   return text.includes('c2pa:ai-generated') ? text : text + marker
 }
+
+/** SHA-256 hash of the response text — stored in the compliance log instead of the raw content. */
+export function responseHash(text: string): string {
+  const { createHash } = require('node:crypto') as typeof import('node:crypto')
+  return 'sha256:' + createHash('sha256').update(text, 'utf8').digest('hex')
+}
+
+export interface ComplianceLogEntry {
+  event: 'ai_generated_response'
+  complianceStandard: 'EU-AI-Act-Art50'
+  model: string
+  generator: string
+  responseHash: string
+  digest: string
+  timestamp: string
+  markedAt: string
+}
+
+/**
+ * Record an EU AI Act Art.50 compliance event. Writes a JSONL line to logsDir/ai-act.log
+ * when logsDir is non-null. Pass logsDir:null in tests to skip the write.
+ * Raw response text is never stored — only its SHA-256 hash.
+ */
+export function logAIActEvent(opts: { responseText: string; cred: ContentCredential; logsDir: string | null }): ComplianceLogEntry {
+  const entry: ComplianceLogEntry = {
+    event: 'ai_generated_response',
+    complianceStandard: 'EU-AI-Act-Art50',
+    model: opts.cred.model,
+    generator: opts.cred.generator,
+    responseHash: responseHash(opts.responseText),
+    digest: manifestDigest(opts.cred),
+    timestamp: opts.cred.timestamp,
+    markedAt: new Date().toISOString(),
+  }
+  if (opts.logsDir) {
+    try {
+      const { appendFileSync } = require('node:fs') as typeof import('node:fs')
+      const { join } = require('node:path') as typeof import('node:path')
+      appendFileSync(join(opts.logsDir, 'ai-act.log'), JSON.stringify(entry) + '\n', 'utf8')
+    } catch { /* log failure must never throw */ }
+  }
+  return entry
+}
+
+export interface C2PAEventPayload {
+  standard: 'EU-AI-Act-Art50'
+  generator: string
+  model: string
+  aiGenerated: true
+  digest: string
+  timestamp: string
+}
+
+/** Build the SSE event payload for the c2pa_credential event type. */
+export function buildC2PAEventPayload(cred: ContentCredential): C2PAEventPayload {
+  return {
+    standard: 'EU-AI-Act-Art50',
+    generator: cred.generator,
+    model: cred.model,
+    aiGenerated: true,
+    digest: manifestDigest(cred),
+    timestamp: cred.timestamp,
+  }
+}
