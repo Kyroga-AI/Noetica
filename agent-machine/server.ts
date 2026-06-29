@@ -2053,6 +2053,18 @@ async function executeTool(
           } catch { /* decay is best-effort */ }
         }
         const note = conflict ? ` ⚠️ This may update an earlier memory: "${conflict.preview.slice(0, 110)}" — tell me to forget that one if it's now wrong.` : ''
+        // Memory-decay pruning (MEMORY_DECAY=true): after each write, prune stale memories to a budget
+        // so the store doesn't grow unboundedly (FadeMem arXiv 2601.18642). No-op when unset.
+        if (process.env['MEMORY_DECAY'] === 'true') try {
+          const { listMemories: lm } = await import('./lib/memory-curation.js')
+          const { pruneToBudget, forgetMemory: fmDecay } = await import('./lib/memory-decay.js') as any
+          const { forgetMemory } = await import('./lib/memory-curation.js')
+          const gm = getHellGraph()
+          const ms2 = { nodesByLabel: (l: string) => gm.nodesByLabel(l) as any[], getNode: (id: string) => gm.getNode(id) as any, out: (id: string, e?: string) => gm.out(id, e) as any[], setProperty: () => { /* read-only */ } }
+          const all = lm(ms2).map((m) => ({ id: m.id, createdAt: new Date(m.createdAt).getTime() || Date.now(), pinned: m.pinned, importance: m.lti / 100 }))
+          const { evict } = pruneToBudget(all, 200)  // cap at 200 memories
+          for (const e of evict) { try { forgetMemory(ms2, e.id) } catch { /* skip */ } }
+        } catch { /* memory-decay prune is best-effort */ }
         return `Saved to memory (${kind}): "${content.slice(0, 140)}". I'll recall this on future relevant turns.${note}`
       } catch (e) {
         return `Could not save to memory: ${e instanceof Error ? e.message : String(e)} (is the local embedding model available?)`
@@ -4556,8 +4568,10 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       } catch { /* sft-harvest best-effort */ }
       // #6 — distill SUCCESSFUL turns (high worth + a real tool sequence) into reusable procedural skills (the
       // success half; retrieved into the system prompt on future similar tasks above).
+      // Gated: PROCEDURAL_MEMORY=true opts in (default off — runs the learning loop but the write
+      // has no storage cost when disabled; the read side is always active to reuse existing skills).
       try {
-        if (valueJudgment.worth >= 0.6 && trajectoryActions.length >= 2) {
+        if (process.env['PROCEDURAL_MEMORY'] === 'true' && valueJudgment.worth >= 0.6 && trajectoryActions.length >= 2) {
           const { distillSkill } = await import('./lib/procedural-memory.js')
           const skill = distillSkill(latestUserContent.slice(0, 120), routerDecision.task ?? 'general', trajectoryActions.map((a) => a.type))
           appendEncrypted(skillsPath(), skill)   // encrypted at rest
@@ -4695,10 +4709,29 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     let citations: import('./lib/reasoning-evidence.js').Citation[] = []
     try { const reC = await import('./lib/reasoning-evidence.js'); citations = reC.buildCitations(docHits, groundingStatus) } catch { /* citations best-effort */ }
 
+    // ── Post-generation safety transforms ─────────────────────────────────────
+    // Applied in order: egress-hygiene strips exfil channels, C2PA marks AI
+    // output (EU AI Act Art.50 mandatory Aug 2026), uncertainty fuses grounding.
+    let emitContent = fullContent
+    let uncertaintyDecision: string | undefined
+    try {
+      const { scrubMarkdownImages } = await import('./lib/egress-hygiene.js')
+      emitContent = scrubMarkdownImages(emitContent)
+    } catch { /* egress-hygiene is best-effort */ }
+    try {
+      const { markAIGenerated, makeCredential } = await import('./lib/content-credentials.js')
+      emitContent = markAIGenerated(emitContent, makeCredential({ model, timestamp: new Date().toISOString() }))
+    } catch { /* C2PA marking is best-effort */ }
+    try {
+      const { decideAnswer } = await import('./lib/uncertainty.js')
+      const d = decideAnswer({ verified: turnGrounded, coverage: valueJudgment?.grounding ?? 0, entropy: 0 })
+      if (d !== 'answer') uncertaintyDecision = d
+    } catch { /* uncertainty decision is best-effort */ }
+
     sse(res, 'done', {
       result: {
         run_id,
-        content: fullContent,
+        content: emitContent,
         model_routed: model,
         provider,
         policy_admitted: true,
@@ -4717,11 +4750,9 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         ...(reasoningGen ? { reasoning_run: reasoningGen.run, reasoning_receipt: reasoningGen.receipt } : {}),
         ...(verification ? { verification } : {}),
         citations,
-        // Grounding provenance (Priority 7): how grounded was this answer (telemetry, enum-only). On
-        // 'partial', also expose a lightweight uncertainty marker so downstream/UI can signal lower
-        // confidence. Present only for retrieval-eligible turns with the signal active (never the reason lane).
         ...(groundingStatus ? { grounding_status: groundingStatus } : {}),
         ...(grounding.partial ? { grounding: 'partial' } : {}),
+        ...(uncertaintyDecision ? { uncertainty_decision: uncertaintyDecision } : {}),
       },
     })
     runCompleted = true // run finished cleanly — the close handler must not checkpoint
@@ -5527,6 +5558,76 @@ const server = http.createServer((req, res) => {
       res.writeHead(405, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'method not allowed' }))
     })()
     return
+  }
+
+  // ── News catalyst API ─────────────────────────────────────────────────────────────────────────────────
+  // GET /api/news/events?ticker=GYG   — enriched catalyst events with materiality scores
+  // GET /api/news/summary?ticker=GYG  — alert summary (top positive/negative + net materiality)
+  // POST /api/news/seed               — seed/refresh the news graph from demo fixtures
+  if (req.method === 'GET' && url.pathname === '/api/news/events') {
+    void (async () => {
+      const { enrichNewsEvents } = await import('./lib/news-scraper.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ events: enrichNewsEvents() }))
+    })(); return
+  }
+  if (req.method === 'GET' && url.pathname === '/api/news/summary') {
+    void (async () => {
+      const { newsAlertSummary } = await import('./lib/news-scraper.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ summary: newsAlertSummary() }))
+    })(); return
+  }
+  if (req.method === 'POST' && url.pathname === '/api/news/seed') {
+    void (async () => {
+      const { seedNewsGraph } = await import('./lib/news-scraper.js')
+      const count = seedNewsGraph()
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ seeded: count }))
+    })(); return
+  }
+
+  // ── Portfolio management lens API ─────────────────────────────────────────────────────────────────────
+  // GET /api/portfolio/lens           — full PM lens (signal + components + traffic + supply + news + causal + KG)
+  // GET /api/portfolio/signal?ticker  — signal snapshot only
+  // GET /api/portfolio/forecast?ticker — 4-quarter forward forecast table
+  // GET /api/portfolio/news?ticker    — news events only
+  if (req.method === 'GET' && url.pathname === '/api/portfolio/lens') {
+    void (async () => {
+      const { buildPortfolioLens } = await import('./lib/portfolio-lens.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ lens: buildPortfolioLens() }))
+    })(); return
+  }
+  if (req.method === 'GET' && url.pathname === '/api/portfolio/signal') {
+    void (async () => {
+      const { buildGYGSignal } = await import('./lib/economic-signal.js')
+      const prophet = buildGYGSignal()
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({
+        combined_lfl_pct: prophet.combined_estimate_pct,
+        consensus_lfl_pct: prophet.consensus_estimate_pct,
+        alpha_pp: prophet.alpha_vs_consensus_pp,
+        ci_lower: prophet.ci_lower_pct,
+        ci_upper: prophet.ci_upper_pct,
+        confidence: prophet.combined_confidence,
+        asic_summary: prophet.asic_summary,
+      }))
+    })(); return
+  }
+  if (req.method === 'GET' && url.pathname === '/api/portfolio/forecast') {
+    void (async () => {
+      const { buildForecastTable } = await import('./lib/economic-signal.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ forecast: buildForecastTable() }))
+    })(); return
+  }
+  if (req.method === 'GET' && url.pathname === '/api/portfolio/news') {
+    void (async () => {
+      const { enrichNewsEvents, newsAlertSummary } = await import('./lib/news-scraper.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ events: enrichNewsEvents(), summary: newsAlertSummary() }))
+    })(); return
   }
 
   // ── On-device neural-operator inference (operator-runtime → noetica-operator sidecar) ──────────────

@@ -44,7 +44,7 @@ const LEVEL_MODEL_ENV: Record<Reasoning, string> = {
   [Reasoning.SOVEREIGN]: 'PROPHET_MODERATE_MODEL',
 }
 const LEVEL_MODEL_DEFAULT: Record<Reasoning, string> = {
-  [Reasoning.LIGHT]:     'llama3.2:1b',
+  [Reasoning.LIGHT]:     'qwen3:4b',   // ~3-4B validated as on-device sweet spot (Apple AFM); 1B is too weak
   [Reasoning.MODERATE]:  'qwen3:14b',
   [Reasoning.DEEP]:      'qwen3:14b',
   [Reasoning.SOVEREIGN]: 'qwen3:14b',
