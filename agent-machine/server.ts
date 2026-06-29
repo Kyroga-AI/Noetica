@@ -2056,9 +2056,8 @@ async function executeTool(
         // Memory-decay pruning (MEMORY_DECAY=true): after each write, prune stale memories to a budget
         // so the store doesn't grow unboundedly (FadeMem arXiv 2601.18642). No-op when unset.
         if (process.env['MEMORY_DECAY'] === 'true') try {
-          const { listMemories: lm } = await import('./lib/memory-curation.js')
-          const { pruneToBudget, forgetMemory: fmDecay } = await import('./lib/memory-decay.js') as any
-          const { forgetMemory } = await import('./lib/memory-curation.js')
+          const { pruneToBudget } = await import('./lib/memory-decay.js')
+          const { listMemories: lm, forgetMemory } = await import('./lib/memory-curation.js')
           const gm = getHellGraph()
           const ms2 = { nodesByLabel: (l: string) => gm.nodesByLabel(l) as any[], getNode: (id: string) => gm.getNode(id) as any, out: (id: string, e?: string) => gm.out(id, e) as any[], setProperty: () => { /* read-only */ } }
           const all = lm(ms2).map((m) => ({ id: m.id, createdAt: new Date(m.createdAt).getTime() || Date.now(), pinned: m.pinned, importance: m.lti / 100 }))
