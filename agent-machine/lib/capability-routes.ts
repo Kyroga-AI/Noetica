@@ -43,7 +43,7 @@ const DANGEROUS_KEYS = new Set(['__proto__', 'constructor', 'prototype'])
 const safeEntries = <T,>(o: unknown): Array<[string, T]> => (o && typeof o === 'object' ? (Object.entries(o as Record<string, T>).filter(([k]) => !DANGEROUS_KEYS.has(k))) : [])
 
 const MAX_CAP_BODY = 8 * 1024 * 1024   // 8MB cap — readBody owns enforcement (don't rely on the detached global guard)
-const MUTATING_ROUTES = new Set(['cms-create', 'cms-update', 'cms-rollback', 'cms-to-drive', 'proposals-apply', 'infer-apply', 'auto-kg', 'synapse-enrich', 'connector-run', 'swarm-announce', 'swarm-reuse', 'office-convert'])
+const MUTATING_ROUTES = new Set(['cms-create', 'cms-update', 'cms-rollback', 'cms-to-drive', 'proposals-apply', 'infer-apply', 'auto-kg', 'synapse-enrich', 'pdor-ingest', 'connector-run', 'swarm-announce', 'swarm-reuse', 'office-convert'])
 function readBody(req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve) => {
     let b = ''; let size = 0; let aborted = false
@@ -430,6 +430,27 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
         const proposals = triplesToProposals(enrichmentToTriples(assetId, enrichment), assetId)
         const persisted = b.persist === true ? persistProposals(proposals) : null
         return send(200, { enrichment, proposals, persisted }), true
+      }
+      case 'pdor-ingest': {
+        // The onboarding CAPSTONE: run the full Commons pipeline end-to-end as one governed transaction.
+        // evaluate the PDOR (tier + open-vs-segmented gate) → if an ingest key is issued, characterize the
+        // supplied table + SynapseIQ-enrich the content → build the catalog node + provenance/linkage edges →
+        // persist into the graph (governed). Nothing enters the graph without a key.
+        const { evaluatePdor } = await import('./data-onboarding.js')
+        const { characterize, parseDelimited } = await import('./characterization.js')
+        const { synapseEnrich, defaultSynapseTransport } = await import('./synapseiq-enrich.js')
+        const { buildCatalogGraph } = await import('./pdor-ingest.js')
+        const pdorReq = b.pdor as Parameters<typeof evaluatePdor>[0]
+        const decision = evaluatePdor(pdorReq, (b.verdicts ?? []) as Parameters<typeof evaluatePdor>[1])
+        let characterization = undefined, enrichment = undefined
+        if (decision.ingestKey) {
+          const table = typeof b.csv === 'string' ? parseDelimited(b.csv, typeof b.delim === 'string' ? b.delim : ',') : (b.table ?? null)
+          if (table && Array.isArray(table.header)) characterization = characterize(table)
+          if (typeof b.content === 'string' && b.content) enrichment = await synapseEnrich(b.content, { filename: b.filename as string | undefined }, defaultSynapseTransport())
+        }
+        const catalog = buildCatalogGraph(pdorReq, decision, { characterization, enrichment, fileUri: b.fileUri as string | undefined })
+        const persisted = b.persist === true && catalog.proposals.length ? persistProposals(catalog.proposals) : null
+        return send(200, { decision, characterization: characterization ?? null, enrichment: enrichment ?? null, catalog, persisted }), true
       }
       case 'connector-run': {
         // Governed connector ingest: authorize egress → fetch → emit a tamper-evident ConnectorReceipt. The

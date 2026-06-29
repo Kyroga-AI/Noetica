@@ -26,6 +26,10 @@ const MAX_PROPOSALS = 5000
 const okId = (s: string) => typeof s === 'string' && s.length > 0 && s.length <= 256 && !/[\r\n\t\0]/.test(s)
 const okRel = (s: string) => typeof s === 'string' && s.length > 0 && s.length <= 64 && /^[\w .:/<>-]+$/.test(s)
 
+// The ONLY node-attribute payload keys an add-node proposal may carry onto the node (a constant allow-list, so
+// the persistor never writes a user-controlled property name). Covers the Commons catalog asset + PDOR record.
+const FORWARD_PROPS = ['tier', 'openness', 'brainEligible', 'segmented', 'license', 'quality', 'rows', 'cols', 'hasPII', 'hasGeo', 'hasTemporal', 'requester', 'intent', 'status'] as const
+
 /** Persist ACCEPTED proposals into HellGraph. Idempotent + provenance-tagged + input-validated + bounded. */
 export function persistProposals(proposals: GraphProposal[], opts: { store?: WritableGraph; now?: string } = {}): WriteResult {
   const g = opts.store ?? (getGraph() as unknown as WritableGraph)
@@ -41,7 +45,13 @@ export function persistProposals(proposals: GraphProposal[], opts: { store?: Wri
         if (!okId(id)) { skipped++; details.push({ ref: id || '?', op: p.op, status: 'invalid-id' }); continue }
         if (g.getNode(id)) { skipped++; details.push({ ref: id, op: p.op, status: 'exists' }); continue }
         const kind = String(p.payload['kind'] ?? 'Concept').slice(0, 64).replace(/[^\w-]/g, '') || 'Concept'
-        g.addNode(id, [kind], { label: String(p.payload['label'] ?? id).slice(0, 512), epistemic: 'proposed', source: p.source ?? 'agent', rationale: p.rationale, created_at: now })
+        // Forward a FIXED ALLOW-LIST of node attributes (e.g. the catalog asset's brainEligible/segmented/tier/
+        // quality). The write key comes from the constant FORWARD_PROPS set — NEVER from the payload's own keys —
+        // so there is no user-controlled property-name write (closes js/remote-property-injection + prototype
+        // pollution). Additive: callers that set none of these are unchanged. label falls back to name then id.
+        const extra: Record<string, unknown> = {}
+        for (const k of FORWARD_PROPS) if (Object.prototype.hasOwnProperty.call(p.payload, k)) extra[k] = p.payload[k]
+        g.addNode(id, [kind], { label: String(p.payload['label'] ?? p.payload['name'] ?? id).slice(0, 512), epistemic: 'proposed', source: p.source ?? 'agent', rationale: p.rationale, created_at: now, ...extra })
         written++; details.push({ ref: id, op: p.op, status: 'written' })
       } else if (p.op === 'add-edge') {
         const from = String(p.payload['from'] ?? ''), to = String(p.payload['to'] ?? ''), rel = String(p.payload['rel'] ?? 'RELATED_TO')

@@ -2,7 +2,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { persistProposals, persistInferred, type WritableGraph } from './graph-writeback.js'
-import { proposalsFromInferred, setStatus } from './graph-proposals.js'
+import { proposalsFromInferred, setStatus, proposal } from './graph-proposals.js'
 
 function fakeStore() {
   const nodes = new Map<string, { labels: string[]; props: Record<string, unknown> }>()
@@ -66,4 +66,19 @@ test('persistInferred persists ONLY verified facts (GAIA invariant)', () => {
   assert.equal(r.written, 1)
   assert.equal(edges.length, 1)
   assert.equal(edges[0]!.from, 'A', 'only the verified inference reached HellGraph')
+})
+
+test('add-node forwards extra payload props but BLOCKS prototype-pollution keys (js/remote-property-injection)', () => {
+  const { store, nodes } = fakeStore()
+  // a hostile payload: a benign extra prop + the prototype-pollution keys.
+  const payload = { id: 'asset:x', kind: 'CommonsAsset', name: 'X', tier: 'open', brainEligible: true, ['__proto__']: { polluted: true }, constructor: 'evil' } as Record<string, unknown>
+  const accepted = [{ ...proposal('add-node', payload, 'r', 'pdor-ingest'), status: 'accepted' as const }]
+  const r = persistProposals(accepted, { store, now: 'T' })
+  assert.ok(r.written >= 1)
+  const node = nodes.get('asset:x')!
+  assert.equal(node.props['tier'], 'open')                          // benign extra forwarded
+  assert.equal(node.props['brainEligible'], true)
+  assert.equal(node.props['label'], 'X')                            // name → label
+  assert.equal(Object.prototype.hasOwnProperty.call(node.props, 'constructor'), false)  // dangerous key dropped
+  assert.equal(({} as Record<string, unknown>)['polluted'], undefined)                  // global proto NOT polluted
 })
