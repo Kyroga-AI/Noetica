@@ -1,0 +1,65 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  app:
+    name: app static build
+    runs-on: ubuntu-latest
+    env:
+      HUSKY: 0
+      NOETICA_STATIC_EXPORT: 1
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Static build
+        run: npm run build:static
+
+      - name: Static export probe
+        run: npm run build:static:probe
+
+  agent-machine:
+    name: agent-machine build and test
+    runs-on: ubuntu-latest
+    env:
+      HUSKY: 0
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            agent-machine/package-lock.json
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install agent-machine dependencies
+        working-directory: agent-machine
+        run: npm ci
+
+      - name: Build agent-machine
+        working-directory: agent-machine
+        run: npm run build
+
+      - name: Test agent-machine
+        working-directory: agent-machine
+        run: npm test
