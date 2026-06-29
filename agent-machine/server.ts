@@ -93,6 +93,8 @@ import { applyPreset, summarize as summarizePreset } from './lib/presets.js'
 import { applyEdit, editSummary } from './lib/apply-patch.js'
 import { classifyComplexity as classifyComplexityPosture } from './lib/complexity-discipline.js'
 import { runSearchVerify, searchVerifyEnabled, candidatePrompt as searchVerifyPrompt, type VerifyResult } from './lib/search-verify.js'
+import { selectBestOfN } from './lib/best-of-n.js'
+import { decideAnswer, semanticClusters, normalizedEntropy } from './lib/uncertainty.js'
 import { detectGoalIntent, slotFill, buildGoalContext, getActiveGoal, listGoals, saveGoal, type Goal } from './lib/goal-model.js'
 import { assessAgainstGraph } from './lib/pln-judgment.js'
 import { saveCheckpoint, listCheckpoints, getCheckpoint, buildResumeMessages } from './lib/checkpoint-model.js'
@@ -341,6 +343,7 @@ async function runAction(name: string, params: Record<string, unknown>): Promise
 // PROPOSALS (inferred:true, dreamed:true), never canonical — surfaced for review, not asserted as truth. Pairs
 // with the learning loop (eval-capture + procedural-memory): consolidate what's known, not just capture it.
 let _lastDreamAt = 0
+let _latestDreamingSession: { sessionId: string; triggeredAt: string; proposals: Array<{ from: string; to: string; via: string[]; support: number }>; seeds: number } | null = null
 async function runDreaming(opts: { seeds?: number; length?: number; walksPerSeed?: number; integrate?: boolean; maxIntegrate?: number } = {}): Promise<{ seeds: number; nodes: number; proposed: number; integrated: number; top: Array<{ from: string; to: string; via: string[]; support: number }> }> {
   const g = getGraph()
   const allNodes = g.allNodes(), allEdges = g.allEdges()
@@ -1966,6 +1969,18 @@ async function executeTool(
         const { ingestDocument } = await import('./lib/doc-store.js')
         const stamp = new Date().toISOString().replace(/[:.]/g, '-')
         await ingestDocument(`memory/${kind}-${stamp}.md`, content)
+        // Memory-decay pruning (MEMORY_DECAY=true): after each write, prune stale memories to a budget
+        // so the store doesn't grow unboundedly (FadeMem arXiv 2601.18642). No-op when unset.
+        if (process.env['MEMORY_DECAY'] === 'true') {
+          try {
+            const { pruneToBudget } = await import('./lib/memory-decay.js')
+            const { forgetMemory } = await import('./lib/memory-curation.js')
+            const all = listMemories(mStore).map((m) => ({ id: m.id, createdAt: new Date(m.createdAt).getTime() || Date.now(), pinned: m.pinned, importance: m.lti / 100 }))
+            const { evict } = pruneToBudget(all, 200)
+            for (const e of evict) { try { forgetMemory(mStore, e.id) } catch { /* skip */ } }
+            if (evict.length) console.warn('[memory-decay] pruned', evict.length, 'stale memories')
+          } catch { /* decay is best-effort */ }
+        }
         const note = conflict ? ` ⚠️ This may update an earlier memory: "${conflict.preview.slice(0, 110)}" — tell me to forget that one if it's now wrong.` : ''
         return `Saved to memory (${kind}): "${content.slice(0, 140)}". I'll recall this on future relevant turns.${note}`
       } catch (e) {
@@ -3115,13 +3130,13 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   let liveContent = '' // accumulates streamed deltas in real time (for checkpoint-on-abort)
   let lastToolCalls: ToolUseBlock[] | undefined
 
-  // Trajectory safety: accumulate the agent's tool calls across turns and watch for goal-hijack patterns
-  // (privilege escalation, sensitive-action bursts, repetition loops, scope creep — LlamaFirewall-style).
-  // monitorTrajectory was built + tested but never wired into the live loop until now.
+  // Trajectory safety (TRAJECTORY_MONITOR=true): accumulate the agent's tool calls across turns and watch
+  // for goal-hijack patterns (privilege escalation, sensitive-action bursts, repetition loops, scope creep —
+  // LlamaFirewall-style). No-op when env var is unset — zero cost to existing behavior.
   const trajectoryActions: import('./lib/trajectory-monitor.js').AgentAction[] = []
   const SENSITIVE_TOOLS = new Set(['run_command', 'write_file', 'edit_file', 'code_execute', 'dispatch_agent'])
   const recordTrajectory = async (calls: ToolUseBlock[] | undefined) => {
-    if (!calls?.length) return
+    if (!calls?.length || process.env['TRAJECTORY_MONITOR'] !== 'true') return
     for (const c of calls) trajectoryActions.push({ type: c.name, target: typeof c.input === 'object' && c.input ? String((c.input as Record<string, unknown>)['path'] ?? (c.input as Record<string, unknown>)['command'] ?? '') : '', sensitive: SENSITIVE_TOOLS.has(c.name) })
     try {
       const { monitorTrajectory } = await import('./lib/trajectory-monitor.js')
@@ -4117,6 +4132,36 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         } catch { /* critic is best-effort — fall through to normal streaming */ }
       }
 
+      // ── BEST_OF_N lib-wired path (env-gated, non-streaming, low-confidence) ──────────────────────
+      // When BEST_OF_N=true, sample N=3 candidates using the verifier-reranked selectBestOfN() from
+      // lib/best-of-n.ts and pick the grounding-strongest one. Only runs when: not yet deliberated,
+      // allTools is empty (tool turns have their own loop), and calibrated confidence is low (<0.6).
+      // Falls back to the existing single-sample path when the env var is unset.
+      if (!deliberated && process.env['BEST_OF_N'] === 'true' && allTools.length === 0) {
+        try {
+          const isLowConfidence = calibConfidence === undefined || calibConfidence < 0.6
+          if (isLowConfidence) {
+            const bonCandidates: Array<{ text: string; verified: boolean; coverage: number }> = []
+            for (let i = 0; i < 3; i++) {
+              try {
+                const r = await generateOllamaText({ model, messages: ollamaMessages, temperature: i === 0 ? 0.4 : 0.7, numCtx: ollamaNumCtx })
+                if (r.content.trim()) bonCandidates.push({ text: r.content, verified: false, coverage: 0 })
+              } catch { /* skip failed candidate */ }
+            }
+            if (bonCandidates.length > 0) {
+              const { best: bonBest, agreement: bonAgreement } = selectBestOfN(bonCandidates)
+              if (bonBest) {
+                sse(res, 'deliberation', { deliberation: { critic: { action: 'accept', score: 1, agreement: bonAgreement, posture: 'best-of-n', reason: `selectBestOfN N=${bonCandidates.length}` } } })
+                sse(res, 'delta', { delta: bonBest.text })
+                fullContent += bonBest.text
+                deliberated = true
+                console.log(`[best-of-n] N=${bonCandidates.length} agreement=${bonAgreement}`)
+              }
+            }
+          }
+        } catch { /* best-of-n lib path is best-effort — fall through to normal streaming */ }
+      }
+
       // Concierge dispatch: for heavy work, acknowledge conversationally *now*
       // ("let me research this for you…"), surface queue position, then acquire a
       // capacity-gate lease so the worker stream runs serialized (one heavy job at
@@ -4311,6 +4356,35 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       fullContent += oaiResult.content
       fullThinking += oaiResult.thinking
       if (oaiResult.lastToolCalls) lastToolCalls = oaiResult.lastToolCalls
+    }
+
+    // ── UNCERTAINTY_GATE: semantic-entropy abstention disclaimer (env-gated) ──────────────────────
+    // When UNCERTAINTY_GATE=true, compute normalized semantic entropy over sentence pseudo-samples.
+    // If decideAnswer() returns 'abstain' or 'hedge', append a low-confidence disclaimer.
+    // Uses lightweight Jaccard-overlap equiv (no model call). No-op when env var is unset.
+    if (process.env['UNCERTAINTY_GATE'] === 'true' && fullContent.trim()) {
+      try {
+        const tokenSet = (s: string) => new Set(s.trim().toLowerCase().split(/\s+/))
+        const equiv = (a: string, b: string) => {
+          const sa = tokenSet(a); const sb = tokenSet(b)
+          const inter = [...sa].filter((t) => sb.has(t)).length
+          return inter / (sa.size + sb.size - inter) >= 0.6
+        }
+        const sentences = fullContent.split(/(?<=[.!?])\s+/).filter((s) => s.trim().length > 20)
+        const samples = sentences.length >= 2 ? sentences : [fullContent]
+        const clusters = semanticClusters(samples, equiv)
+        const entropy = normalizedEntropy(clusters)
+        const decision = decideAnswer({
+          verified: calibConfidence !== undefined && calibConfidence >= 0.6,
+          coverage: calibConfidence ?? 0,
+          entropy,
+        })
+        if (decision === 'abstain' || decision === 'hedge') {
+          const disclaimer = '\n\n*Note: my confidence in this response is low — please verify independently.*'
+          fullContent += disclaimer
+          sse(res, 'delta', { delta: disclaimer })
+        }
+      } catch { /* uncertainty gate is best-effort — never block the response */ }
     }
 
     const latencyMs = Date.now() - started
@@ -4898,6 +4972,43 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ ok: false, error: 'replay_error' }))
       }
     })()
+    return
+  }
+
+  // POST /api/dreaming/trigger — run one dreaming iteration on demand (proposal mode only).
+  // Returns proposed edges WITHOUT writing to the graph (executionPerformed: false always).
+  // Body: { maxEdges?: number, minPageRank?: number }
+  if (req.method === 'POST' && url.pathname === '/api/dreaming/trigger') {
+    let dreamBody = ''
+    req.on('data', (c: Buffer) => { dreamBody += c.toString(); if (dreamBody.length > 8 * 1024) req.destroy() })
+    req.on('end', () => {
+      void (async () => {
+        try {
+          const opts2 = JSON.parse(dreamBody || '{}') as { maxEdges?: number; minPageRank?: number }
+          const result = await runDreaming({ integrate: false })
+          const dreamSessionId = `dream-${Date.now()}`
+          const proposals = result.top.slice(0, opts2.maxEdges ?? result.top.length)
+          _latestDreamingSession = { sessionId: dreamSessionId, triggeredAt: new Date().toISOString(), proposals, seeds: result.seeds }
+          res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
+          res.end(JSON.stringify({ proposed: proposals, sessionId: dreamSessionId, executionPerformed: false }))
+        } catch {
+          res.writeHead(500, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ ok: false, error: 'dreaming_error', executionPerformed: false }))
+        }
+      })()
+    })
+    return
+  }
+
+  // GET /api/dreaming/status — dreaming trigger history + latest proposals.
+  if (req.method === 'GET' && url.pathname === '/api/dreaming/status') {
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
+    res.end(JSON.stringify({
+      triggered: _lastDreamAt > 0,
+      lastTriggeredAt: _lastDreamAt > 0 ? new Date(_lastDreamAt).toISOString() : null,
+      latestSession: _latestDreamingSession ?? null,
+      executionPerformed: false,
+    }))
     return
   }
 

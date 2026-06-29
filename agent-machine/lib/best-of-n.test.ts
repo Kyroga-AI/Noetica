@@ -53,3 +53,24 @@ test('shouldStop fires only on a grounded winner with agreement or high coverage
   assert.equal(shouldStop({ best: { text: 'x', verified: true, coverage: 0.95 }, agreement: 0.1 }), true, 'high coverage → stop')
   assert.equal(shouldStop({ best: { text: 'x', verified: true, coverage: 0.5 }, agreement: 0.2 }), false, 'weak everything → keep sampling')
 })
+
+// Wire-validation tests: confirm selectBestOfN is callable as the generate-loop wiring expects.
+test('selectBestOfN is exported and returns exactly one result from N candidates', () => {
+  const candidates = [
+    { text: 'candidate A', verified: false, coverage: 0.3 },
+    { text: 'candidate B', verified: false, coverage: 0.5 },
+    { text: 'candidate C', verified: false, coverage: 0.4 },
+  ]
+  const result = selectBestOfN(candidates)
+  assert.ok(result.best !== null, 'should always return a best candidate from non-empty input')
+  assert.ok(typeof result.best!.text === 'string', 'best.text is a string')
+  assert.ok(candidates.some((c) => c.text === result.best!.text), 'best is one of the input candidates')
+  assert.ok(result.ranking.length === candidates.length, 'ranking contains all candidates')
+})
+
+test('selectBestOfN result never carries executionPerformed', () => {
+  // The generate loop must never set executionPerformed — verify the return type has no such field.
+  const result = selectBestOfN([{ text: 'x', verified: true, coverage: 0.8 }])
+  assert.ok(!('executionPerformed' in result), 'result must not have executionPerformed')
+  assert.ok(!('executionPerformed' in result.best!), 'best must not have executionPerformed')
+})
