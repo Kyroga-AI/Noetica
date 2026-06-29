@@ -35,8 +35,8 @@ const langOf = (filename?: string): string | null => {
 // Deterministic offline extraction: code definitions across common langs + markdown headings.
 const DEF_RES: Array<{ re: RegExp; kind: string }> = [
   { re: /^\s*(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_$][\w$]*)/gm, kind: 'function' },
-  { re: /^\s*def\s+([A-Za-z_]\w*)/gm, kind: 'function' },
-  { re: /^\s*fn\s+([A-Za-z_]\w*)/gm, kind: 'function' },
+  { re: /^\s*(?:async\s+)?def\s+([A-Za-z_]\w*)/gm, kind: 'function' },
+  { re: /^\s*(?:pub\s+)?(?:async\s+)?fn\s+([A-Za-z_]\w*)/gm, kind: 'function' },
   { re: /^\s*(?:export\s+)?(?:abstract\s+)?class\s+([A-Za-z_$][\w$]*)/gm, kind: 'class' },
   { re: /^\s*(?:export\s+)?(?:interface|type)\s+([A-Za-z_$][\w$]*)/gm, kind: 'type' },
   { re: /^\s*(?:export\s+)?(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=/gm, kind: 'binding' },
@@ -44,9 +44,11 @@ const DEF_RES: Array<{ re: RegExp; kind: string }> = [
 ]
 
 export function fallbackSymbols(content: string, filename?: string): { lang: string | null; symbols: SynapseSymbol[] } {
+  const lang = langOf(filename)
   const symbols: SynapseSymbol[] = []
   const seen = new Set<string>()
-  for (const { re, kind } of DEF_RES) {
+  outer: for (const { re, kind } of DEF_RES) {
+    if (kind === 'heading' && lang !== 'markdown') continue
     re.lastIndex = 0
     let m: RegExpExecArray | null
     while ((m = re.exec(content))) {
@@ -56,10 +58,10 @@ export function fallbackSymbols(content: string, filename?: string): { lang: str
       if (seen.has(key)) continue
       seen.add(key)
       symbols.push({ name, kind })
-      if (symbols.length >= 200) break
+      if (symbols.length >= 200) break outer
     }
   }
-  return { lang: langOf(filename), symbols }
+  return { lang, symbols }
 }
 
 /** Enrich an asset's content into symbols + entities. Tries SynapseIQ; falls back deterministically. Never throws. */

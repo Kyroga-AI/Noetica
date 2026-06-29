@@ -36,6 +36,25 @@ const CAPS: Capability[] = [
   { id: 'swarm-top', label: 'Artifact swarm — most-reused', group: 'Swarm', sample: { k: 10 } },
   { id: 'swarm-rare', label: 'Artifact swarm — rare (under-seeded)', group: 'Swarm', sample: { k: 10 } },
   { id: 'security-review', label: 'Self-harden — local-model security review', group: 'Hardening', sample: { subject: 'snippet.ts', code: 'app.get("/f", (req,res)=>res.sendFile(req.query.path))' } },
+  // Investigation / geo
+  { id: 'stops', label: 'Stay-point detection (GPS → dwells)', group: 'Investigation', sample: { pings: [{ lon: -74.01, lat: 40.71, t: 0 }, { lon: -74.011, lat: 40.711, t: 60000 }, { lon: -74.012, lat: 40.712, t: 120000 }, { lon: -77.0, lat: 38.9, t: 900000 }], opts: { maxMeters: 200, minDwellMs: 60000 } } },
+  { id: 'pattern-of-life', label: 'Pattern-of-life deviation', group: 'Investigation', sample: { history: [{ entity: 'Alice', hour: 9, place: 'HQ' }, { entity: 'Alice', hour: 10, place: 'HQ' }, { entity: 'Alice', hour: 17, place: 'HQ' }], activity: { entity: 'Alice', hour: 2, place: 'Airport' }, opts: {} } },
+  { id: 'isochrone', label: 'Travel-time isochrone', group: 'Investigation', sample: { center: { lon: -74.006, lat: 40.712 }, speedKmh: 50, minutes: 30 } },
+  { id: 'rule-mining', label: 'Auto Horn-rule mining (KG)', group: 'Reasoning', sample: { triples: [{ s: 'alice', p: 'worksAt', o: 'acme' }, { s: 'acme', p: 'locatedIn', o: 'NYC' }, { s: 'alice', p: 'locatedIn', o: 'NYC' }, { s: 'bob', p: 'worksAt', o: 'acme' }, { s: 'bob', p: 'locatedIn', o: 'NYC' }], opts: { minConfidence: 0.5, minSupport: 2 } } },
+  { id: 'mind-map', label: 'Mind-map from graph neighborhood', group: 'Reasoning', sample: { root: 'alice', edges: [{ from: 'alice', to: 'bob', label: 'knows' }, { from: 'alice', to: 'acme', label: 'worksAt' }, { from: 'bob', to: 'carol', label: 'manages' }], depth: 2 } },
+  // Verification / retrieval
+  { id: 'best-of-n', label: 'Best-of-N verifier selection', group: 'Verification', sample: { candidates: [{ answer: 'Paris', worth: 0.9, grounding: 0.8, verdict: 'grounded' }, { answer: 'Lyon', worth: 0.4, grounding: 0.2, verdict: 'speculative' }] } },
+  { id: 'uncertainty', label: 'Semantic entropy / abstention', group: 'Verification', sample: { answers: ['Paris', 'Paris', 'Lyon', 'Paris'], question: 'What is the capital of France?', opts: { threshold: 0.6 } } },
+  { id: 'self-consistency', label: 'Self-consistency majority vote', group: 'Verification', sample: { answers: ['A', 'A', 'B', 'A', 'C'] } },
+  { id: 'rrf', label: 'Reciprocal Rank Fusion', group: 'Retrieval', sample: { rankings: [['doc1', 'doc2', 'doc3'], ['doc2', 'doc1', 'doc4']], k: 60 } },
+  { id: 'hybrid-retrieve', label: 'BM25 + dense hybrid retrieval', group: 'Retrieval', sample: { query: 'sovereign identity', docs: [{ id: 'doc1', text: 'Sovereign identity proves who you are without a central authority' }, { id: 'doc2', text: 'The graph stores knowledge about all domains' }] } },
+  { id: 'rag-inspect', label: 'RAG retrieval debugger', group: 'Retrieval', sample: { query: 'how does the critic work' } },
+  // Privacy / compliance
+  { id: 'content-credential', label: 'Content-credential (C2PA / EU AI Act Art.50)', group: 'Compliance', sample: { model: 'qwen3:14b', timestamp: new Date().toISOString(), text: 'This is an AI-generated response.', sourceRefs: [] } },
+  { id: 'memory-decay', label: 'Memory salience decay + pruning', group: 'Memory', sample: { memories: [{ id: 'm1', createdAt: Date.now() - 30 * 86400000, lastAccess: Date.now() - 20 * 86400000, accessCount: 2, importance: 0.5 }, { id: 'm2', createdAt: Date.now() - 90 * 86400000, accessCount: 0, importance: 0.3, pinned: false }, { id: 'm3', createdAt: Date.now(), accessCount: 10, importance: 0.9, pinned: true }], budget: 10, opts: {} } },
+  // Gen-UI
+  { id: 'gen-ui-validate', label: 'Generative-UI spec validation', group: 'Dev', sample: { component: 'metric', props: { label: 'Active users', value: 1247 } } },
+  { id: 'plan-mode', label: 'Plan-then-approve gate', group: 'Dev', sample: { steps: ['Analyse the codebase', 'Draft the migration SQL', 'Write tests', 'Apply migration'], edits: { remove: [2], approve: false } } },
 ]
 
 export function LabSurface() {

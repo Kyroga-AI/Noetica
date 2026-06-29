@@ -395,18 +395,17 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
       case 'proposals-apply': return send(200, persistProposals((b.proposals ?? []) as GraphProposal[])), true
       case 'infer-apply': return send(200, persistInferred((b.inferred ?? []) as Array<{ subject: string; predicate: string; object: string; via?: string; verified?: boolean }>)), true
       case 'pdor-onboard': {
-        // PDOR (Prophet Data On-boarding Request) → governed Commons onboarding. Evaluate the request (tier +
-        // the open-vs-segmented brain-eligibility gate); if an ingest key is issued, characterize the supplied
-        // table (types, quality, sensitive scan, geo/temporal). Returns the decision + characterization; the
-        // caller persists the catalog node + lineage. Graph linkage (auto-KG) + SynapseIQ enrichment compose on top.
+        // PDOR (Prophet Data On-boarding Request) → governed Commons onboarding. Characterize first so detected
+        // PII merges into classification before evaluatePdor runs — sensitivity always wins (fail-closed).
         const { evaluatePdor } = await import('./data-onboarding.js')
         const { characterize, parseDelimited } = await import('./characterization.js')
-        const decision = evaluatePdor(b.pdor as Parameters<typeof evaluatePdor>[0], (b.verdicts ?? []) as Parameters<typeof evaluatePdor>[1])
-        let characterization = null
-        if (decision.ingestKey) {
-          const table = typeof b.csv === 'string' ? parseDelimited(b.csv, typeof b.delim === 'string' ? b.delim : ',') : (b.table ?? null)
-          if (table && Array.isArray(table.header)) characterization = characterize(table)
-        }
+        const table = typeof b.csv === 'string' ? parseDelimited(b.csv, typeof b.delim === 'string' ? b.delim : ',') : (b.table ?? null)
+        const characterization = table && Array.isArray(table.header) ? characterize(table) : null
+        const pdorInput = b.pdor as Parameters<typeof evaluatePdor>[0]
+        const mergedPdor = characterization?.sensitive.hasPII
+          ? { ...pdorInput, classification: { ...pdorInput?.classification, pii: true } }
+          : pdorInput
+        const decision = evaluatePdor(mergedPdor, (b.verdicts ?? []) as Parameters<typeof evaluatePdor>[1])
         return send(200, { decision, characterization }), true
       }
       case 'auto-kg': {
@@ -441,11 +440,15 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
         const { synapseEnrich, defaultSynapseTransport } = await import('./synapseiq-enrich.js')
         const { buildCatalogGraph } = await import('./pdor-ingest.js')
         const pdorReq = b.pdor as Parameters<typeof evaluatePdor>[0]
-        const decision = evaluatePdor(pdorReq, (b.verdicts ?? []) as Parameters<typeof evaluatePdor>[1], { commons: b.commons === true })
-        let characterization = undefined, enrichment = undefined
+        const table = typeof b.csv === 'string' ? parseDelimited(b.csv, typeof b.delim === 'string' ? b.delim : ',') : (b.table ?? null)
+        let characterization: ReturnType<typeof characterize> | undefined = table && Array.isArray(table.header) ? characterize(table) : undefined
+        const mergedPdorReq = characterization?.sensitive.hasPII
+          ? { ...pdorReq, classification: { ...pdorReq?.classification, pii: true } }
+          : pdorReq
+        const decision = evaluatePdor(mergedPdorReq, (b.verdicts ?? []) as Parameters<typeof evaluatePdor>[1], { commons: b.commons === true })
+        let enrichment = undefined
         if (decision.ingestKey) {
-          const table = typeof b.csv === 'string' ? parseDelimited(b.csv, typeof b.delim === 'string' ? b.delim : ',') : (b.table ?? null)
-          if (table && Array.isArray(table.header)) characterization = characterize(table)
+          if (!characterization && table && Array.isArray(table.header)) characterization = characterize(table)
           if (typeof b.content === 'string' && b.content) enrichment = await synapseEnrich(b.content, { filename: b.filename as string | undefined }, defaultSynapseTransport())
         }
         const catalog = buildCatalogGraph(pdorReq, decision, { characterization, enrichment, fileUri: b.fileUri as string | undefined })
@@ -486,6 +489,28 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
         const g = getGraph()
         const triples = g.allEdges().slice(0, 5000).map((e) => ({ s: e.from, p: e.label, o: e.to }))
         return send(200, { count: triples.length, triples: triples.slice(0, 500) }), true
+      }
+      case 'memory-decay': {
+        const { salience, decayRank, pruneToBudget } = await import('./memory-decay.js')
+        const mems = (b.memories ?? []) as Array<{ id: string; createdAt: number; lastAccess?: number; accessCount?: number; importance?: number; pinned?: boolean }>
+        const now = Date.now()
+        const scored = decayRank(mems, { now })
+        const budget = typeof b.budget === 'number' ? b.budget : undefined
+        const pruned = budget != null ? pruneToBudget(mems, budget, { now }) : undefined
+        return send(200, { scored, keep: pruned?.keep, evicted: pruned?.evict, threshold: pruned?.threshold }), true
+      }
+      case 'gen-ui-validate': {
+        const { validateUISpec } = await import('./gen-ui.js')
+        const spec = { component: b.component as string, props: (b.props as Record<string, unknown>) ?? {} }
+        return send(200, validateUISpec(spec)), true
+      }
+      case 'plan-mode': {
+        const { makePlan, editPlan } = await import('./plan-mode.js')
+        const steps = (b.steps as string[] | undefined) ?? []
+        const plan = makePlan(steps)
+        const edits = b.edits as { remove?: number[]; approve?: boolean } | undefined
+        const final = edits ? editPlan(plan, edits) : plan
+        return send(200, { plan: final, pendingCount: final.steps.filter((s) => s.status === 'pending').length, approved: final.approved }), true
       }
       default: return send(404, { error: 'unknown_capability', path }), true
     }

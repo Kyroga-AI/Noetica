@@ -24,24 +24,27 @@ export interface Characterization {
   temporal: { hasTemporal: boolean; columns: string[]; range?: [string, string] }
 }
 
-/** Minimal delimited parser (CSV/TSV); honors simple double-quoted fields. Deterministic, dependency-free. */
+/** Minimal delimited parser (CSV/TSV); honors RFC 4180 double-quoted fields (including embedded newlines). Deterministic, dependency-free. */
 export function parseDelimited(text: string, delim = ','): Table {
-  const lines = text.replace(/\r\n?/g, '\n').split('\n').filter((l) => l.length > 0)
-  if (lines.length === 0) return { header: [], rows: [] }
-  const split = (line: string): string[] => {
-    const out: string[] = []; let cur = ''; let q = false
-    for (let i = 0; i < line.length; i++) {
-      const c = line[i]
-      if (q) { if (c === '"' && line[i + 1] === '"') { cur += '"'; i++ } else if (c === '"') q = false; else cur += c }
-      else if (c === '"') q = true
-      else if (c === delim) { out.push(cur); cur = '' }
+  const rows: string[][] = []
+  let row: string[] = [], cur = '', q = false
+  const src = text.replace(/\r\n?/g, '\n')
+  for (let i = 0; i < src.length; i++) {
+    const c = src[i]
+    if (q) {
+      if (c === '"' && src[i + 1] === '"') { cur += '"'; i++ }
+      else if (c === '"') q = false
       else cur += c
-    }
-    out.push(cur)
-    return out.map((s) => s.trim())
+    } else if (c === '"') { q = true }
+    else if (c === delim) { row.push(cur.trim()); cur = '' }
+    else if (c === '\n') { row.push(cur.trim()); if (row.some((v) => v !== '')) rows.push(row); row = []; cur = '' }
+    else cur += c
   }
-  const [head, ...rest] = lines
-  return { header: split(head!), rows: rest.map(split) }
+  if (cur !== '' || row.length) { row.push(cur.trim()); if (row.some((v) => v !== '')) rows.push(row) }
+  if (q) throw new Error('unbalanced quote in delimited input')
+  if (rows.length === 0) return { header: [], rows: [] }
+  const [head, ...rest] = rows
+  return { header: head!, rows: rest }
 }
 
 const INT_RE = /^-?\d+$/
@@ -103,8 +106,8 @@ export function characterize(t: Table): Characterization {
   // geospatial — explicit lat/lon columns, else location-hint columns.
   let latCol: string | undefined, lonCol: string | undefined
   t.header.forEach((name, i) => {
-    if (!latCol && (GEO_LAT.test(name) || looksLatLon(col(i), true)) && /lat|^y$/i.test(name)) latCol = name
-    if (!lonCol && (GEO_LON.test(name) || looksLatLon(col(i), false)) && /lon|lng|long|^x$/i.test(name)) lonCol = name
+    if (!latCol && (GEO_LAT.test(name) || looksLatLon(col(i), true))) latCol = name
+    if (!lonCol && name !== latCol && (GEO_LON.test(name) || looksLatLon(col(i), false))) lonCol = name
   })
   const locationCols = t.header.filter((n) => LOC_HINT.test(n))
   const hasGeo = !!(latCol && lonCol) || locationCols.length > 0

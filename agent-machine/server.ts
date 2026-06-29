@@ -102,6 +102,8 @@ import {
   type GaiaObservationPayload, type BeliefSynthesis,
 } from './lib/gaia.js'
 import { getUserIdentity, setUserIdentity, promptUserName, type UserIdentity } from './lib/identity.js'
+import { detectMemoryPoisonAttempt } from './lib/memory-poison-guard.js'
+import { markExternalContent, buildIpiSystemPromptPrefix, stripPotentialInjection } from './lib/ipi-datamark.js'
 
 // ─── JS-sandbox subprocess mode (code_execute isolation on the compiled standalone) ────────────────────────
 // When the compiled binary re-execs ITSELF with NOETICA_JS_SANDBOX=1, do ONLY the sandboxed JS run — in this
@@ -1717,7 +1719,10 @@ async function executeTool(
       const { sanitizeRetrieved } = await import('./lib/rag-trust.js')
       const { clean, stripped } = sanitizeRetrieved(raw)
       if (stripped > 0) console.warn(`[rag-trust] neutralized ${stripped} injected directive(s) in web_search results`.replace(/[\r\n]/g, ''))
-      return clean
+      // IPI defence: strip injection phrases then sandbox with datamark boundaries.
+      const { content: ipiClean, stripped: ipiStripped } = stripPotentialInjection(clean)
+      if (ipiStripped.length > 0) console.warn('[security] ipi-datamark stripped injection phrase(s) from web_search', { count: ipiStripped.length })
+      return markExternalContent(ipiClean, `web_search:${query.slice(0, 80)}`)
     }
     case 'generate_image': {
       const prompt = String(input['prompt'] ?? '').trim().slice(0, 1000)
@@ -1872,6 +1877,11 @@ async function executeTool(
       const content = String(input['content'] ?? '').trim()
       if (!content) return 'Error: nothing to remember — content is required.'
       const kind = ['preference', 'fact', 'identity'].includes(String(input['kind'])) ? String(input['kind']) : 'fact'
+      // Security: audit for memory-poisoning attempts before writing (OWASP ASI06).
+      const poisonCheck = detectMemoryPoisonAttempt(content)
+      if (poisonCheck.flagged) {
+        console.warn('[security] memory-poison attempt detected', { confidence: poisonCheck.confidence, patterns: poisonCheck.patterns })
+      }
       try {
         // Dedup-on-write: don't store a near-duplicate of something already remembered.
         const { findSimilarMemory, findConflictingMemory, listMemories } = await import('./lib/memory-curation.js')
@@ -3767,8 +3777,11 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   const DOC_INTENTS = new Set(['qa_over_doc', 'summarize_doc', 'file_ops', 'file_ingest'])
   const knowledgeDirective = DOC_INTENTS.has(intentPlan.name) ? '' :
     `\n\n=== ANSWER POLICY (highest priority) ===\nAny context above is OPTIONAL background — it is NOT the set of allowed facts. Answer the user's question directly. For general knowledge (history, geography, science, public events), answer from YOUR OWN knowledge. NEVER say "not in the provided documents/sources" or "consult an external source" for a fact you know. Only say you don't know if you genuinely don't.`
+  // IPI prefix: when this turn may fetch external web content, prepend the sandboxing instruction so
+  // the model knows to treat [EXTERNAL CONTENT] markers as data boundaries, not commands.
+  const ipiPrefix = intentToolSet.has('web_search') ? buildIpiSystemPromptPrefix() + '\n\n' : ''
   // merged: ours prepends learner/canon context after dateLine; main appends the knowledge + think directives.
-  const enrichedSystemPrompt = basePrompt + dateLine + learnerContext + canonGroundContext + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + episodeContext + goalContext + skillsContext + reasoningDirective + verbosityNote + modeNote + lifeDomain.safetyNote + profile.authorizationSuffix + knowledgeDirective + thinkDirective
+  const enrichedSystemPrompt = ipiPrefix + basePrompt + dateLine + learnerContext + canonGroundContext + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + episodeContext + goalContext + skillsContext + reasoningDirective + verbosityNote + modeNote + lifeDomain.safetyNote + profile.authorizationSuffix + knowledgeDirective + thinkDirective
 
   // Token budget: rough estimate (4 chars ≈ 1 token). If message history + system prompt
   // exceeds 70% of the model's context window, trim oldest non-system messages.

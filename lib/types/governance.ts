@@ -31,4 +31,6 @@ export interface GovernanceTrace {
   grounded?: boolean    // answer is grounded in retrieved/cited evidence (provenance signal)
   decidable?: boolean   // question was answered by logic/compute (no generation needed)
   replay_class?: string // replayability tier: exact | approximate | generative
+  /** C2PA-style content credential (EU AI Act Art.50 marking) */
+  credential?: { digest: string; model: string; timestamp: string; aiGenerated: true }
 }

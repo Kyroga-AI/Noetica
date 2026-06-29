@@ -87,6 +87,34 @@ export function GovernanceTrail({ trace }: GovernanceTrailProps) {
         <dd>{trace.sourceos_status ?? 'n/a'}</dd>
         <dt className="text-[var(--color-text-tertiary)]">latency</dt>
         <dd>{trace.latency_ms} ms</dd>
+        {trace.input_tokens != null && (
+          <>
+            <dt className="text-[var(--color-text-tertiary)]">tokens</dt>
+            <dd>{trace.input_tokens} in / {trace.output_tokens ?? 0} out</dd>
+            <dt className="text-[var(--color-text-tertiary)]">cost</dt>
+            <dd>
+              {(trace.provider === 'ollama' || trace.provider === 'noetica' || trace.provider === 'local')
+                ? 'free (local)'
+                : `~$${((trace.input_tokens * 2.5 + (trace.output_tokens ?? 0) * 10) / 1_000_000).toFixed(4)}`}
+            </dd>
+          </>
+        )}
+        {trace.model_route_reason && (
+          <>
+            <dt className="text-[var(--color-text-tertiary)]">route reason</dt>
+            <dd title={trace.model_route_reason}>{trace.model_route_reason.slice(0, 80)}{trace.model_route_reason.length > 80 ? '…' : ''}</dd>
+          </>
+        )}
+        {trace.credential && (
+          <>
+            <dt className="text-[var(--color-text-tertiary)]">C2PA / Art.50</dt>
+            <dd className="break-all font-mono text-[10px]" title={`digest: ${trace.credential.digest}`}>
+              <span className="rounded bg-[#eff6ff] px-1 py-0.5 text-[#1d4ed8]">AI-generated</span>
+              {' '}
+              <span className="text-[var(--color-text-tertiary)]">{trace.credential.digest.slice(0, 16)}…</span>
+            </dd>
+          </>
+        )}
       </dl>
     </details>
   )
