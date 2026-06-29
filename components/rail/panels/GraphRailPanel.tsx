@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { SurfaceGraph, KIND_COLOR, KIND_ORDER, DIM_COLOR, DIM_ORDER, type GraphNode, type GraphLink, type GraphLayout } from '@/components/graph/SurfaceGraph'
 
 interface GraphHealth {
@@ -102,6 +102,39 @@ export function GraphRailPanel() {
   const [tlLoading, setTlLoading] = useState(false)
   const [tlSel, setTlSel] = useState<number | null>(null)
 
+  // SVG export: parent captures the live SVG element via onSvgMount, then serializes it on demand.
+  const svgExportRef = useRef<SVGSVGElement | null>(null)
+  const onSvgMount = useCallback((el: SVGSVGElement | null) => { svgExportRef.current = el }, [])
+
+  function exportSvg() {
+    const svg = svgExportRef.current; if (!svg) return
+    const blob = new Blob([svg.outerHTML], { type: 'image/svg+xml' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url; a.download = `sociosphere-${view}.svg`; a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 5000)
+  }
+
+  function exportPng() {
+    const svg = svgExportRef.current; if (!svg) return
+    const { width: w, height: h } = svg.getBoundingClientRect()
+    const blob = new Blob([svg.outerHTML], { type: 'image/svg+xml' })
+    const url = URL.createObjectURL(blob)
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = w * 2; canvas.height = h * 2   // 2× for retina
+      const ctx = canvas.getContext('2d')!
+      ctx.scale(2, 2); ctx.drawImage(img, 0, 0)
+      canvas.toBlob((b) => {
+        if (!b) return
+        const pu = URL.createObjectURL(b)
+        const a = document.createElement('a'); a.href = pu; a.download = `sociosphere-${view}.png`; a.click()
+        setTimeout(() => { URL.revokeObjectURL(pu); URL.revokeObjectURL(url) }, 5000)
+      }, 'image/png')
+    }
+    img.src = url
+  }
+
   async function loadThemes() {
     setThemesLoading(true)
     try {
@@ -139,6 +172,27 @@ export function GraphRailPanel() {
       const res = await fetch('/api/graph/timeline?buckets=14')
       if (res.ok) setTimeline(await res.json() as NonNullable<typeof timeline>)
     } catch { /* offline */ } finally { setTlLoading(false) }
+  }
+
+  // Demo path: fire a path between the two highest-importance nodes so a demo looks instantly compelling.
+  const [demoPending, setDemoPending] = useState(false)
+  async function triggerDemoPath() {
+    const nodeIds = graph.nodes.map((n) => n.id)
+    if (nodeIds.length < 2) return
+    // prefer top-importance nodes from insights; fall back to first two graph nodes
+    const m = metrics
+    const sorted = nodeIds.slice().sort((a, b) => (m[b]?.pagerank ?? 0) - (m[a]?.pagerank ?? 0))
+    const from = sorted[0]!, to = sorted[Math.min(4, sorted.length - 1)]!
+    setDemoPending(true); setPathIds([]); setPathExplain(null)
+    try {
+      const [pr, er] = await Promise.all([
+        fetch(`/api/graph/path?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+        fetch(`/api/graph/explain-path?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+      ])
+      const pj = (await pr.json()) as { path?: { id: string }[] }
+      setPathIds((pj.path ?? []).map((p) => p.id))
+      if (er.ok) { const ej = (await er.json()) as { explanation?: string; confidence?: number; length?: number }; setPathExplain({ explanation: ej.explanation ?? '', confidence: ej.confidence ?? 0, hops: ej.length ?? 0 }) }
+    } catch { /* offline */ } finally { setDemoPending(false) }
   }
 
   async function handleNodeClick(id: string) {
@@ -218,6 +272,8 @@ export function GraphRailPanel() {
         try { const hr = await fetch('/api/graph/knowledge-health'); if (hr.ok) { const hj = (await hr.json()) as { score: number; gaps: string[] }; if (!cancelled) setKHealth({ score: hj.score, gaps: hj.gaps ?? [] }) } } catch { /* offline */ }
         // proactive digest — the graph surfaces what needs attention without being asked
         try { const dr = await fetch('/api/graph/digest'); if (dr.ok) { const dj = (await dr.json()) as { insights?: typeof digest }; if (!cancelled) { setDigest(dj.insights ?? []); setDigestIdx(0); setDigestDismissed(false) } } } catch { /* offline */ }
+        // auto-seed communities for the demo so Themes panel is populated on first open
+        try { const cr = await fetch('/api/graph/communities'); if (cr.ok) { const cj = (await cr.json()) as { communities?: typeof communities }; if (!cancelled && cj.communities && cj.communities.length > 0) setCommunities(cj.communities) } } catch { /* offline */ }
       } catch { /* offline */ }
     })()
     return () => { cancelled = true }
@@ -342,9 +398,24 @@ export function GraphRailPanel() {
                 {health.status}
               </span>
             )}
-            <a href="/api/graph/export?format=graphml" download title="Export graph (GraphML — opens in Gephi/Cytoscape)" aria-label="Export graph"
+            {/* Demo path: highlight the highest-PageRank cross-graph connection at a click */}
+            <button onClick={() => void triggerDemoPath()} disabled={demoPending || graph.nodes.length < 2} title="Demo: highlight the most important knowledge path" aria-label="Demo path"
+              className="text-[var(--color-text-tertiary)] transition hover:text-[#7c3aed] disabled:opacity-40">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="3" cy="8" r="2" stroke="currentColor" strokeWidth="1.5"/><circle cx="13" cy="8" r="2" stroke="currentColor" strokeWidth="1.5"/><path d="M5 8h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M8 5.5c0-1 1-2 2-2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+            </button>
+            {/* SVG export → share as image */}
+            <button onClick={exportSvg} title="Export graph as SVG" aria-label="Export SVG"
               className="text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-primary)]">
-              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M8 1v9M5 7l3 3 3-3M3 13h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M8 1v9M5 7l3 3 3-3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/><path d="M3 13h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+            </button>
+            {/* PNG export → screenshot-quality image */}
+            <button onClick={exportPng} title="Export graph as PNG" aria-label="Export PNG"
+              className="text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-primary)]">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><rect x="1.5" y="3" width="13" height="10" rx="1.5" stroke="currentColor" strokeWidth="1.4"/><path d="M1.5 10.5l3-3 2.5 2.5 3-4 4 4.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </button>
+            <a href="/api/graph/export?format=graphml" download title="Export graph (GraphML — opens in Gephi/Cytoscape)" aria-label="Export GraphML"
+              className="text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-primary)]">
+              <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M9 2H4a1 1 0 00-1 1v10a1 1 0 001 1h8a1 1 0 001-1V6l-4-4z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/><path d="M9 2v4h4" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/></svg>
             </a>
             <button onClick={() => setExpanded(true)} title="Expand graph" aria-label="Expand graph"
               className="text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-primary)]">
@@ -687,7 +758,7 @@ export function GraphRailPanel() {
           <div className="relative min-h-0 flex-1 overflow-hidden rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
             <SurfaceGraph nodes={graph.nodes} links={graph.links} fill onNodeClick={handleNodeClick} layout={layout} pathIds={pathIds}
               visibleKinds={hiddenKinds.size ? new Set(graph.nodes.map((n) => n.kind ?? 'Concept').filter((k) => !hiddenKinds.has(k))) : undefined}
-              hideInferred={hideInferred} colorBy={colorBy} sizeBy={sizeBy} metrics={metrics} />
+              hideInferred={hideInferred} colorBy={colorBy} sizeBy={sizeBy} metrics={metrics} onSvgMount={onSvgMount} />
             {root && (() => {
               const fn = graph.nodes.find((n) => n.id === root)
               const mem = memMap[root]
@@ -785,7 +856,7 @@ export function GraphRailPanel() {
             {graph.nodes.length > 0 ? (
               <SurfaceGraph nodes={graph.nodes} links={graph.links} fill onNodeClick={handleNodeClick} layout={layout} pathIds={pathIds}
               visibleKinds={hiddenKinds.size ? new Set(graph.nodes.map((n) => n.kind ?? 'Concept').filter((k) => !hiddenKinds.has(k))) : undefined}
-              hideInferred={hideInferred} colorBy={colorBy} sizeBy={sizeBy} metrics={metrics} />
+              hideInferred={hideInferred} colorBy={colorBy} sizeBy={sizeBy} metrics={metrics} onSvgMount={onSvgMount} />
             ) : (
               <div className="flex h-full items-center justify-center text-[12px] text-[var(--color-text-tertiary)]">No nodes for this lens yet.</div>
             )}

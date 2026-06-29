@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type React from 'react'
 
 // Palette ported from SocioProphet's surface-graph-shared.js
 const COLOR: Record<string, string> = {
@@ -46,6 +47,8 @@ export const DIM_ORDER = ['taxonomic', 'part-whole', 'causation', 'temporal', 's
 export interface GraphNode {
   id: string; label: string; category: string; kind?: string; featured?: boolean; degree?: number
   x0?: number; y0?: number
+  /** Node has been verified + grounded by the knowledge canon — renders a canon-ring badge. */
+  grounded?: boolean
 }
 export interface GraphLink { source: string; target: string; primary?: boolean; epistemic?: string; dimension?: string }
 
@@ -74,10 +77,12 @@ interface Sim extends GraphNode { x: number; y: number; vx: number; vy: number; 
  */
 export type GraphLayout = 'force' | 'radial' | 'hierarchy'
 
-export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick, visibleKinds, hideInferred, layout = 'force', pathIds, colorBy = 'class', sizeBy = 'degree', metrics }: {
+export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick, visibleKinds, hideInferred, layout = 'force', pathIds, colorBy = 'class', sizeBy = 'degree', metrics, onSvgMount }: {
   nodes: GraphNode[]; links: GraphLink[]; width?: number; height?: number; fill?: boolean; onNodeClick?: (id: string) => void
   visibleKinds?: Set<string>; hideInferred?: boolean; layout?: GraphLayout; pathIds?: string[]
   colorBy?: 'class' | 'community'; sizeBy?: 'importance' | 'degree'; metrics?: Record<string, NodeMetric>
+  /** Called with the SVG element when mounted, null on unmount — lets the parent export the graph. */
+  onSvgMount?: (el: SVGSVGElement | null) => void
 }) {
   // Faceted filtering: hide whole entity classes, and/or hide low-trust (inferred) edges.
   const fNodes = useMemo(() => (visibleKinds ? nodes.filter((n) => visibleKinds.has(n.kind ?? 'Concept')) : nodes), [nodes, visibleKinds])
@@ -112,6 +117,13 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick, v
   const runningRef = useRef(false)
   const svgRef = useRef<SVGSVGElement>(null)
   const ensureRunningRef = useRef<() => void>(() => {})
+
+  // Expose the SVG element to the parent for export (PNG/SVG download).
+  useEffect(() => {
+    onSvgMount?.(svgRef.current)
+    return () => { onSvgMount?.(null) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Layout seeding: radial = BFS-distance rings from the most-central node; hierarchy = top-down
   // BFS layers; force = no anchor (organic). The anchor force then holds nodes near these seeds.
@@ -337,9 +349,12 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick, v
         return (
         <g key={n.id} transform={`translate(${n.x},${n.y})`} cursor="grab"
           onPointerDown={(e) => { dragRef.current = { id: n.id }; movedRef.current = false; (e.target as Element).setPointerCapture?.(e.pointerId); alphaRef.current = Math.max(alphaRef.current, 0.3); ensureRunningRef.current() }}>
-          <title>{n.label}{m ? ` · importance ${m.pagerank.toFixed(2)}${isBridge ? ' · bridge concept' : ''}` : ''}</title>
+          <title>{n.label}{m ? ` · importance ${m.pagerank.toFixed(2)}${isBridge ? ' · bridge concept' : ''}` : ''}{n.grounded ? ' · canon-grounded' : ''}</title>
           {pathSet.has(n.id) && <circle r={dr + 4} fill="none" stroke="#f59e0b" strokeWidth={2.5} />}
           {isBridge && !pathSet.has(n.id) && <circle r={dr + 4} fill="none" stroke="#22d3ee" strokeWidth={2} strokeDasharray="2 3" strokeOpacity={0.85} />}
+          {/* Canon-ring: this concept is grounded in the authored knowledge canon. Solid amber, tight
+              so it reads as a "seal" rather than a glow. Stacks outside the bridge ring. */}
+          {n.grounded && <circle r={dr + (isBridge ? 8 : 4)} fill="none" stroke="#a78bfa" strokeWidth={1.5} strokeOpacity={0.9} />}
           <circle r={dr} fill={nodeFill} stroke="#fff" strokeWidth={n.featured ? 3 : 2} filter="url(#spNodeGlow)" />
           {/* readable label BELOW the node: featured hubs show the full concept, others the
               disemvowelled form so the whole word is recognizable (no "self n…" truncation). */}
