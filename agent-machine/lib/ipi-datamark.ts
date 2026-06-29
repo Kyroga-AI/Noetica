@@ -15,9 +15,14 @@
  * https://arxiv.org/abs/2403.14720
  */
 export function markExternalContent(content: string, source: string): string {
+  // Escape any embedded boundary markers so an attacker cannot escape the sandbox
+  // by injecting the literal end-marker string inside their content.
+  const escaped = content
+    .replace(/---\s*BEGIN EXTERNAL CONTENT\s*---/gi, '~~~ BEGIN EXTERNAL CONTENT ~~~')
+    .replace(/---\s*END EXTERNAL CONTENT\s*---/gi, '~~~ END EXTERNAL CONTENT ~~~')
   return (
     `[EXTERNAL CONTENT FROM: ${source}] ` +
-    `\n\n--- BEGIN EXTERNAL CONTENT ---\n${content}\n--- END EXTERNAL CONTENT ---\n`
+    `\n\n--- BEGIN EXTERNAL CONTENT ---\n${escaped}\n--- END EXTERNAL CONTENT ---\n`
   )
 }
 

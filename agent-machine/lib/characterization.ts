@@ -78,9 +78,14 @@ const GEO_LON = /^(lon|lng|long|longitude|x)$/i
 const LOC_HINT = /(address|street|city|state|country|zip|postal|region|location|geo)/i
 const looksLatLon = (vals: string[], lat: boolean) => {
   const nums = vals.filter(nonEmpty).map(Number).filter((n) => !Number.isNaN(n))
-  if (nums.length === 0) return false
+  if (nums.length < 3) return false   // too few values to distinguish coords from scalars
   const lim = lat ? 90 : 180
-  return nums.every((n) => n >= -lim && n <= lim) && nums.some((n) => n !== Math.round(n))   // has fractional → coords
+  if (!nums.every((n) => n >= -lim && n <= lim)) return false
+  // Require >50% fractional AND values that span both positive and negative or span >1 degree
+  // to distinguish lat/lon from prices, ratios, or percentages that happen to be in range.
+  const fractional = nums.filter((n) => n !== Math.round(n)).length / nums.length
+  const span = Math.max(...nums) - Math.min(...nums)
+  return fractional > 0.5 && span > 1
 }
 
 /** Characterize a parsed table: types, completeness/quality, sensitive scan, geospatial + temporal structure. */

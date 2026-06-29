@@ -31,7 +31,7 @@ const POISON_PATTERNS: { label: string; re: RegExp }[] = [
   },
   {
     label: 'exfiltration-attempt',
-    re: /send to|report to|relay to|forward to.*http/i,
+    re: /(?:send|report|relay|forward|transmit|upload|post)\s+(?:this|all|it|data|everything)?\s*to\s+(?:https?:\/\/|ftp:\/\/|mailto:|[\w.+-]+@[\w.-]+)/i,
   },
 ]
 

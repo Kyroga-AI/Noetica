@@ -42,24 +42,32 @@ export function maybeSinkToLangfuse(trace: LangfuseTrace): void {
   void flush(trace)
 }
 
+const MAX_FIELD_CHARS = 4000
+
+function truncate(s: string): string {
+  return s.length > MAX_FIELD_CHARS ? s.slice(0, MAX_FIELD_CHARS) + ' …[truncated]' : s
+}
+
 async function flush(trace: LangfuseTrace): Promise<void> {
   try {
-    // Upsert trace
-    await fetch(`${BASE_URL}/api/public/traces`, {
+    // Upsert trace — truncate input/output to avoid shipping full user content to cloud.
+    const r = await fetch(`${BASE_URL}/api/public/traces`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: authHeader() },
       body: JSON.stringify({
         id: trace.traceId,
         name: trace.label,
-        input: trace.input,
-        output: trace.output,
+        input: truncate(trace.input),
+        output: truncate(trace.output),
         metadata: { model: trace.model, latencyMs: trace.latencyMs ?? null },
         tags: trace.tags ?? [],
       }),
       signal: AbortSignal.timeout(8000),
     })
 
-    // Post score
+    // Only post the score if the trace was accepted — an orphaned score is noise.
+    if (!r.ok) return
+
     await fetch(`${BASE_URL}/api/public/scores`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: authHeader() },

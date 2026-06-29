@@ -24,6 +24,7 @@ type CommandPaletteProps = {
   onNewArtifact?: () => void
   onNewWorkroom?: () => void
   onRunGaiaLoop?: () => void
+  onSetAgentMode?: (mode: 'auto' | 'plan' | 'ask') => void
 }
 
 export function CommandPalette({
@@ -38,6 +39,7 @@ export function CommandPalette({
   onNewArtifact,
   onNewWorkroom,
   onRunGaiaLoop,
+  onSetAgentMode,
 }: CommandPaletteProps) {
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
@@ -68,6 +70,9 @@ export function CommandPalette({
     { id: 'surface_holographme',  label: 'Switch to HolographMe',                      group: 'Surfaces', run: () => { onSwitchSurface('holographme'); onClose() } },
     { id: 'surface_marketplace',  label: 'Switch to Marketplace',                      group: 'Surfaces', run: () => { onSwitchSurface('marketplace'); onClose() } },
     { id: 'surface_broker',       label: 'Switch to Compute Broker — cloud GPU/CPU placement', group: 'Surfaces', run: () => { onSwitchSurface('broker');      onClose() } },
+    { id: 'mode_auto',  label: 'Agent mode — Auto (default)',           group: 'Mode', run: () => { onSetAgentMode?.('auto');  onClose() } },
+    { id: 'mode_plan',  label: 'Agent mode — Plan first, then approve', group: 'Mode', run: () => { onSetAgentMode?.('plan');  onClose() } },
+    { id: 'mode_ask',   label: 'Agent mode — Ask before acting',        group: 'Mode', run: () => { onSetAgentMode?.('ask');   onClose() } },
     { id: 'toggle_sidebar',  label: 'Toggle sidebar',        shortcut: '⌘\\',  group: 'View',     run: () => { onToggleSidebar();  onClose() } },
     { id: 'toggle_inspector',label: 'Toggle inspector',      shortcut: '⌘I',   group: 'View',     run: () => { onToggleInspector(); onClose() } },
     { id: 'settings',        label: 'Open settings',         shortcut: '⌘,',   group: 'App',      run: () => { onOpenSettings();           onClose() } },
@@ -77,7 +82,7 @@ export function CommandPalette({
     { id: 'settings_voice',       label: 'Settings — Voice',                group: 'App',      run: () => { onOpenSettings('voice');       onClose() } },
     { id: 'settings_connections', label: 'Settings — Connections & APIs',   group: 'App',      run: () => { onOpenSettings('connections'); onClose() } },
     { id: 'settings_policy',      label: 'Settings — Policy & Governance',  group: 'App',      run: () => { onOpenSettings('policy');      onClose() } },
-  ], [onClose, onNewChat, onOpenSettings, onSwitchSurface, onToggleSidebar, onToggleInspector])
+  ], [onClose, onNewChat, onOpenSettings, onSetAgentMode, onSwitchSurface, onToggleSidebar, onToggleInspector])
 
   const filtered = useMemo(() => {
     if (!query.trim()) return actions

@@ -145,6 +145,60 @@ assert find_median_sorted_arrays([],[1]) == 1.0` },
     test: `assert decode_string("3[a]2[bc]") == "aaabcbc"
 assert decode_string("3[a2[c]]") == "accaccacc"
 assert decode_string("2[abc]3[cd]ef") == "abcabccdcdcdef"` },
+
+  // ── REAL-WORLD tier (SWELancer/mle-bench style) — data engineering, file manipulation, stats.
+  // These probe practical ML-engineer tasks, not just algorithmic puzzles.  Added to match the
+  // SWELancer-Benchmark and mle-bench evaluation profiles.  Run when n > 16.
+  { name: 'csv_group_sum',
+    prompt: `Write a Python function csv_group_sum(csv_text: str, group_col: str, value_col: str) -> dict[str, float] that parses a CSV from the string, groups rows by group_col, and returns the sum of value_col for each group. The CSV uses comma delimiters and has a header row.`,
+    test: `csv = "dept,salary\\neng,100\\neng,200\\nhr,150\\nhr,50\\n"
+result = csv_group_sum(csv, "dept", "salary")
+assert result == {"eng": 300.0, "hr": 200.0}, result` },
+
+  { name: 'json_flatten',
+    prompt: 'Write a Python function json_flatten(obj: dict, sep: str = ".") -> dict that flattens a nested JSON object into a single-level dict, joining nested keys with sep. Arrays are left as values.',
+    test: `result = json_flatten({"a": {"b": 1, "c": {"d": 2}}, "e": 3})
+assert result == {"a.b": 1, "a.c.d": 2, "e": 3}
+result2 = json_flatten({"x": {"y": [1,2]}}, sep="/")
+assert result2 == {"x/y": [1, 2]}` },
+
+  { name: 'sliding_window_stats',
+    prompt: 'Write a Python function sliding_window_stats(values: list[float], window: int) -> list[dict] that returns a list of dicts, one per window position, each with keys "mean", "min", "max", and "std" (population std dev) for that window. The first window starts at index 0; windows advance one step at a time.',
+    test: `import math
+res = sliding_window_stats([1.0, 2.0, 3.0, 4.0], 3)
+assert len(res) == 2
+assert res[0]["mean"] == 2.0
+assert res[0]["min"] == 1.0
+assert res[0]["max"] == 3.0
+assert abs(res[0]["std"] - math.sqrt(2/3)) < 1e-9
+assert res[1]["mean"] == 3.0` },
+
+  { name: 'retry_with_backoff',
+    prompt: `Write a Python function retry_with_backoff(fn, max_retries: int = 3, base_delay: float = 0.0) -> any that calls fn() and retries on any exception up to max_retries times. The delay between attempts is base_delay * (2 ** attempt) where attempt starts at 0. Raises the last exception if all retries fail.`,
+    test: `calls = []
+def flaky():
+    calls.append(1)
+    if len(calls) < 3:
+        raise ValueError("not yet")
+    return "ok"
+result = retry_with_backoff(flaky, max_retries=5, base_delay=0.0)
+assert result == "ok"
+assert len(calls) == 3
+import traceback
+try:
+    retry_with_backoff(lambda: (_ for _ in ()).throw(RuntimeError("always")), max_retries=2, base_delay=0.0)
+    assert False, "should have raised"
+except RuntimeError:
+    pass` },
+
+  { name: 'tokenize_and_count',
+    prompt: 'Write a Python function tokenize_and_count(text: str, stop_words: set[str] | None = None) -> dict[str, int] that lowercases text, splits on whitespace and punctuation, removes stop_words (if given), and returns a frequency dict of the remaining tokens, sorted descending by count.',
+    test: `result = tokenize_and_count("The cat sat on the mat. The cat!")
+assert result["the"] == 3
+assert result["cat"] == 2
+result2 = tokenize_and_count("the quick brown fox", stop_words={"the", "a"})
+assert "the" not in result2
+assert result2.get("quick") == 1` },
 ]
 
 // ── generation adapters ──────────────────────────────────────────────────────

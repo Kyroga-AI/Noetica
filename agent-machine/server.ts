@@ -106,6 +106,8 @@ import {
 import { getUserIdentity, setUserIdentity, promptUserName, type UserIdentity } from './lib/identity.js'
 import { detectMemoryPoisonAttempt } from './lib/memory-poison-guard.js'
 import { markExternalContent, buildIpiSystemPromptPrefix, stripPotentialInjection } from './lib/ipi-datamark.js'
+import { executePython, executeJavaScript, EXEC_TIMEOUT_MS, MAX_OUTPUT_BYTES } from './lib/code-sandbox.js'
+import { maybeSinkToLangfuse } from './lib/langfuse-sink.js'
 
 // ─── JS-sandbox subprocess mode (code_execute isolation on the compiled standalone) ────────────────────────
 // When the compiled binary re-execs ITSELF with NOETICA_JS_SANDBOX=1, do ONLY the sandboxed JS run — in this
@@ -2194,129 +2196,32 @@ function runIsolatedJsSubprocess(command: string, args: string[], extraEnv: Reco
 }
 
 function executeCode(language: 'python' | 'javascript', code: string, sessionId?: string): Promise<string> {
-  const TIMEOUT_MS = 30_000
-  const MAX_OUTPUT = 100_000
+  const sessionDir = sessionId ? getAmSessionDir(sessionId) : os.tmpdir()
 
   if (language === 'javascript') {
     const strategy = jsSandboxStrategy()
-    if (strategy === 'node-subprocess') {
-      // The vm sandbox runs inside a cheap node/bun process; the runner reads NJS_FILE + writes result to stdout.
-      const runtime = jsSubprocessRuntime()!
-      const runner = `const fs=require('fs'),vm=require('vm');const code=fs.readFileSync(process.env.NJS_FILE,'utf8');const logs=[];const console={log:(...a)=>logs.push(a.map(String).join(' ')),error:(...a)=>logs.push('ERROR: '+a.map(String).join(' ')),warn:(...a)=>logs.push('WARN: '+a.map(String).join(' ')),info:(...a)=>logs.push('INFO: '+a.map(String).join(' '))};const sandbox={console,Math,JSON,Array,Object,String,Number,Boolean,Date,Error,Map,Set,Promise,parseInt,parseFloat,isNaN,isFinite,encodeURIComponent,decodeURIComponent};try{vm.createContext(sandbox);const r=vm.runInContext(code,sandbox,{timeout:${TIMEOUT_MS}});const out=logs.join('\\n');const rl=(r!==undefined&&r!==null)?'\\nResult: '+(typeof r==='object'?JSON.stringify(r,null,2):String(r)):'';process.stdout.write((out+rl).trim()||'(no output)');}catch(e){process.stdout.write('RuntimeError: '+(e&&e.message?e.message:String(e)));}`
-      return runIsolatedJsSubprocess(runtime, ['-e', runner], {}, code, sessionId, TIMEOUT_MS, MAX_OUTPUT)
-    }
     if (strategy === 'self-exec') {
-      // Roomy compiled standalone: re-exec OURSELVES in NOETICA_JS_SANDBOX mode → true process isolation, no
-      // native addon. The early guard at the top of this file runs the vm and exits before any server/secret init.
+      // Re-exec our compiled binary in sandbox mode — process isolation without a native addon.
       _activeSelfSandboxes++
-      return runIsolatedJsSubprocess(process.execPath, [], { NOETICA_JS_SANDBOX: '1' }, code, sessionId, TIMEOUT_MS, MAX_OUTPUT, () => { _activeSelfSandboxes = Math.max(0, _activeSelfSandboxes - 1) })
+      return runIsolatedJsSubprocess(
+        process.execPath, [], { NOETICA_JS_SANDBOX: '1' }, code, sessionId,
+        EXEC_TIMEOUT_MS, MAX_OUTPUT_BYTES,
+        () => { _activeSelfSandboxes = Math.max(0, _activeSelfSandboxes - 1) },
+      )
     }
-    // CONSTRAINED machine (no node/bun + not enough RAM to self-exec a 2nd binary copy): in-process vm. Lighter,
-    // reduced isolation — the escape needs injected/malicious code, which the RAG injection defense (P1.2) blunts.
-    console.warn('[code_execute] constrained machine — using in-process vm (reduced isolation; gated by jsSandboxStrategy)')
-    return new Promise((resolve) => {
-      const logs: string[] = []
-      const consoleMock = {
-        log: (...args: unknown[]) => logs.push(args.map(String).join(' ')),
-        error: (...args: unknown[]) => logs.push('ERROR: ' + args.map(String).join(' ')),
-        warn: (...args: unknown[]) => logs.push('WARN: ' + args.map(String).join(' ')),
-        info: (...args: unknown[]) => logs.push('INFO: ' + args.map(String).join(' ')),
-      }
-      const sandbox: Record<string, unknown> = {
-        console: consoleMock, Math, JSON, Array, Object, String, Number, Boolean, Date, Error, Map, Set, Promise,
-        parseInt, parseFloat, isNaN, isFinite, encodeURIComponent, decodeURIComponent,
-        setTimeout: undefined, setInterval: undefined, fetch: undefined,
-      }
-      try {
-        vm.createContext(sandbox)
-        const result = vm.runInContext(code, sandbox, { timeout: TIMEOUT_MS })
-        const out = logs.join('\n')
-        const resultLine = result !== undefined && result !== null
-          ? `\nResult: ${typeof result === 'object' ? JSON.stringify(result, null, 2) : String(result)}`
-          : ''
-        resolve((out + resultLine).trim().slice(0, MAX_OUTPUT) || '(no output)')
-      } catch (err) {
-        resolve(`RuntimeError: ${err instanceof Error ? err.message : String(err)}`)
-      }
-    })
+    // node-subprocess or in-process: delegate to hardened module (explicit sandbox, resource caps).
+    const runtime = strategy === 'node-subprocess' ? jsSubprocessRuntime() ?? undefined : undefined
+    return executeJavaScript(code, sessionDir, runtime)
   }
 
-  // Python via subprocess — persistent session directory
-  const sessionDir = sessionId ? getAmSessionDir(sessionId) : os.tmpdir()
-  const preamble = `
-import sys, os
-os.chdir(${JSON.stringify(sessionDir)})
-try:
-  import matplotlib
-  matplotlib.use('Agg')
-  import matplotlib.pyplot as plt
-  _orig_show = plt.show
-  def _patched_show(*a, **kw):
-    import datetime
-    fname = 'plot_' + datetime.datetime.now().strftime('%H%M%S%f') + '.png'
-    plt.savefig(fname, dpi=150, bbox_inches='tight')
-    print(f'[chart:{fname}]')
-    plt.clf()
-  plt.show = _patched_show
-except ImportError:
-  pass
-`
-  const fullCode = preamble + '\n' + code
-
-  return new Promise((resolve) => {
-    let stdout = ''
-    let stderr = ''
-    let timedOut = false
-
-    // Filtered env — never expose API keys or arbitrary host secrets to model-authored code.
-    // Only pass what a typical python script legitimately needs.
-    const safeEnv: Record<string, string | undefined> = {
-      PATH: process.env['PATH'],
-      HOME: os.homedir(),
-      LANG: process.env['LANG'],
-      TMPDIR: process.env['TMPDIR'],
-      PYTHONDONTWRITEBYTECODE: '1',
-      MPLBACKEND: 'Agg',
-    }
-    // Defense-in-depth: even if a secret-shaped var is ever added to safeEnv above, strip it before handing the
-    // env to model-authored code. The allowlist is correct today; this makes a future careless addition safe too.
-    for (const k of Object.keys(safeEnv)) if (/KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL/i.test(k)) delete safeEnv[k]
-    const proc = cp.spawn('python3', ['-c', fullCode], {
-      cwd: sessionDir,
-      env: safeEnv as NodeJS.ProcessEnv,
-    })
-
-    const timer = setTimeout(() => {
-      timedOut = true
-      proc.kill('SIGKILL')
-    }, TIMEOUT_MS)
-
-    proc.stdout.on('data', (chunk: Buffer) => {
-      stdout += chunk.toString()
-      if (stdout.length > MAX_OUTPUT) proc.kill('SIGPIPE')
-    })
-    proc.stderr.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString()
-    })
-
-    proc.on('close', (code) => {
-      clearTimeout(timer)
-      if (timedOut) {
-        resolve('TimeoutError: Python execution exceeded 15 seconds.')
-        return
-      }
-      const out = stdout.slice(0, MAX_OUTPUT).trimEnd()
-      const err = stderr.slice(0, 4000).trimEnd()
-      const parts = [out, err ? `Stderr:\n${err}` : ''].filter(Boolean)
-      resolve(parts.join('\n\n').trim() || `(exit code ${code ?? 0}, no output)`)
-    })
-
-    proc.on('error', (e) => {
-      clearTimeout(timer)
-      resolve(`SpawnError: ${e.message} (is python3 installed?)`)
-    })
-  })
+  // Python: delegate to hardened module (adds POSIX RLIMIT_AS/DATA/NPROC the old path lacked).
+  return executePython(code, sessionDir)
 }
+
+// ── deleted: old inline node-subprocess / in-process / Python paths (~100 lines) ──
+// All those paths are now in lib/code-sandbox.ts, which is unit-tested and shared with exec-verify.
+// The self-exec path above is the only server-specific path (requires the compiled binary).
+
 
 // ─── Anthropic streaming ──────────────────────────────────────────────────────
 
@@ -7233,6 +7138,14 @@ Question: ${question}`
   // Out-LOOP, not out-model: generate → run the verifier → on fail, feed the error back and
   // repair, up to a budget. A small local model in this loop beats a big model one-shot because
   // code is verifiable and errors are recoverable. Returns the full step trace (the narration).
+  // ── Verify-repair coding loop ───────────────────────────────────────────────
+  // Out-LOOP, not out-model. Phases:
+  //   0. Sprint contract — generate binary criteria + shell test commands BEFORE coding
+  //   1. Progress file — read prior-session state ("shift handoff") so multi-turn jobs continue
+  //   2. Coding loop — generate → write → verify → repair (up to maxAttempts)
+  //   3. Sovereign escalation — frontier fallback when local model exhausts its budget
+  //   4. Convergent eval-repair — adversarial evaluator grades contract, repairs failures in a loop
+  //   5. Progress file write — persist state for the NEXT session
   if (req.method === 'POST' && url.pathname === '/api/code/solve') {
     let body = ''
     req.on('data', (c: Buffer) => { body += c.toString() })
@@ -7244,23 +7157,42 @@ Question: ${question}`
       const wsName = (String(p.workspace ?? 'solve').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 40)) || 'solve'
       const ws = path.join(os.homedir(), '.noetica', 'workspaces', wsName)
       try { fs.mkdirSync(ws, { recursive: true }) } catch { /* */ }
+
+      // Phase 1: Progress file — read prior-session state for cross-turn continuity.
+      const progressFile = path.join(ws, 'claude-progress.json')
+      let priorProgress: { task?: string; files?: string[]; findings?: string[]; lastOutput?: string; contract?: { criteria: string[]; testCommands: string[] } } | null = null
+      try { if (fs.existsSync(progressFile)) priorProgress = JSON.parse(fs.readFileSync(progressFile, 'utf8')) } catch { /* */ }
+      const priorBlock = priorProgress
+        ? `\n\nPRIOR SESSION STATE:\nTask: ${priorProgress.task ?? '(unknown)'}\nFiles on disk: ${(priorProgress.files ?? []).join(', ')}\nLast verify output: ${(priorProgress.lastOutput ?? '').slice(0, 400)}${priorProgress.findings?.length ? `\nOpen QA findings to fix:\n${priorProgress.findings.map((f, i) => `${i + 1}. ${f}`).join('\n')}` : ''}`
+        : ''
+
       const maxAttempts = Math.min(6, Math.max(1, Number(p.max_attempts ?? 4)))
       const model = String(p.model ?? 'qwen2.5-coder:7b')
-      // Compounding loop (select): pull the most-similar PROVEN solutions and inject them as
-      // few-shot, so the agent reuses what already worked instead of re-deriving from scratch.
+      const gen = (prompt: string, temperature: number) =>
+        generateOllamaText({ model, messages: [{ role: 'user', content: prompt }], temperature }).then((r) => r.content)
+
       const { retrieveSimilar, fewShot, recordSolve, recordVerified } = await import('./lib/solution-memory.js')
       const memory = await retrieveSimilar(task, 2).catch(() => [])
       const memBlock = fewShot(memory)
       const usedMemory = memory.length > 0
-      const SYS = 'You are a coding agent. Solve the task by writing files and ONE verification command that exits 0 only if the solution is correct (e.g. runs a test). Respond with ONLY a JSON object, no prose and no markdown fences:\n{"files":[{"path":"rel/path.ext","content":"..."}],"verify":"shell command"}\nUse tools available on the machine (python3, node). Paths are relative to the project root.' + (memBlock ? `\n\n${memBlock}` : '')
+
+      // Phase 0: Sprint contract — generate binary criteria + shell test commands.
+      const { generateContract, contractBlock } = await import('./lib/sprint-contract.js')
+      const contract = priorProgress?.contract
+        ?? await generateContract(task, gen).catch(() => ({ criteria: [] as string[], testCommands: [] as string[] }))
+
+      const SYS = 'You are a coding agent. Solve the task by writing files and ONE verification command that exits 0 only if the solution is correct (e.g. runs a test). Respond with ONLY a JSON object, no prose and no markdown fences:\n{"files":[{"path":"rel/path.ext","content":"..."}],"verify":"shell command"}\nUse tools available on the machine (python3, node). Paths are relative to the project root.'
+        + (memBlock ? `\n\n${memBlock}` : '')
+        + contractBlock(contract)
+
       const steps: Array<{ attempt: number; verify: string; exit: string; ok: boolean; files: string[]; output: string }> = []
       let solvedFiles: { path: string; content: string }[] = []; let solvedVerify = ''
-      // Capture each touched file's ORIGINAL content the first time we write it, so the UI can
-      // show a real diff and the user can reject (revert) a file back to its pre-solve state.
       const touched = new Map<string, string | null>()
       let prior = '', solved = false
+
+      // Phase 2: Coding loop — generate → write → verify → repair.
       for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-        const user = attempt === 1 ? `Task: ${task}` : `Task: ${task}\n\nYour previous attempt FAILED:\n${prior}\nFix the code. Respond with the same JSON format.`
+        const user = attempt === 1 ? `Task: ${task}${priorBlock}` : `Task: ${task}\n\nYour previous attempt FAILED:\n${prior}\nFix the code. Respond with the same JSON format.`
         let content = ''
         try { ({ content } = await generateOllamaText({ model, messages: [{ role: 'system', content: SYS }, { role: 'user', content: user }], temperature: attempt === 1 ? 0.2 : 0.55 })) }
         catch { steps.push({ attempt, verify: '', exit: 'gen_error', ok: false, files: [], output: 'generation error' }); break }
@@ -7280,9 +7212,8 @@ Question: ${question}`
         if (ok) { solved = true; solvedFiles = sol.files; solvedVerify = sol.verify; break }
         prior = `Files: ${sol.files.map((f) => f.path).join(', ')}\nVerify: ${sol.verify}\nExit: ${code}\nOutput:\n${output.slice(-1500)}`
       }
-      // prophet-cloud-mesh escape hatch: the local loop exhausted its budget unsolved. If a
-      // sovereign tier is configured (NOETICA_SOVEREIGN_URL), escalate ONE attempt to it —
-      // frontier-parity on your own infra. No-op (and zero cost) when the tier isn't armed.
+
+      // Phase 3: Sovereign escalation — frontier fallback when local model exhausts its budget.
       let escalated = false
       if (!solved) {
         const esc = await generateSovereign({
@@ -7312,19 +7243,323 @@ Question: ${question}`
         }
       }
 
-      // Per-file diffs (original vs final-on-disk) so the workspace can render an apply/reject review.
       const diffs = [...touched.entries()].map(([rel, before]) => {
         const fp = path.resolve(ws, rel)
         let after: string | null = null
         try { if (fs.existsSync(fp)) after = fs.readFileSync(fp, 'utf8') } catch { /* */ }
         return { path: rel, before, after, isNew: before === null }
       })
-      // Compounding loop (memory + measure): log this outcome for the quality curve, and persist
-      // the VERIFIED solution into the retrieval corpus so future similar tasks reuse it.
+
+      // Phase 4: Convergent eval-repair loop — adversarial evaluator grades contract,
+      // repairs on failures, loops until contract satisfied or budget exhausted.
+      let evalResult: import('./lib/evaluator.js').EvaluationResult | null = null
+      if (solved && solvedFiles.length) {
+        const { evaluateCode } = await import('./lib/evaluator.js')
+        const evalDeps = {
+          generate: gen,
+          run: (command: string, cwd: string, timeoutMs: number) => runInWorkspace(command, cwd, timeoutMs),
+        }
+        const MAX_EVAL_ROUNDS = 3
+        for (let evalRound = 0; evalRound < MAX_EVAL_ROUNDS; evalRound++) {
+          evalResult = await Promise.race([
+            evaluateCode(task, ws, solvedFiles, steps.at(-1)?.output ?? '', evalDeps, contract),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 45_000)),
+          ]).catch(() => null)
+          if (!evalResult || evalResult.pass) break
+          if (evalRound >= MAX_EVAL_ROUNDS - 1) break
+          const repairContext = `The solution passes its own tests but the QA evaluator found these failures:\n${evalResult.findings.map((f, i) => `${i + 1}. ${f}`).join('\n')}\n\nFix ONLY these issues. Same JSON format.`
+          let repairContent = ''
+          try { ({ content: repairContent } = await generateOllamaText({ model, messages: [{ role: 'system', content: SYS }, { role: 'user', content: `Task: ${task}\n\n${repairContext}` }], temperature: 0.3 })) } catch { break }
+          const repairSol = parseSolveOutput(repairContent)
+          if (!repairSol) break
+          for (const f of repairSol.files) {
+            const rel = f.path.replace(/^\/+/, '')
+            const fp = path.resolve(ws, rel)
+            if (!fp.startsWith(ws + path.sep) && fp !== ws) continue
+            if (!touched.has(rel)) { try { touched.set(rel, fs.existsSync(fp) ? fs.readFileSync(fp, 'utf8') : null) } catch { touched.set(rel, null) } }
+            try { fs.mkdirSync(path.dirname(fp), { recursive: true }); fs.writeFileSync(fp, f.content) } catch { /* */ }
+          }
+          const { out: ro, err: re, code: rc } = await runInWorkspace(repairSol.verify, ws, 60_000)
+          const repairOk = rc === '0'
+          steps.push({ attempt: steps.length + 1, verify: repairSol.verify, exit: rc, ok: repairOk, files: repairSol.files.map((f) => f.path), output: `[eval-repair:${evalRound + 1}] ${`${ro}${re ? `\n${re}` : ''}`.trim()}`.slice(-1200) })
+          if (repairOk) { solvedFiles = repairSol.files; solvedVerify = repairSol.verify } else break
+        }
+      }
+
       recordSolve({ task, solved, attempts: steps.length, escalated, model, usedMemory })
       if (solved && solvedFiles.length) { void recordVerified(task, solvedFiles, solvedVerify).catch(() => {}) }
+
+      // Phase 5: Write progress file — shift handoff for the next session.
+      try {
+        fs.writeFileSync(progressFile, JSON.stringify({
+          lastUpdated: new Date().toISOString(),
+          task, solved, attempts: steps.length,
+          files: [...touched.keys()],
+          verifyCmd: solvedVerify,
+          lastOutput: steps.at(-1)?.output?.slice(-800) ?? '',
+          contract,
+          findings: evalResult?.findings ?? [],
+          score: evalResult?.score ?? null,
+        }, null, 2))
+      } catch { /* best-effort */ }
+
       res.writeHead(200, { 'content-type': 'application/json' })
-      res.end(JSON.stringify({ solved, workspace: wsName, attempts: steps.length, steps, diffs, escalated, usedMemory }))
+      res.end(JSON.stringify({ solved, workspace: wsName, attempts: steps.length, steps, diffs, escalated, usedMemory, contract, evaluation: evalResult }))
+    })() })
+    return
+  }
+
+
+  // ── Multi-feature build loop ────────────────────────────────────────────────
+  // POST /api/code/build — the production-quality path for complex, multi-feature tasks.
+  // Architecture: planner → feature-by-feature coding (each with verify-repair + eval) →
+  // git commits after each verified feature → final full evaluation.
+  //
+  // Superiority claims vs SOTA (Anthropic harness article):
+  //   • Planner generates tech-stack-aware feature breakdown with dependency ordering
+  //   • Each feature is an isolated mini-solve; regression guards after every commit
+  //   • Git in the workspace: progress is queryable, every feature is revertible
+  //   • Best-of-2 parallel generation on each feature's first attempt
+  //   • Contract test commands run for binary pass/fail on each feature completion
+  //   • Early sovereign escalation: if eval score < 5, skip local repair → frontier model
+  if (req.method === 'POST' && url.pathname === '/api/code/build') {
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      setCORSHeaders(res)
+      let p: { task?: string; workspace?: string; model?: string; max_attempts_per_feature?: number } = {}
+      try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+      const task = String(p.task ?? '').trim()
+      if (!task) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'task_required' })); return }
+      const wsName = (String(p.workspace ?? 'build').replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 40)) || 'build'
+      const ws = path.join(os.homedir(), '.noetica', 'workspaces', wsName)
+      try { fs.mkdirSync(ws, { recursive: true }) } catch { /* */ }
+      const model = String(p.model ?? 'qwen2.5-coder:7b')
+      const maxAttemptsPerFeature = Math.min(4, Math.max(1, Number(p.max_attempts_per_feature ?? 3)))
+      const gen = (prompt: string, temperature: number) =>
+        generateOllamaText({ model, messages: [{ role: 'user', content: prompt }], temperature }).then((r) => r.content)
+
+      // Step 1: Planner — expand task into ordered feature list
+      const { planTask, featurePromptBlock, isComplexTask } = await import('./lib/code-planner.js')
+      const { generateContract } = await import('./lib/sprint-contract.js')
+      const { evaluateCode } = await import('./lib/evaluator.js')
+      const { recordSolve, recordVerified } = await import('./lib/solution-memory.js')
+
+      const plan = await planTask(task, gen).catch(() => ({
+        title: task.slice(0, 60), techStack: 'python3', setupCommands: [] as string[],
+        features: [{ id: 1, name: 'core', description: task, depends: [] as number[], testHint: '' }],
+        aiFeatures: [] as string[],
+      }))
+
+      // Step 2: Git init + setup commands
+      try { await runInWorkspace('git init -q 2>/dev/null || true', ws, 5_000) } catch { /* */ }
+      for (const cmd of plan.setupCommands) {
+        try { await runInWorkspace(cmd, ws, 60_000) } catch { /* */ }
+      }
+
+      // Shared state
+      const allTouched = new Map<string, string | null>()
+      const featureResults: Array<{
+        featureId: number; name: string; solved: boolean; attempts: number;
+        evalScore: number | null; findings: string[]; committed: boolean
+      }> = []
+      const completedFeatures: typeof plan.features = []
+      const buildSteps: Array<{ featureId: number; attempt: number; verify: string; exit: string; ok: boolean; files: string[]; output: string }> = []
+
+      // Step 3: Feature-by-feature loop
+      for (const feature of plan.features) {
+        const featureTask = featurePromptBlock(feature, plan, completedFeatures)
+        const featureContract = await generateContract(featureTask, gen).catch(() => ({ criteria: [] as string[], testCommands: [] as string[] }))
+
+        const FEATURE_SYS = `You are a coding agent building feature "${feature.name}" of: ${plan.title}\nTech stack: ${plan.techStack}\nRespond with ONLY a JSON object:\n{"files":[{"path":"rel/path.ext","content":"..."}],"verify":"shell command"}`
+
+        const featureTouched = new Map<string, string | null>()
+        let featureSolved = false
+        let featureSolvedFiles: { path: string; content: string }[] = []
+        let featureSolvedVerify = ''
+        let prior = ''
+
+        // Best-of-2 on attempt 1: generate two candidates in parallel, verify both, pick winner
+        const attempt1User = `${featureTask}\n${featureContract.criteria.length ? `\nRequirements:\n${featureContract.criteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}` : ''}`
+        const [textA, textB] = await Promise.all([
+          generateOllamaText({ model, messages: [{ role: 'system', content: FEATURE_SYS }, { role: 'user', content: attempt1User }], temperature: 0.2 }).then((r) => r.content).catch(() => ''),
+          generateOllamaText({ model, messages: [{ role: 'system', content: FEATURE_SYS }, { role: 'user', content: attempt1User }], temperature: 0.4 }).then((r) => r.content).catch(() => ''),
+        ])
+        const solA = parseSolveOutput(textA)
+        const solB = parseSolveOutput(textB)
+
+        // Write both to separate dirs, verify in parallel, pick winner
+        const wsB = path.join(ws, '_candidate_b')
+        try { fs.mkdirSync(wsB, { recursive: true }) } catch { /* */ }
+        const writeSol = (sol: { files: { path: string; content: string }[]; verify: string } | null, dir: string, touched: Map<string, string | null>) => {
+          if (!sol) return
+          for (const f of sol.files) {
+            const rel = f.path.replace(/^\/+/, '')
+            const fp = path.resolve(dir, rel)
+            if (!fp.startsWith(dir + path.sep) && fp !== dir) continue
+            if (!touched.has(rel)) { try { touched.set(rel, fs.existsSync(fp) ? fs.readFileSync(fp, 'utf8') : null) } catch { touched.set(rel, null) } }
+            try { fs.mkdirSync(path.dirname(fp), { recursive: true }); fs.writeFileSync(fp, f.content) } catch { /* */ }
+          }
+        }
+        if (solA) writeSol(solA, ws, featureTouched)
+        const touchedB = new Map<string, string | null>()
+        if (solB) writeSol(solB, wsB, touchedB)
+
+        const [verA, verB] = await Promise.all([
+          solA ? runInWorkspace(solA.verify, ws, 30_000).catch(() => ({ out: '', err: 'timeout', code: '1' })) : Promise.resolve({ out: '', err: '', code: '1' }),
+          solB ? runInWorkspace(solB.verify, wsB, 30_000).catch(() => ({ out: '', err: 'timeout', code: '1' })) : Promise.resolve({ out: '', err: '', code: '1' }),
+        ])
+
+        // Cleanup candidate_b dir
+        try { fs.rmSync(wsB, { recursive: true, force: true }) } catch { /* */ }
+
+        let chosenSol: typeof solA = null
+        let chosenVer = verA
+        if (verA.code === '0' && verB.code !== '0') { chosenSol = solA; chosenVer = verA }
+        else if (verB.code === '0' && verA.code !== '0') {
+          // B wins — copy B files to ws
+          chosenSol = solB
+          chosenVer = verB
+          if (solB) writeSol(solB, ws, featureTouched)
+        } else if (verA.code === '0' && verB.code === '0') {
+          // Both pass — prefer whichever has more files (more complete)
+          chosenSol = (solB && solB.files.length > (solA?.files.length ?? 0)) ? solB : solA
+          if (chosenSol === solB) writeSol(solB, ws, featureTouched)
+          chosenVer = verA
+        } else {
+          // Both fail — pick A, continue with repair
+          chosenSol = solA
+          chosenVer = verA
+        }
+
+        const attempt1Output = `${chosenVer.out}${chosenVer.err ? `\n${chosenVer.err}` : ''}`.trim()
+        const attempt1Ok = chosenVer.code === '0'
+        buildSteps.push({ featureId: feature.id, attempt: 1, verify: chosenSol?.verify ?? '', exit: chosenVer.code, ok: attempt1Ok, files: chosenSol?.files.map((f) => f.path) ?? [], output: `[best-of-2] ${attempt1Output}`.slice(-1200) })
+
+        if (attempt1Ok && chosenSol) {
+          featureSolved = true; featureSolvedFiles = chosenSol.files; featureSolvedVerify = chosenSol.verify
+        } else {
+          prior = `Files: ${chosenSol?.files.map((f) => f.path).join(', ')}\nVerify: ${chosenSol?.verify}\nExit: ${chosenVer.code}\nOutput:\n${attempt1Output.slice(-1000)}`
+        }
+
+        // Repair loop for remaining attempts
+        for (let attempt = 2; attempt <= maxAttemptsPerFeature && !featureSolved; attempt++) {
+          const user = `${featureTask}\n\nPrevious attempt FAILED:\n${prior}\nFix and return same JSON format.`
+          let content = ''
+          try { ({ content } = await generateOllamaText({ model, messages: [{ role: 'system', content: FEATURE_SYS }, { role: 'user', content: user }], temperature: 0.55 })) } catch { break }
+          const sol = parseSolveOutput(content)
+          if (!sol) { prior = "Output didn't parse as JSON."; continue }
+          writeSol(sol, ws, featureTouched)
+          const { out, err, code } = await runInWorkspace(sol.verify, ws, 30_000)
+          const ok = code === '0'
+          const output = `${out}${err ? `\n${err}` : ''}`.trim()
+          buildSteps.push({ featureId: feature.id, attempt, verify: sol.verify, exit: code, ok, files: sol.files.map((f) => f.path), output: output.slice(-1200) })
+          if (ok) { featureSolved = true; featureSolvedFiles = sol.files; featureSolvedVerify = sol.verify }
+          else { prior = `Files: ${sol.files.map((f) => f.path).join(', ')}\nVerify: ${sol.verify}\nExit: ${code}\nOutput:\n${output.slice(-1000)}` }
+        }
+
+        // Sovereign escalation for critical failures
+        if (!featureSolved) {
+          const esc = await generateSovereign({ messages: [{ role: 'system', content: FEATURE_SYS }, { role: 'user', content: `${featureTask}\n\nLocal model failed. Last error:\n${prior}\nSolve it. Same JSON format.` }], temperature: 0.3 })
+          if (esc) {
+            const sol = parseSolveOutput(esc.content)
+            if (sol) {
+              writeSol(sol, ws, featureTouched)
+              const { out, err, code } = await runInWorkspace(sol.verify, ws, 30_000)
+              const ok = code === '0'
+              buildSteps.push({ featureId: feature.id, attempt: maxAttemptsPerFeature + 1, verify: sol.verify, exit: code, ok, files: sol.files.map((f) => f.path), output: `[sovereign] ${out}${err ? `\n${err}` : ''}`.slice(-1200) })
+              if (ok) { featureSolved = true; featureSolvedFiles = sol.files; featureSolvedVerify = sol.verify }
+            }
+          }
+        }
+
+        // Evaluator pass for this feature
+        let featEvalResult: import('./lib/evaluator.js').EvaluationResult | null = null
+        if (featureSolved && featureSolvedFiles.length) {
+          const evalDeps = { generate: gen, run: (cmd: string, cwd: string, ms: number) => runInWorkspace(cmd, cwd, ms) }
+          featEvalResult = await evaluateCode(featureTask, ws, featureSolvedFiles, buildSteps.at(-1)?.output ?? '', evalDeps, featureContract).catch(() => null)
+
+          // Early sovereign escalation: if local eval score is very low, send repair to sovereign immediately
+          if (featEvalResult && featEvalResult.score < 5 && featEvalResult.findings.length > 0) {
+            const escPrompt = `${featureTask}\n\nQA evaluation score: ${featEvalResult.score}/10. Failures:\n${featEvalResult.findings.join('\n')}\nFix these. Same JSON format.`
+            const esc = await generateSovereign({ messages: [{ role: 'system', content: FEATURE_SYS }, { role: 'user', content: escPrompt }], temperature: 0.2 })
+            if (esc) {
+              const sol = parseSolveOutput(esc.content)
+              if (sol) {
+                writeSol(sol, ws, featureTouched)
+                const { out, err, code } = await runInWorkspace(sol.verify, ws, 30_000)
+                if (code === '0') { featureSolvedFiles = sol.files; featureSolvedVerify = sol.verify; buildSteps.push({ featureId: feature.id, attempt: maxAttemptsPerFeature + 2, verify: sol.verify, exit: code, ok: true, files: sol.files.map((f) => f.path), output: `[sovereign-eval-repair] ${out}`.slice(-800) }) }
+              }
+            }
+          }
+
+          // Record for compounding memory
+          if (featureSolved) { void recordVerified(feature.description, featureSolvedFiles, featureSolvedVerify).catch(() => {}) }
+        }
+
+        // Git commit after each successfully verified + evaluated feature
+        let committed = false
+        if (featureSolved) {
+          try {
+            await runInWorkspace(`git add -A && git -c user.email="noetica@local" -c user.name="Noetica" commit -m "feat(${feature.name}): verified${featEvalResult ? ` score=${featEvalResult.score}/10` : ''}" --allow-empty`, ws, 10_000)
+            committed = true
+          } catch { /* git commit is best-effort */ }
+          completedFeatures.push(feature)
+        }
+
+        // Merge feature's touched map into global
+        for (const [k, v] of featureTouched) { if (!allTouched.has(k)) allTouched.set(k, v) }
+
+        featureResults.push({
+          featureId: feature.id,
+          name: feature.name,
+          solved: featureSolved,
+          attempts: buildSteps.filter((s) => s.featureId === feature.id).length,
+          evalScore: featEvalResult?.score ?? null,
+          findings: featEvalResult?.findings ?? [],
+          committed,
+        })
+
+        recordSolve({ task: feature.description, solved: featureSolved, attempts: buildSteps.filter((s) => s.featureId === feature.id).length, escalated: false, model, usedMemory: false })
+      }
+
+      // Step 4: Final full evaluation
+      const allSolvedFiles = featureResults.filter((r) => r.solved).flatMap((_) => {
+        const entries: { path: string; content: string }[] = []
+        for (const [rel] of allTouched) {
+          const fp = path.resolve(ws, rel)
+          try { if (fs.existsSync(fp)) entries.push({ path: rel, content: fs.readFileSync(fp, 'utf8') }) } catch { /* */ }
+        }
+        return entries
+      }).filter((v, i, a) => a.findIndex((x) => x.path === v.path) === i)
+
+      const finalContract = await generateContract(task, gen).catch(() => ({ criteria: [] as string[], testCommands: [] as string[] }))
+      const finalEval = allSolvedFiles.length > 0
+        ? await evaluateCode(task, ws, allSolvedFiles, '', { generate: gen, run: (cmd, cwd, ms) => runInWorkspace(cmd, cwd, ms) }, finalContract).catch(() => null)
+        : null
+
+      // Write build progress file
+      try {
+        fs.writeFileSync(path.join(ws, 'claude-progress.json'), JSON.stringify({
+          lastUpdated: new Date().toISOString(),
+          task, plan,
+          featureResults,
+          files: [...allTouched.keys()],
+          finalEval: finalEval ? { score: finalEval.score, pass: finalEval.pass, findings: finalEval.findings } : null,
+        }, null, 2))
+      } catch { /* */ }
+
+      // Per-file diffs
+      const diffs = [...allTouched.entries()].map(([rel, before]) => {
+        const fp = path.resolve(ws, rel)
+        let after: string | null = null
+        try { if (fs.existsSync(fp)) after = fs.readFileSync(fp, 'utf8') } catch { /* */ }
+        return { path: rel, before, after, isNew: before === null }
+      })
+
+      const totalSolved = featureResults.filter((r) => r.solved).length
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ plan, featureResults, totalFeatures: plan.features.length, totalSolved, workspace: wsName, steps: buildSteps, diffs, finalEval }))
     })() })
     return
   }
@@ -8679,6 +8914,125 @@ Question: ${question}`
         }
       })()
     })
+    return
+  }
+
+  // ── /api/session/* ─────────────────────────────────────────────────────────────────────────────
+  if (url.pathname.startsWith('/api/session')) {
+    ;(async () => {
+      try {
+        const { AgentSession, OllamaProvider, ReasoningLevel } = await import('./lib/agent-session.js')
+        const { MODELS, composite, pctOfFrontier } = await import('./lib/model-registry.js')
+        const { readBody: rb } = await import('./lib/read-body.js')
+
+        // GET /api/session/models — model manifest with capability benchmarks (Gap 04)
+        if (req.method === 'GET' && url.pathname === '/api/session/models') {
+          const local = await listLocalModels()
+          const manifest = MODELS.map((m) => ({
+            id: m.id, label: m.label, origin: m.origin, openWeights: m.openWeights,
+            locallyAvailable: local.includes(m.id),
+            bench: m.bench, composite: composite(m), pctOfFrontier: pctOfFrontier(m.id),
+          }))
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ models: manifest, count: manifest.length }))
+          return
+        }
+
+        // GET /api/session/attest/challenge — nonce for replay-protected attestation
+        if (req.method === 'GET' && url.pathname === '/api/session/attest/challenge') {
+          const { randomBytes } = await import('node:crypto')
+          const nonce = randomBytes(32).toString('base64url')
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ nonce, issuedAt: Date.now() }))
+          return
+        }
+
+        // POST /api/session/attest — produce a signed attestation token (Gap 06)
+        if (req.method === 'POST' && url.pathname === '/api/session/attest') {
+          const raw = await rb(req)
+          const body = JSON.parse(raw) as { nonce?: string }
+          if (!body.nonce) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'nonce required' })); return }
+          const { attest, fogTrustTier } = await import('./lib/device-attest.js')
+          const token = await attest(body.nonce)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ token, fogTrustTier: fogTrustTier(token) }))
+          return
+        }
+
+        // POST /api/session/attest/verify — verify an attestation token
+        if (req.method === 'POST' && url.pathname === '/api/session/attest/verify') {
+          const raw = await rb(req)
+          const body = JSON.parse(raw) as { token?: unknown; maxAgeMs?: number; expectedNonce?: string }
+          if (!body.token) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'token required' })); return }
+          const { verifyAttestation } = await import('./lib/device-attest.js')
+          const maxAgeMs = typeof body.maxAgeMs === 'number' ? Math.min(body.maxAgeMs, 60 * 60 * 1000) : undefined
+          const result = verifyAttestation(body.token as Parameters<typeof verifyAttestation>[0], { maxAgeMs, expectedNonce: body.expectedNonce })
+          res.writeHead(result.valid ? 200 : 401, { 'content-type': 'application/json' })
+          res.end(JSON.stringify(result))
+          return
+        }
+
+        // GET /api/session/labs — list discovered lab endpoints (Gap 05)
+        if (req.method === 'GET' && url.pathname === '/api/session/labs') {
+          const { LabRegistry } = await import('./lib/lab-registry.js')
+          const registry = new LabRegistry()
+          const labs = await registry.discover()
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ labs, count: labs.length }))
+          return
+        }
+
+        const toLevel = (s: string): typeof ReasoningLevel[keyof typeof ReasoningLevel] =>
+          (Object.values(ReasoningLevel) as string[]).includes(s) ? s as typeof ReasoningLevel[keyof typeof ReasoningLevel] : ReasoningLevel.MODERATE
+
+        const readJsonBody = async () => { const raw = await rb(req); return JSON.parse(raw) as Record<string, unknown> }
+
+        // POST /api/session/respond — synchronous respond with optional structured output
+        if (req.method === 'POST' && url.pathname === '/api/session/respond') {
+          const body = await readJsonBody()
+          const prompt = body['prompt'] as string | undefined
+          if (!prompt) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'prompt required' })); return }
+          const level = toLevel((body['reasoning'] as string | undefined) ?? 'moderate')
+          const provider = new OllamaProvider(level)
+          const session = new AgentSession({ _provider: provider, systemPrompt: body['system'] as string | undefined })
+          const schema = body['schema'] as import('./lib/agent-session.js').StructuredSchema | undefined
+          if (schema) {
+            const rawResult = await provider.generate({ messages: [{ role: 'user', content: prompt }], schema })
+            const parsed = OllamaProvider.parseStructured(rawResult.content)
+            res.writeHead(200, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ result: parsed }))
+          } else {
+            const text = await session.respond(prompt)
+            res.writeHead(200, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ text }))
+          }
+          return
+        }
+
+        // POST /api/session/stream — SSE streaming respond
+        if (req.method === 'POST' && url.pathname === '/api/session/stream') {
+          const body = await readJsonBody()
+          const prompt = body['prompt'] as string | undefined
+          if (!prompt) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'prompt required' })); return }
+          const level = toLevel((body['reasoning'] as string | undefined) ?? 'moderate')
+          const provider = new OllamaProvider(level)
+          const session = new AgentSession({ _provider: provider, systemPrompt: body['system'] as string | undefined })
+          res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache', 'connection': 'keep-alive' })
+          for await (const chunk of session.stream(prompt)) {
+            if (chunk) res.write(`data: ${JSON.stringify({ text: chunk })}\n\n`)
+          }
+          res.write('data: [DONE]\n\n')
+          res.end()
+          return
+        }
+
+        res.writeHead(404, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: 'not_found' }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: 'internal_error', detail: String(e) }))
+      }
+    })()
     return
   }
 

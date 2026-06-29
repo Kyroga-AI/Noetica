@@ -1529,6 +1529,8 @@ export function AppShell() {
                     body: JSON.stringify({ messageId, rating, sessionId: activeSession?.id }),
                   }).catch(() => { /* feedback is fire-and-forget */ })
                 }}
+                agentMode={settings.agentMode}
+                onSetAgentMode={(mode) => updateSettings({ agentMode: mode })}
               />
               {inspectorVisible && (
                 <div className="relative h-full">
@@ -1592,6 +1594,7 @@ export function AppShell() {
         onSwitchSurface={handleSurfaceChange}
         onToggleSidebar={() => setSidebarCollapsed((c) => !c)}
         onToggleInspector={() => setInspectorVisible((v) => !v)}
+        onSetAgentMode={(mode) => updateSettings({ agentMode: mode })}
       />
       {settings.showRawEvents && rawEventLog.length > 0 && (
         <div
@@ -1724,9 +1727,11 @@ type CenterProps = {
   onNavigateToOperate?: () => void
   onSpeak?: (content: string) => void
   onFeedback?: (messageId: string, rating: 'up' | 'down') => void
+  agentMode?: 'auto' | 'plan' | 'ask'
+  onSetAgentMode?: (mode: 'auto' | 'plan' | 'ask') => void
 }
 
-function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onSpeak, onFeedback }: CenterProps) {
+function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onSpeak, onFeedback, agentMode, onSetAgentMode }: CenterProps) {
   if (activeSurface === 'notes')        return <NotesSurface />
   if (activeSurface === 'canvas')       return <CanvasSurface />
   if (activeSurface === 'workrooms')    return <WorkroomsSurface thinkingBudget={thinkingBudget} />
@@ -1764,6 +1769,26 @@ function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, work
       <section className="flex min-h-0 flex-col overflow-hidden">
         <GoalBanner sessionId={sessionId} />
         <MessageList messages={messages} isStreaming={isStreaming} onExtractArtifact={onExtractArtifact} onRegenerate={onRegenerate} onResume={onResume} onFork={onFork} onEdit={onEdit} onRecombine={onRecombine} onSpeak={onSpeak} onQuickPrompt={(t) => onSend(t, [])} onFeedback={onFeedback} />
+        {agentMode && agentMode !== 'auto' && (
+          <div className="mx-4 mb-1 flex items-center gap-2 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-xs">
+            {agentMode === 'plan' ? (
+              <span className="font-semibold text-[#7c3aed]">Plan mode</span>
+            ) : (
+              <span className="font-semibold text-[#b45309]">Ask mode</span>
+            )}
+            <span className="text-[var(--color-text-tertiary)]">
+              {agentMode === 'plan' ? '— agent will outline a step-plan before acting' : '— agent will ask before using tools'}
+            </span>
+            <button
+              onClick={() => onSetAgentMode?.('auto')}
+              className="ml-auto text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
+              title="Return to Auto mode"
+              aria-label="Dismiss plan mode"
+            >
+              ✕
+            </button>
+          </div>
+        )}
         <InputArea
           onSend={onSend}
           onFanout={onFanout}

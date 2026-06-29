@@ -448,7 +448,6 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
         const decision = evaluatePdor(mergedPdorReq, (b.verdicts ?? []) as Parameters<typeof evaluatePdor>[1], { commons: b.commons === true })
         let enrichment = undefined
         if (decision.ingestKey) {
-          if (!characterization && table && Array.isArray(table.header)) characterization = characterize(table)
           if (typeof b.content === 'string' && b.content) enrichment = await synapseEnrich(b.content, { filename: b.filename as string | undefined }, defaultSynapseTransport())
         }
         const catalog = buildCatalogGraph(pdorReq, decision, { characterization, enrichment, fileUri: b.fileUri as string | undefined })
@@ -464,12 +463,15 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
         const { synapseEnrich, defaultSynapseTransport } = await import('./synapseiq-enrich.js')
         const { buildCatalogGraph } = await import('./pdor-ingest.js')
         const pdorReq = ocwResourceToPdor(b.resource as Parameters<typeof ocwResourceToPdor>[0], { requester: b.requester as string | undefined })
-        const decision = evaluatePdor(pdorReq, [], { commons: true })
-        let characterization = undefined, enrichment = undefined
         const content = (b.resource && typeof (b.resource as Record<string, unknown>).content === 'string') ? (b.resource as Record<string, string>).content : undefined
+        const ocwTable = typeof b.csv === 'string' ? parseDelimited(b.csv, typeof b.delim === 'string' ? b.delim : ',') : (b.table ?? null)
+        let characterization: ReturnType<typeof characterize> | undefined = ocwTable && Array.isArray(ocwTable.header) ? characterize(ocwTable) : undefined
+        const mergedOcwPdor = characterization?.sensitive.hasPII
+          ? { ...pdorReq, classification: { ...pdorReq?.classification, pii: true } }
+          : pdorReq
+        const decision = evaluatePdor(mergedOcwPdor, [], { commons: true })
+        let enrichment = undefined
         if (decision.ingestKey) {
-          const table = typeof b.csv === 'string' ? parseDelimited(b.csv, typeof b.delim === 'string' ? b.delim : ',') : (b.table ?? null)
-          if (table && Array.isArray(table.header)) characterization = characterize(table)
           if (content) enrichment = await synapseEnrich(content, { filename: (b.resource as Record<string, string>).course }, defaultSynapseTransport())
         }
         const catalog = buildCatalogGraph(pdorReq, decision, { characterization, enrichment, fileUri: (b.resource as Record<string, string>)?.url })

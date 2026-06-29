@@ -95,7 +95,7 @@ export async function tryTpm2PcrQuote(nonce: string): Promise<string | null> {
     const { stdout } = await execFileAsync(
       'tpm2_quote',
       [
-        '--key-context', '/tmp/noetica-ak.ctx',
+        '--key-context', `${os.tmpdir()}/noetica-ak-${process.getuid?.() ?? 'default'}.ctx`,
         '--pcr-list', 'sha256:0,1,2,7',
         '--qualification', nonce,
       ],
@@ -186,7 +186,9 @@ export function verifyAttestation(
 export function fogTrustTier(
   token: AttestationToken
 ): 'attested_fog' | 'managed_cloud' | 'unverified' {
-  const check = verifyAttestation(token, { maxAgeMs: Infinity })
+  // Use a 24-hour window for tier classification — long enough to survive a session but
+  // not infinite. A stolen token replayed after 24h is rejected here.
+  const check = verifyAttestation(token, { maxAgeMs: 24 * 60 * 60 * 1000 })
   if (!check.valid) {
     return 'unverified'
   }

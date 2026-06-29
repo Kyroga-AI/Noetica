@@ -90,6 +90,7 @@ export function hNetChunk(text: string, opts: ChunkOptions = {}): Chunk[] {
   } = opts
 
   const sentences = splitSentences(text)
+  if (sentences.length === 0) return []
   if (sentences.length <= 2) {
     return [{ text, tokens: roughTokens(text), startSentence: 0, endSentence: sentences.length - 1 }]
   }
