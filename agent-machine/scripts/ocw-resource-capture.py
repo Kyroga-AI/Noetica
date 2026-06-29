@@ -32,6 +32,12 @@ DEPTS = set(d.strip() for d in os.environ.get('OCW_DEPTS', '').split(',') if d.s
 LIMIT = int(os.environ.get('OCW_LIMIT', '0'))
 DELAY = float(os.environ.get('OCW_DELAY_MS', '1500')) / 1000
 CHUNK = int(os.environ.get('OCW_CHUNK', '1500'))
+# Capture→graph loop: when set, each captured course is also onboarded through the PDOR pipeline so it lands in
+# HellGraph as a governed, license-gated, brain-eligibility-flagged CommonsAsset (corpus chunks still stream to
+# GCS independently). Best-effort — a capture never fails because onboarding is down. DRYRUN prints the payload
+# instead of POSTing, so the loop is verifiable offline (no server needed).
+ONBOARD_URL = os.environ.get('OCW_ONBOARD_URL', '')          # e.g. http://127.0.0.1:8080/api/cap/ocw-onboard
+ONBOARD_DRYRUN = os.environ.get('OCW_ONBOARD_DRYRUN', '') not in ('', '0', 'false')
 BASE = 'https://ocw.mit.edu'
 UA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 Chrome/120 Safari/537.36'
 LRT = {  # learning_resource_types → material (mirrors build-corpus.ts)
@@ -110,12 +116,15 @@ def resource_urls(slug):
 
 
 def extract_resource(url):
-    """MIT adapter: a resource/page → (text, material) via its data.json. CC-only, math-aware."""
+    """MIT adapter: a resource/page → (text, material, license) via its data.json. CC-only, math-aware.
+    The RAW license string is returned (not just lowercased) so the onboarding loop can hand it to the PDOR
+    license-gate verbatim — parseCcLicense resolves CC-BY-NC-SA / ND / CC0 / URLs deterministically."""
     try:
         d = json.loads(get(url.rstrip('/') + '/data.json'))
     except Exception:
         return None
-    lic = (d.get('license') or '').lower()
+    lic_raw = d.get('license') or ''
+    lic = lic_raw.lower()
     if lic and 'creativecommons' not in lic and 'cc' not in lic and 'public' not in lic:
         return None  # CC-open only
     mat = next((LRT[t] for t in (d.get('learning_resource_types') or []) if t in LRT), 'reference')
@@ -135,7 +144,34 @@ def extract_resource(url):
             mat = 'lecture'                                          # a transcript IS the lecture
     else:                                                            # course PAGES: inline lecture-note HTML
         text = strip_html(d.get('content') or d.get('body') or '')
-    return (text, mat) if text and len(text) >= 80 else None
+    return (text, mat, lic_raw) if text and len(text) >= 80 else None
+
+
+def onboard_course(slug, title, license_raw, sample, url):
+    """Best-effort capture→graph loop: hand the captured course to /api/cap/ocw-onboard as a PDOR resource. The
+    route evaluates it in COMMONS context (CC-BY-NC-SA → brain-eligible; ND → segmented), characterizes +
+    SynapseIQ-enriches the content, and persists the CommonsAsset + provenance/linkage into HellGraph. Returns a
+    short status string for the log; never raises (capture must not depend on the graph being up)."""
+    if not ONBOARD_URL and not ONBOARD_DRYRUN:
+        return None
+    payload = {
+        'resource': {'course': slug, 'title': title or slug, 'license': license_raw or '',
+                     'url': url or f'{BASE}/courses/{slug}/', 'content': (sample or '')[:4000]},
+        'requester': 'ocw-capture', 'persist': True,
+    }
+    if ONBOARD_DRYRUN or not ONBOARD_URL:
+        return 'dryrun ' + json.dumps({'course': slug, 'license': license_raw or '(none)',
+                                       'content_chars': len(payload['resource']['content'])})
+    try:
+        data = json.dumps(payload).encode()
+        req = urllib.request.Request(ONBOARD_URL, data=data, headers={'Content-Type': 'application/json', 'User-Agent': UA}, method='POST')
+        with urllib.request.urlopen(req, timeout=60) as r:
+            res = json.loads(r.read().decode('utf-8', 'replace'))
+        d = res.get('decision', {})
+        p = res.get('persisted')
+        return f"onboard {d.get('tier','?')}/{'brain' if d.get('brainEligible') else 'segmented'} written={(p or {}).get('written', p)}"
+    except Exception as e:
+        return f'onboard FAILED ({type(e).__name__})'
 
 
 def done_set():
@@ -173,10 +209,15 @@ def main():
             break
         n += 1
         rows = []
+        course_license, content_sample = '', ''
         for url in resource_urls(slug):
             r = extract_resource(url)
             if r:
-                text, mat = r
+                text, mat, lic_raw = r
+                if lic_raw and not course_license:
+                    course_license = lic_raw                          # course-level license (OCW is uniform per course)
+                if len(content_sample) < 4000:
+                    content_sample += (text + '\n\n')                 # a sample for characterization + SynapseIQ enrichment
                 for ci, c in enumerate(chunks_of(text)):
                     rows.append({'text': c, 'slug': f'{slug}-{len(rows)}', 'field': 'ocw', 'material': mat, 'source': slug})
             time.sleep(DELAY)
@@ -190,7 +231,9 @@ def main():
             os.unlink(tmp)
         # append to the resumable manifest
         subprocess.run(['bash', '-c', f"echo '{json.dumps({'slug': slug, 'status': status, 'chunks': len(rows)})}' | gcloud storage cp - {GCS}/_manifest_{slug}.jsonl"], capture_output=True, timeout=60)
-        print(f'  {"OK " if rows else "·  "} {slug} — {len(rows)} chunks', flush=True)
+        # capture→graph loop: onboard the course through the PDOR governance pipeline (best-effort).
+        onb = onboard_course(slug, slug, course_license, content_sample, f'{BASE}/courses/{slug}/') if rows else None
+        print(f'  {"OK " if rows else "·  "} {slug} — {len(rows)} chunks{f" · {onb}" if onb else ""}', flush=True)
         time.sleep(DELAY)
     print(f'# done — {n} courses this run. (concat _manifest_*.jsonl → _manifest.jsonl for resume index)', flush=True)
 
