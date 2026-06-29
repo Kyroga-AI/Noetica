@@ -38,6 +38,11 @@ export interface EvidenceStep {
   flagged: boolean                  // true if policy gate was triggered
   flag_reason?: string              // why it was flagged
   agent_reasoning: string           // WHY the agent drew this conclusion
+  /** Decision 03: causal graph annotations */
+  causal_node?: string              // which node in the DAG this evidence maps to (e.g. 'FT')
+  causal_node_label?: string        // human label (e.g. 'Foot Traffic Index')
+  causal_dag?: string               // which pre-defined DAG ('gyg-lfl' | 'news-intel')
+  causal_path?: string[]            // directed path from this node to the outcome
 }
 
 export type TaskStatus = 'draft' | 'pending' | 'running' | 'completed' | 'flagged' | 'blocked'
@@ -64,6 +69,10 @@ export interface IntelligenceTask {
     status: TaskStatus
     output_hash?: string            // sha256[:16] of output for tamper detection
     replay_ref?: string             // URN for replay lookup
+    /** Decision 03: causal identification certificate in the governance trail */
+    causal_model?: string           // 'gyg-lfl' | 'news-intel' | null
+    identification_strategy?: string // 'iv' | 'backdoor' | 'frontdoor' | 'unidentified'
+    causal_summary?: string         // human-readable identification argument for ASIC
   }
 }
 
@@ -174,6 +183,11 @@ export function addEvidence(
     observation: string
     confidence: number
     agent_reasoning: string
+    /** Decision 03: optional causal annotations */
+    causal_node?: string
+    causal_node_label?: string
+    causal_dag?: string
+    causal_path?: string[]
   }
 ): EvidenceStep {
   const task = TASKS.get(taskId)
@@ -188,6 +202,10 @@ export function addEvidence(
     confidence: params.confidence,
     flagged: false,
     agent_reasoning: params.agent_reasoning,
+    causal_node: params.causal_node,
+    causal_node_label: params.causal_node_label,
+    causal_dag: params.causal_dag,
+    causal_path: params.causal_path,
   }
 
   // --- Policy gate enforcement ---
@@ -226,18 +244,27 @@ export function addEvidence(
   return step
 }
 
-/** Complete a task and seal the governance trail. */
-export function completeTask(taskId: string, output: string): IntelligenceTask {
+/** Complete a task and seal the governance trail with causal certificate. */
+export function completeTask(
+  taskId: string,
+  output: string,
+  causal?: { model: string; strategy: string; summary: string },
+): IntelligenceTask {
   const task = TASKS.get(taskId)
   if (!task) throw new Error(`task ${taskId} not found`)
   const now = new Date().toISOString()
   task.output = output
   task.completed_at = now
-  if (task.status === 'running') task.status = 'completed'
+  if (task.status === 'running' || task.status === 'flagged') task.status = 'completed'
   task.governance.status = task.status
   task.governance.ran_at = now
   task.governance.output_hash = sha256short(output)
   task.governance.replay_ref = `urn:noetica:replay:${task.id}`
+  if (causal) {
+    task.governance.causal_model = causal.model
+    task.governance.identification_strategy = causal.strategy
+    task.governance.causal_summary = causal.summary
+  }
   return task
 }
 

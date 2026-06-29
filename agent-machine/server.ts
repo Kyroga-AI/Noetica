@@ -5176,6 +5176,257 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // ── IFM Demo: Financial + Sloan brain routes ──────────────────────────────────────────────────────────
+  // GET /api/brain/financial — list all projected financial-services skills
+  if (req.method === 'GET' && url.pathname === '/api/brain/financial') {
+    void (async () => {
+      const { financialSkillCatalog } = await import('./lib/financial-brain.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ skills: financialSkillCatalog() }))
+    })()
+    return
+  }
+
+  // GET /api/brain/sloan — list all projected Sloan MBA courses
+  if (req.method === 'GET' && url.pathname === '/api/brain/sloan') {
+    void (async () => {
+      const { sloanCourseCatalog } = await import('./lib/sloan-brain.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ courses: sloanCourseCatalog() }))
+    })()
+    return
+  }
+
+  // GET /api/graph/kko — KKO class census over live HellGraph nodes
+  if (req.method === 'GET' && url.pathname === '/api/graph/kko') {
+    void (async () => {
+      const { kkoCensus } = await import('./lib/kko-bridge.js')
+      const { getHellGraph } = await import('@socioprophet/hellgraph')
+      const g = getHellGraph()
+      const nodes = g.allNodes()
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ census: kkoCensus(nodes) }))
+    })()
+    return
+  }
+
+  // ── Causal Graph API ──────────────────────────────────────────────────────────────────────────────────
+  // GET  /api/causal/models              — list available DAG models
+  // GET  /api/causal/dag/:name           — named DAG + identification result + primary path
+  // GET  /api/causal/paths?dag=X&from=Y&to=Z — directed paths between two nodes
+  // POST /api/causal/annotate            — annotate an intelligence task with causal provenance
+  // GET  /api/causal/census              — node counts by type across all models
+
+  if (req.method === 'GET' && url.pathname === '/api/causal/models') {
+    void (async () => {
+      const { listCausalModels } = await import('./lib/causal-signal.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ models: listCausalModels() }))
+    })()
+    return
+  }
+
+  {
+    const causalDagMatch = url.pathname.match(/^\/api\/causal\/dag\/([^/]+)$/)
+    if (req.method === 'GET' && causalDagMatch) {
+      const [, dagName] = causalDagMatch as [string, string]
+      void (async () => {
+        const { causalModelResponse } = await import('./lib/causal-signal.js')
+        const result = causalModelResponse(dagName)
+        if (!result) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'model not found' })); return }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(result))
+      })()
+      return
+    }
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/causal/paths') {
+    void (async () => {
+      const dagName = url.searchParams.get('dag') ?? ''
+      const from = url.searchParams.get('from') ?? ''
+      const to = url.searchParams.get('to') ?? ''
+      if (!dagName || !from || !to) {
+        res.writeHead(400, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: 'dag, from, and to params required' }))
+        return
+      }
+      const { getCausalModel } = await import('./lib/causal-signal.js')
+      const { directedPaths } = await import('./lib/causal-graph.js')
+      const dag = getCausalModel(dagName)
+      if (!dag) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'model not found' })); return }
+      const paths = directedPaths(dag, from, to)
+      const nodeLabel = new Map(dag.nodes.map((n) => [n.id, n.label]))
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ dag: dagName, from, to, paths, path_labels: paths.map((p) => p.map((id) => nodeLabel.get(id) ?? id)) }))
+    })()
+    return
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/causal/annotate') {
+    let raw = ''
+    req.on('data', (c: Buffer) => { raw += c.toString(); if (raw.length > 16384) req.destroy() })
+    req.on('end', () => { void (async () => {
+      let body: { task_id?: string; dag?: string } = {}
+      try { body = JSON.parse(raw || '{}') as typeof body } catch { /* */ }
+      if (!body.task_id || !body.dag) {
+        res.writeHead(400, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: 'task_id and dag required' }))
+        return
+      }
+      const { getTask } = await import('./lib/intelligence-task.js')
+      const { annotateCausalEvidence } = await import('./lib/causal-writeback.js')
+      const task = getTask(body.task_id)
+      if (!task) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'task not found' })); return }
+      annotateCausalEvidence(task.id, task.evidence, body.dag)
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ annotated: task.evidence.filter((e) => e.causal_node).length }))
+    })() })
+    return
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/causal/census') {
+    void (async () => {
+      const { listCausalModels, getCausalModel } = await import('./lib/causal-signal.js')
+      const models = listCausalModels()
+      const census: Record<string, Record<string, number>> = {}
+      for (const { name } of models) {
+        const dag = getCausalModel(name)
+        if (!dag) continue
+        const counts: Record<string, number> = {}
+        for (const n of dag.nodes) { counts[n.type] = (counts[n.type] ?? 0) + 1 }
+        census[name] = counts
+      }
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ census }))
+    })()
+    return
+  }
+
+  // ── Intelligence Tasks API ────────────────────────────────────────────────────────────────────────────
+  // Named, policy-governed agent runs with full governance trail + causal provenance.
+  // GET    /api/intelligence/tasks             — list all tasks
+  // POST   /api/intelligence/tasks             — create task { name, objective, owner, policy? }
+  // GET    /api/intelligence/tasks/:id         — get task by id
+  // POST   /api/intelligence/tasks/:id/start   — start task (status: draft→running)
+  // POST   /api/intelligence/tasks/:id/evidence — add evidence step
+  // POST   /api/intelligence/tasks/:id/complete — complete + seal governance trail
+  // POST   /api/intelligence/tasks/:id/block   — hard-stop task
+
+  if (url.pathname === '/api/intelligence/tasks' || url.pathname.startsWith('/api/intelligence/tasks/')) {
+    void (async () => {
+      const {
+        createTask, getTask, listTasks, startTask, addEvidence, completeTask, blockTask,
+      } = await import('./lib/intelligence-task.js')
+
+      // GET list
+      if (req.method === 'GET' && url.pathname === '/api/intelligence/tasks') {
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ tasks: listTasks() }))
+        return
+      }
+
+      // POST create
+      if (req.method === 'POST' && url.pathname === '/api/intelligence/tasks') {
+        let raw = ''
+        req.on('data', (c: Buffer) => { raw += c.toString(); if (raw.length > 16384) req.destroy() })
+        req.on('end', () => { void (async () => {
+          let body: { name?: string; objective?: string; owner?: string; policy?: Record<string, unknown> } = {}
+          try { body = JSON.parse(raw || '{}') as typeof body } catch { /* */ }
+          if (!body.name || !body.objective || !body.owner) {
+            res.writeHead(400, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ error: 'name, objective, owner required' }))
+            return
+          }
+          const task = createTask({ name: body.name, objective: body.objective, owner: body.owner, policy: body.policy as Parameters<typeof createTask>[0]['policy'] })
+          res.writeHead(201, { 'content-type': 'application/json' })
+          res.end(JSON.stringify(task))
+        })() })
+        return
+      }
+
+      // Sub-resource routes: /api/intelligence/tasks/:id[/action]
+      const m = url.pathname.match(/^\/api\/intelligence\/tasks\/([a-f0-9]+)(\/\w+)?$/)
+      if (!m) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'not found' })); return }
+      const [, taskId, action] = m as [string, string, string | undefined]
+
+      if (req.method === 'GET' && !action) {
+        const task = getTask(taskId)
+        if (!task) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'task not found' })); return }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(task))
+        return
+      }
+
+      if (req.method === 'POST') {
+        let raw = ''
+        req.on('data', (c: Buffer) => { raw += c.toString(); if (raw.length > 65536) req.destroy() })
+        req.on('end', () => { void (async () => {
+          let body: Record<string, unknown> = {}
+          try { body = JSON.parse(raw || '{}') as typeof body } catch { /* */ }
+
+          if (action === '/start') {
+            try {
+              const task = startTask(taskId)
+              res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(task))
+            } catch (e) {
+              res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+            }
+            return
+          }
+
+          if (action === '/evidence') {
+            try {
+              const step = addEvidence(taskId, {
+                source_url: String(body['source_url'] ?? ''),
+                observation: String(body['observation'] ?? ''),
+                confidence: Number(body['confidence'] ?? 0.5),
+                agent_reasoning: String(body['agent_reasoning'] ?? ''),
+                causal_node: body['causal_node'] ? String(body['causal_node']) : undefined,
+                causal_node_label: body['causal_node_label'] ? String(body['causal_node_label']) : undefined,
+                causal_dag: body['causal_dag'] ? String(body['causal_dag']) : undefined,
+                causal_path: Array.isArray(body['causal_path']) ? (body['causal_path'] as string[]) : undefined,
+              })
+              res.writeHead(201, { 'content-type': 'application/json' }); res.end(JSON.stringify(step))
+            } catch (e) {
+              res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+            }
+            return
+          }
+
+          if (action === '/complete') {
+            try {
+              const causal = (body['causal_model'] && body['identification_strategy'] && body['causal_summary'])
+                ? { model: String(body['causal_model']), strategy: String(body['identification_strategy']), summary: String(body['causal_summary']) }
+                : undefined
+              const task = completeTask(taskId, String(body['output'] ?? ''), causal)
+              res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(task))
+            } catch (e) {
+              res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+            }
+            return
+          }
+
+          if (action === '/block') {
+            try {
+              const task = blockTask(taskId, String(body['reason'] ?? 'blocked'))
+              res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(task))
+            } catch (e) {
+              res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+            }
+            return
+          }
+
+          res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'unknown action' }))
+        })() })
+        return
+      }
+
+      res.writeHead(405, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'method not allowed' }))
+    })()
+    return
+  }
+
   // ── On-device neural-operator inference (operator-runtime → noetica-operator sidecar) ──────────────
   // The sovereign compute substrate for the GAIA map (flood/dispersion/hydrology surrogates) and any caller
   // that needs a trained Fourier Neural Operator run locally. Reusable + model-agnostic.
@@ -10384,6 +10635,25 @@ server.listen(PORT, '127.0.0.1', () => {
       const { projectAcademicBrain } = await import('./lib/academic-graph.js')
       const r = projectAcademicBrain()
       if (r.courses > 0) console.log(`[academic-graph] projected ${r.courses} courses across ${r.fields} fields`.replace(/[\r\n]/g, ' '))
+    } catch { /* best-effort */ }
+    // IFM Demo: project Sloan MBA + financial-services skill graph into the Knowledge lens
+    try {
+      const { projectSloanBrain } = await import('./lib/sloan-brain.js')
+      const rs = projectSloanBrain()
+      if (rs.courses > 0) console.log(`[sloan-brain] projected ${rs.courses} courses across ${rs.fields} fields`.replace(/[\r\n]/g, ' '))
+    } catch { /* best-effort */ }
+    try {
+      const { projectFinancialBrain } = await import('./lib/financial-brain.js')
+      const rf = projectFinancialBrain()
+      if (rf.skills > 0) console.log(`[financial-brain] projected ${rf.skills} skills across ${rf.domains} domains`.replace(/[\r\n]/g, ' '))
+    } catch { /* best-effort */ }
+    // Persist causal DAG models (GYG + news-intel) into HellGraph for the Knowledge lens
+    try {
+      const { GYG_LFL_DAG, NEWS_INTEL_DAG } = await import('./lib/causal-signal.js')
+      const { persistCausalDAG } = await import('./lib/causal-writeback.js')
+      const rg = persistCausalDAG(GYG_LFL_DAG)
+      const rn = persistCausalDAG(NEWS_INTEL_DAG)
+      console.log(`[causal] persisted gyg-lfl (${rg.nodes}n/${rg.edges}e) + news-intel (${rn.nodes}n/${rn.edges}e)`.replace(/[\r\n]/g, ' '))
     } catch { /* best-effort */ }
   })()
 
