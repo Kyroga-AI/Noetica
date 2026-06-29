@@ -83,6 +83,7 @@ import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
 import { runAgentLoop, type ProviderAdapter } from './lib/agent-loop.js'
 import { makeAutonomyGate, hydrateAutonomy, bindAutonomy, autonomySession, onAutonomyDecision, buildAdmissionReceipt, AUTONOMY_LADDER, type AutonomySession } from './lib/autonomy-gate.js'
 import { getCurrentReasoningRun as getAutonomyRun, emitReasoningEvent as emitAutonomyEvent } from './lib/reasoning-evidence.js'
+import { actuateRecommendation, type RecommendationObject } from './lib/marketing-ro-actuator.js'
 import { validateToolCall, type ToolSchema, type ArgSpec } from './lib/constrained-decode.js'
 import { appendJsonl as appendEncrypted, readJsonl as readEncrypted, writeJson as writeEncryptedJson, readJson as readEncryptedJson } from './lib/at-rest.js'
 import { critique, bestOfTemps, type Candidate as CriticCandidate } from './lib/critic.js'
@@ -5311,6 +5312,39 @@ const server = http.createServer((req, res) => {
       })
       return
     }
+  }
+
+  // POST /api/marketing/actuate — actuate a RecommendationObject through the autonomy gate.
+  // Fail-closed: only an exact admit takes effect; the action is recorded on the evidence spine.
+  if (url.pathname === '/api/marketing/actuate') {
+    setCORSHeaders(res)
+    if (req.method !== 'POST') { res.writeHead(405, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'post_required' })); return }
+    const origin = req.headers['origin']
+    if (typeof origin === 'string' && /^https?:\/\//i.test(origin) && !/^https?:\/\/(127\.0\.0\.1|localhost)(:|$|\/)/i.test(origin)) { res.writeHead(403, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'cross_origin_blocked' })); return }
+    if (!String(req.headers['content-type'] ?? '').includes('application/json')) { res.writeHead(415, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'json_content_type_required' })); return }
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      let p: { ro?: RecommendationObject; evidence?: unknown } = {}
+      try { p = JSON.parse(body || '{}') } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+      if (!p.ro || p.ro.type !== 'RecommendationObject') { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'recommendation_object_required' })); return }
+      const evidence = Array.isArray(p.evidence) ? p.evidence.filter((e): e is string => typeof e === 'string') : []
+      // Actuation side-effect records the governed action onto the reasoning-evidence spine.
+      // Concrete effects (publish/disavow) are downstream of this admission record.
+      const result = await actuateRecommendation(p.ro, evidence, (ro) => {
+        const run = getAutonomyRun()
+        if (run) emitAutonomyEvent(run, {
+          eventType: 'marketing.actuation',
+          summary: `RO ${ro.id}: ${ro.action?.kind} actuated`,
+          trustLevel: 'trusted-control-input',
+          traceLevel: 'operator-private',
+          extra: { recommendation: ro },
+        })
+      })
+      res.writeHead(result.admitted ? 200 : 403, { 'content-type': 'application/json' })
+      res.end(JSON.stringify(result))
+    })() })
+    return
   }
 
   if (req.method === 'GET' && url.pathname === '/api/memory/health') {
