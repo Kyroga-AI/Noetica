@@ -54,7 +54,11 @@ export const LOWER_FLOOR = 0.5     // a specific topic must clear this to refine
  * plus the structural links (`injectsInto`, `coveredBy`). Returns the traversal: universal anchor → general
  * (connective tissue) → specific (refinement), with the morphisms crossed.
  */
-export function groundTiered(cands: TierTopic[]): TierGrounding {
+export function groundTiered(cands: TierTopic[], opts: { middleFloor?: number; lowerFloor?: number } = {}): TierGrounding {
+  // Floors default to the embedding-cosine calibration; a caller using a different similarity (e.g. a lexical
+  // scorer) passes its own floors so the same traversal logic works across scoring regimes.
+  const middleFloor = opts.middleFloor ?? MIDDLE_FLOOR
+  const lowerFloor = opts.lowerFloor ?? LOWER_FLOOR
   const byTier = (t: Tier) => cands.filter((c) => c.tier === t).sort((a, b) => b.cos - a.cos)
   const crossings: Morphism[] = []
 
@@ -62,7 +66,7 @@ export function groundTiered(cands: TierTopic[]): TierGrounding {
   const anchor = byTier('upper')[0]?.id ?? null
 
   // MIDDLE (general): established FIRST — the connective tissue. Must clear the floor to count as grounding.
-  const middle = byTier('middle').find((c) => c.cos >= MIDDLE_FLOOR) ?? null
+  const middle = byTier('middle').find((c) => c.cos >= middleFloor) ?? null
   if (!middle) {
     return { anchor, general: null, specific: null, level: 'upper', crossings: anchor ? ['surjection'] : [], grounded: false,
       rationale: anchor ? 'no general topic cleared the floor → universal anchor only (coarse coverage via surjection)' : 'no candidates' }
@@ -72,7 +76,7 @@ export function groundTiered(cands: TierTopic[]): TierGrounding {
   // LOWER (specific): refine ONLY into a specific topic that INJECTS into the established general AND fits.
   // A lower whose `injectsInto` is a DIFFERENT general parent is structurally excluded (this bars the graduate
   // drag: QFT injects into 'particle physics', not the chosen 'general physics').
-  const specific = byTier('lower').find((c) => c.injectsInto === middle.id && c.cos >= LOWER_FLOOR) ?? null
+  const specific = byTier('lower').find((c) => c.injectsInto === middle.id && c.cos >= lowerFloor) ?? null
   if (specific) {
     crossings.push('injection')   // lower --injection--> middle (refined into the specific)
     // bijection: the general has exactly one specific realization here (1-to-1 onto).

@@ -1,0 +1,22 @@
+{
+  "source": "Frontier-authored upper tier for the tiered-ontology grounding (topic-tier.ts). Grounded in the KBpedia KKO upper ontology (Charles S. Peirce universal categories) per canon/kko-alignment.json. KKO/KBpedia is CC-BY-4.0; the descriptions here are authored by the frontier model, not the local 7B.",
+  "license": "CC-BY-4.0",
+  "kko_namespace": "http://kbpedia.org/ontologies/kko#",
+  "note": "The UPPER tier of the three-layer space. SURJECTION: every domain's general (middle) topic is covered by a domain anchor; the anchors in turn roll up to the three KKO universal categories. The middle/general node for a domain is named 'general <domain>' — the connective tissue the candidate provider synthesizes and that lower (specific) topics inject into.",
+
+  "kko_categories": [
+    { "id": "kko:Possibilities", "label": "Firstness — possibility / quality", "description": "Pure possibility, quality, feeling, potential — a property considered in itself before it is instantiated or related. Qualities, capacities, ranges of value, the merely-possible." },
+    { "id": "kko:Particulars", "label": "Secondness — particular / instance / reaction", "description": "Actual individuals, concrete instances, events, measurements, brute facts and reactions — a thing here and now, a specific value, an observed outcome, a force acting against another." },
+    { "id": "kko:Generals", "label": "Thirdness — general / law / type / mediation", "description": "Laws, types, general rules, habits, mediation, theories and regularities that govern particulars — the equations, principles, and classifications that hold across instances. The home of scientific law and abstraction." }
+  ],
+
+  "domain_anchors": [
+    { "id": "anchor:physics", "domain": "physics", "general": "general physics", "kko": "kko:Generals", "label": "Physics", "description": "The study of matter, energy, motion, force, and their interactions through space and time: mechanics, energy and momentum, electricity and magnetism, waves, heat, light, relativity, and quantum behaviour, governed by mathematical physical law." },
+    { "id": "anchor:mathematics", "domain": "mathematics", "general": "general mathematics", "kko": "kko:Generals", "label": "Mathematics", "description": "The abstract science of number, quantity, structure, space, and change: arithmetic, algebra, geometry, calculus, probability, and proof — formal systems of definitions, theorems, and deductive reasoning." },
+    { "id": "anchor:chemistry", "domain": "chemistry", "general": "general chemistry", "kko": "kko:Chemistry", "label": "Chemistry", "description": "The science of substances — atoms, elements, molecules, bonds, reactions, energy and equilibria: composition, structure, properties, and transformation of matter at the atomic and molecular scale." },
+    { "id": "anchor:biology", "domain": "biology", "general": "general biology", "kko": "kko:NaturalSubstances", "label": "Biology", "description": "The science of living systems: cells, genetics and heredity, evolution, physiology, ecology, molecular and cellular processes, organisms and their interactions with the environment." },
+    { "id": "anchor:computer_science", "domain": "computer_science", "general": "general computer science", "kko": "kko:Generals", "label": "Computer Science", "description": "The study of computation, algorithms, data structures, programming, complexity, systems, and information: how problems are represented, solved efficiently, and executed on machines." },
+    { "id": "anchor:economics", "domain": "economics", "general": "general economics", "kko": "kko:Generals", "label": "Economics", "description": "The social science of production, distribution, and consumption of goods and services: supply and demand, prices and markets, incentives, money, growth, and the allocation of scarce resources by individuals, firms, and governments." },
+    { "id": "anchor:medicine", "domain": "medicine", "general": "general medicine", "kko": "kko:NaturalSubstances", "label": "Medicine", "description": "The science and practice of human health and disease: anatomy and physiology, pathology, diagnosis, pharmacology, and treatment of illness across the body's systems." }
+  ]
+}

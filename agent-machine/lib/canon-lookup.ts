@@ -218,6 +218,13 @@ export function canonStats(): { defs: number; bridged: number; topics: number; p
   return { defs: DEFS!.size, bridged: BRIDGES!.size, topics: TOPICS!.size, prereq: PREREQ!.size }
 }
 
+/** All canon topics with their level (intro/undergrad/graduate/professional) — the source the tiered-ontology
+ *  candidate provider draws middle (general, `intro`) and lower (specific, the rest) tiers from. */
+export function canonTopics(): Array<{ domain: string; topic: string; level: string }> {
+  if (!TOPICS) load()
+  return [...TOPICS!.values()].map((t) => ({ domain: t.domain, topic: t.topic, level: t.level }))
+}
+
 // CLI self-test:  npx tsx lib/canon-lookup.ts "a torque problem about angular momentum"
 if (process.argv[1] && process.argv[1].endsWith('canon-lookup.ts')) {
   const q = process.argv.slice(2).join(' ') || 'a block on an inclined plane with friction and angular momentum'
