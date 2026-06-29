@@ -93,3 +93,17 @@ test('scope maps to the review tier (open→CITIZEN_FOG, licensed→CLOUD, restr
 test('regulated content attaches periodic-compliance-review', () => {
   assert.ok(governanceRules(base({ classification: { regulated: true } })).includes('periodic-compliance-review'))
 })
+
+test('commons mode: NC/SA become brain-eligible (commons satisfies NC+SA); default stays strict', () => {
+  const p = base({ license: { type: 'cc-by-sa' } })
+  assert.equal(brainEligible(p), false)                  // strict default
+  assert.equal(brainEligible(p, { commons: true }), true) // commons-eligible
+  const nc = base({ license: { type: 'cc-by-nc-sa' } })
+  assert.equal(brainEligible(nc, { commons: true }), true)
+  assert.equal(evaluatePdor(nc, [], { commons: true }).status, 'self-certified')
+})
+
+test('commons mode does NOT relax no-derivatives or sensitivity', () => {
+  assert.equal(brainEligible(base({ license: { type: 'cc-by-nd' } }), { commons: true }), false)        // ND barred
+  assert.equal(brainEligible(base({ license: { type: 'cc-by' }, classification: { pii: true } }), { commons: true }), false)  // PII barred
+})

@@ -18,8 +18,9 @@
  */
 
 export type LicenseType =
-  | 'cc0' | 'public-domain' | 'cc-by'              // OPEN + learnable
-  | 'cc-by-sa' | 'cc-by-nc' | 'cc-by-nd'           // open access but copyleft / restricted reuse → segment
+  | 'cc0' | 'public-domain' | 'cc-by'              // OPEN + learnable anywhere
+  | 'cc-by-sa' | 'cc-by-nc' | 'cc-by-nc-sa'        // copyleft / non-commercial → learnable IN a NC+SA commons
+  | 'cc-by-nd' | 'cc-by-nc-nd'                     // no-derivatives → a trained model is a derivative → NEVER learnable
   | 'pre-approved' | 'proprietary' | 'unknown'     // terms-bound / closed / unknown → segment, fail-closed
 
 export type Openness = 'open' | 'licensed' | 'restricted'
@@ -27,8 +28,17 @@ export type OnboardTier = 'candidate' | 'open' | 'licensed' | 'restricted' | 'pu
 export type ReviewStatus = 'bookmarked' | 'self-certified' | 'needs-review' | 'approved' | 'declined'
 export type Intent = 'register' | 'capture' | 'experiment' | 'offering'
 
-/** Licenses the sovereign brain may legitimately LEARN from (attribution-only or freer). */
+/** Licenses the sovereign brain may LEARN from in any context (attribution-only or freer). */
 const BRAIN_OK_LICENSES = new Set<LicenseType>(['cc0', 'public-domain', 'cc-by'])
+/** Additionally learnable INSIDE a non-commercial, share-alike Knowledge Commons (the commons itself satisfies
+ *  the NC + SA obligations). ND is never here — a trained model is a derivative, which ND forbids. */
+const COMMONS_OK_LICENSES = new Set<LicenseType>(['cc0', 'public-domain', 'cc-by', 'cc-by-sa', 'cc-by-nc', 'cc-by-nc-sa'])
+const isNoDerivatives = (t: LicenseType): boolean => t === 'cc-by-nd' || t === 'cc-by-nc-nd'
+const eligibleSet = (commons: boolean) => (commons ? COMMONS_OK_LICENSES : BRAIN_OK_LICENSES)
+
+/** Onboarding context. `commons:true` = a non-commercial, share-alike Knowledge Commons → NC/SA licenses become
+ *  learnable (their obligations are met by the commons); default (strict) = only attribution-or-freer. */
+export interface OnboardOpts { commons?: boolean }
 
 export interface PdorClassification {
   pii?: boolean
@@ -68,25 +78,26 @@ const hasSensitive = (c?: PdorClassification): boolean =>
   !!(c && (c.pii || c.sensitivePii || c.phi || c.confidential || c.regulated))
 
 /** Openness from license + content sensitivity (sensitivity always wins → restricted). */
-export function openness(p: Pdor): Openness {
+export function openness(p: Pdor, opts: OnboardOpts = {}): Openness {
   if (hasSensitive(p.classification) || p.license.type === 'proprietary') return 'restricted'
-  if (BRAIN_OK_LICENSES.has(p.license.type)) return 'open'
-  return 'licensed'   // open-access-but-copyleft/NC/ND, pre-approved, or unknown (fail-closed to licensed)
+  if (brainEligible(p, opts)) return 'open'
+  return 'licensed'   // open-access-but-restricted (ND / pre-approved / unknown), or NC/SA outside a commons
 }
 
-/** THE moat-safe gate. Brain-eligible ONLY when the license is learnable AND the content is clean. Fail-closed. */
-export function brainEligible(p: Pdor): boolean {
-  return BRAIN_OK_LICENSES.has(p.license.type) && !hasSensitive(p.classification)
+/** THE moat-safe gate. Brain-eligible ONLY when the license is learnable in this context, the content is clean,
+ *  and it is NOT no-derivatives (a trained model is a derivative). Fail-closed. */
+export function brainEligible(p: Pdor, opts: OnboardOpts = {}): boolean {
+  return eligibleSet(!!opts.commons).has(p.license.type) && !isNoDerivatives(p.license.type) && !hasSensitive(p.classification)
 }
 
 /** Governance rules bound to the asset, derived from license + classification. */
-export function governanceRules(p: Pdor): string[] {
+export function governanceRules(p: Pdor, opts: OnboardOpts = {}): string[] {
   const r: string[] = []
-  if (!brainEligible(p)) r.push('segment-from-brain')                 // never train on it
+  if (!brainEligible(p, opts)) r.push('segment-from-brain')           // never train on it
   if (p.license.attribution || p.license.type.startsWith('cc-by')) r.push('attribute-on-use')
-  if (p.license.shareAlike || p.license.type === 'cc-by-sa') r.push('share-alike')
-  if (p.license.type === 'cc-by-nc') r.push('non-commercial-only')
-  if (p.license.type === 'cc-by-nd') r.push('no-derivatives')
+  if (p.license.shareAlike || p.license.type.includes('-sa')) r.push('share-alike')
+  if (p.license.type.includes('-nc')) r.push('non-commercial-only')
+  if (p.license.type.includes('-nd')) r.push('no-derivatives')
   if (hasSensitive(p.classification)) { r.push('access-control'); r.push('redact-sensitive') }
   if (p.classification?.regulated) r.push('periodic-compliance-review')
   if (p.intent === 'offering') r.push('expire-at-term')
@@ -106,11 +117,11 @@ function tierOf(p: Pdor, open: Openness): OnboardTier {
  * Open + clean → self-certified (no review, brain-eligible). Licensed/restricted/published → require ALL relevant
  * verdicts to approve. An ingest key is issued only on self-certify or full approval.
  */
-export function evaluatePdor(p: Pdor, verdicts: PdorVerdict[] = []): PdorDecision {
-  const open = openness(p)
+export function evaluatePdor(p: Pdor, verdicts: PdorVerdict[] = [], opts: OnboardOpts = {}): PdorDecision {
+  const open = openness(p, opts)
   const tier = tierOf(p, open)
-  const eligible = brainEligible(p)
-  const rules = governanceRules(p)
+  const eligible = brainEligible(p, opts)
+  const rules = governanceRules(p, opts)
   const scope: PdorDecision['scope'] = open === 'open' ? 'CITIZEN_FOG' : open === 'licensed' ? 'CITIZEN_CLOUD' : 'INSTITUTION'
   const key = () => `pdor-key-${p.id}`
 
