@@ -19,6 +19,7 @@
  */
 import { generateOllamaText, streamOllama } from './ollama.js'
 import { createAttestation, verifyAttestation } from './device-attestation.js'
+import { gateSovereignLane } from './content-safeguard.js'
 
 // ── Reasoning — quality-speed tradeoff levels ─────────────────────────────────
 
@@ -248,6 +249,11 @@ export class AgentSession {
       const result = verifyAttestation(att)
       if (!result.valid) {
         throw new Error(`SOVEREIGN: device attestation failed: ${result.reason}`)
+      }
+      // Uncensored ≠ ungoverned: even the attested sovereign lane enforces the prohibited legal floor.
+      const gate = gateSovereignLane(prompt)
+      if (!gate.allowed) {
+        throw new Error(`SOVEREIGN: ${gate.reason}`)
       }
     }
     const messages: SessionMessage[] = []
