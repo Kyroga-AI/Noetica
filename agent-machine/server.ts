@@ -111,6 +111,12 @@ import { detectMemoryPoisonAttempt } from './lib/memory-poison-guard.js'
 import { markExternalContent, buildIpiSystemPromptPrefix, stripPotentialInjection } from './lib/ipi-datamark.js'
 import { executePython, executeJavaScript, EXEC_TIMEOUT_MS, MAX_OUTPUT_BYTES } from './lib/code-sandbox.js'
 import { maybeSinkToLangfuse } from './lib/langfuse-sink.js'
+import { proposal, proposalsFromInferred, setStatus, applyAccepted, type GraphProposal } from './lib/graph-proposals.js'
+import { suggestLinks, type Candidate as LinkCandidate } from './lib/link-suggest.js'
+import { newCard, review as srsReview, dueCards, type Card } from './lib/srs.js'
+import { decodeVec } from './lib/brain-vec.js'
+import { readBody } from './lib/read-body.js'
+import { embedBatchLocal } from './lib/embed-runtime.js'
 
 // ─── JS-sandbox subprocess mode (code_execute isolation on the compiled standalone) ────────────────────────
 // When the compiled binary re-execs ITSELF with NOETICA_JS_SANDBOX=1, do ONLY the sandboxed JS run — in this
@@ -170,6 +176,8 @@ setOfflineMode(process.env['NOETICA_OFFLINE'] === '1' || process.env['NOETICA_OF
 // ─── Model progress SSE ───────────────────────────────────────────────────────
 
 const _modelProgressClients = new Set<http.ServerResponse>()
+// session-local graph proposal staging area (accept/reject before any graph write)
+const _graphProposals = new Map<string, GraphProposal>()
 
 function broadcastModelProgress(payload: object): void {
   const msg = `data: ${JSON.stringify(payload)}\n\n`
@@ -9176,6 +9184,190 @@ Question: ${question}`
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ error: 'internal_error', detail: String(e) }))
+      }
+    })()
+    return
+  }
+
+  // ── Graph Proposals — stage/accept/reject ghost diffs before any graph write ────
+  if (url.pathname === '/api/graph/proposals' || url.pathname === '/api/graph/proposals/accept' || url.pathname === '/api/graph/proposals/reject') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        if (req.method === 'GET' && url.pathname === '/api/graph/proposals') {
+          const status = url.searchParams.get('status') ?? 'pending'
+          const all = Array.from(_graphProposals.values())
+          const filtered = status === 'all' ? all : all.filter((p) => p.status === status)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ proposals: filtered, total: filtered.length, executionPerformed: false }))
+          return
+        }
+        if (req.method === 'POST' && url.pathname === '/api/graph/proposals') {
+          const body = await readBody(req)
+          let parsed: Record<string, unknown>
+          try { parsed = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+          const op = parsed['op'] as GraphProposal['op'] | undefined
+          const payload = parsed['payload'] as Record<string, unknown> | undefined
+          const rationale = typeof parsed['rationale'] === 'string' ? parsed['rationale'] : 'staged by agent'
+          if (!op || !payload) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'op and payload required' })); return }
+          const p = proposal(op, payload, rationale, 'api')
+          _graphProposals.set(p.id, p)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ proposal: p, executionPerformed: false }))
+          return
+        }
+        if (req.method === 'POST' && url.pathname === '/api/graph/proposals/accept') {
+          const body = await readBody(req)
+          let parsed: Record<string, unknown>
+          try { parsed = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+          const id = typeof parsed['proposalId'] === 'string' ? parsed['proposalId'] : ''
+          const opApproval = parsed['operatorApproval'] === true
+          if (!id) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'proposalId required' })); return }
+          if (!opApproval) { res.writeHead(403, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'operatorApproval must be true', executionPerformed: false })); return }
+          const p = _graphProposals.get(id)
+          if (!p) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'proposal_not_found' })); return }
+          _graphProposals.set(id, { ...p, status: 'accepted' })
+          const { mutations } = applyAccepted(Array.from(_graphProposals.values()))
+          const g = getGraph()
+          let nodeId: string | undefined
+          for (const m of mutations.filter((x) => x.id === id)) {
+            try {
+              if (m.op === 'add-edge') {
+                const from = String(m.payload['from'] ?? ''), to = String(m.payload['to'] ?? ''), rel = String(m.payload['rel'] ?? 'RELATED')
+                if (from && to) g.addEdge(rel, from, to, { via: 'graph-proposals', accepted_at: new Date().toISOString() })
+              } else if (m.op === 'add-node') {
+                const label = String(m.payload['label'] ?? m.payload['id'] ?? 'ProposedNode')
+                const autoId = `prop-node-${Date.now()}`
+                try { (g as unknown as { addNode: (id:string, labels:string[], props:Record<string,unknown>) => unknown }).addNode(autoId, [label], { proposed: true, accepted_at: new Date().toISOString() }); nodeId = autoId } catch { /* best-effort */ }
+              } else if (m.op === 'update-prop') {
+                const nid = String(m.payload['node'] ?? ''), prop = String(m.payload['prop'] ?? ''), val = m.payload['value']
+                if (nid && prop) (g as unknown as { setNodeProperty: (i:string,k:string,v:unknown)=>void }).setNodeProperty(nid, prop, val)
+              }
+            } catch { /* best-effort */ }
+          }
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ accepted: true, id, nodeId, executionPerformed: false }))
+          return
+        }
+        if (req.method === 'POST' && url.pathname === '/api/graph/proposals/reject') {
+          const body = await readBody(req)
+          let parsed: Record<string, unknown>
+          try { parsed = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+          const id = typeof parsed['proposalId'] === 'string' ? parsed['proposalId'] : ''
+          if (!id) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'proposalId required' })); return }
+          const p = _graphProposals.get(id)
+          if (!p) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'proposal_not_found' })); return }
+          _graphProposals.set(id, { ...p, status: 'rejected' })
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ rejected: true, id, executionPerformed: false }))
+          return
+        }
+        res.writeHead(405, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'method_not_allowed' }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) }))
+      }
+    })()
+    return
+  }
+
+  // ── Link Suggestions — semantic backlink nudge during authoring ───────────────
+  if (req.method === 'POST' && url.pathname === '/api/knowledge/link-suggestions') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let parsed: Record<string, unknown>
+        try { parsed = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const text = typeof parsed['text'] === 'string' ? parsed['text'] : ''
+        const topK = typeof parsed['topK'] === 'number' ? parsed['topK'] : 5
+        let noteVec: number[]
+        if (Array.isArray(parsed['vec'])) {
+          noteVec = (parsed['vec'] as unknown[]).map(Number)
+        } else if (text) {
+          const vecs = await embedBatchLocal([text])
+          noteVec = vecs?.[0] ?? []
+          if (!noteVec.length) { res.writeHead(503, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'embedder_unavailable' })); return }
+        } else {
+          res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'text or vec required' })); return
+        }
+        const g = getGraph()
+        const candidates: LinkCandidate[] = g.allNodes()
+          .filter((n) => n.properties?.['vec'])
+          .map((n) => ({ id: n.id, label: (n.labels[0] ?? n.id), vec: Array.from(decodeVec(String(n.properties?.['vec'] ?? ''))) }))
+          .filter((c) => c.vec.length > 0)
+        const already = new Set<string>(Array.isArray(parsed['alreadyLinked']) ? (parsed['alreadyLinked'] as string[]) : [])
+        const suggestions = suggestLinks(noteVec, candidates, { topK, alreadyLinked: already })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ suggestions, total: suggestions.length }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) }))
+      }
+    })()
+    return
+  }
+
+  // ── SRS — spaced-repetition scheduling over graph nodes ──────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/memory/srs/due') {
+    setCORSHeaders(res)
+    const g = getGraph()
+    const now = Date.now()
+    const items = g.allNodes()
+      .filter((n) => n.properties?.['srs_due'] !== undefined)
+      .map((n) => {
+        const card: Card = {
+          ease: Number(n.properties?.['srs_ease'] ?? 2.5),
+          intervalDays: Number(n.properties?.['srs_interval'] ?? 0),
+          reps: Number(n.properties?.['srs_reps'] ?? 0),
+          due: Number(n.properties?.['srs_due'] ?? 0),
+        }
+        return { nodeId: n.id, label: n.labels[0] ?? n.id, card }
+      })
+    const due = dueCards(items, now)
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ due, total: due.length, now }))
+    return
+  }
+  if (url.pathname === '/api/memory/srs/review' || url.pathname === '/api/memory/srs/enroll') {
+    setCORSHeaders(res)
+    if (req.method !== 'POST') { res.writeHead(405, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'method_not_allowed' })); return }
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let parsed: Record<string, unknown>
+        try { parsed = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const nodeId = typeof parsed['nodeId'] === 'string' ? parsed['nodeId'] : ''
+        if (!nodeId) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'nodeId required' })); return }
+        const g = getGraph()
+        const node = g.getNode(nodeId)
+        if (!node) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'node_not_found' })); return }
+        const gx = g as unknown as { setNodeProperty: (id:string, k:string, v:unknown) => void }
+        if (url.pathname === '/api/memory/srs/enroll') {
+          const card = newCard(Date.now())
+          gx.setNodeProperty(nodeId, 'srs_ease', card.ease)
+          gx.setNodeProperty(nodeId, 'srs_interval', card.intervalDays)
+          gx.setNodeProperty(nodeId, 'srs_reps', card.reps)
+          gx.setNodeProperty(nodeId, 'srs_due', card.due)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ nodeId, enrolled: true, card }))
+        } else {
+          const grade = typeof parsed['grade'] === 'number' && [0,1,2,3].includes(parsed['grade']) ? parsed['grade'] as 0|1|2|3 : null
+          if (grade === null) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'grade (0-3) required' })); return }
+          const existing: Card = node.properties?.['srs_due'] !== undefined ? {
+            ease: Number(node.properties?.['srs_ease'] ?? 2.5),
+            intervalDays: Number(node.properties?.['srs_interval'] ?? 0),
+            reps: Number(node.properties?.['srs_reps'] ?? 0),
+            due: Number(node.properties?.['srs_due'] ?? 0),
+          } : newCard(Date.now())
+          const updated = srsReview(existing, grade, Date.now())
+          gx.setNodeProperty(nodeId, 'srs_ease', updated.ease)
+          gx.setNodeProperty(nodeId, 'srs_interval', updated.intervalDays)
+          gx.setNodeProperty(nodeId, 'srs_reps', updated.reps)
+          gx.setNodeProperty(nodeId, 'srs_due', updated.due)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ nodeId, card: updated, nextDue: new Date(updated.due).toISOString() }))
+        }
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) }))
       }
     })()
     return
