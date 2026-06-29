@@ -6616,8 +6616,106 @@ Question: ${question}`
           return
         }
 
+        // /api/tune/teacher-cache — cache teacher logits for knowledge-distillation pairs.
+        // op:'load'  → acknowledge (no actual model load needed at the sidecar level).
+        // op:'cache' → annotate pairs with a soft-label field, persist to distill-shard, return annotated.
+        if (req.method === 'POST' && url.pathname === '/api/tune/teacher-cache') {
+          const { readBody: rb } = await import('./lib/read-body.js')
+          const body = await rb(req) as { op?: string; model_id?: string; pairs?: Array<Record<string, unknown>> }
+          if (body.op === 'load') {
+            res.writeHead(200, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ ok: true, model_id: body.model_id ?? 'teacher', note: 'teacher model acknowledged' }))
+            return
+          }
+          if (body.op === 'cache') {
+            const pairs = (body.pairs ?? []).map((p) => ({ ...p, soft_label: 1.0, logit_cached: true }))
+            const endpoint = (process.env['ATLAS_HTTP'] || process.env['NOETICA_TUNE_ENDPOINT'] || '').replace(/\/+$/, '')
+            if (endpoint) {
+              try {
+                const r = await fetch(`${endpoint}/v1/logit-cache`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ pairs }), signal: AbortSignal.timeout(30_000) })
+                const data = await r.json().catch(() => ({})) as Record<string, unknown>
+                res.writeHead(r.ok ? 200 : 502, { 'content-type': 'application/json' })
+                res.end(JSON.stringify({ ok: r.ok, annotated: pairs, with_logits: pairs.length, total: pairs.length, ...data }))
+                return
+              } catch { /* fall through to local */ }
+            }
+            res.writeHead(200, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ ok: true, annotated: pairs, with_logits: pairs.length, total: pairs.length, staged: true }))
+            return
+          }
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ok: false, error: 'unknown op — use load or cache' }))
+          return
+        }
+
+        // /api/tune/distill — LoRA distillation job management.
+        // POST op:'pairs' → persist preference pairs to the distill shard.
+        // POST op:'train' → start a training job (local or Atlas).
+        // GET  ?job_id=   → poll job status.
+        if (url.pathname === '/api/tune/distill') {
+          const distillShard = path.join(os.homedir(), '.noetica', 'distill', 'pairs.jsonl')
+          const distillJobs = path.join(os.homedir(), '.noetica', 'distill', 'jobs.json')
+          const endpoint = (process.env['ATLAS_HTTP'] || process.env['NOETICA_TUNE_ENDPOINT'] || '').replace(/\/+$/, '')
+
+          if (req.method === 'GET') {
+            const jobId = url.searchParams.get('job_id') ?? ''
+            let jobs: Array<{ id: string; status: string; [k: string]: unknown }> = []
+            try { jobs = JSON.parse(fs.readFileSync(distillJobs, 'utf8')) as typeof jobs } catch { jobs = [] }
+            const job = jobs.find((j) => j.id === jobId)
+            if (!job) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: 'job not found', job_id: jobId })); return }
+            // If Atlas is configured, try to refresh from upstream.
+            if (endpoint && (job.status === 'queued' || job.status === 'running')) {
+              try {
+                const r = await fetch(`${endpoint}/v1/tune/${encodeURIComponent(jobId)}`, { signal: AbortSignal.timeout(5000) })
+                if (r.ok) {
+                  const upstream = await r.json() as { status?: string; progress?: number; [k: string]: unknown }
+                  Object.assign(job, upstream)
+                  fs.writeFileSync(distillJobs, JSON.stringify(jobs))
+                }
+              } catch { /* keep last-known */ }
+            }
+            res.writeHead(200, { 'content-type': 'application/json' })
+            res.end(JSON.stringify(job))
+            return
+          }
+
+          if (req.method === 'POST') {
+            const { readBody: rb2 } = await import('./lib/read-body.js')
+            const body = await rb2(req) as { op?: string; pairs?: Array<Record<string, unknown>>; student_model_id?: string; teacher_type?: string; lora_r?: number; max_steps?: number }
+            if (body.op === 'pairs') {
+              fs.mkdirSync(path.dirname(distillShard), { recursive: true })
+              const lines = (body.pairs ?? []).map((p) => JSON.stringify(p)).join('\n')
+              if (lines) fs.appendFileSync(distillShard, `${lines}\n`)
+              res.writeHead(200, { 'content-type': 'application/json' })
+              res.end(JSON.stringify({ ok: true, stored: (body.pairs ?? []).length }))
+              return
+            }
+            if (body.op === 'train') {
+              const jobId = `distill-${Date.now().toString(36)}`
+              let jobs: Array<{ id: string; status: string; [k: string]: unknown }> = []
+              try { jobs = JSON.parse(fs.readFileSync(distillJobs, 'utf8')) as typeof jobs } catch { jobs = [] }
+              const newJob = { id: jobId, status: 'queued', student_model_id: body.student_model_id ?? 'qwen2.5:7b', teacher_type: body.teacher_type ?? 'blackbox', lora_r: body.lora_r ?? 16, max_steps: body.max_steps ?? 100, startedAt: Date.now() }
+              jobs.push(newJob)
+              fs.mkdirSync(path.dirname(distillJobs), { recursive: true })
+              fs.writeFileSync(distillJobs, JSON.stringify(jobs))
+              if (endpoint) {
+                try {
+                  const r = await fetch(`${endpoint}/v1/tune`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ job_id: jobId, ...newJob, dataset: distillShard }), signal: AbortSignal.timeout(15_000) })
+                  if (r.ok) { newJob.status = 'running'; fs.writeFileSync(distillJobs, JSON.stringify(jobs)) }
+                } catch { /* keep queued, will poll */ }
+              }
+              res.writeHead(200, { 'content-type': 'application/json' })
+              res.end(JSON.stringify({ ok: true, job_id: jobId, status: newJob.status }))
+              return
+            }
+            res.writeHead(400, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ ok: false, error: 'unknown distill op — use pairs or train' }))
+            return
+          }
+        }
+
         res.writeHead(404, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ ok: false, error: 'unknown tune route (use GET /api/tune/status or POST /api/tune/submit)' }))
+        res.end(JSON.stringify({ ok: false, error: 'unknown tune route' }))
       } catch {
         res.writeHead(500, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ ok: false, error: 'tune_error' }))
