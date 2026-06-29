@@ -1,0 +1,9 @@
+{
+  "schemaVersion": "0.1.0",
+  "thresholdsId": "font-thresholds:sp-baseline-v1",
+  "familyCountAlert": 50,
+  "uniqueFontAlert": 5,
+  "renderingDivergenceAlert": 0.15,
+  "confidenceFloor": 0.75,
+  "version": "1.0.0"
+}

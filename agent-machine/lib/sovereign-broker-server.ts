@@ -41,6 +41,12 @@ function loadClientRegistry(): Record<string, ClientConfig> {
 // signs the server challenge, and POSTs the assertion back.
 function loginPage(opts: { challenge: string; authNonce: string; clientId: string; appName: string }): string {
   const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  // JSON.stringify alone does not escape </script>, so a crafted value can break out of the script block.
+  // Unicode-escape < > & so those bytes never appear in the emitted HTML — valid JS literals, safe in HTML.
+  const safeJs = (s: string) => JSON.stringify(s)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026");
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -79,9 +85,9 @@ function loginPage(opts: { challenge: string; authNonce: string; clientId: strin
   <div class="hint">Your key never leaves this device.</div>
 </div>
 <script>
-const CHALLENGE = ${JSON.stringify(opts.challenge)};
-const AUTH_NONCE = ${JSON.stringify(opts.authNonce)};
-const CLIENT_ID  = ${JSON.stringify(opts.clientId)};
+const CHALLENGE = ${safeJs(opts.challenge)};
+const AUTH_NONCE = ${safeJs(opts.authNonce)};
+const CLIENT_ID  = ${safeJs(opts.clientId)};
 
 function b64url(buf) {
   return btoa(String.fromCharCode(...new Uint8Array(buf)))
@@ -105,10 +111,12 @@ async function seedToBytes(input) {
 }
 async function deriveEd25519(rootBytes, scopeId) {
   const enc = new TextEncoder();
-  // HKDF(root, salt=scopeId, info='') → 32-byte Ed25519 seed — mirrors sovereign-id.ts
+  // HKDF params MUST match sovereign-id.ts exactly: fixed salt + scope-prefixed info.
+  // salt='prophet-sovereign-id/v1', info='scope/'+scopeId — same root+scope → same key in both flows.
+  const SALT = enc.encode('prophet-sovereign-id/v1');
   const rootKey = await crypto.subtle.importKey('raw', rootBytes, {name:'HKDF'}, false, ['deriveBits']);
   const facetBits = await crypto.subtle.deriveBits(
-    {name:'HKDF', hash:'SHA-256', salt:enc.encode(scopeId), info:new Uint8Array()}, rootKey, 256);
+    {name:'HKDF', hash:'SHA-256', salt:SALT, info:enc.encode('scope/' + scopeId)}, rootKey, 256);
   const seed = new Uint8Array(facetBits);
   // PKCS#8 for Ed25519 (RFC 8410): fixed 16-byte header + 32-byte seed
   const hdr = new Uint8Array([0x30,0x2e,0x02,0x01,0x00,0x30,0x05,0x06,0x03,0x2b,0x65,0x70,0x04,0x22,0x04,0x20]);
@@ -130,9 +138,9 @@ async function login() {
   try {
     const rootBytes = await seedToBytes(seedInput);
     const {privKey, pubBytes} = await deriveEd25519(rootBytes, CLIENT_ID);
-    // Pseudonym = hex of first 16 bytes of SHA-256(pubkey)
-    const hashBuf = await crypto.subtle.digest('SHA-256', pubBytes);
-    const pseudonym = Array.from(new Uint8Array(hashBuf).slice(0,16), b => b.toString(16).padStart(2,'0')).join('');
+    // Pseudonym MUST match sovereign-id.ts: 'did:key:z' + base64url(rawPubKey).
+    // The direct /credentials flow uses this format; authorizeComplete enforces it for TOFU.
+    const pseudonym = 'did:key:z' + b64url(pubBytes);
     // Sign challenge:authNonce
     const payload = new TextEncoder().encode(CHALLENGE + ':' + AUTH_NONCE);
     const sig = await crypto.subtle.sign('Ed25519', privKey, payload);

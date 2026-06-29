@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.org/schemas/font-profile.schema.json",
+  "title": "Font Profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "profileId",
+    "targetRef",
+    "installedFamilies",
+    "renderingEngine",
+    "fingerprintRisk",
+    "observationRefs",
+    "proofRefs",
+    "executionPerformed"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "profileId": {
+      "type": "string",
+      "pattern": "^font-profile:[a-z0-9-]+$"
+    },
+    "targetRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "installedFamilies": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "renderingEngine": {
+      "type": "string"
+    },
+    "fingerprintRisk": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    },
+    "observationRefs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "proofRefs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "executionPerformed": {
+      "type": "boolean",
+      "const": false
+    }
+  }
+}

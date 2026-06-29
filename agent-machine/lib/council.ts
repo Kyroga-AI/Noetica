@@ -86,6 +86,44 @@ export function learnedCouncilVote(inp: LearnedInput): CouncilResult {
   return { letter: ranked[0]?.[0] || inp.scLetter || 'B', weights: Object.fromEntries(score) }
 }
 
+export interface CandidateArm {
+  content: string
+  groundingConf?: number  // [0,1] — value-judgment grounding score for this candidate
+  isEscalated?: boolean   // true if this came from a stronger/escalated model → gets 'gate' arm weight (1.6)
+}
+
+/**
+ * Council vote for free-text candidate selection. Maps candidates to council arms by role:
+ *   escalated model → 'gate' (1.6 weight — board's measured top arm)
+ *   highest-grounding → 'brain' (0.6 + 1.8*conf grounding-weighted)
+ *   second-highest grounding → 'qgen' (same conditional)
+ *   rest → 'baseline' / 'medprompt'
+ * Returns the 0-based index of the council's winner. Used by the critic as a grounding-aware
+ * tiebreaker when multiple candidates score within 0.01 of each other (true tie).
+ */
+export function candidateCouncilVote(candidates: CandidateArm[]): number {
+  if (candidates.length <= 1) return 0
+  const L = (i: number) => String.fromCharCode(65 + i)   // 0→'A', 1→'B', …
+  const inp: CouncilInput = { scLetter: L(0), scAgree: 0 }
+
+  const gateIdx = candidates.findIndex((c) => c.isEscalated)
+  const byConf = candidates
+    .map((c, i) => ({ c, i }))
+    .filter(({ i }) => i !== gateIdx)
+    .sort((a, b) => (b.c.groundingConf ?? 0) - (a.c.groundingConf ?? 0))
+
+  if (gateIdx >= 0) inp.gate = L(gateIdx)
+  if (byConf[0]) { inp.brain = L(byConf[0].i); inp.brainConf = byConf[0].c.groundingConf }
+  if (byConf[1]) { inp.qgen = L(byConf[1].i); inp.qgenConf = byConf[1].c.groundingConf }
+  const remaining = byConf.slice(2)
+  if (remaining[0]) inp.baseline = L(remaining[0].i)
+  if (remaining[1]) inp.medprompt = L(remaining[1].i)
+
+  const result = councilVote(inp, { v2: true })
+  const winnerIdx = result.letter.charCodeAt(0) - 65
+  return Math.max(0, Math.min(candidates.length - 1, winnerIdx))
+}
+
 /**
  * Combine the arm votes into one answer. v2 (default) = grounding-weighted; v2:false = the flat V1
  * council. NEVER defaults to 'A' (the positional-bias trap the old verify path fell into).

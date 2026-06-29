@@ -1,0 +1,96 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.org/schemas/whisper-policy-diff.schema.json",
+  "title": "Whisper Policy Diff",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "diffId",
+    "targetRef",
+    "beforeStateHash",
+    "afterStateHash",
+    "diffEntries",
+    "authorizationRef",
+    "rollbackPlanRef",
+    "approvedBy",
+    "executionPerformed",
+    "applied"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "diffId": {
+      "type": "string",
+      "pattern": "^whisper-policy-diff:[a-z0-9-]+$"
+    },
+    "targetRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "beforeStateHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "afterStateHash": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "diffEntries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "field",
+          "before",
+          "after",
+          "changeType"
+        ],
+        "properties": {
+          "field": {
+            "type": "string"
+          },
+          "before": {},
+          "after": {},
+          "changeType": {
+            "type": "string",
+            "enum": [
+              "added",
+              "removed",
+              "modified",
+              "unchanged"
+            ]
+          }
+        }
+      }
+    },
+    "authorizationRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rollbackPlanRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "approvedBy": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      },
+      "contains": {
+        "const": "Michael Heller"
+      }
+    },
+    "executionPerformed": {
+      "type": "boolean",
+      "const": false
+    },
+    "applied": {
+      "type": "boolean"
+    }
+  }
+}

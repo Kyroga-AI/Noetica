@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.org/schemas/public-index-exposure-finding.schema.json",
+  "title": "Public Index Exposure Finding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "findingId",
+    "queryRef",
+    "exposureType",
+    "severity",
+    "summary",
+    "remediationRecommendation",
+    "proofRefs",
+    "disclosureClass",
+    "executionPerformed"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "findingId": {
+      "type": "string",
+      "pattern": "^pindex-finding:[a-z0-9-]+$"
+    },
+    "queryRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "exposureType": {
+      "type": "string",
+      "enum": ["credential", "pii", "source_code", "internal_doc", "configuration", "unknown"]
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["info", "low", "medium", "high", "critical"]
+    },
+    "summary": {
+      "type": "string"
+    },
+    "remediationRecommendation": {
+      "type": "string"
+    },
+    "proofRefs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "disclosureClass": {
+      "type": "string",
+      "enum": ["internal", "client", "auditor", "public_redacted"]
+    },
+    "executionPerformed": {
+      "type": "boolean",
+      "const": false
+    }
+  }
+}

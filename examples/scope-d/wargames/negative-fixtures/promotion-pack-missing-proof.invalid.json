@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "0.1.0",
+  "promotionPackId": "promotion-pack:frost-alpha-invalid-001",
+  "candidateRef": "agent:frost-alpha-v2",
+  "tierFrom": "E2",
+  "tierTo": "E3",
+  "proofRefs": [],
+  "rollbackPlanRef": "rollback-plan:frost-alpha-e3-revert-001",
+  "approvedBy": ["Michael Heller"],
+  "approvalStatus": "proposed",
+  "evidenceSummary": "Candidate has completed initial onboarding but proof references are missing — this document is intentionally invalid.",
+  "executionPerformed": false
+}

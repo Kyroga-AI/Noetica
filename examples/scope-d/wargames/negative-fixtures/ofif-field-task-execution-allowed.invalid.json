@@ -1,0 +1,16 @@
+{
+  "_comment": "INVALID: executionAllowed is true — should fail const false constraint on ofif-field-task schema",
+  "schemaVersion": "0.1.0",
+  "taskId": "ofif-task:invalid-execution-allowed-001",
+  "clientScope": "acme-corp",
+  "tenantScope": "acme-corp:prod",
+  "findingRef": "ofif-finding:oidc-broker-credential-stuffing-001",
+  "owner": "acme-corp:platform-security-team",
+  "recommendedAction": "Deploy automated remediation script to patch rate-limiting gap",
+  "status": "proposed",
+  "verificationEvidenceRefs": [],
+  "proofRefs": [],
+  "authorizationRef": "authz:engagement-policy:acme-corp-phase4-2026",
+  "executionPerformed": false,
+  "executionAllowed": true
+}

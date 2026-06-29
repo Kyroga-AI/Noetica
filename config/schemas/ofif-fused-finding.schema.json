@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.org/schemas/ofif-fused-finding.schema.json",
+  "title": "OFIF Fused Finding",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "findingId",
+    "findingRefs",
+    "evidenceDigestRefs",
+    "attackCoverageRefs",
+    "controlRefs",
+    "severity",
+    "confidence",
+    "clientImpact",
+    "recommendedActions",
+    "proofRefs",
+    "redactionState",
+    "disclosureClass",
+    "clientScope",
+    "tenantScope",
+    "retentionPolicy",
+    "executionPerformed"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "string", "const": "0.1.0" },
+    "findingId": {
+      "type": "string",
+      "pattern": "^ofif-finding:[a-z0-9-]+$"
+    },
+    "findingRefs": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "evidenceDigestRefs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "attackCoverageRefs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "controlRefs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["info", "low", "medium", "high", "critical"]
+    },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "clientImpact": { "type": "string" },
+    "recommendedActions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "proofRefs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "redactionState": {
+      "type": "string",
+      "enum": ["raw", "redacted", "synthetic", "withheld"]
+    },
+    "disclosureClass": {
+      "type": "string",
+      "enum": ["internal", "client", "auditor", "public_redacted"]
+    },
+    "clientScope": { "type": "string" },
+    "tenantScope": { "type": "string" },
+    "retentionPolicy": { "type": "string" },
+    "authorizationRef": { "type": "string", "minLength": 1 },
+    "executionPerformed": { "type": "boolean", "const": false }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "0.1.0",
+  "observationId": "font-observation:sp-web-001",
+  "targetRef": "target:socioprophet-web-frontend",
+  "observedFonts": [
+    { "fontName": "Inter", "source": "local", "loadResult": "loaded" },
+    { "fontName": "CustomBrandFont", "source": "remote", "loadResult": "blocked" },
+    { "fontName": "Arial", "source": "system", "loadResult": "substituted" }
+  ],
+  "observationTimestamp": "2026-06-28T10:00:00Z",
+  "executionPerformed": false,
+  "syntheticOnly": true
+}

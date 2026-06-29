@@ -9,7 +9,7 @@
  */
 import type { ComputeSku } from './cloud-broker.js'
 
-export interface LivePrice { provider: 'azure' | 'aws' | 'gcp' | 'ibm'; skuName: string; region: string; usdPerHour: number; spot?: boolean }
+export interface LivePrice { provider: 'azure' | 'aws' | 'gcp' | 'ibm' | 'nebius'; skuName: string; region: string; usdPerHour: number; spot?: boolean }
 
 interface AzureRetailItem { armSkuName?: string; retailPrice?: number; unitOfMeasure?: string; armRegionName?: string; meterName?: string; type?: string; serviceName?: string }
 
@@ -86,6 +86,29 @@ export function mergeLivePrices(catalog: ComputeSku[], live: LivePrice[]): Compu
  */
 export async function fetchAwsPricing(): Promise<LivePrice[]> { return [] }   // needs the bulk offer file / a keyed Price List query
 export async function fetchGcpPricing(): Promise<LivePrice[]> { return [] }   // needs a Cloud Billing Catalog API key
+
+/**
+ * Nebius pricing — their public pricing page publishes a JSON endpoint used by their calculator. The format is
+ * not officially documented so this is best-effort; if the fetch fails or the shape changes, we return [] and
+ * the catalog static prices remain. Wire `NEBIUS_API_KEY` when available for the authenticated billing API.
+ *
+ * Honest status: stub shape is correct; the actual endpoint URL requires verification against the live calculator.
+ * Until confirmed, returns [] — catalog prices (already competitive) are used.
+ */
+export async function fetchNebiusPricing(_region = 'eu-north1', timeoutMs = 6000): Promise<LivePrice[]> {
+  // Nebius does not currently publish a no-auth machine-readable price API. When they expose one (or when
+  // NEBIUS_API_KEY is set for the authenticated billing endpoint), wire it here. For now: honest no-op.
+  if (!process.env['NEBIUS_API_KEY']) return []
+  try {
+    const r = await fetch('https://api.nebius.com/nebius/mkt/v1alpha1/skuinstances', {
+      headers: { Authorization: `Bearer ${process.env['NEBIUS_API_KEY']}` },
+      signal: AbortSignal.timeout(timeoutMs),
+    })
+    if (!r.ok) return []
+    // Shape TBC — return [] until officially documented; the merge + priceSource labeling ensures honesty.
+    return []
+  } catch { return [] }
+}
 
 // Process-cached live catalogue (5-min TTL via the caller passing a clock; here a simple in-memory guard).
 let _cache: { at: number; live: LivePrice[] } | null = null

@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.org/schemas/font-observation.schema.json",
+  "title": "Font Observation",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "observationId",
+    "targetRef",
+    "observedFonts",
+    "observationTimestamp",
+    "executionPerformed",
+    "syntheticOnly"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "observationId": {
+      "type": "string",
+      "pattern": "^font-observation:[a-z0-9-]+$"
+    },
+    "targetRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "observedFonts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["fontName", "source", "loadResult"],
+        "properties": {
+          "fontName": { "type": "string" },
+          "source": { "type": "string" },
+          "loadResult": {
+            "type": "string",
+            "enum": ["loaded", "blocked", "substituted", "error"]
+          }
+        }
+      }
+    },
+    "observationTimestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "executionPerformed": {
+      "type": "boolean",
+      "const": false
+    },
+    "syntheticOnly": {
+      "type": "boolean"
+    }
+  }
+}

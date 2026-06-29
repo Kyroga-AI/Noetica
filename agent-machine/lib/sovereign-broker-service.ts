@@ -7,7 +7,7 @@
  */
 import { createHash, createPublicKey, verify as cryptoVerify, randomBytes } from "node:crypto";
 import { type CredentialRecord, type Assertion, verify, verifyCredential, newChallenge } from "./sovereign-broker.js";
-import { type SigningKey, issueIdToken, jwks } from "./sovereign-oidc.js";
+import { type SigningKey, issueIdToken, jwks, verifyIdToken } from "./sovereign-oidc.js";
 
 export interface ClientConfig { redirectUris: string[]; secret?: string }
 
@@ -147,6 +147,10 @@ export function createBroker(config: BrokerConfig, stores?: Partial<BrokerStores
       if (!params.redirect_uri) return err(400, "redirect_uri required");
       if (!isRedirectUriAllowed(params.client_id, params.redirect_uri))
         return err(400, "redirect_uri not registered for this client");
+      // RFC 7636 / OAuth 2.1: discovery advertises S256-only — enforce it at authorize time
+      // so a method=plain (or missing) downgrade can't silently bypass verifier check at /token.
+      if (params.code_challenge && params.code_challenge_method !== "S256")
+        return err(400, "invalid_request: only S256 code_challenge_method is supported");
       const challenge = newChallenge();
       const authNonce = randomBytes(24).toString("base64url");
       s.pendingAuths.set(authNonce, {
@@ -179,6 +183,11 @@ export function createBroker(config: BrokerConfig, stores?: Partial<BrokerStores
       }
       if (!params.pseudonym || !params.public_key || !params.signature)
         return err(400, "pseudonym, public_key, and signature required");
+      // Enforce pseudonym === "did:key:z" + public_key — matches verifyCredential's exact check.
+      // A prefix-only check (startsWith) would let a client supply a valid key under a fabricated
+      // pseudonym, creating an orphan credential that breaks did:key resolution and audit trails.
+      if (params.pseudonym !== "did:key:z" + params.public_key)
+        return err(400, "invalid_request: pseudonym must be did:key:z<base64url(public_key)>");
 
       // Payload signed by the browser: challenge:authNonce
       if (!verifyEd25519(params.public_key, `${pending.challenge}:${params.auth_nonce}`, params.signature))
@@ -255,16 +264,23 @@ export function createBroker(config: BrokerConfig, stores?: Partial<BrokerStores
       });
     },
 
-    /** OIDC userinfo endpoint: decode Bearer token and return standard claims. */
+    /** OIDC userinfo endpoint: verify Bearer token signature + iss/aud/exp before returning claims. */
     userInfo(bearerToken: string): Reply {
-      try {
-        const claims = decodeJwtPayload(bearerToken);
-        if (!claims["sub"]) return err(401, "invalid token");
-        return ok({
-          sub: claims["sub"],
-          ...(claims["email"] ? { email: claims["email"] } : {}),
-        });
-      } catch { return err(401, "invalid token"); }
+      // Two-step: peek at the (untrusted) aud claim to route the verify call, then let
+      // verifyIdToken confirm signature + iss + this exact aud + exp. A spoofed aud fails
+      // signature; a wrong iss fails the iss check — no forged token can pass both.
+      const parts = bearerToken.split(".");
+      if (parts.length !== 3) return err(401, "invalid token");
+      let aud: string;
+      try { aud = String((JSON.parse(b64dec(parts[1]!).toString("utf8")) as { aud?: string }).aud ?? ""); }
+      catch { return err(401, "invalid token"); }
+      if (!aud) return err(401, "invalid token");
+      const claims = verifyIdToken(config.signingKey.publicKey, bearerToken, { iss: config.iss, aud });
+      if (!claims || !claims.sub) return err(401, "invalid token");
+      return ok({
+        sub: claims.sub,
+        ...(claims.email ? { email: claims.email } : {}),
+      });
     },
 
     jwksDoc(): Reply { return ok(jwks(config.signingKey)); },

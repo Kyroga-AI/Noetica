@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "0.1.0",
+  "gradecardId": "agent-gradecard:invalid-no-evidence-001",
+  "agentRef": "agent:noetica-critic-v2",
+  "basisRef": "hpst-basis:schema-coverage-audit-001",
+  "probeSetRef": "hpst-probe-set:schema-coverage-audit-001",
+  "scores": [
+    {
+      "probeId": "probe-001",
+      "score": 1.0,
+      "rationale": "executionAllowed const guard present",
+      "passed": true
+    }
+  ],
+  "overallScore": 1.0,
+  "evidenceRefs": [],
+  "gradedBy": "Michael Heller",
+  "gradedAt": "2026-06-28T10:00:00Z",
+  "executionPerformed": false
+}

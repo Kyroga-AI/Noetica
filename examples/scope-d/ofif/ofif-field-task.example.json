@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "0.1.0",
+  "taskId": "ofif-task:enforce-rate-limit-oidc-broker-001",
+  "clientScope": "acme-corp",
+  "tenantScope": "acme-corp:prod",
+  "findingRef": "ofif-finding:oidc-broker-credential-stuffing-001",
+  "owner": "acme-corp:platform-security-team",
+  "recommendedAction": "Enforce adaptive rate limiting on /auth/token endpoint (max 10 req/min per IP) and deploy WAF rule set scope-d-oidc-rl-v1",
+  "status": "accepted",
+  "verificationEvidenceRefs": [],
+  "proofRefs": [
+    "proof:sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  ],
+  "authorizationRef": "authz:engagement-policy:acme-corp-phase4-2026",
+  "executionPerformed": false,
+  "executionAllowed": false
+}

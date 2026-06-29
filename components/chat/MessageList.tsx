@@ -18,9 +18,10 @@ type MessageListProps = {
   onRecombine?: (selectedMessages: ChatMessage[]) => void
   onSpeak?: (content: string) => void
   onQuickPrompt?: (text: string) => void
+  onFeedback?: (messageId: string, rating: 'up' | 'down') => void
 }
 
-export function MessageList({ messages, isStreaming = false, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onRecombine, onSpeak, onQuickPrompt }: MessageListProps) {
+export function MessageList({ messages, isStreaming = false, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onRecombine, onSpeak, onQuickPrompt, onFeedback }: MessageListProps) {
   const { settings } = useSettings()
   const lastAssistantIdx = messages.reduce((acc, m, i) => m.role === 'assistant' ? i : acc, -1)
   const [selectedFanout, setSelectedFanout] = useState<Set<string>>(new Set())
@@ -125,6 +126,7 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
               onEdit={message.role === 'user' ? onEdit : undefined}
               onSpeak={message.role === 'assistant' ? onSpeak : undefined}
               onQuickPrompt={onQuickPrompt}
+              onFeedback={message.role === 'assistant' ? onFeedback : undefined}
             />
           </div>
         ))}

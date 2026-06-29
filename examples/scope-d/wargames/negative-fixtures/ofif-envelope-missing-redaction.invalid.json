@@ -1,0 +1,20 @@
+{
+  "_comment": "INVALID: redactionState field is absent — should fail required constraint on ofif-client-access-envelope schema",
+  "schemaVersion": "0.1.0",
+  "envelopeId": "ofif-envelope:invalid-missing-redaction-001",
+  "clientTier": "executive",
+  "payloadType": "ofif-assurance-packet",
+  "payloadRef": "ofif-assurance:acme-corp-phase4-q2-2026",
+  "clientScope": "acme-corp",
+  "tenantScope": "acme-corp:prod",
+  "disclosureClass": "client",
+  "confidence": 0.75,
+  "proofRefs": [],
+  "sourceRunRefs": [
+    "run:scope-d-wargame-phase4-20260628t0900z"
+  ],
+  "ontologyValidationRefs": [],
+  "retentionPolicy": "retain-90d-then-purge",
+  "deliveryTimestamp": "2026-06-28T16:00:00Z",
+  "executionPerformed": false
+}

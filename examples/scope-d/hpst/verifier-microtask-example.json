@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "0.1.0",
+  "microtaskId": "verifier-microtask:check-execution-guards-001",
+  "taskType": "schema_validation",
+  "targetRef": "config/schemas/hpst-basis.schema.json",
+  "instructions": "Open hpst-basis.schema.json and confirm that: (1) executionAllowed is present in the required array, (2) executionAllowed property definition uses const: false, (3) additionalProperties is set to false at the top level. Record your findings in a structured note — do not modify any file.",
+  "unsafeActionsProhibited": true,
+  "executionAllowed": false,
+  "assignedTo": "verifier:noetica-schema-reviewer-v1",
+  "status": "complete",
+  "completedAt": "2026-06-28T13:45:00Z"
+}

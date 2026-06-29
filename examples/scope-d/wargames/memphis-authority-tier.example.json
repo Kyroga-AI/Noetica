@@ -1,0 +1,18 @@
+{
+  "schemaVersion": "0.1.0",
+  "tierId": "authority-tier:e4-senior-analyst",
+  "tier": "E4",
+  "capabilityClasses": [
+    "graph-read",
+    "graph-annotate",
+    "engagement-synthesis",
+    "cross-tenant-correlate",
+    "report-publish"
+  ],
+  "approvalRequirements": [
+    "Michael Heller sign-off",
+    "Two-reviewer promotion pack",
+    "Completed rollback drill within 30 days"
+  ],
+  "executionBoundary": "Read and annotate access to governed graph; no write to production node attributes; no external egress without explicit authorizationRef."
+}

@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "0.1.0",
+  "queryId": "pindex-query:sp-cert-trans-001",
+  "queryType": "certificate_transparency",
+  "targetScope": "*.socioprophet.ai",
+  "queryTerms": ["socioprophet.ai", "api.socioprophet.ai", "internal.socioprophet.ai"],
+  "passiveOnly": true,
+  "authorizationRef": "authorization:sp-wargames-phase8-2026",
+  "executionPerformed": false,
+  "liveConnectionUsed": false
+}

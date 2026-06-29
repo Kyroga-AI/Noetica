@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.org/schemas/hpst-probe-set.schema.json",
+  "title": "HPST Probe Set",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "probeSetId",
+    "basisRef",
+    "probes",
+    "version",
+    "executionPerformed"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "0.1.0"
+    },
+    "probeSetId": {
+      "type": "string",
+      "pattern": "^hpst-probe-set:[a-z0-9-]+$"
+    },
+    "basisRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "probes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "probeId",
+          "description",
+          "expectedOutcome",
+          "evaluationClass"
+        ],
+        "properties": {
+          "probeId": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "expectedOutcome": {
+            "type": "string"
+          },
+          "evaluationClass": {
+            "type": "string",
+            "enum": ["pass", "fail", "graded"]
+          }
+        }
+      }
+    },
+    "version": {
+      "type": "string"
+    },
+    "executionPerformed": {
+      "const": false
+    }
+  }
+}

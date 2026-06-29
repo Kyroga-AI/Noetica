@@ -357,13 +357,17 @@ export async function generateOllamaText(params: {
   messages: Array<{ role: string; content: string | null | unknown[] }>
   temperature?: number
   numCtx?: number
+  /** Constrain output to a JSON schema (Ollama 0.5+ via OpenAI-compat response_format). */
+  responseFormat?: { type: 'json_object' } | { type: 'json_schema'; json_schema: { name: string; schema: Record<string, unknown>; strict?: boolean } }
 }): Promise<{ content: string; reasoning: string }> {
-  const res = await postChat({
+  const body: Record<string, unknown> = {
     model: await resolveChatModel(params.model),
     stream: false,
     messages: params.messages,
     options: { num_ctx: params.numCtx ?? 8192, temperature: params.temperature ?? 0.7 },
-  })
+  }
+  if (params.responseFormat) body['response_format'] = params.responseFormat
+  const res = await postChat(body)
   const data = await res.json() as {
     choices?: Array<{ message?: { content?: string; reasoning?: string; reasoning_content?: string } }>
   }
@@ -444,6 +448,8 @@ export async function* streamOllama(params: {
   maxTokens?: number
   keepAlive?: string
   enableThinking?: boolean   // qwen3/thinking models: false → clean fast answer (no reasoning); true/undefined → think
+  /** Constrain output to a JSON schema (Ollama 0.5+, OpenAI-compat). Mutually exclusive with tools. */
+  responseFormat?: { type: 'json_object' } | { type: 'json_schema'; json_schema: { name: string; schema: Record<string, unknown>; strict?: boolean } }
 }): AsyncGenerator<ProviderEvent> {
   const options: Record<string, unknown> = {
     num_ctx: params.numCtx ?? 16384,
@@ -470,6 +476,8 @@ export async function* streamOllama(params: {
   // events into the "Extended thinking" collapsible — never into the answer body. Replaces the /no_think hack
   // (which stripped the tags but kept the reasoning, leaking it into the answer).
   if (params.enableThinking === false) body['chat_template_kwargs'] = { enable_thinking: false }
+  // response_format constrains output to a JSON schema — mutually exclusive with tool calling.
+  if (params.responseFormat && !params.tools?.length) body['response_format'] = params.responseFormat
 
   if (params.tools?.length) {
     body['tools'] = params.tools.map((t) => ({

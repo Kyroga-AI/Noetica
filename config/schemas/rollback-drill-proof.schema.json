@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.org/schemas/rollback-drill-proof.schema.json",
+  "title": "Rollback Drill Proof",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "drillId",
+    "drillType",
+    "targetRef",
+    "rollbackSteps",
+    "observedState",
+    "completedAt",
+    "proofRefs",
+    "approvedBy",
+    "executionPerformed"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "drillId": {
+      "type": "string",
+      "pattern": "^rollback-drill:[a-z0-9-]+$"
+    },
+    "drillType": {
+      "type": "string"
+    },
+    "targetRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rollbackSteps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "observedState": {
+      "type": "string"
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "proofRefs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "approvedBy": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "executionPerformed": {
+      "type": "boolean",
+      "const": false
+    }
+  }
+}

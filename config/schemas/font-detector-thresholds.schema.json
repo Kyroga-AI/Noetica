@@ -1,0 +1,45 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.org/schemas/font-detector-thresholds.schema.json",
+  "title": "Font Detector Thresholds",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "thresholdsId",
+    "familyCountAlert",
+    "uniqueFontAlert",
+    "renderingDivergenceAlert",
+    "confidenceFloor",
+    "version"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "thresholdsId": {
+      "type": "string",
+      "pattern": "^font-thresholds:[a-z0-9-]+$"
+    },
+    "familyCountAlert": {
+      "type": "integer"
+    },
+    "uniqueFontAlert": {
+      "type": "integer"
+    },
+    "renderingDivergenceAlert": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "confidenceFloor": {
+      "type": "number",
+      "minimum": 0.5,
+      "maximum": 1
+    },
+    "version": {
+      "type": "string"
+    }
+  }
+}

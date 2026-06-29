@@ -1,0 +1,23 @@
+{
+  "schemaVersion": "0.1.0",
+  "basisId": "hpst-basis:schema-coverage-audit-001",
+  "taskFamily": "verifier-economy",
+  "description": "Audit the HPST verifier economy contract schemas for completeness, correctness, and conformance to SCOPE-D conventions. Produce a structured coverage report.",
+  "successCriteria": [
+    "All five contract schemas present and parse against draft-2020-12",
+    "Each schema enforces additionalProperties: false",
+    "All const guards (executionAllowed, executionPerformed, unsafeActionsProhibited) present and set correctly",
+    "At least one conforming example and one negative fixture exist per schema"
+  ],
+  "failureCriteria": [
+    "Any schema allows additionalProperties without explicit false",
+    "Any execution-guard field is absent or set to a non-const value",
+    "Negative fixture passes validation when it should fail"
+  ],
+  "proofRequirements": [
+    "JSON Schema validation report from ajv-cli for each schema",
+    "Negative fixture rejection log showing which keyword triggered the error"
+  ],
+  "executionBoundary": "No code execution, file writes, or network calls may be performed during schema review. All work is analytic and documentary.",
+  "executionAllowed": false
+}

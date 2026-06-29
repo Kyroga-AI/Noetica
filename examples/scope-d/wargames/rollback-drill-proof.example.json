@@ -1,0 +1,21 @@
+{
+  "schemaVersion": "0.1.0",
+  "drillId": "rollback-drill:frost-alpha-e4-revert-001",
+  "drillType": "tier-revert",
+  "targetRef": "agent:frost-alpha-v2",
+  "rollbackSteps": [
+    "Suspend agent capability grants at E4 level",
+    "Restore E3 capability class manifest from signed snapshot",
+    "Invalidate active authorizationRefs scoped to E4",
+    "Verify graph write access revoked via read-back probe",
+    "Emit rollback-complete event to governance log"
+  ],
+  "observedState": "Agent restored to E3 capability baseline; all E4 grants invalidated; graph write probe returned denied as expected.",
+  "completedAt": "2026-06-15T10:47:00Z",
+  "proofRefs": [
+    "proof:frost-alpha-rollback-log-2026-06-15",
+    "proof:frost-alpha-graph-probe-denied-2026-06-15"
+  ],
+  "approvedBy": ["Michael Heller"],
+  "executionPerformed": false
+}

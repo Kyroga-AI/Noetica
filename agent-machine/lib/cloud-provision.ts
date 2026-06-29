@@ -46,24 +46,70 @@ export function buildCloudInit(opts: { swarmId: string; controlPlane?: string })
 
 const REGION_OS = { os: 'linux', arch: 'x86_64' }
 
-/** The provider-native create command for a SKU (gcloud / az / aws / ibmcloud). */
+/**
+ * The provider-native create command for a SKU. Returns one of:
+ *   - A concrete CLI invocation (gcloud / az / aws / nebius / openstack …) — executable when the CLI is on PATH
+ *   - A `# PARTNER-CONTACT:` line — for sovereign providers (Micron21, Firmus, Datacom) that require a quote
+ *     before provisioning; the fleet recorder stores the contact info so the dashboard can surface it.
+ */
 export function createCommand(provider: ComputeSku['provider'], sku: string, region: string, name: string): string {
   switch (provider) {
-    case 'gcp':   return `gcloud compute instances create ${name} --machine-type=${sku} --zone=${region}-a --metadata-from-file=startup-script=cloud-init.sh`
-    case 'azure': return `az vm create -g noetica-rg -n ${name} --size Standard_${sku} --location ${region} --image Ubuntu2204 --custom-data cloud-init.sh`
-    case 'aws':   return `aws ec2 run-instances --instance-type ${sku} --image-id ami-ubuntu --user-data file://cloud-init.sh --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=${name}}]'`
-    case 'ibm':   return `ibmcloud is instance-create ${name} VPC ${region} ${sku} SUBNET --user-data @cloud-init.sh`
-    default:      return `# local — no cloud provisioning needed for ${name}`
+    case 'gcp':
+      return `gcloud compute instances create ${name} --machine-type=${sku} --zone=${region}-a --metadata-from-file=startup-script=cloud-init.sh`
+    case 'azure': {
+      // Normalize: catalog entries use bare names (NC24ads_A100_v4) but az vm create needs Standard_ prefix.
+      const azSize = sku.startsWith('Standard_') ? sku : `Standard_${sku}`
+      return `az vm create -g noetica-rg -n ${name} --size ${azSize} --location ${region} --image Ubuntu2204 --custom-data cloud-init.sh`
+    }
+    case 'aws':
+      return `aws ec2 run-instances --instance-type ${sku} --image-id ami-ubuntu --user-data file://cloud-init.sh --tag-specifications 'ResourceType=instance,Tags=[{Key=Name,Value=${name}}]' --region ${region}`
+    case 'ibm':
+      return `ibmcloud is instance-create ${name} VPC ${region} ${sku} SUBNET --user-data @cloud-init.sh`
+    case 'nebius':
+      // Nebius CLI (https://docs.nebius.com/cli/) — `nebius` must be installed and authenticated via service-account key.
+      // Preset names follow Nebius naming: h100-sxm-80gb-1, h100-nvl-80gb-1, l4-24gb-1, etc.
+      return `nebius compute instance create --name ${name} --preset ${sku} --zone ${region}-b --disk-size 100 --disk-type network-ssd --user-data-file cloud-init.sh`
+    case 'coreweave':
+      // CoreWeave uses Kubernetes — deploy a GPU Job via kubectl against the CoreWeave kubeconfig.
+      return `kubectl apply -f - <<'EOF'\napiVersion: batch/v1\nkind: Job\nmetadata:\n  name: ${name}\nspec:\n  template:\n    spec:\n      containers:\n      - name: runner\n        image: ubuntu:22.04\n        resources:\n          limits:\n            nvidia.com/gpu: "1"\n            cpu: "24"\n            memory: 256Gi\n      restartPolicy: Never\nEOF`
+    case 'lambda':
+      // Lambda Cloud REST API — requires LAMBDA_API_KEY env var.
+      return `curl -fsS -X POST https://cloud.lambdalabs.com/api/v1/instance-operations/launch -H "Authorization: Bearer $LAMBDA_API_KEY" -H "Content-Type: application/json" -d '{"region_name":"${region}","instance_type_name":"${sku}","ssh_key_names":["noetica"],"name":"${name}"}'`
+    case 'crusoe':
+      // Crusoe CLI (`crusoe`) — must be authenticated.
+      return `crusoe compute vms create --name ${name} --type ${sku} --location ${region} --startup-script cloud-init.sh`
+    case 'catalyst':
+      // Catalyst Cloud is OpenStack-based — use the openstack CLI with the Catalyst Cloud RC file sourced.
+      return `openstack server create --flavor ${sku} --image Ubuntu-22.04-focal --key-name noetica-key --user-data cloud-init.sh --wait ${name}`
+    case 'micron21':
+      return `# PARTNER-CONTACT: Micron21 mCloud (IRAP-assessed AU sovereign GPU) requires a quote before provisioning.\n# Contact: solutions@micron21.com | https://www.micron21.com/enterprise/mcloud-gpu-nvidia-h100\n# Requested SKU: ${sku} in ${region} — name: ${name}`
+    case 'firmus':
+      return `# PARTNER-CONTACT: Firmus Technologies (GB300 Grace Blackwell, AU sovereign) — capacity via early-access enquiry.\n# Contact: info@firmus.co | https://firmus.co/infrastructure\n# Requested SKU: ${sku} in ${region} — name: ${name}`
+    case 'datacom':
+      return `# PARTNER-CONTACT: Datacom sovereign NZ GPU infrastructure — requires direct engagement.\n# Contact: cloud@datacom.com | https://datacom.com/nz/en/solutions/cloud\n# Requested SKU: ${sku} in ${region} — name: ${name}`
+    case 'vastai':
+    case 'runpod':
+      return `# MARKETPLACE: ${provider} — not provisioned programmatically in the sovereign lane. Use their web UI for dev workloads.`
+    default:
+      return `# local — no cloud provisioning needed for ${name}`
   }
 }
 
 export function teardownCommand(provider: ComputeSku['provider'], name: string, region: string): string {
   switch (provider) {
-    case 'gcp':   return `gcloud compute instances delete ${name} --zone=${region}-a --quiet`
-    case 'azure': return `az vm delete -g noetica-rg -n ${name} --yes`
-    case 'aws':   return `aws ec2 terminate-instances --instance-ids ${name}`
-    case 'ibm':   return `ibmcloud is instance-delete ${name} --force`
-    default:      return `# nothing to tear down for ${name}`
+    case 'gcp':      return `gcloud compute instances delete ${name} --zone=${region}-a --quiet`
+    case 'azure':    return `az vm delete -g noetica-rg -n ${name} --yes`
+    case 'aws':      return `aws ec2 terminate-instances --instance-ids ${name} --region ${region}`
+    case 'ibm':      return `ibmcloud is instance-delete ${name} --force`
+    case 'nebius':   return `nebius compute instance delete --name ${name} --zone ${region}-b`
+    case 'coreweave':return `kubectl delete job ${name}`
+    case 'lambda':   return `curl -fsS -X POST https://cloud.lambdalabs.com/api/v1/instance-operations/terminate -H "Authorization: Bearer $LAMBDA_API_KEY" -H "Content-Type: application/json" -d '{"instance_ids":["${name}"]}'`
+    case 'crusoe':   return `crusoe compute vms delete ${name} --yes`
+    case 'catalyst': return `openstack server delete --wait ${name}`
+    case 'micron21':
+    case 'firmus':
+    case 'datacom':  return `# PARTNER-CONTACT: contact your account manager at ${provider} to terminate ${name}`
+    default:         return `# nothing to tear down for ${name}`
   }
 }
 
@@ -113,7 +159,13 @@ export function provisionInstance(sku: ComputeSku, opts: { swarmId?: string; con
 
 function hash(s: string): number { let h = 0; for (let i = 0; i < s.length; i++) { h = (h << 5) - h + s.charCodeAt(i); h |= 0 } return h }
 
-const provCli = (provider: ComputeSku['provider']) => ({ gcp: 'gcloud', azure: 'az', aws: 'aws', ibm: 'ibmcloud', oci: 'oci', hetzner: 'hcloud', coreweave: 'kubectl', lambda: 'lambda', nebius: 'nebius', crusoe: 'crusoe', alibaba: 'aliyun', huawei: 'KooCLI', local: '' }[provider])
+const provCli = (provider: ComputeSku['provider']) => ({
+  gcp: 'gcloud', azure: 'az', aws: 'aws', ibm: 'ibmcloud', oci: 'oci', hetzner: 'hcloud',
+  coreweave: 'kubectl', lambda: 'curl', nebius: 'nebius', crusoe: 'crusoe',
+  catalyst: 'openstack', alibaba: 'aliyun', huawei: 'KooCLI',
+  // Partner-contact providers: no CLI path; executeProvision returns a descriptive no-op.
+  micron21: null, firmus: null, datacom: null, vastai: null, runpod: null, local: '',
+}[provider])
 
 /**
  * ACTUALLY boot the planned instance. DOUBLE-GATED — only runs when NOETICA_CLOUD_PROVISION_EXEC=1 AND the
@@ -124,6 +176,8 @@ const provCli = (provider: ComputeSku['provider']) => ({ gcp: 'gcloud', azure: '
 export async function executeProvision(rec: ProvisionRecord): Promise<ProvisionRecord & { error?: string }> {
   if (process.env['NOETICA_CLOUD_PROVISION_EXEC'] !== '1') return { ...rec, error: 'exec gated (set NOETICA_CLOUD_PROVISION_EXEC=1 + provider creds to actually boot)' }
   const cli = provCli(rec.provider)
+  // null = partner-contact provider (Micron21, Firmus, Datacom) — surface the contact info, don't fail.
+  if (cli === null) return { ...rec, state: 'planned', error: `${rec.provider}: partner-contact provider — see createCommand for outreach details; no automated provisioning` }
   if (!cli) return { ...rec, state: 'failed', error: 'no provider cli' }
   const { execFile, execFileSync } = await import('node:child_process')
   const { promisify } = await import('node:util')

@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "0.1.0",
+  "promotionPackId": "promotion-pack:frost-alpha-e3-e4-001",
+  "candidateRef": "agent:frost-alpha-v2",
+  "tierFrom": "E3",
+  "tierTo": "E4",
+  "proofRefs": [
+    "proof:frost-alpha-tabletop-2026-06-01",
+    "proof:frost-alpha-capability-audit-2026-06-10",
+    "proof:frost-alpha-rollback-drill-2026-06-15"
+  ],
+  "rollbackPlanRef": "rollback-plan:frost-alpha-e4-revert-001",
+  "approvedBy": ["Michael Heller", "SocioProphet Governance Board"],
+  "approvalStatus": "approved",
+  "evidenceSummary": "Frost Alpha completed three tabletop exercises at E3 with zero containment failures. Capability audit confirmed synthesis and cross-tenant correlate functions operate within defined limits. Rollback drill completed successfully on 2026-06-15 with full state restoration verified within 4 minutes.",
+  "executionPerformed": false
+}

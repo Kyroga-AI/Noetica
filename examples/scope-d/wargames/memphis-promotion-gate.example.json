@@ -1,0 +1,16 @@
+{
+  "schemaVersion": "0.1.0",
+  "gateId": "gate:memphis-frost-e3-to-e4-alpha",
+  "candidateRef": "agent:frost-alpha-v2",
+  "tierFrom": "E3",
+  "tierTo": "E4",
+  "approvedBy": ["Michael Heller", "SocioProphet Governance Board"],
+  "approvalStatus": "approved",
+  "proofRefs": [
+    "proof:frost-alpha-tabletop-2026-06-01",
+    "proof:frost-alpha-capability-audit-2026-06-10"
+  ],
+  "rollbackPosture": "Immediate capability revocation to E3 baseline; state snapshot retained for 72 hours post-promotion.",
+  "executionPerformed": false,
+  "michaelApprovalRequired": false
+}

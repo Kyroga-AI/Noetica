@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.org/schemas/ofif-client-access-envelope.schema.json",
+  "title": "OFIF Client Access Envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "envelopeId",
+    "clientTier",
+    "payloadType",
+    "payloadRef",
+    "clientScope",
+    "tenantScope",
+    "redactionState",
+    "disclosureClass",
+    "confidence",
+    "proofRefs",
+    "sourceRunRefs",
+    "ontologyValidationRefs",
+    "retentionPolicy",
+    "deliveryTimestamp",
+    "executionPerformed"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "string", "const": "0.1.0" },
+    "envelopeId": {
+      "type": "string",
+      "pattern": "^ofif-envelope:[a-z0-9-]+$"
+    },
+    "clientTier": {
+      "type": "string",
+      "enum": ["executive", "operator", "auditor", "integrator", "internal"]
+    },
+    "payloadType": { "type": "string" },
+    "payloadRef": { "type": "string", "minLength": 1 },
+    "clientScope": { "type": "string" },
+    "tenantScope": { "type": "string" },
+    "redactionState": {
+      "type": "string",
+      "enum": ["raw", "redacted", "synthetic", "withheld"]
+    },
+    "disclosureClass": {
+      "type": "string",
+      "enum": ["internal", "client", "auditor", "public_redacted"]
+    },
+    "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+    "proofRefs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "sourceRunRefs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "ontologyValidationRefs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "retentionPolicy": { "type": "string" },
+    "deliveryTimestamp": { "type": "string", "format": "date-time" },
+    "executionPerformed": { "type": "boolean", "const": false }
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.org/schemas/verifier-reward-receipt.schema.json",
+  "title": "Verifier Reward Receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "receiptId",
+    "microtaskRef",
+    "verifierRef",
+    "resourcesConsumed",
+    "proofRefs",
+    "issuedAt",
+    "executionPerformed"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "0.1.0"
+    },
+    "receiptId": {
+      "type": "string",
+      "pattern": "^verifier-reward:[a-z0-9-]+$"
+    },
+    "microtaskRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "gradecardRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "verifierRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "resourcesConsumed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["tokensIn", "tokensOut", "wallClockMs"],
+      "properties": {
+        "tokensIn": {
+          "type": "integer"
+        },
+        "tokensOut": {
+          "type": "integer"
+        },
+        "wallClockMs": {
+          "type": "integer"
+        }
+      }
+    },
+    "proofRefs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "issuedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "executionPerformed": {
+      "const": false
+    }
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "schemaVersion": "0.1.0",
+  "actionId": "engagement-action:wargame-phase3-tabletop-001",
+  "actionType": "tabletop",
+  "authorizationRef": "authorization:wargame-phase3-scope-d-001",
+  "evidenceRefs": [
+    "evidence:threat-scenario-lateral-movement-2026-06-28",
+    "evidence:response-playbook-v3-2026-06-28"
+  ],
+  "outcome": "Participants identified two gaps in the E4 containment boundary under lateral-movement scenario. Remediation tasks logged. No production systems accessed or modified.",
+  "executionPerformed": false,
+  "executionAllowed": false
+}

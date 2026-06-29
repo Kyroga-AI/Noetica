@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.org/schemas/bridge-mode-gate.schema.json",
+  "title": "Bridge Mode Gate",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "gateId",
+    "bridgeModeId",
+    "redactionState",
+    "proofRefs",
+    "approvedBy",
+    "approvalStatus",
+    "tenantScope",
+    "executionAllowed",
+    "executionPerformed"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "gateId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "bridgeModeId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "redactionState": {
+      "type": "string",
+      "enum": ["raw", "redacted", "synthetic", "withheld"]
+    },
+    "proofRefs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "approvedBy": {
+      "type": "array",
+      "minItems": 1,
+      "contains": {
+        "type": "string",
+        "const": "Michael Heller"
+      },
+      "items": {
+        "type": "string"
+      }
+    },
+    "approvalStatus": {
+      "type": "string",
+      "enum": ["proposed", "approved", "denied", "expired"]
+    },
+    "tenantScope": {
+      "type": "string"
+    },
+    "executionAllowed": {
+      "type": "boolean",
+      "const": false
+    },
+    "executionPerformed": {
+      "type": "boolean",
+      "const": false
+    }
+  }
+}

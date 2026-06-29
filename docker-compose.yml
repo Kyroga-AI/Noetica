@@ -94,6 +94,30 @@ services:
     #     reservations:
     #       devices: [{ driver: nvidia, count: all, capabilities: [gpu] }]
 
+  broker:
+    build:
+      context: ./agent-machine
+      dockerfile: Dockerfile
+    command: node dist/lib/sovereign-broker-main.js
+    ports:
+      - "127.0.0.1:8089:8089"
+    environment:
+      - PORT=8089
+      - BROKER_ISS=${BROKER_ISS:-http://localhost:8089}
+      - BROKER_APP_NAME=${BROKER_APP_NAME:-Prophet Workspace}
+      - BROKER_TOKEN_TTL=${BROKER_TOKEN_TTL:-3600}
+      - BROKER_SIGNING_KEY=/run/secrets/broker_signing_key
+      - BROKER_CLIENTS=${BROKER_CLIENTS:-}
+      - NODE_ENV=${NODE_ENV:-development}
+    secrets:
+      - broker_signing_key
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fs", "http://localhost:8089/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
   agent-machine:
     build:
       context: ./agent-machine
@@ -120,3 +144,7 @@ volumes:
   noetica-data:
   hf-cache:
   ollama-models:
+
+secrets:
+  broker_signing_key:
+    file: ${BROKER_SIGNING_KEY_FILE:-/dev/null}   # override: BROKER_SIGNING_KEY_FILE=/etc/broker/ed25519.key

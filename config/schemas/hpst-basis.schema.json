@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.org/schemas/hpst-basis.schema.json",
+  "title": "HPST Basis",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "basisId",
+    "taskFamily",
+    "description",
+    "successCriteria",
+    "failureCriteria",
+    "proofRequirements",
+    "executionBoundary",
+    "executionAllowed"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "0.1.0"
+    },
+    "basisId": {
+      "type": "string",
+      "pattern": "^hpst-basis:[a-z0-9-]+$"
+    },
+    "taskFamily": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "successCriteria": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "failureCriteria": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "proofRequirements": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "executionBoundary": {
+      "type": "string"
+    },
+    "executionAllowed": {
+      "const": false
+    }
+  }
+}

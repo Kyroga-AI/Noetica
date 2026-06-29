@@ -67,6 +67,7 @@ export function CommandPalette({
     { id: 'surface_govern',       label: 'Switch to Govern',                           group: 'Surfaces', run: () => { onSwitchSurface('govern');      onClose() } },
     { id: 'surface_holographme',  label: 'Switch to HolographMe',                      group: 'Surfaces', run: () => { onSwitchSurface('holographme'); onClose() } },
     { id: 'surface_marketplace',  label: 'Switch to Marketplace',                      group: 'Surfaces', run: () => { onSwitchSurface('marketplace'); onClose() } },
+    { id: 'surface_broker',       label: 'Switch to Compute Broker — cloud GPU/CPU placement', group: 'Surfaces', run: () => { onSwitchSurface('broker');      onClose() } },
     { id: 'toggle_sidebar',  label: 'Toggle sidebar',        shortcut: '⌘\\',  group: 'View',     run: () => { onToggleSidebar();  onClose() } },
     { id: 'toggle_inspector',label: 'Toggle inspector',      shortcut: '⌘I',   group: 'View',     run: () => { onToggleInspector(); onClose() } },
     { id: 'settings',        label: 'Open settings',         shortcut: '⌘,',   group: 'App',      run: () => { onOpenSettings();           onClose() } },

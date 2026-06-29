@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "0.1.0",
+  "findingId": "pindex-finding:sp-config-leak-001",
+  "queryRef": "pindex-query:sp-cert-trans-001",
+  "exposureType": "configuration",
+  "severity": "medium",
+  "summary": "Subdomain staging.socioprophet.ai visible in certificate transparency logs, revealing internal environment naming conventions.",
+  "remediationRecommendation": "Request certificate suppression where supported; avoid using environment-descriptive subdomains in production certificates.",
+  "proofRefs": ["proof:ct-log-screenshot-2026-06-28"],
+  "disclosureClass": "internal",
+  "executionPerformed": false
+}

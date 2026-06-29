@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "0.1.0",
+  "receiptId": "verifier-reward:check-execution-guards-001",
+  "microtaskRef": "verifier-microtask:check-execution-guards-001",
+  "gradecardRef": "agent-gradecard:schema-audit-run-001",
+  "verifierRef": "verifier:noetica-schema-reviewer-v1",
+  "resourcesConsumed": {
+    "tokensIn": 3840,
+    "tokensOut": 512,
+    "wallClockMs": 4200
+  },
+  "proofRefs": [
+    "proof:schema-review-note-execution-guards-2026-06-28"
+  ],
+  "issuedAt": "2026-06-28T13:47:00Z",
+  "executionPerformed": false
+}

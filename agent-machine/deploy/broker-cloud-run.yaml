@@ -1,0 +1,78 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: noetica-broker
+  namespace: default
+  annotations:
+    run.googleapis.com/ingress: all          # OIDC /authorize must be reachable from browsers
+    run.googleapis.com/launch-stage: GA
+spec:
+  template:
+    metadata:
+      annotations:
+        # Keep at least 1 instance warm — cold-starts would invalidate in-flight auth sessions.
+        autoscaling.knative.dev/minScale: "1"
+        autoscaling.knative.dev/maxScale: "10"
+        run.googleapis.com/execution-environment: gen2
+    spec:
+      serviceAccountName: noetica-broker-sa@PROJECT_ID.iam.gserviceaccount.com
+      containerConcurrency: 80
+      timeoutSeconds: 30
+      containers:
+        - image: REGION-docker.pkg.dev/PROJECT_ID/noetica/broker:latest
+          command: ["node"]
+          args: ["dist/lib/sovereign-broker-main.js"]
+          ports:
+            - name: http1
+              containerPort: 8089
+          env:
+            - name: PORT
+              value: "8089"
+            - name: NODE_ENV
+              value: production
+            - name: BROKER_ISS
+              value: https://broker.DOMAIN
+            - name: BROKER_APP_NAME
+              value: Prophet Workspace
+            - name: BROKER_TOKEN_TTL
+              value: "3600"
+            - name: BROKER_REQUIRE_KEY
+              value: "1"
+            # Signing key and client registry from Secret Manager
+            - name: BROKER_SIGNING_KEY
+              value: /secrets/signing/ed25519.key
+            - name: BROKER_CLIENTS
+              valueFrom:
+                secretKeyRef:
+                  name: broker-clients
+                  key: latest
+          volumeMounts:
+            - name: signing-key
+              mountPath: /secrets/signing
+              readOnly: true
+          resources:
+            limits:
+              cpu: "1"
+              memory: 256Mi
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8089
+            initialDelaySeconds: 5
+            periodSeconds: 15
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: 8089
+            failureThreshold: 3
+            periodSeconds: 10
+      volumes:
+        - name: signing-key
+          secret:
+            secretName: broker-signing-key   # GCP Secret Manager — version: latest
+            items:
+              - key: latest
+                path: ed25519.key
+  traffic:
+    - percent: 100
+      latestRevision: true

@@ -1,0 +1,24 @@
+{
+  "schemaVersion": "0.1.0",
+  "envelopeId": "ofif-envelope:acme-corp-finding-delivery-20260628",
+  "clientTier": "operator",
+  "payloadType": "ofif-fused-finding",
+  "payloadRef": "ofif-finding:oidc-broker-credential-stuffing-001",
+  "clientScope": "acme-corp",
+  "tenantScope": "acme-corp:prod",
+  "redactionState": "redacted",
+  "disclosureClass": "client",
+  "confidence": 0.87,
+  "proofRefs": [
+    "proof:sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  ],
+  "sourceRunRefs": [
+    "run:scope-d-wargame-phase4-20260628t0900z"
+  ],
+  "ontologyValidationRefs": [
+    "validation:ontology-check-gaia-2026-06-28"
+  ],
+  "retentionPolicy": "retain-90d-then-purge",
+  "deliveryTimestamp": "2026-06-28T15:30:00Z",
+  "executionPerformed": false
+}

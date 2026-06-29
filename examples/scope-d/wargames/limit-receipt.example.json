@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "0.1.0",
+  "receiptId": "limit-receipt:frost-alpha-egress-cap-001",
+  "limitType": "daily-external-egress-mb",
+  "limitValue": 50,
+  "observedValue": 73.4,
+  "enforcedAt": "2026-06-28T14:32:00Z",
+  "agentRef": "agent:frost-alpha-v2",
+  "engagementRef": "engagement:wargame-phase3-session-04",
+  "rollbackTaken": true,
+  "executionPerformed": false
+}

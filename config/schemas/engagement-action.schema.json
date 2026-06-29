@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.org/schemas/engagement-action.schema.json",
+  "title": "Engagement Action",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "actionId",
+    "actionType",
+    "authorizationRef",
+    "evidenceRefs",
+    "outcome",
+    "executionPerformed",
+    "executionAllowed"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "actionId": {
+      "type": "string",
+      "pattern": "^engagement-action:[a-z0-9-]+$"
+    },
+    "actionType": {
+      "type": "string",
+      "enum": [
+        "observe",
+        "correlate",
+        "synthesize",
+        "recommend",
+        "report",
+        "tabletop",
+        "controlled_lab"
+      ]
+    },
+    "authorizationRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "evidenceRefs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "outcome": {
+      "type": "string"
+    },
+    "executionPerformed": {
+      "type": "boolean",
+      "const": false
+    },
+    "executionAllowed": {
+      "type": "boolean",
+      "const": false
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "0.1.0",
+  "queryId": "pindex-query:invalid-no-auth-001",
+  "queryType": "search_engine",
+  "targetScope": "socioprophet.ai",
+  "queryTerms": ["site:socioprophet.ai filetype:env", "site:socioprophet.ai password"],
+  "passiveOnly": true,
+  "authorizationRef": "",
+  "executionPerformed": false,
+  "liveConnectionUsed": true
+}

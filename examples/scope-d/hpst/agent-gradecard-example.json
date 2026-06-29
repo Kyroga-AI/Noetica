@@ -1,0 +1,41 @@
+{
+  "schemaVersion": "0.1.0",
+  "gradecardId": "agent-gradecard:schema-audit-run-001",
+  "agentRef": "agent:noetica-critic-v2",
+  "basisRef": "hpst-basis:schema-coverage-audit-001",
+  "probeSetRef": "hpst-probe-set:schema-coverage-audit-001",
+  "scores": [
+    {
+      "probeId": "probe-001",
+      "score": 1.0,
+      "rationale": "executionAllowed is declared as const false and appears in the required array in hpst-basis.schema.json",
+      "passed": true
+    },
+    {
+      "probeId": "probe-002",
+      "score": 1.0,
+      "rationale": "taskType enum in verifier-microtask.schema.json contains exactly the five expected values in the correct order",
+      "passed": true
+    },
+    {
+      "probeId": "probe-003",
+      "score": 0.82,
+      "rationale": "Field titles and descriptions are present on all required properties; two optional fields lack inline descriptions but schema-level title compensates",
+      "passed": true
+    },
+    {
+      "probeId": "probe-004",
+      "score": 1.0,
+      "rationale": "ajv-cli output confirms minItems violation on /evidenceRefs with message 'must NOT have fewer than 1 items'",
+      "passed": true
+    }
+  ],
+  "overallScore": 0.955,
+  "evidenceRefs": [
+    "proof:ajv-validation-report-2026-06-28",
+    "proof:negative-fixture-rejection-log-2026-06-28"
+  ],
+  "gradedBy": "Michael Heller",
+  "gradedAt": "2026-06-28T14:30:00Z",
+  "executionPerformed": false
+}

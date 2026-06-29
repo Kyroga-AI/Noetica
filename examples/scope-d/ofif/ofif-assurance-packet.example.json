@@ -1,0 +1,31 @@
+{
+  "schemaVersion": "0.1.0",
+  "packetId": "ofif-assurance:acme-corp-phase4-q2-2026",
+  "clientScope": "acme-corp",
+  "tenantScope": "acme-corp:prod",
+  "period": {
+    "start": "2026-06-01T00:00:00Z",
+    "end": "2026-06-28T23:59:59Z"
+  },
+  "postureSummaryRef": "posture:acme-corp-prod-2026-q2",
+  "coverageSummaryRefs": [
+    "coverage:external-surface-scan-2026-q2",
+    "coverage:identity-broker-audit-2026-q2"
+  ],
+  "proofDigestRefs": [
+    "proof-digest:sha256:deadbeef00112233445566778899aabbccddeeff00112233445566778899aabb"
+  ],
+  "validationRefs": [
+    "validation:ontology-check-gaia-2026-06-28",
+    "validation:schema-conformance-ofif-v0-1-0"
+  ],
+  "disclosureClass": "auditor",
+  "retentionPolicy": "retain-7yr-regulatory",
+  "signatures": [
+    {
+      "signedBy": "Michael Heller",
+      "signedAt": "2026-06-28T14:00:00Z"
+    }
+  ],
+  "executionPerformed": false
+}

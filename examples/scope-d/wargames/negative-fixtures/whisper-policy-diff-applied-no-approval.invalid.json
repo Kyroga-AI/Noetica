@@ -1,0 +1,25 @@
+{
+  "schemaVersion": "0.1.0",
+  "diffId": "whisper-policy-diff:applied-no-approval-invalid",
+  "targetRef": "policy:scope-d:access-control:prod",
+  "beforeStateHash": "c5f3d4e6b7f8901234567890123456789012cdef3456789012cdef3456789012",
+  "afterStateHash": "d6e4f5a7c8e9012345678901234567890123def4567890123def456789012345",
+  "diffEntries": [
+    {
+      "field": "allowedRoles",
+      "before": [
+        "reader"
+      ],
+      "after": [
+        "reader",
+        "writer"
+      ],
+      "changeType": "modified"
+    }
+  ],
+  "authorizationRef": "auth:some-auth-ref-001",
+  "rollbackPlanRef": "rollback:some-rollback-001",
+  "approvedBy": [],
+  "executionPerformed": false,
+  "applied": true
+}

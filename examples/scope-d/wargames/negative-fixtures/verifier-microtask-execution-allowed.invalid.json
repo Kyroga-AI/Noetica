@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "0.1.0",
+  "microtaskId": "verifier-microtask:invalid-execution-allowed-001",
+  "taskType": "proof_audit",
+  "targetRef": "config/schemas/agent-gradecard.schema.json",
+  "instructions": "Audit the gradecard schema for proof requirements coverage.",
+  "unsafeActionsProhibited": true,
+  "executionAllowed": true,
+  "assignedTo": "verifier:noetica-schema-reviewer-v1",
+  "status": "pending"
+}

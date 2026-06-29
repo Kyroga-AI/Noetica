@@ -14,6 +14,7 @@
 
 import { judgeAnswer, type ValueJudgment } from './value-judgment.js'
 import { classifyComplexity, type Posture } from './complexity-discipline.js'
+import { candidateCouncilVote } from './council.js'
 
 export type CriticAction = 'accept' | 'escalate' | 'clarify'
 
@@ -34,6 +35,9 @@ export interface CriticContext {
   novelClaims?: string[]
   /** Override posture; otherwise classified from the question. */
   posture?: Posture
+  /** Complexity-calibrated confidence from complexity-discipline.ts [0,1].
+   *  High (code-verified/grounded) → relaxes accept threshold; low (barriers) → tightens it. */
+  calibratedConfidence?: number
 }
 
 export interface ScoredCandidate {
@@ -112,22 +116,41 @@ export function critique(candidates: Candidate[], ctx: CriticContext): CriticVer
   const topScore = ranked[0]!.score
   const contenders = ranked.map((r, i) => ({ i, r, agree: meanAgreement(i) })).filter((x) => topScore - x.r.score <= 0.03)
   contenders.sort((a, b) => b.agree - a.agree)
-  const winner = contenders[0]!
+
+  // When the top two contenders are within 0.01 (true tie, Jaccard couldn't separate them),
+  // ask the council for a grounding-weighted pick among the tied candidates.
+  let winner = contenders[0]!
+  if (contenders.length >= 2 && contenders[0]!.r.score - (contenders[1]?.r.score ?? 0) < 0.01) {
+    const arms = contenders.map(({ r }) => ({
+      content: r.candidate.content,
+      groundingConf: r.vj.grounding,
+      isEscalated: r.candidate.label?.startsWith('esc:') ?? false,
+    }))
+    const councilIdx = candidateCouncilVote(arms)
+    winner = contenders[councilIdx] ?? contenders[0]!
+  }
   const best = winner.r
   const agreement = Number(winner.agree.toFixed(3))
 
   const th = acceptThreshold(posture)
+  // Calibrated confidence modulates the threshold by ±0.06:
+  //   conf ≥ 0.7 (code-verified / grounded) → threshold −0.05 (accept more readily)
+  //   conf < 0.25 (barriers / speculative)   → threshold +0.05 (escalate more readily)
+  const confAdj = ctx.calibratedConfidence !== undefined
+    ? (ctx.calibratedConfidence >= 0.7 ? -0.05 : ctx.calibratedConfidence < 0.25 ? 0.05 : 0)
+    : 0
+  const effectiveTh = Math.max(0.05, th + confAdj)
   let action: CriticAction
   let reason: string
   if (best.vj.verdict === 'contradiction') {
     action = 'clarify'
     reason = 'winning candidate contradicts the belief/law state — clarify rather than assert'
-  } else if (best.score < th) {
+  } else if (best.score < effectiveTh) {
     action = 'escalate'
-    reason = `best worth ${best.score} < accept ${th} for posture '${posture}' — escalate for a stronger answer`
+    reason = `best worth ${best.score} < accept ${effectiveTh} for posture '${posture}'${confAdj !== 0 ? ` (confidence-adjusted from ${th})` : ''} — escalate`
   } else {
     action = 'accept'
-    reason = `accepted: worth ${best.score} ≥ ${th} (posture '${posture}', agreement ${agreement})`
+    reason = `accepted: worth ${best.score} ≥ ${effectiveTh} (posture '${posture}', agreement ${agreement})`
   }
   return { action, best, ranked, posture, agreement, reason }
 }

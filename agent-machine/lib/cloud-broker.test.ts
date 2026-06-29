@@ -75,7 +75,7 @@ test('maps an abstract commodity to each vendor primitive (object-store → S3/G
 
 test('selects the cheapest vendor for a commodity (and honors exclude)', () => {
   assert.equal(selectVendor({ kind: 'object-store' })!.provider, 'hetzner') // $0.005
-  assert.equal(selectVendor({ kind: 'object-store', exclude: ['hetzner'] })!.provider, 'azure') // next at $0.018
+  assert.equal(selectVendor({ kind: 'object-store', exclude: ['hetzner'] })!.provider, 'nebius') // next at $0.008
 })
 
 test('data-residency is a hard constraint (EU-only object store narrows the field)', () => {

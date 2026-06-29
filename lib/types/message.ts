@@ -43,6 +43,8 @@ export interface ChatMessage {
   intent?: IntentTrace
   /** Live plan + execution timeline streamed as the turn runs */
   plan?: ExecutionPlan
+  /** Complexity discipline trace — posture/strategy/barriers for this turn */
+  discipline?: DisciplineTrace
   /** Glossary-grounded NLU: domain + topics + terms recognized in the turn */
   grounding?: GroundingTrace
   /** The announcer's plain-language narration of what the agent is doing, per stage */
@@ -115,6 +117,14 @@ export interface ExecutionPlan {
   tools?: string[]
 }
 
+export interface CriticVerdict {
+  action: 'accept' | 'escalate' | 'clarify'
+  score: number
+  agreement: number
+  posture: string
+  reason: string
+}
+
 export interface Deliberation {
   candidates: Array<{
     rank: number
@@ -122,9 +132,24 @@ export interface Deliberation {
     grounding: number
     verdict: 'grounded' | 'speculative' | 'contradiction'
     temperature: number
+    label?: string
     preview: string
   }>
   selected_rank: number
+  /** Critic gate — action + reason from the verifier→selection loop */
+  critic?: CriticVerdict
+}
+
+/** Complexity discipline trace — posture + strategy + barriers surfaced for this turn. */
+export interface DisciplineTrace {
+  posture: string
+  strategy: string
+  barriers: string[]
+  morphology?: string
+  calibrated_confidence: number
+  non_claims?: string[]
+  prime_signature?: string
+  prime_factors?: string[]
 }
 
 export interface ValueJudgment {

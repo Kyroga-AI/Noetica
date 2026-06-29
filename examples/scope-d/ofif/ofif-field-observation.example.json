@@ -1,0 +1,32 @@
+{
+  "schemaVersion": "0.1.0",
+  "observationId": "ofif-observation:alpha-perimeter-scan-2026-06-28",
+  "sourceRunRef": "run:scope-d-wargame-phase4-20260628t0900z",
+  "boundaryEventRefs": [
+    "boundary-event:egress-spike-tcp-443-20260628t0830z",
+    "boundary-event:auth-failure-burst-20260628t0845z"
+  ],
+  "surfaceRefs": [
+    "surface:external-api-gateway",
+    "surface:identity-broker-oidc"
+  ],
+  "topicRefs": [
+    "topic:lateral-movement",
+    "topic:credential-stuffing"
+  ],
+  "summary": "Observed a coordinated credential-stuffing burst against the OIDC broker, correlating with an upstream egress spike consistent with exfiltration probing. No successful authentication recorded.",
+  "confidence": 0.82,
+  "redactionState": "redacted",
+  "proofRefs": [
+    "proof:sha256:e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  ],
+  "disclosureClass": "client",
+  "clientScope": "acme-corp",
+  "tenantScope": "acme-corp:prod",
+  "retentionPolicy": "retain-90d-then-purge",
+  "sourceRunRefs": [
+    "run:scope-d-wargame-phase4-20260628t0900z"
+  ],
+  "authorizationRef": "authz:engagement-policy:acme-corp-phase4-2026",
+  "executionPerformed": false
+}

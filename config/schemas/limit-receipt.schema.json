@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.org/schemas/limit-receipt.schema.json",
+  "title": "Limit Receipt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "receiptId",
+    "limitType",
+    "limitValue",
+    "observedValue",
+    "enforcedAt",
+    "agentRef",
+    "engagementRef",
+    "rollbackTaken",
+    "executionPerformed"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "receiptId": {
+      "type": "string",
+      "pattern": "^limit-receipt:[a-z0-9-]+$"
+    },
+    "limitType": {
+      "type": "string"
+    },
+    "limitValue": {
+      "type": "number"
+    },
+    "observedValue": {
+      "type": "number"
+    },
+    "enforcedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "agentRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "engagementRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rollbackTaken": {
+      "type": "boolean"
+    },
+    "executionPerformed": {
+      "type": "boolean",
+      "const": false
+    }
+  }
+}

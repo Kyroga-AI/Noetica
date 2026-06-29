@@ -8,14 +8,18 @@
  * estimates; a live pricing adapter (per-provider billing API) can replace COMPUTE_CATALOG without changing
  * the broker algorithm. Every brokered placement is meant to flow through scope-d egress governance.
  */
-// Western hyperscalers + Asian hyperscalers (Alibaba/Huawei) + NEOCLOUD GPU specialists + sovereign-friendly + local.
+// Western hyperscalers + Asian hyperscalers (Alibaba/Huawei) + NEOCLOUD GPU specialists + AU/NZ sovereign + local.
 // The multi-polar cloud world is the whole case for a cross-vendor broker — incl. NON-NVIDIA silicon (Huawei Ascend).
 export type CloudProvider =
   | 'gcp' | 'azure' | 'aws' | 'ibm' | 'oci' | 'hetzner'
-  | 'coreweave' | 'lambda' | 'nebius' | 'crusoe'
+  | 'coreweave' | 'lambda' | 'nebius' | 'crusoe' | 'vastai' | 'runpod'
+  | 'micron21' | 'firmus'                        // AU sovereign GPU (IRAP-assessed)
+  | 'catalyst' | 'datacom'                       // NZ sovereign
   | 'alibaba' | 'huawei'
   | 'local'
-export const NEOCLOUDS: CloudProvider[] = ['coreweave', 'lambda', 'nebius', 'crusoe']
+export const NEOCLOUDS: CloudProvider[] = ['coreweave', 'lambda', 'nebius', 'crusoe', 'vastai', 'runpod']
+export const AU_SOVEREIGN: CloudProvider[] = ['micron21', 'firmus']
+export const NZ_SOVEREIGN: CloudProvider[] = ['catalyst', 'datacom']
 export const ASIAN_CLOUDS: CloudProvider[] = ['alibaba', 'huawei']
 
 export interface ComputeSku {
@@ -28,6 +32,14 @@ export interface ComputeSku {
   usdPerHour: number                 // on-demand list price
   spotPerHour?: number               // spot / preemptible price (interruptible)
   priceSource?: 'live' | 'list'      // 'live' = real-time billing API (Azure Retail today); 'list' = static estimate
+  jurisdiction?: string[]            // physical DC jurisdiction(s): ['AU-NSW', 'AU-VIC', 'US-VA', 'NZ-AKL' …]
+  irap?: boolean                     // IRAP Protected assessed (Australian government cloud framework)
+  sovereign?: boolean                // AU/NZ-owned and operated sovereign cloud
+  poa?: boolean                      // price on application — usdPerHour is an illustrative estimate only
+  tier?: 1 | 2 | 3                   // recommended provisioning adapter build priority
+  note?: string                      // human-readable caveats / partner contact
+  neocloud?: boolean
+  nvidia?: boolean
 }
 
 // Cross-cloud compute/GPU catalogue — loaded from the CANONICAL contract (gpu-catalog.v1.json), the SINGLE source
@@ -46,6 +58,10 @@ export interface ComputeRequest {
   spot?: boolean                     // accept interruptible (spot/preemptible) pricing
   providers?: CloudProvider[]        // restrict to a subset (e.g. only sovereign-approved clouds)
   excludeLocal?: boolean             // local has $0 cost; exclude it when the workload genuinely needs cloud
+  irap?: boolean                     // require IRAP Protected assessed provider (AU government workloads)
+  sovereign?: boolean                // require AU/NZ-owned sovereign cloud
+  jurisdiction?: string[]            // require physical DC in one of these jurisdictions (e.g. ['AU-NSW','AU-VIC'])
+  excludePoa?: boolean               // skip price-on-application SKUs when building reliable cost estimates
 }
 
 export interface BrokerQuote { sku: ComputeSku; effectivePerHour: number; totalUsd: number; spot: boolean }
@@ -61,6 +77,13 @@ function satisfies(s: ComputeSku, req: ComputeRequest): boolean {
     if (!s.gpu || s.gpu.count < req.gpu.count) return false
     if (req.gpu.type && !s.gpu.type.toLowerCase().includes(req.gpu.type.toLowerCase())) return false
     if (req.gpu.minMemGiB && gpuMem(s) < req.gpu.minMemGiB) return false
+  }
+  if (req.irap && !s.irap) return false
+  if (req.sovereign && !s.sovereign) return false
+  if (req.excludePoa && s.poa) return false
+  if (req.jurisdiction?.length) {
+    const djur = s.jurisdiction ?? []
+    if (!req.jurisdiction.some((j) => djur.some((dj) => dj.startsWith(j) || j.startsWith(dj)))) return false
   }
   return true
 }
@@ -157,7 +180,7 @@ export function brokerFogPlacement(result: BrokerResult, scope: CitizenScope, me
 // maps to every vendor's primitive, and we select the cheapest compliant vendor (price + data residency + policy).
 // Powers the Cloud panel and the deployment-provider selection. "Cloud is commodity; we are the broker."
 export type ServiceKind = 'object-store' | 'kubernetes' | 'dns' | 'postgres' | 'load-balancer' | 'secrets'
-export type Residency = 'EU' | 'US' | 'AU' | 'UK' | 'CA'
+export type Residency = 'EU' | 'US' | 'AU' | 'NZ' | 'UK' | 'CA'
 
 export interface ServiceOffering {
   provider: CloudProvider
@@ -168,24 +191,34 @@ export interface ServiceOffering {
 }
 
 export const SERVICE_CATALOG: ServiceOffering[] = [
-  { provider: 'gcp', kind: 'object-store', primitive: 'Cloud Storage', unitPriceUsd: 0.020, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
-  { provider: 'aws', kind: 'object-store', primitive: 'S3', unitPriceUsd: 0.023, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
-  { provider: 'azure', kind: 'object-store', primitive: 'Blob Storage', unitPriceUsd: 0.018, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
-  { provider: 'ibm', kind: 'object-store', primitive: 'Cloud Object Storage', unitPriceUsd: 0.022, residency: ['EU', 'US', 'CA'] },
-  { provider: 'hetzner', kind: 'object-store', primitive: 'Object Storage', unitPriceUsd: 0.005, residency: ['EU'] },
-  { provider: 'gcp', kind: 'kubernetes', primitive: 'GKE', unitPriceUsd: 0.10, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
-  { provider: 'aws', kind: 'kubernetes', primitive: 'EKS', unitPriceUsd: 0.10, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
-  { provider: 'azure', kind: 'kubernetes', primitive: 'AKS', unitPriceUsd: 0.0, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
-  { provider: 'ibm', kind: 'kubernetes', primitive: 'IKS', unitPriceUsd: 0.10, residency: ['EU', 'US', 'CA'] },
-  { provider: 'gcp', kind: 'postgres', primitive: 'Cloud SQL', unitPriceUsd: 0.041, residency: ['EU', 'US', 'AU'] },
-  { provider: 'aws', kind: 'postgres', primitive: 'RDS', unitPriceUsd: 0.043, residency: ['EU', 'US', 'AU'] },
-  { provider: 'azure', kind: 'postgres', primitive: 'Azure DB for PostgreSQL', unitPriceUsd: 0.040, residency: ['EU', 'US', 'AU'] },
-  { provider: 'gcp', kind: 'dns', primitive: 'Cloud DNS', unitPriceUsd: 0.20, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
-  { provider: 'aws', kind: 'dns', primitive: 'Route 53', unitPriceUsd: 0.50, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
-  { provider: 'gcp', kind: 'load-balancer', primitive: 'Cloud Load Balancing', unitPriceUsd: 0.025, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
-  { provider: 'aws', kind: 'load-balancer', primitive: 'ELB', unitPriceUsd: 0.0225, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
-  { provider: 'azure', kind: 'secrets', primitive: 'Key Vault', unitPriceUsd: 0.03, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
-  { provider: 'gcp', kind: 'secrets', primitive: 'Secret Manager', unitPriceUsd: 0.06, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  // Object storage
+  { provider: 'gcp',      kind: 'object-store', primitive: 'Cloud Storage',          unitPriceUsd: 0.020, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'aws',      kind: 'object-store', primitive: 'S3',                     unitPriceUsd: 0.023, residency: ['EU', 'US', 'AU', 'NZ', 'UK', 'CA'] },
+  { provider: 'azure',    kind: 'object-store', primitive: 'Blob Storage',           unitPriceUsd: 0.018, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'ibm',      kind: 'object-store', primitive: 'Cloud Object Storage',   unitPriceUsd: 0.022, residency: ['EU', 'US', 'CA'] },
+  { provider: 'hetzner',  kind: 'object-store', primitive: 'Object Storage',         unitPriceUsd: 0.005, residency: ['EU'] },
+  { provider: 'nebius',   kind: 'object-store', primitive: 'Object Storage (S3-compat)', unitPriceUsd: 0.008, residency: ['EU', 'US'] },
+  // Kubernetes
+  { provider: 'gcp',      kind: 'kubernetes',   primitive: 'GKE',                    unitPriceUsd: 0.10,  residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'aws',      kind: 'kubernetes',   primitive: 'EKS',                    unitPriceUsd: 0.10,  residency: ['EU', 'US', 'AU', 'NZ', 'UK', 'CA'] },
+  { provider: 'azure',    kind: 'kubernetes',   primitive: 'AKS',                    unitPriceUsd: 0.0,   residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'ibm',      kind: 'kubernetes',   primitive: 'IKS',                    unitPriceUsd: 0.10,  residency: ['EU', 'US', 'CA'] },
+  { provider: 'coreweave',kind: 'kubernetes',   primitive: 'CoreWeave K8s (GPU-native)', unitPriceUsd: 0.0, residency: ['US'] },
+  { provider: 'catalyst', kind: 'kubernetes',   primitive: 'Catalyst Cloud K8s',     unitPriceUsd: 0.05,  residency: ['NZ'] },
+  // Postgres
+  { provider: 'gcp',      kind: 'postgres',     primitive: 'Cloud SQL',              unitPriceUsd: 0.041, residency: ['EU', 'US', 'AU'] },
+  { provider: 'aws',      kind: 'postgres',     primitive: 'RDS',                    unitPriceUsd: 0.043, residency: ['EU', 'US', 'AU', 'NZ'] },
+  { provider: 'azure',    kind: 'postgres',     primitive: 'Azure DB for PostgreSQL', unitPriceUsd: 0.040, residency: ['EU', 'US', 'AU'] },
+  // DNS
+  { provider: 'gcp',      kind: 'dns',          primitive: 'Cloud DNS',              unitPriceUsd: 0.20,  residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'aws',      kind: 'dns',          primitive: 'Route 53',               unitPriceUsd: 0.50,  residency: ['EU', 'US', 'AU', 'NZ', 'UK', 'CA'] },
+  // Load balancers
+  { provider: 'gcp',      kind: 'load-balancer',primitive: 'Cloud Load Balancing',   unitPriceUsd: 0.025, residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'aws',      kind: 'load-balancer',primitive: 'ELB',                    unitPriceUsd: 0.0225,residency: ['EU', 'US', 'AU', 'NZ', 'UK', 'CA'] },
+  // Secrets
+  { provider: 'azure',    kind: 'secrets',      primitive: 'Key Vault',              unitPriceUsd: 0.03,  residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'gcp',      kind: 'secrets',      primitive: 'Secret Manager',         unitPriceUsd: 0.06,  residency: ['EU', 'US', 'AU', 'UK', 'CA'] },
+  { provider: 'aws',      kind: 'secrets',      primitive: 'Secrets Manager',        unitPriceUsd: 0.04,  residency: ['EU', 'US', 'AU', 'NZ', 'UK', 'CA'] },
 ]
 
 export interface ServiceRequirement { kind: ServiceKind; residency?: Residency; maxPriceUsd?: number; exclude?: CloudProvider[]; prefer?: CloudProvider[] }

@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "0.1.0",
+  "policyId": "font-policy:sp-surface-baseline",
+  "allowedActions": ["observe", "report", "substitute"],
+  "prohibitedActions": ["install_arbitrary_font", "exfiltrate_font_list", "active_injection"],
+  "fingerprintMitigations": [
+    "normalize-system-font-list",
+    "randomize-render-timing",
+    "block-canvas-fingerprint"
+  ],
+  "syntheticOnly": true,
+  "authorizationRef": "authorization:sp-wargames-phase8-2026",
+  "executionAllowed": false
+}

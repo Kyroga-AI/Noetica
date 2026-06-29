@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.org/schemas/memphis-authority-tier.schema.json",
+  "title": "Memphis Authority Tier",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "tierId",
+    "tier",
+    "capabilityClasses",
+    "approvalRequirements",
+    "executionBoundary"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "tierId": {
+      "type": "string",
+      "pattern": "^authority-tier:[a-z0-9-]+$"
+    },
+    "tier": {
+      "type": "string",
+      "enum": ["E1", "E2", "E3", "E4", "E5", "E6"]
+    },
+    "capabilityClasses": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "approvalRequirements": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "executionBoundary": {
+      "type": "string"
+    }
+  }
+}

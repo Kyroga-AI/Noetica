@@ -1077,6 +1077,12 @@ export function AppShell() {
                 setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'value_judgment', payload: vj }, ...prev].slice(0, 80))
               }
             },
+            onDiscipline: (d) => {
+              updateAssistant(assistantId, { discipline: d })
+              if (settings.showRawEvents) {
+                setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'discipline', payload: d }, ...prev].slice(0, 80))
+              }
+            },
             onDeliberation: (d) => {
               updateAssistant(assistantId, { deliberation: d })
               if (settings.showRawEvents) {
@@ -1516,6 +1522,13 @@ export function AppShell() {
                 onOpenSettings={() => openSettings('connections')}
                 onNavigateToOperate={() => setActiveSurface('operate')}
                 onSpeak={speak}
+                onFeedback={(messageId, rating) => {
+                  void fetch('/api/learning/feedback', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ messageId, rating, sessionId: activeSession?.id }),
+                  }).catch(() => { /* feedback is fire-and-forget */ })
+                }}
               />
               {inspectorVisible && (
                 <div className="relative h-full">
@@ -1710,9 +1723,10 @@ type CenterProps = {
   onOpenSettings?: () => void
   onNavigateToOperate?: () => void
   onSpeak?: (content: string) => void
+  onFeedback?: (messageId: string, rating: 'up' | 'down') => void
 }
 
-function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onSpeak }: CenterProps) {
+function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onSpeak, onFeedback }: CenterProps) {
   if (activeSurface === 'notes')        return <NotesSurface />
   if (activeSurface === 'canvas')       return <CanvasSurface />
   if (activeSurface === 'workrooms')    return <WorkroomsSurface thinkingBudget={thinkingBudget} />
@@ -1749,7 +1763,7 @@ function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, work
     <div className={`grid min-h-0 flex-1 overflow-hidden transition-[grid-template-columns] duration-300 ${activeArtifact ? 'grid-cols-[minmax(320px,1fr)_480px]' : 'grid-cols-1'}`}>
       <section className="flex min-h-0 flex-col overflow-hidden">
         <GoalBanner sessionId={sessionId} />
-        <MessageList messages={messages} isStreaming={isStreaming} onExtractArtifact={onExtractArtifact} onRegenerate={onRegenerate} onResume={onResume} onFork={onFork} onEdit={onEdit} onRecombine={onRecombine} onSpeak={onSpeak} onQuickPrompt={(t) => onSend(t, [])} />
+        <MessageList messages={messages} isStreaming={isStreaming} onExtractArtifact={onExtractArtifact} onRegenerate={onRegenerate} onResume={onResume} onFork={onFork} onEdit={onEdit} onRecombine={onRecombine} onSpeak={onSpeak} onQuickPrompt={(t) => onSend(t, [])} onFeedback={onFeedback} />
         <InputArea
           onSend={onSend}
           onFanout={onFanout}

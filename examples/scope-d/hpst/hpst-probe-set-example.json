@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "0.1.0",
+  "probeSetId": "hpst-probe-set:schema-coverage-audit-001",
+  "basisRef": "hpst-basis:schema-coverage-audit-001",
+  "probes": [
+    {
+      "probeId": "probe-001",
+      "description": "Verify hpst-basis.schema.json contains executionAllowed: const false",
+      "expectedOutcome": "Property executionAllowed has const false and is listed in required array",
+      "evaluationClass": "pass"
+    },
+    {
+      "probeId": "probe-002",
+      "description": "Verify verifier-microtask.schema.json enumerates exactly the five permitted taskType values",
+      "expectedOutcome": "enum contains exactly: schema_validation, example_review, negative_fixture_check, coverage_gap_analysis, proof_audit",
+      "evaluationClass": "pass"
+    },
+    {
+      "probeId": "probe-003",
+      "description": "Score the quality of field descriptions across all schemas",
+      "expectedOutcome": "Each required field has a meaningful title or description; score >= 0.8",
+      "evaluationClass": "graded"
+    },
+    {
+      "probeId": "probe-004",
+      "description": "Check negative fixture agent-gradecard-no-evidence.invalid.json triggers minItems violation",
+      "expectedOutcome": "Validator reports minItems error on evidenceRefs path",
+      "evaluationClass": "pass"
+    }
+  ],
+  "version": "1.0.0",
+  "executionPerformed": false
+}

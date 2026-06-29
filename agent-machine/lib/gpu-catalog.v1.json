@@ -1,26 +1,72 @@
 {
   "version": "1",
-  "note": "CANONICAL cross-vendor compute/GPU catalog. Source of truth for noetica cloud-broker (TS) AND tritfabric gpu_broker (Py). Re-vendor (copy) into both on change. Prices = illustrative list USD/hr for ranking; swap a live billing adapter without changing shape.",
+  "note": "CANONICAL cross-vendor compute/GPU catalog. Source of truth for noetica cloud-broker (TS) AND tritfabric gpu_broker (Py). Re-vendor (copy) into both on change. Prices = illustrative list USD/hr for ranking; swap a live billing adapter without changing shape. Fields: jurisdiction = ISO country+region of the data center; irap = IRAP Protected assessed (AU); sovereign = AU/NZ-owned sovereign cloud; poa = price on application (usdPerHour is illustrative estimate only); tier = recommended adapter build priority (1=build now, 2=soon, 3=catalog+watch).",
   "skus": [
-    { "provider": "gcp",       "name": "a2-ultragpu-1g",     "region": "us-central1",  "vcpus": 12, "memGiB": 170, "gpu": { "type": "A100-80GB",   "count": 1, "memGiB": 80 }, "usdPerHour": 5.07,  "spotPerHour": 1.74 },
-    { "provider": "azure",     "name": "NC24ads_A100_v4",    "region": "eastus",       "vcpus": 24, "memGiB": 220, "gpu": { "type": "A100-80GB",   "count": 1, "memGiB": 80 }, "usdPerHour": 3.67,  "spotPerHour": 1.47 },
-    { "provider": "aws",       "name": "p4de.24xlarge/8",    "region": "us-east-1",    "vcpus": 12, "memGiB": 145, "gpu": { "type": "A100-80GB",   "count": 1, "memGiB": 80 }, "usdPerHour": 5.12,  "spotPerHour": 1.92 },
-    { "provider": "ibm",       "name": "gx3-24x120x1a100",   "region": "us-south",     "vcpus": 24, "memGiB": 120, "gpu": { "type": "A100-80GB",   "count": 1, "memGiB": 80 }, "usdPerHour": 4.39 },
-    { "provider": "gcp",       "name": "g2-standard-8",      "region": "us-central1",  "vcpus": 8,  "memGiB": 32,  "gpu": { "type": "L4",          "count": 1, "memGiB": 24 }, "usdPerHour": 0.85,  "spotPerHour": 0.28 },
-    { "provider": "aws",       "name": "g5.xlarge",          "region": "us-east-1",    "vcpus": 4,  "memGiB": 16,  "gpu": { "type": "A10G",        "count": 1, "memGiB": 24 }, "usdPerHour": 1.006, "spotPerHour": 0.40 },
-    { "provider": "azure",     "name": "NV36ads_A10_v5",     "region": "eastus",       "vcpus": 36, "memGiB": 440, "gpu": { "type": "A10",         "count": 1, "memGiB": 24 }, "usdPerHour": 3.20 },
-    { "provider": "gcp",       "name": "n2-standard-8",      "region": "us-central1",  "vcpus": 8,  "memGiB": 32,  "usdPerHour": 0.388, "spotPerHour": 0.094 },
-    { "provider": "aws",       "name": "m6i.2xlarge",        "region": "us-east-1",    "vcpus": 8,  "memGiB": 32,  "usdPerHour": 0.384, "spotPerHour": 0.13 },
-    { "provider": "azure",     "name": "D8s_v5",             "region": "eastus",       "vcpus": 8,  "memGiB": 32,  "usdPerHour": 0.384, "spotPerHour": 0.12 },
-    { "provider": "ibm",       "name": "bx2-8x32",           "region": "us-south",     "vcpus": 8,  "memGiB": 32,  "usdPerHour": 0.376 },
-    { "provider": "coreweave", "name": "H100-80GB",          "region": "us-east",      "vcpus": 26, "memGiB": 256, "gpu": { "type": "H100-80GB",   "count": 1, "memGiB": 80 }, "usdPerHour": 2.39,  "spotPerHour": 1.99, "neocloud": true },
-    { "provider": "nebius",    "name": "h100-1",             "region": "eu-north",     "vcpus": 20, "memGiB": 160, "gpu": { "type": "H100-80GB",   "count": 1, "memGiB": 80 }, "usdPerHour": 2.00,  "spotPerHour": 1.50, "neocloud": true },
-    { "provider": "lambda",    "name": "gpu_1x_h100_pcie",   "region": "us-west",      "vcpus": 26, "memGiB": 200, "gpu": { "type": "H100-80GB",   "count": 1, "memGiB": 80 }, "usdPerHour": 2.49,  "neocloud": true },
-    { "provider": "crusoe",    "name": "h100-80gb.1x",       "region": "us-midwest",   "vcpus": 24, "memGiB": 234, "gpu": { "type": "H100-80GB",   "count": 1, "memGiB": 80 }, "usdPerHour": 2.45,  "neocloud": true },
-    { "provider": "nebius",    "name": "l4-1",               "region": "eu-north",     "vcpus": 8,  "memGiB": 32,  "gpu": { "type": "L4",          "count": 1, "memGiB": 24 }, "usdPerHour": 0.55,  "spotPerHour": 0.30, "neocloud": true },
-    { "provider": "lambda",    "name": "gpu_1x_a10",         "region": "us-west",      "vcpus": 30, "memGiB": 200, "gpu": { "type": "A10",         "count": 1, "memGiB": 24 }, "usdPerHour": 0.75,  "neocloud": true },
-    { "provider": "alibaba",   "name": "gn-h100",            "region": "ap-southeast", "vcpus": 26, "memGiB": 200, "gpu": { "type": "H100-80GB",   "count": 1, "memGiB": 80 }, "usdPerHour": 2.20 },
-    { "provider": "huawei",    "name": "Ascend-910C",        "region": "ap/cn",        "vcpus": 24, "memGiB": 192, "gpu": { "type": "Ascend-910C", "count": 1, "memGiB": 64 }, "usdPerHour": 1.80, "nvidia": false },
-    { "provider": "local",     "name": "noetica-local",      "region": "on-device",    "vcpus": 12, "memGiB": 24,  "gpu": { "type": "metal",       "count": 1, "memGiB": 24 }, "usdPerHour": 0 }
+    {
+      "comment": "── US Hyperscalers ──────────────────────────────────────────────────────────────────────────────"
+    },
+    { "provider": "aws",       "name": "p5.48xlarge/8",       "region": "us-east-1",           "vcpus": 12, "memGiB": 192, "gpu": { "type": "H100-80GB-SXM", "count": 1, "memGiB": 80 }, "usdPerHour": 12.29, "spotPerHour": 4.91, "jurisdiction": ["US-VA"], "tier": 2 },
+    { "provider": "aws",       "name": "p5.48xlarge/8",       "region": "us-west-2",           "vcpus": 12, "memGiB": 192, "gpu": { "type": "H100-80GB-SXM", "count": 1, "memGiB": 80 }, "usdPerHour": 12.29, "spotPerHour": 4.91, "jurisdiction": ["US-OR"], "tier": 2 },
+    { "provider": "aws",       "name": "p4de.24xlarge/8",     "region": "us-east-1",           "vcpus": 12, "memGiB": 145, "gpu": { "type": "A100-80GB",      "count": 1, "memGiB": 80 }, "usdPerHour": 5.12,  "spotPerHour": 1.92, "jurisdiction": ["US-VA"], "tier": 2 },
+    { "provider": "gcp",       "name": "a3-highgpu-1g",       "region": "us-central1",         "vcpus": 26, "memGiB": 234, "gpu": { "type": "H100-80GB-SXM", "count": 1, "memGiB": 80 }, "usdPerHour": 12.50, "spotPerHour": 3.75, "jurisdiction": ["US-IA"], "tier": 2 },
+    { "provider": "gcp",       "name": "a2-ultragpu-1g",      "region": "us-central1",         "vcpus": 12, "memGiB": 170, "gpu": { "type": "A100-80GB",      "count": 1, "memGiB": 80 }, "usdPerHour": 5.07,  "spotPerHour": 1.74, "jurisdiction": ["US-IA"], "tier": 2 },
+    { "provider": "azure",     "name": "ND96isr_H100_v5",     "region": "eastus",       "vcpus": 12, "memGiB": 185, "gpu": { "type": "H100-80GB-SXM", "count": 1, "memGiB": 80 }, "usdPerHour": 14.27, "spotPerHour": 4.28, "jurisdiction": ["US-VA"], "tier": 2 },
+    { "provider": "azure",     "name": "NC24ads_A100_v4",     "region": "eastus",              "vcpus": 24, "memGiB": 220, "gpu": { "type": "A100-80GB",      "count": 1, "memGiB": 80 }, "usdPerHour": 3.67,  "spotPerHour": 1.47, "jurisdiction": ["US-VA"], "tier": 2 },
+    { "provider": "aws",       "name": "g5.xlarge",           "region": "us-east-1",           "vcpus": 4,  "memGiB": 16,  "gpu": { "type": "A10G",           "count": 1, "memGiB": 24 }, "usdPerHour": 1.006, "spotPerHour": 0.40, "jurisdiction": ["US-VA"], "tier": 2 },
+    { "provider": "gcp",       "name": "g2-standard-8",       "region": "us-central1",         "vcpus": 8,  "memGiB": 32,  "gpu": { "type": "L4",             "count": 1, "memGiB": 24 }, "usdPerHour": 0.85,  "spotPerHour": 0.28, "jurisdiction": ["US-IA"], "tier": 2 },
+    { "provider": "azure",     "name": "NV36ads_A10_v5",      "region": "eastus",              "vcpus": 36, "memGiB": 440, "gpu": { "type": "A10",            "count": 1, "memGiB": 24 }, "usdPerHour": 3.20,  "jurisdiction": ["US-VA"], "tier": 2 },
+    { "provider": "ibm",       "name": "gx3-24x120x1a100",   "region": "us-south",            "vcpus": 24, "memGiB": 120, "gpu": { "type": "A100-80GB",      "count": 1, "memGiB": 80 }, "usdPerHour": 4.39,  "jurisdiction": ["US-TX"], "tier": 3 },
+    {
+      "comment": "── US Hyperscalers — CPU/general ────────────────────────────────────────────────────────────"
+    },
+    { "provider": "gcp",       "name": "n2-standard-8",       "region": "us-central1",         "vcpus": 8,  "memGiB": 32,  "usdPerHour": 0.388, "spotPerHour": 0.094, "jurisdiction": ["US-IA"], "tier": 2 },
+    { "provider": "aws",       "name": "m6i.2xlarge",         "region": "us-east-1",           "vcpus": 8,  "memGiB": 32,  "usdPerHour": 0.384, "spotPerHour": 0.13,  "jurisdiction": ["US-VA"], "tier": 2 },
+    { "provider": "azure",     "name": "D8s_v5",              "region": "eastus",              "vcpus": 8,  "memGiB": 32,  "usdPerHour": 0.384, "spotPerHour": 0.12,  "jurisdiction": ["US-VA"], "tier": 2 },
+    { "provider": "ibm",       "name": "bx2-8x32",            "region": "us-south",            "vcpus": 8,  "memGiB": 32,  "usdPerHour": 0.376, "jurisdiction": ["US-TX"], "tier": 3 },
+    {
+      "comment": "── US Neoclouds ─────────────────────────────────────────────────────────────────────────────"
+    },
+    { "provider": "nebius",    "name": "h100-sxm-1",          "region": "us-east1",            "vcpus": 20, "memGiB": 160, "gpu": { "type": "H100-80GB-SXM", "count": 1, "memGiB": 80 }, "usdPerHour": 2.10,  "spotPerHour": 1.50, "neocloud": true, "jurisdiction": ["US-VA"], "tier": 1 },
+    { "provider": "nebius",    "name": "h100-sxm-1",          "region": "eu-north1",           "vcpus": 20, "memGiB": 160, "gpu": { "type": "H100-80GB-SXM", "count": 1, "memGiB": 80 }, "usdPerHour": 2.00,  "spotPerHour": 1.40, "neocloud": true, "jurisdiction": ["FI"],   "tier": 1 },
+    { "provider": "nebius",    "name": "h100-nvl-1",          "region": "us-east1",            "vcpus": 20, "memGiB": 160, "gpu": { "type": "H100-80GB-NVL", "count": 1, "memGiB": 80 }, "usdPerHour": 2.05,  "spotPerHour": 1.44, "neocloud": true, "jurisdiction": ["US-VA"], "tier": 1 },
+    { "provider": "nebius",    "name": "l4-1",                "region": "eu-north1",           "vcpus": 8,  "memGiB": 32,  "gpu": { "type": "L4",             "count": 1, "memGiB": 24 }, "usdPerHour": 0.55,  "spotPerHour": 0.30, "neocloud": true, "jurisdiction": ["FI"],   "tier": 1 },
+    { "provider": "coreweave", "name": "H100-80GB-SXM",       "region": "us-east",             "vcpus": 26, "memGiB": 256, "gpu": { "type": "H100-80GB-SXM", "count": 1, "memGiB": 80 }, "usdPerHour": 2.39,  "spotPerHour": 1.99, "neocloud": true, "jurisdiction": ["US-NJ"], "tier": 1 },
+    { "provider": "coreweave", "name": "H100-80GB-SXM",       "region": "us-west",             "vcpus": 26, "memGiB": 256, "gpu": { "type": "H100-80GB-SXM", "count": 1, "memGiB": 80 }, "usdPerHour": 2.39,  "spotPerHour": 1.99, "neocloud": true, "jurisdiction": ["US-NV"], "tier": 1 },
+    { "provider": "lambda",    "name": "gpu_1x_h100_sxm",     "region": "us-west-2",           "vcpus": 26, "memGiB": 200, "gpu": { "type": "H100-80GB-SXM", "count": 1, "memGiB": 80 }, "usdPerHour": 2.49,  "neocloud": true, "jurisdiction": ["US-OR"], "tier": 2 },
+    { "provider": "lambda",    "name": "gpu_1x_h100_sxm",     "region": "us-east-1",           "vcpus": 26, "memGiB": 200, "gpu": { "type": "H100-80GB-SXM", "count": 1, "memGiB": 80 }, "usdPerHour": 2.49,  "neocloud": true, "jurisdiction": ["US-TX"], "tier": 2 },
+    { "provider": "lambda",    "name": "gpu_1x_a10",          "region": "us-west",             "vcpus": 30, "memGiB": 200, "gpu": { "type": "A10",            "count": 1, "memGiB": 24 }, "usdPerHour": 0.75,  "neocloud": true, "jurisdiction": ["US-OR"], "tier": 2 },
+    { "provider": "crusoe",    "name": "h100-80gb-sxm.1x",   "region": "us-central-1",        "vcpus": 24, "memGiB": 234, "gpu": { "type": "H100-80GB-SXM", "count": 1, "memGiB": 80 }, "usdPerHour": 2.15,  "spotPerHour": 1.72, "neocloud": true, "jurisdiction": ["US-ND"], "tier": 2 },
+    { "provider": "vastai",    "name": "H100-SXM-marketplace","region": "global",              "vcpus": 16, "memGiB": 128, "gpu": { "type": "H100-80GB-SXM", "count": 1, "memGiB": 80 }, "usdPerHour": 1.75,  "neocloud": true, "jurisdiction": ["global"], "tier": 3, "note": "marketplace — variable hardware, no data-residency guarantee; dev/prototype only" },
+    { "provider": "runpod",    "name": "H100-SXM-secure",     "region": "US",                  "vcpus": 16, "memGiB": 128, "gpu": { "type": "H100-80GB-SXM", "count": 1, "memGiB": 80 }, "usdPerHour": 2.29,  "neocloud": true, "jurisdiction": ["US"],    "tier": 3, "note": "secure-cloud tier; not suitable for sovereign workloads" },
+    {
+      "comment": "── AU — Hyperscalers (Sydney + Melbourne, IRAP-assessed) ──────────────────────────────────────"
+    },
+    { "provider": "aws",       "name": "p5.48xlarge/8",       "region": "ap-southeast-2",      "vcpus": 12, "memGiB": 192, "gpu": { "type": "H100-80GB-SXM", "count": 1, "memGiB": 80 }, "usdPerHour": 12.50, "spotPerHour": 5.00, "jurisdiction": ["AU-NSW"], "irap": true, "tier": 1 },
+    { "provider": "aws",       "name": "p5.48xlarge/8",       "region": "ap-southeast-4",      "vcpus": 12, "memGiB": 192, "gpu": { "type": "H100-80GB-SXM", "count": 1, "memGiB": 80 }, "usdPerHour": 12.50, "spotPerHour": 5.00, "jurisdiction": ["AU-VIC"], "irap": true, "tier": 1 },
+    { "provider": "azure",     "name": "ND96isr_H100_v5",     "region": "australiaeast","vcpus": 12, "memGiB": 185, "gpu": { "type": "H100-80GB-SXM", "count": 1, "memGiB": 80 }, "usdPerHour": 14.27, "spotPerHour": 4.28, "jurisdiction": ["AU-NSW"], "irap": true, "tier": 2 },
+    { "provider": "gcp",       "name": "a3-highgpu-1g",       "region": "australia-southeast1","vcpus": 26, "memGiB": 234, "gpu": { "type": "H100-80GB-SXM", "count": 1, "memGiB": 80 }, "usdPerHour": 12.49, "spotPerHour": 3.75, "jurisdiction": ["AU-NSW"], "irap": true, "tier": 2 },
+    { "provider": "aws",       "name": "g5.xlarge",           "region": "ap-southeast-2",      "vcpus": 4,  "memGiB": 16,  "gpu": { "type": "A10G",           "count": 1, "memGiB": 24 }, "usdPerHour": 1.20,  "spotPerHour": 0.48, "jurisdiction": ["AU-NSW"], "irap": true, "tier": 1 },
+    {
+      "comment": "── AU — Sovereign neoclouds ─────────────────────────────────────────────────────────────────"
+    },
+    { "provider": "micron21",  "name": "H100-SXM-sovereign",  "region": "au-vic",              "vcpus": 24, "memGiB": 192, "gpu": { "type": "H100-80GB-SXM", "count": 1, "memGiB": 80 }, "usdPerHour": 6.50,  "neocloud": true, "irap": true, "sovereign": true, "poa": true, "jurisdiction": ["AU-VIC"], "tier": 1, "note": "Micron21 mCloud — IRAP-assessed AU-sovereign GPU. Price illustrative (POA). Contact: solutions@micron21.com" },
+    { "provider": "micron21",  "name": "H200-SXM-sovereign",  "region": "au-vic",              "vcpus": 24, "memGiB": 192, "gpu": { "type": "H200-141GB-SXM", "count": 1, "memGiB": 141}, "usdPerHour": 9.00,  "neocloud": true, "irap": true, "sovereign": true, "poa": true, "jurisdiction": ["AU-VIC"], "tier": 1, "note": "Micron21 mCloud H200 — price illustrative (POA). Contact: solutions@micron21.com" },
+    { "provider": "micron21",  "name": "A100-sovereign",      "region": "au-nsw",              "vcpus": 24, "memGiB": 192, "gpu": { "type": "A100-80GB",      "count": 1, "memGiB": 80 }, "usdPerHour": 4.50,  "neocloud": true, "irap": true, "sovereign": true, "poa": true, "jurisdiction": ["AU-NSW"], "tier": 1, "note": "Micron21 mCloud A100 — price illustrative (POA). Contact: solutions@micron21.com" },
+    { "provider": "firmus",    "name": "GB300-NVL-cluster",   "region": "au-vic",              "vcpus": 72, "memGiB": 384, "gpu": { "type": "GB300-NVL",      "count": 1, "memGiB": 192}, "usdPerHour": 15.00, "neocloud": true, "sovereign": true, "poa": true, "jurisdiction": ["AU-VIC"], "tier": 2, "note": "Firmus Project Southgate — GB300 Grace Blackwell. Targeting online 2026-H1. Price illustrative (POA). Contact: info@firmus.co — negotiate early-access now." },
+    {
+      "comment": "── NZ ───────────────────────────────────────────────────────────────────────────────────────"
+    },
+    { "provider": "aws",       "name": "p5.48xlarge/8",       "region": "ap-southeast-6",      "vcpus": 12, "memGiB": 192, "gpu": { "type": "H100-80GB-SXM", "count": 1, "memGiB": 80 }, "usdPerHour": 12.80, "jurisdiction": ["NZ-AKL"], "tier": 2, "note": "AWS NZ region (launched Sept 2025). GPU instance availability TBC — verify in EC2 console. Same SDK as AU/US adapters." },
+    { "provider": "catalyst",  "name": "gpu-compute-nz",      "region": "nz-wlg",              "vcpus": 16, "memGiB": 64,  "gpu": { "type": "unknown-sovereign","count": 1, "memGiB": 0 }, "usdPerHour": 3.50,  "sovereign": true, "poa": true, "jurisdiction": ["NZ-WLG"], "tier": 2, "note": "Catalyst Cloud — NZ-sovereign K8s GPU. Model/pricing TBC. Contact: cloud@catalyst.net.nz. All-of-Government framework agreement in NZ." },
+    { "provider": "datacom",   "name": "gpu-sovereign-nz",    "region": "nz-akl",              "vcpus": 16, "memGiB": 64,  "gpu": { "type": "unknown-sovereign","count": 1, "memGiB": 0 }, "usdPerHour": 4.00,  "sovereign": true, "poa": true, "jurisdiction": ["NZ-AKL"], "tier": 2, "note": "Datacom sovereign NZ GPU infra. Model/pricing TBC. Contact: cloud@datacom.com. Channel-partner conversation before adapter build." },
+    {
+      "comment": "── Asian/Other hyperscalers (multi-polar coverage) ─────────────────────────────────────────"
+    },
+    { "provider": "alibaba",   "name": "gn-h100",             "region": "ap-southeast-1",      "vcpus": 26, "memGiB": 200, "gpu": { "type": "H100-80GB",      "count": 1, "memGiB": 80 }, "usdPerHour": 2.20,  "jurisdiction": ["SG"], "tier": 3 },
+    { "provider": "huawei",    "name": "Ascend-910C",          "region": "ap-southeast-3",      "vcpus": 24, "memGiB": 192, "gpu": { "type": "Ascend-910C",    "count": 1, "memGiB": 64 }, "usdPerHour": 1.80,  "nvidia": false, "jurisdiction": ["CN-GZ"], "tier": 3 },
+    {
+      "comment": "── On-device ─────────────────────────────────────────────────────────────────────────────────"
+    },
+    { "provider": "local",     "name": "noetica-local",        "region": "on-device",           "vcpus": 12, "memGiB": 24,  "gpu": { "type": "metal",          "count": 1, "memGiB": 24 }, "usdPerHour": 0, "jurisdiction": ["local"] }
   ]
 }

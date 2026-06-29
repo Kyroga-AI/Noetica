@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "0.1.0",
+  "summaryId": "dynamic-engagement-summary:wargame-phase3-session-04",
+  "engagementMode": "wargame-phase3-governed",
+  "authorizationRef": "authorization:wargame-phase3-scope-d-001",
+  "actionRefs": [
+    "engagement-action:wargame-phase3-tabletop-001",
+    "engagement-action:wargame-phase3-correlate-002",
+    "engagement-action:wargame-phase3-report-003"
+  ],
+  "findingRefs": [
+    "finding:lateral-movement-containment-gap-001",
+    "finding:cross-tenant-correlate-boundary-002"
+  ],
+  "proofRefs": [
+    "proof:wargame-phase3-session-04-transcript",
+    "proof:wargame-phase3-session-04-attestation"
+  ],
+  "approvedBy": ["Michael Heller", "SocioProphet Governance Board"],
+  "closedAt": "2026-06-28T18:00:00Z",
+  "executionPerformed": false
+}

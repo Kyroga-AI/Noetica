@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.org/schemas/whisper-config.schema.json",
+  "title": "Whisper Agent Configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "configId",
+    "mode",
+    "targetScope",
+    "allowedPolicyClasses",
+    "prohibitedActions",
+    "authorizationRef",
+    "rollbackPlanRef",
+    "executionAllowed",
+    "executionPerformed"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "configId": {
+      "type": "string",
+      "pattern": "^whisper-config:[a-z0-9-]+$"
+    },
+    "mode": {
+      "type": "string",
+      "enum": [
+        "observe",
+        "diff",
+        "apply"
+      ]
+    },
+    "targetScope": {
+      "type": "string"
+    },
+    "allowedPolicyClasses": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "prohibitedActions": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      },
+      "contains": {
+        "enum": [
+          "credential_collection",
+          "destructive_action",
+          "unauthorized_mutation"
+        ]
+      }
+    },
+    "authorizationRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "rollbackPlanRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "executionAllowed": {
+      "type": "boolean",
+      "const": false
+    },
+    "executionPerformed": {
+      "type": "boolean",
+      "const": false
+    }
+  }
+}

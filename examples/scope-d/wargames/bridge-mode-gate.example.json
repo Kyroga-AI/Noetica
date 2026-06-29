@@ -1,0 +1,15 @@
+{
+  "schemaVersion": "0.1.0",
+  "gateId": "gate:bridge-mode-orion-mesh-2026-06-28",
+  "bridgeModeId": "bridge-mode:orion-scope-d-mesh-v1",
+  "redactionState": "redacted",
+  "proofRefs": [
+    "proof:orion-mesh-bridge-tabletop-2026-06-20",
+    "proof:orion-mesh-data-classification-2026-06-22"
+  ],
+  "approvedBy": ["Michael Heller", "SocioProphet Security Review Panel"],
+  "approvalStatus": "approved",
+  "tenantScope": "tenant:socioprophet-internal",
+  "executionAllowed": false,
+  "executionPerformed": false
+}

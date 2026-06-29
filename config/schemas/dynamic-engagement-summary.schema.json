@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.org/schemas/dynamic-engagement-summary.schema.json",
+  "title": "Dynamic Engagement Summary",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "summaryId",
+    "engagementMode",
+    "authorizationRef",
+    "actionRefs",
+    "findingRefs",
+    "proofRefs",
+    "approvedBy",
+    "closedAt",
+    "executionPerformed"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "summaryId": {
+      "type": "string",
+      "pattern": "^dynamic-engagement-summary:[a-z0-9-]+$"
+    },
+    "engagementMode": {
+      "type": "string"
+    },
+    "authorizationRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "actionRefs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "findingRefs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "proofRefs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "approvedBy": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "closedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "executionPerformed": {
+      "type": "boolean",
+      "const": false
+    }
+  }
+}

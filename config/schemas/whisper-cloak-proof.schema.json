@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.org/schemas/whisper-cloak-proof.schema.json",
+  "title": "Whisper Cloak Proof",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "proofId",
+    "sessionRef",
+    "observationCount",
+    "redactionVerified",
+    "unauthorizedDisclosure",
+    "proofRefs",
+    "completedAt",
+    "executionPerformed"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "proofId": {
+      "type": "string",
+      "pattern": "^whisper-cloak-proof:[a-z0-9-]+$"
+    },
+    "sessionRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "observationCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "redactionVerified": {
+      "type": "boolean"
+    },
+    "unauthorizedDisclosure": {
+      "type": "boolean",
+      "const": false
+    },
+    "proofRefs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "executionPerformed": {
+      "type": "boolean",
+      "const": false
+    }
+  }
+}

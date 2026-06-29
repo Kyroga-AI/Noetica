@@ -1,0 +1,33 @@
+{
+  "schemaVersion": "0.1.0",
+  "diffId": "whisper-policy-diff:phase7-egress-001",
+  "targetRef": "policy:scope-d:egress-control:prod",
+  "beforeStateHash": "a3f1c2e4b5d6789012345678901234567890abcdef1234567890abcdef123456",
+  "afterStateHash": "b4e2d3f5c6e7890123456789012345678901bcdef2345678901bcdef23456789",
+  "diffEntries": [
+    {
+      "field": "allowedEgressTargets",
+      "before": [
+        "internal-mesh"
+      ],
+      "after": [
+        "internal-mesh",
+        "scope-d-broker"
+      ],
+      "changeType": "modified"
+    },
+    {
+      "field": "maxRetentionDays",
+      "before": 30,
+      "after": 30,
+      "changeType": "unchanged"
+    }
+  ],
+  "authorizationRef": "auth:wargame-phase7-policy-diff-001",
+  "rollbackPlanRef": "rollback:wargame-phase7-egress-001",
+  "approvedBy": [
+    "Michael Heller"
+  ],
+  "executionPerformed": false,
+  "applied": false
+}

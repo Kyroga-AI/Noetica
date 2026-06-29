@@ -1,0 +1,17 @@
+{
+  "schemaVersion": "0.1.0",
+  "configId": "whisper-config:apply-no-auth-invalid",
+  "mode": "apply",
+  "targetScope": "scope-d:engagement-policy:prod",
+  "allowedPolicyClasses": [
+    "engagement-policy"
+  ],
+  "prohibitedActions": [
+    "credential_collection",
+    "destructive_action",
+    "unauthorized_mutation"
+  ],
+  "rollbackPlanRef": "rollback:some-plan-001",
+  "executionAllowed": false,
+  "executionPerformed": false
+}

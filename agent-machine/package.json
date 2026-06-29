@@ -20,7 +20,10 @@
     "bootstrap": "node --import tsx scripts/bootstrap.ts",
     "start:managed-ollama": "node --import tsx scripts/managed-ollama.ts",
     "verify:offline": "tsx scripts/verify-offline.mts",
-    "verify:audit": "tsx scripts/verify-audit.mts"
+    "verify:audit": "tsx scripts/verify-audit.mts",
+    "broker:start": "node dist/lib/sovereign-broker-main.js",
+    "broker:dev": "tsx lib/sovereign-broker-main.ts",
+    "broker:build": "esbuild lib/sovereign-broker-main.ts --bundle --platform=node --target=node18 --outfile=dist/lib/sovereign-broker-main.js --external:node:*"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",

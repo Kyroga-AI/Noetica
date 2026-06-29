@@ -10,3 +10,12 @@
 # Install on PEP-668 (Homebrew/Debian) systems: add --break-system-packages, or use a venv.
 sympy==1.14.0
 numpy
+
+# Used by the corpus/benchmark/induction scripts under agent-machine/scripts/ (not the pre-push gate, but
+# undeclared deps here are the same trap sympy was — declare so a fresh box / CI provisions cleanly).
+scipy            # symbolic/numeric helpers (model_solve, chain_solve, units)
+scikit-learn     # clustering + RF meta over corpus vectors (cluster_analysis, rf_meta, domain_softmax)
+pypdf            # PDF text extraction (extract_pdfs, marker-extract)
+jsonschema       # artifact/proof validation (validate_proof_artifact)
+gplearn          # symbolic regression (symreg) — optional; only the symreg script needs it
+

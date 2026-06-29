@@ -5,6 +5,8 @@ import type { GrantResolutionRefs, NoeticaTaskStatus } from '@/lib/types/task'
 export interface GovernanceTrace {
   run_id: string
   model_routed: string
+  /** Why the router chose this model — from router.ts rationale field */
+  model_route_reason?: string
   provider: string
   model_overridden?: boolean
   policy_admitted: boolean

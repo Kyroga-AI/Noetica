@@ -1,0 +1,61 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.org/schemas/verifier-microtask.schema.json",
+  "title": "Verifier Microtask",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "microtaskId",
+    "taskType",
+    "targetRef",
+    "instructions",
+    "unsafeActionsProhibited",
+    "executionAllowed",
+    "assignedTo",
+    "status"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "0.1.0"
+    },
+    "microtaskId": {
+      "type": "string",
+      "pattern": "^verifier-microtask:[a-z0-9-]+$"
+    },
+    "taskType": {
+      "type": "string",
+      "enum": [
+        "schema_validation",
+        "example_review",
+        "negative_fixture_check",
+        "coverage_gap_analysis",
+        "proof_audit"
+      ]
+    },
+    "targetRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "instructions": {
+      "type": "string"
+    },
+    "unsafeActionsProhibited": {
+      "const": true
+    },
+    "executionAllowed": {
+      "const": false
+    },
+    "assignedTo": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["pending", "in_progress", "complete", "rejected"]
+    },
+    "completedAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}

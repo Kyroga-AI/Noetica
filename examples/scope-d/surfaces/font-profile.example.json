@@ -1,0 +1,11 @@
+{
+  "schemaVersion": "0.1.0",
+  "profileId": "font-profile:sp-web-001",
+  "targetRef": "target:socioprophet-web-frontend",
+  "installedFamilies": ["Inter", "Arial", "Helvetica", "Times New Roman", "Courier New"],
+  "renderingEngine": "Blink/Chrome 126",
+  "fingerprintRisk": "medium",
+  "observationRefs": ["font-observation:sp-web-001"],
+  "proofRefs": [],
+  "executionPerformed": false
+}

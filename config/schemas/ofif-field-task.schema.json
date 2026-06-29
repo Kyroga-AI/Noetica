@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.org/schemas/ofif-field-task.schema.json",
+  "title": "OFIF Field Task",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "taskId",
+    "clientScope",
+    "tenantScope",
+    "findingRef",
+    "owner",
+    "recommendedAction",
+    "status",
+    "verificationEvidenceRefs",
+    "proofRefs",
+    "authorizationRef",
+    "executionPerformed",
+    "executionAllowed"
+  ],
+  "properties": {
+    "schemaVersion": { "type": "string", "const": "0.1.0" },
+    "taskId": {
+      "type": "string",
+      "pattern": "^ofif-task:[a-z0-9-]+$"
+    },
+    "clientScope": { "type": "string" },
+    "tenantScope": { "type": "string" },
+    "findingRef": { "type": "string", "minLength": 1 },
+    "owner": { "type": "string" },
+    "recommendedAction": { "type": "string" },
+    "status": {
+      "type": "string",
+      "enum": ["proposed", "accepted", "in_progress", "verified", "deferred"]
+    },
+    "verificationEvidenceRefs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "proofRefs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "authorizationRef": { "type": "string", "minLength": 1 },
+    "executionPerformed": { "type": "boolean", "const": false },
+    "executionAllowed": { "type": "boolean", "const": false }
+  }
+}

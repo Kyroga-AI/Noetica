@@ -1,0 +1,14 @@
+{
+  "schemaVersion": "0.1.0",
+  "gateId": "gate:bridge-mode-invalid-execution-001",
+  "bridgeModeId": "bridge-mode:orion-scope-d-mesh-v1",
+  "redactionState": "raw",
+  "proofRefs": [
+    "proof:orion-mesh-bridge-tabletop-2026-06-20"
+  ],
+  "approvedBy": ["Michael Heller"],
+  "approvalStatus": "proposed",
+  "tenantScope": "tenant:socioprophet-internal",
+  "executionAllowed": true,
+  "executionPerformed": false
+}

@@ -14,7 +14,7 @@ import { NoeticaMark } from '@/components/brand/NoeticaMark'
 import { BuildCard } from '@/components/chat/BuildCard'
 import { ChartView } from '@/components/chat/ChartView'
 import { SteeringDiff } from '@/components/steering/SteeringDiff'
-import type { ChatMessage, ToolCallRecord, ToolResultRecord } from '@/lib/types/message'
+import type { ChatMessage, ToolCallRecord, ToolResultRecord, CriticVerdict } from '@/lib/types/message'
 import type { PendingAttachment } from '@/lib/types/attachment'
 import { useSettings } from '@/lib/settings/context'
 
@@ -136,15 +136,51 @@ function ToolCallCard({ call, result }: { call: ToolCallRecord; result?: ToolRes
 }
 
 function ToolCallList({ calls, results }: { calls: ToolCallRecord[]; results?: ToolResultRecord[] }) {
+  const errors = calls
+    .map((call) => ({ call, result: results?.find((r) => r.id === call.id) }))
+    .filter(({ result }) => result?.result.startsWith('Error:'))
   return (
-    <div className="my-2">
-      {calls.map((call) => (
-        <ToolCallCard
-          key={call.id}
-          call={call}
-          result={results?.find((r) => r.id === call.id)}
-        />
-      ))}
+    <>
+      {errors.length > 0 && (
+        <div className="mb-2 space-y-1">
+          {errors.map(({ call, result }) => (
+            <div key={call.id} className="flex items-start gap-2 rounded-lg border border-[#fca5a5] bg-[#fef2f2] px-2.5 py-1.5 text-[11px] text-[#b91c1c]">
+              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="mt-0.5 shrink-0" aria-hidden>
+                <circle cx="6" cy="6" r="5" stroke="currentColor" strokeWidth="1.4"/>
+                <path d="M6 4v2.5M6 8h.01" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
+              </svg>
+              <span><span className="font-semibold font-mono">{call.name}</span> — {result?.result.slice('Error:'.length).trim().slice(0, 160)}</span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div className="my-2">
+        {calls.map((call) => (
+          <ToolCallCard
+            key={call.id}
+            call={call}
+            result={results?.find((r) => r.id === call.id)}
+          />
+        ))}
+      </div>
+    </>
+  )
+}
+
+const CRITIC_META: Record<string, { label: string; color: string; bg: string; border: string }> = {
+  accept:   { label: 'Verified',  color: '#15803d', bg: '#f0fdf4', border: '#86efac' },
+  escalate: { label: 'Escalated', color: '#b45309', bg: '#fffbeb', border: '#fcd34d' },
+  clarify:  { label: 'Needs clarification', color: '#1d4ed8', bg: '#eff6ff', border: '#93c5fd' },
+}
+
+function CriticBadge({ critic }: { critic: CriticVerdict }) {
+  const m = CRITIC_META[critic.action] ?? CRITIC_META.accept!
+  if (critic.action === 'accept') return null   // accepted = normal flow; only surface notable gates
+  return (
+    <div className="mb-2 flex items-start gap-2 rounded-lg border px-2.5 py-1.5 text-[11px]"
+      style={{ borderColor: m.border, background: m.bg, color: m.color }}>
+      <span className="shrink-0 font-semibold">{m.label}</span>
+      <span className="text-[var(--color-text-secondary)]">{critic.reason}</span>
     </div>
   )
 }
@@ -298,13 +334,15 @@ type MessageBubbleProps = {
   onEdit?: (messageId: string, newContent: string) => void
   onSpeak?: (content: string) => void
   onQuickPrompt?: (text: string) => void
+  onFeedback?: (messageId: string, rating: 'up' | 'down') => void
 }
 
-export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onSpeak, onQuickPrompt }: MessageBubbleProps) {
+export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onSpeak, onQuickPrompt, onFeedback }: MessageBubbleProps) {
   const isUser = message.role === 'user'
   const [extracted, setExtracted] = useState(false)
   const [copied, setCopied] = useState(false)
   const [editing, setEditing] = useState(false)
+  const [feedbackGiven, setFeedbackGiven] = useState<'up' | 'down' | null>(null)
   const [editContent, setEditContent] = useState(message.content)
   const editRef = useRef<HTMLTextAreaElement>(null)
 
@@ -419,6 +457,11 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
         {/* Live todo checklist (streamed plan + step updates) */}
         {message.plan && <PlanChecklist plan={message.plan} />}
 
+        {/* Critic gate — escalate/clarify shown above content; accept is silent */}
+        {message.deliberation?.critic && (
+          <CriticBadge critic={message.deliberation.critic} />
+        )}
+
         {/* Tool calls */}
         {message.tool_calls && message.tool_calls.length > 0 && (
           <ToolCallList calls={message.tool_calls} results={message.tool_results} />
@@ -523,6 +566,28 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
                 Speak
               </button>
             )}
+            {onFeedback && (
+              <span className="ml-1 flex items-center gap-0.5 border-l border-[var(--color-border-tertiary)] pl-2">
+                <button
+                  onClick={() => { setFeedbackGiven('up'); onFeedback(message.id, 'up') }}
+                  title="Good answer"
+                  className={`rounded p-1 text-[11px] transition ${feedbackGiven === 'up' ? 'text-[#16a34a]' : 'text-[var(--color-text-tertiary)] hover:text-[#16a34a]'}`}
+                >
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden>
+                    <path d="M5.5 1.5l1.3 3H10l-2.6 1.9 1 3L5.5 7.6 3.1 9.4l1-3L1.5 4.5h3.2L5.5 1.5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" fill={feedbackGiven === 'up' ? 'currentColor' : 'none'}/>
+                  </svg>
+                </button>
+                <button
+                  onClick={() => { setFeedbackGiven('down'); onFeedback(message.id, 'down') }}
+                  title="Poor answer"
+                  className={`rounded p-1 text-[11px] transition ${feedbackGiven === 'down' ? 'text-[#dc2626]' : 'text-[var(--color-text-tertiary)] hover:text-[#dc2626]'}`}
+                >
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden>
+                    <path d="M2 2h1.5v5H2V2zM5.5 2h.5l2 3.5L6.5 9H4l1-3H3.5L5.5 2z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" fill={feedbackGiven === 'down' ? 'currentColor' : 'none'}/>
+                  </svg>
+                </button>
+              </span>
+            )}
           </div>
         )}
 
@@ -540,9 +605,12 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
               )
             })()}
             {message.governance.model_routed && (
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1" title={message.governance.model_route_reason || undefined}>
                 <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#22c55e]" />
                 {message.governance.model_routed}
+                {message.governance.model_route_reason && (
+                  <span className="text-[var(--color-text-tertiary)]" aria-hidden>ⓘ</span>
+                )}
               </span>
             )}
             {message.governance.method && (() => {
@@ -598,6 +666,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
         {/* One disclosure for all the governance / trace depth — keeps the thread clean. */}
         {message.content && (
           (message.deliberation && message.deliberation.candidates.length > 1) ||
+          message.discipline ||
           message.value_judgment ||
           (message.retrieval_trace && (message.retrieval_trace.sources.length > 0 || message.retrieval_trace.beliefs_injected > 0 || (message.retrieval_trace.memory_sources?.length ?? 0) > 0 || (message.retrieval_trace.episode_sources?.length ?? 0) > 0)) ||
           (message.grounding && (!!message.grounding.domain || message.grounding.topics.length > 0 || message.grounding.terms.length > 0)) ||
@@ -617,6 +686,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
               <span className="font-medium">Trace</span>
               <span className="text-[10px] text-[var(--color-text-tertiary)]">
                 {message.value_judgment ? message.value_judgment.verdict : ''}
+                {message.discipline ? ` · ${message.discipline.posture}` : ''}
                 {message.retrieval_trace && message.retrieval_trace.sources.length > 0 ? ` · ${message.retrieval_trace.sources.length} atom${message.retrieval_trace.sources.length === 1 ? '' : 's'}` : ''}
               </span>
             </summary>
@@ -712,17 +782,66 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
               )}
               {/* Deliberation */}
               {message.deliberation && message.deliberation.candidates.length > 1 && (
-                <div className="space-y-1">
-                  <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">Deliberation · best of {message.deliberation.candidates.length}</div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">Deliberation · best of {message.deliberation.candidates.length}</span>
+                    {message.deliberation.critic && (
+                      <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${
+                        message.deliberation.critic.action === 'accept' ? 'bg-[#f0fdf4] text-[#15803d]' :
+                        message.deliberation.critic.action === 'escalate' ? 'bg-[#fffbeb] text-[#b45309]' :
+                        'bg-[#eff6ff] text-[#1d4ed8]'
+                      }`}>{message.deliberation.critic.action}</span>
+                    )}
+                    {message.deliberation.critic && (
+                      <span className="text-[10px] text-[var(--color-text-tertiary)]">agreement {(message.deliberation.critic.agreement * 100).toFixed(0)}%</span>
+                    )}
+                  </div>
+                  {message.deliberation.critic?.reason && (
+                    <p className="text-[10px] italic text-[var(--color-text-tertiary)]">{message.deliberation.critic.reason}</p>
+                  )}
                   {message.deliberation.candidates.map((c) => (
                     <div key={c.rank} className={`flex items-center gap-2 rounded-lg px-2 py-1 ${c.rank === message.deliberation!.selected_rank ? 'bg-[rgba(37,99,235,0.1)]' : ''}`}>
-                      <span className="w-10 text-[10px] text-[var(--color-text-tertiary)]">{c.rank === message.deliberation!.selected_rank ? '✓ best' : `#${c.rank + 1}`}</span>
+                      <span className="w-10 shrink-0 text-[10px] text-[var(--color-text-tertiary)]">{c.rank === message.deliberation!.selected_rank ? '✓ best' : `#${c.rank + 1}`}</span>
                       <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
                         <div className="h-full rounded-full bg-[#2563eb]" style={{ width: `${Math.max(4, c.worth * 100)}%` }} />
                       </div>
-                      <span className="w-24 text-right tabular-nums text-[var(--color-text-tertiary)]">worth {(c.worth * 100).toFixed(0)}% · T{c.temperature}</span>
+                      <span className="shrink-0 tabular-nums text-[10px] text-[var(--color-text-tertiary)]">
+                        {(c.worth * 100).toFixed(0)}%{c.label ? ` · ${c.label.replace('esc:', '↑')}` : ` · T${c.temperature}`}
+                      </span>
                     </div>
                   ))}
+                </div>
+              )}
+              {/* Complexity discipline — posture/strategy/barriers for this turn */}
+              {message.discipline && (
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+                    <span className="font-medium uppercase tracking-wide text-[var(--color-text-secondary)]">Discipline</span>
+                    <span className="rounded-full bg-[var(--color-background-tertiary)] px-1.5 py-0.5 text-[var(--color-text-secondary)]">{message.discipline.posture}</span>
+                    {message.discipline.strategy && (
+                      <span className="text-[var(--color-text-tertiary)]">→ {message.discipline.strategy}</span>
+                    )}
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 font-semibold ${
+                        message.discipline.calibrated_confidence >= 0.7 ? 'bg-[#f0fdf4] text-[#15803d]' :
+                        message.discipline.calibrated_confidence < 0.3 ? 'bg-[#fef2f2] text-[#b91c1c]' :
+                        'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]'
+                      }`}
+                      title="Calibrated confidence — high = code-verified/grounded; low = speculative/barriers"
+                    >
+                      conf {(message.discipline.calibrated_confidence * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                  {message.discipline.barriers && message.discipline.barriers.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {message.discipline.barriers.map((b, i) => (
+                        <span key={i} className="rounded-full border border-[#fca5a5] bg-[#fef2f2] px-1.5 py-0.5 text-[9px] text-[#b91c1c]">{b}</span>
+                      ))}
+                    </div>
+                  )}
+                  {message.discipline.non_claims && message.discipline.non_claims.length > 0 && (
+                    <div className="text-[10px] italic text-[var(--color-text-tertiary)]">Non-claims: {message.discipline.non_claims.slice(0, 3).join(' · ')}</div>
+                  )}
                 </div>
               )}
               {message.steering_result ? <SteeringDiff result={message.steering_result} /> : null}

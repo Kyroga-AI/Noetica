@@ -1,0 +1,12 @@
+{
+  "schemaVersion": "0.1.0",
+  "proofId": "font-swap-proof:invalid-live-001",
+  "targetRef": "target:socioprophet-web-frontend",
+  "replacedFont": "CustomBrandFont",
+  "substituteFont": "Inter",
+  "syntheticOnly": false,
+  "rollbackVerified": false,
+  "proofRefs": [],
+  "approvedBy": ["Michael Heller"],
+  "executionPerformed": false
+}

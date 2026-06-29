@@ -1,0 +1,22 @@
+{
+  "schemaVersion": "0.1.0",
+  "configId": "whisper-config:observe-session-001",
+  "mode": "observe",
+  "targetScope": "scope-d:engagement-policy:prod",
+  "allowedPolicyClasses": [
+    "engagement-policy",
+    "event-ir",
+    "access-control"
+  ],
+  "prohibitedActions": [
+    "credential_collection",
+    "destructive_action",
+    "unauthorized_mutation",
+    "exfiltration",
+    "lateral_movement"
+  ],
+  "authorizationRef": "auth:wargame-phase7-whisper-observe-001",
+  "rollbackPlanRef": "rollback:wargame-phase7-whisper-001",
+  "executionAllowed": false,
+  "executionPerformed": false
+}

@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.org/schemas/agent-gradecard.schema.json",
+  "title": "Agent Gradecard",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "gradecardId",
+    "agentRef",
+    "basisRef",
+    "probeSetRef",
+    "scores",
+    "overallScore",
+    "evidenceRefs",
+    "gradedBy",
+    "gradedAt",
+    "executionPerformed"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "0.1.0"
+    },
+    "gradecardId": {
+      "type": "string",
+      "pattern": "^agent-gradecard:[a-z0-9-]+$"
+    },
+    "agentRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "basisRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "probeSetRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "scores": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["probeId", "score", "rationale", "passed"],
+        "properties": {
+          "probeId": {
+            "type": "string"
+          },
+          "score": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "rationale": {
+            "type": "string"
+          },
+          "passed": {
+            "type": "boolean"
+          }
+        }
+      }
+    },
+    "overallScore": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 1
+    },
+    "evidenceRefs": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    },
+    "gradedBy": {
+      "type": "string"
+    },
+    "gradedAt": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "executionPerformed": {
+      "const": false
+    }
+  }
+}

@@ -3055,6 +3055,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     governance: {
       run_id,
       model_routed: model,
+      model_route_reason: routerDecision.rationale ?? '',
       provider,
       policy_admitted: true,
       memory_written: false,
@@ -3356,6 +3357,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // trail. Makes the neurosymbolic moat the agent's everyday behavior.
   let moatContext = ''
   let moatEpisodeId = ''
+  let calibConfidence: number | undefined
   try {
     const { classifyComplexity, calibratedConfidence } = await import('./lib/complexity-discipline.js')
     // Cheap, always-on: posture classification (regex, no model/embedding call).
@@ -3375,6 +3377,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       primeFactors = qctx.primeFactors.map((f) => `${f.code}^${f.exp}`)
     }
     const confidence = calibratedConfidence(verdict, { grounded: moatContext.length > 0 })
+    calibConfidence = confidence
     sse(res, 'discipline', { discipline: {
       posture: verdict.posture, strategy: verdict.strategy, barriers: verdict.barriers,
       morphology: verdict.morphology, calibrated_confidence: confidence,
@@ -4079,21 +4082,34 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
             } catch { /* skip a failed candidate */ }
           }
           if (candidates.length > 0) {
-            const cctx = { question: latestUserContent, contextText: graphContext, beliefs: wm.beliefs, laws: wm.laws }
+            // PLN graph grounding: assess the question's named entities against the knowledge graph
+            // so judgeAnswer() has graph-backed grounding evidence beyond token overlap.
+            let plnGG: number | undefined; let plnNovel: string[] | undefined
+            try {
+              const gg = assessAgainstGraph(latestUserContent)
+              if (gg.graphGrounding > 0 || gg.novel.length > 0) { plnGG = gg.graphGrounding; plnNovel = gg.novel }
+            } catch { /* PLN best-effort */ }
+            const cctx = {
+              question: latestUserContent, contextText: graphContext, beliefs: wm.beliefs, laws: wm.laws,
+              ...(plnGG !== undefined ? { graphGrounding: plnGG } : {}),
+              ...(plnNovel?.length ? { novelClaims: plnNovel } : {}),
+              ...(calibConfidence !== undefined ? { calibratedConfidence: calibConfidence } : {}),
+            }
             let verdict = critique(candidates, cctx)
             // Sovereign escalation: only when there's real grounding material to judge
             // against (otherwise the worth metric is uninformative and a bigger model
             // won't help) AND a stronger local model is installed.
             const haveGrounding = graphContext.trim().length > 200
             if (verdict.action === 'escalate' && haveGrounding) {
-              const stronger = ['qwen2.5:32b', 'qwen2.5:14b'].find((m) => availableModels.includes(m) && m !== model)
-              if (stronger) {
+              // Try ALL stronger local models, not just the first — more candidates = better selection.
+              const strongerModels = ['qwen2.5:32b', 'qwen2.5:14b'].filter((m) => availableModels.includes(m) && m !== model)
+              for (const stronger of strongerModels) {
                 try {
                   const r = await generateOllamaText({ model: stronger, messages: ollamaMessages, temperature: 0.4, numCtx: ollamaNumCtx })
                   if (r.content.trim()) candidates.push({ content: r.content, reasoning: r.reasoning, temperature: 0.4, label: `esc:${stronger}` })
-                  verdict = critique(candidates, cctx)
                 } catch { /* escalation best-effort */ }
               }
+              if (candidates.length > bestOfN) verdict = critique(candidates, cctx)
             }
             const best = verdict.best
             sse(res, 'deliberation', {
@@ -5987,6 +6003,41 @@ Question: ${question}`
     const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '50', 10), CONTRADICTION_RING_SIZE)
     res.writeHead(200, { 'content-type': 'application/json' })
     res.end(JSON.stringify({ contradictions: _contradictions.slice(-limit).reverse(), total: _contradictions.length }))
+    return
+  }
+
+  // POST /api/learning/feedback — user thumbs up/down on a specific message.
+  // Body: { messageId, rating: 'up'|'down', sessionId? }
+  // Translates to a bandit reward signal (up=1, down=0) and persists the eval capture.
+  if (req.method === 'POST' && url.pathname === '/api/learning/feedback') {
+    setCORSHeaders(res)
+    let body = ''
+    req.on('data', (chunk: Buffer) => { body += chunk.toString() })
+    req.on('end', () => {
+      try {
+        const f = JSON.parse(body) as { messageId?: string; rating?: 'up' | 'down'; sessionId?: string }
+        if (!f.messageId || (f.rating !== 'up' && f.rating !== 'down')) {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: 'messageId and rating required' }))
+          return
+        }
+        const reward = f.rating === 'up' ? 1 : 0
+        // Feed bandit with explicit user signal (task=general since message context unavailable here)
+        recordReward({ task: 'general', provider: 'ollama', model: 'unknown', reward })
+        // Persist as an eval capture for the learning loop replay
+        try {
+          const captureDir = path.join(os.homedir(), '.noetica', 'eval-captures')
+          fs.mkdirSync(captureDir, { recursive: true })
+          const record = { ts: new Date().toISOString(), messageId: f.messageId, sessionId: f.sessionId, rating: f.rating, reward }
+          fs.appendFileSync(path.join(captureDir, 'user-feedback.jsonl'), JSON.stringify(record) + '\n')
+        } catch { /* persistence best-effort */ }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ok: true }))
+      } catch {
+        res.writeHead(400, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: 'invalid body' }))
+      }
+    })
     return
   }
 

@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.org/schemas/font-swap-proof.schema.json",
+  "title": "Font Swap Proof",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "proofId",
+    "targetRef",
+    "replacedFont",
+    "substituteFont",
+    "syntheticOnly",
+    "rollbackVerified",
+    "proofRefs",
+    "approvedBy",
+    "executionPerformed"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "proofId": {
+      "type": "string",
+      "pattern": "^font-swap-proof:[a-z0-9-]+$"
+    },
+    "targetRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "replacedFont": {
+      "type": "string"
+    },
+    "substituteFont": {
+      "type": "string"
+    },
+    "syntheticOnly": {
+      "type": "boolean",
+      "const": true
+    },
+    "rollbackVerified": {
+      "type": "boolean"
+    },
+    "proofRefs": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 }
+    },
+    "approvedBy": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "type": "string" }
+    },
+    "executionPerformed": {
+      "type": "boolean",
+      "const": false
+    }
+  }
+}

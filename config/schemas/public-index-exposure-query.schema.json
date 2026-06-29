@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://socioprophet.org/schemas/public-index-exposure-query.schema.json",
+  "title": "Public Index Exposure Query",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "queryId",
+    "queryType",
+    "targetScope",
+    "queryTerms",
+    "passiveOnly",
+    "authorizationRef",
+    "executionPerformed",
+    "liveConnectionUsed"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "0.1.0"
+    },
+    "queryId": {
+      "type": "string",
+      "pattern": "^pindex-query:[a-z0-9-]+$"
+    },
+    "queryType": {
+      "type": "string",
+      "enum": ["search_engine", "paste_site", "certificate_transparency", "code_repository"]
+    },
+    "targetScope": {
+      "type": "string",
+      "description": "Must be owned/authorized scope"
+    },
+    "queryTerms": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "passiveOnly": {
+      "type": "boolean",
+      "const": true
+    },
+    "authorizationRef": {
+      "type": "string",
+      "minLength": 1
+    },
+    "executionPerformed": {
+      "type": "boolean",
+      "const": false
+    },
+    "liveConnectionUsed": {
+      "type": "boolean"
+    }
+  }
+}
