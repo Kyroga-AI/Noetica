@@ -67,6 +67,21 @@ const CAPS: Capability[] = [
   // Learning loop
   { id: 'eval-capture', label: 'Eval capture — promote failure to regression case', group: 'Learning', sample: { trace: { input: 'What is the capital of France?', output: 'I am not sure.', verified: false, coverage: 0.2 }, minCoverage: 0.5 } },
   { id: 'eval-replay', label: 'Eval replay — re-run captured failures against current system', group: 'Learning', sample: { text: '{"input":"What is the capital?","output":"Unsure","failureMode":"ungrounded","coverage":0.2,"capturedAt":0}', regenerate: false } },
+  // Causal / supply-chain (IFM demo)
+  { id: 'causal-graph', label: 'Causal DAG — topo-sort, ancestors, directed paths', group: 'Causal', sample: { name: 'input-cost-dag', nodes: [{ id: 'frost', type: 'exogenous', label: 'Frost event' }, { id: 'supply', type: 'endogenous', label: 'Avocado supply' }, { id: 'cost', type: 'endogenous', label: 'Input cost' }], edges: [{ from: 'frost', to: 'supply', effect: 'negative' }, { from: 'supply', to: 'cost', effect: 'positive' }], from: 'frost', to: 'cost' } },
+  { id: 'causal-models', label: 'Named causal models (GYG/news)', group: 'Causal', sample: {} },
+  { id: 'supply-chain', label: 'Supply-chain signals — input cost + availability index', group: 'Causal', sample: {} },
+  // Math / similarity
+  { id: 'vec-sim', label: 'Cosine similarity between two vectors', group: 'Math', sample: { a: [0.8, 0.3, 0.1], b: [0.75, 0.35, 0.15] } },
+  // Judgment / policy
+  { id: 'value-judgment', label: 'Value judgment — grounding + belief + law checks', group: 'Judgment', sample: { answer: 'The capital of France is Paris.', contextText: 'France is a country in Western Europe. Its capital and largest city is Paris.', beliefs: [{ claim: 'Paris is in France' }], laws: [{ law: 'Answers must be grounded in context', confidence: 0.9 }] } },
+  // Memory
+  { id: 'srs', label: 'Spaced repetition (SM-2) — schedule review cards', group: 'Memory', sample: { card: { ease: 2.5, intervalDays: 0, reps: 0, due: 0 }, grade: 2 } },
+  // Reasoning quality
+  { id: 'step-verify', label: 'Step-level beam search (process reward)', group: 'Verification', sample: { steps: [{ text: 'The question asks for the capital', score: 0.9 }, { text: 'France is a European country', score: 0.85 }], beam: 2, depth: 3 } },
+  { id: 'semantic-probe', label: 'Semantic spread + answer stability', group: 'Verification', sample: { scores: [0.85, 0.9, 0.7, 0.88, 0.3], samples: ['Paris', 'Paris', 'Lyon', 'Paris'] } },
+  // Topic structure
+  { id: 'topic-tier', label: 'Topic tiering (upper/middle/lower grounding)', group: 'Reasoning', sample: { candidates: [{ id: 'geography', tier: 'upper', cos: 0.6, coveredBy: null }, { id: 'european-capitals', tier: 'middle', cos: 0.78, coveredBy: 'geography' }, { id: 'paris-france', tier: 'lower', cos: 0.92, injectsInto: 'european-capitals' }] } },
 ]
 
 export function LabSurface() {

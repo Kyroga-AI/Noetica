@@ -620,6 +620,111 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
         const outcomes = await Promise.all(selected.map((c) => replayCase(c, regenerate, judge)))
         return send(200, summarizeReplay(outcomes, Date.now())), true
       }
+      case 'causal-graph': {
+        const { topologicalSort, isAcyclic, ancestors, descendants, directedPaths } = await import('./causal-graph.js')
+        type RawNode = { id: string; type?: string; label?: string; description?: string }
+        type RawEdge = { from: string; to: string; label?: string; effect?: string; latent?: boolean }
+        const nodes = (b.nodes ?? []) as RawNode[]
+        const edges = (b.edges ?? []) as RawEdge[]
+        const dag = {
+          name: String(b.name ?? 'user-dag'),
+          description: String(b.description ?? ''),
+          nodes: nodes.map((n) => ({ id: n.id, type: (n.type ?? 'endogenous') as 'endogenous', label: n.label ?? n.id, description: n.description ?? '' })),
+          edges: edges.map((e) => ({ from: e.from, to: e.to, label: e.label, effect: (e.effect ?? 'unknown') as 'unknown', latent: e.latent })),
+        }
+        const from = b.from as string | undefined
+        const to = b.to as string | undefined
+        return send(200, {
+          topologicalOrder: topologicalSort(dag),
+          acyclic: isAcyclic(dag),
+          ancestors: from ? [...ancestors(dag, from)] : undefined,
+          descendants: from ? [...descendants(dag, from)] : undefined,
+          paths: from && to ? directedPaths(dag, from, to) : undefined,
+        }), true
+      }
+      case 'causal-models': {
+        const { listCausalModels, getCausalModel, causalModelResponse } = await import('./causal-signal.js')
+        const name = b.name as string | undefined
+        if (name) {
+          const resp = causalModelResponse(name)
+          return send(200, resp), true
+        }
+        return send(200, { models: listCausalModels() }), true
+      }
+      case 'supply-chain': {
+        const { computeInputCostIndex, computeGrossAvailability, GYG_SUPPLIERS, GYG_CURRENT_EVENTS } = await import('./supply-chain.js')
+        const events = (b.events ?? GYG_CURRENT_EVENTS) as typeof GYG_CURRENT_EVENTS
+        return send(200, {
+          costIndex: computeInputCostIndex(events),
+          availability: computeGrossAvailability(events),
+          suppliers: GYG_SUPPLIERS,
+          activeEvents: events.filter((e) => (e as unknown as Record<string, unknown>)['active'] !== false),
+        }), true
+      }
+      case 'vec-sim': {
+        const { cosineSim } = await import('./vec-sim.js')
+        const a = (b.a ?? []) as number[]
+        const b2 = (b.b ?? []) as number[]
+        if (a.length === 0 || b2.length === 0) return send(400, { error: 'a and b vectors required' }), true
+        return send(200, { similarity: cosineSim(a, b2), magnitude_a: Math.sqrt(a.reduce((s, x) => s + x * x, 0)), magnitude_b: Math.sqrt(b2.reduce((s, x) => s + x * x, 0)) }), true
+      }
+      case 'value-judgment': {
+        const { judgeAnswer } = await import('./value-judgment.js')
+        const input = {
+          answer: String(b.answer ?? ''),
+          reasoning: b.reasoning as string | undefined,
+          contextText: String(b.contextText ?? ''),
+          beliefs: (b.beliefs ?? []) as Array<{ claim: string }>,
+          laws: (b.laws ?? []) as Array<{ law: string; confidence: number }>,
+          graphGrounding: b.graphGrounding as number | undefined,
+          novelClaims: b.novelClaims as string[] | undefined,
+        }
+        return send(200, judgeAnswer(input)), true
+      }
+      case 'srs': {
+        const { newCard, review, dueCards } = await import('./srs.js')
+        const now = Date.now()
+        if (b.cards) {
+          const cards = b.cards as Array<{ id: string; card: { ease: number; intervalDays: number; reps: number; due: number }; label?: string }>
+          const due = dueCards(cards, now)
+          return send(200, { due, dueCount: due.length, totalCount: cards.length }), true
+        }
+        const card = b.card as { ease: number; intervalDays: number; reps: number; due: number } | undefined
+        const grade = b.grade as 0 | 1 | 2 | 3 | undefined
+        if (!card) return send(200, { card: newCard(now) }), true
+        const updated = grade != null ? review(card, grade, now) : card
+        return send(200, { card: updated, dueDays: Math.max(0, Math.round((updated.due - now) / 86400000)) }), true
+      }
+      case 'step-verify': {
+        const { stepValue, stepBeamSearch } = await import('./step-verify.js')
+        if (b.rollouts) {
+          const rollouts = (b.rollouts ?? []) as boolean[]
+          return send(200, { value: stepValue(rollouts) }), true
+        }
+        const startSteps = (b.steps ?? []) as Array<{ text: string; score: number }>
+        const expand = (path: Array<{ text: string; score: number }>) => {
+          const last = path[path.length - 1]
+          if (!last || last.score < 0.2) return []
+          return [{ text: `${last.text} → step ${path.length + 1}`, score: last.score * 0.9 }]
+        }
+        const scorePath = (path: Array<{ text: string; score: number }>) => path.reduce((s, st) => s + st.score, 0) / path.length
+        const paths = stepBeamSearch(startSteps, expand, scorePath, { beam: b.beam as number | undefined, depth: b.depth as number | undefined })
+        return send(200, { paths, best: paths[0] ?? null }), true
+      }
+      case 'topic-tier': {
+        const { groundTiered } = await import('./topic-tier.js')
+        const cands = (b.candidates ?? []) as Array<{ id: string; tier: string; cos: number; injectsInto?: string; coveredBy?: string }>
+        return send(200, groundTiered(cands as Parameters<typeof groundTiered>[0])), true
+      }
+      case 'semantic-probe': {
+        const { scoreSpread, answerStability } = await import('./semantic-probe.js')
+        const scores = (b.scores ?? []) as number[]
+        const samples = (b.samples ?? []) as string[]
+        return send(200, {
+          spread: scores.length > 0 ? scoreSpread(scores) : undefined,
+          stability: samples.length > 1 ? answerStability(samples) : undefined,
+        }), true
+      }
       default: return send(404, { error: 'unknown_capability', path }), true
     }
   } catch (e) {
