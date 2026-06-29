@@ -19,17 +19,19 @@
  *     fabric (one ReasoningEvent per round) — the refinement itself is governed and replayable.
  */
 
-/** What the student produced: the task, the reasoning path it took, and its answer. */
+/** What the student produced: the task, the reasoning path it took, and its answer (+ optional confidence). */
 export interface StudentTrajectory {
   task: string
   steps: string[]      // the student's reasoning-event summaries, in order
   answer: string
+  confidence?: number  // the student's certainty in its answer (e.g. self-consistency agreement), [0,1]
 }
 
-/** One teacher pass: critique of the student's path + the revised answer it argues for. */
+/** One teacher pass: critique of the student's path + the revised answer it argues for (+ optional confidence). */
 export interface TeacherCritique {
   critique: string         // what the student missed / should attend to (short)
   revisedAnswer: string    // the teacher's corrected answer (may equal the input → nothing to change)
+  confidence?: number      // the teacher's certainty in ITS revision, [0,1]
 }
 
 export interface RefineRound {
@@ -38,7 +40,11 @@ export interface RefineRound {
   critique: string
   answerBefore: string
   answerAfter: string
-  changed: boolean
+  changed: boolean         // did the answer actually change (i.e. an override was ACCEPTED)?
+  proposedChange?: boolean // did the teacher PROPOSE a different answer (before the gate)?
+  overrideAccepted?: boolean
+  studentConfidence?: number
+  teacherConfidence?: number
 }
 
 export interface RefineResult {
@@ -55,7 +61,20 @@ export interface RefineDeps {
   critique: (trajectory: StudentTrajectory, retrieved: string[]) => Promise<TeacherCritique> | TeacherCritique
 }
 
-export interface RefineOpts { maxRounds?: number; retrieveK?: number }
+export interface RefineOpts {
+  maxRounds?: number
+  retrieveK?: number
+  // ── confidence-gated override (the board fix) ──────────────────────────────
+  // agentkb1 showed the unguarded loop hurt: the teacher overturned CORRECT student answers more than wrong
+  // ones (helped 4 / hurt 13). Borrowing Skrynnik 2021's adaptive-demonstration-decay idea: the teacher is a
+  // demonstrator whose authority must be EARNED, not assumed. An override is accepted only when the teacher's
+  // confidence beats the student's by a margin; the margin RISES with how much we trust the student
+  // (`studentSkill`) and with each round (`authorityDecay`) — so a confident student is hard to overrule and the
+  // loop can't oscillate. The gate engages only when BOTH confidences are supplied (else legacy accept-on-change).
+  overrideMargin?: number   // base margin teacher.conf − student.conf must clear to override (default 0.1)
+  studentSkill?: number     // prior trust in the student; added to the margin (Skrynnik decay analog), default 0
+  authorityDecay?: number   // extra margin added per round, default 0 (teacher authority decays over rounds)
+}
 
 /** Normalize an answer for convergence comparison (whitespace/case/punctuation-insensitive). For MCQ this
  *  collapses to the bare letter; for free-form it tolerates trivial rewording. */
@@ -92,14 +111,30 @@ export async function teacherStudentRefine(
     }
     const before = current.answer
     const after = crit.revisedAnswer ?? before
-    const changed = normAnswer(after) !== normAnswer(before)
-    rounds.push({ round: i + 1, retrieved, critique: String(crit.critique ?? '').slice(0, 500), answerBefore: before, answerAfter: after, changed })
+    const proposedChange = normAnswer(after) !== normAnswer(before)
+
+    // CONFIDENCE GATE: a proposed override is accepted only if the teacher out-confides the student by the
+    // effective margin (base + studentSkill + round·decay). When confidences are absent, fall back to legacy
+    // accept-on-change so existing callers are unaffected.
+    const tc = crit.confidence, sc = current.confidence
+    const gated = proposedChange && tc !== undefined && sc !== undefined
+    const effMargin = (opts.overrideMargin ?? 0.1) + (opts.studentSkill ?? 0) + i * (opts.authorityDecay ?? 0)
+    const overrideAccepted = gated ? (tc! - sc!) >= effMargin : proposedChange
+    const changed = proposedChange && overrideAccepted
+    const finalAfter = changed ? after : before
+    const gateNote = gated
+      ? (overrideAccepted ? ` [override accepted Δconf ${(tc! - sc!).toFixed(2)}≥${effMargin.toFixed(2)}]`
+                          : ` [override REJECTED Δconf ${(tc! - sc!).toFixed(2)}<${effMargin.toFixed(2)} — kept student]`)
+      : ''
+    rounds.push({ round: i + 1, retrieved, critique: (String(crit.critique ?? '').slice(0, 500) + gateNote).slice(0, 600), answerBefore: before, answerAfter: finalAfter, changed, proposedChange, overrideAccepted, studentConfidence: sc, teacherConfidence: tc })
 
     if (!changed) {
-      return { finalAnswer: before, rounds, converged: true, reason: `converged at round ${i + 1} (teacher left the answer unchanged)` }
+      // either the teacher agreed, or it proposed a change the gate rejected — settle on the student's answer.
+      const why = proposedChange ? `teacher override rejected by confidence gate at round ${i + 1}` : `teacher left the answer unchanged at round ${i + 1}`
+      return { finalAnswer: before, rounds, converged: true, reason: why }
     }
-    // the revised answer becomes the student's answer; record the critique as a new reasoning step for next round.
-    current = { task: current.task, steps: [...current.steps, `refined: ${String(crit.critique ?? '').slice(0, 120)}`], answer: after }
+    // accepted override: the revised answer (with the teacher's confidence) becomes the student's for next round.
+    current = { task: current.task, steps: [...current.steps, `refined: ${String(crit.critique ?? '').slice(0, 120)}`], answer: after, confidence: tc ?? current.confidence }
   }
   return { finalAnswer: current.answer, rounds, converged: false, reason: `stopped at maxRounds=${maxRounds} (still changing)` }
 }

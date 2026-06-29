@@ -1155,24 +1155,33 @@ async function main() {
           // until the letter settles. retrieve dep is empty here so the measured lift is PURE trajectory-critique, isolated
           // from retrieval. Uses lib/teacher-critique.ts — the same bounded loop that ships. The council only votes on
           // answers; this is the only arm where one pass critiques another's steps.
-          const studentChain = await ask(`${base}${REASON_RULE}`, 0.7)
-          const studentLetter = extractLetter(studentChain)
+          // CONFIDENCE-GATED override (the agentkb1 fix): the student answers via self-consistency (letter +
+          // agreement=confidence) and shows one chain; the teacher re-answers via self-consistency (letter +
+          // agreement=confidence). The teacher only OVERRIDES when its confidence beats the student's by a margin
+          // (Skrynnik 2021 demonstrator-decay analog) — fixing the board regression where a weaker teacher
+          // overturned correct student answers (helped 4 / hurt 13).
+          const sVote = await askVote(`${base}${REASON_RULE}`, SC_K)      // student letter + confidence
+          const studentChain = await ask(`${base}${REASON_RULE}`, 0.7)    // a visible chain for the teacher to read
+          const margin = Number(process.env['MMLU_REFINE_MARGIN'] ?? 0.15)
           const rr = await teacherStudentRefine(
-            { task: q.question, steps: [studentChain.slice(0, 600)], answer: studentLetter },
+            { task: q.question, steps: [studentChain.slice(0, 600)], answer: sVote.letter, confidence: sVote.agree },
             {
               retrieve: () => [],
               critique: async (traj) => {
                 const tp = `A student answered this multiple-choice question. Critique their reasoning, then give the correct answer.\n\nQuestion:\n${base}\n\nStudent reasoning:\n${traj.steps[traj.steps.length - 1] ?? ''}\nStudent's answer: ${traj.answer}\n\nIf the student is correct, restate their answer; if not, briefly explain the error and correct it.${REASON_RULE}`
-                const tChain = await ask(tp, 0.3)
-                return { critique: tChain.slice(0, 300), revisedAnswer: extractLetter(tChain) }
+                const tVote = await askVote(tp, SC_K)                     // teacher letter + confidence (SC agreement)
+                return { critique: `teacher SC=${tVote.agree.toFixed(2)}`, revisedAnswer: tVote.letter, confidence: tVote.agree }
               },
             },
-            { maxRounds: 2 },
+            { maxRounds: 2, overrideMargin: margin },
           )
-          letter = rr.finalAnswer || studentLetter
-          mode = `refine:r${rr.rounds.length}${rr.converged ? ':conv' : ''}`
+          letter = rr.finalAnswer || sVote.letter
+          const overrides = rr.rounds.filter((x) => x.overrideAccepted).length
+          mode = `refine:r${rr.rounds.length}:ovr${overrides}${rr.converged ? ':conv' : ''}`
           row['refine_rounds'] = rr.rounds.length
-          row['refine_changed'] = refinementChangedAnswer({ task: q.question, steps: [], answer: studentLetter }, rr)
+          row['refine_changed'] = refinementChangedAnswer({ task: q.question, steps: [], answer: sVote.letter }, rr)
+          row['refine_overrides'] = overrides
+          row['refine_student_conf'] = Number(sVote.agree.toFixed(2))
         } else if (arm === 'tier') {              // TIERED-ONTOLOGY grounding (PR #312): KKO upper → general (connective tissue)
           // → specific, GENERAL-FIRST, via embedding cosine over in-repo canon (no external KBpedia download). Inject the
           // tier block (and, in prod, the verified experiences) then answer. Tests whether tier-structured grounding beats
