@@ -76,6 +76,10 @@ export interface LoopCtx {
   onDelta?(text: string): void
   /** Called for each streamed thinking delta. */
   onThinkingDelta?(text: string): void
+  /** Optional autonomy gate (autonomy-gate.ts): consulted per tool-call before execution. A denied
+   * verdict short-circuits execution and returns a governed refusal as the tool result (fail-closed),
+   * so the model sees the refusal and can adapt rather than the action silently running. */
+  autonomyGate?(call: ToolUseBlock): { allowed: boolean; reason: string }
 }
 
 /** What the loop returns to the host to fold into its final response + governance epilogue. */
@@ -177,7 +181,17 @@ export async function runAgentLoop(adapter: ProviderAdapter, ctx: LoopCtx): Prom
     void ctx.recordTrajectory(calls)
 
     const results: ToolResult[] = await Promise.all(
-      calls.map(async (tc) => ({ id: tc.id, name: tc.name, result: await ctx.executeTool(tc.name, tc.input) })),
+      calls.map(async (tc) => {
+        // SEAM (per-tool-call): autonomy gate — fail closed before execution.
+        if (ctx.autonomyGate) {
+          const verdict = ctx.autonomyGate(tc)
+          if (!verdict.allowed) {
+            ctx.sse('autonomy_blocked', { tool: tc.name, reason: verdict.reason })
+            return { id: tc.id, name: tc.name, result: `AUTONOMY BLOCKED: ${verdict.reason}` }
+          }
+        }
+        return { id: tc.id, name: tc.name, result: await ctx.executeTool(tc.name, tc.input) }
+      }),
     )
     adapter.appendToolTurn(assistantText, calls, results)
   }

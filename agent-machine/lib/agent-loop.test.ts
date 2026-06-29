@@ -75,6 +75,28 @@ test('Ollama-style inline tool-call recovery: JSON-as-text becomes a real call',
   assert.deepEqual(ctx.executed, ['read_file:{"path":"/tmp/x"}'])
 })
 
+test('autonomy gate: a denied tool short-circuits execution and returns a governed refusal', async () => {
+  const allowed: ToolUseBlock = { id: 'a', name: 'read_file', input: { path: '/x' } }
+  const denied: ToolUseBlock = { id: 'b', name: 'deploy', input: {} }
+  const adapter = makeAdapter([
+    [{ type: 'tool_calls', calls: [allowed, denied] }],
+    [{ type: 'text', text: 'done' }],
+  ])
+  const blocked: string[] = []
+  const ctx = makeCtx({
+    autonomyGate: (tc) => tc.name === 'deploy'
+      ? { allowed: false, reason: 'requires L4, granted L0' }
+      : { allowed: true, reason: 'ok' },
+    sse: (event, data) => { if (event === 'autonomy_blocked') blocked.push(String((data as { tool: string }).tool)) },
+  })
+  await runAgentLoop(adapter, ctx)
+  // the allowed tool ran; the denied one did NOT reach executeTool
+  assert.deepEqual(ctx.executed, ['read_file:{"path":"/x"}'])
+  assert.deepEqual(blocked, ['deploy'])
+  const results = (adapter.appended[0] as { results: ToolResult[] }).results
+  assert.equal(results.find((r) => r.name === 'deploy')!.result, 'AUTONOMY BLOCKED: requires L4, granted L0')
+})
+
 test('constrained-decode seam: tool args are coerced before execution + recorded consistently', async () => {
   const call: ToolUseBlock = { id: 'c', name: 'wait', input: { seconds: '5', keep: 'extra' } }
   const adapter = makeAdapter([[{ type: 'tool_calls', calls: [call] }], [{ type: 'text', text: 'ok' }]])
