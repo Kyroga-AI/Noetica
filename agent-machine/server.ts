@@ -182,6 +182,23 @@ const VERSION = '0.4.21'
   }
 })()
 
+// ─── Anthropic external plugin auto-registration ─────────────────────────────────────────────────────────────
+// When NOETICA_PLUGIN_DIR points to an external_plugins/ directory (mirrors claude-plugins-official layout),
+// parse every <name>/.mcp.json on startup and populate the plugin registry. Plugins are not connected here —
+// callers must POST /api/plugins/connect to establish the transport session.
+void (async () => {
+  if (!process.env['NOETICA_PLUGIN_DIR']) return
+  try {
+    const { registerPluginsFromDir } = await import('./lib/anthropic-plugin-registry.js')
+    const registered = registerPluginsFromDir(process.env['NOETICA_PLUGIN_DIR'])
+    if (registered.length > 0) {
+      console.log(`[noetica-am] Registered ${registered.length} plugin(s) from ${process.env['NOETICA_PLUGIN_DIR']}: ${registered.map((p) => p.name).join(', ')}`)
+    }
+  } catch (e) {
+    console.warn(`[noetica-am] plugin auto-registration failed: ${e instanceof Error ? e.message : e}`)
+  }
+})()
+
 // ─── Anthropic inference endpoint (Branch A BYOK / Branch B proxy) ──────────────────────────────────────────
 // Branch A (default, desktop): direct to api.anthropic.com with the USER's own x-api-key (kept in the OS
 // keychain; passed per-request as provider_keys.anthropic). Branch B (managed): when NOETICA_ANTHROPIC_PROXY_URL
@@ -7149,6 +7166,90 @@ Question: ${question}`
     ;(async () => {
       try { const { connectedPeers } = await import('./lib/federated-mcp.js'); res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ peers: connectedPeers() })) }
       catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ peers: [] })) }
+    })()
+    return
+  }
+
+  // ── External connectors (Composio + Anthropic plugins) — zero-trust gated ─────────────────────────────────
+  //   POST /api/connectors/run     { tool_slug, params, connected_account_id, api_key?, trust_floor? }
+  //                                → governed Composio tool execution (A2A + scope-d + ConnectorReceipt)
+  //   POST /api/plugins/connect    { spiffe_id, token_env? }
+  //                                → connect a registered Anthropic plugin (stdio or remote)
+  //   GET  /api/plugins/list       → registered plugins + connected remote peers
+  if (req.method === 'POST' && req.url?.startsWith('/api/connectors/run')) {
+    setCORSHeaders(res)
+    if (!requireApiToken(req, res)) return
+    const chunks: Buffer[] = []
+    req.on('data', (c: Buffer) => chunks.push(c))
+    req.on('end', () => { void (async () => {
+      try {
+        const b = JSON.parse(Buffer.concat(chunks).toString() || '{}') as {
+          tool_slug?: string; params?: Record<string, unknown>
+          connected_account_id?: string; api_key?: string; trust_floor?: number
+        }
+        if (!b.tool_slug || !b.connected_account_id) throw new Error('tool_slug and connected_account_id required')
+        const apiKey = b.api_key ?? process.env['COMPOSIO_API_KEY'] ?? ''
+        if (!apiKey) throw new Error('Composio API key required (api_key in body or COMPOSIO_API_KEY env)')
+        const { runComposioTools } = await import('./lib/composio-connector.js')
+        const { checkEgress } = await import('./lib/scope-d.js')
+        const receipts: unknown[] = []
+        const results = await runComposioTools(
+          [{ toolSlug: b.tool_slug, params: b.params ?? {} }],
+          { apiKey, connectedAccountId: b.connected_account_id, trustFloor: b.trust_floor },
+          {
+            authorize: ({ connectorId, kind, egress }) => {
+              if (!egress) return { allowed: true }
+              const v = checkEgress({ scope: 'CITIZEN_FOG', tier: 'open-provider', provider: 'connector', model: kind, target: connectorId })
+              return { allowed: v.allow, reason: v.reason }
+            },
+            onReceipt: (r) => receipts.push(r),
+          },
+        )
+        const first = results[0]
+        if (!first) throw new Error('no result')
+        const status = first.run.receipt.status === 'ok' ? 200 : first.run.receipt.status === 'denied' ? 403 : 500
+        res.writeHead(status, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ result: first.run.docs, receipt: first.run.receipt, decision: first.decision, tool_slug: first.toolSlug }))
+      } catch (e) {
+        res.writeHead(400, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: (e instanceof Error ? e.message : 'bad request').replace(/[\r\n]+/g, ' ') }))
+      }
+    })() })
+    return
+  }
+
+  if (req.method === 'POST' && req.url?.startsWith('/api/plugins/connect')) {
+    setCORSHeaders(res)
+    if (!requireApiToken(req, res)) return
+    const chunks: Buffer[] = []
+    req.on('data', (c: Buffer) => chunks.push(c))
+    req.on('end', () => { void (async () => {
+      try {
+        const b = JSON.parse(Buffer.concat(chunks).toString() || '{}') as { spiffe_id?: string; token_env?: Record<string, string> }
+        if (!b.spiffe_id) throw new Error('spiffe_id required')
+        const { connectPlugin } = await import('./lib/anthropic-plugin-registry.js')
+        const r = await connectPlugin(b.spiffe_id, b.token_env)
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(r))
+      } catch (e) {
+        res.writeHead(400, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: (e instanceof Error ? e.message : 'bad request').replace(/[\r\n]+/g, ' ') }))
+      }
+    })() })
+    return
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/plugins/list') {
+    setCORSHeaders(res)
+    if (!requireApiToken(req, res)) return
+    ;(async () => {
+      try {
+        const { registeredPlugins } = await import('./lib/anthropic-plugin-registry.js')
+        const { connectedRemotePeers } = await import('./lib/remote-mcp-peer.js')
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ registered: registeredPlugins(), connected_remote: connectedRemotePeers() }))
+      } catch {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ registered: [], connected_remote: [] }))
+      }
     })()
     return
   }
