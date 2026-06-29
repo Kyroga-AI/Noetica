@@ -152,6 +152,36 @@ if (process.env['NOETICA_JS_SANDBOX'] === '1') {
 const PORT = parseInt(process.env['NOETICA_AM_PORT'] ?? '8080', 10)
 const VERSION = '0.4.21'
 
+// ─── Annealed retrieval config (written by scripts/anneal-retrieval.py) ─────────────────────────────────────
+// Loads config/retrieval-optimal.json and sets env vars for any knob not already overridden.
+// Explicit env vars always win; defaults remain as fallback when neither is set.
+;(function loadRetrievalConfig() {
+  const configPath = path.join(__dirname, 'config', 'retrieval-optimal.json')
+  try {
+    const raw = fs.readFileSync(configPath, 'utf8')
+    const cfg = JSON.parse(raw) as Record<string, string | number>
+    const knobMap: Record<string, string> = {
+      mmr_k:          'NOETICA_MMR_K',
+      mmr_candidates: 'NOETICA_MMR_CANDIDATES',
+      mmr_lambda:     'NOETICA_MMR_LAMBDA',
+      hippo_topk:     'NOETICA_HIPPO_TOPK',
+      sc_k:           'NOETICA_SC_K',
+      crag_conf:      'NOETICA_CRAG_CONF',
+      pr_threshold:   'NOETICA_GRAPH_PR_THRESHOLD',
+    }
+    let applied = 0
+    for (const [cfgKey, envKey] of Object.entries(knobMap)) {
+      if (cfg[cfgKey] !== undefined && process.env[envKey] === undefined) {
+        process.env[envKey] = String(cfg[cfgKey])
+        applied++
+      }
+    }
+    if (applied > 0) console.log(`[noetica-am] Loaded ${applied} annealed retrieval knob(s) from ${configPath}`)
+  } catch {
+    // No config yet — defaults in retrieval.ts take over.
+  }
+})()
+
 // ─── Anthropic inference endpoint (Branch A BYOK / Branch B proxy) ──────────────────────────────────────────
 // Branch A (default, desktop): direct to api.anthropic.com with the USER's own x-api-key (kept in the OS
 // keychain; passed per-request as provider_keys.anthropic). Branch B (managed): when NOETICA_ANTHROPIC_PROXY_URL

@@ -406,15 +406,32 @@ async function runHippoRagPattern(query: string): Promise<{ text: string; source
   const [{ associativeRetrieve }, { cleanLabel }] = await Promise.all([import('./graph-ppr.js'), import('./graph-surface.js')])
   const g = getGraph()
   const labelById = new Map<string, string>()
+  // PageRank gate: skip low-importance nodes to reduce retrieval noise.
+  // anneal-graph.py tunes this threshold and writes it to config/retrieval-optimal.json.
+  const prThreshold = parseFloat(process.env['NOETICA_GRAPH_PR_THRESHOLD'] ?? '0')
+  let analyticsNodes: Record<string, { pagerank: number }> | undefined
+  if (prThreshold > 0) {
+    try {
+      const cachePath = require('path').join(require('os').homedir(), '.noetica', 'cache', 'graph-analytics.json')
+      const cache = JSON.parse(require('fs').readFileSync(cachePath, 'utf8'))
+      analyticsNodes = cache?.analytics?.nodes
+    } catch { /* no cache yet — include all nodes */ }
+  }
   const nodes: Array<{ id: string }> = []
   for (const n of g.allNodes()) {
     const l = cleanLabel(n as never)
     if (!l) continue
+    if (analyticsNodes && analyticsNodes[n.id] !== undefined) {
+      if ((analyticsNodes[n.id]?.pagerank ?? 0) < prThreshold) continue
+    }
     labelById.set(n.id, l); nodes.push({ id: n.id })
   }
   if (nodes.length < 3) return { text: '', sources: [] }
-  const edges = g.allEdges().map((e) => ({ from: e.from, to: e.to }))
-  const { results } = associativeRetrieve(nodes, edges, labelById, query, { topK: 8 })
+  const edges = g.allEdges()
+    .filter((e) => nodes.some((n) => n.id === e.from) && nodes.some((n) => n.id === e.to))
+    .map((e) => ({ from: e.from, to: e.to }))
+  const hippoTopK = parseInt(process.env['NOETICA_HIPPO_TOPK'] ?? '8', 10)
+  const { results } = associativeRetrieve(nodes, edges, labelById, query, { topK: hippoTopK })
   if (!results.length) return { text: '', sources: [] }
   const text = `Associatively related (HippoRAG / personalized PageRank): ${results.map((r) => r.label).join(', ')}.`
   return { text, sources: results.map((r) => ({ id: r.id, label: r.label, score: Number(r.score.toFixed(4)) })) }
@@ -459,10 +476,14 @@ async function runAtomsPattern(
   }
 
   scored.sort((a, b) => b.score - a.score)
-  // MMR reranking: take top-20 candidates and apply Maximum Marginal Relevance
+  // MMR reranking: take top-N candidates and apply Maximum Marginal Relevance
   // to eliminate redundant atoms while maximising query coverage.
   // Uses Jaccard similarity of token sets as the redundancy signal (zero dependencies).
-  const top = mmrRerank(scored.slice(0, 20), 12)
+  // All three knobs are tunable via env vars — the SA optimizer writes the optimal values.
+  const mmrCandidates = parseInt(process.env['NOETICA_MMR_CANDIDATES'] ?? '20', 10)
+  const mmrK          = parseInt(process.env['NOETICA_MMR_K']          ?? '12', 10)
+  const mmrLambda     = parseFloat(process.env['NOETICA_MMR_LAMBDA']   ?? '0.7')
+  const top = mmrRerank(scored.slice(0, mmrCandidates), mmrK, mmrLambda)
 
   const lines: string[] = []
   const sources: Array<{ id: string; label: string; score: number }> = []
