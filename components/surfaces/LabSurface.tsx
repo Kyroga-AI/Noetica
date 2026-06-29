@@ -55,6 +55,18 @@ const CAPS: Capability[] = [
   // Gen-UI
   { id: 'gen-ui-validate', label: 'Generative-UI spec validation', group: 'Dev', sample: { component: 'metric', props: { label: 'Active users', value: 1247 } } },
   { id: 'plan-mode', label: 'Plan-then-approve gate', group: 'Dev', sample: { steps: ['Analyse the codebase', 'Draft the migration SQL', 'Write tests', 'Apply migration'], edits: { remove: [2], approve: false } } },
+  // Calibration / abstention
+  { id: 'conformal', label: 'Conformal abstention (provable risk bound)', group: 'Verification', sample: { calib: [{ score: 0.9, correct: true }, { score: 0.8, correct: true }, { score: 0.6, correct: false }, { score: 0.5, correct: false }], alpha: 0.05, score: 0.75 } },
+  { id: 'crag-gate', label: 'CRAG adaptive retrieval gate', group: 'Verification', sample: { closedBookAgree: 0.45, retrieveAgree: 0.85, threshold: 0.7 } },
+  { id: 'reliability-gate', label: 'Reliability gate — voting consensus', group: 'Verification', sample: { question: 'What is the capital of France?', preds: ['Paris', 'Paris', 'Lyon', 'Paris', null] } },
+  { id: 'research-verify', label: 'Research grounding verifier', group: 'Verification', sample: { answer: 'Paris is the capital of France and home to the Eiffel Tower.', sources: [{ text: 'France\'s capital is Paris, a major European city.' }, { text: 'The Eiffel Tower is a landmark in Paris, France.' }] } },
+  // Graph inference
+  { id: 'dream-edges', label: 'KG dreaming — infer new edges (offline consolidation)', group: 'Reasoning', sample: { adj: { alice: [{ to: 'acme', rel: 'worksAt' }], acme: [{ to: 'nyc', rel: 'locatedIn' }], bob: [{ to: 'acme', rel: 'worksAt' }] }, seeds: ['alice', 'bob'], strategy: 'round-robin', length: 3, walksPerSeed: 2 } },
+  { id: 'beam-traverse', label: 'Think-on-Graph beam traversal', group: 'Reasoning', sample: { adj: { alice: [{ to: 'acme', rel: 'worksAt' }, { to: 'bob', rel: 'knows' }], acme: [{ to: 'nyc', rel: 'locatedIn' }], bob: [{ to: 'carol', rel: 'manages' }] }, seeds: ['alice'], query: 'carol acme', beam: 3, depth: 3 } },
+  { id: 'choir-ground', label: 'Choir — grounded context from KG subgraph', group: 'Reasoning', sample: { nodes: [{ id: 'alice', label: 'Alice', kind: 'person' }, { id: 'acme', label: 'ACME Corp', kind: 'org' }], edges: [{ from: 'alice', to: 'acme', label: 'worksAt' }], focus: 'alice', action: 'summarize', question: 'What do we know about Alice?', policy: { read: true, write: false, egress: false } } },
+  // Learning loop
+  { id: 'eval-capture', label: 'Eval capture — promote failure to regression case', group: 'Learning', sample: { trace: { input: 'What is the capital of France?', output: 'I am not sure.', verified: false, coverage: 0.2 }, minCoverage: 0.5 } },
+  { id: 'eval-replay', label: 'Eval replay — re-run captured failures against current system', group: 'Learning', sample: { text: '{"input":"What is the capital?","output":"Unsure","failureMode":"ungrounded","coverage":0.2,"capturedAt":0}', regenerate: false } },
 ]
 
 export function LabSurface() {

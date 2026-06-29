@@ -493,7 +493,7 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
         return send(200, { count: triples.length, triples: triples.slice(0, 500) }), true
       }
       case 'memory-decay': {
-        const { salience, decayRank, pruneToBudget } = await import('./memory-decay.js')
+        const { decayRank, pruneToBudget } = await import('./memory-decay.js')
         const mems = (b.memories ?? []) as Array<{ id: string; createdAt: number; lastAccess?: number; accessCount?: number; importance?: number; pinned?: boolean }>
         const now = Date.now()
         const scored = decayRank(mems, { now })
@@ -513,6 +513,112 @@ export async function handleCapabilityRoute(req: http.IncomingMessage, res: http
         const edits = b.edits as { remove?: number[]; approve?: boolean } | undefined
         const final = edits ? editPlan(plan, edits) : plan
         return send(200, { plan: final, pendingCount: final.steps.filter((s) => s.status === 'pending').length, approved: final.approved }), true
+      }
+      case 'conformal': {
+        const { calibrateThreshold, shouldAbstain, coverageAt } = await import('./conformal.js')
+        const calib = (b.calib ?? []) as Array<{ score: number; correct: boolean }>
+        const alpha = typeof b.alpha === 'number' ? b.alpha : 0.05
+        const threshold = calibrateThreshold(calib, alpha)
+        const score = typeof b.score === 'number' ? b.score : undefined
+        const coverage = coverageAt(calib, threshold)
+        return send(200, { threshold, coverage, abstain: score != null ? shouldAbstain(score, threshold) : undefined }), true
+      }
+      case 'crag-gate': {
+        const { gateShouldRetrieve, acceptRetrievedAnswer } = await import('./crag-gate.js')
+        const closedBookAgree = typeof b.closedBookAgree === 'number' ? b.closedBookAgree : 0.5
+        const retrieveAgree = typeof b.retrieveAgree === 'number' ? b.retrieveAgree : undefined
+        const threshold = typeof b.threshold === 'number' ? b.threshold : undefined
+        const shouldRetrieve = gateShouldRetrieve(closedBookAgree, threshold)
+        const accepted = retrieveAgree != null ? acceptRetrievedAnswer(retrieveAgree, closedBookAgree) : undefined
+        return send(200, { shouldRetrieve, accepted, closedBookAgree }), true
+      }
+      case 'dream-edges': {
+        const { dreamEdges } = await import('./dreaming.js')
+        type RawEdge = { to: string; rel: string }
+        const raw = (b.adj ?? {}) as Record<string, RawEdge[]>
+        const adj = new Map(Object.entries(raw))
+        const seeds = (b.seeds ?? []) as string[]
+        const strategy = String(b.strategy ?? 'round-robin')
+        const pick = strategy === 'random'
+          ? (_c: RawEdge[], step: number) => step * 31337
+          : (_c: RawEdge[], step: number) => step
+        const opts = { length: b.length as number | undefined, walksPerSeed: b.walksPerSeed as number | undefined }
+        return send(200, { dreamed: dreamEdges(adj, seeds, pick, opts) }), true
+      }
+      case 'beam-traverse': {
+        const { beamTraverse } = await import('./think-on-graph.js')
+        type RawEdge = { to: string; rel: string }
+        const raw = (b.adj ?? {}) as Record<string, RawEdge[]>
+        const adj = new Map(Object.entries(raw))
+        const seeds = (b.seeds ?? []) as string[]
+        const query = String(b.query ?? '')
+        const score = (path: { nodes: string[]; rels: string[] }) =>
+          path.nodes.filter((n) => query.toLowerCase().split(' ').some((w) => n.toLowerCase().includes(w))).length / Math.max(path.nodes.length, 1)
+        return send(200, { paths: beamTraverse(adj, seeds, score, { beam: b.beam as number | undefined, depth: b.depth as number | undefined }) }), true
+      }
+      case 'choir-ground': {
+        const { buildGroundedContext, assemblePrompt, gateAction, checkGrounding } = await import('./choir-grounding.js')
+        type RawNode = { id: string; label: string; kind?: string }
+        type RawEdge = { from: string; to: string; type?: string }
+        const rawNodes = (b.nodes ?? []) as RawNode[]
+        const rawEdges = (b.edges ?? []) as RawEdge[]
+        const g = {
+          nodes: rawNodes.map((n) => ({ id: n.id, label: n.label, kind: (n.kind ?? 'entity') as 'entity', props: {} })),
+          edges: rawEdges.map((e) => ({ from: e.from, to: e.to, type: (e.type ?? 'RELATES') as 'RELATES' })),
+        }
+        const focusNodeId = String(b.focus ?? rawNodes[0]?.id ?? '')
+        const action = (b.action ?? 'summarize') as 'ask' | 'summarize' | 'draft' | 'restructure'
+        const question = String(b.question ?? '')
+        const grounded = buildGroundedContext(g, focusNodeId, { hops: b.hops as number | undefined })
+        const prompt = assemblePrompt(action, question, grounded)
+        const policy = (b.policy ?? { read: true, write: false, egress: false }) as { read: boolean; write: boolean; egress: boolean }
+        const gate = gateAction(action, policy)
+        const groundingCheck = b.answer ? checkGrounding(String(b.answer), grounded) : undefined
+        return send(200, { grounded, prompt, gate, groundingCheck }), true
+      }
+      case 'reliability-gate': {
+        const { reliabilityGate } = await import('./reliability-gate.js')
+        const question = String(b.question ?? '')
+        const preds = (b.preds ?? []) as Array<string | null | undefined>
+        return send(200, reliabilityGate(question, preds)), true
+      }
+      case 'research-verify': {
+        const { verifyGrounding } = await import('./research-verify.js')
+        const answer = String(b.answer ?? '')
+        const sources = (b.sources ?? []) as Array<{ text: string }>
+        const claimCover = typeof b.claimCover === 'number' ? b.claimCover : undefined
+        const passAt = typeof b.passAt === 'number' ? b.passAt : undefined
+        return send(200, verifyGrounding(answer, sources, claimCover, passAt)), true
+      }
+      case 'eval-capture': {
+        const { captureFailure } = await import('./eval-capture.js')
+        const trace = b.trace as { input: string; output: string; verified: boolean; coverage: number; decision?: string }
+        if (!trace?.input) return send(400, { error: 'trace.input required' }), true
+        const evalCase = captureFailure(trace, Date.now(), { minCoverage: b.minCoverage as number | undefined })
+        return send(200, { evalCase, captured: evalCase != null }), true
+      }
+      case 'eval-replay': {
+        const { parseEvalCases, selectForReplay, replayCase, summarizeReplay } = await import('./eval-replay.js')
+        const text = String(b.text ?? '')
+        const cases = parseEvalCases(text)
+        if (!b.regenerate) return send(200, { cases, total: cases.length }), true
+        const cap = typeof b.cap === 'number' ? b.cap : 20
+        const selected = selectForReplay(cases, cap)
+        const regenerate = async (input: string) => {
+          const res = await fetch(`http://localhost:${process.env['AM_PORT'] ?? 8080}/api/chat`, {
+            method: 'POST', signal: AbortSignal.timeout(30000),
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ messages: [{ role: 'user', content: input }] }),
+          })
+          const reply = res.ok ? ((await res.json() as { reply?: string }).reply ?? '') : ''
+          return { answer: reply, sources: [] }
+        }
+        const judge = (answer: string, sources: { text: string }[]) => ({
+          grounded: answer.length > 20 && !answer.toLowerCase().includes('i cannot'),
+          score: answer.length > 50 ? 0.8 : 0.4,
+        })
+        const outcomes = await Promise.all(selected.map((c) => replayCase(c, regenerate, judge)))
+        return send(200, summarizeReplay(outcomes, Date.now())), true
       }
       default: return send(404, { error: 'unknown_capability', path }), true
     }
