@@ -19,7 +19,7 @@
  *   MMLU_MODEL        answer model (default llama3.2:3b)
  *   MMLU_PER_SUBJECT  questions per subject (default 5; 0 = all)
  *   MMLU_K            retrieved chunks injected in the brain arm (default 4)
- *   MMLU_ARMS         comma list of arms to run (default "baseline,brain")
+ *   MMLU_ARMS         comma list of arms to run (default "baseline,brain"); `refine` = AgentKB student→teacher trajectory-critique loop (Gap B)
  *   MMLU_SUBJECTS     comma list to restrict subjects (default: all brain-ready)
  *   MMLU_MAX_CHUNKS   per-field memory cap on loaded chunks (default 150000)
  *   MMLU_SEED         shuffle seed for the per-subject sample (default time-based)
@@ -48,6 +48,7 @@ import { cragVote, gateShouldRetrieve, acceptRetrievedAnswer, groundingGateShoul
 import { critique, bestOfTemps } from '../lib/critic.js'                  // PRODUCTION best-of-N selection (server.ts mirror)
 import { classifyComplexity } from '../lib/complexity-discipline.js'      // PRODUCTION posture classifier
 import { emitReasoningBenchmark } from '../lib/reasoning-benchmark.js'     // 5th reasoning contract: each board = spec-conformant evidence
+import { teacherStudentRefine, refinementChangedAnswer } from '../lib/teacher-critique.js'   // AgentKB student→teacher trajectory-critique loop (Gap B)
 
 const HOME = os.homedir()
 const BANK = path.join(HOME, '.noetica', 'corpus', 'benchmarks', 'mmlu_stem.json')
@@ -1143,6 +1144,29 @@ async function main() {
           if (computational) oc = await operatorCompute(q.question, q.choices)   // operator-route compute lane (server: operatorProgramOfThought)
           if (oc) { letter = oc; mode = 'prod:op' }
           else { const sc = await askVote(`${base}${REASON_RULE}`, SC_K); letter = sc.letter; mode = `prod:sc${SC_K}`; row['reason_conf'] = Number(sc.agree.toFixed(2)) }   // no-retrieval reason lane (server: runReasonLane→cragVote)
+        } else if (arm === 'refine') {            // AgentKB student→teacher Reason-Retrieve-Refine (Gap B): a STUDENT answers with
+          // a visible chain; a TEACHER reads that reasoning TRAJECTORY (not just the letter) and re-answers; bounded iterate
+          // until the letter settles. retrieve dep is empty here so the measured lift is PURE trajectory-critique, isolated
+          // from retrieval. Uses lib/teacher-critique.ts — the same bounded loop that ships. The council only votes on
+          // answers; this is the only arm where one pass critiques another's steps.
+          const studentChain = await ask(`${base}${REASON_RULE}`, 0.7)
+          const studentLetter = extractLetter(studentChain)
+          const rr = await teacherStudentRefine(
+            { task: q.question, steps: [studentChain.slice(0, 600)], answer: studentLetter },
+            {
+              retrieve: () => [],
+              critique: async (traj) => {
+                const tp = `A student answered this multiple-choice question. Critique their reasoning, then give the correct answer.\n\nQuestion:\n${base}\n\nStudent reasoning:\n${traj.steps[traj.steps.length - 1] ?? ''}\nStudent's answer: ${traj.answer}\n\nIf the student is correct, restate their answer; if not, briefly explain the error and correct it.${REASON_RULE}`
+                const tChain = await ask(tp, 0.3)
+                return { critique: tChain.slice(0, 300), revisedAnswer: extractLetter(tChain) }
+              },
+            },
+            { maxRounds: 2 },
+          )
+          letter = rr.finalAnswer || studentLetter
+          mode = `refine:r${rr.rounds.length}${rr.converged ? ':conv' : ''}`
+          row['refine_rounds'] = rr.rounds.length
+          row['refine_changed'] = refinementChangedAnswer({ task: q.question, steps: [], answer: studentLetter }, rr)
         } else if (arm === 'groundgate') {        // CHEAP gate: decide retrieve-vs-skip from canon entity COUNT — no SC probe
           const k = kt[i] ?? { types: ['BasicFacts'], solver: 'retrieve' }
           const nEnt = canonRoute(q.question).entities.length
