@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { buildEgressAudit, toCsv } from '@/lib/governance/egressAudit'
+import AutonomyPanel from '@/components/governance/AutonomyPanel'
 import type { GovernanceTrace } from '@/lib/types/governance'
 import { readLedgerEntries, clearLedger, type LedgerEntry } from '@/lib/evidence/ledger-store'
 import { useSettings } from '@/lib/settings/context'
@@ -602,6 +603,9 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             <div className="text-[11px] text-[var(--color-text-tertiary)]">No routing learned yet — the bandit converges as you use local models across varied tasks. Every judged answer updates an arm.</div>
           )}
         </div>
+
+        {/* Autonomy — governed AI-driven-development ladder */}
+        <AutonomyPanel />
 
         {/* Policy profile */}
         <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
