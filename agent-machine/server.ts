@@ -5303,6 +5303,108 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // ── Supply Chain Signal API ───────────────────────────────────────────────────────────────────────────
+  // Real-time supply chain events + input cost index + gross availability for GYG.
+  // GET /api/supply-chain/signal     — consolidated signal (events + cost index + availability + LFL revision)
+  // GET /api/supply-chain/events     — list current supply chain events
+  // GET /api/supply-chain/suppliers  — GYG supplier registry
+  // GET /api/supply-chain/cost-index — input cost basket detail
+
+  if (req.method === 'GET' && url.pathname === '/api/supply-chain/signal') {
+    void (async () => {
+      const { computeSupplyChainSignal } = await import('./lib/supply-chain.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify(computeSupplyChainSignal()))
+    })()
+    return
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/supply-chain/events') {
+    void (async () => {
+      const { GYG_CURRENT_EVENTS } = await import('./lib/supply-chain.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ events: GYG_CURRENT_EVENTS }))
+    })()
+    return
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/supply-chain/suppliers') {
+    void (async () => {
+      const { GYG_SUPPLIERS } = await import('./lib/supply-chain.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ suppliers: GYG_SUPPLIERS }))
+    })()
+    return
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/supply-chain/cost-index') {
+    void (async () => {
+      const { computeInputCostIndex } = await import('./lib/supply-chain.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify(computeInputCostIndex()))
+    })()
+    return
+  }
+
+  // ── Location Traffic API ──────────────────────────────────────────────────────────────────────────────
+  // Per-location foot traffic estimates with supply chain + weather + holiday + macro adjustments.
+  // GET /api/location-traffic/locations — GYG location registry
+  // GET /api/location-traffic/estimates — per-location IV-adjusted traffic estimates
+  // GET /api/location-traffic/aggregate — network totals by state + archetype
+  // GET /api/location-traffic/archetypes — archetype profile reference
+
+  if (req.method === 'GET' && url.pathname === '/api/location-traffic/locations') {
+    void (async () => {
+      const { GYG_LOCATIONS } = await import('./lib/location-traffic.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ locations: GYG_LOCATIONS, count: GYG_LOCATIONS.length }))
+    })()
+    return
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/location-traffic/estimates') {
+    void (async () => {
+      const { computeLocationTraffic } = await import('./lib/location-traffic.js')
+      const { computeGrossAvailability } = await import('./lib/supply-chain.js')
+      const avail = computeGrossAvailability()
+      const estimates = computeLocationTraffic({
+        weather_index: Number(url.searchParams.get('weather') ?? '0.61'),
+        is_school_holiday: url.searchParams.get('holiday') === 'true',
+        consumer_confidence_index: Number(url.searchParams.get('confidence') ?? '0.824'),
+        availability_drag_pct: avail.availability_drag_on_ft,
+      })
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ estimates, count: estimates.length }))
+    })()
+    return
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/location-traffic/aggregate') {
+    void (async () => {
+      const { computeLocationTraffic, aggregateTraffic } = await import('./lib/location-traffic.js')
+      const { computeGrossAvailability } = await import('./lib/supply-chain.js')
+      const avail = computeGrossAvailability()
+      const estimates = computeLocationTraffic({
+        weather_index: Number(url.searchParams.get('weather') ?? '0.61'),
+        is_school_holiday: url.searchParams.get('holiday') === 'true',
+        consumer_confidence_index: Number(url.searchParams.get('confidence') ?? '0.824'),
+        availability_drag_pct: avail.availability_drag_on_ft,
+      })
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify(aggregateTraffic(estimates)))
+    })()
+    return
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/location-traffic/archetypes') {
+    void (async () => {
+      const { ARCHETYPE_PROFILES } = await import('./lib/location-traffic.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ archetypes: ARCHETYPE_PROFILES }))
+    })()
+    return
+  }
+
   // ── Intelligence Tasks API ────────────────────────────────────────────────────────────────────────────
   // Named, policy-governed agent runs with full governance trail + causal provenance.
   // GET    /api/intelligence/tasks             — list all tasks
@@ -10647,13 +10749,15 @@ server.listen(PORT, '127.0.0.1', () => {
       const rf = projectFinancialBrain()
       if (rf.skills > 0) console.log(`[financial-brain] projected ${rf.skills} skills across ${rf.domains} domains`.replace(/[\r\n]/g, ' '))
     } catch { /* best-effort */ }
-    // Persist causal DAG models (GYG + news-intel) into HellGraph for the Knowledge lens
+    // Persist causal DAG models into HellGraph for the Knowledge lens
     try {
       const { GYG_LFL_DAG, NEWS_INTEL_DAG } = await import('./lib/causal-signal.js')
+      const { GYG_SUPPLY_CHAIN_DAG } = await import('./lib/supply-chain.js')
       const { persistCausalDAG } = await import('./lib/causal-writeback.js')
       const rg = persistCausalDAG(GYG_LFL_DAG)
       const rn = persistCausalDAG(NEWS_INTEL_DAG)
-      console.log(`[causal] persisted gyg-lfl (${rg.nodes}n/${rg.edges}e) + news-intel (${rn.nodes}n/${rn.edges}e)`.replace(/[\r\n]/g, ' '))
+      const rs = persistCausalDAG(GYG_SUPPLY_CHAIN_DAG)
+      console.log(`[causal] persisted gyg-lfl (${rg.nodes}n/${rg.edges}e) + news-intel (${rn.nodes}n/${rn.edges}e) + gyg-supply (${rs.nodes}n/${rs.edges}e)`.replace(/[\r\n]/g, ' '))
     } catch { /* best-effort */ }
   })()
 

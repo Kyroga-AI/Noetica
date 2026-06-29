@@ -21,6 +21,7 @@
  */
 import type { CausalDAG } from './causal-graph.js'
 import { identifyCausalEffect, primaryCausalPath } from './causal-graph.js'
+import { GYG_SUPPLY_CHAIN_DAG } from './supply-chain.js'
 
 // ── GYG Like-for-Like Signal ──────────────────────────────────────────────────
 
@@ -91,8 +92,9 @@ export const NEWS_INTEL_DAG: CausalDAG = {
 // ── Model registry ────────────────────────────────────────────────────────────
 
 const REGISTRY: Record<string, CausalDAG> = {
-  'gyg-lfl':    GYG_LFL_DAG,
-  'news-intel': NEWS_INTEL_DAG,
+  'gyg-lfl':     GYG_LFL_DAG,
+  'news-intel':  NEWS_INTEL_DAG,
+  'gyg-supply':  GYG_SUPPLY_CHAIN_DAG,
 }
 
 export function getCausalModel(name: string): CausalDAG | null {

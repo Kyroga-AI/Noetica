@@ -99,6 +99,50 @@ const EVIDENCE: Step[] = [
   },
 ]
 
+// Supply chain evidence steps (second causal path: SC → IC/GA → LFL)
+const SUPPLY_CHAIN_EVIDENCE: Step[] = [
+  {
+    source_url: 'https://www.avocadosfrommexico.com/industry/news/',
+    observation: 'Michoacán frost event (3 Jun 2026): Mexican Avocado Producers Association confirms 15–20% of flowering crop affected. Export volume −18% for 4–6 weeks. Hass avocado spot price in Sydney wholesale: +38% week-on-week to AUD $3.20/unit (from $2.32 base). GYG avocado spend share ~14% of COGS — total input cost basket impact: +3.8% above base.',
+    confidence: 0.89,
+    agent_reasoning: 'Supply chain event SC-001 confirmed as severe. Avocado is the highest-volatility, non-substituable ingredient in the GYG basket. Frost events in Michoacán are well-documented IV candidates for cost-shock identification — they are exogenous to Australian consumer demand and orthogonal to GYG\'s foot traffic signal. Input cost index rises to 103.8 (base 100). This is the dominant supply chain shock in the current period.',
+    causal_node: 'SC',
+    causal_node_label: 'Supply Chain Event',
+    causal_dag: 'gyg-supply',
+    causal_path: ['SC', 'IC', 'MPP', 'LFL'],
+  },
+  {
+    source_url: 'https://www.mla.com.au/prices-markets/price-reporting/young-cattle/',
+    observation: 'East Coast Cattle Indicator (ECCI): 382¢/kg LW on 10 Jun 2026 (+14% vs 30-day avg of 335¢/kg). GYG beef mince COGS hedge: forward contract through Jul 2026 at 340¢/kg — immediate margin impact is deferred. However, Q4 FY26 contract renewal at spot would add ~2.1% to total input cost basket. Monitoring as "moderate" event.',
+    confidence: 0.82,
+    agent_reasoning: 'Cattle price spike SC-002 is a moderate event with deferred impact. The forward contract provides near-term protection, confirming GYG management are active hedgers. This is important: the immediate supply chain LFL revision from beef is 0bp (hedged), but the forward-looking Q4 signal is negative. For our Jun 2026 estimate, beef contributes 0pp to cost uplift. The cattle price level is tracked as a leading indicator.',
+    causal_node: 'IC',
+    causal_node_label: 'Input Cost Index',
+    causal_dag: 'gyg-supply',
+    causal_path: ['IC', 'MPP', 'LFL'],
+  },
+  {
+    source_url: 'https://www.portofmelbourne.com/operational-updates/',
+    observation: 'Port of Melbourne stevedore industrial action (22–27 Jun 2026): tortilla and packaging containers delayed 7–10 days. ABF biosecurity hold on 1 jalapeño container (routine inspection). Estimated impact: VIC stores (7 locations, 22% of network revenue) may run limited menu for 1–2 days. Gross Availability estimated at 89.0% full menu vs 100% base.',
+    confidence: 0.77,
+    agent_reasoning: 'Port congestion SC-003 creates a localised gross availability shock. GA drops to 89% of stores on full menu — avocado and jalapeño items most affected (guac, nachos). Limited menu stores historically see −4.5% same-day transactions vs full-menu days (GYG ASX investor day disclosure). Availability drag on effective foot traffic: −2.7% for VIC stores, −0.8% network-wide. This is the GA → EFT → LFL path in the supply chain DAG.',
+    causal_node: 'GA',
+    causal_node_label: 'Gross Availability',
+    causal_dag: 'gyg-supply',
+    causal_path: ['GA', 'EFT', 'LFL'],
+  },
+  {
+    source_url: 'urn:noetica:compute:menu-price-pressure:gyg-supply-jun2026',
+    observation: 'Pass-through decision model: based on 4 prior GYG ASX price announcements, historical pass-through rate is ~40% of input cost increases above 2% threshold. Current input cost uplift = 3.8% (avocado-driven). Expected menu price adjustment: +1.5% (0.40 × 3.8%). Avocado-heavy items (Burrito Bowl, Nachos) most likely to see price uplift. Timing: likely Q4 FY26 menu refresh.',
+    confidence: 0.71,
+    agent_reasoning: 'MPP confidence is lower — the pass-through decision is a management choice, not mechanistically determined. GYG has previously held prices for 4–6 weeks post-shock to protect volume, then passed through on menu refresh cycles. Best estimate: +1.5% MPP contribution to LFL (+positive revenue effect) offset by −0.9% volume effect from price elasticity. Net MPP contribution to LFL: +0.6pp. This is the IC → MPP → LFL path. Flagged for low confidence per policy gate.',
+    causal_node: 'MPP',
+    causal_node_label: 'Menu Price Pressure',
+    causal_dag: 'gyg-supply',
+    causal_path: ['MPP', 'LFL'],
+  },
+]
+
 const CAUSAL_CERTIFICATE = {
   causal_model: 'gyg-lfl',
   identification_strategy: 'iv',
@@ -108,22 +152,34 @@ const CAUSAL_CERTIFICATE = {
     'GPT → LFL Revenue except through FT (verified in DAG; consistent with academic literature). ' +
     'Hidden confounder (Competitor Activity) correctly handled by IV — OLS would be biased. ' +
     'Second-stage estimate: FT̂ coefficient = +0.47 (p<0.001). Network LFL Signal = +4.1% YoY, ' +
-    'above analyst consensus (+2.9%) by 120bp. ASIC-defensible: full causal DAG + IV certificate ' +
+    'above analyst consensus (+2.9%) by 120bp. ' +
+    'Supply chain signal (gyg-supply DAG, natural-experiment identification): Michoacán frost adds ' +
+    '+3.8% to input cost basket; gross availability at 89%; net supply chain LFL revision = −0.4pp. ' +
+    'Combined signal: +3.7% YoY (still above consensus). ASIC-defensible: full causal DAG + IV certificate ' +
     'in governance trail, reproducible via urn:noetica:replay:{task_id}.',
 }
 
 const OUTPUT =
   'GYG (ASX: GYG) Like-for-Like Signal — IFM Investors Intelligence Task\n\n' +
-  'SIGNAL: +4.1% YoY network LFL (90% CI: +2.8% to +5.4%) — ABOVE CONSENSUS (+2.9%)\n\n' +
+  '━━ COMBINED SIGNAL ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n' +
+  'LFL ESTIMATE: +3.7% YoY (90% CI: +2.4% to +5.0%) — ABOVE CONSENSUS (+2.9%)\n\n' +
+  '━━ FOOT TRAFFIC SIGNAL (gyg-lfl IV) ─────────────────────────────────────\n' +
   'CAUSAL IDENTIFICATION: Instrumental Variable (IV) via Google Popular Times.\n' +
-  'The IV strategy is required because Competitor Activity is an unobserved confounder. ' +
-  'GPT satisfies both IV conditions: (1) relevance (F=32.4), (2) exclusion restriction (no direct path to revenue).\n\n' +
-  'ADJUSTMENT SET: Weather Index, Holiday Calendar, Menu Price Changes, Macro Sentiment (Consumer Confidence).\n\n' +
-  'ESTIMATE: Store-level LFL +4.1%, driven by +6.2% YoY Google busyness trend, offset by winter weather (−4.1%) ' +
-  'and soft consumer confidence. Menu price lift (+3.8%) provides independent revenue support.\n\n' +
-  'GOVERNANCE: Task URN in HellGraph. Full evidence chain with causal annotations. ' +
-  'Policy gate: confidence threshold 0.70, source monitoring, flag-on-change. ' +
-  'This intelligence output is replayable and ASIC-defensible.'
+  'Relevance: F-statistic = 32.4. Exclusion: no direct GPT → LFL path in DAG.\n' +
+  'Raw signal: +4.1% YoY. 31 locations, 29 at full signal quality.\n\n' +
+  '━━ SUPPLY CHAIN SIGNAL (gyg-supply natural experiment) ──────────────────\n' +
+  'Michoacán frost (SC-001, severe): avocado cost +38% spot; input basket +3.8%.\n' +
+  'East Coast cattle (SC-002, moderate): hedged to Jul, Q4 FY26 watch.\n' +
+  'Port Melbourne (SC-003, moderate): 7 VIC locations on limited menu; GA = 89%.\n' +
+  'Net supply chain LFL revision: −0.4pp (cost pass-through +0.6pp, availability −1.0pp).\n\n' +
+  '━━ LOCATION-LEVEL BREAKDOWN ─────────────────────────────────────────────\n' +
+  'Drive-through: highest busyness index (weather-insensitive). Airport: +2.1% above base.\n' +
+  'CBD: −3.8% (winter, macro drag). Food-court: most exposed to avocado availability.\n' +
+  'University (Kingsford): semester trade strong despite weather.\n\n' +
+  '━━ GOVERNANCE ────────────────────────────────────────────────────────────\n' +
+  'Dual causal DAG: gyg-lfl (IV identification) + gyg-supply (natural experiment).\n' +
+  'Policy gate: confidence threshold 0.70, source monitoring, flag-on-change.\n' +
+  'Full evidence chain with causal annotations. ASIC-defensible + replayable.'
 
 async function post(path: string, body: unknown): Promise<unknown> {
   const res = await fetch(`${BASE}${path}`, {
@@ -168,10 +224,12 @@ async function main() {
   await post(`/api/intelligence/tasks/${task.id}/start`, {})
   console.log(`  → started`)
 
-  // 3. Add evidence steps with causal annotations
-  for (let i = 0; i < EVIDENCE.length; i++) {
-    const step = await post(`/api/intelligence/tasks/${task.id}/evidence`, EVIDENCE[i]) as { id: string; flagged: boolean }
-    console.log(`  → evidence [${i + 1}/${EVIDENCE.length}] ${EVIDENCE[i]!.causal_node} (${EVIDENCE[i]!.confidence}) ${step.flagged ? '⚠ flagged' : '✓'}`)
+  // 3a. Add foot traffic IV evidence steps
+  const allEvidence = [...EVIDENCE, ...SUPPLY_CHAIN_EVIDENCE]
+  for (let i = 0; i < allEvidence.length; i++) {
+    const step = await post(`/api/intelligence/tasks/${task.id}/evidence`, allEvidence[i]) as { id: string; flagged: boolean }
+    const e = allEvidence[i]!
+    console.log(`  → evidence [${i + 1}/${allEvidence.length}] ${e.causal_dag}:${e.causal_node} (${e.confidence}) ${step.flagged ? '⚠ flagged' : '✓'}`)
   }
 
   // 4. Complete and seal governance trail with causal certificate
@@ -182,9 +240,18 @@ async function main() {
   console.log(`  → completed: output_hash=${completed.governance.output_hash}`)
   console.log(`  → causal: model=${completed.governance.causal_model} strategy=${completed.governance.identification_strategy}`)
 
-  // 5. Trigger causal annotation writeback into HellGraph
+  // 5. Trigger causal annotation writeback for both DAGs
   await post('/api/causal/annotate', { task_id: completed.id, dag: 'gyg-lfl' })
-  console.log(`  → causal evidence annotated in HellGraph`)
+  await post('/api/causal/annotate', { task_id: completed.id, dag: 'gyg-supply' })
+  console.log(`  → causal evidence annotated in HellGraph (gyg-lfl + gyg-supply)`)
+
+  // 5b. Log supply chain signal snapshot
+  const scSignal = await get('/api/supply-chain/signal') as { lfl_revision_pct: number; margin_drag_pct: number; summary: string }
+  console.log(`  → supply chain: LFL revision ${scSignal.lfl_revision_pct}pp, margin drag ${scSignal.margin_drag_pct}bp`)
+
+  // 5c. Log location traffic aggregate
+  const traffic = await get('/api/location-traffic/aggregate') as { total_iv_transactions: number; lfl_index: number; total_weekly_revenue_aud: number }
+  console.log(`  → location traffic: ${traffic.total_iv_transactions} transactions/wk, LFL index ${traffic.lfl_index}, $${(traffic.total_weekly_revenue_aud / 1e6).toFixed(2)}M revenue`)
 
   // 6. Verify — fetch and display governance trail
   const verify = await get(`/api/intelligence/tasks/${completed.id}`) as {
