@@ -19,7 +19,7 @@
  *   MMLU_MODEL        answer model (default llama3.2:3b)
  *   MMLU_PER_SUBJECT  questions per subject (default 5; 0 = all)
  *   MMLU_K            retrieved chunks injected in the brain arm (default 4)
- *   MMLU_ARMS         comma list of arms to run (default "baseline,brain"); `refine` = AgentKB student→teacher trajectory-critique loop (Gap B)
+ *   MMLU_ARMS         comma list of arms to run (default "baseline,brain"); `refine` = AgentKB student→teacher trajectory-critique loop (Gap B); `tier` = tiered-ontology grounding (KKO upper→general→specific, PR #312)
  *   MMLU_SUBJECTS     comma list to restrict subjects (default: all brain-ready)
  *   MMLU_MAX_CHUNKS   per-field memory cap on loaded chunks (default 150000)
  *   MMLU_SEED         shuffle seed for the per-subject sample (default time-based)
@@ -49,6 +49,7 @@ import { critique, bestOfTemps } from '../lib/critic.js'                  // PRO
 import { classifyComplexity } from '../lib/complexity-discipline.js'      // PRODUCTION posture classifier
 import { emitReasoningBenchmark } from '../lib/reasoning-benchmark.js'     // 5th reasoning contract: each board = spec-conformant evidence
 import { teacherStudentRefine, refinementChangedAnswer } from '../lib/teacher-critique.js'   // AgentKB student→teacher trajectory-critique loop (Gap B)
+import { tieredGround, embeddingScorer } from '../lib/tiered-ground.js'                        // tiered-ontology grounding (KKO upper → general → specific, general-first)
 
 const HOME = os.homedir()
 const BANK = path.join(HOME, '.noetica', 'corpus', 'benchmarks', 'mmlu_stem.json')
@@ -567,6 +568,11 @@ async function ask(prompt: string, temperature = 0): Promise<string> {
 // of the answer (a bias toward "A" washes out across diverse samples). Unaffordable on CPU; cheap
 // on the L4. k<=1 collapses to one temp-0 answer (voting off), so non-champion arms are unaffected.
 const SC_K = Number(process.env['MMLU_SC_K'] || 5)
+
+// tier arm: ONE embedding-scorer instance reused across ALL questions so the ~80 tier-concept embeddings (KKO
+// categories + domain anchors + general nodes + spec topics) are computed ONCE and cached; only the query embeds
+// per question. Created lazily on first use of the `tier` arm.
+let _tierScorer: ReturnType<typeof embeddingScorer> | null = null
 const PROD_N = Number(process.env['MMLU_PROD_N'] || process.env['NOETICA_BESTOF_N'] || 3)   // prod arm best-of-N (server default 3)
 const SHUFFLE_M = Number(process.env['MMLU_SHUFFLE'] || 4)   // Medprompt choice-shuffle ensemble members (rotations cancel position bias)
 const CISC = process.env['MMLU_CISC'] === '1'   // confidence-weighted self-consistency (Google 2025) — weight each vote by the model's stated confidence
@@ -1167,6 +1173,19 @@ async function main() {
           mode = `refine:r${rr.rounds.length}${rr.converged ? ':conv' : ''}`
           row['refine_rounds'] = rr.rounds.length
           row['refine_changed'] = refinementChangedAnswer({ task: q.question, steps: [], answer: studentLetter }, rr)
+        } else if (arm === 'tier') {              // TIERED-ONTOLOGY grounding (PR #312): KKO upper → general (connective tissue)
+          // → specific, GENERAL-FIRST, via embedding cosine over in-repo canon (no external KBpedia download). Inject the
+          // tier block (and, in prod, the verified experiences) then answer. Tests whether tier-structured grounding beats
+          // the flat off-level nearest-neighbour drag that hurt the `brain` arm. One reused scorer caches concept embeddings.
+          if (!_tierScorer) _tierScorer = embeddingScorer()
+          const tg = await tieredGround(q.question, { scorer: _tierScorer.scorer, middleFloor: _tierScorer.middleFloor, lowerFloor: _tierScorer.lowerFloor })
+          const sc = await askVote(`${tg.block}\n${base}${ANSWER_RULE}`, SC_K)
+          letter = sc.letter
+          mode = `tier:${tg.grounding.level}${tg.grounding.specific ? ':spec' : ''}`
+          row['tier_level'] = tg.grounding.level
+          row['tier_general'] = tg.grounding.general
+          row['tier_grounded'] = tg.grounding.grounded
+          row['tier_conf'] = Number(sc.agree.toFixed(2))
         } else if (arm === 'groundgate') {        // CHEAP gate: decide retrieve-vs-skip from canon entity COUNT — no SC probe
           const k = kt[i] ?? { types: ['BasicFacts'], solver: 'retrieve' }
           const nEnt = canonRoute(q.question).entities.length
