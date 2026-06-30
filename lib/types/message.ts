@@ -53,6 +53,44 @@ export interface ChatMessage {
   quick_replies?: string[]
   /** Build clarifier — a deterministic multiple-choice card that scaffolds + runs a project. */
   build?: BuildSpec
+  /** Verification badge — HOW this answer was proven (computed / reasoned / generated), the moat made visible. */
+  verification?: VerificationInfo
+  /** Inline citations — the numbered sources this answer is grounded in (Onyx/NotebookLM-grade). */
+  citations?: Citation[]
+}
+
+/** Verification provenance for an answer — emitted by agent-machine's reasoning-evidence layer. */
+export interface VerificationInfo {
+  /** True when the answer is a deterministic, replay-exact computation (operator lane). */
+  computed: boolean
+  /** Replay class, e.g. 'replay-exact' | 'best-effort'. */
+  replayClass: string
+  /** How the answer was produced, e.g. 'operator' | 'self-consistency' | 'reason-lane' | 'generated'. */
+  method: string
+  /** True when the run is attested (sealed onto the evidence fabric). */
+  attested: boolean
+  /** Reference to the verification receipt, if any. */
+  receiptRef: string | null
+  /** Reference to the reasoning run, if any. */
+  runRef: string | null
+  /** True when the run is sealable onto the evidence spine. */
+  sealable: boolean
+  /** Human-readable badge, e.g. 'Computed · operator · replay-exact · attested'. */
+  badge: string
+}
+
+/** One numbered citation grounding an answer. */
+export interface Citation {
+  /** Citation number, as referenced inline ([n]). */
+  n: number
+  /** Display label of the source. */
+  source: string
+  /** Stable reference/locator for the source. */
+  ref: string
+  /** Retrieval/grounding match score (0–1). */
+  score: number
+  /** Optional grounding status, e.g. 'grounded' | 'unverified'. */
+  grounding_status?: string
 }
 
 /** A build-clarifier card: ask framework/language (no model), then deterministically scaffold. */

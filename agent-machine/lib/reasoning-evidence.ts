@@ -322,3 +322,133 @@ export function classifyReplay(turn: {
   if (sr === 'computed' || sr === 'extractive') return 'exact'
   return 'best-effort'
 }
+
+// ─── Visible-surface promotion: verification badge + citations ─────────────────
+// These turn the (already-computed) verified-compute + governed-evidence signals into
+// FIRST-CLASS, human-readable fields on the answer — the buying reason competitors
+// (Onyx/NotebookLM/Perplexity/AnythingLLM/Open WebUI) cannot show: a per-answer proof
+// that the answer was COMPUTED and VERIFIED, not merely cited. PURE + exception-safe:
+// derive only from data already in scope at response-assembly; never throw, omit on gap.
+
+export type VerificationMethod =
+  | 'operator-compute' | 'code-verify' | 'search-verify' | 'reason-lane'
+  | 'extractive' | 'recall' | 'generated'
+
+export interface Verification {
+  computed: boolean
+  replayClass: ReplayClass
+  method: VerificationMethod
+  attested: boolean
+  receiptRef: string | null
+  runRef: string | null
+  sealable: boolean
+  badge: string
+}
+
+/** Normalize the turn's raw method signal into the public VerificationMethod enum.
+ *  `verifiedMethod` (operator-compute / code-verify / search-verify) wins; else the
+ *  deterministic lane name (recall / extractive); else reason-lane; else generated. */
+function normalizeMethod(opts: {
+  verifiedMethod?: string | null
+  laneMethod?: string | null
+  reasonLane?: boolean | null
+}): VerificationMethod {
+  const vm = String(opts.verifiedMethod ?? '').toLowerCase()
+  if (vm === 'operator-compute' || vm === 'code-verify' || vm === 'search-verify') return vm as VerificationMethod
+  const lm = String(opts.laneMethod ?? '').toLowerCase()
+  if (lm === 'recall') return 'recall'
+  if (lm === 'extract' || lm === 'extractive') return 'extractive'
+  if (opts.reasonLane === true) return 'reason-lane'
+  return 'generated'
+}
+
+/** Human one-liner. Honest: only an "exact" replayClass earns "Computed"; reason-lane
+ *  is "Reasoned"; everything else "Generated". Appends "· attested" when a receipt rode. */
+function verificationBadge(method: VerificationMethod, replayClass: ReplayClass, attested: boolean): string {
+  let head: string
+  switch (method) {
+    case 'operator-compute': head = 'Computed · operator · replay-exact'; break
+    case 'code-verify': head = 'Computed · code-verified · replay-exact'; break
+    case 'search-verify': head = 'Computed · search-verified · replay-exact'; break
+    case 'extractive': head = 'Computed · extractive · replay-exact'; break
+    case 'recall': head = 'Computed · recall · replay-exact'; break
+    case 'reason-lane': head = 'Reasoned · self-consistency · best-effort'; break
+    default: head = 'Generated · best-effort'; break
+  }
+  return attested ? `${head} · attested` : head
+}
+
+/** Build the first-class `verification` object for the answer. Derives every field from
+ *  data already at the response-assembly point: the receipt/run URNs, the verifiedMethod
+ *  signal, and the deterministic lane. NEVER throws — returns a graceful "generated" shape
+ *  on any error so the turn is never broken. */
+export function buildVerification(opts: {
+  replayClass?: ReplayClass | null
+  verifiedMethod?: string | null
+  laneMethod?: string | null
+  reasonLane?: boolean | null
+  receiptRef?: string | null
+  runRef?: string | null
+}): Verification {
+  try {
+    const method = normalizeMethod(opts)
+    // replayClass: trust the caller's computed class; else derive from the method.
+    const rc: ReplayClass = opts.replayClass
+      ?? (method === 'generated' || method === 'reason-lane' ? 'best-effort' : 'exact')
+    const computed = rc === 'exact'
+    const receiptRef = opts.receiptRef ? String(opts.receiptRef) : null
+    const runRef = opts.runRef ? String(opts.runRef) : null
+    const attested = receiptRef != null
+    return {
+      computed,
+      replayClass: rc,
+      method,
+      attested,
+      receiptRef,
+      runRef,
+      sealable: true, // agentplane can seal any emitted receipt/run
+      badge: verificationBadge(method, rc, attested),
+    }
+  } catch {
+    return {
+      computed: false, replayClass: 'best-effort', method: 'generated',
+      attested: false, receiptRef: null, runRef: null, sealable: true,
+      badge: 'Generated · best-effort',
+    }
+  }
+}
+
+export interface Citation {
+  n: number
+  source: string
+  ref: string
+  score: number
+  grounding_status?: string
+}
+
+/** Build numbered inline citations from the retrieved chunks already used for the turn.
+ *  Safe-trace: emits source identifiers + score only (filename/doc-id), NEVER raw chunk
+ *  text. Numbered [1],[2],… in retrieval order. Returns [] when no retrieval ran, or on
+ *  any error. PURE + exception-safe. */
+export function buildCitations(
+  hits: ReadonlyArray<{ docId?: string | null; filename?: string | null; title?: string | null; score?: number | null }> | null | undefined,
+  groundingStatus?: string | null,
+): Citation[] {
+  try {
+    if (!Array.isArray(hits) || hits.length === 0) return []
+    return hits.map((h, i) => {
+      const source = String(h?.title ?? h?.filename ?? h?.docId ?? 'source').slice(0, 200)
+      const ref = String(h?.docId ?? h?.filename ?? '').slice(0, 200)
+      const score = typeof h?.score === 'number' && Number.isFinite(h.score) ? h.score : 0
+      return {
+        n: i + 1,
+        source,
+        ref,
+        score,
+        ...(groundingStatus ? { grounding_status: String(groundingStatus) } : {}),
+      }
+    })
+  } catch {
+    return []
+  }
+}
