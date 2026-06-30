@@ -110,6 +110,10 @@ export type NoeticaStreamDoneResult = {
   grounded?: boolean
   decidable?: boolean
   replay_class?: string
+  /** Verification badge — HOW this answer was proven (computed/reasoned/generated), the moat made visible. */
+  verification?: ChatMessage['verification']
+  /** Inline citations grounding the answer. */
+  citations?: ChatMessage['citations']
 }
 
 export type NoeticaSteerResponse = {

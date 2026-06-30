@@ -1149,6 +1149,9 @@ export function AppShell() {
                   ...(result.replay_class !== undefined ? { replay_class: result.replay_class } : {}),
                 },
                 steering_result: result.steering_applied,
+                // The moat made visible — verification badge + inline citations from the done event.
+                ...(result.verification ? { verification: result.verification } : {}),
+                ...(result.citations ? { citations: result.citations } : {}),
               })
             },
             onError: (error) => {
