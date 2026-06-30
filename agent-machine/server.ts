@@ -9354,6 +9354,64 @@ Question: ${question}`
     return
   }
 
+  // ── Phantom Anomaly — temporal/dynamical anomaly detection on any numeric series ─
+  if (req.method === 'POST' && url.pathname === '/api/graph/analytics/anomaly') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let parsed: Record<string, unknown>
+        try { parsed = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const series = Array.isArray(parsed['series']) ? (parsed['series'] as unknown[]).map(Number).filter((n) => !isNaN(n)) : []
+        if (series.length < 10) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'series must have ≥10 points' })); return }
+        const esn = detectAnomalies(series)
+        const ftle = ftleSeries(series)
+        const anomalies = esn.points.filter((p) => p.anomaly)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ esn: { points: esn.points, threshold: esn.threshold, anomalyCount: anomalies.length }, ftle, anomalies }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+      }
+    })()
+    return
+  }
+
+  // ── STORM Knowledge Curation — multi-perspective article pre-writing ──────────
+  if (req.method === 'POST' && url.pathname === '/api/knowledge/storm') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let parsed: Record<string, unknown>
+        try { parsed = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const topic = typeof parsed['topic'] === 'string' ? parsed['topic'].trim() : ''
+        if (!topic) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'topic required' })); return }
+        const nPerspectives = typeof parsed['nPerspectives'] === 'number' ? parsed['nPerspectives'] : 3
+        const nQuestions    = typeof parsed['nQuestions']    === 'number' ? parsed['nQuestions']    : 3
+        const stormModel = process.env['PROPHET_MODERATE_MODEL'] ?? 'qwen3:14b'
+        const runner = async (prompt: string): Promise<string> => {
+          const r = await generateOllamaText({ model: stormModel, messages: [{ role: 'user', content: prompt }] })
+          return r.content
+        }
+        const retrieve = async (query: string, k: number): Promise<string[]> => {
+          try {
+            const vecs = await embedBatchLocal([query])
+            const qv = vecs?.[0]; if (!qv) return []
+            const { vecQuery } = await import('./lib/embed-runtime.js')
+            const hits = await vecQuery('documents', { vec: qv, k })
+            return hits.map((h) => String(h.meta?.['text'] ?? h.meta?.['filename'] ?? h.id))
+          } catch { return [] }
+        }
+        const curation = await runStorm(topic, { nPerspectives, nQuestions, runner, retrieve })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ topic, curation, executionPerformed: false }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+      }
+    })()
+    return
+  }
+
   // ── Encrypted vector store status ────────────────────────────────────────────
   if (req.method === 'GET' && url.pathname === '/api/store/vector-key-status') {
     setCORSHeaders(res)
@@ -9371,6 +9429,143 @@ Question: ${question}`
     } catch (e) {
       res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
     }
+    return
+  }
+
+  // ── /api/graph/proposals — staged graph-mutation proposals (trust keystone) ─────────────────
+  if (url.pathname === '/api/graph/proposals' || url.pathname.startsWith('/api/graph/proposals/')) {
+    ;(async () => {
+      try {
+        const { readBody: rb } = await import('./lib/read-body.js')
+        const { proposal, setStatus, applyAccepted } = await import('./lib/graph-proposals.js')
+        const ps = getHellGraph() as unknown as { _proposals?: import('./lib/graph-proposals.js').GraphProposal[] }
+        if (!ps._proposals) ps._proposals = []
+
+        if (req.method === 'GET' && url.pathname === '/api/graph/proposals') {
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ proposals: ps._proposals, count: ps._proposals.length }))
+          return
+        }
+        if (req.method === 'POST' && url.pathname === '/api/graph/proposals') {
+          const body = JSON.parse(await rb(req)) as { op: string; payload: Record<string, unknown>; rationale: string; source?: string }
+          const p = proposal(body.op as import('./lib/graph-proposals.js').ProposalOp, body.payload, body.rationale, body.source)
+          ps._proposals.push(p)
+          res.writeHead(201, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ proposal: p }))
+          return
+        }
+        const acceptMatch = url.pathname.match(/^\/api\/graph\/proposals\/([^/]+)\/accept$/)
+        if (req.method === 'POST' && acceptMatch) {
+          const id = acceptMatch[1]!
+          ps._proposals = setStatus(ps._proposals, id, 'accepted')
+          const { mutations, summary } = applyAccepted(ps._proposals)
+          const g = getHellGraph() as unknown as { addEdge: (t: string, f: string, to: string, p?: Record<string, unknown>) => void; addNode: (n: { id: string; labels: string[]; properties: Record<string, unknown> }) => void }
+          for (const m of mutations.filter((m2) => m2.id === id)) {
+            try {
+              if (m.op === 'add-edge') g.addEdge(String(m.payload['rel'] ?? 'RELATES_TO'), String(m.payload['from']), String(m.payload['to']), {})
+              else if (m.op === 'add-node') g.addNode({ id: String(m.payload['id'] ?? m.id), labels: [String(m.payload['label'] ?? 'Node')], properties: m.payload })
+            } catch { /* graph write best-effort */ }
+          }
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ summary, applied: id }))
+          return
+        }
+        const rejectMatch = url.pathname.match(/^\/api\/graph\/proposals\/([^/]+)\/reject$/)
+        if (req.method === 'POST' && rejectMatch) {
+          ps._proposals = setStatus(ps._proposals, rejectMatch[1]!, 'rejected')
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ rejected: rejectMatch[1] }))
+          return
+        }
+        res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'not_found' }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── /api/graph/colocation — co-location / co-travel detection ────────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/graph/colocation') {
+    ;(async () => {
+      try {
+        const { readBody: rb } = await import('./lib/read-body.js')
+        const body = JSON.parse(await rb(req)) as { pings: Array<{ entity: string; lon: number; lat: number; t: number }>; res?: number; windowMs?: number; minMeetings?: number }
+        const { findColocations } = await import('./lib/colocation.js')
+        const results = findColocations(body.pings ?? [], { res: body.res, windowMs: body.windowMs, minMeetings: body.minMeetings })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ colocations: results, count: results.length }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── /api/links/suggest — inline backlink suggestions for authoring ────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/links/suggest') {
+    ;(async () => {
+      try {
+        const { readBody: rb } = await import('./lib/read-body.js')
+        const body = JSON.parse(await rb(req)) as { text: string; topK?: number; minSim?: number; alreadyLinked?: string[] }
+        if (!body.text) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'text required' })); return }
+        const { embedBatchLocal } = await import('./lib/embed-runtime.js')
+        const noteVec = (await embedBatchLocal([body.text]))?.[0] ?? null
+        if (!noteVec) { res.writeHead(503, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'embed_unavailable' })); return }
+        const g = getHellGraph()
+        const candidates = g.allNodes()
+          .filter((n) => n.properties['vec'] && Array.isArray(n.properties['vec']))
+          .map((n) => ({ id: n.id, label: String(n.properties['label'] ?? n.labels[0] ?? n.id), vec: n.properties['vec'] as unknown as number[] }))
+        const { suggestLinks } = await import('./lib/link-suggest.js')
+        const suggestions = suggestLinks(noteVec, candidates, { topK: body.topK, minSim: body.minSim, alreadyLinked: new Set(body.alreadyLinked ?? []) })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ suggestions, count: suggestions.length }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── /api/gen-ui/validate — validate a generative-UI component spec ───────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/gen-ui/validate') {
+    ;(async () => {
+      try {
+        const { readBody: rb } = await import('./lib/read-body.js')
+        const body = JSON.parse(await rb(req)) as { specs: Array<{ component: string; props: Record<string, unknown> }> }
+        const { validateUISpec, sanitizeUISpecs, ALLOWED_COMPONENTS } = await import('./lib/gen-ui.js')
+        const results = (body.specs ?? []).map((s) => ({ spec: s, ...validateUISpec(s) }))
+        const valid = sanitizeUISpecs(body.specs ?? [])
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ results, valid, allowedComponents: [...ALLOWED_COMPONENTS] }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── /api/mind-map — hierarchical topic-decomposition tree ────────────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/mind-map') {
+    ;(async () => {
+      try {
+        const { readBody: rb } = await import('./lib/read-body.js')
+        const body = JSON.parse(await rb(req)) as { root: string; edges: Array<{ parent: string; child: string }> }
+        if (!body.root || !body.edges) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'root and edges required' })); return }
+        const { buildMindMap, flattenOutline, countNodes } = await import('./lib/mind-map.js')
+        const tree = buildMindMap(body.root, body.edges)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ tree, outline: flattenOutline(tree), nodeCount: countNodes(tree) }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── /api/graph/rules — Horn-rule mining from the graph ───────────────────────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/graph/rules') {
+    ;(async () => {
+      try {
+        const minConfidence = parseFloat(url.searchParams.get('minConfidence') ?? '0.5')
+        const minSupport = parseInt(url.searchParams.get('minSupport') ?? '2', 10)
+        const triples = getHellGraph().allEdges().map((e) => ({ s: e.from, p: e.label, o: e.to }))
+        const { mineRules } = await import('./lib/rule-mining.js')
+        const rules = mineRules(triples, { minConfidence, minSupport })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ rules, count: rules.length, minConfidence, minSupport }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
     return
   }
 
