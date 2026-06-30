@@ -801,7 +801,7 @@ async function runSuperconsciousLoop(keys: LoopProviderKeys): Promise<void> {
         method: 'POST',
         headers: _t.headers,
         body: JSON.stringify({
-          model: 'claude-haiku-4-5-20251001',
+          model: 'claude-haiku-4-5',
           max_tokens: 1024,
           messages: [{ role: 'user', content: prompt }],
         }),
@@ -2940,7 +2940,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     const hint = capabilityHint(routerDecision.task ?? 'general')
     if (hint.recommendEscalation) {
       let escalated = false
-      if (anthropicAvailable) { provider = 'anthropic'; model = 'claude-haiku-4-5-20251001'; escalated = true }
+      if (anthropicAvailable) { provider = 'anthropic'; model = 'claude-haiku-4-5'; escalated = true }
       else if (openaiKey) { provider = 'openai'; model = 'gpt-4o-mini'; escalated = true }
       if (escalated) {
         console.log(`[self-model] escalated task="${String(routerDecision.task)}" → ${provider}:${model} (local success ${(hint.localSuccessRate ?? 0).toFixed(2)} over ${hint.localRuns} runs)`.replace(/\r/g, '').replace(/\n/g, ''))
@@ -5651,7 +5651,7 @@ const server = http.createServer((req, res) => {
         res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(meta))
       } catch (e) {
         const code = e instanceof OperatorUnavailableError ? 503 : e instanceof OperatorError ? e.status : 500
-        res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: (e as Error).message }))
+        res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: e instanceof OperatorUnavailableError ? 'operator_unavailable' : 'operator_error' }))
       }
     })()
     return
@@ -5671,7 +5671,7 @@ const server = http.createServer((req, res) => {
         res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(result))
       } catch (e) {
         const code = e instanceof OperatorUnavailableError ? 503 : e instanceof OperatorError ? e.status : 500
-        res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: (e as Error).message }))
+        res.writeHead(code, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: e instanceof OperatorUnavailableError ? 'operator_unavailable' : 'operator_error' }))
       }
     })() })
     return
@@ -5949,6 +5949,7 @@ const server = http.createServer((req, res) => {
 
   // POST /api/memory/pin — curate a memory into / out of the long-term brain. Body: {id, pinned?}.
   if (req.method === 'POST' && url.pathname === '/api/memory/pin') {
+    if (!requireApiToken(req, res)) return
     let body = ''
     req.on('data', (c: Buffer) => { body += c.toString() })
     req.on('end', () => { void (async () => {
@@ -5969,6 +5970,7 @@ const server = http.createServer((req, res) => {
 
   // POST /api/memory/forget — soft-delete a memory (excluded from recall + LTI dropped). Body: {id}.
   if (req.method === 'POST' && url.pathname === '/api/memory/forget') {
+    if (!requireApiToken(req, res)) return
     let body = ''
     req.on('data', (c: Buffer) => { body += c.toString() })
     req.on('end', () => { void (async () => {
@@ -6115,6 +6117,7 @@ const server = http.createServer((req, res) => {
 
   // POST /api/graph/gremlin — Gremlin/TinkerPop traversal over HellGraph property graph
   if (req.method === 'POST' && url.pathname === '/api/graph/gremlin') {
+    if (!requireApiToken(req, res)) return
     void (async () => {
       setCORSHeaders(res)
       try {
@@ -6143,6 +6146,7 @@ const server = http.createServer((req, res) => {
 
   // POST /api/graph/sparql — SPARQL SELECT/CONSTRUCT/ASK over HellGraph property graph
   if (req.method === 'POST' && url.pathname === '/api/graph/sparql') {
+    if (!requireApiToken(req, res)) return
     void (async () => {
       setCORSHeaders(res)
       try {
@@ -6171,6 +6175,7 @@ const server = http.createServer((req, res) => {
 
   // POST /api/graph/cypher — Cypher query proxy to the HellGraph sidecar
   if (req.method === 'POST' && url.pathname === '/api/graph/cypher') {
+    if (!requireApiToken(req, res)) return
     void (async () => {
       setCORSHeaders(res)
       try {
@@ -6263,6 +6268,7 @@ Question: ${question}`
   // masks before cloud egress + user-defined sensitive terms to always mask. The user decides what the
   // AI may see. GET returns the policy + available categories; POST { disabled, terms } saves it.
   if (url.pathname === '/api/privacy/policy' && (req.method === 'GET' || req.method === 'POST')) {
+    if (!requireApiToken(req, res)) return
     if (req.method === 'GET') {
       setCORSHeaders(res)
       void (async () => {
@@ -6292,6 +6298,7 @@ Question: ${question}`
   // POST /api/privacy/redact — preview the PII/secret firewall: what would be masked before any cloud
   // egress. Body: { text }. Returns the redacted text + counts by kind (NOT the secret→placeholder map).
   if (req.method === 'POST' && url.pathname === '/api/privacy/redact') {
+    if (!requireApiToken(req, res)) return
     let body = ''
     req.on('data', (c: Buffer) => { body += c.toString() })
     req.on('end', () => { void (async () => {
@@ -8050,6 +8057,7 @@ Question: ${question}`
   //   4. Convergent eval-repair — adversarial evaluator grades contract, repairs failures in a loop
   //   5. Progress file write — persist state for the NEXT session
   if (req.method === 'POST' && url.pathname === '/api/code/solve') {
+    if (!requireApiToken(req, res)) return
     let body = ''
     req.on('data', (c: Buffer) => { body += c.toString() })
     req.on('end', () => { void (async () => {
