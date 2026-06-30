@@ -50,3 +50,19 @@ test('mutating verb from a cross-site Origin is REJECTED (the drive-by attack)',
   assert.equal(originAllowed('POST', 'https://evil.com'), false)
   assert.equal(originAllowed('DELETE', 'http://attacker.example'), false)
 })
+
+test('originAllowed: rejects a hosted origin by default', () => {
+  delete process.env['NOETICA_ALLOWED_ORIGINS']
+  assert.equal(originAllowed('GET', 'https://app.example.com'), false)
+})
+
+test('originAllowed: allows an operator-declared hosted origin', () => {
+  process.env['NOETICA_ALLOWED_ORIGINS'] = 'https://app.example.com, https://workspace.example.com'
+  try {
+    assert.equal(originAllowed('GET', 'https://app.example.com'), true)
+    assert.equal(originAllowed('POST', 'https://workspace.example.com/'), true)
+    assert.equal(originAllowed('GET', 'https://evil.example.com'), false)
+  } finally {
+    delete process.env['NOETICA_ALLOWED_ORIGINS']
+  }
+})
