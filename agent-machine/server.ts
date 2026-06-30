@@ -3437,15 +3437,18 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         } catch { /* tracking best-effort */ }
         // Reasoning-evidence: COMPUTED (recall) ⇒ replayClass "exact". Best-effort, non-blocking.
         let reasoningRecall: { run: string; receipt: string } | undefined
+        let recallVerification: import('./lib/reasoning-evidence.js').Verification | undefined
         try {
           const re = await import('./lib/reasoning-evidence.js')
           const run = re.openReasoningRun(`turn:${intentPlan.name}`)
           re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} computed(recall) ${lat}ms`, trustLevel: 'trusted-workspace-source', ...(groundingStatus ? { extra: { grounding_status: groundingStatus } } : {}) })
           const ledgerRef = hit.attestation ? `urn:srcos:ledger:dispatch:${hit.attestation}` : undefined
-          const receipt = re.closeReasoningRun(run, { status: 'completed', replayClass: re.classifyReplay({ method: 'recall', decidable: true }), ledgerRef })
+          const rcRecall = re.classifyReplay({ method: 'recall', decidable: true })
+          const receipt = re.closeReasoningRun(run, { status: 'completed', replayClass: rcRecall, ledgerRef })
           reasoningRecall = { run: run.id, receipt: receipt.id }
+          recallVerification = re.buildVerification({ replayClass: rcRecall, laneMethod: 'recall', receiptRef: receipt.id, runRef: run.id })
         } catch { /* reasoning evidence is best-effort — never break the turn */ }
-        sse(res, 'done', { result: { run_id: crypto.randomUUID(), content: hit.answer, model_routed: 'recall', provider: 'noetica', policy_admitted: true, memory_written: false, stop_reason: 'computed', timestamp: new Date().toISOString(), latency_ms: lat, agent_machine: true, agent_machine_version: VERSION, decidable: true, method: 'recall', ...(reasoningRecall ? { reasoning_run: reasoningRecall.run, reasoning_receipt: reasoningRecall.receipt } : {}), ...(groundingStatus ? { grounding_status: groundingStatus } : {}), ...(grounding.partial ? { grounding: 'partial' } : {}) } })
+        sse(res, 'done', { result: { run_id: crypto.randomUUID(), content: hit.answer, model_routed: 'recall', provider: 'noetica', policy_admitted: true, memory_written: false, stop_reason: 'computed', timestamp: new Date().toISOString(), latency_ms: lat, agent_machine: true, agent_machine_version: VERSION, decidable: true, method: 'recall', ...(reasoningRecall ? { reasoning_run: reasoningRecall.run, reasoning_receipt: reasoningRecall.receipt } : {}), ...(recallVerification ? { verification: recallVerification } : {}), citations: [], ...(groundingStatus ? { grounding_status: groundingStatus } : {}), ...(grounding.partial ? { grounding: 'partial' } : {}) } })
         return
       }
     } catch { /* recall is best-effort — fall through to extract/generation */ }
@@ -3543,19 +3546,25 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         } catch { /* tracking best-effort */ }
         // Reasoning-evidence: COMPUTED (extractive, verbatim from source) ⇒ replayClass "exact".
         let reasoningExtract: { run: string; receipt: string } | undefined
+        let extractVerification: import('./lib/reasoning-evidence.js').Verification | undefined
+        let extractCitations: import('./lib/reasoning-evidence.js').Citation[] = []
         try {
           const re = await import('./lib/reasoning-evidence.js')
           const run = re.openReasoningRun(`turn:${intentPlan.name}`)
           re.emitReasoningEvent(run, { eventType: 'noetica.turn', summary: `intent=${intentPlan.name} computed(extractive) ${exLatency}ms`, trustLevel: 'trusted-workspace-source', ...(groundingStatus ? { extra: { grounding_status: groundingStatus } } : {}) })
           const ledgerRef = extractiveAttestation ? `urn:srcos:ledger:dispatch:${extractiveAttestation}` : undefined
-          const receipt = re.closeReasoningRun(run, { status: 'completed', replayClass: re.classifyReplay({ method: 'extractive', decidable: true }), ledgerRef })
+          const rcExtract = re.classifyReplay({ method: 'extractive', decidable: true })
+          const receipt = re.closeReasoningRun(run, { status: 'completed', replayClass: rcExtract, ledgerRef })
           reasoningExtract = { run: run.id, receipt: receipt.id }
+          extractVerification = re.buildVerification({ replayClass: rcExtract, laneMethod: 'extractive', receiptRef: receipt.id, runRef: run.id })
+          extractCitations = re.buildCitations(docHits, groundingStatus)
         } catch { /* reasoning evidence is best-effort — never break the turn */ }
         sse(res, 'done', { result: {
           run_id: crypto.randomUUID(), content: ex.answer, model_routed: 'extractive', provider: 'noetica',
           policy_admitted: true, memory_written: false, stop_reason: 'extractive', timestamp: new Date().toISOString(),
           latency_ms: exLatency, agent_machine: true, agent_machine_version: VERSION, extractive: true,
           ...(reasoningExtract ? { reasoning_run: reasoningExtract.run, reasoning_receipt: reasoningExtract.receipt } : {}),
+          ...(extractVerification ? { verification: extractVerification } : {}), citations: extractCitations,
           ...(groundingStatus ? { grounding_status: groundingStatus } : {}), ...(grounding.partial ? { grounding: 'partial' } : {}),
         } })
         return
@@ -4363,6 +4372,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     // TurnRecord → flow metrics). Best-effort; never blocks the response.
     let generatedAttestation: string | undefined
     let reasoningGen: { run: string; receipt: string } | undefined
+    let verification: import('./lib/reasoning-evidence.js').Verification | undefined
     try {
       const { recordTurn } = await import('./lib/dialogue-tracker.js')
       recordTurn({
@@ -4448,8 +4458,18 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           : re.classifyReplay({ method: model, stop_reason: 'end_turn' })
         const receipt = re.closeReasoningRun(run, { status: 'completed', replayClass, ledgerRef })
         reasoningGen = { run: run.id, receipt: receipt.id }
+        // SURFACE the verified-compute moat as a first-class, human-readable field. Derived
+        // from data already in scope (replayClass, verifiedMethod, the receipt/run URNs).
+        verification = re.buildVerification({
+          replayClass, verifiedMethod, reasonLane: useReasonLane,
+          receiptRef: receipt.id, runRef: run.id,
+        })
       } catch { /* reasoning evidence is best-effort — never break the turn */ }
     } catch { /* tracker is best-effort */ }
+
+    // Inline citations from the chunks already retrieved for this turn (safe-trace: ids+score).
+    let citations: import('./lib/reasoning-evidence.js').Citation[] = []
+    try { const reC = await import('./lib/reasoning-evidence.js'); citations = reC.buildCitations(docHits, groundingStatus) } catch { /* citations best-effort */ }
 
     sse(res, 'done', {
       result: {
@@ -4471,6 +4491,8 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         agent_machine: true,
         agent_machine_version: VERSION,
         ...(reasoningGen ? { reasoning_run: reasoningGen.run, reasoning_receipt: reasoningGen.receipt } : {}),
+        ...(verification ? { verification } : {}),
+        citations,
         // Grounding provenance (Priority 7): how grounded was this answer (telemetry, enum-only). On
         // 'partial', also expose a lightweight uncertainty marker so downstream/UI can signal lower
         // confidence. Present only for retrieval-eligible turns with the signal active (never the reason lane).
