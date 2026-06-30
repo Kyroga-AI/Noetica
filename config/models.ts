@@ -1,4 +1,4 @@
-import type { ModelConfig } from '@/lib/types/model'
+import type { ModelConfig, Provider } from '@/lib/types/model'
 
 export const models: ModelConfig[] = [
   // ── Auto mesh routing (prophet-mesh) ─────────────────────────────────────────
@@ -365,10 +365,29 @@ export const models: ModelConfig[] = [
 
 export const defaultModelId = 'auto'
 
-// Models shown in the picker by default (local-first). All others require showAllModels=true.
-export function visibleModels(showAll: boolean) {
+// Providers the user has supplied an API key for — those models become visible without
+// needing the "show all" toggle. Accepts a minimal settings shape to avoid a settings→config cycle.
+export function providersWithKeys(s: {
+  anthropicApiKey?: string
+  openaiApiKey?: string
+  googleApiKey?: string
+  mistralApiKey?: string
+  neuronpediaApiKey?: string
+}): Set<Provider> {
+  const set = new Set<Provider>()
+  if (s.anthropicApiKey?.trim()) set.add('anthropic')
+  if (s.openaiApiKey?.trim()) set.add('openai')
+  if (s.googleApiKey?.trim()) set.add('google')
+  if (s.mistralApiKey?.trim()) set.add('mistral')
+  if (s.neuronpediaApiKey?.trim()) set.add('neuronpedia')
+  return set
+}
+
+// Models shown in the picker by default (local-first): Auto + local Ollama, plus any provider
+// the user has a key for. Everything else (SAE targets, keyless cloud) requires showAllModels=true.
+export function visibleModels(showAll: boolean, keyedProviders?: ReadonlySet<Provider>) {
   if (showAll) return models
   return models.filter(
-    (m) => m.id === 'auto' || m.provider === 'meta'
+    (m) => m.id === 'auto' || m.provider === 'meta' || (keyedProviders?.has(m.provider) ?? false)
   )
 }

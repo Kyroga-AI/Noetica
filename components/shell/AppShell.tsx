@@ -43,7 +43,7 @@ import { SettingsModal } from '@/components/settings/SettingsModal'
 import { ProviderSetupModal } from '@/components/shell/ProviderSetupModal'
 import { ModelSetupOverlay } from '@/components/setup/ModelSetupOverlay'
 import { CommandPalette } from '@/components/palette/CommandPalette'
-import { models, visibleModels, defaultModelId } from '@/config/models'
+import { models, visibleModels, providersWithKeys, defaultModelId } from '@/config/models'
 import { initialMessages } from '@/lib/chat/mockConversation'
 import { matchDialogue, type DialogueForm, type DialogueCommand } from '@/lib/chat/dialogue'
 import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
@@ -159,7 +159,7 @@ export function AppShell() {
       setMessages(activeSession.messages.length > 0 ? activeSession.messages : initialMessages)
       // Only restore model if it's in the currently-visible list (guards against
       // Neuronpedia/cloud models that were saved before showAllModels was toggled off)
-      const allowed = visibleModels(settings.showAllModels)
+      const allowed = visibleModels(settings.showAllModels, providersWithKeys(settings))
       const isUsable = allowed.some((m) => m.id === activeSession.modelId)
       setModelId(isUsable ? activeSession.modelId : defaultModelId)
     } else {
@@ -598,7 +598,7 @@ export function AppShell() {
     setActiveSurface(s.surface)
     setWorkspaceMode(s.workspaceMode)
     setMessages(s.messages.length > 0 ? s.messages : initialMessages)
-    const allowed = visibleModels(settings.showAllModels)
+    const allowed = visibleModels(settings.showAllModels, providersWithKeys(settings))
     setModelId(allowed.some((m) => m.id === s.modelId) ? s.modelId : defaultModelId)
   }
 
@@ -921,7 +921,7 @@ export function AppShell() {
     setMessages(forkedMessages)
     setActiveSurface(activeSurface)
     setWorkspaceMode(workspaceMode)
-    const allowed = visibleModels(settings.showAllModels)
+    const allowed = visibleModels(settings.showAllModels, providersWithKeys(settings))
     setModelId(allowed.some((m) => m.id === sess.modelId) ? sess.modelId : defaultModelId)
   }
 

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { visibleModels } from '@/config/models'
+import { visibleModels, providersWithKeys } from '@/config/models'
 import { useSettings } from '@/lib/settings/context'
 import { isTauri } from '@/lib/tauri/bridge'
 import type { Provider } from '@/lib/types/model'
@@ -26,7 +26,7 @@ function amBase() { return isTauri() ? 'http://127.0.0.1:8080' : '' }
 
 export function ModelPicker({ value, onChange }: ModelPickerProps) {
   const { settings } = useSettings()
-  const modelList = visibleModels(settings.showAllModels)
+  const modelList = visibleModels(settings.showAllModels, providersWithKeys(settings))
   const [pulledModels, setPulledModels] = useState<Set<string>>(new Set())
 
   useEffect(() => {
