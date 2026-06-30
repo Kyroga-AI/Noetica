@@ -24,6 +24,23 @@ export function isLoopbackOrigin(origin: string): boolean {
 }
 
 /**
+ * Explicitly-allowed origins for a hosted (browser) deployment behind the web gateway. The desktop
+ * app is loopback-only, but a cloud launch serves the UI from a real domain whose Origin is NOT
+ * loopback — so the operator declares those origins via NOETICA_ALLOWED_ORIGINS (comma-separated,
+ * e.g. "https://app.example.com,https://workspace.example.com"). Empty by default → behaviour is
+ * unchanged for the desktop app. Compared scheme+host+port exact (after normalizing a trailing slash).
+ */
+export function configuredOrigins(): string[] {
+  const raw = process.env['NOETICA_ALLOWED_ORIGINS'] ?? ''
+  return raw.split(',').map((s) => s.trim().replace(/\/$/, '')).filter(Boolean)
+}
+
+function isConfiguredOrigin(origin: string): boolean {
+  const norm = origin.replace(/\/$/, '')
+  return configuredOrigins().some((o) => o === norm)
+}
+
+/**
  * Decide whether a request may proceed. `method` is the HTTP verb, `origin` the raw Origin header
  * (or undefined when absent). A request with NO Origin (native / CLI / top-level navigation /
  * server-to-server) always passes; a request that DOES carry an Origin must be the local app.
@@ -38,5 +55,6 @@ export function originAllowed(method: string | undefined, origin: string | undef
   const m = (method ?? 'GET').toUpperCase()
   if (m === 'OPTIONS') return true // CORS preflight must complete; the real request is still checked
   if (!origin) return true // native / CLI / top-level navigation / server-to-server send no Origin
-  return isLoopbackOrigin(origin) // a PRESENT Origin must be the local app — for reads as well as writes
+  // A PRESENT Origin must be the local app OR an operator-declared hosted origin (browser launch).
+  return isLoopbackOrigin(origin) || isConfiguredOrigin(origin)
 }

@@ -10391,12 +10391,17 @@ try {
 // the surface is local, but a local rogue/buggy client shouldn't be able to wedge the loop either.
 server.headersTimeout = 60_000
 server.requestTimeout = 300_000
-server.listen(PORT, '127.0.0.1', () => {
+// Bind host: loopback by default (desktop app — never expose the sidecar on a network). A hosted
+// browser launch runs the sidecar behind the web gateway on a container network, where the gateway
+// is a *different* container and cannot reach 127.0.0.1 — so the deploy sets NOETICA_BIND_HOST=0.0.0.0.
+// Pair this ONLY with the gateway + NOETICA_ALLOWED_ORIGINS + auth; never bind 0.0.0.0 on a bare host.
+const BIND_HOST = process.env['NOETICA_BIND_HOST'] ?? '127.0.0.1'
+server.listen(PORT, BIND_HOST, () => {
   // Ergonomics: collapse the 100+ NOETICA_* knobs into one RAM-aware preset (lite/balanced/max). Sets only
   // UNSET vars so explicit config still wins, and gives soft memory degradation (small boxes auto-go lite).
   const _cfg = applyPreset()
   console.log(`[noetica-am] ${summarizePreset(_cfg)}`)
-  console.log(`[noetica-am] Agent Machine v${VERSION} listening on http://127.0.0.1:${PORT}`)
+  console.log(`[noetica-am] Agent Machine v${VERSION} listening on http://${BIND_HOST}:${PORT}`)
   console.log(`[noetica-am] Status: http://127.0.0.1:${PORT}/api/status`)
 
   // Brain injection + update service (auto-provision DEFAULT ON; NOETICA_BRAIN_AUTO_PROVISION=0 to
