@@ -13,6 +13,7 @@
  * exactly as a real run would — the demo is not special-cased anywhere in the product.
  */
 
+export {}
 const BASE = process.env['NOETICA_API'] ?? 'http://localhost:8080'
 
 interface Step {
