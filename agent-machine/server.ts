@@ -9905,7 +9905,6 @@ Question: ${question}`
     return
   }
 
-<<<<<<< HEAD
   // ── Graph Proposals — stage/accept/reject ghost diffs before any graph write ────
   if (url.pathname === '/api/graph/proposals' || url.pathname === '/api/graph/proposals/accept' || url.pathname === '/api/graph/proposals/reject') {
     setCORSHeaders(res)
@@ -10231,33 +10230,10 @@ Question: ${question}`
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ colocations: results, count: results.length }))
       } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
-=======
-
-  // ── Co-location detection (Palantir Gotham primitive: space+time fusion) ────────
-  if (req.method === 'POST' && url.pathname === '/api/graph/colocation') {
-    setCORSHeaders(res)
-    void (async () => {
-      try {
-        const { readBody: rb } = await import('./lib/read-body.js')
-        const body = await rb(req)
-        let parsed: Record<string, unknown>
-        try { parsed = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
-        const { findColocations } = await import('./lib/colocation.js')
-        const pings = parsed['pings'] as Parameters<typeof findColocations>[0]
-        const opts = (parsed['opts'] ?? {}) as Parameters<typeof findColocations>[1]
-        if (!Array.isArray(pings)) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'pings must be an array' })); return }
-        const colocations = findColocations(pings, opts)
-        res.writeHead(200, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ colocations, total: colocations.length }))
-      } catch (e) {
-        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) }))
-      }
->>>>>>> 708a556 (feat(wire): colocation + gen-ui validate + mind-map + graph rules endpoints)
     })()
     return
   }
 
-<<<<<<< HEAD
   // ── /api/links/suggest — inline backlink suggestions for authoring ────────────────────────────
   if (req.method === 'POST' && url.pathname === '/api/links/suggest') {
     ;(async () => {
@@ -10293,31 +10269,10 @@ Question: ${question}`
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ results, valid, allowedComponents: [...ALLOWED_COMPONENTS] }))
       } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
-=======
-  // ── Generative-UI spec validation (whitelist-enforced) ──────────────────────────
-  if (req.method === 'POST' && url.pathname === '/api/gen-ui/validate') {
-    setCORSHeaders(res)
-    void (async () => {
-      try {
-        const { readBody: rb } = await import('./lib/read-body.js')
-        const body = await rb(req)
-        let parsed: Record<string, unknown>
-        try { parsed = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
-        const { validateUISpec, sanitizeUISpecs } = await import('./lib/gen-ui.js')
-        const specs = Array.isArray(parsed['specs']) ? parsed['specs'] as import('./lib/gen-ui.js').UISpec[] : [parsed['spec'] as import('./lib/gen-ui.js').UISpec]
-        const results = specs.map((s) => validateUISpec(s))
-        const safe = sanitizeUISpecs(specs)
-        res.writeHead(200, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ results, safe, allValid: results.every((r) => r.valid) }))
-      } catch (e) {
-        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) }))
-      }
->>>>>>> 708a556 (feat(wire): colocation + gen-ui validate + mind-map + graph rules endpoints)
     })()
     return
   }
 
-<<<<<<< HEAD
   // ── /api/mind-map — hierarchical topic-decomposition tree ────────────────────────────────────
   if (req.method === 'POST' && url.pathname === '/api/mind-map') {
     ;(async () => {
@@ -10330,33 +10285,10 @@ Question: ${question}`
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ tree, outline: flattenOutline(tree), nodeCount: countNodes(tree) }))
       } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
-=======
-  // ── Mind-map builder (hierarchical topic decomposition) ─────────────────────────
-  if (req.method === 'POST' && url.pathname === '/api/mind-map') {
-    setCORSHeaders(res)
-    void (async () => {
-      try {
-        const { readBody: rb } = await import('./lib/read-body.js')
-        const body = await rb(req)
-        let parsed: Record<string, unknown>
-        try { parsed = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
-        const { buildMindMap, flattenOutline, countNodes } = await import('./lib/mind-map.js')
-        const root = typeof parsed['root'] === 'string' ? parsed['root'] : 'Root'
-        const edges = Array.isArray(parsed['edges']) ? parsed['edges'] as Array<{ parent: string; child: string }> : []
-        const tree = buildMindMap(root, edges)
-        const outline = flattenOutline(tree)
-        const total = countNodes(tree)
-        res.writeHead(200, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ tree, outline, total }))
-      } catch (e) {
-        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) }))
-      }
->>>>>>> 708a556 (feat(wire): colocation + gen-ui validate + mind-map + graph rules endpoints)
     })()
     return
   }
 
-<<<<<<< HEAD
   // ── /api/graph/rules — Horn-rule mining from the graph ───────────────────────────────────────
   if (req.method === 'GET' && url.pathname === '/api/graph/rules') {
     ;(async () => {
@@ -10369,24 +10301,6 @@ Question: ${question}`
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ rules, count: rules.length, minConfidence, minSupport }))
       } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
-=======
-  // ── Horn-rule mining from graph triples (AnyBURL/AMIE style) ────────────────────
-  if (req.method === 'GET' && url.pathname === '/api/graph/rules') {
-    setCORSHeaders(res)
-    void (async () => {
-      try {
-        const { mineRules } = await import('./lib/rule-mining.js')
-        const g = getHellGraph()
-        const triples = g.allEdges().map((e) => ({ s: e.from, p: e.label, o: e.to }))
-        const minConfidence = parseFloat(url.searchParams.get('minConfidence') ?? '0.5')
-        const minSupport = parseInt(url.searchParams.get('minSupport') ?? '2', 10)
-        const rules = mineRules(triples, { minConfidence, minSupport })
-        res.writeHead(200, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ rules, total: rules.length, tripleCount: triples.length }))
-      } catch (e) {
-        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) }))
-      }
->>>>>>> 708a556 (feat(wire): colocation + gen-ui validate + mind-map + graph rules endpoints)
     })()
     return
   }
