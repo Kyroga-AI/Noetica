@@ -9366,9 +9366,9 @@ Question: ${question}`
         if (series.length < 10) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'series must have ≥10 points' })); return }
         const esn = detectAnomalies(series)
         const ftle = ftleSeries(series)
-        const anomalies = esn.points.filter((p) => p.anomaly)
+        const anomalies = esn.points.filter((p) => p.anomalous)
         res.writeHead(200, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ esn: { points: esn.points, threshold: esn.threshold, anomalyCount: anomalies.length }, ftle, anomalies }))
+        res.end(JSON.stringify({ esn: { points: esn.points, anomalyCount: anomalies.length }, ftle, anomalies }))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
       }
@@ -9387,6 +9387,7 @@ Question: ${question}`
         const topic = typeof parsed['topic'] === 'string' ? parsed['topic'].trim() : ''
         if (!topic) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'topic required' })); return }
         const nPerspectives = typeof parsed['nPerspectives'] === 'number' ? parsed['nPerspectives'] : 3
+        const nRounds = typeof parsed['nRounds'] === 'number' ? parsed['nRounds'] : undefined
         const nQuestions    = typeof parsed['nQuestions']    === 'number' ? parsed['nQuestions']    : 3
         const stormModel = process.env['PROPHET_MODERATE_MODEL'] ?? 'qwen3:14b'
         const runner = async (prompt: string): Promise<string> => {
@@ -9402,7 +9403,7 @@ Question: ${question}`
             return hits.map((h) => String(h.meta?.['text'] ?? h.meta?.['filename'] ?? h.id))
           } catch { return [] }
         }
-        const curation = await runStorm(topic, { nPerspectives, nQuestions, runner, retrieve })
+        const curation = await runStorm(topic, { perspectives: nPerspectives, rounds: nRounds, runner, retrieve })
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ topic, curation, executionPerformed: false }))
       } catch (e) {
