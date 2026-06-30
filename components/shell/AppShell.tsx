@@ -35,6 +35,7 @@ import { ArtifactPane } from '@/components/artifacts/ArtifactPane'
 import { OperateSurface } from '@/components/surfaces/OperateSurface'
 import { TuneSurface } from '@/components/surfaces/TuneSurface'
 import { HolographMeSurface } from '@/components/surfaces/HolographMeSurface'
+import { SurfaceErrorBoundary } from '@/components/shell/SurfaceErrorBoundary'
 import { CoworkPanel } from '@/components/panels/CoworkPanel'
 import { CodePanel } from '@/components/panels/CodePanel'
 import { EvaluatePanel } from '@/components/panels/EvaluatePanel'
@@ -1497,6 +1498,7 @@ export function AppShell() {
                   : 'grid-cols-1'
               }`}
             >
+              <SurfaceErrorBoundary key={activeSurface} surface={activeSurface}>
               <CenterWorkspace
                 activeSurface={activeSurface}
                 sessionId={activeSession?.id}
@@ -1539,6 +1541,7 @@ export function AppShell() {
                 agentMode={settings.agentMode}
                 onSetAgentMode={(mode) => updateSettings({ agentMode: mode })}
               />
+              </SurfaceErrorBoundary>
               {inspectorVisible && (
                 <div className="relative h-full">
                   {/* Visible close — the inspector ("Open Observatory" target) was only dismissable via ⌘I. */}
