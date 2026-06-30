@@ -1137,6 +1137,9 @@ export function AppShell() {
                   ...(result.grounded !== undefined ? { grounded: result.grounded } : {}),
                 },
                 steering_result: result.steering_applied,
+                // The moat made visible — verification badge + inline citations from the done event.
+                ...(result.verification ? { verification: result.verification } : {}),
+                ...(result.citations ? { citations: result.citations } : {}),
               })
             },
             onError: (error) => {

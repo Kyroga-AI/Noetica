@@ -174,7 +174,16 @@ async function readNoeticaEventStream(response: Response, handlers: NoeticaChatT
       if (parsed.event === 'deliberation') handlers.onDeliberation?.(payload['deliberation'] as import('@/lib/types/message').Deliberation)
       if (parsed.event === 'done') {
         receivedDone = true
-        handlers.onDone(payload['result'] as NoeticaStreamDoneResult)
+        // Capture verification + citations off the done event. agent-machine may emit
+        // them on `result.*` or top-level on the done payload — read both, prefer result.
+        const result = (payload['result'] ?? {}) as NoeticaStreamDoneResult
+        const verification = result.verification ?? (payload['verification'] as NoeticaStreamDoneResult['verification'])
+        const citations = result.citations ?? (payload['citations'] as NoeticaStreamDoneResult['citations'])
+        handlers.onDone({
+          ...result,
+          ...(verification ? { verification } : {}),
+          ...(citations ? { citations } : {}),
+        })
       }
       if (parsed.event === 'error') handlers.onError(payload['error'] as string)
     }

@@ -108,6 +108,10 @@ export type NoeticaStreamDoneResult = {
   /** Provenance: how the answer was produced (recall | graphrag-global | extractive | …) + whether grounded. */
   method?: string
   grounded?: boolean
+  /** Verification badge — HOW this answer was proven (computed/reasoned/generated), the moat made visible. */
+  verification?: ChatMessage['verification']
+  /** Inline citations grounding the answer. */
+  citations?: ChatMessage['citations']
 }
 
 export type NoeticaSteerResponse = {

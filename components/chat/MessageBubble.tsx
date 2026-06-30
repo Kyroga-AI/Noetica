@@ -279,6 +279,64 @@ function MarkdownContent({ content, compact = false }: { content: string; compac
   )
 }
 
+// The buying reason made visible: a small chip showing HOW the answer was proven.
+// Color-codes by trust tier — computed/replay-exact (emerald) > reasoned (blue/amber) > generated (grey).
+function VerificationBadge({ verification }: { verification: NonNullable<ChatMessage['verification']> }) {
+  const method = (verification.method ?? '').toLowerCase()
+  const isComputed = verification.computed === true
+  const isReasoned = !isComputed && (method.includes('reason') || method.includes('self-consistency') || verification.badge.startsWith('Reasoned'))
+  const tier = isComputed
+    ? { color: '#16a34a', bg: 'rgba(22,163,74,0.08)', border: 'rgba(22,163,74,0.4)', glyph: '🔒' }
+    : isReasoned
+      ? { color: '#2563eb', bg: 'rgba(37,99,235,0.08)', border: 'rgba(37,99,235,0.4)', glyph: '◆' }
+      : { color: '#64748b', bg: 'var(--color-background-secondary)', border: 'var(--color-border-secondary)', glyph: '·' }
+
+  const tooltip = [
+    verification.receiptRef ? `receipt: ${verification.receiptRef}` : null,
+    verification.runRef ? `run: ${verification.runRef}` : null,
+    `replay: ${verification.replayClass}`,
+    verification.sealable ? 'sealable' : null,
+  ].filter(Boolean).join(' · ')
+
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium"
+      style={{ color: tier.color, background: tier.bg, borderColor: tier.border }}
+      title={tooltip || verification.badge}
+    >
+      <span aria-hidden>{tier.glyph}</span>
+      <span>{verification.badge}</span>
+      {verification.attested && (
+        <span
+          className="ml-0.5 inline-flex items-center gap-0.5 rounded-full px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide"
+          style={{ background: tier.color, color: 'var(--color-background-primary)' }}
+          title="Sealed onto the evidence fabric"
+        >
+          🔏 sealed
+        </span>
+      )}
+    </span>
+  )
+}
+
+// Onyx/NotebookLM-grade citation surface — a compact numbered row of the sources the answer is grounded in.
+function CitationsRow({ citations }: { citations: NonNullable<ChatMessage['citations']> }) {
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-[var(--color-text-tertiary)]">
+      {citations.map((c) => (
+        <span
+          key={`${c.n}-${c.ref}`}
+          className="inline-flex items-center gap-1"
+          title={`${c.source}${c.score !== undefined ? ` · ${(c.score * 100).toFixed(0)}% match` : ''}${c.grounding_status ? ` · ${c.grounding_status}` : ''}`}
+        >
+          <span className="font-semibold text-[var(--color-text-secondary)]">[{c.n}]</span>
+          <span className="max-w-[220px] truncate">{c.source}</span>
+        </span>
+      ))}
+    </div>
+  )
+}
+
 type MessageBubbleProps = {
   message: ChatMessage
   isLast?: boolean
@@ -417,6 +475,14 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
 
         {/* Main content — markdown rendered */}
         {message.content && <MarkdownContent content={message.content} />}
+
+        {/* The moat made visible — verification badge + inline citations, the proof on every answer. */}
+        {message.content && (message.verification || (message.citations && message.citations.length > 0)) && (
+          <div className="mt-2 space-y-1">
+            {message.verification && <VerificationBadge verification={message.verification} />}
+            {message.citations && message.citations.length > 0 && <CitationsRow citations={message.citations} />}
+          </div>
+        )}
 
         {/* Build clarifier — deterministic multiple-choice scaffold card */}
         {message.build && <BuildCard spec={message.build} />}
