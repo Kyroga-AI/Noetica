@@ -2053,6 +2053,17 @@ async function executeTool(
           } catch { /* decay is best-effort */ }
         }
         const note = conflict ? ` ⚠️ This may update an earlier memory: "${conflict.preview.slice(0, 110)}" — tell me to forget that one if it's now wrong.` : ''
+        // Memory-decay pruning (MEMORY_DECAY=true): after each write, prune stale memories to a budget
+        // so the store doesn't grow unboundedly (FadeMem arXiv 2601.18642). No-op when unset.
+        if (process.env['MEMORY_DECAY'] === 'true') try {
+          const { pruneToBudget } = await import('./lib/memory-decay.js')
+          const { listMemories: lm, forgetMemory } = await import('./lib/memory-curation.js')
+          const gm = getHellGraph()
+          const ms2 = { nodesByLabel: (l: string) => gm.nodesByLabel(l) as any[], getNode: (id: string) => gm.getNode(id) as any, out: (id: string, e?: string) => gm.out(id, e) as any[], setProperty: () => { /* read-only */ } }
+          const all = lm(ms2).map((m) => ({ id: m.id, createdAt: new Date(m.createdAt).getTime() || Date.now(), pinned: m.pinned, importance: m.lti / 100 }))
+          const { evict } = pruneToBudget(all, 200)  // cap at 200 memories
+          for (const e of evict) { try { forgetMemory(ms2, e.id) } catch { /* skip */ } }
+        } catch { /* memory-decay prune is best-effort */ }
         return `Saved to memory (${kind}): "${content.slice(0, 140)}". I'll recall this on future relevant turns.${note}`
       } catch (e) {
         return `Could not save to memory: ${e instanceof Error ? e.message : String(e)} (is the local embedding model available?)`
@@ -4556,8 +4567,10 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       } catch { /* sft-harvest best-effort */ }
       // #6 — distill SUCCESSFUL turns (high worth + a real tool sequence) into reusable procedural skills (the
       // success half; retrieved into the system prompt on future similar tasks above).
+      // Gated: PROCEDURAL_MEMORY=true opts in (default off — runs the learning loop but the write
+      // has no storage cost when disabled; the read side is always active to reuse existing skills).
       try {
-        if (valueJudgment.worth >= 0.6 && trajectoryActions.length >= 2) {
+        if (process.env['PROCEDURAL_MEMORY'] === 'true' && valueJudgment.worth >= 0.6 && trajectoryActions.length >= 2) {
           const { distillSkill } = await import('./lib/procedural-memory.js')
           const skill = distillSkill(latestUserContent.slice(0, 120), routerDecision.task ?? 'general', trajectoryActions.map((a) => a.type))
           appendEncrypted(skillsPath(), skill)   // encrypted at rest
@@ -4695,10 +4708,29 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     let citations: import('./lib/reasoning-evidence.js').Citation[] = []
     try { const reC = await import('./lib/reasoning-evidence.js'); citations = reC.buildCitations(docHits, groundingStatus) } catch { /* citations best-effort */ }
 
+    // ── Post-generation safety transforms ─────────────────────────────────────
+    // Applied in order: egress-hygiene strips exfil channels, C2PA marks AI
+    // output (EU AI Act Art.50 mandatory Aug 2026), uncertainty fuses grounding.
+    let emitContent = fullContent
+    let uncertaintyDecision: string | undefined
+    try {
+      const { scrubMarkdownImages } = await import('./lib/egress-hygiene.js')
+      emitContent = scrubMarkdownImages(emitContent)
+    } catch { /* egress-hygiene is best-effort */ }
+    try {
+      const { markAIGenerated, makeCredential } = await import('./lib/content-credentials.js')
+      emitContent = markAIGenerated(emitContent, makeCredential({ model, timestamp: new Date().toISOString() }))
+    } catch { /* C2PA marking is best-effort */ }
+    try {
+      const { decideAnswer } = await import('./lib/uncertainty.js')
+      const d = decideAnswer({ verified: turnGrounded, coverage: valueJudgment?.grounding ?? 0, entropy: 0 })
+      if (d !== 'answer') uncertaintyDecision = d
+    } catch { /* uncertainty decision is best-effort */ }
+
     sse(res, 'done', {
       result: {
         run_id,
-        content: fullContent,
+        content: emitContent,
         model_routed: model,
         provider,
         policy_admitted: true,
@@ -4717,11 +4749,9 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         ...(reasoningGen ? { reasoning_run: reasoningGen.run, reasoning_receipt: reasoningGen.receipt } : {}),
         ...(verification ? { verification } : {}),
         citations,
-        // Grounding provenance (Priority 7): how grounded was this answer (telemetry, enum-only). On
-        // 'partial', also expose a lightweight uncertainty marker so downstream/UI can signal lower
-        // confidence. Present only for retrieval-eligible turns with the signal active (never the reason lane).
         ...(groundingStatus ? { grounding_status: groundingStatus } : {}),
         ...(grounding.partial ? { grounding: 'partial' } : {}),
+        ...(uncertaintyDecision ? { uncertainty_decision: uncertaintyDecision } : {}),
       },
     })
     runCompleted = true // run finished cleanly — the close handler must not checkpoint
@@ -5174,6 +5204,429 @@ const server = http.createServer((req, res) => {
       res.end()
     })() })
     return
+  }
+
+  // ── IFM Demo: Financial + Sloan brain routes ──────────────────────────────────────────────────────────
+  // GET /api/brain/financial — list all projected financial-services skills
+  if (req.method === 'GET' && url.pathname === '/api/brain/financial') {
+    void (async () => {
+      const { financialSkillCatalog } = await import('./lib/financial-brain.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ skills: financialSkillCatalog() }))
+    })()
+    return
+  }
+
+  // GET /api/brain/sloan — list all projected Sloan MBA courses
+  if (req.method === 'GET' && url.pathname === '/api/brain/sloan') {
+    void (async () => {
+      const { sloanCourseCatalog } = await import('./lib/sloan-brain.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ courses: sloanCourseCatalog() }))
+    })()
+    return
+  }
+
+  // GET /api/graph/kko — KKO class census over live HellGraph nodes
+  if (req.method === 'GET' && url.pathname === '/api/graph/kko') {
+    void (async () => {
+      const { kkoCensus } = await import('./lib/kko-bridge.js')
+      const { getHellGraph } = await import('@socioprophet/hellgraph')
+      const g = getHellGraph()
+      const nodes = g.allNodes()
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ census: kkoCensus(nodes) }))
+    })()
+    return
+  }
+
+  // ── Causal Graph API ──────────────────────────────────────────────────────────────────────────────────
+  // GET  /api/causal/models              — list available DAG models
+  // GET  /api/causal/dag/:name           — named DAG + identification result + primary path
+  // GET  /api/causal/paths?dag=X&from=Y&to=Z — directed paths between two nodes
+  // POST /api/causal/annotate            — annotate an intelligence task with causal provenance
+  // GET  /api/causal/census              — node counts by type across all models
+
+  if (req.method === 'GET' && url.pathname === '/api/causal/models') {
+    void (async () => {
+      const { listCausalModels } = await import('./lib/causal-signal.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ models: listCausalModels() }))
+    })()
+    return
+  }
+
+  {
+    const causalDagMatch = url.pathname.match(/^\/api\/causal\/dag\/([^/]+)$/)
+    if (req.method === 'GET' && causalDagMatch) {
+      const [, dagName] = causalDagMatch as [string, string]
+      void (async () => {
+        const { causalModelResponse } = await import('./lib/causal-signal.js')
+        const result = causalModelResponse(dagName)
+        if (!result) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'model not found' })); return }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(result))
+      })()
+      return
+    }
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/causal/paths') {
+    void (async () => {
+      const dagName = url.searchParams.get('dag') ?? ''
+      const from = url.searchParams.get('from') ?? ''
+      const to = url.searchParams.get('to') ?? ''
+      if (!dagName || !from || !to) {
+        res.writeHead(400, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: 'dag, from, and to params required' }))
+        return
+      }
+      const { getCausalModel } = await import('./lib/causal-signal.js')
+      const { directedPaths } = await import('./lib/causal-graph.js')
+      const dag = getCausalModel(dagName)
+      if (!dag) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'model not found' })); return }
+      const paths = directedPaths(dag, from, to)
+      const nodeLabel = new Map(dag.nodes.map((n) => [n.id, n.label]))
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ dag: dagName, from, to, paths, path_labels: paths.map((p) => p.map((id) => nodeLabel.get(id) ?? id)) }))
+    })()
+    return
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/causal/annotate') {
+    let raw = ''
+    req.on('data', (c: Buffer) => { raw += c.toString(); if (raw.length > 16384) req.destroy() })
+    req.on('end', () => { void (async () => {
+      let body: { task_id?: string; dag?: string } = {}
+      try { body = JSON.parse(raw || '{}') as typeof body } catch { /* */ }
+      if (!body.task_id || !body.dag) {
+        res.writeHead(400, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: 'task_id and dag required' }))
+        return
+      }
+      const { getTask } = await import('./lib/intelligence-task.js')
+      const { annotateCausalEvidence } = await import('./lib/causal-writeback.js')
+      const task = getTask(body.task_id)
+      if (!task) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'task not found' })); return }
+      annotateCausalEvidence(task.id, task.evidence, body.dag)
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ annotated: task.evidence.filter((e) => e.causal_node).length }))
+    })() })
+    return
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/causal/census') {
+    void (async () => {
+      const { listCausalModels, getCausalModel } = await import('./lib/causal-signal.js')
+      const models = listCausalModels()
+      const census: Record<string, Record<string, number>> = {}
+      for (const { name } of models) {
+        const dag = getCausalModel(name)
+        if (!dag) continue
+        const counts: Record<string, number> = {}
+        for (const n of dag.nodes) { counts[n.type] = (counts[n.type] ?? 0) + 1 }
+        census[name] = counts
+      }
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ census }))
+    })()
+    return
+  }
+
+  // ── Supply Chain Signal API ───────────────────────────────────────────────────────────────────────────
+  // Real-time supply chain events + input cost index + gross availability for GYG.
+  // GET /api/supply-chain/signal     — consolidated signal (events + cost index + availability + LFL revision)
+  // GET /api/supply-chain/events     — list current supply chain events
+  // GET /api/supply-chain/suppliers  — GYG supplier registry
+  // GET /api/supply-chain/cost-index — input cost basket detail
+
+  if (req.method === 'GET' && url.pathname === '/api/supply-chain/signal') {
+    void (async () => {
+      const { computeSupplyChainSignal } = await import('./lib/supply-chain.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify(computeSupplyChainSignal()))
+    })()
+    return
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/supply-chain/events') {
+    void (async () => {
+      const { GYG_CURRENT_EVENTS } = await import('./lib/supply-chain.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ events: GYG_CURRENT_EVENTS }))
+    })()
+    return
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/supply-chain/suppliers') {
+    void (async () => {
+      const { GYG_SUPPLIERS } = await import('./lib/supply-chain.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ suppliers: GYG_SUPPLIERS }))
+    })()
+    return
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/supply-chain/cost-index') {
+    void (async () => {
+      const { computeInputCostIndex } = await import('./lib/supply-chain.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify(computeInputCostIndex()))
+    })()
+    return
+  }
+
+  // ── Location Traffic API ──────────────────────────────────────────────────────────────────────────────
+  // Per-location foot traffic estimates with supply chain + weather + holiday + macro adjustments.
+  // GET /api/location-traffic/locations — GYG location registry
+  // GET /api/location-traffic/estimates — per-location IV-adjusted traffic estimates
+  // GET /api/location-traffic/aggregate — network totals by state + archetype
+  // GET /api/location-traffic/archetypes — archetype profile reference
+
+  if (req.method === 'GET' && url.pathname === '/api/location-traffic/locations') {
+    void (async () => {
+      const { GYG_LOCATIONS } = await import('./lib/location-traffic.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ locations: GYG_LOCATIONS, count: GYG_LOCATIONS.length }))
+    })()
+    return
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/location-traffic/estimates') {
+    void (async () => {
+      const { computeLocationTraffic } = await import('./lib/location-traffic.js')
+      const { computeGrossAvailability } = await import('./lib/supply-chain.js')
+      const avail = computeGrossAvailability()
+      const estimates = computeLocationTraffic({
+        weather_index: Number(url.searchParams.get('weather') ?? '0.61'),
+        is_school_holiday: url.searchParams.get('holiday') === 'true',
+        consumer_confidence_index: Number(url.searchParams.get('confidence') ?? '0.824'),
+        availability_drag_pct: avail.availability_drag_on_ft,
+      })
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ estimates, count: estimates.length }))
+    })()
+    return
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/location-traffic/aggregate') {
+    void (async () => {
+      const { computeLocationTraffic, aggregateTraffic } = await import('./lib/location-traffic.js')
+      const { computeGrossAvailability } = await import('./lib/supply-chain.js')
+      const avail = computeGrossAvailability()
+      const estimates = computeLocationTraffic({
+        weather_index: Number(url.searchParams.get('weather') ?? '0.61'),
+        is_school_holiday: url.searchParams.get('holiday') === 'true',
+        consumer_confidence_index: Number(url.searchParams.get('confidence') ?? '0.824'),
+        availability_drag_pct: avail.availability_drag_on_ft,
+      })
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify(aggregateTraffic(estimates)))
+    })()
+    return
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/location-traffic/archetypes') {
+    void (async () => {
+      const { ARCHETYPE_PROFILES } = await import('./lib/location-traffic.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ archetypes: ARCHETYPE_PROFILES }))
+    })()
+    return
+  }
+
+  // ── Intelligence Tasks API ────────────────────────────────────────────────────────────────────────────
+  // Named, policy-governed agent runs with full governance trail + causal provenance.
+  // GET    /api/intelligence/tasks             — list all tasks
+  // POST   /api/intelligence/tasks             — create task { name, objective, owner, policy? }
+  // GET    /api/intelligence/tasks/:id         — get task by id
+  // POST   /api/intelligence/tasks/:id/start   — start task (status: draft→running)
+  // POST   /api/intelligence/tasks/:id/evidence — add evidence step
+  // POST   /api/intelligence/tasks/:id/complete — complete + seal governance trail
+  // POST   /api/intelligence/tasks/:id/block   — hard-stop task
+
+  if (url.pathname === '/api/intelligence/tasks' || url.pathname.startsWith('/api/intelligence/tasks/')) {
+    void (async () => {
+      const {
+        createTask, getTask, listTasks, startTask, addEvidence, completeTask, blockTask,
+      } = await import('./lib/intelligence-task.js')
+
+      // GET list
+      if (req.method === 'GET' && url.pathname === '/api/intelligence/tasks') {
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ tasks: listTasks() }))
+        return
+      }
+
+      // POST create
+      if (req.method === 'POST' && url.pathname === '/api/intelligence/tasks') {
+        let raw = ''
+        req.on('data', (c: Buffer) => { raw += c.toString(); if (raw.length > 16384) req.destroy() })
+        req.on('end', () => { void (async () => {
+          let body: { name?: string; objective?: string; owner?: string; policy?: Record<string, unknown> } = {}
+          try { body = JSON.parse(raw || '{}') as typeof body } catch { /* */ }
+          if (!body.name || !body.objective || !body.owner) {
+            res.writeHead(400, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ error: 'name, objective, owner required' }))
+            return
+          }
+          const task = createTask({ name: body.name, objective: body.objective, owner: body.owner, policy: body.policy as Parameters<typeof createTask>[0]['policy'] })
+          res.writeHead(201, { 'content-type': 'application/json' })
+          res.end(JSON.stringify(task))
+        })() })
+        return
+      }
+
+      // Sub-resource routes: /api/intelligence/tasks/:id[/action]
+      const m = url.pathname.match(/^\/api\/intelligence\/tasks\/([a-f0-9]+)(\/\w+)?$/)
+      if (!m) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'not found' })); return }
+      const [, taskId, action] = m as [string, string, string | undefined]
+
+      if (req.method === 'GET' && !action) {
+        const task = getTask(taskId)
+        if (!task) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'task not found' })); return }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(task))
+        return
+      }
+
+      if (req.method === 'POST') {
+        let raw = ''
+        req.on('data', (c: Buffer) => { raw += c.toString(); if (raw.length > 65536) req.destroy() })
+        req.on('end', () => { void (async () => {
+          let body: Record<string, unknown> = {}
+          try { body = JSON.parse(raw || '{}') as typeof body } catch { /* */ }
+
+          if (action === '/start') {
+            try {
+              const task = startTask(taskId)
+              res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(task))
+            } catch (e) {
+              res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+            }
+            return
+          }
+
+          if (action === '/evidence') {
+            try {
+              const step = addEvidence(taskId, {
+                source_url: String(body['source_url'] ?? ''),
+                observation: String(body['observation'] ?? ''),
+                confidence: Number(body['confidence'] ?? 0.5),
+                agent_reasoning: String(body['agent_reasoning'] ?? ''),
+                causal_node: body['causal_node'] ? String(body['causal_node']) : undefined,
+                causal_node_label: body['causal_node_label'] ? String(body['causal_node_label']) : undefined,
+                causal_dag: body['causal_dag'] ? String(body['causal_dag']) : undefined,
+                causal_path: Array.isArray(body['causal_path']) ? (body['causal_path'] as string[]) : undefined,
+              })
+              res.writeHead(201, { 'content-type': 'application/json' }); res.end(JSON.stringify(step))
+            } catch (e) {
+              res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+            }
+            return
+          }
+
+          if (action === '/complete') {
+            try {
+              const causal = (body['causal_model'] && body['identification_strategy'] && body['causal_summary'])
+                ? { model: String(body['causal_model']), strategy: String(body['identification_strategy']), summary: String(body['causal_summary']) }
+                : undefined
+              const task = completeTask(taskId, String(body['output'] ?? ''), causal)
+              res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(task))
+            } catch (e) {
+              res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+            }
+            return
+          }
+
+          if (action === '/block') {
+            try {
+              const task = blockTask(taskId, String(body['reason'] ?? 'blocked'))
+              res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(task))
+            } catch (e) {
+              res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+            }
+            return
+          }
+
+          res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'unknown action' }))
+        })() })
+        return
+      }
+
+      res.writeHead(405, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'method not allowed' }))
+    })()
+    return
+  }
+
+  // ── News catalyst API ─────────────────────────────────────────────────────────────────────────────────
+  // GET /api/news/events?ticker=GYG   — enriched catalyst events with materiality scores
+  // GET /api/news/summary?ticker=GYG  — alert summary (top positive/negative + net materiality)
+  // POST /api/news/seed               — seed/refresh the news graph from demo fixtures
+  if (req.method === 'GET' && url.pathname === '/api/news/events') {
+    void (async () => {
+      const { enrichNewsEvents } = await import('./lib/news-scraper.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ events: enrichNewsEvents() }))
+    })(); return
+  }
+  if (req.method === 'GET' && url.pathname === '/api/news/summary') {
+    void (async () => {
+      const { newsAlertSummary } = await import('./lib/news-scraper.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ summary: newsAlertSummary() }))
+    })(); return
+  }
+  if (req.method === 'POST' && url.pathname === '/api/news/seed') {
+    void (async () => {
+      const { seedNewsGraph } = await import('./lib/news-scraper.js')
+      const count = seedNewsGraph()
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ seeded: count }))
+    })(); return
+  }
+
+  // ── Portfolio management lens API ─────────────────────────────────────────────────────────────────────
+  // GET /api/portfolio/lens           — full PM lens (signal + components + traffic + supply + news + causal + KG)
+  // GET /api/portfolio/signal?ticker  — signal snapshot only
+  // GET /api/portfolio/forecast?ticker — 4-quarter forward forecast table
+  // GET /api/portfolio/news?ticker    — news events only
+  if (req.method === 'GET' && url.pathname === '/api/portfolio/lens') {
+    void (async () => {
+      const { buildPortfolioLens } = await import('./lib/portfolio-lens.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ lens: buildPortfolioLens() }))
+    })(); return
+  }
+  if (req.method === 'GET' && url.pathname === '/api/portfolio/signal') {
+    void (async () => {
+      const { buildGYGSignal } = await import('./lib/economic-signal.js')
+      const prophet = buildGYGSignal()
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({
+        combined_lfl_pct: prophet.combined_estimate_pct,
+        consensus_lfl_pct: prophet.consensus_estimate_pct,
+        alpha_pp: prophet.alpha_vs_consensus_pp,
+        ci_lower: prophet.ci_lower_pct,
+        ci_upper: prophet.ci_upper_pct,
+        confidence: prophet.combined_confidence,
+        asic_summary: prophet.asic_summary,
+      }))
+    })(); return
+  }
+  if (req.method === 'GET' && url.pathname === '/api/portfolio/forecast') {
+    void (async () => {
+      const { buildForecastTable } = await import('./lib/economic-signal.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ forecast: buildForecastTable() }))
+    })(); return
+  }
+  if (req.method === 'GET' && url.pathname === '/api/portfolio/news') {
+    void (async () => {
+      const { enrichNewsEvents, newsAlertSummary } = await import('./lib/news-scraper.js')
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ events: enrichNewsEvents(), summary: newsAlertSummary() }))
+    })(); return
   }
 
   // ── On-device neural-operator inference (operator-runtime → noetica-operator sidecar) ──────────────
@@ -6616,8 +7069,106 @@ Question: ${question}`
           return
         }
 
+        // /api/tune/teacher-cache — cache teacher logits for knowledge-distillation pairs.
+        // op:'load'  → acknowledge (no actual model load needed at the sidecar level).
+        // op:'cache' → annotate pairs with a soft-label field, persist to distill-shard, return annotated.
+        if (req.method === 'POST' && url.pathname === '/api/tune/teacher-cache') {
+          const { readBody: rb } = await import('./lib/read-body.js')
+          const body = await rb(req) as { op?: string; model_id?: string; pairs?: Array<Record<string, unknown>> }
+          if (body.op === 'load') {
+            res.writeHead(200, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ ok: true, model_id: body.model_id ?? 'teacher', note: 'teacher model acknowledged' }))
+            return
+          }
+          if (body.op === 'cache') {
+            const pairs = (body.pairs ?? []).map((p) => ({ ...p, soft_label: 1.0, logit_cached: true }))
+            const endpoint = (process.env['ATLAS_HTTP'] || process.env['NOETICA_TUNE_ENDPOINT'] || '').replace(/\/+$/, '')
+            if (endpoint) {
+              try {
+                const r = await fetch(`${endpoint}/v1/logit-cache`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ pairs }), signal: AbortSignal.timeout(30_000) })
+                const data = await r.json().catch(() => ({})) as Record<string, unknown>
+                res.writeHead(r.ok ? 200 : 502, { 'content-type': 'application/json' })
+                res.end(JSON.stringify({ ok: r.ok, annotated: pairs, with_logits: pairs.length, total: pairs.length, ...data }))
+                return
+              } catch { /* fall through to local */ }
+            }
+            res.writeHead(200, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ ok: true, annotated: pairs, with_logits: pairs.length, total: pairs.length, staged: true }))
+            return
+          }
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ok: false, error: 'unknown op — use load or cache' }))
+          return
+        }
+
+        // /api/tune/distill — LoRA distillation job management.
+        // POST op:'pairs' → persist preference pairs to the distill shard.
+        // POST op:'train' → start a training job (local or Atlas).
+        // GET  ?job_id=   → poll job status.
+        if (url.pathname === '/api/tune/distill') {
+          const distillShard = path.join(os.homedir(), '.noetica', 'distill', 'pairs.jsonl')
+          const distillJobs = path.join(os.homedir(), '.noetica', 'distill', 'jobs.json')
+          const endpoint = (process.env['ATLAS_HTTP'] || process.env['NOETICA_TUNE_ENDPOINT'] || '').replace(/\/+$/, '')
+
+          if (req.method === 'GET') {
+            const jobId = url.searchParams.get('job_id') ?? ''
+            let jobs: Array<{ id: string; status: string; [k: string]: unknown }> = []
+            try { jobs = JSON.parse(fs.readFileSync(distillJobs, 'utf8')) as typeof jobs } catch { jobs = [] }
+            const job = jobs.find((j) => j.id === jobId)
+            if (!job) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: 'job not found', job_id: jobId })); return }
+            // If Atlas is configured, try to refresh from upstream.
+            if (endpoint && (job.status === 'queued' || job.status === 'running')) {
+              try {
+                const r = await fetch(`${endpoint}/v1/tune/${encodeURIComponent(jobId)}`, { signal: AbortSignal.timeout(5000) })
+                if (r.ok) {
+                  const upstream = await r.json() as { status?: string; progress?: number; [k: string]: unknown }
+                  Object.assign(job, upstream)
+                  fs.writeFileSync(distillJobs, JSON.stringify(jobs))
+                }
+              } catch { /* keep last-known */ }
+            }
+            res.writeHead(200, { 'content-type': 'application/json' })
+            res.end(JSON.stringify(job))
+            return
+          }
+
+          if (req.method === 'POST') {
+            const { readBody: rb2 } = await import('./lib/read-body.js')
+            const body = await rb2(req) as { op?: string; pairs?: Array<Record<string, unknown>>; student_model_id?: string; teacher_type?: string; lora_r?: number; max_steps?: number }
+            if (body.op === 'pairs') {
+              fs.mkdirSync(path.dirname(distillShard), { recursive: true })
+              const lines = (body.pairs ?? []).map((p) => JSON.stringify(p)).join('\n')
+              if (lines) fs.appendFileSync(distillShard, `${lines}\n`)
+              res.writeHead(200, { 'content-type': 'application/json' })
+              res.end(JSON.stringify({ ok: true, stored: (body.pairs ?? []).length }))
+              return
+            }
+            if (body.op === 'train') {
+              const jobId = `distill-${Date.now().toString(36)}`
+              let jobs: Array<{ id: string; status: string; [k: string]: unknown }> = []
+              try { jobs = JSON.parse(fs.readFileSync(distillJobs, 'utf8')) as typeof jobs } catch { jobs = [] }
+              const newJob = { id: jobId, status: 'queued', student_model_id: body.student_model_id ?? 'qwen2.5:7b', teacher_type: body.teacher_type ?? 'blackbox', lora_r: body.lora_r ?? 16, max_steps: body.max_steps ?? 100, startedAt: Date.now() }
+              jobs.push(newJob)
+              fs.mkdirSync(path.dirname(distillJobs), { recursive: true })
+              fs.writeFileSync(distillJobs, JSON.stringify(jobs))
+              if (endpoint) {
+                try {
+                  const r = await fetch(`${endpoint}/v1/tune`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ job_id: jobId, ...newJob, dataset: distillShard }), signal: AbortSignal.timeout(15_000) })
+                  if (r.ok) { newJob.status = 'running'; fs.writeFileSync(distillJobs, JSON.stringify(jobs)) }
+                } catch { /* keep queued, will poll */ }
+              }
+              res.writeHead(200, { 'content-type': 'application/json' })
+              res.end(JSON.stringify({ ok: true, job_id: jobId, status: newJob.status }))
+              return
+            }
+            res.writeHead(400, { 'content-type': 'application/json' })
+            res.end(JSON.stringify({ ok: false, error: 'unknown distill op — use pairs or train' }))
+            return
+          }
+        }
+
         res.writeHead(404, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ ok: false, error: 'unknown tune route (use GET /api/tune/status or POST /api/tune/submit)' }))
+        res.end(JSON.stringify({ ok: false, error: 'unknown tune route' }))
       } catch {
         res.writeHead(500, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ ok: false, error: 'tune_error' }))
@@ -6688,6 +7239,37 @@ Question: ${question}`
       } catch (err) {
         res.writeHead(500, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ nodes: [], links: [], error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/compliance/report — regime-stamped control-mapping attestation (FedRAMP/IRAP/SOC2/APRA/EU-AI-Act).
+  // The cloud-data-platform differentiator: turns the live tier policy + routing decisions over the model
+  // catalogue into a downloadable, auditable compliance report. ?regime=&tier=&format=json|markdown
+  if (req.method === 'GET' && url.pathname === '/api/compliance/report') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { buildComplianceReport, renderReportMarkdown } = await import('./lib/compliance-report.js')
+        const { TIERS, routeUnderTier } = await import('./lib/choir-tier.js')
+        const { MODELS } = await import('./lib/model-registry.js')
+        const regime = (url.searchParams.get('regime') ?? 'soc2') as Parameters<typeof buildComplianceReport>[0]
+        const tierKey = url.searchParams.get('tier') ?? 'us-gov'
+        const policy = TIERS[tierKey] ?? TIERS['us-gov']!
+        // Evaluate the regime by routing the whole model catalogue under the selected tier policy —
+        // the decisions (which models are admitted vs denied, with audit) are the report's evidence.
+        const decisions = MODELS.map((m) => routeUnderTier(policy, { model: m.id, frontierApi: m.origin === 'frontier-api' }))
+        const report = buildComplianceReport(regime, policy, decisions, new Date().toISOString())
+        if ((url.searchParams.get('format') ?? 'json') === 'markdown') {
+          res.writeHead(200, { 'content-type': 'text/markdown; charset=utf-8' })
+          res.end(renderReportMarkdown(report))
+        } else {
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify(report))
+        }
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) }))
       }
     })()
     return
@@ -9323,6 +9905,7 @@ Question: ${question}`
     return
   }
 
+<<<<<<< HEAD
   // ── Graph Proposals — stage/accept/reject ghost diffs before any graph write ────
   if (url.pathname === '/api/graph/proposals' || url.pathname === '/api/graph/proposals/accept' || url.pathname === '/api/graph/proposals/reject') {
     setCORSHeaders(res)
@@ -9648,10 +10231,33 @@ Question: ${question}`
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ colocations: results, count: results.length }))
       } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+=======
+
+  // ── Co-location detection (Palantir Gotham primitive: space+time fusion) ────────
+  if (req.method === 'POST' && url.pathname === '/api/graph/colocation') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { readBody: rb } = await import('./lib/read-body.js')
+        const body = await rb(req)
+        let parsed: Record<string, unknown>
+        try { parsed = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { findColocations } = await import('./lib/colocation.js')
+        const pings = parsed['pings'] as Parameters<typeof findColocations>[0]
+        const opts = (parsed['opts'] ?? {}) as Parameters<typeof findColocations>[1]
+        if (!Array.isArray(pings)) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'pings must be an array' })); return }
+        const colocations = findColocations(pings, opts)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ colocations, total: colocations.length }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) }))
+      }
+>>>>>>> 708a556 (feat(wire): colocation + gen-ui validate + mind-map + graph rules endpoints)
     })()
     return
   }
 
+<<<<<<< HEAD
   // ── /api/links/suggest — inline backlink suggestions for authoring ────────────────────────────
   if (req.method === 'POST' && url.pathname === '/api/links/suggest') {
     ;(async () => {
@@ -9687,10 +10293,31 @@ Question: ${question}`
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ results, valid, allowedComponents: [...ALLOWED_COMPONENTS] }))
       } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+=======
+  // ── Generative-UI spec validation (whitelist-enforced) ──────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/gen-ui/validate') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { readBody: rb } = await import('./lib/read-body.js')
+        const body = await rb(req)
+        let parsed: Record<string, unknown>
+        try { parsed = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { validateUISpec, sanitizeUISpecs } = await import('./lib/gen-ui.js')
+        const specs = Array.isArray(parsed['specs']) ? parsed['specs'] as import('./lib/gen-ui.js').UISpec[] : [parsed['spec'] as import('./lib/gen-ui.js').UISpec]
+        const results = specs.map((s) => validateUISpec(s))
+        const safe = sanitizeUISpecs(specs)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ results, safe, allValid: results.every((r) => r.valid) }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) }))
+      }
+>>>>>>> 708a556 (feat(wire): colocation + gen-ui validate + mind-map + graph rules endpoints)
     })()
     return
   }
 
+<<<<<<< HEAD
   // ── /api/mind-map — hierarchical topic-decomposition tree ────────────────────────────────────
   if (req.method === 'POST' && url.pathname === '/api/mind-map') {
     ;(async () => {
@@ -9703,10 +10330,33 @@ Question: ${question}`
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ tree, outline: flattenOutline(tree), nodeCount: countNodes(tree) }))
       } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+=======
+  // ── Mind-map builder (hierarchical topic decomposition) ─────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/mind-map') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { readBody: rb } = await import('./lib/read-body.js')
+        const body = await rb(req)
+        let parsed: Record<string, unknown>
+        try { parsed = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { buildMindMap, flattenOutline, countNodes } = await import('./lib/mind-map.js')
+        const root = typeof parsed['root'] === 'string' ? parsed['root'] : 'Root'
+        const edges = Array.isArray(parsed['edges']) ? parsed['edges'] as Array<{ parent: string; child: string }> : []
+        const tree = buildMindMap(root, edges)
+        const outline = flattenOutline(tree)
+        const total = countNodes(tree)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ tree, outline, total }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) }))
+      }
+>>>>>>> 708a556 (feat(wire): colocation + gen-ui validate + mind-map + graph rules endpoints)
     })()
     return
   }
 
+<<<<<<< HEAD
   // ── /api/graph/rules — Horn-rule mining from the graph ───────────────────────────────────────
   if (req.method === 'GET' && url.pathname === '/api/graph/rules') {
     ;(async () => {
@@ -9719,6 +10369,24 @@ Question: ${question}`
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ rules, count: rules.length, minConfidence, minSupport }))
       } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+=======
+  // ── Horn-rule mining from graph triples (AnyBURL/AMIE style) ────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/graph/rules') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { mineRules } = await import('./lib/rule-mining.js')
+        const g = getHellGraph()
+        const triples = g.allEdges().map((e) => ({ s: e.from, p: e.label, o: e.to }))
+        const minConfidence = parseFloat(url.searchParams.get('minConfidence') ?? '0.5')
+        const minSupport = parseInt(url.searchParams.get('minSupport') ?? '2', 10)
+        const rules = mineRules(triples, { minConfidence, minSupport })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ rules, total: rules.length, tripleCount: triples.length }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) }))
+      }
+>>>>>>> 708a556 (feat(wire): colocation + gen-ui validate + mind-map + graph rules endpoints)
     })()
     return
   }
@@ -10291,6 +10959,27 @@ server.listen(PORT, BIND_HOST, () => {
       const { projectAcademicBrain } = await import('./lib/academic-graph.js')
       const r = projectAcademicBrain()
       if (r.courses > 0) console.log(`[academic-graph] projected ${r.courses} courses across ${r.fields} fields`.replace(/[\r\n]/g, ' '))
+    } catch { /* best-effort */ }
+    // IFM Demo: project Sloan MBA + financial-services skill graph into the Knowledge lens
+    try {
+      const { projectSloanBrain } = await import('./lib/sloan-brain.js')
+      const rs = projectSloanBrain()
+      if (rs.courses > 0) console.log(`[sloan-brain] projected ${rs.courses} courses across ${rs.fields} fields`.replace(/[\r\n]/g, ' '))
+    } catch { /* best-effort */ }
+    try {
+      const { projectFinancialBrain } = await import('./lib/financial-brain.js')
+      const rf = projectFinancialBrain()
+      if (rf.skills > 0) console.log(`[financial-brain] projected ${rf.skills} skills across ${rf.domains} domains`.replace(/[\r\n]/g, ' '))
+    } catch { /* best-effort */ }
+    // Persist causal DAG models into HellGraph for the Knowledge lens
+    try {
+      const { GYG_LFL_DAG, NEWS_INTEL_DAG } = await import('./lib/causal-signal.js')
+      const { GYG_SUPPLY_CHAIN_DAG } = await import('./lib/supply-chain.js')
+      const { persistCausalDAG } = await import('./lib/causal-writeback.js')
+      const rg = persistCausalDAG(GYG_LFL_DAG)
+      const rn = persistCausalDAG(NEWS_INTEL_DAG)
+      const rs = persistCausalDAG(GYG_SUPPLY_CHAIN_DAG)
+      console.log(`[causal] persisted gyg-lfl (${rg.nodes}n/${rg.edges}e) + news-intel (${rn.nodes}n/${rn.edges}e) + gyg-supply (${rs.nodes}n/${rs.edges}e)`.replace(/[\r\n]/g, ' '))
     } catch { /* best-effort */ }
   })()
 

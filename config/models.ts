@@ -24,7 +24,7 @@ export const models: ModelConfig[] = [
     description: 'Anthropic blackbox provider for live standalone chat with provenance only.'
   },
   {
-    id: 'claude-haiku-4-5-20251001',
+    id: 'claude-haiku-4-5',
     label: 'Claude Haiku 4.5',
     provider: 'anthropic',
     steering: 'none',

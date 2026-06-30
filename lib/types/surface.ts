@@ -26,3 +26,5 @@ export type ActiveSurface =
   | 'calendar'
   | 'library'
   | 'geo'
+  | 'intelligence'
+  | 'portfolio'

@@ -94,6 +94,13 @@ const SLOAN_CATALOG: Array<{
   },
 ]
 
+/** Flat catalogue of all Sloan courses for the /api/brain/sloan route. */
+export function sloanCourseCatalog(): Array<{ field: string; fieldLabel: string; code: string; title: string; description: string }> {
+  return SLOAN_CATALOG.flatMap(({ field, label, courses }) =>
+    courses.map((c) => ({ field, fieldLabel: label, code: c.code, title: c.title, description: c.description })),
+  )
+}
+
 /** Project MIT Sloan Management courses into HellGraph. Idempotent. */
 export function projectSloanBrain(): { fields: number; courses: number } {
   const g = getHellGraph()

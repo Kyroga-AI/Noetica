@@ -12,6 +12,7 @@
  *   COLLEGE_MODEL=deepseek-r1:8b-cpu tsx ...       # pick the worker model
  *   COLLEGE_LIMIT=2 tsx scripts/college-proof.ts   # N items per domain (smoke)
  */
+export {}
 const BASE = process.env['OLLAMA_HOST']?.replace(/\/$/, '') || 'http://127.0.0.1:11435'
 const MODEL = process.env['COLLEGE_MODEL'] || 'qwen2.5:7b-cpu'
 const PER_ITEM_TIMEOUT = Number(process.env['COLLEGE_TIMEOUT_MS'] || 150_000)

@@ -30,6 +30,8 @@ export const MODELS: ModelSpec[] = [
   m("mistralai/Mistral-Large-3", "Mistral Large 3", "EU", true, "Mistral/Apache", 82, 80, 78, 80),
   m("google/gemma-3-27b", "Gemma 3 27B", "US", true, "Gemma", 78, 74, 75, 74),
   m("microsoft/phi-4", "Phi-4 (14B)", "US", true, "MIT", 76, 72, 78, 70),
+  m("openai/gpt-oss-120b", "GPT-OSS 120B", "US", true, "Apache-2.0", 86, 80, 88, 82),
+  m("openai/gpt-oss-20b", "GPT-OSS 20B", "US", true, "Apache-2.0", 78, 72, 80, 74),
   // ── Chinese open (best perf/cost; OPEN + commercial; gov only after review) ──
   m("deepseek-ai/DeepSeek-R1", "DeepSeek-R1", "CN", true, "MIT", 90, 86, 92, 86),
   m("deepseek-ai/DeepSeek-V3", "DeepSeek-V3", "CN", true, "MIT", 86, 85, 84, 85),

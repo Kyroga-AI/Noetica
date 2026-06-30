@@ -4,6 +4,10 @@
  * Builds a Content-Credential manifest, a deterministic digest, and a machine-readable marker appended to
  * generated text. (Crypto signing/SynthID image watermarks are the upgrade; this is the always-available base.)
  */
+import * as crypto from 'node:crypto'
+import * as fs from 'node:fs'
+import * as path from 'node:path'
+
 export interface ContentCredential {
   generator: string
   model: string
