@@ -133,12 +133,30 @@ services:
       - OLLAMA_HOST=http://ollama:11434   # model plane via compose-internal DNS — no host Ollama
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - NOETICA_BIND_HOST=0.0.0.0            # behind the web gateway (different container) — not a bare-host bind
+      - NOETICA_ALLOWED_ORIGINS=${NOETICA_ALLOWED_ORIGINS:-http://localhost:8088}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-fs", "http://localhost:8080/health"]
       interval: 10s
       timeout: 5s
       retries: 3
+
+  # ── web tier: serves the static UI + reverse-proxies /api/* to the sidecar (browser launch) ──
+  web:
+    build:
+      context: .
+      dockerfile: deploy/web-gateway/Dockerfile
+    depends_on:
+      agent-machine:
+        condition: service_healthy
+    ports:
+      - "8088:8088"
+    environment:
+      - GATEWAY_PORT=8088
+      - GATEWAY_HOST=0.0.0.0
+      - NOETICA_AM_ENDPOINT=http://agent-machine:8080
+    restart: unless-stopped
 
 volumes:
   noetica-data:
