@@ -112,6 +112,8 @@ import { markExternalContent, buildIpiSystemPromptPrefix, stripPotentialInjectio
 import { executePython, executeJavaScript, EXEC_TIMEOUT_MS, MAX_OUTPUT_BYTES } from './lib/code-sandbox.js'
 import { maybeSinkToLangfuse } from './lib/langfuse-sink.js'
 import { makeCredential, markAIGenerated } from './lib/content-credentials.js'
+import { detectAnomalies, ftleSeries } from './lib/phantom-anomaly.js'
+import { runStorm, type StormOptions } from './lib/storm-curate.js'
 import { getEncryptedVectorStore } from './lib/encrypted-vector-store.js'
 import { proposal, proposalsFromInferred, setStatus, applyAccepted, type GraphProposal } from './lib/graph-proposals.js'
 import { suggestLinks, type Candidate as LinkCandidate } from './lib/link-suggest.js'
@@ -7629,18 +7631,10 @@ Question: ${question}`
   }
 
 
-  // ── Multi-feature build loop ────────────────────────────────────────────────
+  // ── Multi-feature build loop ─────────────────────────────────────────────────────────────────────────
   // POST /api/code/build — the production-quality path for complex, multi-feature tasks.
-  // Architecture: planner → feature-by-feature coding (each with verify-repair + eval) →
-  // git commits after each verified feature → final full evaluation.
-  //
-  // Superiority claims vs SOTA (Anthropic harness article):
-  //   • Planner generates tech-stack-aware feature breakdown with dependency ordering
-  //   • Each feature is an isolated mini-solve; regression guards after every commit
-  //   • Git in the workspace: progress is queryable, every feature is revertible
-  //   • Best-of-2 parallel generation on each feature's first attempt
-  //   • Contract test commands run for binary pass/fail on each feature completion
-  //   • Early sovereign escalation: if eval score < 5, skip local repair → frontier model
+  // Architecture: planner → feature-by-feature loop (best-of-2 generation + eval + git commit)
+  // → regression guard between features → stall detection → completeness critic.
   if (req.method === 'POST' && url.pathname === '/api/code/build') {
     let body = ''
     req.on('data', (c: Buffer) => { body += c.toString() })
@@ -7654,234 +7648,208 @@ Question: ${question}`
       const ws = path.join(os.homedir(), '.noetica', 'workspaces', wsName)
       try { fs.mkdirSync(ws, { recursive: true }) } catch { /* */ }
       const model = String(p.model ?? 'qwen2.5-coder:7b')
-      const maxAttemptsPerFeature = Math.min(4, Math.max(1, Number(p.max_attempts_per_feature ?? 3)))
+      const maxPer = Math.min(4, Math.max(1, Number(p.max_attempts_per_feature ?? 3)))
       const gen = (prompt: string, temperature: number) =>
         generateOllamaText({ model, messages: [{ role: 'user', content: prompt }], temperature }).then((r) => r.content)
-
-      // Step 1: Planner — expand task into ordered feature list
-      const { planTask, featurePromptBlock, isComplexTask } = await import('./lib/code-planner.js')
+      const { planTask, featurePromptBlock } = await import('./lib/code-planner.js')
       const { generateContract } = await import('./lib/sprint-contract.js')
       const { evaluateCode } = await import('./lib/evaluator.js')
       const { recordSolve, recordVerified } = await import('./lib/solution-memory.js')
+      const { newProgress, recordProgress, shouldReplan } = await import('./lib/planner-executor.js')
 
+      // Planner — expand task into ordered feature list with dependency edges
       const plan = await planTask(task, gen).catch(() => ({
         title: task.slice(0, 60), techStack: 'python3', setupCommands: [] as string[],
         features: [{ id: 1, name: 'core', description: task, depends: [] as number[], testHint: '' }],
         aiFeatures: [] as string[],
       }))
 
-      // Step 2: Git init + setup commands
-      try { await runInWorkspace('git init -q 2>/dev/null || true', ws, 5_000) } catch { /* */ }
-      for (const cmd of plan.setupCommands) {
-        try { await runInWorkspace(cmd, ws, 60_000) } catch { /* */ }
-      }
+      // Git init + one-time setup
+      try { await runInWorkspace('git init -q 2>/dev/null || true && git -c user.email="noetica@local" -c user.name="Noetica" commit --allow-empty -m "chore: init workspace" -q 2>/dev/null || true', ws, 10_000) } catch { /* */ }
+      for (const cmd of plan.setupCommands) { try { await runInWorkspace(cmd, ws, 90_000) } catch { /* */ } }
 
-      // Shared state
+      // Regression accumulator — grows as each feature is verified; run before every feature
+      const regressionFile = path.join(ws, 'tests', 'regression.sh')
+      try {
+        fs.mkdirSync(path.dirname(regressionFile), { recursive: true })
+        if (!fs.existsSync(regressionFile)) fs.writeFileSync(regressionFile, '#!/bin/sh\nset -e\n')
+      } catch { /* */ }
+
       const allTouched = new Map<string, string | null>()
       const featureResults: Array<{
-        featureId: number; name: string; solved: boolean; attempts: number;
-        evalScore: number | null; findings: string[]; committed: boolean
+        featureId: number; name: string; solved: boolean; attempts: number
+        evalScore: number | null; findings: string[]; committed: boolean; regressed: boolean
       }> = []
       const completedFeatures: typeof plan.features = []
       const buildSteps: Array<{ featureId: number; attempt: number; verify: string; exit: string; ok: boolean; files: string[]; output: string }> = []
 
-      // Step 3: Feature-by-feature loop
+      // Feature loop
       for (const feature of plan.features) {
         const featureTask = featurePromptBlock(feature, plan, completedFeatures)
         const featureContract = await generateContract(featureTask, gen).catch(() => ({ criteria: [] as string[], testCommands: [] as string[] }))
+        const FSYS = `You are a coding agent building "${feature.name}" of: ${plan.title}\nTech stack: ${plan.techStack}\nRespond with ONLY valid JSON:\n{"files":[{"path":"rel/path","content":"..."}],"verify":"shell command"}`
 
-        const FEATURE_SYS = `You are a coding agent building feature "${feature.name}" of: ${plan.title}\nTech stack: ${plan.techStack}\nRespond with ONLY a JSON object:\n{"files":[{"path":"rel/path.ext","content":"..."}],"verify":"shell command"}`
+        // Regression guard — run accumulated tests before each feature (after the first)
+        let regressed = false
+        if (completedFeatures.length > 0 && fs.existsSync(regressionFile)) {
+          try {
+            const { out, err, code } = await runInWorkspace('bash tests/regression.sh', ws, 60_000)
+            if (code !== '0') {
+              regressed = true
+              buildSteps.push({ featureId: feature.id, attempt: 0, verify: 'bash tests/regression.sh', exit: code, ok: false, files: [], output: `[REGRESSION] ${out}${err}`.slice(-800) })
+            }
+          } catch { /* */ }
+        }
 
-        const featureTouched = new Map<string, string | null>()
-        let featureSolved = false
-        let featureSolvedFiles: { path: string; content: string }[] = []
-        let featureSolvedVerify = ''
-        let prior = ''
-
-        // Best-of-2 on attempt 1: generate two candidates in parallel, verify both, pick winner
-        const attempt1User = `${featureTask}\n${featureContract.criteria.length ? `\nRequirements:\n${featureContract.criteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}` : ''}`
+        // Best-of-2 generation on attempt 1
+        const attempt1User = featureTask + (featureContract.criteria.length ? `\n\nRequirements:\n${featureContract.criteria.map((c, i) => `${i + 1}. ${c}`).join('\n')}` : '')
         const [textA, textB] = await Promise.all([
-          generateOllamaText({ model, messages: [{ role: 'system', content: FEATURE_SYS }, { role: 'user', content: attempt1User }], temperature: 0.2 }).then((r) => r.content).catch(() => ''),
-          generateOllamaText({ model, messages: [{ role: 'system', content: FEATURE_SYS }, { role: 'user', content: attempt1User }], temperature: 0.4 }).then((r) => r.content).catch(() => ''),
+          generateOllamaText({ model, messages: [{ role: 'system', content: FSYS }, { role: 'user', content: attempt1User }], temperature: 0.2 }).then((r) => r.content).catch(() => ''),
+          generateOllamaText({ model, messages: [{ role: 'system', content: FSYS }, { role: 'user', content: attempt1User }], temperature: 0.4 }).then((r) => r.content).catch(() => ''),
         ])
-        const solA = parseSolveOutput(textA)
-        const solB = parseSolveOutput(textB)
-
-        // Write both to separate dirs, verify in parallel, pick winner
+        const solA = parseSolveOutput(textA); const solB = parseSolveOutput(textB)
         const wsB = path.join(ws, '_candidate_b')
         try { fs.mkdirSync(wsB, { recursive: true }) } catch { /* */ }
-        const writeSol = (sol: { files: { path: string; content: string }[]; verify: string } | null, dir: string, touched: Map<string, string | null>) => {
+        const writeSolTo = (sol: { files: { path: string; content: string }[]; verify: string } | null, dir: string, tMap: Map<string, string | null>) => {
           if (!sol) return
           for (const f of sol.files) {
-            const rel = f.path.replace(/^\/+/, '')
-            const fp = path.resolve(dir, rel)
+            const rel = f.path.replace(/^\/+/, ''); const fp = path.resolve(dir, rel)
             if (!fp.startsWith(dir + path.sep) && fp !== dir) continue
-            if (!touched.has(rel)) { try { touched.set(rel, fs.existsSync(fp) ? fs.readFileSync(fp, 'utf8') : null) } catch { touched.set(rel, null) } }
+            if (!tMap.has(rel)) { try { tMap.set(rel, fs.existsSync(path.resolve(ws, rel)) ? fs.readFileSync(path.resolve(ws, rel), 'utf8') : null) } catch { tMap.set(rel, null) } }
             try { fs.mkdirSync(path.dirname(fp), { recursive: true }); fs.writeFileSync(fp, f.content) } catch { /* */ }
           }
         }
-        if (solA) writeSol(solA, ws, featureTouched)
-        const touchedB = new Map<string, string | null>()
-        if (solB) writeSol(solB, wsB, touchedB)
-
+        const featureTouched = new Map<string, string | null>()
+        if (solA) writeSolTo(solA, ws, featureTouched)
+        if (solB) writeSolTo(solB, wsB, featureTouched)
         const [verA, verB] = await Promise.all([
           solA ? runInWorkspace(solA.verify, ws, 30_000).catch(() => ({ out: '', err: 'timeout', code: '1' })) : Promise.resolve({ out: '', err: '', code: '1' }),
           solB ? runInWorkspace(solB.verify, wsB, 30_000).catch(() => ({ out: '', err: 'timeout', code: '1' })) : Promise.resolve({ out: '', err: '', code: '1' }),
         ])
-
-        // Cleanup candidate_b dir
         try { fs.rmSync(wsB, { recursive: true, force: true }) } catch { /* */ }
+        let chosenSol = solA; let chosenVer = verA
+        if (verB.code === '0' && verA.code !== '0') { chosenSol = solB; chosenVer = verB; writeSolTo(solB, ws, featureTouched) }
+        const attempt1Out = `${chosenVer.out}${chosenVer.err ? `\n${chosenVer.err}` : ''}`.trim()
+        buildSteps.push({ featureId: feature.id, attempt: 1, verify: chosenSol?.verify ?? '', exit: chosenVer.code, ok: chosenVer.code === '0', files: chosenSol?.files.map((f) => f.path) ?? [], output: `[b2] ${attempt1Out}`.slice(-1200) })
+        let featureSolved = chosenVer.code === '0'
+        let featureSolvedFiles = featureSolved && chosenSol ? chosenSol.files : []
+        let featureSolvedVerify = featureSolved && chosenSol ? chosenSol.verify : ''
+        let prior = featureSolved ? '' : `Files: ${chosenSol?.files.map((f) => f.path).join(', ')}\nVerify: ${chosenSol?.verify}\nExit: ${chosenVer.code}\nOutput:\n${attempt1Out.slice(-800)}`
 
-        let chosenSol: typeof solA = null
-        let chosenVer = verA
-        if (verA.code === '0' && verB.code !== '0') { chosenSol = solA; chosenVer = verA }
-        else if (verB.code === '0' && verA.code !== '0') {
-          // B wins — copy B files to ws
-          chosenSol = solB
-          chosenVer = verB
-          if (solB) writeSol(solB, ws, featureTouched)
-        } else if (verA.code === '0' && verB.code === '0') {
-          // Both pass — prefer whichever has more files (more complete)
-          chosenSol = (solB && solB.files.length > (solA?.files.length ?? 0)) ? solB : solA
-          if (chosenSol === solB) writeSol(solB, ws, featureTouched)
-          chosenVer = verA
-        } else {
-          // Both fail — pick A, continue with repair
-          chosenSol = solA
-          chosenVer = verA
-        }
+        // Stall detection — trigger strategy change when same error repeats (Magentic-One pattern)
+        let featureProgress = newProgress()
 
-        const attempt1Output = `${chosenVer.out}${chosenVer.err ? `\n${chosenVer.err}` : ''}`.trim()
-        const attempt1Ok = chosenVer.code === '0'
-        buildSteps.push({ featureId: feature.id, attempt: 1, verify: chosenSol?.verify ?? '', exit: chosenVer.code, ok: attempt1Ok, files: chosenSol?.files.map((f) => f.path) ?? [], output: `[best-of-2] ${attempt1Output}`.slice(-1200) })
-
-        if (attempt1Ok && chosenSol) {
-          featureSolved = true; featureSolvedFiles = chosenSol.files; featureSolvedVerify = chosenSol.verify
-        } else {
-          prior = `Files: ${chosenSol?.files.map((f) => f.path).join(', ')}\nVerify: ${chosenSol?.verify}\nExit: ${chosenVer.code}\nOutput:\n${attempt1Output.slice(-1000)}`
-        }
-
-        // Repair loop for remaining attempts
-        for (let attempt = 2; attempt <= maxAttemptsPerFeature && !featureSolved; attempt++) {
-          const user = `${featureTask}\n\nPrevious attempt FAILED:\n${prior}\nFix and return same JSON format.`
+        // Repair loop
+        for (let attempt = 2; attempt <= maxPer && !featureSolved; attempt++) {
+          featureProgress = recordProgress(featureProgress, [prior])
+          const replanNote = shouldReplan(featureProgress)
+            ? '\n\nAll previous approaches failed. Try a completely different implementation strategy — different file structure, different algorithm, different approach.'
+            : ''
+          const user = `${featureTask}\n\nPrevious attempt FAILED:\n${prior}${replanNote}\nFix and return same JSON format.`
           let content = ''
-          try { ({ content } = await generateOllamaText({ model, messages: [{ role: 'system', content: FEATURE_SYS }, { role: 'user', content: user }], temperature: 0.55 })) } catch { break }
+          try { ({ content } = await generateOllamaText({ model, messages: [{ role: 'system', content: FSYS }, { role: 'user', content: user }], temperature: shouldReplan(featureProgress) ? 0.7 : 0.55 })) } catch { break }
           const sol = parseSolveOutput(content)
           if (!sol) { prior = "Output didn't parse as JSON."; continue }
-          writeSol(sol, ws, featureTouched)
+          writeSolTo(sol, ws, featureTouched)
           const { out, err, code } = await runInWorkspace(sol.verify, ws, 30_000)
-          const ok = code === '0'
-          const output = `${out}${err ? `\n${err}` : ''}`.trim()
+          const ok = code === '0'; const output = `${out}${err ? `\n${err}` : ''}`.trim()
           buildSteps.push({ featureId: feature.id, attempt, verify: sol.verify, exit: code, ok, files: sol.files.map((f) => f.path), output: output.slice(-1200) })
           if (ok) { featureSolved = true; featureSolvedFiles = sol.files; featureSolvedVerify = sol.verify }
-          else { prior = `Files: ${sol.files.map((f) => f.path).join(', ')}\nVerify: ${sol.verify}\nExit: ${code}\nOutput:\n${output.slice(-1000)}` }
+          else { prior = `Files: ${sol.files.map((f) => f.path).join(', ')}\nVerify: ${sol.verify}\nExit: ${code}\nOutput:\n${output.slice(-800)}` }
         }
 
-        // Sovereign escalation for critical failures
+        // Sovereign escalation for stubborn features
         if (!featureSolved) {
-          const esc = await generateSovereign({ messages: [{ role: 'system', content: FEATURE_SYS }, { role: 'user', content: `${featureTask}\n\nLocal model failed. Last error:\n${prior}\nSolve it. Same JSON format.` }], temperature: 0.3 })
+          const esc = await generateSovereign({ messages: [{ role: 'system', content: FSYS }, { role: 'user', content: `${featureTask}\n\nLocal model failed. Last error:\n${prior}\nSolve it. Same JSON format.` }], temperature: 0.3 })
           if (esc) {
             const sol = parseSolveOutput(esc.content)
             if (sol) {
-              writeSol(sol, ws, featureTouched)
+              writeSolTo(sol, ws, featureTouched)
               const { out, err, code } = await runInWorkspace(sol.verify, ws, 30_000)
-              const ok = code === '0'
-              buildSteps.push({ featureId: feature.id, attempt: maxAttemptsPerFeature + 1, verify: sol.verify, exit: code, ok, files: sol.files.map((f) => f.path), output: `[sovereign] ${out}${err ? `\n${err}` : ''}`.slice(-1200) })
-              if (ok) { featureSolved = true; featureSolvedFiles = sol.files; featureSolvedVerify = sol.verify }
+              buildSteps.push({ featureId: feature.id, attempt: maxPer + 1, verify: sol.verify, exit: code, ok: code === '0', files: sol.files.map((f) => f.path), output: `[sovereign] ${out}${err}`.slice(-1200) })
+              if (code === '0') { featureSolved = true; featureSolvedFiles = sol.files; featureSolvedVerify = sol.verify }
             }
           }
         }
 
-        // Evaluator pass for this feature
-        let featEvalResult: import('./lib/evaluator.js').EvaluationResult | null = null
+        // Evaluator pass — grade against contract; early-escalate if score < 5
+        let featEval: import('./lib/evaluator.js').EvaluationResult | null = null
         if (featureSolved && featureSolvedFiles.length) {
           const evalDeps = { generate: gen, run: (cmd: string, cwd: string, ms: number) => runInWorkspace(cmd, cwd, ms) }
-          featEvalResult = await evaluateCode(featureTask, ws, featureSolvedFiles, buildSteps.at(-1)?.output ?? '', evalDeps, featureContract).catch(() => null)
-
-          // Early sovereign escalation: if local eval score is very low, send repair to sovereign immediately
-          if (featEvalResult && featEvalResult.score < 5 && featEvalResult.findings.length > 0) {
-            const escPrompt = `${featureTask}\n\nQA evaluation score: ${featEvalResult.score}/10. Failures:\n${featEvalResult.findings.join('\n')}\nFix these. Same JSON format.`
-            const esc = await generateSovereign({ messages: [{ role: 'system', content: FEATURE_SYS }, { role: 'user', content: escPrompt }], temperature: 0.2 })
+          featEval = await evaluateCode(featureTask, ws, featureSolvedFiles, buildSteps.at(-1)?.output ?? '', evalDeps, featureContract).catch(() => null)
+          if (featEval && featEval.score < 5 && featEval.findings.length > 0) {
+            const esc = await generateSovereign({ messages: [{ role: 'system', content: FSYS }, { role: 'user', content: `${featureTask}\n\nQA score: ${featEval.score}/10. Failures:\n${featEval.findings.join('\n')}\nFix these. Same JSON format.` }], temperature: 0.2 })
             if (esc) {
               const sol = parseSolveOutput(esc.content)
               if (sol) {
-                writeSol(sol, ws, featureTouched)
-                const { out, err, code } = await runInWorkspace(sol.verify, ws, 30_000)
-                if (code === '0') { featureSolvedFiles = sol.files; featureSolvedVerify = sol.verify; buildSteps.push({ featureId: feature.id, attempt: maxAttemptsPerFeature + 2, verify: sol.verify, exit: code, ok: true, files: sol.files.map((f) => f.path), output: `[sovereign-eval-repair] ${out}`.slice(-800) }) }
+                writeSolTo(sol, ws, featureTouched)
+                const { out, code } = await runInWorkspace(sol.verify, ws, 30_000)
+                if (code === '0') {
+                  featureSolvedFiles = sol.files; featureSolvedVerify = sol.verify
+                  buildSteps.push({ featureId: feature.id, attempt: maxPer + 2, verify: sol.verify, exit: code, ok: true, files: sol.files.map((f) => f.path), output: `[sovereign-eval] ${out}`.slice(-800) })
+                }
               }
             }
           }
-
-          // Record for compounding memory
-          if (featureSolved) { void recordVerified(feature.description, featureSolvedFiles, featureSolvedVerify).catch(() => {}) }
+          void recordVerified(feature.description, featureSolvedFiles, featureSolvedVerify).catch(() => {})
         }
 
-        // Git commit after each successfully verified + evaluated feature
+        // Regression append + git commit per verified feature
         let committed = false
         if (featureSolved) {
+          try { fs.appendFileSync(regressionFile, `# ${feature.name}\n${featureSolvedVerify}\n`) } catch { /* */ }
           try {
-            await runInWorkspace(`git add -A && git -c user.email="noetica@local" -c user.name="Noetica" commit -m "feat(${feature.name}): verified${featEvalResult ? ` score=${featEvalResult.score}/10` : ''}" --allow-empty`, ws, 10_000)
+            await runInWorkspace(`git add -A && git -c user.email="noetica@local" -c user.name="Noetica" commit -m "feat(${feature.name.replace(/"/g, '')}): verified${featEval ? ` score=${featEval.score}/10` : ''}" -q`, ws, 10_000)
             committed = true
-          } catch { /* git commit is best-effort */ }
+          } catch { /* */ }
           completedFeatures.push(feature)
         }
-
-        // Merge feature's touched map into global
         for (const [k, v] of featureTouched) { if (!allTouched.has(k)) allTouched.set(k, v) }
-
-        featureResults.push({
-          featureId: feature.id,
-          name: feature.name,
-          solved: featureSolved,
-          attempts: buildSteps.filter((s) => s.featureId === feature.id).length,
-          evalScore: featEvalResult?.score ?? null,
-          findings: featEvalResult?.findings ?? [],
-          committed,
-        })
-
         recordSolve({ task: feature.description, solved: featureSolved, attempts: buildSteps.filter((s) => s.featureId === feature.id).length, escalated: false, model, usedMemory: false })
+        featureResults.push({ featureId: feature.id, name: feature.name, solved: featureSolved, attempts: buildSteps.filter((s) => s.featureId === feature.id).length, evalScore: featEval?.score ?? null, findings: featEval?.findings ?? [], committed, regressed })
       }
 
-      // Step 4: Final full evaluation
-      const allSolvedFiles = featureResults.filter((r) => r.solved).flatMap((_) => {
-        const entries: { path: string; content: string }[] = []
-        for (const [rel] of allTouched) {
-          const fp = path.resolve(ws, rel)
-          try { if (fs.existsSync(fp)) entries.push({ path: rel, content: fs.readFileSync(fp, 'utf8') }) } catch { /* */ }
-        }
-        return entries
-      }).filter((v, i, a) => a.findIndex((x) => x.path === v.path) === i)
-
-      const finalContract = await generateContract(task, gen).catch(() => ({ criteria: [] as string[], testCommands: [] as string[] }))
-      const finalEval = allSolvedFiles.length > 0
-        ? await evaluateCode(task, ws, allSolvedFiles, '', { generate: gen, run: (cmd, cwd, ms) => runInWorkspace(cmd, cwd, ms) }, finalContract).catch(() => null)
-        : null
-
-      // Write build progress file
+      // Completeness critic — "what important functionality is definitively ABSENT?"
+      const implemented = featureResults.filter((r) => r.solved).map((r) => r.name)
+      const missing = featureResults.filter((r) => !r.solved).map((r) => r.name)
+      let criticGaps: string[] = []
       try {
-        fs.writeFileSync(path.join(ws, 'claude-progress.json'), JSON.stringify({
-          lastUpdated: new Date().toISOString(),
-          task, plan,
-          featureResults,
-          files: [...allTouched.keys()],
-          finalEval: finalEval ? { score: finalEval.score, pass: finalEval.pass, findings: finalEval.findings } : null,
-        }, null, 2))
+        const criticRaw = await gen(
+          `You are a completeness critic. Task: ${task}\n\nImplemented: ${implemented.join(', ')}\nNot implemented: ${missing.join(', ')}\n\nWhat important functionality is definitively ABSENT from the implemented features? Only list concrete, falsifiable gaps — not style or quality concerns.\nRespond ONLY with valid JSON: {"gaps":["gap1","gap2"]}`,
+          0.15,
+        )
+        const m = criticRaw.match(/\{[\s\S]*\}/)
+        if (m) { const j = JSON.parse(m[0]) as { gaps?: unknown }; criticGaps = Array.isArray(j.gaps) ? j.gaps.map(String).slice(0, 8) : [] }
       } catch { /* */ }
 
-      // Per-file diffs
-      const diffs = [...allTouched.entries()].map(([rel, before]) => {
+      // Final full evaluation across all implemented files
+      const allFiles: { path: string; content: string }[] = []
+      for (const [rel] of allTouched) {
         const fp = path.resolve(ws, rel)
-        let after: string | null = null
+        try { if (fs.existsSync(fp)) allFiles.push({ path: rel, content: fs.readFileSync(fp, 'utf8') }) } catch { /* */ }
+      }
+      const finalContract = await generateContract(task, gen).catch(() => ({ criteria: [] as string[], testCommands: [] as string[] }))
+      const finalEval = allFiles.length
+        ? await evaluateCode(task, ws, allFiles, '', { generate: gen, run: (cmd, cwd, ms) => runInWorkspace(cmd, cwd, ms) }, finalContract).catch(() => null)
+        : null
+      const diffs = [...allTouched.entries()].map(([rel, before]) => {
+        const fp = path.resolve(ws, rel); let after: string | null = null
         try { if (fs.existsSync(fp)) after = fs.readFileSync(fp, 'utf8') } catch { /* */ }
         return { path: rel, before, after, isNew: before === null }
       })
-
-      const totalSolved = featureResults.filter((r) => r.solved).length
+      try {
+        fs.writeFileSync(path.join(ws, 'claude-progress.json'), JSON.stringify({
+          lastUpdated: new Date().toISOString(), task, plan, featureResults, criticGaps,
+          files: [...allTouched.keys()], finalEval: finalEval ? { score: finalEval.score, pass: finalEval.pass, findings: finalEval.findings } : null,
+        }, null, 2))
+      } catch { /* */ }
       res.writeHead(200, { 'content-type': 'application/json' })
-      res.end(JSON.stringify({ plan, featureResults, totalFeatures: plan.features.length, totalSolved, workspace: wsName, steps: buildSteps, diffs, finalEval }))
+      res.end(JSON.stringify({ plan, featureResults, totalFeatures: plan.features.length, totalSolved: featureResults.filter((r) => r.solved).length, criticGaps, workspace: wsName, steps: buildSteps, diffs, finalEval }))
     })() })
     return
   }
+
+
 
   // GET /api/metrics/quality — the COMPOUNDING CURVE: solve-rate + avg-attempts over time, so we can
   // SHOW the loop improves with use (memory + retrieval), not just claim it.
@@ -9539,6 +9507,65 @@ Question: ${question}`
     return
   }
 
+  // ── Phantom Anomaly — temporal/dynamical anomaly detection on any numeric series ─
+  if (req.method === 'POST' && url.pathname === '/api/graph/analytics/anomaly') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let parsed: Record<string, unknown>
+        try { parsed = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const series = Array.isArray(parsed['series']) ? (parsed['series'] as unknown[]).map(Number).filter((n) => !isNaN(n)) : []
+        if (series.length < 10) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'series must have ≥10 points' })); return }
+        const esn = detectAnomalies(series)
+        const ftle = ftleSeries(series)
+        const anomalies = esn.points.filter((p) => p.anomalous)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ esn: { points: esn.points, anomalyCount: anomalies.length }, ftle, anomalies }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+      }
+    })()
+    return
+  }
+
+  // ── STORM Knowledge Curation — multi-perspective article pre-writing ──────────
+  if (req.method === 'POST' && url.pathname === '/api/knowledge/storm') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let parsed: Record<string, unknown>
+        try { parsed = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const topic = typeof parsed['topic'] === 'string' ? parsed['topic'].trim() : ''
+        if (!topic) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'topic required' })); return }
+        const nPerspectives = typeof parsed['nPerspectives'] === 'number' ? parsed['nPerspectives'] : 3
+        const nRounds = typeof parsed['nRounds'] === 'number' ? parsed['nRounds'] : undefined
+        const nQuestions    = typeof parsed['nQuestions']    === 'number' ? parsed['nQuestions']    : 3
+        const stormModel = process.env['PROPHET_MODERATE_MODEL'] ?? 'qwen3:14b'
+        const runner = async (prompt: string): Promise<string> => {
+          const r = await generateOllamaText({ model: stormModel, messages: [{ role: 'user', content: prompt }] })
+          return r.content
+        }
+        const retrieve = async (query: string, k: number): Promise<string[]> => {
+          try {
+            const vecs = await embedBatchLocal([query])
+            const qv = vecs?.[0]; if (!qv) return []
+            const { vecQuery } = await import('./lib/embed-runtime.js')
+            const hits = await vecQuery('documents', { vec: qv, k })
+            return hits.map((h) => String(h.meta?.['text'] ?? h.meta?.['filename'] ?? h.id))
+          } catch { return [] }
+        }
+        const curation = await runStorm(topic, { perspectives: nPerspectives, rounds: nRounds, runner, retrieve })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ topic, curation, executionPerformed: false }))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+      }
+    })()
+    return
+  }
+
   // ── Encrypted vector store status ────────────────────────────────────────────
   if (req.method === 'GET' && url.pathname === '/api/store/vector-key-status') {
     setCORSHeaders(res)
@@ -9556,6 +9583,143 @@ Question: ${question}`
     } catch (e) {
       res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
     }
+    return
+  }
+
+  // ── /api/graph/proposals — staged graph-mutation proposals (trust keystone) ─────────────────
+  if (url.pathname === '/api/graph/proposals' || url.pathname.startsWith('/api/graph/proposals/')) {
+    ;(async () => {
+      try {
+        const { readBody: rb } = await import('./lib/read-body.js')
+        const { proposal, setStatus, applyAccepted } = await import('./lib/graph-proposals.js')
+        const ps = getHellGraph() as unknown as { _proposals?: import('./lib/graph-proposals.js').GraphProposal[] }
+        if (!ps._proposals) ps._proposals = []
+
+        if (req.method === 'GET' && url.pathname === '/api/graph/proposals') {
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ proposals: ps._proposals, count: ps._proposals.length }))
+          return
+        }
+        if (req.method === 'POST' && url.pathname === '/api/graph/proposals') {
+          const body = JSON.parse(await rb(req)) as { op: string; payload: Record<string, unknown>; rationale: string; source?: string }
+          const p = proposal(body.op as import('./lib/graph-proposals.js').ProposalOp, body.payload, body.rationale, body.source)
+          ps._proposals.push(p)
+          res.writeHead(201, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ proposal: p }))
+          return
+        }
+        const acceptMatch = url.pathname.match(/^\/api\/graph\/proposals\/([^/]+)\/accept$/)
+        if (req.method === 'POST' && acceptMatch) {
+          const id = acceptMatch[1]!
+          ps._proposals = setStatus(ps._proposals, id, 'accepted')
+          const { mutations, summary } = applyAccepted(ps._proposals)
+          const g = getHellGraph() as unknown as { addEdge: (t: string, f: string, to: string, p?: Record<string, unknown>) => void; addNode: (n: { id: string; labels: string[]; properties: Record<string, unknown> }) => void }
+          for (const m of mutations.filter((m2) => m2.id === id)) {
+            try {
+              if (m.op === 'add-edge') g.addEdge(String(m.payload['rel'] ?? 'RELATES_TO'), String(m.payload['from']), String(m.payload['to']), {})
+              else if (m.op === 'add-node') g.addNode({ id: String(m.payload['id'] ?? m.id), labels: [String(m.payload['label'] ?? 'Node')], properties: m.payload })
+            } catch { /* graph write best-effort */ }
+          }
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ summary, applied: id }))
+          return
+        }
+        const rejectMatch = url.pathname.match(/^\/api\/graph\/proposals\/([^/]+)\/reject$/)
+        if (req.method === 'POST' && rejectMatch) {
+          ps._proposals = setStatus(ps._proposals, rejectMatch[1]!, 'rejected')
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ rejected: rejectMatch[1] }))
+          return
+        }
+        res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'not_found' }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── /api/graph/colocation — co-location / co-travel detection ────────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/graph/colocation') {
+    ;(async () => {
+      try {
+        const { readBody: rb } = await import('./lib/read-body.js')
+        const body = JSON.parse(await rb(req)) as { pings: Array<{ entity: string; lon: number; lat: number; t: number }>; res?: number; windowMs?: number; minMeetings?: number }
+        const { findColocations } = await import('./lib/colocation.js')
+        const results = findColocations(body.pings ?? [], { res: body.res, windowMs: body.windowMs, minMeetings: body.minMeetings })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ colocations: results, count: results.length }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── /api/links/suggest — inline backlink suggestions for authoring ────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/links/suggest') {
+    ;(async () => {
+      try {
+        const { readBody: rb } = await import('./lib/read-body.js')
+        const body = JSON.parse(await rb(req)) as { text: string; topK?: number; minSim?: number; alreadyLinked?: string[] }
+        if (!body.text) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'text required' })); return }
+        const { embedBatchLocal } = await import('./lib/embed-runtime.js')
+        const noteVec = (await embedBatchLocal([body.text]))?.[0] ?? null
+        if (!noteVec) { res.writeHead(503, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'embed_unavailable' })); return }
+        const g = getHellGraph()
+        const candidates = g.allNodes()
+          .filter((n) => n.properties['vec'] && Array.isArray(n.properties['vec']))
+          .map((n) => ({ id: n.id, label: String(n.properties['label'] ?? n.labels[0] ?? n.id), vec: n.properties['vec'] as unknown as number[] }))
+        const { suggestLinks } = await import('./lib/link-suggest.js')
+        const suggestions = suggestLinks(noteVec, candidates, { topK: body.topK, minSim: body.minSim, alreadyLinked: new Set(body.alreadyLinked ?? []) })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ suggestions, count: suggestions.length }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── /api/gen-ui/validate — validate a generative-UI component spec ───────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/gen-ui/validate') {
+    ;(async () => {
+      try {
+        const { readBody: rb } = await import('./lib/read-body.js')
+        const body = JSON.parse(await rb(req)) as { specs: Array<{ component: string; props: Record<string, unknown> }> }
+        const { validateUISpec, sanitizeUISpecs, ALLOWED_COMPONENTS } = await import('./lib/gen-ui.js')
+        const results = (body.specs ?? []).map((s) => ({ spec: s, ...validateUISpec(s) }))
+        const valid = sanitizeUISpecs(body.specs ?? [])
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ results, valid, allowedComponents: [...ALLOWED_COMPONENTS] }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── /api/mind-map — hierarchical topic-decomposition tree ────────────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/mind-map') {
+    ;(async () => {
+      try {
+        const { readBody: rb } = await import('./lib/read-body.js')
+        const body = JSON.parse(await rb(req)) as { root: string; edges: Array<{ parent: string; child: string }> }
+        if (!body.root || !body.edges) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'root and edges required' })); return }
+        const { buildMindMap, flattenOutline, countNodes } = await import('./lib/mind-map.js')
+        const tree = buildMindMap(body.root, body.edges)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ tree, outline: flattenOutline(tree), nodeCount: countNodes(tree) }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── /api/graph/rules — Horn-rule mining from the graph ───────────────────────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/graph/rules') {
+    ;(async () => {
+      try {
+        const minConfidence = parseFloat(url.searchParams.get('minConfidence') ?? '0.5')
+        const minSupport = parseInt(url.searchParams.get('minSupport') ?? '2', 10)
+        const triples = getHellGraph().allEdges().map((e) => ({ s: e.from, p: e.label, o: e.to }))
+        const { mineRules } = await import('./lib/rule-mining.js')
+        const rules = mineRules(triples, { minConfidence, minSupport })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ rules, count: rules.length, minConfidence, minSupport }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
     return
   }
 
