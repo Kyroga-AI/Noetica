@@ -1,7 +1,7 @@
 /**
- * ocr — on-device text recognition via the macOS Vision framework. Fully local, no model
- * download, no network. The Swift helper (mirror of scripts/ocr.swift) is embedded here,
- * written to ~/.noetica/bin and compiled once with swiftc (works in the bundled binary too).
+ * ocr — on-device text recognition. Fully local, no model download, no network.
+ *   macOS: Apple Vision framework (VNRecognizeTextRequest), compiled once from Swift via swiftc.
+ *   Linux: tesseract-ocr (install: apt install tesseract-ocr / dnf install tesseract / pacman -S tesseract).
  */
 import * as fs from 'node:fs'
 import * as os from 'node:os'
@@ -10,6 +10,9 @@ import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 
 const execFileP = promisify(execFile)
+
+// ─── macOS: Vision framework via compiled Swift helper ────────────────────────
+
 const BIN_DIR = path.join(os.homedir(), '.noetica', 'bin')
 const SRC = path.join(BIN_DIR, 'ocr.swift')
 const BIN = path.join(BIN_DIR, 'noetica-ocr')
@@ -48,13 +51,33 @@ async function ensureOcrBinary(): Promise<boolean> {
   return compiling
 }
 
-export async function runOcr(imagePath: string): Promise<string> {
-  if (!fs.existsSync(imagePath)) return `OCR error: no such image: ${imagePath}`
+async function runOcrMacos(imagePath: string): Promise<string> {
   if (!(await ensureOcrBinary())) return 'OCR unavailable — could not compile the Vision helper (are the Xcode command-line tools installed? `xcode-select --install`).'
   try {
     const { stdout } = await execFileP(BIN, [imagePath], { timeout: 30_000, maxBuffer: 8 * 1024 * 1024 })
     return stdout.trim() || '(no text detected in image)'
-  } catch (e) {
-    return `OCR failed: ${e instanceof Error ? e.message : String(e)}`
+  } catch {
+    return 'OCR failed — check that the image is a supported format (PNG/JPEG/TIFF).'
   }
+}
+
+// ─── Linux: tesseract-ocr ─────────────────────────────────────────────────────
+// tesseract <image> stdout outputs recognized text to stdout (available since Tesseract 4.x).
+// Install: apt install tesseract-ocr  /  dnf install tesseract  /  pacman -S tesseract
+
+async function runOcrLinux(imagePath: string): Promise<string> {
+  try {
+    const { stdout } = await execFileP('tesseract', [imagePath, 'stdout', '-l', 'eng'], { timeout: 30_000, maxBuffer: 8 * 1024 * 1024 })
+    return stdout.trim() || '(no text detected in image)'
+  } catch {
+    return 'OCR unavailable on Linux — install tesseract-ocr (apt install tesseract-ocr / dnf install tesseract / pacman -S tesseract).'
+  }
+}
+
+// ─── Public API ───────────────────────────────────────────────────────────────
+
+export async function runOcr(imagePath: string): Promise<string> {
+  if (!fs.existsSync(imagePath)) return `OCR error: no such image: ${imagePath}`
+  if (process.platform === 'linux') return runOcrLinux(imagePath)
+  return runOcrMacos(imagePath)
 }
