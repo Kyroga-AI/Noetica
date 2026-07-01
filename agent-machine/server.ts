@@ -11854,6 +11854,274 @@ Question: ${question}`
     return
   }
 
+  // ── Choir Grounding — graph-grounded context + prompt assembly ───────────────
+  if (req.method === 'POST' && url.pathname === '/api/rag/choir-ground') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { buildGroundedContext, assemblePrompt, gateAction, checkGrounding } = await import('./lib/choir-grounding.js')
+        const focusNodeId = typeof p['focusNodeId'] === 'string' ? p['focusNodeId'] : ''
+        const question    = typeof p['question']    === 'string' ? p['question']    : ''
+        if (!focusNodeId || !question) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'focusNodeId and question required' })); return }
+        const action = (typeof p['action'] === 'string' ? p['action'] : 'ask') as import('./lib/choir-grounding.js').ChoirAction
+        const policy = (p['policy'] as import('./lib/choir-grounding.js').ChoirPolicy | undefined) ?? { read: true, write: false, egress: false }
+        const gate = gateAction(action, policy)
+        if (!gate.allowed) { res.writeHead(403, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'action_not_allowed', reason: gate.reason })); return }
+        // Build a KGraph view from HellGraph for the grounding context
+        const g_ = getHellGraph()
+        const hops = typeof p['hops'] === 'number' ? p['hops'] : undefined
+        const max  = typeof p['max']  === 'number' ? p['max']  : undefined
+        const allNodes_ = g_.allNodes() as unknown as Array<{ id: string; labels?: string[]; properties?: Record<string, unknown> }>
+        const allEdges_ = g_.allEdges() as Array<{ from: string; to: string; label?: string }>
+        const kGraph = {
+          nodes: allNodes_.map((n) => ({ id: n.id, kind: 'entity' as const, label: (n.labels?.[0] ?? n.id), props: n.properties ?? {} })),
+          edges: allEdges_.map((e) => ({ from: e.from, to: e.to, type: (e.label ?? 'RELATES') as import('./lib/knowledge-graph.js').EdgeType })),
+        }
+        const grounded = buildGroundedContext(kGraph, focusNodeId, hops !== undefined || max !== undefined ? { hops, max } : undefined)
+        const prompt   = assemblePrompt(action, question, grounded)
+        const answer   = typeof p['answer'] === 'string' ? p['answer'] : null
+        const groundingCheck = answer ? checkGrounding(answer, grounded) : null
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ grounded: { focus: grounded.focus, context: grounded.context, citationCount: grounded.citations.length }, prompt, groundingCheck, executionPerformed: false }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Cloud Broker — multi-cloud compute brokering + vendor selection ───────────
+  if (req.method === 'POST' && url.pathname === '/api/cloud/broker/compute') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { brokerCompute, brokerSavings, toAgentplanePlacement } = await import('./lib/cloud-broker.js')
+        const req_ = p['request'] as import('./lib/cloud-broker.js').ComputeRequest | undefined
+        if (!req_) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'request required' })); return }
+        const result   = brokerCompute(req_)
+        const savings  = brokerSavings(result)
+        const placement = result.best ? toAgentplanePlacement(result) : null
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ result, savings, placement, executionPerformed: false }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/cloud/broker/vendor') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { selectVendor, compareServices } = await import('./lib/cloud-broker.js')
+        const requirement = p['requirement'] as import('./lib/cloud-broker.js').ServiceRequirement | undefined
+        const kind = typeof p['kind'] === 'string' ? p['kind'] as import('./lib/cloud-broker.js').ServiceKind : undefined
+        if (requirement) {
+          const selection = selectVendor(requirement)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ selection, executionPerformed: false }))
+        } else if (kind) {
+          const offerings = compareServices(kind)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ offerings, executionPerformed: false }))
+        } else {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: 'requirement or kind required' }))
+        }
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Datalog Lite — semi-naive forward-chaining rule evaluation ────────────────
+  if (req.method === 'POST' && url.pathname === '/api/reason/datalog') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { evaluate } = await import('./lib/datalog-lite.js')
+        const facts = Array.isArray(p['facts']) ? p['facts'] as import('./lib/datalog-lite.js').Fact[] : []
+        const rules = Array.isArray(p['rules']) ? p['rules'] as import('./lib/datalog-lite.js').Rule[] : []
+        if (!facts.length && !rules.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'facts or rules required' })); return }
+        const maxIter = typeof p['maxIter'] === 'number' ? p['maxIter'] : undefined
+        const derived = evaluate(facts, rules, maxIter !== undefined ? { maxIter } : undefined)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ derived, count: derived.length, executionPerformed: false }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Device Attestation — verify device identity attestation ──────────────────
+  if (req.method === 'POST' && url.pathname === '/api/device/attest/verify') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { verifyAttestation } = await import('./lib/device-attestation.js')
+        const attestation = p['attestation'] as import('./lib/device-attestation.js').DeviceAttestation | undefined
+        if (!attestation) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'attestation required' })); return }
+        const result = verifyAttestation(attestation)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ...result, executionPerformed: false }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Differential Privacy — noise-adding for count / histogram export ──────────
+  if (req.method === 'POST' && url.pathname === '/api/privacy/dp') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { privatizeCount, privatizeHistogram, laplaceNoise } = await import('./lib/dp-export.js')
+        const epsilon = typeof p['epsilon'] === 'number' ? p['epsilon'] : 1.0
+        const u       = Math.random() // fresh uniform draw per request
+        if (typeof p['count'] === 'number') {
+          const privatized = privatizeCount(p['count'] as number, epsilon, u)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ privatized, epsilon, executionPerformed: false }))
+        } else if (Array.isArray(p['counts'])) {
+          const counts     = (p['counts'] as unknown[]).map(Number)
+          const noiseFn    = (i: number) => laplaceNoise(1, epsilon, (u + i * 0.01) % 1)
+          const privatized = privatizeHistogram(counts, epsilon, noiseFn)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ privatized, epsilon, executionPerformed: false }))
+        } else {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: 'count or counts required' }))
+        }
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── GAIA Bridge — build GAIA-conformant JSON-LD records ──────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/graph/gaia/document') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { placeToFeatureEntry, entityToCanonical, gaiaDocument, conformsToGaia } = await import('./lib/gaia-bridge.js')
+        const places   = Array.isArray(p['places'])   ? p['places']   as Array<{ name: string; lat?: number; lon?: number; type?: string }> : []
+        const entities = Array.isArray(p['entities']) ? p['entities'] as Array<{ id: string; label: string }> : []
+        const records = [
+          ...places.map((pl) => placeToFeatureEntry(pl)),
+          ...entities.map((e) => entityToCanonical(e.id, e.label)),
+        ]
+        if (!records.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'places or entities required' })); return }
+        const doc        = gaiaDocument(records)
+        const conforms   = records.map((r) => conformsToGaia(r))
+        const allConform = conforms.every((c) => c.conforms)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ document: doc, conforms: allConform, violations: conforms.filter((c) => !c.conforms), executionPerformed: false }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── H-Net Chunker — hierarchical semantic text chunking ──────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/rag/h-chunk') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { hNetChunk, hNetChunkTexts } = await import('./lib/h-net-chunker.js')
+        const text = typeof p['text'] === 'string' ? p['text'] : ''
+        if (!text) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'text required' })); return }
+        const opts: import('./lib/h-net-chunker.js').ChunkOptions = {}
+        if (typeof p['minTokens']          === 'number') opts.minTokens          = p['minTokens'] as number
+        if (typeof p['maxTokens']          === 'number') opts.maxTokens          = p['maxTokens'] as number
+        if (typeof p['windowSentences']    === 'number') opts.windowSentences    = p['windowSentences'] as number
+        if (typeof p['boundaryThreshold']  === 'number') opts.boundaryThreshold  = p['boundaryThreshold'] as number
+        const textsOnly = p['textsOnly'] === true
+        if (textsOnly) {
+          const texts = hNetChunkTexts(text, opts)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ texts, count: texts.length, executionPerformed: false }))
+        } else {
+          const chunks = hNetChunk(text, opts)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ chunks, count: chunks.length, executionPerformed: false }))
+        }
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Knowledge Graph — doc projection + PageRank + path + query ────────────────
+  if (req.method === 'POST' && url.pathname === '/api/kg/analyze') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { pagerank, pathBetween, related, query: kgQuery, mergeGraphs } = await import('./lib/knowledge-graph.js')
+        const graphs = Array.isArray(p['graphs']) ? p['graphs'] as import('./lib/knowledge-graph.js').KGraph[] : []
+        const g = graphs.length > 1 ? mergeGraphs(graphs) : graphs[0]
+        if (!g) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'graphs required' })); return }
+        const op = typeof p['op'] === 'string' ? p['op'] : 'pagerank'
+        if (op === 'pagerank') {
+          const scores = pagerank(g)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ scores, executionPerformed: false }))
+        } else if (op === 'path') {
+          const a = typeof p['a'] === 'string' ? p['a'] : ''
+          const b = typeof p['b'] === 'string' ? p['b'] : ''
+          const path_ = pathBetween(g, a, b)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ path: path_, executionPerformed: false }))
+        } else if (op === 'related') {
+          const nodeId = typeof p['nodeId'] === 'string' ? p['nodeId'] : ''
+          const hops   = typeof p['hops']   === 'number' ? p['hops']   : undefined
+          const nodes  = related(g, nodeId, hops)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ nodes, executionPerformed: false }))
+        } else if (op === 'query') {
+          const type_ = typeof p['nodeType'] === 'string' ? p['nodeType'] : null
+          const nodes = kgQuery(g, type_ ? (n) => n.kind === type_ : () => true)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ nodes, executionPerformed: false }))
+        } else {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: 'unknown op', op }))
+        }
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Council Weights — model council configuration ─────────────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/models/council-weights') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { COUNCIL_WEIGHTS } = await import('./lib/council-weights.js')
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ weights: COUNCIL_WEIGHTS, executionPerformed: false }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
   // 404
   res.writeHead(404, { 'content-type': 'application/json' })
   res.end(JSON.stringify({ error: 'not_found', path: url.pathname }))
