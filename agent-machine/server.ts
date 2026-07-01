@@ -12487,6 +12487,267 @@ Question: ${question}`
     return
   }
 
+  // ── Checkpoint — in-memory pipeline step tracking ────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/ops/checkpoint') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { newCheckpoint, recordStep, isDone, remainingSteps, isComplete } = await import('./lib/checkpoint.js')
+        const action  = typeof p['action']  === 'string' ? p['action']  : 'new'
+        const runId   = typeof p['runId']   === 'string' ? p['runId']   : 'run'
+        const allSteps = Array.isArray(p['allSteps']) ? p['allSteps'] as string[] : []
+        if (action === 'new') {
+          const cp = newCheckpoint(runId)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ checkpoint: cp, executionPerformed: false }))
+        } else if (action === 'record') {
+          const cp     = p['checkpoint'] as import('./lib/checkpoint.js').Checkpoint
+          const stepId = typeof p['stepId'] === 'string' ? p['stepId'] : ''
+          const state  = typeof p['state']  === 'object' && p['state'] ? p['state'] as Record<string, unknown> : undefined
+          if (!cp || !stepId) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'checkpoint and stepId required' })); return }
+          const updated = recordStep(cp, stepId, state)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ checkpoint: updated, executionPerformed: false }))
+        } else if (action === 'status') {
+          const cp     = p['checkpoint'] as import('./lib/checkpoint.js').Checkpoint
+          const stepId = typeof p['stepId'] === 'string' ? p['stepId'] : null
+          if (!cp) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'checkpoint required' })); return }
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({
+            done:      stepId ? isDone(cp, stepId) : null,
+            remaining: allSteps.length ? remainingSteps(cp, allSteps) : null,
+            complete:  allSteps.length ? isComplete(cp, allSteps) : null,
+            executionPerformed: false,
+          }))
+        } else {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: 'unknown action', action }))
+        }
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Judge — jury vote + swap-robust winner determination ──────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/eval/jury-vote') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { juryVote, swapRobustWinner } = await import('./lib/judge.js')
+        const verdicts = Array.isArray(p['verdicts']) ? p['verdicts'] as Array<'a' | 'b' | 'tie'> : []
+        if (!verdicts.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'verdicts required' })); return }
+        const vote = juryVote(verdicts)
+        const swapped = Array.isArray(p['swappedVerdicts']) ? p['swappedVerdicts'] as Array<'a' | 'b' | 'tie'> : null
+        const robust = swapped ? swapRobustWinner(vote.winner, juryVote(swapped).winner) : null
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ vote, robustWinner: robust, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Self-Consistency — majority vote over model answers ───────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/eval/consistency') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { majorityVote } = await import('./lib/self-consistency.js')
+        const answers = Array.isArray(p['answers']) ? p['answers'] as string[] : []
+        if (!answers.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'answers required' })); return }
+        const result = majorityVote(answers)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ...result, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Topic Tier — lexical-cosine tiered topic grounding ────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/nlp/topic-tier') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { groundTiered } = await import('./lib/topic-tier.js')
+        const cands = Array.isArray(p['candidates']) ? p['candidates'] as import('./lib/topic-tier.js').TierTopic[] : []
+        if (!cands.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'candidates required' })); return }
+        const middleFloor = typeof p['middleFloor'] === 'number' ? p['middleFloor'] : undefined
+        const lowerFloor  = typeof p['lowerFloor']  === 'number' ? p['lowerFloor']  : undefined
+        const grounding = groundTiered(cands, (middleFloor !== undefined || lowerFloor !== undefined) ? { middleFloor, lowerFloor } : undefined)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ grounding, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── OpenCog Values — probabilistic truth values + attention algebra ───────────
+  if (req.method === 'POST' && url.pathname === '/api/reason/truth-values') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { stv, deduction, revision, expectation, stimulate, decay, weightedPageRank } = await import('./lib/opencog-values.js')
+        const op  = typeof p['op']  === 'string' ? p['op']  : 'stv'
+        const s   = typeof p['s']   === 'number' ? p['s']   : 0
+        const c   = typeof p['c']   === 'number' ? p['c']   : 0
+        const tv1 = p['tv1'] as import('./lib/opencog-values.js').TruthValue | undefined
+        const tv2 = p['tv2'] as import('./lib/opencog-values.js').TruthValue | undefined
+        if (op === 'stv') {
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ tv: stv(s, c), executionPerformed: false }))
+        } else if (op === 'deduction' && tv1 && tv2) {
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ tv: deduction(tv1, tv2), expectation: expectation(deduction(tv1, tv2)), executionPerformed: false }))
+        } else if (op === 'revision' && tv1 && tv2) {
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ tv: revision(tv1, tv2), executionPerformed: false }))
+        } else if (op === 'attention') {
+          const av  = p['av'] as import('./lib/opencog-values.js').AttentionValue | undefined
+          const amt = typeof p['amount'] === 'number' ? p['amount'] : 1
+          const rate = typeof p['rate']  === 'number' ? p['rate']  : undefined
+          if (!av) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'av required for attention op' })); return }
+          const decayed   = rate !== undefined ? decay(av, rate) : decay(av)
+          const stimulated = stimulate(av, amt)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ decayed, stimulated, executionPerformed: false }))
+        } else if (op === 'pagerank') {
+          const nodes = Array.isArray(p['nodes']) ? p['nodes'] as string[] : []
+          const edges = Array.isArray(p['edges']) ? p['edges'] as import('./lib/opencog-values.js').WeightedEdge[] : []
+          if (!nodes.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'nodes required for pagerank' })); return }
+          const scores = weightedPageRank(nodes, edges)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ scores: Object.fromEntries(scores), executionPerformed: false }))
+        } else {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: 'op must be stv|deduction|revision|attention|pagerank' }))
+        }
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Provenance — logical proof tree construction + explanation ────────────────
+  if (req.method === 'POST' && url.pathname === '/api/data/provenance') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { buildProof, baseFacts, rulesUsed, explainProof } = await import('./lib/provenance.js')
+        const fact = typeof p['fact'] === 'string' ? p['fact'] : ''
+        const derivations = p['derivations'] as Array<[string, { rule: string; premises: string[] }]> | undefined
+        if (!fact || !derivations?.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'fact and derivations required' })); return }
+        const derivMap = new Map<string, import('./lib/provenance.js').Derivation>(derivations)
+        const proof    = buildProof(fact, derivMap)
+        const depth    = typeof p['depth'] === 'number' ? p['depth'] : undefined
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ proof, baseFacts: baseFacts(proof), rulesUsed: rulesUsed(proof), explanation: explainProof(proof, depth), executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Ops Brain — semantic operational knowledge retrieval ─────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/ops/brain') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { opsBrainReady, opsBrainRetrieve } = await import('./lib/ops-brain.js')
+        const query = url.searchParams.get('q') ?? ''
+        const k     = parseInt(url.searchParams.get('k') ?? '5', 10)
+        if (!opsBrainReady()) {
+          res.writeHead(503, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: 'ops_brain_not_ready' }))
+          return
+        }
+        const hits = opsBrainRetrieve(query || 'status', isNaN(k) ? 5 : k)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ hits, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Multi-Agent — task decomposition + result aggregation ────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/agent/decompose') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { decompose, aggregate } = await import('./lib/multi-agent.js')
+        const parts   = Array.isArray(p['parts'])   ? p['parts']   as Array<{ objective: string; difficulty?: number }> : []
+        const results = Array.isArray(p['results']) ? p['results'] as Array<{ id: string; output: string; confidence?: number }> : []
+        if (!parts.length && !results.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'parts or results required' })); return }
+        const subtasks   = parts.length   ? decompose(parts)   : null
+        const aggregated = results.length ? aggregate(results) : null
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ subtasks, aggregated, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Connector Receipt — emit + verify data ingestion receipt ─────────────────
+  if (req.method === 'POST' && url.pathname === '/api/connector/receipt') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { emitConnectorReceipt, manifestHash } = await import('./lib/connector-receipt.js')
+        const action = typeof p['action'] === 'string' ? p['action'] : 'emit'
+        if (action === 'manifest-hash') {
+          const manifest = Array.isArray(p['manifest']) ? p['manifest'] as Array<{ filename: string; bytes: number }> : []
+          if (!manifest.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'manifest required' })); return }
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ hash: manifestHash(manifest), executionPerformed: false }))
+          return
+        }
+        const args = p['args'] as Parameters<typeof emitConnectorReceipt>[0] | undefined
+        if (!args) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'args required' })); return }
+        const receipt = emitConnectorReceipt(args)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ receipt, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Office Toolkit — document format detection + conversion args ──────────────
+  if (req.method === 'GET' && url.pathname === '/api/data/office/can-view') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { canView, viewTargetFor } = await import('./lib/office-toolkit.js')
+        const filename = url.searchParams.get('filename') ?? ''
+        if (!filename) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'filename query param required' })); return }
+        const viewable = canView(filename)
+        const target   = viewable ? viewTargetFor(filename) : null
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ filename, canView: viewable, convertTo: target, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
   // 404
   res.writeHead(404, { 'content-type': 'application/json' })
   res.end(JSON.stringify({ error: 'not_found', path: url.pathname }))
