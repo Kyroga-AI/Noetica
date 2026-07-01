@@ -5502,7 +5502,7 @@ const server = http.createServer((req, res) => {
               const task = startTask(taskId)
               res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(task))
             } catch (e) {
-              res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+              res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
             }
             return
           }
@@ -5521,7 +5521,7 @@ const server = http.createServer((req, res) => {
               })
               res.writeHead(201, { 'content-type': 'application/json' }); res.end(JSON.stringify(step))
             } catch (e) {
-              res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+              res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
             }
             return
           }
@@ -5534,7 +5534,7 @@ const server = http.createServer((req, res) => {
               const task = completeTask(taskId, String(body['output'] ?? ''), causal)
               res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(task))
             } catch (e) {
-              res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+              res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
             }
             return
           }
@@ -5544,7 +5544,7 @@ const server = http.createServer((req, res) => {
               const task = blockTask(taskId, String(body['reason'] ?? 'blocked'))
               res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(task))
             } catch (e) {
-              res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+              res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
             }
             return
           }
@@ -7276,7 +7276,7 @@ Question: ${question}`
           res.end(JSON.stringify(report))
         }
       } catch (e) {
-        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) }))
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -9968,7 +9968,7 @@ Question: ${question}`
         res.end(JSON.stringify({ error: 'not_found' }))
       } catch (e) {
         res.writeHead(500, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: 'internal_error', detail: String(e) }))
+        res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -10049,7 +10049,7 @@ Question: ${question}`
         }
         res.writeHead(405, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'method_not_allowed' }))
       } catch (e) {
-        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) }))
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -10085,7 +10085,7 @@ Question: ${question}`
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ suggestions, total: suggestions.length }))
       } catch (e) {
-        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) }))
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -10152,7 +10152,7 @@ Question: ${question}`
           res.end(JSON.stringify({ nodeId, card: updated, nextDue: new Date(updated.due).toISOString() }))
         }
       } catch (e) {
-        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) }))
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -10174,7 +10174,7 @@ Question: ${question}`
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ esn: { points: esn.points, anomalyCount: anomalies.length }, ftle, anomalies }))
       } catch (e) {
-        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -10211,7 +10211,7 @@ Question: ${question}`
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ topic, curation, executionPerformed: false }))
       } catch (e) {
-        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+        res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
     return
@@ -10232,7 +10232,7 @@ Question: ${question}`
       res.writeHead(200, { 'content-type': 'application/json' })
       res.end(JSON.stringify({ encrypted, keySource, vectorCount }))
     } catch (e) {
-      res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: String(e) }))
+      res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
     }
     return
   }
@@ -11566,8 +11566,9 @@ Question: ${question}`
         let p: Record<string, unknown>
         try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
         const { recordOutcome, authorityStatus } = await import('./lib/a2a-trust.js')
-        const spiffeId = typeof p['spiffeId'] === 'string' ? p['spiffeId'] : ''
-        if (!spiffeId) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'spiffeId required' })); return }
+        const rawId    = typeof p['spiffeId'] === 'string' ? p['spiffeId'] : ''
+        const spiffeId = /^spiffe:\/\/[a-zA-Z0-9._-]+\/[^\s]+$/.test(rawId) ? rawId : ''
+        if (!spiffeId) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'valid spiffeId required' })); return }
         const raw = typeof p['outcome'] === 'object' && p['outcome'] ? p['outcome'] as Record<string, unknown> : {}
         const outcome: import('./lib/a2a-trust.js').TrustOutcome = {
           ok:                 typeof raw['ok']                 === 'boolean' ? raw['ok']                 : undefined,
