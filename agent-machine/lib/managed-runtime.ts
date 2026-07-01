@@ -60,7 +60,82 @@ export function shouldManageRuntime(env: Record<string, string | undefined>, pla
 
 export interface ManagedRuntime { child: ChildProcess; port: number; base: string }
 
+// ── In-session orphan-runner reaper ──────────────────────────────────────────
+// Ollama spawns a llama-server runner per model load. When concurrent cold-load
+// requests race during boot (the CPU-variant provisioning + the chat/status
+// preflight + a turn's embed-then-generate all fire at once) it can spawn
+// DUPLICATE runners for the same model and lose track of the extras. Those
+// orphans then linger for the whole session holding RAM (measured: 9 leaked
+// runners, memory down to ~30% free, until the next app launch reaps them at
+// line ~104). The boot-time pkill only helps ACROSS launches; this reaps
+// WITHIN a session so the leak can't accumulate.
+
+/** How a managed llama-server runner looks to the reaper. */
+export interface RunnerProc { pid: number; rssKb: number; ageSec: number }
+
+/**
+ * Choose which managed runners are orphans safe to reap. A runner is reapable when
+ * it holds NO resident model (rss below a loaded-model floor — even the 0.3GB
+ * embedder is hundreds of MB resident, an emptied runner is <30MB) AND it has been
+ * alive past the cold-load mmap window (so a runner mid-load is never killed). As a
+ * hard floor we never reap more than the surplus over `loadedCount` (what /api/ps
+ * reports loaded), so a paged-out-but-live model is protected. Pure + unit-tested.
+ */
+export function selectOrphanRunners(
+  runners: RunnerProc[],
+  loadedCount: number,
+  opts: { residentFloorKb?: number; settleSec?: number } = {},
+): number[] {
+  const residentFloorKb = opts.residentFloorKb ?? 200 * 1024   // <200MB resident ⇒ no model loaded
+  const settleSec = opts.settleSec ?? 90                        // past any cold-load mmap window
+  const surplus = Math.max(0, runners.length - Math.max(0, loadedCount))
+  if (surplus === 0) return []
+  return runners
+    .filter((r) => r.rssKb < residentFloorKb && r.ageSec > settleSec)
+    .sort((a, b) => b.ageSec - a.ageSec)   // oldest (most likely abandoned) first
+    .slice(0, surplus)
+    .map((r) => r.pid)
+}
+
+/** Snapshot the managed Ollama's direct llama-server runner children. */
+async function listManagedRunners(parentPid: number): Promise<RunnerProc[]> {
+  try {
+    const { stdout } = await exec('/bin/ps', ['-axo', 'pid=,ppid=,etimes=,rss=,command='])
+    const out: RunnerProc[] = []
+    for (const line of stdout.split('\n')) {
+      const m = line.trim().match(/^(\d+)\s+(\d+)\s+(\d+)\s+(\d+)\s+(.*)$/)
+      if (!m) continue
+      if (Number(m[2]) !== parentPid || !m[5]!.includes('llama-server')) continue
+      out.push({ pid: Number(m[1]), rssKb: Number(m[4]), ageSec: Number(m[3]) })
+    }
+    return out
+  } catch { return [] }
+}
+
+/** How many models the managed Ollama currently has loaded (0 on any failure). */
+async function loadedModelCount(base: string): Promise<number> {
+  try {
+    const r = await fetch(`${base}/api/ps`, { signal: AbortSignal.timeout(2000) })
+    if (!r.ok) return 0
+    const j = (await r.json()) as { models?: unknown[] }
+    return Array.isArray(j.models) ? j.models.length : 0
+  } catch { return 0 }
+}
+
+/** Reconcile runners against loaded models and SIGTERM the orphaned surplus. Best-effort. */
+export async function reapOrphanRunners(base: string, parentPid: number): Promise<number[]> {
+  const runners = await listManagedRunners(parentPid)
+  if (runners.length === 0) return []
+  const orphans = selectOrphanRunners(runners, await loadedModelCount(base))
+  for (const pid of orphans) { try { process.kill(pid, 'SIGTERM') } catch { /* already gone */ } }
+  if (orphans.length) console.log(`[managed-runtime] reaped ${orphans.length} orphaned llama-server runner(s) (total=${runners.length})`)
+  return orphans
+}
+
+const REAP_INTERVAL_MS = 3 * 60_000   // sweep every 3 min — well inside the 5m keep_alive window
+
 let _activeChild: ChildProcess | null = null
+let _reapTimer: ReturnType<typeof setInterval> | null = null
 let _lastRestart = 0
 
 /**
@@ -74,6 +149,7 @@ export async function restartManagedRuntime(): Promise<boolean> {
   if (Date.now() - _lastRestart < 30_000) return false   // one restart per 30s — don't thrash
   _lastRestart = Date.now()
   console.warn('[managed-runtime] Ollama wedged (lists models, cannot generate) — restarting the runtime')
+  if (_reapTimer) { clearInterval(_reapTimer); _reapTimer = null }   // stop sweeping a runtime we're tearing down
   try { _activeChild?.kill('SIGKILL') } catch { /* already gone */ }
   _activeChild = null
   try { await exec('/usr/bin/pkill', ['-9', '-f', `${process.env['HOME'] ?? ''}/.noetica/runtime/llama-server`]) } catch { /* none */ }
@@ -144,6 +220,14 @@ export async function ensureManagedRuntime(preferredPort = MANAGED_PORT): Promis
       void provisionCpuVariants(['llama3.2:3b', 'qwen2.5:7b', 'qwen2.5-coder:7b', 'deepseek-r1:8b'])
         .then(() => console.log('[managed-runtime] CPU-pinned variants provisioned'))
         .catch(() => {})
+      // Sweep leaked runners for the life of this instance (the boot-time race that
+      // spawns duplicate runners keeps recurring on reconnect/warmup, not just at boot).
+      if (_reapTimer) clearInterval(_reapTimer)
+      if (child.pid) {
+        const parentPid = child.pid
+        _reapTimer = setInterval(() => { void reapOrphanRunners(base, parentPid) }, REAP_INTERVAL_MS)
+        _reapTimer.unref?.()   // never keep the process alive just for the sweep
+      }
       return { child, port, base }
     } } catch { /* not up yet */ }
     await new Promise((r) => setTimeout(r, 500))
