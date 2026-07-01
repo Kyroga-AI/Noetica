@@ -681,17 +681,20 @@ function trackIngest<T>(p: Promise<T> | T): Promise<T> {
   return Promise.resolve(p).finally(() => { _pendingIngestCount = Math.max(0, _pendingIngestCount - 1) })
 }
 
-function recordGovernanceRun(run: GovernanceRun): void {
+function recordGovernanceRun(run: GovernanceRun, qualityError?: boolean): void {
   _governanceRuns.push(run)
   if (_governanceRuns.length > GOVERNANCE_RING_SIZE) _governanceRuns.shift()
   saveGovernance()
   // Update the self-model: track per-task/model success + latency over time.
+  // qualityError: caller can pass a worth-based signal (worth < 0.35) so
+  // capabilityHint() and selectArmUCB() see real quality failures, not just
+  // hard errors (run.error is a string set only on exception paths).
   recordCapability({
     task: run.task,
     provider: run.provider,
     model: run.model_routed,
     latencyMs: run.latency_ms,
-    error: Boolean(run.error),
+    error: qualityError ?? Boolean(run.error),
     costUsd: run.cost_usd,
   })
 }
@@ -4592,7 +4595,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       tokens_egressed: egressed,
       task: routerDecision.task,
       session_id: sessionId,
-    })
+    }, (valueJudgment?.worth ?? 1) < 0.35)
 
     // Moat 3: close the episodic KG entry with the answer (episodic memory of
     // what was asked + how the agent responded — feeds the compounding loop).
@@ -4718,8 +4721,11 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       emitContent = scrubMarkdownImages(emitContent)
     } catch { /* egress-hygiene is best-effort */ }
     try {
-      const { markAIGenerated, makeCredential } = await import('./lib/content-credentials.js')
-      emitContent = markAIGenerated(emitContent, makeCredential({ model, timestamp: new Date().toISOString() }))
+      const { markAIGenerated, makeCredential, logAIActEvent } = await import('./lib/content-credentials.js')
+      const cred = makeCredential({ model, timestamp: new Date().toISOString() })
+      emitContent = markAIGenerated(emitContent, cred)
+      const { brainHome } = await import('./lib/brain-home.js')
+      logAIActEvent({ responseText: fullContent, cred, logsDir: brainHome() })
     } catch { /* C2PA marking is best-effort */ }
     try {
       const { decideAnswer } = await import('./lib/uncertainty.js')
