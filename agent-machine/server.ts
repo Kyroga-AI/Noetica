@@ -14463,6 +14463,325 @@ Question: ${question}`
     return
   }
 
+  // ── News Events — materiality scoring + catalyst tagging ─────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/news/events') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { enrichNewsEvents, newsAlertSummary, scoreEvent, tagCatalyst } = await import('./lib/news-scraper.js')
+        const op = typeof p['op'] === 'string' ? p['op'] : 'enrich'
+        if (op === 'summary') {
+          const events = Array.isArray(p['events']) ? p['events'] as import('./lib/news-scraper.js').NewsEvent[] : undefined
+          const summary = newsAlertSummary(events)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ summary, executionPerformed: false }))
+        } else if (op === 'score') {
+          const event = p['event'] as import('./lib/news-scraper.js').NewsEvent | undefined
+          if (!event) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'event required' })); return }
+          const score    = scoreEvent(event)
+          const catalyst = tagCatalyst(event)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ score, catalyst, executionPerformed: false }))
+        } else {
+          const events = Array.isArray(p['events']) ? p['events'] as import('./lib/news-scraper.js').NewsEvent[] : undefined
+          const enriched = enrichNewsEvents(events)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ enriched, count: enriched.length, executionPerformed: false }))
+        }
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Trajectory Monitor — cross-turn agent trajectory safety check ─────────────
+  if (req.method === 'POST' && url.pathname === '/api/nlp/trajectory') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { monitorTrajectory } = await import('./lib/trajectory-monitor.js')
+        const actions = Array.isArray(p['actions']) ? p['actions'] as import('./lib/trajectory-monitor.js').AgentAction[] : []
+        if (!actions.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'actions required' })); return }
+        const sensitiveTypes = Array.isArray(p['sensitiveTypes']) ? p['sensitiveTypes'] as string[] : undefined
+        const maxSensitive   = typeof p['maxSensitive'] === 'number' ? p['maxSensitive'] : undefined
+        const loopWindow     = typeof p['loopWindow']   === 'number' ? p['loopWindow']   : undefined
+        const result = monitorTrajectory(actions, { sensitiveTypes, maxSensitive, loopWindow })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ...result, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Sprint Contract — contractBlock formatting ────────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/ops/sprint-contract') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { contractBlock } = await import('./lib/sprint-contract.js')
+        const contract = p['contract'] as import('./lib/sprint-contract.js').SprintContract | undefined
+        if (!contract) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'contract required' })); return }
+        const block = contractBlock(contract)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ block, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Model Signing — digest + manifest verification ────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/security/model-signing') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { digestEquals, verifyModelHash, verifyManifest } = await import('./lib/model-signing.js')
+        const op = typeof p['op'] === 'string' ? p['op'] : 'verify-hash'
+        if (op === 'digest-equals') {
+          const a = typeof p['a'] === 'string' ? p['a'] : ''
+          const b = typeof p['b'] === 'string' ? p['b'] : ''
+          const ok = digestEquals(a, b)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ok, executionPerformed: false }))
+        } else if (op === 'verify-manifest') {
+          const files    = Array.isArray(p['files'])    ? p['files']    as Array<{ path: string; sha256: string }> : []
+          const manifest = typeof p['manifest'] === 'object' && p['manifest'] ? p['manifest'] as Record<string, string> : {}
+          if (!files.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'files required' })); return }
+          const result = verifyManifest(files, manifest)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ...result, executionPerformed: false }))
+        } else {
+          const actual   = typeof p['actual']   === 'string' ? p['actual']   : ''
+          const expected = typeof p['expected'] === 'string' ? p['expected'] : ''
+          const ok = verifyModelHash(actual, expected)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ok, executionPerformed: false }))
+        }
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── New-Hope Membrane — conformance bridge outcome + event ────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/platform/membrane') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { outcomeFor, membraneEvent, conformsToMembrane } = await import('./lib/new-hope-membrane.js')
+        const op = typeof p['op'] === 'string' ? p['op'] : 'outcome'
+        if (op === 'conforms') {
+          const event = p['event'] as Partial<import('./lib/new-hope-membrane.js').MembraneEvent> | undefined
+          if (!event) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'event required' })); return }
+          const result = conformsToMembrane(event)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ...result, executionPerformed: false }))
+        } else if (op === 'event') {
+          const opts = p['opts'] as Parameters<typeof membraneEvent>[0] | undefined
+          if (!opts) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'opts required' })); return }
+          const event = membraneEvent(opts)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ event, executionPerformed: false }))
+        } else {
+          const d = typeof p['decision'] === 'object' && p['decision'] ? p['decision'] as Parameters<typeof outcomeFor>[0] : {}
+          const outcome = outcomeFor(d)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ...outcome, executionPerformed: false }))
+        }
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Swarm Volume — DHT swarm membership + blackboard ─────────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/graph/swarm') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { listSwarms, swarmMembers, readBlackboard } = await import('./lib/swarm-volume.js')
+        const swarmId = url.searchParams.get('swarmId')
+        if (swarmId) {
+          const members   = swarmMembers(swarmId)
+          const board     = readBlackboard(swarmId)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ swarmId, members, board, executionPerformed: false }))
+        } else {
+          const swarms = listSwarms()
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ swarms, executionPerformed: false }))
+        }
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/graph/swarm') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { joinSwarm, leaveSwarm, writeBlackboard } = await import('./lib/swarm-volume.js')
+        const op      = typeof p['op']      === 'string' ? p['op']      : 'join'
+        const swarmId = typeof p['swarmId'] === 'string' ? p['swarmId'] : ''
+        if (!swarmId) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'swarmId required' })); return }
+        if (op === 'leave') {
+          const agentId = typeof p['agentId'] === 'string' ? p['agentId'] : ''
+          if (!agentId) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'agentId required' })); return }
+          const manifest = leaveSwarm(swarmId, agentId)
+          if (!manifest) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'swarm_not_found' })); return }
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ manifest, executionPerformed: false }))
+        } else if (op === 'write') {
+          const key  = typeof p['key'] === 'string' ? p['key'] : ''
+          if (!key) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'key required' })); return }
+          writeBlackboard(swarmId, key, p['data'] ?? null)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ok: true, executionPerformed: false }))
+        } else {
+          const agentId = typeof p['agentId'] === 'string' ? p['agentId'] : ''
+          const role    = typeof p['role']    === 'string' ? p['role']    : undefined
+          if (!agentId) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'agentId required' })); return }
+          const manifest = joinSwarm(swarmId, agentId, role)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ manifest, executionPerformed: false }))
+        }
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── PDOR Ingest — governed data-asset catalog graph proposals ─────────────────
+  if (req.method === 'POST' && url.pathname === '/api/data/pdor') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { buildCatalogGraph } = await import('./lib/pdor-ingest.js')
+        const pdor     = p['pdor']     as import('./lib/data-onboarding.js').Pdor     | undefined
+        const decision = p['decision'] as import('./lib/data-onboarding.js').PdorDecision | undefined
+        if (!pdor || !decision) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'pdor and decision required' })); return }
+        const inputs = (p['inputs'] as import('./lib/pdor-ingest.js').IngestInputs | undefined) ?? {}
+        const result = buildCatalogGraph(pdor, decision, inputs)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ...result, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Sovereign Broker — challenge + credential verification ────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/identity/sovereign-challenge') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { newChallenge } = await import('./lib/sovereign-broker.js')
+        const challenge = newChallenge()
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ challenge, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/identity/sovereign-verify') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { verifyCredential } = await import('./lib/sovereign-broker.js')
+        const credential = p['credential'] as import('./lib/sovereign-broker.js').CredentialRecord | undefined
+        if (!credential) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'credential required' })); return }
+        const ok = verifyCredential(credential)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ok, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Question Context — episode count + outcome recording ─────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/graph/episodes') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { episodeCount } = await import('./lib/question-context.js')
+        const count = episodeCount()
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ count, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/graph/episodes') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { recordEpisodeOutcome } = await import('./lib/question-context.js')
+        const episodeId = typeof p['episodeId'] === 'string' ? p['episodeId'] : ''
+        const answer    = typeof p['answer']    === 'string' ? p['answer']    : ''
+        const correct   = typeof p['correct']   === 'boolean' ? p['correct']  : false
+        const lane      = typeof p['lane']      === 'string' ? p['lane']      : undefined
+        if (!episodeId || !answer) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'episodeId and answer required' })); return }
+        recordEpisodeOutcome(episodeId, { answer, correct, lane })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ok: true, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── SynapseIQ Enrich — symbol extraction + KG triples ────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/nlp/synapseiq-triples') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { enrichmentToTriples, fallbackSymbols } = await import('./lib/synapseiq-enrich.js')
+        const op = typeof p['op'] === 'string' ? p['op'] : 'triples'
+        if (op === 'symbols') {
+          const content  = typeof p['content']  === 'string' ? p['content']  : ''
+          const filename = typeof p['filename'] === 'string' ? p['filename'] : undefined
+          if (!content) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'content required' })); return }
+          const result = fallbackSymbols(content, filename)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ...result, executionPerformed: false }))
+        } else {
+          const assetId     = typeof p['assetId'] === 'string' ? p['assetId'] : ''
+          const enrichment  = p['enrichment'] as import('./lib/synapseiq-enrich.js').SynapseEnrichment | undefined
+          if (!assetId || !enrichment) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'assetId and enrichment required' })); return }
+          const triples = enrichmentToTriples(assetId, enrichment)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ triples, count: triples.length, executionPerformed: false }))
+        }
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
   // 404
   res.writeHead(404, { 'content-type': 'application/json' })
   res.end(JSON.stringify({ error: 'not_found', path: url.pathname }))
