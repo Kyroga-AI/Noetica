@@ -4721,8 +4721,11 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       emitContent = scrubMarkdownImages(emitContent)
     } catch { /* egress-hygiene is best-effort */ }
     try {
-      const { markAIGenerated, makeCredential } = await import('./lib/content-credentials.js')
-      emitContent = markAIGenerated(emitContent, makeCredential({ model, timestamp: new Date().toISOString() }))
+      const { markAIGenerated, makeCredential, logAIActEvent } = await import('./lib/content-credentials.js')
+      const cred = makeCredential({ model, timestamp: new Date().toISOString() })
+      emitContent = markAIGenerated(emitContent, cred)
+      const { brainHome } = await import('./lib/brain-home.js')
+      logAIActEvent({ responseText: fullContent, cred, logsDir: brainHome() })
     } catch { /* C2PA marking is best-effort */ }
     try {
       const { decideAnswer } = await import('./lib/uncertainty.js')
