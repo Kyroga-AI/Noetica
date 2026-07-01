@@ -7282,6 +7282,67 @@ Question: ${question}`
     return
   }
 
+  // POST /api/data/onboarding — PDOR governed-data-onboarding decision (license/openness/tier/eligibility).
+  // The governed-dataset gate a cloud data platform needs (IBM Watson Knowledge Catalog analog): decides
+  // whether an asset may be LEARNED (brain-eligible) vs merely SEGMENTED (RAG-only), issues an ingest key.
+  if (req.method === 'POST' && url.pathname === '/api/data/onboarding') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { readBody: rb } = await import('./lib/read-body.js')
+        const parsed = JSON.parse(await rb(req)) as Record<string, unknown>
+        const { evaluatePdor } = await import('./lib/data-onboarding.js')
+        const pdor = parsed['pdor'] as Parameters<typeof evaluatePdor>[0]
+        if (!pdor || typeof pdor !== 'object') { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'pdor required' })); return }
+        const verdicts = (parsed['verdicts'] ?? []) as Parameters<typeof evaluatePdor>[1]
+        const opts = (parsed['opts'] ?? {}) as Parameters<typeof evaluatePdor>[2]
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(evaluatePdor(pdor, verdicts, opts)))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // POST /api/marketplace/validate — manifest permission-risk scoring + install command.
+  // POST /api/marketplace/search  — search a supplied app catalogue by query/kind.
+  if (req.method === 'POST' && (url.pathname === '/api/marketplace/validate' || url.pathname === '/api/marketplace/search')) {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { readBody: rb } = await import('./lib/read-body.js')
+        const parsed = JSON.parse(await rb(req)) as Record<string, unknown>
+        const { validateManifest, installCommand, searchApps } = await import('./lib/marketplace.js')
+        if (url.pathname === '/api/marketplace/search') {
+          const catalog = (parsed['catalog'] ?? []) as Parameters<typeof searchApps>[0]
+          const q = String(parsed['q'] ?? '')
+          const kind = parsed['kind'] as Parameters<typeof searchApps>[2]
+          res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ results: searchApps(catalog, q, kind) }))
+          return
+        }
+        const manifest = parsed['manifest'] as Parameters<typeof validateManifest>[0]
+        if (!manifest) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'manifest required' })); return }
+        const validation = validateManifest(manifest)
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ...validation, installCommand: installCommand(manifest) }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // POST /api/egress/gate — taint-based egress/tool-call authorization (trust-tier gate + lineage primitive).
+  if (req.method === 'POST' && url.pathname === '/api/egress/gate') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { readBody: rb } = await import('./lib/read-body.js')
+        const parsed = JSON.parse(await rb(req)) as Record<string, unknown>
+        const { gateEgress } = await import('./lib/capability-egress.js')
+        const args = (parsed['args'] ?? []) as Parameters<typeof gateEgress>[0]
+        const sink = (parsed['sink'] ?? { requires: 'trusted' }) as Parameters<typeof gateEgress>[1]
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(gateEgress(args, sink)))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
   // GET /api/models — model suite status for first-run UI
   if (req.method === 'GET' && url.pathname === '/api/models') {
     void (async () => {
