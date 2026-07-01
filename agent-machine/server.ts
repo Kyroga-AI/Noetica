@@ -10744,6 +10744,334 @@ Question: ${question}`
     return
   }
 
+  // ── Canon Route — deterministic query routing ────────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/rag/canon-route') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { canonRoute } = await import('./lib/canon-route.js')
+        const question = typeof p['question'] === 'string' ? p['question'] : ''
+        if (!question) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'question required' })); return }
+        const decision = canonRoute(question)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ decision, executionPerformed: false }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── CRAG Vote — adaptive self-consistency gate ────────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/rag/crag-vote') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { cragVote } = await import('./lib/crag-gate.js')
+        const samples = Array.isArray(p['samples']) ? (p['samples'] as string[]) : []
+        const pattern = typeof p['pattern'] === 'string' ? p['pattern'] : null
+        if (samples.length === 0) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'samples required' })); return }
+        // Wrap pre-drawn samples so cragVote treats them as a sampler
+        const extract = (raw: string): string | null => {
+          if (pattern) { const m = new RegExp(pattern, 'i').exec(raw); return m ? (m[1] ?? m[0]).trim() : null }
+          return raw.trim().split('\n')[0]?.trim() ?? null
+        }
+        const result = await cragVote(async (i) => samples[i % samples.length] ?? '', extract, samples.length)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ...result, executionPerformed: false }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Council Vote — multi-arm weighted ensemble ────────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/reasoning/council') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { councilVote } = await import('./lib/council.js')
+        const inp = p['input'] as import('./lib/council.js').CouncilInput
+        if (!inp || typeof inp['scLetter'] !== 'string') { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'input.scLetter required' })); return }
+        const result = councilVote(inp, { v2: p['v2'] === true, manip: p['manip'] === true })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ...result, executionPerformed: false }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Defeasible Reasoning — non-monotonic logic with superiority ──────────────
+  if (req.method === 'POST' && url.pathname === '/api/reasoning/defeasible') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { deriveDefeasible } = await import('./lib/defeasible.js')
+        const facts  = Array.isArray(p['facts'])       ? p['facts']       as string[]                             : []
+        const rules  = Array.isArray(p['rules'])       ? p['rules']       as import('./lib/defeasible.js').DefRule[]        : []
+        const supr   = Array.isArray(p['superiority']) ? p['superiority'] as import('./lib/defeasible.js').Superiority[]    : []
+        if (facts.length === 0 || rules.length === 0) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'facts and rules required' })); return }
+        const result = deriveDefeasible(facts, rules, supr)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ...result, executionPerformed: false }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Content Safeguard — policy-based content safety gate ─────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/content/safeguard') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { classify, gateSovereignLane, gateDefaultLane } = await import('./lib/content-safeguard.js')
+        const text = typeof p['text'] === 'string' ? p['text'] : ''
+        const lane = typeof p['lane'] === 'string' ? p['lane'] : 'default'
+        if (!text) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'text required' })); return }
+        const verdict = classify(text)
+        const gate = lane === 'sovereign' ? gateSovereignLane(text) : gateDefaultLane(text)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ verdict, gate, executionPerformed: false }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Cite Match — best-source attribution for sentences ───────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/rag/cite-match') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { bestSource } = await import('./lib/cite-match.js')
+        const sentences = Array.isArray(p['sentences']) ? p['sentences'] as string[] : []
+        const sources   = Array.isArray(p['sources'])   ? p['sources']   as import('./lib/cite-match.js').CiteSource[]     : []
+        const floor     = typeof p['floor'] === 'number' ? p['floor'] : 0.5
+        if (sentences.length === 0 || sources.length === 0) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'sentences and sources required' })); return }
+        const attributions = sentences.map((s) => ({ sentence: s, sourceIdx: bestSource(s, sources, floor) }))
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ attributions, executionPerformed: false }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Choir Bench — model tier capability comparison ───────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/models/choir-bench') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { tierCapability, compareTiers } = await import('./lib/choir-bench.js')
+        const policies = Array.isArray(p['policies']) ? p['policies'] as Parameters<typeof tierCapability>[0][] : []
+        if (policies.length === 0) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'policies required' })); return }
+        const comparison = compareTiers(policies)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ comparison, executionPerformed: false }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Cost Estimator — GPU run cost estimation ─────────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/cloud/cost-estimate') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { estimateRun, estimateAll } = await import('./lib/cost-estimator.js')
+        const specs = Array.isArray(p['specs']) ? p['specs'] as import('./lib/cost-estimator.js').RunSpec[] : []
+        const spec  = p['spec'] as import('./lib/cost-estimator.js').RunSpec | undefined
+        if (!specs.length && !spec) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'spec or specs required' })); return }
+        const result = spec ? estimateRun(spec) : estimateAll(specs)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ result, executionPerformed: false }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Geo Distance — haversine + point-in-polygon ───────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/geo/distance') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { haversine, pointInPolygon } = await import('./lib/geo-distance.js')
+        const a = p['a'] as { lon: number; lat: number } | undefined
+        const b = p['b'] as { lon: number; lat: number } | undefined
+        const pt   = p['point']   as { lon: number; lat: number } | undefined
+        const ring = Array.isArray(p['ring']) ? p['ring'] as Array<[number, number]> : []
+        if (!a && !pt) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'a+b or point+ring required' })); return }
+        const distKm = (a && b) ? haversine(a, b) : null
+        const inside = (pt && ring.length) ? pointInPolygon(pt, ring) : null
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ distKm, inside, executionPerformed: false }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Inline Bind — evidence-grounded answer formatting ────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/rag/inline-bind') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { formatEvidence, inlineBindPrompt, parseInlineAnswer } = await import('./lib/inline-bind.js')
+        const question  = typeof p['question']  === 'string' ? p['question']  : ''
+        const choices   = Array.isArray(p['choices'])   ? p['choices']   as string[] : []
+        const chunks_   = Array.isArray(p['chunks'])    ? p['chunks']    as Array<{ text: string }> : []
+        const modelOut  = typeof p['modelOutput'] === 'string' ? p['modelOutput'] : null
+        if (!question) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'question required' })); return }
+        const evidence = formatEvidence(chunks_)
+        const prompt   = inlineBindPrompt(question, choices, evidence)
+        const parsed   = modelOut ? parseInlineAnswer(modelOut) : null
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ prompt, parsed, executionPerformed: false }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Isochrone — time-budget reachability graph ────────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/geo/isochrone') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { reachableWithin } = await import('./lib/isochrone.js')
+        const graph_  = p['graph'] as Record<string, Array<{ to: string; minutes: number }>> | undefined
+        const source  = typeof p['source'] === 'string' ? p['source'] : ''
+        const budget  = typeof p['budget'] === 'number' ? p['budget'] : 30
+        if (!graph_ || !source) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'graph and source required' })); return }
+        const adjMap = new Map(Object.entries(graph_))
+        const reachable = reachableWithin(adjMap, source, budget)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ reachable, count: reachable.length, executionPerformed: false }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── New Hope Membrane — content membrane conformance check ───────────────────
+  if (req.method === 'POST' && url.pathname === '/api/membrane/check') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { outcomeFor, conformsToMembrane } = await import('./lib/new-hope-membrane.js')
+        const event = p['event'] as Parameters<typeof conformsToMembrane>[0]
+        if (!event) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'event required' })); return }
+        const conformance = conformsToMembrane(event)
+        const outcome     = outcomeFor({ trust: event['trust'] as 'trusted' | 'internal' | 'untrusted', injected: Boolean(event['injected']), allowed: Boolean(event['allowed']) })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ conformance, outcome, executionPerformed: false }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Fog Bridge — trust tier assignment ───────────────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/fog/trust') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { meshTierToFogTrust, meetsTrust, trustRank } = await import('./lib/fog-bridge.js')
+        const tier    = typeof p['tier']    === 'string' ? p['tier']    : ''
+        const healthy = p['healthy'] !== false
+        if (!tier) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'tier required' })); return }
+        const fogTrust = meshTierToFogTrust(tier as Parameters<typeof meshTierToFogTrust>[0], { healthy })
+        const rank     = trustRank(fogTrust)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ fogTrust, rank, executionPerformed: false }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Lattice Forge — runtime asset registration ────────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/lattice/asset') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { modelRuntimeAsset, sidecarRuntimeAsset } = await import('./lib/lattice-forge.js')
+        const kind = typeof p['kind'] === 'string' ? p['kind'] : 'model'
+        let asset
+        if (kind === 'model') {
+          const model     = typeof p['model']     === 'string' ? p['model']     : ''
+          const createdAt = typeof p['createdAt'] === 'string' ? p['createdAt'] : new Date().toISOString()
+          if (!model) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'model required' })); return }
+          asset = modelRuntimeAsset(model, { createdAt, digest: typeof p['digest'] === 'string' ? p['digest'] : undefined })
+        } else {
+          const name         = typeof p['name']         === 'string' ? p['name']         : ''
+          const version      = typeof p['version']      === 'string' ? p['version']      : '0.0.0'
+          const createdAt    = typeof p['createdAt']    === 'string' ? p['createdAt']    : new Date().toISOString()
+          const languages    = Array.isArray(p['languages'])    ? p['languages']    as string[] : ['typescript']
+          const runtimeClass = typeof p['runtimeClass'] === 'string' ? p['runtimeClass'] : 'node'
+          if (!name) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'name required' })); return }
+          asset = sidecarRuntimeAsset(name, { version, createdAt, languages, runtimeClass })
+        }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ asset, executionPerformed: false }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Learning Path — prerequisite-ordered curriculum ──────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/learn/path') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { pathTo } = await import('./lib/learning-path.js')
+        const goal      = typeof p['goal']      === 'string' ? p['goal']      : ''
+        const completed = Array.isArray(p['completed']) ? p['completed'] as string[] : []
+        if (!goal) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'goal required' })); return }
+        const path = pathTo(goal, completed)
+        if (!path) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'goal_not_found' })); return }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ path, executionPerformed: false }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
   // 404
   res.writeHead(404, { 'content-type': 'application/json' })
   res.end(JSON.stringify({ error: 'not_found', path: url.pathname }))
