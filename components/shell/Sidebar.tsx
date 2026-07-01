@@ -227,6 +227,7 @@ const surfaceItems: SurfaceItem[] = [
   { id: 'geo',         label: 'Geo',         icon: <IconOperate />,    items: ['Detected places', 'OFIF markers'] },
   { id: 'marketplace', label: 'Marketplace', icon: <IconMarketplace />,items: [] },
   { id: 'broker',      label: 'Cloud Broker', icon: <IconMarketplace />, items: ['Cheapest GPU/VM', 'Live prices', 'Runtime registry'] },
+  { id: 'platform',    label: 'Platform',     icon: <IconMarketplace />, items: ['Cloud Broker', 'Marketplace', 'Geo', 'HolographMe'] },
   { id: 'alignment',   label: 'Alignment',   icon: <IconGovern />,      items: ['Corroborated', 'Conflicting', 'Novel'] },
   { id: 'agents',      label: 'Agents',      icon: <IconCowork />,      items: ['Custom agents', 'Built-in roles'] },
   { id: 'calendar',    label: 'Calendar',    icon: <IconNotes />,       items: ['Agenda', 'Subscribed feeds'] },
@@ -458,7 +459,8 @@ export function Sidebar({
         )}
 
         {/* Workspace group */}
-        {(['chat','library','notes','canvas','cowork','workrooms','jitsi'] as ActiveSurface[]).map((id) => {
+        {/* Video (jitsi) folds into Workrooms as a tab. */}
+        {(['chat','library','notes','canvas','cowork','workrooms'] as ActiveSurface[]).map((id) => {
           const item = surfaceItems.find(s => s.id === id)!
           const isActive = activeSurface === id
           return (
@@ -494,9 +496,10 @@ export function Sidebar({
           )
         })}
 
-        {/* Models & AI group — the Vertex-equivalent cluster (prompt studio, retrieval, capabilities, eval, tuning) */}
+        {/* Models & AI group. Studio is now a tabbed workspace (Prompt/RAG/Capabilities/Alignment) —
+            rag/lab/alignment fold in as tabs, so they no longer each claim a nav slot. */}
         <div className={`px-2 ${groupGap} pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>Models &amp; AI</div>
-        {(['studio','rag','lab','alignment','evaluate','tune'] as ActiveSurface[]).map((id) => {
+        {(['studio','evaluate','tune'] as ActiveSurface[]).map((id) => {
           const item = surfaceItems.find(s => s.id === id)!
           const isActive = activeSurface === id
           return (
@@ -515,7 +518,8 @@ export function Sidebar({
 
         {/* Operate & Govern group */}
         <div className={`px-2 ${groupGap} pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>Operate &amp; Govern</div>
-        {(['operate','govern','computer'] as ActiveSurface[]).map((id) => {
+        {/* Computer Use folds into Operate as a tab — not its own nav slot. */}
+        {(['operate','govern'] as ActiveSurface[]).map((id) => {
           const item = surfaceItems.find(s => s.id === id)!
           const isActive = activeSurface === id
           return (
@@ -532,9 +536,9 @@ export function Sidebar({
           )
         })}
 
-        {/* Platform group */}
+        {/* Platform group — Broker/Marketplace/Geo/HolographMe fold into one tabbed Platform destination. */}
         <div className={`px-2 ${groupGap} pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>Platform</div>
-        {(['broker','holographme','geo','marketplace'] as ActiveSurface[]).map((id) => {
+        {(['platform'] as ActiveSurface[]).map((id) => {
           const item = surfaceItems.find(s => s.id === id)!
           const isActive = activeSurface === id
           return (

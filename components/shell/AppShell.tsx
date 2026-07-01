@@ -37,6 +37,7 @@ import { TuneSurface } from '@/components/surfaces/TuneSurface'
 import { HolographMeSurface } from '@/components/surfaces/HolographMeSurface'
 import { MarketplaceSurface } from '@/components/surfaces/MarketplaceSurface'
 import { SurfaceErrorBoundary } from '@/components/shell/SurfaceErrorBoundary'
+import { TabbedWorkspace } from '@/components/shell/TabbedWorkspace'
 import { CoworkPanel } from '@/components/panels/CoworkPanel'
 import { CodePanel } from '@/components/panels/CodePanel'
 import { EvaluatePanel } from '@/components/panels/EvaluatePanel'
@@ -109,6 +110,7 @@ const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
   library:      'Chat',
   intelligence: 'Chat',
   portfolio:    'Chat',
+  platform:     'Chat',
 }
 
 export function AppShell() {
@@ -1679,7 +1681,6 @@ const surfaceIcons: { id: ActiveSurface; label: string; icon: React.ReactNode }[
   { id: 'evaluate',  label: 'Evaluate',     icon: <IconSm path="M2 9h3v5H2zM6.5 6h3v8h-3zM11 3h3v11h-3z" /> },
   { id: 'tune',      label: 'Tune & Train', icon: <IconSm path="M5 1v12M11 1v12" d2="M3 5h4M9 11h4" /> },
   { id: 'govern',    label: 'Govern',       icon: <IconSm path="M8 2 2 5v3c0 3 2.5 5.5 6 6.5 3.5-1 6-3.5 6-6.5V5L8 2z" d2="M5.5 8l2 2 3.5-3.5" /> },
-  { id: 'computer',     label: 'Computer Use', icon: <IconSm path="M1.5 3h13a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1h-13a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" d2="M5 15h6M8 12v3" /> },
   { id: 'holographme',  label: 'HolographMe',  icon: <IconSm path="M8 2a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM3 14c0-2.8 2.2-5 5-5s5 2.2 5 5" /> },
   { id: 'intelligence', label: 'Intelligence',  icon: <IconSm path="M8 2l1.5 4.5H14l-3.7 2.7 1.4 4.3L8 11l-3.7 2.5 1.4-4.3L2 6.5h4.5z" /> },
   { id: 'portfolio',    label: 'Portfolio',     icon: <IconSm path="M2 13 6 7l4 3 4-6" d2="M2 13h12" /> },
@@ -1763,16 +1764,30 @@ type CenterProps = {
 function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onSpeak, onFeedback, agentMode, onSetAgentMode, onPlanApprove, onPlanReject }: CenterProps) {
   if (activeSurface === 'notes')        return <NotesSurface />
   if (activeSurface === 'canvas')       return <CanvasSurface />
-  if (activeSurface === 'workrooms')    return <WorkroomsSurface thinkingBudget={thinkingBudget} />
+  if (activeSurface === 'workrooms')    return <TabbedWorkspace tabs={[
+    { id: 'workrooms', label: 'Rooms', render: () => <WorkroomsSurface thinkingBudget={thinkingBudget} /> },
+    { id: 'jitsi', label: 'Video', render: () => <JitsiSurface /> },
+  ]} />
   if (activeSurface === 'cowork')       return <CoworkSurface thinkingBudget={thinkingBudget} />
   if (activeSurface === 'projects')     return <ProjectsPanel />
   if (activeSurface === 'artifacts')    return <ArtifactsSurface />
   if (activeSurface === 'code')         return <CodeSurface onOpenSettings={onOpenSettings} onNavigateToOperate={onNavigateToOperate} />
   if (activeSurface === 'workspace')    return <WorkspaceSurface />
   if (activeSurface === 'evaluate')     return <EvaluateSurface thinkingBudget={thinkingBudget} />
-  if (activeSurface === 'studio')       return <StudioSurface />
+  if (activeSurface === 'studio')       return <TabbedWorkspace tabs={[
+    { id: 'studio', label: 'Prompt & Compare', render: () => <StudioSurface /> },
+    { id: 'rag', label: 'RAG', render: () => <RagInspectSurface /> },
+    { id: 'lab', label: 'Capabilities', render: () => <LabSurface /> },
+    { id: 'alignment', label: 'Alignment', render: () => <AlignmentSurface /> },
+  ]} />
   if (activeSurface === 'rag')          return <RagInspectSurface />
   if (activeSurface === 'lab')          return <LabSurface />
+  if (activeSurface === 'platform')     return <TabbedWorkspace tabs={[
+    { id: 'broker', label: 'Cloud Broker', render: () => <CloudBrokerSurface /> },
+    { id: 'marketplace', label: 'Marketplace', render: () => <MarketplaceSurface /> },
+    { id: 'geo', label: 'Geo', render: () => <GeoSurface /> },
+    { id: 'holographme', label: 'HolographMe', render: () => <HolographMeSurface /> },
+  ]} />
   if (activeSurface === 'broker')       return <CloudBrokerSurface />
   if (activeSurface === 'alignment')    return <AlignmentSurface />
   if (activeSurface === 'agents')       return <AgentBuilderSurface />
@@ -1783,7 +1798,10 @@ function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, work
   if (activeSurface === 'calendar')     return <CalendarSurface />
   if (activeSurface === 'jitsi')        return <JitsiSurface />
   if (activeSurface === 'docs')         return <OfficeViewer />
-  if (activeSurface === 'operate')      return <OperateSurface onAtomSelect={onAtomSelect} />
+  if (activeSurface === 'operate')      return <TabbedWorkspace tabs={[
+    { id: 'operate', label: 'Operate', render: () => <OperateSurface onAtomSelect={onAtomSelect} /> },
+    { id: 'computer', label: 'Computer Use', render: () => <ComputerUseSurface /> },
+  ]} />
   if (activeSurface === 'govern') {
     const traces = messages
       .filter((m) => m.role === 'assistant' && m.governance)

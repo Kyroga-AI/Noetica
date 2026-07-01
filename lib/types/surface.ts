@@ -28,3 +28,4 @@ export type ActiveSurface =
   | 'geo'
   | 'intelligence'
   | 'portfolio'
+  | 'platform'
