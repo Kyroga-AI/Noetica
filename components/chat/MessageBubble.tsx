@@ -393,9 +393,11 @@ type MessageBubbleProps = {
   onSpeak?: (content: string) => void
   onQuickPrompt?: (text: string) => void
   onFeedback?: (messageId: string, rating: 'up' | 'down') => void
+  onPlanApprove?: (messageId: string) => void
+  onPlanReject?: (messageId: string) => void
 }
 
-export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onSpeak, onQuickPrompt, onFeedback }: MessageBubbleProps) {
+export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onSpeak, onQuickPrompt, onFeedback, onPlanApprove, onPlanReject }: MessageBubbleProps) {
   const isUser = message.role === 'user'
   const [extracted, setExtracted] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -514,6 +516,25 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
 
         {/* Live todo checklist (streamed plan + step updates) */}
         {message.plan && <PlanChecklist plan={message.plan} />}
+
+        {/* Plan-mode approval gate — shown when the agent produced a plan and is waiting for the user to approve before executing */}
+        {message.awaitingApproval && (
+          <div className="my-2 flex items-center gap-2 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2">
+            <span className="flex-1 text-[11px] text-[var(--color-text-secondary)]">Ready to execute — approve to run this plan or reject to revise.</span>
+            <button
+              onClick={() => onPlanReject?.(message.id)}
+              className="rounded-md border border-[var(--color-border-secondary)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)] transition"
+            >
+              Reject
+            </button>
+            <button
+              onClick={() => onPlanApprove?.(message.id)}
+              className="rounded-md bg-[#7c3aed] px-2.5 py-1 text-[11px] font-medium text-white hover:bg-[#6d28d9] transition"
+            >
+              Approve &amp; Execute
+            </button>
+          </div>
+        )}
 
         {/* Critic gate — escalate/clarify shown above content; accept is silent */}
         {message.deliberation?.critic && (
