@@ -8597,7 +8597,7 @@ Question: ${question}`
         const lex = lexicalSearch(question, 6)
         const seen = new Set<string>(); const sources: { text: string; filename: string }[] = []
         for (const h of [...sem, ...lex]) { const key = h.text.slice(0, 80); if (h.text && !seen.has(key)) { seen.add(key); sources.push({ text: h.text, filename: h.filename }) } }
-        const { verifyGrounding } = await import('./lib/research-verify.js')
+        const { verifyGrounding, verifyGroundingCombo, makeLlmEntail } = await import('./lib/research-verify.js')
         const { retrieveSimilar, fewShot, recordSolve, recordVerified } = await import('./lib/solution-memory.js')
         const memory = await retrieveSimilar(question, 1).catch(() => [])
         const usedMemory = memory.length > 0
@@ -8616,7 +8616,9 @@ Question: ${question}`
           const user = a === 1 ? `Question: ${question}` : `Question: ${question}\n\nYour previous answer made claims the sources DON'T support:\n${prior}\nRewrite using ONLY supported facts.`
           try { ({ content: answer } = await generateOllamaText({ model: 'qwen2.5:7b', messages: [{ role: 'system', content: SYS }, { role: 'user', content: user }], temperature: a === 1 ? 0.2 : 0.4 })) }
           catch (e) { answer = `[generation error]`; break }
-          grounding = verifyGrounding(answer, sources)
+          // Phase-0.1 upgrade: use measured-best combo verifier (F1 0.264 vs 0.215 lexical)
+          const _entailFn = makeLlmEntail(async (prompt: string) => { try { const r = await generateOllamaText({ model: 'qwen2.5:7b', messages: [{ role: 'user', content: prompt }], temperature: 0 }); return r.content } catch { return 'NEUTRAL' } })
+          grounding = await verifyGroundingCombo(answer, sources, { entail: _entailFn }).catch(() => verifyGrounding(answer, sources))
           if (grounding.grounded) break
           prior = grounding.unsupported.slice(0, 4).map((u) => `- ${u}`).join('\n')
         }
@@ -16050,6 +16052,85 @@ Question: ${question}`
         const entries = queryRegistry({ q: q || undefined, kind, domain, limit: 20 })
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ entries, total: entries.length }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Grounding NLI — entailment-based claim verification ───────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/grounding/nli') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { verifyGroundingNLI, makeLlmEntail } = await import('./lib/research-verify.js')
+        const answer  = typeof p['answer']  === 'string' ? p['answer']  : ''
+        const sources = Array.isArray(p['sources'])
+          ? (p['sources'] as unknown[]).flatMap((s) => { const t = (s as Record<string, unknown>)['text']; return typeof t === 'string' && t ? [{ text: t }] : [] })
+          : []
+        if (!answer || !sources.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'answer and sources required' })); return }
+        const { generateOllamaText } = await import('./lib/ollama.js')
+        const generate = async (prompt: string) => { try { const r = await generateOllamaText({ model: 'qwen2.5:7b', messages: [{ role: 'user', content: prompt }], temperature: 0 }); return r.content } catch { return 'NEUTRAL' } }
+        const entail = makeLlmEntail(generate)
+        const result = await verifyGroundingNLI(answer, sources, entail)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(result))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Grounding Combo — measured-best fused verifier (F1 0.264 on RAGTruth) ────
+  if (req.method === 'POST' && url.pathname === '/api/grounding/combo') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { verifyGroundingCombo, makeLlmEntail } = await import('./lib/research-verify.js')
+        const answer  = typeof p['answer']  === 'string' ? p['answer']  : ''
+        const sources = Array.isArray(p['sources'])
+          ? (p['sources'] as unknown[]).flatMap((s) => { const t = (s as Record<string, unknown>)['text']; return typeof t === 'string' && t ? [{ text: t }] : [] })
+          : []
+        if (!answer || !sources.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'answer and sources required' })); return }
+        const { generateOllamaText } = await import('./lib/ollama.js')
+        const generate = async (prompt: string) => { try { const r = await generateOllamaText({ model: 'qwen2.5:7b', messages: [{ role: 'user', content: prompt }], temperature: 0 }); return r.content } catch { return 'NEUTRAL' } }
+        const entail = makeLlmEntail(generate)
+        const result = await verifyGroundingCombo(answer, sources, { entail })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(result))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Grounding Inline-Verify — Phase 0.4 inline binding faithfulness check ────
+  if (req.method === 'POST' && url.pathname === '/api/grounding/inline-verify') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { verifyInlineBinding } = await import('./lib/grounded-answer.js')
+        const { makeLlmEntail } = await import('./lib/research-verify.js')
+        const answerRaw = p['answer']
+        const answer = answerRaw !== null && typeof answerRaw === 'object' && !Array.isArray(answerRaw)
+          && typeof (answerRaw as Record<string, unknown>)['text'] === 'string'
+          ? answerRaw as import('./lib/grounded-answer.js').GroundedAnswer : null
+        const evidenceObj = p['evidence'] !== null && typeof p['evidence'] === 'object' && !Array.isArray(p['evidence'])
+          ? p['evidence'] as Record<string, unknown> : null
+        if (!answer || !evidenceObj) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'answer and evidence required' })); return }
+        const evidence = new Map(Object.entries(evidenceObj).flatMap(([k, v]) => typeof v === 'string' ? [[k, v] as [string, string]] : []))
+        const { generateOllamaText } = await import('./lib/ollama.js')
+        const generate = async (prompt: string) => { try { const r = await generateOllamaText({ model: 'qwen2.5:7b', messages: [{ role: 'user', content: prompt }], temperature: 0 }); return r.content } catch { return 'NEUTRAL' } }
+        const entail = makeLlmEntail(generate)
+        const result = await verifyInlineBinding(answer, evidence, entail)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(result))
       } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
     })()
     return

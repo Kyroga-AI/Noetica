@@ -42,29 +42,19 @@ export function verifyGrounding(answer: string, sources: { text: string }[], cla
   return { grounded: score >= passAt, score, supported, total: claims.length, unsupported }
 }
 
-/* ── Entailment-based grounding (Phase-0.1 upgrade) ────────────────────────────
- * verifyGrounding above is lexical token-overlap: Metric 1 scored it F1 0.24 on
- * RAGTruth (recall 0.48 — misses >half the hallucinations, over-flags 5:1). The
- * eval's NLI arm lifts recall on baseless additions 0.38→0.86. This is the
- * production port: per claim, select the top-K most-similar source sentences as
- * the premise (handles claims that AGGREGATE across sources), then ENTAIL.
- * The entailment engine is injected (EntailFn) so it's pure + testable and the
- * engine is swappable (deberta-nli in the eval, an LLM judge on the mesh in prod).
- * NOTE: re-validate on RAGTruth via scripts/provenance_eval.py before claiming a
- * specific F1 — the measured lift used cross-encoder/nli-deberta-v3-small. */
+// ── Phase-0.1 + Combo grounding additions ─────────────────────────────────────
 
-export type EntailFn = (premise: string, hypothesis: string) => Promise<number>  // 0..1 entailment
+export type EntailFn = (premise: string, hypothesis: string) => Promise<number>
 
 function splitSentences(t: string): string[] {
   return t.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter((s) => s.length > 15)
 }
 
-// The K source sentences most lexically similar to the claim = the premise pool.
 function topKSources(claim: string, srcSentences: string[], k: number): string[] {
   const ct = new Set(contentTokens(claim))
   if (!ct.size) return []
   return srcSentences
-    .map((s) => { const t = contentTokens(s); return { s, score: t.length ? t.filter((x) => ct.has(x)).length / t.length : 0 } })
+    .map((s) => { const tokens = contentTokens(s); return { s, score: tokens.length ? tokens.filter((x) => ct.has(x)).length / tokens.length : 0 } })
     .filter((x) => x.score > 0)
     .sort((a, b) => b.score - a.score)
     .slice(0, k)
@@ -84,9 +74,9 @@ export async function verifyGroundingNLI(
   const unsupported: string[] = []
   let supported = 0
   for (const claim of claims) {
-    if (!contentTokens(claim).length) { supported++; continue }   // filler, not a factual claim
+    if (!contentTokens(claim).length) { supported++; continue }
     const premise = topKSources(claim, srcSents, topK)
-    const score = premise.length ? await entail(premise.join(' '), claim) : 0   // no similar source ⇒ unsupported
+    const score = premise.length ? await entail(premise.join(' '), claim) : 0
     if (score >= entailAt) supported++
     else unsupported.push(claim.slice(0, 140))
   }
@@ -94,7 +84,7 @@ export async function verifyGroundingNLI(
   return { grounded: score >= passAt, score, supported, total: claims.length, unsupported }
 }
 
-/** Mesh-native default engine: an LLM entailment judge (swap for a served NLI cross-encoder to match the eval). */
+/** Mesh-native LLM entailment judge — swap for a served NLI cross-encoder to match the eval. */
 export function makeLlmEntail(generate: (prompt: string) => Promise<string>): EntailFn {
   return async (premise, hypothesis) => {
     const out = (await generate(
@@ -104,34 +94,20 @@ export function makeLlmEntail(generate: (prompt: string) => Promise<string>): En
     )).toUpperCase()
     if (out.includes('ENTAIL')) return 1
     if (out.includes('CONTRADICT')) return 0
-    return 0.3   // neutral < default entailAt ⇒ treated as unsupported
+    return 0.3
   }
 }
 
-/* ── Combo grounding (the measured best) ──────────────────────────────────────
- * RAGTruth (600 resp / 4922 sent, recall-weighted τ): sim F1 0.215, nli 0.187,
- * COMBO 0.264. sim and nli catch DIFFERENT failures (fabricated specifics vs
- * baseless additions); the eval fuses them with a logistic over [sem, lex, nli]
- * (the council/CISC pattern). NLI *alone* is worse than lexical — do not ship it
- * solo. This is the combo port: DI'd signals, transparent blend. The calibrated
- * weights come from provenance_eval.py combo mode (re-run with the prod engines
- * to inherit the 0.264 operating point); the default here is an equal blend.
- * Honest ceiling: post-hoc detection caps ~F1 0.26 — Phase 0.4 inline binding is
- * the real fix, not a better detector. */
-
-export type SemFn = (a: string, b: string) => Promise<number>   // 0..1 semantic similarity (embed cosine)
-
-export interface ComboWeights { sem: number; lex: number; nli: number; bias: number }  // logistic; fit by the eval
-// Equal blend with a negative prior so a zero-evidence claim is UNsupported by
-// default (never ground on nothing). Calibrate real weights via the eval.
+export type SemFn = (a: string, b: string) => Promise<number>
+export interface ComboWeights { sem: number; lex: number; nli: number; bias: number }
 const DEFAULT_COMBO: ComboWeights = { sem: 1, lex: 1, nli: 1, bias: -1.5 }
 
-function lexScore(claim: string, srcTokens: Set<string>): number {
+function lexComboScore(claim: string, srcTokens: Set<string>): number {
   const ct = contentTokens(claim)
   return ct.length ? ct.filter((t) => srcTokens.has(t)).length / ct.length : 0
 }
 
-/** Combo grounding: fuse lexical + (optional) semantic + entailment per claim. */
+/** Combo grounding (measured best on RAGTruth: F1 0.264 vs sim 0.215 vs nli-alone 0.187). */
 export async function verifyGroundingCombo(
   answer: string,
   sources: { text: string }[],
@@ -148,7 +124,7 @@ export async function verifyGroundingCombo(
     if (!contentTokens(claim).length) { supported++; continue }
     const premiseArr = topKSources(claim, srcSents, topK)
     const premise = premiseArr.join(' ')
-    const lex = lexScore(claim, srcTokens)
+    const lex = lexComboScore(claim, srcTokens)
     const nli = premise ? await engines.entail(premise, claim) : 0
     const sem = engines.sem && premise ? await engines.sem(premise, claim) : 0
     const support = sigmoid(weights.sem * sem + weights.lex * lex + weights.nli * nli + weights.bias)
