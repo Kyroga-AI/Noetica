@@ -12748,6 +12748,230 @@ Question: ${question}`
     return
   }
 
+  // ── Runtime Orchestrator — pure bootstrap plan generation ────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/ops/runtime-plan') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { planBootstrap } = await import('./lib/runtime-orchestrator.js')
+        const profile = p['profile'] as import('./lib/host-profile.js').HostProfile | undefined
+        if (!profile) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'profile required' })); return }
+        const installed = Array.isArray(p['installedModels']) ? p['installedModels'] as string[] : undefined
+        const plan = planBootstrap(profile, installed)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ plan, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Knowledge Persist — in-degree centrality over stored edges ───────────────
+  if (req.method === 'POST' && url.pathname === '/api/kg/centrality') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { centralityOverStored } = await import('./lib/knowledge-persist.js')
+        const edges = Array.isArray(p['edges']) ? p['edges'] as import('./lib/knowledge-persist.js').StoredEdge[] : []
+        if (!edges.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'edges required' })); return }
+        const limit = typeof p['limit'] === 'number' ? p['limit'] : undefined
+        const ranked = centralityOverStored(edges, limit)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ranked, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Session Graph — extract file ontology (symbols, imports) ─────────────────
+  if (req.method === 'POST' && url.pathname === '/api/session/extract-ontology') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { extractFileOntology } = await import('./lib/session-graph.js')
+        const path_   = typeof p['path']    === 'string' ? p['path']    : ''
+        const content = typeof p['content'] === 'string' ? p['content'] : ''
+        if (!path_ || !content) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'path and content required' })); return }
+        const ontology = extractFileOntology(path_, content)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ontology, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Vector Index — build ephemeral index + k-NN search ───────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/vector/search') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { VectorIndex, hybridGraphVector } = await import('./lib/vector-index.js')
+        const items = Array.isArray(p['items']) ? p['items'] as Array<{ id: string; vec: number[] }> : []
+        const query = Array.isArray(p['query']) ? p['query'] as number[] : []
+        if (!items.length || !query.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'items and query required' })); return }
+        const k    = typeof p['k']    === 'number' ? p['k']    : 5
+        const mode = typeof p['mode'] === 'string' ? p['mode'] : 'knn'
+        const idx  = new VectorIndex()
+        idx.addMany(items)
+        if (mode === 'hybrid') {
+          const adjRaw = typeof p['adj'] === 'object' && p['adj'] ? p['adj'] as Record<string, string[]> : {}
+          const adj    = new Map<string, string[]>(Object.entries(adjRaw))
+          const hops   = typeof p['hops'] === 'number' ? p['hops'] : undefined
+          const hits   = hybridGraphVector(query, idx, adj, { k, hops })
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ hits, executionPerformed: false }))
+        } else {
+          const hits = idx.search(query, k)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ hits, size: idx.size(), executionPerformed: false }))
+        }
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Sovereign Identity — verify scope facet signature ────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/identity/verify-facet') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { verifyFacet } = await import('./lib/sovereign-id.js')
+        const pubHex = typeof p['publicKeyHex'] === 'string' ? p['publicKeyHex'] : ''
+        const msgStr = typeof p['message']      === 'string' ? p['message']      : ''
+        const sigHex = typeof p['signatureHex'] === 'string' ? p['signatureHex'] : ''
+        if (!pubHex || !msgStr || !sigHex) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'publicKeyHex, message, signatureHex required' })); return }
+        const valid = verifyFacet(Buffer.from(pubHex, 'hex'), msgStr, Buffer.from(sigHex, 'hex'))
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ valid, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Sovereign Identity — derive scope-scoped email alias ──────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/identity/scope-alias') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { loadOrCreateRoot, scopeAlias } = await import('./lib/sovereign-id.js')
+        const scopeId = typeof p['scopeId'] === 'string' ? p['scopeId'] : ''
+        const domain  = typeof p['domain']  === 'string' ? p['domain']  : ''
+        if (!scopeId || !domain) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'scopeId and domain required' })); return }
+        const root  = loadOrCreateRoot()
+        const alias = scopeAlias(root, scopeId, domain)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ alias, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Sovereign Vault — AES-256-GCM seal under scope key ───────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/vault/seal') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { sealForScope } = await import('./lib/sovereign-vault.js')
+        const { loadOrCreateRoot } = await import('./lib/sovereign-id.js')
+        const scopeId   = typeof p['scopeId']   === 'string' ? p['scopeId']   : ''
+        const plaintext = typeof p['plaintext'] === 'string' ? p['plaintext'] : ''
+        if (!scopeId || !plaintext) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'scopeId and plaintext required' })); return }
+        const root = loadOrCreateRoot()
+        const blob = sealForScope(root, scopeId, plaintext)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ blob, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Sovereign Vault — AES-256-GCM open under scope key ───────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/vault/open') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { openForScope } = await import('./lib/sovereign-vault.js')
+        const { loadOrCreateRoot } = await import('./lib/sovereign-id.js')
+        const scopeId = typeof p['scopeId'] === 'string' ? p['scopeId'] : ''
+        const blob    = typeof p['blob']    === 'string' ? p['blob']    : ''
+        if (!scopeId || !blob) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'scopeId and blob required' })); return }
+        const root      = loadOrCreateRoot()
+        const plaintext = openForScope(root, scopeId, blob).toString('utf8')
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ plaintext, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Remediation — lesson count from ops knowledge base ───────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/remediation/count') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { remediationCount } = await import('./lib/remediation.js')
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ count: remediationCount(), executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Blackboard — ephemeral shared workspace (writes applied, then read/snapshot)
+  if (req.method === 'POST' && url.pathname === '/api/blackboard/op') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { Blackboard } = await import('./lib/blackboard.js')
+        const op  = typeof p['op'] === 'string' ? p['op'] : 'snapshot'
+        const bb  = new Blackboard()
+        const writes = Array.isArray(p['writes']) ? p['writes'] as Array<{ key: string; value: unknown; by: string }> : []
+        for (const w of writes) {
+          if (typeof w['key'] === 'string' && typeof w['by'] === 'string') bb.write(w['key'], w['value'], w['by'])
+        }
+        if (op === 'snapshot') {
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ snapshot: bb.snapshot(), keys: bb.keys(), executionPerformed: false }))
+        } else if (op === 'read') {
+          const key = typeof p['key'] === 'string' ? p['key'] : ''
+          if (!key) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'key required for read op' })); return }
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ value: bb.read(key), has: bb.has(key), version: bb.version(key), history: bb.history(key), executionPerformed: false }))
+        } else {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: 'op must be snapshot|read' }))
+        }
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
   // 404
   res.writeHead(404, { 'content-type': 'application/json' })
   res.end(JSON.stringify({ error: 'not_found', path: url.pathname }))
