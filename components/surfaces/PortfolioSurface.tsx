@@ -35,6 +35,7 @@ type SignalComponent = {
   estimate_pct: number
   confidence: number
   source: string
+  role?: 'primary' | 'context'
 }
 
 type HistoricalLFL = { period: string; reported: number; consensus: number }
@@ -169,12 +170,14 @@ function WaterfallBar({ value, maxAbs }: { value: number; maxAbs: number }) {
 }
 
 function ComponentsCard({ components }: { components: SignalComponent[] }) {
+  const primary = components.filter((c) => c.role !== 'context')
+  const context = components.filter((c) => c.role === 'context')
   const maxAbs = Math.max(...components.map((c) => Math.abs(c.estimate_pct)))
   return (
     <Card>
-      <SectionHeader title="Signal Decomposition" sub="Prophet-style precision-weighted Bayesian fusion" />
+      <SectionHeader title="Signal Decomposition" sub="IV base + additive revisions → combined estimate; trend/seasonal/holiday are decomposition context priced into the IV reading" />
       <div className="space-y-2">
-        {components.map((c) => (
+        {primary.map((c) => (
           <div key={c.name}>
             <div className="mb-0.5 flex items-center justify-between gap-2">
               <span className="text-xs font-medium text-[var(--color-text-primary)] truncate max-w-[240px]">{c.name}</span>
@@ -184,6 +187,21 @@ function ComponentsCard({ components }: { components: SignalComponent[] }) {
             <p className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">{c.source}</p>
           </div>
         ))}
+        {context.length > 0 && (
+          <div className="mt-3 border-t border-[var(--color-border-tertiary)] pt-3">
+            <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-[var(--color-text-tertiary)]">Decomposition context (priced into IV)</p>
+            {context.map((c) => (
+              <div key={c.name} className="mb-2 opacity-60">
+                <div className="mb-0.5 flex items-center justify-between gap-2">
+                  <span className="text-xs text-[var(--color-text-secondary)] truncate max-w-[240px]">{c.name}</span>
+                  <span className="shrink-0 text-[11px] text-[var(--color-text-tertiary)]">conf {(c.confidence * 100).toFixed(0)}%</span>
+                </div>
+                <WaterfallBar value={c.estimate_pct} maxAbs={maxAbs} />
+                <p className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">{c.source}</p>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </Card>
   )

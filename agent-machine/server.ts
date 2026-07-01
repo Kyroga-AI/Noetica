@@ -15994,6 +15994,67 @@ Question: ${question}`
     return
   }
 
+  // ── Partner network ──────────────────────────────────────────────────────────
+  if (url.pathname.startsWith('/api/partner')) {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { listPartners, getPartner, registerPartner, seedFixturePartners, SWARM_TEMPLATES } = await import('./lib/partner-network.js')
+        seedFixturePartners()
+
+        // GET /api/partner/list
+        if (req.method === 'GET' && url.pathname === '/api/partner/list') {
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ partners: listPartners(), templates: SWARM_TEMPLATES }))
+          return
+        }
+
+        // GET /api/partner/:id
+        const idMatch = url.pathname.match(/^\/api\/partner\/([^/]+)$/)
+        if (req.method === 'GET' && idMatch) {
+          const p = getPartner(decodeURIComponent(idMatch[1]!))
+          if (!p) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'not_found' })); return }
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ partner: p }))
+          return
+        }
+
+        // POST /api/partner/register
+        if (req.method === 'POST' && url.pathname === '/api/partner/register') {
+          const { readBody: rb } = await import('./lib/read-body.js')
+          const body = JSON.parse(await rb(req)) as import('./lib/partner-network.js').PartnerProfile
+          if (!body.id || !body.name) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'id and name required' })); return }
+          body.joinedAt = body.joinedAt || new Date().toISOString()
+          body.tier = body.tier || 'community'
+          registerPartner(body)
+          res.writeHead(201, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ registered: body.id }))
+          return
+        }
+
+        res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'not_found' }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Marketplace catalog ───────────────────────────────────────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/marketplace/apps') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { queryRegistry } = await import('./lib/registry.js')
+        const q = url.searchParams.get('q') ?? ''
+        const kind = (url.searchParams.get('kind') ?? undefined) as import('./lib/registry.js').RegistryKind | undefined
+        const domain = url.searchParams.get('domain') ?? undefined
+        const entries = queryRegistry({ q: q || undefined, kind, domain, limit: 20 })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ entries, total: entries.length }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
   // 404
   res.writeHead(404, { 'content-type': 'application/json' })
   res.end(JSON.stringify({ error: 'not_found', path: url.pathname }))

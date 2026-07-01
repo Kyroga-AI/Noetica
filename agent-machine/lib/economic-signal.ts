@@ -108,6 +108,7 @@ export interface SignalComponent {
   estimate_pct: number
   confidence: number
   source: string
+  role?: 'primary' | 'context'  // 'primary' enters the combined estimate; 'context' is decomposition display only
 }
 
 export interface ProphetDecomposition {
@@ -129,36 +130,41 @@ export function maximizeSignal(params: {
   consensus_pct: number; trend_pct: number
   seasonal_adj_pct: number; holiday_lift_pct: number
 }): ProphetDecomposition {
-  const components: SignalComponent[] = [
-    { name: 'IV (Google Popular Times → Foot Traffic)', estimate_pct: params.iv_lfl_pct, confidence: params.iv_confidence, source: 'gyg-lfl DAG · instrumental variable' },
-    { name: 'Supply Chain Revision', estimate_pct: params.sc_revision_pct, confidence: params.sc_confidence, source: 'gyg-supply DAG · natural experiment' },
-    { name: 'News Catalyst Revision', estimate_pct: params.news_revision_pct, confidence: params.news_confidence, source: 'news-intel DAG · frontdoor criterion' },
-    { name: 'Trend Component', estimate_pct: params.trend_pct - 3.7, confidence: 0.72, source: 'OLS trend · 8-quarter historical LFL series' },
-    { name: 'Seasonal Adjustment', estimate_pct: params.seasonal_adj_pct, confidence: 0.88, source: 'monthly seasonality model · QSR literature' },
-    { name: 'Holiday Effect', estimate_pct: params.holiday_lift_pct, confidence: 0.90, source: 'AU public holiday calendar' },
-  ]
-  const totalPrecision = components.reduce((a, c) => a + c.confidence, 0)
-  const weights = components.map((c) => c.confidence / totalPrecision)
-  const posteriorMean = components.reduce((a, c, i) => a + weights[i]! * c.estimate_pct, 0)
-  const ciHalfWidth = 1.645 * 0.65
-  const combined = Math.round(posteriorMean * 100) / 100
+  // IV is the absolute LFL anchor (measured via foot-traffic instrument).
+  // SC and news are additive revisions applied to the IV base.
+  // Trend, seasonal, holiday are decomposition context already priced into the IV reading — displayed but not re-fused.
+  const combined = Math.round((params.iv_lfl_pct + params.sc_revision_pct + params.news_revision_pct) * 100) / 100
   const alpha = Math.round((combined - params.consensus_pct) * 100) / 100
+
+  // CI: IV instrument precision drives uncertainty; σ = IV_estimate × (1 − IV_confidence)
+  const sigma = params.iv_lfl_pct * (1 - params.iv_confidence)
+  const ciHalfWidth = Math.round(1.645 * sigma * 100) / 100
+
+  const components: SignalComponent[] = [
+    { name: 'IV (Google Popular Times → Foot Traffic)', estimate_pct: params.iv_lfl_pct, confidence: params.iv_confidence, source: 'gyg-lfl DAG · instrumental variable', role: 'primary' },
+    { name: 'Supply Chain Revision', estimate_pct: params.sc_revision_pct, confidence: params.sc_confidence, source: 'gyg-supply DAG · natural experiment', role: 'primary' },
+    { name: 'News Catalyst Revision', estimate_pct: params.news_revision_pct, confidence: params.news_confidence, source: 'news-intel DAG · frontdoor criterion', role: 'primary' },
+    { name: 'Trend Component', estimate_pct: params.trend_pct - params.consensus_pct, confidence: 0.72, source: 'OLS trend · 8-quarter historical LFL series', role: 'context' },
+    { name: 'Seasonal Adjustment', estimate_pct: params.seasonal_adj_pct, confidence: 0.88, source: 'monthly seasonality model · QSR literature', role: 'context' },
+    { name: 'Holiday Effect', estimate_pct: params.holiday_lift_pct, confidence: 0.90, source: 'AU public holiday calendar', role: 'context' },
+  ]
+
   return {
     components,
     combined_estimate_pct: combined,
-    combined_confidence: Math.round(Math.min(0.92, totalPrecision / components.length) * 100) / 100,
+    combined_confidence: params.iv_confidence,  // IV is the dominant signal
     consensus_estimate_pct: params.consensus_pct,
     alpha_vs_consensus_pp: alpha,
     ci_lower_pct: Math.round((combined - ciHalfWidth) * 100) / 100,
     ci_upper_pct: Math.round((combined + ciHalfWidth) * 100) / 100,
-    identification_strategy: 'Bayesian precision-weighted fusion: IV (foot traffic) + natural experiment (supply chain) + frontdoor (news) + trend + seasonality + holiday. Components are mutually consistent — each uses an orthogonal source of variation.',
+    identification_strategy: 'IV base estimate (foot traffic) + additive natural-experiment revision (supply chain) + frontdoor revision (news). Trend/seasonal/holiday are decomposition context priced into the IV reading — orthogonal sources, not double-counted.',
     asic_summary: [
       `Combined LFL estimate: ${combined}% YoY (90% CI: ${Math.round((combined - ciHalfWidth)*100)/100}% to ${Math.round((combined + ciHalfWidth)*100)/100}%).`,
       `Above analyst consensus (${params.consensus_pct}%) by ${alpha}pp.`,
-      `Primary driver: IV foot-traffic signal (${params.iv_lfl_pct}%, F=32.4).`,
-      `Supply chain headwind: ${params.sc_revision_pct}pp (Michoacán frost, severity: severe).`,
-      `News catalyst revision: ${params.news_revision_pct}pp (GYG trading update positive, ACCC risk negative).`,
-      `Signal is governance-sealed: causal DAGs + evidence chain + policy gate, reproducible via IntelligenceTask audit trail.`,
+      `Primary driver: IV foot-traffic instrument (${params.iv_lfl_pct}%, first-stage F=32.4).`,
+      `Supply chain headwind: ${params.sc_revision_pct}pp (Michoacán frost + east-coast cattle shortage, natural experiment identification).`,
+      `News catalyst revision: +${params.news_revision_pct}pp net (GYG trading update + Macquarie initiation offset by ACCC inquiry).`,
+      `Signal governance-sealed: causal DAGs + evidence chain + policy gate, reproducible via IntelligenceTask audit trail.`,
     ].join(' '),
   }
 }
