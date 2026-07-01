@@ -10440,14 +10440,15 @@ Question: ${question}`
         const body = await readBody(req)
         let p: Record<string, unknown>
         try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
-        const { classifyEntailment, jaccard } = await import('./lib/entailment.js')
+        const { classifyEntailmentSemantic, jaccard } = await import('./lib/entailment.js')
         const hypothesis = typeof p['hypothesis'] === 'string' ? p['hypothesis'] : ''
         const premise    = typeof p['premise']    === 'string' ? p['premise']    : ''
         if (!hypothesis || !premise) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'hypothesis and premise required' })); return }
-        const label = classifyEntailment(premise, hypothesis)
+        const threshold = typeof p['threshold'] === 'number' ? p['threshold'] : undefined
+        const result = await classifyEntailmentSemantic(premise, hypothesis, threshold !== undefined ? { threshold } : {})
         const overlap = jaccard(premise, hypothesis)
         res.writeHead(200, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ label, overlap, executionPerformed: false }))
+        res.end(JSON.stringify({ label: result, overlap, executionPerformed: false }))
       } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
     })()
     return
@@ -13421,12 +13422,12 @@ Question: ${question}`
         const body = await readBody(req)
         let p: Record<string, unknown>
         try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
-        const { jaccard, classifyEntailment } = await import('./lib/entailment.js')
+        const { jaccard, classifyEntailmentSemantic } = await import('./lib/entailment.js')
         const premise    = typeof p['premise']    === 'string' ? p['premise']    : ''
         const hypothesis = typeof p['hypothesis'] === 'string' ? p['hypothesis'] : ''
         if (!premise || !hypothesis) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'premise and hypothesis required' })); return }
         const threshold = typeof p['threshold'] === 'number' ? p['threshold'] : undefined
-        const result = classifyEntailment(premise, hypothesis, undefined, threshold !== undefined ? { threshold } : undefined)
+        const result = await classifyEntailmentSemantic(premise, hypothesis, threshold !== undefined ? { threshold } : {})
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ ...result, jaccard: jaccard(premise, hypothesis), executionPerformed: false }))
       } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
@@ -15795,15 +15796,15 @@ Question: ${question}`
         const body = await readBody(req)
         let p: Record<string, unknown>
         try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
-        const { classifyEntailment, jaccard } = await import('./lib/entailment.js')
+        const { classifyEntailmentSemantic, jaccard } = await import('./lib/entailment.js')
         const premise    = typeof p['premise']    === 'string' ? p['premise']    : ''
         const hypothesis = typeof p['hypothesis'] === 'string' ? p['hypothesis'] : ''
         if (!premise || !hypothesis) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'premise and hypothesis required' })); return }
         const threshold = typeof p['threshold'] === 'number' ? p['threshold'] : undefined
-        const result = classifyEntailment(premise, hypothesis, jaccard, threshold !== undefined ? { threshold } : {})
+        const result = await classifyEntailmentSemantic(premise, hypothesis, threshold !== undefined ? { threshold } : {})
         res.writeHead(200, { 'content-type': 'application/json' })
-        res.end(JSON.stringify(result))
-      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+        res.end(JSON.stringify({ ...result, jaccard: jaccard(premise, hypothesis) }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
     })()
     return
   }
