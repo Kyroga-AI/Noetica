@@ -12972,9 +12972,320 @@ Question: ${question}`
     return
   }
 
+  // ── RAG / RAPTOR — recursive abstractive tree retrieval ──────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/rag/raptor') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { buildRaptorIndex, raptorRetrieve } = await import('./lib/raptor-runtime.js')
+        const query     = typeof p['query']     === 'string' ? p['query']     : ''
+        const corpusKey = typeof p['corpusKey'] === 'string' ? p['corpusKey'] : 'default'
+        const chunks    = Array.isArray(p['chunks']) ? p['chunks'] as string[] : []
+        const topK      = typeof p['topK']      === 'number' ? p['topK']      : 6
+        if (!query) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'query required' })); return }
+        const tree = await buildRaptorIndex(corpusKey, chunks)
+        const results = await raptorRetrieve(tree, query, topK)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ results, count: results.length }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── RAG / Tiered Ground — KKO 3-tier ontology grounding ──────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/rag/tiered-ground') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { tieredGround } = await import('./lib/tiered-ground.js')
+        const question = typeof p['question'] === 'string' ? p['question'] : typeof p['query'] === 'string' ? p['query'] : ''
+        if (!question) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'question required' })); return }
+        const result = await tieredGround(question)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ result }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Agent / Coordinate — file-claim locking for parallel agents ───────────────
+  if (req.method === 'POST' && url.pathname === '/api/agent/coordinate') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { claimFiles, releaseClaims, activeClaims, coordinationBrief, ensureAgent } = await import('./lib/agent-coordination.js')
+        type CoordNode = { id: string; labels: string[]; properties: Record<string, unknown> }
+        const g = globalThis as Record<string, unknown>
+        if (!g['__coordStore']) {
+          const ns = new Map<string, CoordNode>()
+          const es: Array<{ label: string; from: string; to: string }> = []
+          g['__coordStore'] = {
+            getNode: (id: string) => ns.get(id) ?? null,
+            addNode: (id: string, labels: string[], properties: Record<string, unknown>) => { const n = { id, labels, properties }; ns.set(id, n); return n },
+            addEdge: (label: string, from: string, to: string) => { es.push({ label, from, to }) },
+            out: (id: string, edgeLabel?: string) => es.filter(e => e.from === id && (edgeLabel == null || e.label === edgeLabel)).map(e => ns.get(e.to)).filter(Boolean) as CoordNode[],
+            nodesByLabel: (label: string) => [...ns.values()].filter(n => n.labels.includes(label)),
+          }
+        }
+        const store = g['__coordStore'] as Parameters<typeof claimFiles>[0]
+        const action    = typeof p['action']    === 'string' ? p['action']    : 'active'
+        const agentId   = typeof p['agentId']   === 'string' ? p['agentId']   : 'anon'
+        const sessionId = typeof p['sessionId'] === 'string' ? p['sessionId'] : 'default'
+        const paths     = Array.isArray(p['paths']) ? p['paths'] as string[] : []
+        ensureAgent(store, agentId, sessionId)
+        if (action === 'claim') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(claimFiles(store, { agentId, sessionId, paths }))); return }
+        if (action === 'release') { releaseClaims(store, agentId, paths); res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ released: true })); return }
+        if (action === 'brief') { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ brief: coordinationBrief(store, agentId) })); return }
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ active: activeClaims(store) }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Blackboard — shared keyed artifact store for multi-agent work ─────────────
+  if ((req.method === 'GET' || req.method === 'POST') && url.pathname === '/api/blackboard') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { Blackboard } = await import('./lib/blackboard.js')
+        const g = globalThis as Record<string, unknown>
+        if (!g['__blackboard']) g['__blackboard'] = new Blackboard()
+        const bb = g['__blackboard'] as InstanceType<typeof Blackboard>
+        if (req.method === 'GET') {
+          const key = url.searchParams.get('key')
+          if (key) { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ value: bb.read(key), history: bb.history(key) })); return }
+          res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ keys: bb.keys(), snapshot: bb.snapshot() })); return
+        }
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const key = typeof p['key'] === 'string' ? p['key'] : ''
+        const by  = typeof p['by']  === 'string' ? p['by']  : 'api'
+        if (!key) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'key required' })); return }
+        bb.write(key, p['value'], by)
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ version: bb.version(key) }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Learn / Remediate — learn-from-failure distillation loop ─────────────────
+  if (req.method === 'POST' && url.pathname === '/api/learn/remediate') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { remediateFailure } = await import('./lib/remediation.js')
+        const failure = p['failure'] as import('./lib/remediation.js').Failure | undefined
+        if (!failure) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'failure required' })); return }
+        const lesson = await remediateFailure(failure)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ lesson }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Tune / Teacher-Refine — bounded teacher-student refinement loop ───────────
+  if (req.method === 'POST' && url.pathname === '/api/tune/teacher-refine') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { teacherStudentRefine } = await import('./lib/teacher-critique.js')
+        const trajectory = p['trajectory'] as import('./lib/teacher-critique.js').StudentTrajectory | undefined
+        if (!trajectory) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'trajectory required' })); return }
+        const maxRounds = typeof p['maxRounds'] === 'number' ? p['maxRounds'] : 3
+        const gen = (prompt: string) => generateOllamaText({ model: 'qwen3:14b', messages: [{ role: 'user', content: prompt }], temperature: 0.3 }).then((r) => r.content)
+        const deps = {
+          retrieve: async (_task: string, k: number) => { const r = await gen(`List ${k} relevant lessons for: ${_task}`); return r.split('\n').filter(Boolean).slice(0, k) },
+          critique: async (traj: import('./lib/teacher-critique.js').StudentTrajectory, retrieved: string[]) => {
+            const raw = await gen(`You are a teacher. Student answer: "${traj.answer}". Context: ${retrieved.join('; ')}. Critique in JSON: {"critique":"...","proposedAnswer":"...","confidence":0.8}`)
+            try { return JSON.parse(raw.match(/\{[\s\S]*\}/)?.[0] ?? '{}') } catch { return { critique: raw, proposedAnswer: traj.answer, confidence: 0.5 } }
+          },
+        }
+        const result = await teacherStudentRefine(trajectory, deps, { maxRounds })
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ result }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Session Graph — per-session knowledge graph + long-horizon context ────────
+  if ((req.method === 'POST' || req.method === 'GET') && url.pathname === '/api/session/graph') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { buildSessionContext, recordTurnAtom, ensureSession } = await import('./lib/session-graph.js')
+        type SGNode = { id: string; labels: string[]; properties: Record<string, unknown> }
+        const g = globalThis as Record<string, unknown>
+        if (!g['__sessionGraphStore']) {
+          const ns = new Map<string, SGNode>()
+          const es: Array<{ label: string; from: string; to: string }> = []
+          g['__sessionGraphStore'] = {
+            getNode: (id: string) => ns.get(id) ?? null,
+            addNode: (id: string, labels: string[], properties: Record<string, unknown>) => { const n = { id, labels, properties }; ns.set(id, n); return n },
+            addEdge: (label: string, from: string, to: string) => { es.push({ label, from, to }) },
+            out: (id: string, edgeLabel?: string) => es.filter(e => e.from === id && (edgeLabel == null || e.label === edgeLabel)).map(e => ns.get(e.to)).filter(Boolean) as SGNode[],
+          }
+        }
+        const store = g['__sessionGraphStore'] as Parameters<typeof ensureSession>[0]
+        const sid = url.searchParams.get('sessionId') ?? (req.method === 'POST' ? 'default' : 'default')
+        if (req.method === 'GET') { const ctx = buildSessionContext(store, sid); res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ context: ctx })); return }
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        ensureSession(store, sid)
+        const turn = p['turn'] as import('./lib/session-graph.js').TurnInput | undefined
+        if (turn) recordTurnAtom(store, turn)
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Study / Brain Retrieve — MIT-OCW dense+lexical hybrid ────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/study/retrieve') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { studyBrainRetrieve } = await import('./lib/study-brain.js')
+        const query  = typeof p['query']  === 'string' ? p['query']  : ''
+        const fields = Array.isArray(p['fields']) ? p['fields'] as string[] : []
+        const topK   = typeof p['topK']   === 'number' ? p['topK']   : 6
+        if (!query) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'query required' })); return }
+        const hits = await studyBrainRetrieve(query, fields, topK)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ hits, count: hits.length }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Study / Outputs — briefing, study guide, or audio script ─────────────────
+  if (req.method === 'POST' && url.pathname === '/api/study/outputs') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { generateBriefing, generateStudyGuide, generateAudioScript } = await import('./lib/study-outputs.js')
+        const type    = typeof p['type']    === 'string' ? p['type']    : 'briefing'
+        const sources = Array.isArray(p['sources']) ? p['sources'] as string[] : []
+        const format  = typeof p['format']  === 'string' ? p['format'] as import('./lib/study-outputs.js').AudioFormat : 'brief'
+        if (!sources.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'sources required' })); return }
+        const gen = (prompt: string) => generateOllamaText({ model: 'qwen3:14b', messages: [{ role: 'user', content: prompt }], temperature: 0.4 }).then((r) => r.content)
+        let output: unknown
+        if (type === 'study-guide') output = await generateStudyGuide(sources, gen)
+        else if (type === 'audio-script') output = await generateAudioScript(sources, gen, format)
+        else output = await generateBriefing(sources, gen)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ output, type }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Portfolio / K12 — homeschool compliance portfolio + transcript ─────────────
+  if (req.method === 'GET' && url.pathname === '/api/portfolio/k12') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { buildK12Portfolio, loadK12Profile } = await import('./lib/k12-portfolio.js')
+        const learnerId = url.searchParams.get('learnerId') ?? ''
+        const profile   = loadK12Profile(learnerId)
+        const { portfolio, transcript } = buildK12Portfolio(learnerId)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ profile, portfolio, transcript }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Cloud / Pricing — live multi-cloud price refresh ─────────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/cloud/pricing') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { fetchAzurePricing } = await import('./lib/cloud-pricing.js')
+        const region = url.searchParams.get('region') ?? 'eastus'
+        const prices = await fetchAzurePricing(region)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ prices, count: prices.length, providers: [...new Set(prices.map((p) => p.provider))] }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Knowledge / Persist — write projection to HellGraph ──────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/knowledge/persist') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { persistKnowledge } = await import('./lib/knowledge-persist.js')
+        type KNode = { id: string; kind: string; label: string; props: Record<string, unknown> }
+        type KEdge = { from: string; to: string; type: string }
+        const nodes = Array.isArray(p['nodes']) ? p['nodes'] as KNode[] : []
+        const edges = Array.isArray(p['edges']) ? p['edges'] as KEdge[] : []
+        if (!nodes.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'nodes required' })); return }
+        const rootHex = typeof p['root'] === 'string' ? p['root'] : ''
+        const root = rootHex ? Buffer.from(rootHex, 'hex') : Buffer.alloc(32)
+        // In-memory GraphStore (upsertNode/upsertEdge interface)
+        const kpNodes: import('./lib/knowledge-persist.js').StoredNode[] = []
+        const kpEdges: import('./lib/knowledge-persist.js').StoredEdge[] = []
+        const store = {
+          upsertNode: (n: import('./lib/knowledge-persist.js').StoredNode) => { const i = kpNodes.findIndex(x => x.id === n.id); if (i >= 0) kpNodes[i] = n; else kpNodes.push(n) },
+          upsertEdge: (e: import('./lib/knowledge-persist.js').StoredEdge) => { kpEdges.push(e) },
+        }
+        const result = await persistKnowledge(store, root, { nodes, edges } as import('./lib/knowledge-graph.js').KGraph)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ...result, stored: { nodes: kpNodes, edges: kpEdges } }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Learn / Brief — learner profile + canon context primer ───────────────────
+  if (req.method === 'GET' && url.pathname === '/api/learn/brief') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { loadLearnerProfile, buildLearnerBrief } = await import('./lib/learner-brief.js')
+        const learnerId = url.searchParams.get('learnerId') ?? ''
+        const profile   = loadLearnerProfile(learnerId)
+        const brief     = buildLearnerBrief(learnerId)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ profile, brief }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
   // 404
   res.writeHead(404, { 'content-type': 'application/json' })
   res.end(JSON.stringify({ error: 'not_found', path: url.pathname }))
+
 })
 
 // ── Learning-state persistence ─────────────────────────────────────────────────
