@@ -15372,6 +15372,369 @@ Question: ${question}`
     return
   }
 
+  // ── Audit / Device Key ─────────────────────────────────────────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/audit/device-key') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { loadOrCreateDeviceKey } = await import('./lib/audit-key.js')
+        const key = loadOrCreateDeviceKey()
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ fingerprint: key.fingerprint, publicKeyPem: key.publicKeyPem }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Brain / Home ────────────────────────────────────────────────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/brain/home') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { brainHome, academicBrainDir, opsBrainFile, opsBrainDir } = await import('./lib/brain-home.js')
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ brainHome: brainHome(), academicBrainDir: academicBrainDir(), opsBrainDir: opsBrainDir(), opsBrainFile: opsBrainFile() }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Connector / Run ─────────────────────────────────────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/connector/run') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { runConnector, manualConnector } = await import('./lib/connector.js')
+        const docs   = Array.isArray(p['docs']) ? p['docs'] as Array<{ id?: string; text: string; meta?: Record<string, unknown> }> : []
+        const connId = typeof p['connectorId'] === 'string' ? p['connectorId'] : 'manual'
+        const run = await runConnector(manualConnector(connId, docs))
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ run }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Sovereign ID ────────────────────────────────────────────────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/sovereign/id') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { loadOrCreateRoot, scopeAlias } = await import('./lib/sovereign-id.js')
+        const root = loadOrCreateRoot()
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ rootLen: root.length, alias: scopeAlias(root, url.searchParams.get('scopeId') ?? 'default', url.searchParams.get('domain') ?? 'noetica') }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/sovereign/id/scope') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { loadOrCreateRoot, deriveScope } = await import('./lib/sovereign-id.js')
+        const scopeId = typeof p['scopeId'] === 'string' ? p['scopeId'] : ''
+        if (!scopeId) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'scopeId required' })); return }
+        const facet = deriveScope(loadOrCreateRoot(), scopeId)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ scopeId, publicKeyHex: facet.publicKeyRaw.toString('hex'), pseudonym: facet.pseudonym }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Sovereign OIDC — JWKS + token issuance ─────────────────────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/sovereign/oidc/jwks') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { generateSigningKey, jwks } = await import('./lib/sovereign-oidc.js')
+        const g = globalThis as Record<string, unknown>
+        if (!g['__oidcKey']) g['__oidcKey'] = generateSigningKey()
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(jwks(g['__oidcKey'] as import('./lib/sovereign-oidc.js').SigningKey)))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/sovereign/oidc/token') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { generateSigningKey, issueIdToken } = await import('./lib/sovereign-oidc.js')
+        const g = globalThis as Record<string, unknown>
+        if (!g['__oidcKey']) g['__oidcKey'] = generateSigningKey()
+        const claims = p['claims'] as Record<string, unknown> | undefined
+        if (!claims) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'claims required' })); return }
+        const token = await issueIdToken(g['__oidcKey'] as import('./lib/sovereign-oidc.js').SigningKey, claims as never)
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ token }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Sovereign Vault — seal/open ─────────────────────────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/sovereign/vault/seal') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { sealForScope } = await import('./lib/sovereign-vault.js')
+        const { loadOrCreateRoot } = await import('./lib/sovereign-id.js')
+        const plaintext = typeof p['plaintext'] === 'string' ? p['plaintext'] : ''
+        if (!plaintext) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'plaintext required' })); return }
+        const blob = sealForScope(loadOrCreateRoot(), typeof p['scopeId'] === 'string' ? p['scopeId'] : 'default', plaintext)
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ blob }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/sovereign/vault/open') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { openForScope } = await import('./lib/sovereign-vault.js')
+        const { loadOrCreateRoot } = await import('./lib/sovereign-id.js')
+        const blob = typeof p['blob'] === 'string' ? p['blob'] : ''
+        if (!blob) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'blob required' })); return }
+        const plaintext = openForScope(loadOrCreateRoot(), typeof p['scopeId'] === 'string' ? p['scopeId'] : 'default', blob).toString('utf8')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ plaintext }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Vector Index — flat cosine index CRUD ──────────────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/vector/index/add') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { VectorIndex } = await import('./lib/vector-index.js')
+        const g = globalThis as Record<string, unknown>
+        if (!g['__vecIdx']) g['__vecIdx'] = new VectorIndex()
+        const idx = g['__vecIdx'] as InstanceType<typeof VectorIndex>
+        const items = Array.isArray(p['items']) ? p['items'] as Array<{ id: string; vec: number[] }> : []
+        const id  = typeof p['id']  === 'string' ? p['id']  : ''
+        const vec = Array.isArray(p['vec']) ? p['vec'] as number[] : []
+        if (items.length) { idx.addMany(items.map((i) => ({ id: i.id, vec: new Float32Array(i.vec) }))); res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ added: items.length, size: idx.size() })); return }
+        if (id && vec.length) { idx.add(id, new Float32Array(vec)); res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ added: 1, size: idx.size() })); return }
+        res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'items or id+vec required' }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/vector/index/search') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { VectorIndex } = await import('./lib/vector-index.js')
+        const g = globalThis as Record<string, unknown>
+        if (!g['__vecIdx']) g['__vecIdx'] = new VectorIndex()
+        const idx = g['__vecIdx'] as InstanceType<typeof VectorIndex>
+        const query = Array.isArray(p['query']) ? new Float32Array(p['query'] as number[]) : null
+        const k = typeof p['k'] === 'number' ? p['k'] : 6
+        if (!query) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'query vector required' })); return }
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ results: idx.search(query, k), size: idx.size() }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Managed Ollama — status + provision ────────────────────────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/runtime/ollama/status') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { runtimeComplete, resolveManagedOllamaBinary, MANAGED_PORT } = await import('./lib/managed-ollama.js')
+        const binary = resolveManagedOllamaBinary()
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ready: runtimeComplete(binary ?? undefined), binary, port: MANAGED_PORT }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/runtime/ollama/provision') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown> = {}
+        try { p = JSON.parse(body) } catch { /* body optional */ }
+        const { provisionOllamaRuntime } = await import('./lib/managed-ollama.js')
+        const binary = await provisionOllamaRuntime(typeof p['version'] === 'string' ? p['version'] : undefined)
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ binary, provisioned: binary !== null }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── KG / Auto-Extract — triple extraction → proposals ──────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/kg/auto-extract') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { extractKnowledgeGraph } = await import('./lib/auto-kg.js')
+        const text   = typeof p['text']   === 'string' ? p['text']   : ''
+        const source = typeof p['source'] === 'string' ? p['source'] : 'api'
+        if (!text) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'text required' })); return }
+        const gen = (prompt: string) => generateOllamaText({ model: 'qwen3:14b', messages: [{ role: 'user', content: prompt }], temperature: 0.2 }).then((r) => r.content)
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ result: await extractKnowledgeGraph(text, source, gen) }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Canon — classify + lookup canonical terms ───────────────────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/canon') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { canonRoute, canonLookup } = await import('./lib/canon-route.js')
+        const q    = url.searchParams.get('q') ?? ''
+        const kind = url.searchParams.get('kind') as import('./lib/canon-route.js').LookupKind | null
+        if (!q) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'q required' })); return }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ route: canonRoute(q), lookup: canonLookup(q, kind ?? undefined) }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Geo / Colocations ──────────────────────────────────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/geo/colocations') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { findColocations } = await import('./lib/colocation.js')
+        const pings = Array.isArray(p['pings']) ? p['pings'] as import('./lib/colocation.js').Ping[] : []
+        if (!pings.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'pings required' })); return }
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ colocations: findColocations(pings, p['opts'] as never) }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Calibrate / Conformal threshold ────────────────────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/calibrate/conformal') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { calibrateThreshold, shouldAbstain, coverageAt } = await import('./lib/conformal.js')
+        const calib = Array.isArray(p['calib']) ? p['calib'] as import('./lib/conformal.js').CalibPoint[] : []
+        const alpha = typeof p['alpha'] === 'number' ? p['alpha'] : 0.1
+        const score = typeof p['score'] === 'number' ? p['score'] : undefined
+        if (!calib.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'calib required' })); return }
+        const threshold = calibrateThreshold(calib, alpha)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ threshold, coverage: coverageAt(calib, threshold), abstain: score !== undefined ? shouldAbstain(score, threshold) : undefined }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Council / Vote ─────────────────────────────────────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/council/vote') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { learnedCouncilVote } = await import('./lib/council.js')
+        const inp = p['input'] as import('./lib/council.js').LearnedInput | undefined
+        if (!inp) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'input required' })); return }
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ result: learnedCouncilVote(inp) }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── RAG / CRAG Gate ────────────────────────────────────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/rag/crag-gate') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { cragVote, gateShouldRetrieve, acceptRetrievedAnswer } = await import('./lib/crag-gate.js')
+        const question   = typeof p['question']   === 'string' ? p['question']   : ''
+        const candidates = Array.isArray(p['candidates']) ? p['candidates'] as string[] : []
+        const k          = typeof p['k']          === 'number' ? p['k']          : 5
+        if (!question || !candidates.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'question and candidates required' })); return }
+        let ci = 0
+        const vote = await cragVote(async () => { const c = candidates[ci % candidates.length]!; ci++; return c }, (r) => r.trim() || null, k)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ vote, shouldRetrieve: gateShouldRetrieve(vote.agree), accept: acceptRetrievedAnswer(vote.agree, vote.agree) }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  // ── Memory / Crystallize — persist verified Q&A ────────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/memory/crystallize') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { crystallizeAnswer, artifactCount } = await import('./lib/crystallize.js')
+        const { question, answer, session, action, attestation, worth } = p
+        if (!question || !answer) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'question and answer required' })); return }
+        const artifact = crystallizeAnswer({ question: String(question), answer: String(answer), session: String(session ?? ''), action: String(action ?? ''), attestation: String(attestation ?? ''), worth: Number(worth ?? 0.8) })
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ artifact, count: artifactCount() }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/memory/crystallize') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { recallArtifact, artifactCount } = await import('./lib/crystallize.js')
+        const q = url.searchParams.get('q') ?? ''
+        if (!q) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'q required' })); return }
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ hit: recallArtifact(q), count: artifactCount() }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
+    return
+  }
+
   // 404
   res.writeHead(404, { 'content-type': 'application/json' })
   res.end(JSON.stringify({ error: 'not_found', path: url.pathname }))
