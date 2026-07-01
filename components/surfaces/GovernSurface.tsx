@@ -139,6 +139,15 @@ interface DreamResult {
   top: Array<{ from: string; to: string; via: string[]; support: number }>
 }
 
+interface GraphProposal {
+  id: string
+  op: 'add-node' | 'add-edge' | 'remove-edge' | 'update-prop'
+  payload: Record<string, unknown>
+  rationale: string
+  source?: string
+  status: 'pending' | 'accepted' | 'rejected'
+}
+
 function amUrl(path: string): string {
   const isTauri = typeof window !== 'undefined' &&
     ('__TAURI_INTERNALS__' in window || '__TAURI__' in window)
@@ -182,6 +191,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   const [dreaming, setDreaming]           = useState(false)
   const [replaying, setReplaying]         = useState(false)
   const [audit, setAudit]                 = useState<AuditAttestation | null>(null)
+  const [proposals, setProposals]         = useState<GraphProposal[]>([])
 
   const runReplay = () => {
     setReplaying(true)
@@ -229,7 +239,24 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
       .then((d: DreamResult | null) => { if (d) setDream(d) })
       .catch(() => { /* not running — skip */ })
     loadMemories()
+    // Graph proposals: agent-staged changes awaiting user accept/reject
+    fetch(amUrl('/api/graph/proposals'), { signal: AbortSignal.timeout(3000) })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: { proposals?: GraphProposal[] } | null) => { if (d?.proposals) setProposals(d.proposals.filter((p) => p.status === 'pending')) })
+      .catch(() => { /* not running — skip */ })
   }, [])
+
+  async function handleProposal(id: string, action: 'accept' | 'reject') {
+    try {
+      await fetch(amUrl('/api/graph/proposals'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ op: action === 'accept' ? 'accept' : 'reject', id }),
+        signal: AbortSignal.timeout(5000),
+      })
+      setProposals((prev) => prev.filter((p) => p.id !== id))
+    } catch { /* best-effort */ }
+  }
 
   // Trigger a consolidation pass that PERSISTS the strongest proposals (POST = integrate).
   async function runDream() {
@@ -416,6 +443,43 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                 ))}
               </ul>
             )}
+          </div>
+        )}
+
+        {/* Graph proposals — agent-staged changes the user must approve before they mutate the graph */}
+        {proposals.length > 0 && (
+          <div className="rounded-2xl border border-[#fef08a] bg-[var(--color-background-primary)] p-5 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#b45309]">Graph proposals</div>
+              <span className="rounded-full bg-[#fef08a] px-2 py-0.5 text-[10px] font-semibold text-[#92400e]">{proposals.length} pending</span>
+            </div>
+            <ul className="space-y-2">
+              {proposals.map((p) => (
+                <li key={p.id} className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3">
+                  <div className="mb-1 flex items-center gap-2">
+                    <span className="rounded-full border border-[#fde68a] bg-[#fffbeb] px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase text-[#92400e]">{p.op}</span>
+                    {p.source && <span className="text-[10px] text-[var(--color-text-tertiary)]">from {p.source}</span>}
+                  </div>
+                  <div className="mb-1 text-[11px] text-[var(--color-text-primary)]">
+                    {p.op === 'add-edge' ? `${String(p.payload['from'])} → ${String(p.payload['rel'])} → ${String(p.payload['to'])}` :
+                     p.op === 'add-node' ? String(p.payload['node']) :
+                     p.op === 'remove-edge' ? `Remove: ${String(p.payload['from'])} → ${String(p.payload['to'])}` :
+                     `${String(p.payload['node'])}.${String(p.payload['prop'])} = ${String(p.payload['value'])}`}
+                  </div>
+                  {p.rationale && <div className="mb-2 text-[10px] italic text-[var(--color-text-tertiary)]">{p.rationale}</div>}
+                  <div className="flex gap-2">
+                    <button onClick={() => void handleProposal(p.id, 'reject')}
+                      className="rounded-md border border-[var(--color-border-secondary)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)] transition">
+                      Reject
+                    </button>
+                    <button onClick={() => void handleProposal(p.id, 'accept')}
+                      className="rounded-md bg-[#16a34a] px-2.5 py-1 text-[11px] font-medium text-white hover:bg-[#15803d] transition">
+                      Accept
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
