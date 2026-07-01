@@ -13507,6 +13507,244 @@ Question: ${question}`
     return
   }
 
+  // ── Canon Lookup — authored definitions, formulas, prereqs, bridging ────────
+  if (req.method === 'POST' && url.pathname === '/api/nlp/canon-lookup') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { canonDef, canonBridges, canonEntities, canonFormulas, canonPrereqs, canonGround, canonStats, canonTopics } = await import('./lib/canon-lookup.js')
+        const op = typeof p['op'] === 'string' ? p['op'] : 'ground'
+        if (op === 'stats') {
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ stats: canonStats(), topics: canonTopics(), executionPerformed: false }))
+        } else if (op === 'def') {
+          const term = typeof p['term'] === 'string' ? p['term'] : ''
+          if (!term) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'term required' })); return }
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ def: canonDef(term), bridges: canonBridges(term), ancestors: [], executionPerformed: false }))
+        } else if (op === 'formulas') {
+          const domain = typeof p['domain'] === 'string' ? p['domain'] : ''
+          const topic  = typeof p['topic']  === 'string' ? p['topic']  : ''
+          if (!domain || !topic) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'domain and topic required' })); return }
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ formulas: canonFormulas(domain, topic), prereqs: canonPrereqs(domain, topic), executionPerformed: false }))
+        } else if (op === 'entities') {
+          const text = typeof p['text'] === 'string' ? p['text'] : ''
+          if (!text) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'text required' })); return }
+          const max  = typeof p['max'] === 'number' ? p['max'] : undefined
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ entities: canonEntities(text, max), executionPerformed: false }))
+        } else {
+          const text = typeof p['text'] === 'string' ? p['text'] : ''
+          if (!text) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'text required' })); return }
+          const maxDefs = typeof p['maxDefs'] === 'number' ? p['maxDefs'] : undefined
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ grounded: canonGround(text, maxDefs !== undefined ? { maxDefs } : undefined), executionPerformed: false }))
+        }
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Crystallize — durable attested answer artifact + recall ──────────────────
+  if (req.method === 'POST' && url.pathname === '/api/knowledge/crystallize') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { crystallizeAnswer, recallArtifact, artifactCount } = await import('./lib/crystallize.js')
+        const op = typeof p['op'] === 'string' ? p['op'] : 'count'
+        if (op === 'count') {
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ count: artifactCount(), executionPerformed: false }))
+        } else if (op === 'recall') {
+          const question = typeof p['question'] === 'string' ? p['question'] : ''
+          if (!question) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'question required' })); return }
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ artifact: recallArtifact(question), executionPerformed: false }))
+        } else {
+          const args = p['artifact'] as Parameters<typeof crystallizeAnswer>[0] | undefined
+          if (!args) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'artifact required' })); return }
+          const artifact = crystallizeAnswer(args)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ artifact, executionPerformed: false }))
+        }
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── CSKG — commonsense knowledge graph edge projection + TSV export ───────────
+  if (req.method === 'POST' && url.pathname === '/api/kg/cskg') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { dimensionOf, relationLabel, toCskgEdge, toKgtkTsv } = await import('./lib/cskg.js')
+        const op = typeof p['op'] === 'string' ? p['op'] : 'dimension'
+        if (op === 'tsv') {
+          const edges = Array.isArray(p['edges']) ? p['edges'] as import('./lib/cskg.js').CskgEdge[] : []
+          if (!edges.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'edges required' })); return }
+          res.writeHead(200, { 'content-type': 'text/tab-separated-values' })
+          res.end(toKgtkTsv(edges))
+        } else if (op === 'project') {
+          const rawEdges = Array.isArray(p['edges']) ? p['edges'] as Array<{ from: string; to: string; relation: string }> : []
+          if (!rawEdges.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'edges required' })); return }
+          const projected = rawEdges.map((e) => toCskgEdge(e))
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ edges: projected, executionPerformed: false }))
+        } else {
+          const relation = typeof p['relation'] === 'string' ? p['relation'] : ''
+          if (!relation) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'relation required' })); return }
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ dimension: dimensionOf(relation), label: relationLabel(relation), executionPerformed: false }))
+        }
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Dispatch Ledger — hash-chained immutable dispatch log ────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/audit/dispatch') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { recordDispatch, replayLedger, readDispatches, contentHash } = await import('./lib/dispatch-ledger.js')
+        const op = typeof p['op'] === 'string' ? p['op'] : 'read'
+        if (op === 'record') {
+          const input = p['input'] as import('./lib/dispatch-ledger.js').DispatchInput | undefined
+          if (!input) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'input required' })); return }
+          const entry = recordDispatch(input)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ entry, executionPerformed: false }))
+        } else if (op === 'replay') {
+          const result = replayLedger()
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ...result, executionPerformed: false }))
+        } else if (op === 'hash') {
+          const s = typeof p['s'] === 'string' ? p['s'] : ''
+          if (!s) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 's required' })); return }
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ hash: contentHash(s), executionPerformed: false }))
+        } else {
+          const limit = typeof p['limit'] === 'number' ? p['limit'] : undefined
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ dispatches: readDispatches(limit), executionPerformed: false }))
+        }
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Doc Scope — filename → scope, collection, protection tier ────────────────
+  if (req.method === 'POST' && url.pathname === '/api/docs/scope') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { scopeOf, isCoreScope, isUserDoc, collectionPath, collectionIdOf, inCollection } = await import('./lib/doc-scope.js')
+        const filename = typeof p['filename'] === 'string' ? p['filename'] : ''
+        if (!filename) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'filename required' })); return }
+        const collectionId = typeof p['collectionId'] === 'string' ? p['collectionId'] : null
+        const subpath      = typeof p['path']         === 'string' ? p['path']         : null
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({
+          scope:        scopeOf(filename),
+          isCore:       isCoreScope(filename),
+          isUserDoc:    isUserDoc(filename),
+          collectionId: collectionIdOf(filename),
+          inCollection: collectionId ? inCollection(filename, collectionId) : null,
+          collectionPath: collectionId && subpath ? collectionPath(collectionId, subpath) : null,
+          executionPerformed: false,
+        }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Economic Signal — GYG forecast decomposition ─────────────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/signal/economic') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { buildGYGSignal, buildForecastTable } = await import('./lib/economic-signal.js')
+        const signal   = buildGYGSignal()
+        const forecast = buildForecastTable()
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ signal, forecast, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Extractive QA — sentence-level answer extraction from retrieved chunks ───
+  if (req.method === 'POST' && url.pathname === '/api/rag/extractive-qa') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { extractiveAnswer } = await import('./lib/extractive-qa.js')
+        const query = typeof p['query'] === 'string' ? p['query'] : ''
+        const hits  = Array.isArray(p['hits']) ? p['hits'] as import('./lib/extractive-qa.js').ChunkHit[] : []
+        if (!query || !hits.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'query and hits required' })); return }
+        const topK     = typeof p['topK']     === 'number'  ? p['topK']     : undefined
+        const minScore = typeof p['minScore'] === 'number'  ? p['minScore'] : undefined
+        const answer = extractiveAnswer(query, hits, (topK !== undefined || minScore !== undefined) ? { topK, minScore } : undefined)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ answer, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Graph PPR — personalized PageRank + HippoRAG associative retrieval ────────
+  if (req.method === 'POST' && url.pathname === '/api/graph/ppr') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { personalizedPageRank, seedFromQuery, associativeRetrieve } = await import('./lib/graph-ppr.js')
+        const nodes   = Array.isArray(p['nodes']) ? p['nodes'] as import('./lib/graph-ppr.js').PPRNode[] : []
+        const edges   = Array.isArray(p['edges']) ? p['edges'] as import('./lib/graph-ppr.js').PPREdge[] : []
+        const query   = typeof p['query'] === 'string' ? p['query'] : ''
+        if (!nodes.length || !edges.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'nodes and edges required' })); return }
+        const labelById = new Map<string, string>(nodes.map((n) => [n.id, n.label ?? n.id]))
+        const op    = typeof p['op'] === 'string' ? p['op'] : 'retrieve'
+        const alpha = typeof p['alpha'] === 'number' ? p['alpha'] : undefined
+        const k     = typeof p['k']     === 'number' ? p['k']     : undefined
+        if (op === 'ppr') {
+          const seedIds = Array.isArray(p['seedIds']) ? p['seedIds'] as string[] : query ? seedFromQuery(query, labelById) : []
+          if (!seedIds.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'seedIds or query required' })); return }
+          const scores = personalizedPageRank(nodes, edges, seedIds, (alpha !== undefined || k !== undefined) ? { alpha, maxIter: k } : undefined)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ scores: Object.fromEntries(scores), executionPerformed: false }))
+        } else {
+          if (!query) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'query required for retrieve op' })); return }
+          const result = associativeRetrieve(nodes, edges, labelById, query, (alpha !== undefined || k !== undefined) ? { alpha, k } : undefined)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ...result, executionPerformed: false }))
+        }
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
   // 404
   res.writeHead(404, { 'content-type': 'application/json' })
   res.end(JSON.stringify({ error: 'not_found', path: url.pathname }))
