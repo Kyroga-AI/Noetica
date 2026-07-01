@@ -110,7 +110,7 @@ export function decideEscalation(opts: {
   const struggling = opts.consecutiveUnresolved >= 2
   const cloud: EscalationDecision | null = opts.hasAnthropic
     ? { escalate: true, provider: 'anthropic', model: 'claude-sonnet-4-6' }
-    : opts.hasOpenAI ? { escalate: true, provider: 'openai', model: 'gpt-4o' } : null
+    : opts.hasOpenAI ? { escalate: true, provider: 'openai', model: 'gpt-5.5' } : null
 
   // 1-turn low-confidence escalation goes ONLY to a fast cloud model. Escalating a
   // shaky turn to the slow local reasoner would just reintroduce the latency stall —

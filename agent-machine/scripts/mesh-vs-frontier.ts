@@ -249,7 +249,7 @@ function buildArms(): Arm[] {
   const aKey = process.env['ANTHROPIC_API_KEY']
   if (aKey) { const m = process.env['CLAUDE_MODEL'] || 'claude-sonnet-4-6'; arms.push({ id: 'claude', label: `frontier — ${m}`, sovereign: false, verify: false, gen: anthropicMessages(m, aKey), note: 'vendor · leaves device' }) }
   const oKey = process.env['OPENAI_API_KEY']
-  if (oKey) { const m = process.env['GPT_MODEL'] || 'gpt-4o'; arms.push({ id: 'gpt', label: `frontier — ${m}`, sovereign: false, verify: false, gen: openAICompat('https://api.openai.com/v1', m, oKey), note: 'vendor · leaves device' }) }
+  if (oKey) { const m = process.env['GPT_MODEL'] || 'gpt-5.5'; arms.push({ id: 'gpt', label: `frontier — ${m}`, sovereign: false, verify: false, gen: openAICompat('https://api.openai.com/v1', m, oKey), note: 'vendor · leaves device' }) }
   return arms
 }
 

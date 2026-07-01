@@ -126,7 +126,7 @@ function inferRouteTarget(model: ModelConfig): ModelRouteTarget {
 function inferCostClass(model: ModelConfig): ModelRouteCostClass {
   if (model.local_capable) return 'local-cheap'
   const id = model.id.toLowerCase()
-  if (id.includes('haiku') || id.includes('gpt-4o-mini') || id.includes('flash')) return 'cheap'
-  if (id.includes('opus') || id.includes('gpt-4o') || id.includes('pro')) return 'high-end'
+  if (id.includes('haiku') || id.includes('mini') || id.includes('nano') || id.includes('flash')) return 'cheap'
+  if (id.includes('opus') || id.includes('pro')) return 'high-end'
   return 'standard'
 }

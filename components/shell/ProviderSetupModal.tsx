@@ -72,7 +72,7 @@ function ProviderRow({
         body: JSON.stringify({
           session_id: `setup-verify-${provider.id}`,
           mode: 'standalone',
-          model_id: provider.id === 'anthropic' ? 'claude-sonnet-4-6' : 'gpt-4o-mini',
+          model_id: provider.id === 'anthropic' ? 'claude-sonnet-4-6' : 'gpt-5.4-mini',
           messages: [{ id: 'ping', role: 'user', content: 'Reply with one word: pong', created_at: new Date().toISOString() }],
           provider_keys: { [provider.id]: key },
         }),
