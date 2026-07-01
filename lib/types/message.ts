@@ -57,6 +57,8 @@ export interface ChatMessage {
   verification?: VerificationInfo
   /** Inline citations — the numbered sources this answer is grounded in (Onyx/NotebookLM-grade). */
   citations?: Citation[]
+  /** Set by plan-mode turns: agent produced a plan and is waiting for user approval before executing. */
+  awaitingApproval?: boolean
 }
 
 /** Verification provenance for an answer — emitted by agent-machine's reasoning-evidence layer. */

@@ -19,9 +19,11 @@ type MessageListProps = {
   onSpeak?: (content: string) => void
   onQuickPrompt?: (text: string) => void
   onFeedback?: (messageId: string, rating: 'up' | 'down') => void
+  onPlanApprove?: (messageId: string) => void
+  onPlanReject?: (messageId: string) => void
 }
 
-export function MessageList({ messages, isStreaming = false, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onRecombine, onSpeak, onQuickPrompt, onFeedback }: MessageListProps) {
+export function MessageList({ messages, isStreaming = false, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onRecombine, onSpeak, onQuickPrompt, onFeedback, onPlanApprove, onPlanReject }: MessageListProps) {
   const { settings } = useSettings()
   const lastAssistantIdx = messages.reduce((acc, m, i) => m.role === 'assistant' ? i : acc, -1)
   const [selectedFanout, setSelectedFanout] = useState<Set<string>>(new Set())
@@ -127,6 +129,8 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
               onSpeak={message.role === 'assistant' ? onSpeak : undefined}
               onQuickPrompt={onQuickPrompt}
               onFeedback={message.role === 'assistant' ? onFeedback : undefined}
+              onPlanApprove={message.role === 'assistant' ? onPlanApprove : undefined}
+              onPlanReject={message.role === 'assistant' ? onPlanReject : undefined}
             />
           </div>
         ))}
