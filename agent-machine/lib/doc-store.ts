@@ -366,6 +366,21 @@ export function userDocumentChunkCount(): number {
   return getHellGraph().nodesByLabel(CHUNK_LABEL).filter((n) => isUserDoc(String(n.properties['filename'] ?? ''))).length
 }
 
+/** Sample up to `n` text chunks from user-uploaded documents (not core scopes).
+ *  Used for audio-overview generation where we want breadth over all user docs. */
+export function sampleUserChunks(n = 12): string[] {
+  const nodes = getHellGraph().nodesByLabel(CHUNK_LABEL)
+    .filter((nd) => !nd.properties['hidden'] && isUserDoc(String(nd.properties['filename'] ?? '')))
+  // Spread evenly: take every k-th chunk so we cover multiple docs
+  const step = Math.max(1, Math.floor(nodes.length / n))
+  const out: string[] = []
+  for (let i = 0; i < nodes.length && out.length < n; i += step) {
+    const t = String(nodes[i]!.properties['text'] ?? '').trim()
+    if (t) out.push(t)
+  }
+  return out
+}
+
 /** Soft-delete a collection (the graph has no node removal): mark its Document + DocumentChunk atoms hidden so
  *  they drop out of retrieval AND the Library, without destroying provenance. Matches the collection/<id>/
  *  filename namespace. Returns how many were hidden. (Core scopes can't be targeted — callers gate on kind.) */

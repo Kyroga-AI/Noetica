@@ -13259,6 +13259,25 @@ Question: ${question}`
     return
   }
 
+  // ── Audio overview — auto-gather user doc chunks + generate dialogue script ─────
+  if (req.method === 'GET' && url.pathname === '/api/study/audio-overview') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { sampleUserChunks } = await import('./lib/doc-store.js')
+        const sources = sampleUserChunks(12)
+        if (!sources.length) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'no_docs' })); return }
+        const format = (url.searchParams.get('format') ?? 'brief') as import('./lib/study-outputs.js').AudioFormat
+        const { generateAudioScript } = await import('./lib/study-outputs.js')
+        const gen = (prompt: string) => generateOllamaText({ model: 'qwen3:14b', messages: [{ role: 'user', content: prompt }], temperature: 0.5 }).then((r) => r.content)
+        const turns = await generateAudioScript(sources, gen, format)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ turns }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
   // ── Portfolio / K12 — homeschool compliance portfolio + transcript ─────────────
   if (req.method === 'GET' && url.pathname === '/api/portfolio/k12') {
     setCORSHeaders(res)
