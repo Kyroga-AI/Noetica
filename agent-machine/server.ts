@@ -14116,6 +14116,353 @@ Question: ${question}`
     return
   }
 
+  // ── Procedural Memory — skill distillation + retrieval ───────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/memory/skill') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { distillSkill, retrieveSkills, isPromotableTrajectory, renderExperiences, retrieveExperiences } = await import('./lib/procedural-memory.js')
+        const op = typeof p['op'] === 'string' ? p['op'] : 'distill'
+        if (op === 'retrieve') {
+          const task   = typeof p['task']   === 'string' ? p['task']   : ''
+          const skills = Array.isArray(p['skills']) ? p['skills'] as import('./lib/procedural-memory.js').Skill[] : []
+          const topK   = typeof p['topK']   === 'number' ? p['topK']   : 3
+          const matchFn = (a: string, b: string) => {
+            const ta = new Set(a.toLowerCase().split(/\s+/)), tb = new Set(b.toLowerCase().split(/\s+/))
+            const inter = [...ta].filter((t) => tb.has(t)).length
+            return inter / (ta.size + tb.size - inter || 1)
+          }
+          const hits = retrieveSkills(task, skills, matchFn, { topK })
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ hits, executionPerformed: false }))
+        } else if (op === 'experiences') {
+          const task    = typeof p['task']   === 'string' ? p['task']   : ''
+          const store   = Array.isArray(p['experiences']) ? p['experiences'] as import('./lib/procedural-memory.js').ReasoningExperience[] : []
+          const topK    = typeof p['topK']   === 'number' ? p['topK']   : 3
+          const matchFn = (a: string, b: string) => {
+            const ta = new Set(a.toLowerCase().split(/\s+/)), tb = new Set(b.toLowerCase().split(/\s+/))
+            const inter = [...ta].filter((t) => tb.has(t)).length
+            return inter / (ta.size + tb.size - inter || 1)
+          }
+          const hits  = retrieveExperiences(task, store, matchFn, { topK })
+          const rendered = renderExperiences(hits)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ hits, rendered, executionPerformed: false }))
+        } else if (op === 'promotable') {
+          const gate       = typeof p['gate']       === 'string' ? p['gate']       : null
+          const replayClass = typeof p['replayClass'] === 'string' ? p['replayClass'] : null
+          const ok = isPromotableTrajectory(gate, replayClass)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ promotable: ok, executionPerformed: false }))
+        } else {
+          const task        = typeof p['task']        === 'string' ? p['task']        : ''
+          const abstraction = typeof p['abstraction'] === 'string' ? p['abstraction'] : ''
+          const steps       = Array.isArray(p['steps']) ? p['steps'] as string[] : []
+          if (!task || !abstraction) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'task and abstraction required' })); return }
+          const skill = distillSkill(task, abstraction, steps)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ skill, executionPerformed: false }))
+        }
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Step Verify — process-reward model (step value scoring) ──────────────────
+  if (req.method === 'POST' && url.pathname === '/api/eval/step-value') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { stepValue } = await import('./lib/step-verify.js')
+        const rollouts = Array.isArray(p['rollouts']) ? p['rollouts'] as boolean[] : []
+        const value = stepValue(rollouts)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ value, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Solution Memory — coding agent compounding loop quality metrics ───────────
+  if (req.method === 'GET' && url.pathname === '/api/code/solutions') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { qualityMetrics } = await import('./lib/solution-memory.js')
+        const metrics = qualityMetrics()
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ metrics, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── RAG Trust — trust-tier derivation + injection detection + sanitization ───
+  if (req.method === 'POST' && url.pathname === '/api/rag/trust') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { trustOf, deriveTrust, detectInjection, sanitizeRetrieved, applyTrust } = await import('./lib/rag-trust.js')
+        const op = typeof p['op'] === 'string' ? p['op'] : 'trust-of'
+        if (op === 'derive') {
+          const tiers = Array.isArray(p['tiers']) ? p['tiers'] as import('./lib/rag-trust.js').TrustTier[] : []
+          const derived = deriveTrust(tiers)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ derived, executionPerformed: false }))
+        } else if (op === 'detect') {
+          const text = typeof p['text'] === 'string' ? p['text'] : ''
+          const result = detectInjection(text)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ...result, executionPerformed: false }))
+        } else if (op === 'sanitize') {
+          const text = typeof p['text'] === 'string' ? p['text'] : ''
+          const result = sanitizeRetrieved(text)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ...result, executionPerformed: false }))
+        } else if (op === 'apply') {
+          const retrieved = Array.isArray(p['retrieved']) ? p['retrieved'] as Array<{ text: string; src: { validated?: boolean; origin?: string; ingestPath?: string } }> : []
+          const selected = applyTrust(retrieved)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ selected, count: selected.length, executionPerformed: false }))
+        } else {
+          const src = typeof p['src'] === 'object' && p['src'] ? p['src'] as { validated?: boolean; origin?: string; ingestPath?: string } : {}
+          const tier = trustOf(src)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ tier, executionPerformed: false }))
+        }
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Research Verify — claim grounding verification ────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/research/verify-grounding') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { verifyGrounding } = await import('./lib/research-verify.js')
+        const answer    = typeof p['answer']    === 'string' ? p['answer']    : ''
+        const sources   = Array.isArray(p['sources']) ? p['sources'] as Array<{ text: string }> : []
+        const claimCover = typeof p['claimCover'] === 'number' ? p['claimCover'] : undefined
+        const passAt     = typeof p['passAt']     === 'number' ? p['passAt']     : undefined
+        if (!answer || !sources.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'answer and sources required' })); return }
+        const result = claimCover !== undefined || passAt !== undefined
+          ? verifyGrounding(answer, sources, claimCover, passAt)
+          : verifyGrounding(answer, sources)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ...result, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Symbol Index — code symbol search ────────────────────────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/code/symbol-index') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { searchSymbols, symbolStats } = await import('./lib/symbol-index.js')
+        const q     = url.searchParams.get('q') ?? ''
+        const limit = Number(url.searchParams.get('limit') ?? '25')
+        const symbols = searchSymbols(q, limit)
+        const stats   = symbolStats()
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ symbols, stats, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── SFT Harvest — verified training-data promotion ───────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/eval/sft-harvest') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { captureVerified, exampleHash, excludeTrained } = await import('./lib/sft-harvest.js')
+        const op = typeof p['op'] === 'string' ? p['op'] : 'capture'
+        if (op === 'hash') {
+          const input  = typeof p['input']  === 'string' ? p['input']  : ''
+          const output = typeof p['output'] === 'string' ? p['output'] : ''
+          const hash = exampleHash({ input, output })
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ hash, executionPerformed: false }))
+        } else if (op === 'exclude') {
+          const examples = Array.isArray(p['examples']) ? p['examples'] as import('./lib/sft-harvest.js').SftExample[] : []
+          const trained  = new Set(Array.isArray(p['trained']) ? p['trained'] as string[] : [])
+          const filtered = excludeTrained(examples, trained)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ filtered, count: filtered.length, executionPerformed: false }))
+        } else {
+          const trace = p['trace'] as import('./lib/eval-capture.js').Trace | undefined
+          if (!trace) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'trace required' })); return }
+          const now         = typeof p['now']         === 'number' ? p['now']         : Date.now()
+          const minCoverage = typeof p['minCoverage'] === 'number' ? p['minCoverage'] : undefined
+          const example = captureVerified(trace, now, minCoverage !== undefined ? { minCoverage } : undefined)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ example, captured: example !== null, executionPerformed: false }))
+        }
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Portfolio Lens — live portfolio-lens snapshot ─────────────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/graph/portfolio-lens') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { buildPortfolioLens } = await import('./lib/portfolio-lens.js')
+        const lens = buildPortfolioLens()
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ lens, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Sloan Brain — MBA knowledge catalog ──────────────────────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/graph/sloan-brain') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { sloanCourseCatalog, projectSloanBrain } = await import('./lib/sloan-brain.js')
+        const op = url.searchParams.get('op') ?? 'status'
+        if (op === 'catalog') {
+          const catalog = sloanCourseCatalog()
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ catalog, executionPerformed: false }))
+        } else {
+          const status = projectSloanBrain()
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ...status, executionPerformed: false }))
+        }
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Lattice Forge — runtime asset manifests (lattice.socioprophet.dev) ────────
+  if (req.method === 'POST' && url.pathname === '/api/platform/lattice') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { modelRuntimeAsset, sidecarRuntimeAsset, conformsToLattice } = await import('./lib/lattice-forge.js')
+        const op = typeof p['op'] === 'string' ? p['op'] : 'model'
+        if (op === 'conform') {
+          const asset = p['asset'] as import('./lib/lattice-forge.js').RuntimeAsset | undefined
+          if (!asset) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'asset required' })); return }
+          const result = conformsToLattice(asset)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ...result, executionPerformed: false }))
+        } else if (op === 'sidecar') {
+          const name         = typeof p['name']         === 'string' ? p['name']         : ''
+          const version      = typeof p['version']      === 'string' ? p['version']      : ''
+          const createdAt    = typeof p['createdAt']    === 'string' ? p['createdAt']    : new Date().toISOString()
+          const runtimeClass = typeof p['runtimeClass'] === 'string' ? p['runtimeClass'] : 'node'
+          const languages    = Array.isArray(p['languages']) ? p['languages'] as string[] : []
+          if (!name || !version) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'name and version required' })); return }
+          const asset = sidecarRuntimeAsset(name, { version, createdAt, languages, runtimeClass })
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ asset, executionPerformed: false }))
+        } else {
+          const model     = typeof p['model']     === 'string' ? p['model']     : ''
+          const createdAt = typeof p['createdAt'] === 'string' ? p['createdAt'] : new Date().toISOString()
+          const digest    = typeof p['digest']    === 'string' ? p['digest']    : undefined
+          if (!model) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'model required' })); return }
+          const asset = modelRuntimeAsset(model, { createdAt, digest })
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ asset, executionPerformed: false }))
+        }
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Managed Ollama — local Ollama runtime profile + launch recipe ─────────────
+  if (req.method === 'GET' && url.pathname === '/api/runtime/ollama') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { seatbeltProfile, runtimeComplete, resolveManagedOllamaBinary, buildLaunchRecipe, MANAGED_PORT } = await import('./lib/managed-ollama.js')
+        const binary  = resolveManagedOllamaBinary(process.env as Record<string, string | undefined>)
+        const ready   = runtimeComplete()
+        const profile = seatbeltProfile()
+        const recipe  = binary ? buildLaunchRecipe(binary) : null
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ready, port: MANAGED_PORT, profile, recipe, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Planner-Executor — task ledger + progress tracking ───────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/code/planner') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { stateSignature, recordProgress, shouldReplan, confirmFact, newProgress } = await import('./lib/planner-executor.js')
+        const op = typeof p['op'] === 'string' ? p['op'] : 'signature'
+        if (op === 'progress') {
+          const progress  = p['progress'] as import('./lib/planner-executor.js').ProgressLedger | undefined ?? newProgress()
+          const facts     = Array.isArray(p['facts']) ? p['facts'] as string[] : []
+          const maxStalls = typeof p['maxStalls'] === 'number' ? p['maxStalls'] : 2
+          const updated   = recordProgress(progress, facts)
+          const replan    = shouldReplan(updated, maxStalls)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ progress: updated, replan, executionPerformed: false }))
+        } else if (op === 'confirm') {
+          const ledger = p['ledger'] as import('./lib/planner-executor.js').TaskLedger | undefined
+          const fact   = typeof p['fact'] === 'string' ? p['fact'] : ''
+          if (!ledger || !fact) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'ledger and fact required' })); return }
+          const updated = confirmFact(ledger, fact)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ledger: updated, executionPerformed: false }))
+        } else {
+          const facts = Array.isArray(p['facts']) ? p['facts'] as string[] : []
+          const sig   = stateSignature(facts)
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ signature: sig, executionPerformed: false }))
+        }
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Stack Graph — ingest codebase structure into HellGraph ───────────────────
+  if (req.method === 'POST' && url.pathname === '/api/graph/stack') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { ingestStackIndex } = await import('./lib/stack-graph.js')
+        const result = ingestStackIndex()
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ...result, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
   // 404
   res.writeHead(404, { 'content-type': 'application/json' })
   res.end(JSON.stringify({ error: 'not_found', path: url.pathname }))
