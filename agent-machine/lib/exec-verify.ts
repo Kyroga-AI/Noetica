@@ -17,8 +17,12 @@ const FENCE_RE = /```(?:python|py)?\s*([\s\S]*?)```/i
 export function extractCode(text: string): string | null {
   const m = text.match(FENCE_RE)
   if (m && m[1] && m[1].trim()) return m[1].trim()
-  // No fence — accept the whole thing only if it looks like code (has print/assignment).
-  if (/\bprint\s*\(/.test(text) || /^[a-z_]\w*\s*=/im.test(text)) return text.trim()
+  // No CLOSED fence — usually a truncated generation (hit the token cap mid code-block), so the opening
+  // ` ```python ` marker is still attached. Strip it before the print/assignment sniff-check, else the
+  // marker line gets written verbatim as the executed program's first statement -> guaranteed SyntaxError
+  // (measured: 11/14 SyntaxErrors in one board run were exactly this literal fence-leak bug).
+  const stripped = text.replace(/^\s*```(?:python|py)?\s*\n?/i, '').trim()
+  if (/\bprint\s*\(/.test(stripped) || /^[a-z_]\w*\s*=/im.test(stripped)) return stripped
   return null
 }
 
@@ -74,7 +78,7 @@ const POT_PROMPT = (question: string) =>
 export const OPERATOR_API = `You have a verified Python library 'math_operators' (already correct — CALL it, never reimplement):
   permutation_index(cycle_str, n)               # index of <p> in S_n; cycle_str like '(1,2,5,4)(2,3)'
   finite_field_zeros(coeffs, p)                 # zeros over Z_p; coeffs highest-degree-first (x^2+1 -> [1,0,1])
-  mod_pow(base, exponent, modulus)
+  mod_pow(base, exponent, modulus)              # INTEGER modular exponentiation only (base**exponent % modulus) — NOT a general power/exponent operator
   linear_ode_eval(ode_lhs, x0, y0, x_eval)      # solve 'expr=0' in x and y(x); use Derivative(y,x); y(x0)=y0
   factorial_trailing_zeros_count(target)        # how many k have EXACTLY target trailing zeros in k!
   ring_char_product(component_chars)            # characteristic of a product ring; 0 for an infinite component
@@ -105,11 +109,26 @@ export const OPERATOR_API = `You have a verified Python library 'math_operators'
   ph_from_concentration(h_conc)  /  concentration_from_ph(ph)  /  percent_yield(actual, theoretical)
   expected_value(values, probs)  /  binomial_probability(n, k, p)  /  binomial_mean_sd(n, p)
   sample_mean(values)  /  sample_sd(values, population)  /  combination_probability(fav_n, fav_k, total_n, total_k)
+  correlation(xs, ys)  /  r_squared(xs, ys)  /  linear_regression(xs, ys)   # Pearson r, R^2 (variance explained), OLS -> (slope, intercept)
 Pick the operator, extract the arguments from the problem, and write a tiny program that imports from
 math_operators and prints ONLY the final answer value on the last line. If none fit, write a short correct program.`
 
 const operatorPrompt = (question: string) =>
   `${OPERATOR_API}\n\nProblem: ${question}\n\nReturn ONLY a \`\`\`python code block.`
+
+// Inject the math_operators import when a generated operator program omits it (the common NameError leak).
+// No-op if the model already wrote any form of the import, so it never double-imports or fights the model.
+export function ensureOperatorImport(code: string): string {
+  // Only a WILDCARD import covers every name the model might call. A PARTIAL import like
+  // `from math_operators import n_permute_k` still left `n_choose_k` undefined below it — measured live
+  // (importfix0701b): 5 residual NameErrors were exactly this "imported some names, called a different one"
+  // case, which the old "any import present -> skip" check silently let through.
+  if (/from\s+math_operators\s+import\s+\*/.test(code)) return code
+  // Prepending is always safe even alongside an existing partial/plain import — re-binding an
+  // already-imported name via the wildcard is a harmless no-op, and it fills in whatever the
+  // partial import missed.
+  return `from math_operators import *\n${code}`
+}
 
 export interface OperatorProgramOfThought extends ProgramOfThought {
   /** true when the generated program actually imported the verified library (operator was routed). */
@@ -135,10 +154,19 @@ export async function operatorProgramOfThought(
   try { text = await deps.generate(operatorPrompt(question), 0.1) } catch { return null }
   const code = extractCode(text)
   if (!code) return null
+  // Auto-repair the #1 compute-arm leak (measured on the prodphyschem0629b board): the model calls a
+  // verified operator like `n_choose_k(...)` but forgets `from math_operators import …` → NameError →
+  // the verified answer is silently lost. This path's whole contract IS to use math_operators, so if the
+  // import is missing, inject the star import (also resolves bare sympy names like `symbols`/`solve`,
+  // which math_operators re-exports). Deterministic, only adds what the model plainly intended.
+  // usedOperator reflects the MODEL's intent — test the ORIGINAL code, not the post-injection code2 (which
+  // now ALWAYS contains "math_operators" once injected, which would destroy the cold-vs-routed signal callers
+  // rely on to decide whether to fall back to programOfThought).
+  const usedOperator = /math_operators/.test(code)
+  const code2 = ensureOperatorImport(code)
   // Prepend the lib dir to sys.path so `from math_operators import ...` resolves — exactly the
   // bench's mechanism. JSON.stringify safely escapes the path into a Python string literal.
-  const usedOperator = /math_operators/.test(code)
-  const wrapped = `import sys\nsys.path.insert(0, ${JSON.stringify(libDir)})\n${code}`
+  const wrapped = `import sys\nsys.path.insert(0, ${JSON.stringify(libDir)})\n${code2}`
   let output: string
   try { output = await deps.execute('python', wrapped) } catch { return null }
   const answer = extractFinalAnswer(output)

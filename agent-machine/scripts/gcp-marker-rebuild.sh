@@ -17,20 +17,28 @@ set -uo pipefail
 PROJECT="${GCP_PROJECT:-socioprophet-platform}"
 GCS="gs://sourceos-artifacts-socioprophet/ocw-corpus"
 SA="${GCP_SA:-sourceos-ci@socioprophet-platform.iam.gserviceaccount.com}"
-VM="marker-rebuild"
+# SHARD_INDEX/SHARD_COUNT — launch this script N times with SHARD_INDEX=0..N-1, SHARD_COUNT=N for N-way
+# parallel VMs, each owning a disjoint interleaved slice of the (priority-sorted) PDF queue. Unset (default)
+# = single-VM behavior, unchanged from before this feature existed.
+SHARD_INDEX="${SHARD_INDEX:-}"; SHARD_COUNT="${SHARD_COUNT:-}"
+SHARD_SUFFIX=""; [ -n "$SHARD_INDEX" ] && SHARD_SUFFIX="-$SHARD_INDEX"
+VM="marker-rebuild$SHARD_SUFFIX"
 MARKER_LIMIT="${MARKER_LIMIT:-0}"                 # 0 = all gold PDFs (the loop resumes across crashes)
 PDF_TIMEOUT="${MARKER_PDF_TIMEOUT:-300}"
 STALL_MIN="${STALL_MIN:-20}"                      # minutes of frozen progress before kill -> resume
 DEPTS="${DEPTS:-8,18,5,7,6}"                      # STEM gold first (physics, math, chem, bio, eecs)
-SIDECARS="$GCS/marker-sidecars"
-MANIFEST="$GCS/bench/marker-done.txt"; STATUS="$GCS/bench/marker-status.json"
+# PRIORITY_GCS — the debris-measurement-ranked course queue (scripts/corruption-triage.py's companion
+# artifact); every shard pulls the SAME file so they all sort identically before slicing disjoint shards.
+PRIORITY_GCS="${PRIORITY_GCS:-$GCS/marker-priority.txt}"
+SIDECARS="$GCS/marker-sidecars"                                              # SHARED across all shards (content-keyed, no collision)
+MANIFEST="$GCS/bench/marker-done$SHARD_SUFFIX.txt"; STATUS="$GCS/bench/marker-status$SHARD_SUFFIX.json"   # per-shard (else shards clobber each other's resume state)
 ZONES="${ZONES:-us-east1-d us-east4-a us-east4-c us-west1-a us-west1-b us-west4-a us-central1-a us-central1-c}"
 MACHINES="${MACHINES:-g2-standard-8 a2-highgpu-1g a2-ultragpu-1g}"   # escalate L4 -> A100-40 -> A100-80
 TERM=$(python3 -c "import datetime;print((datetime.datetime.now().astimezone()+datetime.timedelta(hours=12)).replace(microsecond=0).isoformat())")
 
 ex=$(gcloud compute instances list --project=$PROJECT --filter="name=$VM" --format="value(status)" 2>/dev/null | head -1)
 case "$ex" in RUNNING|PROVISIONING|STAGING|REPAIRING) echo "ABORT — $VM is $ex (active; it auto-resumes itself, nothing to do)"; exit 0;; esac   # only an ACTIVE VM blocks; a TERMINATED/STOPPING one must not
-echo "# marker-rebuild · resilient · limit=${MARKER_LIMIT:-all} · pdf-timeout=${PDF_TIMEOUT}s · depts=$DEPTS · auto-resume → done==total"
+echo "# marker-rebuild$SHARD_SUFFIX · resilient · limit=${MARKER_LIMIT:-all} · pdf-timeout=${PDF_TIMEOUT}s · depts=$DEPTS · shard=${SHARD_INDEX:-none}/${SHARD_COUNT:-1} · auto-resume → done==total"
 
 cat > /tmp/marker-startup.sh <<STARTUP
 #!/bin/bash
@@ -52,6 +60,9 @@ python3 -m pip install -q --break-system-packages marker-pdf || python3 -m pip i
 step "pull code + corpus (STEM depts $DEPTS)"
 mkdir -p /opt/am && timeout 300 gsutil -m cp -r "\$GCS/code/agent-machine/*" /opt/am/ && cd /opt/am || { step FATAL-code; exit 1; }
 mkdir -p /opt/corpus && timeout 1800 gsutil -m rsync -r -x '.*\.(jpg|png|json)\$' "\$GCS/corpus" /opt/corpus 2>/dev/null || true
+step "pull priority queue (debris-measurement-ranked, worst-first)"
+LPRIORITY=/root/.marker/priority.txt
+gsutil -q cp "$PRIORITY_GCS" "\$LPRIORITY" 2>/dev/null && step "priority queue loaded (\$(wc -l < \$LPRIORITY 2>/dev/null||echo 0) ranked courses)" || { step "no priority file — filesystem order"; LPRIORITY=""; }
 step "RESUME — pull the done-manifest (skip already-attempted PDFs across VM deaths)"
 gsutil -q cp "$MANIFEST" "\$LMANIFEST" 2>/dev/null && step "resumed (\$(wc -l < \$LMANIFEST 2>/dev/null||echo 0) PDFs already attempted)" || step "fresh run"
 
@@ -66,6 +77,7 @@ while true; do
     done ) & WD=\$!
   MARKER_CORPUS=/opt/corpus MARKER_ALL=0 MARKER_LIMIT=$MARKER_LIMIT MARKER_PDF_TIMEOUT=$PDF_TIMEOUT \
     MARKER_SIDECAR_GCS="$SIDECARS" MARKER_DONE_MANIFEST=\$LMANIFEST MARKER_STATUS=\$LSTATUS \
+    MARKER_SHARD="${SHARD_INDEX:+$SHARD_INDEX/$SHARD_COUNT}" MARKER_PRIORITY="\$LPRIORITY" \
     stdbuf -oL -eL python3 scripts/marker-extract.py
   EXIT=\$?; kill \$WD 2>/dev/null
   gsutil -q cp "\$LMANIFEST" "$MANIFEST" 2>/dev/null; gsutil -q cp "\$LSTATUS" "$STATUS" 2>/dev/null

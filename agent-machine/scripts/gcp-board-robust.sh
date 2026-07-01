@@ -74,6 +74,19 @@ BRAINDIR=/opt/OCW/_brain; [ -d "\$BRAINDIR" ] || BRAINDIR=/opt/OCW
 step "brain dir = \$BRAINDIR (\$(ls "\$BRAINDIR" 2>/dev/null | tr '\n' ' '))"
 export OCW_BRAIN=\$BRAINDIR OLLAMA_HOST=http://127.0.0.1:11434
 
+# ground_kgbert arm: the decorrelated KG-BERT retriever needs torch + the encoded entity vectors. Install/pull
+# ONLY when that arm is requested, so ordinary boards stay lean (no 2GB torch on every run). EXPORT the env
+# directly (a variable-expanded 'VAR=x' command prefix is NOT treated as an assignment by bash → exit 127).
+if echo "$ARMS" | grep -q ground_kgbert; then
+  step "ground_kgbert — torch + KG-BERT embeddings (.npz)"
+  mkdir -p /root/.noetica/kg
+  python3 -m pip install -q torch --index-url https://download.pytorch.org/whl/cu124 || python3 -m pip install -q torch
+  python3 -m pip install -q transformers
+  gsutil -q cp "\$GCS/kg-bert/kg-bert-embeddings.npz" /root/.noetica/kg/kg-bert-embeddings.npz
+  gsutil -q cp "\$GCS/kg-export/entities.jsonl"        /root/.noetica/kg/entities.jsonl
+  export MMLU_KGBERT_NPZ=/root/.noetica/kg/kg-bert-embeddings.npz MMLU_KGBERT_DEVICE=cuda
+fi
+
 # stall watchdog: 'done' frozen for STALL_MIN min → abort (checkpoint preserved → relaunch resumes)
 ( prev=-1; stuck=0; while true; do sleep 60
     cur=\$(python3 -c "import json;print(json.load(open('\$LSTATUS'))['done'])" 2>/dev/null||echo -1)

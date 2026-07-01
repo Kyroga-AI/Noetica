@@ -19,6 +19,7 @@ import { setOllamaBase } from '../lib/ollama.js'
 import { buildQuestionContext, recordEpisodeOutcome, episodeCount } from '../lib/question-context.js'
 import { buildVerifiedAnswerArtifact, writeProofArtifact, proofArtifactCount } from '../lib/proof-fabric.js'
 import { classifyComplexity, calibratedConfidence, modelForPosture } from '../lib/complexity-discipline.js'
+import { extractCode } from '../lib/exec-verify.js'
 
 const BANK = path.join(os.homedir(), '.noetica', 'corpus', 'benchmarks', 'mmlu_stem.json')
 const BASE = process.env['OLLAMA_HOST']?.replace(/\/$/, '') || 'http://127.0.0.1:11435'
@@ -68,7 +69,10 @@ async function moatArm(q: any): Promise<string> {
   const prompt = `${q.question}\n\n${q.choices.map((c: string, i: number) => `${L[i]}. ${c}`).join('\n')}${ctx.grounding}\n\n` +
     `Write a self-contained Python program (use sympy/numpy if useful) that computes the answer and prints exactly one line: "ANSWER: X" where X is the correct choice letter. Output ONLY a \`\`\`python code block.`
   const out = await ask(solveModel, 'You are a careful computational mathematician. Solve by writing correct Python.', prompt)
-  const code = /```python\s*([\s\S]*?)```/i.exec(out)?.[1] || /```\s*([\s\S]*?)```/.exec(out)?.[1] || ''
+  // was a duplicate, same-bug-class inline regex (silently dropped a truncated/unclosed code block as "no
+  // code" instead of recovering it, LOSING a verified-compute answer to the raw-MCQ fallback below). Reuse
+  // the shared, fixed extractor instead of a 3rd copy of this logic.
+  const code = extractCode(out) ?? ''
   let ans = '', verified = false
   if (code.trim()) { const printed = await runPython(code); ans = (/ANSWER:\s*([A-D])/i.exec(printed)?.[1] || letter(printed)).toUpperCase(); verified = !!ans }
   // Robust fallback: if code-exec yielded nothing, answer the MCQ *with grounding*

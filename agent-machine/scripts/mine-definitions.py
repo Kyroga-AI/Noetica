@@ -27,6 +27,7 @@ Usage:
   python3 scripts/mine-definitions.py <field> [--brain DIR] [--spec FILE] [--min-freq N] [--top N] [--out FILE]
   e.g. python3 scripts/mine-definitions.py mathematics --spec canon/spec-mathematics.json --out /tmp/mined-mathematics.json
 """
+from __future__ import annotations    # PEP 604 'X | None' annotations stay lazy → runs on py3.9 (macOS) too
 import argparse
 import json
 import os

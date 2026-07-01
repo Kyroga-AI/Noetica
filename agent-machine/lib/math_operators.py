@@ -15,6 +15,12 @@ from fractions import Fraction
 from sympy import symbols, Function, dsolve, Eq, exp, solve, sympify, im, integrate, diff, limit, oo, Matrix, Rational, factorial as sym_factorial
 from sympy.combinatorics import Permutation
 
+# Common constants/functions the model reaches for even when told to use only the operator menu (measured:
+# 'pi' and 'factorial' were the two genuine ImportErrors in a leak audit — not hallucinated formula names,
+# just missing trivial re-exports). `from math_operators import *` should have these.
+pi = math.pi
+factorial = math.factorial
+
 
 def permutation_index(cycle_str: str, n: int) -> int:
     """Index of <p> in S_n, where p is 1-indexed cycle notation e.g. '(1,2,5,4)(2,3)'. = n! / order(p)."""
@@ -343,6 +349,32 @@ def combination_probability(favorable_n: int, favorable_k: int, total_n: int, to
     return math.comb(favorable_n, favorable_k) / math.comb(total_n, total_k)
 
 
+def correlation(xs: list, ys: list) -> float:
+    """Pearson correlation coefficient r between two paired samples (same length)."""
+    n = len(xs)
+    mx, my = sum(xs) / n, sum(ys) / n
+    sxy = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+    sxx = sum((x - mx) ** 2 for x in xs)
+    syy = sum((y - my) ** 2 for y in ys)
+    return sxy / math.sqrt(sxx * syy)
+
+
+def linear_regression(xs: list, ys: list) -> tuple:
+    """Ordinary least-squares fit y = slope*x + intercept. Returns (slope, intercept)."""
+    n = len(xs)
+    mx, my = sum(xs) / n, sum(ys) / n
+    sxx = sum((x - mx) ** 2 for x in xs)
+    sxy = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+    b = sxy / sxx
+    return (b, my - b * mx)
+
+
+def r_squared(xs: list, ys: list) -> float:
+    """Coefficient of determination R^2 for the least-squares fit of ys on xs
+    (the proportion of variance in y explained by x). Equals correlation(xs,ys)**2."""
+    return correlation(xs, ys) ** 2
+
+
 if __name__ == '__main__':
     assert permutation_index('(1,2,5,4)(2,3)', 5) == 24
     assert finite_field_zeros([1, 0, 1], 2) == [1]
@@ -403,4 +435,11 @@ if __name__ == '__main__':
     assert sample_mean([2, 4, 6]) == 4.0
     assert abs(sample_sd([2, 4, 6]) - 2.0) < 1e-9 and abs(sample_sd([2, 4, 6], population=True) - 1.63299) < 1e-4
     assert abs(combination_probability(4, 2, 52, 2) - (6 / 1326)) < 1e-9
-    print('all math_operators unit tests PASS (', 43 + 6, 'operators )')
+    # regression: perfect line y=2x+1 -> r^2=1, slope 2, intercept 1
+    assert abs(r_squared([1, 2, 3, 4], [3, 5, 7, 9]) - 1.0) < 1e-9
+    rs, ic = linear_regression([1, 2, 3, 4], [3, 5, 7, 9]); assert abs(rs - 2) < 1e-9 and abs(ic - 1) < 1e-9
+    assert abs(correlation([1, 2, 3], [3, 2, 1]) + 1.0) < 1e-9    # perfect negative
+    # common re-exports the model reaches for even off-menu (leak-audit finding: pi/factorial were genuine gaps)
+    assert abs(pi - 3.14159265) < 1e-6
+    assert factorial(5) == 120
+    print('all math_operators unit tests PASS (', 43 + 6 + 3 + 2, 'operators )')

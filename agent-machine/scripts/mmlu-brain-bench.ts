@@ -34,6 +34,7 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { execFileSync } from 'node:child_process'
+import { ensureOperatorImport, extractCode } from '../lib/exec-verify.js'
 import { embedText } from '../lib/ollama.js'
 import { sanitizeRetrieved } from '../lib/rag-trust.js'
 import { councilVote, learnedCouncilVote } from '../lib/council.js'
@@ -709,7 +710,7 @@ const LIBDIR = path.join(__dirname, '..', 'lib')
 const OPERATOR_API = `You have a verified Python library 'math_operators' (already correct — CALL it, never reimplement):
   permutation_index(cycle_str, n)               # index of <p> in S_n; cycle_str like '(1,2,5,4)(2,3)'
   finite_field_zeros(coeffs, p)                 # zeros over Z_p; coeffs highest-degree-first (x^2+1 -> [1,0,1])
-  mod_pow(base, exponent, modulus)
+  mod_pow(base, exponent, modulus)              # INTEGER modular exponentiation only (base**exponent % modulus) — NOT a general power/exponent operator
   linear_ode_eval(ode_lhs, x0, y0, x_eval)      # solve 'expr=0' in x and y(x); use Derivative(y,x); y(x0)=y0
   factorial_trailing_zeros_count(target)        # how many k have EXACTLY target trailing zeros in k!
   ring_char_product(component_chars)            # characteristic of a product ring; 0 for an infinite component
@@ -740,15 +741,23 @@ const OPERATOR_API = `You have a verified Python library 'math_operators' (alrea
   ph_from_concentration(h_conc)  /  concentration_from_ph(ph)  /  percent_yield(actual, theoretical)
   expected_value(values, probs)  /  binomial_probability(n, k, p)  /  binomial_mean_sd(n, p)
   sample_mean(values)  /  sample_sd(values, population)  /  combination_probability(fav_n, fav_k, total_n, total_k)
+  correlation(xs, ys)  /  r_squared(xs, ys)  /  linear_regression(xs, ys)   # Pearson r, R^2 (variance explained), OLS -> (slope, intercept)
 Pick the operator, extract the arguments from the problem, and write a tiny program that imports from
 math_operators and prints ONLY the final answer value on the last line. If none fit, write a short correct program.`
 
 async function operatorCompute(question: string, choices: string[]): Promise<string> {
   const prompt = `${OPERATOR_API}\n\nProblem: ${question}\nChoices: ${choices.map((c, i) => `${LETTERS[i]}. ${c}`).join(' | ')}\n\nReturn ONLY a \`\`\`python code block.`
   const raw = await ask(prompt, 0)
-  const code = (/```python\s*([\s\S]*?)```/.exec(raw)?.[1] ?? raw).trim()
+  // was a naive local regex whose "no closing fence" fallback returned the RAW text — including the literal
+  // leading '```python' marker on truncated generations (measured: 11/14 SyntaxErrors in one run were exactly
+  // this). extractCode strips that marker even in the unclosed-fence case; reuse it instead of duplicating.
+  const code = extractCode(raw) ?? ''
   if (!/print|math_operators/.test(code)) return ''
-  const wrapped = `import sys\nsys.path.insert(0, ${JSON.stringify(LIBDIR)})\n${code}`
+  // THE ACTUAL FIX SITE (was mistakenly applied only to lib/exec-verify.ts's separate operatorProgramOfThought,
+  // which this bench's opcompute/prod arms never call — the importfix0701 board measured a fix that could never
+  // fire). This is the real codegen path (the 'opc_*.py' tempfile below) that produced the v0 NameError leak.
+  const code2 = ensureOperatorImport(code)
+  const wrapped = `import sys\nsys.path.insert(0, ${JSON.stringify(LIBDIR)})\n${code2}`
   let out = ''
   try {
     const f = path.join(os.tmpdir(), `opc_${Date.now()}_${Math.random().toString(36).slice(2)}.py`)
@@ -839,6 +848,26 @@ async function goldContext(q: Q, pools: Chunk[][], card = ''): Promise<string> {
   const worked = (gold.length ? gold : hits).slice(0, 3).map((h) => h.text.slice(0, 600)).join('\n---\n')
   // the open-book exam: the FORMULA SHEET (note card) + the studied WORKED EXAMPLES (retrieved). Both ground sympy.
   return (card ? `Formula sheet (use these canonical formulas):\n${card}\n\n` : '') + (worked ? `Worked examples:\n${worked}` : '')
+}
+
+const KGBERT_RETRIEVE_PY = path.join(__dirname, 'kg-bert-retrieve.py')
+// ground_kgbert arm: retrieve the structurally-nearest concepts (KG-BERT entity kNN) as a grounding block —
+// the decorrelated retriever the operator-board proved the ground tier needs (canon defs did NOT lift it).
+// One python call per subject (loads the .npz + bert-base once); returns a grounding string per question.
+function kgbertGroundBatch(qs: Q[]): string[] {
+  const res: string[] = qs.map(() => '')
+  if (!qs.length || !process.env['MMLU_KGBERT_NPZ']) return res   // opt-in: needs the encoded .npz present
+  const input = qs.map((q, i) => JSON.stringify({ id: i, question: q.question, choices: q.choices })).join('\n') + '\n'
+  const args = [KGBERT_RETRIEVE_PY, '--batch', '--npz', process.env['MMLU_KGBERT_NPZ']!,
+    '--device', process.env['MMLU_KGBERT_DEVICE'] || 'cuda', '--k', process.env['MMLU_KGBERT_K'] || '6']
+  try {
+    const out = execFileSync('python3', args, { input, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, env: { ...process.env }, timeout: SUBPROC_TIMEOUT, killSignal: 'SIGKILL' })
+    for (const line of out.split('\n')) {
+      if (!line.trim()) continue
+      try { const r = JSON.parse(line) as { i: number; ground: string }; if (typeof r.i === 'number' && r.i < res.length) res[r.i] = r.ground } catch { /* skip */ }
+    }
+  } catch { /* no .npz / no torch → empty grounding, arm falls back to bare question */ }
+  return res
 }
 
 const KTYPE_PY = path.join(__dirname, 'knowledge_type.py')
@@ -934,12 +963,15 @@ async function main() {
     // knowledge-type per question (the 'understand first' step) — used by the champion router
     const kt: KType[] = (ARMS.includes('champion') || ARMS.includes('gate') || ARMS.includes('groundgate') || ARMS.includes('learned')) ? ktypeBatch(sample) : []
     const af: CompRes[] = ARMS.includes('autoform') ? await autoformBatch(sample) : []   // LLM-formalize → sympy-execute → vote
+    const kgbertCtx: string[] = ARMS.includes('ground_kgbert') ? kgbertGroundBatch(sample) : []   // KG-BERT entity-kNN grounding
 
     const scoreQuestion = async (i: number) => {
       const q = sample[i]!
       const base = `${q.question}\n\n${q.choices.map((c, j) => `${LETTERS[j]}. ${c}`).join('\n')}`
       const gold = LETTERS[q.answer]
-      const row: Record<string, unknown> = { subject, i, gold }
+      // emit question + choices into the checkpoint → the ckpt IS a reliable remediation queue (frontier
+      // authors the canon delta per miss from this, no fragile external shuffle-reproduction).
+      const row: Record<string, unknown> = { subject, i, gold, question: q.question, choices: q.choices }
       const routeDecision = canonRoute(q.question)
       row['canon_grounding'] = routeDecision.grounding_status
       if (routeDecision.grounding_status === 'ungrounded' && routeDecision.ungrounded_candidates.length)
@@ -1015,6 +1047,9 @@ async function main() {
         } else if (arm === 'ground') {            // CANON GROUNDING: the question's entities → glossary defs + related equations/models + prereq decomposition + bridges
           const g = canonGround(`${q.question} ${q.choices.join(' ')}`)
           letter = extractLetter(await ask(`${g ? g + '\n\n' : ''}Exam question:\n${base}${ANSWER_RULE}`)); mode = g ? 'ground' : 'no-canon'
+        } else if (arm === 'ground_kgbert') {     // KG-BERT GROUNDING: structurally-nearest concepts (entity-vector kNN) — the decorrelated retriever
+          const g = kgbertCtx[i] ?? ''
+          letter = extractLetter(await ask(`${g ? g + '\n\n' : ''}Exam question:\n${base}${ANSWER_RULE}`)); mode = g ? 'kgbert' : 'no-kgbert'
         } else if (arm === 'cohere') {            // Choice-Coherence Elimination. EMITS the RAW per-choice feature
           // matrix (cohesion, uniqueness, set-incl) into the row — NOT just the argmax pick — so the transcript is
           // training data for the n-furcated combiner (no aggregation that loses the points). The letter is still

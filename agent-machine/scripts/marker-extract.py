@@ -12,7 +12,10 @@ progress. Targeted: GOLD/math material first (exam/solution/lecture/pset) unless
 
 Run:  MARKER_CORPUS=/opt/corpus MARKER_SIDECAR_GCS=gs://.../marker-sidecars \\
       MARKER_DONE_MANIFEST=/root/.marker/done.txt MARKER_STATUS=/root/.marker/status.json python3 scripts/marker-extract.py
-  MARKER_LIMIT  max NEW sidecars this run (0 = all)   MARKER_ALL=1  every PDF (default: gold/math-bearing only)
+  MARKER_LIMIT     max NEW sidecars this run (0 = all)   MARKER_ALL=1  every PDF (default: gold/math-bearing only)
+  MARKER_SHARD     'i/N' — this worker owns only queue[i::N] (after priority sort), for N-way parallel VMs.
+  MARKER_PRIORITY  path to a course-slug-per-line file (worst-debris-first); matched courses' PDFs are
+                    processed before everything else. Falls back to filesystem order if unset/missing.
 """
 import os, re, json, signal, subprocess
 
@@ -21,6 +24,8 @@ LIMIT = int(os.environ.get('MARKER_LIMIT', '0'))
 ALL = os.environ.get('MARKER_ALL') == '1'
 SIDECAR_GCS = os.environ.get('MARKER_SIDECAR_GCS', '').rstrip('/')   # incremental per-file upload target
 DONE_MANIFEST = os.environ.get('MARKER_DONE_MANIFEST', '')           # resume manifest (relpaths, one per line)
+SHARD = os.environ.get('MARKER_SHARD', '')                           # 'i/N' — this worker's disjoint slice
+PRIORITY_FILE = os.environ.get('MARKER_PRIORITY', '')                # course-slug-per-line, worst-debris-first
 STATUS = os.environ.get('MARKER_STATUS', '')                        # done/total status for the stall-watchdog
 PDF_TIMEOUT = int(os.environ.get('MARKER_PDF_TIMEOUT', '300'))      # HARD per-PDF ceiling — a hung PDF can't freeze the run
 GOLD = re.compile(r'(exam|solution|soln|pset|problem|hw|homework|quiz|midterm|final|notes|lecture|recitation)', re.I)
@@ -52,10 +57,43 @@ def pdfs(root):
                 yield os.path.join(dp, fn)
 
 
+def course_slug(pdf_path):
+    """The course is the PDF's parent directory name (matches the corpus jsonl 'slug' field convention,
+    e.g. '18-06-linear-algebra-spring-2010'), so a priority file built from the debris measurement (which
+    is keyed on that same slug) lines up directly against the filesystem without any extra mapping step."""
+    return os.path.basename(os.path.dirname(pdf_path))
+
+
+def prioritize(targets):
+    """Sort targets so PRIORITY_FILE's courses (worst-debris-first, one measured queue) come first, in the
+    file's order; everything else follows in its original (filesystem) order. A no-op if PRIORITY_FILE is
+    unset or missing — priority is an optimization, never a requirement to run."""
+    if not PRIORITY_FILE or not os.path.exists(PRIORITY_FILE):
+        return targets
+    with open(PRIORITY_FILE) as fh:
+        order = [ln.strip() for ln in fh if ln.strip()]
+    rank = {slug: i for i, slug in enumerate(order)}
+    NOT_RANKED = len(order)   # unranked courses sort after every ranked one, stable amongst themselves
+    return sorted(targets, key=lambda p: rank.get(course_slug(p), NOT_RANKED))
+
+
+def shard(targets):
+    """MARKER_SHARD='i/N' -> this worker owns targets[i::N] of the (already priority-sorted) list. Slicing
+    AFTER prioritize() means every shard gets an interleaved share of the highest-priority work, not just
+    shard 0 grabbing the whole front of the queue."""
+    if not SHARD:
+        return targets
+    i, n = (int(x) for x in SHARD.split('/'))
+    return targets[i::n]
+
+
 def main():
-    print(f"# marker-extract · {CORPUS} · {'ALL pdfs' if ALL else 'gold/math only'}", flush=True)
-    # 1) enumerate targets up front so we know the TOTAL (the watchdog's progress denominator)
+    tag = f' · shard {SHARD}' if SHARD else ''
+    print(f"# marker-extract · {CORPUS} · {'ALL pdfs' if ALL else 'gold/math only'}{tag}", flush=True)
+    # 1) enumerate targets, priority-sort, then take this worker's shard slice — TOTAL is this shard's count
+    #    (the watchdog's progress denominator), not the whole corpus, so per-shard status.json is meaningful.
     targets = [p for p in pdfs(CORPUS) if ALL or GOLD.search(os.path.basename(p))]
+    targets = shard(prioritize(targets))
     total = len(targets)
     # 2) load the resume manifest → already-done set (survives VM death because the manifest lives in GCS)
     done_set = set()

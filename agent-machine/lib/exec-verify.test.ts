@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import * as cp from 'node:child_process'
 import * as path from 'node:path'
 import * as fs from 'node:fs'
-import { extractCode, extractFinalAnswer, normalizeAnswer, programOfThought, operatorProgramOfThought, OPERATOR_API, candidateAgreesWithVerified, pickRunnableLanguage, testsPassed, codeVerifyRepair } from './exec-verify.js'
+import { extractCode, extractFinalAnswer, normalizeAnswer, programOfThought, operatorProgramOfThought, OPERATOR_API, candidateAgreesWithVerified, pickRunnableLanguage, testsPassed, codeVerifyRepair, ensureOperatorImport } from './exec-verify.js'
 
 // Locate agent-machine/lib (where math_operators.py lives) from the test's cwd — the suite runs
 // from agent-machine/, so 'lib' resolves; cover the repo-root launch too.
@@ -25,8 +25,39 @@ test('extractCode pulls a fenced python block', () => {
   assert.equal(extractCode('Here:\n```python\nprint(2+2)\n```\ndone'), 'print(2+2)')
 })
 
+test('ensureOperatorImport injects the missing math_operators import (the NameError leak fix)', () => {
+  // model forgot the import entirely → would NameError; repair prepends the star import
+  assert.equal(ensureOperatorImport('print(n_choose_k(10, 2))'),
+    'from math_operators import *\nprint(n_choose_k(10, 2))')
+  // already a WILDCARD import → untouched, never double-imports
+  assert.equal(ensureOperatorImport('from math_operators import *\nprint(n_choose_k(10,2))'),
+    'from math_operators import *\nprint(n_choose_k(10,2))')
+})
+
+test('ensureOperatorImport supplements a PARTIAL import that misses a name the model later calls', () => {
+  // measured live (importfix0701b): `from math_operators import n_permute_k` present, but the model also
+  // calls n_choose_k -> NameError, because the old check treated ANY import as "already handled" and skipped.
+  // Prepending a wildcard alongside is safe (re-binding an already-imported name is a harmless no-op).
+  assert.equal(
+    ensureOperatorImport('from math_operators import n_permute_k\ntotal = n_choose_k(10, 2)\nprint(total)'),
+    'from math_operators import *\nfrom math_operators import n_permute_k\ntotal = n_choose_k(10, 2)\nprint(total)',
+  )
+  // same gap via the module-import form
+  assert.equal(
+    ensureOperatorImport('import math_operators\nprint(gcd(8, 4))'),
+    'from math_operators import *\nimport math_operators\nprint(gcd(8, 4))',
+  )
+})
+
 test('extractCode accepts bare code that looks like code', () => {
   assert.equal(extractCode('x = 5\nprint(x*2)'), 'x = 5\nprint(x*2)')
+})
+
+test('extractCode strips a leading fence marker on a truncated (unclosed) code block', () => {
+  // measured bug: a generation cut off mid-block (no closing ```) left the opening marker attached, so it got
+  // written verbatim as the executed program's first line -> guaranteed SyntaxError (11/14 in one board run)
+  assert.equal(extractCode('```python\nimport math\nprint(math.pi)'), 'import math\nprint(math.pi)')
+  assert.equal(extractCode('```\nx = 5\nprint(x)'), 'x = 5\nprint(x)')
 })
 
 test('extractCode returns null for prose', () => {
