@@ -15267,6 +15267,109 @@ Question: ${question}`
     return
   }
 
+  // ── Mesh Config — sovereign mesh tier ladder ─────────────────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/mesh/config') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { meshLadder, sovereignConfig } = await import('./lib/mesh.js')
+        const ladder = meshLadder()
+        const config = sovereignConfig()
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ladder, config, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Runtime Presets — hardware-gated config resolution ───────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/runtime/presets') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { detectPreset, resolveConfig } = await import('./lib/presets.js')
+        const preset = detectPreset()
+        const config = resolveConfig()
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ preset, config, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Slash Topics — topic taxonomy classification ──────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/nlp/slash-topics') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { classifyTerms, titleCaseTopic, SLASH_CATEGORIES } = await import('./lib/slash-topics.js')
+        const terms = Array.isArray(p['terms']) ? p['terms'] as string[] : typeof p['text'] === 'string' ? p['text'].split(/\s+/) : []
+        if (!terms.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'terms or text required' })); return }
+        const match = classifyTerms(terms)
+        const label = match ? titleCaseTopic(match.topic) : null
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ match, label, categories: SLASH_CATEGORIES, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Search Verify Config — enabled flag + candidate prompt ───────────────────
+  if (req.method === 'GET' && url.pathname === '/api/eval/search-verify') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { searchVerifyEnabled, candidatePrompt } = await import('./lib/search-verify.js')
+        const enabled  = searchVerifyEnabled()
+        const question = url.searchParams.get('question') ?? ''
+        const prompt   = question ? candidatePrompt(question) : null
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ enabled, prompt, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Reason Lane — reasoning lane routing config ───────────────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/routing/reason-lane') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { reasonLaneEnabled, reasonSCK, isReasonLaneIntent, REASON_LANE_INTENTS } = await import('./lib/reason-lane.js')
+        const enabled = reasonLaneEnabled()
+        const sck     = reasonSCK()
+        const intent  = url.searchParams.get('intent')
+        const isReason = intent ? isReasonLaneIntent(intent) : null
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ enabled, sck, intents: [...REASON_LANE_INTENTS], isReason, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Canonical Shapes — SHACL entity validation ───────────────────────────────
+  if (req.method === 'POST' && url.pathname === '/api/graph/validate-entity') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { validateEntity } = await import('./lib/canonical-shapes.js')
+        const labels     = Array.isArray(p['labels'])     ? p['labels']     as string[]              : []
+        const properties = typeof p['properties'] === 'object' && p['properties'] ? p['properties'] as Record<string, unknown> : {}
+        if (!labels.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'labels required' })); return }
+        const violations = validateEntity(labels, properties)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ valid: violations.length === 0, violations, executionPerformed: false }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
   // 404
   res.writeHead(404, { 'content-type': 'application/json' })
   res.end(JSON.stringify({ error: 'not_found', path: url.pathname }))
