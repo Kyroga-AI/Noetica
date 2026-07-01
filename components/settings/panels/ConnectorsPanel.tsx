@@ -7,9 +7,21 @@ import { isTauri } from '@/lib/tauri/bridge'
 import { useConnectorAuth } from '@/lib/auth/context'
 import type { ConnectorId } from '@/lib/auth/types'
 
-// Curated MCP marketplace — popular servers with one-click add. `env` keys are placeholders the user fills in
-// after adding (e.g. an API token); `desktop` marks stdio servers that need the Tauri app (npx child process).
-type CatalogueEntry = { name: string; description: string; args: string[]; env?: string[]; desktop: boolean }
+// Curated MCP marketplace — popular servers with one-click add.
+//  • stdio servers: `command` (default 'npx') + `args`; `env` keys are placeholders (API tokens) the user fills in
+//    after adding. `desktop: true` marks them as needing the Tauri app — they spawn a local child process.
+//  • remote servers: `url` (transport 'sse'); `headers` are auth-header placeholders. These also work in-browser
+//    (no child process), so they're the most portable given the sandbox.
+type CatalogueEntry = {
+  name: string
+  description: string
+  desktop: boolean
+  command?: string
+  args?: string[]
+  env?: string[]
+  url?: string
+  headers?: string[]
+}
 const MCP_CATALOGUE: CatalogueEntry[] = [
   { name: 'Filesystem', description: 'Read/write files in a directory you choose.', args: ['-y', '@modelcontextprotocol/server-filesystem', '~'], desktop: true },
   { name: 'GitHub', description: 'Repos, issues, PRs, code search.', args: ['-y', '@modelcontextprotocol/server-github'], env: ['GITHUB_PERSONAL_ACCESS_TOKEN'], desktop: true },
@@ -21,6 +33,19 @@ const MCP_CATALOGUE: CatalogueEntry[] = [
   { name: 'Slack', description: 'Read channels, post messages.', args: ['-y', '@modelcontextprotocol/server-slack'], env: ['SLACK_BOT_TOKEN', 'SLACK_TEAM_ID'], desktop: true },
   { name: 'Fetch', description: 'Fetch a URL and return clean markdown.', args: ['-y', '@modelcontextprotocol/server-fetch'], desktop: true },
   { name: 'Git', description: 'Inspect + operate on a local git repo.', args: ['-y', '@modelcontextprotocol/server-git'], desktop: true },
+  // ─── Capability plugins (Claude marketplace) — Prism-style agent integrations ───
+  // Research & literature search
+  { name: 'Exa Search', description: 'Neural web + literature search and crawling — arXiv-grade research.', args: ['-y', 'exa-mcp-server'], env: ['EXA_API_KEY'], desktop: true },
+  { name: 'Tavily Search', description: 'Real-time web search, extract, map & crawl.', args: ['-y', 'tavily-mcp'], env: ['TAVILY_API_KEY'], desktop: true },
+  // Knowledge & vector store
+  { name: 'Qdrant', description: 'Semantic memory over a Qdrant vector store — store & retrieve.', command: 'uvx', args: ['mcp-server-qdrant'], env: ['QDRANT_URL', 'QDRANT_API_KEY'], desktop: true },
+  { name: 'Dropbox', description: 'Search and read your Dropbox files. Official remote MCP (OAuth).', url: 'https://mcp.dropbox.com/mcp', desktop: false },
+  // Docs & figures
+  { name: 'Canva', description: 'Create/edit designs and generate figures & diagrams. Official remote MCP (OAuth).', url: 'https://mcp.canva.com/mcp', desktop: false },
+  // Dev & observability
+  { name: 'Datadog', description: 'Query metrics, logs, monitors, traces & incidents. Official remote MCP.', url: 'https://mcp.datadoghq.com/api/unstable/mcp-server/mcp', headers: ['Authorization'], desktop: false },
+  { name: 'Buildkite', description: 'Inspect pipelines, builds, jobs & logs. Official MCP (via Docker).', command: 'docker', args: ['run', '--pull=always', '-q', '--rm', '-i', '-e', 'BUILDKITE_API_TOKEN', 'buildkite/mcp-server', 'stdio'], env: ['BUILDKITE_API_TOKEN'], desktop: true },
+  { name: 'Langfuse', description: 'LLM observability & prompt management. Official remote MCP.', url: 'https://cloud.langfuse.com/api/public/mcp', headers: ['Authorization'], desktop: false },
 ]
 
 // Map connector list IDs to ConnectorId where auth exists
@@ -357,15 +382,22 @@ export function ConnectorsPanel({ onNavigate }: { onNavigate?: (id: string) => v
                   <div key={c.name} className="flex flex-col rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-3">
                     <div className="flex items-start justify-between gap-2">
                       <span className="text-xs font-semibold text-[var(--color-text-primary)]">{c.name}</span>
-                      {c.desktop && <span className="shrink-0 rounded-full bg-[var(--color-background-tertiary)] px-1.5 py-0.5 text-[9px] text-[var(--color-text-tertiary)]">desktop</span>}
+                      {c.desktop
+                        ? <span className="shrink-0 rounded-full bg-[var(--color-background-tertiary)] px-1.5 py-0.5 text-[9px] text-[var(--color-text-tertiary)]">desktop</span>
+                        : c.url && <span className="shrink-0 rounded-full bg-[var(--color-background-tertiary)] px-1.5 py-0.5 text-[9px] text-[var(--color-text-tertiary)]">remote</span>}
                     </div>
                     <p className="mt-0.5 flex-1 text-[11px] leading-4 text-[var(--color-text-secondary)]">{c.description}</p>
-                    {c.env && <p className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">needs: {c.env.join(', ')}</p>}
+                    {(c.env || c.headers) && <p className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">needs: {(c.env ?? c.headers ?? []).join(', ')}</p>}
                     <button disabled={blocked || added[c.name]}
                       title={blocked ? 'stdio servers need the Tauri desktop app' : ''}
-                      onClick={() => { void addServer({ name: c.name, transport: 'stdio', command: 'npx', args: c.args, env: (c.env ?? []).reduce((o, k) => ({ ...o, [k]: '' }), {} as Record<string, string>), enabled: true }); setAdded((a) => ({ ...a, [c.name]: true })) }}
+                      onClick={() => {
+                        const cfg: Omit<McpServerConfig, 'id' | 'createdAt'> = c.url
+                          ? { name: c.name, transport: 'sse', url: c.url, headers: (c.headers ?? []).reduce((o, k) => ({ ...o, [k]: '' }), {} as Record<string, string>), enabled: true }
+                          : { name: c.name, transport: 'stdio', command: c.command ?? 'npx', args: c.args ?? [], env: (c.env ?? []).reduce((o, k) => ({ ...o, [k]: '' }), {} as Record<string, string>), enabled: true }
+                        void addServer(cfg); setAdded((a) => ({ ...a, [c.name]: true }))
+                      }}
                       className="mt-2 rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2 py-1 text-[10px] font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe] disabled:opacity-50">
-                      {added[c.name] ? '✓ Added — set env below' : blocked ? 'Desktop only' : '+ Add'}
+                      {added[c.name] ? '✓ Added — configure below' : blocked ? 'Desktop only' : '+ Add'}
                     </button>
                   </div>
                 )
