@@ -42,7 +42,10 @@ node scripts/inject-am-sidecar-config.mjs >/dev/null
 NOETICA_STATIC_EXPORT=1 ./node_modules/.bin/tauri build >/tmp/noetica-tauri-build.log 2>&1
 TAURI_RC=$?
 node scripts/inject-am-sidecar-config.mjs --restore >/dev/null
-[ -d "$APP_BUILT" ] || { echo "  ✗ bundle missing (rc=$TAURI_RC):"; grep -iE "error" /tmp/noetica-tauri-build.log | head; exit 1; }
+# Fail loud on a nonzero tauri rc — NOT just a missing dir. A failed build leaves the PRIOR bundle in
+# place, so a dir-only check would silently re-ship a stale frontend (exactly the trap that shipped a
+# Jun-28 frontend over today's fixes). Require both a clean rc AND the bundle dir.
+{ [ "$TAURI_RC" -eq 0 ] && [ -d "$APP_BUILT" ]; } || { echo "  ✗ tauri build FAILED (rc=$TAURI_RC) — refusing to ship a stale bundle:"; grep -iE "error|doesn't exist|failed" /tmp/noetica-tauri-build.log | head; exit 1; }
 cp -f "$BIN" "$APP_BUILT/Contents/MacOS/agent-machine"   # defeat the externalBin cache
 echo "  ✓ bundled (frontend + binary fresh)"
 
