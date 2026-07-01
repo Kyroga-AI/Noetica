@@ -13,6 +13,7 @@ import { DeveloperPanel } from './panels/DeveloperPanel'
 import { OrgPanel } from './panels/OrgPanel'
 import { PolicyPanel } from './panels/PolicyPanel'
 import { VoicePanel } from './panels/VoicePanel'
+import { SurfaceErrorBoundary } from '@/components/shell/SurfaceErrorBoundary'
 
 type Category = {
   id: string
@@ -219,7 +220,9 @@ export function SettingsModal({ open, onClose, initialCategory = 'appearance' }:
             </button>
           </div>
           <div className="flex-1 overflow-y-auto px-6 py-5">
-            {cloneElement(active.panel as ReactElement<{ onNavigate?: (id: string) => void }>, { onNavigate: setActiveId })}
+            <SurfaceErrorBoundary key={active.id} surface={active.label}>
+              {cloneElement(active.panel as ReactElement<{ onNavigate?: (id: string) => void }>, { onNavigate: setActiveId })}
+            </SurfaceErrorBoundary>
           </div>
         </div>
       </div>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSettings } from '@/lib/settings/context'
-import { visibleModels } from '@/config/models'
+import { visibleModels, providersWithKeys } from '@/config/models'
 import { ProviderSetupModal } from '@/components/shell/ProviderSetupModal'
 import { amUrl } from '@/lib/tauri/bridge'
 
@@ -67,7 +67,7 @@ export function ModelsPanel() {
       : id.startsWith('openrouter/') ? 'openrouter'
       : id.startsWith('hf/') ? 'huggingface' : 'custom',
   }))
-  const modelList = [...visibleModels(settings.showAllModels), ...customModels]
+  const modelList = [...visibleModels(settings.showAllModels, providersWithKeys(settings)), ...customModels]
   const [suite, setSuite] = useState<ModelSuiteEntry[]>([])
   const [suiteLoading, setSuiteLoading] = useState(true)
   const [pullStates, setPullStates] = useState<Record<string, PullState>>({})

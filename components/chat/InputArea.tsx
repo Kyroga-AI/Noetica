@@ -8,7 +8,7 @@ import { isTauri, amUrl } from '@/lib/tauri/bridge'
 import type { McpTool } from '@/lib/types/mcp'
 import { McpToolPicker } from '@/components/mcp/McpToolPicker'
 import { IngestQueueTable } from '@/components/chat/IngestQueueTable'
-import { visibleModels } from '@/config/models'
+import { visibleModels, providersWithKeys } from '@/config/models'
 import { useSettings } from '@/lib/settings/context'
 
 export type WorkspaceMode = 'Chat' | 'Cowork' | 'Code' | 'Benchmark'
@@ -83,7 +83,7 @@ export function InputArea({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { settings, update } = useSettings()
-  const modelList = visibleModels(settings.showAllModels)
+  const modelList = visibleModels(settings.showAllModels, providersWithKeys(settings))
 
   const activeModel = modelList.find((m) => m.id === modelId) ?? modelList[0]
   // Short display name: "Sonnet 4.6", "GPT-4o", etc — strip "Claude " prefix
