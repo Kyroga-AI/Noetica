@@ -10604,15 +10604,17 @@ Question: ${question}`
   }
   if (req.method === 'GET' && url.pathname === '/api/blobs') {
     setCORSHeaders(res)
-    try {
-      const { getBlob, hasBlob } = await import('./lib/blob-store.js')
-      const hash = url.searchParams.get('hash') ?? ''
-      if (!hash) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'hash required' })); return }
-      if (!hasBlob(hash)) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'not_found' })); return }
-      const data = getBlob(hash)
-      res.writeHead(200, { 'content-type': 'application/octet-stream' })
-      res.end(data)
-    } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    void (async () => {
+      try {
+        const { getBlob, hasBlob } = await import('./lib/blob-store.js')
+        const hash = url.searchParams.get('hash') ?? ''
+        if (!hash) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'hash required' })); return }
+        if (!hasBlob(hash)) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'not_found' })); return }
+        const data = getBlob(hash)
+        res.writeHead(200, { 'content-type': 'application/octet-stream' })
+        res.end(data)
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
+    })()
     return
   }
 
@@ -11051,7 +11053,7 @@ Question: ${question}`
         const event = p['event'] as Parameters<typeof conformsToMembrane>[0]
         if (!event) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'event required' })); return }
         const conformance = conformsToMembrane(event)
-        const outcome     = outcomeFor({ trust: event['trust'] as 'trusted' | 'internal' | 'untrusted', injected: Boolean(event['injected']), allowed: Boolean(event['allowed']) })
+        const outcome     = outcomeFor({ trust: p['trust'] as 'trusted' | 'internal' | 'untrusted', injected: Boolean(p['injected']), allowed: Boolean(p['allowed']) })
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ conformance, outcome, executionPerformed: false }))
       } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error', detail: String(e) })) }
