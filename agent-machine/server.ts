@@ -11546,9 +11546,10 @@ Question: ${question}`
         let p: Record<string, unknown>
         try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
         const { checkActorGrant } = await import('./lib/a2a-trust.js')
-        const spiffeId   = typeof p['spiffeId']   === 'string' ? p['spiffeId']   : ''
+        const rawSpiffe  = typeof p['spiffeId']   === 'string' ? p['spiffeId']   : ''
+        const spiffeId   = /^spiffe:\/\/[a-zA-Z0-9._-]+\/[^\s]+$/.test(rawSpiffe) ? rawSpiffe : ''
         const capability = typeof p['capability'] === 'string' ? p['capability'] : ''
-        if (!spiffeId || !capability) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'spiffeId and capability required' })); return }
+        if (!spiffeId || !capability) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'valid spiffeId and capability required' })); return }
         const floor = typeof p['floor'] === 'number' ? p['floor'] : undefined
         const decision = floor !== undefined ? checkActorGrant(spiffeId, capability, floor) : checkActorGrant(spiffeId, capability)
         res.writeHead(200, { 'content-type': 'application/json' })
@@ -11728,7 +11729,7 @@ Question: ${question}`
         const id   = url.searchParams.get('id')
         if (id) {
           const meta = cms.get(id)
-          if (!meta) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'not_found', id })); return }
+          if (!meta) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'not_found' })); return }
           const version = url.searchParams.has('version') ? Number(url.searchParams.get('version')) : undefined
           const content = cms.getContent(id, version)
           res.writeHead(200, { 'content-type': 'application/json' })
@@ -11771,7 +11772,7 @@ Question: ${question}`
           const message = typeof p['message'] === 'string' ? p['message'] : undefined
           if (!id) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'id required' })); return }
           const meta = cms.update(id, content, message)
-          if (!meta) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'not_found', id })); return }
+          if (!meta) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'not_found' })); return }
           await persistArtifactCMS()
           res.writeHead(200, { 'content-type': 'application/json' })
           res.end(JSON.stringify({ meta, executionPerformed: false }))
@@ -11787,13 +11788,13 @@ Question: ${question}`
           const toVersion = typeof p['toVersion'] === 'number' ? p['toVersion'] : 1
           if (!id) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'id required' })); return }
           const meta = cms.rollback(id, toVersion)
-          if (!meta) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'not_found', id })); return }
+          if (!meta) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'not_found' })); return }
           await persistArtifactCMS()
           res.writeHead(200, { 'content-type': 'application/json' })
           res.end(JSON.stringify({ meta, executionPerformed: false }))
         } else {
           res.writeHead(400, { 'content-type': 'application/json' })
-          res.end(JSON.stringify({ error: 'unknown action', action }))
+          res.end(JSON.stringify({ error: 'unknown action' }))
         }
       } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
     })()
