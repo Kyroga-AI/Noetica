@@ -24,6 +24,10 @@ function wordCount(text: string): number {
 
 // ─── Markdown preview (simple) ────────────────────────────────────────────────
 
+function escapeHtml(s: string): string {
+  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+}
+
 function MarkdownPreview({ content }: { content: string }) {
   const lines = content.split('\n')
   return (
@@ -36,7 +40,9 @@ function MarkdownPreview({ content }: { content: string }) {
         if (line.startsWith('- ') || line.startsWith('* ')) return <li key={i} className="ml-4 list-disc">{line.slice(2)}</li>
         if (/^\d+\. /.test(line)) return <li key={i} className="ml-4 list-decimal">{line.replace(/^\d+\. /, '')}</li>
         if (line === '') return <div key={i} className="h-3" />
-        const rendered = line
+        // Escape HTML first so user content can never inject tags, then apply safe inline markup.
+        const safe = escapeHtml(line)
+        const rendered = safe
           .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
           .replace(/\*(.+?)\*/g, '<em>$1</em>')
           .replace(/`(.+?)`/g, '<code class="bg-[var(--color-background-secondary)] px-1 py-0.5 rounded text-xs font-mono">$1</code>')
