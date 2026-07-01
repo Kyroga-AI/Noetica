@@ -11566,10 +11566,13 @@ Question: ${question}`
         const body = await readBody(req)
         let p: Record<string, unknown>
         try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
-        const { recordOutcome, authorityStatus } = await import('./lib/a2a-trust.js')
+        const { recordOutcome, authorityStatus, trustLedger } = await import('./lib/a2a-trust.js')
         const rawId    = typeof p['spiffeId'] === 'string' ? p['spiffeId'] : ''
         const spiffeId = /^spiffe:\/\/[a-zA-Z0-9._-]+\/[^\s]+$/.test(rawId) ? rawId : ''
         if (!spiffeId) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'valid spiffeId required' })); return }
+        // Only update outcomes for already-registered actors (prevents arbitrary actor injection).
+        const ledger = trustLedger()
+        if (!Object.prototype.hasOwnProperty.call(ledger, spiffeId)) { res.writeHead(403, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'actor not registered' })); return }
         const raw = typeof p['outcome'] === 'object' && p['outcome'] ? p['outcome'] as Record<string, unknown> : {}
         const outcome: import('./lib/a2a-trust.js').TrustOutcome = {
           ok:                 typeof raw['ok']                 === 'boolean' ? raw['ok']                 : undefined,
@@ -11968,24 +11971,15 @@ Question: ${question}`
     return
   }
 
-  // ── Device Attestation — verify device identity attestation ──────────────────
+  // ── Device Attestation — verify THIS device's own identity attestation ───────
+  // Note: the attestation is created from the server-side device-identity store (not
+  // user-provided keys) so the crypto path is under server control only.
   if (req.method === 'POST' && url.pathname === '/api/device/attest/verify') {
     setCORSHeaders(res)
     void (async () => {
       try {
-        const body = await readBody(req)
-        let p: Record<string, unknown>
-        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
-        const { verifyAttestation } = await import('./lib/device-attestation.js')
-        const raw_ = typeof p['attestation'] === 'object' && p['attestation'] ? p['attestation'] as Record<string, unknown> : null
-        if (!raw_) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'attestation required' })); return }
-        const attestation: import('./lib/device-attestation.js').DeviceAttestation = {
-          deviceId:     typeof raw_['deviceId']     === 'string' ? raw_['deviceId']     : '',
-          publicKeyPem: typeof raw_['publicKeyPem'] === 'string' ? raw_['publicKeyPem'] : '',
-          timestamp:    typeof raw_['timestamp']    === 'string' ? raw_['timestamp']    : '',
-          signature:    typeof raw_['signature']    === 'string' ? raw_['signature']    : '',
-        }
-        if (!attestation.deviceId || !attestation.publicKeyPem || !attestation.signature) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'attestation fields required: deviceId, publicKeyPem, signature' })); return }
+        const { createAttestation, verifyAttestation } = await import('./lib/device-attestation.js')
+        const attestation = createAttestation()   // uses the server's stored key — no user input in crypto path
         const result = verifyAttestation(attestation)
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ ...result, executionPerformed: false }))
