@@ -411,8 +411,104 @@ async fn execute_computer_action(action: ComputerAction) -> Result<(), String> {
         Ok(())
     }
 
-    #[cfg(not(target_os = "macos"))]
-    Err("Computer actions only supported on macOS currently.".into())
+    #[cfg(target_os = "linux")]
+    {
+        // Linux: drive mouse/keyboard via xdotool (install: apt install xdotool / pacman -S xdotool)
+        let args: Vec<String> = match action.action_type.as_str() {
+            "mouse_move" => {
+                let x = action.x.ok_or("x required")?;
+                let y = action.y.ok_or("y required")?;
+                vec!["mousemove".into(), x.to_string(), y.to_string()]
+            }
+            "left_click" => {
+                let x = action.x.ok_or("x required")?;
+                let y = action.y.ok_or("y required")?;
+                vec!["mousemove".into(), x.to_string(), y.to_string(), "click".into(), "1".into()]
+            }
+            "right_click" => {
+                let x = action.x.ok_or("x required")?;
+                let y = action.y.ok_or("y required")?;
+                vec!["mousemove".into(), x.to_string(), y.to_string(), "click".into(), "3".into()]
+            }
+            "double_click" => {
+                let x = action.x.ok_or("x required")?;
+                let y = action.y.ok_or("y required")?;
+                vec!["mousemove".into(), x.to_string(), y.to_string(), "click".into(), "--repeat".into(), "2".into(), "1".into()]
+            }
+            "type" => {
+                let text = action.text.as_deref().unwrap_or("").to_string();
+                vec!["type".into(), "--clearmodifiers".into(), text]
+            }
+            "key" => {
+                let key = action.key.as_deref().unwrap_or("Return");
+                let xkey = match key {
+                    "Return" | "Enter" => "Return",
+                    "Tab" => "Tab",
+                    "Escape" => "Escape",
+                    "BackSpace" | "Delete" => "BackSpace",
+                    // ctrl combos are the same on Linux; cmd/super → ctrl on Linux desktops
+                    "ctrl+a" | "super+a" | "cmd+a" => "ctrl+a",
+                    "ctrl+c" | "super+c" | "cmd+c" => "ctrl+c",
+                    "ctrl+v" | "super+v" | "cmd+v" => "ctrl+v",
+                    other => other,
+                };
+                vec!["key".into(), xkey.into()]
+            }
+            "scroll" => {
+                let x = action.x.unwrap_or(0);
+                let y_coord = action.y.unwrap_or(0);
+                // xdotool: button 4 = scroll up, 5 = scroll down
+                let button = if action.scroll_y.unwrap_or(1) >= 0 { "5" } else { "4" };
+                vec!["mousemove".into(), x.to_string(), y_coord.to_string(), "click".into(), button.into()]
+            }
+            "drag" => {
+                let pts = action.drag_path.as_deref().unwrap_or(&[]);
+                if pts.len() < 2 { return Ok(()) }
+                let start = &pts[0];
+                let end   = &pts[pts.len() - 1];
+                // Move to start, press, move through path, release
+                let mut cmd_args = vec![
+                    "mousemove".into(), start.x.to_string(), start.y.to_string(),
+                    "mousedown".into(), "1".into(),
+                ];
+                for pt in pts.iter().skip(1) {
+                    cmd_args.push("mousemove".into());
+                    cmd_args.push(pt.x.to_string());
+                    cmd_args.push(pt.y.to_string());
+                }
+                cmd_args.push("mouseup".into());
+                cmd_args.push("1".into());
+                let status = std::process::Command::new("xdotool")
+                    .args(&cmd_args)
+                    .status()
+                    .map_err(|_| "xdotool not found — install it: apt install xdotool".to_string())?;
+                if !status.success() {
+                    return Err("Drag failed — check that xdotool is installed and X11/Wayland is accessible.".into());
+                }
+                let _ = end; // used via cmd_args above
+                std::thread::sleep(std::time::Duration::from_millis(300));
+                return Ok(());
+            }
+            "wait" => {
+                std::thread::sleep(std::time::Duration::from_millis(500));
+                return Ok(());
+            }
+            "screenshot" => return Ok(()),
+            other => return Err(format!("unknown action type: {}", other)),
+        };
+        let status = std::process::Command::new("xdotool")
+            .args(&args)
+            .status()
+            .map_err(|_| "xdotool not found — install it: apt install xdotool".to_string())?;
+        if !status.success() {
+            return Err("Action failed — ensure xdotool is installed and accessibility is enabled.".into());
+        }
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        Ok(())
+    }
+
+    #[cfg(not(any(target_os = "macos", target_os = "linux")))]
+    Err("Computer actions not supported on this platform.".into())
 }
 
 // ─── File system commands ─────────────────────────────────────────────────────

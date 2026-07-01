@@ -7,10 +7,25 @@ VOICE_DIR="$HOME/.noetica/voice"
 VENV="$VOICE_DIR/venv"
 mkdir -p "$VOICE_DIR"
 
-command -v uv >/dev/null 2>&1 || { echo "ERROR: uv is required (brew install uv)"; exit 1; }
+if ! command -v uv >/dev/null 2>&1; then
+  echo "ERROR: uv is required. Install it:"
+  echo "  macOS/Linux: curl -LsSf https://astral.sh/uv/install.sh | sh"
+  echo "  macOS (brew): brew install uv"
+  exit 1
+fi
 if ! command -v ffmpeg >/dev/null 2>&1; then
   echo "[voice] installing ffmpeg (audio I/O)…"
-  brew install ffmpeg >/dev/null 2>&1 || echo "[voice] ffmpeg install skipped (brew unavailable) — install it manually if synthesis fails"
+  if command -v brew >/dev/null 2>&1; then
+    brew install ffmpeg >/dev/null 2>&1
+  elif command -v apt-get >/dev/null 2>&1; then
+    sudo apt-get install -y ffmpeg >/dev/null 2>&1
+  elif command -v dnf >/dev/null 2>&1; then
+    sudo dnf install -y ffmpeg >/dev/null 2>&1
+  elif command -v pacman >/dev/null 2>&1; then
+    sudo pacman -S --noconfirm ffmpeg >/dev/null 2>&1
+  else
+    echo "[voice] ffmpeg install skipped — no known package manager found; install ffmpeg manually if synthesis fails"
+  fi
 fi
 
 if [ ! -x "$VENV/bin/python" ]; then
