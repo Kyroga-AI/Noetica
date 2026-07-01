@@ -494,9 +494,10 @@ export function Sidebar({
           )
         })}
 
-        {/* Models & AI group — the Vertex-equivalent cluster (prompt studio, retrieval, capabilities, eval, tuning) */}
+        {/* Models & AI group. Studio is now a tabbed workspace (Prompt/RAG/Capabilities/Alignment) —
+            rag/lab/alignment fold in as tabs, so they no longer each claim a nav slot. */}
         <div className={`px-2 ${groupGap} pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>Models &amp; AI</div>
-        {(['studio','rag','lab','alignment','evaluate','tune'] as ActiveSurface[]).map((id) => {
+        {(['studio','evaluate','tune'] as ActiveSurface[]).map((id) => {
           const item = surfaceItems.find(s => s.id === id)!
           const isActive = activeSurface === id
           return (
@@ -515,7 +516,8 @@ export function Sidebar({
 
         {/* Operate & Govern group */}
         <div className={`px-2 ${groupGap} pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>Operate &amp; Govern</div>
-        {(['operate','govern','computer'] as ActiveSurface[]).map((id) => {
+        {/* Computer Use folds into Operate as a tab — not its own nav slot. */}
+        {(['operate','govern'] as ActiveSurface[]).map((id) => {
           const item = surfaceItems.find(s => s.id === id)!
           const isActive = activeSurface === id
           return (
