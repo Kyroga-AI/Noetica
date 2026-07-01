@@ -4539,11 +4539,24 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       }
       // #5 — auto-capture FAILED turns (low grounding coverage) as replayable eval cases. This is the data
       // half of the verifier→selection keystone: a growing regression set from real production failures.
+      // #5 — unified learning scheduler: routes each turn through all 3 loops atomically.
+      // Loop 1 (eval-capture): failures → regression cases; successes → Langfuse sink.
+      // Loop 2 (procedural-memory): distill skill + verified experience when PROCEDURAL_MEMORY=true.
+      // Loop 3 (srs): newly distilled skills enroll an SRS card at distill time.
       try {
-        const { captureFailure } = await import('./lib/eval-capture.js')
-        const c = captureFailure({ input: latestUserContent, output: fullContent, verified: turnGrounded, coverage: valueJudgment.grounding, decision: routerDecision.task }, Date.now(), { minCoverage: 0.5 })
-        if (c) appendEncrypted(path.join(os.homedir(), '.noetica', 'eval-cases.jsonl'), c)   // encrypted at rest
-      } catch { /* eval-capture best-effort */ }
+        const { scheduleAfterTurn } = await import('./lib/learning-scheduler.js')
+        const lResult = scheduleAfterTurn({
+          input: latestUserContent, output: fullContent,
+          verified: turnGrounded, coverage: valueJudgment.grounding,
+          task: routerDecision.task ?? 'general',
+          steps: trajectoryActions.map((a) => a.type),
+          worth: valueJudgment.worth,
+          now: Date.now(),
+        }, { procedural: process.env['PROCEDURAL_MEMORY'] === 'true', minCoverage: 0.5 })
+        if (lResult.evalCase) appendEncrypted(path.join(os.homedir(), '.noetica', 'eval-cases.jsonl'), lResult.evalCase)
+        if (lResult.skill) appendEncrypted(skillsPath(), lResult.skill)
+        if (lResult.experience) appendEncrypted(path.join(os.homedir(), '.noetica', 'experiences.jsonl'), lResult.experience)
+      } catch { /* learning-scheduler best-effort */ }
       // #5b — capture VERIFIED turns as SFT positives (rejection sampling: the success/training half).
       // The shard feeds the Atlas causal_lm_lora trainer (tritfabric) via /api/tune submit → POST /v1/tune.
       // SOVEREIGNTY: harvesting is OFF by default (NOETICA_LEARN_OPT_IN) — this data could leave the
@@ -4565,17 +4578,6 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           if (v) { const sp = path.join(os.homedir(), '.noetica', 'distill', 'verified.sft.jsonl'); fs.mkdirSync(path.dirname(sp), { recursive: true }); fs.appendFileSync(sp, `${toSftLine(v)}\n`) }
         }
       } catch { /* sft-harvest best-effort */ }
-      // #6 — distill SUCCESSFUL turns (high worth + a real tool sequence) into reusable procedural skills (the
-      // success half; retrieved into the system prompt on future similar tasks above).
-      // Gated: PROCEDURAL_MEMORY=true opts in (default off — runs the learning loop but the write
-      // has no storage cost when disabled; the read side is always active to reuse existing skills).
-      try {
-        if (process.env['PROCEDURAL_MEMORY'] === 'true' && valueJudgment.worth >= 0.6 && trajectoryActions.length >= 2) {
-          const { distillSkill } = await import('./lib/procedural-memory.js')
-          const skill = distillSkill(latestUserContent.slice(0, 120), routerDecision.task ?? 'general', trajectoryActions.map((a) => a.type))
-          appendEncrypted(skillsPath(), skill)   // encrypted at rest
-        }
-      } catch { /* procedural-memory best-effort */ }
     } catch { /* VJ is best-effort — never block the response */ }
 
     recordGovernanceRun({
@@ -5042,15 +5044,65 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && url.pathname === '/api/learning/stats') {
     const skills = loadSkills()
     const evalCases = readEncrypted<Record<string, unknown>>(path.join(os.homedir(), '.noetica', 'eval-cases.jsonl'))
+    const experiences = readEncrypted<Record<string, unknown>>(path.join(os.homedir(), '.noetica', 'experiences.jsonl'))
+    const now = Date.now()
+    const skillsDue = skills.filter((s) => {
+      const card = (s as unknown as Record<string, unknown>)['card'] as { due?: number } | undefined
+      return card !== undefined && typeof card.due === 'number' && card.due <= now
+    }).length
     // The felt-win: the latest replay of captured failures against the current system ("fixed X of N").
     let replay: Record<string, unknown> | null = null
     try { replay = JSON.parse(fs.readFileSync(path.join(os.homedir(), '.noetica', 'learning-replay.json'), 'utf8')) as Record<string, unknown> } catch { /* none run yet */ }
     res.writeHead(200, { 'Content-Type': 'application/json', 'Access-Control-Allow-Origin': '*' })
     res.end(JSON.stringify({
-      skills: { count: skills.length, recent: skills.slice(-5).map((s) => ({ task: s.task, abstraction: s.abstraction, steps: s.steps })) },
+      skills: { count: skills.length, due: skillsDue, recent: skills.slice(-5).map((s) => ({ task: s.task, abstraction: s.abstraction, steps: s.steps })) },
       evalCases: { count: evalCases.length, recent: evalCases.slice(-5).map((c) => ({ input: String(c['input'] ?? '').slice(0, 80), failureMode: c['failureMode'], coverage: c['coverage'] })) },
+      experiences: { count: experiences.length },
       replay,
     }))
+    return
+  }
+
+  // POST /api/learning/schedule — unified scheduler management: tick, stats, skill-SRS review.
+  if (req.method === 'POST' && url.pathname === '/api/learning/schedule') {
+    void (async () => {
+      try {
+        setCORSHeaders(res)
+        const rawBody = await readBody(req)
+        let p: Record<string, unknown> = {}
+        try { p = JSON.parse(rawBody) as Record<string, unknown> } catch { /* default empty */ }
+        const action = String(p['action'] ?? 'stats')
+        const { unifiedStats, getSkillsDue, reviewSkillCard } = await import('./lib/learning-scheduler.js')
+        const sk = loadSkills() as Array<import('./lib/procedural-memory.js').Skill & { card?: import('./lib/srs.js').Card }>
+        const ec = readEncrypted<Record<string, unknown>>(path.join(os.homedir(), '.noetica', 'eval-cases.jsonl'))
+        const exp = readEncrypted<Record<string, unknown>>(path.join(os.homedir(), '.noetica', 'experiences.jsonl'))
+        const ts = Date.now()
+        if (action === 'stats') {
+          const stats = unifiedStats(ec, sk, exp, ts)
+          res.writeHead(200, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ ok: true, stats, executionPerformed: false }))
+          return
+        }
+        if (action === 'due-skills') {
+          const due = getSkillsDue(sk.filter((s) => s.card !== undefined) as Array<import('./lib/procedural-memory.js').Skill & { card: import('./lib/srs.js').Card }>, ts)
+          res.writeHead(200, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ ok: true, due: due.map((s) => ({ id: s.id, task: s.task, abstraction: s.abstraction, due: s.card.due })), executionPerformed: false }))
+          return
+        }
+        if (action === 'review-skill') {
+          const skillId = String(p['skillId'] ?? '')
+          const grade = Number(p['grade'] ?? 2) as 0 | 1 | 2 | 3
+          const target = sk.find((s) => s.id === skillId)
+          if (!target?.card) { res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: 'skill_not_found' })); return }
+          const updated = reviewSkillCard(target.card, grade, ts)
+          res.writeHead(200, { 'Content-Type': 'application/json' })
+          res.end(JSON.stringify({ ok: true, card: updated, executionPerformed: false }))
+          return
+        }
+        res.writeHead(400, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ ok: false, error: 'unknown_action', valid: ['stats', 'due-skills', 'review-skill'] }))
+      } catch { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
     return
   }
 
