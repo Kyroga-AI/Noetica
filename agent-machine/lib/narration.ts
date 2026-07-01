@@ -17,7 +17,7 @@ export function modelLabel(model: string): string {
   if (m.includes('qwen2.5:7b') || m.includes('7b')) return 'balanced local model'
   if (m.includes('claude') && m.includes('sonnet')) return 'cloud reasoning model (Claude)'
   if (m.includes('claude')) return 'fast cloud model (Claude)'
-  if (m.includes('gpt-4o')) return 'cloud model (GPT-4o)'
+  if (m.includes('gpt-5') || m.includes('gpt-4')) return 'cloud model (GPT)'
   return model
 }
 

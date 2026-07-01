@@ -19,11 +19,11 @@ const MODEL_PRICES: Record<string, TokenPrice> = {
   // Anthropic
   'claude-opus-4-8':          { input: 15,   output: 75 },
   'claude-sonnet-4-6':        { input: 3,    output: 15 },
-  'claude-haiku-4-5-20251001':{ input: 1,    output: 5 },
+  'claude-haiku-4-5':         { input: 1,    output: 5 },
   // OpenAI
-  'gpt-4o':                   { input: 2.5,  output: 10 },
-  'gpt-4o-mini':              { input: 0.15, output: 0.6 },
-  'o3':                       { input: 2,    output: 8 },
+  'gpt-5.5':                  { input: 5,    output: 30 },
+  'gpt-5.5-pro':              { input: 30,   output: 180 },
+  'gpt-5.4-mini':             { input: 0.25, output: 2 },
 }
 
 // Provider-level fallback when the exact model id isn't in the table.

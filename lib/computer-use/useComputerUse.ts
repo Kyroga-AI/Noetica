@@ -455,7 +455,7 @@ export function useComputerUse({
           goal,
           provider === 'anthropic' ? anthropicApiKey : (openaiApiKey ?? ''),
           provider,
-          provider === 'anthropic' ? 'claude-sonnet-4-6' : 'gpt-4o',  // use a faster model for planning
+          provider === 'anthropic' ? 'claude-sonnet-4-6' : 'gpt-5.4-mini',  // use a faster model for planning
           memoryContext
         )
       } catch (err) {

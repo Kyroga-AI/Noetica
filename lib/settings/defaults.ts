@@ -39,7 +39,7 @@ export const defaultSettings: NoeticaSettings = {
 
   replyLength: 'medium',
   agentMode: 'auto',
-  fanoutModels: ['claude-sonnet-4-6', 'gpt-4o'],
+  fanoutModels: ['claude-sonnet-4-6', 'gpt-5.5'],
   fanoutConcurrency: 3,
 
   wakeWordEnabled: false,

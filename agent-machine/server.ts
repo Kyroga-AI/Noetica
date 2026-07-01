@@ -798,6 +798,10 @@ async function runSuperconsciousLoop(keys: LoopProviderKeys): Promise<void> {
 
     // Run synthesis — prefer Anthropic, fall back to OpenAI
     let synthesisText = ''
+    // Redact PII/secrets before any CLOUD egress — observations are file-backed and may carry
+    // sensitive user data. The local Ollama path below needs none (nothing leaves the device).
+    const { redact } = await import('./lib/redact.js')
+    const cloudPrompt = redact(prompt).redacted
     if (keys.anthropic || anthropicProxyMode()) {
       const _t = anthropicTarget(keys.anthropic ?? '')
       const res = await fetch(_t.url, {
@@ -806,7 +810,7 @@ async function runSuperconsciousLoop(keys: LoopProviderKeys): Promise<void> {
         body: JSON.stringify({
           model: 'claude-haiku-4-5',
           max_tokens: 1024,
-          messages: [{ role: 'user', content: prompt }],
+          messages: [{ role: 'user', content: cloudPrompt }],
         }),
         signal: AbortSignal.timeout(30000),
       })
@@ -818,7 +822,7 @@ async function runSuperconsciousLoop(keys: LoopProviderKeys): Promise<void> {
       const res = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
         headers: { 'content-type': 'application/json', 'authorization': `Bearer ${keys.openai}` },
-        body: JSON.stringify({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: prompt }], max_tokens: 1024 }),
+        body: JSON.stringify({ model: 'gpt-5.4-mini', messages: [{ role: 'user', content: cloudPrompt }], max_tokens: 1024 }),
         signal: AbortSignal.timeout(30000),
       })
       if (res.ok) {
@@ -2944,7 +2948,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     if (hint.recommendEscalation) {
       let escalated = false
       if (anthropicAvailable) { provider = 'anthropic'; model = 'claude-haiku-4-5'; escalated = true }
-      else if (openaiKey) { provider = 'openai'; model = 'gpt-4o-mini'; escalated = true }
+      else if (openaiKey) { provider = 'openai'; model = 'gpt-5.4-mini'; escalated = true }
       if (escalated) {
         console.log(`[self-model] escalated task="${String(routerDecision.task)}" → ${provider}:${model} (local success ${(hint.localSuccessRate ?? 0).toFixed(2)} over ${hint.localRuns} runs)`.replace(/\r/g, '').replace(/\n/g, ''))
       }
