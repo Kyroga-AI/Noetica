@@ -110,6 +110,7 @@ const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
   library:      'Chat',
   intelligence: 'Chat',
   portfolio:    'Chat',
+  platform:     'Chat',
 }
 
 export function AppShell() {
@@ -1763,7 +1764,10 @@ type CenterProps = {
 function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onSpeak, onFeedback, agentMode, onSetAgentMode, onPlanApprove, onPlanReject }: CenterProps) {
   if (activeSurface === 'notes')        return <NotesSurface />
   if (activeSurface === 'canvas')       return <CanvasSurface />
-  if (activeSurface === 'workrooms')    return <WorkroomsSurface thinkingBudget={thinkingBudget} />
+  if (activeSurface === 'workrooms')    return <TabbedWorkspace tabs={[
+    { id: 'workrooms', label: 'Rooms', render: () => <WorkroomsSurface thinkingBudget={thinkingBudget} /> },
+    { id: 'jitsi', label: 'Video', render: () => <JitsiSurface /> },
+  ]} />
   if (activeSurface === 'cowork')       return <CoworkSurface thinkingBudget={thinkingBudget} />
   if (activeSurface === 'projects')     return <ProjectsPanel />
   if (activeSurface === 'artifacts')    return <ArtifactsSurface />
@@ -1778,6 +1782,12 @@ function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, work
   ]} />
   if (activeSurface === 'rag')          return <RagInspectSurface />
   if (activeSurface === 'lab')          return <LabSurface />
+  if (activeSurface === 'platform')     return <TabbedWorkspace tabs={[
+    { id: 'broker', label: 'Cloud Broker', render: () => <CloudBrokerSurface /> },
+    { id: 'marketplace', label: 'Marketplace', render: () => <MarketplaceSurface /> },
+    { id: 'geo', label: 'Geo', render: () => <GeoSurface /> },
+    { id: 'holographme', label: 'HolographMe', render: () => <HolographMeSurface /> },
+  ]} />
   if (activeSurface === 'broker')       return <CloudBrokerSurface />
   if (activeSurface === 'alignment')    return <AlignmentSurface />
   if (activeSurface === 'agents')       return <AgentBuilderSurface />
