@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { amUrl } from '@/lib/tauri/bridge'
 
 /**
  * LabSurface — makes the wave-2/3 capability libs FELT (weakness #1: built+tested but unwired). Each card runs
@@ -97,7 +98,7 @@ export function LabSurface() {
     try {
       let body: unknown = {}
       try { body = JSON.parse(payload || '{}') } catch { setResult('Invalid JSON payload'); setLoading(false); return }
-      const res = await fetch(`/api/cap/${active.id}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+      const res = await fetch(amUrl(`/api/cap/${active.id}`), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
       setResult(JSON.stringify(await res.json(), null, 2))
     } catch { setResult('(request failed — backend offline?)') } finally { setLoading(false) }
   }

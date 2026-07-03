@@ -28,11 +28,14 @@ export function keywordScore(query: string, text: string): number {
   return matches / qTokens.size
 }
 
+import { amUrl } from '@/lib/tauri/bridge'
+
 // Fetch embedding(s) from the Noetica embed API route.
 // openaiKey is optional — when absent the route falls back to a local Ollama model.
+// In Tauri (static export), amUrl routes to the :8080 agent-machine sidecar's /api/embed handler.
 export async function fetchEmbedding(text: string, openaiKey?: string): Promise<number[] | null> {
   try {
-    const res = await fetch('/api/embed', {
+    const res = await fetch(amUrl('/api/embed'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text, ...(openaiKey ? { openai_key: openaiKey } : {}) }),
@@ -48,7 +51,7 @@ export async function fetchEmbedding(text: string, openaiKey?: string): Promise<
 export async function fetchEmbeddings(texts: string[], openaiKey?: string): Promise<number[][] | null> {
   if (texts.length === 0) return []
   try {
-    const res = await fetch('/api/embed', {
+    const res = await fetch(amUrl('/api/embed'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ texts, ...(openaiKey ? { openai_key: openaiKey } : {}) }),

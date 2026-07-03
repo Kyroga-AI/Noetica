@@ -25,6 +25,7 @@ export type NoeticaChatTransportHandlers = {
   onValueJudgment?: (vj: import('@/lib/types/message').ValueJudgment) => void
   onDiscipline?: (d: import('@/lib/types/message').DisciplineTrace) => void
   onDeliberation?: (d: import('@/lib/types/message').Deliberation) => void
+  onC2PACredential?: (credential: GovernanceTrace['credential']) => void
   onDone: (result: NoeticaStreamDoneResult) => void
   onError: (error: string) => void
 }
@@ -174,6 +175,7 @@ async function readNoeticaEventStream(response: Response, handlers: NoeticaChatT
       if (parsed.event === 'value_judgment') handlers.onValueJudgment?.(payload['value_judgment'] as import('@/lib/types/message').ValueJudgment)
       if (parsed.event === 'discipline') handlers.onDiscipline?.(payload['discipline'] as import('@/lib/types/message').DisciplineTrace)
       if (parsed.event === 'deliberation') handlers.onDeliberation?.(payload['deliberation'] as import('@/lib/types/message').Deliberation)
+      if (parsed.event === 'c2pa_credential') handlers.onC2PACredential?.(payload['credential'] as GovernanceTrace['credential'])
       if (parsed.event === 'done') {
         receivedDone = true
         // Capture verification + citations off the done event. agent-machine may emit

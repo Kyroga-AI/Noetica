@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { amUrl } from '@/lib/tauri/bridge'
+import { useSettings } from '@/lib/settings/context'
 
-interface DialogueTurn { speaker: 'Host' | 'Guest'; line: string }
+interface DialogueTurn { speaker: 'Host' | 'Guest'; line: string; audio_b64?: string }
 type Format = 'brief' | 'critique' | 'debate'
 
 function pickVoices(): { host: SpeechSynthesisVoice | null; guest: SpeechSynthesisVoice | null } {
@@ -19,9 +20,19 @@ function speak(line: string, voice: SpeechSynthesisVoice | null, rate = 1.0): Sp
   return u
 }
 
+async function playAudioB64(b64: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const audio = new Audio(`data:audio/mp3;base64,${b64}`)
+    audio.onended = () => resolve()
+    audio.onerror = () => reject(new Error('audio playback error'))
+    audio.play().catch(reject)
+  })
+}
+
 interface Props { refreshSignal?: number }
 
 export function AudioOverviewPlayer({ refreshSignal = 0 }: Props) {
+  const { settings } = useSettings()
   const [hasDocs, setHasDocs] = useState(false)
   const [open, setOpen] = useState(false)
   const [format, setFormat] = useState<Format>('brief')
@@ -53,13 +64,16 @@ export function AudioOverviewPlayer({ refreshSignal = 0 }: Props) {
     setTurns([])
     setCurrentIdx(-1)
     try {
-      const r = await fetch(amUrl(`/api/study/audio-overview?format=${format}`), { signal: AbortSignal.timeout(120_000) })
+      const useTTS = !!settings.openaiApiKey
+      const params = new URLSearchParams({ format })
+      if (useTTS) { params.set('synthesize', '1'); params.set('voice_host', 'nova'); params.set('voice_guest', 'echo') }
+      const r = await fetch(amUrl(`/api/study/audio-overview?${params.toString()}`), { signal: AbortSignal.timeout(180_000) })
       if (!r.ok) {
         const d = await r.json().catch(() => ({})) as { error?: string }
         setError(d.error === 'no_docs' ? 'No indexed documents found.' : 'Generation failed.')
         return
       }
-      const d = await r.json() as { turns?: DialogueTurn[] }
+      const d = await r.json() as { turns?: DialogueTurn[]; synthesized?: boolean }
       setTurns(d.turns ?? [])
     } catch {
       setError('Request timed out or failed.')
@@ -74,16 +88,21 @@ export function AudioOverviewPlayer({ refreshSignal = 0 }: Props) {
     setPlaying(true)
     const { host, guest } = pickVoices()
 
-    function playNext(i: number) {
+    async function playNext(i: number): Promise<void> {
       if (cancelledRef.current || i >= turns.length) { setPlaying(false); setCurrentIdx(-1); return }
       setCurrentIdx(i)
       const t = turns[i]!
-      const u = speak(t.line, t.speaker === 'Host' ? host : guest)
-      u.onend = () => playNext(i + 1)
-      u.onerror = () => { setPlaying(false); setCurrentIdx(-1) }
-      window.speechSynthesis.speak(u)
+      if (t.audio_b64) {
+        try { await playAudioB64(t.audio_b64) } catch { /* fall through to browser TTS */ }
+        if (!cancelledRef.current) return playNext(i + 1)
+      } else {
+        const u = speak(t.line, t.speaker === 'Host' ? host : guest)
+        u.onend = () => { void playNext(i + 1) }
+        u.onerror = () => { setPlaying(false); setCurrentIdx(-1) }
+        window.speechSynthesis.speak(u)
+      }
     }
-    playNext(idx)
+    void playNext(idx)
   }
 
   function pause() {

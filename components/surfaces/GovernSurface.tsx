@@ -129,8 +129,9 @@ interface MeshTrends {
 }
 
 interface LearningStats {
-  skills: { count: number; recent: Array<{ task: string; abstraction: string; steps: string[] }> }
+  skills: { count: number; due: number; recent: Array<{ task: string; abstraction: string; steps: string[] }> }
   evalCases: { count: number; recent: Array<{ input: string; failureMode: string; coverage: number }> }
+  experiences: { count: number }
   replay?: { total: number; fixed: number; stillFailing: number; fixedRate: number; ts: number } | null
 }
 
@@ -406,7 +407,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
         )}
 
         {/* Production-learning loop — what the agent has learned from real turns */}
-        {learning && (learning.skills.count > 0 || learning.evalCases.count > 0) && (
+        {learning && (learning.skills.count > 0 || learning.evalCases.count > 0 || (learning.experiences?.count ?? 0) > 0) && (
           <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
             <div className="flex items-center justify-between mb-3">
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Learning loop</div>
@@ -424,14 +425,23 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                 <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">of your captured failures now pass ({Math.round(learning.replay.fixedRate * 100)}%)</div>
               </div>
             )}
-            <div className="grid grid-cols-2 gap-3 mb-3">
+            <div className="grid grid-cols-3 gap-3 mb-3">
               <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
-                <div className="text-2xl font-semibold text-[#16a34a]">{learning.skills.count}</div>
-                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Skills from successes</div>
+                <div className="flex items-center justify-center gap-1.5">
+                  <span className="text-2xl font-semibold text-[#16a34a]">{learning.skills.count}</span>
+                  {learning.skills.due > 0 && (
+                    <span className="rounded-full bg-[#1d4ed8] px-1.5 text-[9px] font-semibold text-white">{learning.skills.due}</span>
+                  )}
+                </div>
+                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Skills{learning.skills.due > 0 ? ` · ${learning.skills.due} due` : ''}</div>
+              </div>
+              <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
+                <div className="text-2xl font-semibold text-[#7c3aed]">{learning.experiences?.count ?? 0}</div>
+                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Experiences</div>
               </div>
               <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
                 <div className="text-2xl font-semibold text-[#d97706]">{learning.evalCases.count}</div>
-                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Failures captured for replay</div>
+                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Failures</div>
               </div>
             </div>
             {learning.skills.recent.length > 0 && (

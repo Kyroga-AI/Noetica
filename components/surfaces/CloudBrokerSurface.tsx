@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { amUrl } from '@/lib/tauri/bridge'
 
 /**
  * CloudBrokerSurface — the C2 control plane over cloud compute. Brokers a workload to the cheapest satisfying
@@ -49,7 +50,7 @@ export function CloudBrokerSurface() {
   async function broker() {
     setLoading(true); setErr('')
     try {
-      const r = await fetch('/api/cap/cloud-broker', { method: 'POST', headers: { 'content-type': 'application/json' }, body: reqBody() })
+      const r = await fetch(amUrl('/api/cap/cloud-broker'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: reqBody() })
       if (!r.ok) throw new Error(`broker ${r.status}`)
       setResp(await r.json() as BrokerResp)
     } catch (e) { setErr(e instanceof Error ? e.message : 'broker failed — is the backend running?') }
@@ -59,7 +60,7 @@ export function CloudBrokerSurface() {
   async function provision() {
     setProvisioning(true); setErr('')
     try {
-      const r = await fetch('/api/cap/cloud-broker', { method: 'POST', headers: { 'content-type': 'application/json' }, body: reqBody({ provision: true, swarmId: 'session' }) })
+      const r = await fetch(amUrl('/api/cap/cloud-broker'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: reqBody({ provision: true, swarmId: 'session' }) })
       if (!r.ok) throw new Error(`provision ${r.status}`)
       setResp(await r.json() as BrokerResp)
       loadFleet()   // a new executor was registered — refresh the fleet panel
@@ -68,10 +69,10 @@ export function CloudBrokerSurface() {
   }
 
   function loadFleet() {
-    void fetch('/api/fleet').then((r) => r.ok ? r.json() : null).then((j: FleetResp | null) => { if (j) setFleet(j) }).catch(() => {})
+    void fetch(amUrl('/api/fleet')).then((r) => r.ok ? r.json() : null).then((j: FleetResp | null) => { if (j) setFleet(j) }).catch(() => {})
   }
   useEffect(() => {
-    void fetch('/api/cap/runtime-assets', { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+    void fetch(amUrl('/api/cap/runtime-assets'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
       .then((r) => r.ok ? r.json() : null).then((j: { assets?: RuntimeAsset[] } | null) => { if (j?.assets) setRuntimes(j.assets) }).catch(() => {})
     loadFleet()
   }, [])

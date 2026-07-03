@@ -77,6 +77,7 @@ import type { ModelConfig } from '@/lib/types/model'
 import type { GovernanceTrace } from '@/lib/types/governance'
 import type { ProviderTool, ToolUseBlock } from '@/lib/providers'
 import { mcpManager } from '@/lib/mcp/client'
+import { amUrl } from '@/lib/tauri/bridge'
 
 const SURFACE_ORDER: ActiveSurface[] = ['chat', 'notes', 'canvas', 'workrooms', 'cowork', 'projects', 'artifacts', 'code', 'evaluate', 'operate', 'computer']
 
@@ -415,6 +416,7 @@ export function AppShell() {
   }
 
   const voiceReplyRef = useRef(false)
+  const c2paCredRef = useRef<import('@/lib/types/governance').GovernanceTrace['credential']>(undefined)
   // Stable callback reference — must be memoized to avoid recreating `startListening` on every
   // render, which would retrigger the wake-word useEffect and cause a rapid restart loop.
   const handleVoiceTranscript = useCallback((transcript: string) => {
@@ -746,7 +748,7 @@ export function AppShell() {
       autoTitle(content)
       setMessages((cur) => { const next = [...cur, u, a]; updateMessages(next); return next })
       try {
-        const r = await fetch('/api/research/solve', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question: q }) })
+        const r = await fetch(amUrl('/api/research/solve'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question: q }) })
         const j = (await r.json()) as { answer?: string; grounded?: boolean; score?: number; sources?: { n: number; filename: string }[] }
         const pct = Math.round((j.score ?? 0) * 100)
         const badge = j.grounded ? `✅ Grounded (${pct}%)` : `⚠️ Partially grounded (${pct}%) — treat with care`
@@ -1059,6 +1061,7 @@ export function AppShell() {
           },
           {
             onMeta: (governance) => {
+              c2paCredRef.current = undefined
               updateAssistant(assistantId, { governance })
               if (settings.showRawEvents) {
                 setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'meta', payload: governance }, ...prev].slice(0, 80))
@@ -1107,6 +1110,7 @@ export function AppShell() {
                 setRawEventLog((prev) => [{ ts: new Date().toISOString(), kind: 'deliberation', payload: d }, ...prev].slice(0, 80))
               }
             },
+            onC2PACredential: (credential) => { if (credential) c2paCredRef.current = credential },
             // Live todo checklist (the AM streams plan + step events; render them as a checklist).
             onPlan: (plan) => updateAssistant(assistantId, { plan }),
             onStep: (step) => mergePlanStep(assistantId, step),
@@ -1165,6 +1169,7 @@ export function AppShell() {
                   ...(result.grounded !== undefined ? { grounded: result.grounded } : {}),
                   ...(result.decidable !== undefined ? { decidable: result.decidable } : {}),
                   ...(result.replay_class !== undefined ? { replay_class: result.replay_class } : {}),
+                  ...(c2paCredRef.current ? { credential: c2paCredRef.current } : {}),
                 },
                 steering_result: result.steering_applied,
                 // The moat made visible — verification badge + inline citations from the done event.
@@ -1547,7 +1552,7 @@ export function AppShell() {
                 onNavigateToOperate={() => setActiveSurface('operate')}
                 onSpeak={speak}
                 onFeedback={(messageId, rating) => {
-                  void fetch('/api/learning/feedback', {
+                  void fetch(amUrl('/api/learning/feedback'), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ messageId, rating, sessionId: activeSession?.id }),

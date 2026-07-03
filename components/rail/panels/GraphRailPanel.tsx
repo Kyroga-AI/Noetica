@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { SurfaceGraph, KIND_COLOR, KIND_ORDER, DIM_COLOR, DIM_ORDER, type GraphNode, type GraphLink, type GraphLayout } from '@/components/graph/SurfaceGraph'
+import { amUrl } from '@/lib/tauri/bridge'
 
 interface GraphHealth {
   status: 'healthy' | 'degraded' | 'unknown'
@@ -67,7 +68,7 @@ export function GraphRailPanel() {
     if (!question || nlLoading) return
     setNlLoading(true); setNlResult(null)
     try {
-      const res = await fetch('/api/graph/nlquery', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question }) })
+      const res = await fetch(amUrl('/api/graph/nlquery'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question }) })
       if (res.ok) setNlResult(await res.json() as NonNullable<typeof nlResult>)
     } catch { /* offline */ } finally { setNlLoading(false) }
   }
@@ -75,7 +76,7 @@ export function GraphRailPanel() {
     setToolsLoading('all')
     try {
       const [an, co, rs, inf, on] = await Promise.all([
-        fetch('/api/graph/anomalies'), fetch('/api/graph/contradictions'), fetch('/api/graph/resolve'), fetch('/api/graph/infer'), fetch('/api/graph/ontology'),
+        fetch(amUrl('/api/graph/anomalies')), fetch(amUrl('/api/graph/contradictions')), fetch(amUrl('/api/graph/resolve')), fetch(amUrl('/api/graph/infer')), fetch(amUrl('/api/graph/ontology')),
       ])
       if (an.ok) setAnomalies(((await an.json()) as { anomalies?: typeof anomalies }).anomalies ?? [])
       if (co.ok) setContradictions(((await co.json()) as { contradictions?: typeof contradictions }).contradictions ?? [])
@@ -138,7 +139,7 @@ export function GraphRailPanel() {
   async function loadThemes() {
     setThemesLoading(true)
     try {
-      const res = await fetch('/api/graph/communities')
+      const res = await fetch(amUrl('/api/graph/communities'))
       if (res.ok) { const j = await res.json() as { communities?: typeof communities }; setCommunities(j.communities ?? []) }
     } catch { /* offline */ } finally { setThemesLoading(false) }
   }
@@ -147,14 +148,14 @@ export function GraphRailPanel() {
     if (!question || globalLoading) return
     setGlobalLoading(true); setGlobalAnswer(null)
     try {
-      const res = await fetch('/api/graph/global', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question, drift: deepMode }) })
+      const res = await fetch(amUrl('/api/graph/global'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question, drift: deepMode }) })
       if (res.ok) setGlobalAnswer(await res.json() as NonNullable<typeof globalAnswer>)
     } catch { /* offline */ } finally { setGlobalLoading(false) }
   }
   async function loadCovariates() {
     setCovLoading(true)
     try {
-      const [cv, tn] = await Promise.all([fetch('/api/graph/covariates'), fetch('/api/graph/tune')])
+      const [cv, tn] = await Promise.all([fetch(amUrl('/api/graph/covariates')), fetch(amUrl('/api/graph/tune'))])
       if (cv.ok) { const j = await cv.json() as { entities?: typeof covariates }; setCovariates(j.entities ?? []) }
       if (tn.ok) { const j = await tn.json() as { domain: string; persona: string }; setDomain({ domain: j.domain, persona: j.persona }) }
     } catch { /* offline */ } finally { setCovLoading(false) }
@@ -162,14 +163,14 @@ export function GraphRailPanel() {
   async function loadPredictions() {
     setPredLoading(true)
     try {
-      const res = await fetch('/api/graph/predictions?verify=1&topK=10')
+      const res = await fetch(amUrl('/api/graph/predictions?verify=1&topK=10'))
       if (res.ok) { const j = await res.json() as { predictions?: typeof predictions }; setPredictions(j.predictions ?? []) }
     } catch { /* offline */ } finally { setPredLoading(false) }
   }
   async function loadTimeline() {
     setTlLoading(true)
     try {
-      const res = await fetch('/api/graph/timeline?buckets=14')
+      const res = await fetch(amUrl('/api/graph/timeline?buckets=14'))
       if (res.ok) setTimeline(await res.json() as NonNullable<typeof timeline>)
     } catch { /* offline */ } finally { setTlLoading(false) }
   }
@@ -186,8 +187,8 @@ export function GraphRailPanel() {
     setDemoPending(true); setPathIds([]); setPathExplain(null)
     try {
       const [pr, er] = await Promise.all([
-        fetch(`/api/graph/path?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
-        fetch(`/api/graph/explain-path?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+        fetch(amUrl(`/api/graph/path?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)),
+        fetch(amUrl(`/api/graph/explain-path?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`)),
       ])
       const pj = (await pr.json()) as { path?: { id: string }[] }
       setPathIds((pj.path ?? []).map((p) => p.id))
@@ -200,8 +201,8 @@ export function GraphRailPanel() {
     if (!pathFrom) { setPathFrom(id); return }   // first pick = source
     try {
       const [pr, er] = await Promise.all([
-        fetch(`/api/graph/path?from=${encodeURIComponent(pathFrom)}&to=${encodeURIComponent(id)}`),
-        fetch(`/api/graph/explain-path?from=${encodeURIComponent(pathFrom)}&to=${encodeURIComponent(id)}`),
+        fetch(amUrl(`/api/graph/path?from=${encodeURIComponent(pathFrom)}&to=${encodeURIComponent(id)}`)),
+        fetch(amUrl(`/api/graph/explain-path?from=${encodeURIComponent(pathFrom)}&to=${encodeURIComponent(id)}`)),
       ])
       const pj = (await pr.json()) as { path?: { id: string }[] }
       setPathIds((pj.path ?? []).map((p) => p.id))
@@ -229,7 +230,7 @@ export function GraphRailPanel() {
     let cancelled = false
     const poll = async () => {
       try {
-        const res = await fetch('/api/graph/health')
+        const res = await fetch(amUrl('/api/graph/health'))
         if (!res.ok) throw new Error('non-ok')
         const json = (await res.json()) as HealthResponse
         if (!cancelled) { setHealth(json.graph); setError(false) }
@@ -247,7 +248,7 @@ export function GraphRailPanel() {
       try {
         // 22 top-level topics; clicking one drills into its subtopics (a wider BFS).
         const q = `/api/graph/surface?view=${view}&limit=${root ? 28 : 22}${root ? `&root=${encodeURIComponent(root)}` : ''}`
-        const res = await fetch(q)
+        const res = await fetch(amUrl(q))
         if (!res.ok) { if (!cancelled) setError(true); return }
         const json = (await res.json()) as { nodes: GraphNode[]; links: GraphLink[] }
         if (!cancelled) { setGraph({ nodes: json.nodes ?? [], links: json.links ?? [] }); setError(false) }
@@ -263,17 +264,17 @@ export function GraphRailPanel() {
     let cancelled = false
     ;(async () => {
       try {
-        const res = await fetch('/api/graph/analytics')
+        const res = await fetch(amUrl('/api/graph/analytics'))
         if (!res.ok) return
         const j = (await res.json()) as { nodes?: Record<string, { pagerank: number; betweenness: number; community: number }>; modularity?: number; summary?: { communityCount: number; topByPagerank: Array<{ label: string }>; topByBetweenness: Array<{ label: string }> } }
         if (!cancelled && j.nodes) setMetrics(j.nodes)
         if (!cancelled && j.summary) setInsights({ communityCount: j.summary.communityCount, modularity: j.modularity ?? 0, topImportant: j.summary.topByPagerank.slice(0, 4).map((x) => x.label), topBridges: j.summary.topByBetweenness.slice(0, 3).map((x) => x.label) })
         // knowledge-health synthesis — cheap, aggregates the verified-stack signals into one score
-        try { const hr = await fetch('/api/graph/knowledge-health'); if (hr.ok) { const hj = (await hr.json()) as { score: number; gaps: string[] }; if (!cancelled) setKHealth({ score: hj.score, gaps: hj.gaps ?? [] }) } } catch { /* offline */ }
+        try { const hr = await fetch(amUrl('/api/graph/knowledge-health')); if (hr.ok) { const hj = (await hr.json()) as { score: number; gaps: string[] }; if (!cancelled) setKHealth({ score: hj.score, gaps: hj.gaps ?? [] }) } } catch { /* offline */ }
         // proactive digest — the graph surfaces what needs attention without being asked
-        try { const dr = await fetch('/api/graph/digest'); if (dr.ok) { const dj = (await dr.json()) as { insights?: typeof digest }; if (!cancelled) { setDigest(dj.insights ?? []); setDigestIdx(0); setDigestDismissed(false) } } } catch { /* offline */ }
+        try { const dr = await fetch(amUrl('/api/graph/digest')); if (dr.ok) { const dj = (await dr.json()) as { insights?: typeof digest }; if (!cancelled) { setDigest(dj.insights ?? []); setDigestIdx(0); setDigestDismissed(false) } } } catch { /* offline */ }
         // auto-seed communities for the demo so Themes panel is populated on first open
-        try { const cr = await fetch('/api/graph/communities'); if (cr.ok) { const cj = (await cr.json()) as { communities?: typeof communities }; if (!cancelled && cj.communities && cj.communities.length > 0) setCommunities(cj.communities) } } catch { /* offline */ }
+        try { const cr = await fetch(amUrl('/api/graph/communities')); if (cr.ok) { const cj = (await cr.json()) as { communities?: typeof communities }; if (!cancelled && cj.communities && cj.communities.length > 0) setCommunities(cj.communities) } } catch { /* offline */ }
       } catch { /* offline */ }
     })()
     return () => { cancelled = true }
@@ -286,8 +287,8 @@ export function GraphRailPanel() {
     ;(async () => {
       try {
         const [rc, im] = await Promise.all([
-          fetch(`/api/graph/recommend?entity=${encodeURIComponent(root)}&k=6`),
-          fetch(`/api/graph/impact?entity=${encodeURIComponent(root)}&hops=2`),
+          fetch(amUrl(`/api/graph/recommend?entity=${encodeURIComponent(root)}&k=6`)),
+          fetch(amUrl(`/api/graph/impact?entity=${encodeURIComponent(root)}&hops=2`)),
         ])
         if (rc.ok && !cancelled) setRecs(((await rc.json()) as { recommendations?: typeof recs }).recommendations ?? [])
         if (im.ok && !cancelled) { const j = (await im.json()) as NonNullable<typeof impact>; setImpact({ totalAffected: j.totalAffected, levels: j.levels }) }
@@ -303,7 +304,7 @@ export function GraphRailPanel() {
     let cancelled = false
     const t = setTimeout(async () => {
       try {
-        const res = await fetch(`/api/graph/search?q=${encodeURIComponent(q)}&limit=8`)
+        const res = await fetch(amUrl(`/api/graph/search?q=${encodeURIComponent(q)}&limit=8`))
         if (!res.ok) return
         const json = (await res.json()) as { hits?: typeof searchHits }
         if (!cancelled) setSearchHits(json.hits ?? [])
@@ -317,7 +318,7 @@ export function GraphRailPanel() {
   const [memMap, setMemMap] = useState<Record<string, { pinned: boolean; kind: string; preview: string }>>({})
   const loadMemories = async () => {
     try {
-      const res = await fetch('/api/memory/graph'); if (!res.ok) return
+      const res = await fetch(amUrl('/api/memory/graph')); if (!res.ok) return
       const j = (await res.json()) as { memories?: Array<{ id: string; pinned: boolean; kind: string; preview: string }> }
       const m: Record<string, { pinned: boolean; kind: string; preview: string }> = {}
       for (const x of j.memories ?? []) m[x.id] = { pinned: x.pinned, kind: x.kind, preview: x.preview }
@@ -327,13 +328,13 @@ export function GraphRailPanel() {
   useEffect(() => { void loadMemories() }, [])
   const togglePin = async (id: string, pinned: boolean) => {
     setMemMap((cur) => ({ ...cur, [id]: { ...(cur[id] ?? { kind: 'memory', preview: '' }), pinned } }))  // optimistic
-    try { await fetch('/api/memory/pin', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id, pinned }) }) } catch { /* */ }
+    try { await fetch(amUrl('/api/memory/pin'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id, pinned }) }) } catch { /* */ }
     void loadMemories()
   }
   const forgetMem = async (id: string) => {
     setMemMap((cur) => { const n = { ...cur }; delete n[id]; return n })  // optimistic remove
     setRoot('')                                                          // node leaves the graph on next load
-    try { await fetch('/api/memory/forget', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id }) }) } catch { /* */ }
+    try { await fetch(amUrl('/api/memory/forget'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id }) }) } catch { /* */ }
     void loadMemories()
   }
 

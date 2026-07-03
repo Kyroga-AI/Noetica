@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useSettings } from '@/lib/settings/context'
+import { amUrl } from '@/lib/tauri/bridge'
 
 type ProviderKey = 'anthropic' | 'openai'
 type VerifyState = 'idle' | 'checking' | 'ok' | 'error'
@@ -66,7 +67,7 @@ function ProviderRow({
     setVerifyState('checking')
     setVerifyError('')
     try {
-      const res = await fetch('/api/chat', {
+      const res = await fetch(amUrl('/api/chat'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

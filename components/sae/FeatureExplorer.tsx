@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { amUrl } from '@/lib/tauri/bridge'
 
 interface TopFeature {
   feature_id: number
@@ -31,7 +32,7 @@ export function FeatureExplorer({ onSelectFeature }: Props) {
     setError('')
     setResult(null)
     try {
-      const res = await fetch(`/api/sae/explore?${new URLSearchParams({ prompt: prompt.trim(), top_k: String(topK) })}`)
+      const res = await fetch(amUrl(`/api/sae/explore?${new URLSearchParams({ prompt: prompt.trim(), top_k: String(topK) })}`))
       const json = await res.json() as ExploreResult & { error?: string }
       if (json.error) { setError(json.error); return }
       setResult(json)

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { amUrl } from '@/lib/tauri/bridge'
 
 /**
  * RagInspectSurface — the retrieval-debug screen MS Foundry / Vertex do weakly and nobody does well.
@@ -21,7 +22,7 @@ export function RagInspectSurface() {
     if (!query.trim()) return
     setLoading(true); setErr('')
     try {
-      const res = await fetch('/api/cap/rag-inspect', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query }) })
+      const res = await fetch(amUrl('/api/cap/rag-inspect'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ query }) })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const d = await res.json() as { semantic?: Chunk[]; lexical?: Chunk[] }
       setSemantic(d.semantic ?? []); setLexical(d.lexical ?? []); setRan(true)

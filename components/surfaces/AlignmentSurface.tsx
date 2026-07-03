@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { amUrl } from '@/lib/tauri/bridge'
 
 /**
  * AlignmentSurface — "does what I just read align with my brain?" Paste a news article / claim; each sentence
@@ -37,7 +38,7 @@ export function AlignmentSurface() {
     if (!text.trim()) return
     setLoading(true); setErr(''); setReport(null)
     try {
-      const r = await fetch('/api/cap/align-check', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text }) })
+      const r = await fetch(amUrl('/api/cap/align-check'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text }) })
       if (!r.ok) throw new Error(`align ${r.status}`)
       setReport(await r.json() as Report)
     } catch (e) { setErr(e instanceof Error ? e.message : 'alignment failed — is the backend running?') }

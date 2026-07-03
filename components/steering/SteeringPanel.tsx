@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { amUrl } from '@/lib/tauri/bridge'
 import { RiskAversionPanel } from '@/components/risk/RiskAversionPanel'
 import { FeatureExplorer } from '@/components/sae/FeatureExplorer'
 import type { RiskAversionLiveReadout } from '@/lib/risk/riskAversionLive'
@@ -42,7 +43,7 @@ export function SteeringPanel({ model, steering, thinkingBudget, temperature, ma
     if (!showBrowser) return
     const modelParam = model.id ? `&model=${encodeURIComponent(model.id.split('-neuronpedia')[0])}` : ''
     const qParam = featureQuery.trim() ? `&q=${encodeURIComponent(featureQuery.trim())}` : ''
-    fetch(`/api/features?${modelParam}${qParam}`.replace(/^\?&/, '?'))
+    fetch(amUrl(`/api/features?${modelParam}${qParam}`.replace(/^\?&/, '?')))
       .then((r) => r.json())
       .then((d: { features: SaeFeature[] }) => setFeatures(d.features ?? []))
       .catch(() => setFeatures([]))

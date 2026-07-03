@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useSettings } from '@/lib/settings/context'
 import { useMemory } from '@/lib/memory/useMemory'
+import { amUrl } from '@/lib/tauri/bridge'
 import type { MemoryScope } from '@/lib/settings/types'
 
 const scopes: { value: MemoryScope; label: string; desc: string }[] = [
@@ -21,12 +22,39 @@ export function MemoryPanel() {
   const [confirmClear, setConfirmClear] = useState(false)
   const [indexing, setIndexing] = useState(false)
   const [indexResult, setIndexResult] = useState<{ embedded: number; failed: number } | null>(null)
+  const [showImport, setShowImport] = useState(false)
+  const [importText, setImportText] = useState('')
+  const [importSource, setImportSource] = useState('chatgpt')
+  const [importing, setImporting] = useState(false)
+  const [importResult, setImportResult] = useState<{ count: number; imported: number } | null>(null)
 
   function handleAdd() {
     const text = newText.trim()
     if (!text) return
     remember(text, { source: 'user' })
     setNewText('')
+  }
+
+  async function handleImport() {
+    const text = importText.trim()
+    if (!text) return
+    setImporting(true)
+    setImportResult(null)
+    try {
+      const res = await fetch(amUrl('/api/memory/import'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ text, source: importSource }),
+      })
+      if (res.ok) {
+        const data = await res.json() as { count: number; imported: number }
+        setImportResult(data)
+        setImportText('')
+        setShowImport(false)
+      }
+    } catch { /* network error */ } finally {
+      setImporting(false)
+    }
   }
 
   function startEdit(id: string, text: string) {
@@ -223,6 +251,53 @@ export function MemoryPanel() {
         <div className="mt-1 flex justify-between text-xs text-[var(--color-text-tertiary)]">
           <span>1 day</span><span>1 year</span>
         </div>
+      </div>
+
+      {/* Import from another AI */}
+      <div>
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-sm font-semibold text-[var(--color-text-primary)]">Import from another AI</p>
+            <p className="text-xs text-[var(--color-text-secondary)] mt-0.5">Paste your exported memories from ChatGPT, Gemini, or Claude.</p>
+          </div>
+          <button
+            onClick={() => { setShowImport(!showImport); setImportResult(null) }}
+            className="rounded-xl border border-[var(--color-border-secondary)] px-3 py-1.5 text-xs font-semibold text-[var(--color-text-primary)] transition hover:bg-[var(--color-background-secondary)]"
+          >
+            {showImport ? 'Cancel' : 'Import'}
+          </button>
+        </div>
+        {importResult && !showImport && (
+          <p className="mt-2 text-xs text-[#059669]">Imported {importResult.imported} of {importResult.count} memories.</p>
+        )}
+        {showImport && (
+          <div className="mt-3 space-y-2">
+            <select
+              value={importSource}
+              onChange={(e) => setImportSource(e.target.value)}
+              className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8]"
+            >
+              <option value="chatgpt">ChatGPT</option>
+              <option value="gemini">Gemini</option>
+              <option value="claude">Claude</option>
+              <option value="other">Other</option>
+            </select>
+            <textarea
+              value={importText}
+              onChange={(e) => setImportText(e.target.value)}
+              rows={6}
+              placeholder="Paste your exported memories here (one per line, or a bulleted list)…"
+              className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8] resize-none placeholder:text-[var(--color-text-tertiary)]"
+            />
+            <button
+              onClick={handleImport}
+              disabled={!importText.trim() || importing}
+              className="rounded-xl bg-[#1d4ed8] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#1e40af] disabled:opacity-40"
+            >
+              {importing ? 'Importing…' : 'Import memories'}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Clear all */}

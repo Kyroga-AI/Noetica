@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { amUrl } from '@/lib/tauri/bridge'
 
 /**
  * StudioSurface — the AI-ops workbench Microsoft Foundry / IBM watsonx ship and we lacked:
@@ -16,7 +17,7 @@ export function StudioSurface() {
   const [models, setModels] = useState<string[]>([])
 
   useEffect(() => {
-    void fetch('/api/cap/models').then((r) => r.json()).then((d: { models?: string[] }) => setModels(d.models ?? [])).catch(() => {})
+    void fetch(amUrl('/api/cap/models')).then((r) => r.json()).then((d: { models?: string[] }) => setModels(d.models ?? [])).catch(() => {})
   }, [])
 
   return (
@@ -55,7 +56,7 @@ function PromptWorkbench({ models }: { models: string[] }) {
     try {
       let variables: Record<string, unknown> = {}
       try { variables = JSON.parse(vars || '{}') } catch { /* tolerate */ }
-      const res = await fetch('/api/cap/prompt-run', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ template, variables, model: model || undefined, temperature: temp }) })
+      const res = await fetch(amUrl('/api/cap/prompt-run'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ template, variables, model: model || undefined, temperature: temp }) })
       const d = await res.json() as { output?: string; model?: string; latencyMs?: number }
       setOutput(d.output ?? ''); setLatency(d.latencyMs ?? null)
       setHistory((h) => [{ id: h.length, template, vars, output: d.output ?? '', model: d.model ?? '', latencyMs: d.latencyMs ?? 0 }, ...h].slice(0, 10))
@@ -109,7 +110,7 @@ function ModelCompare({ models }: { models: string[] }) {
   async function run() {
     setLoading(true); setResults([])
     try {
-      const res = await fetch('/api/cap/model-compare', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt, models: picked }) })
+      const res = await fetch(amUrl('/api/cap/model-compare'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ prompt, models: picked }) })
       const d = await res.json() as { results?: typeof results }
       setResults(d.results ?? [])
     } catch { /* offline */ } finally { setLoading(false) }

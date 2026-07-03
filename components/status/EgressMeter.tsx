@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { amUrl } from '@/lib/tauri/bridge'
 
 /**
  * EgressMeter — the visible sovereignty guarantee. Sums tokens that LEFT the device across
@@ -15,7 +16,7 @@ export function EgressMeter() {
     let cancelled = false
     const poll = async () => {
       try {
-        const r = await fetch('/api/governance/recent?limit=50')
+        const r = await fetch(amUrl('/api/governance/recent?limit=50'))
         if (!r.ok) return
         const j = (await r.json()) as { runs?: Array<{ tokens_egressed?: number }> }
         const total = (j.runs ?? []).reduce((s, x) => s + (x.tokens_egressed ?? 0), 0)
