@@ -7625,6 +7625,32 @@ Question: ${question}`
           const result = await ingestDocument(filename || 'document.txt', content)
           // Best-effort: also run the engine's entity/record extraction for graph structure.
           try { const { ingestDocumentChunks } = await import('./lib/graph.js'); await ingestDocumentChunks(content, filename, mimeType ?? 'text/plain') } catch { /* non-fatal */ }
+          // RAPTOR: when NOETICA_RAPTOR=true, rebuild the abstractive tree in the background so
+          // global "summarize" queries get summary nodes on the NEXT retrieval after this ingest.
+          if (isFlagOn('NOETICA_RAPTOR')) {
+            void (async () => {
+              try {
+                const { buildRaptorTree, treeStats } = await import('./lib/raptor.js')
+                const { embedText: et } = await import('./lib/ollama.js')
+                const g = getHellGraph()
+                const CHUNK_LABEL = 'DocumentChunk'
+                const RAPTOR_LABEL = 'RaptorSummary'
+                const leaves = g.nodesByLabel(CHUNK_LABEL)
+                  .filter((n) => !n.properties['raptor_level'] && n.properties['text'])
+                if (leaves.length < 4) return
+                const texts = leaves.map((n) => String(n.properties['text']))
+                const embedder = async (ts: string[]) => { const out: number[][] = []; for (const t of ts) { try { out.push(await et(t)) } catch { out.push([]) } } return out }
+                const summarizer = async (ts: string[]) => { try { const r = await generateOllamaText({ model: 'qwen3:14b', messages: [{ role: 'user', content: `Summarize these excerpts concisely (3-5 sentences):\n\n${ts.map((t, i) => `[${i + 1}] ${t.slice(0, 800)}`).join('\n\n')}` }], temperature: 0.3 }); return r.content.trim() } catch { return ts.join(' ').slice(0, 600) } }
+                const tree = await buildRaptorTree(texts, embedder, summarizer, { maxLevels: 3, maxClusterSize: 6 })
+                for (const [id, node] of tree.nodes) {
+                  if (node.level === 0 || !node.embedding.length) continue
+                  g.addNode(`urn:noetica:raptor:${id}`, [CHUNK_LABEL, RAPTOR_LABEL], { text: node.text, embedding: JSON.stringify(node.embedding), raptor_level: node.level, child_ids: JSON.stringify(node.childIds), filename: `raptor:level${node.level}`, doc_id: `urn:noetica:raptor:${id}`, idx: 0, created_at: new Date().toISOString() })
+                }
+                const stats = treeStats(tree)
+                console.log(`[raptor] tree rebuilt: ${stats.leaves} leaves → ${stats.summaries} summary nodes across ${stats.levels} levels`.replace(/[\r\n]/g, ' '))
+              } catch { /* RAPTOR is best-effort — never block ingest */ }
+            })()
+          }
           res.writeHead(200, { 'content-type': 'application/json' })
           res.end(JSON.stringify(result))
         } catch (err) {
@@ -13339,6 +13365,75 @@ Question: ${question}`
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ turns: withAudio, synthesized: synthesize && !!process.env['OPENAI_API_KEY'] }))
       } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── RAPTOR tree — recursive abstractive tree over document corpus ────────────────
+  // POST /api/ingest/raptor — builds a RAPTOR tree over ALL current DocumentChunk nodes, adds
+  //   summary nodes back into the graph so they are automatically hit by semantic retrieval on
+  //   global "summarize my documents" / multi-document questions. Pure additive — does not change
+  //   leaf chunks. Run once after a batch of documents are ingested; safe to re-run (idempotent:
+  //   old summary nodes are replaced). GET /api/ingest/raptor → stats.
+  if ((req.method === 'POST' || req.method === 'GET') && url.pathname === '/api/ingest/raptor') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { buildRaptorTree, treeStats } = await import('./lib/raptor.js')
+        const { embedText: et } = await import('./lib/ollama.js')
+        const g = getHellGraph()
+        const CHUNK_LABEL = 'DocumentChunk'
+        const RAPTOR_LABEL = 'RaptorSummary'
+        // Stats-only GET
+        if (req.method === 'GET') {
+          const summaries = g.nodesByLabel(RAPTOR_LABEL)
+          const leafChunks = g.nodesByLabel(CHUNK_LABEL).filter((n) => !n.properties['raptor_level'])
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ leaves: leafChunks.length, summaries: summaries.length, raptorReady: summaries.length > 0 }))
+          return
+        }
+        // Collect all leaf chunks that have stored text
+        const leaves = g.nodesByLabel(CHUNK_LABEL)
+          .filter((n) => !n.properties['raptor_level'] && n.properties['text'])
+        if (leaves.length < 4) {
+          res.writeHead(409, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: 'too_few_chunks', needed: 4, have: leaves.length }))
+          return
+        }
+        // Wire the production embedder + Ollama summarizer
+        const embedder = async (texts: string[]) => {
+          const out: number[][] = []
+          for (const t of texts) { try { out.push(await et(t)) } catch { out.push([]) } }
+          return out
+        }
+        const summarizer = async (texts: string[]) => {
+          try {
+            const joined = texts.map((t, i) => `[${i + 1}] ${t.slice(0, 800)}`).join('\n\n')
+            const r = await generateOllamaText({ model: 'qwen3:14b', messages: [{ role: 'user', content: `Concisely summarize the key ideas from these excerpts in 3–5 sentences:\n\n${joined}` }], temperature: 0.3 })
+            return r.content.trim()
+          } catch { return texts.join(' ').slice(0, 600) }
+        }
+        // Build the recursive tree — takes 30–90s depending on corpus size
+        const texts = leaves.map((n) => String(n.properties['text']))
+        const tree = await buildRaptorTree(texts, embedder, summarizer, { maxLevels: 3, maxClusterSize: 6 })
+        // Store summary nodes as DocumentChunks — retrieval picks them up automatically
+        let stored = 0
+        for (const [id, node] of tree.nodes) {
+          if (node.level === 0) continue   // skip leaf re-write — HellGraph already has them
+          if (!node.embedding.length) continue
+          const nodeId = `urn:noetica:raptor:${id}`
+          const emb = JSON.stringify(node.embedding)
+          g.addNode(nodeId, [CHUNK_LABEL, RAPTOR_LABEL], {
+            text: node.text, embedding: emb, raptor_level: node.level,
+            child_ids: JSON.stringify(node.childIds), filename: `raptor:level${node.level}`,
+            doc_id: nodeId, idx: 0, created_at: new Date().toISOString(),
+          })
+          stored++
+        }
+        const stats = treeStats(tree)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ ok: true, leaves: stats.leaves, summaries: stats.summaries, levels: stats.levels, stored }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
     })()
     return
   }
