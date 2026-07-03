@@ -83,6 +83,7 @@ import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
 import { runAgentLoop, type ProviderAdapter } from './lib/agent-loop.js'
 import { makeAutonomyGate, hydrateAutonomy, bindAutonomy, autonomySession, onAutonomyDecision, buildAdmissionReceipt, AUTONOMY_LADDER, type AutonomySession } from './lib/autonomy-gate.js'
 import { getCurrentReasoningRun as getAutonomyRun, emitReasoningEvent as emitAutonomyEvent } from './lib/reasoning-evidence.js'
+import { gateVerdict as emitNoeticaGateVerdict, noeticaBootEvidence } from './lib/noetica-events.js'
 import { actuateRecommendation, type RecommendationObject } from './lib/marketing-ro-actuator.js'
 import { validateToolCall, type ToolSchema, type ArgSpec } from './lib/constrained-decode.js'
 import { appendJsonl as appendEncrypted, readJsonl as readEncrypted, writeJson as writeEncryptedJson, readJson as readEncryptedJson } from './lib/at-rest.js'
@@ -541,6 +542,11 @@ onAutonomyDecision((d) => {
   } catch (err) {
     console.warn('[autonomy] receipt emit failed:', err instanceof Error ? err.message : String(err))
   }
+  // Governed operational lane: envelope-redacted gate verdict (~/.noetica/sessions/).
+  emitNoeticaGateVerdict({
+    tool: d.tool, decision: d.decision, requestedLevel: d.requestedLevel,
+    grantedLevel: d.grantedLevel, role: d.role, reason: d.reason,
+  })
   if (d.demoted || d.grantedLevel !== d.requestedLevel) {
     console.log(`[autonomy] ${d.tool}: role=${d.role} requested=${d.requestedLevel} granted=${d.grantedLevel} — ${d.reason}`)
   }
@@ -16865,6 +16871,7 @@ server.listen(PORT, BIND_HOST, () => {
     loadLearningState()
     loadContainment()
     loadAutonomy()
+    noeticaBootEvidence() // governance-file health + autonomy-bind state onto the governed lane
     booted = true // teardown() may now persist learning state on exit
     recordTrendSnapshot() // capture/refresh today's point on boot
     // Embed-model preflight: document RAG depends on the embedding model. Warn loudly

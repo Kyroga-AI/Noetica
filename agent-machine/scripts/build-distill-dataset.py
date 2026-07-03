@@ -70,8 +70,130 @@ def operator_pairs():
         yield pair(prompt, str(ans), source='verified-operator', domain='mathematics', verified=True)
 
 
+CANON_DIR = os.path.join(HERE, '..', 'canon')
+
+
+def _load_json(name):
+    try:
+        return json.load(open(os.path.join(CANON_DIR, name)))
+    except Exception:
+        return None
+
+
+def _iter_jsonl(name):
+    p = os.path.join(CANON_DIR, name)
+    if not os.path.exists(p):
+        return
+    for line in open(p):
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            yield json.loads(line)
+        except Exception:
+            continue
+
+
+def main_glossary_pairs():
+    """The full frontier-authored glossary (canon/glossary.json: {domain: {term: def}}) — the richer
+    source the builder was leaving on the table (spec-*.json alone is thin)."""
+    d = _load_json('glossary.json') or {}
+    for domain, terms in d.items():
+        if not isinstance(terms, dict):
+            continue
+        for term, defn in terms.items():
+            term, defn = str(term).strip(), str(defn).strip()
+            if len(term) >= 2 and len(defn) >= 12:
+                yield pair(f'Define "{term}" in {domain}.', defn,
+                           source='canon-glossary-main', domain=domain, verified=True)
+
+
+def canonical_equation_pairs():
+    """AP/SAT-seeded exam-sanctioned formula sheets (canon/canonical-equations.json)."""
+    d = _load_json('canonical-equations.json') or {}
+    for domain, items in d.items():
+        if domain.startswith('_') or not isinstance(items, list):
+            continue
+        for it in items:
+            if not isinstance(it, dict):
+                continue
+            name = str(it.get('name') or it.get('concept') or it.get('law') or it.get('quantity') or '').strip()
+            eq = str(it.get('form') or it.get('equation') or it.get('formula') or it.get('expr') or '').strip()
+            if len(name) >= 2 and len(eq) >= 2:
+                yield pair(f'State the canonical equation for {name} in {domain}.', eq,
+                           source='canonical-equation', domain=domain, verified=True)
+
+
+def operator_typed_pairs():
+    """Verified operators (canon/operators-typed.jsonl: source=frontier-authored/canonical, verified=dimensional+plugback)."""
+    for it in _iter_jsonl('operators-typed.jsonl'):
+        src = str(it.get('source', ''))
+        if 'frontier' not in src.lower() and 'canonical' not in src.lower():
+            continue  # provenance gate: only frontier-authored/canonical
+        op = str(it.get('op') or '').strip()
+        eq = str(it.get('equation') or '').strip()
+        dom = str(it.get('domain') or 'physics')
+        if len(op) >= 2 and len(eq) >= 2:
+            yield pair(f'State the governing equation for {op}.', eq,
+                       source='verified-operator-typed', domain=dom, verified=True)
+
+
+def seq2seq_pairs():
+    """Canonical NL->symbolic formalizations (canon/seq2seq-pairs.jsonl)."""
+    for it in _iter_jsonl('seq2seq-pairs.jsonl'):
+        nl = str(it.get('nl') or '').strip()
+        sym = str(it.get('sym') or '').strip()
+        dom = str(it.get('domain') or 'mathematics')
+        if len(nl) >= 3 and len(sym) >= 2:
+            yield pair(f'Express "{nl}" symbolically.', sym,
+                       source='canon-seq2seq', domain=dom, verified=True)
+
+
+def card_pairs():
+    """Frontier-authored flashcards (canon/cards.jsonl) — ONLY source==canon (skip seq2seq-derived)."""
+    for it in _iter_jsonl('cards.jsonl'):
+        if str(it.get('source', '')).lower() != 'canon':
+            continue  # provenance gate
+        front = str(it.get('front') or '').strip()
+        back = str(it.get('back') or '').strip()
+        dom = str(it.get('domain') or 'general')
+        if len(front) >= 2 and len(back) >= 12:
+            yield pair(front if front.endswith('?') else f'Explain: {front}', back,
+                       source='canon-card', domain=dom, verified=True)
+
+
+def analogy_pairs():
+    """Cross-domain reasoning analogies (canon/analogies.json)."""
+    d = _load_json('analogies.json') or {}
+    for it in (d.get('analogies') or []):
+        if not isinstance(it, dict):
+            continue
+        a, b = str(it.get('a') or '').strip(), str(it.get('b') or '').strip()
+        schema = str(it.get('schema') or '').strip()
+        mapping = str(it.get('mapping') or '').strip()
+        if len(a) >= 2 and len(b) >= 2 and (schema or mapping):
+            resp = (f'Shared schema: {schema}. Mapping: {mapping}').strip('. ')
+            yield pair(f'How is {a} analogous to {b}?', resp,
+                       source='canon-analogy', domain='cross-domain', verified=True)
+
+
 def main() -> None:
-    rows = list(canon_glossary_pairs()) + list(operator_pairs())
+    harvesters = [
+        canon_glossary_pairs, operator_pairs,          # original
+        main_glossary_pairs, canonical_equation_pairs, # + richer canon
+        operator_typed_pairs, seq2seq_pairs, card_pairs, analogy_pairs,
+    ]
+    raw = []
+    for h in harvesters:
+        raw.extend(list(h()))
+    # dedup by the instruction text (glossary.json may overlap spec-*.json), keep first-seen
+    seen, rows = set(), []
+    for r in raw:
+        key = r['messages'][0]['content'].strip().lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        rows.append(r)
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, 'w') as fh:
         for r in rows:

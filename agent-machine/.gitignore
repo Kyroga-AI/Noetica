@@ -2,3 +2,4 @@
 mesh-vs-frontier.*.json
 __pycache__/
 _k12_capture/
+bin/
