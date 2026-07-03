@@ -179,7 +179,17 @@ export function BenchmarkDashboard() {
         signal: AbortSignal.timeout(120000),
       })
       if (!r.ok) throw new Error(`healthbench ${r.status}`)
-      setHbResult(await r.json() as HealthBenchResult)
+      const result = await r.json() as HealthBenchResult
+      setHbResult(result)
+      // Feed rubric result into the production-learning loop — failures with coverage < 0.7 become eval cases
+      void fetch(amUrl('/api/eval/capture'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          trace: { input: hbScenarios.find((s) => s.id === hbSelectedId)?.prompt ?? '', output: result.answer, verified: result.overallScore >= 0.7, coverage: result.overallScore, model: result.model },
+          minCoverage: 0.6,
+        }),
+      }).catch(() => { /* fire-and-forget */ })
     } catch (e) { setHbError(e instanceof Error ? e.message : 'eval failed') }
     finally { setHbRunning(false) }
   }

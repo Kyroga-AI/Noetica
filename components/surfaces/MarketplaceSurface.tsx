@@ -217,14 +217,191 @@ function CommunityFeed() {
   )
 }
 
+// ── Operator onboarding wizard ────────────────────────────────────────────────
+
+const OP_STEPS = ['Identity', 'Capabilities', 'Mesh', 'Publish'] as const
+type OpStep = (typeof OP_STEPS)[number]
+
+type CapKind = 'swarm-template' | 'mcp-skill' | 'app' | 'persona'
+interface DraftCap { kind: CapKind; title: string; description: string }
+
+function OperatorWizard() {
+  const [step, setStep] = useState<OpStep>('Identity')
+  const [name, setName] = useState('')
+  const [bio, setBio] = useState('')
+  const [tier, setTier] = useState<'community' | 'verified' | 'sovereign'>('community')
+  const [caps, setCaps] = useState<DraftCap[]>([{ kind: 'swarm-template', title: '', description: '' }])
+  const [meshEndpoint, setMeshEndpoint] = useState('')
+  const [holographHandle, setHolographHandle] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [done, setDone] = useState(false)
+  const [err, setErr] = useState('')
+
+  const stepIdx = OP_STEPS.indexOf(step)
+  const canNext = step === 'Identity' ? name.trim().length > 0
+    : step === 'Capabilities' ? caps.some((c) => c.title.trim())
+    : true
+
+  function addCap() { if (caps.length < 5) setCaps((cs) => [...cs, { kind: 'swarm-template', title: '', description: '' }]) }
+  function removeCap(i: number) { setCaps((cs) => cs.filter((_, j) => j !== i)) }
+  function updateCap(i: number, field: keyof DraftCap, value: string) {
+    setCaps((cs) => cs.map((c, j) => j === i ? { ...c, [field]: value } : c))
+  }
+
+  async function publish() {
+    setSubmitting(true); setErr('')
+    const validCaps = caps.filter((c) => c.title.trim())
+    try {
+      const r = await fetch(amUrl('/api/partner/register'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ name, bio, tier, meshEndpoint: meshEndpoint || undefined, holographHandle: holographHandle || undefined, capabilities: validCaps.map((c) => ({ ...c, id: `${c.kind}-${c.title.toLowerCase().replace(/\s+/g, '-')}` })) }),
+        signal: AbortSignal.timeout(10000),
+      })
+      if (!r.ok) { const d = await r.json() as { error?: string }; throw new Error(d.error ?? `register ${r.status}`) }
+      setDone(true)
+    } catch (e) { setErr(e instanceof Error ? e.message : 'registration failed') }
+    finally { setSubmitting(false) }
+  }
+
+  if (done) {
+    return (
+      <div className="mx-auto max-w-lg py-16 text-center">
+        <div className="mb-3 text-4xl">✦</div>
+        <div className="text-base font-semibold text-[var(--color-text-primary)]">You&apos;re on the mesh</div>
+        <p className="mt-2 text-[12px] text-[var(--color-text-secondary)]">Your operator profile is live. Other mesh nodes can now discover your capabilities, and the Partner Network will reflect your registration shortly.</p>
+        <button onClick={() => { setDone(false); setStep('Identity'); setName(''); setBio(''); setCaps([{ kind: 'swarm-template', title: '', description: '' }]); setMeshEndpoint(''); setHolographHandle('') }}
+          className="mt-5 rounded-xl border border-[var(--color-border-secondary)] px-4 py-2 text-[12px] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]">
+          Register another profile
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mx-auto max-w-lg py-6">
+      {/* Step progress */}
+      <div className="mb-6 flex items-center gap-0">
+        {OP_STEPS.map((s, i) => (
+          <div key={s} className="flex flex-1 items-center">
+            <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition ${
+              i < stepIdx ? 'bg-[#7c3aed] text-white' : i === stepIdx ? 'bg-[#7c3aed] text-white ring-4 ring-[#ede9fe]' : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]'
+            }`}>{i < stepIdx ? '✓' : i + 1}</div>
+            <div className={`flex-1 text-center text-[9px] font-medium ${i === stepIdx ? 'text-[#7c3aed]' : 'text-[var(--color-text-tertiary)]'}`}>{i < OP_STEPS.length - 1 ? <span className="mx-1 hidden sm:inline">{s}</span> : null}</div>
+            {i < OP_STEPS.length - 1 && <div className={`h-px flex-1 ${i < stepIdx ? 'bg-[#7c3aed]' : 'bg-[var(--color-border-tertiary)]'}`} />}
+          </div>
+        ))}
+      </div>
+      <div className="mb-1 text-sm font-semibold text-[var(--color-text-primary)]">{step}</div>
+
+      {/* Step 1 — Identity */}
+      {step === 'Identity' && (
+        <div className="space-y-3">
+          <p className="text-[11px] text-[var(--color-text-tertiary)]">Your operator identity is self-sovereign — anchored to your device, not an account. Other mesh nodes will see this profile.</p>
+          <label className="block">
+            <span className="text-[11px] font-medium text-[var(--color-text-secondary)]">Name</span>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name or org" className="mt-1 block w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-[12px] text-[var(--color-text-primary)] outline-none focus:border-[#7c3aed]" />
+          </label>
+          <label className="block">
+            <span className="text-[11px] font-medium text-[var(--color-text-secondary)]">Bio</span>
+            <textarea value={bio} onChange={(e) => setBio(e.target.value)} placeholder="What you do, what you build…" rows={3} className="mt-1 block w-full resize-none rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-[12px] text-[var(--color-text-primary)] outline-none focus:border-[#7c3aed]" />
+          </label>
+          <div>
+            <span className="text-[11px] font-medium text-[var(--color-text-secondary)]">Tier</span>
+            <div className="mt-1.5 flex gap-2">
+              {(['community', 'verified', 'sovereign'] as const).map((t) => (
+                <button key={t} type="button" onClick={() => setTier(t)} className={`rounded-full border px-3 py-1 text-[11px] capitalize transition ${tier === t ? 'border-[#7c3aed] bg-[#ede9fe] font-semibold text-[#7c3aed]' : 'border-[var(--color-border-tertiary)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-secondary)]'}`}>{t}</button>
+              ))}
+            </div>
+            <p className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">{tier === 'community' ? 'Self-declared; no verification required.' : tier === 'verified' ? 'Attested by at least one existing verified/sovereign operator.' : 'Attested + SCOPE-D-signed engagement policy on file.'}</p>
+          </div>
+        </div>
+      )}
+
+      {/* Step 2 — Capabilities */}
+      {step === 'Capabilities' && (
+        <div className="space-y-3">
+          <p className="text-[11px] text-[var(--color-text-tertiary)]">What are you publishing to the mesh? Add swarm templates, MCP skills, apps, or persona definitions.</p>
+          {caps.map((c, i) => (
+            <div key={i} className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3 space-y-2">
+              <div className="flex items-center gap-2">
+                <select value={c.kind} onChange={(e) => updateCap(i, 'kind', e.target.value)} className="rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-2 py-1 text-[11px] text-[var(--color-text-primary)] outline-none">
+                  <option value="swarm-template">⬡ Swarm template</option>
+                  <option value="mcp-skill">⚡ MCP skill</option>
+                  <option value="app">□ App</option>
+                  <option value="persona">◎ Persona</option>
+                </select>
+                {caps.length > 1 && <button type="button" onClick={() => removeCap(i)} className="ml-auto text-[var(--color-text-tertiary)] hover:text-[#dc2626] text-xs">×</button>}
+              </div>
+              <input value={c.title} onChange={(e) => updateCap(i, 'title', e.target.value)} placeholder="Title" className="block w-full rounded-lg border border-[var(--color-border-tertiary)] bg-transparent px-2 py-1 text-[11px] text-[var(--color-text-primary)] outline-none focus:border-[#7c3aed]" />
+              <input value={c.description} onChange={(e) => updateCap(i, 'description', e.target.value)} placeholder="Brief description" className="block w-full rounded-lg border border-[var(--color-border-tertiary)] bg-transparent px-2 py-1 text-[11px] text-[var(--color-text-primary)] outline-none focus:border-[#7c3aed]" />
+            </div>
+          ))}
+          {caps.length < 5 && <button type="button" onClick={addCap} className="rounded-lg border border-dashed border-[var(--color-border-secondary)] px-3 py-1.5 text-[11px] text-[var(--color-text-tertiary)] hover:border-[#7c3aed] hover:text-[#7c3aed] transition">+ Add capability</button>}
+        </div>
+      )}
+
+      {/* Step 3 — Mesh */}
+      {step === 'Mesh' && (
+        <div className="space-y-3">
+          <p className="text-[11px] text-[var(--color-text-tertiary)]">Optional — set a mesh endpoint so other Noetica nodes can federate with you. Leave blank to register locally only.</p>
+          <label className="block">
+            <span className="text-[11px] font-medium text-[var(--color-text-secondary)]">Mesh endpoint</span>
+            <input value={meshEndpoint} onChange={(e) => setMeshEndpoint(e.target.value)} placeholder="https://my-node.example.com" className="mt-1 block w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-[12px] text-[var(--color-text-primary)] outline-none focus:border-[#7c3aed]" />
+          </label>
+          <label className="block">
+            <span className="text-[11px] font-medium text-[var(--color-text-secondary)]">HolographMe handle <span className="font-normal text-[var(--color-text-tertiary)]">(optional)</span></span>
+            <input value={holographHandle} onChange={(e) => setHolographHandle(e.target.value)} placeholder="@handle" className="mt-1 block w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-[12px] text-[var(--color-text-primary)] outline-none focus:border-[#7c3aed]" />
+          </label>
+        </div>
+      )}
+
+      {/* Step 4 — Publish */}
+      {step === 'Publish' && (
+        <div className="space-y-3">
+          <p className="text-[11px] text-[var(--color-text-tertiary)]">Review your operator profile before publishing to the mesh.</p>
+          <div className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 space-y-2">
+            <div className="flex items-center gap-2"><span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase ${TIER_STYLE[tier].bg} ${TIER_STYLE[tier].text}`}>{tier}</span><span className="text-sm font-semibold text-[var(--color-text-primary)]">{name}</span></div>
+            {bio && <div className="text-[11px] text-[var(--color-text-secondary)]">{bio}</div>}
+            {caps.filter((c) => c.title.trim()).map((c, i) => (
+              <div key={i} className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-secondary)]"><span>{KIND_ICON[c.kind]}</span>{c.title}</div>
+            ))}
+            {meshEndpoint && <div className="text-[10px] text-[var(--color-text-tertiary)]">endpoint: {meshEndpoint}</div>}
+          </div>
+          {err && <div className="rounded-lg border border-[#fecaca] bg-[#fef2f2] px-3 py-2 text-[11px] text-[#dc2626]">{err}</div>}
+          <button type="button" onClick={() => void publish()} disabled={submitting}
+            className="w-full rounded-xl bg-[#7c3aed] px-4 py-2.5 text-[12px] font-semibold text-white transition hover:bg-[#6d28d9] disabled:opacity-50">
+            {submitting ? 'Publishing…' : 'Publish to mesh'}
+          </button>
+        </div>
+      )}
+
+      {/* Navigation */}
+      <div className="mt-5 flex items-center justify-between">
+        <button type="button" onClick={() => setStep(OP_STEPS[stepIdx - 1]!)} disabled={stepIdx === 0}
+          className="rounded-lg border border-[var(--color-border-secondary)] px-3 py-1.5 text-[11px] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)] disabled:opacity-30 transition">
+          ← Back
+        </button>
+        {stepIdx < OP_STEPS.length - 1 && (
+          <button type="button" onClick={() => setStep(OP_STEPS[stepIdx + 1]!)} disabled={!canNext}
+            className="rounded-xl bg-[#7c3aed] px-4 py-1.5 text-[11px] font-semibold text-white hover:bg-[#6d28d9] disabled:opacity-40 transition">
+            Continue →
+          </button>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Main surface ──────────────────────────────────────────────────────────────
 
-type Tab = 'workflows' | 'skills' | 'partners' | 'apps' | 'community'
+type Tab = 'workflows' | 'skills' | 'partners' | 'operator' | 'apps' | 'community'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'workflows',  label: 'Workflows' },
   { id: 'skills',     label: 'Skills' },
   { id: 'partners',   label: 'Partners' },
+  { id: 'operator',   label: 'Become an Operator' },
   { id: 'apps',       label: 'Apps' },
   { id: 'community',  label: 'Community' },
 ]
@@ -387,6 +564,9 @@ export function MarketplaceSurface() {
             )}
           </div>
         )}
+
+        {/* Operator onboarding */}
+        {tab === 'operator' && <OperatorWizard />}
 
         {/* Apps */}
         {!loading && tab === 'apps' && (

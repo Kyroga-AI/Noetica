@@ -1,17 +1,16 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import 'maplibre-gl/dist/maplibre-gl.css'
 
 /**
- * GeoSurface — the GAIA / Orion Field-Intelligence map (P5.14), sovereign edition.
+ * GeoSurface — GAIA / Orion Field-Intelligence map (P5.14).
  *
- * Renders the places the system has detected in the knowledge graph as OrionMapMarkers on an OFFLINE,
- * dependency-free equirectangular world plot. No external map tiles (those would leak the user's queries +
- * locations to a tile vendor — antithetical to a local-first sovereign app), so the basemap is a schematic
- * graticule + rough continent silhouettes. Marker PLACEMENT is exact (projected from [lon,lat]); the basemap is
- * reference-only. Backend: /api/graph/places (LLM-geocodes graph entities) → /api/graph/geo (OrionMapMarker v0.1).
- * Read-only + ODbL-attributed; honors the OFIF advisory boundary (no action UI).
+ * Renders OrionMapMarker places from the knowledge graph on an interactive OSM×maplibre map.
+ * Backend: /api/graph/places (LLM-geocode) → /api/graph/geo (OrionMapMarker v0.1).
+ * Tile requests go to tile.openstreetmap.org; marker data itself stays on-device.
  */
+
 type Marker = { id: string; layerGroup: string; severity: string; coordinates: [number, number]; title: string }
 type GeoResp = { markers: Marker[]; count: number; attribution?: { texts?: string[] }; boundary?: string; note?: string }
 
@@ -20,47 +19,156 @@ function amUrl(path: string): string {
   return isTauri ? `http://127.0.0.1:8080${path}` : path
 }
 
-const W = 720, H = 360
-const projX = (lon: number) => ((lon + 180) / 360) * W
-const projY = (lat: number) => ((90 - lat) / 180) * H
-
-// severity → MARKER SIZE (ordinal urgency); kept for the size-legend.
 const SEV: Record<string, { c: string; r: number }> = {
-  info: { c: '#3b82f6', r: 3.5 }, low: { c: '#22c55e', r: 4 }, medium: { c: '#eab308', r: 4.5 },
-  high: { c: '#f97316', r: 5 }, critical: { c: '#ef4444', r: 6 },
+  info:     { c: '#3b82f6', r: 5 },
+  low:      { c: '#22c55e', r: 6 },
+  medium:   { c: '#eab308', r: 7 },
+  high:     { c: '#f97316', r: 8 },
+  critical: { c: '#ef4444', r: 10 },
 }
 const sevR = (s: string): number => (SEV[s] ?? SEV.info).r
-// OFIF layer group → COLOR (categorical hue) + label. The primary field-intelligence dimension
-// (orion-field-intelligence OrionLayerGroup); markers are hue-coded by layer, size-coded by severity.
+
 const LAYER: Record<string, { c: string; label: string }> = {
-  natural_hazard: { c: '#ef4444', label: 'natural hazard' },
-  facility_asset: { c: '#3b82f6', label: 'facility / asset' },
-  cyber_exposure: { c: '#a855f7', label: 'cyber exposure' },
-  field_report:   { c: '#14b8a6', label: 'field report' },
-  fused_incident: { c: '#f97316', label: 'fused incident' },
-  gated_disabled: { c: '#64748b', label: 'gated (disabled)' },
-  unknown:        { c: '#94a3b8', label: 'unknown' },
+  natural_hazard: { c: '#ef4444', label: 'Natural hazard' },
+  facility_asset: { c: '#3b82f6', label: 'Facility / asset' },
+  cyber_exposure: { c: '#a855f7', label: 'Cyber exposure' },
+  field_report:   { c: '#14b8a6', label: 'Field report' },
+  fused_incident: { c: '#f97316', label: 'Fused incident' },
+  gated_disabled: { c: '#64748b', label: 'Gated (disabled)' },
+  unknown:        { c: '#94a3b8', label: 'Unknown' },
 }
 const layerOf = (g: string) => LAYER[g] ?? LAYER.unknown
 
-// Rough continent outlines in [lon,lat] — recognizable reference only, NOT cartographically precise.
-const CONTINENTS: Array<[number, number][]> = [
-  [[-160, 68], [-95, 70], [-52, 47], [-80, 25], [-115, 30], [-130, 50], [-160, 68]],         // N. America
-  [[-80, 8], [-35, 0], [-35, -23], [-72, -54], [-80, 8]],                                     // S. America
-  [[-10, 58], [28, 70], [40, 48], [12, 36], [-9, 43], [-10, 58]],                             // Europe
-  [[-17, 34], [52, 11], [40, -35], [12, -35], [-17, 15], [-17, 34]],                          // Africa
-  [[28, 70], [180, 67], [145, 40], [120, 8], [75, 8], [45, 12], [40, 48], [28, 70]],          // Asia
-  [[113, -11], [153, -20], [148, -39], [115, -35], [113, -11]],                               // Australia
-]
-const polyPath = (pts: [number, number][]) => pts.map((p, i) => `${i ? 'L' : 'M'}${projX(p[0]).toFixed(1)} ${projY(p[1]).toFixed(1)}`).join(' ') + ' Z'
+type MLMap = import('maplibre-gl').Map
 
 export function GeoSurface() {
-  const [data, setData] = useState<GeoResp | null>(null)
-  const [err, setErr] = useState('')
-  const [busy, setBusy] = useState(false)
-  const [sel, setSel] = useState<Marker | null>(null)
-  const [hidden, setHidden] = useState<Set<string>>(new Set())   // OFIF layer groups toggled off
-  const toggleLayer = (g: string) => setHidden((h) => { const n = new Set(h); n.has(g) ? n.delete(g) : n.add(g); return n })
+  const containerRef = useRef<HTMLDivElement>(null)
+  const mapRef       = useRef<MLMap | null>(null)
+  const [mapReady, setMapReady] = useState(false)
+  const [data, setData]         = useState<GeoResp | null>(null)
+  const [err, setErr]           = useState('')
+  const [busy, setBusy]         = useState(false)
+  const [sel, setSel]           = useState<Marker | null>(null)
+  const [hidden, setHidden]     = useState<Set<string>>(new Set())
+
+  const toggleLayer = (g: string) =>
+    setHidden((h) => { const n = new Set(h); n.has(g) ? n.delete(g) : n.add(g); return n })
+
+  // Initialise maplibre map
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current) return
+    let cancelled = false
+
+    void (async () => {
+      const ml = await import('maplibre-gl')
+      if (cancelled || !containerRef.current) return
+
+      const map = new ml.Map({
+        container: containerRef.current,
+        style: {
+          version: 8,
+          glyphs: 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
+          sources: {
+            osm: {
+              type: 'raster',
+              tiles: ['https://tile.openstreetmap.org/{z}/{x}/{y}.png'],
+              tileSize: 256,
+              attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+            },
+          },
+          layers: [{ id: 'osm', type: 'raster', source: 'osm' }],
+        },
+        center: [0, 20],
+        zoom: 1.5,
+        attributionControl: { compact: false },
+      })
+
+      map.on('load', () => {
+        if (cancelled) { map.remove(); return }
+
+        map.addSource('ofif', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+        })
+
+        // Base circle — color and size from OFIF layer + severity
+        map.addLayer({
+          id: 'ofif-circles',
+          type: 'circle',
+          source: 'ofif',
+          paint: {
+            'circle-color':         ['get', 'color'],
+            'circle-radius':        ['get', 'radius'],
+            'circle-opacity':       0.82,
+            'circle-stroke-width':  1.5,
+            'circle-stroke-color':  '#ffffff',
+          },
+        })
+
+        // Selected ring
+        map.addLayer({
+          id: 'ofif-selected',
+          type: 'circle',
+          source: 'ofif',
+          filter: ['==', ['get', 'id'], ''],
+          paint: {
+            'circle-color':        'transparent',
+            'circle-radius':       ['get', 'radius'],
+            'circle-stroke-width': 3,
+            'circle-stroke-color': ['get', 'color'],
+            'circle-stroke-opacity': 0.9,
+          },
+        })
+
+        map.on('click', 'ofif-circles', (e) => {
+          if (!e.features?.length) return
+          const props = e.features[0].properties as { id: string; title: string; layerGroup: string; severity: string }
+          const geom  = e.features[0].geometry as unknown as { coordinates: [number, number] }
+          setSel({ id: props.id, title: props.title, layerGroup: props.layerGroup, severity: props.severity, coordinates: geom.coordinates })
+          map.setFilter('ofif-selected', ['==', ['get', 'id'], props.id])
+        })
+        map.on('click', (e) => {
+          // Click outside any marker → deselect
+          const hit = map.queryRenderedFeatures(e.point, { layers: ['ofif-circles'] })
+          if (!hit.length) { setSel(null); map.setFilter('ofif-selected', ['==', ['get', 'id'], '']) }
+        })
+        map.on('mouseenter', 'ofif-circles', () => { map.getCanvas().style.cursor = 'pointer' })
+        map.on('mouseleave', 'ofif-circles', () => { map.getCanvas().style.cursor = '' })
+
+        mapRef.current = map
+        setMapReady(true)
+      })
+    })()
+
+    return () => {
+      cancelled = true
+      mapRef.current?.remove()
+      mapRef.current = null
+      setMapReady(false)
+    }
+  }, [])
+
+  // Push updated GeoJSON whenever data or hidden-layers change
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return
+    const markers = data?.markers ?? []
+    const features = markers
+      .filter((m) => !hidden.has(m.layerGroup))
+      .map((m) => ({
+        type: 'Feature' as const,
+        geometry: { type: 'Point' as const, coordinates: m.coordinates },
+        properties: {
+          id:         m.id,
+          title:      m.title,
+          layerGroup: m.layerGroup,
+          severity:   m.severity,
+          color:      layerOf(m.layerGroup).c,
+          radius:     sevR(m.severity),
+        },
+      }))
+    const src = mapRef.current.getSource('ofif') as { setData: (d: unknown) => void } | undefined
+    src?.setData({ type: 'FeatureCollection', features })
+  }, [mapReady, data, hidden])
 
   const loadGeo = useCallback(async (): Promise<GeoResp | null> => {
     const r = await fetch(amUrl('/api/graph/geo'))
@@ -73,7 +181,7 @@ export function GeoSurface() {
   const detect = useCallback(async () => {
     setBusy(true); setErr('')
     try {
-      await fetch(amUrl('/api/graph/places?refresh=1'))   // LLM-geocode the graph's place entities
+      await fetch(amUrl('/api/graph/places?refresh=1'))
       await loadGeo()
     } catch (e) { setErr(e instanceof Error ? e.message : 'detection failed') }
     finally { setBusy(false) }
@@ -83,94 +191,91 @@ export function GeoSurface() {
     void (async () => {
       try {
         const j = await loadGeo()
-        if (j && j.count === 0 && j.note) await detect()   // first run: populate then re-render
+        if (j && j.count === 0 && j.note) await detect()
       } catch (e) { setErr(e instanceof Error ? e.message : 'failed to load — is the backend running?') }
     })()
   }, [loadGeo, detect])
 
   const markers = data?.markers ?? []
-  const graticule = useMemo(() => {
-    const lines: Array<{ x1: number; y1: number; x2: number; y2: number; major: boolean }> = []
-    for (let lon = -180; lon <= 180; lon += 30) lines.push({ x1: projX(lon), y1: 0, x2: projX(lon), y2: H, major: lon === 0 })
-    for (let lat = -90; lat <= 90; lat += 30) lines.push({ x1: 0, y1: projY(lat), x2: W, y2: projY(lat), major: lat === 0 })
-    return lines
-  }, [])
+  const layerGroups = [...new Set(markers.map((m) => m.layerGroup))].sort()
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto px-8 py-6">
-      <div className="mb-1 flex items-center gap-3">
-        <div className="text-lg font-semibold text-[var(--color-text-primary)]">Geo</div>
+    <div className="flex h-full flex-col">
+      {/* Header */}
+      <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-[var(--color-border-tertiary)] px-5 py-3">
+        <div className="text-base font-semibold text-[var(--color-text-primary)]">Geo</div>
         <span className="rounded bg-[#eff6ff] px-1.5 py-px text-[9px] font-medium text-[#1d4ed8]">GAIA · Orion Field Intelligence</span>
-        <button onClick={() => void detect()} disabled={busy} className="rounded-lg border border-[var(--color-border-secondary)] px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)] disabled:opacity-50">{busy ? 'detecting…' : 'detect places'}</button>
+        <button onClick={() => void detect()} disabled={busy}
+          className="rounded-lg border border-[var(--color-border-secondary)] px-2.5 py-1 text-[10px] text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)] disabled:opacity-50">
+          {busy ? 'Detecting…' : 'Detect places'}
+        </button>
         <span className="text-[10px] text-[var(--color-text-tertiary)]">{markers.length} marker{markers.length === 1 ? '' : 's'}</span>
+        {err && <span className="text-[10px] text-[#dc2626]">{err}</span>}
       </div>
-      <p className="mb-4 max-w-2xl text-xs text-[var(--color-text-secondary)]">Places detected in your knowledge graph, plotted offline — no external map tiles, so nothing about where you look leaves the device. The basemap is schematic; marker positions are exact.</p>
 
-      {err && <div className="mb-4 rounded-lg border border-[#fca5a5] bg-[#fef2f2] px-3 py-2 text-[11px] text-[#b91c1c]">{err}</div>}
-
-      <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-2">
-        <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ background: 'var(--color-background-primary)' }}>
-          {CONTINENTS.map((c, i) => <path key={i} d={polyPath(c)} fill="var(--color-background-tertiary)" stroke="var(--color-border-secondary)" strokeWidth={0.5} />)}
-          {graticule.map((l, i) => <line key={i} x1={l.x1} y1={l.y1} x2={l.x2} y2={l.y2} stroke="var(--color-border-secondary)" strokeWidth={l.major ? 0.8 : 0.4} strokeDasharray={l.major ? '' : '2 3'} opacity={0.6} />)}
-          {markers.filter((m) => !hidden.has(m.layerGroup)).map((m) => {
-            const r = sevR(m.severity), col = layerOf(m.layerGroup).c
-            const x = projX(m.coordinates[0]), y = projY(m.coordinates[1])
+      {/* OFIF layer toggles */}
+      {layerGroups.length > 0 && (
+        <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-[var(--color-border-tertiary)] px-5 py-2">
+          <span className="text-[9px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Layers</span>
+          {layerGroups.map((g) => {
+            const off = hidden.has(g)
+            const n   = markers.filter((m) => m.layerGroup === g).length
             return (
-              <g key={m.id} onClick={() => setSel(m)} style={{ cursor: 'pointer' }}>
-                <circle cx={x} cy={y} r={r} fill={col} fillOpacity={0.78} stroke="#fff" strokeWidth={0.8} />
-                {sel?.id === m.id && <circle cx={x} cy={y} r={r + 3} fill="none" stroke={col} strokeWidth={1.2} />}
-                <title>{m.title} · {layerOf(m.layerGroup).label} · {m.severity}</title>
-              </g>
+              <button key={g} onClick={() => toggleLayer(g)} title={off ? 'Show' : 'Hide'}
+                className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition"
+                style={{ borderColor: 'var(--color-border-secondary)', opacity: off ? 0.35 : 1 }}>
+                <span className="h-2 w-2 rounded-full" style={{ background: layerOf(g).c }} />
+                <span className="text-[var(--color-text-secondary)]">{layerOf(g).label}</span>
+                <span className="text-[var(--color-text-tertiary)]">{n}</span>
+              </button>
             )
           })}
-        </svg>
-      </div>
-
-      {/* OFIF layer groups — click to filter. Hue = layer, size = severity. */}
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-[10px]">
-        <span className="text-[var(--color-text-tertiary)]">layers:</span>
-        {[...new Set(markers.map((m) => m.layerGroup))].sort().map((g) => {
-          const off = hidden.has(g), n = markers.filter((m) => m.layerGroup === g).length
-          return (
-            <button key={g} onClick={() => toggleLayer(g)} title={off ? 'show' : 'hide'}
-              className="flex items-center gap-1 rounded-full border px-1.5 py-0.5 transition-opacity"
-              style={{ borderColor: 'var(--color-border-secondary)', opacity: off ? 0.4 : 1 }}>
-              <span className="inline-block h-2 w-2 rounded-full" style={{ background: layerOf(g).c }} />
-              <span className="text-[var(--color-text-secondary)]">{layerOf(g).label}</span>
-              <span className="text-[var(--color-text-tertiary)]">{n}</span>
-            </button>
-          )
-        })}
-        {markers.length === 0 && <span className="text-[var(--color-text-tertiary)]">—</span>}
-      </div>
-      {/* severity → marker size */}
-      <div className="mt-2 flex flex-wrap items-center gap-3 text-[10px] text-[var(--color-text-tertiary)]">
-        <span>severity:</span>
-        {Object.entries(SEV).map(([k, v]) => (
-          <span key={k} className="flex items-center gap-1">
-            <span className="inline-block rounded-full bg-[var(--color-text-tertiary)]" style={{ width: v.r * 1.6, height: v.r * 1.6 }} />{k}
-          </span>
-        ))}
-      </div>
-
-      {sel && (
-        <div className="mt-3 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3">
-          <div className="flex items-center justify-between">
-            <div className="text-sm font-semibold text-[var(--color-text-primary)]">{sel.title}</div>
-            <button onClick={() => setSel(null)} className="text-[10px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]">close</button>
-          </div>
-          <div className="mt-1 text-[11px] text-[var(--color-text-secondary)]">{sel.layerGroup.replace(/_/g, ' ')} · severity {sel.severity} · {sel.coordinates[1].toFixed(2)}, {sel.coordinates[0].toFixed(2)}</div>
+          {/* severity legend */}
+          <span className="ml-2 text-[9px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Severity</span>
+          {Object.entries(SEV).map(([k, v]) => (
+            <span key={k} className="flex items-center gap-1 text-[9px] text-[var(--color-text-tertiary)]">
+              <span className="rounded-full" style={{ display: 'inline-block', width: v.r, height: v.r, background: 'var(--color-text-tertiary)' }} />
+              {k}
+            </span>
+          ))}
         </div>
       )}
 
-      {markers.length === 0 && !busy && !err && (
-        <div className="mt-4 text-[11px] text-[var(--color-text-tertiary)]">No geo-referenced places in the graph yet. Mention places in your documents/chats, then “detect places”.</div>
-      )}
+      {/* Map container */}
+      <div className="relative flex-1 min-h-0">
+        <div ref={containerRef} className="h-full w-full" />
 
-      <p className="mt-5 text-[10px] text-[var(--color-text-tertiary)]">
-        {data?.attribution?.texts?.join(' · ') ?? '© OpenStreetMap contributors'}
-        {data?.boundary ? ` — ${data.boundary}` : ''}
-      </p>
+        {/* No-data overlay */}
+        {markers.length === 0 && !busy && (
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <div className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]/90 px-5 py-4 text-center backdrop-blur-sm">
+              <div className="text-xs font-medium text-[var(--color-text-primary)]">No markers yet</div>
+              <div className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">Mention places in documents or chat,<br />then &ldquo;Detect places&rdquo; above.</div>
+            </div>
+          </div>
+        )}
+
+        {/* Selected marker panel */}
+        {sel && (
+          <div className="absolute bottom-8 left-4 right-4 max-w-sm rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]/95 px-4 py-3 shadow-lg backdrop-blur-sm">
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <div className="text-sm font-semibold text-[var(--color-text-primary)]">{sel.title}</div>
+                <div className="mt-0.5 flex items-center gap-2 text-[10px] text-[var(--color-text-secondary)]">
+                  <span className="h-2 w-2 rounded-full" style={{ background: layerOf(sel.layerGroup).c }} />
+                  {layerOf(sel.layerGroup).label}
+                  <span className="text-[var(--color-text-tertiary)]">·</span>
+                  <span>{sel.severity}</span>
+                  <span className="text-[var(--color-text-tertiary)]">·</span>
+                  <span className="tabular-nums">{sel.coordinates[1].toFixed(2)}, {sel.coordinates[0].toFixed(2)}</span>
+                </div>
+              </div>
+              <button onClick={() => { setSel(null); mapRef.current?.setFilter('ofif-selected', ['==', ['get', 'id'], '']) }}
+                className="shrink-0 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] text-xs">✕</button>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
