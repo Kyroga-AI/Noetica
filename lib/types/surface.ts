@@ -10,6 +10,7 @@ export type ActiveSurface =
   | 'deploy'
   | 'terminal'
   | 'services'
+  | 'pipelines'
   | 'workspace'
   | 'evaluate'
   | 'studio'

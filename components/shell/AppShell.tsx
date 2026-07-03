@@ -22,6 +22,7 @@ import { TerminalSurface } from '@/components/surfaces/TerminalSurface'
 import { SearchSurface } from '@/components/surfaces/SearchSurface'
 import { ServicesSurface } from '@/components/surfaces/ServicesSurface'
 import { LabsSurface } from '@/components/surfaces/LabsSurface'
+import { PipelinesSurface } from '@/components/surfaces/PipelinesSurface'
 import { KnowledgeGraphSurface } from '@/components/surfaces/KnowledgeGraphSurface'
 import { WorkspaceSurface } from '@/components/surfaces/WorkspaceSurface'
 import { EvaluateSurface } from '@/components/surfaces/EvaluateSurface'
@@ -104,6 +105,7 @@ const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
   deploy:       'Code',
   terminal:     'Code',
   services:     'Code',
+  pipelines:    'Code',
   labs:         'Chat',
   search:       'Chat',
   workspace:    'Code',
@@ -1844,6 +1846,7 @@ function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, work
   if (activeSurface === 'terminal')     return <TerminalSurface />
   if (activeSurface === 'search')       return <SearchSurface />
   if (activeSurface === 'services')     return <ServicesSurface />
+  if (activeSurface === 'pipelines')    return <PipelinesSurface />
   if (activeSurface === 'labs')         return <LabsSurface />
   if (activeSurface === 'kg')           return <KnowledgeGraphSurface />
   if (activeSurface === 'workspace')    return <WorkspaceSurface />

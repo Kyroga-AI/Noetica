@@ -7843,6 +7843,22 @@ Question: ${question}`
     return
   }
 
+  // GET /api/pipelines/status — local GitOps: Argo CD applications (sync/health) + toolchain detection.
+  if (req.method === 'GET' && url.pathname === '/api/pipelines/status') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { pipelineStatus } = await import('./lib/pipelines.js')
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(await pipelineStatus()))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: (e instanceof Error ? e.message : 'pipelines_failed').replace(/[\r\n]/g, ' ') }))
+      }
+    })()
+    return
+  }
+
   // GET /api/labs/catalog — Apple-aligned model catalog (on-device ~3B base + per-lab LoRA adapters + server tier).
   if (req.method === 'GET' && url.pathname === '/api/labs/catalog') {
     setCORSHeaders(res)

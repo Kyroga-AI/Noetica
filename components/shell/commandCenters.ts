@@ -132,7 +132,7 @@ export const NAV_SURFACES: NavSurface[] = [
   { id: 'code',       label: 'Source',      center: 'workstation', tier: 'primary',   maturity: 'live' }, // Gitea Sovereign + local repos; language intel via synapseiq (tree-sitter/LSP)
   { id: 'deploy',     label: 'Deploy',      center: 'workstation', tier: 'primary',   maturity: 'beta' }, // sourceos-continuum / Porter local PaaS (kind/k3s) — LIVE surface
   { id: 'services',   label: 'Services',    center: 'workstation', tier: 'primary',   maturity: 'beta' }, // DevSpaces (Nocalhost BaseSpace/MeshSpace ↔ trust namespaces) — LIVE surface
-  { id: 'pipelines',  label: 'Pipelines',   center: 'workstation', tier: 'secondary', maturity: 'planned', gap: true }, // local GitOps (PR-driven)
+  { id: 'pipelines',  label: 'Pipelines',   center: 'workstation', tier: 'secondary', maturity: 'beta' }, // local GitOps (Argo CD, PR-driven) — LIVE surface
   { id: 'terminal',   label: 'Terminal',    center: 'workstation', tier: 'secondary', maturity: 'beta' }, // prophet-cli / sourceosctl operator console — LIVE surface
 
   // ── Data & DataOps — search (local lampstand vs platform sherlock), enrichment, graph ──

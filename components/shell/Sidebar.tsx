@@ -117,6 +117,15 @@ function IconLabs() {
     </svg>
   )
 }
+function IconPipelines() {
+  // branching nodes — GitOps pipeline
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <circle cx="4" cy="4" r="1.8" stroke="currentColor" strokeWidth="1.3" /><circle cx="4" cy="12" r="1.8" stroke="currentColor" strokeWidth="1.3" /><circle cx="12" cy="8" r="1.8" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M4 5.8v4.4M5.6 4h1.4a2 2 0 0 1 2 2v.5M5.6 12h1.4a2 2 0 0 0 2-2v-.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
+    </svg>
+  )
+}
 function IconServices() {
   // stacked boxes — running DevSpaces/services
   return (
@@ -281,6 +290,7 @@ const surfaceItems: SurfaceItem[] = [
   { id: 'deploy',      label: 'Deploy',      icon: <IconDeploy />,     items: ['Control plane', 'Services', 'Logs'] },
   { id: 'terminal',    label: 'Terminal',    icon: <IconTerminal />,   items: ['prophet', 'sourceosctl'] },
   { id: 'services',    label: 'Services',    icon: <IconServices />,   items: ['DevSpaces', 'BaseSpace', 'MeshSpace'] },
+  { id: 'pipelines',   label: 'Pipelines',   icon: <IconPipelines />,  items: ['GitOps', 'Argo CD', 'CI'] },
   { id: 'workspace',   label: 'Project Files',icon: <IconFiles />,      items: ['Project files', 'Scaffolds', 'Build output'] },
   { id: 'evaluate',    label: 'Evaluate',    icon: <IconEvaluate />,   items: ['Task benchmarks', 'Model families', 'Outcome traces'] },
   { id: 'labs',        label: 'Labs',        icon: <IconLabs />,       items: ['On-device base', 'Lab adapters', 'Server tier'] },
