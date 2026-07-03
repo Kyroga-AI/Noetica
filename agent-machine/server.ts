@@ -5233,6 +5233,79 @@ const server = http.createServer((req, res) => {
     return
   }
 
+  // POST /api/learning/dream-traces — offline trace consolidation dreaming pass.
+  // Reads recent reasoning experiences, runs the local model to synthesize richer skill
+  // abstractions than what's possible inline (model has more context + time), and saves
+  // the enriched skills to the skill store. Persists run status to ~/.noetica/trace-dream.json.
+  if (req.method === 'POST' && url.pathname === '/api/learning/dream-traces') {
+    setCORSHeaders(res)
+    ;(async () => {
+      try {
+        const expPath   = path.join(os.homedir(), '.noetica', 'experiences.jsonl')
+        const statePath = path.join(os.homedir(), '.noetica', 'trace-dream.json')
+        type ExpRecord  = { task?: unknown; steps?: unknown; outcome?: unknown }
+        const experiences = readEncrypted<ExpRecord>(expPath).slice(-30)
+
+        const finish = (extracted: number, skills: Array<{ task: string; abstraction: string; steps: string[] }>) => {
+          const lastRun = new Date().toISOString()
+          try { fs.writeFileSync(statePath, JSON.stringify({ lastRun, extracted })) } catch { /* best-effort */ }
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ extracted, skills, lastRun }))
+        }
+
+        if (!experiences.length) { finish(0, []); return }
+
+        const { generateOllamaText } = await import('./lib/ollama.js')
+        const { distillSkill }       = await import('./lib/procedural-memory.js')
+        const { newCard }            = await import('./lib/srs.js')
+        const models  = await listLocalModels()
+        const model   = models[0] ?? 'qwen2.5:7b'
+        const extracted: Array<{ task: string; abstraction: string; steps: string[] }> = []
+
+        for (const exp of experiences.slice(0, 10)) {
+          const task    = String(exp.task    ?? '').slice(0, 120)
+          const rawStps = Array.isArray(exp.steps) ? (exp.steps as string[]).slice(0, 8) : []
+          const outcome = String(exp.outcome ?? '').slice(0, 200)
+          if (!task || rawStps.length < 2) continue
+          try {
+            const prompt  = `Analyze this successful agent turn and extract a reusable skill.\n\nTask: ${task}\nSteps: ${rawStps.join(', ')}\nOutcome: ${outcome}\n\nRespond with JSON only (no prose, no markdown):\n{"abstraction":"one-sentence generalization of the key insight","steps":["key step 1","key step 2","key step 3"]}`
+            const r       = await generateOllamaText({ model, messages: [{ role: 'user', content: prompt }], temperature: 0.3 })
+            const m       = r.content.match(/\{[\s\S]*?\}/)
+            if (!m) continue
+            let parsed: { abstraction?: string; steps?: string[] }
+            try { parsed = JSON.parse(m[0]) } catch { continue }
+            if (!parsed.abstraction) continue
+            const skill = { ...distillSkill(task, parsed.abstraction, parsed.steps ?? rawStps), card: newCard(Date.now()) }
+            appendEncrypted(skillsPath(), skill)
+            extracted.push({ task, abstraction: parsed.abstraction, steps: parsed.steps ?? rawStps })
+          } catch { /* skip malformed generation */ }
+        }
+
+        finish(extracted.length, extracted)
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'dream-traces failed' }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/learning/dream-status — last trace-consolidation run summary (persisted across restarts).
+  if (req.method === 'GET' && url.pathname === '/api/learning/dream-status') {
+    setCORSHeaders(res)
+    try {
+      const statePath = path.join(os.homedir(), '.noetica', 'trace-dream.json')
+      let status: { lastRun: string | null; extracted: number } = { lastRun: null, extracted: 0 }
+      try { status = JSON.parse(fs.readFileSync(statePath, 'utf8')) as typeof status } catch { /* not run yet */ }
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify(status))
+    } catch {
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify({ lastRun: null, extracted: 0 }))
+    }
+    return
+  }
+
   // GET /api/fleet — the provisioned cloud executors (the broker's fleet inventory), with a cost roll-up, so the
   // multi-cloud C2/swarm stack is VISIBLE. Empty until something is provisioned.
   if (req.method === 'GET' && url.pathname === '/api/fleet') {
@@ -16912,6 +16985,43 @@ server.listen(PORT, BIND_HOST, () => {
     // available for manual/UI trigger; this only automates it.
     if (process.env['NOETICA_DREAMING'] === '1') {
       setInterval(() => { void runDreaming({ integrate: true }).then((r) => console.log(`[dreaming] proposed=${r.proposed} integrated=${r.integrated} from ${r.seeds} seeds`)).catch(() => {}) }, 4 * 60 * 60_000).unref()
+      // Trace consolidation dreaming: every hour, synthesize richer skills from recent experiences.
+      // Runs on the same opt-in gate as graph dreaming (NOETICA_DREAMING=1).
+      setInterval(() => {
+        void (async () => {
+          try {
+            const expPath   = path.join(os.homedir(), '.noetica', 'experiences.jsonl')
+            const statePath = path.join(os.homedir(), '.noetica', 'trace-dream.json')
+            type ExpRecord  = { task?: unknown; steps?: unknown; outcome?: unknown }
+            const experiences = readEncrypted<ExpRecord>(expPath).slice(-20)
+            if (!experiences.length) return
+            const { generateOllamaText } = await import('./lib/ollama.js')
+            const { distillSkill }       = await import('./lib/procedural-memory.js')
+            const { newCard }            = await import('./lib/srs.js')
+            const models = await listLocalModels()
+            const model  = models[0] ?? 'qwen2.5:7b'
+            let count = 0
+            for (const exp of experiences.slice(0, 8)) {
+              const task    = String(exp.task    ?? '').slice(0, 120)
+              const rawStps = Array.isArray(exp.steps) ? (exp.steps as string[]).slice(0, 8) : []
+              const outcome = String(exp.outcome ?? '').slice(0, 200)
+              if (!task || rawStps.length < 2) continue
+              try {
+                const r = await generateOllamaText({ model, messages: [{ role: 'user', content: `Extract a reusable skill from this turn.\nTask: ${task}\nSteps: ${rawStps.join(', ')}\nOutcome: ${outcome}\nRespond with JSON only:\n{"abstraction":"one-sentence generalization","steps":["step 1","step 2"]}` }], temperature: 0.3 })
+                const m = r.content.match(/\{[\s\S]*?\}/)
+                if (!m) continue
+                let parsed: { abstraction?: string; steps?: string[] }
+                try { parsed = JSON.parse(m[0]) } catch { continue }
+                if (!parsed.abstraction) continue
+                appendEncrypted(skillsPath(), { ...distillSkill(task, parsed.abstraction, parsed.steps ?? rawStps), card: newCard(Date.now()) })
+                count++
+              } catch { /* skip */ }
+            }
+            try { fs.writeFileSync(statePath, JSON.stringify({ lastRun: new Date().toISOString(), extracted: count })) } catch { /* best-effort */ }
+            console.log(`[trace-dream] extracted=${count} skills from ${experiences.length} experiences`)
+          } catch (e) { console.warn('[trace-dream] error (non-fatal):', e) }
+        })()
+      }, 60 * 60_000).unref()
     }
     // SIGINT/SIGTERM teardown is registered once, synchronously, at the top of the
     // listen callback (kills the managed Ollama before persisting + exiting).

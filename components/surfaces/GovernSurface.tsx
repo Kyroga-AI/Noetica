@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { buildEgressAudit, toCsv } from '@/lib/governance/egressAudit'
 import AutonomyPanel from '@/components/governance/AutonomyPanel'
 import type { GovernanceTrace } from '@/lib/types/governance'
@@ -190,6 +190,17 @@ const TIER_COLOR: Record<string, { dot: string; chip: string; label: string }> =
   guideline: { dot: '#16a34a', chip: 'bg-[rgba(22,163,74,0.10)] text-[#16a34a]',   label: 'Guideline' },
 }
 
+function traceDreamAgo(iso: string | null): string {
+  if (!iso) return 'never'
+  const diff = Date.now() - new Date(iso).getTime()
+  const min  = Math.floor(diff / 60_000)
+  if (min < 1) return 'just now'
+  if (min < 60) return `${min}m ago`
+  const h = Math.floor(min / 60)
+  if (h < 24) return `${h}h ago`
+  return `${Math.floor(h / 24)}d ago`
+}
+
 export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[] }) {
   const { settings, update: updateSettings } = useSettings()
   const [policyMode, setPolicyMode]   = useState<PolicyMode>(
@@ -210,6 +221,15 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   const [learning, setLearning]           = useState<LearningStats | null>(null)
   const [dream, setDream]                 = useState<DreamResult | null>(null)
   const [dreaming, setDreaming]           = useState(false)
+
+  // Trace consolidation dreaming — turns recent experiences into distilled skills offline
+  interface TraceDreamResult { lastRun: string | null; extracted: number; skills?: Array<{ task: string; abstraction: string; steps: string[] }> }
+  const [traceDream, setTraceDream]       = useState<TraceDreamResult | null>(null)
+  const [traceDreaming, setTraceDreaming] = useState(false)
+  const traceDreamingRef = useRef(false)
+  const lastActivityRef  = useRef(Date.now())
+  // Keep a stable ref to runTraceDream so the idle interval can call the latest version
+  const runTraceDreamRef = useRef<() => void>(() => { /* initialized below */ })
   const [replaying, setReplaying]         = useState(false)
   const [audit, setAudit]                 = useState<AuditAttestation | null>(null)
   const [proposals, setProposals]         = useState<GraphProposal[]>([])
@@ -299,6 +319,11 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
       .then(r => r.ok ? r.json() : null)
       .then((d: DreamResult | null) => { if (d) setDream(d) })
       .catch(() => { /* not running — skip */ })
+    // Trace consolidation — load status from last run (persists across restarts)
+    fetch(amUrl('/api/learning/dream-status'), { signal: AbortSignal.timeout(3000) })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: TraceDreamResult | null) => { if (d) setTraceDream(d) })
+      .catch(() => { /* best-effort */ })
     loadMemories()
     // Graph proposals: agent-staged changes awaiting user accept/reject
     fetch(amUrl('/api/graph/proposals'), { signal: AbortSignal.timeout(3000) })
@@ -332,6 +357,39 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
       if (r.ok) setDream(await r.json() as DreamResult)
     } catch { /* skip */ } finally { setDreaming(false) }
   }
+
+  // Trace consolidation dreaming — offline skill synthesis from recent experiences.
+  // Also fires automatically via the idle timer below.
+  async function runTraceDream() {
+    if (traceDreamingRef.current) return
+    traceDreamingRef.current = true
+    setTraceDreaming(true)
+    try {
+      const r = await fetch(amUrl('/api/learning/dream-traces'), { method: 'POST', signal: AbortSignal.timeout(120_000) })
+      if (r.ok) setTraceDream(await r.json() as TraceDreamResult)
+    } catch { /* best-effort */ }
+    finally { traceDreamingRef.current = false; setTraceDreaming(false) }
+  }
+  runTraceDreamRef.current = () => { void runTraceDream() }
+
+  // Idle timer — auto-fires trace consolidation after 5 min of no user interaction.
+  // Uses document-level listeners so it works regardless of which surface is active.
+  useEffect(() => {
+    const bump = () => { lastActivityRef.current = Date.now() }
+    document.addEventListener('mousemove', bump, { passive: true })
+    document.addEventListener('keydown',   bump, { passive: true })
+    const timer = setInterval(() => {
+      if (!traceDreamingRef.current && Date.now() - lastActivityRef.current > 5 * 60_000) {
+        lastActivityRef.current = Date.now() // reset so it doesn't fire again immediately
+        runTraceDreamRef.current()
+      }
+    }, 60_000)
+    return () => {
+      document.removeEventListener('mousemove', bump)
+      document.removeEventListener('keydown',   bump)
+      clearInterval(timer)
+    }
+  }, [])
 
   function loadMemories() {
     fetch(amUrl('/api/memory/graph'), { signal: AbortSignal.timeout(3000) })
@@ -737,6 +795,58 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             )}
           </div>
         )}
+
+        {/* Trace consolidation — idle pass that synthesizes skills from recent experiences */}
+        <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#7c3aed]">Trace Consolidation</div>
+              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)] leading-relaxed">
+                Synthesizes reusable skills from recent agent experiences.
+                {traceDream?.lastRun
+                  ? ` Last run ${traceDreamAgo(traceDream.lastRun)}.`
+                  : ' Fires automatically after 5 min idle, or trigger manually.'}
+              </div>
+            </div>
+            <button onClick={() => void runTraceDream()} disabled={traceDreaming}
+              className="shrink-0 rounded-lg border border-[#ddd6fe] bg-[#f5f3ff] px-2.5 py-1 text-[10px] font-semibold text-[#6d28d9] transition hover:bg-[#ede9fe] disabled:opacity-50">
+              {traceDreaming ? 'Consolidating…' : '✦ Consolidate'}
+            </button>
+          </div>
+
+          {traceDream && traceDream.extracted > 0 && (
+            <div>
+              <div className="mb-2 flex items-center gap-2">
+                <span className="text-sm font-semibold text-[#7c3aed]">{traceDream.extracted}</span>
+                <span className="text-[11px] text-[var(--color-text-tertiary)]">skill{traceDream.extracted !== 1 ? 's' : ''} extracted</span>
+              </div>
+              {traceDream.skills && traceDream.skills.length > 0 && (
+                <ul className="space-y-1.5">
+                  {traceDream.skills.slice(0, 3).map((s, i) => (
+                    <li key={i} className="rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2">
+                      <div className="flex items-start gap-1.5">
+                        <span className="mt-0.5 shrink-0 text-[#7c3aed] text-[10px]">◎</span>
+                        <span className="text-[11px] text-[var(--color-text-secondary)]">{s.abstraction}</span>
+                      </div>
+                      <div className="mt-1 text-[10px] text-[var(--color-text-tertiary)] truncate">{s.task}</div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+          {(!traceDream || traceDream.extracted === 0) && !traceDreaming && (
+            <div className="text-[11px] text-[var(--color-text-tertiary)]">
+              No experiences distilled yet — skills accumulate as you run more agent turns with <code className="font-mono">PROCEDURAL_MEMORY=true</code>.
+            </div>
+          )}
+          {traceDreaming && (
+            <div className="flex items-center gap-2 text-[11px] text-[var(--color-text-tertiary)]">
+              <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-[var(--color-border-tertiary)] border-t-[#7c3aed]" />
+              Synthesizing skills from experiences…
+            </div>
+          )}
+        </div>
 
         {/* Analytics metrics */}
         {chatRuns.length > 0 && (
