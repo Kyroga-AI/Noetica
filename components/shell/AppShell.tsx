@@ -45,6 +45,7 @@ import { GovernPanel } from '@/components/panels/GovernPanel'
 import { SettingsModal } from '@/components/settings/SettingsModal'
 import { ProviderSetupModal } from '@/components/shell/ProviderSetupModal'
 import { ModelSetupOverlay } from '@/components/setup/ModelSetupOverlay'
+import { CitizenOnboardingWizard } from '@/components/shell/CitizenOnboardingWizard'
 import { CommandPalette } from '@/components/palette/CommandPalette'
 import { models, visibleModels, providersWithKeys, defaultModelId } from '@/config/models'
 import { initialMessages } from '@/lib/chat/mockConversation'
@@ -303,9 +304,20 @@ export function AppShell() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [providerSetupOpen, setProviderSetupOpen] = useState(false)
   const [showSetup, setShowSetup] = useState(false)
+  const [showCitizenOnboarding, setShowCitizenOnboarding] = useState(false)
   const [rawEventLog, setRawEventLog] = useState<Array<{ ts: string; kind: string; payload: unknown }>>([])
   const rawEventLogRef = useRef(rawEventLog)
   rawEventLogRef.current = rawEventLog
+
+  // Citizen first-run onboarding: show once, after the infrastructure setup modals
+  // (provider keys / model download) have had a chance to appear. Triggered by absence
+  // of the `noetica:citizen:onboarded` key — independent of whether the user has a name set.
+  useEffect(() => {
+    if (localStorage.getItem('noetica:citizen:onboarded') === '1') return
+    // Small delay so infrastructure modals (provider/model) appear first if needed
+    const t = setTimeout(() => setShowCitizenOnboarding(true), 800)
+    return () => clearTimeout(t)
+  }, [])
 
   // Show provider setup on first load when no keys configured AND not in local-first mode
   useEffect(() => {
@@ -1462,6 +1474,14 @@ export function AppShell() {
           onDismiss={() => {
             localStorage.setItem('noetica:setup:skipped', '1')
             setShowSetup(false)
+          }}
+        />
+      )}
+      {showCitizenOnboarding && !showSetup && !providerSetupOpen && (
+        <CitizenOnboardingWizard
+          onComplete={(name) => {
+            setShowCitizenOnboarding(false)
+            if (name) updateSettings({ userName: name })
           }}
         />
       )}

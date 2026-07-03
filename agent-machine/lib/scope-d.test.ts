@@ -48,3 +48,32 @@ test('scope-d: FAILS CLOSED when the policy becomes unreadable', async () => {
   assert.equal(v.allow, false)
   assert.equal(v.source, 'fail-closed')
 })
+
+test('scope-d: authorizeAction read-class carries guideline authority level', async () => {
+  const { authorizeAction } = await load()
+  const v = authorizeAction('read')
+  assert.equal(v.allow, true)
+  assert.equal(v.authorityLevel, 'guideline')
+  assert.equal(v.broadlySafe.all, true)
+})
+
+test('scope-d: checkBroadlySafe network_call → boundedScope false, all false', async () => {
+  const { checkBroadlySafe } = await load()
+  const r = checkBroadlySafe('network_call')
+  assert.equal(r.boundedScope, false)
+  assert.equal(r.all, false)
+})
+
+test('scope-d: checkBroadlySafe destructive_action fails reversible + noUserHarm', async () => {
+  const { checkBroadlySafe } = await load()
+  const r = checkBroadlySafe('destructive_action')
+  assert.equal(r.reversible, false)
+  assert.equal(r.noUserHarm, false)
+  assert.equal(r.all, false)
+})
+
+test('scope-d: checkBroadlySafe read → all checks pass', async () => {
+  const { checkBroadlySafe } = await load()
+  const r = checkBroadlySafe('read')
+  assert.equal(r.all, true)
+})

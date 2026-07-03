@@ -39,7 +39,7 @@ import { isConfinedToHomeOrTmp } from './lib/path-confine.js'
 import { buildAdaptiveBrief } from './lib/progress.js'
 import { safeShellEnv } from './lib/safe-shell-env.js'
 import { buildRouterDecision, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider, bestCoder, bestWorkhorse, bestResponsive } from './lib/router.js'
-import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTelemetry, type MeshTier } from './lib/scope-d.js'
+import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTelemetry, requiresPlanModeEscalation, checkBroadlySafe as scopedCheckBroadlySafe, type MeshTier, type ActionClass as ScopedActionClass } from './lib/scope-d.js'
 import { installEgressGuard, setOfflineMode } from './lib/egress-guard.js'
 import { classifyIntent, capabilityToTask, wantsVectorRag, intentByName, planFromIntent, intentToAction, deEscalateEveryday } from './lib/intent-router.js'
 import { classifyLifeDomain } from './lib/life-domain.js'
@@ -490,6 +490,19 @@ function loadContainment(): void {
     if (raw.killed) console.log('[containment] kill-switch ARMED (restored from disk) — agent halted until disarmed')
   } catch { /* no prior state — defaults (full, not killed) */ }
 }
+// ── Tool action-class mapping ────────────────────────────────────────────────
+// Maps tool names to scope-d action classes for capability confinement and the
+// broadly-safe gate. Hoisted to module level so both executeTool and the
+// per-request broadly-safe gate composition can reference it.
+const TOOL_ACTION_CLASS: Record<string, ScopedActionClass> = {
+  web_search: 'network_call',
+  generate_image: 'network_call',
+  public_data: 'network_call',
+  update_self: 'network_call',
+  code_execute: 'write',
+  run_command: 'write',
+}
+
 // ── Autonomy gate ────────────────────────────────────────────────────────────
 // The autonomy level each tool's action implies (AI-driven-development ladder).
 // Assistive/read tools are ungated (L1); the gate is inert until an autonomy
@@ -1795,21 +1808,14 @@ async function executeTool(
   // scope-d capability confinement (facet 4): authorize side-effecting tools
   // against the active EngagementPolicy. Read-only tools pass; network/write/exec
   // actions are gated and fail-closed when the policy doesn't permit them.
-  const TOOL_ACTION_CLASS: Record<string, import('./lib/scope-d.js').ActionClass> = {
-    web_search: 'network_call',
-    generate_image: 'network_call',
-    public_data: 'network_call',
-    update_self: 'network_call', // downloads brain artifacts from the brain service
-    code_execute: 'write',
-    run_command: 'write',
-  }
+  // TOOL_ACTION_CLASS is defined at module level so the broadly-safe gate can also use it.
   // Containment kill-switch (facet 0): enforced HERE, in the shared tool path, so it covers BOTH the
   // chat loop AND the direct /api/tool route. Previously only /api/chat checked it, so an armed
   // kill-switch could be bypassed by calling a tool directly. When armed, halt every tool.
   {
     const c = containmentState()
     if (c.killed) {
-      emitScopedTelemetry({ kind: 'capability', allow: false, provider: 'tool', model: name, scope: 'kill-switch', reason: c.reason ?? 'armed', source: 'containment' })
+      emitScopedTelemetry({ kind: 'capability', allow: false, provider: 'tool', model: name, scope: 'kill-switch', reason: c.reason ?? 'armed', source: 'containment', authorityLevel: 'root' })
       return `Blocked: the agent kill-switch is ARMED${c.reason ? ` (${c.reason})` : ''}. Tool execution is halted until it is disarmed.`
     }
   }
@@ -1817,7 +1823,7 @@ async function executeTool(
   const actionClass = TOOL_ACTION_CLASS[name]
   if (actionClass) {
     const verdict = scopedAuthorizeAction(actionClass)
-    emitScopedTelemetry({ kind: 'capability', allow: verdict.allow, provider: 'tool', model: name, scope: actionClass, reason: verdict.reason, source: verdict.source })
+    emitScopedTelemetry({ kind: 'capability', allow: verdict.allow, provider: 'tool', model: name, scope: actionClass, reason: verdict.reason, source: verdict.source, authorityLevel: verdict.authorityLevel, broadlySafe: verdict.broadlySafe })
     if (!verdict.allow) {
       return `Blocked by scope-d engagement policy: ${verdict.reason}. This action (${name} → ${actionClass}) is not authorized under the active policy.`
     }
@@ -3173,6 +3179,29 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   if (intentToolSet.size > 0) intentToolSet.add('dispatch_agent')
   // Agent mode: 'plan' produces a plan WITHOUT executing (no tools offered); 'ask'/'auto' keep tools.
   const agentMode = body.agent_mode === 'plan' || body.agent_mode === 'ask' ? body.agent_mode : 'auto'
+
+  // Broadly-safe gate composition: in auto mode, tools whose action class maps to a
+  // high-risk class (destructive, deployment, credential, identity-write) are blocked
+  // before execution and the model is told to switch to plan mode for user approval.
+  // Normal write/network/exec tools are unaffected — they are already gated by the
+  // autonomy ladder and scope-d policy. In plan/ask mode, no additional gating is
+  // needed since the user is already in an explicit approval flow.
+  type GateCall = { name: string; id?: string; input?: Record<string, unknown> }
+  const effectiveGate = agentMode === 'auto'
+    ? (call: GateCall) => {
+        const base = autonomyGate(call)
+        if (!base.allowed) return base
+        const actionClass = TOOL_ACTION_CLASS[call.name]
+        if (actionClass && requiresPlanModeEscalation(actionClass)) {
+          const safe = scopedCheckBroadlySafe(actionClass)
+          const failed = (['reversible', 'minimalFootprint', 'boundedScope', 'intentClear', 'noUserHarm'] as const)
+            .filter((k) => !safe[k]).join(', ')
+          return { allowed: false, reason: `broadly-safe check failed [${failed}] for ${call.name} (${actionClass}) — switch to plan mode so the user can approve this action` }
+        }
+        return base
+      }
+    : autonomyGate
+
   const allTools: ProviderTool[] = (modelSupportsTools && agentMode !== 'plan')
     ? BUILTIN_TOOLS.filter((t) => intentToolSet.has(t.name) && (t.name !== 'generate_image' || imageGenAvailable))
     : []
@@ -4320,7 +4349,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           recordTrajectory: (calls) => recordTrajectory(calls),
           coerceToolInput,
           onDelta: (t) => { liveContent += t },
-          autonomyGate,
+          autonomyGate: effectiveGate,
         })
         fullContent += ollamaResult.content
         fullThinking += ollamaResult.thinking
@@ -4383,7 +4412,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         recordTrajectory: (calls) => recordTrajectory(calls),
         coerceToolInput,
         onDelta: (t) => { liveContent += t },
-        autonomyGate,
+        autonomyGate: effectiveGate,
       })
       fullContent += anthropicResult.content
       fullThinking += anthropicResult.thinking
@@ -4449,7 +4478,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         recordTrajectory: (calls) => recordTrajectory(calls),
         coerceToolInput,
         onDelta: (t) => { liveContent += t },
-        autonomyGate,
+        autonomyGate: effectiveGate,
       })
       fullContent += oaiResult.content
       fullThinking += oaiResult.thinking
