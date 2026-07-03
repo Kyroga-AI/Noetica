@@ -39,6 +39,11 @@ type GraphSubstrate = {
 
 type FrontierRow = { name: string; metric: string; value: number | string }
 
+type HealthBenchScenario = { id: string; title: string; prompt: string }
+type RubricDimension = { id: string; label: string; description: string }
+type RubricScore = { id: string; label: string; score: number; rationale: string }
+type HealthBenchResult = { scenarioId: string; scenarioTitle: string; model: string; answer: string; rubric: RubricScore[]; overallScore: number }
+
 type LearningTrends = {
   quality: { buckets: Array<{ index: number; n: number; avg_worth: number; avg_grounding: number }>; delta: number; improving: boolean; samples: number }
   bandit: Array<{ task: string; provider: string; model: string; plays: number; mean_reward: number; leading: boolean }>
@@ -86,6 +91,12 @@ export function BenchmarkDashboard() {
   const [frontier, setFrontier] = useState<FrontierRow[] | null>(null)
   const [trends, setTrends] = useState<LearningTrends | null>(null)
   const [loading, setLoading] = useState(true)
+  const [hbScenarios, setHbScenarios]     = useState<HealthBenchScenario[]>([])
+  const [hbRubric, setHbRubric]           = useState<RubricDimension[]>([])
+  const [hbSelectedId, setHbSelectedId]   = useState<string>('')
+  const [hbResult, setHbResult]           = useState<HealthBenchResult | null>(null)
+  const [hbRunning, setHbRunning]         = useState(false)
+  const [hbError, setHbError]             = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -130,6 +141,16 @@ export function BenchmarkDashboard() {
           .catch(() => { /* EvalFabric not reachable — section stays hidden */ })
       }
 
+      // HealthBench scenario catalogue
+      fetch(amUrl('/api/benchmark/healthbench'), { signal: AbortSignal.timeout(3000) })
+        .then((r) => (r.ok ? r.json() : null))
+        .then((d: { scenarios?: HealthBenchScenario[]; rubric?: RubricDimension[] } | null) => {
+          if (cancelled) return
+          if (d?.scenarios?.length) { setHbScenarios(d.scenarios); setHbSelectedId(d.scenarios[0]!.id) }
+          if (d?.rubric?.length) setHbRubric(d.rubric)
+        })
+        .catch(() => { /* backend not running */ })
+
       if (!cancelled) setLoading(false)
     })()
     return () => { cancelled = true }
@@ -146,6 +167,22 @@ export function BenchmarkDashboard() {
     + live.filter((l) => l.is_local).reduce((s, l) => s + l.runs, 0)
 
   const hasData = aggs.length > 0 || live.length > 0
+
+  async function runHealthBench() {
+    if (!hbSelectedId || hbRunning) return
+    setHbRunning(true); setHbError(''); setHbResult(null)
+    try {
+      const r = await fetch(amUrl('/api/benchmark/healthbench'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ scenarioId: hbSelectedId }),
+        signal: AbortSignal.timeout(120000),
+      })
+      if (!r.ok) throw new Error(`healthbench ${r.status}`)
+      setHbResult(await r.json() as HealthBenchResult)
+    } catch (e) { setHbError(e instanceof Error ? e.message : 'eval failed') }
+    finally { setHbRunning(false) }
+  }
 
   return (
     <div className="flex flex-col gap-5 overflow-y-auto p-5 text-sm text-[var(--color-text-primary)]">
@@ -280,6 +317,93 @@ export function BenchmarkDashboard() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </Section>
+      )}
+
+      {/* HealthBench — rubric eval across 5 health-domain dimensions */}
+      {hbScenarios.length > 0 && (
+        <Section title="HealthBench (rubric eval)" hint="LLM-as-judge evaluation across 5 health-domain dimensions — comprehensiveness, accuracy, safety, empathy, and clarity. Runs entirely on your local model.">
+          <div className="flex flex-col gap-3">
+            {/* Scenario selector + run button */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <select
+                value={hbSelectedId}
+                onChange={(e) => { setHbSelectedId(e.target.value); setHbResult(null); setHbError('') }}
+                className="flex-1 min-w-0 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8]"
+              >
+                {hbScenarios.map((s) => (
+                  <option key={s.id} value={s.id}>{s.title}</option>
+                ))}
+              </select>
+              <button
+                onClick={() => void runHealthBench()}
+                disabled={hbRunning}
+                className="shrink-0 rounded-lg bg-[#1d4ed8] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1e40af] disabled:opacity-50"
+              >
+                {hbRunning ? 'Evaluating…' : 'Run eval'}
+              </button>
+            </div>
+
+            {/* Scenario prompt preview */}
+            {hbSelectedId && (
+              <div className="rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2 text-[11px] italic text-[var(--color-text-secondary)]">
+                &ldquo;{hbScenarios.find((s) => s.id === hbSelectedId)?.prompt}&rdquo;
+              </div>
+            )}
+
+            {hbError && (
+              <div className="rounded-lg border border-[#fecaca] bg-[#fef2f2] px-3 py-2 text-xs text-[#dc2626]">{hbError}</div>
+            )}
+
+            {/* Rubric result */}
+            {hbResult && (
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-medium text-[var(--color-text-secondary)]">Overall</span>
+                  <div className="flex-1 h-2 rounded-full bg-[var(--color-background-tertiary)] overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all"
+                      style={{ width: `${hbResult.overallScore * 100}%`, background: hbResult.overallScore >= 0.8 ? '#16a34a' : hbResult.overallScore >= 0.6 ? '#d97706' : '#dc2626' }}
+                    />
+                  </div>
+                  <span className="w-8 text-right tabular-nums text-xs font-semibold">{(hbResult.overallScore * 100).toFixed(0)}%</span>
+                  <span className="text-[10px] text-[var(--color-text-tertiary)]">{hbResult.model}</span>
+                </div>
+                <div className="overflow-hidden rounded-xl border border-[var(--color-border-tertiary)]">
+                  {hbResult.rubric.map((d, i) => (
+                    <div key={d.id} className={`flex items-center gap-3 px-3 py-2 ${i < hbResult.rubric.length - 1 ? 'border-b border-[var(--color-border-tertiary)]' : ''}`}>
+                      <span className="w-28 shrink-0 text-[11px] font-medium text-[var(--color-text-secondary)]">{d.label}</span>
+                      <div className="flex-1 h-1.5 rounded-full bg-[var(--color-background-tertiary)] overflow-hidden">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${d.score * 100}%`, background: d.score >= 0.8 ? '#16a34a' : d.score >= 0.6 ? '#d97706' : '#dc2626' }}
+                        />
+                      </div>
+                      <span className="w-8 shrink-0 text-right tabular-nums text-[11px]">{(d.score * 100).toFixed(0)}%</span>
+                      <span className="hidden md:block min-w-0 flex-1 truncate text-[10px] text-[var(--color-text-tertiary)]" title={d.rationale}>{d.rationale}</span>
+                    </div>
+                  ))}
+                </div>
+                {/* Generated answer preview */}
+                <details className="rounded-lg border border-[var(--color-border-tertiary)]">
+                  <summary className="cursor-pointer px-3 py-2 text-[11px] font-medium text-[var(--color-text-secondary)] select-none">View generated answer</summary>
+                  <div className="border-t border-[var(--color-border-tertiary)] px-3 py-2 text-[11px] text-[var(--color-text-secondary)] whitespace-pre-wrap">{hbResult.answer}</div>
+                </details>
+              </div>
+            )}
+
+            {/* Rubric dimension reference */}
+            {!hbResult && !hbRunning && hbRubric.length > 0 && (
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
+                {hbRubric.map((d) => (
+                  <div key={d.id} className="rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-2">
+                    <div className="text-[10px] font-semibold text-[var(--color-text-secondary)]">{d.label}</div>
+                    <div className="mt-0.5 text-[9px] text-[var(--color-text-tertiary)]">{d.description}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </Section>
       )}

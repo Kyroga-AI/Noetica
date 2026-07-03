@@ -1570,6 +1570,7 @@ export function AppShell() {
                 onAtomSelect={(query) => { setActiveSurface('chat'); void handleSend(query, []) }}
                 onOpenSettings={() => openSettings('connections')}
                 onNavigateToOperate={() => setActiveSurface('operate')}
+                onNavigateToGovern={() => setActiveSurface('govern')}
                 onSpeak={speak}
                 onFeedback={(messageId, rating) => {
                   void fetch(amUrl('/api/learning/feedback'), {
@@ -1778,6 +1779,7 @@ type CenterProps = {
   onAtomSelect?: (query: string) => void
   onOpenSettings?: () => void
   onNavigateToOperate?: () => void
+  onNavigateToGovern?: () => void
   onSpeak?: (content: string) => void
   onFeedback?: (messageId: string, rating: 'up' | 'down') => void
   agentMode?: 'auto' | 'plan' | 'ask'
@@ -1786,7 +1788,7 @@ type CenterProps = {
   onPlanReject?: (messageId: string) => void
 }
 
-function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onSpeak, onFeedback, agentMode, onSetAgentMode, onPlanApprove, onPlanReject }: CenterProps) {
+function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onNavigateToGovern, onSpeak, onFeedback, agentMode, onSetAgentMode, onPlanApprove, onPlanReject }: CenterProps) {
   if (activeSurface === 'notes')        return <NotesSurface />
   if (activeSurface === 'canvas')       return <CanvasSurface />
   if (activeSurface === 'workrooms')    return <TabbedWorkspace tabs={[
@@ -1803,7 +1805,7 @@ function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, work
     { id: 'studio', label: 'Prompt & Compare', render: () => <StudioSurface /> },
     { id: 'rag', label: 'RAG', render: () => <RagInspectSurface /> },
     { id: 'lab', label: 'Capabilities', render: () => <LabSurface /> },
-    { id: 'alignment', label: 'Alignment', render: () => <AlignmentSurface /> },
+    { id: 'alignment', label: 'Alignment', render: () => <AlignmentSurface onNavigateToGovern={onNavigateToGovern} /> },
   ]} />
   if (activeSurface === 'rag')          return <RagInspectSurface />
   if (activeSurface === 'lab')          return <LabSurface />
@@ -1814,7 +1816,7 @@ function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, work
     { id: 'holographme', label: 'HolographMe', render: () => <HolographMeSurface /> },
   ]} />
   if (activeSurface === 'broker')       return <CloudBrokerSurface />
-  if (activeSurface === 'alignment')    return <AlignmentSurface />
+  if (activeSurface === 'alignment')    return <AlignmentSurface onNavigateToGovern={onNavigateToGovern} />
   if (activeSurface === 'agents')       return <AgentBuilderSurface />
   if (activeSurface === 'library')      return <LibrarySurface />
   if (activeSurface === 'intelligence') return <IntelligenceSurface />
