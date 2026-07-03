@@ -94,6 +94,13 @@ function loadEngagementPolicy(): EngagementPolicy | null {
   }
 }
 
+/** Return just the identifying metadata from the active policy (policyId + name) without exposing the full policy object. */
+export function loadPolicyMeta(): { policyId: string; name: string } | null {
+  const p = loadEngagementPolicy()
+  if (!p) return null
+  return { policyId: p.policyId, name: p.name }
+}
+
 /** May this data leave the device, per the active scope-d EngagementPolicy? */
 export function checkEgress(req: ScopedEgressRequest): ScopedEgressVerdict {
   // Local performs no network egress — always allowed, no policy needed.

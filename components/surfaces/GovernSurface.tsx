@@ -170,6 +170,26 @@ function amRunToAuditEvent(r: AgentMachineRun): AuditEvent {
 
 interface AuditAttestation { attested: boolean; entries: number; chainValid: boolean; signed: boolean; signatureValid: boolean; firstBreakAt?: number; fingerprint: string; headHash: string }
 
+interface HierarchyTier { level: string; label: string; description: string; active: boolean }
+interface GovernancePosture {
+  killSwitchArmed: boolean
+  killSwitchReason: string | null
+  scopedConfigured: boolean
+  policyId: string | null
+  policyName: string | null
+  authorityHierarchy: HierarchyTier[]
+  escalationActionClasses: string[]
+  escalationNote: string
+}
+
+const TIER_COLOR: Record<string, { dot: string; chip: string; label: string }> = {
+  root:      { dot: '#dc2626', chip: 'bg-[rgba(220,38,38,0.10)] text-[#dc2626]',   label: 'Root' },
+  system:    { dot: '#7c3aed', chip: 'bg-[rgba(124,58,237,0.10)] text-[#7c3aed]',  label: 'System' },
+  developer: { dot: '#1d4ed8', chip: 'bg-[rgba(29,78,216,0.10)] text-[#1d4ed8]',   label: 'Developer' },
+  user:      { dot: '#0891b2', chip: 'bg-[rgba(8,145,178,0.10)] text-[#0891b2]',   label: 'User' },
+  guideline: { dot: '#16a34a', chip: 'bg-[rgba(22,163,74,0.10)] text-[#16a34a]',   label: 'Guideline' },
+}
+
 export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[] }) {
   const { settings, update: updateSettings } = useSettings()
   const [policyMode, setPolicyMode]   = useState<PolicyMode>(
@@ -193,6 +213,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   const [replaying, setReplaying]         = useState(false)
   const [audit, setAudit]                 = useState<AuditAttestation | null>(null)
   const [proposals, setProposals]         = useState<GraphProposal[]>([])
+  const [posture, setPosture]             = useState<GovernancePosture | null>(null)
 
   const runReplay = () => {
     setReplaying(true)
@@ -244,6 +265,11 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
     fetch(amUrl('/api/graph/proposals'), { signal: AbortSignal.timeout(3000) })
       .then(r => r.ok ? r.json() : null)
       .then((d: { proposals?: GraphProposal[] } | null) => { if (d?.proposals) setProposals(d.proposals.filter((p) => p.status === 'pending')) })
+      .catch(() => { /* not running — skip */ })
+    // Principal hierarchy + scope-d posture
+    fetch(amUrl('/api/governance/posture'), { signal: AbortSignal.timeout(3000) })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: GovernancePosture | null) => { if (d) setPosture(d) })
       .catch(() => { /* not running — skip */ })
   }, [])
 
@@ -402,6 +428,52 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
               {audit.attested
                 ? 'Every egress event is hash-linked and the head is Ed25519-signed with the device key — tamper-evident.'
                 : `${audit.chainValid ? '' : `Chain link broke at entry ${audit.firstBreakAt}. `}${audit.signed ? (audit.signatureValid ? '' : 'Head signature invalid. ') : 'Head not signed. '}(Often a multi-writer dev artifact; production is single-writer.)`}
+            </div>
+          </div>
+        )}
+
+        {/* Principal hierarchy — which authority level governs this session */}
+        {posture && (
+          <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Principal hierarchy</div>
+              {posture.scopedConfigured && posture.policyId && (
+                <span className="rounded-full bg-[rgba(124,58,237,0.10)] px-2.5 py-0.5 text-[10px] font-semibold text-[#7c3aed]" title={posture.policyName ?? undefined}>{posture.policyId.slice(0, 28)}</span>
+              )}
+              {!posture.scopedConfigured && (
+                <span className="rounded-full border border-[var(--color-border-tertiary)] px-2.5 py-0.5 text-[10px] text-[var(--color-text-tertiary)]">No SCOPE-D policy</span>
+              )}
+            </div>
+            <div className="space-y-2">
+              {posture.authorityHierarchy.map((tier, i) => {
+                const colors = TIER_COLOR[tier.level] ?? TIER_COLOR['guideline']
+                return (
+                  <div key={tier.level} className={`flex items-start gap-3 rounded-xl border p-3 transition ${tier.active ? 'border-[var(--color-border-secondary)]' : 'border-[var(--color-border-tertiary)] opacity-45'}`}>
+                    <div className="flex shrink-0 flex-col items-center pt-0.5">
+                      <div className="h-2.5 w-2.5 rounded-full" style={{ background: tier.active ? colors.dot : 'var(--color-text-tertiary)' }} />
+                      {i < posture.authorityHierarchy.length - 1 && <div className="mt-1 h-5 w-px bg-[var(--color-border-tertiary)]" />}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${tier.active ? colors.chip : 'bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)]'}`}>{tier.level}</span>
+                        <span className="text-xs font-medium text-[var(--color-text-primary)]">{tier.label}</span>
+                        {!tier.active && <span className="text-[10px] text-[var(--color-text-tertiary)]">inactive</span>}
+                      </div>
+                      <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">{tier.description}</div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            {/* Plan-mode escalation classes */}
+            <div className="mt-3 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3">
+              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Requires plan mode in auto</div>
+              <div className="flex flex-wrap gap-1.5">
+                {posture.escalationActionClasses.map((cls) => (
+                  <span key={cls} className="rounded-full border border-[rgba(220,38,38,0.30)] bg-[rgba(220,38,38,0.06)] px-2 py-0.5 font-mono text-[10px] text-[#dc2626]">{cls}</span>
+                ))}
+              </div>
+              <div className="mt-1.5 text-[10px] text-[var(--color-text-tertiary)]">{posture.escalationNote}</div>
             </div>
           </div>
         )}

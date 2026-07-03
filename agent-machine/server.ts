@@ -39,7 +39,7 @@ import { isConfinedToHomeOrTmp } from './lib/path-confine.js'
 import { buildAdaptiveBrief } from './lib/progress.js'
 import { safeShellEnv } from './lib/safe-shell-env.js'
 import { buildRouterDecision, LOCAL_MODEL_SUITE, isHuggingFaceLocalRef, resolveProvider, bestCoder, bestWorkhorse, bestResponsive } from './lib/router.js'
-import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTelemetry, requiresPlanModeEscalation, checkBroadlySafe as scopedCheckBroadlySafe, type MeshTier, type ActionClass as ScopedActionClass } from './lib/scope-d.js'
+import { checkEgress, authorizeAction as scopedAuthorizeAction, emitScopedTelemetry, requiresPlanModeEscalation, checkBroadlySafe as scopedCheckBroadlySafe, scopedConfigured, loadPolicyMeta, type MeshTier, type ActionClass as ScopedActionClass } from './lib/scope-d.js'
 import { installEgressGuard, setOfflineMode } from './lib/egress-guard.js'
 import { classifyIntent, capabilityToTask, wantsVectorRag, intentByName, planFromIntent, intentToAction, deEscalateEveryday } from './lib/intent-router.js'
 import { classifyLifeDomain } from './lib/life-domain.js'
@@ -7873,6 +7873,45 @@ Question: ${question}`
         res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ...v, attested: v.chainValid && v.signed && v.signatureValid }))
       } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'failed' })) }
     })()
+    return
+  }
+
+  // GET /api/governance/posture — principal hierarchy + scope-d policy status + escalation classes.
+  // Backs the GovernSurface "Principal Hierarchy" panel: lets the UI render which authority level is
+  // governing the current session and which action classes will require plan-mode approval in auto mode.
+  if (req.method === 'GET' && url.pathname === '/api/governance/posture') {
+    setCORSHeaders(res)
+    try {
+      const c = containmentState()
+      const configured = scopedConfigured()
+      // If scope-d is configured, load policy metadata (policyId + name) — fail gracefully if unreadable.
+      let policyId: string | null = null
+      let policyName: string | null = null
+      if (configured) {
+        try {
+          const meta = loadPolicyMeta()
+          if (meta) { policyId = meta.policyId; policyName = meta.name }
+        } catch { /* best-effort */ }
+      }
+      const posture = {
+        killSwitchArmed: c.killed,
+        killSwitchReason: c.killed ? (c.reason ?? 'armed') : null,
+        scopedConfigured: configured,
+        policyId,
+        policyName,
+        authorityHierarchy: [
+          { level: 'root',      label: 'Kill-switch',     description: 'Hard halt — agent cannot respond when armed', active: c.killed },
+          { level: 'system',    label: 'SCOPE-D Policy',  description: 'EngagementPolicy governs egress routing and action authorization', active: configured },
+          { level: 'developer', label: 'Capability gate', description: 'Built-in tool authorization and broadly-safe pre-dispatch checklist', active: true },
+          { level: 'user',      label: 'Policy profile',  description: 'User-selected mode: default / strict / permissive', active: true },
+          { level: 'guideline', label: 'Defaults',        description: 'Read-only and synthetic_event baseline — always allowed', active: true },
+        ],
+        escalationActionClasses: ['destructive_action', 'deployment', 'credential_access', 'identity_write'],
+        escalationNote: 'These action classes require switching to plan mode in auto mode before any tool with this class can execute.',
+      }
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify(posture))
+    } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'failed' })) }
     return
   }
 
