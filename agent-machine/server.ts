@@ -13370,11 +13370,6 @@ Question: ${question}`
   }
 
   // ── RAPTOR tree — recursive abstractive tree over document corpus ────────────────
-  // POST /api/ingest/raptor — builds a RAPTOR tree over ALL current DocumentChunk nodes, adds
-  //   summary nodes back into the graph so they are automatically hit by semantic retrieval on
-  //   global "summarize my documents" / multi-document questions. Pure additive — does not change
-  //   leaf chunks. Run once after a batch of documents are ingested; safe to re-run (idempotent:
-  //   old summary nodes are replaced). GET /api/ingest/raptor → stats.
   if ((req.method === 'POST' || req.method === 'GET') && url.pathname === '/api/ingest/raptor') {
     setCORSHeaders(res)
     void (async () => {
@@ -13384,7 +13379,6 @@ Question: ${question}`
         const g = getHellGraph()
         const CHUNK_LABEL = 'DocumentChunk'
         const RAPTOR_LABEL = 'RaptorSummary'
-        // Stats-only GET
         if (req.method === 'GET') {
           const summaries = g.nodesByLabel(RAPTOR_LABEL)
           const leafChunks = g.nodesByLabel(CHUNK_LABEL).filter((n) => !n.properties['raptor_level'])
@@ -13392,15 +13386,12 @@ Question: ${question}`
           res.end(JSON.stringify({ leaves: leafChunks.length, summaries: summaries.length, raptorReady: summaries.length > 0 }))
           return
         }
-        // Collect all leaf chunks that have stored text
-        const leaves = g.nodesByLabel(CHUNK_LABEL)
-          .filter((n) => !n.properties['raptor_level'] && n.properties['text'])
+        const leaves = g.nodesByLabel(CHUNK_LABEL).filter((n) => !n.properties['raptor_level'] && n.properties['text'])
         if (leaves.length < 4) {
           res.writeHead(409, { 'content-type': 'application/json' })
           res.end(JSON.stringify({ error: 'too_few_chunks', needed: 4, have: leaves.length }))
           return
         }
-        // Wire the production embedder + Ollama summarizer
         const embedder = async (texts: string[]) => {
           const out: number[][] = []
           for (const t of texts) { try { out.push(await et(t)) } catch { out.push([]) } }
@@ -13413,13 +13404,11 @@ Question: ${question}`
             return r.content.trim()
           } catch { return texts.join(' ').slice(0, 600) }
         }
-        // Build the recursive tree — takes 30–90s depending on corpus size
         const texts = leaves.map((n) => String(n.properties['text']))
         const tree = await buildRaptorTree(texts, embedder, summarizer, { maxLevels: 3, maxClusterSize: 6 })
-        // Store summary nodes as DocumentChunks — retrieval picks them up automatically
         let stored = 0
         for (const [id, node] of tree.nodes) {
-          if (node.level === 0) continue   // skip leaf re-write — HellGraph already has them
+          if (node.level === 0) continue
           if (!node.embedding.length) continue
           const nodeId = `urn:noetica:raptor:${id}`
           const emb = JSON.stringify(node.embedding)
@@ -13434,6 +13423,53 @@ Question: ${question}`
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ ok: true, leaves: stats.leaves, summaries: stats.summaries, levels: stats.levels, stored }))
       } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Audio Overview Call-in — listener asks the Host a live question ──────────────
+  if (req.method === 'POST' && url.pathname === '/api/study/audio-overview/callin') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: { question?: string; context_turns?: Array<{ speaker: string; line: string }>; voice_host?: string; synthesize?: boolean } = {}
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const question = typeof p.question === 'string' ? p.question.trim() : ''
+        if (!question) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'question required' })); return }
+        const contextTurns = Array.isArray(p.context_turns) ? p.context_turns.slice(-6) : []
+        const contextText = contextTurns.map((t) => `${t.speaker}: ${t.line}`).join('\n')
+        const prompt = [
+          'You are the Host in an ongoing audio discussion. A listener has called in with a question.',
+          contextText ? `Here is the recent discussion context:\n${contextText}` : '',
+          `Listener question: "${question}"`,
+          'Give a direct, conversational Host reply (2–4 sentences). Stay in the same topic and tone as the discussion. Do not repeat "Host:" — just give the reply text.',
+        ].filter(Boolean).join('\n\n')
+        const answer = await generateOllamaText({ model: 'qwen3:14b', messages: [{ role: 'user', content: prompt }], temperature: 0.5 }).then((r) => r.content.trim())
+        const synthesize = p.synthesize === true
+        const voiceHost = typeof p.voice_host === 'string' ? p.voice_host : 'nova'
+        async function synthTTS(line: string, voice: string): Promise<string | undefined> {
+          if (!synthesize) return undefined
+          const key = process.env['OPENAI_API_KEY']
+          if (!key) return undefined
+          try {
+            const oaiRes = await fetch('https://api.openai.com/v1/audio/speech', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ model: 'tts-1', input: line.slice(0, 4096), voice, response_format: 'mp3' }),
+            })
+            if (!oaiRes.ok) return undefined
+            return Buffer.from(await oaiRes.arrayBuffer()).toString('base64')
+          } catch { return undefined }
+        }
+        const [guestAudio, hostAudio] = await Promise.all([synthTTS(question, 'echo'), synthTTS(answer, voiceHost)])
+        const turns = [
+          { speaker: 'Guest', line: question, ...(guestAudio ? { audio_b64: guestAudio } : {}) },
+          { speaker: 'Host', line: answer, ...(hostAudio ? { audio_b64: hostAudio } : {}) },
+        ]
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ turns, synthesized: synthesize && !!process.env['OPENAI_API_KEY'] }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
     })()
     return
   }

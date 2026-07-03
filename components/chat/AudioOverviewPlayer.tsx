@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 import { amUrl } from '@/lib/tauri/bridge'
 import { useSettings } from '@/lib/settings/context'
 
-interface DialogueTurn { speaker: 'Host' | 'Guest'; line: string; audio_b64?: string }
+interface DialogueTurn { speaker: 'Host' | 'Guest'; line: string; audio_b64?: string; callin?: boolean }
 type Format = 'brief' | 'critique' | 'debate'
+type CallinState = 'idle' | 'recording' | 'transcribing' | 'answering'
 
 function pickVoices(): { host: SpeechSynthesisVoice | null; guest: SpeechSynthesisVoice | null } {
   const voices = window.speechSynthesis.getVoices().filter((v) => v.lang.startsWith('en'))
@@ -42,6 +43,11 @@ export function AudioOverviewPlayer({ refreshSignal = 0 }: Props) {
   const [playing, setPlaying] = useState(false)
   const [currentIdx, setCurrentIdx] = useState(-1)
   const cancelledRef = useRef(false)
+  const [callinState, setCallinState] = useState<CallinState>('idle')
+  const [callinError, setCallinError] = useState('')
+  const [sttAvailable, setSttAvailable] = useState(false)
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+  const chunksRef = useRef<Blob[]>([])
 
   // Check if indexed user docs exist — refresh on each new upload
   useEffect(() => {
@@ -51,12 +57,123 @@ export function AudioOverviewPlayer({ refreshSignal = 0 }: Props) {
       .catch(() => {})
   }, [refreshSignal])
 
+  // Check STT availability on open
+  useEffect(() => {
+    if (!open) return
+    fetch(amUrl('/api/stt/status')).then((r) => r.ok ? r.json() : null).then((d: { available?: boolean } | null) => {
+      setSttAvailable(d?.available === true)
+    }).catch(() => {})
+  }, [open])
+
   // Preload voices (browser may load them async)
   useEffect(() => {
     if (!open) return
     const id = setInterval(() => { if (window.speechSynthesis.getVoices().length > 0) clearInterval(id) }, 200)
     return () => clearInterval(id)
   }, [open])
+
+  async function startCallin() {
+    if (callinState !== 'idle') return
+    setCallinError('')
+    let stream: MediaStream
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    } catch {
+      setCallinError('Microphone access denied.')
+      return
+    }
+    // Pause playback while recording
+    const wasPlaying = playing
+    if (wasPlaying) {
+      cancelledRef.current = true
+      window.speechSynthesis.cancel()
+      setPlaying(false)
+    }
+    setCallinState('recording')
+    chunksRef.current = []
+    const mr = new MediaRecorder(stream, { mimeType: 'audio/webm' })
+    mediaRecorderRef.current = mr
+    mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
+    mr.onstop = () => {
+      stream.getTracks().forEach((t) => t.stop())
+      void submitCallin(wasPlaying)
+    }
+    mr.start()
+  }
+
+  function stopCallin() {
+    if (callinState !== 'recording') return
+    mediaRecorderRef.current?.stop()
+  }
+
+  async function submitCallin(resumeAfter: boolean) {
+    setCallinState('transcribing')
+    try {
+      const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+      const b64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve((reader.result as string).split(',')[1] ?? '')
+        reader.onerror = reject
+        reader.readAsDataURL(blob)
+      })
+      const sttRes = await fetch(amUrl('/api/stt'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ audio_b64: b64 }),
+      })
+      if (!sttRes.ok) { setCallinError('Transcription failed.'); setCallinState('idle'); return }
+      const sttData = await sttRes.json() as { text?: string }
+      const question = (sttData.text ?? '').trim()
+      if (!question) { setCallinError('Could not transcribe audio. Try again.'); setCallinState('idle'); return }
+
+      setCallinState('answering')
+      const useTTS = !!settings.openaiApiKey
+      const contextTurns = turns.slice(Math.max(0, (currentIdx >= 0 ? currentIdx : turns.length) - 4))
+      const callinRes = await fetch(amUrl('/api/study/audio-overview/callin'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ question, context_turns: contextTurns, synthesize: useTTS, voice_host: 'nova' }),
+      })
+      if (!callinRes.ok) { setCallinError('Failed to generate host reply.'); setCallinState('idle'); return }
+      const callinData = await callinRes.json() as { turns?: DialogueTurn[] }
+      const newTurns = (callinData.turns ?? []).map((t) => ({ ...t, callin: true }))
+      if (!newTurns.length) { setCallinError('No reply generated.'); setCallinState('idle'); return }
+
+      // Insert the call-in turns after the current position
+      const insertAt = currentIdx >= 0 ? currentIdx + 1 : turns.length
+      setTurns((prev) => [...prev.slice(0, insertAt), ...newTurns, ...prev.slice(insertAt)])
+      setCallinState('idle')
+      // Auto-play the call-in exchange
+      cancelledRef.current = false
+      setPlaying(true)
+      const { host, guest } = pickVoices()
+      async function playCallin(i: number, endIdx: number): Promise<void> {
+        if (cancelledRef.current || i > endIdx) {
+          setPlaying(false)
+          if (resumeAfter) void new Promise<void>((r) => setTimeout(r, 200)).then(() => {
+            if (!cancelledRef.current) playFrom(endIdx + 1)
+          })
+          return
+        }
+        setCurrentIdx(i)
+        const t = newTurns[i - insertAt]
+        if (!t) { setPlaying(false); return }
+        if (t.audio_b64) {
+          try { await playAudioB64(t.audio_b64) } catch { /* */ }
+          if (!cancelledRef.current) void playCallin(i + 1, endIdx)
+        } else {
+          const u = speak(t.line, t.speaker === 'Host' ? host : guest)
+          u.onend = () => { void playCallin(i + 1, endIdx) }
+          u.onerror = () => { setPlaying(false); setCurrentIdx(-1) }
+          window.speechSynthesis.speak(u)
+        }
+      }
+      void playCallin(insertAt, insertAt + newTurns.length - 1)
+    } catch {
+      setCallinError('Call-in failed. Try again.')
+      setCallinState('idle')
+    }
+  }
 
   async function generate() {
     setLoading(true)
@@ -176,7 +293,7 @@ export function AudioOverviewPlayer({ refreshSignal = 0 }: Props) {
 
           {turns.length > 0 && (
             <>
-              <div className="mb-2 flex items-center gap-2">
+              <div className="mb-2 flex items-center gap-2 flex-wrap">
                 <button
                   type="button"
                   onClick={() => playing ? pause() : playFrom(Math.max(0, currentIdx))}
@@ -199,6 +316,28 @@ export function AudioOverviewPlayer({ refreshSignal = 0 }: Props) {
                     </>
                   )}
                 </button>
+                {sttAvailable && (
+                  <button
+                    type="button"
+                    onClick={() => callinState === 'recording' ? stopCallin() : void startCallin()}
+                    disabled={callinState === 'transcribing' || callinState === 'answering'}
+                    title={callinState === 'recording' ? 'Stop recording' : 'Call in with a question'}
+                    className={`flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
+                      callinState === 'recording'
+                        ? 'bg-[#dc2626] text-white hover:bg-[#b91c1c] animate-pulse'
+                        : callinState === 'idle'
+                        ? 'border border-[var(--color-border-tertiary)] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
+                        : 'border border-[var(--color-border-tertiary)] text-[var(--color-text-tertiary)] opacity-50 cursor-not-allowed'
+                    }`}
+                  >
+                    <svg width="9" height="11" viewBox="0 0 10 12" fill="none" aria-hidden>
+                      <rect x="3" y="0.5" width="4" height="7" rx="2" fill="currentColor"/>
+                      <path d="M1 6c0 2.21 1.79 4 4 4s4-1.79 4-4" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" fill="none"/>
+                      <line x1="5" y1="10" x2="5" y2="11.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                    </svg>
+                    {callinState === 'recording' ? 'Stop' : callinState === 'transcribing' ? 'Transcribing…' : callinState === 'answering' ? 'Answering…' : 'Call in'}
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => void generate()}
@@ -207,6 +346,9 @@ export function AudioOverviewPlayer({ refreshSignal = 0 }: Props) {
                   Regenerate
                 </button>
               </div>
+              {callinError && (
+                <div className="mb-1 text-[10px] text-[#ef4444]">{callinError}</div>
+              )}
               <div className="max-h-48 overflow-y-auto space-y-1">
                 {turns.map((t, i) => (
                   <button
@@ -216,11 +358,13 @@ export function AudioOverviewPlayer({ refreshSignal = 0 }: Props) {
                     className={`w-full rounded-lg px-2.5 py-1.5 text-left transition ${
                       i === currentIdx
                         ? 'bg-[rgba(124,58,237,0.12)] border border-[rgba(124,58,237,0.3)]'
+                        : t.callin
+                        ? 'bg-[rgba(8,145,178,0.06)] border border-[rgba(8,145,178,0.15)] hover:bg-[rgba(8,145,178,0.1)]'
                         : 'hover:bg-[var(--color-background-tertiary)]'
                     }`}
                   >
                     <span className={`mr-2 text-[10px] font-semibold uppercase tracking-wide ${t.speaker === 'Host' ? 'text-[#7c3aed]' : 'text-[#0891b2]'}`}>
-                      {t.speaker}
+                      {t.speaker}{t.callin && t.speaker === 'Guest' ? ' (you)' : ''}
                     </span>
                     <span className="text-[var(--color-text-primary)]">{t.line}</span>
                   </button>
