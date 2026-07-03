@@ -8,9 +8,11 @@ import type { WorkspaceSession } from '@/lib/session/types'
 import { HelpModal } from '@/components/shell/HelpModal'
 import { UpgradeModal } from '@/components/shell/UpgradeModal'
 import { ChangelogModal } from '@/components/shell/ChangelogModal'
+import { COMMAND_CENTERS, surfacesFor, type CommandCenterId, type NavSurface } from '@/components/shell/commandCenters'
 
 type SidebarProps = {
   activeSurface: ActiveSurface
+  activeCenter: CommandCenterId
   onSurfaceChange: (surface: ActiveSurface) => void
   onOpenSettings: (category?: string) => void
   sessions?: WorkspaceSession[]
@@ -86,6 +88,60 @@ function IconCode() {
   return (
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
       <path d="M5 5 2 8l3 3M11 5l3 3-3 3M9 3l-2 10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+function IconSearchGlass() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M10.5 10.5L14 14" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+function IconGraph() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <circle cx="3.5" cy="4" r="1.8" stroke="currentColor" strokeWidth="1.3"/>
+      <circle cx="12.5" cy="4" r="1.8" stroke="currentColor" strokeWidth="1.3"/>
+      <circle cx="8" cy="12" r="1.8" stroke="currentColor" strokeWidth="1.3"/>
+      <path d="M4.8 5.3 7 10.4M11.2 5.3 9 10.4M5 4h6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
+    </svg>
+  )
+}
+function IconLabs() {
+  // flask — the tuning labs
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M6.5 2v4L3.2 12.3a1 1 0 0 0 .88 1.5h7.84a1 1 0 0 0 .88-1.5L9.5 6V2M5.5 2h5M4.6 9.5h6.8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+function IconServices() {
+  // stacked boxes — running DevSpaces/services
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <rect x="2" y="2" width="12" height="4" rx="1" stroke="currentColor" strokeWidth="1.3" />
+      <rect x="2" y="7.5" width="12" height="4" rx="1" stroke="currentColor" strokeWidth="1.3" />
+      <circle cx="4.5" cy="4" r="0.6" fill="currentColor" /><circle cx="4.5" cy="9.5" r="0.6" fill="currentColor" />
+    </svg>
+  )
+}
+function IconTerminal() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <rect x="1.5" y="2.5" width="13" height="11" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M4 6l2.5 2L4 10M8 10h4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+function IconDeploy() {
+  // rocket — local PaaS bring-up / rollout
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <path d="M8 1.5c2.5 1 4 3.5 4 6.5l-2 2H6l-2-2c0-3 1.5-5.5 4-6.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/>
+      <circle cx="8" cy="6.5" r="1.3" stroke="currentColor" strokeWidth="1.2"/>
+      <path d="M6 10l-1.5 3M10 10l1.5 3M8 10v3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
     </svg>
   )
 }
@@ -178,6 +234,14 @@ function IconSettings() {
     </svg>
   )
 }
+function IconDot() {
+  // fallback for registry surfaces that don't (yet) have a dedicated glyph
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden>
+      <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.4" />
+    </svg>
+  )
+}
 function IconChevronRight({ className }: { className?: string }) {
   return (
     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden className={className}>
@@ -205,6 +269,8 @@ function IconLibrary() {
 const surfaceItems: SurfaceItem[] = [
   { id: 'chat',        label: 'Workspace',   icon: <IconChat />,       items: ['New conversation', 'Recent threads', 'Pinned'] },
   { id: 'library',     label: 'Library',     icon: <IconLibrary />,    items: ['Collections', 'Documents', 'Entities'] },
+  { id: 'kg',          label: 'Knowledge Graph', icon: <IconGraph />,  items: ['Nodes', 'Edges', 'Communities'] },
+  { id: 'search',      label: 'Search',      icon: <IconSearchGlass />, items: ['Local · lampstand', 'Platform · sherlock'] },
   { id: 'notes',       label: 'Notes',       icon: <IconNotes />,      items: ['My notes', 'Shared', 'Archived'] },
   { id: 'canvas',      label: 'Canvas',      icon: <IconCanvas />,     items: ['My documents', 'Shared', 'Archived'] },
   { id: 'cowork',      label: 'Cowork',      icon: <IconCowork />,     items: ['Active sessions', 'Task decomposition', 'Decision log'] },
@@ -212,8 +278,12 @@ const surfaceItems: SurfaceItem[] = [
   { id: 'projects',    label: 'Projects',    icon: <IconProjects />,   items: ['Active projects', 'Backlog', 'Sprints'] },
   { id: 'artifacts',   label: 'Artifacts',   icon: <IconArtifacts />,  items: ['Documents', 'Code files', 'Evidence bundles'] },
   { id: 'code',        label: 'Source',      icon: <IconCode />,       items: ['Repositories', 'Gitea Sovereign', 'External forges'] },
+  { id: 'deploy',      label: 'Deploy',      icon: <IconDeploy />,     items: ['Control plane', 'Services', 'Logs'] },
+  { id: 'terminal',    label: 'Terminal',    icon: <IconTerminal />,   items: ['prophet', 'sourceosctl'] },
+  { id: 'services',    label: 'Services',    icon: <IconServices />,   items: ['DevSpaces', 'BaseSpace', 'MeshSpace'] },
   { id: 'workspace',   label: 'Project Files',icon: <IconFiles />,      items: ['Project files', 'Scaffolds', 'Build output'] },
   { id: 'evaluate',    label: 'Evaluate',    icon: <IconEvaluate />,   items: ['Task benchmarks', 'Model families', 'Outcome traces'] },
+  { id: 'labs',        label: 'Labs',        icon: <IconLabs />,       items: ['On-device base', 'Lab adapters', 'Server tier'] },
   { id: 'studio',      label: 'Studio',      icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden><path d="M4 4h16v12H4zM8 20h8M12 16v4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/><path d="M7 8h6M7 11h4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>, items: ['Prompt workbench', 'Model compare', 'Vector search'] },
   { id: 'rag',         label: 'RAG Inspector',icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden><circle cx="11" cy="11" r="6" stroke="currentColor" strokeWidth="1.6"/><path d="M20 20l-4-4M9 11h4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round"/></svg>, items: ['Retrieval debug', 'Chunk scores', 'Citations'] },
   { id: 'lab',         label: 'Capabilities',icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden><path d="M9 3v6l-5 9a2 2 0 002 3h12a2 2 0 002-3l-5-9V3M8 3h8M8 14h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>, items: ['Investigation', 'Reasoning', 'Safety', 'Ontology'] },
@@ -339,7 +409,7 @@ function SessionTree({ sessions, activeSessionId, search, onSwitchSession, onRem
 }
 
 export function Sidebar({
-  activeSurface, onSurfaceChange, onOpenSettings,
+  activeSurface, activeCenter, onSurfaceChange, onOpenSettings,
   sessions = [], activeSessionId = null,
   onSwitchSession, onRemoveSession, onNewChat, density = 'comfortable',
 }: SidebarProps) {
@@ -400,7 +470,7 @@ export function Sidebar({
 
   return (
     <>
-    <aside className="hidden w-56 shrink-0 flex-col border-r border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] px-2 py-2 lg:flex h-full overflow-y-auto" data-density={density}>
+    <aside className="hidden w-full min-w-0 shrink-0 flex-col border-r border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] px-2 py-2 lg:flex h-full overflow-y-auto" data-density={density}>
       {/* Header row */}
       <div className="flex items-center gap-1 pb-1">
         <button
@@ -445,10 +515,22 @@ export function Sidebar({
         </div>
       )}
 
-      {/* Navigation */}
+      {/* Command-center header — orients you to the active Tier-1 domain */}
+      {(() => {
+        const center = COMMAND_CENTERS.find((c) => c.id === activeCenter)
+        if (!center) return null
+        return (
+          <div className="px-2 pb-1.5 pt-0.5">
+            <div className="text-[12px] font-semibold text-[var(--color-text-primary)]">{center.label}</div>
+            <div className="text-[10px] leading-tight text-[var(--color-text-tertiary)]">{center.blurb}</div>
+          </div>
+        )
+      })()}
+
+      {/* Navigation — registry-driven: shows the active command center's surfaces */}
       <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-1">
-        {/* Recent sessions — shown when Chat surface is active */}
-        {activeSurface === 'chat' && filteredSessions.length > 0 && (
+        {/* Recent sessions — only in the Workspace center */}
+        {activeCenter === 'workspace' && filteredSessions.length > 0 && (
           <SessionTree
             sessions={filteredSessions}
             activeSessionId={activeSessionId}
@@ -458,103 +540,53 @@ export function Sidebar({
           />
         )}
 
-        {/* Workspace group */}
-        {/* Video (jitsi) folds into Workrooms as a tab. */}
-        {(['chat','library','notes','canvas','cowork','workrooms'] as ActiveSurface[]).map((id) => {
-          const item = surfaceItems.find(s => s.id === id)!
-          const isActive = activeSurface === id
-          return (
-            <button key={id} onClick={() => onSurfaceChange(id)}
-              className={`flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[11px] transition ${
-                isActive
-                  ? 'bg-[#dbeafe] font-medium text-[var(--color-text-primary)]'
-                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]'
-              }`}
-            >
-              <span className={`shrink-0 ${isActive ? 'text-[#1d4ed8]' : ''}`}>{item.icon}</span>
-              <span className="truncate">{item.label}</span>
-            </button>
-          )
-        })}
+        {(() => {
+          const rows = surfacesFor(activeCenter).filter((s) => s.tier === 'primary' || s.tier === 'secondary')
+          const primary = rows.filter((s) => s.tier === 'primary')
+          const secondary = rows.filter((s) => s.tier === 'secondary')
 
-        {/* Build group */}
-        <div className={`px-2 ${groupGap} pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>Build</div>
-        {(['projects','artifacts','code','workspace','docs'] as ActiveSurface[]).map((id) => {
-          const item = surfaceItems.find(s => s.id === id)!
-          const isActive = activeSurface === id
-          return (
-            <button key={id} onClick={() => onSurfaceChange(id)}
-              className={`flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[11px] transition ${
-                isActive
-                  ? 'bg-[#dbeafe] font-medium text-[var(--color-text-primary)]'
-                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]'
-              }`}
-            >
-              <span className={`shrink-0 ${isActive ? 'text-[#1d4ed8]' : ''}`}>{item.icon}</span>
-              <span className="truncate">{item.label}</span>
-            </button>
-          )
-        })}
+          const renderRow = (s: NavSurface) => {
+            const item = surfaceItems.find((i) => i.id === s.id)
+            const isActive = activeSurface === s.id
+            // gap surfaces (not yet a real ActiveSurface) render as disabled "soon" rows
+            const disabled = s.gap === true || !item
+            const badge =
+              s.maturity === 'soon' || s.maturity === 'planned' ? 'soon' : s.maturity === 'beta' ? 'beta' : null
+            return (
+              <button
+                key={`${s.center}:${s.id}`}
+                onClick={() => { if (!disabled) onSurfaceChange(s.id as ActiveSurface) }}
+                disabled={disabled}
+                title={disabled ? `${s.label} — coming soon` : undefined}
+                className={`flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[11px] transition ${
+                  isActive
+                    ? 'bg-[#dbeafe] font-medium text-[var(--color-text-primary)]'
+                    : disabled
+                    ? 'cursor-default text-[var(--color-text-tertiary)] opacity-60'
+                    : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]'
+                }`}
+              >
+                <span className={`shrink-0 ${isActive ? 'text-[#1d4ed8]' : ''}`}>{item?.icon ?? <IconDot />}</span>
+                <span className="truncate">{s.label}</span>
+                {badge && (
+                  <span className="ml-auto rounded bg-[var(--color-background-secondary)] px-1 py-px text-[8px] font-medium text-[var(--color-text-tertiary)]">
+                    {badge}
+                  </span>
+                )}
+              </button>
+            )
+          }
 
-        {/* Models & AI group. Studio is now a tabbed workspace (Prompt/RAG/Capabilities/Alignment) —
-            rag/lab/alignment fold in as tabs, so they no longer each claim a nav slot. */}
-        <div className={`px-2 ${groupGap} pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>Models &amp; AI</div>
-        {(['studio','evaluate','tune'] as ActiveSurface[]).map((id) => {
-          const item = surfaceItems.find(s => s.id === id)!
-          const isActive = activeSurface === id
           return (
-            <button key={id} onClick={() => onSurfaceChange(id)}
-              className={`flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[11px] transition ${
-                isActive
-                  ? 'bg-[#dbeafe] font-medium text-[var(--color-text-primary)]'
-                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]'
-              }`}
-            >
-              <span className={`shrink-0 ${isActive ? 'text-[#1d4ed8]' : ''}`}>{item.icon}</span>
-              <span className="truncate">{item.label}</span>
-            </button>
+            <>
+              {primary.map(renderRow)}
+              {secondary.length > 0 && (
+                <div className={`px-2 ${groupGap} pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>More</div>
+              )}
+              {secondary.map(renderRow)}
+            </>
           )
-        })}
-
-        {/* Operate & Govern group */}
-        <div className={`px-2 ${groupGap} pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>Operate &amp; Govern</div>
-        {/* Computer Use folds into Operate as a tab — not its own nav slot. */}
-        {(['operate','govern'] as ActiveSurface[]).map((id) => {
-          const item = surfaceItems.find(s => s.id === id)!
-          const isActive = activeSurface === id
-          return (
-            <button key={id} onClick={() => onSurfaceChange(id)}
-              className={`flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[11px] transition ${
-                isActive
-                  ? 'bg-[#dbeafe] font-medium text-[var(--color-text-primary)]'
-                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]'
-              }`}
-            >
-              <span className={`shrink-0 ${isActive ? 'text-[#1d4ed8]' : ''}`}>{item.icon}</span>
-              <span className="truncate">{item.label}</span>
-            </button>
-          )
-        })}
-
-        {/* Platform group — Broker/Marketplace/Geo/HolographMe fold into one tabbed Platform destination. */}
-        <div className={`px-2 ${groupGap} pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>Platform</div>
-        {(['platform'] as ActiveSurface[]).map((id) => {
-          const item = surfaceItems.find(s => s.id === id)!
-          const isActive = activeSurface === id
-          return (
-            <button key={id} onClick={() => onSurfaceChange(id)}
-              className={`flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[11px] transition ${
-                isActive
-                  ? 'bg-[#dbeafe] font-medium text-[var(--color-text-primary)]'
-                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]'
-              }`}
-            >
-              <span className={`shrink-0 ${isActive ? 'text-[#1d4ed8]' : ''}`}>{item.icon}</span>
-              <span className="truncate">{item.label}</span>
-              <span className="ml-auto rounded bg-[var(--color-background-secondary)] px-1 py-px text-[8px] font-medium text-[var(--color-text-tertiary)]">soon</span>
-            </button>
-          )
-        })}
+        })()}
       </nav>
 
       {/* Account footer */}

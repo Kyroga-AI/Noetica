@@ -5,6 +5,7 @@ import type { ForgeProvider } from '@/lib/types/forge'
 import { FORGE_META } from '@/lib/types/forge'
 import { useConnectorAuth } from '@/lib/auth/context'
 import { useSettings } from '@/lib/settings/context'
+import { LocalGitImport } from '@/components/surfaces/LocalGitImport'
 
 type ForgeFilter = ForgeProvider | 'all'
 type CodeView = 'overview' | 'gitea_detail' | 'github_detail'
@@ -654,6 +655,7 @@ function SourceOverview({
   setSearchQuery,
   onOpenGitea,
   onOpenGitHub,
+  onAddLocal,
 }: {
   filter: ForgeFilter
   setFilter: (f: ForgeFilter) => void
@@ -661,6 +663,7 @@ function SourceOverview({
   setSearchQuery: (q: string) => void
   onOpenGitea: () => void
   onOpenGitHub: () => void
+  onAddLocal: () => void
 }) {
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -694,8 +697,8 @@ function SourceOverview({
           })}
         </div>
         <div className="p-3">
-          <button className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#bfdbfe] py-2 text-xs font-medium text-[#1d4ed8] transition hover:bg-[#eff6ff]">
-            + Add source
+          <button onClick={onAddLocal} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#bfdbfe] py-2 text-xs font-medium text-[#1d4ed8] transition hover:bg-[#eff6ff]">
+            + Add local repo
           </button>
         </div>
       </aside>
@@ -707,7 +710,7 @@ function SourceOverview({
           <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Gitea Sovereign and local Git are the default authority. Third-party forges are optional connectors.</p>
           <div className="mt-3 space-y-2">
             <ForgeCard provider="gitea_sovereign" isDefault onOpen={onOpenGitea} />
-            <ForgeCard provider="local_git" />
+            <ForgeCard provider="local_git" onOpen={onAddLocal} />
           </div>
         </div>
 
@@ -725,8 +728,8 @@ function SourceOverview({
         <div className="border-t border-[var(--color-border-secondary)] px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Repository inventory</div>
-            <button className="rounded-full bg-[#eff6ff] px-3 py-1 text-xs font-medium text-[#1d4ed8] transition hover:bg-[#dbeafe]">
-              + Add repository
+            <button onClick={onAddLocal} className="rounded-full bg-[#eff6ff] px-3 py-1 text-xs font-medium text-[#1d4ed8] transition hover:bg-[#dbeafe]">
+              + Add local repo
             </button>
           </div>
           <div className="mt-4 rounded-xl border border-dashed border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-8 text-center text-sm text-[var(--color-text-tertiary)]">
@@ -750,18 +753,23 @@ export function CodeSurface({
   const [view, setView] = useState<CodeView>('overview')
   const [filter, setFilter] = useState<ForgeFilter>('all')
   const [searchQuery, setSearchQuery] = useState('')
+  const [showLocalImport, setShowLocalImport] = useState(false)
 
   if (view === 'gitea_detail') return <GiteaDetail onBack={() => setView('overview')} onOpenSettings={onOpenSettings} onNavigateToOperate={onNavigateToOperate} />
   if (view === 'github_detail') return <GitHubDetail onBack={() => setView('overview')} />
 
   return (
-    <SourceOverview
-      filter={filter}
-      setFilter={setFilter}
-      searchQuery={searchQuery}
-      setSearchQuery={setSearchQuery}
-      onOpenGitea={() => setView('gitea_detail')}
-      onOpenGitHub={() => setView('github_detail')}
-    />
+    <>
+      <SourceOverview
+        filter={filter}
+        setFilter={setFilter}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        onOpenGitea={() => setView('gitea_detail')}
+        onOpenGitHub={() => setView('github_detail')}
+        onAddLocal={() => setShowLocalImport(true)}
+      />
+      {showLocalImport && <LocalGitImport onClose={() => setShowLocalImport(false)} />}
+    </>
   )
 }

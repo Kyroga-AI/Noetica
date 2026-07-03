@@ -7803,6 +7803,169 @@ Question: ${question}`
     return
   }
 
+  // POST /api/forge/browse — list a local directory's subfolders (folder picker for "add local repo").
+  if (req.method === 'POST' && url.pathname === '/api/forge/browse') {
+    setCORSHeaders(res)
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      try {
+        const { dir } = JSON.parse(body || '{}') as { dir?: string }
+        const { browseLocal } = await import('./lib/forge-local.js')
+        const out = await browseLocal(dir)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(out))
+      } catch (e) {
+        res.writeHead(400, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: (e instanceof Error ? e.message : 'browse_failed').replace(/[\r\n]/g, ' ') }))
+      }
+    })() })
+    return
+  }
+
+  // POST /api/forge/import-local — take a LOCAL folder, create a Gitea repo, git-push it. SSE progress.
+  // This is the "suck a repo off my desktop into my sovereign forge" seam.
+  if (req.method === 'POST' && url.pathname === '/api/forge/import-local') {
+    setCORSHeaders(res)
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      res.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache, no-transform', connection: 'keep-alive' })
+      try {
+        const { importLocalRepo } = await import('./lib/forge-local.js')
+        const reqBody = JSON.parse(body || '{}') as import('./lib/forge-local.js').LocalImportRequest
+        await importLocalRepo(reqBody, (event, data) => sse(res, event, data))
+      } catch (e) {
+        sse(res, 'error', { error: (e instanceof Error ? e.message : 'import_failed').replace(/[\r\n]/g, ' ') })
+      }
+      res.end()
+    })() })
+    return
+  }
+
+  // GET /api/labs/catalog — Apple-aligned model catalog (on-device ~3B base + per-lab LoRA adapters + server tier).
+  if (req.method === 'GET' && url.pathname === '/api/labs/catalog') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { modelCatalog } = await import('./lib/model-catalog.js')
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(modelCatalog()))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: (e instanceof Error ? e.message : 'labs_failed').replace(/[\r\n]/g, ' ') }))
+      }
+    })()
+    return
+  }
+
+  // GET /api/devspace/list — the trust-namespace DevSpaces (Nocalhost BaseSpace/MeshSpace model) + live status.
+  if (req.method === 'GET' && url.pathname === '/api/devspace/list') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { listDevSpaces } = await import('./lib/devspace.js')
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(await listDevSpaces()))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: (e instanceof Error ? e.message : 'devspace_failed').replace(/[\r\n]/g, ' ') }))
+      }
+    })()
+    return
+  }
+
+  // POST /api/search — local (lampstand) + platform (sherlock) search { query, scope: local|platform|all }.
+  if (req.method === 'POST' && url.pathname === '/api/search') {
+    setCORSHeaders(res)
+    let sbody = ''
+    req.on('data', (c: Buffer) => { sbody += c.toString() })
+    req.on('end', () => { void (async () => {
+      try {
+        const { search } = await import('./lib/search-broker.js')
+        const { query, scope } = JSON.parse(sbody || '{}') as { query?: string; scope?: 'local' | 'platform' | 'all' }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(await search(query ?? '', scope ?? 'all')))
+      } catch (e) {
+        res.writeHead(400, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: (e instanceof Error ? e.message : 'search_failed').replace(/[\r\n]/g, ' ') }))
+      }
+    })() })
+    return
+  }
+
+  // GET /api/terminal/status — which operator CLIs (prophet / sourceosctl) are installed.
+  // (Namespace is /api/terminal, not /api/operator — the latter is the ONNX model-operator API.)
+  if (req.method === 'GET' && url.pathname === '/api/terminal/status') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { operatorStatus } = await import('./lib/operator-cli.js')
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(await operatorStatus()))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: (e instanceof Error ? e.message : 'status_failed').replace(/[\r\n]/g, ' ') }))
+      }
+    })()
+    return
+  }
+
+  // POST /api/terminal/run — run an allow-listed operator command { tool, args[] }. SSE console.
+  if (req.method === 'POST' && url.pathname === '/api/terminal/run') {
+    setCORSHeaders(res)
+    let tbody = ''
+    req.on('data', (c: Buffer) => { tbody += c.toString() })
+    req.on('end', () => { void (async () => {
+      res.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache, no-transform', connection: 'keep-alive' })
+      try {
+        const { runOperator } = await import('./lib/operator-cli.js')
+        const { tool, args } = JSON.parse(tbody || '{}') as { tool?: string; args?: string[] }
+        await runOperator(tool ?? '', Array.isArray(args) ? args : [], (event, data) => sse(res, event, data))
+      } catch (e) {
+        sse(res, 'error', { error: (e instanceof Error ? e.message : 'terminal_failed').replace(/[\r\n]/g, ' ') })
+      }
+      res.end()
+    })() })
+    return
+  }
+
+  // GET /api/deploy/status — SourceOS Continuum local-PaaS control-plane readiness.
+  if (req.method === 'GET' && url.pathname === '/api/deploy/status') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { deployStatus } = await import('./lib/continuum-deploy.js')
+        const status = await deployStatus()
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(status))
+      } catch (e) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: (e instanceof Error ? e.message : 'status_failed').replace(/[\r\n]/g, ' ') }))
+      }
+    })()
+    return
+  }
+
+  // POST /api/deploy/run — run an allow-listed control-plane target (dev-up|dev-down|shim-test). SSE console.
+  if (req.method === 'POST' && url.pathname === '/api/deploy/run') {
+    setCORSHeaders(res)
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => { void (async () => {
+      res.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache, no-transform', connection: 'keep-alive' })
+      try {
+        const { runDeploy } = await import('./lib/continuum-deploy.js')
+        const { target } = JSON.parse(body || '{}') as { target?: string }
+        await runDeploy(target ?? '', (event, data) => sse(res, event, data))
+      } catch (e) {
+        sse(res, 'error', { error: (e instanceof Error ? e.message : 'deploy_failed').replace(/[\r\n]/g, ' ') })
+      }
+      res.end()
+    })() })
+    return
+  }
+
   // POST /api/ingest/document — pre-extracted text { content, filename, mimeType? }
   // Embeds + stores semantically-searchable DocumentChunks (real RAG), AND keeps the
   // engine's entity/record ingest for graph structure.

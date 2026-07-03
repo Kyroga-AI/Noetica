@@ -2,6 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Sidebar } from '@/components/shell/Sidebar'
+import { useResizable } from '@/components/shell/useResizable'
+import { CommandCenterRail } from '@/components/shell/CommandCenterRail'
+import { NAV_SURFACES, surfacesFor, type CommandCenterId } from '@/components/shell/commandCenters'
+import { ResizeHandle } from '@/components/shell/ResizeHandle'
 import { Topbar } from '@/components/shell/Topbar'
 import { MessageList } from '@/components/chat/MessageList'
 import { GoalBanner } from '@/components/chat/GoalBanner'
@@ -13,6 +17,12 @@ import { ComputerUseSurface } from '@/components/surfaces/ComputerUseSurface'
 import { WorkroomsSurface } from '@/components/surfaces/WorkroomsSurface'
 import { CoworkSurface } from '@/components/surfaces/CoworkSurface'
 import { CodeSurface } from '@/components/surfaces/CodeSurface'
+import { DeploySurface } from '@/components/surfaces/DeploySurface'
+import { TerminalSurface } from '@/components/surfaces/TerminalSurface'
+import { SearchSurface } from '@/components/surfaces/SearchSurface'
+import { ServicesSurface } from '@/components/surfaces/ServicesSurface'
+import { LabsSurface } from '@/components/surfaces/LabsSurface'
+import { KnowledgeGraphSurface } from '@/components/surfaces/KnowledgeGraphSurface'
 import { WorkspaceSurface } from '@/components/surfaces/WorkspaceSurface'
 import { EvaluateSurface } from '@/components/surfaces/EvaluateSurface'
 import { StudioSurface } from '@/components/surfaces/StudioSurface'
@@ -91,6 +101,11 @@ const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
   projects:     'Cowork',
   artifacts:    'Chat',
   code:         'Code',
+  deploy:       'Code',
+  terminal:     'Code',
+  services:     'Code',
+  labs:         'Chat',
+  search:       'Chat',
   workspace:    'Code',
   evaluate:     'Benchmark',
   studio:       'Chat',
@@ -110,6 +125,7 @@ const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
   agents:       'Chat',
   calendar:     'Chat',
   library:      'Chat',
+  kg:           'Chat',
   intelligence: 'Chat',
   portfolio:    'Chat',
   platform:     'Chat',
@@ -299,6 +315,26 @@ export function AppShell() {
   const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false)
   const [utilityPanel, setUtilityPanel] = useState<UtilityPanelId | null>('graph')
   const [inspectorVisible, setInspectorVisible] = useState(false)
+  // Tier-1 command center (which domain the left panel is showing). Derived from
+  // the active surface via the nav registry, so the rail highlight always follows
+  // wherever navigation lands.
+  const [activeCenter, setActiveCenter] = useState<CommandCenterId>('workspace')
+  useEffect(() => {
+    const s = NAV_SURFACES.find((s) => s.id === activeSurface)
+    if (s) setActiveCenter(s.center)
+  }, [activeSurface])
+  // Picking a command center navigates to its first real (non-gap, shipped) surface;
+  // if a center is all-planned, just switch the panel.
+  const handleCenterChange = useCallback((center: CommandCenterId) => {
+    const first = surfacesFor(center).find(
+      (s) => !s.gap && s.tier !== 'tab' && s.tier !== 'hidden' && s.maturity !== 'planned',
+    )
+    if (first) handleSurfaceChange(first.id as ActiveSurface)
+    else setActiveCenter(center)
+  }, [])
+  // Draggable widths for the two shell panels (persisted; double-click seam to reset).
+  const leftPanel = useResizable({ storageKey: 'noetica.sidebar.width', initial: 224, min: 180, max: 420, side: 'left' })
+  const rightPanel = useResizable({ storageKey: 'noetica.inspector.width', initial: 320, min: 260, max: 640, side: 'right' })
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsCategory, setSettingsCategory] = useState('appearance')
   const [paletteOpen, setPaletteOpen] = useState(false)
@@ -1486,18 +1522,24 @@ export function AppShell() {
         />
       )}
       <main className="flex h-screen overflow-hidden bg-[var(--color-background-tertiary)] text-[var(--color-text-primary)]">
+        {/* Tier 1 — command-center (domain) switcher */}
+        <CommandCenterRail activeCenter={activeCenter} onCenterChange={handleCenterChange} />
         {!sidebarCollapsed && (
-          <Sidebar
-            activeSurface={activeSurface}
-            onSurfaceChange={handleSurfaceChange}
-            onOpenSettings={(cat) => openSettings(cat)}
-            sessions={sessions}
-            activeSessionId={activeSession?.id ?? null}
-            onSwitchSession={handleSwitchSession}
-            onRemoveSession={removeSession}
-            onNewChat={handleNewChat}
-            density={settings.sidebarDensity}
-          />
+          <div className="relative hidden h-full shrink-0 lg:flex" style={{ width: leftPanel.width }}>
+            <Sidebar
+              activeSurface={activeSurface}
+              activeCenter={activeCenter}
+              onSurfaceChange={handleSurfaceChange}
+              onOpenSettings={(cat) => openSettings(cat)}
+              sessions={sessions}
+              activeSessionId={activeSession?.id ?? null}
+              onSwitchSession={handleSwitchSession}
+              onRemoveSession={removeSession}
+              onNewChat={handleNewChat}
+              density={settings.sidebarDensity}
+            />
+            <ResizeHandle resizable={leftPanel} ariaLabel="Resize sidebar" />
+          </div>
         )}
         {sidebarCollapsed && (
           <CollapsedRail
@@ -1531,13 +1573,8 @@ export function AppShell() {
           />
 
           <div className="flex min-h-0 flex-1 overflow-hidden">
-            <div
-              className={`grid min-h-0 flex-1 ${
-                inspectorVisible
-                  ? 'grid-cols-1 lg:grid-cols-[minmax(0,1fr)_280px]'
-                  : 'grid-cols-1'
-              }`}
-            >
+            <div className="flex min-h-0 flex-1 overflow-hidden">
+              <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
               <SurfaceErrorBoundary key={activeSurface} surface={activeSurface}>
               <CenterWorkspace
                 activeSurface={activeSurface}
@@ -1585,8 +1622,11 @@ export function AppShell() {
                 onPlanReject={handlePlanReject}
               />
               </SurfaceErrorBoundary>
+              </div>
               {inspectorVisible && (
-                <div className="relative h-full">
+                <>
+                  <ResizeHandle resizable={rightPanel} ariaLabel="Resize inspector" />
+                <div className="relative hidden h-full shrink-0 overflow-hidden lg:block" style={{ width: rightPanel.width }}>
                   {/* Visible close — the inspector ("Open Observatory" target) was only dismissable via ⌘I. */}
                   <button
                     onClick={() => setInspectorVisible(false)}
@@ -1611,6 +1651,7 @@ export function AppShell() {
                     onMaxTokensChange={setMaxTokens}
                   />
                 </div>
+                </>
               )}
             </div>
           </div>
@@ -1799,6 +1840,12 @@ function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, work
   if (activeSurface === 'projects')     return <ProjectsPanel />
   if (activeSurface === 'artifacts')    return <ArtifactsSurface />
   if (activeSurface === 'code')         return <CodeSurface onOpenSettings={onOpenSettings} onNavigateToOperate={onNavigateToOperate} />
+  if (activeSurface === 'deploy')       return <DeploySurface />
+  if (activeSurface === 'terminal')     return <TerminalSurface />
+  if (activeSurface === 'search')       return <SearchSurface />
+  if (activeSurface === 'services')     return <ServicesSurface />
+  if (activeSurface === 'labs')         return <LabsSurface />
+  if (activeSurface === 'kg')           return <KnowledgeGraphSurface />
   if (activeSurface === 'workspace')    return <WorkspaceSurface />
   if (activeSurface === 'evaluate')     return <EvaluateSurface thinkingBudget={thinkingBudget} />
   if (activeSurface === 'studio')       return <TabbedWorkspace tabs={[
