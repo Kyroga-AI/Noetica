@@ -13474,6 +13474,84 @@ Question: ${question}`
     return
   }
 
+  // ── Geo / H3 — spatial cell index, co-location detection, emerging hotspots ────
+  if (req.method === 'POST' && url.pathname === '/api/geo/cells') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { cellId, cellCenter, aggregateByCell, kRing } = await import('./lib/geo-cells.js')
+        const action = typeof p['action'] === 'string' ? p['action'] : 'aggregate'
+        const res2 = res
+        if (action === 'cell') {
+          const lon = Number(p['lon'] ?? 0), lat = Number(p['lat'] ?? 0), resolution = typeof p['res'] === 'number' ? p['res'] : 0.01
+          res2.writeHead(200, { 'content-type': 'application/json' }); res2.end(JSON.stringify({ cell: cellId(lon, lat, resolution), center: cellCenter(cellId(lon, lat, resolution)) })); return
+        }
+        if (action === 'ring') {
+          const id = String(p['id'] ?? ''), k = typeof p['k'] === 'number' ? p['k'] : 1
+          res2.writeHead(200, { 'content-type': 'application/json' }); res2.end(JSON.stringify({ neighbors: kRing(id, k) })); return
+        }
+        const points = Array.isArray(p['points']) ? p['points'] as Array<{ lon: number; lat: number }> : []
+        if (!points.length) { res2.writeHead(400, { 'content-type': 'application/json' }); res2.end(JSON.stringify({ error: 'points required' })); return }
+        const resolution = typeof p['res'] === 'number' ? p['res'] : 0.01
+        const grouped = aggregateByCell(points, resolution)
+        const out = [...grouped.entries()].map(([cell, pts]) => ({ cell, count: pts.length, center: cellCenter(cell) })).sort((a, b) => b.count - a.count)
+        res2.writeHead(200, { 'content-type': 'application/json' }); res2.end(JSON.stringify({ cells: out, total: out.length }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/geo/colocation') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { findColocations } = await import('./lib/colocation.js')
+        const pings = Array.isArray(p['pings']) ? p['pings'] as import('./lib/colocation.js').Ping[] : []
+        if (!pings.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'pings required' })); return }
+        const opts = {
+          res:         typeof p['res']         === 'number' ? p['res']         : undefined,
+          windowMs:    typeof p['windowMs']    === 'number' ? p['windowMs']    : undefined,
+          minMeetings: typeof p['minMeetings'] === 'number' ? p['minMeetings'] : undefined,
+        }
+        const colocations = findColocations(pings, opts)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ colocations, count: colocations.length }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  if (req.method === 'POST' && url.pathname === '/api/geo/hotspots') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { emergingHotspots } = await import('./lib/geo-anomaly.js')
+        const events = Array.isArray(p['events']) ? p['events'] as import('./lib/geo-anomaly.js').GeoEvent[] : []
+        if (!events.length) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'events required' })); return }
+        const now = typeof p['now'] === 'number' ? p['now'] : Date.now()
+        const opts = {
+          now,
+          windowMs: typeof p['windowMs'] === 'number' ? p['windowMs'] : undefined,
+          res:      typeof p['res']      === 'number' ? p['res']      : undefined,
+          minZ:     typeof p['minZ']     === 'number' ? p['minZ']     : undefined,
+        }
+        const hotspots = emergingHotspots(events, opts)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ hotspots, count: hotspots.length }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
   // ── Portfolio / K12 — homeschool compliance portfolio + transcript ─────────────
   if (req.method === 'GET' && url.pathname === '/api/portfolio/k12') {
     setCORSHeaders(res)
