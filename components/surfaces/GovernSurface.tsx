@@ -215,6 +215,45 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   const [proposals, setProposals]         = useState<GraphProposal[]>([])
   const [posture, setPosture]             = useState<GovernancePosture | null>(null)
 
+  // SCOPE-D policy editor
+  const ACTION_CLASSES = ['read','synthetic_event','dry_run','network_call','write','deployment','destructive_action','credential_access','memory_write','identity_write'] as const
+  const GATE_VALUES    = ['none','single_human','human_and_policy','human_and_policy_engine','frost_quorum'] as const
+  const AUTH_MODES     = ['read','write','synthetic_only'] as const
+  const [showPolicyEditor, setShowPolicyEditor] = useState(false)
+  const [pePolicyId,       setPePolicyId]       = useState('')
+  const [peName,           setPeName]           = useState('')
+  const [peTargets,        setPeTargets]        = useState('')
+  const [peModes,          setPeModes]          = useState<string[]>(['read'])
+  const [peRules,          setPeRules]          = useState<{ actionClass: string; requiredGate: string }[]>([{ actionClass: 'network_call', requiredGate: 'none' }])
+  const [peBlocked,        setPeBlocked]        = useState<string[]>([])
+  const [peExpires,        setPeExpires]        = useState('')
+  const [peSaving,         setPeSaving]         = useState(false)
+  const [peSaveMsg,        setPeSaveMsg]        = useState('')
+
+  async function savePolicy() {
+    setPeSaving(true); setPeSaveMsg('')
+    try {
+      const policy = {
+        policyId: pePolicyId.trim(),
+        name: peName.trim(),
+        authorizedTargets: peTargets.split('\n').map((t) => t.trim()).filter(Boolean),
+        authorizedModes: peModes,
+        approvalRules: peRules.filter((r) => r.actionClass),
+        blockedActions: peBlocked,
+        ...(peExpires ? { expiresAt: new Date(peExpires).toISOString() } : {}),
+      }
+      const r = await fetch(amUrl('/api/governance/policy'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(policy),
+      })
+      const d = await r.json() as { saved?: boolean; error?: string }
+      if (!r.ok) throw new Error(d.error ?? `save ${r.status}`)
+      setPeSaveMsg('Policy saved — restart agent-machine to activate.')
+    } catch (e) { setPeSaveMsg(e instanceof Error ? e.message : 'save failed') }
+    finally { setPeSaving(false) }
+  }
+
   const runReplay = () => {
     setReplaying(true)
     // Re-run captured failures against the current system, then refresh the felt-win number.
@@ -477,6 +516,101 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             </div>
           </div>
         )}
+
+        {/* SCOPE-D engagement policy editor */}
+        <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#7c3aed]">Engagement Policy</div>
+            <button onClick={() => setShowPolicyEditor((v) => !v)}
+              className="rounded-full border border-[var(--color-border-tertiary)] px-2.5 py-0.5 text-[10px] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)] transition">
+              {showPolicyEditor ? 'Hide editor' : 'Edit policy'}
+            </button>
+          </div>
+          <p className="text-[11px] text-[var(--color-text-tertiary)] leading-relaxed">
+            SCOPE-D EngagementPolicy governs agent egress routing, action authorization, and operator approval requirements.
+            {posture?.scopedConfigured ? ` Active: ${posture.policyName ?? posture.policyId ?? 'configured'}.` : ' No policy configured — agent runs without egress gating.'}
+          </p>
+          {showPolicyEditor && (
+            <div className="mt-4 space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                <label className="block">
+                  <span className="text-[10px] font-medium text-[var(--color-text-secondary)]">Policy ID</span>
+                  <input value={pePolicyId} onChange={(e) => setPePolicyId(e.target.value)} placeholder="my-policy" className="mt-0.5 block w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2 py-1.5 text-[11px] text-[var(--color-text-primary)] outline-none focus:border-[#7c3aed]" />
+                </label>
+                <label className="block">
+                  <span className="text-[10px] font-medium text-[var(--color-text-secondary)]">Name</span>
+                  <input value={peName} onChange={(e) => setPeName(e.target.value)} placeholder="My engagement policy" className="mt-0.5 block w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2 py-1.5 text-[11px] text-[var(--color-text-primary)] outline-none focus:border-[#7c3aed]" />
+                </label>
+              </div>
+
+              <label className="block">
+                <span className="text-[10px] font-medium text-[var(--color-text-secondary)]">Authorized egress targets <span className="font-normal text-[var(--color-text-tertiary)]">(one host per line; empty = unrestricted)</span></span>
+                <textarea value={peTargets} onChange={(e) => setPeTargets(e.target.value)} rows={3} placeholder={'api.anthropic.com\nbackend.composio.dev'} className="mt-0.5 block w-full resize-none rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2 py-1.5 text-[11px] text-[var(--color-text-primary)] outline-none focus:border-[#7c3aed] font-mono" />
+              </label>
+
+              <div>
+                <span className="text-[10px] font-medium text-[var(--color-text-secondary)]">Authorized modes</span>
+                <div className="mt-1 flex gap-3">
+                  {AUTH_MODES.map((m) => (
+                    <label key={m} className="flex items-center gap-1 cursor-pointer">
+                      <input type="checkbox" checked={peModes.includes(m)} onChange={(e) => setPeModes((ms) => e.target.checked ? [...ms, m] : ms.filter((x) => x !== m))} className="h-3 w-3 rounded" />
+                      <span className="text-[11px] text-[var(--color-text-secondary)]">{m}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-[10px] font-medium text-[var(--color-text-secondary)]">Approval rules</span>
+                  <button type="button" onClick={() => setPeRules((rs) => [...rs, { actionClass: 'write', requiredGate: 'single_human' }])}
+                    className="text-[10px] text-[#7c3aed] hover:underline">+ Add rule</button>
+                </div>
+                <div className="space-y-1">
+                  {peRules.map((rule, i) => (
+                    <div key={i} className="flex items-center gap-1">
+                      <select value={rule.actionClass} onChange={(e) => setPeRules((rs) => rs.map((r, j) => j === i ? { ...r, actionClass: e.target.value } : r))}
+                        className="flex-1 rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-2 py-1 text-[10px] text-[var(--color-text-primary)] outline-none">
+                        {ACTION_CLASSES.map((ac) => <option key={ac} value={ac}>{ac}</option>)}
+                      </select>
+                      <select value={rule.requiredGate} onChange={(e) => setPeRules((rs) => rs.map((r, j) => j === i ? { ...r, requiredGate: e.target.value } : r))}
+                        className="flex-1 rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-2 py-1 text-[10px] text-[var(--color-text-primary)] outline-none">
+                        {GATE_VALUES.map((g) => <option key={g} value={g}>{g}</option>)}
+                      </select>
+                      {peRules.length > 1 && <button type="button" onClick={() => setPeRules((rs) => rs.filter((_, j) => j !== i))} className="text-[var(--color-text-tertiary)] hover:text-[#dc2626] px-1 text-xs">×</button>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <span className="text-[10px] font-medium text-[var(--color-text-secondary)]">Blocked actions</span>
+                <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                  {ACTION_CLASSES.map((ac) => (
+                    <label key={ac} className="flex items-center gap-1 cursor-pointer">
+                      <input type="checkbox" checked={peBlocked.includes(ac)} onChange={(e) => setPeBlocked((bs) => e.target.checked ? [...bs, ac] : bs.filter((x) => x !== ac))} className="h-3 w-3 rounded" />
+                      <span className="text-[10px] text-[var(--color-text-secondary)] font-mono">{ac}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <label className="block">
+                <span className="text-[10px] font-medium text-[var(--color-text-secondary)]">Expires at <span className="font-normal text-[var(--color-text-tertiary)]">(leave blank = never)</span></span>
+                <input type="datetime-local" value={peExpires} onChange={(e) => setPeExpires(e.target.value)} className="mt-0.5 block rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2 py-1.5 text-[11px] text-[var(--color-text-primary)] outline-none focus:border-[#7c3aed]" />
+              </label>
+
+              {peSaveMsg && (
+                <div className={`rounded-lg px-3 py-2 text-[11px] ${peSaveMsg.includes('saved') ? 'border border-[#16a34a]/40 bg-[#16a34a]/5 text-[#16a34a]' : 'border border-[#fecaca] bg-[#fef2f2] text-[#dc2626]'}`}>{peSaveMsg}</div>
+              )}
+              <button type="button" onClick={() => void savePolicy()} disabled={peSaving || !pePolicyId.trim() || !peName.trim()}
+                className="rounded-xl bg-[#7c3aed] px-4 py-2 text-[11px] font-semibold text-white transition hover:bg-[#6d28d9] disabled:opacity-50">
+                {peSaving ? 'Saving…' : 'Save policy to disk'}
+              </button>
+              <p className="text-[10px] text-[var(--color-text-tertiary)]">Requires <code className="font-mono">SCOPED_ENGAGEMENT_POLICY</code> env var pointing to a writable JSON path. Restart agent-machine after saving.</p>
+            </div>
+          )}
+        </div>
 
         {/* Production-learning loop — what the agent has learned from real turns */}
         {learning && (learning.skills.count > 0 || learning.evalCases.count > 0 || (learning.experiences?.count ?? 0) > 0) && (

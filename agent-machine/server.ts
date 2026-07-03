@@ -8044,6 +8044,35 @@ Question: ${question}`
     return
   }
 
+  // POST /api/governance/policy — write / replace the SCOPE-D EngagementPolicy JSON on disk.
+  // Requires SCOPED_ENGAGEMENT_POLICY env var to point to a writable path. Fail-open if unconfigured.
+  if (req.method === 'POST' && url.pathname === '/api/governance/policy') {
+    setCORSHeaders(res)
+    ;(async () => {
+      try {
+        const policyPath = process.env['SCOPED_ENGAGEMENT_POLICY']
+        if (!policyPath) {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: 'SCOPED_ENGAGEMENT_POLICY not configured — set the env var to a writable path first' }))
+          return
+        }
+        const raw = await readBody(req)
+        let policy: Record<string, unknown>
+        try { policy = JSON.parse(raw) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        if (typeof policy['policyId'] !== 'string' || !policy['policyId'] || typeof policy['name'] !== 'string' || !policy['name']) {
+          res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'policyId and name required' })); return
+        }
+        const { writeFileSync, mkdirSync } = await import('fs')
+        const { dirname } = await import('path')
+        mkdirSync(dirname(policyPath), { recursive: true })
+        writeFileSync(policyPath, JSON.stringify(policy, null, 2), 'utf8')
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ saved: true, policyId: policy['policyId'] as string }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'write failed' })) }
+    })()
+    return
+  }
+
   // GET /api/library — "what's been captured into the graph": collections → documents → entity/chunk counts.
   // The observability surface (like ChatGPT's library, but for the knowledge graph).
   if (req.method === 'GET' && url.pathname === '/api/library') {
@@ -16496,6 +16525,23 @@ Question: ${question}`
           registerPartner(body)
           res.writeHead(201, { 'content-type': 'application/json' })
           res.end(JSON.stringify({ registered: body.id }))
+          return
+        }
+
+        // POST /api/partner/vouch — attested tier upgrade. Requires the vouching operator to be verified or sovereign.
+        if (req.method === 'POST' && url.pathname === '/api/partner/vouch') {
+          const { readBody: rb } = await import('./lib/read-body.js')
+          const vb = JSON.parse(await rb(req)) as { from?: string; for?: string; tier?: string }
+          if (!vb.from || !vb.for) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'from and for required' })); return }
+          const targetTier = vb.tier === 'sovereign' ? 'sovereign' as const : 'verified' as const
+          const voucher = getPartner(vb.from)
+          if (!voucher) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'vouching operator not found' })); return }
+          if (voucher.tier === 'community') { res.writeHead(403, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'vouching operator must be verified or sovereign' })); return }
+          const target = getPartner(vb.for)
+          if (!target) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'target operator not found' })); return }
+          registerPartner({ ...target, tier: targetTier })
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ok: true, vouched: vb.for, tier: targetTier, by: vb.from }))
           return
         }
 

@@ -97,8 +97,28 @@ function TemplateCard({ t, onDeploy }: { t: SwarmTemplate; onDeploy: (t: SwarmTe
   )
 }
 
-function PartnerCard({ p }: { p: PartnerProfile }) {
+function PartnerCard({ p, onVouched }: { p: PartnerProfile; onVouched?: () => void }) {
   const tier = TIER_STYLE[p.tier]
+  const [vouching, setVouching] = useState(false)
+  const [vouchFrom, setVouchFrom] = useState('')
+  const [vouchMsg, setVouchMsg] = useState('')
+
+  async function submitVouch() {
+    try {
+      const r = await fetch(amUrl('/api/partner/vouch'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ from: vouchFrom.trim(), for: p.id, tier: 'verified' }),
+        signal: AbortSignal.timeout(8000),
+      })
+      const d = await r.json() as { ok?: boolean; error?: string }
+      if (!r.ok) throw new Error(d.error ?? `vouch ${r.status}`)
+      setVouchMsg('Attested — tier upgraded to verified.')
+      setVouching(false)
+      onVouched?.()
+    } catch (e) { setVouchMsg(e instanceof Error ? e.message : 'vouch failed') }
+  }
+
   return (
     <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
       <div className="flex items-start justify-between gap-2">
@@ -138,6 +158,30 @@ function PartnerCard({ p }: { p: PartnerProfile }) {
           </button>
         )}
       </div>
+
+      {/* Attestation — vouching flow for community operators */}
+      {p.tier === 'community' && (
+        <div className="mt-3 border-t border-[var(--color-border-tertiary)] pt-3">
+          {!vouching && !vouchMsg && (
+            <button type="button" onClick={() => setVouching(true)}
+              className="text-[10px] text-[var(--color-text-tertiary)] hover:text-[#7c3aed] transition">
+              + Attest for tier upgrade
+            </button>
+          )}
+          {vouching && (
+            <div className="flex items-center gap-1">
+              <input value={vouchFrom} onChange={(e) => setVouchFrom(e.target.value)}
+                placeholder="Your operator id"
+                className="flex-1 rounded-lg border border-[var(--color-border-tertiary)] bg-transparent px-2 py-1 text-[10px] text-[var(--color-text-primary)] outline-none focus:border-[#7c3aed]" />
+              <button type="button" onClick={() => void submitVouch()} disabled={!vouchFrom.trim()}
+                className="rounded-lg bg-[#7c3aed] px-2 py-1 text-[10px] text-white disabled:opacity-40">Attest</button>
+              <button type="button" onClick={() => { setVouching(false); setVouchFrom('') }}
+                className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] px-1">×</button>
+            </div>
+          )}
+          {vouchMsg && <div className="text-[10px] text-[#16a34a]">{vouchMsg}</div>}
+        </div>
+      )}
     </div>
   )
 }
@@ -251,11 +295,15 @@ function OperatorWizard() {
   async function publish() {
     setSubmitting(true); setErr('')
     const validCaps = caps.filter((c) => c.title.trim())
+    // Generate a self-sovereign did:key identifier anchored to this registration
+    const randBytes = new Uint8Array(16)
+    crypto.getRandomValues(randBytes)
+    const did = `did:key:z${Array.from(randBytes).map((b) => b.toString(16).padStart(2, '0')).join('')}`
     try {
       const r = await fetch(amUrl('/api/partner/register'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name, bio, tier, meshEndpoint: meshEndpoint || undefined, holographHandle: holographHandle || undefined, capabilities: validCaps.map((c) => ({ ...c, id: `${c.kind}-${c.title.toLowerCase().replace(/\s+/g, '-')}` })) }),
+        body: JSON.stringify({ id: did, name, bio, tier, meshEndpoint: meshEndpoint || undefined, holographHandle: holographHandle || undefined, capabilities: validCaps.map((c) => ({ ...c, id: `${c.kind}-${c.title.toLowerCase().replace(/\s+/g, '-')}` })) }),
         signal: AbortSignal.timeout(10000),
       })
       if (!r.ok) { const d = await r.json() as { error?: string }; throw new Error(d.error ?? `register ${r.status}`) }
@@ -436,6 +484,13 @@ export function MarketplaceSurface() {
     })()
   }, [])
 
+  function refreshPartners() {
+    void fetch(amUrl('/api/partner/list'), { signal: AbortSignal.timeout(5000) })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d: { partners?: PartnerProfile[] } | null) => { if (d?.partners) setPartners(d.partners) })
+      .catch(() => { /* silent */ })
+  }
+
   function handleDeploy(t: SwarmTemplate) {
     setDeployMsg(`Deploying "${t.title}" — open Agent Builder to configure and launch.`)
     setTimeout(() => setDeployMsg(''), 4000)
@@ -559,7 +614,7 @@ export function MarketplaceSurface() {
               <div className="py-8 text-center text-[12px] text-[var(--color-text-tertiary)]">{search ? `No partners match “${search}”` : 'No partners registered yet.'}</div>
             ) : (
               <div className="grid gap-3 lg:grid-cols-2">
-                {filteredPartners.map((p) => <PartnerCard key={p.id} p={p} />)}
+                {filteredPartners.map((p) => <PartnerCard key={p.id} p={p} onVouched={refreshPartners} />)}
               </div>
             )}
           </div>

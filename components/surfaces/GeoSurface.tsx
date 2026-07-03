@@ -50,6 +50,8 @@ export function GeoSurface() {
   const [busy, setBusy]         = useState(false)
   const [sel, setSel]           = useState<Marker | null>(null)
   const [hidden, setHidden]     = useState<Set<string>>(new Set())
+  const [showCells, setShowCells] = useState(false)
+  const [cellData, setCellData]   = useState<{ cell: string; count: number; center: [number, number] }[]>([])
 
   const toggleLayer = (g: string) =>
     setHidden((h) => { const n = new Set(h); n.has(g) ? n.delete(g) : n.add(g); return n })
@@ -91,6 +93,12 @@ export function GeoSurface() {
           data: { type: 'FeatureCollection', features: [] },
         })
 
+        // H3 cell density heatmap source
+        map.addSource('h3-cells', {
+          type: 'geojson',
+          data: { type: 'FeatureCollection', features: [] },
+        })
+
         // Base circle — color and size from OFIF layer + severity
         map.addLayer({
           id: 'ofif-circles',
@@ -117,6 +125,20 @@ export function GeoSurface() {
             'circle-stroke-width': 3,
             'circle-stroke-color': ['get', 'color'],
             'circle-stroke-opacity': 0.9,
+          },
+        })
+
+        // Cell density — rendered before OFIF circles so markers sit on top
+        map.addLayer({
+          id: 'h3-heat',
+          type: 'circle',
+          source: 'h3-cells',
+          paint: {
+            'circle-color':   '#7c3aed',
+            'circle-radius':  ['interpolate', ['linear'], ['get', 'count'], 1, 10, 5, 22, 20, 40],
+            'circle-opacity': 0.28,
+            'circle-stroke-width': 0,
+            'circle-blur':    0.6,
           },
         })
 
@@ -170,6 +192,36 @@ export function GeoSurface() {
     src?.setData({ type: 'FeatureCollection', features })
   }, [mapReady, data, hidden])
 
+  // Fetch H3 cell density whenever the layer is toggled on or markers change
+  useEffect(() => {
+    if (!showCells || !mapReady) return
+    const m = data?.markers ?? []
+    if (!m.length) { setCellData([]); return }
+    const points = m.map((mk) => ({ lon: mk.coordinates[0], lat: mk.coordinates[1] }))
+    void fetch(amUrl('/api/geo/cells'), {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ action: 'aggregate', points, res: 0.01 }),
+    })
+      .then((r) => r.ok ? r.json() : null)
+      .then((d: { cells?: { cell: string; count: number; center: [number, number] }[] } | null) => { if (d?.cells) setCellData(d.cells) })
+      .catch(() => { /* silent */ })
+  }, [showCells, mapReady, data])
+
+  // Push H3 cell GeoJSON to the map layer
+  useEffect(() => {
+    if (!mapReady || !mapRef.current) return
+    const src = mapRef.current.getSource('h3-cells') as { setData: (d: unknown) => void } | undefined
+    if (!src) return
+    if (!showCells) { src.setData({ type: 'FeatureCollection', features: [] }); return }
+    const features = cellData.map((c) => ({
+      type: 'Feature' as const,
+      geometry: { type: 'Point' as const, coordinates: c.center },
+      properties: { count: c.count, cell: c.cell },
+    }))
+    src.setData({ type: 'FeatureCollection', features })
+  }, [mapReady, showCells, cellData])
+
   const loadGeo = useCallback(async (): Promise<GeoResp | null> => {
     const r = await fetch(amUrl('/api/graph/geo'))
     if (!r.ok) throw new Error(`HTTP ${r.status}`)
@@ -208,6 +260,11 @@ export function GeoSurface() {
         <button onClick={() => void detect()} disabled={busy}
           className="rounded-lg border border-[var(--color-border-secondary)] px-2.5 py-1 text-[10px] text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)] disabled:opacity-50">
           {busy ? 'Detecting…' : 'Detect places'}
+        </button>
+        <button onClick={() => setShowCells((v) => !v)} disabled={markers.length === 0}
+          className={`flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[10px] transition disabled:opacity-40 ${showCells ? 'border-[#7c3aed] bg-[#ede9fe] text-[#7c3aed]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'}`}>
+          <span className="h-2 w-2 rounded-full" style={{ background: showCells ? '#7c3aed' : 'var(--color-text-tertiary)' }} />
+          Cell density
         </button>
         <span className="text-[10px] text-[var(--color-text-tertiary)]">{markers.length} marker{markers.length === 1 ? '' : 's'}</span>
         {err && <span className="text-[10px] text-[#dc2626]">{err}</span>}
