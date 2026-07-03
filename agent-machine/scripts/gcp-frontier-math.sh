@@ -116,6 +116,7 @@ gcloud compute instances create "$NAME" --project "$PROJECT" --zone "$ZONE" \
   --machine-type "$SKU" --maintenance-policy TERMINATE \
   --image-family "$IMG_FAMILY" --image-project "$IMG_PROJECT" \
   --boot-disk-size 100GB --tags noetica-frontier-math \
+  --no-service-account --no-scopes \
   --metadata mesh-model="$MODEL" \
   --metadata-from-file startup-script="$HERE/cloud-init.sh" \
   "${ACCEL_FLAGS[@]}" "${SPOT_FLAGS[@]}" >/dev/null \
