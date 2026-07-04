@@ -5997,14 +5997,16 @@ const server = http.createServer((req, res) => {
     }
   }
 
-  // GET /api/identity/pseudonym — device-anchored did:key pseudonym for the sovereign identity lane
+  // GET /api/identity/pseudonym — device-anchored did:key pseudonym for the sovereign identity lane.
+  // ?scope=org derives an org-scoped facet (unlinkable from the personal one).
   if (req.method === 'GET' && url.pathname === '/api/identity/pseudonym') {
     setCORSHeaders(res)
     void (async () => {
       try {
         const { loadOrCreateRoot, deriveScope } = await import('./lib/sovereign-id.js')
         const root  = loadOrCreateRoot()
-        const facet = deriveScope(root, 'noetica-default')
+        const scope = url.searchParams.get('scope') === 'org' ? 'noetica-org' : 'noetica-default'
+        const facet = deriveScope(root, scope)
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ pseudonym: facet.pseudonym }))
       } catch {
@@ -6012,6 +6014,46 @@ const server = http.createServer((req, res) => {
         res.end(JSON.stringify({ error: 'identity_unavailable' }))
       }
     })()
+    return
+  }
+
+  // GET /api/identity/org — read org profile.
+  // POST /api/identity/org { name, type?, policyProfile } — save org profile to disk.
+  if (url.pathname === '/api/identity/org') {
+    setCORSHeaders(res)
+    const orgProfilePath = path.join(__dirname, '..', 'org-profile.json')
+    if (req.method === 'GET') {
+      try {
+        const raw = fs.readFileSync(orgProfilePath, 'utf8')
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(raw)
+      } catch {
+        res.writeHead(404, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: 'no_org_profile' }))
+      }
+      return
+    }
+    if (req.method === 'POST') {
+      void (async () => {
+        try {
+          const raw = await readBody(req)
+          let p: Record<string, unknown> = {}
+          try { p = JSON.parse(raw) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+          const name = typeof p['name'] === 'string' ? p['name'].slice(0, 200) : ''
+          const type = typeof p['type'] === 'string' ? p['type'].slice(0, 100) : null
+          const policyProfile = (['default', 'strict', 'permissive'] as const).includes(p['policyProfile'] as 'default') ? p['policyProfile'] as string : 'default'
+          const profile = { name, type, policyProfile, configuredAt: new Date().toISOString() }
+          fs.writeFileSync(orgProfilePath, JSON.stringify(profile, null, 2))
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ saved: true, profile }))
+        } catch {
+          res.writeHead(500, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: 'save_failed' }))
+        }
+      })()
+      return
+    }
+    res.writeHead(405); res.end()
     return
   }
 

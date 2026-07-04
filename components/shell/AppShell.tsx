@@ -57,6 +57,7 @@ import { SettingsModal } from '@/components/settings/SettingsModal'
 import { ProviderSetupModal } from '@/components/shell/ProviderSetupModal'
 import { ModelSetupOverlay } from '@/components/setup/ModelSetupOverlay'
 import { CitizenOnboardingWizard } from '@/components/shell/CitizenOnboardingWizard'
+import { OrgOnboardingWizard } from '@/components/shell/OrgOnboardingWizard'
 import { CommandPalette } from '@/components/palette/CommandPalette'
 import { models, visibleModels, providersWithKeys, defaultModelId } from '@/config/models'
 import { initialMessages } from '@/lib/chat/mockConversation'
@@ -343,6 +344,7 @@ export function AppShell() {
   const [providerSetupOpen, setProviderSetupOpen] = useState(false)
   const [showSetup, setShowSetup] = useState(false)
   const [showCitizenOnboarding, setShowCitizenOnboarding] = useState(false)
+  const [showOrgOnboarding, setShowOrgOnboarding] = useState(false)
   const [rawEventLog, setRawEventLog] = useState<Array<{ ts: string; kind: string; payload: unknown }>>([])
   const rawEventLogRef = useRef(rawEventLog)
   rawEventLogRef.current = rawEventLog
@@ -354,6 +356,15 @@ export function AppShell() {
     if (localStorage.getItem('noetica:citizen:onboarded') === '1') return
     // Small delay so infrastructure modals (provider/model) appear first if needed
     const t = setTimeout(() => setShowCitizenOnboarding(true), 800)
+    return () => clearTimeout(t)
+  }, [])
+
+  // Org onboarding: fires once after citizen is onboarded, with a 1.5s delay.
+  // Citizen is always first; this follows if they haven't set up an org yet.
+  useEffect(() => {
+    if (localStorage.getItem('noetica:citizen:onboarded') !== '1') return
+    if (localStorage.getItem('noetica:org:onboarded') === '1') return
+    const t = setTimeout(() => setShowOrgOnboarding(true), 1500)
     return () => clearTimeout(t)
   }, [])
 
@@ -1521,6 +1532,11 @@ export function AppShell() {
             setShowCitizenOnboarding(false)
             if (name) updateSettings({ userName: name })
           }}
+        />
+      )}
+      {showOrgOnboarding && !showCitizenOnboarding && !showSetup && !providerSetupOpen && (
+        <OrgOnboardingWizard
+          onComplete={() => setShowOrgOnboarding(false)}
         />
       )}
       <main className="flex h-screen overflow-hidden bg-[var(--color-background-tertiary)] text-[var(--color-text-primary)]">
