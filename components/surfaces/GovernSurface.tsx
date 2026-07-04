@@ -242,6 +242,8 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   const [bonToggling, setBonToggling]                   = useState(false)
   const [uncertaintyEnabled, setUncertaintyEnabled]     = useState(false)
   const [uncertaintyToggling, setUncertaintyToggling]   = useState(false)
+  const [proceduralEnabled, setProceduralEnabled]       = useState(false)
+  const [proceduralToggling, setProceduralToggling]     = useState(false)
   interface DecayStats { pruned: number; lastPruneAt: number | null; budget: number }
   const [decayStats, setDecayStats]       = useState<DecayStats | null>(null)
 
@@ -358,10 +360,11 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
     // Runtime settings (Best-of-N toggle state)
     fetch(amUrl('/api/settings'), { signal: AbortSignal.timeout(3000) })
       .then(r => r.ok ? r.json() : null)
-      .then((d: { bonEnabled?: boolean; uncertaintyEnabled?: boolean } | null) => {
+      .then((d: { bonEnabled?: boolean; uncertaintyEnabled?: boolean; proceduralEnabled?: boolean } | null) => {
         if (d) {
           if (typeof d.bonEnabled === 'boolean') setBonEnabled(d.bonEnabled)
           if (typeof d.uncertaintyEnabled === 'boolean') setUncertaintyEnabled(d.uncertaintyEnabled)
+          if (typeof d.proceduralEnabled === 'boolean') setProceduralEnabled(d.proceduralEnabled)
         }
       })
       .catch(() => { /* not running — skip */ })
@@ -482,6 +485,19 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
       if (r.ok) { const d = await r.json() as { uncertaintyEnabled: boolean }; setUncertaintyEnabled(d.uncertaintyEnabled) }
     } catch { /* best-effort */ }
     finally { setUncertaintyToggling(false) }
+  }
+
+  async function toggleProcedural() {
+    setProceduralToggling(true)
+    try {
+      const r = await fetch(amUrl('/api/settings'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ proceduralEnabled: !proceduralEnabled }),
+      })
+      if (r.ok) { const d = await r.json() as { proceduralEnabled: boolean }; setProceduralEnabled(d.proceduralEnabled) }
+    } catch { /* best-effort */ }
+    finally { setProceduralToggling(false) }
   }
 
   // Merge local ledger events with agent-machine run history, deduped by id, sorted newest-first
@@ -1020,6 +1036,30 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
           </div>
           <div className="text-[10px] text-[var(--color-text-tertiary)]">
             {uncertaintyEnabled ? 'Active — responses with high semantic entropy will carry a hedge or abstention notice.' : 'Off — no abstention overlay. Enable to surface genuine knowledge gaps rather than confident hallucinations.'}
+          </div>
+        </div>
+
+        {/* Procedural memory (loop 2+3) runtime toggle */}
+        <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+          <div className="mb-2 flex items-center justify-between">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#16a34a]">Procedural memory</div>
+              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)] leading-relaxed">
+                Distills successful turns into reusable skills (loop 2) and enrolls them in spaced-repetition review (loop 3).
+              </div>
+            </div>
+            <button
+              onClick={() => void toggleProcedural()}
+              disabled={proceduralToggling}
+              className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold transition disabled:opacity-50 ${proceduralEnabled ? 'bg-[#16a34a] text-white hover:bg-[#15803d]' : 'border border-[var(--color-border-primary)] text-[var(--color-text-secondary)] hover:border-[#16a34a] hover:text-[#16a34a]'}`}
+            >
+              {proceduralToggling ? '…' : proceduralEnabled ? 'Enabled' : 'Disabled'}
+            </button>
+          </div>
+          <div className="text-[10px] text-[var(--color-text-tertiary)]">
+            {proceduralEnabled
+              ? 'Active — high-quality turns are being distilled into the skill library and scheduled for SRS review.'
+              : 'Off — only eval-capture (failures) is running. Enable to start compounding the skill library.'}
           </div>
         </div>
 

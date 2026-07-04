@@ -408,6 +408,8 @@ let _lastDreamAt = 0
 let _bonEnabled = process.env['BEST_OF_N'] === 'true'
 // Runtime uncertainty-gate toggle — semantic-entropy abstention disclaimer
 let _uncertaintyEnabled = process.env['UNCERTAINTY_GATE'] === 'true'
+// Runtime procedural-memory toggle — enables loops 2+3 (skill distillation + SRS enrollment)
+let _proceduralEnabled = process.env['PROCEDURAL_MEMORY'] === 'true'
 // Decay prune telemetry — incremented by the memory-decay pruner on every real eviction
 let _decayPruneTotal = 0
 let _decayLastPruneAt = 0
@@ -4639,7 +4641,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           steps: trajectoryActions.map((a) => a.type),
           worth: valueJudgment.worth,
           now: Date.now(),
-        }, { procedural: process.env['PROCEDURAL_MEMORY'] === 'true', minCoverage: 0.5 })
+        }, { procedural: _proceduralEnabled, minCoverage: 0.5 })
         if (lResult.evalCase) appendEncrypted(path.join(os.homedir(), '.noetica', 'eval-cases.jsonl'), lResult.evalCase)
         if (lResult.skill) appendEncrypted(skillsPath(), lResult.skill)
         if (lResult.experience) appendEncrypted(path.join(os.homedir(), '.noetica', 'experiences.jsonl'), lResult.experience)
@@ -5987,7 +5989,7 @@ const server = http.createServer((req, res) => {
     setCORSHeaders(res)
     if (req.method === 'GET') {
       res.writeHead(200, { 'content-type': 'application/json' })
-      res.end(JSON.stringify({ bonEnabled: _bonEnabled, uncertaintyEnabled: _uncertaintyEnabled }))
+      res.end(JSON.stringify({ bonEnabled: _bonEnabled, uncertaintyEnabled: _uncertaintyEnabled, proceduralEnabled: _proceduralEnabled }))
       return
     }
     if (req.method === 'POST') {
@@ -5998,8 +6000,9 @@ const server = http.createServer((req, res) => {
           try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
           if (typeof p['bonEnabled'] === 'boolean') _bonEnabled = p['bonEnabled'] as boolean
           if (typeof p['uncertaintyEnabled'] === 'boolean') _uncertaintyEnabled = p['uncertaintyEnabled'] as boolean
+          if (typeof p['proceduralEnabled'] === 'boolean') _proceduralEnabled = p['proceduralEnabled'] as boolean
           res.writeHead(200, { 'content-type': 'application/json' })
-          res.end(JSON.stringify({ bonEnabled: _bonEnabled, uncertaintyEnabled: _uncertaintyEnabled }))
+          res.end(JSON.stringify({ bonEnabled: _bonEnabled, uncertaintyEnabled: _uncertaintyEnabled, proceduralEnabled: _proceduralEnabled }))
         } catch {
           res.writeHead(500, { 'content-type': 'application/json' })
           res.end(JSON.stringify({ error: 'internal_error' }))
