@@ -408,6 +408,9 @@ let _lastDreamAt = 0
 let _bonEnabled = process.env['BEST_OF_N'] === 'true'
 // Runtime uncertainty-gate toggle — semantic-entropy abstention disclaimer
 let _uncertaintyEnabled = process.env['UNCERTAINTY_GATE'] === 'true'
+// Decay prune telemetry — incremented by the memory-decay pruner on every real eviction
+let _decayPruneTotal = 0
+let _decayLastPruneAt = 0
 let _latestDreamingSession: { sessionId: string; triggeredAt: string; proposals: Array<{ from: string; to: string; via: string[]; support: number }>; seeds: number } | null = null
 async function runDreaming(opts: { seeds?: number; length?: number; walksPerSeed?: number; integrate?: boolean; maxIntegrate?: number } = {}): Promise<{ seeds: number; nodes: number; proposed: number; integrated: number; top: Array<{ from: string; to: string; via: string[]; support: number }> }> {
   const g = getGraph()
@@ -2085,6 +2088,8 @@ async function executeTool(
             const { forgetMemory } = await import('./lib/memory-curation.js')
             const all = listMemories(mStore).map((m) => ({ id: m.id, createdAt: new Date(m.createdAt).getTime() || Date.now(), pinned: m.pinned, importance: m.lti / 100 }))
             const { evict } = pruneToBudget(all, 200)
+            _decayPruneTotal += evict.length
+            if (evict.length) _decayLastPruneAt = Date.now()
             for (const e of evict) { try { forgetMemory(mStore, e.id) } catch { /* skip */ } }
             if (evict.length) console.warn('[memory-decay] pruned', evict.length, 'stale memories')
           } catch { /* decay is best-effort */ }
@@ -2099,6 +2104,8 @@ async function executeTool(
           const ms2 = { nodesByLabel: (l: string) => gm.nodesByLabel(l) as any[], getNode: (id: string) => gm.getNode(id) as any, out: (id: string, e?: string) => gm.out(id, e) as any[], setProperty: () => { /* read-only */ } }
           const all = lm(ms2).map((m) => ({ id: m.id, createdAt: new Date(m.createdAt).getTime() || Date.now(), pinned: m.pinned, importance: m.lti / 100 }))
           const { evict } = pruneToBudget(all, 200)  // cap at 200 memories
+          _decayPruneTotal += evict.length
+          if (evict.length) _decayLastPruneAt = Date.now()
           for (const e of evict) { try { forgetMemory(ms2, e.id) } catch { /* skip */ } }
         } catch { /* memory-decay prune is best-effort */ }
         return `Saved to memory (${kind}): "${content.slice(0, 140)}". I'll recall this on future relevant turns.${note}`
@@ -3389,6 +3396,26 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       const { clean, stripped } = sanitizeRetrieved(retrieved.text)
       if (stripped > 0) console.warn(`[rag-trust] neutralized ${stripped} injected directive(s) in graph memory context`.replace(/[\r\n]/g, ''))
       graphContext = `\n\n---\n**Memory context (HellGraph)**\n${clean}`
+    }
+    // ── Associative recall (PPR / HippoRAG) — multi-hop concept surfacing ──────
+    // For research and QA intents, run personalized PageRank seeded from query terms
+    // to surface structurally related concepts the user may not have explicitly mentioned.
+    // This is the HippoRAG recall path: cheap graph walk, no embeddings needed.
+    if (['research_lookup', 'qa_over_doc', 'episodic', 'self-model'].includes(intentPlan.retrieval)) {
+      try {
+        const { associativeRetrieve } = await import('./lib/graph-ppr.js')
+        const pprG = getHellGraph()
+        const pprNodes = pprG.allNodes()
+        if (pprNodes.length >= 20) {
+          const pprEdges = pprG.allEdges().map((e) => ({ from: e.from, to: e.to }))
+          const labelById = new Map(pprNodes.map((n) => [n.id, (n.labels[0] ?? n.id) as string]))
+          const { results } = associativeRetrieve(pprNodes, pprEdges, labelById, latestUserContent, { topK: 5 })
+          if (results.length >= 2) {
+            const assoc = results.map((r) => `• ${r.label}`).join('\n')
+            graphContext += `\n\n---\n**Associative recall (HippoRAG)**\nGraph-adjacent concepts from your knowledge graph:\n${assoc}`
+          }
+        }
+      } catch { /* best-effort — never block the LLM call */ }
     }
     // Emit the neurosymbolic reasoning trace so the UI can show *why* this answer
     // was grounded — attention-ranked atoms, pattern timings, beliefs injected.
@@ -6179,6 +6206,14 @@ const server = http.createServer((req, res) => {
         tiers: { tier1_memoryd: memorydHealth !== null, tier2_hellgraph: true, tier3_map: true },
       }))
     })()
+    return
+  }
+
+  // GET /api/memory/decay-stats — module-level counters for the live memory-decay pruner
+  if (req.method === 'GET' && url.pathname === '/api/memory/decay-stats') {
+    setCORSHeaders(res)
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ pruned: _decayPruneTotal, lastPruneAt: _decayLastPruneAt || null, budget: 200 }))
     return
   }
 

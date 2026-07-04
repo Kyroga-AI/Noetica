@@ -242,6 +242,8 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   const [bonToggling, setBonToggling]                   = useState(false)
   const [uncertaintyEnabled, setUncertaintyEnabled]     = useState(false)
   const [uncertaintyToggling, setUncertaintyToggling]   = useState(false)
+  interface DecayStats { pruned: number; lastPruneAt: number | null; budget: number }
+  const [decayStats, setDecayStats]       = useState<DecayStats | null>(null)
 
   // SCOPE-D policy editor
   const ACTION_CLASSES = ['read','synthetic_event','dry_run','network_call','write','deployment','destructive_action','credential_access','memory_write','identity_write'] as const
@@ -362,6 +364,11 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
           if (typeof d.uncertaintyEnabled === 'boolean') setUncertaintyEnabled(d.uncertaintyEnabled)
         }
       })
+      .catch(() => { /* not running — skip */ })
+    // Memory decay stats
+    fetch(amUrl('/api/memory/decay-stats'), { signal: AbortSignal.timeout(3000) })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: DecayStats | null) => { if (d) setDecayStats(d) })
       .catch(() => { /* not running — skip */ })
   }, [])
 
@@ -1015,6 +1022,30 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             {uncertaintyEnabled ? 'Active — responses with high semantic entropy will carry a hedge or abstention notice.' : 'Off — no abstention overlay. Enable to surface genuine knowledge gaps rather than confident hallucinations.'}
           </div>
         </div>
+
+        {/* Memory decay health */}
+        {decayStats && (
+          <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+            <div className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#0891b2]">Memory health</div>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
+                <div className="text-xl font-semibold text-[var(--color-text-primary)]">{decayStats.budget}</div>
+                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Budget</div>
+              </div>
+              <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
+                <div className={`text-xl font-semibold ${decayStats.pruned > 0 ? 'text-[#d97706]' : 'text-[#16a34a]'}`}>{decayStats.pruned}</div>
+                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Pruned</div>
+              </div>
+              <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
+                <div className="text-xl font-semibold text-[var(--color-text-primary)]">{decayStats.lastPruneAt ? new Date(decayStats.lastPruneAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</div>
+                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Last prune</div>
+              </div>
+            </div>
+            <div className="mt-2 text-[10px] text-[var(--color-text-tertiary)]">
+              {decayStats.pruned === 0 ? 'Memory store is within budget — no evictions yet.' : `${decayStats.pruned} low-salience memories evicted to stay within the ${decayStats.budget}-memory budget.`}
+            </div>
+          </div>
+        )}
 
         {/* Analytics metrics */}
         {chatRuns.length > 0 && (

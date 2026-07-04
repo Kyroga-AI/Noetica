@@ -27,11 +27,17 @@ const KIND_BADGE: Record<LibraryGroup['kind'], { label: string; cls: string }> =
   system: { label: 'system · protected', cls: 'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]' },
 }
 
+type OverviewTurn = { speaker: 'Host' | 'Guest'; line: string }
+type Overview = { turns: OverviewTurn[]; synthesized: boolean }
+
 export function LibrarySurface() {
   const [lib, setLib] = useState<Library | null>(null)
   const [err, setErr] = useState('')
   const [open, setOpen] = useState<Record<string, boolean>>({})
   const [busy, setBusy] = useState('')
+  const [overview, setOverview] = useState<Overview | null>(null)
+  const [overviewLoading, setOverviewLoading] = useState(false)
+  const [overviewErr, setOverviewErr] = useState('')
 
   const load = useCallback(() => {
     setErr('')
@@ -52,6 +58,17 @@ export function LibrarySurface() {
       load()
     } catch (e) { setErr(e instanceof Error ? e.message : 'delete failed') }
     finally { setBusy('') }
+  }
+
+  async function generateOverview() {
+    setOverviewLoading(true)
+    setOverviewErr('')
+    try {
+      const r = await fetch(amUrl('/api/study/audio-overview'))
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      setOverview(await r.json() as Overview)
+    } catch (e) { setOverviewErr(e instanceof Error ? e.message : 'failed to generate overview') }
+    finally { setOverviewLoading(false) }
   }
 
   const t = lib?.totals
@@ -115,6 +132,37 @@ export function LibrarySurface() {
 
       {t && t.entities > 0 && (
         <p className="mt-4 text-[10px] text-[var(--color-text-tertiary)]">Per-document entity counts come from the Document→entity links; the headline total is the deduped graph-wide entity count (the same entity is grounded by many docs).</p>
+      )}
+
+      {/* Audio overview — generate a host/guest dialogue script from your library */}
+      {t && t.chunks > 0 && (
+        <div className="mt-6 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-primary)]">Audio Overview</div>
+              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Generate a host/guest dialogue script from your knowledge library — like a personalised podcast.</div>
+            </div>
+            <button
+              onClick={() => void generateOverview()}
+              disabled={overviewLoading}
+              className="shrink-0 rounded-lg border border-[var(--color-border-primary)] px-3 py-1.5 text-[11px] font-medium text-[var(--color-text-secondary)] transition hover:border-[var(--color-accent)] hover:text-[var(--color-accent)] disabled:opacity-50"
+            >
+              {overviewLoading ? 'Generating…' : overview ? 'Regenerate' : 'Generate'}
+            </button>
+          </div>
+          {overviewErr && <div className="mb-2 text-[11px] text-[#dc2626]">{overviewErr}</div>}
+          {overview && (
+            <div className="space-y-2">
+              {overview.turns.map((turn, i) => (
+                <div key={i} className={`flex gap-2 rounded-xl px-3 py-2 text-[11px] ${turn.speaker === 'Host' ? 'bg-[var(--color-background-primary)]' : 'bg-[rgba(99,102,241,0.06)]'}`}>
+                  <span className={`shrink-0 w-10 font-semibold text-[10px] pt-px ${turn.speaker === 'Host' ? 'text-[#1d4ed8]' : 'text-[#7c3aed]'}`}>{turn.speaker}</span>
+                  <span className="text-[var(--color-text-secondary)] leading-relaxed">{turn.line}</span>
+                </div>
+              ))}
+              {overview.synthesized && <p className="pt-1 text-[10px] text-[var(--color-text-tertiary)]">Audio synthesized via TTS.</p>}
+            </div>
+          )}
+        </div>
       )}
     </div>
   )
