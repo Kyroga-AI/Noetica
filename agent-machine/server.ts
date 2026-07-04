@@ -406,6 +406,8 @@ async function runAction(name: string, params: Record<string, unknown>): Promise
 let _lastDreamAt = 0
 // Runtime Best-of-N toggle — seeded from env var, flippable at runtime via POST /api/settings
 let _bonEnabled = process.env['BEST_OF_N'] === 'true'
+// Runtime uncertainty-gate toggle — semantic-entropy abstention disclaimer
+let _uncertaintyEnabled = process.env['UNCERTAINTY_GATE'] === 'true'
 let _latestDreamingSession: { sessionId: string; triggeredAt: string; proposals: Array<{ from: string; to: string; via: string[]; support: number }>; seeds: number } | null = null
 async function runDreaming(opts: { seeds?: number; length?: number; walksPerSeed?: number; integrate?: boolean; maxIntegrate?: number } = {}): Promise<{ seeds: number; nodes: number; proposed: number; integrated: number; top: Array<{ from: string; to: string; via: string[]; support: number }> }> {
   const g = getGraph()
@@ -4511,7 +4513,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     // When UNCERTAINTY_GATE=true, compute normalized semantic entropy over sentence pseudo-samples.
     // If decideAnswer() returns 'abstain' or 'hedge', append a low-confidence disclaimer.
     // Uses lightweight Jaccard-overlap equiv (no model call). No-op when env var is unset.
-    if (process.env['UNCERTAINTY_GATE'] === 'true' && fullContent.trim()) {
+    if (_uncertaintyEnabled && fullContent.trim()) {
       try {
         const tokenSet = (s: string) => new Set(s.trim().toLowerCase().split(/\s+/))
         const equiv = (a: string, b: string) => {
@@ -5958,7 +5960,7 @@ const server = http.createServer((req, res) => {
     setCORSHeaders(res)
     if (req.method === 'GET') {
       res.writeHead(200, { 'content-type': 'application/json' })
-      res.end(JSON.stringify({ bonEnabled: _bonEnabled }))
+      res.end(JSON.stringify({ bonEnabled: _bonEnabled, uncertaintyEnabled: _uncertaintyEnabled }))
       return
     }
     if (req.method === 'POST') {
@@ -5968,8 +5970,9 @@ const server = http.createServer((req, res) => {
           let p: Record<string, unknown>
           try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
           if (typeof p['bonEnabled'] === 'boolean') _bonEnabled = p['bonEnabled'] as boolean
+          if (typeof p['uncertaintyEnabled'] === 'boolean') _uncertaintyEnabled = p['uncertaintyEnabled'] as boolean
           res.writeHead(200, { 'content-type': 'application/json' })
-          res.end(JSON.stringify({ bonEnabled: _bonEnabled }))
+          res.end(JSON.stringify({ bonEnabled: _bonEnabled, uncertaintyEnabled: _uncertaintyEnabled }))
         } catch {
           res.writeHead(500, { 'content-type': 'application/json' })
           res.end(JSON.stringify({ error: 'internal_error' }))

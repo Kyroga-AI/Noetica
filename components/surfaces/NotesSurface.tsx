@@ -15,6 +15,13 @@ import type { ChatMessage } from '@/lib/types/message'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+function amUrl(path: string): string {
+  const isTauri = typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window)
+  return isTauri ? `http://127.0.0.1:8080${path}` : path
+}
+
+interface LinkSuggestion { id: string; label: string; sim: number }
+
 function timeAgo(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime()
   const m = Math.floor(diff / 60000)
@@ -58,7 +65,11 @@ function NoteListItem({ note, active, onClick }: { note: Note; active: boolean; 
 function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<Note>) => void }) {
   const [preview, setPreview] = useState(false)
   const [tagInput, setTagInput] = useState('')
+  const [linkSuggestions, setLinkSuggestions] = useState<LinkSuggestion[]>([])
+  const [syncing, setSyncing] = useState(false)
+  const [syncDone, setSyncDone] = useState(false)
   const bodyRef = useRef<HTMLTextAreaElement>(null)
+  const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     // Auto-resize textarea
@@ -67,6 +78,62 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
     el.style.height = 'auto'
     el.style.height = `${el.scrollHeight}px`
   }, [note.body])
+
+  // Debounced link suggestions — fires 800ms after the body stops changing
+  useEffect(() => {
+    if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current)
+    const text = note.body.trim()
+    if (text.length < 20) { setLinkSuggestions([]); return }
+    suggestTimerRef.current = setTimeout(() => {
+      fetch(amUrl('/api/knowledge/link-suggestions'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ text: text.slice(0, 2000), topK: 5 }),
+        signal: AbortSignal.timeout(5000),
+      })
+        .then(r => r.ok ? r.json() : null)
+        .then((d: { suggestions?: LinkSuggestion[] } | null) => { if (d?.suggestions) setLinkSuggestions(d.suggestions) })
+        .catch(() => { /* embedder unavailable — best-effort */ })
+    }, 800)
+    return () => { if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current) }
+  }, [note.body])
+
+  // Insert [[label]] at current cursor position in the textarea
+  function insertLink(label: string) {
+    const el = bodyRef.current
+    if (!el) return
+    const pos = el.selectionStart
+    const insertion = `[[${label}]]`
+    const next = note.body.slice(0, pos) + insertion + note.body.slice(pos)
+    onUpdate({ body: next })
+    setTimeout(() => { el.focus(); el.setSelectionRange(pos + insertion.length, pos + insertion.length) }, 0)
+    setLinkSuggestions((prev) => prev.filter((s) => s.label !== label))
+  }
+
+  // Sync the current note into the knowledge graph via the ingestion pipeline
+  async function syncToGraph() {
+    if (syncing) return
+    setSyncing(true); setSyncDone(false)
+    try {
+      const markdown = `# ${note.title}\n\n${note.body}`
+      const arr = new TextEncoder().encode(markdown)
+      let bin = ''
+      for (let i = 0; i < arr.length; i++) bin += String.fromCharCode(arr[i]!)
+      await fetch(amUrl('/api/ingest/queue'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          filename: `notes/${note.id}.md`,
+          mimeType: 'text/markdown',
+          dataBase64: btoa(bin),
+        }),
+        signal: AbortSignal.timeout(8000),
+      })
+      setSyncDone(true)
+      setTimeout(() => setSyncDone(false), 4000)
+    } catch { /* best-effort */ }
+    finally { setSyncing(false) }
+  }
 
   function addTag(e: React.KeyboardEvent<HTMLInputElement>) {
     if ((e.key === 'Enter' || e.key === ',') && tagInput.trim()) {
@@ -108,7 +175,7 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
         />
       </div>
 
-      {/* Preview toggle + download */}
+      {/* Preview toggle + toolbar */}
       <div className="mb-3 flex items-center gap-2">
         <div className="flex items-center gap-1 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-0.5">
           <button onClick={() => setPreview(false)}
@@ -120,6 +187,17 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
             Preview
           </button>
         </div>
+        {/* Sync to knowledge graph */}
+        <button
+          onClick={() => void syncToGraph()}
+          disabled={syncing || !note.body.trim()}
+          title="Index this note in your knowledge graph so the agent can recall it"
+          className={`flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-medium transition disabled:opacity-40 ${syncDone ? 'border-[#bbf7d0] bg-[#f0fdf4] text-[#16a34a]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] hover:border-[#1d4ed8] hover:text-[#1d4ed8]'}`}
+        >
+          <span>{syncDone ? '✓' : '⬡'}</span>
+          <span>{syncing ? 'Indexing…' : syncDone ? 'Indexed' : 'Index'}</span>
+        </button>
+        {/* Download */}
         <button
           onClick={() => {
             const slug = note.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'note'
@@ -150,6 +228,31 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
           value={note.body}
           onChange={(e) => onUpdate({ body: e.target.value })}
         />
+      )}
+
+      {/* Link suggestions — semantically similar graph nodes surfaced as you write */}
+      {linkSuggestions.length > 0 && !preview && (
+        <div className="mt-4 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2.5">
+          <div className="mb-2 flex items-center gap-1.5">
+            <span className="text-[10px] text-[var(--color-accent)]">⬡</span>
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Related in your graph</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {linkSuggestions.map((s) => (
+              <button
+                key={s.id}
+                onClick={() => insertLink(s.label)}
+                title={`Insert [[${s.label}]] — ${(s.sim * 100).toFixed(0)}% similarity`}
+                className="flex items-center gap-1 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-0.5 text-xs text-[var(--color-text-secondary)] transition hover:border-[#1d4ed8] hover:bg-[#eff6ff] hover:text-[#1d4ed8]"
+              >
+                <span className="font-mono text-[9px] text-[var(--color-text-tertiary)]">{(s.sim * 100).toFixed(0)}%</span>
+                {s.label}
+                <span className="text-[10px] text-[var(--color-text-tertiary)]">+</span>
+              </button>
+            ))}
+          </div>
+          <div className="mt-1.5 text-[9px] text-[var(--color-text-tertiary)]">Click to insert as backlink · [[label]] syntax</div>
+        </div>
       )}
     </div>
   )

@@ -238,8 +238,10 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   interface DueSkill { id?: string; task: string; abstraction: string; steps: string[]; card: { due: number; intervalDays: number; ease: number; reps: number } }
   const [dueSkills, setDueSkills]         = useState<DueSkill[]>([])
   const [grading, setGrading]             = useState<string | null>(null)
-  const [bonEnabled, setBonEnabled]       = useState(false)
-  const [bonToggling, setBonToggling]     = useState(false)
+  const [bonEnabled, setBonEnabled]                     = useState(false)
+  const [bonToggling, setBonToggling]                   = useState(false)
+  const [uncertaintyEnabled, setUncertaintyEnabled]     = useState(false)
+  const [uncertaintyToggling, setUncertaintyToggling]   = useState(false)
 
   // SCOPE-D policy editor
   const ACTION_CLASSES = ['read','synthetic_event','dry_run','network_call','write','deployment','destructive_action','credential_access','memory_write','identity_write'] as const
@@ -354,7 +356,12 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
     // Runtime settings (Best-of-N toggle state)
     fetch(amUrl('/api/settings'), { signal: AbortSignal.timeout(3000) })
       .then(r => r.ok ? r.json() : null)
-      .then((d: { bonEnabled?: boolean } | null) => { if (d && typeof d.bonEnabled === 'boolean') setBonEnabled(d.bonEnabled) })
+      .then((d: { bonEnabled?: boolean; uncertaintyEnabled?: boolean } | null) => {
+        if (d) {
+          if (typeof d.bonEnabled === 'boolean') setBonEnabled(d.bonEnabled)
+          if (typeof d.uncertaintyEnabled === 'boolean') setUncertaintyEnabled(d.uncertaintyEnabled)
+        }
+      })
       .catch(() => { /* not running — skip */ })
   }, [])
 
@@ -455,6 +462,19 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
       if (r.ok) { const d = await r.json() as { bonEnabled: boolean }; setBonEnabled(d.bonEnabled) }
     } catch { /* best-effort */ }
     finally { setBonToggling(false) }
+  }
+
+  async function toggleUncertainty() {
+    setUncertaintyToggling(true)
+    try {
+      const r = await fetch(amUrl('/api/settings'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ uncertaintyEnabled: !uncertaintyEnabled }),
+      })
+      if (r.ok) { const d = await r.json() as { uncertaintyEnabled: boolean }; setUncertaintyEnabled(d.uncertaintyEnabled) }
+    } catch { /* best-effort */ }
+    finally { setUncertaintyToggling(false) }
   }
 
   // Merge local ledger events with agent-machine run history, deduped by id, sorted newest-first
@@ -971,6 +991,28 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
           </div>
           <div className="text-[10px] text-[var(--color-text-tertiary)]">
             {bonEnabled ? 'Active — low-confidence turns will sample 3 completions and select the best.' : 'Off — single-sample path. Enable to improve response quality on ambiguous prompts.'}
+          </div>
+        </div>
+
+        {/* Uncertainty gate runtime toggle */}
+        <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+          <div className="mb-2 flex items-center justify-between">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0891b2]">Uncertainty gate</div>
+              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)] leading-relaxed">
+                Appends a calibrated low-confidence disclaimer when semantic entropy indicates the model is guessing.
+              </div>
+            </div>
+            <button
+              onClick={() => void toggleUncertainty()}
+              disabled={uncertaintyToggling}
+              className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold transition disabled:opacity-50 ${uncertaintyEnabled ? 'bg-[#0891b2] text-white hover:bg-[#0e7490]' : 'border border-[var(--color-border-primary)] text-[var(--color-text-secondary)] hover:border-[#0891b2] hover:text-[#0891b2]'}`}
+            >
+              {uncertaintyToggling ? '…' : uncertaintyEnabled ? 'Enabled' : 'Disabled'}
+            </button>
+          </div>
+          <div className="text-[10px] text-[var(--color-text-tertiary)]">
+            {uncertaintyEnabled ? 'Active — responses with high semantic entropy will carry a hedge or abstention notice.' : 'Off — no abstention overlay. Enable to surface genuine knowledge gaps rather than confident hallucinations.'}
           </div>
         </div>
 
