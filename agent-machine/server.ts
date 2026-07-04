@@ -413,6 +413,8 @@ let _proceduralEnabled = process.env['PROCEDURAL_MEMORY'] === 'true'
 // Decay prune telemetry — incremented by the memory-decay pruner on every real eviction
 let _decayPruneTotal = 0
 let _decayLastPruneAt = 0
+// Last router decision — surfaced in /api/model/registry for router transparency
+let _lastRoute: { model: string; provider: string; task: string; rationale: string; at: number } | null = null
 let _latestDreamingSession: { sessionId: string; triggeredAt: string; proposals: Array<{ from: string; to: string; via: string[]; support: number }>; seeds: number } | null = null
 async function runDreaming(opts: { seeds?: number; length?: number; walksPerSeed?: number; integrate?: boolean; maxIntegrate?: number } = {}): Promise<{ seeds: number; nodes: number; proposed: number; integrated: number; top: Array<{ from: string; to: string; via: string[]; support: number }> }> {
   const g = getGraph()
@@ -3175,6 +3177,8 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   const run_id = crypto.randomUUID()
   const timestamp = new Date().toISOString()
   const started = Date.now()
+
+  _lastRoute = { model, provider, task: routerDecision.task ?? 'general', rationale: routerDecision.rationale ?? '', at: Date.now() }
 
   sse(res, 'meta', {
     governance: {
@@ -14910,19 +14914,20 @@ Question: ${question}`
     setCORSHeaders(res)
     void (async () => {
       try {
-        const { MODELS, getModel, composite, originOf } = await import('./lib/model-registry.js')
+        const { MODELS, getModel, composite, originOf, ramFitForHost } = await import('./lib/model-registry.js')
+        const hostRamGb = Math.round(os.totalmem() / (1024 ** 3))
         const id = url.searchParams.get('id')
         if (id) {
           const spec = getModel(id)
           if (!spec) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'not_found' })); return }
           res.writeHead(200, { 'content-type': 'application/json' })
-          res.end(JSON.stringify({ spec, composite: composite(spec), executionPerformed: false }))
+          res.end(JSON.stringify({ spec, composite: composite(spec), ramFit: ramFitForHost(spec, hostRamGb), hostRamGb, executionPerformed: false }))
         } else {
           const originFilter = url.searchParams.get('origin')
           const models = (originFilter ? MODELS.filter((m) => m.origin === originFilter) : MODELS)
-            .map((m) => ({ ...m, composite: composite(m) }))
+            .map((m) => ({ ...m, composite: composite(m), ramFit: ramFitForHost(m, hostRamGb) }))
           res.writeHead(200, { 'content-type': 'application/json' })
-          res.end(JSON.stringify({ models, executionPerformed: false }))
+          res.end(JSON.stringify({ models, hostRamGb, router: _lastRoute, executionPerformed: false }))
         }
         void originOf
       } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }

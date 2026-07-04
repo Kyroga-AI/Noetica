@@ -246,6 +246,11 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   const [proceduralToggling, setProceduralToggling]     = useState(false)
   interface DecayStats { pruned: number; lastPruneAt: number | null; budget: number }
   const [decayStats, setDecayStats]       = useState<DecayStats | null>(null)
+  interface HardwareSpec { parameterCount: number | null; quantization: string; ramGb: number | null }
+  interface RegistryModel { id: string; label: string; origin: string; openWeights: boolean; license: string; bench: { reasoning: number; coding: number; math: number; agentic: number }; hw: HardwareSpec; composite: number; ramFit: boolean }
+  interface RouterState { model: string; provider: string; task: string; rationale: string; at: number }
+  interface ModelRegistry { models: RegistryModel[]; hostRamGb: number; router: RouterState | null }
+  const [modelRegistry, setModelRegistry] = useState<ModelRegistry | null>(null)
 
   // SCOPE-D policy editor
   const ACTION_CLASSES = ['read','synthetic_event','dry_run','network_call','write','deployment','destructive_action','credential_access','memory_write','identity_write'] as const
@@ -372,6 +377,11 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
     fetch(amUrl('/api/memory/decay-stats'), { signal: AbortSignal.timeout(3000) })
       .then(r => r.ok ? r.json() : null)
       .then((d: DecayStats | null) => { if (d) setDecayStats(d) })
+      .catch(() => { /* not running — skip */ })
+    // Model registry — RAM-fit badges + router transparency
+    fetch(amUrl('/api/model/registry'), { signal: AbortSignal.timeout(4000) })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: ModelRegistry | null) => { if (d) setModelRegistry(d) })
       .catch(() => { /* not running — skip */ })
   }, [])
 
@@ -1084,6 +1094,50 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             <div className="mt-2 text-[10px] text-[var(--color-text-tertiary)]">
               {decayStats.pruned === 0 ? 'Memory store is within budget — no evictions yet.' : `${decayStats.pruned} low-salience memories evicted to stay within the ${decayStats.budget}-memory budget.`}
             </div>
+          </div>
+        )}
+
+        {/* Model browser — RAM-fit badges + router transparency */}
+        {modelRegistry && (
+          <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+            <div className="mb-1 flex items-center justify-between">
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#7c3aed]">Model browser</div>
+              <div className="text-[10px] text-[var(--color-text-tertiary)]">{modelRegistry.hostRamGb} GB RAM · {modelRegistry.models.filter(m => m.ramFit).length} of {modelRegistry.models.length} fit locally</div>
+            </div>
+            {modelRegistry.router && (
+              <div className="mb-3 rounded-xl border border-[rgba(124,58,237,0.2)] bg-[rgba(124,58,237,0.05)] px-3 py-2 text-[10px]">
+                <span className="font-semibold text-[#7c3aed]">Last routed → </span>
+                <span className="font-mono text-[var(--color-text-primary)]">{modelRegistry.router.model}</span>
+                <span className="mx-1 text-[var(--color-text-tertiary)]">·</span>
+                <span className="text-[var(--color-text-tertiary)]">{modelRegistry.router.task}</span>
+                {modelRegistry.router.rationale && (
+                  <span className="ml-1 text-[var(--color-text-tertiary)]">· {modelRegistry.router.rationale.slice(0, 80)}</span>
+                )}
+              </div>
+            )}
+            <div className="space-y-1.5 max-h-64 overflow-y-auto">
+              {modelRegistry.models.map(m => {
+                const ORIGIN_COLOR: Record<string, string> = { 'frontier-api': '#6366f1', US: '#1d4ed8', EU: '#0891b2', CN: '#d97706' }
+                const originColor = ORIGIN_COLOR[m.origin] ?? '#6b7280'
+                const isLastRouted = modelRegistry.router?.model === m.id || modelRegistry.router?.model.startsWith(m.id.split('/').pop() ?? '__none')
+                return (
+                  <div key={m.id} className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[11px] transition ${isLastRouted ? 'border-[rgba(124,58,237,0.4)] bg-[rgba(124,58,237,0.06)]' : 'border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)]'}`}>
+                    <span className="min-w-0 flex-1 truncate font-medium text-[var(--color-text-primary)]">{m.label}</span>
+                    <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide" style={{ color: originColor }}>{m.origin}</span>
+                    <span className="shrink-0 tabular-nums text-[10px] text-[var(--color-text-tertiary)]">{m.composite}%</span>
+                    {m.hw.ramGb !== null ? (
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold ${m.ramFit ? 'bg-[#dcfce7] text-[#16a34a]' : 'bg-[#fef3c7] text-[#92400e]'}`}>
+                        {m.hw.ramGb} GB · {m.ramFit ? 'fits' : 'too large'}
+                      </span>
+                    ) : (
+                      <span className="shrink-0 rounded-full bg-[var(--color-background-tertiary)] px-2 py-0.5 text-[9px] font-semibold text-[var(--color-text-tertiary)]">API</span>
+                    )}
+                    {isLastRouted && <span className="shrink-0 text-[9px] font-semibold text-[#7c3aed]">● active</span>}
+                  </div>
+                )
+              })}
+            </div>
+            <div className="mt-2 text-[10px] text-[var(--color-text-tertiary)]">RAM-fit uses a 75% headroom threshold at Q4_K_M quantization. Frontier-API models run off-device.</div>
           </div>
         )}
 
