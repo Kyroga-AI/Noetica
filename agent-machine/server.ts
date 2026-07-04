@@ -4334,21 +4334,30 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         try {
           const isLowConfidence = calibConfidence === undefined || calibConfidence < 0.6
           if (isLowConfidence) {
+            // Verifier→selection: score each candidate against the already-retrieved context vocabulary.
+            // A candidate that references entities/facts from graphContext + qaContext + skillsContext
+            // is better grounded than one that drifts to training priors. Deterministic, zero extra LLM calls.
+            const ctxText = [graphContext, qaContext, skillsContext].join(' ')
+            const ctxTokens = new Set(ctxText.toLowerCase().split(/\W+/).filter((w) => w.length > 3))
             const bonCandidates: Array<{ text: string; verified: boolean; coverage: number }> = []
             for (let i = 0; i < 3; i++) {
               try {
                 const r = await generateOllamaText({ model, messages: ollamaMessages, temperature: i === 0 ? 0.4 : 0.7, numCtx: ollamaNumCtx })
-                if (r.content.trim()) bonCandidates.push({ text: r.content, verified: false, coverage: 0 })
+                if (r.content.trim()) {
+                  const respTokens = r.content.toLowerCase().split(/\W+/).filter((w) => w.length > 3)
+                  const coverage = ctxTokens.size === 0 ? 0 : respTokens.filter((t) => ctxTokens.has(t)).length / Math.max(respTokens.length, 1)
+                  bonCandidates.push({ text: r.content, verified: ctxTokens.size > 0 && coverage >= 0.05, coverage })
+                }
               } catch { /* skip failed candidate */ }
             }
             if (bonCandidates.length > 0) {
               const { best: bonBest, agreement: bonAgreement } = selectBestOfN(bonCandidates)
               if (bonBest) {
-                sse(res, 'deliberation', { deliberation: { critic: { action: 'accept', score: 1, agreement: bonAgreement, posture: 'best-of-n', reason: `selectBestOfN N=${bonCandidates.length}` } } })
+                sse(res, 'deliberation', { deliberation: { critic: { action: 'accept', score: bonBest.coverage, agreement: bonAgreement, posture: 'best-of-n', reason: `selectBestOfN N=${bonCandidates.length} coverage=${bonBest.coverage.toFixed(2)} verified=${bonBest.verified}` } } })
                 sse(res, 'delta', { delta: bonBest.text })
                 fullContent += bonBest.text
                 deliberated = true
-                console.log(`[best-of-n] N=${bonCandidates.length} agreement=${bonAgreement}`)
+                console.log(`[best-of-n] N=${bonCandidates.length} agreement=${bonAgreement} coverage=${bonBest.coverage.toFixed(2)} verified=${bonBest.verified}`)
               }
             }
           }
