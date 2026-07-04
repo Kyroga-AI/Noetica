@@ -56,14 +56,56 @@ export async function executeAction(
     const r = await a.apply(params, ctx)
     ctx.audit?.({ action: name, params, result: r })
     return r
-  } catch (e) {
-    const r: ActionResult = { ok: false, summary: '', error: e instanceof Error ? e.message : 'action failed' }
+  } catch (err) {
+    const r: ActionResult = { ok: false, summary: '', error: err instanceof Error ? err.message : 'action failed' }
     ctx.audit?.({ action: name, params, result: r })
     return r
   }
 }
 
-// ─── Built-in action: steward_entity (the former hardcoded write-back, now a registered ActionType) ──────────
+// ─── Built-in actions ────────────────────────────────────────────────────────────────────────────────────────
+
+registerAction({
+  name: 'note_entity',
+  description: 'Attach a freeform note to a graph entity — visible in the knowledge panel, searchable in RAG.',
+  capability: 'write',
+  params: {
+    entity: { type: 'string', required: true, description: 'Entity display label or node id' },
+    note: { type: 'string', required: true, description: 'The note to attach' },
+  },
+  apply: async (params, ctx) => {
+    const nodeId = await ctx.resolveEntity(String(params['entity'] ?? ''))
+    if (!nodeId) return { ok: false, summary: '', error: `entity "${String(params['entity'] ?? '')}" not found` }
+    const note = String(params['note'] ?? '').trim()
+    if (!note) return { ok: false, summary: '', error: 'note must not be empty' }
+    const existing = ctx.graph.getNode(nodeId)?.properties?.['notes']
+    const combined = existing ? `${String(existing)}\n---\n[${ctx.now.slice(0, 10)}] ${note}` : `[${ctx.now.slice(0, 10)}] ${note}`
+    ctx.graph.setNodeProperty(nodeId, 'notes', combined)
+    return { ok: true, summary: `note attached to "${String(params['entity'])}"`, changed: [nodeId] }
+  },
+})
+
+registerAction({
+  name: 'tag_entity',
+  description: 'Add one or more tags to a graph entity — tags are indexed for filtering and search.',
+  capability: 'write',
+  params: {
+    entity: { type: 'string', required: true, description: 'Entity display label or node id' },
+    tags: { type: 'string[]', required: true, description: 'Tags to add (e.g. ["priority", "reviewed"])' },
+  },
+  apply: async (params, ctx) => {
+    const nodeId = await ctx.resolveEntity(String(params['entity'] ?? ''))
+    if (!nodeId) return { ok: false, summary: '', error: `entity "${String(params['entity'] ?? '')}" not found` }
+    const newTags = Array.isArray(params['tags']) ? (params['tags'] as unknown[]).map(String).filter(Boolean) : []
+    if (!newTags.length) return { ok: false, summary: '', error: 'tags must not be empty' }
+    const existing = ctx.graph.getNode(nodeId)?.properties?.['tags']
+    const existingSet = new Set(existing ? String(existing).split(',').map((t) => t.trim()).filter(Boolean) : [])
+    for (const t of newTags) existingSet.add(t.toLowerCase().replace(/\s+/g, '_'))
+    ctx.graph.setNodeProperty(nodeId, 'tags', [...existingSet].join(','))
+    return { ok: true, summary: `tagged "${String(params['entity'])}" with [${newTags.join(', ')}]`, changed: [nodeId] }
+  },
+})
+
 registerAction({
   name: 'steward_entity',
   description: 'Record a stewardship decision on a graph entity: assign keeper/successor, set an explicit ontogenesis phase, acknowledge abandonment signals, or add a note. The ontology census then honors it.',

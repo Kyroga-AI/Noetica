@@ -10040,7 +10040,7 @@ Question: ${question}`
       try {
         const { listActions } = await import('./lib/action-plane.js')
         res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ actions: listActions() }))
-      } catch (e) {
+      } catch {
         res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
@@ -10056,7 +10056,7 @@ Question: ${question}`
         if (!d.action) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'action required' })); return }
         const result = await runAction(d.action, d.params ?? {})
         res.writeHead(result.ok ? 200 : 400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ action: d.action, result }))
-      } catch (e) {
+      } catch {
         res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })())
@@ -10073,7 +10073,7 @@ Question: ${question}`
         const { searchSymbols, symbolStats } = await import('./lib/symbol-index.js')
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ query: q, ...symbolStats(), results: searchSymbols(q, 30) }))
-      } catch (e) {
+      } catch {
         res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
