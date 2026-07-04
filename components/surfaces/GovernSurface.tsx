@@ -170,6 +170,17 @@ function amRunToAuditEvent(r: AgentMachineRun): AuditEvent {
 
 interface AuditAttestation { attested: boolean; entries: number; chainValid: boolean; signed: boolean; signatureValid: boolean; firstBreakAt?: number; fingerprint: string; headHash: string }
 
+interface ComplianceEntry {
+  event: string
+  complianceStandard: string
+  model: string
+  generator: string
+  responseHash: string
+  digest: string
+  timestamp: string
+  markedAt: string
+}
+
 interface HierarchyTier { level: string; label: string; description: string; active: boolean }
 interface GovernancePosture {
   killSwitchArmed: boolean
@@ -257,6 +268,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   interface MeshProofArtifact { results?: MeshArmResult[]; artifactFile?: string; artifactAt?: number; error?: string }
   const [meshProof, setMeshProof] = useState<MeshProofArtifact | null>(null)
   const [meshRunning, setMeshRunning] = useState(false)
+  const [complianceLog, setComplianceLog] = useState<{ entries: ComplianceEntry[]; total: number } | null>(null)
 
   // SCOPE-D policy editor
   const ACTION_CLASSES = ['read','synthetic_event','dry_run','network_call','write','deployment','destructive_action','credential_access','memory_write','identity_write'] as const
@@ -394,6 +406,11 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
     fetch(amUrl('/api/benchmark/mesh'), { signal: AbortSignal.timeout(5000) })
       .then(r => r.ok ? r.json() : null)
       .then((d: MeshProofArtifact | null) => { if (d && !d.error) setMeshProof(d) })
+      .catch(() => { /* not running — skip */ })
+    // EU AI Act Art.50 compliance log — every generated response is recorded here
+    fetch(amUrl('/api/compliance/log?limit=50'), { signal: AbortSignal.timeout(4000) })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: { entries: ComplianceEntry[]; total: number } | null) => { if (d) setComplianceLog(d) })
       .catch(() => { /* not running — skip */ })
   }, [])
 
@@ -674,6 +691,56 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             </div>
           </div>
         )}
+
+        {/* EU AI Act Art.50 compliance log — every AI-generated response is marked and recorded here */}
+        <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+          <div className="mb-2 flex items-center justify-between">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0891b2]">AI Act compliance</div>
+              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">EU AI Act Art.50 · mandatory Aug 2026 · every response marked + logged on-device</div>
+            </div>
+            {complianceLog && (
+              <div className="flex items-center gap-2">
+                <span className="rounded-full bg-[rgba(8,145,178,0.10)] px-2.5 py-0.5 text-[10px] font-semibold text-[#0891b2]">{complianceLog.total.toLocaleString()} logged</span>
+              </div>
+            )}
+          </div>
+          {!complianceLog ? (
+            <div className="text-[11px] text-[var(--color-text-tertiary)]">Agent machine not running — compliance log unavailable.</div>
+          ) : complianceLog.entries.length === 0 ? (
+            <div className="text-[11px] text-[var(--color-text-tertiary)]">No events yet — entries appear here after the first AI-generated response.</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse text-[10px]">
+                <thead>
+                  <tr className="text-left text-[9px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                    <th className="pb-1.5 pr-3">Time</th>
+                    <th className="pb-1.5 pr-3">Model</th>
+                    <th className="pb-1.5 pr-3">Digest</th>
+                    <th className="pb-1.5">Standard</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--color-border-tertiary)]">
+                  {[...complianceLog.entries].reverse().slice(0, 20).map((e, i) => (
+                    <tr key={i} className="text-[var(--color-text-secondary)]">
+                      <td className="py-1.5 pr-3 font-mono tabular-nums text-[var(--color-text-tertiary)] whitespace-nowrap">
+                        {new Date(e.markedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                      </td>
+                      <td className="py-1.5 pr-3 max-w-[140px] truncate font-mono" title={e.model}>{e.model.split('/').pop() ?? e.model}</td>
+                      <td className="py-1.5 pr-3 font-mono text-[var(--color-text-tertiary)]" title={e.digest}>{e.digest.slice(0, 12)}</td>
+                      <td className="py-1.5">
+                        <span className="rounded-full bg-[rgba(8,145,178,0.10)] px-1.5 py-0.5 text-[9px] font-semibold text-[#0891b2]">{e.complianceStandard}</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {complianceLog.total > 20 && (
+                <div className="mt-2 text-[10px] text-[var(--color-text-tertiary)]">Showing 20 of {complianceLog.total.toLocaleString()} events</div>
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Principal hierarchy — which authority level governs this session */}
         {posture && (

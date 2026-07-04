@@ -7846,6 +7846,34 @@ Question: ${question}`
     return
   }
 
+  // GET /api/compliance/log — EU AI Act Art.50 compliance event log (paginated, newest-last).
+  // Reads the JSONL file written by logAIActEvent on every response turn.
+  if (req.method === 'GET' && url.pathname === '/api/compliance/log') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { brainHome } = await import('./lib/brain-home.js')
+        const fss = await import('node:fs')
+        const pathm = await import('node:path')
+        const logFile = pathm.join(brainHome(), 'ai-act.log')
+        const limit = Math.min(500, parseInt(url.searchParams.get('limit') ?? '100', 10) || 100)
+        let entries: unknown[] = []
+        let totalLines = 0
+        if (fss.existsSync(logFile)) {
+          const lines = fss.readFileSync(logFile, 'utf8').trim().split('\n').filter(Boolean)
+          totalLines = lines.length
+          entries = lines.slice(-limit).map((line) => JSON.parse(line))
+        }
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ entries, total: totalLines }))
+      } catch {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: 'internal_error' }))
+      }
+    })()
+    return
+  }
+
   // POST /api/data/onboarding — PDOR governed-data-onboarding decision (license/openness/tier/eligibility).
   // The governed-dataset gate a cloud data platform needs (IBM Watson Knowledge Catalog analog): decides
   // whether an asset may be LEARNED (brain-eligible) vs merely SEGMENTED (RAG-only), issues an ingest key.
