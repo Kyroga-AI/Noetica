@@ -6825,15 +6825,59 @@ Question: ${question}`
             rubric: dimensionScores,
             overallScore,
           }))
-        } catch (e) {
+        } catch (err) {
           res.writeHead(500, { 'content-type': 'application/json' })
-          res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'eval failed' }))
+          res.end(JSON.stringify({ error: err instanceof Error ? err.message : 'eval failed' }))
         }
       })()
       return
     }
 
     res.writeHead(405); res.end()
+    return
+  }
+
+  // GET /api/benchmark/mesh — return latest mesh-vs-frontier artifact from disk.
+  // POST /api/benchmark/mesh { n?: number } — spawn the harness in background; returns { running: true }.
+  // The harness writes agent-machine/mesh-vs-frontier.{n}q.json on completion; poll GET to see it.
+  if (url.pathname === '/api/benchmark/mesh') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        if (req.method === 'GET') {
+          const artifactDir = path.join(__dirname, '..')
+          const files = fs.readdirSync(artifactDir).filter((f) => /^mesh-vs-frontier\.\d+q\.json$/.test(f))
+          if (!files.length) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'no_artifact' })); return }
+          let latest = files[0]!
+          let latestMtime = 0
+          for (const f of files) {
+            const mtime = fs.statSync(path.join(artifactDir, f)).mtimeMs
+            if (mtime > latestMtime) { latestMtime = mtime; latest = f }
+          }
+          const artifact = JSON.parse(fs.readFileSync(path.join(artifactDir, latest), 'utf8')) as Record<string, unknown>
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ...artifact, artifactFile: latest, artifactAt: latestMtime }))
+          return
+        }
+        if (req.method === 'POST') {
+          const body = await readBody(req)
+          let p: Record<string, unknown> = {}
+          try { p = JSON.parse(body) } catch { /* use defaults */ }
+          const n = typeof p['n'] === 'number' && p['n'] > 0 ? Math.min(Math.round(p['n']), 25) : 20
+          // Spawn detached — harness can take several minutes; server must not block.
+          const child = cp.spawn('npx', ['tsx', 'scripts/mesh-vs-frontier.ts', String(n)], {
+            cwd: path.join(__dirname, '..'),
+            detached: true,
+            stdio: 'ignore',
+          })
+          child.unref()
+          res.writeHead(202, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ running: true, n, pid: child.pid ?? null, message: `Running ${n}-problem suite — poll GET /api/benchmark/mesh in ~${Math.round(n * 0.6)}s for results.` }))
+          return
+        }
+        res.writeHead(405); res.end()
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
     return
   }
 
