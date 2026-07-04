@@ -14144,12 +14144,22 @@ Question: ${question}`
         const { generateAudioScript } = await import('./lib/study-outputs.js')
         const gen = (prompt: string) => generateOllamaText({ model: 'qwen3:14b', messages: [{ role: 'user', content: prompt }], temperature: 0.5 }).then((r) => r.content)
         const turns = await generateAudioScript(sources, gen, format)
-        // synthesize=1: TTS each turn via OpenAI TTS (nova for Host, echo for Guest); requires OPENAI_API_KEY.
-        // Returns {turns: [{speaker, line, audio_b64?}]}; audio_b64 is undefined if key absent or call fails.
+        // synthesize=1: TTS each turn. Tier: local XTTS-v2 sidecar → OpenAI TTS → skip.
+        // Returns {turns: [{speaker, line, audio_b64?, audio_format?}], synthesized, tts_source}.
         const synthesize = url.searchParams.get('synthesize') === '1'
         const VOICE_MAP: Record<string, string> = { Host: url.searchParams.get('voice_host') ?? 'nova', Guest: url.searchParams.get('voice_guest') ?? 'echo' }
+        // Try local XTTS-v2 sidecar first (sovereign, offline, no API key needed).
+        const localReady = synthesize && isVoiceProvisioned() && (await ensureVoiceSidecar().catch(() => false))
         const withAudio = await Promise.all(turns.map(async (t) => {
           if (!synthesize) return t
+          // Tier 1: local XTTS-v2 sidecar → WAV
+          if (localReady) {
+            try {
+              const r = await voiceFetch('/tts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: t.line.slice(0, 4096) }) })
+              if (r.ok) return { ...t, audio_b64: Buffer.from(await r.arrayBuffer()).toString('base64'), audio_format: 'wav' }
+            } catch { /* fall through */ }
+          }
+          // Tier 2: OpenAI TTS → MP3
           try {
             const key = process.env['OPENAI_API_KEY']
             if (!key) return t
@@ -14159,12 +14169,12 @@ Question: ${question}`
               body: JSON.stringify({ model: 'tts-1', input: t.line.slice(0, 4096), voice: VOICE_MAP[t.speaker] ?? 'nova', response_format: 'mp3' }),
             })
             if (!oaiRes.ok) return t
-            const buf = await oaiRes.arrayBuffer()
-            return { ...t, audio_b64: Buffer.from(buf).toString('base64') }
+            return { ...t, audio_b64: Buffer.from(await oaiRes.arrayBuffer()).toString('base64'), audio_format: 'mp3' }
           } catch { return t }
         }))
+        const ttsSource = localReady ? 'local' : (process.env['OPENAI_API_KEY'] ? 'openai' : 'none')
         res.writeHead(200, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ turns: withAudio, synthesized: synthesize && !!process.env['OPENAI_API_KEY'] }))
+        res.end(JSON.stringify({ turns: withAudio, synthesized: synthesize && ttsSource !== 'none', tts_source: ttsSource }))
       } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
     })()
     return
@@ -14249,27 +14259,37 @@ Question: ${question}`
         const answer = await generateOllamaText({ model: 'qwen3:14b', messages: [{ role: 'user', content: prompt }], temperature: 0.5 }).then((r) => r.content.trim())
         const synthesize = p.synthesize === true
         const voiceHost = typeof p.voice_host === 'string' ? p.voice_host : 'nova'
-        async function synthTTS(line: string, voice: string): Promise<string | undefined> {
+        const localReady2 = synthesize && isVoiceProvisioned() && (await ensureVoiceSidecar().catch(() => false))
+        async function synthTTS(line: string, oaiVoice: string): Promise<{ b64: string; fmt: string } | undefined> {
           if (!synthesize) return undefined
+          // Tier 1: local XTTS-v2 sidecar
+          if (localReady2) {
+            try {
+              const r = await voiceFetch('/tts', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: line.slice(0, 4096) }) })
+              if (r.ok) return { b64: Buffer.from(await r.arrayBuffer()).toString('base64'), fmt: 'wav' }
+            } catch { /* fall through */ }
+          }
+          // Tier 2: OpenAI TTS
           const key = process.env['OPENAI_API_KEY']
           if (!key) return undefined
           try {
             const oaiRes = await fetch('https://api.openai.com/v1/audio/speech', {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ model: 'tts-1', input: line.slice(0, 4096), voice, response_format: 'mp3' }),
+              body: JSON.stringify({ model: 'tts-1', input: line.slice(0, 4096), voice: oaiVoice, response_format: 'mp3' }),
             })
             if (!oaiRes.ok) return undefined
-            return Buffer.from(await oaiRes.arrayBuffer()).toString('base64')
+            return { b64: Buffer.from(await oaiRes.arrayBuffer()).toString('base64'), fmt: 'mp3' }
           } catch { return undefined }
         }
-        const [guestAudio, hostAudio] = await Promise.all([synthTTS(question, 'echo'), synthTTS(answer, voiceHost)])
+        const [guestResult, hostResult] = await Promise.all([synthTTS(question, 'echo'), synthTTS(answer, voiceHost)])
+        const ttsSource2 = localReady2 ? 'local' : (process.env['OPENAI_API_KEY'] ? 'openai' : 'none')
         const turns = [
-          { speaker: 'Guest', line: question, ...(guestAudio ? { audio_b64: guestAudio } : {}) },
-          { speaker: 'Host', line: answer, ...(hostAudio ? { audio_b64: hostAudio } : {}) },
+          { speaker: 'Guest', line: question, ...(guestResult ? { audio_b64: guestResult.b64, audio_format: guestResult.fmt } : {}) },
+          { speaker: 'Host', line: answer, ...(hostResult ? { audio_b64: hostResult.b64, audio_format: hostResult.fmt } : {}) },
         ]
         res.writeHead(200, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ turns, synthesized: synthesize && !!process.env['OPENAI_API_KEY'] }))
+        res.end(JSON.stringify({ turns, synthesized: synthesize && ttsSource2 !== 'none', tts_source: ttsSource2 }))
       } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
     })()
     return

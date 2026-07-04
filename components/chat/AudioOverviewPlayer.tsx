@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { amUrl } from '@/lib/tauri/bridge'
 import { useSettings } from '@/lib/settings/context'
 
-interface DialogueTurn { speaker: 'Host' | 'Guest'; line: string; audio_b64?: string; callin?: boolean }
+interface DialogueTurn { speaker: 'Host' | 'Guest'; line: string; audio_b64?: string; audio_format?: 'mp3' | 'wav'; callin?: boolean }
 type Format = 'brief' | 'critique' | 'debate'
 type CallinState = 'idle' | 'recording' | 'transcribing' | 'answering'
 
@@ -21,9 +21,10 @@ function speak(line: string, voice: SpeechSynthesisVoice | null, rate = 1.0): Sp
   return u
 }
 
-async function playAudioB64(b64: string): Promise<void> {
+async function playAudioB64(b64: string, fmt: 'mp3' | 'wav' = 'mp3'): Promise<void> {
+  const mime = fmt === 'wav' ? 'audio/wav' : 'audio/mp3'
   return new Promise((resolve, reject) => {
-    const audio = new Audio(`data:audio/mp3;base64,${b64}`)
+    const audio = new Audio(`data:${mime};base64,${b64}`)
     audio.onended = () => resolve()
     audio.onerror = () => reject(new Error('audio playback error'))
     audio.play().catch(reject)
@@ -159,7 +160,7 @@ export function AudioOverviewPlayer({ refreshSignal = 0 }: Props) {
         const t = newTurns[i - insertAt]
         if (!t) { setPlaying(false); return }
         if (t.audio_b64) {
-          try { await playAudioB64(t.audio_b64) } catch { /* */ }
+          try { await playAudioB64(t.audio_b64, t.audio_format ?? 'mp3') } catch { /* */ }
           if (!cancelledRef.current) void playCallin(i + 1, endIdx)
         } else {
           const u = speak(t.line, t.speaker === 'Host' ? host : guest)
@@ -210,7 +211,7 @@ export function AudioOverviewPlayer({ refreshSignal = 0 }: Props) {
       setCurrentIdx(i)
       const t = turns[i]!
       if (t.audio_b64) {
-        try { await playAudioB64(t.audio_b64) } catch { /* fall through to browser TTS */ }
+        try { await playAudioB64(t.audio_b64, t.audio_format ?? 'mp3') } catch { /* fall through to browser TTS */ }
         if (!cancelledRef.current) return playNext(i + 1)
       } else {
         const u = speak(t.line, t.speaker === 'Host' ? host : guest)
