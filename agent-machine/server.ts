@@ -3272,15 +3272,18 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   const toolSchemas: ToolSchema[] = allTools.map((t) => {
     const props = (t.input_schema?.['properties'] as Record<string, { type?: string; enum?: string[] }> | undefined) ?? {}
     const required = new Set((t.input_schema?.['required'] as string[] | undefined) ?? [])
-    const args: Record<string, ArgSpec> = {}
+    // Build via a Map keyed by the (schema-derived) property name and
+    // materialize at the boundary — assigning derived keys into a plain object
+    // is js/remote-property-injection.
+    const args = new Map<string, ArgSpec>()
     for (const [k, p] of Object.entries(props)) {
-      if (p?.enum) args[k] = { type: 'enum', values: p.enum, required: required.has(k) }
-      else if (p?.type === 'number' || p?.type === 'integer') args[k] = { type: 'number', required: required.has(k) }
-      else if (p?.type === 'boolean') args[k] = { type: 'boolean', required: required.has(k) }
-      else if (p?.type === 'string') args[k] = { type: 'string', required: required.has(k) }
+      if (p?.enum) args.set(k, { type: 'enum', values: p.enum, required: required.has(k) })
+      else if (p?.type === 'number' || p?.type === 'integer') args.set(k, { type: 'number', required: required.has(k) })
+      else if (p?.type === 'boolean') args.set(k, { type: 'boolean', required: required.has(k) })
+      else if (p?.type === 'string') args.set(k, { type: 'string', required: required.has(k) })
       // object / array / untyped → omitted → passes through untouched
     }
-    return { name: t.name, args }
+    return { name: t.name, args: Object.fromEntries(args) }
   })
   const coerceToolInput = (name: string, input: Record<string, unknown>): Record<string, unknown> => {
     const v = validateToolCall({ name, args: input }, toolSchemas)

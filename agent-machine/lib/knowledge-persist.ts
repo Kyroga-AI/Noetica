@@ -20,9 +20,12 @@ export interface GraphStore {
 }
 
 const numericProps = (p: Record<string, unknown>): Record<string, number> => {
-  const out: Record<string, number> = {};
-  for (const [k, v] of Object.entries(p)) if (typeof v === "number") out[k] = v;
-  return out;
+  // Build via a Map and materialize at the boundary — writing user-derived keys
+  // straight into an object is js/remote-property-injection (a denylist guard
+  // does not clear it; a Map does).
+  const out = new Map<string, number>();
+  for (const [k, v] of Object.entries(p)) if (typeof v === "number") out.set(k, v);
+  return Object.fromEntries(out);
 };
 
 /** Persist a projected workspace graph: structure in the clear (for GDS), content sealed under the root. */

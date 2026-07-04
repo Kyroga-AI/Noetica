@@ -13,9 +13,13 @@ const ROOT = path.resolve(os.homedir())
 
 function resolvePath(p: string): string {
   if (!p) return ''
-  const expanded = p.startsWith('~/') ? path.join(ROOT, p.slice(2)) : path.resolve(ROOT, p)
-  const resolved = path.resolve(expanded)
-  if (resolved !== ROOT && !resolved.startsWith(ROOT + path.sep)) {
+  const requested = p.startsWith('~/') ? path.join(ROOT, p.slice(2)) : p
+  const resolved = path.resolve(ROOT, requested)
+  // Containment via path.relative: if the resolved target is outside ROOT the
+  // relative path steps up (`..`) or is absolute. This is the barrier CodeQL
+  // recognizes for js/path-injection.
+  const rel = path.relative(ROOT, resolved)
+  if (rel !== '' && (rel.startsWith('..' + path.sep) || rel === '..' || path.isAbsolute(rel))) {
     throw new Error('path escapes the permitted root')
   }
   return resolved
