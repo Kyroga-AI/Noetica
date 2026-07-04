@@ -930,7 +930,20 @@ You are the primary agent of the Noetica platform. You run entirely on the user'
 - Research/analysis: think step by step. Be specific. Cite uncertainty where it exists.
 - Do NOT start responses with "I", "As Michael", or the user's name.
 - Do NOT add disclaimers like "please consult a professional" unless the situation is genuinely dangerous.
-- Format with markdown when it aids readability (code blocks, headers, lists). Plain prose for conversational replies.`
+- Format with markdown when it aids readability (code blocks, headers, lists). Plain prose for conversational replies.
+- **Generative UI**: When the user asks for a table, metric, chart, card, list, or form — and a structured visual would be clearer than prose — embed a typed component spec using this marker. The frontend renders it inline. Use only when it genuinely helps; prose is fine for most answers.
+
+  Format: [GEN_UI: {"component":"<type>","props":{...}}]
+
+  Allowed types + required props:
+  - card: {"title":"...","body":"...","badge":"(opt)"}
+  - table: {"columns":["Col1","Col2"],"rows":[["a","b"]]}
+  - list: {"items":["item1","item2"],"title":"(opt)","ordered":false}
+  - metric: {"label":"Revenue","value":"$4.2M","unit":"(opt)","delta":12,"caption":"(opt)"}
+  - chart: {"kind":"bar","data":[{"label":"Q1","value":42}],"title":"(opt)"} — kind: bar|line
+  - form: {"title":"...","fields":[{"name":"x","label":"...","type":"text","placeholder":"..."}],"submit":"Submit"}
+
+  Mix prose and GEN_UI blocks freely. The marker is replaced by the rendered component in the UI.`
 
 
 // ─── Prime-topic policy profiles ─────────────────────────────────────────────

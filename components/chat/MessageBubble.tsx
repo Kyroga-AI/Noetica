@@ -14,6 +14,7 @@ import { NoeticaMark } from '@/components/brand/NoeticaMark'
 import { BuildCard } from '@/components/chat/BuildCard'
 import { ChartView } from '@/components/chat/ChartView'
 import { SteeringDiff } from '@/components/steering/SteeringDiff'
+import { GenUIBlock, hasGenUI, splitGenUI } from '@/components/chat/GenUIRenderer'
 import type { ChatMessage, ToolCallRecord, ToolResultRecord, CriticVerdict } from '@/lib/types/message'
 import type { PendingAttachment } from '@/lib/types/attachment'
 import { useSettings } from '@/lib/settings/context'
@@ -546,12 +547,27 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
           <ToolCallList calls={message.tool_calls} results={message.tool_results} />
         )}
 
-        {/* Main content — markdown rendered, with clickable inline citation markers and styled footnotes */}
+        {/* Main content — markdown rendered, with gen-ui blocks and clickable inline citation markers */}
         {message.content && (() => {
           // document_sources = user-uploaded doc chunks; sources = OCW/brain retrieval — show whichever exists
           const docSources = message.retrieval_trace?.document_sources?.length
             ? message.retrieval_trace.document_sources
             : message.retrieval_trace?.sources?.filter((s) => s.label)
+
+          // If the content contains generative-UI specs, split and render each segment.
+          if (hasGenUI(message.content)) {
+            const segments = splitGenUI(message.content)
+            return (
+              <div>
+                {segments.map((seg, i) =>
+                  seg.type === 'ui'
+                    ? <GenUIBlock key={i} spec={seg.spec} />
+                    : seg.text.trim() ? <MarkdownContent key={i} content={seg.text} /> : null
+                )}
+              </div>
+            )
+          }
+
           if (!docSources || docSources.length === 0) return <MarkdownContent content={message.content} />
           // Rewrite [n] citation markers (1–9) to markdown links so the a-renderer turns them into superscripts.
           // Only rewrite numeric-only brackets that look like citations (not e.g. "[code]" or "[…]").
