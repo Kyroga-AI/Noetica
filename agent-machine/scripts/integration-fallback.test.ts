@@ -95,7 +95,11 @@ test('broken primary Ollama → chat falls back and streams the answer', async (
     // "Explain …" prompt matches the explain_teach intent cue (score > 0) → bypasses clarify → reasoning model
     // → broken primary → fallback streams the answer.
     body: JSON.stringify({ messages: [{ role: 'user', content: 'Explain how photosynthesis works in one sentence.' }] }),
-    signal: AbortSignal.timeout(15_000),
+    // 30s, not 15s: CI observed a 15.57s round-trip (just over the old 15s budget) as the
+    // codebase has grown — the primary/fallback logic itself is unchanged (verified against
+    // main), this is cold-start + shared-runner variance, same class of flake test 2 below
+    // already documents and defends against with its own poll+deadline.
+    signal: AbortSignal.timeout(30_000),
   })
   const text = await r.text()
   assert.ok(text.includes(ANSWER), `fallback answer should appear in the stream; got:\n${text.slice(0, 400)}`)

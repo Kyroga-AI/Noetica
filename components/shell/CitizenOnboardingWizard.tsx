@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { amUrl } from '@/lib/tauri/bridge'
 
 interface Props {
@@ -20,7 +20,17 @@ export function CitizenOnboardingWizard({ onComplete }: Props) {
   const [dragging, setDragging] = useState(false)
   const [ingested, setIngested] = useState<IngestedDoc[]>([])
   const [ingesting, setIngesting] = useState(false)
+  const [pseudonym, setPseudonym] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    if (step === 'ready') {
+      fetch(amUrl('/api/identity/pseudonym'), { signal: AbortSignal.timeout(3000) })
+        .then(r => r.ok ? r.json() : null)
+        .then((d: { pseudonym?: string } | null) => { if (d?.pseudonym) setPseudonym(d.pseudonym) })
+        .catch(() => { /* best-effort */ })
+    }
+  }, [step])
 
   async function ingestFile(file: File): Promise<void> {
     setIngesting(true)
@@ -215,6 +225,16 @@ export function CitizenOnboardingWizard({ onComplete }: Props) {
                   </div>
                 ))}
               </div>
+              {pseudonym && (
+                <div className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2.5">
+                  <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">Your sovereign identity</div>
+                  <div className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-accent)]" />
+                    <span className="flex-1 min-w-0 truncate font-mono text-[11px] text-[var(--color-text-primary)]">{pseudonym}</span>
+                  </div>
+                  <div className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">Device-anchored — derived from a local key that never leaves this machine.</div>
+                </div>
+              )}
               <p className="text-[13px] text-[var(--color-text-tertiary)]">
                 Try asking: &ldquo;What can you do?&rdquo; or &ldquo;Summarise my documents.&rdquo;
               </p>

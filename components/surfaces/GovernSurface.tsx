@@ -234,6 +234,12 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   const [audit, setAudit]                 = useState<AuditAttestation | null>(null)
   const [proposals, setProposals]         = useState<GraphProposal[]>([])
   const [posture, setPosture]             = useState<GovernancePosture | null>(null)
+  const [pseudonym, setPseudonym]         = useState<string | null>(null)
+  interface DueSkill { id?: string; task: string; abstraction: string; steps: string[]; card: { due: number; intervalDays: number; ease: number; reps: number } }
+  const [dueSkills, setDueSkills]         = useState<DueSkill[]>([])
+  const [grading, setGrading]             = useState<string | null>(null)
+  const [bonEnabled, setBonEnabled]       = useState(false)
+  const [bonToggling, setBonToggling]     = useState(false)
 
   // SCOPE-D policy editor
   const ACTION_CLASSES = ['read','synthetic_event','dry_run','network_call','write','deployment','destructive_action','credential_access','memory_write','identity_write'] as const
@@ -335,6 +341,21 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
       .then(r => r.ok ? r.json() : null)
       .then((d: GovernancePosture | null) => { if (d) setPosture(d) })
       .catch(() => { /* not running — skip */ })
+    // Sovereign identity — device-anchored did:key pseudonym
+    fetch(amUrl('/api/identity/pseudonym'), { signal: AbortSignal.timeout(3000) })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: { pseudonym?: string } | null) => { if (d?.pseudonym) setPseudonym(d.pseudonym) })
+      .catch(() => { /* not running — skip */ })
+    // SRS — skills due for spaced-repetition practice
+    fetch(amUrl('/api/learning/srs/due'), { signal: AbortSignal.timeout(3000) })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: { due?: DueSkill[] } | null) => { if (d?.due) setDueSkills(d.due) })
+      .catch(() => { /* not running — skip */ })
+    // Runtime settings (Best-of-N toggle state)
+    fetch(amUrl('/api/settings'), { signal: AbortSignal.timeout(3000) })
+      .then(r => r.ok ? r.json() : null)
+      .then((d: { bonEnabled?: boolean } | null) => { if (d && typeof d.bonEnabled === 'boolean') setBonEnabled(d.bonEnabled) })
+      .catch(() => { /* not running — skip */ })
   }, [])
 
   async function handleProposal(id: string, action: 'accept' | 'reject') {
@@ -408,6 +429,32 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
     setMemories((ms) => ms.filter((m) => m.id !== id))
     try { await fetch(amUrl('/api/memory/forget'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ id }) }) }
     catch { loadMemories() }
+  }
+
+  async function gradeSkill(id: string, grade: 0|1|2|3) {
+    setGrading(id)
+    try {
+      await fetch(amUrl('/api/learning/srs/review'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ id, grade }),
+      })
+      setDueSkills((prev) => prev.filter((s) => (s.id ?? s.task) !== id))
+    } catch { /* best-effort */ }
+    finally { setGrading(null) }
+  }
+
+  async function toggleBon() {
+    setBonToggling(true)
+    try {
+      const r = await fetch(amUrl('/api/settings'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ bonEnabled: !bonEnabled }),
+      })
+      if (r.ok) { const d = await r.json() as { bonEnabled: boolean }; setBonEnabled(d.bonEnabled) }
+    } catch { /* best-effort */ }
+    finally { setBonToggling(false) }
   }
 
   // Merge local ledger events with agent-machine run history, deduped by id, sorted newest-first
@@ -846,6 +893,85 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
               Synthesizing skills from experiences…
             </div>
           )}
+        </div>
+
+        {/* Sovereign identity — device-anchored did:key pseudonym */}
+        <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+          <div className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#0891b2]">Sovereign Identity</div>
+          <div className="text-[10px] text-[var(--color-text-tertiary)] mb-3 leading-relaxed">
+            Device-anchored identity. No account, no server. Derived from a local root key that never leaves this machine.
+          </div>
+          {pseudonym ? (
+            <div className="flex items-center gap-2 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-[#0891b2]" />
+              <span className="flex-1 min-w-0 truncate font-mono text-[11px] text-[var(--color-text-primary)]" title={pseudonym}>{pseudonym}</span>
+              <span className="shrink-0 rounded-full bg-[rgba(8,145,178,0.10)] px-2 py-0.5 text-[9px] font-semibold text-[#0891b2]">did:key</span>
+            </div>
+          ) : (
+            <div className="text-[11px] text-[var(--color-text-tertiary)]">Agent machine not running — pseudonym unavailable.</div>
+          )}
+        </div>
+
+        {/* SRS — skills due for spaced-repetition review */}
+        {dueSkills.length > 0 && (
+          <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#16a34a]">Skills due for review</div>
+                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">{dueSkills.length} skill{dueSkills.length !== 1 ? 's' : ''} scheduled for spaced-repetition practice</div>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {dueSkills.map((s) => {
+                const skillId = s.id ?? s.task
+                const isGrading = grading === skillId
+                return (
+                  <div key={skillId} className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2.5">
+                    <div className="mb-1.5 flex items-start gap-1.5">
+                      <span className="mt-0.5 shrink-0 text-[10px] text-[#16a34a]">◎</span>
+                      <span className="text-[12px] font-medium text-[var(--color-text-primary)]">{s.abstraction}</span>
+                    </div>
+                    <div className="mb-2 truncate text-[10px] text-[var(--color-text-tertiary)]">{s.task}</div>
+                    <div className="flex gap-1.5">
+                      {(['Again', 'Hard', 'Good', 'Easy'] as const).map((label, grade) => (
+                        <button
+                          key={label}
+                          disabled={isGrading}
+                          onClick={() => void gradeSkill(skillId, grade as 0|1|2|3)}
+                          className="flex-1 rounded-lg border border-[var(--color-border-secondary)] py-1 text-[10px] font-semibold transition hover:bg-[var(--color-background-primary)] disabled:opacity-40"
+                          style={{ color: grade === 0 ? '#dc2626' : grade === 1 ? '#d97706' : grade === 2 ? '#16a34a' : '#0891b2' }}
+                        >
+                          {isGrading ? '…' : label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Best-of-N runtime toggle */}
+        <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
+          <div className="mb-2 flex items-center justify-between">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Best-of-N selection</div>
+              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)] leading-relaxed">
+                Samples N=3 candidates for low-confidence turns and picks the strongest grounded response.
+              </div>
+            </div>
+            <button
+              onClick={() => void toggleBon()}
+              disabled={bonToggling}
+              className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold transition disabled:opacity-50 ${bonEnabled ? 'bg-[#1d4ed8] text-white hover:bg-[#1e40af]' : 'border border-[var(--color-border-primary)] text-[var(--color-text-secondary)] hover:border-[#1d4ed8] hover:text-[#1d4ed8]'}`}
+            >
+              {bonToggling ? '…' : bonEnabled ? 'Enabled' : 'Disabled'}
+            </button>
+          </div>
+          <div className="text-[10px] text-[var(--color-text-tertiary)]">
+            {bonEnabled ? 'Active — low-confidence turns will sample 3 completions and select the best.' : 'Off — single-sample path. Enable to improve response quality on ambiguous prompts.'}
+          </div>
         </div>
 
         {/* Analytics metrics */}
