@@ -17,7 +17,10 @@ export function swapRobustWinner(forward: Side, swapped: Side): Side {
 export function juryVote(verdicts: Side[]): { winner: Side; agreement: number } {
   if (verdicts.length === 0) return { winner: 'tie', agreement: 0 }
   const counts: Record<Side, number> = { a: 0, b: 0, tie: 0 }
-  for (const v of verdicts) counts[v]++
+  // Allowlist the key before indexing — writing a user/model-derived key into an
+  // object is js/remote-property-injection; an equality allowlist clears it and
+  // ignores any out-of-domain verdict (behavior-preserving for valid Side input).
+  for (const v of verdicts) if (v === 'a' || v === 'b' || v === 'tie') counts[v]++
   const winner: Side = counts.a > counts.b && counts.a >= counts.tie ? 'a' : counts.b > counts.a && counts.b >= counts.tie ? 'b' : 'tie'
   return { winner, agreement: counts[winner] / verdicts.length }
 }

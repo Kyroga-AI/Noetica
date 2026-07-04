@@ -53,7 +53,10 @@ export function parseFindings(output: string): Finding[] {
 
 export function summarize(findings: Finding[]): { critical: number; high: number; medium: number; low: number; total: number; passed: boolean } {
   const c = { critical: 0, high: 0, medium: 0, low: 0 }
-  for (const f of findings) c[f.severity]++
+  // Allowlist the severity before indexing (js/remote-property-injection) — a
+  // model-supplied out-of-domain severity is ignored rather than creating a
+  // stray key; the critical/high gate below is unaffected.
+  for (const f of findings) { const s = f.severity; if (s === 'critical' || s === 'high' || s === 'medium' || s === 'low') c[s]++ }
   return { ...c, total: findings.length, passed: c.critical === 0 && c.high === 0 }
 }
 
