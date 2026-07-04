@@ -25,6 +25,16 @@ _lock = threading.Lock()
 def slug(s):
     return re.sub(r"[^a-z0-9]+", "-", (s or "").lower()).strip("-")[:40] or "voice"
 
+def _voice_dir(vid):
+    # slug() already restricts to [a-z0-9-], but confine the resolved path under
+    # VOICES_DIR as defense-in-depth so a crafted voice_id can never escape
+    # (py/path-injection).
+    base = os.path.realpath(VOICES_DIR)
+    vd = os.path.realpath(os.path.join(base, vid))
+    if vd != base and not vd.startswith(base + os.sep):
+        raise ValueError("voice path escapes voices dir")
+    return vd
+
 
 def get_tts():
     """Lazily load XTTS-v2 (heavy: ~2GB model + torch). First call is slow."""
@@ -89,7 +99,7 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == "/clone":
                 d = self._read()
                 vid = slug(d.get("name", "my voice"))
-                vd = os.path.join(VOICES_DIR, vid)
+                vd = _voice_dir(vid)
                 os.makedirs(vd, exist_ok=True)
                 raw = base64.b64decode(str(d.get("audio_b64", "")).split(",")[-1])
                 if len(raw) < 2000:
@@ -99,7 +109,7 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(200, {"voice_id": vid})
             if self.path == "/tts":
                 d = self._read()
-                ref = os.path.join(VOICES_DIR, slug(d.get("voice_id", "")), "reference.wav")
+                ref = os.path.join(_voice_dir(slug(d.get("voice_id", ""))), "reference.wav")
                 if not os.path.exists(ref):
                     return self._json(404, {"error": "voice not found — clone one first"})
                 out = "/tmp/noetica-voice-out.wav"

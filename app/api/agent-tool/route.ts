@@ -5,9 +5,20 @@ import * as os from 'os'
 
 export const runtime = 'nodejs'
 
+// This route is reachable over local HTTP with an untrusted body, so a user-
+// supplied absolute path or `..` escape would otherwise let it read/write ANY
+// file on the machine (js/path-injection). Confine every tool path to the
+// user's home tree and reject anything that resolves outside it.
+const ROOT = path.resolve(os.homedir())
+
 function resolvePath(p: string): string {
-  if (p.startsWith('~/')) return path.join(os.homedir(), p.slice(2))
-  return path.resolve(p)
+  if (!p) return ''
+  const expanded = p.startsWith('~/') ? path.join(ROOT, p.slice(2)) : path.resolve(ROOT, p)
+  const resolved = path.resolve(expanded)
+  if (resolved !== ROOT && !resolved.startsWith(ROOT + path.sep)) {
+    throw new Error('path escapes the permitted root')
+  }
+  return resolved
 }
 
 export async function POST(request: Request) {
