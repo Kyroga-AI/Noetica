@@ -9907,16 +9907,32 @@ Question: ${question}`
       try {
         const cached = _placesCache
         const { placesToMarkers, OSM_ATTRIBUTION, ORION_FIELD_BOUNDARY } = await import('./lib/orion-markers.js')
-        const markers = placesToMarkers(cached?.places ?? [])
+        const cacheMarkers = placesToMarkers(cached?.places ?? [])
+        // Also surface graph nodes with persistently-stored geo coordinates — survives restarts and
+        // accumulates across sessions without needing a re-geocode call.
+        const gGeo = getHellGraph()
+        const persistedPlaces = gGeo.allNodes()
+          .filter((n) => n.properties?.['geo_lat'] != null && n.properties?.['geo_lon'] != null)
+          .map((n) => ({
+            name: (cleanLabel(n) ?? n.id).slice(0, 80),
+            lat: Number(n.properties!['geo_lat']),
+            lon: Number(n.properties!['geo_lon']),
+            type: String(n.properties?.['geo_type'] ?? 'unknown'),
+          }))
+        const persistedMarkers = placesToMarkers(persistedPlaces)
+        // Merge: deduplicate by title so re-geocoding doesn't double markers
+        const seen = new Set(cacheMarkers.map((m) => m.title))
+        const merged = [...cacheMarkers, ...persistedMarkers.filter((m) => !seen.has(m.title))]
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({
-          markers,
-          count: markers.length,
+          markers: merged,
+          count: merged.length,
           attribution: OSM_ATTRIBUTION,
           boundary: ORION_FIELD_BOUNDARY,
-          note: cached ? undefined : 'No places cached yet — call /api/graph/places first to populate.',
+          note: merged.length === 0 ? 'No geo data yet — call /api/graph/places to populate.' : undefined,
+          sources: { cache: cacheMarkers.length, persisted: persistedMarkers.length },
         }))
-      } catch (e) {
+      } catch {
         res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' }))
       }
     })()
@@ -10067,6 +10083,25 @@ Question: ${question}`
           if (m) places = (JSON.parse(m[0]) as typeof places).filter((p) => p && p.name && entities.includes(p.name)).slice(0, 20)
         } catch { /* extraction best-effort */ }
         _placesCache = { sig, places }
+        // Persist geocoded coordinates as node properties — the H3-style co-location substrate.
+        // Stored as geo_lat / geo_lon / geo_cell / geo_type so spatial queries survive restarts.
+        try {
+          const { cellId } = await import('./lib/geo-cells.js')
+          const gPersist = getHellGraph() as unknown as { setNodeProperty: (id: string, k: string, v: unknown) => void }
+          const nameToId = new Map<string, string>()
+          for (const id of Object.keys(analytics.nodes)) { const l = labelOf(id); if (l) nameToId.set(l, id) }
+          for (const p of places) {
+            if (p.lat != null && p.lon != null) {
+              const nid = nameToId.get(p.name)
+              if (nid) {
+                gPersist.setNodeProperty(nid, 'geo_lat', p.lat)
+                gPersist.setNodeProperty(nid, 'geo_lon', p.lon)
+                gPersist.setNodeProperty(nid, 'geo_cell', cellId(p.lon, p.lat))
+                gPersist.setNodeProperty(nid, 'geo_type', p.type)
+              }
+            }
+          }
+        } catch { /* persistence is best-effort */ }
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ places, count: places.length, geocoded: places.filter((p) => p.lat != null).length, cached: false }))
       } catch (e) {
