@@ -35,16 +35,33 @@ export function CitizenOnboardingWizard({ onComplete }: Props) {
   async function ingestFile(file: File): Promise<void> {
     setIngesting(true)
     try {
+      // Chunked btoa — avoids O(n²) string concat on large files (e.g. multi-MB PDFs).
       const arr = new Uint8Array(await file.arrayBuffer())
-      let bin = ''
-      for (let i = 0; i < arr.length; i++) bin += String.fromCharCode(arr[i]!)
+      const chunks: string[] = []
+      for (let i = 0; i < arr.length; i += 8192) {
+        chunks.push(String.fromCharCode(...Array.from(arr.subarray(i, i + 8192))))
+      }
+      const dataBase64 = btoa(chunks.join(''))
       const res = await fetch(amUrl('/api/ingest/queue'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ filename: file.name, mimeType: file.type, dataBase64: btoa(bin) }),
+        body: JSON.stringify({ filename: file.name, mimeType: file.type, dataBase64 }),
       })
       if (res.ok || res.status === 202) {
         setIngested((prev) => [...prev, { filename: file.name, chunks: 0 }])
+        // Best-effort: poll library once after a short delay to surface actual chunk count.
+        setTimeout(() => {
+          fetch(amUrl('/api/library'), { signal: AbortSignal.timeout(4000) })
+            .then(r => r.ok ? r.json() : null)
+            .then((lib: { groups?: Array<{ docs?: Array<{ filename: string; chunks: number }> }> } | null) => {
+              if (!lib?.groups) return
+              const doc = lib.groups.flatMap(g => g.docs ?? []).find(d => d.filename === file.name)
+              if (doc && doc.chunks > 0) {
+                setIngested((prev) => prev.map(d => d.filename === file.name ? { ...d, chunks: doc.chunks } : d))
+              }
+            })
+            .catch(() => { /* best-effort */ })
+        }, 3000)
       }
     } catch { /* best-effort */ } finally {
       setIngesting(false)
@@ -180,7 +197,7 @@ export function CitizenOnboardingWizard({ onComplete }: Props) {
                     <div key={d.filename} className="flex items-center gap-2 rounded-lg bg-[var(--color-background-secondary)] px-3 py-1.5 text-[12px]">
                       <span className="text-[var(--color-accent)]">✓</span>
                       <span className="truncate text-[var(--color-text-primary)]">{d.filename}</span>
-                      <span className="ml-auto shrink-0 text-[var(--color-text-tertiary)]">queued</span>
+                      <span className="ml-auto shrink-0 text-[var(--color-text-tertiary)]">{d.chunks > 0 ? `${d.chunks} chunks` : 'indexing…'}</span>
                     </div>
                   ))}
                 </div>
@@ -215,7 +232,7 @@ export function CitizenOnboardingWizard({ onComplete }: Props) {
               <div className="flex flex-col gap-2 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 text-[12px]">
                 {[
                   ['⬡', 'Local model active', 'Inference stays on device'],
-                  ['⬡', 'Knowledge graph live', ingested.length > 0 ? `${ingested.length} document${ingested.length > 1 ? 's' : ''} indexing` : 'Ready for documents'],
+                  ['⬡', 'Knowledge graph live', ingested.length > 0 ? `${ingested.length} document${ingested.length > 1 ? 's' : ''} · ${ingested.reduce((s, d) => s + d.chunks, 0) || 'indexing'} chunks` : 'Ready for documents'],
                   ['⬡', 'Sovereignty confirmed', 'No data leaves this device'],
                 ].map(([icon, label, desc]) => (
                   <div key={label} className="flex items-center gap-3">
