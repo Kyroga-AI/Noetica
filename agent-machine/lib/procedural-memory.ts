@@ -23,7 +23,7 @@ export function recordUse<T extends { uses: number; successes: number }>(s: T, s
 export function retrieveSkills(task: string, skills: Skill[], match: (a: string, b: string) => number, opts: { topK?: number; minMatch?: number } = {}): Array<Skill & { relevance: number }> {
   const topK = opts.topK ?? 3, minMatch = opts.minMatch ?? 0.2
   return skills
-    .map((s) => ({ ...s, relevance: match(task, s.abstraction || s.task) }))
+    .map((s) => ({ ...s, relevance: Math.max(match(task, s.abstraction), match(task, s.task)) }))
     .filter((s) => s.relevance >= minMatch)
     .sort((a, b) => (b.relevance * (0.5 + successRate(b))) - (a.relevance * (0.5 + successRate(a))))
     .slice(0, topK)

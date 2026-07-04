@@ -3901,11 +3901,24 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // tasks, so the agent reuses a known-good approach instead of re-deriving it. (Distill half is post-VJ.)
   let skillsContext = ''
   try {
-    const { retrieveSkills } = await import('./lib/procedural-memory.js')
+    const { retrieveSkills, retrieveExperiences } = await import('./lib/procedural-memory.js')
     const skills = loadSkills()
     if (skills.length) {
       const hits = retrieveSkills(latestUserContent.slice(0, 200), skills, jaccardSim, { topK: 3, minMatch: 0.18 })
-      if (hits.length) skillsContext = `\n\n---\n**Skills from past successes** (reuse where they fit):\n${hits.map((s) => `- ${s.abstraction || s.task}: ${s.steps.slice(0, 6).join(' → ')}`).join('\n')}`
+      if (hits.length) skillsContext = `\n\n---\n**Skills from past successes** (reuse where they fit):\n${hits.map((s) => `- ${s.abstraction}: ${s.steps.slice(0, 6).join(' → ')}`).join('\n')}`
+    }
+    // Verified reasoning experiences (AgentKB pattern): surface past solved trajectories for similar tasks.
+    // Only injected when skills alone aren't enough (no skill hits or short context) — experiences are richer
+    // but longer, so we cap at 2 and only when the query is non-trivial.
+    if (!skillsContext && latestUserContent.length > 40) {
+      const expPath = path.join(os.homedir(), '.noetica', 'experiences.jsonl')
+      const experiences = readEncrypted<import('./lib/procedural-memory.js').ReasoningExperience>(expPath)
+      if (experiences.length) {
+        const expHits = retrieveExperiences(latestUserContent.slice(0, 200), experiences, jaccardSim, { topK: 2, minMatch: 0.2 })
+        if (expHits.length) {
+          skillsContext = `\n\n---\n**Verified reasoning paths** (how similar tasks were solved before):\n${expHits.map((e) => `- ${e.task.slice(0, 80)}: ${e.steps.slice(0, 4).join(' → ')} → ${e.outcome.slice(0, 60)}`).join('\n')}`
+        }
+      }
     }
   } catch { /* procedural-memory best-effort */ }
 

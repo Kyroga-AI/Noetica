@@ -64,7 +64,9 @@ export function scheduleAfterTurn(
   }
 
   // Loop 2: procedural-memory — distill a skill and enroll it into SRS (loop 3) atomically
-  const rawSkill = distillSkill(input.slice(0, 120), task, steps)
+  // Abstraction includes both the router task type and content words from the input so that
+  // jaccardSim retrieval can match against future queries with overlapping vocabulary.
+  const rawSkill = distillSkill(input.slice(0, 120), `${task}: ${input.slice(0, 100)}`, steps)
   const skill: SkillWithCard = { ...rawSkill, card: newCard(now) }
 
   // Derive reliability-gate inputs from turn context:
