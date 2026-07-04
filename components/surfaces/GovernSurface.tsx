@@ -244,6 +244,8 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   const [uncertaintyToggling, setUncertaintyToggling]   = useState(false)
   const [proceduralEnabled, setProceduralEnabled]       = useState(false)
   const [proceduralToggling, setProceduralToggling]     = useState(false)
+  const [planModeEnabled, setPlanModeEnabled]           = useState(false)
+  const [planModeToggling, setPlanModeToggling]         = useState(false)
   interface DecayStats { pruned: number; lastPruneAt: number | null; budget: number }
   const [decayStats, setDecayStats]       = useState<DecayStats | null>(null)
   interface HardwareSpec { parameterCount: number | null; quantization: string; ramGb: number | null }
@@ -365,11 +367,12 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
     // Runtime settings (Best-of-N toggle state)
     fetch(amUrl('/api/settings'), { signal: AbortSignal.timeout(3000) })
       .then(r => r.ok ? r.json() : null)
-      .then((d: { bonEnabled?: boolean; uncertaintyEnabled?: boolean; proceduralEnabled?: boolean } | null) => {
+      .then((d: { bonEnabled?: boolean; uncertaintyEnabled?: boolean; proceduralEnabled?: boolean; planModeEnabled?: boolean } | null) => {
         if (d) {
           if (typeof d.bonEnabled === 'boolean') setBonEnabled(d.bonEnabled)
           if (typeof d.uncertaintyEnabled === 'boolean') setUncertaintyEnabled(d.uncertaintyEnabled)
           if (typeof d.proceduralEnabled === 'boolean') setProceduralEnabled(d.proceduralEnabled)
+          if (typeof d.planModeEnabled === 'boolean') setPlanModeEnabled(d.planModeEnabled)
         }
       })
       .catch(() => { /* not running — skip */ })
@@ -508,6 +511,19 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
       if (r.ok) { const d = await r.json() as { proceduralEnabled: boolean }; setProceduralEnabled(d.proceduralEnabled) }
     } catch { /* best-effort */ }
     finally { setProceduralToggling(false) }
+  }
+
+  async function togglePlanMode() {
+    setPlanModeToggling(true)
+    try {
+      const r = await fetch(amUrl('/api/settings'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ planModeEnabled: !planModeEnabled }),
+      })
+      if (r.ok) { const d = await r.json() as { planModeEnabled: boolean }; setPlanModeEnabled(d.planModeEnabled) }
+    } catch { /* best-effort */ }
+    finally { setPlanModeToggling(false) }
   }
 
   // Merge local ledger events with agent-machine run history, deduped by id, sorted newest-first
@@ -1070,6 +1086,28 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             {proceduralEnabled
               ? 'Active — high-quality turns are being distilled into the skill library and scheduled for SRS review.'
               : 'Off — only eval-capture (failures) is running. Enable to start compounding the skill library.'}
+          </div>
+        </div>
+
+        {/* Plan mode — citizen-controlled approve-before-act gate (EU AI Act Art.14) */}
+        <div className={`rounded-2xl border p-5 shadow-sm transition ${planModeEnabled ? 'border-[rgba(220,38,38,0.35)] bg-[rgba(220,38,38,0.03)]' : 'border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)]'}`}>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <div className={`text-xs font-semibold uppercase tracking-[0.16em] ${planModeEnabled ? 'text-[#dc2626]' : 'text-[var(--color-text-tertiary)]'}`}>Plan mode</div>
+              <div className="mt-0.5 text-[11px] text-[var(--color-text-secondary)]">Require step-by-step approval before any action executes.</div>
+            </div>
+            <button
+              onClick={() => void togglePlanMode()}
+              disabled={planModeToggling}
+              className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold transition disabled:opacity-50 ${planModeEnabled ? 'bg-[#dc2626] text-white hover:bg-[#b91c1c]' : 'border border-[var(--color-border-primary)] text-[var(--color-text-secondary)] hover:border-[#dc2626] hover:text-[#dc2626]'}`}
+            >
+              {planModeToggling ? '…' : planModeEnabled ? 'Enabled' : 'Disabled'}
+            </button>
+          </div>
+          <div className="text-[10px] text-[var(--color-text-tertiary)]">
+            {planModeEnabled
+              ? 'On — every turn the agent proposes a numbered step plan; no tool executes until you approve. High-oversight mode (EU AI Act Art.14).'
+              : 'Off — agent executes immediately. Enable to require an approve-before-act proposal for every action.'}
           </div>
         </div>
 

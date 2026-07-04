@@ -410,6 +410,9 @@ let _bonEnabled = process.env['BEST_OF_N'] === 'true'
 let _uncertaintyEnabled = process.env['UNCERTAINTY_GATE'] === 'true'
 // Runtime procedural-memory toggle — enables loops 2+3 (skill distillation + SRS enrollment)
 let _proceduralEnabled = process.env['PROCEDURAL_MEMORY'] === 'true'
+// Runtime plan-mode toggle — when on, forces the agent into plan/propose-only mode every turn
+// so the citizen always sees the step plan before any action executes (EU AI Act Art.14 oversight).
+let _planModeEnabled = process.env['PLAN_MODE'] === 'true'
 // Decay prune telemetry — incremented by the memory-decay pruner on every real eviction
 let _decayPruneTotal = 0
 let _decayLastPruneAt = 0
@@ -3215,7 +3218,9 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // smalltalk/confirm intents (which carry no tools), so it never fires for chit-chat.
   if (intentToolSet.size > 0) intentToolSet.add('dispatch_agent')
   // Agent mode: 'plan' produces a plan WITHOUT executing (no tools offered); 'ask'/'auto' keep tools.
-  const agentMode = body.agent_mode === 'plan' || body.agent_mode === 'ask' ? body.agent_mode : 'auto'
+  // _planModeEnabled is a runtime citizen toggle — override to 'plan' when on so every turn
+  // requires a step-plan proposal before any action executes (EU AI Act Art.14 oversight).
+  const agentMode = _planModeEnabled ? 'plan' : (body.agent_mode === 'plan' || body.agent_mode === 'ask' ? body.agent_mode : 'auto')
 
   // Broadly-safe gate composition: in auto mode, tools whose action class maps to a
   // high-risk class (destructive, deployment, credential, identity-write) are blocked
@@ -6015,7 +6020,7 @@ const server = http.createServer((req, res) => {
     setCORSHeaders(res)
     if (req.method === 'GET') {
       res.writeHead(200, { 'content-type': 'application/json' })
-      res.end(JSON.stringify({ bonEnabled: _bonEnabled, uncertaintyEnabled: _uncertaintyEnabled, proceduralEnabled: _proceduralEnabled }))
+      res.end(JSON.stringify({ bonEnabled: _bonEnabled, uncertaintyEnabled: _uncertaintyEnabled, proceduralEnabled: _proceduralEnabled, planModeEnabled: _planModeEnabled }))
       return
     }
     if (req.method === 'POST') {
@@ -6027,8 +6032,9 @@ const server = http.createServer((req, res) => {
           if (typeof p['bonEnabled'] === 'boolean') _bonEnabled = p['bonEnabled'] as boolean
           if (typeof p['uncertaintyEnabled'] === 'boolean') _uncertaintyEnabled = p['uncertaintyEnabled'] as boolean
           if (typeof p['proceduralEnabled'] === 'boolean') _proceduralEnabled = p['proceduralEnabled'] as boolean
+          if (typeof p['planModeEnabled'] === 'boolean') _planModeEnabled = p['planModeEnabled'] as boolean
           res.writeHead(200, { 'content-type': 'application/json' })
-          res.end(JSON.stringify({ bonEnabled: _bonEnabled, uncertaintyEnabled: _uncertaintyEnabled, proceduralEnabled: _proceduralEnabled }))
+          res.end(JSON.stringify({ bonEnabled: _bonEnabled, uncertaintyEnabled: _uncertaintyEnabled, proceduralEnabled: _proceduralEnabled, planModeEnabled: _planModeEnabled }))
         } catch {
           res.writeHead(500, { 'content-type': 'application/json' })
           res.end(JSON.stringify({ error: 'internal_error' }))
@@ -16980,7 +16986,7 @@ Question: ${question}`
         if (action === 'edit')     { const edits = p['edits'] as Parameters<typeof editPlan>[1]; const updated = editPlan(plan, edits); res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ plan: updated, next: nextStep(updated), canExecute: canExecute(updated) })); return }
         if (action === 'complete') { const id = Number(p['id'] ?? 0); const updated = completeStep(plan, id); res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ plan: updated, next: nextStep(updated), canExecute: canExecute(updated) })); return }
         res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'unknown action' }))
-      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
     })()
     return
   }
