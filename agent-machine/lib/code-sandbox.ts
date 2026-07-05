@@ -9,9 +9,10 @@
  *             egress). On Linux, the preamble also calls resource.setrlimit for an extra layer.
  *
  *   JavaScript — subprocess running Node's vm.createContext in a separate PID (proper process isolation).
- *               Falls back to a tightened in-process vm (constrained machines only — memoryLimit added,
- *               dangerous globals explicitly blocked). In both paths the sandbox exposes no Node.js APIs:
- *               no require, no process, no __dirname, no global.
+ *               The sandbox exposes no Node.js APIs: no require, no process, no __dirname, no global.
+ *               If the isolated subprocess runner cannot be spawned (e.g. no writable temp dir), execution
+ *               fails closed with an error — it never falls back to running model code in this process,
+ *               because node:vm is not a security boundary and an escape would reach the main runtime.
  *
  * This module is pure and dependency-injectable for testing. server.ts swaps the real cp.spawn in.
  */
@@ -20,7 +21,6 @@ import * as os from "node:os";
 import * as path from "node:path";
 import * as fs from "node:fs";
 import * as cp from "node:child_process";
-import * as vm from "node:vm";
 
 export const EXEC_TIMEOUT_MS = 30_000;
 export const MAX_OUTPUT_BYTES = 100_000;
@@ -210,34 +210,13 @@ export function executeJavaScript(code: string, sessionDir: string, nodeExecPath
     });
   }
 
-  // Last-resort: in-process vm with memoryLimit (only reached if tmpdir is read-only).
-  return new Promise((resolve) => {
-    const logs: string[] = [];
-    const consoleMock = {
-      log: (...a: unknown[]) => logs.push(a.map(String).join(" ")),
-      error: (...a: unknown[]) => logs.push("ERROR: " + a.map(String).join(" ")),
-      warn: (...a: unknown[]) => logs.push("WARN: " + a.map(String).join(" ")),
-      info: (...a: unknown[]) => logs.push("INFO: " + a.map(String).join(" ")),
-    };
-    const sandbox: Record<string, unknown> = {
-      console: consoleMock, Math, JSON, Array, Object, String, Number, Boolean,
-      Date, Error, Map, Set, WeakMap, WeakSet, Symbol, BigInt, Promise, RegExp, Proxy, Reflect,
-      parseInt, parseFloat, isNaN, isFinite,
-      encodeURIComponent, decodeURIComponent, encodeURI, decodeURI,
-      require: undefined, process: undefined, global: undefined,
-      __dirname: undefined, __filename: undefined, Buffer: undefined,
-      setTimeout: undefined, setInterval: undefined, fetch: undefined,
-    };
-    try {
-      vm.createContext(sandbox);
-      const result = vm.runInContext(code, sandbox, { timeout: EXEC_TIMEOUT_MS });
-      const out = logs.join("\n");
-      const rl = result !== undefined && result !== null
-        ? `\nResult: ${typeof result === "object" ? JSON.stringify(result, null, 2) : String(result)}`
-        : "";
-      resolve((out + rl).trim().slice(0, MAX_OUTPUT_BYTES) || "(no output)");
-    } catch (err) {
-      resolve(`RuntimeError: ${err instanceof Error ? err.message : String(err)}`);
-    }
-  });
+  // No writable temp dir → the isolated subprocess runner cannot be spawned.
+  // Refuse rather than fall back to an in-process vm: node:vm is NOT a security
+  // boundary (the Node docs say so explicitly). A sandbox escape running in this
+  // process would reach the main Noetica runtime, its secrets, and the host
+  // filesystem — a far worse outcome than declining to run. Fail closed.
+  return Promise.resolve(
+    "ExecutionError: JavaScript execution is unavailable on this host " +
+      "(no writable temporary directory for the isolated runner).",
+  );
 }

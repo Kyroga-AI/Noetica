@@ -95,3 +95,16 @@ test("JavaScript: result value returned", async () => {
   const out = await executeJavaScript("2 + 2", tmpDir());
   assert.match(out, /4|Result.*4/);
 });
+
+test("JavaScript: never runs model code in this process (fail-closed invariant)", () => {
+  // Critical hardening (js/code-injection): model-authored JS only ever executes
+  // in the isolated subprocess. If that runner can't be spawned we refuse — we
+  // must never fall back to running model code in the main process, because
+  // node:vm is not a security boundary and an escape would reach the Noetica
+  // runtime, its secrets, and the host filesystem. The subprocess runner uses its
+  // own require('vm') inside a string; only an in-process path would import the
+  // module here — so "no node:vm import" is the invariant that guards it.
+  const src = fs.readFileSync(path.join(__dirname, "code-sandbox.ts"), "utf8");
+  assert.ok(!/^\s*import[^\n]*\bnode:vm\b/m.test(src),
+    "code-sandbox must not import node:vm — model code runs only in the isolated subprocess, never in this process");
+});
