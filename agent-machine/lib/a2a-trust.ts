@@ -27,18 +27,22 @@ export interface TrustRecord { spiffe_id: string; score: number; components: Tru
 export interface TrustOutcome { ok?: boolean; up?: boolean; threat?: boolean; integrityViolation?: boolean }
 export type AuthorityStatus = 'active' | 'reduced' | 'suspended' | 'revoked'
 
-let ledger: Record<string, TrustRecord> | null = null
-function load(): Record<string, TrustRecord> {
+// Keyed by spiffeId, a remote-supplied identity → hold it in a Map, not a plain
+// object, so a crafted id ("__proto__"/"constructor") can't inject onto
+// Object.prototype (js/remote-property-injection). Serialize at the boundary.
+let ledger: Map<string, TrustRecord> | null = null
+function load(): Map<string, TrustRecord> {
   if (ledger) return ledger
   try {
     const { readJson } = require('./at-rest.js') as typeof import('./at-rest.js')
-    ledger = (readJson<Record<string, TrustRecord>>(STORE)) ?? {}
-  } catch { ledger = {} }
+    ledger = new Map(Object.entries(readJson<Record<string, TrustRecord>>(STORE) ?? {}))
+  } catch { ledger = new Map() }
   return ledger
 }
 function persist(): void {
-  try { const { writeJson } = require('./at-rest.js') as typeof import('./at-rest.js'); writeJson(STORE, ledger ?? {}) }
-  catch { try { fs.mkdirSync(path.dirname(STORE), { recursive: true }); fs.writeFileSync(STORE, JSON.stringify(ledger ?? {})) } catch { /* in-memory only */ } }
+  const obj = Object.fromEntries(ledger ?? new Map<string, TrustRecord>())
+  try { const { writeJson } = require('./at-rest.js') as typeof import('./at-rest.js'); writeJson(STORE, obj) }
+  catch { try { fs.mkdirSync(path.dirname(STORE), { recursive: true }); fs.writeFileSync(STORE, JSON.stringify(obj)) } catch { /* in-memory only */ } }
 }
 
 export function isExternalActor(spiffeId: string): boolean { return !spiffeId.startsWith('spiffe://noetica.local/') }
@@ -54,7 +58,7 @@ function scoreOf(c: TrustComponents): number {
 
 export function recordOutcome(spiffeId: string, o: TrustOutcome): TrustRecord {
   const led = load()
-  const r = led[spiffeId] ?? fresh(spiffeId)
+  const r = led.get(spiffeId) ?? fresh(spiffeId)
   const c = r.components
   const now = new Date().toISOString()
   if (o.ok !== undefined) c.success = ema(c.success, o.ok ? 1 : 0)
@@ -62,12 +66,12 @@ export function recordOutcome(spiffeId: string, o: TrustOutcome): TrustRecord {
   if (o.threat) { c.threat = Math.min(c.threat, STRIKE); r.last_downgrade_at = now } else c.threat = ema(c.threat, 1)
   if (o.integrityViolation) { c.integrity = 0; r.last_downgrade_at = now } else c.integrity = ema(c.integrity, 1)
   r.score = scoreOf(c); r.samples += 1; r.updated_at = now
-  led[spiffeId] = r; persist()
+  led.set(spiffeId, r); persist()
   return r
 }
 
 export function authorityStatus(spiffeId: string): AuthorityStatus {
-  const r = load()[spiffeId] ?? fresh(spiffeId)
+  const r = load().get(spiffeId) ?? fresh(spiffeId)
   if (r.components.integrity < STRIKE_CLEARED) return 'revoked'
   if (r.components.threat < STRIKE_CLEARED) return 'suspended'
   if (r.score < TRUST_FLOOR) return 'reduced'
@@ -78,7 +82,7 @@ export interface GrantDecision { valid: boolean; authority_status: AuthorityStat
 /** The federation gate: identity + behavioral trust → an allow/deny with the canonical authority status.
  *  `floor` lets a sensitive capability demand a higher bar. EGRESS (scope-d) is a SEPARATE, later gate. */
 export function checkActorGrant(spiffeId: string, capability: string, floor: number = TRUST_FLOOR): GrantDecision {
-  const r = load()[spiffeId] ?? fresh(spiffeId)
+  const r = load().get(spiffeId) ?? fresh(spiffeId)
   const status = authorityStatus(spiffeId)
   if (status === 'revoked') return { valid: false, authority_status: status, trust: r.score, reason: `${capability}: actor revoked (integrity) — restoration required` }
   if (status === 'suspended') return { valid: false, authority_status: status, trust: r.score, reason: `${capability}: actor suspended (threat) — not recovered` }
@@ -98,7 +102,7 @@ function effectsFor(s: AuthorityStatus): AuthorityEffects {
 const sha = (s: string): string => createHash('sha256').update(s).digest('hex')
 
 export function authorityState(spiffeId: string): Record<string, unknown> {
-  const r = load()[spiffeId] ?? fresh(spiffeId)
+  const r = load().get(spiffeId) ?? fresh(spiffeId)
   const status = authorityStatus(spiffeId)
   const decisionRef = `trustops-agent-authority-decision:${sha(spiffeId).slice(0, 12)}:${status}`
   return {
@@ -118,6 +122,6 @@ export function authorityState(spiffeId: string): Record<string, unknown> {
   }
 }
 
-export function trustLedger(): TrustRecord[] { return Object.values(load()).sort((a, b) => a.score - b.score) }
+export function trustLedger(): TrustRecord[] { return [...load().values()].sort((a, b) => a.score - b.score) }
 export function newGrantId(): string { return `urn:noetica:grant:a2a:${randomUUID()}` }
-export function _reset(): void { ledger = {}; persist() }
+export function _reset(): void { ledger = new Map(); persist() }
