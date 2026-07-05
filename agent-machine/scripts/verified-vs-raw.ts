@@ -45,9 +45,10 @@ const letter = (s: string) => (/FINAL:\s*([A-D])/i.exec(s)?.[1] || /\b([A-D])\b(
 
 function runPython(code: string): Promise<string> {
   return new Promise((resolve) => {
-    const tmp = path.join(os.tmpdir(), `vr_${Date.now()}_${Math.random().toString(36).slice(2)}.py`)
-    fs.writeFileSync(tmp, code)
-    const cp = execFile('python3', [tmp], { timeout: 20_000 }, (_e, so) => { try { fs.unlinkSync(tmp) } catch {} ; resolve((so || '').trim()) })
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'vr-'))
+    const tmp = path.join(dir, 'run.py')
+    fs.writeFileSync(tmp, code, { mode: 0o600 })
+    const cp = execFile('python3', [tmp], { timeout: 20_000 }, (_e, so) => { try { fs.rmSync(dir, { recursive: true, force: true }) } catch {} ; resolve((so || '').trim()) })
     cp.on('error', () => resolve(''))
   })
 }

@@ -12,7 +12,7 @@ function fakeBackend(empty: boolean) {
   const written: unknown[] = []
   return { written, b: { isEmpty: () => empty, write: (e: unknown) => written.push(e) } as unknown as SQLiteAtomSpaceBackend }
 }
-const tmpWal = (data: string) => { const p = path.join(os.tmpdir(), `wal-${process.pid}-${Date.now()}-${Math.round(performance.now())}.jsonl`); fs.writeFileSync(p, data); return p }
+const tmpWal = (data: string) => { const p = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'wal-')), 'residue.jsonl'); fs.writeFileSync(p, data); return p }
 
 test('migrates entries to SQLite AND deletes the plaintext WAL residue', () => {
   const wal = tmpWal([
@@ -25,7 +25,7 @@ test('migrates entries to SQLite AND deletes the plaintext WAL residue', () => {
     assert.equal(n, 2, 'migrated both entries')
     assert.equal(written.length, 2, 'wrote both to the (encrypted) SQLite backend')
     assert.equal(fs.existsSync(wal), false, 'plaintext WAL deleted after a clean migration')
-  } finally { try { fs.rmSync(wal) } catch { /* */ } }
+  } finally { try { fs.rmSync(path.dirname(wal), { recursive: true, force: true }) } catch { /* */ } }
 })
 
 test('does NOT delete the WAL when SQLite already has atoms (no migration)', () => {
@@ -34,7 +34,7 @@ test('does NOT delete the WAL when SQLite already has atoms (no migration)', () 
   try {
     assert.equal(migrateJSONLToSQLite(b, wal), 0)
     assert.equal(fs.existsSync(wal), true, 'WAL kept untouched when nothing migrated')
-  } finally { try { fs.rmSync(wal) } catch { /* */ } }
+  } finally { try { fs.rmSync(path.dirname(wal), { recursive: true, force: true }) } catch { /* */ } }
 })
 
 test('no-op + no delete when the WAL does not exist', () => {

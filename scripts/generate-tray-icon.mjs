@@ -1,5 +1,7 @@
 import { Resvg } from '@resvg/resvg-js'
-import { writeFileSync } from 'node:fs'
+import { mkdtempSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
 // Noetica menu-bar tray glyph — a single bold serif HEBREW aleph (U+05D0), centered.
 // No subscript: one clean mark reads best at ~18px. Black-on-transparent → macOS
@@ -18,5 +20,6 @@ const prev = `<svg xmlns="http://www.w3.org/2000/svg" width="300" height="84" vi
   <g transform="translate(248,-4) scale(0.5)"><text x="22" y="35" text-anchor="middle" font-family="'Times New Roman',serif" font-weight="700" font-size="42" fill="#f2f2f7">&#1488;</text></g>
   <g transform="translate(110,40)">${aleph(44,'#000')}</g>
 </svg>`
-writeFileSync('/tmp/aleph-solo.png', new Resvg(prev, { fitTo:{mode:'width',value:300}, font:{loadSystemFonts:true}, background:'rgba(255,255,255,1)' }).render().asPng())
-console.log('wrote solo-aleph tray asset + /tmp/aleph-solo.png')
+const previewPath = join(mkdtempSync(join(tmpdir(), 'noetica-tray-')), 'aleph-solo.png')
+writeFileSync(previewPath, new Resvg(prev, { fitTo:{mode:'width',value:300}, font:{loadSystemFonts:true}, background:'rgba(255,255,255,1)' }).render().asPng())
+console.log('wrote solo-aleph tray asset + ' + previewPath)

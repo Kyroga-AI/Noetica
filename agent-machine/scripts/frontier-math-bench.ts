@@ -116,14 +116,15 @@ async function opcomputeArm(p: Problem): Promise<string | null> {
   if (!/print/.test(code)) return null
   const wrapped = `import sys\nsys.path.insert(0, ${JSON.stringify(LIBDIR)})\n${ensureOperatorImport(code)}`
   let out = ''
-  const f = path.join(os.tmpdir(), `fm_${Date.now()}_${Math.random().toString(36).slice(2)}.py`)
+  const fmDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fm-'))
+  const f = path.join(fmDir, 'run.py')
   try {
-    fs.writeFileSync(f, wrapped)
+    fs.writeFileSync(f, wrapped, { mode: 0o600 })
     out = execFileSync('python3', [f], { encoding: 'utf8', timeout: SUBPROC_TIMEOUT, maxBuffer: 4 * 1024 * 1024 })
   } catch (e) {
     out = (e as { stdout?: string | Buffer })?.stdout?.toString() ?? ''
   } finally {
-    fs.rmSync(f, { force: true })
+    fs.rmSync(fmDir, { recursive: true, force: true })
   }
   const last = out.trim().split('\n').filter(Boolean).pop() ?? ''
   return last || null
@@ -189,7 +190,7 @@ async function main() {
   }
 
   // per-question JSONL for board-analysis.py (exact-McNemar on the two arms' discordant pairs)
-  const outDir = process.env['FMATH_OUT'] || path.join(os.tmpdir())
+  const outDir = process.env['FMATH_OUT'] || fs.mkdtempSync(path.join(os.tmpdir(), 'frontier-math-'))
   const jsonl = path.join(outDir, `frontier-math-verdicts-${SEED}.jsonl`)
   // board-analysis.py's contract: one row per question with <arm>_ok booleans + a subject, so
   // `board-analysis.py --compare opcompute baseline` runs the exact-McNemar test unchanged.

@@ -2341,13 +2341,21 @@ function jsSandboxStrategy(): 'node-subprocess' | 'self-exec' | 'in-process' {
 // process with a STRIPPED env (PATH + the code file only — no API keys, no parent memory), capture stdout.
 function runIsolatedJsSubprocess(command: string, args: string[], extraEnv: Record<string, string>, code: string, sessionId: string | undefined, timeoutMs: number, maxOutput: number, onExit?: () => void): Promise<string> {
   return new Promise((resolve) => {
-    const runDir = sessionId ? getAmSessionDir(sessionId) : os.tmpdir()
+    // With no session workspace, stage into a private per-run temp dir
+    // (mkdtemp = unpredictable 0700 name) instead of a predictable os.tmpdir()
+    // path — closes a symlink / predictable-file attack on the shared temp dir.
+    let runDir: string
+    let ephemeralDir = false
+    try {
+      if (sessionId) { runDir = getAmSessionDir(sessionId); fs.mkdirSync(runDir, { recursive: true }) }
+      else { runDir = fs.mkdtempSync(path.join(os.tmpdir(), 'noetica-jsrun-')); ephemeralDir = true }
+    } catch { resolve('RuntimeError: could not stage code for execution'); return }
     const codeFile = path.join(runDir, `_jsrun_${process.pid}_${Date.now()}.js`)
-    try { fs.mkdirSync(runDir, { recursive: true }); fs.writeFileSync(codeFile, code) } catch { resolve('RuntimeError: could not stage code for execution'); return }
+    try { fs.writeFileSync(codeFile, code, { mode: 0o600 }) } catch { if (ephemeralDir) { try { fs.rmSync(runDir, { recursive: true, force: true }) } catch { /* */ } } resolve('RuntimeError: could not stage code for execution'); return }
     let out = ''; let done = false
     const childEnv: NodeJS.ProcessEnv = { PATH: process.env['PATH'] ?? '', NJS_FILE: codeFile, NJS_TIMEOUT_MS: String(timeoutMs), NODE_ENV: process.env['NODE_ENV'] ?? 'production', ...extraEnv }
     const child = cp.spawn(command, args, { cwd: runDir, env: childEnv })
-    const finish = (s: string) => { if (done) return; done = true; clearTimeout(timer); try { fs.unlinkSync(codeFile) } catch { /* */ }; onExit?.(); resolve(s.slice(0, maxOutput).trim() || '(no output)') }
+    const finish = (s: string) => { if (done) return; done = true; clearTimeout(timer); try { fs.unlinkSync(codeFile) } catch { /* */ }; if (ephemeralDir) { try { fs.rmSync(runDir, { recursive: true, force: true }) } catch { /* */ } }; onExit?.(); resolve(s.slice(0, maxOutput).trim() || '(no output)') }
     const timer = setTimeout(() => { try { child.kill('SIGKILL') } catch { /* */ }; finish(out || 'RuntimeError: execution timed out') }, timeoutMs + 2000)
     child.stdout.on('data', (d: Buffer) => { out += d.toString(); if (out.length > maxOutput) { try { child.kill('SIGKILL') } catch { /* */ } } })
     child.stderr.on('data', (d: Buffer) => { out += d.toString() })

@@ -31,7 +31,7 @@ test('a tampered ciphertext fails closed (GCM auth) → null, not garbage', () =
 })
 
 test('appendJsonl + readJsonl over a MIXED plaintext/encrypted file', () => {
-  const f = path.join(os.tmpdir(), `at-rest-test-${process.pid}-${Date.now()}.jsonl`)
+  const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'at-rest-test-')), 'store.jsonl')
   try {
     // Simulate an existing plaintext file, then append encrypted records.
     fs.writeFileSync(f, `${JSON.stringify({ n: 0, kind: 'legacy-plaintext' })}\n`)
@@ -43,11 +43,11 @@ test('appendJsonl + readJsonl over a MIXED plaintext/encrypted file', () => {
     assert.ok(!raw.includes('"kind":"encrypted"') || raw.split('\n').filter((l) => l.includes('enc:v1:')).length === 2, 'new records are encrypted on disk')
     const back = readJsonl<{ n: number }>(f)
     assert.deepEqual(back.map((r) => r.n), [0, 1, 2], 'all three records read back, mixed forms')
-  } finally { try { fs.unlinkSync(f) } catch { /* */ } }
+  } finally { try { fs.rmSync(path.dirname(f), { recursive: true, force: true }) } catch { /* */ } }
 })
 
 test('writeJson/readJson whole-file round-trip + encrypted on disk + plaintext fallback', () => {
-  const f = path.join(os.tmpdir(), `at-rest-json-${process.pid}-${Date.now()}.json`)
+  const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'at-rest-json-')), 'store.json')
   try {
     const obj = { runs: [{ id: 'r1', prompt: 'SENSITIVE-governance-content' }], n: 1 }
     writeJson(f, obj)
@@ -56,5 +56,5 @@ test('writeJson/readJson whole-file round-trip + encrypted on disk + plaintext f
     // Lazy migration: a legacy plaintext whole-file JSON still reads.
     fs.writeFileSync(f, JSON.stringify({ legacy: true }))
     assert.deepEqual(readJson(f), { legacy: true })
-  } finally { try { fs.unlinkSync(f) } catch { /* */ } }
+  } finally { try { fs.rmSync(path.dirname(f), { recursive: true, force: true }) } catch { /* */ } }
 })

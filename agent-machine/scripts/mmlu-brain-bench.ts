@@ -760,10 +760,11 @@ async function operatorCompute(question: string, choices: string[]): Promise<str
   const wrapped = `import sys\nsys.path.insert(0, ${JSON.stringify(LIBDIR)})\n${code2}`
   let out = ''
   try {
-    const f = path.join(os.tmpdir(), `opc_${Date.now()}_${Math.random().toString(36).slice(2)}.py`)
-    fs.writeFileSync(f, wrapped)
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'opc-'))
+    const f = path.join(dir, 'run.py')
+    fs.writeFileSync(f, wrapped, { mode: 0o600 })
     out = execFileSync('python3', [f], { encoding: 'utf8', timeout: SUBPROC_TIMEOUT, maxBuffer: 4 * 1024 * 1024 })
-    fs.rmSync(f, { force: true })
+    fs.rmSync(dir, { recursive: true, force: true })
   } catch (e) { out = (e as { stdout?: string | Buffer })?.stdout?.toString() ?? '' }
   const lastLine = out.trim().split('\n').filter(Boolean).pop() ?? ''
   if (!lastLine) return ''
