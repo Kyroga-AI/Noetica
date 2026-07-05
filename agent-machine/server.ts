@@ -7586,7 +7586,10 @@ Question: ${question}`
       try {
         const { readSftShard, dedupeVerified, toSftLine, buildTuneRequest, exampleHash, excludeTrained } = await import('./lib/sft-harvest.js')
         const shardPath = path.join(os.homedir(), '.noetica', 'distill', 'verified.sft.jsonl')
-        const raw = fs.existsSync(shardPath) ? readSftShard(fs.readFileSync(shardPath, 'utf8')) : []
+        // Read atomically (no existsSync pre-check): a check-then-read/write on the
+        // same path is a TOCTOU race — read directly and treat any error as empty.
+        let raw: ReturnType<typeof readSftShard> = []
+        try { raw = readSftShard(fs.readFileSync(shardPath, 'utf8')) } catch { raw = [] }
         const deduped = dedupeVerified(raw)
         const endpoint = (process.env['ATLAS_HTTP'] || process.env['NOETICA_TUNE_ENDPOINT'] || '').replace(/\/+$/, '')
         // VOLUME GATE: LoRA SFT on a trickle of examples overfits to surface form and degrades
@@ -9244,7 +9247,9 @@ Question: ${question}`
       const regressionFile = path.join(ws, 'tests', 'regression.sh')
       try {
         fs.mkdirSync(path.dirname(regressionFile), { recursive: true })
-        if (!fs.existsSync(regressionFile)) fs.writeFileSync(regressionFile, '#!/bin/sh\nset -e\n')
+        // Atomic create-if-absent (flag 'wx' fails if it already exists) instead of
+        // existsSync-then-write, which races and could clobber the accumulator.
+        try { fs.writeFileSync(regressionFile, '#!/bin/sh\nset -e\n', { flag: 'wx' }) } catch { /* already exists — keep the existing accumulator */ }
       } catch { /* */ }
 
       const allTouched = new Map<string, string | null>()
@@ -10706,11 +10711,16 @@ Question: ${question}`
       const base = path.join(os.homedir(), '.noetica', 'workspaces', ws)
       const target = path.resolve(base, rel)
       if (!target.startsWith(base + path.sep)) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'bad_path' })); return }
+      // Operate on a single file handle (open → fstat → read) so the size check and
+      // the read hit the same inode — a statSync-then-readFileSync on the path races.
+      let fd: number | undefined
       try {
-        const st = fs.statSync(target)
+        fd = fs.openSync(target, 'r')
+        const st = fs.fstatSync(fd)
         if (st.size > 1024 * 1024) { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ content: `(file too large: ${st.size} bytes)`, truncated: true })); return }
-        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ content: fs.readFileSync(target, 'utf8') }))
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ content: fs.readFileSync(fd, 'utf8') }))
       } catch { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'not_found' })) }
+      finally { if (fd !== undefined) { try { fs.closeSync(fd) } catch { /* */ } } }
     })()
     return
   }

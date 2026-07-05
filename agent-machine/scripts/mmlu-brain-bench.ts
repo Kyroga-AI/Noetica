@@ -914,8 +914,12 @@ async function main() {
   // RESUME — load already-scored rows from the durable checkpoint → a skip-set + rebuild the tally, so a
   // restart continues instead of repeating work. THIS is what makes lost batches recoverable.
   const done = new Set<string>()
-  if (fs.existsSync(TRANSCRIPT)) {
-    for (const ln of fs.readFileSync(TRANSCRIPT, 'utf8').split('\n')) {
+  // Read the prior checkpoint atomically (no existsSync pre-check): a check-then-
+  // read paired with the later appendFileSync is a TOCTOU race.
+  let priorRuns = ''
+  try { priorRuns = fs.readFileSync(TRANSCRIPT, 'utf8') } catch { /* no prior checkpoint to resume */ }
+  if (priorRuns) {
+    for (const ln of priorRuns.split('\n')) {
       if (!ln.trim()) continue
       try {
         const r = JSON.parse(ln) as Record<string, unknown>
