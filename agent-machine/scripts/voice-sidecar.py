@@ -100,6 +100,12 @@ class Handler(BaseHTTPRequestHandler):
                 d = self._read()
                 vid = slug(d.get("name", "my voice"))
                 vd = _voice_dir(vid)
+                # Containment barrier in THIS function — CodeQL path-injection barriers are
+                # function-local, so re-assert (on top of _voice_dir) that every target below
+                # stays under VOICES_DIR before the makedirs/open sinks run.
+                _base = os.path.realpath(VOICES_DIR)
+                if os.path.commonpath([_base, os.path.realpath(vd)]) != _base:
+                    return self._json(400, {"error": "invalid voice id"})
                 os.makedirs(vd, exist_ok=True)
                 raw = base64.b64decode(str(d.get("audio_b64", "")).split(",")[-1])
                 if len(raw) < 2000:
@@ -109,7 +115,12 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(200, {"voice_id": vid})
             if self.path == "/tts":
                 d = self._read()
-                ref = os.path.join(_voice_dir(slug(d.get("voice_id", ""))), "reference.wav")
+                vdir = _voice_dir(slug(d.get("voice_id", "")))
+                # Function-local containment barrier before the os.path.exists sink (see /clone).
+                _base = os.path.realpath(VOICES_DIR)
+                if os.path.commonpath([_base, os.path.realpath(vdir)]) != _base:
+                    return self._json(404, {"error": "voice not found — clone one first"})
+                ref = os.path.join(vdir, "reference.wav")
                 if not os.path.exists(ref):
                     return self._json(404, {"error": "voice not found — clone one first"})
                 out = "/tmp/noetica-voice-out.wav"
