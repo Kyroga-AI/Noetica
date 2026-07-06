@@ -27,7 +27,7 @@ test('a no-op round (already converged) sends no deltas back', () => {
   const a = createReplica('A'), b = createReplica('B')
   addNode(a, 'n'); antiEntropy(a, b)
   // now both equal; an announce from a must yield deltas:[] and the reply chain terminates
-  const reply = handleSync(b, { kind: 'announce', from: a.id, vv: a.vv })
+  const reply = handleSync(b, { kind: 'announce', from: a.id, vv: Object.fromEntries(a.vv) })
   assert.ok(reply && reply.kind === 'deltas' && reply.ops.length === 0, 'nothing to ship when converged')
 })
 

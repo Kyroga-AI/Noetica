@@ -18,12 +18,15 @@ export type SyncMessage =
  * replica's state (merges in place). This is the whole protocol: announce → deltas-you-need → deltas-I-need.
  */
 export function handleSync(local: Replica, msg: SyncMessage): SyncMessage | null {
+  // The wire carries vv as a plain object; the engine works on a Map. Convert at this boundary.
+  const peerVV = new Map<ReplicaId, number>(Object.entries(msg.vv))
+  const localVV = (): VersionVector => Object.fromEntries(local.vv)
   if (msg.kind === 'announce') {
-    return { kind: 'deltas', from: local.id, ops: delta(local, msg.vv), vv: local.vv }
+    return { kind: 'deltas', from: local.id, ops: delta(local, peerVV), vv: localVV() }
   }
   merge(local, msg.ops)                 // absorb what the peer sent
-  const back = delta(local, msg.vv)     // and tell them what THEY are still missing
-  return back.length ? { kind: 'deltas', from: local.id, ops: back, vv: local.vv } : null
+  const back = delta(local, peerVV)     // and tell them what THEY are still missing
+  return back.length ? { kind: 'deltas', from: local.id, ops: back, vv: localVV() } : null
 }
 
 /**
@@ -32,7 +35,7 @@ export function handleSync(local: Replica, msg: SyncMessage): SyncMessage | null
  * replies with b's missing ops, b merges. Three messages, then done.
  */
 export function antiEntropy(a: Replica, b: Replica): void {
-  const m1 = handleSync(b, { kind: 'announce', from: a.id, vv: a.vv })
+  const m1 = handleSync(b, { kind: 'announce', from: a.id, vv: Object.fromEntries(a.vv) })
   const m2 = m1 ? handleSync(a, m1) : null
   if (m2) handleSync(b, m2)
 }

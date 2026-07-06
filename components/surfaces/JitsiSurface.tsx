@@ -27,6 +27,10 @@ export function JitsiSurface() {
 
   function loadScript(d: string): Promise<JitsiCtor> {
     return new Promise((resolve, reject) => {
+      // Only a bare hostname may become the <script> origin — reject anything with a
+      // slash/colon/quote/angle-bracket so a crafted domain can't break out of the URL
+      // and inject an attacker-controlled script (js/xss-through-dom).
+      if (!/^[a-zA-Z0-9.-]+$/.test(d)) { reject(new Error('invalid Jitsi domain')); return }
       const w = window as unknown as { JitsiMeetExternalAPI?: JitsiCtor }
       if (w.JitsiMeetExternalAPI) { resolve(w.JitsiMeetExternalAPI); return }
       const s = document.createElement('script')
