@@ -360,7 +360,7 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick, v
               disemvowelled form so the whole word is recognizable (no "self n…" truncation). */}
           <text textAnchor="middle" dy={dr + 11} fontSize={n.featured ? 11 : 9.5} fontWeight={n.featured ? 700 : 600}
             fill={n.featured ? 'var(--color-text-primary, #e5e7eb)' : 'var(--color-text-secondary, #94a3b8)'}
-            stroke="rgba(0,0,0,0.55)" strokeWidth={3} paintOrder="stroke" pointerEvents="none">
+            pointerEvents="none">
             {n.featured ? (n.label.length > 22 ? n.label.slice(0, 21) + '…' : n.label) : squeeze(n.label)}
           </text>
         </g>
