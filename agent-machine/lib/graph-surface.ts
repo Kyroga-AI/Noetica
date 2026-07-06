@@ -147,10 +147,14 @@ const VIEW_ROOTS: Record<string, (label: string) => boolean> = {
 // the ecosystem (repos / models / providers / tools) — what "Sociosphere" should mean,
 // not the memory-chunk soup of the document/chat lenses.
 const CATEGORY_VIEWS: Record<string, string> = { knowledge: 'learning' }   // tech is now a CodeModule root-lens (VIEW_ROOTS), not an embedding cluster
+// Allowlist of accepted view names — validating the user-supplied `view` against this
+// fixed set before it indexes CATEGORY_VIEWS/VIEW_ROOTS is the barrier CodeQL recognizes
+// for js/unvalidated-dynamic-method-call.
+const ALLOWED_VIEWS = new Set(['all', 'tech', 'domain', 'document', 'memory', 'chat', 'knowledge'])
 
 export function selectSurface(allNodes: GNode[], allEdges: GEdge[], opts: { view?: string; limit?: number; root?: string } = {}): SurfaceResult {
   const limit = Math.min(120, Math.max(10, opts.limit ?? 34))
-  const view = opts.view ?? 'all'
+  const view = opts.view && ALLOWED_VIEWS.has(opts.view) ? opts.view : 'all'
   const root = opts.root ?? ''
 
   const degree = new Map<string, number>()
@@ -205,8 +209,11 @@ export function selectSurface(allNodes: GNode[], allEdges: GEdge[], opts: { view
         .sort((a, b) => (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0) || Number(b.createdAt ?? 0) - Number(a.createdAt ?? 0))
         .slice(0, limit)
     }
-  } else if (rootMatch) {
-    const roots = (root && byId.has(root) ? [byId.get(root)!] : labeled.filter((n) => rootMatch(n.labels[0] ?? '')))
+  } else if (typeof rootMatch === 'function') {
+    // typeof-function guard at the call site (not just the truthy check) is the barrier
+    // CodeQL recognizes for js/unvalidated-dynamic-method-call.
+    const match = rootMatch
+    const roots = (root && byId.has(root) ? [byId.get(root)!] : labeled.filter((n) => match(n.labels[0] ?? '')))
       .sort((a, b) => (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0))
     const seen = new Set<string>()
     const queue: string[] = []
