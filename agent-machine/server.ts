@@ -1562,11 +1562,9 @@ const LOGIN_SHELL = (() => {
 function runInWorkspace(command: string, cwd: string, timeoutMs: number): Promise<{ out: string; err: string; code: string }> {
   return new Promise((resolve) => {
     let out = '', err = '', done = false
-    // Bound the timer with explicit guard comparisons (CodeQL-recognized sanitizer for
-    // resource-exhaustion) so a caller-supplied duration can never create an unbounded timer.
-    let safeTimeout = Number.isFinite(timeoutMs) ? timeoutMs : 60_000
-    if (safeTimeout > 300_000) safeTimeout = 300_000
-    if (safeTimeout < 1_000) safeTimeout = 1_000
+    // Clamp the caller-supplied duration with Math.min/Math.max (the form CodeQL
+    // recognizes as a resource-exhaustion bound) so it can never create an unbounded timer.
+    const safeTimeout = Math.min(Math.max(Number.isFinite(timeoutMs) ? timeoutMs : 60_000, 1_000), 300_000)
     const child = cp.spawn(LOGIN_SHELL, ['-lc', command], { cwd, env: safeShellEnv() })
     const timer = setTimeout(() => { if (!done) { done = true; try { child.kill('SIGKILL') } catch { /* */ } resolve({ out, err, code: `timeout after ${safeTimeout}ms` }) } }, safeTimeout)
     child.stdout.on('data', (d: Buffer) => { if (out.length < 200_000) out += d.toString() })
@@ -2216,7 +2214,15 @@ async function webSearch(query: string, serperKey?: string): Promise<string> {
       const html = await res.text()
       const titles = [...html.matchAll(/<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)]
       const snippets = [...html.matchAll(/<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g)]
-      const strip = (h: string) => h.replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&#x2F;/g, '/').trim()
+      const strip = (h: string) => {
+        // Strip tags repeatedly until stable — a single pass can leave residue when
+        // matches overlap (js/incomplete-multi-character-sanitization).
+        let s = h, prev: string
+        do { prev = s; s = s.replace(/<[^>]+>/g, '') } while (s !== prev)
+        // Decode entities with &amp; LAST so un-escaping can't re-create an entity
+        // that a prior replace already consumed (js/double-escaping).
+        return s.replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&#x2F;/g, '/').replace(/&amp;/g, '&').trim()
+      }
       const out: string[] = []
       for (let i = 0; i < titles.length && out.length < 6; i++) {
         let link = titles[i]![1]!
@@ -11826,8 +11832,14 @@ Question: ${question}`
         const pattern = typeof p['pattern'] === 'string' ? p['pattern'] : null
         if (samples.length === 0) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'samples required' })); return }
         // Wrap pre-drawn samples so cragVote treats them as a sampler
+        // Cap the caller-supplied regex + the input it runs against so a pathological
+        // pattern can't run away (ReDoS); ignore an un-compilable pattern.
+        const safePattern = pattern && pattern.length <= 200 ? pattern : null
         const extract = (raw: string): string | null => {
-          if (pattern) { const m = new RegExp(pattern, 'i').exec(raw); return m ? (m[1] ?? m[0]).trim() : null }
+          if (safePattern) {
+            try { const m = new RegExp(safePattern, 'i').exec(raw.slice(0, 10_000)); return m ? (m[1] ?? m[0]).trim() : null }
+            catch { return null }
+          }
           return raw.trim().split('\n')[0]?.trim() ?? null
         }
         const result = await cragVote(async (i) => samples[i % samples.length] ?? '', extract, samples.length)
