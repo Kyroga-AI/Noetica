@@ -7814,6 +7814,27 @@ Question: ${question}`
 
   // GET /api/graph/surface — legible, view-scoped subgraph for the force-graph UI.
   // Shares lib/graph-surface with the Next route so web + Tauri desktop agree.
+  // Live person-graph snapshot for the socioprophet cockpit (personGraphApi → /person-graph/snapshot):
+  // projects the REAL managed HellGraph into the cockpit's PersonGraphSnapshot shape so the surface
+  // renders live data instead of its fixture. Read-only; the client keeps opaque hg: identities.
+  if (req.method === 'GET' && url.pathname === '/api/person-graph/snapshot') {
+    void (async () => {
+      setCORSHeaders(res)
+      try {
+        const g = getGraph()
+        const limit = Number(url.searchParams.get('limit') ?? 60)
+        const surface = selectSurface(g.allNodes(), g.allEdges(), { view: 'all', limit })
+        const { toPersonGraphSnapshot } = await import('./lib/person-graph-snapshot.js')
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(toPersonGraphSnapshot(surface)))
+      } catch (err) {
+        res.writeHead(500, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: 'internal_error', detail: err instanceof Error ? err.message : String(err) }))
+      }
+    })()
+    return
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/graph/surface') {
     void (async () => {
       setCORSHeaders(res)
