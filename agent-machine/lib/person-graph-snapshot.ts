@@ -44,8 +44,12 @@ export interface PersonGraphSnapshot {
 
 const SELF: KGNode = { id: 'self', label: 'Self', kind: 'Self', properties: {}, provenance_refs: [] };
 
-/** Project a legible surface subgraph (from the real HellGraph) into a PersonGraphSnapshot. */
-export function toPersonGraphSnapshot(surface: SurfaceResult): PersonGraphSnapshot {
+/**
+ * Project a legible surface subgraph (from the real HellGraph) into a PersonGraphSnapshot.
+ * When `centerId` is given (an hg: ref being resolved via `?root=`), that node becomes
+ * `self` — the neighborhood is centred on the resolved entity, not the whole-graph hub.
+ */
+export function toPersonGraphSnapshot(surface: SurfaceResult, centerId?: string): PersonGraphSnapshot {
   const nodes: KGNode[] = surface.nodes.map((n) => ({
     id: n.id,
     label: n.label,
@@ -63,12 +67,14 @@ export function toPersonGraphSnapshot(surface: SurfaceResult): PersonGraphSnapsh
     provenance_refs: [],
   }));
 
-  // Self = the graph's most-connected entity (the natural centre of a person's graph),
-  // or a synthesized anchor when the graph is empty.
-  const self = nodes.length
-    ? nodes.reduce((a, b) =>
-        ((b.properties['degree'] as number) ?? 0) > ((a.properties['degree'] as number) ?? 0) ? b : a)
-    : SELF;
+  // Self = the resolved entity when a center was requested (and is present); otherwise the
+  // graph's most-connected entity, or a synthesized anchor when the graph is empty.
+  const centered = centerId ? nodes.find((n) => n.id === centerId) : undefined;
+  const self = centered
+    ?? (nodes.length
+      ? nodes.reduce((a, b) =>
+          ((b.properties['degree'] as number) ?? 0) > ((a.properties['degree'] as number) ?? 0) ? b : a)
+      : SELF);
 
   const health: KGSummary['health'] = nodes.length ? 'ok' : 'unavailable';
   const summary: KGSummary = {

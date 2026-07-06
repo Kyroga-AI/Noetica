@@ -7823,10 +7823,13 @@ Question: ${question}`
       try {
         const g = getGraph()
         const limit = Number(url.searchParams.get('limit') ?? 60)
-        const surface = selectSurface(g.allNodes(), g.allEdges(), { view: 'all', limit })
+        // ?root=<hg: ref> resolves that specific entity's neighborhood (the deep-link seam);
+        // absent, it returns the whole-graph snapshot.
+        const root = url.searchParams.get('root') ?? ''
+        const surface = selectSurface(g.allNodes(), g.allEdges(), { view: 'all', limit, root })
         const { toPersonGraphSnapshot } = await import('./lib/person-graph-snapshot.js')
         res.writeHead(200, { 'content-type': 'application/json' })
-        res.end(JSON.stringify(toPersonGraphSnapshot(surface)))
+        res.end(JSON.stringify(toPersonGraphSnapshot(surface, root || undefined)))
       } catch (err) {
         res.writeHead(500, { 'content-type': 'application/json' })
         res.end(JSON.stringify({ error: 'internal_error', detail: err instanceof Error ? err.message : String(err) }))

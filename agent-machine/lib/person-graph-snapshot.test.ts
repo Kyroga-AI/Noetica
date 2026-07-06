@@ -35,6 +35,14 @@ test('self is the most-connected entity', () => {
   assert.equal(s.self.id, 'a'); // degree 5 > 2
 });
 
+test('a requested center becomes self (deep-link resolution)', () => {
+  const s = toPersonGraphSnapshot(surface(), 'b'); // b has lower degree but was resolved
+  assert.equal(s.self.id, 'b');
+  // an absent center falls back to the most-connected entity
+  const f = toPersonGraphSnapshot(surface(), 'not-in-graph');
+  assert.equal(f.self.id, 'a');
+});
+
 test('summary reports live health + counts', () => {
   const s = toPersonGraphSnapshot(surface());
   assert.equal(s.summary.health, 'ok');
