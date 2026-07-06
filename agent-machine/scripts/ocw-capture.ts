@@ -32,7 +32,7 @@
 import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import { execFileSync, execSync } from 'node:child_process'
+import { execFileSync } from 'node:child_process'
 
 const HOME = os.homedir()
 const CATALOG = process.env['OCW_CATALOG'] || path.join(HOME, 'Downloads', 'MIT OCW', '_catalog_all_slugs.txt')
@@ -77,7 +77,12 @@ function loadDone(): Set<string> {
 function record(r: ManifestRow): void { fs.appendFileSync(MANIFEST, JSON.stringify(r) + '\n') }
 
 function freeGB(p: string): number {
-  try { const out = execSync(`df -k ${JSON.stringify(p)} | tail -1`, { encoding: 'utf8' }); return Number(out.trim().split(/\s+/)[3]) / 1048576 } catch { return Infinity }
+  try {
+    // execFileSync (no shell) so a crafted path can't inject a command (js/indirect-command-line-injection).
+    const out = execFileSync('df', ['-k', p], { encoding: 'utf8' })
+    const last = out.trim().split('\n').pop() ?? ''
+    return Number(last.split(/\s+/)[3]) / 1048576
+  } catch { return Infinity }
 }
 function get(url: string): string {
   try { return execFileSync('curl', ['-sL', '-m', '40', '-A', UA, url], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }) } catch { return '' }

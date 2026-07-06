@@ -4,6 +4,10 @@ on:
   push:
   pull_request:
 
+# Least-privilege default for every job (checkout + build + test only need read).
+permissions:
+  contents: read
+
 jobs:
   app:
     name: app static build
