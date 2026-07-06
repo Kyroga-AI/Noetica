@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import * as vm from 'vm'
 import { spawn } from 'child_process'
 import * as os from 'os'
 import * as path from 'path'
@@ -9,6 +8,37 @@ export const runtime = 'nodejs'
 
 const TIMEOUT_MS = 30_000   // 30 s — longer for data analysis
 const MAX_OUTPUT = 100_000
+
+// Runner executed in an ISOLATED Node subprocess (separate PID) for user JavaScript.
+// The code is read from a file (NJS_FILE) and run under vm.createContext with no Node
+// APIs exposed. node:vm is not a security boundary, so this must never run in the main
+// Next.js process — an escape there would reach the server's secrets + host filesystem.
+const JS_VM_RUNNER = `
+const fs = require('fs'), vm = require('vm');
+const code = fs.readFileSync(process.env.NJS_FILE, 'utf8');
+const logs = [];
+const consoleMock = {
+  log:   (...a) => logs.push(a.map(String).join(' ')),
+  error: (...a) => logs.push('ERROR: ' + a.map(String).join(' ')),
+  warn:  (...a) => logs.push('WARN: '  + a.map(String).join(' ')),
+  info:  (...a) => logs.push('INFO: '  + a.map(String).join(' ')),
+  table: (...a) => logs.push(JSON.stringify(a[0], null, 2)),
+};
+const sandbox = {
+  console: consoleMock, Math, JSON, Array, Object, String, Number, Boolean, Date, Error, Map, Set,
+  Promise, parseInt, parseFloat, isNaN, isFinite, encodeURIComponent, decodeURIComponent,
+  require: undefined, process: undefined, global: undefined, Buffer: undefined,
+  __dirname: undefined, __filename: undefined, setTimeout: undefined, setInterval: undefined, fetch: undefined,
+};
+try {
+  vm.createContext(sandbox);
+  const result = vm.runInContext(code, sandbox, { timeout: ${TIMEOUT_MS} });
+  const out = logs.join('\\n');
+  const rl = (result !== undefined && result !== null)
+    ? '\\nResult: ' + (typeof result === 'object' ? JSON.stringify(result, null, 2) : String(result)) : '';
+  process.stdout.write((out + rl).trim() || '(no output)');
+} catch (e) { process.stdout.write('RuntimeError: ' + (e && e.message ? e.message : String(e))); }
+`
 
 // ─── Session state for persistent Python sandboxes ────────────────────────────
 // Each session_id gets a shared tmp directory that persists between calls.
@@ -79,34 +109,40 @@ export async function POST(request: Request) {
 
   const started = Date.now()
 
-  // ── JavaScript via vm ──────────────────────────────────────────────────────
+  // ── JavaScript via an isolated Node subprocess ─────────────────────────────
   if (language === 'javascript') {
-    const logs: string[] = []
-    const consoleMock = {
-      log:   (...args: unknown[]) => logs.push(args.map(String).join(' ')),
-      error: (...args: unknown[]) => logs.push('ERROR: ' + args.map(String).join(' ')),
-      warn:  (...args: unknown[]) => logs.push('WARN: '  + args.map(String).join(' ')),
-      info:  (...args: unknown[]) => logs.push('INFO: '  + args.map(String).join(' ')),
-      table: (...args: unknown[]) => logs.push(JSON.stringify(args[0], null, 2)),
-    }
-    const sandbox: Record<string, unknown> = {
-      console: consoleMock, Math, JSON, Array, Object, String, Number, Boolean, Date, Error, Map, Set,
-      Promise, parseInt, parseFloat, isNaN, isFinite, encodeURIComponent, decodeURIComponent,
-      setTimeout: undefined, setInterval: undefined, fetch: undefined,
-    }
-    try {
-      vm.createContext(sandbox)
-      const result = vm.runInContext(code, sandbox, { timeout: TIMEOUT_MS })
-      const out = logs.join('\n')
-      const resultLine = result !== undefined && result !== null
-        ? `\nResult: ${typeof result === 'object' ? JSON.stringify(result, null, 2) : String(result)}`
-        : ''
-      const output = (out + resultLine).trim().slice(0, MAX_OUTPUT) || '(no output)'
-      return NextResponse.json({ output, exit_code: 0, runtime_ms: Date.now() - started, language, files: [] })
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      return NextResponse.json({ output: `RuntimeError: ${msg}`, exit_code: 1, runtime_ms: Date.now() - started, language, files: [] })
-    }
+    // Never run user JS in this process — node:vm is not a security boundary, so an escape
+    // would reach the Next.js runtime, its secrets, and the host filesystem. Stage the code
+    // to a file and execute it in a separate Node PID with a secret-free env (mirrors Python).
+    const sessionDir = getSessionDir(sessionId)
+    const jsFile = path.join(sessionDir, `_jsrun_${Date.now()}_${Math.random().toString(36).slice(2)}.js`)
+    try { fs.writeFileSync(jsFile, code, { mode: 0o600 }) }
+    catch { return NextResponse.json({ output: 'RuntimeError: could not stage code for execution', exit_code: 1, runtime_ms: Date.now() - started, language, files: [] }) }
+
+    return new Promise<Response>((resolve) => {
+      let stdout = ''
+      let stderr = ''
+      let timedOut = false
+      const safeEnv: NodeJS.ProcessEnv = { NODE_ENV: process.env['NODE_ENV'] ?? 'production', NJS_FILE: jsFile }
+      for (const k of ['PATH', 'HOME', 'USER', 'LANG', 'LC_ALL', 'TMPDIR', 'TZ']) {
+        const v = process.env[k]; if (v !== undefined) safeEnv[k] = v
+      }
+      const proc = spawn(process.execPath, ['-e', JS_VM_RUNNER], { cwd: sessionDir, env: safeEnv })
+      const cleanup = () => { try { fs.unlinkSync(jsFile) } catch { /* */ } }
+      const timer = setTimeout(() => { timedOut = true; proc.kill('SIGKILL') }, TIMEOUT_MS)
+      proc.stdout.on('data', (chunk: Buffer) => { stdout += chunk.toString(); if (stdout.length > MAX_OUTPUT) proc.kill('SIGPIPE') })
+      proc.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString() })
+      proc.on('close', (exitCode) => {
+        clearTimeout(timer); cleanup()
+        const runtime_ms = Date.now() - started
+        if (timedOut) { resolve(NextResponse.json({ output: 'TimeoutError: execution exceeded 30 seconds.', exit_code: 124, runtime_ms, language, files: [] })); return }
+        const out = stdout.slice(0, MAX_OUTPUT).trimEnd()
+        const err = stderr.slice(0, 4000).trimEnd()
+        const output = [out, err ? `Stderr:\n${err}` : ''].filter(Boolean).join('\n\n').trim() || `(exit ${exitCode ?? 0}, no output)`
+        resolve(NextResponse.json({ output, exit_code: exitCode ?? 0, runtime_ms, language, files: [] }))
+      })
+      proc.on('error', (e) => { clearTimeout(timer); cleanup(); resolve(NextResponse.json({ output: `SpawnError: ${e.message}`, exit_code: -1, runtime_ms: Date.now() - started, language, files: [] })) })
+    })
   }
 
   // ── Python via subprocess — persistent session directory ──────────────────
