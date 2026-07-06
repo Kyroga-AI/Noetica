@@ -169,8 +169,10 @@ export function selectSurface(allNodes: GNode[], allEdges: GEdge[], opts: { view
   const byId = new Map(labeled.map((n) => [n.id, n]))
 
   let picked: GNode[]
-  const catTarget = CATEGORY_VIEWS[view]
-  const rootMatch = VIEW_ROOTS[view]
+  // Only resolve view→lens for an OWN key, so a crafted view ("constructor"/"__proto__")
+  // can't select an inherited method that then gets invoked (js/unvalidated-dynamic-method-call).
+  const catTarget = Object.prototype.hasOwnProperty.call(CATEGORY_VIEWS, view) ? CATEGORY_VIEWS[view] : undefined
+  const rootMatch = Object.prototype.hasOwnProperty.call(VIEW_ROOTS, view) ? VIEW_ROOTS[view] : undefined
   if (catTarget) {
     // Drop tool-schema leaf atoms (parameter names) AND filesystem-path labels — both
     // are "technical" by type but noise in the ecosystem lens. Applied to both the

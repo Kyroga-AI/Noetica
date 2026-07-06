@@ -27,9 +27,16 @@ export function rulesUsed(proof: ProofNode): string[] {
   return [...new Set([...out, ...proof.children.flatMap(rulesUsed)])]
 }
 
+// Fixed-size indent (literal repeat count → not a user-controlled length); sliced per depth.
+const PROOF_INDENT = '  '.repeat(64)
+
 /** Human-readable indented proof. */
 export function explainProof(proof: ProofNode, depth = 0): string {
-  const pad = '  '.repeat(Math.min(Math.max(depth, 0), 64))
   const head = proof.rule ? `${proof.fact}  ⟵ ${proof.rule}` : `${proof.fact}  (base fact)`
+  // Bound recursion depth so a deep proof tree can't exhaust the stack, and build the
+  // indent by SLICING the fixed string (no .repeat with a user-controlled count) — both
+  // are the js/resource-exhaustion barriers CodeQL recognizes.
+  if (depth >= 64) return `${PROOF_INDENT}${head}  …(truncated)`
+  const pad = PROOF_INDENT.slice(0, Math.max(depth, 0) * 2)
   return [pad + head, ...proof.children.map((c) => explainProof(c, depth + 1))].join('\n')
 }

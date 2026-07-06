@@ -326,5 +326,11 @@ function withIntegrity(event: SourceOSInteractionEvent): SourceOSInteractionEven
 }
 
 function safeUrnTail(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9._:-]+/g, '-').replace(/^-+|-+$/g, '') || 'event'
+  const s = value.toLowerCase().replace(/[^a-z0-9._:-]+/g, '-')
+  // Trim leading/trailing '-' with index scans, not an end-anchored regex — `-+$`
+  // backtracks to O(n²) on a long dash run (js/polynomial-redos).
+  let start = 0, end = s.length
+  while (start < end && s[start] === '-') start++
+  while (end > start && s[end - 1] === '-') end--
+  return s.slice(start, end) || 'event'
 }
