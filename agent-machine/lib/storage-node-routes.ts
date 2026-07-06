@@ -105,7 +105,7 @@ export function handleStorageNodeRequest(
         res.end(JSON.stringify({ atoms, count: atoms.length, ...(missing.length > 0 ? { missing } : {}) }))
       } catch (e) {
         res.writeHead(400, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(e) }))
+        res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'error' }))
       }
     }).catch(() => { res.writeHead(500); res.end() })
     return true
@@ -197,7 +197,7 @@ export function handleStorageNodeRequest(
         }))
       } catch (e) {
         res.writeHead(400, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(e) }))
+        res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'error' }))
       }
     }).catch(() => { res.writeHead(500); res.end() })
     return true

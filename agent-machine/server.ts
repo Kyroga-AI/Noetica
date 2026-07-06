@@ -1982,9 +1982,15 @@ async function executeTool(
       const { resolved, error } = safePath(String(input['path'] ?? ''))
       if (error) return `Error: ${error}`
       try {
-        const stat = fs.statSync(resolved)
-        if (stat.size > 2 * 1024 * 1024) return `Error: File too large (${stat.size} bytes). Max 2 MB.`
-        return fs.readFileSync(resolved, 'utf-8')
+        // Single fd for stat + read so there is no check-then-use race (js/file-system-race).
+        const fd = fs.openSync(resolved, 'r')
+        try {
+          const stat = fs.fstatSync(fd)
+          if (stat.size > 2 * 1024 * 1024) return `Error: File too large (${stat.size} bytes). Max 2 MB.`
+          return fs.readFileSync(fd, 'utf-8')
+        } finally {
+          fs.closeSync(fd)
+        }
       } catch (e) {
         return `Error reading file: ${(e as Error).message}`
       }
@@ -5044,7 +5050,7 @@ const server = http.createServer((req, res) => {
     const oh = req.headers['origin']
     const origin = Array.isArray(oh) ? oh[0] : oh
     if (!originAllowed(req.method, origin)) {
-      console.warn(`[security] rejected cross-origin ${req.method} ${req.url ?? ''} from origin=${logSafe(origin)}`)
+      console.warn(`[security] rejected cross-origin ${logSafe(req.method)} ${logSafe(req.url ?? '')} from origin=${logSafe(origin)}`)
       res.writeHead(403, { 'content-type': 'application/json' })
       res.end(JSON.stringify({ error: 'cross-origin request rejected (set NOETICA_ORIGIN_GUARD=0 to allow)' }))
       return

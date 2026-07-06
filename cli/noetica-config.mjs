@@ -86,14 +86,8 @@ export function readConfig(path = CONFIG_PATH) {
 }
 
 export function writeDefaultConfig({ path = CONFIG_PATH, force = false } = {}) {
-  if (existsSync(path) && !force) {
-    return {
-      path,
-      status: 'exists',
-      wrote: false,
-      config: readConfig(path).config,
-    }
-  }
+  // No existsSync pre-check: the atomic openSync(path, 'wx') below throws EEXIST when the
+  // file already exists, handled in the catch — avoids a check-then-use race (js/file-system-race).
 
   const config = defaultConfig()
   mkdirSync(dirname(path), { recursive: true })

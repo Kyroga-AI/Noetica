@@ -48,7 +48,7 @@ export async function callPeerTool(spiffeId: string, toolName: string, args?: Re
     return { ok: !isError, decision, result }
   } catch (e) {
     recordOutcome(spiffeId, { ok: false, up: false })
-    return { ok: false, decision, error: e instanceof Error ? e.message : String(e) }
+    return { ok: false, decision, error: e instanceof Error ? e.message : 'peer call failed' }
   }
 }
 

@@ -46,11 +46,21 @@ export async function POST(request: Request) {
     if (tool === 'read_file') {
       const filePath = resolvePath((input.path as string | undefined) ?? '')
       if (!filePath) return NextResponse.json({ error: 'path is required' }, { status: 400 })
-      if (!fs.existsSync(filePath)) return NextResponse.json({ error: `File not found: ${filePath}` }, { status: 404 })
-      const stat = fs.statSync(filePath)
-      if (stat.size > 2 * 1024 * 1024) return NextResponse.json({ error: `File too large (${stat.size} bytes). Max 2 MB.` }, { status: 413 })
-      const content = fs.readFileSync(filePath, 'utf-8')
-      return NextResponse.json({ result: content })
+      // Single fd for stat + read so there is no check-then-use race (js/file-system-race).
+      let fd: number
+      try {
+        fd = fs.openSync(filePath, 'r')
+      } catch {
+        return NextResponse.json({ error: `File not found: ${filePath}` }, { status: 404 })
+      }
+      try {
+        const stat = fs.fstatSync(fd)
+        if (stat.size > 2 * 1024 * 1024) return NextResponse.json({ error: `File too large (${stat.size} bytes). Max 2 MB.` }, { status: 413 })
+        const content = fs.readFileSync(fd, 'utf-8')
+        return NextResponse.json({ result: content })
+      } finally {
+        fs.closeSync(fd)
+      }
     }
 
     if (tool === 'write_file') {

@@ -634,7 +634,7 @@ export function handleCairnPathRequest(
         }))
       } catch (e) {
         res.writeHead(400, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(e) }))
+        res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'error' }))
       }
     }).catch(() => { res.writeHead(500); res.end() })
     return true
@@ -704,7 +704,7 @@ export function handleCairnPathRequest(
         res.end(JSON.stringify({ step, result, warnings, line_status: rt.line.status }))
       } catch (e) {
         res.writeHead(400, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(e) }))
+        res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'error' }))
       }
     }).catch(() => { res.writeHead(500); res.end() })
     return true
@@ -759,7 +759,7 @@ export function handleCairnPathRequest(
         }))
       } catch (e) {
         res.writeHead(400, { 'content-type': 'application/json' })
-        res.end(JSON.stringify({ error: String(e) }))
+        res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'error' }))
       }
     }).catch(() => { res.writeHead(500); res.end() })
     return true

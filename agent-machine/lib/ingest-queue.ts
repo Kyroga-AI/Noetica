@@ -197,13 +197,13 @@ async function drain(): Promise<void> {
         const r = await ingestDocument(job.filename, text)
         job.chunks = r.chunks; job.entities = r.entities; job.documentId = r.documentId
         job.status = 'done'; job.doneAt = Date.now()
-        console.log(`[ingest-queue] done ${job.filename} (${r.chunks} chunks, ${r.entities} entities)`.replace(/[\r\n]/g, ' '))
+        console.log(`[ingest-queue] done ${job.filename} (${r.chunks} chunks, ${r.entities} entities)`.replace(/[\r\n]/g, ''))
         emitJobReceipt(job, 'completed')
       } catch (e) {
         job.status = 'failed'
         job.error = (e instanceof Error ? e.message : String(e)).replace(/[\r\n]+/g, ' ').slice(0, 300)
         job.doneAt = Date.now()
-        console.error(`[ingest-queue] FAILED ${job.filename}: ${job.error}`.replace(/[\r\n]/g, ' '))
+        console.error(`[ingest-queue] FAILED ${job.filename}: ${job.error}`.replace(/[\r\n]/g, ''))
         emitJobReceipt(job, 'failed')
       }
     }
