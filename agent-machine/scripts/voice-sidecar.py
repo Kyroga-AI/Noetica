@@ -25,16 +25,6 @@ _lock = threading.Lock()
 def slug(s):
     return re.sub(r"[^a-z0-9]+", "-", (s or "").lower()).strip("-")[:40] or "voice"
 
-def _voice_dir(vid):
-    # slug() already restricts to [a-z0-9-], but confine the resolved path under
-    # VOICES_DIR as defense-in-depth so a crafted voice_id can never escape
-    # (py/path-injection).
-    base = os.path.realpath(VOICES_DIR)
-    vd = os.path.realpath(os.path.join(base, vid))
-    if vd != base and not vd.startswith(base + os.sep):
-        raise ValueError("voice path escapes voices dir")
-    return vd
-
 
 def get_tts():
     """Lazily load XTTS-v2 (heavy: ~2GB model + torch). First call is slow."""
@@ -99,12 +89,11 @@ class Handler(BaseHTTPRequestHandler):
             if self.path == "/clone":
                 d = self._read()
                 vid = slug(d.get("name", "my voice"))
-                vd = _voice_dir(vid)
-                # Containment barrier in THIS function — CodeQL path-injection barriers are
-                # function-local, so re-assert (on top of _voice_dir) that every target below
-                # stays under VOICES_DIR before the makedirs/open sinks run.
+                # In-scope containment barrier (normpath + startswith on the value used by the
+                # sinks below) so a crafted voice id can never escape VOICES_DIR (py/path-injection).
                 _base = os.path.realpath(VOICES_DIR)
-                if os.path.commonpath([_base, os.path.realpath(vd)]) != _base:
+                vd = os.path.normpath(os.path.join(_base, vid))
+                if not vd.startswith(_base + os.sep):
                     return self._json(400, {"error": "invalid voice id"})
                 os.makedirs(vd, exist_ok=True)
                 raw = base64.b64decode(str(d.get("audio_b64", "")).split(",")[-1])
@@ -115,10 +104,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self._json(200, {"voice_id": vid})
             if self.path == "/tts":
                 d = self._read()
-                vdir = _voice_dir(slug(d.get("voice_id", "")))
-                # Function-local containment barrier before the os.path.exists sink (see /clone).
+                vid = slug(d.get("voice_id", ""))
+                # In-scope containment barrier before the os.path.exists sink (see /clone).
                 _base = os.path.realpath(VOICES_DIR)
-                if os.path.commonpath([_base, os.path.realpath(vdir)]) != _base:
+                vdir = os.path.normpath(os.path.join(_base, vid))
+                if not vdir.startswith(_base + os.sep):
                     return self._json(404, {"error": "voice not found — clone one first"})
                 ref = os.path.join(vdir, "reference.wav")
                 if not os.path.exists(ref):

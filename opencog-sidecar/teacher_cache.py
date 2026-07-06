@@ -26,6 +26,7 @@ Run:
 from __future__ import annotations
 
 import os
+import sys
 from typing import Any
 
 from fastapi import FastAPI, HTTPException
@@ -159,7 +160,9 @@ def cache_logits(req: CacheRequest) -> dict[str, Any]:
                 "teacher_model": _teacher_model_id,
             })
         except Exception as exc:
-            errors.append(f"pair '{pair.prompt[:60]}': {exc}")
+            # Full detail to server logs; expose only the exception class name (no message/trace) externally.
+            print(f"teacher annotation failed for pair '{pair.prompt[:60]}': {exc}", file=sys.stderr)
+            errors.append(f"pair '{pair.prompt[:60]}': {type(exc).__name__}")
             # Include pair without logits so caller can still use behavioral cloning fallback
             annotated.append({**pair.model_dump(), "teacher_logits": None})
 

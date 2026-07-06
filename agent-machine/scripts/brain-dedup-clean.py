@@ -24,7 +24,8 @@ CLEAN = os.environ.get('CLEAN') == '1'
 FIELDS = sys.argv[1:] or ([d for d in sorted(os.listdir(BRAIN)) if os.path.isdir(os.path.join(BRAIN, d))] if os.path.isdir(BRAIN) else [])
 
 _ws = re.compile(r'\s+')
-_ctrl = re.compile('[\x00-\x08\x0b\x0c\x0e-\x1f]')
+# Delete C0 control chars except tab/LF/CR (str.translate table — avoids a regex control range).
+_CTRL_DEL = dict.fromkeys(c for c in range(0x20) if c not in (0x09, 0x0a, 0x0d))
 
 
 def norm(t):
@@ -32,7 +33,7 @@ def norm(t):
 
 
 def clean(t):
-    return _ws.sub(' ', _ctrl.sub('', t.replace('�', ' '))).strip() if t else t
+    return _ws.sub(' ', t.replace('�', ' ').translate(_CTRL_DEL)).strip() if t else t
 
 
 def process(field):

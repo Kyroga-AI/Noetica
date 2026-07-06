@@ -36,6 +36,7 @@ Run:
 from __future__ import annotations
 
 import os
+import sys
 from typing import Any, Optional
 
 from fastapi import FastAPI, HTTPException
@@ -105,7 +106,9 @@ def _ensure_loaded() -> tuple[Any, Any]:
         _hook_name = getattr(_sae.cfg, "hook_name", _SAE_ID)
         return _model, _sae
     except Exception as exc:
-        _load_error = f"{type(exc).__name__}: {exc}"
+        # Full detail to server logs; expose only the exception class name (no message/trace) externally.
+        print(f"Model/SAE load failed: {type(exc).__name__}: {exc}", file=sys.stderr)
+        _load_error = type(exc).__name__
         raise HTTPException(status_code=503, detail=f"Model/SAE load failed: {_load_error}") from exc
 
 

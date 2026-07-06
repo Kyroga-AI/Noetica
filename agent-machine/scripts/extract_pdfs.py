@@ -20,7 +20,8 @@ os.makedirs(CACHE, exist_ok=True)
 IS_TRANSCRIPT = re.compile(r'track|300k|\.mp4|transcript|_pron', re.I)
 IS_READING = re.compile(r'lec|note|read|chap|text|notes|problem|pset|hand', re.I)
 HEADER = re.compile(r'^\s*(MITOCW|MIT[\w]*\|)|^[A-Z][A-Z .]{3,}:\s*$')  # OCW header / SPEAKER:
-CTRL = re.compile('[\x00-\x08\x0b\x0c\x0e-\x1f]')
+# Delete C0 control chars except tab/LF/CR (str.translate table — avoids a regex control range).
+CTRL_DEL = dict.fromkeys(c for c in range(0x20) if c not in (0x09, 0x0a, 0x0d))
 SURR = re.compile('[\ud800-\udfff]')   # lone surrogates from PDF math fonts — not UTF-8-encodable
 
 
@@ -30,7 +31,7 @@ def pdf_score(path):
 
 
 def clean(t):
-    t = SURR.sub('', CTRL.sub('', t)).replace('�', ' ')
+    t = SURR.sub('', t.translate(CTRL_DEL)).replace('�', ' ')
     t = '\n'.join(l for l in t.splitlines() if not HEADER.match(l))
     return re.sub(r'[ \t]+', ' ', t)
 

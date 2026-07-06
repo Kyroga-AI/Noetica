@@ -133,7 +133,9 @@ try:
     set_default_atomspace(atomspace)
     OPENCOG_AVAILABLE = True
 except Exception as exc:  # noqa: BLE001 — any import failure means degrade gracefully
-    IMPORT_ERROR = f"{type(exc).__name__}: {exc}"
+    # Full detail to server logs; expose only the exception class name (no message/trace) externally.
+    print(f"opencog import failed: {type(exc).__name__}: {exc}", file=sys.stderr)
+    IMPORT_ERROR = type(exc).__name__
 
 # ── SQLite WAL persistence ─────────────────────────────────────────────────────
 

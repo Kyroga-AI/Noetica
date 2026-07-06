@@ -23,7 +23,7 @@ CORPUS = os.path.expanduser('~/Downloads/MIT OCW/_corpus')
 PDFCACHE = os.path.expanduser('~/Downloads/MIT OCW/_pdftext')
 PER_FILE = 8000
 PER_COURSE = 30000
-TS = re.compile(r'\d\d:\d\d|-->|WEBVTT|^\d+\s*$')
+TS = re.compile(r'\d\d:\d\d|\d\s*-->\s*\d|WEBVTT|^\d+\s*$')
 DEPT = re.compile(r'^([a-z]*\d+)')
 
 STOP = set('''mit ocw course courses lecture lectures note notes problem problems set sets exam
