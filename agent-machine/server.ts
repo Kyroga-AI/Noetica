@@ -1522,6 +1522,14 @@ async function executeToolWithTimeout(
   const timeout = new Promise<string>((resolve) => {
     timer = setTimeout(() => resolve(`Error: tool ${name} timed out after ${TOOL_TIMEOUT_MS}ms`), TOOL_TIMEOUT_MS)
   })
+  // Canonical capability membrane (prophet-platform) — defer this tool call's allow/deny to the
+  // unified kernel. Default-inert + observe-first; only denies (fail-closed) when the operator sets
+  // NOETICA_MEMBRANE_ENFORCE=1 with NOETICA_MEMBRANE_BIN pointing at capability_membrane.py.
+  try {
+    const { membraneGate, membraneConfigFromEnv } = await import('./lib/membrane-gate.js')
+    const gate = membraneGate(name, membraneConfigFromEnv())
+    if (!gate.proceed) { if (timer) clearTimeout(timer); return `Error: ${gate.denial}` }
+  } catch { /* membrane gate is best-effort scaffolding — never break a tool call on a gate error */ }
   // Reasoning-evidence: emit a safe-trace ReasoningEvent for THIS tool call so the agent's
   // tool-using surface is under the same governance fabric as dialogue turns. Summary is a
   // short description only — never tool args/output. Best-effort: never blocks the call.
