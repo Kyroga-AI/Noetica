@@ -646,16 +646,20 @@ function providerRouteEvidenceRef(evidence: ReturnType<typeof buildExternalModel
 // SSRF guard: the agent_machine_endpoint is user-supplied, so we only allow it to
 // point at the local loopback interface. Without this, a crafted request could make
 // the server fetch arbitrary internal hosts (cloud metadata, other localhost services).
-function isAllowedAgentMachineUrl(raw: string): boolean {
-  let u: URL
-  try { u = new URL(raw) } catch { return false }
-  if (u.protocol !== 'http:' && u.protocol !== 'https:') return false
-  const host = u.hostname.toLowerCase()
-  return host === 'localhost' || host === '127.0.0.1' || host === '::1' || host === '[::1]'
-}
-
 async function proxyToAgentMachine(url: string, body: ChatRequest, signal: AbortSignal): Promise<Response> {
-  if (!isAllowedAgentMachineUrl(url)) {
+  // Parse + validate INLINE (a boolean predicate in a separate helper is not a barrier
+  // CodeQL recognizes for js/request-forgery) and fetch the VALIDATED URL object rather
+  // than the raw string, so the loopback-host allowlist dominates the fetch sink here.
+  let target: URL
+  try { target = new URL(url) } catch {
+    return NextResponse.json({ error: 'agent_machine_endpoint must be a localhost URL' }, { status: 400 })
+  }
+  // Guard on target.hostname DIRECTLY (URL already lowercases the host) so the loopback
+  // allowlist is a barrier CodeQL's request-forgery recognizer ties to the fetch(target) below.
+  if (target.protocol !== 'http:' && target.protocol !== 'https:') {
+    return NextResponse.json({ error: 'agent_machine_endpoint must be a localhost URL' }, { status: 400 })
+  }
+  if (target.hostname !== 'localhost' && target.hostname !== '127.0.0.1' && target.hostname !== '::1' && target.hostname !== '[::1]') {
     return NextResponse.json({ error: 'agent_machine_endpoint must be a localhost URL' }, { status: 400 })
   }
   // Strip agent_machine_endpoint from the forwarded body to prevent infinite recursion
@@ -663,7 +667,7 @@ async function proxyToAgentMachine(url: string, body: ChatRequest, signal: Abort
   const { agent_machine_endpoint: _dropped, ...forwardBody } = body
   let upstream: Response
   try {
-    upstream = await fetch(url, {
+    upstream = await fetch(target, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(forwardBody),
