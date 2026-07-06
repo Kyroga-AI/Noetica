@@ -161,7 +161,7 @@ function escapeMermaid(value) {
 }
 
 function escapeDot(value) {
-  return String(value).replace(/"/g, '\\"')
+  return String(value).replace(/\\/g, '\\\\').replace(/"/g, '\\"')
 }
 
 function round3(value) {

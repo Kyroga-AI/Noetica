@@ -12,7 +12,7 @@
 import { canonEntities, canonDef, canonFormulas, canonBridges, canonAncestors, type CanonEntity } from './canon-lookup.js'
 
 const NUMERIC = /\b\d|\bcalculate\b|\bcompute\b|\bfind the\b|\bhow (much|many|fast|far|long)\b|\bwhat is the (value|magnitude|rate|speed|energy|force|pressure|concentration|probability)\b|=\s*\?/i
-const DEFINE = /^\s*(what (is|are)|define|describe|explain what)\b|which of the following (is|best describes|defines|are)\b/i
+const DEFINE = /^\s*(?:(?:what (is|are)|define|describe|explain what)\b|which of the following (?:is|best describes|defines|are)\b)/i
 
 export type Route = 'calc' | 'define' | 'retrieve' | 'reason'
 // OntoGPT-class silent failure: when nothing grounds, ungrounded entities get AUTO: IDs and slip through.

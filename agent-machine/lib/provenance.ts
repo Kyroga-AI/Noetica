@@ -29,7 +29,7 @@ export function rulesUsed(proof: ProofNode): string[] {
 
 /** Human-readable indented proof. */
 export function explainProof(proof: ProofNode, depth = 0): string {
-  const pad = '  '.repeat(depth)
+  const pad = '  '.repeat(Math.min(Math.max(depth, 0), 64))
   const head = proof.rule ? `${proof.fact}  ⟵ ${proof.rule}` : `${proof.fact}  (base fact)`
   return [pad + head, ...proof.children.map((c) => explainProof(c, depth + 1))].join('\n')
 }
