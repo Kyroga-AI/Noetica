@@ -3552,7 +3552,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           : `Answer from these sources when relevant and end each grounded sentence with its source marker, e.g. "… [1]." If the sources don't cover the question, say so.`
         graphContext = `\n\n---\n**Document context (uploaded sources)**\n${instruction}\n\n${docBlock}${graphContext}`
         sse(res, 'retrieval', {
-          trace: { patterns: ['hybrid-rerank-documents'], sources: hits.map((h) => ({ id: h.docId, label: h.citation, score: Number(h.fusedScore.toFixed(4)) })), token_estimate: docBlock.length >> 2, beliefs_injected: 0 },
+          trace: { patterns: ['hybrid-rerank-documents'], timings: [], sources: hits.map((h) => ({ id: h.docId, label: h.citation, score: Number(h.fusedScore.toFixed(4)) })), token_estimate: docBlock.length >> 2, beliefs_injected: 0 },
         })
       }
     }
