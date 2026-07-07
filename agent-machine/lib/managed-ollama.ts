@@ -107,6 +107,7 @@ export function buildLaunchRecipe(binary: string): { cmd: string; args: string[]
     args: ['-D', `HOME=${os.homedir()}`, '-f', PROFILE_PATH, binary, 'serve'],
     env: {
       OLLAMA_HOST: `127.0.0.1:${MANAGED_PORT}`,
+      OLLAMA_HOME: path.join(os.homedir(), '.noetica', 'ollama-home'),
       OLLAMA_MODELS: MODELS_DIR,
       OLLAMA_KEEP_ALIVE: '30m',
     },
