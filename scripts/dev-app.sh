@@ -7,13 +7,13 @@
 # so every change — backend and frontend — is live.
 #
 # Quit the installed Noetica.app first (it holds :8080). Then:  npm run dev:app
-set -euo pipefail
+set -eo pipefail
 cd "$(dirname "$0")/.."
 
 PORT="${NOETICA_AM_PORT:-8080}"
 
 echo "[dev] freeing :$PORT (any stale Agent Machine)…"
-lsof -ti ":$PORT" 2>/dev/null | xargs -r kill 2>/dev/null || true
+lsof -ti ":$PORT" 2>/dev/null | xargs kill 2>/dev/null || true
 sleep 1
 
 echo "[dev] starting Agent Machine from source on :$PORT…"
