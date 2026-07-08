@@ -112,6 +112,17 @@ export function decryptLine(line: string): unknown | null {
 
 const enabled = (): boolean => process.env['NOETICA_ENCRYPT_AT_REST'] !== '0'
 
+/** Encrypt an arbitrary (possibly multi-line) string to a single self-describing line. Passthrough when
+ *  disabled. Use for raw text/markdown stores whose legacy on-disk form is NOT JSON. */
+export function encryptText(s: string): string { return enabled() ? encryptLine(s) : s }
+
+/** Inverse of encryptText. A non-`enc:` line is returned verbatim (legacy plaintext) — NOT JSON-parsed —
+ *  so pre-encryption markdown/transcript content migrates losslessly. */
+export function decryptText(line: string): string {
+  if (line.startsWith(MAGIC)) { const v = decryptLine(line); return typeof v === 'string' ? v : '' }
+  return line
+}
+
 /** Append a record to a JSONL store — encrypted at rest by default (NOETICA_ENCRYPT_AT_REST=0 to disable). */
 export function appendJsonl(filePath: string, obj: unknown): void {
   fs.mkdirSync(path.dirname(filePath), { recursive: true })

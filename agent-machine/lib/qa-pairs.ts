@@ -12,11 +12,12 @@
  * Hierarchy: intent (tier 1) → the intent's exemplar pairs (tier 2). Gating on the
  * latency-aware reward means only genuinely good turns become training data.
  */
-import { appendFileSync, mkdirSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 import { createHash } from 'node:crypto'
-import { readJsonl } from './jsonl.js'
+// Encrypted at rest: qa-pairs.jsonl stores raw user questions + model answers. at-rest reads legacy
+// plaintext transparently, so both write and read migrate cleanly.
+import { appendJsonl, readJsonl } from './at-rest.js'
 
 // Gold gate is on WORTH (answer quality), not the latency-aware reward — a great
 // answer is training data even if a slow model produced it (slowness is a routing
@@ -44,15 +45,13 @@ export function recordQAPair(p: Omit<QAPair, 'id' | 'ts'>): boolean {
   if (p.worth < GOLD_WORTH || !p.question.trim() || !p.answer.trim()) return false
   const id = createHash('sha1').update(`${p.intent}|${p.question.toLowerCase().slice(0, 160)}`).digest('hex').slice(0, 12)
   const rec: QAPair = { ...p, answer: p.answer.slice(0, 2000), id, ts: new Date().toISOString() }
-  try {
-    mkdirSync(DIR, { recursive: true })
-    appendFileSync(LOG, JSON.stringify(rec) + '\n')
-  } catch { /* best-effort */ }
+  try { appendJsonl(LOG, rec) } catch { /* best-effort */ }
   return true
 }
 
 export function readQAPairs(limit = 5000): QAPair[] {
-  return readJsonl<QAPair>(LOG, { limit })
+  const all = readJsonl<QAPair>(LOG)
+  return limit && all.length > limit ? all.slice(-limit) : all
 }
 
 /** Best (highest-reward) gold exemplars for an intent — the few-shot training memory
