@@ -561,9 +561,25 @@ export async function* streamOllama(params: {
     }
   }
 
+  // Mid-stream stall watchdog: if the model server stops sending bytes WITHOUT closing the stream (a
+  // dead/wedged runner, a stuck GPU), reader.read() blocks forever and the whole turn hangs. Bound the
+  // gap BETWEEN chunks — an actively-streaming model resets it on every chunk, so this only trips on a
+  // true stall. Generous by default (slow local first-token); override with NOETICA_STREAM_IDLE_MS.
+  const IDLE_MS = Math.min(600_000, Math.max(15_000, Number(process.env['NOETICA_STREAM_IDLE_MS'] ?? 120_000)))
   try {
   while (true) {
-    const { done, value } = await reader.read()
+    let idleTimer: ReturnType<typeof setTimeout> | undefined
+    const idle = new Promise<'idle'>((resolve) => { idleTimer = setTimeout(() => resolve('idle'), IDLE_MS) })
+    let r: Awaited<ReturnType<typeof reader.read>> | 'idle'
+    try { r = await Promise.race([reader.read(), idle]) }
+    finally { if (idleTimer) clearTimeout(idleTimer) }
+    if (r === 'idle') {
+      try { await reader.cancel() } catch { /* reader may already be errored */ }
+      yield* finalize()   // flush any partial answer / recover a reasoning-only response
+      if (!emittedVisible) yield { type: 'text', text: `[generation stalled — no output for ${Math.round(IDLE_MS / 1000)}s; stopping]` }
+      return
+    }
+    const { done, value } = r
     if (done) break
 
     buf += dec.decode(value, { stream: true })

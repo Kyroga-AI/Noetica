@@ -14,6 +14,15 @@ const PORT = 8126
 const BASE = `http://127.0.0.1:${PORT}`
 let child: ChildProcess | null = null
 
+/** Headers for authed sidecar routes. The parent sets NOETICA_SIDECAR_TOKEN and the sidecar requires
+ *  `Authorization: Bearer <token>` on every route except /health. */
+function authHeaders(json = true): Record<string, string> {
+  const h: Record<string, string> = json ? { 'content-type': 'application/json' } : {}
+  const t = process.env['NOETICA_SIDECAR_TOKEN']
+  if (t) h['authorization'] = `Bearer ${t}`
+  return h
+}
+
 function binaryPath(): string | null {
   // prod: shipped next to the agent-machine binary in the .app (Tauri externalBin)
   const beside = path.join(path.dirname(process.execPath), 'noetica-embed')
@@ -41,6 +50,9 @@ async function ensure(): Promise<boolean> {
     if (!child || child.exitCode !== null) {
       child = spawn(bin, [], { env: { ...process.env, NOETICA_EMBED_PORT: String(PORT) }, stdio: 'ignore', detached: false })
       child.on('exit', () => { child = null })
+      // Don't keep the parent's event loop alive on this daemon — otherwise a short-lived CLI/test that
+      // touches embeddings hangs on exit waiting for the still-running sidecar (matches operator-runtime).
+      child.unref()
     }
     const deadline = Date.now() + 6000
     while (Date.now() < deadline) { if (await healthy()) return true; await new Promise((r) => setTimeout(r, 300)) }
@@ -58,7 +70,7 @@ export async function embedBatchLocal(texts: string[]): Promise<(number[] | null
   if (!(await ensure())) return null
   try {
     const r = await fetch(`${BASE}/embed`, {
-      method: 'POST', headers: { 'content-type': 'application/json' },
+      method: 'POST', headers: authHeaders(),
       body: JSON.stringify({ texts }), signal: AbortSignal.timeout(60_000),
     })
     if (!r.ok) return null
@@ -78,7 +90,7 @@ export async function vecUpsert(collection: string, items: Array<{ id: string; t
   if (items.length === 0) return 0
   if (!(await ensure())) return null
   try {
-    const r = await fetch(`${BASE}/vec/upsert`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ collection, items }), signal: AbortSignal.timeout(120_000) })
+    const r = await fetch(`${BASE}/vec/upsert`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ collection, items }), signal: AbortSignal.timeout(120_000) })
     if (!r.ok) return null
     return ((await r.json()) as { upserted?: number }).upserted ?? 0
   } catch { return null }
@@ -88,7 +100,7 @@ export async function vecUpsert(collection: string, items: Array<{ id: string; t
 export async function vecQuery(collection: string, opts: { text?: string; vec?: number[]; k?: number }): Promise<VecHit[]> {
   if (!(await ensure())) return []
   try {
-    const r = await fetch(`${BASE}/vec/query`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ collection, ...opts }), signal: AbortSignal.timeout(30_000) })
+    const r = await fetch(`${BASE}/vec/query`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ collection, ...opts }), signal: AbortSignal.timeout(30_000) })
     if (!r.ok) return []
     return ((await r.json()) as { hits?: VecHit[] }).hits ?? []
   } catch { return [] }
@@ -98,7 +110,7 @@ export async function vecQuery(collection: string, opts: { text?: string; vec?: 
 export async function vecDelete(collection: string, ids?: string[]): Promise<number | null> {
   if (!(await ensure())) return null
   try {
-    const r = await fetch(`${BASE}/vec/delete`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ collection, ...(ids ? { ids } : {}) }), signal: AbortSignal.timeout(15_000) })
+    const r = await fetch(`${BASE}/vec/delete`, { method: 'POST', headers: authHeaders(), body: JSON.stringify({ collection, ...(ids ? { ids } : {}) }), signal: AbortSignal.timeout(15_000) })
     if (!r.ok) return null
     return ((await r.json()) as { deleted?: number }).deleted ?? 0
   } catch { return null }
@@ -108,7 +120,7 @@ export async function vecDelete(collection: string, ids?: string[]): Promise<num
 export async function vecStats(): Promise<Array<{ name: string; count: number }>> {
   if (!(await ensure())) return []
   try {
-    const r = await fetch(`${BASE}/vec/stats`, { signal: AbortSignal.timeout(5_000) })
+    const r = await fetch(`${BASE}/vec/stats`, { headers: authHeaders(false), signal: AbortSignal.timeout(5_000) })
     if (!r.ok) return []
     return ((await r.json()) as { collections?: Array<{ name: string; count: number }> }).collections ?? []
   } catch { return [] }

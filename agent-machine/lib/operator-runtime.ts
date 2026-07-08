@@ -43,6 +43,15 @@ const DEFAULT_TIMEOUT_MS = 120_000
 const port = (): number => Number(process.env['NOETICA_OPERATOR_PORT']) || 8127
 const base = (): string => `http://127.0.0.1:${port()}`
 
+/** Headers for authed sidecar routes. The parent sets NOETICA_SIDECAR_TOKEN and the sidecar requires
+ *  `Authorization: Bearer <token>` on every route except /health. */
+function authHeaders(json = true): Record<string, string> {
+  const h: Record<string, string> = json ? { 'content-type': 'application/json' } : {}
+  const t = process.env['NOETICA_SIDECAR_TOKEN']
+  if (t) h['authorization'] = `Bearer ${t}`
+  return h
+}
+
 let child: ChildProcess | null = null
 
 /** Locate the sidecar binary: shipped beside the agent-machine binary in the .app (Tauri externalBin), or the
@@ -116,7 +125,7 @@ function validateTensor(name: string, t: OperatorTensor): void {
 export async function listOperators(): Promise<string[]> {
   if (!(await ensure())) return []
   try {
-    const r = await fetch(`${base()}/models`, { signal: AbortSignal.timeout(3000) })
+    const r = await fetch(`${base()}/models`, { headers: authHeaders(false), signal: AbortSignal.timeout(3000) })
     if (!r.ok) return []
     const j = (await r.json()) as { models?: string[] }
     return Array.isArray(j.models) ? j.models : []
@@ -126,7 +135,7 @@ export async function listOperators(): Promise<string[]> {
 /** A model's input/output signature. Throws OperatorUnavailableError / OperatorError. */
 export async function operatorMeta(model: string): Promise<OperatorMeta> {
   if (!(await ensure())) throw new OperatorUnavailableError()
-  const r = await fetch(`${base()}/meta?model=${encodeURIComponent(model)}`, { signal: AbortSignal.timeout(5000) })
+  const r = await fetch(`${base()}/meta?model=${encodeURIComponent(model)}`, { headers: authHeaders(false), signal: AbortSignal.timeout(5000) })
   if (!r.ok) throw new OperatorError(await errText(r), r.status)
   return (await r.json()) as OperatorMeta
 }
@@ -144,7 +153,7 @@ export async function operatorInfer(
   let r: Response
   try {
     r = await fetch(`${base()}/infer`, {
-      method: 'POST', headers: { 'content-type': 'application/json' },
+      method: 'POST', headers: authHeaders(),
       body: JSON.stringify({ model, inputs }),
       signal: AbortSignal.timeout(opts.timeoutMs ?? DEFAULT_TIMEOUT_MS),
     })

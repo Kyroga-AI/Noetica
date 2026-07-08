@@ -135,10 +135,22 @@ export function readJsonl<T = unknown>(filePath: string): T[] {
   catch { return [] }
 }
 
+let _tmpSeq = 0
 /** Whole-file JSON store, encrypted at rest by default. Read auto-detects plaintext (lazy migration). */
 export function writeJson(filePath: string, obj: unknown): void {
   fs.mkdirSync(path.dirname(filePath), { recursive: true })
-  fs.writeFileSync(filePath, enabled() ? encryptLine(obj) : JSON.stringify(obj))
+  const data = enabled() ? encryptLine(obj) : JSON.stringify(obj)
+  // Atomic write: stage into a unique temp file, then rename(2) over the target (atomic on the same
+  // filesystem). A concurrent reader — or a crash mid-write — never sees a torn/half-written store,
+  // and two concurrent writers can't interleave bytes into the same file (last rename wins cleanly).
+  const tmp = `${filePath}.tmp.${process.pid}.${_tmpSeq++}`
+  try {
+    fs.writeFileSync(tmp, data)
+    fs.renameSync(tmp, filePath)
+  } catch (e) {
+    try { fs.unlinkSync(tmp) } catch { /* temp already gone */ }
+    throw e
+  }
 }
 export function readJson<T = unknown>(filePath: string): T | null {
   try { return decryptLine(fs.readFileSync(filePath, 'utf8')) as T } catch { return null }

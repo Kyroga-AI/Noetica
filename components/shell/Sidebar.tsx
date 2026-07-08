@@ -20,6 +20,7 @@ type SidebarProps = {
   onSwitchSession?: (id: string) => void
   onRemoveSession?: (id: string) => void
   onNewChat?: () => void
+  onCollapse?: () => void
   density?: 'comfortable' | 'compact'
 }
 
@@ -421,14 +422,13 @@ function SessionTree({ sessions, activeSessionId, search, onSwitchSession, onRem
 export function Sidebar({
   activeSurface, activeCenter, onSurfaceChange, onOpenSettings,
   sessions = [], activeSessionId = null,
-  onSwitchSession, onRemoveSession, onNewChat, density = 'comfortable',
+  onSwitchSession, onRemoveSession, onNewChat, onCollapse, density = 'comfortable',
 }: SidebarProps) {
   const { settings } = useSettings()
   const me = useIdentity()
   const displayName = settings.userName?.trim() || me.displayName
   const itemPy = density === 'compact' ? 'py-1' : 'py-1.5'
   const groupGap = density === 'compact' ? 'mt-2' : 'mt-3'
-  const [collapsed, setCollapsed] = useState(false)
   const [search, setSearch] = useState('')
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -440,43 +440,6 @@ export function Sidebar({
   const filteredSessions = search.trim()
     ? sessions.filter((s) => s.title.toLowerCase().includes(search.toLowerCase()))
     : sessions
-
-  if (collapsed) {
-    return (
-      <aside className="hidden w-14 shrink-0 flex-col items-center border-r border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] py-3 lg:flex">
-        <button
-          onClick={() => setCollapsed(false)}
-          className="mb-4 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]"
-          aria-label="Expand sidebar"
-        >
-          <IconChevronRight />
-        </button>
-        <nav className="flex flex-1 flex-col items-center gap-1">
-          {surfaceItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => onSurfaceChange(item.id)}
-              className={`flex h-9 w-9 items-center justify-center rounded-xl transition ${
-                activeSurface === item.id
-                  ? 'bg-[#dbeafe] text-[var(--color-text-primary)]'
-                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]'
-              }`}
-              title={item.label}
-            >
-              {item.icon}
-            </button>
-          ))}
-        </nav>
-        <button
-          onClick={() => onOpenSettings()}
-          className="flex h-9 w-9 items-center justify-center rounded-xl text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]"
-          title="Settings"
-        >
-          <IconSettings />
-        </button>
-      </aside>
-    )
-  }
 
   return (
     <>
@@ -491,7 +454,7 @@ export function Sidebar({
           New workspace
         </button>
         <button
-          onClick={() => setCollapsed(true)}
+          onClick={onCollapse}
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]"
           aria-label="Collapse sidebar"
         >

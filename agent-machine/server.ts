@@ -178,6 +178,27 @@ const VERSION = '0.4.21'
   } catch { /* can't persist → leave unset (legacy-open) rather than crash the server */ }
 })()
 
+// Shared bearer token for the native sidecars (embed :8126, operator :8127, voice :8124). They bind
+// loopback but any LOCAL process could otherwise call them (embedding exfiltration, index tampering,
+// driving inference / voice synthesis). Generate once, persist 0600, and pass it to each sidecar at
+// spawn via process.env — the runtimes add `Authorization: Bearer <token>` on every request. Persisted
+// (not per-process-random) so a sidecar left running by a prior parent still authenticates the next one.
+;(function ensureSidecarToken(): void {
+  if (process.env['NOETICA_SIDECAR_TOKEN']) return
+  try {
+    const dir = path.join(os.homedir(), '.noetica')
+    const tokenFile = path.join(dir, 'sidecar-token')
+    let tok = ''
+    try { tok = fs.readFileSync(tokenFile, 'utf8').trim() } catch { /* first run */ }
+    if (!tok) {
+      tok = crypto.randomBytes(32).toString('hex')
+      fs.mkdirSync(dir, { recursive: true })
+      fs.writeFileSync(tokenFile, tok, { mode: 0o600 })
+    }
+    process.env['NOETICA_SIDECAR_TOKEN'] = tok
+  } catch { /* can't persist → leave unset (sidecars run open) rather than crash the server */ }
+})()
+
 // ─── Annealed retrieval config (written by scripts/anneal-retrieval.py) ─────────────────────────────────────
 // Loads config/retrieval-optimal.json and sets env vars for any knob not already overridden.
 // Explicit env vars always win; defaults remain as fallback when neither is set.
@@ -1489,12 +1510,20 @@ function logSafe(s: unknown): string {
  * caller must send `Authorization: Bearer <token>`. Returns true if allowed; on
  * denial it writes 401 and returns false so the handler can early-return.
  */
+/** Constant-time string equality — hash both to a fixed 32 bytes so lengths always match (no length
+ *  leak) and the compare doesn't short-circuit. Used for the auth-boundary token checks below. */
+function timingSafeEq(a: string, b: string): boolean {
+  const ha = crypto.createHash('sha256').update(a).digest()
+  const hb = crypto.createHash('sha256').update(b).digest()
+  return crypto.timingSafeEqual(ha, hb)
+}
+
 function requireApiToken(req: http.IncomingMessage, res: http.ServerResponse): boolean {
   const expected = process.env['NOETICA_API_TOKEN']
   if (!expected) return true // auth disabled
   const auth = req.headers['authorization'] ?? ''
   const got = Array.isArray(auth) ? auth[0] : auth
-  if (got === `Bearer ${expected}`) return true
+  if (timingSafeEq(got, `Bearer ${expected}`)) return true
   res.writeHead(401, { 'content-type': 'application/json' })
   res.end(JSON.stringify({ error: 'unauthorized', hint: 'set Authorization: Bearer <NOETICA_API_TOKEN>' }))
   return false
@@ -1508,7 +1537,8 @@ function hasValidLocalToken(req: http.IncomingMessage): boolean {
   if (!expected) return false
   const auth = req.headers['authorization'] ?? ''
   const got = Array.isArray(auth) ? auth[0] : auth
-  return got === `Bearer ${expected}` || req.headers['x-noetica-local'] === expected
+  const xhdr = req.headers['x-noetica-local']
+  return timingSafeEq(got, `Bearer ${expected}`) || timingSafeEq(Array.isArray(xhdr) ? (xhdr[0] ?? '') : (xhdr ?? ''), expected)
 }
 
 // ─── Tool execution ───────────────────────────────────────────────────────────
@@ -1523,10 +1553,13 @@ async function executeToolWithRetry(
   input: Record<string, unknown>,
   keys: { anthropic?: string; openai?: string; serper?: string },
   maxRetries = 2,
+  signal?: AbortSignal,
 ): Promise<string> {
   for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    // Don't burn a retry once the outer ceiling has already aborted us.
+    if (signal?.aborted) return `Error: tool ${name} aborted`
     try {
-      const result = await executeTool(name, input, keys)
+      const result = await executeTool(name, input, keys, signal)
       // If the tool itself returned an error string and it's retryable, try again
       if (result.startsWith('Error:') && RETRYABLE_TOOLS.has(name) && attempt < maxRetries) {
         await new Promise<void>((r) => setTimeout(r, 400 * Math.pow(2, attempt)))
@@ -1554,8 +1587,12 @@ async function executeToolWithTimeout(
   keys: { anthropic?: string; openai?: string; serper?: string },
 ): Promise<string> {
   let timer: ReturnType<typeof setTimeout> | undefined
+  // When the ceiling trips we abort the tool so any child process it spawned (run_command's shell,
+  // the JS sandbox) is SIGKILLed instead of running on orphaned — the tool's own promise loses the
+  // race and its output would be discarded anyway, so leaving the child alive just burns resources.
+  const ac = new AbortController()
   const timeout = new Promise<string>((resolve) => {
-    timer = setTimeout(() => resolve(`Error: tool ${name} timed out after ${TOOL_TIMEOUT_MS}ms`), TOOL_TIMEOUT_MS)
+    timer = setTimeout(() => { try { ac.abort() } catch { /* */ }; resolve(`Error: tool ${name} timed out after ${TOOL_TIMEOUT_MS}ms`) }, TOOL_TIMEOUT_MS)
   })
   // Canonical capability membrane (prophet-platform) — defer this tool call's allow/deny to the
   // unified kernel. Default-inert + observe-first; only denies (fail-closed) when the operator sets
@@ -1573,7 +1610,7 @@ async function executeToolWithTimeout(
     re.emitToolCallEvidence(name)
   } catch { /* tool-call evidence is best-effort — never break the tool call */ }
   try {
-    const result = await Promise.race([executeToolWithRetry(name, input, keys), timeout])
+    const result = await Promise.race([executeToolWithRetry(name, input, keys, 2, ac.signal), timeout])
     // #16 — tool output from EXTERNAL/untrusted sources can carry indirect prompt injection ("ignore your
     // instructions…"). Flag it + spotlight so the model treats embedded directives as DATA, not commands.
     const EXTERNAL = new Set(['web_search', 'public_data', 'read_file', 'ocr', 'registry_lookup', 'dispatch_agent'])
@@ -1605,7 +1642,7 @@ const LOGIN_SHELL = (() => {
 
 // Run a shell command in a workspace dir, non-blocking, with a hard timeout + output caps.
 // Used by the run_command tool (the sandboxed shell that lets the agent actually scaffold/run).
-function runInWorkspace(command: string, cwd: string, timeoutMs: number): Promise<{ out: string; err: string; code: string }> {
+function runInWorkspace(command: string, cwd: string, timeoutMs: number, signal?: AbortSignal): Promise<{ out: string; err: string; code: string }> {
   return new Promise((resolve) => {
     let out = '', err = '', done = false
     // Clamp the caller-supplied duration with Math.min/Math.max (the form CodeQL
@@ -1613,10 +1650,14 @@ function runInWorkspace(command: string, cwd: string, timeoutMs: number): Promis
     const safeTimeout = Math.min(Math.max(Number.isFinite(timeoutMs) ? timeoutMs : 60_000, 1_000), 300_000)
     const child = cp.spawn(LOGIN_SHELL, ['-lc', command], { cwd, env: safeShellEnv() })
     const timer = setTimeout(() => { if (!done) { done = true; try { child.kill('SIGKILL') } catch { /* */ } resolve({ out, err, code: `timeout after ${safeTimeout}ms` }) } }, safeTimeout)
+    // Outer tool-ceiling abort → SIGKILL the shell child instead of leaving it running orphaned.
+    const onAbort = () => { if (!done) { done = true; clearTimeout(timer); try { child.kill('SIGKILL') } catch { /* */ } resolve({ out, err, code: 'aborted' }) } }
+    if (signal) { if (signal.aborted) { try { child.kill('SIGKILL') } catch { /* */ } } else signal.addEventListener('abort', onAbort, { once: true }) }
+    const clear = () => { clearTimeout(timer); if (signal) signal.removeEventListener('abort', onAbort) }
     child.stdout.on('data', (d: Buffer) => { if (out.length < 200_000) out += d.toString() })
     child.stderr.on('data', (d: Buffer) => { if (err.length < 100_000) err += d.toString() })
-    child.on('error', (e) => { if (!done) { done = true; clearTimeout(timer); resolve({ out, err: String(e), code: 'error' }) } })
-    child.on('close', (c, sig) => { if (!done) { done = true; clearTimeout(timer); resolve({ out, err, code: c != null ? String(c) : (sig ? `signal ${sig}` : '?') }) } })
+    child.on('error', (e) => { if (!done) { done = true; clear(); resolve({ out, err: String(e), code: 'error' }) } })
+    child.on('close', (c, sig) => { if (!done) { done = true; clear(); resolve({ out, err, code: c != null ? String(c) : (sig ? `signal ${sig}` : '?') }) } })
   })
 }
 
@@ -1870,6 +1911,7 @@ async function executeTool(
   name: string,
   input: Record<string, unknown>,
   keys: { anthropic?: string; openai?: string; serper?: string },
+  signal?: AbortSignal,
 ): Promise<string> {
   // Resolve a user-supplied path safely: expand ~, then ensure it stays
   // within the home directory or /tmp. Blocks traversal attacks ("../../etc").
@@ -1989,7 +2031,7 @@ async function executeTool(
       const code = String(input['code'] ?? '').slice(0, 50_000)
       if (!code.trim()) return 'Error: code is required'
       const sessionId = input['session_id'] ? String(input['session_id']).slice(0, 100) : undefined
-      return executeCode(language as 'python' | 'javascript', code, sessionId)
+      return executeCode(language as 'python' | 'javascript', code, sessionId, signal)
     }
     case 'run_command': {
       const command = String(input['command'] ?? '').trim()
@@ -2002,7 +2044,7 @@ async function executeTool(
       const ws = path.join(os.homedir(), '.noetica', 'workspaces', wsName)
       try { fs.mkdirSync(ws, { recursive: true }) } catch { /* */ }
       const timeout = Math.min(300_000, Math.max(1_000, Number(input['timeout_ms'] ?? 60_000)))
-      const { out, err, code } = await runInWorkspace(command, ws, timeout)
+      const { out, err, code } = await runInWorkspace(command, ws, timeout, signal)
       const header = `$ ${command}\n[workspace: ${wsName}  exit: ${code}]`
       const body = `${out}${err ? `\n--- stderr ---\n${err}` : ''}`.trim()
       return `${header}\n${body || '(no output)'}`.slice(0, 14_000)
@@ -2397,7 +2439,7 @@ function jsSandboxStrategy(): 'node-subprocess' | 'self-exec' | 'in-process' {
 
 // Shared isolated-subprocess runner for BOTH the node/bun and self-exec paths: stage the code to a file, spawn a
 // process with a STRIPPED env (PATH + the code file only — no API keys, no parent memory), capture stdout.
-function runIsolatedJsSubprocess(command: string, args: string[], extraEnv: Record<string, string>, code: string, sessionId: string | undefined, timeoutMs: number, maxOutput: number, onExit?: () => void): Promise<string> {
+function runIsolatedJsSubprocess(command: string, args: string[], extraEnv: Record<string, string>, code: string, sessionId: string | undefined, timeoutMs: number, maxOutput: number, onExit?: () => void, signal?: AbortSignal): Promise<string> {
   return new Promise((resolve) => {
     // With no session workspace, stage into a private per-run temp dir
     // (mkdtemp = unpredictable 0700 name) instead of a predictable os.tmpdir()
@@ -2417,8 +2459,11 @@ function runIsolatedJsSubprocess(command: string, args: string[], extraEnv: Reco
     const spawnCmd = sbx ? sbx[0]! : command
     const spawnArgs = sbx ? [...sbx.slice(1), command, ...args] : args
     const child = cp.spawn(spawnCmd, spawnArgs, { cwd: runDir, env: childEnv })
-    const finish = (s: string) => { if (done) return; done = true; clearTimeout(timer); try { fs.unlinkSync(codeFile) } catch { /* */ }; if (ephemeralDir) { try { fs.rmSync(runDir, { recursive: true, force: true }) } catch { /* */ } }; onExit?.(); resolve(s.slice(0, maxOutput).trim() || '(no output)') }
+    const finish = (s: string) => { if (done) return; done = true; clearTimeout(timer); if (signal) signal.removeEventListener('abort', onAbort); try { fs.unlinkSync(codeFile) } catch { /* */ }; if (ephemeralDir) { try { fs.rmSync(runDir, { recursive: true, force: true }) } catch { /* */ } }; onExit?.(); resolve(s.slice(0, maxOutput).trim() || '(no output)') }
     const timer = setTimeout(() => { try { child.kill('SIGKILL') } catch { /* */ }; finish(out || 'RuntimeError: execution timed out') }, timeoutMs + 2000)
+    // Outer tool-ceiling abort → SIGKILL the sandbox child instead of leaving it running orphaned.
+    const onAbort = () => { try { child.kill('SIGKILL') } catch { /* */ }; finish(out || 'RuntimeError: execution aborted') }
+    if (signal) { if (signal.aborted) onAbort(); else signal.addEventListener('abort', onAbort, { once: true }) }
     child.stdout.on('data', (d: Buffer) => { out += d.toString(); if (out.length > maxOutput) { try { child.kill('SIGKILL') } catch { /* */ } } })
     child.stderr.on('data', (d: Buffer) => { out += d.toString() })
     child.on('close', () => finish(out))
@@ -2426,7 +2471,7 @@ function runIsolatedJsSubprocess(command: string, args: string[], extraEnv: Reco
   })
 }
 
-function executeCode(language: 'python' | 'javascript', code: string, sessionId?: string): Promise<string> {
+function executeCode(language: 'python' | 'javascript', code: string, sessionId?: string, signal?: AbortSignal): Promise<string> {
   const sessionDir = sessionId ? getAmSessionDir(sessionId) : os.tmpdir()
 
   if (language === 'javascript') {
@@ -2438,6 +2483,7 @@ function executeCode(language: 'python' | 'javascript', code: string, sessionId?
         process.execPath, [], { NOETICA_JS_SANDBOX: '1' }, code, sessionId,
         EXEC_TIMEOUT_MS, MAX_OUTPUT_BYTES,
         () => { _activeSelfSandboxes = Math.max(0, _activeSelfSandboxes - 1) },
+        signal,
       )
     }
     // node-subprocess or in-process: delegate to hardened module (explicit sandbox, resource caps).
@@ -5087,6 +5133,7 @@ function rateLimited(cls: string, ip: string): boolean {
 }
 
 const server = http.createServer((req, res) => {
+ try {
   setCORSHeaders(res)
 
   // Handle preflight
@@ -17433,7 +17480,16 @@ Question: ${question}`
   // 404
   res.writeHead(404, { 'content-type': 'application/json' })
   res.end(JSON.stringify({ error: 'not_found', path: url.pathname }))
-
+ } catch (e) {
+  // A synchronous throw anywhere in dispatch (before a route hands off to its own async body) would
+  // otherwise reach the process-level uncaughtException handler and leave THIS request hanging with no
+  // response — the client waits out requestTimeout (300s). Reply 500 so it fails fast instead.
+  console.error('[server] unhandled sync error in request dispatch:', (e instanceof Error ? (e.stack || e.message) : String(e)).replace(/[\r\n]+/g, ' '))
+  try {
+    if (!res.headersSent) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    else res.end()
+  } catch { /* socket already torn down */ }
+ }
 })
 
 // ── Learning-state persistence ─────────────────────────────────────────────────

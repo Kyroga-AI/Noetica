@@ -286,10 +286,21 @@ fn main() {
 
     let cache = Cache { loaded: Mutex::new(HashMap::new()), runnables: Mutex::new(HashMap::new()) };
 
+    // Bearer-token gate: the sidecar binds loopback, but ANY local process could otherwise drive model
+    // inference. When NOETICA_SIDECAR_TOKEN is set (parent agent-machine generates + passes it at spawn),
+    // require it on every route except /health.
+    let want_token = std::env::var("NOETICA_SIDECAR_TOKEN").ok().filter(|t| !t.is_empty());
+
     for mut req in server.incoming_requests() {
         let method = req.method().clone();
         let url = req.url().to_string();
         let path = url.split('?').next().unwrap_or("").to_string();
+
+        if let Some(ref token) = want_token {
+            let expected = format!("Bearer {token}");
+            let authed = path == "/health" || req.headers().iter().any(|h| h.field.equiv("Authorization") && h.value.as_str() == expected);
+            if !authed { respond(req, json_resp(json!({ "error": "unauthorized" }), 401)); continue; }
+        }
 
         match (&method, path.as_str()) {
             (Method::Get, "/health") => respond(req, json_resp(json!({ "ok": true, "models": list_models() }), 200)),

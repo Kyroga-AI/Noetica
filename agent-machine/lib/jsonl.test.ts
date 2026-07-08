@@ -23,8 +23,10 @@ test('missing file → [] (no throw)', () => {
   assert.deepEqual(readJsonl('/no/such/file.jsonl'), [])
 })
 
-test('a malformed line → [] (whole-read catch, never a crash)', () => {
+test('a malformed line is skipped, good lines survive (per-line parse, no whole-ledger loss)', () => {
   const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'jsonl-')), 'log.jsonl')
-  fs.writeFileSync(f, '{"a":1}\n{not json}\n')
-  assert.deepEqual(readJsonl(f), [])
+  fs.writeFileSync(f, '{"a":1}\n{not json}\n{"a":2}\n')
+  // The old reader did `sliced.map(JSON.parse)` → one bad line threw → catch → [] (the ledger vanished).
+  // The per-line reader keeps every parseable record and just skips the corrupt one.
+  assert.deepEqual(readJsonl<{ a: number }>(f).map((x) => x.a), [1, 2])
 })

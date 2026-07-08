@@ -513,22 +513,96 @@ async fn execute_computer_action(action: ComputerAction) -> Result<(), String> {
 
 // ─── File system commands ─────────────────────────────────────────────────────
 
+/// Confine a caller-supplied path to safe roots and reject sensitive locations.
+///
+/// The filesystem tool (and the agent behind it) hands us an arbitrary `path`. Without this,
+/// a compromised webview or a jailbroken agent could read `~/.ssh/id_rsa` or overwrite
+/// `~/.zshrc`. The policy — the app IS a local-first assistant over the user's own files, so
+/// we can't lock it to one workspace, but we can:
+///   1. resolve symlinks + `..` (canonicalize the target, or its nearest existing ancestor for
+///      not-yet-created write targets) so traversal/symlink escapes can't dodge the checks,
+///   2. require the resolved path to live under $HOME or the system temp dir (never /etc,
+///      /System, another user's home), and
+///   3. deny known credential/key stores even inside $HOME.
+fn confine_path(path: &str) -> Result<std::path::PathBuf, String> {
+    use std::path::{Path, PathBuf};
+    let requested = Path::new(path);
+
+    // Resolve to an absolute, symlink-free path. Reads/lists target an existing path so we can
+    // canonicalize directly; a write target may not exist yet, so canonicalize the nearest
+    // existing ancestor and re-append the (traversal-checked) remaining tail.
+    let resolved: PathBuf = if requested.exists() {
+        requested.canonicalize().map_err(|e| e.to_string())?
+    } else {
+        let mut ancestor = requested;
+        let mut tail: Vec<std::ffi::OsString> = Vec::new();
+        loop {
+            let parent = ancestor.parent()
+                .ok_or_else(|| format!("Cannot resolve path: {}", path))?;
+            if let Some(name) = ancestor.file_name() { tail.push(name.to_os_string()); }
+            if parent.exists() || parent.as_os_str().is_empty() {
+                let base_dir = if parent.as_os_str().is_empty() { Path::new(".") } else { parent };
+                let mut base = base_dir.canonicalize().map_err(|e| e.to_string())?;
+                for seg in tail.iter().rev() {
+                    if seg == ".." || seg == "." { return Err("Path traversal is not allowed.".into()) }
+                    base.push(seg);
+                }
+                break base;
+            }
+            ancestor = parent;
+        }
+    };
+
+    // (2) Allowed roots: the user's home and the system temp dir.
+    let home = std::env::var("HOME").ok().map(PathBuf::from).and_then(|h| h.canonicalize().ok());
+    let tmp = std::env::temp_dir().canonicalize().ok();
+    let tmp2 = Path::new("/tmp").canonicalize().ok();          // → /private/tmp on macOS
+    let in_root = [home.as_ref(), tmp.as_ref(), tmp2.as_ref()]
+        .into_iter().flatten()
+        .any(|root| resolved.starts_with(root));
+    if !in_root {
+        return Err("Access denied: path is outside the allowed area (home or temp).".into());
+    }
+
+    // (3) Deny sensitive segments/files even inside home (credential + key material).
+    let lower = resolved.to_string_lossy().to_lowercase();
+    const DENY_SEGMENTS: &[&str] = &[
+        "/.ssh/", "/.aws/", "/.gnupg/", "/.gpg/", "/.kube/", "/.docker/",
+        "/.config/gcloud/", "/.azure/", "/.password-store/", "/.claude/",
+        "/library/keychains/", "/keychains/",
+        "/.mozilla/", "/.config/google-chrome/",
+        "/library/application support/google/chrome/",
+        "/library/application support/firefox/",
+    ];
+    if DENY_SEGMENTS.iter().any(|s| lower.contains(s)) {
+        return Err("Access denied: sensitive location.".into());
+    }
+    let deny_file = lower.ends_with("/.netrc") || lower.ends_with("/.npmrc")
+        || lower.ends_with("/.pypirc") || lower.ends_with("/.env")
+        || lower.contains("/.env.") || lower.ends_with(".pem") || lower.ends_with(".key")
+        || lower.ends_with("/id_rsa") || lower.ends_with("/id_ed25519") || lower.ends_with("/id_dsa");
+    if deny_file {
+        return Err("Access denied: sensitive file.".into());
+    }
+    Ok(resolved)
+}
+
 /// Read a local file as UTF-8 text (≤ 2MB). Used by the filesystem tool.
 #[tauri::command]
 async fn read_local_file(path: String) -> Result<String, String> {
-    let p = std::path::Path::new(&path);
+    let p = confine_path(&path)?;
     if !p.exists() { return Err(format!("File not found: {}", path)) }
-    let meta = std::fs::metadata(p).map_err(|e| e.to_string())?;
+    let meta = std::fs::metadata(&p).map_err(|e| e.to_string())?;
     if meta.len() > 2 * 1024 * 1024 {
         return Err(format!("File too large ({} bytes). Max 2 MB.", meta.len()))
     }
-    std::fs::read_to_string(p).map_err(|e| e.to_string())
+    std::fs::read_to_string(&p).map_err(|e| e.to_string())
 }
 
 /// List files and directories at the given path (non-recursive).
 #[tauri::command]
 async fn list_directory(path: String) -> Result<Vec<serde_json::Value>, String> {
-    let p = std::path::Path::new(&path);
+    let p = confine_path(&path)?;
     if !p.is_dir() { return Err(format!("Not a directory: {}", path)) }
     let mut entries = Vec::new();
     for entry in std::fs::read_dir(p).map_err(|e| e.to_string())? {
@@ -554,11 +628,11 @@ async fn list_directory(path: String) -> Result<Vec<serde_json::Value>, String> 
 /// Write text content to a local file. Creates parent directories if needed.
 #[tauri::command]
 async fn write_local_file(path: String, content: String) -> Result<(), String> {
-    let p = std::path::Path::new(&path);
+    let p = confine_path(&path)?;
     if let Some(parent) = p.parent() {
         std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
-    std::fs::write(p, content).map_err(|e| e.to_string())
+    std::fs::write(&p, content).map_err(|e| e.to_string())
 }
 
 fn main() {

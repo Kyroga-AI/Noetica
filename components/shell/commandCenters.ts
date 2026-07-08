@@ -5,7 +5,7 @@ import type { ActiveSurface } from '@/lib/types/surface'
 /**
  * COMMAND CENTERS — the organizing spine for the left panel.
  *
- * DRAFT / PROPOSAL (2026-07-03). Not yet wired into <Sidebar>. This models the
+ * LIVE — this registry drives <Sidebar> and <CommandCenterRail>. It models the
  * two-axis cockpit lesson borrowed from SocioProphet client-vue
  * (src/config/{cockpitNav,routeRegistry,domainRoutes}.ts) and Will's 2019
  * reference (willdvlpr-socioprophet .../components/Top.js):
@@ -169,10 +169,12 @@ export const NAV_SURFACES: NavSurface[] = [
   { id: 'secrets',    label: 'Secrets',      center: 'cloud', tier: 'secondary', maturity: 'planned', gap: true },
 
   // ── Analytics ──────────────────────────────────────────────────────────
-  { id: 'analytics',  label: 'Dashboards',   center: 'analytics', tier: 'primary', maturity: 'planned', gap: true },
-  { id: 'benchmark',  label: 'Benchmarks',   center: 'analytics', tier: 'primary', maturity: 'planned', gap: true }, // intelligence-superiority
-  { id: 'geo',        label: 'Geo',          center: 'analytics', tier: 'secondary', maturity: 'beta' },
-  { id: 'telemetry',  label: 'Telemetry',    center: 'analytics', tier: 'secondary', maturity: 'planned', gap: true },
+  { id: 'analytics',    label: 'Dashboards',   center: 'analytics', tier: 'primary', maturity: 'planned', gap: true },
+  { id: 'intelligence', label: 'Intelligence', center: 'analytics', tier: 'primary', maturity: 'beta' }, // IntelligenceSurface — live (/api/intelligence/*), was reachable only from the collapsed rail
+  { id: 'portfolio',    label: 'Portfolio',    center: 'analytics', tier: 'primary', maturity: 'beta' }, // PortfolioSurface — live (/api/portfolio/lens), was reachable only from the collapsed rail
+  { id: 'geo',          label: 'Geo',          center: 'analytics', tier: 'secondary', maturity: 'beta' },
+  { id: 'benchmark',    label: 'Benchmarks',   center: 'ai', tier: 'tab', maturity: 'live', foldsInto: 'evaluate' }, // BenchmarkDashboard ships live INSIDE EvaluateSurface — not a standalone (was a fake "coming soon" row)
+  { id: 'telemetry',    label: 'Telemetry',    center: 'analytics', tier: 'secondary', maturity: 'planned', gap: true },
 
   // ── Govern (cross-cutting) ─────────────────────────────────────────────
   { id: 'govern',     label: 'Govern',      center: 'govern', tier: 'primary', maturity: 'live' },
