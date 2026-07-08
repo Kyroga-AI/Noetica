@@ -15,9 +15,13 @@ interface RunRecord { id: number; template: string; vars: string; output: string
 export function StudioSurface() {
   const [tab, setTab] = useState<'prompt' | 'compare'>('prompt')
   const [models, setModels] = useState<string[]>([])
+  const [offline, setOffline] = useState(false)
 
   useEffect(() => {
-    void fetch(amUrl('/api/cap/models')).then((r) => r.json()).then((d: { models?: string[] }) => setModels(d.models ?? [])).catch(() => {})
+    void fetch(amUrl('/api/cap/models'))
+      .then((r) => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
+      .then((d: { models?: string[] }) => { setModels(d.models ?? []); setOffline(false) })
+      .catch(() => setOffline(true))   // surface the offline state instead of a silently empty model list
   }, [])
 
   return (
@@ -25,6 +29,7 @@ export function StudioSurface() {
       <header className="flex items-center gap-3 border-b border-[var(--color-border-secondary)] px-5 py-3">
         <h1 className="text-sm font-semibold text-[var(--color-text-primary)]">Studio</h1>
         <span className="text-[11px] text-[var(--color-text-tertiary)]">Prompt engineering · model comparison · local mesh</span>
+        {offline && <span className="text-[11px] font-medium text-[#dc2626]">· backend offline (no models loaded)</span>}
         <div className="ml-auto flex gap-1">
           {(['prompt', 'compare'] as const).map((t) => (
             <button key={t} onClick={() => setTab(t)}

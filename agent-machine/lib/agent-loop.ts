@@ -11,9 +11,10 @@
  * provider-specific format. The loop owns turn accounting, streaming, tool dispatch, trajectory recording, and
  * divergence recovery. The dormant libs then attach at three named seams (see SEAM markers below), each ONCE.
  *
- * STATUS: scaffolding (Step 0 of the migration) — defined + typechecked, not yet wired into server.ts. The
- * three provider branches in server.ts are converted to adapters one at a time (OpenAI → Anthropic → Ollama),
- * each verified for behavioral equivalence before the next. Until then nothing imports this file.
+ * STATUS: LIVE — the migration is complete. server.ts imports runAgentLoop and drives all THREE providers
+ * through it via adapters: OpenAI (oaiAdapter), Anthropic (anthropicAdapter), and Ollama (ollamaAdapter).
+ * The pre-loop selection lanes (best-of-N candidate selection, reason-lane CoT+SC) still run only on the
+ * local/reason path; the shared post-loop abstain gate (decideAnswer) applies to every provider.
  */
 
 /** A normalized tool call — provider-agnostic (matches server.ts ToolUseBlock structurally). */
