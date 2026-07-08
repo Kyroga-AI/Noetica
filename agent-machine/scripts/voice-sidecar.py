@@ -18,6 +18,10 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 VOICES_DIR = os.path.expanduser("~/.noetica/voices")
 os.makedirs(VOICES_DIR, exist_ok=True)
 PORT = int(os.environ.get("NOETICA_VOICE_PORT", "8124"))
+# Bearer-token gate: the sidecar binds loopback, but ANY local process could otherwise drive voice
+# cloning/synthesis. When NOETICA_SIDECAR_TOKEN is set (parent agent-machine generates + passes it at
+# spawn), require it on every route except /health.
+WANT_TOKEN = os.environ.get("NOETICA_SIDECAR_TOKEN") or ""
 _tts = None
 _lock = threading.Lock()
 
@@ -77,14 +81,23 @@ class Handler(BaseHTTPRequestHandler):
         n = int(self.headers.get("content-length", 0) or 0)
         return json.loads(self.rfile.read(n) or b"{}")
 
+    def _authed(self):
+        if not WANT_TOKEN:
+            return True
+        return self.headers.get("authorization", "") == f"Bearer {WANT_TOKEN}"
+
     def do_GET(self):
         if self.path == "/health":
             return self._json(200, {"ok": True, "model_loaded": _tts is not None, "voices": list_voices()})
+        if not self._authed():
+            return self._json(401, {"error": "unauthorized"})
         if self.path == "/voices":
             return self._json(200, {"voices": list_voices()})
         self._json(404, {"error": "not found"})
 
     def do_POST(self):
+        if not self._authed():
+            return self._json(401, {"error": "unauthorized"})
         try:
             if self.path == "/clone":
                 d = self._read()

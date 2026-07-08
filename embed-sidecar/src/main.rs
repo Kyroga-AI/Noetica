@@ -98,9 +98,20 @@ fn main() {
     let model: Mutex<Option<TextEmbedding>> = Mutex::new(None);
     let store: Mutex<VectorStore> = Mutex::new(VectorStore::new(vec_dir()));
 
+    // Bearer-token gate: the sidecar binds loopback, but ANY local process could otherwise call it
+    // (embedding exfiltration, vector-index tampering). When NOETICA_SIDECAR_TOKEN is set — the parent
+    // agent-machine generates one and passes it at spawn — require it on every route except /health.
+    let want_token = std::env::var("NOETICA_SIDECAR_TOKEN").ok().filter(|t| !t.is_empty());
+
     for mut req in server.incoming_requests() {
         let url = req.url().to_string();
         let method = req.method().clone();
+
+        if let Some(ref token) = want_token {
+            let expected = format!("Bearer {token}");
+            let authed = url == "/health" || req.headers().iter().any(|h| h.field.equiv("Authorization") && h.value.as_str() == expected);
+            if !authed { let _ = req.respond(json("{\"error\":\"unauthorized\"}".into(), 401)); continue; }
+        }
 
         if method == Method::Get && url == "/health" {
             let loaded = model.lock().unwrap().is_some();

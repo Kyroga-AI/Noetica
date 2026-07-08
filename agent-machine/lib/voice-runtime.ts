@@ -25,6 +25,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 VOICES_DIR = os.path.expanduser("~/.noetica/voices")
 os.makedirs(VOICES_DIR, exist_ok=True)
 PORT = int(os.environ.get("NOETICA_VOICE_PORT", "8124"))
+WANT_TOKEN = os.environ.get("NOETICA_SIDECAR_TOKEN") or ""
 _tts = None
 _lock = threading.Lock()
 def slug(s): return re.sub(r"[^a-z0-9]+", "-", (s or "").lower()).strip("-")[:40] or "voice"
@@ -61,11 +62,15 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers(); self.wfile.write(b)
     def _read(self):
         n = int(self.headers.get("content-length", 0) or 0); return json.loads(self.rfile.read(n) or b"{}")
+    def _authed(self):
+        return (not WANT_TOKEN) or self.headers.get("authorization", "") == "Bearer " + WANT_TOKEN
     def do_GET(self):
         if self.path == "/health": return self._json(200, {"ok": True, "model_loaded": _tts is not None, "voices": list_voices()})
+        if not self._authed(): return self._json(401, {"error": "unauthorized"})
         if self.path == "/voices": return self._json(200, {"voices": list_voices()})
         self._json(404, {"error": "not found"})
     def do_POST(self):
+        if not self._authed(): return self._json(401, {"error": "unauthorized"})
         try:
             if self.path == "/clone":
                 d = self._read(); vid = slug(d.get("name", "my voice"))
@@ -120,7 +125,10 @@ export async function ensureVoiceSidecar(): Promise<boolean> {
 }
 
 export function voiceFetch(p: string, init?: RequestInit): Promise<Response> {
-  return fetch(`${BASE}${p}`, init)
+  // Attach the shared sidecar bearer token (the sidecar requires it on every route except /health).
+  const t = process.env['NOETICA_SIDECAR_TOKEN']
+  const headers = t ? { ...(init?.headers as Record<string, string> | undefined), authorization: `Bearer ${t}` } : init?.headers
+  return fetch(`${BASE}${p}`, { ...init, headers })
 }
 
 // ─── In-app provisioning (P4.12) ────────────────────────────────────────────────────────────────────────

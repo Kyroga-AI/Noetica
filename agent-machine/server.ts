@@ -178,6 +178,27 @@ const VERSION = '0.4.21'
   } catch { /* can't persist → leave unset (legacy-open) rather than crash the server */ }
 })()
 
+// Shared bearer token for the native sidecars (embed :8126, operator :8127, voice :8124). They bind
+// loopback but any LOCAL process could otherwise call them (embedding exfiltration, index tampering,
+// driving inference / voice synthesis). Generate once, persist 0600, and pass it to each sidecar at
+// spawn via process.env — the runtimes add `Authorization: Bearer <token>` on every request. Persisted
+// (not per-process-random) so a sidecar left running by a prior parent still authenticates the next one.
+;(function ensureSidecarToken(): void {
+  if (process.env['NOETICA_SIDECAR_TOKEN']) return
+  try {
+    const dir = path.join(os.homedir(), '.noetica')
+    const tokenFile = path.join(dir, 'sidecar-token')
+    let tok = ''
+    try { tok = fs.readFileSync(tokenFile, 'utf8').trim() } catch { /* first run */ }
+    if (!tok) {
+      tok = crypto.randomBytes(32).toString('hex')
+      fs.mkdirSync(dir, { recursive: true })
+      fs.writeFileSync(tokenFile, tok, { mode: 0o600 })
+    }
+    process.env['NOETICA_SIDECAR_TOKEN'] = tok
+  } catch { /* can't persist → leave unset (sidecars run open) rather than crash the server */ }
+})()
+
 // ─── Annealed retrieval config (written by scripts/anneal-retrieval.py) ─────────────────────────────────────
 // Loads config/retrieval-optimal.json and sets env vars for any knob not already overridden.
 // Explicit env vars always win; defaults remain as fallback when neither is set.
