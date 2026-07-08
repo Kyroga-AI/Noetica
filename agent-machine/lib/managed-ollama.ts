@@ -14,9 +14,28 @@
 import * as os from 'node:os'
 import * as path from 'node:path'
 import * as fs from 'node:fs'
+import { createHash } from 'node:crypto'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 const _exec = promisify(execFile)
+
+// Pinned SHA-256 of each supported ollama-darwin.tgz release asset (immutable per tag on GitHub). The
+// runtime is a native binary we download and EXECUTE, so we verify the download against this before
+// extracting/running it — a compromised release or CDN swap otherwise lands RCE as the user. When the
+// default OLLAMA_VERSION below is bumped, ADD the new tag's hash here (shasum -a 256 the .tgz).
+const EXPECTED_SHA256: Record<string, string> = {
+  '0.30.8': '52acbca4e89c53db9abc586a22b5633fd101db293177264b9a0fe5d64a42a064',
+}
+
+function sha256File(file: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const h = createHash('sha256')
+    const s = fs.createReadStream(file)
+    s.on('data', (d) => h.update(d))
+    s.on('error', reject)
+    s.on('end', () => resolve(h.digest('hex')))
+  })
+}
 
 export const MANAGED_PORT = 11435
 export const MODELS_DIR = path.join(os.homedir(), '.noetica', 'models')
@@ -92,6 +111,21 @@ export async function provisionOllamaRuntime(version = process.env['OLLAMA_VERSI
   try {
     const archive = path.join(tmp, 'o.tgz')
     await _exec('curl', ['-fsSL', url, '-o', archive], { maxBuffer: 1 << 26 })
+    // Integrity gate BEFORE extract/exec: verify the archive against the pinned hash. A version with no
+    // pin can't be verified — fail closed unless the operator explicitly opts out (OLLAMA_ALLOW_UNVERIFIED=1).
+    const expected = EXPECTED_SHA256[version]
+    const actual = await sha256File(archive)
+    if (expected) {
+      if (actual !== expected) {
+        console.error(`[managed-ollama] checksum mismatch for ollama ${version}: expected ${expected}, got ${actual} — refusing to install`)
+        return null
+      }
+    } else if (process.env['OLLAMA_ALLOW_UNVERIFIED'] === '1') {
+      console.warn(`[managed-ollama] installing UNVERIFIED ollama ${version} (sha256 ${actual}) — OLLAMA_ALLOW_UNVERIFIED=1`)
+    } else {
+      console.error(`[managed-ollama] no pinned checksum for ollama ${version} (sha256 ${actual}); refusing to install. Add it to EXPECTED_SHA256 or set OLLAMA_ALLOW_UNVERIFIED=1.`)
+      return null
+    }
     await _exec('tar', ['-xzf', archive, '-C', RUNTIME_DIR], { maxBuffer: 1 << 26 })
     fs.chmodSync(bin, 0o755)
     if (!runtimeComplete(bin)) return null
