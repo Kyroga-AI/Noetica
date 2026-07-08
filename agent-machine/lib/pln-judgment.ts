@@ -15,6 +15,11 @@ import { forwardChain } from '@socioprophet/hellgraph'
 const STOP = new Set([
   'The','This','That','These','Those','When','Where','While','With','From','Into',
   'And','But','For','You','Your','They','Their','What','Which','Here','There','It',
+  // Sentence-initial gerunds/status filler — common in acknowledgement/progress text
+  // ("Running it right now…", "Searching for…", "Checking on…") which are not claims.
+  'Running','Working','Loading','Searching','Checking','Looking','Trying','Processing',
+  'Generating','Building','Fetching','Gathering','Composing','Waiting','Analyzing',
+  'Reviewing','Let','Also','Now','Please','Sure','Okay','Note',
 ])
 
 // Extract candidate claim entities: Capitalized words/phrases and "quoted" terms.
