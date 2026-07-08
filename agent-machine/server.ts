@@ -1576,7 +1576,10 @@ async function executeToolWithTimeout(
     // #16 — tool output from EXTERNAL/untrusted sources can carry indirect prompt injection ("ignore your
     // instructions…"). Flag it + spotlight so the model treats embedded directives as DATA, not commands.
     const EXTERNAL = new Set(['web_search', 'public_data', 'read_file', 'ocr', 'registry_lookup', 'dispatch_agent'])
-    if (EXTERNAL.has(name) && typeof result === 'string' && result.length > 0) {
+    // MCP/connector/plugin tools have dynamic names but return attacker-influenceable content (a remote
+    // MCP server or a fetched page), so spotlight them too — the fixed set alone missed them (audit P1-1).
+    const isExternal = EXTERNAL.has(name) || /^(mcp|connector|plugin)[._:-]/i.test(name) || name.includes('__')
+    if (isExternal && typeof result === 'string' && result.length > 0) {
       try {
         const { isLikelyInjection } = await import('./lib/injection-classifier.js')
         if (isLikelyInjection(result)) {
