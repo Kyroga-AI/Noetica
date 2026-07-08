@@ -5096,6 +5096,7 @@ function rateLimited(cls: string, ip: string): boolean {
 }
 
 const server = http.createServer((req, res) => {
+ try {
   setCORSHeaders(res)
 
   // Handle preflight
@@ -17442,7 +17443,16 @@ Question: ${question}`
   // 404
   res.writeHead(404, { 'content-type': 'application/json' })
   res.end(JSON.stringify({ error: 'not_found', path: url.pathname }))
-
+ } catch (e) {
+  // A synchronous throw anywhere in dispatch (before a route hands off to its own async body) would
+  // otherwise reach the process-level uncaughtException handler and leave THIS request hanging with no
+  // response — the client waits out requestTimeout (300s). Reply 500 so it fails fast instead.
+  console.error('[server] unhandled sync error in request dispatch:', (e instanceof Error ? (e.stack || e.message) : String(e)).replace(/[\r\n]+/g, ' '))
+  try {
+    if (!res.headersSent) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    else res.end()
+  } catch { /* socket already torn down */ }
+ }
 })
 
 // ── Learning-state persistence ─────────────────────────────────────────────────
