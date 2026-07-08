@@ -28,9 +28,13 @@ export function AgentBuilderSurface() {
   const [draft, setDraft] = useState({ ...EMPTY })
   const [saving, setSaving] = useState(false)
   const [msg, setMsg] = useState('')
+  const [offline, setOffline] = useState(false)
 
   function load() {
-    void fetch(amUrl('/api/agents')).then((r) => r.ok ? r.json() : null).then((d: AgentsResp | null) => { if (d) setData(d) }).catch(() => {})
+    void fetch(amUrl('/api/agents'))
+      .then((r) => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
+      .then((d: AgentsResp) => { setData(d); setOffline(false) })
+      .catch(() => setOffline(true))   // don't silently blank the surface — tell the user + offer retry
   }
   useEffect(load, [])
 
@@ -53,6 +57,12 @@ export function AgentBuilderSurface() {
   return (
     <div className="flex h-full flex-col overflow-y-auto px-8 py-6">
       <div className="mb-1 text-lg font-semibold text-[var(--color-text-primary)]">Agent Builder</div>
+      {offline && (
+        <div className="mb-3 flex items-center gap-2 rounded-lg border border-[#dc2626]/40 bg-[#dc2626]/10 px-3 py-2 text-xs text-[#dc2626]">
+          <span>Can’t reach the backend — the agent service is offline. Your saved agents can’t load.</span>
+          <button onClick={load} className="ml-auto rounded px-1.5 py-0.5 font-medium underline transition hover:no-underline">Retry</button>
+        </div>
+      )}
       <p className="mb-5 max-w-2xl text-xs text-[var(--color-text-secondary)]">Define a custom sub-agent — its job, the tools it may use, and its budget. It saves encrypted and becomes dispatchable like the built-ins; the same containment, sandbox, and governance apply.</p>
 
       <div className="grid gap-5 lg:grid-cols-[1fr_320px]">

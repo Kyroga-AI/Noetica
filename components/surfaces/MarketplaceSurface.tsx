@@ -492,8 +492,10 @@ export function MarketplaceSurface() {
   }
 
   function handleDeploy(t: SwarmTemplate) {
-    setDeployMsg(`Deploying "${t.title}" — open Agent Builder to configure and launch.`)
-    setTimeout(() => setDeployMsg(''), 4000)
+    // Honest: this is a template, not a live deploy. Point the user to where it's actually configured
+    // + launched (AI → Agents) rather than claiming a deployment is underway.
+    setDeployMsg(`"${t.title}" is a workflow template — configure and launch it in Agent Builder (AI → Agents).`)
+    setTimeout(() => setDeployMsg(''), 5000)
   }
 
   const filteredTemplates = templates.filter((t) =>

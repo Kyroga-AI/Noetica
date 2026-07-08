@@ -333,7 +333,7 @@ function TrafficCard({ traffic }: { traffic: Traffic }) {
               <th className="pb-1 text-left font-medium">{tab === 'state' ? 'State' : 'Archetype'}</th>
               <th className="pb-1 text-right font-medium tabular-nums">Stores</th>
               <th className="pb-1 text-right font-medium tabular-nums">Wkly Txns</th>
-              <th className="pb-1 text-right font-medium tabular-nums">LFL Index</th>
+              <th className="pb-1 text-right font-medium tabular-nums">Revenue</th>
             </tr>
           </thead>
           <tbody>
@@ -343,7 +343,7 @@ function TrafficCard({ traffic }: { traffic: Traffic }) {
                 <td className="py-1 text-right tabular-nums text-[var(--color-text-secondary)]">{r.locations}</td>
                 <td className="py-1 text-right tabular-nums text-[var(--color-text-secondary)]">{r.transactions.toLocaleString()}</td>
                 <td className="py-1 text-right tabular-nums" style={{ color: 'var(--color-text-secondary)' }}>
-                  {r.transactions.toLocaleString()}
+                  {r.revenue.toLocaleString()}
                 </td>
               </tr>
             ))}
