@@ -1458,6 +1458,7 @@ const FEATURE_FLAGS: Array<{ env: string; status: 'default-on' | 'opt-in' | 'exp
   { env: 'NOETICA_FABRIC',             status: 'default-on',   desc: 'Context fabric on the atomspace — STI-gated live brief shared across voice/chat/agents' },
   { env: 'NOETICA_LOGIC_FIRST',        status: 'default-on',   desc: 'Compute the answer by logic first (recall→extract); generate only the undecidable remainder' },
   { env: 'NOETICA_DEMO_MODE',          status: 'opt-in',       desc: 'Public unauthenticated demo: blocks run_command/write_file/edit_file/scaffold_app and restricts dispatch_agent to read-only/research roles, regardless of what the caller requests' },
+  { env: 'NOETICA_HARDENED_EXEC',      status: 'opt-in',       desc: 'Injection→RCE/exfil backstop: an unbound session defaults to least-privilege (research) — no exec, no fs-write (so a prompt-injected run_command/code_execute/write_file is denied unless the session explicitly elevates to build/full). web_search still works. Default off (fully autonomous).' },
 ]
 
 /**
