@@ -1554,6 +1554,7 @@ export function AppShell() {
               onSwitchSession={handleSwitchSession}
               onRemoveSession={removeSession}
               onNewChat={handleNewChat}
+              onCollapse={() => setSidebarCollapsed(true)}
               density={settings.sidebarDensity}
             />
             <ResizeHandle resizable={leftPanel} ariaLabel="Resize sidebar" />
