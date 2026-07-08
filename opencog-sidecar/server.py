@@ -165,6 +165,21 @@ def _db_save() -> None:
         pass
 
 
+# Scheme primitives that must never appear in a restored snapshot — the snapshot is only ever our own
+# `(cog-prt-atomspace)` output (atom constructors), so any of these means the local DB was tampered with.
+# Re-eval'ing a poisoned ~/.noetica/hellgraph.db would be code execution at boot; refuse it.
+_DANGEROUS_SCHEME = (
+    "system", "exec", "primitive-eval", "eval-string", "load", "open-",
+    "call-with-", "getenv", "putenv", "delete-file", "gc-", "dynamic-",
+    "shell", "popen", "subprocess", "`",
+)
+
+
+def _snapshot_looks_dangerous(code: str) -> bool:
+    low = code.lower()
+    return any(tok in low for tok in _DANGEROUS_SCHEME)
+
+
 def _db_restore() -> None:
     """Load latest AtomSpace snapshot from SQLite on startup."""
     if not OPENCOG_AVAILABLE or atomspace is None or not _DB_PATH.exists():
@@ -176,6 +191,13 @@ def _db_restore() -> None:
         ).fetchone()
         conn.close()
         if row and row[0]:
+            if _snapshot_looks_dangerous(row[0]):
+                sys.stderr.write(
+                    "[opencog-sidecar] REFUSING to restore AtomSpace snapshot: it contains "
+                    "non-atom Scheme primitives (possible tampering of ~/.noetica/hellgraph.db). "
+                    "Starting with an empty AtomSpace.\n"
+                )
+                return
             _eval_safe(f"(begin {row[0]} )")
     except Exception:  # noqa: BLE001
         pass
@@ -330,6 +352,13 @@ def ecan_stimulate(payload: EcanPayload) -> dict[str, Any]:
 
 @app.post("/scheme")
 def scheme(payload: SchemePayload) -> dict[str, Any]:
+    # /scheme evaluates ARBITRARY Scheme/Guile (file I/O, shell escapes) — a raw local-RCE primitive.
+    # The app does not use it in normal operation; keep it OFF unless a developer explicitly opts in.
+    if os.environ.get("NOETICA_OPENCOG_ALLOW_SCHEME") != "1":
+        raise HTTPException(
+            status_code=403,
+            detail="/scheme (arbitrary Scheme evaluation) is disabled. Set NOETICA_OPENCOG_ALLOW_SCHEME=1 to enable for development.",
+        )
     _require_opencog()
     try:
         return {"ok": True, "result": _eval(payload.code)}

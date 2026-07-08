@@ -110,7 +110,7 @@ import {
 import { getUserIdentity, setUserIdentity, promptUserName, type UserIdentity } from './lib/identity.js'
 import { detectMemoryPoisonAttempt } from './lib/memory-poison-guard.js'
 import { markExternalContent, buildIpiSystemPromptPrefix, stripPotentialInjection } from './lib/ipi-datamark.js'
-import { executePython, executeJavaScript, EXEC_TIMEOUT_MS, MAX_OUTPUT_BYTES } from './lib/code-sandbox.js'
+import { executePython, executeJavaScript, EXEC_TIMEOUT_MS, MAX_OUTPUT_BYTES, sandboxExecPrefix } from './lib/code-sandbox.js'
 import { maybeSinkToLangfuse } from './lib/langfuse-sink.js'
 import { makeCredential, markAIGenerated } from './lib/content-credentials.js'
 import { detectAnomalies, ftleSeries } from './lib/phantom-anomaly.js'
@@ -2374,7 +2374,11 @@ function runIsolatedJsSubprocess(command: string, args: string[], extraEnv: Reco
     try { fs.writeFileSync(codeFile, code, { mode: 0o600 }) } catch { if (ephemeralDir) { try { fs.rmSync(runDir, { recursive: true, force: true }) } catch { /* */ } } resolve('RuntimeError: could not stage code for execution'); return }
     let out = ''; let done = false
     const childEnv: NodeJS.ProcessEnv = { PATH: process.env['PATH'] ?? '', NJS_FILE: codeFile, NJS_TIMEOUT_MS: String(timeoutMs), NODE_ENV: process.env['NODE_ENV'] ?? 'production', ...extraEnv }
-    const child = cp.spawn(command, args, { cwd: runDir, env: childEnv })
+    // Confine credential reads even if the vm is escaped (macOS sandbox-exec; no-op elsewhere).
+    const sbx = sandboxExecPrefix()
+    const spawnCmd = sbx ? sbx[0]! : command
+    const spawnArgs = sbx ? [...sbx.slice(1), command, ...args] : args
+    const child = cp.spawn(spawnCmd, spawnArgs, { cwd: runDir, env: childEnv })
     const finish = (s: string) => { if (done) return; done = true; clearTimeout(timer); try { fs.unlinkSync(codeFile) } catch { /* */ }; if (ephemeralDir) { try { fs.rmSync(runDir, { recursive: true, force: true }) } catch { /* */ } }; onExit?.(); resolve(s.slice(0, maxOutput).trim() || '(no output)') }
     const timer = setTimeout(() => { try { child.kill('SIGKILL') } catch { /* */ }; finish(out || 'RuntimeError: execution timed out') }, timeoutMs + 2000)
     child.stdout.on('data', (d: Buffer) => { out += d.toString(); if (out.length > maxOutput) { try { child.kill('SIGKILL') } catch { /* */ } } })

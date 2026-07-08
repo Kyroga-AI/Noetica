@@ -119,6 +119,54 @@ try {
 }
 `;
 
+// ── OS-level credential confinement ──────────────────────────────────────────
+// node:vm is not a security boundary — a determined escape (via Object/Array → Function constructor)
+// reaches `require`/`process` inside the subprocess. The subprocess already carries no secrets in its
+// env, but an escape could still READ credential files (~/.ssh, ~/.aws, the at-rest key) and exfiltrate
+// them. On macOS we wrap the subprocess in sandbox-exec with a blacklist profile that denies reads of
+// those credential locations while leaving compute/network/startup untouched. Probe-guarded: if the
+// profile can't run, we skip wrapping rather than break execution. Disable with NOETICA_SANDBOX_EXEC=0.
+
+let _sandboxPrefixCache: string[] | null | undefined;
+
+function sandboxProfile(): string {
+  const home = os.homedir();
+  const sub = (p: string) => `(subpath ${JSON.stringify(path.join(home, p))})`;
+  const noeticaEsc = path.join(home, '.noetica').replace(/[.[\]{}()*+?^$|\\/]/g, '\\$&');
+  return [
+    '(version 1)',
+    '(allow default)',
+    // Deny reads of credential/secret directories even under a vm escape.
+    `(deny file-read* ${sub('.ssh')} ${sub('.aws')} ${sub('.gnupg')} ${sub('.config/gcloud')} ${sub('.config/gh')} ${sub('.kube')} ${sub('.docker')} ${sub('.netrc')})`,
+    // Deny reads of the at-rest key material + sidecar token (they live in ~/.noetica alongside data
+    // the subprocess legitimately reads, so target the secret files specifically, not the whole dir).
+    `(deny file-read* (regex #"^${noeticaEsc}/.*\\.key$"))`,
+    `(deny file-read* (literal ${JSON.stringify(path.join(home, '.noetica', 'sidecar-token'))}))`,
+  ].join(' ');
+}
+
+/** Returns the `sandbox-exec -p <profile>` argv prefix if it's available AND verified to run, else null. */
+export function sandboxExecPrefix(): string[] | null {
+  if (_sandboxPrefixCache !== undefined) return _sandboxPrefixCache;
+  _sandboxPrefixCache = null;
+  try {
+    if (process.platform !== 'darwin') return _sandboxPrefixCache;
+    if (process.env['NOETICA_SANDBOX_EXEC'] === '0') return _sandboxPrefixCache;
+    if (!fs.existsSync('/usr/bin/sandbox-exec')) return _sandboxPrefixCache;
+    const profile = sandboxProfile();
+    // Probe once: only enable wrapping if the profile actually loads and runs a no-op.
+    cp.execFileSync('/usr/bin/sandbox-exec', ['-p', profile, '/usr/bin/true'], { stdio: 'ignore', timeout: 5000 });
+    _sandboxPrefixCache = ['/usr/bin/sandbox-exec', '-p', profile];
+  } catch { _sandboxPrefixCache = null; }
+  return _sandboxPrefixCache;
+}
+
+/** Wrap [cmd, ...args] with the credential-confinement sandbox when available. */
+function withSandbox(cmd: string, args: string[]): { cmd: string; args: string[] } {
+  const prefix = sandboxExecPrefix();
+  return prefix ? { cmd: prefix[0]!, args: [...prefix.slice(1), cmd, ...args] } : { cmd, args };
+}
+
 // ── Subprocess helper ────────────────────────────────────────────────────────
 
 export interface SpawnFn {
@@ -172,9 +220,10 @@ export interface SandboxResult {
 export function executePython(code: string, sessionDir: string): Promise<string> {
   const preamble = buildPythonPreamble(sessionDir);
   const fullCode = preamble + "\n" + code;
+  const w = withSandbox("python3", ["-c", fullCode]);
   return new Promise((resolve) => {
     runSubprocess(
-      "python3", ["-c", fullCode],
+      w.cmd, w.args,
       { cwd: sessionDir, env: buildSafeEnv() as NodeJS.ProcessEnv },
       EXEC_TIMEOUT_MS,
       resolve,
@@ -196,10 +245,11 @@ export function executeJavaScript(code: string, sessionDir: string, nodeExecPath
   try { fs.writeFileSync(njsFile, code, { mode: 0o600 }); } catch { /* fall through to in-process */ }
 
   if (fs.existsSync(njsFile)) {
+    const w = withSandbox(runtime, ["-e", JS_VM_RUNNER]);
     return new Promise((resolve) => {
       const cleanup = () => { try { fs.unlinkSync(njsFile); } catch { /* ignore */ } };
       runSubprocess(
-        runtime, ["-e", JS_VM_RUNNER],
+        w.cmd, w.args,
         {
           cwd: sessionDir,
           env: { NJS_FILE: njsFile, PATH: process.env["PATH"] ?? "" } as unknown as NodeJS.ProcessEnv,
