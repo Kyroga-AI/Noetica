@@ -16,7 +16,10 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 import { embedBatchLocal } from './embed-runtime.js'
 import { cosineSim as cosine } from './vec-sim.js'
-import { readJsonl } from './jsonl.js'
+// Encrypted-at-rest JSONL: verified-solutions.jsonl embeds full user source code and solve-log carries
+// task text — both must be encrypted on disk. at-rest.readJsonl transparently reads any pre-existing
+// plaintext lines (lazy migration), so switching writes AND reads here loses nothing.
+import { appendJsonl, readJsonl } from './at-rest.js'
 
 const DIR = path.join(os.homedir(), '.noetica')
 const LOG = path.join(DIR, 'solve-log.jsonl')              // every attempt → metrics / the compounding curve
@@ -24,10 +27,6 @@ const MEM = path.join(DIR, 'verified-solutions.jsonl')     // verified solutions
 
 export interface SolveRecord { ts: number; task: string; solved: boolean; attempts: number; escalated: boolean; model: string; usedMemory: boolean }
 export interface VerifiedSolution { ts: number; task: string; files: { path: string; content: string }[]; verify: string; embedding?: number[] }
-
-function appendJsonl(file: string, obj: unknown): void {
-  try { fs.mkdirSync(DIR, { recursive: true }); fs.appendFileSync(file, JSON.stringify(obj) + '\n') } catch { /* best-effort */ }
-}
 
 export function recordSolve(rec: Omit<SolveRecord, 'ts'>): void {
   appendJsonl(LOG, { ts: Date.now(), ...rec })

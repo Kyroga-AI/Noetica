@@ -18,6 +18,7 @@ import { GenUIBlock, hasGenUI, splitGenUI } from '@/components/chat/GenUIRendere
 import type { ChatMessage, ToolCallRecord, ToolResultRecord, CriticVerdict } from '@/lib/types/message'
 import type { PendingAttachment } from '@/lib/types/attachment'
 import { useSettings } from '@/lib/settings/context'
+import { useRevealedContent, APP_OPEN_TS } from '@/lib/chat/useRevealedContent'
 
 const KIND_ICON: Record<string, string> = {
   image: '🖼',
@@ -406,6 +407,16 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
   const [feedbackGiven, setFeedbackGiven] = useState<'up' | 'down' | null>(null)
   const [editContent, setEditContent] = useState(message.content)
   const editRef = useRef<HTMLTextAreaElement>(null)
+  const { settings } = useSettings()
+
+  // Uniform reveal cadence for assistant replies. Live turns (created during this view) animate;
+  // history (loaded from a stored session, i.e. created before the app opened) renders in full.
+  const animate = !isUser && (settings.typingTokensPerSec ?? 0) > 0 &&
+    Date.parse(message.created_at) >= APP_OPEN_TS - 1500
+  const displayContent = useRevealedContent(message.content, {
+    tokensPerSec: settings.typingTokensPerSec ?? 0,
+    animate,
+  })
 
   function handleCopy() {
     if (!message.content) return
@@ -555,8 +566,8 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
             : message.retrieval_trace?.sources?.filter((s) => s.label)
 
           // If the content contains generative-UI specs, split and render each segment.
-          if (hasGenUI(message.content)) {
-            const segments = splitGenUI(message.content)
+          if (hasGenUI(displayContent)) {
+            const segments = splitGenUI(displayContent)
             return (
               <div>
                 {segments.map((seg, i) =>
@@ -568,10 +579,10 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
             )
           }
 
-          if (!docSources || docSources.length === 0) return <MarkdownContent content={message.content} />
+          if (!docSources || docSources.length === 0) return <MarkdownContent content={displayContent} />
           // Rewrite [n] citation markers (1–9) to markdown links so the a-renderer turns them into superscripts.
           // Only rewrite numeric-only brackets that look like citations (not e.g. "[code]" or "[…]").
-          const citedContent = message.content.replace(/\[([1-9])\](?!\()/g, (_m, n) => `[[${n}]](#cite-${n})`)
+          const citedContent = displayContent.replace(/\[([1-9])\](?!\()/g, (_m, n) => `[[${n}]](#cite-${n})`)
           const topSources = docSources.slice(0, 5)
           return (
             <>

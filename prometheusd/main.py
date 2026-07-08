@@ -189,10 +189,16 @@ async def _write_candidate_to_hellgraph(candidate: dict[str, Any]) -> str | None
             "type": "prometheus_candidate",
             "candidate": candidate,
         }).encode()
+        _headers = {"content-type": "application/json"}
+        # Loopback local-auth: no-Origin mutating callers must authenticate (see origin-guard). We
+        # inherit NOETICA_LOCAL_TOKEN from the agent-machine parent that spawned us.
+        _local_tok = os.environ.get("NOETICA_LOCAL_TOKEN", "")
+        if _local_tok:
+            _headers["authorization"] = f"Bearer {_local_tok}"
         req = urllib.request.Request(
             f"{AM_URL}/api/graph/ingest",
             data=payload,
-            headers={"content-type": "application/json"},
+            headers=_headers,
             method="POST",
         )
         with urllib.request.urlopen(req, timeout=5) as resp:

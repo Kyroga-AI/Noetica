@@ -37,6 +37,7 @@ export const defaultSettings: NoeticaSettings = {
   defaultPolicyProfile: 'default',
   securityEphemeralMinutes: 15,
 
+  typingTokensPerSec: 11,
   replyLength: 'medium',
   agentMode: 'auto',
   fanoutModels: ['claude-sonnet-4-6', 'gpt-5.5'],

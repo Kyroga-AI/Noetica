@@ -12,6 +12,10 @@ import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
 import type { MemoryStore, MemoryPointer, TopicDoc } from './memory-layers.js'
+// Encrypted at rest: topic bodies ("what it learned") and transcripts contain user content and must not
+// sit in cleartext. decryptText reads legacy plaintext verbatim, so this migrates losslessly. The
+// MEMORY.md index stays plaintext — it is pointers/hooks only, no substantive content.
+import { encryptText, decryptText } from './at-rest.js'
 
 export function memoryRoot(namespace = 'default'): string {
   const base = process.env.NOETICA_MEMORY_DIR || path.join(os.homedir(), '.noetica', 'memory')
@@ -88,22 +92,23 @@ export function fsMemoryStore(namespace = 'default'): MemoryStore {
     },
     async readTopic(name: string): Promise<TopicDoc | null> {
       const raw = await fs.readFile(topicPath(name), 'utf8').catch(() => null)
-      return raw == null ? null : parseTopic(safeName(name), raw)
+      return raw == null ? null : parseTopic(safeName(name), decryptText(raw))
     },
     async writeTopic(doc: TopicDoc): Promise<void> {
       await ensure()
-      await fs.writeFile(topicPath(doc.name), serializeTopic(doc))
+      await fs.writeFile(topicPath(doc.name), encryptText(serializeTopic(doc)))
     },
     async deleteTopic(name: string): Promise<void> {
       await fs.rm(topicPath(name), { force: true })
     },
     async grepTranscripts(query: string): Promise<string[]> {
       const raw = await fs.readFile(transcript, 'utf8').catch(() => '')
-      return raw.split('\n').filter((l) => l && l.includes(query))
+      // Decrypt each stored line (enc: or legacy plaintext) before matching + returning.
+      return raw.split('\n').map(decryptText).filter((l) => l && l.includes(query))
     },
     async appendTranscript(line: string): Promise<void> {
       await ensure()
-      await fs.appendFile(transcript, line.replace(/\n/g, ' ') + '\n')
+      await fs.appendFile(transcript, encryptText(line.replace(/\n/g, ' ')) + '\n')
     },
   }
 }

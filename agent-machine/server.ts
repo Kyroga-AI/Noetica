@@ -110,7 +110,7 @@ import {
 import { getUserIdentity, setUserIdentity, promptUserName, type UserIdentity } from './lib/identity.js'
 import { detectMemoryPoisonAttempt } from './lib/memory-poison-guard.js'
 import { markExternalContent, buildIpiSystemPromptPrefix, stripPotentialInjection } from './lib/ipi-datamark.js'
-import { executePython, executeJavaScript, EXEC_TIMEOUT_MS, MAX_OUTPUT_BYTES } from './lib/code-sandbox.js'
+import { executePython, executeJavaScript, EXEC_TIMEOUT_MS, MAX_OUTPUT_BYTES, sandboxExecPrefix } from './lib/code-sandbox.js'
 import { maybeSinkToLangfuse } from './lib/langfuse-sink.js'
 import { makeCredential, markAIGenerated } from './lib/content-credentials.js'
 import { detectAnomalies, ftleSeries } from './lib/phantom-anomaly.js'
@@ -154,6 +154,29 @@ if (process.env['NOETICA_JS_SANDBOX'] === '1') {
 
 const PORT = parseInt(process.env['NOETICA_AM_PORT'] ?? '8080', 10)
 const VERSION = '0.4.21'
+
+// Loopback local-auth secret — auto-generated on first run so the API is not open to EVERY local
+// process by default (a second OS user, a malicious binary, a browser-extension native host, curl can
+// otherwise POST /api/chat → run_command → RCE). A no-Origin MUTATING caller must present this
+// (Authorization: Bearer <token> or X-Noetica-Local); the browser UI authenticates by Origin and never
+// needs it. Distinct from NOETICA_API_TOKEN so it does not activate the requireApiToken route gate.
+// Persisted 0600 in ~/.noetica; child sidecars inherit it via process.env. Escape hatch:
+// NOETICA_ALLOW_NOORIGIN_WRITES=1 (or NOETICA_ORIGIN_GUARD=0).
+;(function ensureLocalToken(): void {
+  if (process.env['NOETICA_LOCAL_TOKEN']) return
+  try {
+    const dir = path.join(os.homedir(), '.noetica')
+    const tokenFile = path.join(dir, 'local-token')
+    let tok = ''
+    try { tok = fs.readFileSync(tokenFile, 'utf8').trim() } catch { /* first run */ }
+    if (!tok) {
+      tok = crypto.randomBytes(32).toString('hex')
+      fs.mkdirSync(dir, { recursive: true })
+      fs.writeFileSync(tokenFile, tok, { mode: 0o600 })
+    }
+    process.env['NOETICA_LOCAL_TOKEN'] = tok
+  } catch { /* can't persist → leave unset (legacy-open) rather than crash the server */ }
+})()
 
 // ─── Annealed retrieval config (written by scripts/anneal-retrieval.py) ─────────────────────────────────────
 // Loads config/retrieval-optimal.json and sets env vars for any knob not already overridden.
@@ -1435,6 +1458,7 @@ const FEATURE_FLAGS: Array<{ env: string; status: 'default-on' | 'opt-in' | 'exp
   { env: 'NOETICA_FABRIC',             status: 'default-on',   desc: 'Context fabric on the atomspace — STI-gated live brief shared across voice/chat/agents' },
   { env: 'NOETICA_LOGIC_FIRST',        status: 'default-on',   desc: 'Compute the answer by logic first (recall→extract); generate only the undecidable remainder' },
   { env: 'NOETICA_DEMO_MODE',          status: 'opt-in',       desc: 'Public unauthenticated demo: blocks run_command/write_file/edit_file/scaffold_app and restricts dispatch_agent to read-only/research roles, regardless of what the caller requests' },
+  { env: 'NOETICA_HARDENED_EXEC',      status: 'opt-in',       desc: 'Injection→RCE/exfil backstop: an unbound session defaults to least-privilege (research) — no exec, no fs-write (so a prompt-injected run_command/code_execute/write_file is denied unless the session explicitly elevates to build/full). web_search still works. Default off (fully autonomous).' },
 ]
 
 /**
@@ -1474,6 +1498,17 @@ function requireApiToken(req: http.IncomingMessage, res: http.ServerResponse): b
   res.writeHead(401, { 'content-type': 'application/json' })
   res.end(JSON.stringify({ error: 'unauthorized', hint: 'set Authorization: Bearer <NOETICA_API_TOKEN>' }))
   return false
+}
+
+/** Does the request carry the loopback local-auth secret? Used by the origin guard to admit a no-Origin
+ *  (native/CLI/sidecar) MUTATING caller only when it authenticates. Separate from NOETICA_API_TOKEN so
+ *  it never trips the requireApiToken route gate that the browser UI does not send a bearer for. */
+function hasValidLocalToken(req: http.IncomingMessage): boolean {
+  const expected = process.env['NOETICA_LOCAL_TOKEN']
+  if (!expected) return false
+  const auth = req.headers['authorization'] ?? ''
+  const got = Array.isArray(auth) ? auth[0] : auth
+  return got === `Bearer ${expected}` || req.headers['x-noetica-local'] === expected
 }
 
 // ─── Tool execution ───────────────────────────────────────────────────────────
@@ -1542,7 +1577,10 @@ async function executeToolWithTimeout(
     // #16 — tool output from EXTERNAL/untrusted sources can carry indirect prompt injection ("ignore your
     // instructions…"). Flag it + spotlight so the model treats embedded directives as DATA, not commands.
     const EXTERNAL = new Set(['web_search', 'public_data', 'read_file', 'ocr', 'registry_lookup', 'dispatch_agent'])
-    if (EXTERNAL.has(name) && typeof result === 'string' && result.length > 0) {
+    // MCP/connector/plugin tools have dynamic names but return attacker-influenceable content (a remote
+    // MCP server or a fetched page), so spotlight them too — the fixed set alone missed them (audit P1-1).
+    const isExternal = EXTERNAL.has(name) || /^(mcp|connector|plugin)[._:-]/i.test(name) || name.includes('__')
+    if (isExternal && typeof result === 'string' && result.length > 0) {
       try {
         const { isLikelyInjection } = await import('./lib/injection-classifier.js')
         if (isLikelyInjection(result)) {
@@ -2374,7 +2412,11 @@ function runIsolatedJsSubprocess(command: string, args: string[], extraEnv: Reco
     try { fs.writeFileSync(codeFile, code, { mode: 0o600 }) } catch { if (ephemeralDir) { try { fs.rmSync(runDir, { recursive: true, force: true }) } catch { /* */ } } resolve('RuntimeError: could not stage code for execution'); return }
     let out = ''; let done = false
     const childEnv: NodeJS.ProcessEnv = { PATH: process.env['PATH'] ?? '', NJS_FILE: codeFile, NJS_TIMEOUT_MS: String(timeoutMs), NODE_ENV: process.env['NODE_ENV'] ?? 'production', ...extraEnv }
-    const child = cp.spawn(command, args, { cwd: runDir, env: childEnv })
+    // Confine credential reads even if the vm is escaped (macOS sandbox-exec; no-op elsewhere).
+    const sbx = sandboxExecPrefix()
+    const spawnCmd = sbx ? sbx[0]! : command
+    const spawnArgs = sbx ? [...sbx.slice(1), command, ...args] : args
+    const child = cp.spawn(spawnCmd, spawnArgs, { cwd: runDir, env: childEnv })
     const finish = (s: string) => { if (done) return; done = true; clearTimeout(timer); try { fs.unlinkSync(codeFile) } catch { /* */ }; if (ephemeralDir) { try { fs.rmSync(runDir, { recursive: true, force: true }) } catch { /* */ } }; onExit?.(); resolve(s.slice(0, maxOutput).trim() || '(no output)') }
     const timer = setTimeout(() => { try { child.kill('SIGKILL') } catch { /* */ }; finish(out || 'RuntimeError: execution timed out') }, timeoutMs + 2000)
     child.stdout.on('data', (d: Buffer) => { out += d.toString(); if (out.length > maxOutput) { try { child.kill('SIGKILL') } catch { /* */ } } })
@@ -5063,10 +5105,10 @@ const server = http.createServer((req, res) => {
   if (process.env['NOETICA_ORIGIN_GUARD'] !== '0') {
     const oh = req.headers['origin']
     const origin = Array.isArray(oh) ? oh[0] : oh
-    if (!originAllowed(req.method, origin)) {
-      console.warn(`[security] rejected cross-origin ${logSafe(req.method)} ${logSafe(req.url ?? '')} from origin=${logSafe(origin)}`)
+    if (!originAllowed(req.method, origin, { authenticated: hasValidLocalToken(req) })) {
+      console.warn(`[security] rejected ${logSafe(req.method)} ${logSafe(req.url ?? '')} from origin=${logSafe(origin)} (no-Origin mutating callers must send Authorization: Bearer <NOETICA_API_TOKEN>)`)
       res.writeHead(403, { 'content-type': 'application/json' })
-      res.end(JSON.stringify({ error: 'cross-origin request rejected (set NOETICA_ORIGIN_GUARD=0 to allow)' }))
+      res.end(JSON.stringify({ error: 'request rejected: cross-site Origin, or unauthenticated no-Origin write (send the API token, or set NOETICA_ALLOW_NOORIGIN_WRITES=1 / NOETICA_ORIGIN_GUARD=0)' }))
       return
     }
   }

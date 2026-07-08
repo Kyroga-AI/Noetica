@@ -31,6 +31,21 @@ export const PURPOSES: Record<string, Purpose> = {
 
 export const DEFAULT_PURPOSE = PURPOSES['full']!
 
+/**
+ * Opt-in hardened posture (NOETICA_HARDENED_EXEC=1, default off): when set, an unbound session defaults
+ * to 'research' — read + search + remember, but NO exec and NO fs-write. This is the injection→RCE/exfil
+ * backstop: a prompt-injected `run_command`/`code_execute`/`write_file` is denied by the existing
+ * purpose-binding gate unless the session EXPLICITLY elevates to 'build'/'full'. web_search (net) still
+ * works, so the agent stays useful; raw shell (the exfil channel) is off. Fully autonomous by default.
+ */
+function hardenedExecEnabled(): boolean {
+  const v = process.env['NOETICA_HARDENED_EXEC']
+  return v === '1' || v === 'true'
+}
+export function baseDefaultPurpose(): Purpose {
+  return hardenedExecEnabled() ? PURPOSES['research']! : DEFAULT_PURPOSE
+}
+
 export interface ContainmentState {
   killed: boolean
   reason: string | null
@@ -43,9 +58,10 @@ export interface ActionVerdict {
   reason: string
 }
 
-/** Resolve a purpose by name; unknown names fall back to 'full' (fail-OPEN on name, fail-CLOSED on capability). */
+/** Resolve a purpose by name; unknown/absent names fall back to the base default (least-privilege
+ *  'research' under NOETICA_HARDENED_EXEC, else 'full'). Fail-OPEN on unknown name, fail-CLOSED per capability. */
 export function resolvePurpose(name: string | undefined): Purpose {
-  return (name && PURPOSES[name]) || DEFAULT_PURPOSE
+  return (name && PURPOSES[name]) || baseDefaultPurpose()
 }
 
 /**
@@ -64,7 +80,7 @@ export function checkAction(state: ContainmentState, capability: Capability): Ac
 
 // ── Runtime enforcement (module-level state the dispatch path calls) ─────────
 
-let _state: ContainmentState = { killed: false, reason: null, since: null, purpose: DEFAULT_PURPOSE }
+let _state: ContainmentState = { killed: false, reason: null, since: null, purpose: baseDefaultPurpose() }
 
 /** Arm the kill-switch — every subsequent guarded action fails closed. */
 export function armKillSwitch(reason?: string): void {

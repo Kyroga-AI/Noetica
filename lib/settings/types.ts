@@ -66,6 +66,10 @@ export interface NoeticaSettings {
   // after this many minutes of inactivity (sliding window). 0 disables ephemerality.
   securityEphemeralMinutes: number
 
+  // Presentation — uniform reveal cadence for assistant replies (typewriter). Applies to ALL response
+  // paths (model stream + local dialogue/command replies). 0 = instant (no throttle).
+  typingTokensPerSec: number
+
   // Fan-out
   replyLength: 'short' | 'medium' | 'long'
   agentMode: 'auto' | 'plan' | 'ask'

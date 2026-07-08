@@ -101,6 +101,29 @@ export function AppearancePanel() {
         </div>
       </div>
 
+      {/* Typing speed — uniform reveal cadence for every assistant reply (model + local dialogue) */}
+      <div>
+        <label className="block text-sm font-semibold text-[var(--color-text-primary)]">Typing speed</label>
+        <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">
+          How fast replies are revealed, in tokens per second. Applies to every response — streamed and instant.
+        </p>
+        <div className="mt-3 flex gap-2">
+          {([[0, 'Instant'], [10, 'Calm · 10/s'], [11, 'Steady · 11/s'], [12, 'Brisk · 12/s']] as const).map(([val, label]) => (
+            <button
+              key={val}
+              onClick={() => update({ typingTokensPerSec: val })}
+              className={`rounded-xl border px-4 py-2 text-sm transition ${
+                (settings.typingTokensPerSec ?? 11) === val
+                  ? 'border-[#1d4ed8] bg-[rgba(29,78,216,0.08)] font-semibold text-[#1d4ed8]'
+                  : 'border-[var(--color-border-tertiary)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-secondary)]'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {/* TTS voice */}
       <div>
         <label className="block text-sm font-semibold text-[var(--color-text-primary)]">Voice</label>

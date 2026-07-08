@@ -11,7 +11,10 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 import { execFile } from 'node:child_process'
+import { promisify } from 'node:util'
 import * as crypto from 'node:crypto'
+
+const execFileP = promisify(execFile)
 import { academicBrainDir, opsBrainFile, brainHome } from './brain-home.js'
 import { BrainScope } from './brain-scope.js'
 import { fetchBrainManifest, entryFor, type BrainManifest } from './brain-manifest.js'
@@ -91,6 +94,33 @@ export function brainUrl(name: 'academic' | 'operational'): string {
 export interface ProvisionProgress { phase: 'downloading' | 'extracting' | 'done'; pct: number | null }
 export interface ProvisionResult { ok: boolean; message: string }
 
+/**
+ * Reject an archive whose members could write outside the extraction root — absolute paths, `..`
+ * traversal, or symlink/hardlink members whose target escapes. Belt-and-braces on top of the
+ * staging-dir confinement below; do NOT rely on the tar CLI's own defaults across platforms.
+ */
+async function assertSafeTarMembers(archive: string): Promise<void> {
+  // -tv lists type + (for links) "name -> target"; parse both.
+  const { stdout } = await execFileP('tar', ['-tvzf', archive], { maxBuffer: 64 * 1024 * 1024 })
+  const bad = (p: string): boolean =>
+    !p ||
+    p.startsWith('/') ||
+    /^[a-zA-Z]:[\\/]/.test(p) ||               // windows drive-absolute
+    p.split(/[\\/]/).some((seg) => seg === '..')
+  for (const line of stdout.split('\n')) {
+    if (!line.trim()) continue
+    const type = line[0]                       // '-' file, 'd' dir, 'l' symlink, 'h' hardlink
+    // strip the mode/owner/size/date columns; the name (and link arrow) is the tail after the time field.
+    const m = line.match(/\d{2}:\d{2}\s+(.*)$/) || line.match(/\d{4}\s+(.*)$/)
+    const tail = (m ? m[1] : line).trim()
+    const [name, linkTarget] = tail.split(' -> ')
+    if (bad(name!)) throw new Error(`unsafe archive member: ${name}`)
+    if ((type === 'l' || type === 'h') && linkTarget && bad(linkTarget)) {
+      throw new Error(`unsafe link member: ${name} -> ${linkTarget}`)
+    }
+  }
+}
+
 /** Resolve where a brain comes from: env override > the service manifest (versioned + checksummed) >
  *  the static release URL. */
 async function resolveSource(name: 'academic' | 'operational'): Promise<{ url: string; sha256: string; version: string }> {
@@ -99,6 +129,22 @@ async function resolveSource(name: 'academic' | 'operational'): Promise<{ url: s
   const e = entryFor(await fetchBrainManifest(), name)
   if (e) return { url: e.url, sha256: e.sha256 || '', version: e.version || '' }
   return { url: brainUrl(name), sha256: '', version: '' } // static release fallback
+}
+
+/** Walk a tree and return every symlink path (used to reject post-extraction symlink escapes). */
+function collectSymlinks(root: string): string[] {
+  const out: string[] = []
+  const walk = (dir: string): void => {
+    let entries: fs.Dirent[]
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }) } catch { return }
+    for (const e of entries) {
+      const p = path.join(dir, e.name)
+      if (e.isSymbolicLink()) out.push(p)
+      else if (e.isDirectory()) walk(p)
+    }
+  }
+  walk(root)
+  return out
 }
 
 /** Download + install a shippable brain (a .tar.gz) into the brain-home, via the manifest service. */
@@ -127,17 +173,40 @@ export async function provisionBrain(name: 'academic' | 'operational', onProgres
     } finally { reader.releaseLock(); ws.end() }
     await new Promise<void>((resolve, reject) => { ws.on('finish', () => resolve()); ws.on('error', reject) })
 
-    // Integrity: never install a corrupt/tampered brain. When the manifest gave a sha256, verify it.
-    if (expectedSha) {
+    // Integrity: never install a corrupt/tampered/unverified brain. A trusted sha256 is REQUIRED —
+    // the corpus is untarred and fed to the model/RAG, so an unverified download is a data-poisoning
+    // and (via a malicious tar) filesystem-write vector. Fail closed unless explicitly overridden for dev.
+    const allowUnverified = process.env['NOETICA_BRAIN_ALLOW_UNVERIFIED'] === '1'
+    if (!expectedSha) {
+      if (!allowUnverified) {
+        return { ok: false, message: `refusing to install the ${name} brain: no trusted sha256 available (the manifest did not publish a checksum). Set NOETICA_BRAIN_ALLOW_UNVERIFIED=1 to override for local development.` }
+      }
+      console.warn(`[brain-provision] WARNING: installing ${name} brain WITHOUT integrity verification (NOETICA_BRAIN_ALLOW_UNVERIFIED=1).`)
+    } else {
       const got = await sha256File(tmp)
       if (got !== expectedSha) return { ok: false, message: `integrity check FAILED for the ${name} brain (sha256 mismatch) — refusing to install` }
     }
 
     onProgress?.({ phase: 'extracting', pct: null })
+    // Refuse traversal/symlink-escape members, then extract into a fresh staging dir (blast-radius
+    // confinement) with ownership/perms not honored, and only then move the vetted tree into place.
+    await assertSafeTarMembers(tmp)
     fs.mkdirSync(target, { recursive: true })
-    await new Promise<void>((resolve, reject) => {
-      execFile('tar', ['-xzf', tmp, '-C', target], { timeout: 20 * 60_000 }, (err) => (err ? reject(err) : resolve()))
-    })
+    const staging = fs.mkdtempSync(path.join(os.tmpdir(), `noetica-brain-stage-${name}-`))
+    try {
+      await new Promise<void>((resolve, reject) => {
+        execFile('tar', ['-xzf', tmp, '-C', staging, '--no-same-owner', '--no-same-permissions'], { timeout: 20 * 60_000 }, (err) => (err ? reject(err) : resolve()))
+      })
+      // Defense-in-depth: reject if extraction produced any symlink escaping the staging root.
+      for (const link of collectSymlinks(staging)) {
+        const resolved = fs.realpathSync(path.dirname(link)) + path.sep + path.basename(link)
+        const dest = path.resolve(path.dirname(link), fs.readlinkSync(link))
+        if (!dest.startsWith(fs.realpathSync(staging) + path.sep)) throw new Error(`extracted symlink escapes staging: ${resolved} -> ${dest}`)
+      }
+      fs.cpSync(staging, target, { recursive: true, force: true })
+    } finally {
+      try { fs.rmSync(staging, { recursive: true, force: true }) } catch { /* ignore */ }
+    }
     // Record the installed version so the next manifest check can detect an update.
     if (version) { try { fs.writeFileSync(versionMarkerPath(name), version) } catch { /* best-effort */ } }
     onProgress?.({ phase: 'done', pct: 100 })
