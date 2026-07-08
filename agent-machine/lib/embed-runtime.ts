@@ -41,6 +41,9 @@ async function ensure(): Promise<boolean> {
     if (!child || child.exitCode !== null) {
       child = spawn(bin, [], { env: { ...process.env, NOETICA_EMBED_PORT: String(PORT) }, stdio: 'ignore', detached: false })
       child.on('exit', () => { child = null })
+      // Don't keep the parent's event loop alive on this daemon — otherwise a short-lived CLI/test that
+      // touches embeddings hangs on exit waiting for the still-running sidecar (matches operator-runtime).
+      child.unref()
     }
     const deadline = Date.now() + 6000
     while (Date.now() < deadline) { if (await healthy()) return true; await new Promise((r) => setTimeout(r, 300)) }

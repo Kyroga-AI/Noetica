@@ -242,6 +242,9 @@ async function runGraphPattern(
     const { embedBatchLocal } = await import('./embed-runtime.js')
     const v = await embedBatchLocal([query]); const vec = v?.[0]; if (vec) queryVector = vec
   } catch { /* cosine optional */ }
+  // Observability: silent embed failure degrades retrieval to lexical/link-only — a quality regression
+  // that otherwise looks identical to "no vector matches". Emit a signal so it isn't invisible.
+  if (!queryVector) console.warn('[retrieval] query embedding unavailable — degrading to lexical + link recall (no vector cosine this turn)')
   const vectorOf = (n: { properties: Record<string, unknown> }) => {
     const raw = n.properties['embedding']; if (!raw) return null
     try { return typeof raw === 'string' ? JSON.parse(raw) as number[] : (raw as number[]) } catch { return null }

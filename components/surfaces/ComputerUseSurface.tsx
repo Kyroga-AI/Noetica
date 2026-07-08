@@ -408,7 +408,7 @@ export function ComputerUseSurface() {
                 <div key={delay} className="h-1.5 w-1.5 rounded-full bg-[#3b82f6] animate-bounce" style={{ animationDelay: `${delay}ms` }} />
               ))}
               <span className="text-xs text-[var(--color-text-tertiary)]">
-                {status === 'planning' ? 'Planning sub-tasks…' : 'Claude is acting…'}
+                {status === 'planning' ? 'Planning sub-tasks…' : 'Noetica is acting…'}
               </span>
             </div>
           )}
@@ -434,7 +434,7 @@ export function ComputerUseSurface() {
           <div className="flex items-end gap-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-4 py-3 shadow-sm">
             <textarea
               className="min-h-[2.5rem] flex-1 resize-none bg-transparent text-sm leading-6 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
-              placeholder="Describe what you want Claude to do on your computer…"
+              placeholder="Describe what you want Noetica to do on your computer…"
               value={goal}
               disabled={isRunning}
               onChange={(e) => setGoal(e.target.value)}

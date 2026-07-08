@@ -112,21 +112,26 @@ async function listManagedRunners(parentPid: number): Promise<RunnerProc[]> {
   } catch { return [] }
 }
 
-/** How many models the managed Ollama currently has loaded (0 on any failure). */
-async function loadedModelCount(base: string): Promise<number> {
+/** How many models the managed Ollama currently has loaded. Returns null when the probe FAILS (timeout,
+ *  non-200, wedged runtime) — distinct from a real 0 — so the caller can skip reaping rather than assume
+ *  "0 loaded" and kill a live runner during a transient /api/ps blip. */
+async function loadedModelCount(base: string): Promise<number | null> {
   try {
     const r = await fetch(`${base}/api/ps`, { signal: AbortSignal.timeout(2000) })
-    if (!r.ok) return 0
+    if (!r.ok) return null
     const j = (await r.json()) as { models?: unknown[] }
     return Array.isArray(j.models) ? j.models.length : 0
-  } catch { return 0 }
+  } catch { return null }
 }
 
 /** Reconcile runners against loaded models and SIGTERM the orphaned surplus. Best-effort. */
 export async function reapOrphanRunners(base: string, parentPid: number): Promise<number[]> {
   const runners = await listManagedRunners(parentPid)
   if (runners.length === 0) return []
-  const orphans = selectOrphanRunners(runners, await loadedModelCount(base))
+  const loaded = await loadedModelCount(base)
+  // Probe failed → we can't tell loaded-vs-surplus; skip this sweep rather than risk SIGKILLing a live model.
+  if (loaded === null) return []
+  const orphans = selectOrphanRunners(runners, loaded)
   for (const pid of orphans) { try { process.kill(pid, 'SIGTERM') } catch { /* already gone */ } }
   if (orphans.length) console.log(`[managed-runtime] reaped ${orphans.length} orphaned llama-server runner(s) (total=${runners.length})`)
   return orphans

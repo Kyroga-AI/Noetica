@@ -1489,12 +1489,20 @@ function logSafe(s: unknown): string {
  * caller must send `Authorization: Bearer <token>`. Returns true if allowed; on
  * denial it writes 401 and returns false so the handler can early-return.
  */
+/** Constant-time string equality — hash both to a fixed 32 bytes so lengths always match (no length
+ *  leak) and the compare doesn't short-circuit. Used for the auth-boundary token checks below. */
+function timingSafeEq(a: string, b: string): boolean {
+  const ha = crypto.createHash('sha256').update(a).digest()
+  const hb = crypto.createHash('sha256').update(b).digest()
+  return crypto.timingSafeEqual(ha, hb)
+}
+
 function requireApiToken(req: http.IncomingMessage, res: http.ServerResponse): boolean {
   const expected = process.env['NOETICA_API_TOKEN']
   if (!expected) return true // auth disabled
   const auth = req.headers['authorization'] ?? ''
   const got = Array.isArray(auth) ? auth[0] : auth
-  if (got === `Bearer ${expected}`) return true
+  if (timingSafeEq(got, `Bearer ${expected}`)) return true
   res.writeHead(401, { 'content-type': 'application/json' })
   res.end(JSON.stringify({ error: 'unauthorized', hint: 'set Authorization: Bearer <NOETICA_API_TOKEN>' }))
   return false
@@ -1508,7 +1516,8 @@ function hasValidLocalToken(req: http.IncomingMessage): boolean {
   if (!expected) return false
   const auth = req.headers['authorization'] ?? ''
   const got = Array.isArray(auth) ? auth[0] : auth
-  return got === `Bearer ${expected}` || req.headers['x-noetica-local'] === expected
+  const xhdr = req.headers['x-noetica-local']
+  return timingSafeEq(got, `Bearer ${expected}`) || timingSafeEq(Array.isArray(xhdr) ? (xhdr[0] ?? '') : (xhdr ?? ''), expected)
 }
 
 // ─── Tool execution ───────────────────────────────────────────────────────────

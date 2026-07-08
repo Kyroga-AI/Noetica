@@ -157,7 +157,7 @@ function CanvasEditor({ doc, onUpdate }: { doc: CanvasDocument; onUpdate: (patch
         <textarea
           ref={textareaRef}
           className="min-h-0 flex-1 resize-none bg-[var(--color-background-primary)] px-6 py-5 font-mono text-sm leading-7 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
-          placeholder={`Start writing…\n\n# Use markdown formatting\n\n**Bold**, _italic_, \`code\`\n\n- Lists work too\n\nTip: ask Claude to write or edit this document in the chat panel →`}
+          placeholder={`Start writing…\n\n# Use markdown formatting\n\n**Bold**, _italic_, \`code\`\n\n- Lists work too\n\nTip: ask Noetica to write or edit this document in the chat panel →`}
           value={doc.content}
           onChange={(e) => onUpdate({ content: e.target.value })}
           onKeyDown={handleKeyDown}
@@ -342,7 +342,7 @@ function CanvasChat({ doc, onDocUpdate }: {
       <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-4 py-3">
         <div>
           <p className="text-xs font-semibold text-[var(--color-text-primary)]">Canvas AI</p>
-          <p className="text-[11px] text-[var(--color-text-tertiary)]">Ask Claude to write or edit</p>
+          <p className="text-[11px] text-[var(--color-text-tertiary)]">Ask Noetica to write or edit</p>
         </div>
         {messages.length > 0 && (
           <span className="rounded-full bg-[#eff6ff] px-2 py-0.5 text-[10px] font-semibold text-[#1d4ed8]">{messages.length}</span>
@@ -352,8 +352,8 @@ function CanvasChat({ doc, onDocUpdate }: {
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {messages.length === 0 ? (
           <div className="py-8 text-center">
-            <p className="text-xs font-medium text-[var(--color-text-secondary)]">Co-write with Claude</p>
-            <p className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">Ask Claude to draft, rewrite, extend, or critique — it writes directly into the canvas.</p>
+            <p className="text-xs font-medium text-[var(--color-text-secondary)]">Co-write with Noetica</p>
+            <p className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">Ask Noetica to draft, rewrite, extend, or critique — it writes directly into the canvas.</p>
             <div className="mt-4 space-y-1.5">
               {['Write a blog post about this topic', 'Summarise and compress', 'Make this more concise', 'Add an introduction'].map((s) => (
                 <button key={s} onClick={() => setInput(s)}
@@ -386,7 +386,7 @@ function CanvasChat({ doc, onDocUpdate }: {
         <div className="flex items-end gap-2 rounded-xl border border-[#bfdbfe] bg-[var(--color-background-primary)] p-2 shadow-sm">
           <textarea
             className="min-h-[2.5rem] flex-1 resize-none bg-transparent text-xs leading-5 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
-            placeholder="Ask Claude to write…"
+            placeholder="Ask Noetica to write…"
             value={input}
             disabled={streaming}
             onChange={(e) => setInput(e.target.value)}
@@ -426,7 +426,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
         <p className="text-3xl mb-3">✏️</p>
         <p className="text-sm font-semibold text-[var(--color-text-secondary)]">No document open</p>
         <p className="mt-1 text-xs text-[var(--color-text-secondary)] max-w-xs leading-5">
-          Canvas is a collaborative document editor. Create a document and ask Claude to write, edit, or extend it directly.
+          Canvas is a collaborative document editor. Create a document and ask Noetica to write, edit, or extend it directly.
         </p>
         <button
           onClick={onCreate}

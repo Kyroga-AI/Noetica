@@ -9,11 +9,20 @@
 import * as fs from 'node:fs'
 
 export function readJsonl<T>(file: string, opts: { limit?: number } = {}): T[] {
+  let lines: string[]
   try {
-    const lines = fs.readFileSync(file, 'utf8').trim().split('\n').filter(Boolean)
-    const sliced = opts.limit != null ? lines.slice(-opts.limit) : lines
-    return sliced.map((l) => JSON.parse(l) as T)
+    // Separate the READ from the PARSE: a missing file → [] here; a single corrupt/truncated line must
+    // NOT zero the whole ledger (the old `sliced.map(JSON.parse)` threw on one bad line → catch → []).
+    lines = fs.readFileSync(file, 'utf8').trim().split('\n').filter(Boolean)
   } catch {
     return []
   }
+  const sliced = opts.limit != null ? lines.slice(-opts.limit) : lines
+  const out: T[] = []
+  let skipped = 0
+  for (const l of sliced) {
+    try { out.push(JSON.parse(l) as T) } catch { skipped++ }
+  }
+  if (skipped > 0) console.warn(`[jsonl] skipped ${skipped} unparseable line(s) in ${file} (kept ${out.length})`)
+  return out
 }
