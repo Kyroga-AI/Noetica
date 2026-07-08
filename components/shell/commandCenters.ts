@@ -170,8 +170,8 @@ export const NAV_SURFACES: NavSurface[] = [
 
   // ── Analytics ──────────────────────────────────────────────────────────
   { id: 'analytics',    label: 'Dashboards',   center: 'analytics', tier: 'primary', maturity: 'planned', gap: true },
-  { id: 'intelligence', label: 'Intelligence', center: 'analytics', tier: 'primary', maturity: 'beta' }, // IntelligenceSurface — live (/api/intelligence/*), was reachable only from the collapsed rail
-  { id: 'portfolio',    label: 'Portfolio',    center: 'analytics', tier: 'primary', maturity: 'beta' }, // PortfolioSurface — live (/api/portfolio/lens), was reachable only from the collapsed rail
+  { id: 'intelligence', label: 'Signals · demo', center: 'analytics', tier: 'secondary', maturity: 'beta' }, // IntelligenceSurface — HARDWIRED to the GYG/IFM Investors demo dataset; labeled + demoted so it isn't a generic primary feature (was collapsed-rail-only; do NOT promote without an org/demo gate)
+  { id: 'portfolio',    label: 'Portfolio · demo', center: 'analytics', tier: 'secondary', maturity: 'beta' }, // PortfolioSurface — same GYG/IFM demo dataset; labeled + demoted for the same reason
   { id: 'geo',          label: 'Geo',          center: 'analytics', tier: 'secondary', maturity: 'beta' },
   { id: 'benchmark',    label: 'Benchmarks',   center: 'ai', tier: 'tab', maturity: 'live', foldsInto: 'evaluate' }, // BenchmarkDashboard ships live INSIDE EvaluateSurface — not a standalone (was a fake "coming soon" row)
   { id: 'telemetry',    label: 'Telemetry',    center: 'analytics', tier: 'secondary', maturity: 'planned', gap: true },

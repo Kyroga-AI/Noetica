@@ -35,7 +35,10 @@ before(async () => {
     // Dead Ollama hosts → embeddings fail fast (lexical fallback), so the suite is
     // hermetic and not flaky under load: ingest stays instant and RAG retrieval
     // still works via lexical search without depending on a live Ollama.
-    env: { ...process.env, NODE_ENV: 'test', NOETICA_AM_PORT: String(PORT), OLLAMA_HOST: 'http://127.0.0.1:1', OLLAMA_FALLBACK_HOST: 'http://127.0.0.1:1' },
+    // NOETICA_ORIGIN_GUARD=0: these are functional route tests (no Origin header), not CSRF tests.
+    // Without this the suite is non-deterministic — it passes only when ~/.noetica/local-token happens
+    // NOT to exist, since a present token makes the guard reject no-Origin writes with 403.
+    env: { ...process.env, NODE_ENV: 'test', NOETICA_AM_PORT: String(PORT), NOETICA_ORIGIN_GUARD: '0', OLLAMA_HOST: 'http://127.0.0.1:1', OLLAMA_FALLBACK_HOST: 'http://127.0.0.1:1' },
     stdio: 'ignore',
   })
   // Poll until the server is listening.

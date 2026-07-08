@@ -11698,6 +11698,53 @@ Question: ${question}`
     return
   }
 
+  // ── Export Proof — seal an answer into an offline-verifiable sovereign bundle ─────────────────
+  // The asymmetric win: a single JSON file an auditor can verify WITH NO NETWORK — hash-chained
+  // (tamper-evident), signed by an unlinkable sovereign pseudonym, bound to a device attestation.
+  if (req.method === 'POST' && url.pathname === '/api/proof/export') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const answer = typeof p['answer'] === 'string' ? p['answer'] : ''
+        if (!answer.trim()) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'answer required' })); return }
+        const { buildProofBundle } = await import('./lib/proof-export.js')
+        const bundle = buildProofBundle({
+          runId: typeof p['runId'] === 'string' ? p['runId'] : crypto.randomUUID(),
+          question: typeof p['question'] === 'string' ? p['question'] : '',
+          answer,
+          model: typeof p['model'] === 'string' ? p['model'] : 'unknown',
+          timestamp: typeof p['timestamp'] === 'string' ? p['timestamp'] : new Date().toISOString(),
+          verification: p['verification'],
+          citations: Array.isArray(p['citations']) ? p['citations'] : [],
+          groundingStatus: typeof p['groundingStatus'] === 'string' ? p['groundingStatus'] : undefined,
+        }, new Date().toISOString())
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(bundle))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // Verify a proof bundle offline (the same check an external auditor runs — exposed so the UI can
+  // show a "re-verify this proof" affordance without shelling out).
+  if (req.method === 'POST' && url.pathname === '/api/proof/verify') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let bundle: import('./lib/proof-export.js').ProofBundle
+        try { bundle = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const { verifyProofBundle } = await import('./lib/proof-export.js')
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(verifyProofBundle(bundle)))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
   // ── Blob Store — content-addressed binary store ──────────────────────────────
   if (req.method === 'POST' && url.pathname === '/api/blobs') {
     setCORSHeaders(res)

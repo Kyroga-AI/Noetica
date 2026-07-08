@@ -19,6 +19,7 @@ import type { ChatMessage, ToolCallRecord, ToolResultRecord, CriticVerdict } fro
 import type { PendingAttachment } from '@/lib/types/attachment'
 import { useSettings } from '@/lib/settings/context'
 import { useRevealedContent, APP_OPEN_TS } from '@/lib/chat/useRevealedContent'
+import { amUrl } from '@/lib/tauri/bridge'
 
 const KIND_ICON: Record<string, string> = {
   image: '🖼',
@@ -366,6 +367,49 @@ function VerificationBadge({ verification }: { verification: NonNullable<ChatMes
   )
 }
 
+// Export Proof — seal THIS answer into an offline-verifiable sovereign bundle (hash-chained +
+// pseudonym-signed + device-attested) and download it. The asymmetric win, one click from the answer:
+// nobody cloud-tethered can hand an auditor an air-gapped, cryptographically sealed answer.
+function ExportProofButton({ message }: { message: ChatMessage }) {
+  const [busy, setBusy] = useState(false)
+  const [state, setState] = useState<'idle' | 'done' | 'error'>('idle')
+  async function exportProof() {
+    setBusy(true); setState('idle')
+    try {
+      const res = await fetch(amUrl('/api/proof/export'), {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          runId: message.id,
+          answer: message.content,
+          model: message.verification?.method || 'local',
+          timestamp: message.created_at,
+          verification: message.verification,
+          citations: message.citations ?? [],
+        }),
+      })
+      if (!res.ok) throw new Error('export failed')
+      const bundle = await res.json()
+      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' })
+      const href = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = href; a.download = `noetica-proof-${String(message.id).slice(0, 8)}.json`
+      document.body.appendChild(a); a.click(); a.remove()
+      URL.revokeObjectURL(href)
+      setState('done'); setTimeout(() => setState('idle'), 1800)
+    } catch { setState('error'); setTimeout(() => setState('idle'), 2500) }
+    finally { setBusy(false) }
+  }
+  return (
+    <button
+      onClick={() => void exportProof()} disabled={busy}
+      title="Export a sealed, offline-verifiable proof of this answer — hash-chained, signed by an unlinkable sovereign pseudonym, and device-attested. An auditor can verify it with no network."
+      className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border-secondary)] px-2 py-1 text-[10px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-50"
+    >
+      {busy ? 'Sealing…' : state === 'done' ? 'Proof saved ✓' : state === 'error' ? 'Export failed' : '⇩ Export proof'}
+    </button>
+  )
+}
+
 // Onyx/NotebookLM-grade citation surface — a compact numbered row of the sources the answer is grounded in.
 function CitationsRow({ citations }: { citations: NonNullable<ChatMessage['citations']> }) {
   return (
@@ -603,7 +647,10 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
         {/* The moat made visible — verification badge + inline citations, the proof on every answer. */}
         {message.content && (message.verification || (message.citations && message.citations.length > 0)) && (
           <div className="mt-2 space-y-1">
-            {message.verification && <VerificationBadge verification={message.verification} />}
+            <div className="flex flex-wrap items-center gap-2">
+              {message.verification && <VerificationBadge verification={message.verification} />}
+              {message.verification && <ExportProofButton message={message} />}
+            </div>
             {message.citations && message.citations.length > 0 && <CitationsRow citations={message.citations} />}
           </div>
         )}
