@@ -51,6 +51,29 @@ test('mutating verb from a cross-site Origin is REJECTED (the drive-by attack)',
   assert.equal(originAllowed('DELETE', 'http://attacker.example'), false)
 })
 
+test('no-Origin MUTATING request requires the local token when one is configured', () => {
+  process.env['NOETICA_LOCAL_TOKEN'] = 'secret'
+  delete process.env['NOETICA_ALLOW_NOORIGIN_WRITES']
+  try {
+    // Unauthenticated no-Origin write → REJECTED (the any-local-process RCE path).
+    assert.equal(originAllowed('POST', undefined, { authenticated: false }), false)
+    assert.equal(originAllowed('DELETE', undefined), false)
+    // Authenticated no-Origin write → allowed.
+    assert.equal(originAllowed('POST', undefined, { authenticated: true }), true)
+    // Reads stay open (health/status probes) even with a token configured.
+    assert.equal(originAllowed('GET', undefined), true)
+    assert.equal(originAllowed('HEAD', undefined), true)
+    // The browser UI (loopback Origin) is unaffected — never needs the token.
+    assert.equal(originAllowed('POST', 'tauri://localhost'), true)
+    // Escape hatch restores legacy behaviour.
+    process.env['NOETICA_ALLOW_NOORIGIN_WRITES'] = '1'
+    assert.equal(originAllowed('POST', undefined, { authenticated: false }), true)
+  } finally {
+    delete process.env['NOETICA_LOCAL_TOKEN']
+    delete process.env['NOETICA_ALLOW_NOORIGIN_WRITES']
+  }
+})
+
 test('originAllowed: rejects a hosted origin by default', () => {
   delete process.env['NOETICA_ALLOWED_ORIGINS']
   assert.equal(originAllowed('GET', 'https://app.example.com'), false)

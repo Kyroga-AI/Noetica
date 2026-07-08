@@ -155,6 +155,29 @@ if (process.env['NOETICA_JS_SANDBOX'] === '1') {
 const PORT = parseInt(process.env['NOETICA_AM_PORT'] ?? '8080', 10)
 const VERSION = '0.4.21'
 
+// Loopback local-auth secret — auto-generated on first run so the API is not open to EVERY local
+// process by default (a second OS user, a malicious binary, a browser-extension native host, curl can
+// otherwise POST /api/chat → run_command → RCE). A no-Origin MUTATING caller must present this
+// (Authorization: Bearer <token> or X-Noetica-Local); the browser UI authenticates by Origin and never
+// needs it. Distinct from NOETICA_API_TOKEN so it does not activate the requireApiToken route gate.
+// Persisted 0600 in ~/.noetica; child sidecars inherit it via process.env. Escape hatch:
+// NOETICA_ALLOW_NOORIGIN_WRITES=1 (or NOETICA_ORIGIN_GUARD=0).
+;(function ensureLocalToken(): void {
+  if (process.env['NOETICA_LOCAL_TOKEN']) return
+  try {
+    const dir = path.join(os.homedir(), '.noetica')
+    const tokenFile = path.join(dir, 'local-token')
+    let tok = ''
+    try { tok = fs.readFileSync(tokenFile, 'utf8').trim() } catch { /* first run */ }
+    if (!tok) {
+      tok = crypto.randomBytes(32).toString('hex')
+      fs.mkdirSync(dir, { recursive: true })
+      fs.writeFileSync(tokenFile, tok, { mode: 0o600 })
+    }
+    process.env['NOETICA_LOCAL_TOKEN'] = tok
+  } catch { /* can't persist → leave unset (legacy-open) rather than crash the server */ }
+})()
+
 // ─── Annealed retrieval config (written by scripts/anneal-retrieval.py) ─────────────────────────────────────
 // Loads config/retrieval-optimal.json and sets env vars for any knob not already overridden.
 // Explicit env vars always win; defaults remain as fallback when neither is set.
@@ -1474,6 +1497,17 @@ function requireApiToken(req: http.IncomingMessage, res: http.ServerResponse): b
   res.writeHead(401, { 'content-type': 'application/json' })
   res.end(JSON.stringify({ error: 'unauthorized', hint: 'set Authorization: Bearer <NOETICA_API_TOKEN>' }))
   return false
+}
+
+/** Does the request carry the loopback local-auth secret? Used by the origin guard to admit a no-Origin
+ *  (native/CLI/sidecar) MUTATING caller only when it authenticates. Separate from NOETICA_API_TOKEN so
+ *  it never trips the requireApiToken route gate that the browser UI does not send a bearer for. */
+function hasValidLocalToken(req: http.IncomingMessage): boolean {
+  const expected = process.env['NOETICA_LOCAL_TOKEN']
+  if (!expected) return false
+  const auth = req.headers['authorization'] ?? ''
+  const got = Array.isArray(auth) ? auth[0] : auth
+  return got === `Bearer ${expected}` || req.headers['x-noetica-local'] === expected
 }
 
 // ─── Tool execution ───────────────────────────────────────────────────────────
@@ -5067,10 +5101,10 @@ const server = http.createServer((req, res) => {
   if (process.env['NOETICA_ORIGIN_GUARD'] !== '0') {
     const oh = req.headers['origin']
     const origin = Array.isArray(oh) ? oh[0] : oh
-    if (!originAllowed(req.method, origin)) {
-      console.warn(`[security] rejected cross-origin ${logSafe(req.method)} ${logSafe(req.url ?? '')} from origin=${logSafe(origin)}`)
+    if (!originAllowed(req.method, origin, { authenticated: hasValidLocalToken(req) })) {
+      console.warn(`[security] rejected ${logSafe(req.method)} ${logSafe(req.url ?? '')} from origin=${logSafe(origin)} (no-Origin mutating callers must send Authorization: Bearer <NOETICA_API_TOKEN>)`)
       res.writeHead(403, { 'content-type': 'application/json' })
-      res.end(JSON.stringify({ error: 'cross-origin request rejected (set NOETICA_ORIGIN_GUARD=0 to allow)' }))
+      res.end(JSON.stringify({ error: 'request rejected: cross-site Origin, or unauthenticated no-Origin write (send the API token, or set NOETICA_ALLOW_NOORIGIN_WRITES=1 / NOETICA_ORIGIN_GUARD=0)' }))
       return
     }
   }

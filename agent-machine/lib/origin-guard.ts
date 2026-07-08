@@ -51,10 +51,29 @@ function isConfiguredOrigin(origin: string): boolean {
  * OPTIONS (CORS preflight) still passes so the browser can learn the actual request is rejected.
  * Pure + side-effect-free so it's unit-testable.
  */
-export function originAllowed(method: string | undefined, origin: string | undefined): boolean {
+export function originAllowed(
+  method: string | undefined,
+  origin: string | undefined,
+  opts?: { authenticated?: boolean },
+): boolean {
   const m = (method ?? 'GET').toUpperCase()
   if (m === 'OPTIONS') return true // CORS preflight must complete; the real request is still checked
-  if (!origin) return true // native / CLI / top-level navigation / server-to-server send no Origin
+  if (!origin) {
+    // No Origin = native / CLI / another local process / server-to-server. This is the dangerous path:
+    // ANY local process (a second OS user, a malicious binary, a browser-extension native host, curl)
+    // can hit the loopback port with no Origin. A *mutating* no-Origin request can trigger side effects
+    // (run_command → RCE, ingest → arbitrary file read), so when an API token is configured it must
+    // authenticate. Reads (GET/HEAD) stay open so health/status probes keep working. Escape hatch for
+    // trusted-only hosts that break an internal caller: NOETICA_ALLOW_NOORIGIN_WRITES=1.
+    const mutating = m !== 'GET' && m !== 'HEAD'
+    if (!mutating) return true
+    // NOETICA_LOCAL_TOKEN is a dedicated loopback-auth secret (auto-generated at startup), SEPARATE from
+    // NOETICA_API_TOKEN — so gating no-Origin writes never activates the requireApiToken route gate that
+    // the browser UI (which authenticates by Origin, not token) would fail.
+    if (!process.env['NOETICA_LOCAL_TOKEN']) return true // not configured → legacy behaviour
+    if (process.env['NOETICA_ALLOW_NOORIGIN_WRITES'] === '1') return true
+    return opts?.authenticated === true
+  }
   // A PRESENT Origin must be the local app OR an operator-declared hosted origin (browser launch).
   return isLoopbackOrigin(origin) || isConfiguredOrigin(origin)
 }
