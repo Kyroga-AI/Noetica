@@ -24,9 +24,11 @@ test('plaintext lines pass through (lazy migration of existing files)', () => {
 
 test('a tampered ciphertext fails closed (GCM auth) → null, not garbage', () => {
   const line = encryptLine({ secret: 'value' })
-  // Flip a character in the base64 body.
+  // Flip the first base64 char of the body. Decide the replacement from the SAME char we replace so the
+  // mutation is GUARANTEED — deciding it from a different index (body[10]) made this flaky: when body[0]
+  // already equalled the chosen char, no tampering occurred and the ciphertext still authenticated.
   const body = line.slice('enc:v1:'.length)
-  const tampered = 'enc:v1:' + (body[10] === 'A' ? 'B' : 'A') + body.slice(1)
+  const tampered = 'enc:v1:' + (body[0] === 'A' ? 'B' : 'A') + body.slice(1)
   assert.equal(decryptLine(tampered), null)
 })
 

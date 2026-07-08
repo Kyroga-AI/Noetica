@@ -257,6 +257,8 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
   const [proceduralToggling, setProceduralToggling]     = useState(false)
   const [planModeEnabled, setPlanModeEnabled]           = useState(false)
   const [planModeToggling, setPlanModeToggling]         = useState(false)
+  const [hardenedExec, setHardenedExec]                 = useState(false)
+  const [hardenedToggling, setHardenedToggling]         = useState(false)
   interface DecayStats { pruned: number; lastPruneAt: number | null; budget: number }
   const [decayStats, setDecayStats]       = useState<DecayStats | null>(null)
   interface HardwareSpec { parameterCount: number | null; quantization: string; ramGb: number | null }
@@ -550,6 +552,29 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
       if (r.ok) { const d = await r.json() as { planModeEnabled: boolean }; setPlanModeEnabled(d.planModeEnabled) }
     } catch { /* best-effort */ }
     finally { setPlanModeToggling(false) }
+  }
+
+  // Hardened execution — binds the agent's containment purpose to least-privilege 'research' (no shell,
+  // no file-writes) so a prompt-injected run_command/code_execute/write_file is denied by the purpose
+  // gate. 'full' restores unrestricted local action. Uses the existing /api/containment bind endpoint.
+  useEffect(() => {
+    fetch(amUrl('/api/containment'), { signal: AbortSignal.timeout(3000) })
+      .then((r) => r.ok ? r.json() as Promise<{ purpose?: string }> : null)
+      .then((d) => { if (d?.purpose) setHardenedExec(d.purpose === 'research' || d.purpose === 'read-only') })
+      .catch(() => { /* best-effort */ })
+  }, [])
+
+  async function toggleHardenedExec() {
+    setHardenedToggling(true)
+    try {
+      const r = await fetch(amUrl('/api/containment'), {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'bind', purpose: hardenedExec ? 'full' : 'research' }),
+      })
+      if (r.ok) { const d = await r.json() as { purpose?: string }; setHardenedExec(d.purpose === 'research' || d.purpose === 'read-only') }
+    } catch { /* best-effort */ }
+    finally { setHardenedToggling(false) }
   }
 
   async function runMeshProof(n: number) {
@@ -1205,6 +1230,28 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             {planModeEnabled
               ? 'On — every turn the agent proposes a numbered step plan; no tool executes until you approve. High-oversight mode (EU AI Act Art.14).'
               : 'Off — agent executes immediately. Enable to require an approve-before-act proposal for every action.'}
+          </div>
+        </div>
+
+        {/* Hardened execution — least-privilege containment: block shell + file-writes (injection backstop) */}
+        <div className={`rounded-2xl border p-5 shadow-sm transition ${hardenedExec ? 'border-[rgba(124,58,237,0.35)] bg-[rgba(124,58,237,0.03)]' : 'border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)]'}`}>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div>
+              <div className={`text-xs font-semibold uppercase tracking-[0.16em] ${hardenedExec ? 'text-[#7c3aed]' : 'text-[var(--color-text-tertiary)]'}`}>Hardened execution</div>
+              <div className="mt-0.5 text-[11px] text-[var(--color-text-secondary)]">Bind the agent to least-privilege — no shell, no file-writes. Blocks a prompt-injected command from ever executing.</div>
+            </div>
+            <button
+              onClick={() => void toggleHardenedExec()}
+              disabled={hardenedToggling}
+              className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold transition disabled:opacity-50 ${hardenedExec ? 'bg-[#7c3aed] text-white hover:bg-[#6d28d9]' : 'border border-[var(--color-border-primary)] text-[var(--color-text-secondary)] hover:border-[#7c3aed] hover:text-[#7c3aed]'}`}
+            >
+              {hardenedToggling ? '…' : hardenedExec ? 'Enabled' : 'Disabled'}
+            </button>
+          </div>
+          <div className="text-[10px] text-[var(--color-text-tertiary)]">
+            {hardenedExec
+              ? 'On — the agent runs read/search/reason only (purpose: research). run_command, code_execute, and file-writes are denied until you disable this or explicitly elevate the session.'
+              : 'Off — the agent has full local capability. Enable to neutralize the indirect-injection → RCE/exfil path (web search still works).'}
           </div>
         </div>
 
