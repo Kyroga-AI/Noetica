@@ -18141,6 +18141,11 @@ server.listen(PORT, BIND_HOST, () => {
       if (!up) return
       const installed = await listLocalModels()
       const OPT_IN_ONLY = new Set(['dolphin3:8b', 'huihui_ai/foundation-sec-abliterated:8b', 'jimscard/whiterabbit-neo:13b'])
+      // Don't auto-download the giant specialist models (coding-xl 19GB, the 9GB larges) on every launch —
+      // that's dozens of GB of unsolicited bandwidth/disk. Auto-pull only the core suite (≤ cap); the heavy
+      // models pull ON DEMAND when the user actually routes to / selects them. NOETICA_AUTOPULL_MAX_GB to tune
+      // (0 = auto-pull everything, the old behavior).
+      const AUTOPULL_MAX_GB = Number(process.env['NOETICA_AUTOPULL_MAX_GB'] ?? 8)
       const suite = LOCAL_MODEL_SUITE
         .filter((m) => !OPT_IN_ONLY.has(m.name))    // uncensored/security models are opt-in
         .sort((a, b) => a.priority - b.priority)    // pull in priority order
@@ -18158,6 +18163,11 @@ server.listen(PORT, BIND_HOST, () => {
         const base = entry.name.split(':')[0]!
         const present = installed.some((m) => m === entry.name || m.startsWith(base))
         if (!present) {
+          if (AUTOPULL_MAX_GB > 0 && entry.sizeGb > AUTOPULL_MAX_GB) {
+            console.log(`[noetica-am] ${entry.name} (${entry.sizeGb}GB, ${entry.role}) available on demand — skipping boot auto-pull (> ${AUTOPULL_MAX_GB}GB cap)`)
+            broadcastModelProgress({ model: entry.name, status: 'available', pct: 0, role: entry.role, sizeGb: entry.sizeGb })
+            continue
+          }
           console.log(`[noetica-am] Auto-pulling ${entry.name} (${entry.sizeGb}GB, ${entry.role})…`)
           broadcastModelProgress({ model: entry.name, status: 'starting', pct: 0, role: entry.role, sizeGb: entry.sizeGb })
           await pullModel(entry.name, (status, pct) => {
