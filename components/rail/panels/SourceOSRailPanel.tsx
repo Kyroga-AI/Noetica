@@ -87,10 +87,15 @@ export function SourceOSRailPanel() {
             className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-left text-xs text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]">
             Export
           </button>
-          {['Open graph explorer', 'Open event ledger', 'Replay view'].map((action) => (
-            <button key={action} disabled title="Coming soon"
-              className="flex w-full items-center justify-between rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-left text-xs text-[var(--color-text-tertiary)] opacity-60 cursor-not-allowed">
-              {action}<span className="text-[9px] uppercase tracking-wide">soon</span>
+          {([
+            { label: 'Open graph explorer', surface: 'kg' },
+            { label: 'Open event ledger', surface: 'operate' },
+            { label: 'Replay view', surface: 'operate' },
+          ] as const).map(({ label, surface }) => (
+            <button key={label}
+              onClick={() => window.dispatchEvent(new CustomEvent('noetica:navigate', { detail: surface }))}
+              className="flex w-full items-center justify-between rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-left text-xs text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]">
+              {label}<span aria-hidden>→</span>
             </button>
           ))}
         </div>

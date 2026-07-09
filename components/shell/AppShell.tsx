@@ -586,6 +586,14 @@ export function AppShell() {
     return () => window.removeEventListener('noetica:open-settings', h)
   }, [])
 
+  // Rail panels + cards navigate to a surface via a window event — same pattern, avoids threading a
+  // nav prop everywhere. Lets dead "coming soon" buttons point at surfaces that actually exist.
+  useEffect(() => {
+    const h = (e: Event) => { const s = (e as CustomEvent<string>).detail; if (s) setActiveSurface(s as ActiveSurface) }
+    window.addEventListener('noetica:navigate', h)
+    return () => window.removeEventListener('noetica:navigate', h)
+  }, [])
+
   function handleNewChat() {
     const msgs = initialMessages
     setMessages(msgs)
