@@ -207,7 +207,8 @@ export class SQLiteAtomSpaceBackend implements AtomSpaceBackend {
 
 // ─── Factory ──────────────────────────────────────────────────────────────────
 
-export const DEFAULT_SQLITE_PATH = path.join(
+// NOETICA_HELLGRAPH_DB overrides the graph DB path (testing a compacted graph, an alternate graph, etc.).
+export const DEFAULT_SQLITE_PATH = process.env['NOETICA_HELLGRAPH_DB'] || path.join(
   os.homedir(), '.noetica', 'hellgraph', 'sociosphere-primary.sqlite',
 )
 
