@@ -410,6 +410,57 @@ function ExportProofButton({ message }: { message: ChatMessage }) {
   )
 }
 
+// Check grounding — on demand, re-retrieve the user's OWN documents and run sentence-level NLI to show
+// which of this answer's sentences are supported by their data. Honest framing ("supported by your
+// documents", not "true/false") — local NLI is imperfect, so this is a hedge, surfaced only on request.
+type GroundingRes = { grounded: boolean; score: number; supported: number; total: number; unsupported: string[]; no_sources?: boolean }
+function GroundingCheckButton({ message }: { message: ChatMessage }) {
+  const [busy, setBusy] = useState(false)
+  const [res, setRes] = useState<GroundingRes | null>(null)
+  const [failed, setFailed] = useState(false)
+  async function check() {
+    setBusy(true); setFailed(false); setRes(null)
+    try {
+      const r = await fetch(amUrl('/api/grounding/verify-answer'), {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ answer: message.content }),
+      })
+      if (!r.ok) throw new Error('check failed')
+      setRes(await r.json() as GroundingRes)
+    } catch { setFailed(true) } finally { setBusy(false) }
+  }
+  return (
+    <>
+      <button
+        onClick={() => void check()} disabled={busy}
+        title="Check each sentence of this answer against YOUR ingested documents (on-device sentence-level entailment). Low support means 'not found in your data', not necessarily false."
+        className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border-secondary)] px-2 py-1 text-[10px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-50"
+      >
+        {busy ? 'Checking…' : failed ? 'Check failed' : '◇ Check grounding'}
+      </button>
+      {res && (
+        <div className="mt-1 w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-[10px] text-[var(--color-text-secondary)]">
+          {res.no_sources ? (
+            <span>No matching documents in your library to check this answer against.</span>
+          ) : (
+            <>
+              <span className="font-medium text-[var(--color-text-primary)]">{res.supported}/{res.total}</span> sentences supported by your documents
+              {res.unsupported.length > 0 && (
+                <div className="mt-1 space-y-0.5">
+                  {res.unsupported.slice(0, 4).map((s, i) => (
+                    <div key={i} className="flex gap-1 text-[#d97706]"><span aria-hidden>⚠</span><span className="min-w-0 flex-1">{s.length > 140 ? s.slice(0, 140) + '…' : s}</span></div>
+                  ))}
+                  <div className="pt-0.5 text-[9px] text-[var(--color-text-tertiary)]">Not strongly supported by your data — may still be correct from general knowledge.</div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </>
+  )
+}
+
 // Onyx/NotebookLM-grade citation surface — a compact numbered row of the sources the answer is grounded in.
 function CitationsRow({ citations }: { citations: NonNullable<ChatMessage['citations']> }) {
   return (
@@ -650,6 +701,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
             <div className="flex flex-wrap items-center gap-2">
               {message.verification && <VerificationBadge verification={message.verification} />}
               {message.verification && <ExportProofButton message={message} />}
+              {message.verification && <GroundingCheckButton message={message} />}
             </div>
             {message.citations && message.citations.length > 0 && <CitationsRow citations={message.citations} />}
           </div>

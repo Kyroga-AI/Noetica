@@ -17514,6 +17514,40 @@ Question: ${question}`
     return
   }
 
+  // ── Grounding Verify-Answer — on-demand "is this answer grounded in MY data?" ────────────────
+  // The Answer-Card's per-sentence check: takes just an answer, RE-RETRIEVES the relevant on-device
+  // sources itself (so the client never needs the chunk text), runs sentence-level NLI, and returns
+  // which sentences are grounded vs unsupported. On-demand → zero added latency on the normal turn.
+  if (req.method === 'POST' && url.pathname === '/api/grounding/verify-answer') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const answer = typeof p['answer'] === 'string' ? p['answer'] : ''
+        if (!answer.trim()) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'answer required' })); return }
+        // Re-retrieve on-device sources for the answer (lexical + semantic), same path as search_knowledge.
+        const { lexicalSearch, semanticSearch } = await import('./lib/doc-store.js')
+        type Chunk = { text: string; docId: string; idx?: number }
+        const lex: Chunk[] = lexicalSearch(answer, 8)
+        let sem: Chunk[] = []
+        try { sem = await semanticSearch(answer, 8) } catch { /* embedder down → lexical only */ }
+        const byKey = new Map<string, Chunk>()
+        for (const c of [...lex, ...sem]) { const k = `${c.docId}#${c.idx ?? 0}`; if (!byKey.has(k)) byKey.set(k, c) }
+        const sources = [...byKey.values()].map((c) => ({ text: c.text })).filter((s) => s.text)
+        if (!sources.length) { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ grounded: false, score: 0, supported: 0, total: 0, unsupported: [], no_sources: true })); return }
+        const { verifyGroundingNLI, makeLlmEntail } = await import('./lib/research-verify.js')
+        const { generateOllamaText } = await import('./lib/ollama.js')
+        const generate = async (prompt: string) => { try { const r = await generateOllamaText({ model: 'qwen2.5:7b', messages: [{ role: 'user', content: prompt }], temperature: 0 }); return r.content } catch { return 'NEUTRAL' } }
+        const result = await verifyGroundingNLI(answer, sources, makeLlmEntail(generate))
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(result))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
   // ── Grounding Combo — measured-best fused verifier (F1 0.264 on RAGTruth) ────
   if (req.method === 'POST' && url.pathname === '/api/grounding/combo') {
     setCORSHeaders(res)
