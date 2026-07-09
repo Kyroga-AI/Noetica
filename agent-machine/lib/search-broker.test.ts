@@ -16,9 +16,13 @@ function mockLampstand(resp: unknown): Promise<{ socketPath: string; close: () =
   return new Promise((r) => server.listen(socketPath, () => r({ socketPath, close: () => server.close() })))
 }
 
-test('unconfigured sources report configured:false without erroring', async () => {
+test('with no external endpoints, Local falls back to on-device search; platform stays unconfigured', async () => {
   const r = await search('x', 'all', {})
-  assert.equal(r.local.configured, false)
+  // Local no longer reports "not configured" — with no lampstand socket it searches Noetica's own
+  // on-device doc/memory store (empty in this test env → ok:true, configured:true, zero hits).
+  assert.equal(r.local.configured, true)
+  assert.equal(r.local.ok, true)
+  // Platform (sherlock) still requires SHERLOCK_URL.
   assert.equal(r.platform.configured, false)
 })
 

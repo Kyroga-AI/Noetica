@@ -17,9 +17,51 @@ export type Fetchish = (url: string, init: { method: string; headers: Record<str
 const lampstandSocket = () => process.env.LAMPSTAND_SOCKET || ''
 const sherlockUrl = () => process.env.SHERLOCK_URL || ''
 
-/** lampstand: send one JSON-line request over its unix socket and read one JSON-line response. */
+/**
+ * Local search. When the external lampstand desktop index is configured (LAMPSTAND_SOCKET) we consume it;
+ * otherwise — the normal sovereign install — we search Noetica's OWN on-device knowledge (the ingested
+ * docs + memory in HellGraph). So "Local" search works out of the box against your own data instead of
+ * reporting "not configured" and returning nothing.
+ */
 export function searchLocal(query: string, socketPath = lampstandSocket(), limit = 20): Promise<SourceResult> {
-  if (!socketPath) return Promise.resolve({ ok: false, configured: false, hits: [] })
+  if (!socketPath) return searchOnDevice(query, limit)
+  return searchLampstand(query, socketPath, limit)
+}
+
+/** Search the on-device doc/memory store (BM25 lexical, always available; fused with semantic when the
+ *  embedder is up). No external service, no config — this is the default sovereign search. */
+async function searchOnDevice(query: string, limit: number): Promise<SourceResult> {
+  if (!query.trim()) return { ok: true, configured: true, hits: [] }
+  try {
+    const { lexicalSearch, semanticSearch } = await import('./doc-store.js')
+    type Chunk = { text: string; filename: string; score: number; docId: string; idx?: number }
+    const lex: Chunk[] = lexicalSearch(query, limit)
+    let sem: Chunk[] = []
+    try { sem = await semanticSearch(query, Math.min(limit, 8)) } catch { /* embedder down → lexical only */ }
+    const byKey = new Map<string, Chunk>()
+    for (const c of [...lex, ...sem]) {
+      const key = `${c.docId}#${c.idx ?? 0}`
+      const prev = byKey.get(key)
+      if (!prev || c.score > prev.score) byKey.set(key, c)
+    }
+    const hits: SearchHit[] = [...byKey.values()]
+      .sort((a, b) => b.score - a.score)
+      .slice(0, limit)
+      .map((c) => ({
+        source: 'local',
+        title: c.filename || 'document',
+        ref: c.idx != null ? `${c.filename}#${c.idx}` : (c.docId || c.filename),
+        snippet: c.text.replace(/\s+/g, ' ').trim().slice(0, 240),
+        score: c.score,
+      }))
+    return { ok: true, configured: true, hits }
+  } catch (e) {
+    return { ok: false, configured: true, hits: [], error: e instanceof Error ? e.message : 'on-device search failed' }
+  }
+}
+
+/** lampstand: send one JSON-line request over its unix socket and read one JSON-line response. */
+function searchLampstand(query: string, socketPath: string, limit: number): Promise<SourceResult> {
   return new Promise((resolve) => {
     const sock = net.createConnection(socketPath)
     let buf = ''
