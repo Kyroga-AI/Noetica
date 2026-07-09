@@ -18080,7 +18080,12 @@ server.listen(PORT, BIND_HOST, () => {
       _consolidationRunning = false
     }
   }
-  void (async () => { runConsolidation() })()
+  // Defer the boot consolidation so the server is RESPONSIVE first. consolidate() is a SYNCHRONOUS
+  // ~13s graph pass; running it inline (the old `void (async()=>{ runConsolidation() })()` did NOT
+  // help — the work is synchronous) froze /api/status and the whole UI for its entire duration on
+  // cold start. A short delay lets the event loop serve requests immediately; the first consolidation
+  // then runs in the background (and every 6h after).
+  setTimeout(runConsolidation, 20_000).unref()
   // Re-run every 6 hours for continuous memory hygiene
   setInterval(runConsolidation, 6 * 60 * 60 * 1000).unref()
 
