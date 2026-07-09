@@ -66,7 +66,7 @@ export function SearchSurface() {
       <div className="mx-auto w-full max-w-4xl space-y-4">
         <div>
           <div className="text-lg font-semibold text-[var(--color-text-primary)]">Search</div>
-          <div className="text-xs text-[var(--color-text-secondary)]">Local (<strong>lampstand</strong> desktop index) vs platform (<strong>sherlock</strong> evidence-answer) — side by side.</div>
+          <div className="text-xs text-[var(--color-text-secondary)]">Local (<strong>on-device</strong> — your ingested docs + memory) vs platform (<strong>sherlock</strong> evidence-answer) — side by side.</div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -85,7 +85,7 @@ export function SearchSurface() {
         {err && <div className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-4 py-2 text-xs text-[#dc2626]">{err}</div>}
 
         <div className="flex flex-col gap-3 sm:flex-row">
-          {(scope === 'all' || scope === 'local') && <SourceColumn label="Local · lampstand" tint="#16a34a" r={result?.local} />}
+          {(scope === 'all' || scope === 'local') && <SourceColumn label="Local · on-device" tint="#16a34a" r={result?.local} />}
           {(scope === 'all' || scope === 'platform') && <SourceColumn label="Platform · sherlock" tint="#1d4ed8" r={result?.platform} />}
         </div>
       </div>

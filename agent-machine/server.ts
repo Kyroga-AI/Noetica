@@ -2292,38 +2292,47 @@ async function webSearch(query: string, serperKey?: string): Promise<string> {
 
   // Keyless REAL web results via DuckDuckGo HTML (the Instant Answer API below only has
   // Wikipedia-style abstracts — useless for general queries). This returns actual ranked
-  // results with snippets, no API key needed.
-  try {
-    const res = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, {
-      headers: { 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36', accept: 'text/html' },
-      signal: AbortSignal.timeout(8_000),
-    })
-    if (res.ok) {
-      const html = await res.text()
-      const titles = [...html.matchAll(/<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)]
-      const snippets = [...html.matchAll(/<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g)]
-      const strip = (h: string) => {
-        // Strip tags repeatedly until stable — a single pass can leave residue when
-        // matches overlap (js/incomplete-multi-character-sanitization).
-        let s = h, prev: string
-        do { prev = s; s = s.replace(/<[^>]+>/g, '') } while (s !== prev)
-        // Decode entities with &amp; LAST so un-escaping can't re-create an entity
-        // that a prior replace already consumed (js/double-escaping).
-        return s.replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&#x2F;/g, '/').replace(/&amp;/g, '&').trim()
+  // results with snippets, no API key needed. DDG intermittently serves a challenge/empty page
+  // (no result__a matches) to server-side requests, so retry once with a jittered UA before
+  // falling through — the single most common "search came back empty" cause.
+  const UAS = [
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36',
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
+  ]
+  const strip = (h: string) => {
+    // Strip tags repeatedly until stable — a single pass can leave residue when
+    // matches overlap (js/incomplete-multi-character-sanitization).
+    let s = h, prev: string
+    do { prev = s; s = s.replace(/<[^>]+>/g, '') } while (s !== prev)
+    // Decode entities with &amp; LAST so un-escaping can't re-create an entity
+    // that a prior replace already consumed (js/double-escaping).
+    return s.replace(/&#x27;/g, "'").replace(/&quot;/g, '"').replace(/&#x2F;/g, '/').replace(/&amp;/g, '&').trim()
+  }
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await fetch(`https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`, {
+        headers: { 'user-agent': UAS[attempt % UAS.length]!, accept: 'text/html' },
+        signal: AbortSignal.timeout(8_000),
+      })
+      if (res.ok) {
+        const html = await res.text()
+        const titles = [...html.matchAll(/<a[^>]*class="result__a"[^>]*href="([^"]+)"[^>]*>([\s\S]*?)<\/a>/g)]
+        const snippets = [...html.matchAll(/<a[^>]*class="result__snippet"[^>]*>([\s\S]*?)<\/a>/g)]
+        const out: string[] = []
+        for (let i = 0; i < titles.length && out.length < 6; i++) {
+          let link = titles[i]![1]!
+          const uddg = link.match(/uddg=([^&]+)/)
+          if (uddg) { try { link = decodeURIComponent(uddg[1]!) } catch { /* keep raw */ } }
+          const title = strip(titles[i]![2]!)
+          const snip = snippets[i] ? strip(snippets[i]![1]!) : ''
+          if (title && link.startsWith('http')) out.push(`- [${title}](${link})${snip ? ` — ${snip.slice(0, 180)}` : ''}`)
+        }
+        if (out.length) return out.join('\n')
       }
-      const out: string[] = []
-      for (let i = 0; i < titles.length && out.length < 6; i++) {
-        let link = titles[i]![1]!
-        const uddg = link.match(/uddg=([^&]+)/)
-        if (uddg) { try { link = decodeURIComponent(uddg[1]!) } catch { /* keep raw */ } }
-        const title = strip(titles[i]![2]!)
-        const snip = snippets[i] ? strip(snippets[i]![1]!) : ''
-        if (title && link.startsWith('http')) out.push(`- [${title}](${link})${snip ? ` — ${snip.slice(0, 180)}` : ''}`)
-      }
-      if (out.length) return out.join('\n')
+    } catch {
+      // network error on this attempt — retry, then fall through to the Instant Answer API
     }
-  } catch {
-    // fall through to the Instant Answer API
+    if (attempt === 0) await new Promise((r) => setTimeout(r, 350))   // brief backoff before the retry
   }
 
   // DuckDuckGo Instant Answer API (no key required)
