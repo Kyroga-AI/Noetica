@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { amUrl } from '@/lib/tauri/bridge'
 
 interface Props {
-  onComplete: (name: string) => void
+  onComplete: (name: string, firstPrompt?: string) => void
 }
 
 type Step = 'welcome' | 'name' | 'knowledge' | 'ready'
@@ -73,9 +73,9 @@ export function CitizenOnboardingWizard({ onComplete }: Props) {
     for (const f of Array.from(files)) void ingestFile(f)
   }
 
-  function finish() {
+  function finish(firstPrompt?: string) {
     localStorage.setItem('noetica:citizen:onboarded', '1')
-    onComplete(name.trim())
+    onComplete(name.trim(), firstPrompt)
   }
 
   return (
@@ -252,14 +252,32 @@ export function CitizenOnboardingWizard({ onComplete }: Props) {
                   <div className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">Device-anchored — derived from a local key that never leaves this machine.</div>
                 </div>
               )}
-              <p className="text-[13px] text-[var(--color-text-tertiary)]">
-                Try asking: &ldquo;What can you do?&rdquo; or &ldquo;Summarise my documents.&rdquo;
+              <p className="text-[12px] text-[var(--color-text-tertiary)] leading-relaxed">
+                Every answer carries a <span className="font-medium text-[var(--color-text-secondary)]">verification badge</span> — and one click seals it into an offline-verifiable <span className="font-medium text-[var(--color-text-secondary)]">proof</span> an auditor can check with no network.
               </p>
+              <div>
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">Ask your first question</p>
+                <div className="flex flex-col gap-1.5">
+                  {[
+                    ...(ingested.length > 0 ? ['Summarise the documents I just added.'] : []),
+                    'What can you do?',
+                    'What makes you different from ChatGPT?',
+                  ].map((q) => (
+                    <button
+                      key={q}
+                      onClick={() => finish(q)}
+                      className="flex items-center justify-between gap-2 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3.5 py-2.5 text-left text-[13px] text-[var(--color-text-primary)] transition hover:border-[var(--color-accent)] hover:bg-[var(--color-background-tertiary)]"
+                    >
+                      <span>{q}</span><span className="shrink-0 text-[var(--color-text-tertiary)]" aria-hidden>→</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
               <button
-                onClick={finish}
-                className="w-full rounded-xl bg-[var(--color-accent)] py-2.5 text-[14px] font-semibold text-white transition-opacity hover:opacity-90"
+                onClick={() => finish()}
+                className="w-full rounded-xl border border-[var(--color-border-primary)] py-2 text-[13px] text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]"
               >
-                Start talking
+                Just open the app
               </button>
             </div>
           )}
