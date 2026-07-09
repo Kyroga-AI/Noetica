@@ -149,7 +149,11 @@ export function MailPanel() {
         )}
 
         {/* Quick compose */}
-        <button disabled title="Coming soon" className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] py-1.5 text-xs font-semibold text-[var(--color-text-tertiary)] opacity-50 cursor-not-allowed">
+        <button
+          disabled={!connectedAddress}
+          onClick={() => { if (connectedAddress) window.open('https://mail.google.com/mail/?view=cm&fs=1', '_blank', 'noopener,noreferrer') }}
+          title={connectedAddress ? 'Compose in Gmail' : 'Connect a mail account first'}
+          className={`mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border py-1.5 text-xs font-semibold transition ${connectedAddress ? 'border-[#bfdbfe] bg-[var(--color-background-primary)] text-[#1d4ed8] hover:bg-[#eff6ff]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] text-[var(--color-text-tertiary)] opacity-50 cursor-not-allowed'}`}>
           <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden>
             <path d="M5.5 1v9M1 5.5h9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
           </svg>
