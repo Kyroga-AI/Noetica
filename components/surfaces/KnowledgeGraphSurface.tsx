@@ -145,7 +145,15 @@ export function KnowledgeGraphSurface() {
       <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-4 py-2.5">
         <div className="flex items-center gap-2">
           <span className="text-sm font-semibold text-[var(--color-text-primary)]">Knowledge Graph</span>
-          <span className="inline-flex items-center gap-1 rounded-full bg-[#dcfce7] px-2 py-0.5 text-[10px] font-semibold text-[#16a34a]"><span className="h-1.5 w-1.5 rounded-full bg-[#16a34a]" />HellGraph · on-device</span>
+          {(() => {
+            // Real health, not a hardcoded green pill: red when the graph fetch errored, amber while
+            // loading / empty, green ONLY when HellGraph actually returned data.
+            const healthy = !err && (graph.nodes.length > 0 || (total?.nodes ?? 0) > 0)
+            const cls = err ? 'bg-[#fee2e2] text-[#dc2626]' : healthy ? 'bg-[#dcfce7] text-[#16a34a]' : 'bg-[#fef3c7] text-[#d97706]'
+            const dot = err ? 'bg-[#dc2626]' : healthy ? 'bg-[#16a34a]' : 'bg-[#d97706]'
+            const label = err ? 'HellGraph · unreachable' : healthy ? 'HellGraph · on-device' : loading ? 'HellGraph · loading…' : 'HellGraph · no data'
+            return <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${cls}`} title={err || undefined}><span className={`h-1.5 w-1.5 rounded-full ${dot}`} />{label}</span>
+          })()}
         </div>
         <form onSubmit={(e) => { e.preventDefault(); setRoot(rootInput.trim()) }} className="flex items-center gap-1.5">
           <input value={rootInput} onChange={(e) => setRootInput(e.target.value)} placeholder="Root at node id…"

@@ -43,13 +43,28 @@ function SectionHeader({ title, action }: { title: string; action?: React.ReactN
   )
 }
 
-function useFlash() {
-  const [state, setState] = useState<'idle' | 'running' | 'done'>('idle')
-  function trigger() {
+// Runs REAL async work and reflects its actual outcome (replaces the old cosmetic useFlash that just
+// flipped to "done" after a setTimeout without doing anything).
+function useAsyncAction() {
+  const [state, setState] = useState<'idle' | 'running' | 'done' | 'error'>('idle')
+  async function run(fn: () => Promise<void>) {
     setState('running')
-    setTimeout(() => { setState('done'); setTimeout(() => setState('idle'), 1000) }, 1400)
+    try { await fn(); setState('done') } catch { setState('error') }
+    setTimeout(() => setState('idle'), 1600)
   }
-  return { state, trigger }
+  return { state, run }
+}
+
+// Really export the current HellGraph as a downloaded JSON snapshot (not a fake "Exported ✓" flash).
+async function exportGraphSnapshot(): Promise<void> {
+  const r = await fetch(amUrl('/api/graph/nodes'), { signal: AbortSignal.timeout(8000) })
+  if (!r.ok) throw new Error('graph fetch failed')
+  const data = await r.json()
+  const snapshot = { exportedAt: new Date().toISOString(), ...data }
+  const blob = new Blob([JSON.stringify(snapshot, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a'); a.href = url; a.download = `hellgraph-snapshot-${Date.now()}.json`
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url)
 }
 
 type VizNode = { id: string; label: string; kind: string; surface: string; primes: string; x: number; y: number; vx: number; vy: number }
@@ -178,13 +193,14 @@ const STUB_TIME: TimeServiceStatus = {
 
 // ─── Graph Health tab ─────────────────────────────────────────────────────────
 
-function GraphHealthTab({ graph, onTabChange, onAtomSelect }: { graph: GraphHealthStatus; onTabChange: (tab: ViewTab) => void; onAtomSelect?: (query: string) => void }) {
+function GraphHealthTab({ graph, onTabChange, onAtomSelect, onRefresh }: { graph: GraphHealthStatus; onTabChange: (tab: ViewTab) => void; onAtomSelect?: (query: string) => void; onRefresh?: () => void }) {
   const [recentEvents, setRecentEvents] = useState<string[]>([])
+  const [healthMsg, setHealthMsg] = useState('')
   const stalePartitions: string[] = []
 
-  useEffect(() => {
-    fetch(amUrl('/api/graph/nodes'), { signal: AbortSignal.timeout(4000) })
-      .then(r => r.ok ? r.json() : null)
+  const loadRecent = useCallback(() => {
+    return fetch(amUrl('/api/graph/nodes'), { signal: AbortSignal.timeout(4000) })
+      .then(r => r.ok ? r.json() : Promise.reject(new Error('graph unreachable')))
       .then((data: { nodes?: Array<{ id: string; label: string; kind: string; surface: string; clock?: number; createdAt?: string }> } | null) => {
         if (!data?.nodes?.length) return
         const sorted = [...data.nodes].sort((a, b) => {
@@ -193,11 +209,12 @@ function GraphHealthTab({ graph, onTabChange, onAtomSelect }: { graph: GraphHeal
         }).slice(0, 8)
         setRecentEvents(sorted.map(n => `${n.kind ?? 'Node'} · ${n.label ?? n.id}${n.surface ? ` [${n.surface}]` : ''}`))
       })
-      .catch(() => { /* agent-machine not running */ })
-  }, [graph.nodeCount])
-  const healthCheck = useFlash()
-  const refresh = useFlash()
-  const exportSnap = useFlash()
+  }, [])
+
+  useEffect(() => { loadRecent().catch(() => { /* agent-machine not running */ }) }, [graph.nodeCount, loadRecent])
+  const healthCheck = useAsyncAction()
+  const refresh = useAsyncAction()
+  const exportSnap = useAsyncAction()
 
   const topMetrics = [
     { label: 'Nodes indexed',      value: graph.nodeCount       || '—', sub: graph.status === 'unknown' ? 'Not connected' : undefined },
@@ -211,12 +228,17 @@ function GraphHealthTab({ graph, onTabChange, onAtomSelect }: { graph: GraphHeal
   ] as { label: string; value: string | number; sub?: string; accent?: boolean }[]
 
   const actions: { label: string; run: () => void }[] = [
-    { label: healthCheck.state === 'running' ? 'Checking…' : healthCheck.state === 'done' ? 'All clear' : 'Run health check',
-      run: healthCheck.trigger },
-    { label: refresh.state === 'running' ? 'Refreshing…' : refresh.state === 'done' ? 'Refreshed' : 'Refresh graph',
-      run: refresh.trigger },
-    { label: exportSnap.state === 'running' ? 'Exporting…' : exportSnap.state === 'done' ? 'Exported' : 'Export snapshot',
-      run: exportSnap.trigger },
+    { label: healthCheck.state === 'running' ? 'Checking…' : healthCheck.state === 'done' ? (healthMsg || 'Healthy ✓') : healthCheck.state === 'error' ? 'Unreachable' : 'Run health check',
+      run: () => void healthCheck.run(async () => {
+        const r = await fetch(amUrl('/api/status'), { signal: AbortSignal.timeout(5000) })
+        if (!r.ok) throw new Error(`status ${r.status}`)
+        const s = await r.json().catch(() => ({} as Record<string, unknown>))
+        setHealthMsg(s && typeof s['status'] === 'string' ? `Healthy · ${s['status']}` : 'Healthy ✓')
+      }) },
+    { label: refresh.state === 'running' ? 'Refreshing…' : refresh.state === 'done' ? 'Refreshed ✓' : refresh.state === 'error' ? 'Failed' : 'Refresh graph',
+      run: () => void refresh.run(async () => { onRefresh?.(); await loadRecent() }) },
+    { label: exportSnap.state === 'running' ? 'Exporting…' : exportSnap.state === 'done' ? 'Exported ✓' : exportSnap.state === 'error' ? 'Export failed' : 'Export snapshot',
+      run: () => void exportSnap.run(exportGraphSnapshot) },
     { label: 'Open replay view',   run: () => onTabChange('Time Service') },
     { label: 'Open event ledger',  run: () => onTabChange('Event Ledger') },
   ]
@@ -682,7 +704,7 @@ export function OperateSurface({ onAtomSelect }: { onAtomSelect?: (query: string
   const [tab, setTab] = useState<ViewTab>('Graph Health')
   const { settings } = useSettings()
   const healthCheck = useHealthCheck(amUrl('/api/status'))
-  const exportSnap = useFlash()
+  const exportSnap = useAsyncAction()
 
   // Live HellGraph health — falls back to the unknown stub until first fetch.
   const [graph, setGraph] = useState<GraphHealthStatus>(STUB_GRAPH)
@@ -697,22 +719,23 @@ export function OperateSurface({ onAtomSelect }: { onAtomSelect?: (query: string
       .catch(() => setStatusLoading(false))
   }, [])
 
-  useEffect(() => {
-    let active = true
-    const fetchHealth = () => {
-      fetch(amUrl('/api/graph/health'))
-        .then((r) => r.ok ? r.json() : null)
-        .then((data: { graph?: GraphHealthStatus; time?: TimeServiceStatus } | null) => {
-          if (!active || !data) return
-          if (data.graph) setGraph(data.graph)
-          if (data.time) setTime(data.time)
-        })
-        .catch(() => { /* keep last-known/stub */ })
-    }
-    fetchHealth()
-    const interval = setInterval(fetchHealth, 5000)
-    return () => { active = false; clearInterval(interval) }
+  // Reusable so the "Refresh graph" button can force an on-demand refetch (not just the 5s poll).
+  const refreshHealth = useCallback(() => {
+    return fetch(amUrl('/api/graph/health'))
+      .then((r) => r.ok ? r.json() : null)
+      .then((data: { graph?: GraphHealthStatus; time?: TimeServiceStatus } | null) => {
+        if (!data) return
+        if (data.graph) setGraph(data.graph)
+        if (data.time) setTime(data.time)
+      })
+      .catch(() => { /* keep last-known/stub */ })
   }, [])
+
+  useEffect(() => {
+    void refreshHealth()
+    const interval = setInterval(() => void refreshHealth(), 5000)
+    return () => clearInterval(interval)
+  }, [refreshHealth])
 
   const topCards: { label: string; status: HealthStatus; detail: string }[] = [
     { label: 'Sociosphere Graph', status: graph.status, detail: graph.status === 'unknown' ? 'Not connected' : `${graph.nodeCount} nodes` },
@@ -745,16 +768,15 @@ export function OperateSurface({ onAtomSelect }: { onAtomSelect?: (query: string
               {healthCheck.state === 'running' ? 'Checking…' : healthCheck.state === 'done' ? `All clear · ${healthCheck.result?.latency_ms ?? 0}ms` : healthCheck.state === 'failed' ? `Failed · ${healthCheck.result?.detail ?? 'error'}` : 'Run health check'}
             </button>
             <button
-              onClick={() => {
-                // Real export (was a fake-success flash): download the live operational snapshot as JSON.
+              onClick={() => void exportSnap.run(async () => {
+                // Real export: download the live operational snapshot (graph + time + service status) as JSON.
                 const snap = { exportedAt: new Date().toISOString(), graph, time, noetica: noeticaStatus }
                 const blob = new Blob([JSON.stringify(snap, null, 2)], { type: 'application/json' })
                 const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
                 a.download = `noetica-operate-snapshot-${Date.now()}.json`; a.click(); URL.revokeObjectURL(a.href)
-                exportSnap.trigger()
-              }}
+              })}
               className="rounded-xl bg-[#1d4ed8] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#1e40af]">
-              {exportSnap.state === 'running' ? 'Exporting…' : exportSnap.state === 'done' ? 'Exported ✓' : 'Export snapshot'}
+              {exportSnap.state === 'running' ? 'Exporting…' : exportSnap.state === 'done' ? 'Exported ✓' : exportSnap.state === 'error' ? 'Export failed' : 'Export snapshot'}
             </button>
           </div>
         </div>
@@ -790,7 +812,7 @@ export function OperateSurface({ onAtomSelect }: { onAtomSelect?: (query: string
         </div>
 
         {/* Tab content */}
-        {tab === 'Graph Health'     && <GraphHealthTab    graph={graph} onTabChange={setTab} onAtomSelect={onAtomSelect} />}
+        {tab === 'Graph Health'     && <GraphHealthTab    graph={graph} onTabChange={setTab} onAtomSelect={onAtomSelect} onRefresh={refreshHealth} />}
         {tab === 'Time Service'     && <TimeServiceTab    time={time}   timeServiceEndpoint={settings.timeServiceEndpoint}  />}
         {tab === 'Connector Health' && <ConnectorHealthTab noeticaStatus={noeticaStatus} statusLoading={statusLoading} />}
         {tab === 'Sync Queues'      && <SyncQueuesTab />}
