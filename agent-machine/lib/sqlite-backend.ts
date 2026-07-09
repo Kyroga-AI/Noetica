@@ -88,6 +88,39 @@ interface DbRow {
   vals_json: string; seq: number; created_at: string
 }
 
+// Write-only "exhaust" that dominates atom count on a real install: per-tool-call decision-ledger fields
+// (urn:regis:decision:… , one ConceptNode PER tool argument) + session/interaction episodes. Never
+// graph-queried (governance reads the ledger from a FILE), filtered from every surface (graph-surface
+// isExhaust), yet ~72% of a 1M-atom graph. We DON'T hydrate it into the hot in-memory graph at boot —
+// SQLite keeps everything, but skipping it makes hydration ~4× faster. KEEP IN SYNC with scripts/compact-graph.mjs.
+const EXHAUST_HYDRATE_PREFIXES = ['urn:regis:decision:', 'urn:noetica:session:', 'urn:noetica:interaction:']
+
+/**
+ * Referentially-closed exhaust set: seed with exhaust ConceptNodes (by name prefix), then transitively add
+ * every atom whose `outgoing` references an exhaust handle (links → links → nodes) until fixpoint. Because the
+ * set is closed, NO kept atom is left with a dangling reference — so skipping the whole set at hydration can
+ * never corrupt the in-memory graph (this is the same closure the compaction tool verifies gives 0 dangling).
+ */
+function computeHydrationExhaust(rows: DbRow[]): Set<string> {
+  const exhaust = new Set<string>()
+  const outMap = new Map<string, string[]>()
+  for (const r of rows) {
+    const out = r.outgoing ? (JSON.parse(r.outgoing) as string[]) : []
+    outMap.set(r.handle, out)
+    if (r.type === 'ConceptNode' && r.name && EXHAUST_HYDRATE_PREFIXES.some((p) => r.name!.startsWith(p))) exhaust.add(r.handle)
+  }
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const r of rows) {
+      if (exhaust.has(r.handle)) continue
+      const out = outMap.get(r.handle)!
+      for (let i = 0; i < out.length; i++) { if (exhaust.has(out[i]!)) { exhaust.add(r.handle); changed = true; break } }
+    }
+  }
+  return exhaust
+}
+
 export class SQLiteAtomSpaceBackend implements AtomSpaceBackend {
   private db: SQLiteDatabase
   private readonly dbPath: string
@@ -164,7 +197,11 @@ export class SQLiteAtomSpaceBackend implements AtomSpaceBackend {
 
   restore(apply: (entry: AtomLogEntry) => void): void {
     const rows = this.stmtSelectAll.all() as DbRow[]
+    // Skip hydrating write-only exhaust into the hot graph (automatic + safe; SQLite retains it).
+    const skip = process.env['NOETICA_HYDRATE_EXHAUST'] === '1' ? new Set<string>() : computeHydrationExhaust(rows)
+    let skipped = 0
     for (const row of rows) {
+      if (skip.has(row.handle)) { skipped++; continue }
       const tv = row.tv_strength !== null
         ? { strength: row.tv_strength, confidence: row.tv_conf! }
         : undefined
@@ -188,6 +225,7 @@ export class SQLiteAtomSpaceBackend implements AtomSpaceBackend {
         apply({ seq: row.seq, ts: row.created_at, op: 'set_value', payload: { handle: row.handle, key, value } })
       }
     }
+    if (skipped > 0) console.log(`[atomspace] skipped hydrating ${skipped.toLocaleString()} write-only exhaust atoms (retained in SQLite; NOETICA_HYDRATE_EXHAUST=1 to load all)`)
   }
 
   storagePath(): string { return this.dbPath }
