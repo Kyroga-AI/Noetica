@@ -1358,6 +1358,18 @@ const BUILTIN_TOOLS: ProviderTool[] = [
     },
   },
   {
+    name: 'search_knowledge',
+    description: "Search the USER'S OWN local knowledge — their ingested documents, notes, and the on-device knowledge graph/memory — for a query, and return the most relevant passages with their source. This is your library card to what THIS user knows and has, distinct from web_search (the public internet). Use it to recall facts from the user's files, check what a document says, or ground an answer in their own data before answering from general knowledge.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        query: { type: 'string', description: 'What to look for in the user\'s documents/notes/memory.' },
+        k: { type: 'number', description: 'How many passages to return (1–10, default 5).' },
+      },
+      required: ['query'],
+    },
+  },
+  {
     name: 'execute_action',
     description: "Execute a typed graph Action (the kinetic ontology) — e.g. record a stewardship decision (assign a keeper, acknowledge an abandonment signal). Pass the action name + its params object. Capability-gated + audited. Available actions: steward_entity.",
     input_schema: {
@@ -1613,7 +1625,7 @@ async function executeToolWithTimeout(
     const result = await Promise.race([executeToolWithRetry(name, input, keys, 2, ac.signal), timeout])
     // #16 — tool output from EXTERNAL/untrusted sources can carry indirect prompt injection ("ignore your
     // instructions…"). Flag it + spotlight so the model treats embedded directives as DATA, not commands.
-    const EXTERNAL = new Set(['web_search', 'public_data', 'read_file', 'ocr', 'registry_lookup', 'dispatch_agent'])
+    const EXTERNAL = new Set(['web_search', 'public_data', 'read_file', 'ocr', 'registry_lookup', 'dispatch_agent', 'search_knowledge'])
     // MCP/connector/plugin tools have dynamic names but return attacker-influenceable content (a remote
     // MCP server or a fetched page), so spotlight them too — the fixed set alone missed them (audit P1-1).
     const isExternal = EXTERNAL.has(name) || /^(mcp|connector|plugin)[._:-]/i.test(name) || name.includes('__')
@@ -2089,6 +2101,29 @@ async function executeTool(
         return hits.map((h) => `${h.kind} ${h.name} — ${h.rel}:${h.line}`).join('\n')
       } catch (e) {
         return `Error searching symbols: ${(e as Error).message}`
+      }
+    }
+    case 'search_knowledge': {
+      const kq = String(input['query'] ?? '').trim()
+      if (!kq) return 'Error: query is required.'
+      const k = Math.min(10, Math.max(1, Math.floor(Number(input['k'] ?? 5)) || 5))
+      try {
+        const { lexicalSearch, semanticSearch } = await import('./lib/doc-store.js')
+        type Chunk = { text: string; filename: string; score: number; docId: string; idx?: number }
+        const lex: Chunk[] = lexicalSearch(kq, k)
+        let sem: Chunk[] = []
+        try { sem = await semanticSearch(kq, k) } catch { /* embedder down → lexical only */ }
+        const byKey = new Map<string, Chunk>()
+        for (const c of [...lex, ...sem]) {
+          const key = `${c.docId}#${c.idx ?? 0}`
+          const prev = byKey.get(key)
+          if (!prev || c.score > prev.score) byKey.set(key, c)
+        }
+        const hits = [...byKey.values()].sort((a, b) => b.score - a.score).slice(0, k)
+        if (hits.length === 0) return `No matches in the user's ingested documents or memory for "${kq}". This searches the USER'S OWN local data only — use web_search for the public internet.`
+        return hits.map((h, i) => `[${i + 1}] ${h.filename || 'document'}\n${h.text.replace(/\s+/g, ' ').trim().slice(0, 500)}`).join('\n\n')
+      } catch (e) {
+        return `Error searching knowledge: ${(e as Error).message}`
       }
     }
     case 'execute_action': {
@@ -17472,6 +17507,40 @@ Question: ${question}`
         const generate = async (prompt: string) => { try { const r = await generateOllamaText({ model: 'qwen2.5:7b', messages: [{ role: 'user', content: prompt }], temperature: 0 }); return r.content } catch { return 'NEUTRAL' } }
         const entail = makeLlmEntail(generate)
         const result = await verifyGroundingNLI(answer, sources, entail)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(result))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
+  // ── Grounding Verify-Answer — on-demand "is this answer grounded in MY data?" ────────────────
+  // The Answer-Card's per-sentence check: takes just an answer, RE-RETRIEVES the relevant on-device
+  // sources itself (so the client never needs the chunk text), runs sentence-level NLI, and returns
+  // which sentences are grounded vs unsupported. On-demand → zero added latency on the normal turn.
+  if (req.method === 'POST' && url.pathname === '/api/grounding/verify-answer') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const body = await readBody(req)
+        let p: Record<string, unknown>
+        try { p = JSON.parse(body) } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+        const answer = typeof p['answer'] === 'string' ? p['answer'] : ''
+        if (!answer.trim()) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'answer required' })); return }
+        // Re-retrieve on-device sources for the answer (lexical + semantic), same path as search_knowledge.
+        const { lexicalSearch, semanticSearch } = await import('./lib/doc-store.js')
+        type Chunk = { text: string; docId: string; idx?: number }
+        const lex: Chunk[] = lexicalSearch(answer, 8)
+        let sem: Chunk[] = []
+        try { sem = await semanticSearch(answer, 8) } catch { /* embedder down → lexical only */ }
+        const byKey = new Map<string, Chunk>()
+        for (const c of [...lex, ...sem]) { const k = `${c.docId}#${c.idx ?? 0}`; if (!byKey.has(k)) byKey.set(k, c) }
+        const sources = [...byKey.values()].map((c) => ({ text: c.text })).filter((s) => s.text)
+        if (!sources.length) { res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ grounded: false, score: 0, supported: 0, total: 0, unsupported: [], no_sources: true })); return }
+        const { verifyGroundingNLI, makeLlmEntail } = await import('./lib/research-verify.js')
+        const { generateOllamaText } = await import('./lib/ollama.js')
+        const generate = async (prompt: string) => { try { const r = await generateOllamaText({ model: 'qwen2.5:7b', messages: [{ role: 'user', content: prompt }], temperature: 0 }); return r.content } catch { return 'NEUTRAL' } }
+        const result = await verifyGroundingNLI(answer, sources, makeLlmEntail(generate))
         res.writeHead(200, { 'content-type': 'application/json' })
         res.end(JSON.stringify(result))
       } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }

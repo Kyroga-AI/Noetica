@@ -25,7 +25,7 @@ interface EvidenceBundle {
   hash: string
   source: string
   level: EvidenceLevel
-  status: 'verified' | 'pending' | 'failed'
+  status: 'sealed' | 'pending' | 'failed'
   createdAt: string
 }
 
@@ -58,9 +58,9 @@ const VERDICT_STYLE: Record<PolicyVerdict, string> = {
 }
 
 const BUNDLE_STATUS_STYLE: Record<EvidenceBundle['status'], string> = {
-  verified: 'bg-[rgba(34,197,94,0.12)] text-[#16a34a]',
-  pending:  'bg-[rgba(245,158,11,0.12)] text-[#d97706]',
-  failed:   'bg-[rgba(239,68,68,0.12)] text-[#dc2626]',
+  sealed:  'bg-[rgba(34,197,94,0.12)] text-[#16a34a]',
+  pending: 'bg-[rgba(245,158,11,0.12)] text-[#d97706]',
+  failed:  'bg-[rgba(239,68,68,0.12)] text-[#dc2626]',
 }
 
 const EVIDENCE_LEVEL_LABEL: Record<EvidenceLevel, string> = {
@@ -97,7 +97,10 @@ function ledgerToBundles(entries: LedgerEntry[], level: EvidenceLevel): Evidence
       hash: e.evidence_hash!,
       source: `${e.model_id} · ${e.session_id.slice(0, 12)}`,
       level,
-      status: e.policy_admitted === false ? ('failed' as const) : ('verified' as const),
+      // HONEST: these bundles carry a tamper-evident evidence_hash (they're SEALED onto the chain), but
+      // this view does NOT re-verify that hash against the ledger — so don't claim "verified". A blocked
+      // policy verdict is a real failure; everything else is "sealed" (has a hash), not "verified".
+      status: e.policy_admitted === false ? ('failed' as const) : ('sealed' as const),
       createdAt: e.timestamp,
     }))
     .slice(0, 20)
