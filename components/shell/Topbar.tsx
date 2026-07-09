@@ -41,8 +41,15 @@ export function Topbar({ modelId, mode, riskReadout, voiceState, isLive, onLiveS
   const isListening = voiceState === 'listening'
 
   return (
-    <header className="flex h-10 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] px-4">
-      <div className="flex min-w-0 items-center gap-2">
+    // Unified titlebar (Claude-style): the macOS window uses an Overlay titlebar (transparent, traffic
+    // lights float over content), so THIS bar IS the titlebar — draggable, and padded left so the brand
+    // clears the floating traffic lights. `data-tauri-drag-region` lets you move the window by the bar;
+    // the buttons inside stay clickable (Tauri excludes interactive children from the drag).
+    <header
+      data-tauri-drag-region
+      className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] pl-[78px] pr-4"
+    >
+      <div data-tauri-drag-region className="flex min-w-0 items-center gap-2">
         <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-text-primary)] text-[var(--color-background-primary)]">
           <NoeticaMark className="h-3.5 w-3.5" />
         </div>
