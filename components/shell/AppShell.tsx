@@ -1536,9 +1536,11 @@ export function AppShell() {
       )}
       {showCitizenOnboarding && !showSetup && !providerSetupOpen && (
         <CitizenOnboardingWizard
-          onComplete={(name) => {
+          onComplete={(name, firstPrompt) => {
             setShowCitizenOnboarding(false)
             if (name) updateSettings({ userName: name })
+            // Land the user on a REAL first answer (badge + Export Proof) instead of an empty chat.
+            if (firstPrompt) { setActiveSurface('chat'); setTimeout(() => void handleSend(firstPrompt, []), 50) }
           }}
         />
       )}
