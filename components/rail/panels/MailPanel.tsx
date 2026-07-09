@@ -1,15 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { MailProvider } from '@/lib/types/mail'
-import { MAIL_META } from '@/lib/types/mail'
 import { useConnectorAuth } from '@/lib/auth/context'
-
-type AccountEntry = { id: string; provider: MailProvider; address: string; native: boolean }
-
-const STUB_ACCOUNTS: AccountEntry[] = [
-  { id: 'prophet-primary', provider: 'prophet_mail', address: 'workspace@noetica.local', native: true },
-]
 
 type GmailThread = {
   id: string
@@ -84,7 +76,6 @@ const STUB_THREADS: StubThread[] = []
 
 export function MailPanel() {
   const { store } = useConnectorAuth()
-  const [activeAccount, setActiveAccount] = useState<string>('prophet-primary')
   const [folder, setFolder] = useState('Inbox')
   const [showAccounts, setShowAccounts] = useState(false)
   const [gmailThreads, setGmailThreads] = useState<GmailThread[]>([])
@@ -93,9 +84,8 @@ export function MailPanel() {
 
   const google = store.google
   const gmailConnected = google?.status === 'connected' && !!google.accessToken
-
-  const account = STUB_ACCOUNTS.find((a) => a.id === activeAccount) ?? STUB_ACCOUNTS[0]
-  const meta = MAIL_META[account.provider]
+  // The ONLY real account is a connected Gmail (OAuth). No fake "native workspace@noetica.local".
+  const connectedAddress = gmailConnected ? (google?.userInfo?.email ?? 'Gmail') : ''
 
   useEffect(() => {
     if (!gmailConnected || !google?.accessToken) { setGmailThreads([]); return }
@@ -114,9 +104,13 @@ export function MailPanel() {
           <div>
             <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Mail</div>
             <div className="mt-0.5 flex items-center gap-1.5">
-              <span className="text-xs text-[var(--color-text-secondary)] font-medium truncate max-w-[140px]">{account.address}</span>
-              {meta.native && (
-                <span className="rounded-full bg-[#dcfce7] px-1.5 py-0.5 text-[9px] font-semibold text-[#16a34a]">Native</span>
+              {connectedAddress ? (
+                <>
+                  <span className="text-xs text-[var(--color-text-secondary)] font-medium truncate max-w-[140px]">{connectedAddress}</span>
+                  <span className="rounded-full bg-[#dbeafe] px-1.5 py-0.5 text-[9px] font-semibold text-[#1d4ed8]">Gmail</span>
+                </>
+              ) : (
+                <span className="text-xs text-[var(--color-text-tertiary)]">No mail connected</span>
               )}
             </div>
           </div>
@@ -134,27 +128,21 @@ export function MailPanel() {
         {/* Account switcher */}
         {showAccounts && (
           <div className="mt-2 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm overflow-hidden">
-            {/* Native accounts */}
-            <div className="px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#1d4ed8] bg-[var(--color-background-secondary)]">
-              Native
-            </div>
-            {STUB_ACCOUNTS.filter((a) => a.native).map((a) => (
-              <button
-                key={a.id}
-                onClick={() => { setActiveAccount(a.id); setShowAccounts(false) }}
-                className={`flex w-full items-center gap-2 px-3 py-2 text-xs transition hover:bg-[var(--color-background-secondary)] ${a.id === activeAccount ? 'bg-[#eff6ff] font-semibold text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'}`}
-              >
-                <span className="h-1.5 w-1.5 rounded-full bg-[#22c55e] shrink-0" />
-                <span className="truncate">{a.address}</span>
-              </button>
-            ))}
-            {/* External accounts (empty by default) */}
+            {connectedAddress && (
+              <>
+                <div className="px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#1d4ed8] bg-[var(--color-background-secondary)]">Connected</div>
+                <div className="flex w-full items-center gap-2 px-3 py-2 text-xs text-[var(--color-text-primary)]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#22c55e] shrink-0" />
+                  <span className="truncate">{connectedAddress}</span>
+                </div>
+              </>
+            )}
             <div className="px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] bg-[var(--color-background-secondary)] border-t border-[#f1f5f9]">
-              External connectors
+              Connect an account
             </div>
             <div className="px-3 py-2">
               <button onClick={() => window.dispatchEvent(new CustomEvent('noetica:open-settings', { detail: 'workspace' }))} className="w-full rounded-lg border border-dashed border-[#bfdbfe] py-1.5 text-[10px] text-[#1d4ed8] transition hover:bg-[#eff6ff]">
-                + Set up your mail (IMAP / SMTP)
+                + Connect Gmail or set up IMAP / SMTP
               </button>
             </div>
           </div>
