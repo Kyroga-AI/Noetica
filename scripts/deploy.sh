@@ -39,7 +39,10 @@ NOETICA_STATIC_EXPORT=1 npm run build:static >/tmp/noetica-next-build.log 2>&1 \
 grep -rl "out" out/index.html >/dev/null 2>&1 || [ -f out/index.html ] || { echo "  ✗ export produced no out/index.html"; exit 1; }
 touch src-tauri/src/main.rs   # force the GUI binary to recompile so it RE-EMBEDS the fresh frontend
 node scripts/inject-am-sidecar-config.mjs >/dev/null
-NOETICA_STATIC_EXPORT=1 ./node_modules/.bin/tauri build >/tmp/noetica-tauri-build.log 2>&1
+# --bundles app: we only ever install the .app (copied to /Applications below). Building the DMG
+# installer is unnecessary for a local deploy AND bundle_dmg.sh/hdiutil is flaky — a DMG-only failure
+# was aborting the whole deploy even though the .app built fine. Build just the app bundle.
+NOETICA_STATIC_EXPORT=1 ./node_modules/.bin/tauri build --bundles app >/tmp/noetica-tauri-build.log 2>&1
 TAURI_RC=$?
 node scripts/inject-am-sidecar-config.mjs --restore >/dev/null
 # Fail loud on a nonzero tauri rc — NOT just a missing dir. A failed build leaves the PRIOR bundle in
