@@ -1,6 +1,6 @@
 // Generated from schemas/SourceOSInteractionEvent.json.
 // Do not edit by hand. Source: SourceOS-Linux/sourceos-spec generated/typescript/sourceos-interaction-event.ts
-// Pinned sourceos-spec commit: c7f8c2d9e42a56e1127c2f9b85649cbea0f0a9fa
+// Pinned SourceOS-Linux/sourceos-spec commit: c7f8c2d9e42a56e1127c2f9b85649cbea0f0a9fa
 
 export const SOURCEOS_INTERACTION_EVENT_REQUIRED = [
   "interactionEventId",
