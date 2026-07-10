@@ -20,6 +20,19 @@ APP_BUILT="src-tauri/target/release/bundle/macos/Noetica.app"
 APP_DEST="/Applications/Noetica.app"
 sha() { shasum -a 256 "$1" 2>/dev/null | awk '{print $1}'; }
 
+# ── Vendored deps: pin → sync EVERY build (so what ships always matches vendor.manifest.json) ──
+# Root cause of the hellgraph-19-versions-stale bug: this script never ran `npm install`, so a bumped
+# pin in package.json never actually installed. Sync git-pinned npm deps to their pins + rewrite the
+# source-vendored files to their manifest refs. NOETICA_SKIP_VENDOR_SYNC=1 to skip (offline builds).
+if [ "${NOETICA_SKIP_VENDOR_SYNC:-0}" != "1" ]; then
+  echo "▸ vendored deps → sync to pins (vendor.manifest.json)…"
+  npm install --no-audit --no-fund >/tmp/noetica-vendor-root.log 2>&1 || echo "  ⚠ root npm install failed (using existing node_modules) — see /tmp/noetica-vendor-root.log"
+  npm --prefix agent-machine install --no-audit --no-fund >/tmp/noetica-vendor-am.log 2>&1 || echo "  ⚠ agent-machine npm install failed (using existing) — see /tmp/noetica-vendor-am.log"
+  node scripts/sync-vendored.mjs --write 2>&1 | sed 's/^/  /' || echo "  ⚠ vendored source sync failed (using existing copies)"
+else
+  echo "▸ vendored sync SKIPPED (NOETICA_SKIP_VENDOR_SYNC=1)"
+fi
+
 echo "▸ 0/5 regenerating the stack + symbol indexes (codebase maps, bundled into the binary)…"
 node scripts/build-stack-index.mjs >/dev/null 2>&1 || echo "  (stack-index gen skipped)"
 node scripts/build-symbol-index.mjs >/dev/null 2>&1 || echo "  (symbol-index gen skipped)"

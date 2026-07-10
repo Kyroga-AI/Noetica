@@ -1,0 +1,45 @@
+{
+  "_doc": "Every vendored dependency, pinned + versioned in ONE place. `npm run vendor:sync` rewrites vendored copies to these pins; `npm run vendor:check` fails if a copy has drifted. The build (deploy.sh) runs a sync so what ships always matches the pins. To UPDATE something, bump its ref/pin here (npm git-deps: also bump package.json, or `npm run vendor:bump-npm`).",
+
+  "npmGitDeps": [
+    {
+      "name": "@socioprophet/hellgraph",
+      "repo": "SocioProphet/hellgraph",
+      "pin": "v0.4.21",
+      "note": "Installed via package.json (root + agent-machine). The build runs `npm install` so the pin actually takes effect — previously it did not, so this stayed 19 versions stale."
+    }
+  ],
+
+  "sourceFiles": [
+    {
+      "name": "sourceos-interaction-event",
+      "repo": "SourceOS-Linux/sourceos-spec",
+      "ref": "c7f8c2d9e42a56e1127c2f9b85649cbea0f0a9fa",
+      "sourcePath": "generated/typescript/sourceos-interaction-event.ts",
+      "targetPath": "lib/contracts/sourceos/generated/sourceos-interaction-event.ts",
+      "stripPrefixRegex": "^// Generated from schemas/SourceOSInteractionEvent\\.json\\.\\n// Do not edit by hand\\. Run: python tools/generate_sourceos_interaction_types\\.py\\n\\n",
+      "header": "// Generated from schemas/SourceOSInteractionEvent.json.\n// Do not edit by hand. Source: {repo} {sourcePath}\n// Pinned {repo} commit: {ref}\n\n"
+    }
+  ],
+
+  "unpinned": [
+    {
+      "name": "gaia-ontology",
+      "file": "agent-machine/lib/gaia-ontology.ts",
+      "upstream": "SocioProphet/regis-entity-graph",
+      "note": "Vendored from docs/30_GAIA_ONTOGENESIS_STEWARDSHIP_GRAPH.md. Needs a pinned {ref, sourcePath} to move into sourceFiles and auto-sync."
+    },
+    {
+      "name": "slash-topics-core",
+      "file": "agent-machine/data/slash-topics-core.json",
+      "upstream": "blekko /topic map (SocioProphet vendor)",
+      "note": "Hand-vendored JSON. Needs an upstream repo+ref to auto-sync."
+    },
+    {
+      "name": "proof-fabric-validator",
+      "file": "agent-machine/lib/proof-fabric.ts",
+      "upstream": "PFK (proof-fabric-kit)",
+      "note": "Vendored PFK Draft2020 validator. Needs an upstream repo+ref to auto-sync."
+    }
+  ]
+}

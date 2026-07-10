@@ -5,13 +5,15 @@ on:
     branches: ["main"]
     paths:
       - "lib/contracts/sourceos/generated/sourceos-interaction-event.ts"
-      - "scripts/sync-sourceos-contracts.mjs"
+      - "scripts/sync-vendored.mjs"
+      - "vendor.manifest.json"
       - ".github/workflows/sourceos-contract-sync.yml"
   push:
     branches: ["main", "work/sourceos-contract-sync"]
     paths:
       - "lib/contracts/sourceos/generated/sourceos-interaction-event.ts"
-      - "scripts/sync-sourceos-contracts.mjs"
+      - "scripts/sync-vendored.mjs"
+      - "vendor.manifest.json"
       - ".github/workflows/sourceos-contract-sync.yml"
 
 permissions:
@@ -30,4 +32,4 @@ jobs:
           node-version: "20"
 
       - name: Check vendored SourceOS contracts
-        run: node scripts/sync-sourceos-contracts.mjs --check
+        run: node scripts/sync-vendored.mjs --check

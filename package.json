@@ -7,6 +7,8 @@
   },
   "scripts": {
     "dev": "next dev",
+    "vendor:check": "node scripts/sync-vendored.mjs --check",
+    "vendor:sync": "node scripts/sync-vendored.mjs --write",
     "build": "next build",
     "build:static": "NOETICA_STATIC_EXPORT=1 next build",
     "build:static:probe": "node scripts/probe-static-export.mjs",
