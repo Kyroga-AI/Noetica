@@ -33,7 +33,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
-    "@socioprophet/hellgraph": "github:SocioProphet/hellgraph#v0.4.5",
+    "@socioprophet/hellgraph": "github:SocioProphet/hellgraph#v0.4.21",
     "fflate": "^0.8.3",
     "json5": "^2.2.3",
     "mammoth": "1.12.0",
