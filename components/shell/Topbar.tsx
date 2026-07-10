@@ -1,3 +1,4 @@
+import { isTauri } from '@/lib/tauri/bridge'
 import { NoeticaMark } from '@/components/brand/NoeticaMark'
 import { WarmingLevel } from '@/components/risk/WarmingLevel'
 import { ThemePicker } from '@/components/shell/ThemePicker'
@@ -40,6 +41,15 @@ function IconSettings() {
 export function Topbar({ modelId, mode, riskReadout, voiceState, isLive, onLiveStart, onLiveStop, openaiApiKey, hasMessages, onModelChange, onModeChange, onOpenSettings, onOpenPalette, onOpenInspector, onExportConversation, onVoiceStart, onVoiceStop, onRealtimeTranscript, onRealtimeSpeechStart }: TopbarProps) {
   const isListening = voiceState === 'listening'
 
+  // Double-click the titlebar to zoom/maximize (native macOS behavior the Overlay titlebar drops).
+  // Ignore double-clicks that land on a control so e.g. double-tapping Settings doesn't also maximize.
+  async function onTitlebarDoubleClick(e: React.MouseEvent) {
+    if ((e.target as HTMLElement).closest('button, a, input, [role="button"]')) return
+    if (!isTauri()) return
+    try { const { getCurrentWindow } = await import('@tauri-apps/api/window'); await getCurrentWindow().toggleMaximize() }
+    catch { /* not in a Tauri window */ }
+  }
+
   return (
     // Unified titlebar (Claude-style): the macOS window uses an Overlay titlebar (transparent, traffic
     // lights float over content), so THIS bar IS the titlebar — draggable, and padded left so the brand
@@ -47,6 +57,7 @@ export function Topbar({ modelId, mode, riskReadout, voiceState, isLive, onLiveS
     // the buttons inside stay clickable (Tauri excludes interactive children from the drag).
     <header
       data-tauri-drag-region
+      onDoubleClick={onTitlebarDoubleClick}
       className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] pl-[78px] pr-4"
     >
       <div data-tauri-drag-region className="flex min-w-0 items-center gap-2">
