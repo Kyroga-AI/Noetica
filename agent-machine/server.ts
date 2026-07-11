@@ -692,6 +692,19 @@ function saveDecisions(): void {
   _decSaveTimer.unref?.()
 }
 
+// Governance live stream — an in-process SSE fan-out so the Organization Control Plane can
+// tail governance events (a policy-admitted/held reasoning run, or an operator decision) in
+// real time instead of polling. Clients register on GET /api/governance/stream; a dead socket
+// is dropped on the next write. Best-effort: a broadcast failure never blocks the caller.
+const _govStreamClients = new Set<http.ServerResponse>()
+function broadcastGovernance(kind: 'run' | 'decision', payload: unknown): void {
+  if (_govStreamClients.size === 0) return
+  const frame = `event: ${kind}\ndata: ${JSON.stringify(payload)}\n\n`
+  for (const client of _govStreamClients) {
+    try { client.write(frame) } catch { _govStreamClients.delete(client) }
+  }
+}
+
 // Ontogenesis SHACL write-validation gate (report-only). Last validation result,
 // refreshed after ingest when NOETICA_SHACL_ENFORCE=1.
 let _lastShaclReport: { conforms: boolean; violations: number; checked_at: string } | null = null
@@ -792,6 +805,7 @@ function recordGovernanceRun(run: GovernanceRun, qualityError?: boolean): void {
   _governanceRuns.push(run)
   if (_governanceRuns.length > GOVERNANCE_RING_SIZE) _governanceRuns.shift()
   saveGovernance()
+  broadcastGovernance('run', run) // live-stream the run to any connected control-plane clients
   // Update the self-model: track per-task/model success + latency over time.
   // qualityError: caller can pass a worth-based signal (worth < 0.35) so
   // capabilityHint() and selectArmUCB() see real quality failures, not just
@@ -6911,6 +6925,20 @@ Question: ${question}`
     return
   }
 
+  // GET /api/governance/stream — live SSE feed of governance events (run | decision) so the
+  // control-plane audit tails in real time instead of polling. Emits a heartbeat every 25s to
+  // keep the connection open through proxies; deregisters the client on close.
+  if (req.method === 'GET' && url.pathname === '/api/governance/stream') {
+    setCORSHeaders(res)
+    res.writeHead(200, { 'content-type': 'text/event-stream; charset=utf-8', 'cache-control': 'no-cache, no-transform', connection: 'keep-alive' })
+    res.write('event: ready\ndata: {}\n\n')
+    _govStreamClients.add(res)
+    const heartbeat = setInterval(() => { try { res.write(': keepalive\n\n') } catch { /* dropped on next broadcast */ } }, 25000)
+    heartbeat.unref?.()
+    req.on('close', () => { clearInterval(heartbeat); _govStreamClients.delete(res) })
+    return
+  }
+
   // GET /api/governance/decisions — the operator decision log (human-in-the-loop review trail).
   if (req.method === 'GET' && url.pathname === '/api/governance/decisions') {
     setCORSHeaders(res)
@@ -6946,6 +6974,7 @@ Question: ${question}`
       _governanceDecisions.push(rec)
       if (_governanceDecisions.length > GOVERNANCE_RING_SIZE) _governanceDecisions.shift()
       saveDecisions()
+      broadcastGovernance('decision', rec) // live-stream the operator decision
       res.writeHead(200, { 'content-type': 'application/json' })
       res.end(JSON.stringify(rec))
     })
