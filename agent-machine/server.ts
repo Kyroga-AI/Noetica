@@ -662,6 +662,36 @@ function saveGovernance(): void {
   _govSaveTimer.unref?.()
 }
 
+// Human governance decisions — an operator's Admit / Reject / Hold on a machine run, recorded
+// with a content-derived (tamper-evident) receipt. This closes the human-in-the-loop review
+// governance the machine's automatic policy admission doesn't cover: the Organization Control
+// Plane writes decisions here and reads them back into its audit trail. Persisted (encrypted at
+// rest) so the trail survives a relaunch.
+interface GovernanceDecision {
+  decision_id: string
+  run_id: string
+  decision: 'admitted' | 'rejected' | 'held-for-review'
+  reason?: string
+  actor: string
+  timestamp: string
+  receipt: string
+}
+const _governanceDecisions: GovernanceDecision[] = []
+const DECISIONS_FILE = path.join(os.homedir(), '.noetica', 'governance-decisions.json')
+try {
+  const arr = readEncryptedJson<GovernanceDecision[]>(DECISIONS_FILE)
+  if (Array.isArray(arr)) _governanceDecisions.push(...arr.slice(-GOVERNANCE_RING_SIZE))
+} catch { /* no prior decision log */ }
+let _decSaveTimer: ReturnType<typeof setTimeout> | null = null
+function saveDecisions(): void {
+  if (_decSaveTimer) return
+  _decSaveTimer = setTimeout(() => {
+    _decSaveTimer = null
+    try { writeEncryptedJson(DECISIONS_FILE, _governanceDecisions) } catch { /* best-effort */ }
+  }, 1500)
+  _decSaveTimer.unref?.()
+}
+
 // Ontogenesis SHACL write-validation gate (report-only). Last validation result,
 // refreshed after ingest when NOETICA_SHACL_ENFORCE=1.
 let _lastShaclReport: { conforms: boolean; violations: number; checked_at: string } | null = null
@@ -6878,6 +6908,47 @@ Question: ${question}`
     const runs = _governanceRuns.slice(-limit).reverse()
     res.writeHead(200, { 'content-type': 'application/json' })
     res.end(JSON.stringify({ runs }))
+    return
+  }
+
+  // GET /api/governance/decisions — the operator decision log (human-in-the-loop review trail).
+  if (req.method === 'GET' && url.pathname === '/api/governance/decisions') {
+    setCORSHeaders(res)
+    const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '50', 10), GOVERNANCE_RING_SIZE)
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ decisions: _governanceDecisions.slice(-limit).reverse() }))
+    return
+  }
+
+  // POST /api/governance/decision — record an operator Admit / Reject / Hold on a machine run.
+  // Body: {run_id, decision:'admitted'|'rejected'|'held-for-review', reason?, actor?}. Mirrors the
+  // /api/containment CSRF / token / content-type guards. Returns the recorded decision + receipt.
+  if (req.method === 'POST' && url.pathname === '/api/governance/decision') {
+    setCORSHeaders(res)
+    const origin = req.headers['origin']
+    if (typeof origin === 'string' && /^https?:\/\//i.test(origin) && !/^https?:\/\/(127\.0\.0\.1|localhost)(:|$|\/)/i.test(origin)) { res.writeHead(403, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'cross_origin_blocked' })); return }
+    if (!requireApiToken(req, res)) return
+    if (!String(req.headers['content-type'] ?? '').includes('application/json')) { res.writeHead(415, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'json_content_type_required' })); return }
+    let body = ''
+    req.on('data', (c: Buffer) => { body += c.toString() })
+    req.on('end', () => {
+      let p: { run_id?: string; decision?: string; reason?: string; actor?: string } = {}
+      try { p = JSON.parse(body || '{}') } catch { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'invalid_json' })); return }
+      const valid: GovernanceDecision['decision'][] = ['admitted', 'rejected', 'held-for-review']
+      if (typeof p.run_id !== 'string' || !p.run_id || !valid.includes(p.decision as GovernanceDecision['decision'])) {
+        res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'run_id and a valid decision (admitted|rejected|held-for-review) required' })); return
+      }
+      const timestamp = new Date().toISOString()
+      const actor = typeof p.actor === 'string' && p.actor ? p.actor.replace(/[\r\n]/g, ' ').slice(0, 80) : 'operator'
+      const reason = typeof p.reason === 'string' && p.reason ? p.reason.replace(/[\r\n]/g, ' ').slice(0, 200) : undefined
+      const receipt = 'sha256:' + crypto.createHash('sha256').update([p.decision, p.run_id, actor, timestamp].join('|')).digest('hex').slice(0, 16)
+      const rec: GovernanceDecision = { decision_id: crypto.randomUUID(), run_id: p.run_id, decision: p.decision as GovernanceDecision['decision'], reason, actor, timestamp, receipt }
+      _governanceDecisions.push(rec)
+      if (_governanceDecisions.length > GOVERNANCE_RING_SIZE) _governanceDecisions.shift()
+      saveDecisions()
+      res.writeHead(200, { 'content-type': 'application/json' })
+      res.end(JSON.stringify(rec))
+    })
     return
   }
 
