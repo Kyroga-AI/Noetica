@@ -1147,6 +1147,15 @@ interface ChatRequest {
   max_tokens?: number
   reply_length?: 'short' | 'medium' | 'long'
   agent_mode?: 'auto' | 'plan' | 'ask'
+  // Document-retrieval scoping (Projects). `collection_id` is the active project's knowledge-base
+  // collection; retrieval is confined to it (+ the current chat's own docs) so a chat only reads its
+  // project, not the whole corpus. `retrieval_scope` widens/narrows that: 'chat' = only docs attached
+  // in this chat, 'project' = chat + project KB (default), 'everything' = the full corpus (legacy).
+  collection_id?: string
+  retrieval_scope?: 'chat' | 'project' | 'everything'
+  // Force external web research on for this turn (adds web_search regardless of the intent classifier)
+  // and tell the model to prefer fresh external sources over internal knowledge.
+  web?: boolean
   provider_keys?: {
     anthropic?: string
     openai?: string
@@ -3413,6 +3422,9 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // shouldn't be offered code_execute, etc. Trivial intents (smalltalk/confirm) map
   // to no tools. User-supplied (MCP) tools always pass through regardless of intent.
   const intentToolSet = new Set<string>(intentPlan.tools)
+  // Explicit Web mode (composer toggle): the operator asked to research externally, so force web_search on
+  // regardless of what the intent classifier picked — the deterministic "go look this up online" control.
+  if (body.web === true && modelSupportsTools) intentToolSet.add('web_search')
   // Finance rides along wherever web_search is offered (finance questions are
   // research-shaped), and pulls render_chart with it so "chart AAPL" can plot.
   if (intentToolSet.has('web_search')) { intentToolSet.add('public_data'); intentToolSet.add('render_chart') }
@@ -3692,7 +3704,20 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       // Core docs in the same store would otherwise surface as strict "uploaded sources" and make the model
       // refuse general knowledge (the self-doc refusal bug). Scoping keeps collections separate from core.
       const { isUserDoc: _isUserDoc } = await import('./lib/doc-scope.js')
-      const hits = (await searchDocsReranked(ragQuery, topK, { relevanceQuery: latestUserContent })).filter((h) => _isUserDoc(h.filename))
+      // ── Project/chat retrieval scope (Projects) ──────────────────────────────
+      // Confine RAG to THIS chat's project so a conversation reads only its own knowledge base — not the
+      // whole corpus (the "it looks at everything I've uploaded" complaint). Layering:
+      //   'chat'       → only docs attached in this chat
+      //   'project'    → this chat's docs + the active project's KB (default), chat docs ranked first
+      //   'everything' → the full corpus (legacy behavior), chat docs still ranked first
+      // No collection_id and no explicit scope → undefined = global (unchanged for unscoped clients).
+      const chatColl = `chat-${sessionId.replace(/-/g, '').slice(0, 8)}`   // MUST match frontend chatCollectionId()
+      const projColl = typeof body.collection_id === 'string' && body.collection_id.trim() ? body.collection_id.trim() : undefined
+      let docScope: import('./lib/doc-store.js').DocScope | undefined
+      if (body.retrieval_scope === 'everything') docScope = { everything: true, boost: chatColl }
+      else if (body.retrieval_scope === 'chat') docScope = { collections: [chatColl], boost: chatColl }
+      else if (projColl) docScope = { collections: [chatColl, projColl], boost: chatColl }   // default 'project'
+      const hits = (await searchDocsReranked(ragQuery, topK, { relevanceQuery: latestUserContent, scope: docScope })).filter((h) => _isUserDoc(h.filename))
       if (hits.length > 0) {
         docHitCount = hits.length
         // INDIRECT-INJECTION DEFENSE (PoisonedRAG): retrieved document text is UNTRUSTED — a malicious
@@ -4175,8 +4200,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // IPI prefix: when this turn may fetch external web content, prepend the sandboxing instruction so
   // the model knows to treat [EXTERNAL CONTENT] markers as data boundaries, not commands.
   const ipiPrefix = intentToolSet.has('web_search') ? buildIpiSystemPromptPrefix() + '\n\n' : ''
+  // Explicit Web mode: nudge the model to actually go external rather than lean on internal context/priors.
+  const webDirective = body.web === true
+    ? `\n\n=== WEB RESEARCH MODE (operator-requested) ===\nThe operator turned on web research for this turn. Use the web_search tool to gather CURRENT external information and prefer fresh, cited web sources over internal documents or prior knowledge. Cite the URLs you used.`
+    : ''
   // merged: ours prepends learner/canon context after dateLine; main appends the knowledge + think directives.
-  const enrichedSystemPrompt = ipiPrefix + basePrompt + dateLine + learnerContext + canonGroundContext + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + episodeContext + goalContext + skillsContext + reasoningDirective + verbosityNote + modeNote + lifeDomain.safetyNote + profile.authorizationSuffix + knowledgeDirective + thinkDirective
+  const enrichedSystemPrompt = ipiPrefix + basePrompt + dateLine + learnerContext + canonGroundContext + fabricContext + groundingContext + qaContext + graphContext + selfContext + moatContext + memoryContext + episodeContext + goalContext + skillsContext + reasoningDirective + verbosityNote + modeNote + lifeDomain.safetyNote + profile.authorizationSuffix + knowledgeDirective + webDirective + thinkDirective
 
   // Token budget: rough estimate (4 chars ≈ 1 token). If message history + system prompt
   // exceeds 70% of the model's context window, trim oldest non-system messages.
@@ -8642,13 +8671,16 @@ Question: ${question}`
     req.on('end', () => {
       ;(async () => {
         try {
-          const { filename, mimeType, dataBase64 } = JSON.parse(Buffer.concat(chunks).toString()) as { filename: string; mimeType?: string; dataBase64: string }
+          const { filename, mimeType, dataBase64, collection } = JSON.parse(Buffer.concat(chunks).toString()) as { filename: string; mimeType?: string; dataBase64: string; collection?: string }
           if (!filename || !dataBase64) throw new Error('filename and dataBase64 required')
           const buf = Buffer.from(dataBase64, 'base64')
           const { extractText, ingestDocument } = await import('./lib/doc-store.js')
           const text = await extractText(filename, mimeType ?? '', buf)
           if (!text.trim()) throw new Error('no extractable text in file')
-          const result = await ingestDocument(filename, text)
+          // Bind the upload to a collection (the active project's KB or the current chat) so retrieval can
+          // scope to it; unscoped uploads keep their bare filename (global inbox), unchanged.
+          const storedName = collection ? (await import('./lib/doc-scope.js')).collectionPath(collection, filename) : filename
+          const result = await ingestDocument(storedName, text)
           res.writeHead(200, { 'content-type': 'application/json' })
           res.end(JSON.stringify(result))
         } catch (err) {
@@ -9110,7 +9142,7 @@ Question: ${question}`
     req.on('end', () => {
       ;(async () => {
         try {
-          const { path: filePath } = JSON.parse(Buffer.concat(chunks).toString()) as { path: string }
+          const { path: filePath, collection } = JSON.parse(Buffer.concat(chunks).toString()) as { path: string; collection?: string }
           if (!filePath) throw new Error('path required')
           // SECURITY: confine to home/tmp — never read arbitrary local files (~/.ssh/id_rsa) from a
           // request body. Without this, the wide-open CORS makes this an arbitrary-file-read from any page.
@@ -9122,7 +9154,9 @@ Question: ${question}`
           const { extractText, ingestDocument } = await import('./lib/doc-store.js')
           const text = await extractText(filename, '', buf)
           if (!text.trim()) throw new Error('no extractable text in file')
-          const result = await ingestDocument(filename, text)
+          // Bind to the active project's / chat's collection when provided (scoped retrieval); else global.
+          const storedName = collection ? (await import('./lib/doc-scope.js')).collectionPath(collection, filename) : filename
+          const result = await ingestDocument(storedName, text)
           res.writeHead(200, { 'content-type': 'application/json' })
           res.end(JSON.stringify(result))
         } catch (err) {
