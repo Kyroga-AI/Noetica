@@ -56,6 +56,8 @@ export type NoeticaChatRequest = {
   retrieval_scope?: 'chat' | 'project' | 'everything'
   /** Force external web research on for this turn (adds web_search + prefers fresh external sources). */
   web?: boolean
+  /** Prophet Cloud Mesh opt-in — route inference to the sovereign cloud mesh (OpenAI-compatible). */
+  prophet_mesh?: { enabled: boolean; endpoint: string; model?: string; api_key?: string }
 }
 
 export type NoeticaSteerRequest = {

@@ -1133,6 +1133,10 @@ export function AppShell() {
             collection_id: activeProject ? projectCollectionId(activeProject.id) : undefined,
             retrieval_scope: scope?.retrievalScope,
             web: scope?.web,
+            // Prophet Cloud Mesh: when opted-in, route inference to the sovereign cloud mesh.
+            prophet_mesh: settings.prophetMeshEnabled && settings.prophetMeshEndpoint
+              ? { enabled: true, endpoint: settings.prophetMeshEndpoint, model: settings.prophetMeshModel || undefined, api_key: settings.prophetMeshApiKey || undefined }
+              : undefined,
           },
           {
             onMeta: (governance) => {

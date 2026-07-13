@@ -1170,6 +1170,14 @@ interface ChatRequest {
   // Force external web research on for this turn (adds web_search regardless of the intent classifier)
   // and tell the model to prefer fresh external sources over internal knowledge.
   web?: boolean
+  // Prophet Cloud Mesh opt-in — route this turn's inference to the sovereign cloud mesh
+  // (an OpenAI-compatible vLLM endpoint served by prophet-mesh) instead of local models.
+  prophet_mesh?: {
+    enabled: boolean
+    endpoint: string        // e.g. https://mesh.socioprophet.ai/v1
+    model?: string          // mesh model id/alias (default 'prophet-mesh')
+    api_key?: string        // optional bearer token if the mesh is gated
+  }
   provider_keys?: {
     anthropic?: string
     openai?: string
@@ -3180,8 +3188,23 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   }
 
   let { resolvedModel: model, resolvedProvider: provider } = routing
-  const resolvedBaseUrl = routing.resolvedBaseUrl   // set for openrouter/huggingface hosted aggregators
+  let resolvedBaseUrl = routing.resolvedBaseUrl   // set for openrouter/huggingface hosted aggregators
   const { resolvedModel: _rm, resolvedProvider: _rp, resolvedBaseUrl: _rb, ...routerDecision } = routing
+
+  // ── Prophet Cloud Mesh opt-in ────────────────────────────────────────────────
+  // When the operator opts in (Settings → Models → Prophet Cloud Mesh), route ALL
+  // inference for this turn to their cloud mesh — an OpenAI-compatible vLLM endpoint
+  // served by prophet-mesh. The mesh's conductor routes across the 7 model-family
+  // seats internally, so we simply send the turn to the mesh model and let it conduct.
+  // This overrides local/hosted model routing entirely (sovereign cloud, not a 3rd party).
+  let meshApiKey: string | undefined
+  if (body.prophet_mesh?.enabled && body.prophet_mesh.endpoint?.trim()) {
+    provider = 'openai'   // OpenAI-compatible transport — streamOpenAI honors the custom baseUrl
+    resolvedBaseUrl = body.prophet_mesh.endpoint.trim().replace(/\/+$/, '')
+    model = body.prophet_mesh.model?.trim() || 'prophet-mesh'
+    meshApiKey = body.prophet_mesh.api_key?.trim() || undefined
+    console.log(`[prophet-mesh] routing turn to cloud mesh ${resolvedBaseUrl} (model=${model})`.replace(/[\r\n]/g, ' '))
+  }
 
   // Honest vision fallback: an image is attached but no vision model is reachable — the
   // router fell through (no local VLM installed) to a text model that literally can't see.
@@ -3398,10 +3421,11 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     narrate(narrateRoute(model, intentPlan.name, { fast: isFast && !isConcierge, concierge: isConcierge }))
   } catch { /* narration best-effort */ }
 
-  const apiKey = provider === 'openai' ? openaiKey
+  const apiKey = meshApiKey                       // Prophet Cloud Mesh key wins when opted-in
+    ?? (provider === 'openai' ? openaiKey
     : provider === 'openrouter' ? openrouterKey
     : provider === 'huggingface' ? hfKey
-    : anthropicKey
+    : anthropicKey)
 
   const run_id = crypto.randomUUID()
   const timestamp = new Date().toISOString()
