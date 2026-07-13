@@ -3198,12 +3198,25 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // seats internally, so we simply send the turn to the mesh model and let it conduct.
   // This overrides local/hosted model routing entirely (sovereign cloud, not a 3rd party).
   let meshApiKey: string | undefined
+  let meshRoute = false
   if (body.prophet_mesh?.enabled && body.prophet_mesh.endpoint?.trim()) {
-    provider = 'openai'   // OpenAI-compatible transport — streamOpenAI honors the custom baseUrl
-    resolvedBaseUrl = body.prophet_mesh.endpoint.trim().replace(/\/+$/, '')
-    model = body.prophet_mesh.model?.trim() || 'prophet-mesh'
-    meshApiKey = body.prophet_mesh.api_key?.trim() || undefined
-    console.log(`[prophet-mesh] routing turn to cloud mesh ${resolvedBaseUrl} (model=${model})`.replace(/[\r\n]/g, ' '))
+    const raw = body.prophet_mesh.endpoint.trim()
+    // Endpoint MUST be a valid https URL (or localhost for dev) — an http host would egress the full
+    // prompt + RAG context + key in cleartext. Invalid → skip the mesh (stay local), never send blind.
+    let okUrl = false
+    try { const u = new URL(raw); okUrl = u.protocol === 'https:' || u.hostname === 'localhost' || u.hostname === '127.0.0.1' } catch { okUrl = false }
+    if (okUrl) {
+      meshRoute = true
+      provider = 'openai'   // OpenAI-compatible transport — streamOpenAI honors the custom baseUrl
+      resolvedBaseUrl = raw.replace(/\/+$/, '')
+      model = body.prophet_mesh.model?.trim() || 'prophet-mesh'
+      // SECURITY: a mesh key is its own credential. Empty stays empty ('') — we must NEVER fall back to
+      // the operator's OpenAI BYOK key and send it to an arbitrary mesh host (see the apiKey guard below).
+      meshApiKey = body.prophet_mesh.api_key?.trim() ?? ''
+      console.log(`[prophet-mesh] routing turn to cloud mesh ${resolvedBaseUrl} (model=${model})`.replace(/[\r\n]/g, ' '))
+    } else {
+      console.warn(`[prophet-mesh] endpoint rejected (must be https://…/v1): ${raw.slice(0, 80)}`.replace(/[\r\n]/g, ' '))
+    }
   }
 
   // Honest vision fallback: an image is attached but no vision model is reachable — the
@@ -3421,11 +3434,13 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     narrate(narrateRoute(model, intentPlan.name, { fast: isFast && !isConcierge, concierge: isConcierge }))
   } catch { /* narration best-effort */ }
 
-  const apiKey = meshApiKey                       // Prophet Cloud Mesh key wins when opted-in
-    ?? (provider === 'openai' ? openaiKey
+  // A mesh route uses ONLY the mesh key ('' when none) — it must never inherit the OpenAI/etc. BYOK key,
+  // which would exfiltrate the operator's credential to an arbitrary mesh host.
+  const apiKey = meshRoute ? (meshApiKey ?? '')
+    : provider === 'openai' ? openaiKey
     : provider === 'openrouter' ? openrouterKey
     : provider === 'huggingface' ? hfKey
-    : anthropicKey)
+    : anthropicKey
 
   const run_id = crypto.randomUUID()
   const timestamp = new Date().toISOString()
@@ -5205,7 +5220,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     // resending never helps, so AUTO-RESTART the runtime (debounced) and say so honestly.
     let clientErr = transient ? 'The local model is still warming up (a few seconds right after launch). Give it a moment and resend.' : (errMsg || 'internal_error')
     let stepNote = transient ? 'warming up — resend' : 'failed'
-    if (transient && await isOllamaRunning().catch(() => false)) {
+    if (meshRoute) {
+      // A Prophet Cloud Mesh turn failed — it is NOT the local runtime. Don't blame it, don't restart it;
+      // point the operator at the mesh config. (Prevents the "local warming up / restarting Ollama" misdiagnosis.)
+      clientErr = `Prophet Cloud Mesh error — couldn't complete the turn against ${resolvedBaseUrl || 'the mesh'}: ${errMsg.slice(0, 180)}. Check the endpoint / model / key in Settings → Models, or turn the mesh off to use local models.`
+      stepNote = 'mesh error'
+    } else if (transient && await isOllamaRunning().catch(() => false)) {
       void import('./lib/managed-runtime.js').then((m) => m.restartManagedRuntime()).catch(() => {})
       clientErr = 'The local model runtime got stuck — restarting it now. Give it ~15 seconds and resend.'
       stepNote = 'runtime restart — resend'

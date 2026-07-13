@@ -13,7 +13,7 @@ const STORAGE_KEY = 'noetica:settings'
 const SECRET_KEYS: (keyof NoeticaSettings)[] = [
   'anthropicApiKey', 'openaiApiKey', 'googleApiKey', 'mistralApiKey', 'neuronpediaApiKey', 'openrouterApiKey',
   'huggingfaceApiKey', 'serperApiKey', 'giteaToken', 'githubPat', 'mailPassword', 'calPassword',
-  'elevenlabsApiKey', 'oauthGithubClientSecret', 'oauthNotionClientSecret',
+  'elevenlabsApiKey', 'oauthGithubClientSecret', 'oauthNotionClientSecret', 'prophetMeshApiKey',
 ]
 const SECRETS_KC = 'settings-secrets'
 
