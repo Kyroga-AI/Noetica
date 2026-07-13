@@ -22,9 +22,10 @@ const CHUNK_LABEL = 'DocumentChunk'
 // ─── Text extraction ────────────────────────────────────────────────────────
 
 /**
- * Extract plain text from an uploaded file. .docx via mammoth (handles OOXML
- * zip/structure/tables robustly); .pdf rejected with a clear message; everything
- * else treated as UTF-8. Async because mammoth is.
+ * Extract plain text from an uploaded file. .docx via mammoth (OOXML zip/tables);
+ * .pdf via unpdf; images (png/jpg/gif/webp/bmp/tiff/heic) via OCR (Vision/tesseract);
+ * .json pretty-printed; .html tag-stripped; everything else (txt, md, csv, tsv,
+ * yaml, code, Claude memory markdown) treated as UTF-8. Async because of the imports.
  */
 export async function extractText(filename: string, mimeType: string, buf: Buffer): Promise<string> {
   const lower = filename.toLowerCase()
@@ -45,7 +46,40 @@ export async function extractText(filename: string, mimeType: string, buf: Buffe
     if (!out) throw new Error('PDF has no extractable text (scanned image?) — paste the text or run OCR')
     return out
   }
-  // Everything else: treat as UTF-8 text (txt, md, csv, json, code).
+  if (/\.(png|jpe?g|gif|webp|bmp|tiff?|heic|heif)$/.test(lower) || mimeType.startsWith('image/')) {
+    // Images → OCR (macOS Vision framework / Linux tesseract, via lib/ocr.ts). Write to a temp file
+    // because the OCR helpers take a path, then clean up.
+    const os = await import('node:os')
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+    const ext = lower.match(/\.[a-z0-9]+$/)?.[0] ?? '.png'
+    const tmp = path.join(os.tmpdir(), `noetica-ocr-${process.pid}-${Math.round(process.hrtime()[1])}${ext}`)
+    fs.writeFileSync(tmp, buf)
+    try {
+      const { runOcr } = await import('./ocr.js')
+      const text = (await runOcr(tmp)).trim()
+      if (!text || /^OCR unavailable/.test(text)) throw new Error(text || 'no text recognized in image')
+      return text
+    } finally {
+      try { fs.unlinkSync(tmp) } catch { /* best-effort cleanup */ }
+    }
+  }
+  if (lower.endsWith('.json') || mimeType === 'application/json') {
+    // Pretty-print so keys/values chunk on line boundaries instead of one giant line; fall back to
+    // raw text if it isn't valid JSON (e.g. JSONL / trailing-comma configs).
+    const raw = buf.toString('utf8')
+    try { return JSON.stringify(JSON.parse(raw), null, 2) } catch { return raw }
+  }
+  if (lower.endsWith('.html') || lower.endsWith('.htm') || mimeType === 'text/html') {
+    // Strip scripts/styles/tags → readable text.
+    return buf.toString('utf8')
+      .replace(/<(script|style)[\s\S]*?<\/\1>/gi, ' ')
+      .replace(/<!--[\s\S]*?-->/g, ' ')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"')
+      .replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n').trim()
+  }
+  // Everything else: treat as UTF-8 text (txt, md, csv, tsv, yaml, code, Claude memory markdown, …).
   return buf.toString('utf8')
 }
 
