@@ -75,7 +75,7 @@ export const defaultSettings: NoeticaSettings = {
   showAllModels: false,
 
   prophetMeshEnabled: false,
-  prophetMeshEndpoint: '',
+  prophetMeshEndpoint: 'https://mesh.socioprophet.ai/v1',
   prophetMeshModel: 'prophet-mesh',
   prophetMeshApiKey: '',
 }
