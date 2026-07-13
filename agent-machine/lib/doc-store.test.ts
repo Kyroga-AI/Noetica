@@ -28,6 +28,24 @@ test('extractText: plain text passes through; malformed pdf rejects', async () =
   await assert.rejects(() => extractText('paper.pdf', 'application/pdf', Buffer.from('not a real pdf')))
 })
 
+test('extractText: json pretty-prints, invalid json falls back to raw', async () => {
+  const pretty = await extractText('cfg.json', 'application/json', Buffer.from('{"a":1,"b":{"c":[1,2]}}'))
+  assert.ok(pretty.includes('\n') && pretty.includes('  "a"'), 'valid JSON is indented multiline')
+  const raw = await extractText('cfg.json', 'application/json', Buffer.from('{not valid,}'))
+  assert.equal(raw, '{not valid,}', 'invalid JSON returns the raw bytes')
+})
+
+test('extractText: html is tag-stripped and script/style removed', async () => {
+  const out = await extractText('page.html', 'text/html', Buffer.from('<h1>Hi</h1><script>evil()</script><style>x{}</style><p>Body &amp; more</p>'))
+  assert.equal(out, 'Hi Body & more')
+  assert.ok(!out.includes('evil('), 'script contents are dropped')
+})
+
+test('extractText: markdown (Claude memory) passes through untouched', async () => {
+  const md = '---\nname: foo\n---\n\n# Memory\n- fact with [[link]]'
+  assert.equal(await extractText('MEMORY.md', 'text/markdown', Buffer.from(md)), md)
+})
+
 test('ingestDocument → semanticSearch round-trips (lexical fallback, no Ollama)', async () => {
   // No Ollama in unit tests → embeddings are empty → semanticSearch uses its
   // lexical fallback. The retrieval must still surface the right chunk.

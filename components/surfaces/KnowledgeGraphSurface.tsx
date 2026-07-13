@@ -73,6 +73,8 @@ export function KnowledgeGraphSurface() {
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
   const [total, setTotal] = useState<{ nodes?: number; edges?: number } | null>(null)
+  const [memBusy, setMemBusy] = useState(false)
+  const [memNote, setMemNote] = useState('')
 
   // Graph proposals state
   const [proposals, setProposals] = useState<GraphProposal[]>([])
@@ -183,9 +185,28 @@ export function KnowledgeGraphSurface() {
               <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#7c3aed] text-[9px] font-bold text-white">{pendingCount}</span>
             )}
           </button>
+          {/* Import Claude Code's project memory (the markdown files under ~/.claude/projects) into the brain. */}
+          <button
+            onClick={async () => {
+              if (memBusy) return
+              setMemBusy(true); setMemNote('')
+              try {
+                const r = await fetch(`${amBase()}/api/ingest/claude-memory`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+                const j = (await r.json()) as { ingested?: number; chunks?: number; error?: string }
+                if (!r.ok || j.error) throw new Error(j.error ?? `ingest ${r.status}`)
+                setMemNote(`Imported ${j.ingested ?? 0} memory files (${j.chunks ?? 0} chunks)`) ; void load()
+              } catch (e) { setMemNote(`Import failed: ${e instanceof Error ? e.message : 'error'}`) }
+              finally { setMemBusy(false); setTimeout(() => setMemNote(''), 6000) }
+            }}
+            disabled={memBusy}
+            title="Ingest Claude Code's project memory files into the knowledge graph"
+            className="rounded-lg border border-[var(--color-border-secondary)] px-2 py-1 font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)] disabled:opacity-50">
+            {memBusy ? 'Importing…' : 'Import Claude memory'}
+          </button>
           <button onClick={() => void load()} className="rounded-lg border border-[var(--color-border-secondary)] px-2 py-1 font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]">Refresh</button>
         </div>
       </div>
+      {memNote && <div className="px-3 pb-1 text-[10px] text-[var(--color-text-tertiary)]">{memNote}</div>}
 
       {/* Legend */}
       {kindsPresent.length > 0 && (

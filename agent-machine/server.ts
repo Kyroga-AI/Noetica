@@ -9134,6 +9134,66 @@ Question: ${question}`
     return
   }
 
+  // POST /api/ingest/claude-memory — ingest Claude Code's project memory (the markdown files under
+  // ~/.claude/projects/<project>/memory/*.md, incl. MEMORY.md) into the brain, so the mesh knows what
+  // Claude has learned about your work. Body (all optional): { dir?, project? } — `dir` ingests a
+  // specific memory folder's *.md; `project` narrows to one project slug; default scans every project.
+  if (req.method === 'POST' && url.pathname === '/api/ingest/claude-memory') {
+    setCORSHeaders(res)
+    const chunks: Buffer[] = []
+    req.on('data', (c: Buffer) => chunks.push(c))
+    req.on('end', () => {
+      ;(async () => {
+        try {
+          const body = Buffer.concat(chunks).toString().trim()
+          const { dir, project } = (body ? JSON.parse(body) : {}) as { dir?: string; project?: string }
+          const fsMod = await import('node:fs')
+          // Resolve the set of memory directories to scan.
+          const memDirs: string[] = []
+          if (dir) {
+            const resolved = path.resolve(dir.startsWith('~') ? path.join(os.homedir(), dir.slice(1)) : dir)
+            if (!isConfinedToHomeOrTmp(resolved)) throw new Error('path must be under home directory or /tmp')
+            memDirs.push(resolved)
+          } else {
+            const projectsRoot = path.join(os.homedir(), '.claude', 'projects')
+            let projSlugs: string[] = []
+            try { projSlugs = fsMod.readdirSync(projectsRoot, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name) } catch { projSlugs = [] }
+            if (project) projSlugs = projSlugs.filter((s) => s === project || s.includes(project))
+            for (const slug of projSlugs) {
+              const m = path.join(projectsRoot, slug, 'memory')
+              try { if (fsMod.statSync(m).isDirectory()) memDirs.push(m) } catch { /* no memory dir for this project */ }
+            }
+          }
+          // Collect *.md across the chosen dirs, ingest each (confined to home/tmp throughout).
+          const { ingestDocument } = await import('./lib/doc-store.js')
+          const results: Array<{ file: string; chunks: number }> = []
+          let skipped = 0
+          for (const md of memDirs) {
+            let names: string[] = []
+            try { names = fsMod.readdirSync(md).filter((n) => n.toLowerCase().endsWith('.md')) } catch { continue }
+            for (const name of names) {
+              const full = path.join(md, name)
+              if (!isConfinedToHomeOrTmp(full)) { skipped++; continue }
+              try {
+                const content = fsMod.readFileSync(full, 'utf8')
+                if (!content.trim()) { skipped++; continue }
+                const rel = path.relative(os.homedir(), full)
+                const r = await ingestDocument(`claude-memory/${rel}`, content)
+                results.push({ file: rel, chunks: r.chunks })
+              } catch { skipped++ }
+            }
+          }
+          res.writeHead(200, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ ok: true, dirs: memDirs.length, ingested: results.length, skipped, chunks: results.reduce((a, r) => a + r.chunks, 0), files: results }))
+        } catch (err) {
+          res.writeHead(400, { 'content-type': 'application/json' })
+          res.end(JSON.stringify({ error: 'internal_error' }))
+        }
+      })()
+    })
+    return
+  }
+
   // POST /api/graph/from-image — MULTIMODAL: OCR a local image, then extract entities + typed relations
   // from the text (image → knowledge). Body: { path, ingest? }. ?ingest adds the text to the brain too.
   // Closes the multimodal gap (Cognee) — images become first-class graph sources.
