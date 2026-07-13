@@ -6,7 +6,7 @@ process.env['OLLAMA_FALLBACK_HOST'] = 'http://127.0.0.1:1'
 
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { chunkText, extractText, ingestDocument, semanticSearch, documentChunkCount } from './doc-store.js'
+import { chunkText, extractText, ingestDocument, semanticSearch, documentChunkCount, lexicalSearch, chunkInScope } from './doc-store.js'
 
 test('chunkText terminates and covers short, exact, and long inputs', () => {
   assert.deepEqual(chunkText(''), [])
@@ -50,4 +50,27 @@ test('ingestDocument is idempotent — re-uploading identical content adds no ch
   const second = await ingestDocument('dup.txt', text) // same content again
   assert.equal(second.documentId, first.documentId, 'same content → same content-addressed id')
   assert.equal(documentChunkCount(), countAfterFirst, 're-ingest did not duplicate chunks')
+})
+
+test('chunkInScope: undefined/everything = all; collections restricts by id', () => {
+  assert.equal(chunkInScope('collection/projA/a.txt', undefined), true, 'no scope → global')
+  assert.equal(chunkInScope('collection/projA/a.txt', { everything: true }), true)
+  assert.equal(chunkInScope('collection/projA/a.txt', { collections: ['projA'] }), true)
+  assert.equal(chunkInScope('collection/projB/b.txt', { collections: ['projA'] }), false, 'out-of-scope collection excluded')
+  assert.equal(chunkInScope('bare.txt', { collections: ['projA'] }), false, 'unscoped doc excluded when a scope is set')
+})
+
+test('lexicalSearch honors project scope — a chat only sees its own collection', async () => {
+  // Two projects + a loose upload, all mentioning the same rare term.
+  await ingestDocument('collection/projA/sales.txt', 'The Zephyrine pitch deck margins are strong.')
+  await ingestDocument('collection/projB/finance.txt', 'The Zephyrine quarterly finance reconciliation is due.')
+  await ingestDocument('loose-zephyrine.txt', 'Zephyrine loose note in the global inbox.')
+
+  const scopedA = lexicalSearch('Zephyrine', 15, { collections: ['projA'] })
+  assert.ok(scopedA.length > 0, 'finds the in-scope doc')
+  assert.ok(scopedA.every((h) => h.filename.startsWith('collection/projA/')), 'ONLY project A docs — finance/global excluded')
+
+  const everything = lexicalSearch('Zephyrine', 15)
+  const names = new Set(everything.map((h) => h.filename))
+  assert.ok(names.has('collection/projA/sales.txt') && names.has('collection/projB/finance.txt'), 'unscoped search still spans all collections')
 })

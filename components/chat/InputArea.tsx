@@ -11,11 +11,19 @@ import { IngestQueueTable } from '@/components/chat/IngestQueueTable'
 import { AudioOverviewPlayer } from '@/components/chat/AudioOverviewPlayer'
 import { visibleModels, providersWithKeys } from '@/config/models'
 import { useSettings } from '@/lib/settings/context'
+import type { RetrievalScope } from '@/lib/projects/types'
 
 export type WorkspaceMode = 'Chat' | 'Cowork' | 'Code' | 'Benchmark'
 
+export type SendScope = { retrievalScope: RetrievalScope; web: boolean }
+
 type InputAreaProps = {
-  onSend: (content: string, attachments: PendingAttachment[], mcpTools?: string[]) => Promise<void>
+  onSend: (content: string, attachments: PendingAttachment[], mcpTools?: string[], scope?: SendScope) => Promise<void>
+  // Projects context (single source of truth = AppShell). Uploads bind to the project's KB collection, or to
+  // this chat's collection when scope='chat'; the scope selector labels the active project.
+  activeProjectTitle?: string
+  projectCollection?: string
+  chatCollection?: string
   onFanout?: (content: string, attachments: PendingAttachment[]) => Promise<void>
   onStop?: () => void
   disabled?: boolean
@@ -66,6 +74,7 @@ export function InputArea({
   mcpTools = [],
   modelId, onModelChange, thinkingBudget, onOpenPalette,
   systemPrompt = '', onSystemPromptChange,
+  activeProjectTitle, projectCollection, chatCollection,
 }: InputAreaProps) {
   const [content, setContent] = useState('')
   const [sending, setSending] = useState(false)
@@ -81,9 +90,18 @@ export function InputArea({
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showModePicker, setShowModePicker] = useState(false)
   const [showSystemPrompt, setShowSystemPrompt] = useState(false)
+  const [retrievalScope, setRetrievalScope] = useState<RetrievalScope>('project')
+  const [webMode, setWebMode] = useState(false)
+  const [showScopePicker, setShowScopePicker] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { settings, update } = useSettings()
+  // Which collection new uploads land in: the current chat (when scoped to 'chat') or the active project's KB.
+  // Undefined → global inbox (no project active), preserving the pre-Projects behavior.
+  const uploadCollection: string | undefined =
+    retrievalScope === 'chat' ? chatCollection
+    : projectCollection
+  const scopeLabel: Record<RetrievalScope, string> = { chat: 'This chat', project: activeProjectTitle ?? 'This chat', everything: 'Everything' }
   const modelList = visibleModels(settings.showAllModels, providersWithKeys(settings))
 
   const activeModel = modelList.find((m) => m.id === modelId) ?? modelList[0]
@@ -123,7 +141,7 @@ export function InputArea({
     try {
       const res = await fetch(amUrl('/api/ingest/queue'), {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ filename: file.name, mimeType: file.type, dataBase64: btoa(bin) }),
+        body: JSON.stringify({ filename: file.name, mimeType: file.type, dataBase64: btoa(bin), collection: uploadCollection }),
       })
       if (res.ok || res.status === 202) setQueueVersion((v) => v + 1)
       else { const e = await res.json().catch(() => ({})) as { error?: string }; setAttachError(`Couldn't queue ${file.name}: ${e.error ?? res.status}`) }
@@ -181,7 +199,7 @@ export function InputArea({
           filters: [{ name: 'Documents & code', extensions: ['pdf', 'docx', 'txt', 'md', 'csv', 'json', 'ts', 'js', 'py', 'rs', 'go', 'yaml', 'yml', 'sql'] }],
         })
         const paths = Array.isArray(selected) ? selected : selected ? [selected] : []
-        for (const p of paths) await postIngest('/api/ingest/path', { path: p }, p.split('/').pop() ?? p)
+        for (const p of paths) await postIngest('/api/ingest/path', { path: p, collection: uploadCollection }, p.split('/').pop() ?? p)
       } catch (e) {
         setAttachError(`Couldn't open file picker: ${e instanceof Error ? e.message : String(e)}`)
       }
@@ -222,7 +240,7 @@ export function InputArea({
       if (fanoutActive && onFanout) {
         await onFanout(finalContent, toSend)
       } else {
-        await onSend(finalContent, toSend, toolsToSend.length > 0 ? toolsToSend : undefined)
+        await onSend(finalContent, toSend, toolsToSend.length > 0 ? toolsToSend : undefined, { retrievalScope, web: webMode })
       }
     } finally {
       setSending(false)
@@ -404,6 +422,57 @@ export function InputArea({
               {systemPrompt ? 'sys' : ''}
             </button>
           )}
+
+          {/* Web research toggle — force external web search on for the next turn. */}
+          <button
+            type="button"
+            onClick={() => setWebMode((v) => !v)}
+            title={webMode ? 'Web research ON — will search the web and prefer fresh external sources' : 'Web research off — answers from your knowledge/documents'}
+            style={{ border: 'none', background: 'none', outline: 'none' }}
+            className={`flex h-7 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium transition ${webMode ? 'text-[#2563eb]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'}`}
+          >
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden>
+              <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/>
+              <path d="M1.5 8h13M8 1.5c2 2 2 11 0 13M8 1.5c-2 2-2 11 0 13" stroke="currentColor" strokeWidth="1.1"/>
+            </svg>
+            {webMode ? 'Web' : ''}
+          </button>
+
+          {/* Knowledge scope — which documents this chat reads (project isolation). */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowScopePicker((v) => !v)}
+              title="Knowledge scope — which documents this chat can read"
+              style={{ border: 'none', background: 'none', outline: 'none' }}
+              className={`flex h-7 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium transition ${retrievalScope === 'everything' ? 'text-[#d97706]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'}`}
+            >
+              <svg width="11" height="11" viewBox="0 0 14 14" fill="none" aria-hidden>
+                <path d="M1.5 3.5A1.5 1.5 0 013 2h3l1.2 1.4H12a1 1 0 011 1v6a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 011 10.5v-7z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+              </svg>
+              <span className="max-w-[120px] truncate">{scopeLabel[retrievalScope]}</span>
+              <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden><path d="M1.5 3l2 2 2-2" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </button>
+            {showScopePicker && (
+              <div className="absolute bottom-10 right-0 z-50 w-60 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] py-1 shadow-lg">
+                {([
+                  ['chat', 'This chat only', 'Reads only documents you attach in this conversation'],
+                  ['project', activeProjectTitle ? `Project: ${activeProjectTitle}` : 'This project', activeProjectTitle ? 'This chat + the project’s knowledge base' : 'No project active — reads your general library'],
+                  ['everything', 'Everything', 'Reads across every document you’ve uploaded'],
+                ] as const).map(([s, label, desc]) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => { setRetrievalScope(s); setShowScopePicker(false) }}
+                    className={`flex w-full flex-col items-start px-3 py-1.5 text-left transition hover:bg-[var(--color-background-secondary)] ${retrievalScope === s ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'}`}
+                  >
+                    <span className="text-[12px] font-medium">{label}</span>
+                    <span className="text-[10px] text-[var(--color-text-tertiary)]">{desc}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
 
           <div className="flex-1" />
 

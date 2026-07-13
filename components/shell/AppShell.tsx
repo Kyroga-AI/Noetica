@@ -69,6 +69,7 @@ import { executeBuiltinToolDirect } from '@/lib/client/anthropicDirect'
 import { useSession } from '@/lib/session/useSession'
 import { useArtifacts } from '@/lib/artifacts/useArtifacts'
 import { useProjects } from '@/lib/projects/useProjects'
+import { projectCollectionId, chatCollectionId, type RetrievalScope } from '@/lib/projects/types'
 import { ProjectsPanel } from '@/components/projects/ProjectsPanel'
 import { useMcp } from '@/lib/mcp/useMcp'
 import { useSettings } from '@/lib/settings/context'
@@ -763,7 +764,7 @@ export function AppShell() {
     return tools
   }
 
-  async function handleSend(content: string, attachments: PendingAttachment[] = [], selectedMcpToolNames?: string[]) {
+  async function handleSend(content: string, attachments: PendingAttachment[] = [], selectedMcpToolNames?: string[], scope?: { retrievalScope: RetrievalScope; web: boolean }) {
     // Build ProviderTool list from selected MCP tools
     const selectedTools: ProviderTool[] = selectedMcpToolNames?.length
       ? mcpTools
@@ -883,7 +884,7 @@ export function AppShell() {
       return
     }
 
-    await handleSendRaw(content, attachments, messages, tools)
+    await handleSendRaw(content, attachments, messages, tools, undefined, scope)
   }
 
   // Plan-mode approval gate: user approves the plan → execute in auto mode; reject → discard await.
@@ -1046,7 +1047,7 @@ export function AppShell() {
     updateTitle(words || 'Chat')
   }
 
-  async function handleSendRaw(content: string, attachments: PendingAttachment[], baseMessages: ChatMessage[], tools?: ProviderTool[], agentModeOverride?: 'auto' | 'plan' | 'ask') {
+  async function handleSendRaw(content: string, attachments: PendingAttachment[], baseMessages: ChatMessage[], tools?: ProviderTool[], agentModeOverride?: 'auto' | 'plan' | 'ask', scope?: { retrievalScope: RetrievalScope; web: boolean }) {
     autoTitle(content)
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
@@ -1127,6 +1128,11 @@ export function AppShell() {
             policy_profile: settings.defaultPolicyProfile,
             security_attested: settings.defaultPolicyProfile === 'security' && settings.securityAttestation?.accepted === true,
             api_endpoint_override: settings.apiEndpointOverride || undefined,
+            // Projects: confine retrieval to the active project's knowledge base (+ this chat's own docs),
+            // and honor the composer's scope selector + web toggle. Unset when nothing is active → global.
+            collection_id: activeProject ? projectCollectionId(activeProject.id) : undefined,
+            retrieval_scope: scope?.retrievalScope,
+            web: scope?.web,
           },
           {
             onMeta: (governance) => {
@@ -1608,6 +1614,9 @@ export function AppShell() {
               <CenterWorkspace
                 activeSurface={activeSurface}
                 sessionId={activeSession?.id}
+                activeProjectTitle={activeProject?.title}
+                projectCollection={activeProject ? projectCollectionId(activeProject.id) : undefined}
+                chatCollection={activeSession ? chatCollectionId(activeSession.id) : undefined}
                 messages={messages}
                 isStreaming={isStreaming}
                 workspaceMode={workspaceMode}
@@ -1826,7 +1835,10 @@ type CenterProps = {
   fanoutModelCount: number
   modelId: string
   thinkingBudget: number | undefined
-  onSend: (content: string, attachments: PendingAttachment[], mcpTools?: string[]) => Promise<void>
+  onSend: (content: string, attachments: PendingAttachment[], mcpTools?: string[], scope?: { retrievalScope: RetrievalScope; web: boolean }) => Promise<void>
+  activeProjectTitle?: string
+  projectCollection?: string
+  chatCollection?: string
   onFanout: (content: string, attachments: PendingAttachment[]) => Promise<void>
   onStop: () => void
   sessionId?: string
@@ -1858,7 +1870,7 @@ type CenterProps = {
   onPlanReject?: (messageId: string) => void
 }
 
-function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onNavigateToGovern, onSpeak, onFeedback, agentMode, onSetAgentMode, onPlanApprove, onPlanReject }: CenterProps) {
+function CenterWorkspace({ activeSurface, sessionId, activeProjectTitle, projectCollection, chatCollection, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onNavigateToGovern, onSpeak, onFeedback, agentMode, onSetAgentMode, onPlanApprove, onPlanReject }: CenterProps) {
   if (activeSurface === 'notes')        return <NotesSurface />
   if (activeSurface === 'canvas')       return <CanvasSurface />
   if (activeSurface === 'workrooms')    return <TabbedWorkspace tabs={[
@@ -1957,6 +1969,9 @@ function CenterWorkspace({ activeSurface, sessionId, messages, isStreaming, work
           onOpenPalette={onOpenPalette}
           systemPrompt={systemPrompt}
           onSystemPromptChange={onSystemPromptChange}
+          activeProjectTitle={activeProjectTitle}
+          projectCollection={projectCollection}
+          chatCollection={chatCollection}
         />
       </section>
 

@@ -200,6 +200,24 @@ export async function ingestDocument(filename: string, text: string): Promise<In
 
 export interface ChunkHit { text: string; filename: string; score: number; docId: string; idx?: number }
 
+/**
+ * Retrieval scope (Projects). Confines document retrieval to a set of collections so a chat reads only
+ * its project's knowledge base (+ its own attached docs), not the entire user corpus — this is what makes
+ * "sales doesn't see finance" and "burger project doesn't see pocket-mentor" work.
+ *   • `collections`  — allowed collection ids; when set, only chunks in these collections are considered.
+ *   • `boost`        — a collection id (the current chat's) ranked FIRST — chat-first weighting.
+ *   • `everything`   — ignore the collection restriction (the legacy global corpus), still honoring `boost`.
+ * Omitting the scope entirely preserves the original global behavior (all callers that don't scope).
+ */
+export interface DocScope { collections?: string[]; boost?: string; everything?: boolean }
+
+/** Is a chunk (by filename) inside the active retrieval scope? Undefined/empty/everything scope → always. */
+export function chunkInScope(filename: string, scope?: DocScope): boolean {
+  if (!scope || scope.everything || !scope.collections || scope.collections.length === 0) return true
+  const cid = collectionIdOf(filename)
+  return cid !== null && scope.collections.includes(cid)
+}
+
 /** Top-k document chunks by cosine to the query — delegated to HellGraph's vector engine. */
 export async function semanticSearch(query: string, k = 5): Promise<ChunkHit[]> {
   return hgSemanticSearch(query, k, embedText, { scope: process.env['NOETICA_DEMO_DOC'] || undefined })
@@ -212,13 +230,17 @@ export async function semanticSearch(query: string, k = 5): Promise<ChunkHit[]> 
  * and a long chunk that merely mentions a term doesn't beat a focused short one. Feeds the RRF fusion's lexical
  * rank — the input ordering that drove retrieval quality.
  */
-export function lexicalSearch(query: string, k = 15): ChunkHit[] {
+export function lexicalSearch(query: string, k = 15, docScope?: DocScope): ChunkHit[] {
   const g = getHellGraph()
   let nodes = g.nodesByLabel(CHUNK_LABEL).filter((n) => !n.properties['hidden'])   // skip soft-deleted (Library cleanup)
   const scope = process.env['NOETICA_DEMO_DOC']
   if (scope) {
     const f = nodes.filter((n) => String(n.properties['filename'] ?? '').toLowerCase().includes(scope.toLowerCase()))
     if (f.length > 0) nodes = f
+  }
+  // Project scope: confine to the in-scope collections (chat + project KB) before ranking.
+  if (docScope && !docScope.everything && docScope.collections && docScope.collections.length > 0) {
+    nodes = nodes.filter((n) => chunkInScope(String(n.properties['filename'] ?? ''), docScope))
   }
   if ([...new Set(query.toLowerCase().split(/\W+/).filter((t) => t.length > 2))].length === 0) return []
   // Index by node position so we can map BM25 results back to the chunk's full properties.
@@ -241,39 +263,58 @@ export function lexicalSearch(query: string, k = 15): ChunkHit[] {
  * field's #1 RAG complaint) using signals Noetica already has. Returns reranked chunks; callers
  * inject `text` and surface `citation` as provenance.
  */
-export async function searchDocsReranked(query: string, limit = 8, opts: { relevanceQuery?: string } = {}): Promise<import('./rag-rerank.js').RankedChunk[]> {
+export async function searchDocsReranked(query: string, limit = 8, opts: { relevanceQuery?: string; scope?: DocScope } = {}): Promise<import('./rag-rerank.js').RankedChunk[]> {
   const { fuseRerank } = await import('./rag-rerank.js')
-  const semantic = await tierSemanticSearch(query, Math.max(limit, 8))
+  const semantic = await tierSemanticSearch(query, Math.max(limit, 8), opts.scope)
   // RELEVANCE GATE: if even the best chunk isn't semantically close, the docs don't cover this query — return
   // nothing so the model answers from its own knowledge instead of parroting off-topic passages. Fixes the
   // "who was the first president → quotes a business doc" derail. Gate on the RAW user query (relevanceQuery)
   // because `query` may be glossary-EXPANDED (raw + domain terms), which inflates similarity to in-corpus docs
   // and would let an off-topic question slip through. Measured: on-topic ≈0.68-0.71, off-topic ≈0.52-0.56.
   const floor = Number(process.env['NOETICA_DOC_RELEVANCE_FLOOR'] ?? '0.62')
-  const gateHits = opts.relevanceQuery && opts.relevanceQuery !== query ? await tierSemanticSearch(opts.relevanceQuery, 3) : semantic
+  const gateHits = opts.relevanceQuery && opts.relevanceQuery !== query ? await tierSemanticSearch(opts.relevanceQuery, 3, opts.scope) : semantic
   const topSemantic = gateHits.reduce((m, h) => Math.max(m, h.score), 0)
   if (gateHits.length > 0 && topSemantic < floor) return []
-  const lexical = lexicalSearch(query, Math.max(limit * 2, 16))
-  return fuseRerank(semantic, lexical, query, { limit })
+  const lexical = lexicalSearch(query, Math.max(limit * 2, 16), opts.scope)
+  // Chat-first weighting: fuse a bit wider, then float the current chat's own docs (boost collection)
+  // to the top before slicing — the chat's attached sources outrank the shared project KB.
+  const boost = opts.scope?.boost
+  const ranked = fuseRerank(semantic, lexical, query, { limit: boost ? Math.max(limit * 2, 12) : limit })
+  if (!boost) return ranked
+  const first = ranked.filter((r) => collectionIdOf(r.filename) === boost)
+  const rest = ranked.filter((r) => collectionIdOf(r.filename) !== boost)
+  return [...first, ...rest].slice(0, limit)
 }
 
 /** Semantic ranker backed by the EXTRACTED vector tier (per-collection ANN in the sidecar): query each user
  *  collection, merge by score. Falls back to the in-graph semanticSearch when the tier is empty/unavailable —
  *  so retrieval is correct before/after migration (dual-read). */
-async function tierSemanticSearch(query: string, k: number): Promise<ChunkHit[]> {
+async function tierSemanticSearch(query: string, k: number, docScope?: DocScope): Promise<ChunkHit[]> {
+  // Fallback path (in-graph search) with a scope post-filter — used when the ANN tier is empty/unavailable.
+  const scopedGraph = async (kk: number): Promise<ChunkHit[]> => {
+    const scoped = docScope && !docScope.everything && docScope.collections && docScope.collections.length > 0
+    const base = await semanticSearch(query, scoped ? Math.max(kk * 4, kk) : kk)  // over-fetch, then filter to scope
+    return scoped ? base.filter((h) => chunkInScope(h.filename, docScope)).slice(0, kk) : base
+  }
   try {
     const { vecQuery, vecStats } = await import('./embed-runtime.js')
-    const cols = (await vecStats()).map((c) => c.name)
-    if (cols.length === 0) return semanticSearch(query, k)            // tier not populated yet → graph
+    let cols = (await vecStats()).map((c) => c.name)
+    // Project scope: query ONLY the in-scope collections' ANN indexes (the vector tier partitions by
+    // collection id, so this is both correct and cheaper than fanning out across the whole corpus).
+    if (docScope && !docScope.everything && docScope.collections && docScope.collections.length > 0) {
+      const allow = new Set(docScope.collections)
+      cols = cols.filter((c) => allow.has(c))
+    }
+    if (cols.length === 0) return scopedGraph(k)                      // tier empty / nothing in scope → graph
     const merged = (await Promise.all(cols.map((c) => vecQuery(c, { text: query, k })))).flat()
-    if (merged.length === 0) return semanticSearch(query, k)
+    if (merged.length === 0) return scopedGraph(k)
     const hits: ChunkHit[] = merged
       .map((h) => ({ text: String(h.meta['text'] ?? ''), filename: String(h.meta['filename'] ?? ''), score: h.score, docId: String(h.meta['docId'] ?? ''), idx: Number(h.meta['idx'] ?? 0) }))
-      .filter((h) => h.text)
+      .filter((h) => h.text && chunkInScope(h.filename, docScope))
       .sort((a, b) => b.score - a.score)
       .slice(0, k)
-    return hits.length ? hits : semanticSearch(query, k)
-  } catch { return semanticSearch(query, k) }
+    return hits.length ? hits : scopedGraph(k)
+  } catch { return scopedGraph(k) }
 }
 
 export interface ChartHit extends ChunkHit {

@@ -50,6 +50,12 @@ export type NoeticaChatRequest = {
   security_attested?: boolean
   /** Override provider API base URL — supports local proxies and OpenAI-compatible endpoints */
   api_endpoint_override?: string
+  /** Active project's knowledge-base collection id — retrieval is confined to it (project isolation). */
+  collection_id?: string
+  /** Retrieval breadth: 'chat' (only this chat's docs) | 'project' (chat + project KB, default) | 'everything'. */
+  retrieval_scope?: 'chat' | 'project' | 'everything'
+  /** Force external web research on for this turn (adds web_search + prefers fresh external sources). */
+  web?: boolean
 }
 
 export type NoeticaSteerRequest = {
