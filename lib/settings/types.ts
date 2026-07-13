@@ -107,4 +107,11 @@ export interface NoeticaSettings {
 
   // Model picker
   showAllModels: boolean
+
+  // Prophet Cloud Mesh — opt-in to route inference to the sovereign cloud mesh
+  // (an OpenAI-compatible vLLM endpoint served by prophet-mesh) instead of local models.
+  prophetMeshEnabled: boolean
+  prophetMeshEndpoint: string
+  prophetMeshModel: string
+  prophetMeshApiKey: string
 }

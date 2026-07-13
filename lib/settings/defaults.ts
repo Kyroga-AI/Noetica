@@ -73,4 +73,9 @@ export const defaultSettings: NoeticaSettings = {
   showRawEvents: false,
 
   showAllModels: false,
+
+  prophetMeshEnabled: false,
+  prophetMeshEndpoint: '',
+  prophetMeshModel: 'prophet-mesh',
+  prophetMeshApiKey: '',
 }

@@ -231,6 +231,53 @@ export function ModelsPanel() {
         </select>
       </div>
 
+      {/* Prophet Cloud Mesh — opt-in: route inference to the sovereign cloud mesh */}
+      <div>
+        <div className="flex items-center justify-between">
+          <label className="block text-sm font-semibold text-[var(--color-text-primary)]">Prophet Cloud Mesh</label>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={settings.prophetMeshEnabled}
+            onClick={() => update({ prophetMeshEnabled: !settings.prophetMeshEnabled })}
+            className={`relative h-5 w-9 shrink-0 rounded-full transition ${settings.prophetMeshEnabled ? 'bg-[#1d4ed8]' : 'bg-[var(--color-border-secondary)]'}`}
+          >
+            <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${settings.prophetMeshEnabled ? 'left-[18px]' : 'left-0.5'}`} />
+          </button>
+        </div>
+        <p className="mt-1 text-xs text-[var(--color-text-secondary)] leading-5">
+          Route inference to your sovereign GPU mesh — an OpenAI-compatible endpoint served by prophet-mesh — instead of local models. The mesh conductor routes across the frontier-class model families, grounded by HellGraph. Leave off to stay fully local.
+        </p>
+        {settings.prophetMeshEnabled && (
+          <div className="mt-2 space-y-2">
+            <input
+              value={settings.prophetMeshEndpoint}
+              onChange={(e) => update({ prophetMeshEndpoint: e.target.value })}
+              placeholder="https://mesh.socioprophet.ai/v1"
+              className="w-full rounded-xl border border-[#bfdbfe] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8] focus:bg-[var(--color-background-primary)]"
+            />
+            <div className="flex gap-2">
+              <input
+                value={settings.prophetMeshModel}
+                onChange={(e) => update({ prophetMeshModel: e.target.value })}
+                placeholder="prophet-mesh"
+                className="flex-1 rounded-xl border border-[#bfdbfe] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8] focus:bg-[var(--color-background-primary)]"
+              />
+              <input
+                type="password"
+                value={settings.prophetMeshApiKey}
+                onChange={(e) => update({ prophetMeshApiKey: e.target.value })}
+                placeholder="API key (optional)"
+                className="flex-1 rounded-xl border border-[#bfdbfe] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8] focus:bg-[var(--color-background-primary)]"
+              />
+            </div>
+            {!settings.prophetMeshEndpoint.trim() && (
+              <p className="text-[11px] text-[#d97706]">Enter the mesh endpoint URL (…/v1) to route inference there.</p>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* Add a model — HuggingFace GGUF (local via Ollama) or a hosted aggregator (OpenRouter / HF Inference) */}
       <div>
         <label className="block text-sm font-semibold text-[var(--color-text-primary)]">Add a model</label>
