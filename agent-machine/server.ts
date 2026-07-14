@@ -2696,8 +2696,7 @@ async function* streamAnthropic(params: {
         type?: string
         index?: number
         content_block?: { type?: string; id?: string; name?: string }
-        delta?: { type?: string; text?: string; thinking?: string; partial_json?: string }
-        message?: { stop_reason?: string }
+        delta?: { type?: string; text?: string; thinking?: string; partial_json?: string; stop_reason?: string }
       }
       try {
         p = JSON.parse(raw) as typeof p
@@ -2734,7 +2733,7 @@ async function* streamAnthropic(params: {
         }
       }
 
-      if (p.type === 'message_delta' && p.message?.stop_reason === 'tool_use') {
+      if (p.type === 'message_delta' && p.delta?.stop_reason === 'tool_use') {
         const calls: ToolUseBlock[] = Array.from(toolBlocks.values()).map((b) => ({
           id: b.id,
           name: b.name,
