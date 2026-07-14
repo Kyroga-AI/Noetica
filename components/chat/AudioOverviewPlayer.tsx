@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { amUrl } from '@/lib/tauri/bridge'
 import { useSettings } from '@/lib/settings/context'
+import { getMicStream, MicPermissionDeniedError } from '@/lib/voice/micStream'
 
 interface DialogueTurn { speaker: 'Host' | 'Guest'; line: string; audio_b64?: string; audio_format?: 'mp3' | 'wav'; callin?: boolean }
 type Format = 'brief' | 'critique' | 'debate'
@@ -78,9 +79,9 @@ export function AudioOverviewPlayer({ refreshSignal = 0 }: Props) {
     setCallinError('')
     let stream: MediaStream
     try {
-      stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-    } catch {
-      setCallinError('Microphone access denied.')
+      stream = await getMicStream()
+    } catch (e) {
+      setCallinError(e instanceof MicPermissionDeniedError ? e.message : 'Microphone access denied.')
       return
     }
     // Pause playback while recording
@@ -96,7 +97,7 @@ export function AudioOverviewPlayer({ refreshSignal = 0 }: Props) {
     mediaRecorderRef.current = mr
     mr.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data) }
     mr.onstop = () => {
-      stream.getTracks().forEach((t) => t.stop())
+      // Leave the shared stream live for reuse — released only on app teardown.
       void submitCallin(wasPlaying)
     }
     mr.start()

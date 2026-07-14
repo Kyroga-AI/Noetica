@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useRef, useState } from 'react'
+import { getMicStream } from '@/lib/voice/micStream'
 
 export type RealtimeVoiceStatus =
   | 'idle'
@@ -57,10 +58,11 @@ export function useRealtimeVoice(
   const aiTranscriptRef = useRef<string>('')
 
   const stopSession = useCallback(() => {
-    // Stop mic
+    // Disconnect our audio graph but leave the shared mic stream live for reuse —
+    // it is released only on real app teardown (see micStream), so ending and
+    // restarting a realtime session doesn't re-fire the OS mic prompt.
     processorRef.current?.disconnect()
     sourceRef.current?.disconnect()
-    streamRef.current?.getTracks().forEach((t) => t.stop())
     processorRef.current = null
     sourceRef.current = null
     streamRef.current = null
@@ -122,7 +124,7 @@ export function useRealtimeVoice(
         audioCtxRef.current = audioCtx
         playbackTimeRef.current = audioCtx.currentTime
 
-        const mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+        const mediaStream = await getMicStream({ audio: true, video: false })
         streamRef.current = mediaStream
 
         const source = audioCtx.createMediaStreamSource(mediaStream)

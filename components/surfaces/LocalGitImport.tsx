@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useSettings } from '@/lib/settings/context'
+import { pickProjectRoot } from '@/lib/fs/projectRoot'
 
 /**
  * "Point at a folder on my Mac → make it a Gitea repo." The seam the Source surface
@@ -16,7 +17,7 @@ const amBase = () =>
   typeof window !== 'undefined' && (window as unknown as { __TAURI__?: unknown }).__TAURI__ ? 'http://127.0.0.1:8080' : ''
 
 export function LocalGitImport({ onClose, onDone }: { onClose: () => void; onDone?: (r: { html_url: string }) => void }) {
-  const { settings } = useSettings()
+  const { settings, update } = useSettings()
   const configured = Boolean(settings.giteaEndpoint?.trim())
 
   const [browse, setBrowse] = useState<BrowseResp | null>(null)
@@ -42,7 +43,15 @@ export function LocalGitImport({ onClose, onDone }: { onClose: () => void; onDon
     }
   }, [])
 
-  useEffect(() => { void loadDir() }, [loadDir])
+  // Start from the granted project root (picked once, persisted) so browsing stays
+  // within it and never re-triggers a permission prompt. Falls back to home if unset.
+  useEffect(() => { void loadDir(settings.projectRoot || undefined) }, [loadDir, settings.projectRoot])
+
+  // Let the user (re)choose the project root; persist it and browse there.
+  async function chooseRoot() {
+    const root = await pickProjectRoot()
+    if (root) { update({ projectRoot: root }); void loadDir(root) }
+  }
 
   function pick(p: string) {
     setSelected(p)
@@ -121,6 +130,13 @@ export function LocalGitImport({ onClose, onDone }: { onClose: () => void; onDon
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden><path d="M6 9V3M3 6l3-3 3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" /></svg>
                 </button>
                 <div className="min-w-0 flex-1 truncate text-[11px] text-[var(--color-text-tertiary)]" title={browse?.path}>{browse?.path ?? '…'}</div>
+                <button
+                  onClick={() => void chooseRoot()}
+                  className="shrink-0 rounded-md border border-[var(--color-border-secondary)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]"
+                  title="Pick a project root once — Noetica remembers it and won't re-prompt"
+                >
+                  Choose root…
+                </button>
                 <button
                   onClick={() => browse && pick(browse.path)}
                   disabled={!browse}

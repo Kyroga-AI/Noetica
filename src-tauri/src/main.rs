@@ -12,6 +12,7 @@ use tauri::{
 };
 use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, ShortcutState};
 use tauri_plugin_shell::ShellExt;
+use tauri_plugin_fs::FsExt;
 
 /// Holds the port the Agent Machine sidecar is listening on.
 /// None means the sidecar failed to start (dev mode without binary, or error).
@@ -587,6 +588,14 @@ fn confine_path(path: &str) -> Result<std::path::PathBuf, String> {
     Ok(resolved)
 }
 
+/// Grant the fs plugin recursive access to a user-chosen project root. Combined with
+/// tauri-plugin-persisted-scope this makes the grant durable, so browsing into any
+/// subdirectory of that root (and reading files under it) never re-prompts.
+#[tauri::command]
+fn grant_project_root(app: tauri::AppHandle, path: String) -> Result<(), String> {
+    app.fs_scope().allow_directory(&path, true).map_err(|e| e.to_string())
+}
+
 /// Read a local file as UTF-8 text (≤ 2MB). Used by the filesystem tool.
 #[tauri::command]
 async fn read_local_file(path: String) -> Result<String, String> {
@@ -645,6 +654,10 @@ fn main() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
+        // Must init AFTER fs so it can restore the saved scope into the fs plugin —
+        // a project root the user granted once then survives app restarts.
+        .plugin(tauri_plugin_persisted_scope::init())
         .plugin(
             tauri_plugin_global_shortcut::Builder::new()
                 .with_shortcut(global_shortcut)
@@ -910,6 +923,7 @@ fn main() {
             read_local_file,
             list_directory,
             write_local_file,
+            grant_project_root,
         ])
         .build(tauri::generate_context!())
         .expect("error while building Noetica desktop shell")

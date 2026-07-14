@@ -13,6 +13,10 @@ tauri = { version = "2", features = ["tray-icon", "image-png"] }
 tauri-plugin-shell = "2"
 tauri-plugin-global-shortcut = "2"
 tauri-plugin-dialog = "2"
+# Filesystem plugin (used by the webview attachment reader) + persisted-scope so a
+# user-granted project root survives restarts and child reads never re-prompt.
+tauri-plugin-fs = "2"
+tauri-plugin-persisted-scope = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 base64 = "0.22"

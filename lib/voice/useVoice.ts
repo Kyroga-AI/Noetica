@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSettings } from '@/lib/settings/context'
 import { isTauri, invokeTauri } from '@/lib/tauri/bridge'
+import { getMicStream, MicPermissionDeniedError } from '@/lib/voice/micStream'
 
 export type VoiceState = 'idle' | 'listening' | 'processing' | 'wake-listening'
 
@@ -67,12 +68,15 @@ export function useVoice(onTranscript: (text: string) => void) {
       return
     }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      // Reuse the app-wide shared mic stream — acquired once, never torn down per
+      // utterance — so WKWebView doesn't re-fire the OS mic gate every turn.
+      const stream = await getMicStream()
       chunksRef.current = []
       const rec = new MediaRecorder(stream)
       rec.ondataavailable = (e) => { if (e.data.size) chunksRef.current.push(e.data) }
       rec.onstop = () => {
-        stream.getTracks().forEach((t) => t.stop())
+        // Do NOT stop the stream tracks here — the shared stream stays live for the
+        // next turn. It is released only on real app teardown (see micStream).
         setState('processing')
         const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
         const reader = new FileReader()
@@ -117,7 +121,10 @@ export function useVoice(onTranscript: (text: string) => void) {
           vadRef.current = { ctx, raf: requestAnimationFrame(tick) }
         } catch { /* no VAD — manual stop still works */ }
       }
-    } catch { setError('Microphone access denied'); setState('idle') }
+    } catch (e) {
+      setError(e instanceof MicPermissionDeniedError ? e.message : 'Microphone access denied')
+      setState('idle')
+    }
   }, [SpeechRecognitionCtor, onTranscript])
   startListenRef.current = startListening
 

@@ -37,6 +37,10 @@ export interface NoeticaSettings {
   giteaToken: string
   githubPat: string
 
+  // Filesystem: the single project root the user grants once. All local browsing
+  // and file reads are served from within it, so no per-subdirectory re-prompting.
+  projectRoot: string
+
   // Prophet Workspace — sovereign Google-Workspace replacement (your own mail + calendar, no Google)
   mailImapHost: string
   mailImapPort: string

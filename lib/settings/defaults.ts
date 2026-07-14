@@ -27,6 +27,7 @@ export const defaultSettings: NoeticaSettings = {
   giteaEndpoint: '',
   giteaToken: '',
   githubPat: '',
+  projectRoot: '',
 
   mcpServers: {},
 

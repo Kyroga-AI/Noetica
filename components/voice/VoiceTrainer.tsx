@@ -8,6 +8,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSettings } from '@/lib/settings/context'
 import { isTauri } from '@/lib/tauri/bridge'
+import { getMicStream, MicPermissionDeniedError } from '@/lib/voice/micStream'
 
 function amUrl(path: string): string {
   return isTauri() ? `http://127.0.0.1:8080${path}` : path
@@ -65,13 +66,15 @@ export function VoiceTrainer() {
 
   async function startRec() {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      // Shared app-wide mic stream — reused, and left live after recording so the
+      // OS mic gate isn't re-triggered elsewhere in the app.
+      const stream = await getMicStream()
       chunksRef.current = []
       const rec = new MediaRecorder(stream)
       rec.ondataavailable = (e) => { if (e.data.size) chunksRef.current.push(e.data) }
-      rec.onstop = () => { setClip(new Blob(chunksRef.current, { type: 'audio/webm' })); stream.getTracks().forEach((t) => t.stop()) }
+      rec.onstop = () => { setClip(new Blob(chunksRef.current, { type: 'audio/webm' })) }
       rec.start(); recRef.current = rec; setRecording(true); setStatus('')
-    } catch { setStatus('Microphone access denied') }
+    } catch (e) { setStatus(e instanceof MicPermissionDeniedError ? e.message : 'Microphone access denied') }
   }
   function stopRec() { recRef.current?.stop(); setRecording(false) }
 
