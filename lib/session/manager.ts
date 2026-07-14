@@ -53,10 +53,15 @@ export function updateSession(
   const existing = store.sessions[id]
   if (!existing) return store
   const messages = patch.messages ? patch.messages.slice(-MAX_MESSAGES_PER_SESSION) : existing.messages
+  // Only genuine conversation activity (new messages) bumps recency. sortedSessions() orders
+  // the Recent list by updatedAt — bumping it on every surface/workspaceMode navigation (e.g.
+  // clicking a surface tab while a session is active) reshuffled the list under the user's
+  // cursor, so a click aimed at one row could land on a different session that had just been
+  // resorted into that position. Pure navigation/metadata patches leave updatedAt untouched.
   const updated: WorkspaceSession = {
     ...existing, ...patch, messages,
     title: patch.messages ? deriveTitle(messages) : (patch.title ?? existing.title),
-    updatedAt: now(),
+    updatedAt: patch.messages !== undefined ? now() : existing.updatedAt,
   }
   return { ...store, sessions: { ...store.sessions, [id]: updated } }
 }
