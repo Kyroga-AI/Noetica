@@ -321,3 +321,11 @@ input {
 html[data-font-size="sm"] { font-size: 13px; }
 html[data-font-size="md"] { font-size: 14px; }
 html[data-font-size="lg"] { font-size: 16px; }
+
+/* ── macOS overlay titlebar inset ───────────────────────────────────────────
+   The desktop build uses titleBarStyle "Overlay", so the traffic-light window
+   controls float at the top-left over the app. The Topbar clears them in the
+   main column, but the left rails/sidebar sit at y=0 underneath them. Push the
+   left-column tops down so their controls clear the lights. Desktop (Tauri)
+   only — the attribute is unset in the web build, so there is no inset there. */
+html[data-titlebar-overlay="1"] .titlebar-inset { padding-top: 1.75rem; }

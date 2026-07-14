@@ -298,7 +298,7 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                 autoFocus
                 rows={2}
                 className="w-full resize-none rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#1d4ed8]"
-                placeholder="Describe the goal for this cowork session…"
+                placeholder="Describe the goal for this collaborate session…"
                 value={draftObjective}
                 onChange={(e) => setDraftObjective(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) setObj() }}

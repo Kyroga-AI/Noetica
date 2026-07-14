@@ -56,7 +56,7 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
           <div>
             <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#1d4ed8]">About Noetica</div>
             <div className="mt-3 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-4 py-3 text-xs leading-6 text-[var(--color-text-secondary)]">
-              Noetica is a sovereign AI workstation — a Tauri 2 + Next.js 14 desktop app for working across multiple models via structured surfaces: Chat, Projects, Evaluate, Tune, Govern, Cowork, Notes, Artifacts, Code, and Operate.
+              Noetica is a sovereign AI workstation — a Tauri 2 + Next.js 14 desktop app for working across multiple models via structured surfaces: Chat, Projects, Evaluate, Tune, Govern, Collaborate, Notes, Artifacts, Code, and Operate.
             </div>
           </div>
 
@@ -67,7 +67,7 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
                 ['⌘1 Chat',      'Main AI conversation workspace'],
                 ['⌘2 Notes',     'Per-note memory scope with AI chat'],
                 ['⌘3 Workrooms', 'Multi-agent and multi-user rooms'],
-                ['⌘4 Cowork',    'AI task decomposition and collaboration'],
+                ['⌘4 Collaborate', 'AI task decomposition and collaboration'],
                 ['⌘5 Projects',  'Kanban board and sprint planning'],
                 ['⌘6 Artifacts', 'Code, document, and HTML artifacts'],
                 ['⌘7 Code',      'Source file browser and AI code review'],

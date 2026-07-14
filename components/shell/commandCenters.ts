@@ -118,10 +118,10 @@ export const COMMAND_CENTERS: CommandCenter[] = [
  */
 export const NAV_SURFACES: NavSurface[] = [
   // ── Workspace ──────────────────────────────────────────────────────────
-  { id: 'chat',       label: 'Workspace',   center: 'workspace', tier: 'primary',   maturity: 'live' },
+  { id: 'chat',       label: 'Chat',        center: 'workspace', tier: 'primary',   maturity: 'live' },
   { id: 'canvas',     label: 'Canvas',      center: 'workspace', tier: 'primary',   maturity: 'live' },
   { id: 'notes',      label: 'Notes',       center: 'workspace', tier: 'primary',   maturity: 'live' },
-  { id: 'cowork',     label: 'Cowork',      center: 'workspace', tier: 'primary',   maturity: 'live' },
+  { id: 'cowork',     label: 'Collaborate', center: 'workspace', tier: 'primary',   maturity: 'live' },
   { id: 'workrooms',  label: 'Workrooms',   center: 'workspace', tier: 'primary',   maturity: 'live' },
   { id: 'jitsi',      label: 'Video',       center: 'workspace', tier: 'tab',       maturity: 'live', foldsInto: 'workrooms' },
   { id: 'calendar',   label: 'Calendar',    center: 'workspace', tier: 'secondary', maturity: 'beta' },

@@ -634,6 +634,25 @@ async fn list_directory(path: String) -> Result<Vec<serde_json::Value>, String> 
     Ok(entries)
 }
 
+/// Run a read-only `gh api` call using the user's local GitHub CLI auth.
+/// Mirrors how Claude Code reaches GitHub — no in-app PAT needed. GET only.
+#[tauri::command]
+async fn gh_api(endpoint: String) -> Result<String, String> {
+    // No shell is involved (args are passed directly), so the endpoint cannot
+    // inject extra commands. The method is pinned to GET so this stays a
+    // read-only surface scoped to whatever the user's own `gh` login can see.
+    let output = std::process::Command::new("gh")
+        .args(["api", "--method", "GET", &endpoint])
+        .output()
+        .map_err(|e| format!("gh not runnable: {e}. Install GitHub CLI and run `gh auth login`."))?;
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+    } else {
+        let err = String::from_utf8_lossy(&output.stderr);
+        Err(format!("gh api failed: {}", err.trim()))
+    }
+}
+
 /// Write text content to a local file. Creates parent directories if needed.
 #[tauri::command]
 async fn write_local_file(path: String, content: String) -> Result<(), String> {
@@ -923,6 +942,7 @@ fn main() {
             read_local_file,
             list_directory,
             write_local_file,
+            gh_api,
             grant_project_root,
         ])
         .build(tauri::generate_context!())

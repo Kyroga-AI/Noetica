@@ -278,13 +278,13 @@ function IconLibrary() {
 }
 
 const surfaceItems: SurfaceItem[] = [
-  { id: 'chat',        label: 'Workspace',   icon: <IconChat />,       items: ['New conversation', 'Recent threads', 'Pinned'] },
+  { id: 'chat',        label: 'Chat',        icon: <IconChat />,       items: ['New conversation', 'Recent threads', 'Pinned'] },
   { id: 'library',     label: 'Library',     icon: <IconLibrary />,    items: ['Collections', 'Documents', 'Entities'] },
   { id: 'kg',          label: 'Knowledge Graph', icon: <IconGraph />,  items: ['Nodes', 'Edges', 'Communities'] },
   { id: 'search',      label: 'Search',      icon: <IconSearchGlass />, items: ['Local · lampstand', 'Platform · sherlock'] },
   { id: 'notes',       label: 'Notes',       icon: <IconNotes />,      items: ['My notes', 'Shared', 'Archived'] },
   { id: 'canvas',      label: 'Canvas',      icon: <IconCanvas />,     items: ['My documents', 'Shared', 'Archived'] },
-  { id: 'cowork',      label: 'Cowork',      icon: <IconCowork />,     items: ['Active sessions', 'Task decomposition', 'Decision log'] },
+  { id: 'cowork',      label: 'Collaborate', icon: <IconCowork />,     items: ['Active sessions', 'Task decomposition', 'Decision log'] },
   { id: 'workrooms',   label: 'Workrooms',   icon: <IconWorkrooms />,  items: ['My rooms', 'Shared rooms', 'Archived'] },
   { id: 'projects',    label: 'Projects',    icon: <IconProjects />,   items: ['Active projects', 'Backlog', 'Sprints'] },
   { id: 'artifacts',   label: 'Artifacts',   icon: <IconArtifacts />,  items: ['Documents', 'Code files', 'Evidence bundles'] },
@@ -444,7 +444,7 @@ export function Sidebar({
 
   return (
     <>
-    <aside className="hidden w-full min-w-0 shrink-0 flex-col border-r border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] px-2 py-2 lg:flex h-full overflow-y-auto" data-density={density}>
+    <aside className="titlebar-inset hidden w-full min-w-0 shrink-0 flex-col border-r border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] px-2 py-2 lg:flex h-full overflow-y-auto" data-density={density}>
       {/* Header row */}
       <div className="flex items-center gap-1 pb-1">
         <button

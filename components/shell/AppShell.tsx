@@ -66,6 +66,7 @@ import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
 import { buildRiskAversionLiveReadout } from '@/lib/risk/riskAversionLive'
 import { listenTauri, isTauri, invokeTauri } from '@/lib/tauri/bridge'
 import { executeBuiltinToolDirect } from '@/lib/client/anthropicDirect'
+import { readRepo } from '@/lib/tools/repoRead'
 import { useSession } from '@/lib/session/useSession'
 import { useArtifacts } from '@/lib/artifacts/useArtifacts'
 import { useProjects } from '@/lib/projects/useProjects'
@@ -93,15 +94,17 @@ import type { ProviderTool, ToolUseBlock } from '@/lib/providers'
 import { mcpManager } from '@/lib/mcp/client'
 import { amUrl } from '@/lib/tauri/bridge'
 
-const SURFACE_ORDER: ActiveSurface[] = ['chat', 'notes', 'canvas', 'workrooms', 'cowork', 'projects', 'artifacts', 'code', 'evaluate', 'operate', 'computer']
+// ⌘1–⌘9 surface shortcuts. Order MUST match the Command Palette / Help modal
+// shortcut list so the advertised keys actually land on the right surface.
+const SURFACE_ORDER: ActiveSurface[] = ['chat', 'notes', 'workrooms', 'cowork', 'projects', 'artifacts', 'code', 'evaluate', 'operate']
 
 const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
   chat:         'Chat',
   notes:        'Chat',
   canvas:       'Chat',
-  workrooms:    'Cowork',
-  cowork:       'Cowork',
-  projects:     'Cowork',
+  workrooms:    'Collaborate',
+  cowork:       'Collaborate',
+  projects:     'Collaborate',
   artifacts:    'Chat',
   code:         'Code',
   deploy:       'Code',
@@ -166,6 +169,12 @@ export function AppShell() {
     if (wasArmedRef.current && !securityArmed) obliterateNow()
     wasArmedRef.current = securityArmed
   }, [securityArmed, obliterateNow])
+
+  // Desktop overlay titlebar: mark the root so the left rails/sidebar inset their
+  // tops to clear the floating macOS traffic lights (see .titlebar-inset in CSS).
+  useEffect(() => {
+    if (isTauri()) document.documentElement.setAttribute('data-titlebar-overlay', '1')
+  }, [])
 
   // ── Derive surface / messages from active session (with local overrides) ──
   const [activeSurface, setActiveSurface] = useState<ActiveSurface>('chat')
@@ -761,6 +770,24 @@ export function AppShell() {
         required: ['path'],
       },
     })
+    // read_repo — check out a GitHub/Gitea repo (no local clone). Call with just
+    // owner/repo to get the file tree, then again with `paths` to read files.
+    // Private repos need a GitHub PAT (Settings → Connections).
+    tools.push({
+      name: 'read_repo',
+      description: 'Read a GitHub or Gitea repository. Call with owner+repo (no paths) to get the file tree, then call again with a "paths" array to read specific files. Use this to inspect a repo and report on its contents.',
+      input_schema: {
+        type: 'object',
+        properties: {
+          owner:    { type: 'string', description: 'Repo owner/org, e.g. "SocioProphet"' },
+          repo:     { type: 'string', description: 'Repo name, e.g. "Noetica"' },
+          branch:   { type: 'string', description: 'Branch (default "main")' },
+          provider: { type: 'string', enum: ['github', 'gitea'], description: 'Forge (default "github")' },
+          paths:    { type: 'array', items: { type: 'string' }, description: 'Optional file paths to read; omit to list the tree' },
+        },
+        required: ['owner', 'repo'],
+      },
+    })
     return tools
   }
 
@@ -1082,6 +1109,9 @@ export function AppShell() {
       openrouter:  settings.openrouterApiKey  || undefined,
       huggingface: settings.huggingfaceApiKey || undefined,
       serper:      settings.serperApiKey      || undefined,
+      githubPat:   settings.githubPat         || undefined,
+      giteaBase:   settings.giteaEndpoint     || undefined,
+      giteaToken:  settings.giteaToken        || undefined,
     }
     const agentMachineEndpoint =
       settings.runtimeMode === 'agent-machine' && settings.agentMachineEndpoint
@@ -1105,6 +1135,7 @@ export function AppShell() {
     try {
       for (let turn = 0; turn < MAX_TOOL_TURNS; turn++) {
         pendingToolCalls = undefined
+        let turnContent = ''
 
         await sendNoeticaChat(
           {
@@ -1194,6 +1225,7 @@ export function AppShell() {
             onPlan: (plan) => updateAssistant(assistantId, { plan }),
             onStep: (step) => mergePlanStep(assistantId, step),
             onDone: (result) => {
+              turnContent = result.content ?? ''
               // Voice loop: if this turn was spoken, speak the reply (and live mode re-listens).
               if (voiceReplyRef.current) { voiceReplyRef.current = false; if (result.content) void speak(result.content) }
               if (settings.showRawEvents) {
@@ -1279,6 +1311,15 @@ export function AppShell() {
         const activeCalls = pendingToolCalls as ToolUseBlock[] | undefined
         if (!activeCalls?.length || abort.signal.aborted || agentMachineEndpoint) break
 
+        // Auto-mode spurious-loop guard: weak local models frequently emit a tool
+        // call ALONGSIDE a complete text answer, which would otherwise kick an
+        // unwanted second iteration on nearly every prompt. If the model already
+        // produced a substantial answer this turn, treat it as terminal in 'auto'
+        // mode. 'ask'/'plan' modes gate tool use explicitly, so they are exempt.
+        const effectiveMode = agentModeOverride ?? settings.agentMode
+        const AUTO_TERMINAL_CONTENT_CHARS = 200
+        if (effectiveMode === 'auto' && turnContent.trim().length >= AUTO_TERMINAL_CONTENT_CHARS) break
+
         // Execute all tool calls
         const toolResults = await executeToolCalls(activeCalls, providerKeys)
 
@@ -1349,6 +1390,21 @@ export function AppShell() {
   ): Promise<Array<{ id: string; name: string; result: string }>> {
     return Promise.all(calls.map(async (call) => {
       try {
+        // read_repo — client-side GitHub/Gitea reader (works in browser and Tauri).
+        if (call.name === 'read_repo') {
+          const result = await readRepo(
+            {
+              owner: String(call.input.owner ?? ''),
+              repo: String(call.input.repo ?? ''),
+              branch: call.input.branch as string | undefined,
+              provider: call.input.provider as 'github' | 'gitea' | undefined,
+              paths: Array.isArray(call.input.paths) ? (call.input.paths as string[]) : undefined,
+            },
+            { githubPat: providerKeys.githubPat, giteaBase: providerKeys.giteaBase, giteaToken: providerKeys.giteaToken }
+          )
+          return { id: call.id, name: call.name, result }
+        }
+
         // Filesystem tools — Tauri only (no browser equivalent)
         if (call.name === 'read_file' || call.name === 'write_file' || call.name === 'list_directory') {
           if (isTauri()) {
@@ -1783,7 +1839,7 @@ function IconSm({ path, d2 }: { path: string; d2?: string }) {
 }
 
 const surfaceIcons: { id: ActiveSurface; label: string; icon: React.ReactNode }[] = [
-  { id: 'chat',      label: 'Workspace',    icon: <IconSm path="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H5l-3 2V3Z" /> },
+  { id: 'chat',      label: 'Chat',         icon: <IconSm path="M2 3a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v7a1 1 0 0 1-1 1H5l-3 2V3Z" /> },
   { id: 'canvas',    label: 'Canvas',       icon: <IconSm path="M3 2h8l2 2v9a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" d2="M5 6h6M5 9h4" /> },
   { id: 'projects',  label: 'Projects',     icon: <IconSm path="M2 2h5v5H2zM9 2h5v5H9z" d2="M2 9h5v5H2zM9 11h6M12 8.5v5" /> },
   { id: 'artifacts', label: 'Artifacts',    icon: <IconSm path="M4 2h5l3 3v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1z" d2="M9 2v3h3M6 8h4M6 11h3" /> },
@@ -1799,7 +1855,7 @@ const surfaceIcons: { id: ActiveSurface; label: string; icon: React.ReactNode }[
 
 function CollapsedRail({ activeSurface, onSurfaceChange, onExpand }: CollapsedRailProps) {
   return (
-    <aside className="hidden w-14 shrink-0 flex-col items-center border-r border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] py-3 lg:flex">
+    <aside className="titlebar-inset hidden w-14 shrink-0 flex-col items-center border-r border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] py-3 lg:flex">
       <button
         onClick={onExpand}
         className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]"

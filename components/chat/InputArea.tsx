@@ -13,7 +13,7 @@ import { visibleModels, providersWithKeys } from '@/config/models'
 import { useSettings } from '@/lib/settings/context'
 import type { RetrievalScope } from '@/lib/projects/types'
 
-export type WorkspaceMode = 'Chat' | 'Cowork' | 'Code' | 'Benchmark'
+export type WorkspaceMode = 'Chat' | 'Collaborate' | 'Code' | 'Benchmark'
 
 export type SendScope = { retrievalScope: RetrievalScope; web: boolean }
 

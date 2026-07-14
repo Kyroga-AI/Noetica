@@ -51,7 +51,7 @@ export function CommandCenterRail({
   return (
     <nav
       aria-label="Command centers"
-      className="hidden w-16 shrink-0 flex-col items-stretch gap-0.5 border-r border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] px-1.5 py-2 lg:flex"
+      className="titlebar-inset hidden w-16 shrink-0 flex-col items-stretch gap-0.5 border-r border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] px-1.5 py-2 lg:flex"
     >
       {COMMAND_CENTERS.map((c) => {
         const isActive = activeCenter === c.id
