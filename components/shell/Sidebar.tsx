@@ -444,7 +444,10 @@ export function Sidebar({
 
   return (
     <>
-    <aside className="hidden w-full min-w-0 shrink-0 flex-col border-r border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] px-2 py-2 lg:flex h-full overflow-y-auto" data-density={density}>
+    {/* pt-11 matches Topbar's h-11 / CommandCenterRail's pt-11: this panel is leftmost of the window
+        at lg+ (when CommandCenterRail is visible, it sits just left of here), so its header row needs
+        the same vertical clearance from the macOS Overlay-titlebar traffic lights. */}
+    <aside className="hidden w-full min-w-0 shrink-0 flex-col border-r border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] px-2 pb-2 pt-11 lg:flex h-full overflow-y-auto" data-density={density}>
       {/* Header row */}
       <div className="flex items-center gap-1 pb-1">
         <button

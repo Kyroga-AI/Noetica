@@ -55,10 +55,14 @@ export function Topbar({ modelId, mode, riskReadout, voiceState, isLive, onLiveS
     // lights float over content), so THIS bar IS the titlebar — draggable, and padded left so the brand
     // clears the floating traffic lights. `data-tauri-drag-region` lets you move the window by the bar;
     // the buttons inside stay clickable (Tauri excludes interactive children from the drag).
+    // The 78px reservation only applies below lg: at lg+, CommandCenterRail (+ Sidebar/CollapsedRail —
+    // same lg: gate) already sits to the left of this bar and clears the traffic lights itself, so
+    // keeping the full 78px here too just steals width from the title, squeezing it against the
+    // egress/runtime pills on narrower lg+ windows. pl-4 there is purely cosmetic edge spacing.
     <header
       data-tauri-drag-region
       onDoubleClick={onTitlebarDoubleClick}
-      className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] pl-[78px] pr-4"
+      className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] pl-[78px] pr-4 lg:pl-4"
     >
       <div data-tauri-drag-region className="flex min-w-0 items-center gap-2">
         <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-text-primary)] text-[var(--color-background-primary)]">

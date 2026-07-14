@@ -1799,7 +1799,8 @@ const surfaceIcons: { id: ActiveSurface; label: string; icon: React.ReactNode }[
 
 function CollapsedRail({ activeSurface, onSurfaceChange, onExpand }: CollapsedRailProps) {
   return (
-    <aside className="hidden w-14 shrink-0 flex-col items-center border-r border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] py-3 lg:flex">
+    // pt-11 matches Topbar's h-11 / CommandCenterRail's pt-11 — same traffic-light clearance rationale.
+    <aside className="hidden w-14 shrink-0 flex-col items-center border-r border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] pb-3 pt-11 lg:flex">
       <button
         onClick={onExpand}
         className="mb-3 flex h-8 w-8 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]"
