@@ -499,7 +499,7 @@ async function runAtomsPattern(
     const conf = String(node.properties['confidence'] ?? '')
     const confTag = conf ? ` (conf ${Number(conf).toFixed(2)})` : ''
     lines.push(`• ${surface}  ${kind}${primesTag}${confTag}`)
-    sources.push({ id: node.id, label: kind, score })
+    sources.push({ id: node.id, label: surface, score })
   }
 
   // Expand via pattern matcher: find neighbors connected by COOCCURS_WITH or RELATED_TO
@@ -535,7 +535,7 @@ async function runAtomsPattern(
           const primes = String(nNode.properties['prime_support'] ?? '')
           const primesTag = primes ? ` [${primes}]` : ''
           neighborLines.push(`• ${surface}  ${kind}${primesTag} ← ${edgeLabel}`)
-          neighborSources.push({ id: nNode.id, label: kind, score: 0.5 })
+          neighborSources.push({ id: nNode.id, label: surface, score: 0.5 })
           if (neighborLines.length >= 10) break
         }
       } catch { /* skip if pattern matcher unavailable */ }
@@ -609,7 +609,7 @@ async function runCairnPathPattern(
     const kind = String(node.properties['kind'] ?? 'FEATURE_ATOM')
     const score = Math.max(0.3, 1 - idx / Math.max(handles.length, 1))
     lines.push(`• ${surface}  ${kind}`)
-    sources.push({ id: node.id, label: kind, score })
+    sources.push({ id: node.id, label: surface, score })
   })
 
   if (lines.length === 0) return { text: '', sources: [] }
