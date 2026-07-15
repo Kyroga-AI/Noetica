@@ -62,7 +62,7 @@
     "react-markdown": "10.1.0",
     "react-syntax-highlighter": "16.1.1",
     "remark-gfm": "4.0.1",
-    "xlsx": "^0.18.5",
+    "xlsx": "file:vendor/xlsx-0.20.3.tgz",
     "zustand": "^5.0.2"
   },
   "devDependencies": {
