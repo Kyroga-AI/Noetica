@@ -878,7 +878,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
 
         {/* One disclosure for all the governance / trace depth — keeps the thread clean. */}
         {message.content && (
-          (message.deliberation && message.deliberation.candidates.length > 1) ||
+          (message.deliberation && (message.deliberation.candidates?.length ?? 0) > 1) ||
           message.discipline ||
           message.value_judgment ||
           (message.retrieval_trace && (message.retrieval_trace.sources.length > 0 || message.retrieval_trace.beliefs_injected > 0 || (message.retrieval_trace.memory_sources?.length ?? 0) > 0 || (message.retrieval_trace.episode_sources?.length ?? 0) > 0)) ||
@@ -994,10 +994,10 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
                 </div>
               )}
               {/* Deliberation */}
-              {message.deliberation && message.deliberation.candidates.length > 1 && (
+              {message.deliberation && (message.deliberation.candidates?.length ?? 0) > 1 && (
                 <div className="space-y-1.5">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">Deliberation · best of {message.deliberation.candidates.length}</span>
+                    <span className="text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">Deliberation · best of {message.deliberation.candidates?.length ?? 0}</span>
                     {message.deliberation.critic && (
                       <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${
                         message.deliberation.critic.action === 'accept' ? 'bg-[#f0fdf4] text-[#15803d]' :
@@ -1012,7 +1012,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
                   {message.deliberation.critic?.reason && (
                     <p className="text-[10px] italic text-[var(--color-text-tertiary)]">{message.deliberation.critic.reason}</p>
                   )}
-                  {message.deliberation.candidates.map((c) => (
+                  {message.deliberation.candidates?.map((c) => (
                     <div key={c.rank} className={`flex items-center gap-2 rounded-lg px-2 py-1 ${c.rank === message.deliberation!.selected_rank ? 'bg-[rgba(37,99,235,0.1)]' : ''}`}>
                       <span className="w-10 shrink-0 text-[10px] text-[var(--color-text-tertiary)]">{c.rank === message.deliberation!.selected_rank ? '✓ best' : `#${c.rank + 1}`}</span>
                       <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
