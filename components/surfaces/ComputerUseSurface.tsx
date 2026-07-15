@@ -29,7 +29,7 @@ function PlanView({ plan }: { plan: Plan }) {
         />
       </div>
       <div className="space-y-1">
-        {plan.subTasks.map((t, i) => (
+        {plan.subTasks.filter(Boolean).map((t, i) => (
           <div key={t.id} className="flex items-center gap-2">
             <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold ${
               t.failed ? 'bg-[#fecaca] text-[#dc2626]' :

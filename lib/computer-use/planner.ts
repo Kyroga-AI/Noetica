@@ -91,15 +91,20 @@ export async function planGoal(
     goal,
     reasoning: planJson.reasoning ?? '',
     createdAt: new Date().toISOString(),
-    subTasks: (planJson.subTasks ?? []).map((t) => ({
-      id: crypto.randomUUID(),
-      title: t.title,
-      instruction: t.instruction,
-      appContext: t.appContext,
-      webSearchQuery: t.webSearchQuery,
-      done: false,
-      failed: false,
-    })),
+    // planJson comes from parsing the model's JSON response — a malformed or
+    // missing entry (e.g. null, or a step with no title) must not crash the
+    // renderer downstream, so drop anything that isn't a usable step.
+    subTasks: (planJson.subTasks ?? [])
+      .filter((t): t is NonNullable<typeof t> => !!t && typeof t.title === 'string' && t.title.length > 0)
+      .map((t) => ({
+        id: crypto.randomUUID(),
+        title: t.title,
+        instruction: t.instruction ?? '',
+        appContext: t.appContext ?? 'unknown',
+        webSearchQuery: t.webSearchQuery,
+        done: false,
+        failed: false,
+      })),
   }
 }
 
