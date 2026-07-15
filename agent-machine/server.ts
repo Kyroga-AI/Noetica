@@ -3227,10 +3227,14 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     const msg = [
       "There's an image attached, but I can't actually see it yet — no vision model is installed in the local mesh, so the router fell back to a text-only model that can't read pixels. Answering from text I can't see is exactly the wrong move.",
       '',
-      'Give me sight by pulling a vision model:',
+      // Noetica runs its OWN sandboxed Ollama (port 11435, model dir ~/.noetica/models) — separate from any
+      // system-wide `ollama` install. A plain terminal `ollama pull` targets the SYSTEM instance's default
+      // store, which this app never sees — pulling there looks like it worked but changes nothing here, no
+      // matter how many times it's repeated. Settings → Models routes the pull to the right instance.
+      "Give me sight by pulling a vision model from **Settings → Models** (not a terminal `ollama pull` — this app runs its own sandboxed Ollama, separate from any you have installed system-wide, so a terminal pull won't reach it):",
       '',
       '```',
-      'ollama pull llava:7b      # or a stronger VLM: qwen2.5vl, minicpm-v, llama3.2-vision',
+      'llava:13b',
       '```',
       '',
       "Then re-send the screenshot and I'll analyze the actual interface.",
