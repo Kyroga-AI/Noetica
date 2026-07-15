@@ -145,7 +145,7 @@ export async function* streamAnthropic(input: ProviderStreamInput): AsyncGenerat
         type?: string
         index?: number
         content_block?: { type?: string; id?: string; name?: string }
-        delta?: { type?: string; text?: string; thinking?: string; partial_json?: string; usage?: { output_tokens?: number } }
+        delta?: { type?: string; text?: string; thinking?: string; partial_json?: string; stop_reason?: string; usage?: { output_tokens?: number } }
         message?: { stop_reason?: string; usage?: { input_tokens?: number; output_tokens?: number } }
         usage?: { input_tokens?: number; output_tokens?: number }
       }
@@ -193,7 +193,7 @@ export async function* streamAnthropic(input: ProviderStreamInput): AsyncGenerat
         }
       }
 
-      if (payload.type === 'message_delta' && payload.message?.stop_reason === 'tool_use') {
+      if (payload.type === 'message_delta' && payload.delta?.stop_reason === 'tool_use') {
         // Emit assembled tool calls
         const calls: ToolUseBlock[] = Array.from(toolUseBlocks.values()).map((b) => ({
           id: b.id,
