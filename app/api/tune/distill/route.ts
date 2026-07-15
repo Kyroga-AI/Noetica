@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server'
 
 export const runtime = 'nodejs'
 
+// Stubbed in the Tauri static export (output:export requires GET route handlers to opt into
+// static generation). The desktop app calls agent-machine's own endpoint, never this Next route.
+export const dynamic = 'force-static'
+
 const DISTILL_URL = process.env.DISTILL_URL ?? 'http://127.0.0.1:8139'
 
 async function proxyGet(path: string) {
@@ -50,6 +54,9 @@ type DistillPostBody =
   | { op: 'export' }
 
 export async function GET(request: Request) {
+  // In the Tauri static export these routes are unused (app/layout.tsx rewrites /api/* to the
+  // agent-machine sidecar); return a stub at export time so no request is read during prerender.
+  if (process.env.NOETICA_STATIC_EXPORT === '1') return NextResponse.json({ error: 'static_export_stub' }, { status: 501 })
   const { searchParams } = new URL(request.url)
   const jobId = searchParams.get('job_id')
   if (jobId) {

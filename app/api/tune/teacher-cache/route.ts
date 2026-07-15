@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server'
 
 export const runtime = 'nodejs'
 
+// Stubbed in the Tauri static export (output:export requires GET route handlers to opt into
+// static generation). The desktop app calls agent-machine's own endpoint, never this Next route.
+export const dynamic = 'force-static'
+
 const TEACHER_URL = process.env.TEACHER_CACHE_URL ?? 'http://127.0.0.1:8140'
 
 async function proxy(path: string, method: string, body?: unknown) {

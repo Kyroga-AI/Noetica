@@ -14,6 +14,9 @@ export const dynamic = 'force-static'
  * (lib/graph-surface) so web and Tauri desktop return identical subgraphs.
  */
 export async function GET(req: Request) {
+  // In the Tauri static export these routes are unused (app/layout.tsx rewrites /api/* to the
+  // agent-machine sidecar); return a stub at export time so no request is read during prerender.
+  if (process.env.NOETICA_STATIC_EXPORT === '1') return NextResponse.json({ error: 'static_export_stub' }, { status: 501 })
   const url = new URL(req.url)
   try {
     const g = getHellGraph()
