@@ -166,7 +166,10 @@ export interface CriticVerdict {
 }
 
 export interface Deliberation {
-  candidates: Array<{
+  // Optional: the "verified by a deterministic method" lanes (program-of-thought,
+  // no-retrieval CoT, search-verify, generate-run-repair, best-of-n) send only a
+  // `critic` verdict with no candidate scoreboard — there was nothing to rank.
+  candidates?: Array<{
     rank: number
     worth: number
     grounding: number
@@ -175,7 +178,7 @@ export interface Deliberation {
     label?: string
     preview: string
   }>
-  selected_rank: number
+  selected_rank?: number
   /** Critic gate — action + reason from the verifier→selection loop */
   critic?: CriticVerdict
 }
