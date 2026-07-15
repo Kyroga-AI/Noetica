@@ -68,6 +68,10 @@ before(async () => {
       ...process.env, NODE_ENV: 'test', NOETICA_AM_PORT: String(AM_PORT),
       OLLAMA_HOST: `http://127.0.0.1:${PRIMARY_PORT}`,
       OLLAMA_FALLBACK_HOST: `http://127.0.0.1:${FALLBACK_PORT}`,
+      // These are functional route tests (no Origin header), not CSRF tests, so disable the drive-by
+      // origin guard exactly like scripts/integration.test.ts / integration-rocks.test.ts do — otherwise
+      // its no-Origin mutating POSTs are 403'd. (Guard logic is covered by lib/origin-guard.test.ts.)
+      NOETICA_ORIGIN_GUARD: '0',
     },
     stdio: 'ignore',
   })

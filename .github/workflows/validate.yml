@@ -12,6 +12,11 @@ permissions:
 jobs:
   nextjs:
     runs-on: ubuntu-latest
+    # Fail fast instead of zombie-ing until GitHub's 6h default. A hung step (historically the RocksDB
+    # integration test, which leaked a server child and kept node --test alive forever) used to leave
+    # `validate` stuck `in_progress` for hours so it never reported. The integration runner now also
+    # self-bounds via --test-timeout/--test-force-exit; this is the outer backstop for any other step.
+    timeout-minutes: 30
     permissions:
       contents: read
       actions: write

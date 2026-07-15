@@ -20,6 +20,10 @@ const PORT = 8097
 const BASE = `http://127.0.0.1:${PORT}`
 const STORE = fs.mkdtempSync(path.join(os.tmpdir(), 'noetica-rocks-it-'))
 const cwd = new URL('..', import.meta.url).pathname
+// Every server we spawn is tracked here so cleanup can SIGKILL any survivor even when a test throws
+// mid-way. A leaked child (spawned, never reaped) keeps node --test's event loop alive forever — that
+// was the real cause of the CI zombie: test 1's first assertion failed before its kill line ran.
+const spawned = new Set<ChildProcess>()
 
 async function rocksAvailable(): Promise<boolean> {
   // non-literal specifier so tsc doesn't try to type-resolve the optional native dep
@@ -28,11 +32,28 @@ async function rocksAvailable(): Promise<boolean> {
 }
 
 function boot(extraEnv: Record<string, string>): ChildProcess {
-  return spawn('node', ['--import', 'tsx', 'server.ts'], {
+  const p = spawn('node', ['--import', 'tsx', 'server.ts'], {
     cwd,
-    env: { ...process.env, NOETICA_AM_PORT: String(PORT), HELLGRAPH_BACKEND: 'rocksdb', HELLGRAPH_STORE_DIR: STORE, ...extraEnv },
+    // Mirror scripts/integration.test.ts boot hygiene: NODE_ENV=test; point Ollama at a dead port so the
+    // embedder fails FAST (ECONNREFUSED) instead of stalling boot on 1.5s timeouts — that slow boot pushed
+    // the rehydrating 2nd server past waitUp's 30s budget. NOETICA_ORIGIN_GUARD=0 because these are
+    // persistence + API-token-gate route tests, not CSRF tests (the guard is unit-tested in
+    // lib/origin-guard.test.ts). extraEnv stays last so per-test overrides (e.g. NOETICA_API_TOKEN) win.
+    env: {
+      ...process.env,
+      NODE_ENV: 'test',
+      NOETICA_AM_PORT: String(PORT),
+      HELLGRAPH_BACKEND: 'rocksdb',
+      HELLGRAPH_STORE_DIR: STORE,
+      NOETICA_ORIGIN_GUARD: '0',
+      OLLAMA_HOST: 'http://127.0.0.1:1',
+      OLLAMA_FALLBACK_HOST: 'http://127.0.0.1:1',
+      ...extraEnv,
+    },
     stdio: 'ignore',
   })
+  spawned.add(p)
+  return p
 }
 async function waitUp(): Promise<void> {
   const deadline = Date.now() + 30_000
@@ -42,17 +63,23 @@ async function waitUp(): Promise<void> {
   }
   throw new Error('server did not start')
 }
-const kill = (p: ChildProcess) => new Promise<void>((res) => { p.once('exit', () => res()); p.kill('SIGKILL') })
+const kill = (p: ChildProcess) => new Promise<void>((res) => { p.once('exit', () => { spawned.delete(p); res() }); p.kill('SIGKILL') })
 // Graceful shutdown: send SIGTERM so the server's teardown runs (it persists state — saveLearningState/
 // recordTrendSnapshot — before exit; server.ts:8634). SIGKILL skips that, which raced the lazy graph
 // flush and was the real source of the restart-persistence flake. Fall back to SIGKILL if it won't exit.
 const killGraceful = (p: ChildProcess) => new Promise<void>((res) => {
   const hard = setTimeout(() => { try { p.kill('SIGKILL') } catch { /* already gone */ } }, 10_000)
-  p.once('exit', () => { clearTimeout(hard); res() })
+  p.once('exit', () => { clearTimeout(hard); spawned.delete(p); res() })
   p.kill('SIGTERM')
 })
 
-after(() => { try { fs.rmSync(STORE, { recursive: true, force: true }) } catch { /* ignore */ } })
+// Kill any server still running (a test that threw before its own kill line) BEFORE removing the store,
+// so no orphan keeps the runner alive and no child races the rmSync. Best-effort SIGKILL.
+after(() => {
+  for (const p of spawned) { try { p.kill('SIGKILL') } catch { /* already gone */ } }
+  spawned.clear()
+  try { fs.rmSync(STORE, { recursive: true, force: true }) } catch { /* ignore */ }
+})
 
 test('RocksDB backend persists a goal across a full server restart', async (t) => {
   if (!(await rocksAvailable())) { t.skip('rocksdb binding unavailable'); return }
