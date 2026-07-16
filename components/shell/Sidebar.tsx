@@ -438,7 +438,8 @@ export function Sidebar({
   const [upgradeOpen, setUpgradeOpen] = useState(false)
   const [changelogOpen, setChangelogOpen] = useState(false)
   const [subView, setSubView] = useState<'language' | 'learn-more' | null>(null)
-  const closeMenu = () => { setUserMenuOpen(false); setSubView(null) }
+  const [logoutConfirming, setLogoutConfirming] = useState(false)
+  const closeMenu = () => { setUserMenuOpen(false); setSubView(null); setLogoutConfirming(false) }
 
   const filteredSessions = search.trim()
     ? sessions.filter((s) => s.title.toLowerCase().includes(search.toLowerCase()))
@@ -663,12 +664,20 @@ export function Sidebar({
                 <div className="border-t border-[var(--color-border-tertiary)] my-1"/>
                 <button
                   onClick={() => {
+                    if (!logoutConfirming) { setLogoutConfirming(true); return }
                     Object.keys(localStorage).filter(k => k.startsWith('noetica:')).forEach(k => localStorage.removeItem(k))
                     window.location.reload()
                   }}
-                  className="flex w-full items-center gap-2.5 px-3 py-1.5 text-[12px] text-[var(--color-text-primary)] hover:bg-[var(--color-background-secondary)] transition text-left">
-                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M6 3H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h3M11 11l3-3-3-3M14 8H6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  <span>Log out</span>
+                  onBlur={() => setLogoutConfirming(false)}
+                  className="flex w-full flex-col items-start gap-0.5 px-3 py-1.5 text-[12px] transition text-left hover:bg-[var(--color-background-secondary)]"
+                  style={{ color: '#ef4444' }}>
+                  <span className="flex w-full items-center gap-2.5">
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M6 3H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h3M11 11l3-3-3-3M14 8H6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    <span className="flex-1">{logoutConfirming ? 'Confirm log out?' : 'Log out'}</span>
+                  </span>
+                  {logoutConfirming && (
+                    <span className="pl-[21px] text-[10px] font-normal text-[var(--color-text-tertiary)]">Clears local app data on this device. Click again to confirm.</span>
+                  )}
                 </button>
                 <div className="border-t border-[var(--color-border-tertiary)] mt-1 px-3 py-1.5 text-[10px] text-[var(--color-text-tertiary)] select-text">
                   Noetica {versionLabel()}
@@ -682,7 +691,7 @@ export function Sidebar({
           Noetica {versionLabel()}
         </div>
         <button
-          onClick={() => setUserMenuOpen((v) => !v)}
+          onClick={() => { setUserMenuOpen((v) => !v); setLogoutConfirming(false) }}
           className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-[var(--color-background-secondary)]"
         >
           <div
