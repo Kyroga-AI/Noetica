@@ -340,7 +340,7 @@ export function BenchmarkDashboard() {
               <select
                 value={hbSelectedId}
                 onChange={(e) => { setHbSelectedId(e.target.value); setHbResult(null); setHbError('') }}
-                className="flex-1 min-w-0 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8]"
+                className="flex-1 min-w-0 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)]"
               >
                 {hbScenarios.map((s) => (
                   <option key={s.id} value={s.id}>{s.title}</option>
@@ -349,7 +349,7 @@ export function BenchmarkDashboard() {
               <button
                 onClick={() => void runHealthBench()}
                 disabled={hbRunning}
-                className="shrink-0 rounded-lg bg-[#1d4ed8] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1e40af] disabled:opacity-50"
+                className="shrink-0 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[var(--accent)] disabled:opacity-50"
               >
                 {hbRunning ? 'Evaluating…' : 'Run eval'}
               </button>

@@ -176,7 +176,7 @@ function OAuthProviderRow({ provider }: { provider: OAuthProvider }) {
         <div className="shrink-0">
           {status === 'connected'
             ? <button onClick={disconnect} className="rounded-lg border border-[var(--color-border-secondary)] px-2.5 py-1 text-xs font-medium text-[var(--color-text-secondary)] transition hover:border-[#fecaca] hover:text-[#dc2626]">Disconnect</button>
-            : <button onClick={connect} disabled={status === 'connecting'} className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2.5 py-1 text-xs font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe] disabled:opacity-50">
+            : <button onClick={connect} disabled={status === 'connecting'} className="rounded-lg border border-[var(--accent)] bg-[var(--accent-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--accent)] transition hover:bg-[var(--accent-soft)] disabled:opacity-50">
                 {status === 'connecting' ? 'Connecting…' : 'Connect'}
               </button>}
         </div>
@@ -191,7 +191,7 @@ function OAuthProviderRow({ provider }: { provider: OAuthProvider }) {
               value={keyDraft}
               onChange={(e) => setKeyDraft(e.target.value)}
               placeholder="OAuth Client ID…"
-              className="w-full rounded-lg border border-[#bfdbfe] bg-[var(--color-background-primary)] px-2.5 py-1.5 font-mono text-xs text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8]"
+              className="w-full rounded-lg border border-[var(--accent)] bg-[var(--color-background-primary)] px-2.5 py-1.5 font-mono text-xs text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)]"
               onKeyDown={(e) => { if (e.key === 'Escape') setEditingKey(false) }}
             />
             {provider.clientSecretKey && (
@@ -200,12 +200,12 @@ function OAuthProviderRow({ provider }: { provider: OAuthProvider }) {
                 value={secretDraft}
                 onChange={(e) => setSecretDraft(e.target.value)}
                 placeholder={provider.clientSecretLabel ?? 'Client Secret (optional)…'}
-                className="w-full rounded-lg border border-[#bfdbfe] bg-[var(--color-background-primary)] px-2.5 py-1.5 font-mono text-xs text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8]"
+                className="w-full rounded-lg border border-[var(--accent)] bg-[var(--color-background-primary)] px-2.5 py-1.5 font-mono text-xs text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)]"
                 onKeyDown={(e) => { if (e.key === 'Enter') saveClientId() }}
               />
             )}
             <div className="flex gap-2">
-              <button onClick={saveClientId} className="rounded-lg bg-[#1d4ed8] px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1e40af]">Save</button>
+              <button onClick={saveClientId} className="rounded-lg bg-[var(--accent)] px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[var(--accent)]">Save</button>
               <button onClick={() => setEditingKey(false)} className="rounded-lg border border-[var(--color-border-secondary)] px-2.5 py-1.5 text-xs text-[var(--color-text-secondary)]">Cancel</button>
             </div>
           </div>
@@ -218,7 +218,7 @@ function OAuthProviderRow({ provider }: { provider: OAuthProvider }) {
             </span>
             <button
               onClick={() => { setKeyDraft(clientId); setSecretDraft(clientSecret); setEditingKey(true) }}
-              className="text-[11px] text-[#1d4ed8] transition hover:underline"
+              className="text-[11px] text-[var(--accent)] transition hover:underline"
             >
               {clientId ? 'Edit' : 'Add client ID'}
             </button>
@@ -288,7 +288,7 @@ function MatrixLoginRow() {
         <div className="shrink-0">
           {status === 'connected'
             ? <button onClick={disconnect} className="rounded-lg border border-[var(--color-border-secondary)] px-2.5 py-1 text-xs font-medium text-[var(--color-text-secondary)] transition hover:border-[#fecaca] hover:text-[#dc2626]">Disconnect</button>
-            : <button onClick={() => setExpanded((v) => !v)} className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2.5 py-1 text-xs font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe]">
+            : <button onClick={() => setExpanded((v) => !v)} className="rounded-lg border border-[var(--accent)] bg-[var(--accent-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--accent)] transition hover:bg-[var(--accent-soft)]">
                 {expanded ? 'Cancel' : 'Connect'}
               </button>}
         </div>
@@ -302,7 +302,7 @@ function MatrixLoginRow() {
               value={homeserver}
               onChange={(e) => update({ matrixHomeserver: e.target.value })}
               placeholder="https://matrix.org"
-              className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#bfdbfe]"
+              className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)]"
             />
           </div>
           <div className="space-y-1">
@@ -312,7 +312,7 @@ function MatrixLoginRow() {
               onChange={(e) => setUsername(e.target.value)}
               placeholder="@user:matrix.org"
               autoComplete="username"
-              className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#bfdbfe]"
+              className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)]"
             />
           </div>
           <div className="space-y-1">
@@ -322,7 +322,7 @@ function MatrixLoginRow() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
-              className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#bfdbfe]"
+              className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)]"
               onKeyDown={(e) => { if (e.key === 'Enter') void connect() }}
             />
           </div>
@@ -330,7 +330,7 @@ function MatrixLoginRow() {
           <button
             onClick={() => void connect()}
             disabled={connecting}
-            className="w-full rounded-xl bg-[#1d4ed8] py-2 text-xs font-semibold text-white transition hover:bg-[#1e40af] disabled:opacity-50"
+            className="w-full rounded-xl bg-[var(--accent)] py-2 text-xs font-semibold text-white transition hover:bg-[var(--accent)] disabled:opacity-50"
           >
             {connecting ? 'Signing in…' : 'Sign in'}
           </button>
@@ -415,7 +415,7 @@ function NotionOAuthRow() {
         <div className="shrink-0">
           {status === 'connected'
             ? <button onClick={() => clearAuth('notion')} className="rounded-lg border border-[var(--color-border-secondary)] px-2.5 py-1 text-xs font-medium text-[var(--color-text-secondary)] transition hover:border-[#fecaca] hover:text-[#dc2626]">Disconnect</button>
-            : <button onClick={connect} disabled={status === 'connecting'} className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2.5 py-1 text-xs font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe] disabled:opacity-50">
+            : <button onClick={connect} disabled={status === 'connecting'} className="rounded-lg border border-[var(--accent)] bg-[var(--accent-soft)] px-2.5 py-1 text-xs font-semibold text-[var(--accent)] transition hover:bg-[var(--accent-soft)] disabled:opacity-50">
                 {status === 'connecting' ? 'Connecting…' : 'Connect'}
               </button>}
         </div>
@@ -425,12 +425,12 @@ function NotionOAuthRow() {
         {editingKeys ? (
           <div className="space-y-2">
             <input autoFocus value={idDraft} onChange={(e) => setIdDraft(e.target.value)} placeholder="OAuth Client ID…"
-              className="w-full rounded-lg border border-[#bfdbfe] bg-[var(--color-background-primary)] px-2.5 py-1.5 font-mono text-xs outline-none focus:border-[#1d4ed8]" />
+              className="w-full rounded-lg border border-[var(--accent)] bg-[var(--color-background-primary)] px-2.5 py-1.5 font-mono text-xs outline-none focus:border-[var(--accent)]" />
             <input type="password" value={secretDraft} onChange={(e) => setSecretDraft(e.target.value)} placeholder="OAuth Client Secret…"
-              className="w-full rounded-lg border border-[#bfdbfe] bg-[var(--color-background-primary)] px-2.5 py-1.5 font-mono text-xs outline-none focus:border-[#1d4ed8]"
+              className="w-full rounded-lg border border-[var(--accent)] bg-[var(--color-background-primary)] px-2.5 py-1.5 font-mono text-xs outline-none focus:border-[var(--accent)]"
               onKeyDown={(e) => { if (e.key === 'Enter') saveKeys() }} />
             <div className="flex gap-2">
-              <button onClick={saveKeys} className="rounded-lg bg-[#1d4ed8] px-2.5 py-1.5 text-xs font-semibold text-white">Save</button>
+              <button onClick={saveKeys} className="rounded-lg bg-[var(--accent)] px-2.5 py-1.5 text-xs font-semibold text-white">Save</button>
               <button onClick={() => setEditingKeys(false)} className="rounded-lg border border-[var(--color-border-secondary)] px-2.5 py-1.5 text-xs text-[var(--color-text-secondary)]">Cancel</button>
             </div>
           </div>
@@ -440,7 +440,7 @@ function NotionOAuthRow() {
               {clientId ? `Client ID: ${clientId.slice(0, 14)}… · secret set` : 'No credentials configured'}
             </span>
             <button onClick={() => { setIdDraft(clientId); setSecretDraft(clientSecret); setEditingKeys(true) }}
-              className="text-[11px] text-[#1d4ed8] transition hover:underline">
+              className="text-[11px] text-[var(--accent)] transition hover:underline">
               {clientId ? 'Edit' : 'Add credentials'}
             </button>
           </div>
@@ -463,7 +463,7 @@ function ForgeSettingsSection() {
           value={settings.giteaEndpoint}
           onChange={(e) => update({ giteaEndpoint: e.target.value })}
           placeholder="http://localhost:3000"
-          className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs outline-none focus:border-[#bfdbfe]"
+          className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs outline-none focus:border-[var(--accent)]"
         />
       </div>
       <div>
@@ -474,7 +474,7 @@ function ForgeSettingsSection() {
           value={settings.giteaToken}
           onChange={(e) => update({ giteaToken: e.target.value })}
           placeholder="Paste Gitea API token…"
-          className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs outline-none focus:border-[#bfdbfe]"
+          className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs outline-none focus:border-[var(--accent)]"
         />
       </div>
       <div>
@@ -485,7 +485,7 @@ function ForgeSettingsSection() {
           value={settings.githubPat}
           onChange={(e) => update({ githubPat: e.target.value })}
           placeholder="ghp_…"
-          className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs outline-none focus:border-[#bfdbfe]"
+          className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs outline-none focus:border-[var(--accent)]"
         />
       </div>
     </div>
@@ -517,7 +517,7 @@ function ChatImportSection() {
           <li>ChatGPT → Settings → Data controls → Export → <code className="font-mono">conversations.json</code></li>
           <li>Claude → Settings → Export data → <code className="font-mono">conversations.json</code></li>
         </ul>
-        <label className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-lg bg-[#1d4ed8] px-3 py-1.5 font-semibold text-white disabled:opacity-50">
+        <label className="mt-2 inline-flex cursor-pointer items-center gap-2 rounded-lg bg-[var(--accent)] px-3 py-1.5 font-semibold text-white disabled:opacity-50">
           {busy ? 'Importing…' : 'Choose export file'}
           <input type="file" accept=".json,application/json" className="hidden" disabled={busy}
             onChange={(e) => { const el = e.currentTarget; void onFile(el) }} />

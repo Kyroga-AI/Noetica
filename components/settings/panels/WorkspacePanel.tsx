@@ -14,7 +14,7 @@ function Field({ label, value, onChange, placeholder, type = 'text' }: { label: 
       <input
         type={type} value={value} placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8] focus:bg-[var(--color-background-primary)]"
+        className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)] focus:bg-[var(--color-background-primary)]"
       />
     </label>
   )
@@ -27,7 +27,7 @@ export function WorkspacePanel() {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-xl border border-[#bfdbfe] bg-[#eff6ff] px-4 py-3 text-xs leading-5 text-[#1e40af]">
+      <div className="rounded-xl border border-[var(--accent)] bg-[var(--accent-soft)] px-4 py-3 text-xs leading-5 text-[var(--accent)]">
         <span className="font-semibold">Prophet Workspace</span> — your sovereign replacement for Google Workspace.
         Bring your own mail + calendar server; nothing routes through Google. Credentials are stored locally.
       </div>

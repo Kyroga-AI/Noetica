@@ -37,7 +37,7 @@ export function AppearancePanel() {
                 onClick={() => setTheme(t.id)}
                 className={`flex flex-col items-start gap-2 rounded-xl border p-3 text-left transition ${
                   active
-                    ? 'border-[#1d4ed8] bg-[rgba(29,78,216,0.08)]'
+                    ? 'border-[var(--accent)] bg-[var(--accent-soft)]'
                     : 'border-[var(--color-border-tertiary)] hover:border-[var(--color-border-secondary)]'
                 }`}
                 style={{ minWidth: 88 }}
@@ -52,7 +52,7 @@ export function AppearancePanel() {
                     style={{ background: t.preview.sidebar }}
                   />
                 </span>
-                <span className={`text-xs font-semibold ${active ? 'text-[#1d4ed8]' : 'text-[var(--color-text-secondary)]'}`}>
+                <span className={`text-xs font-semibold ${active ? 'text-[var(--accent)]' : 'text-[var(--color-text-secondary)]'}`}>
                   {t.label}
                 </span>
               </button>
@@ -71,7 +71,7 @@ export function AppearancePanel() {
               onClick={() => update({ sidebarDensity: d })}
               className={`rounded-xl border px-4 py-2 text-sm capitalize transition ${
                 settings.sidebarDensity === d
-                  ? 'border-[#1d4ed8] bg-[rgba(29,78,216,0.08)] font-semibold text-[#1d4ed8]'
+                  ? 'border-[var(--accent)] bg-[var(--accent-soft)] font-semibold text-[var(--accent)]'
                   : 'border-[var(--color-border-tertiary)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-secondary)]'
               }`}
             >
@@ -91,7 +91,7 @@ export function AppearancePanel() {
               onClick={() => update({ fontSize: val })}
               className={`rounded-xl border px-4 py-2 text-sm transition ${
                 settings.fontSize === val
-                  ? 'border-[#1d4ed8] bg-[rgba(29,78,216,0.08)] font-semibold text-[#1d4ed8]'
+                  ? 'border-[var(--accent)] bg-[var(--accent-soft)] font-semibold text-[var(--accent)]'
                   : 'border-[var(--color-border-tertiary)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-secondary)]'
               }`}
             >
@@ -114,7 +114,7 @@ export function AppearancePanel() {
               onClick={() => update({ typingTokensPerSec: val })}
               className={`rounded-xl border px-4 py-2 text-sm transition ${
                 (settings.typingTokensPerSec ?? 11) === val
-                  ? 'border-[#1d4ed8] bg-[rgba(29,78,216,0.08)] font-semibold text-[#1d4ed8]'
+                  ? 'border-[var(--accent)] bg-[var(--accent-soft)] font-semibold text-[var(--accent)]'
                   : 'border-[var(--color-border-tertiary)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-secondary)]'
               }`}
             >
@@ -137,7 +137,7 @@ export function AppearancePanel() {
               onClick={() => update({ ttsVoice: v })}
               className={`rounded-xl border px-4 py-2 text-sm capitalize transition ${
                 (settings.ttsVoice ?? 'nova') === v
-                  ? 'border-[#1d4ed8] bg-[rgba(29,78,216,0.08)] font-semibold text-[#1d4ed8]'
+                  ? 'border-[var(--accent)] bg-[var(--accent-soft)] font-semibold text-[var(--accent)]'
                   : 'border-[var(--color-border-tertiary)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-secondary)]'
               }`}
             >

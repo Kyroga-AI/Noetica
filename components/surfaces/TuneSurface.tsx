@@ -314,7 +314,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
               </button>
               <button
                 onClick={exportDPO}
-                className="flex items-center gap-2 rounded-full bg-[#1d4ed8] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#1e40af]"
+                className="flex items-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[var(--accent)]"
               >
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
                   <path d="M6 1v7M3 6l3 3 3-3M1 10h10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
@@ -328,7 +328,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
         {/* Model pair config */}
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-[#1d4ed8]">Teacher</span>
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--accent)]">Teacher</span>
             <select
               value={teacherModelId}
               onChange={(e) => setTeacherModelId(e.target.value)}
@@ -377,7 +377,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
           <button
             onClick={() => void handleRun()}
             disabled={!prompt.trim() || runStatus === 'running' || whiteboxModels.length === 0}
-            className="self-end rounded-full bg-[#1d4ed8] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1e40af] disabled:opacity-50"
+            className="self-end rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent)] disabled:opacity-50"
           >
             {runStatus === 'running' ? 'Running…' : 'Run'}
           </button>
@@ -463,7 +463,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                 key={r.id}
                 onClick={() => setActiveRunId(r.id)}
                 className={`flex w-full flex-col gap-0.5 px-3 py-2.5 text-left transition ${
-                  r.id === activeRunId ? 'bg-[rgba(29,78,216,0.15)]' : 'hover:bg-[var(--color-background-primary)]'
+                  r.id === activeRunId ? 'bg-[var(--accent-soft)]' : 'hover:bg-[var(--color-background-primary)]'
                 }`}
               >
                 <div className="flex items-center gap-1.5">
@@ -497,9 +497,9 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
 
               <div className="grid grid-cols-2 gap-4">
                 {/* Teacher */}
-                <div className={`rounded-2xl border bg-[var(--color-background-primary)] p-4 space-y-2 ${activeRun.preference === 'preferred' ? 'border-[#86efac] ring-1 ring-[#22c55e]/30' : 'border-[#bfdbfe]'}`}>
+                <div className={`rounded-2xl border bg-[var(--color-background-primary)] p-4 space-y-2 ${activeRun.preference === 'preferred' ? 'border-[#86efac] ring-1 ring-[#22c55e]/30' : 'border-[var(--accent)]'}`}>
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-[#1d4ed8]">Teacher — {models.find((m) => m.id === activeRun.teacherModel)?.label ?? activeRun.teacherModel}</span>
+                    <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--accent)]">Teacher — {models.find((m) => m.id === activeRun.teacherModel)?.label ?? activeRun.teacherModel}</span>
                     <button
                       onClick={() => markPreference(activeRun.id, activeRun.preference === 'preferred' ? null : 'preferred')}
                       className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${

@@ -88,12 +88,12 @@ export function RuntimePanel() {
             <button key={m.id} onClick={() => update({ runtimeMode: m.id })}
               className={`flex w-full items-start gap-3 rounded-xl border px-4 py-3 text-left transition ${
                 settings.runtimeMode === m.id
-                  ? 'border-[#1d4ed8] bg-[#eff6ff]'
+                  ? 'border-[var(--accent)] bg-[var(--accent-soft)]'
                   : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] hover:bg-[var(--color-background-secondary)]'
               }`}>
-              <span className={`mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 ${settings.runtimeMode === m.id ? 'border-[#1d4ed8] bg-[#1d4ed8]' : 'border-[#cbd5e1]'}`} />
+              <span className={`mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 ${settings.runtimeMode === m.id ? 'border-[var(--accent)] bg-[var(--accent)]' : 'border-[#cbd5e1]'}`} />
               <div>
-                <p className={`text-sm font-medium ${settings.runtimeMode === m.id ? 'text-[#1d4ed8]' : 'text-[var(--color-text-primary)]'}`}>{m.label}</p>
+                <p className={`text-sm font-medium ${settings.runtimeMode === m.id ? 'text-[var(--accent)]' : 'text-[var(--color-text-primary)]'}`}>{m.label}</p>
                 <p className="text-xs text-[var(--color-text-secondary)]">{m.description}</p>
               </div>
             </button>
@@ -109,9 +109,9 @@ export function RuntimePanel() {
           <input type="url" value={settings.agentMachineEndpoint}
             onChange={(e) => { update({ agentMachineEndpoint: e.target.value }); setAmPing('idle'); setAmInfo(null) }}
             placeholder="http://localhost:8080"
-            className="flex-1 rounded-xl border border-[#bfdbfe] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8] focus:bg-[var(--color-background-primary)]" />
+            className="flex-1 rounded-xl border border-[var(--accent)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)] focus:bg-[var(--color-background-primary)]" />
           <button onClick={() => void pingAgentMachine()}
-            className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)] transition hover:border-[#bfdbfe] hover:bg-[#eff6ff] hover:text-[#1d4ed8]">
+            className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)] transition hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]">
             Ping
           </button>
         </div>
@@ -151,7 +151,7 @@ export function RuntimePanel() {
 
       {/* Live status */}
       <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Status</div>
+        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--accent)]">Status</div>
         <div className="mt-3 space-y-2.5 text-xs">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -191,7 +191,7 @@ export function RuntimePanel() {
           <input type="url" value={settings.timeServiceEndpoint}
             onChange={(e) => update({ timeServiceEndpoint: e.target.value })}
             placeholder="http://localhost:9090"
-            className="w-full rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8] focus:bg-[var(--color-background-primary)]" />
+            className="w-full rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)] focus:bg-[var(--color-background-primary)]" />
         </div>
       </div>
 
@@ -199,7 +199,7 @@ export function RuntimePanel() {
       {settings.runtimeMode === 'agent-machine' && (
         <div className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 text-xs leading-5 text-[var(--color-text-secondary)] space-y-1.5">
           <p className="font-semibold text-[var(--color-text-primary)]">How Agent Machine mode works</p>
-          <p>All chat requests are forwarded to <span className="font-mono text-[#1d4ed8]">{(settings.agentMachineEndpoint || 'http://localhost:8080').replace(/\/$/, '')}/api/chat</span>. The machine handles model routing, tool execution, and evidence internally.</p>
+          <p>All chat requests are forwarded to <span className="font-mono text-[var(--accent)]">{(settings.agentMachineEndpoint || 'http://localhost:8080').replace(/\/$/, '')}/api/chat</span>. The machine handles model routing, tool execution, and evidence internally.</p>
           <p>The machine must speak the <span className="font-mono">Noetica SSE protocol</span> — streaming <code className="rounded bg-[var(--color-background-primary)] px-1">meta</code>, <code className="rounded bg-[var(--color-background-primary)] px-1">delta</code>, <code className="rounded bg-[var(--color-background-primary)] px-1">tool_calls</code>, and <code className="rounded bg-[var(--color-background-primary)] px-1">done</code> events.</p>
           <p className="text-[var(--color-text-tertiary)]">Start with: <span className="font-mono">sourceos agent-machine start</span></p>
         </div>

@@ -356,7 +356,7 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
               key={v}
               onClick={() => setView(v)}
               className={`rounded-full px-3 py-1 font-medium transition ${
-                view === v ? 'bg-[#1d4ed8] text-white' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                view === v ? 'bg-[var(--accent)] text-white' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
               }`}
             >
               {v === 'run' ? 'Run' : v === 'dashboard' ? 'Dashboard' : 'Flow'}
@@ -371,7 +371,7 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
         <div className="grid grid-cols-2 gap-4">
           {/* Models */}
           <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-4 shadow-sm">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Models</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">Models</div>
             <div className="mt-3 flex flex-wrap gap-2">
               {models.map((m) => (
                 <button
@@ -379,7 +379,7 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
                   onClick={() => toggleModel(m.id)}
                   className={`rounded-full border px-3 py-1 text-xs transition ${
                     selectedModelIds.includes(m.id)
-                      ? 'border-[#1d4ed8] bg-[rgba(29,78,216,0.12)] font-semibold text-[#1d4ed8]'
+                      ? 'border-[var(--accent)] bg-[var(--accent-soft)] font-semibold text-[var(--accent)]'
                       : 'border-[var(--color-border-tertiary)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-secondary)]'
                   }`}
                 >
@@ -391,7 +391,7 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
 
           {/* Tasks */}
           <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-4 shadow-sm">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Task families</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">Task families</div>
             <div className="mt-3 flex flex-wrap gap-2">
               {DEFAULT_TASK_FAMILIES.map((t) => (
                 <button
@@ -399,7 +399,7 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
                   onClick={() => toggleTask(t.id)}
                   className={`rounded-full border px-3 py-1 text-xs transition ${
                     selectedTaskIds.includes(t.id)
-                      ? 'border-[#1d4ed8] bg-[rgba(29,78,216,0.12)] font-semibold text-[#1d4ed8]'
+                      ? 'border-[var(--accent)] bg-[var(--accent-soft)] font-semibold text-[var(--accent)]'
                       : 'border-[var(--color-border-tertiary)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-secondary)]'
                   }`}
                 >
@@ -467,7 +467,7 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
         {results.length > 0 && (
           <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] shadow-sm overflow-hidden">
             <div className="border-b border-[var(--color-border-tertiary)] px-5 py-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Results matrix</div>
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">Results matrix</div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
@@ -503,7 +503,7 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
                             {r?.status === 'done' && (
                               <button
                                 onClick={() => setActiveCell(isActive ? null : { modelId: m.id, taskId: t.id })}
-                                className={`flex flex-col gap-1 rounded-lg px-2 py-1.5 text-left transition ${isActive ? 'bg-[rgba(29,78,216,0.10)]' : 'hover:bg-[var(--color-background-secondary)]'}`}
+                                className={`flex flex-col gap-1 rounded-lg px-2 py-1.5 text-left transition ${isActive ? 'bg-[var(--accent-soft)]' : 'hover:bg-[var(--color-background-secondary)]'}`}
                               >
                                 {r.judgeStatus === 'scoring' && (
                                   <span className="flex items-center gap-1.5 text-[10px] text-[#7c3aed]">
@@ -531,7 +531,7 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
         {activeCellResult?.status === 'done' && (
           <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">
                 {models.find((m) => m.id === activeCell?.modelId)?.label} — {DEFAULT_TASK_FAMILIES.find((t) => t.id === activeCell?.taskId)?.label}
               </div>
               <span className="ml-auto text-xs text-[var(--color-text-tertiary)]">{activeCellResult.latencyMs}ms</span>

@@ -18,7 +18,7 @@ type Model = {
 }
 type Catalog = { models: Model[]; note: string }
 
-const TIER_COLOR: Record<Model['tier'], string> = { 'on-device': '#16a34a', edge: '#d97706', server: '#1d4ed8' }
+const TIER_COLOR: Record<Model['tier'], string> = { 'on-device': '#16a34a', edge: '#d97706', server: 'var(--accent)' }
 const fmtParams = (b: number) => (b >= 1 ? `${b}B` : `${Math.round(b * 1000)}M`)
 
 function ModelCard({ m }: { m: Model }) {
@@ -34,7 +34,7 @@ function ModelCard({ m }: { m: Model }) {
         {m.quantization && <span className="rounded bg-[var(--color-background-secondary)] px-1.5 py-0.5">{m.quantization}</span>}
         <span className="rounded bg-[var(--color-background-secondary)] px-1.5 py-0.5">{m.residencyState}</span>
         <span className="rounded bg-[var(--color-background-secondary)] px-1.5 py-0.5">{m.provider}</span>
-        {m.lab && <span className="rounded bg-[#eff6ff] px-1.5 py-0.5 text-[#1d4ed8]">{m.lab}</span>}
+        {m.lab && <span className="rounded bg-[var(--accent-soft)] px-1.5 py-0.5 text-[var(--accent)]">{m.lab}</span>}
       </div>
     </div>
   )
@@ -88,7 +88,7 @@ export function LabsSurface() {
                 </div>
               )}
               <div className="rounded-xl bg-[var(--color-background-secondary)] px-3 py-2 text-[10px] text-[var(--color-text-secondary)]">
-                Routing (isolation ↔ residency): <strong className="text-[#16a34a]">high → on-device</strong> · <strong className="text-[#d97706]">medium → edge</strong> · <strong className="text-[#1d4ed8]">low → server</strong>. {cat.note}
+                Routing (isolation ↔ residency): <strong className="text-[#16a34a]">high → on-device</strong> · <strong className="text-[#d97706]">medium → edge</strong> · <strong className="text-[var(--accent)]">low → server</strong>. {cat.note}
               </div>
             </>
           )}
