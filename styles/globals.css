@@ -361,6 +361,10 @@ html[data-font-size="sm"] { font-size: 13px; }
 html[data-font-size="md"] { font-size: 14px; }
 html[data-font-size="lg"] { font-size: 16px; }
 
+/* ── Redesign shared animations ─────────────────────────────────────────── */
+@keyframes pulseDot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes bobDot { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+
 /* ── macOS overlay titlebar inset ───────────────────────────────────────────
    The desktop build uses titleBarStyle "Overlay", so the traffic-light window
    controls float at the top-left over the app. The Topbar clears them in the

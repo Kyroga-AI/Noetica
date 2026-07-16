@@ -78,7 +78,10 @@ import { useMemory } from '@/lib/memory/useMemory'
 import { buildMemoryContext } from '@/lib/memory/manager'
 import { appendLedgerEntry } from '@/lib/evidence/ledger-store'
 import { RightSidebar } from '@/components/shell/RightSidebar'
-import { UtilityRail, type UtilityPanelId } from '@/components/rail/UtilityRail'
+import { KnowledgePanel } from '@/components/panels/KnowledgePanel'
+import { GovernanceDrawer } from '@/components/governance/GovernanceDrawer'
+import { RightIconStrip } from '@/components/shell/RightIconStrip'
+import { useUiStore } from '@/lib/store/uiStore'
 import { RuntimeStatus } from '@/components/status/RuntimeStatus'
 import type { PendingAttachment } from '@/lib/types/attachment'
 import type { McpTool } from '@/lib/types/mcp'
@@ -316,6 +319,9 @@ export function AppShell() {
   }
 
   // ── Shell state ────────────────────────────────────────────────────────────
+  const knowledgePanelOpen = useUiStore((s) => s.knowledgePanelOpen)
+  const governanceDrawerOpen = useUiStore((s) => s.governanceDrawerOpen)
+  const toggleGovernanceDrawer = useUiStore((s) => s.toggleGovernanceDrawer)
   const [mode, setMode] = useState<NoeticaMode>('standalone')
   const [steering, setSteering] = useState<SteeringConfig | undefined>()
   const [thinkingBudget, setThinkingBudget] = useState<number | undefined>()
@@ -326,7 +332,6 @@ export function AppShell() {
   const abortControllerRef = useRef<AbortController | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false)
-  const [utilityPanel, setUtilityPanel] = useState<UtilityPanelId | null>('graph')
   const [inspectorVisible, setInspectorVisible] = useState(false)
   // Tier-1 command center (which domain the left panel is showing). Derived from
   // the active surface via the nav registry, so the rail highlight always follows
@@ -1615,7 +1620,7 @@ export function AppShell() {
           onComplete={() => setShowOrgOnboarding(false)}
         />
       )}
-      <main className="flex h-screen overflow-hidden bg-[var(--color-background-tertiary)] text-[var(--color-text-primary)]">
+      <main className="relative flex h-screen overflow-hidden bg-[var(--color-background-tertiary)] text-[var(--color-text-primary)]">
         {/* Tier 1 — command-center (domain) switcher */}
         <CommandCenterRail activeCenter={activeCenter} onCenterChange={handleCenterChange} />
         {!sidebarCollapsed && (
@@ -1758,14 +1763,13 @@ export function AppShell() {
           </div>
         </section>
 
-        <UtilityRail
-          activePanel={utilityPanel}
-          onSelect={setUtilityPanel}
-          lastGovernance={lastGovernance}
-          inScopeFiles={inScopeFiles}
-          toolActivity={toolActivity}
-          fileChanges={fileChanges}
-        />
+        {knowledgePanelOpen && !['canvas', 'notes', 'cowork', 'workrooms', 'projects'].includes(activeSurface) && (
+          <div className="relative hidden w-[300px] shrink-0 border-l lg:flex" style={{ borderColor: 'var(--line)' }}>
+            <KnowledgePanel inScopeFiles={inScopeFiles} toolActivity={toolActivity} />
+          </div>
+        )}
+        <RightIconStrip />
+        <GovernanceDrawer open={governanceDrawerOpen} onClose={toggleGovernanceDrawer} mode={mode} lastGovernance={lastGovernance} />
       </main>
 
       {providerSetupOpen && (
