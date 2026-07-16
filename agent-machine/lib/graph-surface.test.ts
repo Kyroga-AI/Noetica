@@ -34,3 +34,20 @@ test('memory lens returns Document nodes (was 0 before the fix)', () => {
   assert.ok(ids.includes('d1') && ids.includes('d2'), 'memory lens surfaces Document nodes')
   assert.ok(!ids.includes('ls'), 'LearningState exhaust excluded from the lens')
 })
+
+test('nodes inherit epistemic status from incident edges (shared ladder, muscle-memory with Studio)', () => {
+  const nodes = [
+    node('d1', ['Document'], { filename: 'memory/alpha-20260101-x.md' }),
+    node('d2', ['Document'], { filename: 'memory/beta-20260102-y.md' }),
+    node('d3', ['Document'], { filename: 'memory/gamma-20260103-z.md' }),
+  ]
+  const edges = [
+    { from: 'd1', to: 'd2', label: 'proof_of' },    // confirmed → verified
+    { from: 'd2', to: 'd3', label: 'similar_to' },  // inferred → derived
+  ] as never
+  const res = selectSurface(nodes, edges, { view: 'memory', limit: 20 })
+  const epi = Object.fromEntries(res.nodes.map((n) => [n.id, (n as { epistemic: string }).epistemic]))
+  assert.equal(epi['d1'], 'verified')  // only a confirmed edge
+  assert.equal(epi['d2'], 'verified')  // strongest of {verified, derived}
+  assert.equal(epi['d3'], 'derived')   // only an inferred edge
+})

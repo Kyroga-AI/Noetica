@@ -29,6 +29,15 @@ export const KIND_COLOR: Record<string, string> = {
 }
 export const KIND_ORDER = ['Concept', 'Service', 'Code', 'Document', 'Session', 'Entity', 'Person', 'Org', 'Action', 'Cluster']
 
+// Epistemic-status ladder (hypothesis→…→attested) — SHARED verbatim with Lattice Studio's explorer so the
+// two surfaces read identically. This colouring IS the moat: incumbents colour by class/community; we colour
+// by how well a fact is KNOWN. Keep these hexes in lockstep with app-vue studioApi.EPISTEMIC_COLORS.
+export const EPISTEMIC_COLORS: Record<string, string> = {
+  hypothesis: '#9aa0a6', observed: '#1a73e8', derived: '#8b5cf6',
+  verified: '#137333', attested: '#00897b', simulated: '#b06000', unknown: '#c0c4c9',
+}
+export const EPISTEMIC_ORDER = ['attested', 'verified', 'observed', 'derived', 'hypothesis', 'simulated']
+
 // Louvain-community palette — distinct hues, cycled, used when colouring nodes by community (GDS).
 export const COMMUNITY_COLORS = ['#2563eb', '#db2777', '#16a34a', '#ea580c', '#9333ea', '#0891b2', '#ca8a04', '#dc2626', '#0f766e', '#7c3aed', '#c026d3', '#65a30d']
 export function communityColor(c: number | undefined): string { return c === undefined || c < 0 ? '#64748b' : COMMUNITY_COLORS[c % COMMUNITY_COLORS.length]! }
@@ -49,6 +58,8 @@ export interface GraphNode {
   x0?: number; y0?: number
   /** Node has been verified + grounded by the knowledge canon — renders a canon-ring badge. */
   grounded?: boolean
+  /** Epistemic status on the shared ladder (hypothesis→…→attested) — drives colour when colorBy='epistemic'. */
+  epistemic?: string
 }
 export interface GraphLink { source: string; target: string; primary?: boolean; epistemic?: string; dimension?: string }
 
@@ -80,7 +91,7 @@ export type GraphLayout = 'force' | 'radial' | 'hierarchy'
 export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick, visibleKinds, hideInferred, layout = 'force', pathIds, colorBy = 'class', sizeBy = 'degree', metrics, onSvgMount }: {
   nodes: GraphNode[]; links: GraphLink[]; width?: number; height?: number; fill?: boolean; onNodeClick?: (id: string) => void
   visibleKinds?: Set<string>; hideInferred?: boolean; layout?: GraphLayout; pathIds?: string[]
-  colorBy?: 'class' | 'community'; sizeBy?: 'importance' | 'degree'; metrics?: Record<string, NodeMetric>
+  colorBy?: 'class' | 'community' | 'epistemic'; sizeBy?: 'importance' | 'degree'; metrics?: Record<string, NodeMetric>
   /** Called with the SVG element when mounted, null on unmount — lets the parent export the graph. */
   onSvgMount?: (el: SVGSVGElement | null) => void
 }) {
@@ -344,7 +355,9 @@ export function SurfaceGraph({ nodes, links, width, height, fill, onNodeClick, v
         // Louvain community, and ring "bridge" concepts (high betweenness) — when metrics are present.
         const m = metrics?.[n.id]
         const dr = sizeBy === 'importance' && m ? 9 + Math.sqrt(Math.max(0, m.pagerank)) * 22 : n.r
-        const nodeFill = colorBy === 'community' && m ? communityColor(m.community) : (KIND_COLOR[n.kind ?? ''] ?? COLOR[n.category] ?? COLOR.other)
+        const nodeFill = colorBy === 'epistemic' ? (EPISTEMIC_COLORS[n.epistemic ?? 'unknown'] ?? EPISTEMIC_COLORS.unknown)
+          : colorBy === 'community' && m ? communityColor(m.community)
+          : (KIND_COLOR[n.kind ?? ''] ?? COLOR[n.category] ?? COLOR.other)
         const isBridge = !!m && m.betweenness >= 0.4
         return (
         <g key={n.id} transform={`translate(${n.x},${n.y})`} cursor="grab"

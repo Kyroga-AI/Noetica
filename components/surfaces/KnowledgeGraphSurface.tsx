@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { SurfaceGraph, KIND_COLOR, KIND_ORDER, type GraphNode, type GraphLink, type GraphLayout } from '@/components/graph/SurfaceGraph'
+import { SurfaceGraph, KIND_COLOR, KIND_ORDER, EPISTEMIC_COLORS, EPISTEMIC_ORDER, type GraphNode, type GraphLink, type GraphLayout } from '@/components/graph/SurfaceGraph'
 
 /**
  * Data → Knowledge Graph — the full-screen center graph, backed by the live HellGraph
@@ -70,6 +70,7 @@ export function KnowledgeGraphSurface() {
   const [root, setRoot] = useState('')
   const [rootInput, setRootInput] = useState('')
   const [layout, setLayout] = useState<GraphLayout>('force')
+  const [colorBy, setColorBy] = useState<'class' | 'epistemic'>('class')
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState('')
   const [total, setTotal] = useState<{ nodes?: number; edges?: number } | null>(null)
@@ -174,6 +175,13 @@ export function KnowledgeGraphSurface() {
               className={`rounded-lg px-2 py-1 text-[10px] font-medium capitalize transition ${layout === l ? 'bg-[#dbeafe] text-[#1d4ed8]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'}`}>{l}</button>
           ))}
         </div>
+        {/* Colour-by: class (what a node IS) vs epistemic (how well it's KNOWN) — the shared moat lens, same as Lattice Studio */}
+        <div className="flex items-center gap-1" title="Colour nodes by entity class, or by epistemic status (the shared trust lens)">
+          {(['class', 'epistemic'] as const).map((c) => (
+            <button key={c} onClick={() => setColorBy(c)}
+              className={`rounded-lg px-2 py-1 text-[10px] font-medium capitalize transition ${colorBy === c ? 'bg-[#ede9fe] text-[#7c3aed]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'}`}>{c}</button>
+          ))}
+        </div>
         <div className="ml-auto flex items-center gap-3 text-[10px] text-[var(--color-text-tertiary)]">
           <span>{graph.nodes.length} nodes · {graph.links.length} edges shown{total?.nodes != null ? ` of ${total.nodes}` : ''}</span>
           {/* Proposals button — badge when pending */}
@@ -208,8 +216,18 @@ export function KnowledgeGraphSurface() {
       </div>
       {memNote && <div className="px-3 pb-1 text-[10px] text-[var(--color-text-tertiary)]">{memNote}</div>}
 
-      {/* Legend */}
-      {kindsPresent.length > 0 && (
+      {/* Legend — mirrors the active colour lens: entity class, or the shared epistemic ladder (the moat). */}
+      {colorBy === 'epistemic' ? (
+        <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-4 py-1.5">
+          <span className="text-[9px] font-semibold text-[var(--color-text-tertiary)]">epistemic status</span>
+          {EPISTEMIC_ORDER.filter((e) => graph.nodes.some((n) => (n as { epistemic?: string }).epistemic === e)).map((e) => (
+            <span key={e} className="inline-flex items-center gap-1 text-[9px] text-[var(--color-text-secondary)]">
+              <span className="h-2 w-2 rounded-full" style={{ background: EPISTEMIC_COLORS[e] }} />{e}
+            </span>
+          ))}
+          <span className="text-[9px] text-[var(--color-text-tertiary)]">— how well each fact is known, not just what it is</span>
+        </div>
+      ) : kindsPresent.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-4 py-1.5">
           {kindsPresent.map((k) => (
             <span key={k} className="inline-flex items-center gap-1 text-[9px] text-[var(--color-text-secondary)]">
@@ -228,7 +246,7 @@ export function KnowledgeGraphSurface() {
           ) : graph.nodes.length === 0 ? (
             <div className="flex h-full items-center justify-center text-xs text-[var(--color-text-tertiary)]">{loading ? 'Loading graph…' : 'No nodes in this view. Ingest a repo or documents to populate the graph.'}</div>
           ) : (
-            <SurfaceGraph nodes={graph.nodes} links={graph.links} fill layout={layout} colorBy="class" sizeBy="degree"
+            <SurfaceGraph nodes={graph.nodes} links={graph.links} fill layout={layout} colorBy={colorBy} sizeBy="degree"
               onNodeClick={(id: string) => { setRoot(id); setRootInput(id) }} />
           )}
           {loading && graph.nodes.length > 0 && <div className="absolute right-3 top-3 rounded-full bg-black/60 px-2 py-0.5 text-[10px] text-white">updating…</div>}

@@ -14,7 +14,7 @@ import { isActionLabel } from './graph-hygiene.js'
 import { dimensionOf } from './cskg.js'
 type GNode = GraphNode
 type GEdge = GraphEdge
-export interface SurfaceNode { id: string; label: string; category: string; kind: string; kvClass: string; featured: boolean; degree: number }
+export interface SurfaceNode { id: string; label: string; category: string; kind: string; kvClass: string; featured: boolean; degree: number; epistemic: string }
 export interface SurfaceLink { source: string; target: string; primary: boolean; epistemic: string; dimension: string }
 export interface SurfaceResult { nodes: SurfaceNode[]; links: SurfaceLink[]; total: { nodes: number; edges: number } }
 
@@ -43,6 +43,10 @@ export function epistemicOf(edgeKind: string): string {
   if (/confirm|attest|verified|consent|proof/.test(k)) return 'confirmed'
   return 'extracted'
 }
+// Map Noetica's edge-epistemic vocabulary onto the shared per-node ladder (also used by Lattice Studio),
+// and rank the ladder so a node can be promoted to the strongest epistemic among its incident edges.
+export const EDGE_TO_NODE_EPI: Record<string, string> = { confirmed: 'verified', extracted: 'observed', inferred: 'derived' }
+export const EPI_RANK: Record<string, number> = { unknown: 0, hypothesis: 1, derived: 2, observed: 3, verified: 4, attested: 5 }
 
 // label → colour category (docs/learning/technical/trust/deployment palette)
 export function categoryFor(label: string): string {
@@ -282,7 +286,7 @@ export function selectSurface(allNodes: GNode[], allEdges: GEdge[], opts: { view
     // category when a node has no keyed-vec class, so every node always carries a linking class.
     const kvProp = n.properties?.['kvClass']
     const kvClass = (typeof kvProp === 'string' && kvProp) ? kvProp : categoryFor(lbl)
-    return { id: n.id, label: cleanLabel(n) ?? lbl, category: categoryFor(lbl), kind: kindOf(lbl), kvClass, featured: deg >= maxDeg * 0.6, degree: deg }
+    return { id: n.id, label: cleanLabel(n) ?? lbl, category: categoryFor(lbl), kind: kindOf(lbl), kvClass, featured: deg >= maxDeg * 0.6, degree: deg, epistemic: 'observed' }
   })
 
   const shown = new Map<string, number>()
@@ -300,6 +304,19 @@ export function selectSurface(allNodes: GNode[], allEdges: GEdge[], opts: { view
     shown.set(to, (shown.get(to) ?? 0) + 1)
     links.push({ source: from, target: to, primary: (degree.get(from) ?? 0) >= maxDeg * 0.6 || (degree.get(to) ?? 0) >= maxDeg * 0.6, epistemic: epistemicOf(e.label), dimension: dimensionOf(e.label) })
   }
+
+  // Per-node epistemic status on the SHARED ladder both graph surfaces (Noetica + Lattice Studio) colour by,
+  // so switching between them is muscle memory. A node inherits the strongest epistemic of its incident edges:
+  // confirmed→verified, extracted→observed, inferred→derived. Isolated/ingested nodes default to observed.
+  const nodeEpi = new Map<string, string>()
+  for (const l of links) {
+    const ne = EDGE_TO_NODE_EPI[l.epistemic] ?? 'observed'
+    for (const id of [l.source, l.target]) {
+      const cur = nodeEpi.get(id)
+      if (!cur || (EPI_RANK[ne] ?? 0) > (EPI_RANK[cur] ?? 0)) nodeEpi.set(id, ne)
+    }
+  }
+  for (const n of nodes) n.epistemic = nodeEpi.get(n.id) ?? 'observed'
 
   return { nodes, links, total: { nodes: allNodes.length, edges: allEdges.length } }
 }
