@@ -475,6 +475,20 @@ export function hideCollection(collectionId: string): { docs: number; chunks: nu
   return { docs, chunks }
 }
 
+/** Soft-delete a SINGLE document by id (its chunks too), same "hidden" mechanism as hideCollection.
+ *  Used when re-ingesting a changed source (e.g. an edited Note) under a NEW content-hashed docId —
+ *  without this, the prior version just sits in the graph forever, orphaned but still counted. */
+export function hideDocument(docId: string): { chunks: number } {
+  const g = getHellGraph()
+  const gx = g as unknown as { setNodeProperty: (id: string, key: string, value: unknown) => void }
+  let chunks = 0
+  if (g.getNode(docId)) { try { gx.setNodeProperty(docId, 'hidden', true) } catch { /* */ } }
+  for (const c of g.nodesByLabel(CHUNK_LABEL)) {
+    if (c.properties['doc_id'] === docId) { try { gx.setNodeProperty(c.id, 'hidden', true); chunks++ } catch { /* */ } }
+  }
+  return { chunks }
+}
+
 /** Migration: backfill the vector tier from existing graph DocumentChunk atoms (user docs only), reusing their
  *  stored embeddings. Idempotent (upsert-by-id). Run once on boot when the tier is empty. */
 export async function reindexVectorTier(): Promise<{ collections: number; chunks: number }> {
