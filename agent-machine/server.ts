@@ -14,7 +14,8 @@
  *   POST /api/chat            → full agentic loop, streams Noetica SSE events
  *
  * Built-in tools:
- *   web_search      — DuckDuckGo fallback, Serper when SERPER_API_KEY or request key provided
+ *   web_search      — SEARXNG_URL (sovereign, primary) → Serper key → DuckDuckGo → Instant Answer.
+ *                     Provider-agnostic: a standalone tool, independent of the model provider.
  *   generate_image  — DALL-E 3 via OpenAI key in request.provider_keys.openai
  *   code_execute    — Python via subprocess, JavaScript via Node vm module
  *
@@ -22,7 +23,13 @@
  *   NOETICA_AM_PORT   — listen port (default 8080)
  *   ANTHROPIC_API_KEY — fallback if request doesn't include provider_keys.anthropic
  *   OPENAI_API_KEY    — fallback if request doesn't include provider_keys.openai
- *   SERPER_API_KEY    — fallback Serper key for web_search
+ *   SEARXNG_URL       — sovereign keyless meta-search for web_search (PRIMARY). Point at our
+ *                       self-hosted instance (prophet-platform infra/k8s/searxng); in-cluster
+ *                       that is http://searxng.socioprophet.svc.cluster.local:8080. Falls back
+ *                       to the chain below if unset/unreachable. This is the fix for the
+ *                       "web search came back empty" bug — the keyless scrapers below are
+ *                       blocked (202/challenge) from datacenter IPs.
+ *   SERPER_API_KEY    — fallback Serper key for web_search (paid Google API)
  */
 
 import * as http from 'node:http'
@@ -2363,7 +2370,47 @@ async function executeTool(
 
 // ─── web_search ───────────────────────────────────────────────────────────────
 
+// SearXNG — the sovereign, keyless, provider-agnostic primary. It is a self-hosted
+// meta-search engine (zot : registries :: gitea : GitHub :: SearXNG : Google-search):
+// no API key, no big-tech account, aggregates 70+ upstream engines, JSON API. It is
+// PRIMARY because the keyless fallbacks below are HTML scrapers that engines actively
+// block from datacenter IPs — DuckDuckGo returns a 202 challenge with zero results
+// server-side, which is the real "web search came back empty / Gus couldn't get out"
+// bug, worse from a cloud-deployed agent than from a laptop. Config: SEARXNG_URL.
+// Point it at our own instance (deploy/values), or any SearXNG that exposes format=json.
+async function searxngSearch(query: string, baseUrl: string): Promise<string | null> {
+  try {
+    const u = new URL(`${baseUrl.replace(/\/$/, '')}/search`)
+    u.searchParams.set('q', query)
+    u.searchParams.set('format', 'json')
+    // language-neutral general results; the instance decides which engines to hit.
+    u.searchParams.set('safesearch', '0')
+    const res = await fetch(u.toString(), {
+      headers: { accept: 'application/json', 'user-agent': 'noetica-agent/web_search' },
+      signal: AbortSignal.timeout(8_000),
+    })
+    if (!res.ok) return null
+    const data = (await res.json()) as { results?: Array<{ title?: string; url?: string; content?: string }> }
+    const hits = (data.results ?? []).slice(0, 6)
+    if (!hits.length) return null
+    return hits
+      .filter((r) => r.url?.startsWith('http'))
+      .map((r) => `- [${(r.title ?? r.url ?? '').slice(0, 140)}](${r.url})${r.content ? ` — ${r.content.slice(0, 180)}` : ''}`)
+      .join('\n') || null
+  } catch {
+    return null   // unreachable/misconfigured → fall through to the chain below
+  }
+}
+
 async function webSearch(query: string, serperKey?: string): Promise<string> {
+  // Sovereign primary: our own SearXNG when configured. Keyless and provider-agnostic —
+  // it does not care which MODEL provider (Anthropic / mesh Qwen / OpenAI) is driving.
+  const searxngUrl = process.env['SEARXNG_URL']?.trim()
+  if (searxngUrl) {
+    const sx = await searxngSearch(query, searxngUrl)
+    if (sx) return sx
+  }
+
   if (serperKey?.trim()) {
     try {
       const res = await fetch('https://google.serper.dev/search', {
