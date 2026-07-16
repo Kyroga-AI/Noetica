@@ -460,7 +460,7 @@ export function Sidebar({
           onClick={onNewChat ?? (() => onSurfaceChange('chat'))}
         >
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden><path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
-          New workspace
+          New conversation
         </button>
         <button
           onClick={onCollapse}

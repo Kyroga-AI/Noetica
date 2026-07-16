@@ -48,7 +48,6 @@ import { HolographMeSurface } from '@/components/surfaces/HolographMeSurface'
 import { MarketplaceSurface } from '@/components/surfaces/MarketplaceSurface'
 import { SurfaceErrorBoundary } from '@/components/shell/SurfaceErrorBoundary'
 import { TabbedWorkspace } from '@/components/shell/TabbedWorkspace'
-import { CoworkPanel } from '@/components/panels/CoworkPanel'
 import { CodePanel } from '@/components/panels/CodePanel'
 import { EvaluatePanel } from '@/components/panels/EvaluatePanel'
 import { GovernPanel } from '@/components/panels/GovernPanel'
@@ -1665,7 +1664,6 @@ export function AppShell() {
             modelId={modelId}
             mode={mode}
             riskReadout={riskReadout}
-            voiceState={voiceState}
             isLive={isLive}
             onLiveStart={startLive}
             onLiveStop={stopLive}
@@ -1679,8 +1677,6 @@ export function AppShell() {
             onOpenPalette={() => setPaletteOpen(true)}
             onOpenInspector={() => setInspectorVisible(true)}
             onExportConversation={exportConversation}
-            onVoiceStart={startListening}
-            onVoiceStop={stopListening}
             onRealtimeTranscript={(text) => void handleSendRaw(text, [], messages)}
             onRealtimeSpeechStart={stopSpeaking}
           />
@@ -1727,6 +1723,9 @@ export function AppShell() {
                 onNavigateToOperate={() => setActiveSurface('operate')}
                 onNavigateToGovern={() => setActiveSurface('govern')}
                 onSpeak={speak}
+                isListening={voiceState === 'listening' && !isLive}
+                onVoiceStart={startListening}
+                onVoiceStop={stopListening}
                 onFeedback={(messageId, rating) => {
                   void fetch(amUrl('/api/learning/feedback'), {
                     method: 'POST',
@@ -1944,6 +1943,9 @@ type CenterProps = {
   onNavigateToOperate?: () => void
   onNavigateToGovern?: () => void
   onSpeak?: (content: string) => void
+  isListening?: boolean
+  onVoiceStart?: () => void
+  onVoiceStop?: () => void
   onFeedback?: (messageId: string, rating: 'up' | 'down') => void
   agentMode?: 'auto' | 'plan' | 'ask'
   onSetAgentMode?: (mode: 'auto' | 'plan' | 'ask') => void
@@ -1951,7 +1953,7 @@ type CenterProps = {
   onPlanReject?: (messageId: string) => void
 }
 
-function CenterWorkspace({ activeSurface, mode, projectsApi, sessionId, activeProjectTitle, projectCollection, chatCollection, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onNavigateToGovern, onSpeak, onFeedback, agentMode, onSetAgentMode, onPlanApprove, onPlanReject }: CenterProps) {
+function CenterWorkspace({ activeSurface, mode, projectsApi, sessionId, activeProjectTitle, projectCollection, chatCollection, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onNavigateToGovern, onSpeak, isListening, onVoiceStart, onVoiceStop, onFeedback, agentMode, onSetAgentMode, onPlanApprove, onPlanReject }: CenterProps) {
   if (activeSurface === 'notes')        return <NotesSurface />
   if (activeSurface === 'canvas')       return <CanvasSurface />
   if (activeSurface === 'workrooms')    return <TabbedWorkspace tabs={[
@@ -2061,6 +2063,9 @@ function CenterWorkspace({ activeSurface, mode, projectsApi, sessionId, activePr
           activeProjectTitle={activeProjectTitle}
           projectCollection={projectCollection}
           chatCollection={chatCollection}
+          isListening={isListening}
+          onVoiceStart={onVoiceStart}
+          onVoiceStop={onVoiceStop}
         />
       </section>
 
@@ -2115,8 +2120,8 @@ function RightPanel({ activeSurface, model, steering, thinkingBudget, temperatur
   if (activeSurface === 'library')   return null
   if (activeSurface === 'workrooms') return null
   if (activeSurface === 'tune')      return null
-  if (activeSurface === 'cowork')    return <CoworkPanel />
-  if (activeSurface === 'projects')  return <CoworkPanel />
+  if (activeSurface === 'cowork')    return null
+  if (activeSurface === 'projects')  return null
   if (activeSurface === 'artifacts') return null
   if (activeSurface === 'code')      return <CodePanel />
   if (activeSurface === 'evaluate')  return <EvaluatePanel />

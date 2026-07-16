@@ -70,6 +70,8 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
   // if the note body changes after a successful index (snapshot mismatch).
   const [indexStatus, setIndexStatus] = useState<'idle' | 'indexing' | 'indexed' | 'failed'>('idle')
   const [indexedSnapshot, setIndexedSnapshot] = useState<string | null>(null)
+  const [indexedAt, setIndexedAt] = useState<number | null>(null)
+  const [, setElapsedTick] = useState(0)
   const isStale = indexStatus === 'indexed' && indexedSnapshot !== null && indexedSnapshot !== note.body
   const bodyRef = useRef<HTMLTextAreaElement>(null)
   const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -100,6 +102,13 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
     }, 800)
     return () => { if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current) }
   }, [note.body])
+
+  // Re-render every 30s so "Xm ago" stays roughly current while a note sits indexed on screen.
+  useEffect(() => {
+    if (indexStatus !== 'indexed' || indexedAt === null) return
+    const id = setInterval(() => setElapsedTick((t) => t + 1), 30_000)
+    return () => clearInterval(id)
+  }, [indexStatus, indexedAt])
 
   // Insert [[label]] at current cursor position in the textarea
   function insertLink(label: string) {
@@ -136,6 +145,7 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
       if (!res.ok) throw new Error(`ingest queue returned ${res.status}`)
       setIndexStatus('indexed')
       setIndexedSnapshot(snapshot)
+      setIndexedAt(Date.now())
     } catch {
       // Real failure state instead of silently swallowing — the button should tell the
       // user indexing didn't happen, not quietly revert to "Index" as if nothing occurred.
@@ -215,9 +225,9 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
           <span>{indexStatus === 'failed' ? '✕' : isStale ? '↻' : indexStatus === 'indexed' ? '✓' : '⬡'}</span>
           <span>
             {indexStatus === 'indexing' ? 'Indexing…'
-              : indexStatus === 'failed' ? 'Index failed'
+              : indexStatus === 'failed' ? 'Failed'
               : isStale ? 'Re-index'
-              : indexStatus === 'indexed' ? 'Indexed'
+              : indexStatus === 'indexed' ? `Indexed ${indexedAt !== null ? timeAgo(new Date(indexedAt).toISOString()) : ''}`
               : 'Index'}
           </span>
         </button>
@@ -787,7 +797,7 @@ export function NotesSurface() {
       {/* ── Main area ── */}
       {activeView?.kind === 'note' && activeNote ? (
         <>
-          <NoteEditor note={activeNote} onUpdate={handleUpdate} />
+          <NoteEditor key={activeNote.id} note={activeNote} onUpdate={handleUpdate} />
           {notionToken && (
             <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', alignItems: 'center', gap: 8, zIndex: 10 }}>
               {notionPushState === 'done' && notionPushUrl && (

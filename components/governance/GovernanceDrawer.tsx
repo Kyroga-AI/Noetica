@@ -55,20 +55,11 @@ export function GovernanceDrawer({
           : 'Standalone — calling providers directly with your local keys. SourceOS routing, memory, and policy are unavailable in this mode.'}
       </p>
 
-      {/* Policy admission */}
-      <SectionLabel>Policy admission</SectionLabel>
-      <div className="mx-4 mt-1.5 flex items-center justify-between rounded-xl border p-3" style={{ borderColor: 'var(--line)' }}>
-        <span className="text-[11.5px]" style={{ color: 'var(--ink2)' }}>
-          {isSourceos ? 'Requests are checked against policy before they run.' : 'No policy engine is attached in standalone mode.'}
-        </span>
-        <span
-          className="ml-2 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase"
-          style={isSourceos
-            ? { background: 'var(--verified-soft)', color: 'var(--verified-fg)', border: '1px solid var(--verified-line)' }
-            : { background: 'var(--paper-sunk-2)', color: 'var(--ink3)', border: '1px solid var(--line)' }}
-        >
-          {isSourceos ? 'Admitted' : 'Unavailable'}
-        </span>
+      {/* Model steering — reuse the real steering-tier + autonomy ladder semantics, don't re-derive
+          them here (AGENTS.md: never conflate steering tiers with a boolean). */}
+      <SectionLabel>Model steering</SectionLabel>
+      <div className="px-3 pt-1.5">
+        <AutonomyPanel />
       </div>
 
       {/* Memory */}
@@ -86,11 +77,20 @@ export function GovernanceDrawer({
         )}
       </div>
 
-      {/* Model steering / autonomy — reuse the real steering-tier semantics + autonomy ladder, don't
-          re-derive them here (AGENTS.md: never conflate steering tiers with a boolean). */}
-      <SectionLabel>Autonomy</SectionLabel>
-      <div className="px-3 pt-1.5">
-        <AutonomyPanel />
+      {/* Policy admission */}
+      <SectionLabel>Policy admission</SectionLabel>
+      <div className="mx-4 mt-1.5 flex items-center justify-between rounded-xl border p-3" style={{ borderColor: 'var(--line)' }}>
+        <span className="text-[11.5px]" style={{ color: 'var(--ink2)' }}>
+          {isSourceos ? 'Requests are checked against policy before they run.' : 'No policy engine is attached in standalone mode.'}
+        </span>
+        <span
+          className="ml-2 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase"
+          style={isSourceos
+            ? { background: 'var(--verified-soft)', color: 'var(--verified-fg)', border: '1px solid var(--verified-line)' }
+            : { background: 'var(--paper-sunk-2)', color: 'var(--ink3)', border: '1px solid var(--line)' }}
+        >
+          {isSourceos ? 'Admitted' : 'Unavailable'}
+        </span>
       </div>
 
       {/* Evidence trail — reuse EvidenceRailPanel's real data source */}

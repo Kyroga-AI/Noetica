@@ -13,6 +13,7 @@ export interface CanvasStore {
   version: number
 }
 
-export const CANVAS_STORE_KEY = 'noetica:canvas'
+export const CANVAS_STORE_KEY = 'noetica:canvas:v1'
+export const CANVAS_STORE_KEY_LEGACY = 'noetica:canvas'
 export const CANVAS_STORE_VERSION = 1
 export const CANVAS_WRITE_EVENT = 'noetica:canvas:write'
