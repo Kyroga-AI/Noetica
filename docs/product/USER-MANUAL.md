@@ -1,8 +1,12 @@
 # Noetica — User Manual
 
 > Living document. Started 2026-07-16 from a code-grounded Q&A session covering the Workspace and AI·Models
-> command centers plus Settings. Last updated 2026-07-16 with deeper detail on Labs (§4.4) and Agent Builder
-> (§4.5). Every claim below was verified against the actual component source at the time of writing — not the
+> command centers plus Settings. Updated 2026-07-16 with deeper detail on Labs (§4.4) and Agent Builder (§4.5).
+> Updated again 2026-07-17 with expanded Notes/Canvas/Collaborate/Workrooms/Projects sections (§3.2–3.6) — added
+> dependency detail, explicit "vs. Chat" framing, persistence-mechanism specifics, and several verified
+> discrepancies (Notes' indexing fix in PR #479, Canvas's dead event listener, CoworkPanel's disconnected static
+> rail widget, Workrooms' Video tab not actually linked to the active room, Projects' lack of any team/sharing
+> support). Every claim below was verified against the actual component source at the time of writing — not the
 > product vision docs. Re-verify against source before trusting a claim as still current; the codebase moves
 > daily (nightly cask builds, active upstream development by SocioProphet/Noetica).
 >
@@ -68,53 +72,137 @@ The core 1:1 conversational surface. (Not yet deep-dived in this session — def
 
 ### 3.2 Notes — `components/surfaces/NotesSurface.tsx` · `lib/notes/useNotes.ts`
 **Role**: structured knowledge capture — the bridge between "things you write" and Noetica's long-term memory.
-- Markdown note editor: title, tags, edit/preview toggle, local-first autosave (debounced), capped at
-  `MAX_NOTES` with oldest-unpinned eviction.
+**vs. Chat**: Chat's AI does the work (tools, MCP, fanout); a note's embedded chat only *talks about* a fixed
+piece of your own writing and can never edit it — you're the author, the model is a sounding board.
+- Markdown note editor: title, tags, edit/preview toggle, autosave (debounced 600ms), capped at
+  `MAX_NOTES` (500) with oldest-unpinned eviction.
+- **Persistence**: `@tauri-apps/plugin-store` (`noetica-notes.json`) in the desktop app, `localStorage`
+  fallback in-browser — platform-aware, unlike Canvas which is always localStorage.
 - **Per-note embedded chat** — ask questions scoped to that note's content (summarize/extend/critique); the
-  exchange is saved as part of the note. Read-only with respect to the note body (chat never edits it).
+  exchange is saved as part of the note (`note.messages`), so it survives reload — unlike Canvas's chat, which
+  is in-memory only. **No tools are registered** — read-only with respect to the note body.
 - **Semantic backlinking** — debounced query to `POST /api/knowledge/link-suggestions` surfaces similar
   existing graph nodes as you type; click to insert a `[[label]]` wiki-link.
-- **"Index" button** — explicitly pushes the note into `POST /api/ingest/queue` so "the agent can recall it."
-  This is the key link into the Data command center's Knowledge Graph.
+- **"Index" button — a note is NOT in the knowledge graph by default.** Clicking it pushes `# title\n\nbody`
+  through `POST /api/ingest/queue` with `collection: "notes"`, which registers a dedicated, named **"Notes"**
+  collection (same pattern the built-in "Inbox" catch-all follows) so indexed notes get a visible, labeled
+  group in the Library/Knowledge Graph view. Ingestion is async — the frontend polls `/api/ingest/status`
+  until the job actually reports `done` before recording `indexedDocId`/`indexedAt`/`indexedSnapshot` on the
+  note, and the button reflects genuine state: **Index → Indexing… → Indexed Xh ago → Re-index** (amber, shown
+  once the note's content has changed since its last index) **→ Index failed** (red). Re-indexing an edited
+  note hides the prior content-hashed document instead of leaving it as an orphaned duplicate. *(This full
+  mechanism — dedicated collection + honest completion state + no-orphan re-index — landed in
+  [PR #479](https://github.com/SocioProphet/Noetica/pull/479); earlier builds silently dumped indexed notes
+  into the generic Inbox with only a 4-second toast as feedback.)*
 - **Notion bridge** — lists your Notion pages inline (read) and can push a local note out as a new Notion page
   (one-way export).
+- **Not connected to the graph**: Chat and Canvas do not feed the knowledge graph this way — Canvas documents
+  are never ingested at all, and regular Chat conversations use a separate episodic-memory mechanism, not
+  document ingestion. There's also no reverse link yet from a Library/Knowledge-Graph row back to its source
+  Note (would need a `sourceNoteId`-style field on the Document node).
 
 ### 3.3 Canvas — `components/surfaces/CanvasSurface.tsx` · `lib/types/canvas.ts`
 **Role**: AI-collaborative document surface — same document shape as Notes, but the model can **write into it
-directly** via a tool call (*"Write or replace the content of the active canvas document"*), not just discuss
-it. Closer to an "Artifacts"-style live co-authoring surface than a personal knowledge tool. Also has manual
-bold/italic/markdown-preview affordances.
+directly** via a `canvas_write` tool call (*"Write or replace the content of the active canvas document"*), not
+just discuss it. Closer to an "Artifacts"-style live co-authoring surface than a personal knowledge tool. Also
+has manual bold/italic/markdown-preview affordances.
+**vs. Chat**: same shared chat transport, but scoped per-document (`session_id: canvas:<id>`) with one extra
+tool the model can call to overwrite the doc in place — you're not reading a reply and copy-pasting it, the
+document just updates live as the model streams.
+- **Persistence**: always `localStorage` (not platform-aware like Notes/Workrooms), debounced 500ms.
+- **Chat history is ephemeral** — kept in a `Map` in component state, not persisted with the document; refresh
+  the app and the document survives but the conversation that produced it doesn't.
+- **Not connected to the knowledge graph at all** — no Index button, no ingestion path. A pure sandbox scratchpad.
+- ⚠️ **Dead code note**: `lib/canvas/useCanvas.ts` still listens for a global `noetica:canvas:write` custom
+  event ("from the AI tool" per its comment), but nothing in the current codebase dispatches that event — the
+  real write path is `CanvasSurface`'s direct `onDocUpdate()` call after a tool-call response. Looks like a
+  leftover from an earlier design, not currently reachable.
 
 ### 3.4 Collaborate (`cowork`) — `components/surfaces/CoworkSurface.tsx`
 **Role**: single-player, ephemeral **task-decomposition pipeline builder** — not a chatroom.
-1. Set a free-text **objective** (persisted to `localStorage`).
+**vs. Chat**: no ongoing conversation at all — each task "Run" is one independent, stateless model call
+(persona system prompt + objective + optionally one chained predecessor's result). You can't follow up on a
+task's output; you can only re-run it or chain a new task from it.
+1. Set a free-text **objective** — the *entire* state (`objective` + `tasks` + `decisions`) is one flat blob in
+   `localStorage` under `noetica:cowork:v1`. Unlike Notes/Canvas/Workrooms, there's only **one active session at
+   a time** — "New session" destroys it (with a confirm dialog) rather than archiving and switching.
 2. **AI decompose** → model breaks it into 4–7 tasks.
 3. Assign each task to one of five fixed personas: **Researcher, Engineer, Analyst, Writer, Reviewer**
-   (each with its own system prompt).
+   (each with its own system prompt) — a *different* five-persona roster from Workrooms' `AGENT_ARCHETYPES`.
 4. **Task chaining** (`inputFrom`) — wire one task's output as another's input context; "Run chain" executes
    all assigned tasks in topological order automatically.
 5. **Decision log** — timestamped audit trail of every objective/assignment/completion.
+6. **Not connected to the knowledge graph** — task results are ephemeral text in that one localStorage blob;
+   nothing here is ingested or indexed.
+7. ⚠️ **Disconnected right-hand panel**: `components/panels/CoworkPanel.tsx` (rendered alongside this surface)
+   is a **static, hardcoded placeholder** — "Participants: No agents or users assigned yet," every status count
+   shown as 0 — regardless of the actual task board state. It's not wired to `CoworkSurface` at all, and the
+   same static panel is also reused (oddly) for the unrelated `projects` surface's right rail.
 
 ### 3.5 Workrooms — `components/surfaces/WorkroomsSurface.tsx`
 **Role**: persistent **multi-agent group chat**. Empty-state copy: *"persistent collaboration spaces where you
-and specialist agents work together on tasks."*
-- Room = shared thread + participant roster (human/agent/system).
-- **Agent Dispatch panel** — multi-select several agents from a fixed roster (`AGENT_ARCHETYPES`), describe a
-  task, dispatch to all at once; each streams its response back into the shared thread independently.
+and specialist agents work together on tasks."* Sidebar label is "Workrooms" — note the nav registry's
+"Collaborate" label belongs to the *different* `cowork` surface (§3.4); don't conflate the two despite the
+similar theme.
+**vs. Chat**: a room holds *multiple* named, simultaneously-present participants (you + any number of agent
+archetypes) rather than a 1:1 conversation, and **typing a message does not itself trigger a model response**
+— only an explicit "Dispatch" does. It reads like a group chat, but the model only speaks when directly
+addressed.
+- Room = shared thread + participant roster (human/agent/system). Persisted like Notes (`@tauri-apps/plugin-store`
+  → `noetica-workrooms.json`, or `localStorage` fallback), capped at `MAX_WORKROOMS` (100).
+- **Agent Dispatch panel** — multi-select several agents from a fixed roster (`AGENT_ARCHETYPES`: Research,
+  Code Review, Planner, Writer, Analyst — a *different* five-persona set from Collaborate's), describe a task,
+  dispatch to all at once **in parallel** (not sequenced); each streams its response back into the shared
+  thread independently.
 - Dispatched agents receive the last 20 room messages as context plus their archetype system prompt — so they
-  build on prior discussion, not just an isolated task string.
+  build on prior discussion, not just an isolated task string. This is the key structural difference from
+  Collaborate's task runs, which never see a shared transcript, only the objective and one optional chained
+  predecessor.
 - Dispatch history shows status (`running → done/error`) per agent call.
 - **Slack bridge** — real Slack channels appear alongside local rooms (read-only view; reply from Slack).
+- **Video tab** (`jitsi`, folds into this surface's nav group) — embeds the Jitsi Meet IFrame API (default
+  `meet.jit.si`, or a configurable self-hosted domain). ⚠️ **Not actually wired to the active Workroom** — you
+  manually type or randomly generate a call room name; there's no automatic link between "the Workroom you have
+  open" and "the video call you start." They just share a navigation group.
+- **Not connected to the knowledge graph** — like Collaborate, nothing here is auto-ingested.
 
-### 3.6 Projects — `components/surfaces/ProjectsSurface.tsx`
-**Role**: full **project-management surface** (Jira/Linear-style), distinct from Collaborate's ephemeral
-single-session planning.
-- Projects as containers; **Board** (kanban: To Do/In Progress/In Review/Done), **Backlog**, **Sprints**
-  (with dates, progress %, start/complete lifecycle), and a read-only **Linear** integration tab.
-- Rich work items: type (task/epic/story/bug/spike/milestone), priority, status, tags, full detail panel.
+### 3.6 Projects — `components/projects/ProjectsPanel.tsx` (⚠️ NOT `ProjectsSurface.tsx` — see below)
+**Role**: what's actually live is a **project-configuration surface**, not the full PM tool the name suggests —
+distinct from Collaborate's ephemeral single-session planning.
+**vs. Chat**: Projects has **no chat interface of its own at all**. It doesn't hold conversations; instead, one
+project can be globally "active" (`activeProjectId`, a single app-wide value, not per-session), and while
+active, its system prompt + attached files silently attach to *whatever chat you have open* — Projects is a
+togglable preset for Chat, not a place you work in directly.
+- ⚠️ **`ProjectsSurface.tsx` (49KB) is dead code — imported in `AppShell.tsx` but never rendered anywhere.**
+  It's a genuinely rich, fully-built Jira/Linear-style tool: kanban **Board** (To Do/In Progress/In
+  Review/Done), **Backlog**, **Sprints** (dates, progress %, lifecycle), a read-only **Linear** integration
+  tab, and rich work items (type/priority/status/tags/detail panel). None of it is reachable in the running
+  app — `activeSurface === 'projects'` renders `ProjectsPanel.tsx` instead, which is a completely different,
+  much simpler component (list of projects + a 3-tab editor: System Prompt / Files / Settings — no board, no
+  backlog, no sprints). *Confirmed via direct grep of `AppShell.tsx` — `ProjectsSurface` has exactly one
+  reference (its own `import`) in the whole file.* Worth flagging to whoever owns this surface: either wire
+  `ProjectsSurface` in (and decide what happens to `ProjectsPanel`'s config role), or remove the dead file.
+- What you **actually get** today: a per-project system prompt, small file attachments, and an activate/
+  deactivate toggle — described below.
+- ⚠️ `components/panels/CoworkPanel.tsx` (the disconnected static widget from §3.4) is also reused as this
+  surface's right-rail panel — unrelated to the Projects content itself.
 - **Key differentiator — per-project System Prompt**: each project has a settings tab where you write a
   system prompt *"injected at the start of every conversation while this project is active"* — this is what
-  actually scopes Chat behavior per-project, similar to Claude.ai Projects.
+  actually scopes Chat behavior per-project, similar to Claude.ai Projects. **Persistence is always
+  `localStorage`** (like Canvas, not platform-aware like Notes/Workrooms).
+- **Two distinct attachment mechanisms, easy to conflate**: (1) `fileAttachments` on the Project record itself
+  — small files stored base64 directly on the project, injected raw into every conversation while active, no
+  chunking/embedding; vs. (2) documents uploaded *during a chat* while the project is active, which get
+  properly ingested into a dedicated, isolated graph collection (`projectCollectionId()` → `proj-<12 hex
+  chars>`) — real chunked/embedded RAG, scoped so it never mixes with other projects' or the general Inbox's
+  documents. A per-message **retrieval-scope selector** (`chat` / `project` / `everything`) lets you choose how
+  wide a net that turn's retrieval casts.
+- **No team/collaborator support** — confirmed via the `Project` type (`id, title, color, description,
+  systemPrompt, fileAttachments, createdAt, updatedAt, pinned?`): no `participants`/`members`/`sharedWith`
+  field, and the whole store is `localStorage`-only on one device with no backend project entity to share in
+  the first place. Structurally quite different from Claude.ai's Projects, which are folders holding *multiple*
+  conversations and (on Team/Enterprise) can be shared with teammates — Noetica's Projects is a single-user,
+  single-device preset, not an organizational container.
 - Registry placement is explicitly unsettled: `// ? PM — could be its own Build center`.
 
 ### 3.7 Documents (`docs`) — `components/surfaces/OfficeViewer.tsx`
@@ -284,6 +372,28 @@ Worth flagging so future-you doesn't get confused re-reading the code:
 - **Agent Builder's custom/built-in roster (§4.5, server-driven via `/api/agents`) vs. Workrooms' fixed
   `AGENT_ARCHETYPES` roster (§3.5, hardcoded client-side in `lib/types/workroom.ts`)** — not confirmed whether
   these are unified at dispatch time or two parallel agent systems. Worth checking in a live app session.
+- **Two entirely different five-persona rosters** exist for near-identical purposes: Collaborate's
+  `AGENT_PERSONAS` (Researcher/Engineer/Analyst/Writer/Reviewer, §3.4) and Workrooms' `AGENT_ARCHETYPES`
+  (Research/Code Review/Planner/Writer/Analyst, §3.5) — different names, different system prompts, no shared
+  definition. Plus Agent Builder's separate server-driven roster above — three parallel "who can I dispatch to"
+  systems in the app.
+- **"Collaborate" (sidebar label, §3.4, the `cowork` surface/task-decomposition board) vs. "Workrooms"
+  (§3.5, the persistent multi-agent group-chat surface)** — easy to conflate given both are about working
+  with multiple AI personas, but structurally unrelated (single ephemeral session vs. many persistent named
+  rooms; sequential/chained task runs vs. parallel dispatch into a shared transcript).
+- **`CoworkPanel.tsx` (`components/panels/`) is a static, hardcoded placeholder** reused as the right-rail
+  widget for *both* the Collaborate (§3.4) and Projects (§3.6) surfaces — it shows "0 participants / 0 for
+  every status" regardless of either surface's actual live state. Not wired to either one.
+- **Canvas's `noetica:canvas:write` global event listener (§3.3) appears to be dead code** — nothing in the
+  current codebase dispatches it; the real AI-write path is a direct method call, not this event.
+- **Workrooms' Video tab (§3.5) is not actually linked to the active Workroom** — it's a generic Jitsi embed
+  under the same nav group, with a manually-typed/random room name, no automatic connection to which room
+  you have open.
+- **`ProjectsSurface.tsx` (§3.6) — a fully-built 49KB Jira/Linear-style tool (kanban board, backlog, sprints,
+  Linear integration) — is imported in `AppShell.tsx` but never rendered.** The live "Projects" surface is the
+  much simpler `ProjectsPanel.tsx` (system prompt / files / settings only). The most significant single
+  discrepancy found while writing this manual — worth resolving one way or the other rather than leaving a
+  49KB unreachable component in the tree.
 - **Registry placement questions the team hasn't settled** (verbatim code comments):
   - Documents: `// ? office suite — could be Data`
   - Projects: `// ? PM — could be its own Build center`
