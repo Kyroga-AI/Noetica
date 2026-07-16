@@ -53,6 +53,25 @@ export function ensureCollection(id: string, name: string): Collection {
   return led.get(id)!
 }
 
+/**
+ * Register a collection under a CALLER-supplied id, or rename it if it already exists — the upsert the Projects
+ * layer needs so a `proj-<id>` collection carries the project's TITLE (not a bare id) in the Library, and follows
+ * a project rename. Unlike ensureCollection it keeps the name current; unlike createCollection it does not mint a
+ * random id (a project's collection id is DERIVED from the project id, see projectCollectionId). The id is a plain
+ * string key held in a Map, so a hostile "__proto__" can't reach Object.prototype.
+ */
+export function registerCollection(id: string, name: string, source?: string): Collection {
+  const led = load()
+  const existing = led.get(id)
+  if (existing) {
+    if (name && existing.name !== name) { existing.name = name; if (source) existing.source = source; persist() }
+    return existing
+  }
+  const c: Collection = { id, name: name || 'Untitled', source, createdAt: new Date().toISOString(), docCount: 0 }
+  led.set(id, c); persist()
+  return c
+}
+
 export function listCollections(): Collection[] {
   return [...load().values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
 }

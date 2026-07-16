@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Project, ProjectStore } from './types'
 import { DEFAULT_PROJECT_COLOR, PROJECT_STORE_VERSION } from './types'
-import { loadProjectStore, saveProjectStore } from './storage'
+import { loadProjectStore, saveProjectStore, registerProjectCollection } from './storage'
 
 const SAVE_DEBOUNCE_MS = 600
 
@@ -54,6 +54,8 @@ export function useProjects() {
       persist(next)
       return next
     })
+    // Name the project's knowledge-base collection so the Library labels it by title, not the derived id.
+    registerProjectCollection(project.id, project.title)
     return project
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [persist])
@@ -62,12 +64,12 @@ export function useProjects() {
     setStore((prev) => {
       const existing = prev.projects[id]
       if (!existing) return prev
+      const updated = { ...existing, ...patch, updatedAt: new Date().toISOString() }
+      // Keep the Library label in sync when the project is renamed (upsert is idempotent otherwise).
+      if (patch.title && patch.title !== existing.title) registerProjectCollection(id, updated.title)
       const next = {
         ...prev,
-        projects: {
-          ...prev.projects,
-          [id]: { ...existing, ...patch, updatedAt: new Date().toISOString() },
-        },
+        projects: { ...prev.projects, [id]: updated },
       }
       persist(next)
       return next

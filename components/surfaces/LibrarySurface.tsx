@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from 'react'
  */
 type LibraryDoc = { docId: string; filename: string; name: string; chunks: number; entities: number }
 type LibraryGroup = {
-  scope: string; kind: 'collection' | 'system' | 'inbox'; id?: string; name: string
+  scope: string; kind: 'collection' | 'system' | 'inbox'; category?: 'project' | 'chat' | 'general'; id?: string; name: string
   source?: string; createdAt?: string; docCount: number; chunkCount: number; entityCount: number; docs: LibraryDoc[]
 }
 type Library = { groups: LibraryGroup[]; totals: { collections: number; documents: number; chunks: number; entities: number } }
@@ -19,6 +19,26 @@ type Library = { groups: LibraryGroup[]; totals: { collections: number; document
 function amUrl(path: string): string {
   const isTauri = typeof window !== 'undefined' && ('__TAURI_INTERNALS__' in window || '__TAURI__' in window)
   return isTauri ? `http://127.0.0.1:8080${path}` : path
+}
+
+// The Library is organised into sections that mirror how the user asked for isolation: each Project is its own
+// group, Chats roll under one section (each chat still isolated for scoping), General = loose uploads, then the
+// Inbox catch-all, then protected system scopes. buildLibrary() already returns groups in this order, so we just
+// label the boundary when the section changes.
+type Section = 'project' | 'chat' | 'general' | 'inbox' | 'system'
+function sectionOf(g: LibraryGroup): Section {
+  if (g.kind === 'collection') return g.category ?? 'general'
+  return g.kind === 'inbox' ? 'inbox' : 'system'
+}
+const SECTION_LABEL: Record<Section, string> = {
+  project: 'Projects', chat: 'Chats', general: 'General', inbox: 'Inbox', system: 'System · protected',
+}
+const SECTION_HINT: Record<Section, string> = {
+  project: 'Each project keeps its own isolated knowledge base.',
+  chat: 'Files you dropped into a conversation — isolated per chat, searchable together.',
+  general: 'Loose uploads not tied to a project or chat.',
+  inbox: 'The catch-all for single-file drops.',
+  system: 'Core memory / knowledge / self — read-only.',
 }
 
 const KIND_BADGE: Record<LibraryGroup['kind'], { label: string; cls: string }> = {
@@ -96,13 +116,22 @@ export function LibrarySurface() {
       {!lib && !err && <div className="text-[11px] text-[var(--color-text-tertiary)]">Loading…</div>}
       {lib && lib.groups.length === 0 && <div className="text-[11px] text-[var(--color-text-tertiary)]">Nothing captured yet — drop documents into a chat to ingest them.</div>}
 
-      {/* Groups */}
+      {/* Groups — a section header is emitted whenever the (pre-ordered) section changes. */}
       <div className="space-y-2">
-        {lib?.groups.map((g) => {
+        {lib?.groups.map((g, i) => {
           const isOpen = open[g.scope]
           const badge = KIND_BADGE[g.kind]
+          const section = sectionOf(g)
+          const showHeader = i === 0 || sectionOf(lib.groups[i - 1]!) !== section
           return (
-            <div key={g.scope} className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
+            <div key={g.scope}>
+            {showHeader && (
+              <div className="mb-2 mt-4 flex items-baseline gap-2 first:mt-0">
+                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-secondary)]">{SECTION_LABEL[section]}</div>
+                <div className="text-[10px] text-[var(--color-text-tertiary)]">{SECTION_HINT[section]}</div>
+              </div>
+            )}
+            <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
               <div className="flex items-center gap-2 px-4 py-3">
                 <button onClick={() => setOpen((o) => ({ ...o, [g.scope]: !o[g.scope] }))} className="flex min-w-0 flex-1 items-center gap-2 text-left">
                   <span className={`shrink-0 text-[var(--color-text-tertiary)] transition ${isOpen ? 'rotate-90' : ''}`}>▸</span>
@@ -125,6 +154,7 @@ export function LibrarySurface() {
                   ))}
                 </div>
               )}
+            </div>
             </div>
           )
         })}

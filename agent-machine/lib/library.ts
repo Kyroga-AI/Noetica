@@ -14,6 +14,14 @@ export interface LibraryDoc { docId: string; filename: string; name: string; chu
 export interface LibraryGroup {
   scope: string
   kind: 'collection' | 'system' | 'inbox'
+  // Sub-classification of a `collection` group, from its id prefix (see projectCollectionId/chatCollectionId):
+  //   'project' — a project KB (proj-…), each its OWN isolated group, labelled by project title
+  //   'chat'    — docs attached to one conversation (chat-…), isolated per chat but rolled under one "Chats" section
+  //   'general' — a loose upload / zip collection with no project or chat association
+  // The Library UI reads this to render Projects (separate) · Chats (one section) · General — exactly the shape the
+  // user asked for: projects isolated from each other and from chats, chats isolated from each other yet groupable,
+  // everything still searchable across scopes. Undefined for system/inbox groups.
+  category?: 'project' | 'chat' | 'general'
   id?: string
   name: string
   source?: string
@@ -22,6 +30,13 @@ export interface LibraryGroup {
   chunkCount: number
   entityCount: number
   docs: LibraryDoc[]
+}
+
+/** Which Library section a collection id belongs to, from its derived prefix. Mirrors lib/projects/types.ts. */
+function categoryOf(collectionId: string): 'project' | 'chat' | 'general' {
+  if (collectionId.startsWith('proj-')) return 'project'
+  if (collectionId.startsWith('chat-')) return 'chat'
+  return 'general'
 }
 export interface Library {
   groups: LibraryGroup[]
@@ -53,7 +68,7 @@ export async function buildLibrary(): Promise<Library> {
     if (!grp) {
       if (cid) {
         const c = collMeta.get(cid)
-        grp = { scope: key, kind: 'collection', id: cid, name: c?.name ?? cid, source: c?.source, createdAt: c?.createdAt, docCount: 0, chunkCount: 0, entityCount: 0, docs: [] }
+        grp = { scope: key, kind: 'collection', category: categoryOf(cid), id: cid, name: c?.name ?? cid, source: c?.source, createdAt: c?.createdAt, docCount: 0, chunkCount: 0, entityCount: 0, docs: [] }
       } else {
         const seg = key.split(':')[0] ?? key
         grp = { scope: key, kind: isCoreScope(filename) ? 'system' : 'inbox', name: SYSTEM_NAMES[seg] ?? seg, docCount: 0, chunkCount: 0, entityCount: 0, docs: [] }
@@ -65,9 +80,13 @@ export async function buildLibrary(): Promise<Library> {
     totalDocs += 1; totalChunks += chunks; totalEntities += entities
   }
 
-  // Collections first (user's stuff), newest first; system scopes after.
-  const rank = (k: LibraryGroup['kind']): number => (k === 'collection' ? 0 : k === 'inbox' ? 1 : 2)
-  const groupList = [...groups.values()].sort((a, b) => rank(a.kind) - rank(b.kind) || (b.createdAt ?? '').localeCompare(a.createdAt ?? '') || b.chunkCount - a.chunkCount)
+  // Ordering: user's collections first, and within them Projects → Chats → General so the UI's sections fall out
+  // of the natural order; then the Inbox catch-all; then protected system scopes last. Newest-first inside a tier.
+  const rank = (grp: LibraryGroup): number => {
+    if (grp.kind === 'collection') return grp.category === 'project' ? 0 : grp.category === 'chat' ? 1 : 2
+    return grp.kind === 'inbox' ? 3 : 4
+  }
+  const groupList = [...groups.values()].sort((a, b) => rank(a) - rank(b) || (b.createdAt ?? '').localeCompare(a.createdAt ?? '') || b.chunkCount - a.chunkCount)
   for (const grp of groupList) grp.docs.sort((a, b) => b.entities - a.entities)
 
   // Per-doc entity counts come from the Document→entity GROUNDS edges (P2.4: linked by normalised surface at

@@ -16,6 +16,11 @@ export interface WorkspaceSession {
   pinned?: boolean
   parentId?: SessionId
   projectId?: string
+  // Killer-feature foundation (opt-in community commons): a chat is PRIVATE unless the user explicitly opens it.
+  // 'open' chats become searchable by other users' agents via SearXNG. Absent/undefined === 'private' — there is
+  // no default-open path, and flipping open→private must revoke from the search index immediately. The toggle UI
+  // + the SearXNG engine land later; this field is the data-model anchor so the store carries the bit now.
+  visibility?: 'private' | 'open'
   // Ephemeral sessions are created while the security lane is armed. They are
   // obliterated (removed from the store AND from disk) once ephemeralExpiresAt
   // passes — a sliding window refreshed on every message. No memory is written.

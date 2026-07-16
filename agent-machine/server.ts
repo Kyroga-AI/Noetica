@@ -9085,6 +9085,32 @@ Question: ${question}`
     return
   }
 
+  // POST /api/collections { id, name, source? } — register/rename a collection under a caller-supplied id. The
+  // Projects layer calls this on create + rename so a project's derived `proj-<id>` collection carries the project
+  // TITLE in the Library (otherwise uploads land in a collection the registry never named → a bare id shows).
+  // Idempotent: safe to re-POST on every project edit. `id`/`name` are bounded to keep the registry sane.
+  if (req.method === 'POST' && url.pathname === '/api/collections') {
+    setCORSHeaders(res)
+    const cbuf: Buffer[] = []
+    req.on('data', (c: Buffer) => cbuf.push(c))
+    req.on('end', () => {
+      ;(async () => {
+        try {
+          const { id, name, source } = JSON.parse(Buffer.concat(cbuf).toString()) as { id?: string; name?: string; source?: string }
+          const cid = String(id ?? '').trim().slice(0, 64)
+          const cname = String(name ?? '').trim().slice(0, 200)
+          if (!cid) throw new Error('id required')
+          const { registerCollection } = await import('./lib/collections.js')
+          const c = registerCollection(cid, cname, typeof source === 'string' ? source.slice(0, 200) : undefined)
+          res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: true, collection: c }))
+        } catch (e) {
+          res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'bad request' }))
+        }
+      })()
+    })
+    return
+  }
+
   // ── A2A federation surface (the real cross-machine gate) ────────────────────────────────────────────────
   // A remote peer (a Ruflo/gastown/AIWG node, or any cross-machine agent) is a SPIFFE actor here. These gate +
   // score + audit federated capability requests on the BACKEND (the browser grant ledger can't decide a remote
