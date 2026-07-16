@@ -20,7 +20,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     try {
       const saved = localStorage.getItem('noetica-theme') as ThemeId | null
       // Only restore saved theme if it's a valid known theme ID
-      const valid: ThemeId[] = ['claude', 'navy', 'light']
+      const valid: ThemeId[] = ['light', 'dark']
       const initial = (saved && valid.includes(saved)) ? saved : DEFAULT_THEME
       if (!saved || !valid.includes(saved)) {
         // Clear any invalid/stale value so we don't fight it on next load

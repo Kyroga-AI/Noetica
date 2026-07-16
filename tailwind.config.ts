@@ -10,6 +10,8 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        accent: 'var(--accent)',
+        'accent-soft': 'var(--accent-soft)',
         noetica: {
           blue: 'var(--noetica-blue)',
           light: 'var(--noetica-blue-light)',
@@ -19,7 +21,7 @@ const config: Config = {
         }
       },
       boxShadow: {
-        shell: '0 20px 60px rgba(37, 99, 235, 0.10)'
+        shell: '0 20px 60px rgba(20, 20, 20, 0.12)'
       }
     }
   },

@@ -1,4 +1,4 @@
-export type ThemeId = 'claude' | 'navy' | 'light'
+export type ThemeId = 'light' | 'dark'
 
 export interface ThemeDefinition {
   id: ThemeId
@@ -7,25 +7,20 @@ export interface ThemeDefinition {
   preview: { bg: string; sidebar: string; text: string }
 }
 
+// Preview swatches sampled from the OKLCH tokens in styles/globals.css.
 export const themes: ThemeDefinition[] = [
-  {
-    id: 'claude',
-    label: 'Claude',
-    description: 'Charcoal dark',
-    preview: { bg: '#1e1e1e', sidebar: '#262626', text: '#ece9e3' },
-  },
-  {
-    id: 'navy',
-    label: 'Navy',
-    description: 'Deep navy',
-    preview: { bg: '#1e2130', sidebar: '#171923', text: '#dde1ea' },
-  },
   {
     id: 'light',
     label: 'Light',
-    description: 'Clean light',
-    preview: { bg: '#ffffff', sidebar: '#f3f6fa', text: '#111827' },
+    description: 'Warm paper',
+    preview: { bg: '#fbfaf8', sidebar: '#f1efeb', text: '#3a332f' },
+  },
+  {
+    id: 'dark',
+    label: 'Dark',
+    description: 'Warm charcoal',
+    preview: { bg: '#25211d', sidebar: '#2c2823', text: '#eae6e0' },
   },
 ]
 
-export const DEFAULT_THEME: ThemeId = 'claude'
+export const DEFAULT_THEME: ThemeId = 'dark'
