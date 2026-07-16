@@ -13,6 +13,7 @@
 import * as path from 'node:path'
 import * as os from 'node:os'
 import { gateOpenChat, type OpenChatMessage, type GateFindings } from './open-chat-gate.js'
+import { forwardPublish, forwardRevoke } from './commons-federation.js'
 
 const STORE = path.join(os.homedir(), '.noetica', 'open-chats.json')
 
@@ -69,14 +70,18 @@ export function publishOpenChat(sessionId: string, title: string, messages: Open
   const gate = gateOpenChat(messages)
   if (!gate.ok) return { ok: false, error: gate.error ?? 'PII gate failed — not indexed' }
   const led = load()
+  const cleanTitle = String(title || 'Untitled chat').slice(0, 200)
   led.set(sessionId, {
     sessionId,
-    title: String(title || 'Untitled chat').slice(0, 200),
+    title: cleanTitle,
     redacted: gate.redacted,
     publishedAt: new Date().toISOString(),
     findings: gate.findings,
   })
   persist()
+  // Forward the LOCALLY-REDACTED snapshot to the shared commons (if federation is configured). Best-effort — a
+  // down aggregator never breaks opening a chat; the local commons is already updated above.
+  forwardPublish(sessionId, cleanTitle, gate.redacted)
   return { ok: true, findings: gate.findings }
 }
 
@@ -85,6 +90,8 @@ export function revokeOpenChat(sessionId: string): { ok: boolean; removed: boole
   const led = load()
   const removed = led.delete(sessionId)
   if (removed) persist()
+  // Propagate the revoke to the shared commons too, so no other agent can reach it. Best-effort.
+  forwardRevoke(sessionId)
   return { ok: true, removed }
 }
 
