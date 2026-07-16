@@ -1623,6 +1623,7 @@ export function AppShell() {
             <Sidebar
               activeSurface={activeSurface}
               activeCenter={activeCenter}
+              mode={mode}
               onSurfaceChange={handleSurfaceChange}
               onOpenSettings={(cat) => openSettings(cat)}
               sessions={sessions}

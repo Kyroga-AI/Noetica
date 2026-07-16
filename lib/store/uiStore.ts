@@ -2,16 +2,16 @@
 
 import { create } from 'zustand'
 
-export type NoeticaMode = 'standalone' | 'sourceos'
+// NOTE: 'mode' (standalone|sourceos) deliberately does NOT live here — AppShell.tsx
+// already owns it as real state (`const [mode, setMode] = useState<NoeticaMode>(...)`,
+// threaded into chat submission/routing) and passes it down as props. Components that
+// need it (Topbar, BrandLockup's status dot, GovernanceDrawer) receive it as a prop
+// from AppShell rather than reading a second, potentially-divergent copy here.
 export type SteeringTier = 'full' | 'local' | 'none'
 export type KnowledgeFilter = 'all' | 'tech' | 'knowledge' | 'memory' | 'document' | 'domain'
 export type KnowledgeScope = 'chat' | 'project' | 'everything'
 
 interface UiState {
-  mode: NoeticaMode
-  setMode: (mode: NoeticaMode) => void
-  toggleMode: () => void
-
   steeringTier: SteeringTier
   setSteeringTier: (tier: SteeringTier) => void
 
@@ -36,10 +36,6 @@ interface UiState {
 const SCOPE_ORDER: KnowledgeScope[] = ['chat', 'project', 'everything']
 
 export const useUiStore = create<UiState>((set, get) => ({
-  mode: 'standalone',
-  setMode: (mode) => set({ mode }),
-  toggleMode: () => set((s) => ({ mode: s.mode === 'standalone' ? 'sourceos' : 'standalone' })),
-
   steeringTier: 'none',
   setSteeringTier: (steeringTier) => set({ steeringTier }),
 

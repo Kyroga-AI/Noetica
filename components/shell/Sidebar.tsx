@@ -10,10 +10,12 @@ import { UpgradeModal } from '@/components/shell/UpgradeModal'
 import { ChangelogModal } from '@/components/shell/ChangelogModal'
 import { COMMAND_CENTERS, surfacesFor, type CommandCenterId, type NavSurface } from '@/components/shell/commandCenters'
 import { versionLabel } from '@/lib/version'
+import { BrandLockup } from '@/components/brand/NoeticaMark'
 
 type SidebarProps = {
   activeSurface: ActiveSurface
   activeCenter: CommandCenterId
+  mode?: 'standalone' | 'sourceos'
   onSurfaceChange: (surface: ActiveSurface) => void
   onOpenSettings: (category?: string) => void
   sessions?: WorkspaceSession[]
@@ -359,12 +361,12 @@ function SessionRow({ s, depth, activeSessionId, onSwitchSession, onRemoveSessio
           onClick={() => onSwitchSession?.(s.id)}
           className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-xl px-2 py-1.5 text-left text-xs transition ${
             s.id === activeSessionId
-              ? 'bg-[#dbeafe] font-semibold text-[var(--color-text-primary)]'
+              ? 'bg-[var(--accent-soft)] font-semibold text-[var(--color-text-primary)]'
               : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]'
           }`}
         >
           {depth > 0 && (
-            <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden className="shrink-0 text-[#93c5fd]">
+            <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden className="shrink-0" style={{ color: 'var(--accent)', opacity: 0.6 }}>
               <circle cx="4.5" cy="4.5" r="3.5" stroke="currentColor" strokeWidth="1.2"/>
               <circle cx="4.5" cy="4.5" r="1.5" fill="currentColor"/>
             </svg>
@@ -421,7 +423,7 @@ function SessionTree({ sessions, activeSessionId, search, onSwitchSession, onRem
 }
 
 export function Sidebar({
-  activeSurface, activeCenter, onSurfaceChange, onOpenSettings,
+  activeSurface, activeCenter, mode, onSurfaceChange, onOpenSettings,
   sessions = [], activeSessionId = null,
   onSwitchSession, onRemoveSession, onNewChat, onCollapse, density = 'comfortable',
 }: SidebarProps) {
@@ -445,6 +447,12 @@ export function Sidebar({
   return (
     <>
     <aside className="titlebar-inset hidden w-full min-w-0 shrink-0 flex-col border-r border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] px-2 py-2 lg:flex h-full overflow-y-auto" data-density={density}>
+      {/* Brand lockup */}
+      <div className="flex items-center gap-2 border-b border-[var(--color-border-tertiary)] px-1 pb-2.5 mb-2">
+        <BrandLockup size={28} mode={mode} ringColor="var(--paper-sunk)" />
+        <span className="truncate text-[15px] font-extrabold" style={{ color: 'var(--ink)', letterSpacing: '-0.3px' }}>Noetica</span>
+      </div>
+
       {/* Header row */}
       <div className="flex items-center gap-1 pb-1">
         <button
@@ -534,13 +542,13 @@ export function Sidebar({
                 title={disabled ? `${s.label} — coming soon` : undefined}
                 className={`flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[11px] transition ${
                   isActive
-                    ? 'bg-[#dbeafe] font-medium text-[var(--color-text-primary)]'
+                    ? 'bg-[var(--accent-soft)] font-medium text-[var(--color-text-primary)]'
                     : disabled
                     ? 'cursor-default text-[var(--color-text-tertiary)] opacity-60'
                     : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]'
                 }`}
               >
-                <span className={`shrink-0 ${isActive ? 'text-[#1d4ed8]' : ''}`}>{item?.icon ?? <IconDot />}</span>
+                <span className="shrink-0" style={isActive ? { color: 'var(--accent)' } : undefined}>{item?.icon ?? <IconDot />}</span>
                 <span className="truncate">{s.label}</span>
                 {badge && (
                   <span className="ml-auto rounded bg-[var(--color-background-secondary)] px-1 py-px text-[8px] font-medium text-[var(--color-text-tertiary)]">
@@ -590,7 +598,7 @@ export function Sidebar({
                     className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-[12px] transition text-left ${lang.current ? 'text-[var(--color-text-primary)] hover:bg-[var(--color-background-secondary)]' : 'text-[var(--color-text-tertiary)] cursor-not-allowed opacity-60'}`}>
                     <span className="flex-1">{lang.native}</span>
                     {lang.current
-                      ? <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden className="text-[#1d4ed8]"><path d="M2 5.5l3 3 4.5-4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      ? <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden style={{ color: 'var(--accent)' }}><path d="M2 5.5l3 3 4.5-4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
                       : <span className="text-[9px] uppercase tracking-wide text-[var(--color-text-tertiary)]">soon</span>}
                   </button>
                 ))}
@@ -645,8 +653,9 @@ export function Sidebar({
                   { label: 'Learn more', arrow: true, icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 7.5V11M8 5.5v-.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, action: () => setSubView('learn-more') },
                 ].map((item) => (
                   <button key={item.label} onClick={item.action}
-                    className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-[12px] hover:bg-[var(--color-background-secondary)] transition text-left ${item.blue ? 'text-[#3b82f6]' : 'text-[var(--color-text-primary)]'}`}>
-                    <span className={item.blue ? 'text-[#3b82f6]' : 'text-[var(--color-text-secondary)]'}>{item.icon}</span>
+                    className="flex w-full items-center gap-2.5 px-3 py-1.5 text-[12px] hover:bg-[var(--color-background-secondary)] transition text-left"
+                    style={item.blue ? { color: 'var(--accent)' } : { color: 'var(--color-text-primary)' }}>
+                    <span style={item.blue ? { color: 'var(--accent)' } : { color: 'var(--color-text-secondary)' }}>{item.icon}</span>
                     <span className="flex-1">{item.label}</span>
                     {item.arrow && <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden><path d="M3 2l2.5 2.5L3 7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                   </button>
