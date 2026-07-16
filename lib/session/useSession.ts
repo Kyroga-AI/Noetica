@@ -11,6 +11,7 @@ import {
   deleteSession, setActiveSession, sortedSessions,
   ephemeralStamp, purgeExpiredEphemeral, obliterateAllEphemeral,
 } from './manager'
+import { publishOpenChat, revokeOpenChat, type PublishResult } from './commons-client'
 
 const SAVE_DEBOUNCE_MS = 800
 const REAPER_INTERVAL_MS = 15_000  // check for expired ephemeral sessions every 15s
@@ -157,6 +158,28 @@ export function useSession(defaultModelId: string, opts?: { ephemeralTtlMinutes?
     [store]
   )
 
+  // Open-chat commons toggle. 'open' PUBLISHES the chat (server runs the mandatory PII gate) and only flips the
+  // visibility bit if publish succeeds — a refused publish (gate failed, ephemeral) leaves the chat private and
+  // returns the reason for the UI. 'private' REVOKES immediately (removed from the commons index) then flips back.
+  const setSessionVisibility = useCallback(
+    async (id: string, visibility: 'private' | 'open'): Promise<PublishResult> => {
+      const s = store.sessions[id]
+      if (!s) return { ok: false, error: 'no such session' }
+      if (visibility === 'open') {
+        if (s.ephemeral) return { ok: false, error: 'ephemeral (security-lane) chats cannot be opened' }
+        const r = await publishOpenChat(s)
+        if (!r.ok) return r   // do NOT mark open if the server refused to index
+        mutate(updateSession(store, id, { visibility: 'open' }))
+        return r
+      }
+      await revokeOpenChat(id)
+      mutate(updateSession(store, id, { visibility: 'private' }))
+      return { ok: true }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [store]
+  )
+
   return {
     hydrated,
     store,
@@ -169,6 +192,7 @@ export function useSession(defaultModelId: string, opts?: { ephemeralTtlMinutes?
     updateSurface,
     updateModelId,
     updateTitle,
+    setSessionVisibility,
     obliterateNow,
   }
 }

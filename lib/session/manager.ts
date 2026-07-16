@@ -48,7 +48,7 @@ export function createSession(
 
 export function updateSession(
   store: SessionStore, id: SessionId,
-  patch: Partial<Pick<WorkspaceSession, 'messages' | 'surface' | 'workspaceMode' | 'modelId' | 'title' | 'pinned' | 'ephemeral' | 'ephemeralExpiresAt'>>
+  patch: Partial<Pick<WorkspaceSession, 'messages' | 'surface' | 'workspaceMode' | 'modelId' | 'title' | 'pinned' | 'ephemeral' | 'ephemeralExpiresAt' | 'visibility'>>
 ): SessionStore {
   const existing = store.sessions[id]
   if (!existing) return store

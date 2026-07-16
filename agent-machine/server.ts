@@ -9111,6 +9111,88 @@ Question: ${question}`
     return
   }
 
+  // ── Open-chat commons (opt-in) ──────────────────────────────────────────────────────────────────────────
+  // A chat the user has OPENED becomes searchable by other users' agents. The three routes below are the whole
+  // exposure path, and every one of them is downstream of the mandatory PII gate (open-chat-gate.ts): publish
+  // redacts-or-refuses (fail closed), revoke is immediate, search serves only the already-redacted corpus. The
+  // publish/revoke mutations are protected by the global drive-by-CSRF origin guard (owner's UI or API token
+  // only); the search GET intentionally answers no-Origin server-side callers (SearXNG) so the commons is reachable.
+
+  // POST /api/open-chats/publish { sessionId, title, messages:[{role,content}], ephemeral? } — open a chat.
+  if (req.method === 'POST' && url.pathname === '/api/open-chats/publish') {
+    setCORSHeaders(res)
+    const pbuf: Buffer[] = []
+    req.on('data', (c: Buffer) => pbuf.push(c))
+    req.on('end', () => {
+      ;(async () => {
+        try {
+          const body = JSON.parse(Buffer.concat(pbuf).toString()) as { sessionId?: string; title?: string; messages?: Array<{ role?: string; content?: string }>; ephemeral?: boolean }
+          const sessionId = String(body.sessionId ?? '').trim().slice(0, 128)
+          if (!sessionId) throw new Error('sessionId required')
+          const messages = (Array.isArray(body.messages) ? body.messages : []).map((m) => ({ role: String(m.role ?? 'user'), content: String(m.content ?? '') }))
+          const { publishOpenChat } = await import('./lib/open-chat-index.js')
+          const r = publishOpenChat(sessionId, String(body.title ?? ''), messages, { ephemeral: body.ephemeral === true })
+          // A refused publish (gate failed / ephemeral) is a 200 with ok:false — it's an expected outcome the UI
+          // renders ("couldn't open — sensitive content"), not a server error.
+          res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(r))
+        } catch (e) {
+          res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ ok: false, error: e instanceof Error ? e.message : 'bad request' }))
+        }
+      })()
+    })
+    return
+  }
+
+  // DELETE /api/open-chats/publish?session=<id> — revoke immediately (chat → private). No cached window.
+  if (req.method === 'DELETE' && url.pathname === '/api/open-chats/publish') {
+    setCORSHeaders(res)
+    ;(async () => {
+      try {
+        const sessionId = url.searchParams.get('session') ?? ''
+        if (!sessionId) throw new Error('session required')
+        const { revokeOpenChat } = await import('./lib/open-chat-index.js')
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify(revokeOpenChat(sessionId)))
+      } catch (e) { res.writeHead(400, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: e instanceof Error ? e.message : 'bad request' })) }
+    })()
+    return
+  }
+
+  // GET /api/open-chats/search?q=<query> — the commons search a SearXNG custom engine calls. Serves ONLY the
+  // redacted corpus; each snippet is additionally run through the retrieval injection-strip (the commons is
+  // untrusted user content, so a stored open chat must not carry an injection payload to another user's agent).
+  // The reader's web_search layer re-marks the whole result as EXTERNAL — this endpoint returns parseable JSON.
+  if (req.method === 'GET' && url.pathname === '/api/open-chats/search') {
+    setCORSHeaders(res)
+    ;(async () => {
+      try {
+        const q = url.searchParams.get('q') ?? ''
+        const { searchOpenChats } = await import('./lib/open-chat-index.js')
+        const { sanitizeRetrieved } = await import('./lib/rag-trust.js')
+        const { stripPotentialInjection } = await import('./lib/ipi-datamark.js')
+        const results = searchOpenChats(q).map((h) => {
+          const clean = stripPotentialInjection(sanitizeRetrieved(h.snippet).clean).content
+          return { title: h.title, url: `noetica://open-chat/${h.sessionId}`, content: clean, publishedDate: h.publishedAt, engine: 'noetica-commons' }
+        })
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ query: q, number_of_results: results.length, results }))
+      } catch (e) { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ results: [], error: e instanceof Error ? e.message : 'failed' })) }
+    })()
+    return
+  }
+
+  // GET /api/open-chats — the owner's list of currently-open chats (for the "what have I opened" management view).
+  if (req.method === 'GET' && url.pathname === '/api/open-chats') {
+    setCORSHeaders(res)
+    ;(async () => {
+      try {
+        const { listOpenChats } = await import('./lib/open-chat-index.js')
+        // Don't ship the full redacted body to the list view — just what's needed to manage + revoke.
+        const open = listOpenChats().map((e) => ({ sessionId: e.sessionId, title: e.title, publishedAt: e.publishedAt, findings: e.findings }))
+        res.writeHead(200, { 'content-type': 'application/json' }); res.end(JSON.stringify({ open }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ open: [] })) }
+    })()
+    return
+  }
+
   // ── A2A federation surface (the real cross-machine gate) ────────────────────────────────────────────────
   // A remote peer (a Ruflo/gastown/AIWG node, or any cross-machine agent) is a SPIFFE actor here. These gate +
   // score + audit federated capability requests on the BACKEND (the browser grant ledger can't decide a remote

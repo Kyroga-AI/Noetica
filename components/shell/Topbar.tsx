@@ -6,6 +6,9 @@ import { RuntimeStatus } from '@/components/status/RuntimeStatus'
 import { EgressMeter } from '@/components/status/EgressMeter'
 import type { RiskAversionLiveReadout } from '@/lib/risk/riskAversionLive'
 import type { VoiceState } from '@/lib/voice/useVoice'
+import { OpenChatToggle } from '@/components/chat/OpenChatToggle'
+import type { WorkspaceSession } from '@/lib/session/types'
+import type { PublishResult } from '@/lib/session/commons-client'
 
 type TopbarProps = {
   modelId: string
@@ -17,6 +20,8 @@ type TopbarProps = {
   onLiveStop?: () => void
   openaiApiKey?: string
   hasMessages?: boolean
+  activeSession?: WorkspaceSession | null
+  onSetVisibility?: (id: string, v: 'private' | 'open') => Promise<PublishResult>
   onModelChange: (modelId: string) => void
   onModeChange: (mode: 'standalone' | 'sourceos') => void
   onOpenSettings: (category?: string) => void
@@ -38,7 +43,7 @@ function IconSettings() {
   )
 }
 
-export function Topbar({ modelId, mode, riskReadout, voiceState, isLive, onLiveStart, onLiveStop, openaiApiKey, hasMessages, onModelChange, onModeChange, onOpenSettings, onOpenPalette, onOpenInspector, onExportConversation, onVoiceStart, onVoiceStop, onRealtimeTranscript, onRealtimeSpeechStart }: TopbarProps) {
+export function Topbar({ modelId, mode, riskReadout, voiceState, isLive, onLiveStart, onLiveStop, openaiApiKey, hasMessages, activeSession, onSetVisibility, onModelChange, onModeChange, onOpenSettings, onOpenPalette, onOpenInspector, onExportConversation, onVoiceStart, onVoiceStop, onRealtimeTranscript, onRealtimeSpeechStart }: TopbarProps) {
   const isListening = voiceState === 'listening'
 
   // Double-click the titlebar to zoom/maximize (native macOS behavior the Overlay titlebar drops).
@@ -116,6 +121,9 @@ export function Topbar({ modelId, mode, riskReadout, voiceState, isLive, onLiveS
           </svg>
         </button>
         <WarmingLevel readout={riskReadout} onOpenInspector={onOpenInspector} />
+        {hasMessages && activeSession && onSetVisibility && (
+          <OpenChatToggle session={activeSession} onSetVisibility={onSetVisibility} />
+        )}
         <ThemePicker />
         {hasMessages && onExportConversation && (
           <button

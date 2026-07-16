@@ -159,6 +159,7 @@ export function AppShell() {
     updateSurface,
     updateModelId,
     updateTitle,
+    setSessionVisibility,
     obliterateNow,
   } = useSession(defaultModelId, { ephemeralTtlMinutes })
 
@@ -1655,6 +1656,8 @@ export function AppShell() {
             onLiveStop={stopLive}
             openaiApiKey={settings.openaiApiKey || undefined}
             hasMessages={messages.filter((m) => m.role !== 'system').length > 0}
+            activeSession={activeSession}
+            onSetVisibility={setSessionVisibility}
             onModeChange={setMode}
             onModelChange={handleModelChange}
             onOpenSettings={(cat) => openSettings(cat)}
