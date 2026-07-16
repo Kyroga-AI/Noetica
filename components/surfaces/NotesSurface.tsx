@@ -101,15 +101,18 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
     return () => { if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current) }
   }, [note.body])
 
-  // Insert [[label]] at current cursor position in the textarea
+  // Insert [[label]] at the current cursor position when editing, or append it when the
+  // suggestion chips are shown in Preview (no live textarea/cursor to insert at there).
   function insertLink(label: string) {
     const el = bodyRef.current
-    if (!el) return
-    const pos = el.selectionStart
     const insertion = `[[${label}]]`
-    const next = note.body.slice(0, pos) + insertion + note.body.slice(pos)
-    onUpdate({ body: next })
-    setTimeout(() => { el.focus(); el.setSelectionRange(pos + insertion.length, pos + insertion.length) }, 0)
+    if (el) {
+      const pos = el.selectionStart
+      onUpdate({ body: note.body.slice(0, pos) + insertion + note.body.slice(pos) })
+      setTimeout(() => { el.focus(); el.setSelectionRange(pos + insertion.length, pos + insertion.length) }, 0)
+    } else {
+      onUpdate({ body: note.body ? `${note.body} ${insertion}` : insertion })
+    }
     setLinkSuggestions((prev) => prev.filter((s) => s.label !== label))
   }
 
@@ -241,8 +244,14 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
 
       {/* Body */}
       {preview ? (
-        <div className="min-h-48 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 text-sm leading-7 text-[var(--color-text-primary)] whitespace-pre-wrap">
-          {note.body || <span className="text-[var(--color-text-tertiary)]">Nothing to preview.</span>}
+        <div className="min-h-48 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 text-sm leading-7 text-[var(--color-text-primary)]">
+          {note.body ? (
+            <div className="prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{note.body}</ReactMarkdown>
+            </div>
+          ) : (
+            <span className="text-[var(--color-text-tertiary)]">Nothing to preview.</span>
+          )}
         </div>
       ) : (
         <textarea
@@ -254,8 +263,8 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
         />
       )}
 
-      {/* Link suggestions — semantically similar graph nodes surfaced as you write */}
-      {linkSuggestions.length > 0 && !preview && (
+      {/* Link suggestions — semantically similar graph nodes, surfaced in Preview per spec */}
+      {linkSuggestions.length > 0 && preview && (
         <div className="mt-4 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2.5">
           <div className="mb-2 flex items-center gap-1.5">
             <span className="text-[10px] text-[var(--color-accent)]">⬡</span>
@@ -410,12 +419,15 @@ function NoteChat({ note, onAppendMessages }: {
   }
 
   return (
-    <div className="flex w-80 shrink-0 flex-col border-l border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
+    <div className="flex w-[240px] shrink-0 flex-col border-l border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-4 py-3">
-        <div>
-          <p className="text-xs font-semibold text-[var(--color-text-primary)]">Note Chat</p>
-          <p className="text-[11px] text-[var(--color-text-tertiary)]">Context: this note</p>
+        <div className="flex items-center gap-2">
+          <div>
+            <p className="text-xs font-semibold text-[var(--color-text-primary)]">Note Chat</p>
+            <p className="text-[11px] text-[var(--color-text-tertiary)]">Context: this note</p>
+          </div>
+          <span className="shrink-0 rounded-full bg-[var(--color-background-tertiary)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-text-tertiary)]">can&apos;t edit</span>
         </div>
         {messages.length > 0 && (
           <span className="rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--accent)]">
@@ -461,9 +473,15 @@ function NoteChat({ note, onAppendMessages }: {
                     {m.content}
                   </ReactMarkdown>
                   </div>
-                ) : (
-                  <p className="whitespace-pre-wrap">{m.content || (streaming && m.role === 'assistant' ? '…' : '')}</p>
-                )}
+                ) : m.content ? (
+                  <p className="whitespace-pre-wrap">{m.content}</p>
+                ) : streaming && m.role === 'assistant' ? (
+                  <span className="flex items-center gap-1 py-0.5">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--color-text-tertiary)] [animation-delay:-0.3s]" />
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--color-text-tertiary)] [animation-delay:-0.15s]" />
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--color-text-tertiary)]" />
+                  </span>
+                ) : null}
               </div>
               {m.role === 'assistant' && m.content && (
                 <button
@@ -654,19 +672,13 @@ export function NotesSurface() {
   return (
     <div className="relative flex min-h-0 flex-1 overflow-hidden">
       {/* ── Sidebar ── */}
-      <aside className="flex w-56 shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[#eaf1f8]">
+      <aside className="flex w-[168px] shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[#eaf1f8]">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-3 py-3">
+        <div className="border-b border-[var(--color-border-secondary)] px-3 py-3">
           <span className="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">Notes</span>
-          <button
-            onClick={handleCreate}
-            className="flex h-6 w-6 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[var(--accent)]"
-            title="New note"
-          >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-              <path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-          </button>
+          <p className="mt-1 text-[10.5px] leading-4 text-[var(--color-text-tertiary)]">
+            You write, the AI advises — it can read and comment on your notes but cannot edit them.
+          </p>
         </div>
 
         {/* Search */}
@@ -776,12 +788,23 @@ export function NotesSurface() {
           </div>
         )}
 
-        {/* Footer count */}
-        {hydrated && notes.length > 0 && !notionToken && (
-          <div className="border-t border-[var(--color-border-secondary)] px-3 py-2 text-[10px] text-[var(--color-text-tertiary)]">
-            {notes.length} note{notes.length !== 1 ? 's' : ''}
-          </div>
-        )}
+        {/* New note + footer count */}
+        <div className="border-t border-[var(--color-border-secondary)] p-2">
+          <button
+            onClick={handleCreate}
+            className="flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[var(--accent)]"
+          >
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden>
+              <path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+            New note
+          </button>
+          {hydrated && notes.length > 0 && !notionToken && (
+            <p className="mt-1 text-center text-[10px] text-[var(--color-text-tertiary)]">
+              {notes.length} note{notes.length !== 1 ? 's' : ''}
+            </p>
+          )}
+        </div>
       </aside>
 
       {/* ── Main area ── */}
