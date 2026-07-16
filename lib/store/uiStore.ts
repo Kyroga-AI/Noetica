@@ -7,14 +7,18 @@ import { create } from 'zustand'
 // threaded into chat submission/routing) and passes it down as props. Components that
 // need it (Topbar, BrandLockup's status dot, GovernanceDrawer) receive it as a prop
 // from AppShell rather than reading a second, potentially-divergent copy here.
-export type SteeringTier = 'full' | 'local' | 'none'
+//
+// Also deliberately absent: a user-settable "steering tier" toggle and a standalone
+// "knowledge scope" cycle. Both already exist as real, better-scoped mechanisms —
+// steering tier is a static per-model capability (config/models.ts / SteeringPanel.tsx;
+// AGENTS.md: never let the UI claim a steering tier the selected model doesn't actually
+// have), and retrieval scope is InputArea.tsx's own functional `retrievalScope` state
+// (it actually filters what the model reads, unlike the design handoff's decorative
+// click-to-cycle pill). Duplicating either here would create a second, divergent source
+// of truth — or in the steering case, a UI that can lie about model capability.
 export type KnowledgeFilter = 'all' | 'tech' | 'knowledge' | 'memory' | 'document' | 'domain'
-export type KnowledgeScope = 'chat' | 'project' | 'everything'
 
 interface UiState {
-  steeringTier: SteeringTier
-  setSteeringTier: (tier: SteeringTier) => void
-
   privateSessionOn: boolean
   togglePrivateSession: () => void
 
@@ -23,22 +27,11 @@ interface UiState {
   knowledgeFilter: KnowledgeFilter
   setKnowledgeFilter: (filter: KnowledgeFilter) => void
 
-  knowledgeScope: KnowledgeScope
-  cycleKnowledgeScope: () => void
-
   governanceDrawerOpen: boolean
   toggleGovernanceDrawer: () => void
-
-  sidebarAdvancedOpen: boolean
-  toggleSidebarAdvanced: () => void
 }
 
-const SCOPE_ORDER: KnowledgeScope[] = ['chat', 'project', 'everything']
-
-export const useUiStore = create<UiState>((set, get) => ({
-  steeringTier: 'none',
-  setSteeringTier: (steeringTier) => set({ steeringTier }),
-
+export const useUiStore = create<UiState>((set) => ({
   privateSessionOn: false,
   togglePrivateSession: () => set((s) => ({ privateSessionOn: !s.privateSessionOn })),
 
@@ -47,16 +40,6 @@ export const useUiStore = create<UiState>((set, get) => ({
   knowledgeFilter: 'all',
   setKnowledgeFilter: (knowledgeFilter) => set({ knowledgeFilter }),
 
-  knowledgeScope: 'project',
-  cycleKnowledgeScope: () => {
-    const order = SCOPE_ORDER
-    const next = order[(order.indexOf(get().knowledgeScope) + 1) % order.length]
-    set({ knowledgeScope: next })
-  },
-
   governanceDrawerOpen: false,
   toggleGovernanceDrawer: () => set((s) => ({ governanceDrawerOpen: !s.governanceDrawerOpen })),
-
-  sidebarAdvancedOpen: false,
-  toggleSidebarAdvanced: () => set((s) => ({ sidebarAdvancedOpen: !s.sidebarAdvancedOpen })),
 }))

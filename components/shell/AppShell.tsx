@@ -147,7 +147,12 @@ export function AppShell() {
   // Security lane armed = 'security' profile + accepted self-attestation. While
   // armed, chats are ephemeral and obliterated after securityEphemeralMinutes.
   const securityArmed = settings.defaultPolicyProfile === 'security' && settings.securityAttestation?.accepted === true
-  const ephemeralTtlMinutes = securityArmed ? (settings.securityEphemeralMinutes ?? 15) : null
+  // Private session — the topbar's lightweight ephemeral toggle (uiStore, no policy-profile
+  // change required). Reuses the same real ephemeral/obliteration mechanism as the security
+  // lane rather than a decorative banner with no data-lifecycle behind it.
+  const privateSessionOn = useUiStore((s) => s.privateSessionOn)
+  const ephemeralArmed = securityArmed || privateSessionOn
+  const ephemeralTtlMinutes = ephemeralArmed ? (settings.securityEphemeralMinutes ?? 30) : null
 
   // ── Session persistence ────────────────────────────────────────────────────
   const {
@@ -165,13 +170,14 @@ export function AppShell() {
     obliterateNow,
   } = useSession(defaultModelId, { ephemeralTtlMinutes })
 
-  // Disarming the lane (revoke attestation / leave the security profile) obliterates
-  // any ephemeral sessions immediately — don't wait for the reaper window.
-  const wasArmedRef = useRef(securityArmed)
+  // Disarming either ephemeral lane (revoke attestation / leave the security profile, or
+  // toggle private session off) obliterates any ephemeral sessions immediately — don't wait
+  // for the reaper window.
+  const wasArmedRef = useRef(ephemeralArmed)
   useEffect(() => {
-    if (wasArmedRef.current && !securityArmed) obliterateNow()
-    wasArmedRef.current = securityArmed
-  }, [securityArmed, obliterateNow])
+    if (wasArmedRef.current && !ephemeralArmed) obliterateNow()
+    wasArmedRef.current = ephemeralArmed
+  }, [ephemeralArmed, obliterateNow])
 
   // Desktop overlay titlebar: mark the root so the left rails/sidebar inset their
   // tops to clear the floating macOS traffic lights (see .titlebar-inset in CSS).
@@ -1681,6 +1687,7 @@ export function AppShell() {
               <SurfaceErrorBoundary key={activeSurface} surface={activeSurface}>
               <CenterWorkspace
                 activeSurface={activeSurface}
+                mode={mode}
                 sessionId={activeSession?.id}
                 activeProjectTitle={activeProject?.title}
                 projectCollection={activeProject ? projectCollectionId(activeProject.id) : undefined}
@@ -1896,6 +1903,7 @@ function CollapsedRail({ activeSurface, onSurfaceChange, onExpand }: CollapsedRa
 
 type CenterProps = {
   activeSurface: ActiveSurface
+  mode: NoeticaMode
   messages: ChatMessage[]
   isStreaming: boolean
   workspaceMode: WorkspaceMode
@@ -1937,7 +1945,7 @@ type CenterProps = {
   onPlanReject?: (messageId: string) => void
 }
 
-function CenterWorkspace({ activeSurface, sessionId, activeProjectTitle, projectCollection, chatCollection, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onNavigateToGovern, onSpeak, onFeedback, agentMode, onSetAgentMode, onPlanApprove, onPlanReject }: CenterProps) {
+function CenterWorkspace({ activeSurface, mode, sessionId, activeProjectTitle, projectCollection, chatCollection, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onNavigateToGovern, onSpeak, onFeedback, agentMode, onSetAgentMode, onPlanApprove, onPlanReject }: CenterProps) {
   if (activeSurface === 'notes')        return <NotesSurface />
   if (activeSurface === 'canvas')       return <CanvasSurface />
   if (activeSurface === 'workrooms')    return <TabbedWorkspace tabs={[
@@ -2000,7 +2008,7 @@ function CenterWorkspace({ activeSurface, sessionId, activeProjectTitle, project
     <div className={`grid min-h-0 flex-1 overflow-hidden transition-[grid-template-columns] duration-300 ${activeArtifact ? 'grid-cols-[minmax(320px,1fr)_480px]' : 'grid-cols-1'}`}>
       <section className="flex min-h-0 flex-col overflow-hidden">
         <GoalBanner sessionId={sessionId} />
-        <MessageList messages={messages} isStreaming={isStreaming} onExtractArtifact={onExtractArtifact} onRegenerate={onRegenerate} onResume={onResume} onFork={onFork} onEdit={onEdit} onRecombine={onRecombine} onSpeak={onSpeak} onQuickPrompt={(t) => onSend(t, [])} onFeedback={onFeedback} onPlanApprove={onPlanApprove} onPlanReject={onPlanReject} />
+        <MessageList messages={messages} isStreaming={isStreaming} mode={mode} onExtractArtifact={onExtractArtifact} onRegenerate={onRegenerate} onResume={onResume} onFork={onFork} onEdit={onEdit} onRecombine={onRecombine} onSpeak={onSpeak} onQuickPrompt={(t) => onSend(t, [])} onFeedback={onFeedback} onPlanApprove={onPlanApprove} onPlanReject={onPlanReject} />
         {agentMode && agentMode !== 'auto' && (
           <div className="mx-4 mb-1 flex items-center gap-2 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-xs">
             {agentMode === 'plan' ? (

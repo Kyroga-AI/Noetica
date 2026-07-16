@@ -428,8 +428,8 @@ export function InputArea({
             type="button"
             onClick={() => setWebMode((v) => !v)}
             title={webMode ? 'Web research ON — will search the web and prefer fresh external sources' : 'Web research off — answers from your knowledge/documents'}
-            style={{ border: 'none', background: 'none', outline: 'none' }}
-            className={`flex h-7 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium transition ${webMode ? 'text-[#2563eb]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'}`}
+            style={{ border: 'none', background: 'none', outline: 'none', ...(webMode ? { color: 'var(--verified-fg)' } : {}) }}
+            className={`flex h-7 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium transition ${webMode ? '' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'}`}
           >
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden>
               <circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/>

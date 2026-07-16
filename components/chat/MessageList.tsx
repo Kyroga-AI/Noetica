@@ -3,13 +3,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { MessageBubble } from '@/components/chat/MessageBubble'
 import { TypingIndicator } from '@/components/chat/TypingIndicator'
-import { NoeticaMark } from '@/components/brand/NoeticaMark'
+import { BrandLockup } from '@/components/brand/NoeticaMark'
 import type { ChatMessage } from '@/lib/types/message'
 import { useSettings } from '@/lib/settings/context'
+import { useUiStore } from '@/lib/store/uiStore'
 
 type MessageListProps = {
   messages: ChatMessage[]
   isStreaming?: boolean
+  mode?: 'standalone' | 'sourceos'
   onExtractArtifact?: (content: string, messageId: string) => void
   onRegenerate?: () => void
   onResume?: () => void
@@ -23,8 +25,9 @@ type MessageListProps = {
   onPlanReject?: (messageId: string) => void
 }
 
-export function MessageList({ messages, isStreaming = false, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onRecombine, onSpeak, onQuickPrompt, onFeedback, onPlanApprove, onPlanReject }: MessageListProps) {
+export function MessageList({ messages, isStreaming = false, mode, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onRecombine, onSpeak, onQuickPrompt, onFeedback, onPlanApprove, onPlanReject }: MessageListProps) {
   const { settings } = useSettings()
+  const privateSessionOn = useUiStore((s) => s.privateSessionOn)
   const lastAssistantIdx = messages.reduce((acc, m, i) => m.role === 'assistant' ? i : acc, -1)
   const [selectedFanout, setSelectedFanout] = useState<Set<string>>(new Set())
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -80,11 +83,12 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
     ]
     return (
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-6 px-4 text-center">
+        {privateSessionOn && <PrivateSessionBanner />}
         <div className="flex items-center gap-3">
-          <span className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--color-text-primary)] text-[var(--color-background-primary)]"><NoeticaMark className="h-5 w-5" /></span>
-          <h1 className="text-2xl font-medium tracking-tight text-[var(--color-text-primary)]">{greeting}{settings.userName ? `, ${settings.userName}` : ''}</h1>
+          <BrandLockup size={36} mode={mode} ringColor="var(--paper)" />
+          <h1 className="text-2xl font-extrabold tracking-tight" style={{ color: 'var(--ink)' }}>{greeting}{settings.userName ? `, ${settings.userName}` : ''}</h1>
         </div>
-        <p className="-mt-3 text-[13px] text-[var(--color-text-tertiary)]">Local-first · your data never leaves this device</p>
+        <p className="-mt-3 text-[13px]" style={{ color: 'var(--ink3)' }}>Local-first · your data never leaves this device</p>
         {onQuickPrompt && (
           <div className="flex flex-wrap items-center justify-center gap-2">
             {quickActions.map((a) => (
@@ -106,6 +110,7 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
   return (
     <div className="relative min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+        {privateSessionOn && <PrivateSessionBanner />}
         {messages.map((message, i) => (
           <div key={message.id} className="relative">
             {hasFanout && message.fanout_model && (
@@ -114,7 +119,8 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
                   type="checkbox"
                   checked={selectedFanout.has(message.id)}
                   onChange={() => toggleFanout(message.id)}
-                  className="h-3.5 w-3.5 rounded border-[#bfdbfe] accent-[#1d4ed8]"
+                  className="h-3.5 w-3.5 rounded"
+                  style={{ borderColor: 'var(--accent)', accentColor: 'var(--accent)' }}
                 />
               </label>
             )}
@@ -140,7 +146,7 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
 
       {selectedFanout.size >= 2 && (
         <div className="sticky bottom-4 flex justify-center">
-          <div className="flex items-center gap-3 rounded-2xl border border-[#bfdbfe] bg-[var(--color-background-primary)]/95 px-4 py-2.5 shadow-lg backdrop-blur">
+          <div className="flex items-center gap-3 rounded-2xl bg-[var(--color-background-primary)]/95 px-4 py-2.5 shadow-lg backdrop-blur" style={{ border: '1px solid var(--accent)' }}>
             <span className="text-xs font-medium text-[var(--color-text-primary)]">{selectedFanout.size} responses selected</span>
             <button
               onClick={() => setSelectedFanout(new Set())}
@@ -150,13 +156,32 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
             </button>
             <button
               onClick={handleSynthesize}
-              className="rounded-full bg-[#1d4ed8] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#1e40af]"
+              className="rounded-full px-3 py-1.5 text-xs font-semibold text-white"
+              style={{ background: 'var(--accent)' }}
             >
               Synthesize →
             </button>
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+function PrivateSessionBanner() {
+  // Backed by the real securityEphemeralMinutes/obliterateNow mechanism (see AppShell.tsx) —
+  // read the actual configured TTL rather than hardcoding copy that could drift from it.
+  const { settings } = useSettings()
+  const minutes = settings.securityEphemeralMinutes ?? 30
+  return (
+    <div
+      className="mx-auto flex w-full max-w-3xl items-center gap-2.5 rounded-xl px-4 py-2.5"
+      style={{ background: 'var(--violet-soft)', borderLeft: '3px solid var(--violet)' }}
+    >
+      <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: 'var(--violet)', animation: 'pulseDot 1.6s infinite' }} />
+      <span className="text-[12.5px]" style={{ color: 'var(--violet-fg)' }}>
+        Private session — this conversation is ephemeral and deletes automatically after {minutes} minutes.
+      </span>
     </div>
   )
 }
