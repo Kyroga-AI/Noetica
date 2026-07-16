@@ -34,7 +34,7 @@ function formatTime(iso: string): string {
 
 // Deterministic avatar color from participant name
 const AVATAR_COLORS = [
-  'bg-[#1d4ed8]', 'bg-[#7c3aed]', 'bg-[#0891b2]',
+  'bg-[var(--accent)]', 'bg-[#7c3aed]', 'bg-[#0891b2]',
   'bg-[#059669]', 'bg-[#d97706]', 'bg-[#dc2626]',
 ]
 function avatarColor(name: string): string {
@@ -52,10 +52,10 @@ function RoomListItem({ room, active, onClick }: { room: Workroom; active: boole
   const last = room.messages[room.messages.length - 1]
   return (
     <button onClick={onClick}
-      className={`flex w-full flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left transition ${active ? 'bg-[#dbeafe]' : 'hover:bg-[var(--color-background-tertiary)]'}`}>
+      className={`flex w-full flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left transition ${active ? 'bg-[var(--accent-soft)]' : 'hover:bg-[var(--color-background-tertiary)]'}`}>
       <div className="flex items-center gap-1.5">
         {room.pinned && <span className="text-[10px] text-[#f59e0b]">★</span>}
-        <span className={`truncate text-sm font-medium ${active ? 'text-[#1d4ed8]' : 'text-[var(--color-text-primary)]'}`}>
+        <span className={`truncate text-sm font-medium ${active ? 'text-[var(--accent)]' : 'text-[var(--color-text-primary)]'}`}>
           {room.name}
         </span>
         <span className="ml-auto shrink-0 text-[10px] text-[#cbd5e1]">{timeAgo(room.updatedAt)}</span>
@@ -89,8 +89,8 @@ function MessageRow({ msg }: { msg: WorkroomMessage }) {
   if (msg.kind === 'dispatch') {
     return (
       <div className="flex justify-center py-1">
-        <div className="rounded-xl border border-[#bfdbfe] bg-[#eff6ff] px-4 py-2 text-xs">
-          <span className="font-semibold text-[#1d4ed8]">→ Dispatched to {msg.participantName}</span>
+        <div className="rounded-xl border border-[var(--accent)] bg-[var(--accent-soft)] px-4 py-2 text-xs">
+          <span className="font-semibold text-[var(--accent)]">→ Dispatched to {msg.participantName}</span>
           <p className="mt-0.5 text-[var(--color-text-secondary)]">{msg.content}</p>
         </div>
       </div>
@@ -121,7 +121,7 @@ function MessageRow({ msg }: { msg: WorkroomMessage }) {
         </div>
         <div className={`rounded-2xl px-3.5 py-2.5 text-sm leading-6 ${
           isUser
-            ? 'bg-[#dbeafe] text-[var(--color-text-primary)]'
+            ? 'bg-[var(--accent-soft)] text-[var(--color-text-primary)]'
             : msg.participantKind === 'agent'
             ? 'border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] text-[var(--color-text-primary)] shadow-sm'
             : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-primary)]'
@@ -185,7 +185,7 @@ function AgentDispatchPanel({ room, onDispatch }: {
           <p className="text-xs font-semibold text-[var(--color-text-primary)]">Agent Dispatch</p>
           {activeAgentIds.length > 1 && (
             <button onClick={selectAll}
-              className="text-[10px] font-semibold text-[#1d4ed8] hover:underline">
+              className="text-[10px] font-semibold text-[var(--accent)] hover:underline">
               Select all
             </button>
           )}
@@ -206,11 +206,11 @@ function AgentDispatchPanel({ room, onDispatch }: {
               return (
                 <button key={p.id} onClick={() => p.agentId && toggleAgent(p.agentId)}
                   className={`flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition ${
-                    isSelected ? 'border-[#1d4ed8] bg-[#eff6ff]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] hover:border-[#bfdbfe]'
+                    isSelected ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] hover:border-[var(--accent)]'
                   }`}>
                   {/* Checkbox */}
                   <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition ${
-                    isSelected ? 'border-[#1d4ed8] bg-[#1d4ed8]' : 'border-[#cbd5e1] bg-transparent'
+                    isSelected ? 'border-[var(--accent)] bg-[var(--accent)]' : 'border-[#cbd5e1] bg-transparent'
                   }`}>
                     {isSelected && (
                       <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden>
@@ -257,7 +257,7 @@ function AgentDispatchPanel({ room, onDispatch }: {
                   ) : (
                     <button onClick={() => toggleAgent(arch.id)}
                       className={`shrink-0 rounded-lg border px-2 py-1 text-[10px] font-semibold transition ${
-                        isSelected ? 'border-[#1d4ed8] bg-[#1d4ed8] text-white' : 'border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8] hover:bg-[#dbeafe]'
+                        isSelected ? 'border-[var(--accent)] bg-[var(--accent)] text-white' : 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)] hover:bg-[var(--accent-soft)]'
                       }`}>
                       {isSelected ? 'Selected' : 'Use'}
                     </button>
@@ -311,7 +311,7 @@ function AgentDispatchPanel({ room, onDispatch }: {
           </div>
         )}
         <textarea
-          className="w-full resize-none rounded-xl border border-[#bfdbfe] bg-[var(--color-background-primary)] px-3 py-2 text-xs leading-5 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#1d4ed8]"
+          className="w-full resize-none rounded-xl border border-[var(--accent)] bg-[var(--color-background-primary)] px-3 py-2 text-xs leading-5 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--accent)]"
           placeholder="Describe the task…"
           rows={3}
           value={task}
@@ -320,7 +320,7 @@ function AgentDispatchPanel({ room, onDispatch }: {
         />
         <button onClick={handleDispatch}
           disabled={!canDispatch}
-          className="w-full rounded-xl bg-[#1d4ed8] py-2 text-xs font-semibold text-white transition hover:bg-[#1e40af] disabled:cursor-not-allowed disabled:opacity-40">
+          className="w-full rounded-xl bg-[var(--accent)] py-2 text-xs font-semibold text-white transition hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40">
           {dispatchLabel}
         </button>
       </div>
@@ -514,7 +514,7 @@ function RoomView({ room, thinkingBudget, onAppendMessage, onUpdateMessage, onUp
 
         {/* Input */}
         <div className="border-t border-[var(--color-border-secondary)] px-6 py-4">
-          <div className="flex items-end gap-3 rounded-2xl border border-[#bfdbfe] bg-[var(--color-background-primary)] px-4 py-3 shadow-sm">
+          <div className="flex items-end gap-3 rounded-2xl border border-[var(--accent)] bg-[var(--color-background-primary)] px-4 py-3 shadow-sm">
             <textarea
               className="min-h-[2.5rem] flex-1 resize-none bg-transparent text-sm leading-6 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
               placeholder="Send a message to the workroom… (⌘ + Enter)"
@@ -526,7 +526,7 @@ function RoomView({ room, thinkingBudget, onAppendMessage, onUpdateMessage, onUp
             />
             <button onClick={() => void sendChat()}
               disabled={!input.trim() || sending}
-              className="shrink-0 rounded-xl bg-[#1d4ed8] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1e40af] disabled:cursor-not-allowed disabled:opacity-50">
+              className="shrink-0 rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50">
               {sending ? '…' : 'Send'}
             </button>
           </div>
@@ -665,25 +665,25 @@ function NewRoomForm({ onCreate, onCancel }: { onCreate: (name: string, desc: st
   const [name, setName] = useState('')
   const [desc, setDesc] = useState('')
   return (
-    <div className="rounded-xl border border-[#bfdbfe] bg-[#eff6ff] p-4 space-y-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-[#1d4ed8]">New Workroom</p>
+    <div className="rounded-xl border border-[var(--accent)] bg-[var(--accent-soft)] p-4 space-y-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">New Workroom</p>
       <div className="space-y-1">
         <label className="text-xs font-medium text-[var(--color-text-secondary)]">Name</label>
-        <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 text-sm outline-none focus:border-[#93c5fd]"
+        <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 text-sm outline-none focus:border-[var(--accent)]"
           placeholder="Team planning room" value={name} onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && name.trim()) onCreate(name, desc) }}
           autoFocus />
       </div>
       <div className="space-y-1">
         <label className="text-xs font-medium text-[var(--color-text-secondary)]">Description <span className="font-normal text-[var(--color-text-tertiary)]">(optional)</span></label>
-        <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 text-sm outline-none focus:border-[#93c5fd]"
+        <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 text-sm outline-none focus:border-[var(--accent)]"
           placeholder="What's this room for?" value={desc} onChange={(e) => setDesc(e.target.value)} />
       </div>
       <div className="flex justify-end gap-2 pt-1">
         <button onClick={onCancel} className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-4 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-tertiary)]">Cancel</button>
         <button onClick={() => { if (name.trim()) onCreate(name, desc) }}
           disabled={!name.trim()}
-          className="rounded-lg bg-[#1d4ed8] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1e40af] disabled:opacity-50">
+          className="rounded-lg bg-[var(--accent)] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[var(--accent)] disabled:opacity-50">
           Create
         </button>
       </div>
@@ -696,13 +696,13 @@ function NewRoomForm({ onCreate, onCancel }: { onCreate: (name: string, desc: st
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-      <div className="rounded-2xl border border-dashed border-[#bfdbfe] bg-[#eff6ff] p-10 max-w-sm">
+      <div className="rounded-2xl border border-dashed border-[var(--accent)] bg-[var(--accent-soft)] p-10 max-w-sm">
         <p className="text-sm font-semibold text-[var(--color-text-secondary)]">No workroom selected</p>
         <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
           Workrooms are persistent collaboration spaces where you and specialist agents work together on tasks.
         </p>
         <button onClick={onCreate}
-          className="mt-4 rounded-xl bg-[#1d4ed8] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#1e40af]">
+          className="mt-4 rounded-xl bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent)]">
           New workroom
         </button>
       </div>
@@ -776,9 +776,9 @@ export function WorkroomsSurface({ thinkingBudget }: { thinkingBudget?: number }
       {/* ── Room list ── */}
       <aside className="flex w-56 shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[#eaf1f8]">
         <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-3 py-3">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[#1d4ed8]">Workrooms</span>
+          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">Workrooms</span>
           <button onClick={() => setShowNew(true)} title="New workroom"
-            className="flex h-6 w-6 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[#1d4ed8]">
+            className="flex h-6 w-6 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[var(--accent)]">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
               <path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
             </svg>
@@ -786,7 +786,7 @@ export function WorkroomsSurface({ thinkingBudget }: { thinkingBudget?: number }
         </div>
 
         <div className="px-3 py-2">
-          <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-xs outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#93c5fd]"
+          <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-xs outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--accent)]"
             placeholder="Search rooms…" value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
 

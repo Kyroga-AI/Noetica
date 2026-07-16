@@ -257,7 +257,7 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
 
   const STATUS_STYLE: Record<Task['status'], string> = {
     todo:  'bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)]',
-    doing: 'bg-[rgba(29,78,216,0.12)] text-[#1d4ed8]',
+    doing: 'bg-[var(--accent-soft)] text-[var(--accent)]',
     done:  'bg-[rgba(34,197,94,0.12)] text-[#16a34a]',
   }
 
@@ -268,7 +268,7 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
         {/* Objective */}
         <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
           <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Objective</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">Objective</div>
             {!editingObjective && (
               <div className="flex items-center gap-3">
                 <button
@@ -297,14 +297,14 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
               <textarea
                 autoFocus
                 rows={2}
-                className="w-full resize-none rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#1d4ed8]"
+                className="w-full resize-none rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--accent)]"
                 placeholder="Describe the goal for this collaborate session…"
                 value={draftObjective}
                 onChange={(e) => setDraftObjective(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) setObj() }}
               />
               <div className="flex gap-2">
-                <button onClick={setObj} className="rounded-lg bg-[#1d4ed8] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1e40af]">Set</button>
+                <button onClick={setObj} className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[var(--accent)]">Set</button>
                 <button onClick={() => setEditingObjective(false)} className="rounded-lg border border-[var(--color-border-tertiary)] px-3 py-1.5 text-xs text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]">Cancel</button>
               </div>
             </div>
@@ -320,10 +320,10 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
             <button
               onClick={() => void decompose()}
               disabled={decomposing}
-              className="mt-3 flex items-center gap-1.5 rounded-lg border border-[var(--color-border-tertiary)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:border-[#1d4ed8] hover:text-[#1d4ed8] disabled:opacity-50"
+              className="mt-3 flex items-center gap-1.5 rounded-lg border border-[var(--color-border-tertiary)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-50"
             >
               {decomposing ? (
-                <><span className="h-1.5 w-1.5 rounded-full bg-[#1d4ed8] animate-pulse" /> Decomposing…</>
+                <><span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)] animate-pulse" /> Decomposing…</>
               ) : (
                 <><svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden><path d="M6 1v4M6 11V7M1 6h4M11 6H7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg> AI decompose into tasks</>
               )}
@@ -335,12 +335,12 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
         <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] shadow-sm">
           <div className="flex items-center justify-between border-b border-[var(--color-border-tertiary)] px-5 py-3">
             <div className="flex items-center gap-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Tasks</div>
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">Tasks</div>
               {tasks.length > 0 && (
                 <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-tertiary)]">
                   <span>{todoCount} to do</span>
                   <span>·</span>
-                  <span className="text-[#1d4ed8]">{doingCount} doing</span>
+                  <span className="text-[var(--accent)]">{doingCount} doing</span>
                   <span>·</span>
                   <span className="text-[#16a34a]">{doneCount} done</span>
                 </div>
@@ -350,7 +350,7 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
               {tasks.some((t) => t.agent && t.status !== 'done' && !t.running) && (
                 <button
                   onClick={() => void runChain()}
-                  className="flex items-center gap-1 rounded-lg bg-[#1d4ed8] px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-[#1e40af]"
+                  className="flex items-center gap-1 rounded-lg bg-[var(--accent)] px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-[var(--accent)]"
                   title="Run all assigned tasks in chain order"
                 >
                   ⛓ Run chain
@@ -358,7 +358,7 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
               )}
               <button
                 onClick={() => setAddingTask(true)}
-                className="flex items-center gap-1 rounded-lg border border-[var(--color-border-tertiary)] px-2.5 py-1 text-xs text-[var(--color-text-secondary)] transition hover:border-[#1d4ed8] hover:text-[#1d4ed8]"
+                className="flex items-center gap-1 rounded-lg border border-[var(--color-border-tertiary)] px-2.5 py-1 text-xs text-[var(--color-text-secondary)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
               >
                 + Add task
               </button>
@@ -369,14 +369,14 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
             <div className="border-b border-[var(--color-border-tertiary)] px-5 py-3 space-y-2">
               <input
                 autoFocus
-                className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8] placeholder:text-[var(--color-text-tertiary)]"
+                className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)] placeholder:text-[var(--color-text-tertiary)]"
                 placeholder="Task title…"
                 value={newTaskText}
                 onChange={(e) => setNewTaskText(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') addTask(); if (e.key === 'Escape') setAddingTask(false) }}
               />
               <div className="flex gap-2">
-                <button onClick={addTask} className="rounded-lg bg-[#1d4ed8] px-3 py-1 text-xs font-semibold text-white">Add</button>
+                <button onClick={addTask} className="rounded-lg bg-[var(--accent)] px-3 py-1 text-xs font-semibold text-white">Add</button>
                 <button onClick={() => setAddingTask(false)} className="rounded-lg border border-[var(--color-border-tertiary)] px-3 py-1 text-xs text-[var(--color-text-secondary)]">Cancel</button>
               </div>
             </div>
@@ -398,7 +398,7 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                     >
                       {task.running ? (
                         <span className="flex items-center gap-1">
-                          <span className="h-1.5 w-1.5 rounded-full bg-[#1d4ed8] animate-pulse" />
+                          <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)] animate-pulse" />
                           running
                         </span>
                       ) : task.status}
@@ -417,7 +417,7 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                       {AGENT_OPTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
                     </select>
                     {task.agent && (
-                      <span className="shrink-0 rounded-full bg-[rgba(29,78,216,0.10)] px-2 py-0.5 text-[10px] text-[#1d4ed8]">{task.agent}</span>
+                      <span className="shrink-0 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] text-[var(--accent)]">{task.agent}</span>
                     )}
                     {/* Chain-from selector */}
                     {tasks.filter((t) => t.id !== task.id && t.result).length > 0 && (
@@ -439,7 +439,7 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                     {task.agent && !task.running && task.status !== 'done' && (
                       <button
                         onClick={() => void runTask(task)}
-                        className="shrink-0 rounded-lg bg-[#1d4ed8] px-2.5 py-1 text-[10px] font-semibold text-white opacity-0 group-hover:opacity-100 transition hover:bg-[#1e40af]"
+                        className="shrink-0 rounded-lg bg-[var(--accent)] px-2.5 py-1 text-[10px] font-semibold text-white opacity-0 group-hover:opacity-100 transition hover:bg-[var(--accent)]"
                         title={`Run with ${task.agent}`}
                       >
                         Run
@@ -457,8 +457,8 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                   {/* Agent result */}
                   {task.result && (
                     <div className="border-t border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-5 py-3">
-                      <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold text-[#1d4ed8]">
-                        <span className="h-1.5 w-1.5 rounded-full bg-[#1d4ed8]" />
+                      <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold text-[var(--accent)]">
+                        <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
                         {task.agent}
                         {task.running && <span className="animate-pulse">…</span>}
                       </div>
@@ -474,11 +474,11 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
         {/* Decisions log */}
         {decisions.length > 0 && (
           <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Decision log</div>
+            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">Decision log</div>
             <div className="mt-3 space-y-2">
               {decisions.map((d) => (
                 <div key={d.id} className="flex items-start gap-2.5">
-                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[#1d4ed8]" />
+                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
                   <div>
                     <p className="text-xs text-[var(--color-text-primary)]">{d.text}</p>
                     <p className="text-[10px] text-[var(--color-text-tertiary)]">{new Date(d.createdAt).toLocaleTimeString()}</p>

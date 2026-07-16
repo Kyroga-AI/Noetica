@@ -36,7 +36,7 @@ function MarkdownPreview({ content }: { content: string }) {
         if (line.startsWith('# '))   return <h1 key={i} className="text-2xl font-bold mt-4 mb-2">{line.slice(2)}</h1>
         if (line.startsWith('## '))  return <h2 key={i} className="text-xl font-semibold mt-3 mb-1">{line.slice(3)}</h2>
         if (line.startsWith('### ')) return <h3 key={i} className="text-base font-semibold mt-2 mb-1">{line.slice(4)}</h3>
-        if (line.startsWith('> '))   return <blockquote key={i} className="border-l-2 border-[#93c5fd] pl-3 text-[var(--color-text-secondary)] italic">{line.slice(2)}</blockquote>
+        if (line.startsWith('> '))   return <blockquote key={i} className="border-l-2 border-[var(--accent)] pl-3 text-[var(--color-text-secondary)] italic">{line.slice(2)}</blockquote>
         if (line.startsWith('- ') || line.startsWith('* ')) return <li key={i} className="ml-4 list-disc">{line.slice(2)}</li>
         if (/^\d+\. /.test(line)) return <li key={i} className="ml-4 list-decimal">{line.replace(/^\d+\. /, '')}</li>
         if (line === '') return <div key={i} className="h-3" />
@@ -124,7 +124,7 @@ function CanvasEditor({ doc, onUpdate }: { doc: CanvasDocument; onUpdate: (patch
         <div className="flex items-center gap-0.5 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-0.5 mr-2">
           {(['edit', 'preview'] as const).map((m) => (
             <button key={m} onClick={() => setMode(m)}
-              className={`rounded-md px-2.5 py-0.5 text-xs font-medium transition capitalize ${mode === m ? 'bg-[#dbeafe] text-[#1d4ed8]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}>
+              className={`rounded-md px-2.5 py-0.5 text-xs font-medium transition capitalize ${mode === m ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}>
               {m}
             </button>
           ))}
@@ -345,7 +345,7 @@ function CanvasChat({ doc, onDocUpdate }: {
           <p className="text-[11px] text-[var(--color-text-tertiary)]">Ask Noetica to write or edit</p>
         </div>
         {messages.length > 0 && (
-          <span className="rounded-full bg-[#eff6ff] px-2 py-0.5 text-[10px] font-semibold text-[#1d4ed8]">{messages.length}</span>
+          <span className="rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--accent)]">{messages.length}</span>
         )}
       </div>
 
@@ -357,7 +357,7 @@ function CanvasChat({ doc, onDocUpdate }: {
             <div className="mt-4 space-y-1.5">
               {['Write a blog post about this topic', 'Summarise and compress', 'Make this more concise', 'Add an introduction'].map((s) => (
                 <button key={s} onClick={() => setInput(s)}
-                  className="block w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 text-left text-[11px] text-[var(--color-text-secondary)] transition hover:border-[#bfdbfe] hover:text-[#1d4ed8]">
+                  className="block w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 text-left text-[11px] text-[var(--color-text-secondary)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]">
                   {s}
                 </button>
               ))}
@@ -371,7 +371,7 @@ function CanvasChat({ doc, onDocUpdate }: {
               )}
               <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-5 ${
                 m.role === 'user'
-                  ? 'bg-[#dbeafe] text-[var(--color-text-primary)]'
+                  ? 'bg-[var(--accent-soft)] text-[var(--color-text-primary)]'
                   : 'border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm text-[var(--color-text-primary)]'
               }`}>
                 <p className="whitespace-pre-wrap">{m.content || (streaming ? '…' : '')}</p>
@@ -383,7 +383,7 @@ function CanvasChat({ doc, onDocUpdate }: {
       </div>
 
       <div className="border-t border-[var(--color-border-secondary)] p-3">
-        <div className="flex items-end gap-2 rounded-xl border border-[#bfdbfe] bg-[var(--color-background-primary)] p-2 shadow-sm">
+        <div className="flex items-end gap-2 rounded-xl border border-[var(--accent)] bg-[var(--color-background-primary)] p-2 shadow-sm">
           <textarea
             className="min-h-[2.5rem] flex-1 resize-none bg-transparent text-xs leading-5 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
             placeholder="Ask Noetica to write…"
@@ -405,7 +405,7 @@ function CanvasChat({ doc, onDocUpdate }: {
             <button
               onClick={() => void send()}
               disabled={!input.trim()}
-              className="shrink-0 rounded-lg bg-[#1d4ed8] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#1e40af] disabled:cursor-not-allowed disabled:opacity-50"
+              className="shrink-0 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Ask
             </button>
@@ -422,7 +422,7 @@ function CanvasChat({ doc, onDocUpdate }: {
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-      <div className="rounded-2xl border border-dashed border-[#bfdbfe] bg-[#eff6ff] p-10">
+      <div className="rounded-2xl border border-dashed border-[var(--accent)] bg-[var(--accent-soft)] p-10">
         <p className="text-3xl mb-3">✏️</p>
         <p className="text-sm font-semibold text-[var(--color-text-secondary)]">No document open</p>
         <p className="mt-1 text-xs text-[var(--color-text-secondary)] max-w-xs leading-5">
@@ -430,7 +430,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
         </p>
         <button
           onClick={onCreate}
-          className="mt-4 rounded-xl bg-[#1d4ed8] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#1e40af]"
+          className="mt-4 rounded-xl bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent)]"
         >
           New document
         </button>
@@ -472,10 +472,10 @@ export function CanvasSurface() {
       {/* ── Sidebar ── */}
       <aside className="flex w-56 shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[#eaf1f8]">
         <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-3 py-3">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[#1d4ed8]">Canvas</span>
+          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">Canvas</span>
           <button
             onClick={handleCreate}
-            className="flex h-6 w-6 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[#1d4ed8]"
+            className="flex h-6 w-6 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[var(--accent)]"
             title="New document"
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
@@ -486,7 +486,7 @@ export function CanvasSurface() {
 
         <div className="px-3 py-2">
           <input
-            className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-xs outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#93c5fd]"
+            className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-xs outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--accent)]"
             placeholder="Search documents…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
@@ -505,11 +505,11 @@ export function CanvasSurface() {
               <div key={doc.id} className="group relative">
                 <button
                   onClick={() => setActiveDocument(doc.id)}
-                  className={`flex w-full flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left transition ${active ? 'bg-[#dbeafe]' : 'hover:bg-[var(--color-background-tertiary)]'}`}
+                  className={`flex w-full flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left transition ${active ? 'bg-[var(--accent-soft)]' : 'hover:bg-[var(--color-background-tertiary)]'}`}
                 >
                   <div className="flex items-center gap-1.5">
                     {doc.pinned && <span className="text-[10px] text-[#f59e0b]">★</span>}
-                    <span className={`truncate text-sm font-medium ${active ? 'text-[#1d4ed8]' : 'text-[var(--color-text-primary)]'}`}>{doc.title}</span>
+                    <span className={`truncate text-sm font-medium ${active ? 'text-[var(--accent)]' : 'text-[var(--color-text-primary)]'}`}>{doc.title}</span>
                   </div>
                   <p className="truncate text-xs text-[var(--color-text-tertiary)]">{preview || 'Empty document'}</p>
                   <p className="text-[10px] text-[#cbd5e1]">{timeAgo(doc.updatedAt)}</p>

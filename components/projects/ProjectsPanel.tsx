@@ -130,14 +130,14 @@ function ProjectEditor({
           <span className="h-3 w-3 rounded-full" style={{ backgroundColor: project.color }} />
           <span className="text-sm font-semibold text-[var(--color-text-primary)]">{project.title}</span>
           {isActive && (
-            <span className="rounded-md bg-[#dbeafe] px-1.5 py-0.5 text-[9px] font-semibold text-[#1d4ed8]">Active</span>
+            <span className="rounded-md bg-[var(--accent-soft)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--accent)]">Active</span>
           )}
         </div>
         <div className="flex items-center gap-2">
           {saved && <span className="text-xs text-[#22c55e]">Saved</span>}
           <button
             onClick={onActivate}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${isActive ? 'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]' : 'bg-[#1d4ed8] text-white hover:bg-[#1e40af]'}`}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${isActive ? 'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]' : 'bg-[var(--accent)] text-white hover:bg-[var(--accent)]'}`}
           >
             {isActive ? 'Active' : 'Set active'}
           </button>
@@ -150,7 +150,7 @@ function ProjectEditor({
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`rounded-t-lg px-3 py-1.5 text-xs font-medium transition ${tab === t.id ? 'border-b-2 border-[#1d4ed8] text-[#1d4ed8]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}
+            className={`rounded-t-lg px-3 py-1.5 text-xs font-medium transition ${tab === t.id ? 'border-b-2 border-[var(--accent)] text-[var(--accent)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}
           >
             {t.label}
           </button>
@@ -170,7 +170,7 @@ function ProjectEditor({
             <textarea
               value={systemPrompt}
               onChange={(e) => setSystemPrompt(e.target.value)}
-              className="flex-1 min-h-[360px] resize-none rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 font-mono text-xs leading-6 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#93c5fd]"
+              className="flex-1 min-h-[360px] resize-none rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 font-mono text-xs leading-6 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--accent)]"
               placeholder={`You are an expert assistant for ${project.title}.\n\nContext:\n- ...\n\nAlways:\n- Respond concisely\n- Use domain-specific terminology\n\nNever:\n- Guess at requirements\n- Skip reasoning steps`}
             />
             <div className="flex items-center justify-between">
@@ -179,7 +179,7 @@ function ProjectEditor({
                 {systemPrompt.trim() && (
                   <button onClick={() => setSystemPrompt('')} className="text-xs text-[var(--color-text-tertiary)] hover:text-[#ef4444]">Clear</button>
                 )}
-                <button onClick={save} className="rounded-xl bg-[#1d4ed8] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1e40af]">
+                <button onClick={save} className="rounded-xl bg-[var(--accent)] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[var(--accent)]">
                   Save
                 </button>
               </div>
@@ -197,7 +197,7 @@ function ProjectEditor({
             </div>
             <button
               onClick={() => fileRef.current?.click()}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--color-border-secondary)] py-4 text-xs text-[var(--color-text-secondary)] transition hover:border-[#bfdbfe] hover:text-[#1d4ed8]"
+              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--color-border-secondary)] py-4 text-xs text-[var(--color-text-secondary)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
             >
               + Attach files
             </button>
@@ -230,7 +230,7 @@ function ProjectEditor({
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm font-medium text-[var(--color-text-primary)] outline-none focus:border-[#93c5fd]"
+                className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm font-medium text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)]"
                 placeholder="Project name…"
               />
             </div>
@@ -239,7 +239,7 @@ function ProjectEditor({
               <input
                 value={desc}
                 onChange={(e) => setDesc(e.target.value)}
-                className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#93c5fd]"
+                className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--accent)]"
                 placeholder="What is this project about?"
               />
             </div>
@@ -250,7 +250,7 @@ function ProjectEditor({
             <div className="flex items-center justify-between pt-2">
               <button
                 onClick={save}
-                className="rounded-xl bg-[#1d4ed8] px-5 py-2 text-xs font-semibold text-white transition hover:bg-[#1e40af]"
+                className="rounded-xl bg-[var(--accent)] px-5 py-2 text-xs font-semibold text-white transition hover:bg-[var(--accent)]"
               >
                 Save changes
               </button>
@@ -274,11 +274,16 @@ function ProjectEditor({
 // ─── Main panel ───────────────────────────────────────────────────────────────
 
 export function ProjectsPanel({
-  onProjectActivate,
+  projects, activeProjectId, activeProject, createProject, updateProject, deleteProject, setActiveProject,
 }: {
-  onProjectActivate?: (systemPrompt: string) => void
+  projects: ReturnType<typeof useProjects>['projects']
+  activeProjectId: ReturnType<typeof useProjects>['activeProjectId']
+  activeProject: ReturnType<typeof useProjects>['activeProject']
+  createProject: ReturnType<typeof useProjects>['createProject']
+  updateProject: ReturnType<typeof useProjects>['updateProject']
+  deleteProject: ReturnType<typeof useProjects>['deleteProject']
+  setActiveProject: ReturnType<typeof useProjects>['setActiveProject']
 }) {
-  const { projects, activeProjectId, activeProject, createProject, updateProject, deleteProject, setActiveProject } = useProjects()
   const [selectedId, setSelectedId] = useState<string | null>(activeProjectId)
   const [showCreate, setShowCreate] = useState(false)
   const [newTitle, setNewTitle] = useState('')
@@ -301,7 +306,6 @@ export function ProjectsPanel({
     const p = createProject({ title: newTitle.trim(), color: newColor })
     setActiveProject(p.id)
     setSelectedId(p.id)
-    onProjectActivate?.(p.systemPrompt)
     setShowCreate(false)
     setNewTitle('')
     setNewColor(PROJECT_COLORS[0])
@@ -310,14 +314,10 @@ export function ProjectsPanel({
   function handleActivate(project: Project) {
     const willActivate = activeProjectId !== project.id
     setActiveProject(willActivate ? project.id : null)
-    onProjectActivate?.(willActivate ? project.systemPrompt : '')
   }
 
   function handleUpdate(id: string, patch: Partial<Project>) {
     updateProject(id, patch)
-    if (activeProjectId === id && patch.systemPrompt !== undefined) {
-      onProjectActivate?.(patch.systemPrompt)
-    }
   }
 
   return (
@@ -325,10 +325,10 @@ export function ProjectsPanel({
       {/* Left sidebar — project list */}
       <aside className="flex w-52 shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[#eaf1f8]">
         <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-4 py-3">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[#1d4ed8]">Projects</span>
+          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">Projects</span>
           <button
             onClick={() => setShowCreate(true)}
-            className="flex h-6 w-6 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[#1d4ed8]"
+            className="flex h-6 w-6 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[var(--accent)]"
           >
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
               <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -337,19 +337,19 @@ export function ProjectsPanel({
         </div>
 
         {showCreate && (
-          <div className="border-b border-[#bfdbfe] bg-[#eff6ff] px-3 py-3 space-y-2">
+          <div className="border-b border-[var(--accent)] bg-[var(--accent-soft)] px-3 py-3 space-y-2">
             <input
               autoFocus
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') setShowCreate(false) }}
-              className="w-full rounded-lg border border-[#bfdbfe] bg-white px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8]"
+              className="w-full rounded-lg border border-[var(--accent)] bg-white px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)]"
               placeholder="Project name…"
             />
             <ColorPicker value={newColor} onChange={setNewColor} />
             <div className="flex gap-1.5">
-              <button onClick={handleCreate} className="rounded-lg bg-[#1d4ed8] px-3 py-1 text-xs font-semibold text-white">Create</button>
-              <button onClick={() => setShowCreate(false)} className="rounded-lg border border-[#bfdbfe] bg-white px-3 py-1 text-xs text-[var(--color-text-secondary)]">Cancel</button>
+              <button onClick={handleCreate} className="rounded-lg bg-[var(--accent)] px-3 py-1 text-xs font-semibold text-white">Create</button>
+              <button onClick={() => setShowCreate(false)} className="rounded-lg border border-[var(--accent)] bg-white px-3 py-1 text-xs text-[var(--color-text-secondary)]">Cancel</button>
             </div>
           </div>
         )}
@@ -362,7 +362,7 @@ export function ProjectsPanel({
             <button
               key={p.id}
               onClick={() => setSelectedId(p.id)}
-              className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs transition ${selectedId === p.id ? 'bg-[#dbeafe] font-semibold text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)]'}`}
+              className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs transition ${selectedId === p.id ? 'bg-[var(--accent-soft)] font-semibold text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)]'}`}
             >
               <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: p.color }} />
               <span className="flex-1 truncate">{p.title}</span>
@@ -404,7 +404,7 @@ export function ProjectsPanel({
           <p className="text-xs text-[var(--color-text-tertiary)] max-w-xs leading-5">
             Projects let you set a persistent system prompt, attach reference files, and scope memory to a specific context.
           </p>
-          <button onClick={() => setShowCreate(true)} className="mt-2 rounded-xl bg-[#1d4ed8] px-5 py-2 text-xs font-semibold text-white transition hover:bg-[#1e40af]">
+          <button onClick={() => setShowCreate(true)} className="mt-2 rounded-xl bg-[var(--accent)] px-5 py-2 text-xs font-semibold text-white transition hover:bg-[var(--accent)]">
             Create first project
           </button>
         </div>

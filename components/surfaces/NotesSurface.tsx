@@ -40,16 +40,16 @@ function NoteListItem({ note, active, onClick }: { note: Note; active: boolean; 
     <button
       onClick={onClick}
       className={`flex w-full flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left transition ${
-        active ? 'bg-[#dbeafe]' : 'hover:bg-[var(--color-background-tertiary)]'
+        active ? 'bg-[var(--accent-soft)]' : 'hover:bg-[var(--color-background-tertiary)]'
       }`}
     >
       <div className="flex items-center gap-1.5">
         {note.pinned && <span className="text-[10px] text-[#f59e0b]">★</span>}
-        <span className={`truncate text-sm font-medium ${active ? 'text-[#1d4ed8]' : 'text-[var(--color-text-primary)]'}`}>
+        <span className={`truncate text-sm font-medium ${active ? 'text-[var(--accent)]' : 'text-[var(--color-text-primary)]'}`}>
           {note.title || 'Untitled'}
         </span>
         {note.messages.length > 0 && (
-          <span className="ml-auto shrink-0 rounded-full bg-[#eff6ff] px-1.5 text-[10px] font-semibold text-[#1d4ed8]">
+          <span className="ml-auto shrink-0 rounded-full bg-[var(--accent-soft)] px-1.5 text-[10px] font-semibold text-[var(--accent)]">
             {note.messages.length}
           </span>
         )}
@@ -66,8 +66,11 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
   const [preview, setPreview] = useState(false)
   const [tagInput, setTagInput] = useState('')
   const [linkSuggestions, setLinkSuggestions] = useState<LinkSuggestion[]>([])
-  const [syncing, setSyncing] = useState(false)
-  const [syncDone, setSyncDone] = useState(false)
+  // 5-state index status: idle → indexing → indexed | failed; indexed flips to stale
+  // if the note body changes after a successful index (snapshot mismatch).
+  const [indexStatus, setIndexStatus] = useState<'idle' | 'indexing' | 'indexed' | 'failed'>('idle')
+  const [indexedSnapshot, setIndexedSnapshot] = useState<string | null>(null)
+  const isStale = indexStatus === 'indexed' && indexedSnapshot !== null && indexedSnapshot !== note.body
   const bodyRef = useRef<HTMLTextAreaElement>(null)
   const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -112,14 +115,15 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
 
   // Sync the current note into the knowledge graph via the ingestion pipeline
   async function syncToGraph() {
-    if (syncing) return
-    setSyncing(true); setSyncDone(false)
+    if (indexStatus === 'indexing') return
+    const snapshot = note.body
+    setIndexStatus('indexing')
     try {
       const markdown = `# ${note.title}\n\n${note.body}`
       const arr = new TextEncoder().encode(markdown)
       let bin = ''
       for (let i = 0; i < arr.length; i++) bin += String.fromCharCode(arr[i]!)
-      await fetch(amUrl('/api/ingest/queue'), {
+      const res = await fetch(amUrl('/api/ingest/queue'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -129,10 +133,14 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
         }),
         signal: AbortSignal.timeout(8000),
       })
-      setSyncDone(true)
-      setTimeout(() => setSyncDone(false), 4000)
-    } catch { /* best-effort */ }
-    finally { setSyncing(false) }
+      if (!res.ok) throw new Error(`ingest queue returned ${res.status}`)
+      setIndexStatus('indexed')
+      setIndexedSnapshot(snapshot)
+    } catch {
+      // Real failure state instead of silently swallowing — the button should tell the
+      // user indexing didn't happen, not quietly revert to "Index" as if nothing occurred.
+      setIndexStatus('failed')
+    }
   }
 
   function addTag(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -161,13 +169,13 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
       {/* Tags */}
       <div className="mb-4 flex flex-wrap items-center gap-1.5">
         {note.tags.map((tag) => (
-          <span key={tag} className="flex items-center gap-1 rounded-full bg-[#eff6ff] px-2.5 py-0.5 text-xs font-medium text-[#1d4ed8]">
+          <span key={tag} className="flex items-center gap-1 rounded-full bg-[var(--accent-soft)] px-2.5 py-0.5 text-xs font-medium text-[var(--accent)]">
             {tag}
             <button onClick={() => removeTag(tag)} className="ml-0.5 text-[var(--color-text-tertiary)] hover:text-[#dc2626]">×</button>
           </span>
         ))}
         <input
-          className="h-6 min-w-[80px] rounded-full border border-dashed border-[#bfdbfe] bg-transparent px-2.5 text-xs text-[var(--color-text-secondary)] outline-none placeholder:text-[#cbd5e1] focus:border-[#1d4ed8]"
+          className="h-6 min-w-[80px] rounded-full border border-dashed border-[var(--accent)] bg-transparent px-2.5 text-xs text-[var(--color-text-secondary)] outline-none placeholder:text-[#cbd5e1] focus:border-[var(--accent)]"
           placeholder="Add tag…"
           value={tagInput}
           onChange={(e) => setTagInput(e.target.value)}
@@ -187,15 +195,31 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
             Preview
           </button>
         </div>
-        {/* Sync to knowledge graph */}
+        {/* Sync to knowledge graph — 5 states: Index / Indexing… / ✓ Indexed / Re-index (stale) / Index failed */}
         <button
           onClick={() => void syncToGraph()}
-          disabled={syncing || !note.body.trim()}
-          title="Index this note in your knowledge graph so the agent can recall it"
-          className={`flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-medium transition disabled:opacity-40 ${syncDone ? 'border-[#bbf7d0] bg-[#f0fdf4] text-[#16a34a]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] hover:border-[#1d4ed8] hover:text-[#1d4ed8]'}`}
+          disabled={indexStatus === 'indexing' || !note.body.trim()}
+          title={
+            indexStatus === 'failed' ? 'Last index attempt failed — click to retry'
+              : isStale ? 'Note content has changed since it was last indexed — click to re-index'
+              : 'Index this note in your knowledge graph so the agent can recall it'
+          }
+          className="flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-medium transition disabled:opacity-40"
+          style={
+            indexStatus === 'failed' ? { border: '1px solid var(--danger)', background: 'transparent', color: 'var(--danger-fg)' }
+              : isStale ? { border: '1px solid var(--pending-line)', background: 'var(--pending-soft)', color: 'var(--pending-fg)' }
+              : indexStatus === 'indexed' ? { border: '1px solid var(--verified-line)', background: 'var(--verified-soft)', color: 'var(--verified-fg)' }
+              : { border: '1px solid var(--color-border-secondary)', background: 'var(--color-background-secondary)', color: 'var(--color-text-secondary)' }
+          }
         >
-          <span>{syncDone ? '✓' : '⬡'}</span>
-          <span>{syncing ? 'Indexing…' : syncDone ? 'Indexed' : 'Index'}</span>
+          <span>{indexStatus === 'failed' ? '✕' : isStale ? '↻' : indexStatus === 'indexed' ? '✓' : '⬡'}</span>
+          <span>
+            {indexStatus === 'indexing' ? 'Indexing…'
+              : indexStatus === 'failed' ? 'Index failed'
+              : isStale ? 'Re-index'
+              : indexStatus === 'indexed' ? 'Indexed'
+              : 'Index'}
+          </span>
         </button>
         {/* Download */}
         <button
@@ -243,7 +267,7 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
                 key={s.id}
                 onClick={() => insertLink(s.label)}
                 title={`Insert [[${s.label}]] — ${(s.sim * 100).toFixed(0)}% similarity`}
-                className="flex items-center gap-1 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-0.5 text-xs text-[var(--color-text-secondary)] transition hover:border-[#1d4ed8] hover:bg-[#eff6ff] hover:text-[#1d4ed8]"
+                className="flex items-center gap-1 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-0.5 text-xs text-[var(--color-text-secondary)] transition hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]"
               >
                 <span className="font-mono text-[9px] text-[var(--color-text-tertiary)]">{(s.sim * 100).toFixed(0)}%</span>
                 {s.label}
@@ -394,7 +418,7 @@ function NoteChat({ note, onAppendMessages }: {
           <p className="text-[11px] text-[var(--color-text-tertiary)]">Context: this note</p>
         </div>
         {messages.length > 0 && (
-          <span className="rounded-full bg-[#eff6ff] px-2 py-0.5 text-[10px] font-semibold text-[#1d4ed8]">
+          <span className="rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--accent)]">
             {messages.length}
           </span>
         )}
@@ -415,7 +439,7 @@ function NoteChat({ note, onAppendMessages }: {
               )}
               <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-5 ${
                 m.role === 'user'
-                  ? 'bg-[#dbeafe] text-[var(--color-text-primary)]'
+                  ? 'bg-[var(--accent-soft)] text-[var(--color-text-primary)]'
                   : 'bg-[var(--color-background-primary)] shadow-sm border border-[var(--color-border-secondary)] text-[var(--color-text-primary)]'
               }`}>
                 {m.role === 'assistant' && m.content ? (
@@ -458,7 +482,7 @@ function NoteChat({ note, onAppendMessages }: {
 
       {/* Input */}
       <div className="border-t border-[var(--color-border-secondary)] p-3">
-        <div className="flex items-end gap-2 rounded-xl border border-[#bfdbfe] bg-[var(--color-background-primary)] p-2 shadow-sm">
+        <div className="flex items-end gap-2 rounded-xl border border-[var(--accent)] bg-[var(--color-background-primary)] p-2 shadow-sm">
           <textarea
             className="min-h-[2.5rem] flex-1 resize-none bg-transparent text-xs leading-5 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
             placeholder="Ask about this note…"
@@ -482,7 +506,7 @@ function NoteChat({ note, onAppendMessages }: {
             <button
               onClick={() => void send()}
               disabled={!input.trim()}
-              className="shrink-0 rounded-lg bg-[#1d4ed8] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#1e40af] disabled:cursor-not-allowed disabled:opacity-50"
+              className="shrink-0 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
             >
               Ask
             </button>
@@ -537,12 +561,12 @@ function NotionPageView({ page, token }: { page: NotionPage; token: string }) {
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-      <div className="rounded-2xl border border-dashed border-[#bfdbfe] bg-[#eff6ff] p-10">
+      <div className="rounded-2xl border border-dashed border-[var(--accent)] bg-[var(--accent-soft)] p-10">
         <p className="text-sm font-semibold text-[var(--color-text-secondary)]">No note selected</p>
         <p className="mt-1 text-xs text-[var(--color-text-secondary)]">Select a note to edit it and chat about its content.</p>
         <button
           onClick={onCreate}
-          className="mt-4 rounded-xl bg-[#1d4ed8] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#1e40af]"
+          className="mt-4 rounded-xl bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent)]"
         >
           New note
         </button>
@@ -633,10 +657,10 @@ export function NotesSurface() {
       <aside className="flex w-56 shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[#eaf1f8]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-3 py-3">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[#1d4ed8]">Notes</span>
+          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">Notes</span>
           <button
             onClick={handleCreate}
-            className="flex h-6 w-6 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[#1d4ed8]"
+            className="flex h-6 w-6 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[var(--accent)]"
             title="New note"
           >
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
@@ -648,7 +672,7 @@ export function NotesSurface() {
         {/* Search */}
         <div className="px-3 py-2">
           <input
-            className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-xs outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#93c5fd]"
+            className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-xs outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--accent)]"
             placeholder="Search notes…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}

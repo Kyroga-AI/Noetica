@@ -217,7 +217,11 @@ export function AppShell() {
   const { tools: mcpTools } = useMcp()
 
   // ── Projects ──────────────────────────────────────────────────────────────
-  const { activeProject } = useProjects()
+  // Single shared instance — ProjectsPanel receives these as props rather than calling
+  // useProjects() itself, so activating a project there is reflected here in the same
+  // session instead of only after a reload (each hook call previously had its own,
+  // unsynced localStorage-backed state).
+  const { projects: projectList, activeProjectId, activeProject, createProject, updateProject, deleteProject, setActiveProject } = useProjects()
 
   // ── Memory ────────────────────────────────────────────────────────────────
   const { memoryContext, remember, search: searchMemory, entries: memoryEntries, purgeExpired, hydrated: memoryHydrated } = useMemory()
@@ -1688,6 +1692,7 @@ export function AppShell() {
               <CenterWorkspace
                 activeSurface={activeSurface}
                 mode={mode}
+                projectsApi={{ projects: projectList, activeProject, activeProjectId, createProject, updateProject, deleteProject, setActiveProject }}
                 sessionId={activeSession?.id}
                 activeProjectTitle={activeProject?.title}
                 projectCollection={activeProject ? projectCollectionId(activeProject.id) : undefined}
@@ -1904,6 +1909,7 @@ function CollapsedRail({ activeSurface, onSurfaceChange, onExpand }: CollapsedRa
 type CenterProps = {
   activeSurface: ActiveSurface
   mode: NoeticaMode
+  projectsApi: Pick<ReturnType<typeof useProjects>, 'projects' | 'activeProjectId' | 'activeProject' | 'createProject' | 'updateProject' | 'deleteProject' | 'setActiveProject'>
   messages: ChatMessage[]
   isStreaming: boolean
   workspaceMode: WorkspaceMode
@@ -1945,7 +1951,7 @@ type CenterProps = {
   onPlanReject?: (messageId: string) => void
 }
 
-function CenterWorkspace({ activeSurface, mode, sessionId, activeProjectTitle, projectCollection, chatCollection, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onNavigateToGovern, onSpeak, onFeedback, agentMode, onSetAgentMode, onPlanApprove, onPlanReject }: CenterProps) {
+function CenterWorkspace({ activeSurface, mode, projectsApi, sessionId, activeProjectTitle, projectCollection, chatCollection, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onNavigateToGovern, onSpeak, onFeedback, agentMode, onSetAgentMode, onPlanApprove, onPlanReject }: CenterProps) {
   if (activeSurface === 'notes')        return <NotesSurface />
   if (activeSurface === 'canvas')       return <CanvasSurface />
   if (activeSurface === 'workrooms')    return <TabbedWorkspace tabs={[
@@ -1953,7 +1959,15 @@ function CenterWorkspace({ activeSurface, mode, sessionId, activeProjectTitle, p
     { id: 'jitsi', label: 'Video', render: () => <JitsiSurface /> },
   ]} />
   if (activeSurface === 'cowork')       return <CoworkSurface thinkingBudget={thinkingBudget} />
-  if (activeSurface === 'projects')     return <ProjectsPanel />
+  if (activeSurface === 'projects')     return <ProjectsPanel
+    projects={projectsApi.projects}
+    activeProjectId={projectsApi.activeProjectId}
+    activeProject={projectsApi.activeProject}
+    createProject={projectsApi.createProject}
+    updateProject={projectsApi.updateProject}
+    deleteProject={projectsApi.deleteProject}
+    setActiveProject={projectsApi.setActiveProject}
+  />
   if (activeSurface === 'artifacts')    return <ArtifactsSurface />
   if (activeSurface === 'code')         return <CodeSurface onOpenSettings={onOpenSettings} onNavigateToOperate={onNavigateToOperate} />
   if (activeSurface === 'deploy')       return <DeploySurface />
