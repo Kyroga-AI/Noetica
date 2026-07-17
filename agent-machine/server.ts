@@ -87,6 +87,18 @@ import { recordCapability, capabilitySummary, capabilityHint, recordReward, sele
 import { grlLoop, grlEnabled, retrievalActionOf, graphStateFromGrounding } from './lib/grl-loop.js'
 import { meshEnabled, publishTransitions } from './lib/grl-federation.js'
 let _grlMeshTick = 0 // counts GRL observes; every 25th flushes redacted signals to the opt-in mesh
+import { handlePeerSync, syncAllPeers, graphSyncEnabled } from './lib/http-sync.js'
+import { getGraphReplica, captureGraphIntoReplica, applyReplicaToGraph, saveGraphReplica, type GraphLike } from './lib/graph-replica.js'
+// Adapter: the @socioprophet/hellgraph facade → the engine-agnostic GraphLike the CRDT replica binds to.
+const graphLike = (): GraphLike => {
+  const g = getHellGraph()
+  return {
+    allNodes: () => g.allNodes().map((n: { id: string }) => ({ id: n.id })),
+    allEdges: () => g.allEdges().map((e: { from: string; label: string; to: string }) => ({ from: e.from, label: e.label, to: e.to })),
+    addNode: (id, labels, props) => g.addNode(id, labels, (props ?? {}) as never),
+    addEdge: (label, from, to, props) => g.addEdge(label, from, to, (props ?? {}) as never),
+  }
+}
 import { validateGraph } from '@socioprophet/hellgraph'
 import { CANONICAL_SHAPES, QUARANTINE_PROP } from './lib/canonical-shapes.js'
 import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
@@ -8420,6 +8432,35 @@ Question: ${question}`
   }
 
   // GET /api/graph/health
+  // Mesh graph sync (opt-in): a peer runs CRDT anti-entropy against our replica. Token-gated (GRAPH_SYNC_TOKEN).
+  // We reply with the ops the peer is missing; the peer's ops we absorb land in the live HellGraph. This is the
+  // real wire for edge↔managed graph convergence — sovereign HTTP envelope, no Kafka.
+  if (req.method === 'POST' && url.pathname === '/api/graph/sync') {
+    void (async () => {
+      setCORSHeaders(res)
+      const token = process.env['GRAPH_SYNC_TOKEN'] ?? ''
+      const auth = String(req.headers['authorization'] ?? '').replace(/^Bearer /, '')
+      if (!token || auth !== token) {
+        res.writeHead(token ? 401 : 503, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: token ? 'unauthorized' : 'graph sync disabled: GRAPH_SYNC_TOKEN unset' }))
+        return
+      }
+      try {
+        const raw = await readBody(req)
+        const replica = getGraphReplica()
+        const reply = handlePeerSync(replica, JSON.parse(raw))
+        applyReplicaToGraph(replica, graphLike())   // land the peer's structure locally
+        saveGraphReplica(replica)
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify(reply))
+      } catch (e) {
+        res.writeHead(400, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ error: String(e) }))
+      }
+    })()
+    return
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/graph/health') {
     void (async () => {
       setCORSHeaders(res)
@@ -18150,6 +18191,25 @@ try {
     if (Number(pid) !== process.pid) { try { process.kill(Number(pid), 'SIGKILL') } catch { /* already gone */ } }
   }
 } catch { /* nothing listening — the normal case */ }
+
+// Mesh graph sync (opt-in OUTBOUND): periodically capture local graph structure into the CRDT replica, run
+// anti-entropy with each configured peer, and land converged structure back into the graph. No-op unless
+// GRAPH_SYNC_PEERS/TOKEN/SOVEREIGN_ID are set; best-effort, a failing peer never disrupts the node. Paired with
+// the POST /api/graph/sync endpoint (inbound), this is the real edge↔managed HellGraph convergence wire.
+if (graphSyncEnabled()) {
+  const GRAPH_SYNC_MS = Number(process.env['GRAPH_SYNC_INTERVAL_MS'] ?? 60_000)
+  setInterval(() => {
+    void (async () => {
+      try {
+        const replica = getGraphReplica()
+        captureGraphIntoReplica(replica, graphLike())
+        await syncAllPeers(replica)
+        applyReplicaToGraph(replica, graphLike())
+        saveGraphReplica(replica)
+      } catch { /* fail-open: mesh sync must never disrupt the node */ }
+    })()
+  }, GRAPH_SYNC_MS).unref?.()
+}
 
 // SECURITY (Slowloris): bound how long a client may take to send headers / the full request. The 32 MB
 // body cap bounds SIZE, not TIME — without these a slow or never-completing POST pins a handler forever.
