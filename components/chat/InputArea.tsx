@@ -37,6 +37,9 @@ type InputAreaProps = {
   onOpenPalette?: () => void
   systemPrompt?: string
   onSystemPromptChange?: (prompt: string) => void
+  isListening?: boolean
+  onVoiceStart?: () => void
+  onVoiceStop?: () => void
 }
 
 const KIND_ICON: Record<string, string> = {
@@ -75,6 +78,7 @@ export function InputArea({
   modelId, onModelChange, thinkingBudget, onOpenPalette,
   systemPrompt = '', onSystemPromptChange,
   activeProjectTitle, projectCollection, chatCollection,
+  isListening = false, onVoiceStart, onVoiceStop,
 }: InputAreaProps) {
   const [content, setContent] = useState('')
   const [sending, setSending] = useState(false)
@@ -546,6 +550,26 @@ export function InputArea({
                 </div>
               )}
             </div>
+          )}
+
+          {/* Mic — push-to-talk dictation (single turn), moved into the composer row per the redesign spec. */}
+          {(onVoiceStart || onVoiceStop) && (
+            <button
+              type="button"
+              onClick={isListening ? onVoiceStop : onVoiceStart}
+              title={isListening ? 'Listening… click to stop' : 'Speak (dictate)'}
+              aria-label="Voice dictation"
+              style={{ border: 'none', outline: 'none' }}
+              className={`relative flex h-7 w-7 items-center justify-center rounded-md transition ${
+                isListening ? 'bg-[#fff1f2] text-[#f43f5e]' : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-secondary)]'
+              }`}
+            >
+              {isListening && <span className="absolute inset-0 rounded-md animate-ping bg-[#fda4af] opacity-30" />}
+              <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden>
+                <rect x="6" y="1" width="4" height="8" rx="2" stroke="currentColor" strokeWidth="1.5"/>
+                <path d="M3 8a5 5 0 0 0 10 0M8 13v2M6 15h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </button>
           )}
 
           {/* Send / Stop */}

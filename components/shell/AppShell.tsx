@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Sidebar } from '@/components/shell/Sidebar'
 import { useResizable } from '@/components/shell/useResizable'
-import { CommandCenterRail } from '@/components/shell/CommandCenterRail'
-import { NAV_SURFACES, surfacesFor, type CommandCenterId } from '@/components/shell/commandCenters'
 import { ResizeHandle } from '@/components/shell/ResizeHandle'
 import { Topbar } from '@/components/shell/Topbar'
 import { MessageList } from '@/components/chat/MessageList'
@@ -48,7 +46,6 @@ import { HolographMeSurface } from '@/components/surfaces/HolographMeSurface'
 import { MarketplaceSurface } from '@/components/surfaces/MarketplaceSurface'
 import { SurfaceErrorBoundary } from '@/components/shell/SurfaceErrorBoundary'
 import { TabbedWorkspace } from '@/components/shell/TabbedWorkspace'
-import { CoworkPanel } from '@/components/panels/CoworkPanel'
 import { CodePanel } from '@/components/panels/CodePanel'
 import { EvaluatePanel } from '@/components/panels/EvaluatePanel'
 import { GovernPanel } from '@/components/panels/GovernPanel'
@@ -343,23 +340,6 @@ export function AppShell() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false)
   const [inspectorVisible, setInspectorVisible] = useState(false)
-  // Tier-1 command center (which domain the left panel is showing). Derived from
-  // the active surface via the nav registry, so the rail highlight always follows
-  // wherever navigation lands.
-  const [activeCenter, setActiveCenter] = useState<CommandCenterId>('workspace')
-  useEffect(() => {
-    const s = NAV_SURFACES.find((s) => s.id === activeSurface)
-    if (s) setActiveCenter(s.center)
-  }, [activeSurface])
-  // Picking a command center navigates to its first real (non-gap, shipped) surface;
-  // if a center is all-planned, just switch the panel.
-  const handleCenterChange = useCallback((center: CommandCenterId) => {
-    const first = surfacesFor(center).find(
-      (s) => !s.gap && s.tier !== 'tab' && s.tier !== 'hidden' && s.maturity !== 'planned',
-    )
-    if (first) handleSurfaceChange(first.id as ActiveSurface)
-    else setActiveCenter(center)
-  }, [])
   // Draggable widths for the two shell panels (persisted; double-click seam to reset).
   const leftPanel = useResizable({ storageKey: 'noetica.sidebar.width', initial: 224, min: 180, max: 420, side: 'left' })
   const rightPanel = useResizable({ storageKey: 'noetica.inspector.width', initial: 320, min: 260, max: 640, side: 'right' })
@@ -1631,13 +1611,10 @@ export function AppShell() {
         />
       )}
       <main className="relative flex h-screen overflow-hidden bg-[var(--color-background-tertiary)] text-[var(--color-text-primary)]">
-        {/* Tier 1 — command-center (domain) switcher */}
-        <CommandCenterRail activeCenter={activeCenter} onCenterChange={handleCenterChange} />
         {!sidebarCollapsed && (
           <div className="relative hidden h-full shrink-0 lg:flex" style={{ width: leftPanel.width }}>
             <Sidebar
               activeSurface={activeSurface}
-              activeCenter={activeCenter}
               mode={mode}
               onSurfaceChange={handleSurfaceChange}
               onOpenSettings={(cat) => openSettings(cat)}
@@ -1665,7 +1642,6 @@ export function AppShell() {
             modelId={modelId}
             mode={mode}
             riskReadout={riskReadout}
-            voiceState={voiceState}
             isLive={isLive}
             onLiveStart={startLive}
             onLiveStop={stopLive}
@@ -1679,8 +1655,6 @@ export function AppShell() {
             onOpenPalette={() => setPaletteOpen(true)}
             onOpenInspector={() => setInspectorVisible(true)}
             onExportConversation={exportConversation}
-            onVoiceStart={startListening}
-            onVoiceStop={stopListening}
             onRealtimeTranscript={(text) => void handleSendRaw(text, [], messages)}
             onRealtimeSpeechStart={stopSpeaking}
           />
@@ -1727,6 +1701,9 @@ export function AppShell() {
                 onNavigateToOperate={() => setActiveSurface('operate')}
                 onNavigateToGovern={() => setActiveSurface('govern')}
                 onSpeak={speak}
+                isListening={voiceState === 'listening' && !isLive}
+                onVoiceStart={startListening}
+                onVoiceStop={stopListening}
                 onFeedback={(messageId, rating) => {
                   void fetch(amUrl('/api/learning/feedback'), {
                     method: 'POST',
@@ -1944,6 +1921,9 @@ type CenterProps = {
   onNavigateToOperate?: () => void
   onNavigateToGovern?: () => void
   onSpeak?: (content: string) => void
+  isListening?: boolean
+  onVoiceStart?: () => void
+  onVoiceStop?: () => void
   onFeedback?: (messageId: string, rating: 'up' | 'down') => void
   agentMode?: 'auto' | 'plan' | 'ask'
   onSetAgentMode?: (mode: 'auto' | 'plan' | 'ask') => void
@@ -1951,7 +1931,7 @@ type CenterProps = {
   onPlanReject?: (messageId: string) => void
 }
 
-function CenterWorkspace({ activeSurface, mode, projectsApi, sessionId, activeProjectTitle, projectCollection, chatCollection, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onNavigateToGovern, onSpeak, onFeedback, agentMode, onSetAgentMode, onPlanApprove, onPlanReject }: CenterProps) {
+function CenterWorkspace({ activeSurface, mode, projectsApi, sessionId, activeProjectTitle, projectCollection, chatCollection, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onNavigateToGovern, onSpeak, isListening, onVoiceStart, onVoiceStop, onFeedback, agentMode, onSetAgentMode, onPlanApprove, onPlanReject }: CenterProps) {
   if (activeSurface === 'notes')        return <NotesSurface />
   if (activeSurface === 'canvas')       return <CanvasSurface />
   if (activeSurface === 'workrooms')    return <TabbedWorkspace tabs={[
@@ -2061,6 +2041,9 @@ function CenterWorkspace({ activeSurface, mode, projectsApi, sessionId, activePr
           activeProjectTitle={activeProjectTitle}
           projectCollection={projectCollection}
           chatCollection={chatCollection}
+          isListening={isListening}
+          onVoiceStart={onVoiceStart}
+          onVoiceStop={onVoiceStop}
         />
       </section>
 
@@ -2115,8 +2098,8 @@ function RightPanel({ activeSurface, model, steering, thinkingBudget, temperatur
   if (activeSurface === 'library')   return null
   if (activeSurface === 'workrooms') return null
   if (activeSurface === 'tune')      return null
-  if (activeSurface === 'cowork')    return <CoworkPanel />
-  if (activeSurface === 'projects')  return <CoworkPanel />
+  if (activeSurface === 'cowork')    return null
+  if (activeSurface === 'projects')  return null
   if (activeSurface === 'artifacts') return null
   if (activeSurface === 'code')      return <CodePanel />
   if (activeSurface === 'evaluate')  return <EvaluatePanel />

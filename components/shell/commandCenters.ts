@@ -5,7 +5,7 @@ import type { ActiveSurface } from '@/lib/types/surface'
 /**
  * COMMAND CENTERS — the organizing spine for the left panel.
  *
- * LIVE — this registry drives <Sidebar> and <CommandCenterRail>. It models the
+ * LIVE — this registry drives <Sidebar>'s "Advanced tools" section groupings. It models the
  * two-axis cockpit lesson borrowed from SocioProphet client-vue
  * (src/config/{cockpitNav,routeRegistry,domainRoutes}.ts) and Will's 2019
  * reference (willdvlpr-socioprophet .../components/Top.js):

@@ -6,7 +6,6 @@ import { RuntimeStatus } from '@/components/status/RuntimeStatus'
 import { EgressMeter } from '@/components/status/EgressMeter'
 import { useUiStore } from '@/lib/store/uiStore'
 import type { RiskAversionLiveReadout } from '@/lib/risk/riskAversionLive'
-import type { VoiceState } from '@/lib/voice/useVoice'
 import { OpenChatToggle } from '@/components/chat/OpenChatToggle'
 import type { WorkspaceSession } from '@/lib/session/types'
 import type { PublishResult } from '@/lib/session/commons-client'
@@ -15,7 +14,6 @@ type TopbarProps = {
   modelId: string
   mode: 'standalone' | 'sourceos'
   riskReadout?: RiskAversionLiveReadout | null
-  voiceState?: VoiceState
   isLive?: boolean
   onLiveStart?: () => void
   onLiveStop?: () => void
@@ -29,8 +27,6 @@ type TopbarProps = {
   onOpenPalette: () => void
   onOpenInspector?: () => void
   onExportConversation?: () => void
-  onVoiceStart?: () => void
-  onVoiceStop?: () => void
   onRealtimeTranscript?: (text: string) => void
   onRealtimeSpeechStart?: () => void
 }
@@ -87,9 +83,7 @@ function IconSettings() {
   )
 }
 
-export function Topbar({ modelId, mode, riskReadout, voiceState, isLive, onLiveStart, onLiveStop, openaiApiKey, hasMessages, activeSession, onSetVisibility, onModelChange, onModeChange, onOpenSettings, onOpenPalette, onOpenInspector, onExportConversation, onVoiceStart, onVoiceStop, onRealtimeTranscript, onRealtimeSpeechStart }: TopbarProps) {
-  const isListening = voiceState === 'listening'
-
+export function Topbar({ modelId, mode, riskReadout, isLive, onLiveStart, onLiveStop, openaiApiKey, hasMessages, activeSession, onSetVisibility, onModelChange, onModeChange, onOpenSettings, onOpenPalette, onOpenInspector, onExportConversation, onRealtimeTranscript, onRealtimeSpeechStart }: TopbarProps) {
   // Double-click the titlebar to zoom/maximize (native macOS behavior the Overlay titlebar drops).
   // Ignore double-clicks that land on a control so e.g. double-tapping Settings doesn't also maximize.
   async function onTitlebarDoubleClick(e: React.MouseEvent) {
@@ -121,21 +115,7 @@ export function Topbar({ modelId, mode, riskReadout, voiceState, isLive, onLiveS
         <RuntimeStatus />
         <ModePill mode={mode} onChange={onModeChange} />
         <PrivateSessionToggle />
-        {/* Mic — push-to-talk dictation (single turn). Stays a mic. */}
-        <button
-          onClick={isListening && !isLive ? onVoiceStop : onVoiceStart}
-          title={isListening && !isLive ? 'Listening… click to stop' : 'Speak (dictate)'}
-          aria-label="Voice dictation"
-          className={`relative flex h-[22px] w-[22px] items-center justify-center rounded-full border transition ${
-            isListening && !isLive ? 'border-[#f43f5e] bg-[#fff1f2] text-[#f43f5e]' : 'border-[#fda4af] bg-[#fff1f2] text-[#fb7185] hover:bg-[#ffe4e6]'
-          }`}
-        >
-          {isListening && !isLive && <span className="absolute inset-0 rounded-full animate-ping bg-[#fda4af] opacity-30" />}
-          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden>
-            <rect x="6" y="1" width="4" height="8" rx="2" stroke="currentColor" strokeWidth="1.5"/>
-            <path d="M3 8a5 5 0 0 0 10 0M8 13v2M6 15h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
-        </button>
+        {/* Mic (push-to-talk dictation) moved into the chat composer row — see InputArea.tsx. */}
         {/* Live chat — continuous hands-free conversation (waveform), fully local. */}
         <button
           onClick={isLive ? onLiveStop : onLiveStart}

@@ -74,6 +74,7 @@ function ProjectEditor({
   const [systemPrompt, setSystemPrompt] = useState(project.systemPrompt)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [filesDragOver, setFilesDragOver] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -137,9 +138,9 @@ function ProjectEditor({
           {saved && <span className="text-xs text-[#22c55e]">Saved</span>}
           <button
             onClick={onActivate}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${isActive ? 'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]' : 'bg-[var(--accent)] text-white hover:bg-[var(--accent)]'}`}
+            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${isActive ? 'bg-[#dcfce7] text-[#15803d] hover:bg-[#bbf7d0]' : 'bg-[var(--accent)] text-white hover:bg-[var(--accent)]'}`}
           >
-            {isActive ? 'Active' : 'Set active'}
+            {isActive ? '● Deactivate' : 'Set active'}
           </button>
         </div>
       </div>
@@ -192,14 +193,21 @@ function ProjectEditor({
             <div>
               <p className="text-xs font-semibold text-[var(--color-text-secondary)]">Project Files</p>
               <p className="mt-0.5 text-xs leading-5 text-[var(--color-text-tertiary)]">
-                Files attached here are injected into every conversation in this project as context.
+                Files attached here are injected verbatim into every conversation in this project — not chunked or retrieved. Keep them small.
               </p>
             </div>
             <button
               onClick={() => fileRef.current?.click()}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--color-border-secondary)] py-4 text-xs text-[var(--color-text-secondary)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+              onDragOver={(e) => { e.preventDefault(); setFilesDragOver(true) }}
+              onDragLeave={() => setFilesDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault()
+                setFilesDragOver(false)
+                if (e.dataTransfer.files.length) handleFilePick({ target: { files: e.dataTransfer.files, value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>)
+              }}
+              className={`flex w-full items-center justify-center gap-2 rounded-xl border border-dashed py-4 text-xs transition ${filesDragOver ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-secondary)] hover:border-[var(--accent)] hover:text-[var(--accent)]'}`}
             >
-              + Attach files
+              + Attach files, or drop them here
             </button>
             <input ref={fileRef} type="file" multiple className="hidden" onChange={handleFilePick} />
             {project.fileAttachments.length === 0 ? (
@@ -247,6 +255,10 @@ function ProjectEditor({
               <p className="text-xs font-semibold text-[var(--color-text-secondary)]">Color</p>
               <ColorPicker value={color} onChange={(c) => { setColor(c); onUpdate({ color: c }) }} />
             </div>
+            <div className="space-y-1 pt-1">
+              <p className="text-xs font-semibold text-[var(--color-text-secondary)]">Project ID</p>
+              <p className="select-text font-mono text-[10.5px] text-[var(--color-text-tertiary)]">{project.id}</p>
+            </div>
             <div className="flex items-center justify-between pt-2">
               <button
                 onClick={save}
@@ -254,16 +266,24 @@ function ProjectEditor({
               >
                 Save changes
               </button>
-              <button
-                onClick={() => {
-                  if (!confirmDelete) { setConfirmDelete(true); setTimeout(() => setConfirmDelete(false), 3000) }
-                  else onDelete()
-                }}
-                className={`rounded-xl px-4 py-2 text-xs font-semibold transition ${confirmDelete ? 'bg-[#fef2f2] text-[#dc2626]' : 'border border-[var(--color-border-secondary)] text-[var(--color-text-tertiary)] hover:border-[#fecaca] hover:text-[#ef4444]'}`}
-              >
-                {confirmDelete ? 'Confirm delete?' : 'Delete project'}
-              </button>
+              {!confirmDelete && (
+                <button
+                  onClick={() => setConfirmDelete(true)}
+                  className="rounded-xl border border-[var(--color-border-secondary)] px-4 py-2 text-xs font-semibold text-[var(--color-text-tertiary)] transition hover:border-[#fecaca] hover:text-[#ef4444]"
+                >
+                  Delete project
+                </button>
+              )}
             </div>
+            {confirmDelete && (
+              <div className="flex items-center justify-between rounded-xl border border-[#fde68a] bg-[#fffbeb] px-4 py-2.5">
+                <span className="text-xs text-[#92400e]">Delete {project.title}? This can&apos;t be undone.</span>
+                <div className="flex shrink-0 gap-2">
+                  <button onClick={() => setConfirmDelete(false)} className="rounded-lg px-3 py-1 text-xs font-semibold text-[#92400e] hover:bg-[#fef3c7]">Cancel</button>
+                  <button onClick={onDelete} className="rounded-lg bg-[#dc2626] px-3 py-1 text-xs font-semibold text-white hover:bg-[#b91c1c]">Delete</button>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
@@ -287,6 +307,7 @@ export function ProjectsPanel({
   const [selectedId, setSelectedId] = useState<string | null>(activeProjectId)
   const [showCreate, setShowCreate] = useState(false)
   const [newTitle, setNewTitle] = useState('')
+  const [newDesc, setNewDesc] = useState('')
   const [newColor, setNewColor] = useState<ProjectColor>(PROJECT_COLORS[0])
 
   // Keep selected in sync with active project changes
@@ -303,11 +324,12 @@ export function ProjectsPanel({
 
   function handleCreate() {
     if (!newTitle.trim()) return
-    const p = createProject({ title: newTitle.trim(), color: newColor })
+    const p = createProject({ title: newTitle.trim(), description: newDesc.trim(), color: newColor })
     setActiveProject(p.id)
     setSelectedId(p.id)
     setShowCreate(false)
     setNewTitle('')
+    setNewDesc('')
     setNewColor(PROJECT_COLORS[0])
   }
 
@@ -346,6 +368,13 @@ export function ProjectsPanel({
               className="w-full rounded-lg border border-[var(--accent)] bg-white px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)]"
               placeholder="Project name…"
             />
+            <input
+              value={newDesc}
+              onChange={(e) => setNewDesc(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') setShowCreate(false) }}
+              className="w-full rounded-lg border border-[var(--accent)] bg-white px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)]"
+              placeholder="Description (optional)…"
+            />
             <ColorPicker value={newColor} onChange={setNewColor} />
             <div className="flex gap-1.5">
               <button onClick={handleCreate} className="rounded-lg bg-[var(--accent)] px-3 py-1 text-xs font-semibold text-white">Create</button>
@@ -364,24 +393,33 @@ export function ProjectsPanel({
               onClick={() => setSelectedId(p.id)}
               className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs transition ${selectedId === p.id ? 'bg-[var(--accent-soft)] font-semibold text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)]'}`}
             >
-              <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: p.color }} />
-              <span className="flex-1 truncate">{p.title}</span>
+              <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: p.color }} />
+              <span className="flex-1 min-w-0">
+                <span className="block truncate">{p.title}</span>
+                <span className="block truncate text-[10px] font-normal text-[var(--color-text-tertiary)]">
+                  {p.fileAttachments.length} {p.fileAttachments.length === 1 ? 'file' : 'files'}
+                </span>
+              </span>
               {p.id === activeProjectId && (
-                <span className="shrink-0 h-1.5 w-1.5 rounded-full bg-[#22c55e]" title="Active" />
+                <span className="shrink-0 h-[7px] w-[7px] rounded-full bg-[#22c55e]" title="Active" />
               )}
             </button>
           ))}
         </div>
 
-        {activeProject && (
-          <div className="border-t border-[var(--color-border-secondary)] px-3 py-2">
-            <p className="text-[10px] text-[var(--color-text-tertiary)]">Active:</p>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: activeProject.color }} />
-              <span className="truncate text-[11px] font-medium text-[var(--color-text-primary)]">{activeProject.title}</span>
-            </div>
-          </div>
-        )}
+        <div className="border-t border-[var(--color-border-secondary)] px-3 py-2">
+          {activeProject ? (
+            <>
+              <p className="text-[10px] text-[var(--color-text-tertiary)]">Active:</p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: activeProject.color }} />
+                <span className="truncate text-[11px] font-medium text-[var(--color-text-primary)]">{activeProject.title}</span>
+              </div>
+            </>
+          ) : (
+            <p className="text-[10px] text-[var(--color-text-tertiary)]">No project active</p>
+          )}
+        </div>
       </aside>
 
       {/* Right — editor */}
