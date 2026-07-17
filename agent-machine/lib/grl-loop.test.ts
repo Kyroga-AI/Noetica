@@ -82,3 +82,16 @@ test('multi-policy spine: a second named policy learns independently over the sh
   loop.save()
   assert.ok(fs.existsSync(path.join(dir, 'grl-operation-route-policy.json')))
 })
+
+test('readiness gate: reads the buffer + returns an OPE verdict (shadow-before-active)', () => {
+  const dir = tmpDir()
+  const loop = new GrlLoop({ storeDir: dir, saveEvery: 1 })
+  // log some transitions (both actions explored so OPE has support)
+  for (let i = 0; i < 20; i++) {
+    const d = loop.decide(gs())
+    loop.observe({ action: i % 2 ? 'kb' : 'vector-rag', context: d.context, signals: { thumbs: i % 3 ? 'up' : 'down' } })
+  }
+  const r = loop.readiness()
+  assert.ok('readyToFlip' in r && 'lift' in r && 'supportedFraction' in r)
+  assert.equal(typeof r.transitions, 'number')
+})

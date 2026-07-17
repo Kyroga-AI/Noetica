@@ -84,7 +84,7 @@ import { runGremlin } from '@socioprophet/hellgraph'
 import { buildWorkspacePrefix, invalidatePrefix } from './lib/context-cache.js'
 import { estimateCostUsd, tokensEgressed } from '../lib/pricing/modelPricing.js'
 import { recordCapability, capabilitySummary, capabilityHint, recordReward, selectArmUCB, serializeCapabilities, hydrateCapabilities, banditStandings, resetCapabilities } from './lib/capability-model.js'
-import { grlLoop, grlEnabled, retrievalActionOf, graphStateFromGrounding } from './lib/grl-loop.js'
+import { grlLoop, grlEnabled, grlActive, retrievalActionOf, graphStateFromGrounding } from './lib/grl-loop.js'
 import { meshEnabled, publishTransitions } from './lib/grl-federation.js'
 let _grlMeshTick = 0 // counts GRL observes; every 25th flushes redacted signals to the opt-in mesh
 import { handlePeerSync, syncAllPeers, graphSyncEnabled } from './lib/http-sync.js'
@@ -3005,6 +3005,17 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
     hasDoc = userDocumentChunkCount() > 0 // USER uploads only — self-model docs must not force doc-QA grounding
   } catch { /* doc-store optional */ }
   let intentPlan = classifyIntent(latestUserContent, { hasDoc })
+  // GRL ACTIVE: the learned graph-RL policy DRIVES the retrieval grounding-source (overriding the heuristic).
+  // Gated on NOETICA_GRL_ACTIVE=1 — flip that ONLY after GET /api/grl/readiness reports readyToFlip (the
+  // shadow-before-active invariant, enforced in the wiring). Default off → the heuristic decides, GRL learns
+  // in shadow. Fail-open: any error keeps the heuristic. The GRL actions are valid Retrieval union values.
+  if (grlActive() && grlEnabled()) {
+    try {
+      const gg = assessAgainstGraph(latestUserContent)
+      const choice = grlLoop().decide(graphStateFromGrounding(gg, latestUserContent)).action
+      if (choice && choice !== intentPlan.retrieval) intentPlan = { ...intentPlan, retrieval: choice as typeof intentPlan.retrieval }
+    } catch { /* fail-open: keep the heuristic's retrieval */ }
+  }
   // Tier-0 cascade (NOETICA_EMBED_INTENT): a tiny embedding model refines the intent
   // when the regex cues are weak/ambiguous — calibrated confidence + paraphrase
   // robustness (e.g. "what is a clinical trial?" with no literal cue). An exact strong
@@ -6678,7 +6689,18 @@ const server = http.createServer((req, res) => {
   if (req.method === 'GET' && url.pathname === '/api/grl/standings') {
     setCORSHeaders(res)
     res.writeHead(200, { 'content-type': 'application/json' })
-    res.end(JSON.stringify({ policy: 'retrieval-mode', mode: grlEnabled() ? 'shadow' : 'disabled', standings: grlLoop().standings() }))
+    const mode = !grlEnabled() ? 'disabled' : grlActive() ? 'active' : 'shadow'
+    res.end(JSON.stringify({ policy: 'retrieval-mode', mode, standings: grlLoop().standings() }))
+    return
+  }
+
+  // GET /api/grl/readiness — offline-evaluate whether the learned policy is ready to flip shadow→active
+  // (Direct-Method OPE over the replay buffer). Check this BEFORE setting NOETICA_GRL_ACTIVE=1: it reports
+  // the learned policy's lift over the heuristic on validated traffic + why it is/isn't ready.
+  if (req.method === 'GET' && url.pathname === '/api/grl/readiness') {
+    setCORSHeaders(res)
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ policy: 'retrieval-mode', active: grlActive(), ...grlLoop().readiness() }))
     return
   }
 

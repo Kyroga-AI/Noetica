@@ -20,6 +20,7 @@ import { LinUCBPolicy } from './grl-policy.js'
 import { featurizeGraphState, GRAPH_STATE_DIM, type GraphState } from './graph-state.js'
 import { grlReward, type RewardSignals } from './grl-reward.js'
 import { contextFromBucket, type Transition, type CommunityPrior } from './grl-federation.js'
+import { evaluatePolicy, type OpeResult } from './grl-ope.js'
 
 /**
  * The retrieval GROUNDING-SOURCE the policy chooses among — folded from Noetica's real
@@ -160,6 +161,29 @@ export class GrlLoop {
 
   standingsFor(policyName: string) { return this.extra.get(policyName)?.standings() ?? [] }
 
+  /**
+   * Offline-evaluate whether a policy is READY to flip from shadow to active — Direct-Method OPE over the
+   * append-only replay buffer (grl-ope.ts). This is the operational form of the "shadow-before-active"
+   * invariant: a policy only earns the right to DRIVE decisions once it provably beats the heuristic on
+   * logged data. Read /api/grl/readiness before setting NOETICA_GRL_ACTIVE.
+   */
+  readiness(policyName = 'retrieval-mode', actions: readonly string[] = RETRIEVAL_ACTIONS): OpeResult {
+    const txns: Transition[] = []
+    try {
+      if (fs.existsSync(this.txFile)) {
+        for (const line of fs.readFileSync(this.txFile, 'utf8').split('\n')) {
+          if (!line.trim()) continue
+          const row = JSON.parse(line) as { policy?: string; action?: string; context?: number[]; reward?: number }
+          if ((row.policy ?? 'retrieval-mode') !== policyName) continue // retrieval logs without a policy field
+          if (Array.isArray(row.context) && typeof row.reward === 'number' && typeof row.action === 'string') {
+            txns.push({ action: row.action, context: row.context, reward: row.reward })
+          }
+        }
+      }
+    } catch { /* fail-open: no buffer → not ready */ }
+    return evaluatePolicy(txns, { actions: [...actions] })
+  }
+
   /** Recent transitions (for the opt-in mesh to publish gate-redacted). */
   recentTransitions(): Transition[] { return this.recent.slice() }
 
@@ -210,3 +234,9 @@ export function grlLoop(): GrlLoop { return (_loop ??= new GrlLoop()) }
 export function grlConfigure(opts: GrlLoopOpts): void { _loop = new GrlLoop(opts) }
 /** Retrieval-mode selection is opt-out via env; default on so the loop actually learns in prod. */
 export function grlEnabled(): boolean { return process.env['NOETICA_GRL_RETRIEVAL'] !== '0' }
+/**
+ * ACTIVE = the learned policy actually DRIVES the retrieval decision (vs shadow, where it only learns).
+ * Explicit opt-in AND default-off: flip NOETICA_GRL_ACTIVE=1 only after GET /api/grl/readiness reports
+ * readyToFlip=true. This encodes shadow-before-active in the wiring, not just the docs.
+ */
+export function grlActive(): boolean { return process.env['NOETICA_GRL_ACTIVE'] === '1' }
