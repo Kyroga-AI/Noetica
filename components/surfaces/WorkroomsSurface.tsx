@@ -5,6 +5,7 @@ import { useWorkrooms } from '@/lib/workrooms/useWorkrooms'
 import { useSettings } from '@/lib/settings/context'
 import { useConnectorAuth } from '@/lib/auth/context'
 import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
+import { amUrl } from '@/lib/tauri/bridge'
 import type { Workroom, WorkroomMessage, AgentDispatch } from '@/lib/types/workroom'
 import { AGENT_ARCHETYPES } from '@/lib/types/workroom'
 import type { ChatMessage } from '@/lib/types/message'
@@ -46,6 +47,31 @@ function initials(name: string): string {
   return name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
 }
 
+// ─── Dispatchable agents: the 5 built-in archetypes + custom agents from Agent Builder ────
+// Unifies the two previously-separate rosters (workroom.ts's AGENT_ARCHETYPES vs the
+// agent-machine registry behind /api/agents) into one list Workrooms can select and dispatch
+// from, so an agent built in Agent Builder is usable here too — not just via dispatch_agent.
+interface DispatchAgent {
+  id: string
+  name: string
+  description: string
+  systemPrompt: string
+  color: string
+  tags: string[]
+  custom?: boolean
+}
+interface CustomAgentSummary {
+  id: string; label: string; description: string; systemPrompt: string
+  tools: string[]; maxTurns: number; model?: 'coder' | 'general'
+}
+
+function toDispatchAgent(a: (typeof AGENT_ARCHETYPES)[number]): DispatchAgent {
+  return { id: a.id, name: a.name, description: a.description, systemPrompt: a.systemPrompt, color: a.color, tags: a.tags }
+}
+function customToDispatchAgent(a: CustomAgentSummary): DispatchAgent {
+  return { id: a.id, name: a.label, description: a.description, systemPrompt: a.systemPrompt, color: avatarColor(a.label), tags: ['custom'], custom: true }
+}
+
 // ─── Room list ────────────────────────────────────────────────────────────────
 
 function RoomListItem({ room, active, onClick }: { room: Workroom; active: boolean; onClick: () => void }) {
@@ -75,7 +101,7 @@ function RoomListItem({ room, active, onClick }: { room: Workroom; active: boole
 
 // ─── Chat message row ─────────────────────────────────────────────────────────
 
-function MessageRow({ msg }: { msg: WorkroomMessage }) {
+function MessageRow({ msg, agents }: { msg: WorkroomMessage; agents: DispatchAgent[] }) {
   if (msg.kind === 'system') {
     return (
       <div className="flex justify-center py-1">
@@ -104,7 +130,7 @@ function MessageRow({ msg }: { msg: WorkroomMessage }) {
       {/* Avatar */}
       <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${
         msg.participantKind === 'agent'
-          ? (AGENT_ARCHETYPES.find((a) => a.name === msg.participantName)?.color ?? 'bg-[#64748b]')
+          ? (agents.find((a) => a.name === msg.participantName)?.color ?? 'bg-[#64748b]')
           : msg.participantKind === 'system'
           ? 'bg-[#0f172a]'
           : avatarColor(msg.participantName)
@@ -135,15 +161,16 @@ function MessageRow({ msg }: { msg: WorkroomMessage }) {
 
 // ─── Agent dispatch panel ─────────────────────────────────────────────────────
 
-function AgentDispatchPanel({ room, onDispatch }: {
+function AgentDispatchPanel({ room, agents, onDispatch }: {
   room: Workroom
+  agents: DispatchAgent[]
   onDispatch: (agentId: string, task: string) => Promise<void>
 }) {
   const [selectedAgents, setSelectedAgents] = useState<Set<string>>(new Set())
   const [task, setTask] = useState('')
 
   const activeAgentIds = room.participants.filter((p) => p.kind === 'agent').map((p) => p.agentId)
-  const inactiveAgents = AGENT_ARCHETYPES.filter((a) => !activeAgentIds.includes(a.id))
+  const inactiveAgents = agents.filter((a) => !activeAgentIds.includes(a.id))
 
   function toggleAgent(agentId: string) {
     setSelectedAgents((prev) => {
@@ -174,7 +201,7 @@ function AgentDispatchPanel({ room, onDispatch }: {
   const dispatchLabel = selectedAgents.size > 1
     ? `Dispatch to ${selectedAgents.size} agents`
     : selectedAgents.size === 1
-    ? `Dispatch to ${AGENT_ARCHETYPES.find((a) => a.id === [...selectedAgents][0])?.name ?? 'agent'}`
+    ? `Dispatch to ${agents.find((a) => a.id === [...selectedAgents][0])?.name ?? 'agent'}`
     : 'Select agents above'
 
   return (
@@ -201,7 +228,7 @@ function AgentDispatchPanel({ room, onDispatch }: {
           <div className="space-y-1.5">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">In this room</p>
             {room.participants.filter((p) => p.kind === 'agent').map((p) => {
-              const arch = AGENT_ARCHETYPES.find((a) => a.id === p.agentId)
+              const arch = agents.find((a) => a.id === p.agentId)
               const isSelected = p.agentId ? selectedAgents.has(p.agentId) : false
               return (
                 <button key={p.id} onClick={() => p.agentId && toggleAgent(p.agentId)}
@@ -235,7 +262,7 @@ function AgentDispatchPanel({ room, onDispatch }: {
         {inactiveAgents.length > 0 && (
           <div className="space-y-1.5">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Available agents</p>
-            {AGENT_ARCHETYPES.map((arch) => {
+            {agents.map((arch) => {
               const isActive = activeAgentIds.includes(arch.id)
               const isSelected = selectedAgents.has(arch.id)
               return (
@@ -295,7 +322,7 @@ function AgentDispatchPanel({ room, onDispatch }: {
         {selectedAgents.size > 0 && (
           <div className="flex flex-wrap gap-1">
             {[...selectedAgents].map((id) => {
-              const arch = AGENT_ARCHETYPES.find((a) => a.id === id)
+              const arch = agents.find((a) => a.id === id)
               if (!arch) return null
               return (
                 <span key={id} className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white ${arch.color}`}>
@@ -332,8 +359,9 @@ function AgentDispatchPanel({ room, onDispatch }: {
 
 const YOU: WorkroomMessage['participantId'] = 'user'
 
-function RoomView({ room, thinkingBudget, onAppendMessage, onUpdateMessage, onUpdateDispatch, onAddParticipant }: {
+function RoomView({ room, agents, thinkingBudget, onAppendMessage, onUpdateMessage, onUpdateDispatch, onAddParticipant }: {
   room: Workroom
+  agents: DispatchAgent[]
   thinkingBudget?: number
   onAppendMessage: (msg: WorkroomMessage) => void
   onUpdateMessage: (msgId: string, patch: Partial<WorkroomMessage>) => void
@@ -381,7 +409,7 @@ function RoomView({ room, thinkingBudget, onAppendMessage, onUpdateMessage, onUp
   }
 
   async function dispatchToAgent(agentId: string, task: string) {
-    const arch = AGENT_ARCHETYPES.find((a) => a.id === agentId)
+    const arch = agents.find((a) => a.id === agentId)
     if (!arch) return
 
     // Ensure agent is in participants — auto-add if dispatching to an inactive agent
@@ -495,7 +523,7 @@ function RoomView({ room, thinkingBudget, onAppendMessage, onUpdateMessage, onUp
           {/* Participant avatars */}
           <div className="ml-auto flex -space-x-1.5">
             {room.participants.slice(0, 5).map((p) => {
-              const arch = p.kind === 'agent' ? AGENT_ARCHETYPES.find((a) => a.id === p.agentId) : null
+              const arch = p.kind === 'agent' ? agents.find((a) => a.id === p.agentId) : null
               return (
                 <div key={p.id} title={p.name}
                   className={`flex h-7 w-7 items-center justify-center rounded-full border-2 border-white text-[10px] font-bold text-white ${arch?.color ?? avatarColor(p.name)}`}>
@@ -508,7 +536,7 @@ function RoomView({ room, thinkingBudget, onAppendMessage, onUpdateMessage, onUp
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
-          {room.messages.map((msg) => <MessageRow key={msg.id} msg={msg} />)}
+          {room.messages.map((msg) => <MessageRow key={msg.id} msg={msg} agents={agents} />)}
           <div ref={bottomRef} />
         </div>
 
@@ -534,7 +562,7 @@ function RoomView({ room, thinkingBudget, onAppendMessage, onUpdateMessage, onUp
       </div>
 
       {/* Agent dispatch column */}
-      <AgentDispatchPanel room={room} onDispatch={dispatchToAgent} />
+      <AgentDispatchPanel room={room} agents={agents} onDispatch={dispatchToAgent} />
     </div>
   )
 }
@@ -723,6 +751,18 @@ export function WorkroomsSurface({ thinkingBudget }: { thinkingBudget?: number }
   const [showNew, setShowNew] = useState(false)
   const [search, setSearch] = useState('')
 
+  // Dispatchable roster: the 5 built-in archetypes + any custom agents from Agent Builder,
+  // so an agent built there is usable in Workrooms too (previously only the 5 hardcoded
+  // archetypes were selectable here — custom agents had no path into this surface).
+  const [customAgents, setCustomAgents] = useState<CustomAgentSummary[]>([])
+  useEffect(() => {
+    void fetch(amUrl('/api/agents'))
+      .then((r) => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
+      .then((d: { custom?: CustomAgentSummary[] }) => setCustomAgents(d.custom ?? []))
+      .catch(() => {})   // Agent Builder's custom roster is additive — offline just means built-ins only
+  }, [])
+  const agents: DispatchAgent[] = [...AGENT_ARCHETYPES.map(toDispatchAgent), ...customAgents.map(customToDispatchAgent)]
+
   // Slack state
   const slackAuth = store.slack
   const slackConnected = slackAuth?.status === 'connected' && !!slackAuth.accessToken
@@ -878,6 +918,7 @@ export function WorkroomsSurface({ thinkingBudget }: { thinkingBudget?: number }
       ) : dedupedRoom ? (
         <RoomView
           room={dedupedRoom}
+          agents={agents}
           thinkingBudget={thinkingBudget}
           onAppendMessage={(msg) => appendMessage(dedupedRoom.id, msg)}
           onUpdateMessage={(msgId, patch) => updateMessage(dedupedRoom.id, msgId, patch)}
