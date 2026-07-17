@@ -240,3 +240,16 @@ export function grlEnabled(): boolean { return process.env['NOETICA_GRL_RETRIEVA
  * readyToFlip=true. This encodes shadow-before-active in the wiring, not just the docs.
  */
 export function grlActive(): boolean { return process.env['NOETICA_GRL_ACTIVE'] === '1' }
+
+/** ε-greedy shadow-exploration budget (NOETICA_GRL_EXPLORE ∈ [0,1], default 0 = off). */
+export function grlExploreEpsilon(): number {
+  const e = Number(process.env['NOETICA_GRL_EXPLORE'] ?? '0')
+  return Number.isFinite(e) ? Math.max(0, Math.min(1, e)) : 0
+}
+/**
+ * Breaks the shadow→active GRADUATION DEADLOCK. In pure shadow the logged action is always the heuristic's,
+ * so the OPE gate can never accumulate support for an action the policy would deviate to → readyToFlip can
+ * never become true for a policy that changes anything. With probability ε this returns true, and the caller
+ * TAKES the policy's action for that turn (so it is actually logged + rewarded). Opt-in, default off.
+ */
+export function grlExplore(): boolean { return Math.random() < grlExploreEpsilon() }

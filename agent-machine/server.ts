@@ -84,7 +84,7 @@ import { runGremlin } from '@socioprophet/hellgraph'
 import { buildWorkspacePrefix, invalidatePrefix } from './lib/context-cache.js'
 import { estimateCostUsd, tokensEgressed } from '../lib/pricing/modelPricing.js'
 import { recordCapability, capabilitySummary, capabilityHint, recordReward, selectArmUCB, serializeCapabilities, hydrateCapabilities, banditStandings, resetCapabilities } from './lib/capability-model.js'
-import { grlLoop, grlEnabled, grlActive, retrievalActionOf, graphStateFromGrounding } from './lib/grl-loop.js'
+import { grlLoop, grlEnabled, grlActive, grlExplore, retrievalActionOf, graphStateFromGrounding } from './lib/grl-loop.js'
 import { meshEnabled, publishTransitions } from './lib/grl-federation.js'
 let _grlMeshTick = 0 // counts GRL observes; every 25th flushes redacted signals to the opt-in mesh
 import { handlePeerSync, syncAllPeers, graphSyncEnabled } from './lib/http-sync.js'
@@ -3010,6 +3010,15 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
   // shadow-before-active invariant, enforced in the wiring). Default off → the heuristic decides, GRL learns
   // in shadow. Fail-open: any error keeps the heuristic. The GRL actions are valid Retrieval union values.
   if (grlActive() && grlEnabled()) {
+    try {
+      const gg = assessAgainstGraph(latestUserContent)
+      const choice = grlLoop().decide(graphStateFromGrounding(gg, latestUserContent)).action
+      if (choice && choice !== intentPlan.retrieval) intentPlan = { ...intentPlan, retrieval: choice as typeof intentPlan.retrieval }
+    } catch { /* fail-open: keep the heuristic's retrieval */ }
+  } else if (grlEnabled() && grlExplore()) {
+    // ε-greedy SHADOW EXPLORATION: with probability ε, actually TAKE the policy's action (not the heuristic's)
+    // so it gets logged + rewarded downstream (observe() logs the taken intentPlan.retrieval). Without this the
+    // shadow buffer only ever holds heuristic actions and the OPE gate can never graduate a deviating policy.
     try {
       const gg = assessAgainstGraph(latestUserContent)
       const choice = grlLoop().decide(graphStateFromGrounding(gg, latestUserContent)).action

@@ -95,3 +95,25 @@ test('readiness gate: reads the buffer + returns an OPE verdict (shadow-before-a
   assert.ok('readyToFlip' in r && 'lift' in r && 'supportedFraction' in r)
   assert.equal(typeof r.transitions, 'number')
 })
+
+test('grlExplore: ε-greedy exploration budget respects NOETICA_GRL_EXPLORE (breaks the OPE deadlock)', async () => {
+  const { grlExplore, grlExploreEpsilon } = await import('./grl-loop.js')
+  const save = process.env['NOETICA_GRL_EXPLORE']
+  try {
+    delete process.env['NOETICA_GRL_EXPLORE']
+    assert.equal(grlExploreEpsilon(), 0)
+    assert.equal([...Array(50)].some(() => grlExplore()), false, 'ε=0 (default): never explores — safe')
+
+    process.env['NOETICA_GRL_EXPLORE'] = '1'
+    assert.equal(grlExploreEpsilon(), 1)
+    assert.equal([...Array(50)].every(() => grlExplore()), true, 'ε=1: always takes the policy action')
+
+    process.env['NOETICA_GRL_EXPLORE'] = '0.3'
+    assert.equal(grlExploreEpsilon(), 0.3)
+    const rate = [...Array(4000)].filter(() => grlExplore()).length / 4000
+    assert.ok(rate > 0.2 && rate < 0.4, `~0.3 explore rate, got ${rate}`)
+
+    process.env['NOETICA_GRL_EXPLORE'] = '5'   // clamp to [0,1]
+    assert.equal(grlExploreEpsilon(), 1)
+  } finally { if (save === undefined) delete process.env['NOETICA_GRL_EXPLORE']; else process.env['NOETICA_GRL_EXPLORE'] = save }
+})
