@@ -10,6 +10,8 @@
     "vendor:check": "node scripts/sync-vendored.mjs --check",
     "vendor:sync": "node scripts/sync-vendored.mjs --write",
     "build": "next build",
+    "prebuild": "node scripts/check-engine-version.mjs",
+    "check:engine": "node scripts/check-engine-version.mjs",
     "build:static": "NOETICA_STATIC_EXPORT=1 next build",
     "build:static:probe": "node scripts/probe-static-export.mjs",
     "start": "next start",
@@ -50,7 +52,7 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.29.0",
-    "@socioprophet/hellgraph": "github:SocioProphet/hellgraph#v0.4.21",
+    "@socioprophet/hellgraph": "github:SocioProphet/hellgraph#v0.4.22",
     "@tauri-apps/api": "^2.0.0",
     "@tauri-apps/plugin-dialog": "2.7.1",
     "@tauri-apps/plugin-shell": "^2.3.5",
