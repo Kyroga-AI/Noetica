@@ -67,7 +67,7 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
   const [tagInput, setTagInput] = useState('')
   const [linkSuggestions, setLinkSuggestions] = useState<LinkSuggestion[]>([])
   const [syncing, setSyncing] = useState(false)
-  const [syncDone, setSyncDone] = useState(false)
+  const [syncError, setSyncError] = useState<string | null>(null)
   const bodyRef = useRef<HTMLTextAreaElement>(null)
   const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -110,29 +110,59 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
     setLinkSuggestions((prev) => prev.filter((s) => s.label !== label))
   }
 
-  // Sync the current note into the knowledge graph via the ingestion pipeline
+  // A note edited since its last successful index is "stale" — the graph still has the OLD content
+  // under the old docId, and the checkmark would otherwise lie about what the agent can actually recall.
+  const currentMarkdown = `# ${note.title}\n\n${note.body}`
+  const isStale = !!note.indexedDocId && note.indexedSnapshot !== currentMarkdown
+  const isIndexed = !!note.indexedDocId && !isStale
+
+  // Sync the current note into the knowledge graph via the ingestion pipeline. Ingestion is queued +
+  // async (background worker), so we poll /api/ingest/status for the job to actually finish before
+  // recording indexedDocId — recording it at enqueue time would be a lie if ingestion then fails.
   async function syncToGraph() {
     if (syncing) return
-    setSyncing(true); setSyncDone(false)
+    setSyncing(true); setSyncError(null)
     try {
-      const markdown = `# ${note.title}\n\n${note.body}`
+      const markdown = currentMarkdown
       const arr = new TextEncoder().encode(markdown)
       let bin = ''
       for (let i = 0; i < arr.length; i++) bin += String.fromCharCode(arr[i]!)
-      await fetch(amUrl('/api/ingest/queue'), {
+      const res = await fetch(amUrl('/api/ingest/queue'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           filename: `notes/${note.id}.md`,
           mimeType: 'text/markdown',
           dataBase64: btoa(bin),
+          collection: 'notes',
+          // Re-indexing an edited note: hide the prior version so it doesn't linger as an orphan.
+          ...(note.indexedDocId ? { previousDocId: note.indexedDocId } : {}),
         }),
         signal: AbortSignal.timeout(8000),
       })
-      setSyncDone(true)
-      setTimeout(() => setSyncDone(false), 4000)
-    } catch { /* best-effort */ }
-    finally { setSyncing(false) }
+      if (!res.ok) throw new Error('enqueue failed')
+      const job = (await res.json()) as { id: string }
+
+      // Poll for completion — up to ~15s (20 × 750ms), matching the queue's own poll cadence.
+      for (let attempt = 0; attempt < 20; attempt++) {
+        await new Promise((r) => setTimeout(r, 750))
+        const statusRes = await fetch(amUrl('/api/ingest/status'), { signal: AbortSignal.timeout(5000) })
+        if (!statusRes.ok) continue
+        const { jobs } = (await statusRes.json()) as { jobs: Array<{ id: string; status: string; documentId?: string; error?: string }> }
+        const mine = jobs.find((j) => j.id === job.id)
+        if (!mine) continue
+        if (mine.status === 'done') {
+          onUpdate({ indexedDocId: mine.documentId, indexedAt: new Date().toISOString(), indexedSnapshot: markdown })
+          return
+        }
+        if (mine.status === 'failed') throw new Error(mine.error || 'indexing failed')
+      }
+      throw new Error('timed out waiting for indexing')
+    } catch (e) {
+      setSyncError(e instanceof Error ? e.message : 'indexing failed')
+    } finally {
+      setSyncing(false)
+    }
   }
 
   function addTag(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -187,15 +217,31 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
             Preview
           </button>
         </div>
-        {/* Sync to knowledge graph */}
+        {/* Sync to knowledge graph — reflects PERSISTENT note state (indexedDocId), not a 4s toast */}
         <button
           onClick={() => void syncToGraph()}
           disabled={syncing || !note.body.trim()}
-          title="Index this note in your knowledge graph so the agent can recall it"
-          className={`flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-medium transition disabled:opacity-40 ${syncDone ? 'border-[#bbf7d0] bg-[#f0fdf4] text-[#16a34a]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] hover:border-[#1d4ed8] hover:text-[#1d4ed8]'}`}
+          title={
+            syncError ? syncError
+            : isStale ? 'This note has changed since it was last indexed — click to re-index'
+            : isIndexed ? `Indexed ${timeAgo(note.indexedAt!)} — click to re-index`
+            : 'Index this note in your knowledge graph so the agent can recall it'
+          }
+          className={`flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-medium transition disabled:opacity-40 ${
+            syncError ? 'border-[#fecaca] bg-[#fef2f2] text-[#dc2626]'
+            : isStale ? 'border-[#fde68a] bg-[#fffbeb] text-[#b45309]'
+            : isIndexed ? 'border-[#bbf7d0] bg-[#f0fdf4] text-[#16a34a]'
+            : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] hover:border-[#1d4ed8] hover:text-[#1d4ed8]'
+          }`}
         >
-          <span>{syncDone ? '✓' : '⬡'}</span>
-          <span>{syncing ? 'Indexing…' : syncDone ? 'Indexed' : 'Index'}</span>
+          <span>{syncError ? '⚠' : isStale ? '↻' : isIndexed ? '✓' : '⬡'}</span>
+          <span>
+            {syncing ? 'Indexing…'
+              : syncError ? 'Index failed'
+              : isStale ? 'Re-index'
+              : isIndexed ? `Indexed ${timeAgo(note.indexedAt!)}`
+              : 'Index'}
+          </span>
         </button>
         {/* Download */}
         <button

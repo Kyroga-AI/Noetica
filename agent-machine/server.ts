@@ -8929,10 +8929,21 @@ Question: ${question}`
     req.on('end', () => {
       ;(async () => {
         try {
-          const { filename, mimeType, dataBase64, collection } = JSON.parse(Buffer.concat(chunks).toString()) as { filename: string; mimeType?: string; dataBase64: string; collection?: string }
+          const { filename, mimeType, dataBase64, collection, previousDocId } = JSON.parse(Buffer.concat(chunks).toString()) as { filename: string; mimeType?: string; dataBase64: string; collection?: string; previousDocId?: string }
           if (!filename || !dataBase64) throw new Error('filename and dataBase64 required')
           const buf = Buffer.from(dataBase64, 'base64')
           const { enqueueIngest, enqueueArchive } = await import('./lib/ingest-queue.js')
+          // 'notes' is a stable named collection (like Inbox) for Notes-surface "Index" — ensure its
+          // friendly display name is registered before the first doc lands there, same pattern Inbox uses.
+          if (collection === 'notes') {
+            const { ensureCollection } = await import('./lib/collections.js')
+            ensureCollection('notes', 'Notes')
+          }
+          // Re-indexing an edited source under a new content-hashed docId: hide the prior version so it
+          // doesn't sit in the graph forever as an orphaned stale copy. Best-effort — never blocks ingest.
+          if (previousDocId) {
+            try { const { hideDocument } = await import('./lib/doc-store.js'); hideDocument(previousDocId) } catch { /* */ }
+          }
           // A .zip becomes its OWN named collection (graph scope), fanning out into per-file jobs; a single file
           // enqueues into the given collection or the Inbox catch-all. Never into core memory/knowledge.
           const isZip = /\.zip$/i.test(filename) || mimeType === 'application/zip' || (buf[0] === 0x50 && buf[1] === 0x4b)

@@ -11,6 +11,13 @@ export interface Note {
   createdAt: string
   updatedAt: string
   pinned?: boolean
+  /** The graph Document id from the last successful "Index" — set once ingestion actually completes
+   *  (not just enqueues), so re-indexing can hide this prior version instead of leaving it orphaned. */
+  indexedDocId?: string
+  indexedAt?: string
+  /** The exact "# title\n\nbody" markdown that was indexed, so the UI can tell whether the note has
+   *  changed since and show a stale/"re-index" state instead of a false "Indexed" checkmark. */
+  indexedSnapshot?: string
 }
 
 export interface NoteStore {
