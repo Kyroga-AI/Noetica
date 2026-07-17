@@ -39,6 +39,13 @@ interface ComparisonRun {
   createdAt: string
 }
 
+interface LabelledPair {
+  runId: string
+  prompt: string
+  chosenModel: string
+  preference: PreferenceLabel
+}
+
 function runModelPromise(
   modelId: string,
   prompt: string,
@@ -80,8 +87,9 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
   const [distillMaxSteps, setDistillMaxSteps] = useState(100)
   const [cacheStatus, setCacheStatus] = useState<'idle' | 'loading-model' | 'caching' | 'done' | 'error'>('idle')
   const [cacheStats, setCacheStats] = useState<{ total: number; withLogits: number } | null>(null)
+  const [savedPairs, setSavedPairs] = useState<LabelledPair[]>([])
 
-  const activeRun = runs.find((r) => r.id === activeRunId) ?? runs[0] ?? null
+  const activeRun = runs.find((r) => r.id === activeRunId) ?? null
 
   const [cacheError, setCacheError] = useState<string | null>(null)
 
@@ -124,8 +132,6 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
     })
     const cacheData = await cacheRes.json() as { ok?: boolean; annotated?: unknown[]; with_logits?: number; total?: number; error?: string }
     if (!cacheData.ok) { setCacheError(cacheData.error ?? 'Teacher-logit caching failed — is the distillation server running?'); setCacheStatus('error'); return }
-    // Submit annotated pairs (with logits) to distill server — check the result, else we'd report success
-    // while the pairs silently vanished (false "done" → lost training data).
     const distillRes = await fetch(tuneUrl('/api/tune/distill'), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -252,6 +258,18 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
     setRuns((prev) => prev.map((r) => r.id === runId ? { ...r, preference: label } : r))
   }
 
+  function savePair(run: ComparisonRun) {
+    if (run.preference === null) return
+    if (savedPairs.some((p) => p.runId === run.id)) return
+    const chosenModel = run.preference === 'preferred' ? run.teacherModel : run.studentModel
+    setSavedPairs((prev) => [...prev, {
+      runId: run.id,
+      prompt: run.prompt,
+      chosenModel,
+      preference: run.preference,
+    }])
+  }
+
   function exportDPO() {
     const labelled = runs.filter((r) => r.preference !== null)
     if (labelled.length === 0) return
@@ -281,238 +299,285 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      {/* Header — just the work surface (model pair, prompt, run). DPO export, KD training, and
-          the labelled-pairs ledger live in the right pane below, not here. */}
-      <div className="border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-6 py-4">
-        <div>
-          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Tune & Train</h2>
-          <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Run comparative prompts between models, mark preferences, export DPO training data.</p>
+      {/* Topbar — slim 50px */}
+      <div className="flex h-[50px] shrink-0 items-center gap-3 border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-6">
+        <div className="flex items-baseline gap-2">
+          <h2 className="text-[14px] font-extrabold text-[var(--color-text-primary)]">Tune & Train</h2>
+          <p className="text-[11px] text-[var(--color-text-tertiary)]">Run comparisons, mark preferences, export DPO data or distil in-app</p>
         </div>
-
-        {/* Model pair config */}
-        <div className="mt-4 flex flex-wrap items-center gap-3">
-          <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--accent)]">Teacher</span>
-            <select
-              value={teacherModelId}
-              onChange={(e) => setTeacherModelId(e.target.value)}
-              className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none"
-            >
-              {models.map((m) => <option key={m.id} value={m.id}>{m.label}{m.local_capable ? ' (open)' : ''}</option>)}
-            </select>
-            <span className="text-[10px] text-[var(--color-text-tertiary)]">blackbox or open-weight</span>
-          </div>
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="mt-2 self-center text-[var(--color-text-tertiary)]">
-            <path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-[#7c3aed]">Student</span>
-            {whiteboxModels.length === 0 ? (
-              <div className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-2.5 py-1.5 text-xs text-[#dc2626]">
-                No open-weight models available
-              </div>
-            ) : (
-              <select
-                value={studentModelId}
-                onChange={(e) => setStudentModelId(e.target.value)}
-                className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none"
-              >
-                {whiteboxModels.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-              </select>
-            )}
-            <span className="text-[10px] text-[var(--color-text-tertiary)]">open-weight only — weights needed for fine-tuning</span>
-          </div>
-        </div>
-        {whiteboxModels.length === 0 && (
-          <p className="mt-2 text-[11px] text-[#dc2626]">
-            DPO fine-tuning requires an open-weight student model (Llama, Gemma, GPT-2…). Add one via Agent Machine or Neuronpedia to enable distillation.
-          </p>
+        {labelledCount > 0 && (
+          <span className="ml-auto rounded-full bg-[var(--accent-soft)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--accent)]">
+            {labelledCount} pair{labelledCount !== 1 ? 's' : ''} labelled
+          </span>
         )}
-
-        {/* Prompt input */}
-        <div className="mt-3 flex gap-2">
-          <textarea
-            className="min-h-[60px] flex-1 resize-none rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
-            placeholder="Enter a prompt to run on both models…"
-            value={prompt}
-            onChange={(e) => setPrompt(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void handleRun() }}
-          />
-          <button
-            onClick={() => void handleRun()}
-            disabled={!prompt.trim() || runStatus === 'running' || whiteboxModels.length === 0}
-            className="self-end rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent)] disabled:opacity-50"
-          >
-            {runStatus === 'running' ? 'Running…' : 'Run'}
-          </button>
-        </div>
       </div>
 
-      {/* Body — run list (nav) + detail (center) + ledger/DPO/KD/voice (right pane) */}
+      {/* Body — 2 columns */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* Run list */}
-        {runs.length > 0 && (
-          <div className="w-56 shrink-0 overflow-y-auto border-r border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] py-2">
-            {runs.map((r) => (
-              <button
-                key={r.id}
-                onClick={() => setActiveRunId(r.id)}
-                className={`flex w-full flex-col gap-0.5 px-3 py-2.5 text-left transition ${
-                  r.id === activeRunId ? 'bg-[var(--accent-soft)]' : 'hover:bg-[var(--color-background-primary)]'
-                }`}
+        {/* LEFT COLUMN — 480px: model config, prompt, response cards */}
+        <div className="w-[480px] shrink-0 overflow-y-auto border-r border-[var(--color-border-tertiary)] px-5 py-4">
+          {/* Model pair config — sunken row */}
+          <div className="flex items-center gap-3 rounded-[14px] bg-[var(--color-background-secondary)] px-4 py-3">
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[9.5px] font-bold uppercase tracking-wider text-[var(--color-text-tertiary)]">Teacher</span>
+              <select
+                value={teacherModelId}
+                onChange={(e) => setTeacherModelId(e.target.value)}
+                className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none"
               >
-                <div className="flex items-center gap-1.5">
-                  {r.preference === 'preferred' && <span className="h-1.5 w-1.5 rounded-full bg-[#22c55e]" />}
-                  {r.preference === 'rejected' && <span className="h-1.5 w-1.5 rounded-full bg-[#ef4444]" />}
-                  {r.preference === null && <span className="h-1.5 w-1.5 rounded-full bg-[#d1d5db]" />}
-                  <span className="truncate text-xs font-medium text-[var(--color-text-primary)]">{r.prompt.slice(0, 40)}</span>
-                </div>
-                <span className="pl-3 text-[10px] text-[var(--color-text-tertiary)]">{new Date(r.createdAt).toLocaleTimeString()}</span>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Detail pane */}
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-          {!activeRun && (
-            <div className="flex h-full items-center justify-center text-sm text-[var(--color-text-tertiary)]">
-              Run a prompt to compare model responses.
+                {models.map((m) => <option key={m.id} value={m.id}>{m.label}{m.local_capable ? ' (open)' : ''}</option>)}
+              </select>
             </div>
-          )}
-          {activeRun && (
-            <div className="mx-auto max-w-4xl space-y-4">
-              <p className="text-xs font-semibold text-[var(--color-text-secondary)]">Prompt</p>
-              <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-4 py-3 text-sm text-[var(--color-text-primary)]">
-                {activeRun.prompt}
-              </div>
+            <span className="mt-4 text-sm text-[var(--color-text-tertiary)]">&rarr;</span>
+            <div className="flex flex-col gap-1.5">
+              <span className="text-[9.5px] font-bold uppercase tracking-wider text-[var(--color-text-tertiary)]">Student</span>
+              {whiteboxModels.length === 0 ? (
+                <div className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-2.5 py-1.5 text-xs text-[#dc2626]">
+                  No open-weight models available
+                </div>
+              ) : (
+                <select
+                  value={studentModelId}
+                  onChange={(e) => setStudentModelId(e.target.value)}
+                  className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none"
+                >
+                  {whiteboxModels.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
+                </select>
+              )}
+            </div>
+          </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                {/* Teacher */}
-                <div className={`rounded-2xl border bg-[var(--color-background-primary)] p-4 space-y-2 ${activeRun.preference === 'preferred' ? 'border-[#86efac] ring-1 ring-[#22c55e]/30' : 'border-[var(--accent)]'}`}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--accent)]">Teacher — {models.find((m) => m.id === activeRun.teacherModel)?.label ?? activeRun.teacherModel}</span>
+          {whiteboxModels.length === 0 && (
+            <p className="mt-2 text-[11px] text-[#dc2626]">
+              DPO fine-tuning requires an open-weight student model (Llama, Gemma, GPT-2…). Add one via Agent Machine or Neuronpedia to enable distillation.
+            </p>
+          )}
+
+          {/* Prompt — textarea stacked above run button */}
+          <div className="mt-4 flex flex-col gap-2">
+            <textarea
+              rows={3}
+              className="w-full resize-none rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
+              placeholder="Enter a prompt to run on both models…"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void handleRun() }}
+            />
+            <button
+              onClick={() => void handleRun()}
+              disabled={!prompt.trim() || runStatus === 'running' || whiteboxModels.length === 0}
+              className="w-full rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
+            >
+              {runStatus === 'running' ? 'Running…' : 'Run'}
+            </button>
+          </div>
+
+          {/* Response cards or empty/running states */}
+          <div className="mt-5 space-y-4">
+            {runStatus === 'idle' && !activeRun && (
+              <div className="flex items-center justify-center py-12 text-sm text-[var(--color-text-tertiary)]">
+                Enter a prompt above and run
+              </div>
+            )}
+
+            {runStatus === 'running' && activeRun?.teacherResponse === '…' && (
+              <div className="flex items-center justify-center gap-2 py-10 text-sm text-[var(--color-text-tertiary)]">
+                <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-[var(--accent)]" />
+                Running teacher & student in parallel…
+              </div>
+            )}
+
+            {activeRun && !(runStatus === 'running' && activeRun.teacherResponse === '…') && (
+              <>
+                {/* Teacher response card — green themed */}
+                <div className="rounded-2xl border border-[#86efac] bg-[#dcfce7] p-4">
+                  <span className="text-[9.5px] font-bold uppercase tracking-wider text-[#16a34a]">
+                    Teacher — {models.find((m) => m.id === activeRun.teacherModel)?.label ?? activeRun.teacherModel}
+                  </span>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[var(--color-text-primary)]">{activeRun.teacherResponse}</p>
+                  <div className="mt-3 border-t border-[#86efac] pt-3">
                     <button
                       onClick={() => markPreference(activeRun.id, activeRun.preference === 'preferred' ? null : 'preferred')}
-                      className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                      className={`rounded-full px-3 py-1 text-[11px] font-semibold transition ${
                         activeRun.preference === 'preferred'
                           ? 'bg-[#22c55e] text-white'
-                          : 'border border-[#d1d5db] text-[var(--color-text-secondary)] hover:border-[#22c55e] hover:text-[#16a34a]'
+                          : 'border border-[#86efac] text-[#16a34a] hover:bg-[#bbf7d0]'
                       }`}
                     >
-                      {activeRun.preference === 'preferred' ? '✓ Preferred' : 'Prefer'}
+                      {activeRun.preference === 'preferred' ? 'Preferred' : 'Prefer'}
                     </button>
                   </div>
-                  <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--color-text-primary)]">{activeRun.teacherResponse}</p>
                 </div>
 
-                {/* Student */}
-                <div className={`rounded-2xl border bg-[var(--color-background-primary)] p-4 space-y-2 ${activeRun.preference === 'rejected' ? 'border-[#fca5a5] ring-1 ring-[#ef4444]/30' : 'border-[#ddd6fe]'}`}>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-[#7c3aed]">Student — {models.find((m) => m.id === activeRun.studentModel)?.label ?? activeRun.studentModel}</span>
+                {/* Student response card — violet themed */}
+                <div className="rounded-2xl border border-[#c4b5fd] bg-[#ede9fe] p-4">
+                  <span className="text-[9.5px] font-bold uppercase tracking-wider text-[#7c3aed]">
+                    Student — {models.find((m) => m.id === activeRun.studentModel)?.label ?? activeRun.studentModel}
+                  </span>
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[var(--color-text-primary)]">{activeRun.studentResponse}</p>
+                  <div className="mt-3 flex items-center gap-2 border-t border-[#c4b5fd] pt-3">
                     <button
                       onClick={() => markPreference(activeRun.id, activeRun.preference === 'rejected' ? null : 'rejected')}
-                      className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
+                      className={`rounded-full px-3 py-1 text-[11px] font-semibold transition ${
                         activeRun.preference === 'rejected'
-                          ? 'bg-[#ef4444] text-white'
-                          : 'border border-[#d1d5db] text-[var(--color-text-secondary)] hover:border-[#fca5a5] hover:text-[#dc2626]'
+                          ? 'bg-[#7c3aed] text-white'
+                          : 'border border-[#c4b5fd] text-[#7c3aed] hover:bg-[#ddd6fe]'
                       }`}
                     >
-                      {activeRun.preference === 'rejected' ? '✗ Rejected' : 'Reject'}
+                      {activeRun.preference === 'rejected' ? 'Student preferred' : 'Prefer student'}
                     </button>
+                    {activeRun.preference !== null && !savedPairs.some((p) => p.runId === activeRun.id) && (
+                      <button
+                        onClick={() => savePair(activeRun)}
+                        className="rounded-full border border-[var(--color-border-secondary)] px-3 py-1 text-[11px] font-semibold text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]"
+                      >
+                        Save pair
+                      </button>
+                    )}
+                    {savedPairs.some((p) => p.runId === activeRun.id) && (
+                      <span className="text-[11px] text-[#16a34a]">Saved</span>
+                    )}
                   </div>
-                  <p className="whitespace-pre-wrap text-sm leading-6 text-[var(--color-text-primary)]">{activeRun.studentResponse}</p>
                 </div>
-              </div>
-
-              {activeRun.preference === null && (
-                <p className="text-center text-xs text-[var(--color-text-tertiary)]">Mark the teacher response as &ldquo;Prefer&rdquo; to add this pair to the DPO export.</p>
-              )}
-            </div>
-          )}
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Right pane — labelled-pairs ledger summary, DPO export, KD training, voice */}
-        <div className="w-[300px] shrink-0 space-y-4 overflow-y-auto border-l border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-4 py-4">
-          <div>
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Labelled pairs</div>
-            <div className="mt-1 text-lg font-semibold text-[var(--color-text-primary)]">{labelledCount} <span className="text-xs font-normal text-[var(--color-text-tertiary)]">/ {runs.length} runs</span></div>
-          </div>
-
-          {labelledCount === 0 ? (
-            <p className="rounded-xl border border-dashed border-[var(--color-border-secondary)] px-3 py-4 text-center text-[11px] text-[var(--color-text-tertiary)]">
-              Mark a preference on a run to enable export and training.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              <button
-                onClick={exportDPO}
-                className="flex w-full items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[var(--accent)]"
-              >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-                  <path d="M6 1v7M3 6l3 3 3-3M1 10h10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                {exportStatus === 'done' ? 'Saved!' : `Export ${labelledCount} JSONL`}
-              </button>
-              <button
-                onClick={() => void handleCacheTeacherLogits()}
-                disabled={cacheStatus === 'loading-model' || cacheStatus === 'caching'}
-                title="Run teacher model to extract logits for whitebox KD"
-                className="flex w-full items-center justify-center gap-2 rounded-full bg-[#0f766e] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#0d9488] disabled:opacity-50"
-              >
-                {cacheStatus === 'loading-model' ? 'Loading model…' : cacheStatus === 'caching' ? 'Caching…' : cacheStatus === 'error' ? 'Failed' : cacheStatus === 'done' ? `Logits cached (${cacheStats?.withLogits ?? 0}/${cacheStats?.total ?? 0})` : 'Cache teacher logits'}
-              </button>
-              {cacheStatus === 'error' && cacheError && (
-                <p className="text-[10px] text-[#ef4444]">{cacheError}</p>
-              )}
-              <button
-                onClick={() => void handleSendToDistill()}
-                disabled={distillSendStatus === 'sending'}
-                className="flex w-full items-center justify-center gap-2 rounded-full bg-[#7c3aed] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#6d28d9] disabled:opacity-50"
-              >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-                  <path d="M6 1v7M3 6l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-                  <circle cx="6" cy="10" r="1.5" fill="currentColor"/>
-                </svg>
-                {distillSendStatus === 'sending' ? 'Sending…' : distillSendStatus === 'sent' ? 'Sent to KD Server' : distillSendStatus === 'error' ? 'Send failed' : `Send to KD`}
-              </button>
+        {/* RIGHT COLUMN — flex:1: ledger, DPO export, KD training, voice */}
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
+          {/* Labelled pairs ledger — only show when pairs exist */}
+          {savedPairs.length > 0 && (
+            <div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Labelled pairs</div>
+              <div className="mt-2 max-h-[200px] space-y-1 overflow-y-auto">
+                {savedPairs.map((p) => (
+                  <div key={p.runId} className="flex items-center gap-2 rounded-lg bg-[var(--color-background-secondary)] px-3 py-2">
+                    <span className="h-2 w-2 shrink-0 rounded-full bg-[#22c55e]" />
+                    <span className="flex-1 truncate text-xs text-[var(--color-text-primary)]">{p.prompt.slice(0, 60)}</span>
+                    <span className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">
+                      {models.find((m) => m.id === p.chosenModel)?.label ?? p.chosenModel}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
-          {/* KD Training */}
-          <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3.5 py-3">
-            <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">KD training</div>
-            <div className="mt-2 flex flex-col gap-2">
-              <select
-                value={distillTeacherType}
-                onChange={(e) => setDistillTeacherType(e.target.value as 'blackbox' | 'whitebox')}
-                className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none"
-              >
-                <option value="blackbox">Blackbox → Whitebox (behavioral cloning)</option>
-                <option value="whitebox">Whitebox → Whitebox (KD loss + logits)</option>
-              </select>
-              <div className="flex gap-2">
-                <div className="flex flex-1 flex-col gap-1">
-                  <span className="text-[10px] text-[var(--color-text-tertiary)]">LoRA rank</span>
-                  <input
-                    type="number" min={1} max={64} value={distillLoraR}
-                    onChange={(e) => setDistillLoraR(parseInt(e.target.value) || 8)}
-                    className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none"
-                  />
-                </div>
-                <div className="flex flex-1 flex-col gap-1">
-                  <span className="text-[10px] text-[var(--color-text-tertiary)]">Max steps</span>
-                  <input
-                    type="number" min={1} max={10000} value={distillMaxSteps}
-                    onChange={(e) => setDistillMaxSteps(parseInt(e.target.value) || 100)}
-                    className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none"
-                  />
-                </div>
+          {/* DPO Export card */}
+          <div className="rounded-[14px] bg-[var(--color-background-secondary)] p-4">
+            <div className="text-[13px] font-extrabold text-[var(--color-text-primary)]">Export DPO data</div>
+            <p className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">
+              Export labelled preference pairs as JSONL for DPO fine-tuning. Each line contains the prompt, chosen and rejected responses, and model metadata.
+            </p>
+            {labelledCount === 0 ? (
+              <p className="mt-3 rounded-xl border border-dashed border-[var(--color-border-secondary)] px-3 py-4 text-center text-[11px] text-[var(--color-text-tertiary)]">
+                No labelled pairs yet — mark some preferences first.
+              </p>
+            ) : (
+              <div className="mt-3 space-y-2">
+                <button
+                  onClick={exportDPO}
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2 text-xs font-semibold text-white transition hover:brightness-110"
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+                    <path d="M6 1v7M3 6l3 3 3-3M1 10h10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  {exportStatus === 'done' ? 'Saved!' : `Export ${labelledCount} pairs as JSONL`}
+                </button>
+                <button
+                  onClick={() => void handleSendToDistill()}
+                  disabled={distillSendStatus === 'sending'}
+                  className="flex w-full items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2 text-xs font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
+                >
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+                    <path d="M6 1v7M3 6l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                    <circle cx="6" cy="10" r="1.5" fill="currentColor"/>
+                  </svg>
+                  {distillSendStatus === 'sending' ? 'Sending…' : distillSendStatus === 'sent' ? 'Sent to KD Server' : distillSendStatus === 'error' ? 'Send failed' : `Send to KD`}
+                </button>
               </div>
+            )}
+          </div>
+
+          {/* KD Training card */}
+          <div className="rounded-[14px] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
+            <div className="text-[13px] font-extrabold text-[var(--color-text-primary)]">Train in-app — Knowledge Distillation</div>
+
+            <div className="mt-3 flex flex-col gap-3">
+              {/* Teacher type — radio cards */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setDistillTeacherType('blackbox')}
+                  className={`flex-1 rounded-xl border-2 px-3 py-2.5 text-left text-xs transition ${
+                    distillTeacherType === 'blackbox'
+                      ? 'border-[var(--accent)] bg-[var(--accent-soft)]'
+                      : 'border-[var(--color-border-secondary)] hover:border-[var(--color-border-primary)]'
+                  }`}
+                >
+                  <div className="font-semibold text-[var(--color-text-primary)]">Blackbox &rarr; Whitebox</div>
+                  <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Behavioral cloning</div>
+                </button>
+                <button
+                  onClick={() => setDistillTeacherType('whitebox')}
+                  className={`flex-1 rounded-xl border-2 px-3 py-2.5 text-left text-xs transition ${
+                    distillTeacherType === 'whitebox'
+                      ? 'border-[var(--accent)] bg-[var(--accent-soft)]'
+                      : 'border-[var(--color-border-secondary)] hover:border-[var(--color-border-primary)]'
+                  }`}
+                >
+                  <div className="font-semibold text-[var(--color-text-primary)]">Whitebox &rarr; Whitebox</div>
+                  <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">KD loss + logits</div>
+                </button>
+              </div>
+
+              {/* LoRA rank — range slider */}
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-[var(--color-text-tertiary)]">LoRA rank</span>
+                  <span className="font-mono text-[11px] text-[var(--color-text-primary)]">{distillLoraR}</span>
+                </div>
+                <input
+                  type="range" min={1} max={64} value={distillLoraR}
+                  onChange={(e) => setDistillLoraR(parseInt(e.target.value) || 8)}
+                  className="w-full accent-[var(--accent)]"
+                />
+              </div>
+
+              {/* Max steps — range slider */}
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-[var(--color-text-tertiary)]">Max steps</span>
+                  <span className="font-mono text-[11px] text-[var(--color-text-primary)]">{distillMaxSteps}</span>
+                </div>
+                <input
+                  type="range" min={10} max={10000} step={10} value={distillMaxSteps}
+                  onChange={(e) => setDistillMaxSteps(parseInt(e.target.value) || 100)}
+                  className="w-full accent-[var(--accent)]"
+                />
+              </div>
+
+              {/* Cache teacher logits — only for whitebox */}
+              {distillTeacherType === 'whitebox' && (
+                <div>
+                  <button
+                    onClick={() => void handleCacheTeacherLogits()}
+                    disabled={cacheStatus === 'loading-model' || cacheStatus === 'caching' || labelledCount === 0}
+                    title="Run teacher model to extract logits for whitebox KD"
+                    className="flex w-full items-center justify-center gap-2 rounded-full bg-[#0f766e] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#0d9488] disabled:opacity-50"
+                  >
+                    {cacheStatus === 'loading-model' ? 'Loading model…' : cacheStatus === 'caching' ? 'Caching…' : cacheStatus === 'error' ? 'Failed' : cacheStatus === 'done' ? `Logits cached (${cacheStats?.withLogits ?? 0}/${cacheStats?.total ?? 0})` : 'Cache teacher logits'}
+                  </button>
+                  {cacheStatus === 'error' && cacheError && (
+                    <p className="mt-1 text-[10px] text-[#ef4444]">{cacheError}</p>
+                  )}
+                </div>
+              )}
+
               <button
                 onClick={() => void handleStartTraining()}
                 disabled={distillTrainStatus === 'polling' || distillTrainStatus === 'starting' || whiteboxModels.length === 0}
-                className="w-full rounded-full bg-[#7c3aed] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#6d28d9] disabled:opacity-50"
+                className="w-full rounded-full bg-[var(--accent)] px-4 py-2 text-xs font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
               >
                 {distillTrainStatus === 'starting' ? 'Starting…' : distillTrainStatus === 'polling' ? 'Training…' : distillTrainStatus === 'done' ? 'Done' : 'Start KD Training'}
               </button>
@@ -521,7 +586,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
             {distillJob && (
               <div className="mt-3 space-y-1.5">
                 <div className="flex items-center gap-2">
-                  <span className={`h-2 w-2 rounded-full ${distillJob.status === 'running' ? 'animate-pulse bg-[#7c3aed]' : distillJob.status === 'done' ? 'bg-[#22c55e]' : distillJob.status === 'error' ? 'bg-[#ef4444]' : 'bg-[#d1d5db]'}`} />
+                  <span className={`h-2 w-2 rounded-full ${distillJob.status === 'running' ? 'animate-pulse bg-[var(--accent)]' : distillJob.status === 'done' ? 'bg-[#22c55e]' : distillJob.status === 'error' ? 'bg-[#ef4444]' : 'bg-[#d1d5db]'}`} />
                   <span className="text-xs font-medium text-[var(--color-text-primary)]">
                     {distillJob.status === 'running' || distillJob.status === 'queued'
                       ? `Step ${distillJob.step}/${distillJob.total_steps}${distillJob.loss !== null ? ` — loss ${distillJob.loss.toFixed(4)}` : ''}`
@@ -535,7 +600,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                 {distillJob.total_steps > 0 && (
                   <div className="h-1 w-full rounded-full bg-[var(--color-background-secondary)]">
                     <div
-                      className="h-1 rounded-full bg-[#7c3aed] transition-all"
+                      className="h-1 rounded-full bg-[var(--accent)] transition-all"
                       style={{ width: `${Math.min(100, (distillJob.step / distillJob.total_steps) * 100)}%` }}
                     />
                   </div>
@@ -547,6 +612,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
             )}
           </div>
 
+          {/* Voice Trainer */}
           <VoiceTrainer />
         </div>
       </div>

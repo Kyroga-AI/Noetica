@@ -118,10 +118,13 @@ export function VoiceTrainer() {
   return (
     <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-4 py-3">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-[#7c3aed]">Agent voice</span>
+        <div className=”flex items-center gap-2”>
+          <span className=”text-[13px] font-extrabold text-[var(--color-text-primary)]”>Voice Trainer</span>
+          <span className=”rounded-full bg-[#fffbeb] border border-[#fde68a] px-2 py-0.5 text-[9.5px] font-semibold text-[#92400e]”>XTTS-v2 · local</span>
+        </div>
         {settings.ttsProvider === 'cloned' && activeId
-          ? <span className="text-[10px] text-[var(--color-text-tertiary)]">speaking as “{voices.find((v) => v.id === activeId)?.name ?? activeId}”</span>
-          : <span className="text-[10px] text-[var(--color-text-tertiary)]">clone a voice to use it</span>}
+          ? <span className=”text-[10px] text-[var(--color-text-tertiary)]”>speaking as &ldquo;{voices.find((v) => v.id === activeId)?.name ?? activeId}&rdquo;</span>
+          : <span className=”text-[10px] text-[var(--color-text-tertiary)]”>clone a voice to use it</span>}
       </div>
 
       {provisioned === false && (
@@ -138,10 +141,10 @@ export function VoiceTrainer() {
 
       {provisioned && (
         <>
-          <p className="mt-2 text-[12px] text-[var(--color-text-secondary)]">Record ~10 seconds of clear speech (or upload a clip), then clone it.</p>
+          <p className="mt-2 text-[12px] text-[var(--color-text-secondary)]">Record 60+ seconds of clear speech (or upload a clip), then clone it locally with XTTS-v2.</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             {!recording
-              ? <button onClick={() => void startRec()} disabled={busy} className="rounded-lg bg-[#7c3aed] px-3 py-1.5 text-[12px] font-medium text-white disabled:opacity-50">● Record</button>
+              ? <button onClick={() => void startRec()} disabled={busy} className="rounded-lg border border-[#fca5a5] bg-[var(--color-background-primary)] px-3 py-1.5 text-[12px] font-medium text-[var(--color-text-primary)] disabled:opacity-50"><span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-[#ef4444]" />Record</button>
               : <button onClick={stopRec} className="rounded-lg bg-[#dc2626] px-3 py-1.5 text-[12px] font-medium text-white">■ Stop</button>}
             <label className="cursor-pointer rounded-lg border border-[var(--color-border-secondary)] px-3 py-1.5 text-[12px] text-[var(--color-text-primary)]">
               Upload clip
@@ -173,6 +176,9 @@ export function VoiceTrainer() {
       )}
 
       {status && <p className="mt-2 text-[11px] text-[var(--color-text-tertiary)]">{status}</p>}
+      <p className="mt-3 border-t border-[var(--color-border-tertiary)] pt-2 text-[10px] text-[var(--color-text-tertiary)]">
+        Requires microphone access and Agent Machine running locally.
+      </p>
     </div>
   )
 }
