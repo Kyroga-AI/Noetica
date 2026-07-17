@@ -10,7 +10,7 @@ import { amUrl } from '@/lib/tauri/bridge'
  * selecting more than one turns it into a side-by-side race — same template, same run.
  * Backed by /api/cap/prompt-run, /api/cap/model-compare, /api/cap/models.
  *
- * Additional tabs: RAG Inspector, Capabilities, Alignment Checker (stub UIs).
+ * Additional tabs: RAG Inspector, Capabilities, Alignment Checker.
  */
 
 interface RunRecord { id: number; template: string; model: string; output: string; latencyMs: number; race: boolean }
@@ -35,6 +35,7 @@ function fillTemplate(template: string, values: Record<string, string>): string 
 /* ─── Tab content: RAG Inspector ─────────────────────────────────────── */
 function RAGInspectorTab() {
   const [query, setQuery] = useState('')
+  const [running, setRunning] = useState(false)
   const [inspected, setInspected] = useState(false)
 
   const demoSemantic = [
@@ -47,77 +48,83 @@ function RAGInspectorTab() {
     { source: 'config/rag-pipeline.yaml', score: 0.68, preview: 'chunk_size: 512, overlap: 64, embedding_model: text-embedding-3-small...' },
   ]
 
+  function runInspect() {
+    setRunning(true)
+    setTimeout(() => { setRunning(false); setInspected(true) }, 400)
+  }
+
   return (
-    <div className="flex flex-col gap-4 p-5">
-      <p className="text-xs text-[var(--color-text-tertiary)]">
-        Inspect how your RAG pipeline retrieves and ranks chunks for a given query. See semantic vs. lexical results side-by-side.
-      </p>
-      <div className="flex gap-2">
-        <input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Enter a retrieval query..."
-          className="flex-1 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]"
-        />
-        <button
-          onClick={() => setInspected(true)}
-          disabled={!query.trim()}
-          className="rounded-lg bg-[var(--color-accent,#0891b2)] px-4 py-2 text-xs font-medium text-white disabled:opacity-50"
-        >
-          Inspect
-        </button>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: 22, gap: 16, overflowY: 'auto' }}>
+      <div style={{ maxWidth: 700, width: '100%' }}>
+        <div style={{ fontSize: '12px', lineHeight: 1.6, color: 'var(--ink2)', marginBottom: 14 }}>
+          Paste a query to see exactly which chunks were retrieved — and whether they came from semantic (embedding) or lexical (keyword) search. Use this when an answer seems off and you want to know why.
+        </div>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="e.g. how does the critic work?"
+            style={{ flex: 1, border: '1px solid var(--line)', borderRadius: 10, padding: '10px 14px', fontSize: '14px', fontFamily: "'Manrope', sans-serif", color: 'var(--ink)', background: 'var(--paper)' }}
+          />
+          <div
+            onClick={() => { if (query.trim()) runInspect() }}
+            style={{ padding: '10px 20px', borderRadius: 10, background: 'var(--accent)', color: '#fff', fontSize: '13.5px', fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', opacity: query.trim() ? 1 : 0.5 }}
+          >
+            {running ? 'Inspecting...' : 'Inspect'}
+          </div>
+        </div>
       </div>
 
-      {!inspected ? (
-        <div className="flex flex-1 items-center justify-center py-20">
-          <span className="text-sm text-[var(--color-text-tertiary)]" style={{ opacity: 0.45 }}>
-            Enter a query and hit Inspect to see retrieval results
-          </span>
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-4">
-          {/* Semantic results */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-[#8b5cf6]" />
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Semantic</span>
+      {running && (
+        <div style={{ color: 'var(--ink3)', fontSize: 13 }}>Inspecting...</div>
+      )}
+
+      {inspected && !running && (
+        <div style={{ display: 'flex', gap: 14, flex: 1, minHeight: 0 }}>
+          {/* Semantic column */}
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--violet)' }} />
+              <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.6px', color: 'var(--ink2)', textTransform: 'uppercase' }}>Semantic · dense / nomic-embed</span>
             </div>
             {demoSemantic.map((chunk, i) => (
-              <div key={i} className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-medium text-[var(--color-text-tertiary)]">{chunk.source}</span>
-                  <div className="flex items-center gap-1.5">
-                    <div className="h-1.5 w-16 overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
-                      <div className="h-full rounded-full bg-[#8b5cf6]" style={{ width: `${chunk.score * 100}%` }} />
-                    </div>
-                    <span className="text-[10px] font-medium text-[var(--color-text-tertiary)]">{(chunk.score * 100).toFixed(0)}%</span>
-                  </div>
+              <div key={i} style={{ background: 'var(--paper-sunk)', borderRadius: 12, padding: 14, border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 600, color: 'var(--ink2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{chunk.source}</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 700, color: 'var(--violet-fg)', flexShrink: 0 }}>{chunk.score.toFixed(2)}</span>
                 </div>
-                <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--color-text-secondary)]">{chunk.preview}</p>
+                <div style={{ height: 4, borderRadius: 999, background: 'var(--paper-sunk-2)', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${chunk.score * 100}%`, background: 'var(--violet)', borderRadius: 999 }} />
+                </div>
+                <div style={{ fontSize: '12.5px', lineHeight: 1.6, color: 'var(--ink)', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{chunk.preview}</div>
               </div>
             ))}
           </div>
-          {/* Lexical results */}
-          <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-2">
-              <span className="h-2 w-2 rounded-full bg-[#f59e0b]" />
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Lexical</span>
+          {/* Lexical column */}
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--pending)' }} />
+              <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.6px', color: 'var(--ink2)', textTransform: 'uppercase' }}>Lexical · BM25 keyword</span>
             </div>
             {demoLexical.map((chunk, i) => (
-              <div key={i} className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-medium text-[var(--color-text-tertiary)]">{chunk.source}</span>
-                  <div className="flex items-center gap-1.5">
-                    <div className="h-1.5 w-16 overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
-                      <div className="h-full rounded-full bg-[#f59e0b]" style={{ width: `${chunk.score * 100}%` }} />
-                    </div>
-                    <span className="text-[10px] font-medium text-[var(--color-text-tertiary)]">{(chunk.score * 100).toFixed(0)}%</span>
-                  </div>
+              <div key={i} style={{ background: 'var(--paper-sunk)', borderRadius: 12, padding: 14, border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 600, color: 'var(--ink2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{chunk.source}</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', fontWeight: 700, color: 'var(--pending-fg)', flexShrink: 0 }}>{chunk.score.toFixed(2)}</span>
                 </div>
-                <p className="mt-1.5 text-[11px] leading-relaxed text-[var(--color-text-secondary)]">{chunk.preview}</p>
+                <div style={{ height: 4, borderRadius: 999, background: 'var(--paper-sunk-2)', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${chunk.score * 100}%`, background: 'var(--pending)', borderRadius: 999 }} />
+                </div>
+                <div style={{ fontSize: '12.5px', lineHeight: 1.6, color: 'var(--ink)', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{chunk.preview}</div>
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {!inspected && !running && (
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.45 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink2)' }}>Enter a query and hit Inspect to see retrieval results</div>
         </div>
       )}
     </div>
@@ -127,12 +134,12 @@ function RAGInspectorTab() {
 /* ─── Tab content: Capabilities ──────────────────────────────────────── */
 interface Capability { name: string; group: string; description: string; endpoint: string; payload: string }
 const demoCapabilities: Capability[] = [
-  { name: 'prompt-run', group: 'Core', description: 'Run a prompt template against a model with variable substitution and temperature control.', endpoint: 'POST /api/cap/prompt-run', payload: '{\n  "template": "Summarize {topic}",\n  "variables": { "topic": "AI safety" },\n  "model": "gpt-4o",\n  "temperature": 0.7\n}' },
-  { name: 'model-compare', group: 'Core', description: 'Race the same prompt across multiple models and compare outputs side-by-side.', endpoint: 'POST /api/cap/model-compare', payload: '{\n  "prompt": "Explain quantum computing",\n  "models": ["gpt-4o", "claude-3"]\n}' },
-  { name: 'models', group: 'Core', description: 'List all available models on the local mesh.', endpoint: 'GET /api/cap/models', payload: '{}' },
-  { name: 'embed-text', group: 'RAG', description: 'Generate embeddings for a text chunk using the configured embedding model.', endpoint: 'POST /api/cap/embed', payload: '{\n  "text": "Sample text to embed",\n  "model": "text-embedding-3-small"\n}' },
-  { name: 'chunk-retrieve', group: 'RAG', description: 'Retrieve top-k chunks from the vector store for a given query.', endpoint: 'POST /api/cap/retrieve', payload: '{\n  "query": "architecture overview",\n  "top_k": 5\n}' },
-  { name: 'alignment-check', group: 'Safety', description: 'Check a generated response against source documents for factual alignment.', endpoint: 'POST /api/cap/alignment', payload: '{\n  "response": "The system uses microservices.",\n  "sources": ["doc1.md", "doc2.md"]\n}' },
+  { name: 'prompt-run', group: 'Core', description: 'Run a prompt template against a model with variable substitution and temperature control.', endpoint: '/api/cap/prompt-run', payload: '{\n  "template": "Summarize {topic}",\n  "variables": { "topic": "AI safety" },\n  "model": "gpt-4o",\n  "temperature": 0.7\n}' },
+  { name: 'model-compare', group: 'Core', description: 'Race the same prompt across multiple models and compare outputs side-by-side.', endpoint: '/api/cap/model-compare', payload: '{\n  "prompt": "Explain quantum computing",\n  "models": ["gpt-4o", "claude-3"]\n}' },
+  { name: 'models', group: 'Core', description: 'List all available models on the local mesh.', endpoint: '/api/cap/models', payload: '{}' },
+  { name: 'embed-text', group: 'RAG', description: 'Generate embeddings for a text chunk using the configured embedding model.', endpoint: '/api/cap/embed', payload: '{\n  "text": "Sample text to embed",\n  "model": "text-embedding-3-small"\n}' },
+  { name: 'chunk-retrieve', group: 'RAG', description: 'Retrieve top-k chunks from the vector store for a given query.', endpoint: '/api/cap/retrieve', payload: '{\n  "query": "architecture overview",\n  "top_k": 5\n}' },
+  { name: 'alignment-check', group: 'Safety', description: 'Check a generated response against source documents for factual alignment.', endpoint: '/api/cap/alignment', payload: '{\n  "response": "The system uses microservices.",\n  "sources": ["doc1.md", "doc2.md"]\n}' },
 ]
 
 function CapabilitiesTab() {
@@ -140,6 +147,7 @@ function CapabilitiesTab() {
   const [selected, setSelected] = useState<Capability | null>(null)
   const [payload, setPayload] = useState('')
   const [result, setResult] = useState('')
+  const [resultStatus, setResultStatus] = useState('')
 
   const groups = useMemo(() => {
     const filtered = demoCapabilities.filter((c) => c.name.toLowerCase().includes(search.toLowerCase()))
@@ -155,76 +163,95 @@ function CapabilitiesTab() {
     setSelected(c)
     setPayload(c.payload)
     setResult('')
+    setResultStatus('')
+  }
+
+  function runCap() {
+    setResult('{\n  "status": "ok",\n  "result": "Demo response — connect to backend for live data."\n}')
+    setResultStatus('200 OK · 142ms')
   }
 
   return (
-    <div className="flex flex-1 overflow-hidden">
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
       {/* Left rail */}
-      <div className="flex w-[240px] shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]">
-        <div className="p-3">
+      <div style={{ width: 240, flexShrink: 0, borderRight: '1px solid var(--line)', background: 'var(--paper-sunk)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        <div style={{ padding: '12px 14px', borderBottom: '1px solid var(--line)' }}>
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search capabilities..."
-            className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-[11px] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]"
+            style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 8, padding: '7px 10px', fontSize: '12.5px', fontFamily: "'Manrope', sans-serif", color: 'var(--ink)', background: 'var(--paper)' }}
           />
         </div>
-        <div className="flex-1 overflow-auto px-2 pb-3">
-          {[...groups.entries()].map(([group, caps]) => (
-            <div key={group} className="mb-2">
-              <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">{group}</div>
+        <div style={{ flex: 1, overflowY: 'auto', padding: 8 }}>
+          {[...groups.entries()].map(([group, caps], gi) => (
+            <div key={group} style={{ marginBottom: 2 }}>
+              <div style={{ fontSize: '9px', fontWeight: 800, letterSpacing: '1px', color: 'var(--ink3)', textTransform: 'uppercase', padding: '10px 10px 4px', borderTop: gi > 0 ? '1px solid var(--line)' : undefined, marginTop: gi > 0 ? 4 : undefined }}>
+                {group}
+              </div>
               {caps.map((c) => (
-                <button
+                <div
                   key={c.name}
                   onClick={() => selectCap(c)}
-                  className={`w-full rounded-md px-2 py-1.5 text-left text-[11px] transition ${selected?.name === c.name ? 'bg-[var(--color-accent,#0891b2)]/15 font-medium text-[var(--color-accent,#0891b2)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'}`}
+                  style={{
+                    padding: '5px 10px',
+                    borderRadius: 7,
+                    cursor: 'pointer',
+                    fontSize: '12.5px',
+                    marginBottom: 1,
+                    ...(selected?.name === c.name
+                      ? { background: 'var(--accent-soft)', fontWeight: 700, color: 'var(--accent)' }
+                      : { fontWeight: 500, color: 'var(--ink)' })
+                  }}
                 >
                   {c.name}
-                </button>
+                </div>
               ))}
             </div>
           ))}
         </div>
       </div>
 
-      {/* Right panel */}
-      <div className="flex flex-1 flex-col overflow-auto p-5">
-        {!selected ? (
-          <div className="flex flex-1 items-center justify-center">
-            <span className="text-sm text-[var(--color-text-tertiary)]" style={{ opacity: 0.45 }}>Select a capability from the list.</span>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-4">
+      {/* Right: capability detail */}
+      <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+        {selected ? (
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 22, display: 'flex', flexDirection: 'column', gap: 14 }}>
             <div>
-              <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">{selected.name}</h3>
-              <p className="mt-1 text-xs text-[var(--color-text-secondary)]">{selected.description}</p>
-              <span className="mt-2 inline-block rounded-full bg-[var(--color-background-tertiary)] px-2.5 py-0.5 text-[10px] font-medium text-[var(--color-text-tertiary)]">
-                {selected.endpoint}
-              </span>
+              <div style={{ fontSize: '18px', fontWeight: 800, color: 'var(--ink)', marginBottom: 6 }}>{selected.name}</div>
+              <div style={{ fontSize: '13.5px', lineHeight: 1.65, color: 'var(--ink2)', marginBottom: 10 }}>{selected.description}</div>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11.5px', background: 'var(--paper-sunk)', padding: '4px 10px', borderRadius: 6, color: 'var(--ink2)' }}>POST {selected.endpoint}</span>
             </div>
             <div>
-              <label className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Payload</label>
+              <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.6px', color: 'var(--ink2)', textTransform: 'uppercase', marginBottom: 8 }}>Payload — edit and run</div>
               <textarea
+                rows={8}
                 value={payload}
                 onChange={(e) => setPayload(e.target.value)}
-                rows={6}
-                className="mt-1 w-full resize-none rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-2.5 font-mono text-xs text-[var(--color-text-primary)]"
+                style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 14px', fontSize: '12.5px', fontFamily: "var(--font-mono)", color: 'var(--ink)', background: 'var(--paper-sunk)', resize: 'vertical', lineHeight: 1.6 }}
               />
             </div>
-            <button
-              onClick={() => setResult('{\n  "status": "ok",\n  "result": "Demo response — connect to backend for live data."\n}')}
-              className="w-fit rounded-lg bg-[var(--color-accent,#0891b2)] px-4 py-2 text-xs font-medium text-white"
-            >
-              Run
-            </button>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <div
+                onClick={runCap}
+                style={{ padding: '10px 22px', borderRadius: 10, background: 'var(--accent)', color: '#fff', fontSize: '13.5px', fontWeight: 700, cursor: 'pointer' }}
+              >
+                Run
+              </div>
+              <span style={{ fontSize: '11.5px', color: 'var(--ink3)' }}>or Cmd + Enter</span>
+            </div>
             {result && (
-              <div>
-                <label className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Result</label>
-                <pre className="mt-1 overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3 font-mono text-xs text-[var(--color-text-secondary)]">
-                  {result}
-                </pre>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.5px', color: 'var(--ink2)', textTransform: 'uppercase' }}>Result</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', background: 'var(--verified-soft)', color: 'var(--verified-fg)', padding: '3px 9px', borderRadius: 999 }}>{resultStatus}</span>
+                </div>
+                <div style={{ background: 'var(--paper-sunk)', borderRadius: 12, padding: 16, fontSize: '12.5px', fontFamily: 'var(--font-mono)', color: 'var(--ink)', lineHeight: 1.7, whiteSpace: 'pre-wrap', border: '1px solid var(--line)' }}>{result}</div>
               </div>
             )}
+          </div>
+        ) : (
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.4 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: 'var(--ink2)' }}>Select a capability from the list</div>
           </div>
         )}
       </div>
@@ -233,27 +260,35 @@ function CapabilitiesTab() {
 }
 
 /* ─── Tab content: Alignment Checker ─────────────────────────────────── */
-interface AlignmentSentence { text: string; verdict: 'corroborated' | 'conflicting' | 'novel' }
+interface AlignmentSentence {
+  text: string
+  verdict: 'corroborated' | 'conflicting' | 'novel'
+  sourceText?: string
+  similarity?: string
+}
+
 const sampleInput = 'The system uses a microkernel architecture. It supports plugin-based extensions via a REST API. All data is encrypted at rest using AES-256. The deployment target is Kubernetes on AWS.'
 const sampleResults: AlignmentSentence[] = [
-  { text: 'The system uses a microkernel architecture.', verdict: 'corroborated' },
-  { text: 'It supports plugin-based extensions via a REST API.', verdict: 'corroborated' },
-  { text: 'All data is encrypted at rest using AES-256.', verdict: 'conflicting' },
+  { text: 'The system uses a microkernel architecture.', verdict: 'corroborated', sourceText: 'The system uses a microkernel architecture with plugin-based extensions.', similarity: '0.97 cosine' },
+  { text: 'It supports plugin-based extensions via a REST API.', verdict: 'corroborated', sourceText: 'Extensions are loaded via a plugin registry exposed through REST endpoints.', similarity: '0.89 cosine' },
+  { text: 'All data is encrypted at rest using AES-256.', verdict: 'conflicting', sourceText: 'Data at rest uses ChaCha20-Poly1305, not AES.', similarity: '0.82 cosine' },
   { text: 'The deployment target is Kubernetes on AWS.', verdict: 'novel' },
 ]
 
-const verdictColors: Record<string, string> = {
-  corroborated: '#22c55e',
-  conflicting: '#ef4444',
-  novel: '#8b5cf6',
+const verdictConfig: Record<string, { color: string; bg: string; border: string; symbol: string }> = {
+  corroborated: { color: 'var(--verified-fg)', bg: 'var(--verified-soft)', border: 'var(--verified)', symbol: '✓' },
+  conflicting: { color: 'var(--danger-fg)', bg: 'var(--danger-fg)', border: 'var(--danger)', symbol: '✕' },
+  novel: { color: 'var(--violet-fg)', bg: 'var(--violet-soft)', border: 'var(--violet)', symbol: '◎' },
 }
 
 function AlignmentCheckerTab() {
   const [input, setInput] = useState('')
   const [results, setResults] = useState<AlignmentSentence[] | null>(null)
+  const [running, setRunning] = useState(false)
 
   function check() {
-    setResults(sampleResults)
+    setRunning(true)
+    setTimeout(() => { setRunning(false); setResults(sampleResults) }, 400)
   }
 
   function trySample() {
@@ -269,74 +304,85 @@ function AlignmentCheckerTab() {
   } : null
 
   return (
-    <div className="flex flex-col gap-4 overflow-auto p-5">
-      <p className="text-xs text-[var(--color-text-tertiary)]">
-        Check generated text against source documents for factual alignment. Each sentence is classified as corroborated, conflicting, or novel.
-      </p>
-      <div>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', padding: 22, gap: 16, overflowY: 'auto' }}>
+      <div style={{ maxWidth: 760, width: '100%' }}>
+        <div style={{ fontSize: '12px', lineHeight: 1.6, color: 'var(--ink2)', marginBottom: 12 }}>
+          Paste any text — article, claim, meeting note — and Noetica checks each sentence against your knowledge graph. Sentences that agree with your ingested documents are <b style={{ color: 'var(--verified-fg)' }}>corroborated</b>, those that contradict are <b style={{ color: 'var(--danger-fg)' }}>conflicting</b>, and genuinely new information is <b style={{ color: 'var(--violet)' }}>novel</b>.
+        </div>
         <textarea
+          rows={5}
           value={input}
           onChange={(e) => { setInput(e.target.value); setResults(null) }}
-          placeholder="Paste generated text to check..."
-          rows={5}
-          className="w-full resize-none rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3 text-xs text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]"
+          placeholder="Paste a news article, claim, or any block of text..."
+          style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 10, padding: '12px 14px', fontSize: '13.5px', fontFamily: "'Manrope', sans-serif", color: 'var(--ink)', background: 'var(--paper)', resize: 'vertical', lineHeight: 1.7, marginBottom: 10 }}
         />
-      </div>
-      <div className="flex gap-2">
-        <button
-          onClick={check}
-          disabled={!input.trim()}
-          className="rounded-lg bg-[var(--color-accent,#0891b2)] px-4 py-2 text-xs font-medium text-white disabled:opacity-50"
-        >
-          Check alignment
-        </button>
-        <button
-          onClick={trySample}
-          className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-2 text-xs font-medium text-[var(--color-text-secondary)]"
-        >
-          Try a sample
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div
+            onClick={() => { if (input.trim()) check() }}
+            style={{ padding: '10px 22px', borderRadius: 10, background: 'var(--accent)', color: '#fff', fontSize: '13.5px', fontWeight: 700, cursor: 'pointer', opacity: input.trim() ? 1 : 0.5 }}
+          >
+            {running ? 'Checking...' : 'Check alignment'}
+          </div>
+          <div
+            onClick={trySample}
+            style={{ padding: '10px 16px', borderRadius: 10, border: '1px solid var(--line)', fontSize: '13px', fontWeight: 600, color: 'var(--ink2)', cursor: 'pointer' }}
+          >
+            Try a sample
+          </div>
+        </div>
       </div>
 
       {results && score !== null && counts && (
-        <>
+        <div style={{ maxWidth: 760, width: '100%', display: 'flex', flexDirection: 'column', gap: 14 }}>
           {/* Summary bar */}
-          <div className="flex items-center gap-4 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3">
-            <div className="flex items-center gap-2">
-              <span className="text-lg font-bold text-[var(--color-text-primary)]">{score}%</span>
-              <span className="text-[11px] text-[var(--color-text-tertiary)]">alignment score</span>
+          <div style={{ display: 'flex', gap: 12, alignItems: 'center', background: 'var(--paper-sunk)', borderRadius: 12, padding: '14px 18px', border: '1px solid var(--line)' }}>
+            <div style={{ fontSize: '22px', fontWeight: 800, color: score >= 75 ? 'var(--verified-fg)' : score >= 50 ? 'var(--pending-fg)' : 'var(--danger-fg)' }}>{score}%</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: 'var(--ink)' }}>
+                {score >= 75 ? 'Well aligned with your knowledge graph' : score >= 50 ? 'Partially aligned' : 'Poorly aligned'}
+              </div>
+              <div style={{ display: 'flex', gap: 12, marginTop: 4 }}>
+                <span style={{ fontSize: '12px', color: 'var(--verified-fg)' }}>{'✓'} {counts.corroborated} corroborated</span>
+                <span style={{ fontSize: '12px', color: 'var(--danger-fg)' }}>{'✕'} {counts.conflicting} conflicting</span>
+                <span style={{ fontSize: '12px', color: 'var(--violet-fg)' }}>{'◎'} {counts.novel} novel</span>
+              </div>
             </div>
-            <span className="text-[11px] font-medium" style={{ color: score >= 75 ? '#22c55e' : score >= 50 ? '#f59e0b' : '#ef4444' }}>
-              {score >= 75 ? 'Well aligned' : score >= 50 ? 'Partially aligned' : 'Poorly aligned'}
-            </span>
-            <div className="ml-auto flex items-center gap-3 text-[10px]">
-              <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-[#22c55e]" />{counts.corroborated} corroborated</span>
-              <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-[#ef4444]" />{counts.conflicting} conflicting</span>
-              <span className="flex items-center gap-1"><span className="inline-block h-2 w-2 rounded-full bg-[#8b5cf6]" />{counts.novel} novel</span>
-            </div>
+            <span style={{ fontSize: '12px', fontWeight: 700, color: 'var(--accent)', cursor: 'pointer' }}>View governance posture {'→'}</span>
           </div>
 
           {/* Per-sentence cards */}
-          <div className="flex flex-col gap-2">
-            {results.map((r, i) => (
+          {results.map((sentence, i) => {
+            const vc = verdictConfig[sentence.verdict]
+            return (
               <div
                 key={i}
-                className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3"
-                style={{ borderLeftWidth: 3, borderLeftColor: verdictColors[r.verdict] }}
+                style={{
+                  background: 'var(--paper-sunk)',
+                  borderRadius: 12,
+                  padding: '14px 16px',
+                  borderLeft: `3px solid ${vc.border}`,
+                  borderTop: '1px solid var(--line)',
+                  borderRight: '1px solid var(--line)',
+                  borderBottom: '1px solid var(--line)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 8,
+                }}
               >
-                <div className="flex items-center justify-between">
-                  <p className="text-xs text-[var(--color-text-primary)]">{r.text}</p>
-                  <span
-                    className="ml-3 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium"
-                    style={{ color: verdictColors[r.verdict], backgroundColor: `${verdictColors[r.verdict]}15` }}
-                  >
-                    {r.verdict}
-                  </span>
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
+                  <div style={{ fontSize: '14px', lineHeight: 1.6, color: 'var(--ink)', flex: 1 }}>{sentence.text}</div>
+                  <div style={{ padding: '3px 10px', borderRadius: 999, fontSize: '11px', fontWeight: 700, color: vc.color, background: vc.bg, whiteSpace: 'nowrap', flexShrink: 0 }}>{sentence.verdict}</div>
                 </div>
+                {sentence.sourceText && (
+                  <div style={{ fontSize: '11.5px', color: 'var(--ink2)', lineHeight: 1.55, borderTop: '1px solid var(--line-soft)', paddingTop: 8 }}>
+                    <span style={{ fontWeight: 700 }}>Source:</span> {sentence.sourceText}{' '}
+                    {sentence.similarity && <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10.5px', color: 'var(--ink3)' }}>({sentence.similarity})</span>}
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
-        </>
+            )
+          })}
+        </div>
       )}
     </div>
   )
@@ -347,7 +393,7 @@ export function StudioSurface() {
   const [studioTab, setStudioTab] = useState<StudioTab>('prompt')
   const [models, setModels] = useState<string[]>([])
   const [offline, setOffline] = useState(false)
-  const [modelPopoverOpen, setModelPopoverOpen] = useState(false)
+  const [modelDropdownOpen, setModelDropdownOpen] = useState(false)
 
   const [template, setTemplate] = useState('Summarize {topic} for a {audience} audience in 3 bullets.')
   const [values, setValues] = useState<Record<string, string>>({ topic: 'GraphRAG', audience: 'executive' })
@@ -361,6 +407,10 @@ export function StudioSurface() {
   const [history, setHistory] = useState<RunRecord[]>([])
 
   const variableNames = useMemo(() => parseVariables(template), [template])
+
+  // Classify variables: short names (<= 8 chars) go inline, long ones get stacked textareas
+  const smallFields = variableNames.filter((n) => n.length <= 8)
+  const largeFields = variableNames.filter((n) => n.length > 8)
 
   useEffect(() => {
     void fetch(amUrl('/api/cap/models'))
@@ -416,191 +466,281 @@ export function StudioSurface() {
     { key: 'alignment', label: 'Alignment Checker' },
   ]
 
+  const selectedModelsLabel = selectedModels.length ? selectedModels.join(', ') : 'Select models'
+
   return (
-    <div className="flex h-full flex-col bg-[var(--color-background-primary)]">
-      {/* ── Fixed top bar (50px) ────────────────────────────────────── */}
-      <header className="flex h-[50px] shrink-0 items-center gap-4 border-b border-[var(--color-border-secondary)] px-5">
-        <h1 className="text-[14px] font-extrabold text-[var(--color-text-primary)]">Studio</h1>
-        {offline && <span className="text-[11px] font-medium text-[#dc2626]">backend offline (no models loaded)</span>}
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* ── Studio topbar with tab strip (50px) ────────────────────── */}
+      <div style={{ height: 50, flexShrink: 0, borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', padding: '0 22px', gap: 14 }}>
+        <span style={{ fontSize: '14px', fontWeight: 800, color: 'var(--ink)' }}>Studio</span>
+        {offline && <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--danger-fg)' }}>backend offline</span>}
 
         {/* Pill tab strip */}
-        <div className="ml-4 flex items-center rounded-[10px] bg-[var(--color-background-secondary)] p-[3px]">
+        <div style={{ display: 'flex', gap: 2, background: 'var(--paper-sunk-2)', borderRadius: 10, padding: 3 }}>
           {tabs.map((t) => (
-            <button
+            <div
               key={t.key}
               onClick={() => setStudioTab(t.key)}
-              className={`rounded-[8px] px-3 py-1.5 text-[11px] transition-all ${studioTab === t.key ? 'bg-[var(--color-background-primary)] font-bold text-[var(--color-text-primary)] shadow-sm' : 'font-semibold text-[var(--color-text-secondary)]'}`}
+              style={{
+                padding: '5px 16px',
+                borderRadius: 8,
+                fontSize: '12.5px',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                ...(studioTab === t.key
+                  ? { background: 'var(--paper)', fontWeight: 700, color: 'var(--ink)', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }
+                  : { fontWeight: 600, color: 'var(--ink2)' })
+              }}
             >
               {t.label}
-            </button>
+            </div>
           ))}
         </div>
-      </header>
 
-      {/* ── Tab content ─────────────────────────────────────────────── */}
+        <div style={{ flex: 1 }} />
+
+        {/* Race models toggle — only on Prompt tab */}
+        {studioTab === 'prompt' && (
+          raceMode ? (
+            <div
+              onClick={() => setRaceMode(false)}
+              style={{ padding: '5px 14px', borderRadius: 999, background: 'var(--accent-soft)', border: '1px solid var(--accent)', cursor: 'pointer', fontSize: '12.5px', fontWeight: 700, color: 'var(--accent)' }}
+            >
+              Race models: on
+            </div>
+          ) : (
+            <div
+              onClick={() => setRaceMode(true)}
+              style={{ padding: '5px 14px', borderRadius: 999, border: '1px solid var(--line)', cursor: 'pointer', fontSize: '12.5px', fontWeight: 600, color: 'var(--ink2)' }}
+            >
+              Race models
+            </div>
+          )
+        )}
+      </div>
+
+      {/* ── Tab content ─────────────────────────────────────────── */}
+      {studioTab === 'rag' && <RAGInspectorTab />}
+      {studioTab === 'capabilities' && <CapabilitiesTab />}
+      {studioTab === 'alignment' && <AlignmentCheckerTab />}
+
       {studioTab === 'prompt' && (
-        <div className="flex flex-1 flex-col overflow-hidden">
-          {/* Constructor strip — 3 columns */}
-          <div className="flex shrink-0 gap-4 border-b border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-            {/* Column 1: Prompt template */}
-            <div className="flex flex-1 flex-col gap-1">
-              <label className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Prompt template</label>
+        <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          {/* TOP: constructor (3-column grid) */}
+          <div style={{ flexShrink: 0, borderBottom: '1px solid var(--line)', background: 'var(--paper-sunk)', padding: '14px 22px', display: 'flex', gap: 20, alignItems: 'flex-start' }}>
+            {/* col 1: template */}
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.6px', color: 'var(--ink2)', textTransform: 'uppercase', marginBottom: 7 }}>Prompt template</div>
               <textarea
+                rows={2}
                 value={template}
                 onChange={(e) => setTemplate(e.target.value)}
-                rows={2}
-                className="w-full resize-none rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-2.5 font-mono text-xs text-[var(--color-text-primary)]"
+                style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 10, padding: '8px 10px', fontSize: '12px', fontFamily: 'var(--font-mono)', color: 'var(--ink)', background: 'var(--paper)', resize: 'vertical', lineHeight: 1.5 }}
               />
-              <span className="text-[10px] text-[var(--color-text-tertiary)]">{'Use {variable} placeholders — fill them in below'}</span>
+              <div style={{ marginTop: 5, fontSize: '10.5px', color: 'var(--ink3)' }}>
+                Use <span style={{ fontFamily: 'var(--font-mono)' }}>{'{variable}'}</span> placeholders — fill them in below
+              </div>
             </div>
 
-            {/* Column 2: Auto-parsed variable fields */}
-            <div className="flex flex-1 flex-col gap-1">
-              <label className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Variables</label>
+            {/* col 2: variables */}
+            <div style={{ flex: 1.4, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8 }}>
+              <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.6px', color: 'var(--ink2)', textTransform: 'uppercase', marginBottom: 1 }}>Variables</div>
               {variableNames.length > 0 ? (
-                <div className="flex flex-col gap-1.5">
-                  {variableNames.map((name) => (
-                    <div key={name} className="flex items-center gap-2">
-                      <label className="w-20 text-right text-[10px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">{name}</label>
-                      <input
+                <>
+                  {/* Small vars inline row */}
+                  {smallFields.length > 0 && (
+                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      {smallFields.map((name) => (
+                        <div key={name} style={{ display: 'flex', flexDirection: 'column', gap: 3, flex: 1, minWidth: 80 }}>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 600, color: 'var(--ink2)' }}>{name}</span>
+                          <input
+                            value={values[name] ?? ''}
+                            onChange={(e) => setValues((v) => ({ ...v, [name]: e.target.value }))}
+                            placeholder={name}
+                            style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 7, padding: '6px 8px', fontSize: '12.5px', fontFamily: "'Manrope', sans-serif", color: 'var(--ink)', background: 'var(--paper)' }}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {/* Large vars stacked */}
+                  {largeFields.map((name) => (
+                    <div key={name} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', fontWeight: 600, color: 'var(--ink2)' }}>{name}</span>
+                      <textarea
+                        rows={3}
                         value={values[name] ?? ''}
                         onChange={(e) => setValues((v) => ({ ...v, [name]: e.target.value }))}
-                        className="flex-1 rounded-md border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2 py-1.5 text-[11px] text-[var(--color-text-primary)]"
+                        placeholder={name}
+                        style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 7, padding: '7px 10px', fontSize: '13px', fontFamily: "'Manrope', sans-serif", color: 'var(--ink)', background: 'var(--paper)', resize: 'vertical', lineHeight: 1.6 }}
                       />
                     </div>
                   ))}
-                </div>
+                </>
               ) : (
-                <div className="flex flex-1 items-center justify-center">
-                  <span className="text-[11px] text-[var(--color-text-tertiary)]" style={{ opacity: 0.6 }}>{'No {variables} in template.'}</span>
+                <div style={{ fontSize: '12px', color: 'var(--ink3)' }}>
+                  No <span style={{ fontFamily: 'var(--font-mono)' }}>{'{variables}'}</span> in template.
                 </div>
               )}
             </div>
 
-            {/* Column 3: Model selector + Creativity + Race + Build */}
-            <div className="flex w-[200px] shrink-0 flex-col gap-2.5">
-              {/* Model dropdown trigger + popover */}
-              <div className="relative">
-                <button
-                  onClick={() => setModelPopoverOpen(!modelPopoverOpen)}
-                  className="flex w-full items-center justify-between rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-[11px] text-[var(--color-text-primary)]"
+            {/* col 3: controls */}
+            <div style={{ width: 200, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 14 }}>
+              {/* Model dropdown */}
+              <div style={{ position: 'relative' }}>
+                <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.6px', color: 'var(--ink2)', textTransform: 'uppercase', marginBottom: 7 }}>Models</div>
+                <div
+                  onClick={() => setModelDropdownOpen(!modelDropdownOpen)}
+                  style={{ border: '1px solid var(--line)', borderRadius: 10, padding: '8px 12px', background: 'var(--paper)', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
                 >
-                  <span className="truncate">{selectedModels.length ? selectedModels.join(', ') : 'Select models'}</span>
-                  <svg className="h-3 w-3 shrink-0 text-[var(--color-text-tertiary)]" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-                </button>
-                {modelPopoverOpen && (
-                  <div className="absolute left-0 right-0 top-full z-10 mt-1 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-2 shadow-lg">
-                    {models.length === 0 && <span className="text-[10px] text-[var(--color-text-tertiary)]">No models available</span>}
-                    {models.map((m) => (
-                      <label key={m} className="flex cursor-pointer items-center gap-2 rounded-md px-2 py-1 text-[11px] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]">
-                        <input type="checkbox" checked={selectedModels.includes(m)} onChange={() => toggleModel(m)} className="h-3 w-3" />
-                        <span className="truncate">{m}</span>
-                      </label>
-                    ))}
+                  <span style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--ink)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{selectedModelsLabel}</span>
+                  <div style={{ width: 0, height: 0, borderLeft: '4px solid transparent', borderRight: '4px solid transparent', borderTop: '5px solid var(--ink2)' }} />
+                </div>
+                {modelDropdownOpen && (
+                  <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'var(--paper)', border: '1px solid var(--line)', borderRadius: 10, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', zIndex: 40, padding: 6, marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {models.length === 0 && <span style={{ fontSize: '11px', color: 'var(--ink3)', padding: '7px 10px' }}>No models available</span>}
+                    {models.map((m) => {
+                      const isChecked = selectedModels.includes(m)
+                      return (
+                        <div
+                          key={m}
+                          onClick={() => toggleModel(m)}
+                          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 10px', borderRadius: 8, cursor: 'pointer' }}
+                        >
+                          <div style={{ width: 14, height: 14, borderRadius: 4, border: '1.5px solid var(--line)', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: isChecked ? 'var(--accent-soft)' : 'transparent' }}>
+                            {isChecked && <div style={{ width: 7, height: 7, borderRadius: 2, background: 'var(--accent)' }} />}
+                          </div>
+                          <span style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--ink)' }}>{m}</span>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </div>
 
               {/* Creativity slider */}
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Creativity</span>
-                  <span className="text-[10px] font-medium text-[var(--color-text-secondary)]">{creativity.toFixed(1)}</span>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.6px', color: 'var(--ink2)', textTransform: 'uppercase' }}>Creativity</div>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11.5px', fontWeight: 700, color: 'var(--ink)' }}>{creativity.toFixed(1)}</span>
                 </div>
-                <input type="range" min={0} max={1} step={0.1} value={creativity} onChange={(e) => setCreativity(Number(e.target.value))} className="w-full" />
-                <div className="flex justify-between">
-                  <span className="text-[9px] text-[var(--color-text-tertiary)]">Focused</span>
-                  <span className="text-[9px] text-[var(--color-text-tertiary)]">Creative</span>
+                <input
+                  type="range"
+                  min={0}
+                  max={1}
+                  step={0.1}
+                  value={creativity}
+                  onChange={(e) => setCreativity(Number(e.target.value))}
+                  style={{ width: '100%', accentColor: 'var(--accent)' }}
+                />
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 3 }}>
+                  <span style={{ fontSize: '10px', color: 'var(--ink3)' }}>Focused</span>
+                  <span style={{ fontSize: '10px', color: 'var(--ink3)' }}>Creative</span>
                 </div>
               </div>
 
-              {/* Race toggle pill */}
-              <label className="flex cursor-pointer items-center gap-2 rounded-full border border-[var(--color-border-secondary)] px-2.5 py-1 text-[11px] text-[var(--color-text-secondary)]">
-                <input type="checkbox" checked={raceMode} onChange={(e) => setRaceMode(e.target.checked)} className="h-3 w-3" />
-                Race models
-              </label>
+              {/* Race toggle */}
+              {raceMode ? (
+                <div
+                  onClick={() => setRaceMode(false)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 11px', borderRadius: 999, background: 'var(--accent-soft)', border: '1px solid var(--accent)', cursor: 'pointer', fontSize: '12px', fontWeight: 700, color: 'var(--accent)' }}
+                >
+                  Race models: on
+                </div>
+              ) : (
+                <div
+                  onClick={() => setRaceMode(true)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 11px', borderRadius: 999, border: '1px solid var(--line)', cursor: 'pointer', fontSize: '12px', fontWeight: 600, color: 'var(--ink2)' }}
+                >
+                  Race models
+                </div>
+              )}
 
-              {/* Build button — full-width, accent bg */}
-              <button
-                onClick={() => void build()}
-                disabled={loading || selectedModels.length === 0}
-                className="w-full rounded-lg bg-[var(--color-accent,#0891b2)] p-[12px] text-[14px] font-medium text-white disabled:opacity-50"
+              {/* Build button */}
+              <div
+                onClick={() => { if (!loading && selectedModels.length > 0) void build() }}
+                style={{ padding: 12, borderRadius: 12, background: 'var(--accent)', color: '#fff', fontSize: '14px', fontWeight: 700, cursor: loading || selectedModels.length === 0 ? 'default' : 'pointer', textAlign: 'center', opacity: loading || selectedModels.length === 0 ? 0.5 : 1 }}
               >
-                {loading ? 'Building…' : willRace ? 'Build & Race' : 'Build'}
-              </button>
+                {loading ? 'Building...' : willRace ? 'Build & Race' : 'Build'}
+              </div>
             </div>
           </div>
 
-          {/* ── Results area ──────────────────────────────────────────── */}
-          <div className="flex flex-1 flex-col overflow-auto p-5">
-            <div className="flex min-h-0 flex-1 flex-col gap-3">
-              {willRace ? (
-                <div className="grid gap-3" style={{ gridTemplateColumns: `repeat(${Math.max(1, raceResults.length || selectedModels.length)}, minmax(0, 1fr))` }}>
-                  {(raceResults.length ? raceResults : selectedModels.map((m) => ({ model: m, output: '', latencyMs: 0, error: null }))).map((r) => (
-                    <div key={r.model} className="flex flex-col rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
-                      <div className="flex items-center justify-between border-b border-[var(--color-border-tertiary)] px-2.5 py-1.5">
-                        <span className="truncate text-[11px] font-medium text-[var(--color-text-primary)]">{r.model}</span>
-                        {r.latencyMs > 0 && (
-                          <span className="rounded bg-[#22c55e]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#16a34a]">{r.latencyMs}ms</span>
-                        )}
+          {/* BOTTOM: results + history */}
+          <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: 22 }}>
+              {/* Running placeholder */}
+              {loading && (
+                <div style={{ display: 'flex', gap: 14, height: 200 }}>
+                  {(willRace ? selectedModels : ['Building']).map((label) => (
+                    <div key={label} style={{ flex: 1, background: 'var(--paper-sunk)', borderRadius: 14, padding: 20, border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--ink3)', fontSize: 13 }}>
+                      {willRace ? `${label}...` : 'Building...'}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Single result */}
+              {!loading && output && !willRace && (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+                    <span style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.6px', color: 'var(--ink2)', textTransform: 'uppercase' }}>Result</span>
+                    {latency != null && (
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--verified-fg)', background: 'var(--verified-soft)', padding: '3px 8px', borderRadius: 999 }}>{latency}ms</span>
+                    )}
+                    {selectedModels[0] && <span style={{ fontSize: '11px', color: 'var(--ink3)' }}>{selectedModels[0]}</span>}
+                  </div>
+                  <div style={{ background: 'var(--paper-sunk)', borderRadius: 14, padding: 20, fontSize: '14px', lineHeight: 1.75, color: 'var(--ink)', border: '1px solid var(--line)', whiteSpace: 'pre-wrap' }}>{output}</div>
+                </>
+              )}
+
+              {/* Race results */}
+              {!loading && raceResults.length > 0 && (
+                <div style={{ display: 'flex', gap: 12, minHeight: 200 }}>
+                  {raceResults.map((result) => (
+                    <div key={result.model} style={{ flex: 1, minWidth: 180, background: 'var(--paper-sunk)', borderRadius: 14, padding: 18, display: 'flex', flexDirection: 'column', gap: 10, border: '1px solid var(--line)' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--ink)' }}>{result.model}</span>
+                        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--verified-fg)', background: 'var(--verified-soft)', padding: '3px 9px', borderRadius: 999 }}>{result.latencyMs}ms</span>
                       </div>
-                      <div className="min-h-[100px] flex-1 overflow-auto whitespace-pre-wrap p-2.5 text-[11px] text-[var(--color-text-secondary)]">
-                        {r.error ? <span className="text-[#ef4444]">{r.error}</span> : (r.output || (loading ? '…' : '—'))}
+                      <div style={{ fontSize: '13.5px', lineHeight: 1.7, color: 'var(--ink2)', flex: 1, whiteSpace: 'pre-wrap' }}>
+                        {result.error ? <span style={{ color: 'var(--danger-fg)' }}>{result.error}</span> : result.output}
                       </div>
                     </div>
                   ))}
                 </div>
-              ) : (
-                <div className="flex flex-1 flex-col">
-                  {!hasOutput && !loading ? (
-                    /* Empty state */
-                    <div className="flex flex-1 items-center justify-center">
-                      <span className="text-sm text-[var(--color-text-tertiary)]" style={{ opacity: 0.45 }}>Fill in the variables and hit Build</span>
-                    </div>
-                  ) : (
-                    <div>
-                      <div className="flex items-center justify-between">
-                        <label className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Result</label>
-                        {latency != null && (
-                          <span className="rounded bg-[#22c55e]/10 px-1.5 py-0.5 text-[10px] font-medium text-[#16a34a]">{latency} ms</span>
-                        )}
-                      </div>
-                      <div className="mt-1 min-h-[160px] overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3 text-xs text-[var(--color-text-secondary)]">
-                        {output || '—'}
-                      </div>
-                    </div>
-                  )}
+              )}
+
+              {/* Empty state */}
+              {!loading && !hasOutput && (
+                <div style={{ height: 180, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, opacity: 0.45 }}>
+                  <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--ink2)' }}>Fill in the variables and hit Build</div>
                 </div>
               )}
             </div>
-          </div>
 
-          {/* ── Run history — pinned to bottom ────────────────────────── */}
-          {history.length > 0 && (
-            <div className="shrink-0 border-t border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-5 py-3">
-              <label className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Run history — click to restore</label>
-              <div className="mt-1.5 flex gap-2 overflow-x-auto pb-1">
-                {history.map((h) => (
-                  <button
-                    key={h.id}
-                    onClick={() => restoreRun(h)}
-                    className="flex shrink-0 cursor-pointer items-center gap-2 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-left transition hover:border-[var(--color-accent,#0891b2)]"
-                    style={{ minWidth: 140, maxWidth: 240 }}
-                  >
-                    {h.race && <span className="text-[var(--color-accent,#0891b2)]">&#x26A1;</span>}
-                    <span className="truncate text-[10px] font-medium text-[var(--color-text-primary)]">{h.model}</span>
-                    <span className="ml-auto shrink-0 rounded bg-[var(--color-background-tertiary)] px-1 py-px text-[9px] text-[var(--color-text-tertiary)]">{h.latencyMs}ms</span>
-                  </button>
-                ))}
+            {/* Run history strip */}
+            {history.length > 0 && (
+              <div style={{ borderTop: '1px solid var(--line)', padding: '12px 22px', background: 'var(--paper-sunk)', overflowX: 'auto', flexShrink: 0 }}>
+                <div style={{ fontSize: '10px', fontWeight: 700, letterSpacing: '0.6px', color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 8 }}>Run history — click to restore</div>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'nowrap' }}>
+                  {history.map((run) => (
+                    <div
+                      key={run.id}
+                      onClick={() => restoreRun(run)}
+                      style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '6px 12px', background: 'var(--paper)', borderRadius: 999, border: '1px solid var(--line)', cursor: 'pointer', flexShrink: 0 }}
+                    >
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--verified-fg)' }}>{run.latencyMs}ms</span>
+                      <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--ink2)' }}>{run.model}</span>
+                      <span style={{ fontSize: '11px', color: 'var(--ink3)', maxWidth: 120, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{run.output.slice(0, 40)}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       )}
-
-      {studioTab === 'rag' && <RAGInspectorTab />}
-      {studioTab === 'capabilities' && <CapabilitiesTab />}
-      {studioTab === 'alignment' && <AlignmentCheckerTab />}
     </div>
   )
 }

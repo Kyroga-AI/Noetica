@@ -36,6 +36,8 @@ interface ComparisonRun {
   preference: PreferenceLabel
   teacherModel: string
   studentModel: string
+  teacherLatency: number | null
+  studentLatency: number | null
   createdAt: string
 }
 
@@ -51,9 +53,10 @@ function runModelPromise(
   prompt: string,
   providerKeys: Record<string, string | undefined>,
   thinkingBudget?: number
-): Promise<string> {
-  return new Promise<string>((resolve, reject) => {
+): Promise<{ text: string; latency: number }> {
+  return new Promise<{ text: string; latency: number }>((resolve, reject) => {
     let text = ''
+    const start = Date.now()
     const msgs: ChatMessage[] = [{ id: 'u', role: 'user', content: prompt, created_at: new Date().toISOString() }]
     sendNoeticaChat(
       { session_id: `tune:${crypto.randomUUID()}`, mode: 'standalone', model_id: modelId, messages: msgs, memory_scope: 'noetica-tune', provider_keys: providerKeys, thinking_budget: thinkingBudget },
@@ -61,7 +64,7 @@ function runModelPromise(
         onMeta: () => {},
         onDelta: (delta) => { text += delta },
         onThinkingDelta: () => {},
-        onDone: (result) => resolve(result.content || text || '(empty response)'),
+        onDone: (result) => resolve({ text: result.content || text || '(empty response)', latency: Date.now() - start }),
         onError: (err) => reject(new Error(err)),
       }
     ).catch(reject)
@@ -215,9 +218,10 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
     const id = crypto.randomUUID()
     const placeholder: ComparisonRun = {
       id, prompt: prompt.trim(),
-      teacherResponse: '…', studentResponse: '…',
+      teacherResponse: '...', studentResponse: '...',
       preference: null,
       teacherModel: teacherModelId, studentModel: studentModelId,
+      teacherLatency: null, studentLatency: null,
       createdAt: new Date().toISOString(),
     }
     setRuns((prev) => [placeholder, ...prev])
@@ -235,12 +239,12 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
     }
 
     try {
-      const [teacherText, studentText] = await Promise.all([
+      const [teacherResult, studentResult] = await Promise.all([
         runModelPromise(teacherModelId, placeholder.prompt, providerKeys, thinkingBudget),
         runModelPromise(studentModelId, placeholder.prompt, providerKeys, thinkingBudget),
       ])
       setRuns((prev) => prev.map((r) => r.id === id
-        ? { ...r, teacherResponse: teacherText, studentResponse: studentText }
+        ? { ...r, teacherResponse: teacherResult.text, studentResponse: studentResult.text, teacherLatency: teacherResult.latency, studentLatency: studentResult.latency }
         : r
       ))
     } catch (err) {
@@ -295,51 +299,54 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
     setTimeout(() => setExportStatus('idle'), 2000)
   }
 
-  const labelledCount = runs.filter((r) => r.preference !== null).length
+  const labelledCount = savedPairs.length
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      {/* Topbar — slim 50px */}
-      <div className="flex h-[50px] shrink-0 items-center gap-3 border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-6">
-        <div className="flex items-baseline gap-2">
-          <h2 className="text-[14px] font-extrabold text-[var(--color-text-primary)]">Tune & Train</h2>
-          <p className="text-[11px] text-[var(--color-text-tertiary)]">Run comparisons, mark preferences, export DPO data or distil in-app</p>
-        </div>
+    <div style={{ flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* topbar */}
+      <div style={{ height: 50, flexShrink: 0, borderBottom: '1px solid var(--line)', display: 'flex', alignItems: 'center', padding: '0 22px', gap: 12 }}>
+        <span style={{ fontSize: 14, fontWeight: 800, color: 'var(--ink)' }}>Tune &amp; Train</span>
+        <span style={{ fontSize: 12, color: 'var(--ink3)' }}>Run comparisons, mark preferences, export DPO data or distil in-app</span>
+        <div style={{ flex: 1 }} />
         {labelledCount > 0 && (
-          <span className="ml-auto rounded-full bg-[var(--accent-soft)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--accent)]">
-            {labelledCount} pair{labelledCount !== 1 ? 's' : ''} labelled
-          </span>
+          <div style={{ padding: '6px 14px', borderRadius: 999, background: 'var(--verified-soft)', border: '1px solid var(--verified-line)', fontSize: 12, fontWeight: 700, color: 'var(--verified-fg)' }}>
+            {labelledCount} labelled pair{labelledCount !== 1 ? 's' : ''}
+          </div>
         )}
       </div>
 
-      {/* Body — 2 columns */}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* LEFT COLUMN — 480px: model config, prompt, response cards */}
-        <div className="w-[480px] shrink-0 overflow-y-auto border-r border-[var(--color-border-tertiary)] px-5 py-4">
-          {/* Model pair config — sunken row */}
-          <div className="flex items-center gap-3 rounded-[14px] bg-[var(--color-background-secondary)] px-4 py-3">
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[9.5px] font-bold uppercase tracking-wider text-[var(--color-text-tertiary)]">Teacher</span>
+      {/* body: left prompt area + right training panel */}
+      <div style={{ flex: 1, minHeight: 0, display: 'flex', overflow: 'hidden' }}>
+
+        {/* LEFT: teacher/student + prompt + responses */}
+        <div style={{ width: 480, flexShrink: 0, borderRight: '1px solid var(--line)', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+          {/* model config */}
+          <div style={{ flexShrink: 0, borderBottom: '1px solid var(--line)', background: 'var(--paper-sunk)', padding: '12px 16px', display: 'flex', gap: 12, alignItems: 'flex-end' }}>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.6, color: 'var(--ink2)', textTransform: 'uppercase' as const, marginBottom: 5 }}>Teacher</div>
               <select
                 value={teacherModelId}
                 onChange={(e) => setTeacherModelId(e.target.value)}
-                className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none"
+                style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 8, padding: '7px 10px', fontSize: 12.5, fontFamily: "'Manrope',sans-serif", color: 'var(--ink)', background: 'var(--paper)' }}
               >
                 {models.map((m) => <option key={m.id} value={m.id}>{m.label}{m.local_capable ? ' (open)' : ''}</option>)}
               </select>
             </div>
-            <span className="mt-4 text-sm text-[var(--color-text-tertiary)]">&rarr;</span>
-            <div className="flex flex-col gap-1.5">
-              <span className="text-[9.5px] font-bold uppercase tracking-wider text-[var(--color-text-tertiary)]">Student</span>
+            <div style={{ padding: '7px 10px', fontSize: 13, color: 'var(--ink3)' }}>&rarr;</div>
+            <div style={{ flex: 1 }}>
+              <div style={{ fontSize: 9.5, fontWeight: 700, letterSpacing: 0.6, color: 'var(--ink2)', textTransform: 'uppercase' as const, marginBottom: 5 }}>
+                Student <span style={{ fontWeight: 400, color: 'var(--ink3)' }}>(open-weight only)</span>
+              </div>
               {whiteboxModels.length === 0 ? (
-                <div className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-2.5 py-1.5 text-xs text-[#dc2626]">
+                <div style={{ width: '100%', border: '1px solid var(--danger)', borderRadius: 8, padding: '7px 10px', fontSize: 12.5, color: 'var(--danger-fg)', background: 'var(--paper)' }}>
                   No open-weight models available
                 </div>
               ) : (
                 <select
                   value={studentModelId}
                   onChange={(e) => setStudentModelId(e.target.value)}
-                  className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none"
+                  style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 8, padding: '7px 10px', fontSize: 12.5, fontFamily: "'Manrope',sans-serif", color: 'var(--ink)', background: 'var(--paper)' }}
                 >
                   {whiteboxModels.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
                 </select>
@@ -348,114 +355,118 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
           </div>
 
           {whiteboxModels.length === 0 && (
-            <p className="mt-2 text-[11px] text-[#dc2626]">
-              DPO fine-tuning requires an open-weight student model (Llama, Gemma, GPT-2…). Add one via Agent Machine or Neuronpedia to enable distillation.
+            <p style={{ padding: '8px 16px', fontSize: 11, color: 'var(--danger-fg)' }}>
+              DPO fine-tuning requires an open-weight student model (Llama, Gemma, GPT-2...). Add one via Agent Machine or Neuronpedia to enable distillation.
             </p>
           )}
 
-          {/* Prompt — textarea stacked above run button */}
-          <div className="mt-4 flex flex-col gap-2">
+          {/* prompt input */}
+          <div style={{ flexShrink: 0, padding: '14px 16px', borderBottom: '1px solid var(--line)' }}>
             <textarea
               rows={3}
-              className="w-full resize-none rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
-              placeholder="Enter a prompt to run on both models…"
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void handleRun() }}
+              placeholder="Enter a prompt to run against both models simultaneously..."
+              style={{ width: '100%', border: '1px solid var(--line)', borderRadius: 10, padding: '10px 12px', fontSize: 13.5, fontFamily: "'Manrope',sans-serif", color: 'var(--ink)', background: 'var(--paper)', resize: 'vertical', lineHeight: 1.6, marginBottom: 10 }}
             />
-            <button
-              onClick={() => void handleRun()}
-              disabled={!prompt.trim() || runStatus === 'running' || whiteboxModels.length === 0}
-              className="w-full rounded-full bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
-            >
-              {runStatus === 'running' ? 'Running…' : 'Run'}
-            </button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button
+                onClick={() => void handleRun()}
+                disabled={!prompt.trim() || runStatus === 'running' || whiteboxModels.length === 0}
+                style={{ flex: 1, padding: '9px 0', borderRadius: 10, background: 'var(--accent)', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', textAlign: 'center' as const, border: 'none', opacity: (!prompt.trim() || runStatus === 'running' || whiteboxModels.length === 0) ? 0.5 : 1 }}
+              >
+                {runStatus === 'running' ? 'Running...' : 'Run'}
+              </button>
+            </div>
           </div>
 
-          {/* Response cards or empty/running states */}
-          <div className="mt-5 space-y-4">
-            {runStatus === 'idle' && !activeRun && (
-              <div className="flex items-center justify-center py-12 text-sm text-[var(--color-text-tertiary)]">
-                Enter a prompt above and run
-              </div>
-            )}
+          {/* responses */}
+          <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-            {runStatus === 'running' && activeRun?.teacherResponse === '…' && (
-              <div className="flex items-center justify-center gap-2 py-10 text-sm text-[var(--color-text-tertiary)]">
-                <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-[var(--accent)]" />
-                Running teacher & student in parallel…
-              </div>
-            )}
-
-            {activeRun && !(runStatus === 'running' && activeRun.teacherResponse === '…') && (
+            {activeRun && !(runStatus === 'running' && activeRun.teacherResponse === '...') && (
               <>
-                {/* Teacher response card — green themed */}
-                <div className="rounded-2xl border border-[#86efac] bg-[#dcfce7] p-4">
-                  <span className="text-[9.5px] font-bold uppercase tracking-wider text-[#16a34a]">
-                    Teacher — {models.find((m) => m.id === activeRun.teacherModel)?.label ?? activeRun.teacherModel}
-                  </span>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[var(--color-text-primary)]">{activeRun.teacherResponse}</p>
-                  <div className="mt-3 border-t border-[#86efac] pt-3">
+                {/* teacher response */}
+                <div style={{ borderRadius: 12, border: '1.5px solid var(--verified-line)', background: 'var(--verified-soft)', padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--verified-fg)', textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>
+                      Teacher &mdash; {models.find((m) => m.id === activeRun.teacherModel)?.label ?? activeRun.teacherModel}
+                    </div>
+                    {activeRun.teacherLatency !== null && (
+                      <span className="font-mono" style={{ fontSize: 10, color: 'var(--ink3)' }}>{activeRun.teacherLatency}ms</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 13, lineHeight: 1.65, color: 'var(--ink)', whiteSpace: 'pre-wrap' }}>{activeRun.teacherResponse}</div>
+                  <div style={{ display: 'flex', gap: 6, paddingTop: 6, borderTop: '1px solid var(--verified-line)' }}>
                     <button
                       onClick={() => markPreference(activeRun.id, activeRun.preference === 'preferred' ? null : 'preferred')}
-                      className={`rounded-full px-3 py-1 text-[11px] font-semibold transition ${
-                        activeRun.preference === 'preferred'
-                          ? 'bg-[#22c55e] text-white'
-                          : 'border border-[#86efac] text-[#16a34a] hover:bg-[#bbf7d0]'
-                      }`}
+                      style={activeRun.preference === 'preferred'
+                        ? { padding: '5px 12px', borderRadius: 999, background: 'var(--verified)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none' }
+                        : { padding: '5px 12px', borderRadius: 999, border: '1px solid var(--verified-line)', color: 'var(--verified-fg)', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: 'transparent' }
+                      }
                     >
-                      {activeRun.preference === 'preferred' ? 'Preferred' : 'Prefer'}
+                      {activeRun.preference === 'preferred' ? '✓ Preferred' : 'Prefer'}
                     </button>
                   </div>
                 </div>
 
-                {/* Student response card — violet themed */}
-                <div className="rounded-2xl border border-[#c4b5fd] bg-[#ede9fe] p-4">
-                  <span className="text-[9.5px] font-bold uppercase tracking-wider text-[#7c3aed]">
-                    Student — {models.find((m) => m.id === activeRun.studentModel)?.label ?? activeRun.studentModel}
-                  </span>
-                  <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-[var(--color-text-primary)]">{activeRun.studentResponse}</p>
-                  <div className="mt-3 flex items-center gap-2 border-t border-[#c4b5fd] pt-3">
+                {/* student response */}
+                <div style={{ borderRadius: 12, border: '1.5px solid var(--violet-line)', background: 'var(--violet-soft)', padding: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ fontSize: 10.5, fontWeight: 700, color: 'var(--violet-fg)', textTransform: 'uppercase' as const, letterSpacing: 0.5 }}>
+                      Student &mdash; {models.find((m) => m.id === activeRun.studentModel)?.label ?? activeRun.studentModel}
+                    </div>
+                    {activeRun.studentLatency !== null && (
+                      <span className="font-mono" style={{ fontSize: 10, color: 'var(--ink3)' }}>{activeRun.studentLatency}ms</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 13, lineHeight: 1.65, color: 'var(--ink)', whiteSpace: 'pre-wrap' }}>{activeRun.studentResponse}</div>
+                  <div style={{ display: 'flex', gap: 6, paddingTop: 6, borderTop: '1px solid var(--violet-line)' }}>
                     <button
                       onClick={() => markPreference(activeRun.id, activeRun.preference === 'rejected' ? null : 'rejected')}
-                      className={`rounded-full px-3 py-1 text-[11px] font-semibold transition ${
-                        activeRun.preference === 'rejected'
-                          ? 'bg-[#7c3aed] text-white'
-                          : 'border border-[#c4b5fd] text-[#7c3aed] hover:bg-[#ddd6fe]'
-                      }`}
+                      style={activeRun.preference === 'rejected'
+                        ? { padding: '5px 12px', borderRadius: 999, background: 'var(--violet)', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none' }
+                        : { padding: '5px 12px', borderRadius: 999, border: '1px solid var(--violet-line)', color: 'var(--violet-fg)', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: 'transparent' }
+                      }
                     >
-                      {activeRun.preference === 'rejected' ? 'Student preferred' : 'Prefer student'}
+                      {activeRun.preference === 'rejected' ? '✓ Student preferred' : 'Prefer student'}
                     </button>
-                    {activeRun.preference !== null && !savedPairs.some((p) => p.runId === activeRun.id) && (
-                      <button
-                        onClick={() => savePair(activeRun)}
-                        className="rounded-full border border-[var(--color-border-secondary)] px-3 py-1 text-[11px] font-semibold text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]"
-                      >
-                        Save pair
-                      </button>
-                    )}
-                    {savedPairs.some((p) => p.runId === activeRun.id) && (
-                      <span className="text-[11px] text-[#16a34a]">Saved</span>
-                    )}
+                    <button
+                      onClick={() => savePair(activeRun)}
+                      style={{ padding: '5px 12px', borderRadius: 999, border: '1px solid var(--line)', color: 'var(--ink2)', fontSize: 12, fontWeight: 600, cursor: 'pointer', background: 'transparent' }}
+                    >
+                      {savedPairs.some((p) => p.runId === activeRun.id) ? 'Saved' : 'Save pair'}
+                    </button>
                   </div>
                 </div>
               </>
             )}
+
+            {runStatus === 'running' && activeRun?.teacherResponse === '...' && (
+              <div style={{ display: 'flex', gap: 10, opacity: 0.6, fontSize: 12.5, color: 'var(--ink2)' }}>Running teacher &amp; student in parallel...</div>
+            )}
+
+            {runStatus === 'idle' && !activeRun && (
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0.35 }}>
+                <div style={{ fontSize: 13, color: 'var(--ink2)' }}>Enter a prompt above and run</div>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* RIGHT COLUMN — flex:1: ledger, DPO export, KD training, voice */}
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-5 py-4">
-          {/* Labelled pairs ledger — only show when pairs exist */}
+        {/* RIGHT: pairs ledger + export + KD training + voice */}
+        <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: 20, display: 'flex', flexDirection: 'column', gap: 18 }}>
+
+          {/* labelled pairs ledger */}
           {savedPairs.length > 0 && (
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Labelled pairs</div>
-              <div className="mt-2 max-h-[200px] space-y-1 overflow-y-auto">
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.6, color: 'var(--ink2)', textTransform: 'uppercase' as const, marginBottom: 8 }}>Labelled pairs</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
                 {savedPairs.map((p) => (
-                  <div key={p.runId} className="flex items-center gap-2 rounded-lg bg-[var(--color-background-secondary)] px-3 py-2">
-                    <span className="h-2 w-2 shrink-0 rounded-full bg-[#22c55e]" />
-                    <span className="flex-1 truncate text-xs text-[var(--color-text-primary)]">{p.prompt.slice(0, 60)}</span>
-                    <span className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">
+                  <div key={p.runId} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 12px', background: 'var(--paper-sunk)', borderRadius: 9, border: '1px solid var(--line)' }}>
+                    <div style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--verified)', flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, color: 'var(--ink)', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.prompt}</span>
+                    <span style={{ fontSize: 10.5, color: 'var(--ink3)' }}>
                       {models.find((m) => m.id === p.chosenModel)?.label ?? p.chosenModel}
                     </span>
                   </div>
@@ -464,151 +475,152 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
             </div>
           )}
 
-          {/* DPO Export card */}
-          <div className="rounded-[14px] bg-[var(--color-background-secondary)] p-4">
-            <div className="text-[13px] font-extrabold text-[var(--color-text-primary)]">Export DPO data</div>
-            <p className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">
-              Export labelled preference pairs as JSONL for DPO fine-tuning. Each line contains the prompt, chosen and rejected responses, and model metadata.
-            </p>
-            {labelledCount === 0 ? (
-              <p className="mt-3 rounded-xl border border-dashed border-[var(--color-border-secondary)] px-3 py-4 text-center text-[11px] text-[var(--color-text-tertiary)]">
-                No labelled pairs yet — mark some preferences first.
-              </p>
+          {/* DPO Export */}
+          <div style={{ background: 'var(--paper-sunk)', borderRadius: 14, padding: 16, border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink)' }}>Export DPO data</div>
+            <div style={{ fontSize: 12, color: 'var(--ink2)', lineHeight: 1.6 }}>
+              Bundles labelled pairs into a <span className="font-mono" style={{ fontSize: 11 }}>.jsonl</span> file — one line per pair with prompt, chosen, rejected, teacher and student model IDs. Client-side only, nothing leaves this device.
+            </div>
+            {labelledCount > 0 ? (
+              <button
+                onClick={exportDPO}
+                style={{ padding: '9px 18px', borderRadius: 10, background: 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', alignSelf: 'flex-start', border: 'none' }}
+              >
+                {exportStatus === 'done' ? 'Saved!' : `Export ${labelledCount} pairs as JSONL`}
+              </button>
             ) : (
-              <div className="mt-3 space-y-2">
-                <button
-                  onClick={exportDPO}
-                  className="flex w-full items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2 text-xs font-semibold text-white transition hover:brightness-110"
-                >
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-                    <path d="M6 1v7M3 6l3 3 3-3M1 10h10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-                  </svg>
-                  {exportStatus === 'done' ? 'Saved!' : `Export ${labelledCount} pairs as JSONL`}
-                </button>
-                <button
-                  onClick={() => void handleSendToDistill()}
-                  disabled={distillSendStatus === 'sending'}
-                  className="flex w-full items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2 text-xs font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
-                >
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-                    <path d="M6 1v7M3 6l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-                    <circle cx="6" cy="10" r="1.5" fill="currentColor"/>
-                  </svg>
-                  {distillSendStatus === 'sending' ? 'Sending…' : distillSendStatus === 'sent' ? 'Sent to KD Server' : distillSendStatus === 'error' ? 'Send failed' : `Send to KD`}
-                </button>
+              <div style={{ padding: '9px 18px', borderRadius: 10, background: 'var(--paper-sunk-2)', color: 'var(--ink3)', fontSize: 13, fontWeight: 600, alignSelf: 'flex-start' }}>
+                No labelled pairs yet — mark some preferences first
               </div>
             )}
           </div>
 
-          {/* KD Training card */}
-          <div className="rounded-[14px] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4">
-            <div className="text-[13px] font-extrabold text-[var(--color-text-primary)]">Train in-app — Knowledge Distillation</div>
+          {/* KD Training */}
+          <div style={{ background: 'var(--paper-sunk)', borderRadius: 14, padding: 16, border: '1px solid var(--line)', display: 'flex', flexDirection: 'column', gap: 12 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: 'var(--ink)' }}>Train in-app — Knowledge Distillation</div>
 
-            <div className="mt-3 flex flex-col gap-3">
-              {/* Teacher type — radio cards */}
-              <div className="flex gap-2">
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, color: 'var(--ink2)', textTransform: 'uppercase' as const, marginBottom: 8 }}>Teacher type</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                {/* Blackbox radio card */}
                 <button
                   onClick={() => setDistillTeacherType('blackbox')}
-                  className={`flex-1 rounded-xl border-2 px-3 py-2.5 text-left text-xs transition ${
-                    distillTeacherType === 'blackbox'
-                      ? 'border-[var(--accent)] bg-[var(--accent-soft)]'
-                      : 'border-[var(--color-border-secondary)] hover:border-[var(--color-border-primary)]'
-                  }`}
+                  style={distillTeacherType === 'blackbox'
+                    ? { border: '1.5px solid var(--accent)', background: 'var(--accent-soft)', borderRadius: 10, padding: '10px 12px', cursor: 'pointer', textAlign: 'left' as const }
+                    : { border: '1px solid var(--line)', borderRadius: 10, padding: '10px 12px', cursor: 'pointer', textAlign: 'left' as const, background: 'transparent' }
+                  }
                 >
-                  <div className="font-semibold text-[var(--color-text-primary)]">Blackbox &rarr; Whitebox</div>
-                  <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Behavioral cloning</div>
+                  <div style={{ fontSize: 12.5, fontWeight: distillTeacherType === 'blackbox' ? 700 : 600, color: distillTeacherType === 'blackbox' ? 'var(--accent)' : 'var(--ink)' }}>
+                    Blackbox &rarr; Whitebox
+                  </div>
+                  <div style={{ fontSize: 11.5, color: 'var(--ink2)', marginTop: 2 }}>
+                    Behavioural cloning from text outputs — works with any teacher including closed-source models.
+                  </div>
                 </button>
+                {/* Whitebox radio card */}
                 <button
                   onClick={() => setDistillTeacherType('whitebox')}
-                  className={`flex-1 rounded-xl border-2 px-3 py-2.5 text-left text-xs transition ${
-                    distillTeacherType === 'whitebox'
-                      ? 'border-[var(--accent)] bg-[var(--accent-soft)]'
-                      : 'border-[var(--color-border-secondary)] hover:border-[var(--color-border-primary)]'
-                  }`}
+                  style={distillTeacherType === 'whitebox'
+                    ? { border: '1.5px solid var(--accent)', background: 'var(--accent-soft)', borderRadius: 10, padding: '10px 12px', cursor: 'pointer', textAlign: 'left' as const }
+                    : { border: '1px solid var(--line)', borderRadius: 10, padding: '10px 12px', cursor: 'pointer', textAlign: 'left' as const, background: 'transparent' }
+                  }
                 >
-                  <div className="font-semibold text-[var(--color-text-primary)]">Whitebox &rarr; Whitebox</div>
-                  <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">KD loss + logits</div>
+                  <div style={{ fontSize: 12.5, fontWeight: distillTeacherType === 'whitebox' ? 700 : 600, color: distillTeacherType === 'whitebox' ? 'var(--accent)' : 'var(--ink)' }}>
+                    Whitebox &rarr; Whitebox
+                  </div>
+                  <div style={{ fontSize: 11.5, color: 'var(--ink2)', marginTop: 2 }}>
+                    Real KD loss using teacher token-probability distributions — requires caching teacher logits first.
+                  </div>
                 </button>
               </div>
-
-              {/* LoRA rank — range slider */}
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-[var(--color-text-tertiary)]">LoRA rank</span>
-                  <span className="font-mono text-[11px] text-[var(--color-text-primary)]">{distillLoraR}</span>
-                </div>
-                <input
-                  type="range" min={1} max={64} value={distillLoraR}
-                  onChange={(e) => setDistillLoraR(parseInt(e.target.value) || 8)}
-                  className="w-full accent-[var(--accent)]"
-                />
-              </div>
-
-              {/* Max steps — range slider */}
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] text-[var(--color-text-tertiary)]">Max steps</span>
-                  <span className="font-mono text-[11px] text-[var(--color-text-primary)]">{distillMaxSteps}</span>
-                </div>
-                <input
-                  type="range" min={10} max={10000} step={10} value={distillMaxSteps}
-                  onChange={(e) => setDistillMaxSteps(parseInt(e.target.value) || 100)}
-                  className="w-full accent-[var(--accent)]"
-                />
-              </div>
-
-              {/* Cache teacher logits — only for whitebox */}
-              {distillTeacherType === 'whitebox' && (
-                <div>
-                  <button
-                    onClick={() => void handleCacheTeacherLogits()}
-                    disabled={cacheStatus === 'loading-model' || cacheStatus === 'caching' || labelledCount === 0}
-                    title="Run teacher model to extract logits for whitebox KD"
-                    className="flex w-full items-center justify-center gap-2 rounded-full bg-[#0f766e] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#0d9488] disabled:opacity-50"
-                  >
-                    {cacheStatus === 'loading-model' ? 'Loading model…' : cacheStatus === 'caching' ? 'Caching…' : cacheStatus === 'error' ? 'Failed' : cacheStatus === 'done' ? `Logits cached (${cacheStats?.withLogits ?? 0}/${cacheStats?.total ?? 0})` : 'Cache teacher logits'}
-                  </button>
-                  {cacheStatus === 'error' && cacheError && (
-                    <p className="mt-1 text-[10px] text-[#ef4444]">{cacheError}</p>
-                  )}
-                </div>
-              )}
-
-              <button
-                onClick={() => void handleStartTraining()}
-                disabled={distillTrainStatus === 'polling' || distillTrainStatus === 'starting' || whiteboxModels.length === 0}
-                className="w-full rounded-full bg-[var(--accent)] px-4 py-2 text-xs font-semibold text-white transition hover:brightness-110 disabled:opacity-50"
-              >
-                {distillTrainStatus === 'starting' ? 'Starting…' : distillTrainStatus === 'polling' ? 'Training…' : distillTrainStatus === 'done' ? 'Done' : 'Start KD Training'}
-              </button>
             </div>
 
-            {distillJob && (
-              <div className="mt-3 space-y-1.5">
-                <div className="flex items-center gap-2">
-                  <span className={`h-2 w-2 rounded-full ${distillJob.status === 'running' ? 'animate-pulse bg-[var(--accent)]' : distillJob.status === 'done' ? 'bg-[#22c55e]' : distillJob.status === 'error' ? 'bg-[#ef4444]' : 'bg-[#d1d5db]'}`} />
-                  <span className="text-xs font-medium text-[var(--color-text-primary)]">
-                    {distillJob.status === 'running' || distillJob.status === 'queued'
-                      ? `Step ${distillJob.step}/${distillJob.total_steps}${distillJob.loss !== null ? ` — loss ${distillJob.loss.toFixed(4)}` : ''}`
-                      : distillJob.status === 'done'
-                      ? `Training complete — ${distillJob.total_steps} steps`
-                      : distillJob.status === 'error'
-                      ? `Error: ${distillJob.error}`
-                      : distillJob.status}
+            {/* Cache logits button (whitebox only) */}
+            {distillTeacherType === 'whitebox' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', background: 'var(--paper-sunk-2)', borderRadius: 10, border: '1px solid var(--line)' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>Cache teacher logits</div>
+                  <div style={{ fontSize: 11.5, color: 'var(--ink2)' }}>
+                    {cacheStatus === 'loading-model' ? 'Loading model...' : cacheStatus === 'caching' ? 'Caching...' : cacheStatus === 'done' ? `${cacheStats?.withLogits ?? 0}/${cacheStats?.total ?? 0} pairs cached` : cacheStatus === 'error' ? (cacheError ?? 'Failed') : 'Not cached yet'}
+                  </div>
+                </div>
+                <button
+                  onClick={() => void handleCacheTeacherLogits()}
+                  disabled={cacheStatus === 'loading-model' || cacheStatus === 'caching' || labelledCount === 0}
+                  style={{ padding: '6px 14px', borderRadius: 8, border: '1px solid var(--line)', fontSize: 12, fontWeight: 600, color: 'var(--ink2)', cursor: 'pointer', background: 'transparent', opacity: (cacheStatus === 'loading-model' || cacheStatus === 'caching' || labelledCount === 0) ? 0.5 : 1 }}
+                >
+                  {cacheStatus === 'loading-model' ? 'Loading...' : cacheStatus === 'caching' ? 'Caching...' : 'Cache'}
+                </button>
+              </div>
+            )}
+            {cacheStatus === 'error' && cacheError && (
+              <p style={{ fontSize: 10, color: 'var(--danger-fg)' }}>{cacheError}</p>
+            )}
+
+            {/* LoRA rank + Max steps — side by side */}
+            <div style={{ display: 'flex', gap: 16 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, color: 'var(--ink2)', textTransform: 'uppercase' as const }}>LoRA rank</span>
+                  <span className="font-mono" style={{ fontSize: 12, color: 'var(--ink)' }}>{distillLoraR}</span>
+                </div>
+                <input
+                  type="range" min={1} max={64} step={1} value={distillLoraR}
+                  onChange={(e) => setDistillLoraR(parseInt(e.target.value) || 8)}
+                  style={{ width: '100%', accentColor: 'var(--accent)' }}
+                />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 5 }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, color: 'var(--ink2)', textTransform: 'uppercase' as const }}>Max steps</span>
+                  <span className="font-mono" style={{ fontSize: 12, color: 'var(--ink)' }}>{distillMaxSteps}</span>
+                </div>
+                <input
+                  type="range" min={1} max={500} step={1} value={distillMaxSteps}
+                  onChange={(e) => setDistillMaxSteps(parseInt(e.target.value) || 100)}
+                  style={{ width: '100%', accentColor: 'var(--accent)' }}
+                />
+              </div>
+            </div>
+
+            {/* training job status */}
+            {distillJob && (distillJob.status === 'running' || distillJob.status === 'queued') && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--ink)' }}>Training...</span>
+                  <span className="font-mono" style={{ fontSize: 11, color: 'var(--ink2)' }}>
+                    {distillJob.step}/{distillMaxSteps}{distillJob.loss !== null ? ` · loss ${distillJob.loss.toFixed(4)}` : ''}
                   </span>
                 </div>
-                {distillJob.total_steps > 0 && (
-                  <div className="h-1 w-full rounded-full bg-[var(--color-background-secondary)]">
-                    <div
-                      className="h-1 rounded-full bg-[var(--accent)] transition-all"
-                      style={{ width: `${Math.min(100, (distillJob.step / distillJob.total_steps) * 100)}%` }}
-                    />
-                  </div>
-                )}
+                <div style={{ height: 6, borderRadius: 999, background: 'var(--paper-sunk-2)', overflow: 'hidden' }}>
+                  <div style={{ height: '100%', width: `${Math.min(100, (distillJob.step / distillJob.total_steps) * 100)}%`, background: 'var(--accent)', borderRadius: 999, transition: 'width 0.3s' }} />
+                </div>
+              </div>
+            )}
+
+            {distillJob && distillJob.status === 'done' && (
+              <div style={{ background: 'var(--verified-soft)', border: '1px solid var(--verified-line)', borderRadius: 10, padding: '10px 14px' }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--verified-fg)' }}>Training complete — {distillJob.total_steps} steps</div>
                 {distillJob.adapter_path && (
-                  <p className="text-[10px] text-[var(--color-text-tertiary)]">Adapter saved: {distillJob.adapter_path}</p>
+                  <div className="font-mono" style={{ fontSize: 11, color: 'var(--ink2)', marginTop: 3 }}>Adapter saved: {distillJob.adapter_path}</div>
                 )}
               </div>
+            )}
+
+            {distillJob && distillJob.status === 'error' && (
+              <div style={{ background: 'var(--paper-sunk-2)', border: '1px solid var(--line)', borderRadius: 10, padding: '10px 14px' }}>
+                <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--danger-fg)' }}>Error: {distillJob.error ?? 'Training failed'}</div>
+              </div>
+            )}
+
+            {(!distillJob || distillJob.status === 'done' || distillJob.status === 'error' || distillJob.status === 'cancelled') && distillTrainStatus !== 'polling' && distillTrainStatus !== 'starting' && (
+              <button
+                onClick={() => void handleStartTraining()}
+                disabled={whiteboxModels.length === 0}
+                style={{ padding: '10px 18px', borderRadius: 10, background: 'var(--accent)', color: '#fff', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', textAlign: 'center' as const, border: 'none', opacity: whiteboxModels.length === 0 ? 0.5 : 1 }}
+              >
+                Start KD Training
+              </button>
             )}
           </div>
 

@@ -282,14 +282,14 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {/* Objective bar — full width, persistent */}
-      <div className="shrink-0 border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] px-5 py-3">
-        <div className="flex items-center gap-3">
+      <div className="shrink-0 border-b border-[var(--color-border-tertiary)]" style={{ padding: '14px 20px 12px' }}>
+        <div className="flex items-center gap-[10px]">
           {/* Sunken objective container: label + input */}
           <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[10px] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2">
             <div className="shrink-0 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Objective</div>
             <input
               className="min-w-0 flex-1 bg-transparent text-sm text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
-              placeholder="Describe the goal for this collaborate session..."
+              placeholder="e.g. Launch a landing page for our new pricing model"
               value={objective}
               onChange={(e) => setObjectiveState(e.target.value)}
               onBlur={(e) => commitObjective(e.target.value)}
@@ -315,13 +315,18 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
             onClick={() => void runChain()}
             disabled={chainable.length === 0}
             title={chainable.length === 0 ? 'No assigned, incomplete tasks to chain' : 'Run all assigned tasks in chain order'}
-            className="shrink-0 rounded-[10px] border border-[var(--color-border-tertiary)] bg-[var(--accent)] px-2.5 py-2 text-xs font-bold text-white transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+            className="shrink-0 rounded-[10px] px-3.5 py-2 text-[12.5px] font-bold transition disabled:cursor-not-allowed disabled:opacity-40"
+            style={{
+              background: chainable.length > 0 ? 'var(--accent)' : 'var(--color-background-secondary)',
+              color: chainable.length > 0 ? '#fff' : 'var(--color-text-secondary)',
+              border: chainable.length > 0 ? '1px solid var(--accent)' : '1px solid var(--color-border-tertiary)',
+            }}
           >
             Run chain
           </button>
           <button
             onClick={() => setConfirmNewSession(true)}
-            className="shrink-0 rounded-[10px] border border-[var(--color-border-tertiary)] px-2 py-2 text-xs text-[var(--color-text-secondary)] transition hover:text-[#ef4444]"
+            className="shrink-0 rounded-[10px] border border-[var(--color-border-tertiary)] px-3 py-2 text-[12.5px] font-semibold text-[var(--color-text-secondary)]"
           >
             New session
           </button>
@@ -330,45 +335,45 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
 
       {/* Confirm banner — full-width strip outside objective bar */}
       {confirmNewSession && (
-        <div className="flex shrink-0 items-center justify-between border-b border-[#FCD34D] bg-[#FEF3C7] px-5 py-2">
-          <span className="text-xs text-[#92400e]">Clear this session? All tasks and results will be lost.</span>
-          <div className="flex shrink-0 gap-2">
-            <button onClick={newSession} className="px-2.5 py-1 text-xs font-bold text-[#dc2626] hover:underline">Clear</button>
-            <button onClick={() => setConfirmNewSession(false)} className="rounded-lg px-2.5 py-1 text-xs font-semibold text-[#92400e] hover:bg-[#fef3c7]">Cancel</button>
-          </div>
+        <div className="flex shrink-0 items-center gap-3 border-b border-[#FCD34D] bg-[#FEF3C7] px-5 py-2.5">
+          <span className="flex-1 text-[13px] text-[#92400E]">Clear this session? All tasks and results will be lost.</span>
+          <span onClick={newSession} className="cursor-pointer text-[13px] font-bold text-[#DC2626]">Clear</span>
+          <span onClick={() => setConfirmNewSession(false)} className="cursor-pointer text-[13px] font-semibold text-[var(--color-text-secondary)]">Cancel</span>
         </div>
       )}
 
       {/* Board + decision log */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Task board */}
-        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-5">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto" style={{ padding: '18px 20px' }}>
           {/* Always-visible add-task row */}
-          <div className="mb-3 flex items-center gap-2">
+          <div className="flex items-center gap-2">
             <input
-              className="min-w-0 flex-1 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)] placeholder:text-[var(--color-text-tertiary)]"
-              placeholder="Task title..."
+              className="min-w-0 flex-1 rounded-[9px] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-[13px] text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
+              placeholder="Add a task…"
               value={newTaskText}
               onChange={(e) => setNewTaskText(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') addTask() }}
             />
-            <button onClick={addTask} className="shrink-0 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-white">Add</button>
+            <button onClick={addTask} className="shrink-0 rounded-[9px] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-[13px] font-semibold text-[var(--color-text-secondary)]">Add</button>
           </div>
 
           {tasks.length === 0 ? (
-            <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-sm text-[var(--color-text-tertiary)]">
-              <p>No tasks yet. Set an objective above and click <strong className="text-[var(--color-text-secondary)]">AI decompose</strong>, or add tasks manually.</p>
+            <div className="flex flex-1 flex-col items-center justify-center text-center text-[13px] leading-[1.7] text-[var(--color-text-tertiary)]" style={{ padding: '48px 20px' }}>
+              <div className="mb-3 text-2xl">{'⛓'}</div>
+              <div className="mb-1.5 font-semibold text-[var(--color-text-secondary)]">No tasks yet</div>
+              <div>Set an objective above and click <strong>AI decompose</strong>, or add tasks manually.</div>
             </div>
           ) : (
             <div className="space-y-2">
               {tasks.map((task) => (
                 <div
                   key={task.id}
-                  className="rounded-xl border bg-[var(--color-background-primary)] shadow-sm"
+                  className="rounded-xl border bg-[var(--color-background-primary)]"
                   style={{ borderColor: task.status === 'done' ? 'rgba(34,197,94,0.25)' : task.status === 'doing' ? 'var(--accent-soft)' : 'var(--color-border-tertiary)', opacity: task.status === 'done' ? 0.85 : 1 }}
                 >
                   {/* Row 1: status pill + title + delete X */}
-                  <div className="flex items-center gap-3 px-4 py-3">
+                  <div className="flex items-start gap-[10px] px-[14px] pt-[14px]">
                     <button
                       onClick={() => cycleStatus(task.id)}
                       className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold transition ${STATUS_STYLE[task.status]}`}
@@ -381,36 +386,36 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                         </span>
                       ) : task.status}
                     </button>
-                    <span className={`flex-1 text-sm ${task.status === 'done' ? 'text-[var(--color-text-tertiary)]' : 'text-[var(--color-text-primary)]'}`}>
+                    <span className={`flex-1 text-[13.5px] font-semibold leading-[1.45] ${task.status === 'done' ? 'text-[var(--color-text-tertiary)]' : 'text-[var(--color-text-primary)]'}`} style={{ paddingTop: 1, cursor: 'default' }}>
                       {task.title}
                     </span>
                     <button
                       onClick={() => removeTask(task.id)}
-                      className="shrink-0 text-[var(--color-text-tertiary)] transition hover:text-[#ef4444]"
+                      className="flex h-[18px] w-[18px] shrink-0 items-center justify-center text-[14px] text-[var(--color-text-primary)] opacity-[0.35] transition hover:opacity-70"
+                      style={{ marginTop: 1 }}
                     >
-                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
-                        <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-                      </svg>
+                      {'✕'}
                     </button>
                   </div>
                   {/* Row 2: agent dropdown + chain-from dropdown + Run button */}
-                  <div className="flex items-center gap-2 border-t border-[var(--color-border-tertiary)] px-4 py-2">
+                  <div className="mx-[14px] flex items-center gap-2 border-t border-[var(--color-border-secondary)]" style={{ marginTop: 9, paddingTop: 9, paddingBottom: 14 }}>
                     <select
                       value={task.agent ?? ''}
                       onChange={(e) => e.target.value && assignAgent(task.id, e.target.value)}
-                      className="rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-2 py-1 text-[10px] text-[var(--color-text-secondary)] outline-none"
+                      className="flex-1 rounded-[7px] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2 py-[5px] text-[12px] text-[var(--color-text-primary)] outline-none"
                       title="Assign agent"
                     >
-                      <option value="">{'—'} assign agent {'—'}</option>
+                      <option value="">{'— assign agent —'}</option>
                       {AGENT_OPTIONS.map((a) => <option key={a} value={a}>{AGENT_EMOJI[a]} {a}</option>)}
                     </select>
                     <select
                       value={task.inputFrom ?? ''}
                       onChange={(e) => setInputFrom(task.id, e.target.value || undefined)}
-                      className="shrink-0 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-1.5 py-1 text-[10px] text-[var(--color-text-secondary)]"
+                      className="rounded-[7px] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2 py-[5px] text-[12px] text-[var(--color-text-primary)] outline-none"
+                      style={{ maxWidth: 160 }}
                       title="Chain input from a prior task result"
                     >
-                      <option value="">chain from...</option>
+                      <option value="">Chain from…</option>
                       {tasks.filter((t) => t.id !== task.id).map((t) => (
                         <option key={t.id} value={t.id}>{t.title.slice(0, 30)}</option>
                       ))}
@@ -431,15 +436,13 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                   </div>
                   {/* Agent result */}
                   {task.result && (
-                    <div className="px-4 py-3">
-                      <div className="mb-1.5 text-[10px] font-semibold uppercase text-[var(--color-text-tertiary)]">
+                    <div className="mx-[14px] mb-[14px]" style={{ marginTop: 10, padding: 10, borderRadius: 8, background: 'var(--color-background-secondary)', border: '1px solid var(--color-border-secondary)' }}>
+                      <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[var(--color-text-tertiary)]">
                         {task.agent} result
                         {task.running && <span className="animate-pulse">...</span>}
                       </div>
-                      <div className="mt-2.5 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-2.5">
-                        <div className="max-h-[180px] overflow-y-auto">
-                          <p className="whitespace-pre-wrap text-xs leading-5 text-[var(--color-text-primary)]">{task.result}</p>
-                        </div>
+                      <div className="max-h-[180px] overflow-y-auto whitespace-pre-wrap text-[12.5px] leading-[1.6] text-[var(--color-text-primary)]">
+                        {task.result}
                       </div>
                     </div>
                   )}
@@ -450,29 +453,25 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
         </div>
 
         {/* Decision log — persistent 240px right rail */}
-        <div className="flex w-[240px] shrink-0 flex-col border-l border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)]">
-          <div className="flex items-center justify-between border-b border-[var(--color-border-tertiary)] px-4 py-3">
-            <span className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--color-text-secondary)]">Decision log</span>
-            {decisions.length > 0 && (
-              <span className="text-[10px] text-[var(--color-text-tertiary)]">{decisions.length}</span>
-            )}
+        <div className="flex w-[240px] shrink-0 flex-col border-l border-[var(--color-border-tertiary)]">
+          <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)]" style={{ padding: '12px 14px 10px' }}>
+            <span className="text-[11px] font-bold uppercase tracking-[0.6px] text-[var(--color-text-secondary)]">Decision log</span>
+            <span className="text-[10px] text-[var(--color-text-tertiary)]">{decisions.length > 0 ? decisions.length : ''}</span>
           </div>
-          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto" style={{ padding: '10px 12px' }}>
             {decisions.length === 0 ? (
-              <p className="text-center text-xs text-[var(--color-text-tertiary)]">No decisions yet</p>
+              <div className="py-6 text-center text-[12px] text-[var(--color-text-tertiary)]">No decisions yet</div>
             ) : (
-              <div className="space-y-3">
-                {decisions.map((d) => (
-                  <div key={d.id} className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-2">
-                    <p className="text-xs leading-4 text-[var(--color-text-primary)]">{d.text}</p>
-                    <p className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">{timeAgo(d.createdAt)}</p>
-                  </div>
-                ))}
-              </div>
+              decisions.map((d) => (
+                <div key={d.id} className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]" style={{ padding: '8px 10px' }}>
+                  <div className="text-[11.5px] leading-[1.5] text-[var(--color-text-primary)]">{d.text}</div>
+                  <div className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">{timeAgo(d.createdAt)}</div>
+                </div>
+              ))
             )}
           </div>
-          <div className="border-t border-[var(--color-border-tertiary)] px-4 py-2 text-[9.5px] leading-4 text-[var(--color-text-tertiary)]">
-            One session at a time. Results are ephemeral — copy to Notes or Canvas to keep them.
+          <div className="border-t border-[var(--color-border-secondary)]" style={{ padding: '10px 12px' }}>
+            <div className="text-[10.5px] leading-[1.6] text-[var(--color-text-tertiary)]">One session at a time. Results are ephemeral — copy to Notes or Canvas to keep them.</div>
           </div>
         </div>
       </div>

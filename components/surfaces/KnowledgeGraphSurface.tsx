@@ -144,73 +144,77 @@ export function KnowledgeGraphSurface() {
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {/* Toolbar */}
-      <div className="flex flex-nowrap items-center gap-2 overflow-x-auto border-b border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-4 py-2.5">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-semibold text-[var(--color-text-primary)]">Knowledge Graph</span>
-          {(() => {
-            // Real health, not a hardcoded green pill: red when the graph fetch errored, amber while
-            // loading / empty, green ONLY when HellGraph actually returned data.
-            const healthy = !err && (graph.nodes.length > 0 || (total?.nodes ?? 0) > 0)
-            const cls = err ? 'bg-[#fee2e2] text-[#dc2626]' : healthy ? 'bg-[#dcfce7] text-[#16a34a]' : 'bg-[#fef3c7] text-[#d97706]'
-            const dot = err ? 'bg-[#dc2626]' : healthy ? 'bg-[#16a34a]' : 'bg-[#d97706]'
-            const label = err ? 'HellGraph · unreachable' : healthy ? 'HellGraph · on-device' : loading ? 'HellGraph · loading…' : 'HellGraph · no data'
-            return <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${cls}`} title={err || undefined}><span className={`h-1.5 w-1.5 rounded-full ${dot}`} />{label}</span>
-          })()}
-        </div>
-        <form onSubmit={(e) => { e.preventDefault(); setRoot(rootInput.trim()) }} className="flex items-center gap-1.5">
+      <div className="flex h-[46px] flex-nowrap items-center gap-[10px] overflow-x-auto border-b border-[var(--line)] bg-[var(--color-background-primary)] px-4">
+        <span className="text-[13px] font-bold text-[var(--color-text-primary)]">Knowledge Graph</span>
+        {(() => {
+          const healthy = !err && (graph.nodes.length > 0 || (total?.nodes ?? 0) > 0)
+          const pillCls = err
+            ? 'bg-[rgba(var(--danger),0.1)] border border-[var(--danger)]'
+            : healthy
+              ? 'bg-[var(--verified-soft)] border border-[var(--verified-line)]'
+              : 'bg-[var(--pending-soft)] border border-[var(--pending-line)]'
+          const dotCls = err ? 'bg-[var(--danger)]' : healthy ? 'bg-[var(--verified)]' : 'bg-[var(--pending)]'
+          const textCls = err ? 'text-[var(--danger-fg)]' : healthy ? 'text-[var(--verified-fg)]' : 'text-[var(--pending-fg)]'
+          const label = err ? 'HellGraph · unreachable' : healthy ? 'HellGraph · on-device · demo' : loading ? 'HellGraph · loading…' : 'HellGraph · no data'
+          return (
+            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${pillCls} ${textCls}`} title={err || undefined}>
+              <span className={`h-1.5 w-1.5 rounded-full ${dotCls}`} />{label}
+            </span>
+          )
+        })()}
+        <form onSubmit={(e) => { e.preventDefault(); setRoot(rootInput.trim()) }} style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
           <input value={rootInput} onChange={(e) => setRootInput(e.target.value)} placeholder="Root at node id…"
-            className="w-[140px] rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-2.5 py-1 text-xs outline-none focus:border-[var(--accent)] focus:bg-[var(--color-background-primary)]" />
-          {root && <button type="button" onClick={() => { setRoot(''); setRootInput('') }} className="rounded-lg border border-[var(--color-border-secondary)] px-2 py-1 text-[10px] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]">clear</button>}
+            className="w-[140px] rounded-[8px] border border-[var(--line)] bg-[var(--color-background-secondary)] px-[9px] py-[5px] text-[11.5px] outline-none focus:border-[var(--accent)] focus:bg-[var(--color-background-primary)]"
+            style={{ fontFamily: 'Manrope' }} />
+          {root && <button type="button" onClick={() => { setRoot(''); setRootInput('') }} className="rounded-[7px] border border-[var(--line)] px-2 py-1 text-[10.5px] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]">clear</button>}
         </form>
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0" style={{ gap: '2px' }}>
           {VIEWS.map((v) => (
             <button key={v} onClick={() => setView(v)}
-              className={`rounded-lg px-2 py-1 text-[10px] font-medium capitalize transition ${view === v ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'}`}>{v}</button>
+              className={`rounded-[7px] px-[10px] py-[4px] text-[11px] capitalize ${view === v ? 'border border-[var(--accent)] bg-[var(--accent-soft)] font-bold text-[var(--accent)]' : 'font-medium text-[var(--color-text-secondary)]'}`}>{v}</button>
           ))}
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0" style={{ gap: '2px' }}>
           {(['force', 'radial', 'hierarchy'] as GraphLayout[]).map((l) => (
             <button key={l} onClick={() => setLayout(l)}
-              className={`rounded-lg px-2 py-1 text-[10px] font-medium capitalize transition ${layout === l ? 'bg-[var(--color-background-tertiary)] text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'}`}>{l}</button>
+              className={`rounded-[7px] px-[10px] py-[4px] text-[11px] capitalize ${layout === l ? 'bg-[var(--color-background-tertiary)] font-bold text-[var(--color-text-primary)]' : 'font-medium text-[var(--color-text-secondary)]'}`}>{l}</button>
           ))}
         </div>
-        <div className="ml-auto flex items-center gap-3 text-[10px] text-[var(--color-text-tertiary)]">
-          <span>{graph.nodes.length} nodes · {graph.links.length} edges shown{total?.nodes != null ? ` of ${total.nodes}` : ''}</span>
-          {/* Proposals button — badge when pending */}
-          <button
-            onClick={() => { setProposalsOpen((v) => !v); if (!proposalsOpen) void loadProposals() }}
-            className={`relative rounded-lg border px-2 py-1 font-medium transition ${proposalsOpen ? 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'}`}>
-            Proposals
-            {pendingCount > 0 && (
-              <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[var(--accent)] text-[9px] font-bold text-white">{pendingCount}</span>
-            )}
-          </button>
-          {/* Import Claude Code's project memory (the markdown files under ~/.claude/projects) into the brain. */}
-          <button
-            onClick={async () => {
-              if (memBusy) return
-              setMemBusy(true); setMemNote('')
-              try {
-                const r = await fetch(`${amBase()}/api/ingest/claude-memory`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
-                const j = (await r.json()) as { ingested?: number; chunks?: number; error?: string }
-                if (!r.ok || j.error) throw new Error(j.error ?? `ingest ${r.status}`)
-                setMemNote(`Imported ${j.ingested ?? 0} memory files (${j.chunks ?? 0} chunks)`) ; void load()
-              } catch (e) { setMemNote(`Import failed: ${e instanceof Error ? e.message : 'error'}`) }
-              finally { setMemBusy(false); setTimeout(() => setMemNote(''), 6000) }
-            }}
-            disabled={memBusy}
-            title="Ingest Claude Code's project memory files into the knowledge graph"
-            className="rounded-lg border border-[var(--color-border-secondary)] px-2 py-1 font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)] disabled:opacity-50">
-            {memBusy ? 'Importing…' : 'Import Claude memory'}
-          </button>
-          <button onClick={() => void load()} className="rounded-lg border border-[var(--color-border-secondary)] px-2 py-1 font-semibold text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]">Refresh</button>
-        </div>
+        <div className="flex-1" />
+        <span className="whitespace-nowrap text-[10px] text-[var(--color-text-tertiary)]">{graph.nodes.length} nodes · {graph.links.length} edges shown{total?.nodes != null ? ` of ${total.nodes}` : ''}</span>
+        {/* Proposals button */}
+        <button
+          onClick={() => { setProposalsOpen((v) => !v); if (!proposalsOpen) void loadProposals() }}
+          className={`rounded-[7px] border px-[10px] py-[4px] text-[11px] ${proposalsOpen ? 'border-[var(--violet-line)] bg-[var(--violet-soft)] font-bold text-[var(--violet-fg)]' : 'border-[var(--line)] font-semibold text-[var(--color-text-secondary)]'}`}>
+          Proposals{pendingCount > 0 && !proposalsOpen && (
+            <span className="ml-1 inline-flex h-[15px] w-[15px] items-center justify-center rounded-full bg-[var(--violet)] text-[9px] font-extrabold text-white">{pendingCount}</span>
+          )}
+        </button>
+        {/* Import Claude Code's project memory */}
+        <button
+          onClick={async () => {
+            if (memBusy) return
+            setMemBusy(true); setMemNote('')
+            try {
+              const r = await fetch(`${amBase()}/api/ingest/claude-memory`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: '{}' })
+              const j = (await r.json()) as { ingested?: number; chunks?: number; error?: string }
+              if (!r.ok || j.error) throw new Error(j.error ?? `ingest ${r.status}`)
+              setMemNote(`Imported ${j.ingested ?? 0} memory files (${j.chunks ?? 0} chunks)`) ; void load()
+            } catch (e) { setMemNote(`Import failed: ${e instanceof Error ? e.message : 'error'}`) }
+            finally { setMemBusy(false); setTimeout(() => setMemNote(''), 6000) }
+          }}
+          disabled={memBusy}
+          title="Ingest Claude Code's project memory files into the knowledge graph"
+          className="cursor-pointer whitespace-nowrap rounded-[7px] border border-[var(--line)] px-[10px] py-[4px] text-[11px] font-semibold text-[var(--color-text-secondary)] disabled:opacity-50">
+          {memBusy ? 'Importing…' : 'Import Claude memory'}
+        </button>
+        <button onClick={() => void load()} className="cursor-pointer whitespace-nowrap rounded-[7px] border border-[var(--line)] px-[10px] py-[4px] text-[11px] font-semibold text-[var(--color-text-secondary)]">Refresh</button>
       </div>
       {memNote && <div className="px-3 pb-1 text-[10px] text-[var(--color-text-tertiary)]">{memNote}</div>}
 
       {/* Legend */}
       {kindsPresent.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3.5 border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-4 py-1.5">
+        <div className="flex h-[32px] items-center gap-[14px] overflow-x-auto border-b border-[var(--line-soft)] bg-[var(--color-background-secondary)] px-4">
           {kindsPresent.map((k) => (
             <span key={k} className="inline-flex items-center gap-1 text-[9.5px] font-semibold text-[var(--color-text-secondary)]">
               <span className="h-2 w-2 rounded-full" style={{ background: KIND_COLOR[k] }} />{k}
@@ -222,7 +226,7 @@ export function KnowledgeGraphSurface() {
       {/* Graph + proposals panel */}
       <div className="relative flex min-h-0 flex-1 overflow-hidden">
         {/* Graph */}
-        <div className="relative min-h-0 flex-1">
+        <div className="relative min-h-0 flex-1 bg-[var(--paper)]">
           {err ? (
             <div className="flex h-full items-center justify-center px-6 text-center text-xs text-[var(--color-text-danger,#dc2626)]">{err}</div>
           ) : graph.nodes.length === 0 ? (
@@ -236,36 +240,35 @@ export function KnowledgeGraphSurface() {
 
         {/* Proposals side panel */}
         {proposalsOpen && (
-          <div className="flex w-[300px] shrink-0 flex-col border-l border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]">
-            <div className="flex shrink-0 items-center justify-between border-b border-[var(--color-border-tertiary)] px-4 py-2.5">
-              <div>
-                <span className="text-[13px] font-bold text-[var(--color-text-primary)]">Graph Proposals</span>
-                {pendingCount > 0 && (
-                  <span className="ml-2 rounded-full bg-[var(--accent-soft)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--accent)]">{pendingCount} pending</span>
-                )}
-              </div>
-              <button onClick={() => setProposalsOpen(false)} className="flex h-[22px] w-[22px] items-center justify-center rounded-full border border-[var(--color-border-secondary)] text-[10px] text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-primary)]">✕</button>
+          <div className="flex w-[300px] shrink-0 flex-col border-l border-[var(--line)] bg-[var(--color-background-primary)]">
+            <div className="flex h-[42px] shrink-0 items-center gap-2 border-b border-[var(--line-soft)] px-[14px]">
+              <span className="text-[13px] font-bold text-[var(--color-text-primary)]">Graph Proposals</span>
+              {pendingCount > 0 && (
+                <span className="rounded-full bg-[var(--violet-soft)] px-[7px] py-[2px] text-[10px] font-bold text-[var(--violet-fg)]">{pendingCount} pending</span>
+              )}
+              <div className="flex-1" />
+              <button onClick={() => setProposalsOpen(false)} className="flex h-[22px] w-[22px] cursor-pointer items-center justify-center rounded-full border border-[var(--line)] text-[10px] text-[var(--color-text-secondary)]">✕</button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
               {proposals.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
-                  <div className="text-[11px] font-medium text-[var(--color-text-secondary)]">No proposals yet</div>
-                  <div className="max-w-[200px] text-[10px] leading-relaxed text-[var(--color-text-tertiary)]">The agent will stage proposed graph changes here. You review and accept or reject each one before anything is written.</div>
+                  <div className="text-[12px] font-semibold text-[var(--color-text-secondary)]">No proposals yet</div>
+                  <div className="max-w-[200px] text-[11px] leading-[1.6] text-[var(--color-text-tertiary)]">The agent will stage proposed graph changes here. You review and accept or reject each one before anything is written.</div>
                 </div>
               ) : (
-                <div className="divide-y divide-[var(--color-border-tertiary)]">
+                <div>
                   {proposals.map((p) => {
                     const busy = proposalBusy.has(p.id)
                     return (
-                      <div key={p.id} className={`px-4 py-3 ${p.status !== 'pending' ? 'opacity-50' : ''}`}>
-                        <div className="mb-1 flex items-center gap-1.5">
+                      <div key={p.id} className={`border-b border-[var(--line-soft)] px-[14px] py-[12px] ${p.status !== 'pending' ? 'opacity-50' : ''}`}>
+                        <div className="mb-1 flex items-center gap-[6px]">
                           <span className="rounded px-1 py-0.5 text-[9px] font-bold" style={{ background: OP_COLOR[p.op] + '20', color: OP_COLOR[p.op] }}>{OP_LABEL[p.op]}</span>
                           {p.source && <span className="text-[9px] text-[var(--color-text-tertiary)]">{p.source}</span>}
                           {p.status !== 'pending' && (
-                            <span className={`ml-auto text-[9px] font-semibold ${p.status === 'accepted' ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>{p.status}</span>
+                            <span className={`ml-auto text-[9px] font-bold ${p.status === 'accepted' ? 'text-[var(--verified-fg)]' : 'text-[var(--danger-fg)]'}`}>{p.status}</span>
                           )}
                         </div>
-                        <div className="mb-1 font-mono text-[11px] text-[var(--color-text-primary)]">{proposalSummary(p)}</div>
+                        <div className="mb-[5px] font-mono text-[11px] leading-[1.4] text-[var(--color-text-primary)]">{proposalSummary(p)}</div>
                         {p.rationale && (
                           <div className="mb-2 text-[11px] leading-[1.55] text-[var(--color-text-secondary)]">{p.rationale}</div>
                         )}
@@ -274,13 +277,13 @@ export function KnowledgeGraphSurface() {
                             <button
                               disabled={busy}
                               onClick={() => void actOnProposal(p.id, 'accept')}
-                              className="flex-1 rounded-lg bg-[#16a34a] py-[5px] text-[11px] font-bold text-white transition hover:opacity-90 disabled:opacity-40">
+                              className="flex-1 rounded-[8px] bg-[var(--verified)] py-[5px] text-center text-[11px] font-bold text-white disabled:opacity-40">
                               {busy ? '…' : 'Accept'}
                             </button>
                             <button
                               disabled={busy}
                               onClick={() => void actOnProposal(p.id, 'reject')}
-                              className="flex-1 rounded-lg border border-[#dc2626] py-[5px] text-[11px] font-bold text-[#dc2626] transition hover:bg-[#fef2f2] disabled:opacity-40">
+                              className="flex-1 rounded-[8px] border border-[var(--danger)] py-[5px] text-center text-[11px] font-bold text-[var(--danger-fg)] disabled:opacity-40">
                               {busy ? '…' : 'Reject'}
                             </button>
                           </div>
@@ -292,14 +295,14 @@ export function KnowledgeGraphSurface() {
               )}
             </div>
             {proposals.some((p) => p.status === 'pending') && (
-              <div className="flex shrink-0 gap-2 border-t border-[var(--color-border-tertiary)] px-4 py-2.5">
+              <div className="flex shrink-0 gap-2 border-t border-[var(--line-soft)] px-[14px] py-[10px]">
                 <button
                   onClick={async () => {
                     for (const p of proposals.filter((x) => x.status === 'pending')) {
                       await actOnProposal(p.id, 'accept')
                     }
                   }}
-                  className="flex-1 rounded-lg bg-[#16a34a] py-1.5 text-xs font-bold text-white transition hover:opacity-90">
+                  className="flex-1 rounded-[9px] bg-[var(--verified)] py-[7px] text-center text-[12px] font-bold text-white">
                   Accept all
                 </button>
                 <button
@@ -308,7 +311,7 @@ export function KnowledgeGraphSurface() {
                       await actOnProposal(p.id, 'reject')
                     }
                   }}
-                  className="flex-1 rounded-lg border border-[#dc2626] py-1.5 text-xs font-bold text-[#dc2626] transition hover:bg-[#fef2f2]">
+                  className="flex-1 rounded-[9px] border border-[var(--danger)] py-[7px] text-center text-[12px] font-bold text-[var(--danger-fg)]">
                   Reject all
                 </button>
               </div>
