@@ -281,48 +281,12 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-      {/* Header */}
+      {/* Header — just the work surface (model pair, prompt, run). DPO export, KD training, and
+          the labelled-pairs ledger live in the right pane below, not here. */}
       <div className="border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Tune & Train</h2>
-            <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Run comparative prompts between models, mark preferences, export DPO training data.</p>
-          </div>
-          {labelledCount > 0 && (
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => void handleCacheTeacherLogits()}
-                disabled={cacheStatus === 'loading-model' || cacheStatus === 'caching'}
-                title="Run teacher model to extract logits for whitebox KD"
-                className="flex items-center gap-2 rounded-full bg-[#0f766e] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#0d9488] disabled:opacity-50"
-              >
-                {cacheStatus === 'loading-model' ? 'Loading model…' : cacheStatus === 'caching' ? 'Caching…' : cacheStatus === 'error' ? 'Failed' : cacheStatus === 'done' ? `Logits cached (${cacheStats?.withLogits ?? 0}/${cacheStats?.total ?? 0})` : 'Cache teacher logits'}
-              </button>
-              {cacheStatus === 'error' && cacheError && (
-                <p className="text-[10px] text-[#ef4444]">{cacheError}</p>
-              )}
-              <button
-                onClick={() => void handleSendToDistill()}
-                disabled={distillSendStatus === 'sending'}
-                className="flex items-center gap-2 rounded-full bg-[#7c3aed] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#6d28d9] disabled:opacity-50"
-              >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-                  <path d="M6 1v7M3 6l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-                  <circle cx="6" cy="10" r="1.5" fill="currentColor"/>
-                </svg>
-                {distillSendStatus === 'sending' ? 'Sending…' : distillSendStatus === 'sent' ? 'Sent to KD Server' : distillSendStatus === 'error' ? 'Send failed' : `Send ${labelledCount} pair${labelledCount !== 1 ? 's' : ''} to KD`}
-              </button>
-              <button
-                onClick={exportDPO}
-                className="flex items-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[var(--accent)]"
-              >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-                  <path d="M6 1v7M3 6l3 3 3-3M1 10h10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                {exportStatus === 'done' ? 'Saved!' : `Export ${labelledCount} JSONL`}
-              </button>
-            </div>
-          )}
+        <div>
+          <h2 className="text-sm font-semibold text-[var(--color-text-primary)]">Tune & Train</h2>
+          <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Run comparative prompts between models, mark preferences, export DPO training data.</p>
         </div>
 
         {/* Model pair config */}
@@ -382,78 +346,9 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
             {runStatus === 'running' ? 'Running…' : 'Run'}
           </button>
         </div>
-
-        {/* KD Training panel */}
-        <div className="mt-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-4 py-3">
-          <div className="flex flex-wrap items-end gap-3">
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Teacher type</span>
-              <select
-                value={distillTeacherType}
-                onChange={(e) => setDistillTeacherType(e.target.value as 'blackbox' | 'whitebox')}
-                className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none"
-              >
-                <option value="blackbox">Blackbox → Whitebox (behavioral cloning)</option>
-                <option value="whitebox">Whitebox → Whitebox (KD loss + logits)</option>
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">LoRA rank</span>
-              <input
-                type="number" min={1} max={64} value={distillLoraR}
-                onChange={(e) => setDistillLoraR(parseInt(e.target.value) || 8)}
-                className="w-16 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Max steps</span>
-              <input
-                type="number" min={1} max={10000} value={distillMaxSteps}
-                onChange={(e) => setDistillMaxSteps(parseInt(e.target.value) || 100)}
-                className="w-20 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none"
-              />
-            </div>
-            <button
-              onClick={() => void handleStartTraining()}
-              disabled={distillTrainStatus === 'polling' || distillTrainStatus === 'starting' || whiteboxModels.length === 0}
-              className="rounded-full bg-[#7c3aed] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#6d28d9] disabled:opacity-50"
-            >
-              {distillTrainStatus === 'starting' ? 'Starting…' : distillTrainStatus === 'polling' ? 'Training…' : distillTrainStatus === 'done' ? 'Done' : 'Start KD Training'}
-            </button>
-          </div>
-
-          {/* Training progress */}
-          {distillJob && (
-            <div className="mt-3 space-y-1.5">
-              <div className="flex items-center gap-2">
-                <span className={`h-2 w-2 rounded-full ${distillJob.status === 'running' ? 'animate-pulse bg-[#7c3aed]' : distillJob.status === 'done' ? 'bg-[#22c55e]' : distillJob.status === 'error' ? 'bg-[#ef4444]' : 'bg-[#d1d5db]'}`} />
-                <span className="text-xs font-medium text-[var(--color-text-primary)]">
-                  {distillJob.status === 'running' || distillJob.status === 'queued'
-                    ? `Step ${distillJob.step}/${distillJob.total_steps}${distillJob.loss !== null ? ` — loss ${distillJob.loss.toFixed(4)}` : ''}`
-                    : distillJob.status === 'done'
-                    ? `Training complete — ${distillJob.total_steps} steps`
-                    : distillJob.status === 'error'
-                    ? `Error: ${distillJob.error}`
-                    : distillJob.status}
-                </span>
-              </div>
-              {distillJob.total_steps > 0 && (
-                <div className="h-1 w-full rounded-full bg-[var(--color-background-secondary)]">
-                  <div
-                    className="h-1 rounded-full bg-[#7c3aed] transition-all"
-                    style={{ width: `${Math.min(100, (distillJob.step / distillJob.total_steps) * 100)}%` }}
-                  />
-                </div>
-              )}
-              {distillJob.adapter_path && (
-                <p className="text-[10px] text-[var(--color-text-tertiary)]">Adapter saved: {distillJob.adapter_path}</p>
-              )}
-            </div>
-          )}
-        </div>
       </div>
 
-      {/* Body — run list + detail */}
+      {/* Body — run list (nav) + detail (center) + ledger/DPO/KD/voice (right pane) */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Run list */}
         {runs.length > 0 && (
@@ -480,9 +375,6 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
 
         {/* Detail pane */}
         <div className="min-h-0 flex-1 overflow-y-auto px-6 py-6">
-          <div className="mx-auto mb-4 max-w-4xl">
-            <VoiceTrainer />
-          </div>
           {!activeRun && (
             <div className="flex h-full items-center justify-center text-sm text-[var(--color-text-tertiary)]">
               Run a prompt to compare model responses.
@@ -538,6 +430,124 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
               )}
             </div>
           )}
+        </div>
+
+        {/* Right pane — labelled-pairs ledger summary, DPO export, KD training, voice */}
+        <div className="w-[300px] shrink-0 space-y-4 overflow-y-auto border-l border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-4 py-4">
+          <div>
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Labelled pairs</div>
+            <div className="mt-1 text-lg font-semibold text-[var(--color-text-primary)]">{labelledCount} <span className="text-xs font-normal text-[var(--color-text-tertiary)]">/ {runs.length} runs</span></div>
+          </div>
+
+          {labelledCount === 0 ? (
+            <p className="rounded-xl border border-dashed border-[var(--color-border-secondary)] px-3 py-4 text-center text-[11px] text-[var(--color-text-tertiary)]">
+              Mark a preference on a run to enable export and training.
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <button
+                onClick={exportDPO}
+                className="flex w-full items-center justify-center gap-2 rounded-full bg-[var(--accent)] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[var(--accent)]"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+                  <path d="M6 1v7M3 6l3 3 3-3M1 10h10" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                {exportStatus === 'done' ? 'Saved!' : `Export ${labelledCount} JSONL`}
+              </button>
+              <button
+                onClick={() => void handleCacheTeacherLogits()}
+                disabled={cacheStatus === 'loading-model' || cacheStatus === 'caching'}
+                title="Run teacher model to extract logits for whitebox KD"
+                className="flex w-full items-center justify-center gap-2 rounded-full bg-[#0f766e] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#0d9488] disabled:opacity-50"
+              >
+                {cacheStatus === 'loading-model' ? 'Loading model…' : cacheStatus === 'caching' ? 'Caching…' : cacheStatus === 'error' ? 'Failed' : cacheStatus === 'done' ? `Logits cached (${cacheStats?.withLogits ?? 0}/${cacheStats?.total ?? 0})` : 'Cache teacher logits'}
+              </button>
+              {cacheStatus === 'error' && cacheError && (
+                <p className="text-[10px] text-[#ef4444]">{cacheError}</p>
+              )}
+              <button
+                onClick={() => void handleSendToDistill()}
+                disabled={distillSendStatus === 'sending'}
+                className="flex w-full items-center justify-center gap-2 rounded-full bg-[#7c3aed] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#6d28d9] disabled:opacity-50"
+              >
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
+                  <path d="M6 1v7M3 6l3 3 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
+                  <circle cx="6" cy="10" r="1.5" fill="currentColor"/>
+                </svg>
+                {distillSendStatus === 'sending' ? 'Sending…' : distillSendStatus === 'sent' ? 'Sent to KD Server' : distillSendStatus === 'error' ? 'Send failed' : `Send to KD`}
+              </button>
+            </div>
+          )}
+
+          {/* KD Training */}
+          <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3.5 py-3">
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">KD training</div>
+            <div className="mt-2 flex flex-col gap-2">
+              <select
+                value={distillTeacherType}
+                onChange={(e) => setDistillTeacherType(e.target.value as 'blackbox' | 'whitebox')}
+                className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none"
+              >
+                <option value="blackbox">Blackbox → Whitebox (behavioral cloning)</option>
+                <option value="whitebox">Whitebox → Whitebox (KD loss + logits)</option>
+              </select>
+              <div className="flex gap-2">
+                <div className="flex flex-1 flex-col gap-1">
+                  <span className="text-[10px] text-[var(--color-text-tertiary)]">LoRA rank</span>
+                  <input
+                    type="number" min={1} max={64} value={distillLoraR}
+                    onChange={(e) => setDistillLoraR(parseInt(e.target.value) || 8)}
+                    className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none"
+                  />
+                </div>
+                <div className="flex flex-1 flex-col gap-1">
+                  <span className="text-[10px] text-[var(--color-text-tertiary)]">Max steps</span>
+                  <input
+                    type="number" min={1} max={10000} value={distillMaxSteps}
+                    onChange={(e) => setDistillMaxSteps(parseInt(e.target.value) || 100)}
+                    className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none"
+                  />
+                </div>
+              </div>
+              <button
+                onClick={() => void handleStartTraining()}
+                disabled={distillTrainStatus === 'polling' || distillTrainStatus === 'starting' || whiteboxModels.length === 0}
+                className="w-full rounded-full bg-[#7c3aed] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#6d28d9] disabled:opacity-50"
+              >
+                {distillTrainStatus === 'starting' ? 'Starting…' : distillTrainStatus === 'polling' ? 'Training…' : distillTrainStatus === 'done' ? 'Done' : 'Start KD Training'}
+              </button>
+            </div>
+
+            {distillJob && (
+              <div className="mt-3 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <span className={`h-2 w-2 rounded-full ${distillJob.status === 'running' ? 'animate-pulse bg-[#7c3aed]' : distillJob.status === 'done' ? 'bg-[#22c55e]' : distillJob.status === 'error' ? 'bg-[#ef4444]' : 'bg-[#d1d5db]'}`} />
+                  <span className="text-xs font-medium text-[var(--color-text-primary)]">
+                    {distillJob.status === 'running' || distillJob.status === 'queued'
+                      ? `Step ${distillJob.step}/${distillJob.total_steps}${distillJob.loss !== null ? ` — loss ${distillJob.loss.toFixed(4)}` : ''}`
+                      : distillJob.status === 'done'
+                      ? `Training complete — ${distillJob.total_steps} steps`
+                      : distillJob.status === 'error'
+                      ? `Error: ${distillJob.error}`
+                      : distillJob.status}
+                  </span>
+                </div>
+                {distillJob.total_steps > 0 && (
+                  <div className="h-1 w-full rounded-full bg-[var(--color-background-secondary)]">
+                    <div
+                      className="h-1 rounded-full bg-[#7c3aed] transition-all"
+                      style={{ width: `${Math.min(100, (distillJob.step / distillJob.total_steps) * 100)}%` }}
+                    />
+                  </div>
+                )}
+                {distillJob.adapter_path && (
+                  <p className="text-[10px] text-[var(--color-text-tertiary)]">Adapter saved: {distillJob.adapter_path}</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          <VoiceTrainer />
         </div>
       </div>
     </div>
