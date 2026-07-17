@@ -335,11 +335,12 @@ function CanvasChat({ doc, onDocUpdate }: {
 
   return (
     <div className="flex w-[240px] shrink-0 flex-col border-l border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
-      <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-4 py-3">
-        <div className="flex items-center gap-2">
-          <p className="text-xs font-semibold text-[var(--color-text-primary)]">Canvas AI</p>
-          <span className="text-[10.5px] text-[var(--color-text-tertiary)]">Per doc</span>
+      <div className="flex items-center gap-2 border-b border-[var(--color-border-secondary)] px-3.5 py-2.5 shrink-0">
+        <div className="flex h-[22px] w-[22px] items-center justify-center rounded-[6px] bg-[var(--accent)] shrink-0">
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6h8M6 2l4 4-4 4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </div>
+        <span className="text-[13px] font-bold text-[var(--color-text-primary)]">Canvas AI</span>
+        <span className="ml-auto text-[10.5px] text-[var(--color-text-tertiary)]">Per doc</span>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
@@ -415,16 +416,14 @@ function CanvasChat({ doc, onDocUpdate }: {
 
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-      <div className="rounded-2xl border border-dashed border-[var(--accent)] bg-[var(--accent-soft)] p-10">
-        <p className="text-3xl mb-3">✏️</p>
-        <p className="text-sm font-semibold text-[var(--color-text-secondary)]">No document open</p>
-        <p className="mt-1 text-xs text-[var(--color-text-secondary)] max-w-xs leading-5">
-          Canvas is a collaborative document editor. Create a document and ask Noetica to write, edit, or extend it directly.
-        </p>
+    <div className="flex flex-1 items-center justify-center p-10">
+      <div className="flex flex-col items-center gap-3 text-center">
+        <div className="flex h-11 w-11 items-center justify-center rounded-[10px] border-2 border-dashed border-[var(--color-border-secondary)] text-xl text-[var(--color-text-tertiary)]">✦</div>
+        <p className="text-[15px] font-bold text-[var(--color-text-primary)]">No document selected</p>
+        <p className="text-[13px] text-[var(--color-text-secondary)]">Pick a doc from the list or create a new one.</p>
         <button
           onClick={onCreate}
-          className="mt-4 rounded-xl bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent)]"
+          className="mt-1 rounded-[9px] bg-[var(--accent)] px-5 py-2 text-[13px] font-bold text-white"
         >
           New document
         </button>
@@ -465,25 +464,22 @@ export function CanvasSurface() {
     <div className="flex min-h-0 flex-1 overflow-hidden">
       {/* ── Sidebar ── */}
       <aside className="flex w-[168px] shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
-        <div className="border-b border-[var(--color-border-secondary)] px-3 py-3">
-          <span className="text-xs font-bold text-[var(--color-text-primary)]">Canvas</span>
-          <p className="mt-1 text-[10.5px] leading-4 text-[var(--color-text-tertiary)]">
-            The AI writes here too — it can draft, rewrite, or extend any section on request. Use it for briefs, outlines, and anything where you want a co-author.
-          </p>
-        </div>
-
-        <div className="px-3 py-2">
-          <div className="flex items-center justify-between px-1 mb-2">
-            <span className="text-xs font-bold text-[var(--color-text-primary)]">Documents</span>
+        <div className="border-b border-[var(--color-border-secondary)] px-3 pt-0 pb-2.5">
+          <div className="-mx-3 mb-2.5 border-b border-[var(--color-border-secondary)] bg-[var(--color-background-tertiary)] px-3 py-2.5">
+            <div className="text-xs font-bold text-[var(--color-text-primary)] mb-1">Canvas</div>
+            <div className="text-[11px] leading-[1.55] text-[var(--color-text-tertiary)]">The AI writes here too — it can draft, rewrite, or extend any section on request. Use it for briefs, outlines, and anything where you want a co-author.</div>
+          </div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-[var(--color-text-secondary)]">Documents</span>
             <button
               onClick={handleCreate}
-              className="flex h-[22px] w-[22px] items-center justify-center rounded bg-[var(--accent)] text-white text-xs font-bold"
+              className="flex h-[22px] w-[22px] items-center justify-center rounded-[5px] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] text-[16px] leading-none text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)]"
               title="New document"
             >+</button>
           </div>
           <input
-            className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-xs outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--accent)]"
-            placeholder="Search..."
+            className="w-full rounded-[7px] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1 text-[11.5px] text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
+            placeholder="Search…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -504,7 +500,7 @@ export function CanvasSurface() {
                   className={`flex w-full flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left transition ${active ? 'bg-[var(--accent)] text-white' : 'hover:bg-[var(--color-background-tertiary)]'}`}
                 >
                   <div className="flex items-center gap-1.5">
-                    {doc.pinned && <span className={`text-[10px] ${active ? 'text-white' : 'text-[#f59e0b]'}`}>★</span>}
+                    {doc.pinned && <span className="text-[10px]">📌</span>}
                     <span className={`truncate text-sm font-medium ${active ? 'text-white' : 'text-[var(--color-text-primary)]'}`}>{doc.title}</span>
                   </div>
                   <p className="truncate text-xs text-[var(--color-text-tertiary)]">{preview || 'Empty document'}</p>
@@ -514,14 +510,14 @@ export function CanvasSurface() {
                 {/* Hover actions */}
                 <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition">
                   <button onClick={(e) => { e.stopPropagation(); pinDocument(doc.id, !doc.pinned) }} title={doc.pinned ? 'Unpin' : 'Pin'}
-                    className={`flex h-5 w-5 items-center justify-center rounded ${active ? 'text-white hover:bg-white/20' : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-primary)] hover:text-[#f59e0b]'}`}>
-                    <span className="text-[10px]">★</span>
+                    className={`flex h-5 w-5 items-center justify-center rounded text-[10px] ${active ? 'hover:bg-white/15' : 'hover:bg-[var(--color-border-secondary)]'}`}
+                    style={{ color: active ? 'rgba(255,255,255,0.75)' : 'var(--color-text-tertiary)' }}>
+                    📌
                   </button>
                   <button onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(doc.id) }} title="Delete"
-                    className={`flex h-5 w-5 items-center justify-center rounded ${active ? 'text-white hover:bg-white/20' : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-primary)] hover:text-[#dc2626]'}`}>
-                    <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
-                      <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                    </svg>
+                    className={`flex h-5 w-5 items-center justify-center rounded text-[10px] ${active ? 'hover:bg-white/15' : 'hover:bg-[var(--color-border-secondary)]'}`}
+                    style={{ color: active ? 'rgba(255,255,255,0.75)' : 'var(--color-text-tertiary)' }}>
+                    🗑
                   </button>
                 </div>
 
@@ -542,20 +538,35 @@ export function CanvasSurface() {
 
       </aside>
 
-      {/* ── Main area ── */}
+      {/* ── Centre: editor or empty state ── */}
       {activeDocument ? (
-        <>
-          <CanvasEditor
-            doc={activeDocument}
-            onUpdate={(patch) => handleUpdate(activeDocument.id, patch)}
-          />
-          <CanvasChat
-            doc={activeDocument}
-            onDocUpdate={(patch) => handleUpdate(activeDocument.id, patch)}
-          />
-        </>
+        <CanvasEditor
+          doc={activeDocument}
+          onUpdate={(patch) => handleUpdate(activeDocument.id, patch)}
+        />
       ) : (
         <EmptyState onCreate={handleCreate} />
+      )}
+
+      {/* ── Right: Canvas AI (always visible) ── */}
+      {activeDocument ? (
+        <CanvasChat
+          doc={activeDocument}
+          onDocUpdate={(patch) => handleUpdate(activeDocument.id, patch)}
+        />
+      ) : (
+        <div className="flex w-[240px] shrink-0 flex-col border-l border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
+          <div className="flex items-center gap-2 border-b border-[var(--color-border-secondary)] px-4 py-3">
+            <div className="flex h-[22px] w-[22px] items-center justify-center rounded-[6px] bg-[var(--accent)] shrink-0">
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6h8M6 2l4 4-4 4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </div>
+            <span className="text-[13px] font-bold text-[var(--color-text-primary)]">Canvas AI</span>
+            <span className="ml-auto text-[10.5px] text-[var(--color-text-tertiary)]">Per doc</span>
+          </div>
+          <div className="flex flex-1 items-center justify-center p-4">
+            <p className="text-center text-xs text-[var(--color-text-tertiary)]">Open a document to chat</p>
+          </div>
+        </div>
       )}
     </div>
   )
