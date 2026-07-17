@@ -381,7 +381,7 @@ export async function clusterSurface(allNodes: GraphNode[], allEdges: GraphEdge[
     const label = (isTopic ? cl.classNames.get(id) : null) ?? cleanLabel(n) ?? (n.labels[0] ?? 'node')
     const kvProp = n.properties?.['kvClass']
     const kvClass = (typeof kvProp === 'string' && kvProp) ? kvProp : categoryFor(n.labels[0] ?? '')
-    return [{ id, label, category: categoryFor(n.labels[0] ?? ''), kind: isTopic ? 'Concept' : kindOf(n.labels[0] ?? ''), kvClass, featured: isTopic || deg >= maxDeg * 0.6, degree: deg }]
+    return [{ id, label, category: categoryFor(n.labels[0] ?? ''), kind: isTopic ? 'Concept' : kindOf(n.labels[0] ?? ''), kvClass, featured: isTopic || deg >= maxDeg * 0.6, degree: deg, epistemic: 'observed' }]
   })
 
   const links: SurfaceLink[] = []

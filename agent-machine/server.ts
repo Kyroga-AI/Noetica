@@ -84,6 +84,7 @@ import { runGremlin } from '@socioprophet/hellgraph'
 import { buildWorkspacePrefix, invalidatePrefix } from './lib/context-cache.js'
 import { estimateCostUsd, tokensEgressed } from '../lib/pricing/modelPricing.js'
 import { recordCapability, capabilitySummary, capabilityHint, recordReward, selectArmUCB, serializeCapabilities, hydrateCapabilities, banditStandings, resetCapabilities } from './lib/capability-model.js'
+import { grlLoop, grlEnabled, retrievalActionOf, graphStateFromGrounding } from './lib/grl-loop.js'
 import { validateGraph } from '@socioprophet/hellgraph'
 import { CANONICAL_SHAPES, QUARANTINE_PROP } from './lib/canonical-shapes.js'
 import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
@@ -4981,6 +4982,19 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
       turnWorth = valueJudgment.worth
       turnReward = computeReward({ worth: valueJudgment.worth, latencyMs, grounded: turnGrounded, fillRate: policy.fillRate })
       recordReward({ task: routerDecision.task, provider, model, reward: turnReward })
+      // Graph-RL (Phase 1, SHADOW): the graph-native contextual bandit. It conditions on the query's
+      // graph neighbourhood (grounded vs novel claim mix) and learns which retrieval grounding-source
+      // pays off in THAT graph state — unlike the context-free model-arm bandit above. Shadow = it
+      // decides + learns from every real turn (persisted policy + a numeric replay buffer, both under
+      // ~/.noetica) but does NOT yet override the heuristic retrieval; flip via NOETICA_GRL_RETRIEVAL
+      // once standings prove out. Fail-open: learning must never break a turn.
+      try {
+        if (grlEnabled() && gg) {
+          const gstate = graphStateFromGrounding(gg, latestUserContent)
+          const shadow = grlLoop().decide(gstate)
+          grlLoop().observe({ turnId: run_id, action: retrievalActionOf(intentPlan.retrieval), context: shadow.context, signals: { worth: valueJudgment.worth } })
+        }
+      } catch { /* fail-open */ }
       // Record a quality sample for symbolic-regression driver analysis.
       recordQualitySample({
         worth: valueJudgment.worth,
@@ -6635,6 +6649,16 @@ const server = http.createServer((req, res) => {
     setCORSHeaders(res)
     res.writeHead(200, { 'content-type': 'application/json' })
     res.end(JSON.stringify({ pruned: _decayPruneTotal, lastPruneAt: _decayLastPruneAt || null, budget: 200 }))
+    return
+  }
+
+  // GET /api/grl/standings — the Graph-RL loop's learned standings: which retrieval grounding-source
+  // each arm has converged to, its mean reward + plays. Makes the graph-native contextual bandit
+  // observable (mode: shadow until NOETICA_GRL_RETRIEVAL flips it active).
+  if (req.method === 'GET' && url.pathname === '/api/grl/standings') {
+    setCORSHeaders(res)
+    res.writeHead(200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify({ policy: 'retrieval-mode', mode: grlEnabled() ? 'shadow' : 'disabled', standings: grlLoop().standings() }))
     return
   }
 

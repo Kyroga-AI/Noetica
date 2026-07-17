@@ -6,8 +6,8 @@ import type { SurfaceResult } from './graph-surface.js';
 
 const surface = (over: Partial<SurfaceResult> = {}): SurfaceResult => ({
   nodes: [
-    { id: 'a', label: 'Ada', category: 'trust', kind: 'Person', kvClass: 'k', featured: true, degree: 5 },
-    { id: 'b', label: 'Repo X', category: 'technical', kind: 'Code', kvClass: 'k', featured: false, degree: 2 },
+    { id: 'a', label: 'Ada', category: 'trust', kind: 'Person', kvClass: 'k', featured: true, degree: 5, epistemic: 'observed' },
+    { id: 'b', label: 'Repo X', category: 'technical', kind: 'Code', kvClass: 'k', featured: false, degree: 2, epistemic: 'observed' },
   ],
   links: [{ source: 'a', target: 'b', primary: true, epistemic: 'extracted', dimension: 'authoredBy' }],
   total: { nodes: 2, edges: 1 },
@@ -61,7 +61,7 @@ test('empty graph degrades cleanly (synthesized self, unavailable)', () => {
 
 test('kind falls back category → Entity when kind is blank', () => {
   const s = toPersonGraphSnapshot(surface({
-    nodes: [{ id: 'c', label: 'X', category: 'docs', kind: '', kvClass: '', featured: false, degree: 1 }],
+    nodes: [{ id: 'c', label: 'X', category: 'docs', kind: '', kvClass: '', featured: false, degree: 1, epistemic: 'observed' }],
     links: [],
   }));
   assert.equal(s.nodes[0]!.kind, 'docs');
