@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Sidebar } from '@/components/shell/Sidebar'
 import { useResizable } from '@/components/shell/useResizable'
-import { CommandCenterRail } from '@/components/shell/CommandCenterRail'
-import { NAV_SURFACES, surfacesFor, type CommandCenterId } from '@/components/shell/commandCenters'
 import { ResizeHandle } from '@/components/shell/ResizeHandle'
 import { Topbar } from '@/components/shell/Topbar'
 import { MessageList } from '@/components/chat/MessageList'
@@ -342,23 +340,6 @@ export function AppShell() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false)
   const [inspectorVisible, setInspectorVisible] = useState(false)
-  // Tier-1 command center (which domain the left panel is showing). Derived from
-  // the active surface via the nav registry, so the rail highlight always follows
-  // wherever navigation lands.
-  const [activeCenter, setActiveCenter] = useState<CommandCenterId>('workspace')
-  useEffect(() => {
-    const s = NAV_SURFACES.find((s) => s.id === activeSurface)
-    if (s) setActiveCenter(s.center)
-  }, [activeSurface])
-  // Picking a command center navigates to its first real (non-gap, shipped) surface;
-  // if a center is all-planned, just switch the panel.
-  const handleCenterChange = useCallback((center: CommandCenterId) => {
-    const first = surfacesFor(center).find(
-      (s) => !s.gap && s.tier !== 'tab' && s.tier !== 'hidden' && s.maturity !== 'planned',
-    )
-    if (first) handleSurfaceChange(first.id as ActiveSurface)
-    else setActiveCenter(center)
-  }, [])
   // Draggable widths for the two shell panels (persisted; double-click seam to reset).
   const leftPanel = useResizable({ storageKey: 'noetica.sidebar.width', initial: 224, min: 180, max: 420, side: 'left' })
   const rightPanel = useResizable({ storageKey: 'noetica.inspector.width', initial: 320, min: 260, max: 640, side: 'right' })
@@ -1630,13 +1611,10 @@ export function AppShell() {
         />
       )}
       <main className="relative flex h-screen overflow-hidden bg-[var(--color-background-tertiary)] text-[var(--color-text-primary)]">
-        {/* Tier 1 — command-center (domain) switcher */}
-        <CommandCenterRail activeCenter={activeCenter} onCenterChange={handleCenterChange} />
         {!sidebarCollapsed && (
           <div className="relative hidden h-full shrink-0 lg:flex" style={{ width: leftPanel.width }}>
             <Sidebar
               activeSurface={activeSurface}
-              activeCenter={activeCenter}
               mode={mode}
               onSurfaceChange={handleSurfaceChange}
               onOpenSettings={(cat) => openSettings(cat)}
