@@ -52,12 +52,19 @@ export async function buildLibrary(): Promise<Library> {
   const g = getGraph()
   const collMeta = new Map(listCollections().map((c) => [c.id, c]))
   const groups = new Map<string, LibraryGroup>()
+  const seenDocIds = new Set<string>()
   let totalDocs = 0, totalChunks = 0, totalEntities = 0
 
   for (const d of g.nodesByLabel('Document')) {
     const filename = String(d.properties['filename'] ?? '')
     if (!filename || d.properties['hidden']) continue   // skip soft-deleted (Library cleanup)
     const docId = d.id
+    // docId is content-addressed (filename + text hash) — a repeat here is always the exact same
+    // document re-surfaced by the underlying store, never a legitimate distinct doc. Without this,
+    // duplicate Document nodes (e.g. from a double-write in the graph's log) produce two rows with
+    // the same React key in the Library view and crash the render.
+    if (seenDocIds.has(docId)) continue
+    seenDocIds.add(docId)
     const chunks = Number(d.properties['chunk_count'] ?? 0)
     // Entities grounded from this doc = its GROUNDS out-edges (the Document→CanonicalEntity links from ingest).
     const entities = (() => { try { return g.out(docId, 'GROUNDS').length } catch { return 0 } })()
