@@ -18,23 +18,67 @@ type Model = {
 }
 type Catalog = { models: Model[]; note: string }
 
-const TIER_COLOR: Record<Model['tier'], string> = { 'on-device': '#16a34a', edge: '#d97706', server: '#1d4ed8' }
+const TIER_COLOR: Record<Model['tier'], string> = { 'on-device': '#16a34a', edge: '#d97706', server: '#7c3aed' }
 const fmtParams = (b: number) => (b >= 1 ? `${b}B` : `${Math.round(b * 1000)}M`)
 
-function ModelCard({ m }: { m: Model }) {
+/* ── Base model card (large, side-by-side layout) ── */
+function BaseModelCard({ m }: { m: Model }) {
   return (
-    <div className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2.5">
-      <div className="flex items-center gap-2">
-        <span className="h-2 w-2 rounded-full" style={{ background: TIER_COLOR[m.tier] }} />
-        <span className="truncate text-xs font-semibold text-[var(--color-text-primary)]">{m.modality ? `${m.modality} adapter` : m.id}</span>
-        <span className="ml-auto shrink-0 rounded bg-[var(--color-background-secondary)] px-1.5 py-0.5 text-[9px] font-medium text-[var(--color-text-secondary)]">{fmtParams(m.paramsB)}</span>
+    <div className="flex items-start gap-[14px] rounded-[14px] border border-[var(--line)] bg-[var(--color-background-secondary)] p-[18px_20px]">
+      <span className="mt-1 h-[10px] w-[10px] shrink-0 rounded-full bg-[var(--verified)]" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[14px] font-extrabold text-[var(--color-text-primary)]">{m.id}</span>
+          <span className="font-mono text-[11px] bg-[var(--verified-soft)] text-[var(--verified-fg)] px-2 py-[2px] rounded-full">on-device</span>
+          <span className="font-mono text-[11px] bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)] px-2 py-[2px] rounded-full">{fmtParams(m.paramsB)}</span>
+          {m.quantization && <span className="font-mono text-[11px] bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)] px-2 py-[2px] rounded-full">{m.quantization}</span>}
+        </div>
+        <div className="text-[12px] text-[var(--color-text-tertiary)] mt-[6px] flex gap-[14px] flex-wrap">
+          <span>Residency: <b style={{color:'var(--color-text-secondary)'}}>{m.residencyState}</b></span>
+          <span>Cache: <b style={{color:'var(--color-text-secondary)'}}>{m.cacheTier}</b></span>
+          <span>Carry policy: <b style={{color:'var(--color-text-secondary)'}}>{m.carryPolicy}</b></span>
+        </div>
       </div>
-      <div className="mt-1 flex flex-wrap gap-1 text-[9px] text-[var(--color-text-tertiary)]">
-        <span className="rounded bg-[var(--color-background-secondary)] px-1.5 py-0.5">{m.tier}</span>
-        {m.quantization && <span className="rounded bg-[var(--color-background-secondary)] px-1.5 py-0.5">{m.quantization}</span>}
-        <span className="rounded bg-[var(--color-background-secondary)] px-1.5 py-0.5">{m.residencyState}</span>
-        <span className="rounded bg-[var(--color-background-secondary)] px-1.5 py-0.5">{m.provider}</span>
-        {m.lab && <span className="rounded bg-[#eff6ff] px-1.5 py-0.5 text-[#1d4ed8]">{m.lab}</span>}
+    </div>
+  )
+}
+
+/* ── Adapter card ── */
+function AdapterCard({ m }: { m: Model }) {
+  return (
+    <div className="flex-1 min-w-[160px] rounded-[14px] border border-[var(--line)] bg-[var(--color-background-secondary)] p-[16px_18px] flex flex-col gap-2">
+      <div className="flex items-center gap-[7px]">
+        <span className="w-2 h-2 rounded-full bg-[var(--violet)]" />
+        <span className="text-[13px] font-extrabold text-[var(--color-text-primary)]">{m.lab || m.id}</span>
+      </div>
+      <div className="font-mono text-[11px] text-[var(--color-text-tertiary)]">{m.id}</div>
+      <div className="flex flex-wrap gap-[5px]">
+        <span className="font-mono text-[10.5px] bg-[var(--violet-soft)] text-[var(--violet-fg)] px-[7px] py-[2px] rounded-full">adapter</span>
+        <span className="font-mono text-[10.5px] bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)] px-[7px] py-[2px] rounded-full">{fmtParams(m.paramsB)}</span>
+      </div>
+      <div className="text-[11px] text-[var(--color-text-tertiary)]">
+        Carry: <b style={{color:'var(--color-text-secondary)'}}>{m.carryPolicy}</b>
+      </div>
+    </div>
+  )
+}
+
+/* ── Server tier card ── */
+function ServerCard({ m }: { m: Model }) {
+  return (
+    <div className="flex items-start gap-[14px] rounded-[14px] border border-[var(--line)] bg-[var(--color-background-secondary)] p-[18px_20px]">
+      <span className="mt-1 h-[10px] w-[10px] shrink-0 rounded-full bg-[var(--violet)]" />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-[14px] font-extrabold text-[var(--color-text-primary)]">{m.id}</span>
+          <span className="font-mono text-[11px] bg-[var(--violet-soft)] text-[var(--violet-fg)] px-2 py-[2px] rounded-full">server</span>
+          <span className="font-mono text-[11px] bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)] px-2 py-[2px] rounded-full">{fmtParams(m.paramsB)}</span>
+        </div>
+        <div className="text-[12px] text-[var(--color-text-tertiary)] mt-[6px] flex gap-[14px] flex-wrap">
+          <span>Provider: <b style={{color:'var(--color-text-secondary)'}}>{m.provider}</b></span>
+          <span>Residency: <b style={{color:'var(--color-text-secondary)'}}>{m.residencyState}</b></span>
+          <span>Carry policy: <b style={{color:'var(--color-text-secondary)'}}>{m.carryPolicy}</b></span>
+        </div>
       </div>
     </div>
   )
@@ -57,41 +101,78 @@ export function LabsSurface() {
   const adapters = cat?.models.filter((m) => m.kind === 'adapter') ?? []
   const server = cat?.models.find((m) => m.tier === 'server')
 
-  return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
-      <div className="mx-auto w-full max-w-3xl space-y-4">
-        <div>
-          <div className="text-lg font-semibold text-[var(--color-text-primary)]">Labs · Model Catalog</div>
-          <div className="text-xs text-[var(--color-text-secondary)]">Apple-aligned: one on-device base + swappable per-lab LoRA adapters + a server tier. Routed by sensitivity — high stays on-device.</div>
-        </div>
+  const isOffline = !!err
 
-        {err ? <div className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-4 py-2 text-xs text-[#dc2626]">{err} — run under dev:app</div>
-          : !cat ? <div className="text-xs text-[var(--color-text-tertiary)]">Loading…</div>
-          : (
-            <>
-              {base && (
-                <div>
-                  <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">On-device base</div>
-                  <ModelCard m={base} />
-                </div>
-              )}
+  return (
+    <div className="flex min-h-0 flex-1 flex-col">
+      {/* ── Fixed topbar ── */}
+      <div className="flex h-[50px] shrink-0 items-center gap-[10px] border-b border-[var(--color-border-secondary)] px-[22px]">
+        <span className="text-[14px] font-extrabold text-[var(--color-text-primary)]">Labs</span>
+        <span className="text-[12px] text-[var(--color-text-tertiary)]">On-device model catalog — read-only</span>
+        <div className="flex-1" />
+        {isOffline && (
+          <div className="flex items-center gap-[6px] rounded-full bg-[var(--pending-soft)] border border-[var(--pending-line)] px-3 py-[5px]">
+            <span className="w-[6px] h-[6px] rounded-full bg-[var(--pending)]" />
+            <span className="text-[12px] font-bold text-[var(--pending-fg)]">Agent Machine offline — showing demo catalog</span>
+          </div>
+        )}
+      </div>
+
+      {/* ── Scrollable content ── */}
+      <div className="flex-1 min-h-0 overflow-y-auto p-[22px] flex flex-col gap-6">
+        {!cat && !err ? (
+          <div className="text-xs text-[var(--color-text-tertiary)]">Loading...</div>
+        ) : (
+          <>
+            {base && (
               <div>
-                <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">SociOS lab adapters (opt-in tuning · LoRA)</div>
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                  {adapters.map((m) => <ModelCard key={m.id} m={m} />)}
-                </div>
+                <div className="text-[10px] font-bold tracking-[0.6px] text-[var(--color-text-secondary)] uppercase mb-[10px]">On-device base model</div>
+                <BaseModelCard m={base} />
               </div>
-              {server && (
-                <div>
-                  <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Server tier (larger · off-device)</div>
-                  <ModelCard m={server} />
-                </div>
-              )}
-              <div className="rounded-xl bg-[var(--color-background-secondary)] px-3 py-2 text-[10px] text-[var(--color-text-secondary)]">
-                Routing (isolation ↔ residency): <strong className="text-[#16a34a]">high → on-device</strong> · <strong className="text-[#d97706]">medium → edge</strong> · <strong className="text-[#1d4ed8]">low → server</strong>. {cat.note}
+            )}
+
+            <div>
+              <div className="flex items-baseline gap-2 mb-[10px]">
+                <span className="text-[10px] font-bold tracking-[0.6px] text-[var(--color-text-secondary)] uppercase">SociOS lab adapters</span>
+                <span className="text-[10px] text-[var(--color-text-tertiary)]">opt-in tuning · LoRA</span>
               </div>
-            </>
-          )}
+              <div className="flex gap-[10px] flex-wrap">
+                {adapters.map((m) => <AdapterCard key={m.id} m={m} />)}
+              </div>
+            </div>
+
+            {server && (
+              <div>
+                <div className="text-[10px] font-bold tracking-[0.6px] text-[var(--color-text-secondary)] uppercase mb-[10px]">
+                  Server tier <span className="font-normal normal-case tracking-normal">larger, off-device</span>
+                </div>
+                <ServerCard m={server} />
+              </div>
+            )}
+
+            {/* ── Routing policy strip ── */}
+            <div className="bg-[var(--color-background-secondary)] rounded-[14px] border border-[var(--line)] p-[16px_20px] flex flex-col gap-[10px]">
+              <div className="text-[10px] font-bold tracking-[0.6px] text-[var(--color-text-secondary)] uppercase">Automatic routing policy</div>
+              <div className="flex gap-3 flex-wrap">
+                <span className="flex items-center gap-[7px] rounded-full bg-[var(--verified-soft)] border border-[var(--verified-line)] px-[14px] py-[7px]">
+                  <span className="w-[7px] h-[7px] rounded-full bg-[var(--verified)]" />
+                  <span className="text-[12.5px] font-bold text-[var(--verified-fg)]">High sensitivity → on-device</span>
+                </span>
+                <span className="flex items-center gap-[7px] rounded-full bg-[var(--pending-soft)] border border-[var(--pending-line)] px-[14px] py-[7px]">
+                  <span className="w-[7px] h-[7px] rounded-full bg-[var(--pending)]" />
+                  <span className="text-[12.5px] font-bold text-[var(--pending-fg)]">Medium → edge</span>
+                </span>
+                <span className="flex items-center gap-[7px] rounded-full bg-[var(--violet-soft)] border border-[var(--violet-line)] px-[14px] py-[7px]">
+                  <span className="w-[7px] h-[7px] rounded-full bg-[var(--violet)]" />
+                  <span className="text-[12.5px] font-bold text-[var(--violet-fg)]">Low sensitivity → server</span>
+                </span>
+              </div>
+              <p className="text-[12px] text-[var(--color-text-tertiary)] leading-[1.6]">
+                Routing decisions are made locally before any request leaves the device. Change routing policy in Settings → Runtime.
+              </p>
+            </div>
+          </>
+        )}
       </div>
     </div>
   )

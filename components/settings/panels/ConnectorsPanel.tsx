@@ -82,7 +82,7 @@ const EXTERNAL_CONNECTORS = [
 
 const TRUST_COLORS: Record<string, string> = {
   'Native':               'bg-[#dcfce7] text-[#166534]',
-  'Organization trusted': 'bg-[#dbeafe] text-[#1e40af]',
+  'Organization trusted': 'bg-[var(--accent-soft)] text-[var(--accent)]',
   'External':             'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]',
   'Unverified':           'bg-[#fee2e2] text-[#991b1b]',
 }
@@ -113,7 +113,7 @@ function ConnectorRow({
         )}
       </div>
       {onConfigure && (
-        <button onClick={onConfigure} className="shrink-0 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:border-[#bfdbfe] hover:bg-[#eff6ff] hover:text-[#1d4ed8]">
+        <button onClick={onConfigure} className="shrink-0 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:border-[var(--accent)] hover:bg-[var(--accent-soft)] hover:text-[var(--accent)]">
           {authConnected ? 'Manage' : 'Configure'}
         </button>
       )}
@@ -169,11 +169,11 @@ function AddServerForm({ onAdd, onCancel }: {
   }
 
   return (
-    <div className="rounded-xl border border-[#bfdbfe] bg-[#eff6ff] p-4 space-y-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-[#1d4ed8]">Add MCP Server</p>
+    <div className="rounded-xl border border-[var(--accent)] bg-[var(--accent-soft)] p-4 space-y-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">Add MCP Server</p>
       <div className="space-y-1">
         <label className="text-xs font-medium text-[var(--color-text-secondary)]">Display name</label>
-        <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 text-sm outline-none focus:border-[#93c5fd]"
+        <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 text-sm outline-none focus:border-[var(--accent)]"
           placeholder="My MCP server" value={form.name} onChange={(e) => set('name', e.target.value)} />
       </div>
       <div className="space-y-1">
@@ -182,7 +182,7 @@ function AddServerForm({ onAdd, onCancel }: {
           {(['sse', 'stdio'] as McpTransport[]).map((t) => (
             <button key={t} type="button" disabled={t === 'stdio' && !canStdio}
               onClick={() => set('transport', t)}
-              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${form.transport === t ? 'border-[#1d4ed8] bg-[#1d4ed8] text-white' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] text-[var(--color-text-secondary)] hover:border-[#bfdbfe]'}`}>
+              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition disabled:cursor-not-allowed disabled:opacity-40 ${form.transport === t ? 'border-[var(--accent)] bg-[var(--accent)] text-white' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] text-[var(--color-text-secondary)] hover:border-[var(--accent)]'}`}>
               {t === 'sse' ? 'SSE / HTTP' : 'stdio (Tauri)'}
             </button>
           ))}
@@ -194,31 +194,31 @@ function AddServerForm({ onAdd, onCancel }: {
       {form.transport === 'sse' && (
         <div className="space-y-1">
           <label className="text-xs font-medium text-[var(--color-text-secondary)]">Server URL</label>
-          <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 font-mono text-xs outline-none focus:border-[#93c5fd]"
+          <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 font-mono text-xs outline-none focus:border-[var(--accent)]"
             placeholder="http://localhost:3100/sse" value={form.url} onChange={(e) => set('url', e.target.value)} />
         </div>
       )}
       {form.transport === 'stdio' && (<>
         <div className="space-y-1">
           <label className="text-xs font-medium text-[var(--color-text-secondary)]">Command</label>
-          <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 font-mono text-xs outline-none focus:border-[#93c5fd]"
+          <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 font-mono text-xs outline-none focus:border-[var(--accent)]"
             placeholder="npx" value={form.command} onChange={(e) => set('command', e.target.value)} />
         </div>
         <div className="space-y-1">
           <label className="text-xs font-medium text-[var(--color-text-secondary)]">Arguments <span className="font-normal text-[var(--color-text-tertiary)]">(space-separated)</span></label>
-          <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 font-mono text-xs outline-none focus:border-[#93c5fd]"
+          <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 font-mono text-xs outline-none focus:border-[var(--accent)]"
             placeholder="-y @modelcontextprotocol/server-filesystem /path" value={form.args} onChange={(e) => set('args', e.target.value)} />
         </div>
         <div className="space-y-1">
           <label className="text-xs font-medium text-[var(--color-text-secondary)]">Env vars <span className="font-normal text-[var(--color-text-tertiary)]">(JSON, optional)</span></label>
-          <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 font-mono text-xs outline-none focus:border-[#93c5fd]"
+          <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 font-mono text-xs outline-none focus:border-[var(--accent)]"
             placeholder='{"API_KEY": "..."}' value={form.env} onChange={(e) => set('env', e.target.value)} />
         </div>
       </>)}
       {error && <p className="rounded-lg border border-[#fecaca] bg-[#fef2f2] px-3 py-1.5 text-xs text-[#dc2626]">{error}</p>}
       <div className="flex justify-end gap-2 pt-1">
         <button type="button" onClick={onCancel} className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-4 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-tertiary)]">Cancel</button>
-        <button type="button" onClick={submit} className="rounded-lg bg-[#1d4ed8] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1e40af]">Add &amp; Connect</button>
+        <button type="button" onClick={submit} className="rounded-lg bg-[var(--accent)] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[var(--accent)]">Add &amp; Connect</button>
       </div>
     </div>
   )
@@ -245,13 +245,13 @@ function McpServerRow({ state, onConnect, onDisconnect, onRemove }: {
         <div className="flex shrink-0 items-center gap-1.5">
           {tools.length > 0 && (
             <button onClick={() => setExpanded((v) => !v)}
-              className="rounded-lg border border-[var(--color-border-secondary)] px-2 py-1 text-[11px] font-medium text-[var(--color-text-secondary)] transition hover:border-[#bfdbfe] hover:text-[#1d4ed8]">
+              className="rounded-lg border border-[var(--color-border-secondary)] px-2 py-1 text-[11px] font-medium text-[var(--color-text-secondary)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]">
               {tools.length} tool{tools.length !== 1 ? 's' : ''} {expanded ? '▲' : '▼'}
             </button>
           )}
           {status === 'connected'
             ? <button onClick={onDisconnect} className="rounded-lg border border-[var(--color-border-secondary)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-text-secondary)] transition hover:border-[#fecaca] hover:text-[#dc2626]">Disconnect</button>
-            : <button onClick={onConnect} className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2.5 py-1 text-[11px] font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe]">Connect</button>}
+            : <button onClick={onConnect} className="rounded-lg border border-[var(--accent)] bg-[var(--accent-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--accent)] transition hover:bg-[var(--accent-soft)]">Connect</button>}
           <button onClick={onRemove} title="Remove"
             className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-text-tertiary)] transition hover:bg-[#fee2e2] hover:text-[#dc2626]">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
@@ -349,7 +349,7 @@ export function ConnectorsPanel({ onNavigate }: { onNavigate?: (id: string) => v
           </div>
           {!hydrated && <p className="py-4 text-center text-xs text-[var(--color-text-tertiary)]">Loading…</p>}
           {hydrated && serverStates.length === 0 && !showAdd && (
-            <div className="rounded-xl border border-dashed border-[#bfdbfe] bg-[#eff6ff] py-8 text-center">
+            <div className="rounded-xl border border-dashed border-[var(--accent)] bg-[var(--accent-soft)] py-8 text-center">
               <p className="text-sm font-medium text-[var(--color-text-secondary)]">No MCP servers configured</p>
               <p className="mt-1 text-xs text-[var(--color-text-secondary)]">Add a server to expose tools and resources to the chat</p>
             </div>
@@ -363,7 +363,7 @@ export function ConnectorsPanel({ onNavigate }: { onNavigate?: (id: string) => v
           {showAdd
             ? <AddServerForm onAdd={(cfg) => { void addServer(cfg); setShowAdd(false) }} onCancel={() => setShowAdd(false)} />
             : <button onClick={() => setShowAdd(true)}
-                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-[#bfdbfe] py-2.5 text-xs font-semibold text-[#1d4ed8] transition hover:border-[#1d4ed8] hover:bg-[#eff6ff]">
+                className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-[var(--accent)] py-2.5 text-xs font-semibold text-[var(--accent)] transition hover:border-[var(--accent)] hover:bg-[var(--accent-soft)]">
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden><path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
                 Add MCP server
               </button>}
@@ -396,7 +396,7 @@ export function ConnectorsPanel({ onNavigate }: { onNavigate?: (id: string) => v
                           : { name: c.name, transport: 'stdio', command: c.command ?? 'npx', args: c.args ?? [], env: (c.env ?? []).reduce((o, k) => ({ ...o, [k]: '' }), {} as Record<string, string>), enabled: true }
                         void addServer(cfg); setAdded((a) => ({ ...a, [c.name]: true }))
                       }}
-                      className="mt-2 rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2 py-1 text-[10px] font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe] disabled:opacity-50">
+                      className="mt-2 rounded-lg border border-[var(--accent)] bg-[var(--accent-soft)] px-2 py-1 text-[10px] font-semibold text-[var(--accent)] transition hover:bg-[var(--accent-soft)] disabled:opacity-50">
                       {added[c.name] ? '✓ Added — configure below' : blocked ? 'Desktop only' : '+ Add'}
                     </button>
                   </div>

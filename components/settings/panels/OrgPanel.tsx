@@ -61,7 +61,7 @@ export function OrgPanel() {
               <div className="text-xs font-medium text-[var(--color-text-primary)]">{MEMBER.name}</div>
               <div className="text-[10px] text-[var(--color-text-tertiary)]">{MEMBER.email}</div>
             </div>
-            <span className="shrink-0 rounded-full bg-[rgba(29,78,216,0.10)] px-2 py-0.5 text-[10px] font-semibold text-[#1d4ed8]">
+            <span className="shrink-0 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--accent)]">
               {MEMBER.role}
             </span>
           </div>
@@ -74,14 +74,14 @@ export function OrgPanel() {
                 value={inviteEmail}
                 onChange={(e) => setInviteEmail(e.target.value)}
                 placeholder="colleague@example.com"
-                className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-xs text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#1d4ed8]"
+                className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-xs text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--accent)]"
                 onKeyDown={(e) => { if (e.key === 'Escape') setInviteOpen(false); if (e.key === 'Enter') sendInvite() }}
               />
               <div className="flex gap-2">
                 <button
                   onClick={sendInvite}
                   disabled={!isValidEmail(inviteEmail) || inviteSent}
-                  className="rounded-lg bg-[#1d4ed8] px-3 py-1 text-xs font-semibold text-white transition hover:bg-[#1e40af] disabled:opacity-50"
+                  className="rounded-lg bg-[var(--accent)] px-3 py-1 text-xs font-semibold text-white transition hover:bg-[var(--accent)] disabled:opacity-50"
                 >
                   {inviteSent ? 'Sent ✓' : 'Send invite'}
                 </button>
@@ -98,7 +98,7 @@ export function OrgPanel() {
         {!inviteOpen && (
           <button
             onClick={() => setInviteOpen(true)}
-            className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-[var(--color-border-secondary)] py-2 text-xs text-[var(--color-text-secondary)] transition hover:border-[#1d4ed8] hover:text-[#1d4ed8]"
+            className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-[var(--color-border-secondary)] py-2 text-xs text-[var(--color-text-secondary)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
           >
             <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden>
               <path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -117,7 +117,7 @@ export function OrgPanel() {
               <div className="text-xs font-semibold text-[var(--color-text-primary)]">Development Preview</div>
               <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">Full access during development phase</div>
             </div>
-            <span className="rounded-full bg-[rgba(29,78,216,0.10)] px-2.5 py-0.5 text-[10px] font-semibold text-[#1d4ed8]">Dev</span>
+            <span className="rounded-full bg-[var(--accent-soft)] px-2.5 py-0.5 text-[10px] font-semibold text-[var(--accent)]">Dev</span>
           </div>
         </div>
       </div>

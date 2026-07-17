@@ -19,5 +19,6 @@ export interface NoteStore {
 }
 
 export const NOTE_STORE_VERSION = 1
-export const NOTE_STORE_KEY = 'noetica:notes'
+export const NOTE_STORE_KEY = 'noetica:notes:v1'
+export const NOTE_STORE_KEY_LEGACY = 'noetica:notes'
 export const MAX_NOTES = 500

@@ -77,7 +77,7 @@ export const AGENT_ARCHETYPES: AgentArchetype[] = [
     description: 'Synthesises information, finds patterns, and summarises findings.',
     systemPrompt: 'You are Research, a specialist research agent. You synthesise information clearly, cite reasoning, and surface non-obvious connections. Be concise and structured.',
     tags: ['synthesis', 'analysis', 'summaries'],
-    color: 'bg-[#7c3aed]',
+    color: 'bg-[#6366F1]',
   },
   {
     id: 'code-review',
@@ -85,7 +85,7 @@ export const AGENT_ARCHETYPES: AgentArchetype[] = [
     description: 'Reviews code for bugs, style issues, and security concerns.',
     systemPrompt: 'You are Code Review, a specialist code analysis agent. You identify bugs, security issues, and style violations. Be specific — reference line numbers or patterns. Suggest concrete fixes.',
     tags: ['bugs', 'security', 'style'],
-    color: 'bg-[#0891b2]',
+    color: 'bg-[#0EA5E9]',
   },
   {
     id: 'planner',
@@ -93,7 +93,7 @@ export const AGENT_ARCHETYPES: AgentArchetype[] = [
     description: 'Breaks goals into tasks, milestones, and sequenced work plans.',
     systemPrompt: 'You are Planner, a specialist planning agent. You decompose objectives into concrete tasks with clear sequencing and dependencies. Output structured plans with milestones.',
     tags: ['tasks', 'milestones', 'sprints'],
-    color: 'bg-[#059669]',
+    color: 'bg-[#8B5CF6]',
   },
   {
     id: 'writer',
@@ -101,7 +101,7 @@ export const AGENT_ARCHETYPES: AgentArchetype[] = [
     description: 'Drafts, edits, and improves prose for any audience.',
     systemPrompt: 'You are Writer, a specialist writing and editing agent. You draft, improve, and restructure text. Match the requested tone and audience. Be direct — show the revised text.',
     tags: ['drafting', 'editing', 'tone'],
-    color: 'bg-[#d97706]',
+    color: 'bg-[#10B981]',
   },
   {
     id: 'analyst',
@@ -109,6 +109,6 @@ export const AGENT_ARCHETYPES: AgentArchetype[] = [
     description: 'Analyses data, identifies patterns, and produces structured assessments.',
     systemPrompt: 'You are Analyst, a specialist data and reasoning agent. You identify patterns, surface anomalies, and produce structured assessments. Use bullet points and tables where appropriate.',
     tags: ['data', 'patterns', 'assessment'],
-    color: 'bg-[#dc2626]',
+    color: 'bg-[#F59E0B]',
   },
 ]

@@ -36,7 +36,7 @@ function MarkdownPreview({ content }: { content: string }) {
         if (line.startsWith('# '))   return <h1 key={i} className="text-2xl font-bold mt-4 mb-2">{line.slice(2)}</h1>
         if (line.startsWith('## '))  return <h2 key={i} className="text-xl font-semibold mt-3 mb-1">{line.slice(3)}</h2>
         if (line.startsWith('### ')) return <h3 key={i} className="text-base font-semibold mt-2 mb-1">{line.slice(4)}</h3>
-        if (line.startsWith('> '))   return <blockquote key={i} className="border-l-2 border-[#93c5fd] pl-3 text-[var(--color-text-secondary)] italic">{line.slice(2)}</blockquote>
+        if (line.startsWith('> '))   return <blockquote key={i} className="border-l-2 border-[var(--accent)] pl-3 text-[var(--color-text-secondary)] italic">{line.slice(2)}</blockquote>
         if (line.startsWith('- ') || line.startsWith('* ')) return <li key={i} className="ml-4 list-disc">{line.slice(2)}</li>
         if (/^\d+\. /.test(line)) return <li key={i} className="ml-4 list-decimal">{line.replace(/^\d+\. /, '')}</li>
         if (line === '') return <div key={i} className="h-3" />
@@ -108,8 +108,8 @@ function CanvasEditor({ doc, onUpdate }: { doc: CanvasDocument; onUpdate: (patch
       {/* Title */}
       <div className="border-b border-[var(--color-border-secondary)] px-6 py-4">
         <input
-          className="w-full border-0 bg-transparent text-2xl font-bold text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
-          placeholder="Document title…"
+          className="w-full border-0 bg-transparent text-[17px] font-bold text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
+          placeholder="Untitled"
           value={doc.title}
           onChange={(e) => onUpdate({ title: e.target.value })}
         />
@@ -124,7 +124,7 @@ function CanvasEditor({ doc, onUpdate }: { doc: CanvasDocument; onUpdate: (patch
         <div className="flex items-center gap-0.5 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-0.5 mr-2">
           {(['edit', 'preview'] as const).map((m) => (
             <button key={m} onClick={() => setMode(m)}
-              className={`rounded-md px-2.5 py-0.5 text-xs font-medium transition capitalize ${mode === m ? 'bg-[#dbeafe] text-[#1d4ed8]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}>
+              className={`rounded-md px-2.5 py-0.5 text-xs font-medium transition capitalize ${mode === m ? 'bg-[var(--accent-soft)] text-[var(--accent)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}>
               {m}
             </button>
           ))}
@@ -133,31 +133,27 @@ function CanvasEditor({ doc, onUpdate }: { doc: CanvasDocument; onUpdate: (patch
         {/* Formatting shortcuts */}
         {mode === 'edit' && (
           <>
-            <button onClick={() => insertAtCursor('# ')} title="Heading 1" className="rounded px-2 py-1 text-xs font-bold text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)]">H1</button>
-            <button onClick={() => insertAtCursor('## ')} title="Heading 2" className="rounded px-2 py-1 text-xs font-bold text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)]">H2</button>
+            <button onClick={() => { const el = textareaRef.current; if (el) { const s = el.selectionStart; const e2 = el.selectionEnd; const sel = el.value.slice(s, e2); const v = el.value.slice(0, s) + `**${sel}**` + el.value.slice(e2); onUpdate({ content: v }) } }} title="Bold (⌘B)" className="border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] rounded-[5px] px-2 py-1 text-xs font-bold text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)]">B</button>
+            <button onClick={() => { const el = textareaRef.current; if (el) { const s = el.selectionStart; const e2 = el.selectionEnd; const sel = el.value.slice(s, e2); const v = el.value.slice(0, s) + `_${sel}_` + el.value.slice(e2); onUpdate({ content: v }) } }} title="Italic (⌘I)" className="border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] rounded-[5px] px-2 py-1 text-xs italic text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)]">I</button>
             <div className="mx-1 h-4 w-px bg-[var(--color-border-secondary)]" />
-            <button onClick={() => { const el = textareaRef.current; if (el) { const s = el.selectionStart; const e2 = el.selectionEnd; const sel = el.value.slice(s, e2); const v = el.value.slice(0, s) + `**${sel}**` + el.value.slice(e2); onUpdate({ content: v }) } }} title="Bold (⌘B)" className="rounded px-2 py-1 text-xs font-bold text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)]">B</button>
-            <button onClick={() => { const el = textareaRef.current; if (el) { const s = el.selectionStart; const e2 = el.selectionEnd; const sel = el.value.slice(s, e2); const v = el.value.slice(0, s) + `_${sel}_` + el.value.slice(e2); onUpdate({ content: v }) } }} title="Italic (⌘I)" className="rounded px-2 py-1 text-xs italic text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)]">I</button>
-            <button onClick={() => insertAtCursor('- ')} title="Bullet list" className="rounded px-2 py-1 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)]">•—</button>
-            <button onClick={() => insertAtCursor('> ')} title="Blockquote" className="rounded px-2 py-1 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)]">&quot;</button>
-            <button onClick={() => insertAtCursor('`')} title="Inline code" className="rounded px-2 py-1 font-mono text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)]">`</button>
+            <button onClick={() => insertAtCursor('# ')} title="Heading 1" className="border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] rounded-[5px] px-2 py-1 text-xs font-bold text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)]">H1</button>
+            <button onClick={() => insertAtCursor('## ')} title="Heading 2" className="border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] rounded-[5px] px-2 py-1 text-xs font-bold text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)]">H2</button>
+            <div className="mx-1 h-4 w-px bg-[var(--color-border-secondary)]" />
+            <button onClick={() => insertAtCursor('- ')} title="Bullet list" className="border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] rounded-[5px] px-2 py-1 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)]">≡</button>
+            <button onClick={() => insertAtCursor('> ')} title="Blockquote" className="border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] rounded-[5px] px-2 py-1 text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)]">&quot;</button>
+            <button onClick={() => insertAtCursor('`')} title="Inline code" className="border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] rounded-[5px] px-2 py-1 font-mono text-xs text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)]">&lt;/&gt;</button>
           </>
         )}
 
         <div className="flex-1" />
-        <button onClick={download} title="Download as .md" className="flex h-6 w-6 items-center justify-center rounded text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-secondary)]">
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-            <path d="M6 1v7M3 5.5l3 3 3-3M2 10.5h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
       </div>
 
       {/* Editor / Preview */}
       {mode === 'edit' ? (
         <textarea
           ref={textareaRef}
-          className="min-h-0 flex-1 resize-none bg-[var(--color-background-primary)] px-6 py-5 font-mono text-sm leading-7 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
-          placeholder={`Start writing…\n\n# Use markdown formatting\n\n**Bold**, _italic_, \`code\`\n\n- Lists work too\n\nTip: ask Noetica to write or edit this document in the chat panel →`}
+          className="min-h-0 flex-1 resize-none bg-[var(--color-background-primary)] px-10 py-7 font-mono text-sm leading-7 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
+          placeholder="Start writing..."
           value={doc.content}
           onChange={(e) => onUpdate({ content: e.target.value })}
           onKeyDown={handleKeyDown}
@@ -338,43 +334,42 @@ function CanvasChat({ doc, onDocUpdate }: {
   }
 
   return (
-    <div className="flex w-80 shrink-0 flex-col border-l border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
-      <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-4 py-3">
-        <div>
-          <p className="text-xs font-semibold text-[var(--color-text-primary)]">Canvas AI</p>
-          <p className="text-[11px] text-[var(--color-text-tertiary)]">Ask Noetica to write or edit</p>
+    <div className="flex w-[240px] shrink-0 flex-col border-l border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
+      <div className="flex items-center gap-2 border-b border-[var(--color-border-secondary)] px-3.5 py-2.5 shrink-0">
+        <div className="flex h-[22px] w-[22px] items-center justify-center rounded-[6px] bg-[var(--accent)] shrink-0">
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6h8M6 2l4 4-4 4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
         </div>
-        {messages.length > 0 && (
-          <span className="rounded-full bg-[#eff6ff] px-2 py-0.5 text-[10px] font-semibold text-[#1d4ed8]">{messages.length}</span>
-        )}
+        <span className="text-[13px] font-bold text-[var(--color-text-primary)]">Canvas AI</span>
+        <span className="ml-auto text-[10.5px] text-[var(--color-text-tertiary)]">Per doc</span>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {messages.length === 0 ? (
           <div className="py-8 text-center">
-            <p className="text-xs font-medium text-[var(--color-text-secondary)]">Co-write with Noetica</p>
-            <p className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">Ask Noetica to draft, rewrite, extend, or critique — it writes directly into the canvas.</p>
-            <div className="mt-4 space-y-1.5">
-              {['Write a blog post about this topic', 'Summarise and compress', 'Make this more concise', 'Add an introduction'].map((s) => (
-                <button key={s} onClick={() => setInput(s)}
-                  className="block w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 text-left text-[11px] text-[var(--color-text-secondary)] transition hover:border-[#bfdbfe] hover:text-[#1d4ed8]">
-                  {s}
-                </button>
-              ))}
+            <p className="text-[12px] font-semibold text-[var(--color-text-secondary)]">Ask me to write or edit</p>
+            <div className="mt-3 space-y-1.5 text-left">
+              <p className="text-[11px] text-[var(--color-text-tertiary)]">&ldquo;Draft a proposal for X&rdquo;</p>
+              <p className="text-[11px] text-[var(--color-text-tertiary)]">&ldquo;Make the intro punchier&rdquo;</p>
+              <p className="text-[11px] text-[var(--color-text-tertiary)]">&ldquo;Expand the last section&rdquo;</p>
             </div>
           </div>
         ) : (
           messages.map((m) => (
             <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              {m.role === 'assistant' && (
-                <div className="mr-2 mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#0f172a] text-[10px] font-bold text-white">N</div>
-              )}
-              <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-5 ${
+              <div className={`max-w-[85%] px-3 py-2 text-xs leading-5 ${
                 m.role === 'user'
-                  ? 'bg-[#dbeafe] text-[var(--color-text-primary)]'
-                  : 'border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm text-[var(--color-text-primary)]'
+                  ? 'bg-[var(--accent)] text-white rounded-[14px_14px_3px_14px]'
+                  : 'border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] rounded-[14px_14px_14px_3px] text-[var(--color-text-primary)]'
               }`}>
-                <p className="whitespace-pre-wrap">{m.content || (streaming ? '…' : '')}</p>
+                {m.content ? (
+                  <p className="whitespace-pre-wrap">{m.content}</p>
+                ) : streaming ? (
+                  <span className="flex items-center gap-1 py-0.5">
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--color-text-tertiary)] [animation-delay:-0.3s]" />
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--color-text-tertiary)] [animation-delay:-0.15s]" />
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--color-text-tertiary)]" />
+                  </span>
+                ) : null}
               </div>
             </div>
           ))
@@ -383,10 +378,10 @@ function CanvasChat({ doc, onDocUpdate }: {
       </div>
 
       <div className="border-t border-[var(--color-border-secondary)] p-3">
-        <div className="flex items-end gap-2 rounded-xl border border-[#bfdbfe] bg-[var(--color-background-primary)] p-2 shadow-sm">
+        <div className="flex items-end gap-2 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-2 shadow-sm">
           <textarea
             className="min-h-[2.5rem] flex-1 resize-none bg-transparent text-xs leading-5 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
-            placeholder="Ask Noetica to write…"
+            placeholder="Ask to write, expand, or rewrite..."
             value={input}
             disabled={streaming}
             onChange={(e) => setInput(e.target.value)}
@@ -405,9 +400,9 @@ function CanvasChat({ doc, onDocUpdate }: {
             <button
               onClick={() => void send()}
               disabled={!input.trim()}
-              className="shrink-0 rounded-lg bg-[#1d4ed8] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#1e40af] disabled:cursor-not-allowed disabled:opacity-50"
+              className="shrink-0 rounded-lg bg-[var(--accent)] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Ask
+              Send
             </button>
           )}
         </div>
@@ -421,16 +416,14 @@ function CanvasChat({ doc, onDocUpdate }: {
 
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-      <div className="rounded-2xl border border-dashed border-[#bfdbfe] bg-[#eff6ff] p-10">
-        <p className="text-3xl mb-3">✏️</p>
-        <p className="text-sm font-semibold text-[var(--color-text-secondary)]">No document open</p>
-        <p className="mt-1 text-xs text-[var(--color-text-secondary)] max-w-xs leading-5">
-          Canvas is a collaborative document editor. Create a document and ask Noetica to write, edit, or extend it directly.
-        </p>
+    <div className="flex flex-1 items-center justify-center p-10">
+      <div className="flex flex-col items-center gap-3 text-center">
+        <div className="flex h-11 w-11 items-center justify-center rounded-[10px] border-2 border-dashed border-[var(--color-border-secondary)] text-xl text-[var(--color-text-tertiary)]">✦</div>
+        <p className="text-[15px] font-bold text-[var(--color-text-primary)]">No document selected</p>
+        <p className="text-[13px] text-[var(--color-text-secondary)]">Pick a doc from the list or create a new one.</p>
         <button
           onClick={onCreate}
-          className="mt-4 rounded-xl bg-[#1d4ed8] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#1e40af]"
+          className="mt-1 rounded-[9px] bg-[var(--accent)] px-5 py-2 text-[13px] font-bold text-white"
         >
           New document
         </button>
@@ -470,24 +463,23 @@ export function CanvasSurface() {
   return (
     <div className="flex min-h-0 flex-1 overflow-hidden">
       {/* ── Sidebar ── */}
-      <aside className="flex w-56 shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[#eaf1f8]">
-        <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-3 py-3">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[#1d4ed8]">Canvas</span>
-          <button
-            onClick={handleCreate}
-            className="flex h-6 w-6 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[#1d4ed8]"
-            title="New document"
-          >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-              <path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-          </button>
-        </div>
-
-        <div className="px-3 py-2">
+      <aside className="flex w-[168px] shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
+        <div className="border-b border-[var(--color-border-secondary)] px-3 pt-0 pb-2.5">
+          <div className="-mx-3 mb-2.5 border-b border-[var(--color-border-secondary)] bg-[var(--color-background-tertiary)] px-3 py-2.5">
+            <div className="text-xs font-bold text-[var(--color-text-primary)] mb-1">Canvas</div>
+            <div className="text-[11px] leading-[1.55] text-[var(--color-text-tertiary)]">The AI writes here too — it can draft, rewrite, or extend any section on request. Use it for briefs, outlines, and anything where you want a co-author.</div>
+          </div>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-bold text-[var(--color-text-secondary)]">Documents</span>
+            <button
+              onClick={handleCreate}
+              className="flex h-[22px] w-[22px] items-center justify-center rounded-[5px] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] text-[16px] leading-none text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)]"
+              title="New document"
+            >+</button>
+          </div>
           <input
-            className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-xs outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#93c5fd]"
-            placeholder="Search documents…"
+            className="w-full rounded-[7px] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1 text-[11.5px] text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
+            placeholder="Search…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -505,11 +497,11 @@ export function CanvasSurface() {
               <div key={doc.id} className="group relative">
                 <button
                   onClick={() => setActiveDocument(doc.id)}
-                  className={`flex w-full flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left transition ${active ? 'bg-[#dbeafe]' : 'hover:bg-[var(--color-background-tertiary)]'}`}
+                  className={`flex w-full flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left transition ${active ? 'bg-[var(--accent)] text-white' : 'hover:bg-[var(--color-background-tertiary)]'}`}
                 >
                   <div className="flex items-center gap-1.5">
-                    {doc.pinned && <span className="text-[10px] text-[#f59e0b]">★</span>}
-                    <span className={`truncate text-sm font-medium ${active ? 'text-[#1d4ed8]' : 'text-[var(--color-text-primary)]'}`}>{doc.title}</span>
+                    {doc.pinned && <span className="text-[10px]">📌</span>}
+                    <span className={`truncate text-sm font-medium ${active ? 'text-white' : 'text-[var(--color-text-primary)]'}`}>{doc.title}</span>
                   </div>
                   <p className="truncate text-xs text-[var(--color-text-tertiary)]">{preview || 'Empty document'}</p>
                   <p className="text-[10px] text-[#cbd5e1]">{timeAgo(doc.updatedAt)}</p>
@@ -518,14 +510,14 @@ export function CanvasSurface() {
                 {/* Hover actions */}
                 <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition">
                   <button onClick={(e) => { e.stopPropagation(); pinDocument(doc.id, !doc.pinned) }} title={doc.pinned ? 'Unpin' : 'Pin'}
-                    className="flex h-5 w-5 items-center justify-center rounded text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-primary)] hover:text-[#f59e0b]">
-                    <span className="text-[10px]">★</span>
+                    className={`flex h-5 w-5 items-center justify-center rounded text-[10px] ${active ? 'hover:bg-white/15' : 'hover:bg-[var(--color-border-secondary)]'}`}
+                    style={{ color: active ? 'rgba(255,255,255,0.75)' : 'var(--color-text-tertiary)' }}>
+                    📌
                   </button>
                   <button onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(doc.id) }} title="Delete"
-                    className="flex h-5 w-5 items-center justify-center rounded text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-primary)] hover:text-[#dc2626]">
-                    <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
-                      <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                    </svg>
+                    className={`flex h-5 w-5 items-center justify-center rounded text-[10px] ${active ? 'hover:bg-white/15' : 'hover:bg-[var(--color-border-secondary)]'}`}
+                    style={{ color: active ? 'rgba(255,255,255,0.75)' : 'var(--color-text-tertiary)' }}>
+                    🗑
                   </button>
                 </div>
 
@@ -544,27 +536,37 @@ export function CanvasSurface() {
           })}
         </div>
 
-        {hydrated && documents.length > 0 && (
-          <div className="border-t border-[var(--color-border-secondary)] px-3 py-2 text-[10px] text-[var(--color-text-tertiary)]">
-            {documents.length} document{documents.length !== 1 ? 's' : ''}
-          </div>
-        )}
       </aside>
 
-      {/* ── Main area ── */}
+      {/* ── Centre: editor or empty state ── */}
       {activeDocument ? (
-        <>
-          <CanvasEditor
-            doc={activeDocument}
-            onUpdate={(patch) => handleUpdate(activeDocument.id, patch)}
-          />
-          <CanvasChat
-            doc={activeDocument}
-            onDocUpdate={(patch) => handleUpdate(activeDocument.id, patch)}
-          />
-        </>
+        <CanvasEditor
+          doc={activeDocument}
+          onUpdate={(patch) => handleUpdate(activeDocument.id, patch)}
+        />
       ) : (
         <EmptyState onCreate={handleCreate} />
+      )}
+
+      {/* ── Right: Canvas AI (always visible) ── */}
+      {activeDocument ? (
+        <CanvasChat
+          doc={activeDocument}
+          onDocUpdate={(patch) => handleUpdate(activeDocument.id, patch)}
+        />
+      ) : (
+        <div className="flex w-[240px] shrink-0 flex-col border-l border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
+          <div className="flex items-center gap-2 border-b border-[var(--color-border-secondary)] px-4 py-3">
+            <div className="flex h-[22px] w-[22px] items-center justify-center rounded-[6px] bg-[var(--accent)] shrink-0">
+              <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 6h8M6 2l4 4-4 4" stroke="#fff" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </div>
+            <span className="text-[13px] font-bold text-[var(--color-text-primary)]">Canvas AI</span>
+            <span className="ml-auto text-[10.5px] text-[var(--color-text-tertiary)]">Per doc</span>
+          </div>
+          <div className="flex flex-1 items-center justify-center p-4">
+            <p className="text-center text-xs text-[var(--color-text-tertiary)]">Open a document to chat</p>
+          </div>
+        </div>
       )}
     </div>
   )

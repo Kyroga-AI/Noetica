@@ -33,7 +33,7 @@ function AttachmentList({ attachments }: { attachments: PendingAttachment[] }) {
   return (
     <div className="mt-2 flex flex-wrap gap-1.5">
       {attachments.map((a) => (
-        <div key={a.clientId} className="flex items-center gap-1.5 rounded-xl border border-[#93c5fd] bg-[#eff6ff] px-2.5 py-1.5 text-xs">
+        <div key={a.clientId} className="flex items-center gap-1.5 rounded-xl px-2.5 py-1.5 text-xs" style={{ border: '1px solid var(--accent)', background: 'var(--accent-soft)' }}>
           {a.kind === 'image' ? (
             <img src={`data:${a.mimeType};base64,${a.base64}`} alt={a.name} className="h-8 w-8 rounded-lg object-cover" />
           ) : (
@@ -173,7 +173,7 @@ function ToolCallList({ calls, results }: { calls: ToolCallRecord[]; results?: T
 const CRITIC_META: Record<string, { label: string; color: string; bg: string; border: string }> = {
   accept:   { label: 'Verified',  color: '#15803d', bg: '#f0fdf4', border: '#86efac' },
   escalate: { label: 'Escalated', color: '#b45309', bg: '#fffbeb', border: '#fcd34d' },
-  clarify:  { label: 'Needs clarification', color: '#1d4ed8', bg: '#eff6ff', border: '#93c5fd' },
+  clarify:  { label: 'Needs clarification', color: 'var(--accent)', bg: 'var(--accent-soft)', border: 'var(--accent)' },
 }
 
 function CriticBadge({ critic }: { critic: CriticVerdict }) {
@@ -228,7 +228,7 @@ function MarkdownContent({ content, compact = false }: { content: string; compac
         a: ({ href, children }) => {
           if (href?.startsWith('#cite-')) {
             return (
-              <a href={href} className="inline-flex items-center justify-center rounded px-[3px] py-px text-[9px] font-semibold leading-none text-[#1d4ed8] bg-[#eff6ff] hover:bg-[#dbeafe] align-super ml-0.5 no-underline transition-colors">
+              <a href={href} className="inline-flex items-center justify-center rounded px-[3px] py-px text-[9px] font-semibold leading-none align-super ml-0.5 no-underline transition-colors" style={{ color: 'var(--accent)', background: 'var(--accent-soft)' }}>
                 {children}
               </a>
             )
@@ -237,7 +237,8 @@ function MarkdownContent({ content, compact = false }: { content: string; compac
             <a
               href={href}
               onClick={(e) => { e.preventDefault(); if (href) window.open(href, '_blank', 'noopener,noreferrer') }}
-              className="text-[#1d4ed8] underline decoration-[#bfdbfe] hover:decoration-[#1d4ed8] transition-colors"
+              className="underline transition-colors"
+              style={{ color: 'var(--accent)' }}
             >
               {children}
             </a>
@@ -336,7 +337,7 @@ function VerificationBadge({ verification }: { verification: NonNullable<ChatMes
   const tier = isComputed
     ? { color: '#16a34a', bg: 'rgba(22,163,74,0.08)', border: 'rgba(22,163,74,0.4)', glyph: '🔒' }
     : isReasoned
-      ? { color: '#2563eb', bg: 'rgba(37,99,235,0.08)', border: 'rgba(37,99,235,0.4)', glyph: '◆' }
+      ? { color: 'var(--accent)', bg: 'var(--accent-soft)', border: 'var(--accent)', glyph: '◆' }
       : { color: '#64748b', bg: 'var(--color-background-secondary)', border: 'var(--color-border-secondary)', glyph: '·' }
 
   const tooltip = [
@@ -537,7 +538,8 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
             <div className="space-y-2">
               <textarea
                 ref={editRef}
-                className="min-h-[80px] w-full rounded-2xl border border-[#1d4ed8] bg-[#eff6ff] px-4 py-3 text-sm leading-6 text-[var(--color-text-primary)] outline-none shadow-sm resize-none"
+                className="min-h-[80px] w-full rounded-2xl px-4 py-3 text-sm leading-6 text-[var(--color-text-primary)] outline-none shadow-sm resize-none"
+                style={{ border: '1px solid var(--accent)', background: 'var(--accent-soft)' }}
                 value={editContent}
                 autoFocus
                 onChange={(e) => setEditContent(e.target.value)}
@@ -554,7 +556,8 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
                 <button
                   onClick={() => { onEdit?.(message.id, editContent.trim()); setEditing(false) }}
                   disabled={!editContent.trim() || editContent.trim() === message.content}
-                  className="rounded-full bg-[#1d4ed8] px-3 py-1 text-xs font-semibold text-white hover:bg-[#1e40af] disabled:opacity-40"
+                  className="rounded-full px-3 py-1 text-xs font-semibold text-white disabled:opacity-40"
+                  style={{ background: 'var(--accent)' }}
                 >
                   Send edit
                 </button>
@@ -562,7 +565,10 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
             </div>
           ) : (
             <>
-              <div className="rounded-2xl bg-[var(--color-background-secondary)] px-3.5 py-2 text-sm leading-6 text-[var(--color-text-primary)]">
+              <div
+                className="px-4 py-3 text-sm leading-6 text-white"
+                style={{ background: 'var(--accent)', borderRadius: '16px 16px 4px 16px' }}
+              >
                 {message.content && <p className="whitespace-pre-wrap">{message.content}</p>}
                 {message.attachments && message.attachments.length > 0 && (
                   <AttachmentList attachments={message.attachments} />
@@ -1002,8 +1008,8 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
                       <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${
                         message.deliberation.critic.action === 'accept' ? 'bg-[#f0fdf4] text-[#15803d]' :
                         message.deliberation.critic.action === 'escalate' ? 'bg-[#fffbeb] text-[#b45309]' :
-                        'bg-[#eff6ff] text-[#1d4ed8]'
-                      }`}>{message.deliberation.critic.action}</span>
+                        ''
+                      }`} style={message.deliberation.critic.action !== 'accept' && message.deliberation.critic.action !== 'escalate' ? { background: 'var(--accent-soft)', color: 'var(--accent)' } : undefined}>{message.deliberation.critic.action}</span>
                     )}
                     {message.deliberation.critic && (
                       <span className="text-[10px] text-[var(--color-text-tertiary)]">agreement {(message.deliberation.critic.agreement * 100).toFixed(0)}%</span>
@@ -1013,10 +1019,10 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
                     <p className="text-[10px] italic text-[var(--color-text-tertiary)]">{message.deliberation.critic.reason}</p>
                   )}
                   {message.deliberation.candidates?.map((c) => (
-                    <div key={c.rank} className={`flex items-center gap-2 rounded-lg px-2 py-1 ${c.rank === message.deliberation!.selected_rank ? 'bg-[rgba(37,99,235,0.1)]' : ''}`}>
+                    <div key={c.rank} className="flex items-center gap-2 rounded-lg px-2 py-1" style={c.rank === message.deliberation!.selected_rank ? { background: 'var(--accent-soft)' } : undefined}>
                       <span className="w-10 shrink-0 text-[10px] text-[var(--color-text-tertiary)]">{c.rank === message.deliberation!.selected_rank ? '✓ best' : `#${c.rank + 1}`}</span>
                       <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
-                        <div className="h-full rounded-full bg-[#2563eb]" style={{ width: `${Math.max(4, c.worth * 100)}%` }} />
+                        <div className="h-full rounded-full" style={{ width: `${Math.max(4, c.worth * 100)}%`, background: 'var(--accent)' }} />
                       </div>
                       <span className="shrink-0 tabular-nums text-[10px] text-[var(--color-text-tertiary)]">
                         {(c.worth * 100).toFixed(0)}%{c.label ? ` · ${c.label.replace('esc:', '↑')}` : ` · T${c.temperature}`}

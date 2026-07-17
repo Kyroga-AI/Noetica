@@ -2,11 +2,11 @@ import type { PendingAttachment } from '@/lib/types/attachment'
 
 export type ProjectColor =
   | '#3b82f6' | '#8b5cf6' | '#06b6d4' | '#10b981'
-  | '#f59e0b' | '#ef4444' | '#ec4899' | '#64748b'
+  | '#f59e0b' | '#ef4444' | '#ec4899'
 
 export const PROJECT_COLORS: ProjectColor[] = [
   '#3b82f6', '#8b5cf6', '#06b6d4', '#10b981',
-  '#f59e0b', '#ef4444', '#ec4899', '#64748b',
+  '#f59e0b', '#ef4444', '#ec4899',
 ]
 
 export const DEFAULT_PROJECT_COLOR: ProjectColor = '#3b82f6'

@@ -36,13 +36,23 @@ function formatBytes(bytes: number): string {
 
 function ColorPicker({ value, onChange }: { value: ProjectColor; onChange: (c: ProjectColor) => void }) {
   return (
-    <div className="flex gap-1.5 flex-wrap">
+    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
       {PROJECT_COLORS.map((c) => (
         <button
           key={c}
           onClick={() => onChange(c)}
-          style={{ backgroundColor: c }}
-          className={`h-5 w-5 rounded-full transition-transform ${value === c ? 'scale-125 ring-2 ring-offset-1 ring-[var(--color-border-secondary)]' : 'hover:scale-110'}`}
+          style={{
+            backgroundColor: c,
+            width: '20px',
+            height: '20px',
+            borderRadius: '50%',
+            border: 'none',
+            cursor: 'pointer',
+            transition: 'transform 0.15s',
+            transform: value === c ? 'scale(1.25)' : undefined,
+            outline: value === c ? '2px solid var(--color-border-secondary)' : 'none',
+            outlineOffset: '1px',
+          }}
           aria-label={c}
         />
       ))}
@@ -73,7 +83,7 @@ function ProjectEditor({
   const [color, setColor] = useState<ProjectColor>(project.color)
   const [systemPrompt, setSystemPrompt] = useState(project.systemPrompt)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [saved, setSaved] = useState(false)
+  const [filesDragOver, setFilesDragOver] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -82,12 +92,6 @@ function ProjectEditor({
     setColor(project.color)
     setSystemPrompt(project.systemPrompt)
   }, [project.id, project.title, project.description, project.color, project.systemPrompt])
-
-  function save() {
-    onUpdate({ title: title.trim() || project.title, description: desc, color, systemPrompt })
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
-  }
 
   function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
@@ -116,157 +120,187 @@ function ProjectEditor({
     onUpdate({ fileAttachments: project.fileAttachments.filter((a) => a.clientId !== clientId) })
   }
 
+  // Auto-save on changes
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      onUpdate({ title: title.trim() || project.title, description: desc, color, systemPrompt })
+    }, 500)
+    return () => clearTimeout(timeout)
+  }, [title, desc, color, systemPrompt])
+
   const tabs: { id: EditorTab; label: string }[] = [
     { id: 'prompt', label: 'System Prompt' },
-    { id: 'files',  label: `Files${project.fileAttachments.length ? ` (${project.fileAttachments.length})` : ''}` },
+    { id: 'files',  label: 'Files' },
     { id: 'settings', label: 'Settings' },
   ]
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      {/* Editor header */}
-      <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-6 py-3">
-        <div className="flex items-center gap-2.5">
-          <span className="h-3 w-3 rounded-full" style={{ backgroundColor: project.color }} />
-          <span className="text-sm font-semibold text-[var(--color-text-primary)]">{project.title}</span>
-          {isActive && (
-            <span className="rounded-md bg-[#dbeafe] px-1.5 py-0.5 text-[9px] font-semibold text-[#1d4ed8]">Active</span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {saved && <span className="text-xs text-[#22c55e]">Saved</span>}
-          <button
-            onClick={onActivate}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${isActive ? 'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]' : 'bg-[#1d4ed8] text-white hover:bg-[#1e40af]'}`}
-          >
-            {isActive ? 'Active' : 'Set active'}
-          </button>
-        </div>
+    <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      {/* Header */}
+      <div style={{ padding: '14px 20px', borderBottom: '1px solid var(--color-border-secondary)', display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+        <span style={{ width: '12px', height: '12px', borderRadius: '50%', backgroundColor: project.color, flexShrink: 0 }} />
+        <span style={{ fontSize: '15px', fontWeight: 700, color: 'var(--color-text-primary)', flex: 1 }}>{project.title}</span>
+        <button
+          onClick={onActivate}
+          style={{
+            padding: '6px 10px',
+            borderRadius: '8px',
+            border: isActive ? 'none' : 'none',
+            background: isActive ? '#dcfce7' : 'var(--accent)',
+            color: isActive ? '#15803d' : '#fff',
+            fontSize: '12px',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+        >
+          {isActive ? 'Deactivate' : 'Set active'}
+        </button>
+        <button
+          onClick={() => setConfirmDelete(true)}
+          style={{
+            padding: '6px 10px',
+            borderRadius: '8px',
+            border: '1px solid var(--color-border-secondary)',
+            background: 'none',
+            color: 'var(--color-text-tertiary)',
+            fontSize: '12px',
+            cursor: 'pointer',
+          }}
+        >
+          Delete
+        </button>
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 border-b border-[var(--color-border-secondary)] px-6 pt-2">
+      {/* Delete confirm banner */}
+      {confirmDelete && (
+        <div style={{ padding: '10px 20px', background: '#FEF3C7', borderBottom: '1px solid #FCD34D', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <span style={{ fontSize: '13px', color: '#92400E', flex: 1 }}>Delete &ldquo;{project.title}&rdquo;? This can&apos;t be undone.</span>
+          <span onClick={() => { onDelete() }} style={{ fontSize: '13px', fontWeight: 700, color: '#DC2626', cursor: 'pointer' }}>Delete</span>
+          <span onClick={() => setConfirmDelete(false)} style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-secondary)', cursor: 'pointer' }}>Cancel</span>
+        </div>
+      )}
+
+      {/* Tab strip */}
+      <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border-secondary)', padding: '0 20px', flexShrink: 0 }}>
         {tabs.map((t) => (
-          <button
+          <div
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`rounded-t-lg px-3 py-1.5 text-xs font-medium transition ${tab === t.id ? 'border-b-2 border-[#1d4ed8] text-[#1d4ed8]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}
+            style={{
+              padding: '9px 14px 8px',
+              fontSize: '12.5px',
+              fontWeight: tab === t.id ? 700 : 500,
+              color: tab === t.id ? 'var(--accent)' : 'var(--color-text-secondary)',
+              borderBottom: `2px solid ${tab === t.id ? 'var(--accent)' : 'transparent'}`,
+              cursor: 'pointer',
+              marginBottom: '-1px',
+            }}
           >
             {t.label}
-          </button>
+          </div>
         ))}
       </div>
 
-      {/* Tab body */}
-      <div className="min-h-0 flex-1 overflow-y-auto p-6">
-        {tab === 'prompt' && (
-          <div className="flex h-full flex-col gap-3">
-            <div>
-              <p className="text-xs font-semibold text-[var(--color-text-secondary)]">System Prompt</p>
-              <p className="mt-0.5 text-xs leading-5 text-[var(--color-text-tertiary)]">
-                Prepended to every conversation while this project is active. Sets role, constraints, tone, and domain context.
-              </p>
+      {/* Tab: System Prompt */}
+      {tab === 'prompt' && (
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', padding: '20px', gap: '10px', overflowY: 'auto' }}>
+          <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', lineHeight: 1.6, padding: '10px 12px', background: 'var(--color-background-secondary)', borderRadius: '9px', border: '1px solid var(--color-border-secondary)' }}>
+            Prepended to every conversation while this project is active. Use it to set persona, constraints, or domain knowledge.
+          </div>
+          <textarea
+            value={systemPrompt}
+            onChange={(e) => setSystemPrompt(e.target.value)}
+            placeholder="e.g. You are helping with Client X's website rebuild. Always reference their existing brand guidelines..."
+            rows={14}
+            style={{
+              flex: 1,
+              border: '1px solid var(--color-border-secondary)',
+              borderRadius: '10px',
+              padding: '12px 14px',
+              fontSize: '13px',
+              lineHeight: 1.7,
+              color: 'var(--color-text-primary)',
+              background: 'var(--color-background-primary)',
+              outline: 'none',
+              resize: 'none',
+              fontFamily: 'inherit',
+              width: '100%',
+              boxSizing: 'border-box',
+            }}
+          />
+          <div style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>{systemPrompt.length} characters</div>
+        </div>
+      )}
+
+      {/* Tab: Files */}
+      {tab === 'files' && (
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ fontSize: '12px', color: 'var(--color-text-tertiary)', lineHeight: 1.6, padding: '10px 12px', background: 'var(--color-background-secondary)', borderRadius: '9px', border: '1px solid var(--color-border-secondary)' }}>
+            Files attached here are injected verbatim into every conversation — not chunked or retrieved. Keep them small (brand guidelines, glossaries, key specs).
+          </div>
+          {project.fileAttachments.map((att) => (
+            <div key={att.clientId} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '9px 12px', borderRadius: '9px', background: 'var(--color-background-secondary)', border: '1px solid var(--color-border-secondary)' }}>
+              <div style={{ fontSize: '18px' }}>&#128196;</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{att.name}</div>
+                <div style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>{att.sizeLabel}</div>
+              </div>
+              <div onClick={() => removeAttachment(att.clientId)} style={{ fontSize: '13px', color: 'var(--color-text-tertiary)', cursor: 'pointer', opacity: 0.6 }}>&times;</div>
             </div>
-            <textarea
-              value={systemPrompt}
-              onChange={(e) => setSystemPrompt(e.target.value)}
-              className="flex-1 min-h-[360px] resize-none rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 font-mono text-xs leading-6 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#93c5fd]"
-              placeholder={`You are an expert assistant for ${project.title}.\n\nContext:\n- ...\n\nAlways:\n- Respond concisely\n- Use domain-specific terminology\n\nNever:\n- Guess at requirements\n- Skip reasoning steps`}
+          ))}
+          <div
+            onClick={() => fileRef.current?.click()}
+            onDragOver={(e) => { e.preventDefault(); setFilesDragOver(true) }}
+            onDragLeave={() => setFilesDragOver(false)}
+            onDrop={(e) => {
+              e.preventDefault()
+              setFilesDragOver(false)
+              if (e.dataTransfer.files.length) handleFilePick({ target: { files: e.dataTransfer.files, value: '' } } as unknown as React.ChangeEvent<HTMLInputElement>)
+            }}
+            style={{
+              border: `1.5px dashed ${filesDragOver ? 'var(--accent)' : 'var(--color-border-secondary)'}`,
+              borderRadius: '10px',
+              padding: '24px',
+              textAlign: 'center',
+              color: 'var(--color-text-tertiary)',
+              fontSize: '13px',
+              cursor: 'pointer',
+            }}
+          >
+            <div style={{ fontSize: '22px', marginBottom: '8px' }}>+</div>
+            Attach a file
+          </div>
+          <input ref={fileRef} type="file" multiple onChange={handleFilePick} style={{ display: 'none' }} />
+        </div>
+      )}
+
+      {/* Tab: Settings */}
+      {tab === 'settings' && (
+        <div style={{ flex: 1, overflowY: 'auto', padding: '20px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Name</div>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              style={{ width: '100%', boxSizing: 'border-box', border: '1px solid var(--color-border-secondary)', borderRadius: '9px', padding: '8px 12px', fontSize: '13.5px', color: 'var(--color-text-primary)', background: 'var(--color-background-primary)', outline: 'none', fontFamily: 'inherit' }}
             />
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] text-[var(--color-text-tertiary)]">{systemPrompt.length} chars</span>
-              <div className="flex gap-2">
-                {systemPrompt.trim() && (
-                  <button onClick={() => setSystemPrompt('')} className="text-xs text-[var(--color-text-tertiary)] hover:text-[#ef4444]">Clear</button>
-                )}
-                <button onClick={save} className="rounded-xl bg-[#1d4ed8] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1e40af]">
-                  Save
-                </button>
-              </div>
-            </div>
           </div>
-        )}
-
-        {tab === 'files' && (
-          <div className="space-y-4">
-            <div>
-              <p className="text-xs font-semibold text-[var(--color-text-secondary)]">Project Files</p>
-              <p className="mt-0.5 text-xs leading-5 text-[var(--color-text-tertiary)]">
-                Files attached here are injected into every conversation in this project as context.
-              </p>
-            </div>
-            <button
-              onClick={() => fileRef.current?.click()}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--color-border-secondary)] py-4 text-xs text-[var(--color-text-secondary)] transition hover:border-[#bfdbfe] hover:text-[#1d4ed8]"
-            >
-              + Attach files
-            </button>
-            <input ref={fileRef} type="file" multiple className="hidden" onChange={handleFilePick} />
-            {project.fileAttachments.length === 0 ? (
-              <p className="text-center text-xs text-[var(--color-text-tertiary)]">No files attached yet</p>
-            ) : (
-              <div className="space-y-2">
-                {project.fileAttachments.map((att) => (
-                  <div key={att.clientId} className="flex items-center gap-3 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2">
-                    <span className="text-base">{att.kind === 'image' ? '🖼' : att.kind === 'pdf' ? '📄' : att.kind === 'code' ? '⌥' : '📝'}</span>
-                    <span className="flex-1 truncate text-xs font-medium text-[var(--color-text-primary)]">{att.name}</span>
-                    <span className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">{att.sizeLabel}</span>
-                    <button onClick={() => removeAttachment(att.clientId)} className="text-[var(--color-text-tertiary)] hover:text-[#ef4444]">
-                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
-                        <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Description</div>
+            <textarea
+              value={desc}
+              onChange={(e) => setDesc(e.target.value)}
+              rows={3}
+              style={{ width: '100%', boxSizing: 'border-box', border: '1px solid var(--color-border-secondary)', borderRadius: '9px', padding: '8px 12px', fontSize: '13px', color: 'var(--color-text-primary)', background: 'var(--color-background-primary)', outline: 'none', resize: 'none', fontFamily: 'inherit', lineHeight: 1.5 }}
+            />
           </div>
-        )}
-
-        {tab === 'settings' && (
-          <div className="space-y-5">
-            <div className="space-y-3">
-              <p className="text-xs font-semibold text-[var(--color-text-secondary)]">Name</p>
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm font-medium text-[var(--color-text-primary)] outline-none focus:border-[#93c5fd]"
-                placeholder="Project name…"
-              />
-            </div>
-            <div className="space-y-3">
-              <p className="text-xs font-semibold text-[var(--color-text-secondary)]">Description</p>
-              <input
-                value={desc}
-                onChange={(e) => setDesc(e.target.value)}
-                className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#93c5fd]"
-                placeholder="What is this project about?"
-              />
-            </div>
-            <div className="space-y-3">
-              <p className="text-xs font-semibold text-[var(--color-text-secondary)]">Color</p>
-              <ColorPicker value={color} onChange={(c) => { setColor(c); onUpdate({ color: c }) }} />
-            </div>
-            <div className="flex items-center justify-between pt-2">
-              <button
-                onClick={save}
-                className="rounded-xl bg-[#1d4ed8] px-5 py-2 text-xs font-semibold text-white transition hover:bg-[#1e40af]"
-              >
-                Save changes
-              </button>
-              <button
-                onClick={() => {
-                  if (!confirmDelete) { setConfirmDelete(true); setTimeout(() => setConfirmDelete(false), 3000) }
-                  else onDelete()
-                }}
-                className={`rounded-xl px-4 py-2 text-xs font-semibold transition ${confirmDelete ? 'bg-[#fef2f2] text-[#dc2626]' : 'border border-[var(--color-border-secondary)] text-[var(--color-text-tertiary)] hover:border-[#fecaca] hover:text-[#ef4444]'}`}
-              >
-                {confirmDelete ? 'Confirm delete?' : 'Delete project'}
-              </button>
-            </div>
+          <div>
+            <div style={{ fontSize: '11px', fontWeight: 700, color: 'var(--color-text-secondary)', marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Colour</div>
+            <ColorPicker value={color} onChange={(c) => { setColor(c); onUpdate({ color: c }) }} />
           </div>
-        )}
-      </div>
+          <div style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>ID: {project.id}</div>
+        </div>
+      )}
     </div>
   )
 }
@@ -274,14 +308,20 @@ function ProjectEditor({
 // ─── Main panel ───────────────────────────────────────────────────────────────
 
 export function ProjectsPanel({
-  onProjectActivate,
+  projects, activeProjectId, activeProject, createProject, updateProject, deleteProject, setActiveProject,
 }: {
-  onProjectActivate?: (systemPrompt: string) => void
+  projects: ReturnType<typeof useProjects>['projects']
+  activeProjectId: ReturnType<typeof useProjects>['activeProjectId']
+  activeProject: ReturnType<typeof useProjects>['activeProject']
+  createProject: ReturnType<typeof useProjects>['createProject']
+  updateProject: ReturnType<typeof useProjects>['updateProject']
+  deleteProject: ReturnType<typeof useProjects>['deleteProject']
+  setActiveProject: ReturnType<typeof useProjects>['setActiveProject']
 }) {
-  const { projects, activeProjectId, activeProject, createProject, updateProject, deleteProject, setActiveProject } = useProjects()
   const [selectedId, setSelectedId] = useState<string | null>(activeProjectId)
   const [showCreate, setShowCreate] = useState(false)
   const [newTitle, setNewTitle] = useState('')
+  const [newDesc, setNewDesc] = useState('')
   const [newColor, setNewColor] = useState<ProjectColor>(PROJECT_COLORS[0])
 
   // Keep selected in sync with active project changes
@@ -298,91 +338,107 @@ export function ProjectsPanel({
 
   function handleCreate() {
     if (!newTitle.trim()) return
-    const p = createProject({ title: newTitle.trim(), color: newColor })
+    const p = createProject({ title: newTitle.trim(), description: newDesc.trim(), color: newColor })
     setActiveProject(p.id)
     setSelectedId(p.id)
-    onProjectActivate?.(p.systemPrompt)
     setShowCreate(false)
     setNewTitle('')
+    setNewDesc('')
     setNewColor(PROJECT_COLORS[0])
   }
 
   function handleActivate(project: Project) {
     const willActivate = activeProjectId !== project.id
     setActiveProject(willActivate ? project.id : null)
-    onProjectActivate?.(willActivate ? project.systemPrompt : '')
   }
 
   function handleUpdate(id: string, patch: Partial<Project>) {
     updateProject(id, patch)
-    if (activeProjectId === id && patch.systemPrompt !== undefined) {
-      onProjectActivate?.(patch.systemPrompt)
-    }
   }
 
   return (
-    <div className="flex h-full overflow-hidden">
+    <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
       {/* Left sidebar — project list */}
-      <aside className="flex w-52 shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[#eaf1f8]">
-        <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-4 py-3">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[#1d4ed8]">Projects</span>
-          <button
+      <div style={{ width: '220px', flexShrink: 0, borderRight: '1px solid var(--color-border-secondary)', display: 'flex', flexDirection: 'column', background: 'var(--color-background-secondary)' }}>
+        <div style={{ padding: '12px 12px 8px', borderBottom: '1px solid var(--color-border-secondary)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 700, letterSpacing: '0.6px', textTransform: 'uppercase', color: 'var(--color-text-secondary)', flex: 1 }}>Projects</span>
+          <div
             onClick={() => setShowCreate(true)}
-            className="flex h-6 w-6 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[#1d4ed8]"
-          >
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
-              <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-          </button>
+            style={{ width: '22px', height: '22px', borderRadius: '6px', background: 'var(--accent)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '15px', cursor: 'pointer', lineHeight: 1 }}
+          >+</div>
         </div>
 
+        {/* Create form */}
         {showCreate && (
-          <div className="border-b border-[#bfdbfe] bg-[#eff6ff] px-3 py-3 space-y-2">
+          <div style={{ padding: '10px 12px', borderBottom: '1px solid var(--color-border-secondary)', background: 'var(--color-background-primary)', display: 'flex', flexDirection: 'column', gap: '6px' }}>
             <input
               autoFocus
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') setShowCreate(false) }}
-              className="w-full rounded-lg border border-[#bfdbfe] bg-white px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8]"
-              placeholder="Project name…"
+              placeholder="Project name"
+              style={{ border: '1px solid var(--color-border-secondary)', borderRadius: '7px', padding: '6px 9px', fontSize: '12.5px', color: 'var(--color-text-primary)', background: 'var(--color-background-secondary)', outline: 'none', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' }}
             />
-            <ColorPicker value={newColor} onChange={setNewColor} />
-            <div className="flex gap-1.5">
-              <button onClick={handleCreate} className="rounded-lg bg-[#1d4ed8] px-3 py-1 text-xs font-semibold text-white">Create</button>
-              <button onClick={() => setShowCreate(false)} className="rounded-lg border border-[#bfdbfe] bg-white px-3 py-1 text-xs text-[var(--color-text-secondary)]">Cancel</button>
+            <input
+              value={newDesc}
+              onChange={(e) => setNewDesc(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') setShowCreate(false) }}
+              placeholder="Description (optional)"
+              style={{ border: '1px solid var(--color-border-secondary)', borderRadius: '7px', padding: '6px 9px', fontSize: '12px', color: 'var(--color-text-primary)', background: 'var(--color-background-secondary)', outline: 'none', fontFamily: 'inherit', width: '100%', boxSizing: 'border-box' }}
+            />
+            <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+              <ColorPicker value={newColor} onChange={setNewColor} />
+            </div>
+            <div style={{ display: 'flex', gap: '6px' }}>
+              <div onClick={handleCreate} style={{ flex: 1, padding: '6px', borderRadius: '7px', background: 'var(--accent)', color: '#fff', fontSize: '12px', fontWeight: 700, cursor: 'pointer', textAlign: 'center' }}>Create</div>
+              <div onClick={() => setShowCreate(false)} style={{ padding: '6px 8px', borderRadius: '7px', border: '1px solid var(--color-border-secondary)', color: 'var(--color-text-secondary)', fontSize: '12px', cursor: 'pointer' }}>Cancel</div>
             </div>
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-          {projects.length === 0 && !showCreate && (
-            <p className="py-6 text-center text-xs text-[var(--color-text-tertiary)]">No projects yet</p>
-          )}
+        {/* Project list */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '6px 8px' }}>
           {projects.map((p) => (
-            <button
+            <div
               key={p.id}
               onClick={() => setSelectedId(p.id)}
-              className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs transition ${selectedId === p.id ? 'bg-[#dbeafe] font-semibold text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)]'}`}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '9px',
+                padding: '8px 10px',
+                borderRadius: '9px',
+                cursor: 'pointer',
+                background: selectedId === p.id ? 'var(--accent-soft)' : 'transparent',
+              }}
             >
-              <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: p.color }} />
-              <span className="flex-1 truncate">{p.title}</span>
+              <span style={{ width: '10px', height: '10px', borderRadius: '50%', backgroundColor: p.color, flexShrink: 0 }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '12.5px', fontWeight: 600, color: 'var(--color-text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.title}</div>
+                <div style={{ fontSize: '10.5px', color: 'var(--color-text-tertiary)' }}>{timeAgo(p.updatedAt)}</div>
+              </div>
               {p.id === activeProjectId && (
-                <span className="shrink-0 h-1.5 w-1.5 rounded-full bg-[#22c55e]" title="Active" />
+                <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10B981', flexShrink: 0 }} />
               )}
-            </button>
+            </div>
           ))}
+          {projects.length === 0 && !showCreate && (
+            <div style={{ textAlign: 'center', padding: '28px 12px', color: 'var(--color-text-tertiary)', fontSize: '12px' }}>No projects yet</div>
+          )}
         </div>
 
-        {activeProject && (
-          <div className="border-t border-[var(--color-border-secondary)] px-3 py-2">
-            <p className="text-[10px] text-[var(--color-text-tertiary)]">Active:</p>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: activeProject.color }} />
-              <span className="truncate text-[11px] font-medium text-[var(--color-text-primary)]">{activeProject.title}</span>
+        {/* Footer: active project indicator */}
+        <div style={{ padding: '10px 12px', borderTop: '1px solid var(--color-border-secondary)' }}>
+          {activeProject ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#10B981', flexShrink: 0 }} />
+              <span style={{ fontSize: '11px', color: '#059669', fontWeight: 600, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>Active: {activeProject.title}</span>
             </div>
-          </div>
-        )}
-      </aside>
+          ) : (
+            <div style={{ fontSize: '11px', color: 'var(--color-text-tertiary)' }}>No project active</div>
+          )}
+        </div>
+      </div>
 
       {/* Right — editor */}
       {selectedProject ? (
@@ -398,15 +454,9 @@ export function ProjectsPanel({
           onActivate={() => handleActivate(selectedProject)}
         />
       ) : (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-10 text-center">
-          <div className="text-3xl">📁</div>
-          <p className="text-sm font-semibold text-[var(--color-text-secondary)]">No project selected</p>
-          <p className="text-xs text-[var(--color-text-tertiary)] max-w-xs leading-5">
-            Projects let you set a persistent system prompt, attach reference files, and scope memory to a specific context.
-          </p>
-          <button onClick={() => setShowCreate(true)} className="mt-2 rounded-xl bg-[#1d4ed8] px-5 py-2 text-xs font-semibold text-white transition hover:bg-[#1e40af]">
-            Create first project
-          </button>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column', gap: '12px', color: 'var(--color-text-tertiary)' }}>
+          <div style={{ fontSize: '28px' }}>&#128450;</div>
+          <div style={{ fontSize: '13px' }}>Select a project to edit it</div>
         </div>
       )}
     </div>

@@ -8,12 +8,13 @@ import type { WorkspaceSession } from '@/lib/session/types'
 import { HelpModal } from '@/components/shell/HelpModal'
 import { UpgradeModal } from '@/components/shell/UpgradeModal'
 import { ChangelogModal } from '@/components/shell/ChangelogModal'
-import { COMMAND_CENTERS, surfacesFor, type CommandCenterId, type NavSurface } from '@/components/shell/commandCenters'
+import { NAV_SURFACES, surfacesFor, type CommandCenterId, type NavSurface } from '@/components/shell/commandCenters'
 import { versionLabel } from '@/lib/version'
+import { BrandLockup } from '@/components/brand/NoeticaMark'
 
 type SidebarProps = {
   activeSurface: ActiveSurface
-  activeCenter: CommandCenterId
+  mode?: 'standalone' | 'sourceos'
   onSurfaceChange: (surface: ActiveSurface) => void
   onOpenSettings: (category?: string) => void
   sessions?: WorkspaceSession[]
@@ -253,9 +254,9 @@ function IconDot() {
     </svg>
   )
 }
-function IconChevronRight({ className }: { className?: string }) {
+function IconChevronRight({ className, style }: { className?: string; style?: React.CSSProperties }) {
   return (
-    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden className={className}>
+    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden className={className} style={style}>
       <path d="M5 3l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   )
@@ -359,12 +360,12 @@ function SessionRow({ s, depth, activeSessionId, onSwitchSession, onRemoveSessio
           onClick={() => onSwitchSession?.(s.id)}
           className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-xl px-2 py-1.5 text-left text-xs transition ${
             s.id === activeSessionId
-              ? 'bg-[#dbeafe] font-semibold text-[var(--color-text-primary)]'
+              ? 'bg-[var(--accent-soft)] font-semibold text-[var(--color-text-primary)]'
               : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]'
           }`}
         >
           {depth > 0 && (
-            <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden className="shrink-0 text-[#93c5fd]">
+            <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden className="shrink-0" style={{ color: 'var(--accent)', opacity: 0.6 }}>
               <circle cx="4.5" cy="4.5" r="3.5" stroke="currentColor" strokeWidth="1.2"/>
               <circle cx="4.5" cy="4.5" r="1.5" fill="currentColor"/>
             </svg>
@@ -420,8 +421,37 @@ function SessionTree({ sessions, activeSessionId, search, onSwitchSession, onRem
   )
 }
 
+// The persistent tree: Talk / Remember / Work, then a collapsible Advanced Tools
+// tree grouped by command center. Matches the design handoff's buildNav() shape —
+// Talk/Remember get two-line sublabels, Work does not.
+const TALK_IDS: ActiveSurface[] = ['chat', 'canvas']
+const REMEMBER_IDS: ActiveSurface[] = ['notes']
+const WORK_IDS: ActiveSurface[] = ['cowork', 'workrooms', 'projects']
+const TIER_SUBLABEL: Partial<Record<ActiveSurface, string>> = {
+  canvas: 'AI co-author',
+  notes: 'You write · AI advises',
+}
+// "Rooms" per the design spec; the registry/id keeps the existing "workrooms" name.
+const TIER_LABEL_OVERRIDE: Partial<Record<ActiveSurface, string>> = {
+  workrooms: 'Rooms',
+}
+
+// Advanced Tools sections. The design handoff specs Data/AI·Models/Cloud·DevSecOps/
+// Analytics/Govern; Workstation (local-first dev: Source/Deploy/Services/Pipelines/
+// Terminal) isn't named in that spec but is real, shipped functionality with nowhere
+// else to live now that the command-center rail is gone — added here rather than
+// silently dropping it. Default open state follows the handoff where it specifies one.
+const ADVANCED_SECTIONS: { center: CommandCenterId; label: string; defaultOpen: boolean }[] = [
+  { center: 'data',       label: 'Data',               defaultOpen: true },
+  { center: 'ai',         label: 'AI · Models',        defaultOpen: true },
+  { center: 'cloud',      label: 'Cloud · DevSecOps',  defaultOpen: false },
+  { center: 'analytics',  label: 'Analytics',          defaultOpen: false },
+  { center: 'govern',     label: 'Govern',             defaultOpen: true },
+  { center: 'workstation', label: 'Workstation',       defaultOpen: false },
+]
+
 export function Sidebar({
-  activeSurface, activeCenter, onSurfaceChange, onOpenSettings,
+  activeSurface, mode, onSurfaceChange, onOpenSettings,
   sessions = [], activeSessionId = null,
   onSwitchSession, onRemoveSession, onNewChat, onCollapse, density = 'comfortable',
 }: SidebarProps) {
@@ -436,15 +466,85 @@ export function Sidebar({
   const [upgradeOpen, setUpgradeOpen] = useState(false)
   const [changelogOpen, setChangelogOpen] = useState(false)
   const [subView, setSubView] = useState<'language' | 'learn-more' | null>(null)
-  const closeMenu = () => { setUserMenuOpen(false); setSubView(null) }
+  const [logoutConfirming, setLogoutConfirming] = useState(false)
+  const [advancedOpen, setAdvancedOpen] = useState(true)
+  const [openSections, setOpenSections] = useState<Record<string, boolean>>(
+    () => Object.fromEntries(ADVANCED_SECTIONS.map((s) => [s.center, s.defaultOpen])),
+  )
+  const toggleSection = (center: string) => setOpenSections((prev) => ({ ...prev, [center]: !prev[center] }))
+  const closeMenu = () => { setUserMenuOpen(false); setSubView(null); setLogoutConfirming(false) }
 
   const filteredSessions = search.trim()
     ? sessions.filter((s) => s.title.toLowerCase().includes(search.toLowerCase()))
     : sessions
 
+  const renderRow = (s: NavSurface, opts?: { compact?: boolean }) => {
+    const item = surfaceItems.find((i) => i.id === s.id)
+    const isActive = activeSurface === s.id
+    const disabled = s.gap === true || !item
+    const badge = s.maturity === 'soon' || s.maturity === 'planned' ? 'soon' : s.maturity === 'beta' ? 'beta' : null
+    const label = TIER_LABEL_OVERRIDE[s.id as ActiveSurface] ?? s.label
+    return (
+      <button
+        key={`${s.center}:${s.id}`}
+        onClick={() => { if (!disabled) onSurfaceChange(s.id as ActiveSurface) }}
+        disabled={disabled}
+        title={disabled ? `${label} — coming soon` : undefined}
+        className={`flex w-full items-center gap-2 rounded-lg px-2 text-left text-[11px] transition ${opts?.compact ? 'py-1' : itemPy} ${
+          isActive
+            ? 'bg-[var(--accent-soft)] font-medium text-[var(--color-text-primary)]'
+            : disabled
+            ? 'cursor-default text-[var(--color-text-tertiary)] opacity-60'
+            : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]'
+        }`}
+      >
+        <span className="shrink-0" style={isActive ? { color: 'var(--accent)' } : undefined}>{item?.icon ?? <IconDot />}</span>
+        <span className="truncate">{label}</span>
+        {badge && (
+          <span className="ml-auto rounded bg-[var(--color-background-secondary)] px-1 py-px text-[8px] font-medium text-[var(--color-text-tertiary)]">
+            {badge}
+          </span>
+        )}
+      </button>
+    )
+  }
+
+  // Talk/Remember/Work row — two-line (label + sublabel) when TIER_SUBLABEL has an entry, single-line otherwise.
+  const renderTierRow = (id: ActiveSurface) => {
+    const s = NAV_SURFACES.find((n) => n.id === id)
+    const item = surfaceItems.find((i) => i.id === id)
+    if (!s || !item) return null
+    const isActive = activeSurface === id
+    const sublabel = TIER_SUBLABEL[id]
+    const label = TIER_LABEL_OVERRIDE[id] ?? s.label
+    return (
+      <button
+        key={id}
+        onClick={() => onSurfaceChange(id)}
+        className={`flex w-full items-center gap-2.5 rounded-lg px-2 text-left transition ${sublabel ? 'py-1.5' : itemPy} ${
+          isActive ? 'bg-[var(--accent-soft)]' : 'hover:bg-[var(--color-background-primary)]'
+        }`}
+      >
+        <span className="shrink-0" style={isActive ? { color: 'var(--accent)' } : { color: 'var(--color-text-tertiary)' }}>{item.icon}</span>
+        <span className="flex min-w-0 flex-col leading-tight">
+          <span className={`truncate text-[12.5px] ${isActive ? 'font-semibold text-[var(--color-text-primary)]' : 'font-medium text-[var(--color-text-secondary)]'}`} style={isActive ? { color: 'var(--accent)' } : undefined}>
+            {label}
+          </span>
+          {sublabel && <span className="truncate text-[10px] text-[var(--color-text-tertiary)]">{sublabel}</span>}
+        </span>
+      </button>
+    )
+  }
+
   return (
     <>
     <aside className="titlebar-inset hidden w-full min-w-0 shrink-0 flex-col border-r border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] px-2 py-2 lg:flex h-full overflow-y-auto" data-density={density}>
+      {/* Brand lockup */}
+      <div className="flex items-center gap-2 border-b border-[var(--color-border-tertiary)] px-1 pb-2.5 mb-2">
+        <BrandLockup size={28} mode={mode} ringColor="var(--paper-sunk)" />
+        <span className="truncate text-[15px] font-extrabold" style={{ color: 'var(--ink)', letterSpacing: '-0.3px' }}>Noetica</span>
+      </div>
+
       {/* Header row */}
       <div className="flex items-center gap-1 pb-1">
         <button
@@ -452,7 +552,7 @@ export function Sidebar({
           onClick={onNewChat ?? (() => onSurfaceChange('chat'))}
         >
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden><path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
-          New workspace
+          New conversation
         </button>
         <button
           onClick={onCollapse}
@@ -489,22 +589,9 @@ export function Sidebar({
         </div>
       )}
 
-      {/* Command-center header — orients you to the active Tier-1 domain */}
-      {(() => {
-        const center = COMMAND_CENTERS.find((c) => c.id === activeCenter)
-        if (!center) return null
-        return (
-          <div className="px-2 pb-1.5 pt-0.5">
-            <div className="text-[12px] font-semibold text-[var(--color-text-primary)]">{center.label}</div>
-            <div className="text-[10px] leading-tight text-[var(--color-text-tertiary)]">{center.blurb}</div>
-          </div>
-        )
-      })()}
-
-      {/* Navigation — registry-driven: shows the active command center's surfaces */}
+      {/* Navigation — fixed Talk/Remember/Work tiers, then collapsible Advanced Tools by domain */}
       <nav className="min-h-0 flex-1 space-y-0.5 overflow-y-auto px-1">
-        {/* Recent sessions — only in the Workspace center */}
-        {activeCenter === 'workspace' && filteredSessions.length > 0 && (
+        {filteredSessions.length > 0 && (
           <SessionTree
             sessions={filteredSessions}
             activeSessionId={activeSessionId}
@@ -514,53 +601,60 @@ export function Sidebar({
           />
         )}
 
+        <div className={`px-2 pb-0.5 text-[9.5px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>Talk</div>
+        {TALK_IDS.map(renderTierRow)}
+
+        <div className={`px-2 ${groupGap} pb-0.5 text-[9.5px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>Remember</div>
+        {REMEMBER_IDS.map(renderTierRow)}
+
+        <div className={`px-2 ${groupGap} pb-0.5 text-[9.5px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>Work</div>
+        {WORK_IDS.map(renderTierRow)}
+
+        {/* Workspace-adjacent surfaces that aren't part of the spec's three tiers (Calendar,
+            Documents) — kept reachable via the same "More" pattern the flat nav used before,
+            rather than dropped. */}
         {(() => {
-          const rows = surfacesFor(activeCenter).filter((s) => s.tier === 'primary' || s.tier === 'secondary')
-          const primary = rows.filter((s) => s.tier === 'primary')
-          const secondary = rows.filter((s) => s.tier === 'secondary')
-
-          const renderRow = (s: NavSurface) => {
-            const item = surfaceItems.find((i) => i.id === s.id)
-            const isActive = activeSurface === s.id
-            // gap surfaces (not yet a real ActiveSurface) render as disabled "soon" rows
-            const disabled = s.gap === true || !item
-            const badge =
-              s.maturity === 'soon' || s.maturity === 'planned' ? 'soon' : s.maturity === 'beta' ? 'beta' : null
-            return (
-              <button
-                key={`${s.center}:${s.id}`}
-                onClick={() => { if (!disabled) onSurfaceChange(s.id as ActiveSurface) }}
-                disabled={disabled}
-                title={disabled ? `${s.label} — coming soon` : undefined}
-                className={`flex w-full items-center gap-2 rounded-lg px-2 py-1 text-left text-[11px] transition ${
-                  isActive
-                    ? 'bg-[#dbeafe] font-medium text-[var(--color-text-primary)]'
-                    : disabled
-                    ? 'cursor-default text-[var(--color-text-tertiary)] opacity-60'
-                    : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]'
-                }`}
-              >
-                <span className={`shrink-0 ${isActive ? 'text-[#1d4ed8]' : ''}`}>{item?.icon ?? <IconDot />}</span>
-                <span className="truncate">{s.label}</span>
-                {badge && (
-                  <span className="ml-auto rounded bg-[var(--color-background-secondary)] px-1 py-px text-[8px] font-medium text-[var(--color-text-tertiary)]">
-                    {badge}
-                  </span>
-                )}
-              </button>
-            )
-          }
-
+          const more = surfacesFor('workspace').filter(
+            (s) => s.tier === 'secondary' && !TALK_IDS.includes(s.id as ActiveSurface) && !REMEMBER_IDS.includes(s.id as ActiveSurface) && !WORK_IDS.includes(s.id as ActiveSurface),
+          )
+          if (more.length === 0) return null
           return (
             <>
-              {primary.map(renderRow)}
-              {secondary.length > 0 && (
-                <div className={`px-2 ${groupGap} pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>More</div>
-              )}
-              {secondary.map(renderRow)}
+              <div className={`px-2 ${groupGap} pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>More</div>
+              {more.map((s) => renderRow(s))}
             </>
           )
         })()}
+
+        {/* Advanced tools — collapsible, grouped by domain */}
+        <button
+          onClick={() => setAdvancedOpen((v) => !v)}
+          className={`flex w-full items-center gap-1.5 rounded-lg px-2 ${groupGap} py-1.5 text-left text-[9.5px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-secondary)]`}
+        >
+          <IconChevronRight className="shrink-0 transition-transform" style={{ transform: advancedOpen ? 'rotate(90deg)' : undefined }} />
+          Advanced tools
+        </button>
+        {advancedOpen && ADVANCED_SECTIONS.map(({ center, label }) => {
+          const rows = surfacesFor(center).filter((s) => s.tier === 'primary' || s.tier === 'secondary')
+          if (rows.length === 0) return null
+          const open = openSections[center]
+          return (
+            <div key={center}>
+              <button
+                onClick={() => toggleSection(center)}
+                className="flex w-full items-center gap-1.5 rounded-lg px-2 py-1 text-left transition hover:bg-[var(--color-background-primary)]"
+              >
+                <IconChevronRight className="shrink-0 text-[var(--color-text-tertiary)] transition-transform" style={{ transform: open ? 'rotate(90deg)' : undefined }} />
+                <span className="text-[11px] font-semibold text-[var(--color-text-secondary)]">{label}</span>
+              </button>
+              {open && (
+                <div className="space-y-0.5 pl-4">
+                  {rows.map((s) => renderRow(s, { compact: true }))}
+                </div>
+              )}
+            </div>
+          )
+        })}
       </nav>
 
       {/* Account footer */}
@@ -590,7 +684,7 @@ export function Sidebar({
                     className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-[12px] transition text-left ${lang.current ? 'text-[var(--color-text-primary)] hover:bg-[var(--color-background-secondary)]' : 'text-[var(--color-text-tertiary)] cursor-not-allowed opacity-60'}`}>
                     <span className="flex-1">{lang.native}</span>
                     {lang.current
-                      ? <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden className="text-[#1d4ed8]"><path d="M2 5.5l3 3 4.5-4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      ? <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden style={{ color: 'var(--accent)' }}><path d="M2 5.5l3 3 4.5-4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
                       : <span className="text-[9px] uppercase tracking-wide text-[var(--color-text-tertiary)]">soon</span>}
                   </button>
                 ))}
@@ -645,8 +739,9 @@ export function Sidebar({
                   { label: 'Learn more', arrow: true, icon: <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="8" cy="8" r="6.5" stroke="currentColor" strokeWidth="1.3"/><path d="M8 7.5V11M8 5.5v-.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>, action: () => setSubView('learn-more') },
                 ].map((item) => (
                   <button key={item.label} onClick={item.action}
-                    className={`flex w-full items-center gap-2.5 px-3 py-1.5 text-[12px] hover:bg-[var(--color-background-secondary)] transition text-left ${item.blue ? 'text-[#3b82f6]' : 'text-[var(--color-text-primary)]'}`}>
-                    <span className={item.blue ? 'text-[#3b82f6]' : 'text-[var(--color-text-secondary)]'}>{item.icon}</span>
+                    className="flex w-full items-center gap-2.5 px-3 py-1.5 text-[12px] hover:bg-[var(--color-background-secondary)] transition text-left"
+                    style={item.blue ? { color: 'var(--accent)' } : { color: 'var(--color-text-primary)' }}>
+                    <span style={item.blue ? { color: 'var(--accent)' } : { color: 'var(--color-text-secondary)' }}>{item.icon}</span>
                     <span className="flex-1">{item.label}</span>
                     {item.arrow && <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden><path d="M3 2l2.5 2.5L3 7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                   </button>
@@ -654,12 +749,20 @@ export function Sidebar({
                 <div className="border-t border-[var(--color-border-tertiary)] my-1"/>
                 <button
                   onClick={() => {
+                    if (!logoutConfirming) { setLogoutConfirming(true); return }
                     Object.keys(localStorage).filter(k => k.startsWith('noetica:')).forEach(k => localStorage.removeItem(k))
                     window.location.reload()
                   }}
-                  className="flex w-full items-center gap-2.5 px-3 py-1.5 text-[12px] text-[var(--color-text-primary)] hover:bg-[var(--color-background-secondary)] transition text-left">
-                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M6 3H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h3M11 11l3-3-3-3M14 8H6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  <span>Log out</span>
+                  onBlur={() => setLogoutConfirming(false)}
+                  className="flex w-full flex-col items-start gap-0.5 px-3 py-1.5 text-[12px] transition text-left hover:bg-[var(--color-background-secondary)]"
+                  style={{ color: '#ef4444' }}>
+                  <span className="flex w-full items-center gap-2.5">
+                    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M6 3H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h3M11 11l3-3-3-3M14 8H6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    <span className="flex-1">{logoutConfirming ? 'Confirm log out?' : 'Log out'}</span>
+                  </span>
+                  {logoutConfirming && (
+                    <span className="pl-[21px] text-[10px] font-normal text-[var(--color-text-tertiary)]">Clears local app data on this device. Click again to confirm.</span>
+                  )}
                 </button>
                 <div className="border-t border-[var(--color-border-tertiary)] mt-1 px-3 py-1.5 text-[10px] text-[var(--color-text-tertiary)] select-text">
                   Noetica {versionLabel()}
@@ -673,7 +776,7 @@ export function Sidebar({
           Noetica {versionLabel()}
         </div>
         <button
-          onClick={() => setUserMenuOpen((v) => !v)}
+          onClick={() => { setUserMenuOpen((v) => !v); setLogoutConfirming(false) }}
           className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-[var(--color-background-secondary)]"
         >
           <div

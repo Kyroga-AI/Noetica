@@ -52,13 +52,13 @@ export function FanoutPanel() {
                     key={m.id}
                     className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition ${
                       checked
-                        ? 'border-[#bfdbfe] bg-[#eff6ff]'
-                        : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] hover:border-[#bfdbfe]'
+                        ? 'border-[var(--accent)] bg-[var(--accent-soft)]'
+                        : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] hover:border-[var(--accent)]'
                     }`}
                   >
                     <input
                       type="checkbox"
-                      className="mt-0.5 accent-[#1d4ed8]"
+                      className="mt-0.5 accent-[var(--accent)]"
                       checked={checked}
                       onChange={() => toggleModel(m.id)}
                     />
@@ -66,7 +66,7 @@ export function FanoutPanel() {
                       <div className="text-sm font-medium text-[var(--color-text-primary)]">{m.label}</div>
                       <div className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{m.description}</div>
                       {m.extended_thinking && (
-                        <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#dbeafe] px-2 py-0.5 text-[10px] font-medium text-[#1d4ed8]">
+                        <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-medium text-[var(--accent)]">
                           Extended thinking
                         </div>
                       )}
@@ -96,7 +96,7 @@ export function FanoutPanel() {
             max={8}
             step={1}
             value={settings.fanoutConcurrency}
-            className="flex-1 accent-[#1d4ed8]"
+            className="flex-1 accent-[var(--accent)]"
             onChange={(e) => update({ fanoutConcurrency: Number(e.target.value) })}
           />
           <span className="w-6 text-center text-sm font-semibold text-[var(--color-text-primary)]">

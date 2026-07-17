@@ -1,8 +1,13 @@
 import type { Metadata } from 'next'
+import { Manrope, IBM_Plex_Mono, Source_Serif_4 } from 'next/font/google'
 import { SettingsProvider } from '@/lib/settings/context'
 import { ThemeProvider } from '@/contexts/ThemeContext'
 import { ConnectorAuthProvider } from '@/lib/auth/context'
 import '@/styles/globals.css'
+
+const manrope = Manrope({ subsets: ['latin'], weight: ['400', '500', '600', '700', '800'], variable: '--font-manrope' })
+const plexMono = IBM_Plex_Mono({ subsets: ['latin'], weight: ['500', '600'], variable: '--font-plex-mono' })
+const sourceSerif = Source_Serif_4({ subsets: ['latin'], weight: ['600', '700'], style: ['italic'], variable: '--font-source-serif' })
 
 export const metadata: Metadata = {
   title: 'Noetica',
@@ -11,10 +16,10 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" data-theme="claude" suppressHydrationWarning>
+    <html lang="en" data-theme="dark" suppressHydrationWarning className={`${manrope.variable} ${plexMono.variable} ${sourceSerif.variable}`}>
       <head>
         {/* Override data-theme from localStorage if user has saved a preference */}
-        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('noetica-theme');if(t&&['claude','navy','light'].includes(t))document.documentElement.setAttribute('data-theme',t)}catch(e){}})()` }} />
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=localStorage.getItem('noetica-theme');if(t&&['light','dark'].includes(t))document.documentElement.setAttribute('data-theme',t)}catch(e){}})()` }} />
         {/* Sidecar API shim: the packaged desktop app loads this static bundle from tauri://localhost, so a
             relative fetch('/api/...') resolves to tauri://localhost/api/... which doesn't exist. The agent-
             machine sidecar serves every /api route on 127.0.0.1:8080. In Tauri ONLY, rewrite relative /api/*

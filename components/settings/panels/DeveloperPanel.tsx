@@ -17,7 +17,7 @@ export function DeveloperPanel() {
           value={settings.apiEndpointOverride}
           onChange={(e) => update({ apiEndpointOverride: e.target.value })}
           placeholder="https://api.anthropic.com"
-          className="mt-3 w-full rounded-xl border border-[#bfdbfe] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8] focus:bg-[var(--color-background-primary)]"
+          className="mt-3 w-full rounded-xl border border-[var(--accent)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)] focus:bg-[var(--color-background-primary)]"
         />
       </div>
 
@@ -30,7 +30,7 @@ export function DeveloperPanel() {
             className="sr-only"
           />
           <span
-            className={`flex h-6 w-11 items-center rounded-full transition-colors ${settings.showRawEvents ? 'bg-[#1d4ed8]' : 'bg-[#cbd5e1]'}`}
+            className={`flex h-6 w-11 items-center rounded-full transition-colors ${settings.showRawEvents ? 'bg-[var(--accent)]' : 'bg-[#cbd5e1]'}`}
           >
             <span
               className={`ml-0.5 h-5 w-5 rounded-full bg-[var(--color-background-primary)] shadow transition-transform ${settings.showRawEvents ? 'translate-x-5' : 'translate-x-0'}`}
@@ -41,7 +41,7 @@ export function DeveloperPanel() {
       </div>
 
       <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Build info</div>
+        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--accent)]">Build info</div>
         <div className="mt-3 space-y-1.5 font-mono text-xs text-[var(--color-text-secondary)]">
           <div className="flex justify-between">
             <span>Version</span>

@@ -32,31 +32,98 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}d ago`
 }
 
-// ─── Note list ────────────────────────────────────────────────────────────────
+function wordCount(text: string): number {
+  const trimmed = text.trim()
+  if (!trimmed) return 0
+  return trimmed.split(/\s+/).length
+}
 
-function NoteListItem({ note, active, onClick }: { note: Note; active: boolean; onClick: () => void }) {
-  const preview = note.body.replace(/[#*`_\[\]]/g, '').slice(0, 80).trim()
-  return (
-    <button
-      onClick={onClick}
-      className={`flex w-full flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left transition ${
-        active ? 'bg-[#dbeafe]' : 'hover:bg-[var(--color-background-tertiary)]'
-      }`}
-    >
-      <div className="flex items-center gap-1.5">
-        {note.pinned && <span className="text-[10px] text-[#f59e0b]">★</span>}
-        <span className={`truncate text-sm font-medium ${active ? 'text-[#1d4ed8]' : 'text-[var(--color-text-primary)]'}`}>
-          {note.title || 'Untitled'}
-        </span>
-        {note.messages.length > 0 && (
-          <span className="ml-auto shrink-0 rounded-full bg-[#eff6ff] px-1.5 text-[10px] font-semibold text-[#1d4ed8]">
-            {note.messages.length}
-          </span>
+// Hardcoded Notion pages for the prototype FROM NOTION section
+const DUMMY_NOTION_PAGES = [
+  { id: 'dummy-1', title: 'Q3 Pricing Revi…', lastEdited: '2d ago' },
+  { id: 'dummy-2', title: 'Competitor An…', lastEdited: '5d ago' },
+  { id: 'dummy-3', title: 'Product Road…', lastEdited: '1w ago' },
+]
+
+// ─── Note list item ──────────────────────────────────────────────────────────
+
+function NoteListItem({
+  note,
+  active,
+  onClick,
+  onPin,
+  onDelete,
+  confirmDelete,
+}: {
+  note: Note
+  active: boolean
+  onClick: () => void
+  onPin: () => void
+  onDelete: () => void
+  confirmDelete: boolean
+}) {
+  if (active) {
+    return (
+      <div style={{ padding: '9px 10px', borderRadius: 8, background: 'var(--accent)', marginBottom: 3, cursor: 'default' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+          {note.pinned && <span style={{ fontSize: 9, opacity: 0.8 }}>📌</span>}
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
+            {note.title || 'Untitled'}
+          </div>
+        </div>
+        {note.tags.length > 0 && (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginBottom: 5 }}>
+            {note.tags.map((tag) => (
+              <div key={tag} style={{ padding: '1px 6px', borderRadius: 20, background: 'rgba(255,255,255,0.2)', fontSize: 10, color: '#fff' }}>{tag}</div>
+            ))}
+          </div>
         )}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 10, color: 'rgba(255,255,255,0.55)' }}>{timeAgo(note.updatedAt)}</span>
+          <div style={{ display: 'flex', gap: 3 }}>
+            <button onClick={(e) => { e.stopPropagation(); onPin() }} style={{ padding: '2px 5px', borderRadius: 4, fontSize: 10, cursor: 'pointer', color: 'rgba(255,255,255,0.75)', background: 'transparent', border: 'none' }}>📌</button>
+            {confirmDelete ? (
+              <button onClick={(e) => { e.stopPropagation(); onDelete() }} style={{ padding: '2px 7px', borderRadius: 4, fontSize: 10, fontWeight: 700, color: '#fff', background: 'oklch(50% 0.2 20)', cursor: 'pointer', border: 'none' }}>Delete?</button>
+            ) : (
+              <button onClick={(e) => { e.stopPropagation(); onDelete() }} style={{ padding: '2px 5px', borderRadius: 4, fontSize: 10, cursor: 'pointer', color: 'rgba(255,255,255,0.75)', background: 'transparent', border: 'none' }}>🗑</button>
+            )}
+          </div>
+        </div>
       </div>
-      <p className="truncate text-xs text-[var(--color-text-tertiary)]">{preview || 'Empty note'}</p>
-      <p className="text-[10px] text-[#cbd5e1]">{timeAgo(note.updatedAt)}</p>
-    </button>
+    )
+  }
+
+  return (
+    <div
+      onClick={onClick}
+      style={{ padding: '9px 10px', borderRadius: 8, marginBottom: 3, cursor: 'pointer' }}
+      className="hover:bg-[var(--paper-sunk-2)]"
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+        {note.pinned && <span style={{ fontSize: 9, opacity: 0.6 }}>📌</span>}
+        <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>
+          {note.title || 'Untitled'}
+        </div>
+      </div>
+      {note.tags.length > 0 && (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 3, marginBottom: 5 }}>
+          {note.tags.map((tag) => (
+            <div key={tag} style={{ padding: '1px 6px', borderRadius: 20, border: '1px solid var(--line-soft)', fontSize: 10, color: 'var(--ink3)' }}>{tag}</div>
+          ))}
+        </div>
+      )}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <span style={{ fontSize: 10, color: 'var(--ink3)' }}>{timeAgo(note.updatedAt)}</span>
+        <div style={{ display: 'flex', gap: 3 }}>
+          <button onClick={(e) => { e.stopPropagation(); onPin() }} className="hover:bg-[var(--line)]" style={{ padding: '2px 5px', borderRadius: 4, fontSize: 10, cursor: 'pointer', color: 'var(--ink3)', background: 'transparent', border: 'none' }}>📌</button>
+          {confirmDelete ? (
+            <button onClick={(e) => { e.stopPropagation(); onDelete() }} style={{ padding: '2px 7px', borderRadius: 4, fontSize: 10, fontWeight: 700, color: '#fff', background: 'oklch(50% 0.2 20)', cursor: 'pointer', border: 'none' }}>Delete?</button>
+          ) : (
+            <button onClick={(e) => { e.stopPropagation(); onDelete() }} className="hover:bg-[var(--line)]" style={{ padding: '2px 5px', borderRadius: 4, fontSize: 10, cursor: 'pointer', color: 'var(--ink3)', background: 'transparent', border: 'none' }}>🗑</button>
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -66,20 +133,21 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
   const [preview, setPreview] = useState(false)
   const [tagInput, setTagInput] = useState('')
   const [linkSuggestions, setLinkSuggestions] = useState<LinkSuggestion[]>([])
-  const [syncing, setSyncing] = useState(false)
-  const [syncDone, setSyncDone] = useState(false)
+  const [indexStatus, setIndexStatus] = useState<'idle' | 'indexing' | 'indexed' | 'failed'>('idle')
+  const [indexedSnapshot, setIndexedSnapshot] = useState<string | null>(null)
+  const [indexedAt, setIndexedAt] = useState<number | null>(null)
+  const [, setElapsedTick] = useState(0)
+  const isStale = indexStatus === 'indexed' && indexedSnapshot !== null && indexedSnapshot !== note.body
   const bodyRef = useRef<HTMLTextAreaElement>(null)
   const suggestTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
-    // Auto-resize textarea
     const el = bodyRef.current
     if (!el) return
     el.style.height = 'auto'
     el.style.height = `${el.scrollHeight}px`
   }, [note.body])
 
-  // Debounced link suggestions — fires 800ms after the body stops changing
   useEffect(() => {
     if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current)
     const text = note.body.trim()
@@ -93,33 +161,40 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
       })
         .then(r => r.ok ? r.json() : null)
         .then((d: { suggestions?: LinkSuggestion[] } | null) => { if (d?.suggestions) setLinkSuggestions(d.suggestions) })
-        .catch(() => { /* embedder unavailable — best-effort */ })
+        .catch(() => { /* embedder unavailable */ })
     }, 800)
     return () => { if (suggestTimerRef.current) clearTimeout(suggestTimerRef.current) }
   }, [note.body])
 
-  // Insert [[label]] at current cursor position in the textarea
+  useEffect(() => {
+    if (indexStatus !== 'indexed' || indexedAt === null) return
+    const id = setInterval(() => setElapsedTick((t) => t + 1), 30_000)
+    return () => clearInterval(id)
+  }, [indexStatus, indexedAt])
+
   function insertLink(label: string) {
     const el = bodyRef.current
-    if (!el) return
-    const pos = el.selectionStart
     const insertion = `[[${label}]]`
-    const next = note.body.slice(0, pos) + insertion + note.body.slice(pos)
-    onUpdate({ body: next })
-    setTimeout(() => { el.focus(); el.setSelectionRange(pos + insertion.length, pos + insertion.length) }, 0)
+    if (el) {
+      const pos = el.selectionStart
+      onUpdate({ body: note.body.slice(0, pos) + insertion + note.body.slice(pos) })
+      setTimeout(() => { el.focus(); el.setSelectionRange(pos + insertion.length, pos + insertion.length) }, 0)
+    } else {
+      onUpdate({ body: note.body ? `${note.body} ${insertion}` : insertion })
+    }
     setLinkSuggestions((prev) => prev.filter((s) => s.label !== label))
   }
 
-  // Sync the current note into the knowledge graph via the ingestion pipeline
   async function syncToGraph() {
-    if (syncing) return
-    setSyncing(true); setSyncDone(false)
+    if (indexStatus === 'indexing') return
+    const snapshot = note.body
+    setIndexStatus('indexing')
     try {
       const markdown = `# ${note.title}\n\n${note.body}`
       const arr = new TextEncoder().encode(markdown)
       let bin = ''
       for (let i = 0; i < arr.length; i++) bin += String.fromCharCode(arr[i]!)
-      await fetch(amUrl('/api/ingest/queue'), {
+      const res = await fetch(amUrl('/api/ingest/queue'), {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
@@ -129,10 +204,13 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
         }),
         signal: AbortSignal.timeout(8000),
       })
-      setSyncDone(true)
-      setTimeout(() => setSyncDone(false), 4000)
-    } catch { /* best-effort */ }
-    finally { setSyncing(false) }
+      if (!res.ok) throw new Error(`ingest queue returned ${res.status}`)
+      setIndexStatus('indexed')
+      setIndexedSnapshot(snapshot)
+      setIndexedAt(Date.now())
+    } catch {
+      setIndexStatus('failed')
+    }
   }
 
   function addTag(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -148,141 +226,182 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
     onUpdate({ tags: note.tags.filter((t) => t !== tag) })
   }
 
+  // Index button styling per 5-state spec
+  const indexBorder = indexStatus === 'failed' ? 'var(--danger)'
+    : isStale ? 'var(--pending-line)'
+    : indexStatus === 'indexed' ? 'var(--verified-line)'
+    : 'var(--line)'
+  const indexBg = indexStatus === 'failed' ? 'transparent'
+    : isStale ? 'var(--pending-soft)'
+    : indexStatus === 'indexed' ? 'var(--verified-soft)'
+    : 'transparent'
+  const indexFg = indexStatus === 'failed' ? 'var(--danger-fg)'
+    : isStale ? 'var(--pending-fg)'
+    : indexStatus === 'indexed' ? 'var(--verified-fg)'
+    : 'var(--ink2)'
+  const indexLabel = indexStatus === 'indexing' ? 'Indexing…'
+    : indexStatus === 'failed' ? 'Failed'
+    : isStale ? 'Re-index'
+    : indexStatus === 'indexed' ? `✓ Indexed${indexedAt !== null ? ' ' + timeAgo(new Date(indexedAt).toISOString()) : ''}`
+    : 'Index'
+
+  function handleDownload() {
+    const slug = note.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'note'
+    const blob = new Blob([`# ${note.title}\n\n${note.body}`], { type: 'text/markdown;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url; a.download = `${slug}.md`; a.click()
+    URL.revokeObjectURL(url)
+  }
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-8 py-6">
-      {/* Title */}
-      <input
-        className="mb-4 w-full border-0 bg-transparent text-2xl font-bold text-[var(--color-text-primary)] outline-none placeholder:text-[#cbd5e1]"
-        placeholder="Note title"
-        value={note.title}
-        onChange={(e) => onUpdate({ title: e.target.value })}
-      />
-
-      {/* Tags */}
-      <div className="mb-4 flex flex-wrap items-center gap-1.5">
-        {note.tags.map((tag) => (
-          <span key={tag} className="flex items-center gap-1 rounded-full bg-[#eff6ff] px-2.5 py-0.5 text-xs font-medium text-[#1d4ed8]">
-            {tag}
-            <button onClick={() => removeTag(tag)} className="ml-0.5 text-[var(--color-text-tertiary)] hover:text-[#dc2626]">×</button>
-          </span>
-        ))}
-        <input
-          className="h-6 min-w-[80px] rounded-full border border-dashed border-[#bfdbfe] bg-transparent px-2.5 text-xs text-[var(--color-text-secondary)] outline-none placeholder:text-[#cbd5e1] focus:border-[#1d4ed8]"
-          placeholder="Add tag…"
-          value={tagInput}
-          onChange={(e) => setTagInput(e.target.value)}
-          onKeyDown={addTag}
-        />
-      </div>
-
-      {/* Preview toggle + toolbar */}
-      <div className="mb-3 flex items-center gap-2">
-        <div className="flex items-center gap-1 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-0.5">
-          <button onClick={() => setPreview(false)}
-            className={`rounded-md px-3 py-1 text-xs font-medium transition ${!preview ? 'bg-[var(--color-background-primary)] shadow-sm text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}>
-            Edit
+    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', background: 'var(--paper)' }}>
+      {/* Top toolbar */}
+      <div style={{ padding: '10px 16px 8px', borderBottom: '1px solid var(--line-soft)', display: 'flex', flexDirection: 'column', gap: 6, flexShrink: 0 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <input
+            value={note.title}
+            onChange={(e) => onUpdate({ title: e.target.value })}
+            placeholder="Untitled note"
+            style={{ flex: 1, border: 'none', background: 'transparent', fontSize: 17, fontWeight: 700, color: 'var(--ink)', outline: 'none', fontFamily: 'inherit', minWidth: 0 }}
+          />
+          <span style={{ fontSize: 11, color: 'var(--ink3)', flexShrink: 0 }}>{wordCount(note.body)} words</span>
+          {/* Index button */}
+          <button
+            onClick={() => void syncToGraph()}
+            disabled={indexStatus === 'indexing' || !note.body.trim()}
+            style={{ padding: '4px 11px', borderRadius: 7, border: `1px solid ${indexBorder}`, background: indexBg, color: indexFg, fontSize: 11.5, fontWeight: 700, cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap', opacity: indexStatus === 'indexing' ? 0.6 : 1 }}
+          >
+            {indexLabel}
           </button>
-          <button onClick={() => setPreview(true)}
-            className={`rounded-md px-3 py-1 text-xs font-medium transition ${preview ? 'bg-[var(--color-background-primary)] shadow-sm text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}>
-            Preview
+          {/* Download */}
+          <button
+            onClick={handleDownload}
+            title="Download .md"
+            className="hover:bg-[var(--paper-sunk)]"
+            style={{ width: 28, height: 28, borderRadius: 7, border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', color: 'var(--ink2)', flexShrink: 0, background: 'transparent' }}
+          >
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 7l3 3 3-3M3 12h10" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </button>
-        </div>
-        {/* Sync to knowledge graph */}
-        <button
-          onClick={() => void syncToGraph()}
-          disabled={syncing || !note.body.trim()}
-          title="Index this note in your knowledge graph so the agent can recall it"
-          className={`flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-medium transition disabled:opacity-40 ${syncDone ? 'border-[#bbf7d0] bg-[#f0fdf4] text-[#16a34a]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] hover:border-[#1d4ed8] hover:text-[#1d4ed8]'}`}
-        >
-          <span>{syncDone ? '✓' : '⬡'}</span>
-          <span>{syncing ? 'Indexing…' : syncDone ? 'Indexed' : 'Index'}</span>
-        </button>
-        {/* Download */}
-        <button
-          onClick={() => {
-            const slug = note.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'note'
-            const blob = new Blob([`# ${note.title}\n\n${note.body}`], { type: 'text/markdown;charset=utf-8' })
-            const url = URL.createObjectURL(blob)
-            const a = document.createElement('a'); a.href = url; a.download = `${slug}.md`; a.click()
-            URL.revokeObjectURL(url)
-          }}
-          className="flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-secondary)]"
-          title="Download as markdown"
-        >
-          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-            <path d="M6 1v7M3 5.5l3 3 3-3M2 10.5h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </button>
-      </div>
-
-      {/* Body */}
-      {preview ? (
-        <div className="min-h-48 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 text-sm leading-7 text-[var(--color-text-primary)] whitespace-pre-wrap">
-          {note.body || <span className="text-[var(--color-text-tertiary)]">Nothing to preview.</span>}
-        </div>
-      ) : (
-        <textarea
-          ref={bodyRef}
-          className="min-h-48 w-full resize-none border-0 bg-transparent text-sm leading-7 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
-          placeholder={`Write your note in markdown…\n\n# Heading\n\n**Bold**, _italic_, \`code\`\n\n- List item`}
-          value={note.body}
-          onChange={(e) => onUpdate({ body: e.target.value })}
-        />
-      )}
-
-      {/* Link suggestions — semantically similar graph nodes surfaced as you write */}
-      {linkSuggestions.length > 0 && !preview && (
-        <div className="mt-4 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2.5">
-          <div className="mb-2 flex items-center gap-1.5">
-            <span className="text-[10px] text-[var(--color-accent)]">⬡</span>
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Related in your graph</span>
+          {/* Edit/Preview toggle */}
+          <div style={{ display: 'flex', border: '1px solid var(--line)', borderRadius: 7, overflow: 'hidden', flexShrink: 0 }}>
+            <button
+              onClick={() => setPreview(false)}
+              style={{ padding: '4px 10px', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', background: !preview ? 'var(--paper-sunk)' : 'transparent', color: !preview ? 'var(--ink)' : 'var(--ink3)', border: 'none' }}
+            >
+              Edit
+            </button>
+            <button
+              onClick={() => setPreview(true)}
+              style={{ padding: '4px 10px', fontSize: 11.5, fontWeight: 600, cursor: 'pointer', background: preview ? 'var(--paper-sunk)' : 'transparent', color: preview ? 'var(--ink)' : 'var(--ink3)', border: 'none' }}
+            >
+              Preview
+            </button>
           </div>
-          <div className="flex flex-wrap gap-1.5">
-            {linkSuggestions.map((s) => (
+        </div>
+        {/* Tags row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', minHeight: 24 }}>
+          {note.tags.map((tag) => (
+            <div key={tag} style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 7px 2px 9px', borderRadius: 20, background: 'var(--paper-sunk)', border: '1px solid var(--line)', fontSize: 11.5, color: 'var(--ink2)' }}>
+              <span>{tag}</span>
               <button
-                key={s.id}
-                onClick={() => insertLink(s.label)}
-                title={`Insert [[${s.label}]] — ${(s.sim * 100).toFixed(0)}% similarity`}
-                className="flex items-center gap-1 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-0.5 text-xs text-[var(--color-text-secondary)] transition hover:border-[#1d4ed8] hover:bg-[#eff6ff] hover:text-[#1d4ed8]"
+                onClick={() => removeTag(tag)}
+                className="hover:bg-[var(--line)]"
+                style={{ cursor: 'pointer', width: 14, height: 14, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, lineHeight: 1, color: 'var(--ink3)', background: 'transparent', border: 'none', padding: 0 }}
               >
-                <span className="font-mono text-[9px] text-[var(--color-text-tertiary)]">{(s.sim * 100).toFixed(0)}%</span>
-                {s.label}
-                <span className="text-[10px] text-[var(--color-text-tertiary)]">+</span>
+                &times;
+              </button>
+            </div>
+          ))}
+          <input
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyDown={addTag}
+            placeholder={note.tags.length === 0 ? 'Add tags…' : '+'}
+            style={{ border: 'none', outline: 'none', background: 'transparent', fontSize: 11.5, color: 'var(--ink)', minWidth: 90, flex: 1 }}
+          />
+        </div>
+        {/* Link suggestions */}
+        {linkSuggestions.length > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 10.5, color: 'var(--ink3)', flexShrink: 0 }}>Related in graph:</span>
+            {linkSuggestions.map((sug) => (
+              <button
+                key={sug.id}
+                onClick={() => insertLink(sug.label)}
+                className="hover:bg-[var(--paper-sunk-2)]"
+                style={{ padding: '2px 9px', borderRadius: 20, border: '1px solid var(--line)', fontSize: 11, color: 'var(--ink2)', cursor: 'pointer', background: 'var(--paper-sunk)' }}
+              >
+                {sug.label} <span style={{ color: 'var(--ink3)', fontSize: 10 }}>{(sug.sim * 100).toFixed(0)}%</span>
               </button>
             ))}
           </div>
-          <div className="mt-1.5 text-[9px] text-[var(--color-text-tertiary)]">Click to insert as backlink · [[label]] syntax</div>
-        </div>
-      )}
+        )}
+        {/* Format toolbar (edit mode) */}
+        {!preview && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+            <button className="hover:bg-[var(--paper-sunk-2)]" style={{ padding: '3px 9px', borderRadius: 5, border: '1px solid var(--line)', fontSize: 12, fontWeight: 700, color: 'var(--ink2)', cursor: 'pointer', background: 'var(--paper-sunk)' }}>B</button>
+            <button className="hover:bg-[var(--paper-sunk-2)]" style={{ padding: '3px 9px', borderRadius: 5, border: '1px solid var(--line)', fontSize: 12, fontStyle: 'italic', color: 'var(--ink2)', cursor: 'pointer', background: 'var(--paper-sunk)' }}>I</button>
+            <div style={{ width: 1, height: 14, background: 'var(--line)', margin: '0 2px' }} />
+            <button className="hover:bg-[var(--paper-sunk-2)]" style={{ padding: '3px 8px', borderRadius: 5, border: '1px solid var(--line)', fontSize: 11, fontWeight: 700, color: 'var(--ink2)', cursor: 'pointer', background: 'var(--paper-sunk)' }}>H1</button>
+            <button className="hover:bg-[var(--paper-sunk-2)]" style={{ padding: '3px 8px', borderRadius: 5, border: '1px solid var(--line)', fontSize: 11, fontWeight: 700, color: 'var(--ink2)', cursor: 'pointer', background: 'var(--paper-sunk)' }}>H2</button>
+            <div style={{ width: 1, height: 14, background: 'var(--line)', margin: '0 2px' }} />
+            <button className="hover:bg-[var(--paper-sunk-2)]" style={{ padding: '3px 9px', borderRadius: 5, border: '1px solid var(--line)', fontSize: 13, color: 'var(--ink2)', cursor: 'pointer', background: 'var(--paper-sunk)' }}>{'≡'}</button>
+            <button className="hover:bg-[var(--paper-sunk-2)]" style={{ padding: '3px 9px', borderRadius: 5, border: '1px solid var(--line)', fontSize: 13, color: 'var(--ink2)', cursor: 'pointer', background: 'var(--paper-sunk)' }}>{'“'}</button>
+            <button className="hover:bg-[var(--paper-sunk-2)]" style={{ padding: '3px 8px', borderRadius: 5, border: '1px solid var(--line)', fontSize: 11, fontFamily: 'monospace', color: 'var(--ink2)', cursor: 'pointer', background: 'var(--paper-sunk)' }}>&lt;/&gt;</button>
+          </div>
+        )}
+      </div>
+      {/* Editor body */}
+      <div style={{ flex: 1, overflowY: 'auto', minHeight: 0 }}>
+        {!preview ? (
+          <textarea
+            ref={bodyRef}
+            data-note-editor=""
+            value={note.body}
+            onChange={(e) => onUpdate({ body: e.target.value })}
+            placeholder="Start writing…"
+            style={{ width: '100%', height: '100%', minHeight: 400, boxSizing: 'border-box', border: 'none', resize: 'none', outline: 'none', padding: '28px 40px', fontSize: 14, lineHeight: 1.85, color: 'var(--ink)', background: 'var(--paper)', fontFamily: "'IBM Plex Mono','Fira Mono',monospace" }}
+          />
+        ) : (
+          <div style={{ padding: '28px 40px', fontSize: 14, lineHeight: 1.85, color: 'var(--ink)' }}>
+            {note.body ? (
+              <div className="prose prose-sm max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>{note.body}</ReactMarkdown>
+              </div>
+            ) : (
+              <span style={{ color: 'var(--ink3)' }}>Nothing to preview.</span>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
 
 // ─── Note chat ────────────────────────────────────────────────────────────────
 
-function NoteChat({ note, onAppendMessages }: {
-  note: Note
+function NoteChat({ note, onAppendMessages, onPushToNotion, notionPushState, notionPushUrl, hasNotion }: {
+  note: Note | null
   onAppendMessages: (msgs: ChatMessage[]) => void
+  onPushToNotion: () => void
+  notionPushState: 'idle' | 'pushing' | 'done' | 'error'
+  notionPushUrl: string | null
+  hasNotion: boolean
 }) {
   const { settings } = useSettings()
   const [input, setInput] = useState('')
   const [streaming, setStreaming] = useState(false)
-  const [messages, setMessages] = useState<ChatMessage[]>(note.messages)
+  const [messages, setMessages] = useState<ChatMessage[]>(note?.messages ?? [])
   const thinkingRef = useRef<string>('')
   const bottomRef = useRef<HTMLDivElement>(null)
   const abortRef = useRef<AbortController | null>(null)
 
-  // Abort in-flight stream on unmount
   useEffect(() => () => { abortRef.current?.abort() }, [])
-
-  // Sync when note changes
-  useEffect(() => { setMessages(note.messages) }, [note.id])
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  useEffect(() => { setMessages(note?.messages ?? []) }, [note?.id])
+  useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages])
 
   async function send() {
+    if (!note) return
     const trimmed = input.trim()
     if (!trimmed || streaming) return
 
@@ -314,7 +433,7 @@ function NoteChat({ note, onAppendMessages }: {
     const providerKeys = {
       anthropic:   settings.anthropicApiKey   || undefined,
       openai:      settings.openaiApiKey      || undefined,
-      google:      settings.googleApiKey      || undefined,
+      google:      settings.googleApiKey       || undefined,
       mistral:     settings.mistralApiKey     || undefined,
       neuronpedia: settings.neuronpediaApiKey || undefined,
     }
@@ -343,9 +462,7 @@ function NoteChat({ note, onAppendMessages }: {
               prev.map((m) => m.id === assistantId ? { ...m, thinking: (m.thinking ?? '') + delta } : m)
             )
           },
-          onThinkingDone: (thinking) => {
-            thinkingRef.current = thinking
-          },
+          onThinkingDone: (thinking) => { thinkingRef.current = thinking },
           onDelta: (delta) => {
             setMessages((prev) =>
               prev.map((m) => m.id === assistantId ? { ...m, content: m.content + delta } : m)
@@ -355,9 +472,7 @@ function NoteChat({ note, onAppendMessages }: {
             const finalMsgs: ChatMessage[] = [
               { ...userMsg },
               {
-                id: assistantId,
-                role: 'assistant',
-                content: result.content,
+                id: assistantId, role: 'assistant', content: result.content,
                 ...(thinkingRef.current ? { thinking: thinkingRef.current } : {}),
                 created_at: new Date().toISOString(),
               },
@@ -385,110 +500,140 @@ function NoteChat({ note, onAppendMessages }: {
     setStreaming(false)
   }
 
+  // Push to Notion label
+  const notionLabel = notionPushState === 'pushing' ? 'Pushing…'
+    : notionPushState === 'done' ? '✓ Pushed to Notion'
+    : notionPushState === 'error' ? 'Push failed'
+    : '↑ Push to Notion'
+  const notionFg = notionPushState === 'done' ? '#16a34a'
+    : notionPushState === 'error' ? '#ef4444'
+    : 'var(--ink2)'
+
   return (
-    <div className="flex w-80 shrink-0 flex-col border-l border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
+    <div style={{ width: 240, flexShrink: 0, borderLeft: '1px solid var(--line)', display: 'flex', flexDirection: 'column', background: 'var(--paper-sunk)' }}>
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-4 py-3">
-        <div>
-          <p className="text-xs font-semibold text-[var(--color-text-primary)]">Note Chat</p>
-          <p className="text-[11px] text-[var(--color-text-tertiary)]">Context: this note</p>
+      <div style={{ padding: '11px 14px', borderBottom: '1px solid var(--line-soft)', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+        <div style={{ width: 22, height: 22, borderRadius: 6, background: 'var(--ink2)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <svg width="11" height="11" viewBox="0 0 12 12" fill="none"><path d="M2 3h8M2 6h6M2 9h4" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/></svg>
         </div>
-        {messages.length > 0 && (
-          <span className="rounded-full bg-[#eff6ff] px-2 py-0.5 text-[10px] font-semibold text-[#1d4ed8]">
-            {messages.length}
-          </span>
-        )}
+        <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)' }}>Note Chat</div>
+        <div style={{ marginLeft: 'auto', padding: '2px 7px', borderRadius: 20, border: '1px solid var(--line-soft)', background: 'var(--paper-sunk-2)', fontSize: 10, fontWeight: 600, color: 'var(--ink3)' }}>AI can&apos;t edit your note</div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
-        {messages.length === 0 ? (
-          <div className="py-8 text-center">
-            <p className="text-xs font-medium text-[var(--color-text-secondary)]">Ask about this note</p>
-            <p className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">Summarise, extend, find gaps, or brainstorm based on its content.</p>
+      <div data-note-chat-scroll="" style={{ flex: 1, overflowY: 'auto', padding: 12, display: 'flex', flexDirection: 'column', gap: 9, minHeight: 0 }}>
+        {!note ? (
+          /* No note selected */
+          <div style={{ padding: '18px 8px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink2)' }}>Select a note to chat</div>
+          </div>
+        ) : messages.length === 0 ? (
+          /* Empty state with suggestions */
+          <div style={{ padding: '18px 8px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
+            <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--ink2)' }}>Ask about this note</div>
+            <div style={{ fontSize: 11.5, color: 'var(--ink3)', lineHeight: 1.6, textAlign: 'center' }}>
+              &ldquo;Summarise this&rdquo;<br/>
+              &ldquo;What am I missing?&rdquo;<br/>
+              &ldquo;Critique the structure&rdquo;
+            </div>
+            <div style={{ marginTop: 4, padding: '4px 10px', borderRadius: 20, background: 'var(--paper-sunk-2)', border: '1px solid var(--line)', fontSize: 10.5, color: 'var(--ink3)' }}>AI cannot edit this note</div>
           </div>
         ) : (
-          messages.map((m) => (
-            <div key={m.id} className={`group flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              {m.role === 'assistant' && (
-                <div className="mr-2 mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#0f172a] text-[10px] font-bold text-white">N</div>
-              )}
-              <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-5 ${
-                m.role === 'user'
-                  ? 'bg-[#dbeafe] text-[var(--color-text-primary)]'
-                  : 'bg-[var(--color-background-primary)] shadow-sm border border-[var(--color-border-secondary)] text-[var(--color-text-primary)]'
-              }`}>
-                {m.role === 'assistant' && m.content ? (
-                  <div className="prose prose-xs max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
-                  <ReactMarkdown
-                    remarkPlugins={[remarkGfm]}
-                    components={{
-                      code({ className, children, ...props }: any) {
-                        const match = /language-(\w+)/.exec(className ?? '')
-                        if (!match) return <code className="rounded bg-black/[0.06] px-1 py-0.5 font-mono text-[11px]" {...props}>{children}</code>
-                        return (
-                          <SyntaxHighlighter language={match[1]} style={oneDark as Record<string, React.CSSProperties>} customStyle={{ borderRadius: '0.5rem', fontSize: '11px', margin: '0.5rem 0' }} PreTag="div">
-                            {String(children).replace(/\n$/, '')}
-                          </SyntaxHighlighter>
-                        )
-                      },
-                    }}
-                  >
-                    {m.content}
-                  </ReactMarkdown>
+          /* Messages */
+          <>
+            {messages.map((m) => (
+              m.role === 'user' ? (
+                <div key={m.id} style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <div style={{ maxWidth: 200, padding: '8px 11px', borderRadius: '14px 14px 3px 14px', background: 'var(--ink)', color: 'var(--paper)', fontSize: 12.5, lineHeight: 1.5 }}>
+                    <p style={{ margin: 0, whiteSpace: 'pre-wrap' }}>{m.content}</p>
                   </div>
-                ) : (
-                  <p className="whitespace-pre-wrap">{m.content || (streaming && m.role === 'assistant' ? '…' : '')}</p>
-                )}
-              </div>
-              {m.role === 'assistant' && m.content && (
-                <button
-                  onClick={() => void navigator.clipboard.writeText(m.content)}
-                  className="ml-1 mt-1 self-start rounded p-1 text-[var(--color-text-tertiary)] opacity-0 transition-opacity hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-primary)] group-hover:opacity-100"
-                  title="Copy"
-                >
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-1v1a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h1V2zm1 3H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-1H6a2 2 0 0 1-2-2V5zm6-4H6a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h5v-2h2V2a1 1 0 0 0-1-1z"/></svg>
-                </button>
-              )}
-            </div>
-          ))
+                </div>
+              ) : m.role === 'assistant' ? (
+                <div key={m.id} style={{ maxWidth: 220, padding: '8px 11px', borderRadius: '14px 14px 14px 3px', background: 'var(--paper)', border: '1px solid var(--line-soft)', color: 'var(--ink)', fontSize: 12.5, lineHeight: 1.55 }}>
+                  {m.content ? (
+                    <div className="prose prose-xs max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
+                      <ReactMarkdown
+                        remarkPlugins={[remarkGfm]}
+                        components={{
+                          code({ className, children, ...props }: any) {
+                            const match = /language-(\w+)/.exec(className ?? '')
+                            if (!match) return <code className="rounded bg-black/[0.06] px-1 py-0.5 font-mono text-[11px]" {...props}>{children}</code>
+                            return (
+                              <SyntaxHighlighter language={match[1]} style={oneDark as Record<string, React.CSSProperties>} customStyle={{ borderRadius: '0.5rem', fontSize: '11px', margin: '0.5rem 0' }} PreTag="div">
+                                {String(children).replace(/\n$/, '')}
+                              </SyntaxHighlighter>
+                            )
+                          },
+                        }}
+                      >
+                        {m.content}
+                      </ReactMarkdown>
+                    </div>
+                  ) : streaming ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                      <span className="animate-pulse" style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--ink3)' }} />
+                      <span className="animate-pulse" style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--ink3)', animationDelay: '0.2s' }} />
+                      <span className="animate-pulse" style={{ width: 5, height: 5, borderRadius: '50%', background: 'var(--ink3)', animationDelay: '0.4s' }} />
+                      <span style={{ fontSize: 11.5, color: 'var(--ink2)', marginLeft: 4 }}>Thinking…</span>
+                    </span>
+                  ) : null}
+                </div>
+              ) : null
+            ))}
+          </>
         )}
         <div ref={bottomRef} />
       </div>
 
       {/* Input */}
-      <div className="border-t border-[var(--color-border-secondary)] p-3">
-        <div className="flex items-end gap-2 rounded-xl border border-[#bfdbfe] bg-[var(--color-background-primary)] p-2 shadow-sm">
-          <textarea
-            className="min-h-[2.5rem] flex-1 resize-none bg-transparent text-xs leading-5 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
-            placeholder="Ask about this note…"
-            value={input}
-            disabled={streaming}
-            onChange={(e) => setInput(e.target.value)}
-            rows={2}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void send()
-            }}
-          />
-          {streaming ? (
-            <button
-              onClick={stop}
-              className="shrink-0 rounded-lg bg-[#ef4444] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#dc2626]"
-              title="Stop generation"
-            >
-              Stop
-            </button>
-          ) : (
-            <button
-              onClick={() => void send()}
-              disabled={!input.trim()}
-              className="shrink-0 rounded-lg bg-[#1d4ed8] px-3 py-1.5 text-[11px] font-semibold text-white transition hover:bg-[#1e40af] disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Ask
-            </button>
-          )}
-        </div>
-        <p className="mt-1.5 text-center text-[10px] text-[#cbd5e1]">⌘ + Enter</p>
+      <div style={{ borderTop: '1px solid var(--line-soft)', padding: 10, flexShrink: 0 }}>
+        {note ? (
+          <div style={{ border: '1px solid var(--line)', borderRadius: 10, background: 'var(--paper)', overflow: 'hidden' }}>
+            <textarea
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void send() }}
+              placeholder="Ask about the note…"
+              rows={3}
+              disabled={streaming}
+              style={{ width: '100%', boxSizing: 'border-box', border: 'none', resize: 'none', outline: 'none', padding: '9px 11px', fontSize: 12.5, lineHeight: 1.5, color: 'var(--ink)', background: 'transparent', fontFamily: 'inherit' }}
+            />
+            <div style={{ padding: '6px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderTop: '1px solid var(--line-soft)' }}>
+              <span style={{ fontSize: 10.5, color: 'var(--ink3)' }}>{'⌘↵'} to send</span>
+              {streaming ? (
+                <button onClick={stop} style={{ padding: '5px 13px', borderRadius: 7, background: '#ef4444', color: '#fff', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none' }}>Stop</button>
+              ) : (
+                <button
+                  onClick={() => void send()}
+                  disabled={!input.trim()}
+                  className="hover:opacity-75"
+                  style={{ padding: '5px 13px', borderRadius: 7, background: 'var(--ink)', color: 'var(--paper)', fontSize: 12, fontWeight: 700, cursor: 'pointer', border: 'none', opacity: !input.trim() ? 0.4 : 1 }}
+                >
+                  Ask
+                </button>
+              )}
+            </div>
+          </div>
+        ) : null}
+      </div>
+
+      {/* Push to Notion */}
+      <div style={{ borderTop: '1px solid var(--line-soft)', padding: 10, flexShrink: 0 }}>
+        <button
+          onClick={onPushToNotion}
+          disabled={!note || notionPushState === 'pushing'}
+          className="hover:bg-[var(--paper-sunk)]"
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: 7, borderRadius: 8, border: '1px solid var(--line)', cursor: note ? 'pointer' : 'default', background: 'var(--paper)', width: '100%', opacity: !note ? 0.5 : 1 }}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2"/><path d="M8 8h8M8 12h5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+          <span style={{ fontSize: 12, fontWeight: 600, color: notionFg }}>{notionLabel}</span>
+        </button>
+        {notionPushState === 'done' && notionPushUrl && (
+          <a href={notionPushUrl} target="_blank" rel="noopener noreferrer"
+            style={{ display: 'block', textAlign: 'center', marginTop: 4, fontSize: 10, color: 'var(--ink3)', textDecoration: 'underline' }}>
+            Open in Notion
+          </a>
+        )}
       </div>
     </div>
   )
@@ -512,20 +657,20 @@ function NotionPageView({ page, token }: { page: NotionPage; token: string }) {
   }, [page.id, token])
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-8 py-6">
-      <div className="mb-4 flex items-center gap-3">
-        {page.icon && <span className="text-2xl">{page.icon}</span>}
-        <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">{page.title}</h1>
+    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflowY: 'auto', padding: '24px 32px', background: 'var(--paper)' }}>
+      <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+        {page.icon && <span style={{ fontSize: 24 }}>{page.icon}</span>}
+        <h1 style={{ fontSize: 24, fontWeight: 700, color: 'var(--ink)', margin: 0 }}>{page.title}</h1>
         <a href={page.url} target="_blank" rel="noopener noreferrer"
-          className="ml-auto shrink-0 rounded-lg border border-[var(--color-border-secondary)] px-2.5 py-1 text-xs text-[var(--color-text-secondary)] transition hover:border-[#000] hover:text-[var(--color-text-primary)]">
-          Open in Notion ↗
+          style={{ marginLeft: 'auto', flexShrink: 0, borderRadius: 8, border: '1px solid var(--line)', padding: '4px 10px', fontSize: 12, color: 'var(--ink2)', textDecoration: 'none' }}>
+          Open in Notion &#8599;
         </a>
       </div>
-      {loading && <p className="text-xs text-[var(--color-text-tertiary)]">Loading…</p>}
-      {error && <p className="text-xs text-[#dc2626]">{error}</p>}
+      {loading && <p style={{ fontSize: 12, color: 'var(--ink3)' }}>Loading…</p>}
+      {error && <p style={{ fontSize: 12, color: '#dc2626' }}>{error}</p>}
       {content !== null && (
-        <div className="whitespace-pre-wrap text-sm leading-7 text-[var(--color-text-primary)]">
-          {content || <span className="text-[var(--color-text-tertiary)]">Empty page</span>}
+        <div style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.85, color: 'var(--ink)' }}>
+          {content || <span style={{ color: 'var(--ink3)' }}>Empty page</span>}
         </div>
       )}
     </div>
@@ -536,13 +681,13 @@ function NotionPageView({ page, token }: { page: NotionPage; token: string }) {
 
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-      <div className="rounded-2xl border border-dashed border-[#bfdbfe] bg-[#eff6ff] p-10">
-        <p className="text-sm font-semibold text-[var(--color-text-secondary)]">No note selected</p>
-        <p className="mt-1 text-xs text-[var(--color-text-secondary)]">Select a note to edit it and chat about its content.</p>
+    <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 40, background: 'var(--paper)' }}>
+      <div style={{ textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 12 }}>
+        <div style={{ width: 44, height: 44, borderRadius: 10, border: '2px dashed var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, color: 'var(--ink3)' }}>{'✎'}</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: 'var(--ink)' }}>No note selected</div>
         <button
           onClick={onCreate}
-          className="mt-4 rounded-xl bg-[#1d4ed8] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[#1e40af]"
+          style={{ marginTop: 4, padding: '9px 20px', borderRadius: 9, background: 'var(--accent)', color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', border: 'none' }}
         >
           New note
         </button>
@@ -565,7 +710,6 @@ export function NotesSurface() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
   const [notionPages, setNotionPages] = useState<NotionPage[]>([])
   const [notionLoading, setNotionLoading] = useState(false)
-  const [notionExpanded, setNotionExpanded] = useState(true)
   const [notionPushState, setNotionPushState] = useState<'idle' | 'pushing' | 'done' | 'error'>('idle')
   const [notionPushUrl, setNotionPushUrl] = useState<string | null>(null)
 
@@ -617,9 +761,15 @@ export function NotesSurface() {
   }
 
   function handleDelete(id: string) {
-    deleteNote(id)
-    if (activeView?.kind === 'note' && activeView.id === id) setActiveView(null)
-    setShowDeleteConfirm(null)
+    if (showDeleteConfirm === id) {
+      deleteNote(id)
+      if (activeView?.kind === 'note' && activeView.id === id) setActiveView(null)
+      setShowDeleteConfirm(null)
+    } else {
+      setShowDeleteConfirm(id)
+      // Auto-dismiss after 3s
+      setTimeout(() => setShowDeleteConfirm((cur) => cur === id ? null : cur), 3000)
+    }
   }
 
   const handleAppendMessages = useCallback((msgs: ChatMessage[]) => {
@@ -627,176 +777,105 @@ export function NotesSurface() {
     appendMessages(activeNoteId, msgs)
   }, [activeNoteId, appendMessages])
 
-  return (
-    <div className="relative flex min-h-0 flex-1 overflow-hidden">
-      {/* ── Sidebar ── */}
-      <aside className="flex w-56 shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[#eaf1f8]">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-3 py-3">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[#1d4ed8]">Notes</span>
-          <button
-            onClick={handleCreate}
-            className="flex h-6 w-6 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[#1d4ed8]"
-            title="New note"
-          >
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-              <path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-          </button>
-        </div>
+  // FROM NOTION entries: use real pages if available, else hardcoded dummy pages
+  const fromNotionEntries = notionPages.length > 0
+    ? notionPages.slice(0, 5).map((p) => ({ id: p.id, title: p.title, lastEdited: timeAgo(p.lastEdited) }))
+    : DUMMY_NOTION_PAGES
 
-        {/* Search */}
-        <div className="px-3 py-2">
+  return (
+    <div style={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
+      {/* ── LEFT: Note list + Notion pages ── */}
+      <div style={{ width: 168, flexShrink: 0, borderRight: '1px solid var(--line)', display: 'flex', flexDirection: 'column', background: 'var(--paper-sunk)' }}>
+        {/* Top section: description + header + search */}
+        <div style={{ padding: '13px 12px 9px', borderBottom: '1px solid var(--line-soft)' }}>
+          {/* Description banner */}
+          <div style={{ padding: '10px 12px 12px', margin: '-13px -12px 10px', background: 'var(--paper-sunk-2)', borderBottom: '1px solid var(--line-soft)' }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--ink)', marginBottom: 4 }}>Notes</div>
+            <div style={{ fontSize: 11, lineHeight: 1.55, color: 'var(--ink3)' }}>You write, the AI advises &mdash; it can read and comment on your notes but cannot edit them. Tag, backlink, and Index when you&apos;re ready to share with your knowledge brain.</div>
+          </div>
+          {/* Notes header + new button */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 9 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: 'var(--ink)', letterSpacing: '-0.01em' }}>Notes</div>
+            <button
+              onClick={handleCreate}
+              title="New note"
+              className="hover:bg-[var(--paper-sunk-2)]"
+              style={{ width: 22, height: 22, borderRadius: 5, border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontSize: 16, lineHeight: 1, color: 'var(--ink2)', background: 'var(--paper)', padding: 0 }}
+            >
+              +
+            </button>
+          </div>
+          {/* Search */}
           <input
-            className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-xs outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#93c5fd]"
-            placeholder="Search notes…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search notes…"
+            style={{ width: '100%', boxSizing: 'border-box', border: '1px solid var(--line)', background: 'var(--paper)', borderRadius: 7, padding: '5px 9px', fontSize: 11.5, color: 'var(--ink)', outline: 'none' }}
           />
         </div>
 
-        {/* Local notes list */}
-        <div className="overflow-y-auto px-2 py-1 space-y-0.5" style={{ flex: notionToken ? '0 0 auto' : '1 1 auto', maxHeight: notionToken ? '45%' : undefined }}>
-          {!hydrated && <p className="px-2 py-4 text-center text-xs text-[var(--color-text-tertiary)]">Loading…</p>}
+        {/* Note list */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: '6px 5px', minHeight: 0 }}>
           {hydrated && filtered.length === 0 && (
-            <p className="px-2 py-4 text-center text-xs text-[var(--color-text-tertiary)]">
-              {search ? 'No matches' : 'No notes yet'}
-            </p>
+            <div style={{ padding: '20px 12px', textAlign: 'center', fontSize: 12, color: 'var(--ink3)', lineHeight: 1.6 }}>
+              {search ? 'No matches' : <>No notes yet.<br/>Click + to start.</>}
+            </div>
+          )}
+          {!hydrated && (
+            <div style={{ padding: '20px 12px', textAlign: 'center', fontSize: 12, color: 'var(--ink3)' }}>Loading…</div>
           )}
           {filtered.map((note) => (
-            <div key={note.id} className="group relative">
-              <NoteListItem
-                note={note}
-                active={activeView?.kind === 'note' && activeView.id === note.id}
-                onClick={() => setActiveView({ kind: 'note', id: note.id })}
-              />
-              {/* Hover actions */}
-              <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition">
-                <button
-                  onClick={(e) => { e.stopPropagation(); pinNote(note.id, !note.pinned) }}
-                  title={note.pinned ? 'Unpin' : 'Pin'}
-                  className="flex h-5 w-5 items-center justify-center rounded text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-primary)] hover:text-[#f59e0b]"
-                >
-                  <span className="text-[10px]">★</span>
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(note.id) }}
-                  title="Delete"
-                  className="flex h-5 w-5 items-center justify-center rounded text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-primary)] hover:text-[#dc2626]"
-                >
-                  <svg width="9" height="9" viewBox="0 0 10 10" fill="none" aria-hidden>
-                    <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                  </svg>
-                </button>
-              </div>
-
-              {/* Delete confirm popover */}
-              {showDeleteConfirm === note.id && (
-                <div className="absolute left-0 right-0 z-10 top-full mt-1 mx-2 rounded-xl border border-[#fecaca] bg-[var(--color-background-primary)] p-3 shadow-lg">
-                  <p className="text-xs font-medium text-[var(--color-text-primary)]">Delete this note?</p>
-                  <p className="mt-0.5 text-[11px] text-[var(--color-text-secondary)]">This cannot be undone.</p>
-                  <div className="mt-2 flex gap-2">
-                    <button onClick={() => handleDelete(note.id)}
-                      className="flex-1 rounded-lg bg-[#dc2626] py-1 text-xs font-semibold text-white hover:bg-[#b91c1c]">
-                      Delete
-                    </button>
-                    <button onClick={() => setShowDeleteConfirm(null)}
-                      className="flex-1 rounded-lg border border-[var(--color-border-secondary)] py-1 text-xs font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]">
-                      Cancel
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <NoteListItem
+              key={note.id}
+              note={note}
+              active={activeView?.kind === 'note' && activeView.id === note.id}
+              onClick={() => setActiveView({ kind: 'note', id: note.id })}
+              onPin={() => pinNote(note.id, !note.pinned)}
+              onDelete={() => handleDelete(note.id)}
+              confirmDelete={showDeleteConfirm === note.id}
+            />
           ))}
         </div>
 
-        {/* Notion section */}
-        {notionToken && (
-          <div className="flex min-h-0 flex-1 flex-col border-t border-[var(--color-border-secondary)]">
-            <button
-              onClick={() => setNotionExpanded((v) => !v)}
-              className="flex items-center gap-1.5 px-3 py-2 text-left"
+        {/* FROM NOTION section */}
+        <div style={{ borderTop: '1px solid var(--line-soft)', padding: '8px 10px 10px', flexShrink: 0 }}>
+          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.5, color: 'var(--ink3)', textTransform: 'uppercase', marginBottom: 6, display: 'flex', alignItems: 'center', gap: 5 }}>
+            <svg width="10" height="10" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="3" stroke="currentColor" strokeWidth="2"/><path d="M8 8h8M8 12h5" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+            From Notion
+            {notionLoading && <span style={{ marginLeft: 'auto' }}>…</span>}
+          </div>
+          {fromNotionEntries.map((page) => (
+            <div
+              key={page.id}
+              className="hover:bg-[var(--paper-sunk-2)]"
+              style={{ padding: '5px 7px', borderRadius: 6, cursor: 'default', display: 'flex', alignItems: 'center', gap: 5, marginBottom: 2 }}
             >
-              <span className="text-[9px] text-[var(--color-text-tertiary)] transition-transform" style={{ display: 'inline-block', transform: notionExpanded ? 'rotate(90deg)' : 'none' }}>▶</span>
-              <span className="flex h-4 w-4 items-center justify-center rounded bg-[#000] text-[8px] font-bold text-white">N</span>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]">Notion</span>
-              {notionLoading && <span className="ml-auto text-[10px] text-[var(--color-text-tertiary)]">…</span>}
-              {!notionLoading && notionPages.length > 0 && (
-                <span className="ml-auto text-[10px] text-[var(--color-text-tertiary)]">{notionPages.length}</span>
-              )}
-            </button>
-            {notionExpanded && (
-              <div className="flex-1 overflow-y-auto px-2 pb-2 space-y-0.5">
-                {notionPages.length === 0 && !notionLoading && (
-                  <p className="px-2 py-2 text-center text-[11px] text-[var(--color-text-tertiary)]">No pages found</p>
-                )}
-                {notionPages.map((page) => {
-                  const active = activeView?.kind === 'notion' && activeView.page.id === page.id
-                  return (
-                    <button
-                      key={page.id}
-                      onClick={() => setActiveView({ kind: 'notion', page })}
-                      className={`flex w-full items-start gap-1.5 rounded-xl px-2.5 py-2 text-left transition ${active ? 'bg-[#f0fdf4]' : 'hover:bg-[var(--color-background-tertiary)]'}`}
-                    >
-                      <span className="mt-0.5 shrink-0 text-sm">{page.icon ?? '📄'}</span>
-                      <div className="min-w-0">
-                        <p className={`truncate text-xs font-medium ${active ? 'text-[#15803d]' : 'text-[var(--color-text-primary)]'}`}>{page.title}</p>
-                        <p className="text-[10px] text-[#cbd5e1]">{timeAgo(page.lastEdited)}</p>
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Footer count */}
-        {hydrated && notes.length > 0 && !notionToken && (
-          <div className="border-t border-[var(--color-border-secondary)] px-3 py-2 text-[10px] text-[var(--color-text-tertiary)]">
-            {notes.length} note{notes.length !== 1 ? 's' : ''}
-          </div>
-        )}
-      </aside>
-
-      {/* ── Main area ── */}
-      {activeView?.kind === 'note' && activeNote ? (
-        <>
-          <NoteEditor note={activeNote} onUpdate={handleUpdate} />
-          {notionToken && (
-            <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', alignItems: 'center', gap: 8, zIndex: 10 }}>
-              {notionPushState === 'done' && notionPushUrl && (
-                <a href={notionPushUrl} target="_blank" rel="noopener noreferrer"
-                  style={{ fontSize: 11, color: '#6366f1', textDecoration: 'underline' }}>
-                  Open in Notion ↗
-                </a>
-              )}
-              {notionPushState === 'error' && (
-                <span style={{ fontSize: 11, color: '#ef4444' }}>Push failed</span>
-              )}
-              <button
-                onClick={() => void handlePushToNotion()}
-                disabled={notionPushState === 'pushing'}
-                style={{
-                  background: notionPushState === 'done' ? '#f0fdf4' : 'var(--color-background-secondary)',
-                  border: `1px solid ${notionPushState === 'done' ? '#bbf7d0' : 'var(--color-border-secondary)'}`,
-                  borderRadius: 6, padding: '4px 10px', fontSize: 11, cursor: 'pointer',
-                  color: notionPushState === 'done' ? '#16a34a' : 'var(--color-text-secondary)',
-                  opacity: notionPushState === 'pushing' ? 0.6 : 1,
-                }}
-              >
-                {notionPushState === 'pushing' ? 'Pushing…' : notionPushState === 'done' ? 'Pushed to Notion' : '↑ Push to Notion'}
-              </button>
+              <div style={{ width: 5, height: 5, borderRadius: 1, background: 'var(--ink3)', flexShrink: 0 }} />
+              <div style={{ fontSize: 11.5, color: 'var(--ink2)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: 1 }}>{page.title}</div>
+              <div style={{ fontSize: 10, color: 'var(--ink3)', flexShrink: 0 }}>{page.lastEdited}</div>
             </div>
-          )}
-          <NoteChat note={activeNote} onAppendMessages={handleAppendMessages} />
-        </>
+          ))}
+        </div>
+      </div>
+
+      {/* ── CENTER: Note editor ── */}
+      {activeView?.kind === 'note' && activeNote ? (
+        <NoteEditor key={activeNote.id} note={activeNote} onUpdate={handleUpdate} />
       ) : activeView?.kind === 'notion' && notionToken ? (
         <NotionPageView page={activeView.page} token={notionToken} />
       ) : (
         <EmptyState onCreate={handleCreate} />
       )}
+
+      {/* ── RIGHT: Note Chat (always visible) ── */}
+      <NoteChat
+        note={activeNote}
+        onAppendMessages={handleAppendMessages}
+        onPushToNotion={() => void handlePushToNotion()}
+        notionPushState={notionPushState}
+        notionPushUrl={notionPushUrl}
+        hasNotion={!!notionToken}
+      />
     </div>
   )
 }

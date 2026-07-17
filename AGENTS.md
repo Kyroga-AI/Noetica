@@ -89,12 +89,26 @@ M2b should include a feature-search path for Neuronpedia or another SAE source w
 
 ## Palette
 
+As of the 2026-07 app-shell redesign, this supersedes the prior blue/no-warm-tones rule below.
+
+Accent (brand color, configurable): default `--accent: #B15C3C` (warm terracotta), alternates
+`#B8863A` (ochre) / `#8B4A44` (brick) — user-selectable in Settings → Appearance, not a hardcoded
+swap. `--accent-soft` is the accent at ~11% alpha for active-state tints.
+
+Neutral/semantic tokens are OKLCH, defined per-theme (`light`/`dark`) in `styles/globals.css`:
+`ink`/`ink2`/`ink3` (text), `paper`/`paper-sunk`/`paper-sunk-2` (surfaces), `line`/`line-soft`
+(borders), `canvas` (page background), plus semantic `verified`/`pending`/`danger`/`violet` sets
+(each with `-fg`/`-soft`/`-line` variants except `danger`, which only has `-fg`).
+
+Fonts: Manrope (400–800) for UI text, IBM Plex Mono (500/600) for values/citations/technical
+output, Source Serif 4 italic (600/700) reserved for the brand mark only.
+
+Superseded rule (kept for history — do not follow):
 ```css
 --noetica-blue: #2563EB;
 --noetica-blue-light: #EFF6FF;
 --noetica-blue-mid: #BFDBFE;
 ```
-
 White backgrounds. No warm tones. Sharp, crisp, technical.
 
 ## Authority references

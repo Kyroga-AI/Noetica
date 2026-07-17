@@ -27,7 +27,7 @@ type PullState = {
 
 // --- Role badge colors ---
 const ROLE_COLORS: Record<string, string> = {
-  conductor:       'bg-[#eff6ff] text-[#1d4ed8] border-[#bfdbfe]',
+  conductor:       'bg-[var(--accent-soft)] text-[var(--accent)] border-[var(--accent)]',
   general:         'bg-[#f0fdf4] text-[#166534] border-[#bbf7d0]',
   coding:          'bg-[#fdf4ff] text-[#7e22ce] border-[#e9d5ff]',
   reasoning:       'bg-[#fff7ed] text-[#c2410c] border-[#fed7aa]',
@@ -47,7 +47,7 @@ function MaskedInput({ label, value, onChange }: { label: string; value: string;
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder="sk-…"
-          className="flex-1 rounded-xl border border-[#bfdbfe] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8] focus:bg-[var(--color-background-primary)]"
+          className="flex-1 rounded-xl border border-[var(--accent)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)] focus:bg-[var(--color-background-primary)]"
         />
         <button type="button" onClick={() => setRevealed(r => !r)}
           className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-xs text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]">
@@ -176,7 +176,7 @@ export function ModelsPanel() {
                         <button
                           onClick={() => void pullModelUI(m.name)}
                           disabled={!m.ollamaRunning}
-                          className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2.5 py-1 text-[11px] font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe] disabled:opacity-40"
+                          className="rounded-lg border border-[var(--accent)] bg-[var(--accent-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--accent)] transition hover:bg-[var(--accent-soft)] disabled:opacity-40"
                         >
                           Pull {m.sizeGb}GB
                         </button>
@@ -192,7 +192,7 @@ export function ModelsPanel() {
                       </div>
                       <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
                         <div
-                          className="h-full rounded-full bg-[#1d4ed8] transition-all duration-300"
+                          className="h-full rounded-full bg-[var(--accent)] transition-all duration-300"
                           style={{ width: `${ps.pct ?? 0}%` }}
                         />
                       </div>
@@ -223,7 +223,7 @@ export function ModelsPanel() {
         <select
           value={settings.defaultModelId}
           onChange={(e) => update({ defaultModelId: e.target.value })}
-          className="mt-2 w-full rounded-xl border border-[#bfdbfe] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8] focus:bg-[var(--color-background-primary)]"
+          className="mt-2 w-full rounded-xl border border-[var(--accent)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)] focus:bg-[var(--color-background-primary)]"
         >
           {modelList.map((m) => (
             <option key={m.id} value={m.id}>{m.label} — {m.provider}</option>
@@ -240,7 +240,7 @@ export function ModelsPanel() {
             role="switch"
             aria-checked={settings.prophetMeshEnabled}
             onClick={() => update({ prophetMeshEnabled: !settings.prophetMeshEnabled })}
-            className={`relative h-5 w-9 shrink-0 rounded-full transition ${settings.prophetMeshEnabled ? 'bg-[#1d4ed8]' : 'bg-[var(--color-border-secondary)]'}`}
+            className={`relative h-5 w-9 shrink-0 rounded-full transition ${settings.prophetMeshEnabled ? 'bg-[var(--accent)]' : 'bg-[var(--color-border-secondary)]'}`}
           >
             <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-all ${settings.prophetMeshEnabled ? 'left-[18px]' : 'left-0.5'}`} />
           </button>
@@ -254,21 +254,21 @@ export function ModelsPanel() {
               value={settings.prophetMeshEndpoint}
               onChange={(e) => update({ prophetMeshEndpoint: e.target.value })}
               placeholder="https://mesh.socioprophet.ai/v1"
-              className="w-full rounded-xl border border-[#bfdbfe] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8] focus:bg-[var(--color-background-primary)]"
+              className="w-full rounded-xl border border-[var(--accent)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)] focus:bg-[var(--color-background-primary)]"
             />
             <div className="flex gap-2">
               <input
                 value={settings.prophetMeshModel}
                 onChange={(e) => update({ prophetMeshModel: e.target.value })}
                 placeholder="prophet-mesh"
-                className="flex-1 rounded-xl border border-[#bfdbfe] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8] focus:bg-[var(--color-background-primary)]"
+                className="flex-1 rounded-xl border border-[var(--accent)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)] focus:bg-[var(--color-background-primary)]"
               />
               <input
                 type="password"
                 value={settings.prophetMeshApiKey}
                 onChange={(e) => update({ prophetMeshApiKey: e.target.value })}
                 placeholder="API key (optional)"
-                className="flex-1 rounded-xl border border-[#bfdbfe] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8] focus:bg-[var(--color-background-primary)]"
+                className="flex-1 rounded-xl border border-[var(--accent)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)] focus:bg-[var(--color-background-primary)]"
               />
             </div>
             {!settings.prophetMeshEndpoint.trim() && (
@@ -291,10 +291,10 @@ export function ModelsPanel() {
             onChange={(e) => setNewModelId(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') addCustomModel() }}
             placeholder="hf.co/… or openrouter/… or hf/…"
-            className="flex-1 rounded-xl border border-[#bfdbfe] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8] focus:bg-[var(--color-background-primary)]"
+            className="flex-1 rounded-xl border border-[var(--accent)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)] focus:bg-[var(--color-background-primary)]"
           />
           <button onClick={addCustomModel} disabled={!newModelId.trim()}
-            className="rounded-xl bg-[#1d4ed8] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1e40af] disabled:opacity-40">
+            className="rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent)] disabled:opacity-40">
             Add
           </button>
         </div>
@@ -322,7 +322,7 @@ export function ModelsPanel() {
         <div className="flex items-center justify-between">
           <div className="text-sm font-semibold text-[var(--color-text-primary)]">Provider API keys</div>
           <button onClick={() => setSetupOpen(true)}
-            className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2.5 py-1 text-[11px] font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe]">
+            className="rounded-lg border border-[var(--accent)] bg-[var(--accent-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--accent)] transition hover:bg-[var(--accent-soft)]">
             Setup guide
           </button>
         </div>

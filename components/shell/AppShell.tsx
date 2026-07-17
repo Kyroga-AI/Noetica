@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Sidebar } from '@/components/shell/Sidebar'
 import { useResizable } from '@/components/shell/useResizable'
-import { CommandCenterRail } from '@/components/shell/CommandCenterRail'
-import { NAV_SURFACES, surfacesFor, type CommandCenterId } from '@/components/shell/commandCenters'
 import { ResizeHandle } from '@/components/shell/ResizeHandle'
 import { Topbar } from '@/components/shell/Topbar'
 import { MessageList } from '@/components/chat/MessageList'
@@ -40,7 +38,6 @@ import { CalendarSurface } from '@/components/surfaces/CalendarSurface'
 import { JitsiSurface } from '@/components/surfaces/JitsiSurface'
 import { OfficeViewer } from '@/components/surfaces/OfficeViewer'
 import { GovernSurface } from '@/components/surfaces/GovernSurface'
-import { ProjectsSurface } from '@/components/surfaces/ProjectsSurface'
 import { ArtifactsSurface } from '@/components/surfaces/ArtifactsSurface'
 import { ArtifactPane } from '@/components/artifacts/ArtifactPane'
 import { OperateSurface } from '@/components/surfaces/OperateSurface'
@@ -49,7 +46,6 @@ import { HolographMeSurface } from '@/components/surfaces/HolographMeSurface'
 import { MarketplaceSurface } from '@/components/surfaces/MarketplaceSurface'
 import { SurfaceErrorBoundary } from '@/components/shell/SurfaceErrorBoundary'
 import { TabbedWorkspace } from '@/components/shell/TabbedWorkspace'
-import { CoworkPanel } from '@/components/panels/CoworkPanel'
 import { CodePanel } from '@/components/panels/CodePanel'
 import { EvaluatePanel } from '@/components/panels/EvaluatePanel'
 import { GovernPanel } from '@/components/panels/GovernPanel'
@@ -79,7 +75,10 @@ import { useMemory } from '@/lib/memory/useMemory'
 import { buildMemoryContext } from '@/lib/memory/manager'
 import { appendLedgerEntry } from '@/lib/evidence/ledger-store'
 import { RightSidebar } from '@/components/shell/RightSidebar'
-import { UtilityRail, type UtilityPanelId } from '@/components/rail/UtilityRail'
+import { KnowledgePanel } from '@/components/panels/KnowledgePanel'
+import { GovernanceDrawer } from '@/components/governance/GovernanceDrawer'
+import { RightIconStrip } from '@/components/shell/RightIconStrip'
+import { useUiStore } from '@/lib/store/uiStore'
 import { RuntimeStatus } from '@/components/status/RuntimeStatus'
 import type { PendingAttachment } from '@/lib/types/attachment'
 import type { McpTool } from '@/lib/types/mcp'
@@ -145,7 +144,12 @@ export function AppShell() {
   // Security lane armed = 'security' profile + accepted self-attestation. While
   // armed, chats are ephemeral and obliterated after securityEphemeralMinutes.
   const securityArmed = settings.defaultPolicyProfile === 'security' && settings.securityAttestation?.accepted === true
-  const ephemeralTtlMinutes = securityArmed ? (settings.securityEphemeralMinutes ?? 15) : null
+  // Private session — the topbar's lightweight ephemeral toggle (uiStore, no policy-profile
+  // change required). Reuses the same real ephemeral/obliteration mechanism as the security
+  // lane rather than a decorative banner with no data-lifecycle behind it.
+  const privateSessionOn = useUiStore((s) => s.privateSessionOn)
+  const ephemeralArmed = securityArmed || privateSessionOn
+  const ephemeralTtlMinutes = ephemeralArmed ? (settings.securityEphemeralMinutes ?? 30) : null
 
   // ── Session persistence ────────────────────────────────────────────────────
   const {
@@ -163,13 +167,14 @@ export function AppShell() {
     obliterateNow,
   } = useSession(defaultModelId, { ephemeralTtlMinutes })
 
-  // Disarming the lane (revoke attestation / leave the security profile) obliterates
-  // any ephemeral sessions immediately — don't wait for the reaper window.
-  const wasArmedRef = useRef(securityArmed)
+  // Disarming either ephemeral lane (revoke attestation / leave the security profile, or
+  // toggle private session off) obliterates any ephemeral sessions immediately — don't wait
+  // for the reaper window.
+  const wasArmedRef = useRef(ephemeralArmed)
   useEffect(() => {
-    if (wasArmedRef.current && !securityArmed) obliterateNow()
-    wasArmedRef.current = securityArmed
-  }, [securityArmed, obliterateNow])
+    if (wasArmedRef.current && !ephemeralArmed) obliterateNow()
+    wasArmedRef.current = ephemeralArmed
+  }, [ephemeralArmed, obliterateNow])
 
   // Desktop overlay titlebar: mark the root so the left rails/sidebar inset their
   // tops to clear the floating macOS traffic lights (see .titlebar-inset in CSS).
@@ -209,7 +214,11 @@ export function AppShell() {
   const { tools: mcpTools } = useMcp()
 
   // ── Projects ──────────────────────────────────────────────────────────────
-  const { activeProject } = useProjects()
+  // Single shared instance — ProjectsPanel receives these as props rather than calling
+  // useProjects() itself, so activating a project there is reflected here in the same
+  // session instead of only after a reload (each hook call previously had its own,
+  // unsynced localStorage-backed state).
+  const { projects: projectList, activeProjectId, activeProject, createProject, updateProject, deleteProject, setActiveProject } = useProjects()
 
   // ── Memory ────────────────────────────────────────────────────────────────
   const { memoryContext, remember, search: searchMemory, entries: memoryEntries, purgeExpired, hydrated: memoryHydrated } = useMemory()
@@ -317,6 +326,9 @@ export function AppShell() {
   }
 
   // ── Shell state ────────────────────────────────────────────────────────────
+  const knowledgePanelOpen = useUiStore((s) => s.knowledgePanelOpen)
+  const governanceDrawerOpen = useUiStore((s) => s.governanceDrawerOpen)
+  const toggleGovernanceDrawer = useUiStore((s) => s.toggleGovernanceDrawer)
   const [mode, setMode] = useState<NoeticaMode>('standalone')
   const [steering, setSteering] = useState<SteeringConfig | undefined>()
   const [thinkingBudget, setThinkingBudget] = useState<number | undefined>()
@@ -327,25 +339,7 @@ export function AppShell() {
   const abortControllerRef = useRef<AbortController | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false)
-  const [utilityPanel, setUtilityPanel] = useState<UtilityPanelId | null>('graph')
   const [inspectorVisible, setInspectorVisible] = useState(false)
-  // Tier-1 command center (which domain the left panel is showing). Derived from
-  // the active surface via the nav registry, so the rail highlight always follows
-  // wherever navigation lands.
-  const [activeCenter, setActiveCenter] = useState<CommandCenterId>('workspace')
-  useEffect(() => {
-    const s = NAV_SURFACES.find((s) => s.id === activeSurface)
-    if (s) setActiveCenter(s.center)
-  }, [activeSurface])
-  // Picking a command center navigates to its first real (non-gap, shipped) surface;
-  // if a center is all-planned, just switch the panel.
-  const handleCenterChange = useCallback((center: CommandCenterId) => {
-    const first = surfacesFor(center).find(
-      (s) => !s.gap && s.tier !== 'tab' && s.tier !== 'hidden' && s.maturity !== 'planned',
-    )
-    if (first) handleSurfaceChange(first.id as ActiveSurface)
-    else setActiveCenter(center)
-  }, [])
   // Draggable widths for the two shell panels (persisted; double-click seam to reset).
   const leftPanel = useResizable({ storageKey: 'noetica.sidebar.width', initial: 224, min: 180, max: 420, side: 'left' })
   const rightPanel = useResizable({ storageKey: 'noetica.inspector.width', initial: 320, min: 260, max: 640, side: 'right' })
@@ -1616,14 +1610,12 @@ export function AppShell() {
           onComplete={() => setShowOrgOnboarding(false)}
         />
       )}
-      <main className="flex h-screen overflow-hidden bg-[var(--color-background-tertiary)] text-[var(--color-text-primary)]">
-        {/* Tier 1 — command-center (domain) switcher */}
-        <CommandCenterRail activeCenter={activeCenter} onCenterChange={handleCenterChange} />
+      <main className="relative flex h-screen overflow-hidden bg-[var(--color-background-tertiary)] text-[var(--color-text-primary)]">
         {!sidebarCollapsed && (
           <div className="relative hidden h-full shrink-0 lg:flex" style={{ width: leftPanel.width }}>
             <Sidebar
               activeSurface={activeSurface}
-              activeCenter={activeCenter}
+              mode={mode}
               onSurfaceChange={handleSurfaceChange}
               onOpenSettings={(cat) => openSettings(cat)}
               sessions={sessions}
@@ -1650,7 +1642,6 @@ export function AppShell() {
             modelId={modelId}
             mode={mode}
             riskReadout={riskReadout}
-            voiceState={voiceState}
             isLive={isLive}
             onLiveStart={startLive}
             onLiveStop={stopLive}
@@ -1664,8 +1655,6 @@ export function AppShell() {
             onOpenPalette={() => setPaletteOpen(true)}
             onOpenInspector={() => setInspectorVisible(true)}
             onExportConversation={exportConversation}
-            onVoiceStart={startListening}
-            onVoiceStop={stopListening}
             onRealtimeTranscript={(text) => void handleSendRaw(text, [], messages)}
             onRealtimeSpeechStart={stopSpeaking}
           />
@@ -1676,6 +1665,8 @@ export function AppShell() {
               <SurfaceErrorBoundary key={activeSurface} surface={activeSurface}>
               <CenterWorkspace
                 activeSurface={activeSurface}
+                mode={mode}
+                projectsApi={{ projects: projectList, activeProject, activeProjectId, createProject, updateProject, deleteProject, setActiveProject }}
                 sessionId={activeSession?.id}
                 activeProjectTitle={activeProject?.title}
                 projectCollection={activeProject ? projectCollectionId(activeProject.id) : undefined}
@@ -1710,6 +1701,9 @@ export function AppShell() {
                 onNavigateToOperate={() => setActiveSurface('operate')}
                 onNavigateToGovern={() => setActiveSurface('govern')}
                 onSpeak={speak}
+                isListening={voiceState === 'listening' && !isLive}
+                onVoiceStart={startListening}
+                onVoiceStop={stopListening}
                 onFeedback={(messageId, rating) => {
                   void fetch(amUrl('/api/learning/feedback'), {
                     method: 'POST',
@@ -1758,14 +1752,13 @@ export function AppShell() {
           </div>
         </section>
 
-        <UtilityRail
-          activePanel={utilityPanel}
-          onSelect={setUtilityPanel}
-          lastGovernance={lastGovernance}
-          inScopeFiles={inScopeFiles}
-          toolActivity={toolActivity}
-          fileChanges={fileChanges}
-        />
+        {knowledgePanelOpen && !['canvas', 'notes', 'cowork', 'workrooms', 'projects'].includes(activeSurface) && (
+          <div className="relative hidden w-[300px] shrink-0 border-l lg:flex" style={{ borderColor: 'var(--line)' }}>
+            <KnowledgePanel inScopeFiles={inScopeFiles} toolActivity={toolActivity} />
+          </div>
+        )}
+        <RightIconStrip />
+        <GovernanceDrawer open={governanceDrawerOpen} onClose={toggleGovernanceDrawer} mode={mode} lastGovernance={lastGovernance} />
       </main>
 
       {providerSetupOpen && (
@@ -1892,6 +1885,8 @@ function CollapsedRail({ activeSurface, onSurfaceChange, onExpand }: CollapsedRa
 
 type CenterProps = {
   activeSurface: ActiveSurface
+  mode: NoeticaMode
+  projectsApi: Pick<ReturnType<typeof useProjects>, 'projects' | 'activeProjectId' | 'activeProject' | 'createProject' | 'updateProject' | 'deleteProject' | 'setActiveProject'>
   messages: ChatMessage[]
   isStreaming: boolean
   workspaceMode: WorkspaceMode
@@ -1926,6 +1921,9 @@ type CenterProps = {
   onNavigateToOperate?: () => void
   onNavigateToGovern?: () => void
   onSpeak?: (content: string) => void
+  isListening?: boolean
+  onVoiceStart?: () => void
+  onVoiceStop?: () => void
   onFeedback?: (messageId: string, rating: 'up' | 'down') => void
   agentMode?: 'auto' | 'plan' | 'ask'
   onSetAgentMode?: (mode: 'auto' | 'plan' | 'ask') => void
@@ -1933,7 +1931,7 @@ type CenterProps = {
   onPlanReject?: (messageId: string) => void
 }
 
-function CenterWorkspace({ activeSurface, sessionId, activeProjectTitle, projectCollection, chatCollection, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onNavigateToGovern, onSpeak, onFeedback, agentMode, onSetAgentMode, onPlanApprove, onPlanReject }: CenterProps) {
+function CenterWorkspace({ activeSurface, mode, projectsApi, sessionId, activeProjectTitle, projectCollection, chatCollection, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onNavigateToGovern, onSpeak, isListening, onVoiceStart, onVoiceStop, onFeedback, agentMode, onSetAgentMode, onPlanApprove, onPlanReject }: CenterProps) {
   if (activeSurface === 'notes')        return <NotesSurface />
   if (activeSurface === 'canvas')       return <CanvasSurface />
   if (activeSurface === 'workrooms')    return <TabbedWorkspace tabs={[
@@ -1941,7 +1939,15 @@ function CenterWorkspace({ activeSurface, sessionId, activeProjectTitle, project
     { id: 'jitsi', label: 'Video', render: () => <JitsiSurface /> },
   ]} />
   if (activeSurface === 'cowork')       return <CoworkSurface thinkingBudget={thinkingBudget} />
-  if (activeSurface === 'projects')     return <ProjectsPanel />
+  if (activeSurface === 'projects')     return <ProjectsPanel
+    projects={projectsApi.projects}
+    activeProjectId={projectsApi.activeProjectId}
+    activeProject={projectsApi.activeProject}
+    createProject={projectsApi.createProject}
+    updateProject={projectsApi.updateProject}
+    deleteProject={projectsApi.deleteProject}
+    setActiveProject={projectsApi.setActiveProject}
+  />
   if (activeSurface === 'artifacts')    return <ArtifactsSurface />
   if (activeSurface === 'code')         return <CodeSurface onOpenSettings={onOpenSettings} onNavigateToOperate={onNavigateToOperate} />
   if (activeSurface === 'deploy')       return <DeploySurface />
@@ -1996,7 +2002,7 @@ function CenterWorkspace({ activeSurface, sessionId, activeProjectTitle, project
     <div className={`grid min-h-0 flex-1 overflow-hidden transition-[grid-template-columns] duration-300 ${activeArtifact ? 'grid-cols-[minmax(320px,1fr)_480px]' : 'grid-cols-1'}`}>
       <section className="flex min-h-0 flex-col overflow-hidden">
         <GoalBanner sessionId={sessionId} />
-        <MessageList messages={messages} isStreaming={isStreaming} onExtractArtifact={onExtractArtifact} onRegenerate={onRegenerate} onResume={onResume} onFork={onFork} onEdit={onEdit} onRecombine={onRecombine} onSpeak={onSpeak} onQuickPrompt={(t) => onSend(t, [])} onFeedback={onFeedback} onPlanApprove={onPlanApprove} onPlanReject={onPlanReject} />
+        <MessageList messages={messages} isStreaming={isStreaming} mode={mode} onExtractArtifact={onExtractArtifact} onRegenerate={onRegenerate} onResume={onResume} onFork={onFork} onEdit={onEdit} onRecombine={onRecombine} onSpeak={onSpeak} onQuickPrompt={(t) => onSend(t, [])} onFeedback={onFeedback} onPlanApprove={onPlanApprove} onPlanReject={onPlanReject} />
         {agentMode && agentMode !== 'auto' && (
           <div className="mx-4 mb-1 flex items-center gap-2 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-xs">
             {agentMode === 'plan' ? (
@@ -2035,6 +2041,9 @@ function CenterWorkspace({ activeSurface, sessionId, activeProjectTitle, project
           activeProjectTitle={activeProjectTitle}
           projectCollection={projectCollection}
           chatCollection={chatCollection}
+          isListening={isListening}
+          onVoiceStart={onVoiceStart}
+          onVoiceStop={onVoiceStop}
         />
       </section>
 
@@ -2089,8 +2098,8 @@ function RightPanel({ activeSurface, model, steering, thinkingBudget, temperatur
   if (activeSurface === 'library')   return null
   if (activeSurface === 'workrooms') return null
   if (activeSurface === 'tune')      return null
-  if (activeSurface === 'cowork')    return <CoworkPanel />
-  if (activeSurface === 'projects')  return <CoworkPanel />
+  if (activeSurface === 'cowork')    return null
+  if (activeSurface === 'projects')  return null
   if (activeSurface === 'artifacts') return null
   if (activeSurface === 'code')      return <CodePanel />
   if (activeSurface === 'evaluate')  return <EvaluatePanel />

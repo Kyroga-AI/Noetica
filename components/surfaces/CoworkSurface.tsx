@@ -10,6 +10,14 @@ type Decision = { id: string; text: string; createdAt: string }
 
 const AGENT_OPTIONS = ['Researcher', 'Engineer', 'Analyst', 'Writer', 'Reviewer']
 
+const AGENT_EMOJI: Record<string, string> = {
+  Researcher: '\u{1F50D}',
+  Engineer: '⚙️',
+  Analyst: '\u{1F4CA}',
+  Writer: '✍️',
+  Reviewer: '\u{1F50E}',
+}
+
 const AGENT_PERSONAS: Record<string, string> = {
   Researcher:
     'You are a research agent. Your job is to investigate the given task thoroughly. Provide key facts, relevant context, potential approaches, and sources of uncertainty. Be concise and structured.',
@@ -35,17 +43,24 @@ function loadCoworkState(): { objective: string; tasks: Task[]; decisions: Decis
   }
 }
 
+function timeAgo(iso: string): string {
+  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
+  if (m < 1) return 'just now'
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  return `${Math.floor(h / 24)}d ago`
+}
+
 export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
   const { settings } = useSettings()
   const initial = loadCoworkState()
   const [objective, setObjectiveState] = useState(initial.objective)
-  const [editingObjective, setEditingObjective] = useState(false)
-  const [draftObjective, setDraftObjective] = useState('')
   const [tasks, setTasks] = useState<Task[]>(initial.tasks)
   const [decisions, setDecisions] = useState<Decision[]>(initial.decisions)
   const [decomposing, setDecomposing] = useState(false)
   const [newTaskText, setNewTaskText] = useState('')
-  const [addingTask, setAddingTask] = useState(false)
+  const [confirmNewSession, setConfirmNewSession] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
 
   // Abort all in-flight streams on unmount
@@ -58,8 +73,6 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
     } catch { /* storage quota exceeded — ignore */ }
   }, [objective, tasks, decisions])
 
-  function setObjective(v: string) { setObjectiveState(v) }
-
   function providerKeys() {
     return {
       anthropic:   settings.anthropicApiKey   || undefined,
@@ -70,12 +83,13 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
     }
   }
 
-  function setObj() {
-    if (draftObjective.trim()) {
-      setObjective(draftObjective.trim())
-      setDecisions((prev) => [{ id: crypto.randomUUID(), text: `Objective set: "${draftObjective.trim()}"`, createdAt: new Date().toISOString() }, ...prev])
+  function commitObjective(next: string) {
+    const trimmed = next.trim()
+    const changed = trimmed !== objective
+    setObjectiveState(trimmed)
+    if (changed && trimmed) {
+      setDecisions((prev) => [{ id: crypto.randomUUID(), text: `Objective set: "${trimmed}"`, createdAt: new Date().toISOString() }, ...prev])
     }
-    setEditingObjective(false)
   }
 
   async function decompose() {
@@ -129,7 +143,6 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
     if (!newTaskText.trim()) return
     setTasks((prev) => [{ id: crypto.randomUUID(), title: newTaskText.trim(), status: 'todo' }, ...prev])
     setNewTaskText('')
-    setAddingTask(false)
   }
 
   function cycleStatus(id: string) {
@@ -251,146 +264,116 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
     setTasks((prev) => prev.map((t) => t.id === id ? { ...t, inputFrom: fromId } : t))
   }
 
-  const todoCount  = tasks.filter((t) => t.status === 'todo').length
-  const doingCount = tasks.filter((t) => t.status === 'doing').length
-  const doneCount  = tasks.filter((t) => t.status === 'done').length
+  function newSession() {
+    setObjectiveState('')
+    setTasks([])
+    setDecisions([])
+    setConfirmNewSession(false)
+  }
+
+  const chainable = tasks.filter((t) => t.agent && t.status !== 'done' && !t.running)
 
   const STATUS_STYLE: Record<Task['status'], string> = {
     todo:  'bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)]',
-    doing: 'bg-[rgba(29,78,216,0.12)] text-[#1d4ed8]',
+    doing: 'bg-[var(--accent-soft)] text-[var(--accent)]',
     done:  'bg-[rgba(34,197,94,0.12)] text-[#16a34a]',
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
-      <div className="mx-auto w-full max-w-3xl space-y-4">
-
-        {/* Objective */}
-        <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Objective</div>
-            {!editingObjective && (
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => { setDraftObjective(objective); setEditingObjective(true) }}
-                  className="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition"
-                >
-                  {objective ? 'Edit' : 'Set objective'}
-                </button>
-                {(objective || tasks.length > 0) && (
-                  <button
-                    onClick={() => {
-                      if (!window.confirm('Clear this session? All tasks, decisions, and the objective will be removed.')) return
-                      setObjectiveState(''); setTasks([]); setDecisions([])
-                    }}
-                    className="text-xs text-[var(--color-text-tertiary)] hover:text-red-500 transition"
-                  >
-                    New session
-                  </button>
-                )}
-              </div>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      {/* Objective bar — full width, persistent */}
+      <div className="shrink-0 border-b border-[var(--color-border-tertiary)]" style={{ padding: '14px 20px 12px' }}>
+        <div className="flex items-center gap-[10px]">
+          {/* Sunken objective container: label + input */}
+          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-[10px] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2">
+            <div className="shrink-0 text-[11px] font-bold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Objective</div>
+            <input
+              className="min-w-0 flex-1 bg-transparent text-sm text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
+              placeholder="e.g. Launch a landing page for our new pricing model"
+              value={objective}
+              onChange={(e) => setObjectiveState(e.target.value)}
+              onBlur={(e) => commitObjective(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+            />
+          </div>
+          <button
+            onClick={() => void decompose()}
+            disabled={!objective || decomposing}
+            className={`shrink-0 rounded-[10px] px-3.5 py-2 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-40 ${
+              objective
+                ? 'bg-[var(--accent)] text-white hover:opacity-90'
+                : 'bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)]'
+            }`}
+          >
+            {decomposing ? (
+              <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full bg-white animate-pulse" /> Decomposing...</span>
+            ) : (
+              'AI decompose'
             )}
-          </div>
-
-          {editingObjective ? (
-            <div className="mt-3 space-y-2">
-              <textarea
-                autoFocus
-                rows={2}
-                className="w-full resize-none rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#1d4ed8]"
-                placeholder="Describe the goal for this collaborate session…"
-                value={draftObjective}
-                onChange={(e) => setDraftObjective(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) setObj() }}
-              />
-              <div className="flex gap-2">
-                <button onClick={setObj} className="rounded-lg bg-[#1d4ed8] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#1e40af]">Set</button>
-                <button onClick={() => setEditingObjective(false)} className="rounded-lg border border-[var(--color-border-tertiary)] px-3 py-1.5 text-xs text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]">Cancel</button>
-              </div>
-            </div>
-          ) : objective ? (
-            <p className="mt-2 text-sm leading-6 text-[var(--color-text-primary)]">{objective}</p>
-          ) : (
-            <div className="mt-2 rounded-xl border border-dashed border-[var(--color-border-secondary)] px-4 py-3 text-sm text-[var(--color-text-tertiary)]">
-              No objective set. Click <span className="font-medium text-[var(--color-text-secondary)]">Set objective</span> to begin.
-            </div>
-          )}
-
-          {objective && (
-            <button
-              onClick={() => void decompose()}
-              disabled={decomposing}
-              className="mt-3 flex items-center gap-1.5 rounded-lg border border-[var(--color-border-tertiary)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:border-[#1d4ed8] hover:text-[#1d4ed8] disabled:opacity-50"
-            >
-              {decomposing ? (
-                <><span className="h-1.5 w-1.5 rounded-full bg-[#1d4ed8] animate-pulse" /> Decomposing…</>
-              ) : (
-                <><svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden><path d="M6 1v4M6 11V7M1 6h4M11 6H7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg> AI decompose into tasks</>
-              )}
-            </button>
-          )}
+          </button>
+          <button
+            onClick={() => void runChain()}
+            disabled={chainable.length === 0}
+            title={chainable.length === 0 ? 'No assigned, incomplete tasks to chain' : 'Run all assigned tasks in chain order'}
+            className="shrink-0 rounded-[10px] px-3.5 py-2 text-[12.5px] font-bold transition disabled:cursor-not-allowed disabled:opacity-40"
+            style={{
+              background: chainable.length > 0 ? 'var(--accent)' : 'var(--color-background-secondary)',
+              color: chainable.length > 0 ? '#fff' : 'var(--color-text-secondary)',
+              border: chainable.length > 0 ? '1px solid var(--accent)' : '1px solid var(--color-border-tertiary)',
+            }}
+          >
+            Run chain
+          </button>
+          <button
+            onClick={() => setConfirmNewSession(true)}
+            className="shrink-0 rounded-[10px] border border-[var(--color-border-tertiary)] px-3 py-2 text-[12.5px] font-semibold text-[var(--color-text-secondary)]"
+          >
+            New session
+          </button>
         </div>
+      </div>
 
-        {/* Tasks */}
-        <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] shadow-sm">
-          <div className="flex items-center justify-between border-b border-[var(--color-border-tertiary)] px-5 py-3">
-            <div className="flex items-center gap-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Tasks</div>
-              {tasks.length > 0 && (
-                <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-tertiary)]">
-                  <span>{todoCount} to do</span>
-                  <span>·</span>
-                  <span className="text-[#1d4ed8]">{doingCount} doing</span>
-                  <span>·</span>
-                  <span className="text-[#16a34a]">{doneCount} done</span>
-                </div>
-              )}
-            </div>
-            <div className="flex items-center gap-2">
-              {tasks.some((t) => t.agent && t.status !== 'done' && !t.running) && (
-                <button
-                  onClick={() => void runChain()}
-                  className="flex items-center gap-1 rounded-lg bg-[#1d4ed8] px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-[#1e40af]"
-                  title="Run all assigned tasks in chain order"
-                >
-                  ⛓ Run chain
-                </button>
-              )}
-              <button
-                onClick={() => setAddingTask(true)}
-                className="flex items-center gap-1 rounded-lg border border-[var(--color-border-tertiary)] px-2.5 py-1 text-xs text-[var(--color-text-secondary)] transition hover:border-[#1d4ed8] hover:text-[#1d4ed8]"
-              >
-                + Add task
-              </button>
-            </div>
+      {/* Confirm banner — full-width strip outside objective bar */}
+      {confirmNewSession && (
+        <div className="flex shrink-0 items-center gap-3 border-b border-[#FCD34D] bg-[#FEF3C7] px-5 py-2.5">
+          <span className="flex-1 text-[13px] text-[#92400E]">Clear this session? All tasks and results will be lost.</span>
+          <span onClick={newSession} className="cursor-pointer text-[13px] font-bold text-[#DC2626]">Clear</span>
+          <span onClick={() => setConfirmNewSession(false)} className="cursor-pointer text-[13px] font-semibold text-[var(--color-text-secondary)]">Cancel</span>
+        </div>
+      )}
+
+      {/* Board + decision log */}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* Task board */}
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto" style={{ padding: '18px 20px' }}>
+          {/* Always-visible add-task row */}
+          <div className="flex items-center gap-2">
+            <input
+              className="min-w-0 flex-1 rounded-[9px] border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-[13px] text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
+              placeholder="Add a task…"
+              value={newTaskText}
+              onChange={(e) => setNewTaskText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') addTask() }}
+            />
+            <button onClick={addTask} className="shrink-0 rounded-[9px] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-[13px] font-semibold text-[var(--color-text-secondary)]">Add</button>
           </div>
 
-          {addingTask && (
-            <div className="border-b border-[var(--color-border-tertiary)] px-5 py-3 space-y-2">
-              <input
-                autoFocus
-                className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8] placeholder:text-[var(--color-text-tertiary)]"
-                placeholder="Task title…"
-                value={newTaskText}
-                onChange={(e) => setNewTaskText(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter') addTask(); if (e.key === 'Escape') setAddingTask(false) }}
-              />
-              <div className="flex gap-2">
-                <button onClick={addTask} className="rounded-lg bg-[#1d4ed8] px-3 py-1 text-xs font-semibold text-white">Add</button>
-                <button onClick={() => setAddingTask(false)} className="rounded-lg border border-[var(--color-border-tertiary)] px-3 py-1 text-xs text-[var(--color-text-secondary)]">Cancel</button>
-              </div>
-            </div>
-          )}
-
-          {tasks.length === 0 && !addingTask ? (
-            <div className="px-5 py-6 text-center text-sm text-[var(--color-text-tertiary)]">
-              No tasks yet. Set an objective and use <strong className="text-[var(--color-text-secondary)]">AI decompose</strong>, or add tasks manually.
+          {tasks.length === 0 ? (
+            <div className="flex flex-1 flex-col items-center justify-center text-center text-[13px] leading-[1.7] text-[var(--color-text-tertiary)]" style={{ padding: '48px 20px' }}>
+              <div className="mb-3 text-2xl">{'⛓'}</div>
+              <div className="mb-1.5 font-semibold text-[var(--color-text-secondary)]">No tasks yet</div>
+              <div>Set an objective above and click <strong>AI decompose</strong>, or add tasks manually.</div>
             </div>
           ) : (
-            <div className="divide-y divide-[var(--color-border-tertiary)]">
+            <div className="space-y-2">
               {tasks.map((task) => (
-                <div key={task.id} className="group">
-                  <div className="flex items-center gap-3 px-5 py-3">
+                <div
+                  key={task.id}
+                  className="rounded-xl border bg-[var(--color-background-primary)]"
+                  style={{ borderColor: task.status === 'done' ? 'rgba(34,197,94,0.25)' : task.status === 'doing' ? 'var(--accent-soft)' : 'var(--color-border-tertiary)', opacity: task.status === 'done' ? 0.85 : 1 }}
+                >
+                  {/* Row 1: status pill + title + delete X */}
+                  <div className="flex items-start gap-[10px] px-[14px] pt-[14px]">
                     <button
                       onClick={() => cycleStatus(task.id)}
                       className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold transition ${STATUS_STYLE[task.status]}`}
@@ -398,71 +381,69 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                     >
                       {task.running ? (
                         <span className="flex items-center gap-1">
-                          <span className="h-1.5 w-1.5 rounded-full bg-[#1d4ed8] animate-pulse" />
+                          <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)] animate-pulse" />
                           running
                         </span>
                       ) : task.status}
                     </button>
-                    <span className={`flex-1 text-sm ${task.status === 'done' ? 'text-[var(--color-text-tertiary)]' : 'text-[var(--color-text-primary)]'}`}>
+                    <span className={`flex-1 text-[13.5px] font-semibold leading-[1.45] ${task.status === 'done' ? 'text-[var(--color-text-tertiary)]' : 'text-[var(--color-text-primary)]'}`} style={{ paddingTop: 1, cursor: 'default' }}>
                       {task.title}
                     </span>
-                    {/* Agent assign */}
+                    <button
+                      onClick={() => removeTask(task.id)}
+                      className="flex h-[18px] w-[18px] shrink-0 items-center justify-center text-[14px] text-[var(--color-text-primary)] opacity-[0.35] transition hover:opacity-70"
+                      style={{ marginTop: 1 }}
+                    >
+                      {'✕'}
+                    </button>
+                  </div>
+                  {/* Row 2: agent dropdown + chain-from dropdown + Run button */}
+                  <div className="mx-[14px] flex items-center gap-2 border-t border-[var(--color-border-secondary)]" style={{ marginTop: 9, paddingTop: 9, paddingBottom: 14 }}>
                     <select
                       value={task.agent ?? ''}
                       onChange={(e) => e.target.value && assignAgent(task.id, e.target.value)}
-                      className="rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-2 py-1 text-[10px] text-[var(--color-text-secondary)] outline-none opacity-0 group-hover:opacity-100 transition"
+                      className="flex-1 rounded-[7px] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2 py-[5px] text-[12px] text-[var(--color-text-primary)] outline-none"
                       title="Assign agent"
                     >
-                      <option value="">Assign…</option>
-                      {AGENT_OPTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
+                      <option value="">{'— assign agent —'}</option>
+                      {AGENT_OPTIONS.map((a) => <option key={a} value={a}>{AGENT_EMOJI[a]} {a}</option>)}
                     </select>
-                    {task.agent && (
-                      <span className="shrink-0 rounded-full bg-[rgba(29,78,216,0.10)] px-2 py-0.5 text-[10px] text-[#1d4ed8]">{task.agent}</span>
-                    )}
-                    {/* Chain-from selector */}
-                    {tasks.filter((t) => t.id !== task.id && t.result).length > 0 && (
-                      <select
-                        value={task.inputFrom ?? ''}
-                        onChange={(e) => setInputFrom(task.id, e.target.value || undefined)}
-                        className="shrink-0 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-secondary)] opacity-0 group-hover:opacity-100 transition"
-                        title="Chain input from a prior task result"
-                      >
-                        <option value="">chain from…</option>
-                        {tasks.filter((t) => t.id !== task.id && t.result).map((t) => (
-                          <option key={t.id} value={t.id}>{t.title.slice(0, 30)}</option>
-                        ))}
-                      </select>
-                    )}
-                    {task.inputFrom && (
-                      <span className="shrink-0 rounded-full bg-[rgba(16,185,129,0.10)] px-2 py-0.5 text-[10px] text-[#059669]" title="Chains from prior task">⛓</span>
-                    )}
-                    {task.agent && !task.running && task.status !== 'done' && (
-                      <button
-                        onClick={() => void runTask(task)}
-                        className="shrink-0 rounded-lg bg-[#1d4ed8] px-2.5 py-1 text-[10px] font-semibold text-white opacity-0 group-hover:opacity-100 transition hover:bg-[#1e40af]"
-                        title={`Run with ${task.agent}`}
-                      >
-                        Run
-                      </button>
-                    )}
-                    <button
-                      onClick={() => removeTask(task.id)}
-                      className="shrink-0 text-[var(--color-text-tertiary)] opacity-0 group-hover:opacity-100 transition hover:text-[#ef4444]"
+                    <select
+                      value={task.inputFrom ?? ''}
+                      onChange={(e) => setInputFrom(task.id, e.target.value || undefined)}
+                      className="rounded-[7px] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2 py-[5px] text-[12px] text-[var(--color-text-primary)] outline-none"
+                      style={{ maxWidth: 160 }}
+                      title="Chain input from a prior task result"
                     >
-                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
-                        <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
-                      </svg>
+                      <option value="">Chain from…</option>
+                      {tasks.filter((t) => t.id !== task.id).map((t) => (
+                        <option key={t.id} value={t.id}>{t.title.slice(0, 30)}</option>
+                      ))}
+                    </select>
+                    <div className="flex-1" />
+                    <button
+                      onClick={() => void runTask(task)}
+                      disabled={!task.agent || task.running}
+                      className="shrink-0 rounded-lg px-2.5 py-1 text-[10px] font-semibold transition disabled:cursor-not-allowed"
+                      style={{
+                        background: task.running ? 'var(--color-background-secondary)' : task.agent ? 'var(--accent)' : 'var(--color-background-secondary)',
+                        color: task.running ? 'var(--color-text-tertiary)' : task.agent ? '#fff' : 'var(--color-text-tertiary)',
+                        opacity: task.agent ? 1 : 0.5,
+                      }}
+                    >
+                      {task.status === 'done' ? '↺ Re-run' : '▶ Run'}
                     </button>
                   </div>
                   {/* Agent result */}
                   {task.result && (
-                    <div className="border-t border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-5 py-3">
-                      <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold text-[#1d4ed8]">
-                        <span className="h-1.5 w-1.5 rounded-full bg-[#1d4ed8]" />
-                        {task.agent}
-                        {task.running && <span className="animate-pulse">…</span>}
+                    <div className="mx-[14px] mb-[14px]" style={{ marginTop: 10, padding: 10, borderRadius: 8, background: 'var(--color-background-secondary)', border: '1px solid var(--color-border-secondary)' }}>
+                      <div className="mb-1.5 text-[11px] font-bold uppercase tracking-[0.5px] text-[var(--color-text-tertiary)]">
+                        {task.agent} result
+                        {task.running && <span className="animate-pulse">...</span>}
                       </div>
-                      <p className="whitespace-pre-wrap text-xs leading-5 text-[var(--color-text-primary)]">{task.result}</p>
+                      <div className="max-h-[180px] overflow-y-auto whitespace-pre-wrap text-[12.5px] leading-[1.6] text-[var(--color-text-primary)]">
+                        {task.result}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -471,23 +452,28 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
           )}
         </div>
 
-        {/* Decisions log */}
-        {decisions.length > 0 && (
-          <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Decision log</div>
-            <div className="mt-3 space-y-2">
-              {decisions.map((d) => (
-                <div key={d.id} className="flex items-start gap-2.5">
-                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[#1d4ed8]" />
-                  <div>
-                    <p className="text-xs text-[var(--color-text-primary)]">{d.text}</p>
-                    <p className="text-[10px] text-[var(--color-text-tertiary)]">{new Date(d.createdAt).toLocaleTimeString()}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+        {/* Decision log — persistent 240px right rail */}
+        <div className="flex w-[240px] shrink-0 flex-col border-l border-[var(--color-border-tertiary)]">
+          <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)]" style={{ padding: '12px 14px 10px' }}>
+            <span className="text-[11px] font-bold uppercase tracking-[0.6px] text-[var(--color-text-secondary)]">Decision log</span>
+            <span className="text-[10px] text-[var(--color-text-tertiary)]">{decisions.length > 0 ? decisions.length : ''}</span>
           </div>
-        )}
+          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto" style={{ padding: '10px 12px' }}>
+            {decisions.length === 0 ? (
+              <div className="py-6 text-center text-[12px] text-[var(--color-text-tertiary)]">No decisions yet</div>
+            ) : (
+              decisions.map((d) => (
+                <div key={d.id} className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]" style={{ padding: '8px 10px' }}>
+                  <div className="text-[11.5px] leading-[1.5] text-[var(--color-text-primary)]">{d.text}</div>
+                  <div className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">{timeAgo(d.createdAt)}</div>
+                </div>
+              ))
+            )}
+          </div>
+          <div className="border-t border-[var(--color-border-secondary)]" style={{ padding: '10px 12px' }}>
+            <div className="text-[10.5px] leading-[1.6] text-[var(--color-text-tertiary)]">One session at a time. Results are ephemeral — copy to Notes or Canvas to keep them.</div>
+          </div>
+        </div>
       </div>
     </div>
   )

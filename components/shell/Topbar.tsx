@@ -1,11 +1,11 @@
 import { isTauri } from '@/lib/tauri/bridge'
-import { NoeticaMark } from '@/components/brand/NoeticaMark'
+import { BrandLockup } from '@/components/brand/NoeticaMark'
 import { WarmingLevel } from '@/components/risk/WarmingLevel'
 import { ThemePicker } from '@/components/shell/ThemePicker'
 import { RuntimeStatus } from '@/components/status/RuntimeStatus'
 import { EgressMeter } from '@/components/status/EgressMeter'
+import { useUiStore } from '@/lib/store/uiStore'
 import type { RiskAversionLiveReadout } from '@/lib/risk/riskAversionLive'
-import type { VoiceState } from '@/lib/voice/useVoice'
 import { OpenChatToggle } from '@/components/chat/OpenChatToggle'
 import type { WorkspaceSession } from '@/lib/session/types'
 import type { PublishResult } from '@/lib/session/commons-client'
@@ -14,7 +14,6 @@ type TopbarProps = {
   modelId: string
   mode: 'standalone' | 'sourceos'
   riskReadout?: RiskAversionLiveReadout | null
-  voiceState?: VoiceState
   isLive?: boolean
   onLiveStart?: () => void
   onLiveStop?: () => void
@@ -28,10 +27,51 @@ type TopbarProps = {
   onOpenPalette: () => void
   onOpenInspector?: () => void
   onExportConversation?: () => void
-  onVoiceStart?: () => void
-  onVoiceStop?: () => void
   onRealtimeTranscript?: (text: string) => void
   onRealtimeSpeechStart?: () => void
+}
+
+function ModePill({ mode, onChange }: { mode: 'standalone' | 'sourceos'; onChange: (m: 'standalone' | 'sourceos') => void }) {
+  const isSourceos = mode === 'sourceos'
+  return (
+    <button
+      onClick={() => onChange(isSourceos ? 'standalone' : 'sourceos')}
+      title={isSourceos ? 'SourceOS — governed routing, policy admission, evidence trail. Click to switch to Standalone.' : 'Standalone — direct provider calls, no routing/policy/evidence. Click to switch to SourceOS.'}
+      className="hidden items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-semibold transition sm:inline-flex"
+      style={{
+        borderColor: isSourceos ? 'var(--verified-line)' : 'var(--line)',
+        background: isSourceos ? 'var(--verified-soft)' : 'transparent',
+        color: isSourceos ? 'var(--verified-fg)' : 'var(--ink2)',
+      }}
+    >
+      <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: isSourceos ? 'var(--verified)' : 'var(--ink3)' }} />
+      {isSourceos ? 'SourceOS' : 'Standalone'}
+    </button>
+  )
+}
+
+function PrivateSessionToggle() {
+  const on = useUiStore((s) => s.privateSessionOn)
+  const toggle = useUiStore((s) => s.togglePrivateSession)
+  return (
+    <button
+      onClick={toggle}
+      title={on ? 'Private session — this conversation is ephemeral. Click to turn off.' : 'Turn on a private, ephemeral session'}
+      aria-label="Private session"
+      aria-pressed={on}
+      className="flex h-6 w-6 items-center justify-center rounded-full border transition"
+      style={{
+        borderColor: on ? 'var(--violet-line)' : 'var(--color-border-secondary)',
+        background: on ? 'var(--violet-soft)' : 'transparent',
+        color: on ? 'var(--violet-fg)' : 'var(--color-text-tertiary)',
+      }}
+    >
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden>
+        <rect x="3.5" y="7" width="9" height="7" rx="1.5" stroke="currentColor" strokeWidth="1.4" />
+        <path d="M5.5 7V4.5a2.5 2.5 0 0 1 5 0V7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+      </svg>
+    </button>
+  )
 }
 
 function IconSettings() {
@@ -43,9 +83,7 @@ function IconSettings() {
   )
 }
 
-export function Topbar({ modelId, mode, riskReadout, voiceState, isLive, onLiveStart, onLiveStop, openaiApiKey, hasMessages, activeSession, onSetVisibility, onModelChange, onModeChange, onOpenSettings, onOpenPalette, onOpenInspector, onExportConversation, onVoiceStart, onVoiceStop, onRealtimeTranscript, onRealtimeSpeechStart }: TopbarProps) {
-  const isListening = voiceState === 'listening'
-
+export function Topbar({ modelId, mode, riskReadout, isLive, onLiveStart, onLiveStop, openaiApiKey, hasMessages, activeSession, onSetVisibility, onModelChange, onModeChange, onOpenSettings, onOpenPalette, onOpenInspector, onExportConversation, onRealtimeTranscript, onRealtimeSpeechStart }: TopbarProps) {
   // Double-click the titlebar to zoom/maximize (native macOS behavior the Overlay titlebar drops).
   // Ignore double-clicks that land on a control so e.g. double-tapping Settings doesn't also maximize.
   async function onTitlebarDoubleClick(e: React.MouseEvent) {
@@ -66,10 +104,8 @@ export function Topbar({ modelId, mode, riskReadout, voiceState, isLive, onLiveS
       className="flex h-11 shrink-0 items-center justify-between gap-3 border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] pl-[78px] pr-4"
     >
       <div data-tauri-drag-region className="flex min-w-0 items-center gap-2">
-        <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[var(--color-text-primary)] text-[var(--color-background-primary)]">
-          <NoeticaMark className="h-3.5 w-3.5" />
-        </div>
-        <span className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">Noetica</span>
+        <BrandLockup size={22} />
+        <span className="truncate text-[13px] font-bold" style={{ color: 'var(--ink)' }}>Noetica</span>
       </div>
 
       {/* shrink-0 so the status pills + actions keep their size; the title (min-w-0 + truncate
@@ -77,21 +113,9 @@ export function Topbar({ modelId, mode, riskReadout, voiceState, isLive, onLiveS
       <div className="flex shrink-0 items-center gap-2">
         <EgressMeter />
         <RuntimeStatus />
-        {/* Mic — push-to-talk dictation (single turn). Stays a mic. */}
-        <button
-          onClick={isListening && !isLive ? onVoiceStop : onVoiceStart}
-          title={isListening && !isLive ? 'Listening… click to stop' : 'Speak (dictate)'}
-          aria-label="Voice dictation"
-          className={`relative flex h-[22px] w-[22px] items-center justify-center rounded-full border transition ${
-            isListening && !isLive ? 'border-[#f43f5e] bg-[#fff1f2] text-[#f43f5e]' : 'border-[#fda4af] bg-[#fff1f2] text-[#fb7185] hover:bg-[#ffe4e6]'
-          }`}
-        >
-          {isListening && !isLive && <span className="absolute inset-0 rounded-full animate-ping bg-[#fda4af] opacity-30" />}
-          <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden>
-            <rect x="6" y="1" width="4" height="8" rx="2" stroke="currentColor" strokeWidth="1.5"/>
-            <path d="M3 8a5 5 0 0 0 10 0M8 13v2M6 15h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-          </svg>
-        </button>
+        <ModePill mode={mode} onChange={onModeChange} />
+        <PrivateSessionToggle />
+        {/* Mic (push-to-talk dictation) moved into the chat composer row — see InputArea.tsx. */}
         {/* Live chat — continuous hands-free conversation (waveform), fully local. */}
         <button
           onClick={isLive ? onLiveStop : onLiveStart}

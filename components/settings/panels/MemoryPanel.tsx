@@ -79,16 +79,16 @@ export function MemoryPanel() {
             <button key={value} onClick={() => update({ memoryScope: value })}
               className={`flex w-full items-start gap-3 rounded-xl border p-3 text-left transition ${
                 settings.memoryScope === value
-                  ? 'border-[#1d4ed8] bg-[#eff6ff]'
+                  ? 'border-[var(--accent)] bg-[var(--accent-soft)]'
                   : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] hover:bg-[var(--color-background-secondary)]'
               }`}>
               <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 ${
-                settings.memoryScope === value ? 'border-[#1d4ed8] bg-[#1d4ed8]' : 'border-[#cbd5e1]'
+                settings.memoryScope === value ? 'border-[var(--accent)] bg-[var(--accent)]' : 'border-[#cbd5e1]'
               }`}>
                 {settings.memoryScope === value && <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-background-primary)]" />}
               </span>
               <div>
-                <div className={`text-sm font-semibold ${settings.memoryScope === value ? 'text-[#1d4ed8]' : 'text-[var(--color-text-primary)]'}`}>{label}</div>
+                <div className={`text-sm font-semibold ${settings.memoryScope === value ? 'text-[var(--accent)]' : 'text-[var(--color-text-primary)]'}`}>{label}</div>
                 <div className="text-xs text-[var(--color-text-secondary)]">{desc}</div>
               </div>
             </button>
@@ -118,13 +118,13 @@ export function MemoryPanel() {
             onChange={(e) => setNewText(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleAdd() }}
             placeholder="e.g. Prefers concise answers. Works in TypeScript."
-            className="flex-1 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8] focus:bg-white placeholder:text-[var(--color-text-tertiary)]"
+            className="flex-1 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)] focus:bg-white placeholder:text-[var(--color-text-tertiary)]"
             disabled={settings.memoryScope === 'disabled'}
           />
           <button
             onClick={handleAdd}
             disabled={!newText.trim() || settings.memoryScope === 'disabled'}
-            className="rounded-xl bg-[#1d4ed8] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#1e40af] disabled:opacity-40"
+            className="rounded-xl bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[var(--accent)] disabled:opacity-40"
           >
             Add
           </button>
@@ -147,7 +147,7 @@ export function MemoryPanel() {
               </span>
               {/* Embedding status dot */}
               <div
-                className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${entry.embedding ? 'bg-[#1d4ed8]' : 'bg-[#cbd5e1]'}`}
+                className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${entry.embedding ? 'bg-[var(--accent)]' : 'bg-[#cbd5e1]'}`}
                 title={entry.embedding ? 'Semantically indexed' : 'Not indexed'}
               />
               {editingId === entry.id ? (
@@ -195,7 +195,7 @@ export function MemoryPanel() {
             {/* Progress bar */}
             <div className="w-20 h-1.5 rounded-full bg-[var(--color-background-tertiary)] overflow-hidden">
               <div
-                className="h-full rounded-full bg-[#1d4ed8] transition-all"
+                className="h-full rounded-full bg-[var(--accent)] transition-all"
                 style={{ width: entries.length > 0 ? `${(embeddedCount / entries.length) * 100}%` : '0%' }}
               />
             </div>
@@ -225,7 +225,7 @@ export function MemoryPanel() {
                   }
                 }}
                 disabled={indexing}
-                className="rounded-xl bg-[#1d4ed8] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#1e40af] disabled:opacity-40"
+                className="rounded-xl bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[var(--accent)] disabled:opacity-40"
               >
                 {indexing ? 'Indexing…' : 'Build semantic index'}
               </button>
@@ -245,7 +245,7 @@ export function MemoryPanel() {
         <input type="range" min={1} max={365}
           value={settings.memoryRetentionDays}
           onChange={(e) => update({ memoryRetentionDays: Number(e.target.value) })}
-          className="mt-3 w-full accent-[#1d4ed8]"
+          className="mt-3 w-full accent-[var(--accent)]"
           disabled={settings.memoryScope === 'disabled'}
         />
         <div className="mt-1 flex justify-between text-xs text-[var(--color-text-tertiary)]">
@@ -275,7 +275,7 @@ export function MemoryPanel() {
             <select
               value={importSource}
               onChange={(e) => setImportSource(e.target.value)}
-              className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8]"
+              className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)]"
             >
               <option value="chatgpt">ChatGPT</option>
               <option value="gemini">Gemini</option>
@@ -287,12 +287,12 @@ export function MemoryPanel() {
               onChange={(e) => setImportText(e.target.value)}
               rows={6}
               placeholder="Paste your exported memories here (one per line, or a bulleted list)…"
-              className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[#1d4ed8] resize-none placeholder:text-[var(--color-text-tertiary)]"
+              className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)] resize-none placeholder:text-[var(--color-text-tertiary)]"
             />
             <button
               onClick={handleImport}
               disabled={!importText.trim() || importing}
-              className="rounded-xl bg-[#1d4ed8] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[#1e40af] disabled:opacity-40"
+              className="rounded-xl bg-[var(--accent)] px-3 py-2 text-xs font-semibold text-white transition hover:bg-[var(--accent)] disabled:opacity-40"
             >
               {importing ? 'Importing…' : 'Import memories'}
             </button>

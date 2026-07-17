@@ -92,12 +92,12 @@ export function PolicyPanel() {
               onClick={() => update({ defaultPolicyProfile: p.id })}
               className={`w-full rounded-xl border p-4 text-left transition ${
                 isActive
-                  ? 'border-[#1d4ed8] bg-[rgba(29,78,216,0.08)]'
+                  ? 'border-[var(--accent)] bg-[var(--accent-soft)]'
                   : 'border-[var(--color-border-secondary)] hover:border-[var(--color-border-primary)]'
               }`}
             >
               <div className="flex items-center justify-between">
-                <span className={`text-sm font-semibold ${isActive ? 'text-[#1d4ed8]' : 'text-[var(--color-text-primary)]'}`}>
+                <span className={`text-sm font-semibold ${isActive ? 'text-[var(--accent)]' : 'text-[var(--color-text-primary)]'}`}>
                   {p.label}
                 </span>
                 <span className="text-[10px] font-mono text-[var(--color-text-tertiary)]">{p.scope}</span>

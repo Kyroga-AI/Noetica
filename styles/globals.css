@@ -2,72 +2,111 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ─── CLAUDE THEME (default) ─────────────────────────────────────────────────── */
-:root,
-[data-theme="claude"] {
-  --noetica-blue: #1D4ED8;
-  --noetica-blue-light: #EFF6FF;
-  --noetica-blue-mid: #BFDBFE;
-  --noetica-navy: #0F172A;
-  --noetica-ink: #111827;
-  --noetica-muted: #64748B;
-  --noetica-line: #D7DEE8;
-  --noetica-surface: #262626;
-  --noetica-panel: #1e1e1e;
-  --background: #1e1e1e;
-  --foreground: #ece9e3;
+/* ─── NOETICA REDESIGN TOKENS (OKLCH) ──────────────────────────────────────────
+   Source of truth: the 2026-07 app-shell redesign handoff. Accent is the brand's
+   configurable warm color (default terracotta); ink/paper/line are the neutral
+   scale; verified/pending/danger/violet are semantic. `danger` intentionally has
+   only 2 variants (no Soft/Line) — that's how the prototype coded it, don't add
+   more. `--accent-soft` is accent at ~11% alpha, matching the prototype's
+   `accent + "1c"` hex-alpha pattern used for active-state tints. ────────────── */
+[data-theme="light"] {
+  --ink: oklch(24% 0.025 55);
+  --ink2: oklch(45% 0.025 55);
+  --ink3: oklch(60% 0.02 55);
+  --paper: oklch(98.5% 0.01 75);
+  --paper-sunk: oklch(95% 0.014 70);
+  --paper-sunk-2: oklch(92% 0.016 68);
+  --line: oklch(88% 0.016 65);
+  --line-soft: oklch(91% 0.014 65);
+  --canvas: oklch(90% 0.018 60);
+  --verified: oklch(60% 0.12 150);
+  --verified-fg: oklch(36% 0.09 150);
+  --verified-soft: oklch(94% 0.035 150);
+  --verified-line: oklch(84% 0.05 150);
+  --pending: oklch(70% 0.13 75);
+  --pending-fg: oklch(42% 0.1 70);
+  --pending-soft: oklch(94% 0.04 78);
+  --pending-line: oklch(83% 0.06 75);
+  --danger: oklch(58% 0.17 30);
+  --danger-fg: oklch(40% 0.13 30);
+  --violet: oklch(55% 0.15 320);
+  --violet-fg: oklch(38% 0.12 320);
+  --violet-soft: oklch(94% 0.03 320);
+  --violet-line: oklch(85% 0.05 320);
 
-  --color-background-primary:   #1e1e1e;
-  --color-background-secondary: #262626;
-  --color-background-tertiary:  #2d2d2d;
-  --color-text-primary:         #ece9e3;
-  --color-text-secondary:       #a8a29e;
-  --color-text-tertiary:        #78716c;
-  --color-border-primary:       rgba(255,255,255,0.12);
-  --color-border-secondary:     rgba(255,255,255,0.08);
-  --color-border-tertiary:      rgba(255,255,255,0.04);
+  --background: var(--canvas);
+  --foreground: var(--ink);
+  --noetica-surface: var(--paper-sunk);
+  --noetica-panel: var(--paper);
+
+  --color-background-primary:   var(--paper);
+  --color-background-secondary: var(--paper-sunk);
+  --color-background-tertiary:  var(--paper-sunk-2);
+  --color-text-primary:         var(--ink);
+  --color-text-secondary:       var(--ink2);
+  --color-text-tertiary:        var(--ink3);
+  --color-border-primary:       var(--line);
+  --color-border-secondary:     var(--line);
+  --color-border-tertiary:      var(--line-soft);
   --border-radius-sm:  4px;
   --border-radius-md:  8px;
   --border-radius-lg:  12px;
   --border-radius-xl:  16px;
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: ui-monospace, 'SF Mono', monospace;
+  --font-sans: var(--font-manrope), -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: var(--font-plex-mono), ui-monospace, 'SF Mono', monospace;
+  --font-serif: var(--font-source-serif), Georgia, 'Times New Roman', serif;
 }
 
-/* ─── NAVY THEME ─────────────────────────────────────────────────────────────── */
-[data-theme="navy"] {
-  --background: #0f1117;
-  --foreground: #dde1ea;
-  --noetica-surface: #171923;
-  --noetica-panel: #1e2130;
+/* ─── DARK THEME ─────────────────────────────────────────────────────────────── */
+[data-theme="dark"] {
+  --ink: oklch(93% 0.015 70);
+  --ink2: oklch(72% 0.02 65);
+  --ink3: oklch(55% 0.02 60);
+  --paper: oklch(22% 0.02 50);
+  --paper-sunk: oklch(27% 0.022 50);
+  --paper-sunk-2: oklch(31% 0.024 50);
+  --line: oklch(34% 0.02 50);
+  --line-soft: oklch(30% 0.02 50);
+  --canvas: oklch(14% 0.015 50);
+  --verified: oklch(65% 0.13 150);
+  --verified-fg: oklch(78% 0.1 150);
+  --verified-soft: oklch(30% 0.05 150);
+  --verified-line: oklch(40% 0.07 150);
+  --pending: oklch(72% 0.13 75);
+  --pending-fg: oklch(80% 0.1 75);
+  --pending-soft: oklch(32% 0.055 75);
+  --pending-line: oklch(42% 0.08 75);
+  --danger: oklch(65% 0.17 30);
+  --danger-fg: oklch(75% 0.14 30);
+  --violet: oklch(68% 0.14 320);
+  --violet-fg: oklch(80% 0.1 320);
+  --violet-soft: oklch(32% 0.05 320);
+  --violet-line: oklch(42% 0.08 320);
 
-  --color-background-primary:   #1e2130;
-  --color-background-secondary: #171923;
-  --color-background-tertiary:  #0f1117;
-  --color-text-primary:         #dde1ea;
-  --color-text-secondary:       #8b95a8;
-  --color-text-tertiary:        #5c6478;
-  --color-border-primary:       rgba(255,255,255,0.15);
-  --color-border-secondary:     rgba(255,255,255,0.09);
-  --color-border-tertiary:      rgba(255,255,255,0.05);
+  --background: var(--canvas);
+  --foreground: var(--ink);
+  --noetica-surface: var(--paper-sunk);
+  --noetica-panel: var(--paper);
+
+  --color-background-primary:   var(--paper);
+  --color-background-secondary: var(--paper-sunk);
+  --color-background-tertiary:  var(--paper-sunk-2);
+  --color-text-primary:         var(--ink);
+  --color-text-secondary:       var(--ink2);
+  --color-text-tertiary:        var(--ink3);
+  --color-border-primary:       var(--line);
+  --color-border-secondary:     var(--line);
+  --color-border-tertiary:      var(--line-soft);
 }
 
-/* ─── LIGHT THEME ────────────────────────────────────────────────────────────── */
-[data-theme="light"] {
-  --background: #f3f6fa;
-  --foreground: #111827;
-  --noetica-surface: #f8fafc;
-  --noetica-panel: #ffffff;
-
-  --color-background-primary:   #ffffff;
-  --color-background-secondary: #f3f6fa;
-  --color-background-tertiary:  #eaf1f8;
-  --color-text-primary:         #111827;
-  --color-text-secondary:       #64748b;
-  --color-text-tertiary:        #94a3b8;
-  --color-border-primary:       rgba(0,0,0,0.18);
-  --color-border-secondary:     rgba(0,0,0,0.12);
-  --color-border-tertiary:      rgba(0,0,0,0.07);
+/* Accent — the brand's configurable warm color. Default terracotta; alternates
+   (ochre #B8863A, brick #8B4A44) are user-selectable in Settings → Appearance,
+   not hardcoded swaps. --accent-soft is accent at ~11% alpha for active-state
+   tints (nav items, filter pills, steering tiers). Same value in both themes —
+   the accent is a brand constant, not part of the light/dark token pair. */
+:root {
+  --accent: #B15C3C;
+  --accent-soft: #B15C3C1c;
 }
 
 /* ─── DARK-THEME CATCH-ALL ────────────────────────────────────────────────────
@@ -314,13 +353,17 @@ input {
 }
 
 ::selection {
-  background: #BFDBFE;
+  background: var(--accent-soft);
 }
 
 /* ── Font size scaling ──────────────────────────────────────────────────── */
 html[data-font-size="sm"] { font-size: 13px; }
 html[data-font-size="md"] { font-size: 14px; }
 html[data-font-size="lg"] { font-size: 16px; }
+
+/* ── Redesign shared animations ─────────────────────────────────────────── */
+@keyframes pulseDot { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+@keyframes bobDot { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
 
 /* ── macOS overlay titlebar inset ───────────────────────────────────────────
    The desktop build uses titleBarStyle "Overlay", so the traffic-light window
