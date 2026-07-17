@@ -35,17 +35,25 @@ function loadCoworkState(): { objective: string; tasks: Task[]; decisions: Decis
   }
 }
 
+function timeAgo(iso: string): string {
+  const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
+  if (m < 1) return 'just now'
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  return `${Math.floor(h / 24)}d ago`
+}
+
 export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
   const { settings } = useSettings()
   const initial = loadCoworkState()
   const [objective, setObjectiveState] = useState(initial.objective)
-  const [editingObjective, setEditingObjective] = useState(false)
-  const [draftObjective, setDraftObjective] = useState('')
   const [tasks, setTasks] = useState<Task[]>(initial.tasks)
   const [decisions, setDecisions] = useState<Decision[]>(initial.decisions)
   const [decomposing, setDecomposing] = useState(false)
   const [newTaskText, setNewTaskText] = useState('')
   const [addingTask, setAddingTask] = useState(false)
+  const [confirmNewSession, setConfirmNewSession] = useState(false)
   const abortRef = useRef<AbortController | null>(null)
 
   // Abort all in-flight streams on unmount
@@ -58,8 +66,6 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
     } catch { /* storage quota exceeded — ignore */ }
   }, [objective, tasks, decisions])
 
-  function setObjective(v: string) { setObjectiveState(v) }
-
   function providerKeys() {
     return {
       anthropic:   settings.anthropicApiKey   || undefined,
@@ -70,12 +76,13 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
     }
   }
 
-  function setObj() {
-    if (draftObjective.trim()) {
-      setObjective(draftObjective.trim())
-      setDecisions((prev) => [{ id: crypto.randomUUID(), text: `Objective set: "${draftObjective.trim()}"`, createdAt: new Date().toISOString() }, ...prev])
+  function commitObjective(next: string) {
+    const trimmed = next.trim()
+    const changed = trimmed !== objective
+    setObjectiveState(trimmed)
+    if (changed && trimmed) {
+      setDecisions((prev) => [{ id: crypto.randomUUID(), text: `Objective set: "${trimmed}"`, createdAt: new Date().toISOString() }, ...prev])
     }
-    setEditingObjective(false)
   }
 
   async function decompose() {
@@ -251,6 +258,14 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
     setTasks((prev) => prev.map((t) => t.id === id ? { ...t, inputFrom: fromId } : t))
   }
 
+  function newSession() {
+    setObjectiveState('')
+    setTasks([])
+    setDecisions([])
+    setConfirmNewSession(false)
+  }
+
+  const chainable = tasks.filter((t) => t.agent && t.status !== 'done' && !t.running)
   const todoCount  = tasks.filter((t) => t.status === 'todo').length
   const doingCount = tasks.filter((t) => t.status === 'doing').length
   const doneCount  = tasks.filter((t) => t.status === 'done').length
@@ -262,78 +277,61 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
-      <div className="mx-auto w-full max-w-3xl space-y-4">
-
-        {/* Objective */}
-        <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
-          <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">Objective</div>
-            {!editingObjective && (
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => { setDraftObjective(objective); setEditingObjective(true) }}
-                  className="text-xs text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)] transition"
-                >
-                  {objective ? 'Edit' : 'Set objective'}
-                </button>
-                {(objective || tasks.length > 0) && (
-                  <button
-                    onClick={() => {
-                      if (!window.confirm('Clear this session? All tasks, decisions, and the objective will be removed.')) return
-                      setObjectiveState(''); setTasks([]); setDecisions([])
-                    }}
-                    className="text-xs text-[var(--color-text-tertiary)] hover:text-red-500 transition"
-                  >
-                    New session
-                  </button>
-                )}
-              </div>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      {/* Objective bar — full width, persistent */}
+      <div className="shrink-0 border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] px-5 py-3">
+        <div className="flex items-start gap-3">
+          <div className="shrink-0 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">Objective</div>
+          <input
+            className="min-w-0 flex-1 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--accent)]"
+            placeholder="Describe the goal for this collaborate session…"
+            value={objective}
+            onChange={(e) => setObjectiveState(e.target.value)}
+            onBlur={(e) => commitObjective(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+          />
+          <button
+            onClick={() => void decompose()}
+            disabled={!objective || decomposing}
+            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[var(--color-border-tertiary)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {decomposing ? (
+              <><span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)] animate-pulse" /> Decomposing…</>
+            ) : (
+              <><svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden><path d="M6 1v4M6 11V7M1 6h4M11 6H7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg> AI decompose</>
             )}
-          </div>
-
-          {editingObjective ? (
-            <div className="mt-3 space-y-2">
-              <textarea
-                autoFocus
-                rows={2}
-                className="w-full resize-none rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--accent)]"
-                placeholder="Describe the goal for this collaborate session…"
-                value={draftObjective}
-                onChange={(e) => setDraftObjective(e.target.value)}
-                onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) setObj() }}
-              />
-              <div className="flex gap-2">
-                <button onClick={setObj} className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[var(--accent)]">Set</button>
-                <button onClick={() => setEditingObjective(false)} className="rounded-lg border border-[var(--color-border-tertiary)] px-3 py-1.5 text-xs text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]">Cancel</button>
-              </div>
-            </div>
-          ) : objective ? (
-            <p className="mt-2 text-sm leading-6 text-[var(--color-text-primary)]">{objective}</p>
-          ) : (
-            <div className="mt-2 rounded-xl border border-dashed border-[var(--color-border-secondary)] px-4 py-3 text-sm text-[var(--color-text-tertiary)]">
-              No objective set. Click <span className="font-medium text-[var(--color-text-secondary)]">Set objective</span> to begin.
-            </div>
-          )}
-
-          {objective && (
-            <button
-              onClick={() => void decompose()}
-              disabled={decomposing}
-              className="mt-3 flex items-center gap-1.5 rounded-lg border border-[var(--color-border-tertiary)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:border-[var(--accent)] hover:text-[var(--accent)] disabled:opacity-50"
-            >
-              {decomposing ? (
-                <><span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)] animate-pulse" /> Decomposing…</>
-              ) : (
-                <><svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden><path d="M6 1v4M6 11V7M1 6h4M11 6H7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg> AI decompose into tasks</>
-              )}
-            </button>
-          )}
+          </button>
+          <button
+            onClick={() => void runChain()}
+            disabled={chainable.length === 0}
+            title={chainable.length === 0 ? 'No assigned, incomplete tasks to chain' : 'Run all assigned tasks in chain order'}
+            className="flex shrink-0 items-center gap-1 rounded-lg bg-[var(--accent)] px-2.5 py-1.5 text-xs font-semibold text-white transition hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            ⛓ Run chain
+          </button>
+          <button
+            onClick={() => setConfirmNewSession(true)}
+            className="shrink-0 rounded-lg px-2 py-1.5 text-xs text-[var(--color-text-tertiary)] transition hover:text-[#ef4444]"
+          >
+            New session
+          </button>
         </div>
+        {confirmNewSession && (
+          <div className="mt-2 flex items-center justify-between rounded-lg border border-[#fde68a] bg-[#fffbeb] px-3 py-2">
+            <span className="text-xs text-[#92400e]">Clear? All tasks and results will be lost.</span>
+            <div className="flex shrink-0 gap-2">
+              <button onClick={() => setConfirmNewSession(false)} className="rounded-lg px-2.5 py-1 text-xs font-semibold text-[#92400e] hover:bg-[#fef3c7]">Cancel</button>
+              <button onClick={newSession} className="rounded-lg bg-[#dc2626] px-2.5 py-1 text-xs font-semibold text-white hover:bg-[#b91c1c]">Clear</button>
+            </div>
+          </div>
+        )}
+      </div>
 
-        {/* Tasks */}
-        <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] shadow-sm">
-          <div className="flex items-center justify-between border-b border-[var(--color-border-tertiary)] px-5 py-3">
+      {/* Board + decision log */}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* Task board */}
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-5">
+          <div className="flex items-center justify-between pb-3">
             <div className="flex items-center gap-3">
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">Tasks</div>
               {tasks.length > 0 && (
@@ -346,27 +344,16 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                 </div>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              {tasks.some((t) => t.agent && t.status !== 'done' && !t.running) && (
-                <button
-                  onClick={() => void runChain()}
-                  className="flex items-center gap-1 rounded-lg bg-[var(--accent)] px-2.5 py-1 text-xs font-semibold text-white transition hover:bg-[var(--accent)]"
-                  title="Run all assigned tasks in chain order"
-                >
-                  ⛓ Run chain
-                </button>
-              )}
-              <button
-                onClick={() => setAddingTask(true)}
-                className="flex items-center gap-1 rounded-lg border border-[var(--color-border-tertiary)] px-2.5 py-1 text-xs text-[var(--color-text-secondary)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
-              >
-                + Add task
-              </button>
-            </div>
+            <button
+              onClick={() => setAddingTask(true)}
+              className="flex items-center gap-1 rounded-lg border border-[var(--color-border-tertiary)] px-2.5 py-1 text-xs text-[var(--color-text-secondary)] transition hover:border-[var(--accent)] hover:text-[var(--accent)]"
+            >
+              + Add task
+            </button>
           </div>
 
           {addingTask && (
-            <div className="border-b border-[var(--color-border-tertiary)] px-5 py-3 space-y-2">
+            <div className="mb-3 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] px-4 py-3 space-y-2">
               <input
                 autoFocus
                 className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-sm text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)] placeholder:text-[var(--color-text-tertiary)]"
@@ -383,14 +370,19 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
           )}
 
           {tasks.length === 0 && !addingTask ? (
-            <div className="px-5 py-6 text-center text-sm text-[var(--color-text-tertiary)]">
-              No tasks yet. Set an objective and use <strong className="text-[var(--color-text-secondary)]">AI decompose</strong>, or add tasks manually.
+            <div className="flex flex-1 flex-col items-center justify-center gap-2 text-center text-sm text-[var(--color-text-tertiary)]">
+              <span className="text-xl">⛓</span>
+              <p>No tasks yet. Set an objective above and click <strong className="text-[var(--color-text-secondary)]">AI decompose</strong>, or add tasks manually.</p>
             </div>
           ) : (
-            <div className="divide-y divide-[var(--color-border-tertiary)]">
+            <div className="space-y-2">
               {tasks.map((task) => (
-                <div key={task.id} className="group">
-                  <div className="flex items-center gap-3 px-5 py-3">
+                <div
+                  key={task.id}
+                  className="rounded-xl border bg-[var(--color-background-primary)] shadow-sm"
+                  style={{ borderColor: task.status === 'done' ? 'rgba(34,197,94,0.25)' : task.status === 'doing' ? 'var(--accent-soft)' : 'var(--color-border-tertiary)', opacity: task.status === 'done' ? 0.85 : 1 }}
+                >
+                  <div className="flex items-center gap-3 px-4 py-3">
                     <button
                       onClick={() => cycleStatus(task.id)}
                       className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold transition ${STATUS_STYLE[task.status]}`}
@@ -410,7 +402,7 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                     <select
                       value={task.agent ?? ''}
                       onChange={(e) => e.target.value && assignAgent(task.id, e.target.value)}
-                      className="rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-2 py-1 text-[10px] text-[var(--color-text-secondary)] outline-none opacity-0 group-hover:opacity-100 transition"
+                      className="rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-2 py-1 text-[10px] text-[var(--color-text-secondary)] outline-none"
                       title="Assign agent"
                     >
                       <option value="">Assign…</option>
@@ -424,7 +416,7 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                       <select
                         value={task.inputFrom ?? ''}
                         onChange={(e) => setInputFrom(task.id, e.target.value || undefined)}
-                        className="shrink-0 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-secondary)] opacity-0 group-hover:opacity-100 transition"
+                        className="shrink-0 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-secondary)]"
                         title="Chain input from a prior task result"
                       >
                         <option value="">chain from…</option>
@@ -436,33 +428,38 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                     {task.inputFrom && (
                       <span className="shrink-0 rounded-full bg-[rgba(16,185,129,0.10)] px-2 py-0.5 text-[10px] text-[#059669]" title="Chains from prior task">⛓</span>
                     )}
-                    {task.agent && !task.running && task.status !== 'done' && (
-                      <button
-                        onClick={() => void runTask(task)}
-                        className="shrink-0 rounded-lg bg-[var(--accent)] px-2.5 py-1 text-[10px] font-semibold text-white opacity-0 group-hover:opacity-100 transition hover:bg-[var(--accent)]"
-                        title={`Run with ${task.agent}`}
-                      >
-                        Run
-                      </button>
-                    )}
+                    <button
+                      onClick={() => void runTask(task)}
+                      disabled={!task.agent || task.running}
+                      className="shrink-0 rounded-lg px-2.5 py-1 text-[10px] font-semibold transition disabled:cursor-not-allowed"
+                      style={{
+                        background: task.running ? 'var(--color-background-secondary)' : task.agent ? 'var(--accent)' : 'var(--color-background-secondary)',
+                        color: task.running ? 'var(--color-text-tertiary)' : task.agent ? '#fff' : 'var(--color-text-tertiary)',
+                        opacity: task.agent ? 1 : 0.5,
+                      }}
+                    >
+                      {task.status === 'done' ? '↺ Re-run' : '▶ Run'}
+                    </button>
                     <button
                       onClick={() => removeTask(task.id)}
-                      className="shrink-0 text-[var(--color-text-tertiary)] opacity-0 group-hover:opacity-100 transition hover:text-[#ef4444]"
+                      className="shrink-0 text-[var(--color-text-tertiary)] transition hover:text-[#ef4444]"
                     >
                       <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
                         <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/>
                       </svg>
                     </button>
                   </div>
-                  {/* Agent result */}
+                  {/* Agent result — sunken, scrollable panel */}
                   {task.result && (
-                    <div className="border-t border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-5 py-3">
+                    <div className="border-t px-4 py-3" style={{ borderColor: 'var(--color-border-tertiary)', background: 'var(--color-background-secondary)' }}>
                       <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold text-[var(--accent)]">
                         <span className="h-1.5 w-1.5 rounded-full bg-[var(--accent)]" />
                         {task.agent}
                         {task.running && <span className="animate-pulse">…</span>}
                       </div>
-                      <p className="whitespace-pre-wrap text-xs leading-5 text-[var(--color-text-primary)]">{task.result}</p>
+                      <div className="max-h-[180px] overflow-y-auto">
+                        <p className="whitespace-pre-wrap text-xs leading-5 text-[var(--color-text-primary)]">{task.result}</p>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -471,23 +468,35 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
           )}
         </div>
 
-        {/* Decisions log */}
-        {decisions.length > 0 && (
-          <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">Decision log</div>
-            <div className="mt-3 space-y-2">
-              {decisions.map((d) => (
-                <div key={d.id} className="flex items-start gap-2.5">
-                  <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
-                  <div>
-                    <p className="text-xs text-[var(--color-text-primary)]">{d.text}</p>
-                    <p className="text-[10px] text-[var(--color-text-tertiary)]">{new Date(d.createdAt).toLocaleTimeString()}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
+        {/* Decision log — persistent 240px right rail */}
+        <div className="flex w-[240px] shrink-0 flex-col border-l border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)]">
+          <div className="flex items-center justify-between border-b border-[var(--color-border-tertiary)] px-4 py-3">
+            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">Decision log</span>
+            {decisions.length > 0 && (
+              <span className="rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--accent)]">{decisions.length}</span>
+            )}
           </div>
-        )}
+          <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+            {decisions.length === 0 ? (
+              <p className="text-xs text-[var(--color-text-tertiary)]">No decisions logged yet — setting an objective, decomposing, assigning, or completing a task all append here.</p>
+            ) : (
+              <div className="space-y-3">
+                {decisions.map((d) => (
+                  <div key={d.id} className="flex items-start gap-2">
+                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--accent)]" />
+                    <div>
+                      <p className="text-xs leading-4 text-[var(--color-text-primary)]">{d.text}</p>
+                      <p className="text-[10px] text-[var(--color-text-tertiary)]">{timeAgo(d.createdAt)}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="border-t border-[var(--color-border-tertiary)] px-4 py-2 text-[9.5px] leading-4 text-[var(--color-text-tertiary)]">
+            One session at a time. Results are ephemeral — nothing here is saved to the knowledge graph.
+          </div>
+        </div>
       </div>
     </div>
   )
