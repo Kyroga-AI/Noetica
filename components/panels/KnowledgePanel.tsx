@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { amUrl } from '@/lib/tauri/bridge'
 import { useUiStore, type KnowledgeFilter } from '@/lib/store/uiStore'
+import { SurfaceGraph, type GraphNode, type GraphLink } from '@/components/graph/SurfaceGraph'
 
 interface GraphHealth {
   status: 'healthy' | 'degraded' | 'unknown'
@@ -82,6 +83,22 @@ export function KnowledgePanel({
     return () => { cancelled = true }
   }, [])
 
+  const [graphNodes, setGraphNodes] = useState<GraphNode[]>([])
+  const [graphLinks, setGraphLinks] = useState<GraphLink[]>([])
+
+  const loadGraph = useCallback(async () => {
+    try {
+      const r = await fetch(amUrl('/api/graph/surface?limit=40'))
+      if (r.ok) {
+        const j = (await r.json()) as { nodes?: GraphNode[]; links?: GraphLink[] }
+        setGraphNodes(j.nodes ?? [])
+        setGraphLinks(j.links ?? [])
+      }
+    } catch { /* offline */ }
+  }, [])
+
+  useEffect(() => { void loadGraph() }, [loadGraph])
+
   const healthPct = kHealth ? Math.round(kHealth.score * 100) : null
   const topConcepts = insights?.topImportant ?? []
   const bridgeConcepts = insights?.topBridges ?? []
@@ -142,6 +159,25 @@ export function KnowledgePanel({
           </div>
         </div>
       )}
+
+      {/* Mini graph */}
+      <div className="mx-3.5 mt-3" style={{ height: 260, borderRadius: 12, overflow: 'hidden', border: '1px solid var(--line-soft)', background: 'var(--paper-sunk)', position: 'relative', flexShrink: 0 }}>
+        {graphNodes.length > 0 ? (
+          <SurfaceGraph nodes={graphNodes} links={graphLinks} fill layout="force" />
+        ) : (
+          <div className="flex h-full items-center justify-center">
+            <span className="text-[11px]" style={{ color: 'var(--ink3)' }}>Loading graph&hellip;</span>
+          </div>
+        )}
+        <div style={{ position: 'absolute', bottom: 8, right: 10 }}>
+          <button
+            onClick={() => openSurface('kg')}
+            style={{ padding: '4px 10px', borderRadius: 8, background: 'var(--paper)', border: '1px solid var(--line)', fontSize: '10.5px', fontWeight: 700, color: 'var(--ink2)', cursor: 'pointer' }}
+          >
+            Open full graph →
+          </button>
+        </div>
+      </div>
 
       {/* Key concepts word cloud */}
       {(topConcepts.length > 0 || bridgeConcepts.length > 0) && (
@@ -207,11 +243,7 @@ export function KnowledgePanel({
         )}
       </div>
 
-      <div className="mx-3.5 my-3">
-        <button onClick={() => openSurface('kg')} className="text-[11.5px] font-semibold" style={{ color: 'var(--accent)' }}>
-          Open full Knowledge Graph →
-        </button>
-      </div>
+      <div className="mx-3.5 my-3" />
     </div>
   )
 }
