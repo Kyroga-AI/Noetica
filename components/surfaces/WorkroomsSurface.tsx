@@ -43,8 +43,24 @@ function avatarColor(name: string): string {
   for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff
   return AVATAR_COLORS[hash % AVATAR_COLORS.length]
 }
+function avatarColorRaw(name: string): string {
+  const colors = ['var(--accent)', '#7c3aed', '#0891b2', '#059669', '#d97706', '#dc2626']
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) & 0xffff
+  return colors[hash % colors.length]
+}
 function initials(name: string): string {
   return name.split(' ').map((w) => w[0]).join('').slice(0, 2).toUpperCase()
+}
+
+// Random word list for Jitsi room names
+const RANDOM_WORDS = [
+  'alpha', 'bravo', 'cedar', 'delta', 'ember', 'frost', 'grove', 'haven',
+  'ivory', 'jewel', 'karma', 'lunar', 'maple', 'noble', 'orbit', 'pearl',
+  'quartz', 'river', 'solar', 'terra', 'unity', 'vivid', 'waves', 'xenon',
+]
+function randomWord(): string {
+  return RANDOM_WORDS[Math.floor(Math.random() * RANDOM_WORDS.length)]
 }
 
 // ─── Dispatchable agents: the 5 built-in archetypes + custom agents from Agent Builder ────
@@ -78,22 +94,22 @@ function RoomListItem({ room, active, onClick }: { room: Workroom; active: boole
   const last = room.messages[room.messages.length - 1]
   return (
     <button onClick={onClick}
-      className={`flex w-full flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left transition ${active ? 'bg-[var(--accent-soft)]' : 'hover:bg-[var(--color-background-tertiary)]'}`}>
-      <div className="flex items-center gap-1.5">
-        {room.pinned && <span className="text-[10px] text-[#f59e0b]">★</span>}
-        <span className={`truncate text-sm font-medium ${active ? 'text-[var(--accent)]' : 'text-[var(--color-text-primary)]'}`}>
+      className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-left transition ${active ? 'bg-[var(--accent-soft)]' : 'hover:bg-[var(--color-background-tertiary)]'}`}>
+      {/* Room avatar */}
+      <div
+        className="flex h-7 w-7 shrink-0 items-center justify-center rounded-[8px] text-[11px] font-bold text-white"
+        style={{ backgroundColor: avatarColorRaw(room.name) }}
+      >
+        {room.name.charAt(0).toUpperCase()}
+      </div>
+      {/* Text column */}
+      <div className="min-w-0 flex-1">
+        <span className={`block truncate text-sm font-medium ${active ? 'text-[var(--accent)]' : 'text-[var(--color-text-primary)]'}`}>
           {room.name}
         </span>
-        <span className="ml-auto shrink-0 text-[10px] text-[#cbd5e1]">{timeAgo(room.updatedAt)}</span>
-      </div>
-      <p className="truncate text-xs text-[var(--color-text-tertiary)]">
-        {last ? `${last.participantName}: ${last.content.slice(0, 45)}` : room.description || 'No messages yet'}
-      </p>
-      <div className="flex items-center gap-1 text-[10px] text-[var(--color-text-tertiary)]">
-        <span>{room.participants.length} participant{room.participants.length !== 1 ? 's' : ''}</span>
-        {room.dispatches.length > 0 && (
-          <span>· {room.dispatches.filter((d) => d.status === 'done').length}/{room.dispatches.length} dispatches</span>
-        )}
+        <p className="truncate text-xs text-[var(--color-text-tertiary)]">
+          {last ? `${last.participantName}: ${last.content.slice(0, 45)}` : room.description || 'No messages yet'}
+        </p>
       </div>
     </button>
   )
@@ -169,9 +185,6 @@ function AgentDispatchPanel({ room, agents, onDispatch }: {
   const [selectedAgents, setSelectedAgents] = useState<Set<string>>(new Set())
   const [task, setTask] = useState('')
 
-  const activeAgentIds = room.participants.filter((p) => p.kind === 'agent').map((p) => p.agentId)
-  const inactiveAgents = agents.filter((a) => !activeAgentIds.includes(a.id))
-
   function toggleAgent(agentId: string) {
     setSelectedAgents((prev) => {
       const next = new Set(prev)
@@ -179,10 +192,6 @@ function AgentDispatchPanel({ room, agents, onDispatch }: {
       else next.add(agentId)
       return next
     })
-  }
-
-  function selectAll() {
-    setSelectedAgents(new Set(activeAgentIds.filter((id): id is string => !!id)))
   }
 
   function handleDispatch() {
@@ -205,142 +214,52 @@ function AgentDispatchPanel({ room, agents, onDispatch }: {
     : 'Select agents above'
 
   return (
-    <div className="flex w-72 shrink-0 flex-col border-l border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
+    <div className="flex w-[250px] shrink-0 flex-col border-l border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
       {/* Header */}
       <div className="border-b border-[var(--color-border-secondary)] px-4 py-3">
-        <div className="flex items-center justify-between">
-          <p className="text-xs font-semibold text-[var(--color-text-primary)]">Agent Dispatch</p>
-          {activeAgentIds.length > 1 && (
-            <button onClick={selectAll}
-              className="text-[10px] font-semibold text-[var(--accent)] hover:underline">
-              Select all
-            </button>
-          )}
-        </div>
-        <p className="text-[11px] text-[var(--color-text-tertiary)]">
-          {selectedAgents.size === 0 ? 'Pick one or more agents, then describe the task' : `${selectedAgents.size} agent${selectedAgents.size !== 1 ? 's' : ''} selected`}
-        </p>
+        <p className="text-xs font-semibold text-[var(--color-text-primary)]">Dispatch agents</p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 space-y-4">
-        {/* Active agents — multi-select checkboxes */}
-        {room.participants.filter((p) => p.kind === 'agent').length > 0 && (
-          <div className="space-y-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">In this room</p>
-            {room.participants.filter((p) => p.kind === 'agent').map((p) => {
-              const arch = agents.find((a) => a.id === p.agentId)
-              const isSelected = p.agentId ? selectedAgents.has(p.agentId) : false
-              return (
-                <button key={p.id} onClick={() => p.agentId && toggleAgent(p.agentId)}
-                  className={`flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-left transition ${
-                    isSelected ? 'border-[var(--accent)] bg-[var(--accent-soft)]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] hover:border-[var(--accent)]'
-                  }`}>
-                  {/* Checkbox */}
-                  <div className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition ${
-                    isSelected ? 'border-[var(--accent)] bg-[var(--accent)]' : 'border-[#cbd5e1] bg-transparent'
-                  }`}>
-                    {isSelected && (
-                      <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden>
-                        <path d="M1.5 4.5l2 2 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    )}
-                  </div>
-                  <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${arch?.color ?? 'bg-[#64748b]'}`}>
-                    {initials(p.name)}
-                  </div>
-                  <div>
-                    <p className="text-xs font-semibold text-[var(--color-text-primary)]">{p.name}</p>
-                    {arch && <p className="text-[11px] text-[var(--color-text-secondary)]">{arch.description}</p>}
-                  </div>
-                </button>
-              )
-            })}
-          </div>
-        )}
-
-        {/* Available agents to add */}
-        {inactiveAgents.length > 0 && (
-          <div className="space-y-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Available agents</p>
-            {agents.map((arch) => {
-              const isActive = activeAgentIds.includes(arch.id)
-              const isSelected = selectedAgents.has(arch.id)
-              return (
-                <div key={arch.id}
-                  className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 ${isActive ? 'border-[#dcfce7] bg-[#f0fdf4]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]'}`}>
-                  <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${arch.color}`}>
-                    {initials(arch.name)}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-semibold text-[var(--color-text-primary)]">{arch.name}</p>
-                    <div className="mt-0.5 flex flex-wrap gap-1">
-                      {arch.tags.map((t) => (
-                        <span key={t} className="rounded-full bg-[var(--color-background-tertiary)] px-1.5 text-[10px] text-[var(--color-text-secondary)]">{t}</span>
-                      ))}
-                    </div>
-                  </div>
-                  {isActive ? (
-                    <span className="shrink-0 text-[10px] font-semibold text-[#22c55e]">Active</span>
-                  ) : (
-                    <button onClick={() => toggleAgent(arch.id)}
-                      className={`shrink-0 rounded-lg border px-2 py-1 text-[10px] font-semibold transition ${
-                        isSelected ? 'border-[var(--accent)] bg-[var(--accent)] text-white' : 'border-[var(--accent)] bg-[var(--accent-soft)] text-[var(--accent)] hover:bg-[var(--accent-soft)]'
-                      }`}>
-                      {isSelected ? 'Selected' : 'Use'}
-                    </button>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-        )}
-
-        {/* Dispatch history */}
-        {room.dispatches.length > 0 && (
-          <div className="space-y-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Recent dispatches</p>
-            {[...room.dispatches].reverse().slice(0, 5).map((d) => (
-              <div key={d.id} className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-xs">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-semibold text-[var(--color-text-primary)]">{d.agentName}</span>
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                    d.status === 'done'    ? 'bg-[#dcfce7] text-[#166534]' :
-                    d.status === 'running' ? 'bg-[#fef9c3] text-[#854d0e] animate-pulse' :
-                    'bg-[#fee2e2] text-[#991b1b]'
-                  }`}>{d.status}</span>
-                </div>
-                <p className="mt-0.5 text-[var(--color-text-secondary)] line-clamp-2">{d.task}</p>
-                <p className="mt-0.5 text-[10px] text-[#cbd5e1]">{timeAgo(d.dispatchedAt)}</p>
+      <div className="flex-1 overflow-y-auto p-3 space-y-1.5">
+        {/* Flat agent list */}
+        {agents.map((arch) => {
+          const isSelected = selectedAgents.has(arch.id)
+          return (
+            <button key={arch.id} onClick={() => toggleAgent(arch.id)}
+              className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left transition ${
+                isSelected ? 'bg-[var(--accent-soft)]' : 'hover:bg-[var(--color-background-tertiary)]'
+              }`}>
+              {/* Small colored dot */}
+              <span
+                className="h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: arch.color.startsWith('bg-[') ? arch.color.slice(4, -1) : undefined }}
+              />
+              {/* Name + description */}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-medium text-[var(--color-text-primary)]">{arch.name}</p>
+                <p className="truncate text-[11px] text-[var(--color-text-tertiary)]">{arch.description}</p>
               </div>
-            ))}
-          </div>
-        )}
+              {/* Checkbox */}
+              <div className={`flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border transition ${
+                isSelected ? 'border-[var(--accent)] bg-[var(--accent)]' : 'border-[#cbd5e1] bg-transparent'
+              }`}>
+                {isSelected && (
+                  <svg width="8" height="8" viewBox="0 0 9 9" fill="none" aria-hidden>
+                    <path d="M1.5 4.5l2 2 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                )}
+              </div>
+            </button>
+          )
+        })}
       </div>
 
       {/* Dispatch form — always visible */}
       <div className="border-t border-[var(--color-border-secondary)] p-3 space-y-2">
-        {selectedAgents.size > 0 && (
-          <div className="flex flex-wrap gap-1">
-            {[...selectedAgents].map((id) => {
-              const arch = agents.find((a) => a.id === id)
-              if (!arch) return null
-              return (
-                <span key={id} className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white ${arch.color}`}>
-                  {arch.name}
-                  <button onClick={() => toggleAgent(id)} className="opacity-70 hover:opacity-100" aria-label={`Remove ${arch.name}`}>
-                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
-                      <path d="M1 1l6 6M7 1L1 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                    </svg>
-                  </button>
-                </span>
-              )
-            })}
-          </div>
-        )}
         <textarea
-          className="w-full resize-none rounded-xl border border-[var(--accent)] bg-[var(--color-background-primary)] px-3 py-2 text-xs leading-5 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--accent)]"
-          placeholder="Describe the task…"
-          rows={3}
+          className="w-full resize-none rounded-[9px] border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs leading-5 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--accent)]"
+          placeholder="Describe the task for selected agents..."
+          rows={4}
           value={task}
           onChange={(e) => setTask(e.target.value)}
           onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleDispatch() }}
@@ -350,6 +269,9 @@ function AgentDispatchPanel({ room, agents, onDispatch }: {
           className="w-full rounded-xl bg-[var(--accent)] py-2 text-xs font-semibold text-white transition hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40">
           {dispatchLabel}
         </button>
+        <p className="text-[10px] leading-[14px] text-[var(--color-text-tertiary)]">
+          Selected agents each get a parallel, independent request — they see the last 20 room messages as context.
+        </p>
       </div>
     </div>
   )
@@ -513,30 +435,37 @@ function RoomView({ room, agents, thinkingBudget, onAppendMessage, onUpdateMessa
       <div className="flex min-h-0 flex-1 flex-col">
         {/* Room header */}
         <div className="flex items-center gap-3 border-b border-[var(--color-border-secondary)] px-6 py-3">
+          {/* Room avatar in header */}
+          <div
+            className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-[8px] text-[12px] font-bold text-white"
+            style={{ backgroundColor: avatarColorRaw(room.name) }}
+          >
+            {room.name.charAt(0).toUpperCase()}
+          </div>
           <div>
             <p className="text-sm font-semibold text-[var(--color-text-primary)]">{room.name}</p>
-            <p className="text-xs text-[var(--color-text-tertiary)]">
-              {room.participants.length} participant{room.participants.length !== 1 ? 's' : ''}
-              {room.description ? ` · ${room.description}` : ''}
-            </p>
+            {room.description && (
+              <p className="text-xs text-[var(--color-text-tertiary)]">{room.description}</p>
+            )}
           </div>
-          {/* Participant avatars */}
-          <div className="ml-auto flex -space-x-1.5">
-            {room.participants.slice(0, 5).map((p) => {
-              const arch = p.kind === 'agent' ? agents.find((a) => a.id === p.agentId) : null
-              return (
-                <div key={p.id} title={p.name}
-                  className={`flex h-7 w-7 items-center justify-center rounded-full border-2 border-white text-[10px] font-bold text-white ${arch?.color ?? avatarColor(p.name)}`}>
-                  {initials(p.name)}
-                </div>
-              )
-            })}
+          {/* Participant count pill */}
+          <div className="ml-auto shrink-0 rounded-full border border-[var(--color-border-secondary)] px-2.5 py-0.5 text-[11px] font-medium text-[var(--color-text-secondary)]">
+            {room.participants.length} participant{room.participants.length !== 1 ? 's' : ''}
           </div>
         </div>
 
         {/* Messages */}
         <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
-          {room.messages.map((msg) => <MessageRow key={msg.id} msg={msg} agents={agents} />)}
+          {room.messages.length === 0 ? (
+            <div className="flex flex-1 flex-col items-center justify-center py-20 text-center">
+              <span className="text-[40px]">💬</span>
+              <p className="mt-3 text-sm text-[var(--color-text-tertiary)]">
+                Room is open. Chat freely, or dispatch agents from the panel →
+              </p>
+            </div>
+          ) : (
+            room.messages.map((msg) => <MessageRow key={msg.id} msg={msg} agents={agents} />)
+          )}
           <div ref={bottomRef} />
         </div>
 
@@ -545,17 +474,17 @@ function RoomView({ room, agents, thinkingBudget, onAppendMessage, onUpdateMessa
           <div className="flex items-end gap-3 rounded-2xl border border-[var(--accent)] bg-[var(--color-background-primary)] px-4 py-3 shadow-sm">
             <textarea
               className="min-h-[2.5rem] flex-1 resize-none bg-transparent text-sm leading-6 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
-              placeholder="Send a message to the workroom… (⌘ + Enter)"
+              placeholder="Write something to the room... (agents don't reply unless dispatched)"
               value={input}
               disabled={sending}
               onChange={(e) => setInput(e.target.value)}
-              rows={1}
+              rows={2}
               onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void sendChat() }}
             />
             <button onClick={() => void sendChat()}
               disabled={!input.trim() || sending}
               className="shrink-0 rounded-xl bg-[var(--accent)] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-50">
-              {sending ? '…' : 'Send'}
+              {sending ? '...' : 'Send'}
             </button>
           </div>
         </div>
@@ -719,21 +648,62 @@ function NewRoomForm({ onCreate, onCancel }: { onCreate: (name: string, desc: st
   )
 }
 
-// ─── Empty state ──────────────────────────────────────────────────────────────
+// ─── Video tab content ───────────────────────────────────────────────────────
 
-function EmptyState({ onCreate }: { onCreate: () => void }) {
+function VideoTabContent() {
+  const [roomName, setRoomName] = useState('')
+
+  function generateRandom() {
+    setRoomName(`noetica-${randomWord()}-${randomWord()}`)
+  }
+
+  function joinCall() {
+    if (!roomName.trim()) return
+    window.open(`https://meet.jit.si/${roomName.trim()}`, '_blank')
+  }
+
   return (
-    <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
-      <div className="rounded-2xl border border-dashed border-[var(--accent)] bg-[var(--accent-soft)] p-10 max-w-sm">
-        <p className="text-sm font-semibold text-[var(--color-text-secondary)]">No workroom selected</p>
-        <p className="mt-1 text-xs text-[var(--color-text-secondary)]">
-          Workrooms are persistent collaboration spaces where you and specialist agents work together on tasks.
+    <div className="flex flex-1 items-center justify-center">
+      <div className="w-full max-w-sm rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-8 text-center shadow-sm">
+        <span className="text-[56px] leading-none">📷</span>
+        <h2 className="mt-4 text-lg font-semibold text-[var(--color-text-primary)]">Video call</h2>
+        <p className="mt-2 text-sm text-[var(--color-text-secondary)]">
+          Start or join a video call powered by Jitsi Meet. Enter a room name or generate a random one.
         </p>
-        <button onClick={onCreate}
-          className="mt-4 rounded-xl bg-[var(--accent)] px-5 py-2 text-sm font-semibold text-white transition hover:bg-[var(--accent)]">
-          New workroom
+        <div className="mt-5 flex items-center gap-2">
+          <input
+            className="flex-1 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--accent)]"
+            placeholder="Room name"
+            value={roomName}
+            onChange={(e) => setRoomName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') joinCall() }}
+          />
+          <button
+            onClick={generateRandom}
+            className="shrink-0 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-xs font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-tertiary)]"
+          >
+            Random
+          </button>
+        </div>
+        <button
+          onClick={joinCall}
+          disabled={!roomName.trim()}
+          className="mt-4 w-full rounded-xl bg-[var(--accent)] py-2.5 text-sm font-semibold text-white transition hover:bg-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Join call
         </button>
       </div>
+    </div>
+  )
+}
+
+// ─── Empty state ──────────────────────────────────────────────────────────────
+
+function EmptyState() {
+  return (
+    <div className="flex flex-1 flex-col items-center justify-center gap-3 text-center">
+      <span className="text-[40px]">🏠</span>
+      <p className="text-sm text-[var(--color-text-tertiary)]">Select or create a room to get started</p>
     </div>
   )
 }
@@ -749,7 +719,7 @@ export function WorkroomsSurface({ thinkingBudget }: { thinkingBudget?: number }
   const { store } = useConnectorAuth()
   const [active, setActive] = useState<ActiveView | null>(null)
   const [showNew, setShowNew] = useState(false)
-  const [search, setSearch] = useState('')
+  const [activeTab, setActiveTab] = useState<'workrooms' | 'video'>('workrooms')
 
   // Dispatchable roster: the 5 built-in archetypes + any custom agents from Agent Builder,
   // so an agent built there is usable in Workrooms too (previously only the 5 hardcoded
@@ -786,12 +756,7 @@ export function WorkroomsSurface({ thinkingBudget }: { thinkingBudget?: number }
     : null
   const activeSlackChannel = active?.kind === 'slack' ? active.channel : null
 
-  const filtered = search.trim()
-    ? workrooms.filter((r) =>
-        r.name.toLowerCase().includes(search.toLowerCase()) ||
-        r.description.toLowerCase().includes(search.toLowerCase())
-      )
-    : workrooms
+  const filtered = workrooms
 
   function handleCreate(name: string, desc: string) {
     const room = createWorkroom(name, desc)
@@ -812,121 +777,147 @@ export function WorkroomsSurface({ thinkingBudget }: { thinkingBudget?: number }
     : null
 
   return (
-    <div className="flex min-h-0 flex-1 overflow-hidden">
-      {/* ── Room list ── */}
-      <aside className="flex w-56 shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[#eaf1f8]">
-        <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-3 py-3">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">Workrooms</span>
-          <button onClick={() => setShowNew(true)} title="New workroom"
-            className="flex h-6 w-6 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[var(--accent)]">
-            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
-              <path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-          </button>
-        </div>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      {/* ── Tab bar ── */}
+      <div className="flex shrink-0 border-b border-[var(--color-border-secondary)]">
+        <button
+          onClick={() => setActiveTab('workrooms')}
+          className={`px-5 py-2.5 text-sm transition ${
+            activeTab === 'workrooms'
+              ? 'border-b-2 border-[var(--accent)] font-bold text-[var(--accent)]'
+              : 'font-normal text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
+          }`}
+        >
+          Workrooms
+        </button>
+        <button
+          onClick={() => setActiveTab('video')}
+          className={`px-5 py-2.5 text-sm transition ${
+            activeTab === 'video'
+              ? 'border-b-2 border-[var(--accent)] font-bold text-[var(--accent)]'
+              : 'font-normal text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
+          }`}
+        >
+          Video
+        </button>
+      </div>
 
-        <div className="px-3 py-2">
-          <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5 text-xs outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--accent)]"
-            placeholder="Search rooms…" value={search} onChange={(e) => setSearch(e.target.value)} />
-        </div>
-
-        <div className="flex-1 overflow-y-auto">
-          {/* Local workrooms */}
-          <div className="px-2 py-1 space-y-0.5">
-            {!hydrated && <p className="py-4 text-center text-xs text-[var(--color-text-tertiary)]">Loading…</p>}
-            {hydrated && showNew && (
-              <div className="p-2">
-                <NewRoomForm onCreate={handleCreate} onCancel={() => setShowNew(false)} />
-              </div>
-            )}
-            {hydrated && filtered.length === 0 && !showNew && (
-              <p className="px-2 py-4 text-center text-xs text-[var(--color-text-tertiary)]">{search ? 'No matches' : 'No workrooms yet'}</p>
-            )}
-            {filtered.map((room) => (
-              <RoomListItem key={room.id} room={room}
-                active={active?.kind === 'workroom' && active.id === room.id}
-                onClick={() => setActive({ kind: 'workroom', id: room.id })} />
-            ))}
-          </div>
-
-          {/* Slack channels section */}
-          {slackConnected && (
-            <div className="mt-2">
-              <button
-                onClick={() => setSlackExpanded((v) => !v)}
-                className="flex w-full items-center gap-1.5 border-t border-[var(--color-border-secondary)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7c3aed] transition hover:bg-[var(--color-background-secondary)]"
-              >
-                <svg width="8" height="8" viewBox="0 0 8 8" fill="none" className={`transition-transform ${slackExpanded ? 'rotate-90' : ''}`} aria-hidden>
-                  <path d="M2 1l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+      {/* ── Tab content ── */}
+      {activeTab === 'video' ? (
+        <VideoTabContent />
+      ) : (
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          {/* ── Room list ── */}
+          <aside className="flex w-[210px] shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
+            <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-3 py-3">
+              <span className="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">Rooms</span>
+              <button onClick={() => setShowNew(true)} title="New workroom"
+                className="flex h-[22px] w-[22px] items-center justify-center rounded-[6px] bg-[var(--accent)] text-white transition hover:opacity-90">
+                <svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden>
+                  <path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
                 </svg>
-                Slack
-                {slackAuth?.userInfo?.name && <span className="ml-auto font-normal normal-case tracking-normal text-[var(--color-text-tertiary)]">{slackAuth.userInfo.name}</span>}
               </button>
-              {slackExpanded && (
-                <div className="px-2 pb-1 space-y-0.5">
-                  {slackLoading ? (
-                    <p className="py-2 text-center text-[10px] text-[var(--color-text-tertiary)]">Loading channels…</p>
-                  ) : slackChannels.length === 0 ? (
-                    <p className="px-2 py-2 text-[10px] text-[var(--color-text-tertiary)]">No channels found.<br/>Invite the app to channels in Slack.</p>
-                  ) : (
-                    slackChannels.map((ch) => {
-                      const isActive = active?.kind === 'slack' && active.channel.id === ch.id
-                      return (
-                        <button key={ch.id}
-                          onClick={() => setActive({ kind: 'slack', channel: ch })}
-                          className={`flex w-full items-center gap-1.5 rounded-xl px-3 py-2 text-left transition ${isActive ? 'bg-[#ede9fe]' : 'hover:bg-[var(--color-background-tertiary)]'}`}>
-                          <span className={`shrink-0 text-xs ${isActive ? 'text-[#7c3aed]' : 'text-[var(--color-text-tertiary)]'}`}>
-                            {ch.isPrivate ? '🔒' : '#'}
-                          </span>
-                          <span className={`truncate text-xs font-medium ${isActive ? 'text-[#7c3aed]' : 'text-[var(--color-text-primary)]'}`}>
-                            {ch.name}
-                          </span>
-                          {(ch.unreadCount ?? 0) > 0 && (
-                            <span className="ml-auto shrink-0 rounded-full bg-[#7c3aed] px-1.5 py-0.5 text-[9px] font-bold text-white">
-                              {ch.unreadCount}
-                            </span>
-                          )}
-                        </button>
-                      )
-                    })
+            </div>
+
+            <div className="flex-1 overflow-y-auto">
+              {/* Local workrooms */}
+              <div className="px-2 py-1 space-y-0.5">
+                {!hydrated && <p className="py-4 text-center text-xs text-[var(--color-text-tertiary)]">Loading...</p>}
+                {hydrated && showNew && (
+                  <div className="p-2">
+                    <NewRoomForm onCreate={handleCreate} onCancel={() => setShowNew(false)} />
+                  </div>
+                )}
+                {hydrated && filtered.length === 0 && !showNew && (
+                  <p className="px-2 py-4 text-center text-xs text-[var(--color-text-tertiary)]">Create your first room</p>
+                )}
+                {filtered.map((room) => (
+                  <RoomListItem key={room.id} room={room}
+                    active={active?.kind === 'workroom' && active.id === room.id}
+                    onClick={() => setActive({ kind: 'workroom', id: room.id })} />
+                ))}
+              </div>
+
+              {/* Slack channels section */}
+              {slackConnected && (
+                <div className="mt-2">
+                  <button
+                    onClick={() => setSlackExpanded((v) => !v)}
+                    className="flex w-full items-center gap-1.5 border-t border-[var(--color-border-secondary)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7c3aed] transition hover:bg-[var(--color-background-secondary)]"
+                  >
+                    <svg width="8" height="8" viewBox="0 0 8 8" fill="none" className={`transition-transform ${slackExpanded ? 'rotate-90' : ''}`} aria-hidden>
+                      <path d="M2 1l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
+                    Slack
+                    {slackAuth?.userInfo?.name && <span className="ml-auto font-normal normal-case tracking-normal text-[var(--color-text-tertiary)]">{slackAuth.userInfo.name}</span>}
+                  </button>
+                  {slackExpanded && (
+                    <div className="px-2 pb-1 space-y-0.5">
+                      {slackLoading ? (
+                        <p className="py-2 text-center text-[10px] text-[var(--color-text-tertiary)]">Loading channels...</p>
+                      ) : slackChannels.length === 0 ? (
+                        <p className="px-2 py-2 text-[10px] text-[var(--color-text-tertiary)]">No channels found.<br/>Invite the app to channels in Slack.</p>
+                      ) : (
+                        slackChannels.map((ch) => {
+                          const isActive = active?.kind === 'slack' && active.channel.id === ch.id
+                          return (
+                            <button key={ch.id}
+                              onClick={() => setActive({ kind: 'slack', channel: ch })}
+                              className={`flex w-full items-center gap-1.5 rounded-xl px-3 py-2 text-left transition ${isActive ? 'bg-[#ede9fe]' : 'hover:bg-[var(--color-background-tertiary)]'}`}>
+                              <span className={`shrink-0 text-xs ${isActive ? 'text-[#7c3aed]' : 'text-[var(--color-text-tertiary)]'}`}>
+                                {ch.isPrivate ? '🔒' : '#'}
+                              </span>
+                              <span className={`truncate text-xs font-medium ${isActive ? 'text-[#7c3aed]' : 'text-[var(--color-text-primary)]'}`}>
+                                {ch.name}
+                              </span>
+                              {(ch.unreadCount ?? 0) > 0 && (
+                                <span className="ml-auto shrink-0 rounded-full bg-[#7c3aed] px-1.5 py-0.5 text-[9px] font-bold text-white">
+                                  {ch.unreadCount}
+                                </span>
+                              )}
+                            </button>
+                          )
+                        })
+                      )}
+                    </div>
                   )}
                 </div>
               )}
-            </div>
-          )}
 
-          {!slackConnected && (
-            <div className="border-t border-[var(--color-border-secondary)] px-3 py-2.5">
-              <p className="text-[10px] text-[var(--color-text-tertiary)]">
-                Connect Slack in Settings → Connections to see channels here.
-              </p>
+              {!slackConnected && (
+                <div className="border-t border-[var(--color-border-secondary)] px-3 py-2.5">
+                  <p className="text-[10px] text-[var(--color-text-tertiary)]">
+                    Connect Slack in Settings → Connections to see channels here.
+                  </p>
+                </div>
+              )}
             </div>
+
+            {hydrated && workrooms.length > 0 && (
+              <div className="border-t border-[var(--color-border-secondary)] px-3 py-2 text-[10px] text-[var(--color-text-tertiary)]">
+                {workrooms.length} workroom{workrooms.length !== 1 ? 's' : ''}
+                {slackConnected && slackChannels.length > 0 && ` · ${slackChannels.length} Slack`}
+              </div>
+            )}
+          </aside>
+
+          {/* ── Main view ── */}
+          {activeSlackChannel && slackAuth?.accessToken ? (
+            <SlackChannelView channel={activeSlackChannel} token={slackAuth.accessToken} />
+          ) : dedupedRoom ? (
+            <RoomView
+              room={dedupedRoom}
+              agents={agents}
+              thinkingBudget={thinkingBudget}
+              onAppendMessage={(msg) => appendMessage(dedupedRoom.id, msg)}
+              onUpdateMessage={(msgId, patch) => updateMessage(dedupedRoom.id, msgId, patch)}
+              onUpdateDispatch={(dispatch) => updateDispatch(dedupedRoom.id, dispatch)}
+              onAddParticipant={(p) => addParticipant(dedupedRoom.id, p)}
+            />
+          ) : (
+            <EmptyState />
           )}
         </div>
-
-        {hydrated && workrooms.length > 0 && (
-          <div className="border-t border-[var(--color-border-secondary)] px-3 py-2 text-[10px] text-[var(--color-text-tertiary)]">
-            {workrooms.length} workroom{workrooms.length !== 1 ? 's' : ''}
-            {slackConnected && slackChannels.length > 0 && ` · ${slackChannels.length} Slack`}
-          </div>
-        )}
-      </aside>
-
-      {/* ── Main view ── */}
-      {activeSlackChannel && slackAuth?.accessToken ? (
-        <SlackChannelView channel={activeSlackChannel} token={slackAuth.accessToken} />
-      ) : dedupedRoom ? (
-        <RoomView
-          room={dedupedRoom}
-          agents={agents}
-          thinkingBudget={thinkingBudget}
-          onAppendMessage={(msg) => appendMessage(dedupedRoom.id, msg)}
-          onUpdateMessage={(msgId, patch) => updateMessage(dedupedRoom.id, msgId, patch)}
-          onUpdateDispatch={(dispatch) => updateDispatch(dedupedRoom.id, dispatch)}
-          onAddParticipant={(p) => addParticipant(dedupedRoom.id, p)}
-        />
-      ) : (
-        <EmptyState onCreate={() => setShowNew(true)} />
       )}
     </div>
   )
