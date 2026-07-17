@@ -22,9 +22,9 @@ interface FlowMetrics {
 function Stat({ label, value, tone }: { label: string; value: string; tone?: 'good' | 'warn' }) {
   const color = tone === 'good' ? 'var(--color-accent-primary,#16a34a)' : tone === 'warn' ? '#d97706' : 'var(--color-text-primary)'
   return (
-    <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-3">
+    <div className="rounded-[14px] border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-[18px]">
       <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">{label}</div>
-      <div className="mt-1 text-lg font-semibold" style={{ color }}>{value}</div>
+      <div className="mt-1 text-[26px] font-[800] leading-tight" style={{ color }}>{value}</div>
     </div>
   )
 }
@@ -67,10 +67,18 @@ export function FlowAnalytics() {
   const transitions = Object.entries(m.transition_matrix)
     .flatMap(([from, tos]) => Object.entries(tos).map(([to, n]) => ({ from, to, n })))
     .sort((a, b) => b.n - a.n).slice(0, 10)
+  const totalTransitions = transitions.reduce((sum, t) => sum + t.n, 0) || 1
   const latencies = Object.entries(m.avg_latency_ms_by_intent).sort((a, b) => b[1] - a[1])
 
   return (
     <div className="space-y-4">
+      {/* Introductory description */}
+      <p className="text-sm leading-relaxed text-[var(--color-text-secondary)]">
+        Conversational-flow health from the local Agent Machine. Shows how often sessions fall back
+        to a weaker model, how many turns are grounded in retrieved context, and how intents
+        transition across a conversation.
+      </p>
+
       {/* Learned reward policy (the interpretable symbolic fit the bandit optimizes) */}
       {policy?.formula && (
         <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-4">
@@ -91,19 +99,12 @@ export function FlowAnalytics() {
         </div>
       )}
 
-      {/* Headline rates. The design spec calls for 5 metrics (fallback/grounding/avg turns/tool
-          calls/unresolved) — "avg turns" is now a real per-session average rather than a raw
-          turn count. "Tool calls" and "unresolved" aren't in this data model yet (the
-          dialogue-tracker backend doesn't track either), so they're not fabricated here; the
-          extra, real, backend-driven metrics (slot fill/clarify/escalate) stay rather than being
-          dropped just to hit a count. */}
-      <div className="grid grid-cols-3 gap-2 sm:grid-cols-7">
-        <Stat label="Avg turns" value={m.sessions > 0 ? (m.turns / m.sessions).toFixed(1) : String(m.turns)} />
-        <Stat label="Grounding" value={`${Math.round(m.grounding_rate * 100)}%`} tone="good" />
-        <Stat label="Slot fill" value={`${Math.round(m.slot_fill_rate * 100)}%`} tone={m.slot_fill_rate < 0.6 ? 'warn' : 'good'} />
-        <Stat label="Clarify" value={`${Math.round(m.clarify_rate * 100)}%`} tone={m.clarify_rate > 0.3 ? 'warn' : undefined} />
-        <Stat label="Escalate" value={`${Math.round(m.escalation_rate * 100)}%`} tone={m.escalation_rate > 0.3 ? 'warn' : undefined} />
+      {/* Headline rates — 5 cards with larger styling */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         <Stat label="Fallback" value={`${Math.round(m.fallback_rate * 100)}%`} tone={m.fallback_rate > 0.3 ? 'warn' : undefined} />
+        <Stat label="Grounding" value={`${Math.round(m.grounding_rate * 100)}%`} tone="good" />
+        <Stat label="Avg turns" value={m.sessions > 0 ? (m.turns / m.sessions).toFixed(1) : String(m.turns)} />
+        <Stat label="Slot fill" value={`${Math.round(m.slot_fill_rate * 100)}%`} tone={m.slot_fill_rate < 0.6 ? 'warn' : 'good'} />
         <Stat label="Sessions" value={String(m.sessions)} />
       </div>
 
@@ -124,21 +125,31 @@ export function FlowAnalytics() {
           </div>
         </div>
 
-        {/* Top transitions (the conversation flow) */}
+        {/* Top transitions — redesigned with arrow triangles, violet bar, percentage */}
         <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-4">
           <div className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#7c3aed]">Conversation flow (top transitions)</div>
           {transitions.length === 0 ? (
             <div className="text-xs text-[var(--color-text-tertiary)]">Need ≥2 turns in a session to chart transitions.</div>
           ) : (
-            <div className="space-y-1.5">
-              {transitions.map((t) => (
-                <div key={`${t.from}→${t.to}`} className="flex items-center gap-2 text-xs">
-                  <span className="text-[var(--color-text-secondary)]">{t.from.replace(/_/g, ' ')}</span>
-                  <span className="text-[var(--color-text-tertiary)]">→</span>
-                  <span className="text-[var(--color-text-secondary)]">{t.to.replace(/_/g, ' ')}</span>
-                  <span className="ml-auto rounded bg-[var(--color-background-tertiary)] px-1.5 tabular-nums text-[var(--color-text-tertiary)]">×{t.n}</span>
-                </div>
-              ))}
+            <div className="space-y-2.5">
+              {transitions.map((t) => {
+                const pct = Math.round((t.n / totalTransitions) * 100)
+                return (
+                  <div key={`${t.from}→${t.to}`} className="space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs">
+                      <span className="font-medium text-[var(--color-text-primary)]">{t.from.replace(/_/g, ' ')}</span>
+                      <svg width="14" height="10" viewBox="0 0 14 10" fill="none" className="shrink-0">
+                        <path d="M0 5h10M8 1l4 4-4 4" stroke="#7c3aed" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                      <span className="font-medium text-[var(--color-text-primary)]">{t.to.replace(/_/g, ' ')}</span>
+                      <span className="ml-auto tabular-nums text-[var(--color-text-tertiary)]">{pct}%</span>
+                    </div>
+                    <div className="h-[5px] w-full overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
+                      <div className="h-full rounded-full bg-[#7c3aed]" style={{ width: `${pct}%` }} />
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>
