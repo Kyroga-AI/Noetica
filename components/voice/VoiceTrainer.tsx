@@ -118,18 +118,18 @@ export function VoiceTrainer() {
   return (
     <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-4 py-3">
       <div className="flex items-center justify-between">
-        <div className=”flex items-center gap-2”>
-          <span className=”text-[13px] font-extrabold text-[var(--color-text-primary)]”>Voice Trainer</span>
-          <span className=”rounded-full bg-[#fffbeb] border border-[#fde68a] px-2 py-0.5 text-[9.5px] font-semibold text-[#92400e]”>XTTS-v2 · local</span>
+        <div className="flex items-center gap-2">
+          <span className="text-[13px] font-extrabold text-[var(--color-text-primary)]">Voice Trainer</span>
+          <span className="rounded-full bg-[#fffbeb] border border-[#fde68a] px-2 py-0.5 text-[9.5px] font-semibold text-[#92400e]">XTTS-v2 · local</span>
         </div>
         {settings.ttsProvider === 'cloned' && activeId
-          ? <span className=”text-[10px] text-[var(--color-text-tertiary)]”>speaking as &ldquo;{voices.find((v) => v.id === activeId)?.name ?? activeId}&rdquo;</span>
-          : <span className=”text-[10px] text-[var(--color-text-tertiary)]”>clone a voice to use it</span>}
+          ? <span className="text-[10px] text-[var(--color-text-tertiary)]">speaking as &ldquo;{voices.find((v) => v.id === activeId)?.name ?? activeId}&rdquo;</span>
+          : <span className="text-[10px] text-[var(--color-text-tertiary)]">clone a voice to use it</span>}
       </div>
 
       {provisioned === false && (
         <div className="mt-2 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-3 py-2 text-[12px] text-[#92400e]">
-          Voice cloning isn’t set up yet — this installs a local XTTS model (downloads a few GB, one time). Requires <code className="font-mono">uv</code>.
+          Voice cloning isn't set up yet — this installs a local XTTS model (downloads a few GB, one time). Requires <code className="font-mono">uv</code>.
           {provStep ? (
             <div className="mt-1.5 flex items-center gap-2 text-[11px]"><span className="animate-pulse">⏳</span> {provStep}</div>
           ) : (
