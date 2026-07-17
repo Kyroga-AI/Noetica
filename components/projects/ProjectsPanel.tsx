@@ -36,7 +36,7 @@ function formatBytes(bytes: number): string {
 
 function ColorPicker({ value, onChange }: { value: ProjectColor; onChange: (c: ProjectColor) => void }) {
   return (
-    <div className="flex gap-1.5 flex-wrap">
+    <div className="flex gap-2 flex-wrap">
       {PROJECT_COLORS.map((c) => (
         <button
           key={c}
@@ -73,7 +73,6 @@ function ProjectEditor({
   const [color, setColor] = useState<ProjectColor>(project.color)
   const [systemPrompt, setSystemPrompt] = useState(project.systemPrompt)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [saved, setSaved] = useState(false)
   const [filesDragOver, setFilesDragOver] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
@@ -83,12 +82,6 @@ function ProjectEditor({
     setColor(project.color)
     setSystemPrompt(project.systemPrompt)
   }, [project.id, project.title, project.description, project.color, project.systemPrompt])
-
-  function save() {
-    onUpdate({ title: title.trim() || project.title, description: desc, color, systemPrompt })
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
-  }
 
   function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
@@ -117,9 +110,17 @@ function ProjectEditor({
     onUpdate({ fileAttachments: project.fileAttachments.filter((a) => a.clientId !== clientId) })
   }
 
+  // Auto-save on changes
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      onUpdate({ title: title.trim() || project.title, description: desc, color, systemPrompt })
+    }, 500)
+    return () => clearTimeout(timeout)
+  }, [title, desc, color, systemPrompt])
+
   const tabs: { id: EditorTab; label: string }[] = [
     { id: 'prompt', label: 'System Prompt' },
-    { id: 'files',  label: `Files${project.fileAttachments.length ? ` (${project.fileAttachments.length})` : ''}` },
+    { id: 'files',  label: 'Files' },
     { id: 'settings', label: 'Settings' },
   ]
 
@@ -129,21 +130,34 @@ function ProjectEditor({
       <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-6 py-3">
         <div className="flex items-center gap-2.5">
           <span className="h-3 w-3 rounded-full" style={{ backgroundColor: project.color }} />
-          <span className="text-sm font-semibold text-[var(--color-text-primary)]">{project.title}</span>
-          {isActive && (
-            <span className="rounded-md bg-[var(--accent-soft)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--accent)]">Active</span>
-          )}
+          <span className="text-[15px] font-bold text-[var(--color-text-primary)]">{project.title}</span>
         </div>
         <div className="flex items-center gap-2">
-          {saved && <span className="text-xs text-[#22c55e]">Saved</span>}
+          <button
+            onClick={() => setConfirmDelete(true)}
+            className="px-2.5 py-1.5 rounded-lg border border-[var(--color-border-secondary)] text-[var(--color-text-tertiary)] text-xs transition hover:border-[#fecaca] hover:text-[#ef4444]"
+          >
+            Delete
+          </button>
           <button
             onClick={onActivate}
             className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${isActive ? 'bg-[#dcfce7] text-[#15803d] hover:bg-[#bbf7d0]' : 'bg-[var(--accent)] text-white hover:bg-[var(--accent)]'}`}
           >
-            {isActive ? '● Deactivate' : 'Set active'}
+            {isActive ? 'Deactivate' : 'Set active'}
           </button>
         </div>
       </div>
+
+      {/* Delete confirm banner */}
+      {confirmDelete && (
+        <div className="flex items-center justify-between bg-[#FEF3C7] border-b border-[#FCD34D] px-6 py-2.5">
+          <span className="text-xs text-[#92400e]">Delete {project.title}? This can&apos;t be undone.</span>
+          <div className="flex shrink-0 gap-3">
+            <button onClick={() => setConfirmDelete(false)} className="text-xs font-semibold text-[#92400e] hover:underline">Cancel</button>
+            <button onClick={onDelete} className="text-xs font-semibold text-[#dc2626] hover:underline">Delete</button>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-[var(--color-border-secondary)] px-6 pt-2">
@@ -151,7 +165,7 @@ function ProjectEditor({
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
-            className={`rounded-t-lg px-3 py-1.5 text-xs font-medium transition ${tab === t.id ? 'border-b-2 border-[var(--accent)] text-[var(--accent)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}
+            className={`rounded-t-lg px-5 py-1.5 text-xs font-medium transition ${tab === t.id ? 'border-b-2 border-[var(--accent)] text-[var(--accent)]' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}
           >
             {t.label}
           </button>
@@ -162,38 +176,28 @@ function ProjectEditor({
       <div className="min-h-0 flex-1 overflow-y-auto p-6">
         {tab === 'prompt' && (
           <div className="flex h-full flex-col gap-3">
-            <div>
-              <p className="text-xs font-semibold text-[var(--color-text-secondary)]">System Prompt</p>
-              <p className="mt-0.5 text-xs leading-5 text-[var(--color-text-tertiary)]">
-                Prepended to every conversation while this project is active. Sets role, constraints, tone, and domain context.
+            <div className="bg-[var(--color-background-secondary)] border border-[var(--color-border-secondary)] rounded-[9px] p-3">
+              <p className="text-xs leading-5 text-[var(--color-text-tertiary)]">
+                Prepended to every conversation while this project is active.
               </p>
             </div>
             <textarea
               value={systemPrompt}
               onChange={(e) => setSystemPrompt(e.target.value)}
-              className="flex-1 min-h-[360px] resize-none rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 font-mono text-xs leading-6 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--accent)]"
+              className="flex-1 min-h-[360px] resize-none rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 text-[13px] leading-6 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--accent)]"
               placeholder={`You are an expert assistant for ${project.title}.\n\nContext:\n- ...\n\nAlways:\n- Respond concisely\n- Use domain-specific terminology\n\nNever:\n- Guess at requirements\n- Skip reasoning steps`}
             />
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] text-[var(--color-text-tertiary)]">{systemPrompt.length} chars</span>
-              <div className="flex gap-2">
-                {systemPrompt.trim() && (
-                  <button onClick={() => setSystemPrompt('')} className="text-xs text-[var(--color-text-tertiary)] hover:text-[#ef4444]">Clear</button>
-                )}
-                <button onClick={save} className="rounded-xl bg-[var(--accent)] px-4 py-1.5 text-xs font-semibold text-white transition hover:bg-[var(--accent)]">
-                  Save
-                </button>
-              </div>
+            <div className="flex items-center">
+              <span className="text-[11px] text-[var(--color-text-tertiary)]">{systemPrompt.length} characters</span>
             </div>
           </div>
         )}
 
         {tab === 'files' && (
           <div className="space-y-4">
-            <div>
-              <p className="text-xs font-semibold text-[var(--color-text-secondary)]">Project Files</p>
-              <p className="mt-0.5 text-xs leading-5 text-[var(--color-text-tertiary)]">
-                Files attached here are injected verbatim into every conversation in this project — not chunked or retrieved. Keep them small.
+            <div className="bg-[var(--color-background-secondary)] border border-[var(--color-border-secondary)] rounded-[9px] p-3">
+              <p className="text-xs leading-5 text-[var(--color-text-tertiary)]">
+                Files attached here are injected verbatim — not chunked or retrieved. Keep them small.
               </p>
             </div>
             <button
@@ -215,9 +219,9 @@ function ProjectEditor({
             ) : (
               <div className="space-y-2">
                 {project.fileAttachments.map((att) => (
-                  <div key={att.clientId} className="flex items-center gap-3 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2">
+                  <div key={att.clientId} className="flex items-center gap-3 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2">
                     <span className="text-base">{att.kind === 'image' ? '🖼' : att.kind === 'pdf' ? '📄' : att.kind === 'code' ? '⌥' : '📝'}</span>
-                    <span className="flex-1 truncate text-xs font-medium text-[var(--color-text-primary)]">{att.name}</span>
+                    <span className="flex-1 truncate text-[13px] font-semibold text-[var(--color-text-primary)]">{att.name}</span>
                     <span className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">{att.sizeLabel}</span>
                     <button onClick={() => removeAttachment(att.clientId)} className="text-[var(--color-text-tertiary)] hover:text-[#ef4444]">
                       <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
@@ -234,7 +238,7 @@ function ProjectEditor({
         {tab === 'settings' && (
           <div className="space-y-5">
             <div className="space-y-3">
-              <p className="text-xs font-semibold text-[var(--color-text-secondary)]">Name</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">Name</p>
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -243,47 +247,22 @@ function ProjectEditor({
               />
             </div>
             <div className="space-y-3">
-              <p className="text-xs font-semibold text-[var(--color-text-secondary)]">Description</p>
-              <input
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">Description</p>
+              <textarea
+                rows={3}
                 value={desc}
                 onChange={(e) => setDesc(e.target.value)}
-                className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--accent)]"
+                className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[var(--accent)] resize-none"
                 placeholder="What is this project about?"
               />
             </div>
             <div className="space-y-3">
-              <p className="text-xs font-semibold text-[var(--color-text-secondary)]">Color</p>
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-secondary)]">Colour</p>
               <ColorPicker value={color} onChange={(c) => { setColor(c); onUpdate({ color: c }) }} />
             </div>
-            <div className="space-y-1 pt-1">
-              <p className="text-xs font-semibold text-[var(--color-text-secondary)]">Project ID</p>
-              <p className="select-text font-mono text-[10.5px] text-[var(--color-text-tertiary)]">{project.id}</p>
+            <div className="pt-1">
+              <p className="select-text font-mono text-[10.5px] text-[var(--color-text-tertiary)]">ID: {project.id}</p>
             </div>
-            <div className="flex items-center justify-between pt-2">
-              <button
-                onClick={save}
-                className="rounded-xl bg-[var(--accent)] px-5 py-2 text-xs font-semibold text-white transition hover:bg-[var(--accent)]"
-              >
-                Save changes
-              </button>
-              {!confirmDelete && (
-                <button
-                  onClick={() => setConfirmDelete(true)}
-                  className="rounded-xl border border-[var(--color-border-secondary)] px-4 py-2 text-xs font-semibold text-[var(--color-text-tertiary)] transition hover:border-[#fecaca] hover:text-[#ef4444]"
-                >
-                  Delete project
-                </button>
-              )}
-            </div>
-            {confirmDelete && (
-              <div className="flex items-center justify-between rounded-xl border border-[#fde68a] bg-[#fffbeb] px-4 py-2.5">
-                <span className="text-xs text-[#92400e]">Delete {project.title}? This can&apos;t be undone.</span>
-                <div className="flex shrink-0 gap-2">
-                  <button onClick={() => setConfirmDelete(false)} className="rounded-lg px-3 py-1 text-xs font-semibold text-[#92400e] hover:bg-[#fef3c7]">Cancel</button>
-                  <button onClick={onDelete} className="rounded-lg bg-[#dc2626] px-3 py-1 text-xs font-semibold text-white hover:bg-[#b91c1c]">Delete</button>
-                </div>
-              </div>
-            )}
           </div>
         )}
       </div>
@@ -345,12 +324,12 @@ export function ProjectsPanel({
   return (
     <div className="flex h-full overflow-hidden">
       {/* Left sidebar — project list */}
-      <aside className="flex w-52 shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[#eaf1f8]">
+      <aside className="flex w-[220px] shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
         <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-4 py-3">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">Projects</span>
+          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Projects</span>
           <button
             onClick={() => setShowCreate(true)}
-            className="flex h-6 w-6 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[var(--accent)]"
+            className="flex h-[22px] w-[22px] items-center justify-center rounded-[6px] bg-[var(--accent)] text-white transition hover:opacity-90"
           >
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
               <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -359,26 +338,26 @@ export function ProjectsPanel({
         </div>
 
         {showCreate && (
-          <div className="border-b border-[var(--accent)] bg-[var(--accent-soft)] px-3 py-3 space-y-2">
+          <div className="border-b border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-3 space-y-2">
             <input
               autoFocus
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') setShowCreate(false) }}
-              className="w-full rounded-lg border border-[var(--accent)] bg-white px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)]"
+              className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-white px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)]"
               placeholder="Project name…"
             />
             <input
               value={newDesc}
               onChange={(e) => setNewDesc(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') setShowCreate(false) }}
-              className="w-full rounded-lg border border-[var(--accent)] bg-white px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)]"
+              className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-white px-2.5 py-1.5 text-xs text-[var(--color-text-primary)] outline-none focus:border-[var(--accent)]"
               placeholder="Description (optional)…"
             />
             <ColorPicker value={newColor} onChange={setNewColor} />
             <div className="flex gap-1.5">
               <button onClick={handleCreate} className="rounded-lg bg-[var(--accent)] px-3 py-1 text-xs font-semibold text-white">Create</button>
-              <button onClick={() => setShowCreate(false)} className="rounded-lg border border-[var(--accent)] bg-white px-3 py-1 text-xs text-[var(--color-text-secondary)]">Cancel</button>
+              <button onClick={() => setShowCreate(false)} className="rounded-lg border border-[var(--color-border-secondary)] bg-white px-3 py-1 text-xs text-[var(--color-text-secondary)]">Cancel</button>
             </div>
           </div>
         )}
@@ -401,7 +380,7 @@ export function ProjectsPanel({
                 </span>
               </span>
               {p.id === activeProjectId && (
-                <span className="shrink-0 h-[7px] w-[7px] rounded-full bg-[#22c55e]" title="Active" />
+                <span className="shrink-0 h-[7px] w-[7px] rounded-full bg-[#10B981]" title="Active" />
               )}
             </button>
           ))}
@@ -409,15 +388,12 @@ export function ProjectsPanel({
 
         <div className="border-t border-[var(--color-border-secondary)] px-3 py-2">
           {activeProject ? (
-            <>
-              <p className="text-[10px] text-[var(--color-text-tertiary)]">Active:</p>
-              <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: activeProject.color }} />
-                <span className="truncate text-[11px] font-medium text-[var(--color-text-primary)]">{activeProject.title}</span>
-              </div>
-            </>
+            <div className="flex items-center gap-1.5">
+              <span className="h-[7px] w-[7px] shrink-0 rounded-full bg-[#10B981]" />
+              <span className="truncate text-[11px] font-semibold text-[#059669]">Active: {activeProject.title}</span>
+            </div>
           ) : (
-            <p className="text-[10px] text-[var(--color-text-tertiary)]">No project active</p>
+            <p className="text-[11px] text-[var(--color-text-tertiary)]">No project active</p>
           )}
         </div>
       </aside>
@@ -436,15 +412,9 @@ export function ProjectsPanel({
           onActivate={() => handleActivate(selectedProject)}
         />
       ) : (
-        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-10 text-center">
+        <div className="flex flex-1 flex-col items-center justify-center gap-2 px-10 text-center">
           <div className="text-3xl">📁</div>
-          <p className="text-sm font-semibold text-[var(--color-text-secondary)]">No project selected</p>
-          <p className="text-xs text-[var(--color-text-tertiary)] max-w-xs leading-5">
-            Projects let you set a persistent system prompt, attach reference files, and scope memory to a specific context.
-          </p>
-          <button onClick={() => setShowCreate(true)} className="mt-2 rounded-xl bg-[var(--accent)] px-5 py-2 text-xs font-semibold text-white transition hover:bg-[var(--accent)]">
-            Create first project
-          </button>
+          <p className="text-xs text-[var(--color-text-tertiary)]">Select a project to edit it</p>
         </div>
       )}
     </div>
