@@ -64,3 +64,21 @@ test('learned weights persist + reload across loop instances', () => {
   const b = new GrlLoop({ storeDir: dir })   // fresh instance hydrates from disk
   assert.ok(b.standings().some((s) => s.action === 'vector-rag' && s.plays > 0), 'plays survived reload')
 })
+
+test('multi-policy spine: a second named policy learns independently over the shared graph state', () => {
+  const dir = tmpDir()
+  const loop = new GrlLoop({ storeDir: dir, saveEvery: 1 })
+  const OPS = ['compute', 'lookup', 'evaluate'] as const
+  // teach the operation-route policy that "compute" pays off in this state
+  for (let i = 0; i < 20; i++) {
+    const d = loop.decideFor('operation-route', OPS, gs())
+    loop.observeFor('operation-route', OPS, { action: 'compute', context: d.context, signals: { thumbs: 'up' } })
+  }
+  const st = loop.standingsFor('operation-route')
+  assert.ok(st.some((s) => s.action === 'compute' && s.plays === 20))
+  // the retrieval policy is untouched (independent arms)
+  assert.equal(loop.standings().reduce((s, a) => s + a.plays, 0), 0)
+  // its weights persisted under a per-policy file
+  loop.save()
+  assert.ok(fs.existsSync(path.join(dir, 'grl-operation-route-policy.json')))
+})

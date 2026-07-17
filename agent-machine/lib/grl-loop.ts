@@ -80,11 +80,13 @@ export class GrlLoop {
   private txFile: string
   private saveEvery: number
   private sinceSave = 0
+  private alpha: number
   private recent: Transition[] = [] // in-memory ring of recent transitions, for opt-in mesh publishing
 
   constructor(opts: GrlLoopOpts = {}) {
     const actions = opts.actions ?? RETRIEVAL_ACTIONS
-    this.policy = new LinUCBPolicy([...actions], GRAPH_STATE_DIM, opts.alpha ?? 0.7)
+    this.alpha = opts.alpha ?? 0.7
+    this.policy = new LinUCBPolicy([...actions], GRAPH_STATE_DIM, this.alpha)
     this.emit = opts.emit ?? (() => {})
     this.storeDir = opts.storeDir ?? path.join(os.homedir(), '.noetica')
     this.policyFile = path.join(this.storeDir, 'grl-retrieval-policy.json')
@@ -116,6 +118,48 @@ export class GrlLoop {
 
   standings() { return this.policy.standings() }
 
+  // ── Multi-policy spine (GRL Phase 2): the same graph-state → LinUCB → reward template, applied to
+  // OTHER heuristic decisions (operation route, proposal ranking). Additive — the retrieval path above
+  // is untouched. Each named policy has its own arms + persisted weights; all share the featurizer,
+  // reward mining, transition log and mesh federation. This is how "everything learns over the graph".
+  private extra = new Map<string, LinUCBPolicy>()
+
+  private named(policyName: string, actions: readonly string[]): LinUCBPolicy {
+    let p = this.extra.get(policyName)
+    if (!p) {
+      p = new LinUCBPolicy([...actions], GRAPH_STATE_DIM, this.alpha)
+      try {
+        const f = path.join(this.storeDir, `grl-${policyName}-policy.json`)
+        if (fs.existsSync(f)) p.hydrate(fs.readFileSync(f, 'utf8'))
+      } catch { /* fail-open: start cold */ }
+      this.extra.set(policyName, p)
+    }
+    return p
+  }
+
+  /** Decide for a NAMED policy over the shared graph state (multi-policy spine). */
+  decideFor(policyName: string, actions: readonly string[], gs: GraphState): { action: string; context: number[]; scores: Record<string, number> } {
+    const context = featurizeGraphState(gs)
+    const { action, scores } = this.named(policyName, actions).select(context)
+    this.emit({ type: 'noetica.grl.decide', payload: { policy: policyName, action, scores } })
+    return { action, context, scores }
+  }
+
+  /** Observe an outcome for a NAMED policy (multi-policy spine). Shares reward mining + transition log + mesh. */
+  observeFor(policyName: string, actions: readonly string[], o: { turnId?: string; action: string; context: number[]; signals: RewardSignals }): number | null {
+    const reward = grlReward(o.signals)
+    if (reward === null) return null
+    this.named(policyName, actions).update(o.action, o.context, reward)
+    this.recent.push({ action: `${policyName}:${o.action}`, context: o.context, reward })
+    if (this.recent.length > 200) this.recent.shift()
+    this.appendTransition({ ts: new Date().toISOString(), turnId: o.turnId, policy: policyName, action: o.action, context: o.context, reward, signals: o.signals })
+    this.emit({ type: 'noetica.grl.reward', payload: { policy: policyName, turnId: o.turnId, action: o.action, reward } })
+    if (++this.sinceSave >= this.saveEvery) { this.save(); this.sinceSave = 0 }
+    return reward
+  }
+
+  standingsFor(policyName: string) { return this.extra.get(policyName)?.standings() ?? [] }
+
   /** Recent transitions (for the opt-in mesh to publish gate-redacted). */
   recentTransitions(): Transition[] { return this.recent.slice() }
 
@@ -139,6 +183,7 @@ export class GrlLoop {
     try {
       fs.mkdirSync(this.storeDir, { recursive: true })
       fs.writeFileSync(this.policyFile, this.policy.serialize())
+      for (const [name, p] of this.extra) fs.writeFileSync(path.join(this.storeDir, `grl-${name}-policy.json`), p.serialize())
     } catch { /* fail-open: a save failure must not break the turn */ }
   }
 
