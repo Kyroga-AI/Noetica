@@ -35,27 +35,20 @@ function timeAgo(iso: string): string {
 // ─── Note list ────────────────────────────────────────────────────────────────
 
 function NoteListItem({ note, active, onClick }: { note: Note; active: boolean; onClick: () => void }) {
-  const preview = note.body.replace(/[#*`_\[\]]/g, '').slice(0, 80).trim()
   return (
     <button
       onClick={onClick}
       className={`flex w-full flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left transition ${
-        active ? 'bg-[var(--accent-soft)]' : 'hover:bg-[var(--color-background-tertiary)]'
+        active ? 'bg-[var(--accent)] text-white' : 'hover:bg-[var(--color-background-tertiary)]'
       }`}
     >
       <div className="flex items-center gap-1.5">
-        {note.pinned && <span className="text-[10px] text-[#f59e0b]">★</span>}
-        <span className={`truncate text-sm font-medium ${active ? 'text-[var(--accent)]' : 'text-[var(--color-text-primary)]'}`}>
+        {note.pinned && <span className="text-[10px]">{active ? '📌' : '📌'}</span>}
+        <span className={`truncate text-sm font-medium ${active ? 'text-white' : 'text-[var(--color-text-primary)]'}`}>
           {note.title || 'Untitled'}
         </span>
-        {note.messages.length > 0 && (
-          <span className="ml-auto shrink-0 rounded-full bg-[var(--accent-soft)] px-1.5 text-[10px] font-semibold text-[var(--accent)]">
-            {note.messages.length}
-          </span>
-        )}
       </div>
-      <p className="truncate text-xs text-[var(--color-text-tertiary)]">{preview || 'Empty note'}</p>
-      <p className="text-[10px] text-[#cbd5e1]">{timeAgo(note.updatedAt)}</p>
+      <p className={`text-[10px] ${active ? 'text-white/70' : 'text-[#cbd5e1]'}`}>{timeAgo(note.updatedAt)}</p>
     </button>
   )
 }
@@ -173,7 +166,7 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-8 py-6">
       {/* Title */}
       <input
-        className="mb-4 w-full border-0 bg-transparent text-2xl font-bold text-[var(--color-text-primary)] outline-none placeholder:text-[#cbd5e1]"
+        className="mb-4 w-full border-0 bg-transparent text-[17px] font-bold text-[var(--color-text-primary)] outline-none placeholder:text-[#cbd5e1]"
         placeholder="Note title"
         value={note.title}
         onChange={(e) => onUpdate({ title: e.target.value })}
@@ -182,13 +175,13 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
       {/* Tags */}
       <div className="mb-4 flex flex-wrap items-center gap-1.5">
         {note.tags.map((tag) => (
-          <span key={tag} className="flex items-center gap-1 rounded-full bg-[var(--accent-soft)] px-2.5 py-0.5 text-xs font-medium text-[var(--accent)]">
+          <span key={tag} className="flex items-center gap-1 rounded-full bg-[var(--color-background-secondary)] border border-[var(--color-border-tertiary)] px-2.5 py-0.5 text-xs font-medium text-[var(--color-text-secondary)]">
             {tag}
             <button onClick={() => removeTag(tag)} className="ml-0.5 text-[var(--color-text-tertiary)] hover:text-[#dc2626]">×</button>
           </span>
         ))}
         <input
-          className="h-6 min-w-[80px] rounded-full border border-dashed border-[var(--accent)] bg-transparent px-2.5 text-xs text-[var(--color-text-secondary)] outline-none placeholder:text-[#cbd5e1] focus:border-[var(--accent)]"
+          className="h-6 min-w-[80px] bg-transparent px-1 text-xs text-[var(--color-text-secondary)] outline-none placeholder:text-[#cbd5e1]"
           placeholder="Add tag…"
           value={tagInput}
           onChange={(e) => setTagInput(e.target.value)}
@@ -252,6 +245,33 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
         </button>
       </div>
 
+      {/* Format toolbar (Edit mode only) */}
+      {!preview && (
+        <div className="mb-3 flex items-center gap-0.5">
+          {['B', 'I'].map((label) => (
+            <button key={label} className="flex h-7 w-7 items-center justify-center rounded-md border border-[var(--color-border-secondary)] text-xs font-semibold text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]">
+              {label === 'I' ? <em>{label}</em> : <strong>{label}</strong>}
+            </button>
+          ))}
+          <div className="mx-1 h-4 w-px bg-[var(--color-border-secondary)]" />
+          {['H1', 'H2'].map((label) => (
+            <button key={label} className="flex h-7 items-center justify-center rounded-md border border-[var(--color-border-secondary)] px-1.5 text-[10px] font-semibold text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]">
+              {label}
+            </button>
+          ))}
+          <div className="mx-1 h-4 w-px bg-[var(--color-border-secondary)]" />
+          {[
+            { label: 'list', icon: '☰' },
+            { label: 'quote', icon: '❝' },
+            { label: 'code', icon: '</>' },
+          ].map(({ label, icon }) => (
+            <button key={label} className="flex h-7 w-7 items-center justify-center rounded-md border border-[var(--color-border-secondary)] text-[10px] text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]" title={label}>
+              {icon}
+            </button>
+          ))}
+        </div>
+      )}
+
       {/* Body */}
       {preview ? (
         <div className="min-h-48 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 text-sm leading-7 text-[var(--color-text-primary)]">
@@ -266,7 +286,7 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
       ) : (
         <textarea
           ref={bodyRef}
-          className="min-h-48 w-full resize-none border-0 bg-transparent text-sm leading-7 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
+          className="min-h-48 w-full resize-none border-0 bg-transparent px-10 py-7 font-mono text-sm leading-7 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
           placeholder={`Write your note in markdown…\n\n# Heading\n\n**Bold**, _italic_, \`code\`\n\n- List item`}
           value={note.body}
           onChange={(e) => onUpdate({ body: e.target.value })}
@@ -433,36 +453,38 @@ function NoteChat({ note, onAppendMessages }: {
       {/* Header */}
       <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-4 py-3">
         <div className="flex items-center gap-2">
-          <div>
-            <p className="text-xs font-semibold text-[var(--color-text-primary)]">Note Chat</p>
-            <p className="text-[11px] text-[var(--color-text-tertiary)]">Context: this note</p>
-          </div>
-          <span className="shrink-0 rounded-full bg-[var(--color-background-tertiary)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--color-text-tertiary)]">can&apos;t edit</span>
+          <p className="text-xs font-semibold text-[var(--color-text-primary)]">Note Chat</p>
+          <span className="shrink-0 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-tertiary)] px-2 py-0.5 text-[9px] font-medium text-[var(--color-text-tertiary)]">AI can&apos;t edit your note</span>
         </div>
-        {messages.length > 0 && (
-          <span className="rounded-full bg-[var(--accent-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--accent)]">
-            {messages.length}
-          </span>
-        )}
       </div>
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {messages.length === 0 ? (
           <div className="py-8 text-center">
-            <p className="text-xs font-medium text-[var(--color-text-secondary)]">Ask about this note</p>
-            <p className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">Summarise, extend, find gaps, or brainstorm based on its content.</p>
+            <p className="text-xs font-semibold text-[var(--color-text-primary)]">Ask about this note</p>
+            <div className="mt-3 space-y-1.5">
+              {['Summarise this', 'What am I missing?', 'Critique the structure'].map((prompt) => (
+                <button
+                  key={prompt}
+                  onClick={() => { setInput(prompt) }}
+                  className="block w-full rounded-lg px-3 py-1.5 text-[11px] text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)]"
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+            <span className="mt-4 inline-block rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1 text-[10px] text-[var(--color-text-tertiary)]">
+              AI cannot edit this note
+            </span>
           </div>
         ) : (
           messages.map((m) => (
             <div key={m.id} className={`group flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-              {m.role === 'assistant' && (
-                <div className="mr-2 mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#0f172a] text-[10px] font-bold text-white">N</div>
-              )}
-              <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-5 ${
+              <div className={`max-w-[85%] px-3 py-2 text-xs leading-5 ${
                 m.role === 'user'
-                  ? 'bg-[var(--accent-soft)] text-[var(--color-text-primary)]'
-                  : 'bg-[var(--color-background-primary)] shadow-sm border border-[var(--color-border-secondary)] text-[var(--color-text-primary)]'
+                  ? 'bg-[var(--color-text-primary)] text-white rounded-[14px_14px_3px_14px]'
+                  : 'bg-[var(--color-background-primary)] shadow-sm border border-[var(--color-border-secondary)] text-[var(--color-text-primary)] rounded-2xl'
               }`}>
                 {m.role === 'assistant' && m.content ? (
                   <div className="prose prose-xs max-w-none [&>*:first-child]:mt-0 [&>*:last-child]:mb-0">
@@ -510,10 +532,10 @@ function NoteChat({ note, onAppendMessages }: {
 
       {/* Input */}
       <div className="border-t border-[var(--color-border-secondary)] p-3">
-        <div className="flex items-end gap-2 rounded-xl border border-[var(--accent)] bg-[var(--color-background-primary)] p-2 shadow-sm">
+        <div className="flex items-end gap-2 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-2 shadow-sm">
           <textarea
             className="min-h-[2.5rem] flex-1 resize-none bg-transparent text-xs leading-5 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)]"
-            placeholder="Ask about this note…"
+            placeholder="Ask anything about this note..."
             value={input}
             disabled={streaming}
             onChange={(e) => setInput(e.target.value)}
@@ -540,7 +562,7 @@ function NoteChat({ note, onAppendMessages }: {
             </button>
           )}
         </div>
-        <p className="mt-1.5 text-center text-[10px] text-[#cbd5e1]">⌘ + Enter</p>
+        <p className="mt-1.5 text-center text-[10px] text-[var(--color-text-tertiary)]">⌘+Enter to send</p>
       </div>
     </div>
   )
@@ -682,13 +704,19 @@ export function NotesSurface() {
   return (
     <div className="relative flex min-h-0 flex-1 overflow-hidden">
       {/* ── Sidebar ── */}
-      <aside className="flex w-[168px] shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[#eaf1f8]">
+      <aside className="flex w-[168px] shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
         {/* Header */}
-        <div className="border-b border-[var(--color-border-secondary)] px-3 py-3">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">Notes</span>
-          <p className="mt-1 text-[10.5px] leading-4 text-[var(--color-text-tertiary)]">
-            You write, the AI advises — it can read and comment on your notes but cannot edit them.
-          </p>
+        <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-3 py-3">
+          <span className="text-xs font-bold text-[var(--color-text-primary)]">Notes</span>
+          <button
+            onClick={handleCreate}
+            className="flex h-6 w-6 items-center justify-center rounded-md text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[var(--accent)]"
+            title="New note"
+          >
+            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden>
+              <path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </button>
         </div>
 
         {/* Search */}
@@ -705,8 +733,8 @@ export function NotesSurface() {
         <div className="overflow-y-auto px-2 py-1 space-y-0.5" style={{ flex: notionToken ? '0 0 auto' : '1 1 auto', maxHeight: notionToken ? '45%' : undefined }}>
           {!hydrated && <p className="px-2 py-4 text-center text-xs text-[var(--color-text-tertiary)]">Loading…</p>}
           {hydrated && filtered.length === 0 && (
-            <p className="px-2 py-4 text-center text-xs text-[var(--color-text-tertiary)]">
-              {search ? 'No matches' : 'No notes yet'}
+            <p className="px-2 py-4 text-center text-xs text-[var(--color-text-tertiary)] whitespace-pre-line">
+              {search ? 'No matches' : 'No notes yet.\nClick + to start.'}
             </p>
           )}
           {filtered.map((note) => (
@@ -721,9 +749,9 @@ export function NotesSurface() {
                 <button
                   onClick={(e) => { e.stopPropagation(); pinNote(note.id, !note.pinned) }}
                   title={note.pinned ? 'Unpin' : 'Pin'}
-                  className="flex h-5 w-5 items-center justify-center rounded text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-primary)] hover:text-[#f59e0b]"
+                  className="flex h-5 w-5 items-center justify-center rounded text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-primary)]"
                 >
-                  <span className="text-[10px]">★</span>
+                  <span className="text-[10px]">📌</span>
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(note.id) }}
@@ -798,23 +826,14 @@ export function NotesSurface() {
           </div>
         )}
 
-        {/* New note + footer count */}
-        <div className="border-t border-[var(--color-border-secondary)] p-2">
-          <button
-            onClick={handleCreate}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[var(--accent)]"
-          >
-            <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden>
-              <path d="M6 1v10M1 6h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-            New note
-          </button>
-          {hydrated && notes.length > 0 && !notionToken && (
-            <p className="mt-1 text-center text-[10px] text-[var(--color-text-tertiary)]">
+        {/* Footer count */}
+        {hydrated && notes.length > 0 && !notionToken && (
+          <div className="border-t border-[var(--color-border-secondary)] p-2">
+            <p className="text-center text-[10px] text-[var(--color-text-tertiary)]">
               {notes.length} note{notes.length !== 1 ? 's' : ''}
             </p>
-          )}
-        </div>
+          </div>
+        )}
       </aside>
 
       {/* ── Main area ── */}
