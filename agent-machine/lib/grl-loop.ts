@@ -19,6 +19,7 @@ import * as path from 'node:path'
 import { LinUCBPolicy } from './grl-policy.js'
 import { featurizeGraphState, GRAPH_STATE_DIM, type GraphState } from './graph-state.js'
 import { grlReward, type RewardSignals } from './grl-reward.js'
+import { contextFromBucket, type Transition, type CommunityPrior } from './grl-federation.js'
 
 /**
  * The retrieval GROUNDING-SOURCE the policy chooses among — folded from Noetica's real
@@ -79,6 +80,7 @@ export class GrlLoop {
   private txFile: string
   private saveEvery: number
   private sinceSave = 0
+  private recent: Transition[] = [] // in-memory ring of recent transitions, for opt-in mesh publishing
 
   constructor(opts: GrlLoopOpts = {}) {
     const actions = opts.actions ?? RETRIEVAL_ACTIONS
@@ -104,6 +106,8 @@ export class GrlLoop {
     const reward = grlReward(o.signals)
     if (reward === null) return null // no signal → no update (never invent a reward)
     this.policy.update(o.action, o.context, reward)
+    this.recent.push({ action: o.action, context: o.context, reward })
+    if (this.recent.length > 200) this.recent.shift()
     this.appendTransition({ ts: new Date().toISOString(), turnId: o.turnId, action: o.action, context: o.context, reward, signals: o.signals })
     this.emit({ type: 'noetica.grl.reward', payload: { policy: 'retrieval-mode', turnId: o.turnId, action: o.action, reward } })
     if (++this.sinceSave >= this.saveEvery) { this.save(); this.sinceSave = 0 }
@@ -111,6 +115,24 @@ export class GrlLoop {
   }
 
   standings() { return this.policy.standings() }
+
+  /** Recent transitions (for the opt-in mesh to publish gate-redacted). */
+  recentTransitions(): Transition[] { return this.recent.slice() }
+
+  /**
+   * Warm-start the local policy from the community prior pulled off the grl-mesh: apply a few bounded
+   * pseudo-observations per (action, context-bucket) at the community mean. Bounded so the community
+   * informs but never dominates a node's own learned signal (sovereignty: local experience wins over time).
+   */
+  seedFromPrior(priors: CommunityPrior[], maxPseudo = 5): number {
+    let applied = 0
+    for (const p of priors) {
+      const ctx = contextFromBucket(p.context_bucket)
+      const k = Math.min(p.n, maxPseudo)
+      for (let i = 0; i < k; i++) { this.policy.update(p.action, ctx, p.mean_reward); applied++ }
+    }
+    return applied
+  }
 
   /** Flush learned weights to disk (also called on a cadence from observe). */
   save(): void {

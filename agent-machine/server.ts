@@ -85,6 +85,8 @@ import { buildWorkspacePrefix, invalidatePrefix } from './lib/context-cache.js'
 import { estimateCostUsd, tokensEgressed } from '../lib/pricing/modelPricing.js'
 import { recordCapability, capabilitySummary, capabilityHint, recordReward, selectArmUCB, serializeCapabilities, hydrateCapabilities, banditStandings, resetCapabilities } from './lib/capability-model.js'
 import { grlLoop, grlEnabled, retrievalActionOf, graphStateFromGrounding } from './lib/grl-loop.js'
+import { meshEnabled, publishTransitions } from './lib/grl-federation.js'
+let _grlMeshTick = 0 // counts GRL observes; every 25th flushes redacted signals to the opt-in mesh
 import { validateGraph } from '@socioprophet/hellgraph'
 import { CANONICAL_SHAPES, QUARANTINE_PROP } from './lib/canonical-shapes.js'
 import { judgeAnswer, type ValueJudgment } from './lib/value-judgment.js'
@@ -4993,6 +4995,12 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
           const gstate = graphStateFromGrounding(gg, latestUserContent)
           const shadow = grlLoop().decide(gstate)
           grlLoop().observe({ turnId: run_id, action: retrievalActionOf(intentPlan.retrieval), context: shadow.context, signals: { worth: valueJudgment.worth } })
+          // Opt-in sovereign learning mesh (GRL Phase 2): every ~25 observes, publish gate-redacted
+          // reward sufficient-statistics to grl-mesh so the community learns together. No-op unless
+          // GRL_MESH_* is configured; fire-and-forget, never blocks a turn.
+          if ((_grlMeshTick = (_grlMeshTick + 1) % 25) === 0 && meshEnabled()) {
+            publishTransitions(grlLoop().recentTransitions())
+          }
         }
       } catch { /* fail-open */ }
       // Record a quality sample for symbolic-regression driver analysis.
