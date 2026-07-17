@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { HopfFibration } from '@/components/chat/HopfFibration'
+import { WorkingSequence } from '@/components/chat/WorkingSequence'
 
-// Streaming indicator — the stop-motion Hopf fibration plus a quiet, Claude-style
-// elapsed read-out.
+// Streaming indicator — the point→line→triangle→…→N-gon working sequence plus a quiet,
+// Claude-style elapsed read-out. The polygon gains a side per beat, so it doubles as a clock.
 export function TypingIndicator() {
   const [elapsed, setElapsed] = useState(0)
   const start = useRef(Date.now())
@@ -18,7 +18,7 @@ export function TypingIndicator() {
   const t = m > 0 ? `${m}m ${s}s` : `${s}s`
   return (
     <div className="flex items-center gap-2.5 text-[13px] text-[var(--color-text-tertiary)]">
-      <HopfFibration size={34} />
+      <WorkingSequence size={34} />
       <span>{t} · thinking…</span>
     </div>
   )
