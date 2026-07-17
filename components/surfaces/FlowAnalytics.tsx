@@ -91,9 +91,14 @@ export function FlowAnalytics() {
         </div>
       )}
 
-      {/* Headline rates */}
+      {/* Headline rates. The design spec calls for 5 metrics (fallback/grounding/avg turns/tool
+          calls/unresolved) — "avg turns" is now a real per-session average rather than a raw
+          turn count. "Tool calls" and "unresolved" aren't in this data model yet (the
+          dialogue-tracker backend doesn't track either), so they're not fabricated here; the
+          extra, real, backend-driven metrics (slot fill/clarify/escalate) stay rather than being
+          dropped just to hit a count. */}
       <div className="grid grid-cols-3 gap-2 sm:grid-cols-7">
-        <Stat label="Turns" value={String(m.turns)} />
+        <Stat label="Avg turns" value={m.sessions > 0 ? (m.turns / m.sessions).toFixed(1) : String(m.turns)} />
         <Stat label="Grounding" value={`${Math.round(m.grounding_rate * 100)}%`} tone="good" />
         <Stat label="Slot fill" value={`${Math.round(m.slot_fill_rate * 100)}%`} tone={m.slot_fill_rate < 0.6 ? 'warn' : 'good'} />
         <Stat label="Clarify" value={`${Math.round(m.clarify_rate * 100)}%`} tone={m.clarify_rate > 0.3 ? 'warn' : undefined} />

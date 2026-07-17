@@ -347,8 +347,6 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
     <div className="flex min-h-0 flex-1 flex-col overflow-y-auto p-6">
       <div className="mx-auto w-full max-w-5xl space-y-4">
 
-        <CompoundingCurve />
-
         {/* View toggle: Run benchmarks vs Local-vs-Frontier dashboard */}
         <div className="flex items-center gap-1 rounded-full border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-1 text-xs w-fit">
           {(['run', 'dashboard', 'flow'] as const).map((v) => (
@@ -364,29 +362,42 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
           ))}
         </div>
 
-        {view === 'flow' ? <FlowAnalytics /> : view === 'dashboard' ? <BenchmarkDashboard /> : (
+        {view === 'flow' ? <FlowAnalytics /> : view === 'dashboard' ? (
+          <>
+            <CompoundingCurve />
+            <BenchmarkDashboard />
+          </>
+        ) : (
         <>
 
         {/* Config row */}
         <div className="grid grid-cols-2 gap-4">
-          {/* Models */}
+          {/* Models — grouped cloud vs local, so which runs incur egress/cost is visible at a glance */}
           <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-4 shadow-sm">
             <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--accent)]">Models</div>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {models.map((m) => (
-                <button
-                  key={m.id}
-                  onClick={() => toggleModel(m.id)}
-                  className={`rounded-full border px-3 py-1 text-xs transition ${
-                    selectedModelIds.includes(m.id)
-                      ? 'border-[var(--accent)] bg-[var(--accent-soft)] font-semibold text-[var(--accent)]'
-                      : 'border-[var(--color-border-tertiary)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-secondary)]'
-                  }`}
-                >
-                  {m.label}
-                </button>
-              ))}
-            </div>
+            {([
+              ['Cloud', models.filter((m) => !m.local_capable)],
+              ['Local', models.filter((m) => m.local_capable)],
+            ] as const).map(([group, groupModels]) => groupModels.length === 0 ? null : (
+              <div key={group} className="mt-3">
+                <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">{group}</div>
+                <div className="flex flex-wrap gap-2">
+                  {groupModels.map((m) => (
+                    <button
+                      key={m.id}
+                      onClick={() => toggleModel(m.id)}
+                      className={`rounded-full border px-3 py-1 text-xs transition ${
+                        selectedModelIds.includes(m.id)
+                          ? 'border-[var(--accent)] bg-[var(--accent-soft)] font-semibold text-[var(--accent)]'
+                          : 'border-[var(--color-border-tertiary)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-secondary)]'
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
           </div>
 
           {/* Tasks */}
