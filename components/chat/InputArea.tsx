@@ -24,6 +24,11 @@ type InputAreaProps = {
   activeProjectTitle?: string
   projectCollection?: string
   chatCollection?: string
+  // All projects + the active one, so the scope picker can list them and switch
+  // the conversation's project inline (single source of truth = AppShell/useProjects).
+  projects?: Array<{ id: string; title: string }>
+  activeProjectId?: string | null
+  onSelectProject?: (id: string) => void
   onFanout?: (content: string, attachments: PendingAttachment[]) => Promise<void>
   onStop?: () => void
   disabled?: boolean
@@ -75,6 +80,7 @@ export function InputArea({
   modelId, onModelChange, thinkingBudget, onOpenPalette,
   systemPrompt = '', onSystemPromptChange,
   activeProjectTitle, projectCollection, chatCollection,
+  projects = [], activeProjectId, onSelectProject,
 }: InputAreaProps) {
   const [content, setContent] = useState('')
   const [sending, setSending] = useState(false)
@@ -454,22 +460,45 @@ export function InputArea({
               <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden><path d="M1.5 3l2 2 2-2" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/></svg>
             </button>
             {showScopePicker && (
-              <div className="absolute bottom-10 right-0 z-50 w-60 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] py-1 shadow-lg">
-                {([
-                  ['chat', 'This chat only', 'Reads only documents you attach in this conversation'],
-                  ['project', activeProjectTitle ? `Project: ${activeProjectTitle}` : 'This project', activeProjectTitle ? 'This chat + the project’s knowledge base' : 'No project active — reads your general library'],
-                  ['everything', 'Everything', 'Reads across every document you’ve uploaded'],
-                ] as const).map(([s, label, desc]) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => { setRetrievalScope(s); setShowScopePicker(false) }}
-                    className={`flex w-full flex-col items-start px-3 py-1.5 text-left transition hover:bg-[var(--color-background-secondary)] ${retrievalScope === s ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'}`}
-                  >
-                    <span className="text-[12px] font-medium">{label}</span>
-                    <span className="text-[10px] text-[var(--color-text-tertiary)]">{desc}</span>
-                  </button>
-                ))}
+              <div className="absolute bottom-10 right-0 z-50 max-h-80 w-60 overflow-y-auto rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] py-1 shadow-lg">
+                {/* This chat only */}
+                <button
+                  type="button"
+                  onClick={() => { setRetrievalScope('chat'); setShowScopePicker(false) }}
+                  className={`flex w-full flex-col items-start px-3 py-1.5 text-left transition hover:bg-[var(--color-background-secondary)] ${retrievalScope === 'chat' ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'}`}
+                >
+                  <span className="text-[12px] font-medium">This chat only</span>
+                  <span className="text-[10px] text-[var(--color-text-tertiary)]">Reads only documents you attach in this conversation</span>
+                </button>
+
+                {/* Projects — pick one to scope the conversation to it (and make it active) */}
+                {projects.length > 0 && (
+                  <div className="px-3 pb-0.5 pt-1.5 text-[9px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Projects</div>
+                )}
+                {projects.map((p) => {
+                  const on = retrievalScope === 'project' && p.id === activeProjectId
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => { onSelectProject?.(p.id); setRetrievalScope('project'); setShowScopePicker(false) }}
+                      className={`flex w-full flex-col items-start px-3 py-1.5 text-left transition hover:bg-[var(--color-background-secondary)] ${on ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'}`}
+                    >
+                      <span className="max-w-full truncate text-[12px] font-medium">{p.title}</span>
+                      <span className="text-[10px] text-[var(--color-text-tertiary)]">This chat + this project’s knowledge base</span>
+                    </button>
+                  )
+                })}
+
+                {/* Everything */}
+                <button
+                  type="button"
+                  onClick={() => { setRetrievalScope('everything'); setShowScopePicker(false) }}
+                  className={`mt-0.5 flex w-full flex-col items-start border-t border-[var(--color-border-tertiary)] px-3 py-1.5 text-left transition hover:bg-[var(--color-background-secondary)] ${retrievalScope === 'everything' ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'}`}
+                >
+                  <span className="text-[12px] font-medium">Everything</span>
+                  <span className="text-[10px] text-[var(--color-text-tertiary)]">Reads across every document you’ve uploaded</span>
+                </button>
               </div>
             )}
           </div>

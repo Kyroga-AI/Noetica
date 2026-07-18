@@ -209,7 +209,7 @@ export function AppShell() {
   const { tools: mcpTools } = useMcp()
 
   // ── Projects ──────────────────────────────────────────────────────────────
-  const { activeProject } = useProjects()
+  const { activeProject, projects, activeProjectId, setActiveProject } = useProjects()
 
   // ── Memory ────────────────────────────────────────────────────────────────
   const { memoryContext, remember, search: searchMemory, entries: memoryEntries, purgeExpired, hydrated: memoryHydrated } = useMemory()
@@ -1680,6 +1680,9 @@ export function AppShell() {
                 activeProjectTitle={activeProject?.title}
                 projectCollection={activeProject ? projectCollectionId(activeProject.id) : undefined}
                 chatCollection={activeSession ? chatCollectionId(activeSession.id) : undefined}
+                projects={projects.map((p) => ({ id: p.id, title: p.title }))}
+                activeProjectId={activeProjectId}
+                onSelectProject={setActiveProject}
                 messages={messages}
                 isStreaming={isStreaming}
                 workspaceMode={workspaceMode}
@@ -1902,6 +1905,9 @@ type CenterProps = {
   activeProjectTitle?: string
   projectCollection?: string
   chatCollection?: string
+  projects?: Array<{ id: string; title: string }>
+  activeProjectId?: string | null
+  onSelectProject?: (id: string) => void
   onFanout: (content: string, attachments: PendingAttachment[]) => Promise<void>
   onStop: () => void
   sessionId?: string
@@ -1933,7 +1939,7 @@ type CenterProps = {
   onPlanReject?: (messageId: string) => void
 }
 
-function CenterWorkspace({ activeSurface, sessionId, activeProjectTitle, projectCollection, chatCollection, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onNavigateToGovern, onSpeak, onFeedback, agentMode, onSetAgentMode, onPlanApprove, onPlanReject }: CenterProps) {
+function CenterWorkspace({ activeSurface, sessionId, activeProjectTitle, projectCollection, chatCollection, projects, activeProjectId, onSelectProject, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onNavigateToGovern, onSpeak, onFeedback, agentMode, onSetAgentMode, onPlanApprove, onPlanReject }: CenterProps) {
   if (activeSurface === 'notes')        return <NotesSurface />
   if (activeSurface === 'canvas')       return <CanvasSurface />
   if (activeSurface === 'workrooms')    return <TabbedWorkspace tabs={[
@@ -2034,6 +2040,9 @@ function CenterWorkspace({ activeSurface, sessionId, activeProjectTitle, project
           onSystemPromptChange={onSystemPromptChange}
           activeProjectTitle={activeProjectTitle}
           projectCollection={projectCollection}
+          projects={projects}
+          activeProjectId={activeProjectId}
+          onSelectProject={onSelectProject}
           chatCollection={chatCollection}
         />
       </section>

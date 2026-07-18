@@ -89,26 +89,35 @@ function ProjectEditor({
     setTimeout(() => setSaved(false), 2000)
   }
 
-  function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
+  async function handleFilePick(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
-    for (const file of files) {
-      const reader = new FileReader()
-      reader.onload = () => {
-        const dataUrl = reader.result as string
-        const base64 = dataUrl.split(',')[1] ?? ''
-        const att: PendingAttachment = {
-          clientId: crypto.randomUUID(),
-          name: file.name,
-          kind: detectKind(file.type, file.name),
-          mimeType: file.type || 'application/octet-stream',
-          sizeBytes: file.size,
-          sizeLabel: formatBytes(file.size),
-          base64,
-        }
-        onUpdate({ fileAttachments: [...(project.fileAttachments ?? []), att] })
-      }
-      reader.readAsDataURL(file)
-    }
+    // Read every file first, THEN append once. The old per-file onload each wrote
+    // `[...stale, oneFile]` from the render-time prop, so the last callback to
+    // resolve clobbered the rest — only one file ever persisted.
+    const results = await Promise.all(
+      files.map(
+        (file) =>
+          new Promise<PendingAttachment | null>((resolve) => {
+            const reader = new FileReader()
+            reader.onload = () => {
+              const base64 = (reader.result as string).split(',')[1] ?? ''
+              resolve({
+                clientId: crypto.randomUUID(),
+                name: file.name,
+                kind: detectKind(file.type, file.name),
+                mimeType: file.type || 'application/octet-stream',
+                sizeBytes: file.size,
+                sizeLabel: formatBytes(file.size),
+                base64,
+              })
+            }
+            reader.onerror = () => resolve(null) // skip an unreadable file, keep the rest
+            reader.readAsDataURL(file)
+          }),
+      ),
+    )
+    const atts = results.filter((a): a is PendingAttachment => a !== null)
+    if (atts.length) onUpdate({ fileAttachments: [...(project.fileAttachments ?? []), ...atts] })
     if (fileRef.current) fileRef.current.value = ''
   }
 
