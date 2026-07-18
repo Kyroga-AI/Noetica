@@ -75,6 +75,7 @@ function ProjectEditor({
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [saved, setSaved] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
+  const folderRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
     setTitle(project.title)
@@ -204,13 +205,26 @@ function ProjectEditor({
                 Files attached here are injected into every conversation in this project as context.
               </p>
             </div>
-            <button
-              onClick={() => fileRef.current?.click()}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--color-border-secondary)] py-4 text-xs text-[var(--color-text-secondary)] transition hover:border-[#bfdbfe] hover:text-[#1d4ed8]"
-            >
-              + Attach files
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--color-border-secondary)] py-4 text-xs text-[var(--color-text-secondary)] transition hover:border-[#bfdbfe] hover:text-[#1d4ed8]"
+              >
+                + Attach files
+              </button>
+              <button
+                onClick={() => folderRef.current?.click()}
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-dashed border-[var(--color-border-secondary)] py-4 text-xs text-[var(--color-text-secondary)] transition hover:border-[#bfdbfe] hover:text-[#1d4ed8]"
+              >
+                + Attach a folder
+              </button>
+            </div>
             <input ref={fileRef} type="file" multiple className="hidden" onChange={handleFilePick} />
+            {/* folder picker — set the non-standard directory attributes via a callback ref */}
+            <input
+              ref={(el) => { folderRef.current = el; if (el) { el.setAttribute('webkitdirectory', ''); el.setAttribute('directory', '') } }}
+              type="file" multiple className="hidden" onChange={handleFilePick}
+            />
             {project.fileAttachments.length === 0 ? (
               <p className="text-center text-xs text-[var(--color-text-tertiary)]">No files attached yet</p>
             ) : (

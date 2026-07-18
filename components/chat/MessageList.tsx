@@ -26,6 +26,9 @@ type MessageListProps = {
 export function MessageList({ messages, isStreaming = false, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onRecombine, onSpeak, onQuickPrompt, onFeedback, onPlanApprove, onPlanReject }: MessageListProps) {
   const { settings } = useSettings()
   const lastAssistantIdx = messages.reduce((acc, m, i) => m.role === 'assistant' ? i : acc, -1)
+  // 'instant' reveal: hold the in-flight answer until it completes, then show it all at
+  // once (the typing indicator stands in while it composes).
+  const holdStreaming = isStreaming && settings.revealResponses === 'instant'
   const [selectedFanout, setSelectedFanout] = useState<Set<string>>(new Set())
   const bottomRef = useRef<HTMLDivElement>(null)
   const initialScrollDone = useRef(false)
@@ -107,6 +110,7 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
     <div className="relative min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
         {messages.map((message, i) => (
+          holdStreaming && i === lastAssistantIdx && message.role === 'assistant' ? null : (
           <div key={message.id} className="relative">
             {hasFanout && message.fanout_model && (
               <label className="absolute -left-6 top-3 flex cursor-pointer items-center">
@@ -133,6 +137,7 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
               onPlanReject={message.role === 'assistant' ? onPlanReject : undefined}
             />
           </div>
+          )
         ))}
         {isStreaming ? <TypingIndicator /> : null}
         <div ref={bottomRef} />

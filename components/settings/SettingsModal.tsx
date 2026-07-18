@@ -13,6 +13,7 @@ import { DeveloperPanel } from './panels/DeveloperPanel'
 import { OrgPanel } from './panels/OrgPanel'
 import { PolicyPanel } from './panels/PolicyPanel'
 import { VoicePanel } from './panels/VoicePanel'
+import { GuidePanel } from './panels/GuidePanel'
 import { SurfaceErrorBoundary } from '@/components/shell/SurfaceErrorBoundary'
 
 type Category = {
@@ -120,7 +121,18 @@ function IconVoice() {
   )
 }
 
+function IconGuide() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden>
+      <path d="M4 4.5A1.5 1.5 0 015.5 3H15a1 1 0 011 1v11a1 1 0 01-1 1H5.5A1.5 1.5 0 004 17.5V4.5z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round" />
+      <path d="M4 15.5A1.5 1.5 0 015.5 14H16" stroke="currentColor" strokeWidth="1.4" />
+      <line x1="7" y1="7" x2="13" y2="7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 const categories: Category[] = [
+  { id: 'guide', label: 'Feature guide', icon: <IconGuide />, panel: <GuidePanel /> },
   { id: 'appearance', label: 'Appearance', icon: <IconAppearance />, panel: <AppearancePanel /> },
   { id: 'models', label: 'Models', icon: <IconModels />, panel: <ModelsPanel /> },
   { id: 'runtime', label: 'Runtime', icon: <IconRuntime />, panel: <RuntimePanel /> },

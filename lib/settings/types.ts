@@ -105,6 +105,10 @@ export interface NoeticaSettings {
   // Matrix homeserver
   matrixHomeserver: string
 
+  // Chat presentation — 'stream' reveals the answer token-by-token; 'instant' holds it
+  // until complete, then shows it all at once (jump straight to the part you care about).
+  revealResponses: 'stream' | 'instant'
+
   // Developer
   apiEndpointOverride: string
   showRawEvents: boolean

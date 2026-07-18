@@ -24,6 +24,29 @@ export function AppearancePanel() {
         />
       </div>
 
+      {/* Response reveal */}
+      <div>
+        <label className="block text-sm font-semibold text-[var(--color-text-primary)]">Responses</label>
+        <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Stream the answer as it&rsquo;s written, or hold it and show the whole thing at once — handy for jumping straight to the part you care about.</p>
+        <div className="mt-3 inline-flex rounded-lg border border-[var(--color-border-tertiary)] p-0.5">
+          {([['stream', 'Stream'], ['instant', 'All at once']] as const).map(([val, label]) => {
+            const active = settings.revealResponses === val
+            return (
+              <button
+                key={val}
+                onClick={() => update({ revealResponses: val })}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                  active ? 'bg-[var(--color-text-primary)] text-[var(--color-background-primary)]'
+                    : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
+                }`}
+              >
+                {label}
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
       {/* Theme */}
       <div>
         <label className="block text-sm font-semibold text-[var(--color-text-primary)]">Theme</label>

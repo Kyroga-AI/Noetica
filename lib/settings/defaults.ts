@@ -70,6 +70,8 @@ export const defaultSettings: NoeticaSettings = {
 
   matrixHomeserver: 'https://matrix.org',
 
+  revealResponses: 'stream',
+
   apiEndpointOverride: '',
   showRawEvents: false,
 
