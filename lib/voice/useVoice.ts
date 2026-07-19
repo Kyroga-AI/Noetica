@@ -27,6 +27,9 @@ export function useVoice(onTranscript: (text: string) => void) {
   const { settings } = useSettings()
   const [state, setState] = useState<VoiceState>('idle')
   const [error, setError] = useState<string | null>(null)
+  // Which message is currently being spoken aloud (or '_' for id-less playback). Drives the Speak↔Stop
+  // toggle on message action bars — clicking Speak again on the same message stops it, not restarts.
+  const [speakingId, setSpeakingId] = useState<string | null>(null)
   const recognitionRef = useRef<SR | null>(null)
   const wakeListenerRef = useRef<SR | null>(null)
   const stateRef = useRef<VoiceState>('idle')
@@ -192,12 +195,14 @@ export function useVoice(onTranscript: (text: string) => void) {
 
   const audioRef = useRef<HTMLAudioElement | null>(null)
 
-  const speak = useCallback(async (text: string) => {
+  const speak = useCallback(async (text: string, id?: string) => {
     if (typeof window === 'undefined') return
 
     // Stop any in-progress playback
     if (audioRef.current) { audioRef.current.pause(); audioRef.current = null }
     window.speechSynthesis?.cancel()
+
+    setSpeakingId(id ?? '_')
 
     const amBase = 'http://127.0.0.1:8080'
     const truncated = text.slice(0, 4096)
@@ -209,6 +214,7 @@ export function useVoice(onTranscript: (text: string) => void) {
         audioRef.current = audio
         const done = () => {
           URL.revokeObjectURL(url); audioRef.current = null
+          setSpeakingId(null)
           if (liveRef.current) setTimeout(() => startListenRef.current(), 350)  // re-listen for the next turn
           resolve()
         }
@@ -271,6 +277,7 @@ export function useVoice(onTranscript: (text: string) => void) {
       try {
         const macVoice = settings.macVoice || 'Ava'
         await invokeTauri('speak_text', { text: truncated, voice: macVoice })
+        setSpeakingId(null)
         if (liveRef.current) setTimeout(() => startListenRef.current(), 800)
         return
       } catch { /* native say unavailable — fall through to web speech */ }
@@ -288,8 +295,12 @@ export function useVoice(onTranscript: (text: string) => void) {
       if (best) utterance.voice = best
       utterance.rate = 1.0
       utterance.pitch = 1.0
+      utterance.onend = () => setSpeakingId(null)
+      utterance.onerror = () => setSpeakingId(null)
       window.speechSynthesis.speak(utterance)
+      return
     }
+    setSpeakingId(null)   // nothing could play it
   }, [settings.voiceLanguage, settings.openaiApiKey, settings.ttsVoice, settings.ttsProvider,
       settings.elevenlabsApiKey, settings.elevenlabsVoiceId, settings.macVoice])
 
@@ -300,6 +311,7 @@ export function useVoice(onTranscript: (text: string) => void) {
     } else if (typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel()
     }
+    setSpeakingId(null)
   }, [])
 
   // Live (continuous) conversation: listen → transcribe → send → speak → re-listen, hands-free.
@@ -312,5 +324,5 @@ export function useVoice(onTranscript: (text: string) => void) {
     setState('idle')
   }, [stopSpeaking])
 
-  return { state, error, isSupported, isLive, startListening, stopListening, startLive, stopLive, speak, stopSpeaking }
+  return { state, error, isSupported, isLive, speakingId, startListening, stopListening, startLive, stopLive, speak, stopSpeaking }
 }

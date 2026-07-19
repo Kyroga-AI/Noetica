@@ -4,19 +4,23 @@ import { useState, useEffect } from 'react'
 import { EvidenceRailPanel } from './panels/EvidenceRailPanel'
 import { SourceOSRailPanel } from './panels/SourceOSRailPanel'
 import { GraphRailPanel }   from './panels/GraphRailPanel'
+import { AnswerInspectorPanel } from './panels/AnswerInspectorPanel'
 import { ContextSlot }      from '@/components/shell/RightSidebar'
 import type { GovernanceTrace } from '@/lib/types/governance'
+import type { ChatMessage } from '@/lib/types/message'
 
 // The single right rail. Hosts the real panels — Context plus Noetica's governance /
 // sovereignty surfaces (Graph, Evidence, SourceOS). The old demo panels (Calendar /
 // Mail / Matrix / Agents / Related) were placeholder shells and are intentionally out.
 export type UtilityPanelId =
+  | 'answer'
   | 'context'
   | 'evidence'
   | 'sourceos'
   | 'graph'
 
 const RAIL_ITEMS: { id: UtilityPanelId; label: string; icon: React.ReactNode }[] = [
+  { id: 'answer',   label: 'Answer',   icon: <IconAnswer /> },
   { id: 'graph',    label: 'Graph',    icon: <IconGraph /> },
   { id: 'context',  label: 'Context',  icon: <IconContext /> },
   { id: 'evidence', label: 'Evidence', icon: <IconEvidence /> },
@@ -29,8 +33,9 @@ type ContextData = {
   fileChanges: { id: string; path: string; content: string }[]
 }
 
-function renderPanel(id: UtilityPanelId, lastGovernance: GovernanceTrace | undefined, ctx: ContextData) {
+function renderPanel(id: UtilityPanelId, lastGovernance: GovernanceTrace | undefined, ctx: ContextData, inspectMessage: ChatMessage | null) {
   switch (id) {
+    case 'answer':   return <AnswerInspectorPanel message={inspectMessage} />
     case 'context':  return <ContextSlot inScopeFiles={ctx.inScopeFiles} activity={ctx.toolActivity} changes={ctx.fileChanges} />
     case 'evidence': return <EvidenceRailPanel governance={lastGovernance} />
     case 'sourceos': return <SourceOSRailPanel />
@@ -42,6 +47,7 @@ type UtilityRailProps = {
   activePanel: UtilityPanelId | null
   onSelect: (id: UtilityPanelId | null) => void
   lastGovernance?: GovernanceTrace
+  inspectMessage?: ChatMessage | null
   inScopeFiles?: string[]
   toolActivity?: { id: string; name: string; target: string }[]
   fileChanges?: { id: string; path: string; content: string }[]
@@ -50,7 +56,7 @@ type UtilityRailProps = {
 const RAIL_MIN = 240
 const RAIL_MAX = 760
 
-export function UtilityRail({ activePanel, onSelect, lastGovernance, inScopeFiles = [], toolActivity = [], fileChanges = [] }: UtilityRailProps) {
+export function UtilityRail({ activePanel, onSelect, lastGovernance, inspectMessage = null, inScopeFiles = [], toolActivity = [], fileChanges = [] }: UtilityRailProps) {
   const ctx: ContextData = { inScopeFiles, toolActivity, fileChanges }
   const [width, setWidth] = useState(288)
   useEffect(() => {
@@ -87,7 +93,7 @@ export function UtilityRail({ activePanel, onSelect, lastGovernance, inScopeFile
           <div className="border-b border-[var(--color-border-tertiary)] px-3 py-2.5 text-xs font-semibold text-[var(--color-text-primary)]">
             {RAIL_ITEMS.find((r) => r.id === activePanel)?.label}
           </div>
-          {renderPanel(activePanel, lastGovernance, ctx)}
+          {renderPanel(activePanel, lastGovernance, ctx, inspectMessage)}
         </div>
       )}
 
@@ -138,6 +144,9 @@ function IconEvidence() {
 }
 function IconSourceOS() {
   return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M8 2l5.2 3v6L8 14 2.8 11V5L8 2Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/><circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.2"/></svg>
+}
+function IconAnswer() {
+  return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H6l-3 3V4z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/><path d="M5.5 6h5M5.5 8.5h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
 }
 function IconGraph() {
   return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="8" cy="3" r="2" stroke="currentColor" strokeWidth="1.3"/><circle cx="3" cy="12" r="2" stroke="currentColor" strokeWidth="1.3"/><circle cx="13" cy="12" r="2" stroke="currentColor" strokeWidth="1.3"/><path d="M8 5v2M8 7L3.5 10M8 7l4.5 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>

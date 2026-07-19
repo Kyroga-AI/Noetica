@@ -9,16 +9,14 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import oneLight from 'react-syntax-highlighter/dist/cjs/styles/prism/one-light'
 // eslint-disable-next-line
 import oneDark from 'react-syntax-highlighter/dist/cjs/styles/prism/one-dark'
-import { GovernanceTrail } from '@/components/governance/GovernanceTrail'
-import { NoeticaMark } from '@/components/brand/NoeticaMark'
 import { BuildCard } from '@/components/chat/BuildCard'
 import { ChartView } from '@/components/chat/ChartView'
-import { SteeringDiff } from '@/components/steering/SteeringDiff'
 import { GenUIBlock, hasGenUI, splitGenUI } from '@/components/chat/GenUIRenderer'
 import type { ChatMessage, ToolCallRecord, ToolResultRecord, CriticVerdict } from '@/lib/types/message'
 import type { PendingAttachment } from '@/lib/types/attachment'
 import { useSettings } from '@/lib/settings/context'
 import { useRevealedContent, APP_OPEN_TS } from '@/lib/chat/useRevealedContent'
+import { cleanSources } from '@/lib/chat/sources'
 import { amUrl } from '@/lib/tauri/bridge'
 
 const KIND_ICON: Record<string, string> = {
@@ -191,6 +189,9 @@ function CriticBadge({ critic }: { critic: CriticVerdict }) {
 function MarkdownContent({ content, compact = false }: { content: string; compact?: boolean }) {
   const { settings } = useSettings()
   const isDark = settings.theme === 'dark'
+  // Strip provenance/watermark HTML comments (e.g. `<!-- c2pa:ai-generated … -->`) that the backend
+  // appends — they're metadata for the evidence layer, not text, and were leaking into the answer body.
+  content = content.replace(/<!--\s*c2pa[\s\S]*?-->/gi, '').replace(/\n{3,}/g, '\n\n').trimEnd()
   // eslint-disable-next-line
   const codeStyle = (isDark ? oneDark : oneLight) as unknown as { [key: string]: React.CSSProperties }
 
@@ -327,154 +328,61 @@ function MarkdownContent({ content, compact = false }: { content: string; compac
   )
 }
 
-// The buying reason made visible: a small chip showing HOW the answer was proven.
-// Color-codes by trust tier — computed/replay-exact (emerald) > reasoned (blue/amber) > generated (grey).
-function VerificationBadge({ verification }: { verification: NonNullable<ChatMessage['verification']> }) {
-  const method = (verification.method ?? '').toLowerCase()
-  const isComputed = verification.computed === true
-  const isReasoned = !isComputed && (method.includes('reason') || method.includes('self-consistency') || verification.badge.startsWith('Reasoned'))
-  const tier = isComputed
-    ? { color: '#16a34a', bg: 'rgba(22,163,74,0.08)', border: 'rgba(22,163,74,0.4)', glyph: '🔒' }
-    : isReasoned
-      ? { color: '#2563eb', bg: 'rgba(37,99,235,0.08)', border: 'rgba(37,99,235,0.4)', glyph: '◆' }
-      : { color: '#64748b', bg: 'var(--color-background-secondary)', border: 'var(--color-border-secondary)', glyph: '·' }
+// The single quiet provenance footer — replaces the badge farm + governance line + Trace disclosure that
+// used to hang off every answer. One muted row: where it ran · model · N sources (expandable) · verified,
+// with "Inspect" opening the full telemetry in the right-rail Answer panel. Trust stated once, calmly.
+function ProvenanceFooter({ message, onInspect }: { message: ChatMessage; onInspect?: (m: ChatMessage) => void }) {
+  const [showSources, setShowSources] = useState(false)
+  const g = message.governance
+  const v = message.verification
+  const prov = (g?.provider ?? '').toLowerCase()
+  const onDevice = prov === '' || prov === 'ollama' || prov === 'noetica' || prov === 'local'
 
-  const tooltip = [
-    verification.receiptRef ? `receipt: ${verification.receiptRef}` : null,
-    verification.runRef ? `run: ${verification.runRef}` : null,
-    `replay: ${verification.replayClass}`,
-    verification.sealable ? 'sealable' : null,
-  ].filter(Boolean).join(' · ')
+  // Sources shown inline = cited docs (or retrieval atoms), junk filtered out.
+  const sources = (message.citations && message.citations.length > 0)
+    ? cleanSources(message.citations.map((c) => ({ label: c.source, score: c.score })))
+    : cleanSources(message.retrieval_trace?.document_sources ?? message.retrieval_trace?.sources)
+  const verified = !!v || g?.grounded === true
+
+  // Nothing worth a footer? (e.g. small-talk with no provenance) → render nothing.
+  if (!g && !v && sources.length === 0) return null
 
   return (
-    <span
-      className="inline-flex items-center gap-1.5 rounded-xl border px-2.5 py-1.5 text-xs font-medium"
-      style={{ color: tier.color, background: tier.bg, borderColor: tier.border }}
-      title={tooltip || verification.badge}
-    >
-      <span aria-hidden>{tier.glyph}</span>
-      <span>{verification.badge}</span>
-      {verification.attested && (
-        <span
-          className="ml-0.5 inline-flex items-center gap-0.5 rounded-full px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide"
-          style={{ background: tier.color, color: 'var(--color-background-primary)' }}
-          title="Sealed onto the evidence fabric"
-        >
-          🔏 sealed
-        </span>
-      )}
-    </span>
-  )
-}
-
-// Export Proof — seal THIS answer into an offline-verifiable sovereign bundle (hash-chained +
-// pseudonym-signed + device-attested) and download it. The asymmetric win, one click from the answer:
-// nobody cloud-tethered can hand an auditor an air-gapped, cryptographically sealed answer.
-function ExportProofButton({ message }: { message: ChatMessage }) {
-  const [busy, setBusy] = useState(false)
-  const [state, setState] = useState<'idle' | 'done' | 'error'>('idle')
-  async function exportProof() {
-    setBusy(true); setState('idle')
-    try {
-      const res = await fetch(amUrl('/api/proof/export'), {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          runId: message.id,
-          answer: message.content,
-          model: message.verification?.method || 'local',
-          timestamp: message.created_at,
-          verification: message.verification,
-          citations: message.citations ?? [],
-        }),
-      })
-      if (!res.ok) throw new Error('export failed')
-      const bundle = await res.json()
-      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' })
-      const href = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = href; a.download = `noetica-proof-${String(message.id).slice(0, 8)}.json`
-      document.body.appendChild(a); a.click(); a.remove()
-      URL.revokeObjectURL(href)
-      setState('done'); setTimeout(() => setState('idle'), 1800)
-    } catch { setState('error'); setTimeout(() => setState('idle'), 2500) }
-    finally { setBusy(false) }
-  }
-  return (
-    <button
-      onClick={() => void exportProof()} disabled={busy}
-      title="Export a sealed, offline-verifiable proof of this answer — hash-chained, signed by an unlinkable sovereign pseudonym, and device-attested. An auditor can verify it with no network."
-      className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border-secondary)] px-2 py-1 text-[10px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-50"
-    >
-      {busy ? 'Sealing…' : state === 'done' ? 'Proof saved ✓' : state === 'error' ? 'Export failed' : '⇩ Export proof'}
-    </button>
-  )
-}
-
-// Check grounding — on demand, re-retrieve the user's OWN documents and run sentence-level NLI to show
-// which of this answer's sentences are supported by their data. Honest framing ("supported by your
-// documents", not "true/false") — local NLI is imperfect, so this is a hedge, surfaced only on request.
-type GroundingRes = { grounded: boolean; score: number; supported: number; total: number; unsupported: string[]; no_sources?: boolean }
-function GroundingCheckButton({ message }: { message: ChatMessage }) {
-  const [busy, setBusy] = useState(false)
-  const [res, setRes] = useState<GroundingRes | null>(null)
-  const [failed, setFailed] = useState(false)
-  async function check() {
-    setBusy(true); setFailed(false); setRes(null)
-    try {
-      const r = await fetch(amUrl('/api/grounding/verify-answer'), {
-        method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ answer: message.content }),
-      })
-      if (!r.ok) throw new Error('check failed')
-      setRes(await r.json() as GroundingRes)
-    } catch { setFailed(true) } finally { setBusy(false) }
-  }
-  return (
-    <>
-      <button
-        onClick={() => void check()} disabled={busy}
-        title="Check each sentence of this answer against YOUR ingested documents (on-device sentence-level entailment). Low support means 'not found in your data', not necessarily false."
-        className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border-secondary)] px-2 py-1 text-[10px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-primary)] disabled:opacity-50"
-      >
-        {busy ? 'Checking…' : failed ? 'Check failed' : '◇ Check grounding'}
-      </button>
-      {res && (
-        <div className="mt-1 w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-[10px] text-[var(--color-text-secondary)]">
-          {res.no_sources ? (
-            <span>No matching documents in your library to check this answer against.</span>
-          ) : (
-            <>
-              <span className="font-medium text-[var(--color-text-primary)]">{res.supported}/{res.total}</span> sentences supported by your documents
-              {res.unsupported.length > 0 && (
-                <div className="mt-1 space-y-0.5">
-                  {res.unsupported.slice(0, 4).map((s, i) => (
-                    <div key={i} className="flex gap-1 text-[#d97706]"><span aria-hidden>⚠</span><span className="min-w-0 flex-1">{s.length > 140 ? s.slice(0, 140) + '…' : s}</span></div>
-                  ))}
-                  <div className="pt-0.5 text-[9px] text-[var(--color-text-tertiary)]">Not strongly supported by your data — may still be correct from general knowledge.</div>
-                </div>
-              )}
-            </>
-          )}
+    <div className="mt-2.5">
+      <div className="flex items-center gap-0 text-[12px] text-[var(--color-text-tertiary)]">
+        <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: onDevice ? '#16a34a' : '#d97706' }} />
+        <span className="ml-1.5" style={{ color: onDevice ? undefined : '#d97706' }}>{onDevice ? 'on-device' : `↗ ${prov}`}</span>
+        {g?.model_routed && <><span className="mx-2 text-[var(--color-border-secondary)]">·</span>{g.model_routed}</>}
+        {sources.length > 0 && (
+          <>
+            <span className="mx-2 text-[var(--color-border-secondary)]">·</span>
+            <button onClick={() => setShowSources((s) => !s)} className="inline-flex items-center gap-1 transition hover:text-[var(--color-text-secondary)]">
+              <span className="text-[9px]">{showSources ? '▾' : '▸'}</span>{sources.length} source{sources.length === 1 ? '' : 's'}
+            </button>
+          </>
+        )}
+        {verified && <><span className="mx-2 text-[var(--color-border-secondary)]">·</span><span className="text-[#16a34a]">verified</span></>}
+        {onInspect && (
+          <button
+            onClick={() => onInspect(message)}
+            className="ml-auto inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-[11.5px] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-accent,#7c8cf8)]"
+            title="Inspect this answer — verification, sources, and the full trace"
+          >
+            Inspect ↗
+          </button>
+        )}
+      </div>
+      {showSources && sources.length > 0 && (
+        <div className="mt-2 space-y-1.5 pl-1">
+          {sources.slice(0, 8).map((s, i) => (
+            <div key={i} className="flex items-baseline gap-2 text-[12px] text-[var(--color-text-secondary)]">
+              <span className="w-3 shrink-0 tabular-nums text-[var(--color-text-tertiary)]">{i + 1}</span>
+              <span className="min-w-0 flex-1 truncate">{s.label || 'document'}</span>
+              {typeof s.score === 'number' && <span className="shrink-0 tabular-nums text-[var(--color-text-tertiary)]">{(s.score * 100).toFixed(0)}%</span>}
+            </div>
+          ))}
         </div>
       )}
-    </>
-  )
-}
-
-// Onyx/NotebookLM-grade citation surface — a compact numbered row of the sources the answer is grounded in.
-function CitationsRow({ citations }: { citations: NonNullable<ChatMessage['citations']> }) {
-  return (
-    <div className="mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-[var(--color-text-tertiary)]">
-      {citations.map((c) => (
-        <span
-          key={`${c.n}-${c.ref}`}
-          className="inline-flex items-center gap-1"
-          title={`${c.source}${c.score !== undefined ? ` · ${(c.score * 100).toFixed(0)}% match` : ''}${c.grounding_status ? ` · ${c.grounding_status}` : ''}`}
-        >
-          <span className="font-semibold text-[var(--color-text-secondary)]">[{c.n}]</span>
-          <span className="max-w-[220px] truncate">{c.source}</span>
-        </span>
-      ))}
     </div>
   )
 }
@@ -487,14 +395,16 @@ type MessageBubbleProps = {
   onResume?: () => void
   onFork?: (messageId: string) => void
   onEdit?: (messageId: string, newContent: string) => void
-  onSpeak?: (content: string) => void
+  onSpeak?: (content: string, id?: string) => void
+  isSpeaking?: boolean
   onQuickPrompt?: (text: string) => void
   onFeedback?: (messageId: string, rating: 'up' | 'down') => void
   onPlanApprove?: (messageId: string) => void
   onPlanReject?: (messageId: string) => void
+  onInspect?: (message: ChatMessage) => void
 }
 
-export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onSpeak, onQuickPrompt, onFeedback, onPlanApprove, onPlanReject }: MessageBubbleProps) {
+export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onSpeak, isSpeaking, onQuickPrompt, onFeedback, onPlanApprove, onPlanReject, onInspect }: MessageBubbleProps) {
   const isUser = message.role === 'user'
   const [extracted, setExtracted] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -602,14 +512,8 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
   if (!message.content && !message.tool_calls?.length && !message.plan?.steps?.length) return null
 
   return (
-    <article className="group flex gap-3">
-      <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-text-primary)] text-[var(--color-background-primary)]">
-        <NoeticaMark className="h-4 w-4" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <div className="mb-1 text-[11px] font-medium text-[var(--color-text-secondary)]">
-          Noetica
-        </div>
+    <article className="group">
+      <div className="min-w-0">
 
         {/* Extended thinking */}
         {message.thinking && (
@@ -621,8 +525,9 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
           </details>
         )}
 
-        {/* Live todo checklist (streamed plan + step updates) */}
-        {message.plan && <PlanChecklist plan={message.plan} />}
+        {/* Live todo checklist — only while the answer is still composing; once content lands it's just
+            after-the-fact clutter, so it folds away (the full plan lives in the Answer inspector). */}
+        {message.plan && (!message.content || message.awaitingApproval) && <PlanChecklist plan={message.plan} />}
 
         {/* Plan-mode approval gate — shown when the agent produced a plan and is waiting for the user to approve before executing */}
         {message.awaitingApproval && (
@@ -655,10 +560,11 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
 
         {/* Main content — markdown rendered, with gen-ui blocks and clickable inline citation markers */}
         {message.content && (() => {
-          // document_sources = user-uploaded doc chunks; sources = OCW/brain retrieval — show whichever exists
-          const docSources = message.retrieval_trace?.document_sources?.length
+          // document_sources = user-uploaded doc chunks; sources = OCW/brain retrieval — show whichever
+          // exists, with dev/test exhaust filtered out so junk never drives citation superscripts.
+          const docSources = cleanSources(message.retrieval_trace?.document_sources?.length
             ? message.retrieval_trace.document_sources
-            : message.retrieval_trace?.sources?.filter((s) => s.label)
+            : message.retrieval_trace?.sources?.filter((s) => s.label))
 
           // If the content contains generative-UI specs, split and render each segment.
           if (hasGenUI(displayContent)) {
@@ -675,37 +581,16 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
           }
 
           if (!docSources || docSources.length === 0) return <MarkdownContent content={displayContent} />
-          // Rewrite [n] citation markers (1–9) to markdown links so the a-renderer turns them into superscripts.
-          // Only rewrite numeric-only brackets that look like citations (not e.g. "[code]" or "[…]").
+          // Keep inline [n] citation superscripts (minimal, Tufte-fine); the source list itself moved to
+          // the provenance footer (expandable) + the Answer inspector, so no footnote block here.
           const citedContent = displayContent.replace(/\[([1-9])\](?!\()/g, (_m, n) => `[[${n}]](#cite-${n})`)
-          const topSources = docSources.slice(0, 5)
-          return (
-            <>
-              <MarkdownContent content={citedContent} />
-              <div className="mt-3 border-t border-[var(--color-border-tertiary)] pt-2 space-y-1.5">
-                {topSources.map((s, i) => (
-                  <div key={i} id={`cite-${i + 1}`} className="flex items-start gap-2 text-[11px] text-[var(--color-text-tertiary)] scroll-mt-2">
-                    <span className="shrink-0 inline-flex h-4 w-4 items-center justify-center rounded text-[9px] font-semibold bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)]">{i + 1}</span>
-                    <span className="min-w-0 truncate text-[var(--color-text-secondary)]">{s.label || 'document'}</span>
-                    <span className="shrink-0 tabular-nums text-[var(--color-text-tertiary)]">{(s.score * 100).toFixed(0)}%</span>
-                  </div>
-                ))}
-              </div>
-            </>
-          )
+          return <MarkdownContent content={citedContent} />
         })()}
 
-        {/* The moat made visible — verification badge + inline citations, the proof on every answer. */}
-        {message.content && (message.verification || (message.citations && message.citations.length > 0)) && (
-          <div className="mt-2 space-y-1">
-            <div className="flex flex-wrap items-center gap-2">
-              {message.verification && <VerificationBadge verification={message.verification} />}
-              {message.verification && <ExportProofButton message={message} />}
-              {message.verification && <GroundingCheckButton message={message} />}
-            </div>
-            {message.citations && message.citations.length > 0 && <CitationsRow citations={message.citations} />}
-          </div>
-        )}
+        {/* One quiet provenance footer — replaces the badge farm + governance line + Trace disclosure.
+            The moat (verification, sources, governance) is stated once here; depth is one click away in
+            the right-rail Answer inspector. */}
+        {message.content && <ProvenanceFooter message={message} onInspect={onInspect} />}
 
         {/* Build clarifier — deterministic multiple-choice scaffold card */}
         {message.build && <BuildCard spec={message.build} />}
@@ -768,15 +653,21 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
               </button>
             )}
             {onSpeak && message.content && (
-              <button onClick={() => onSpeak(message.content.replace(/\[.*?\]/g, '').trim())}
-                className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-secondary)]"
-                title="Speak aloud">
-                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden>
-                  <path d="M2 4H1v3h1l3 2.5V1.5L2 4z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
-                  <path d="M8 3.5c.8.6 1.3 1.3 1.3 2s-.5 1.4-1.3 2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-                  <path d="M7 4.5c.4.3.7.6.7 1s-.3.7-.7 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-                </svg>
-                Speak
+              <button onClick={() => onSpeak(message.content.replace(/\[.*?\]/g, '').trim(), message.id)}
+                className={`flex items-center gap-1 rounded px-1.5 py-1 text-[11px] transition ${isSpeaking ? 'text-[var(--color-text-secondary)]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'}`}
+                title={isSpeaking ? 'Stop speaking' : 'Speak aloud'}>
+                {isSpeaking ? (
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor" aria-hidden>
+                    <rect x="2" y="2" width="7" height="7" rx="1.2"/>
+                  </svg>
+                ) : (
+                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden>
+                    <path d="M2 4H1v3h1l3 2.5V1.5L2 4z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+                    <path d="M8 3.5c.8.6 1.3 1.3 1.3 2s-.5 1.4-1.3 2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                    <path d="M7 4.5c.4.3.7.6.7 1s-.3.7-.7 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
+                  </svg>
+                )}
+                {isSpeaking ? 'Stop' : 'Speak'}
               </button>
             )}
             {onFeedback && (
@@ -804,51 +695,8 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
           </div>
         )}
 
-        {message.content && message.governance && (message.governance.model_routed || message.governance.input_tokens || message.governance.output_tokens || message.governance.latency_ms) && (
-          <div className="mt-1.5 flex items-center gap-3 text-[10px] text-[var(--color-text-tertiary)]">
-            {(() => {
-              const prov = (message.governance.provider ?? '').toLowerCase()
-              const local = prov === '' || prov === 'ollama' || prov === 'noetica' || prov === 'local'
-              return (
-                <span className="flex items-center gap-1 font-semibold"
-                  title={local ? 'Answered entirely on this device — nothing left your machine' : `Routed to ${prov} — this turn left your device`}
-                  style={{ color: local ? '#16a34a' : '#d97706' }}>
-                  {local ? '🔒 on-device' : `↗ ${prov}`}
-                </span>
-              )
-            })()}
-            {message.governance.model_routed && (
-              <span className="flex items-center gap-1" title={message.governance.model_route_reason || undefined}>
-                <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#22c55e]" />
-                {message.governance.model_routed}
-                {message.governance.model_route_reason && (
-                  <span className="text-[var(--color-text-tertiary)]" aria-hidden>ⓘ</span>
-                )}
-              </span>
-            )}
-            {message.governance.method && (() => {
-              // Provenance: HOW this answer was produced — the verifiability signal (P2.6).
-              const M: Record<string, { label: string; title: string; color: string }> = {
-                recall: { label: 'recalled', title: 'Replayed from a prior verified turn (decidable recall) — not re-generated', color: '#7c3aed' },
-                'graphrag-global': { label: 'synthesized', title: 'Synthesized across your knowledge-graph community themes', color: '#0891b2' },
-                extractive: { label: 'from source', title: 'Extracted verbatim from your cited documents — cannot hallucinate', color: '#16a34a' },
-              }
-              const m = M[message.governance.method!]
-              return m ? <span className="flex items-center gap-1 font-medium" title={m.title} style={{ color: m.color }}>◆ {m.label}</span> : null
-            })()}
-            {message.governance.grounded && !message.governance.method && (
-              <span className="flex items-center gap-1" title="Grounded in retrieved evidence" style={{ color: '#16a34a' }}>✓ grounded</span>
-            )}
-            {message.governance.latency_ms > 0 && (
-              <span>{(message.governance.latency_ms / 1000).toFixed(1)}s</span>
-            )}
-            {(message.governance.input_tokens || message.governance.output_tokens) && (
-              <span>
-                {message.governance.input_tokens?.toLocaleString() ?? '–'} in · {message.governance.output_tokens?.toLocaleString() ?? '–'} out
-              </span>
-            )}
-          </div>
-        )}
+        {/* Governance line (on-device/provider · model · method · latency · tokens) moved to the
+            Answer inspector — the provenance footer above carries the one-line summary. */}
         {message.stopped && (
           <div className="mt-1.5 inline-flex items-center gap-2">
             <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-tertiary)]">
@@ -876,192 +724,6 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
           </div>
         )}
 
-        {/* One disclosure for all the governance / trace depth — keeps the thread clean. */}
-        {message.content && (
-          (message.deliberation && (message.deliberation.candidates?.length ?? 0) > 1) ||
-          message.discipline ||
-          message.value_judgment ||
-          (message.retrieval_trace && (message.retrieval_trace.sources.length > 0 || message.retrieval_trace.beliefs_injected > 0 || (message.retrieval_trace.memory_sources?.length ?? 0) > 0 || (message.retrieval_trace.episode_sources?.length ?? 0) > 0)) ||
-          (message.grounding && (!!message.grounding.domain || message.grounding.topics.length > 0 || message.grounding.terms.length > 0)) ||
-          message.steering_result ||
-          message.governance
-        ) && (
-          <details className="group/trace mt-2 text-[11px]">
-            <summary className="flex cursor-pointer select-none items-center gap-1.5 py-1 text-[11px] text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-secondary)]">
-              <span className="text-[9px] transition group-open/trace:rotate-90">▶</span>
-              {message.value_judgment && (
-                <span className={`inline-block h-1.5 w-1.5 rounded-full ${
-                  message.value_judgment.verdict === 'grounded' ? 'bg-[#16a34a]'
-                  : message.value_judgment.verdict === 'contradiction' ? 'bg-[#dc2626]'
-                  : 'bg-[#d97706]'
-                }`} />
-              )}
-              <span className="font-medium">Trace</span>
-              <span className="text-[10px] text-[var(--color-text-tertiary)]">
-                {message.value_judgment ? message.value_judgment.verdict : ''}
-                {message.discipline ? ` · ${message.discipline.posture}` : ''}
-                {message.retrieval_trace && message.retrieval_trace.sources.length > 0 ? ` · ${message.retrieval_trace.sources.length} atom${message.retrieval_trace.sources.length === 1 ? '' : 's'}` : ''}
-              </span>
-            </summary>
-            <div className="mt-1 space-y-3 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2.5">
-              {/* Value judgment */}
-              {message.value_judgment && (
-                <div className="text-[10px] text-[var(--color-text-tertiary)]">
-                  <span className="font-medium uppercase tracking-wide text-[var(--color-text-secondary)]">Value judgment</span>
-                  {' '}— {message.value_judgment.verdict} · worth {(message.value_judgment.worth * 100).toFixed(0)}% · grounding {(message.value_judgment.grounding * 100).toFixed(0)}%
-                  {message.value_judgment.graph_grounding !== undefined ? ` · graph ${(message.value_judgment.graph_grounding * 100).toFixed(0)}%` : ''}
-                  {message.value_judgment.novel_claims && message.value_judgment.novel_claims.length > 0 && (
-                    <div className="mt-1">Novel (not in graph): {message.value_judgment.novel_claims.slice(0, 5).join(', ')}</div>
-                  )}
-                </div>
-              )}
-              {/* Glossary grounding — what the FRONTIER-AUTHORED canon recognized in the turn (the moat, made visible) */}
-              {message.grounding && (!!message.grounding.domain || message.grounding.topics.length > 0 || message.grounding.terms.length > 0) && (
-                <div className="text-[10px] text-[var(--color-text-tertiary)]">
-                  <span className="font-medium uppercase tracking-wide text-[var(--color-text-secondary)]">Grounding</span>
-                  {message.grounding.domain ? <> — domain <span className="text-[var(--color-text-secondary)]">{message.grounding.domain}</span></> : ''}
-                  {message.grounding.terms.length > 0 && (
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {message.grounding.terms.slice(0, 12).map((t, i) => (
-                        <span key={`gt-${i}`} className="inline-flex items-center gap-1 rounded-full border border-[#0ea5e9]/40 bg-[#0ea5e9]/5 px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)]" title="canon term recognized — frontier-authored glossary, not model-extracted">
-                          <span className="text-[#0ea5e9]">◆</span>{t}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {message.grounding.topics.length > 0 && (
-                    <div className="mt-1">topics: {message.grounding.topics.slice(0, 6).join(' · ')}</div>
-                  )}
-                </div>
-              )}
-              {/* Reasoning trace */}
-              {message.retrieval_trace && ((message.retrieval_trace.sources?.length ?? 0) > 0 || message.retrieval_trace.beliefs_injected > 0 || (message.retrieval_trace.memory_sources?.length ?? 0) > 0 || (message.retrieval_trace.episode_sources?.length ?? 0) > 0) && (
-                <div className="space-y-2">
-                  <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">Reasoning trace</div>
-                  {(message.retrieval_trace.timings?.length ?? 0) > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {message.retrieval_trace.timings?.map((t) => (
-                        <span key={t.pattern} className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-tertiary)] px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)]">
-                          {t.pattern} · {t.durationMs}ms · {t.hits} hit{t.hits === 1 ? '' : 's'}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {(message.retrieval_trace.sources?.length ?? 0) > 0 && (
-                    <div className="space-y-1">
-                      {message.retrieval_trace.sources?.map((s) => (
-                        <div key={s.id} className="flex items-center gap-2">
-                          <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
-                            <div className="h-full rounded-full bg-[#7c3aed]" style={{ width: `${Math.max(4, Math.min(100, s.score * 100))}%` }} />
-                          </div>
-                          <span className="w-40 truncate text-[var(--color-text-secondary)]" title={s.label}>{s.label}</span>
-                          <span className="w-9 text-right tabular-nums text-[var(--color-text-tertiary)]">{(s.score * 100).toFixed(0)}%</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                  {message.retrieval_trace.document_sources && message.retrieval_trace.document_sources.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {message.retrieval_trace.document_sources.map((s, i) => (
-                        <span key={`${s.id}-${i}`} className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)]" title={`${s.label} · ${(s.score * 100).toFixed(0)}% match`}>
-                          <span className="text-[#16a34a]">📄</span><span className="max-w-[160px] truncate">{s.label || 'document'}</span>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {/* Provenance: what the agent remembered + recalled (local, never left this machine) */}
-                  {message.retrieval_trace.memory_sources && message.retrieval_trace.memory_sources.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {message.retrieval_trace.memory_sources.map((s, i) => (
-                        <span key={`mem-${i}`} className="inline-flex items-center gap-1 rounded-full border border-[#7c3aed]/40 bg-[#7c3aed]/5 px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)]" title={`memory (${s.kind})`}>
-                          <span>{s.pinned ? '📌' : '🧠'}</span><span className="max-w-[180px] truncate">{s.preview}</span>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {message.retrieval_trace.episode_sources && message.retrieval_trace.episode_sources.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {message.retrieval_trace.episode_sources.map((s, i) => (
-                        <span key={`ep-${i}`} className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)]" title="recalled from an earlier session">
-                          <span className="text-[#0ea5e9]">↩</span><span className="max-w-[180px] truncate">{s.question}</span>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  <p className="text-[10px] text-[var(--color-text-tertiary)]">
-                    ~{message.retrieval_trace.token_estimate} tokens of graph context injected · the neurosymbolic substrate cloud models don&apos;t have.
-                  </p>
-                </div>
-              )}
-              {/* Deliberation */}
-              {message.deliberation && (message.deliberation.candidates?.length ?? 0) > 1 && (
-                <div className="space-y-1.5">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] uppercase tracking-wide text-[var(--color-text-secondary)]">Deliberation · best of {message.deliberation.candidates?.length ?? 0}</span>
-                    {message.deliberation.critic && (
-                      <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${
-                        message.deliberation.critic.action === 'accept' ? 'bg-[#f0fdf4] text-[#15803d]' :
-                        message.deliberation.critic.action === 'escalate' ? 'bg-[#fffbeb] text-[#b45309]' :
-                        'bg-[#eff6ff] text-[#1d4ed8]'
-                      }`}>{message.deliberation.critic.action}</span>
-                    )}
-                    {message.deliberation.critic && (
-                      <span className="text-[10px] text-[var(--color-text-tertiary)]">agreement {(message.deliberation.critic.agreement * 100).toFixed(0)}%</span>
-                    )}
-                  </div>
-                  {message.deliberation.critic?.reason && (
-                    <p className="text-[10px] italic text-[var(--color-text-tertiary)]">{message.deliberation.critic.reason}</p>
-                  )}
-                  {message.deliberation.candidates?.map((c) => (
-                    <div key={c.rank} className={`flex items-center gap-2 rounded-lg px-2 py-1 ${c.rank === message.deliberation!.selected_rank ? 'bg-[rgba(37,99,235,0.1)]' : ''}`}>
-                      <span className="w-10 shrink-0 text-[10px] text-[var(--color-text-tertiary)]">{c.rank === message.deliberation!.selected_rank ? '✓ best' : `#${c.rank + 1}`}</span>
-                      <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
-                        <div className="h-full rounded-full bg-[#2563eb]" style={{ width: `${Math.max(4, c.worth * 100)}%` }} />
-                      </div>
-                      <span className="shrink-0 tabular-nums text-[10px] text-[var(--color-text-tertiary)]">
-                        {(c.worth * 100).toFixed(0)}%{c.label ? ` · ${c.label.replace('esc:', '↑')}` : ` · T${c.temperature}`}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {/* Complexity discipline — posture/strategy/barriers for this turn */}
-              {message.discipline && (
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-                    <span className="font-medium uppercase tracking-wide text-[var(--color-text-secondary)]">Discipline</span>
-                    <span className="rounded-full bg-[var(--color-background-tertiary)] px-1.5 py-0.5 text-[var(--color-text-secondary)]">{message.discipline.posture}</span>
-                    {message.discipline.strategy && (
-                      <span className="text-[var(--color-text-tertiary)]">→ {message.discipline.strategy}</span>
-                    )}
-                    <span
-                      className={`rounded-full px-1.5 py-0.5 font-semibold ${
-                        message.discipline.calibrated_confidence >= 0.7 ? 'bg-[#f0fdf4] text-[#15803d]' :
-                        message.discipline.calibrated_confidence < 0.3 ? 'bg-[#fef2f2] text-[#b91c1c]' :
-                        'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]'
-                      }`}
-                      title="Calibrated confidence — high = code-verified/grounded; low = speculative/barriers"
-                    >
-                      conf {(message.discipline.calibrated_confidence * 100).toFixed(0)}%
-                    </span>
-                  </div>
-                  {message.discipline.barriers && message.discipline.barriers.length > 0 && (
-                    <div className="flex flex-wrap gap-1">
-                      {message.discipline.barriers.map((b, i) => (
-                        <span key={i} className="rounded-full border border-[#fca5a5] bg-[#fef2f2] px-1.5 py-0.5 text-[9px] text-[#b91c1c]">{b}</span>
-                      ))}
-                    </div>
-                  )}
-                  {message.discipline.non_claims && message.discipline.non_claims.length > 0 && (
-                    <div className="text-[10px] italic text-[var(--color-text-tertiary)]">Non-claims: {message.discipline.non_claims.slice(0, 3).join(' · ')}</div>
-                  )}
-                </div>
-              )}
-              {message.steering_result ? <SteeringDiff result={message.steering_result} /> : null}
-              {message.governance ? <GovernanceTrail trace={message.governance} /> : null}
-            </div>
-          </details>
-        )}
       </div>
     </article>
   )
