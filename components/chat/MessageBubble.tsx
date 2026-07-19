@@ -410,6 +410,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
   const [copied, setCopied] = useState(false)
   const [editing, setEditing] = useState(false)
   const [feedbackGiven, setFeedbackGiven] = useState<'up' | 'down' | null>(null)
+  const [showActions, setShowActions] = useState(false)   // ⋯ overflow: Save / Fork / Speak
   const [editContent, setEditContent] = useState(message.content)
   const editRef = useRef<HTMLTextAreaElement>(null)
   const { settings } = useSettings()
@@ -610,9 +611,10 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
           </div>
         )}
 
-        {/* Action bar */}
+        {/* Action bar — Copy · Regenerate · feedback inline; Save / Fork / Speak behind a ⋯ overflow.
+            While speaking, the bar stays visible and an inline Stop is surfaced so it's one click. */}
         {message.content && (
-          <div className="mt-1.5 flex items-center gap-2 opacity-0 transition-opacity group-hover:opacity-100">
+          <div className={`mt-1.5 flex items-center gap-2 transition-opacity ${isSpeaking ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
             <button onClick={handleCopy}
               className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-secondary)]">
               <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden>
@@ -621,15 +623,6 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
               </svg>
               {copied ? 'Copied' : 'Copy'}
             </button>
-            {onExtractArtifact && (
-              <button onClick={handleExtract}
-                className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-secondary)]">
-                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden>
-                  <path d="M2 9h7M5.5 1v6M3 4.5l2.5-2.5 2.5 2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-                {extracted ? 'Saved' : 'Save as artifact'}
-              </button>
-            )}
             {isLast && onRegenerate && (
               <button onClick={onRegenerate}
                 className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-secondary)]">
@@ -640,38 +633,8 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
                 Regenerate
               </button>
             )}
-            {onFork && (
-              <button onClick={() => onFork(message.id)}
-                className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-secondary)]">
-                <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden>
-                  <circle cx="2" cy="2.5" r="1.3" stroke="currentColor" strokeWidth="1.2"/>
-                  <circle cx="9" cy="2.5" r="1.3" stroke="currentColor" strokeWidth="1.2"/>
-                  <circle cx="5.5" cy="9" r="1.3" stroke="currentColor" strokeWidth="1.2"/>
-                  <path d="M2 3.8v1.5a2 2 0 0 0 2 2h3a2 2 0 0 0 2-2V3.8M5.5 7.7V5.3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-                </svg>
-                Fork
-              </button>
-            )}
-            {onSpeak && message.content && (
-              <button onClick={() => onSpeak(message.content.replace(/\[.*?\]/g, '').trim(), message.id)}
-                className={`flex items-center gap-1 rounded px-1.5 py-1 text-[11px] transition ${isSpeaking ? 'text-[var(--color-text-secondary)]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'}`}
-                title={isSpeaking ? 'Stop speaking' : 'Speak aloud'}>
-                {isSpeaking ? (
-                  <svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor" aria-hidden>
-                    <rect x="2" y="2" width="7" height="7" rx="1.2"/>
-                  </svg>
-                ) : (
-                  <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden>
-                    <path d="M2 4H1v3h1l3 2.5V1.5L2 4z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
-                    <path d="M8 3.5c.8.6 1.3 1.3 1.3 2s-.5 1.4-1.3 2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-                    <path d="M7 4.5c.4.3.7.6.7 1s-.3.7-.7 1" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/>
-                  </svg>
-                )}
-                {isSpeaking ? 'Stop' : 'Speak'}
-              </button>
-            )}
             {onFeedback && (
-              <span className="ml-1 flex items-center gap-0.5 border-l border-[var(--color-border-tertiary)] pl-2">
+              <span className="flex items-center gap-0.5">
                 <button
                   onClick={() => { setFeedbackGiven('up'); onFeedback(message.id, 'up') }}
                   title="Good answer"
@@ -691,6 +654,53 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
                   </svg>
                 </button>
               </span>
+            )}
+
+            {/* Inline Stop while speaking — keeps the toggle one click even though Speak lives in the overflow */}
+            {onSpeak && isSpeaking && (
+              <button onClick={() => onSpeak(message.content.replace(/\[.*?\]/g, '').trim(), message.id)}
+                title="Stop speaking"
+                className="flex items-center gap-1 rounded px-1.5 py-1 text-[11px] text-[var(--color-text-secondary)] transition">
+                <svg width="11" height="11" viewBox="0 0 11 11" fill="currentColor" aria-hidden><rect x="2" y="2" width="7" height="7" rx="1.2"/></svg>
+                Stop
+              </button>
+            )}
+
+            {/* Overflow — Save as artifact / Fork / Speak */}
+            {(onExtractArtifact || onFork || (onSpeak && !isSpeaking)) && (
+              <div className="relative">
+                <button onClick={() => setShowActions((v) => !v)} title="More actions"
+                  className="flex items-center rounded px-1 py-1 text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-secondary)]">
+                  <svg width="13" height="13" viewBox="0 0 13 13" fill="currentColor" aria-hidden>
+                    <circle cx="2.5" cy="6.5" r="1.1"/><circle cx="6.5" cy="6.5" r="1.1"/><circle cx="10.5" cy="6.5" r="1.1"/>
+                  </svg>
+                </button>
+                {showActions && (
+                  <div className="absolute bottom-8 left-0 z-50 w-44 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] py-1 shadow-lg">
+                    {onExtractArtifact && (
+                      <button onClick={() => { handleExtract(); setShowActions(false) }}
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]">
+                        <svg width="12" height="12" viewBox="0 0 11 11" fill="none" aria-hidden><path d="M2 9h7M5.5 1v6M3 4.5l2.5-2.5 2.5 2.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        {extracted ? 'Saved' : 'Save as artifact'}
+                      </button>
+                    )}
+                    {onFork && (
+                      <button onClick={() => { onFork(message.id); setShowActions(false) }}
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]">
+                        <svg width="12" height="12" viewBox="0 0 11 11" fill="none" aria-hidden><circle cx="2" cy="2.5" r="1.3" stroke="currentColor" strokeWidth="1.2"/><circle cx="9" cy="2.5" r="1.3" stroke="currentColor" strokeWidth="1.2"/><circle cx="5.5" cy="9" r="1.3" stroke="currentColor" strokeWidth="1.2"/><path d="M2 3.8v1.5a2 2 0 0 0 2 2h3a2 2 0 0 0 2-2V3.8M5.5 7.7V5.3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+                        Fork
+                      </button>
+                    )}
+                    {onSpeak && !isSpeaking && (
+                      <button onClick={() => { onSpeak(message.content.replace(/\[.*?\]/g, '').trim(), message.id); setShowActions(false) }}
+                        className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12px] text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]">
+                        <svg width="12" height="12" viewBox="0 0 11 11" fill="none" aria-hidden><path d="M2 4H1v3h1l3 2.5V1.5L2 4z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><path d="M8 3.5c.8.6 1.3 1.3 1.3 2s-.5 1.4-1.3 2" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
+                        Speak
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             )}
           </div>
         )}

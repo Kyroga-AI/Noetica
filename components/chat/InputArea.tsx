@@ -95,6 +95,7 @@ export function InputArea({
   const [showModes, setShowModes] = useState(false)
   const [showModelPicker, setShowModelPicker] = useState(false)
   const [showModePicker, setShowModePicker] = useState(false)
+  const [showMore, setShowMore] = useState(false)   // secondary controls hidden by default → bar = attach · model · send
   const [showSystemPrompt, setShowSystemPrompt] = useState(false)
   const [retrievalScope, setRetrievalScope] = useState<RetrievalScope>('project')
   const [webMode, setWebMode] = useState(false)
@@ -254,6 +255,11 @@ export function InputArea({
   }
 
   const canSend = (content.trim().length > 0 || attachments.length > 0 || ingestedDocs.length > 0) && !sending && !disabled
+  // Any non-default secondary option active? → show a dot on the ⚙ toggle so hidden state isn't invisible.
+  const hasActiveOptions = !!systemPrompt || webMode || selectedTools.length > 0
+    || retrievalScope === 'everything'
+    || (!!settings.agentMode && settings.agentMode !== 'auto')
+    || (!!settings.replyLength && settings.replyLength !== 'medium')
 
   return (
     <div
@@ -388,22 +394,9 @@ export function InputArea({
           }}
         />
 
-        {/* Bottom toolbar */}
-        <div className="flex items-center gap-1 border-t border-[var(--color-border-tertiary)] px-2 py-1.5">
-          {/* Attach — plus icon */}
-          <button
-            type="button"
-            onClick={handleAttachClick}
-            disabled={disabled || attachments.length >= MAX_ATTACHMENTS}
-            title="Attach file"
-            style={{ border: 'none', background: 'none', outline: 'none' }}
-            className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-secondary)] disabled:opacity-40"
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
-              <path d="M8 2v12M2 8h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-            </svg>
-          </button>
-
+        {/* Secondary controls — hidden by default (⚙ toggles). Keeps the resting bar to attach · model · send. */}
+        {showMore && (
+          <div className="flex flex-wrap items-center gap-1 border-t border-[var(--color-border-tertiary)] px-2 py-1.5">
           {/* MCP tools */}
           <McpToolPicker tools={mcpTools} selected={selectedTools} onToggle={toggleTool} />
 
@@ -503,8 +496,6 @@ export function InputArea({
             )}
           </div>
 
-          <div className="flex-1" />
-
           {/* Agent mode — Auto / Plan / Ask (autonomy level) */}
           <div className="relative">
             <button
@@ -544,6 +535,41 @@ export function InputArea({
             {settings.replyLength ?? 'medium'}
           </button>
 
+          </div>
+        )}
+
+        {/* Bottom toolbar — attach · more · model · send */}
+        <div className="flex items-center gap-1 border-t border-[var(--color-border-tertiary)] px-2 py-1.5">
+          {/* Attach — plus icon */}
+          <button
+            type="button"
+            onClick={handleAttachClick}
+            disabled={disabled || attachments.length >= MAX_ATTACHMENTS}
+            title="Attach file"
+            style={{ border: 'none', background: 'none', outline: 'none' }}
+            className="flex h-7 w-7 items-center justify-center rounded-md text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-secondary)] disabled:opacity-40"
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+              <path d="M8 2v12M2 8h12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+            </svg>
+          </button>
+
+          {/* More options — reveals the secondary controls (tools, web, scope, mode, length) */}
+          <button
+            type="button"
+            onClick={() => setShowMore((v) => !v)}
+            title="More — tools, web research, knowledge scope, agent mode, reply length"
+            style={{ border: 'none', background: 'none', outline: 'none' }}
+            className={`relative flex h-7 w-7 items-center justify-center rounded-md transition ${showMore ? 'bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)]' : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-secondary)]'}`}
+          >
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden>
+              <path d="M2 5h6M11 5h3M2 11h3M8 11h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              <circle cx="9.5" cy="5" r="1.7" stroke="currentColor" strokeWidth="1.4"/>
+              <circle cx="6.5" cy="11" r="1.7" stroke="currentColor" strokeWidth="1.4"/>
+            </svg>
+            {hasActiveOptions && !showMore && <span className="absolute right-1 top-1 h-1.5 w-1.5 rounded-full bg-[#2563eb]" aria-hidden />}
+          </button>
+          <div className="flex-1" />
           {/* Model picker — tiny muted text at bottom right, like Claude.ai */}
           {modelId && onModelChange && (
             <div className="relative">
