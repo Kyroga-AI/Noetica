@@ -16,14 +16,16 @@ type MessageListProps = {
   onFork?: (messageId: string) => void
   onEdit?: (messageId: string, newContent: string) => void
   onRecombine?: (selectedMessages: ChatMessage[]) => void
-  onSpeak?: (content: string) => void
+  onSpeak?: (content: string, id?: string) => void
+  speakingMessageId?: string | null
   onQuickPrompt?: (text: string) => void
   onFeedback?: (messageId: string, rating: 'up' | 'down') => void
   onPlanApprove?: (messageId: string) => void
   onPlanReject?: (messageId: string) => void
+  onInspect?: (message: ChatMessage) => void
 }
 
-export function MessageList({ messages, isStreaming = false, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onRecombine, onSpeak, onQuickPrompt, onFeedback, onPlanApprove, onPlanReject }: MessageListProps) {
+export function MessageList({ messages, isStreaming = false, onExtractArtifact, onRegenerate, onResume, onFork, onEdit, onRecombine, onSpeak, speakingMessageId, onQuickPrompt, onFeedback, onPlanApprove, onPlanReject, onInspect }: MessageListProps) {
   const { settings } = useSettings()
   const lastAssistantIdx = messages.reduce((acc, m, i) => m.role === 'assistant' ? i : acc, -1)
   // 'instant' reveal: hold the in-flight answer until it completes, then show it all at
@@ -131,10 +133,12 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
               onFork={onFork}
               onEdit={message.role === 'user' ? onEdit : undefined}
               onSpeak={message.role === 'assistant' ? onSpeak : undefined}
+              isSpeaking={speakingMessageId === message.id}
               onQuickPrompt={onQuickPrompt}
               onFeedback={message.role === 'assistant' ? onFeedback : undefined}
               onPlanApprove={message.role === 'assistant' ? onPlanApprove : undefined}
               onPlanReject={message.role === 'assistant' ? onPlanReject : undefined}
+              onInspect={message.role === 'assistant' ? onInspect : undefined}
             />
           </div>
           )
