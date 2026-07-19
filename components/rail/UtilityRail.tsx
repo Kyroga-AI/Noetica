@@ -2,21 +2,19 @@
 
 import { useState, useEffect } from 'react'
 import { EvidenceRailPanel } from './panels/EvidenceRailPanel'
-import { SourceOSRailPanel } from './panels/SourceOSRailPanel'
 import { GraphRailPanel }   from './panels/GraphRailPanel'
 import { AnswerInspectorPanel } from './panels/AnswerInspectorPanel'
 import { ContextSlot }      from '@/components/shell/RightSidebar'
 import type { GovernanceTrace } from '@/lib/types/governance'
 import type { ChatMessage } from '@/lib/types/message'
 
-// The single right rail. Hosts the real panels — Context plus Noetica's governance /
-// sovereignty surfaces (Graph, Evidence, SourceOS). The old demo panels (Calendar /
-// Mail / Matrix / Agents / Related) were placeholder shells and are intentionally out.
+// The single right rail. Hosts the real working panels — Answer (per-reply inspector), Graph,
+// Context, and Evidence. Substrate/runtime health is NOT here: it's the topbar RuntimeStatus chip
+// (same loadNoeticaStatus source), so a separate "SourceOS" panel was pure duplication and is gone.
 export type UtilityPanelId =
   | 'answer'
   | 'context'
   | 'evidence'
-  | 'sourceos'
   | 'graph'
 
 const RAIL_ITEMS: { id: UtilityPanelId; label: string; icon: React.ReactNode }[] = [
@@ -24,7 +22,6 @@ const RAIL_ITEMS: { id: UtilityPanelId; label: string; icon: React.ReactNode }[]
   { id: 'graph',    label: 'Graph',    icon: <IconGraph /> },
   { id: 'context',  label: 'Context',  icon: <IconContext /> },
   { id: 'evidence', label: 'Evidence', icon: <IconEvidence /> },
-  { id: 'sourceos', label: 'SourceOS', icon: <IconSourceOS /> },
 ]
 
 type ContextData = {
@@ -38,7 +35,6 @@ function renderPanel(id: UtilityPanelId, lastGovernance: GovernanceTrace | undef
     case 'answer':   return <AnswerInspectorPanel message={inspectMessage} />
     case 'context':  return <ContextSlot inScopeFiles={ctx.inScopeFiles} activity={ctx.toolActivity} changes={ctx.fileChanges} />
     case 'evidence': return <EvidenceRailPanel governance={lastGovernance} />
-    case 'sourceos': return <SourceOSRailPanel />
     case 'graph':    return <GraphRailPanel />
   }
 }
@@ -141,9 +137,6 @@ function IconRelated() {
 }
 function IconEvidence() {
   return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M8 2 2 5v4c0 3 2.5 4.5 6 5.5 3.5-1 6-2.5 6-5.5V5L8 2Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/><path d="M5.5 8l2 2 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
-}
-function IconSourceOS() {
-  return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M8 2l5.2 3v6L8 14 2.8 11V5L8 2Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/><circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.2"/></svg>
 }
 function IconAnswer() {
   return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H6l-3 3V4z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/><path d="M5.5 6h5M5.5 8.5h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
