@@ -43,7 +43,7 @@ type TrafficAgg = {
 }
 
 const STATUS_COLOUR: Record<string, string> = {
-  draft: '#6b7280', running: '#2563eb', complete: '#16a34a', blocked: '#dc2626',
+  draft: '#6b7280', running: '#2563eb', complete: 'var(--color-accent)', blocked: '#dc2626',
 }
 
 function Badge({ label, colour }: { label: string; colour: string }) {
@@ -79,14 +79,14 @@ function SignalBanner({ supply, traffic }: { supply: SupplySummary; traffic: Tra
     <div className="mb-4 grid grid-cols-3 gap-3">
       <Panel>
         <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Network LFL (IV)</div>
-        <div className="mt-1 text-xl font-bold tabular-nums" style={{ color: lflNum >= 0 ? '#16a34a' : '#dc2626' }}>
+        <div className="mt-1 text-xl font-bold tabular-nums" style={{ color: lflNum >= 0 ? 'var(--color-accent)' : '#dc2626' }}>
           {lflNum >= 0 ? '+' : ''}{lfl}%
         </div>
         <div className="text-[10px] text-[var(--color-text-tertiary)]">{traffic.total_iv_transactions.toLocaleString()} wkly txns</div>
       </Panel>
       <Panel>
         <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Supply Chain Revision</div>
-        <div className="mt-1 text-xl font-bold tabular-nums" style={{ color: supply.lfl_revision_pct < 0 ? '#dc2626' : '#16a34a' }}>
+        <div className="mt-1 text-xl font-bold tabular-nums" style={{ color: supply.lfl_revision_pct < 0 ? '#dc2626' : 'var(--color-accent)' }}>
           {supply.lfl_revision_pct >= 0 ? '+' : ''}{supply.lfl_revision_pct.toFixed(2)}pp
         </div>
         <div className="text-[10px] text-[var(--color-text-tertiary)]">input cost {supply.input_cost.current_index.toFixed(1)} (base 100)</div>

@@ -21,7 +21,7 @@ type Report = {
 }
 
 const VERDICT: Record<Claim['verdict'], { label: string; bar: string; chip: string; border: string }> = {
-  corroborated: { label: 'Corroborated', bar: 'bg-[#16a34a]', chip: 'bg-[#dcfce7] text-[#16a34a]', border: 'border-l-[#16a34a]' },
+  corroborated: { label: 'Corroborated', bar: 'bg-[var(--color-accent)]', chip: 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]', border: 'border-l-[var(--color-accent)]' },
   conflicting:  { label: 'Conflicting',  bar: 'bg-[#dc2626]', chip: 'bg-[#fef2f2] text-[#dc2626]', border: 'border-l-[#dc2626]' },
   novel:        { label: 'Novel',        bar: 'bg-[#2563eb]', chip: 'bg-[#eff6ff] text-[#2563eb]', border: 'border-l-[#2563eb]' },
 }
@@ -46,7 +46,7 @@ export function AlignmentSurface({ onNavigateToGovern }: { onNavigateToGovern?: 
   }
 
   const score = report?.summary.alignmentScore ?? 0
-  const scoreColor = score > 0.2 ? '#16a34a' : score < -0.2 ? '#dc2626' : 'var(--color-text-secondary)'
+  const scoreColor = score > 0.2 ? 'var(--color-accent)' : score < -0.2 ? '#dc2626' : 'var(--color-text-secondary)'
 
   return (
     <div className="flex h-full flex-col overflow-y-auto px-8 py-6">
@@ -59,7 +59,7 @@ export function AlignmentSurface({ onNavigateToGovern }: { onNavigateToGovern?: 
           </button>
         )}
       </div>
-      <p className="mb-4 max-w-2xl text-xs text-[var(--color-text-secondary)]">Paste a news article or a set of claims. Each sentence is checked against your brain — ingested documents + chat docs — and labeled <span className="font-medium text-[#16a34a]">corroborated</span>, <span className="font-medium text-[#dc2626]">conflicting</span>, or <span className="font-medium text-[#2563eb]">novel</span>, with the source it agrees or conflicts with.</p>
+      <p className="mb-4 max-w-2xl text-xs text-[var(--color-text-secondary)]">Paste a news article or a set of claims. Each sentence is checked against your brain — ingested documents + chat docs — and labeled <span className="font-medium text-[var(--color-accent)]">corroborated</span>, <span className="font-medium text-[#dc2626]">conflicting</span>, or <span className="font-medium text-[#2563eb]">novel</span>, with the source it agrees or conflicts with.</p>
 
       <textarea
         value={text} onChange={(e) => setText(e.target.value)}
@@ -79,7 +79,7 @@ export function AlignmentSurface({ onNavigateToGovern }: { onNavigateToGovern?: 
           <div className="mb-4 flex flex-wrap items-center gap-5 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3">
             <div><div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Alignment</div><div className="text-xl font-bold" style={{ color: scoreColor }}>{score > 0 ? '+' : ''}{score}</div></div>
             <div className="flex gap-3 text-xs">
-              <span className="rounded-full bg-[#dcfce7] px-2 py-1 font-semibold text-[#16a34a]">{report.summary.corroborated} corroborated</span>
+              <span className="rounded-full bg-[var(--color-accent-bg)] px-2 py-1 font-semibold text-[var(--color-accent)]">{report.summary.corroborated} corroborated</span>
               <span className="rounded-full bg-[#fef2f2] px-2 py-1 font-semibold text-[#dc2626]">{report.summary.conflicting} conflicting</span>
               <span className="rounded-full bg-[#eff6ff] px-2 py-1 font-semibold text-[#2563eb]">{report.summary.novel} novel</span>
             </div>

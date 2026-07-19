@@ -286,18 +286,18 @@ export function InputArea({
         {ingestedDocs.length > 0 && (
           <div className="flex flex-wrap gap-1.5 px-3 pt-2.5">
             {ingestedDocs.map((d, i) => (
-              <div key={i} className="flex items-center gap-1.5 rounded-lg border border-[#166534] bg-[#f0fdf4] px-2 py-1 text-xs dark:border-[#166534] dark:bg-[rgba(22,101,52,0.15)]">
-                <span className="text-[#16a34a]">
+              <div key={i} className="flex items-center gap-1.5 rounded-lg border border-[var(--color-accent)] bg-[var(--color-accent-bg)] px-2 py-1 text-xs dark:border-[var(--color-accent)] dark:bg-[rgba(22,101,52,0.15)]">
+                <span className="text-[var(--color-accent)]">
                   <svg width="10" height="10" viewBox="0 0 12 12" fill="none" aria-hidden>
                     <path d="M2 1h5.5L10 3.5V11H2V1z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
                     <path d="M6 1v3h4" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
                   </svg>
                 </span>
-                <span className="max-w-[140px] truncate text-[#166534] dark:text-[#4ade80]">{d.filename}</span>
-                <span className="text-[#15803d] dark:text-[#4ade80]">{d.chunks}ch · {d.entities}ent</span>
+                <span className="max-w-[140px] truncate text-[var(--color-accent)] dark:text-[#4ade80]">{d.filename}</span>
+                <span className="text-[var(--color-accent)] dark:text-[#4ade80]">{d.chunks}ch · {d.entities}ent</span>
                 <button
                   onClick={() => setIngestedDocs((prev) => prev.filter((_, j) => j !== i))}
-                  className="ml-0.5 text-[#15803d] hover:text-[#166534]"
+                  className="ml-0.5 text-[var(--color-accent)] hover:text-[var(--color-accent)]"
                   title="Remove"
                 >
                   <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
@@ -444,7 +444,7 @@ export function InputArea({
               onClick={() => setShowScopePicker((v) => !v)}
               title="Knowledge scope — which documents this chat can read"
               style={{ border: 'none', background: 'none', outline: 'none' }}
-              className={`flex h-7 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium transition ${retrievalScope === 'everything' ? 'text-[#d97706]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'}`}
+              className={`flex h-7 items-center gap-1 rounded-md px-1.5 text-[11px] font-medium transition ${retrievalScope === 'everything' ? 'text-[var(--color-attention)]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'}`}
             >
               <svg width="11" height="11" viewBox="0 0 14 14" fill="none" aria-hidden>
                 <path d="M1.5 3.5A1.5 1.5 0 013 2h3l1.2 1.4H12a1 1 0 011 1v6a1.5 1.5 0 01-1.5 1.5h-9A1.5 1.5 0 011 10.5v-7z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
@@ -502,7 +502,7 @@ export function InputArea({
               type="button"
               onClick={() => setShowModePicker((v) => !v)}
               title="Agent mode — how autonomously it acts"
-              className={`flex h-7 items-center gap-1 rounded-md border-0 bg-transparent px-1.5 text-[11px] font-medium capitalize outline-none transition ${settings.agentMode === 'plan' ? 'text-[#d97706]' : settings.agentMode === 'ask' ? 'text-[#0891b2]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'}`}
+              className={`flex h-7 items-center gap-1 rounded-md border-0 bg-transparent px-1.5 text-[11px] font-medium capitalize outline-none transition ${settings.agentMode === 'plan' ? 'text-[var(--color-attention)]' : settings.agentMode === 'ask' ? 'text-[#0891b2]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'}`}
             >
               {settings.agentMode ?? 'auto'}
               <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden><path d="M1.5 3l2 2 2-2" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/></svg>

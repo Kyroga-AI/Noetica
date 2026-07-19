@@ -195,7 +195,7 @@ export function LabSurface() {
             <div className="flex items-center gap-2">
               <label className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Result</label>
               {status && (
-                <span className={`text-[10px] ${status.ok ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>
+                <span className={`text-[10px] ${status.ok ? 'text-[var(--color-accent)]' : 'text-[#dc2626]'}`}>
                   {status.code ? `${status.ok ? '✓' : '✗'} ${status.code}` : '✗ offline'}{status.ms ? ` · ${status.ms}ms` : ''}
                 </span>
               )}

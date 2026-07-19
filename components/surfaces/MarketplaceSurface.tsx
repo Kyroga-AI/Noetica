@@ -42,7 +42,7 @@ interface RegistryEntry {
 const TIER_STYLE: Record<PartnerProfile['tier'], { label: string; bg: string; text: string }> = {
   community: { label: 'Community', bg: 'bg-[var(--color-background-tertiary)]', text: 'text-[var(--color-text-tertiary)]' },
   verified:  { label: 'Verified',  bg: 'bg-[#ede9fe]',                           text: 'text-[#6d28d9]' },
-  sovereign: { label: 'Sovereign', bg: 'bg-[#dcfce7]',                           text: 'text-[#15803d]' },
+  sovereign: { label: 'Sovereign', bg: 'bg-[var(--color-accent-bg)]',                           text: 'text-[var(--color-accent)]' },
 }
 
 const KIND_ICON: Record<PartnerCapability['kind'], string> = {
@@ -54,10 +54,10 @@ const KIND_ICON: Record<PartnerCapability['kind'], string> = {
 
 const DOMAIN_COLOR: Record<string, string> = {
   security:    'bg-[#fee2e2] text-[#dc2626]',
-  compliance:  'bg-[#fef3c7] text-[#d97706]',
+  compliance:  'bg-[#fef3c7] text-[var(--color-attention)]',
   analytics:   'bg-[#dbeafe] text-[#2563eb]',
   research:    'bg-[#ede9fe] text-[#7c3aed]',
-  finance:     'bg-[#dcfce7] text-[#16a34a]',
+  finance:     'bg-[var(--color-accent-bg)] text-[var(--color-accent)]',
   general:     'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]',
 }
 
@@ -147,7 +147,7 @@ function PartnerCard({ p, onVouched }: { p: PartnerProfile; onVouched?: () => vo
       <div className="mt-3 flex items-center gap-3 text-[10px] text-[var(--color-text-tertiary)]">
         {p.meshEndpoint && (
           <span className="flex items-center gap-1">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#22c55e]" />
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" />
             mesh node
           </span>
         )}
@@ -179,7 +179,7 @@ function PartnerCard({ p, onVouched }: { p: PartnerProfile; onVouched?: () => vo
                 className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] px-1">×</button>
             </div>
           )}
-          {vouchMsg && <div className="text-[10px] text-[#16a34a]">{vouchMsg}</div>}
+          {vouchMsg && <div className="text-[10px] text-[var(--color-accent)]">{vouchMsg}</div>}
         </div>
       )}
     </div>
@@ -229,7 +229,7 @@ function CommunityFeed() {
   const KIND_BADGE: Record<string, string> = {
     session: 'bg-[#ede9fe] text-[#6d28d9]',
     discussion: 'bg-[#dbeafe] text-[#2563eb]',
-    resource: 'bg-[#dcfce7] text-[#15803d]',
+    resource: 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]',
   }
   return (
     <div className="space-y-3">

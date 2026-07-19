@@ -35,7 +35,7 @@ export function MatrixPanel() {
             <div className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Workspace rooms / ChatOps</div>
           </div>
           {isConnected && (
-            <span className="rounded-full bg-[#dcfce7] px-2 py-0.5 text-[9px] font-semibold text-[#16a34a]">Live</span>
+            <span className="rounded-full bg-[var(--color-accent-bg)] px-2 py-0.5 text-[9px] font-semibold text-[var(--color-accent)]">Live</span>
           )}
         </div>
         {isConnected && matrixAuth?.userInfo?.login && (

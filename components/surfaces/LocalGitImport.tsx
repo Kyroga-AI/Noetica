@@ -158,7 +158,7 @@ export function LocalGitImport({ onClose, onDone }: { onClose: () => void; onDon
                       <button onClick={() => loadDir(e.path)} className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
                         <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden className="shrink-0 text-[var(--color-text-tertiary)]"><path d="M1.5 3.5A1 1 0 0 1 2.5 2.5h3l1.3 1.3h5.7a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-7Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" /></svg>
                         <span className="truncate text-[11px] text-[var(--color-text-primary)]">{e.name}</span>
-                        {e.isGitRepo && <span className="shrink-0 rounded bg-[#dcfce7] px-1 py-px text-[8px] font-semibold text-[#16a34a]">git</span>}
+                        {e.isGitRepo && <span className="shrink-0 rounded bg-[var(--color-accent-bg)] px-1 py-px text-[8px] font-semibold text-[var(--color-accent)]">git</span>}
                       </button>
                       <button onClick={() => pick(e.path)} className="shrink-0 rounded border border-[#bfdbfe] bg-[#eff6ff] px-1.5 py-0.5 text-[9px] font-semibold text-[#1d4ed8] opacity-0 transition group-hover:opacity-100 hover:bg-[#dbeafe]">Select</button>
                     </div>
@@ -195,11 +195,11 @@ export function LocalGitImport({ onClose, onDone }: { onClose: () => void; onDon
 
                   {(log.length > 0 || result) && (
                     <div className="max-h-40 overflow-y-auto rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-2 font-mono text-[10px] leading-relaxed text-[var(--color-text-secondary)]">
-                      {log.map((l, i) => <div key={i} className={l.startsWith('✗') ? 'text-[#dc2626]' : l.startsWith('✓') ? 'text-[#16a34a]' : ''}>{l}</div>)}
+                      {log.map((l, i) => <div key={i} className={l.startsWith('✗') ? 'text-[#dc2626]' : l.startsWith('✓') ? 'text-[var(--color-accent)]' : ''}>{l}</div>)}
                     </div>
                   )}
                   {result && (
-                    <a href={result.html_url} target="_blank" rel="noopener" className="block rounded-lg border border-[#bbf7d0] bg-[#f0fdf4] px-3 py-2 text-center text-[11px] font-semibold text-[#16a34a] transition hover:bg-[#dcfce7]">
+                    <a href={result.html_url} target="_blank" rel="noopener" className="block rounded-lg border border-[#bbf7d0] bg-[var(--color-accent-bg)] px-3 py-2 text-center text-[11px] font-semibold text-[var(--color-accent)] transition hover:bg-[var(--color-accent-bg)]">
                       Open {result.html_url.split('/').slice(-2).join('/')} ↗
                     </a>
                   )}

@@ -125,12 +125,12 @@ export function VoiceTrainer() {
       </div>
 
       {provisioned === false && (
-        <div className="mt-2 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-3 py-2 text-[12px] text-[#92400e]">
+        <div className="mt-2 rounded-xl border border-[#fde68a] bg-[var(--color-attention-bg)] px-3 py-2 text-[12px] text-[var(--color-attention)]">
           Voice cloning isn’t set up yet — this installs a local XTTS model (downloads a few GB, one time). Requires <code className="font-mono">uv</code>.
           {provStep ? (
             <div className="mt-1.5 flex items-center gap-2 text-[11px]"><span className="animate-pulse">⏳</span> {provStep}</div>
           ) : (
-            <button onClick={() => void provision()} className="mt-1.5 rounded-lg bg-[#b45309] px-3 py-1 text-[11px] font-semibold text-white transition hover:bg-[#92400e]">Set up voice cloning</button>
+            <button onClick={() => void provision()} className="mt-1.5 rounded-lg bg-[var(--color-attention)] px-3 py-1 text-[11px] font-semibold text-white transition hover:bg-[var(--color-attention)]">Set up voice cloning</button>
           )}
           {provError && <div className="mt-1 text-[11px] text-[#b91c1c]">{provError}</div>}
         </div>
@@ -160,7 +160,7 @@ export function VoiceTrainer() {
             <div className="mt-3 space-y-1.5">
               {voices.map((v) => (
                 <div key={v.id} className="flex items-center justify-between rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] px-2.5 py-1.5">
-                  <span className="text-[12px] text-[var(--color-text-primary)]">{v.name}{activeId === v.id && settings.ttsProvider === 'cloned' && <span className="ml-1.5 text-[10px] text-[#16a34a]">● active</span>}</span>
+                  <span className="text-[12px] text-[var(--color-text-primary)]">{v.name}{activeId === v.id && settings.ttsProvider === 'cloned' && <span className="ml-1.5 text-[10px] text-[var(--color-accent)]">● active</span>}</span>
                   <div className="flex items-center gap-1.5">
                     <button onClick={() => void test(v.id)} disabled={busy} className="rounded-md px-2 py-1 text-[11px] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)] disabled:opacity-50">Test</button>
                     <button onClick={() => update({ ttsProvider: 'cloned', clonedVoiceId: v.id })} className="rounded-md bg-[var(--color-background-secondary)] px-2 py-1 text-[11px] font-medium text-[var(--color-text-primary)]">Use</button>

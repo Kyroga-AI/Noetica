@@ -85,7 +85,7 @@ export function TerminalSurface() {
             return (
               <button key={t} onClick={() => { setTool(t); setInput('') }}
                 className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${tool === t ? 'bg-[#dbeafe] text-[#1d4ed8]' : 'border border-[var(--color-border-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'}`}>
-                <span className={`h-1.5 w-1.5 rounded-full ${inst ? 'bg-[#16a34a]' : 'bg-[#94a3b8]'}`} />{t}
+                <span className={`h-1.5 w-1.5 rounded-full ${inst ? 'bg-[var(--color-accent)]' : 'bg-[#94a3b8]'}`} />{t}
               </button>
             )
           })}

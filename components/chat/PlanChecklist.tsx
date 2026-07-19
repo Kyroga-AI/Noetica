@@ -24,7 +24,7 @@ export function PlanChecklist({ plan }: { plan: ExecutionPlan }) {
             <span className="mt-[2px] flex h-3 w-3 shrink-0 items-center justify-center">
               {s.status === 'done' ? (
                 <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden>
-                  <path d="M2 6.5l2.5 2.5L10 3.5" stroke="#16a34a" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M2 6.5l2.5 2.5L10 3.5" stroke="var(--color-accent)" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               ) : s.status === 'running' ? (
                 <span className="h-2.5 w-2.5 animate-spin rounded-full border-[1.5px] border-[#1d4ed8] border-t-transparent" aria-label="running" />

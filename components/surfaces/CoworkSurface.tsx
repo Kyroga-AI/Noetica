@@ -258,7 +258,7 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
   const STATUS_STYLE: Record<Task['status'], string> = {
     todo:  'bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)]',
     doing: 'bg-[rgba(29,78,216,0.12)] text-[#1d4ed8]',
-    done:  'bg-[rgba(34,197,94,0.12)] text-[#16a34a]',
+    done:  'bg-[rgba(34,197,94,0.12)] text-[var(--color-accent)]',
   }
 
   return (
@@ -342,7 +342,7 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                   <span>·</span>
                   <span className="text-[#1d4ed8]">{doingCount} doing</span>
                   <span>·</span>
-                  <span className="text-[#16a34a]">{doneCount} done</span>
+                  <span className="text-[var(--color-accent)]">{doneCount} done</span>
                 </div>
               )}
             </div>

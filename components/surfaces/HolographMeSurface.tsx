@@ -77,7 +77,7 @@ function timeAgo(iso: string | null): string {
 
 function ConfidenceBar({ value }: { value: number }) {
   const pct = Math.round(Math.min(1, Math.max(0, value)) * 100)
-  const color = pct > 70 ? '#22c55e' : pct > 40 ? '#f59e0b' : '#94a3b8'
+  const color = pct > 70 ? 'var(--color-accent)' : pct > 40 ? '#f59e0b' : '#94a3b8'
   return (
     <div className="flex items-center gap-2">
       <div className="h-1.5 flex-1 rounded-full bg-[var(--color-background-tertiary)] overflow-hidden">
@@ -234,10 +234,10 @@ export function HolographMeSurface() {
 
       {/* Observation receipt */}
       {lastIngestId && (
-        <div className="flex items-center gap-3 border-b border-[#dcfce7] bg-[#f0fdf4] px-6 py-2">
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#22c55e]" />
-          <p className="flex-1 text-xs text-[#16a34a]">Observation logged · <span className="font-mono">{lastIngestId.slice(0, 24)}</span></p>
-          <button onClick={() => setLastIngestId(null)} className="text-[10px] text-[#16a34a] hover:underline">×</button>
+        <div className="flex items-center gap-3 border-b border-[var(--color-accent-bg)] bg-[var(--color-accent-bg)] px-6 py-2">
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-accent)]" />
+          <p className="flex-1 text-xs text-[var(--color-accent)]">Observation logged · <span className="font-mono">{lastIngestId.slice(0, 24)}</span></p>
+          <button onClick={() => setLastIngestId(null)} className="text-[10px] text-[var(--color-accent)] hover:underline">×</button>
         </div>
       )}
 
@@ -255,7 +255,7 @@ export function HolographMeSurface() {
               <div className="flex items-center gap-2">
                 <h1 className="text-base font-semibold text-[var(--color-text-primary)]">{me.displayName}</h1>
                 <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                  twinState?.policy_status === 'active' ? 'bg-[#dcfce7] text-[#16a34a]' : 'bg-[#fef2f2] text-[#dc2626]'
+                  twinState?.policy_status === 'active' ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[#fef2f2] text-[#dc2626]'
                 }`}>
                   {twinState?.policy_status ?? 'unknown'}
                 </span>
@@ -275,7 +275,7 @@ export function HolographMeSurface() {
           <div className="flex items-center gap-2">
             {loopStatus && (
               <div className="flex items-center gap-1.5 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5">
-                <span className={`h-1.5 w-1.5 rounded-full ${loopStatus.running ? 'bg-[#22c55e] animate-pulse' : loopStatus.enabled ? 'bg-[#22c55e]' : 'bg-[#94a3b8]'}`} />
+                <span className={`h-1.5 w-1.5 rounded-full ${loopStatus.running ? 'bg-[var(--color-accent)] animate-pulse' : loopStatus.enabled ? 'bg-[var(--color-accent)]' : 'bg-[#94a3b8]'}`} />
                 <span className="text-[11px] font-medium text-[var(--color-text-secondary)]">
                   {loopStatus.running ? 'Synthesising…' : loopStatus.enabled ? `Loop active · ${loopStatus.interval_ms / 60000}m` : 'Loop off'}
                 </span>
@@ -557,7 +557,7 @@ export function HolographMeSurface() {
                         <td className="px-3 py-2 font-medium">{c.task}</td>
                         <td className="px-3 py-2">
                           <span className="flex items-center gap-1.5">
-                            <span className={`h-1.5 w-1.5 rounded-full ${c.is_local ? 'bg-[#16a34a]' : 'bg-[#d97706]'}`} />
+                            <span className={`h-1.5 w-1.5 rounded-full ${c.is_local ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-attention)]'}`} />
                             {c.model}
                           </span>
                         </td>

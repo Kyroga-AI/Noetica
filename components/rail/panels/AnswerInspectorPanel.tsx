@@ -123,7 +123,7 @@ function GroundingCheckButton({ message }: { message: ChatMessage }) {
               {res.unsupported.length > 0 && (
                 <div className="mt-1 space-y-0.5">
                   {res.unsupported.slice(0, 3).map((s, i) => (
-                    <div key={i} className="flex gap-1 text-[#d97706]"><span aria-hidden>⚠</span><span className="min-w-0 flex-1">{s.length > 120 ? s.slice(0, 120) + '…' : s}</span></div>
+                    <div key={i} className="flex gap-1 text-[var(--color-attention)]"><span aria-hidden>⚠</span><span className="min-w-0 flex-1">{s.length > 120 ? s.slice(0, 120) + '…' : s}</span></div>
                   ))}
                 </div>
               )}

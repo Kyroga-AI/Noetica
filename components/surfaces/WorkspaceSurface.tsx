@@ -316,15 +316,15 @@ export function WorkspaceSurface() {
                     <div className="flex items-center gap-2 px-3 py-2 text-[12px]">
                       <button onClick={() => setExpanded((e) => ({ ...e, [d.path]: !open }))} className="text-[var(--color-text-tertiary)]">{open ? '▾' : '▸'}</button>
                       <span className="font-mono text-[var(--color-text-primary)]">{d.path}</span>
-                      {d.isNew && <span className="rounded bg-[#dcfce7] px-1 text-[10px] text-[#15803d]">new</span>}
-                      <span className="text-[10px] text-[#16a34a]">+{adds}</span><span className="text-[10px] text-[#dc2626]">−{dels}</span>
+                      {d.isNew && <span className="rounded bg-[var(--color-accent-bg)] px-1 text-[10px] text-[var(--color-accent)]">new</span>}
+                      <span className="text-[10px] text-[var(--color-accent)]">+{adds}</span><span className="text-[10px] text-[#dc2626]">−{dels}</span>
                       {hunkCount > 1 && <span className="text-[10px] text-[var(--color-text-tertiary)]">{hunkCount} hunks</span>}
                       <div className="ml-auto flex items-center gap-1.5">
-                        {status === 'accepted' && <span className="text-[11px] text-[#15803d]">✓ accepted</span>}
+                        {status === 'accepted' && <span className="text-[11px] text-[var(--color-accent)]">✓ accepted</span>}
                         {status === 'rejected' && <span className="text-[11px] text-[#b91c1c]">⟲ reverted</span>}
                         {!status && (<>
                           {rej.size > 0 && <button onClick={() => void applyHunks(d)} className="rounded bg-[#1d4ed8] px-2 py-0.5 text-[11px] font-semibold text-white">Apply {hunkCount - rej.size}/{hunkCount}</button>}
-                          <button onClick={() => acceptFile(d)} className="rounded bg-[#16a34a] px-2 py-0.5 text-[11px] font-semibold text-white">Accept all</button>
+                          <button onClick={() => acceptFile(d)} className="rounded bg-[var(--color-accent)] px-2 py-0.5 text-[11px] font-semibold text-white">Accept all</button>
                           <button onClick={() => void rejectFile(d)} className="rounded border border-[#dc2626] px-2 py-0.5 text-[11px] font-semibold text-[#dc2626]">Reject all</button>
                         </>)}
                       </div>
@@ -334,7 +334,7 @@ export function WorkspaceSurface() {
                         {segs.map((seg, si) => seg.kind === 'ctx' ? (
                           <div key={si} className="text-[var(--color-text-secondary)]"><span className="select-none opacity-50">  </span>{seg.s || ' '}</div>
                         ) : (
-                          <div key={si} className={`group relative my-0.5 rounded border-l-2 pl-1 ${rej.has(seg.id) ? 'border-[#9ca3af] opacity-50' : 'border-[#16a34a]'}`}>
+                          <div key={si} className={`group relative my-0.5 rounded border-l-2 pl-1 ${rej.has(seg.id) ? 'border-[#9ca3af] opacity-50' : 'border-[var(--color-accent)]'}`}>
                             {!status && (
                               <button onClick={() => toggleHunk(d.path, seg.id)} title={rej.has(seg.id) ? 'keep this change' : 'reject this hunk'}
                                 className="absolute right-1 top-0 z-10 hidden rounded bg-[var(--color-background-secondary)] px-1 text-[9px] text-[var(--color-text-tertiary)] transition group-hover:block hover:text-[#dc2626]">
@@ -342,7 +342,7 @@ export function WorkspaceSurface() {
                               </button>
                             )}
                             {seg.lines.map((l, i) => (
-                              <div key={i} className={l.t === 'add' ? `bg-[#16a34a]/10 text-[#15803d] ${rej.has(seg.id) ? 'line-through' : ''}` : 'bg-[#dc2626]/10 text-[#b91c1c]'}>
+                              <div key={i} className={l.t === 'add' ? `bg-[var(--color-accent)]/10 text-[var(--color-accent)] ${rej.has(seg.id) ? 'line-through' : ''}` : 'bg-[#dc2626]/10 text-[#b91c1c]'}>
                                 <span className="select-none opacity-50">{l.t === 'add' ? '+' : '−'} </span>{l.s || ' '}
                               </div>
                             ))}

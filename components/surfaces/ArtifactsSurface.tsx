@@ -227,9 +227,9 @@ function ArtifactRow({ artifact, selected, onSelect }: { artifact: Artifact; sel
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{artifact.title}</span>
           <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${
-            artifact.status === 'final'    ? 'bg-[#dcfce7] text-[#16a34a]' :
+            artifact.status === 'final'    ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' :
             artifact.status === 'archived' ? 'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]' :
-            'bg-[#fef9c3] text-[#92400e]'
+            'bg-[var(--color-attention-bg)] text-[var(--color-attention)]'
           }`}>{artifact.status}</span>
         </div>
         <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-[var(--color-text-tertiary)]">

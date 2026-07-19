@@ -33,12 +33,12 @@ function PlanView({ plan }: { plan: Plan }) {
           <div key={t.id} className="flex items-center gap-2">
             <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold ${
               t.failed ? 'bg-[#fecaca] text-[#dc2626]' :
-              t.done   ? 'bg-[#dcfce7] text-[#16a34a]' :
+              t.done   ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' :
               'bg-[#dbeafe] text-[#3b82f6]'
             }`}>
               {t.failed ? '✕' : t.done ? '✓' : i + 1}
             </span>
-            <span className={`text-[11px] ${t.failed ? 'text-[#dc2626] line-through' : t.done ? 'text-[#15803d]' : 'text-[var(--color-text-secondary)]'}`}>
+            <span className={`text-[11px] ${t.failed ? 'text-[#dc2626] line-through' : t.done ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-secondary)]'}`}>
               {t.title}
             </span>
             {t.appContext && t.appContext !== 'unknown' && (
@@ -125,14 +125,14 @@ function StepCard({ step, isPending, onApprove, onReject }: {
 
     return (
       <div className={`rounded-xl border-2 px-4 py-3 ${
-        waiting    ? 'border-[#fbbf24] bg-[#fffbeb]' :
-        isApproved ? 'border-[#22c55e] bg-[#f0fdf4]' :
+        waiting    ? 'border-[#fbbf24] bg-[var(--color-attention-bg)]' :
+        isApproved ? 'border-[var(--color-accent)] bg-[var(--color-accent-bg)]' :
         'border-[#f87171] bg-[#fef2f2]'
       }`}>
         <div className="flex items-start gap-3">
           <span className="mt-0.5 text-base">{waiting ? '⚡' : isApproved ? '✓' : '✕'}</span>
           <div className="flex-1 min-w-0">
-            <p className={`text-xs font-semibold ${waiting ? 'text-[#92400e]' : isApproved ? 'text-[#15803d]' : 'text-[#991b1b]'}`}>
+            <p className={`text-xs font-semibold ${waiting ? 'text-[var(--color-attention)]' : isApproved ? 'text-[var(--color-accent)]' : 'text-[#991b1b]'}`}>
               {waiting ? 'Proposed action' : isApproved ? 'Executed' : 'Rejected'}
             </p>
             <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{step.content}</p>
@@ -143,7 +143,7 @@ function StepCard({ step, isPending, onApprove, onReject }: {
         </div>
         {isPending && waiting && onApprove && onReject && (
           <div className="mt-3 flex gap-2">
-            <button onClick={onApprove} className="flex-1 rounded-lg bg-[#22c55e] py-1.5 text-xs font-semibold text-white hover:bg-[#16a34a] transition">Allow</button>
+            <button onClick={onApprove} className="flex-1 rounded-lg bg-[var(--color-accent)] py-1.5 text-xs font-semibold text-white hover:bg-[var(--color-accent)] transition">Allow</button>
             <button onClick={onReject}  className="flex-1 rounded-lg border border-[#fecaca] bg-white py-1 text-xs font-medium text-[#dc2626] hover:bg-[#fef2f2] transition">Stop</button>
           </div>
         )}
@@ -193,10 +193,10 @@ function MemoryPanel({ onClose }: { onClose: () => void }) {
           <p className="text-center text-xs text-[var(--color-text-tertiary)] py-6">No sessions recorded yet.</p>
         ) : (
           traces.map((t) => (
-            <div key={t.id} className={`rounded-xl border px-3 py-2.5 ${t.succeeded ? 'border-[#dcfce7] bg-[#f0fdf4]' : 'border-[#fecaca] bg-[#fef2f2]'}`}>
+            <div key={t.id} className={`rounded-xl border px-3 py-2.5 ${t.succeeded ? 'border-[var(--color-accent-bg)] bg-[var(--color-accent-bg)]' : 'border-[#fecaca] bg-[#fef2f2]'}`}>
               <div className="flex items-start justify-between gap-2">
                 <p className="text-xs font-medium text-[var(--color-text-primary)] leading-4">{t.goal}</p>
-                <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${t.succeeded ? 'bg-[#dcfce7] text-[#15803d]' : 'bg-[#fecaca] text-[#dc2626]'}`}>
+                <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${t.succeeded ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[#fecaca] text-[#dc2626]'}`}>
                   {t.succeeded ? 'ok' : 'fail'}
                 </span>
               </div>
@@ -323,8 +323,8 @@ export function ComputerUseSurface() {
                 status === 'idle'              ? 'bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)]' :
                 status === 'planning'          ? 'bg-[#f0f9ff] text-[#0369a1] animate-pulse' :
                 status === 'running'           ? 'bg-[#dbeafe] text-[#1d4ed8] animate-pulse' :
-                status === 'awaiting_approval' ? 'bg-[#fef9c3] text-[#92400e]' :
-                status === 'done'              ? 'bg-[#dcfce7] text-[#15803d]' :
+                status === 'awaiting_approval' ? 'bg-[var(--color-attention-bg)] text-[var(--color-attention)]' :
+                status === 'done'              ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' :
                 'bg-[#fef2f2] text-[#dc2626]'
               }`}>
                 {status === 'idle' ? 'Ready' : status === 'planning' ? 'Planning…' : status === 'running' ? 'Running…' : status === 'awaiting_approval' ? 'Awaiting approval' : status === 'done' ? 'Done' : 'Error'}
@@ -347,9 +347,9 @@ export function ComputerUseSurface() {
           </div>
 
           {/* Safety notice */}
-          <div className="mt-2.5 flex items-start gap-2 rounded-xl border border-[#fde68a] bg-[#fffbeb] px-3 py-1.5">
+          <div className="mt-2.5 flex items-start gap-2 rounded-xl border border-[#fde68a] bg-[var(--color-attention-bg)] px-3 py-1.5">
             <span className="shrink-0 text-xs">⚠️</span>
-            <p className="text-[10px] leading-4 text-[#92400e]">
+            <p className="text-[10px] leading-4 text-[var(--color-attention)]">
               <strong>Human-in-the-loop:</strong> Every proposed action requires your approval. Clicks and keystrokes execute on your real system.
             </p>
           </div>
@@ -418,13 +418,13 @@ export function ComputerUseSurface() {
 
         {/* Sticky approval banner */}
         {status === 'awaiting_approval' && pendingAction?.action && (
-          <div className="shrink-0 mx-4 mb-2 flex items-center gap-3 rounded-2xl border border-[#fcd34d] bg-[#fefce8] px-4 py-3 shadow-md">
+          <div className="shrink-0 mx-4 mb-2 flex items-center gap-3 rounded-2xl border border-[#fcd34d] bg-[var(--color-attention-bg)] px-4 py-3 shadow-md">
             <span className="text-lg">⚡</span>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold text-[#92400e]">Approval required</p>
+              <p className="text-xs font-semibold text-[var(--color-attention)]">Approval required</p>
               <p className="truncate text-xs text-[#78350f]">{pendingAction.content}</p>
             </div>
-            <button onClick={() => approveAction(pendingAction.id)} className="rounded-lg bg-[#22c55e] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[#16a34a]">Allow</button>
+            <button onClick={() => approveAction(pendingAction.id)} className="rounded-lg bg-[var(--color-accent)] px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-[var(--color-accent)]">Allow</button>
             <button onClick={() => rejectAction(pendingAction.id)} className="rounded-lg border border-[#fecaca] bg-white px-3 py-1.5 text-xs font-medium text-[#dc2626] transition hover:bg-[#fef2f2]">Stop</button>
           </div>
         )}

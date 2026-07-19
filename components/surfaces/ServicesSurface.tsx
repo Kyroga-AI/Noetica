@@ -18,7 +18,7 @@ type DevSpace = {
 }
 type Listing = { hasCluster: boolean; nhctl: boolean; spaces: DevSpace[]; note?: string }
 
-const STATUS_COLOR: Record<DevSpace['status'], string> = { active: '#16a34a', not_deployed: '#94a3b8', unknown: '#d97706' }
+const STATUS_COLOR: Record<DevSpace['status'], string> = { active: 'var(--color-accent)', not_deployed: '#94a3b8', unknown: 'var(--color-attention)' }
 
 export function ServicesSurface() {
   const [data, setData] = useState<Listing | null>(null)
@@ -50,8 +50,8 @@ export function ServicesSurface() {
           : (
             <>
               <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
-                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${data.hasCluster ? 'bg-[#dcfce7] text-[#16a34a]' : 'bg-[#fef2f2] text-[#dc2626]'}`}><span className={`h-1.5 w-1.5 rounded-full ${data.hasCluster ? 'bg-[#16a34a]' : 'bg-[#dc2626]'}`} />{data.hasCluster ? 'cluster reachable' : 'no cluster'}</span>
-                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${data.nhctl ? 'bg-[#dcfce7] text-[#16a34a]' : 'bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)]'}`}>nhctl {data.nhctl ? 'installed' : 'absent'}</span>
+                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${data.hasCluster ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[#fef2f2] text-[#dc2626]'}`}><span className={`h-1.5 w-1.5 rounded-full ${data.hasCluster ? 'bg-[var(--color-accent)]' : 'bg-[#dc2626]'}`} />{data.hasCluster ? 'cluster reachable' : 'no cluster'}</span>
+                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${data.nhctl ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)]'}`}>nhctl {data.nhctl ? 'installed' : 'absent'}</span>
                 {data.note && <span className="text-[var(--color-text-tertiary)]">{data.note}</span>}
               </div>
 
@@ -61,7 +61,7 @@ export function ServicesSurface() {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="h-2 w-2 rounded-full" style={{ background: STATUS_COLOR[s.status] }} />
                       <span className="text-sm font-semibold text-[var(--color-text-primary)]">{s.name}</span>
-                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ${s.spaceType === 'base' ? 'bg-[#dcfce7] text-[#16a34a]' : 'bg-[#dbeafe] text-[#1d4ed8]'}`}>{s.spaceType === 'base' ? 'BaseSpace · isolated' : 'MeshSpace · shared'}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ${s.spaceType === 'base' ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[#dbeafe] text-[#1d4ed8]'}`}>{s.spaceType === 'base' ? 'BaseSpace · isolated' : 'MeshSpace · shared'}</span>
                       <span className="rounded-full border border-[var(--color-border-secondary)] px-2 py-0.5 text-[9px] text-[var(--color-text-tertiary)]">{s.status.replace('_', ' ')}</span>
                       <span className="ml-auto font-mono text-[10px] text-[var(--color-text-tertiary)]">{s.kubeNamespace}</span>
                     </div>

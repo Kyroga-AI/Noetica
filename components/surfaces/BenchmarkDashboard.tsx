@@ -374,7 +374,7 @@ export function BenchmarkDashboard() {
                   <div className="flex-1 h-2 rounded-full bg-[var(--color-background-tertiary)] overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all"
-                      style={{ width: `${hbResult.overallScore * 100}%`, background: hbResult.overallScore >= 0.8 ? '#16a34a' : hbResult.overallScore >= 0.6 ? '#d97706' : '#dc2626' }}
+                      style={{ width: `${hbResult.overallScore * 100}%`, background: hbResult.overallScore >= 0.8 ? 'var(--color-accent)' : hbResult.overallScore >= 0.6 ? 'var(--color-attention)' : '#dc2626' }}
                     />
                   </div>
                   <span className="w-8 text-right tabular-nums text-xs font-semibold">{(hbResult.overallScore * 100).toFixed(0)}%</span>
@@ -387,7 +387,7 @@ export function BenchmarkDashboard() {
                       <div className="flex-1 h-1.5 rounded-full bg-[var(--color-background-tertiary)] overflow-hidden">
                         <div
                           className="h-full rounded-full"
-                          style={{ width: `${d.score * 100}%`, background: d.score >= 0.8 ? '#16a34a' : d.score >= 0.6 ? '#d97706' : '#dc2626' }}
+                          style={{ width: `${d.score * 100}%`, background: d.score >= 0.8 ? 'var(--color-accent)' : d.score >= 0.6 ? 'var(--color-attention)' : '#dc2626' }}
                         />
                       </div>
                       <span className="w-8 shrink-0 text-right tabular-nums text-[11px]">{(d.score * 100).toFixed(0)}%</span>
@@ -427,7 +427,7 @@ function StatCard({ label, value, sub, accent }: { label: string; value: string;
   const ring =
     accent === 'green' ? 'border-[#86efac]' : accent === 'amber' ? 'border-[#fde68a]' : 'border-[var(--color-border-tertiary)]'
   const dot =
-    accent === 'green' ? 'bg-[#16a34a]' : accent === 'amber' ? 'bg-[#d97706]' : 'bg-[var(--color-text-tertiary)]'
+    accent === 'green' ? 'bg-[var(--color-accent)]' : accent === 'amber' ? 'bg-[var(--color-attention)]' : 'bg-[var(--color-text-tertiary)]'
   return (
     <div className={`rounded-xl border ${ring} bg-[var(--color-background-secondary)] p-3`}>
       <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">
@@ -445,7 +445,7 @@ function WorthBars({ buckets }: { buckets: Array<{ index: number; avg_worth: num
     <div className="mt-2 flex h-16 items-end gap-1">
       {buckets.map((b) => (
         <div key={b.index} className="flex-1" title={`worth ${b.avg_worth.toFixed(2)}`}>
-          <div className="rounded-t bg-[#16a34a]" style={{ height: `${Math.max(4, b.avg_worth * 64)}px` }} />
+          <div className="rounded-t bg-[var(--color-accent)]" style={{ height: `${Math.max(4, b.avg_worth * 64)}px` }} />
         </div>
       ))}
     </div>
@@ -485,7 +485,7 @@ function CompareTable({ rows }: { rows: Row[] }) {
             <tr key={i} className="border-b border-[var(--color-border-tertiary)] last:border-0">
               <td className="px-3 py-2">
                 <span className="flex items-center gap-1.5">
-                  <span className={`h-1.5 w-1.5 rounded-full ${r.isLocal ? 'bg-[#16a34a]' : 'bg-[#d97706]'}`} />
+                  <span className={`h-1.5 w-1.5 rounded-full ${r.isLocal ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-attention)]'}`} />
                   <span className="font-medium">{r.model}</span>
                   <span className="text-[9px] uppercase text-[var(--color-text-tertiary)]">{r.isLocal ? 'local' : 'cloud'}</span>
                 </span>
@@ -516,12 +516,12 @@ function ParetoChart({ aggs }: { aggs: ModelAgg[] }) {
       <text x={W - pad} y={H - pad + 14} textAnchor="end" fontSize="9" fill="var(--color-text-tertiary)">cost →</text>
       <text x={pad - 6} y={pad} textAnchor="end" fontSize="9" fill="var(--color-text-tertiary)">quality</text>
       {/* "best" corner hint */}
-      <text x={pad + 4} y={pad + 10} fontSize="9" fill="#16a34a">◤ best</text>
+      <text x={pad + 4} y={pad + 10} fontSize="9" fill="var(--color-accent)">◤ best</text>
       {aggs.map((a, i) => {
         const cx = x(a.totalCostUsd), cy = y(a.avgQuality ?? 0)
         return (
           <g key={i}>
-            <circle cx={cx} cy={cy} r="5" fill={a.isLocal ? '#16a34a' : '#d97706'} fillOpacity="0.85" />
+            <circle cx={cx} cy={cy} r="5" fill={a.isLocal ? 'var(--color-accent)' : 'var(--color-attention)'} fillOpacity="0.85" />
             <text x={cx + 8} y={cy + 3} fontSize="8" fill="var(--color-text-secondary)">{a.model}</text>
           </g>
         )

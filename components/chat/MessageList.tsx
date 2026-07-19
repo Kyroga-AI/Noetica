@@ -78,9 +78,9 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
         icon: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 4 2.5 8 6 12M10 4l3.5 4-3.5 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg> },
       { label: 'Research', prompt: 'research: what is in my knowledge base?', color: '#ea580c',
         icon: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.2" stroke="currentColor" strokeWidth="1.4"/><path d="m10.5 10.5 3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg> },
-      { label: 'Chart data', prompt: 'make a chart from this data: Jan 120, Feb 150, Mar 135, Apr 190', color: '#16a34a',
+      { label: 'Chart data', prompt: 'make a chart from this data: Jan 120, Feb 150, Mar 135, Apr 190', color: 'var(--color-accent)',
         icon: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M2 14V2M2 14h12M5 11V8M8 11V5M11 11V7" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg> },
-      { label: 'What can you do?', prompt: 'What can you do?', color: '#d97706',
+      { label: 'What can you do?', prompt: 'What can you do?', color: 'var(--color-attention)',
         icon: <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1.5v3M8 11.5v3M1.5 8h3M11.5 8h3M3.5 3.5l2 2M10.5 10.5l2 2M12.5 3.5l-2 2M5.5 10.5l-2 2" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg> },
     ]
     return (

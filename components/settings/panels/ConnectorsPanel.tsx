@@ -81,7 +81,7 @@ const EXTERNAL_CONNECTORS = [
 ]
 
 const TRUST_COLORS: Record<string, string> = {
-  'Native':               'bg-[#dcfce7] text-[#166534]',
+  'Native':               'bg-[var(--color-accent-bg)] text-[var(--color-accent)]',
   'Organization trusted': 'bg-[#dbeafe] text-[#1e40af]',
   'External':             'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]',
   'Unverified':           'bg-[#fee2e2] text-[#991b1b]',
@@ -104,7 +104,7 @@ function ConnectorRow({
           <span className="text-sm font-semibold text-[var(--color-text-primary)]">{label}</span>
           <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${TRUST_COLORS[trust] ?? ''}`}>{trust}</span>
           {authConnected && (
-            <span className="rounded-full bg-[#dcfce7] px-2 py-0.5 text-[10px] font-semibold text-[#16a34a]">Connected</span>
+            <span className="rounded-full bg-[var(--color-accent-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-accent)]">Connected</span>
           )}
         </div>
         <p className="text-xs text-[var(--color-text-secondary)]">{description}</p>
@@ -124,7 +124,7 @@ function ConnectorRow({
 const STATUS_DOT: Record<string, string> = {
   disconnected: 'bg-[#94a3b8]',
   connecting:   'bg-[#fbbf24] animate-pulse',
-  connected:    'bg-[#22c55e]',
+  connected:    'bg-[var(--color-accent)]',
   error:        'bg-[#ef4444]',
 }
 
@@ -307,7 +307,7 @@ export function ConnectorsPanel({ onNavigate }: { onNavigate?: (id: string) => v
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium transition ${tab === t.id ? 'bg-[var(--color-background-primary)] font-semibold text-[var(--color-text-primary)] shadow-sm' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}>
             {t.label}
-            {t.badge && <span className="rounded-full bg-[#22c55e] px-1.5 py-0.5 text-[10px] font-bold text-white">{t.badge}</span>}
+            {t.badge && <span className="rounded-full bg-[var(--color-accent)] px-1.5 py-0.5 text-[10px] font-bold text-white">{t.badge}</span>}
           </button>
         ))}
       </div>
@@ -321,7 +321,7 @@ export function ConnectorsPanel({ onNavigate }: { onNavigate?: (id: string) => v
 
       {tab === 'external' && (
         <div className="space-y-2">
-          <div className="rounded-xl border border-[#fef9c3] bg-[#fefce8] px-4 py-2.5 text-xs text-[#854d0e]">
+          <div className="rounded-xl border border-[var(--color-attention-bg)] bg-[var(--color-attention-bg)] px-4 py-2.5 text-xs text-[#854d0e]">
             External connectors are optional integrations. Native SourceOS alternatives exist for all of these.
           </div>
           {EXTERNAL_CONNECTORS.map((c) => {
@@ -405,12 +405,12 @@ export function ConnectorsPanel({ onNavigate }: { onNavigate?: (id: string) => v
             </div>
           )}
           {tools.length > 0 && (
-            <div className="rounded-xl border border-[#dcfce7] bg-[#f0fdf4] px-4 py-3 space-y-1.5">
-              <p className="text-xs font-semibold text-[#166534]">{tools.length} tool{tools.length !== 1 ? 's' : ''} available</p>
+            <div className="rounded-xl border border-[var(--color-accent-bg)] bg-[var(--color-accent-bg)] px-4 py-3 space-y-1.5">
+              <p className="text-xs font-semibold text-[var(--color-accent)]">{tools.length} tool{tools.length !== 1 ? 's' : ''} available</p>
               <div className="flex flex-wrap gap-1.5">
                 {tools.map((t) => (
                   <span key={`${t.serverId}:${t.name}`}
-                    className="rounded-full border border-[#bbf7d0] bg-[#dcfce7] px-2.5 py-0.5 font-mono text-[11px] text-[#166534]">
+                    className="rounded-full border border-[#bbf7d0] bg-[var(--color-accent-bg)] px-2.5 py-0.5 font-mono text-[11px] text-[var(--color-accent)]">
                     {t.name}
                   </span>
                 ))}

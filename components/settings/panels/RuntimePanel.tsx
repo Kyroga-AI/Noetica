@@ -18,7 +18,7 @@ function StatusDot({ status }: { status: PingStatus }) {
   const cls = {
     idle:        'bg-[#94a3b8]',
     checking:    'bg-[#fbbf24] animate-pulse',
-    reachable:   'bg-[#22c55e]',
+    reachable:   'bg-[var(--color-accent)]',
     unreachable: 'bg-[#ef4444]',
   }[status]
   return <span className={`inline-block h-2 w-2 rounded-full ${cls}`} />
@@ -27,7 +27,7 @@ function StatusDot({ status }: { status: PingStatus }) {
 function StatusLabel({ status }: { status: PingStatus }) {
   return (
     <span className={`font-semibold ${
-      status === 'reachable'   ? 'text-[#22c55e]' :
+      status === 'reachable'   ? 'text-[var(--color-accent)]' :
       status === 'unreachable' ? 'text-[#ef4444]' :
       status === 'checking'    ? 'text-[#f59e0b]' : 'text-[var(--color-text-tertiary)]'
     }`}>
@@ -119,29 +119,29 @@ export function RuntimePanel() {
 
       {/* Agent Machine capability card — shown when connected */}
       {amPing === 'reachable' && amInfo && (
-        <div className="rounded-xl border border-[#bbf7d0] bg-[#f0fdf4] px-4 py-3 space-y-2">
+        <div className="rounded-xl border border-[#bbf7d0] bg-[var(--color-accent-bg)] px-4 py-3 space-y-2">
           <div className="flex items-center gap-2">
             <StatusDot status="reachable" />
-            <span className="text-xs font-semibold text-[#166534]">Agent Machine connected</span>
-            {amInfo.version && <span className="ml-auto font-mono text-[10px] text-[#166534]">v{amInfo.version}</span>}
+            <span className="text-xs font-semibold text-[var(--color-accent)]">Agent Machine connected</span>
+            {amInfo.version && <span className="ml-auto font-mono text-[10px] text-[var(--color-accent)]">v{amInfo.version}</span>}
           </div>
-          {amInfo.description && <p className="text-xs text-[#15803d]">{amInfo.description}</p>}
+          {amInfo.description && <p className="text-xs text-[var(--color-accent)]">{amInfo.description}</p>}
           {amInfo.models && amInfo.models.length > 0 && (
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-[#166534] mb-1">Available models</div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-accent)] mb-1">Available models</div>
               <div className="flex flex-wrap gap-1">
                 {amInfo.models.map((m) => (
-                  <span key={m} className="rounded-md bg-[#dcfce7] px-2 py-0.5 font-mono text-[10px] text-[#166534]">{m}</span>
+                  <span key={m} className="rounded-md bg-[var(--color-accent-bg)] px-2 py-0.5 font-mono text-[10px] text-[var(--color-accent)]">{m}</span>
                 ))}
               </div>
             </div>
           )}
           {amInfo.tools && amInfo.tools.length > 0 && (
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-[#166534] mb-1">Available tools</div>
+              <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-accent)] mb-1">Available tools</div>
               <div className="flex flex-wrap gap-1">
                 {amInfo.tools.map((t) => (
-                  <span key={t} className="rounded-md bg-[#dcfce7] px-2 py-0.5 font-mono text-[10px] text-[#166534]">{t}</span>
+                  <span key={t} className="rounded-md bg-[var(--color-accent-bg)] px-2 py-0.5 font-mono text-[10px] text-[var(--color-accent)]">{t}</span>
                 ))}
               </div>
             </div>
@@ -158,7 +158,7 @@ export function RuntimePanel() {
               <StatusDot status={settings.runtimeMode === 'standalone' ? 'reachable' : 'idle'} />
               <span className="text-[var(--color-text-secondary)]">Standalone runtime</span>
             </div>
-            <span className={`font-semibold ${settings.runtimeMode === 'standalone' ? 'text-[#22c55e]' : 'text-[var(--color-text-tertiary)]'}`}>
+            <span className={`font-semibold ${settings.runtimeMode === 'standalone' ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-tertiary)]'}`}>
               {settings.runtimeMode === 'standalone' ? 'Active' : 'Standby'}
             </span>
           </div>

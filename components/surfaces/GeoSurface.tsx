@@ -21,7 +21,7 @@ function amUrl(path: string): string {
 
 const SEV: Record<string, { c: string; r: number }> = {
   info:     { c: '#3b82f6', r: 5 },
-  low:      { c: '#22c55e', r: 6 },
+  low:      { c: 'var(--color-accent)', r: 6 },
   medium:   { c: '#eab308', r: 7 },
   high:     { c: '#f97316', r: 8 },
   critical: { c: '#ef4444', r: 10 },

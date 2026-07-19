@@ -426,7 +426,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
           {distillJob && (
             <div className="mt-3 space-y-1.5">
               <div className="flex items-center gap-2">
-                <span className={`h-2 w-2 rounded-full ${distillJob.status === 'running' ? 'animate-pulse bg-[#7c3aed]' : distillJob.status === 'done' ? 'bg-[#22c55e]' : distillJob.status === 'error' ? 'bg-[#ef4444]' : 'bg-[#d1d5db]'}`} />
+                <span className={`h-2 w-2 rounded-full ${distillJob.status === 'running' ? 'animate-pulse bg-[#7c3aed]' : distillJob.status === 'done' ? 'bg-[var(--color-accent)]' : distillJob.status === 'error' ? 'bg-[#ef4444]' : 'bg-[#d1d5db]'}`} />
                 <span className="text-xs font-medium text-[var(--color-text-primary)]">
                   {distillJob.status === 'running' || distillJob.status === 'queued'
                     ? `Step ${distillJob.step}/${distillJob.total_steps}${distillJob.loss !== null ? ` — loss ${distillJob.loss.toFixed(4)}` : ''}`
@@ -467,7 +467,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                 }`}
               >
                 <div className="flex items-center gap-1.5">
-                  {r.preference === 'preferred' && <span className="h-1.5 w-1.5 rounded-full bg-[#22c55e]" />}
+                  {r.preference === 'preferred' && <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" />}
                   {r.preference === 'rejected' && <span className="h-1.5 w-1.5 rounded-full bg-[#ef4444]" />}
                   {r.preference === null && <span className="h-1.5 w-1.5 rounded-full bg-[#d1d5db]" />}
                   <span className="truncate text-xs font-medium text-[var(--color-text-primary)]">{r.prompt.slice(0, 40)}</span>
@@ -497,15 +497,15 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
 
               <div className="grid grid-cols-2 gap-4">
                 {/* Teacher */}
-                <div className={`rounded-2xl border bg-[var(--color-background-primary)] p-4 space-y-2 ${activeRun.preference === 'preferred' ? 'border-[#86efac] ring-1 ring-[#22c55e]/30' : 'border-[#bfdbfe]'}`}>
+                <div className={`rounded-2xl border bg-[var(--color-background-primary)] p-4 space-y-2 ${activeRun.preference === 'preferred' ? 'border-[#86efac] ring-1 ring-[var(--color-accent)]/30' : 'border-[#bfdbfe]'}`}>
                   <div className="flex items-center justify-between">
                     <span className="text-[11px] font-semibold uppercase tracking-wide text-[#1d4ed8]">Teacher — {models.find((m) => m.id === activeRun.teacherModel)?.label ?? activeRun.teacherModel}</span>
                     <button
                       onClick={() => markPreference(activeRun.id, activeRun.preference === 'preferred' ? null : 'preferred')}
                       className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
                         activeRun.preference === 'preferred'
-                          ? 'bg-[#22c55e] text-white'
-                          : 'border border-[#d1d5db] text-[var(--color-text-secondary)] hover:border-[#22c55e] hover:text-[#16a34a]'
+                          ? 'bg-[var(--color-accent)] text-white'
+                          : 'border border-[#d1d5db] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]'
                       }`}
                     >
                       {activeRun.preference === 'preferred' ? '✓ Preferred' : 'Prefer'}

@@ -98,7 +98,7 @@ function ProviderRow({
   return (
     <div
       className="rounded-2xl border p-4 space-y-3"
-      style={{ borderColor: hasKey && verifyState === 'ok' ? '#bbf7d0' : 'var(--color-border-secondary)', background: verifyState === 'ok' ? '#f0fdf4' : provider.bg }}
+      style={{ borderColor: hasKey && verifyState === 'ok' ? '#bbf7d0' : 'var(--color-border-secondary)', background: verifyState === 'ok' ? 'var(--color-accent-bg)' : provider.bg }}
     >
       <div className="flex items-center gap-2.5">
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-sm font-bold text-white" style={{ background: provider.color }}>
@@ -108,7 +108,7 @@ function ProviderRow({
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-[var(--color-text-primary)]">{provider.label}</span>
             {verifyState === 'ok' && (
-              <span className="rounded-full bg-[#dcfce7] px-2 py-0.5 text-[10px] font-semibold text-[#166534]">Verified</span>
+              <span className="rounded-full bg-[var(--color-accent-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-accent)]">Verified</span>
             )}
           </div>
           <p className="text-xs text-[var(--color-text-secondary)]">{provider.description}</p>

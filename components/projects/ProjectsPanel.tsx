@@ -144,7 +144,7 @@ function ProjectEditor({
           )}
         </div>
         <div className="flex items-center gap-2">
-          {saved && <span className="text-xs text-[#22c55e]">Saved</span>}
+          {saved && <span className="text-xs text-[var(--color-accent)]">Saved</span>}
           <button
             onClick={onActivate}
             className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition ${isActive ? 'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]' : 'bg-[#1d4ed8] text-white hover:bg-[#1e40af]'}`}
@@ -390,7 +390,7 @@ export function ProjectsPanel({
               <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: p.color }} />
               <span className="flex-1 truncate">{p.title}</span>
               {p.id === activeProjectId && (
-                <span className="shrink-0 h-1.5 w-1.5 rounded-full bg-[#22c55e]" title="Active" />
+                <span className="shrink-0 h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" title="Active" />
               )}
             </button>
           ))}

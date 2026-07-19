@@ -103,7 +103,7 @@ function ToolCallCard({ call, result }: { call: ToolCallRecord; result?: ToolRes
         {/* status dot */}
         <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${
           !result ? 'bg-[#fbbf24] animate-pulse' :
-          isError ? 'bg-[#ef4444]' : 'bg-[#22c55e]'
+          isError ? 'bg-[#ef4444]' : 'bg-[var(--color-accent)]'
         }`} />
         {/* tool icon */}
         <svg width="11" height="11" viewBox="0 0 14 14" fill="none" aria-hidden className="shrink-0 text-[var(--color-text-tertiary)]">
@@ -169,8 +169,8 @@ function ToolCallList({ calls, results }: { calls: ToolCallRecord[]; results?: T
 }
 
 const CRITIC_META: Record<string, { label: string; color: string; bg: string; border: string }> = {
-  accept:   { label: 'Verified',  color: '#15803d', bg: '#f0fdf4', border: '#86efac' },
-  escalate: { label: 'Escalated', color: '#b45309', bg: '#fffbeb', border: '#fcd34d' },
+  accept:   { label: 'Verified',  color: 'var(--color-accent)', bg: 'var(--color-accent-bg)', border: '#86efac' },
+  escalate: { label: 'Escalated', color: 'var(--color-attention)', bg: 'var(--color-attention-bg)', border: '#fcd34d' },
   clarify:  { label: 'Needs clarification', color: '#1d4ed8', bg: '#eff6ff', border: '#93c5fd' },
 }
 
@@ -638,7 +638,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
                 <button
                   onClick={() => { setFeedbackGiven('up'); onFeedback(message.id, 'up') }}
                   title="Good answer"
-                  className={`rounded p-1 text-[11px] transition ${feedbackGiven === 'up' ? 'text-[#16a34a]' : 'text-[var(--color-text-tertiary)] hover:text-[#16a34a]'}`}
+                  className={`rounded p-1 text-[11px] transition ${feedbackGiven === 'up' ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-accent)]'}`}
                 >
                   <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden>
                     <path d="M5.5 1.5l1.3 3H10l-2.6 1.9 1 3L5.5 7.6 3.1 9.4l1-3L1.5 4.5h3.2L5.5 1.5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" fill={feedbackGiven === 'up' ? 'currentColor' : 'none'}/>
@@ -710,7 +710,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
         {message.stopped && (
           <div className="mt-1.5 inline-flex items-center gap-2">
             <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-tertiary)]">
-              <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#d97706]" />
+              <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-attention)]" />
               Stopped
             </span>
             {isLast && onResume && (

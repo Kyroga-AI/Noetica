@@ -13,11 +13,11 @@ const amBase = () =>
 type ArgoApp = { name: string; namespace: string; sync: string; health: string }
 type Status = { gitops: { kubectl: boolean; argocd: boolean }; ci: { gh: boolean }; apps: ArgoApp[]; note?: string }
 
-const syncColor = (s: string) => (s === 'Synced' ? '#16a34a' : s === 'OutOfSync' ? '#d97706' : '#94a3b8')
-const healthColor = (h: string) => (h === 'Healthy' ? '#16a34a' : h === 'Degraded' ? '#dc2626' : h === 'Progressing' ? '#1d4ed8' : '#94a3b8')
+const syncColor = (s: string) => (s === 'Synced' ? 'var(--color-accent)' : s === 'OutOfSync' ? 'var(--color-attention)' : '#94a3b8')
+const healthColor = (h: string) => (h === 'Healthy' ? 'var(--color-accent)' : h === 'Degraded' ? '#dc2626' : h === 'Progressing' ? '#1d4ed8' : '#94a3b8')
 
 function Chip({ ok, label }: { ok: boolean; label: string }) {
-  return <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${ok ? 'bg-[#dcfce7] text-[#16a34a]' : 'bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)]'}`}><span className={`h-1.5 w-1.5 rounded-full ${ok ? 'bg-[#16a34a]' : 'bg-[#94a3b8]'}`} />{label}</span>
+  return <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${ok ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)]'}`}><span className={`h-1.5 w-1.5 rounded-full ${ok ? 'bg-[var(--color-accent)]' : 'bg-[#94a3b8]'}`} />{label}</span>
 }
 
 export function PipelinesSurface() {

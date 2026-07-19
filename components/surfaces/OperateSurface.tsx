@@ -12,7 +12,7 @@ type HealthStatus = 'healthy' | 'degraded' | 'failed' | 'unknown'
 
 function StatusDot({ status }: { status: HealthStatus }) {
   const colors: Record<HealthStatus, string> = {
-    healthy:  'bg-[#22c55e]',
+    healthy:  'bg-[var(--color-accent)]',
     degraded: 'bg-[#f59e0b]',
     failed:   'bg-[#ef4444]',
     unknown:  'bg-[var(--color-text-tertiary)]',
@@ -656,8 +656,8 @@ function EventLedgerTab() {
   const events = buildLedger(store)
 
   const levelColor: Record<LedgerEvent['level'], string> = {
-    info:  'bg-[#dcfce7] text-[#16a34a]',
-    warn:  'bg-[#fef9c3] text-[#92400e]',
+    info:  'bg-[var(--color-accent-bg)] text-[var(--color-accent)]',
+    warn:  'bg-[var(--color-attention-bg)] text-[var(--color-attention)]',
     error: 'bg-[#fef2f2] text-[#dc2626]',
   }
 

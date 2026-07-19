@@ -35,7 +35,7 @@ function formatTime(iso: string): string {
 // Deterministic avatar color from participant name
 const AVATAR_COLORS = [
   'bg-[#1d4ed8]', 'bg-[#7c3aed]', 'bg-[#0891b2]',
-  'bg-[#059669]', 'bg-[#d97706]', 'bg-[#dc2626]',
+  'bg-[#059669]', 'bg-[var(--color-attention)]', 'bg-[#dc2626]',
 ]
 function avatarColor(name: string): string {
   let hash = 0
@@ -240,7 +240,7 @@ function AgentDispatchPanel({ room, onDispatch }: {
               const isSelected = selectedAgents.has(arch.id)
               return (
                 <div key={arch.id}
-                  className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 ${isActive ? 'border-[#dcfce7] bg-[#f0fdf4]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]'}`}>
+                  className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 ${isActive ? 'border-[var(--color-accent-bg)] bg-[var(--color-accent-bg)]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]'}`}>
                   <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${arch.color}`}>
                     {initials(arch.name)}
                   </div>
@@ -253,7 +253,7 @@ function AgentDispatchPanel({ room, onDispatch }: {
                     </div>
                   </div>
                   {isActive ? (
-                    <span className="shrink-0 text-[10px] font-semibold text-[#22c55e]">Active</span>
+                    <span className="shrink-0 text-[10px] font-semibold text-[var(--color-accent)]">Active</span>
                   ) : (
                     <button onClick={() => toggleAgent(arch.id)}
                       className={`shrink-0 rounded-lg border px-2 py-1 text-[10px] font-semibold transition ${
@@ -277,8 +277,8 @@ function AgentDispatchPanel({ room, onDispatch }: {
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-semibold text-[var(--color-text-primary)]">{d.agentName}</span>
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                    d.status === 'done'    ? 'bg-[#dcfce7] text-[#166534]' :
-                    d.status === 'running' ? 'bg-[#fef9c3] text-[#854d0e] animate-pulse' :
+                    d.status === 'done'    ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' :
+                    d.status === 'running' ? 'bg-[var(--color-attention-bg)] text-[#854d0e] animate-pulse' :
                     'bg-[#fee2e2] text-[#991b1b]'
                   }`}>{d.status}</span>
                 </div>

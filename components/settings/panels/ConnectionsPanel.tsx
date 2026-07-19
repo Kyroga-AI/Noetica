@@ -71,8 +71,8 @@ const OAUTH_PROVIDERS: OAuthProvider[] = [
 
 function StatusChip({ status }: { status: string }) {
   const map: Record<string, string> = {
-    connected:    'bg-[#dcfce7] text-[#16a34a]',
-    connecting:   'bg-[#fef9c3] text-[#92400e]',
+    connected:    'bg-[var(--color-accent-bg)] text-[var(--color-accent)]',
+    connecting:   'bg-[var(--color-attention-bg)] text-[var(--color-attention)]',
     error:        'bg-[#fef2f2] text-[#dc2626]',
     disconnected: 'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]',
   }
@@ -556,7 +556,7 @@ export function ConnectionsPanel() {
 
       <ChatImportSection />
 
-      <div className="rounded-xl border border-[#fef9c3] bg-[#fefce8] px-4 py-3 text-xs leading-5 text-[#854d0e]">
+      <div className="rounded-xl border border-[var(--color-attention-bg)] bg-[var(--color-attention-bg)] px-4 py-3 text-xs leading-5 text-[#854d0e]">
         <p className="font-semibold">How to get a client ID</p>
         <p className="mt-1">Register an OAuth app with each provider, set the redirect URI to <code className="font-mono">{typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000'}/oauth/callback</code>, and paste the credentials above. Notion requires a client secret; all other providers use PKCE and need only a client ID.</p>
       </div>

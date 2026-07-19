@@ -15,7 +15,7 @@ const externalForges: ForgeProvider[] = ['git_ssh', 'github', 'gitlab', 'forgejo
 
 function TrustBadge({ tier }: { tier: string }) {
   const styles: Record<string, string> = {
-    native:    'bg-[#dcfce7] text-[#16a34a]',
+    native:    'bg-[var(--color-accent-bg)] text-[var(--color-accent)]',
     trusted:   'bg-[#dbeafe] text-[#1d4ed8]',
     external:  'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]',
     untrusted: 'bg-[#fef2f2] text-[#dc2626]',
@@ -29,7 +29,7 @@ function TrustBadge({ tier }: { tier: string }) {
 
 function StatusDot({ ok }: { ok: boolean | null }) {
   return (
-    <span className={`inline-block h-2 w-2 rounded-full ${ok === true ? 'bg-[#22c55e]' : ok === false ? 'bg-[#ef4444]' : 'bg-[#94a3b8]'}`} />
+    <span className={`inline-block h-2 w-2 rounded-full ${ok === true ? 'bg-[var(--color-accent)]' : ok === false ? 'bg-[#ef4444]' : 'bg-[#94a3b8]'}`} />
   )
 }
 
@@ -487,7 +487,7 @@ function GitHubDetail({ onBack }: { onBack: () => void }) {
             <div className="flex items-center gap-2">
               <span className="text-lg font-semibold text-[var(--color-text-primary)]">GitHub Connector</span>
               <TrustBadge tier="external" />
-              {isConnected && <span className="rounded-full bg-[#dcfce7] px-2 py-0.5 text-[10px] font-semibold text-[#16a34a]">Connected</span>}
+              {isConnected && <span className="rounded-full bg-[var(--color-accent-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-accent)]">Connected</span>}
             </div>
             <div className="text-xs text-[var(--color-text-secondary)]">
               {isConnected && github?.userInfo?.login
@@ -498,8 +498,8 @@ function GitHubDetail({ onBack }: { onBack: () => void }) {
         </div>
 
         {/* Authority notice */}
-        <div className="rounded-2xl border border-[#fde68a] bg-[#fffbeb] px-5 py-4">
-          <div className="text-xs font-semibold text-[#92400e]">External connector</div>
+        <div className="rounded-2xl border border-[#fde68a] bg-[var(--color-attention-bg)] px-5 py-4">
+          <div className="text-xs font-semibold text-[var(--color-attention)]">External connector</div>
           <p className="mt-1 text-xs text-[#78350f]">
             GitHub is an optional import and mirror connector. It does not own repository identity or source graph truth — those belong to the native Gitea Sovereign substrate.
           </p>
@@ -564,21 +564,21 @@ function GitHubDetail({ onBack }: { onBack: () => void }) {
                         onClick={() => void ingestRepo(repo)}
                         disabled={actionStatus[`${repo.id}:ingest`] === 'running'}
                         title="Pull this repo's files into the knowledge base as source-of-truth"
-                        className={`rounded-lg border px-2 py-1 text-[10px] font-semibold transition ${actionStatus[`${repo.id}:ingest`] === 'done' ? 'border-[#bbf7d0] bg-[#f0fdf4] text-[#16a34a]' : actionStatus[`${repo.id}:ingest`] === 'error' ? 'border-[#fecaca] bg-[#fef2f2] text-[#dc2626]' : 'border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8] hover:bg-[#dbeafe]'}`}
+                        className={`rounded-lg border px-2 py-1 text-[10px] font-semibold transition ${actionStatus[`${repo.id}:ingest`] === 'done' ? 'border-[#bbf7d0] bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : actionStatus[`${repo.id}:ingest`] === 'error' ? 'border-[#fecaca] bg-[#fef2f2] text-[#dc2626]' : 'border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8] hover:bg-[#dbeafe]'}`}
                       >
                         {actionStatus[`${repo.id}:ingest`] === 'running' ? 'Ingesting…' : actionStatus[`${repo.id}:ingest`] === 'done' ? 'In KB ✓' : actionStatus[`${repo.id}:ingest`] === 'error' ? 'Failed' : '⊕ Ingest to KB'}
                       </button>
                       <button
                         onClick={() => void handleImport(repo)}
                         disabled={actionStatus[`${repo.id}:import`] === 'running'}
-                        className={`rounded-lg border px-2 py-1 text-[10px] font-medium transition ${actionStatus[`${repo.id}:import`] === 'done' ? 'border-[#bbf7d0] bg-[#f0fdf4] text-[#16a34a]' : actionStatus[`${repo.id}:import`] === 'error' ? 'border-[#fecaca] bg-[#fef2f2] text-[#dc2626]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] hover:border-[#bfdbfe] hover:text-[#1d4ed8]'}`}
+                        className={`rounded-lg border px-2 py-1 text-[10px] font-medium transition ${actionStatus[`${repo.id}:import`] === 'done' ? 'border-[#bbf7d0] bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : actionStatus[`${repo.id}:import`] === 'error' ? 'border-[#fecaca] bg-[#fef2f2] text-[#dc2626]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] hover:border-[#bfdbfe] hover:text-[#1d4ed8]'}`}
                       >
                         {actionStatus[`${repo.id}:import`] === 'running' ? '…' : actionStatus[`${repo.id}:import`] === 'done' ? 'Imported' : actionStatus[`${repo.id}:import`] === 'error' ? 'Failed' : 'Import'}
                       </button>
                       <button
                         onClick={() => void handleMirror(repo)}
                         disabled={actionStatus[`${repo.id}:mirror`] === 'running'}
-                        className={`rounded-lg border px-2 py-1 text-[10px] font-medium transition ${actionStatus[`${repo.id}:mirror`] === 'done' ? 'border-[#bbf7d0] bg-[#f0fdf4] text-[#16a34a]' : actionStatus[`${repo.id}:mirror`] === 'error' ? 'border-[#fecaca] bg-[#fef2f2] text-[#dc2626]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] hover:border-[#bfdbfe] hover:text-[#1d4ed8]'}`}
+                        className={`rounded-lg border px-2 py-1 text-[10px] font-medium transition ${actionStatus[`${repo.id}:mirror`] === 'done' ? 'border-[#bbf7d0] bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : actionStatus[`${repo.id}:mirror`] === 'error' ? 'border-[#fecaca] bg-[#fef2f2] text-[#dc2626]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] hover:border-[#bfdbfe] hover:text-[#1d4ed8]'}`}
                       >
                         {actionStatus[`${repo.id}:mirror`] === 'running' ? '…' : actionStatus[`${repo.id}:mirror`] === 'done' ? 'Mirroring' : actionStatus[`${repo.id}:mirror`] === 'error' ? 'Failed' : 'Mirror'}
                       </button>
@@ -690,7 +690,7 @@ function SourceOverview({
                   filter === p ? 'bg-[#dbeafe] font-semibold text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]'
                 }`}
               >
-                {isNative && <span className="h-1.5 w-1.5 rounded-full bg-[#22c55e] shrink-0" />}
+                {isNative && <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)] shrink-0" />}
                 {label}
               </button>
             )

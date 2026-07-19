@@ -17,9 +17,9 @@ export function RealtimeVoiceButton({ apiKey, onTranscript, onSpeechStart }: Pro
 
   const statusColors = {
     idle:       { ring: '', bg: 'bg-[var(--color-background-secondary)]', icon: 'text-[var(--color-text-secondary)]' },
-    connecting: { ring: 'ring-2 ring-[#fbbf24] ring-offset-1 animate-pulse', bg: 'bg-[#fef9c3]', icon: 'text-[#d97706]' },
+    connecting: { ring: 'ring-2 ring-[#fbbf24] ring-offset-1 animate-pulse', bg: 'bg-[var(--color-attention-bg)]', icon: 'text-[var(--color-attention)]' },
     listening:  { ring: 'ring-2 ring-[#3b82f6] ring-offset-1', bg: 'bg-[#dbeafe]', icon: 'text-[#1d4ed8]' },
-    speaking:   { ring: 'ring-2 ring-[#22c55e] ring-offset-1', bg: 'bg-[#dcfce7]', icon: 'text-[#16a34a]' },
+    speaking:   { ring: 'ring-2 ring-[var(--color-accent)] ring-offset-1', bg: 'bg-[var(--color-accent-bg)]', icon: 'text-[var(--color-accent)]' },
     error:      { ring: 'ring-2 ring-[#ef4444] ring-offset-1', bg: 'bg-[#fef2f2]', icon: 'text-[#dc2626]' },
   }[status]
 

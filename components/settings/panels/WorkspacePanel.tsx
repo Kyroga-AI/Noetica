@@ -36,7 +36,7 @@ export function WorkspacePanel() {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="text-sm font-semibold text-[var(--color-text-primary)]">Mail (IMAP / SMTP)</div>
-          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${mailReady ? 'bg-[#dcfce7] text-[#16a34a]' : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]'}`}>{mailReady ? 'Configured' : 'Not set up'}</span>
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${mailReady ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]'}`}>{mailReady ? 'Configured' : 'Not set up'}</span>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <Field label="IMAP host" value={settings.mailImapHost} onChange={(v) => update({ mailImapHost: v })} placeholder="imap.fastmail.com" />
@@ -53,7 +53,7 @@ export function WorkspacePanel() {
       <div className="space-y-3 border-t border-[var(--color-border-secondary)] pt-5">
         <div className="flex items-center justify-between">
           <div className="text-sm font-semibold text-[var(--color-text-primary)]">Calendar (CalDAV)</div>
-          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${calReady ? 'bg-[#dcfce7] text-[#16a34a]' : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]'}`}>{calReady ? 'Configured' : 'Not set up'}</span>
+          <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${calReady ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]'}`}>{calReady ? 'Configured' : 'Not set up'}</span>
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div className="col-span-2"><Field label="CalDAV URL" value={settings.calCaldavUrl} onChange={(v) => update({ calCaldavUrl: v })} placeholder="https://caldav.fastmail.com/dav/calendars/user/you/" /></div>
