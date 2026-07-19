@@ -18,11 +18,20 @@ function classifyRisk(score: number): RiskLevel {
   return 'cool'
 }
 const RISK_META: Record<RiskLevel, { label: string; dot: string; desc: string }> = {
-  cool:     { label: 'Cool',     dot: 'bg-[#94a3b8]', desc: 'No risk pressure detected.' },
-  nominal:  { label: 'Nominal',  dot: 'bg-[#4ade80]', desc: 'Low risk pressure; responses appear unmodified.' },
-  elevated: { label: 'Elevated', dot: 'bg-[#facc15]', desc: 'Moderate pressure; some caution/qualification detected.' },
-  hot:      { label: 'Hot',      dot: 'bg-[#f97316]', desc: 'High pressure; steering or deflection likely.' },
-  critical: { label: 'Critical', dot: 'bg-[#ef4444]', desc: 'Critical pressure; strong steering detected.' },
+  cool:     { label: 'Cool',     dot: 'bg-[var(--color-text-tertiary)]', desc: 'No risk pressure detected.' },
+  nominal:  { label: 'Nominal',  dot: 'bg-[var(--color-accent)]',        desc: 'Low risk pressure; responses appear unmodified.' },
+  elevated: { label: 'Elevated', dot: 'bg-[var(--color-attention)]',     desc: 'Moderate pressure; some caution/qualification detected.' },
+  hot:      { label: 'Hot',      dot: 'bg-[var(--color-attention)]',     desc: 'High pressure; steering or deflection likely.' },
+  critical: { label: 'Critical', dot: 'bg-[#dc2626]',                    desc: 'Critical pressure; strong steering detected.' },
+}
+
+// SVG glyphs — a closed lock (on-device / sovereign) and an outbound arrow (data left the device).
+// Deliberately not emoji.
+function GlyphLock() {
+  return <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden><rect x="2.5" y="5.3" width="7" height="4.7" rx="1" stroke="currentColor" strokeWidth="1.2"/><path d="M4 5.3V4a2 2 0 0 1 4 0v1.3" stroke="currentColor" strokeWidth="1.2"/></svg>
+}
+function GlyphOut() {
+  return <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden><path d="M4.5 7.5L8 4M8 4H5.3M8 4v2.7" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
 }
 
 type Props = {
@@ -61,20 +70,20 @@ export function SovereigntyStatus({ riskReadout, onOpenInspector }: Props) {
   const risk = classifyRisk(riskScore)
   const runtimeOk = runtime.state === 'ready'
   // The single dot = worst of runtime/risk (egress carries its own color in the label).
-  const healthDot = runtime.state === 'error' ? 'bg-[#ef4444]'
+  const healthDot = runtime.state === 'error' ? 'bg-[#dc2626]'
     : (risk === 'hot' || risk === 'critical') ? RISK_META[risk].dot
-    : runtimeOk ? 'bg-[#16a34a]' : 'bg-[var(--color-text-tertiary)]'
+    : runtimeOk ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-text-tertiary)]'
 
   return (
     <div className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
         title="Sovereignty & runtime health"
-        className={`hidden items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold transition md:inline-flex ${
-          sovereign ? 'border-[#86efac] bg-[#dcfce7] text-[#16a34a]' : 'border-[#fde68a] bg-[#fef9c3] text-[#92400e]'
+        className={`hidden items-center gap-1.5 rounded-full border border-[var(--color-border-secondary)] px-2.5 py-1 text-xs font-semibold transition md:inline-flex ${
+          sovereign ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[var(--color-attention-bg)] text-[var(--color-attention)]'
         }`}
       >
-        <span aria-hidden>{sovereign ? '🔒' : '↗'}</span>
+        {sovereign ? <GlyphLock /> : <GlyphOut />}
         {sovereign ? 'on-device' : `${egress!.toLocaleString()} out`}
         <span className={`ml-0.5 h-1.5 w-1.5 rounded-full ${healthDot}`} />
       </button>
@@ -87,7 +96,7 @@ export function SovereigntyStatus({ riskReadout, onOpenInspector }: Props) {
             <div className="mb-2.5">
               <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Sovereignty</div>
               <div className="mt-1 flex items-center gap-2 text-xs">
-                <span aria-hidden>{sovereign ? '🔒' : '↗'}</span>
+                <span className={sovereign ? 'text-[var(--color-accent)]' : 'text-[var(--color-attention)]'}>{sovereign ? <GlyphLock /> : <GlyphOut />}</span>
                 <span className="text-[var(--color-text-primary)]">
                   {sovereign ? 'Zero egress — nothing has left this device.' : `${egress!.toLocaleString()} tokens routed off-device (under your scope-d gate).`}
                 </span>

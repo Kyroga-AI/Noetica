@@ -161,12 +161,12 @@ export function AnswerInspectorPanel({ message }: { message: ChatMessage | null 
       {v && (
         <Section title="Verification">
           <div className="mb-2 flex items-center gap-2 text-[12.5px] text-[var(--color-text-primary)]">
-            <span style={{ color: v.computed ? '#16a34a' : '#2563eb' }} aria-hidden>{v.computed ? '🔒' : '◆'}</span>
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: 'var(--color-accent)' }} aria-hidden />
             <span>{v.badge}</span>
           </div>
           <Row k="method" v={v.method} />
           <Row k="replay" v={v.replayClass} />
-          {v.attested && <Row k="seal" v={<span className="text-[#16a34a]">sealed onto evidence fabric</span>} />}
+          {v.attested && <Row k="seal" v={<span className="text-[var(--color-accent)]">sealed onto evidence fabric</span>} />}
           {v.receiptRef && <Row k="receipt" v={v.receiptRef} mono />}
           <div className="mt-2.5 flex gap-2">
             <ExportMenu message={message} />
@@ -178,7 +178,7 @@ export function AnswerInspectorPanel({ message }: { message: ChatMessage | null 
       {/* Provenance */}
       {g && (
         <Section title="Provenance">
-          <Row k="location" v={<span style={{ color: onDevice ? '#16a34a' : '#d97706' }}>{onDevice ? 'on-device' : `↗ ${prov}`}</span>} />
+          <Row k="location" v={<span style={{ color: onDevice ? 'var(--color-accent)' : 'var(--color-attention)' }}>{onDevice ? 'on-device' : prov}</span>} />
           {g.model_routed && <Row k="model" v={g.model_routed} />}
           {g.method && <Row k="method" v={g.method} />}
           {g.latency_ms > 0 && <Row k="latency" v={`${(g.latency_ms / 1000).toFixed(1)}s`} />}
