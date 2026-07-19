@@ -25,7 +25,7 @@ export function WorkingSequence({ size = 34 }: { size?: number }) {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
-    const dpr = Math.min(window.devicePixelRatio || 1, 2)
+    const dpr = Math.min(window.devicePixelRatio || 1, 3)   // headroom so the small loader stays crisp on retina
     canvas.width = size * dpr
     canvas.height = size * dpr
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0)
@@ -39,8 +39,8 @@ export function WorkingSequence({ size = 34 }: { size?: number }) {
     const cx = size / 2
     const cy = size / 2
     const R = size * 0.34                 // one radius for every N-gon → constant footprint
-    const dotR = Math.max(1, size * 0.05)
-    const edgeW = Math.max(0.9, size * 0.032)
+    const dotR = Math.max(0.7, size * 0.05)   // floors kept low so geometry scales cleanly at small sizes
+    const edgeW = Math.max(0.6, size * 0.032)
     const weave = size * 0.085            // twist amplitude (rail excursion in the braid phase)
 
     const STEP = 1100                     // ms per step — the beat of the clock

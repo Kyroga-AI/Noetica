@@ -18,7 +18,7 @@ export function TypingIndicator() {
   const t = m > 0 ? `${m}m ${s}s` : `${s}s`
   return (
     <div className="flex items-center gap-2.5 text-[13px] text-[var(--color-text-tertiary)]">
-      <WorkingSequence size={34} />
+      <WorkingSequence size={18} />
       <span>{t} · thinking…</span>
     </div>
   )
