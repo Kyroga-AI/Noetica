@@ -19,6 +19,8 @@ type CommandPaletteProps = {
   onSwitchSurface: (surface: ActiveSurface) => void
   onToggleSidebar: () => void
   onToggleInspector: () => void
+  onToggleRail?: () => void
+  onToggleFocus?: () => void
   // Optional quick-create callbacks — if absent, fall back to surface navigation
   onNewNote?: () => void
   onNewArtifact?: () => void
@@ -35,6 +37,8 @@ export function CommandPalette({
   onSwitchSurface,
   onToggleSidebar,
   onToggleInspector,
+  onToggleRail,
+  onToggleFocus,
   onNewNote,
   onNewArtifact,
   onNewWorkroom,
@@ -74,6 +78,8 @@ export function CommandPalette({
     { id: 'mode_plan',  label: 'Agent mode — Plan first, then approve', group: 'Mode', run: () => { onSetAgentMode?.('plan');  onClose() } },
     { id: 'mode_ask',   label: 'Agent mode — Ask before acting',        group: 'Mode', run: () => { onSetAgentMode?.('ask');   onClose() } },
     { id: 'toggle_sidebar',  label: 'Toggle sidebar',        shortcut: '⌘\\',  group: 'View',     run: () => { onToggleSidebar();  onClose() } },
+    { id: 'toggle_rail',     label: 'Toggle domain rail',    shortcut: '⌘⇧\\', group: 'View',     run: () => { onToggleRail?.();   onClose() } },
+    { id: 'toggle_focus',    label: 'Focus mode — hide all side panels', shortcut: '⌘.', group: 'View', run: () => { onToggleFocus?.(); onClose() } },
     { id: 'toggle_inspector',label: 'Toggle inspector',      shortcut: '⌘I',   group: 'View',     run: () => { onToggleInspector(); onClose() } },
     { id: 'settings',        label: 'Open settings',         shortcut: '⌘,',   group: 'App',      run: () => { onOpenSettings();           onClose() } },
     { id: 'settings_models', label: 'Settings — Models',                        group: 'App',      run: () => { onOpenSettings('models');   onClose() } },
@@ -82,7 +88,7 @@ export function CommandPalette({
     { id: 'settings_voice',       label: 'Settings — Voice',                group: 'App',      run: () => { onOpenSettings('voice');       onClose() } },
     { id: 'settings_connections', label: 'Settings — Connections & APIs',   group: 'App',      run: () => { onOpenSettings('connections'); onClose() } },
     { id: 'settings_policy',      label: 'Settings — Policy & Governance',  group: 'App',      run: () => { onOpenSettings('policy');      onClose() } },
-  ], [onClose, onNewChat, onOpenSettings, onSetAgentMode, onSwitchSurface, onToggleSidebar, onToggleInspector])
+  ], [onClose, onNewChat, onOpenSettings, onSetAgentMode, onSwitchSurface, onToggleSidebar, onToggleInspector, onToggleRail, onToggleFocus])
 
   const filtered = useMemo(() => {
     if (!query.trim()) return actions
