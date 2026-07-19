@@ -431,6 +431,7 @@ export function Sidebar({
   const itemPy = density === 'compact' ? 'py-1' : 'py-1.5'
   const groupGap = density === 'compact' ? 'mt-2' : 'mt-3'
   const [search, setSearch] = useState('')
+  const [quickOpen, setQuickOpen] = useState(false)   // ⋮ quick-access: Artifacts · Files · Background tasks
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
   const [upgradeOpen, setUpgradeOpen] = useState(false)
@@ -456,6 +457,39 @@ export function Sidebar({
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden><path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round"/></svg>
           New workspace
         </button>
+        {/* ⋮ quick-access — your cross-cutting outputs, one click from chat (Claude parity) */}
+        <div className="relative shrink-0">
+          <button
+            onClick={() => setQuickOpen((v) => !v)}
+            className="flex h-6 w-6 items-center justify-center rounded-lg text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]"
+            aria-label="Quick access"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="currentColor" aria-hidden><circle cx="6" cy="2.4" r="1.1"/><circle cx="6" cy="6" r="1.1"/><circle cx="6" cy="9.6" r="1.1"/></svg>
+          </button>
+          {quickOpen && (
+            <>
+              <div className="fixed inset-0 z-40" onClick={() => setQuickOpen(false)} />
+              <div className="absolute left-0 top-full z-50 mt-1 w-48 overflow-hidden rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] py-1 shadow-lg">
+                {([
+                  ['artifacts', 'Artifacts',
+                    <svg key="a" width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden><path d="M7 1.5l4.5 2.6v5.8L7 12.5 2.5 9.9V4.1L7 1.5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><path d="M2.6 4.2L7 6.8l4.4-2.6M7 6.8v5.6" stroke="currentColor" strokeWidth="1.1"/></svg>],
+                  ['docs', 'Files',
+                    <svg key="f" width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden><path d="M3 1.5h5L11 4.5V12H3V1.5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/><path d="M8 1.5V4.5h3" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/></svg>],
+                  ['operate', 'Background tasks',
+                    <svg key="t" width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden><circle cx="7" cy="7" r="5.2" stroke="currentColor" strokeWidth="1.2"/><path d="M7 4v3l2 1.3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>],
+                ] as const).map(([surface, label, icon]) => (
+                  <button
+                    key={surface}
+                    onClick={() => { onSurfaceChange(surface as Parameters<typeof onSurfaceChange>[0]); setQuickOpen(false) }}
+                    className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left text-[12px] text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-primary)]"
+                  >
+                    <span className="text-[var(--color-text-tertiary)]">{icon}</span>{label}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
         <button
           onClick={onCollapse}
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]"
