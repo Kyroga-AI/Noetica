@@ -31,12 +31,24 @@ function Row({ k, v, mono }: { k: string; v: React.ReactNode; mono?: boolean }) 
   )
 }
 
-// Export Proof — seal THIS answer into an offline-verifiable bundle and download it.
-function ExportProofButton({ message }: { message: ChatMessage }) {
+function downloadJson(obj: unknown, filename: string) {
+  const href = URL.createObjectURL(new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' }))
+  const a = document.createElement('a')
+  a.href = href; a.download = filename
+  document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(href)
+}
+
+// One Export menu for both artifacts this answer can produce:
+//   • Proof    — the sealed, offline-verifiable answer bundle (hash-chained + attested).
+//   • Evidence — the raw governance trace (hashes, refs, policy) for auditors.
+function ExportMenu({ message }: { message: ChatMessage }) {
+  const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [state, setState] = useState<'idle' | 'done' | 'error'>('idle')
-  async function run() {
-    setBusy(true); setState('idle')
+  const [flash, setFlash] = useState('')
+  const done = (msg: string) => { setFlash(msg); setTimeout(() => setFlash(''), 1800) }
+
+  async function exportProof() {
+    setOpen(false); setBusy(true)
     try {
       const res = await fetch(amUrl('/api/proof/export'), {
         method: 'POST', headers: { 'content-type': 'application/json' },
@@ -47,21 +59,37 @@ function ExportProofButton({ message }: { message: ChatMessage }) {
         }),
       })
       if (!res.ok) throw new Error('export failed')
-      const bundle = await res.json()
-      const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' })
-      const href = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = href; a.download = `noetica-proof-${String(message.id).slice(0, 8)}.json`
-      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(href)
-      setState('done'); setTimeout(() => setState('idle'), 1800)
-    } catch { setState('error'); setTimeout(() => setState('idle'), 2500) }
-    finally { setBusy(false) }
+      downloadJson(await res.json(), `noetica-proof-${String(message.id).slice(0, 8)}.json`)
+      done('Proof saved ✓')
+    } catch { done('Failed') } finally { setBusy(false) }
   }
+  function exportEvidence() {
+    setOpen(false)
+    downloadJson({ runId: message.id, governance: message.governance, verification: message.verification }, `noetica-evidence-${String(message.id).slice(0, 8)}.json`)
+    done('Evidence saved ✓')
+  }
+
   return (
-    <button onClick={() => void run()} disabled={busy}
-      className="flex-1 rounded-lg border border-[var(--color-border-secondary)] px-2 py-1.5 text-[11.5px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-primary)] disabled:opacity-50">
-      {busy ? 'Sealing…' : state === 'done' ? 'Saved ✓' : state === 'error' ? 'Failed' : '⇩ Export proof'}
-    </button>
+    <div className="relative flex-1">
+      <button onClick={() => setOpen((v) => !v)} disabled={busy}
+        className="w-full rounded-lg border border-[var(--color-border-secondary)] px-2 py-1.5 text-[11.5px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-primary)] disabled:opacity-50">
+        {busy ? 'Sealing…' : flash || '⇩ Export ▾'}
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full z-50 mt-1 w-full overflow-hidden rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] shadow-lg">
+          <button onClick={() => void exportProof()}
+            className="flex w-full flex-col items-start px-3 py-1.5 text-left transition hover:bg-[var(--color-background-secondary)]">
+            <span className="text-[12px] font-medium text-[var(--color-text-primary)]">Proof</span>
+            <span className="text-[10px] text-[var(--color-text-tertiary)]">sealed, offline-verifiable answer</span>
+          </button>
+          <button onClick={exportEvidence}
+            className="flex w-full flex-col items-start border-t border-[var(--color-border-tertiary)] px-3 py-1.5 text-left transition hover:bg-[var(--color-background-secondary)]">
+            <span className="text-[12px] font-medium text-[var(--color-text-primary)]">Evidence</span>
+            <span className="text-[10px] text-[var(--color-text-tertiary)]">governance trace for auditors</span>
+          </button>
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -141,7 +169,7 @@ export function AnswerInspectorPanel({ message }: { message: ChatMessage | null 
           {v.attested && <Row k="seal" v={<span className="text-[#16a34a]">sealed onto evidence fabric</span>} />}
           {v.receiptRef && <Row k="receipt" v={v.receiptRef} mono />}
           <div className="mt-2.5 flex gap-2">
-            <ExportProofButton message={message} />
+            <ExportMenu message={message} />
             <GroundingCheckButton message={message} />
           </div>
         </Section>
@@ -224,18 +252,7 @@ export function AnswerInspectorPanel({ message }: { message: ChatMessage | null 
         <Section title="Steering"><SteeringDiff result={message.steering_result} /></Section>
       )}
       {g && (
-        <Section title="Governance trail">
-          <GovernanceTrail trace={g} />
-          <button
-            onClick={() => {
-              const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), runId: message.id, governance: g }, null, 2)], { type: 'application/json' })
-              const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
-              a.download = `noetica-evidence-${String(message.id).slice(0, 8)}.json`; a.click(); URL.revokeObjectURL(a.href)
-            }}
-            className="mt-2.5 w-full rounded-lg border border-[var(--color-border-secondary)] px-2 py-1.5 text-[11.5px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-primary)]">
-            ⇩ Export evidence bundle
-          </button>
-        </Section>
+        <Section title="Governance trail"><GovernanceTrail trace={g} /></Section>
       )}
     </div>
   )

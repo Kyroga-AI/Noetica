@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useSettings } from '@/lib/settings/context'
 import { models } from '@/config/models'
 import type { RiskAversionLiveReadout } from '@/lib/risk/riskAversionLive'
-import { useMemory } from '@/lib/memory/useMemory'
 
 export type AgentSlotId = 'context' | 'mail' | 'calendar' | 'tasks' | 'graph' | 'lattice' | 'feed' | 'risk'
 
@@ -110,70 +109,64 @@ type FileChange = { id: string; path: string; content: string }
 
 // Real Context panel: files referenced by this session's tool calls + the actual
 // stored memories. No mock data.
+// The "Activity" panel — the live session work view: files the agent referenced, tools it ran, files
+// it changed. Session-scoped only; persistent memory has its own home and is deliberately NOT here.
+// Sections render only when they have content; an all-idle session shows one calm line, not empty rows.
 export function ContextSlot({ inScopeFiles, activity, changes }: { inScopeFiles: string[]; activity: ToolActivityItem[]; changes: FileChange[] }) {
-  const { entries, hydrated } = useMemory()
-  const recent = entries.slice(0, 6)
   const [openChange, setOpenChange] = useState<string | null>(null)
+
+  if (inScopeFiles.length === 0 && activity.length === 0 && changes.length === 0) {
+    return (
+      <div className="p-3">
+        <p className="text-[11px] leading-relaxed text-[var(--color-text-tertiary)]">
+          Nothing yet — files referenced, tools run, and changes made in this session will show up here.
+        </p>
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-1 p-2">
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-0.5">
-        In scope{inScopeFiles.length > 0 ? ` · ${inScopeFiles.length}` : ''}
-      </div>
-      {inScopeFiles.length === 0 ? (
-        <SlotRow><span className="text-[var(--color-text-tertiary)]">No files referenced yet</span></SlotRow>
-      ) : (
-        inScopeFiles.map((f) => (
-          <SlotRow key={f}><span className="text-[var(--color-text-secondary)] mr-1.5">—</span><span className="truncate">{f}</span></SlotRow>
-        ))
+      {inScopeFiles.length > 0 && (
+        <>
+          <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-0.5">In scope · {inScopeFiles.length}</div>
+          {inScopeFiles.map((f) => (
+            <SlotRow key={f}><span className="text-[var(--color-text-secondary)] mr-1.5">—</span><span className="truncate">{f}</span></SlotRow>
+          ))}
+        </>
       )}
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">
-        Activity{activity.length > 0 ? ` · ${activity.length}` : ''}
-      </div>
-      {activity.length === 0 ? (
-        <SlotRow><span className="text-[var(--color-text-tertiary)]">No tool calls yet</span></SlotRow>
-      ) : (
-        activity.map((a, i) => (
-          <SlotRow key={`${a.id}-${i}`}>
-            <span className="flex items-center gap-1.5 min-w-0">
-              <span className="font-mono text-[10px] text-[var(--color-text-primary)] shrink-0">{a.name}</span>
-              {a.target && <span className="truncate text-[var(--color-text-tertiary)]">{a.target}</span>}
-            </span>
-          </SlotRow>
-        ))
+      {activity.length > 0 && (
+        <>
+          <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Activity · {activity.length}</div>
+          {activity.map((a, i) => (
+            <SlotRow key={`${a.id}-${i}`}>
+              <span className="flex items-center gap-1.5 min-w-0">
+                <span className="font-mono text-[10px] text-[var(--color-text-primary)] shrink-0">{a.name}</span>
+                {a.target && <span className="truncate text-[var(--color-text-tertiary)]">{a.target}</span>}
+              </span>
+            </SlotRow>
+          ))}
+        </>
       )}
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">
-        Changes{changes.length > 0 ? ` · ${changes.length}` : ''}
-      </div>
-      {changes.length === 0 ? (
-        <SlotRow><span className="text-[var(--color-text-tertiary)]">No files written yet</span></SlotRow>
-      ) : (
-        changes.map((c) => (
-          <div key={c.id}>
-            <button
-              onClick={() => setOpenChange(openChange === c.id ? null : c.id)}
-              className="flex w-full items-center justify-between gap-1.5 rounded-md px-2 py-1 text-left text-[11px] text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)]"
-              title={c.path}
-            >
-              <span className="truncate font-mono text-[10px] text-[var(--color-text-primary)]">{c.path.split('/').pop()}</span>
-              <span className="shrink-0 text-[10px] text-[#4ade80]">+{c.content ? c.content.split('\n').length : 0}</span>
-            </button>
-            {openChange === c.id && (
-              <pre className="mt-0.5 max-h-44 overflow-auto rounded-md bg-[var(--color-background-primary)] p-2 text-[10px] leading-snug text-[var(--color-text-secondary)] whitespace-pre-wrap">{c.content || '(empty file)'}</pre>
-            )}
-          </div>
-        ))
-      )}
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">
-        Memory{hydrated ? ` · ${entries.length}` : ''}
-      </div>
-      {!hydrated ? (
-        <SlotRow><span className="text-[var(--color-text-tertiary)]">Loading…</span></SlotRow>
-      ) : entries.length === 0 ? (
-        <SlotRow><span className="text-[var(--color-text-tertiary)]">No memories stored yet</span></SlotRow>
-      ) : (
-        recent.map((m) => (
-          <SlotRow key={m.id}><span className="line-clamp-2 leading-snug">{m.text}</span></SlotRow>
-        ))
+      {changes.length > 0 && (
+        <>
+          <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Changes · {changes.length}</div>
+          {changes.map((c) => (
+            <div key={c.id}>
+              <button
+                onClick={() => setOpenChange(openChange === c.id ? null : c.id)}
+                className="flex w-full items-center justify-between gap-1.5 rounded-md px-2 py-1 text-left text-[11px] text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)]"
+                title={c.path}
+              >
+                <span className="truncate font-mono text-[10px] text-[var(--color-text-primary)]">{c.path.split('/').pop()}</span>
+                <span className="shrink-0 text-[10px] text-[#4ade80]">+{c.content ? c.content.split('\n').length : 0}</span>
+              </button>
+              {openChange === c.id && (
+                <pre className="mt-0.5 max-h-44 overflow-auto rounded-md bg-[var(--color-background-primary)] p-2 text-[10px] leading-snug text-[var(--color-text-secondary)] whitespace-pre-wrap">{c.content || '(empty file)'}</pre>
+              )}
+            </div>
+          ))}
+        </>
       )}
     </div>
   )

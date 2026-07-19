@@ -17,7 +17,7 @@ export type UtilityPanelId =
 const RAIL_ITEMS: { id: UtilityPanelId; label: string; icon: React.ReactNode }[] = [
   { id: 'answer',   label: 'Answer',   icon: <IconAnswer /> },
   { id: 'graph',    label: 'Graph',    icon: <IconGraph /> },
-  { id: 'context',  label: 'Context',  icon: <IconContext /> },
+  { id: 'context',  label: 'Activity', icon: <IconContext /> },
 ]
 
 type ContextData = {
