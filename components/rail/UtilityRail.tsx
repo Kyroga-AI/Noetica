@@ -1,27 +1,23 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { EvidenceRailPanel } from './panels/EvidenceRailPanel'
 import { GraphRailPanel }   from './panels/GraphRailPanel'
 import { AnswerInspectorPanel } from './panels/AnswerInspectorPanel'
 import { ContextSlot }      from '@/components/shell/RightSidebar'
-import type { GovernanceTrace } from '@/lib/types/governance'
 import type { ChatMessage } from '@/lib/types/message'
 
-// The single right rail. Hosts the real working panels — Answer (per-reply inspector), Graph,
-// Context, and Evidence. Substrate/runtime health is NOT here: it's the topbar RuntimeStatus chip
-// (same loadNoeticaStatus source), so a separate "SourceOS" panel was pure duplication and is gone.
+// The single right rail. Hosts the real working panels — Answer (per-reply inspector), Graph, and
+// Context. Substrate/runtime health lives in the topbar RuntimeStatus chip (SourceOS panel removed as
+// duplication); per-turn evidence/governance now lives in the Answer inspector (Evidence panel merged in).
 export type UtilityPanelId =
   | 'answer'
   | 'context'
-  | 'evidence'
   | 'graph'
 
 const RAIL_ITEMS: { id: UtilityPanelId; label: string; icon: React.ReactNode }[] = [
   { id: 'answer',   label: 'Answer',   icon: <IconAnswer /> },
   { id: 'graph',    label: 'Graph',    icon: <IconGraph /> },
   { id: 'context',  label: 'Context',  icon: <IconContext /> },
-  { id: 'evidence', label: 'Evidence', icon: <IconEvidence /> },
 ]
 
 type ContextData = {
@@ -30,11 +26,10 @@ type ContextData = {
   fileChanges: { id: string; path: string; content: string }[]
 }
 
-function renderPanel(id: UtilityPanelId, lastGovernance: GovernanceTrace | undefined, ctx: ContextData, inspectMessage: ChatMessage | null) {
+function renderPanel(id: UtilityPanelId, ctx: ContextData, inspectMessage: ChatMessage | null) {
   switch (id) {
     case 'answer':   return <AnswerInspectorPanel message={inspectMessage} />
     case 'context':  return <ContextSlot inScopeFiles={ctx.inScopeFiles} activity={ctx.toolActivity} changes={ctx.fileChanges} />
-    case 'evidence': return <EvidenceRailPanel governance={lastGovernance} />
     case 'graph':    return <GraphRailPanel />
   }
 }
@@ -42,7 +37,6 @@ function renderPanel(id: UtilityPanelId, lastGovernance: GovernanceTrace | undef
 type UtilityRailProps = {
   activePanel: UtilityPanelId | null
   onSelect: (id: UtilityPanelId | null) => void
-  lastGovernance?: GovernanceTrace
   inspectMessage?: ChatMessage | null
   inScopeFiles?: string[]
   toolActivity?: { id: string; name: string; target: string }[]
@@ -52,7 +46,7 @@ type UtilityRailProps = {
 const RAIL_MIN = 240
 const RAIL_MAX = 760
 
-export function UtilityRail({ activePanel, onSelect, lastGovernance, inspectMessage = null, inScopeFiles = [], toolActivity = [], fileChanges = [] }: UtilityRailProps) {
+export function UtilityRail({ activePanel, onSelect, inspectMessage = null, inScopeFiles = [], toolActivity = [], fileChanges = [] }: UtilityRailProps) {
   const ctx: ContextData = { inScopeFiles, toolActivity, fileChanges }
   const [width, setWidth] = useState(288)
   useEffect(() => {
@@ -89,7 +83,7 @@ export function UtilityRail({ activePanel, onSelect, lastGovernance, inspectMess
           <div className="border-b border-[var(--color-border-tertiary)] px-3 py-2.5 text-xs font-semibold text-[var(--color-text-primary)]">
             {RAIL_ITEMS.find((r) => r.id === activePanel)?.label}
           </div>
-          {renderPanel(activePanel, lastGovernance, ctx, inspectMessage)}
+          {renderPanel(activePanel, ctx, inspectMessage)}
         </div>
       )}
 
@@ -134,9 +128,6 @@ function IconAgents() {
 }
 function IconRelated() {
   return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="8" cy="8" r="2" stroke="currentColor" strokeWidth="1.4"/><circle cx="3" cy="4" r="1.5" stroke="currentColor" strokeWidth="1.2"/><circle cx="13" cy="4" r="1.5" stroke="currentColor" strokeWidth="1.2"/><circle cx="3" cy="12" r="1.5" stroke="currentColor" strokeWidth="1.2"/><circle cx="13" cy="12" r="1.5" stroke="currentColor" strokeWidth="1.2"/><path d="M4.5 5L6.5 7M11.5 5L9.5 7M4.5 11L6.5 9M11.5 11L9.5 9" stroke="currentColor" strokeWidth="1.1"/></svg>
-}
-function IconEvidence() {
-  return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M8 2 2 5v4c0 3 2.5 4.5 6 5.5 3.5-1 6-2.5 6-5.5V5L8 2Z" stroke="currentColor" strokeWidth="1.4" strokeLinejoin="round"/><path d="M5.5 8l2 2 3-3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
 }
 function IconAnswer() {
   return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H6l-3 3V4z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/><path d="M5.5 6h5M5.5 8.5h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>

@@ -412,10 +412,6 @@ export function AppShell() {
     [modelId]
   )
   const riskReadout = useMemo(() => buildRiskAversionLiveReadout(messages), [messages])
-  const lastGovernance = useMemo<GovernanceTrace | undefined>(
-    () => [...messages].reverse().find((m) => m.governance !== undefined)?.governance,
-    [messages]
-  )
   // Real "in scope" files for the Context panel: paths touched by this session's
   // filesystem tool calls (read_file / write_file / list_directory), most recent first.
   const inScopeFiles = useMemo(() => {
@@ -1770,7 +1766,6 @@ export function AppShell() {
         <UtilityRail
           activePanel={utilityPanel}
           onSelect={setUtilityPanel}
-          lastGovernance={lastGovernance}
           inspectMessage={inspectMessage}
           inScopeFiles={inScopeFiles}
           toolActivity={toolActivity}

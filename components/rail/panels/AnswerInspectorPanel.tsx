@@ -224,7 +224,18 @@ export function AnswerInspectorPanel({ message }: { message: ChatMessage | null 
         <Section title="Steering"><SteeringDiff result={message.steering_result} /></Section>
       )}
       {g && (
-        <Section title="Governance trail"><GovernanceTrail trace={g} /></Section>
+        <Section title="Governance trail">
+          <GovernanceTrail trace={g} />
+          <button
+            onClick={() => {
+              const blob = new Blob([JSON.stringify({ exportedAt: new Date().toISOString(), runId: message.id, governance: g }, null, 2)], { type: 'application/json' })
+              const a = document.createElement('a'); a.href = URL.createObjectURL(blob)
+              a.download = `noetica-evidence-${String(message.id).slice(0, 8)}.json`; a.click(); URL.revokeObjectURL(a.href)
+            }}
+            className="mt-2.5 w-full rounded-lg border border-[var(--color-border-secondary)] px-2 py-1.5 text-[11.5px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-primary)]">
+            ⇩ Export evidence bundle
+          </button>
+        </Section>
       )}
     </div>
   )
