@@ -80,7 +80,6 @@ import { buildMemoryContext } from '@/lib/memory/manager'
 import { appendLedgerEntry } from '@/lib/evidence/ledger-store'
 import { RightSidebar } from '@/components/shell/RightSidebar'
 import { UtilityRail, type UtilityPanelId } from '@/components/rail/UtilityRail'
-import { RuntimeStatus } from '@/components/status/RuntimeStatus'
 import type { PendingAttachment } from '@/lib/types/attachment'
 import type { McpTool } from '@/lib/types/mcp'
 import type { ChatMessage, ToolCallRecord, ToolResultRecord } from '@/lib/types/message'
@@ -412,10 +411,6 @@ export function AppShell() {
     [modelId]
   )
   const riskReadout = useMemo(() => buildRiskAversionLiveReadout(messages), [messages])
-  const lastGovernance = useMemo<GovernanceTrace | undefined>(
-    () => [...messages].reverse().find((m) => m.governance !== undefined)?.governance,
-    [messages]
-  )
   // Real "in scope" files for the Context panel: paths touched by this session's
   // filesystem tool calls (read_file / write_file / list_directory), most recent first.
   const inScopeFiles = useMemo(() => {
@@ -1770,7 +1765,6 @@ export function AppShell() {
         <UtilityRail
           activePanel={utilityPanel}
           onSelect={setUtilityPanel}
-          lastGovernance={lastGovernance}
           inspectMessage={inspectMessage}
           inScopeFiles={inScopeFiles}
           toolActivity={toolActivity}
