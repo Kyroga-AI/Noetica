@@ -326,6 +326,10 @@ export function AppShell() {
   const abortControllerRef = useRef<AbortController | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [rightSidebarCollapsed, setRightSidebarCollapsed] = useState(false)
+  // Domain rail (far-left icon strip) — visible by default, toggleable (low-frequency nav). Focus mode
+  // is a master override: when on it hides rail + sidebar + right rail for a clean full-width chat.
+  const [railCollapsed, setRailCollapsed] = useState(false)
+  const [focusMode, setFocusMode] = useState(false)
   const [utilityPanel, setUtilityPanel] = useState<UtilityPanelId | null>('graph')
   const [inspectorVisible, setInspectorVisible] = useState(false)
   // The answer the right-rail "Answer" inspector is showing. Clicking Inspect on a reply sets this and
@@ -569,6 +573,8 @@ export function AppShell() {
       if (e.key === ',')                   { e.preventDefault(); openSettings() }
       if (e.key === 'n' || e.key === 'N') { e.preventDefault(); handleNewChat() }
       if (e.key === '\\')                  { e.preventDefault(); setSidebarCollapsed((c) => !c) }
+      if (e.key === '|')                   { e.preventDefault(); setRailCollapsed((c) => !c) }   // ⌘⇧\ — domain rail
+      if (e.key === '.')                   { e.preventDefault(); setFocusMode((f) => !f) }        // ⌘. — focus mode
       if (e.key === 'i' || e.key === 'I') { e.preventDefault(); setInspectorVisible((v) => !v) }
       const digit = parseInt(e.key, 10)
       if (digit >= 1 && digit <= 9 && SURFACE_ORDER[digit - 1]) {
@@ -1616,9 +1622,11 @@ export function AppShell() {
         />
       )}
       <main className="flex h-screen overflow-hidden bg-[var(--color-background-tertiary)] text-[var(--color-text-primary)]">
-        {/* Tier 1 — command-center (domain) switcher */}
-        <CommandCenterRail activeCenter={activeCenter} onCenterChange={handleCenterChange} />
-        {!sidebarCollapsed && (
+        {/* Tier 1 — command-center (domain) switcher. Low-frequency nav: toggle with ⌘⇧\, hidden in focus. */}
+        {!railCollapsed && !focusMode && (
+          <CommandCenterRail activeCenter={activeCenter} onCenterChange={handleCenterChange} />
+        )}
+        {!sidebarCollapsed && !focusMode && (
           <div className="relative hidden h-full shrink-0 lg:flex" style={{ width: leftPanel.width }}>
             <Sidebar
               activeSurface={activeSurface}
@@ -1636,7 +1644,7 @@ export function AppShell() {
             <ResizeHandle resizable={leftPanel} ariaLabel="Resize sidebar" />
           </div>
         )}
-        {sidebarCollapsed && (
+        {sidebarCollapsed && !focusMode && (
           <CollapsedRail
             activeSurface={activeSurface}
             onSurfaceChange={handleSurfaceChange}
@@ -1762,14 +1770,16 @@ export function AppShell() {
           </div>
         </section>
 
-        <UtilityRail
-          activePanel={utilityPanel}
-          onSelect={setUtilityPanel}
-          inspectMessage={inspectMessage}
-          inScopeFiles={inScopeFiles}
-          toolActivity={toolActivity}
-          fileChanges={fileChanges}
-        />
+        {!focusMode && (
+          <UtilityRail
+            activePanel={utilityPanel}
+            onSelect={setUtilityPanel}
+            inspectMessage={inspectMessage}
+            inScopeFiles={inScopeFiles}
+            toolActivity={toolActivity}
+            fileChanges={fileChanges}
+          />
+        )}
       </main>
 
       {providerSetupOpen && (
@@ -1793,6 +1803,8 @@ export function AppShell() {
         onSwitchSurface={handleSurfaceChange}
         onToggleSidebar={() => setSidebarCollapsed((c) => !c)}
         onToggleInspector={() => setInspectorVisible((v) => !v)}
+        onToggleRail={() => setRailCollapsed((c) => !c)}
+        onToggleFocus={() => setFocusMode((f) => !f)}
         onSetAgentMode={(mode) => updateSettings({ agentMode: mode })}
       />
       {settings.showRawEvents && rawEventLog.length > 0 && (

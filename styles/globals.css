@@ -26,6 +26,14 @@
   --color-border-primary:       rgba(255,255,255,0.12);
   --color-border-secondary:     rgba(255,255,255,0.08);
   --color-border-tertiary:      rgba(255,255,255,0.04);
+  /* Brand palette — the thinking-animation colors, used as the ONE semantic accent system.
+     accent (blue) = good / verified / on-device / interactive. attention (pink) = off-device /
+     warning / "notice this". Everything else stays grey (text-tertiary). Change these 3 to
+     re-tune the whole app. Red is reserved separately for hard errors only. */
+  --color-accent:        #6c9ef0;
+  --color-accent-bg:     rgba(108,158,240,0.14);
+  --color-attention:     #eb9ec6;
+  --color-attention-bg:  rgba(235,158,198,0.16);
   --border-radius-sm:  4px;
   --border-radius-md:  8px;
   --border-radius-lg:  12px;
@@ -68,6 +76,11 @@
   --color-border-primary:       rgba(0,0,0,0.18);
   --color-border-secondary:     rgba(0,0,0,0.12);
   --color-border-tertiary:      rgba(0,0,0,0.07);
+  /* darker variants for contrast on white */
+  --color-accent:        #2f6fe0;
+  --color-accent-bg:     rgba(47,111,224,0.10);
+  --color-attention:     #c65b96;
+  --color-attention-bg:  rgba(198,91,150,0.10);
 }
 
 /* ─── DARK-THEME CATCH-ALL ────────────────────────────────────────────────────

@@ -350,8 +350,8 @@ function ProvenanceFooter({ message, onInspect }: { message: ChatMessage; onInsp
   return (
     <div className="mt-2.5">
       <div className="flex items-center gap-0 text-[12px] text-[var(--color-text-tertiary)]">
-        <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: onDevice ? '#16a34a' : '#d97706' }} />
-        <span className="ml-1.5" style={{ color: onDevice ? undefined : '#d97706' }}>{onDevice ? 'on-device' : `↗ ${prov}`}</span>
+        <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: onDevice ? 'var(--color-accent)' : 'var(--color-attention)' }} />
+        <span className="ml-1.5" style={{ color: onDevice ? undefined : 'var(--color-attention)' }}>{onDevice ? 'on-device' : prov}</span>
         {g?.model_routed && <><span className="mx-2 text-[var(--color-border-secondary)]">·</span>{g.model_routed}</>}
         {sources.length > 0 && (
           <>
@@ -361,7 +361,7 @@ function ProvenanceFooter({ message, onInspect }: { message: ChatMessage; onInsp
             </button>
           </>
         )}
-        {verified && <><span className="mx-2 text-[var(--color-border-secondary)]">·</span><span className="text-[#16a34a]">verified</span></>}
+        {verified && <><span className="mx-2 text-[var(--color-border-secondary)]">·</span><span className="text-[var(--color-accent)]">verified</span></>}
         {onInspect && (
           <button
             onClick={() => onInspect(message)}
