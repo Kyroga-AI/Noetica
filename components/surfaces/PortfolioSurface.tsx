@@ -90,10 +90,10 @@ function amUrl(path: string): string {
   return isTauri ? `http://127.0.0.1:8080${path}` : path
 }
 
-const CONVICTION_COLOUR = { high: '#16a34a', medium: '#ca8a04', low: '#dc2626' }
-const DIR_COLOUR = { bullish: '#16a34a', bearish: '#dc2626', neutral: '#6b7280' }
+const CONVICTION_COLOUR = { high: 'var(--color-accent)', medium: '#ca8a04', low: '#dc2626' }
+const DIR_COLOUR = { bullish: 'var(--color-accent)', bearish: '#dc2626', neutral: '#6b7280' }
 const SEVERITY_COLOUR: Record<string, string> = { severe: '#dc2626', moderate: '#ca8a04', minor: '#2563eb' }
-const SENTIMENT_COLOUR = { positive: '#16a34a', negative: '#dc2626', neutral: '#6b7280' }
+const SENTIMENT_COLOUR = { positive: 'var(--color-accent)', negative: '#dc2626', neutral: '#6b7280' }
 
 function Pill({ label, colour }: { label: string; colour: string }) {
   return (
@@ -138,7 +138,7 @@ function SignalCard({ signal }: { signal: SignalSnapshot }) {
           </div>
           <div className="flex flex-wrap items-center gap-3 text-xs text-[var(--color-text-secondary)]">
             <span>vs consensus <strong className="tabular-nums">{signal.consensus_lfl_pct.toFixed(1)}%</strong></span>
-            <span className="font-semibold" style={{ color: signal.alpha_pp >= 0 ? '#16a34a' : '#dc2626' }}>
+            <span className="font-semibold" style={{ color: signal.alpha_pp >= 0 ? 'var(--color-accent)' : '#dc2626' }}>
               α {signal.alpha_pp >= 0 ? '+' : ''}{signal.alpha_pp.toFixed(2)}pp
             </span>
             <span>90% CI [{signal.ci_lower.toFixed(1)}, {signal.ci_upper.toFixed(1)}]</span>
@@ -250,7 +250,7 @@ function LFLChart({ historical, forecast }: { historical: HistoricalLFL[]; forec
           {/* Consensus dashed */}
           <polyline points={pts(all.map((d) => d.consensus))} fill="none" stroke="#9ca3af" strokeWidth={1} strokeDasharray="3 2" strokeLinejoin="round" />
           {/* Forecast dotted */}
-          <polyline points={pts(all.map((d) => d.forecast))} fill="none" stroke="#16a34a" strokeWidth={1.5} strokeDasharray="4 2" strokeLinejoin="round" />
+          <polyline points={pts(all.map((d) => d.forecast))} fill="none" stroke="var(--color-accent)" strokeWidth={1.5} strokeDasharray="4 2" strokeLinejoin="round" />
           {/* X labels */}
           {all.map((d, i) => (
             <text key={i} x={i * xStep} y={H + 10} textAnchor="middle" fontSize={7} fill="var(--color-text-tertiary)" transform={`rotate(-35 ${i * xStep} ${H + 10})`}>{d.period}</text>
@@ -275,7 +275,7 @@ function SupplyChainCard({ sc }: { sc: SupplyChain }) {
       <div className="mb-3 flex gap-4 text-sm">
         <div>
           <div className="text-xs text-[var(--color-text-tertiary)]">Input Cost Index</div>
-          <div className="tabular-nums font-semibold" style={{ color: sc.input_cost_index > 1 ? '#dc2626' : '#16a34a' }}>
+          <div className="tabular-nums font-semibold" style={{ color: sc.input_cost_index > 1 ? '#dc2626' : 'var(--color-accent)' }}>
             {sc.input_cost_index.toFixed(3)}
           </div>
         </div>
@@ -285,7 +285,7 @@ function SupplyChainCard({ sc }: { sc: SupplyChain }) {
         </div>
         <div>
           <div className="text-xs text-[var(--color-text-tertiary)]">LFL Revision</div>
-          <div className="tabular-nums font-semibold" style={{ color: sc.lfl_revision_pct < 0 ? '#dc2626' : '#16a34a' }}>
+          <div className="tabular-nums font-semibold" style={{ color: sc.lfl_revision_pct < 0 ? '#dc2626' : 'var(--color-accent)' }}>
             {sc.lfl_revision_pct >= 0 ? '+' : ''}{sc.lfl_revision_pct.toFixed(2)}pp
           </div>
         </div>

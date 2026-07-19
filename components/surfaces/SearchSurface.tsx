@@ -85,7 +85,7 @@ export function SearchSurface() {
         {err && <div className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-4 py-2 text-xs text-[#dc2626]">{err}</div>}
 
         <div className="flex flex-col gap-3 sm:flex-row">
-          {(scope === 'all' || scope === 'local') && <SourceColumn label="Local · on-device" tint="#16a34a" r={result?.local} />}
+          {(scope === 'all' || scope === 'local') && <SourceColumn label="Local · on-device" tint="var(--color-accent)" r={result?.local} />}
           {(scope === 'all' || scope === 'platform') && <SourceColumn label="Platform · sherlock" tint="#1d4ed8" r={result?.platform} />}
         </div>
       </div>

@@ -166,7 +166,7 @@ function runPromise(
 // ─── Score cell ───────────────────────────────────────────────────────────────
 
 function ScoreBar({ score }: { score: number }) {
-  const color = score >= 0.8 ? '#22c55e' : score >= 0.5 ? '#f59e0b' : score > 0 ? '#f97316' : '#ef4444'
+  const color = score >= 0.8 ? 'var(--color-accent)' : score >= 0.5 ? '#f59e0b' : score > 0 ? '#f97316' : '#ef4444'
   return (
     <div className="flex items-center gap-1.5">
       <div className="h-1.5 w-16 overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
@@ -210,7 +210,7 @@ function CompoundingCurve() {
       <div className="mt-3 flex h-16 items-end gap-1.5">
         {m.series.map((s, i) => (
           <div key={i} className="flex flex-1 flex-col items-center gap-1" title={`${s.window}: ${Math.round(s.rate * 100)}% (${s.n} solves)`}>
-            <div className="w-full rounded-t bg-[#16a34a]" style={{ height: `${Math.max(4, (s.rate / max) * 100)}%` }} />
+            <div className="w-full rounded-t bg-[var(--color-accent)]" style={{ height: `${Math.max(4, (s.rate / max) * 100)}%` }} />
             <span className="text-[8px] text-[var(--color-text-tertiary)]">{s.window}</span>
           </div>
         ))}

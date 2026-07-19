@@ -71,7 +71,7 @@ export function FanoutPanel() {
                         </div>
                       )}
                       {m.steering !== 'none' && (
-                        <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#f0fdf4] px-2 py-0.5 text-[10px] font-medium text-[#15803d]">
+                        <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-[var(--color-accent-bg)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-accent)]">
                           SAE steering: {m.steering}
                         </div>
                       )}
@@ -106,7 +106,7 @@ export function FanoutPanel() {
       </div>
 
       {settings.fanoutModels.length === 0 && (
-        <div className="rounded-xl border border-[#fef08a] bg-[#fefce8] p-3 text-xs text-[#713f12]">
+        <div className="rounded-xl border border-[#fef08a] bg-[var(--color-attention-bg)] p-3 text-xs text-[#713f12]">
           No models selected — fan-out sends are disabled until at least one model is chosen.
         </div>
       )}

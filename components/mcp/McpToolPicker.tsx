@@ -26,7 +26,7 @@ export function McpToolPicker({ tools, selected, onToggle }: McpToolPickerProps)
         title="MCP tools"
         className={`flex h-8 items-center gap-1.5 rounded-full border px-2.5 text-xs font-medium transition ${
           activeCount > 0
-            ? 'border-[#22c55e] bg-[#f0fdf4] text-[#166534]'
+            ? 'border-[var(--color-accent)] bg-[var(--color-accent-bg)] text-[var(--color-accent)]'
             : 'border-[var(--color-border-secondary)] text-[var(--color-text-secondary)] hover:border-[#bfdbfe] hover:bg-[#eff6ff] hover:text-[#1d4ed8]'
         }`}
       >
@@ -36,7 +36,7 @@ export function McpToolPicker({ tools, selected, onToggle }: McpToolPickerProps)
         </svg>
         Tools
         {activeCount > 0 && (
-          <span className="rounded-full bg-[#22c55e] px-1.5 py-0.5 text-[10px] font-bold text-white leading-none">
+          <span className="rounded-full bg-[var(--color-accent)] px-1.5 py-0.5 text-[10px] font-bold text-white leading-none">
             {activeCount}
           </span>
         )}
@@ -61,11 +61,11 @@ export function McpToolPicker({ tools, selected, onToggle }: McpToolPickerProps)
                     onClick={() => onToggle(key)}
                     className={`flex w-full items-start gap-3 rounded-xl border px-3 py-2.5 text-left transition ${
                       isOn
-                        ? 'border-[#bbf7d0] bg-[#f0fdf4]'
+                        ? 'border-[#bbf7d0] bg-[var(--color-accent-bg)]'
                         : 'border-transparent bg-[var(--color-background-secondary)] hover:border-[var(--color-border-secondary)] hover:bg-[var(--color-background-primary)]'
                     }`}
                   >
-                    <span className={`mt-0.5 h-4 w-4 shrink-0 rounded border-2 transition ${isOn ? 'border-[#22c55e] bg-[#22c55e]' : 'border-[#cbd5e1]'}`}>
+                    <span className={`mt-0.5 h-4 w-4 shrink-0 rounded border-2 transition ${isOn ? 'border-[var(--color-accent)] bg-[var(--color-accent)]' : 'border-[#cbd5e1]'}`}>
                       {isOn && (
                         <svg viewBox="0 0 10 10" fill="none" className="h-full w-full p-0.5" aria-hidden>
                           <path d="M1.5 5l2.5 2.5 4.5-4.5" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>

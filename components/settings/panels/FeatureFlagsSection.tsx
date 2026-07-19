@@ -6,9 +6,9 @@ import { amUrl } from '@/lib/tauri/bridge'
 type Flag = { env: string; enabled: boolean; status: 'default-on' | 'opt-in' | 'experimental'; description: string }
 
 const STATUS_STYLE: Record<Flag['status'], string> = {
-  'default-on': 'bg-[#dcfce7] text-[#166534]',
+  'default-on': 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]',
   'opt-in': 'bg-[#dbeafe] text-[#1e40af]',
-  'experimental': 'bg-[#fef3c7] text-[#92400e]',
+  'experimental': 'bg-[#fef3c7] text-[var(--color-attention)]',
 }
 
 /**
@@ -51,13 +51,13 @@ export function FeatureFlagsSection() {
             <div key={f.env} className="flex items-center justify-between gap-3 rounded-lg bg-[var(--color-background-primary)] px-3 py-2">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className={`h-2 w-2 shrink-0 rounded-full ${f.enabled ? 'bg-[#16a34a]' : 'bg-[#cbd5e1]'}`} />
+                  <span className={`h-2 w-2 shrink-0 rounded-full ${f.enabled ? 'bg-[var(--color-accent)]' : 'bg-[#cbd5e1]'}`} />
                   <code className="truncate text-[11px] text-[var(--color-text-primary)]">{f.env}</code>
                   <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium ${STATUS_STYLE[f.status]}`}>{f.status}</span>
                 </div>
                 <div className="ml-4 truncate text-[10px] text-[var(--color-text-tertiary)]">{f.description}</div>
               </div>
-              <span className={`shrink-0 text-[11px] font-medium ${f.enabled ? 'text-[#16a34a]' : 'text-[var(--color-text-tertiary)]'}`}>
+              <span className={`shrink-0 text-[11px] font-medium ${f.enabled ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-tertiary)]'}`}>
                 {f.enabled ? 'on' : 'off'}
               </span>
             </div>

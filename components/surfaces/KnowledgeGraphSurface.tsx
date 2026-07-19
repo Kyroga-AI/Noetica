@@ -36,10 +36,10 @@ const OP_LABEL: Record<ProposalOp, string> = {
   'update-prop': '~ prop',
 }
 const OP_COLOR: Record<ProposalOp, string> = {
-  'add-node':    '#16a34a',
+  'add-node':    'var(--color-accent)',
   'add-edge':    '#2563eb',
   'remove-edge': '#dc2626',
-  'update-prop': '#d97706',
+  'update-prop': 'var(--color-attention)',
 }
 
 function proposalSummary(p: GraphProposal): string {
@@ -152,8 +152,8 @@ export function KnowledgeGraphSurface() {
             // Real health, not a hardcoded green pill: red when the graph fetch errored, amber while
             // loading / empty, green ONLY when HellGraph actually returned data.
             const healthy = !err && (graph.nodes.length > 0 || (total?.nodes ?? 0) > 0)
-            const cls = err ? 'bg-[#fee2e2] text-[#dc2626]' : healthy ? 'bg-[#dcfce7] text-[#16a34a]' : 'bg-[#fef3c7] text-[#d97706]'
-            const dot = err ? 'bg-[#dc2626]' : healthy ? 'bg-[#16a34a]' : 'bg-[#d97706]'
+            const cls = err ? 'bg-[#fee2e2] text-[#dc2626]' : healthy ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[#fef3c7] text-[var(--color-attention)]'
+            const dot = err ? 'bg-[#dc2626]' : healthy ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-attention)]'
             const label = err ? 'HellGraph · unreachable' : healthy ? 'HellGraph · on-device' : loading ? 'HellGraph · loading…' : 'HellGraph · no data'
             return <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${cls}`} title={err || undefined}><span className={`h-1.5 w-1.5 rounded-full ${dot}`} />{label}</span>
           })()}
@@ -280,7 +280,7 @@ export function KnowledgeGraphSurface() {
                           <span className="rounded px-1 py-0.5 text-[9px] font-bold" style={{ background: OP_COLOR[p.op] + '20', color: OP_COLOR[p.op] }}>{OP_LABEL[p.op]}</span>
                           {p.source && <span className="text-[9px] text-[var(--color-text-tertiary)]">{p.source}</span>}
                           {p.status !== 'pending' && (
-                            <span className={`ml-auto text-[9px] font-semibold ${p.status === 'accepted' ? 'text-[#16a34a]' : 'text-[#dc2626]'}`}>{p.status}</span>
+                            <span className={`ml-auto text-[9px] font-semibold ${p.status === 'accepted' ? 'text-[var(--color-accent)]' : 'text-[#dc2626]'}`}>{p.status}</span>
                           )}
                         </div>
                         <div className="mb-1 font-mono text-[11px] text-[var(--color-text-primary)]">{proposalSummary(p)}</div>
@@ -292,7 +292,7 @@ export function KnowledgeGraphSurface() {
                             <button
                               disabled={busy}
                               onClick={() => void actOnProposal(p.id, 'accept')}
-                              className="flex-1 rounded-lg bg-[#16a34a] py-1 text-[10px] font-semibold text-white transition hover:opacity-90 disabled:opacity-40">
+                              className="flex-1 rounded-lg bg-[var(--color-accent)] py-1 text-[10px] font-semibold text-white transition hover:opacity-90 disabled:opacity-40">
                               {busy ? '…' : 'Accept'}
                             </button>
                             <button
@@ -317,7 +317,7 @@ export function KnowledgeGraphSurface() {
                       await actOnProposal(p.id, 'accept')
                     }
                   }}
-                  className="flex-1 rounded-lg bg-[#16a34a] py-1.5 text-[10px] font-semibold text-white transition hover:opacity-90">
+                  className="flex-1 rounded-lg bg-[var(--color-accent)] py-1.5 text-[10px] font-semibold text-white transition hover:opacity-90">
                   Accept all
                 </button>
                 <button

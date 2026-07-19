@@ -28,10 +28,10 @@ type PullState = {
 // --- Role badge colors ---
 const ROLE_COLORS: Record<string, string> = {
   conductor:       'bg-[#eff6ff] text-[#1d4ed8] border-[#bfdbfe]',
-  general:         'bg-[#f0fdf4] text-[#166534] border-[#bbf7d0]',
+  general:         'bg-[var(--color-accent-bg)] text-[var(--color-accent)] border-[#bbf7d0]',
   coding:          'bg-[#fdf4ff] text-[#7e22ce] border-[#e9d5ff]',
   reasoning:       'bg-[#fff7ed] text-[#c2410c] border-[#fed7aa]',
-  'general-large': 'bg-[#fefce8] text-[#854d0e] border-[#fde68a]',
+  'general-large': 'bg-[var(--color-attention-bg)] text-[#854d0e] border-[#fde68a]',
   uncensored:      'bg-[#fef2f2] text-[#991b1b] border-[#fecaca]',
   vision:          'bg-[#f0f9ff] text-[#0c4a6e] border-[#bae6fd]',
 }
@@ -166,7 +166,7 @@ export function ModelsPanel() {
                     </div>
                     <div className="shrink-0">
                       {m.pulled ? (
-                        <span className="flex items-center gap-1 text-[11px] font-medium text-[#16a34a]">
+                        <span className="flex items-center gap-1 text-[11px] font-medium text-[var(--color-accent)]">
                           <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden><circle cx="5" cy="5" r="4.5" stroke="currentColor" strokeWidth="1"/><path d="M2.5 5l1.8 1.8L7.5 3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
                           Ready
                         </span>
@@ -272,7 +272,7 @@ export function ModelsPanel() {
               />
             </div>
             {!settings.prophetMeshEndpoint.trim() && (
-              <p className="text-[11px] text-[#d97706]">Enter the mesh endpoint URL (…/v1) to route inference there.</p>
+              <p className="text-[11px] text-[var(--color-attention)]">Enter the mesh endpoint URL (…/v1) to route inference there.</p>
             )}
           </div>
         )}

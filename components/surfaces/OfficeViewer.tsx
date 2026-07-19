@@ -63,7 +63,7 @@ export function OfficeViewer() {
           <div>
             <div className="mb-2 flex flex-wrap gap-1">
               {sheets.map((s, i) => (
-                <button key={s.name} onClick={() => setActive(i)} className={`rounded px-2 py-0.5 text-[10px] ${i === active ? 'bg-[#16a34a]/15 text-[#16a34a]' : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]'}`}>{s.name}</button>
+                <button key={s.name} onClick={() => setActive(i)} className={`rounded px-2 py-0.5 text-[10px] ${i === active ? 'bg-[var(--color-accent)]/15 text-[var(--color-accent)]' : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]'}`}>{s.name}</button>
               ))}
             </div>
             <div className="overflow-auto rounded-lg border border-[var(--color-border-secondary)] bg-white p-2 text-black">

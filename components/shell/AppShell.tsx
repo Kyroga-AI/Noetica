@@ -2023,7 +2023,7 @@ function CenterWorkspace({ activeSurface, sessionId, activeProjectTitle, project
             {agentMode === 'plan' ? (
               <span className="font-semibold text-[#7c3aed]">Plan mode</span>
             ) : (
-              <span className="font-semibold text-[#b45309]">Ask mode</span>
+              <span className="font-semibold text-[var(--color-attention)]">Ask mode</span>
             )}
             <span className="text-[var(--color-text-tertiary)]">
               {agentMode === 'plan' ? '— agent will outline a step-plan before acting' : '— agent will ask before using tools'}

@@ -54,7 +54,7 @@ export function GoalBanner({ sessionId }: { sessionId?: string }) {
         )}
       </div>
       {open.length > 0 && (
-        <div className="mt-1 text-[10px] text-[#d97706]">Still needed: {open.join(', ')}</div>
+        <div className="mt-1 text-[10px] text-[var(--color-attention)]">Still needed: {open.join(', ')}</div>
       )}
     </div>
   )

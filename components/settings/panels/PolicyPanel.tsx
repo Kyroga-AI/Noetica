@@ -116,12 +116,12 @@ export function PolicyPanel() {
       </div>
 
       {active === 'security' && (
-        <div className={`rounded-xl border p-4 ${attested ? 'border-[#15803d] bg-[rgba(21,128,61,0.06)]' : 'border-[#b45309] bg-[rgba(180,83,9,0.06)]'}`}>
+        <div className={`rounded-xl border p-4 ${attested ? 'border-[var(--color-accent)] bg-[rgba(21,128,61,0.06)]' : 'border-[var(--color-attention)] bg-[rgba(180,83,9,0.06)]'}`}>
           <div className="flex items-center justify-between">
             <span className="text-sm font-semibold text-[var(--color-text-primary)]">
               Security lane — operator self-attestation
             </span>
-            <span className={`text-[10px] font-mono font-semibold uppercase tracking-wide ${attested ? 'text-[#15803d]' : 'text-[#b45309]'}`}>
+            <span className={`text-[10px] font-mono font-semibold uppercase tracking-wide ${attested ? 'text-[var(--color-accent)]' : 'text-[var(--color-attention)]'}`}>
               {attested ? 'Armed' : 'Disarmed'}
             </span>
           </div>
@@ -168,7 +168,7 @@ export function PolicyPanel() {
           ) : (
             <button
               onClick={acceptAttestation}
-              className="mt-3 w-full rounded-lg bg-[#b45309] px-3 py-2 text-xs font-semibold text-white hover:bg-[#92400e]"
+              className="mt-3 w-full rounded-lg bg-[var(--color-attention)] px-3 py-2 text-xs font-semibold text-white hover:bg-[var(--color-attention)]"
             >
               I attest — arm the security lane
             </button>

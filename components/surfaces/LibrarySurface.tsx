@@ -43,7 +43,7 @@ const SECTION_HINT: Record<Section, string> = {
 
 const KIND_BADGE: Record<LibraryGroup['kind'], { label: string; cls: string }> = {
   collection: { label: 'collection', cls: 'bg-[#eff6ff] text-[#1d4ed8]' },
-  inbox: { label: 'inbox', cls: 'bg-[#fef3c7] text-[#92400e]' },
+  inbox: { label: 'inbox', cls: 'bg-[#fef3c7] text-[var(--color-attention)]' },
   system: { label: 'system · protected', cls: 'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]' },
 }
 

@@ -47,19 +47,19 @@ const KIND_COLOR: Record<AuditEvent['kind'], string> = {
   policy_check: '#f59e0b',
   memory_read:  '#0891b2',
   memory_write: '#0891b2',
-  evidence_ref: '#16a34a',
+  evidence_ref: 'var(--color-accent)',
   policy_emit:  '#1d4ed8',
 }
 
 const VERDICT_STYLE: Record<PolicyVerdict, string> = {
-  admitted: 'bg-[rgba(34,197,94,0.12)] text-[#16a34a]',
-  flagged:  'bg-[rgba(245,158,11,0.12)] text-[#d97706]',
+  admitted: 'bg-[rgba(34,197,94,0.12)] text-[var(--color-accent)]',
+  flagged:  'bg-[rgba(245,158,11,0.12)] text-[var(--color-attention)]',
   blocked:  'bg-[rgba(239,68,68,0.12)] text-[#dc2626]',
 }
 
 const BUNDLE_STATUS_STYLE: Record<EvidenceBundle['status'], string> = {
-  sealed:  'bg-[rgba(34,197,94,0.12)] text-[#16a34a]',
-  pending: 'bg-[rgba(245,158,11,0.12)] text-[#d97706]',
+  sealed:  'bg-[rgba(34,197,94,0.12)] text-[var(--color-accent)]',
+  pending: 'bg-[rgba(245,158,11,0.12)] text-[var(--color-attention)]',
   failed:  'bg-[rgba(239,68,68,0.12)] text-[#dc2626]',
 }
 
@@ -201,7 +201,7 @@ const TIER_COLOR: Record<string, { dot: string; chip: string; label: string }> =
   system:    { dot: '#7c3aed', chip: 'bg-[rgba(124,58,237,0.10)] text-[#7c3aed]',  label: 'System' },
   developer: { dot: '#1d4ed8', chip: 'bg-[rgba(29,78,216,0.10)] text-[#1d4ed8]',   label: 'Developer' },
   user:      { dot: '#0891b2', chip: 'bg-[rgba(8,145,178,0.10)] text-[#0891b2]',   label: 'User' },
-  guideline: { dot: '#16a34a', chip: 'bg-[rgba(22,163,74,0.10)] text-[#16a34a]',   label: 'Guideline' },
+  guideline: { dot: 'var(--color-accent)', chip: 'bg-[rgba(22,163,74,0.10)] text-[var(--color-accent)]',   label: 'Guideline' },
 }
 
 function traceDreamAgo(iso: string | null): string {
@@ -702,11 +702,11 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
 
         {/* Tamper-evidence attestation — egress audit chain (hash-linked + Ed25519-signed head) */}
         {audit && (
-          <div className="rounded-2xl border p-4 shadow-sm" style={{ borderColor: audit.attested ? '#bbf7d0' : '#fde68a', background: audit.attested ? '#f0fdf4' : '#fffbeb' }}>
+          <div className="rounded-2xl border p-4 shadow-sm" style={{ borderColor: audit.attested ? '#bbf7d0' : '#fde68a', background: audit.attested ? 'var(--color-accent-bg)' : 'var(--color-attention-bg)' }}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="text-sm">{audit.attested ? '🛡️' : '⚠️'}</span>
-                <span className="text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: audit.attested ? '#166534' : '#92400e' }}>
+                <span className="text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: audit.attested ? 'var(--color-accent)' : 'var(--color-attention)' }}>
                   {audit.attested ? 'Audit chain attested' : 'Audit chain — needs attention'}
                 </span>
               </div>
@@ -900,7 +900,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
               </label>
 
               {peSaveMsg && (
-                <div className={`rounded-lg px-3 py-2 text-[11px] ${peSaveMsg.includes('saved') ? 'border border-[#16a34a]/40 bg-[#16a34a]/5 text-[#16a34a]' : 'border border-[#fecaca] bg-[#fef2f2] text-[#dc2626]'}`}>{peSaveMsg}</div>
+                <div className={`rounded-lg px-3 py-2 text-[11px] ${peSaveMsg.includes('saved') ? 'border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/5 text-[var(--color-accent)]' : 'border border-[#fecaca] bg-[#fef2f2] text-[#dc2626]'}`}>{peSaveMsg}</div>
               )}
               <button type="button" onClick={() => void savePolicy()} disabled={peSaving || !pePolicyId.trim() || !peName.trim()}
                 className="rounded-xl bg-[#7c3aed] px-4 py-2 text-[11px] font-semibold text-white transition hover:bg-[#6d28d9] disabled:opacity-50">
@@ -925,15 +925,15 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             </div>
             {/* The felt win: how many of your real captured failures the system now passes. */}
             {learning.replay && learning.replay.total > 0 && (
-              <div className="mb-3 rounded-xl border border-[#16a34a]/40 bg-[#16a34a]/5 p-3 text-center">
-                <div className="text-2xl font-semibold text-[#16a34a]">{learning.replay.fixed}/{learning.replay.total} fixed</div>
+              <div className="mb-3 rounded-xl border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/5 p-3 text-center">
+                <div className="text-2xl font-semibold text-[var(--color-accent)]">{learning.replay.fixed}/{learning.replay.total} fixed</div>
                 <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">of your captured failures now pass ({Math.round(learning.replay.fixedRate * 100)}%)</div>
               </div>
             )}
             <div className="grid grid-cols-3 gap-3 mb-3">
               <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
                 <div className="flex items-center justify-center gap-1.5">
-                  <span className="text-2xl font-semibold text-[#16a34a]">{learning.skills.count}</span>
+                  <span className="text-2xl font-semibold text-[var(--color-accent)]">{learning.skills.count}</span>
                   {learning.skills.due > 0 && (
                     <span className="rounded-full bg-[#1d4ed8] px-1.5 text-[9px] font-semibold text-white">{learning.skills.due}</span>
                   )}
@@ -945,7 +945,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                 <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Experiences</div>
               </div>
               <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
-                <div className="text-2xl font-semibold text-[#d97706]">{learning.evalCases.count}</div>
+                <div className="text-2xl font-semibold text-[var(--color-attention)]">{learning.evalCases.count}</div>
                 <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Failures</div>
               </div>
             </div>
@@ -965,14 +965,14 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
         {proposals.length > 0 && (
           <div className="rounded-2xl border border-[#fef08a] bg-[var(--color-background-primary)] p-5 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#b45309]">Graph proposals</div>
-              <span className="rounded-full bg-[#fef08a] px-2 py-0.5 text-[10px] font-semibold text-[#92400e]">{proposals.length} pending</span>
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-attention)]">Graph proposals</div>
+              <span className="rounded-full bg-[#fef08a] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-attention)]">{proposals.length} pending</span>
             </div>
             <ul className="space-y-2">
               {proposals.map((p) => (
                 <li key={p.id} className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3">
                   <div className="mb-1 flex items-center gap-2">
-                    <span className="rounded-full border border-[#fde68a] bg-[#fffbeb] px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase text-[#92400e]">{p.op}</span>
+                    <span className="rounded-full border border-[#fde68a] bg-[var(--color-attention-bg)] px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase text-[var(--color-attention)]">{p.op}</span>
                     {p.source && <span className="text-[10px] text-[var(--color-text-tertiary)]">from {p.source}</span>}
                   </div>
                   <div className="mb-1 text-[11px] text-[var(--color-text-primary)]">
@@ -988,7 +988,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                       Reject
                     </button>
                     <button onClick={() => void handleProposal(p.id, 'accept')}
-                      className="rounded-md bg-[#16a34a] px-2.5 py-1 text-[11px] font-medium text-white hover:bg-[#15803d] transition">
+                      className="rounded-md bg-[var(--color-accent)] px-2.5 py-1 text-[11px] font-medium text-white hover:bg-[var(--color-accent)] transition">
                       Accept
                     </button>
                   </div>
@@ -1014,7 +1014,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                 <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Associations proposed</div>
               </div>
               <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
-                <div className="text-2xl font-semibold text-[#16a34a]">{dream.integrated}</div>
+                <div className="text-2xl font-semibold text-[var(--color-accent)]">{dream.integrated}</div>
                 <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Integrated (support ≥ 2)</div>
               </div>
               <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
@@ -1111,7 +1111,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
           <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
               <div>
-                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#16a34a]">Skills due for review</div>
+                <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent)]">Skills due for review</div>
                 <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">{dueSkills.length} skill{dueSkills.length !== 1 ? 's' : ''} scheduled for spaced-repetition practice</div>
               </div>
             </div>
@@ -1122,7 +1122,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                 return (
                   <div key={skillId} className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2.5">
                     <div className="mb-1.5 flex items-start gap-1.5">
-                      <span className="mt-0.5 shrink-0 text-[10px] text-[#16a34a]">◎</span>
+                      <span className="mt-0.5 shrink-0 text-[10px] text-[var(--color-accent)]">◎</span>
                       <span className="text-[12px] font-medium text-[var(--color-text-primary)]">{s.abstraction}</span>
                     </div>
                     <div className="mb-2 truncate text-[10px] text-[var(--color-text-tertiary)]">{s.task}</div>
@@ -1133,7 +1133,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                           disabled={isGrading}
                           onClick={() => void gradeSkill(skillId, grade as 0|1|2|3)}
                           className="flex-1 rounded-lg border border-[var(--color-border-secondary)] py-1 text-[10px] font-semibold transition hover:bg-[var(--color-background-primary)] disabled:opacity-40"
-                          style={{ color: grade === 0 ? '#dc2626' : grade === 1 ? '#d97706' : grade === 2 ? '#16a34a' : '#0891b2' }}
+                          style={{ color: grade === 0 ? '#dc2626' : grade === 1 ? 'var(--color-attention)' : grade === 2 ? 'var(--color-accent)' : '#0891b2' }}
                         >
                           {isGrading ? '…' : label}
                         </button>
@@ -1194,7 +1194,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
         <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
           <div className="mb-2 flex items-center justify-between">
             <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#16a34a]">Procedural memory</div>
+              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent)]">Procedural memory</div>
               <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)] leading-relaxed">
                 Distills successful turns into reusable skills (loop 2) and enrolls them in spaced-repetition review (loop 3).
               </div>
@@ -1202,7 +1202,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             <button
               onClick={() => void toggleProcedural()}
               disabled={proceduralToggling}
-              className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold transition disabled:opacity-50 ${proceduralEnabled ? 'bg-[#16a34a] text-white hover:bg-[#15803d]' : 'border border-[var(--color-border-primary)] text-[var(--color-text-secondary)] hover:border-[#16a34a] hover:text-[#16a34a]'}`}
+              className={`shrink-0 rounded-full px-3 py-1 text-[11px] font-semibold transition disabled:opacity-50 ${proceduralEnabled ? 'bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent)]' : 'border border-[var(--color-border-primary)] text-[var(--color-text-secondary)] hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]'}`}
             >
               {proceduralToggling ? '…' : proceduralEnabled ? 'Enabled' : 'Disabled'}
             </button>
@@ -1333,7 +1333,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                 <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Budget</div>
               </div>
               <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
-                <div className={`text-xl font-semibold ${decayStats.pruned > 0 ? 'text-[#d97706]' : 'text-[#16a34a]'}`}>{decayStats.pruned}</div>
+                <div className={`text-xl font-semibold ${decayStats.pruned > 0 ? 'text-[var(--color-attention)]' : 'text-[var(--color-accent)]'}`}>{decayStats.pruned}</div>
                 <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Pruned</div>
               </div>
               <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
@@ -1367,7 +1367,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             )}
             <div className="space-y-1.5 max-h-64 overflow-y-auto">
               {modelRegistry.models.map(m => {
-                const ORIGIN_COLOR: Record<string, string> = { 'frontier-api': '#6366f1', US: '#1d4ed8', EU: '#0891b2', CN: '#d97706' }
+                const ORIGIN_COLOR: Record<string, string> = { 'frontier-api': '#6366f1', US: '#1d4ed8', EU: '#0891b2', CN: 'var(--color-attention)' }
                 const originColor = ORIGIN_COLOR[m.origin] ?? '#6b7280'
                 const isLastRouted = modelRegistry.router?.model === m.id || modelRegistry.router?.model.startsWith(m.id.split('/').pop() ?? '__none')
                 return (
@@ -1376,7 +1376,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                     <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide" style={{ color: originColor }}>{m.origin}</span>
                     <span className="shrink-0 tabular-nums text-[10px] text-[var(--color-text-tertiary)]">{m.composite}%</span>
                     {m.hw.ramGb !== null ? (
-                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold ${m.ramFit ? 'bg-[#dcfce7] text-[#16a34a]' : 'bg-[#fef3c7] text-[#92400e]'}`}>
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold ${m.ramFit ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[#fef3c7] text-[var(--color-attention)]'}`}>
                         {m.hw.ramGb} GB · {m.ramFit ? 'fits' : 'too large'}
                       </span>
                     ) : (
@@ -1401,7 +1401,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                 <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Total runs</div>
               </div>
               <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
-                <div className={`text-2xl font-semibold ${admissionRate > 90 ? 'text-[#16a34a]' : admissionRate > 70 ? 'text-[#d97706]' : 'text-[#dc2626]'}`}>{admissionRate.toFixed(0)}%</div>
+                <div className={`text-2xl font-semibold ${admissionRate > 90 ? 'text-[var(--color-accent)]' : admissionRate > 70 ? 'text-[var(--color-attention)]' : 'text-[#dc2626]'}`}>{admissionRate.toFixed(0)}%</div>
                 <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Admission rate</div>
               </div>
               <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
@@ -1439,7 +1439,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
-              <div className={`text-2xl font-semibold ${egressAudit.summary.sovereignty_pct === 100 ? 'text-[#16a34a]' : egressAudit.summary.sovereignty_pct >= 80 ? 'text-[#d97706]' : 'text-[#dc2626]'}`}>{egressAudit.summary.sovereignty_pct}%</div>
+              <div className={`text-2xl font-semibold ${egressAudit.summary.sovereignty_pct === 100 ? 'text-[var(--color-accent)]' : egressAudit.summary.sovereignty_pct >= 80 ? 'text-[var(--color-attention)]' : 'text-[#dc2626]'}`}>{egressAudit.summary.sovereignty_pct}%</div>
               <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">on-device (sovereign)</div>
             </div>
             <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
@@ -1452,12 +1452,12 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             </div>
           </div>
           {egressAudit.rows.length === 0 ? (
-            <div className="mt-3 rounded-lg border border-[#86efac] bg-[#dcfce7] px-3 py-2 text-[11px] font-medium text-[#16a34a]">🔒 Zero egress — nothing has left this device.</div>
+            <div className="mt-3 rounded-lg border border-[#86efac] bg-[var(--color-accent-bg)] px-3 py-2 text-[11px] font-medium text-[var(--color-accent)]">🔒 Zero egress — nothing has left this device.</div>
           ) : (
             <div className="mt-3 space-y-1">
               {egressAudit.rows.slice(0, 8).map((r) => (
                 <div key={r.run_id} className="flex items-center gap-2 text-[10px] text-[var(--color-text-secondary)]">
-                  <span className="text-[#d97706]">↗</span>
+                  <span className="text-[var(--color-attention)]">↗</span>
                   <span className="w-36 truncate">{r.provider}/{r.model}</span>
                   <span className="tabular-nums">{r.tokens_egressed.toLocaleString()} tok</span>
                   <span className={r.policy === 'admitted' ? 'text-[var(--color-text-tertiary)]' : 'font-medium text-[#dc2626]'}>{r.policy}</span>
@@ -1482,12 +1482,12 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             <div className="space-y-1.5">
               {[...memories].sort((a, b) => Number(b.pinned) - Number(a.pinned) || b.lti - a.lti).slice(0, 12).map((m) => (
                 <div key={m.id} className="flex items-start gap-2 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-2.5">
-                  <button onClick={() => pinMemory(m.id, !m.pinned)} title={m.pinned ? 'Unpin from long-term recall' : 'Pin into long-term recall'} className={`mt-0.5 text-sm leading-none ${m.pinned ? 'text-[#d97706]' : 'text-[var(--color-text-tertiary)] hover:text-[#d97706]'}`}>{m.pinned ? '★' : '☆'}</button>
+                  <button onClick={() => pinMemory(m.id, !m.pinned)} title={m.pinned ? 'Unpin from long-term recall' : 'Pin into long-term recall'} className={`mt-0.5 text-sm leading-none ${m.pinned ? 'text-[var(--color-attention)]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-attention)]'}`}>{m.pinned ? '★' : '☆'}</button>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="rounded bg-[var(--color-background-tertiary)] px-1 text-[9px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">{m.kind}</span>
                       <span className="text-[9px] text-[var(--color-text-tertiary)]">{new Date(m.createdAt).toLocaleDateString()}</span>
-                      {m.pinned && <span className="text-[9px] font-medium text-[#d97706]">in long-term recall</span>}
+                      {m.pinned && <span className="text-[9px] font-medium text-[var(--color-attention)]">in long-term recall</span>}
                     </div>
                     <div className="mt-0.5 line-clamp-2 text-[11px] text-[var(--color-text-secondary)]">{m.preview}</div>
                   </div>
@@ -1504,7 +1504,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
           <div className="mb-3 text-[11px] text-[var(--color-text-tertiary)]">What the local mesh has taught itself — which model wins each task, whether answers are improving, and the symbolic substrate growing.</div>
           <div className="mb-4 grid grid-cols-3 gap-3">
             <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
-              <div className={`text-2xl font-semibold ${(trends?.quality?.delta ?? 0) > 0 ? 'text-[#16a34a]' : (trends?.quality?.delta ?? 0) < 0 ? 'text-[#dc2626]' : 'text-[var(--color-text-primary)]'}`}>
+              <div className={`text-2xl font-semibold ${(trends?.quality?.delta ?? 0) > 0 ? 'text-[var(--color-accent)]' : (trends?.quality?.delta ?? 0) < 0 ? 'text-[#dc2626]' : 'text-[var(--color-text-primary)]'}`}>
                 {trends?.quality ? `${trends.quality.delta > 0 ? '↑' : trends.quality.delta < 0 ? '↓' : '·'} ${(trends.quality.delta * 100).toFixed(0)}%` : '—'}
               </div>
               <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">answer quality{trends?.quality ? ` · ${trends.quality.samples} samples` : ''}</div>
@@ -1524,9 +1524,9 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
               {trends.bandit.map((a) => (
                 <div key={`${a.task}/${a.model}`} className="flex items-center gap-2 text-[11px]">
                   <span className="w-20 shrink-0 truncate text-[var(--color-text-tertiary)]">{a.task}</span>
-                  <span className={`w-36 shrink-0 truncate ${a.leading ? 'font-semibold text-[#16a34a]' : 'text-[var(--color-text-secondary)]'}`}>{a.leading ? '⭐ ' : ''}{a.model}</span>
+                  <span className={`w-36 shrink-0 truncate ${a.leading ? 'font-semibold text-[var(--color-accent)]' : 'text-[var(--color-text-secondary)]'}`}>{a.leading ? '⭐ ' : ''}{a.model}</span>
                   <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
-                    <div className={`h-full rounded-full ${a.leading ? 'bg-[#16a34a]' : 'bg-[#94a3b8]'}`} style={{ width: `${Math.max(2, Math.min(100, a.mean_reward * 100))}%` }} />
+                    <div className={`h-full rounded-full ${a.leading ? 'bg-[var(--color-accent)]' : 'bg-[#94a3b8]'}`} style={{ width: `${Math.max(2, Math.min(100, a.mean_reward * 100))}%` }} />
                   </div>
                   <span className="w-16 shrink-0 text-right text-[10px] tabular-nums text-[var(--color-text-tertiary)]">{a.mean_reward.toFixed(2)} · {a.plays}×</span>
                 </div>

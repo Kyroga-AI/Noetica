@@ -17,7 +17,7 @@ const BOARD_COLUMNS: { status: WorkItemStatus; label: string; color: string }[] 
 ]
 
 const PRIORITY_COLORS: Record<WorkItemPriority, string> = {
-  critical: 'text-[#dc2626]', high: 'text-[#d97706]', medium: 'text-[#2563eb]', low: 'text-[var(--color-text-secondary)]', none: 'text-[var(--color-text-tertiary)]',
+  critical: 'text-[#dc2626]', high: 'text-[var(--color-attention)]', medium: 'text-[#2563eb]', low: 'text-[var(--color-text-secondary)]', none: 'text-[var(--color-text-tertiary)]',
 }
 const PRIORITY_DOT: Record<WorkItemPriority, string> = {
   critical: 'bg-[#dc2626]', high: 'bg-[#f59e0b]', medium: 'bg-[#3b82f6]', low: 'bg-[#94a3b8]', none: 'bg-[#cbd5e1]',
@@ -304,7 +304,7 @@ function SprintsView({ sprints, items, projectId, onCreateSprint, onUpdateSprint
 
   const statusBadge = (s: Sprint['status']) => ({
     planned:   'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]',
-    active:    'bg-[#dcfce7] text-[#166534]',
+    active:    'bg-[var(--color-accent-bg)] text-[var(--color-accent)]',
     completed: 'bg-[#e0e7ff] text-[#3730a3]',
   }[s])
 
@@ -365,7 +365,7 @@ function SprintsView({ sprints, items, projectId, onCreateSprint, onUpdateSprint
                 <div className="flex items-center gap-1.5">
                   {sprint.status !== 'active' && sprint.status !== 'completed' && (
                     <button onClick={() => onUpdateSprint(sprint.id, { status: 'active' })}
-                      className="rounded-lg bg-[#dcfce7] px-2.5 py-1 text-[10px] font-semibold text-[#166534] transition hover:bg-[#bbf7d0]">
+                      className="rounded-lg bg-[var(--color-accent-bg)] px-2.5 py-1 text-[10px] font-semibold text-[var(--color-accent)] transition hover:bg-[#bbf7d0]">
                       Start
                     </button>
                   )}
@@ -388,7 +388,7 @@ function SprintsView({ sprints, items, projectId, onCreateSprint, onUpdateSprint
                   <span>{pct}%</span>
                 </div>
                 <div className="h-1.5 overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
-                  <div className="h-full rounded-full bg-[#22c55e] transition-all" style={{ width: `${pct}%` }} />
+                  <div className="h-full rounded-full bg-[var(--color-accent)] transition-all" style={{ width: `${pct}%` }} />
                 </div>
               </div>
             </div>
@@ -442,7 +442,7 @@ function QuickAddForm({ defaultStatus, onAdd, onCancel }: {
 const LINEAR_PRIORITY_COLORS: Record<number, string> = {
   0: 'text-[var(--color-text-tertiary)]',
   1: 'text-[#dc2626]',
-  2: 'text-[#d97706]',
+  2: 'text-[var(--color-attention)]',
   3: 'text-[#2563eb]',
   4: 'text-[var(--color-text-secondary)]',
 }
@@ -468,7 +468,7 @@ function LinearIssueRow({ issue }: { issue: LinearIssue }) {
             {LINEAR_PRIORITY_LABELS[issue.priority] ?? issue.priorityLabel}
           </span>
           {issue.dueDate && (
-            <span className="rounded-full bg-[#fef3c7] px-1.5 text-[10px] text-[#92400e]">
+            <span className="rounded-full bg-[#fef3c7] px-1.5 text-[10px] text-[var(--color-attention)]">
               due {issue.dueDate}
             </span>
           )}
@@ -697,7 +697,7 @@ function ProjectSettings({ project, onUpdate }: { project: import('@/lib/types/w
         </section>
 
         <div className="flex items-center justify-end gap-3">
-          {saved && <span className="text-xs text-[#22c55e]">Saved</span>}
+          {saved && <span className="text-xs text-[var(--color-accent)]">Saved</span>}
           {isDirty && !saved && <span className="text-xs text-[#f59e0b]">Unsaved changes</span>}
           <button
             onClick={save}

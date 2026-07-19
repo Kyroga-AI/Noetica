@@ -5,8 +5,8 @@ type GovernanceTrailProps = {
 }
 
 const REPLAY_BADGE: Record<string, { label: string; color: string; bg: string }> = {
-  exact:        { label: 'exact · verified',   color: '#15803d', bg: '#dcfce7' },
-  approximate:  { label: 'approximate',         color: '#b45309', bg: '#fef9c3' },
+  exact:        { label: 'exact · verified',   color: 'var(--color-accent)', bg: 'var(--color-accent-bg)' },
+  approximate:  { label: 'approximate',         color: 'var(--color-attention)', bg: 'var(--color-attention-bg)' },
   generative:   { label: 'generative',          color: '#6b7280', bg: '#f3f4f6' },
 }
 
@@ -27,7 +27,7 @@ export function GovernanceTrail({ trace }: GovernanceTrailProps) {
             </span>
           )}
           {trace.decidable && (
-            <span className="rounded-full bg-[#dcfce7] px-2 py-0.5 text-[10px] font-semibold text-[#15803d]">
+            <span className="rounded-full bg-[var(--color-accent-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-accent)]">
               decidable
             </span>
           )}
@@ -37,7 +37,7 @@ export function GovernanceTrail({ trace }: GovernanceTrailProps) {
             </span>
           )}
           {trace.grounded && (
-            <span className="rounded-full bg-[#f0fdf4] px-2 py-0.5 text-[10px] font-semibold text-[#166534]">
+            <span className="rounded-full bg-[var(--color-accent-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-accent)]">
               grounded
             </span>
           )}

@@ -18,7 +18,7 @@ type Model = {
 }
 type Catalog = { models: Model[]; note: string }
 
-const TIER_COLOR: Record<Model['tier'], string> = { 'on-device': '#16a34a', edge: '#d97706', server: '#1d4ed8' }
+const TIER_COLOR: Record<Model['tier'], string> = { 'on-device': 'var(--color-accent)', edge: 'var(--color-attention)', server: '#1d4ed8' }
 const fmtParams = (b: number) => (b >= 1 ? `${b}B` : `${Math.round(b * 1000)}M`)
 
 function ModelCard({ m }: { m: Model }) {
@@ -88,7 +88,7 @@ export function LabsSurface() {
                 </div>
               )}
               <div className="rounded-xl bg-[var(--color-background-secondary)] px-3 py-2 text-[10px] text-[var(--color-text-secondary)]">
-                Routing (isolation ↔ residency): <strong className="text-[#16a34a]">high → on-device</strong> · <strong className="text-[#d97706]">medium → edge</strong> · <strong className="text-[#1d4ed8]">low → server</strong>. {cat.note}
+                Routing (isolation ↔ residency): <strong className="text-[var(--color-accent)]">high → on-device</strong> · <strong className="text-[var(--color-attention)]">medium → edge</strong> · <strong className="text-[#1d4ed8]">low → server</strong>. {cat.note}
               </div>
             </>
           )}

@@ -64,7 +64,7 @@ export function RiskAversionPanel({ readout }: RiskAversionPanelProps) {
         </div>
       </div>
 
-      <div className="mt-4 rounded-xl border border-[#fef08a] bg-[#fefce8] p-3 text-xs leading-5 text-[#713f12]">
+      <div className="mt-4 rounded-xl border border-[#fef08a] bg-[var(--color-attention-bg)] p-3 text-xs leading-5 text-[#713f12]">
         Use this as a risk-aversion readout: liability and attribution pressure can produce caution, evidence demands,
         attribution avoidance, or hypothesis reframing. Counterfactual replay is required before calling a transition replicated.
       </div>

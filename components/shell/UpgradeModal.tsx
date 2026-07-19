@@ -70,7 +70,7 @@ export function UpgradeModal({ onClose }: { onClose: () => void }) {
             <div className="space-y-0.5">
               {FEATURES.map(({ label, available, tag }) => (
                 <div key={label} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">
-                  <span className={available ? 'text-[#16a34a]' : 'text-[var(--color-text-tertiary)]'}>
+                  <span className={available ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-tertiary)]'}>
                     {available ? <CheckIcon /> : <CircleIcon />}
                   </span>
                   <span className={`flex-1 text-xs ${available ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-tertiary)]'}`}>

@@ -229,8 +229,8 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
           }
           className={`flex items-center gap-1 rounded-lg border px-2 py-1 text-[11px] font-medium transition disabled:opacity-40 ${
             syncError ? 'border-[#fecaca] bg-[#fef2f2] text-[#dc2626]'
-            : isStale ? 'border-[#fde68a] bg-[#fffbeb] text-[#b45309]'
-            : isIndexed ? 'border-[#bbf7d0] bg-[#f0fdf4] text-[#16a34a]'
+            : isStale ? 'border-[#fde68a] bg-[var(--color-attention-bg)] text-[var(--color-attention)]'
+            : isIndexed ? 'border-[#bbf7d0] bg-[var(--color-accent-bg)] text-[var(--color-accent)]'
             : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] hover:border-[#1d4ed8] hover:text-[#1d4ed8]'
           }`}
         >
@@ -783,11 +783,11 @@ export function NotesSurface() {
                     <button
                       key={page.id}
                       onClick={() => setActiveView({ kind: 'notion', page })}
-                      className={`flex w-full items-start gap-1.5 rounded-xl px-2.5 py-2 text-left transition ${active ? 'bg-[#f0fdf4]' : 'hover:bg-[var(--color-background-tertiary)]'}`}
+                      className={`flex w-full items-start gap-1.5 rounded-xl px-2.5 py-2 text-left transition ${active ? 'bg-[var(--color-accent-bg)]' : 'hover:bg-[var(--color-background-tertiary)]'}`}
                     >
                       <span className="mt-0.5 shrink-0 text-sm">{page.icon ?? '📄'}</span>
                       <div className="min-w-0">
-                        <p className={`truncate text-xs font-medium ${active ? 'text-[#15803d]' : 'text-[var(--color-text-primary)]'}`}>{page.title}</p>
+                        <p className={`truncate text-xs font-medium ${active ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-primary)]'}`}>{page.title}</p>
                         <p className="text-[10px] text-[#cbd5e1]">{timeAgo(page.lastEdited)}</p>
                       </div>
                     </button>
@@ -825,10 +825,10 @@ export function NotesSurface() {
                 onClick={() => void handlePushToNotion()}
                 disabled={notionPushState === 'pushing'}
                 style={{
-                  background: notionPushState === 'done' ? '#f0fdf4' : 'var(--color-background-secondary)',
+                  background: notionPushState === 'done' ? 'var(--color-accent-bg)' : 'var(--color-background-secondary)',
                   border: `1px solid ${notionPushState === 'done' ? '#bbf7d0' : 'var(--color-border-secondary)'}`,
                   borderRadius: 6, padding: '4px 10px', fontSize: 11, cursor: 'pointer',
-                  color: notionPushState === 'done' ? '#16a34a' : 'var(--color-text-secondary)',
+                  color: notionPushState === 'done' ? 'var(--color-accent)' : 'var(--color-text-secondary)',
                   opacity: notionPushState === 'pushing' ? 0.6 : 1,
                 }}
               >

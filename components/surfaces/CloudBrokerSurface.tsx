@@ -23,7 +23,7 @@ type FleetResp = { count: number; totalUsdPerHour: number; byProvider: Record<st
 
 const PROVIDER_COLOR: Record<string, string> = {
   gcp: 'bg-[#e8f0fe] text-[#1a73e8]', azure: 'bg-[#e5f1fb] text-[#0078d4]', aws: 'bg-[#fff3e0] text-[#ec912d]',
-  ibm: 'bg-[#f0f0ff] text-[#4f46e5]', local: 'bg-[#dcfce7] text-[#16a34a]',
+  ibm: 'bg-[#f0f0ff] text-[#4f46e5]', local: 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]',
 }
 
 export function CloudBrokerSurface() {
@@ -106,9 +106,9 @@ export function CloudBrokerSurface() {
       {resp && (
         <div className="mt-5">
           {resp.best && (
-            <div className="mb-3 flex flex-wrap items-center gap-4 rounded-2xl border border-[#bbf7d0] bg-[#f0fdf4] px-4 py-3">
-              <div><div className="text-[10px] uppercase tracking-wide text-[#16a34a]">Cheapest</div><div className="text-sm font-bold text-[var(--color-text-primary)]"><span className={`mr-1.5 rounded px-1.5 py-0.5 text-[10px] font-semibold ${PROVIDER_COLOR[resp.best.sku.provider] ?? ''}`}>{resp.best.sku.provider}</span>{resp.best.sku.name} · {resp.best.sku.region}</div></div>
-              <div><div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Total ({hours}h{resp.best.spot ? ', spot' : ''})</div><div className="text-sm font-bold text-[#16a34a]">${resp.best.totalUsd}</div></div>
+            <div className="mb-3 flex flex-wrap items-center gap-4 rounded-2xl border border-[#bbf7d0] bg-[var(--color-accent-bg)] px-4 py-3">
+              <div><div className="text-[10px] uppercase tracking-wide text-[var(--color-accent)]">Cheapest</div><div className="text-sm font-bold text-[var(--color-text-primary)]"><span className={`mr-1.5 rounded px-1.5 py-0.5 text-[10px] font-semibold ${PROVIDER_COLOR[resp.best.sku.provider] ?? ''}`}>{resp.best.sku.provider}</span>{resp.best.sku.name} · {resp.best.sku.region}</div></div>
+              <div><div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Total ({hours}h{resp.best.spot ? ', spot' : ''})</div><div className="text-sm font-bold text-[var(--color-accent)]">${resp.best.totalUsd}</div></div>
               <div><div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Savings vs dearest</div><div className="text-sm font-semibold text-[var(--color-text-primary)]">${resp.savings.absUsd} ({resp.savings.pct}%)</div></div>
               <div><div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Prices</div><div className="text-xs font-medium text-[var(--color-text-secondary)]">{resp.priceSource}</div></div>
             </div>
@@ -121,7 +121,7 @@ export function CloudBrokerSurface() {
                   <td className="py-1.5"><span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${PROVIDER_COLOR[q.sku.provider] ?? ''}`}>{q.sku.provider}</span></td>
                   <td className="font-mono text-[11px]">{q.sku.name}</td><td>{q.sku.region}</td>
                   <td className="text-[var(--color-text-secondary)]">{q.sku.gpu ? `${q.sku.gpu.count}× ${q.sku.gpu.type}` : `${q.sku.vcpus} vCPU`}</td>
-                  <td className="text-right">${q.effectivePerHour}{q.spot ? ' ·spot' : ''} <span title={q.sku.priceSource === 'live' ? 'real-time billing API' : 'static list estimate — no live API for this provider'} className={`ml-1 rounded px-1 py-0.5 text-[8px] font-semibold ${q.sku.priceSource === 'live' ? 'bg-[#dcfce7] text-[#16a34a]' : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]'}`}>{q.sku.priceSource === 'live' ? 'live' : 'list'}</span></td><td className="text-right">${q.totalUsd}</td>
+                  <td className="text-right">${q.effectivePerHour}{q.spot ? ' ·spot' : ''} <span title={q.sku.priceSource === 'live' ? 'real-time billing API' : 'static list estimate — no live API for this provider'} className={`ml-1 rounded px-1 py-0.5 text-[8px] font-semibold ${q.sku.priceSource === 'live' ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]'}`}>{q.sku.priceSource === 'live' ? 'live' : 'list'}</span></td><td className="text-right">${q.totalUsd}</td>
                 </tr>
               ))}
             </tbody>
@@ -140,7 +140,7 @@ export function CloudBrokerSurface() {
               </button>
               {resp.provision && (
                 <div className="mt-2 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-[11px] text-[var(--color-text-secondary)]">
-                  <div><span className="font-semibold text-[var(--color-text-primary)]">{resp.provision.executor.name}</span> · state <span className={`font-semibold ${resp.provision.state === 'ready' ? 'text-[#16a34a]' : resp.provision.state === 'failed' ? 'text-[#dc2626]' : 'text-[#a16207]'}`}>{resp.provision.state}</span> · ${resp.provision.usdPerHour}/hr · joins fleet + swarm</div>
+                  <div><span className="font-semibold text-[var(--color-text-primary)]">{resp.provision.executor.name}</span> · state <span className={`font-semibold ${resp.provision.state === 'ready' ? 'text-[var(--color-accent)]' : resp.provision.state === 'failed' ? 'text-[#dc2626]' : 'text-[var(--color-attention)]'}`}>{resp.provision.state}</span> · ${resp.provision.usdPerHour}/hr · joins fleet + swarm</div>
                   <div className="mt-1 font-mono text-[10px] text-[var(--color-text-tertiary)]">{resp.provision.createCommand}</div>
                   {resp.provision.error && <div className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">⚠ {resp.provision.error}</div>}
                 </div>
@@ -156,14 +156,14 @@ export function CloudBrokerSurface() {
         <div className="mb-2 flex items-center justify-between">
           <div className="text-sm font-semibold text-[var(--color-text-primary)]">Fleet <span className="text-[10px] font-normal text-[var(--color-text-tertiary)]">(provisioned executors)</span></div>
           {fleet && fleet.count > 0 && (
-            <div className="text-[11px] text-[var(--color-text-secondary)]">{fleet.count} executor{fleet.count === 1 ? '' : 's'} · <span className="font-semibold text-[#16a34a]">${fleet.totalUsdPerHour}/hr</span> · {Object.entries(fleet.byProvider).map(([p, n]) => `${n} ${p}`).join(', ')}</div>
+            <div className="text-[11px] text-[var(--color-text-secondary)]">{fleet.count} executor{fleet.count === 1 ? '' : 's'} · <span className="font-semibold text-[var(--color-accent)]">${fleet.totalUsdPerHour}/hr</span> · {Object.entries(fleet.byProvider).map(([p, n]) => `${n} ${p}`).join(', ')}</div>
           )}
         </div>
         {!fleet || fleet.count === 0
           ? <div className="text-xs text-[var(--color-text-tertiary)]">No executors provisioned yet — broker a workload above and hit Provision to spin up the swarm.</div>
           : <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
               {fleet.executors.map((e, i) => {
-                const dot = e.state === 'ready' ? 'bg-[#16a34a]' : e.state === 'provisioning' ? 'bg-[#d97706]' : e.state === 'failed' ? 'bg-[#dc2626]' : 'bg-[var(--color-text-tertiary)]'
+                const dot = e.state === 'ready' ? 'bg-[var(--color-accent)]' : e.state === 'provisioning' ? 'bg-[var(--color-attention)]' : e.state === 'failed' ? 'bg-[#dc2626]' : 'bg-[var(--color-text-tertiary)]'
                 return (
                   <div key={i} className="flex items-center justify-between rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2">
                     <div className="min-w-0">
@@ -184,7 +184,7 @@ export function CloudBrokerSurface() {
               {fleet.swarms.map((s, i) => (
                 <div key={i} className="flex items-center justify-between rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2">
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2"><span className={`h-2 w-2 shrink-0 rounded-full ${s.live > 0 ? 'bg-[#16a34a]' : 'bg-[var(--color-text-tertiary)]'}`} /><span className="truncate font-mono text-[11px] text-[var(--color-text-primary)]">{s.swarmId}</span></div>
+                    <div className="flex items-center gap-2"><span className={`h-2 w-2 shrink-0 rounded-full ${s.live > 0 ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-text-tertiary)]'}`} /><span className="truncate font-mono text-[11px] text-[var(--color-text-primary)]">{s.swarmId}</span></div>
                     <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">{s.backend}{s.mounted ? ' · mounted' : ''} · {s.live}/{s.members} agent{s.members === 1 ? '' : 's'} live</div>
                   </div>
                   <span className="shrink-0 text-[11px] font-semibold text-[var(--color-text-secondary)]">{s.live}/{s.members}</span>
@@ -202,7 +202,7 @@ export function CloudBrokerSurface() {
           : <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
               {runtimes.map((a, i) => (
                 <div key={i} className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2">
-                  <div className="flex items-center justify-between"><span className="truncate font-mono text-[11px] text-[var(--color-text-primary)]">{a.name}</span>{a._conformance && <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${a._conformance.conforms ? 'bg-[#dcfce7] text-[#16a34a]' : 'bg-[#fef2f2] text-[#dc2626]'}`}>{a._conformance.conforms ? 'conformant' : 'gaps'}</span>}</div>
+                  <div className="flex items-center justify-between"><span className="truncate font-mono text-[11px] text-[var(--color-text-primary)]">{a.name}</span>{a._conformance && <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${a._conformance.conforms ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[#fef2f2] text-[#dc2626]'}`}>{a._conformance.conforms ? 'conformant' : 'gaps'}</span>}</div>
                   <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">{a.role}{a.runtimeClass ? ` · ${a.runtimeClass}` : ''}</div>
                 </div>
               ))}

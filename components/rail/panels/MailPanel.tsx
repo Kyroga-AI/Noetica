@@ -132,7 +132,7 @@ export function MailPanel() {
               <>
                 <div className="px-3 py-1.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-[#1d4ed8] bg-[var(--color-background-secondary)]">Connected</div>
                 <div className="flex w-full items-center gap-2 px-3 py-2 text-xs text-[var(--color-text-primary)]">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#22c55e] shrink-0" />
+                  <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)] shrink-0" />
                   <span className="truncate">{connectedAddress}</span>
                 </div>
               </>

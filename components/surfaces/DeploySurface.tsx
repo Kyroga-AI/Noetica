@@ -23,8 +23,8 @@ type Status = {
 
 function Chip({ ok, label }: { ok: boolean; label: string }) {
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${ok ? 'bg-[#dcfce7] text-[#16a34a]' : 'bg-[#fef2f2] text-[#dc2626]'}`}>
-      <span className={`h-1.5 w-1.5 rounded-full ${ok ? 'bg-[#16a34a]' : 'bg-[#dc2626]'}`} />
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${ok ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[#fef2f2] text-[#dc2626]'}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${ok ? 'bg-[var(--color-accent)]' : 'bg-[#dc2626]'}`} />
       {label}
     </span>
   )
