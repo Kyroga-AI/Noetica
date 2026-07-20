@@ -10,7 +10,7 @@ import { AudioOverviewPlayer } from '@/components/chat/AudioOverviewPlayer'
 // quiet marginal label; no gamification chartjunk. Wired to the real backend (/api/learn/path,
 // /api/learning/srs/*). v1 = Learn (path) + Practice (flashcards).
 
-type Tab = 'learn' | 'practice' | 'lecture' | 'reference' | 'progress'
+type Tab = 'learn' | 'practice' | 'lecture' | 'reference' | 'canon' | 'progress'
 interface PathNode { id: string; name: string; level: string; subject: string; prereq: string[] }
 interface LearningPath { goal: string; resolved: string; path: PathNode[]; levels: string[] }
 interface DueCard { id: string; task: string; abstraction?: string; steps?: string[] }
@@ -55,7 +55,7 @@ export function AcademySurface() {
           learning never leaves this device.
         </p>
         <div className="mt-3 flex gap-1">
-          {(['learn', 'practice', 'lecture', 'reference', 'progress'] as Tab[]).map((t) => (
+          {(['learn', 'practice', 'lecture', 'reference', 'canon', 'progress'] as Tab[]).map((t) => (
             <button key={t} onClick={() => setTab(t)}
               className={`rounded-lg px-3 py-1 text-[12.5px] font-medium capitalize transition ${
                 tab === t ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
@@ -66,7 +66,7 @@ export function AcademySurface() {
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {tab === 'learn' ? <LearnTab /> : tab === 'practice' ? <PracticeTab /> : tab === 'lecture' ? <LectureTab /> : tab === 'reference' ? <ReferenceTab /> : <ProgressTab />}
+        {tab === 'learn' ? <LearnTab /> : tab === 'practice' ? <PracticeTab /> : tab === 'lecture' ? <LectureTab /> : tab === 'reference' ? <ReferenceTab /> : tab === 'canon' ? <CanonTab /> : <ProgressTab />}
       </div>
     </div>
   )
@@ -357,6 +357,125 @@ function ProgressTab() {
         <div className="rounded-xl border border-[var(--color-border-secondary)] p-4">
           <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Record{data?.artifact?.lens ? ` · ${data.artifact.lens}` : ''}</div>
           <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--color-text-secondary)]">{text}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Canon — bring open courseware into the verified corpus. Paste an OCW resource, characterize it through the
+// SAME governed path everything else takes (license-gate → PDOR), see exactly which brain it may enter, then
+// add it. The governance moat made visible: the license verdict is shown, not hidden.
+interface Pdor { id: string; license: { type: string; attribution: boolean; shareAlike: boolean } }
+const LICENSE_VERDICT: Record<string, { label: string; tone: 'open' | 'commons' | 'blocked'; note: string }> = {
+  'cc0':         { label: 'Public domain', tone: 'open',    note: 'Commercial-safe — enters the open brain.' },
+  'cc-by':       { label: 'CC BY',         tone: 'open',    note: 'Attribution required — enters the open brain.' },
+  'cc-by-sa':    { label: 'CC BY-SA',      tone: 'open',    note: 'Attribution + share-alike — enters the open brain.' },
+  'cc-by-nc':    { label: 'CC BY-NC',      tone: 'commons', note: 'Non-commercial — the K-12 commons only, kept out of any commercial brain.' },
+  'cc-by-nc-sa': { label: 'CC BY-NC-SA',   tone: 'commons', note: 'Non-commercial + share-alike — the commons only.' },
+  'cc-by-nd':    { label: 'CC BY-ND',      tone: 'blocked', note: 'No-derivatives — a trained model is a derivative, so it stays segmented.' },
+  'cc-by-nc-nd': { label: 'CC BY-NC-ND',   tone: 'blocked', note: 'No-derivatives — segmented, out of every brain.' },
+  'unknown':     { label: 'Unrecognized',  tone: 'blocked', note: 'License not recognized — fail-closed, kept out of every brain.' },
+}
+const TONE_DOT: Record<'open' | 'commons' | 'blocked', string> = { open: '#3fb950', commons: 'var(--color-accent)', blocked: '#d29922' }
+
+function CanonTab() {
+  const [course, setCourse] = useState('')
+  const [title, setTitle] = useState('')
+  const [license, setLicense] = useState('CC BY-NC-SA 4.0')
+  const [urlStr, setUrlStr] = useState('')
+  const [content, setContent] = useState('')
+  const [pdor, setPdor] = useState<Pdor | null>(null)
+  const [phase, setPhase] = useState<'idle' | 'checking' | 'ingesting'>('idle')
+  const [flash, setFlash] = useState('')
+  const [added, setAdded] = useState<Array<{ name: string; chunks: number; tone: 'open' | 'commons' | 'blocked' }>>([])
+  const verdict = pdor ? (LICENSE_VERDICT[pdor.license.type] ?? LICENSE_VERDICT['unknown']) : null
+
+  async function characterize() {
+    if (!course.trim() || !content.trim()) return
+    setPhase('checking'); setPdor(null); setFlash('')
+    try {
+      const r = await fetch(amUrl('/api/learn/ocw-to-pdor'), {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ resource: { course: course.trim(), title: title.trim() || course.trim(), license: license.trim(), url: urlStr.trim() || undefined, content } }),
+      })
+      if (!r.ok) throw new Error('bad')
+      setPdor((await r.json() as { pdor: Pdor }).pdor)
+    } catch { setFlash('Couldn’t characterize — is the runtime running?') } finally { setPhase('idle') }
+  }
+
+  async function addToCanon() {
+    if (!pdor || !content.trim() || !verdict) return
+    setPhase('ingesting'); setFlash('')
+    try {
+      const r = await fetch(amUrl('/api/ingest/document'), {
+        method: 'POST', headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ content, filename: `canon/ocw/${course.trim() || 'resource'}.txt` }),
+      })
+      if (!r.ok) throw new Error('bad')
+      const j = await r.json() as { chunks?: number }
+      setAdded((a) => [{ name: title.trim() || course.trim(), chunks: j.chunks ?? 0, tone: verdict.tone }, ...a].slice(0, 8))
+      setFlash('Added to canon ✓')
+      setCourse(''); setTitle(''); setUrlStr(''); setContent(''); setPdor(null)
+    } catch { setFlash('Ingest failed') } finally { setPhase('idle') }
+  }
+
+  const field = 'w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3.5 py-2 text-[13px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-accent)]'
+  return (
+    <div className="mx-auto max-w-3xl px-6 py-5 space-y-4">
+      <p className="text-[13px] leading-relaxed text-[var(--color-text-tertiary)]">
+        Bring open courseware into the verified canon. It flows through the same governed path as everything else —
+        the license gate decides which brain it may enter, and shows you before anything is stored.
+      </p>
+      <div className="grid grid-cols-2 gap-2">
+        <input value={course} onChange={(e) => setCourse(e.target.value)} placeholder="Course slug (e.g. 18-06-linear-algebra)" className={field} />
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Title (e.g. Lecture 1: The Geometry of…)" className={field} />
+        <input value={license} onChange={(e) => setLicense(e.target.value)} placeholder="License (e.g. CC BY-NC-SA 4.0)" className={field} />
+        <input value={urlStr} onChange={(e) => setUrlStr(e.target.value)} placeholder="Source URL (optional)" className={field} />
+      </div>
+      <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={7} placeholder="Paste the transcript / lecture notes / reading…"
+        className={`${field} resize-y font-mono text-[12px] leading-relaxed`} />
+
+      <div className="flex items-center gap-2">
+        <button onClick={() => void characterize()} disabled={!course.trim() || !content.trim() || phase !== 'idle'}
+          className="rounded-xl bg-[var(--color-text-primary)] px-4 py-2 text-[13px] font-semibold text-[var(--color-background-primary)] transition disabled:opacity-40">
+          {phase === 'checking' ? 'Characterizing…' : 'Characterize'}
+        </button>
+        {flash && <span className="text-[12px] text-[var(--color-text-tertiary)]">{flash}</span>}
+      </div>
+
+      {verdict && (
+        <div className="rounded-xl border border-[var(--color-border-secondary)] p-4">
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full" style={{ background: TONE_DOT[verdict.tone] }} />
+            <span className="text-[13px] font-semibold text-[var(--color-text-primary)]">{verdict.label}</span>
+            <span className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">
+              {verdict.tone === 'open' ? 'Open brain' : verdict.tone === 'commons' ? 'Commons only' : 'Segmented'}
+            </span>
+          </div>
+          <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--color-text-secondary)]">{verdict.note}</p>
+          <div className="mt-3 flex items-center gap-2">
+            <button onClick={() => void addToCanon()} disabled={phase !== 'idle'}
+              className="rounded-lg bg-[var(--color-accent)] px-3.5 py-1.5 text-[12.5px] font-semibold text-white transition disabled:opacity-40">
+              {phase === 'ingesting' ? 'Adding…' : verdict.tone === 'blocked' ? 'Add to private canon anyway' : 'Add to canon'}
+            </button>
+            <span className="font-mono text-[10.5px] text-[var(--color-text-tertiary)]">{pdor?.id}</span>
+          </div>
+        </div>
+      )}
+
+      {added.length > 0 && (
+        <div>
+          <div className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Added this session</div>
+          <div className="space-y-1">
+            {added.map((a, i) => (
+              <div key={i} className="flex items-center gap-2 text-[12.5px]">
+                <span className="h-1.5 w-1.5 rounded-full" style={{ background: TONE_DOT[a.tone] }} />
+                <span className="text-[var(--color-text-primary)]">{a.name}</span>
+                <span className="text-[var(--color-text-tertiary)]">· {a.chunks} chunks</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
