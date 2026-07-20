@@ -168,8 +168,8 @@ jobs:
 
             Install via Homebrew (macOS, arm64 + x86_64):
             ```sh
-            brew tap SocioProphet/noetica https://github.com/SocioProphet/Noetica
-            brew install --cask noetica
+            brew install --cask SocioProphet/tap/noetica
+            # nightlies: brew install --cask SocioProphet/tap/noetica-nightly
             ```
 
             Or download the universal `.dmg` below.
@@ -355,13 +355,19 @@ jobs:
           echo "DMG URL: $DMG_URL"
           echo "SHA256:  $SHA256"
 
-      - name: Checkout repo
+      # The homebrew tap (vars.TAP_REPO = SocioProphet/homebrew-tap → `socioprophet/tap`) is the ONE
+      # canonical cask home. We used to ALSO commit casks into this repo's Casks/ dir, which made the app
+      # repo a second tap (`socioprophet/noetica`) — so `brew … noetica[-nightly]` was ambiguous across
+      # two taps. That in-repo publish is gone; the tap is the single source of truth.
+      - name: Checkout homebrew tap (canonical cask home)
         uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
-          ref: main
-          token: ${{ secrets.GITHUB_TOKEN }}
+          repository: ${{ vars.TAP_REPO }}
+          token: ${{ secrets.TAP_GITHUB_TOKEN }}
+          path: tap
 
-      - name: Update cask (stable → noetica, nightly → noetica-nightly)
+      - name: Update + publish cask to the tap (stable → noetica, nightly → noetica-nightly)
+        working-directory: tap
         run: |
           TAG=${{ github.ref_name }}
           if [[ "$TAG" == *nightly* ]]; then FILE=Casks/noetica-nightly.rb; else FILE=Casks/noetica.rb; fi
@@ -374,46 +380,16 @@ jobs:
             echo "::error::cask url/sha empty — aborting (the resolve step should have failed first)"
             exit 1
           fi
+          if [ ! -f "$FILE" ]; then
+            echo "::error::$FILE missing in tap ${{ vars.TAP_REPO }} — cannot update"; exit 1
+          fi
           sed -i "s|version \".*\"|version \"$VERSION\"|g" "$FILE"
           sed -i "s|sha256 \".*\"|sha256 \"$SHA256\"|g" "$FILE"
           sed -i "s|url \".*\"|url \"$URL\"|g" "$FILE"
-          echo "CASK_FILE=$FILE" >> "$GITHUB_ENV"
-
-      - name: Commit cask update to main
-        run: |
           git config user.name "noetica-bot"
           git config user.email "noetica-bot@users.noreply.github.com"
-          git add "$CASK_FILE"
-          git diff --staged --quiet || git commit -m "cask: $(basename "$CASK_FILE" .rb) ${{ github.ref_name }}"
-          git push
-
-      - name: Checkout homebrew tap
-        if: ${{ vars.TAP_REPO != '' }}
-        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-        with:
-          repository: ${{ vars.TAP_REPO }}
-          token: ${{ secrets.TAP_GITHUB_TOKEN }}
-          path: tap
-
-      - name: Update tap Cask formula
-        if: ${{ vars.TAP_REPO != '' }}
-        continue-on-error: true   # secondary channel — never fail the release on the tap
-        run: |
-          # Copy the cask we just updated on main into the tap, creating it if the tap
-          # doesn't have it yet (the previous sed-in-place failed when the file was
-          # absent). $CASK_FILE is the stable/nightly cask path set above.
-          mkdir -p "tap/$(dirname "$CASK_FILE")"
-          cp "$CASK_FILE" "tap/$CASK_FILE"
-
-      - name: Commit tap update
-        if: ${{ vars.TAP_REPO != '' }}
-        continue-on-error: true
-        working-directory: tap
-        run: |
-          git config user.name "noetica-bot"
-          git config user.email "noetica-bot@users.noreply.github.com"
-          git add Casks
-          git diff --staged --quiet || git commit -m "noetica ${{ github.ref_name }}"
+          git add "$FILE"
+          git diff --staged --quiet || git commit -m "noetica: $(basename "$FILE" .rb) $TAG"
           git push
 
   # Attach the knowledge brains so a fresh install auto-loads them: lib/brain-provision.ts defaults to
