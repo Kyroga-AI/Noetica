@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import type { ChatMessage } from '@/lib/types/message'
+import type { ChatMessage, PlanStepStatus } from '@/lib/types/message'
 import { GovernanceTrail } from '@/components/governance/GovernanceTrail'
 import { SteeringDiff } from '@/components/steering/SteeringDiff'
 import { cleanSources } from '@/lib/chat/sources'
@@ -30,6 +30,21 @@ function Row({ k, v, mono }: { k: string; v: React.ReactNode; mono?: boolean }) 
       <span className={`min-w-0 truncate text-right text-[var(--color-text-primary)] tabular-nums ${mono ? 'font-mono text-[11.5px] text-[var(--color-text-secondary)]' : ''}`}>{v}</span>
     </div>
   )
+}
+
+// The plan stepper — how this answer was produced, step by step (ExecutionPlan.steps).
+function StepGlyph({ status }: { status: PlanStepStatus }) {
+  if (status === 'done') {
+    return (
+      <span className="flex h-3.5 w-3.5 items-center justify-center rounded-full text-white" style={{ background: 'var(--color-accent)' }}>
+        <svg width="8" height="8" viewBox="0 0 12 12" aria-hidden><path d="M2.5 6l2.5 2.5 4.5-5" stroke="currentColor" strokeWidth="1.6" fill="none" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      </span>
+    )
+  }
+  if (status === 'running') {
+    return <span className="flex h-3.5 w-3.5 items-center justify-center"><span className="h-2 w-2 animate-pulse rounded-full" style={{ background: 'var(--color-accent)' }} /></span>
+  }
+  return <span className="flex h-3.5 w-3.5 items-center justify-center"><span className="h-2.5 w-2.5 rounded-full border border-[var(--color-border-secondary)]" /></span>
 }
 
 function downloadJson(obj: unknown, filename: string) {
@@ -158,6 +173,31 @@ export function AnswerInspectorPanel({ message }: { message: ChatMessage | null 
 
   return (
     <div className="flex-1 overflow-y-auto">
+      {/* Progress — the ExecutionPlan stepper: how this answer was produced, step by step */}
+      {message.plan && message.plan.steps.length > 0 && (
+        <Section title={`Progress · ${message.plan.steps.filter((s) => s.status === 'done').length}/${message.plan.steps.length}`}>
+          <ol className="m-0 list-none space-y-0 p-0">
+            {message.plan.steps.map((s, i) => (
+              <li key={s.id} className="flex gap-2.5">
+                <div className="flex flex-col items-center">
+                  <StepGlyph status={s.status} />
+                  {i < message.plan!.steps.length - 1 && (
+                    <span
+                      className={`w-px flex-1 ${s.status === 'done' ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-border-secondary)]'}`}
+                      style={{ minHeight: 10 }}
+                    />
+                  )}
+                </div>
+                <div className="min-w-0 pb-2.5">
+                  <div className={`text-[12.5px] ${s.status === 'pending' ? 'text-[var(--color-text-tertiary)]' : 'text-[var(--color-text-primary)]'}`}>{s.label}</div>
+                  {s.detail && <div className="truncate text-[11px] text-[var(--color-text-tertiary)]">{s.detail}</div>}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </Section>
+      )}
+
       {/* Verification */}
       {v && (
         <Section title="Verification">
