@@ -31,21 +31,18 @@ Routines). This note is the pick-up point for whoever continues.
 - Registered in the **AI · Models** center (`lib/types/surface.ts`, `commandCenters.ts`,
   `AppShell.tsx` — workspace-mode map + `CenterWorkspace` switch + run-to-chat listener).
 
-## NOT finished — pick up here
-### Phase 3 — Customize sidebar (WIP)
-- **Done:** `lib/nav/navPrefs.ts` — `loadNavPrefs`/`saveNavPrefs` (localStorage
-  `noetica:navprefs`, fires `noetica:navprefs-changed`) + `applyCenterPrefs(all, prefs)`
-  (order + hide).
-- **TODO:**
-  1. `components/shell/CustomizeSidebarModal.tsx` (new) — list `COMMAND_CENTERS`, per-row
-     show/hide toggle + up/down reorder, writes via `saveNavPrefs`. Suggest keeping
-     `workspace` non-hideable.
-  2. `components/shell/CommandCenterRail.tsx` — local `prefs` state; `useEffect` loads
-     `loadNavPrefs()` and listens for `noetica:navprefs-changed` to re-read; render
-     `applyCenterPrefs(COMMAND_CENTERS, prefs)` instead of `COMMAND_CENTERS`; add a
-     customize button (gear/sliders SVG) at the bottom (`mt-auto`) that opens the modal.
-  3. Entry point also in the Sidebar ⋮ quick-access menu (`components/shell/Sidebar.tsx`).
-  - `navPrefs.ts` is committed but currently **unused** (nothing imports it yet).
+## Phase 3 — Customize sidebar (DONE)
+Reorder + hide the command centers in the rail, persisted.
+- `lib/nav/navPrefs.ts` — `loadNavPrefs`/`saveNavPrefs` (localStorage `noetica:navprefs`, fires
+  `noetica:navprefs-changed`) + `applyCenterPrefs(all, prefs)` (order + hide).
+- `components/shell/CustomizeSidebarModal.tsx` — list, per-row show/hide toggle + up/down
+  reorder, live-persists; `workspace` is non-hideable.
+- `components/shell/CommandCenterRail.tsx` — reads prefs, re-reads on `noetica:navprefs-changed`,
+  renders `applyCenterPrefs(COMMAND_CENTERS, prefs)`, and has a **Customize** button at the
+  bottom. Also listens for `noetica:customize-sidebar` so other surfaces can open it.
+- Verified live (DOM): hide removes a center from the rail instantly; modal opens on the event.
+- **Still optional:** a "Customize sidebar" item in the Sidebar ⋮ quick-access menu
+  (`components/shell/Sidebar.tsx`) that dispatches `noetica:customize-sidebar`.
 
 ## In-flight (independent)
 - **Nightly build** dispatched off `main` for #525 — check `gh run list --workflow nightly.yml`;
