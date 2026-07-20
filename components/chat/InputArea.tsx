@@ -350,7 +350,7 @@ export function InputArea({
         {showSystemPrompt && onSystemPromptChange && (
           <div className="border-b border-[var(--color-border-tertiary)] px-3 py-2">
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">System prompt</span>
+              <span className="text-[11px] font-medium text-[var(--color-text-tertiary)]">System prompt</span>
               <button
                 onClick={() => { setShowSystemPrompt(false); onSystemPromptChange('') }}
                 className="text-[11px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
@@ -468,7 +468,7 @@ export function InputArea({
 
                 {/* Projects — pick one to scope the conversation to it (and make it active) */}
                 {projects.length > 0 && (
-                  <div className="px-3 pb-0.5 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Projects</div>
+                  <div className="px-3 pb-0.5 pt-1.5 text-[11px] font-semibold text-[var(--color-text-tertiary)]">Projects</div>
                 )}
                 {projects.map((p) => {
                   const on = retrievalScope === 'project' && p.id === activeProjectId

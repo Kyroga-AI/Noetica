@@ -104,7 +104,7 @@ export function AgentBuilderSurface() {
         {/* Your agents + built-ins */}
         <div className="space-y-4">
           <div>
-            <div className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Your agents</div>
+            <div className="mb-2 text-xs font-semibold text-[#1d4ed8]">Your agents</div>
             {!data?.custom.length
               ? <div className="text-[11px] text-[var(--color-text-tertiary)]">None yet — build one on the left.</div>
               : <div className="space-y-2">
@@ -123,7 +123,7 @@ export function AgentBuilderSurface() {
                 </div>}
           </div>
           <div>
-            <div className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Built-in roles</div>
+            <div className="mb-2 text-xs font-semibold text-[var(--color-text-tertiary)]">Built-in roles</div>
             <div className="space-y-1.5">
               {(data?.builtin ?? []).map((a) => (
                 <div key={a.id} className="rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-2.5 py-1.5" title={a.description}>

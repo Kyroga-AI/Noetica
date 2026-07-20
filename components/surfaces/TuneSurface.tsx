@@ -328,7 +328,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
         {/* Model pair config */}
         <div className="mt-4 flex flex-wrap items-center gap-3">
           <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-[#1d4ed8]">Teacher</span>
+            <span className="text-[11px] font-semibold text-[#1d4ed8]">Teacher</span>
             <select
               value={teacherModelId}
               onChange={(e) => setTeacherModelId(e.target.value)}
@@ -342,7 +342,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
             <path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
           <div className="flex flex-col gap-1">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-[#7c3aed]">Student</span>
+            <span className="text-[11px] font-semibold text-[#7c3aed]">Student</span>
             {whiteboxModels.length === 0 ? (
               <div className="rounded-xl border border-[#fecaca] bg-[#fef2f2] px-2.5 py-1.5 text-xs text-[#dc2626]">
                 No open-weight models available
@@ -387,7 +387,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
         <div className="mt-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-4 py-3">
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Teacher type</span>
+              <span className="text-[11px] font-semibold text-[var(--color-text-tertiary)]">Teacher type</span>
               <select
                 value={distillTeacherType}
                 onChange={(e) => setDistillTeacherType(e.target.value as 'blackbox' | 'whitebox')}
@@ -398,7 +398,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
               </select>
             </div>
             <div className="flex flex-col gap-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">LoRA rank</span>
+              <span className="text-[11px] font-semibold text-[var(--color-text-tertiary)]">LoRA rank</span>
               <input
                 type="number" min={1} max={64} value={distillLoraR}
                 onChange={(e) => setDistillLoraR(parseInt(e.target.value) || 8)}
@@ -406,7 +406,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Max steps</span>
+              <span className="text-[11px] font-semibold text-[var(--color-text-tertiary)]">Max steps</span>
               <input
                 type="number" min={1} max={10000} value={distillMaxSteps}
                 onChange={(e) => setDistillMaxSteps(parseInt(e.target.value) || 100)}
@@ -499,7 +499,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                 {/* Teacher */}
                 <div className={`rounded-2xl border bg-[var(--color-background-primary)] p-4 space-y-2 ${activeRun.preference === 'preferred' ? 'border-[#86efac] ring-1 ring-[var(--color-accent)]/30' : 'border-[#bfdbfe]'}`}>
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-[#1d4ed8]">Teacher — {models.find((m) => m.id === activeRun.teacherModel)?.label ?? activeRun.teacherModel}</span>
+                    <span className="text-[11px] font-semibold text-[#1d4ed8]">Teacher — {models.find((m) => m.id === activeRun.teacherModel)?.label ?? activeRun.teacherModel}</span>
                     <button
                       onClick={() => markPreference(activeRun.id, activeRun.preference === 'preferred' ? null : 'preferred')}
                       className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${
@@ -517,7 +517,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                 {/* Student */}
                 <div className={`rounded-2xl border bg-[var(--color-background-primary)] p-4 space-y-2 ${activeRun.preference === 'rejected' ? 'border-[#fca5a5] ring-1 ring-[#ef4444]/30' : 'border-[#ddd6fe]'}`}>
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-semibold uppercase tracking-wide text-[#7c3aed]">Student — {models.find((m) => m.id === activeRun.studentModel)?.label ?? activeRun.studentModel}</span>
+                    <span className="text-[11px] font-semibold text-[#7c3aed]">Student — {models.find((m) => m.id === activeRun.studentModel)?.label ?? activeRun.studentModel}</span>
                     <button
                       onClick={() => markPreference(activeRun.id, activeRun.preference === 'rejected' ? null : 'rejected')}
                       className={`rounded-full px-2.5 py-1 text-[11px] font-semibold transition ${

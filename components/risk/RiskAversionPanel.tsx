@@ -15,8 +15,8 @@ export function RiskAversionPanel({ readout }: RiskAversionPanelProps) {
   return (
     <div className="mt-4 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 shadow-sm">
       <div className="flex items-center justify-between gap-3">
-        <div className="text-xs font-semibold uppercase tracking-[0.22em] text-[var(--color-text-tertiary)]">Outcome Observatory</div>
-        <div className="rounded-full bg-[var(--color-background-tertiary)] px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-secondary)]">
+        <div className="text-xs font-semibold text-[var(--color-text-tertiary)]">Outcome Observatory</div>
+        <div className="rounded-full bg-[var(--color-background-tertiary)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-text-secondary)]">
           {source}
         </div>
       </div>
@@ -29,7 +29,7 @@ export function RiskAversionPanel({ readout }: RiskAversionPanelProps) {
       <div className="mt-4 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
         <div className="flex items-center justify-between gap-3">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Latest turn</div>
+            <div className="text-xs font-semibold text-[var(--color-text-tertiary)]">Latest turn</div>
             <div className="mt-1 text-sm font-semibold text-[var(--color-text-primary)]">{latest.label}</div>
           </div>
           <div className="rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1 text-xs font-semibold text-[var(--color-text-secondary)]">
@@ -43,14 +43,14 @@ export function RiskAversionPanel({ readout }: RiskAversionPanelProps) {
       </div>
 
       <div className="mt-4 space-y-3">
-        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Dominant dimensions</div>
+        <div className="text-xs font-semibold text-[var(--color-text-tertiary)]">Dominant dimensions</div>
         {dimensions.map((dimension) => (
           <Meter key={dimension.label} value={dimension.value} label={dimension.label} />
         ))}
       </div>
 
       <div className="mt-4 rounded-xl border border-[var(--color-border-secondary)] p-3">
-        <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)]">Observed steering</div>
+        <div className="text-xs font-semibold text-[var(--color-text-tertiary)]">Observed steering</div>
         <div className="mt-2 flex flex-wrap gap-2">
           {latest.steeringModes.map((mode) => (
             <span key={mode} className="rounded-full bg-[var(--color-background-tertiary)] px-2.5 py-1 text-xs font-medium text-[var(--color-text-secondary)]">

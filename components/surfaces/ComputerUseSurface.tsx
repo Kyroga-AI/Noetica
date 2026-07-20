@@ -68,7 +68,7 @@ function StepCard({ step, isPending, onApprove, onReject }: {
     return (
       <div className="overflow-hidden rounded-xl border border-[var(--color-border-secondary)]">
         <button onClick={() => setExpanded((v) => !v)} className="flex w-full items-center gap-2 bg-[var(--color-background-secondary)] px-3 py-1.5 text-left">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Screenshot</span>
+          <span className="text-[11px] font-semibold text-[var(--color-text-tertiary)]">Screenshot</span>
           <span className="ml-auto text-[11px] text-[var(--color-text-tertiary)]">{step.timestamp.split('T')[1]?.slice(0, 8)}</span>
           <svg width="8" height="8" viewBox="0 0 10 10" fill="none" aria-hidden>
             <path d={expanded ? 'M2 7l3-4 3 4' : 'M2 3l3 4 3-4'} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>

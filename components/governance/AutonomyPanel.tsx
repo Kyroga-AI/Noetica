@@ -90,9 +90,9 @@ export default function AutonomyPanel() {
   return (
     <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
       <div className="flex items-center justify-between">
-        <div className="text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: ACCENT }}>Autonomy</div>
+        <div className="text-xs font-semibold" style={{ color: ACCENT }}>Autonomy</div>
         <span
-          className="rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
+          className="rounded-full px-2 py-0.5 text-[11px] font-semibold"
           style={{
             color: state?.enforced ? '#5b21b6' : 'var(--color-text-tertiary)',
             background: state?.enforced ? 'rgba(124,58,237,0.12)' : 'var(--color-background-secondary)',

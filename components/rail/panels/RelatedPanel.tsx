@@ -11,7 +11,7 @@ export function RelatedPanel() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-[var(--color-border-secondary)] px-4 py-3">
-        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Related</div>
+        <div className="text-xs font-semibold text-[#1d4ed8]">Related</div>
         <div className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Contextual to current surface</div>
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-1.5">

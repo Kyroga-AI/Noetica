@@ -47,7 +47,7 @@ export function OnboardingCard() {
     <div className="mx-auto mb-4 w-full max-w-3xl rounded-2xl border border-[#bfdbfe] bg-[#eff6ff] px-5 py-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">How Noetica thinks</p>
+          <p className="text-[12px] font-semibold text-[#1d4ed8]">How Noetica thinks</p>
           <p className="mt-0.5 text-[13px] text-[var(--color-text-secondary)]">
             Your local AI mesh — deliberates, verifies, and stays on your device.
           </p>

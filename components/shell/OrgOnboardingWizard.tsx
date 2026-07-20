@@ -97,7 +97,7 @@ export function OrgOnboardingWizard({ onComplete }: Props) {
           {step === 'welcome' && (
             <div className="flex flex-col gap-5">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Organisation</p>
+                <p className="text-[11px] font-semiboldst text-[var(--color-text-tertiary)]">Organisation</p>
                 <h2 className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">Sovereign mesh for your organisation.</h2>
               </div>
               <p className="text-[14px] text-[var(--color-text-secondary)] leading-relaxed">
@@ -127,7 +127,7 @@ export function OrgOnboardingWizard({ onComplete }: Props) {
           {step === 'identity' && (
             <div className="flex flex-col gap-5">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Identity</p>
+                <p className="text-[11px] font-semiboldst text-[var(--color-text-tertiary)]">Identity</p>
                 <h2 className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">Name your organisation.</h2>
               </div>
               <input autoFocus type="text" value={orgName} onChange={e => setOrgName(e.target.value)}
@@ -162,7 +162,7 @@ export function OrgOnboardingWizard({ onComplete }: Props) {
           {step === 'governance' && (
             <div className="flex flex-col gap-5">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Governance</p>
+                <p className="text-[11px] font-semiboldst text-[var(--color-text-tertiary)]">Governance</p>
                 <h2 className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">Choose a policy profile.</h2>
               </div>
               <div className="flex flex-col gap-2">
@@ -191,7 +191,7 @@ export function OrgOnboardingWizard({ onComplete }: Props) {
           {step === 'knowledge' && (
             <div className="flex flex-col gap-5">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Knowledge</p>
+                <p className="text-[11px] font-semiboldst text-[var(--color-text-tertiary)]">Knowledge</p>
                 <h2 className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">Add your organisation&apos;s knowledge.</h2>
               </div>
               <p className="text-[14px] text-[var(--color-text-secondary)] leading-relaxed">
@@ -238,7 +238,7 @@ export function OrgOnboardingWizard({ onComplete }: Props) {
           {step === 'ready' && (
             <div className="flex flex-col gap-5">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Ready</p>
+                <p className="text-[11px] font-semiboldst text-[var(--color-text-tertiary)]">Ready</p>
                 <h2 className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">
                   {orgName.trim() ? `${orgName.trim()} is configured.` : 'Organisation configured.'}
                 </h2>
@@ -258,7 +258,7 @@ export function OrgOnboardingWizard({ onComplete }: Props) {
               </div>
               {pseudonym && (
                 <div className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2.5">
-                  <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">Org sovereign identity</div>
+                  <div className="mb-1 text-[11px] font-semiboldr text-[var(--color-text-tertiary)]">Org sovereign identity</div>
                   <div className="flex items-center gap-2">
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-accent)]" />
                     <span className="flex-1 min-w-0 truncate font-mono text-[11px] text-[var(--color-text-primary)]">{pseudonym}</span>

@@ -48,7 +48,7 @@ export function StudioSurface() {
 
 function PromptWorkbench({ models }: { models: string[] }) {
   const [template, setTemplate] = useState('Summarize {topic} for a {audience} audience in 3 bullets.')
-  const [vars, setVars] = useState('{\n  "topic": "GraphRAG",\n  "audience": "executive"\n}')
+  const [vars, setVars] = useState('{\n "topic": "GraphRAG",\n "audience": "executive"\n}')
   const [model, setModel] = useState('')
   const [temp, setTemp] = useState(0.7)
   const [output, setOutput] = useState('')
@@ -71,10 +71,10 @@ function PromptWorkbench({ models }: { models: string[] }) {
   return (
     <div className="grid h-full grid-cols-2 gap-4">
       <div className="flex flex-col gap-3">
-        <label className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Template (use {'{variable}'})</label>
+        <label className="text-[11px] text-[var(--color-text-tertiary)]">Template (use {'{variable}'})</label>
         <textarea value={template} onChange={(e) => setTemplate(e.target.value)} rows={4}
           className="resize-none rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-2.5 font-mono text-xs text-[var(--color-text-primary)]" />
-        <label className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Variables (JSON)</label>
+        <label className="text-[11px] text-[var(--color-text-tertiary)]">Variables (JSON)</label>
         <textarea value={vars} onChange={(e) => setVars(e.target.value)} rows={4}
           className="resize-none rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-2.5 font-mono text-xs text-[var(--color-text-primary)]" />
         <div className="flex items-center gap-2">
@@ -89,13 +89,13 @@ function PromptWorkbench({ models }: { models: string[] }) {
       </div>
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
-          <label className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Output</label>
+          <label className="text-[11px] text-[var(--color-text-tertiary)]">Output</label>
           {latency != null && <span className="text-[11px] text-[var(--color-text-tertiary)]">{latency} ms</span>}
         </div>
         <div className="min-h-[120px] flex-1 overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3 text-xs text-[var(--color-text-secondary)]">{output || '—'}</div>
         {history.length > 0 && (
           <div className="text-[11px] text-[var(--color-text-tertiary)]">
-            <span className="uppercase tracking-wide">Run history ({history.length})</span>
+            <span className="">Run history ({history.length})</span>
             {history.slice(0, 4).map((h) => <div key={h.id} className="truncate">· {h.model} · {h.latencyMs}ms · {h.output.slice(0, 50)}</div>)}
           </div>
         )}

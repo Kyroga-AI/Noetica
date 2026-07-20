@@ -268,7 +268,7 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
         {/* Objective */}
         <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
           <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Objective</div>
+            <div className="text-xs font-semibold text-[#1d4ed8]">Objective</div>
             {!editingObjective && (
               <div className="flex items-center gap-3">
                 <button
@@ -335,7 +335,7 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
         <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] shadow-sm">
           <div className="flex items-center justify-between border-b border-[var(--color-border-tertiary)] px-5 py-3">
             <div className="flex items-center gap-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Tasks</div>
+              <div className="text-xs font-semibold text-[#1d4ed8]">Tasks</div>
               {tasks.length > 0 && (
                 <div className="flex items-center gap-2 text-[11px] text-[var(--color-text-tertiary)]">
                   <span>{todoCount} to do</span>
@@ -474,7 +474,7 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
         {/* Decisions log */}
         {decisions.length > 0 && (
           <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Decision log</div>
+            <div className="text-xs font-semibold text-[#1d4ed8]">Decision log</div>
             <div className="mt-3 space-y-2">
               {decisions.map((d) => (
                 <div key={d.id} className="flex items-start gap-2.5">

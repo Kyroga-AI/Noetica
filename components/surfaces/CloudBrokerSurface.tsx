@@ -107,14 +107,14 @@ export function CloudBrokerSurface() {
         <div className="mt-5">
           {resp.best && (
             <div className="mb-3 flex flex-wrap items-center gap-4 rounded-2xl border border-[#bbf7d0] bg-[var(--color-accent-bg)] px-4 py-3">
-              <div><div className="text-[11px] uppercase tracking-wide text-[var(--color-accent)]">Cheapest</div><div className="text-sm font-bold text-[var(--color-text-primary)]"><span className={`mr-1.5 rounded px-1.5 py-0.5 text-[11px] font-semibold ${PROVIDER_COLOR[resp.best.sku.provider] ?? ''}`}>{resp.best.sku.provider}</span>{resp.best.sku.name} · {resp.best.sku.region}</div></div>
-              <div><div className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Total ({hours}h{resp.best.spot ? ', spot' : ''})</div><div className="text-sm font-bold text-[var(--color-accent)]">${resp.best.totalUsd}</div></div>
-              <div><div className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Savings vs dearest</div><div className="text-sm font-semibold text-[var(--color-text-primary)]">${resp.savings.absUsd} ({resp.savings.pct}%)</div></div>
-              <div><div className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Prices</div><div className="text-xs font-medium text-[var(--color-text-secondary)]">{resp.priceSource}</div></div>
+              <div><div className="text-[11px] text-[var(--color-accent)]">Cheapest</div><div className="text-sm font-bold text-[var(--color-text-primary)]"><span className={`mr-1.5 rounded px-1.5 py-0.5 text-[11px] font-semibold ${PROVIDER_COLOR[resp.best.sku.provider] ?? ''}`}>{resp.best.sku.provider}</span>{resp.best.sku.name} · {resp.best.sku.region}</div></div>
+              <div><div className="text-[11px] text-[var(--color-text-tertiary)]">Total ({hours}h{resp.best.spot ? ', spot' : ''})</div><div className="text-sm font-bold text-[var(--color-accent)]">${resp.best.totalUsd}</div></div>
+              <div><div className="text-[11px] text-[var(--color-text-tertiary)]">Savings vs dearest</div><div className="text-sm font-semibold text-[var(--color-text-primary)]">${resp.savings.absUsd} ({resp.savings.pct}%)</div></div>
+              <div><div className="text-[11px] text-[var(--color-text-tertiary)]">Prices</div><div className="text-xs font-medium text-[var(--color-text-secondary)]">{resp.priceSource}</div></div>
             </div>
           )}
           <table className="w-full text-left text-xs">
-            <thead><tr className="border-b border-[var(--color-border-secondary)] text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]"><th className="py-1.5">Provider</th><th>SKU</th><th>Region</th><th>Specs</th><th className="text-right">$/hr</th><th className="text-right">Total</th></tr></thead>
+            <thead><tr className="border-b border-[var(--color-border-secondary)] text-[11px] text-[var(--color-text-tertiary)]"><th className="py-1.5">Provider</th><th>SKU</th><th>Region</th><th>Specs</th><th className="text-right">$/hr</th><th className="text-right">Total</th></tr></thead>
             <tbody>
               {resp.ranked.map((q, i) => (
                 <tr key={i} className={`border-b border-[var(--color-border-tertiary)] ${i === 0 ? 'font-semibold' : ''}`}>

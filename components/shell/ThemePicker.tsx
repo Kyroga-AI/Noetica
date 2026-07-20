@@ -31,7 +31,7 @@ export function ThemePicker() {
             className="absolute right-0 top-8 z-50 w-44 overflow-hidden rounded-xl border border-[var(--color-border-secondary)] shadow-xl"
             style={{ background: 'var(--color-background-primary)' }}
           >
-            <div className="px-3 pb-1.5 pt-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">
+            <div className="px-3 pb-1.5 pt-2.5 text-[11px] font-semibold text-[var(--color-text-tertiary)]">
               Theme
             </div>
             {themes.map((t) => {

@@ -60,13 +60,13 @@ export function UpgradeModal({ onClose }: { onClose: () => void }) {
 
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
           <div className="rounded-2xl border border-[rgba(29,78,216,0.30)] bg-[rgba(29,78,216,0.08)] p-5 text-center">
-            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1d4ed8]">Current plan</div>
+            <div className="text-[11px] font-semibold text-[#1d4ed8]">Current plan</div>
             <div className="mt-2 text-xl font-semibold text-[var(--color-text-primary)]">Development Preview</div>
             <div className="mt-1 text-xs text-[var(--color-text-secondary)]">Full individual access during active development</div>
           </div>
 
           <div>
-            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[var(--color-text-tertiary)] mb-2">{"What's included"}</div>
+            <div className="text-[11px] font-semibold text-[var(--color-text-tertiary)] mb-2">{"What's included"}</div>
             <div className="space-y-0.5">
               {FEATURES.map(({ label, available, tag }) => (
                 <div key={label} className="flex items-center gap-2.5 rounded-lg px-2 py-1.5">

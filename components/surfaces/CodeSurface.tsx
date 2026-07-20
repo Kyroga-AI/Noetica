@@ -178,7 +178,7 @@ function GiteaDetail({
         {/* Status */}
         <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm">
           <div className="border-b border-[var(--color-border-secondary)] px-5 py-3">
-            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Status</div>
+            <div className="text-xs font-semibold text-[#1d4ed8]">Status</div>
           </div>
           <div className="divide-y divide-[#f1f5f9]">
             {statusRows.map(({ label, ok, detail }) => (
@@ -213,7 +213,7 @@ function GiteaDetail({
         {/* Repositories */}
         <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm">
           <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-5 py-3">
-            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Repositories</div>
+            <div className="text-xs font-semibold text-[#1d4ed8]">Repositories</div>
             <button className="rounded-full bg-[#eff6ff] px-3 py-1 text-xs font-medium text-[#1d4ed8] transition hover:bg-[#dbeafe]">
               + Add repository
             </button>
@@ -270,7 +270,7 @@ function GiteaDetail({
         {/* Hooks */}
         <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm">
           <div className="border-b border-[var(--color-border-secondary)] px-5 py-3">
-            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Webhook events</div>
+            <div className="text-xs font-semibold text-[#1d4ed8]">Webhook events</div>
           </div>
           <div className="flex flex-wrap gap-2 px-5 py-4">
             {hookTypes.map((h) => (
@@ -290,7 +290,7 @@ function GiteaDetail({
         {/* Graph ingestion */}
         <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm">
           <div className="border-b border-[var(--color-border-secondary)] px-5 py-3">
-            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Graph ingestion</div>
+            <div className="text-xs font-semibold text-[#1d4ed8]">Graph ingestion</div>
             <div className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Repositories are indexed into the Sociosphere graph for entity resolution and reasoning.</div>
           </div>
           <div className="divide-y divide-[#f1f5f9]">
@@ -509,7 +509,7 @@ function GitHubDetail({ onBack }: { onBack: () => void }) {
         {!isConnected ? (
           <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm">
             <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-5 py-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Status</div>
+              <div className="text-xs font-semibold text-[var(--color-text-tertiary)]">Status</div>
               <span className="flex items-center gap-1.5 text-xs text-[var(--color-text-tertiary)]">
                 <StatusDot ok={null} />
                 Not connected
@@ -523,7 +523,7 @@ function GitHubDetail({ onBack }: { onBack: () => void }) {
           /* Repo list */
           <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm overflow-hidden">
             <div className="flex items-center gap-3 border-b border-[var(--color-border-secondary)] px-5 py-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] shrink-0">Repositories</div>
+              <div className="text-xs font-semibold text-[var(--color-text-tertiary)] shrink-0">Repositories</div>
               <input
                 value={repoSearch}
                 onChange={(e) => setRepoSearch(e.target.value)}
@@ -592,7 +592,7 @@ function GitHubDetail({ onBack }: { onBack: () => void }) {
 
         {/* Actions */}
         <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm px-5 py-4">
-          <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] mb-3">Actions</div>
+          <div className="text-xs font-semibold text-[var(--color-text-tertiary)] mb-3">Actions</div>
           <div className="flex flex-wrap gap-2">
             {(['Configure hooks', 'Mirror to native forge'] as const).map((a) => (
               <button key={a} disabled={!isConnected} className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-xs font-medium text-[var(--color-text-secondary)] transition hover:border-[#bfdbfe] hover:bg-[#eff6ff] hover:text-[#1d4ed8] disabled:cursor-not-allowed disabled:opacity-40">
@@ -670,7 +670,7 @@ function SourceOverview({
       {/* Sidebar */}
       <aside className="flex w-64 shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
         <div className="border-b border-[var(--color-border-secondary)] px-3 py-3">
-          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Source Control</div>
+          <div className="text-xs font-semibold text-[#1d4ed8]">Source Control</div>
           <input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -706,7 +706,7 @@ function SourceOverview({
       {/* Main */}
       <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
         <div className="border-b border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-6 py-4">
-          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Native sources</div>
+          <div className="text-xs font-semibold text-[#1d4ed8]">Native sources</div>
           <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Gitea Sovereign and local Git are the default authority. Third-party forges are optional connectors.</p>
           <div className="mt-3 space-y-2">
             <ForgeCard provider="gitea_sovereign" isDefault onOpen={onOpenGitea} />
@@ -715,7 +715,7 @@ function SourceOverview({
         </div>
 
         <div className="px-6 py-4">
-          <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">Optional external connectors</div>
+          <div className="text-xs font-semibold text-[var(--color-text-tertiary)]">Optional external connectors</div>
           <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Mirror, import, or hook into external forges. These are not source of truth.</p>
           <div className="mt-3 space-y-2">
             <ForgeCard provider="github" onOpen={onOpenGitHub} />
@@ -727,7 +727,7 @@ function SourceOverview({
 
         <div className="border-t border-[var(--color-border-secondary)] px-6 py-4">
           <div className="flex items-center justify-between">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Repository inventory</div>
+            <div className="text-xs font-semibold text-[#1d4ed8]">Repository inventory</div>
             <button onClick={onAddLocal} className="rounded-full bg-[#eff6ff] px-3 py-1 text-xs font-medium text-[#1d4ed8] transition hover:bg-[#dbeafe]">
               + Add local repo
             </button>

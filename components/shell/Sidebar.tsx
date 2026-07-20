@@ -413,7 +413,7 @@ function SessionTree({ sessions, activeSessionId, search, onSwitchSession, onRem
 
   return (
     <div className="mb-2">
-      <div className="px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">{search ? 'Results' : 'Recent'}</div>
+      <div className="px-2.5 py-1 text-[11px] font-semibold text-[var(--color-text-tertiary)]">{search ? 'Results' : 'Recent'}</div>
       {roots.map((s) => renderNode(s, 0))}
       <div className="my-1.5 border-t border-[var(--color-border-tertiary)]" />
     </div>
@@ -591,7 +591,7 @@ export function Sidebar({
             <>
               {primary.map(renderRow)}
               {secondary.length > 0 && (
-                <div className={`px-2 ${groupGap} pb-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>More</div>
+                <div className={`px-2 ${groupGap} pb-0.5 text-[11px] font-semibold text-[var(--color-text-tertiary)]`}>More</div>
               )}
               {secondary.map(renderRow)}
             </>
@@ -610,7 +610,7 @@ export function Sidebar({
                   <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden><path d="M7 2L3 5.5 7 9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   Back
                 </button>
-                <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Language</div>
+                <div className="px-3 pb-1 text-[11px] font-semibold text-[var(--color-text-tertiary)]">Language</div>
                 {[
                   { code: 'en', native: 'English', current: true },
                   { code: 'es', native: 'Español', current: false },
@@ -627,7 +627,7 @@ export function Sidebar({
                     <span className="flex-1">{lang.native}</span>
                     {lang.current
                       ? <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden className="text-[#1d4ed8]"><path d="M2 5.5l3 3 4.5-4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      : <span className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">soon</span>}
+                      : <span className="text-[11px] text-[var(--color-text-tertiary)]">soon</span>}
                   </button>
                 ))}
               </>
@@ -638,7 +638,7 @@ export function Sidebar({
                   <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden><path d="M7 2L3 5.5 7 9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   Back
                 </button>
-                <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Resources</div>
+                <div className="px-3 pb-1 text-[11px] font-semibold text-[var(--color-text-tertiary)]">Resources</div>
                 {[
                   { label: 'Noetica documentation', desc: 'User guide and surface reference', url: 'https://github.com/SocioProphet/Noetica#readme' },
                   { label: 'Anthropic API docs', desc: 'Claude API integration reference', url: 'https://docs.anthropic.com' },

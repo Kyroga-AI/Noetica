@@ -102,7 +102,7 @@ export function MailPanel() {
       <div className="border-b border-[var(--color-border-secondary)] px-4 py-3">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Mail</div>
+            <div className="text-xs font-semibold text-[#1d4ed8]">Mail</div>
             <div className="mt-0.5 flex items-center gap-1.5">
               {connectedAddress ? (
                 <>
@@ -130,14 +130,14 @@ export function MailPanel() {
           <div className="mt-2 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm overflow-hidden">
             {connectedAddress && (
               <>
-                <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[#1d4ed8] bg-[var(--color-background-secondary)]">Connected</div>
+                <div className="px-3 py-1.5 text-[11px] font-semibold text-[#1d4ed8] bg-[var(--color-background-secondary)]">Connected</div>
                 <div className="flex w-full items-center gap-2 px-3 py-2 text-xs text-[var(--color-text-primary)]">
                   <span className="h-1.5 w-1.5 rounded-full bg-[var(--color-accent)] shrink-0" />
                   <span className="truncate">{connectedAddress}</span>
                 </div>
               </>
             )}
-            <div className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)] bg-[var(--color-background-secondary)] border-t border-[#f1f5f9]">
+            <div className="px-3 py-1.5 text-[11px] font-semibold text-[var(--color-text-tertiary)] bg-[var(--color-background-secondary)] border-t border-[#f1f5f9]">
               Connect an account
             </div>
             <div className="px-3 py-2">
@@ -181,7 +181,7 @@ export function MailPanel() {
         {/* Gmail inbox when connected */}
         {gmailConnected && folder === 'Inbox' && (
           <div>
-            <div className="border-b border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">
+            <div className="border-b border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5 text-[11px] font-semibold text-[#1d4ed8]">
               Gmail · {google?.userInfo?.email ?? 'connected'}
             </div>
             {gmailLoading ? (

@@ -383,7 +383,7 @@ export function WorkspaceSurface() {
       {/* Terminal — run commands in the selected workspace and watch the output. */}
       <div className="flex h-52 shrink-0 flex-col border-t border-[var(--color-border-tertiary)] bg-[#0b0f17]">
         <div className="flex items-center justify-between border-b border-[var(--color-border-tertiary)] px-3 py-1">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-[#94a3b8]">Terminal · {ws || '(no workspace)'}</span>
+          <span className="text-[11px] font-semibold text-[#94a3b8]">Terminal · {ws || '(no workspace)'}</span>
           {term.length > 0 && <button onClick={() => setTerm([])} className="text-[11px] text-[#64748b] hover:text-[#94a3b8]">clear</button>}
         </div>
         <div className="min-h-0 flex-1 overflow-auto px-3 py-2 font-mono text-[11px] leading-relaxed text-[#cbd5e1]">

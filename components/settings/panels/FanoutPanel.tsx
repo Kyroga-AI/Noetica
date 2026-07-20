@@ -41,7 +41,7 @@ export function FanoutPanel() {
       <div className="space-y-4">
         {Object.entries(byFamily).map(([provider, providerModels]) => (
           <div key={provider}>
-            <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">
+            <div className="mb-2 text-[11px] font-semibold text-[var(--color-text-tertiary)]">
               {MODEL_FAMILY_LABELS[provider] ?? provider}
             </div>
             <div className="space-y-1.5">

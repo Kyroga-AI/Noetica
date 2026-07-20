@@ -118,7 +118,7 @@ export function VoiceTrainer() {
   return (
     <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-4 py-3">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-[#7c3aed]">Agent voice</span>
+        <span className="text-[11px] font-semibold text-[#7c3aed]">Agent voice</span>
         {settings.ttsProvider === 'cloned' && activeId
           ? <span className="text-[11px] text-[var(--color-text-tertiary)]">speaking as “{voices.find((v) => v.id === activeId)?.name ?? activeId}”</span>
           : <span className="text-[11px] text-[var(--color-text-tertiary)]">clone a voice to use it</span>}

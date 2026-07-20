@@ -52,7 +52,7 @@ export function FeatureExplorer({ onSelectFeature }: Props) {
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Feature explorer</div>
+      <div className="text-[11px] font-semibold text-[var(--color-text-tertiary)]">Feature explorer</div>
 
       <div className="flex gap-2">
         <input

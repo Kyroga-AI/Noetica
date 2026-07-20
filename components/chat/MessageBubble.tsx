@@ -75,11 +75,11 @@ function DispatchCard({ call, result }: { call: ToolCallRecord; result?: ToolRes
       </button>
       {open && (
         <div className="border-t border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2">
-          <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Task</div>
+          <div className="mb-1 text-[11px] font-semibold text-[var(--color-text-tertiary)]">Task</div>
           <p className="mb-2 whitespace-pre-wrap text-[12px] text-[var(--color-text-secondary)]">{task}</p>
           {result && (
             <>
-              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Result</div>
+              <div className="mb-1 text-[11px] font-semibold text-[var(--color-text-tertiary)]">Result</div>
               <MarkdownContent content={body} compact />
             </>
           )}
@@ -119,13 +119,13 @@ function ToolCallCard({ call, result }: { call: ToolCallRecord; result?: ToolRes
         <div className="border-t border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)]">
           {/* Input */}
           <div className="px-3 py-2">
-            <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Input</div>
+            <div className="mb-1 text-[11px] font-semibold text-[var(--color-text-tertiary)]">Input</div>
             <pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-5 text-[var(--color-text-secondary)]">{inputStr}</pre>
           </div>
           {/* Result */}
           {result && (
             <div className="border-t border-[var(--color-border-tertiary)] px-3 py-2">
-              <div className={`mb-1 text-[11px] font-semibold uppercase tracking-wide ${isError ? 'text-[#ef4444]' : 'text-[var(--color-text-tertiary)]'}`}>
+              <div className={`mb-1 text-[11px] font-semibold ${isError ? 'text-[#ef4444]' : 'text-[var(--color-text-tertiary)]'}`}>
                 {isError ? 'Error' : 'Result'}
               </div>
               <MarkdownContent content={result.result} compact />
@@ -266,7 +266,7 @@ function MarkdownContent({ content, compact = false }: { content: string; compac
         thead: ({ children }) => <thead className="bg-[var(--color-background-secondary)]">{children}</thead>,
         tbody: ({ children }) => <tbody className="divide-y divide-[var(--color-border-tertiary)]">{children}</tbody>,
         tr: ({ children }) => <tr>{children}</tr>,
-        th: ({ children }) => <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">{children}</th>,
+        th: ({ children }) => <th className="px-3 py-2 text-left text-[11px] font-semibold text-[var(--color-text-secondary)]">{children}</th>,
         td: ({ children }) => <td className="px-3 py-2 text-[var(--color-text-primary)]">{children}</td>,
         // Inline code
         code: ({ children, className, node }) => {
@@ -284,7 +284,7 @@ function MarkdownContent({ content, compact = false }: { content: string; compac
               <div className="group relative my-3 overflow-hidden rounded-xl border border-[var(--color-border-secondary)]">
                 {lang && (
                   <div className="flex items-center justify-between border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-1.5">
-                    <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">{lang}</span>
+                    <span className="font-mono text-[11px] font-semiboldr text-[var(--color-text-tertiary)]">{lang}</span>
                   </div>
                 )}
                 <SyntaxHighlighter

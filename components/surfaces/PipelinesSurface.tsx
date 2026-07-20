@@ -62,7 +62,7 @@ export function PipelinesSurface() {
               ) : (
                 <div className="overflow-hidden rounded-2xl border border-[var(--color-border-secondary)]">
                   <table className="w-full text-xs">
-                    <thead className="bg-[var(--color-background-secondary)] text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                    <thead className="bg-[var(--color-background-secondary)] text-[11px] text-[var(--color-text-tertiary)]">
                       <tr><th className="px-4 py-2 text-left font-semibold">Application</th><th className="px-4 py-2 text-left font-semibold">Namespace</th><th className="px-4 py-2 text-left font-semibold">Sync</th><th className="px-4 py-2 text-left font-semibold">Health</th></tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--color-border-secondary)]">

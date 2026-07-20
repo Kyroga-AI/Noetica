@@ -16,7 +16,7 @@ import { amUrl } from '@/lib/tauri/bridge'
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="border-b border-[var(--color-border-tertiary)] px-4 py-3">
-      <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)]">{title}</h4>
+      <h4 className="mb-2.5 text-[11px] font-semibold text-[var(--color-text-tertiary)]">{title}</h4>
       {children}
     </div>
   )

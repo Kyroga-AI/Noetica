@@ -41,7 +41,7 @@ export function DeveloperPanel() {
       </div>
 
       <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Build info</div>
+        <div className="text-xs font-semibold text-[#1d4ed8]">Build info</div>
         <div className="mt-3 space-y-1.5 font-mono text-xs text-[var(--color-text-secondary)]">
           <div className="flex justify-between">
             <span>Version</span>

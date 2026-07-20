@@ -160,7 +160,7 @@ export function LabSurface() {
           {groups.length === 0 && <div className="px-2 py-4 text-[11px] text-[var(--color-text-tertiary)]">No capabilities match “{query}”.</div>}
           {groups.map(([group, caps]) => (
             <div key={group} className="mb-2">
-              <div className="px-2 py-1 text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">{group}</div>
+              <div className="px-2 py-1 text-[11px] text-[var(--color-text-tertiary)]">{group}</div>
               {caps.map((c) => (
                 <button key={c.id} onClick={() => pick(c)} title={c.desc}
                   className={`w-full truncate rounded-md px-2 py-1.5 text-left text-[11px] transition ${active.id === c.id ? 'bg-[var(--color-background-tertiary)] text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'}`}>{c.label}</button>
@@ -182,7 +182,7 @@ export function LabSurface() {
         <div className="grid flex-1 grid-cols-2 gap-4 overflow-hidden p-5">
           <div className="flex min-h-0 flex-col gap-1.5">
             <div className="flex items-center gap-2">
-              <label className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Payload (JSON)</label>
+              <label className="text-[11px] text-[var(--color-text-tertiary)]">Payload (JSON)</label>
               {!payloadValid && <span className="text-[11px] text-[#dc2626]">invalid JSON</span>}
               <button onClick={resetSample} className="ml-auto rounded px-1.5 py-0.5 text-[11px] text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-secondary)]">Reset sample</button>
             </div>
@@ -193,7 +193,7 @@ export function LabSurface() {
           </div>
           <div className="flex min-h-0 flex-col gap-1.5">
             <div className="flex items-center gap-2">
-              <label className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Result</label>
+              <label className="text-[11px] text-[var(--color-text-tertiary)]">Result</label>
               {status && (
                 <span className={`text-[11px] ${status.ok ? 'text-[var(--color-accent)]' : 'text-[#dc2626]'}`}>
                   {status.code ? `${status.ok ? '✓' : '✗'} ${status.code}` : '✗ offline'}{status.ms ? ` · ${status.ms}ms` : ''}
