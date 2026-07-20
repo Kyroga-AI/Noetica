@@ -59,7 +59,7 @@ export function chatTimeoutMs(): number {
   return isLowMemoryHost() ? 600_000 : 120_000
 }
 
-async function postChat(body: unknown, timeoutMs = chatTimeoutMs()): Promise<Response> {
+async function postChat(body: unknown, timeoutMs = chatTimeoutMs(), path = '/v1/chat/completions'): Promise<Response> {
   const bases = (_activeBase === OLLAMA_PRIMARY && HAS_FALLBACK)
     ? [OLLAMA_PRIMARY, OLLAMA_FALLBACK]
     : [_activeBase]
@@ -67,7 +67,7 @@ async function postChat(body: unknown, timeoutMs = chatTimeoutMs()): Promise<Res
     const base = bases[i]!
     const isLast = i === bases.length - 1
     try {
-      const res = await fetch(`${base}/v1/chat/completions`, {
+      const res = await fetch(`${base}${path}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
@@ -357,15 +357,29 @@ export async function generateOllamaText(params: {
   messages: Array<{ role: string; content: string | null | unknown[] }>
   temperature?: number
   numCtx?: number
+  /** Cap output tokens (Ollama's num_predict). Bounds latency on runaway generations. */
+  maxTokens?: number
+  /** qwen3/thinking models: false → clean fast answer (no <think> phase); true/undefined → think normally.
+   *  When false, the call is routed to Ollama's NATIVE /api/chat (think:false), because the /v1 OpenAI-compat
+   *  endpoint silently IGNORES qwen3's thinking switch (measured: still ~1.7k reasoning tokens). */
+  enableThinking?: boolean
   /** Constrain output to a JSON schema (Ollama 0.5+ via OpenAI-compat response_format). */
   responseFormat?: { type: 'json_object' } | { type: 'json_schema'; json_schema: { name: string; schema: Record<string, unknown>; strict?: boolean } }
 }): Promise<{ content: string; reasoning: string }> {
-  const body: Record<string, unknown> = {
-    model: await resolveChatModel(params.model),
-    stream: false,
-    messages: params.messages,
-    options: { num_ctx: params.numCtx ?? 8192, temperature: params.temperature ?? 0.7 },
+  const options: Record<string, unknown> = { num_ctx: params.numCtx ?? 8192, temperature: params.temperature ?? 0.7 }
+  if (params.maxTokens && params.maxTokens > 0) options['num_predict'] = params.maxTokens
+  const model = await resolveChatModel(params.model)
+  // Ollama's OpenAI-compat /v1 endpoint IGNORES qwen3's thinking switch (measured: enable_thinking:false and
+  // /no_think both still emit ~1.7k reasoning tokens). Only the NATIVE /api/chat honors top-level think:false —
+  // which cuts a two-voice audio-script gen from ~100s to ~30s. So route thinking-disabled calls there.
+  if (params.enableThinking === false) {
+    const nativeBody: Record<string, unknown> = { model, stream: false, think: false, messages: params.messages, options }
+    if (params.responseFormat) nativeBody['format'] = 'json'   // native uses `format`, not response_format
+    const res = await postChat(nativeBody, chatTimeoutMs(), '/api/chat')
+    const data = await res.json() as { message?: { content?: string; thinking?: string } }
+    return { content: data.message?.content ?? '', reasoning: data.message?.thinking ?? '' }
   }
+  const body: Record<string, unknown> = { model, stream: false, messages: params.messages, options }
   if (params.responseFormat) body['response_format'] = params.responseFormat
   const res = await postChat(body)
   const data = await res.json() as {
