@@ -285,7 +285,7 @@ export function InputArea({
 
   return (
     <div
-      className={`px-4 pb-5 pt-2 transition ${dragOver ? 'opacity-80' : ''}`}
+      className={`px-4 pb-5 pt-2 transition sm:px-8 ${dragOver ? 'opacity-80' : ''}`}
       onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
       onDragLeave={() => setDragOver(false)}
       onDrop={async (e) => {
@@ -294,7 +294,11 @@ export function InputArea({
         await addFiles(e.dataTransfer.files)
       }}
     >
-      <div className={`mx-auto w-full max-w-3xl rounded-2xl border bg-[var(--color-background-primary)] transition ${
+      {/* Centred 64rem envelope matching the message list; the composer box left-anchors within it
+          and reserves the right margin (15rem gutter + 2rem gap) so it sits under the answer column,
+          aligned with the reading measure — not under the provenance margin. */}
+      <div className="mx-auto w-full max-w-[64rem]">
+      <div className={`w-full rounded-2xl border bg-[var(--color-background-primary)] transition lg:w-auto lg:mr-[17rem] ${
         dragOver ? 'border-[var(--color-border-primary)]' : 'border-[var(--color-border-secondary)]'
       }`}>
 
@@ -674,6 +678,7 @@ export function InputArea({
             </button>
           )}
         </div>
+      </div>
       </div>
 
       <input

@@ -389,6 +389,77 @@ function ProvenanceFooter({ message, onInspect }: { message: ChatMessage; onInsp
   )
 }
 
+// The Tufte marginalia version of the provenance footer. Instead of hanging below the answer and
+// breaking the reading flow, this sits in the right margin (the gutter that used to be dead space),
+// sticky so it tracks its answer as you scroll — location · model · timing · sources · verified,
+// always visible with no click. The deep audit trail (governance, deliberation, exports) is still one
+// "Inspect" away in the rail. Rendered only at lg+ where the margin exists; below that the inline
+// ProvenanceFooter carries the same summary.
+export function ProvenanceSidenote({ message, onInspect }: { message: ChatMessage; onInspect?: (m: ChatMessage) => void }) {
+  const [showSources, setShowSources] = useState(false)
+  const g = message.governance
+  const v = message.verification
+  const prov = (g?.provider ?? '').toLowerCase()
+  const tier = providerTier(g?.provider)
+
+  const sources = (message.citations && message.citations.length > 0)
+    ? cleanSources(message.citations.map((c) => ({ label: c.source, score: c.score })))
+    : cleanSources(message.retrieval_trace?.document_sources ?? message.retrieval_trace?.sources)
+  const verified = !!v || g?.grounded === true
+
+  if (!g && !v && sources.length === 0) return null
+
+  const locLabel = tier === 'device' ? 'on-device' : (prov || TIER_META[tier].label)
+
+  return (
+    <aside className="sticky top-2 space-y-2 border-l border-[var(--color-border-tertiary)] pl-3 text-[11.5px] leading-relaxed text-[var(--color-text-tertiary)]">
+      {/* Where it ran — colour encodes the sovereignty tier */}
+      <div className="flex items-center gap-1.5">
+        <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: TIER_META[tier].dot }} />
+        <span className="font-medium" style={{ color: tier === 'device' ? 'var(--color-text-secondary)' : TIER_META[tier].text }}>{locLabel}</span>
+        {verified && <span className="ml-auto text-[var(--color-accent)]">verified</span>}
+      </div>
+
+      {/* Model + timing — the quantitative marginal note */}
+      {g?.model_routed && g.model_routed.toLowerCase() !== prov && <div className="truncate">{g.model_routed}</div>}
+      {g && (g.latency_ms > 0 || !!g.output_tokens) && (
+        <div className="tabular-nums">
+          {g.latency_ms > 0 ? `${(g.latency_ms / 1000).toFixed(1)}s` : ''}
+          {g.latency_ms > 0 && g.output_tokens ? ' · ' : ''}
+          {g.output_tokens ? `${g.output_tokens.toLocaleString()} tok` : ''}
+        </div>
+      )}
+
+      {/* Sources — expandable list, right in the margin */}
+      {sources.length > 0 && (
+        <div>
+          <button onClick={() => setShowSources((s) => !s)} className="inline-flex items-center gap-1 transition hover:text-[var(--color-text-secondary)]">
+            <span className="text-[10px]">{showSources ? '▾' : '▸'}</span>{sources.length} source{sources.length === 1 ? '' : 's'}
+          </button>
+          {showSources && (
+            <div className="mt-1.5 space-y-1">
+              {sources.slice(0, 8).map((s, i) => (
+                <div key={i} className="flex items-baseline gap-1.5">
+                  <span className="w-3 shrink-0 tabular-nums">{i + 1}</span>
+                  <span className="min-w-0 flex-1 truncate" title={s.label || 'document'}>{s.label || 'document'}</span>
+                  {typeof s.score === 'number' && <span className="shrink-0 tabular-nums">{(s.score * 100).toFixed(0)}%</span>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Deep dive — the full audit trail stays one click away in the rail */}
+      {onInspect && (
+        <button onClick={() => onInspect(message)} className="inline-flex items-center gap-1 transition hover:text-[var(--color-accent)]">
+          Inspect ↗
+        </button>
+      )}
+    </aside>
+  )
+}
+
 type MessageBubbleProps = {
   message: ChatMessage
   isLast?: boolean
@@ -591,10 +662,10 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
           return <MarkdownContent content={citedContent} />
         })()}
 
-        {/* One quiet provenance footer — replaces the badge farm + governance line + Trace disclosure.
-            The moat (verification, sources, governance) is stated once here; depth is one click away in
-            the right-rail Answer inspector. */}
-        {message.content && <ProvenanceFooter message={message} onInspect={onInspect} />}
+        {/* Provenance summary. At lg+ this lives in the right margin as a Tufte sidenote
+            (ProvenanceSidenote, rendered by MessageList); below lg the margin collapses, so the
+            inline footer carries the same one-line summary. */}
+        {message.content && <div className="lg:hidden"><ProvenanceFooter message={message} onInspect={onInspect} /></div>}
 
         {/* Build clarifier — deterministic multiple-choice scaffold card */}
         {message.build && <BuildCard spec={message.build} />}
