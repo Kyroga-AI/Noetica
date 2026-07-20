@@ -1,0 +1,9 @@
+.git/
+node_modules/
+**/node_modules/
+agent-machine/node_modules/
+.next/
+out/
+src-tauri/target/
+**/*.log
+.claude/
