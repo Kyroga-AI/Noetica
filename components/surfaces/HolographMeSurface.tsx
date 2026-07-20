@@ -83,7 +83,7 @@ function ConfidenceBar({ value }: { value: number }) {
       <div className="h-1.5 flex-1 rounded-full bg-[var(--color-background-tertiary)] overflow-hidden">
         <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, background: color }} />
       </div>
-      <span className="shrink-0 text-[10px] tabular-nums text-[var(--color-text-tertiary)]">{pct}%</span>
+      <span className="shrink-0 text-[11px] tabular-nums text-[var(--color-text-tertiary)]">{pct}%</span>
     </div>
   )
 }
@@ -228,7 +228,7 @@ export function HolographMeSurface() {
         <div className="flex items-center gap-3 border-b border-[#fecaca] bg-[#fef2f2] px-6 py-2.5">
           <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[#dc2626]" />
           <p className="flex-1 text-xs text-[#dc2626]">{observerError}</p>
-          <button onClick={() => setObserverError(null)} className="text-[10px] text-[#dc2626] hover:underline">Dismiss</button>
+          <button onClick={() => setObserverError(null)} className="text-[11px] text-[#dc2626] hover:underline">Dismiss</button>
         </div>
       )}
 
@@ -237,7 +237,7 @@ export function HolographMeSurface() {
         <div className="flex items-center gap-3 border-b border-[var(--color-accent-bg)] bg-[var(--color-accent-bg)] px-6 py-2">
           <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-accent)]" />
           <p className="flex-1 text-xs text-[var(--color-accent)]">Observation logged · <span className="font-mono">{lastIngestId.slice(0, 24)}</span></p>
-          <button onClick={() => setLastIngestId(null)} className="text-[10px] text-[var(--color-accent)] hover:underline">×</button>
+          <button onClick={() => setLastIngestId(null)} className="text-[11px] text-[var(--color-accent)] hover:underline">×</button>
         </div>
       )}
 
@@ -254,14 +254,14 @@ export function HolographMeSurface() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-base font-semibold text-[var(--color-text-primary)]">{me.displayName}</h1>
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                   twinState?.policy_status === 'active' ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[#fef2f2] text-[#dc2626]'
                 }`}>
                   {twinState?.policy_status ?? 'unknown'}
                 </span>
               </div>
               <div className="mt-0.5 text-xs text-[var(--color-text-tertiary)]">{me.email ? `${me.email} · ` : ''}Human Digital Twin</div>
-              <div className="mt-1 flex items-center gap-3 text-[10px] text-[var(--color-text-tertiary)]">
+              <div className="mt-1 flex items-center gap-3 text-[11px] text-[var(--color-text-tertiary)]">
                 <span>{twinState?.observation_count ?? 0} observations</span>
                 <span>·</span>
                 <span>{twinState?.law_count ?? 0} candidate laws</span>
@@ -357,7 +357,7 @@ export function HolographMeSurface() {
               <div className="rounded-2xl border border-[#e0e7ff] bg-[#f5f3ff] p-5">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6366f1]">Current focus</span>
-                  <span className="text-[10px] text-[var(--color-text-tertiary)]">{timeAgo(latestBelief.created_at)}</span>
+                  <span className="text-[11px] text-[var(--color-text-tertiary)]">{timeAgo(latestBelief.created_at)}</span>
                 </div>
                 <p className="text-sm font-medium text-[var(--color-text-primary)] leading-6">{latestBelief.current_focus}</p>
                 <div className="mt-3">
@@ -389,7 +389,7 @@ export function HolographMeSurface() {
                   {latestBelief.posterior_atoms.slice(0, 5).map((atom, i) => (
                     <div key={i} className="space-y-1">
                       <div className="flex items-start gap-2">
-                        <span className="mt-0.5 shrink-0 text-[10px] font-mono text-[var(--color-text-tertiary)]">{String(Math.round(atom.weight * 100)).padStart(2, ' ')}%</span>
+                        <span className="mt-0.5 shrink-0 text-[11px] font-mono text-[var(--color-text-tertiary)]">{String(Math.round(atom.weight * 100)).padStart(2, ' ')}%</span>
                         <p className="text-xs text-[var(--color-text-primary)]">{atom.claim}</p>
                       </div>
                       <div className="ml-8">
@@ -434,7 +434,7 @@ export function HolographMeSurface() {
               >
                 <div className="flex items-start justify-between gap-3">
                   <p className="text-sm font-medium text-[var(--color-text-primary)]">{b.current_focus}</p>
-                  <span className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">{timeAgo(b.created_at)}</span>
+                  <span className="shrink-0 text-[11px] text-[var(--color-text-tertiary)]">{timeAgo(b.created_at)}</span>
                 </div>
                 <div className="mt-2">
                   <ConfidenceBar value={b.focus_confidence} />
@@ -446,11 +446,11 @@ export function HolographMeSurface() {
                     )}
                     {b.posterior_atoms.length > 0 && (
                       <div>
-                        <div className="text-[10px] font-semibold uppercase tracking-wide text-[#6366f1] mb-2">Posterior atoms</div>
+                        <div className="text-[11px] font-semibold uppercase tracking-wide text-[#6366f1] mb-2">Posterior atoms</div>
                         <div className="space-y-1.5">
                           {b.posterior_atoms.map((a, i) => (
                             <div key={i} className="flex items-start gap-2">
-                              <span className="shrink-0 text-[10px] font-mono text-[var(--color-text-tertiary)]">{Math.round(a.weight * 100)}%</span>
+                              <span className="shrink-0 text-[11px] font-mono text-[var(--color-text-tertiary)]">{Math.round(a.weight * 100)}%</span>
                               <p className="text-xs text-[var(--color-text-primary)]">{a.claim}</p>
                             </div>
                           ))}
@@ -459,11 +459,11 @@ export function HolographMeSurface() {
                     )}
                     {b.weighted_rules.length > 0 && (
                       <div>
-                        <div className="text-[10px] font-semibold uppercase tracking-wide text-[#6366f1] mb-2">Weighted rules</div>
+                        <div className="text-[11px] font-semibold uppercase tracking-wide text-[#6366f1] mb-2">Weighted rules</div>
                         <div className="space-y-1">
                           {b.weighted_rules.map((r, i) => (
                             <div key={i} className="flex items-center gap-2">
-                              <span className="shrink-0 text-[10px] font-mono text-[var(--color-text-tertiary)]">{Math.round(r.support * 100)}%</span>
+                              <span className="shrink-0 text-[11px] font-mono text-[var(--color-text-tertiary)]">{Math.round(r.support * 100)}%</span>
                               <p className="text-xs text-[var(--color-text-secondary)]">{r.pattern}</p>
                             </div>
                           ))}
@@ -472,12 +472,12 @@ export function HolographMeSurface() {
                     )}
                     {b.hypotheses.length > 0 && (
                       <div>
-                        <div className="text-[10px] font-semibold uppercase tracking-wide text-[#6366f1] mb-2">Hypotheses</div>
+                        <div className="text-[11px] font-semibold uppercase tracking-wide text-[#6366f1] mb-2">Hypotheses</div>
                         <div className="space-y-1.5">
                           {b.hypotheses.map((h, i) => (
                             <div key={i} className="rounded-lg bg-[#ede9fe] px-3 py-2">
                               <p className="text-xs font-medium text-[#4c1d95]">{h.hypothesis}</p>
-                              {h.evidence.length > 0 && <p className="mt-0.5 text-[10px] text-[#6d28d9]">Evidence: {h.evidence.join(', ')}</p>}
+                              {h.evidence.length > 0 && <p className="mt-0.5 text-[11px] text-[#6d28d9]">Evidence: {h.evidence.join(', ')}</p>}
                             </div>
                           ))}
                         </div>
@@ -505,7 +505,7 @@ export function HolographMeSurface() {
                       <ConfidenceBar value={law.props.confidence} />
                     </div>
                   </div>
-                  <span className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">{timeAgo(law.props.created_at)}</span>
+                  <span className="shrink-0 text-[11px] text-[var(--color-text-tertiary)]">{timeAgo(law.props.created_at)}</span>
                 </div>
               </div>
             ))}
@@ -520,8 +520,8 @@ export function HolographMeSurface() {
             ) : worldStates.map((ws) => (
               <div key={ws.id} className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5">
                 <div className="flex items-start justify-between gap-3 mb-2">
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Snapshot</span>
-                  <span className="text-[10px] text-[var(--color-text-tertiary)]">{timeAgo(ws.props.captured_at)}</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Snapshot</span>
+                  <span className="text-[11px] text-[var(--color-text-tertiary)]">{timeAgo(ws.props.captured_at)}</span>
                 </div>
                 <p className="text-sm leading-6 text-[var(--color-text-secondary)]">{ws.props.summary}</p>
               </div>
@@ -543,7 +543,7 @@ export function HolographMeSurface() {
               <div className="overflow-x-auto rounded-2xl border border-[var(--color-border-tertiary)]">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b border-[var(--color-border-tertiary)] text-left text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                    <tr className="border-b border-[var(--color-border-tertiary)] text-left text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">
                       <th className="px-3 py-2 font-medium">Task</th>
                       <th className="px-3 py-2 font-medium">Model</th>
                       <th className="px-3 py-2 font-medium">Runs</th>

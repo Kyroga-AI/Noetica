@@ -73,7 +73,7 @@ export function TerminalSurface() {
         <div>
           <div className="flex items-center gap-2">
             <span className="text-lg font-semibold text-[var(--color-text-primary)]">Terminal</span>
-            <span className="rounded-full bg-[#eff6ff] px-2 py-0.5 text-[10px] font-semibold text-[#1d4ed8]">Operator CLIs · prophet · sourceosctl</span>
+            <span className="rounded-full bg-[#eff6ff] px-2 py-0.5 text-[11px] font-semibold text-[#1d4ed8]">Operator CLIs · prophet · sourceosctl</span>
           </div>
           <div className="text-xs text-[var(--color-text-secondary)]">Run allow-listed operator commands on-device. Injection-safe (no shell).</div>
         </div>
@@ -97,7 +97,7 @@ export function TerminalSurface() {
         {cur && (
           <div className="flex flex-wrap gap-1.5">
             {cur.subcommands.filter((s) => !s.startsWith('-')).map((s) => (
-              <button key={s} onClick={() => setInput(s)} className="rounded-md border border-[var(--color-border-secondary)] px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)] transition hover:border-[#bfdbfe] hover:text-[#1d4ed8]">{s}</button>
+              <button key={s} onClick={() => setInput(s)} className="rounded-md border border-[var(--color-border-secondary)] px-2 py-0.5 text-[11px] text-[var(--color-text-secondary)] transition hover:border-[#bfdbfe] hover:text-[#1d4ed8]">{s}</button>
             ))}
           </div>
         )}
@@ -117,8 +117,8 @@ export function TerminalSurface() {
         {(log.length > 0 || running) && (
           <div className="overflow-hidden rounded-2xl border border-[var(--color-border-secondary)] bg-[#0b1020]">
             <div className="flex items-center justify-between border-b border-white/10 px-4 py-2">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/60">Console</span>
-              {exitCode != null && <span className={`text-[10px] font-semibold ${exitCode === 0 ? 'text-[#4ade80]' : 'text-[#f87171]'}`}>exit {exitCode}</span>}
+              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/60">Console</span>
+              {exitCode != null && <span className={`text-[11px] font-semibold ${exitCode === 0 ? 'text-[#4ade80]' : 'text-[#f87171]'}`}>exit {exitCode}</span>}
             </div>
             <div ref={logRef} className="max-h-80 overflow-y-auto px-4 py-3 font-mono text-[11px] leading-relaxed text-white/80">
               {log.map((l, i) => <div key={i} className={l.startsWith('✗') ? 'text-[#f87171]' : l.startsWith('⚠') ? 'text-[#fbbf24]' : ''}>{l}</div>)}

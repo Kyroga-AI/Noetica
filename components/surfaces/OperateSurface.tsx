@@ -101,7 +101,7 @@ function GraphViz({ onNodeClick }: { onNodeClick?: (node: VizNode) => void }) {
           <button
             key={v.key}
             onClick={() => { setView(v.key); setRoot('') }}
-            className="rounded-full px-2.5 py-1 text-[10px] font-semibold transition"
+            className="rounded-full px-2.5 py-1 text-[11px] font-semibold transition"
             style={{
               border: '1px solid ' + (view === v.key ? '#1d4ed8' : 'var(--color-border-secondary)'),
               background: view === v.key ? '#1d4ed8' : 'transparent',
@@ -110,7 +110,7 @@ function GraphViz({ onNodeClick }: { onNodeClick?: (node: VizNode) => void }) {
           >{v.label}</button>
         ))}
         {focus && (
-          <span className="ml-auto flex items-center gap-2 text-[10px] text-[var(--color-text-secondary)]">
+          <span className="ml-auto flex items-center gap-2 text-[11px] text-[var(--color-text-secondary)]">
             <span className="truncate max-w-[160px]">focused: <b>{focus.label}</b></span>
             <button onClick={() => setRoot('')} className="font-semibold text-[#1d4ed8]">clear</button>
             {onNodeClick && (
@@ -424,7 +424,7 @@ function TimeServiceTab({ time, timeServiceEndpoint }: { time: TimeServiceStatus
             </button>
           </div>
           {!tsEnabled && (
-            <p className="text-[10px] text-[var(--color-text-tertiary)]">Configure Time Service endpoint in Settings → Runtime to enable replay.</p>
+            <p className="text-[11px] text-[var(--color-text-tertiary)]">Configure Time Service endpoint in Settings → Runtime to enable replay.</p>
           )}
         </div>
       </div>
@@ -583,7 +583,7 @@ function SyncQueuesTab() {
         <div className="divide-y divide-[var(--color-border-tertiary)]">
           {rows.map(({ id, label, color, health, auth, ageLabel }) => (
             <div key={id} className="flex items-center gap-3 px-5 py-3">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold text-white"
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold text-white"
                 style={{ background: color }}>
                 {label[0]}
               </div>
@@ -600,12 +600,12 @@ function SyncQueuesTab() {
                 <div className="text-xs font-semibold capitalize text-[var(--color-text-secondary)]">
                   {auth?.status ?? 'disconnected'}
                 </div>
-                <div className="text-[10px] text-[var(--color-text-tertiary)]">{ageLabel}</div>
+                <div className="text-[11px] text-[var(--color-text-tertiary)]">{ageLabel}</div>
               </div>
             </div>
           ))}
         </div>
-        <div className="border-t border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-5 py-2.5 text-[10px] text-[var(--color-text-tertiary)]">
+        <div className="border-t border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-5 py-2.5 text-[11px] text-[var(--color-text-tertiary)]">
           Connector sync state derived from local auth store. SourceOS substrate will add queue depth and processing rates.
         </div>
       </div>
@@ -665,7 +665,7 @@ function EventLedgerTab() {
     <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm overflow-hidden">
       <div className="border-b border-[var(--color-border-tertiary)] px-5 py-3">
         <SectionHeader title="Event ledger" action={
-          <span className="text-[10px] text-[var(--color-text-tertiary)]">{events.length} event{events.length !== 1 ? 's' : ''}</span>
+          <span className="text-[11px] text-[var(--color-text-tertiary)]">{events.length} event{events.length !== 1 ? 's' : ''}</span>
         } />
       </div>
       {events.length === 0 ? (
@@ -676,19 +676,19 @@ function EventLedgerTab() {
         <div className="divide-y divide-[var(--color-border-tertiary)]">
           {events.map((evt) => (
             <div key={evt.id} className="flex items-start gap-3 px-5 py-3">
-              <span className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${levelColor[evt.level]}`}>
+              <span className={`mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${levelColor[evt.level]}`}>
                 {evt.kind}
               </span>
               <div className="min-w-0 flex-1">
                 <div className="text-xs font-semibold text-[var(--color-text-primary)]">{evt.subject}</div>
                 <div className="text-[11px] text-[var(--color-text-secondary)]">{evt.detail}</div>
               </div>
-              <div className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">{fmtTs(evt.ts)}</div>
+              <div className="shrink-0 text-[11px] text-[var(--color-text-tertiary)]">{fmtTs(evt.ts)}</div>
             </div>
           ))}
         </div>
       )}
-      <div className="border-t border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-5 py-2.5 text-[10px] text-[var(--color-text-tertiary)]">
+      <div className="border-t border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-5 py-2.5 text-[11px] text-[var(--color-text-tertiary)]">
         Browser-local auth events. SourceOS substrate will add durable, ordered ledger entries.
       </div>
     </div>

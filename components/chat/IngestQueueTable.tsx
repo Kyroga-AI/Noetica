@@ -56,7 +56,7 @@ export function IngestQueueTable({ refreshSignal }: { refreshSignal: number }) {
     <div className="mb-2 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-2 text-[12px]">
       <div className="mb-1.5 flex items-center justify-between px-1">
         <span className="font-semibold text-[var(--color-text-secondary)]">Ingestion queue</span>
-        <span className="text-[10px] text-[var(--color-text-tertiary)]">
+        <span className="text-[11px] text-[var(--color-text-tertiary)]">
           {sum.active + sum.queued > 0 ? `${sum.active + sum.queued} in progress · ` : ''}{sum.done} done{sum.failed > 0 ? ` · ${sum.failed} failed` : ''}
         </span>
       </div>
@@ -68,12 +68,12 @@ export function IngestQueueTable({ refreshSignal }: { refreshSignal: number }) {
               <span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: s.color, animation: s.spin ? 'pulse 1s ease-in-out infinite' : undefined }} />
               <span className="min-w-0 flex-1 truncate text-[var(--color-text-primary)]" title={j.filename}>{j.filename.split('/').pop()}</span>
               {j.status === 'done' && (
-                <span className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">{j.chunks ?? 0} chunks · {j.entities ?? 0} entities</span>
+                <span className="shrink-0 text-[11px] text-[var(--color-text-tertiary)]">{j.chunks ?? 0} chunks · {j.entities ?? 0} entities</span>
               )}
               {j.status === 'failed' && (
-                <span className="shrink-0 max-w-[160px] truncate text-[10px] text-[#ef4444]" title={j.error}>{j.error}</span>
+                <span className="shrink-0 max-w-[160px] truncate text-[11px] text-[#ef4444]" title={j.error}>{j.error}</span>
               )}
-              <span className="shrink-0 text-[10px] font-medium capitalize" style={{ color: s.color }}>{s.label}</span>
+              <span className="shrink-0 text-[11px] font-medium capitalize" style={{ color: s.color }}>{s.label}</span>
             </div>
           )
         })}

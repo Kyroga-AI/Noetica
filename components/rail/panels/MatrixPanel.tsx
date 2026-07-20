@@ -35,11 +35,11 @@ export function MatrixPanel() {
             <div className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Workspace rooms / ChatOps</div>
           </div>
           {isConnected && (
-            <span className="rounded-full bg-[var(--color-accent-bg)] px-2 py-0.5 text-[9px] font-semibold text-[var(--color-accent)]">Live</span>
+            <span className="rounded-full bg-[var(--color-accent-bg)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-accent)]">Live</span>
           )}
         </div>
         {isConnected && matrixAuth?.userInfo?.login && (
-          <div className="mt-1 text-[10px] text-[var(--color-text-tertiary)] truncate">{matrixAuth.userInfo.login}</div>
+          <div className="mt-1 text-[11px] text-[var(--color-text-tertiary)] truncate">{matrixAuth.userInfo.login}</div>
         )}
       </div>
 
@@ -68,11 +68,11 @@ export function MatrixPanel() {
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-xs font-semibold text-[var(--color-text-primary)]">{room.name}</div>
                   {room.topic && (
-                    <div className="truncate text-[10px] text-[var(--color-text-tertiary)]">{room.topic}</div>
+                    <div className="truncate text-[11px] text-[var(--color-text-tertiary)]">{room.topic}</div>
                   )}
                 </div>
                 {(room.unreadCount ?? 0) > 0 && (
-                  <span className="ml-2 shrink-0 rounded-full bg-[#1d4ed8] px-1.5 py-0.5 text-[9px] font-bold text-white">
+                  <span className="ml-2 shrink-0 rounded-full bg-[#1d4ed8] px-1.5 py-0.5 text-[11px] font-bold text-white">
                     {room.unreadCount}
                   </span>
                 )}

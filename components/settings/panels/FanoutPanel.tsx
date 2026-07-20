@@ -41,7 +41,7 @@ export function FanoutPanel() {
       <div className="space-y-4">
         {Object.entries(byFamily).map(([provider, providerModels]) => (
           <div key={provider}>
-            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">
+            <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">
               {MODEL_FAMILY_LABELS[provider] ?? provider}
             </div>
             <div className="space-y-1.5">
@@ -66,12 +66,12 @@ export function FanoutPanel() {
                       <div className="text-sm font-medium text-[var(--color-text-primary)]">{m.label}</div>
                       <div className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{m.description}</div>
                       {m.extended_thinking && (
-                        <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#dbeafe] px-2 py-0.5 text-[10px] font-medium text-[#1d4ed8]">
+                        <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-[#dbeafe] px-2 py-0.5 text-[11px] font-medium text-[#1d4ed8]">
                           Extended thinking
                         </div>
                       )}
                       {m.steering !== 'none' && (
-                        <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-[var(--color-accent-bg)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-accent)]">
+                        <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-[var(--color-accent-bg)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-accent)]">
                           SAE steering: {m.steering}
                         </div>
                       )}

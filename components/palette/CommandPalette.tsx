@@ -164,7 +164,7 @@ export function CommandPalette({
           ) : (
             Object.entries(groups).map(([group, items]) => (
               <div key={group}>
-                <div className="px-4 py-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">
+                <div className="px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">
                   {group}
                 </div>
                 {items.map((action) => {

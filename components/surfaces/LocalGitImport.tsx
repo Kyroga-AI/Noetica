@@ -132,7 +132,7 @@ export function LocalGitImport({ onClose, onDone }: { onClose: () => void; onDon
                 <div className="min-w-0 flex-1 truncate text-[11px] text-[var(--color-text-tertiary)]" title={browse?.path}>{browse?.path ?? '…'}</div>
                 <button
                   onClick={() => void chooseRoot()}
-                  className="shrink-0 rounded-md border border-[var(--color-border-secondary)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]"
+                  className="shrink-0 rounded-md border border-[var(--color-border-secondary)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]"
                   title="Pick a project root once — Noetica remembers it and won't re-prompt"
                 >
                   Choose root…
@@ -140,7 +140,7 @@ export function LocalGitImport({ onClose, onDone }: { onClose: () => void; onDon
                 <button
                   onClick={() => browse && pick(browse.path)}
                   disabled={!browse}
-                  className="shrink-0 rounded-md border border-[#bfdbfe] bg-[#eff6ff] px-2 py-0.5 text-[10px] font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe] disabled:opacity-40"
+                  className="shrink-0 rounded-md border border-[#bfdbfe] bg-[#eff6ff] px-2 py-0.5 text-[11px] font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe] disabled:opacity-40"
                 >
                   Use this folder
                 </button>
@@ -158,9 +158,9 @@ export function LocalGitImport({ onClose, onDone }: { onClose: () => void; onDon
                       <button onClick={() => loadDir(e.path)} className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
                         <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden className="shrink-0 text-[var(--color-text-tertiary)]"><path d="M1.5 3.5A1 1 0 0 1 2.5 2.5h3l1.3 1.3h5.7a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1v-7Z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" /></svg>
                         <span className="truncate text-[11px] text-[var(--color-text-primary)]">{e.name}</span>
-                        {e.isGitRepo && <span className="shrink-0 rounded bg-[var(--color-accent-bg)] px-1 py-px text-[8px] font-semibold text-[var(--color-accent)]">git</span>}
+                        {e.isGitRepo && <span className="shrink-0 rounded bg-[var(--color-accent-bg)] px-1 py-px text-[11px] font-semibold text-[var(--color-accent)]">git</span>}
                       </button>
-                      <button onClick={() => pick(e.path)} className="shrink-0 rounded border border-[#bfdbfe] bg-[#eff6ff] px-1.5 py-0.5 text-[9px] font-semibold text-[#1d4ed8] opacity-0 transition group-hover:opacity-100 hover:bg-[#dbeafe]">Select</button>
+                      <button onClick={() => pick(e.path)} className="shrink-0 rounded border border-[#bfdbfe] bg-[#eff6ff] px-1.5 py-0.5 text-[11px] font-semibold text-[#1d4ed8] opacity-0 transition group-hover:opacity-100 hover:bg-[#dbeafe]">Select</button>
                     </div>
                   ))
                 )}
@@ -174,11 +174,11 @@ export function LocalGitImport({ onClose, onDone }: { onClose: () => void; onDon
               ) : (
                 <div className="space-y-3">
                   <div>
-                    <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Local folder</div>
+                    <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Local folder</div>
                     <div className="mt-0.5 truncate rounded-lg bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-[11px] text-[var(--color-text-secondary)]" title={selected}>{selected}</div>
                   </div>
                   <div>
-                    <label className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Repository name</label>
+                    <label className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Repository name</label>
                     <input value={name} onChange={(e) => setName(e.target.value)} className="mt-0.5 w-full rounded-lg border border-[#bfdbfe] bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-xs outline-none focus:border-[#1d4ed8] focus:bg-[var(--color-background-primary)]" />
                   </div>
                   <label className="flex items-center gap-2 text-[11px] text-[var(--color-text-secondary)]">
@@ -194,7 +194,7 @@ export function LocalGitImport({ onClose, onDone }: { onClose: () => void; onDon
                   </button>
 
                   {(log.length > 0 || result) && (
-                    <div className="max-h-40 overflow-y-auto rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-2 font-mono text-[10px] leading-relaxed text-[var(--color-text-secondary)]">
+                    <div className="max-h-40 overflow-y-auto rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-2 font-mono text-[11px] leading-relaxed text-[var(--color-text-secondary)]">
                       {log.map((l, i) => <div key={i} className={l.startsWith('✗') ? 'text-[#dc2626]' : l.startsWith('✓') ? 'text-[var(--color-accent)]' : ''}>{l}</div>)}
                     </div>
                   )}

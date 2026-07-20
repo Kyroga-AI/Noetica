@@ -208,7 +208,7 @@ export function SettingsModal({ open, onClose, initialCategory = 'appearance' }:
                 </span>
                 <span className="flex-1">{cat.label}</span>
                 {cat.badge && (
-                  <span className="rounded-full bg-[rgba(29,78,216,0.10)] px-1.5 py-0.5 text-[10px] font-semibold text-[#1d4ed8]">
+                  <span className="rounded-full bg-[rgba(29,78,216,0.10)] px-1.5 py-0.5 text-[11px] font-semibold text-[#1d4ed8]">
                     {cat.badge}
                   </span>
                 )}

@@ -19,7 +19,7 @@ function PlanView({ plan }: { plan: Plan }) {
     <div className="rounded-xl border border-[#bfdbfe] bg-[#eff6ff] px-4 py-3 space-y-2">
       <div className="flex items-center justify-between">
         <span className="text-xs font-semibold text-[#1d4ed8]">Plan — {total} step{total !== 1 ? 's' : ''}</span>
-        <span className="text-[10px] text-[var(--color-text-tertiary)]">{done}/{total} done{failed ? `, ${failed} failed` : ''}</span>
+        <span className="text-[11px] text-[var(--color-text-tertiary)]">{done}/{total} done{failed ? `, ${failed} failed` : ''}</span>
       </div>
       {/* Progress bar */}
       <div className="h-1.5 w-full rounded-full bg-[#bfdbfe] overflow-hidden">
@@ -31,7 +31,7 @@ function PlanView({ plan }: { plan: Plan }) {
       <div className="space-y-1">
         {plan.subTasks.filter(Boolean).map((t, i) => (
           <div key={t.id} className="flex items-center gap-2">
-            <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[9px] font-bold ${
+            <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[11px] font-bold ${
               t.failed ? 'bg-[#fecaca] text-[#dc2626]' :
               t.done   ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' :
               'bg-[#dbeafe] text-[#3b82f6]'
@@ -42,13 +42,13 @@ function PlanView({ plan }: { plan: Plan }) {
               {t.title}
             </span>
             {t.appContext && t.appContext !== 'unknown' && (
-              <span className="ml-auto shrink-0 rounded-full bg-[#dbeafe] px-1.5 py-0.5 text-[9px] text-[#1d4ed8]">{t.appContext}</span>
+              <span className="ml-auto shrink-0 rounded-full bg-[#dbeafe] px-1.5 py-0.5 text-[11px] text-[#1d4ed8]">{t.appContext}</span>
             )}
           </div>
         ))}
       </div>
       {plan.reasoning && (
-        <p className="text-[10px] text-[var(--color-text-tertiary)] border-t border-[#bfdbfe] pt-2">{plan.reasoning}</p>
+        <p className="text-[11px] text-[var(--color-text-tertiary)] border-t border-[#bfdbfe] pt-2">{plan.reasoning}</p>
       )}
     </div>
   )
@@ -68,8 +68,8 @@ function StepCard({ step, isPending, onApprove, onReject }: {
     return (
       <div className="overflow-hidden rounded-xl border border-[var(--color-border-secondary)]">
         <button onClick={() => setExpanded((v) => !v)} className="flex w-full items-center gap-2 bg-[var(--color-background-secondary)] px-3 py-1.5 text-left">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Screenshot</span>
-          <span className="ml-auto text-[10px] text-[var(--color-text-tertiary)]">{step.timestamp.split('T')[1]?.slice(0, 8)}</span>
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Screenshot</span>
+          <span className="ml-auto text-[11px] text-[var(--color-text-tertiary)]">{step.timestamp.split('T')[1]?.slice(0, 8)}</span>
           <svg width="8" height="8" viewBox="0 0 10 10" fill="none" aria-hidden>
             <path d={expanded ? 'M2 7l3-4 3 4' : 'M2 3l3 4 3-4'} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
           </svg>
@@ -93,7 +93,7 @@ function StepCard({ step, isPending, onApprove, onReject }: {
     return (
       <div className="flex items-center gap-2 py-1">
         <div className="h-px flex-1 bg-[var(--color-border-secondary)]" />
-        <span className="text-[10px] font-semibold text-[#3b82f6]">{step.content}</span>
+        <span className="text-[11px] font-semibold text-[#3b82f6]">{step.content}</span>
         <div className="h-px flex-1 bg-[var(--color-border-secondary)]" />
       </div>
     )
@@ -110,7 +110,7 @@ function StepCard({ step, isPending, onApprove, onReject }: {
   if (step.type === 'text') {
     return (
       <div className="flex gap-3">
-        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#0f172a] text-[10px] font-bold text-white">N</div>
+        <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#0f172a] text-[11px] font-bold text-white">N</div>
         <div className="flex-1 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-xs leading-5 text-[var(--color-text-primary)]">
           <p className="whitespace-pre-wrap">{step.content}</p>
         </div>
@@ -137,7 +137,7 @@ function StepCard({ step, isPending, onApprove, onReject }: {
             </p>
             <p className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{step.content}</p>
             {step.action && (
-              <p className="mt-1 font-mono text-[9px] text-[var(--color-text-tertiary)] break-all">{JSON.stringify(step.action)}</p>
+              <p className="mt-1 font-mono text-[11px] text-[var(--color-text-tertiary)] break-all">{JSON.stringify(step.action)}</p>
             )}
           </div>
         </div>
@@ -179,7 +179,7 @@ function MemoryPanel({ onClose }: { onClose: () => void }) {
         <p className="text-xs font-semibold text-[var(--color-text-primary)]">Episodic Memory</p>
         <div className="flex gap-2">
           {traces.length > 0 && (
-            <button onClick={handleClear} className="text-[10px] text-[#dc2626] hover:underline">Clear all</button>
+            <button onClick={handleClear} className="text-[11px] text-[#dc2626] hover:underline">Clear all</button>
           )}
           <button onClick={onClose} className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
@@ -196,13 +196,13 @@ function MemoryPanel({ onClose }: { onClose: () => void }) {
             <div key={t.id} className={`rounded-xl border px-3 py-2.5 ${t.succeeded ? 'border-[var(--color-accent-bg)] bg-[var(--color-accent-bg)]' : 'border-[#fecaca] bg-[#fef2f2]'}`}>
               <div className="flex items-start justify-between gap-2">
                 <p className="text-xs font-medium text-[var(--color-text-primary)] leading-4">{t.goal}</p>
-                <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${t.succeeded ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[#fecaca] text-[#dc2626]'}`}>
+                <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${t.succeeded ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[#fecaca] text-[#dc2626]'}`}>
                   {t.succeeded ? 'ok' : 'fail'}
                 </span>
               </div>
-              <p className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">{t.appContext}</p>
-              <p className="mt-1 text-[10px] text-[var(--color-text-secondary)]">{t.stepSummary}</p>
-              <p className="mt-1 text-[9px] text-[#cbd5e1]">{new Date(t.createdAt).toLocaleString()}</p>
+              <p className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">{t.appContext}</p>
+              <p className="mt-1 text-[11px] text-[var(--color-text-secondary)]">{t.stepSummary}</p>
+              <p className="mt-1 text-[11px] text-[#cbd5e1]">{new Date(t.createdAt).toLocaleString()}</p>
             </div>
           ))
         )}
@@ -314,12 +314,12 @@ export function ComputerUseSurface() {
                 }`}
                 title="Agent S hierarchical planning"
               >
-                <span className="text-[10px]">⚙</span> Agent S
+                <span className="text-[11px]">⚙</span> Agent S
               </button>
             </div>
 
             <div className="flex items-center gap-2">
-              <span className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold ${
+              <span className={`rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
                 status === 'idle'              ? 'bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)]' :
                 status === 'planning'          ? 'bg-[#f0f9ff] text-[#0369a1] animate-pulse' :
                 status === 'running'           ? 'bg-[#dbeafe] text-[#1d4ed8] animate-pulse' :
@@ -349,7 +349,7 @@ export function ComputerUseSurface() {
           {/* Safety notice */}
           <div className="mt-2.5 flex items-start gap-2 rounded-xl border border-[#fde68a] bg-[var(--color-attention-bg)] px-3 py-1.5">
             <span className="shrink-0 text-xs">⚠️</span>
-            <p className="text-[10px] leading-4 text-[var(--color-attention)]">
+            <p className="text-[11px] leading-4 text-[var(--color-attention)]">
               <strong>Human-in-the-loop:</strong> Every proposed action requires your approval. Clicks and keystrokes execute on your real system.
             </p>
           </div>
@@ -451,7 +451,7 @@ export function ComputerUseSurface() {
               {isRunning ? 'Running…' : 'Start'}
             </button>
           </div>
-          <p className="mt-1.5 text-center text-[10px] text-[#cbd5e1]">⌘ + Enter · {provider === 'openai' ? 'OpenAI computer-use-preview' : 'Claude computer-use-2024-10-22'}{usePlanning ? ' · Agent S planning' : ''}</p>
+          <p className="mt-1.5 text-center text-[11px] text-[#cbd5e1]">⌘ + Enter · {provider === 'openai' ? 'OpenAI computer-use-preview' : 'Claude computer-use-2024-10-22'}{usePlanning ? ' · Agent S planning' : ''}</p>
         </div>
       </div>
 

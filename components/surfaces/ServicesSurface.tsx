@@ -49,7 +49,7 @@ export function ServicesSurface() {
           : !data ? <div className="text-xs text-[var(--color-text-tertiary)]">Loading…</div>
           : (
             <>
-              <div className="flex flex-wrap items-center gap-1.5 text-[10px]">
+              <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
                 <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${data.hasCluster ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[#fef2f2] text-[#dc2626]'}`}><span className={`h-1.5 w-1.5 rounded-full ${data.hasCluster ? 'bg-[var(--color-accent)]' : 'bg-[#dc2626]'}`} />{data.hasCluster ? 'cluster reachable' : 'no cluster'}</span>
                 <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium ${data.nhctl ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)]'}`}>nhctl {data.nhctl ? 'installed' : 'absent'}</span>
                 {data.note && <span className="text-[var(--color-text-tertiary)]">{data.note}</span>}
@@ -61,13 +61,13 @@ export function ServicesSurface() {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="h-2 w-2 rounded-full" style={{ background: STATUS_COLOR[s.status] }} />
                       <span className="text-sm font-semibold text-[var(--color-text-primary)]">{s.name}</span>
-                      <span className={`rounded-full px-2 py-0.5 text-[9px] font-semibold ${s.spaceType === 'base' ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[#dbeafe] text-[#1d4ed8]'}`}>{s.spaceType === 'base' ? 'BaseSpace · isolated' : 'MeshSpace · shared'}</span>
-                      <span className="rounded-full border border-[var(--color-border-secondary)] px-2 py-0.5 text-[9px] text-[var(--color-text-tertiary)]">{s.status.replace('_', ' ')}</span>
-                      <span className="ml-auto font-mono text-[10px] text-[var(--color-text-tertiary)]">{s.kubeNamespace}</span>
+                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${s.spaceType === 'base' ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[#dbeafe] text-[#1d4ed8]'}`}>{s.spaceType === 'base' ? 'BaseSpace · isolated' : 'MeshSpace · shared'}</span>
+                      <span className="rounded-full border border-[var(--color-border-secondary)] px-2 py-0.5 text-[11px] text-[var(--color-text-tertiary)]">{s.status.replace('_', ' ')}</span>
+                      <span className="ml-auto font-mono text-[11px] text-[var(--color-text-tertiary)]">{s.kubeNamespace}</span>
                     </div>
                     <div className="mt-1.5 flex flex-wrap gap-1">
                       {s.devMode.map((m) => (
-                        <span key={m} className="rounded-md bg-[var(--color-background-secondary)] px-1.5 py-0.5 text-[9px] text-[var(--color-text-secondary)]">{m}</span>
+                        <span key={m} className="rounded-md bg-[var(--color-background-secondary)] px-1.5 py-0.5 text-[11px] text-[var(--color-text-secondary)]">{m}</span>
                       ))}
                     </div>
                   </div>

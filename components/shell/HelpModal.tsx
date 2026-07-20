@@ -40,7 +40,7 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
 
         <div className="flex-1 overflow-y-auto p-5 space-y-6">
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#1d4ed8]">Keyboard shortcuts</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1d4ed8]">Keyboard shortcuts</div>
             <div className="mt-3 divide-y divide-[var(--color-border-tertiary)] rounded-xl border border-[var(--color-border-tertiary)]">
               {SHORTCUTS.map(({ keys, desc }) => (
                 <div key={keys} className="flex items-center justify-between px-4 py-2.5">
@@ -54,14 +54,14 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
           </div>
 
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#1d4ed8]">About Noetica</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1d4ed8]">About Noetica</div>
             <div className="mt-3 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-4 py-3 text-xs leading-6 text-[var(--color-text-secondary)]">
               Noetica is a sovereign AI workstation — a Tauri 2 + Next.js 14 desktop app for working across multiple models via structured surfaces: Chat, Projects, Evaluate, Tune, Govern, Collaborate, Notes, Artifacts, Code, and Operate.
             </div>
           </div>
 
           <div>
-            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#1d4ed8]">Surfaces</div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#1d4ed8]">Surfaces</div>
             <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-[var(--color-text-secondary)]">
               {[
                 ['⌘1 Chat',      'Main AI conversation workspace'],
@@ -78,7 +78,7 @@ export function HelpModal({ onClose }: { onClose: () => void }) {
               ].map(([name, desc]) => (
                 <div key={name} className="rounded-lg border border-[var(--color-border-tertiary)] px-3 py-2">
                   <div className="font-medium text-[var(--color-text-primary)]">{name}</div>
-                  <div className="mt-0.5 text-[10px] leading-4">{desc}</div>
+                  <div className="mt-0.5 text-[11px] leading-4">{desc}</div>
                 </div>
               ))}
             </div>

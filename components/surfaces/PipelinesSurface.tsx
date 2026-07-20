@@ -17,7 +17,7 @@ const syncColor = (s: string) => (s === 'Synced' ? 'var(--color-accent)' : s ===
 const healthColor = (h: string) => (h === 'Healthy' ? 'var(--color-accent)' : h === 'Degraded' ? '#dc2626' : h === 'Progressing' ? '#1d4ed8' : '#94a3b8')
 
 function Chip({ ok, label }: { ok: boolean; label: string }) {
-  return <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${ok ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)]'}`}><span className={`h-1.5 w-1.5 rounded-full ${ok ? 'bg-[var(--color-accent)]' : 'bg-[#94a3b8]'}`} />{label}</span>
+  return <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${ok ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)]'}`}><span className={`h-1.5 w-1.5 rounded-full ${ok ? 'bg-[var(--color-accent)]' : 'bg-[#94a3b8]'}`} />{label}</span>
 }
 
 export function PipelinesSurface() {
@@ -52,7 +52,7 @@ export function PipelinesSurface() {
                 <Chip ok={data.gitops.kubectl} label="kubectl" />
                 <Chip ok={data.gitops.argocd} label="Argo CD" />
                 <Chip ok={data.ci.gh} label="gh (CI)" />
-                {data.note && <span className="text-[10px] text-[var(--color-text-tertiary)]">{data.note}</span>}
+                {data.note && <span className="text-[11px] text-[var(--color-text-tertiary)]">{data.note}</span>}
               </div>
 
               {data.apps.length === 0 ? (
@@ -62,14 +62,14 @@ export function PipelinesSurface() {
               ) : (
                 <div className="overflow-hidden rounded-2xl border border-[var(--color-border-secondary)]">
                   <table className="w-full text-xs">
-                    <thead className="bg-[var(--color-background-secondary)] text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                    <thead className="bg-[var(--color-background-secondary)] text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">
                       <tr><th className="px-4 py-2 text-left font-semibold">Application</th><th className="px-4 py-2 text-left font-semibold">Namespace</th><th className="px-4 py-2 text-left font-semibold">Sync</th><th className="px-4 py-2 text-left font-semibold">Health</th></tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--color-border-secondary)]">
                       {data.apps.map((a) => (
                         <tr key={a.name} className="bg-[var(--color-background-primary)]">
                           <td className="px-4 py-2 font-medium text-[var(--color-text-primary)]">{a.name}</td>
-                          <td className="px-4 py-2 font-mono text-[10px] text-[var(--color-text-tertiary)]">{a.namespace}</td>
+                          <td className="px-4 py-2 font-mono text-[11px] text-[var(--color-text-tertiary)]">{a.namespace}</td>
                           <td className="px-4 py-2"><span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full" style={{ background: syncColor(a.sync) }} />{a.sync}</span></td>
                           <td className="px-4 py-2"><span className="inline-flex items-center gap-1"><span className="h-1.5 w-1.5 rounded-full" style={{ background: healthColor(a.health) }} />{a.health}</span></td>
                         </tr>

@@ -81,7 +81,7 @@ export function CalendarPanel() {
             <div className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{today}</div>
           </div>
           {isConnected && google?.userInfo?.name && (
-            <span className="rounded-full bg-[var(--color-accent-bg)] px-2 py-0.5 text-[9px] font-semibold text-[var(--color-accent)]">Live</span>
+            <span className="rounded-full bg-[var(--color-accent-bg)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-accent)]">Live</span>
           )}
         </div>
       </div>
@@ -111,7 +111,7 @@ export function CalendarPanel() {
             {events.map((evt) => (
               <div key={evt.id} className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2">
                 <div className="truncate text-xs font-semibold text-[var(--color-text-primary)]">{evt.summary}</div>
-                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">
+                <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">
                   {fmtTime(evt.start)}{evt.end ? ` – ${fmtTime(evt.end)}` : ''}
                 </div>
               </div>

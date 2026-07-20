@@ -39,7 +39,7 @@ export function OpenChatToggle({ session, onSetVisibility }: {
 
   if (ephemeral) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border-secondary)] px-2 py-0.5 text-[10px] text-[var(--color-text-tertiary)]" title="Security-lane chats are obliterated and can never be shared.">
+      <span className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border-secondary)] px-2 py-0.5 text-[11px] text-[var(--color-text-tertiary)]" title="Security-lane chats are obliterated and can never be shared.">
         🔒 private · ephemeral
       </span>
     )
@@ -53,7 +53,7 @@ export function OpenChatToggle({ session, onSetVisibility }: {
         title={isOpen
           ? 'This chat is in the community commons — other people’s agents can find it (redacted). Click to make private.'
           : 'Add this chat to the community commons so other people’s agents can find it. It’s redacted first; you can revoke anytime.'}
-        className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-[10px] font-medium transition disabled:opacity-50 ${
+        className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-[11px] font-medium transition disabled:opacity-50 ${
           isOpen
             ? 'border-[#a7f3d0] bg-[#ecfdf5] text-[#047857] hover:bg-[#d1fae5]'
             : 'border-[var(--color-border-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)]'
@@ -61,8 +61,8 @@ export function OpenChatToggle({ session, onSetVisibility }: {
       >
         {busy ? '…' : isOpen ? '🌐 open · in commons' : '🔒 private'}
       </button>
-      {note && <span className="text-[10px] text-[var(--color-text-tertiary)]">{note}</span>}
-      {err && <span className="text-[10px] text-[#dc2626]">{err}</span>}
+      {note && <span className="text-[11px] text-[var(--color-text-tertiary)]">{note}</span>}
+      {err && <span className="text-[11px] text-[#dc2626]">{err}</span>}
     </span>
   )
 }

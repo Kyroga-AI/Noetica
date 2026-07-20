@@ -90,11 +90,11 @@ function PromptWorkbench({ models }: { models: string[] }) {
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <label className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Output</label>
-          {latency != null && <span className="text-[10px] text-[var(--color-text-tertiary)]">{latency} ms</span>}
+          {latency != null && <span className="text-[11px] text-[var(--color-text-tertiary)]">{latency} ms</span>}
         </div>
         <div className="min-h-[120px] flex-1 overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3 text-xs text-[var(--color-text-secondary)]">{output || '—'}</div>
         {history.length > 0 && (
-          <div className="text-[10px] text-[var(--color-text-tertiary)]">
+          <div className="text-[11px] text-[var(--color-text-tertiary)]">
             <span className="uppercase tracking-wide">Run history ({history.length})</span>
             {history.slice(0, 4).map((h) => <div key={h.id} className="truncate">· {h.model} · {h.latencyMs}ms · {h.output.slice(0, 50)}</div>)}
           </div>
@@ -130,7 +130,7 @@ function ModelCompare({ models }: { models: string[] }) {
       <div className="flex flex-wrap gap-1.5">
         {models.map((m) => (
           <button key={m} onClick={() => setPicked((p) => p.includes(m) ? p.filter((x) => x !== m) : [...p, m])}
-            className={`rounded-full px-2 py-0.5 text-[10px] transition ${picked.includes(m) ? 'bg-[#0891b2]/15 text-[#0891b2]' : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]'}`}>{m}</button>
+            className={`rounded-full px-2 py-0.5 text-[11px] transition ${picked.includes(m) ? 'bg-[#0891b2]/15 text-[#0891b2]' : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]'}`}>{m}</button>
         ))}
       </div>
       <div className="grid flex-1 gap-3 overflow-auto" style={{ gridTemplateColumns: `repeat(${Math.max(1, results.length || picked.length)}, minmax(0, 1fr))` }}>
@@ -138,7 +138,7 @@ function ModelCompare({ models }: { models: string[] }) {
           <div key={r.model} className="flex flex-col rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
             <div className="flex items-center justify-between border-b border-[var(--color-border-tertiary)] px-2.5 py-1.5">
               <span className="truncate text-[11px] font-medium text-[var(--color-text-primary)]">{r.model}</span>
-              {r.latencyMs > 0 && <span className="text-[10px] text-[var(--color-text-tertiary)]">{r.latencyMs}ms</span>}
+              {r.latencyMs > 0 && <span className="text-[11px] text-[var(--color-text-tertiary)]">{r.latencyMs}ms</span>}
             </div>
             <div className="flex-1 overflow-auto whitespace-pre-wrap p-2.5 text-[11px] text-[var(--color-text-secondary)]">{r.error ? <span className="text-[#ef4444]">{r.error}</span> : (r.output || (loading ? '…' : '—'))}</div>
           </div>

@@ -316,9 +316,9 @@ export function WorkspaceSurface() {
                     <div className="flex items-center gap-2 px-3 py-2 text-[12px]">
                       <button onClick={() => setExpanded((e) => ({ ...e, [d.path]: !open }))} className="text-[var(--color-text-tertiary)]">{open ? '▾' : '▸'}</button>
                       <span className="font-mono text-[var(--color-text-primary)]">{d.path}</span>
-                      {d.isNew && <span className="rounded bg-[var(--color-accent-bg)] px-1 text-[10px] text-[var(--color-accent)]">new</span>}
-                      <span className="text-[10px] text-[var(--color-accent)]">+{adds}</span><span className="text-[10px] text-[#dc2626]">−{dels}</span>
-                      {hunkCount > 1 && <span className="text-[10px] text-[var(--color-text-tertiary)]">{hunkCount} hunks</span>}
+                      {d.isNew && <span className="rounded bg-[var(--color-accent-bg)] px-1 text-[11px] text-[var(--color-accent)]">new</span>}
+                      <span className="text-[11px] text-[var(--color-accent)]">+{adds}</span><span className="text-[11px] text-[#dc2626]">−{dels}</span>
+                      {hunkCount > 1 && <span className="text-[11px] text-[var(--color-text-tertiary)]">{hunkCount} hunks</span>}
                       <div className="ml-auto flex items-center gap-1.5">
                         {status === 'accepted' && <span className="text-[11px] text-[var(--color-accent)]">✓ accepted</span>}
                         {status === 'rejected' && <span className="text-[11px] text-[#b91c1c]">⟲ reverted</span>}
@@ -337,7 +337,7 @@ export function WorkspaceSurface() {
                           <div key={si} className={`group relative my-0.5 rounded border-l-2 pl-1 ${rej.has(seg.id) ? 'border-[#9ca3af] opacity-50' : 'border-[var(--color-accent)]'}`}>
                             {!status && (
                               <button onClick={() => toggleHunk(d.path, seg.id)} title={rej.has(seg.id) ? 'keep this change' : 'reject this hunk'}
-                                className="absolute right-1 top-0 z-10 hidden rounded bg-[var(--color-background-secondary)] px-1 text-[9px] text-[var(--color-text-tertiary)] transition group-hover:block hover:text-[#dc2626]">
+                                className="absolute right-1 top-0 z-10 hidden rounded bg-[var(--color-background-secondary)] px-1 text-[11px] text-[var(--color-text-tertiary)] transition group-hover:block hover:text-[#dc2626]">
                                 {rej.has(seg.id) ? 'restore' : 'reject hunk'}
                               </button>
                             )}
@@ -383,8 +383,8 @@ export function WorkspaceSurface() {
       {/* Terminal — run commands in the selected workspace and watch the output. */}
       <div className="flex h-52 shrink-0 flex-col border-t border-[var(--color-border-tertiary)] bg-[#0b0f17]">
         <div className="flex items-center justify-between border-b border-[var(--color-border-tertiary)] px-3 py-1">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-[#94a3b8]">Terminal · {ws || '(no workspace)'}</span>
-          {term.length > 0 && <button onClick={() => setTerm([])} className="text-[10px] text-[#64748b] hover:text-[#94a3b8]">clear</button>}
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-[#94a3b8]">Terminal · {ws || '(no workspace)'}</span>
+          {term.length > 0 && <button onClick={() => setTerm([])} className="text-[11px] text-[#64748b] hover:text-[#94a3b8]">clear</button>}
         </div>
         <div className="min-h-0 flex-1 overflow-auto px-3 py-2 font-mono text-[11px] leading-relaxed text-[#cbd5e1]">
           {term.length === 0 && <div className="text-[#475569]">Run a command in this workspace — e.g. <span className="text-[#94a3b8]">npm run build</span>, <span className="text-[#94a3b8]">ls -la</span>, <span className="text-[#94a3b8]">git status</span>.</div>}

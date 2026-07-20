@@ -129,7 +129,7 @@ export function ContextSlot({ inScopeFiles, activity, changes }: { inScopeFiles:
     <div className="space-y-1 p-2">
       {inScopeFiles.length > 0 && (
         <>
-          <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-0.5">In scope · {inScopeFiles.length}</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-0.5">In scope · {inScopeFiles.length}</div>
           {inScopeFiles.map((f) => (
             <SlotRow key={f}><span className="text-[var(--color-text-secondary)] mr-1.5">—</span><span className="truncate">{f}</span></SlotRow>
           ))}
@@ -137,11 +137,11 @@ export function ContextSlot({ inScopeFiles, activity, changes }: { inScopeFiles:
       )}
       {activity.length > 0 && (
         <>
-          <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Activity · {activity.length}</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Activity · {activity.length}</div>
           {activity.map((a, i) => (
             <SlotRow key={`${a.id}-${i}`}>
               <span className="flex items-center gap-1.5 min-w-0">
-                <span className="font-mono text-[10px] text-[var(--color-text-primary)] shrink-0">{a.name}</span>
+                <span className="font-mono text-[11px] text-[var(--color-text-primary)] shrink-0">{a.name}</span>
                 {a.target && <span className="truncate text-[var(--color-text-tertiary)]">{a.target}</span>}
               </span>
             </SlotRow>
@@ -150,7 +150,7 @@ export function ContextSlot({ inScopeFiles, activity, changes }: { inScopeFiles:
       )}
       {changes.length > 0 && (
         <>
-          <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Changes · {changes.length}</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Changes · {changes.length}</div>
           {changes.map((c) => (
             <div key={c.id}>
               <button
@@ -158,11 +158,11 @@ export function ContextSlot({ inScopeFiles, activity, changes }: { inScopeFiles:
                 className="flex w-full items-center justify-between gap-1.5 rounded-md px-2 py-1 text-left text-[11px] text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)]"
                 title={c.path}
               >
-                <span className="truncate font-mono text-[10px] text-[var(--color-text-primary)]">{c.path.split('/').pop()}</span>
-                <span className="shrink-0 text-[10px] text-[#4ade80]">+{c.content ? c.content.split('\n').length : 0}</span>
+                <span className="truncate font-mono text-[11px] text-[var(--color-text-primary)]">{c.path.split('/').pop()}</span>
+                <span className="shrink-0 text-[11px] text-[#4ade80]">+{c.content ? c.content.split('\n').length : 0}</span>
               </button>
               {openChange === c.id && (
-                <pre className="mt-0.5 max-h-44 overflow-auto rounded-md bg-[var(--color-background-primary)] p-2 text-[10px] leading-snug text-[var(--color-text-secondary)] whitespace-pre-wrap">{c.content || '(empty file)'}</pre>
+                <pre className="mt-0.5 max-h-44 overflow-auto rounded-md bg-[var(--color-background-primary)] p-2 text-[11px] leading-snug text-[var(--color-text-secondary)] whitespace-pre-wrap">{c.content || '(empty file)'}</pre>
               )}
             </div>
           ))}
@@ -215,29 +215,29 @@ function SlotRow({ children, accent }: { children: React.ReactNode; accent?: 'wa
 const MOCK_CONTENT: Record<AgentSlotId, React.ReactNode | null> = {
   context: (
     <div className="space-y-1 p-2">
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-0.5">In scope</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-0.5">In scope</div>
       {['AppShell.tsx', 'RightSidebar.tsx', 'useVoice.ts'].map((f) => (
         <SlotRow key={f}><span className="text-[var(--color-text-secondary)] mr-1.5">—</span>{f}</SlotRow>
       ))}
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Memory</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Memory</div>
       <SlotRow>3 relevant memories active</SlotRow>
     </div>
   ),
   mail: (
     <div className="space-y-1 p-2">
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-0.5">Status</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-0.5">Status</div>
       <SlotRow><span className="flex items-center gap-1.5"><StatusDot level="ok" />Monitoring · 2m ago</span></SlotRow>
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Flagged</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Flagged</div>
       <SlotRow accent="warn"><span className="flex items-center gap-1.5"><StatusDot level="warn" />2 threads need attention</span></SlotRow>
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Drafts queued</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Drafts queued</div>
       <SlotRow>3 awaiting approval</SlotRow>
     </div>
   ),
   calendar: (
     <div className="space-y-1 p-2">
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-0.5">Status</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-0.5">Status</div>
       <SlotRow><span className="flex items-center gap-1.5"><StatusDot level="ok" />Active · monitoring conflicts</span></SlotRow>
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Today</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Today</div>
       {['10:00 — Standup', '14:00 — Design review', '16:30 — 1:1'].map((e) => (
         <SlotRow key={e}>{e}</SlotRow>
       ))}
@@ -245,21 +245,21 @@ const MOCK_CONTENT: Record<AgentSlotId, React.ReactNode | null> = {
   ),
   tasks: (
     <div className="space-y-1 p-2">
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-0.5">Status</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-0.5">Status</div>
       <SlotRow><span className="flex items-center gap-1.5"><StatusDot level="ok" />Queue agent · 12 tracked</span></SlotRow>
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Flagged</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Flagged</div>
       <SlotRow accent="alert"><span className="flex items-center gap-1.5"><StatusDot level="alert" />PR review overdue #241</span></SlotRow>
       <SlotRow accent="warn"><span className="flex items-center gap-1.5"><StatusDot level="warn" />Rust build blocked</span></SlotRow>
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Done today</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Done today</div>
       <SlotRow>UI shell redesign ✓</SlotRow>
       <SlotRow>Voice button ✓</SlotRow>
     </div>
   ),
   graph: (
     <div className="p-2">
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-2">Concept graph · this session</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-2">Concept graph · this session</div>
       <GraphMini />
-      <div className="mt-2 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-1">Top concepts</div>
+      <div className="mt-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-1">Top concepts</div>
       {['Agent runtime', 'Voice routing', 'DPO training', 'Rust build', 'Right sidebar'].map((c) => (
         <SlotRow key={c}>{c}</SlotRow>
       ))}
@@ -267,22 +267,22 @@ const MOCK_CONTENT: Record<AgentSlotId, React.ReactNode | null> = {
   ),
   lattice: (
     <div className="space-y-1 p-2">
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-0.5">Value generated</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-0.5">Value generated</div>
       <SlotRow><span className="flex items-center justify-between w-full"><span>Agent tasks</span><span className="font-medium text-[var(--color-text-primary)]">$42.80</span></span></SlotRow>
       <SlotRow><span className="flex items-center justify-between w-full"><span>Reviews saved</span><span className="font-medium text-[var(--color-text-primary)]">$18.20</span></span></SlotRow>
       <SlotRow><span className="flex items-center justify-between w-full"><span>Supervision</span><span className="font-medium text-[var(--color-text-primary)]">$12.50</span></span></SlotRow>
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Session total</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Session total</div>
       <SlotRow><span className="flex items-center justify-between w-full"><span className="font-medium text-[var(--color-text-primary)]">Today</span><span className="font-semibold text-[var(--color-text-primary)]">$73.50</span></span></SlotRow>
     </div>
   ),
   risk: null,
   feed: (
     <div className="space-y-1 p-2">
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-0.5">Top signals</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-0.5">Top signals</div>
       <SlotRow>Anthropic releases Claude 4.8 Opus</SlotRow>
       <SlotRow>OpenAI cuts GPT-5 API pricing 40%</SlotRow>
       <SlotRow>EU AI Act enforcement begins Q3</SlotRow>
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Bluesky · your network</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Bluesky · your network</div>
       <SlotRow>3 posts mention agent tooling</SlotRow>
       <SlotRow>1 thread tagged #noetica</SlotRow>
     </div>
@@ -293,14 +293,14 @@ function RiskSlot({ riskReadout }: { riskReadout?: RiskAversionLiveReadout | nul
   if (!riskReadout) {
     return (
       <div className="flex flex-col items-center justify-center px-4 py-8 text-center">
-        <div className="text-[10px] text-[var(--color-text-tertiary)]">Risk readout populates after the first exchange.</div>
+        <div className="text-[11px] text-[var(--color-text-tertiary)]">Risk readout populates after the first exchange.</div>
       </div>
     )
   }
   const { dimensions, latestTurn } = riskReadout
   return (
     <div className="space-y-1.5 p-2">
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-0.5">Dominant dimensions</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pb-0.5">Dominant dimensions</div>
       {dimensions.map(({ label, value }) => (
         <div key={label} className="text-[11px] text-[var(--color-text-primary)]">
           <div className="flex justify-between mb-0.5">
@@ -312,26 +312,26 @@ function RiskSlot({ riskReadout }: { riskReadout?: RiskAversionLiveReadout | nul
           </div>
         </div>
       ))}
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Caution delta</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Caution delta</div>
       <div className="flex gap-2">
         <SlotRow>
-          <span className="block text-[9px] text-[var(--color-text-tertiary)]">Directness</span>
+          <span className="block text-[11px] text-[var(--color-text-tertiary)]">Directness</span>
           <span className="font-semibold text-[var(--color-text-primary)]">{latestTurn.directnessDelta.toFixed(2)}</span>
         </SlotRow>
         <SlotRow>
-          <span className="block text-[9px] text-[var(--color-text-tertiary)]">Caution</span>
+          <span className="block text-[11px] text-[var(--color-text-tertiary)]">Caution</span>
           <span className="font-semibold text-[var(--color-text-primary)]">{latestTurn.cautionDelta.toFixed(2)}</span>
         </SlotRow>
       </div>
       {latestTurn.steeringModes.length > 0 && latestTurn.steeringModes[0] !== 'direct_answer' && (
         <>
-          <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Observed steering</div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Observed steering</div>
           {latestTurn.steeringModes.map((mode) => (
             <SlotRow key={mode}>{mode.replace(/_/g, ' ')}</SlotRow>
           ))}
         </>
       )}
-      <div className="text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Turn</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] pt-2 pb-0.5">Turn</div>
       <SlotRow><span className="truncate block">{latestTurn.label}</span></SlotRow>
     </div>
   )
@@ -354,7 +354,7 @@ function AgentSlotConfig({ slotId, onClose }: { slotId: AgentSlotId; onClose: ()
   return (
     <div className="border-t border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Configure agent</span>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Configure agent</span>
         <button onClick={onClose} className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]">
           <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
             <path d="M2 2l6 6M8 2L2 8" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/>
@@ -369,10 +369,10 @@ function AgentSlotConfig({ slotId, onClose }: { slotId: AgentSlotId; onClose: ()
         {models.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
       </select>
       <div className="mt-2 flex gap-1.5">
-        <button className="flex-1 rounded-full border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] px-2 py-1 text-[10px] font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]">
+        <button className="flex-1 rounded-full border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] px-2 py-1 text-[11px] font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]">
           View history
         </button>
-        <button className="flex-1 rounded-full border border-[#fca5a5] bg-[var(--color-background-primary)] px-2 py-1 text-[10px] font-medium text-[#dc2626] hover:bg-[#fef2f2]">
+        <button className="flex-1 rounded-full border border-[#fca5a5] bg-[var(--color-background-primary)] px-2 py-1 text-[11px] font-medium text-[#dc2626] hover:bg-[#fef2f2]">
           Replace agent
         </button>
       </div>
@@ -458,7 +458,7 @@ export function RightSidebar({ collapsed, onCollapse, onExpand, riskReadout, inS
         <div>
           <div className="text-xs font-semibold text-[var(--color-text-primary)]">{slot.label}</div>
           {agentModel && (
-            <div className="text-[10px] text-[var(--color-text-tertiary)]">{agentModel.label}</div>
+            <div className="text-[11px] text-[var(--color-text-tertiary)]">{agentModel.label}</div>
           )}
         </div>
         <button
@@ -480,7 +480,7 @@ export function RightSidebar({ collapsed, onCollapse, onExpand, riskReadout, inS
 
       {/* Slot description */}
       <div className="px-3 pb-2">
-        <p className="text-[10px] leading-4 text-[var(--color-text-tertiary)]">{slot.description}</p>
+        <p className="text-[11px] leading-4 text-[var(--color-text-tertiary)]">{slot.description}</p>
       </div>
 
       {/* Slot content */}

@@ -107,9 +107,9 @@ export function ChangelogModal({ onClose }: { onClose: () => void }) {
               </div>
               <div className="flex items-baseline gap-3 mb-2">
                 <span className="font-mono text-xs font-semibold text-[#1d4ed8]">v{entry.version}</span>
-                <span className="text-[10px] text-[var(--color-text-tertiary)]">{entry.date}</span>
+                <span className="text-[11px] text-[var(--color-text-tertiary)]">{entry.date}</span>
                 {entryIdx === 0 && (
-                  <span className="rounded bg-[rgba(29,78,216,0.12)] px-1.5 py-0.5 text-[9px] font-semibold text-[#1d4ed8]">Latest</span>
+                  <span className="rounded bg-[rgba(29,78,216,0.12)] px-1.5 py-0.5 text-[11px] font-semibold text-[#1d4ed8]">Latest</span>
                 )}
               </div>
               <ul className="space-y-1.5">

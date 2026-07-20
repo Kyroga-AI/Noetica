@@ -56,17 +56,17 @@ function ChunkColumn({ title, chunks, ran, accent }: { title: string; chunks: Ch
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
         <span className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">{title}</span>
-        <span className="text-[10px] text-[var(--color-text-tertiary)]">{chunks.length} chunks</span>
+        <span className="text-[11px] text-[var(--color-text-tertiary)]">{chunks.length} chunks</span>
       </div>
       {ran && chunks.length === 0 && <p className="text-[11px] text-[var(--color-text-tertiary)]">No chunks retrieved.</p>}
       {chunks.map((c, i) => (
         <div key={i} className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-2.5">
           <div className="mb-1 flex items-center gap-2">
-            <span className="truncate text-[10px] font-medium text-[var(--color-text-secondary)]">{c.source || 'unknown'}</span>
+            <span className="truncate text-[11px] font-medium text-[var(--color-text-secondary)]">{c.source || 'unknown'}</span>
             <div className="ml-auto h-1.5 w-16 overflow-hidden rounded-full bg-[var(--color-border-tertiary)]">
               <div className="h-full rounded-full" style={{ width: `${(c.score / max) * 100}%`, background: accent }} />
             </div>
-            <span className="text-[9px] tabular-nums text-[var(--color-text-tertiary)]">{c.score.toFixed(3)}</span>
+            <span className="text-[11px] tabular-nums text-[var(--color-text-tertiary)]">{c.score.toFixed(3)}</span>
           </div>
           <p className="line-clamp-4 text-[11px] leading-snug text-[var(--color-text-tertiary)]">{c.text}</p>
         </div>

@@ -299,7 +299,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                 {cacheStatus === 'loading-model' ? 'Loading model…' : cacheStatus === 'caching' ? 'Caching…' : cacheStatus === 'error' ? 'Failed' : cacheStatus === 'done' ? `Logits cached (${cacheStats?.withLogits ?? 0}/${cacheStats?.total ?? 0})` : 'Cache teacher logits'}
               </button>
               {cacheStatus === 'error' && cacheError && (
-                <p className="text-[10px] text-[#ef4444]">{cacheError}</p>
+                <p className="text-[11px] text-[#ef4444]">{cacheError}</p>
               )}
               <button
                 onClick={() => void handleSendToDistill()}
@@ -336,7 +336,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
             >
               {models.map((m) => <option key={m.id} value={m.id}>{m.label}{m.local_capable ? ' (open)' : ''}</option>)}
             </select>
-            <span className="text-[10px] text-[var(--color-text-tertiary)]">blackbox or open-weight</span>
+            <span className="text-[11px] text-[var(--color-text-tertiary)]">blackbox or open-weight</span>
           </div>
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="mt-2 self-center text-[var(--color-text-tertiary)]">
             <path d="M2 7h10M8 3l4 4-4 4" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/>
@@ -356,7 +356,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                 {whiteboxModels.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
               </select>
             )}
-            <span className="text-[10px] text-[var(--color-text-tertiary)]">open-weight only — weights needed for fine-tuning</span>
+            <span className="text-[11px] text-[var(--color-text-tertiary)]">open-weight only — weights needed for fine-tuning</span>
           </div>
         </div>
         {whiteboxModels.length === 0 && (
@@ -387,7 +387,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
         <div className="mt-3 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-4 py-3">
           <div className="flex flex-wrap items-end gap-3">
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Teacher type</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Teacher type</span>
               <select
                 value={distillTeacherType}
                 onChange={(e) => setDistillTeacherType(e.target.value as 'blackbox' | 'whitebox')}
@@ -398,7 +398,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
               </select>
             </div>
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">LoRA rank</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">LoRA rank</span>
               <input
                 type="number" min={1} max={64} value={distillLoraR}
                 onChange={(e) => setDistillLoraR(parseInt(e.target.value) || 8)}
@@ -406,7 +406,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
               />
             </div>
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Max steps</span>
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Max steps</span>
               <input
                 type="number" min={1} max={10000} value={distillMaxSteps}
                 onChange={(e) => setDistillMaxSteps(parseInt(e.target.value) || 100)}
@@ -446,7 +446,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                 </div>
               )}
               {distillJob.adapter_path && (
-                <p className="text-[10px] text-[var(--color-text-tertiary)]">Adapter saved: {distillJob.adapter_path}</p>
+                <p className="text-[11px] text-[var(--color-text-tertiary)]">Adapter saved: {distillJob.adapter_path}</p>
               )}
             </div>
           )}
@@ -472,7 +472,7 @@ export function TuneSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                   {r.preference === null && <span className="h-1.5 w-1.5 rounded-full bg-[#d1d5db]" />}
                   <span className="truncate text-xs font-medium text-[var(--color-text-primary)]">{r.prompt.slice(0, 40)}</span>
                 </div>
-                <span className="pl-3 text-[10px] text-[var(--color-text-tertiary)]">{new Date(r.createdAt).toLocaleTimeString()}</span>
+                <span className="pl-3 text-[11px] text-[var(--color-text-tertiary)]">{new Date(r.createdAt).toLocaleTimeString()}</span>
               </button>
             ))}
           </div>

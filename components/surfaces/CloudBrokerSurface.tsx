@@ -107,21 +107,21 @@ export function CloudBrokerSurface() {
         <div className="mt-5">
           {resp.best && (
             <div className="mb-3 flex flex-wrap items-center gap-4 rounded-2xl border border-[#bbf7d0] bg-[var(--color-accent-bg)] px-4 py-3">
-              <div><div className="text-[10px] uppercase tracking-wide text-[var(--color-accent)]">Cheapest</div><div className="text-sm font-bold text-[var(--color-text-primary)]"><span className={`mr-1.5 rounded px-1.5 py-0.5 text-[10px] font-semibold ${PROVIDER_COLOR[resp.best.sku.provider] ?? ''}`}>{resp.best.sku.provider}</span>{resp.best.sku.name} · {resp.best.sku.region}</div></div>
-              <div><div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Total ({hours}h{resp.best.spot ? ', spot' : ''})</div><div className="text-sm font-bold text-[var(--color-accent)]">${resp.best.totalUsd}</div></div>
-              <div><div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Savings vs dearest</div><div className="text-sm font-semibold text-[var(--color-text-primary)]">${resp.savings.absUsd} ({resp.savings.pct}%)</div></div>
-              <div><div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Prices</div><div className="text-xs font-medium text-[var(--color-text-secondary)]">{resp.priceSource}</div></div>
+              <div><div className="text-[11px] uppercase tracking-wide text-[var(--color-accent)]">Cheapest</div><div className="text-sm font-bold text-[var(--color-text-primary)]"><span className={`mr-1.5 rounded px-1.5 py-0.5 text-[11px] font-semibold ${PROVIDER_COLOR[resp.best.sku.provider] ?? ''}`}>{resp.best.sku.provider}</span>{resp.best.sku.name} · {resp.best.sku.region}</div></div>
+              <div><div className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Total ({hours}h{resp.best.spot ? ', spot' : ''})</div><div className="text-sm font-bold text-[var(--color-accent)]">${resp.best.totalUsd}</div></div>
+              <div><div className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Savings vs dearest</div><div className="text-sm font-semibold text-[var(--color-text-primary)]">${resp.savings.absUsd} ({resp.savings.pct}%)</div></div>
+              <div><div className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Prices</div><div className="text-xs font-medium text-[var(--color-text-secondary)]">{resp.priceSource}</div></div>
             </div>
           )}
           <table className="w-full text-left text-xs">
-            <thead><tr className="border-b border-[var(--color-border-secondary)] text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]"><th className="py-1.5">Provider</th><th>SKU</th><th>Region</th><th>Specs</th><th className="text-right">$/hr</th><th className="text-right">Total</th></tr></thead>
+            <thead><tr className="border-b border-[var(--color-border-secondary)] text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]"><th className="py-1.5">Provider</th><th>SKU</th><th>Region</th><th>Specs</th><th className="text-right">$/hr</th><th className="text-right">Total</th></tr></thead>
             <tbody>
               {resp.ranked.map((q, i) => (
                 <tr key={i} className={`border-b border-[var(--color-border-tertiary)] ${i === 0 ? 'font-semibold' : ''}`}>
-                  <td className="py-1.5"><span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${PROVIDER_COLOR[q.sku.provider] ?? ''}`}>{q.sku.provider}</span></td>
+                  <td className="py-1.5"><span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${PROVIDER_COLOR[q.sku.provider] ?? ''}`}>{q.sku.provider}</span></td>
                   <td className="font-mono text-[11px]">{q.sku.name}</td><td>{q.sku.region}</td>
                   <td className="text-[var(--color-text-secondary)]">{q.sku.gpu ? `${q.sku.gpu.count}× ${q.sku.gpu.type}` : `${q.sku.vcpus} vCPU`}</td>
-                  <td className="text-right">${q.effectivePerHour}{q.spot ? ' ·spot' : ''} <span title={q.sku.priceSource === 'live' ? 'real-time billing API' : 'static list estimate — no live API for this provider'} className={`ml-1 rounded px-1 py-0.5 text-[8px] font-semibold ${q.sku.priceSource === 'live' ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]'}`}>{q.sku.priceSource === 'live' ? 'live' : 'list'}</span></td><td className="text-right">${q.totalUsd}</td>
+                  <td className="text-right">${q.effectivePerHour}{q.spot ? ' ·spot' : ''} <span title={q.sku.priceSource === 'live' ? 'real-time billing API' : 'static list estimate — no live API for this provider'} className={`ml-1 rounded px-1 py-0.5 text-[11px] font-semibold ${q.sku.priceSource === 'live' ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]'}`}>{q.sku.priceSource === 'live' ? 'live' : 'list'}</span></td><td className="text-right">${q.totalUsd}</td>
                 </tr>
               ))}
             </tbody>
@@ -141,8 +141,8 @@ export function CloudBrokerSurface() {
               {resp.provision && (
                 <div className="mt-2 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-[11px] text-[var(--color-text-secondary)]">
                   <div><span className="font-semibold text-[var(--color-text-primary)]">{resp.provision.executor.name}</span> · state <span className={`font-semibold ${resp.provision.state === 'ready' ? 'text-[var(--color-accent)]' : resp.provision.state === 'failed' ? 'text-[#dc2626]' : 'text-[var(--color-attention)]'}`}>{resp.provision.state}</span> · ${resp.provision.usdPerHour}/hr · joins fleet + swarm</div>
-                  <div className="mt-1 font-mono text-[10px] text-[var(--color-text-tertiary)]">{resp.provision.createCommand}</div>
-                  {resp.provision.error && <div className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">⚠ {resp.provision.error}</div>}
+                  <div className="mt-1 font-mono text-[11px] text-[var(--color-text-tertiary)]">{resp.provision.createCommand}</div>
+                  {resp.provision.error && <div className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">⚠ {resp.provision.error}</div>}
                 </div>
               )}
             </div>
@@ -154,7 +154,7 @@ export function CloudBrokerSurface() {
       {/* Fleet — provisioned cloud executors (the C2/swarm inventory) */}
       <div className="mt-7">
         <div className="mb-2 flex items-center justify-between">
-          <div className="text-sm font-semibold text-[var(--color-text-primary)]">Fleet <span className="text-[10px] font-normal text-[var(--color-text-tertiary)]">(provisioned executors)</span></div>
+          <div className="text-sm font-semibold text-[var(--color-text-primary)]">Fleet <span className="text-[11px] font-normal text-[var(--color-text-tertiary)]">(provisioned executors)</span></div>
           {fleet && fleet.count > 0 && (
             <div className="text-[11px] text-[var(--color-text-secondary)]">{fleet.count} executor{fleet.count === 1 ? '' : 's'} · <span className="font-semibold text-[var(--color-accent)]">${fleet.totalUsdPerHour}/hr</span> · {Object.entries(fleet.byProvider).map(([p, n]) => `${n} ${p}`).join(', ')}</div>
           )}
@@ -168,7 +168,7 @@ export function CloudBrokerSurface() {
                   <div key={i} className="flex items-center justify-between rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2"><span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} /><span className="truncate font-mono text-[11px] text-[var(--color-text-primary)]">{e.name}</span></div>
-                      <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">{e.provider} · {e.region} · {e.caps?.gpu ?? e.caps?.arch ?? 'cpu'} · {e.state}</div>
+                      <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">{e.provider} · {e.region} · {e.caps?.gpu ?? e.caps?.arch ?? 'cpu'} · {e.state}</div>
                     </div>
                     {typeof e.usdPerHour === 'number' && <span className="shrink-0 text-[11px] font-semibold text-[var(--color-text-secondary)]">${e.usdPerHour}/hr</span>}
                   </div>
@@ -179,13 +179,13 @@ export function CloudBrokerSurface() {
         {/* Swarms — the local shared-volume coordination layer (agents that joined a swarm) */}
         {fleet?.swarms && fleet.swarms.length > 0 && (
           <div className="mt-3">
-            <div className="mb-1.5 text-[11px] font-medium text-[var(--color-text-secondary)]">Swarms <span className="text-[10px] text-[var(--color-text-tertiary)]">· {fleet.liveMembers ?? 0} live member{(fleet.liveMembers ?? 0) === 1 ? '' : 's'} on the shared volume</span></div>
+            <div className="mb-1.5 text-[11px] font-medium text-[var(--color-text-secondary)]">Swarms <span className="text-[11px] text-[var(--color-text-tertiary)]">· {fleet.liveMembers ?? 0} live member{(fleet.liveMembers ?? 0) === 1 ? '' : 's'} on the shared volume</span></div>
             <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
               {fleet.swarms.map((s, i) => (
                 <div key={i} className="flex items-center justify-between rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2"><span className={`h-2 w-2 shrink-0 rounded-full ${s.live > 0 ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-text-tertiary)]'}`} /><span className="truncate font-mono text-[11px] text-[var(--color-text-primary)]">{s.swarmId}</span></div>
-                    <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">{s.backend}{s.mounted ? ' · mounted' : ''} · {s.live}/{s.members} agent{s.members === 1 ? '' : 's'} live</div>
+                    <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">{s.backend}{s.mounted ? ' · mounted' : ''} · {s.live}/{s.members} agent{s.members === 1 ? '' : 's'} live</div>
                   </div>
                   <span className="shrink-0 text-[11px] font-semibold text-[var(--color-text-secondary)]">{s.live}/{s.members}</span>
                 </div>
@@ -196,14 +196,14 @@ export function CloudBrokerSurface() {
       </div>
 
       <div className="mt-7">
-        <div className="mb-2 text-sm font-semibold text-[var(--color-text-primary)]">Runtime registry <span className="text-[10px] font-normal text-[var(--color-text-tertiary)]">(lattice-forge provenance)</span></div>
+        <div className="mb-2 text-sm font-semibold text-[var(--color-text-primary)]">Runtime registry <span className="text-[11px] font-normal text-[var(--color-text-tertiary)]">(lattice-forge provenance)</span></div>
         {runtimes.length === 0
           ? <div className="text-xs text-[var(--color-text-tertiary)]">No runtime assets (backend offline?).</div>
           : <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
               {runtimes.map((a, i) => (
                 <div key={i} className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2">
-                  <div className="flex items-center justify-between"><span className="truncate font-mono text-[11px] text-[var(--color-text-primary)]">{a.name}</span>{a._conformance && <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${a._conformance.conforms ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[#fef2f2] text-[#dc2626]'}`}>{a._conformance.conforms ? 'conformant' : 'gaps'}</span>}</div>
-                  <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">{a.role}{a.runtimeClass ? ` · ${a.runtimeClass}` : ''}</div>
+                  <div className="flex items-center justify-between"><span className="truncate font-mono text-[11px] text-[var(--color-text-primary)]">{a.name}</span>{a._conformance && <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${a._conformance.conforms ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[#fef2f2] text-[#dc2626]'}`}>{a._conformance.conforms ? 'conformant' : 'gaps'}</span>}</div>
+                  <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">{a.role}{a.runtimeClass ? ` · ${a.runtimeClass}` : ''}</div>
                 </div>
               ))}
             </div>}

@@ -62,13 +62,13 @@ export function VoiceControl({ voiceState, isLive, onVoiceStart, onVoiceStop, on
               onClick={() => { setOpen(false); onVoiceStart?.() }}
               className="flex w-full flex-col items-start px-3 py-2 text-left transition hover:bg-[var(--color-background-secondary)]">
               <span className="text-[12px] font-medium text-[var(--color-text-primary)]">Dictate</span>
-              <span className="text-[10px] text-[var(--color-text-tertiary)]">Speak one message, then it sends</span>
+              <span className="text-[11px] text-[var(--color-text-tertiary)]">Speak one message, then it sends</span>
             </button>
             <button
               onClick={() => { setOpen(false); onLiveStart?.() }}
               className="flex w-full flex-col items-start border-t border-[var(--color-border-tertiary)] px-3 py-2 text-left transition hover:bg-[var(--color-background-secondary)]">
               <span className="text-[12px] font-medium text-[var(--color-text-primary)]">Live conversation</span>
-              <span className="text-[10px] text-[var(--color-text-tertiary)]">Hands-free back-and-forth</span>
+              <span className="text-[11px] text-[var(--color-text-tertiary)]">Hands-free back-and-forth</span>
             </button>
           </div>
         </>

@@ -32,7 +32,7 @@ function CodeRenderer({ artifact }: { artifact: Artifact }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-2">
-        <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+        <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
           {LANGUAGE_LABELS[lang] ?? lang}
         </span>
         <button
@@ -146,7 +146,7 @@ function DocumentRenderer({ artifact, onUpdate }: { artifact: Artifact; onUpdate
                   const isBlock = String(children).includes('\n') || !!lang
                   if (isBlock) return (
                     <div className="my-3 overflow-hidden rounded-xl border border-[var(--color-border-secondary)]">
-                      {lang && <div className="border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-1 font-mono text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">{lang}</div>}
+                      {lang && <div className="border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-1 font-mono text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">{lang}</div>}
                       <SyntaxHighlighter
                         // eslint-disable-next-line
                         style={oneDark as any}
@@ -258,9 +258,9 @@ export function ArtifactPane({ artifact, onClose, onUpdate, onDelete }: Artifact
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{artifact.title}</div>
           <div className="flex items-center gap-1.5 mt-0.5">
-            <span className="text-[10px] text-[var(--color-text-tertiary)]">{artifactTypeLabel(artifact.type)}</span>
+            <span className="text-[11px] text-[var(--color-text-tertiary)]">{artifactTypeLabel(artifact.type)}</span>
             <span className="h-1 w-1 rounded-full bg-[var(--color-border-secondary)]" />
-            <span className={`rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${
+            <span className={`rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${
               artifact.status === 'final' ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' :
               artifact.status === 'archived' ? 'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]' :
               'bg-[var(--color-attention-bg)] text-[var(--color-attention)]'
@@ -273,7 +273,7 @@ export function ArtifactPane({ artifact, onClose, onUpdate, onDelete }: Artifact
           {artifact.status === 'draft' && (
             <button
               onClick={() => onUpdate(artifact.id, { status: 'final' })}
-              className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2 py-1 text-[10px] font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe]"
+              className="rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2 py-1 text-[11px] font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe]"
             >
               Finalise
             </button>
@@ -289,7 +289,7 @@ export function ArtifactPane({ artifact, onClose, onUpdate, onDelete }: Artifact
           </button>
           <button
             onClick={handleDelete}
-            className={`rounded-lg border px-2 py-1 text-[10px] font-semibold transition ${
+            className={`rounded-lg border px-2 py-1 text-[11px] font-semibold transition ${
               confirmDelete
                 ? 'border-[#fecaca] bg-[#fef2f2] text-[#dc2626]'
                 : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)] hover:text-[#ef4444]'
@@ -313,7 +313,7 @@ export function ArtifactPane({ artifact, onClose, onUpdate, onDelete }: Artifact
       <ArtifactRenderer artifact={artifact} onUpdate={onUpdate} />
 
       {/* Footer */}
-      <div className="shrink-0 border-t border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-2 text-[10px] text-[var(--color-text-tertiary)]">
+      <div className="shrink-0 border-t border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-2 text-[11px] text-[var(--color-text-tertiary)]">
         Created {new Date(artifact.createdAt).toLocaleString()} · Updated {new Date(artifact.updatedAt).toLocaleString()}
         {artifact.tags.length > 0 && (
           <span className="ml-2">{artifact.tags.map((t) => `#${t}`).join(' ')}</span>

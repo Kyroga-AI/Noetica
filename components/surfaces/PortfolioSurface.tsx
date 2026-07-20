@@ -184,12 +184,12 @@ function ComponentsCard({ components }: { components: SignalComponent[] }) {
               <span className="shrink-0 text-[11px] text-[var(--color-text-tertiary)]">conf {(c.confidence * 100).toFixed(0)}%</span>
             </div>
             <WaterfallBar value={c.estimate_pct} maxAbs={maxAbs} />
-            <p className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">{c.source}</p>
+            <p className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">{c.source}</p>
           </div>
         ))}
         {context.length > 0 && (
           <div className="mt-3 border-t border-[var(--color-border-tertiary)] pt-3">
-            <p className="mb-2 text-[10px] font-medium uppercase tracking-wider text-[var(--color-text-tertiary)]">Decomposition context (priced into IV)</p>
+            <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-tertiary)]">Decomposition context (priced into IV)</p>
             {context.map((c) => (
               <div key={c.name} className="mb-2 opacity-60">
                 <div className="mb-0.5 flex items-center justify-between gap-2">
@@ -197,7 +197,7 @@ function ComponentsCard({ components }: { components: SignalComponent[] }) {
                   <span className="shrink-0 text-[11px] text-[var(--color-text-tertiary)]">conf {(c.confidence * 100).toFixed(0)}%</span>
                 </div>
                 <WaterfallBar value={c.estimate_pct} maxAbs={maxAbs} />
-                <p className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">{c.source}</p>
+                <p className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">{c.source}</p>
               </div>
             ))}
           </div>
@@ -299,7 +299,7 @@ function SupplyChainCard({ sc }: { sc: SupplyChain }) {
                 <span className="text-xs font-medium text-[var(--color-text-primary)] truncate">{e.description}</span>
                 <Pill label={e.severity} colour={SEVERITY_COLOUR[e.severity] ?? '#6b7280'} />
               </div>
-              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">
+              <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">
                 cost +{e.cost_impact_pct.toFixed(1)}% · availability −{e.availability_impact_pct.toFixed(1)}% · {e.affected_suppliers.join(', ')}
               </div>
             </div>
@@ -371,7 +371,7 @@ function NewsCard({ news }: { news: News }) {
                   {(e.materiality_score * 100).toFixed(0)}%
                 </span>
               </div>
-              <div className="mt-0.5 flex flex-wrap gap-2 text-[10px] text-[var(--color-text-tertiary)]">
+              <div className="mt-0.5 flex flex-wrap gap-2 text-[11px] text-[var(--color-text-tertiary)]">
                 <span>{e.catalyst_type}</span>
                 <span>·</span>
                 <span>{e.academic_class}</span>
@@ -409,14 +409,14 @@ function CausalCard({ causal, kg }: { causal: Causal; kg: KG }) {
         <div className="space-y-1">
           {kg.kko_entities.slice(0, 4).map((e) => (
             <div key={e.label} className="flex gap-2 text-xs">
-              <span className="shrink-0 font-mono text-[10px] text-blue-600">{e.kko_class}</span>
+              <span className="shrink-0 font-mono text-[11px] text-blue-600">{e.kko_class}</span>
               <span className="text-[var(--color-text-primary)]">{e.label}</span>
             </div>
           ))}
         </div>
         <div className="mt-2 flex flex-wrap gap-1">
           {kg.semantic_dimensions.map((d) => (
-            <span key={d} className="rounded bg-[var(--color-background-tertiary)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-tertiary)]">{d}</span>
+            <span key={d} className="rounded bg-[var(--color-background-tertiary)] px-1.5 py-0.5 text-[11px] text-[var(--color-text-tertiary)]">{d}</span>
           ))}
         </div>
       </div>

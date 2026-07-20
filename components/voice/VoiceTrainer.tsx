@@ -120,8 +120,8 @@ export function VoiceTrainer() {
       <div className="flex items-center justify-between">
         <span className="text-[11px] font-semibold uppercase tracking-wide text-[#7c3aed]">Agent voice</span>
         {settings.ttsProvider === 'cloned' && activeId
-          ? <span className="text-[10px] text-[var(--color-text-tertiary)]">speaking as “{voices.find((v) => v.id === activeId)?.name ?? activeId}”</span>
-          : <span className="text-[10px] text-[var(--color-text-tertiary)]">clone a voice to use it</span>}
+          ? <span className="text-[11px] text-[var(--color-text-tertiary)]">speaking as “{voices.find((v) => v.id === activeId)?.name ?? activeId}”</span>
+          : <span className="text-[11px] text-[var(--color-text-tertiary)]">clone a voice to use it</span>}
       </div>
 
       {provisioned === false && (
@@ -160,7 +160,7 @@ export function VoiceTrainer() {
             <div className="mt-3 space-y-1.5">
               {voices.map((v) => (
                 <div key={v.id} className="flex items-center justify-between rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] px-2.5 py-1.5">
-                  <span className="text-[12px] text-[var(--color-text-primary)]">{v.name}{activeId === v.id && settings.ttsProvider === 'cloned' && <span className="ml-1.5 text-[10px] text-[var(--color-accent)]">● active</span>}</span>
+                  <span className="text-[12px] text-[var(--color-text-primary)]">{v.name}{activeId === v.id && settings.ttsProvider === 'cloned' && <span className="ml-1.5 text-[11px] text-[var(--color-accent)]">● active</span>}</span>
                   <div className="flex items-center gap-1.5">
                     <button onClick={() => void test(v.id)} disabled={busy} className="rounded-md px-2 py-1 text-[11px] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)] disabled:opacity-50">Test</button>
                     <button onClick={() => update({ ttsProvider: 'cloned', clonedVoiceId: v.id })} className="rounded-md bg-[var(--color-background-secondary)] px-2 py-1 text-[11px] font-medium text-[var(--color-text-primary)]">Use</button>

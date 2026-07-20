@@ -38,7 +38,7 @@ export function FeatureFlagsSection() {
     <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
       <div className="flex items-center justify-between">
         <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Feature flags</div>
-        {authRequired && <span className="rounded-full bg-[#fee2e2] px-2 py-0.5 text-[10px] font-medium text-[#991b1b]">API token required</span>}
+        {authRequired && <span className="rounded-full bg-[#fee2e2] px-2 py-0.5 text-[11px] font-medium text-[#991b1b]">API token required</span>}
       </div>
       <p className="mt-1 text-xs text-[var(--color-text-secondary)]">Runtime state from the agent-machine. Set via NOETICA_* env at launch.</p>
 
@@ -53,9 +53,9 @@ export function FeatureFlagsSection() {
                 <div className="flex items-center gap-2">
                   <span className={`h-2 w-2 shrink-0 rounded-full ${f.enabled ? 'bg-[var(--color-accent)]' : 'bg-[#cbd5e1]'}`} />
                   <code className="truncate text-[11px] text-[var(--color-text-primary)]">{f.env}</code>
-                  <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-medium ${STATUS_STYLE[f.status]}`}>{f.status}</span>
+                  <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-medium ${STATUS_STYLE[f.status]}`}>{f.status}</span>
                 </div>
-                <div className="ml-4 truncate text-[10px] text-[var(--color-text-tertiary)]">{f.description}</div>
+                <div className="ml-4 truncate text-[11px] text-[var(--color-text-tertiary)]">{f.description}</div>
               </div>
               <span className={`shrink-0 text-[11px] font-medium ${f.enabled ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-tertiary)]'}`}>
                 {f.enabled ? 'on' : 'off'}

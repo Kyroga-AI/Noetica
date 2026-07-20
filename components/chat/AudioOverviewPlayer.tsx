@@ -349,7 +349,7 @@ export function AudioOverviewPlayer({ refreshSignal = 0 }: Props) {
                 </button>
               </div>
               {callinError && (
-                <div className="mb-1 text-[10px] text-[#ef4444]">{callinError}</div>
+                <div className="mb-1 text-[11px] text-[#ef4444]">{callinError}</div>
               )}
               <div className="max-h-48 overflow-y-auto space-y-1">
                 {turns.map((t, i) => (
@@ -365,7 +365,7 @@ export function AudioOverviewPlayer({ refreshSignal = 0 }: Props) {
                         : 'hover:bg-[var(--color-background-tertiary)]'
                     }`}
                   >
-                    <span className={`mr-2 text-[10px] font-semibold uppercase tracking-wide ${t.speaker === 'Host' ? 'text-[#7c3aed]' : 'text-[#0891b2]'}`}>
+                    <span className={`mr-2 text-[11px] font-semibold uppercase tracking-wide ${t.speaker === 'Host' ? 'text-[#7c3aed]' : 'text-[#0891b2]'}`}>
                       {t.speaker}{t.callin && t.speaker === 'Guest' ? ' (you)' : ''}
                     </span>
                     <span className="text-[var(--color-text-primary)]">{t.line}</span>
