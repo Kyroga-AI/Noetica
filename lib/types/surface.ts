@@ -24,6 +24,7 @@ export type ActiveSurface =
   | 'routines'
   | 'actions'
   | 'academy'
+  | 'guardian'
   | 'govern'
   | 'tune'
   | 'holographme'

@@ -17410,6 +17410,18 @@ Question: ${question}`
   }
 
   // ── Learning Progress — adaptive learner track + brief ───────────────────────
+  if (req.method === 'GET' && url.pathname === '/api/learning/learners') {
+    setCORSHeaders(res)
+    void (async () => {
+      try {
+        const { listLearners } = await import('./lib/progress.js')
+        res.writeHead(200, { 'content-type': 'application/json' })
+        res.end(JSON.stringify({ learners: listLearners() }))
+      } catch { res.writeHead(500, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/learning/progress') {
     setCORSHeaders(res)
     void (async () => {

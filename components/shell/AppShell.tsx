@@ -48,6 +48,7 @@ import { DispatchSurface } from '@/components/surfaces/DispatchSurface'
 import { RoutinesSurface } from '@/components/surfaces/RoutinesSurface'
 import { ActionsSurface } from '@/components/surfaces/ActionsSurface'
 import { AcademySurface } from '@/components/surfaces/AcademySurface'
+import { GuardianSurface } from '@/components/surfaces/GuardianSurface'
 import { TuneSurface } from '@/components/surfaces/TuneSurface'
 import { HolographMeSurface } from '@/components/surfaces/HolographMeSurface'
 import { MarketplaceSurface } from '@/components/surfaces/MarketplaceSurface'
@@ -129,6 +130,7 @@ const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
   routines:     'Chat',
   actions:      'Chat',
   academy:      'Chat',
+  guardian:     'Chat',
   govern:       'Chat',
   tune:         'Chat',
   holographme:  'Chat',
@@ -2180,6 +2182,7 @@ function CenterWorkspace({ activeSurface, sessionId, activeProjectTitle, project
   if (activeSurface === 'routines')     return <RoutinesSurface />
   if (activeSurface === 'actions')      return <ActionsSurface />
   if (activeSurface === 'academy')      return <AcademySurface />
+  if (activeSurface === 'guardian')     return <GuardianSurface />
   if (activeSurface === 'holographme')  return <HolographMeSurface />
   if (activeSurface === 'marketplace')  return <MarketplaceSurface />
 
