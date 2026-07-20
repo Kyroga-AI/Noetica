@@ -415,6 +415,9 @@ export function AppShell() {
     [modelId]
   )
   const riskReadout = useMemo(() => buildRiskAversionLiveReadout(messages), [messages])
+  // The Answer inspector defaults to the latest answer — you shouldn't have to click Inspect to see it.
+  // An explicit Inspect click (setInspectMessage) still overrides to pin an older reply.
+  const latestAnswer = useMemo(() => [...messages].reverse().find((m) => m.role === 'assistant' && !!m.content) ?? null, [messages])
   // Real "in scope" files for the Context panel: paths touched by this session's
   // filesystem tool calls (read_file / write_file / list_directory), most recent first.
   const inScopeFiles = useMemo(() => {
@@ -1776,7 +1779,7 @@ export function AppShell() {
           <UtilityRail
             activePanel={utilityPanel}
             onSelect={setUtilityPanel}
-            inspectMessage={inspectMessage}
+            inspectMessage={inspectMessage ?? latestAnswer}
             inScopeFiles={inScopeFiles}
             toolActivity={toolActivity}
             fileChanges={fileChanges}
