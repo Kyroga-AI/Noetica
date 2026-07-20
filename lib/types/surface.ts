@@ -20,6 +20,8 @@ export type ActiveSurface =
   | 'jitsi'
   | 'docs'
   | 'operate'
+  | 'dispatch'
+  | 'routines'
   | 'govern'
   | 'tune'
   | 'holographme'

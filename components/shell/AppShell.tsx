@@ -44,6 +44,8 @@ import { ProjectsSurface } from '@/components/surfaces/ProjectsSurface'
 import { ArtifactsSurface } from '@/components/surfaces/ArtifactsSurface'
 import { ArtifactPane } from '@/components/artifacts/ArtifactPane'
 import { OperateSurface } from '@/components/surfaces/OperateSurface'
+import { DispatchSurface } from '@/components/surfaces/DispatchSurface'
+import { RoutinesSurface } from '@/components/surfaces/RoutinesSurface'
 import { TuneSurface } from '@/components/surfaces/TuneSurface'
 import { HolographMeSurface } from '@/components/surfaces/HolographMeSurface'
 import { MarketplaceSurface } from '@/components/surfaces/MarketplaceSurface'
@@ -121,6 +123,8 @@ const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
   jitsi:        'Chat',
   docs:         'Chat',
   operate:      'Chat',
+  dispatch:     'Chat',
+  routines:     'Chat',
   govern:       'Chat',
   tune:         'Chat',
   holographme:  'Chat',
@@ -715,6 +719,23 @@ export function AppShell() {
     const h = (e: Event) => { const s = (e as CustomEvent<string>).detail; if (s) setActiveSurface(s as ActiveSurface) }
     window.addEventListener('noetica:navigate', h)
     return () => window.removeEventListener('noetica:navigate', h)
+  }, [])
+
+  // Dispatch → chat: "send to chat" on a finished run appends its result to the transcript (as a
+  // user/assistant pair) and jumps to chat. The one bridge from a background run into the conversation.
+  useEffect(() => {
+    const h = (e: Event) => {
+      const d = (e as CustomEvent<{ title: string; result: string }>).detail
+      if (!d?.result) return
+      const now = new Date().toISOString()
+      const u: ChatMessage = { id: crypto.randomUUID(), role: 'user', content: `Run: ${d.title}`, created_at: now }
+      const a: ChatMessage = { id: crypto.randomUUID(), role: 'assistant', content: d.result, created_at: now }
+      setMessages((cur) => { const next = [...cur, u, a]; updateMessages(next); return next })
+      setActiveSurface('chat')
+    }
+    window.addEventListener('noetica:run-to-chat', h)
+    return () => window.removeEventListener('noetica:run-to-chat', h)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   function handleNewChat() {
@@ -2136,6 +2157,8 @@ function CenterWorkspace({ activeSurface, sessionId, activeProjectTitle, project
   }
   if (activeSurface === 'tune')         return <TuneSurface thinkingBudget={thinkingBudget} />
   if (activeSurface === 'computer')     return <ComputerUseSurface />
+  if (activeSurface === 'dispatch')     return <DispatchSurface />
+  if (activeSurface === 'routines')     return <RoutinesSurface />
   if (activeSurface === 'holographme')  return <HolographMeSurface />
   if (activeSurface === 'marketplace')  return <MarketplaceSurface />
 

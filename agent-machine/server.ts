@@ -109,6 +109,7 @@ import { gateVerdict as emitNoeticaGateVerdict, noeticaBootEvidence } from './li
 import { actuateRecommendation, type RecommendationObject } from './lib/marketing-ro-actuator.js'
 import { validateToolCall, type ToolSchema, type ArgSpec } from './lib/constrained-decode.js'
 import { appendJsonl as appendEncrypted, readJsonl as readEncrypted, writeJson as writeEncryptedJson, readJson as readEncryptedJson } from './lib/at-rest.js'
+import { listRuns, getRun, upsertRun, loadRoutines, upsertRoutine, deleteRoutine, computeNextRun, dueRoutines, type AgentRun, type Routine } from './lib/agent-runs.js'
 import { critique, bestOfTemps, type Candidate as CriticCandidate } from './lib/critic.js'
 import { programOfThought, operatorProgramOfThought, codeVerifyRepair } from './lib/exec-verify.js'
 import { isReasonLaneIntent, reasonLaneEnabled, reasonSCK, runReasonLane, REASON_RULE, REASON_RULE_MCQ, looksLikeMCQ } from './lib/reason-lane.js'
@@ -2000,6 +2001,42 @@ async function runSubAgent(
   }
   await closeChild('completed')
   return final.trim() || `(${role.label} sub-agent finished without a final summary)`
+}
+
+// Execute a standalone AgentRun (Dispatch / Routines) — drives the SAME headless loop as a dispatched
+// sub-agent, but as a top-level, persisted job. Fire-and-forget: status transitions are persisted so the
+// frontend can poll. Respects a cancel flipped mid-flight (best-effort — the loop finishes but its result
+// is discarded). Runs on LOCAL models (runSubAgent), so no cloud keys are required.
+async function executeRun(run: AgentRun, keys: { anthropic?: string; openai?: string; serper?: string }): Promise<void> {
+  run.status = 'running'; run.startedAt = Date.now(); upsertRun(run)
+  try {
+    const result = await runSubAgent(run.role, run.prompt, '', keys)
+    if (getRun(run.id)?.status === 'cancelled') return   // user cancelled while it ran — don't resurrect it
+    run.status = 'done'; run.result = result; run.finishedAt = Date.now(); upsertRun(run)
+  } catch (e) {
+    if (getRun(run.id)?.status === 'cancelled') return
+    run.status = 'error'; run.error = e instanceof Error ? e.message.slice(0, 500) : String(e).slice(0, 500)
+    run.finishedAt = Date.now(); upsertRun(run)
+  }
+}
+
+// Fire any routines whose schedule has come due: create a run, kick it off, advance nextRun. Called on a
+// timer while the sidecar is alive (v1 — routines fire only while the app is running; a persistent daemon
+// is a later step).
+function tickRoutines(): void {
+  const now = Date.now()
+  for (const r of dueRoutines(now)) {
+    const run: AgentRun = {
+      id: `run-${now}-${Math.random().toString(36).slice(2, 8)}`,
+      title: r.title, prompt: r.prompt, role: r.role,
+      status: 'queued', source: 'routine', routineId: r.id, createdAt: now,
+    }
+    upsertRun(run)
+    void executeRun(run, {})   // routines run local-only (no cloud keys)
+    r.lastRun = now
+    r.nextRun = computeNextRun(r.schedule, now)
+    upsertRoutine(r)
+  }
 }
 
 async function executeTool(
@@ -5813,6 +5850,99 @@ const server = http.createServer((req, res) => {
 
   // GET /api/fleet — the provisioned cloud executors (the broker's fleet inventory), with a cost roll-up, so the
   // multi-cloud C2/swarm stack is VISIBLE. Empty until something is provisioned.
+  // ── Agent runs (Dispatch) + routines ──────────────────────────────────────
+  // GET  /api/runs           → recent runs (Dispatch list)
+  // POST /api/runs           → { title, prompt, role, provider_keys? } create + start a run
+  // GET  /api/runs/:id       → one run (poll for status/result)
+  // POST /api/runs/:id/cancel→ mark a run cancelled
+  if (req.method === 'GET' && url.pathname === '/api/runs') {
+    setCORSHeaders(res)
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ runs: listRuns(50) }))
+    return
+  }
+  if (req.method === 'POST' && url.pathname === '/api/runs') {
+    void (async () => {
+      try {
+        setCORSHeaders(res)
+        const p = JSON.parse(await readBody(req) || '{}') as Record<string, unknown>
+        const prompt = String(p['prompt'] ?? '').trim()
+        if (!prompt) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'prompt_required' })); return }
+        const role = String(p['role'] ?? 'general')
+        const title = String(p['title'] ?? '').trim() || prompt.slice(0, 60)
+        const pk = (p['provider_keys'] ?? {}) as Record<string, string>
+        const now = Date.now()
+        const run: AgentRun = { id: `run-${now}-${Math.random().toString(36).slice(2, 8)}`, title, prompt, role, status: 'queued', source: 'manual', createdAt: now }
+        upsertRun(run)
+        void executeRun(run, { anthropic: pk['anthropic'], openai: pk['openai'], serper: pk['serper'] })
+        res.writeHead(200, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ run }))
+      } catch { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+  {
+    const runMatch = url.pathname.match(/^\/api\/runs\/([^/]+?)(\/cancel)?$/)
+    if (runMatch) {
+      const id = runMatch[1]!, isCancel = !!runMatch[2]
+      if (req.method === 'GET' && !isCancel) {
+        setCORSHeaders(res)
+        const run = getRun(id)
+        res.writeHead(run ? 200 : 404, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify(run ? { run } : { error: 'not_found' }))
+        return
+      }
+      if (req.method === 'POST' && isCancel) {
+        setCORSHeaders(res)
+        const run = getRun(id)
+        if (run && (run.status === 'queued' || run.status === 'running')) { run.status = 'cancelled'; run.finishedAt = Date.now(); upsertRun(run) }
+        res.writeHead(run ? 200 : 404, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify(run ? { run } : { error: 'not_found' }))
+        return
+      }
+    }
+  }
+  if (req.method === 'GET' && url.pathname === '/api/routines') {
+    setCORSHeaders(res)
+    res.writeHead(200, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({ routines: loadRoutines() }))
+    return
+  }
+  if (req.method === 'POST' && url.pathname === '/api/routines') {
+    void (async () => {
+      try {
+        setCORSHeaders(res)
+        const p = JSON.parse(await readBody(req) || '{}') as Partial<Routine> & { schedule?: Routine['schedule'] }
+        const prompt = String(p.prompt ?? '').trim()
+        if (!prompt || !p.schedule) { res.writeHead(400, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'prompt_and_schedule_required' })); return }
+        const now = Date.now()
+        const routine: Routine = {
+          id: p.id || `rt-${now}-${Math.random().toString(36).slice(2, 8)}`,
+          title: String(p.title ?? '').trim() || prompt.slice(0, 60),
+          prompt, role: String(p.role ?? 'general'), schedule: p.schedule,
+          enabled: p.enabled !== false,
+          createdAt: p.id ? (loadRoutines().find((r) => r.id === p.id)?.createdAt ?? now) : now,
+          lastRun: p.lastRun,
+          nextRun: computeNextRun(p.schedule, now),
+        }
+        upsertRoutine(routine)
+        res.writeHead(200, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ routine }))
+      } catch { res.writeHead(500, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'internal_error' })) }
+    })()
+    return
+  }
+  {
+    const rtMatch = url.pathname.match(/^\/api\/routines\/([^/]+)$/)
+    if (rtMatch && req.method === 'DELETE') {
+      setCORSHeaders(res)
+      deleteRoutine(rtMatch[1]!)
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: true }))
+      return
+    }
+  }
+
   if (req.method === 'GET' && url.pathname === '/api/fleet') {
     void (async () => {
       const [{ listExecutors }, { listSwarms }] = await Promise.all([import('./lib/cloud-provision.js'), import('./lib/swarm-volume.js')])
@@ -18276,6 +18406,12 @@ server.listen(PORT, BIND_HOST, () => {
   console.log(`[noetica-am] ${summarizePreset(_cfg)}`)
   console.log(`[noetica-am] Agent Machine v${VERSION} listening on http://${BIND_HOST}:${PORT}`)
   console.log(`[noetica-am] Status: http://127.0.0.1:${PORT}/api/status`)
+
+  // Routines scheduler — fire due routines on a 60s tick while the sidecar is alive. v1: routines only
+  // run while the app is open (a persistent daemon is a later step). Fire-and-forget; never blocks boot.
+  if (process.env['NOETICA_ROUTINES'] !== '0') {
+    setInterval(() => { try { tickRoutines() } catch { /* a bad routine must never crash the tick */ } }, 60_000)
+  }
 
   // Brain injection + update service (auto-provision DEFAULT ON; NOETICA_BRAIN_AUTO_PROVISION=0 to
   // disable). On boot, consult the brain manifest and: LOAD any shippable brain that is ABSENT (so a
