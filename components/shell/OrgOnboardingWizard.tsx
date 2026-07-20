@@ -5,6 +5,7 @@ import { amUrl } from '@/lib/tauri/bridge'
 
 interface Props {
   onComplete: (orgName: string) => void
+  onDismiss: () => void
 }
 
 type Step = 'welcome' | 'identity' | 'governance' | 'knowledge' | 'ready'
@@ -22,7 +23,7 @@ const POLICY_DESC: Record<PolicyProfile, string> = {
 
 interface IngestedDoc { filename: string }
 
-export function OrgOnboardingWizard({ onComplete }: Props) {
+export function OrgOnboardingWizard({ onComplete, onDismiss }: Props) {
   const [step, setStep]         = useState<Step>('welcome')
   const [orgName, setOrgName]   = useState('')
   const [orgType, setOrgType]   = useState<OrgType | ''>('')
@@ -77,11 +78,33 @@ export function OrgOnboardingWizard({ onComplete }: Props) {
     onComplete(orgName.trim())
   }
 
+  // Escapable at any point — mark it seen so it doesn't nag again, then close.
+  function dismiss() {
+    localStorage.setItem('noetica:org:onboarded', '1')
+    onDismiss()
+  }
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') dismiss() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const stepIndex = STEPS.indexOf(step)
 
   return (
-    <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="relative w-full max-w-lg rounded-2xl border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] shadow-2xl">
+    <div className="fixed inset-0 z-[210] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={dismiss}>
+      <div className="relative w-full max-w-lg rounded-2xl border border-[var(--color-border-primary)] bg-[var(--color-background-primary)] shadow-2xl" onClick={(e) => e.stopPropagation()}>
+
+        {/* Close — skippable at any step (click outside, ✕, or Esc) */}
+        <button
+          onClick={dismiss}
+          title="Close (Esc)"
+          aria-label="Close onboarding"
+          className="absolute right-3 top-3 z-10 flex h-7 w-7 items-center justify-center rounded-lg text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-primary)]"
+        >
+          <svg width="13" height="13" viewBox="0 0 14 14" fill="none" aria-hidden><path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
+        </button>
 
         {/* Step indicator */}
         <div className="flex gap-1.5 px-8 pt-6">

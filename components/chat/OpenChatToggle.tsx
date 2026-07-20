@@ -4,6 +4,14 @@ import { useState } from 'react'
 import type { WorkspaceSession } from '@/lib/session/types'
 import type { PublishResult } from '@/lib/session/commons-client'
 
+// SVG glyphs, not emoji — a closed padlock (private) and a globe (in the commons).
+function GlyphLock() {
+  return <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden><rect x="2.5" y="5.3" width="7" height="4.7" rx="1" stroke="currentColor" strokeWidth="1.2"/><path d="M4 5.3V4a2 2 0 0 1 4 0v1.3" stroke="currentColor" strokeWidth="1.2"/></svg>
+}
+function GlyphGlobe() {
+  return <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden><circle cx="6" cy="6" r="4.4" stroke="currentColor" strokeWidth="1.1"/><path d="M1.6 6h8.8M6 1.6c1.7 1.2 1.7 7.6 0 8.8M6 1.6c-1.7 1.2-1.7 7.6 0 8.8" stroke="currentColor" strokeWidth="1.1"/></svg>
+}
+
 /**
  * OpenChatToggle — the opt-in control that makes a chat part of the community commons (searchable by other users'
  * agents via SearXNG). PRIVATE by default; there is no default-open path. Opening runs the mandatory server-side
@@ -39,8 +47,8 @@ export function OpenChatToggle({ session, onSetVisibility }: {
 
   if (ephemeral) {
     return (
-      <span className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border-secondary)] px-2 py-0.5 text-[11px] text-[var(--color-text-tertiary)]" title="Security-lane chats are obliterated and can never be shared.">
-        🔒 private · ephemeral
+      <span className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border-secondary)] px-2 py-0.5 text-[11px] text-[var(--color-text-tertiary)]" title="Security-lane chats are obliterated and can never be shared.">
+        <GlyphLock /> private · ephemeral
       </span>
     )
   }
@@ -55,11 +63,11 @@ export function OpenChatToggle({ session, onSetVisibility }: {
           : 'Add this chat to the community commons so other people’s agents can find it. It’s redacted first; you can revoke anytime.'}
         className={`inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-[11px] font-medium transition disabled:opacity-50 ${
           isOpen
-            ? 'border-[#a7f3d0] bg-[#ecfdf5] text-[#047857] hover:bg-[#d1fae5]'
+            ? 'border-[var(--color-attention)] bg-[var(--color-attention-bg)] text-[var(--color-attention)]'
             : 'border-[var(--color-border-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)]'
         }`}
       >
-        {busy ? '…' : isOpen ? '🌐 open · in commons' : '🔒 private'}
+        {busy ? '…' : isOpen ? <><GlyphGlobe /> open · in commons</> : <><GlyphLock /> private</>}
       </button>
       {note && <span className="text-[11px] text-[var(--color-text-tertiary)]">{note}</span>}
       {err && <span className="text-[11px] text-[#dc2626]">{err}</span>}

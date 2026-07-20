@@ -852,14 +852,14 @@ export function AppShell() {
       const q = researchMatch[1]!.trim()
       const now = new Date().toISOString()
       const u: ChatMessage = { id: crypto.randomUUID(), role: 'user', content, workspace_mode: workspaceMode, created_at: now }
-      const a: ChatMessage = { id: crypto.randomUUID(), role: 'assistant', content: '🔎 Researching the brain…', created_at: now }
+      const a: ChatMessage = { id: crypto.randomUUID(), role: 'assistant', content: 'Researching the brain…', created_at: now }
       autoTitle(content)
       setMessages((cur) => { const next = [...cur, u, a]; updateMessages(next); return next })
       try {
         const r = await fetch(amUrl('/api/research/solve'), { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ question: q }) })
         const j = (await r.json()) as { answer?: string; grounded?: boolean; score?: number; sources?: { n: number; filename: string }[] }
         const pct = Math.round((j.score ?? 0) * 100)
-        const badge = j.grounded ? `✅ Grounded (${pct}%)` : `⚠️ Partially grounded (${pct}%) — treat with care`
+        const badge = j.grounded ? `Grounded (${pct}%)` : `Partially grounded (${pct}%) — treat with care`
         const srcs = (j.sources ?? []).map((s) => `[${s.n}] ${s.filename}`).join('  ·  ')
         const body = `${j.answer ?? '(no answer)'}\n\n---\n_${badge}${srcs ? `  ·  sources: ${srcs}` : ''}_`
         setMessages((cur) => { const next = cur.map((m) => (m.id === a.id ? { ...m, content: body } : m)); updateMessages(next); return next })
@@ -1598,9 +1598,10 @@ export function AppShell() {
         <div
           role="status"
           onClick={() => setVoiceNotice(null)}
-          className="fixed right-4 top-12 z-[100] max-w-sm cursor-pointer rounded-lg border border-[#fda4af] bg-[#fff1f2] px-3 py-2 text-xs text-[#9f1239] shadow-lg"
+          className="fixed right-4 top-12 z-[100] flex max-w-sm cursor-pointer items-center gap-1.5 rounded-lg border border-[var(--color-attention)] bg-[var(--color-attention-bg)] px-3 py-2 text-xs text-[var(--color-attention)] shadow-lg"
         >
-          🎙️ {voiceNotice}
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden className="shrink-0"><rect x="6" y="1" width="4" height="8" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M3 8a5 5 0 0 0 10 0M8 13v2M6 15h4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/></svg>
+          {voiceNotice}
         </div>
       )}
       {showSetup && (
@@ -1619,11 +1620,13 @@ export function AppShell() {
             // Land the user on a REAL first answer (badge + Export Proof) instead of an empty chat.
             if (firstPrompt) { setActiveSurface('chat'); setTimeout(() => void handleSend(firstPrompt, []), 50) }
           }}
+          onDismiss={() => setShowCitizenOnboarding(false)}
         />
       )}
       {showOrgOnboarding && !showCitizenOnboarding && !showSetup && !providerSetupOpen && (
         <OrgOnboardingWizard
           onComplete={() => setShowOrgOnboarding(false)}
+          onDismiss={() => setShowOrgOnboarding(false)}
         />
       )}
       <main className="flex h-screen overflow-hidden bg-[var(--color-background-tertiary)] text-[var(--color-text-primary)]">
