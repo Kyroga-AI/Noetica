@@ -23,6 +23,7 @@ export type ActiveSurface =
   | 'dispatch'
   | 'routines'
   | 'actions'
+  | 'academy'
   | 'govern'
   | 'tune'
   | 'holographme'

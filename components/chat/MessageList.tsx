@@ -92,6 +92,16 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
         <p className="-mt-3 text-[13px] text-[var(--color-text-tertiary)]">Local-first · your data never leaves this device</p>
         {onQuickPrompt && (
           <div className="flex flex-wrap items-center justify-center gap-2">
+            {/* Learn — the door to the Academy (education moat), first-class on the home screen. */}
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent('noetica:navigate', { detail: 'academy' }))}
+              className="flex items-center gap-1.5 rounded-full border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3.5 py-1.5 text-[13px] text-[var(--color-text-secondary)] transition hover:border-[var(--color-border-secondary)] hover:text-[var(--color-text-primary)]"
+            >
+              <span style={{ color: 'var(--color-accent)' }}>
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 2.5 1.5 5.5 8 8.5l6.5-3L8 2.5Z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/><path d="M4.5 7v3.2c0 .6 1.6 1.6 3.5 1.6s3.5-1 3.5-1.6V7M14.5 5.5v3.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </span>
+              Learn
+            </button>
             {quickActions.map((a) => (
               <button
                 key={a.label}

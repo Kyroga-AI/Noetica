@@ -136,6 +136,7 @@ export const NAV_SURFACES: NavSurface[] = [
   { id: 'terminal',   label: 'Terminal',    center: 'workstation', tier: 'secondary', maturity: 'beta' }, // prophet-cli / sourceosctl operator console — LIVE surface
 
   // ── Data & DataOps — search (local lampstand vs platform sherlock), enrichment, graph ──
+  { id: 'academy',    label: 'Academy',     center: 'data', tier: 'primary',   maturity: 'beta' }, // the Alexandrian learning surface: mastery path + SRS practice + AI tutor
   { id: 'library',    label: 'Library',     center: 'data', tier: 'primary',   maturity: 'live' },
   { id: 'artifacts',  label: 'Artifacts',   center: 'data', tier: 'primary',   maturity: 'live' },
   { id: 'workspace',  label: 'Project Files', center: 'data', tier: 'secondary', maturity: 'live' },

@@ -24,14 +24,6 @@ type SteeringPanelProps = {
   onMaxTokensChange: (v: number | undefined) => void
 }
 
-const inspectors = [
-  { label: 'Steering', detail: 'SAE / local / blackbox capability state' },
-  { label: 'Benchmark', detail: 'Task family, model family, outcome scoring' },
-  { label: 'Governance', detail: 'Policy admission, memory scope, grants' },
-  { label: 'Evidence', detail: 'Request hash, replay ref, provenance' },
-  { label: 'Outcome', detail: 'Latency, route, task result, comparison' }
-]
-
 export function SteeringPanel({ model, steering, thinkingBudget, temperature, maxTokens, workspaceMode, riskReadout, onChange, onThinkingBudgetChange, onTemperatureChange, onMaxTokensChange }: SteeringPanelProps) {
   const enabled = Boolean(steering)
   const canConfigureSteering = model.steering === 'full'
@@ -54,15 +46,7 @@ export function SteeringPanel({ model, steering, thinkingBudget, temperature, ma
     <aside className="hidden min-h-0 overflow-y-auto border-l border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 lg:block">
       <div className="space-y-3">
         <section className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 shadow-sm">
-          <div className="text-xs font-semibold text-[#1d4ed8]">Inspector</div>
-          <h2 className="mt-2 text-lg font-semibold text-[var(--color-text-primary)]">Noetica Workbench</h2>
-          <p className="mt-2 text-sm leading-6 text-[var(--color-text-secondary)]">
-            Current mode: <span className="font-semibold text-[var(--color-text-primary)]">{workspaceMode}</span>. Noetica extends the chat workspace with steering, benchmarks, governance, evidence, and model-family outcomes.
-          </p>
-        </section>
-
-        <section className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 shadow-sm">
-          <div className="text-xs font-semibold text-[#1d4ed8]">Model</div>
+          <div className="text-xs font-semibold text-[var(--color-accent)]">Model</div>
           <div className="mt-3 rounded-xl border border-[#bfdbfe] bg-[#eff6ff] p-3 text-xs leading-5 text-[var(--color-text-secondary)]">
             Active model: <span className="font-semibold text-[var(--color-text-primary)]">{model.label}</span>
             <br />
@@ -71,18 +55,6 @@ export function SteeringPanel({ model, steering, thinkingBudget, temperature, ma
             SAE source: <span className="font-semibold text-[var(--color-text-primary)]">{model.sae_source ?? 'none'}</span>
           </div>
           <CapabilityNotice model={model} />
-        </section>
-
-        <section className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-4 shadow-sm">
-          <div className="text-xs font-semibold text-[#1d4ed8]">Workspace depth</div>
-          <div className="mt-3 space-y-2">
-            {inspectors.map((item) => (
-              <div key={item.label} className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-3">
-                <div className="text-sm font-semibold text-[var(--color-text-primary)]">{item.label}</div>
-                <p className="mt-1 text-xs leading-5 text-[var(--color-text-secondary)]">{item.detail}</p>
-              </div>
-            ))}
-          </div>
         </section>
 
         {supportsThinking && (
