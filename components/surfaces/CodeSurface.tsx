@@ -21,7 +21,7 @@ function TrustBadge({ tier }: { tier: string }) {
     untrusted: 'bg-[#fef2f2] text-[#dc2626]',
   }
   return (
-    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${styles[tier] ?? styles.external}`}>
+    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ${styles[tier] ?? styles.external}`}>
       {tier}
     </span>
   )
@@ -168,7 +168,7 @@ function GiteaDetail({
           <div>
             <div className="flex items-center gap-2">
               <span className="text-lg font-semibold text-[var(--color-text-primary)]">Gitea Sovereign</span>
-              <span className="rounded-full bg-[#1d4ed8] px-2 py-0.5 text-[10px] font-semibold text-white">Default forge</span>
+              <span className="rounded-full bg-[#1d4ed8] px-2 py-0.5 text-[11px] font-semibold text-white">Default forge</span>
               <TrustBadge tier="native" />
             </div>
             <div className="text-xs text-[var(--color-text-secondary)]">Native authority — first-class source-control substrate</div>
@@ -251,15 +251,15 @@ function GiteaDetail({
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-semibold text-[var(--color-text-primary)]">{repo.full_name}</span>
-                        {repo.private && <span className="rounded-full border border-[var(--color-border-secondary)] px-1.5 py-0.5 text-[9px] font-medium text-[var(--color-text-tertiary)]">private</span>}
-                        {repo.language && <span className="text-[10px] text-[var(--color-text-tertiary)]">{repo.language}</span>}
+                        {repo.private && <span className="rounded-full border border-[var(--color-border-secondary)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--color-text-tertiary)]">private</span>}
+                        {repo.language && <span className="text-[11px] text-[var(--color-text-tertiary)]">{repo.language}</span>}
                       </div>
                       {repo.description && <div className="mt-0.5 truncate text-[11px] text-[var(--color-text-secondary)]">{repo.description}</div>}
                     </div>
-                    {repo.stars_count > 0 && <span className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">★ {repo.stars_count}</span>}
-                    {ingestState[repo.id] && <span className="shrink-0 max-w-[110px] truncate text-[9px] text-[var(--color-text-tertiary)]" title={ingestState[repo.id]}>{ingestState[repo.id]}</span>}
+                    {repo.stars_count > 0 && <span className="shrink-0 text-[11px] text-[var(--color-text-tertiary)]">★ {repo.stars_count}</span>}
+                    {ingestState[repo.id] && <span className="shrink-0 max-w-[110px] truncate text-[11px] text-[var(--color-text-tertiary)]" title={ingestState[repo.id]}>{ingestState[repo.id]}</span>}
                     <button onClick={() => void ingestGitea(repo)} title="Suck this repo into the knowledge base as source-of-truth"
-                      className="shrink-0 rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2 py-1 text-[10px] font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe]">⊕ Ingest to KB</button>
+                      className="shrink-0 rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2 py-1 text-[11px] font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe]">⊕ Ingest to KB</button>
                   </li>
                 ))}
               </ul>
@@ -487,7 +487,7 @@ function GitHubDetail({ onBack }: { onBack: () => void }) {
             <div className="flex items-center gap-2">
               <span className="text-lg font-semibold text-[var(--color-text-primary)]">GitHub Connector</span>
               <TrustBadge tier="external" />
-              {isConnected && <span className="rounded-full bg-[var(--color-accent-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-accent)]">Connected</span>}
+              {isConnected && <span className="rounded-full bg-[var(--color-accent-bg)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-accent)]">Connected</span>}
             </div>
             <div className="text-xs text-[var(--color-text-secondary)]">
               {isConnected && github?.userInfo?.login
@@ -546,39 +546,39 @@ function GitHubDetail({ onBack }: { onBack: () => void }) {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="text-xs font-semibold text-[var(--color-text-primary)]">{repo.full_name}</span>
-                        {repo.private && <span className="rounded-full border border-[var(--color-border-secondary)] px-1.5 py-0.5 text-[9px] font-medium text-[var(--color-text-tertiary)]">private</span>}
-                        {repo.language && <span className="text-[10px] text-[var(--color-text-tertiary)]">{repo.language}</span>}
+                        {repo.private && <span className="rounded-full border border-[var(--color-border-secondary)] px-1.5 py-0.5 text-[11px] font-medium text-[var(--color-text-tertiary)]">private</span>}
+                        {repo.language && <span className="text-[11px] text-[var(--color-text-tertiary)]">{repo.language}</span>}
                       </div>
                       {repo.description && (
                         <div className="mt-0.5 truncate text-[11px] text-[var(--color-text-secondary)]">{repo.description}</div>
                       )}
-                      <div className="mt-1 flex items-center gap-3 text-[10px] text-[var(--color-text-tertiary)]">
+                      <div className="mt-1 flex items-center gap-3 text-[11px] text-[var(--color-text-tertiary)]">
                         <span>Updated {fmtRelative(repo.updated_at)}</span>
                         {repo.stargazers_count > 0 && <span>★ {repo.stargazers_count}</span>}
                         {repo.open_issues_count > 0 && <span>{repo.open_issues_count} issues</span>}
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-1.5">
-                      {ingestMsg[repo.id] && <span className="text-[9px] text-[var(--color-text-tertiary)] max-w-[120px] truncate" title={ingestMsg[repo.id]}>{ingestMsg[repo.id]}</span>}
+                      {ingestMsg[repo.id] && <span className="text-[11px] text-[var(--color-text-tertiary)] max-w-[120px] truncate" title={ingestMsg[repo.id]}>{ingestMsg[repo.id]}</span>}
                       <button
                         onClick={() => void ingestRepo(repo)}
                         disabled={actionStatus[`${repo.id}:ingest`] === 'running'}
                         title="Pull this repo's files into the knowledge base as source-of-truth"
-                        className={`rounded-lg border px-2 py-1 text-[10px] font-semibold transition ${actionStatus[`${repo.id}:ingest`] === 'done' ? 'border-[#bbf7d0] bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : actionStatus[`${repo.id}:ingest`] === 'error' ? 'border-[#fecaca] bg-[#fef2f2] text-[#dc2626]' : 'border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8] hover:bg-[#dbeafe]'}`}
+                        className={`rounded-lg border px-2 py-1 text-[11px] font-semibold transition ${actionStatus[`${repo.id}:ingest`] === 'done' ? 'border-[#bbf7d0] bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : actionStatus[`${repo.id}:ingest`] === 'error' ? 'border-[#fecaca] bg-[#fef2f2] text-[#dc2626]' : 'border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8] hover:bg-[#dbeafe]'}`}
                       >
                         {actionStatus[`${repo.id}:ingest`] === 'running' ? 'Ingesting…' : actionStatus[`${repo.id}:ingest`] === 'done' ? 'In KB ✓' : actionStatus[`${repo.id}:ingest`] === 'error' ? 'Failed' : '⊕ Ingest to KB'}
                       </button>
                       <button
                         onClick={() => void handleImport(repo)}
                         disabled={actionStatus[`${repo.id}:import`] === 'running'}
-                        className={`rounded-lg border px-2 py-1 text-[10px] font-medium transition ${actionStatus[`${repo.id}:import`] === 'done' ? 'border-[#bbf7d0] bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : actionStatus[`${repo.id}:import`] === 'error' ? 'border-[#fecaca] bg-[#fef2f2] text-[#dc2626]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] hover:border-[#bfdbfe] hover:text-[#1d4ed8]'}`}
+                        className={`rounded-lg border px-2 py-1 text-[11px] font-medium transition ${actionStatus[`${repo.id}:import`] === 'done' ? 'border-[#bbf7d0] bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : actionStatus[`${repo.id}:import`] === 'error' ? 'border-[#fecaca] bg-[#fef2f2] text-[#dc2626]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] hover:border-[#bfdbfe] hover:text-[#1d4ed8]'}`}
                       >
                         {actionStatus[`${repo.id}:import`] === 'running' ? '…' : actionStatus[`${repo.id}:import`] === 'done' ? 'Imported' : actionStatus[`${repo.id}:import`] === 'error' ? 'Failed' : 'Import'}
                       </button>
                       <button
                         onClick={() => void handleMirror(repo)}
                         disabled={actionStatus[`${repo.id}:mirror`] === 'running'}
-                        className={`rounded-lg border px-2 py-1 text-[10px] font-medium transition ${actionStatus[`${repo.id}:mirror`] === 'done' ? 'border-[#bbf7d0] bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : actionStatus[`${repo.id}:mirror`] === 'error' ? 'border-[#fecaca] bg-[#fef2f2] text-[#dc2626]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] hover:border-[#bfdbfe] hover:text-[#1d4ed8]'}`}
+                        className={`rounded-lg border px-2 py-1 text-[11px] font-medium transition ${actionStatus[`${repo.id}:mirror`] === 'done' ? 'border-[#bbf7d0] bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : actionStatus[`${repo.id}:mirror`] === 'error' ? 'border-[#fecaca] bg-[#fef2f2] text-[#dc2626]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] hover:border-[#bfdbfe] hover:text-[#1d4ed8]'}`}
                       >
                         {actionStatus[`${repo.id}:mirror`] === 'running' ? '…' : actionStatus[`${repo.id}:mirror`] === 'done' ? 'Mirroring' : actionStatus[`${repo.id}:mirror`] === 'error' ? 'Failed' : 'Mirror'}
                       </button>
@@ -605,7 +605,7 @@ function GitHubDetail({ onBack }: { onBack: () => void }) {
               </button>
             )}
           </div>
-          {!isConnected && <p className="mt-2 text-[10px] text-[var(--color-text-tertiary)]">Connect GitHub in Settings → Connections to enable these actions.</p>}
+          {!isConnected && <p className="mt-2 text-[11px] text-[var(--color-text-tertiary)]">Connect GitHub in Settings → Connections to enable these actions.</p>}
         </div>
       </div>
     </div>
@@ -629,7 +629,7 @@ function ForgeCard({
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-sm font-semibold text-[var(--color-text-primary)]">{meta.label}</span>
-          {isDefault && <span className="rounded-full bg-[#1d4ed8] px-2 py-0.5 text-[10px] font-semibold text-white">Default</span>}
+          {isDefault && <span className="rounded-full bg-[#1d4ed8] px-2 py-0.5 text-[11px] font-semibold text-white">Default</span>}
           <TrustBadge tier={meta.trustTier} />
         </div>
         <div className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{meta.authority}</div>

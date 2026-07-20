@@ -16,7 +16,7 @@ import { amUrl } from '@/lib/tauri/bridge'
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="border-b border-[var(--color-border-tertiary)] px-4 py-3">
-      <h4 className="mb-2.5 text-[10px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)]">{title}</h4>
+      <h4 className="mb-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--color-text-tertiary)]">{title}</h4>
       {children}
     </div>
   )
@@ -80,12 +80,12 @@ function ExportMenu({ message }: { message: ChatMessage }) {
           <button onClick={() => void exportProof()}
             className="flex w-full flex-col items-start px-3 py-1.5 text-left transition hover:bg-[var(--color-background-secondary)]">
             <span className="text-[12px] font-medium text-[var(--color-text-primary)]">Proof</span>
-            <span className="text-[10px] text-[var(--color-text-tertiary)]">sealed, offline-verifiable answer</span>
+            <span className="text-[11px] text-[var(--color-text-tertiary)]">sealed, offline-verifiable answer</span>
           </button>
           <button onClick={exportEvidence}
             className="flex w-full flex-col items-start border-t border-[var(--color-border-tertiary)] px-3 py-1.5 text-left transition hover:bg-[var(--color-background-secondary)]">
             <span className="text-[12px] font-medium text-[var(--color-text-primary)]">Evidence</span>
-            <span className="text-[10px] text-[var(--color-text-tertiary)]">governance trace for auditors</span>
+            <span className="text-[11px] text-[var(--color-text-tertiary)]">governance trace for auditors</span>
           </button>
         </div>
       )}
@@ -220,7 +220,7 @@ export function AnswerInspectorPanel({ message }: { message: ChatMessage | null 
           {message.discipline.barriers && message.discipline.barriers.length > 0 && (
             <div className="mt-1.5 flex flex-wrap gap-1">
               {message.discipline.barriers.map((b, i) => (
-                <span key={i} className="rounded-full border border-[#fca5a5] bg-[#fef2f2] px-1.5 py-0.5 text-[9px] text-[#b91c1c]">{b}</span>
+                <span key={i} className="rounded-full border border-[#fca5a5] bg-[#fef2f2] px-1.5 py-0.5 text-[11px] text-[#b91c1c]">{b}</span>
               ))}
             </div>
           )}

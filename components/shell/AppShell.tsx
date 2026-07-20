@@ -2085,7 +2085,7 @@ function PlaceholderSurface({ title, description, badge }: { title: string; desc
       <div>
         <div className="flex items-center justify-center gap-2">
           <h2 className="text-base font-semibold text-[var(--color-text-primary)]">{title}</h2>
-          {badge && <span className="rounded-md bg-[var(--color-background-secondary)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-secondary)]">{badge}</span>}
+          {badge && <span className="rounded-md bg-[var(--color-background-secondary)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-text-secondary)]">{badge}</span>}
         </div>
         <p className="mt-1 max-w-sm text-sm text-[var(--color-text-secondary)]">{description}</p>
       </div>

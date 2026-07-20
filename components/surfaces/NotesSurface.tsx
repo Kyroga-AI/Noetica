@@ -44,18 +44,18 @@ function NoteListItem({ note, active, onClick }: { note: Note; active: boolean; 
       }`}
     >
       <div className="flex items-center gap-1.5">
-        {note.pinned && <span className="text-[10px] text-[#f59e0b]">★</span>}
+        {note.pinned && <span className="text-[11px] text-[#f59e0b]">★</span>}
         <span className={`truncate text-sm font-medium ${active ? 'text-[#1d4ed8]' : 'text-[var(--color-text-primary)]'}`}>
           {note.title || 'Untitled'}
         </span>
         {note.messages.length > 0 && (
-          <span className="ml-auto shrink-0 rounded-full bg-[#eff6ff] px-1.5 text-[10px] font-semibold text-[#1d4ed8]">
+          <span className="ml-auto shrink-0 rounded-full bg-[#eff6ff] px-1.5 text-[11px] font-semibold text-[#1d4ed8]">
             {note.messages.length}
           </span>
         )}
       </div>
       <p className="truncate text-xs text-[var(--color-text-tertiary)]">{preview || 'Empty note'}</p>
-      <p className="text-[10px] text-[#cbd5e1]">{timeAgo(note.updatedAt)}</p>
+      <p className="text-[11px] text-[#cbd5e1]">{timeAgo(note.updatedAt)}</p>
     </button>
   )
 }
@@ -280,8 +280,8 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
       {linkSuggestions.length > 0 && !preview && (
         <div className="mt-4 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2.5">
           <div className="mb-2 flex items-center gap-1.5">
-            <span className="text-[10px] text-[var(--color-accent)]">⬡</span>
-            <span className="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Related in your graph</span>
+            <span className="text-[11px] text-[var(--color-accent)]">⬡</span>
+            <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Related in your graph</span>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {linkSuggestions.map((s) => (
@@ -291,13 +291,13 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
                 title={`Insert [[${s.label}]] — ${(s.sim * 100).toFixed(0)}% similarity`}
                 className="flex items-center gap-1 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-0.5 text-xs text-[var(--color-text-secondary)] transition hover:border-[#1d4ed8] hover:bg-[#eff6ff] hover:text-[#1d4ed8]"
               >
-                <span className="font-mono text-[9px] text-[var(--color-text-tertiary)]">{(s.sim * 100).toFixed(0)}%</span>
+                <span className="font-mono text-[11px] text-[var(--color-text-tertiary)]">{(s.sim * 100).toFixed(0)}%</span>
                 {s.label}
-                <span className="text-[10px] text-[var(--color-text-tertiary)]">+</span>
+                <span className="text-[11px] text-[var(--color-text-tertiary)]">+</span>
               </button>
             ))}
           </div>
-          <div className="mt-1.5 text-[9px] text-[var(--color-text-tertiary)]">Click to insert as backlink · [[label]] syntax</div>
+          <div className="mt-1.5 text-[11px] text-[var(--color-text-tertiary)]">Click to insert as backlink · [[label]] syntax</div>
         </div>
       )}
     </div>
@@ -440,7 +440,7 @@ function NoteChat({ note, onAppendMessages }: {
           <p className="text-[11px] text-[var(--color-text-tertiary)]">Context: this note</p>
         </div>
         {messages.length > 0 && (
-          <span className="rounded-full bg-[#eff6ff] px-2 py-0.5 text-[10px] font-semibold text-[#1d4ed8]">
+          <span className="rounded-full bg-[#eff6ff] px-2 py-0.5 text-[11px] font-semibold text-[#1d4ed8]">
             {messages.length}
           </span>
         )}
@@ -457,7 +457,7 @@ function NoteChat({ note, onAppendMessages }: {
           messages.map((m) => (
             <div key={m.id} className={`group flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {m.role === 'assistant' && (
-                <div className="mr-2 mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#0f172a] text-[10px] font-bold text-white">N</div>
+                <div className="mr-2 mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#0f172a] text-[11px] font-bold text-white">N</div>
               )}
               <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-5 ${
                 m.role === 'user'
@@ -534,7 +534,7 @@ function NoteChat({ note, onAppendMessages }: {
             </button>
           )}
         </div>
-        <p className="mt-1.5 text-center text-[10px] text-[#cbd5e1]">⌘ + Enter</p>
+        <p className="mt-1.5 text-center text-[11px] text-[#cbd5e1]">⌘ + Enter</p>
       </div>
     </div>
   )
@@ -723,7 +723,7 @@ export function NotesSurface() {
                   title={note.pinned ? 'Unpin' : 'Pin'}
                   className="flex h-5 w-5 items-center justify-center rounded text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-primary)] hover:text-[#f59e0b]"
                 >
-                  <span className="text-[10px]">★</span>
+                  <span className="text-[11px]">★</span>
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(note.id) }}
@@ -764,12 +764,12 @@ export function NotesSurface() {
               onClick={() => setNotionExpanded((v) => !v)}
               className="flex items-center gap-1.5 px-3 py-2 text-left"
             >
-              <span className="text-[9px] text-[var(--color-text-tertiary)] transition-transform" style={{ display: 'inline-block', transform: notionExpanded ? 'rotate(90deg)' : 'none' }}>▶</span>
-              <span className="flex h-4 w-4 items-center justify-center rounded bg-[#000] text-[8px] font-bold text-white">N</span>
-              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]">Notion</span>
-              {notionLoading && <span className="ml-auto text-[10px] text-[var(--color-text-tertiary)]">…</span>}
+              <span className="text-[11px] text-[var(--color-text-tertiary)] transition-transform" style={{ display: 'inline-block', transform: notionExpanded ? 'rotate(90deg)' : 'none' }}>▶</span>
+              <span className="flex h-4 w-4 items-center justify-center rounded bg-[#000] text-[11px] font-bold text-white">N</span>
+              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]">Notion</span>
+              {notionLoading && <span className="ml-auto text-[11px] text-[var(--color-text-tertiary)]">…</span>}
               {!notionLoading && notionPages.length > 0 && (
-                <span className="ml-auto text-[10px] text-[var(--color-text-tertiary)]">{notionPages.length}</span>
+                <span className="ml-auto text-[11px] text-[var(--color-text-tertiary)]">{notionPages.length}</span>
               )}
             </button>
             {notionExpanded && (
@@ -788,7 +788,7 @@ export function NotesSurface() {
                       <span className="mt-0.5 shrink-0 text-sm">{page.icon ?? '📄'}</span>
                       <div className="min-w-0">
                         <p className={`truncate text-xs font-medium ${active ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-primary)]'}`}>{page.title}</p>
-                        <p className="text-[10px] text-[#cbd5e1]">{timeAgo(page.lastEdited)}</p>
+                        <p className="text-[11px] text-[#cbd5e1]">{timeAgo(page.lastEdited)}</p>
                       </div>
                     </button>
                   )
@@ -800,7 +800,7 @@ export function NotesSurface() {
 
         {/* Footer count */}
         {hydrated && notes.length > 0 && !notionToken && (
-          <div className="border-t border-[var(--color-border-secondary)] px-3 py-2 text-[10px] text-[var(--color-text-tertiary)]">
+          <div className="border-t border-[var(--color-border-secondary)] px-3 py-2 text-[11px] text-[var(--color-text-tertiary)]">
             {notes.length} note{notes.length !== 1 ? 's' : ''}
           </div>
         )}

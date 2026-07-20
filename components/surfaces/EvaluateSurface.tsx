@@ -172,7 +172,7 @@ function ScoreBar({ score }: { score: number }) {
       <div className="h-1.5 w-16 overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
         <div className="h-full rounded-full transition-all" style={{ width: `${score * 100}%`, background: color }} />
       </div>
-      <span className="text-[10px] font-mono text-[var(--color-text-tertiary)]">{score.toFixed(2)}</span>
+      <span className="text-[11px] font-mono text-[var(--color-text-tertiary)]">{score.toFixed(2)}</span>
     </div>
   )
 }
@@ -181,7 +181,7 @@ function ScoreBar({ score }: { score: number }) {
 
 interface QMetrics { total: number; solveRate: number; avgAttempts: number; memoryUseRate: number; series: { window: string; rate: number; n: number }[] }
 function Stat({ label, value }: { label: string; value: string }) {
-  return <div className="text-right"><div className="text-base font-bold text-[var(--color-text-primary)]">{value}</div><div className="text-[10px] text-[var(--color-text-tertiary)]">{label}</div></div>
+  return <div className="text-right"><div className="text-base font-bold text-[var(--color-text-primary)]">{value}</div><div className="text-[11px] text-[var(--color-text-tertiary)]">{label}</div></div>
 }
 // The compounding curve — solve-rate over time as verified solutions accumulate and get reused.
 // Makes the moat visible: a brain that demonstrably improves with use.
@@ -211,7 +211,7 @@ function CompoundingCurve() {
         {m.series.map((s, i) => (
           <div key={i} className="flex flex-1 flex-col items-center gap-1" title={`${s.window}: ${Math.round(s.rate * 100)}% (${s.n} solves)`}>
             <div className="w-full rounded-t bg-[var(--color-accent)]" style={{ height: `${Math.max(4, (s.rate / max) * 100)}%` }} />
-            <span className="text-[8px] text-[var(--color-text-tertiary)]">{s.window}</span>
+            <span className="text-[11px] text-[var(--color-text-tertiary)]">{s.window}</span>
           </div>
         ))}
       </div>
@@ -433,7 +433,7 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
               </select>
             )}
             {judgeEnabled && (
-              <span className="text-[10px] text-[var(--color-text-tertiary)]">
+              <span className="text-[11px] text-[var(--color-text-tertiary)]">
                 Scores each run against a rubric after completion. Adds extra API calls.
               </span>
             )}
@@ -506,12 +506,12 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
                                 className={`flex flex-col gap-1 rounded-lg px-2 py-1.5 text-left transition ${isActive ? 'bg-[rgba(29,78,216,0.10)]' : 'hover:bg-[var(--color-background-secondary)]'}`}
                               >
                                 {r.judgeStatus === 'scoring' && (
-                                  <span className="flex items-center gap-1.5 text-[10px] text-[#7c3aed]">
+                                  <span className="flex items-center gap-1.5 text-[11px] text-[#7c3aed]">
                                     <span className="h-1 w-1 rounded-full bg-[#7c3aed] animate-pulse" /> judging…
                                   </span>
                                 )}
                                 {displayScore !== undefined && <ScoreBar score={displayScore} />}
-                                <span className="text-[10px] text-[var(--color-text-tertiary)]">
+                                <span className="text-[11px] text-[var(--color-text-tertiary)]">
                                   {displayLabel ?? (r.judgeStatus === 'pending' ? 'awaiting judge' : '—')} · {r.latencyMs}ms
                                 </span>
                               </button>
@@ -539,11 +539,11 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
             {activeCellResult.judgeReasoning && (
               <div className="mb-2 rounded-lg border border-[#ddd6fe] bg-[#faf5ff] px-3 py-2">
                 <div className="mb-1 flex items-center gap-2">
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-[#7c3aed]">Judge verdict</span>
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-[#7c3aed]">Judge verdict</span>
                   {activeCellResult.judgeScore !== undefined && (
                     <ScoreBar score={activeCellResult.judgeScore} />
                   )}
-                  <span className="text-[10px] text-[#7c3aed]">{activeCellResult.judgeLabel}</span>
+                  <span className="text-[11px] text-[#7c3aed]">{activeCellResult.judgeLabel}</span>
                 </div>
                 <p className="text-xs text-[#5b21b6]">{activeCellResult.judgeReasoning}</p>
               </div>

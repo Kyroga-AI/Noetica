@@ -20,7 +20,7 @@ function SourceColumn({ label, tint, r }: { label: string; tint: string; r?: Sou
     <div className="min-w-0 flex-1 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]">
       <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-4 py-2.5">
         <span className="text-xs font-semibold uppercase tracking-[0.14em]" style={{ color: tint }}>{label}</span>
-        {r && <span className="text-[10px] text-[var(--color-text-tertiary)]">{r.configured ? (r.ok ? `${r.hits.length} hits` : (r.error ?? 'unreachable')) : 'not configured'}</span>}
+        {r && <span className="text-[11px] text-[var(--color-text-tertiary)]">{r.configured ? (r.ok ? `${r.hits.length} hits` : (r.error ?? 'unreachable')) : 'not configured'}</span>}
       </div>
       <div className="max-h-[52vh] overflow-y-auto p-2">
         {!r ? <div className="p-3 text-[11px] text-[var(--color-text-tertiary)]">—</div>
@@ -31,10 +31,10 @@ function SourceColumn({ label, tint, r }: { label: string; tint: string; r?: Sou
             <div key={i} className="rounded-lg px-2.5 py-2 transition hover:bg-[var(--color-background-secondary)]">
               <div className="flex items-center gap-2">
                 <span className="truncate text-xs font-medium text-[var(--color-text-primary)]">{h.title || h.ref}</span>
-                {h.score > 0 && <span className="shrink-0 text-[9px] text-[var(--color-text-tertiary)]">{h.score.toFixed(2)}</span>}
+                {h.score > 0 && <span className="shrink-0 text-[11px] text-[var(--color-text-tertiary)]">{h.score.toFixed(2)}</span>}
               </div>
               {h.snippet && <div className="mt-0.5 line-clamp-2 text-[11px] text-[var(--color-text-secondary)]">{h.snippet}</div>}
-              {h.ref && <div className="mt-0.5 truncate text-[9px] text-[var(--color-text-tertiary)]">{h.ref}</div>}
+              {h.ref && <div className="mt-0.5 truncate text-[11px] text-[var(--color-text-tertiary)]">{h.ref}</div>}
             </div>
           ))}
       </div>

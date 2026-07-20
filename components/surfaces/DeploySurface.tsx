@@ -23,7 +23,7 @@ type Status = {
 
 function Chip({ ok, label }: { ok: boolean; label: string }) {
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${ok ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[#fef2f2] text-[#dc2626]'}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium ${ok ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[#fef2f2] text-[#dc2626]'}`}>
       <span className={`h-1.5 w-1.5 rounded-full ${ok ? 'bg-[var(--color-accent)]' : 'bg-[#dc2626]'}`} />
       {label}
     </span>
@@ -90,7 +90,7 @@ export function DeploySurface() {
         <div>
           <div className="flex items-center gap-2">
             <span className="text-lg font-semibold text-[var(--color-text-primary)]">Deploy</span>
-            <span className="rounded-full bg-[#eff6ff] px-2 py-0.5 text-[10px] font-semibold text-[#1d4ed8]">Local PaaS · SourceOS Continuum</span>
+            <span className="rounded-full bg-[#eff6ff] px-2 py-0.5 text-[11px] font-semibold text-[#1d4ed8]">Local PaaS · SourceOS Continuum</span>
           </div>
           <div className="text-xs text-[var(--color-text-secondary)]">Bring up the local control plane (kind + ingress + Argo + Cloud Shell + porter-shim) and run it on-device.</div>
         </div>
@@ -99,7 +99,7 @@ export function DeploySurface() {
         <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] shadow-sm">
           <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-5 py-3">
             <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Control plane status</div>
-            <button onClick={() => void loadStatus()} className="rounded-lg border border-[var(--color-border-secondary)] px-2 py-1 text-[10px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]">Refresh</button>
+            <button onClick={() => void loadStatus()} className="rounded-lg border border-[var(--color-border-secondary)] px-2 py-1 text-[11px] font-medium text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]">Refresh</button>
           </div>
           {statusErr ? (
             <div className="px-5 py-4 text-xs text-[#dc2626]">{statusErr} — is the agent-machine backend running (dev:app)?</div>
@@ -112,9 +112,9 @@ export function DeploySurface() {
                 {rt && <><Chip ok={rt.make} label="make" /><Chip ok={rt.kind} label="kind" /><Chip ok={rt.podman || rt.docker} label={rt.podman ? 'podman' : rt.docker ? 'docker' : 'runtime'} /><Chip ok={rt.go} label="go" /><Chip ok={rt.kubectl} label="kubectl" /></>}
                 <Chip ok={status.clusterUp} label={status.clusterUp ? `cluster up (${status.clusters.join(', ')})` : 'no cluster'} />
               </div>
-              <div className="truncate text-[10px] text-[var(--color-text-tertiary)]" title={status.continuumPath}>path: {status.continuumPath}</div>
+              <div className="truncate text-[11px] text-[var(--color-text-tertiary)]" title={status.continuumPath}>path: {status.continuumPath}</div>
               {status.notes.length > 0 && (
-                <ul className="space-y-0.5 rounded-lg bg-[var(--color-background-secondary)] px-3 py-2 text-[10px] text-[var(--color-text-secondary)]">
+                <ul className="space-y-0.5 rounded-lg bg-[var(--color-background-secondary)] px-3 py-2 text-[11px] text-[var(--color-text-secondary)]">
                   {status.notes.map((n, i) => <li key={i}>• {n}</li>)}
                 </ul>
               )}
@@ -144,8 +144,8 @@ export function DeploySurface() {
         {(log.length > 0 || running) && (
           <div className="overflow-hidden rounded-2xl border border-[var(--color-border-secondary)] bg-[#0b1020]">
             <div className="flex items-center justify-between border-b border-white/10 px-4 py-2">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/60">Console{running ? ` · ${running}` : ''}</span>
-              {exitCode != null && <span className={`text-[10px] font-semibold ${exitCode === 0 ? 'text-[#4ade80]' : 'text-[#f87171]'}`}>exit {exitCode}</span>}
+              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/60">Console{running ? ` · ${running}` : ''}</span>
+              {exitCode != null && <span className={`text-[11px] font-semibold ${exitCode === 0 ? 'text-[#4ade80]' : 'text-[#f87171]'}`}>exit {exitCode}</span>}
             </div>
             <div ref={logRef} className="max-h-80 overflow-y-auto px-4 py-3 font-mono text-[11px] leading-relaxed text-white/80">
               {log.map((l, i) => <div key={i} className={l.startsWith('✗') ? 'text-[#f87171]' : l.startsWith('⚠') ? 'text-[#fbbf24]' : ''}>{l}</div>)}

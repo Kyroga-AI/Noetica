@@ -96,7 +96,7 @@ export function LibrarySurface() {
     <div className="flex h-full flex-col overflow-y-auto px-8 py-6">
       <div className="mb-1 flex items-center gap-3">
         <div className="text-lg font-semibold text-[var(--color-text-primary)]">Library</div>
-        <button onClick={load} className="rounded-lg border border-[var(--color-border-secondary)] px-2 py-0.5 text-[10px] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)]">refresh</button>
+        <button onClick={load} className="rounded-lg border border-[var(--color-border-secondary)] px-2 py-0.5 text-[11px] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)]">refresh</button>
       </div>
       <p className="mb-5 max-w-2xl text-xs text-[var(--color-text-secondary)]">Everything captured into the knowledge graph — your collections, the documents in each, and how many chunks and entities they contributed. Clean up what you don&apos;t need; system scopes are protected.</p>
 
@@ -106,7 +106,7 @@ export function LibrarySurface() {
           {[['Collections', t.collections], ['Documents', t.documents], ['Chunks', t.chunks], ['Entities', t.entities]].map(([k, v]) => (
             <div key={k as string} className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3">
               <div className="text-xl font-semibold text-[var(--color-text-primary)]">{(v as number).toLocaleString()}</div>
-              <div className="text-[10px] uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">{k}</div>
+              <div className="text-[11px] uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">{k}</div>
             </div>
           ))}
         </div>
@@ -128,7 +128,7 @@ export function LibrarySurface() {
             {showHeader && (
               <div className="mb-2 mt-4 flex items-baseline gap-2 first:mt-0">
                 <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-secondary)]">{SECTION_LABEL[section]}</div>
-                <div className="text-[10px] text-[var(--color-text-tertiary)]">{SECTION_HINT[section]}</div>
+                <div className="text-[11px] text-[var(--color-text-tertiary)]">{SECTION_HINT[section]}</div>
               </div>
             )}
             <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]">
@@ -136,12 +136,12 @@ export function LibrarySurface() {
                 <button onClick={() => setOpen((o) => ({ ...o, [g.scope]: !o[g.scope] }))} className="flex min-w-0 flex-1 items-center gap-2 text-left">
                   <span className={`shrink-0 text-[var(--color-text-tertiary)] transition ${isOpen ? 'rotate-90' : ''}`}>▸</span>
                   <span className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{g.name}</span>
-                  <span className={`shrink-0 rounded px-1.5 py-px text-[9px] font-medium ${badge.cls}`}>{badge.label}</span>
-                  {g.source && <span className="truncate text-[10px] text-[var(--color-text-tertiary)]">· {g.source}</span>}
+                  <span className={`shrink-0 rounded px-1.5 py-px text-[11px] font-medium ${badge.cls}`}>{badge.label}</span>
+                  {g.source && <span className="truncate text-[11px] text-[var(--color-text-tertiary)]">· {g.source}</span>}
                 </button>
-                <div className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">{g.docCount} docs · {g.chunkCount} chunks · {g.entityCount} entities</div>
+                <div className="shrink-0 text-[11px] text-[var(--color-text-tertiary)]">{g.docCount} docs · {g.chunkCount} chunks · {g.entityCount} entities</div>
                 {g.kind !== 'system' && g.id && (
-                  <button onClick={() => void remove(g)} disabled={busy === g.scope} className="shrink-0 rounded-lg border border-[#fecaca] px-2 py-0.5 text-[10px] text-[#dc2626] transition hover:bg-[#fef2f2] disabled:opacity-50">{busy === g.scope ? '…' : 'remove'}</button>
+                  <button onClick={() => void remove(g)} disabled={busy === g.scope} className="shrink-0 rounded-lg border border-[#fecaca] px-2 py-0.5 text-[11px] text-[#dc2626] transition hover:bg-[#fef2f2] disabled:opacity-50">{busy === g.scope ? '…' : 'remove'}</button>
                 )}
               </div>
               {isOpen && g.docs.length > 0 && (
@@ -149,7 +149,7 @@ export function LibrarySurface() {
                   {g.docs.map((d) => (
                     <div key={d.docId} className="flex items-center gap-2 py-1 text-[11px]">
                       <span className="min-w-0 flex-1 truncate text-[var(--color-text-secondary)]">{d.name}</span>
-                      <span className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">{d.chunks} chunks{d.entities ? ` · ${d.entities} entities` : ''}</span>
+                      <span className="shrink-0 text-[11px] text-[var(--color-text-tertiary)]">{d.chunks} chunks{d.entities ? ` · ${d.entities} entities` : ''}</span>
                     </div>
                   ))}
                 </div>
@@ -161,7 +161,7 @@ export function LibrarySurface() {
       </div>
 
       {t && t.entities > 0 && (
-        <p className="mt-4 text-[10px] text-[var(--color-text-tertiary)]">Per-document entity counts come from the Document→entity links; the headline total is the deduped graph-wide entity count (the same entity is grounded by many docs).</p>
+        <p className="mt-4 text-[11px] text-[var(--color-text-tertiary)]">Per-document entity counts come from the Document→entity links; the headline total is the deduped graph-wide entity count (the same entity is grounded by many docs).</p>
       )}
 
       {/* Audio overview — generate a host/guest dialogue script from your library */}
@@ -170,7 +170,7 @@ export function LibrarySurface() {
           <div className="mb-3 flex items-center justify-between">
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-primary)]">Audio Overview</div>
-              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Generate a host/guest dialogue script from your knowledge library — like a personalised podcast.</div>
+              <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">Generate a host/guest dialogue script from your knowledge library — like a personalised podcast.</div>
             </div>
             <button
               onClick={() => void generateOverview()}
@@ -185,11 +185,11 @@ export function LibrarySurface() {
             <div className="space-y-2">
               {overview.turns.map((turn, i) => (
                 <div key={i} className={`flex gap-2 rounded-xl px-3 py-2 text-[11px] ${turn.speaker === 'Host' ? 'bg-[var(--color-background-primary)]' : 'bg-[rgba(99,102,241,0.06)]'}`}>
-                  <span className={`shrink-0 w-10 font-semibold text-[10px] pt-px ${turn.speaker === 'Host' ? 'text-[#1d4ed8]' : 'text-[#7c3aed]'}`}>{turn.speaker}</span>
+                  <span className={`shrink-0 w-10 font-semibold text-[11px] pt-px ${turn.speaker === 'Host' ? 'text-[#1d4ed8]' : 'text-[#7c3aed]'}`}>{turn.speaker}</span>
                   <span className="text-[var(--color-text-secondary)] leading-relaxed">{turn.line}</span>
                 </div>
               ))}
-              {overview.synthesized && <p className="pt-1 text-[10px] text-[var(--color-text-tertiary)]">Audio synthesized via TTS.</p>}
+              {overview.synthesized && <p className="pt-1 text-[11px] text-[var(--color-text-tertiary)]">Audio synthesized via TTS.</p>}
             </div>
           )}
         </div>

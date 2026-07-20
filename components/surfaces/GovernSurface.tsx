@@ -710,7 +710,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                   {audit.attested ? 'Audit chain attested' : 'Audit chain — needs attention'}
                 </span>
               </div>
-              <span className="text-[10px] text-[var(--color-text-tertiary)]">{audit.entries} entries · key {audit.fingerprint.slice(0, 8)}</span>
+              <span className="text-[11px] text-[var(--color-text-tertiary)]">{audit.entries} entries · key {audit.fingerprint.slice(0, 8)}</span>
             </div>
             <div className="mt-1.5 text-[11px] text-[var(--color-text-secondary)]">
               {audit.attested
@@ -725,11 +725,11 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
           <div className="mb-2 flex items-center justify-between">
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0891b2]">AI Act compliance</div>
-              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">EU AI Act Art.50 · mandatory Aug 2026 · every response marked + logged on-device</div>
+              <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">EU AI Act Art.50 · mandatory Aug 2026 · every response marked + logged on-device</div>
             </div>
             {complianceLog && (
               <div className="flex items-center gap-2">
-                <span className="rounded-full bg-[rgba(8,145,178,0.10)] px-2.5 py-0.5 text-[10px] font-semibold text-[#0891b2]">{complianceLog.total.toLocaleString()} logged</span>
+                <span className="rounded-full bg-[rgba(8,145,178,0.10)] px-2.5 py-0.5 text-[11px] font-semibold text-[#0891b2]">{complianceLog.total.toLocaleString()} logged</span>
               </div>
             )}
           </div>
@@ -739,9 +739,9 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             <div className="text-[11px] text-[var(--color-text-tertiary)]">No events yet — entries appear here after the first AI-generated response.</div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse text-[10px]">
+              <table className="w-full border-collapse text-[11px]">
                 <thead>
-                  <tr className="text-left text-[9px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                  <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
                     <th className="pb-1.5 pr-3">Time</th>
                     <th className="pb-1.5 pr-3">Model</th>
                     <th className="pb-1.5 pr-3">Digest</th>
@@ -757,14 +757,14 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                       <td className="py-1.5 pr-3 max-w-[140px] truncate font-mono" title={e.model}>{e.model.split('/').pop() ?? e.model}</td>
                       <td className="py-1.5 pr-3 font-mono text-[var(--color-text-tertiary)]" title={e.digest}>{e.digest.slice(0, 12)}</td>
                       <td className="py-1.5">
-                        <span className="rounded-full bg-[rgba(8,145,178,0.10)] px-1.5 py-0.5 text-[9px] font-semibold text-[#0891b2]">{e.complianceStandard}</span>
+                        <span className="rounded-full bg-[rgba(8,145,178,0.10)] px-1.5 py-0.5 text-[11px] font-semibold text-[#0891b2]">{e.complianceStandard}</span>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
               {complianceLog.total > 20 && (
-                <div className="mt-2 text-[10px] text-[var(--color-text-tertiary)]">Showing 20 of {complianceLog.total.toLocaleString()} events</div>
+                <div className="mt-2 text-[11px] text-[var(--color-text-tertiary)]">Showing 20 of {complianceLog.total.toLocaleString()} events</div>
               )}
             </div>
           )}
@@ -776,10 +776,10 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             <div className="mb-3 flex items-center justify-between">
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Principal hierarchy</div>
               {posture.scopedConfigured && posture.policyId && (
-                <span className="rounded-full bg-[rgba(124,58,237,0.10)] px-2.5 py-0.5 text-[10px] font-semibold text-[#7c3aed]" title={posture.policyName ?? undefined}>{posture.policyId.slice(0, 28)}</span>
+                <span className="rounded-full bg-[rgba(124,58,237,0.10)] px-2.5 py-0.5 text-[11px] font-semibold text-[#7c3aed]" title={posture.policyName ?? undefined}>{posture.policyId.slice(0, 28)}</span>
               )}
               {!posture.scopedConfigured && (
-                <span className="rounded-full border border-[var(--color-border-tertiary)] px-2.5 py-0.5 text-[10px] text-[var(--color-text-tertiary)]">No SCOPE-D policy</span>
+                <span className="rounded-full border border-[var(--color-border-tertiary)] px-2.5 py-0.5 text-[11px] text-[var(--color-text-tertiary)]">No SCOPE-D policy</span>
               )}
             </div>
             <div className="space-y-2">
@@ -793,9 +793,9 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide ${tier.active ? colors.chip : 'bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)]'}`}>{tier.level}</span>
+                        <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide ${tier.active ? colors.chip : 'bg-[var(--color-background-secondary)] text-[var(--color-text-tertiary)]'}`}>{tier.level}</span>
                         <span className="text-xs font-medium text-[var(--color-text-primary)]">{tier.label}</span>
-                        {!tier.active && <span className="text-[10px] text-[var(--color-text-tertiary)]">inactive</span>}
+                        {!tier.active && <span className="text-[11px] text-[var(--color-text-tertiary)]">inactive</span>}
                       </div>
                       <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">{tier.description}</div>
                     </div>
@@ -805,13 +805,13 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             </div>
             {/* Plan-mode escalation classes */}
             <div className="mt-3 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3">
-              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Requires plan mode in auto</div>
+              <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Requires plan mode in auto</div>
               <div className="flex flex-wrap gap-1.5">
                 {posture.escalationActionClasses.map((cls) => (
-                  <span key={cls} className="rounded-full border border-[rgba(220,38,38,0.30)] bg-[rgba(220,38,38,0.06)] px-2 py-0.5 font-mono text-[10px] text-[#dc2626]">{cls}</span>
+                  <span key={cls} className="rounded-full border border-[rgba(220,38,38,0.30)] bg-[rgba(220,38,38,0.06)] px-2 py-0.5 font-mono text-[11px] text-[#dc2626]">{cls}</span>
                 ))}
               </div>
-              <div className="mt-1.5 text-[10px] text-[var(--color-text-tertiary)]">{posture.escalationNote}</div>
+              <div className="mt-1.5 text-[11px] text-[var(--color-text-tertiary)]">{posture.escalationNote}</div>
             </div>
           </div>
         )}
@@ -821,7 +821,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
           <div className="mb-3 flex items-center justify-between">
             <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#7c3aed]">Engagement Policy</div>
             <button onClick={() => setShowPolicyEditor((v) => !v)}
-              className="rounded-full border border-[var(--color-border-tertiary)] px-2.5 py-0.5 text-[10px] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)] transition">
+              className="rounded-full border border-[var(--color-border-tertiary)] px-2.5 py-0.5 text-[11px] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)] transition">
               {showPolicyEditor ? 'Hide editor' : 'Edit policy'}
             </button>
           </div>
@@ -833,22 +833,22 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             <div className="mt-4 space-y-3">
               <div className="grid grid-cols-2 gap-2">
                 <label className="block">
-                  <span className="text-[10px] font-medium text-[var(--color-text-secondary)]">Policy ID</span>
+                  <span className="text-[11px] font-medium text-[var(--color-text-secondary)]">Policy ID</span>
                   <input value={pePolicyId} onChange={(e) => setPePolicyId(e.target.value)} placeholder="my-policy" className="mt-0.5 block w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2 py-1.5 text-[11px] text-[var(--color-text-primary)] outline-none focus:border-[#7c3aed]" />
                 </label>
                 <label className="block">
-                  <span className="text-[10px] font-medium text-[var(--color-text-secondary)]">Name</span>
+                  <span className="text-[11px] font-medium text-[var(--color-text-secondary)]">Name</span>
                   <input value={peName} onChange={(e) => setPeName(e.target.value)} placeholder="My engagement policy" className="mt-0.5 block w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2 py-1.5 text-[11px] text-[var(--color-text-primary)] outline-none focus:border-[#7c3aed]" />
                 </label>
               </div>
 
               <label className="block">
-                <span className="text-[10px] font-medium text-[var(--color-text-secondary)]">Authorized egress targets <span className="font-normal text-[var(--color-text-tertiary)]">(one host per line; empty = unrestricted)</span></span>
+                <span className="text-[11px] font-medium text-[var(--color-text-secondary)]">Authorized egress targets <span className="font-normal text-[var(--color-text-tertiary)]">(one host per line; empty = unrestricted)</span></span>
                 <textarea value={peTargets} onChange={(e) => setPeTargets(e.target.value)} rows={3} placeholder={'api.anthropic.com\nbackend.composio.dev'} className="mt-0.5 block w-full resize-none rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2 py-1.5 text-[11px] text-[var(--color-text-primary)] outline-none focus:border-[#7c3aed] font-mono" />
               </label>
 
               <div>
-                <span className="text-[10px] font-medium text-[var(--color-text-secondary)]">Authorized modes</span>
+                <span className="text-[11px] font-medium text-[var(--color-text-secondary)]">Authorized modes</span>
                 <div className="mt-1 flex gap-3">
                   {AUTH_MODES.map((m) => (
                     <label key={m} className="flex items-center gap-1 cursor-pointer">
@@ -861,19 +861,19 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
 
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[10px] font-medium text-[var(--color-text-secondary)]">Approval rules</span>
+                  <span className="text-[11px] font-medium text-[var(--color-text-secondary)]">Approval rules</span>
                   <button type="button" onClick={() => setPeRules((rs) => [...rs, { actionClass: 'write', requiredGate: 'single_human' }])}
-                    className="text-[10px] text-[#7c3aed] hover:underline">+ Add rule</button>
+                    className="text-[11px] text-[#7c3aed] hover:underline">+ Add rule</button>
                 </div>
                 <div className="space-y-1">
                   {peRules.map((rule, i) => (
                     <div key={i} className="flex items-center gap-1">
                       <select value={rule.actionClass} onChange={(e) => setPeRules((rs) => rs.map((r, j) => j === i ? { ...r, actionClass: e.target.value } : r))}
-                        className="flex-1 rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-2 py-1 text-[10px] text-[var(--color-text-primary)] outline-none">
+                        className="flex-1 rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-2 py-1 text-[11px] text-[var(--color-text-primary)] outline-none">
                         {ACTION_CLASSES.map((ac) => <option key={ac} value={ac}>{ac}</option>)}
                       </select>
                       <select value={rule.requiredGate} onChange={(e) => setPeRules((rs) => rs.map((r, j) => j === i ? { ...r, requiredGate: e.target.value } : r))}
-                        className="flex-1 rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-2 py-1 text-[10px] text-[var(--color-text-primary)] outline-none">
+                        className="flex-1 rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-2 py-1 text-[11px] text-[var(--color-text-primary)] outline-none">
                         {GATE_VALUES.map((g) => <option key={g} value={g}>{g}</option>)}
                       </select>
                       {peRules.length > 1 && <button type="button" onClick={() => setPeRules((rs) => rs.filter((_, j) => j !== i))} className="text-[var(--color-text-tertiary)] hover:text-[#dc2626] px-1 text-xs">×</button>}
@@ -883,19 +883,19 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
               </div>
 
               <div>
-                <span className="text-[10px] font-medium text-[var(--color-text-secondary)]">Blocked actions</span>
+                <span className="text-[11px] font-medium text-[var(--color-text-secondary)]">Blocked actions</span>
                 <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
                   {ACTION_CLASSES.map((ac) => (
                     <label key={ac} className="flex items-center gap-1 cursor-pointer">
                       <input type="checkbox" checked={peBlocked.includes(ac)} onChange={(e) => setPeBlocked((bs) => e.target.checked ? [...bs, ac] : bs.filter((x) => x !== ac))} className="h-3 w-3 rounded" />
-                      <span className="text-[10px] text-[var(--color-text-secondary)] font-mono">{ac}</span>
+                      <span className="text-[11px] text-[var(--color-text-secondary)] font-mono">{ac}</span>
                     </label>
                   ))}
                 </div>
               </div>
 
               <label className="block">
-                <span className="text-[10px] font-medium text-[var(--color-text-secondary)]">Expires at <span className="font-normal text-[var(--color-text-tertiary)]">(leave blank = never)</span></span>
+                <span className="text-[11px] font-medium text-[var(--color-text-secondary)]">Expires at <span className="font-normal text-[var(--color-text-tertiary)]">(leave blank = never)</span></span>
                 <input type="datetime-local" value={peExpires} onChange={(e) => setPeExpires(e.target.value)} className="mt-0.5 block rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2 py-1.5 text-[11px] text-[var(--color-text-primary)] outline-none focus:border-[#7c3aed]" />
               </label>
 
@@ -906,7 +906,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                 className="rounded-xl bg-[#7c3aed] px-4 py-2 text-[11px] font-semibold text-white transition hover:bg-[#6d28d9] disabled:opacity-50">
                 {peSaving ? 'Saving…' : 'Save policy to disk'}
               </button>
-              <p className="text-[10px] text-[var(--color-text-tertiary)]">Requires <code className="font-mono">SCOPED_ENGAGEMENT_POLICY</code> env var pointing to a writable JSON path. Restart agent-machine after saving.</p>
+              <p className="text-[11px] text-[var(--color-text-tertiary)]">Requires <code className="font-mono">SCOPED_ENGAGEMENT_POLICY</code> env var pointing to a writable JSON path. Restart agent-machine after saving.</p>
             </div>
           )}
         </div>
@@ -918,7 +918,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Learning loop</div>
               {learning.evalCases.count > 0 && (
                 <button onClick={runReplay} disabled={replaying}
-                  className="rounded-full border border-[var(--color-border-tertiary)] px-2.5 py-0.5 text-[10px] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)] disabled:opacity-50">
+                  className="rounded-full border border-[var(--color-border-tertiary)] px-2.5 py-0.5 text-[11px] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)] disabled:opacity-50">
                   {replaying ? 'Re-checking…' : 'Re-check failures'}
                 </button>
               )}
@@ -927,7 +927,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             {learning.replay && learning.replay.total > 0 && (
               <div className="mb-3 rounded-xl border border-[var(--color-accent)]/40 bg-[var(--color-accent)]/5 p-3 text-center">
                 <div className="text-2xl font-semibold text-[var(--color-accent)]">{learning.replay.fixed}/{learning.replay.total} fixed</div>
-                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">of your captured failures now pass ({Math.round(learning.replay.fixedRate * 100)}%)</div>
+                <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">of your captured failures now pass ({Math.round(learning.replay.fixedRate * 100)}%)</div>
               </div>
             )}
             <div className="grid grid-cols-3 gap-3 mb-3">
@@ -935,18 +935,18 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                 <div className="flex items-center justify-center gap-1.5">
                   <span className="text-2xl font-semibold text-[var(--color-accent)]">{learning.skills.count}</span>
                   {learning.skills.due > 0 && (
-                    <span className="rounded-full bg-[#1d4ed8] px-1.5 text-[9px] font-semibold text-white">{learning.skills.due}</span>
+                    <span className="rounded-full bg-[#1d4ed8] px-1.5 text-[11px] font-semibold text-white">{learning.skills.due}</span>
                   )}
                 </div>
-                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Skills{learning.skills.due > 0 ? ` · ${learning.skills.due} due` : ''}</div>
+                <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">Skills{learning.skills.due > 0 ? ` · ${learning.skills.due} due` : ''}</div>
               </div>
               <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
                 <div className="text-2xl font-semibold text-[#7c3aed]">{learning.experiences?.count ?? 0}</div>
-                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Experiences</div>
+                <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">Experiences</div>
               </div>
               <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
                 <div className="text-2xl font-semibold text-[var(--color-attention)]">{learning.evalCases.count}</div>
-                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Failures</div>
+                <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">Failures</div>
               </div>
             </div>
             {learning.skills.recent.length > 0 && (
@@ -966,14 +966,14 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
           <div className="rounded-2xl border border-[#fef08a] bg-[var(--color-background-primary)] p-5 shadow-sm">
             <div className="mb-3 flex items-center justify-between">
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-attention)]">Graph proposals</div>
-              <span className="rounded-full bg-[#fef08a] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-attention)]">{proposals.length} pending</span>
+              <span className="rounded-full bg-[#fef08a] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-attention)]">{proposals.length} pending</span>
             </div>
             <ul className="space-y-2">
               {proposals.map((p) => (
                 <li key={p.id} className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3">
                   <div className="mb-1 flex items-center gap-2">
-                    <span className="rounded-full border border-[#fde68a] bg-[var(--color-attention-bg)] px-1.5 py-0.5 font-mono text-[9px] font-semibold uppercase text-[var(--color-attention)]">{p.op}</span>
-                    {p.source && <span className="text-[10px] text-[var(--color-text-tertiary)]">from {p.source}</span>}
+                    <span className="rounded-full border border-[#fde68a] bg-[var(--color-attention-bg)] px-1.5 py-0.5 font-mono text-[11px] font-semibold uppercase text-[var(--color-attention)]">{p.op}</span>
+                    {p.source && <span className="text-[11px] text-[var(--color-text-tertiary)]">from {p.source}</span>}
                   </div>
                   <div className="mb-1 text-[11px] text-[var(--color-text-primary)]">
                     {p.op === 'add-edge' ? `${String(p.payload['from'])} → ${String(p.payload['rel'])} → ${String(p.payload['to'])}` :
@@ -981,7 +981,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                      p.op === 'remove-edge' ? `Remove: ${String(p.payload['from'])} → ${String(p.payload['to'])}` :
                      `${String(p.payload['node'])}.${String(p.payload['prop'])} = ${String(p.payload['value'])}`}
                   </div>
-                  {p.rationale && <div className="mb-2 text-[10px] italic text-[var(--color-text-tertiary)]">{p.rationale}</div>}
+                  {p.rationale && <div className="mb-2 text-[11px] italic text-[var(--color-text-tertiary)]">{p.rationale}</div>}
                   <div className="flex gap-2">
                     <button onClick={() => void handleProposal(p.id, 'reject')}
                       className="rounded-md border border-[var(--color-border-secondary)] px-2.5 py-1 text-[11px] font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)] transition">
@@ -1004,22 +1004,22 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             <div className="mb-3 flex items-center justify-between">
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#7c3aed]">Dreaming</div>
               <button onClick={() => void runDream()} disabled={dreaming}
-                className="rounded-lg border border-[#ddd6fe] bg-[#f5f3ff] px-2.5 py-1 text-[10px] font-semibold text-[#6d28d9] transition hover:bg-[#ede9fe] disabled:opacity-50">
+                className="rounded-lg border border-[#ddd6fe] bg-[#f5f3ff] px-2.5 py-1 text-[11px] font-semibold text-[#6d28d9] transition hover:bg-[#ede9fe] disabled:opacity-50">
                 {dreaming ? 'Dreaming…' : '✦ Dream now'}
               </button>
             </div>
             <div className="mb-3 grid grid-cols-3 gap-3">
               <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
                 <div className="text-2xl font-semibold text-[#7c3aed]">{dream.proposed}</div>
-                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Associations proposed</div>
+                <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">Associations proposed</div>
               </div>
               <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
                 <div className="text-2xl font-semibold text-[var(--color-accent)]">{dream.integrated}</div>
-                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Integrated (support ≥ 2)</div>
+                <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">Integrated (support ≥ 2)</div>
               </div>
               <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
                 <div className="text-2xl font-semibold text-[var(--color-text-primary)]">{dream.seeds}</div>
-                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Seed concepts</div>
+                <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">Seed concepts</div>
               </div>
             </div>
             {dream.top.length > 0 ? (
@@ -1027,7 +1027,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                 {dream.top.slice(0, 6).map((p, i) => (
                   <li key={i} className="truncate text-[11px] text-[var(--color-text-secondary)]" title={`${p.from} ↔ ${p.to} (via ${p.via.join(' → ')}, support ${p.support})`}>
                     <span className="text-[#7c3aed]">✦</span> {p.from} <span className="text-[var(--color-text-tertiary)]">↔</span> {p.to}
-                    <span className="ml-1 text-[10px] text-[var(--color-text-tertiary)]">via {p.via.slice(0, 3).join(' → ') || 'direct walk'} · ×{p.support}</span>
+                    <span className="ml-1 text-[11px] text-[var(--color-text-tertiary)]">via {p.via.slice(0, 3).join(' → ') || 'direct walk'} · ×{p.support}</span>
                   </li>
                 ))}
               </ul>
@@ -1042,7 +1042,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#7c3aed]">Trace Consolidation</div>
-              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)] leading-relaxed">
+              <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)] leading-relaxed">
                 Synthesizes reusable skills from recent agent experiences.
                 {traceDream?.lastRun
                   ? ` Last run ${traceDreamAgo(traceDream.lastRun)}.`
@@ -1050,7 +1050,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
               </div>
             </div>
             <button onClick={() => void runTraceDream()} disabled={traceDreaming}
-              className="shrink-0 rounded-lg border border-[#ddd6fe] bg-[#f5f3ff] px-2.5 py-1 text-[10px] font-semibold text-[#6d28d9] transition hover:bg-[#ede9fe] disabled:opacity-50">
+              className="shrink-0 rounded-lg border border-[#ddd6fe] bg-[#f5f3ff] px-2.5 py-1 text-[11px] font-semibold text-[#6d28d9] transition hover:bg-[#ede9fe] disabled:opacity-50">
               {traceDreaming ? 'Consolidating…' : '✦ Consolidate'}
             </button>
           </div>
@@ -1066,10 +1066,10 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                   {traceDream.skills.slice(0, 3).map((s, i) => (
                     <li key={i} className="rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2">
                       <div className="flex items-start gap-1.5">
-                        <span className="mt-0.5 shrink-0 text-[#7c3aed] text-[10px]">◎</span>
+                        <span className="mt-0.5 shrink-0 text-[#7c3aed] text-[11px]">◎</span>
                         <span className="text-[11px] text-[var(--color-text-secondary)]">{s.abstraction}</span>
                       </div>
-                      <div className="mt-1 text-[10px] text-[var(--color-text-tertiary)] truncate">{s.task}</div>
+                      <div className="mt-1 text-[11px] text-[var(--color-text-tertiary)] truncate">{s.task}</div>
                     </li>
                   ))}
                 </ul>
@@ -1092,14 +1092,14 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
         {/* Sovereign identity — device-anchored did:key pseudonym */}
         <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
           <div className="mb-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#0891b2]">Sovereign Identity</div>
-          <div className="text-[10px] text-[var(--color-text-tertiary)] mb-3 leading-relaxed">
+          <div className="text-[11px] text-[var(--color-text-tertiary)] mb-3 leading-relaxed">
             Device-anchored identity. No account, no server. Derived from a local root key that never leaves this machine.
           </div>
           {pseudonym ? (
             <div className="flex items-center gap-2 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2">
               <span className="h-2 w-2 shrink-0 rounded-full bg-[#0891b2]" />
               <span className="flex-1 min-w-0 truncate font-mono text-[11px] text-[var(--color-text-primary)]" title={pseudonym}>{pseudonym}</span>
-              <span className="shrink-0 rounded-full bg-[rgba(8,145,178,0.10)] px-2 py-0.5 text-[9px] font-semibold text-[#0891b2]">did:key</span>
+              <span className="shrink-0 rounded-full bg-[rgba(8,145,178,0.10)] px-2 py-0.5 text-[11px] font-semibold text-[#0891b2]">did:key</span>
             </div>
           ) : (
             <div className="text-[11px] text-[var(--color-text-tertiary)]">Agent machine not running — pseudonym unavailable.</div>
@@ -1112,7 +1112,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             <div className="mb-3 flex items-center justify-between">
               <div>
                 <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent)]">Skills due for review</div>
-                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">{dueSkills.length} skill{dueSkills.length !== 1 ? 's' : ''} scheduled for spaced-repetition practice</div>
+                <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">{dueSkills.length} skill{dueSkills.length !== 1 ? 's' : ''} scheduled for spaced-repetition practice</div>
               </div>
             </div>
             <div className="space-y-2">
@@ -1122,17 +1122,17 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                 return (
                   <div key={skillId} className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2.5">
                     <div className="mb-1.5 flex items-start gap-1.5">
-                      <span className="mt-0.5 shrink-0 text-[10px] text-[var(--color-accent)]">◎</span>
+                      <span className="mt-0.5 shrink-0 text-[11px] text-[var(--color-accent)]">◎</span>
                       <span className="text-[12px] font-medium text-[var(--color-text-primary)]">{s.abstraction}</span>
                     </div>
-                    <div className="mb-2 truncate text-[10px] text-[var(--color-text-tertiary)]">{s.task}</div>
+                    <div className="mb-2 truncate text-[11px] text-[var(--color-text-tertiary)]">{s.task}</div>
                     <div className="flex gap-1.5">
                       {(['Again', 'Hard', 'Good', 'Easy'] as const).map((label, grade) => (
                         <button
                           key={label}
                           disabled={isGrading}
                           onClick={() => void gradeSkill(skillId, grade as 0|1|2|3)}
-                          className="flex-1 rounded-lg border border-[var(--color-border-secondary)] py-1 text-[10px] font-semibold transition hover:bg-[var(--color-background-primary)] disabled:opacity-40"
+                          className="flex-1 rounded-lg border border-[var(--color-border-secondary)] py-1 text-[11px] font-semibold transition hover:bg-[var(--color-background-primary)] disabled:opacity-40"
                           style={{ color: grade === 0 ? '#dc2626' : grade === 1 ? 'var(--color-attention)' : grade === 2 ? 'var(--color-accent)' : '#0891b2' }}
                         >
                           {isGrading ? '…' : label}
@@ -1151,7 +1151,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
           <div className="mb-2 flex items-center justify-between">
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Best-of-N selection</div>
-              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)] leading-relaxed">
+              <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)] leading-relaxed">
                 Samples N=3 candidates for low-confidence turns and picks the strongest grounded response.
               </div>
             </div>
@@ -1163,7 +1163,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
               {bonToggling ? '…' : bonEnabled ? 'Enabled' : 'Disabled'}
             </button>
           </div>
-          <div className="text-[10px] text-[var(--color-text-tertiary)]">
+          <div className="text-[11px] text-[var(--color-text-tertiary)]">
             {bonEnabled ? 'Active — low-confidence turns will sample 3 completions and select the best.' : 'Off — single-sample path. Enable to improve response quality on ambiguous prompts.'}
           </div>
         </div>
@@ -1173,7 +1173,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
           <div className="mb-2 flex items-center justify-between">
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#0891b2]">Uncertainty gate</div>
-              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)] leading-relaxed">
+              <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)] leading-relaxed">
                 Appends a calibrated low-confidence disclaimer when semantic entropy indicates the model is guessing.
               </div>
             </div>
@@ -1185,7 +1185,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
               {uncertaintyToggling ? '…' : uncertaintyEnabled ? 'Enabled' : 'Disabled'}
             </button>
           </div>
-          <div className="text-[10px] text-[var(--color-text-tertiary)]">
+          <div className="text-[11px] text-[var(--color-text-tertiary)]">
             {uncertaintyEnabled ? 'Active — responses with high semantic entropy will carry a hedge or abstention notice.' : 'Off — no abstention overlay. Enable to surface genuine knowledge gaps rather than confident hallucinations.'}
           </div>
         </div>
@@ -1195,7 +1195,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
           <div className="mb-2 flex items-center justify-between">
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent)]">Procedural memory</div>
-              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)] leading-relaxed">
+              <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)] leading-relaxed">
                 Distills successful turns into reusable skills (loop 2) and enrolls them in spaced-repetition review (loop 3).
               </div>
             </div>
@@ -1207,7 +1207,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
               {proceduralToggling ? '…' : proceduralEnabled ? 'Enabled' : 'Disabled'}
             </button>
           </div>
-          <div className="text-[10px] text-[var(--color-text-tertiary)]">
+          <div className="text-[11px] text-[var(--color-text-tertiary)]">
             {proceduralEnabled
               ? 'Active — high-quality turns are being distilled into the skill library and scheduled for SRS review.'
               : 'Off — only eval-capture (failures) is running. Enable to start compounding the skill library.'}
@@ -1229,7 +1229,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
               {planModeToggling ? '…' : planModeEnabled ? 'Enabled' : 'Disabled'}
             </button>
           </div>
-          <div className="text-[10px] text-[var(--color-text-tertiary)]">
+          <div className="text-[11px] text-[var(--color-text-tertiary)]">
             {planModeEnabled
               ? 'On — every turn the agent proposes a numbered step plan; no tool executes until you approve. High-oversight mode (EU AI Act Art.14).'
               : 'Off — agent executes immediately. Enable to require an approve-before-act proposal for every action.'}
@@ -1251,7 +1251,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
               {hardenedToggling ? '…' : hardenedExec ? 'Enabled' : 'Disabled'}
             </button>
           </div>
-          <div className="text-[10px] text-[var(--color-text-tertiary)]">
+          <div className="text-[11px] text-[var(--color-text-tertiary)]">
             {hardenedExec
               ? 'On — the agent runs read/search/reason only (purpose: research). run_command, code_execute, and file-writes are denied until you disable this or explicitly elevate the session.'
               : 'Off — the agent has full local capability. Enable to neutralize the indirect-injection → RCE/exfil path (web search still works).'}
@@ -1263,7 +1263,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#7c3aed]">Cloud Mesh Proof</div>
-              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)] leading-relaxed">
+              <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)] leading-relaxed">
                 Head-to-head coding benchmark — mesh vs GPT / Claude on 25 real problems. Run it in front of a client.
               </div>
             </div>
@@ -1271,14 +1271,14 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
               <button
                 onClick={() => void runMeshProof(20)}
                 disabled={meshRunning}
-                className="rounded-lg border border-[#ddd6fe] bg-[#f5f3ff] px-2.5 py-1 text-[10px] font-semibold text-[#6d28d9] transition hover:bg-[#ede9fe] disabled:opacity-50"
+                className="rounded-lg border border-[#ddd6fe] bg-[#f5f3ff] px-2.5 py-1 text-[11px] font-semibold text-[#6d28d9] transition hover:bg-[#ede9fe] disabled:opacity-50"
               >
                 {meshRunning ? 'Running…' : 'Run 20-q'}
               </button>
               <button
                 onClick={() => void runMeshProof(25)}
                 disabled={meshRunning}
-                className="rounded-lg border border-[#ddd6fe] bg-[#f5f3ff] px-2.5 py-1 text-[10px] font-semibold text-[#6d28d9] transition hover:bg-[#ede9fe] disabled:opacity-50"
+                className="rounded-lg border border-[#ddd6fe] bg-[#f5f3ff] px-2.5 py-1 text-[11px] font-semibold text-[#6d28d9] transition hover:bg-[#ede9fe] disabled:opacity-50"
               >
                 {meshRunning ? '…' : 'Full 25-q'}
               </button>
@@ -1302,14 +1302,14 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                     <span className="w-16 shrink-0 text-right font-mono text-[11px] font-semibold tabular-nums text-[var(--color-text-primary)]">
                       {arm.pass}/{arm.total}
                     </span>
-                    <span className="w-14 shrink-0 text-right font-mono text-[10px] tabular-nums text-[var(--color-text-tertiary)]">
+                    <span className="w-14 shrink-0 text-right font-mono text-[11px] tabular-nums text-[var(--color-text-tertiary)]">
                       {arm.avgLatencyMs > 0 ? `${(arm.avgLatencyMs / 1000).toFixed(1)}s` : '—'}
                     </span>
                   </div>
                 ))}
               </div>
               {meshProof.artifactFile && (
-                <div className="mt-2 text-[10px] text-[var(--color-text-tertiary)]">
+                <div className="mt-2 text-[11px] text-[var(--color-text-tertiary)]">
                   {meshProof.artifactFile}{meshProof.artifactAt ? ` · ${new Date(meshProof.artifactAt).toLocaleString()}` : ''}
                 </div>
               )}
@@ -1330,18 +1330,18 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             <div className="grid grid-cols-3 gap-3">
               <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
                 <div className="text-xl font-semibold text-[var(--color-text-primary)]">{decayStats.budget}</div>
-                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Budget</div>
+                <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">Budget</div>
               </div>
               <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
                 <div className={`text-xl font-semibold ${decayStats.pruned > 0 ? 'text-[var(--color-attention)]' : 'text-[var(--color-accent)]'}`}>{decayStats.pruned}</div>
-                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Pruned</div>
+                <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">Pruned</div>
               </div>
               <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
                 <div className="text-xl font-semibold text-[var(--color-text-primary)]">{decayStats.lastPruneAt ? new Date(decayStats.lastPruneAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'}</div>
-                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Last prune</div>
+                <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">Last prune</div>
               </div>
             </div>
-            <div className="mt-2 text-[10px] text-[var(--color-text-tertiary)]">
+            <div className="mt-2 text-[11px] text-[var(--color-text-tertiary)]">
               {decayStats.pruned === 0 ? 'Memory store is within budget — no evictions yet.' : `${decayStats.pruned} low-salience memories evicted to stay within the ${decayStats.budget}-memory budget.`}
             </div>
           </div>
@@ -1352,10 +1352,10 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
           <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
             <div className="mb-1 flex items-center justify-between">
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#7c3aed]">Model browser</div>
-              <div className="text-[10px] text-[var(--color-text-tertiary)]">{modelRegistry.hostRamGb} GB RAM · {modelRegistry.models.filter(m => m.ramFit).length} of {modelRegistry.models.length} fit locally</div>
+              <div className="text-[11px] text-[var(--color-text-tertiary)]">{modelRegistry.hostRamGb} GB RAM · {modelRegistry.models.filter(m => m.ramFit).length} of {modelRegistry.models.length} fit locally</div>
             </div>
             {modelRegistry.router && (
-              <div className="mb-3 rounded-xl border border-[rgba(124,58,237,0.2)] bg-[rgba(124,58,237,0.05)] px-3 py-2 text-[10px]">
+              <div className="mb-3 rounded-xl border border-[rgba(124,58,237,0.2)] bg-[rgba(124,58,237,0.05)] px-3 py-2 text-[11px]">
                 <span className="font-semibold text-[#7c3aed]">Last routed → </span>
                 <span className="font-mono text-[var(--color-text-primary)]">{modelRegistry.router.model}</span>
                 <span className="mx-1 text-[var(--color-text-tertiary)]">·</span>
@@ -1373,21 +1373,21 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                 return (
                   <div key={m.id} className={`flex items-center gap-2 rounded-xl border px-3 py-2 text-[11px] transition ${isLastRouted ? 'border-[rgba(124,58,237,0.4)] bg-[rgba(124,58,237,0.06)]' : 'border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)]'}`}>
                     <span className="min-w-0 flex-1 truncate font-medium text-[var(--color-text-primary)]">{m.label}</span>
-                    <span className="shrink-0 text-[9px] font-semibold uppercase tracking-wide" style={{ color: originColor }}>{m.origin}</span>
-                    <span className="shrink-0 tabular-nums text-[10px] text-[var(--color-text-tertiary)]">{m.composite}%</span>
+                    <span className="shrink-0 text-[11px] font-semibold uppercase tracking-wide" style={{ color: originColor }}>{m.origin}</span>
+                    <span className="shrink-0 tabular-nums text-[11px] text-[var(--color-text-tertiary)]">{m.composite}%</span>
                     {m.hw.ramGb !== null ? (
-                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold ${m.ramFit ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[#fef3c7] text-[var(--color-attention)]'}`}>
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${m.ramFit ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[#fef3c7] text-[var(--color-attention)]'}`}>
                         {m.hw.ramGb} GB · {m.ramFit ? 'fits' : 'too large'}
                       </span>
                     ) : (
-                      <span className="shrink-0 rounded-full bg-[var(--color-background-tertiary)] px-2 py-0.5 text-[9px] font-semibold text-[var(--color-text-tertiary)]">API</span>
+                      <span className="shrink-0 rounded-full bg-[var(--color-background-tertiary)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-text-tertiary)]">API</span>
                     )}
-                    {isLastRouted && <span className="shrink-0 text-[9px] font-semibold text-[#7c3aed]">● active</span>}
+                    {isLastRouted && <span className="shrink-0 text-[11px] font-semibold text-[#7c3aed]">● active</span>}
                   </div>
                 )
               })}
             </div>
-            <div className="mt-2 text-[10px] text-[var(--color-text-tertiary)]">RAM-fit uses a 75% headroom threshold at Q4_K_M quantization. Frontier-API models run off-device.</div>
+            <div className="mt-2 text-[11px] text-[var(--color-text-tertiary)]">RAM-fit uses a 75% headroom threshold at Q4_K_M quantization. Frontier-API models run off-device.</div>
           </div>
         )}
 
@@ -1398,20 +1398,20 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             <div className="grid grid-cols-3 gap-3 mb-4">
               <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
                 <div className="text-2xl font-semibold text-[var(--color-text-primary)]">{chatRuns.length}</div>
-                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Total runs</div>
+                <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">Total runs</div>
               </div>
               <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
                 <div className={`text-2xl font-semibold ${admissionRate > 90 ? 'text-[var(--color-accent)]' : admissionRate > 70 ? 'text-[var(--color-attention)]' : 'text-[#dc2626]'}`}>{admissionRate.toFixed(0)}%</div>
-                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Admission rate</div>
+                <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">Admission rate</div>
               </div>
               <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
                 <div className="text-2xl font-semibold text-[var(--color-text-primary)]">{(avgLatency / 1000).toFixed(1)}s</div>
-                <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">Avg latency</div>
+                <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">Avg latency</div>
               </div>
             </div>
             {modelList.length > 0 && (
               <div>
-                <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)] mb-2">Model breakdown</div>
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)] mb-2">Model breakdown</div>
                 <div className="space-y-1.5">
                   {modelList.map(([model, count]) => (
                     <div key={model} className="flex items-center gap-2">
@@ -1419,7 +1419,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                       <div className="h-1.5 flex-1 rounded-full bg-[var(--color-background-tertiary)] overflow-hidden">
                         <div className="h-full rounded-full bg-[#1d4ed8]" style={{ width: `${(count / chatRuns.length) * 100}%` }} />
                       </div>
-                      <span className="w-8 text-right text-[10px] tabular-nums text-[var(--color-text-tertiary)]">{count}</span>
+                      <span className="w-8 text-right text-[11px] tabular-nums text-[var(--color-text-tertiary)]">{count}</span>
                     </div>
                   ))}
                 </div>
@@ -1440,15 +1440,15 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
           <div className="grid grid-cols-3 gap-3">
             <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
               <div className={`text-2xl font-semibold ${egressAudit.summary.sovereignty_pct === 100 ? 'text-[var(--color-accent)]' : egressAudit.summary.sovereignty_pct >= 80 ? 'text-[var(--color-attention)]' : 'text-[#dc2626]'}`}>{egressAudit.summary.sovereignty_pct}%</div>
-              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">on-device (sovereign)</div>
+              <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">on-device (sovereign)</div>
             </div>
             <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
               <div className="text-2xl font-semibold text-[var(--color-text-primary)]">{egressAudit.summary.egress_runs}</div>
-              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">runs that left device</div>
+              <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">runs that left device</div>
             </div>
             <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
               <div className="text-2xl font-semibold text-[var(--color-text-primary)]">{egressAudit.summary.total_tokens_egressed.toLocaleString()}</div>
-              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">tokens egressed</div>
+              <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">tokens egressed</div>
             </div>
           </div>
           {egressAudit.rows.length === 0 ? (
@@ -1456,7 +1456,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
           ) : (
             <div className="mt-3 space-y-1">
               {egressAudit.rows.slice(0, 8).map((r) => (
-                <div key={r.run_id} className="flex items-center gap-2 text-[10px] text-[var(--color-text-secondary)]">
+                <div key={r.run_id} className="flex items-center gap-2 text-[11px] text-[var(--color-text-secondary)]">
                   <span className="text-[var(--color-attention)]">↗</span>
                   <span className="w-36 truncate">{r.provider}/{r.model}</span>
                   <span className="tabular-nums">{r.tokens_egressed.toLocaleString()} tok</span>
@@ -1473,7 +1473,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
         <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
           <div className="mb-1 flex items-center justify-between">
             <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Memory</div>
-            <div className="text-[10px] text-[var(--color-text-tertiary)]">{memories.filter((m) => m.pinned).length} pinned · {memories.length} total</div>
+            <div className="text-[11px] text-[var(--color-text-tertiary)]">{memories.filter((m) => m.pinned).length} pinned · {memories.length} total</div>
           </div>
           <div className="mb-3 text-[11px] text-[var(--color-text-tertiary)]">What the agent remembers about you. ★ Pin to keep it in long-term recall; × to forget it. This is yours to curate — nothing leaves the device.</div>
           {memories.length === 0 ? (
@@ -1485,9 +1485,9 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                   <button onClick={() => pinMemory(m.id, !m.pinned)} title={m.pinned ? 'Unpin from long-term recall' : 'Pin into long-term recall'} className={`mt-0.5 text-sm leading-none ${m.pinned ? 'text-[var(--color-attention)]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-attention)]'}`}>{m.pinned ? '★' : '☆'}</button>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <span className="rounded bg-[var(--color-background-tertiary)] px-1 text-[9px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">{m.kind}</span>
-                      <span className="text-[9px] text-[var(--color-text-tertiary)]">{new Date(m.createdAt).toLocaleDateString()}</span>
-                      {m.pinned && <span className="text-[9px] font-medium text-[var(--color-attention)]">in long-term recall</span>}
+                      <span className="rounded bg-[var(--color-background-tertiary)] px-1 text-[11px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">{m.kind}</span>
+                      <span className="text-[11px] text-[var(--color-text-tertiary)]">{new Date(m.createdAt).toLocaleDateString()}</span>
+                      {m.pinned && <span className="text-[11px] font-medium text-[var(--color-attention)]">in long-term recall</span>}
                     </div>
                     <div className="mt-0.5 line-clamp-2 text-[11px] text-[var(--color-text-secondary)]">{m.preview}</div>
                   </div>
@@ -1507,18 +1507,18 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
               <div className={`text-2xl font-semibold ${(trends?.quality?.delta ?? 0) > 0 ? 'text-[var(--color-accent)]' : (trends?.quality?.delta ?? 0) < 0 ? 'text-[#dc2626]' : 'text-[var(--color-text-primary)]'}`}>
                 {trends?.quality ? `${trends.quality.delta > 0 ? '↑' : trends.quality.delta < 0 ? '↓' : '·'} ${(trends.quality.delta * 100).toFixed(0)}%` : '—'}
               </div>
-              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">answer quality{trends?.quality ? ` · ${trends.quality.samples} samples` : ''}</div>
+              <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">answer quality{trends?.quality ? ` · ${trends.quality.samples} samples` : ''}</div>
             </div>
             <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
               <div className="text-2xl font-semibold text-[var(--color-text-primary)]">{(trends?.graph?.total_edges ?? 0).toLocaleString()}</div>
-              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">graph edges</div>
+              <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">graph edges</div>
             </div>
             <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3 text-center">
               <div className="text-2xl font-semibold text-[var(--color-text-primary)]">{(trends?.graph?.derived_edges ?? 0).toLocaleString()}</div>
-              <div className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">inferred (symbolic)</div>
+              <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">inferred (symbolic)</div>
             </div>
           </div>
-          <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Learned routing (UCB bandit)</div>
+          <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Learned routing (UCB bandit)</div>
           {trends?.bandit && trends.bandit.length > 0 ? (
             <div className="space-y-1.5">
               {trends.bandit.map((a) => (
@@ -1528,7 +1528,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                   <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
                     <div className={`h-full rounded-full ${a.leading ? 'bg-[var(--color-accent)]' : 'bg-[#94a3b8]'}`} style={{ width: `${Math.max(2, Math.min(100, a.mean_reward * 100))}%` }} />
                   </div>
-                  <span className="w-16 shrink-0 text-right text-[10px] tabular-nums text-[var(--color-text-tertiary)]">{a.mean_reward.toFixed(2)} · {a.plays}×</span>
+                  <span className="w-16 shrink-0 text-right text-[11px] tabular-nums text-[var(--color-text-tertiary)]">{a.mean_reward.toFixed(2)} · {a.plays}×</span>
                 </div>
               ))}
             </div>
@@ -1585,7 +1585,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
           <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] shadow-sm">
             <div className="border-b border-[var(--color-border-tertiary)] px-5 py-3">
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Run Details</div>
-              <p className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)]">{allTraces.length} run{allTraces.length !== 1 ? 's' : ''}{recentTraces.length === 0 && amRuns.length > 0 ? ' (from history)' : ' this session'}</p>
+              <p className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">{allTraces.length} run{allTraces.length !== 1 ? 's' : ''}{recentTraces.length === 0 && amRuns.length > 0 ? ' (from history)' : ' this session'}</p>
             </div>
             <div className="divide-y divide-[var(--color-border-tertiary)]">
               {[...allTraces].reverse().map((trace, idx) => {
@@ -1600,15 +1600,15 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                       onClick={() => setExpanded(expanded ? null : trace.messageId)}
                       className="flex w-full items-center gap-3 px-5 py-3 text-left transition hover:bg-[var(--color-background-secondary)]"
                     >
-                      <span className="w-5 shrink-0 text-center text-[10px] font-mono text-[var(--color-text-tertiary)]">#{allTraces.length - idx}</span>
+                      <span className="w-5 shrink-0 text-center text-[11px] font-mono text-[var(--color-text-tertiary)]">#{allTraces.length - idx}</span>
                       <span className="flex-1 truncate text-xs text-[var(--color-text-primary)]">{trace.content || '…'}</span>
-                      <span className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">{g.latency_ms > 0 ? `${(g.latency_ms / 1000).toFixed(1)}s` : ''}</span>
+                      <span className="shrink-0 text-[11px] text-[var(--color-text-tertiary)]">{g.latency_ms > 0 ? `${(g.latency_ms / 1000).toFixed(1)}s` : ''}</span>
                       {(g.input_tokens || g.output_tokens) && (
-                        <span className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">
+                        <span className="shrink-0 text-[11px] text-[var(--color-text-tertiary)]">
                           {g.input_tokens?.toLocaleString() ?? '–'}/{g.output_tokens?.toLocaleString() ?? '–'}
                         </span>
                       )}
-                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold ${g.policy_admitted ? VERDICT_STYLE.admitted : VERDICT_STYLE.blocked}`}>
+                      <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${g.policy_admitted ? VERDICT_STYLE.admitted : VERDICT_STYLE.blocked}`}>
                         {g.policy_admitted ? 'admitted' : 'blocked'}
                       </span>
                     </button>
@@ -1654,7 +1654,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
               <div key={scope} className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-4 text-center">
                 <div className="text-2xl font-semibold text-[var(--color-text-primary)]">{scopeCounts[scope]}</div>
                 <div className="mt-0.5 text-xs font-medium capitalize text-[var(--color-text-secondary)]">{scope}</div>
-                <div className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">entries</div>
+                <div className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">entries</div>
               </div>
             ))}
           </div>
@@ -1666,7 +1666,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Audit trail</div>
-                <span className="text-[10px] text-[var(--color-text-tertiary)]">{events.length} event{events.length !== 1 ? 's' : ''}{(filterVerdict !== 'all' || filterModel !== 'all') ? ' (filtered)' : ''}</span>
+                <span className="text-[11px] text-[var(--color-text-tertiary)]">{events.length} event{events.length !== 1 ? 's' : ''}{(filterVerdict !== 'all' || filterModel !== 'all') ? ' (filtered)' : ''}</span>
               </div>
             <div className="flex items-center gap-2">
               <button
@@ -1680,16 +1680,16 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             </div>
             {/* Filter bar */}
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[10px] text-[var(--color-text-tertiary)]">Filter:</span>
+              <span className="text-[11px] text-[var(--color-text-tertiary)]">Filter:</span>
               {(['all', 'admitted', 'flagged', 'blocked'] as const).map((v) => (
                 <button key={v} onClick={() => setFilterVerdict(v)}
-                  className={`rounded-full border px-2 py-0.5 text-[10px] capitalize transition ${filterVerdict === v ? 'border-[#1d4ed8] bg-[rgba(29,78,216,0.10)] font-semibold text-[#1d4ed8]' : 'border-[var(--color-border-tertiary)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-secondary)]'}`}>
+                  className={`rounded-full border px-2 py-0.5 text-[11px] capitalize transition ${filterVerdict === v ? 'border-[#1d4ed8] bg-[rgba(29,78,216,0.10)] font-semibold text-[#1d4ed8]' : 'border-[var(--color-border-tertiary)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-secondary)]'}`}>
                   {v}
                 </button>
               ))}
               {uniqueModels.length > 2 && uniqueModels.slice(0, 6).map((m) => (
                 <button key={m} onClick={() => setFilterModel(m)}
-                  className={`rounded-full border px-2 py-0.5 text-[10px] transition ${filterModel === m ? 'border-[#7c3aed] bg-[rgba(124,58,237,0.10)] font-semibold text-[#7c3aed]' : 'border-[var(--color-border-tertiary)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-secondary)]'}`}>
+                  className={`rounded-full border px-2 py-0.5 text-[11px] transition ${filterModel === m ? 'border-[#7c3aed] bg-[rgba(124,58,237,0.10)] font-semibold text-[#7c3aed]' : 'border-[var(--color-border-tertiary)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-secondary)]'}`}>
                   {m === 'all' ? 'All models' : m}
                 </button>
               ))}
@@ -1706,15 +1706,15 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
               {events.length > 0 && (
                 confirmClear ? (
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-[#dc2626]">Clear {events.length}?</span>
+                    <span className="text-[11px] text-[#dc2626]">Clear {events.length}?</span>
                     <button onClick={() => { void clearLedger().then(refreshLedger); setConfirmClear(false) }}
-                      className="text-[10px] font-semibold text-[#dc2626] hover:underline">Yes</button>
+                      className="text-[11px] font-semibold text-[#dc2626] hover:underline">Yes</button>
                     <button onClick={() => setConfirmClear(false)}
-                      className="text-[10px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]">No</button>
+                      className="text-[11px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]">No</button>
                   </div>
                 ) : (
                   <button onClick={() => setConfirmClear(true)}
-                    className="rounded-full border border-[#fecaca] px-3 py-1 text-[10px] text-[#dc2626] transition hover:bg-[#fef2f2]">
+                    className="rounded-full border border-[#fecaca] px-3 py-1 text-[11px] text-[#dc2626] transition hover:bg-[#fef2f2]">
                     Clear
                   </button>
                 )
@@ -1734,16 +1734,16 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
                   className="flex w-full items-center gap-3 px-5 py-3 text-left transition hover:bg-[var(--color-background-secondary)]"
                 >
                   <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: KIND_COLOR[ev.kind] }} />
-                  <span className="w-20 shrink-0 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                  <span className="w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">
                     {KIND_LABELS[ev.kind]}
                   </span>
                   <span className="flex-1 truncate text-xs text-[var(--color-text-primary)]">{ev.detail}</span>
                   {ev.verdict && (
-                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold ${VERDICT_STYLE[ev.verdict]}`}>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${VERDICT_STYLE[ev.verdict]}`}>
                       {ev.verdict}
                     </span>
                   )}
-                  <span className="shrink-0 font-mono text-[10px] text-[var(--color-text-tertiary)]">
+                  <span className="shrink-0 font-mono text-[11px] text-[var(--color-text-tertiary)]">
                     {new Date(ev.ts).toLocaleTimeString()}
                   </span>
                 </button>
@@ -1775,12 +1775,12 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
               <div key={b.id} className="flex items-center gap-3 px-5 py-3">
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-xs font-medium text-[var(--color-text-primary)]">{b.source}</div>
-                  <div className="mt-0.5 font-mono text-[10px] text-[var(--color-text-tertiary)]">{b.hash}</div>
+                  <div className="mt-0.5 font-mono text-[11px] text-[var(--color-text-tertiary)]">{b.hash}</div>
                 </div>
-                <span className="shrink-0 rounded-full border border-[var(--color-border-tertiary)] px-2 py-0.5 text-[9px] text-[var(--color-text-tertiary)]">
+                <span className="shrink-0 rounded-full border border-[var(--color-border-tertiary)] px-2 py-0.5 text-[11px] text-[var(--color-text-tertiary)]">
                   {EVIDENCE_LEVEL_LABEL[b.level]}
                 </span>
-                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[9px] font-semibold ${BUNDLE_STATUS_STYLE[b.status]}`}>
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${BUNDLE_STATUS_STYLE[b.status]}`}>
                   {b.status}
                 </span>
               </div>

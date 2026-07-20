@@ -44,18 +44,20 @@ type InputAreaProps = {
   onSystemPromptChange?: (prompt: string) => void
 }
 
-const KIND_ICON: Record<string, string> = {
-  image: '🖼',
-  pdf: '📄',
-  text: '📝',
-  code: '⌥',
-  binary: '📦',
+// Quiet SVG file glyph for attachment chips — no emoji.
+function FileGlyph() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden>
+      <path d="M3.5 1.5h4L11 5v7.5H3.5V1.5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+      <path d="M7.5 1.5V5H11" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+    </svg>
+  )
 }
 
 function AttachmentChip({ attachment, onRemove }: { attachment: PendingAttachment; onRemove: () => void }) {
   return (
     <div className="flex items-center gap-1.5 rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-2 py-1 text-xs">
-      <span>{KIND_ICON[attachment.kind] ?? '📎'}</span>
+      <span className="text-[var(--color-text-tertiary)]"><FileGlyph /></span>
       <span className="max-w-[120px] truncate text-[var(--color-text-primary)]">{attachment.name}</span>
       <span className="text-[var(--color-text-tertiary)]">{attachment.sizeLabel}</span>
       <button
@@ -351,7 +353,7 @@ export function InputArea({
               <span className="text-[11px] font-medium uppercase tracking-wide text-[var(--color-text-tertiary)]">System prompt</span>
               <button
                 onClick={() => { setShowSystemPrompt(false); onSystemPromptChange('') }}
-                className="text-[10px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
+                className="text-[11px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
               >
                 clear ×
               </button>
@@ -461,12 +463,12 @@ export function InputArea({
                   className={`flex w-full flex-col items-start px-3 py-1.5 text-left transition hover:bg-[var(--color-background-secondary)] ${retrievalScope === 'chat' ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'}`}
                 >
                   <span className="text-[12px] font-medium">This chat only</span>
-                  <span className="text-[10px] text-[var(--color-text-tertiary)]">Reads only documents you attach in this conversation</span>
+                  <span className="text-[11px] text-[var(--color-text-tertiary)]">Reads only documents you attach in this conversation</span>
                 </button>
 
                 {/* Projects — pick one to scope the conversation to it (and make it active) */}
                 {projects.length > 0 && (
-                  <div className="px-3 pb-0.5 pt-1.5 text-[9px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Projects</div>
+                  <div className="px-3 pb-0.5 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Projects</div>
                 )}
                 {projects.map((p) => {
                   const on = retrievalScope === 'project' && p.id === activeProjectId
@@ -478,7 +480,7 @@ export function InputArea({
                       className={`flex w-full flex-col items-start px-3 py-1.5 text-left transition hover:bg-[var(--color-background-secondary)] ${on ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'}`}
                     >
                       <span className="max-w-full truncate text-[12px] font-medium">{p.title}</span>
-                      <span className="text-[10px] text-[var(--color-text-tertiary)]">This chat + this project’s knowledge base</span>
+                      <span className="text-[11px] text-[var(--color-text-tertiary)]">This chat + this project’s knowledge base</span>
                     </button>
                   )
                 })}
@@ -490,7 +492,7 @@ export function InputArea({
                   className={`mt-0.5 flex w-full flex-col items-start border-t border-[var(--color-border-tertiary)] px-3 py-1.5 text-left transition hover:bg-[var(--color-background-secondary)] ${retrievalScope === 'everything' ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'}`}
                 >
                   <span className="text-[12px] font-medium">Everything</span>
-                  <span className="text-[10px] text-[var(--color-text-tertiary)]">Reads across every document you’ve uploaded</span>
+                  <span className="text-[11px] text-[var(--color-text-tertiary)]">Reads across every document you’ve uploaded</span>
                 </button>
               </div>
             )}
@@ -517,7 +519,7 @@ export function InputArea({
                     className={`flex w-full flex-col items-start px-3 py-1.5 text-left transition hover:bg-[var(--color-background-secondary)] ${settings.agentMode === m ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'}`}
                   >
                     <span className="text-xs font-medium capitalize">{m}{settings.agentMode === m ? ' ✓' : ''}</span>
-                    <span className="text-[10px] text-[var(--color-text-tertiary)]">{desc}</span>
+                    <span className="text-[11px] text-[var(--color-text-tertiary)]">{desc}</span>
                   </button>
                 ))}
               </div>
@@ -580,7 +582,7 @@ export function InputArea({
               >
                 {modelShortName}
                 {thinkingLabel && (
-                  <span className="ml-1 text-[10px] text-[var(--color-text-tertiary)]">{thinkingLabel}</span>
+                  <span className="ml-1 text-[11px] text-[var(--color-text-tertiary)]">{thinkingLabel}</span>
                 )}
                 <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
                   <path d="M1.5 3l2 2 2-2" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round"/>

@@ -104,12 +104,12 @@ function ConnectorRow({
           <span className="text-sm font-semibold text-[var(--color-text-primary)]">{label}</span>
           <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${TRUST_COLORS[trust] ?? ''}`}>{trust}</span>
           {authConnected && (
-            <span className="rounded-full bg-[var(--color-accent-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-accent)]">Connected</span>
+            <span className="rounded-full bg-[var(--color-accent-bg)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-accent)]">Connected</span>
           )}
         </div>
         <p className="text-xs text-[var(--color-text-secondary)]">{description}</p>
         {authConnected && authUser && (
-          <p className="text-[10px] text-[var(--color-text-tertiary)]">{authUser}</p>
+          <p className="text-[11px] text-[var(--color-text-tertiary)]">{authUser}</p>
         )}
       </div>
       {onConfigure && (
@@ -307,7 +307,7 @@ export function ConnectorsPanel({ onNavigate }: { onNavigate?: (id: string) => v
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg py-1.5 text-xs font-medium transition ${tab === t.id ? 'bg-[var(--color-background-primary)] font-semibold text-[var(--color-text-primary)] shadow-sm' : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'}`}>
             {t.label}
-            {t.badge && <span className="rounded-full bg-[var(--color-accent)] px-1.5 py-0.5 text-[10px] font-bold text-white">{t.badge}</span>}
+            {t.badge && <span className="rounded-full bg-[var(--color-accent)] px-1.5 py-0.5 text-[11px] font-bold text-white">{t.badge}</span>}
           </button>
         ))}
       </div>
@@ -383,11 +383,11 @@ export function ConnectorsPanel({ onNavigate }: { onNavigate?: (id: string) => v
                     <div className="flex items-start justify-between gap-2">
                       <span className="text-xs font-semibold text-[var(--color-text-primary)]">{c.name}</span>
                       {c.desktop
-                        ? <span className="shrink-0 rounded-full bg-[var(--color-background-tertiary)] px-1.5 py-0.5 text-[9px] text-[var(--color-text-tertiary)]">desktop</span>
-                        : c.url && <span className="shrink-0 rounded-full bg-[var(--color-background-tertiary)] px-1.5 py-0.5 text-[9px] text-[var(--color-text-tertiary)]">remote</span>}
+                        ? <span className="shrink-0 rounded-full bg-[var(--color-background-tertiary)] px-1.5 py-0.5 text-[11px] text-[var(--color-text-tertiary)]">desktop</span>
+                        : c.url && <span className="shrink-0 rounded-full bg-[var(--color-background-tertiary)] px-1.5 py-0.5 text-[11px] text-[var(--color-text-tertiary)]">remote</span>}
                     </div>
                     <p className="mt-0.5 flex-1 text-[11px] leading-4 text-[var(--color-text-secondary)]">{c.description}</p>
-                    {(c.env || c.headers) && <p className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">needs: {(c.env ?? c.headers ?? []).join(', ')}</p>}
+                    {(c.env || c.headers) && <p className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">needs: {(c.env ?? c.headers ?? []).join(', ')}</p>}
                     <button disabled={blocked || added[c.name]}
                       title={blocked ? 'stdio servers need the Tauri desktop app' : ''}
                       onClick={() => {
@@ -396,7 +396,7 @@ export function ConnectorsPanel({ onNavigate }: { onNavigate?: (id: string) => v
                           : { name: c.name, transport: 'stdio', command: c.command ?? 'npx', args: c.args ?? [], env: (c.env ?? []).reduce((o, k) => ({ ...o, [k]: '' }), {} as Record<string, string>), enabled: true }
                         void addServer(cfg); setAdded((a) => ({ ...a, [c.name]: true }))
                       }}
-                      className="mt-2 rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2 py-1 text-[10px] font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe] disabled:opacity-50">
+                      className="mt-2 rounded-lg border border-[#bfdbfe] bg-[#eff6ff] px-2 py-1 text-[11px] font-semibold text-[#1d4ed8] transition hover:bg-[#dbeafe] disabled:opacity-50">
                       {added[c.name] ? '✓ Added — configure below' : blocked ? 'Desktop only' : '+ Add'}
                     </button>
                   </div>

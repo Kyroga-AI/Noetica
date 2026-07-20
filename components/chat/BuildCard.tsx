@@ -50,7 +50,7 @@ export function BuildCard({ spec }: { spec: BuildSpec }) {
           <div className="mt-3 space-y-2.5">
             {spec.questions.map((q) => (
               <div key={q.id}>
-                <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">{q.label}</span>
+                <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">{q.label}</span>
                 <div className="mt-1 flex flex-wrap gap-1.5">
                   {q.options.map((opt) => {
                     const active = answers[q.id] === opt

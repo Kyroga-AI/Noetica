@@ -47,14 +47,14 @@ function TaskCard({ item, active, onClick }: { item: WorkItem; active: boolean; 
         <p className="flex-1 text-xs font-medium leading-5 text-[var(--color-text-primary)] line-clamp-2">{item.title}</p>
       </div>
       <div className="flex items-center gap-2">
-        <span className={`flex items-center gap-1 text-[10px] font-semibold ${PRIORITY_COLORS[item.priority]}`}>
+        <span className={`flex items-center gap-1 text-[11px] font-semibold ${PRIORITY_COLORS[item.priority]}`}>
           <span className={`h-1.5 w-1.5 rounded-full ${PRIORITY_DOT[item.priority]}`} />
           {item.priority.charAt(0).toUpperCase() + item.priority.slice(1)}
         </span>
         {item.tags.slice(0, 2).map((t) => (
-          <span key={t} className="rounded-full bg-[var(--color-background-tertiary)] px-1.5 text-[10px] text-[var(--color-text-secondary)]">{t}</span>
+          <span key={t} className="rounded-full bg-[var(--color-background-tertiary)] px-1.5 text-[11px] text-[var(--color-text-secondary)]">{t}</span>
         ))}
-        <span className="ml-auto shrink-0 text-[10px] text-[#cbd5e1]">{timeAgo(item.updatedAt)}</span>
+        <span className="ml-auto shrink-0 text-[11px] text-[#cbd5e1]">{timeAgo(item.updatedAt)}</span>
       </div>
     </button>
   )
@@ -73,7 +73,7 @@ function BoardColumn({ status, label, color, items, activeId, onSelect, onAddIte
       <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-4 py-3">
         <div>
           <p className="text-xs font-semibold text-[var(--color-text-secondary)]">{label}</p>
-          <p className="text-[10px] text-[var(--color-text-tertiary)]">{items.length} {items.length === 1 ? 'item' : 'items'}</p>
+          <p className="text-[11px] text-[var(--color-text-tertiary)]">{items.length} {items.length === 1 ? 'item' : 'items'}</p>
         </div>
         <button onClick={() => onAddItem(status)}
           className="flex h-6 w-6 items-center justify-center rounded-lg text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-primary)] hover:text-[#1d4ed8]">
@@ -203,7 +203,7 @@ function TaskDetail({ item, onUpdate, onDelete, onMove, onClose }: {
           <label className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Tags</label>
           <div className="flex flex-wrap gap-1">
             {item.tags.map((t) => (
-              <span key={t} className="flex items-center gap-1 rounded-full bg-[#e0e7ff] px-2 py-0.5 text-[10px] font-medium text-[#3730a3]">
+              <span key={t} className="flex items-center gap-1 rounded-full bg-[#e0e7ff] px-2 py-0.5 text-[11px] font-medium text-[#3730a3]">
                 {t}
                 <button onClick={() => removeTag(t)} className="text-[#6366f1] hover:text-[#3730a3]">×</button>
               </span>
@@ -263,9 +263,9 @@ function BacklogView({ items, onSelect, activeId, onUpdate, onAddItem }: {
             <span className="flex-1 truncate text-sm text-[var(--color-text-primary)]">{item.title}</span>
             <div className="flex items-center gap-2">
               {item.tags.slice(0, 2).map((t) => (
-                <span key={t} className="rounded-full bg-[var(--color-background-tertiary)] px-2 text-[10px] text-[var(--color-text-secondary)]">{t}</span>
+                <span key={t} className="rounded-full bg-[var(--color-background-tertiary)] px-2 text-[11px] text-[var(--color-text-secondary)]">{t}</span>
               ))}
-              <span className="text-[10px] text-[var(--color-text-tertiary)]">{timeAgo(item.updatedAt)}</span>
+              <span className="text-[11px] text-[var(--color-text-tertiary)]">{timeAgo(item.updatedAt)}</span>
             </div>
           </button>
         ))}
@@ -356,7 +356,7 @@ function SprintsView({ sprints, items, projectId, onCreateSprint, onUpdateSprint
                 <div>
                   <div className="flex items-center gap-2">
                     <p className="text-sm font-semibold text-[var(--color-text-primary)]">{sprint.name}</p>
-                    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${statusBadge(sprint.status)}`}>
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${statusBadge(sprint.status)}`}>
                       {sprint.status}
                     </span>
                   </div>
@@ -365,18 +365,18 @@ function SprintsView({ sprints, items, projectId, onCreateSprint, onUpdateSprint
                 <div className="flex items-center gap-1.5">
                   {sprint.status !== 'active' && sprint.status !== 'completed' && (
                     <button onClick={() => onUpdateSprint(sprint.id, { status: 'active' })}
-                      className="rounded-lg bg-[var(--color-accent-bg)] px-2.5 py-1 text-[10px] font-semibold text-[var(--color-accent)] transition hover:bg-[#bbf7d0]">
+                      className="rounded-lg bg-[var(--color-accent-bg)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-accent)] transition hover:bg-[#bbf7d0]">
                       Start
                     </button>
                   )}
                   {sprint.status === 'active' && (
                     <button onClick={() => onUpdateSprint(sprint.id, { status: 'completed' })}
-                      className="rounded-lg bg-[#e0e7ff] px-2.5 py-1 text-[10px] font-semibold text-[#3730a3] transition hover:bg-[#c7d2fe]">
+                      className="rounded-lg bg-[#e0e7ff] px-2.5 py-1 text-[11px] font-semibold text-[#3730a3] transition hover:bg-[#c7d2fe]">
                       Complete
                     </button>
                   )}
                   <button onClick={() => onDeleteSprint(sprint.id)}
-                    className="rounded-lg border border-[var(--color-border-secondary)] px-2.5 py-1 text-[10px] text-[var(--color-text-tertiary)] hover:border-[#fecaca] hover:text-[#ef4444]">
+                    className="rounded-lg border border-[var(--color-border-secondary)] px-2.5 py-1 text-[11px] text-[var(--color-text-tertiary)] hover:border-[#fecaca] hover:text-[#ef4444]">
                     Delete
                   </button>
                 </div>
@@ -463,25 +463,25 @@ function LinearIssueRow({ issue }: { issue: LinearIssue }) {
       </div>
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <span className="font-mono text-[10px] text-[var(--color-text-tertiary)]">{issue.identifier}</span>
-          <span className={`text-[10px] font-semibold ${LINEAR_PRIORITY_COLORS[issue.priority] ?? ''}`}>
+          <span className="font-mono text-[11px] text-[var(--color-text-tertiary)]">{issue.identifier}</span>
+          <span className={`text-[11px] font-semibold ${LINEAR_PRIORITY_COLORS[issue.priority] ?? ''}`}>
             {LINEAR_PRIORITY_LABELS[issue.priority] ?? issue.priorityLabel}
           </span>
           {issue.dueDate && (
-            <span className="rounded-full bg-[#fef3c7] px-1.5 text-[10px] text-[var(--color-attention)]">
+            <span className="rounded-full bg-[#fef3c7] px-1.5 text-[11px] text-[var(--color-attention)]">
               due {issue.dueDate}
             </span>
           )}
         </div>
         <p className="mt-0.5 truncate text-sm font-medium text-[var(--color-text-primary)]">{issue.title}</p>
         <div className="mt-1 flex items-center gap-2">
-          <span className="rounded-full border border-[var(--color-border-secondary)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-secondary)]">{issue.state.name}</span>
+          <span className="rounded-full border border-[var(--color-border-secondary)] px-1.5 py-0.5 text-[11px] text-[var(--color-text-secondary)]">{issue.state.name}</span>
           {issue.project && (
-            <span className="rounded-full px-1.5 py-0.5 text-[10px] text-white" style={{ background: issue.project.color ?? '#5E6AD2' }}>
+            <span className="rounded-full px-1.5 py-0.5 text-[11px] text-white" style={{ background: issue.project.color ?? '#5E6AD2' }}>
               {issue.project.name}
             </span>
           )}
-          <span className="ml-auto text-[10px] text-[#cbd5e1]">{timeAgo(issue.updatedAt)}</span>
+          <span className="ml-auto text-[11px] text-[#cbd5e1]">{timeAgo(issue.updatedAt)}</span>
         </div>
       </div>
     </a>
@@ -526,7 +526,7 @@ function LinearView({ token, userName }: { token: string; userName?: string }) {
             <div className="h-3 w-3 rounded bg-[#5E6AD2]" />
             <span className="text-xs font-semibold text-[#5E6AD2]">Linear</span>
           </div>
-          {userName && <p className="mt-0.5 text-[10px] text-[var(--color-text-tertiary)] truncate">{userName}</p>}
+          {userName && <p className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)] truncate">{userName}</p>}
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
           <button
@@ -536,7 +536,7 @@ function LinearView({ token, userName }: { token: string; userName?: string }) {
             <span>Assigned to me</span>
           </button>
           {teams.length > 0 && (
-            <div className="mt-2 px-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Teams</div>
+            <div className="mt-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Teams</div>
           )}
           {teams.map((team) => (
             <button
@@ -544,9 +544,9 @@ function LinearView({ token, userName }: { token: string; userName?: string }) {
               onClick={() => setFilter(team.id)}
               className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs transition ${filter === team.id ? 'bg-[#e0e7ff] font-semibold text-[#3730a3]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)]'}`}
             >
-              <span className="font-mono text-[10px] text-[var(--color-text-tertiary)] shrink-0">{team.key}</span>
+              <span className="font-mono text-[11px] text-[var(--color-text-tertiary)] shrink-0">{team.key}</span>
               <span className="flex-1 truncate">{team.name}</span>
-              <span className="shrink-0 text-[10px]">{team.issueCount}</span>
+              <span className="shrink-0 text-[11px]">{team.issueCount}</span>
             </button>
           ))}
         </div>
@@ -560,7 +560,7 @@ function LinearView({ token, userName }: { token: string; userName?: string }) {
           </p>
           {!loading && <span className="text-xs text-[var(--color-text-tertiary)]">{issues.length} issues</span>}
           <a href="https://linear.app" target="_blank" rel="noreferrer"
-            className="ml-auto text-[10px] text-[#5E6AD2] transition hover:underline">
+            className="ml-auto text-[11px] text-[#5E6AD2] transition hover:underline">
             Open in Linear ↗
           </a>
         </div>
@@ -795,7 +795,7 @@ export function ProjectsSurface() {
               className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs transition ${!activeProject ? 'bg-[#dbeafe] font-semibold text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)]'}`}>
               <span className="h-2 w-2 rounded-full bg-[#cbd5e1]" />
               All items
-              <span className="ml-auto text-[10px]">{items.length}</span>
+              <span className="ml-auto text-[11px]">{items.length}</span>
             </button>
           )}
           {projects.map((p) => {
@@ -806,7 +806,7 @@ export function ProjectsSurface() {
                 className={`flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-xs transition ${isActive ? 'bg-[#dbeafe] font-semibold text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)]'}`}>
                 <span className={`h-2 w-2 rounded-full ${isActive ? 'bg-[#1d4ed8]' : 'bg-[#cbd5e1]'}`} />
                 <span className="flex-1 truncate">{p.name}</span>
-                <span className="shrink-0 text-[10px]">{count}</span>
+                <span className="shrink-0 text-[11px]">{count}</span>
               </button>
             )
           })}
@@ -814,11 +814,11 @@ export function ProjectsSurface() {
 
         {/* External connectors footer */}
         <div className="border-t border-[var(--color-border-secondary)] p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">External</p>
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">External</p>
           <div className="mt-1.5 flex flex-col gap-1">
             <button
               onClick={() => linearConnected ? setView('linear') : undefined}
-              className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] transition ${
+              className={`flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] transition ${
                 linearConnected
                   ? 'border-[#c7d2fe] bg-[#e0e7ff] text-[#3730a3] hover:bg-[#c7d2fe] cursor-pointer'
                   : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] text-[var(--color-text-tertiary)] cursor-default'
@@ -827,11 +827,11 @@ export function ProjectsSurface() {
               <span className={`h-1.5 w-1.5 rounded-full ${linearConnected ? 'bg-[#5E6AD2]' : 'bg-[#cbd5e1]'}`} />
               Linear {linearConnected ? '· connected' : ''}
             </button>
-            <span className="rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2 py-0.5 text-[10px] text-[var(--color-text-tertiary)]">GitHub · soon</span>
-            <span className="rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2 py-0.5 text-[10px] text-[var(--color-text-tertiary)]">Jira · soon</span>
+            <span className="rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2 py-0.5 text-[11px] text-[var(--color-text-tertiary)]">GitHub · soon</span>
+            <span className="rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2 py-0.5 text-[11px] text-[var(--color-text-tertiary)]">Jira · soon</span>
           </div>
           {!linearConnected && (
-            <p className="mt-1 text-[10px] text-[#cbd5e1]">
+            <p className="mt-1 text-[11px] text-[#cbd5e1]">
               Connect Linear in Settings → Connections to sync issues.
             </p>
           )}

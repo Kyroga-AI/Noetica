@@ -345,7 +345,7 @@ function CanvasChat({ doc, onDocUpdate }: {
           <p className="text-[11px] text-[var(--color-text-tertiary)]">Ask Noetica to write or edit</p>
         </div>
         {messages.length > 0 && (
-          <span className="rounded-full bg-[#eff6ff] px-2 py-0.5 text-[10px] font-semibold text-[#1d4ed8]">{messages.length}</span>
+          <span className="rounded-full bg-[#eff6ff] px-2 py-0.5 text-[11px] font-semibold text-[#1d4ed8]">{messages.length}</span>
         )}
       </div>
 
@@ -367,7 +367,7 @@ function CanvasChat({ doc, onDocUpdate }: {
           messages.map((m) => (
             <div key={m.id} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
               {m.role === 'assistant' && (
-                <div className="mr-2 mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#0f172a] text-[10px] font-bold text-white">N</div>
+                <div className="mr-2 mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#0f172a] text-[11px] font-bold text-white">N</div>
               )}
               <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-xs leading-5 ${
                 m.role === 'user'
@@ -411,7 +411,7 @@ function CanvasChat({ doc, onDocUpdate }: {
             </button>
           )}
         </div>
-        <p className="mt-1.5 text-center text-[10px] text-[#cbd5e1]">⌘ + Enter</p>
+        <p className="mt-1.5 text-center text-[11px] text-[#cbd5e1]">⌘ + Enter</p>
       </div>
     </div>
   )
@@ -508,18 +508,18 @@ export function CanvasSurface() {
                   className={`flex w-full flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left transition ${active ? 'bg-[#dbeafe]' : 'hover:bg-[var(--color-background-tertiary)]'}`}
                 >
                   <div className="flex items-center gap-1.5">
-                    {doc.pinned && <span className="text-[10px] text-[#f59e0b]">★</span>}
+                    {doc.pinned && <span className="text-[11px] text-[#f59e0b]">★</span>}
                     <span className={`truncate text-sm font-medium ${active ? 'text-[#1d4ed8]' : 'text-[var(--color-text-primary)]'}`}>{doc.title}</span>
                   </div>
                   <p className="truncate text-xs text-[var(--color-text-tertiary)]">{preview || 'Empty document'}</p>
-                  <p className="text-[10px] text-[#cbd5e1]">{timeAgo(doc.updatedAt)}</p>
+                  <p className="text-[11px] text-[#cbd5e1]">{timeAgo(doc.updatedAt)}</p>
                 </button>
 
                 {/* Hover actions */}
                 <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition">
                   <button onClick={(e) => { e.stopPropagation(); pinDocument(doc.id, !doc.pinned) }} title={doc.pinned ? 'Unpin' : 'Pin'}
                     className="flex h-5 w-5 items-center justify-center rounded text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-primary)] hover:text-[#f59e0b]">
-                    <span className="text-[10px]">★</span>
+                    <span className="text-[11px]">★</span>
                   </button>
                   <button onClick={(e) => { e.stopPropagation(); setShowDeleteConfirm(doc.id) }} title="Delete"
                     className="flex h-5 w-5 items-center justify-center rounded text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-primary)] hover:text-[#dc2626]">
@@ -545,7 +545,7 @@ export function CanvasSurface() {
         </div>
 
         {hydrated && documents.length > 0 && (
-          <div className="border-t border-[var(--color-border-secondary)] px-3 py-2 text-[10px] text-[var(--color-text-tertiary)]">
+          <div className="border-t border-[var(--color-border-secondary)] px-3 py-2 text-[11px] text-[var(--color-text-tertiary)]">
             {documents.length} document{documents.length !== 1 ? 's' : ''}
           </div>
         )}

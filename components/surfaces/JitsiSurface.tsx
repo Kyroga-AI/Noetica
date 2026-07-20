@@ -89,7 +89,7 @@ export function JitsiSurface() {
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 text-center text-[var(--color-text-tertiary)]">
             <svg width="40" height="40" viewBox="0 0 24 24" fill="none" aria-hidden><rect x="2" y="6" width="13" height="12" rx="2" stroke="currentColor" strokeWidth="1.5"/><path d="M16 10l6-3v10l-6-3z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/></svg>
             <p className="text-xs">Start a call for this workroom.</p>
-            <p className="text-[10px]">Set a self-hosted Jitsi domain above to keep calls sovereign.</p>
+            <p className="text-[11px]">Set a self-hosted Jitsi domain above to keep calls sovereign.</p>
           </div>
         )}
         <div ref={containerRef} className="h-full w-full" />

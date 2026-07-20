@@ -57,13 +57,13 @@ export function OfficeViewer() {
       </header>
       {error && <div className="px-5 py-2 text-[11px] text-[#ef4444]">{error}</div>}
       <div className="flex-1 overflow-auto p-5">
-        {!kind && <div className="flex h-full items-center justify-center text-center text-[var(--color-text-tertiary)]"><div><p className="text-xs">Open a .docx, .xlsx, or .csv to view it inline.</p><p className="mt-1 text-[10px]">.pptx and high-fidelity rendering use the optional LibreOffice toolkit.</p></div></div>}
+        {!kind && <div className="flex h-full items-center justify-center text-center text-[var(--color-text-tertiary)]"><div><p className="text-xs">Open a .docx, .xlsx, or .csv to view it inline.</p><p className="mt-1 text-[11px]">.pptx and high-fidelity rendering use the optional LibreOffice toolkit.</p></div></div>}
         {kind === 'docx' && <div ref={docRef} className="mx-auto max-w-3xl rounded-lg bg-white p-6 text-black shadow" />}
         {kind === 'sheet' && (
           <div>
             <div className="mb-2 flex flex-wrap gap-1">
               {sheets.map((s, i) => (
-                <button key={s.name} onClick={() => setActive(i)} className={`rounded px-2 py-0.5 text-[10px] ${i === active ? 'bg-[var(--color-accent)]/15 text-[var(--color-accent)]' : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]'}`}>{s.name}</button>
+                <button key={s.name} onClick={() => setActive(i)} className={`rounded px-2 py-0.5 text-[11px] ${i === active ? 'bg-[var(--color-accent)]/15 text-[var(--color-accent)]' : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]'}`}>{s.name}</button>
               ))}
             </div>
             <div className="overflow-auto rounded-lg border border-[var(--color-border-secondary)] bg-white p-2 text-black">
@@ -74,13 +74,13 @@ export function OfficeViewer() {
                   ))}
                 </tbody>
               </table>
-              {(sheets[active]?.rows.length ?? 0) > 1000 && <p className="p-2 text-[10px] text-gray-500">Showing first 1000 rows.</p>}
+              {(sheets[active]?.rows.length ?? 0) > 1000 && <p className="p-2 text-[11px] text-gray-500">Showing first 1000 rows.</p>}
             </div>
           </div>
         )}
         {kind === 'other' && (
           <div className="flex h-full items-center justify-center text-center text-[var(--color-text-tertiary)]">
-            <div><p className="text-xs">This format needs the LibreOffice toolkit to render.</p><p className="mt-1 text-[10px]">Install LibreOffice (Capabilities → Office) to convert {name} for viewing.</p></div>
+            <div><p className="text-xs">This format needs the LibreOffice toolkit to render.</p><p className="mt-1 text-[11px]">Install LibreOffice (Capabilities → Office) to convert {name} for viewing.</p></div>
           </div>
         )}
       </div>

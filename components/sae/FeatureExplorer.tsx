@@ -83,8 +83,8 @@ export function FeatureExplorer({ onSelectFeature }: Props) {
       {result && (
         <div className="space-y-1">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] text-[var(--color-text-tertiary)]">hook: {result.hook} · {result.prompt_tokens} tokens</span>
-            {selected !== null && <span className="text-[10px] text-[#7c3aed]">feature {selected} selected</span>}
+            <span className="text-[11px] text-[var(--color-text-tertiary)]">hook: {result.hook} · {result.prompt_tokens} tokens</span>
+            {selected !== null && <span className="text-[11px] text-[#7c3aed]">feature {selected} selected</span>}
           </div>
           <div className="max-h-48 overflow-y-auto rounded-xl border border-[var(--color-border-tertiary)]">
             {result.top_features.map((f, i) => (
@@ -95,7 +95,7 @@ export function FeatureExplorer({ onSelectFeature }: Props) {
                   selected === f.feature_id ? 'bg-[rgba(124,58,237,0.08)]' : i % 2 === 0 ? '' : ''
                 }`}
               >
-                <span className="w-4 shrink-0 text-[10px] font-mono text-[var(--color-text-tertiary)]">{i + 1}</span>
+                <span className="w-4 shrink-0 text-[11px] font-mono text-[var(--color-text-tertiary)]">{i + 1}</span>
                 <span className="w-14 shrink-0 font-mono text-[11px] text-[var(--color-text-primary)]">{f.feature_id}</span>
                 <div className="flex flex-1 items-center gap-1.5">
                   <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
@@ -104,17 +104,17 @@ export function FeatureExplorer({ onSelectFeature }: Props) {
                       style={{ width: `${(f.activation / maxAct) * 100}%` }}
                     />
                   </div>
-                  <span className="w-12 text-right font-mono text-[10px] text-[var(--color-text-tertiary)]">
+                  <span className="w-12 text-right font-mono text-[11px] text-[var(--color-text-tertiary)]">
                     {f.activation.toFixed(3)}
                   </span>
                 </div>
                 {selected === f.feature_id && (
-                  <span className="shrink-0 text-[10px] font-semibold text-[#7c3aed]">selected</span>
+                  <span className="shrink-0 text-[11px] font-semibold text-[#7c3aed]">selected</span>
                 )}
               </button>
             ))}
           </div>
-          <p className="text-[10px] text-[var(--color-text-tertiary)]">Click a feature to select it for steering or causal triad analysis.</p>
+          <p className="text-[11px] text-[var(--color-text-tertiary)]">Click a feature to select it for steering or causal triad analysis.</p>
         </div>
       )}
     </div>

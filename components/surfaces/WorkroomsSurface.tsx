@@ -54,16 +54,16 @@ function RoomListItem({ room, active, onClick }: { room: Workroom; active: boole
     <button onClick={onClick}
       className={`flex w-full flex-col gap-0.5 rounded-xl px-3 py-2.5 text-left transition ${active ? 'bg-[#dbeafe]' : 'hover:bg-[var(--color-background-tertiary)]'}`}>
       <div className="flex items-center gap-1.5">
-        {room.pinned && <span className="text-[10px] text-[#f59e0b]">★</span>}
+        {room.pinned && <span className="text-[11px] text-[#f59e0b]">★</span>}
         <span className={`truncate text-sm font-medium ${active ? 'text-[#1d4ed8]' : 'text-[var(--color-text-primary)]'}`}>
           {room.name}
         </span>
-        <span className="ml-auto shrink-0 text-[10px] text-[#cbd5e1]">{timeAgo(room.updatedAt)}</span>
+        <span className="ml-auto shrink-0 text-[11px] text-[#cbd5e1]">{timeAgo(room.updatedAt)}</span>
       </div>
       <p className="truncate text-xs text-[var(--color-text-tertiary)]">
         {last ? `${last.participantName}: ${last.content.slice(0, 45)}` : room.description || 'No messages yet'}
       </p>
-      <div className="flex items-center gap-1 text-[10px] text-[var(--color-text-tertiary)]">
+      <div className="flex items-center gap-1 text-[11px] text-[var(--color-text-tertiary)]">
         <span>{room.participants.length} participant{room.participants.length !== 1 ? 's' : ''}</span>
         {room.dispatches.length > 0 && (
           <span>· {room.dispatches.filter((d) => d.status === 'done').length}/{room.dispatches.length} dispatches</span>
@@ -102,7 +102,7 @@ function MessageRow({ msg }: { msg: WorkroomMessage }) {
   return (
     <div className={`flex items-start gap-2.5 ${isUser ? 'flex-row-reverse' : ''}`}>
       {/* Avatar */}
-      <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${
+      <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white ${
         msg.participantKind === 'agent'
           ? (AGENT_ARCHETYPES.find((a) => a.name === msg.participantName)?.color ?? 'bg-[#64748b]')
           : msg.participantKind === 'system'
@@ -116,7 +116,7 @@ function MessageRow({ msg }: { msg: WorkroomMessage }) {
       <div className={`max-w-[72%] space-y-0.5 ${isUser ? 'items-end' : 'items-start'} flex flex-col`}>
         <div className="flex items-baseline gap-2">
           {!isUser && <span className="text-[11px] font-semibold text-[var(--color-text-secondary)]">{msg.participantName}</span>}
-          <span className="text-[10px] text-[#cbd5e1]">{formatTime(msg.createdAt)}</span>
+          <span className="text-[11px] text-[#cbd5e1]">{formatTime(msg.createdAt)}</span>
           {isUser && <span className="text-[11px] font-semibold text-[var(--color-text-secondary)]">{msg.participantName}</span>}
         </div>
         <div className={`rounded-2xl px-3.5 py-2.5 text-sm leading-6 ${
@@ -185,7 +185,7 @@ function AgentDispatchPanel({ room, onDispatch }: {
           <p className="text-xs font-semibold text-[var(--color-text-primary)]">Agent Dispatch</p>
           {activeAgentIds.length > 1 && (
             <button onClick={selectAll}
-              className="text-[10px] font-semibold text-[#1d4ed8] hover:underline">
+              className="text-[11px] font-semibold text-[#1d4ed8] hover:underline">
               Select all
             </button>
           )}
@@ -218,7 +218,7 @@ function AgentDispatchPanel({ room, onDispatch }: {
                       </svg>
                     )}
                   </div>
-                  <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${arch?.color ?? 'bg-[#64748b]'}`}>
+                  <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white ${arch?.color ?? 'bg-[#64748b]'}`}>
                     {initials(p.name)}
                   </div>
                   <div>
@@ -241,22 +241,22 @@ function AgentDispatchPanel({ room, onDispatch }: {
               return (
                 <div key={arch.id}
                   className={`flex items-center gap-2.5 rounded-xl border px-3 py-2 ${isActive ? 'border-[var(--color-accent-bg)] bg-[var(--color-accent-bg)]' : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]'}`}>
-                  <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${arch.color}`}>
+                  <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white ${arch.color}`}>
                     {initials(arch.name)}
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs font-semibold text-[var(--color-text-primary)]">{arch.name}</p>
                     <div className="mt-0.5 flex flex-wrap gap-1">
                       {arch.tags.map((t) => (
-                        <span key={t} className="rounded-full bg-[var(--color-background-tertiary)] px-1.5 text-[10px] text-[var(--color-text-secondary)]">{t}</span>
+                        <span key={t} className="rounded-full bg-[var(--color-background-tertiary)] px-1.5 text-[11px] text-[var(--color-text-secondary)]">{t}</span>
                       ))}
                     </div>
                   </div>
                   {isActive ? (
-                    <span className="shrink-0 text-[10px] font-semibold text-[var(--color-accent)]">Active</span>
+                    <span className="shrink-0 text-[11px] font-semibold text-[var(--color-accent)]">Active</span>
                   ) : (
                     <button onClick={() => toggleAgent(arch.id)}
-                      className={`shrink-0 rounded-lg border px-2 py-1 text-[10px] font-semibold transition ${
+                      className={`shrink-0 rounded-lg border px-2 py-1 text-[11px] font-semibold transition ${
                         isSelected ? 'border-[#1d4ed8] bg-[#1d4ed8] text-white' : 'border-[#bfdbfe] bg-[#eff6ff] text-[#1d4ed8] hover:bg-[#dbeafe]'
                       }`}>
                       {isSelected ? 'Selected' : 'Use'}
@@ -276,14 +276,14 @@ function AgentDispatchPanel({ room, onDispatch }: {
               <div key={d.id} className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-xs">
                 <div className="flex items-center justify-between gap-2">
                   <span className="font-semibold text-[var(--color-text-primary)]">{d.agentName}</span>
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                  <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${
                     d.status === 'done'    ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' :
                     d.status === 'running' ? 'bg-[var(--color-attention-bg)] text-[#854d0e] animate-pulse' :
                     'bg-[#fee2e2] text-[#991b1b]'
                   }`}>{d.status}</span>
                 </div>
                 <p className="mt-0.5 text-[var(--color-text-secondary)] line-clamp-2">{d.task}</p>
-                <p className="mt-0.5 text-[10px] text-[#cbd5e1]">{timeAgo(d.dispatchedAt)}</p>
+                <p className="mt-0.5 text-[11px] text-[#cbd5e1]">{timeAgo(d.dispatchedAt)}</p>
               </div>
             ))}
           </div>
@@ -298,7 +298,7 @@ function AgentDispatchPanel({ room, onDispatch }: {
               const arch = AGENT_ARCHETYPES.find((a) => a.id === id)
               if (!arch) return null
               return (
-                <span key={id} className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold text-white ${arch.color}`}>
+                <span key={id} className={`flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold text-white ${arch.color}`}>
                   {arch.name}
                   <button onClick={() => toggleAgent(id)} className="opacity-70 hover:opacity-100" aria-label={`Remove ${arch.name}`}>
                     <svg width="8" height="8" viewBox="0 0 8 8" fill="none" aria-hidden>
@@ -498,7 +498,7 @@ function RoomView({ room, thinkingBudget, onAppendMessage, onUpdateMessage, onUp
               const arch = p.kind === 'agent' ? AGENT_ARCHETYPES.find((a) => a.id === p.agentId) : null
               return (
                 <div key={p.id} title={p.name}
-                  className={`flex h-7 w-7 items-center justify-center rounded-full border-2 border-white text-[10px] font-bold text-white ${arch?.color ?? avatarColor(p.name)}`}>
+                  className={`flex h-7 w-7 items-center justify-center rounded-full border-2 border-white text-[11px] font-bold text-white ${arch?.color ?? avatarColor(p.name)}`}>
                   {initials(p.name)}
                 </div>
               )
@@ -586,13 +586,13 @@ function SlackChannelView({ channel, token }: { channel: SlackChannel; token: st
             <span className="text-sm font-semibold text-[var(--color-text-primary)]">
               {channel.isPrivate ? '🔒' : '#'}{channel.name}
             </span>
-            <span className="rounded-full bg-[#f5f0ff] px-2 py-0.5 text-[9px] font-semibold text-[#7c3aed]">Slack</span>
+            <span className="rounded-full bg-[#f5f0ff] px-2 py-0.5 text-[11px] font-semibold text-[#7c3aed]">Slack</span>
           </div>
           <p className="text-xs text-[var(--color-text-tertiary)]">
             {channel.numMembers} members{channel.topic ? ` · ${channel.topic}` : ''}
           </p>
         </div>
-        <div className="ml-auto text-[10px] text-[var(--color-text-tertiary)]">Read-only — post from Slack</div>
+        <div className="ml-auto text-[11px] text-[var(--color-text-tertiary)]">Read-only — post from Slack</div>
       </div>
 
       {/* Messages */}
@@ -623,13 +623,13 @@ function SlackChannelView({ channel, token }: { channel: SlackChannel; token: st
             const name = resolveUser(msg)
             return (
               <div key={msg.ts} className="flex items-start gap-2.5">
-                <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold text-white ${avatarColor(name)}`}>
+                <div className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white ${avatarColor(name)}`}>
                   {initials(name)}
                 </div>
                 <div className="min-w-0 flex-1 space-y-0.5">
                   <div className="flex items-baseline gap-2">
                     <span className="text-[11px] font-semibold text-[var(--color-text-secondary)]">{name}</span>
-                    <span className="text-[10px] text-[#cbd5e1]">{fmtSlackTs(msg.ts)}</span>
+                    <span className="text-[11px] text-[#cbd5e1]">{fmtSlackTs(msg.ts)}</span>
                   </div>
                   <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3.5 py-2.5 text-sm leading-6 text-[var(--color-text-primary)] shadow-sm">
                     <p className="whitespace-pre-wrap">{msg.text}</p>
@@ -814,7 +814,7 @@ export function WorkroomsSurface({ thinkingBudget }: { thinkingBudget?: number }
             <div className="mt-2">
               <button
                 onClick={() => setSlackExpanded((v) => !v)}
-                className="flex w-full items-center gap-1.5 border-t border-[var(--color-border-secondary)] px-3 py-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#7c3aed] transition hover:bg-[var(--color-background-secondary)]"
+                className="flex w-full items-center gap-1.5 border-t border-[var(--color-border-secondary)] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7c3aed] transition hover:bg-[var(--color-background-secondary)]"
               >
                 <svg width="8" height="8" viewBox="0 0 8 8" fill="none" className={`transition-transform ${slackExpanded ? 'rotate-90' : ''}`} aria-hidden>
                   <path d="M2 1l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -825,9 +825,9 @@ export function WorkroomsSurface({ thinkingBudget }: { thinkingBudget?: number }
               {slackExpanded && (
                 <div className="px-2 pb-1 space-y-0.5">
                   {slackLoading ? (
-                    <p className="py-2 text-center text-[10px] text-[var(--color-text-tertiary)]">Loading channels…</p>
+                    <p className="py-2 text-center text-[11px] text-[var(--color-text-tertiary)]">Loading channels…</p>
                   ) : slackChannels.length === 0 ? (
-                    <p className="px-2 py-2 text-[10px] text-[var(--color-text-tertiary)]">No channels found.<br/>Invite the app to channels in Slack.</p>
+                    <p className="px-2 py-2 text-[11px] text-[var(--color-text-tertiary)]">No channels found.<br/>Invite the app to channels in Slack.</p>
                   ) : (
                     slackChannels.map((ch) => {
                       const isActive = active?.kind === 'slack' && active.channel.id === ch.id
@@ -842,7 +842,7 @@ export function WorkroomsSurface({ thinkingBudget }: { thinkingBudget?: number }
                             {ch.name}
                           </span>
                           {(ch.unreadCount ?? 0) > 0 && (
-                            <span className="ml-auto shrink-0 rounded-full bg-[#7c3aed] px-1.5 py-0.5 text-[9px] font-bold text-white">
+                            <span className="ml-auto shrink-0 rounded-full bg-[#7c3aed] px-1.5 py-0.5 text-[11px] font-bold text-white">
                               {ch.unreadCount}
                             </span>
                           )}
@@ -857,7 +857,7 @@ export function WorkroomsSurface({ thinkingBudget }: { thinkingBudget?: number }
 
           {!slackConnected && (
             <div className="border-t border-[var(--color-border-secondary)] px-3 py-2.5">
-              <p className="text-[10px] text-[var(--color-text-tertiary)]">
+              <p className="text-[11px] text-[var(--color-text-tertiary)]">
                 Connect Slack in Settings → Connections to see channels here.
               </p>
             </div>
@@ -865,7 +865,7 @@ export function WorkroomsSurface({ thinkingBudget }: { thinkingBudget?: number }
         </div>
 
         {hydrated && workrooms.length > 0 && (
-          <div className="border-t border-[var(--color-border-secondary)] px-3 py-2 text-[10px] text-[var(--color-text-tertiary)]">
+          <div className="border-t border-[var(--color-border-secondary)] px-3 py-2 text-[11px] text-[var(--color-text-tertiary)]">
             {workrooms.length} workroom{workrooms.length !== 1 ? 's' : ''}
             {slackConnected && slackChannels.length > 0 && ` · ${slackChannels.length} Slack`}
           </div>

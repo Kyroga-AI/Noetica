@@ -108,7 +108,7 @@ function ProviderRow({
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-[var(--color-text-primary)]">{provider.label}</span>
             {verifyState === 'ok' && (
-              <span className="rounded-full bg-[var(--color-accent-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-accent)]">Verified</span>
+              <span className="rounded-full bg-[var(--color-accent-bg)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-accent)]">Verified</span>
             )}
           </div>
           <p className="text-xs text-[var(--color-text-secondary)]">{provider.description}</p>

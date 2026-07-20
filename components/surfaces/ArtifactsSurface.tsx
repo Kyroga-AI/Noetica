@@ -95,7 +95,7 @@ export function ArtifactsSurface() {
               <button
                 key={type}
                 onClick={() => setFilter(type)}
-                className={`shrink-0 rounded-lg px-2.5 py-1 text-[10px] font-medium whitespace-nowrap transition ${
+                className={`shrink-0 rounded-lg px-2.5 py-1 text-[11px] font-medium whitespace-nowrap transition ${
                   filter === type ? 'bg-[#dbeafe] text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-tertiary)]'
                 }`}
               >
@@ -170,7 +170,7 @@ export function ArtifactsSurface() {
                   <span className="text-base">{artifactTypeIcon(type as ArtifactType)}</span>
                   <div>
                     <div className="text-xs font-semibold text-[var(--color-text-primary)]">{count}</div>
-                    <div className="text-[10px] text-[var(--color-text-secondary)]">{label}</div>
+                    <div className="text-[11px] text-[var(--color-text-secondary)]">{label}</div>
                   </div>
                 </button>
               ))}
@@ -226,13 +226,13 @@ function ArtifactRow({ artifact, selected, onSelect }: { artifact: Artifact; sel
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <span className="truncate text-sm font-semibold text-[var(--color-text-primary)]">{artifact.title}</span>
-          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-semibold ${
+          <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${
             artifact.status === 'final'    ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' :
             artifact.status === 'archived' ? 'bg-[var(--color-background-tertiary)] text-[var(--color-text-secondary)]' :
             'bg-[var(--color-attention-bg)] text-[var(--color-attention)]'
           }`}>{artifact.status}</span>
         </div>
-        <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-[var(--color-text-tertiary)]">
+        <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-[var(--color-text-tertiary)]">
           <span>{artifactTypeLabel(artifact.type)}</span>
           <span>·</span>
           <span>{timeAgo(artifact.updatedAt)}</span>

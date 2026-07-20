@@ -160,7 +160,7 @@ export function LabSurface() {
           {groups.length === 0 && <div className="px-2 py-4 text-[11px] text-[var(--color-text-tertiary)]">No capabilities match “{query}”.</div>}
           {groups.map(([group, caps]) => (
             <div key={group} className="mb-2">
-              <div className="px-2 py-1 text-[9px] uppercase tracking-wide text-[var(--color-text-tertiary)]">{group}</div>
+              <div className="px-2 py-1 text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">{group}</div>
               {caps.map((c) => (
                 <button key={c.id} onClick={() => pick(c)} title={c.desc}
                   className={`w-full truncate rounded-md px-2 py-1.5 text-left text-[11px] transition ${active.id === c.id ? 'bg-[var(--color-background-tertiary)] text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'}`}>{c.label}</button>
@@ -173,7 +173,7 @@ export function LabSurface() {
         <header className="border-b border-[var(--color-border-secondary)] px-5 py-3">
           <div className="flex items-center gap-3">
             <h1 className="text-sm font-semibold text-[var(--color-text-primary)]">{active.label}</h1>
-            <code className="rounded bg-[var(--color-background-secondary)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-tertiary)]">POST /api/cap/{active.id}</code>
+            <code className="rounded bg-[var(--color-background-secondary)] px-1.5 py-0.5 text-[11px] text-[var(--color-text-tertiary)]">POST /api/cap/{active.id}</code>
             <button onClick={() => void run()} disabled={loading}
               className="ml-auto rounded-md bg-[var(--color-accent,#0891b2)] px-3.5 py-1 text-[11px] font-medium text-white transition hover:opacity-90 disabled:opacity-50">{loading ? 'Running…' : 'Run ▸'}</button>
           </div>
@@ -182,26 +182,26 @@ export function LabSurface() {
         <div className="grid flex-1 grid-cols-2 gap-4 overflow-hidden p-5">
           <div className="flex min-h-0 flex-col gap-1.5">
             <div className="flex items-center gap-2">
-              <label className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Payload (JSON)</label>
-              {!payloadValid && <span className="text-[10px] text-[#dc2626]">invalid JSON</span>}
-              <button onClick={resetSample} className="ml-auto rounded px-1.5 py-0.5 text-[10px] text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-secondary)]">Reset sample</button>
+              <label className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Payload (JSON)</label>
+              {!payloadValid && <span className="text-[11px] text-[#dc2626]">invalid JSON</span>}
+              <button onClick={resetSample} className="ml-auto rounded px-1.5 py-0.5 text-[11px] text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-secondary)]">Reset sample</button>
             </div>
             <textarea value={payload} onChange={(e) => setPayload(e.target.value)} spellCheck={false}
               onKeyDown={(e) => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') { e.preventDefault(); void run() } }}
               className={`min-h-0 flex-1 resize-none rounded-lg border bg-[var(--color-background-secondary)] p-2.5 font-mono text-[11px] text-[var(--color-text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--color-accent,#0891b2)] ${payloadValid ? 'border-[var(--color-border-secondary)]' : 'border-[#dc2626]'}`} />
-            <div className="text-[10px] text-[var(--color-text-tertiary)]">⌘/Ctrl+Enter to run</div>
+            <div className="text-[11px] text-[var(--color-text-tertiary)]">⌘/Ctrl+Enter to run</div>
           </div>
           <div className="flex min-h-0 flex-col gap-1.5">
             <div className="flex items-center gap-2">
-              <label className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Result</label>
+              <label className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Result</label>
               {status && (
-                <span className={`text-[10px] ${status.ok ? 'text-[var(--color-accent)]' : 'text-[#dc2626]'}`}>
+                <span className={`text-[11px] ${status.ok ? 'text-[var(--color-accent)]' : 'text-[#dc2626]'}`}>
                   {status.code ? `${status.ok ? '✓' : '✗'} ${status.code}` : '✗ offline'}{status.ms ? ` · ${status.ms}ms` : ''}
                 </span>
               )}
-              {result && <button onClick={copyResult} className="ml-auto rounded px-1.5 py-0.5 text-[10px] text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-secondary)]">{copied ? 'Copied' : 'Copy'}</button>}
+              {result && <button onClick={copyResult} className="ml-auto rounded px-1.5 py-0.5 text-[11px] text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-secondary)] hover:text-[var(--color-text-secondary)]">{copied ? 'Copied' : 'Copy'}</button>}
             </div>
-            <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-2.5 font-mono text-[10px] text-[var(--color-text-secondary)]">{result || 'Run this capability to see its output here.'}</pre>
+            <pre className="min-h-0 flex-1 overflow-auto whitespace-pre-wrap rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-2.5 font-mono text-[11px] text-[var(--color-text-secondary)]">{result || 'Run this capability to see its output here.'}</pre>
           </div>
         </div>
       </div>

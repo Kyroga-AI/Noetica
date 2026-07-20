@@ -66,7 +66,7 @@ const GROUPS: Group[] = [
 
 function NewTag() {
   return (
-    <span className="ml-2 rounded-full bg-[rgba(29,78,216,0.12)] px-2 py-0.5 text-[10px] font-semibold text-[#1d4ed8] align-middle">
+    <span className="ml-2 rounded-full bg-[rgba(29,78,216,0.12)] px-2 py-0.5 text-[11px] font-semibold text-[#1d4ed8] align-middle">
       NEW
     </span>
   )
@@ -84,7 +84,7 @@ export function GuidePanel() {
       <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-4">
         <div className="flex items-center justify-between">
           <span className="text-xs font-semibold text-[var(--color-text-primary)]">Recently shipped</span>
-          <span className="text-[10px] text-[var(--color-text-tertiary)]">{RECENT.date}</span>
+          <span className="text-[11px] text-[var(--color-text-tertiary)]">{RECENT.date}</span>
         </div>
         <ul className="mt-2 space-y-1.5">
           {RECENT.items.map((it, i) => (

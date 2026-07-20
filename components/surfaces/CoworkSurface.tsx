@@ -337,7 +337,7 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
             <div className="flex items-center gap-3">
               <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Tasks</div>
               {tasks.length > 0 && (
-                <div className="flex items-center gap-2 text-[10px] text-[var(--color-text-tertiary)]">
+                <div className="flex items-center gap-2 text-[11px] text-[var(--color-text-tertiary)]">
                   <span>{todoCount} to do</span>
                   <span>·</span>
                   <span className="text-[#1d4ed8]">{doingCount} doing</span>
@@ -393,7 +393,7 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                   <div className="flex items-center gap-3 px-5 py-3">
                     <button
                       onClick={() => cycleStatus(task.id)}
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold transition ${STATUS_STYLE[task.status]}`}
+                      className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold transition ${STATUS_STYLE[task.status]}`}
                       title="Click to cycle status"
                     >
                       {task.running ? (
@@ -410,21 +410,21 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                     <select
                       value={task.agent ?? ''}
                       onChange={(e) => e.target.value && assignAgent(task.id, e.target.value)}
-                      className="rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-2 py-1 text-[10px] text-[var(--color-text-secondary)] outline-none opacity-0 group-hover:opacity-100 transition"
+                      className="rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-2 py-1 text-[11px] text-[var(--color-text-secondary)] outline-none opacity-0 group-hover:opacity-100 transition"
                       title="Assign agent"
                     >
                       <option value="">Assign…</option>
                       {AGENT_OPTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
                     </select>
                     {task.agent && (
-                      <span className="shrink-0 rounded-full bg-[rgba(29,78,216,0.10)] px-2 py-0.5 text-[10px] text-[#1d4ed8]">{task.agent}</span>
+                      <span className="shrink-0 rounded-full bg-[rgba(29,78,216,0.10)] px-2 py-0.5 text-[11px] text-[#1d4ed8]">{task.agent}</span>
                     )}
                     {/* Chain-from selector */}
                     {tasks.filter((t) => t.id !== task.id && t.result).length > 0 && (
                       <select
                         value={task.inputFrom ?? ''}
                         onChange={(e) => setInputFrom(task.id, e.target.value || undefined)}
-                        className="shrink-0 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-secondary)] opacity-0 group-hover:opacity-100 transition"
+                        className="shrink-0 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-1.5 py-0.5 text-[11px] text-[var(--color-text-secondary)] opacity-0 group-hover:opacity-100 transition"
                         title="Chain input from a prior task result"
                       >
                         <option value="">chain from…</option>
@@ -434,12 +434,12 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                       </select>
                     )}
                     {task.inputFrom && (
-                      <span className="shrink-0 rounded-full bg-[rgba(16,185,129,0.10)] px-2 py-0.5 text-[10px] text-[#059669]" title="Chains from prior task">⛓</span>
+                      <span className="shrink-0 rounded-full bg-[rgba(16,185,129,0.10)] px-2 py-0.5 text-[11px] text-[#059669]" title="Chains from prior task">⛓</span>
                     )}
                     {task.agent && !task.running && task.status !== 'done' && (
                       <button
                         onClick={() => void runTask(task)}
-                        className="shrink-0 rounded-lg bg-[#1d4ed8] px-2.5 py-1 text-[10px] font-semibold text-white opacity-0 group-hover:opacity-100 transition hover:bg-[#1e40af]"
+                        className="shrink-0 rounded-lg bg-[#1d4ed8] px-2.5 py-1 text-[11px] font-semibold text-white opacity-0 group-hover:opacity-100 transition hover:bg-[#1e40af]"
                         title={`Run with ${task.agent}`}
                       >
                         Run
@@ -457,7 +457,7 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                   {/* Agent result */}
                   {task.result && (
                     <div className="border-t border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-5 py-3">
-                      <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-semibold text-[#1d4ed8]">
+                      <div className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold text-[#1d4ed8]">
                         <span className="h-1.5 w-1.5 rounded-full bg-[#1d4ed8]" />
                         {task.agent}
                         {task.running && <span className="animate-pulse">…</span>}
@@ -481,7 +481,7 @@ export function CoworkSurface({ thinkingBudget }: { thinkingBudget?: number }) {
                   <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-[#1d4ed8]" />
                   <div>
                     <p className="text-xs text-[var(--color-text-primary)]">{d.text}</p>
-                    <p className="text-[10px] text-[var(--color-text-tertiary)]">{new Date(d.createdAt).toLocaleTimeString()}</p>
+                    <p className="text-[11px] text-[var(--color-text-tertiary)]">{new Date(d.createdAt).toLocaleTimeString()}</p>
                   </div>
                 </div>
               ))}

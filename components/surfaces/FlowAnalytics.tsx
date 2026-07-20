@@ -23,7 +23,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: 'go
   const color = tone === 'good' ? 'var(--color-accent-primary,var(--color-accent))' : tone === 'warn' ? 'var(--color-attention)' : 'var(--color-text-primary)'
   return (
     <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-3">
-      <div className="text-[10px] uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">{label}</div>
+      <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">{label}</div>
       <div className="mt-1 text-lg font-semibold" style={{ color }}>{value}</div>
     </div>
   )
@@ -76,13 +76,13 @@ export function FlowAnalytics() {
         <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-4">
           <div className="mb-2 flex items-center gap-2">
             <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent)]">Learned reward policy</span>
-            <span className="text-[10px] text-[var(--color-text-tertiary)]">R²={policy.r2} · n={policy.n}</span>
+            <span className="text-[11px] text-[var(--color-text-tertiary)]">R²={policy.r2} · n={policy.n}</span>
           </div>
           <code className="block rounded-lg bg-[var(--color-background-tertiary)] px-3 py-2 text-xs text-[var(--color-text-primary)]">{policy.formula}</code>
           {policy.top_drivers && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               {policy.top_drivers.map((d) => (
-                <span key={d.feature} className="rounded px-1.5 py-0.5 text-[10px]" style={{ background: 'var(--color-background-tertiary)', color: d.weight >= 0 ? 'var(--color-accent-primary,var(--color-accent))' : 'var(--color-attention)' }}>
+                <span key={d.feature} className="rounded px-1.5 py-0.5 text-[11px]" style={{ background: 'var(--color-background-tertiary)', color: d.weight >= 0 ? 'var(--color-accent-primary,var(--color-accent))' : 'var(--color-attention)' }}>
                   {d.feature} {d.weight >= 0 ? '+' : ''}{d.weight}
                 </span>
               ))}

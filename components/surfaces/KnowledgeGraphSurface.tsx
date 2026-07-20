@@ -155,34 +155,34 @@ export function KnowledgeGraphSurface() {
             const cls = err ? 'bg-[#fee2e2] text-[#dc2626]' : healthy ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[#fef3c7] text-[var(--color-attention)]'
             const dot = err ? 'bg-[#dc2626]' : healthy ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-attention)]'
             const label = err ? 'HellGraph · unreachable' : healthy ? 'HellGraph · on-device' : loading ? 'HellGraph · loading…' : 'HellGraph · no data'
-            return <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${cls}`} title={err || undefined}><span className={`h-1.5 w-1.5 rounded-full ${dot}`} />{label}</span>
+            return <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold ${cls}`} title={err || undefined}><span className={`h-1.5 w-1.5 rounded-full ${dot}`} />{label}</span>
           })()}
         </div>
         <form onSubmit={(e) => { e.preventDefault(); setRoot(rootInput.trim()) }} className="flex items-center gap-1.5">
           <input value={rootInput} onChange={(e) => setRootInput(e.target.value)} placeholder="Root at node id…"
             className="w-52 rounded-lg border border-[#bfdbfe] bg-[var(--color-background-secondary)] px-2.5 py-1 text-xs outline-none focus:border-[#1d4ed8] focus:bg-[var(--color-background-primary)]" />
-          {root && <button type="button" onClick={() => { setRoot(''); setRootInput('') }} className="rounded-lg border border-[var(--color-border-secondary)] px-2 py-1 text-[10px] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]">clear</button>}
+          {root && <button type="button" onClick={() => { setRoot(''); setRootInput('') }} className="rounded-lg border border-[var(--color-border-secondary)] px-2 py-1 text-[11px] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]">clear</button>}
         </form>
         <div className="flex items-center gap-1">
           {VIEWS.map((v) => (
             <button key={v} onClick={() => setView(v)}
-              className={`rounded-lg px-2 py-1 text-[10px] font-medium capitalize transition ${view === v ? 'bg-[#dbeafe] text-[#1d4ed8]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'}`}>{v}</button>
+              className={`rounded-lg px-2 py-1 text-[11px] font-medium capitalize transition ${view === v ? 'bg-[#dbeafe] text-[#1d4ed8]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'}`}>{v}</button>
           ))}
         </div>
         <div className="flex items-center gap-1">
           {(['force', 'radial', 'hierarchy'] as GraphLayout[]).map((l) => (
             <button key={l} onClick={() => setLayout(l)}
-              className={`rounded-lg px-2 py-1 text-[10px] font-medium capitalize transition ${layout === l ? 'bg-[#dbeafe] text-[#1d4ed8]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'}`}>{l}</button>
+              className={`rounded-lg px-2 py-1 text-[11px] font-medium capitalize transition ${layout === l ? 'bg-[#dbeafe] text-[#1d4ed8]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'}`}>{l}</button>
           ))}
         </div>
         {/* Colour-by: class (what a node IS) vs epistemic (how well it's KNOWN) — the shared moat lens, same as Lattice Studio */}
         <div className="flex items-center gap-1" title="Colour nodes by entity class, or by epistemic status (the shared trust lens)">
           {(['class', 'epistemic'] as const).map((c) => (
             <button key={c} onClick={() => setColorBy(c)}
-              className={`rounded-lg px-2 py-1 text-[10px] font-medium capitalize transition ${colorBy === c ? 'bg-[#ede9fe] text-[#7c3aed]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'}`}>{c}</button>
+              className={`rounded-lg px-2 py-1 text-[11px] font-medium capitalize transition ${colorBy === c ? 'bg-[#ede9fe] text-[#7c3aed]' : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'}`}>{c}</button>
           ))}
         </div>
-        <div className="ml-auto flex items-center gap-3 text-[10px] text-[var(--color-text-tertiary)]">
+        <div className="ml-auto flex items-center gap-3 text-[11px] text-[var(--color-text-tertiary)]">
           <span>{graph.nodes.length} nodes · {graph.links.length} edges shown{total?.nodes != null ? ` of ${total.nodes}` : ''}</span>
           {/* Proposals button — badge when pending */}
           <button
@@ -190,7 +190,7 @@ export function KnowledgeGraphSurface() {
             className={`relative rounded-lg border px-2 py-1 font-medium transition ${proposalsOpen ? 'border-[#7c3aed] bg-[#ede9fe] text-[#7c3aed]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'}`}>
             Proposals
             {pendingCount > 0 && (
-              <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#7c3aed] text-[9px] font-bold text-white">{pendingCount}</span>
+              <span className="absolute -right-1.5 -top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#7c3aed] text-[11px] font-bold text-white">{pendingCount}</span>
             )}
           </button>
           {/* Import Claude Code's project memory (the markdown files under ~/.claude/projects) into the brain. */}
@@ -214,23 +214,23 @@ export function KnowledgeGraphSurface() {
           <button onClick={() => void load()} className="rounded-lg border border-[var(--color-border-secondary)] px-2 py-1 font-medium text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]">Refresh</button>
         </div>
       </div>
-      {memNote && <div className="px-3 pb-1 text-[10px] text-[var(--color-text-tertiary)]">{memNote}</div>}
+      {memNote && <div className="px-3 pb-1 text-[11px] text-[var(--color-text-tertiary)]">{memNote}</div>}
 
       {/* Legend — mirrors the active colour lens: entity class, or the shared epistemic ladder (the moat). */}
       {colorBy === 'epistemic' ? (
         <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-4 py-1.5">
-          <span className="text-[9px] font-semibold text-[var(--color-text-tertiary)]">epistemic status</span>
+          <span className="text-[11px] font-semibold text-[var(--color-text-tertiary)]">epistemic status</span>
           {EPISTEMIC_ORDER.filter((e) => graph.nodes.some((n) => (n as { epistemic?: string }).epistemic === e)).map((e) => (
-            <span key={e} className="inline-flex items-center gap-1 text-[9px] text-[var(--color-text-secondary)]">
+            <span key={e} className="inline-flex items-center gap-1 text-[11px] text-[var(--color-text-secondary)]">
               <span className="h-2 w-2 rounded-full" style={{ background: EPISTEMIC_COLORS[e] }} />{e}
             </span>
           ))}
-          <span className="text-[9px] text-[var(--color-text-tertiary)]">— how well each fact is known, not just what it is</span>
+          <span className="text-[11px] text-[var(--color-text-tertiary)]">— how well each fact is known, not just what it is</span>
         </div>
       ) : kindsPresent.length > 0 && (
         <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-4 py-1.5">
           {kindsPresent.map((k) => (
-            <span key={k} className="inline-flex items-center gap-1 text-[9px] text-[var(--color-text-secondary)]">
+            <span key={k} className="inline-flex items-center gap-1 text-[11px] text-[var(--color-text-secondary)]">
               <span className="h-2 w-2 rounded-full" style={{ background: KIND_COLOR[k] }} />{k}
             </span>
           ))}
@@ -249,7 +249,7 @@ export function KnowledgeGraphSurface() {
             <SurfaceGraph nodes={graph.nodes} links={graph.links} fill layout={layout} colorBy={colorBy} sizeBy="degree"
               onNodeClick={(id: string) => { setRoot(id); setRootInput(id) }} />
           )}
-          {loading && graph.nodes.length > 0 && <div className="absolute right-3 top-3 rounded-full bg-black/60 px-2 py-0.5 text-[10px] text-white">updating…</div>}
+          {loading && graph.nodes.length > 0 && <div className="absolute right-3 top-3 rounded-full bg-black/60 px-2 py-0.5 text-[11px] text-white">updating…</div>}
         </div>
 
         {/* Proposals side panel */}
@@ -259,16 +259,16 @@ export function KnowledgeGraphSurface() {
               <div>
                 <span className="text-[12px] font-semibold text-[var(--color-text-primary)]">Graph Proposals</span>
                 {pendingCount > 0 && (
-                  <span className="ml-2 rounded-full bg-[#ede9fe] px-1.5 py-0.5 text-[9px] font-semibold text-[#7c3aed]">{pendingCount} pending</span>
+                  <span className="ml-2 rounded-full bg-[#ede9fe] px-1.5 py-0.5 text-[11px] font-semibold text-[#7c3aed]">{pendingCount} pending</span>
                 )}
               </div>
-              <button onClick={() => setProposalsOpen(false)} className="text-[10px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]">✕</button>
+              <button onClick={() => setProposalsOpen(false)} className="text-[11px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]">✕</button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
               {proposals.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-2 py-12 text-center">
                   <div className="text-[11px] font-medium text-[var(--color-text-secondary)]">No proposals yet</div>
-                  <div className="max-w-[200px] text-[10px] leading-relaxed text-[var(--color-text-tertiary)]">The agent will stage proposed graph changes here. You review and accept or reject each one before anything is written.</div>
+                  <div className="max-w-[200px] text-[11px] leading-relaxed text-[var(--color-text-tertiary)]">The agent will stage proposed graph changes here. You review and accept or reject each one before anything is written.</div>
                 </div>
               ) : (
                 <div className="divide-y divide-[var(--color-border-tertiary)]">
@@ -277,28 +277,28 @@ export function KnowledgeGraphSurface() {
                     return (
                       <div key={p.id} className={`px-4 py-3 ${p.status !== 'pending' ? 'opacity-50' : ''}`}>
                         <div className="mb-1 flex items-center gap-1.5">
-                          <span className="rounded px-1 py-0.5 text-[9px] font-bold" style={{ background: OP_COLOR[p.op] + '20', color: OP_COLOR[p.op] }}>{OP_LABEL[p.op]}</span>
-                          {p.source && <span className="text-[9px] text-[var(--color-text-tertiary)]">{p.source}</span>}
+                          <span className="rounded px-1 py-0.5 text-[11px] font-bold" style={{ background: OP_COLOR[p.op] + '20', color: OP_COLOR[p.op] }}>{OP_LABEL[p.op]}</span>
+                          {p.source && <span className="text-[11px] text-[var(--color-text-tertiary)]">{p.source}</span>}
                           {p.status !== 'pending' && (
-                            <span className={`ml-auto text-[9px] font-semibold ${p.status === 'accepted' ? 'text-[var(--color-accent)]' : 'text-[#dc2626]'}`}>{p.status}</span>
+                            <span className={`ml-auto text-[11px] font-semibold ${p.status === 'accepted' ? 'text-[var(--color-accent)]' : 'text-[#dc2626]'}`}>{p.status}</span>
                           )}
                         </div>
                         <div className="mb-1 font-mono text-[11px] text-[var(--color-text-primary)]">{proposalSummary(p)}</div>
                         {p.rationale && (
-                          <div className="mb-2 text-[10px] leading-relaxed text-[var(--color-text-secondary)]">{p.rationale}</div>
+                          <div className="mb-2 text-[11px] leading-relaxed text-[var(--color-text-secondary)]">{p.rationale}</div>
                         )}
                         {p.status === 'pending' && (
                           <div className="flex gap-2">
                             <button
                               disabled={busy}
                               onClick={() => void actOnProposal(p.id, 'accept')}
-                              className="flex-1 rounded-lg bg-[var(--color-accent)] py-1 text-[10px] font-semibold text-white transition hover:opacity-90 disabled:opacity-40">
+                              className="flex-1 rounded-lg bg-[var(--color-accent)] py-1 text-[11px] font-semibold text-white transition hover:opacity-90 disabled:opacity-40">
                               {busy ? '…' : 'Accept'}
                             </button>
                             <button
                               disabled={busy}
                               onClick={() => void actOnProposal(p.id, 'reject')}
-                              className="flex-1 rounded-lg border border-[#dc2626] py-1 text-[10px] font-semibold text-[#dc2626] transition hover:bg-[#fef2f2] disabled:opacity-40">
+                              className="flex-1 rounded-lg border border-[#dc2626] py-1 text-[11px] font-semibold text-[#dc2626] transition hover:bg-[#fef2f2] disabled:opacity-40">
                               {busy ? '…' : 'Reject'}
                             </button>
                           </div>
@@ -317,7 +317,7 @@ export function KnowledgeGraphSurface() {
                       await actOnProposal(p.id, 'accept')
                     }
                   }}
-                  className="flex-1 rounded-lg bg-[var(--color-accent)] py-1.5 text-[10px] font-semibold text-white transition hover:opacity-90">
+                  className="flex-1 rounded-lg bg-[var(--color-accent)] py-1.5 text-[11px] font-semibold text-white transition hover:opacity-90">
                   Accept all
                 </button>
                 <button
@@ -326,7 +326,7 @@ export function KnowledgeGraphSurface() {
                       await actOnProposal(p.id, 'reject')
                     }
                   }}
-                  className="flex-1 rounded-lg border border-[#dc2626] py-1.5 text-[10px] font-semibold text-[#dc2626] transition hover:bg-[#fef2f2]">
+                  className="flex-1 rounded-lg border border-[#dc2626] py-1.5 text-[11px] font-semibold text-[#dc2626] transition hover:bg-[#fef2f2]">
                   Reject all
                 </button>
               </div>

@@ -86,7 +86,7 @@ export function CalendarSurface() {
                       <div className="w-16 shrink-0 pt-0.5 text-[11px] font-medium text-[var(--color-text-secondary)]">{fmtTime(e)}</div>
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-xs font-medium text-[var(--color-text-primary)]">{e.summary}</div>
-                        {(e.location || e.feed) && <div className="mt-0.5 truncate text-[10px] text-[var(--color-text-tertiary)]">{[e.location, e.feed].filter(Boolean).join(' · ')}</div>}
+                        {(e.location || e.feed) && <div className="mt-0.5 truncate text-[11px] text-[var(--color-text-tertiary)]">{[e.location, e.feed].filter(Boolean).join(' · ')}</div>}
                       </div>
                     </div>
                   ))}
@@ -111,7 +111,7 @@ export function CalendarSurface() {
               {(data?.feeds ?? []).map((f) => (
                 <div key={f.url} className="flex items-center justify-between gap-2 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5">
                   <span className="truncate text-[11px] text-[var(--color-text-secondary)]" title={f.url}>{f.name || f.url}</span>
-                  <button onClick={() => void remove(f.url)} className="shrink-0 text-[10px] text-[#dc2626] hover:underline">remove</button>
+                  <button onClick={() => void remove(f.url)} className="shrink-0 text-[11px] text-[#dc2626] hover:underline">remove</button>
                 </div>
               ))}
             </div>

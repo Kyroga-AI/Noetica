@@ -68,12 +68,12 @@ export function OnboardingCard() {
           <div key={p.title} className="rounded-xl border border-[#bfdbfe] bg-white/70 px-3 py-2.5">
             <div className="text-base leading-none">{p.icon}</div>
             <div className="mt-1.5 text-[11px] font-semibold text-[var(--color-text-primary)]">{p.title}</div>
-            <p className="mt-1 text-[10px] leading-[1.55] text-[var(--color-text-secondary)]">{p.body}</p>
+            <p className="mt-1 text-[11px] leading-[1.55] text-[var(--color-text-secondary)]">{p.body}</p>
           </div>
         ))}
       </div>
 
-      <p className="mt-2.5 text-[10px] text-[var(--color-text-tertiary)]">
+      <p className="mt-2.5 text-[11px] text-[var(--color-text-tertiary)]">
         Tip — open any reply&apos;s <span className="font-medium">▶ Trace</span> disclosure to see the live scores, grounding atoms, and routing decision.
       </p>
     </div>

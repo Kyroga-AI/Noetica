@@ -63,7 +63,7 @@ const DOMAIN_COLOR: Record<string, string> = {
 
 function domainChip(d: string) {
   const cls = DOMAIN_COLOR[d] ?? DOMAIN_COLOR['general']
-  return <span key={d} className={`rounded-md px-1.5 py-0.5 text-[10px] font-medium ${cls}`}>{d}</span>
+  return <span key={d} className={`rounded-md px-1.5 py-0.5 text-[11px] font-medium ${cls}`}>{d}</span>
 }
 
 function timeAgo(iso: string): string {
@@ -91,7 +91,7 @@ function TemplateCard({ t, onDeploy }: { t: SwarmTemplate; onDeploy: (t: SwarmTe
       </div>
       <div className="flex flex-wrap gap-1 pt-1">
         {t.domains.slice(0, 3).map(domainChip)}
-        <span className="rounded-md bg-[var(--color-background-tertiary)] px-1.5 py-0.5 text-[10px] text-[var(--color-text-tertiary)]">Template</span>
+        <span className="rounded-md bg-[var(--color-background-tertiary)] px-1.5 py-0.5 text-[11px] text-[var(--color-text-tertiary)]">Template</span>
       </div>
     </button>
   )
@@ -126,7 +126,7 @@ function PartnerCard({ p, onVouched }: { p: PartnerProfile; onVouched?: () => vo
           <div className="text-[13px] font-semibold text-[var(--color-text-primary)]">{p.name}</div>
           <div className="mt-0.5 text-[11px] text-[var(--color-text-secondary)] leading-relaxed">{p.bio}</div>
         </div>
-        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${tier.bg} ${tier.text}`}>{tier.label}</span>
+        <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${tier.bg} ${tier.text}`}>{tier.label}</span>
       </div>
 
       {p.capabilities.length > 0 && (
@@ -135,16 +135,16 @@ function PartnerCard({ p, onVouched }: { p: PartnerProfile; onVouched?: () => vo
             <div key={c.id} className="flex items-center gap-1.5 rounded-lg bg-[var(--color-background-primary)] px-2.5 py-1.5">
               <span className="text-[11px] text-[var(--color-text-tertiary)]">{KIND_ICON[c.kind]}</span>
               <span className="text-[11px] font-medium text-[var(--color-text-primary)]">{c.title}</span>
-              <span className="ml-auto text-[10px] text-[var(--color-text-tertiary)]">{c.kind.replace('-', ' ')}</span>
+              <span className="ml-auto text-[11px] text-[var(--color-text-tertiary)]">{c.kind.replace('-', ' ')}</span>
             </div>
           ))}
           {p.capabilities.length > 3 && (
-            <div className="px-2.5 text-[10px] text-[var(--color-text-tertiary)]">+{p.capabilities.length - 3} more</div>
+            <div className="px-2.5 text-[11px] text-[var(--color-text-tertiary)]">+{p.capabilities.length - 3} more</div>
           )}
         </div>
       )}
 
-      <div className="mt-3 flex items-center gap-3 text-[10px] text-[var(--color-text-tertiary)]">
+      <div className="mt-3 flex items-center gap-3 text-[11px] text-[var(--color-text-tertiary)]">
         {p.meshEndpoint && (
           <span className="flex items-center gap-1">
             <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-accent)]" />
@@ -164,7 +164,7 @@ function PartnerCard({ p, onVouched }: { p: PartnerProfile; onVouched?: () => vo
         <div className="mt-3 border-t border-[var(--color-border-tertiary)] pt-3">
           {!vouching && !vouchMsg && (
             <button type="button" onClick={() => setVouching(true)}
-              className="text-[10px] text-[var(--color-text-tertiary)] hover:text-[#7c3aed] transition">
+              className="text-[11px] text-[var(--color-text-tertiary)] hover:text-[#7c3aed] transition">
               + Attest for tier upgrade
             </button>
           )}
@@ -172,14 +172,14 @@ function PartnerCard({ p, onVouched }: { p: PartnerProfile; onVouched?: () => vo
             <div className="flex items-center gap-1">
               <input value={vouchFrom} onChange={(e) => setVouchFrom(e.target.value)}
                 placeholder="Your operator id"
-                className="flex-1 rounded-lg border border-[var(--color-border-tertiary)] bg-transparent px-2 py-1 text-[10px] text-[var(--color-text-primary)] outline-none focus:border-[#7c3aed]" />
+                className="flex-1 rounded-lg border border-[var(--color-border-tertiary)] bg-transparent px-2 py-1 text-[11px] text-[var(--color-text-primary)] outline-none focus:border-[#7c3aed]" />
               <button type="button" onClick={() => void submitVouch()} disabled={!vouchFrom.trim()}
-                className="rounded-lg bg-[#7c3aed] px-2 py-1 text-[10px] text-white disabled:opacity-40">Attest</button>
+                className="rounded-lg bg-[#7c3aed] px-2 py-1 text-[11px] text-white disabled:opacity-40">Attest</button>
               <button type="button" onClick={() => { setVouching(false); setVouchFrom('') }}
                 className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] px-1">×</button>
             </div>
           )}
-          {vouchMsg && <div className="text-[10px] text-[var(--color-accent)]">{vouchMsg}</div>}
+          {vouchMsg && <div className="text-[11px] text-[var(--color-accent)]">{vouchMsg}</div>}
         </div>
       )}
     </div>
@@ -238,18 +238,18 @@ function CommunityFeed() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold capitalize ${KIND_BADGE[ev.kind] ?? KIND_BADGE['resource']}`}>{ev.kind}</span>
-                <span className="text-[10px] text-[var(--color-text-tertiary)]">{timeAgo(ev.date)}</span>
+                <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ${KIND_BADGE[ev.kind] ?? KIND_BADGE['resource']}`}>{ev.kind}</span>
+                <span className="text-[11px] text-[var(--color-text-tertiary)]">{timeAgo(ev.date)}</span>
               </div>
               <div className="mt-1 text-[13px] font-semibold text-[var(--color-text-primary)]">{ev.title}</div>
               <div className="mt-0.5 text-[11px] text-[var(--color-text-secondary)] leading-relaxed">{ev.description}</div>
             </div>
           </div>
-          <div className="mt-2.5 flex items-center gap-3 text-[10px] text-[var(--color-text-tertiary)]">
+          <div className="mt-2.5 flex items-center gap-3 text-[11px] text-[var(--color-text-tertiary)]">
             <span>by {ev.host}</span>
             {ev.attendees > 0 && <span>{ev.attendees} attending</span>}
             <div className="flex flex-wrap gap-1 ml-auto">
-              {ev.tags.map((t) => <span key={t} className="rounded-md bg-[var(--color-background-tertiary)] px-1.5 py-0.5 text-[10px]">#{t}</span>)}
+              {ev.tags.map((t) => <span key={t} className="rounded-md bg-[var(--color-background-tertiary)] px-1.5 py-0.5 text-[11px]">#{t}</span>)}
             </div>
           </div>
         </div>
@@ -332,10 +332,10 @@ function OperatorWizard() {
       <div className="mb-6 flex items-center gap-0">
         {OP_STEPS.map((s, i) => (
           <div key={s} className="flex flex-1 items-center">
-            <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition ${
+            <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-bold transition ${
               i < stepIdx ? 'bg-[#7c3aed] text-white' : i === stepIdx ? 'bg-[#7c3aed] text-white ring-4 ring-[#ede9fe]' : 'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]'
             }`}>{i < stepIdx ? '✓' : i + 1}</div>
-            <div className={`flex-1 text-center text-[9px] font-medium ${i === stepIdx ? 'text-[#7c3aed]' : 'text-[var(--color-text-tertiary)]'}`}>{i < OP_STEPS.length - 1 ? <span className="mx-1 hidden sm:inline">{s}</span> : null}</div>
+            <div className={`flex-1 text-center text-[11px] font-medium ${i === stepIdx ? 'text-[#7c3aed]' : 'text-[var(--color-text-tertiary)]'}`}>{i < OP_STEPS.length - 1 ? <span className="mx-1 hidden sm:inline">{s}</span> : null}</div>
             {i < OP_STEPS.length - 1 && <div className={`h-px flex-1 ${i < stepIdx ? 'bg-[#7c3aed]' : 'bg-[var(--color-border-tertiary)]'}`} />}
           </div>
         ))}
@@ -361,7 +361,7 @@ function OperatorWizard() {
                 <button key={t} type="button" onClick={() => setTier(t)} className={`rounded-full border px-3 py-1 text-[11px] capitalize transition ${tier === t ? 'border-[#7c3aed] bg-[#ede9fe] font-semibold text-[#7c3aed]' : 'border-[var(--color-border-tertiary)] text-[var(--color-text-secondary)] hover:border-[var(--color-border-secondary)]'}`}>{t}</button>
               ))}
             </div>
-            <p className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">{tier === 'community' ? 'Self-declared; no verification required.' : tier === 'verified' ? 'Attested by at least one existing verified/sovereign operator.' : 'Attested + SCOPE-D-signed engagement policy on file.'}</p>
+            <p className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">{tier === 'community' ? 'Self-declared; no verification required.' : tier === 'verified' ? 'Attested by at least one existing verified/sovereign operator.' : 'Attested + SCOPE-D-signed engagement policy on file.'}</p>
           </div>
         </div>
       )}
@@ -409,12 +409,12 @@ function OperatorWizard() {
         <div className="space-y-3">
           <p className="text-[11px] text-[var(--color-text-tertiary)]">Review your operator profile before publishing to the mesh.</p>
           <div className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4 space-y-2">
-            <div className="flex items-center gap-2"><span className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase ${TIER_STYLE[tier].bg} ${TIER_STYLE[tier].text}`}>{tier}</span><span className="text-sm font-semibold text-[var(--color-text-primary)]">{name}</span></div>
+            <div className="flex items-center gap-2"><span className={`rounded-full px-2 py-0.5 text-[11px] font-bold uppercase ${TIER_STYLE[tier].bg} ${TIER_STYLE[tier].text}`}>{tier}</span><span className="text-sm font-semibold text-[var(--color-text-primary)]">{name}</span></div>
             {bio && <div className="text-[11px] text-[var(--color-text-secondary)]">{bio}</div>}
             {caps.filter((c) => c.title.trim()).map((c, i) => (
               <div key={i} className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-secondary)]"><span>{KIND_ICON[c.kind]}</span>{c.title}</div>
             ))}
-            {meshEndpoint && <div className="text-[10px] text-[var(--color-text-tertiary)]">endpoint: {meshEndpoint}</div>}
+            {meshEndpoint && <div className="text-[11px] text-[var(--color-text-tertiary)]">endpoint: {meshEndpoint}</div>}
           </div>
           {err && <div className="rounded-lg border border-[#fecaca] bg-[#fef2f2] px-3 py-2 text-[11px] text-[#dc2626]">{err}</div>}
           <button type="button" onClick={() => void publish()} disabled={submitting}
@@ -582,7 +582,7 @@ export function MarketplaceSurface() {
               <p className="text-[11px] text-[var(--color-text-tertiary)]">
                 Deploy a swarm workflow template — configure it in Agent Builder, then launch on your mesh.
               </p>
-              <span className="text-[10px] text-[var(--color-text-tertiary)]">{filteredTemplates.length} templates</span>
+              <span className="text-[11px] text-[var(--color-text-tertiary)]">{filteredTemplates.length} templates</span>
             </div>
             {filteredTemplates.length === 0 ? (
               <div className="py-8 text-center text-[12px] text-[var(--color-text-tertiary)]">No templates match &ldquo;{search}&rdquo;</div>

@@ -50,11 +50,11 @@ export function GoalBanner({ sessionId }: { sessionId?: string }) {
         <span className="font-medium text-[var(--color-text-secondary)]">Goal</span>
         <span className="truncate text-[var(--color-text-primary)]">{goal.objective}</span>
         {goal.subtasks.length > 0 && (
-          <span className="ml-auto shrink-0 text-[10px] text-[var(--color-text-tertiary)]">{done}/{goal.subtasks.length} steps</span>
+          <span className="ml-auto shrink-0 text-[11px] text-[var(--color-text-tertiary)]">{done}/{goal.subtasks.length} steps</span>
         )}
       </div>
       {open.length > 0 && (
-        <div className="mt-1 text-[10px] text-[var(--color-attention)]">Still needed: {open.join(', ')}</div>
+        <div className="mt-1 text-[11px] text-[var(--color-attention)]">Still needed: {open.join(', ')}</div>
       )}
     </div>
   )

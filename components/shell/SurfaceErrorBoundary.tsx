@@ -49,7 +49,7 @@ export class SurfaceErrorBoundary extends Component<Props, State> {
         {info && (
           <details className="w-full">
             <summary className="cursor-pointer text-[11px] text-[var(--color-text-tertiary)]">Component stack</summary>
-            <pre className="mt-1 max-w-full overflow-auto rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2 text-[10px] text-[var(--color-text-tertiary)]">
+            <pre className="mt-1 max-w-full overflow-auto rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2 text-[11px] text-[var(--color-text-tertiary)]">
               {info.trim()}
             </pre>
           </details>

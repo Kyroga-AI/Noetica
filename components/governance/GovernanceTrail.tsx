@@ -22,22 +22,22 @@ export function GovernanceTrail({ trace }: GovernanceTrailProps) {
       {(trace.method || trace.decidable !== undefined || trace.replay_class) && (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {trace.method && (
-            <span className="rounded-full bg-[#eff6ff] px-2 py-0.5 text-[10px] font-semibold text-[#1d4ed8]">
+            <span className="rounded-full bg-[#eff6ff] px-2 py-0.5 text-[11px] font-semibold text-[#1d4ed8]">
               {trace.method}
             </span>
           )}
           {trace.decidable && (
-            <span className="rounded-full bg-[var(--color-accent-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-accent)]">
+            <span className="rounded-full bg-[var(--color-accent-bg)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-accent)]">
               decidable
             </span>
           )}
           {replayMeta && (
-            <span className="rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: replayMeta.bg, color: replayMeta.color }}>
+            <span className="rounded-full px-2 py-0.5 text-[11px] font-semibold" style={{ background: replayMeta.bg, color: replayMeta.color }}>
               {replayMeta.label}
             </span>
           )}
           {trace.grounded && (
-            <span className="rounded-full bg-[var(--color-accent-bg)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-accent)]">
+            <span className="rounded-full bg-[var(--color-accent-bg)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-accent)]">
               grounded
             </span>
           )}
@@ -108,7 +108,7 @@ export function GovernanceTrail({ trace }: GovernanceTrailProps) {
         {trace.credential && (
           <>
             <dt className="text-[var(--color-text-tertiary)]">C2PA / Art.50</dt>
-            <dd className="break-all font-mono text-[10px]" title={`digest: ${trace.credential.digest}`}>
+            <dd className="break-all font-mono text-[11px]" title={`digest: ${trace.credential.digest}`}>
               <span className="rounded bg-[#eff6ff] px-1 py-0.5 text-[#1d4ed8]">AI-generated</span>
               {' '}
               <span className="text-[var(--color-text-tertiary)]">{trace.credential.digest.slice(0, 16)}…</span>

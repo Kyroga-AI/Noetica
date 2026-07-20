@@ -81,7 +81,7 @@ export function AgentBuilderSurface() {
             <div className="flex flex-col gap-1.5 text-[11px] text-[var(--color-text-secondary)]">Tools it may use
               <div className="flex flex-wrap gap-1.5">
                 {TOOLS.map((t) => (
-                  <button key={t} onClick={() => toggleTool(t)} className={`rounded-lg border px-2 py-1 text-[10px] font-medium transition ${draft.tools.includes(t) ? 'border-[#1d4ed8] bg-[#eff6ff] text-[#1d4ed8]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-tertiary)]'}`}>{t}</button>
+                  <button key={t} onClick={() => toggleTool(t)} className={`rounded-lg border px-2 py-1 text-[11px] font-medium transition ${draft.tools.includes(t) ? 'border-[#1d4ed8] bg-[#eff6ff] text-[#1d4ed8]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-tertiary)]'}`}>{t}</button>
                 ))}
               </div>
             </div>
@@ -113,11 +113,11 @@ export function AgentBuilderSurface() {
                       <div className="flex items-center justify-between">
                         <span className="truncate text-xs font-semibold text-[var(--color-text-primary)]">{a.label}</span>
                         <div className="flex shrink-0 gap-1.5">
-                          <button onClick={() => void edit(a)} className="text-[10px] text-[#1d4ed8] hover:underline">edit</button>
-                          <button onClick={() => void remove(a.id)} className="text-[10px] text-[#dc2626] hover:underline">delete</button>
+                          <button onClick={() => void edit(a)} className="text-[11px] text-[#1d4ed8] hover:underline">edit</button>
+                          <button onClick={() => void remove(a.id)} className="text-[11px] text-[#dc2626] hover:underline">delete</button>
                         </div>
                       </div>
-                      <div className="mt-0.5 truncate text-[10px] text-[var(--color-text-tertiary)]">{a.tools.length} tools · {a.maxTurns} turns · {a.model}</div>
+                      <div className="mt-0.5 truncate text-[11px] text-[var(--color-text-tertiary)]">{a.tools.length} tools · {a.maxTurns} turns · {a.model}</div>
                     </div>
                   ))}
                 </div>}
@@ -128,7 +128,7 @@ export function AgentBuilderSurface() {
               {(data?.builtin ?? []).map((a) => (
                 <div key={a.id} className="rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-2.5 py-1.5" title={a.description}>
                   <span className="text-[11px] font-medium text-[var(--color-text-secondary)]">{a.label}</span>
-                  <span className="ml-1 text-[9px] text-[var(--color-text-tertiary)]">{a.tools.length} tools</span>
+                  <span className="ml-1 text-[11px] text-[var(--color-text-tertiary)]">{a.tools.length} tools</span>
                 </div>
               ))}
             </div>

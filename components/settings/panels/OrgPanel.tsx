@@ -52,16 +52,16 @@ export function OrgPanel() {
         <div className="mt-3 overflow-hidden rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)]">
           <div className="flex items-center gap-3 px-4 py-3">
             <div
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold text-white"
               style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' }}
             >
               {initialOf(MEMBER.name)}
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-xs font-medium text-[var(--color-text-primary)]">{MEMBER.name}</div>
-              <div className="text-[10px] text-[var(--color-text-tertiary)]">{MEMBER.email}</div>
+              <div className="text-[11px] text-[var(--color-text-tertiary)]">{MEMBER.email}</div>
             </div>
-            <span className="shrink-0 rounded-full bg-[rgba(29,78,216,0.10)] px-2 py-0.5 text-[10px] font-semibold text-[#1d4ed8]">
+            <span className="shrink-0 rounded-full bg-[rgba(29,78,216,0.10)] px-2 py-0.5 text-[11px] font-semibold text-[#1d4ed8]">
               {MEMBER.role}
             </span>
           </div>
@@ -117,7 +117,7 @@ export function OrgPanel() {
               <div className="text-xs font-semibold text-[var(--color-text-primary)]">Development Preview</div>
               <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">Full access during development phase</div>
             </div>
-            <span className="rounded-full bg-[rgba(29,78,216,0.10)] px-2.5 py-0.5 text-[10px] font-semibold text-[#1d4ed8]">Dev</span>
+            <span className="rounded-full bg-[rgba(29,78,216,0.10)] px-2.5 py-0.5 text-[11px] font-semibold text-[#1d4ed8]">Dev</span>
           </div>
         </div>
       </div>

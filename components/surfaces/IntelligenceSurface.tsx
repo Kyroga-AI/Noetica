@@ -49,7 +49,7 @@ const STATUS_COLOUR: Record<string, string> = {
 function Badge({ label, colour }: { label: string; colour: string }) {
   return (
     <span style={{ background: `${colour}18`, color: colour, border: `1px solid ${colour}40` }}
-      className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide">
+      className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide">
       {label}
     </span>
   )
@@ -78,25 +78,25 @@ function SignalBanner({ supply, traffic }: { supply: SupplySummary; traffic: Tra
   return (
     <div className="mb-4 grid grid-cols-3 gap-3">
       <Panel>
-        <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Network LFL (IV)</div>
+        <div className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Network LFL (IV)</div>
         <div className="mt-1 text-xl font-bold tabular-nums" style={{ color: lflNum >= 0 ? 'var(--color-accent)' : '#dc2626' }}>
           {lflNum >= 0 ? '+' : ''}{lfl}%
         </div>
-        <div className="text-[10px] text-[var(--color-text-tertiary)]">{traffic.total_iv_transactions.toLocaleString()} wkly txns</div>
+        <div className="text-[11px] text-[var(--color-text-tertiary)]">{traffic.total_iv_transactions.toLocaleString()} wkly txns</div>
       </Panel>
       <Panel>
-        <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Supply Chain Revision</div>
+        <div className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Supply Chain Revision</div>
         <div className="mt-1 text-xl font-bold tabular-nums" style={{ color: supply.lfl_revision_pct < 0 ? '#dc2626' : 'var(--color-accent)' }}>
           {supply.lfl_revision_pct >= 0 ? '+' : ''}{supply.lfl_revision_pct.toFixed(2)}pp
         </div>
-        <div className="text-[10px] text-[var(--color-text-tertiary)]">input cost {supply.input_cost.current_index.toFixed(1)} (base 100)</div>
+        <div className="text-[11px] text-[var(--color-text-tertiary)]">input cost {supply.input_cost.current_index.toFixed(1)} (base 100)</div>
       </Panel>
       <Panel>
-        <div className="text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Menu Availability</div>
+        <div className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Menu Availability</div>
         <div className="mt-1 text-xl font-bold tabular-nums">
           {supply.availability.full_menu_pct.toFixed(1)}%
         </div>
-        <div className="text-[10px] text-[var(--color-text-tertiary)]">full menu · ft drag {supply.availability.availability_drag_on_ft.toFixed(1)}%</div>
+        <div className="text-[11px] text-[var(--color-text-tertiary)]">full menu · ft drag {supply.availability.availability_drag_on_ft.toFixed(1)}%</div>
       </Panel>
     </div>
   )
@@ -107,12 +107,12 @@ function TaskList({ tasks, onRefresh }: { tasks: Task[]; onRefresh: () => void }
     <Panel>
       <div className="mb-3 flex items-center justify-between">
         <SectionTitle title="Intelligence Tasks" sub={`${tasks.length} tasks`} />
-        <button onClick={onRefresh} className="rounded border border-[var(--color-border-secondary)] px-2 py-0.5 text-[10px] text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-tertiary)]">
+        <button onClick={onRefresh} className="rounded border border-[var(--color-border-secondary)] px-2 py-0.5 text-[11px] text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-tertiary)]">
           Refresh
         </button>
       </div>
       {tasks.length === 0 ? (
-        <p className="text-xs text-[var(--color-text-tertiary)]">No tasks. Seed the demo first: <code className="text-[10px]">npx tsx scripts/seed-gyg-demo.ts</code></p>
+        <p className="text-xs text-[var(--color-text-tertiary)]">No tasks. Seed the demo first: <code className="text-[11px]">npx tsx scripts/seed-gyg-demo.ts</code></p>
       ) : (
         <div className="space-y-2">
           {tasks.map((t) => (
@@ -125,11 +125,11 @@ function TaskList({ tasks, onRefresh }: { tasks: Task[]; onRefresh: () => void }
                   </div>
                   <p className="mt-0.5 text-[11px] leading-snug text-[var(--color-text-secondary)] line-clamp-2">{t.objective}</p>
                 </div>
-                <div className="shrink-0 text-[10px] text-[var(--color-text-tertiary)] tabular-nums">
+                <div className="shrink-0 text-[11px] text-[var(--color-text-tertiary)] tabular-nums">
                   {Array.isArray(t.evidence) ? t.evidence.length : 0} steps
                 </div>
               </div>
-              <div className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">
+              <div className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">
                 owner: {t.owner} · {new Date(t.created_at).toLocaleDateString()}
               </div>
             </div>
@@ -149,11 +149,11 @@ function CausalModels({ models }: { models: CausalModel[] }) {
           <div key={m.name} className="rounded border border-[var(--color-border-tertiary)] p-2">
             <div className="flex items-center justify-between gap-2">
               <code className="text-[11px] font-mono font-semibold text-[var(--color-text-primary)]">{m.name}</code>
-              <span className="text-[10px] tabular-nums text-[var(--color-text-tertiary)]">{m.nodes} nodes</span>
+              <span className="text-[11px] tabular-nums text-[var(--color-text-tertiary)]">{m.nodes} nodes</span>
             </div>
             <p className="mt-0.5 text-[11px] text-[var(--color-text-secondary)] line-clamp-2">{m.description}</p>
             {(m.treatment || m.outcome) && (
-              <div className="mt-1 flex gap-3 text-[10px] text-[var(--color-text-tertiary)]">
+              <div className="mt-1 flex gap-3 text-[11px] text-[var(--color-text-tertiary)]">
                 {m.treatment && <span>treatment: <strong>{m.treatment}</strong></span>}
                 {m.outcome && <span>outcome: <strong>{m.outcome}</strong></span>}
               </div>

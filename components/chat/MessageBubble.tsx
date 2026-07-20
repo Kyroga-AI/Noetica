@@ -19,12 +19,14 @@ import { useRevealedContent, APP_OPEN_TS } from '@/lib/chat/useRevealedContent'
 import { cleanSources } from '@/lib/chat/sources'
 import { amUrl } from '@/lib/tauri/bridge'
 
-const KIND_ICON: Record<string, string> = {
-  image: '🖼',
-  pdf: '📄',
-  text: '📝',
-  code: '⌥',
-  binary: '📦',
+// A single quiet file glyph (SVG, not emoji) for attachment chips.
+function FileGlyph({ className = '' }: { className?: string }) {
+  return (
+    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" aria-hidden className={className}>
+      <path d="M3.5 1.5h4L11 5v7.5H3.5V1.5z" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+      <path d="M7.5 1.5V5H11" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round"/>
+    </svg>
+  )
 }
 
 function AttachmentList({ attachments }: { attachments: PendingAttachment[] }) {
@@ -35,7 +37,7 @@ function AttachmentList({ attachments }: { attachments: PendingAttachment[] }) {
           {a.kind === 'image' ? (
             <img src={`data:${a.mimeType};base64,${a.base64}`} alt={a.name} className="h-8 w-8 rounded-lg object-cover" />
           ) : (
-            <span>{KIND_ICON[a.kind] ?? '📎'}</span>
+            <span className="text-[var(--color-text-tertiary)]"><FileGlyph /></span>
           )}
           <span className="max-w-[120px] truncate font-medium text-[var(--color-text-primary)]">{a.name}</span>
           <span className="text-[var(--color-text-secondary)]">{a.sizeLabel}</span>
@@ -47,13 +49,13 @@ function AttachmentList({ attachments }: { attachments: PendingAttachment[] }) {
 
 // Dispatched sub-agents get their own recognizable card (role badge + task + result), so a
 // delegation reads as "the concierge handed this to a specialist", not a generic tool call.
-const DISPATCH_ROLE_META: Record<string, { icon: string; color: string }> = {
-  researcher: { icon: '🔎', color: '#0ea5e9' },
-  coder:      { icon: '⌨️', color: '#8b5cf6' },
-  reviewer:   { icon: '🛡️', color: '#f59e0b' },
-  analyst:    { icon: '📊', color: '#10b981' },
-  planner:    { icon: '🗺️', color: '#6366f1' },
-  general:    { icon: '🤖', color: '#64748b' },
+const DISPATCH_ROLE_META: Record<string, { color: string }> = {
+  researcher: { color: '#0ea5e9' },
+  coder:      { color: '#8b5cf6' },
+  reviewer:   { color: '#f59e0b' },
+  analyst:    { color: '#10b981' },
+  planner:    { color: '#6366f1' },
+  general:    { color: '#64748b' },
 }
 function DispatchCard({ call, result }: { call: ToolCallRecord; result?: ToolResultRecord }) {
   const [open, setOpen] = useState(false)
@@ -67,18 +69,17 @@ function DispatchCard({ call, result }: { call: ToolCallRecord; result?: ToolRes
     <div className="my-1.5 overflow-hidden rounded-xl border" style={{ borderColor: `${meta.color}55` }}>
       <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center gap-2 px-3 py-2 text-left transition hover:bg-[var(--color-background-secondary)]">
         <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${running ? 'animate-pulse' : ''}`} style={{ background: running ? '#fbbf24' : meta.color }} />
-        <span className="shrink-0 text-[13px] leading-none">{meta.icon}</span>
         <span className="shrink-0 text-[11px] font-semibold capitalize" style={{ color: meta.color }}>Dispatched {role}</span>
-        <span className="min-w-0 flex-1 truncate text-[10px] text-[var(--color-text-tertiary)]">{task}</span>
-        <span className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">{running ? 'running…' : (open ? '▲' : '▼')}</span>
+        <span className="min-w-0 flex-1 truncate text-[11px] text-[var(--color-text-tertiary)]">{task}</span>
+        <span className="shrink-0 text-[11px] text-[var(--color-text-tertiary)]">{running ? 'running…' : (open ? '▲' : '▼')}</span>
       </button>
       {open && (
         <div className="border-t border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-2">
-          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Task</div>
+          <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Task</div>
           <p className="mb-2 whitespace-pre-wrap text-[12px] text-[var(--color-text-secondary)]">{task}</p>
           {result && (
             <>
-              <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Result</div>
+              <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Result</div>
               <MarkdownContent content={body} compact />
             </>
           )}
@@ -111,20 +112,20 @@ function ToolCallCard({ call, result }: { call: ToolCallRecord; result?: ToolRes
           <rect x="1" y="1" width="12" height="12" rx="3" stroke="currentColor" strokeWidth="1.2"/>
         </svg>
         <span className="flex-1 font-mono text-[11px] font-semibold text-[var(--color-text-primary)]">{call.name}</span>
-        <span className="text-[10px] text-[var(--color-text-tertiary)]">{open ? '▲' : '▼'}</span>
+        <span className="text-[11px] text-[var(--color-text-tertiary)]">{open ? '▲' : '▼'}</span>
       </button>
 
       {open && (
         <div className="border-t border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)]">
           {/* Input */}
           <div className="px-3 py-2">
-            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Input</div>
+            <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Input</div>
             <pre className="overflow-x-auto whitespace-pre-wrap break-words font-mono text-[11px] leading-5 text-[var(--color-text-secondary)]">{inputStr}</pre>
           </div>
           {/* Result */}
           {result && (
             <div className="border-t border-[var(--color-border-tertiary)] px-3 py-2">
-              <div className={`mb-1 text-[10px] font-semibold uppercase tracking-wide ${isError ? 'text-[#ef4444]' : 'text-[var(--color-text-tertiary)]'}`}>
+              <div className={`mb-1 text-[11px] font-semibold uppercase tracking-wide ${isError ? 'text-[#ef4444]' : 'text-[var(--color-text-tertiary)]'}`}>
                 {isError ? 'Error' : 'Result'}
               </div>
               <MarkdownContent content={result.result} compact />
@@ -229,7 +230,7 @@ function MarkdownContent({ content, compact = false }: { content: string; compac
         a: ({ href, children }) => {
           if (href?.startsWith('#cite-')) {
             return (
-              <a href={href} className="inline-flex items-center justify-center rounded px-[3px] py-px text-[9px] font-semibold leading-none text-[#1d4ed8] bg-[#eff6ff] hover:bg-[#dbeafe] align-super ml-0.5 no-underline transition-colors">
+              <a href={href} className="inline-flex items-center justify-center rounded px-[3px] py-px text-[11px] font-semibold leading-none text-[#1d4ed8] bg-[#eff6ff] hover:bg-[#dbeafe] align-super ml-0.5 no-underline transition-colors">
                 {children}
               </a>
             )
@@ -283,7 +284,7 @@ function MarkdownContent({ content, compact = false }: { content: string; compac
               <div className="group relative my-3 overflow-hidden rounded-xl border border-[var(--color-border-secondary)]">
                 {lang && (
                   <div className="flex items-center justify-between border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-1.5">
-                    <span className="font-mono text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">{lang}</span>
+                    <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">{lang}</span>
                   </div>
                 )}
                 <SyntaxHighlighter
@@ -357,7 +358,7 @@ function ProvenanceFooter({ message, onInspect }: { message: ChatMessage; onInsp
           <>
             <span className="mx-2 text-[var(--color-border-secondary)]">·</span>
             <button onClick={() => setShowSources((s) => !s)} className="inline-flex items-center gap-1 transition hover:text-[var(--color-text-secondary)]">
-              <span className="text-[9px]">{showSources ? '▾' : '▸'}</span>{sources.length} source{sources.length === 1 ? '' : 's'}
+              <span className="text-[11px]">{showSources ? '▾' : '▸'}</span>{sources.length} source{sources.length === 1 ? '' : 's'}
             </button>
           </>
         )}
@@ -709,13 +710,13 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
             Answer inspector — the provenance footer above carries the one-line summary. */}
         {message.stopped && (
           <div className="mt-1.5 inline-flex items-center gap-2">
-            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-tertiary)]">
+            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-text-tertiary)]">
               <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--color-attention)]" />
               Stopped
             </span>
             {isLast && onResume && (
               <button onClick={onResume}
-                className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-secondary)] px-2 py-0.5 text-[10px] font-medium text-[var(--color-text-secondary)] transition hover:text-[var(--color-text-primary)] hover:border-[var(--color-border-primary)]"
+                className="inline-flex items-center gap-1 rounded-full border border-[var(--color-border-secondary)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-text-secondary)] transition hover:text-[var(--color-text-primary)] hover:border-[var(--color-border-primary)]"
                 title="Continue this response from where it stopped">
                 ▶ Resume
               </button>
@@ -727,7 +728,7 @@ export function MessageBubble({ message, isLast, onExtractArtifact, onRegenerate
         {message.content && message.value_judgment && message.value_judgment.contradictions.length > 0 && (
           <div className="mt-2 space-y-1">
             {message.value_judgment.contradictions.map((c, i) => (
-              <div key={i} className="rounded-lg border border-[#fca5a5] bg-[#fef2f2] px-2 py-1 text-[10px] text-[#b91c1c]">
+              <div key={i} className="rounded-lg border border-[#fca5a5] bg-[#fef2f2] px-2 py-1 text-[11px] text-[#b91c1c]">
                 ⚠ contradicts {c.kind}: <span className="italic">{c.statement.slice(0, 90)}</span>
               </div>
             ))}

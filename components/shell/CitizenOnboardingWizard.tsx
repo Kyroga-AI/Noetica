@@ -244,12 +244,12 @@ export function CitizenOnboardingWizard({ onComplete }: Props) {
               </div>
               {pseudonym && (
                 <div className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2.5">
-                  <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">Your sovereign identity</div>
+                  <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">Your sovereign identity</div>
                   <div className="flex items-center gap-2">
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-accent)]" />
                     <span className="flex-1 min-w-0 truncate font-mono text-[11px] text-[var(--color-text-primary)]">{pseudonym}</span>
                   </div>
-                  <div className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">Device-anchored — derived from a local key that never leaves this machine.</div>
+                  <div className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">Device-anchored — derived from a local key that never leaves this machine.</div>
                 </div>
               )}
               <p className="text-[12px] text-[var(--color-text-tertiary)] leading-relaxed">

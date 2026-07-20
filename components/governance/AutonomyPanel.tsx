@@ -92,7 +92,7 @@ export default function AutonomyPanel() {
       <div className="flex items-center justify-between">
         <div className="text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: ACCENT }}>Autonomy</div>
         <span
-          className="rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+          className="rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
           style={{
             color: state?.enforced ? '#5b21b6' : 'var(--color-text-tertiary)',
             background: state?.enforced ? 'rgba(124,58,237,0.12)' : 'var(--color-background-secondary)',

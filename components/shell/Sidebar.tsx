@@ -413,7 +413,7 @@ function SessionTree({ sessions, activeSessionId, search, onSwitchSession, onRem
 
   return (
     <div className="mb-2">
-      <div className="px-2.5 py-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">{search ? 'Results' : 'Recent'}</div>
+      <div className="px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">{search ? 'Results' : 'Recent'}</div>
       {roots.map((s) => renderNode(s, 0))}
       <div className="my-1.5 border-t border-[var(--color-border-tertiary)]" />
     </div>
@@ -532,7 +532,7 @@ export function Sidebar({
         return (
           <div className="px-2 pb-1.5 pt-0.5">
             <div className="text-[12px] font-semibold text-[var(--color-text-primary)]">{center.label}</div>
-            <div className="text-[10px] leading-tight text-[var(--color-text-tertiary)]">{center.blurb}</div>
+            <div className="text-[11px] leading-tight text-[var(--color-text-tertiary)]">{center.blurb}</div>
           </div>
         )
       })()}
@@ -579,7 +579,7 @@ export function Sidebar({
                 <span className={`shrink-0 ${isActive ? 'text-[#1d4ed8]' : ''}`}>{item?.icon ?? <IconDot />}</span>
                 <span className="truncate">{s.label}</span>
                 {badge && (
-                  <span className="ml-auto rounded bg-[var(--color-background-secondary)] px-1 py-px text-[8px] font-medium text-[var(--color-text-tertiary)]">
+                  <span className="ml-auto rounded bg-[var(--color-background-secondary)] px-1 py-px text-[11px] font-medium text-[var(--color-text-tertiary)]">
                     {badge}
                   </span>
                 )}
@@ -591,7 +591,7 @@ export function Sidebar({
             <>
               {primary.map(renderRow)}
               {secondary.length > 0 && (
-                <div className={`px-2 ${groupGap} pb-0.5 text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>More</div>
+                <div className={`px-2 ${groupGap} pb-0.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]`}>More</div>
               )}
               {secondary.map(renderRow)}
             </>
@@ -610,7 +610,7 @@ export function Sidebar({
                   <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden><path d="M7 2L3 5.5 7 9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   Back
                 </button>
-                <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Language</div>
+                <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Language</div>
                 {[
                   { code: 'en', native: 'English', current: true },
                   { code: 'es', native: 'Español', current: false },
@@ -627,7 +627,7 @@ export function Sidebar({
                     <span className="flex-1">{lang.native}</span>
                     {lang.current
                       ? <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden className="text-[#1d4ed8]"><path d="M2 5.5l3 3 4.5-4.5" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                      : <span className="text-[9px] uppercase tracking-wide text-[var(--color-text-tertiary)]">soon</span>}
+                      : <span className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">soon</span>}
                   </button>
                 ))}
               </>
@@ -638,7 +638,7 @@ export function Sidebar({
                   <svg width="11" height="11" viewBox="0 0 11 11" fill="none" aria-hidden><path d="M7 2L3 5.5 7 9" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   Back
                 </button>
-                <div className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Resources</div>
+                <div className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Resources</div>
                 {[
                   { label: 'Noetica documentation', desc: 'User guide and surface reference', url: 'https://github.com/SocioProphet/Noetica#readme' },
                   { label: 'Anthropic API docs', desc: 'Claude API integration reference', url: 'https://docs.anthropic.com' },
@@ -648,7 +648,7 @@ export function Sidebar({
                   <button key={link.label} onClick={() => { if (link.label === 'Keyboard shortcuts') { setHelpOpen(true) } else if (link.url) { window.open(link.url, '_blank', 'noopener') } closeMenu() }}
                     className="flex w-full flex-col items-start px-3 py-1.5 text-left hover:bg-[var(--color-background-secondary)] transition">
                     <span className="text-[12px] text-[var(--color-text-primary)]">{link.label}</span>
-                    <span className="text-[10px] text-[var(--color-text-tertiary)]">{link.desc}</span>
+                    <span className="text-[11px] text-[var(--color-text-tertiary)]">{link.desc}</span>
                   </button>
                 ))}
               </>
@@ -668,8 +668,8 @@ export function Sidebar({
                     className="flex w-full items-center gap-2.5 px-3 py-1.5 text-[12px] text-[var(--color-text-primary)] hover:bg-[var(--color-background-secondary)] transition text-left">
                     <span className="text-[var(--color-text-secondary)]">{item.icon}</span>
                     <span className="flex-1">{item.label}</span>
-                    {item.hint && <span className="text-[10px] text-[var(--color-text-tertiary)]">{item.hint}</span>}
-                    {item.badge && <span className="flex h-4 w-4 items-center justify-center rounded bg-[#ef4444] text-[9px] font-bold text-white">{item.badge}</span>}
+                    {item.hint && <span className="text-[11px] text-[var(--color-text-tertiary)]">{item.hint}</span>}
+                    {item.badge && <span className="flex h-4 w-4 items-center justify-center rounded bg-[#ef4444] text-[11px] font-bold text-white">{item.badge}</span>}
                     {item.arrow && <svg width="9" height="9" viewBox="0 0 9 9" fill="none" aria-hidden><path d="M3 2l2.5 2.5L3 7" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                   </button>
                 ))}
@@ -699,10 +699,10 @@ export function Sidebar({
                   <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M6 3H3a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h3M11 11l3-3-3-3M14 8H6" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round"/></svg>
                   <span className="flex-1">{logoutConfirming ? 'Confirm log out?' : 'Log out'}</span>
                   {logoutConfirming && (
-                    <span className="w-full pl-[23px] text-[10px] font-normal text-[var(--color-text-tertiary)]">Clears local app data on this device. Click again to confirm.</span>
+                    <span className="w-full pl-[23px] text-[11px] font-normal text-[var(--color-text-tertiary)]">Clears local app data on this device. Click again to confirm.</span>
                   )}
                 </button>
-                <div className="border-t border-[var(--color-border-tertiary)] mt-1 px-3 py-1.5 text-[10px] text-[var(--color-text-tertiary)] select-text">
+                <div className="border-t border-[var(--color-border-tertiary)] mt-1 px-3 py-1.5 text-[11px] text-[var(--color-text-tertiary)] select-text">
                   Noetica {versionLabel()}
                 </div>
               </>
@@ -718,7 +718,7 @@ export function Sidebar({
           className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 transition hover:bg-[var(--color-background-secondary)]"
         >
           <div
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold text-white"
             style={{ background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)' }}
           >
             {displayName.charAt(0).toUpperCase()}

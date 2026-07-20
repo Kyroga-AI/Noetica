@@ -140,7 +140,7 @@ function ProjectEditor({
           <span className="h-3 w-3 rounded-full" style={{ backgroundColor: project.color }} />
           <span className="text-sm font-semibold text-[var(--color-text-primary)]">{project.title}</span>
           {isActive && (
-            <span className="rounded-md bg-[#dbeafe] px-1.5 py-0.5 text-[9px] font-semibold text-[#1d4ed8]">Active</span>
+            <span className="rounded-md bg-[#dbeafe] px-1.5 py-0.5 text-[11px] font-semibold text-[#1d4ed8]">Active</span>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -233,7 +233,7 @@ function ProjectEditor({
                   <div key={att.clientId} className="flex items-center gap-3 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2">
                     <span className="text-base">{att.kind === 'image' ? '🖼' : att.kind === 'pdf' ? '📄' : att.kind === 'code' ? '⌥' : '📝'}</span>
                     <span className="flex-1 truncate text-xs font-medium text-[var(--color-text-primary)]">{att.name}</span>
-                    <span className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">{att.sizeLabel}</span>
+                    <span className="shrink-0 text-[11px] text-[var(--color-text-tertiary)]">{att.sizeLabel}</span>
                     <button onClick={() => removeAttachment(att.clientId)} className="text-[var(--color-text-tertiary)] hover:text-[#ef4444]">
                       <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
                         <path d="M1 1l8 8M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
@@ -398,7 +398,7 @@ export function ProjectsPanel({
 
         {activeProject && (
           <div className="border-t border-[var(--color-border-secondary)] px-3 py-2">
-            <p className="text-[10px] text-[var(--color-text-tertiary)]">Active:</p>
+            <p className="text-[11px] text-[var(--color-text-tertiary)]">Active:</p>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: activeProject.color }} />
               <span className="truncate text-[11px] font-medium text-[var(--color-text-primary)]">{activeProject.title}</span>

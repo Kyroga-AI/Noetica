@@ -256,30 +256,30 @@ export function GeoSurface() {
       {/* Header */}
       <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-[var(--color-border-tertiary)] px-5 py-3">
         <div className="text-base font-semibold text-[var(--color-text-primary)]">Geo</div>
-        <span className="rounded bg-[#eff6ff] px-1.5 py-px text-[9px] font-medium text-[#1d4ed8]">GAIA · Orion Field Intelligence</span>
+        <span className="rounded bg-[#eff6ff] px-1.5 py-px text-[11px] font-medium text-[#1d4ed8]">GAIA · Orion Field Intelligence</span>
         <button onClick={() => void detect()} disabled={busy}
-          className="rounded-lg border border-[var(--color-border-secondary)] px-2.5 py-1 text-[10px] text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)] disabled:opacity-50">
+          className="rounded-lg border border-[var(--color-border-secondary)] px-2.5 py-1 text-[11px] text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)] disabled:opacity-50">
           {busy ? 'Detecting…' : 'Detect places'}
         </button>
         <button onClick={() => setShowCells((v) => !v)} disabled={markers.length === 0}
-          className={`flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[10px] transition disabled:opacity-40 ${showCells ? 'border-[#7c3aed] bg-[#ede9fe] text-[#7c3aed]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'}`}>
+          className={`flex items-center gap-1 rounded-lg border px-2.5 py-1 text-[11px] transition disabled:opacity-40 ${showCells ? 'border-[#7c3aed] bg-[#ede9fe] text-[#7c3aed]' : 'border-[var(--color-border-secondary)] text-[var(--color-text-secondary)] hover:bg-[var(--color-background-secondary)]'}`}>
           <span className="h-2 w-2 rounded-full" style={{ background: showCells ? '#7c3aed' : 'var(--color-text-tertiary)' }} />
           Cell density
         </button>
-        <span className="text-[10px] text-[var(--color-text-tertiary)]">{markers.length} marker{markers.length === 1 ? '' : 's'}</span>
-        {err && <span className="text-[10px] text-[#dc2626]">{err}</span>}
+        <span className="text-[11px] text-[var(--color-text-tertiary)]">{markers.length} marker{markers.length === 1 ? '' : 's'}</span>
+        {err && <span className="text-[11px] text-[#dc2626]">{err}</span>}
       </div>
 
       {/* OFIF layer toggles */}
       {layerGroups.length > 0 && (
         <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-[var(--color-border-tertiary)] px-5 py-2">
-          <span className="text-[9px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Layers</span>
+          <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Layers</span>
           {layerGroups.map((g) => {
             const off = hidden.has(g)
             const n   = markers.filter((m) => m.layerGroup === g).length
             return (
               <button key={g} onClick={() => toggleLayer(g)} title={off ? 'Show' : 'Hide'}
-                className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] transition"
+                className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition"
                 style={{ borderColor: 'var(--color-border-secondary)', opacity: off ? 0.35 : 1 }}>
                 <span className="h-2 w-2 rounded-full" style={{ background: layerOf(g).c }} />
                 <span className="text-[var(--color-text-secondary)]">{layerOf(g).label}</span>
@@ -288,9 +288,9 @@ export function GeoSurface() {
             )
           })}
           {/* severity legend */}
-          <span className="ml-2 text-[9px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Severity</span>
+          <span className="ml-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Severity</span>
           {Object.entries(SEV).map(([k, v]) => (
-            <span key={k} className="flex items-center gap-1 text-[9px] text-[var(--color-text-tertiary)]">
+            <span key={k} className="flex items-center gap-1 text-[11px] text-[var(--color-text-tertiary)]">
               <span className="rounded-full" style={{ display: 'inline-block', width: v.r, height: v.r, background: 'var(--color-text-tertiary)' }} />
               {k}
             </span>
@@ -307,7 +307,7 @@ export function GeoSurface() {
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
             <div className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)]/90 px-5 py-4 text-center backdrop-blur-sm">
               <div className="text-xs font-medium text-[var(--color-text-primary)]">No markers yet</div>
-              <div className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">Mention places in documents or chat,<br />then &ldquo;Detect places&rdquo; above.</div>
+              <div className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">Mention places in documents or chat,<br />then &ldquo;Detect places&rdquo; above.</div>
             </div>
           </div>
         )}
@@ -318,7 +318,7 @@ export function GeoSurface() {
             <div className="flex items-start justify-between gap-2">
               <div>
                 <div className="text-sm font-semibold text-[var(--color-text-primary)]">{sel.title}</div>
-                <div className="mt-0.5 flex items-center gap-2 text-[10px] text-[var(--color-text-secondary)]">
+                <div className="mt-0.5 flex items-center gap-2 text-[11px] text-[var(--color-text-secondary)]">
                   <span className="h-2 w-2 rounded-full" style={{ background: layerOf(sel.layerGroup).c }} />
                   {layerOf(sel.layerGroup).label}
                   <span className="text-[var(--color-text-tertiary)]">·</span>

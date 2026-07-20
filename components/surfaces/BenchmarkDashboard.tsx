@@ -272,7 +272,7 @@ export function BenchmarkDashboard() {
                 </span>
               </div>
               <WorthBars buckets={trends.quality.buckets} />
-              <p className="mt-1 text-[10px] text-[var(--color-text-tertiary)]">{trends.quality.samples} judged runs</p>
+              <p className="mt-1 text-[11px] text-[var(--color-text-tertiary)]">{trends.quality.samples} judged runs</p>
             </div>
 
             <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-3">
@@ -296,7 +296,7 @@ export function BenchmarkDashboard() {
                 <div className="flex justify-between"><span className="text-[var(--color-text-tertiary)]">PLN-derived edges</span><span className="tabular-nums text-green-500">{trends.graph.derived_edges.toLocaleString()}</span></div>
                 <div className="flex justify-between"><span className="text-[var(--color-text-tertiary)]">Total edges</span><span className="tabular-nums">{trends.graph.total_edges.toLocaleString()}</span></div>
                 {trends.drivers[0] && (
-                  <div className="mt-1 border-t border-[var(--color-border-tertiary)] pt-1 text-[10px] text-[var(--color-text-tertiary)]">
+                  <div className="mt-1 border-t border-[var(--color-border-tertiary)] pt-1 text-[11px] text-[var(--color-text-tertiary)]">
                     top quality driver: <span className="text-[var(--color-text-secondary)]">{trends.drivers[0].feature}</span> (r={trends.drivers[0].correlation})
                   </div>
                 )}
@@ -304,7 +304,7 @@ export function BenchmarkDashboard() {
             </div>
           </div>
           {trends.history && trends.history.length > 0 && (
-            <p className="mt-2 text-[10px] text-[var(--color-text-tertiary)]">
+            <p className="mt-2 text-[11px] text-[var(--color-text-tertiary)]">
               Long-horizon record: {trends.history.length} daily snapshot{trends.history.length > 1 ? 's' : ''} since {trends.history[0]!.date}
               {trends.history.length > 1 && ` · derived edges ${trends.history[0]!.derived_edges} → ${trends.history[trends.history.length - 1]!.derived_edges}`}
             </p>
@@ -378,7 +378,7 @@ export function BenchmarkDashboard() {
                     />
                   </div>
                   <span className="w-8 text-right tabular-nums text-xs font-semibold">{(hbResult.overallScore * 100).toFixed(0)}%</span>
-                  <span className="text-[10px] text-[var(--color-text-tertiary)]">{hbResult.model}</span>
+                  <span className="text-[11px] text-[var(--color-text-tertiary)]">{hbResult.model}</span>
                 </div>
                 <div className="overflow-hidden rounded-xl border border-[var(--color-border-tertiary)]">
                   {hbResult.rubric.map((d, i) => (
@@ -391,7 +391,7 @@ export function BenchmarkDashboard() {
                         />
                       </div>
                       <span className="w-8 shrink-0 text-right tabular-nums text-[11px]">{(d.score * 100).toFixed(0)}%</span>
-                      <span className="hidden md:block min-w-0 flex-1 truncate text-[10px] text-[var(--color-text-tertiary)]" title={d.rationale}>{d.rationale}</span>
+                      <span className="hidden md:block min-w-0 flex-1 truncate text-[11px] text-[var(--color-text-tertiary)]" title={d.rationale}>{d.rationale}</span>
                     </div>
                   ))}
                 </div>
@@ -408,8 +408,8 @@ export function BenchmarkDashboard() {
               <div className="grid grid-cols-2 gap-2 md:grid-cols-5">
                 {hbRubric.map((d) => (
                   <div key={d.id} className="rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-2">
-                    <div className="text-[10px] font-semibold text-[var(--color-text-secondary)]">{d.label}</div>
-                    <div className="mt-0.5 text-[9px] text-[var(--color-text-tertiary)]">{d.description}</div>
+                    <div className="text-[11px] font-semibold text-[var(--color-text-secondary)]">{d.label}</div>
+                    <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">{d.description}</div>
                   </div>
                 ))}
               </div>
@@ -430,11 +430,11 @@ function StatCard({ label, value, sub, accent }: { label: string; value: string;
     accent === 'green' ? 'bg-[var(--color-accent)]' : accent === 'amber' ? 'bg-[var(--color-attention)]' : 'bg-[var(--color-text-tertiary)]'
   return (
     <div className={`rounded-xl border ${ring} bg-[var(--color-background-secondary)] p-3`}>
-      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">
+      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">
         <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />{label}
       </div>
       <div className="mt-1 text-lg font-semibold tabular-nums">{value}</div>
-      {sub && <div className="text-[10px] text-[var(--color-text-tertiary)]">{sub}</div>}
+      {sub && <div className="text-[11px] text-[var(--color-text-tertiary)]">{sub}</div>}
     </div>
   )
 }
@@ -471,7 +471,7 @@ function CompareTable({ rows }: { rows: Row[] }) {
     <div className="overflow-x-auto rounded-xl border border-[var(--color-border-tertiary)]">
       <table className="w-full text-xs">
         <thead>
-          <tr className="border-b border-[var(--color-border-tertiary)] text-left text-[10px] uppercase tracking-wide text-[var(--color-text-tertiary)]">
+          <tr className="border-b border-[var(--color-border-tertiary)] text-left text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">
             <th className="px-3 py-2 font-medium">Model</th>
             <th className="px-3 py-2 font-medium">Runs</th>
             <th className="px-3 py-2 font-medium">Avg latency</th>
@@ -487,7 +487,7 @@ function CompareTable({ rows }: { rows: Row[] }) {
                 <span className="flex items-center gap-1.5">
                   <span className={`h-1.5 w-1.5 rounded-full ${r.isLocal ? 'bg-[var(--color-accent)]' : 'bg-[var(--color-attention)]'}`} />
                   <span className="font-medium">{r.model}</span>
-                  <span className="text-[9px] uppercase text-[var(--color-text-tertiary)]">{r.isLocal ? 'local' : 'cloud'}</span>
+                  <span className="text-[11px] uppercase text-[var(--color-text-tertiary)]">{r.isLocal ? 'local' : 'cloud'}</span>
                 </span>
               </td>
               <td className="px-3 py-2 tabular-nums">{r.runs}</td>

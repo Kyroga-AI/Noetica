@@ -157,7 +157,7 @@ export function ModelsPanel() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-[12px] font-semibold text-[var(--color-text-primary)]">{m.name}</span>
-                        <span className={`rounded-full border px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${ROLE_COLORS[m.role] ?? 'bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border-secondary)]'}`}>
+                        <span className={`rounded-full border px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${ROLE_COLORS[m.role] ?? 'bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border-secondary)]'}`}>
                           {m.role}
                         </span>
                         <span className="text-[11px] text-[var(--color-text-tertiary)]">{m.sizeGb}GB</span>
@@ -186,7 +186,7 @@ export function ModelsPanel() {
                   {/* Pull progress bar */}
                   {ps && !ps.done && (
                     <div className="mt-2">
-                      <div className="flex items-center justify-between text-[10px] text-[var(--color-text-tertiary)]">
+                      <div className="flex items-center justify-between text-[11px] text-[var(--color-text-tertiary)]">
                         <span>{ps.status}</span>
                         {ps.pct !== null && <span>{ps.pct}%</span>}
                       </div>
@@ -199,7 +199,7 @@ export function ModelsPanel() {
                     </div>
                   )}
                   {hasError && (
-                    <p className="mt-1 text-[10px] text-[#dc2626]">{ps.error}</p>
+                    <p className="mt-1 text-[11px] text-[#dc2626]">{ps.error}</p>
                   )}
                 </div>
               )
@@ -305,7 +305,7 @@ export function ModelsPanel() {
               return (
                 <div key={m.id} className="flex items-center justify-between gap-2 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 text-xs">
                   <span className="min-w-0 flex-1 truncate font-mono text-[var(--color-text-secondary)]">{m.id}</span>
-                  <span className="shrink-0 text-[10px] text-[var(--color-text-tertiary)]">
+                  <span className="shrink-0 text-[11px] text-[var(--color-text-tertiary)]">
                     {ps && !ps.done ? `pulling… ${ps.pct != null ? Math.round(ps.pct) + '%' : ps.status}` : ps?.error ? 'pull failed' : m.provider}
                   </span>
                   <button onClick={() => update({ customModelIds: (settings.customModelIds ?? []).filter((x) => x !== m.id) })}

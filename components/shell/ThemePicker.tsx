@@ -31,7 +31,7 @@ export function ThemePicker() {
             className="absolute right-0 top-8 z-50 w-44 overflow-hidden rounded-xl border border-[var(--color-border-secondary)] shadow-xl"
             style={{ background: 'var(--color-background-primary)' }}
           >
-            <div className="px-3 pb-1.5 pt-2.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">
+            <div className="px-3 pb-1.5 pt-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">
               Theme
             </div>
             {themes.map((t) => {
@@ -61,7 +61,7 @@ export function ThemePicker() {
                     <span className={`text-[12px] font-medium ${active ? 'text-[var(--color-text-primary)]' : 'text-[var(--color-text-secondary)]'}`}>
                       {t.label}
                     </span>
-                    <span className="text-[10px] text-[var(--color-text-tertiary)]">{t.description}</span>
+                    <span className="text-[11px] text-[var(--color-text-tertiary)]">{t.description}</span>
                   </span>
                   {active && (
                     <svg className="ml-auto shrink-0" width="10" height="10" viewBox="0 0 10 10" fill="none">

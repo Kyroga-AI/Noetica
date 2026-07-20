@@ -77,7 +77,7 @@ function StatusChip({ status }: { status: string }) {
     disconnected: 'bg-[var(--color-background-tertiary)] text-[var(--color-text-tertiary)]',
   }
   return (
-    <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${map[status] ?? map.disconnected}`}>
+    <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${map[status] ?? map.disconnected}`}>
       {status === 'connected' ? 'Connected' :
        status === 'connecting' ? 'Connecting…' :
        status === 'error' ? 'Error' : 'Not connected'}
@@ -153,7 +153,7 @@ function OAuthProviderRow({ provider }: { provider: OAuthProvider }) {
       <div className="flex items-start gap-3 px-4 py-3">
         {/* Provider icon placeholder */}
         <div
-          className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold text-white"
+          className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold text-white"
           style={{ background: provider.color }}
         >
           {provider.label[0]}
@@ -269,7 +269,7 @@ function MatrixLoginRow() {
   return (
     <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] overflow-hidden">
       <div className="flex items-start gap-3 px-4 py-3">
-        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#0dbd8b] text-[10px] font-bold text-white">M</div>
+        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#0dbd8b] text-[11px] font-bold text-white">M</div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-[var(--color-text-primary)]">Matrix</span>
@@ -396,7 +396,7 @@ function NotionOAuthRow() {
   return (
     <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] overflow-hidden">
       <div className="flex items-start gap-3 px-4 py-3">
-        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#000000] text-[10px] font-bold text-white">N</div>
+        <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#000000] text-[11px] font-bold text-white">N</div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-[var(--color-text-primary)]">Notion</span>
@@ -510,7 +510,7 @@ function ChatImportSection() {
   }
   return (
     <div className="space-y-2">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Import chat history</div>
+      <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Import chat history</div>
       <div className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3 text-xs leading-5 text-[var(--color-text-secondary)]">
         <p>Bring your <b>Claude</b> or <b>ChatGPT</b> history into Noetica&apos;s brain — searchable and in the graph. History isn&apos;t reachable via an API key, so use the official data export:</p>
         <ul className="ml-4 mt-1 list-disc">
@@ -539,18 +539,18 @@ export function ConnectionsPanel() {
       </div>
 
       <div className="space-y-3">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">OAuth providers</div>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">OAuth providers</div>
         {OAUTH_PROVIDERS.map((p) => <OAuthProviderRow key={p.id} provider={p} />)}
         <NotionOAuthRow />
       </div>
 
       <div className="space-y-3">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Direct login</div>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Direct login</div>
         <MatrixLoginRow />
       </div>
 
       <div className="space-y-3">
-        <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Source forge</div>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Source forge</div>
         <ForgeSettingsSection />
       </div>
 

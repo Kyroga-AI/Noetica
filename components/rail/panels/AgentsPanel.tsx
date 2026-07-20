@@ -10,7 +10,7 @@ export function AgentsPanel() {
           {[['Active', '0'], ['Queued', '0'], ['Failed', '0'], ['Completed', '0']].map(([label, val]) => (
             <div key={label} className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-2.5 text-center">
               <div className="text-lg font-bold text-[var(--color-text-primary)]">{val}</div>
-              <div className="text-[10px] text-[var(--color-text-secondary)]">{label}</div>
+              <div className="text-[11px] text-[var(--color-text-secondary)]">{label}</div>
             </div>
           ))}
         </div>

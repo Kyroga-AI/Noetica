@@ -123,25 +123,25 @@ export function RuntimePanel() {
           <div className="flex items-center gap-2">
             <StatusDot status="reachable" />
             <span className="text-xs font-semibold text-[var(--color-accent)]">Agent Machine connected</span>
-            {amInfo.version && <span className="ml-auto font-mono text-[10px] text-[var(--color-accent)]">v{amInfo.version}</span>}
+            {amInfo.version && <span className="ml-auto font-mono text-[11px] text-[var(--color-accent)]">v{amInfo.version}</span>}
           </div>
           {amInfo.description && <p className="text-xs text-[var(--color-accent)]">{amInfo.description}</p>}
           {amInfo.models && amInfo.models.length > 0 && (
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-accent)] mb-1">Available models</div>
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-accent)] mb-1">Available models</div>
               <div className="flex flex-wrap gap-1">
                 {amInfo.models.map((m) => (
-                  <span key={m} className="rounded-md bg-[var(--color-accent-bg)] px-2 py-0.5 font-mono text-[10px] text-[var(--color-accent)]">{m}</span>
+                  <span key={m} className="rounded-md bg-[var(--color-accent-bg)] px-2 py-0.5 font-mono text-[11px] text-[var(--color-accent)]">{m}</span>
                 ))}
               </div>
             </div>
           )}
           {amInfo.tools && amInfo.tools.length > 0 && (
             <div>
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-accent)] mb-1">Available tools</div>
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-accent)] mb-1">Available tools</div>
               <div className="flex flex-wrap gap-1">
                 {amInfo.tools.map((t) => (
-                  <span key={t} className="rounded-md bg-[var(--color-accent-bg)] px-2 py-0.5 font-mono text-[10px] text-[var(--color-accent)]">{t}</span>
+                  <span key={t} className="rounded-md bg-[var(--color-accent-bg)] px-2 py-0.5 font-mono text-[11px] text-[var(--color-accent)]">{t}</span>
                 ))}
               </div>
             </div>
