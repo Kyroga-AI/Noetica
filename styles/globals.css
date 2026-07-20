@@ -2,6 +2,28 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─── NOETICA TYPEFACE ────────────────────────────────────────────────────────
+   Noetica Sans / Mono — our own brand family (an OFL fork of IBM Plex, renamed
+   per the Reserved Font Name clause). Delivered the sovereign way: bundled in the
+   app, self-hosted, relative URLs, NO local() (so it never probes the user's
+   installed fonts) and NO CDN (so it never leaks an IP). Every user renders text
+   identically → one less fingerprint dimension. */
+@font-face {
+  font-family: 'Noetica Sans';
+  font-style: normal; font-weight: 400; font-display: swap;
+  src: url('/fonts/noetica-sans-400.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Noetica Sans';
+  font-style: normal; font-weight: 600; font-display: swap;
+  src: url('/fonts/noetica-sans-600.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Noetica Mono';
+  font-style: normal; font-weight: 400; font-display: swap;
+  src: url('/fonts/noetica-mono-400.woff2') format('woff2');
+}
+
 /* ─── CLAUDE THEME (default) ─────────────────────────────────────────────────── */
 :root,
 [data-theme="claude"] {
@@ -38,8 +60,8 @@
   --border-radius-md:  8px;
   --border-radius-lg:  12px;
   --border-radius-xl:  16px;
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: ui-monospace, 'SF Mono', monospace;
+  --font-sans: 'Noetica Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'Noetica Mono', ui-monospace, 'SF Mono', monospace;
 }
 
 /* ─── NAVY THEME ─────────────────────────────────────────────────────────────── */
@@ -315,8 +337,14 @@ body {
 
 body {
   margin: 0;
+  font-family: var(--font-sans);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Route every monospace surface (code, Tailwind's font-mono) to Noetica Mono. */
+code, kbd, samp, pre, .font-mono {
+  font-family: var(--font-mono);
 }
 
 button,
