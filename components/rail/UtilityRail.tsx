@@ -97,7 +97,7 @@ export function UtilityRail({ activePanel, onSelect, inspectMessage = null, inSc
               title={label}
               className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${
                 activePanel === id
-                  ? 'bg-[#dbeafe] text-[#1d4ed8]'
+                  ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]'
                   : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-secondary)]'
               }`}
             >
