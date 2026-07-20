@@ -199,13 +199,31 @@ export function IntelligenceSurface() {
   const load = useCallback(() => {
     setErr('')
     const base = amUrl
-
-    Promise.all([
-      fetch(base('/api/intelligence/tasks')).then((r) => r.json() as Promise<{ tasks: Task[] }>).then((d) => setTasks(d.tasks ?? [])),
-      fetch(base('/api/causal/models')).then((r) => r.json() as Promise<{ models: CausalModel[] }>).then((d) => setModels(d.models ?? [])),
-      fetch(base('/api/supply-chain/signal')).then((r) => r.json() as Promise<SupplySummary>).then(setSupply),
-      fetch(base('/api/location-traffic/aggregate')).then((r) => r.json() as Promise<TrafficAgg>).then(setTraffic),
-    ]).catch((e) => setErr(e instanceof Error ? e.message : 'Failed to load — is the backend running?'))
+    // Resilient per-endpoint load: a missing/404 route returns HTML, and calling .json() on that used to
+    // throw "Unexpected token '<'" and blow away the WHOLE surface. Now each fetch degrades to null on any
+    // failure (non-ok, non-JSON, or network), sections render with whatever loaded, and the error screen
+    // shows only when nothing came back at all.
+    const safeJson = async <T,>(url: string): Promise<T | null> => {
+      try {
+        const r = await fetch(url)
+        if (!r.ok) return null
+        if (!(r.headers.get('content-type') || '').includes('json')) return null
+        return (await r.json()) as T
+      } catch { return null }
+    }
+    void (async () => {
+      const [t, m, s, tr] = await Promise.all([
+        safeJson<{ tasks: Task[] }>(base('/api/intelligence/tasks')),
+        safeJson<{ models: CausalModel[] }>(base('/api/causal/models')),
+        safeJson<SupplySummary>(base('/api/supply-chain/signal')),
+        safeJson<TrafficAgg>(base('/api/location-traffic/aggregate')),
+      ])
+      setTasks(t?.tasks ?? [])
+      setModels(m?.models ?? [])
+      setSupply(s ?? null)
+      setTraffic(tr ?? null)
+      if (!t && !m && !s && !tr) setErr('Couldn’t reach the intelligence backend — is the runtime running?')
+    })()
   }, [])
 
   useEffect(load, [load])
