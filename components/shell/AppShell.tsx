@@ -1652,6 +1652,7 @@ export function AppShell() {
         {sidebarCollapsed && !focusMode && (
           <CollapsedRail
             activeSurface={activeSurface}
+            activeCenter={activeCenter}
             onSurfaceChange={handleSurfaceChange}
             onExpand={() => setSidebarCollapsed(false)}
           />
@@ -1849,6 +1850,7 @@ export function AppShell() {
 
 type CollapsedRailProps = {
   activeSurface: ActiveSurface
+  activeCenter: CommandCenterId
   onSurfaceChange: (s: ActiveSurface) => void
   onExpand: () => void
 }
@@ -1877,7 +1879,14 @@ const surfaceIcons: { id: ActiveSurface; label: string; icon: React.ReactNode }[
   { id: 'marketplace',  label: 'Marketplace',  icon: <IconSm path="M2 5h12l-1.5 7H3.5L2 5z" d2="M5 5V3.5a3 3 0 0 1 6 0V5" /> },
 ]
 
-function CollapsedRail({ activeSurface, onSurfaceChange, onExpand }: CollapsedRailProps) {
+// id → glyph lookup (from the list above), with a generic fallback for surfaces without a dedicated icon.
+const SURFACE_ICON = new Map(surfaceIcons.map((s) => [s.id, s.icon]))
+const FALLBACK_SURFACE_ICON = <IconSm path="M3 3h10v10H3z" d2="M6 6h4M6 9h4" />
+
+function CollapsedRail({ activeSurface, activeCenter, onSurfaceChange, onExpand }: CollapsedRailProps) {
+  // Show the ACTIVE command center's surfaces — not a fixed workspace list. Previously this rail was
+  // hardcoded, so switching to Cloud/Data/etc still showed the chat surfaces. Mirror the expanded Sidebar.
+  const surfaces = surfacesFor(activeCenter).filter((s) => s.tier === 'primary' || s.tier === 'secondary')
   return (
     <aside className="titlebar-inset hidden w-14 shrink-0 flex-col items-center border-r border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] py-3 lg:flex">
       <button
@@ -1890,18 +1899,18 @@ function CollapsedRail({ activeSurface, onSurfaceChange, onExpand }: CollapsedRa
         </svg>
       </button>
       <nav className="flex flex-1 flex-col items-center gap-1">
-        {surfaceIcons.map(({ id, label, icon }) => (
+        {surfaces.map((s) => (
           <button
-            key={id}
-            onClick={() => onSurfaceChange(id)}
-            title={label}
+            key={s.id}
+            onClick={() => onSurfaceChange(s.id as ActiveSurface)}
+            title={s.label}
             className={`flex h-8 w-8 items-center justify-center rounded-lg transition ${
-              activeSurface === id
-                ? 'bg-[#dbeafe] text-[var(--color-text-primary)]'
+              activeSurface === s.id
+                ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]'
                 : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]'
             }`}
           >
-            {icon}
+            {SURFACE_ICON.get(s.id as ActiveSurface) ?? FALLBACK_SURFACE_ICON}
           </button>
         ))}
       </nav>
