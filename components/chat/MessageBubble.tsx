@@ -430,6 +430,14 @@ export function ProvenanceSidenote({ message, onInspect }: { message: ChatMessag
         </div>
       )}
 
+      {/* Verifier→selection — this answer was chosen from several candidates by the grounding verifier.
+          The felt signal of the keystone: not one shot, but the best of N. */}
+      {message.deliberation?.critic?.posture === 'best-of-n' && (
+        <div title="Generated several candidates and kept the best-grounded one">
+          best of N · {Math.round((message.deliberation.critic.agreement ?? 0) * 100)}% agree
+        </div>
+      )}
+
       {/* Sources — expandable list, right in the margin */}
       {sources.length > 0 && (
         <div>
