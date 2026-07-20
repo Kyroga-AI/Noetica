@@ -494,16 +494,33 @@ export function AppShell() {
   }
 
   const voiceReplyRef = useRef(false)
+  // Dictation vs auto-send: when the mic was started as "dictate" (composer mic), the transcript is
+  // routed into the composer to edit; otherwise (live conversation / wake word) it auto-sends.
+  const dictateModeRef = useRef(false)
   const c2paCredRef = useRef<import('@/lib/types/governance').GovernanceTrace['credential']>(undefined)
   // Stable callback reference — must be memoized to avoid recreating `startListening` on every
   // render, which would retrigger the wake-word useEffect and cause a rapid restart loop.
   const handleVoiceTranscript = useCallback((transcript: string) => {
+    // Dictate mode → drop the text into the composer (edit before sending); one-shot, so reset the flag.
+    if (dictateModeRef.current) {
+      dictateModeRef.current = false
+      window.dispatchEvent(new CustomEvent('noetica:dictate', { detail: transcript }))
+      return
+    }
     voiceReplyRef.current = true
     setActiveSurface('chat')
     void handleSendRaw(transcript, [], messages)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages])
   const { state: voiceState, isLive, error: voiceError, speakingId, startListening, stopListening, startLive, stopLive, speak, stopSpeaking } = useVoice(handleVoiceTranscript)
+  // Composer mic: dictate into the box (not auto-send). Live conversation stays a separate top-bar control.
+  const startDictation = useCallback(() => {
+    dictateModeRef.current = true
+    setActiveSurface('chat')
+    void startListening()
+  }, [startListening])
+  // Dictating = actively capturing for the composer (not live, not passive wake-listening).
+  const isDictating = voiceState === 'listening' && !isLive
 
   // Surface voice errors (backend offline, mic denied, STT unavailable) as a transient
   // notice — a voice feature must never fail as a silent no-op.
@@ -1666,7 +1683,6 @@ export function AppShell() {
             modelId={modelId}
             mode={mode}
             riskReadout={riskReadout}
-            voiceState={voiceState}
             isLive={isLive}
             onLiveStart={startLive}
             onLiveStop={stopLive}
@@ -1680,8 +1696,6 @@ export function AppShell() {
             onOpenPalette={() => setPaletteOpen(true)}
             onOpenInspector={() => setInspectorVisible(true)}
             onExportConversation={exportConversation}
-            onVoiceStart={startListening}
-            onVoiceStop={stopListening}
             onRealtimeTranscript={(text) => void handleSendRaw(text, [], messages)}
             onRealtimeSpeechStart={stopSpeaking}
           />
@@ -1742,6 +1756,9 @@ export function AppShell() {
                 onPlanApprove={handlePlanApprove}
                 onPlanReject={handlePlanReject}
                 onInspect={handleInspect}
+                onStartDictation={startDictation}
+                onStopDictation={stopListening}
+                dictating={isDictating}
               />
               </SurfaceErrorBoundary>
               </div>
@@ -1969,9 +1986,12 @@ type CenterProps = {
   onPlanApprove?: (messageId: string) => void
   onPlanReject?: (messageId: string) => void
   onInspect?: (message: ChatMessage) => void
+  onStartDictation?: () => void
+  onStopDictation?: () => void
+  dictating?: boolean
 }
 
-function CenterWorkspace({ activeSurface, sessionId, activeProjectTitle, projectCollection, chatCollection, projects, activeProjectId, onSelectProject, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onNavigateToGovern, onSpeak, speakingMessageId, onFeedback, agentMode, onSetAgentMode, onPlanApprove, onPlanReject, onInspect }: CenterProps) {
+function CenterWorkspace({ activeSurface, sessionId, activeProjectTitle, projectCollection, chatCollection, projects, activeProjectId, onSelectProject, messages, isStreaming, workspaceMode, fanoutModelCount, modelId, thinkingBudget, onSend, onFanout, onStop, onRegenerate, onResume, onFork, onEdit, onRecombine, onWorkspaceModeChange, onExtractArtifact, onModelChange, onOpenPalette, mcpTools, systemPrompt, onSystemPromptChange, activeArtifact, onCloseArtifact, onArtifactUpdate, onArtifactDelete, onAtomSelect, onOpenSettings, onNavigateToOperate, onNavigateToGovern, onSpeak, speakingMessageId, onFeedback, agentMode, onSetAgentMode, onPlanApprove, onPlanReject, onInspect, onStartDictation, onStopDictation, dictating }: CenterProps) {
   if (activeSurface === 'notes')        return <NotesSurface />
   if (activeSurface === 'canvas')       return <CanvasSurface />
   if (activeSurface === 'workrooms')    return <TabbedWorkspace tabs={[
@@ -2076,6 +2096,9 @@ function CenterWorkspace({ activeSurface, sessionId, activeProjectTitle, project
           activeProjectId={activeProjectId}
           onSelectProject={onSelectProject}
           chatCollection={chatCollection}
+          onStartDictation={onStartDictation}
+          onStopDictation={onStopDictation}
+          dictating={dictating}
         />
       </section>
 

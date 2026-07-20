@@ -4,7 +4,6 @@ import { ThemePicker } from '@/components/shell/ThemePicker'
 import { SovereigntyStatus } from '@/components/status/SovereigntyStatus'
 import { VoiceControl } from '@/components/voice/VoiceControl'
 import type { RiskAversionLiveReadout } from '@/lib/risk/riskAversionLive'
-import type { VoiceState } from '@/lib/voice/useVoice'
 import { OpenChatToggle } from '@/components/chat/OpenChatToggle'
 import type { WorkspaceSession } from '@/lib/session/types'
 import type { PublishResult } from '@/lib/session/commons-client'
@@ -13,7 +12,6 @@ type TopbarProps = {
   modelId: string
   mode: 'standalone' | 'sourceos'
   riskReadout?: RiskAversionLiveReadout | null
-  voiceState?: VoiceState
   isLive?: boolean
   onLiveStart?: () => void
   onLiveStop?: () => void
@@ -27,8 +25,6 @@ type TopbarProps = {
   onOpenPalette: () => void
   onOpenInspector?: () => void
   onExportConversation?: () => void
-  onVoiceStart?: () => void
-  onVoiceStop?: () => void
   onRealtimeTranscript?: (text: string) => void
   onRealtimeSpeechStart?: () => void
 }
@@ -42,7 +38,7 @@ function IconSettings() {
   )
 }
 
-export function Topbar({ modelId, mode, riskReadout, voiceState, isLive, onLiveStart, onLiveStop, openaiApiKey, hasMessages, activeSession, onSetVisibility, onModelChange, onModeChange, onOpenSettings, onOpenPalette, onOpenInspector, onExportConversation, onVoiceStart, onVoiceStop, onRealtimeTranscript, onRealtimeSpeechStart }: TopbarProps) {
+export function Topbar({ modelId, mode, riskReadout, isLive, onLiveStart, onLiveStop, openaiApiKey, hasMessages, activeSession, onSetVisibility, onModelChange, onModeChange, onOpenSettings, onOpenPalette, onOpenInspector, onExportConversation, onRealtimeTranscript, onRealtimeSpeechStart }: TopbarProps) {
   // Double-click the titlebar to zoom/maximize (native macOS behavior the Overlay titlebar drops).
   // Ignore double-clicks that land on a control so e.g. double-tapping Settings doesn't also maximize.
   async function onTitlebarDoubleClick(e: React.MouseEvent) {
@@ -74,12 +70,10 @@ export function Topbar({ modelId, mode, riskReadout, voiceState, isLive, onLiveS
       <div className="flex shrink-0 items-center gap-2">
         {/* One consolidated health indicator (egress · runtime · risk) — replaces three separate pills. */}
         <SovereigntyStatus riskReadout={riskReadout} onOpenInspector={onOpenInspector} />
-        {/* One voice control — dictate or live, picked from its own menu. */}
+        {/* Live conversation lives at the top (metachat over the current chat); dictation moved to
+            the composer's mic in the bottom bar. */}
         <VoiceControl
-          voiceState={voiceState}
           isLive={isLive}
-          onVoiceStart={onVoiceStart}
-          onVoiceStop={onVoiceStop}
           onLiveStart={onLiveStart}
           onLiveStop={onLiveStop}
         />
