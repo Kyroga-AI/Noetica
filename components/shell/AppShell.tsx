@@ -46,6 +46,7 @@ import { ArtifactPane } from '@/components/artifacts/ArtifactPane'
 import { OperateSurface } from '@/components/surfaces/OperateSurface'
 import { DispatchSurface } from '@/components/surfaces/DispatchSurface'
 import { RoutinesSurface } from '@/components/surfaces/RoutinesSurface'
+import { ActionsSurface } from '@/components/surfaces/ActionsSurface'
 import { TuneSurface } from '@/components/surfaces/TuneSurface'
 import { HolographMeSurface } from '@/components/surfaces/HolographMeSurface'
 import { MarketplaceSurface } from '@/components/surfaces/MarketplaceSurface'
@@ -125,6 +126,7 @@ const surfaceToWorkspaceMode: Record<ActiveSurface, WorkspaceMode> = {
   operate:      'Chat',
   dispatch:     'Chat',
   routines:     'Chat',
+  actions:      'Chat',
   govern:       'Chat',
   tune:         'Chat',
   holographme:  'Chat',
@@ -2159,6 +2161,7 @@ function CenterWorkspace({ activeSurface, sessionId, activeProjectTitle, project
   if (activeSurface === 'computer')     return <ComputerUseSurface />
   if (activeSurface === 'dispatch')     return <DispatchSurface />
   if (activeSurface === 'routines')     return <RoutinesSurface />
+  if (activeSurface === 'actions')      return <ActionsSurface />
   if (activeSurface === 'holographme')  return <HolographMeSurface />
   if (activeSurface === 'marketplace')  return <MarketplaceSurface />
 

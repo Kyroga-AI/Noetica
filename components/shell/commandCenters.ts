@@ -157,6 +157,7 @@ export const NAV_SURFACES: NavSurface[] = [
   { id: 'agents',     label: 'Agents',      center: 'ai', tier: 'secondary', maturity: 'beta' },
   { id: 'dispatch',   label: 'Dispatch',    center: 'ai', tier: 'primary',   maturity: 'beta' }, // launch + watch standalone background agent runs
   { id: 'routines',   label: 'Routines',    center: 'ai', tier: 'primary',   maturity: 'beta' }, // scheduled recurring agent runs
+  { id: 'actions',    label: 'Actions',     center: 'ai', tier: 'secondary', maturity: 'beta' }, // typed action catalog (Bet C v1)
   { id: 'registry',   label: 'Model Registry', center: 'ai', tier: 'secondary', maturity: 'planned', gap: true }, // lattice-forge RuntimeAssets
 
   // ── Cloud · DevSecOps — Scale-Up → off-machine (only AFTER local DevSecOps) ──

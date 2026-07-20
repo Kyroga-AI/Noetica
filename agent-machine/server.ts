@@ -5856,6 +5856,19 @@ const server = http.createServer((req, res) => {
 
   // GET /api/fleet — the provisioned cloud executors (the broker's fleet inventory), with a cost roll-up, so the
   // multi-cloud C2/swarm stack is VISIBLE. Empty until something is provisioned.
+  // ── Typed action catalog (Bet C) ──────────────────────────────────────────
+  // GET /api/actions → the typed action catalog (id · class · reversible · params). Read-only; execution
+  // still flows through the gated tool path, not from here.
+  if (req.method === 'GET' && url.pathname === '/api/actions') {
+    setCORSHeaders(res)
+    void (async () => {
+      const { catalogForClient } = await import('./lib/action-registry.js')
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ actions: catalogForClient() }))
+    })()
+    return
+  }
+
   // ── Agent runs (Dispatch) + routines ──────────────────────────────────────
   // GET  /api/runs           → recent runs (Dispatch list)
   // POST /api/runs           → { title, prompt, role, provider_keys? } create + start a run
