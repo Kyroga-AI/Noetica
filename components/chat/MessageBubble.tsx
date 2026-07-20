@@ -353,7 +353,7 @@ function ProvenanceFooter({ message, onInspect }: { message: ChatMessage; onInsp
       <div className="flex items-center gap-0 text-[12px] text-[var(--color-text-tertiary)]">
         <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: onDevice ? 'var(--color-accent)' : 'var(--color-attention)' }} />
         <span className="ml-1.5" style={{ color: onDevice ? undefined : 'var(--color-attention)' }}>{onDevice ? 'on-device' : prov}</span>
-        {g?.model_routed && <><span className="mx-2 text-[var(--color-border-secondary)]">·</span>{g.model_routed}</>}
+        {g?.model_routed && g.model_routed.toLowerCase() !== prov && <><span className="mx-2 text-[var(--color-border-secondary)]">·</span>{g.model_routed}</>}
         {sources.length > 0 && (
           <>
             <span className="mx-2 text-[var(--color-border-secondary)]">·</span>
