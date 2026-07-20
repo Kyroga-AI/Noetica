@@ -8,6 +8,7 @@ import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
 import type { Workroom, WorkroomMessage, AgentDispatch } from '@/lib/types/workroom'
 import { AGENT_ARCHETYPES } from '@/lib/types/workroom'
 import type { ChatMessage } from '@/lib/types/message'
+import { GlyphLock } from '@/components/icons/glyphs'
 import {
   fetchSlackChannels,
   fetchSlackChannelHistory,
@@ -584,7 +585,7 @@ function SlackChannelView({ channel, token }: { channel: SlackChannel; token: st
         <div>
           <div className="flex items-center gap-2">
             <span className="text-sm font-semibold text-[var(--color-text-primary)]">
-              {channel.isPrivate ? '🔒' : '#'}{channel.name}
+              {channel.isPrivate ? <GlyphLock size={12} className="mr-0.5 inline-block align-[-1px]" /> : '#'}{channel.name}
             </span>
             <span className="rounded-full bg-[#f5f0ff] px-2 py-0.5 text-[11px] font-semibold text-[#7c3aed]">Slack</span>
           </div>
@@ -835,8 +836,8 @@ export function WorkroomsSurface({ thinkingBudget }: { thinkingBudget?: number }
                         <button key={ch.id}
                           onClick={() => setActive({ kind: 'slack', channel: ch })}
                           className={`flex w-full items-center gap-1.5 rounded-xl px-3 py-2 text-left transition ${isActive ? 'bg-[#ede9fe]' : 'hover:bg-[var(--color-background-tertiary)]'}`}>
-                          <span className={`shrink-0 text-xs ${isActive ? 'text-[#7c3aed]' : 'text-[var(--color-text-tertiary)]'}`}>
-                            {ch.isPrivate ? '🔒' : '#'}
+                          <span className={`flex shrink-0 items-center justify-center text-xs ${isActive ? 'text-[#7c3aed]' : 'text-[var(--color-text-tertiary)]'}`}>
+                            {ch.isPrivate ? <GlyphLock size={12} /> : '#'}
                           </span>
                           <span className={`truncate text-xs font-medium ${isActive ? 'text-[#7c3aed]' : 'text-[var(--color-text-primary)]'}`}>
                             {ch.name}

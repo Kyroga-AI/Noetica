@@ -528,7 +528,7 @@ export function GraphRailPanel() {
             {/* GAIA ontology census — developmental phases + stewardship abandonment signals (IOES). */}
             {gaia && (gaia.phases.length > 0 || gaia.signals.length > 0) && (
               <div className="border-t border-[var(--color-border-tertiary)] pt-1.5" title="GAIA Ontogenesis Stewardship ontology — concepts classified by developmental phase + abandonment signals">
-                <span className="text-[9px] uppercase tracking-wide text-[var(--color-text-tertiary)]">🌱 ontogenesis (GAIA)</span>
+                <span className="text-[9px] uppercase tracking-wide text-[var(--color-text-tertiary)]">ontogenesis (GAIA)</span>
                 <div className="mt-0.5 flex flex-wrap gap-1">
                   {gaia.phases.map((p) => (<span key={p.phase} className="rounded-full bg-[#16a34a]/10 px-1.5 py-px text-[9px] text-[#16a34a]">{p.phase} {p.count}</span>))}
                 </div>
@@ -542,7 +542,7 @@ export function GraphRailPanel() {
         {/* Knowledge-health — the verified-stack value in one score (trust + completeness + gaps). */}
         {kHealth && (
           <div className="mt-1.5 flex items-center gap-2" title={kHealth.gaps.length ? `Gaps:\n• ${kHealth.gaps.join('\n• ')}` : 'No gaps detected'}>
-            <span className="text-[9px] uppercase tracking-wide text-[var(--color-text-tertiary)]">🧠 knowledge health</span>
+            <span className="text-[9px] uppercase tracking-wide text-[var(--color-text-tertiary)]">knowledge health</span>
             <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--color-border-tertiary)]">
               <div className="h-full rounded-full" style={{ width: `${kHealth.score}%`, background: kHealth.score >= 75 ? '#16a34a' : kHealth.score >= 50 ? '#0891b2' : '#f59e0b' }} />
             </div>
@@ -563,7 +563,7 @@ export function GraphRailPanel() {
         {insights && (
           <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[9px] text-[var(--color-text-tertiary)]">
             <span title="Most important concepts (PageRank)">★ <span className="text-[var(--color-text-secondary)]">{insights.topImportant.join(', ') || '—'}</span></span>
-            {insights.topBridges.length > 0 && <span title="Bridge concepts (high betweenness)">· 🌉 <span className="text-[#0891b2]">{insights.topBridges.join(', ')}</span></span>}
+            {insights.topBridges.length > 0 && <span title="Bridge concepts (high betweenness)">· <span className="text-[#0891b2]">{insights.topBridges.join(', ')}</span></span>}
             <span title="Louvain communities + modularity">· {insights.communityCount} communities <span className="opacity-70">(mod {insights.modularity.toFixed(2)})</span></span>
           </div>
         )}
@@ -677,7 +677,7 @@ export function GraphRailPanel() {
               )}
               {globalAnswer.sources && globalAnswer.sources.length > 0 && (
                 <div className="mt-1 flex flex-wrap items-center gap-1 text-[9px] text-[var(--color-text-tertiary)]">
-                  <span>📎 sources:</span>{globalAnswer.sources.map((s, i) => <span key={i} className="rounded bg-[var(--color-background-secondary)] px-1 py-px font-mono">{s}</span>)}
+                  <span>sources:</span>{globalAnswer.sources.map((s, i) => <span key={i} className="rounded bg-[var(--color-background-secondary)] px-1 py-px font-mono">{s}</span>)}
                 </div>
               )}
             </div>
@@ -775,7 +775,7 @@ export function GraphRailPanel() {
                   </div>
                   {impact && impact.totalAffected > 0 && (
                     <div className="mt-0.5 text-[9px] text-[var(--color-text-tertiary)]" title={impact.levels.map((l) => `${l.distance} hop: ${l.count}`).join(' · ')}>
-                      💥 impact: <span className="text-[var(--color-text-secondary)]">{impact.totalAffected}</span> affected{impact.levels[0] ? ` (${impact.levels[0].count} direct)` : ''}
+                      impact: <span className="text-[var(--color-text-secondary)]">{impact.totalAffected}</span> affected{impact.levels[0] ? ` (${impact.levels[0].count} direct)` : ''}
                     </div>
                   )}
                   {recs.length > 0 && (
@@ -797,7 +797,7 @@ export function GraphRailPanel() {
                       <div className="flex shrink-0 items-center gap-1">
                         <button onClick={() => void togglePin(root, !mem.pinned)}
                           className={`rounded-full px-2 py-0.5 text-[9px] font-semibold transition ${mem.pinned ? 'bg-[#7c3aed] text-white' : 'border border-[var(--color-border-secondary)] text-[var(--color-text-secondary)] hover:border-[#7c3aed] hover:text-[#7c3aed]'}`}>
-                          {mem.pinned ? '📌 Pinned' : 'Pin to brain'}
+                          {mem.pinned ? 'Pinned' : 'Pin to brain'}
                         </button>
                         <button onClick={() => void forgetMem(root)} title="Forget this memory"
                           className="rounded-full border border-[var(--color-border-secondary)] px-1.5 py-0.5 text-[9px] text-[var(--color-text-tertiary)] transition hover:border-[#ef4444] hover:text-[#ef4444]">

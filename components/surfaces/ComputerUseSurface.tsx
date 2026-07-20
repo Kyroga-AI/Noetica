@@ -7,6 +7,7 @@ import type { ComputerStep, CUProvider } from '@/lib/computer-use/useComputerUse
 import type { Plan } from '@/lib/computer-use/planner'
 import { getAllTraces, clearMemory } from '@/lib/computer-use/memory'
 import { isTauri } from '@/lib/tauri/bridge'
+import { GlyphDesktop } from '@/components/icons/glyphs'
 
 // ─── Sub-task progress bar ────────────────────────────────────────────────────
 
@@ -130,7 +131,7 @@ function StepCard({ step, isPending, onApprove, onReject }: {
         'border-[#f87171] bg-[#fef2f2]'
       }`}>
         <div className="flex items-start gap-3">
-          <span className="mt-0.5 text-base">{waiting ? '⚡' : isApproved ? '✓' : '✕'}</span>
+          <span className="mt-0.5 text-base">{waiting ? '↻' : isApproved ? '✓' : '✕'}</span>
           <div className="flex-1 min-w-0">
             <p className={`text-xs font-semibold ${waiting ? 'text-[var(--color-attention)]' : isApproved ? 'text-[var(--color-accent)]' : 'text-[#991b1b]'}`}>
               {waiting ? 'Proposed action' : isApproved ? 'Executed' : 'Rejected'}
@@ -217,7 +218,7 @@ function NotTauriNotice() {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
       <div className="max-w-md rounded-2xl border border-dashed border-[#bfdbfe] bg-[#eff6ff] p-10">
-        <p className="mb-3 text-3xl">🖥️</p>
+        <p className="mb-3 flex justify-center text-[var(--color-text-tertiary)]"><GlyphDesktop size={30} /></p>
         <p className="text-sm font-semibold text-[var(--color-text-secondary)]">Desktop app required</p>
         <p className="mt-2 text-xs leading-5 text-[var(--color-text-secondary)]">
           Computer Use requires the Noetica desktop app to take screenshots and control the system.
@@ -348,7 +349,7 @@ export function ComputerUseSurface() {
 
           {/* Safety notice */}
           <div className="mt-2.5 flex items-start gap-2 rounded-xl border border-[#fde68a] bg-[var(--color-attention-bg)] px-3 py-1.5">
-            <span className="shrink-0 text-xs">⚠️</span>
+            <span className="shrink-0 text-xs">⚠</span>
             <p className="text-[11px] leading-4 text-[var(--color-attention)]">
               <strong>Human-in-the-loop:</strong> Every proposed action requires your approval. Clicks and keystrokes execute on your real system.
             </p>
@@ -419,7 +420,7 @@ export function ComputerUseSurface() {
         {/* Sticky approval banner */}
         {status === 'awaiting_approval' && pendingAction?.action && (
           <div className="shrink-0 mx-4 mb-2 flex items-center gap-3 rounded-2xl border border-[#fcd34d] bg-[var(--color-attention-bg)] px-4 py-3 shadow-md">
-            <span className="text-lg">⚡</span>
+            <span className="text-lg text-[var(--color-attention)]">⚠</span>
             <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold text-[var(--color-attention)]">Approval required</p>
               <p className="truncate text-xs text-[#78350f]">{pendingAction.content}</p>

@@ -63,12 +63,12 @@ export function artifactTypeLabel(type: ArtifactType): string {
 
 export function artifactTypeIcon(type: ArtifactType): string {
   const icons: Record<ArtifactType, string> = {
-    document: '📄',
+    document: '▤',
     code: '⌥',
-    html: '🌐',
-    evidence: '🛡',
+    html: '◈',
+    evidence: '❖',
     data: '⊞',
     sourceos_event: '⬡',
   }
-  return icons[type] ?? '📄'
+  return icons[type] ?? '▤'
 }

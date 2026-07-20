@@ -8,6 +8,7 @@ import oneDark from 'react-syntax-highlighter/dist/cjs/styles/prism/one-dark'
 import { useNotes } from '@/lib/notes/useNotes'
 import { useSettings } from '@/lib/settings/context'
 import { useConnectorAuth } from '@/lib/auth/context'
+import { GlyphDoc } from '@/components/icons/glyphs'
 import { fetchNotionPages, fetchNotionPageContent, createNotionPage, type NotionPage } from '@/lib/auth/providers/notion'
 import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
 import type { Note } from '@/lib/types/note'
@@ -785,7 +786,7 @@ export function NotesSurface() {
                       onClick={() => setActiveView({ kind: 'notion', page })}
                       className={`flex w-full items-start gap-1.5 rounded-xl px-2.5 py-2 text-left transition ${active ? 'bg-[var(--color-accent-bg)]' : 'hover:bg-[var(--color-background-tertiary)]'}`}
                     >
-                      <span className="mt-0.5 shrink-0 text-sm">{page.icon ?? '📄'}</span>
+                      <span className="mt-0.5 shrink-0 text-sm text-[var(--color-text-tertiary)]">{page.icon ?? <GlyphDoc size={14} />}</span>
                       <div className="min-w-0">
                         <p className={`truncate text-xs font-medium ${active ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-primary)]'}`}>{page.title}</p>
                         <p className="text-[11px] text-[#cbd5e1]">{timeAgo(page.lastEdited)}</p>

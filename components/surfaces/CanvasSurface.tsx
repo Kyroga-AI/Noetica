@@ -6,6 +6,7 @@ import { useSettings } from '@/lib/settings/context'
 import { sendNoeticaChat } from '@/lib/client/noeticaTransport'
 import type { CanvasDocument } from '@/lib/types/canvas'
 import type { ChatMessage } from '@/lib/types/message'
+import { GlyphPencil } from '@/components/icons/glyphs'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -423,7 +424,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
       <div className="rounded-2xl border border-dashed border-[#bfdbfe] bg-[#eff6ff] p-10">
-        <p className="text-3xl mb-3">✏️</p>
+        <p className="mb-3 flex justify-center text-[var(--color-text-tertiary)]"><GlyphPencil size={30} /></p>
         <p className="text-sm font-semibold text-[var(--color-text-secondary)]">No document open</p>
         <p className="mt-1 text-xs text-[var(--color-text-secondary)] max-w-xs leading-5">
           Canvas is a collaborative document editor. Create a document and ask Noetica to write, edit, or extend it directly.

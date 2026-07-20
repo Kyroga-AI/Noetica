@@ -5,6 +5,7 @@ import { useProjects } from '@/lib/projects/useProjects'
 import { PROJECT_COLORS } from '@/lib/projects/types'
 import type { Project, ProjectColor } from '@/lib/projects/types'
 import type { PendingAttachment, AttachmentKind } from '@/lib/types/attachment'
+import { GlyphImage, GlyphDoc, GlyphCode, GlyphNote, GlyphFolder } from '@/components/icons/glyphs'
 
 function timeAgo(iso: string): string {
   const m = Math.floor((Date.now() - new Date(iso).getTime()) / 60000)
@@ -231,7 +232,7 @@ function ProjectEditor({
               <div className="space-y-2">
                 {project.fileAttachments.map((att) => (
                   <div key={att.clientId} className="flex items-center gap-3 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2">
-                    <span className="text-base">{att.kind === 'image' ? '🖼' : att.kind === 'pdf' ? '📄' : att.kind === 'code' ? '⌥' : '📝'}</span>
+                    <span className="text-[var(--color-text-tertiary)]">{att.kind === 'image' ? <GlyphImage size={16} /> : att.kind === 'pdf' ? <GlyphDoc size={16} /> : att.kind === 'code' ? <GlyphCode size={16} /> : <GlyphNote size={16} />}</span>
                     <span className="flex-1 truncate text-xs font-medium text-[var(--color-text-primary)]">{att.name}</span>
                     <span className="shrink-0 text-[11px] text-[var(--color-text-tertiary)]">{att.sizeLabel}</span>
                     <button onClick={() => removeAttachment(att.clientId)} className="text-[var(--color-text-tertiary)] hover:text-[#ef4444]">
@@ -422,7 +423,7 @@ export function ProjectsPanel({
         />
       ) : (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 px-10 text-center">
-          <div className="text-3xl">📁</div>
+          <div className="flex justify-center text-[var(--color-text-tertiary)]"><GlyphFolder size={30} /></div>
           <p className="text-sm font-semibold text-[var(--color-text-secondary)]">No project selected</p>
           <p className="text-xs text-[var(--color-text-tertiary)] max-w-xs leading-5">
             Projects let you set a persistent system prompt, attach reference files, and scope memory to a specific context.

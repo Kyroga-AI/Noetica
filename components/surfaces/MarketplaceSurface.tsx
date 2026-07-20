@@ -47,7 +47,7 @@ const TIER_STYLE: Record<PartnerProfile['tier'], { label: string; bg: string; te
 
 const KIND_ICON: Record<PartnerCapability['kind'], string> = {
   'swarm-template': '⬡',
-  'mcp-skill':      '⚡',
+  'mcp-skill':      '⌁',
   'app':            '□',
   'persona':        '◎',
 }
@@ -375,7 +375,7 @@ function OperatorWizard() {
               <div className="flex items-center gap-2">
                 <select value={c.kind} onChange={(e) => updateCap(i, 'kind', e.target.value)} className="rounded-lg border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-2 py-1 text-[11px] text-[var(--color-text-primary)] outline-none">
                   <option value="swarm-template">⬡ Swarm template</option>
-                  <option value="mcp-skill">⚡ MCP skill</option>
+                  <option value="mcp-skill">MCP skill</option>
                   <option value="app">□ App</option>
                   <option value="persona">◎ Persona</option>
                 </select>
