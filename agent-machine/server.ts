@@ -15086,7 +15086,12 @@ Question: ${question}`
         if (!sources.length) { res.writeHead(404, { 'content-type': 'application/json' }); res.end(JSON.stringify({ error: 'no_docs' })); return }
         const format = (url.searchParams.get('format') ?? 'brief') as import('./lib/study-outputs.js').AudioFormat
         const { generateAudioScript } = await import('./lib/study-outputs.js')
-        const gen = (prompt: string) => generateOllamaText({ model: 'qwen3:14b', messages: [{ role: 'user', content: prompt }], temperature: 0.5 }).then((r) => r.content)
+        // Script-gen is a creative writing task, not a reasoning one. Two moves keep it snappy for the Lecture
+        // tab (was >2min on qwen3:14b, which thinks): (1) a smaller non-reasoning model — qwen2.5:7b is ample for
+        // casual two-voice dialogue and ~2x faster; (2) enableThinking:false as a guard (routes to native
+        // /api/chat, since /v1 silently ignores qwen3's thinking switch), harmless for the non-thinking 7B but
+        // protective if the model is swapped back. Output capped so a runaway can't stall the request.
+        const gen = (prompt: string) => generateOllamaText({ model: 'qwen2.5:7b', messages: [{ role: 'user', content: prompt }], temperature: 0.5, enableThinking: false, maxTokens: 1200 }).then((r) => r.content)
         const turns = await generateAudioScript(sources, gen, format)
         // synthesize=1: TTS each turn. Tier: local XTTS-v2 sidecar → OpenAI TTS → skip.
         // Returns {turns: [{speaker, line, audio_b64?, audio_format?}], synthesized, tts_source}.
