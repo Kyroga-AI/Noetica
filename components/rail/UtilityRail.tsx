@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { GraphRailPanel }   from './panels/GraphRailPanel'
 import { AnswerInspectorPanel } from './panels/AnswerInspectorPanel'
+import { LiveRailPanel, type LiveTurn } from './panels/LiveRailPanel'
 import { ContextSlot }      from '@/components/shell/RightSidebar'
 import type { ChatMessage } from '@/lib/types/message'
 
@@ -11,11 +12,13 @@ import type { ChatMessage } from '@/lib/types/message'
 // duplication); per-turn evidence/governance now lives in the Answer inspector (Evidence panel merged in).
 export type UtilityPanelId =
   | 'answer'
+  | 'live'
   | 'context'
   | 'graph'
 
 const RAIL_ITEMS: { id: UtilityPanelId; label: string; icon: React.ReactNode }[] = [
   { id: 'answer',   label: 'Answer',   icon: <IconAnswer /> },
+  { id: 'live',     label: 'Live',     icon: <IconLive /> },
   { id: 'graph',    label: 'Graph',    icon: <IconGraph /> },
   { id: 'context',  label: 'Activity', icon: <IconContext /> },
 ]
@@ -26,9 +29,12 @@ type ContextData = {
   fileChanges: { id: string; path: string; content: string }[]
 }
 
-function renderPanel(id: UtilityPanelId, ctx: ContextData, inspectMessage: ChatMessage | null) {
+type LiveData = { turns: LiveTurn[]; isLive: boolean; onCommit?: (id: string) => void; onClear?: () => void }
+
+function renderPanel(id: UtilityPanelId, ctx: ContextData, inspectMessage: ChatMessage | null, live: LiveData) {
   switch (id) {
     case 'answer':   return <AnswerInspectorPanel message={inspectMessage} />
+    case 'live':     return <LiveRailPanel turns={live.turns} isLive={live.isLive} onCommit={live.onCommit} onClear={live.onClear} />
     case 'context':  return <ContextSlot inScopeFiles={ctx.inScopeFiles} activity={ctx.toolActivity} changes={ctx.fileChanges} />
     case 'graph':    return <GraphRailPanel />
   }
@@ -38,6 +44,10 @@ type UtilityRailProps = {
   activePanel: UtilityPanelId | null
   onSelect: (id: UtilityPanelId | null) => void
   inspectMessage?: ChatMessage | null
+  liveTurns?: LiveTurn[]
+  isLive?: boolean
+  onCommitLive?: (id: string) => void
+  onClearLive?: () => void
   inScopeFiles?: string[]
   toolActivity?: { id: string; name: string; target: string }[]
   fileChanges?: { id: string; path: string; content: string }[]
@@ -46,8 +56,9 @@ type UtilityRailProps = {
 const RAIL_MIN = 240
 const RAIL_MAX = 760
 
-export function UtilityRail({ activePanel, onSelect, inspectMessage = null, inScopeFiles = [], toolActivity = [], fileChanges = [] }: UtilityRailProps) {
+export function UtilityRail({ activePanel, onSelect, inspectMessage = null, liveTurns = [], isLive = false, onCommitLive, onClearLive, inScopeFiles = [], toolActivity = [], fileChanges = [] }: UtilityRailProps) {
   const ctx: ContextData = { inScopeFiles, toolActivity, fileChanges }
+  const live: LiveData = { turns: liveTurns, isLive, onCommit: onCommitLive, onClear: onClearLive }
   const [width, setWidth] = useState(288)
   useEffect(() => {
     const s = Number(localStorage.getItem('noetica-rail-w'))
@@ -83,7 +94,7 @@ export function UtilityRail({ activePanel, onSelect, inspectMessage = null, inSc
           <div className="border-b border-[var(--color-border-tertiary)] px-3 py-2.5 text-xs font-semibold text-[var(--color-text-primary)]">
             {RAIL_ITEMS.find((r) => r.id === activePanel)?.label}
           </div>
-          {renderPanel(activePanel, ctx, inspectMessage)}
+          {renderPanel(activePanel, ctx, inspectMessage, live)}
         </div>
       )}
 
@@ -131,6 +142,9 @@ function IconRelated() {
 }
 function IconAnswer() {
   return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden><path d="M2 4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H6l-3 3V4z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round"/><path d="M5.5 6h5M5.5 8.5h3" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round"/></svg>
+}
+function IconLive() {
+  return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden><rect x="2.5" y="6.5" width="1.5" height="3" rx="0.75" fill="currentColor"/><rect x="5.5" y="4" width="1.5" height="8" rx="0.75" fill="currentColor"/><rect x="8.5" y="5.5" width="1.5" height="5" rx="0.75" fill="currentColor"/><rect x="11.5" y="6.5" width="1.5" height="3" rx="0.75" fill="currentColor"/></svg>
 }
 function IconGraph() {
   return <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden><circle cx="8" cy="3" r="2" stroke="currentColor" strokeWidth="1.3"/><circle cx="3" cy="12" r="2" stroke="currentColor" strokeWidth="1.3"/><circle cx="13" cy="12" r="2" stroke="currentColor" strokeWidth="1.3"/><path d="M8 5v2M8 7L3.5 10M8 7l4.5 3" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/></svg>
