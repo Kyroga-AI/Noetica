@@ -104,7 +104,7 @@ export function PolicyPanel() {
               </div>
               <div className="mt-1 flex flex-wrap gap-1">
                 {p.primes.map((prime) => (
-                  <span key={prime} className="inline-block rounded-full bg-[var(--color-background-secondary)] px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">
+                  <span key={prime} className="inline-block rounded-full bg-[var(--color-background-secondary)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-text-secondary)]">
                     {prime}
                   </span>
                 ))}
@@ -121,7 +121,7 @@ export function PolicyPanel() {
             <span className="text-sm font-semibold text-[var(--color-text-primary)]">
               Security lane — operator self-attestation
             </span>
-            <span className={`text-[11px] font-mono font-semibold uppercase tracking-wide ${attested ? 'text-[var(--color-accent)]' : 'text-[var(--color-attention)]'}`}>
+            <span className={`text-[11px] font-mono font-semibold ${attested ? 'text-[var(--color-accent)]' : 'text-[var(--color-attention)]'}`}>
               {attested ? 'Armed' : 'Disarmed'}
             </span>
           </div>

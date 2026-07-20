@@ -325,7 +325,7 @@ export function HolographMeSurface() {
 
             {/* Manual activity log */}
             <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5">
-              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] mb-3">Log activity</div>
+              <div className="text-xs font-semibold text-[var(--color-text-tertiary)] mb-3">Log activity</div>
               <div className="space-y-2">
                 <input
                   value={logInput}
@@ -356,7 +356,7 @@ export function HolographMeSurface() {
             {latestBelief ? (
               <div className="rounded-2xl border border-[#e0e7ff] bg-[#f5f3ff] p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[#6366f1]">Current focus</span>
+                  <span className="text-xs font-semibold text-[#6366f1]">Current focus</span>
                   <span className="text-[11px] text-[var(--color-text-tertiary)]">{timeAgo(latestBelief.created_at)}</span>
                 </div>
                 <p className="text-sm font-medium text-[var(--color-text-primary)] leading-6">{latestBelief.current_focus}</p>
@@ -376,7 +376,7 @@ export function HolographMeSurface() {
             {/* World summary */}
             {latestBelief?.world_summary && (
               <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5">
-                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] mb-2">World state</div>
+                <div className="text-xs font-semibold text-[var(--color-text-tertiary)] mb-2">World state</div>
                 <p className="text-sm leading-6 text-[var(--color-text-secondary)]">{latestBelief.world_summary}</p>
               </div>
             )}
@@ -384,7 +384,7 @@ export function HolographMeSurface() {
             {/* Top beliefs */}
             {latestBelief && latestBelief.posterior_atoms.length > 0 && (
               <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5">
-                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] mb-3">Belief atoms</div>
+                <div className="text-xs font-semibold text-[var(--color-text-tertiary)] mb-3">Belief atoms</div>
                 <div className="space-y-2.5">
                   {latestBelief.posterior_atoms.slice(0, 5).map((atom, i) => (
                     <div key={i} className="space-y-1">
@@ -404,7 +404,7 @@ export function HolographMeSurface() {
             {/* Top candidate laws */}
             {laws.length > 0 && (
               <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5">
-                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)] mb-3">Candidate laws</div>
+                <div className="text-xs font-semibold text-[var(--color-text-tertiary)] mb-3">Candidate laws</div>
                 <div className="space-y-3">
                   {laws.slice(0, 4).map((law) => (
                     <div key={law.id} className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3">
@@ -446,7 +446,7 @@ export function HolographMeSurface() {
                     )}
                     {b.posterior_atoms.length > 0 && (
                       <div>
-                        <div className="text-[11px] font-semibold uppercase tracking-wide text-[#6366f1] mb-2">Posterior atoms</div>
+                        <div className="text-[11px] font-semibold text-[#6366f1] mb-2">Posterior atoms</div>
                         <div className="space-y-1.5">
                           {b.posterior_atoms.map((a, i) => (
                             <div key={i} className="flex items-start gap-2">
@@ -459,7 +459,7 @@ export function HolographMeSurface() {
                     )}
                     {b.weighted_rules.length > 0 && (
                       <div>
-                        <div className="text-[11px] font-semibold uppercase tracking-wide text-[#6366f1] mb-2">Weighted rules</div>
+                        <div className="text-[11px] font-semibold text-[#6366f1] mb-2">Weighted rules</div>
                         <div className="space-y-1">
                           {b.weighted_rules.map((r, i) => (
                             <div key={i} className="flex items-center gap-2">
@@ -472,7 +472,7 @@ export function HolographMeSurface() {
                     )}
                     {b.hypotheses.length > 0 && (
                       <div>
-                        <div className="text-[11px] font-semibold uppercase tracking-wide text-[#6366f1] mb-2">Hypotheses</div>
+                        <div className="text-[11px] font-semibold text-[#6366f1] mb-2">Hypotheses</div>
                         <div className="space-y-1.5">
                           {b.hypotheses.map((h, i) => (
                             <div key={i} className="rounded-lg bg-[#ede9fe] px-3 py-2">
@@ -520,7 +520,7 @@ export function HolographMeSurface() {
             ) : worldStates.map((ws) => (
               <div key={ws.id} className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5">
                 <div className="flex items-start justify-between gap-3 mb-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Snapshot</span>
+                  <span className="text-[11px] font-semibold text-[var(--color-text-tertiary)]">Snapshot</span>
                   <span className="text-[11px] text-[var(--color-text-tertiary)]">{timeAgo(ws.props.captured_at)}</span>
                 </div>
                 <p className="text-sm leading-6 text-[var(--color-text-secondary)]">{ws.props.summary}</p>
@@ -543,7 +543,7 @@ export function HolographMeSurface() {
               <div className="overflow-x-auto rounded-2xl border border-[var(--color-border-tertiary)]">
                 <table className="w-full text-xs">
                   <thead>
-                    <tr className="border-b border-[var(--color-border-tertiary)] text-left text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">
+                    <tr className="border-b border-[var(--color-border-tertiary)] text-left text-[11px] text-[var(--color-text-tertiary)]">
                       <th className="px-3 py-2 font-medium">Task</th>
                       <th className="px-3 py-2 font-medium">Model</th>
                       <th className="px-3 py-2 font-medium">Runs</th>

@@ -2,7 +2,7 @@ export function AgentsPanel() {
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-[var(--color-border-secondary)] px-4 py-3">
-        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Agents</div>
+        <div className="text-xs font-semibold text-[#1d4ed8]">Agents</div>
         <div className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Agent Registry — active and dispatched agents</div>
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-3">

@@ -128,7 +128,7 @@ export function RuntimePanel() {
           {amInfo.description && <p className="text-xs text-[var(--color-accent)]">{amInfo.description}</p>}
           {amInfo.models && amInfo.models.length > 0 && (
             <div>
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-accent)] mb-1">Available models</div>
+              <div className="text-[11px] font-semibold text-[var(--color-accent)] mb-1">Available models</div>
               <div className="flex flex-wrap gap-1">
                 {amInfo.models.map((m) => (
                   <span key={m} className="rounded-md bg-[var(--color-accent-bg)] px-2 py-0.5 font-mono text-[11px] text-[var(--color-accent)]">{m}</span>
@@ -138,7 +138,7 @@ export function RuntimePanel() {
           )}
           {amInfo.tools && amInfo.tools.length > 0 && (
             <div>
-              <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-accent)] mb-1">Available tools</div>
+              <div className="text-[11px] font-semibold text-[var(--color-accent)] mb-1">Available tools</div>
               <div className="flex flex-wrap gap-1">
                 {amInfo.tools.map((t) => (
                   <span key={t} className="rounded-md bg-[var(--color-accent-bg)] px-2 py-0.5 font-mono text-[11px] text-[var(--color-accent)]">{t}</span>
@@ -151,7 +151,7 @@ export function RuntimePanel() {
 
       {/* Live status */}
       <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
-        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Status</div>
+        <div className="text-xs font-semibold text-[#1d4ed8]">Status</div>
         <div className="mt-3 space-y-2.5 text-xs">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">

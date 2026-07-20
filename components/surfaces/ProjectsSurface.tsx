@@ -144,7 +144,7 @@ function TaskDetail({ item, onUpdate, onDelete, onMove, onClose }: {
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* Title */}
         <div className="space-y-1">
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Title</label>
+          <label className="text-[11px] font-semibold text-[var(--color-text-secondary)]">Title</label>
           <input className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-sm font-medium text-[var(--color-text-primary)] outline-none focus:border-[#93c5fd]"
             value={title} onChange={(e) => setTitle(e.target.value)} onBlur={save}
             onKeyDown={(e) => { if (e.key === 'Enter') { save(); (e.target as HTMLInputElement).blur() } }} />
@@ -153,7 +153,7 @@ function TaskDetail({ item, onUpdate, onDelete, onMove, onClose }: {
         {/* Status + Priority */}
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Status</label>
+            <label className="text-[11px] font-semibold text-[var(--color-text-secondary)]">Status</label>
             <select
               className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#93c5fd]"
               value={item.status}
@@ -164,7 +164,7 @@ function TaskDetail({ item, onUpdate, onDelete, onMove, onClose }: {
             </select>
           </div>
           <div className="space-y-1">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Priority</label>
+            <label className="text-[11px] font-semibold text-[var(--color-text-secondary)]">Priority</label>
             <select
               className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#93c5fd]"
               value={item.priority}
@@ -178,7 +178,7 @@ function TaskDetail({ item, onUpdate, onDelete, onMove, onClose }: {
 
         {/* Type */}
         <div className="space-y-1">
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Type</label>
+          <label className="text-[11px] font-semibold text-[var(--color-text-secondary)]">Type</label>
           <select
             className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-xs text-[var(--color-text-primary)] outline-none focus:border-[#93c5fd]"
             value={item.type}
@@ -191,7 +191,7 @@ function TaskDetail({ item, onUpdate, onDelete, onMove, onClose }: {
 
         {/* Description */}
         <div className="space-y-1">
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Description</label>
+          <label className="text-[11px] font-semibold text-[var(--color-text-secondary)]">Description</label>
           <textarea
             className="w-full resize-none rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-xs leading-5 text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#93c5fd]"
             placeholder="Add details, acceptance criteria, links…"
@@ -200,7 +200,7 @@ function TaskDetail({ item, onUpdate, onDelete, onMove, onClose }: {
 
         {/* Tags */}
         <div className="space-y-1.5">
-          <label className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Tags</label>
+          <label className="text-[11px] font-semibold text-[var(--color-text-secondary)]">Tags</label>
           <div className="flex flex-wrap gap-1">
             {item.tags.map((t) => (
               <span key={t} className="flex items-center gap-1 rounded-full bg-[#e0e7ff] px-2 py-0.5 text-[11px] font-medium text-[#3730a3]">
@@ -536,7 +536,7 @@ function LinearView({ token, userName }: { token: string; userName?: string }) {
             <span>Assigned to me</span>
           </button>
           {teams.length > 0 && (
-            <div className="mt-2 px-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Teams</div>
+            <div className="mt-2 px-1 text-[11px] font-semibold text-[var(--color-text-tertiary)]">Teams</div>
           )}
           {teams.map((team) => (
             <button
@@ -649,9 +649,9 @@ function ProjectSettings({ project, onUpdate }: { project: import('@/lib/types/w
 
         {/* Name + description */}
         <section className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 space-y-4">
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#1d4ed8]">Identity</div>
+          <div className="text-xs font-semibold text-[#1d4ed8]">Identity</div>
           <div className="space-y-1">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Name</label>
+            <label className="text-[11px] font-semibold text-[var(--color-text-secondary)]">Name</label>
             <input
               className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm font-medium text-[var(--color-text-primary)] outline-none focus:border-[#93c5fd]"
               value={name}
@@ -659,7 +659,7 @@ function ProjectSettings({ project, onUpdate }: { project: import('@/lib/types/w
             />
           </div>
           <div className="space-y-1">
-            <label className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Description</label>
+            <label className="text-[11px] font-semibold text-[var(--color-text-secondary)]">Description</label>
             <input
               className="w-full rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2 text-sm text-[var(--color-text-primary)] outline-none placeholder:text-[var(--color-text-tertiary)] focus:border-[#93c5fd]"
               placeholder="What is this project about?"
@@ -672,7 +672,7 @@ function ProjectSettings({ project, onUpdate }: { project: import('@/lib/types/w
         {/* System prompt editor */}
         <section className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] p-5 space-y-3">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.18em] text-[#1d4ed8]">System Prompt</div>
+            <div className="text-xs font-semibold text-[#1d4ed8]">System Prompt</div>
             <p className="mt-1 text-xs leading-5 text-[var(--color-text-secondary)]">
               Injected at the start of every conversation while this project is active. Use it to set role, context, constraints, and output format expectations.
             </p>
@@ -770,7 +770,7 @@ export function ProjectsSurface() {
       {/* ── Left project list ── */}
       <aside className="flex w-48 shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[#eaf1f8]">
         <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-3 py-3">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[#1d4ed8]">Projects</span>
+          <span className="text-xs font-semibold text-[#1d4ed8]">Projects</span>
           <button onClick={() => setShowNewProject(true)} title="New project"
             className="flex h-6 w-6 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[#1d4ed8]">
             <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden>
@@ -814,7 +814,7 @@ export function ProjectsSurface() {
 
         {/* External connectors footer */}
         <div className="border-t border-[var(--color-border-secondary)] p-3">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">External</p>
+          <p className="text-[11px] font-semibold text-[var(--color-text-tertiary)]">External</p>
           <div className="mt-1.5 flex flex-col gap-1">
             <button
               onClick={() => linearConnected ? setView('linear') : undefined}

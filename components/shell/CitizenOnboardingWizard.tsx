@@ -99,7 +99,7 @@ export function CitizenOnboardingWizard({ onComplete }: Props) {
           {step === 'welcome' && (
             <div className="flex flex-col gap-5">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Welcome</p>
+                <p className="text-[11px] font-semiboldst text-[var(--color-text-tertiary)]">Welcome</p>
                 <h2 className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">This is your local AI.</h2>
               </div>
               <div className="flex flex-col gap-3 text-[14px] text-[var(--color-text-secondary)] leading-relaxed">
@@ -132,7 +132,7 @@ export function CitizenOnboardingWizard({ onComplete }: Props) {
           {step === 'name' && (
             <div className="flex flex-col gap-5">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Identity</p>
+                <p className="text-[11px] font-semiboldst text-[var(--color-text-tertiary)]">Identity</p>
                 <h2 className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">What should I call you?</h2>
               </div>
               <p className="text-[14px] text-[var(--color-text-secondary)] leading-relaxed">
@@ -169,7 +169,7 @@ export function CitizenOnboardingWizard({ onComplete }: Props) {
           {step === 'knowledge' && (
             <div className="flex flex-col gap-5">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Knowledge</p>
+                <p className="text-[11px] font-semiboldst text-[var(--color-text-tertiary)]">Knowledge</p>
                 <h2 className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">Teach it something.</h2>
               </div>
               <p className="text-[14px] text-[var(--color-text-secondary)] leading-relaxed">
@@ -224,7 +224,7 @@ export function CitizenOnboardingWizard({ onComplete }: Props) {
           {step === 'ready' && (
             <div className="flex flex-col gap-5">
               <div>
-                <p className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Ready</p>
+                <p className="text-[11px] font-semiboldst text-[var(--color-text-tertiary)]">Ready</p>
                 <h2 className="mt-1 text-2xl font-semibold text-[var(--color-text-primary)]">
                   {name.trim() ? `Your mesh is ready, ${name.trim()}.` : 'Your mesh is ready.'}
                 </h2>
@@ -244,7 +244,7 @@ export function CitizenOnboardingWizard({ onComplete }: Props) {
               </div>
               {pseudonym && (
                 <div className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2.5">
-                  <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">Your sovereign identity</div>
+                  <div className="mb-1 text-[11px] font-semiboldr text-[var(--color-text-tertiary)]">Your sovereign identity</div>
                   <div className="flex items-center gap-2">
                     <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-accent)]" />
                     <span className="flex-1 min-w-0 truncate font-mono text-[11px] text-[var(--color-text-primary)]">{pseudonym}</span>
@@ -256,7 +256,7 @@ export function CitizenOnboardingWizard({ onComplete }: Props) {
                 Every answer carries a <span className="font-medium text-[var(--color-text-secondary)]">verification badge</span> — and one click seals it into an offline-verifiable <span className="font-medium text-[var(--color-text-secondary)]">proof</span> an auditor can check with no network.
               </p>
               <div>
-                <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">Ask your first question</p>
+                <p className="mb-2 text-[11px] font-semiboldr text-[var(--color-text-tertiary)]">Ask your first question</p>
                 <div className="flex flex-col gap-1.5">
                   {[
                     ...(ingested.length > 0 ? ['Summarise the documents I just added.'] : []),

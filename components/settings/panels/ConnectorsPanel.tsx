@@ -170,7 +170,7 @@ function AddServerForm({ onAdd, onCancel }: {
 
   return (
     <div className="rounded-xl border border-[#bfdbfe] bg-[#eff6ff] p-4 space-y-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-[#1d4ed8]">Add MCP Server</p>
+      <p className="text-xs font-semibold text-[#1d4ed8]">Add MCP Server</p>
       <div className="space-y-1">
         <label className="text-xs font-medium text-[var(--color-text-secondary)]">Display name</label>
         <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 text-sm outline-none focus:border-[#93c5fd]"
@@ -263,7 +263,7 @@ function McpServerRow({ state, onConnect, onDisconnect, onRemove }: {
       {error && <div className="border-t border-[#fee2e2] bg-[#fef2f2] px-4 py-2 text-xs text-[#dc2626]">{error}</div>}
       {expanded && tools.length > 0 && (
         <div className="border-t border-[var(--color-border-secondary)] px-4 py-3 space-y-1.5">
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Tools</p>
+          <p className="text-[11px] font-semibold text-[var(--color-text-secondary)]">Tools</p>
           {tools.map((t) => (
             <div key={t.name} className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2">
               <p className="text-xs font-semibold text-[var(--color-text-primary)]">{t.name}</p>
@@ -271,7 +271,7 @@ function McpServerRow({ state, onConnect, onDisconnect, onRemove }: {
             </div>
           ))}
           {resources.length > 0 && (<>
-            <p className="mt-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Resources ({resources.length})</p>
+            <p className="mt-2 text-[11px] font-semibold text-[var(--color-text-secondary)]">Resources ({resources.length})</p>
             {resources.slice(0, 5).map((r) => (
               <div key={r.uri} className="rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-1.5">
                 <p className="truncate font-mono text-[11px] text-[var(--color-text-secondary)]">{r.uri}</p>

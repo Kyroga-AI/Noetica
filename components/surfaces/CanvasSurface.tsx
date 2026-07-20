@@ -472,7 +472,7 @@ export function CanvasSurface() {
       {/* ── Sidebar ── */}
       <aside className="flex w-56 shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[#eaf1f8]">
         <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-3 py-3">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[#1d4ed8]">Canvas</span>
+          <span className="text-xs font-semibold text-[#1d4ed8]">Canvas</span>
           <button
             onClick={handleCreate}
             className="flex h-6 w-6 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[#1d4ed8]"

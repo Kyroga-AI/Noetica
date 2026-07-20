@@ -371,7 +371,7 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
         <div className="grid grid-cols-2 gap-4">
           {/* Models */}
           <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-4 shadow-sm">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Models</div>
+            <div className="text-xs font-semibold text-[#1d4ed8]">Models</div>
             <div className="mt-3 flex flex-wrap gap-2">
               {models.map((m) => (
                 <button
@@ -391,7 +391,7 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
 
           {/* Tasks */}
           <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-4 shadow-sm">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Task families</div>
+            <div className="text-xs font-semibold text-[#1d4ed8]">Task families</div>
             <div className="mt-3 flex flex-wrap gap-2">
               {DEFAULT_TASK_FAMILIES.map((t) => (
                 <button
@@ -413,7 +413,7 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
         {/* Judge config */}
         <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-4 shadow-sm">
           <div className="flex items-center gap-3">
-            <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#7c3aed]">Judge model</div>
+            <div className="text-xs font-semibold text-[#7c3aed]">Judge model</div>
             <button
               onClick={() => setJudgeEnabled((v) => !v)}
               className={`rounded-full border px-2.5 py-0.5 text-xs transition ${judgeEnabled
@@ -467,7 +467,7 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
         {results.length > 0 && (
           <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] shadow-sm overflow-hidden">
             <div className="border-b border-[var(--color-border-tertiary)] px-5 py-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Results matrix</div>
+              <div className="text-xs font-semibold text-[#1d4ed8]">Results matrix</div>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
@@ -531,7 +531,7 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
         {activeCellResult?.status === 'done' && (
           <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-5 shadow-sm">
             <div className="mb-3 flex items-center gap-2">
-              <div className="text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">
+              <div className="text-xs font-semibold text-[#1d4ed8]">
                 {models.find((m) => m.id === activeCell?.modelId)?.label} — {DEFAULT_TASK_FAMILIES.find((t) => t.id === activeCell?.taskId)?.label}
               </div>
               <span className="ml-auto text-xs text-[var(--color-text-tertiary)]">{activeCellResult.latencyMs}ms</span>
@@ -539,7 +539,7 @@ export function EvaluateSurface({ thinkingBudget }: { thinkingBudget?: number })
             {activeCellResult.judgeReasoning && (
               <div className="mb-2 rounded-lg border border-[#ddd6fe] bg-[#faf5ff] px-3 py-2">
                 <div className="mb-1 flex items-center gap-2">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-[#7c3aed]">Judge verdict</span>
+                  <span className="text-[11px] font-semibold text-[#7c3aed]">Judge verdict</span>
                   {activeCellResult.judgeScore !== undefined && (
                     <ScoreBar score={activeCellResult.judgeScore} />
                   )}

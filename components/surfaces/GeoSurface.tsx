@@ -273,7 +273,7 @@ export function GeoSurface() {
       {/* OFIF layer toggles */}
       {layerGroups.length > 0 && (
         <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-[var(--color-border-tertiary)] px-5 py-2">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Layers</span>
+          <span className="text-[11px] font-semibold text-[var(--color-text-tertiary)]">Layers</span>
           {layerGroups.map((g) => {
             const off = hidden.has(g)
             const n   = markers.filter((m) => m.layerGroup === g).length
@@ -288,7 +288,7 @@ export function GeoSurface() {
             )
           })}
           {/* severity legend */}
-          <span className="ml-2 text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Severity</span>
+          <span className="ml-2 text-[11px] font-semibold text-[var(--color-text-tertiary)]">Severity</span>
           {Object.entries(SEV).map(([k, v]) => (
             <span key={k} className="flex items-center gap-1 text-[11px] text-[var(--color-text-tertiary)]">
               <span className="rounded-full" style={{ display: 'inline-block', width: v.r, height: v.r, background: 'var(--color-text-tertiary)' }} />

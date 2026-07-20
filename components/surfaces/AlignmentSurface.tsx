@@ -77,7 +77,7 @@ export function AlignmentSurface({ onNavigateToGovern }: { onNavigateToGovern?: 
         <div className="mt-5">
           {/* Summary */}
           <div className="mb-4 flex flex-wrap items-center gap-5 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3">
-            <div><div className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">Alignment</div><div className="text-xl font-bold" style={{ color: scoreColor }}>{score > 0 ? '+' : ''}{score}</div></div>
+            <div><div className="text-[11px] text-[var(--color-text-tertiary)]">Alignment</div><div className="text-xl font-bold" style={{ color: scoreColor }}>{score > 0 ? '+' : ''}{score}</div></div>
             <div className="flex gap-3 text-xs">
               <span className="rounded-full bg-[var(--color-accent-bg)] px-2 py-1 font-semibold text-[var(--color-accent)]">{report.summary.corroborated} corroborated</span>
               <span className="rounded-full bg-[#fef2f2] px-2 py-1 font-semibold text-[#dc2626]">{report.summary.conflicting} conflicting</span>

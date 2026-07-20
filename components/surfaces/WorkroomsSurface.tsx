@@ -199,7 +199,7 @@ function AgentDispatchPanel({ room, onDispatch }: {
         {/* Active agents — multi-select checkboxes */}
         {room.participants.filter((p) => p.kind === 'agent').length > 0 && (
           <div className="space-y-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">In this room</p>
+            <p className="text-[11px] font-semibold text-[var(--color-text-secondary)]">In this room</p>
             {room.participants.filter((p) => p.kind === 'agent').map((p) => {
               const arch = AGENT_ARCHETYPES.find((a) => a.id === p.agentId)
               const isSelected = p.agentId ? selectedAgents.has(p.agentId) : false
@@ -234,7 +234,7 @@ function AgentDispatchPanel({ room, onDispatch }: {
         {/* Available agents to add */}
         {inactiveAgents.length > 0 && (
           <div className="space-y-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Available agents</p>
+            <p className="text-[11px] font-semibold text-[var(--color-text-secondary)]">Available agents</p>
             {AGENT_ARCHETYPES.map((arch) => {
               const isActive = activeAgentIds.includes(arch.id)
               const isSelected = selectedAgents.has(arch.id)
@@ -271,7 +271,7 @@ function AgentDispatchPanel({ room, onDispatch }: {
         {/* Dispatch history */}
         {room.dispatches.length > 0 && (
           <div className="space-y-1.5">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">Recent dispatches</p>
+            <p className="text-[11px] font-semibold text-[var(--color-text-secondary)]">Recent dispatches</p>
             {[...room.dispatches].reverse().slice(0, 5).map((d) => (
               <div key={d.id} className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2 text-xs">
                 <div className="flex items-center justify-between gap-2">
@@ -666,7 +666,7 @@ function NewRoomForm({ onCreate, onCancel }: { onCreate: (name: string, desc: st
   const [desc, setDesc] = useState('')
   return (
     <div className="rounded-xl border border-[#bfdbfe] bg-[#eff6ff] p-4 space-y-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-[#1d4ed8]">New Workroom</p>
+      <p className="text-xs font-semibold text-[#1d4ed8]">New Workroom</p>
       <div className="space-y-1">
         <label className="text-xs font-medium text-[var(--color-text-secondary)]">Name</label>
         <input className="w-full rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-1.5 text-sm outline-none focus:border-[#93c5fd]"
@@ -776,7 +776,7 @@ export function WorkroomsSurface({ thinkingBudget }: { thinkingBudget?: number }
       {/* ── Room list ── */}
       <aside className="flex w-56 shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[#eaf1f8]">
         <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-3 py-3">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[#1d4ed8]">Workrooms</span>
+          <span className="text-xs font-semibold text-[#1d4ed8]">Workrooms</span>
           <button onClick={() => setShowNew(true)} title="New workroom"
             className="flex h-6 w-6 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[#1d4ed8]">
             <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden>
@@ -814,7 +814,7 @@ export function WorkroomsSurface({ thinkingBudget }: { thinkingBudget?: number }
             <div className="mt-2">
               <button
                 onClick={() => setSlackExpanded((v) => !v)}
-                className="flex w-full items-center gap-1.5 border-t border-[var(--color-border-secondary)] px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-[#7c3aed] transition hover:bg-[var(--color-background-secondary)]"
+                className="flex w-full items-center gap-1.5 border-t border-[var(--color-border-secondary)] px-3 py-2 text-[11px] font-semibold text-[#7c3aed] transition hover:bg-[var(--color-background-secondary)]"
               >
                 <svg width="8" height="8" viewBox="0 0 8 8" fill="none" className={`transition-transform ${slackExpanded ? 'rotate-90' : ''}`} aria-hidden>
                   <path d="M2 1l3 3-3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>

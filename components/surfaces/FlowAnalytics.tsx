@@ -23,7 +23,7 @@ function Stat({ label, value, tone }: { label: string; value: string; tone?: 'go
   const color = tone === 'good' ? 'var(--color-accent-primary,var(--color-accent))' : tone === 'warn' ? 'var(--color-attention)' : 'var(--color-text-primary)'
   return (
     <div className="rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-3">
-      <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--color-text-tertiary)]">{label}</div>
+      <div className="text-[11px] text-[var(--color-text-tertiary)]">{label}</div>
       <div className="mt-1 text-lg font-semibold" style={{ color }}>{value}</div>
     </div>
   )
@@ -75,7 +75,7 @@ export function FlowAnalytics() {
       {policy?.formula && (
         <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-4">
           <div className="mb-2 flex items-center gap-2">
-            <span className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--color-accent)]">Learned reward policy</span>
+            <span className="text-xs font-semibold text-[var(--color-accent)]">Learned reward policy</span>
             <span className="text-[11px] text-[var(--color-text-tertiary)]">R²={policy.r2} · n={policy.n}</span>
           </div>
           <code className="block rounded-lg bg-[var(--color-background-tertiary)] px-3 py-2 text-xs text-[var(--color-text-primary)]">{policy.formula}</code>
@@ -105,7 +105,7 @@ export function FlowAnalytics() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {/* Intent distribution */}
         <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-4">
-          <div className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Intent distribution</div>
+          <div className="mb-3 text-xs font-semibold text-[#1d4ed8]">Intent distribution</div>
           <div className="space-y-1.5">
             {intents.map(([name, n]) => (
               <div key={name} className="flex items-center gap-2 text-xs">
@@ -121,7 +121,7 @@ export function FlowAnalytics() {
 
         {/* Top transitions (the conversation flow) */}
         <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-4">
-          <div className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#7c3aed]">Conversation flow (top transitions)</div>
+          <div className="mb-3 text-xs font-semibold text-[#7c3aed]">Conversation flow (top transitions)</div>
           {transitions.length === 0 ? (
             <div className="text-xs text-[var(--color-text-tertiary)]">Need ≥2 turns in a session to chart transitions.</div>
           ) : (
@@ -140,7 +140,7 @@ export function FlowAnalytics() {
 
         {/* Latency by intent */}
         <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-4">
-          <div className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">Avg latency by intent</div>
+          <div className="mb-3 text-xs font-semibold text-[#1d4ed8]">Avg latency by intent</div>
           <div className="space-y-1.5">
             {latencies.map(([name, ms]) => (
               <div key={name} className="flex items-center justify-between text-xs">
@@ -153,7 +153,7 @@ export function FlowAnalytics() {
 
         {/* Common paths */}
         <div className="rounded-2xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-4">
-          <div className="mb-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#7c3aed]">Common paths</div>
+          <div className="mb-3 text-xs font-semibold text-[#7c3aed]">Common paths</div>
           {m.top_paths.length === 0 ? (
             <div className="text-xs text-[var(--color-text-tertiary)]">Need ≥3 turns in a session.</div>
           ) : (

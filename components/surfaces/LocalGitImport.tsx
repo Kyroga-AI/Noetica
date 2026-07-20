@@ -174,11 +174,11 @@ export function LocalGitImport({ onClose, onDone }: { onClose: () => void; onDon
               ) : (
                 <div className="space-y-3">
                   <div>
-                    <div className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Local folder</div>
+                    <div className="text-[11px] font-semibold text-[var(--color-text-tertiary)]">Local folder</div>
                     <div className="mt-0.5 truncate rounded-lg bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-[11px] text-[var(--color-text-secondary)]" title={selected}>{selected}</div>
                   </div>
                   <div>
-                    <label className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Repository name</label>
+                    <label className="text-[11px] font-semibold text-[var(--color-text-tertiary)]">Repository name</label>
                     <input value={name} onChange={(e) => setName(e.target.value)} className="mt-0.5 w-full rounded-lg border border-[#bfdbfe] bg-[var(--color-background-secondary)] px-2.5 py-1.5 text-xs outline-none focus:border-[#1d4ed8] focus:bg-[var(--color-background-primary)]" />
                   </div>
                   <label className="flex items-center gap-2 text-[11px] text-[var(--color-text-secondary)]">

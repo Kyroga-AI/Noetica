@@ -55,7 +55,7 @@ function ChunkColumn({ title, chunks, ran, accent }: { title: string; chunks: Ch
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center justify-between">
-        <span className="text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">{title}</span>
+        <span className="text-[11px] text-[var(--color-text-tertiary)]">{title}</span>
         <span className="text-[11px] text-[var(--color-text-tertiary)]">{chunks.length} chunks</span>
       </div>
       {ran && chunks.length === 0 && <p className="text-[11px] text-[var(--color-text-tertiary)]">No chunks retrieved.</p>}

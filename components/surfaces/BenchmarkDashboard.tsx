@@ -430,7 +430,7 @@ function StatCard({ label, value, sub, accent }: { label: string; value: string;
     accent === 'green' ? 'bg-[var(--color-accent)]' : accent === 'amber' ? 'bg-[var(--color-attention)]' : 'bg-[var(--color-text-tertiary)]'
   return (
     <div className={`rounded-xl border ${ring} bg-[var(--color-background-secondary)] p-3`}>
-      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">
+      <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-text-tertiary)]">
         <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />{label}
       </div>
       <div className="mt-1 text-lg font-semibold tabular-nums">{value}</div>
@@ -471,7 +471,7 @@ function CompareTable({ rows }: { rows: Row[] }) {
     <div className="overflow-x-auto rounded-xl border border-[var(--color-border-tertiary)]">
       <table className="w-full text-xs">
         <thead>
-          <tr className="border-b border-[var(--color-border-tertiary)] text-left text-[11px] uppercase tracking-wide text-[var(--color-text-tertiary)]">
+          <tr className="border-b border-[var(--color-border-tertiary)] text-left text-[11px] text-[var(--color-text-tertiary)]">
             <th className="px-3 py-2 font-medium">Model</th>
             <th className="px-3 py-2 font-medium">Runs</th>
             <th className="px-3 py-2 font-medium">Avg latency</th>

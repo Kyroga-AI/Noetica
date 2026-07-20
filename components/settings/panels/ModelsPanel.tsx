@@ -157,7 +157,7 @@ export function ModelsPanel() {
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-[12px] font-semibold text-[var(--color-text-primary)]">{m.name}</span>
-                        <span className={`rounded-full border px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide ${ROLE_COLORS[m.role] ?? 'bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border-secondary)]'}`}>
+                        <span className={`rounded-full border px-1.5 py-0.5 text-[11px] font-semibold ${ROLE_COLORS[m.role] ?? 'bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)] border-[var(--color-border-secondary)]'}`}>
                           {m.role}
                         </span>
                         <span className="text-[11px] text-[var(--color-text-tertiary)]">{m.sizeGb}GB</span>

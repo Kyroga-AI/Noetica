@@ -281,7 +281,7 @@ function NoteEditor({ note, onUpdate }: { note: Note; onUpdate: (patch: Partial<
         <div className="mt-4 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2.5">
           <div className="mb-2 flex items-center gap-1.5">
             <span className="text-[11px] text-[var(--color-accent)]">⬡</span>
-            <span className="text-[11px] font-semibold uppercase tracking-widest text-[var(--color-text-tertiary)]">Related in your graph</span>
+            <span className="text-[11px] font-semiboldst text-[var(--color-text-tertiary)]">Related in your graph</span>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {linkSuggestions.map((s) => (
@@ -679,7 +679,7 @@ export function NotesSurface() {
       <aside className="flex w-56 shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[#eaf1f8]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-3 py-3">
-          <span className="text-xs font-semibold uppercase tracking-wide text-[#1d4ed8]">Notes</span>
+          <span className="text-xs font-semibold text-[#1d4ed8]">Notes</span>
           <button
             onClick={handleCreate}
             className="flex h-6 w-6 items-center justify-center rounded-lg text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-primary)] hover:text-[#1d4ed8]"
@@ -766,7 +766,7 @@ export function NotesSurface() {
             >
               <span className="text-[11px] text-[var(--color-text-tertiary)] transition-transform" style={{ display: 'inline-block', transform: notionExpanded ? 'rotate(90deg)' : 'none' }}>▶</span>
               <span className="flex h-4 w-4 items-center justify-center rounded bg-[#000] text-[11px] font-bold text-white">N</span>
-              <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-tertiary)]">Notion</span>
+              <span className="text-[11px] font-semibold text-[var(--color-text-tertiary)]">Notion</span>
               {notionLoading && <span className="ml-auto text-[11px] text-[var(--color-text-tertiary)]">…</span>}
               {!notionLoading && notionPages.length > 0 && (
                 <span className="ml-auto text-[11px] text-[var(--color-text-tertiary)]">{notionPages.length}</span>

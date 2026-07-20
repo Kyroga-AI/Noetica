@@ -98,7 +98,7 @@ const SENTIMENT_COLOUR = { positive: 'var(--color-accent)', negative: '#dc2626',
 function Pill({ label, colour }: { label: string; colour: string }) {
   return (
     <span style={{ background: `${colour}18`, color: colour, border: `1px solid ${colour}40` }}
-      className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide">
+      className="inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold">
       {label}
     </span>
   )
@@ -189,7 +189,7 @@ function ComponentsCard({ components }: { components: SignalComponent[] }) {
         ))}
         {context.length > 0 && (
           <div className="mt-3 border-t border-[var(--color-border-tertiary)] pt-3">
-            <p className="mb-2 text-[11px] font-medium uppercase tracking-wider text-[var(--color-text-tertiary)]">Decomposition context (priced into IV)</p>
+            <p className="mb-2 text-[11px] font-mediumr text-[var(--color-text-tertiary)]">Decomposition context (priced into IV)</p>
             {context.map((c) => (
               <div key={c.name} className="mb-2 opacity-60">
                 <div className="mb-0.5 flex items-center justify-between gap-2">

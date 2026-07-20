@@ -189,7 +189,7 @@ export function SettingsModal({ open, onClose, initialCategory = 'appearance' }:
       >
         {/* Left nav */}
         <nav className="flex w-48 shrink-0 flex-col border-r border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] py-4">
-          <div className="px-4 pb-3 text-xs font-semibold uppercase tracking-[0.16em] text-[#1d4ed8]">
+          <div className="px-4 pb-3 text-xs font-semibold text-[#1d4ed8]">
             Settings
           </div>
           <div className="flex-1 space-y-0.5 px-2">

@@ -71,19 +71,19 @@ export function LabsSurface() {
             <>
               {base && (
                 <div>
-                  <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">On-device base</div>
+                  <div className="mb-1.5 text-[11px] font-semibold text-[var(--color-text-tertiary)]">On-device base</div>
                   <ModelCard m={base} />
                 </div>
               )}
               <div>
-                <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">SociOS lab adapters (opt-in tuning · LoRA)</div>
+                <div className="mb-1.5 text-[11px] font-semibold text-[var(--color-text-tertiary)]">SociOS lab adapters (opt-in tuning · LoRA)</div>
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                   {adapters.map((m) => <ModelCard key={m.id} m={m} />)}
                 </div>
               </div>
               {server && (
                 <div>
-                  <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Server tier (larger · off-device)</div>
+                  <div className="mb-1.5 text-[11px] font-semibold text-[var(--color-text-tertiary)]">Server tier (larger · off-device)</div>
                   <ModelCard m={server} />
                 </div>
               )}

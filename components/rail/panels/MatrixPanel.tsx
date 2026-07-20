@@ -31,7 +31,7 @@ export function MatrixPanel() {
       <div className="border-b border-[var(--color-border-secondary)] px-4 py-3">
         <div className="flex items-center justify-between">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Matrix</div>
+            <div className="text-xs font-semibold text-[#1d4ed8]">Matrix</div>
             <div className="mt-0.5 text-xs text-[var(--color-text-secondary)]">Workspace rooms / ChatOps</div>
           </div>
           {isConnected && (

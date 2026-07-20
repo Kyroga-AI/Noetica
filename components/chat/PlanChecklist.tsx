@@ -15,7 +15,7 @@ export function PlanChecklist({ plan }: { plan: ExecutionPlan }) {
   return (
     <div className="my-2 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-3 py-2">
       <div className="mb-1.5 flex items-center justify-between">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[var(--color-text-secondary)]">Plan</span>
+        <span className="text-[11px] font-semibold text-[var(--color-text-secondary)]">Plan</span>
         <span className="text-[11px] tabular-nums text-[var(--color-text-tertiary)]">{done}/{total}</span>
       </div>
       <ul className="space-y-1">

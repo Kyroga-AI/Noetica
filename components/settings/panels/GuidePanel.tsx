@@ -99,7 +99,7 @@ export function GuidePanel() {
       {/* Feature groups */}
       {GROUPS.map((g) => (
         <div key={g.title}>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">{g.title}</h3>
+          <h3 className="text-xs font-semibold text-[var(--color-text-tertiary)]">{g.title}</h3>
           <div className="mt-2 space-y-3">
             {g.features.map((f) => (
               <div key={f.name}>

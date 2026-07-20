@@ -117,7 +117,7 @@ export function TerminalSurface() {
         {(log.length > 0 || running) && (
           <div className="overflow-hidden rounded-2xl border border-[var(--color-border-secondary)] bg-[#0b1020]">
             <div className="flex items-center justify-between border-b border-white/10 px-4 py-2">
-              <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/60">Console</span>
+              <span className="text-[11px] font-semibold text-white/60">Console</span>
               {exitCode != null && <span className={`text-[11px] font-semibold ${exitCode === 0 ? 'text-[#4ade80]' : 'text-[#f87171]'}`}>exit {exitCode}</span>}
             </div>
             <div ref={logRef} className="max-h-80 overflow-y-auto px-4 py-3 font-mono text-[11px] leading-relaxed text-white/80">

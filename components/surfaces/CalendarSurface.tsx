@@ -79,7 +79,7 @@ export function CalendarSurface() {
           <div className="space-y-4">
             {days.map(([day, evs]) => (
               <div key={day}>
-                <div className="mb-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">{fmtDay(day)}</div>
+                <div className="mb-1.5 text-xs font-semibold text-[#1d4ed8]">{fmtDay(day)}</div>
                 <div className="space-y-1.5">
                   {evs.map((e, i) => (
                     <div key={`${e.uid}-${i}`} className="flex items-start gap-3 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3 py-2">
@@ -106,7 +106,7 @@ export function CalendarSurface() {
             {err && <div className="mt-2 text-[11px] text-[#dc2626]">{err}</div>}
           </div>
           <div>
-            <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">Subscribed ({data?.feeds.length ?? 0})</div>
+            <div className="mb-1.5 text-[11px] font-semibold text-[var(--color-text-tertiary)]">Subscribed ({data?.feeds.length ?? 0})</div>
             <div className="space-y-1.5">
               {(data?.feeds ?? []).map((f) => (
                 <div key={f.url} className="flex items-center justify-between gap-2 rounded-lg border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2.5 py-1.5">

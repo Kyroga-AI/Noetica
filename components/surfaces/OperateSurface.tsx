@@ -27,7 +27,7 @@ function StatCard({ label, value, sub, accent }: { label: string; value: string 
         ? 'border-[rgba(147,197,253,0.30)] bg-[rgba(29,78,216,0.08)]'
         : 'border-[var(--color-border-secondary)] bg-[var(--color-background-primary)]'
     }`}>
-      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">{label}</div>
+      <div className="text-xs font-semibold text-[var(--color-text-tertiary)]">{label}</div>
       <div className={`mt-2 text-2xl font-bold ${accent ? 'text-[#60a5fa]' : 'text-[var(--color-text-primary)]'}`}>{value}</div>
       {sub && <div className="mt-0.5 text-xs text-[var(--color-text-secondary)]">{sub}</div>}
     </div>
@@ -37,7 +37,7 @@ function StatCard({ label, value, sub, accent }: { label: string; value: string 
 function SectionHeader({ title, action }: { title: string; action?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between">
-      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">{title}</div>
+      <div className="text-xs font-semibold text-[#1d4ed8]">{title}</div>
       {action}
     </div>
   )

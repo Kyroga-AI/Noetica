@@ -37,7 +37,7 @@ export function FeatureFlagsSection() {
   return (
     <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
       <div className="flex items-center justify-between">
-        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[#1d4ed8]">Feature flags</div>
+        <div className="text-xs font-semibold text-[#1d4ed8]">Feature flags</div>
         {authRequired && <span className="rounded-full bg-[#fee2e2] px-2 py-0.5 text-[11px] font-medium text-[#991b1b]">API token required</span>}
       </div>
       <p className="mt-1 text-xs text-[var(--color-text-secondary)]">Runtime state from the agent-machine. Set via NOETICA_* env at launch.</p>

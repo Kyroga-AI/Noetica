@@ -106,7 +106,7 @@ export function LibrarySurface() {
           {[['Collections', t.collections], ['Documents', t.documents], ['Chunks', t.chunks], ['Entities', t.entities]].map(([k, v]) => (
             <div key={k as string} className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-3">
               <div className="text-xl font-semibold text-[var(--color-text-primary)]">{(v as number).toLocaleString()}</div>
-              <div className="text-[11px] uppercase tracking-[0.14em] text-[var(--color-text-tertiary)]">{k}</div>
+              <div className="text-[11px] text-[var(--color-text-tertiary)]">{k}</div>
             </div>
           ))}
         </div>
@@ -127,7 +127,7 @@ export function LibrarySurface() {
             <div key={g.scope}>
             {showHeader && (
               <div className="mb-2 mt-4 flex items-baseline gap-2 first:mt-0">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-[var(--color-text-secondary)]">{SECTION_LABEL[section]}</div>
+                <div className="text-[11px] font-semibold text-[var(--color-text-secondary)]">{SECTION_LABEL[section]}</div>
                 <div className="text-[11px] text-[var(--color-text-tertiary)]">{SECTION_HINT[section]}</div>
               </div>
             )}
@@ -169,7 +169,7 @@ export function LibrarySurface() {
         <div className="mt-6 rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-5">
           <div className="mb-3 flex items-center justify-between">
             <div>
-              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--color-text-primary)]">Audio Overview</div>
+              <div className="text-xs font-semibold text-[var(--color-text-primary)]">Audio Overview</div>
               <div className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">Generate a host/guest dialogue script from your knowledge library — like a personalised podcast.</div>
             </div>
             <button

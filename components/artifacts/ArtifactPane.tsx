@@ -32,7 +32,7 @@ function CodeRenderer({ artifact }: { artifact: Artifact }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] px-4 py-2">
-        <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">
+        <span className="font-mono text-[11px] font-semiboldr text-[var(--color-text-tertiary)]">
           {LANGUAGE_LABELS[lang] ?? lang}
         </span>
         <button
@@ -146,7 +146,7 @@ function DocumentRenderer({ artifact, onUpdate }: { artifact: Artifact; onUpdate
                   const isBlock = String(children).includes('\n') || !!lang
                   if (isBlock) return (
                     <div className="my-3 overflow-hidden rounded-xl border border-[var(--color-border-secondary)]">
-                      {lang && <div className="border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-1 font-mono text-[11px] font-semibold uppercase tracking-wider text-[var(--color-text-tertiary)]">{lang}</div>}
+                      {lang && <div className="border-b border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-3 py-1 font-mono text-[11px] font-semiboldr text-[var(--color-text-tertiary)]">{lang}</div>}
                       <SyntaxHighlighter
                         // eslint-disable-next-line
                         style={oneDark as any}
@@ -162,7 +162,7 @@ function DocumentRenderer({ artifact, onUpdate }: { artifact: Artifact; onUpdate
                 table: ({ children }) => <div className="my-3 overflow-x-auto rounded-xl border border-[var(--color-border-secondary)]"><table className="min-w-full text-sm">{children}</table></div>,
                 thead: ({ children }) => <thead className="bg-[var(--color-background-secondary)]">{children}</thead>,
                 tbody: ({ children }) => <tbody className="divide-y divide-[var(--color-border-tertiary)]">{children}</tbody>,
-                th: ({ children }) => <th className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-[var(--color-text-secondary)]">{children}</th>,
+                th: ({ children }) => <th className="px-3 py-2 text-left text-[11px] font-semibold text-[var(--color-text-secondary)]">{children}</th>,
                 td: ({ children }) => <td className="px-3 py-2 text-[var(--color-text-primary)]">{children}</td>,
               }}
             >

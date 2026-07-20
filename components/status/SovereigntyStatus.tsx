@@ -94,7 +94,7 @@ export function SovereigntyStatus({ riskReadout, onOpenInspector }: Props) {
           <div className="absolute right-0 top-full z-50 mt-1.5 w-64 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] p-3 shadow-lg">
             {/* Sovereignty / egress */}
             <div className="mb-2.5">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Sovereignty</div>
+              <div className="text-[11px] font-semibold text-[var(--color-text-tertiary)]">Sovereignty</div>
               <div className="mt-1 flex items-center gap-2 text-xs">
                 <span className={sovereign ? 'text-[var(--color-accent)]' : 'text-[var(--color-attention)]'}>{sovereign ? <GlyphLock /> : <GlyphOut />}</span>
                 <span className="text-[var(--color-text-primary)]">
@@ -104,7 +104,7 @@ export function SovereigntyStatus({ riskReadout, onOpenInspector }: Props) {
             </div>
             {/* Runtime */}
             <div className="mb-2.5 border-t border-[var(--color-border-tertiary)] pt-2.5">
-              <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Runtime</div>
+              <div className="text-[11px] font-semibold text-[var(--color-text-tertiary)]">Runtime</div>
               {runtime.state === 'ready' ? (
                 <div className="mt-1 space-y-0.5 text-xs text-[var(--color-text-secondary)]">
                   <div className="flex justify-between"><span className="text-[var(--color-text-tertiary)]">mode</span><span>{runtime.status.desktop_mode || '—'}</span></div>
@@ -119,7 +119,7 @@ export function SovereigntyStatus({ riskReadout, onOpenInspector }: Props) {
             {/* Risk */}
             <div className="border-t border-[var(--color-border-tertiary)] pt-2.5">
               <div className="flex items-center justify-between">
-                <div className="text-[11px] font-semibold uppercase tracking-[0.1em] text-[var(--color-text-tertiary)]">Risk pressure</div>
+                <div className="text-[11px] font-semibold text-[var(--color-text-tertiary)]">Risk pressure</div>
                 <span className="flex items-center gap-1.5 text-xs text-[var(--color-text-secondary)]">
                   <span className={`h-1.5 w-1.5 rounded-full ${RISK_META[risk].dot}`} />{RISK_META[risk].label}
                 </span>
