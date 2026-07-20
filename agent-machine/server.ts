@@ -118,7 +118,7 @@ import { applyPreset, summarize as summarizePreset } from './lib/presets.js'
 import { applyEdit, editSummary } from './lib/apply-patch.js'
 import { classifyComplexity as classifyComplexityPosture } from './lib/complexity-discipline.js'
 import { runSearchVerify, searchVerifyEnabled, candidatePrompt as searchVerifyPrompt, type VerifyResult } from './lib/search-verify.js'
-import { selectBestOfN } from './lib/best-of-n.js'
+import { selectBestOfN, shouldStop } from './lib/best-of-n.js'
 import { decideAnswer, semanticClusters, normalizedEntropy } from './lib/uncertainty.js'
 import { detectGoalIntent, slotFill, buildGoalContext, getActiveGoal, listGoals, saveGoal, type Goal } from './lib/goal-model.js'
 import { assessAgainstGraph } from './lib/pln-judgment.js'
@@ -471,8 +471,11 @@ async function runAction(name: string, params: Record<string, unknown>): Promise
 // PROPOSALS (inferred:true, dreamed:true), never canonical — surfaced for review, not asserted as truth. Pairs
 // with the learning loop (eval-capture + procedural-memory): consolidate what's known, not just capture it.
 let _lastDreamAt = 0
-// Runtime Best-of-N toggle — seeded from env var, flippable at runtime via POST /api/settings
-let _bonEnabled = process.env['BEST_OF_N'] === 'true'
+// Runtime Best-of-N toggle — seeded from env var, flippable at runtime via POST /api/settings.
+// DEFAULT ON (set BEST_OF_N=false to disable): the verifier→selection keystone. It only fires on
+// hard turns (low calibrated confidence, no tools) and samples adaptively (stops early once a grounded
+// winner already agrees), so the cost is bounded to the turns that actually need it.
+let _bonEnabled = process.env['BEST_OF_N'] !== 'false'
 // Runtime uncertainty-gate toggle — semantic-entropy abstention disclaimer
 let _uncertaintyEnabled = process.env['UNCERTAINTY_GATE'] === 'true'
 // Runtime procedural-memory toggle — enables loops 2+3 (skill distillation + SRS enrollment)
@@ -4773,6 +4776,9 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
                   bonCandidates.push({ text: r.content, verified: ctxTokens.size > 0 && coverage >= 0.05, coverage })
                 }
               } catch { /* skip failed candidate */ }
+              // Adaptive stop: once we have ≥2 candidates and a grounded winner with strong agreement /
+              // coverage, don't spend a 3rd generation — compute goes only where it changes the answer.
+              if (bonCandidates.length >= 2 && shouldStop(selectBestOfN(bonCandidates))) break
             }
             if (bonCandidates.length > 0) {
               const { best: bonBest, agreement: bonAgreement } = selectBestOfN(bonCandidates)
