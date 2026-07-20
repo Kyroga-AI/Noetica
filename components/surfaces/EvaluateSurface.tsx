@@ -197,7 +197,7 @@ function CompoundingCurve() {
     <div className="rounded-2xl border border-[var(--color-border-secondary)] bg-[var(--color-background-secondary)] p-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="text-sm font-semibold text-[var(--color-text-primary)]">🧠 Compounding brain</div>
+          <div className="text-sm font-semibold text-[var(--color-text-primary)]">Compounding brain</div>
           <div className="text-[11px] text-[var(--color-text-tertiary)]">verified solutions get reused on new tasks — quality rises with use</div>
         </div>
         <div className="flex gap-4">

@@ -6,6 +6,7 @@ import AutonomyPanel from '@/components/governance/AutonomyPanel'
 import type { GovernanceTrace } from '@/lib/types/governance'
 import { readLedgerEntries, clearLedger, type LedgerEntry } from '@/lib/evidence/ledger-store'
 import { useSettings } from '@/lib/settings/context'
+import { GlyphShield } from '@/components/icons/glyphs'
 
 type PolicyMode = 'default' | 'strict' | 'permissive'
 type EvidenceLevel = 'standard' | 'full_hash' | 'minimal'
@@ -705,7 +706,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
           <div className="rounded-2xl border p-4 shadow-sm" style={{ borderColor: audit.attested ? '#bbf7d0' : '#fde68a', background: audit.attested ? 'var(--color-accent-bg)' : 'var(--color-attention-bg)' }}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-sm">{audit.attested ? '🛡️' : '⚠️'}</span>
+                <span style={{ color: audit.attested ? 'var(--color-accent)' : 'var(--color-attention)' }}>{audit.attested ? <GlyphShield size={14} /> : '⚠'}</span>
                 <span className="text-xs font-semibold" style={{ color: audit.attested ? 'var(--color-accent)' : 'var(--color-attention)' }}>
                   {audit.attested ? 'Audit chain attested' : 'Audit chain — needs attention'}
                 </span>
@@ -1452,7 +1453,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
             </div>
           </div>
           {egressAudit.rows.length === 0 ? (
-            <div className="mt-3 rounded-lg border border-[#86efac] bg-[var(--color-accent-bg)] px-3 py-2 text-[11px] font-medium text-[var(--color-accent)]">🔒 Zero egress — nothing has left this device.</div>
+            <div className="mt-3 rounded-lg border border-[#86efac] bg-[var(--color-accent-bg)] px-3 py-2 text-[11px] font-medium text-[var(--color-accent)]">Zero egress — nothing has left this device.</div>
           ) : (
             <div className="mt-3 space-y-1">
               {egressAudit.rows.slice(0, 8).map((r) => (
@@ -1524,7 +1525,7 @@ export function GovernSurface({ recentTraces = [] }: { recentTraces?: RunTrace[]
               {trends.bandit.map((a) => (
                 <div key={`${a.task}/${a.model}`} className="flex items-center gap-2 text-[11px]">
                   <span className="w-20 shrink-0 truncate text-[var(--color-text-tertiary)]">{a.task}</span>
-                  <span className={`w-36 shrink-0 truncate ${a.leading ? 'font-semibold text-[var(--color-accent)]' : 'text-[var(--color-text-secondary)]'}`}>{a.leading ? '⭐ ' : ''}{a.model}</span>
+                  <span className={`w-36 shrink-0 truncate ${a.leading ? 'font-semibold text-[var(--color-accent)]' : 'text-[var(--color-text-secondary)]'}`}>{a.leading ? '★ ' : ''}{a.model}</span>
                   <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--color-background-tertiary)]">
                     <div className={`h-full rounded-full ${a.leading ? 'bg-[var(--color-accent)]' : 'bg-[#94a3b8]'}`} style={{ width: `${Math.max(2, Math.min(100, a.mean_reward * 100))}%` }} />
                   </div>

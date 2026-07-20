@@ -62,7 +62,7 @@ export const shellModes: Record<ModeKey, ShellModeConfig> = {
     label: 'Code',
     primaryActionLabel: 'New session',
     navItems: [
-      { id: 'routines', label: 'Routines', icon: '⚡' },
+      { id: 'routines', label: 'Routines', icon: '↻' },
       { id: 'customize', label: 'Customize', icon: '▤' },
       { id: 'more', label: 'More', icon: '⋯' }
     ],

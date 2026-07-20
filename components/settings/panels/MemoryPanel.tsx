@@ -5,6 +5,7 @@ import { useSettings } from '@/lib/settings/context'
 import { useMemory } from '@/lib/memory/useMemory'
 import { amUrl } from '@/lib/tauri/bridge'
 import type { MemoryScope } from '@/lib/settings/types'
+import { GlyphRobot, GlyphUser } from '@/components/icons/glyphs'
 
 const scopes: { value: MemoryScope; label: string; desc: string }[] = [
   { value: 'disabled', label: 'Disabled', desc: 'No memory read or injected.' },
@@ -142,8 +143,8 @@ export function MemoryPanel() {
           )}
           {entries.map((entry) => (
             <div key={entry.id} className="group flex items-start gap-2 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-primary)] px-3 py-2 transition hover:border-[var(--color-border-secondary)]">
-              <span className="mt-0.5 text-[11px] text-[var(--color-text-tertiary)]">
-                {entry.source === 'auto' ? '🤖' : '👤'}
+              <span className="mt-0.5 flex text-[var(--color-text-tertiary)]" title={entry.source === 'auto' ? 'Remembered by the AI' : 'Added by you'}>
+                {entry.source === 'auto' ? <GlyphRobot size={13} /> : <GlyphUser size={13} />}
               </span>
               {/* Embedding status dot */}
               <div

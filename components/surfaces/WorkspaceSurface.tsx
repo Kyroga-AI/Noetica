@@ -300,7 +300,7 @@ export function WorkspaceSurface() {
           {!sel && diffs.length > 0 && (
             <div className="p-4">
               <div className="mb-3 flex items-center gap-2 text-[13px] font-semibold text-[var(--color-text-primary)]">
-                <span>{solved ? '✅' : '⚠️'} Review changes</span>
+                <span className="flex items-center gap-1.5"><span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: solved ? 'var(--color-accent)' : 'var(--color-attention)' }} />Review changes</span>
                 <span className="text-[11px] font-normal text-[var(--color-text-tertiary)]">{diffs.length} file{diffs.length > 1 ? 's' : ''} · accept or reject each</span>
               </div>
               {diffs.map((d) => {
@@ -357,10 +357,10 @@ export function WorkspaceSurface() {
           )}
           {!sel && steps.length > 0 && (
             <div className="p-4">
-              <div className="mb-3 text-[13px] font-semibold text-[var(--color-text-primary)]">{solving ? '⏳ Building…' : solved ? '✅ Built & verified' : '⚠️ Needs another pass'}</div>
+              <div className="mb-3 flex items-center gap-1.5 text-[13px] font-semibold text-[var(--color-text-primary)]"><span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: solving ? 'var(--color-text-tertiary)' : solved ? 'var(--color-accent)' : 'var(--color-attention)' }} />{solving ? 'Building…' : solved ? 'Built & verified' : 'Needs another pass'}</div>
               {steps.map((s, i) => (
                 <div key={i} className="mb-2 rounded-xl border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] p-2.5 text-[12px]">
-                  <div className="font-medium text-[var(--color-text-primary)]">{s.ok ? '✅' : '❌'} attempt {s.attempt} <span className="text-[var(--color-text-tertiary)]">· exit {s.exit}</span></div>
+                  <div className="flex items-center gap-1.5 font-medium text-[var(--color-text-primary)]"><span className="inline-block h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: s.ok ? 'var(--color-accent)' : '#dc2626' }} />attempt {s.attempt} <span className="text-[var(--color-text-tertiary)]">· exit {s.exit}</span></div>
                   {s.files.length > 0 && (
                     <div className="mt-1 text-[var(--color-text-tertiary)]">files: {s.files.map((f, k) => (
                       <button key={f} onClick={() => void openFile(f)} className="text-[#1d4ed8] underline">{f}{k < s.files.length - 1 ? ', ' : ''}</button>

@@ -371,7 +371,7 @@ export function ConnectorsPanel({ onNavigate }: { onNavigate?: (id: string) => v
           {/* Marketplace — one-click add for popular MCP servers */}
           <button onClick={() => setShowCatalogue((v) => !v)}
             className="flex w-full items-center justify-between rounded-xl border border-[var(--color-border-secondary)] px-4 py-2 text-xs font-semibold text-[var(--color-text-secondary)] transition hover:bg-[var(--color-background-secondary)]">
-            <span>🧩 Browse marketplace — popular connectors</span>
+            <span>Browse marketplace — popular connectors</span>
             <span className="text-[var(--color-text-tertiary)]">{showCatalogue ? '▲' : '▼'}</span>
           </button>
           {showCatalogue && (

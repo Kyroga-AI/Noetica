@@ -6,6 +6,7 @@ import { useConnectorAuth } from '@/lib/auth/context'
 import { useSettings } from '@/lib/settings/context'
 import type { WorkItem, WorkItemStatus, WorkItemPriority, WorkItemType, Sprint } from '@/lib/types/work'
 import { fetchLinearMyIssues, fetchLinearTeams, fetchLinearTeamIssues, type LinearIssue, type LinearTeam } from '@/lib/auth/providers/linear'
+import { GlyphCheckSquare, GlyphBolt, GlyphBook, GlyphBug, GlyphBeaker, GlyphFlag } from '@/components/icons/glyphs'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -23,8 +24,16 @@ const PRIORITY_DOT: Record<WorkItemPriority, string> = {
   critical: 'bg-[#dc2626]', high: 'bg-[#f59e0b]', medium: 'bg-[#3b82f6]', low: 'bg-[#94a3b8]', none: 'bg-[#cbd5e1]',
 }
 const PRIORITY_OPTIONS: WorkItemPriority[] = ['critical', 'high', 'medium', 'low', 'none']
-const TYPE_ICONS: Record<WorkItemType, string> = {
-  task: '☑', epic: '⚡', story: '📖', bug: '🐞', spike: '🔬', milestone: '🏁',
+function typeIcon(type: WorkItemType, size = 14) {
+  switch (type) {
+    case 'task':      return <GlyphCheckSquare size={size} />
+    case 'epic':      return <GlyphBolt size={size} />
+    case 'story':     return <GlyphBook size={size} />
+    case 'bug':       return <GlyphBug size={size} />
+    case 'spike':     return <GlyphBeaker size={size} />
+    case 'milestone': return <GlyphFlag size={size} />
+    default:          return <GlyphCheckSquare size={size} />
+  }
 }
 
 function timeAgo(iso: string): string {
@@ -43,7 +52,7 @@ function TaskCard({ item, active, onClick }: { item: WorkItem; active: boolean; 
     <button onClick={onClick}
       className={`flex w-full flex-col gap-1.5 rounded-xl border bg-[var(--color-background-primary)] px-3.5 py-2.5 text-left shadow-sm transition hover:shadow-md ${active ? 'border-[#93c5fd] ring-1 ring-[#bfdbfe]' : 'border-[var(--color-border-secondary)]'}`}>
       <div className="flex items-start gap-2">
-        <span className="mt-px shrink-0 text-sm">{TYPE_ICONS[item.type]}</span>
+        <span className="mt-px shrink-0 text-[var(--color-text-tertiary)]">{typeIcon(item.type)}</span>
         <p className="flex-1 text-xs font-medium leading-5 text-[var(--color-text-primary)] line-clamp-2">{item.title}</p>
       </div>
       <div className="flex items-center gap-2">
@@ -131,7 +140,7 @@ function TaskDetail({ item, onUpdate, onDelete, onMove, onClose }: {
       {/* Header */}
       <div className="flex items-center justify-between border-b border-[var(--color-border-secondary)] px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="text-base">{TYPE_ICONS[item.type]}</span>
+          <span className="text-[var(--color-text-tertiary)]">{typeIcon(item.type, 16)}</span>
           <p className="text-xs font-semibold text-[var(--color-text-primary)]">Task detail</p>
         </div>
         <button onClick={onClose} className="text-[var(--color-text-tertiary)] transition hover:text-[var(--color-text-primary)]">
@@ -184,7 +193,7 @@ function TaskDetail({ item, onUpdate, onDelete, onMove, onClose }: {
             value={item.type}
             onChange={(e) => onUpdate(item.id, { type: e.target.value as WorkItemType })}>
             {(['task','epic','story','bug','spike','milestone'] as WorkItemType[]).map((t) => (
-              <option key={t} value={t}>{TYPE_ICONS[t]} {t.charAt(0).toUpperCase() + t.slice(1)}</option>
+              <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
             ))}
           </select>
         </div>
@@ -259,7 +268,7 @@ function BacklogView({ items, onSelect, activeId, onUpdate, onAddItem }: {
           <button key={item.id} onClick={() => onSelect(item)}
             className={`flex w-full items-center gap-3 rounded-xl border bg-[var(--color-background-primary)] px-4 py-3 text-left transition hover:shadow-sm ${activeId === item.id ? 'border-[#93c5fd]' : 'border-[var(--color-border-secondary)]'}`}>
             <span className={`h-2 w-2 shrink-0 rounded-full ${PRIORITY_DOT[item.priority]}`} />
-            <span className="text-sm">{TYPE_ICONS[item.type]}</span>
+            <span className="text-[var(--color-text-tertiary)]">{typeIcon(item.type)}</span>
             <span className="flex-1 truncate text-sm text-[var(--color-text-primary)]">{item.title}</span>
             <div className="flex items-center gap-2">
               {item.tags.slice(0, 2).map((t) => (

@@ -5,6 +5,7 @@ import { useArtifacts } from '@/lib/artifacts/useArtifacts'
 import { ArtifactPane } from '@/components/artifacts/ArtifactPane'
 import type { Artifact, ArtifactType } from '@/lib/types/artifact'
 import { artifactTypeLabel, artifactTypeIcon } from '@/lib/types/artifact'
+import { GlyphDoc } from '@/components/icons/glyphs'
 
 const TYPE_FILTERS: { type: ArtifactType | 'all'; label: string }[] = [
   { type: 'all',           label: 'All' },
@@ -150,7 +151,7 @@ export function ArtifactsSurface() {
         {/* Type summary tiles — only when no filter and not searching */}
         {hydrated && filter === 'all' && !search && artifacts.length === 0 && (
           <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center">
-            <div className="text-3xl mb-3">📄</div>
+            <div className="mb-3 flex justify-center text-[var(--color-text-tertiary)]"><GlyphDoc size={30} /></div>
             <div className="text-sm font-semibold text-[var(--color-text-secondary)]">No artifacts yet</div>
             <p className="mt-1 text-xs text-[var(--color-text-tertiary)] max-w-xs leading-5">
               Artifacts are generated from chat, code, benchmarks, or governance sessions. Click <strong>+ New</strong> to create one manually.

@@ -1,5 +1,6 @@
 'use client'
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { GlyphShield } from '@/components/icons/glyphs'
 
 const AM_BASE =
   typeof window !== 'undefined' && (window as unknown as Record<string, unknown>)['__TAURI_INTERNALS__']
@@ -258,7 +259,7 @@ export function ModelSetupOverlay({ onDismiss }: { onDismiss: () => void }) {
               border: '1px solid var(--color-border-tertiary, #2a2a2a)',
             }}
           >
-            <span style={{ fontSize: '15px', lineHeight: 1.2 }}>🛡️</span>
+            <span style={{ display: 'inline-flex', color: 'var(--color-accent, #6ea8fe)' }}><GlyphShield size={15} /></span>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--color-text-primary, #f0f0f0)' }}>
                 Isolation: {iso.tier === 'vm' ? 'virtual machine' : iso.tier === 'container' ? 'sandboxed runtime' : 'host process'}

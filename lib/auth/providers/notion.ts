@@ -188,7 +188,7 @@ function blockToMarkdown(block: NotionBlock): string {
       const lang = (content.language as string | undefined) ?? ''
       return `\`\`\`${lang}\n${text}\n\`\`\`\n`
     }
-    case 'callout':      return `💡 ${text}\n`
+    case 'callout':      return `${text}\n`
     case 'toggle':       return `▶ ${text}\n`
     default:             return text ? `${text}\n` : ''
   }
