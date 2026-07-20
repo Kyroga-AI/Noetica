@@ -80,6 +80,7 @@ import { buildMemoryContext } from '@/lib/memory/manager'
 import { appendLedgerEntry } from '@/lib/evidence/ledger-store'
 import { RightSidebar } from '@/components/shell/RightSidebar'
 import { UtilityRail, type UtilityPanelId } from '@/components/rail/UtilityRail'
+import type { LiveTurn } from '@/components/rail/panels/LiveRailPanel'
 import type { PendingAttachment } from '@/lib/types/attachment'
 import type { McpTool } from '@/lib/types/mcp'
 import type { ChatMessage, ToolCallRecord, ToolResultRecord } from '@/lib/types/message'
@@ -331,6 +332,9 @@ export function AppShell() {
   const [railCollapsed, setRailCollapsed] = useState(false)
   const [focusMode, setFocusMode] = useState(false)
   const [utilityPanel, setUtilityPanel] = useState<UtilityPanelId | null>('graph')
+  // Live (metachat) side-transcript — its OWN ephemeral store. Reads the active chat as context but
+  // never writes into `messages`; only an explicit "commit to chat" copies an exchange across.
+  const [liveTurns, setLiveTurns] = useState<LiveTurn[]>([])
   const [inspectorVisible, setInspectorVisible] = useState(false)
   // The answer the right-rail "Answer" inspector is showing. Clicking Inspect on a reply sets this and
   // flips the rail to the answer panel — telemetry lives here, not sprayed across the message stream.
@@ -497,6 +501,11 @@ export function AppShell() {
   // Dictation vs auto-send: when the mic was started as "dictate" (composer mic), the transcript is
   // routed into the composer to edit; otherwise (live conversation / wake word) it auto-sends.
   const dictateModeRef = useRef(false)
+  // Live routing: when a live conversation is running, spoken turns go to the metachat lane (its own
+  // store), NOT the main chat. Refs so the memoized transcript callback reads current values without
+  // re-subscribing the voice hook.
+  const isLiveRef = useRef(false)
+  const liveTurnRef = useRef<(t: string) => void>(() => {})
   const c2paCredRef = useRef<import('@/lib/types/governance').GovernanceTrace['credential']>(undefined)
   // Stable callback reference — must be memoized to avoid recreating `startListening` on every
   // render, which would retrigger the wake-word useEffect and cause a rapid restart loop.
@@ -507,12 +516,15 @@ export function AppShell() {
       window.dispatchEvent(new CustomEvent('noetica:dictate', { detail: transcript }))
       return
     }
+    // Live conversation → route to the metachat lane (side-transcript, doesn't touch the chat).
+    if (isLiveRef.current) { liveTurnRef.current(transcript); return }
     voiceReplyRef.current = true
     setActiveSurface('chat')
     void handleSendRaw(transcript, [], messages)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages])
   const { state: voiceState, isLive, error: voiceError, speakingId, startListening, stopListening, startLive, stopLive, speak, stopSpeaking } = useVoice(handleVoiceTranscript)
+  isLiveRef.current = isLive
   // Composer mic: dictate into the box (not auto-send). Live conversation stays a separate top-bar control.
   const startDictation = useCallback(() => {
     dictateModeRef.current = true
@@ -521,6 +533,79 @@ export function AppShell() {
   }, [startListening])
   // Dictating = actively capturing for the composer (not live, not passive wake-listening).
   const isDictating = voiceState === 'listening' && !isLive
+
+  // ── Live conversation = metachat lane ─────────────────────────────────────
+  // A spoken turn during a live session: appended to the live store, answered with the ACTIVE CHAT as
+  // context, spoken aloud (which re-listens for the next turn). The main transcript is never touched.
+  const messagesRef = useRef(messages);   messagesRef.current = messages
+  const liveTurnsRef = useRef(liveTurns); liveTurnsRef.current = liveTurns
+  const handleLiveTurn = useCallback((transcript: string) => {
+    const userTurn: LiveTurn = { id: crypto.randomUUID(), role: 'user', content: transcript }
+    setLiveTurns((prev) => [...prev, userTurn])
+
+    // The active chat as read-only context — recent turns, most relevant last.
+    const context = messagesRef.current
+      .filter((m) => m.role !== 'system' && m.content)
+      .slice(-12)
+      .map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
+      .join('\n')
+    const sys = `You are Noetica in a LIVE VOICE side-conversation running alongside the user's current chat. Use the chat below as context — you can discuss it, answer questions about it, or just talk. Keep replies short and conversational; they will be read aloud. Do NOT rewrite or continue their chat.\n\n--- Current chat ---\n${context || '(empty)'}\n--- end ---`
+
+    const now = new Date().toISOString()
+    const convo: ChatMessage[] = [
+      { id: 'live-sys', role: 'system', content: sys, created_at: now },
+      ...liveTurnsRef.current.map((t) => ({ id: t.id, role: t.role, content: t.content, created_at: now })),
+      { id: userTurn.id, role: 'user' as const, content: transcript, created_at: now },
+    ]
+    const providerKeys = {
+      anthropic:   settings.anthropicApiKey  || undefined,
+      openai:      settings.openaiApiKey     || undefined,
+      google:      settings.googleApiKey     || undefined,
+      mistral:     settings.mistralApiKey    || undefined,
+      neuronpedia: settings.neuronpediaApiKey || undefined,
+      openrouter:  settings.openrouterApiKey  || undefined,
+      huggingface: settings.huggingfaceApiKey || undefined,
+    }
+    const assistantId = crypto.randomUUID()
+    void sendNoeticaChat(
+      { session_id: `${activeSession?.id ?? 'local'}:live`, mode, model_id: modelId, messages: convo, memory_scope: 'live-ephemeral', provider_keys: providerKeys },
+      {
+        onMeta: () => {}, onDelta: () => {}, onThinkingDelta: () => {}, onThinkingDone: () => {},
+        onDone: (result) => {
+          const content = (result.content ?? '').trim() || '(no reply)'
+          setLiveTurns((prev) => [...prev, { id: assistantId, role: 'assistant', content }])
+          void speak(content, assistantId)   // speaking re-listens for the next turn while live
+        },
+        onError: (err) => setLiveTurns((prev) => [...prev, { id: assistantId, role: 'assistant', content: `(voice error: ${err})` }]),
+      },
+      {},
+    )
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, modelId, speak, activeSession?.id, settings])
+  liveTurnRef.current = handleLiveTurn
+
+  // Start live: clear the prior side-transcript, open the Live rail, begin the loop.
+  const handleStartLive = useCallback(() => {
+    setLiveTurns([])
+    setUtilityPanel('live')
+    startLive()
+  }, [startLive])
+
+  // Commit one live exchange (the assistant turn + its preceding user turn) into the real chat.
+  const commitLiveTurn = useCallback((assistantTurnId: string) => {
+    const turns = liveTurnsRef.current
+    const idx = turns.findIndex((t) => t.id === assistantTurnId)
+    if (idx < 0) return
+    const assistant = turns[idx]!
+    let user: LiveTurn | null = null
+    for (let i = idx - 1; i >= 0; i--) { if (turns[i]!.role === 'user') { user = turns[i]!; break } }
+    const now = new Date().toISOString()
+    const added: ChatMessage[] = []
+    if (user) added.push({ id: crypto.randomUUID(), role: 'user', content: user.content, created_at: now })
+    added.push({ id: crypto.randomUUID(), role: 'assistant', content: assistant.content, created_at: now })
+    setMessages((cur) => { const next = [...cur, ...added]; updateMessages(next); return next })
+    setLiveTurns((prev) => prev.map((t) => (t.id === assistantTurnId ? { ...t, committed: true } : t)))
+  }, [updateMessages])
 
   // Surface voice errors (backend offline, mic denied, STT unavailable) as a transient
   // notice — a voice feature must never fail as a silent no-op.
@@ -1684,7 +1769,7 @@ export function AppShell() {
             mode={mode}
             riskReadout={riskReadout}
             isLive={isLive}
-            onLiveStart={startLive}
+            onLiveStart={handleStartLive}
             onLiveStop={stopLive}
             openaiApiKey={settings.openaiApiKey || undefined}
             hasMessages={messages.filter((m) => m.role !== 'system').length > 0}
@@ -1801,6 +1886,10 @@ export function AppShell() {
             activePanel={utilityPanel}
             onSelect={setUtilityPanel}
             inspectMessage={inspectMessage ?? latestAnswer}
+            liveTurns={liveTurns}
+            isLive={isLive}
+            onCommitLive={commitLiveTurn}
+            onClearLive={() => setLiveTurns([])}
             inScopeFiles={inScopeFiles}
             toolActivity={toolActivity}
             fileChanges={fileChanges}
