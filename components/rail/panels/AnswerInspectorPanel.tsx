@@ -5,6 +5,7 @@ import type { ChatMessage } from '@/lib/types/message'
 import { GovernanceTrail } from '@/components/governance/GovernanceTrail'
 import { SteeringDiff } from '@/components/steering/SteeringDiff'
 import { cleanSources } from '@/lib/chat/sources'
+import { providerTier, TIER_META } from '@/lib/chat/sovereignty'
 import { amUrl } from '@/lib/tauri/bridge'
 
 // ── The Answer inspector ─────────────────────────────────────────────────────────────────────────
@@ -146,7 +147,7 @@ export function AnswerInspectorPanel({ message }: { message: ChatMessage | null 
 
   const g = message.governance
   const prov = (g?.provider ?? '').toLowerCase()
-  const onDevice = prov === '' || prov === 'ollama' || prov === 'noetica' || prov === 'local'
+  const tier = providerTier(g?.provider)
   const v = message.verification
 
   // sources: prefer cited documents, fall back to retrieval atoms — junk filtered out
@@ -178,7 +179,7 @@ export function AnswerInspectorPanel({ message }: { message: ChatMessage | null 
       {/* Provenance */}
       {g && (
         <Section title="Provenance">
-          <Row k="location" v={<span style={{ color: onDevice ? 'var(--color-accent)' : 'var(--color-attention)' }}>{onDevice ? 'on-device' : prov}</span>} />
+          <Row k="location" v={<span style={{ color: tier === 'device' ? 'var(--color-accent)' : TIER_META[tier].text }}>{tier === 'device' ? 'on-device' : tier === 'mesh' ? `${prov} · sovereign` : prov}</span>} />
           {g.model_routed && <Row k="model" v={g.model_routed} />}
           {g.method && <Row k="method" v={g.method} />}
           {g.latency_ms > 0 && <Row k="latency" v={`${(g.latency_ms / 1000).toFixed(1)}s`} />}
