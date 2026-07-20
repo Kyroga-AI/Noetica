@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { amUrl } from '@/lib/tauri/bridge'
 import { loadNoeticaStatus, type NoeticaStatusState } from '@/lib/client/noeticaStatus'
+import { providerTier } from '@/lib/chat/sovereignty'
 import type { RiskAversionLiveReadout } from '@/lib/risk/riskAversionLive'
 
 // One health affordance for the topbar — consolidates the three separate always-on pills
@@ -41,6 +42,7 @@ type Props = {
 
 export function SovereigntyStatus({ riskReadout, onOpenInspector }: Props) {
   const [egress, setEgress] = useState<number | null>(null)
+  const [egressTier, setEgressTier] = useState<'mesh' | 'cloud'>('cloud')   // where the egress went
   const [runtime, setRuntime] = useState<NoeticaStatusState>({ state: 'loading' })
   const [open, setOpen] = useState(false)
 
@@ -50,9 +52,12 @@ export function SovereigntyStatus({ riskReadout, onOpenInspector }: Props) {
       try {
         const r = await fetch(amUrl('/api/governance/recent?limit=50'))
         if (!r.ok) return
-        const j = (await r.json()) as { runs?: Array<{ tokens_egressed?: number }> }
-        const total = (j.runs ?? []).reduce((s, x) => s + (x.tokens_egressed ?? 0), 0)
-        if (!cancelled) setEgress(total)
+        const j = (await r.json()) as { runs?: Array<{ tokens_egressed?: number; provider?: string }> }
+        const runs = j.runs ?? []
+        const total = runs.reduce((s, x) => s + (x.tokens_egressed ?? 0), 0)
+        // Classify where the egress went: any third-party cloud → 'cloud'; only sovereign mesh → 'mesh'.
+        const tiers = runs.filter((x) => (x.tokens_egressed ?? 0) > 0).map((x) => providerTier(x.provider))
+        if (!cancelled) { setEgress(total); setEgressTier(tiers.includes('cloud') ? 'cloud' : tiers.includes('mesh') ? 'mesh' : 'cloud') }
       } catch { /* offline — keep last */ }
     }
     const pollRuntime = () => {
@@ -65,7 +70,8 @@ export function SovereigntyStatus({ riskReadout, onOpenInspector }: Props) {
     return () => { cancelled = true; clearInterval(id) }
   }, [])
 
-  const sovereign = egress === 0 || egress === null
+  // Three tiers: on-device (nothing left) · mesh (left this device, to YOUR sovereign mesh) · cloud (3rd party).
+  const pillTier: 'device' | 'mesh' | 'cloud' = (egress === 0 || egress === null) ? 'device' : egressTier
   const riskScore = riskReadout?.latestTurn.aggregateScore ?? 0
   const risk = classifyRisk(riskScore)
   const runtimeOk = runtime.state === 'ready'
@@ -80,11 +86,13 @@ export function SovereigntyStatus({ riskReadout, onOpenInspector }: Props) {
         onClick={() => setOpen((v) => !v)}
         title="Sovereignty & runtime health"
         className={`hidden items-center gap-1.5 rounded-full border border-[var(--color-border-secondary)] px-2.5 py-1 text-xs font-semibold transition md:inline-flex ${
-          sovereign ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'bg-[var(--color-attention-bg)] text-[var(--color-attention)]'
+          pillTier === 'device' ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]'
+          : pillTier === 'mesh' ? 'bg-[var(--color-background-secondary)] text-[var(--color-text-secondary)]'
+          : 'bg-[var(--color-attention-bg)] text-[var(--color-attention)]'
         }`}
       >
-        {sovereign ? <GlyphLock /> : <GlyphOut />}
-        {sovereign ? 'on-device' : `${egress!.toLocaleString()} out`}
+        {pillTier === 'device' ? <GlyphLock /> : <GlyphOut />}
+        {pillTier === 'device' ? 'on-device' : pillTier === 'mesh' ? `${egress!.toLocaleString()} → mesh` : `${egress!.toLocaleString()} out`}
         <span className={`ml-0.5 h-1.5 w-1.5 rounded-full ${healthDot}`} />
       </button>
 
@@ -96,9 +104,13 @@ export function SovereigntyStatus({ riskReadout, onOpenInspector }: Props) {
             <div className="mb-2.5">
               <div className="text-[11px] font-semibold text-[var(--color-text-tertiary)]">Sovereignty</div>
               <div className="mt-1 flex items-center gap-2 text-xs">
-                <span className={sovereign ? 'text-[var(--color-accent)]' : 'text-[var(--color-attention)]'}>{sovereign ? <GlyphLock /> : <GlyphOut />}</span>
+                <span className={pillTier === 'device' ? 'text-[var(--color-accent)]' : pillTier === 'mesh' ? 'text-[var(--color-text-secondary)]' : 'text-[var(--color-attention)]'}>{pillTier === 'device' ? <GlyphLock /> : <GlyphOut />}</span>
                 <span className="text-[var(--color-text-primary)]">
-                  {sovereign ? 'Zero egress — nothing has left this device.' : `${egress!.toLocaleString()} tokens routed off-device (under your scope-d gate).`}
+                  {pillTier === 'device'
+                    ? 'Zero egress — nothing has left this device.'
+                    : pillTier === 'mesh'
+                      ? `${egress!.toLocaleString()} tokens routed to your sovereign prophet-mesh — off this device, but your own infra (scope-d gated). No third party.`
+                      : `${egress!.toLocaleString()} tokens routed to a third-party cloud (under your scope-d gate).`}
                 </span>
               </div>
             </div>

@@ -17,6 +17,7 @@ import type { PendingAttachment } from '@/lib/types/attachment'
 import { useSettings } from '@/lib/settings/context'
 import { useRevealedContent, APP_OPEN_TS } from '@/lib/chat/useRevealedContent'
 import { cleanSources } from '@/lib/chat/sources'
+import { providerTier, TIER_META } from '@/lib/chat/sovereignty'
 import { amUrl } from '@/lib/tauri/bridge'
 
 // A single quiet file glyph (SVG, not emoji) for attachment chips.
@@ -337,7 +338,7 @@ function ProvenanceFooter({ message, onInspect }: { message: ChatMessage; onInsp
   const g = message.governance
   const v = message.verification
   const prov = (g?.provider ?? '').toLowerCase()
-  const onDevice = prov === '' || prov === 'ollama' || prov === 'noetica' || prov === 'local'
+  const tier = providerTier(g?.provider)   // device (blue) · mesh (grey, sovereign) · cloud (pink)
 
   // Sources shown inline = cited docs (or retrieval atoms), junk filtered out.
   const sources = (message.citations && message.citations.length > 0)
@@ -351,8 +352,8 @@ function ProvenanceFooter({ message, onInspect }: { message: ChatMessage; onInsp
   return (
     <div className="mt-2.5">
       <div className="flex items-center gap-0 text-[12px] text-[var(--color-text-tertiary)]">
-        <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: onDevice ? 'var(--color-accent)' : 'var(--color-attention)' }} />
-        <span className="ml-1.5" style={{ color: onDevice ? undefined : 'var(--color-attention)' }}>{onDevice ? 'on-device' : prov}</span>
+        <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: TIER_META[tier].dot }} />
+        <span className="ml-1.5" style={{ color: tier === 'device' ? undefined : TIER_META[tier].text }}>{tier === 'device' ? 'on-device' : prov}</span>
         {g?.model_routed && g.model_routed.toLowerCase() !== prov && <><span className="mx-2 text-[var(--color-border-secondary)]">·</span>{g.model_routed}</>}
         {sources.length > 0 && (
           <>
