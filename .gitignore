@@ -50,5 +50,9 @@ tsconfig.tsbuildinfo
 # build artifact (that is how a friend's install came preloaded with the developer's data).
 /.noetica/
 
+# Org profile is per-install runtime state, written to repo root by POST /api/identity/org
+# (agent-machine/server.ts). Never commit — it would ship one org's config into every build.
+/org-profile.json
+
 # build artifacts (brain tarballs from package-brains.sh)
 dist/
