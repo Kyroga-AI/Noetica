@@ -3533,12 +3533,17 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
 
   _lastRoute = { model, provider, task: routerDecision.task ?? 'general', rationale: routerDecision.rationale ?? '', at: Date.now() }
 
+  // Reported provider (governance/UI) ≠ transport. prophet-mesh speaks the OpenAI-compatible protocol,
+  // so `provider` above is 'openai' to pick streamOpenAI — but the DESTINATION is the sovereign mesh, not
+  // OpenAI. Report it honestly so the footer reads "prophet-mesh", not "openai".
+  const reportedProvider = meshRoute ? 'prophet-mesh' : provider
+
   sse(res, 'meta', {
     governance: {
       run_id,
       model_routed: model,
       model_route_reason: routerDecision.rationale ?? '',
-      provider,
+      provider: reportedProvider,
       policy_admitted: true,
       memory_written: false,
       timestamp,
@@ -5250,7 +5255,7 @@ async function handleChat(body: ChatRequest, res: http.ServerResponse): Promise<
         run_id,
         content: emitContent,
         model_routed: model,
-        provider,
+        provider: reportedProvider,
         policy_admitted: true,
         memory_written: false,
         tool_calls: lastToolCalls,
