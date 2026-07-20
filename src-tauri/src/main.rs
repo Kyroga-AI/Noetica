@@ -879,8 +879,19 @@ fn main() {
 
             let view_submenu = SubmenuBuilder::new(h, "View")
                 .item(
+                    &MenuItemBuilder::with_id("toggle_focus", "Focus Mode")
+                        .accelerator("CmdOrCtrl+.")
+                        .build(h)?,
+                )
+                .separator()
+                .item(
                     &MenuItemBuilder::with_id("toggle_sidebar", "Toggle Sidebar")
                         .accelerator("CmdOrCtrl+Backslash")
+                        .build(h)?,
+                )
+                .item(
+                    &MenuItemBuilder::with_id("toggle_rail", "Toggle Domain Rail")
+                        .accelerator("CmdOrCtrl+Shift+Backslash")
                         .build(h)?,
                 )
                 .item(

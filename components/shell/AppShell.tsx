@@ -522,6 +522,8 @@ export function AppShell() {
         case 'command_palette':  setPaletteOpen(true); break
         case 'toggle_sidebar':   setSidebarCollapsed((c) => !c); break
         case 'toggle_inspector': setInspectorVisible((v) => !v); break
+        case 'toggle_rail':      setRailCollapsed((c) => !c); break
+        case 'toggle_focus':     setFocusMode((f) => !f); break
       }
     }).then((fn) => { unlisten = fn })
     return () => unlisten?.()
