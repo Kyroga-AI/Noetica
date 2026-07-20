@@ -1,6 +1,9 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { COMMAND_CENTERS, type CommandCenterId } from './commandCenters'
+import { loadNavPrefs, applyCenterPrefs, type NavPrefs } from '@/lib/nav/navPrefs'
+import { CustomizeSidebarModal } from './CustomizeSidebarModal'
 
 /**
  * TIER 1 of the two-tier cockpit — the domain switcher.
@@ -48,12 +51,28 @@ export function CommandCenterRail({
   activeCenter: CommandCenterId
   onCenterChange: (id: CommandCenterId) => void
 }) {
+  // Nav prefs (reorder + hide) — re-read live when Customize saves, or when another surface asks to open it.
+  const [prefs, setPrefs] = useState<NavPrefs>({ order: [], hidden: [] })
+  const [customizeOpen, setCustomizeOpen] = useState(false)
+  useEffect(() => {
+    setPrefs(loadNavPrefs())
+    const onChange = () => setPrefs(loadNavPrefs())
+    const onOpen = () => setCustomizeOpen(true)
+    window.addEventListener('noetica:navprefs-changed', onChange)
+    window.addEventListener('noetica:customize-sidebar', onOpen)
+    return () => {
+      window.removeEventListener('noetica:navprefs-changed', onChange)
+      window.removeEventListener('noetica:customize-sidebar', onOpen)
+    }
+  }, [])
+  const centers = applyCenterPrefs(COMMAND_CENTERS, prefs)
+
   return (
     <nav
       aria-label="Command centers"
       className="titlebar-inset hidden w-16 shrink-0 flex-col items-stretch gap-0.5 border-r border-[var(--color-border-tertiary)] bg-[var(--color-background-tertiary)] px-1.5 py-2 lg:flex"
     >
-      {COMMAND_CENTERS.map((c) => {
+      {centers.map((c) => {
         const isActive = activeCenter === c.id
         return (
           <button
@@ -74,6 +93,23 @@ export function CommandCenterRail({
           </button>
         )
       })}
+
+      {/* Customize — reorder / hide command centers */}
+      <button
+        onClick={() => setCustomizeOpen(true)}
+        title="Customize sidebar"
+        aria-label="Customize sidebar"
+        className="group mt-auto flex flex-col items-center gap-0.5 rounded-xl px-1 py-2 text-[var(--color-text-tertiary)] transition hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]"
+      >
+        <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden>
+          <path d="M3 6h9M3 14h5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+          <circle cx="15" cy="6" r="2" stroke="currentColor" strokeWidth="1.5"/>
+          <circle cx="11" cy="14" r="2" stroke="currentColor" strokeWidth="1.5"/>
+        </svg>
+        <span className="text-[8.5px] font-medium leading-tight tracking-tight">Customize</span>
+      </button>
+
+      <CustomizeSidebarModal open={customizeOpen} onClose={() => setCustomizeOpen(false)} />
     </nav>
   )
 }
