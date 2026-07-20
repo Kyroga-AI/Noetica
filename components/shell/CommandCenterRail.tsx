@@ -12,7 +12,7 @@ import { COMMAND_CENTERS, type CommandCenterId } from './commandCenters'
  */
 
 function CenterIcon({ id }: { id: CommandCenterId }) {
-  const common = { width: 18, height: 18, viewBox: '0 0 20 20', fill: 'none', 'aria-hidden': true } as const
+  const common = { width: 14, height: 14, viewBox: '0 0 20 20', fill: 'none', 'aria-hidden': true } as const
   switch (id) {
     case 'workspace':
       return (
@@ -63,12 +63,12 @@ export function CommandCenterRail({
             aria-current={isActive ? 'page' : undefined}
             className={`group flex flex-col items-center gap-0.5 rounded-xl px-1 py-2 transition ${
               isActive
-                ? 'bg-[#dbeafe] text-[#1d4ed8]'
+                ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]'
                 : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-primary)] hover:text-[var(--color-text-primary)]'
             }`}
           >
             <CenterIcon id={c.id} />
-            <span className={`text-[8.5px] font-medium leading-tight tracking-tight ${isActive ? 'text-[#1d4ed8]' : ''}`}>
+            <span className={`text-[8.5px] font-medium leading-tight tracking-tight ${isActive ? 'text-[var(--color-accent)]' : ''}`}>
               {c.label.split(' · ')[0]}
             </span>
           </button>
