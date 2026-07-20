@@ -16,11 +16,15 @@ export type UtilityPanelId =
   | 'context'
   | 'graph'
 
-const RAIL_ITEMS: { id: UtilityPanelId; label: string; icon: React.ReactNode }[] = [
-  { id: 'answer',   label: 'Answer',   icon: <IconAnswer /> },
-  { id: 'live',     label: 'Live',     icon: <IconLive /> },
-  { id: 'graph',    label: 'Graph',    icon: <IconGraph /> },
-  { id: 'context',  label: 'Activity', icon: <IconContext /> },
+// Icons are thunks (rendered at map time), NOT inline elements: a module-level const that referenced the
+// icon components directly hit a forward-reference — under React Fast Refresh the component declarations
+// below aren't hoisted into this initializer, throwing "IconX is not defined" in dev. Deferring to a
+// thunk means the reference resolves at render, after the module has fully loaded.
+const RAIL_ITEMS: { id: UtilityPanelId; label: string; icon: () => React.ReactNode }[] = [
+  { id: 'answer',   label: 'Answer',   icon: () => <IconAnswer /> },
+  { id: 'live',     label: 'Live',     icon: () => <IconLive /> },
+  { id: 'graph',    label: 'Graph',    icon: () => <IconGraph /> },
+  { id: 'context',  label: 'Activity', icon: () => <IconContext /> },
 ]
 
 type ContextData = {
@@ -116,7 +120,7 @@ export function UtilityRail({ activePanel, onSelect, inspectMessage = null, live
                   : 'text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-tertiary)] hover:text-[var(--color-text-secondary)]'
               }`}
             >
-              {icon}
+              {icon()}
             </button>
           ))}
         </nav>

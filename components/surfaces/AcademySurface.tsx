@@ -9,10 +9,12 @@ import { amUrl } from '@/lib/tauri/bridge'
 // quiet marginal label; no gamification chartjunk. Wired to the real backend (/api/learn/path,
 // /api/learning/srs/*). v1 = Learn (path) + Practice (flashcards).
 
-type Tab = 'learn' | 'practice'
+type Tab = 'learn' | 'practice' | 'reference' | 'progress'
 interface PathNode { id: string; name: string; level: string; subject: string; prereq: string[] }
 interface LearningPath { goal: string; resolved: string; path: PathNode[]; levels: string[] }
 interface DueCard { id: string; task: string; abstraction?: string; steps?: string[] }
+interface CanonResult { route?: { entities?: string[]; genus?: string[]; equations?: Array<{ name: string; form: string }> }; lookup?: string | null }
+interface Progress { brief?: string; artifact?: { lens: string; text: string } | null }
 
 const LEVEL_META: Record<string, { label: string; dot: string }> = {
   k12:      { label: 'Foundation', dot: 'var(--color-text-tertiary)' },
@@ -33,7 +35,7 @@ export function AcademySurface() {
           learning never leaves this device.
         </p>
         <div className="mt-3 flex gap-1">
-          {(['learn', 'practice'] as Tab[]).map((t) => (
+          {(['learn', 'practice', 'reference', 'progress'] as Tab[]).map((t) => (
             <button key={t} onClick={() => setTab(t)}
               className={`rounded-lg px-3 py-1 text-[12.5px] font-medium capitalize transition ${
                 tab === t ? 'bg-[var(--color-accent-bg)] text-[var(--color-accent)]' : 'text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]'
@@ -44,7 +46,7 @@ export function AcademySurface() {
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {tab === 'learn' ? <LearnTab /> : <PracticeTab />}
+        {tab === 'learn' ? <LearnTab /> : tab === 'practice' ? <PracticeTab /> : tab === 'reference' ? <ReferenceTab /> : <ProgressTab />}
       </div>
     </div>
   )
@@ -199,6 +201,132 @@ function PracticeTab() {
               {label}
             </button>
           ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Reference — the canon library: a term → its authored definition + canonical equations + related
+// concepts (the OpenCourseWare pillar). Wired to /api/canon.
+function ReferenceTab() {
+  const [term, setTerm] = useState('')
+  const [kind, setKind] = useState('definition')
+  const [res, setRes] = useState<CanonResult | null>(null)
+  const [status, setStatus] = useState<'idle' | 'loading' | 'empty' | 'error'>('idle')
+
+  async function look() {
+    if (!term.trim()) return
+    setStatus('loading'); setRes(null)
+    try {
+      const r = await fetch(amUrl(`/api/canon?q=${encodeURIComponent(term.trim())}&kind=${kind}`))
+      if (!r.ok || !(r.headers.get('content-type') || '').includes('json')) throw new Error('bad')
+      const j = (await r.json()) as CanonResult
+      const hasContent = !!j.lookup || (j.route?.equations?.length ?? 0) > 0 || (j.route?.entities?.length ?? 0) > 0
+      setRes(j); setStatus(hasContent ? 'idle' : 'empty')
+    } catch { setStatus('error') }
+  }
+
+  return (
+    <div className="mx-auto max-w-3xl px-6 py-5">
+      <div className="flex items-center gap-2">
+        <input value={term} onChange={(e) => setTerm(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') void look() }}
+          placeholder="Look up a concept (e.g. torque, eigenvalue, entropy)"
+          className="flex-1 rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-3.5 py-2 text-[13px] text-[var(--color-text-primary)] outline-none focus:border-[var(--color-accent)]" />
+        <select value={kind} onChange={(e) => setKind(e.target.value)}
+          className="rounded-xl border border-[var(--color-border-secondary)] bg-[var(--color-background-primary)] px-2 py-2 text-[12px] capitalize text-[var(--color-text-secondary)] outline-none">
+          {['definition', 'formula', 'related'].map((k) => <option key={k} value={k}>{k}</option>)}
+        </select>
+        <button onClick={() => void look()} disabled={!term.trim() || status === 'loading'}
+          className="rounded-xl bg-[var(--color-text-primary)] px-4 py-2 text-[13px] font-semibold text-[var(--color-background-primary)] transition disabled:opacity-40">
+          {status === 'loading' ? '…' : 'Look up'}
+        </button>
+      </div>
+
+      {status === 'empty' && <p className="mt-6 text-center text-[13px] text-[var(--color-text-tertiary)]">Not in the canon yet — try a core concept from math, physics, or CS.</p>}
+      {status === 'error' && <p className="mt-6 text-center text-[13px] text-[var(--color-text-tertiary)]">Couldn’t reach the canon — is the runtime running?</p>}
+
+      {res && status === 'idle' && (
+        <div className="mt-5 space-y-4">
+          {res.lookup && (
+            <div className="rounded-xl border border-[var(--color-border-secondary)] p-4">
+              <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Definition</div>
+              <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--color-text-primary)]">{res.lookup}</p>
+            </div>
+          )}
+          {(res.route?.equations?.length ?? 0) > 0 && (
+            <div className="rounded-xl border border-[var(--color-border-secondary)] p-4">
+              <div className="mb-2 text-[10.5px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Canonical equations</div>
+              <div className="space-y-1.5">
+                {res.route!.equations!.map((eq, i) => (
+                  <div key={i} className="flex items-baseline gap-2 text-[12.5px]">
+                    <span className="text-[var(--color-text-secondary)]">{eq.name}</span>
+                    <span className="font-mono text-[12px] text-[var(--color-text-primary)]">{eq.form}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {(res.route?.entities?.length ?? 0) > 0 && (
+            <div>
+              <div className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Related</div>
+              <div className="flex flex-wrap gap-1.5">
+                {res.route!.entities!.map((e) => (
+                  <button key={e} onClick={() => ask(`Explain ${e} and how it relates to ${term}.`)}
+                    className="rounded-full border border-[var(--color-border-tertiary)] bg-[var(--color-background-secondary)] px-2.5 py-1 text-[12px] text-[var(--color-text-secondary)] transition hover:text-[var(--color-accent)]">
+                    {e}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Progress — the learner record (path to goal, gaps, next step) from /api/learning/progress. Honest empty
+// state until there's a learning history.
+function ProgressTab() {
+  const [data, setData] = useState<Progress | null>(null)
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const r = await fetch(amUrl('/api/learning/progress?id=local'))
+        if (!r.ok || !(r.headers.get('content-type') || '').includes('json')) throw new Error('bad')
+        setData((await r.json()) as Progress); setStatus('ready')
+      } catch { setStatus('error') }
+    })()
+  }, [])
+
+  if (status === 'loading') return <p className="px-6 py-10 text-center text-[13px] text-[var(--color-text-tertiary)]">Loading your record…</p>
+  if (status === 'error') return <p className="px-6 py-10 text-center text-[13px] text-[var(--color-text-tertiary)]">Couldn’t reach the academy backend — is the runtime running?</p>
+
+  const text = data?.artifact?.text?.trim()
+  const brief = data?.brief?.trim()
+  if (!text && !brief) return (
+    <div className="flex h-full items-center justify-center px-6 text-center">
+      <div>
+        <p className="text-[13px] text-[var(--color-text-secondary)]">Your record is empty.</p>
+        <p className="mt-1 text-[12px] text-[var(--color-text-tertiary)]">Learn and practice, and your path, gaps, and next steps build here.</p>
+      </div>
+    </div>
+  )
+  return (
+    <div className="mx-auto max-w-3xl px-6 py-5 space-y-4">
+      {brief && (
+        <div className="rounded-xl border border-[var(--color-border-secondary)] p-4">
+          <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Where you are</div>
+          <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--color-text-primary)]">{brief}</p>
+        </div>
+      )}
+      {text && (
+        <div className="rounded-xl border border-[var(--color-border-secondary)] p-4">
+          <div className="mb-1 text-[10.5px] font-semibold uppercase tracking-wide text-[var(--color-text-tertiary)]">Record{data?.artifact?.lens ? ` · ${data.artifact.lens}` : ''}</div>
+          <p className="whitespace-pre-wrap text-[13px] leading-relaxed text-[var(--color-text-secondary)]">{text}</p>
         </div>
       )}
     </div>
