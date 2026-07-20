@@ -80,11 +80,14 @@ export function BuildCard({ spec }: { spec: BuildSpec }) {
 
       {phase === 'done' && result && (
         <>
-          <p className="text-[13px] font-semibold text-[var(--color-text-primary)]">{result.ok ? '✅ Built and running' : '⚠️ Build hit a snag'}</p>
+          <p className="flex items-center gap-1.5 text-[13px] font-semibold text-[var(--color-text-primary)]">
+            <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ background: result.ok ? 'var(--color-accent)' : 'var(--color-attention)' }} />
+            {result.ok ? 'Built and running' : 'Build hit a snag'}
+          </p>
           <div className="mt-2 space-y-1">
             {result.steps.map((st, i) => (
               <div key={i} className="flex items-start gap-1.5 text-[12px]">
-                <span>{st.ok ? '✅' : '❌'}</span>
+                <span className="mt-[3px] inline-block h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: st.ok ? 'var(--color-accent)' : '#dc2626' }} />
                 <span className="text-[var(--color-text-secondary)]">{st.step}{st.output && !st.ok ? ` — ${st.output.slice(0, 120)}` : ''}</span>
               </div>
             ))}
