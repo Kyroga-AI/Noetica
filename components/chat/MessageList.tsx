@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { MessageBubble } from '@/components/chat/MessageBubble'
+import { MessageBubble, ProvenanceSidenote } from '@/components/chat/MessageBubble'
 import { TypingIndicator } from '@/components/chat/TypingIndicator'
 import { NoeticaMark } from '@/components/brand/NoeticaMark'
 import type { ChatMessage } from '@/lib/types/message'
@@ -110,10 +110,15 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
 
   return (
     <div className="relative min-h-0 flex-1 overflow-y-auto px-4 py-6 sm:px-8">
-      <div className="mx-auto flex w-full max-w-3xl flex-col gap-6">
+      {/* Tufte two-column reading surface: the answer column on the left, a live provenance
+          margin on the right (the gutter that used to be dead space). The whole unit is centred
+          and wider than the old 48rem measure — but the prose measure itself stays ~47rem, so
+          readability holds while the page finally gets used. */}
+      <div className="mx-auto flex w-full max-w-[64rem] flex-col gap-6">
         {messages.map((message, i) => (
           holdStreaming && i === lastAssistantIdx && message.role === 'assistant' ? null : (
-          <div key={message.id} className="relative">
+          <div key={message.id} className="grid grid-cols-1 gap-x-8 lg:grid-cols-[minmax(0,1fr)_15rem]">
+            <div className="relative min-w-0">
             {hasFanout && message.fanout_model && (
               <label className="absolute -left-6 top-3 flex cursor-pointer items-center">
                 <input
@@ -140,6 +145,13 @@ export function MessageList({ messages, isStreaming = false, onExtractArtifact, 
               onPlanReject={message.role === 'assistant' ? onPlanReject : undefined}
               onInspect={message.role === 'assistant' ? onInspect : undefined}
             />
+            </div>
+            {/* Right margin — provenance sidenote for assistant answers (lg+ only) */}
+            <aside className="hidden lg:block">
+              {message.role === 'assistant' && message.content
+                ? <ProvenanceSidenote message={message} onInspect={onInspect} />
+                : null}
+            </aside>
           </div>
           )
         ))}
