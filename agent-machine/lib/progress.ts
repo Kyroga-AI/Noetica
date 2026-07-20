@@ -3,7 +3,7 @@
 // "teach to curiosity" + a homeschool portfolio; a student gets a degree brief + transcript; an adult gets a
 // direct "path to job-ready" brief + a skills certificate — NO grades, NO "compliance", no childlike framing
 // ever reaches an adult. One engine, three lenses, selected by track.
-import { readFileSync, existsSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { buildLearnerBrief } from './learner-brief.js'
 import { buildK12Brief, buildK12Portfolio } from './k12-portfolio.js'
@@ -24,6 +24,21 @@ function loadProfile(id: string): Profile | null {
 }
 
 export type Track = 'k12' | 'degree' | 'professional'
+
+/** The roster — every learner profile on this device, for the Guardian cockpit. Local-only, no network. */
+export function listLearners(): Array<{ id: string; name: string; track: Track | null }> {
+  try {
+    const dir = join(ACADEMY, 'learners')
+    if (!existsSync(dir)) return []
+    return readdirSync(dir)
+      .filter((f) => f.endsWith('.json'))
+      .map((f) => {
+        const id = f.replace(/\.json$/, '')
+        return { id, name: loadProfile(id)?.name ?? id, track: learnerTrack(id) }
+      })
+      .sort((a, b) => a.name.localeCompare(b.name))
+  } catch { return [] }
+}
 
 /** Which audience is this — so we pick the right voice + artifact. Explicit `track` wins; else inferred. */
 export function learnerTrack(id: string): Track | null {
